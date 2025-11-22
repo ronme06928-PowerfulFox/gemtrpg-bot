@@ -1,0 +1,14 @@
+# 秘密情報・設定
+.env
+gemtrpgdicebot-*.json
+
+# データベース・キャッシュ
+*.db
+instance/
+__pycache__/
+*.pyc
+
+# ローカル保存されていた古いデータ（念のため除外）
+saved_rooms.json
+battle_state.json
+skills_cache.json

@@ -1,0 +1,128 @@
+<div id="battlefield-grid">
+
+    <div class="grid-column" id="battlefield-left-column">
+
+        <div class="character-list-container">
+            <div class="character-list-header">
+                <h3>味方 (Allies)</h3>
+                <button id="open-char-load-modal-btn" class="char-add-btn">＋ キャラクター追加</button>
+            </div>
+            <div class="character-list" id="ally-list-column">
+                </div>
+            <h3>敵 (Enemies)</h3>
+            <div class="character-list" id="enemy-list-column">
+                </div>
+        </div>
+
+        <div class="timeline-container">
+            <h3>タイムライン (Round: <span id="round-counter">0</span>)</h3>
+            <div class="timeline-controls">
+                <button id="round-end-btn" class="timeline-btn" title="ラウンド終了時効果（出血など）を実行">R終了処理</button>
+                <button id="round-start-btn" class="timeline-btn" title="次のラウンドを開始（速度ロールなど）">次R開始</button>
+            </div>
+            <div class="timeline-list" id="timeline-list">
+                </div>
+        </div>
+    </div>
+
+    <div class="grid-column" id="battlefield-main-column">
+        <div class="action-header">
+            <h2>スキル実行</h2>
+            <div class="action-header-buttons">
+                <button id="battle-start-btn" class="match-start-button" style="display: none; background-color: #17a2b8;" title="ラウンドの最初に押す: 最速のキャラをセット">
+                    戦闘開始
+                </button>
+                <button id="combat-next-btn" class="match-start-button" style="display: none; background-color: #28a745;" title="マッチ終了後に押す: 次の未行動キャラをセット">
+                    次へ
+                </button>
+
+                <button id="gm-reset-action-btn" class="match-start-button" style="display: none; background-color: #ffc107; color: #333;" title="GM専用: アクション欄のロックを強制解除">
+                    強制リセット
+                </button>
+                <button id="match-start-btn" class="match-start-button">
+                    マッチ開始
+                </button>
+            </div>
+        </div>
+        <p id="match-result-area" class="match-result"></p>
+
+        <div class="matcher-grid">
+            <div class="action-stack" id="action-column-attacker">
+                <h3>攻撃側</h3>
+                <div class="action-selects">
+                    <select id="actor-attacker" class="action-input" title="使用者">
+                        <option value="">-- 使用者 --</option>
+                    </select>
+                    <select id="target-attacker" class="action-input" title="対象">
+                        <option value="">-- 対象 --</option>
+                    </select>
+                    <select id="skill-attacker" class="action-input" title="スキル">
+                        <option value="">-- スキル --</option>
+                    </select>
+                </div>
+                <div class="command-generation">
+                    <button id="generate-btn-attacker" class="action-btn">威力計算</button>
+                    <button id="declare-btn-attacker" class="action-btn declare-btn" disabled>宣言</button>
+                </div>
+
+                <input type="text" id="power-display-attacker" class="command-display" placeholder="[威力計算待ち]" readonly title="予想ダメージ幅">
+                <input type="text" id="command-display-attacker" class="command-display command-preview" placeholder="[コマンドプレビュー]" readonly title="最終ダイスコマンド">
+                <input type="hidden" id="hidden-command-attacker">
+                <input type="hidden" id="hidden-senritsu-attacker" value="0">
+
+                <div id="skill-preview-attacker" class="skill-preview-box" style="display: none;">
+                    </div>
+            </div>
+
+            <div class="action-stack" id="action-column-defender">
+                <h3>対応側</h3>
+                <div class="action-selects">
+                    <select id="actor-defender" class="action-input" title="使用者" disabled>
+                        <option value="">-- 使用者 --</option>
+                    </select>
+                    <select id="target-defender" class="action-input" title="対象" disabled>
+                        <option value="">-- 対象 --</option>
+                    </select>
+                    <select id="skill-defender" class="action-input" title="スキル">
+                        <option value="">-- スキル --</option>
+                    </select>
+                </div>
+                <div class="command-generation">
+                    <button id="generate-btn-defender" class="action-btn">威力計算</button>
+                    <button id="declare-btn-defender" class="action-btn declare-btn" disabled>宣言</button>
+                </div>
+
+                <input type="text" id="power-display-defender" class="command-display" placeholder="[威力計算待ち]" readonly title="予想ダメージ幅">
+                <input type="text" id="command-display-defender" class="command-display command-preview" placeholder="[コマンドプレビュー]" readonly title="最終ダイスコマンド">
+                <input type="hidden" id="hidden-command-defender">
+                <input type="hidden" id="hidden-senritsu-defender" value="0">
+
+                <div id="skill-preview-defender" class="skill-preview-box" style="display: none;">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-column" id="battlefield-right-column">
+
+        <div class="log-container">
+            <h3>ログ</h3>
+            <div class="log-area" id="log-area">
+                <p class="log-line info">戦闘ログを読み込み中...</p>
+            </div>
+            </div>
+
+        <div class="chat-controls">
+            <textarea id="chat-input" placeholder="チャットまたは /roll コマンド (例: 2d6+5)" rows="2"></textarea>
+            <button id="chat-send-btn">送信</button>
+        </div>
+
+        <div class="room-actions">
+            <button id="save-state-btn" class="room-action-btn">セーブ</button>
+            <button id="reset-btn" class="room-action-btn danger">リセット</button>
+            <button id="leave-room-btn" class="room-action-btn secondary">ルーム一覧に戻る</button>
+        </div>
+        <p id="save-load-message" class="save-message"></p>
+    </div>
+
+</div>
