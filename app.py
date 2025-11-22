@@ -1434,28 +1434,33 @@ def handle_reset_battle(data):
 # === ▼▼▼ 修正: アプリ起動時の初期化処理 (Gunicornでも実行される場所へ移動) ▼▼▼ ===
 
 # 関数として定義しておき、下で呼び出す
-def initialize_data():
-    global all_skill_data
-    print("--- Initializing Data ---")
+# データベースとキャッシュの初期化を行う関数
+def init_app_data():
+    with app.app_context():
+        # 1. DBテーブル作成
+        db.create_all()
+        print("✅ Database tables checked/created.")
 
-    # 1. まずキャッシュを探す
-    all_skill_data = load_skills_from_cache()
+        # 2. スキルデータの読み込み
+        global all_skill_data
+        print("--- Initializing Data ---")
+        all_skill_data = load_skills_from_cache()
 
-    # 2. キャッシュがない、または空ならスプレッドシートから取得
-    if not all_skill_data:
-        print("Cache not found or empty. Fetching from Google Sheets...")
-        try:
-            fetch_and_save_sheets_data()
-            all_skill_data = load_skills_from_cache()
-            print(f"✅ Data loaded: {len(all_skill_data) if all_skill_data else 0} skills.")
-        except Exception as e:
-            print(f"❌ Error during initial fetch: {e}")
+        if not all_skill_data:
+            print("Cache not found or empty. Fetching from Google Sheets...")
+            try:
+                # スプレッドシート読み込み
+                fetch_and_save_sheets_data()
+                all_skill_data = load_skills_from_cache()
+                print(f"✅ Data loaded: {len(all_skill_data) if all_skill_data else 0} skills.")
+            except Exception as e:
+                print(f"❌ Error during initial fetch: {e}")
+        else:
+            print(f"✅ Data loaded from cache: {len(all_skill_data)} skills.")
 
-# DBテーブル作成 (アプリコンテキスト内で実行)
-with app.app_context():
-    db.create_all()
-    # ★ここでデータ読み込みを実行
-    initialize_data()
+# Gunicorn起動時に実行されるように、ここで一度だけ呼び出す
+# (eventletのモンキーパッチ後に実行されるようにする)
+init_app_data()
 
 # === ▲▲▲ 修正ここまで ▲▲▲ ===
 
