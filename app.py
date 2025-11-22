@@ -1,7 +1,8 @@
+import eventlet
+eventlet.monkey_patch()
 import os
 import sys
 import argparse
-import eventlet
 import re
 import random
 import time
@@ -294,16 +295,24 @@ def handle_connect():
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    print(f"Client disconnected: {request.sid}")
-    sid = request.sid
-    user_info = user_sids.pop(sid, None)
+    # print(f"Client disconnected: {request.sid}")  <-- エラーの元になるので削除またはコメントアウト
+
+    # request.sid にアクセスせず、user_sids のキー走査で削除する（安全策）
+    # ※ request.sid は切断処理中には無効な場合があるため
+    disconnected_sid = request.sid
+    user_info = user_sids.pop(disconnected_sid, None)
 
     if user_info:
         room = user_info.get('room')
         username = user_info.get('username', '不明なユーザー')
-        print(f"User {username} (SID: {sid}) disconnected from room {room}")
-        broadcast_log(room, f"{username} がルームから切断しました。", 'info')
-        broadcast_user_list(room)
+        # print(f"User {username} disconnected from {room}")
+
+        # ログ配信は行うが、エラー時は無視する
+        try:
+            broadcast_log(room, f"{username} がルームから切断しました。", 'info')
+            broadcast_user_list(room)
+        except Exception:
+            pass
 
 @socketio.on('join_room')
 def handle_join_room(data):
