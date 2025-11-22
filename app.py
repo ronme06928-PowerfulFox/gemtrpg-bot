@@ -1431,6 +1431,33 @@ def handle_reset_battle(data):
     save_specific_room_state(room)
 
 
+# === ▼▼▼ 修正: アプリ起動時の初期化処理 (Gunicornでも実行される場所へ移動) ▼▼▼ ===
+
+# 関数として定義しておき、下で呼び出す
+def initialize_data():
+    global all_skill_data
+    print("--- Initializing Data ---")
+
+    # 1. まずキャッシュを探す
+    all_skill_data = load_skills_from_cache()
+
+    # 2. キャッシュがない、または空ならスプレッドシートから取得
+    if not all_skill_data:
+        print("Cache not found or empty. Fetching from Google Sheets...")
+        try:
+            fetch_and_save_sheets_data()
+            all_skill_data = load_skills_from_cache()
+            print(f"✅ Data loaded: {len(all_skill_data) if all_skill_data else 0} skills.")
+        except Exception as e:
+            print(f"❌ Error during initial fetch: {e}")
+
+# DBテーブル作成 (アプリコンテキスト内で実行)
+with app.app_context():
+    db.create_all()
+    # ★ここでデータ読み込みを実行
+    initialize_data()
+
+# === ▲▲▲ 修正ここまで ▲▲▲ ===
 
 #デバッグ（ファイル認識のチェック）
 #print(f"--- Debug Info ---")
