@@ -1,7 +1,16 @@
-import eventlet
-eventlet.monkey_patch()
 import os
 import sys
+
+# === ▼▼▼ 修正: 環境判定ロジック ▼▼▼ ===
+# Render等の本番環境かどうかを判定 (Renderは自動的に 'RENDER' という環境変数を持ちます)
+IS_RENDER = 'RENDER' in os.environ
+
+# 本番環境(Render)の場合のみ、eventletを適用
+if IS_RENDER:
+    import eventlet
+    eventlet.monkey_patch()
+# === ▲▲▲ 修正ここまで ▲▲▲ ===
+
 import argparse
 import re
 import random
@@ -30,7 +39,11 @@ CORS(app, supports_credentials=True)
 from models import db
 db.init_app(app)
 
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+# === ▼▼▼ 修正: SocketIOのモード切替 ▼▼▼ ===
+# ローカル(Windows)では 'threading'、Renderでは 'eventlet' を使う
+async_mode = 'eventlet' if IS_RENDER else 'threading'
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode)
+# === ▲▲▲ 修正ここまで ▲▲▲ ===
 
 # --- 2. グローバル変数 ---
 all_skill_data = {}
@@ -1423,18 +1436,54 @@ def handle_chat(data):
 def handle_reset_battle(data):
     room = data.get('room')
     if not room: return
+
+    # モード取得 (デフォルトは full)
+    mode = data.get('mode', 'full')
+
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     state = get_room_state(room)
-    print(f"Battle state reset for room '{room}' by {username}.")
-    state["characters"] = []
-    state["timeline"] = []
-    state["round"] = 0
 
-    # === ▼▼▼ 修正点 (SyntaxError 修正) ▼▼▼ ===
-    # (末尾の \ を削除)
-    broadcast_log(room, f"--- {username} が戦闘をリセットしました ---", 'round')
-    # === ▲▲▲ 修正ここまで ▲▲▲ ===
+    print(f"Battle reset ({mode}) for room '{room}' by {username}.")
+
+    if mode == 'full':
+        # === A. 完全リセット (既存) ===
+        state["characters"] = []
+        state["timeline"] = []
+        state["round"] = 0
+        state["is_round_ended"] = False # フラグもリセット
+        broadcast_log(room, f"--- {username} が戦闘を完全リセットしました ---", 'round')
+
+    elif mode == 'status':
+        # === B. ステータスリセット (新規) ===
+        state["round"] = 0
+        state["timeline"] = []
+        state["is_round_ended"] = False
+
+        for char in state["characters"]:
+            # HP/MP を最大値に
+            char['hp'] = int(char.get('maxHp', 0))
+            char['mp'] = int(char.get('maxMp', 0))
+
+            # 状態異常・FP をリセット (初期状態に戻す)
+            # ※ FP=0, 他の状態異常=0 のリストを再生成
+            initial_states = [
+                { "name": "FP", "value": 0 },
+                { "name": "出血", "value": 0 },
+                { "name": "破裂", "value": 0 },
+                { "name": "亀裂", "value": 0 },
+                { "name": "戦慄", "value": 0 },
+                { "name": "荊棘", "value": 0 }
+            ]
+            char['states'] = initial_states
+
+            # バフ・フラグ削除
+            char['special_buffs'] = []
+            char['hasActed'] = False
+            char['speedRoll'] = 0
+            char['used_skills_this_round'] = []
+
+        broadcast_log(room, f"--- {username} が全キャラクターの状態をリセットしました ---", 'round')
 
     broadcast_state_update(room)
     save_specific_room_state(room)

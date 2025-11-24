@@ -398,3 +398,59 @@ function openCharLoadModal() {
     }
     // === ▲▲▲ 修正ここまで ▲▲▲ ===
 }
+
+// === ▼▼▼ 追加: リセットタイプ選択モーダル ▼▼▼ ===
+function openResetTypeModal(onConfirm) {
+    const modalHtml = `
+        <div class="modal-backdrop" id="reset-modal-backdrop">
+            <div class="modal-content" style="width: 400px; text-align: center; padding: 30px;">
+                <h2 style="color: #d32f2f; margin-top: 0;">戦闘リセットの選択</h2>
+                <p>リセットの種類を選択してください。</p>
+
+                <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 25px;">
+                    <button id="reset-status-btn" class="room-action-btn" style="background-color: #ff9800; color: white; padding: 15px;">
+                        <strong>ステータスリセット</strong><br>
+                        <span style="font-size: 0.85em; font-weight: normal;">
+                            キャラを残してHP/MP全快、バフ解除。<br>
+                            速度とTLをリセット。
+                        </span>
+                    </button>
+
+                    <button id="reset-full-btn" class="room-action-btn danger" style="padding: 15px;">
+                        <strong>完全リセット</strong><br>
+                        <span style="font-size: 0.85em; font-weight: normal;">
+                            キャラクターを全員削除し、<br>
+                            更地に戻します。
+                        </span>
+                    </button>
+                </div>
+
+                <button id="reset-cancel-btn" style="margin-top: 20px; background: none; border: none; text-decoration: underline; cursor: pointer;">キャンセル</button>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const backdrop = document.getElementById('reset-modal-backdrop');
+
+    const close = () => backdrop.remove();
+
+    document.getElementById('reset-status-btn').addEventListener('click', () => {
+        if (confirm('全キャラクターのステータスを初期値に戻しますか？')) {
+            onConfirm('status');
+            close();
+        }
+    });
+
+    document.getElementById('reset-full-btn').addEventListener('click', () => {
+        if (confirm('本当に全てのキャラクターを削除しますか？この操作は取り消せません。')) {
+            onConfirm('full');
+            close();
+        }
+    });
+
+    document.getElementById('reset-cancel-btn').addEventListener('click', close);
+    backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) close();
+    });
+}

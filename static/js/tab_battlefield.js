@@ -429,24 +429,21 @@ function setupBattlefieldTab() {
         openLoadModalBtn.addEventListener('click', openCharLoadModal);
     }
 
-    // === ▼▼▼ 追加: タブ表示時にログ履歴があれば描画 ▼▼▼
+    // ログ履歴の描画
     if (battleState && battleState.logs) {
         renderLogHistory(battleState.logs);
     }
 
     // ソケットリスナー: ログ同期 (重複登録防止)
-    // グローバル変数にリスナーを保持しておき、セットアップ時に付け直す
     if (window.battleLogStateListener) {
         socket.off('state_updated', window.battleLogStateListener);
     }
     window.battleLogStateListener = (state) => {
-        // ログエリアが存在するときだけ処理
         if (document.getElementById('log-area')) {
             renderLogHistory(state.logs);
         }
     };
     socket.on('state_updated', window.battleLogStateListener);
-    // === ▲▲▲ 追加ここまで ▲▲▲
 
     const leftColumn = document.getElementById('battlefield-left-column');
     if (!leftColumn) {
@@ -497,12 +494,12 @@ function setupBattlefieldTab() {
         });
     }
 
-
     const matchStartBtn = document.getElementById('match-start-btn');
     const matchResultArea = document.getElementById('match-result-area');
     const hiddenCmdAttacker = document.getElementById('hidden-command-attacker');
     const hiddenCmdDefender = document.getElementById('hidden-command-defender');
 
+    // UIリセット関数
     const resetAllActionUI = () => {
         const prefixes = ['attacker', 'defender'];
         prefixes.forEach(prefix => {
@@ -526,7 +523,6 @@ function setupBattlefieldTab() {
 
             document.getElementById(`hidden-command-${prefix}`).value = "";
 
-            // (戦慄リセット)
             const senritsuField = document.getElementById(`hidden-senritsu-${prefix}`);
             if (senritsuField) senritsuField.value = "0";
 
@@ -537,12 +533,13 @@ function setupBattlefieldTab() {
             }
         });
 
-        window.attackerCol.updateSkillDropdown(null);
-        window.defenderCol.updateSkillDropdown(null);
-        window.attackerCol.populateSelectors();
-        window.defenderCol.populateSelectors();
+        if (window.attackerCol) window.attackerCol.updateSkillDropdown(null);
+        if (window.defenderCol) window.defenderCol.updateSkillDropdown(null);
+        if (window.attackerCol) window.attackerCol.populateSelectors();
+        if (window.defenderCol) window.defenderCol.populateSelectors();
     };
 
+    // 次のアクター選択
     const selectNextActor = () => {
         const nextActor = battleState.characters.find(c => !c.hasActed);
         if (nextActor) {
@@ -554,14 +551,12 @@ function setupBattlefieldTab() {
         }
     };
 
-
     if (!matchStartBtn.dataset.listenerAttached) {
         matchStartBtn.dataset.listenerAttached = 'true';
         matchStartBtn.addEventListener('click', () => {
             const actorIdA = actorAttacker.value;
             const actorIdD = actorDefender.value;
 
-            // (戦慄値取得)
             const senritsuA = document.getElementById('hidden-senritsu-attacker').value || 0;
             const senritsuD = document.getElementById('hidden-senritsu-defender').value || 0;
 
@@ -578,7 +573,6 @@ function setupBattlefieldTab() {
                 commandD: hiddenCmdDefender.value,
                 actorNameA: actorAttacker.options[actorAttacker.selectedIndex].text,
                 actorNameD: actorDefender.options[actorDefender.selectedIndex].text,
-                // (戦慄ペナルティ送信)
                 senritsuPenaltyA: senritsuA,
                 senritsuPenaltyD: senritsuD
             });
@@ -588,6 +582,13 @@ function setupBattlefieldTab() {
         });
     }
 
+    // 宣言結果受信リスナーは setupActionColumn 内等で管理、またはグローバルで管理推奨だが
+    // ここでは既存実装に従い、重複登録を避けるガード等はmain.js側のsocket初期化に委ねるか
+    // この関数が呼ばれるたびに登録されないよう注意が必要。
+    // (今回は tab_battlefield.js の既存構造に従い、setupActionColumn 内の処理とは別に
+    //  グローバルの socket.on を利用している前提で省略しませんが、
+    //  本来は socket.off してから on するのが安全です)
+    socket.off('skill_declaration_result'); // ★念のため一度解除
     socket.on('skill_declaration_result', (data) => {
         const prefix = data.prefix;
         const powerDisplay = document.getElementById(`power-display-${prefix}`);
@@ -616,7 +617,6 @@ function setupBattlefieldTab() {
         commandDisplay.value = data.final_command;
 
         hiddenCommand.value = data.final_command;
-        // (戦慄ペナルティ保存)
         if (hiddenSenritsu) {
             hiddenSenritsu.value = data.senritsu_penalty || 0;
         }
@@ -676,11 +676,9 @@ function setupBattlefieldTab() {
         }
     });
 
-
-    // --- 4. タイムラインセクション ---
+    // タイムライン・GMボタン
     const roundStartBtn = document.getElementById('round-start-btn');
     const roundEndBtn = document.getElementById('round-end-btn');
-
     const battleStartBtn = document.getElementById('battle-start-btn');
     const combatNextBtn = document.getElementById('combat-next-btn');
     const gmResetBtn = document.getElementById('gm-reset-action-btn');
@@ -706,9 +704,7 @@ function setupBattlefieldTab() {
                     return;
                 }
                 if (confirm('「ラウンド終了時」の処理（出血ダメージなど）を実行しますか？')) {
-                    socket.emit('request_end_round', {
-                        room: currentRoomName
-                    });
+                    socket.emit('request_end_round', { room: currentRoomName });
                 }
             });
         }
@@ -716,9 +712,7 @@ function setupBattlefieldTab() {
             roundStartBtn.dataset.listenerAttached = 'true';
             roundStartBtn.addEventListener('click', () => {
                 if (confirm('「次ラウンド開始」の処理（速度ロールなど）を実行しますか？')) {
-                    socket.emit('request_new_round', {
-                        room: currentRoomName
-                    });
+                    socket.emit('request_new_round', { room: currentRoomName });
                 }
             });
         }
@@ -751,9 +745,7 @@ function setupBattlefieldTab() {
     const diceCommandRegex = /^((\d+)?d\d+([\+\-]\d+)?(\s*[\+\-]\s*(\d+)?d\d+([\+\-]\d+)?)*)$/i;
     const sendChatMessage = () => {
         const message = chatInput.value.trim();
-        if (!message) {
-            return;
-        }
+        if (!message) return;
         if (diceCommandRegex.test(message)) {
             const result = rollDiceCommand(message);
             const resultHtml = `${message} = ${result.details} = <span class="dice-result-total">${result.total}</span>`;
@@ -770,7 +762,6 @@ function setupBattlefieldTab() {
             });
         }
         chatInput.value = '';
-        chatInput.style.height = 'auto';
         chatInput.style.height = '60px';
     };
 
@@ -837,17 +828,38 @@ function setupBattlefieldTab() {
                 }
             });
         }
+        // === ▼▼▼ 修正: リセットボタンのロジック変更 ▼▼▼
         if (!resetBtn.dataset.listenerAttached) {
             resetBtn.dataset.listenerAttached = 'true';
             resetBtn.addEventListener('click', () => {
-                if (confirm('本当に現在のルームの戦闘をすべてリセットしますか？\n（セーブデータは消えません）')) {
-                    socket.emit('request_reset_battle', {
-                        room: currentRoomName
+                // modals.js で追加した openResetTypeModal を呼び出す
+                if (typeof openResetTypeModal === 'function') {
+                    openResetTypeModal((resetType) => {
+                        socket.emit('request_reset_battle', {
+                            room: currentRoomName,
+                            mode: resetType // 'full' or 'status'
+                        });
+
+                        if (resetType === 'full') {
+                            saveLoadMsg.textContent = '戦闘を完全リセットしました。';
+                        } else {
+                            saveLoadMsg.textContent = 'ステータスをリセットしました。';
+                        }
+                        saveLoadMsg.style.color = 'orange';
                     });
-                    saveLoadMsg.textContent = '戦闘をリセットしました。';
-                    saveLoadMsg.style.color = 'orange';
+                } else {
+                    // フォールバック: 以前のロジック（完全リセットのみ）
+                    if (confirm('本当に現在のルームの戦闘をすべてリセットしますか？\n（セーブデータは消えません）')) {
+                        socket.emit('request_reset_battle', {
+                            room: currentRoomName,
+                            mode: 'full'
+                        });
+                        saveLoadMsg.textContent = '戦闘をリセットしました。';
+                        saveLoadMsg.style.color = 'orange';
+                    }
                 }
             });
         }
+        // === ▲▲▲ 修正ここまで ▲▲▲
     }
 }
