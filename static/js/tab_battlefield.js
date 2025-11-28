@@ -582,13 +582,8 @@ function setupBattlefieldTab() {
         });
     }
 
-    // 宣言結果受信リスナーは setupActionColumn 内等で管理、またはグローバルで管理推奨だが
-    // ここでは既存実装に従い、重複登録を避けるガード等はmain.js側のsocket初期化に委ねるか
-    // この関数が呼ばれるたびに登録されないよう注意が必要。
-    // (今回は tab_battlefield.js の既存構造に従い、setupActionColumn 内の処理とは別に
-    //  グローバルの socket.on を利用している前提で省略しませんが、
-    //  本来は socket.off してから on するのが安全です)
-    socket.off('skill_declaration_result'); // ★念のため一度解除
+    // 宣言結果受信リスナー
+    socket.off('skill_declaration_result');
     socket.on('skill_declaration_result', (data) => {
         const prefix = data.prefix;
         const powerDisplay = document.getElementById(`power-display-${prefix}`);
@@ -788,6 +783,10 @@ function setupBattlefieldTab() {
     const saveLoadMsg = document.getElementById('save-load-message');
     const leaveBtn = document.getElementById('leave-room-btn');
 
+    // ▼▼▼ 追加: プリセット管理ボタンの要素取得 ▼▼▼
+    const presetBtn = document.getElementById('preset-manager-btn');
+    // ▲▲▲ 追加ここまで ▲▲▲
+
     if (saveBtn && saveLoadMsg && resetBtn && leaveBtn) {
         if (!saveBtn.dataset.listenerAttached) {
             saveBtn.dataset.listenerAttached = 'true';
@@ -818,6 +817,20 @@ function setupBattlefieldTab() {
                 }
             });
         }
+
+        // ▼▼▼ 追加: プリセット管理ボタンのイベントリスナー ▼▼▼
+        if (presetBtn && !presetBtn.dataset.listenerAttached) {
+            presetBtn.dataset.listenerAttached = 'true';
+            presetBtn.addEventListener('click', () => {
+                if (typeof openPresetManagerModal === 'function') {
+                    openPresetManagerModal();
+                } else {
+                    console.error("modals.js が読み込まれていないか、openPresetManagerModal が定義されていません。");
+                }
+            });
+        }
+        // ▲▲▲ 追加ここまで ▲▲▲
+
         if (!leaveBtn.dataset.listenerAttached) {
             leaveBtn.dataset.listenerAttached = 'true';
             leaveBtn.addEventListener('click', () => {
@@ -828,7 +841,7 @@ function setupBattlefieldTab() {
                 }
             });
         }
-        // === ▼▼▼ 修正: リセットボタンのロジック変更 ▼▼▼
+
         if (!resetBtn.dataset.listenerAttached) {
             resetBtn.dataset.listenerAttached = 'true';
             resetBtn.addEventListener('click', () => {
@@ -848,7 +861,7 @@ function setupBattlefieldTab() {
                         saveLoadMsg.style.color = 'orange';
                     });
                 } else {
-                    // フォールバック: 以前のロジック（完全リセットのみ）
+                    // フォールバック
                     if (confirm('本当に現在のルームの戦闘をすべてリセットしますか？\n（セーブデータは消えません）')) {
                         socket.emit('request_reset_battle', {
                             room: currentRoomName,
@@ -860,6 +873,5 @@ function setupBattlefieldTab() {
                 }
             });
         }
-        // === ▲▲▲ 修正ここまで ▲▲▲
     }
 }

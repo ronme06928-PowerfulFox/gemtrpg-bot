@@ -1489,6 +1489,117 @@ def handle_reset_battle(data):
     save_specific_room_state(room)
 
 
+# === ▼▼▼ v1.5 新規追加: エネミープリセット機能 ▼▼▼ ===
+
+@socketio.on('request_save_preset')
+def handle_save_preset(data):
+    room = data.get('room')
+    preset_name = data.get('name')
+    overwrite = data.get('overwrite', False) # 上書き許可フラグ
+
+    if not room or not preset_name: return
+
+    state = get_room_state(room)
+
+    # プリセット保存領域がない場合は作成
+    if 'presets' not in state:
+        state['presets'] = {}
+
+    # 上書き確認 (許可がない場合)
+    if preset_name in state['presets'] and not overwrite:
+        socketio.emit('preset_save_error', {"error": "duplicate", "message": "同名のプリセットが存在します。上書きしますか？"}, to=request.sid)
+        return
+
+    # 現在の「敵」のみを抽出してリスト化
+    current_enemies = [c for c in state['characters'] if c.get('type') == 'enemy']
+
+    if not current_enemies:
+        socketio.emit('preset_save_error', {"error": "empty", "message": "敵キャラクターがいません。"}, to=request.sid)
+        return
+
+    # データを保存 (ディープコピー推奨だが、JSON化されるので簡易的にリスト化)
+    state['presets'][preset_name] = current_enemies
+
+    save_specific_room_state(room)
+
+    msg = f"エネミープリセット「{preset_name}」を保存しました。"
+    socketio.emit('new_log', {"message": msg, "type": "system"}, to=request.sid) # 自分だけに通知
+    socketio.emit('preset_saved', {"name": preset_name}, to=request.sid) # 完了通知
+
+@socketio.on('request_load_preset')
+def handle_load_preset(data):
+    room = data.get('room')
+    preset_name = data.get('name')
+
+    if not room or not preset_name: return
+
+    state = get_room_state(room)
+    if 'presets' not in state or preset_name not in state['presets']:
+        return
+
+    preset_data = state['presets'][preset_name]
+
+    # 1. 現在の「敵」を全て削除 (味方は残す)
+    state['characters'] = [c for c in state['characters'] if c.get('type') != 'enemy']
+
+    # 2. プリセットデータを展開して追加 (IDは新規発行)
+    import time
+    import random
+    import copy
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+
+    for original_char in preset_data:
+        # データを複製
+        new_char = copy.deepcopy(original_char)
+
+        # IDを新規発行 (必須要件)
+        new_char['id'] = f"char_p_{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
+
+        # 状態リセット（保存時のHPなどを維持するか、新品にするか。
+        # 通常プリセットは「新品の敵セット」を呼ぶものなので、初期化処理を入れるのが丁寧だが、
+        # ここでは「保存時の状態」を復元する仕様とする（編集済みの敵を保存したい場合もあるため））
+        # ただし、戦闘中フラグなどはリセット
+        new_char['hasActed'] = False
+        new_char['speedRoll'] = 0
+        new_char['used_skills_this_round'] = []
+        # special_buffs は保存時のまま復元
+
+        state['characters'].append(new_char)
+
+    broadcast_log(room, f"--- {username} がプリセット「{preset_name}」を展開しました ---", 'info')
+    broadcast_state_update(room)
+    save_specific_room_state(room)
+
+@socketio.on('request_delete_preset')
+def handle_delete_preset(data):
+    room = data.get('room')
+    preset_name = data.get('name')
+
+    if not room or not preset_name: return
+
+    state = get_room_state(room)
+    if 'presets' in state and preset_name in state['presets']:
+        del state['presets'][preset_name]
+        save_specific_room_state(room)
+        socketio.emit('preset_deleted', {"name": preset_name}, to=request.sid)
+
+@socketio.on('request_get_presets')
+def handle_get_presets(data):
+    """ルームに保存されているプリセット名のリストを返す"""
+    room = data.get('room')
+    if not room: return
+
+    state = get_room_state(room)
+    presets = list(state.get('presets', {}).keys())
+    # 名前順にソート (Q3要件)
+    presets.sort()
+
+    socketio.emit('receive_preset_list', {"presets": presets}, to=request.sid)
+
+# === ▲▲▲ 追加ここまで ▲▲▲ ===
+
 # === ▼▼▼ 修正: アプリ起動時の初期化処理 (Gunicornでも実行される場所へ移動) ▼▼▼ ===
 
 # 関数として定義しておき、下で呼び出す

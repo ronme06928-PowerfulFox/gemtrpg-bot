@@ -399,58 +399,165 @@ function openCharLoadModal() {
     // === ▲▲▲ 修正ここまで ▲▲▲ ===
 }
 
-// === ▼▼▼ 追加: リセットタイプ選択モーダル ▼▼▼ ===
-function openResetTypeModal(onConfirm) {
-    const modalHtml = `
-        <div class="modal-backdrop" id="reset-modal-backdrop">
-            <div class="modal-content" style="width: 400px; text-align: center; padding: 30px;">
-                <h2 style="color: #d32f2f; margin-top: 0;">戦闘リセットの選択</h2>
-                <p>リセットの種類を選択してください。</p>
+function openPresetManagerModal() {
+    // 既存のモーダルがあれば閉じる (IDを修正)
+    const existing = document.getElementById('preset-manager-backdrop');
+    if (existing) existing.remove();
 
-                <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 25px;">
-                    <button id="reset-status-btn" class="room-action-btn" style="background-color: #ff9800; color: white; padding: 15px;">
-                        <strong>ステータスリセット</strong><br>
-                        <span style="font-size: 0.85em; font-weight: normal;">
-                            キャラを残してHP/MP全快、バフ解除。<br>
-                            速度とTLをリセット。
-                        </span>
-                    </button>
+    const overlay = document.createElement('div');
+    overlay.id = 'preset-manager-backdrop';
+    overlay.className = 'modal-backdrop';
 
-                    <button id="reset-full-btn" class="room-action-btn danger" style="padding: 15px;">
-                        <strong>完全リセット</strong><br>
-                        <span style="font-size: 0.85em; font-weight: normal;">
-                            キャラクターを全員削除し、<br>
-                            更地に戻します。
-                        </span>
-                    </button>
-                </div>
+    const content = document.createElement('div');
+    content.className = 'modal-content';
+    content.style.maxWidth = '500px';
+    // テキスト選択などがしやすいよう、念のためcursorスタイルも調整
+    content.style.textAlign = 'left';
 
-                <button id="reset-cancel-btn" style="margin-top: 20px; background: none; border: none; text-decoration: underline; cursor: pointer;">キャンセル</button>
+    // ▼▼▼ 追加: モーダル内部に余白を持たせる ▼▼▼
+    content.style.padding = '25px';
+    // ▲▲▲ 追加ここまで ▲▲▲
+
+    // ヘッダー
+    content.innerHTML = `
+        <h3 style="margin-top: 0;">敵プリセット管理</h3>
+        <p style="font-size:0.9em; color:#666;">現在の「敵」一覧を保存したり、保存したセットを呼び出します。<br>
+        ※読込を行うと、現在の敵キャラクターは全て削除され入れ替わります。</p>
+
+        <div style="border-bottom:1px solid #ddd; margin-bottom:20px; padding-bottom:20px;">
+            <label><strong>現在の敵を保存:</strong></label>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <input type="text" id="preset-save-name" placeholder="プリセット名 (例: ゴブリン3体)" style="flex:8; padding:8px;">
+                <button id="preset-save-btn" class="room-action-btn" style="flex:2; padding:8px; background-color:#28a745; text-align:center;">保存</button>
             </div>
+            <div id="preset-msg-area" style="font-size:0.85em; margin-top:5px; height:1.2em;"></div>
+        </div>
+
+        <div>
+            <label><strong>保存済みプリセット:</strong></label>
+            <ul id="preset-list" style="list-style:none; padding:0; margin-top:5px; max-height:200px; overflow-y:auto; border:1px solid #eee;">
+                <li style="padding:10px; text-align:center; color:#999;">読み込み中...</li>
+            </ul>
+        </div>
+
+        <div style="text-align: right; margin-top: 20px;">
+            <button id="modal-close-btn" style="padding: 8px 16px;">閉じる</button>
         </div>
     `;
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-    const backdrop = document.getElementById('reset-modal-backdrop');
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
 
-    const close = () => backdrop.remove();
+    // (以下、イベントリスナー等のロジックは変更なし)
+    const saveNameInput = document.getElementById('preset-save-name');
+    const saveBtn = document.getElementById('preset-save-btn');
+    const msgArea = document.getElementById('preset-msg-area');
+    const listArea = document.getElementById('preset-list');
+    const closeBtn = document.getElementById('modal-close-btn');
 
-    document.getElementById('reset-status-btn').addEventListener('click', () => {
-        if (confirm('全キャラクターのステータスを初期値に戻しますか？')) {
-            onConfirm('status');
-            close();
+    const closeFunc = () => {
+        overlay.remove();
+    };
+    closeBtn.addEventListener('click', closeFunc);
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeFunc();
+    });
+
+    socket.emit('request_get_presets', { room: currentRoomName });
+
+    const renderList = (presets) => {
+        listArea.innerHTML = '';
+        if (!presets || presets.length === 0) {
+            listArea.innerHTML = '<li style="padding:10px; text-align:center; color:#999;">プリセットがありません</li>';
+            return;
+        }
+
+        presets.forEach(name => {
+            const li = document.createElement('li');
+            li.style.borderBottom = '1px solid #eee';
+            li.style.padding = '8px 12px'; // リストアイテムも少し余白調整
+            li.style.display = 'flex';
+            li.style.justifyContent = 'space-between';
+            li.style.alignItems = 'center';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = name;
+            nameSpan.style.fontWeight = 'bold';
+
+            const btnGroup = document.createElement('div');
+
+            const loadBtn = document.createElement('button');
+            loadBtn.textContent = '読込';
+            loadBtn.style.marginRight = '5px';
+            loadBtn.style.fontSize = '0.85em';
+            loadBtn.style.padding = '4px 10px';
+            loadBtn.onclick = () => {
+                if(confirm(`現在の敵を消去し、プリセット「${name}」を展開しますか？`)) {
+                    socket.emit('request_load_preset', { room: currentRoomName, name: name });
+                    closeFunc();
+                }
+            };
+
+            const delBtn = document.createElement('button');
+            delBtn.textContent = '削除';
+            delBtn.style.fontSize = '0.85em';
+            delBtn.style.padding = '4px 10px';
+            delBtn.style.backgroundColor = '#dc3545';
+            delBtn.style.color = 'white';
+            delBtn.style.border = 'none';
+            delBtn.onclick = () => {
+                if(confirm(`プリセット「${name}」を削除しますか？`)) {
+                    socket.emit('request_delete_preset', { room: currentRoomName, name: name });
+                    li.remove();
+                }
+            };
+
+            btnGroup.appendChild(loadBtn);
+            btnGroup.appendChild(delBtn);
+            li.appendChild(nameSpan);
+            li.appendChild(btnGroup);
+            listArea.appendChild(li);
+        });
+    };
+
+    socket.off('receive_preset_list');
+    socket.on('receive_preset_list', (data) => {
+        renderList(data.presets);
+    });
+
+    socket.off('preset_saved');
+    socket.on('preset_saved', (data) => {
+        msgArea.textContent = `「${data.name}」を保存しました`;
+        msgArea.style.color = 'green';
+        saveNameInput.value = '';
+        socket.emit('request_get_presets', { room: currentRoomName });
+    });
+
+    socket.off('preset_save_error');
+    socket.on('preset_save_error', (data) => {
+        if (data.error === 'duplicate') {
+            if (confirm(data.message)) {
+                socket.emit('request_save_preset', {
+                    room: currentRoomName,
+                    name: saveNameInput.value,
+                    overwrite: true
+                });
+            }
+        } else {
+            msgArea.textContent = data.message;
+            msgArea.style.color = 'red';
         }
     });
 
-    document.getElementById('reset-full-btn').addEventListener('click', () => {
-        if (confirm('本当に全てのキャラクターを削除しますか？この操作は取り消せません。')) {
-            onConfirm('full');
-            close();
+    saveBtn.addEventListener('click', () => {
+        const name = saveNameInput.value.trim();
+        if (!name) {
+            msgArea.textContent = '名前を入力してください';
+            msgArea.style.color = 'red';
+            return;
         }
-    });
-
-    document.getElementById('reset-cancel-btn').addEventListener('click', close);
-    backdrop.addEventListener('click', (e) => {
-        if (e.target === backdrop) close();
+        socket.emit('request_save_preset', { room: currentRoomName, name: name });
+        msgArea.textContent = '保存中...';
+        msgArea.style.color = '#333';
     });
 }
