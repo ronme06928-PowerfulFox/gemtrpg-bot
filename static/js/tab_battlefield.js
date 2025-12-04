@@ -1,5 +1,7 @@
 // --- 8. バトルフィールドタブ ---
 
+let currentLogFilter = 'all';
+
 function loadCharacterFromJSON(type, jsonString, resultElement) {
     // (この関数は変更なし)
     if (!jsonString) {
@@ -49,18 +51,38 @@ function loadCharacterFromJSON(type, jsonString, resultElement) {
     }
 }
 
+// static/js/tab_battlefield.js
+
 function logToBattleLog(logData) {
     const logArea = document.getElementById('log-area');
     if (!logArea) return;
     const logLine = document.createElement('div');
     logLine.className = `log-line ${logData.type}`;
+
+    // === ▼▼▼ 追加: チャットメッセージの装飾 (既存ロジック) ▼▼▼
     if (logData.type === 'chat') {
         logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
     } else {
         logLine.innerHTML = logData.message;
     }
+
+    // === ▼▼▼ 追加: 現在のフィルタ適用 ▼▼▼
+    // 'chat' フィルタ時: typeが 'chat' 以外なら隠す
+    if (currentLogFilter === 'chat' && logData.type !== 'chat') {
+        logLine.classList.add('hidden-log');
+    }
+    // 'system' フィルタ時: typeが 'chat' なら隠す
+    else if (currentLogFilter === 'system' && logData.type === 'chat') {
+        logLine.classList.add('hidden-log');
+    }
+    // === ▲▲▲ 追加ここまで ▲▲▲
+
     logArea.appendChild(logLine);
-    logArea.scrollTop = logArea.scrollHeight;
+
+    // 非表示のログが追加された場合はスクロールしない
+    if (!logLine.classList.contains('hidden-log')) {
+        logArea.scrollTop = logArea.scrollHeight;
+    }
 }
 
 // === ▼▼▼ 追加: ログ履歴を一括描画する関数 ▼▼▼ ===
@@ -175,7 +197,6 @@ function renderTokenList() {
         }
     });
 }
-
 
 function setupActionColumn(prefix) {
     const actorSelect = document.getElementById(`actor-${prefix}`);
@@ -464,6 +485,47 @@ function setupBattlefieldTab() {
             }
         });
     }
+
+
+    // === ▼▼▼ 追加: ログフィルタボタンのイベント設定 ▼▼▼
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    const logArea = document.getElementById('log-area');
+
+    filterButtons.forEach(btn => {
+        if (btn.dataset.listenerAttached) return;
+        btn.dataset.listenerAttached = 'true';
+
+        btn.addEventListener('click', () => {
+            // 1. アクティブボタンの切り替え
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // 2. フィルタ状態の更新
+            currentLogFilter = btn.dataset.filter; // 'all', 'chat', 'system'
+
+            // 3. 既存ログの表示切り替え
+            if (logArea) {
+                const logs = logArea.querySelectorAll('.log-line');
+                logs.forEach(line => {
+                    // クラス名に 'chat' が含まれているかで判定
+                    // (※logToBattleLogで生成時に logData.type がクラスとして付与されている前提)
+                    const isChat = line.classList.contains('chat');
+
+                    if (currentLogFilter === 'all') {
+                        line.classList.remove('hidden-log');
+                    } else if (currentLogFilter === 'chat') {
+                        if (isChat) line.classList.remove('hidden-log');
+                        else line.classList.add('hidden-log');
+                    } else if (currentLogFilter === 'system') {
+                        if (!isChat) line.classList.remove('hidden-log');
+                        else line.classList.add('hidden-log');
+                    }
+                });
+                logArea.scrollTop = logArea.scrollHeight;
+            }
+        });
+    });
+    // === ▲▲▲ 追加ここまで ▲▲▲
 
     window.attackerCol = setupActionColumn('attacker');
     window.defenderCol = setupActionColumn('defender');

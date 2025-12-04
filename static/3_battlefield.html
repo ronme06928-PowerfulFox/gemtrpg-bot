@@ -106,11 +106,18 @@
     <div class="grid-column" id="battlefield-right-column">
 
         <div class="log-container">
-            <h3>ログ</h3>
+            <div class="log-header-group">
+                <h3>ログ</h3>
+                <div class="log-filter-buttons">
+                    <button class="filter-btn active" data-filter="all">すべて</button>
+                    <button class="filter-btn" data-filter="chat">会話</button>
+                    <button class="filter-btn" data-filter="system">システム</button>
+                </div>
+            </div>
             <div class="log-area" id="log-area">
                 <p class="log-line info">戦闘ログを読み込み中...</p>
             </div>
-            </div>
+        </div>
 
         <div class="chat-controls">
             <textarea id="chat-input" placeholder="チャットまたは /roll コマンド" rows="2"></textarea>
