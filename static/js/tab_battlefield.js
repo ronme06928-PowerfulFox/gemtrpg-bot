@@ -143,53 +143,118 @@ function rollDiceCommand(command) {
     return { total: total, details: details };
 }
 
+// static/js/tab_battlefield.js
+
 function renderTokenList() {
-    // (この関数は変更なし)
     const allyContainer = document.getElementById('ally-list-column');
     const enemyContainer = document.getElementById('enemy-list-column');
     if (!allyContainer || !enemyContainer) return;
+
     allyContainer.innerHTML = '';
     enemyContainer.innerHTML = '';
+
     if (battleState.characters.length === 0) {
         allyContainer.innerHTML = '<p class="char-token-placeholder">キャラクターが読み込まれていません。</p>';
         return;
     }
+
+    // アイコンのマッピング定義
+    const iconMap = {
+        '出血': 'bleed.png',
+        '破裂': 'rupture.png',
+        '亀裂': 'fissure.png',
+        '戦慄': 'fear.png',
+        '荊棘': 'thorns.png'
+    };
+
     battleState.characters.forEach(char => {
         const token = document.createElement('div');
         token.className = 'char-token';
         token.dataset.id = char.id;
         token.style.borderLeftColor = char.color;
+
+        // --- 1. HP/MP バーの計算 ---
+        const hpPercent = Math.max(0, Math.min(100, (char.hp / char.maxHp) * 100));
+        const mpPercent = Math.max(0, Math.min(100, (char.mp / char.maxMp) * 100));
+
+        // FPは最大値の概念が曖昧ですが、とりあえず100くらいを基準にゲージ化してみます（あるいはゲージなしでも可）
         const fpState = char.states.find(s => s.name === 'FP');
         const fpValue = fpState ? fpState.value : 0;
-        const activeDebuffs = char.states.filter(s => {
-            return !['HP', 'MP', 'FP'].includes(s.name) && s.value >= 1;
+        // FPは上限がないためゲージは飾りですが、視覚的統一のために少し動かします(最大50想定)
+        const fpPercent = Math.min(100, (fpValue / 50) * 100);
+
+        // --- 2. 状態異常アイコンの生成 ---
+        const activeStates = char.states.filter(s => {
+            return !['HP', 'MP', 'FP'].includes(s.name) && s.value !== 0;
         });
+
         let debuffsHtml = '';
-        if (activeDebuffs.length > 0) {
-            let debuffItemsHtml = '';
-            activeDebuffs.forEach(s => {
-                let colorClass = '';
-                switch (s.name) {
-                    case '出血': colorClass = 'shukketsu'; break;
-                    case '破裂': colorClass = 'haretsu'; break;
-                    case '亀裂': colorClass = 'kiretsu'; break;
-                    case '戦慄': colorClass = 'senritsu'; break;
-                    case '荊棘': colorClass = 'keikyoku'; break;
-                    default: colorClass = '';
+        if (activeStates.length > 0) {
+            let itemsHtml = '';
+            activeStates.forEach(s => {
+                let iconHtml = '';
+
+                // 特定のデバフ画像がある場合
+                if (iconMap[s.name]) {
+                    iconHtml = `<img src="images/${iconMap[s.name]}" class="status-icon-img" alt="${s.name}">`;
                 }
-                debuffItemsHtml += `<span class="token-debuff ${colorClass}">${s.name}: ${s.value}</span>`;
+                // その他の数値変動 (矢印対応)
+                else {
+                    if (s.value > 0) {
+                        // 正の数 = 通常はバフや蓄積値 (上矢印)
+                        iconHtml = `<span class="arrow-icon arrow-up">▲</span>`;
+                    } else {
+                        // 負の数 = デバフ (下矢印)
+                        iconHtml = `<span class="arrow-icon arrow-down">▼</span>`;
+                    }
+                }
+
+                itemsHtml += `
+                    <div class="token-debuff-item">
+                        ${iconHtml}
+                        <span>${s.name}: ${s.value}</span>
+                    </div>
+                `;
             });
-            debuffsHtml = `<div class="token-debuff-list">${debuffItemsHtml}</div>`;
+            debuffsHtml = `<div class="token-debuff-list">${itemsHtml}</div>`;
         }
+
+        // --- 3. HTML構築 ---
         token.innerHTML = `
-            <h4 class="token-name">${char.name}</h4>
-            <div class="token-stats-grid">
-                <span class="token-stat">HP: ${char.hp}/${char.maxHp}</span>
-                <span class="token-stat">MP: ${char.mp}/${char.maxMp}</span>
-                <span class="token-stat">FP: ${fpValue}</span>
+            <h4 class="token-name" style="margin-bottom: 5px;">${char.name}</h4>
+
+            <div class="token-stats-grid" style="display: grid; grid-template-columns: 1fr 1fr 60px; gap: 10px; align-items: end;">
+                <div class="stat-group">
+                    <div style="font-size: 0.85em; display:flex; justify-content:space-between;">
+                        <strong>HP</strong> <span>${char.hp}/${char.maxHp}</span>
+                    </div>
+                    <div class="bar-container">
+                        <div class="bar-fill hp-fill" style="width: ${hpPercent}%;"></div>
+                    </div>
+                </div>
+
+                <div class="stat-group">
+                    <div style="font-size: 0.85em; display:flex; justify-content:space-between;">
+                        <strong>MP</strong> <span>${char.mp}/${char.maxMp}</span>
+                    </div>
+                    <div class="bar-container">
+                        <div class="bar-fill mp-fill" style="width: ${mpPercent}%;"></div>
+                    </div>
+                </div>
+
+                <div class="stat-group">
+                    <div style="font-size: 0.85em; text-align: center;">
+                        <strong>FP</strong>: ${fpValue}
+                    </div>
+                    <div class="bar-container">
+                        <div class="bar-fill fp-fill" style="width: ${fpPercent}%;"></div>
+                    </div>
+                </div>
             </div>
+
             ${debuffsHtml}
         `;
+
         if (char.type === 'ally') {
             allyContainer.appendChild(token);
         } else {
