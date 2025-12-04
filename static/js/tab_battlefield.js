@@ -500,14 +500,24 @@ function setupBattlefieldTab() {
     const hiddenCmdDefender = document.getElementById('hidden-command-defender');
 
     // UIリセット関数
+// UIリセット関数
     const resetAllActionUI = () => {
         const prefixes = ['attacker', 'defender'];
         prefixes.forEach(prefix => {
-            document.getElementById(`actor-${prefix}`).disabled = false;
-            document.getElementById(`target-${prefix}`).disabled = false;
+            const actorEl = document.getElementById(`actor-${prefix}`);
+            const targetEl = document.getElementById(`target-${prefix}`);
+
+            if (prefix === 'attacker') {
+                actorEl.disabled = false;
+                targetEl.disabled = false;
+            } else {
+                actorEl.disabled = true;
+                targetEl.disabled = true;
+            }
+
             document.getElementById(`skill-${prefix}`).disabled = false;
-            document.getElementById(`actor-${prefix}`).value = "";
-            document.getElementById(`target-${prefix}`).value = "";
+            actorEl.value = "";
+            targetEl.value = "";
 
             document.getElementById(`generate-btn-${prefix}`).disabled = false;
             document.getElementById(`declare-btn-${prefix}`).disabled = true;
