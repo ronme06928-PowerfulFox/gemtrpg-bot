@@ -2,8 +2,8 @@ Flask
 Flask-Cors
 Flask-SocketIO
 Flask-SQLAlchemy
-eventlet==0.33.3
-gunicorn==20.1.0
+eventlet
+gunicorn
 python-dotenv
 psycopg2-binary
 gspread
