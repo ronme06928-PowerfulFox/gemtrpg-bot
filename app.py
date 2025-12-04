@@ -987,6 +987,12 @@ def handle_match(data):
 
             return extra_damage_from_effects, regain_action
 
+        # ★ FP付与用のヘルパー関数
+        def grant_win_fp(char):
+            if not char: return
+            current_fp = get_status_value(char, 'FP')
+            _update_char_stat(room, char, 'FP', current_fp + 1, username="[マッチ勝利]")
+
         # --- 5. 勝敗判定 ---
         damage = 0
         final_damage = 0
@@ -1039,11 +1045,11 @@ def handle_match(data):
         elif is_one_sided:
             # === ▼▼▼ 修正点 (攻撃側が守備スキルの場合はダメージなし) ▼▼▼ ===
             if "守備" in attacker_tags:
-                 damage = 0
-                 final_damage = 0
-                 winner_message = f"<strong> → {actor_name_a} の一方攻撃！</strong> (守備スキルのためダメージなし)"
-                 damage_message = "(ダメージ 0)"
-                 # (ターゲットへのダメージ処理は行わない)
+                damage = 0
+                final_damage = 0
+                winner_message = f"<strong> → {actor_name_a} の一方攻撃！</strong> (守備スキルのためダメージなし)"
+                damage_message = "(ダメージ 0)"
+                # (ターゲットへのダメージ処理は行わない)
             # === ▲▲▲ 修正ここまで ▲▲▲ ===
             else:
                 damage = result_a['total']
@@ -1075,15 +1081,17 @@ def handle_match(data):
             damage_message = "(相殺)"
 
         elif (attacker_category == "防御" and defender_category == "回避") or \
-             (attacker_category == "回避" and defender_category == "防御"):
+            (attacker_category == "回避" and defender_category == "防御"):
             winner_message = "<strong> → 防御と回避のため、マッチ不成立</strong>"
             damage_message = "(効果処理なし)"
 
         # --- 以下、通常のマッチ判定 ---
         elif "守備" in defender_tags and defender_category == "防御":
             # 防御スキル
-            winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (ダメージ軽減)"
             if result_a['total'] > result_d['total']:
+                # 攻撃側(A)勝利
+                grant_win_fp(actor_a_char) # ★ AにFP+1
+
                 damage = result_a['total'] - result_d['total']
                 kiretsu_bonus = get_status_value(actor_d_char, '亀裂')
                 b_dmg_win, log_win, chg_win = process_skill_effects(effects_array_a, "WIN", actor_a_char, actor_d_char, skill_data_d)
@@ -1107,7 +1115,10 @@ def handle_match(data):
                 for log_msg in log_snippets: damage_message += f"{log_msg} "
                 damage_message += f"= {final_damage} ダメージ)"
             else:
-                # 防御成功
+                # 防御成功(D勝利)
+                grant_win_fp(actor_d_char) # ★ DにFP+1
+                winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (防御成功)" # ★ メッセージ追加
+
                 b_dmg_lose, log_lose, chg_lose = process_skill_effects(effects_array_a, "LOSE", actor_a_char, actor_d_char, skill_data_d)
                 b_dmg_win, log_win, chg_win = process_skill_effects(effects_array_d, "WIN", actor_d_char, actor_a_char, skill_data_a)
                 changes = chg_lose + chg_win
@@ -1119,7 +1130,9 @@ def handle_match(data):
         elif "守備" in defender_tags and defender_category == "回避":
             # 回避スキル
             if result_a['total'] > result_d['total']:
-                # 回避失敗
+                # 回避失敗(A勝利)
+                grant_win_fp(actor_a_char) # ★ AにFP+1
+
                 damage = result_a['total']
                 kiretsu_bonus = get_status_value(actor_d_char, '亀裂')
                 b_dmg_hit, log_hit, chg_hit = process_skill_effects(effects_array_a, "HIT", actor_a_char, actor_d_char, skill_data_d)
@@ -1142,7 +1155,9 @@ def handle_match(data):
                 for log_msg in log_snippets: damage_message += f"{log_msg} "
                 damage_message += f"= {final_damage} ダメージ)"
             else:
-                # 回避成功
+                # 回避成功(D勝利)
+                grant_win_fp(actor_d_char) # ★ DにFP+1
+
                 b_dmg_lose, log_lose, chg_lose = process_skill_effects(effects_array_a, "LOSE", actor_a_char, actor_d_char, skill_data_d)
                 b_dmg_win, log_win, chg_win = process_skill_effects(effects_array_d, "WIN", actor_d_char, actor_a_char, skill_data_a)
                 changes = chg_lose + chg_win
@@ -1150,9 +1165,9 @@ def handle_match(data):
                 _, regain_action = apply_changes(changes, skill_id_a, skill_id_d)
 
                 if actor_d_char:
-                     # actor_d_char['hasActed'] = False # 再行動（ログのみ）
-                     log_snippets.append("[再回避可能！]")
-                     apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d})
+                    # actor_d_char['hasActed'] = False # 再行動（ログのみ）
+                    log_snippets.append("[再回避可能！]")
+                    apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d})
 
                 log_snippets.extend(log_lose + log_win)
                 winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (回避成功)"
@@ -1161,6 +1176,8 @@ def handle_match(data):
 
         elif result_a['total'] > result_d['total']:
             # 攻撃 vs 攻撃 (Aの勝利)
+            grant_win_fp(actor_a_char) # ★ AにFP+1
+
             damage = result_a['total']
             if actor_d_char:
                 kiretsu_bonus = get_status_value(actor_d_char, '亀裂')
@@ -1187,6 +1204,8 @@ def handle_match(data):
 
         elif result_d['total'] > result_a['total']:
             # 攻撃 vs 攻撃 (Dの勝利)
+            grant_win_fp(actor_d_char) # ★ DにFP+1
+
             damage = result_d['total']
             if actor_a_char:
                 kiretsu_bonus = get_status_value(actor_a_char, '亀裂')
@@ -1236,7 +1255,6 @@ def handle_match(data):
     broadcast_log(room, match_log, 'match')
     broadcast_state_update(room)
     save_specific_room_state(room)
-
 
 
 @socketio.on('request_new_round')
