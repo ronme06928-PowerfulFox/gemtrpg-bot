@@ -180,8 +180,8 @@ function renderTokenList() {
         // FPは最大値の概念が曖昧ですが、とりあえず100くらいを基準にゲージ化してみます（あるいはゲージなしでも可）
         const fpState = char.states.find(s => s.name === 'FP');
         const fpValue = fpState ? fpState.value : 0;
-        // FPは上限がないためゲージは飾りですが、視覚的統一のために少し動かします(最大50想定)
-        const fpPercent = Math.min(100, (fpValue / 50) * 100);
+        // FPは上限がないためゲージは飾りですが、視覚的統一のために少し動かします(最大15想定)
+        const fpPercent = Math.min(100, (fpValue / 15) * 100);
 
         // --- 2. 状態異常アイコンの生成 ---
         const activeStates = char.states.filter(s => {
