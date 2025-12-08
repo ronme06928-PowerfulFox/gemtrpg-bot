@@ -561,3 +561,59 @@ function openPresetManagerModal() {
         msgArea.style.color = '#333';
     });
 }
+
+
+function openResetTypeModal(callback) {
+    // 既存のモーダル削除
+    const existing = document.getElementById('reset-type-modal-backdrop');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'reset-type-modal-backdrop';
+    overlay.className = 'modal-backdrop';
+
+    overlay.innerHTML = `
+        <div class="modal-content" style="width: 400px; padding: 25px; text-align: center;">
+            <h3 style="margin-top: 0; color: #dc3545;">リセットの種類の選択</h3>
+            <p style="color: #555; margin-bottom: 20px;">
+                実行したいリセット処理を選択してください。
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button id="reset-status-btn" class="room-action-btn" style="padding: 12px; background-color: #ffc107; color: #333; font-weight: bold;">
+                    ステータスのみリセット<br>
+                    <span style="font-size: 0.8em; font-weight: normal;">(HP/MP/FP全快、状態異常・バフ解除)</span>
+                </button>
+
+                <button id="reset-full-btn" class="room-action-btn danger" style="padding: 12px; font-weight: bold;">
+                    完全リセット<br>
+                    <span style="font-size: 0.8em; font-weight: normal;">(キャラクターを全員削除し、初期状態へ)</span>
+                </button>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <button id="reset-cancel-btn" style="padding: 8px 16px; border: none; background: #ccc; border-radius: 4px; cursor: pointer;">キャンセル</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const closeFunc = () => overlay.remove();
+
+    document.getElementById('reset-cancel-btn').onclick = closeFunc;
+
+    document.getElementById('reset-status-btn').onclick = () => {
+        if (confirm('全キャラクターのHP・MP等を回復し、状態異常を解除しますか？\n(キャラ自体は削除されません)')) {
+            callback('status');
+            closeFunc();
+        }
+    };
+
+    document.getElementById('reset-full-btn').onclick = () => {
+        if (confirm('本当にキャラクターを全員削除し、戦闘を初期化しますか？\nこの操作は取り消せません。')) {
+            callback('full');
+            closeFunc();
+        }
+    };
+}
