@@ -1289,6 +1289,8 @@ def handle_new_round(data):
     for char in state['characters']:
         # === ▼▼▼ 修正点 (フェーズ4c) ▼▼▼ ===
 
+        char['isWideUser'] = False
+
         # 1. (既存) 行動済みフラグをリセット
         char['hasActed'] = False
 
@@ -1297,7 +1299,7 @@ def handle_new_round(data):
 
         # 3. (新規) 「再回避ロック」 バフを削除
         if 'special_buffs' in char:
-             remove_buff(char, "再回避ロック")
+            remove_buff(char, "再回避ロック")
 
         # === ▲▲▲ 修正ここまで ▲▲▲ ===
 
@@ -1506,6 +1508,437 @@ def handle_reset_battle(data):
     broadcast_state_update(room)
     save_specific_room_state(room)
 
+
+# === ▼▼▼ 追加: 広域スキル使用者宣言処理 ▼▼▼
+@socketio.on('request_declare_wide_skill_users')
+def handle_declare_wide_skill_users(data):
+    room = data.get('room')
+    wide_user_ids = data.get('wideUserIds', []) # 広域を使用するキャラIDのリスト
+
+    if not room: return
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    state = get_room_state(room)
+
+    # 1. フラグの更新
+    wide_user_names = []
+    for char in state['characters']:
+        if char['id'] in wide_user_ids:
+            char['isWideUser'] = True
+            wide_user_names.append(char['name'])
+        else:
+            char['isWideUser'] = False
+
+    if wide_user_names:
+        broadcast_log(room, f"⚡ 広域スキル使用宣言: {', '.join(wide_user_names)}", 'info')
+    else:
+        broadcast_log(room, f"広域スキル使用者は居ません。通常の速度順で開始します。", 'info')
+
+    # 2. タイムラインの再ソート
+    # 優先順位:
+    # 1. isWideUser (Trueが先)
+    # 2. speedRoll (高い順)
+    # 3. is_enemy (敵が先 ※既存ロジック踏襲)
+    # 4. speed_stat (高い順)
+
+    def get_speed_stat(char):
+        param = next((p for p in char['params'] if p.get('label') == '速度'), None)
+        return int(param.get('value')) if param else 0
+
+    def sort_key(char):
+        is_wide = 0 if char.get('isWideUser') else 1 # 0(True) < 1(False) なので昇順ソートならこれでOK
+        speed_roll = char['speedRoll']
+        is_enemy = 1 if char['type'] == 'enemy' else 2
+        speed_stat = get_speed_stat(char)
+        # ランダム要素は再計算せず、既存の順序を維持したいが簡易的に再生成
+        random_tiebreak = random.random()
+
+        # 降順にしたい項目はマイナスをつける
+        return (is_wide, -speed_roll, is_enemy, -speed_stat, random_tiebreak)
+
+    state['characters'].sort(key=sort_key)
+    state['timeline'] = [c['id'] for c in state['characters']]
+
+    broadcast_state_update(room)
+    save_specific_room_state(room)
+
+
+# app.py
+
+# === ▼▼▼ 修正: 広域戦闘処理 (合算時の効果全適用版) ▼▼▼
+# app.py
+
+# ... (前略)
+
+# === ▼▼▼ 修正: 広域戦闘処理 (荊棘対応版) ▼▼▼
+# === ▼▼▼ 修正: 広域戦闘処理 (合算防御勝利時の反撃ダメージ追加版) ▼▼▼
+@socketio.on('request_wide_match')
+def handle_wide_match(data):
+    room = data.get('room')
+    if not room: return
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    state = get_room_state(room)
+
+    # データ取得
+    actor_id = data.get('actorId')
+    skill_id = data.get('skillId') # 攻撃スキルID
+    mode = data.get('mode') # 'individual' (個別) or 'combined' (合算)
+    command_actor = data.get('commandActor')
+    defenders_data = data.get('defenders', []) # list of { id, skillId }
+
+    actor_char = next((c for c in state["characters"] if c.get('id') == actor_id), None)
+    if not actor_char: return
+
+    actor_name = actor_char['name']
+
+    # 攻撃スキルのデータ取得
+    skill_data_actor = all_skill_data.get(skill_id)
+
+    # --- 内部ヘルパー関数 ---
+    def roll(cmd_str):
+        calc_str = re.sub(r'【.*?】', '', cmd_str).strip()
+        details_str = calc_str
+        dice_regex = r'(\d+)d(\d+)'
+        matches = list(re.finditer(dice_regex, calc_str))
+        for match in reversed(matches):
+            num_dice = int(match.group(1))
+            num_faces = int(match.group(2))
+            rolls = [random.randint(1, num_faces) for _ in range(num_dice)]
+            roll_sum = sum(rolls)
+            roll_details = f"({'+'.join(map(str, rolls))})"
+            start, end = match.start(), match.end()
+            details_str = details_str[:start] + roll_details + details_str[end:]
+            calc_str = calc_str[:start] + str(roll_sum) + calc_str[end:]
+        try:
+            total = eval(re.sub(r'[^-()\d/*+.]', '', calc_str))
+        except:
+            total = 0
+        return {"total": total, "details": details_str}
+
+    def grant_win_fp(char):
+        if not char: return
+        current_fp = get_status_value(char, 'FP')
+        _update_char_stat(room, char, 'FP', current_fp + 1, username="[マッチ勝利]")
+
+    # 防御側のコマンドと補正を解決する関数
+    def resolve_defender_action(def_char, d_skill_id):
+        d_skill_data = all_skill_data.get(d_skill_id)
+        if not d_skill_data:
+            return "2d6", None # デフォルト
+
+        # 1. パレット解決
+        base_cmd = d_skill_data.get('チャットパレット', '')
+        resolved_cmd = resolve_placeholders(base_cmd, def_char.get('params', []))
+
+        # 2. 特記処理(威力ボーナス)計算
+        power_bonus = 0
+        rule_json = d_skill_data.get('特記処理', '{}')
+        try:
+            rd = json.loads(rule_json)
+            power_bonus = calculate_power_bonus(def_char, actor_char, rd)
+        except: pass
+
+        # 3. 戦慄ペナルティ
+        senritsu = get_status_value(def_char, '戦慄')
+        penalty = min(senritsu, 3) if senritsu > 0 else 0
+        if penalty > 0:
+             new_val = max(0, senritsu - penalty)
+             _update_char_stat(room, def_char, '戦慄', new_val, username=f"[{def_char['name']}:戦慄消費]")
+
+        total_mod = power_bonus - penalty
+
+        # 4. 物理/魔法補正の適用
+        phys = get_status_value(def_char, '物理補正')
+        mag = get_status_value(def_char, '魔法補正')
+        final_cmd = resolved_cmd
+        if '{物理補正}' in final_cmd:
+             final_cmd = final_cmd.replace('{物理補正}', str(phys))
+        elif '{魔法補正}' in final_cmd:
+             final_cmd = final_cmd.replace('{魔法補正}', str(mag))
+
+        # 5. ボーナス値をコマンドに付加
+        if total_mod > 0:
+            if ' 【' in final_cmd:
+                final_cmd = final_cmd.replace(' 【', f"+{total_mod} 【")
+            else:
+                final_cmd += f"+{total_mod}"
+        elif total_mod < 0:
+            if ' 【' in final_cmd:
+                final_cmd = final_cmd.replace(' 【', f"{total_mod} 【")
+            else:
+                final_cmd += f"{total_mod}"
+
+        return final_cmd, d_skill_data
+
+    # 効果適用関数
+    def apply_skill_effects_bidirectional(winner_side, a_char, d_char, a_skill, d_skill, damage_val=0):
+        effects_a = []
+        if a_skill:
+            try:
+                effects_a = json.loads(a_skill.get('特記処理', '{}')).get("effects", [])
+            except: pass
+        effects_d = []
+        if d_skill:
+            try:
+                effects_d = json.loads(d_skill.get('特記処理', '{}')).get("effects", [])
+            except: pass
+
+        timing_a = "HIT" if winner_side == 'attacker' else "LOSE"
+        timing_d = "LOSE" if winner_side == 'attacker' else "WIN"
+
+        dmg_a, log_a, chg_a = process_skill_effects(effects_a, timing_a, a_char, d_char, d_skill)
+        dmg_d, log_d, chg_d = process_skill_effects(effects_d, timing_d, d_char, a_char, a_skill)
+
+        total_bonus_dmg = dmg_a + dmg_d
+        all_logs = log_a + log_d
+        all_changes = chg_a + chg_d
+
+        extra_dmg_val = 0
+        for (char, type, name, value) in all_changes:
+            if type == "APPLY_STATE":
+                curr = get_status_value(char, name)
+                _update_char_stat(room, char, name, curr + value, username=f"[{name}]")
+            elif type == "SET_STATUS":
+                _update_char_stat(room, char, name, value, username=f"[{name}]")
+            elif type == "CUSTOM_DAMAGE":
+                extra_dmg_val += value
+            elif type == "APPLY_BUFF":
+                apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+
+        return total_bonus_dmg + extra_dmg_val, all_logs
+
+    # 荊棘処理関数
+    def process_thorns(char, skill_data):
+        if not char or not skill_data: return
+        thorns = get_status_value(char, "荊棘")
+        if thorns <= 0: return
+
+        cat = skill_data.get("分類", "")
+        if cat in ["物理", "魔法"]:
+            # HPダメージ
+            current_hp = get_status_value(char, "HP")
+            _update_char_stat(room, char, "HP", current_hp - thorns, username="[荊棘の自傷]")
+        elif cat == "防御":
+            # 荊棘減少
+            try:
+                base_power = int(skill_data.get('基礎威力', 0))
+                new_thorns = max(0, thorns - base_power)
+                _update_char_stat(room, char, "荊棘", new_thorns, username=f"[{skill_data.get('デフォルト名称')}]")
+            except ValueError: pass
+
+    # --- メイン処理 ---
+
+    # 攻撃側のロール実行
+    result_actor = roll(command_actor)
+    actor_power = result_actor['total']
+
+    # 攻撃コスト消費
+    if skill_data_actor:
+        try:
+            rd = json.loads(skill_data_actor.get('特記処理', '{}'))
+            if "即時発動" not in skill_data_actor.get("tags", []):
+                for cost in rd.get("cost", []):
+                    c_type = cost.get("type")
+                    c_val = int(cost.get("value", 0))
+                    if c_val > 0:
+                        curr = get_status_value(actor_char, c_type)
+                        _update_char_stat(room, actor_char, c_type, curr - c_val, username=f"[{skill_data_actor.get('デフォルト名称')}]")
+        except: pass
+
+    # 攻撃側の荊棘処理
+    process_thorns(actor_char, skill_data_actor)
+
+    # 攻撃者の行動済みフラグ
+    actor_char['hasActed'] = True
+    if 'used_skills_this_round' not in actor_char:
+        actor_char['used_skills_this_round'] = []
+    actor_char['used_skills_this_round'].append(skill_id)
+
+    mode_text = "広域-個別" if mode == 'individual' else "広域-合算"
+    broadcast_log(room, f"⚔️ <strong>{actor_name}</strong> の【{mode_text}】攻撃！ (出目: {actor_power})", 'match')
+
+    # === 広域-個別 (Individual) ===
+    if mode == 'individual':
+        for defender_info in defenders_data:
+            if actor_char['hp'] <= 0:
+                broadcast_log(room, f"⛔ {actor_name} は倒れたため、攻撃は中断されました。", 'info')
+                break
+
+            target_id = defender_info.get('id')
+            target_char = next((c for c in state["characters"] if c.get('id') == target_id), None)
+            if not target_char or target_char['hp'] <= 0: continue
+
+            target_char['hasActed'] = True
+
+            d_skill_id = defender_info.get('skillId')
+            d_cmd_from_client = defender_info.get('command') # クライアントからの計算済みコマンド
+
+            # コマンドの決定
+            if d_cmd_from_client:
+                d_cmd = d_cmd_from_client
+                skill_data_target = all_skill_data.get(d_skill_id)
+            else:
+                d_cmd, skill_data_target = resolve_defender_action(target_char, d_skill_id)
+
+            result_target = roll(d_cmd)
+            target_power = result_target['total']
+
+            # 防御コスト消費 (共通)
+            if skill_data_target:
+                try:
+                    rd = json.loads(skill_data_target.get('特記処理', '{}'))
+                    for cost in rd.get("cost", []):
+                        c_type = cost.get("type")
+                        c_val = int(cost.get("value", 0))
+                        if c_val > 0:
+                            curr = get_status_value(target_char, c_type)
+                            _update_char_stat(room, target_char, c_type, curr - c_val)
+                except: pass
+
+            # 防御側の荊棘処理
+            process_thorns(target_char, skill_data_target)
+
+            if 'used_skills_this_round' not in target_char:
+                target_char['used_skills_this_round'] = []
+            if d_skill_id:
+                target_char['used_skills_this_round'].append(d_skill_id)
+
+            msg = ""
+            d_tags = skill_data_target.get("tags", []) if skill_data_target else []
+            d_cat = skill_data_target.get("分類", "") if skill_data_target else ""
+
+            if actor_power > target_power:
+                grant_win_fp(actor_char)
+                base_dmg = actor_power
+
+                if "守備" in d_tags and d_cat == "防御":
+                     base_dmg = actor_power - target_power
+                     msg = "(軽減)"
+                elif "守備" in d_tags and d_cat == "回避":
+                     base_dmg = actor_power
+                     msg = "(回避失敗)"
+
+                bonus, logs = apply_skill_effects_bidirectional('attacker', actor_char, target_char, skill_data_actor, skill_data_target, base_dmg)
+                final_dmg = base_dmg + bonus
+
+                if any(b.get('name') == "混乱" for b in target_char.get('special_buffs', [])):
+                    final_dmg = int(final_dmg * 1.5)
+                    msg += " (混乱x1.5)"
+
+                _update_char_stat(room, target_char, 'HP', target_char['hp'] - final_dmg, username=username)
+                broadcast_log(room, f"➡ vs {target_char['name']} ({target_power}): 命中！ {final_dmg}ダメージ {msg} {' '.join(logs)}", 'match')
+
+            else:
+                grant_win_fp(target_char)
+                msg = "(回避成功)" if ("守備" in d_tags and d_cat == "回避") else "(防いだ)"
+                _, logs = apply_skill_effects_bidirectional('defender', actor_char, target_char, skill_data_actor, skill_data_target, 0)
+                broadcast_log(room, f"➡ vs {target_char['name']} ({target_power}): {msg} {' '.join(logs)}", 'match')
+
+    # === 広域-合算 (Combined) ===
+    elif mode == 'combined':
+        total_def_power = 0
+        defenders_results = []
+        valid_targets = []
+
+        for defender_info in defenders_data:
+            target_id = defender_info.get('id')
+            target_char = next((c for c in state["characters"] if c.get('id') == target_id), None)
+            if not target_char or target_char['hp'] <= 0: continue
+
+            valid_targets.append({
+                'char': target_char,
+                'skill_id': defender_info.get('skillId'),
+                'skill_data': None
+            })
+
+            target_char['hasActed'] = True
+
+            d_skill_id = defender_info.get('skillId')
+            d_cmd_from_client = defender_info.get('command')
+
+            # コマンド決定
+            if d_cmd_from_client:
+                d_cmd = d_cmd_from_client
+                skill_data_target = all_skill_data.get(d_skill_id)
+            else:
+                d_cmd, skill_data_target = resolve_defender_action(target_char, d_skill_id)
+
+            valid_targets[-1]['skill_data'] = skill_data_target
+
+            # 防御コスト消費
+            if skill_data_target:
+                try:
+                    rd = json.loads(skill_data_target.get('特記処理', '{}'))
+                    for cost in rd.get("cost", []):
+                        c_type = cost.get("type")
+                        c_val = int(cost.get("value", 0))
+                        if c_val > 0:
+                            curr = get_status_value(target_char, c_type)
+                            _update_char_stat(room, target_char, c_type, curr - c_val)
+                except: pass
+
+            # 防御側の荊棘処理
+            process_thorns(target_char, skill_data_target)
+
+            if 'used_skills_this_round' not in target_char:
+                target_char['used_skills_this_round'] = []
+            if d_skill_id:
+                target_char['used_skills_this_round'].append(d_skill_id)
+
+            res = roll(d_cmd)
+            total_def_power += res['total']
+            defenders_results.append(f"{target_char['name']}({res['total']})")
+
+        broadcast_log(room, f"🛡️ 防御側合計: {total_def_power} [{', '.join(defenders_results)}]", 'info')
+
+        if actor_power > total_def_power:
+            # 攻撃成功
+            grant_win_fp(actor_char)
+            diff_dmg = actor_power - total_def_power
+            broadcast_log(room, f"💥 攻撃成功！ 差分ダメージ: {diff_dmg} を全員に与えます。", 'match')
+
+            for entry in valid_targets:
+                target_char = entry['char']
+
+                bonus, logs = apply_skill_effects_bidirectional('attacker', actor_char, target_char, skill_data_actor, entry['skill_data'], diff_dmg)
+                final_dmg = diff_dmg + bonus
+
+                msg = ""
+                if logs: msg = f"({' '.join(logs)})"
+
+                if any(b.get('name') == "混乱" for b in target_char.get('special_buffs', [])):
+                    final_dmg = int(final_dmg * 1.5)
+                    msg += " (混乱)"
+
+                _update_char_stat(room, target_char, 'HP', target_char['hp'] - final_dmg, username=username)
+                if msg:
+                    broadcast_log(room, f"➡ {target_char['name']}に追加効果: {msg}", 'match')
+
+        else:
+            # 防御側勝利 (▼▼▼ 修正箇所 ▼▼▼)
+            diff_dmg = total_def_power - actor_power
+
+            msg = f"🛡️ 防御成功！ (攻撃 {actor_power} vs 防御 {total_def_power})"
+            if diff_dmg > 0:
+                _update_char_stat(room, actor_char, 'HP', actor_char['hp'] - diff_dmg, username="[カウンター]")
+                msg += f" ➡ 攻撃者に {diff_dmg} の反撃ダメージ！"
+
+            broadcast_log(room, msg, 'match')
+
+            for entry in valid_targets:
+                target_char = entry['char']
+                grant_win_fp(target_char)
+
+                _, logs = apply_skill_effects_bidirectional('defender', actor_char, target_char, skill_data_actor, entry['skill_data'], 0)
+                if logs:
+                    broadcast_log(room, f"➡ {target_char['name']}の効果: {' '.join(logs)}", 'match')
+
+    broadcast_state_update(room)
+    save_specific_room_state(room)
+# === ▲▲▲ 追加ここまで ▲▲▲
 
 # === ▼▼▼ v1.5 新規追加: エネミープリセット機能 ▼▼▼ ===
 

@@ -1184,3 +1184,25 @@ header h1 {
 }
 .arrow-up { color: #28a745; }   /* 上昇: 緑 */
 .arrow-down { color: #dc3545; } /* 減少: 赤 */
+
+/* === ▼▼▼ 追加: 広域攻撃UI用スタイル ▼▼▼ */
+.wide-defender-row {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+.wide-defender-row label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+.wide-defender-row input {
+    width: 100%;
+    padding: 4px;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+/* === ▲▲▲ 追加ここまで ▲▲▲ */

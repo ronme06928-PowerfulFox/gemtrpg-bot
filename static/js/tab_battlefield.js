@@ -263,6 +263,9 @@ function renderTokenList() {
     });
 }
 
+// static/js/tab_battlefield.js
+// static/js/tab_battlefield.js
+
 function setupActionColumn(prefix) {
     const actorSelect = document.getElementById(`actor-${prefix}`);
     const targetSelect = document.getElementById(`target-${prefix}`);
@@ -272,37 +275,50 @@ function setupActionColumn(prefix) {
     const powerDisplay = document.getElementById(`power-display-${prefix}`);
     const commandDisplay = document.getElementById(`command-display-${prefix}`);
     const hiddenCommand = document.getElementById(`hidden-command-${prefix}`);
-
     const previewBox = document.getElementById(`skill-preview-${prefix}`);
+
+    // 広域UIの要素取得
+    const wideContainer = document.getElementById('wide-area-container');
+    const wideList = document.getElementById('wide-defenders-list');
+    const wideModeDisplay = document.getElementById('wide-area-mode-display');
+    const executeWideBtn = document.getElementById('execute-wide-action-btn');
 
     if (!actorSelect) return;
 
     function populateSelectors() {
         const currentActor = actorSelect.value;
         const currentTarget = targetSelect.value;
-        actorSelect.innerHTML = '<option value="">-- 使用者 --</option>';
-        targetSelect.innerHTML = '<option value="">-- 対象 --</option>';
+
+        let actorOptions = '<option value="">-- 使用者 --</option>';
+        let targetOptions = '<option value="">-- 対象 --</option>';
 
         battleState.characters.forEach(char => {
             const option = `<option value="${char.id}">${char.name}</option>`;
 
+            // 攻撃側カラムの場合の特殊処理（再回避ロック中のキャラはTargetのみ）
             if (prefix === 'attacker') {
                 const reEvasionBuff = char.special_buffs ? char.special_buffs.find(b => b.name === "再回避ロック") : null;
                 if (reEvasionBuff) {
-                    targetSelect.innerHTML += option;
-                    return;
+                    targetOptions += option;
+                    return; // Actorには追加しない
                 }
             }
 
-            targetSelect.innerHTML += option;
+            targetOptions += option;
 
             if (char.gmOnly && currentUserAttribute !== 'GM') {
+                // GM専用キャラはActorリストには出さない（Targetには出る）
             } else {
-                actorSelect.innerHTML += option;
+                actorOptions += option;
             }
         });
-        actorSelect.value = currentActor;
-        targetSelect.value = currentTarget;
+
+        actorSelect.innerHTML = actorOptions;
+        targetSelect.innerHTML = targetOptions;
+
+        // 選択状態を復元（存在すれば）
+        if (currentActor) actorSelect.value = currentActor;
+        if (currentTarget) targetSelect.value = currentTarget;
     }
 
     function updateSkillDropdown(actorId) {
@@ -340,7 +356,7 @@ function setupActionColumn(prefix) {
         }
     }
 
-    // --- 「威力計算」ボタンのロジック ---
+    // --- 「威力計算」ボタン ---
     if (!generateBtn.dataset.listenerAttached) {
         generateBtn.dataset.listenerAttached = 'true';
         generateBtn.addEventListener('click', () => {
@@ -350,30 +366,14 @@ function setupActionColumn(prefix) {
 
             if (!selectedSkill || !actorId) {
                 powerDisplay.value = 'エラー: 使用者とスキルを指定してください。';
-                commandDisplay.value = "";
-                hiddenCommand.value = "";
-                declareBtn.disabled = true;
-                if(previewBox) previewBox.style.display = 'none';
                 return;
             }
 
             const skillId = selectedSkill.value;
             const customSkillName = selectedSkill.dataset.customName;
-            const actorState = battleState.characters.find(c => c.id === actorId);
 
-            if (!targetId) {
-                targetId = actorId;
-            }
-
-            const targetState = battleState.characters.find(c => c.id === targetId);
-
-            powerDisplay.value = '計算中...';
-            commandDisplay.value = "";
-            hiddenCommand.value = "";
-            declareBtn.disabled = true;
-            generateBtn.disabled = true;
-
-            if(previewBox) previewBox.style.display = 'none';
+            // 広域モードの場合、ターゲットIDは自分自身を入れておく
+            if (!targetId) targetId = actorId;
 
             socket.emit('request_skill_declaration', {
                 room: currentRoomName,
@@ -381,14 +381,12 @@ function setupActionColumn(prefix) {
                 actor_id: actorId,
                 target_id: targetId,
                 skill_id: skillId,
-                custom_skill_name: customSkillName,
-                actor_state: actorState,
-                target_state: targetState
+                custom_skill_name: customSkillName
             });
         });
     }
 
-    // --- 「宣言」ボタンのロジック ---
+    // --- 「宣言」ボタン ---
     if (!declareBtn.dataset.listenerAttached) {
         declareBtn.dataset.listenerAttached = 'true';
         declareBtn.addEventListener('click', () => {
@@ -402,18 +400,12 @@ function setupActionColumn(prefix) {
             commandDisplay.style.borderColor = "#4CAF50";
 
             if (prefix === 'defender') {
-                const actorAttacker = document.getElementById('actor-attacker');
-                const targetAttacker = document.getElementById('target-attacker');
-                actorAttacker.disabled = true;
-                targetAttacker.disabled = true;
-                document.getElementById('skill-attacker').disabled = false;
-                document.getElementById('generate-btn-attacker').disabled = false;
-                document.getElementById('declare-btn-attacker').disabled = true;
+                // 攻撃側のロックはそのまま、対応側の宣言完了
             }
         });
     }
 
-    // --- ドロップダウン変更時のリセットロジック ---
+    // --- UIリセット ---
     const resetUI = () => {
         generateBtn.disabled = false;
         skillSelect.disabled = false;
@@ -421,7 +413,15 @@ function setupActionColumn(prefix) {
         if (prefix === 'attacker') {
             actorSelect.disabled = false;
             targetSelect.disabled = false;
+
+            // 広域UIを閉じて通常UIを戻す
+            if (wideContainer) {
+                wideContainer.style.display = 'none';
+                const defCol = document.getElementById('action-column-defender');
+                if (defCol) defCol.style.display = 'flex';
+            }
         } else {
+            // 対応側は常にロック（攻撃側の操作に追従するため）
             actorSelect.disabled = true;
             targetSelect.disabled = true;
         }
@@ -430,7 +430,6 @@ function setupActionColumn(prefix) {
         commandDisplay.value = "[コマンドプレビュー]";
         hiddenCommand.value = "";
 
-        // (戦慄ペナルティのリセット)
         const senritsuField = document.getElementById(`hidden-senritsu-${prefix}`);
         if (senritsuField) senritsuField.value = "0";
 
@@ -445,16 +444,21 @@ function setupActionColumn(prefix) {
         }
     };
 
+    // --- リスナー設定 ---
     if (!actorSelect.dataset.listenerAttached) {
         actorSelect.dataset.listenerAttached = 'true';
         actorSelect.addEventListener('change', (e) => {
             updateSkillDropdown(e.target.value);
             resetUI();
 
+            // 攻撃側を変更したら、対応側の「対象」も連動させる
             if (prefix === 'attacker') {
                 const defenderTargetSelect = document.getElementById('target-defender');
-                defenderTargetSelect.value = e.target.value;
-                defenderTargetSelect.dispatchEvent(new Event('change'));
+                if (defenderTargetSelect) {
+                    defenderTargetSelect.value = e.target.value;
+                    // 正しくイベントを発火させる
+                    defenderTargetSelect.dispatchEvent(new Event('change'));
+                }
             }
         });
     }
@@ -463,11 +467,18 @@ function setupActionColumn(prefix) {
         targetSelect.dataset.listenerAttached = 'true';
         targetSelect.addEventListener('change', (e) => {
             resetUI();
+
+            // 攻撃側の「対象」を変更したら、対応側の「使用者」も連動させる
             if (prefix === 'attacker') {
                 const targetId = e.target.value;
                 const defenderActorSelect = document.getElementById('actor-defender');
-                defenderActorSelect.value = targetId;
-                defenderActorSelect.dispatchEvent(new Event('change'));
+                if (defenderActorSelect) {
+                    defenderActorSelect.value = targetId;
+                    // 対応側のスキル欄を更新するためにイベント発火は不要だが、内部ロジックを呼ぶ
+                    if (window.defenderCol) {
+                        window.defenderCol.updateSkillDropdown(targetId);
+                    }
+                }
             }
         });
     }
@@ -476,14 +487,209 @@ function setupActionColumn(prefix) {
         skillSelect.dataset.listenerAttached = 'true';
         skillSelect.addEventListener('change', (e) => {
             resetUI();
+
+            // 広域スキルの判定処理
+            if (prefix === 'attacker') {
+                const selectedOption = skillSelect.options[skillSelect.selectedIndex];
+                const skillId = selectedOption.value;
+                if (!skillId) return;
+
+                fetchWithSession(`/get_skill?id=${skillId}`)
+                    .then(res => res.json())
+                    .then(skillData => {
+                        const cat = skillData['分類'] || '';
+                        const dist = skillData['距離'] || '';
+                        const tags = skillData['tags'] || [];
+                        let wideMode = null;
+
+                        if ((cat.includes('広域') && cat.includes('個別')) ||
+                            (dist.includes('広域') && dist.includes('個別')) ||
+                            tags.includes('広域-個別')) {
+                            wideMode = 'individual';
+                        }
+                        else if ((cat.includes('広域') && cat.includes('合算')) ||
+                                 (dist.includes('広域') && dist.includes('合算')) ||
+                                 tags.includes('広域-合算')) {
+                            wideMode = 'combined';
+                        }
+
+                        if (wideMode) {
+                            document.getElementById('action-column-defender').style.display = 'none';
+                            wideContainer.style.display = 'block';
+                            wideModeDisplay.textContent = (wideMode === 'individual') ? '個別 (全員と1回ずつマッチ)' : '合算 (全員の防御値を合計)';
+                            renderWideDefendersList(wideMode);
+                        }
+                    })
+                    .catch(err => console.error("Skill fetch error:", err));
+            }
         });
+    }
+
+    // 広域対象リスト描画関数
+    function renderWideDefendersList(mode) {
+        if (!wideList) return;
+        wideList.innerHTML = '';
+        const actorId = actorSelect.value;
+        const actor = battleState.characters.find(c => c.id === actorId);
+        if (!actor) return;
+
+        const targetType = (actor.type === 'ally') ? 'enemy' : 'ally';
+        const targets = battleState.characters.filter(c => c.type === targetType && c.hp > 0);
+
+        if (targets.length === 0) {
+            wideList.innerHTML = '<div style="padding:10px;">対象となるキャラクターがいません。</div>';
+            executeWideBtn.disabled = true;
+            return;
+        }
+        executeWideBtn.disabled = false;
+
+        targets.forEach((tgt, index) => {
+            const row = document.createElement('div');
+            row.className = 'wide-defender-row';
+            row.dataset.rowId = `wide-row-${tgt.id}`; // 行を特定するためのID
+
+            let skillOptions = '<option value="">(スキルなし / 通常防御)</option>';
+            if (tgt.commands) {
+                const regex = /【(.*?)\s+(.*?)】/g;
+                let match;
+                while ((match = regex.exec(tgt.commands)) !== null) {
+                    const sId = match[1];
+                    const sName = match[2];
+                    skillOptions += `<option value="${sId}">${sId}: ${sName}</option>`;
+                }
+            }
+
+            // UI構築: 名前, スキル選択, ボタン群, 結果表示
+            row.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <label style="font-weight:bold;">${tgt.name}</label>
+                    <span class="wide-status-badge" style="font-size:0.8em; color:#666;">未宣言</span>
+                </div>
+
+                <div style="display:flex; gap:5px; margin-bottom:5px;">
+                    <select class="wide-def-skill-select" data-id="${tgt.id}" style="flex-grow:1; padding:4px; border:1px solid #ccc; border-radius:3px;">
+                        ${skillOptions}
+                    </select>
+                    <button class="wide-calc-btn action-btn" data-id="${tgt.id}" style="font-size:0.8em; padding:2px 8px;">計算</button>
+                    <button class="wide-declare-btn action-btn declare-btn" data-id="${tgt.id}" disabled style="font-size:0.8em; padding:2px 8px;">宣言</button>
+                </div>
+
+                <div class="wide-result-area" style="font-size:0.85em; background:#f9f9f9; padding:4px; border-radius:3px; min-height:1.2em; color:#333;">
+                    [計算待ち]
+                </div>
+
+                <input type="hidden" class="wide-final-command" value="">
+            `;
+            wideList.appendChild(row);
+
+            // --- 個別ボタンのイベント設定 ---
+            const calcBtn = row.querySelector('.wide-calc-btn');
+            const declBtn = row.querySelector('.wide-declare-btn');
+            const skillSel = row.querySelector('.wide-def-skill-select');
+            const resArea = row.querySelector('.wide-result-area');
+            const finalCmdInput = row.querySelector('.wide-final-command');
+            const statusBadge = row.querySelector('.wide-status-badge');
+
+            // 計算ボタン
+            calcBtn.onclick = () => {
+                const sId = skillSel.value;
+                // スキルなしでも計算は可能（通常防御扱いなど）だが、
+                // サーバー側で sId="" の場合の処理が必要。
+                // ここでは request_skill_declaration を再利用する
+
+                resArea.textContent = "計算中...";
+                resArea.style.color = "#333";
+
+                // サーバーへ計算リクエスト
+                // prefixに特殊な識別子をつけて、通常の結果処理とは分ける
+                socket.emit('request_skill_declaration', {
+                    room: currentRoomName,
+                    prefix: `wide-def-${tgt.id}`, // 特殊プレフィックス
+                    actor_id: tgt.id,
+                    target_id: actorId, // 広域攻撃者に対しての防御
+                    skill_id: sId,
+                    custom_skill_name: "" // 必要なら取得
+                });
+            };
+
+            // 宣言ボタン
+            declBtn.onclick = () => {
+                skillSel.disabled = true;
+                calcBtn.disabled = true;
+                declBtn.disabled = true;
+                resArea.style.borderColor = "#4CAF50";
+                resArea.style.fontWeight = "bold";
+                resArea.style.color = "green";
+                statusBadge.textContent = "宣言済";
+                statusBadge.style.color = "green";
+
+                // 行動不能チェックなどはサーバーからのレスポンス時に行うのが理想
+            };
+
+            // スキル変更時はリセット
+            skillSel.onchange = () => {
+                calcBtn.disabled = false;
+                declBtn.disabled = true;
+                resArea.textContent = "[計算待ち]";
+                resArea.style.color = "#333";
+                resArea.style.fontWeight = "normal";
+                statusBadge.textContent = "未宣言";
+                statusBadge.style.color = "#666";
+                finalCmdInput.value = "";
+            };
+        });
+
+        // ... (実行ボタンの処理は後述のステップで修正が必要) ...
+        // ... (一旦既存のままでも動くが、コマンド取得元を変える必要がある) ...
+
+        executeWideBtn.onclick = () => {
+            const actorCmd = document.getElementById('hidden-command-attacker').value;
+            if (!actorCmd) {
+                alert('先に攻撃側の「威力計算」を行い、コマンドを確定させてください。');
+                return;
+            }
+
+            const defenders = [];
+            let allDeclared = true;
+
+            const rows = wideList.querySelectorAll('.wide-defender-row');
+            rows.forEach(r => {
+                const charId = r.querySelector('.wide-def-skill-select').dataset.id;
+                const skillId = r.querySelector('.wide-def-skill-select').value;
+                const finalCmd = r.querySelector('.wide-final-command').value;
+                const isDeclared = r.querySelector('.wide-declare-btn').disabled === true && finalCmd !== "";
+
+                // 必須にするかどうかは運用次第だが、宣言されていない場合は警告する？
+                // ここでは「計算していない場合はスキルIDのみ送ってサーバーで自動計算」という
+                // 以前のロジックと共存させるため、finalCmdがあればそれを使い、なければ空で送る
+
+                defenders.push({
+                    id: charId,
+                    skillId: skillId,
+                    command: finalCmd // サーバー側で優先的にこれを使うように改修が必要
+                });
+            });
+
+            if (confirm(`${mode === 'individual' ? '個別' : '合算'}マッチを実行しますか？`)) {
+                socket.emit('request_wide_match', {
+                    room: currentRoomName,
+                    actorId: actorId,
+                    skillId: skillSelect.value,
+                    mode: mode,
+                    commandActor: actorCmd,
+                    defenders: defenders
+                });
+
+                resetUI();
+                actorSelect.value = "";
+                actorSelect.dispatchEvent(new Event('change'));
+            }
+        };
     }
 
     populateSelectors();
     return { populateSelectors, updateSkillDropdown };
 }
-
-
 
 
 function renderTimeline() {
@@ -723,6 +929,35 @@ function setupBattlefieldTab() {
     socket.off('skill_declaration_result');
     socket.on('skill_declaration_result', (data) => {
         const prefix = data.prefix;
+
+        // === ▼▼▼ 追加: 広域防御用の処理分岐 ▼▼▼
+        // prefix が "wide-def-" で始まる場合（広域防御の個別計算）
+        if (prefix && prefix.startsWith('wide-def-')) {
+            const charId = prefix.replace('wide-def-', '');
+            // 該当する行を探す
+            const row = document.querySelector(`.wide-defender-row[data-row-id="wide-row-${charId}"]`);
+            if (row) {
+                const resArea = row.querySelector('.wide-result-area');
+                const declBtn = row.querySelector('.wide-declare-btn');
+                const finalCmdInput = row.querySelector('.wide-final-command');
+
+                if (data.error) {
+                    resArea.textContent = data.final_command; // エラーメッセージ
+                    resArea.style.color = "red";
+                    declBtn.disabled = true;
+                } else {
+                    // 成功時: 結果を表示し、隠しフィールドにコマンドを保存
+                    resArea.textContent = `威力: ${data.min_damage}～${data.max_damage} (${data.final_command})`;
+                    resArea.style.color = "blue";
+                    finalCmdInput.value = data.final_command;
+                    declBtn.disabled = false; // 宣言ボタンを有効化
+                }
+            }
+            return; // ここで処理終了（下の通常処理には行かせない）
+        }
+        // === ▲▲▲ 追加ここまで ▲▲▲
+
+        // --- 以下、既存の通常処理 (攻撃側・対応側パネル用) ---
         const powerDisplay = document.getElementById(`power-display-${prefix}`);
         const commandDisplay = document.getElementById(`command-display-${prefix}`);
         const hiddenCommand = document.getElementById(`hidden-command-${prefix}`);
@@ -804,7 +1039,7 @@ function setupBattlefieldTab() {
         }
 
         if (data.is_instant_action) {
-             resetAllActionUI();
+            resetAllActionUI();
         }
     });
 
@@ -851,8 +1086,9 @@ function setupBattlefieldTab() {
         if (battleStartBtn && !battleStartBtn.dataset.listenerAttached) {
             battleStartBtn.dataset.listenerAttached = 'true';
             battleStartBtn.addEventListener('click', () => {
-                resetAllActionUI();
-                selectNextActor();
+                // ▼▼▼ 修正: モーダルを開くように変更 ▼▼▼
+                openWideDeclarationModal();
+                // ▲▲▲ 修正ここまで ▲▲▲
             });
         }
         if (combatNextBtn && !combatNextBtn.dataset.listenerAttached) {
@@ -1011,4 +1247,99 @@ function setupBattlefieldTab() {
             });
         }
     }
+}
+
+
+// === ▼▼▼ 追加: 広域スキル宣言モーダル ▼▼▼
+function openWideDeclarationModal() {
+    const existing = document.getElementById('wide-decl-modal-backdrop');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'wide-decl-modal-backdrop';
+    overlay.className = 'modal-backdrop';
+
+    let allyHtml = '';
+    let enemyHtml = '';
+
+    battleState.characters.forEach(char => {
+        if (char.hp <= 0) return;
+
+        const html = `
+            <label style="display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #eee; cursor: pointer;">
+                <input type="checkbox" class="wide-decl-checkbox" value="${char.id}" style="margin-right: 10px; transform: scale(1.2);">
+                <span style="font-weight: bold; color: ${char.color}; margin-right: 10px;">${char.name}</span>
+                <span style="margin-left: auto; font-size: 0.85em; color: #666;">速度: ${char.speedRoll}</span>
+            </label>
+        `;
+        if (char.type === 'ally') allyHtml += html;
+        else enemyHtml += html;
+    });
+
+    const content = `
+        <div class="modal-content" style="width: 600px; padding: 25px; max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0; border-bottom: 2px solid #007bff; padding-bottom: 10px; color: #0056b3;">
+                ⚡ 広域スキル使用宣言
+            </h3>
+            <p style="font-size: 0.9em; color: #555; margin-bottom: 20px;">
+                このラウンドで<strong>広域スキル</strong>を使用するキャラクターを選択してください。<br>
+                選択されたキャラクターは、通常の速度順よりも優先して行動します。
+            </p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; overflow-y: auto; flex-grow: 1; margin-bottom: 20px;">
+                <div>
+                    <h4 style="margin: 5px 0; color: #007bff; border-bottom: 1px solid #eee;">味方</h4>
+                    <div style="background: #fdfdfd; border: 1px solid #ddd; border-radius: 4px;">
+                        ${allyHtml || '<div style="padding:10px; color:#999;">なし</div>'}
+                    </div>
+                </div>
+                <div>
+                    <h4 style="margin: 5px 0; color: #dc3545; border-bottom: 1px solid #eee;">敵</h4>
+                    <div style="background: #fdfdfd; border: 1px solid #ddd; border-radius: 4px;">
+                        ${enemyHtml || '<div style="padding:10px; color:#999;">なし</div>'}
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align: right; display: flex; justify-content: flex-end; gap: 10px;">
+                <button id="cancel-decl-btn" style="padding: 10px 20px; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer;">キャンセル</button>
+                <button id="confirm-decl-btn" style="padding: 10px 20px; border: none; background: #007bff; color: white; font-weight: bold; border-radius: 4px; cursor: pointer;">
+                    決定して戦闘開始
+                </button>
+            </div>
+        </div>
+    `;
+
+    overlay.innerHTML = content;
+    document.body.appendChild(overlay);
+
+    const closeFunc = () => overlay.remove();
+    document.getElementById('cancel-decl-btn').onclick = closeFunc;
+
+    document.getElementById('confirm-decl-btn').onclick = () => {
+        const checkboxes = overlay.querySelectorAll('.wide-decl-checkbox');
+        const selectedIds = [];
+        checkboxes.forEach(cb => {
+            if (cb.checked) selectedIds.push(cb.value);
+        });
+
+        socket.emit('request_declare_wide_skill_users', {
+            room: currentRoomName,
+            wideUserIds: selectedIds
+        });
+
+        // 少し待ってから次の行動者を自動選択
+        setTimeout(() => {
+            closeFunc();
+            // ソート反映待ち
+            setTimeout(() => {
+                const actorSelect = document.getElementById('actor-attacker');
+                const firstChar = battleState.characters[0];
+                if (firstChar && !firstChar.hasActed) {
+                    actorSelect.value = firstChar.id;
+                    actorSelect.dispatchEvent(new Event('change'));
+                }
+            }, 500);
+        }, 100);
+    };
 }
