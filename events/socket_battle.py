@@ -17,8 +17,35 @@ from manager.game_logic import (
 )
 from manager.utils import resolve_placeholders
 
+# --- ヘルパー関数: スキル名表示用のHTML生成 (コマンドから抽出版) ---
+def format_skill_display_from_command(command_str, skill_id, skill_data):
+    """
+    コマンド文字列に含まれる【ID 名称】を抽出して目立つ色で表示する。
+    コマンド内に見つからない場合はマスタデータから生成する。
+    """
+    # コマンド内の 【...】 を探す
+    match = re.search(r'【(.*?)】', command_str)
+    text = ""
+
+    if match:
+        # コマンド内の表記をそのまま使う (カスタム名が含まれている)
+        text = f"【{match.group(1)}】"
+    elif skill_id and skill_data:
+        # マスタデータから補完
+        name = skill_data.get('デフォルト名称', '不明')
+        text = f"【{skill_id}: {name}】"
+    else:
+        return ""
+
+    # 視認性が高い色（濃いピンク/マゼンタ系）で太字にする
+    return f"<span style='color: #d63384; font-weight: bold;'>{text}</span>"
+
 @socketio.on('request_skill_declaration')
 def handle_skill_declaration(data):
+    """
+    (★フェーズ5 修正★) 「混乱」状態のチェックを追加
+    (★戦慄修正★) 戦慄によるペナルティ計算を修正
+    """
     room = data.get('room')
     if not room: return
 
@@ -32,7 +59,6 @@ def handle_skill_declaration(data):
     custom_skill_name = data.get('custom_skill_name')
 
     if not actor_id or not skill_id:
-        # print("⚠️ Skill declaration missing actor_id or skill_id")
         return
 
     state = get_room_state(room)
@@ -44,7 +70,6 @@ def handle_skill_declaration(data):
         target_char = next((c for c in state["characters"] if c.get('id') == target_id), None)
 
     if not actor_char or not skill_data:
-        # print("⚠️ Skill declaration invalid actor/skill")
         return
 
     # === ▼▼▼ 修正点 (混乱チェック) ▼▼▼ ===
@@ -156,7 +181,6 @@ def handle_skill_declaration(data):
         return
 
     if not target_char:
-        # print("⚠️ Skill declaration (match) missing target")
         socketio.emit('skill_declaration_result', {
             "prefix": data.get('prefix'),
             "final_command": "エラー: マッチには「対象」が必要です",
@@ -251,10 +275,7 @@ def handle_skill_declaration(data):
         "max_damage": max_damage,
         "is_instant_action": is_instant_action,
         "skill_details": skill_details_payload,
-
-        # === ▼▼▼ 追加: ペナルティ値をクライアントへ送る ▼▼▼
         "senritsu_penalty": senritsu_penalty
-        # === ▲▲▲ 追加ここまで ▲▲▲
     }, to=request.sid)
 
 
@@ -297,7 +318,7 @@ def handle_match(data):
             total = 0
         return {"total": total, "details": details_str}
 
-    # --- 1. スキルデータとコスト消費 (変更なし) ---
+    # --- 1. スキルデータとコスト消費 ---
     global all_skill_data
     skill_data_a = None
     skill_data_d = None
@@ -698,7 +719,11 @@ def handle_match(data):
     # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ メインロジック ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     # ==================================================================
 
-    match_log = f"<strong>{actor_name_a}</strong> (<span class='dice-result-total'>{result_a['total']}</span>) vs <strong>{actor_name_d}</strong> (<span class='dice-result-total'>{result_d['total']}</span>) | {winner_message} {damage_message}"
+    # ★ 修正: スキル名とIDを表示
+    skill_display_a = format_skill_display_from_command(command_a, skill_id_a, skill_data_a)
+    skill_display_d = format_skill_display_from_command(command_d, skill_id_d, skill_data_d)
+
+    match_log = f"<strong>{actor_name_a}</strong> {skill_display_a} (<span class='dice-result-total'>{result_a['total']}</span>) vs <strong>{actor_name_d}</strong> {skill_display_d} (<span class='dice-result-total'>{result_d['total']}</span>) | {winner_message} {damage_message}"
 
     broadcast_log(room, match_log, 'match')
     broadcast_state_update(room)
@@ -999,6 +1024,7 @@ def handle_declare_wide_skill_users(data):
     save_specific_room_state(room)
 
 #広域マッチの実行処理
+# ▼▼▼ handle_wide_match 全文 ▼▼▼
 @socketio.on('request_wide_match')
 def handle_wide_match(data):
     room = data.get('room')
@@ -1112,15 +1138,28 @@ def handle_wide_match(data):
                 effects_d = json.loads(d_skill.get('特記処理', '{}')).get("effects", [])
             except: pass
 
-        timing_a = "HIT" if winner_side == 'attacker' else "LOSE"
-        timing_d = "LOSE" if winner_side == 'attacker' else "WIN"
+        total_bonus_dmg = 0
+        all_logs = []
+        all_changes = []
 
-        dmg_a, log_a, chg_a = process_skill_effects(effects_a, timing_a, a_char, d_char, d_skill)
-        dmg_d, log_d, chg_d = process_skill_effects(effects_d, timing_d, d_char, a_char, a_skill)
+        # 処理実行用ヘルパー
+        def run_proc(effs, timing, actor, target, skill):
+            d, l, c = process_skill_effects(effs, timing, actor, target, skill)
+            nonlocal total_bonus_dmg
+            total_bonus_dmg += d
+            all_logs.extend(l)
+            all_changes.extend(c)
 
-        total_bonus_dmg = dmg_a + dmg_d
-        all_logs = log_a + log_d
-        all_changes = chg_a + chg_d
+        if winner_side == 'attacker':
+            # 攻撃側勝利: A(HIT, WIN), D(LOSE)
+            run_proc(effects_a, "HIT", a_char, d_char, d_skill)
+            run_proc(effects_a, "WIN", a_char, d_char, d_skill)
+            run_proc(effects_d, "LOSE", d_char, a_char, a_skill)
+        else:
+            # 防御側勝利: A(LOSE), D(HIT, WIN)
+            run_proc(effects_a, "LOSE", a_char, d_char, d_skill)
+            run_proc(effects_d, "HIT", d_char, a_char, a_skill)
+            run_proc(effects_d, "WIN", d_char, a_char, a_skill)
 
         extra_dmg_val = 0
         for (char, type, name, value) in all_changes:
@@ -1184,7 +1223,10 @@ def handle_wide_match(data):
     actor_char['used_skills_this_round'].append(skill_id)
 
     mode_text = "広域-個別" if mode == 'individual' else "広域-合算"
-    broadcast_log(room, f"⚔️ <strong>{actor_name}</strong> の【{mode_text}】攻撃！ (出目: {actor_power})", 'match')
+
+    # ★ 修正: 攻撃側のスキル表示（コマンドから抽出）
+    skill_display_actor = format_skill_display_from_command(command_actor, skill_id, skill_data_actor)
+    broadcast_log(room, f"⚔️ <strong>{actor_name}</strong> {skill_display_actor} の【{mode_text}】攻撃！ (出目: {actor_power})", 'match')
 
     # === 広域-個別 (Individual) ===
     if mode == 'individual':
@@ -1212,7 +1254,7 @@ def handle_wide_match(data):
             result_target = roll(d_cmd)
             target_power = result_target['total']
 
-            # 防御コスト消費 (共通)
+            # 防御コスト消費
             if skill_data_target:
                 try:
                     rd = json.loads(skill_data_target.get('特記処理', '{}'))
@@ -1236,7 +1278,11 @@ def handle_wide_match(data):
             d_tags = skill_data_target.get("tags", []) if skill_data_target else []
             d_cat = skill_data_target.get("分類", "") if skill_data_target else ""
 
+            # ★ 修正: 防御側スキル表示（コマンドから抽出）
+            skill_display_target = format_skill_display_from_command(d_cmd, d_skill_id, skill_data_target)
+
             if actor_power > target_power:
+                # 攻撃側勝利
                 grant_win_fp(actor_char)
                 base_dmg = actor_power
 
@@ -1255,13 +1301,35 @@ def handle_wide_match(data):
                     msg += " (混乱x1.5)"
 
                 _update_char_stat(room, target_char, 'HP', target_char['hp'] - final_dmg, username=username)
-                broadcast_log(room, f"➡ vs {target_char['name']} ({target_power}): 命中！ {final_dmg}ダメージ {msg} {' '.join(logs)}", 'match')
+                broadcast_log(room, f"➡ vs {target_char['name']} {skill_display_target} ({target_power}): 命中！ {final_dmg}ダメージ {msg} {' '.join(logs)}", 'match')
 
             else:
+                # 防御側勝利 (反撃あり)
                 grant_win_fp(target_char)
-                msg = "(回避成功)" if ("守備" in d_tags and d_cat == "回避") else "(防いだ)"
-                _, logs = apply_skill_effects_bidirectional('defender', actor_char, target_char, skill_data_actor, skill_data_target, 0)
-                broadcast_log(room, f"➡ vs {target_char['name']} ({target_power}): {msg} {' '.join(logs)}", 'match')
+                base_dmg = 0
+                msg = ""
+
+                if "守備" in d_tags:
+                    base_dmg = 0
+                    msg = "(回避成功)" if ("守備" in d_tags and d_cat == "回避") else "(防いだ)"
+                else:
+                    base_dmg = target_power
+                    msg = "(反撃)"
+
+                bonus, logs = apply_skill_effects_bidirectional('defender', actor_char, target_char, skill_data_actor, skill_data_target, base_dmg)
+                final_dmg = base_dmg + bonus
+
+                if any(b.get('name') == "混乱" for b in target_char.get('special_buffs', [])):
+                    final_dmg = int(final_dmg * 1.5)
+                    msg += "(混乱x1.5)"
+
+                if final_dmg > 0:
+                    _update_char_stat(room, actor_char, 'HP', actor_char['hp'] - final_dmg, username="[反撃]")
+                    msg += f" {final_dmg}ダメージ"
+                else:
+                    msg += " (ダメージなし)"
+
+                broadcast_log(room, f"➡ vs {target_char['name']} {skill_display_target} ({target_power}): {msg} {' '.join(logs)}", 'match')
 
     # === 広域-合算 (Combined) ===
     elif mode == 'combined':
@@ -1285,7 +1353,6 @@ def handle_wide_match(data):
             d_skill_id = defender_info.get('skillId')
             d_cmd_from_client = defender_info.get('command')
 
-            # コマンド決定
             if d_cmd_from_client:
                 d_cmd = d_cmd_from_client
                 skill_data_target = all_skill_data.get(d_skill_id)
@@ -1316,7 +1383,10 @@ def handle_wide_match(data):
 
             res = roll(d_cmd)
             total_def_power += res['total']
-            defenders_results.append(f"{target_char['name']}({res['total']})")
+
+            # ★ 修正: 合算ログ用スキル表示
+            skill_display_target = format_skill_display_from_command(d_cmd, d_skill_id, skill_data_target)
+            defenders_results.append(f"{target_char['name']}{skill_display_target}({res['total']})")
 
         broadcast_log(room, f"🛡️ 防御側合計: {total_def_power} [{', '.join(defenders_results)}]", 'info')
 
@@ -1344,7 +1414,7 @@ def handle_wide_match(data):
                     broadcast_log(room, f"➡ {target_char['name']}に追加効果: {msg}", 'match')
 
         else:
-            # 防御側勝利 (▼▼▼ 修正箇所 ▼▼▼)
+            # 防御側勝利 (差分反撃)
             diff_dmg = total_def_power - actor_power
 
             msg = f"🛡️ 防御成功！ (攻撃 {actor_power} vs 防御 {total_def_power})"
@@ -1364,4 +1434,3 @@ def handle_wide_match(data):
 
     broadcast_state_update(room)
     save_specific_room_state(room)
-

@@ -140,6 +140,17 @@ def get_skill():
     skill_id = request.args.get('id')
     return jsonify(all_skill_data.get(skill_id, {}))
 
+@app.route('/api/get_skill_metadata', methods=['GET'])
+def get_skill_metadata():
+    metadata = {}
+    for sid, data in all_skill_data.items():
+        metadata[sid] = {
+            "tags": data.get("tags", []),
+            "category": data.get("分類", ""),
+            "distance": data.get("距離", "")
+        }
+    return jsonify(metadata)
+
 
 # ==========================================
 #  Main Execution

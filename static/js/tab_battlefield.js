@@ -1,6 +1,20 @@
 // --- 8. バトルフィールドタブ ---
 
 let currentLogFilter = 'all';
+let globalSkillMetadata = {};
+
+// スキルメタデータを取得してキャッシュする
+async function fetchSkillMetadata() {
+    try {
+        const response = await fetchWithSession('/api/get_skill_metadata');
+        if (response.ok) {
+            globalSkillMetadata = await response.json();
+            console.log("Skill metadata loaded:", Object.keys(globalSkillMetadata).length);
+        }
+    } catch (e) {
+        console.warn("Failed to load skill metadata:", e);
+    }
+}
 
 function loadCharacterFromJSON(type, jsonString, resultElement) {
     // (この関数は変更なし)
@@ -341,6 +355,26 @@ function setupActionColumn(prefix) {
                 continue;
             }
 
+            // === ▼▼▼ 修正: 対応側(defender)の場合、広域スキルを選択肢から除外 ▼▼▼
+            if (prefix === 'defender') {
+                const meta = globalSkillMetadata[skillId];
+                // メタデータがある場合のみ判定（ロード前は表示されるが、通常はロード済み）
+                if (meta) {
+                    const cat = meta.category || "";
+                    const dist = meta.distance || "";
+                    const tags = meta.tags || [];
+
+                    // 広域タグ/分類/距離が含まれていればリストに追加しない
+                    if (
+                        cat.includes("広域") || dist.includes("広域") ||
+                        tags.includes("広域-個別") || tags.includes("広域-合算")
+                    ) {
+                        continue;
+                    }
+                }
+            }
+            // === ▲▲▲ 修正ここまで ▲▲▲
+
             const option = document.createElement('option');
             option.value = skillId;
             option.textContent = `${skillId}: ${customName}`;
@@ -352,7 +386,7 @@ function setupActionColumn(prefix) {
             skillSelect.value = reEvasionBuff.skill_id;
             skillSelect.disabled = true;
         } else {
-             skillSelect.disabled = false;
+            skillSelect.disabled = false;
         }
     }
 
@@ -525,7 +559,7 @@ function setupActionColumn(prefix) {
         });
     }
 
-    // 広域対象リスト描画関数
+// === ▼▼▼ 修正: 広域対象リスト描画関数 (広域スキル除外対応版) ▼▼▼
     function renderWideDefendersList(mode) {
         if (!wideList) return;
         wideList.innerHTML = '';
@@ -546,7 +580,7 @@ function setupActionColumn(prefix) {
         targets.forEach((tgt, index) => {
             const row = document.createElement('div');
             row.className = 'wide-defender-row';
-            row.dataset.rowId = `wide-row-${tgt.id}`; // 行を特定するためのID
+            row.dataset.rowId = `wide-row-${tgt.id}`;
 
             let skillOptions = '<option value="">(スキルなし / 通常防御)</option>';
             if (tgt.commands) {
@@ -555,11 +589,30 @@ function setupActionColumn(prefix) {
                 while ((match = regex.exec(tgt.commands)) !== null) {
                     const sId = match[1];
                     const sName = match[2];
+
+                    // ▼▼▼ 追加: 広域スキルの除外判定 ▼▼▼
+                    let isWide = false;
+                    const meta = globalSkillMetadata[sId];
+                    if (meta) {
+                        const cat = meta.category || "";
+                        const dist = meta.distance || "";
+                        const tags = meta.tags || [];
+                        if (
+                            cat.includes("広域") || dist.includes("広域") ||
+                            tags.includes("広域-個別") || tags.includes("広域-合算")
+                        ) {
+                            isWide = true;
+                        }
+                    }
+                    // 広域スキルならリストに追加しない
+                    if (isWide) continue;
+                    // ▲▲▲ 追加ここまで ▲▲▲
+
                     skillOptions += `<option value="${sId}">${sId}: ${sName}</option>`;
                 }
             }
 
-            // UI構築: 名前, スキル選択, ボタン群, 結果表示
+            // UI構築 (既存のまま)
             row.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                     <label style="font-weight:bold;">${tgt.name}</label>
@@ -582,7 +635,7 @@ function setupActionColumn(prefix) {
             `;
             wideList.appendChild(row);
 
-            // --- 個別ボタンのイベント設定 ---
+            // --- イベント設定 (既存のまま) ---
             const calcBtn = row.querySelector('.wide-calc-btn');
             const declBtn = row.querySelector('.wide-declare-btn');
             const skillSel = row.querySelector('.wide-def-skill-select');
@@ -590,29 +643,20 @@ function setupActionColumn(prefix) {
             const finalCmdInput = row.querySelector('.wide-final-command');
             const statusBadge = row.querySelector('.wide-status-badge');
 
-            // 計算ボタン
             calcBtn.onclick = () => {
                 const sId = skillSel.value;
-                // スキルなしでも計算は可能（通常防御扱いなど）だが、
-                // サーバー側で sId="" の場合の処理が必要。
-                // ここでは request_skill_declaration を再利用する
-
                 resArea.textContent = "計算中...";
                 resArea.style.color = "#333";
-
-                // サーバーへ計算リクエスト
-                // prefixに特殊な識別子をつけて、通常の結果処理とは分ける
                 socket.emit('request_skill_declaration', {
                     room: currentRoomName,
-                    prefix: `wide-def-${tgt.id}`, // 特殊プレフィックス
+                    prefix: `wide-def-${tgt.id}`,
                     actor_id: tgt.id,
-                    target_id: actorId, // 広域攻撃者に対しての防御
+                    target_id: actorId,
                     skill_id: sId,
-                    custom_skill_name: "" // 必要なら取得
+                    custom_skill_name: ""
                 });
             };
 
-            // 宣言ボタン
             declBtn.onclick = () => {
                 skillSel.disabled = true;
                 calcBtn.disabled = true;
@@ -622,11 +666,8 @@ function setupActionColumn(prefix) {
                 resArea.style.color = "green";
                 statusBadge.textContent = "宣言済";
                 statusBadge.style.color = "green";
-
-                // 行動不能チェックなどはサーバーからのレスポンス時に行うのが理想
             };
 
-            // スキル変更時はリセット
             skillSel.onchange = () => {
                 calcBtn.disabled = false;
                 declBtn.disabled = true;
@@ -639,9 +680,7 @@ function setupActionColumn(prefix) {
             };
         });
 
-        // ... (実行ボタンの処理は後述のステップで修正が必要) ...
-        // ... (一旦既存のままでも動くが、コマンド取得元を変える必要がある) ...
-
+        // 実行ボタン (既存のまま)
         executeWideBtn.onclick = () => {
             const actorCmd = document.getElementById('hidden-command-attacker').value;
             if (!actorCmd) {
@@ -650,23 +689,15 @@ function setupActionColumn(prefix) {
             }
 
             const defenders = [];
-            let allDeclared = true;
-
             const rows = wideList.querySelectorAll('.wide-defender-row');
             rows.forEach(r => {
                 const charId = r.querySelector('.wide-def-skill-select').dataset.id;
                 const skillId = r.querySelector('.wide-def-skill-select').value;
                 const finalCmd = r.querySelector('.wide-final-command').value;
-                const isDeclared = r.querySelector('.wide-declare-btn').disabled === true && finalCmd !== "";
-
-                // 必須にするかどうかは運用次第だが、宣言されていない場合は警告する？
-                // ここでは「計算していない場合はスキルIDのみ送ってサーバーで自動計算」という
-                // 以前のロジックと共存させるため、finalCmdがあればそれを使い、なければ空で送る
-
                 defenders.push({
                     id: charId,
                     skillId: skillId,
-                    command: finalCmd // サーバー側で優先的にこれを使うように改修が必要
+                    command: finalCmd
                 });
             });
 
@@ -679,7 +710,6 @@ function setupActionColumn(prefix) {
                     commandActor: actorCmd,
                     defenders: defenders
                 });
-
                 resetUI();
                 actorSelect.value = "";
                 actorSelect.dispatchEvent(new Event('change'));
@@ -1342,4 +1372,8 @@ function openWideDeclarationModal() {
             }, 500);
         }, 100);
     };
+}
+
+if (typeof fetchSkillMetadata === "function") {
+    fetchSkillMetadata();
 }
