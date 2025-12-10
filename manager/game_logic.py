@@ -1,8 +1,8 @@
+# manager/game_logic.py
 import sys
-# utils から共通関数をインポート (app.pyでも使うため分離しました)
-from utils import get_status_value, set_status_value, apply_buff, remove_buff
+from manager.utils import get_status_value, set_status_value, apply_buff, remove_buff
 
-# プラグインシステム
+# プラグインシステム (pluginsフォルダはルートにあるのでそのままでOK)
 from plugins import EFFECT_REGISTRY
 
 def _get_value_for_condition(source_obj, param_name):

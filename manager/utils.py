@@ -1,3 +1,7 @@
+import re
+from functools import wraps
+from flask import jsonify, session
+
 def get_status_value(char_obj, status_name):
     """キャラクターから特定のステータス値を取得する"""
     if not char_obj: return 0
@@ -59,3 +63,25 @@ def remove_buff(char_obj, buff_name):
     """バフを削除する"""
     if not char_obj or 'special_buffs' not in char_obj: return
     char_obj['special_buffs'] = [b for b in char_obj['special_buffs'] if b.get('name') != buff_name]
+
+# --- 4. ヘルパー関数 ---
+
+def session_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            return jsonify({"error": "認証が必要です。"}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+def resolve_placeholders(command_str, params_list):
+    params_dict = {p.get('label'): p.get('value') for p in params_list}
+    def replacer(match):
+        num_dice = match.group(1)
+        param_name = match.group(2)
+        param_value = params_dict.get(param_name)
+        if param_value:
+            return f"{num_dice}d{param_value}"
+        else:
+            return f"{num_dice}d0"
+    return re.sub(r'(\d+)d\{(.*?)\}', replacer, command_str)

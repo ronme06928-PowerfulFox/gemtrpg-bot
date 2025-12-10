@@ -1,6 +1,6 @@
 # plugins/standard.py
 from .base import BaseEffect
-from utils import get_status_value, set_status_value
+from manager.utils import get_status_value, set_status_value
 
 class BleedOverflowEffect(BaseEffect):
     def apply(self, actor, target, params, context):

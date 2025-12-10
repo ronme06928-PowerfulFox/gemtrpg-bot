@@ -1,9 +1,13 @@
+# manager/data_manager.py
 import gspread
 import json
 import os
 import sys
 from dotenv import load_dotenv
-from models import db, Room
+
+# ★ extensions から db と all_skill_data をインポートするように変更
+from extensions import db, all_skill_data
+from models import Room
 
 # .env ファイルをロード
 load_dotenv()
@@ -17,8 +21,6 @@ SKILL_CACHE_FILE = 'skills_cache.json'
 TOC_WORKSHEET_NAME = '参照リスト'
 SHEETS_TO_SKIP = ['参照リスト', 'スキル検索']
 
-# --- グローバル変数 ---
-all_skill_data = {}
 
 def get_gspread_client():
     """環境変数またはファイルパスから認証してクライアントを返す"""
@@ -58,12 +60,17 @@ def fetch_and_save_sheets_data():
         print(f"❌ 目次読み込みエラー: {e}")
         return False
 
-    global all_skill_data
-    all_skill_data = {}
+    # === ▼▼▼ 修正: グローバル変数を上書きせず、辞書の中身を更新する ▼▼▼
+    # global all_skill_data  <-- 不要なので削除しても良いですが、念のため残すなら以下のように操作
+    # all_skill_data = {}    <-- これがNG（参照が切れる）
+
+    # 一時的な辞書にデータを集める
+    temp_skill_data = {}
     total_skills_processed = 0
 
     for sheet_name in sheets_to_process:
         try:
+            # ... (中略: データの取得ロジックはそのまま) ...
             print(f"    ... 処理中: '{sheet_name}'")
             worksheet = sh.worksheet(sheet_name)
 
@@ -94,7 +101,8 @@ def fetch_and_save_sheets_data():
                         if "[即時発動]" in effect_text:
                             tags_list.append("即時発動")
 
-                    all_skill_data[skill_id] = {
+                    # temp_skill_data に格納
+                    temp_skill_data[skill_id] = {
                         'スキルID': skill_id,
                         'チャットパレット': row[1],
                         'デフォルト名称': row[2],
@@ -116,6 +124,11 @@ def fetch_and_save_sheets_data():
         except Exception as e:
             print(f"❌ タブ '{sheet_name}' エラー: {e}")
 
+    # 最後に本物の all_skill_data を更新
+    all_skill_data.clear()
+    all_skill_data.update(temp_skill_data)
+    # === ▲▲▲ 修正ここまで ▲▲▲
+
     try:
         with open(SKILL_CACHE_FILE, 'w', encoding='utf-8') as f:
             json.dump(all_skill_data, f, ensure_ascii=False, indent=2)
@@ -126,13 +139,18 @@ def fetch_and_save_sheets_data():
         return False
 
 def load_skills_from_cache():
-    global all_skill_data
     if not os.path.exists(SKILL_CACHE_FILE):
         print(f"Cache not found.")
         return None
     try:
         with open(SKILL_CACHE_FILE, 'r', encoding='utf-8') as f:
-            all_skill_data = json.load(f)
+            data = json.load(f)
+
+            # === ▼▼▼ 修正: 辞書の中身を更新する ▼▼▼
+            all_skill_data.clear()
+            all_skill_data.update(data)
+            # === ▲▲▲ 修正ここまで ▲▲▲
+
         return all_skill_data
     except Exception as e:
         print(f"Cache load error: {e}")
@@ -194,3 +212,26 @@ if __name__ == '__main__':
         else:
             print("--- エラーが発生しました ---")
             sys.exit(1)
+
+# データベースとキャッシュの初期化を行う関数
+def init_app_data():
+        # 1. DBテーブル作成
+        db.create_all()
+        print("✅ Database tables checked/created.")
+
+        # 2. スキルデータの読み込み
+        global all_skill_data
+        print("--- Initializing Data ---")
+        all_skill_data = load_skills_from_cache()
+
+        if not all_skill_data:
+            print("Cache not found or empty. Fetching from Google Sheets...")
+            try:
+                # スプレッドシート読み込み
+                fetch_and_save_sheets_data()
+                all_skill_data = load_skills_from_cache()
+                print(f"✅ Data loaded: {len(all_skill_data) if all_skill_data else 0} skills.")
+            except Exception as e:
+                print(f"❌ Error during initial fetch: {e}")
+        else:
+            print(f"✅ Data loaded from cache: {len(all_skill_data)} skills.")

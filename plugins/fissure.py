@@ -1,6 +1,6 @@
 # plugins/fissure.py
 from .base import BaseEffect
-from utils import get_status_value, set_status_value
+from manager.utils import get_status_value, set_status_value
 
 class FissureEffect(BaseEffect):
     def __init__(self, mode="trigger"):

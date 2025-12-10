@@ -1,9 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import JSONB
 import json
-
-# SQLAlchemyのインスタンス作成
-db = SQLAlchemy()
+from extensions import db
 
 class Room(db.Model):
     """
