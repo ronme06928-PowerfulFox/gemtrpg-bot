@@ -745,6 +745,96 @@ function renderTimeline() {
     });
 }
 
+// static/js/tab_battlefield.js 内の関数
+
+// === ▼▼▼ 修正: キャラクター設定モーダル (所有者表示追加) ▼▼▼
+function openCharSettingsModal(charId) {
+    const char = battleState.characters.find(c => c.id === charId);
+    if (!char) return;
+
+    const existing = document.getElementById('char-settings-modal-backdrop');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'char-settings-modal-backdrop';
+    overlay.className = 'modal-backdrop';
+
+    // 所有者情報の表示 (データがない場合は「不明」)
+    const ownerName = char.owner || "不明";
+
+    overlay.innerHTML = `
+        <div class="modal-content" style="width: 400px; padding: 20px;">
+            <h3 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                ${char.name} の設定
+            </h3>
+
+            <div style="margin-bottom: 15px; padding: 10px; background: #eef5ff; border: 1px solid #cce5ff; border-radius: 4px; color: #004085;">
+                <span style="font-weight:bold;">所有者:</span> ${ownerName}
+            </div>
+
+            <label style="display:block; margin-bottom:10px; font-weight:bold;">
+                キャラクター名:
+                <input type="text" id="edit-char-name" value="${char.baseName}" style="width:100%; padding: 5px; margin-top: 5px;">
+            </label>
+
+            <label style="display:flex; align-items:center; margin-bottom:20px; cursor:pointer;">
+                <input type="checkbox" id="edit-char-gm-only" ${char.gmOnly ? 'checked' : ''} style="transform: scale(1.2); margin-right: 8px;">
+                GMのみ操作可能にする
+            </label>
+
+            <div style="text-align: right; display: flex; justify-content: flex-end; gap: 10px;">
+                <button id="cancel-settings-btn" style="padding: 8px 16px; cursor: pointer;">キャンセル</button>
+                <button id="save-settings-btn" class="primary-btn" style="padding: 8px 16px; cursor: pointer;">保存</button>
+            </div>
+
+            <hr style="margin: 20px 0;">
+            <button id="delete-char-btn" style="background:#dc3545; color:white; border:none; padding:10px; border-radius:4px; width:100%; cursor: pointer; font-weight:bold;">
+                🗑️ キャラクターを削除する
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    document.getElementById('cancel-settings-btn').onclick = () => overlay.remove();
+
+    document.getElementById('save-settings-btn').onclick = () => {
+        const newName = document.getElementById('edit-char-name').value;
+        const newGmOnly = document.getElementById('edit-char-gm-only').checked;
+
+        // 名前変更
+        if (newName && newName !== char.baseName) {
+            socket.emit('request_state_update', {
+                room: currentRoomName,
+                charId: char.id,
+                changes: { baseName: newName }
+            });
+        }
+
+        // 権限設定変更
+        if (newGmOnly !== char.gmOnly) {
+            socket.emit('request_state_update', {
+                room: currentRoomName,
+                charId: char.id,
+                statName: 'gmOnly',
+                newValue: newGmOnly
+            });
+        }
+        overlay.remove();
+    };
+
+    document.getElementById('delete-char-btn').onclick = () => {
+        if (confirm(`本当に ${char.name} を削除しますか？`)) {
+            socket.emit('request_delete_character', {
+                room: currentRoomName,
+                charId: char.id
+            });
+            overlay.remove();
+        }
+    };
+}
+// === ▲▲▲ 修正ここまで ▲▲▲
+
 function setupBattlefieldTab() {
     const openLoadModalBtn = document.getElementById('open-char-load-modal-btn');
     if (openLoadModalBtn) {
@@ -786,7 +876,6 @@ function setupBattlefieldTab() {
             }
         });
     }
-
 
     // === ▼▼▼ 追加: ログフィルタボタンのイベント設定 ▼▼▼
     const filterButtons = document.querySelectorAll('.filter-btn');

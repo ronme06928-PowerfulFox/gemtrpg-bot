@@ -95,11 +95,20 @@ function openUserListModal() {
     } else {
         currentRoomUserList.forEach(user => {
             const attrClass = user.attribute === 'GM' ? 'gm' : 'player';
+
+            // ▼▼▼ 追加: オーナー判定ロジック ▼▼▼
+            let ownerBadge = '';
+            // battleState.owner_id (部屋主) と user.user_id (参加者) が一致したら表示
+            if (battleState.owner_id && user.user_id && user.user_id === battleState.owner_id) {
+                ownerBadge = ' <span style="color:#e67e22; font-weight:bold; font-size:0.9em;">(オーナー)</span>';
+            }
+            // ▲▲▲ 追加ここまで ▲▲▲
+
             listHtml += `
                 <li class="user-list-item">
                     <span class="user-list-name">${user.username}</span>
                     <span class="user-list-attribute ${attrClass}">${user.attribute}</span>
-                </li>
+                    ${ownerBadge} </li>
             `;
         });
     }

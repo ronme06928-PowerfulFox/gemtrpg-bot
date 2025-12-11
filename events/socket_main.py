@@ -39,36 +39,31 @@ def handle_disconnect():
 
 @socketio.on('join_room')
 def handle_join_room(data):
-    # === ▼▼▼ 修正点 ▼▼▼ ===
-    # (旧) if 'username' not in session:
-    # (新) Flaskセッション（HTTPクッキー）を直接確認する
-    if 'username' not in session:
-        print(f"⚠️ Anonymous user (SID: {request.sid}) tried to join. Rejecting.")
-        return
+    room = data.get('room')
+    username = data.get('username')
+    attribute = data.get('attribute')
 
-    room_name = data.get('room')
-    if not room_name:
-        return
+    join_room(room)
 
-    # (旧) username = session['username']
-    # (旧) attribute = session['attribute']
-    # (新) SocketIOセッションではなく、Flaskセッション（クッキー）から最新の情報を取得
-    username = session['username']
-    attribute = session['attribute']
-    # === ▲▲▲ 修正ここまで ▲▲▲ ===
+    # ▼▼▼ 修正: user_sids に user_id (UUID) も保存する ▼▼▼
+    user_sids[request.sid] = {
+        "username": username,
+        "attribute": attribute,
+        "room": room,
+        "user_id": session.get('user_id') # ★追加
+    }
+    # ▲▲▲ 修正ここまで ▲▲▲
 
-    sid = request.sid
+    print(f"User {username} [{attribute}] (SID: {request.sid}) joined room: {room}")
 
-    join_room(room_name)
-    user_sids[sid] = {"username": username, "attribute": attribute, "room": room_name}
+    emit('new_log', {'message': f"{username} が入室しました。", 'type': 'system'}, to=room)
 
-    # (このログが "A [GM]" と正しく表示されるようになるはず)
-    print(f"User {username} [{attribute}] (SID: {sid}) joined room: {room_name}")
+    # 状態を送信
+    state = get_room_state(room)
+    emit('state_updated', state, to=request.sid)
 
-    broadcast_log(room_name, f"{username} [{attribute}] がルームに参加しました。", 'info')
-    state = get_room_state(room_name)
-    emit('state_updated', state)
-    broadcast_user_list(room_name)
+    # ユーザーリスト更新
+    broadcast_user_list(room)
 
 @socketio.on('request_update_user_info')
 def handle_update_user_info(data):

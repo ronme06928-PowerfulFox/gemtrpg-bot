@@ -56,6 +56,7 @@ let currentRoomName = null;
 let currentUsername = null;
 let currentUserAttribute = null;
 let currentRoomUserList = [];
+let currentUserId = null; // ★追加: ユーザーID (UUID)
 
 // --- 1. UIコンテナの参照 ---
 const entryPortal = document.getElementById('entry-portal');
@@ -106,6 +107,7 @@ function showEntryPortal() {
 
                 currentUsername = data.username;
                 currentUserAttribute = data.attribute;
+                currentUserId = data.user_id; // ★追加: IDを保存
                 initializeSocketIO();
             } catch (error) {
                 entryMsg.textContent = error.message;
@@ -135,14 +137,22 @@ async function showRoomPortal() {
 }
 
 function renderRoomPortal(roomNames) {
+    // ★追加: GMの場合のみボタンを表示
+    const gmButton = (currentUserAttribute === 'GM')
+        ? `<button id="manage-users-btn" class="portal-settings-button" style="margin-left:10px; background:#e0e0ff;">👥 ユーザー管理</button>`
+        : '';
+
     roomPortal.innerHTML = `
         <div class="portal-user-band">
             <span class="portal-welcome-message">
                 ようこそ, <strong>${currentUsername}</strong> (${currentUserAttribute}) さん
             </span>
-            <button id="portal-user-settings-btn" class="portal-settings-button" title="ユーザー情報変更">
-                ⚙️ ユーザー設定
-            </button>
+            <div>
+                <button id="portal-user-settings-btn" class="portal-settings-button" title="ユーザー情報変更">
+                    ⚙️ ユーザー設定
+                </button>
+                ${gmButton}
+            </div>
         </div>
         <div class="room-portal-header">
             <h2>⚔️ ジェムリアTRPGダイスボット</h2>
@@ -164,8 +174,21 @@ function renderRoomPortal(roomNames) {
     const createBtn = document.getElementById('create-room-btn');
     const emptyMsg = document.getElementById('room-list-empty');
     const settingsBtn = document.getElementById('portal-user-settings-btn');
+
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => openUserSettingsModal(true));
+    }
+
+    // ★追加: ユーザー管理ボタンのイベントリスナー
+    const manageUsersBtn = document.getElementById('manage-users-btn');
+    if (manageUsersBtn) {
+        manageUsersBtn.addEventListener('click', () => {
+            if (typeof showUserManagement === 'function') {
+                showUserManagement();
+            } else {
+                alert('機能読み込み中...');
+            }
+        });
     }
 
     function populateList(filter = '') {
@@ -283,7 +306,7 @@ async function joinRoom(roomName, initialState = null) {
         if (defaultTab) {
             defaultTab.classList.add('active');
         }
-        // === ▲▲▲ 修正ここまで ▲▲▲ ===
+        // === ▲▲▲ 修正ここまで ▲▲▲
 
     } catch (error) {
         console.error('Error joining room:', error);
@@ -399,14 +422,15 @@ async function checkSessionStatus() {
             const data = await response.json();
             currentUsername = data.username;
             currentUserAttribute = data.attribute;
+            currentUserId = data.user_id; // ★追加: IDを保存
             console.log('Found active session:', currentUsername);
             initializeSocketIO();
         }
     } catch (error) {
         console.error('Failed to check session status:', error.message);
         if (error.message !== '認証が必要です。') {
-             entryPortal.innerHTML = `<h2 style="color: red;">サーバー接続エラー</h2><p>${error.message}</p><p>app.py を起動してください。</p>`;
-             entryPortal.style.display = 'block';
+            entryPortal.innerHTML = `<h2 style="color: red;">サーバー接続エラー</h2><p>${error.message}</p><p>app.py を起動してください。</p>`;
+            entryPortal.style.display = 'block';
         }
     }
 }

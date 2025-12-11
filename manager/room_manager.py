@@ -1,30 +1,41 @@
 # manager/room_manager.py
 from extensions import socketio, active_room_states, user_sids
 from manager.data_manager import read_saved_rooms, save_room_to_db
-
 from manager.utils import set_status_value, get_status_value, apply_buff, remove_buff
 
+# ▼▼▼ 追加: Roomモデルをインポート ▼▼▼
+from models import Room
+# ▲▲▲ 追加ここまで ▲▲▲
 
 # --- 5. DB & 状態管理ヘルパー (ログ保存対応) ---
 def get_room_state(room_name):
     # メモリにあればそれを返す
     if room_name in active_room_states:
-        return active_room_states[room_name]
+        state = active_room_states[room_name]
+    else:
+        # なければDBからロード
+        all_rooms = read_saved_rooms()
+        if room_name in all_rooms:
+            state = all_rooms[room_name]
+            if 'logs' not in state:
+                state['logs'] = []
+            active_room_states[room_name] = state
+        else:
+            # 新規作成
+            state = { "characters": [], "timeline": [], "round": 0, "logs": [] }
+            active_room_states[room_name] = state
 
-    # なければDBからロード
-    all_rooms = read_saved_rooms()
-    if room_name in all_rooms:
-        state = all_rooms[room_name]
-        # ★Logs配列がない場合は初期化
-        if 'logs' not in state:
-            state['logs'] = []
-        active_room_states[room_name] = state
-        return state
+    # ▼▼▼ 追加: DBから最新の owner_id を取得して state に注入する処理 ▼▼▼
+    # JSONデータには owner_id が含まれていないため、毎回DBをチェックしてセットする
+    try:
+        room_db = Room.query.filter_by(name=room_name).first()
+        if room_db:
+            state['owner_id'] = room_db.owner_id
+    except Exception as e:
+        print(f"Error fetching owner_id: {e}")
+    # ▲▲▲ 追加ここまで ▲▲▲
 
-    # 新規作成 (DBにはまだ保存しない)
-    new_state = { "characters": [], "timeline": [], "round": 0, "logs": [] }
-    active_room_states[room_name] = new_state
-    return new_state
+    return state
 
 def save_specific_room_state(room_name):
     """指定したルームの状態をDBに保存"""
@@ -75,7 +86,8 @@ def broadcast_user_list(room_name):
         if info.get('room') == room_name:
             user_list.append({
                 "username": info.get('username', '不明'),
-                "attribute": info.get('attribute', 'Player')
+                "attribute": info.get('attribute', 'Player'),
+                "user_id": info.get('user_id') # ★ socket_main.py で保存していればここにも入る
             })
     user_list.sort(key=lambda x: x['username'])
     socketio.emit('user_list_updated', user_list, to=room_name)

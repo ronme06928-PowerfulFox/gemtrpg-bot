@@ -30,8 +30,18 @@
     </div>
 
     <div id="room-portal" style="display: none;">
+    </div>
+
+    <div id="user-management-portal" style="display: none; max-width: 800px; margin: 40px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px;">
+            <h2 style="margin: 0; color: #6f42c1;">ユーザー管理 (GM専用)</h2>
+            <button id="back-to-room-portal-btn" style="padding: 8px 16px;">ルーム一覧に戻る</button>
         </div>
 
+        <div id="user-list-container">
+            <p>ユーザー情報を読み込み中...</p>
+        </div>
+    </div>
     <div id="main-app-container" style="display: none;">
 
         <header>
@@ -49,7 +59,7 @@
                 </div>
                 <button id="home-portal-btn" class="header-icon-btn" title="ルーム一覧に戻る">🏠</button>
 
-                </div>
+            </div>
         </header>
 
         <div class="tab-container">
@@ -57,7 +67,7 @@
         </div>
 
         <div id="main-content">
-            </div>
+        </div>
 
     </div>
 
@@ -65,5 +75,6 @@
     <script src="js/modals.js"></script>
     <script src="js/tab_skill_search.js"></script>
     <script src="js/tab_battlefield.js"></script>
-    </body>
+    <script src="js/user_management.js"></script>
+</body>
 </html>

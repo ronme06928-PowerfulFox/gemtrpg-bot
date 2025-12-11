@@ -36,6 +36,13 @@ def handle_add_character(data):
 
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
+
+    # === ▼▼▼ 追加: 所有者情報の記録 ▼▼▼
+    # session から UUID を取得して記録する
+    char_data['owner'] = username
+    char_data['owner_id'] = session.get('user_id')
+    # === ▲▲▲ 追加ここまで ▲▲▲
+
     print(f"User {username} adding character to room '{room}': {displayName}")
 
     state["characters"].append(char_data)

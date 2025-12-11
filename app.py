@@ -28,6 +28,10 @@ import events.socket_main
 import events.socket_battle
 import events.socket_char
 
+import uuid
+# ★追加インポート
+from manager.user_manager import upsert_user, get_all_users, delete_user, transfer_ownership, get_user_owned_items
+
 # === アプリ設定 ===
 load_dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 if os.path.exists(load_dotenv_path):
@@ -73,11 +77,40 @@ def entry():
     data = request.json
     username = data.get('username')
     attribute = data.get('attribute')
+
     if not username or not attribute:
         return jsonify({"error": "ユーザー名と属性は必須です"}), 400
+
     session['username'] = username
     session['attribute'] = attribute
-    return jsonify({"message": "セッション開始", "username": username, "attribute": attribute})
+
+    # ▼▼▼ 修正: ID発行とDB保存 ▼▼▼
+    if 'user_id' not in session:
+        session['user_id'] = str(uuid.uuid4())
+
+    # ユーザー情報をDBに記録
+    upsert_user(session['user_id'], username)
+    # ▲▲▲ 修正ここまで ▲▲▲
+
+    return jsonify({
+        "message": "セッション開始",
+        "username": username,
+        "attribute": attribute,
+        "user_id": session['user_id']
+    })
+
+@app.route('/api/admin/user_details', methods=['GET'])
+@session_required
+def admin_get_user_details():
+    if session.get('attribute') != 'GM':
+        return jsonify({"error": "Forbidden"}), 403
+
+    target_user_id = request.args.get('user_id')
+    if not target_user_id:
+        return jsonify({"error": "User ID required"}), 400
+
+    data = get_user_owned_items(target_user_id)
+    return jsonify(data)
 
 @app.route('/api/get_session_user', methods=['GET'])
 def get_session_user():
@@ -112,8 +145,39 @@ def create_room():
 
     new_state = { "characters": [], "timeline": [], "round": 0, "logs": [] }
     active_room_states[room_name] = new_state
-    save_room_to_db(room_name, new_state)
+
+    # ▼▼▼ 修正: Room作成時に owner_id を保存 ▼▼▼
+    # save_room_to_db はデータ保存用なので、ここでは Roomモデルを直接作って owner_id を入れる
+    new_room = Room(name=room_name, data=new_state, owner_id=session.get('user_id'))
+    db.session.add(new_room)
+    db.session.commit()
+    # ▲▲▲ 修正ここまで ▲▲▲
+
     return jsonify({"message": "Created", "state": new_state}), 201
+
+@app.route('/api/admin/users', methods=['GET'])
+@session_required
+def admin_get_users():
+    if session.get('attribute') != 'GM':
+        return jsonify({"error": "Forbidden"}), 403
+    return jsonify(get_all_users())
+
+@app.route('/api/admin/delete_user', methods=['POST'])
+@session_required
+def admin_delete_user():
+    if session.get('attribute') != 'GM': return jsonify({"error": "Forbidden"}), 403
+    user_id = request.json.get('user_id')
+    if delete_user(user_id):
+        return jsonify({"message": "Deleted"})
+    return jsonify({"error": "Failed"}), 500
+
+@app.route('/api/admin/transfer', methods=['POST'])
+@session_required
+def admin_transfer_user():
+    if session.get('attribute') != 'GM': return jsonify({"error": "Forbidden"}), 403
+    data = request.json
+    count = transfer_ownership(data['old_id'], data['new_id'])
+    return jsonify({"message": f"Transferred {count} characters/rooms."})
 
 @app.route('/delete_room', methods=['POST'])
 @session_required
