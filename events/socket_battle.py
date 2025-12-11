@@ -13,9 +13,12 @@ from manager.room_manager import (
 )
 from manager.game_logic import (
     get_status_value, set_status_value, process_skill_effects,
-    calculate_power_bonus, apply_buff, remove_buff
+    calculate_power_bonus, calculate_buff_power_bonus, # ★追加
+    apply_buff, remove_buff
 )
 from manager.utils import resolve_placeholders
+
+
 
 # --- ヘルパー関数: スキル名表示用のHTML生成 (コマンドから抽出版) ---
 def format_skill_display_from_command(command_str, skill_id, skill_data):
@@ -203,6 +206,9 @@ def handle_skill_declaration(data):
     resolved_command = resolve_placeholders(base_command, actor_params)
     if custom_skill_name:
         resolved_command = re.sub(r'【.*?】', f'【{skill_id} {custom_skill_name}】', resolved_command)
+
+    buff_bonus = calculate_buff_power_bonus(actor_char, target_char, skill_data)
+    power_bonus += buff_bonus
 
     # === ▼▼▼ 修正: ペナルティ適用 ▼▼▼ ===
     total_modifier = power_bonus - senritsu_penalty
@@ -1092,6 +1098,9 @@ def handle_wide_match(data):
             rd = json.loads(rule_json)
             power_bonus = calculate_power_bonus(def_char, actor_char, rd)
         except: pass
+
+        buff_bonus = calculate_buff_power_bonus(def_char, actor_char, d_skill_data)
+        power_bonus += buff_bonus
 
         # 3. 戦慄ペナルティ
         senritsu = get_status_value(def_char, '戦慄')
