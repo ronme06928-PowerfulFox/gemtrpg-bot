@@ -180,7 +180,7 @@ function renderCharacterCard(char) {
     const specialBuffs = char.special_buffs || [];
     if (specialBuffs.length > 0) {
         specialBuffs.forEach(buff => {
-            const def = BUFF_DEFINITIONS[buff.name] || { name: buff.name, description: "説明不明" };
+            const def = BUFF_DATA.get(buff.name) || { name: buff.name, description: "説明なし" };
             let timer = '';
             if (buff.delay > 0) {
                 timer = `(発動まで ${buff.delay}R)`;
