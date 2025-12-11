@@ -140,6 +140,9 @@ function closeCharacterModal() {
 }
 
 function renderCharacterCard(char) {
+    // ▼▼▼ 追加: 所有者情報の取得 (データがない場合は '不明') ▼▼▼
+    const ownerName = char.owner || '不明';
+
     const fpState = char.states.find(s => s.name === 'FP');
     const statsHtml = `
         <div class="char-stats">
@@ -172,7 +175,7 @@ function renderCharacterCard(char) {
     });
     const statesManageHtml = `<div class="char-states"><strong>状態・デバフ</strong><div class="state-list">${statesHtml}</div><div class="state-controls"><input type="text" class="new-state-input" placeholder="デバフ名 (例: 呪い)"><button class="add-state-btn">状態追加</button><button class="delete-state-btn">状態削除</button></div></div>`;
 
-    // === ▼▼▼ 修正点 (フェーズ5a) ▼▼▼ ===
+    // === バフ表示処理 ===
     let buffsHtml = '';
     const specialBuffs = char.special_buffs || [];
     if (specialBuffs.length > 0) {
@@ -197,8 +200,8 @@ function renderCharacterCard(char) {
         buffsHtml = '<li class="buff-none">(なし)</li>';
     }
     const buffsManageHtml = `<div class="char-buffs"><strong>特殊効果 (バフ)</strong><ul class="buff-list">${buffsHtml}</ul></div>`;
-    // === ▲▲▲ 修正ここまで ▲▲▲ ===
 
+    // === GM用設定 ===
     let gmSettingsHtml = '';
     if (currentUserAttribute === 'GM') {
         gmSettingsHtml = `
@@ -210,9 +213,32 @@ function renderCharacterCard(char) {
             </div>
         `;
     }
-    const headerHtml = `<h3><span class="modal-char-name">${char.name}</span><span class="modal-header-buttons"><button class="modal-settings-btn">⚙️</button><button class="modal-close-btn">×</button></span></h3><div class="char-modal-settings" style="display: none;"><label for="char-color-picker">トークン色:</label><input type="color" id="char-color-picker" value="${char.color}"><button class="color-reset-btn">リセット</button>${gmSettingsHtml}<button class="delete-char-btn" style="margin-left: auto;">このキャラを削除</button></div>`;
 
-    // (★ `buffsManageHtml` を `statesManageHtml` の下に追加)
+    // ▼▼▼ 修正: char-modal-settings 内に所有者表示を追加 ▼▼▼
+    // flex-wrap: wrap を追加して、所有者表示行が全幅を取れるように調整
+    const headerHtml = `
+        <h3>
+            <span class="modal-char-name">${char.name}</span>
+            <span class="modal-header-buttons">
+                <button class="modal-settings-btn">⚙️</button>
+                <button class="modal-close-btn">×</button>
+            </span>
+        </h3>
+        <div class="char-modal-settings" style="display: none; flex-wrap: wrap;">
+            <div style="width: 100%; font-size: 0.85em; color: #555; margin-bottom: 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px;">
+                所有者: <strong>${ownerName}</strong>
+            </div>
+
+            <label for="char-color-picker">トークン色:</label>
+            <input type="color" id="char-color-picker" value="${char.color}">
+            <button class="color-reset-btn">リセット</button>
+
+            ${gmSettingsHtml}
+
+            <button class="delete-char-btn" style="margin-left: auto;">このキャラを削除</button>
+        </div>
+    `;
+
     return `<div class="char-card" style="border-left-color: ${char.color};">${headerHtml}<div class="card-content">${statsHtml}${statsDetailHtml}${statesManageHtml}${buffsManageHtml}</div></div>`;
 }
 
