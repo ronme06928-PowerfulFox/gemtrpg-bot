@@ -71,16 +71,48 @@ function logToBattleLog(logData) {
     const logArea = document.getElementById('log-area');
     if (!logArea) return;
     const logLine = document.createElement('div');
-    logLine.className = `log-line ${logData.type}`;
 
-    // === ▼▼▼ 追加: チャットメッセージの装飾 (既存ロジック) ▼▼▼
+    // クラス設定 (secretの場合専用クラスを追加)
+    let className = `log-line ${logData.type}`;
+    if (logData.secret) className += ' secret-log';
+    logLine.className = className;
+
+    // === ▼▼▼ 修正: シークレットダイスの表示制御 ▼▼▼
+    let displayMessage = logData.message;
+
+    // シークレットフラグが立っている場合の処理
+    if (logData.secret) {
+        // 閲覧権限: GM または 送信者本人
+        // (logData.user がサーバーから送られてくることを前提とします)
+        // ※ currentUsername, currentUserAttribute は main.js で定義されているグローバル変数
+        const isSender = (logData.user === currentUsername);
+        const isGM = (currentUserAttribute === 'GM');
+
+        if (isGM || isSender) {
+            // 見える人（自分かGM）には [SECRET] マークを付けて表示
+            displayMessage = `<span class="secret-mark">[SECRET]</span> ${logData.message}`;
+        } else {
+            // 見えない人（他のPL）には伏せ字を表示
+            displayMessage = `<span class="secret-masked">（シークレットダイスが振られました）</span>`;
+        }
+    }
+    // === ▲▲▲ 修正ここまで ▲▲▲
+
     if (logData.type === 'chat') {
-        logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
+        // 通常チャットのシークレット化も考慮
+        if (logData.secret) {
+             // シークレットチャットの場合、上で生成したメッセージ(displayMessage)をそのまま使う
+             logLine.innerHTML = displayMessage;
+        } else {
+             // 通常チャットの場合、ユーザー名の装飾などを適用
+             logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
+        }
     } else {
-        logLine.innerHTML = logData.message;
+        // ダイスロールやシステムメッセージの場合
+        logLine.innerHTML = displayMessage;
     }
 
-    // === ▼▼▼ 追加: 現在のフィルタ適用 ▼▼▼
+    // === フィルタ処理 ===
     // 'chat' フィルタ時: typeが 'chat' 以外なら隠す
     if (currentLogFilter === 'chat' && logData.type !== 'chat') {
         logLine.classList.add('hidden-log');
@@ -89,7 +121,6 @@ function logToBattleLog(logData) {
     else if (currentLogFilter === 'system' && logData.type === 'chat') {
         logLine.classList.add('hidden-log');
     }
-    // === ▲▲▲ 追加ここまで ▲▲▲
 
     logArea.appendChild(logLine);
 
@@ -1231,23 +1262,56 @@ function setupBattlefieldTab() {
     const chatSendBtn = document.getElementById('chat-send-btn');
     const diceCommandRegex = /^((\d+)?d\d+([\+\-]\d+)?(\s*[\+\-]\s*(\d+)?d\d+([\+\-]\d+)?)*)$/i;
     const sendChatMessage = () => {
-        const message = chatInput.value.trim();
-        if (!message) return;
+        let rawMessage = chatInput.value.trim();
+        if (!rawMessage) return;
+
+        let message = rawMessage;
+        let isSecret = false;
+
+        // ▼▼▼ 修正: 正規表現を改良し、判定ロジックを整理 ▼▼▼
+
+        // 正規表現:
+        // ^ ... 行頭
+        // (\/sroll|\/sr) ... コマンド
+        // (\s+|$) ... 直後に空白がある OR 文字列の終わり(コマンドのみの場合)
+        const secretRegex = /^(\/sroll|\/sr)(\s+|$)/i;
+        const normalRegex = /^(\/roll|\/r)(\s+|$)/i;
+
+        if (secretRegex.test(message)) {
+            isSecret = true;
+            // コマンド部分を削除
+            message = message.replace(secretRegex, '').trim();
+        } else if (normalRegex.test(message)) {
+            // コマンド部分を削除
+            message = message.replace(normalRegex, '').trim();
+        }
+
+        // コマンド削除の結果、空になった場合（例: "/sroll" とだけ入力）のガード
+        if (!message && isSecret) {
+            alert("シークレットダイス/チャットの内容を入力してください。");
+            return;
+        }
+        // ▲▲▲ 修正ここまで ▲▲▲
+
         if (diceCommandRegex.test(message)) {
             const result = rollDiceCommand(message);
             const resultHtml = `${message} = ${result.details} = <span class="dice-result-total">${result.total}</span>`;
             socket.emit('request_log', {
                 room: currentRoomName,
                 message: `[${currentUsername}] ${resultHtml}`,
-                type: 'dice'
+                type: 'dice',
+                secret: isSecret,
+                user: currentUsername
             });
         } else {
             socket.emit('request_chat', {
                 room: currentRoomName,
                 user: currentUsername,
-                message: message
+                message: message,
+                secret: isSecret
             });
         }
+
         chatInput.value = '';
         chatInput.style.height = '60px';
     };

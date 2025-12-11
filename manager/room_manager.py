@@ -2,18 +2,12 @@
 from extensions import socketio, active_room_states, user_sids
 from manager.data_manager import read_saved_rooms, save_room_to_db
 from manager.utils import set_status_value, get_status_value, apply_buff, remove_buff
-
-# ▼▼▼ 追加: Roomモデルをインポート ▼▼▼
 from models import Room
-# ▲▲▲ 追加ここまで ▲▲▲
 
-# --- 5. DB & 状態管理ヘルパー (ログ保存対応) ---
 def get_room_state(room_name):
-    # メモリにあればそれを返す
     if room_name in active_room_states:
         state = active_room_states[room_name]
     else:
-        # なければDBからロード
         all_rooms = read_saved_rooms()
         if room_name in all_rooms:
             state = all_rooms[room_name]
@@ -21,30 +15,22 @@ def get_room_state(room_name):
                 state['logs'] = []
             active_room_states[room_name] = state
         else:
-            # 新規作成
             state = { "characters": [], "timeline": [], "round": 0, "logs": [] }
             active_room_states[room_name] = state
 
-    # ▼▼▼ 追加: DBから最新の owner_id を取得して state に注入する処理 ▼▼▼
-    # JSONデータには owner_id が含まれていないため、毎回DBをチェックしてセットする
     try:
         room_db = Room.query.filter_by(name=room_name).first()
         if room_db:
             state['owner_id'] = room_db.owner_id
     except Exception as e:
         print(f"Error fetching owner_id: {e}")
-    # ▲▲▲ 追加ここまで ▲▲▲
 
     return state
 
 def save_specific_room_state(room_name):
-    """指定したルームの状態をDBに保存"""
     state = active_room_states.get(room_name)
     if not state: return False
-
-    # DB保存関数を呼び出し
     if save_room_to_db(room_name, state):
-        # print(f"✅ Auto-saved: {room_name}") # ログ軽減
         return True
     else:
         print(f"❌ Auto-save failed: {room_name}")
@@ -55,39 +41,34 @@ def broadcast_state_update(room_name):
     if state:
         socketio.emit('state_updated', state, to=room_name)
 
-def broadcast_log(room_name, message, type='info', user=None):
+# ▼▼▼ 修正箇所: secret 引数対応版のみにする ▼▼▼
+def broadcast_log(room_name, message, type='info', user=None, secret=False):
     """ログを配信し、かつステート(DB)に保存する"""
-    log_data = {"message": message, "type": type}
+    log_data = {"message": message, "type": type, "secret": secret}
     if user:
         log_data["user"] = user
 
-    # ★ ここでステートに保存 ★
     state = get_room_state(room_name)
     if 'logs' not in state:
         state['logs'] = []
 
     state['logs'].append(log_data)
 
-    # ログが増えすぎないように直近100件程度に制限してもよいが、
-    # 要望通り「履歴を振り返れる」ように無制限（または多め）にする
     if len(state['logs']) > 500:
-        state['logs'] = state['logs'][-500:] # とりあえず500件保持
+        state['logs'] = state['logs'][-500:]
 
     socketio.emit('new_log', log_data, to=room_name)
-
-    # ログ追加も状態変化なので保存
     save_specific_room_state(room_name)
 
 def broadcast_user_list(room_name):
-    if not room_name:
-        return
+    if not room_name: return
     user_list = []
     for sid, info in user_sids.items():
         if info.get('room') == room_name:
             user_list.append({
                 "username": info.get('username', '不明'),
                 "attribute": info.get('attribute', 'Player'),
-                "user_id": info.get('user_id') # ★ socket_main.py で保存していればここにも入る
+                "user_id": info.get('user_id')
             })
     user_list.sort(key=lambda x: x['username'])
     socketio.emit('user_list_updated', user_list, to=room_name)
@@ -101,11 +82,11 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
 
     if stat_name == 'HP':
         old_value = char['hp']
-        char['hp'] = max(0, new_value) # ★ 0未満にならないように修正
+        char['hp'] = max(0, new_value)
         log_message = f"{username}: {char['name']}: HP ({old_value}) → ({char['hp']})"
     elif stat_name == 'MP':
         old_value = char['mp']
-        char['mp'] = max(0, new_value) # ★ 0未満にならないように修正
+        char['mp'] = max(0, new_value)
         log_message = f"{username}: {char['name']}: MP ({old_value}) → ({char['mp']})"
     elif stat_name == 'gmOnly':
         old_value = char.get('gmOnly', False)
@@ -127,12 +108,9 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
         state = next((s for s in char['states'] if s.get('name') == stat_name), None)
         if state:
             old_value = state['value']
-            # ★ 0未満の処理は set_status_value 側で行う
             set_status_value(char, stat_name, new_value)
-            # (game_logic側で0に丸められた可能性があるので、再度値を取得する)
             new_val_from_logic = get_status_value(char, stat_name)
             log_message = f"{username}: {char['name']}: {stat_name} ({old_value}) → ({new_val_from_logic})"
-        # (★ game_logic 側で「新規追加」もカバーするべきだが、既存ロジックを維持)
         elif not state and stat_name not in ['HP', 'MP']:
             set_status_value(char, stat_name, new_value)
             log_message = f"{username}: {char['name']}: {stat_name} (なし) → ({new_value})"

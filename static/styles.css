@@ -1205,4 +1205,27 @@ header h1 {
     border: 1px solid #ccc;
     border-radius: 3px;
 }
-/* === ▲▲▲ 追加ここまで ▲▲▲ */
+
+/* シークレットログの背景 */
+.log-line.secret-log {
+    background-color: #f8f0f4; /* 薄いピンク/グレー */
+    border-left: 3px solid #d63384;
+}
+
+/* [SECRET] マーク */
+.secret-mark {
+    color: #d63384;
+    font-weight: bold;
+    font-size: 0.85em;
+    margin-right: 5px;
+    border: 1px solid #d63384;
+    padding: 0 4px;
+    border-radius: 4px;
+}
+
+/* 伏せ字メッセージ */
+.secret-masked {
+    color: #999;
+    font-style: italic;
+    font-size: 0.9em;
+}
