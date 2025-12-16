@@ -76,7 +76,7 @@ def fetch_and_save_sheets_data():
 
             try:
                 header_cell = worksheet.find("スキルID")
-            except gspread.exceptions.CellNotFound:
+            except Exception:  # ← どのようなエラーでもスキップするように変更
                 continue
 
             if not header_cell: continue

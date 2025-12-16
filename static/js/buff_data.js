@@ -1,77 +1,100 @@
 /**
  * バフ・デバフ・状態異常の定義データ
- * カテゴリごとに分けて管理し、get()メソッドで一括検索可能にする
  */
 const BUFF_DATA = {
-    // --- 有利な効果 (Buffs) ---
-    BUFFS: {
-        "攻撃威力+5(1R)": {
-            name: "猛攻の輝き",
-            description: "このラウンド中、自分の使用する攻撃スキルの威力+5。",
-            type: "buff"
-        },
-        "守備威力+5(1R)": {
-            name: "守護の輝き",
-            description: "このラウンド中、自分の使用する守備スキルの威力+5。",
-            type: "buff"
-        },
-        "破裂威力減少無効": {
-            name: "破裂威力減少無効",
-            description: "このラウンドでこのキャラに誘発する破裂爆発は、破裂の値を消費しない。",
-            type: "buff"
-        },
-        "亀裂ラウンドボーナス": {
-            name: "亀裂付与ボーナス",
-            description: "このラウンドで自分が付与する亀裂の値に+1。",
-            type: "buff"
-        },
-        "魔法補正UP(1R)": {
-            name: "魔法補正アップ",
-            description: "次のラウンド、魔法補正+1。",
-            type: "buff"
-        }
-    },
-
-    // --- 不利な効果・制限 (Debuffs / Status Ailments) ---
-    DEBUFFS: {
-        "挑発中": {
-            name: "挑発",
-            description: "次のラウンド、全ての相手側キャラの攻撃対象を自分に固定する。",
+    // 静的定義 (説明文などを固定したい場合)
+    STATIC_DATA: {
+        "混乱": {
+            name: "混乱",
+            description: "MPが尽き、意識が朦朧としている。受けるダメージ1.5倍、まともな行動ができない。",
             type: "debuff"
-        },
-        "再回避ロック": {
-            name: "再回避",
-            description: "回避に成功したため、行動回数が回復した。このラウンド中、このスキルでしか回避できない。",
-            type: "debuff" // 制限行動なのでデバフ扱い
         },
         "行動不能": {
             name: "行動不能",
             description: "次のラウンド、行動できない。",
             type: "debuff"
         },
-        "魔法補正DOWN(1R)": {
-            name: "魔法補正ダウン",
-            description: "次のラウンド、魔法補正-1。",
+        "再回避ロック": {
+            name: "再回避",
+            description: "このラウンド中、特定のスキルでしか回避できない。",
             type: "debuff"
         },
-        "混乱": {
-            name: "混乱",
-            description: "MPが尽き、意識が朦朧としている。受けるダメージ1.5倍、まともな行動ができない。",
+        "挑発中": {
+            name: "挑発",
+            description: "次のラウンド、攻撃対象を自分に固定する。",
             type: "debuff"
+        },
+        "破裂威力減少無効": {
+            name: "破裂威力減少無効",
+            description: "このラウンドでこのキャラに誘発する破裂爆発は、破裂の値を消費しない。",
+            type: "buff"
         }
     },
 
-    /**
-     * バフ名から定義データを検索して返すヘルパー関数
-     * @param {string} name - バフの内部ID名
-     * @returns {object|null} 定義オブジェクト、または見つからない場合はnull
-     */
-    get: function(name) {
-        // まずBUFFSから検索
-        if (this.BUFFS[name]) return this.BUFFS[name];
-        // 次にDEBUFFSから検索
-        if (this.DEBUFFS[name]) return this.DEBUFFS[name];
+    // 動的パターン定義
+    DYNAMIC_PATTERNS: [
+        {
+            // パターン: [名前]_Atk[数値]
+            regex: /^(.*)_Atk(\d+)$/,
+            generator: function(matches) {
+                return {
+                    name: matches[1], // プレフィックス部分を表示名にする
+                    description: `このラウンド中、攻撃威力+${matches[2]}。`,
+                    type: "buff"
+                };
+            }
+        },
+        {
+            // パターン: [名前]_Def[数値]
+            regex: /^(.*)_Def(\d+)$/,
+            generator: function(matches) {
+                return {
+                    name: matches[1],
+                    description: `このラウンド中、守備威力+${matches[2]}。`,
+                    type: "buff"
+                };
+            }
+        },
+        {
+            // パターン: [名前]_Crack[数値] (持続型)
+            regex: /^(.*)_Crack(\d+)$/,
+            generator: function(matches) {
+                return {
+                    name: matches[1],
+                    description: `このラウンド中、自分が付与する亀裂の値+${matches[2]}。`,
+                    type: "buff"
+                };
+            }
+        },
+        {
+            // パターン: [名前]_CrackOnce[数値] (消費型)
+            regex: /^(.*)_CrackOnce(\d+)$/,
+            generator: function(matches) {
+                return {
+                    name: matches[1],
+                    description: `次に亀裂を付与する際、その値+${matches[2]}。適用後に消滅する。`,
+                    type: "buff"
+                };
+            }
+        }
+    ],
 
-        return null;
+    /**
+     * バフ名から定義データを検索して返す
+     */
+    get: function(buffId) {
+        // 1. 静的定義チェック
+        if (this.STATIC_DATA[buffId]) return this.STATIC_DATA[buffId];
+
+        // 2. パターンマッチチェック
+        for (const pattern of this.DYNAMIC_PATTERNS) {
+            const match = buffId.match(pattern.regex);
+            if (match) {
+                return pattern.generator(match);
+            }
+        }
+
+        // 3. フォールバック
+        return { name: buffId, description: "効果不明", type: "unknown" };
     }
 };

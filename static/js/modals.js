@@ -180,16 +180,26 @@ function renderCharacterCard(char) {
     const specialBuffs = char.special_buffs || [];
     if (specialBuffs.length > 0) {
         specialBuffs.forEach(buff => {
-            const def = BUFF_DATA.get(buff.name) || { name: buff.name, description: "説明なし" };
+            let def = { name: buff.name, description: "説明なし", type: "buff" };
+            if (typeof BUFF_DATA !== 'undefined' && typeof BUFF_DATA.get === 'function') {
+                const found = BUFF_DATA.get(buff.name);
+                if (found) def = found;
+            }
+
+            // 残り時間の表示
             let timer = '';
             if (buff.delay > 0) {
                 timer = `(発動まで ${buff.delay}R)`;
+            } else if (buff.lasting > 900) {
+                timer = ''; // 永続なら時間は表示しない
             } else if (buff.lasting > 0) {
                 timer = `(残り ${buff.lasting}R)`;
             }
 
+            // 表示用HTMLの生成
+            // def.name を使うことで _Atk5 などが消えた名前が表示されます
             buffsHtml += `
-                <li class="buff-item">
+                <li class="buff-item ${def.type || ''}">
                     <strong class="buff-name">${def.name}</strong>
                     <span class="buff-timer">${timer}</span>
                     <p class="buff-description">${def.description}</p>
