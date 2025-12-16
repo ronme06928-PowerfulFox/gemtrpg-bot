@@ -1,11 +1,14 @@
 import os
-
+# 1. 【最優先】Render環境ならパッチを当てる（これはそのまま）
 if 'RENDER' in os.environ:
     import eventlet
     eventlet.monkey_patch()
 
 import sys
 import argparse
+
+IS_RENDER = 'RENDER' in os.environ
+
 from flask import Flask, jsonify, request, send_from_directory, session
 from flask_cors import CORS
 
