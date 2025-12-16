@@ -220,17 +220,20 @@ def init_app_data():
         print("✅ Database tables checked/created.")
 
         # 2. スキルデータの読み込み
-        global all_skill_data
+        # global all_skill_data  <-- 不要なので削除（all_skill_data自体を書き換えないため）
         print("--- Initializing Data ---")
-        all_skill_data = load_skills_from_cache()
 
-        if not all_skill_data:
+        # ★修正: 直接 all_skill_data に代入せず、戻り値チェックだけ行う
+        cached_data = load_skills_from_cache()
+
+        if not cached_data:
             print("Cache not found or empty. Fetching from Google Sheets...")
             try:
                 # スプレッドシート読み込み
                 fetch_and_save_sheets_data()
-                all_skill_data = load_skills_from_cache()
-                print(f"✅ Data loaded: {len(all_skill_data) if all_skill_data else 0} skills.")
+                # 既に fetch_and_save_sheets_data 内で all_skill_data は更新されているため再ロードは不要
+                # (load_skills_from_cache() を呼んでも良いが、必須ではない)
+                print(f"✅ Data loaded: {len(all_skill_data)} skills.")
             except Exception as e:
                 print(f"❌ Error during initial fetch: {e}")
         else:
