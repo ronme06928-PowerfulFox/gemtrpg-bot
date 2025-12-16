@@ -1,14 +1,11 @@
 import os
-import sys
-import argparse
 
-# === 環境判定 ===
-# Render環境かどうかを判定するフラグは残します（async_modeの設定などで使うため）
-IS_RENDER = 'RENDER' in os.environ
 if 'RENDER' in os.environ:
     import eventlet
     eventlet.monkey_patch()
 
+import sys
+import argparse
 from flask import Flask, jsonify, request, send_from_directory, session
 from flask_cors import CORS
 
