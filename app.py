@@ -2,11 +2,16 @@ import os
 import sys
 import argparse
 
-# === 環境判定とEventletパッチ ===
+# === 環境判定 ===
+# Render環境かどうかを判定するフラグは残します（async_modeの設定などで使うため）
 IS_RENDER = 'RENDER' in os.environ
-if IS_RENDER:
-    import eventlet
-    eventlet.monkey_patch()
+
+# 【削除・コメントアウト】
+# Gunicorn(Render)が自動でパッチを当てるため、ここで呼ぶと競合してクラッシュします。
+# ローカル実行時は IS_RENDER が False なので元々実行されておらず、削除しても影響ありません。
+# if IS_RENDER:
+#     import eventlet
+#     eventlet.monkey_patch()
 
 from flask import Flask, jsonify, request, send_from_directory, session
 from flask_cors import CORS
