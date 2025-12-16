@@ -2,6 +2,7 @@
 import re
 import json
 import random
+import copy
 from flask import request, session
 from flask_socketio import emit
 
@@ -46,11 +47,14 @@ def format_skill_display_from_command(command_str, skill_id, skill_data):
 @socketio.on('request_skill_declaration')
 def handle_skill_declaration(data):
     """
-    (★フェーズ5 修正★) 「混乱」状態のチェックを追加
-    (★戦慄修正★) 戦慄によるペナルティ計算を修正
+    スキル宣言処理
+    - preview/commitフラグにより挙動を制御
     """
     room = data.get('room')
     if not room: return
+
+    # ★追加: コミット（確定）フラグ。デフォルトはFalse（プレビュー）
+    is_commit = data.get('commit', False)
 
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
@@ -65,17 +69,23 @@ def handle_skill_declaration(data):
         return
 
     state = get_room_state(room)
-    actor_char = next((c for c in state["characters"] if c.get('id') == actor_id), None)
+
+    # 実データの取得
+    original_actor_char = next((c for c in state["characters"] if c.get('id') == actor_id), None)
     skill_data = all_skill_data.get(skill_id)
 
-    target_char = None
+    original_target_char = None
     if target_id:
-        target_char = next((c for c in state["characters"] if c.get('id') == target_id), None)
+        original_target_char = next((c for c in state["characters"] if c.get('id') == target_id), None)
 
-    if not actor_char or not skill_data:
+    if not original_actor_char or not skill_data:
         return
 
-    # === ▼▼▼ 修正点 (混乱チェック) ▼▼▼ ===
+    # ★重要: 計算はすべて「複製データ(Sim)」で行う
+    actor_char = copy.deepcopy(original_actor_char)
+    target_char = copy.deepcopy(original_target_char) if original_target_char else None
+
+    # === 混乱チェック ===
     if 'special_buffs' in actor_char:
         is_confused = any(b.get('name') == "混乱" for b in actor_char['special_buffs'])
         if is_confused:
@@ -84,24 +94,20 @@ def handle_skill_declaration(data):
                 "final_command": "混乱により行動できません",
                 "min_damage": 0, "max_damage": 0, "error": True
             }, to=request.sid)
-            return # ★ 行動不能
-    # === ▲▲▲ 修正ここまで ▲▲▲ ===
+            return
 
-    # --- 3. [マッチ開始時] 効果 (戦慄など) の処理 ---
+    # --- 特記処理読み込み ---
     rule_json_str = skill_data.get('特記処理', '{}')
     try:
-        if rule_json_str:
-            rule_data = json.loads(rule_json_str)
-        else:
-            rule_data = {}
+        rule_data = json.loads(rule_json_str) if rule_json_str else {}
     except json.JSONDecodeError as e:
         print(f"❌ 特記処理(宣言)のJSONパースエラー: {e} (スキルID: {skill_id})")
         rule_data = {}
 
     effects_array = rule_data.get("effects", [])
-
-    # --- 3b. コストチェック ---
     cost_array = rule_data.get("cost", [])
+
+    # --- コストチェック (シミュレーション) ---
     for cost in cost_array:
         cost_type = cost.get("type")
         cost_value = int(cost.get("value", 0))
@@ -115,37 +121,32 @@ def handle_skill_declaration(data):
                 }, to=request.sid)
                 return
 
+    # --- PRE_MATCH 効果のシミュレーション ---
     pre_match_bonus_damage, pre_match_logs, pre_match_changes = process_skill_effects(
         effects_array, "PRE_MATCH", actor_char, target_char, skill_data
     )
 
-    # === ▼▼▼ 修正: 戦慄ペナルティの計算ロジック変更 ▼▼▼ ===
-    # 戦慄ステータスを取得 (最大3まで適用)
-    current_senritsu = get_status_value(actor_char, '戦慄')
-    senritsu_penalty = 0
-    if current_senritsu > 0:
-        senritsu_penalty = min(current_senritsu, 3)
-    # === ▲▲▲ 修正ここまで ▲▲▲ ===
-
-    is_instant_action = False
+    # 変更を複製データに適用
+    is_force_end_round = False
     force_unopposed = False
 
     for (char, type, name, value) in pre_match_changes:
         if type == "APPLY_STATE":
             current_val = get_status_value(char, name)
-            _update_char_stat(room, char, name, current_val + value, username=f"[{skill_id}]")
+            set_status_value(char, name, current_val + value)
         elif type == "APPLY_BUFF":
             apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
-            broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
         elif type == "FORCE_UNOPPOSED":
             force_unopposed = True
         elif type == "CUSTOM_EFFECT" and name == "END_ROUND_IMMEDIATELY":
-            is_instant_action = True
-            socketio.emit('request_end_round', {"room": room})
-            broadcast_log(room, f"[{skill_id}] の効果でラウンドが強制終了します。", 'round')
+            is_force_end_round = True
 
-    if "即時発動" in skill_data.get("tags", []):
-        is_instant_action = True
+    # --- 戦慄ペナルティ計算 ---
+    current_senritsu = get_status_value(actor_char, '戦慄')
+    senritsu_penalty = min(current_senritsu, 3) if current_senritsu > 0 else 0
+
+    # --- 即時発動かどうか ---
+    is_immediate_skill = "即時発動" in skill_data.get("tags", []) or is_force_end_round
 
     skill_details_payload = {
         "分類": skill_data.get("分類", "---"),
@@ -156,32 +157,75 @@ def handle_skill_declaration(data):
         "特記": skill_data.get("特記", "")
     }
 
-    if is_instant_action:
-        for cost in cost_array:
-            cost_type = cost.get("type")
-            cost_value = int(cost.get("value", 0))
-            if cost_value > 0:
-                current_resource = get_status_value(actor_char, cost_type)
-                _update_char_stat(room, actor_char, cost_type, current_resource - cost_value, username=f"[{skill_id}]")
+    # =========================================================
+    #  ★ パターンA: 即時発動スキル (宝石の加護など)
+    # =========================================================
+    if is_immediate_skill:
+        if is_commit:
+            # --- 確定実行 (Declareボタン押下時) ---
+            # 1. 実データでコスト消費
+            for cost in cost_array:
+                cost_type = cost.get("type")
+                cost_value = int(cost.get("value", 0))
+                if cost_value > 0:
+                    curr = get_status_value(original_actor_char, cost_type)
+                    _update_char_stat(room, original_actor_char, cost_type, curr - cost_value, username=f"[{skill_id}]")
 
-        if 'used_skills_this_round' not in actor_char:
-            actor_char['used_skills_this_round'] = []
-        actor_char['used_skills_this_round'].append(skill_id)
+            # 2. 実データで PRE_MATCH 効果適用
+            _, _, real_changes = process_skill_effects(effects_array, "PRE_MATCH", original_actor_char, original_target_char, skill_data)
 
-        socketio.emit('skill_declaration_result', {
-            "prefix": data.get('prefix'),
-            "final_command": "--- (効果発動) ---",
-            "is_one_sided_attack": False,
-            "min_damage": 0,
-            "max_damage": 0,
-            "is_instant_action": True,
-            "skill_details": skill_details_payload,
-            "senritsu_penalty": 0 # 即時発動にはペナルティなし
-        }, to=request.sid)
+            for (char, type, name, value) in real_changes:
+                if type == "APPLY_STATE":
+                    current_val = get_status_value(char, name)
+                    _update_char_stat(room, char, name, current_val + value, username=f"[{skill_id}]")
+                elif type == "APPLY_BUFF":
+                    apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+                    broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
+                elif type == "CUSTOM_EFFECT" and name == "END_ROUND_IMMEDIATELY":
+                    socketio.emit('request_end_round', {"room": room})
+                    broadcast_log(room, f"[{skill_id}] の効果でラウンドが強制終了します。", 'round')
 
-        broadcast_state_update(room)
-        save_specific_room_state(room)
+            # 3. 使用記録
+            if 'used_skills_this_round' not in original_actor_char:
+                original_actor_char['used_skills_this_round'] = []
+            original_actor_char['used_skills_this_round'].append(skill_id)
+
+            # 4. 保存
+            broadcast_state_update(room)
+            save_specific_room_state(room)
+
+            # 5. クライアントへ応答 (リセット指示)
+            socketio.emit('skill_declaration_result', {
+                "prefix": data.get('prefix'),
+                "final_command": "--- (効果発動完了) ---",
+                "is_one_sided_attack": False,
+                "min_damage": 0,
+                "max_damage": 0,
+                "is_instant_action": True, # クライアント側で欄をリセットさせる
+                "is_immediate_skill": True,
+                "skill_details": skill_details_payload,
+                "senritsu_penalty": 0
+            }, to=request.sid)
+
+        else:
+            # --- プレビューのみ (Calculateボタン押下時) ---
+            socketio.emit('skill_declaration_result', {
+                "prefix": data.get('prefix'),
+                "final_command": "--- (即時発動: 宣言待機) ---",
+                "is_one_sided_attack": False,
+                "min_damage": 0,
+                "max_damage": 0,
+                "is_instant_action": False, # まだリセットしない
+                "is_immediate_skill": True, # クライアントに「これは即時スキルだよ」と伝える
+                "skill_details": skill_details_payload,
+                "senritsu_penalty": 0
+            }, to=request.sid)
+
         return
+
+    # =========================================================
+    #  ★ パターンB: 通常攻撃/自己バフ攻撃など
+    # =========================================================
 
     if not target_char:
         socketio.emit('skill_declaration_result', {
@@ -191,7 +235,7 @@ def handle_skill_declaration(data):
         }, to=request.sid)
         return
 
-    # --- 4. 威力ボーナス計算 ---
+    # 威力計算等は複製データで行う（変更なし）
     power_bonus = 0
     if isinstance(rule_data, dict):
         if 'power_bonus' in rule_data:
@@ -200,7 +244,6 @@ def handle_skill_declaration(data):
             power_bonus_data = rule_data
         power_bonus = calculate_power_bonus(actor_char, target_char, power_bonus_data)
 
-    # --- 5. ダイスコマンド生成 ---
     base_command = skill_data.get('チャットパレット', '')
     actor_params = actor_char.get('params', [])
     resolved_command = resolve_placeholders(base_command, actor_params)
@@ -210,19 +253,16 @@ def handle_skill_declaration(data):
     buff_bonus = calculate_buff_power_bonus(actor_char, target_char, skill_data)
     power_bonus += buff_bonus
 
-    # === ▼▼▼ 修正: ペナルティ適用 ▼▼▼ ===
     total_modifier = power_bonus - senritsu_penalty
-    # === ▲▲▲ 修正ここまで ▲▲▲ ===
 
     final_command = resolved_command
+    # (既存のダメージ計算ロジック)
     base_power = 0
     try:
         base_power = int(skill_data.get('基礎威力', 0))
-    except ValueError:
-        base_power = 0
+    except ValueError: base_power = 0
     dice_roll_str = skill_data.get('ダイス威力', "")
-    dice_min = 0
-    dice_max = 0
+    dice_min = 0; dice_max = 0
     dice_match = re.search(r'(\d+)d(\d+)', dice_roll_str)
     if dice_match:
         try:
@@ -230,37 +270,29 @@ def handle_skill_declaration(data):
             num_faces = int(dice_match.group(2))
             dice_min = num_dice
             dice_max = num_dice * num_faces
-        except Exception:
-            pass
+        except Exception: pass
+
     phys_correction = get_status_value(actor_char, '物理補正')
     mag_correction = get_status_value(actor_char, '魔法補正')
-    correction_min = 0
-    correction_max = 0
+    correction_min = 0; correction_max = 0
     if '{物理補正}' in base_command:
         correction_max = phys_correction
         if phys_correction >= 1: correction_min = 1
     elif '{魔法補正}' in base_command:
         correction_max = mag_correction
         if mag_correction >= 1: correction_min = 1
-    min_damage = base_power
-    max_damage = base_power
-    if base_power > 0 or dice_max > 0:
-        min_damage += dice_min + correction_min + total_modifier
-        max_damage += dice_max + correction_max + total_modifier
+
+    min_damage = base_power + dice_min + correction_min + total_modifier
+    max_damage = base_power + dice_max + correction_max + total_modifier
+
     if total_modifier > 0:
-        if ' 【' in final_command:
-            final_command = final_command.replace(' 【', f"+{total_modifier} 【")
-        else:
-            final_command += f"+{total_modifier}"
+        if ' 【' in final_command: final_command = final_command.replace(' 【', f"+{total_modifier} 【")
+        else: final_command += f"+{total_modifier}"
     elif total_modifier < 0:
-        if ' 【' in final_command:
-            final_command = final_command.replace(' 【', f"{total_modifier} 【")
-        else:
-            final_command += f"{total_modifier}"
+        if ' 【' in final_command: final_command = final_command.replace(' 【', f"{total_modifier} 【")
+        else: final_command += f"{total_modifier}"
 
-    # --- 6. 一方攻撃判定 ---
     is_one_sided_attack = False
-
     has_re_evasion = False
     if target_char and 'special_buffs' in target_char:
         for buff in target_char['special_buffs']:
@@ -271,15 +303,15 @@ def handle_skill_declaration(data):
     if (target_char.get('hasActed', False) and not has_re_evasion) or force_unopposed:
         is_one_sided_attack = True
 
-    # --- 7. クライアントに「計算結果」を送信 ---
-    prefix = data.get('prefix')
+    # --- 結果送信 (通常スキルなので即時発動フラグはFalse) ---
     socketio.emit('skill_declaration_result', {
-        "prefix": prefix,
+        "prefix": data.get('prefix'),
         "final_command": final_command,
         "is_one_sided_attack": is_one_sided_attack,
         "min_damage": min_damage,
         "max_damage": max_damage,
-        "is_instant_action": is_instant_action,
+        "is_instant_action": False,
+        "is_immediate_skill": False,
         "skill_details": skill_details_payload,
         "senritsu_penalty": senritsu_penalty
     }, to=request.sid)
@@ -304,7 +336,6 @@ def handle_match(data):
     senritsu_penalty_d = int(data.get('senritsuPenaltyD', 0))
 
     def roll(cmd_str):
-        # (ダイスロールロジック - 変更なし)
         calc_str = re.sub(r'【.*?】', '', cmd_str).strip()
         details_str = calc_str
         dice_regex = r'(\d+)d(\d+)'
@@ -324,38 +355,69 @@ def handle_match(data):
             total = 0
         return {"total": total, "details": details_str}
 
-    # --- 1. スキルデータとコスト消費 ---
+    # --- 1. スキルデータ取得と PRE_MATCH 適用関数 ---
     global all_skill_data
-    skill_data_a = None
-    skill_data_d = None
-    effects_array_a = []
-    effects_array_d = []
-    skill_id_a = None
-    skill_id_d = None
-
     actor_a_char = next((c for c in state["characters"] if c.get('id') == actor_id_a), None)
     actor_d_char = next((c for c in state["characters"] if c.get('id') == actor_id_d), None)
 
-    # 攻撃側(A)
+    # ★ヘルパー: 実データへのPRE_MATCH適用
+    def apply_pre_match_effects(actor, target, skill_data):
+        if not skill_data or not actor: return
+        try:
+            rule_json_str = skill_data.get('特記処理', '{}')
+            rule_data = json.loads(rule_json_str)
+            effects_array = rule_data.get("effects", [])
+
+            # PRE_MATCH 効果の適用
+            _, logs, changes = process_skill_effects(
+                effects_array, "PRE_MATCH", actor, target, None
+            )
+
+            # 実データ更新
+            for (char, type, name, value) in changes:
+                if type == "APPLY_STATE":
+                    current_val = get_status_value(char, name)
+                    _update_char_stat(room, char, name, current_val + value, username=f"[{skill_data.get('デフォルト名称', 'スキル')}]")
+                elif type == "APPLY_BUFF":
+                    apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+                    broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
+                elif type == "FORCE_UNOPPOSED":
+                    # FORCE_UNOPPOSED はマッチ処理ロジック内で影響するフラグだが、
+                    # ここで状態として保存するものではないためスキップ
+                    pass
+        except json.JSONDecodeError:
+            pass
+
+    # 戦慄消費
     if actor_a_char and senritsu_penalty_a > 0:
         current_val = get_status_value(actor_a_char, '戦慄')
         new_val = max(0, current_val - senritsu_penalty_a)
         _update_char_stat(room, actor_a_char, '戦慄', new_val, username=f"[{actor_name_a}:戦慄消費]")
 
-    # 防御側(D)
     if actor_d_char and senritsu_penalty_d > 0:
         current_val = get_status_value(actor_d_char, '戦慄')
         new_val = max(0, current_val - senritsu_penalty_d)
         _update_char_stat(room, actor_d_char, '戦慄', new_val, username=f"[{actor_name_d}:戦慄消費]")
 
+    skill_id_a = None
+    skill_data_a = None
+    effects_array_a = []
+
+    skill_id_d = None
+    skill_data_d = None
+    effects_array_d = []
+
     match_a = re.search(r'【(.*?)\s', command_a)
     match_d = re.search(r'【(.*?)\s', command_d)
 
-    # --- 2. 攻撃側(A) のコスト消費 ---
+    # --- 2. 攻撃側(A) 処理: PRE_MATCH適用 & コスト消費 ---
     if match_a and actor_a_char:
         skill_id_a = match_a.group(1)
         skill_data_a = all_skill_data.get(skill_id_a)
         if skill_data_a:
+            # ★ PRE_MATCH 効果適用 (ここで自己バフ等が実データに乗る)
+            apply_pre_match_effects(actor_a_char, actor_d_char, skill_data_a)
+
             rule_json_str_a = skill_data_a.get('特記処理')
             if rule_json_str_a:
                 try:
@@ -369,18 +431,20 @@ def handle_match(data):
                             if cost_value > 0:
                                 current_resource = get_status_value(actor_a_char, cost_type)
                                 _update_char_stat(room, actor_a_char, cost_type, current_resource - cost_value, username=f"[{skill_data_a.get('デフォルト名称')}]")
-                except json.JSONDecodeError as e:
-                    print(f"❌ 特記処理(A)のJSONパースエラー: {e} (スキルID: {skill_id_a})")
-                    pass
+                except json.JSONDecodeError: pass
+
         if 'used_skills_this_round' not in actor_a_char:
             actor_a_char['used_skills_this_round'] = []
         actor_a_char['used_skills_this_round'].append(skill_id_a)
 
-    # --- 3. 防御側(D) のコスト消費 ---
+    # --- 3. 防御側(D) 処理: PRE_MATCH適用 & コスト消費 ---
     if match_d and actor_d_char:
         skill_id_d = match_d.group(1)
         skill_data_d = all_skill_data.get(skill_id_d)
         if skill_data_d:
+            # ★ PRE_MATCH 効果適用
+            apply_pre_match_effects(actor_d_char, actor_a_char, skill_data_d)
+
             rule_json_str_d = skill_data_d.get('特記処理')
             if rule_json_str_d:
                 try:
@@ -394,14 +458,13 @@ def handle_match(data):
                             if cost_value > 0:
                                 current_resource = get_status_value(actor_d_char, cost_type)
                                 _update_char_stat(room, actor_d_char, cost_type, current_resource - cost_value, username=f"[{skill_data_d.get('デフォルト名称')}]")
-                except json.JSONDecodeError as e:
-                    print(f"❌ 特記処理(D)のJSONパースエラー: {e} (スキルID: {skill_id_d})")
-                    pass
+                except json.JSONDecodeError: pass
+
         if 'used_skills_this_round' not in actor_d_char:
             actor_d_char['used_skills_this_round'] = []
         actor_d_char['used_skills_this_round'].append(skill_id_d)
 
-    # --- 4. マッチ実行 ---
+    # --- 4. マッチ実行 (ロール) ---
     result_a = roll(command_a)
     result_d = roll(command_d)
     winner_message = ''
@@ -416,7 +479,7 @@ def handle_match(data):
     is_one_sided = command_d.strip() == "【一方攻撃（行動済）】" or command_a.strip() == "【一方攻撃（行動済）】"
 
     # ==================================================================
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ メインロジック ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    # メインロジック
     # ==================================================================
     try:
         def apply_changes(changes_list, actor_skill_id, defender_skill_id, base_damage=0):
@@ -485,7 +548,7 @@ def handle_match(data):
             defender_tags = skill_data_d.get("tags", [])
             defender_category = skill_data_d.get("分類", "")
 
-        # --- 荊棘ルール (攻撃側・防御側の自傷/減少処理) ---
+        # --- 荊棘ルール ---
         if actor_a_char:
             a_thorns = get_status_value(actor_a_char, "荊棘")
             if a_thorns > 0:
@@ -518,14 +581,11 @@ def handle_match(data):
 
         # --- 一方攻撃 ---
         elif is_one_sided:
-            # === ▼▼▼ 修正点 (攻撃側が守備スキルの場合はダメージなし) ▼▼▼ ===
             if "守備" in attacker_tags:
                 damage = 0
                 final_damage = 0
                 winner_message = f"<strong> → {actor_name_a} の一方攻撃！</strong> (守備スキルのためダメージなし)"
                 damage_message = "(ダメージ 0)"
-                # (ターゲットへのダメージ処理は行わない)
-            # === ▲▲▲ 修正ここまで ▲▲▲ ===
             else:
                 damage = result_a['total']
                 if actor_d_char:
@@ -565,7 +625,7 @@ def handle_match(data):
             # 防御スキル
             if result_a['total'] > result_d['total']:
                 # 攻撃側(A)勝利
-                grant_win_fp(actor_a_char) # ★ AにFP+1
+                grant_win_fp(actor_a_char)
 
                 damage = result_a['total'] - result_d['total']
                 kiretsu_bonus = get_status_value(actor_d_char, '亀裂')
@@ -591,8 +651,8 @@ def handle_match(data):
                 damage_message += f"= {final_damage} ダメージ)"
             else:
                 # 防御成功(D勝利)
-                grant_win_fp(actor_d_char) # ★ DにFP+1
-                winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (防御成功)" # ★ メッセージ追加
+                grant_win_fp(actor_d_char)
+                winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (防御成功)"
 
                 b_dmg_lose, log_lose, chg_lose = process_skill_effects(effects_array_a, "LOSE", actor_a_char, actor_d_char, skill_data_d)
                 b_dmg_win, log_win, chg_win = process_skill_effects(effects_array_d, "WIN", actor_d_char, actor_a_char, skill_data_a)
@@ -606,7 +666,7 @@ def handle_match(data):
             # 回避スキル
             if result_a['total'] > result_d['total']:
                 # 回避失敗(A勝利)
-                grant_win_fp(actor_a_char) # ★ AにFP+1
+                grant_win_fp(actor_a_char)
 
                 damage = result_a['total']
                 kiretsu_bonus = get_status_value(actor_d_char, '亀裂')
@@ -631,7 +691,7 @@ def handle_match(data):
                 damage_message += f"= {final_damage} ダメージ)"
             else:
                 # 回避成功(D勝利)
-                grant_win_fp(actor_d_char) # ★ DにFP+1
+                grant_win_fp(actor_d_char)
 
                 b_dmg_lose, log_lose, chg_lose = process_skill_effects(effects_array_a, "LOSE", actor_a_char, actor_d_char, skill_data_d)
                 b_dmg_win, log_win, chg_win = process_skill_effects(effects_array_d, "WIN", actor_d_char, actor_a_char, skill_data_a)
@@ -640,7 +700,6 @@ def handle_match(data):
                 _, regain_action = apply_changes(changes, skill_id_a, skill_id_d)
 
                 if actor_d_char:
-                    # actor_d_char['hasActed'] = False # 再行動（ログのみ）
                     log_snippets.append("[再回避可能！]")
                     apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d})
 
@@ -651,7 +710,7 @@ def handle_match(data):
 
         elif result_a['total'] > result_d['total']:
             # 攻撃 vs 攻撃 (Aの勝利)
-            grant_win_fp(actor_a_char) # ★ AにFP+1
+            grant_win_fp(actor_a_char)
 
             damage = result_a['total']
             if actor_d_char:
@@ -679,7 +738,7 @@ def handle_match(data):
 
         elif result_d['total'] > result_a['total']:
             # 攻撃 vs 攻撃 (Dの勝利)
-            grant_win_fp(actor_d_char) # ★ DにFP+1
+            grant_win_fp(actor_d_char)
 
             damage = result_d['total']
             if actor_a_char:
@@ -725,7 +784,6 @@ def handle_match(data):
     # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ メインロジック ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     # ==================================================================
 
-    # ★ 修正: スキル名とIDを表示
     skill_display_a = format_skill_display_from_command(command_a, skill_id_a, skill_data_a)
     skill_display_d = format_skill_display_from_command(command_d, skill_id_d, skill_data_d)
 
@@ -734,7 +792,6 @@ def handle_match(data):
     broadcast_log(room, match_log, 'match')
     broadcast_state_update(room)
     save_specific_room_state(room)
-
 
 
 #ラウンドの開始処理
@@ -1031,6 +1088,7 @@ def handle_declare_wide_skill_users(data):
 
 #広域マッチの実行処理
 # ▼▼▼ handle_wide_match 全文 ▼▼▼
+# events/socket_battle.py の handle_wide_match 関数
 @socketio.on('request_wide_match')
 def handle_wide_match(data):
     room = data.get('room')
@@ -1080,6 +1138,30 @@ def handle_wide_match(data):
         if not char: return
         current_fp = get_status_value(char, 'FP')
         _update_char_stat(room, char, 'FP', current_fp + 1, username="[マッチ勝利]")
+
+    # ★追加: 実データへのPRE_MATCH適用ヘルパー
+    def apply_pre_match_effects(actor, target, skill_data):
+        if not skill_data or not actor: return
+        try:
+            rule_json_str = skill_data.get('特記処理', '{}')
+            rule_data = json.loads(rule_json_str)
+            effects_array = rule_data.get("effects", [])
+
+            # PRE_MATCH 効果の適用
+            _, logs, changes = process_skill_effects(
+                effects_array, "PRE_MATCH", actor, target, None
+            )
+
+            # 実データ更新
+            for (char, type, name, value) in changes:
+                if type == "APPLY_STATE":
+                    current_val = get_status_value(char, name)
+                    _update_char_stat(room, char, name, current_val + value, username=f"[{skill_data.get('デフォルト名称', 'スキル')}]")
+                elif type == "APPLY_BUFF":
+                    apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+                    broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
+        except json.JSONDecodeError:
+            pass
 
     # 防御側のコマンドと補正を解決する関数
     def resolve_defender_action(def_char, d_skill_id):
@@ -1205,6 +1287,12 @@ def handle_wide_match(data):
 
     # --- メイン処理 ---
 
+    # ★追加: 攻撃側(Actor)のPRE_MATCH効果適用
+    # 広域攻撃であっても、攻撃者は一人なのでここで適用
+    if skill_data_actor:
+        # ターゲットは特定できないのでNoneとするが、自己バフ(target=self)には影響しない
+        apply_pre_match_effects(actor_char, None, skill_data_actor)
+
     # 攻撃側のロール実行
     result_actor = roll(command_actor)
     actor_power = result_actor['total']
@@ -1233,7 +1321,6 @@ def handle_wide_match(data):
 
     mode_text = "広域-個別" if mode == 'individual' else "広域-合算"
 
-    # ★ 修正: 攻撃側のスキル表示（コマンドから抽出）
     skill_display_actor = format_skill_display_from_command(command_actor, skill_id, skill_data_actor)
     broadcast_log(room, f"⚔️ <strong>{actor_name}</strong> {skill_display_actor} の【{mode_text}】攻撃！ (出目: {actor_power})", 'match')
 
@@ -1259,6 +1346,10 @@ def handle_wide_match(data):
                 skill_data_target = all_skill_data.get(d_skill_id)
             else:
                 d_cmd, skill_data_target = resolve_defender_action(target_char, d_skill_id)
+
+            # ★追加: 防御側のPRE_MATCH効果適用
+            if skill_data_target:
+                apply_pre_match_effects(target_char, actor_char, skill_data_target)
 
             result_target = roll(d_cmd)
             target_power = result_target['total']
@@ -1287,7 +1378,6 @@ def handle_wide_match(data):
             d_tags = skill_data_target.get("tags", []) if skill_data_target else []
             d_cat = skill_data_target.get("分類", "") if skill_data_target else ""
 
-            # ★ 修正: 防御側スキル表示（コマンドから抽出）
             skill_display_target = format_skill_display_from_command(d_cmd, d_skill_id, skill_data_target)
 
             if actor_power > target_power:
@@ -1370,6 +1460,10 @@ def handle_wide_match(data):
 
             valid_targets[-1]['skill_data'] = skill_data_target
 
+            # ★追加: 防御側のPRE_MATCH効果適用
+            if skill_data_target:
+                apply_pre_match_effects(target_char, actor_char, skill_data_target)
+
             # 防御コスト消費
             if skill_data_target:
                 try:
@@ -1393,7 +1487,6 @@ def handle_wide_match(data):
             res = roll(d_cmd)
             total_def_power += res['total']
 
-            # ★ 修正: 合算ログ用スキル表示
             skill_display_target = format_skill_display_from_command(d_cmd, d_skill_id, skill_data_target)
             defenders_results.append(f"{target_char['name']}{skill_display_target}({res['total']})")
 
