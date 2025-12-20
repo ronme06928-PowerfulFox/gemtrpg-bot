@@ -355,7 +355,7 @@ def handle_match(data):
     actor_a_char = next((c for c in state["characters"] if c.get('id') == actor_id_a), None)
     actor_d_char = next((c for c in state["characters"] if c.get('id') == actor_id_d), None)
 
-    # ★ PRE_MATCH 適用関数 (REMOVE_BUFF対応)
+    # PRE_MATCH 適用関数
     def apply_pre_match_effects(actor, target, skill_data):
         if not skill_data or not actor: return
         try:
@@ -371,7 +371,7 @@ def handle_match(data):
                 elif type == "APPLY_BUFF":
                     apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
                     broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
-                elif type == "REMOVE_BUFF": # ★対応追加
+                elif type == "REMOVE_BUFF":
                     remove_buff(char, name)
         except json.JSONDecodeError: pass
 
@@ -436,44 +436,88 @@ def handle_match(data):
     is_one_sided = command_d.strip() == "【一方攻撃（行動済）】" or command_a.strip() == "【一方攻撃（行動済）】"
 
     try:
-        def apply_changes(changes_list, actor_skill_id, defender_skill_id, base_damage=0):
-            extra_damage_from_effects = 0
-            regain_action = False
-            actor_skill_name = "スキル"
-            if actor_skill_id and all_skill_data.get(actor_skill_id):
-                actor_skill_name = all_skill_data[actor_skill_id].get('デフォルト名称', actor_skill_id)
-            elif defender_skill_id and all_skill_data.get(defender_skill_id):
-                 actor_skill_name = all_skill_data[defender_skill_id].get('デフォルト名称', defender_skill_id)
-
-            for (char, type, name, value) in changes_list:
-                if type == "APPLY_STATE":
-                    curr = get_status_value(char, name)
-                    _update_char_stat(room, char, name, curr + value, username=f"[{actor_skill_name}]")
-                elif type == "SET_STATUS":
-                    _update_char_stat(room, char, name, value, username=f"[{actor_skill_name}]")
-                elif type == "CUSTOM_DAMAGE":
-                    extra_damage_from_effects += value
-                elif type == "APPLY_BUFF":
-                    apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
-                    broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
-                elif type == "REMOVE_BUFF": # ★★★ ここが重要: バフ消費時の削除処理 ★★★
-                    remove_buff(char, name)
-                elif type == "APPLY_SKILL_DAMAGE_AGAIN":
-                    extra_damage_from_effects += base_damage
-                elif type == "APPLY_STATE_TO_ALL_OTHERS":
-                    orig_target_id = char.get("id")
-                    for other_char in state["characters"]:
-                        if other_char.get("type") == char.get("type") and other_char.get("id") != orig_target_id:
-                            curr = get_status_value(other_char, name)
-                            _update_char_stat(room, other_char, name, curr + value, username=f"[{actor_skill_name}]")
-                elif type == "REGAIN_ACTION":
-                    regain_action = True
-            return extra_damage_from_effects, regain_action
-
         def grant_win_fp(char):
             if not char: return
             curr = get_status_value(char, 'FP')
             _update_char_stat(room, char, 'FP', curr + 1, username="[マッチ勝利]")
+
+        # ★修正: 効果適用ロジック (即時適用 & 重複防止対応)
+        def apply_skill_effects_bidirectional(winner_side, a_char, d_char, a_skill, d_skill, damage_val=0, suppress_actor_self_effect=False):
+            effects_a = []; effects_d = []
+            if a_skill:
+                try: effects_a = json.loads(a_skill.get('特記処理', '{}')).get("effects", [])
+                except: pass
+            if d_skill:
+                try: effects_d = json.loads(d_skill.get('特記処理', '{}')).get("effects", [])
+                except: pass
+
+            total_bonus_dmg = 0; all_logs = []
+
+            # 内部関数: 変更内容の即時適用
+            def apply_local_changes(changes):
+                extra_dmg = 0
+                for (char, type, name, value) in changes:
+                    if type == "APPLY_STATE":
+                        curr = get_status_value(char, name)
+                        _update_char_stat(room, char, name, curr + value, username=f"[{name}]")
+                    elif type == "SET_STATUS":
+                        _update_char_stat(room, char, name, value, username=f"[{name}]")
+                    elif type == "CUSTOM_DAMAGE":
+                        extra_dmg += value
+                    elif type == "APPLY_BUFF":
+                        apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+                        broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
+                    elif type == "REMOVE_BUFF":
+                        remove_buff(char, name)
+                    elif type == "APPLY_SKILL_DAMAGE_AGAIN":
+                        extra_dmg += damage_val
+                    elif type == "APPLY_STATE_TO_ALL_OTHERS":
+                        orig_target_id = char.get("id")
+                        for other_char in state["characters"]:
+                            if other_char.get("type") == char.get("type") and other_char.get("id") != orig_target_id:
+                                curr = get_status_value(other_char, name)
+                                _update_char_stat(room, other_char, name, curr + value, username=f"[{name}]")
+                    # REGAIN_ACTION はここではハンドルせず、呼び出し元でやるのが一般的だが今回は省略
+                return extra_dmg
+
+            # 内部関数: 処理実行と適用
+            def run_proc_and_apply(effs, timing, actor, target, skill):
+                d, l, c = process_skill_effects(effs, timing, actor, target, skill)
+
+                # ★重複防止: 攻撃者の自己バフ抑制フラグがONの場合、ターゲットが攻撃者自身である変更を除外
+                final_changes = []
+                if suppress_actor_self_effect and timing in ["WIN", "HIT", "LOSE", "UNOPPOSED"]:
+                    # 防御側スキル起因の場合は抑制しない（攻撃者のスキル効果のみ抑制対象とすべきだが、簡易的に攻撃者への変更をカット）
+                    # 厳密には「攻撃者のスキル効果による自己バフ」を消すべき。
+                    # ここでは a_char (攻撃者) への変更を全てスキップする実装とする
+                    for change in c:
+                        change_target = change[0]
+                        if change_target.get('id') == a_char.get('id'):
+                            continue
+                        final_changes.append(change)
+                else:
+                    final_changes = c
+
+                nonlocal total_bonus_dmg
+                total_bonus_dmg += d
+                all_logs.extend(l)
+
+                # 即時適用
+                dmg_val = apply_local_changes(final_changes)
+                total_bonus_dmg += dmg_val
+
+            if winner_side == 'attacker':
+                # ★順序変更: WIN -> HIT (勝利ボーナスをHITに乗せるため)
+                run_proc_and_apply(effects_a, "WIN", a_char, d_char, d_skill)
+                run_proc_and_apply(effects_a, "HIT", a_char, d_char, d_skill)
+                run_proc_and_apply(effects_d, "LOSE", d_char, a_char, a_skill)
+            else:
+                run_proc_and_apply(effects_a, "LOSE", a_char, d_char, d_skill)
+                # 防御側も WIN -> HIT に統一
+                run_proc_and_apply(effects_d, "WIN", d_char, a_char, a_skill)
+                run_proc_and_apply(effects_d, "HIT", d_char, a_char, a_skill)
+
+            return total_bonus_dmg, all_logs
 
         damage = 0; final_damage = 0; extra_skill_damage = 0
         attacker_tags = skill_data_a.get("tags", []) if skill_data_a else []
@@ -481,7 +525,7 @@ def handle_match(data):
         attacker_category = skill_data_a.get("分類", "") if skill_data_a else ""
         defender_category = skill_data_d.get("分類", "") if skill_data_d else ""
 
-        # 荊棘
+        # 荊棘処理
         if actor_a_char:
             at = get_status_value(actor_a_char, "荊棘")
             if at > 0:
@@ -512,10 +556,30 @@ def handle_match(data):
                 damage = result_a['total']
                 if actor_d_char:
                     kiretsu = get_status_value(actor_d_char, '亀裂')
+                    # 一方攻撃: UNOPPOSED -> HIT (HIT処理時にバフが乗るかはUNOPPOSED次第)
                     bd_un, log_un, chg_un = process_skill_effects(effects_array_a, "UNOPPOSED", actor_a_char, actor_d_char, skill_data_d)
+
+                    # ここは既存構造的に一括処理が残っているが、apply_skill_effects_bidirectional 相当の即時適用ロジックが必要
+                    # 簡易的に bidirectional 関数を流用できないため、ここだけ手動で即時適用に書き換える
+                    def local_apply(clist):
+                        ex = 0
+                        for (c, t, n, v) in clist:
+                            if t == "APPLY_STATE": _update_char_stat(room, c, n, get_status_value(c, n)+v, username=f"[{n}]")
+                            elif t == "APPLY_BUFF": apply_buff(c, n, v["lasting"], v["delay"], data=v.get("data"))
+                            elif t == "REMOVE_BUFF": remove_buff(c, n)
+                            elif t == "CUSTOM_DAMAGE": ex += v
+                        return ex
+
+                    # UNOPPOSED適用
+                    local_apply(chg_un)
+
+                    # HIT適用 (UNOPPOSEDでバフがついていれば乗る)
                     bd_hit, log_hit, chg_hit = process_skill_effects(effects_array_a, "HIT", actor_a_char, actor_d_char, skill_data_d)
-                    bonus_damage = bd_un + bd_hit; log_snippets.extend(log_un + log_hit); changes = chg_un + chg_hit
-                    extra_skill_damage, _ = apply_changes(changes, skill_id_a, skill_id_d, damage)
+                    extra_skill_damage = local_apply(chg_hit)
+
+                    log_snippets.extend(log_un + log_hit)
+                    bonus_damage = bd_un + bd_hit
+
                     final_damage = damage + kiretsu + bonus_damage + extra_skill_damage
                     if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
                         final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
@@ -531,96 +595,92 @@ def handle_match(data):
                 grant_win_fp(actor_a_char)
                 damage = result_a['total'] - result_d['total']
                 kiretsu = get_status_value(actor_d_char, '亀裂')
-                bd_win, log_win, chg_win = process_skill_effects(effects_array_a, "WIN", actor_a_char, actor_d_char, skill_data_d)
-                bd_hit, log_hit, chg_hit = process_skill_effects(effects_array_a, "HIT", actor_a_char, actor_d_char, skill_data_d)
-                bd_lose, log_lose, chg_lose = process_skill_effects(effects_array_d, "LOSE", actor_d_char, actor_a_char, skill_data_a)
-                bonus_damage = bd_win + bd_hit + bd_lose; log_snippets.extend(log_win + log_hit + log_lose); changes = chg_win + chg_hit + chg_lose
-                extra_skill_damage, _ = apply_changes(changes, skill_id_a, skill_id_d, result_a['total'])
-                final_damage = damage + kiretsu + bonus_damage + extra_skill_damage
+                # ★修正: 即時適用関数を利用
+                bonus_damage, logs = apply_skill_effects_bidirectional('attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
+                log_snippets.extend(logs)
+                final_damage = damage + kiretsu + bonus_damage # extra_skill_damageはbonus_damageに含まれる
                 if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
                     final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
                 winner_message = f"<strong> → {actor_name_a} の勝利！</strong> (ダメージ軽減)"
-                damage_message += f"(差分 {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + (f"+ [追加攻撃 {extra_skill_damage}] " if extra_skill_damage > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
+                damage_message += f"(差分 {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
             else:
                 grant_win_fp(actor_d_char)
                 winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (防御成功)"
-                bd_lose, log_lose, chg_lose = process_skill_effects(effects_array_a, "LOSE", actor_a_char, actor_d_char, skill_data_d)
-                bd_win, log_win, chg_win = process_skill_effects(effects_array_d, "WIN", actor_d_char, actor_a_char, skill_data_a)
-                changes = chg_lose + chg_win; apply_changes(changes, skill_id_a, skill_id_d)
-                log_snippets.extend(log_lose + log_win); damage_message = "(ダメージ 0)"
+                _, logs = apply_skill_effects_bidirectional('defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d)
+                log_snippets.extend(logs)
+                damage_message = "(ダメージ 0)"
                 if log_snippets: damage_message += f" ({' '.join(log_snippets)})"
         elif "守備" in defender_tags and defender_category == "回避":
             if result_a['total'] > result_d['total']:
                 grant_win_fp(actor_a_char)
                 damage = result_a['total']
                 kiretsu = get_status_value(actor_d_char, '亀裂')
-                bd_hit, log_hit, chg_hit = process_skill_effects(effects_array_a, "HIT", actor_a_char, actor_d_char, skill_data_d)
-                bd_lose, log_lose, chg_lose = process_skill_effects(effects_array_d, "LOSE", actor_d_char, actor_a_char, skill_data_a)
-                bonus_damage = bd_hit + bd_lose; log_snippets.extend(log_hit + log_lose); changes = chg_hit + chg_lose
-                extra_skill_damage, _ = apply_changes(changes, skill_id_a, skill_id_d, damage)
-                final_damage = damage + kiretsu + bonus_damage + extra_skill_damage
+                bonus_damage, logs = apply_skill_effects_bidirectional('attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
+                log_snippets.extend(logs)
+                final_damage = damage + kiretsu + bonus_damage
                 if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
                     final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
                 winner_message = f"<strong> → {actor_name_a} の勝利！</strong> (回避失敗)"
-                damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + (f"+ [追加攻撃 {extra_skill_damage}] " if extra_skill_damage > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
+                damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
             else:
                 grant_win_fp(actor_d_char)
-                bd_lose, log_lose, chg_lose = process_skill_effects(effects_array_a, "LOSE", actor_a_char, actor_d_char, skill_data_d)
-                bd_win, log_win, chg_win = process_skill_effects(effects_array_d, "WIN", actor_d_char, actor_a_char, skill_data_a)
-                changes = chg_lose + chg_win
-                _, regain = apply_changes(changes, skill_id_a, skill_id_d)
+                _, logs = apply_skill_effects_bidirectional('defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d)
                 if actor_d_char:
                     log_snippets.append("[再回避可能！]")
                     apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d})
-                log_snippets.extend(log_lose + log_win); winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (回避成功)"; damage_message = "(ダメージ 0)"
+                log_snippets.extend(logs)
+                winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (回避成功)"; damage_message = "(ダメージ 0)"
                 if log_snippets: damage_message += f" ({' '.join(log_snippets)})"
         elif result_a['total'] > result_d['total']:
             grant_win_fp(actor_a_char)
             damage = result_a['total']
             if actor_d_char:
                 kiretsu = get_status_value(actor_d_char, '亀裂')
-                bd_win, log_win, chg_win = process_skill_effects(effects_array_a, "WIN", actor_a_char, actor_d_char, skill_data_d)
-                bd_hit, log_hit, chg_hit = process_skill_effects(effects_array_a, "HIT", actor_a_char, actor_d_char, skill_data_d)
-                bd_lose, log_lose, chg_lose = process_skill_effects(effects_array_d, "LOSE", actor_d_char, actor_a_char, skill_data_a)
-                bonus_damage = bd_win + bd_hit + bd_lose; log_snippets.extend(log_win + log_hit + log_lose); changes = chg_win + chg_hit + chg_lose
-                extra_skill_damage, _ = apply_changes(changes, skill_id_a, skill_id_d, damage)
-                final_damage = damage + kiretsu + bonus_damage + extra_skill_damage
+                bonus_damage, logs = apply_skill_effects_bidirectional('attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
+                log_snippets.extend(logs)
+                final_damage = damage + kiretsu + bonus_damage
                 if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
                     final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
                 winner_message = f"<strong> → {actor_name_a} の勝利！</strong>"
-                damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + (f"+ [追加攻撃 {extra_skill_damage}] " if extra_skill_damage > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
+                damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
         elif result_d['total'] > result_a['total']:
             grant_win_fp(actor_d_char)
             damage = result_d['total']
             if actor_a_char:
                 kiretsu = get_status_value(actor_a_char, '亀裂')
-                bd_win, log_win, chg_win = process_skill_effects(effects_array_d, "WIN", actor_d_char, actor_a_char, skill_data_a)
-                bd_hit, log_hit, chg_hit = process_skill_effects(effects_array_d, "HIT", actor_d_char, actor_a_char, skill_data_a)
-                bd_lose, log_lose, chg_lose = process_skill_effects(effects_array_a, "LOSE", actor_a_char, actor_d_char, skill_data_d)
-                bonus_damage = bd_win + bd_hit + bd_lose; log_snippets.extend(log_win + log_hit + log_lose); changes = chg_win + chg_hit + chg_lose
-                extra_skill_damage, _ = apply_changes(changes, skill_id_a, skill_id_d, damage)
-                final_damage = damage + kiretsu + bonus_damage + extra_skill_damage
+                bonus_damage, logs = apply_skill_effects_bidirectional('defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
+                log_snippets.extend(logs)
+                final_damage = damage + kiretsu + bonus_damage
                 if any(b.get('name') == "混乱" for b in actor_a_char.get('special_buffs', [])):
                     final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
                 _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username)
                 winner_message = f"<strong> → {actor_name_d} の勝利！</strong>"
-                damage_message += f"({actor_a_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + (f"+ [追加攻撃 {extra_skill_damage}] " if extra_skill_damage > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
+                damage_message += f"({actor_a_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
         else:
             winner_message = '<strong> → 引き分け！</strong> (ダメージなし)'
-            bd_end_a, log_end_a, chg_end_a = process_skill_effects(effects_array_a, "END_MATCH", actor_a_char, actor_d_char, skill_data_d)
-            bd_end_d, log_end_d, chg_end_d = process_skill_effects(effects_array_d, "END_MATCH", actor_d_char, actor_a_char, skill_data_a)
-            changes = chg_end_a + chg_end_d; apply_changes(changes, skill_id_a, skill_id_d); log_snippets.extend(log_end_a + log_end_d)
+            # 引き分け処理も即時適用ロジックに合わせる
+            def run_end_match(effs, actor, target, skill):
+                d, l, c = process_skill_effects(effs, "END_MATCH", actor, target, skill)
+                all_logs = l
+                # 簡易適用
+                for (char, type, name, value) in c:
+                    if type == "APPLY_STATE": _update_char_stat(room, char, name, get_status_value(char, name)+value, username=f"[{name}]")
+                    elif type == "APPLY_BUFF": apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+                    elif type == "REMOVE_BUFF": remove_buff(char, name)
+                return all_logs
+
+            log_a = run_end_match(effects_array_a, actor_a_char, actor_d_char, skill_data_d)
+            log_d = run_end_match(effects_array_d, actor_d_char, actor_a_char, skill_data_a)
+            log_snippets.extend(log_a + log_d)
             if log_snippets: winner_message += f" ({' '.join(log_snippets)})"
 
     except TypeError as e:
         print("--- ▼▼▼ エラーをキャッチしました ▼▼▼ ---", flush=True)
         print(f"エラー内容: {e}", flush=True)
         raise e
-
-    # cleanup_one_time_buffs の呼び出しは削除
 
     skill_display_a = format_skill_display_from_command(command_a, skill_id_a, skill_data_a)
     skill_display_d = format_skill_display_from_command(command_d, skill_id_d, skill_data_d)
@@ -966,8 +1026,8 @@ def handle_wide_match(data):
             _, logs, changes = process_skill_effects(effects_array, "PRE_MATCH", actor, target, None)
             for (char, type, name, value) in changes:
                 if type == "APPLY_STATE":
-                    curr = get_status_value(char, name)
-                    _update_char_stat(room, char, name, curr + value, username=f"[{skill_data.get('デフォルト名称', 'スキル')}]")
+                    current_val = get_status_value(char, name)
+                    _update_char_stat(room, char, name, current_val + value, username=f"[{skill_data.get('デフォルト名称', 'スキル')}]")
                 elif type == "APPLY_BUFF":
                     apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
                     broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
@@ -1005,7 +1065,8 @@ def handle_wide_match(data):
             else: final_cmd += f"{total_mod}"
         return final_cmd, d_skill_data
 
-    def apply_skill_effects_bidirectional(winner_side, a_char, d_char, a_skill, d_skill, damage_val=0):
+    # ★修正: 効果適用ロジック (extra_dmg_val を削除)
+    def apply_skill_effects_bidirectional(winner_side, a_char, d_char, a_skill, d_skill, damage_val=0, suppress_actor_self_effect=False):
         effects_a = []; effects_d = []
         if a_skill:
             try: effects_a = json.loads(a_skill.get('特記処理', '{}')).get("effects", [])
@@ -1013,35 +1074,65 @@ def handle_wide_match(data):
         if d_skill:
             try: effects_d = json.loads(d_skill.get('特記処理', '{}')).get("effects", [])
             except: pass
-        total_bonus_dmg = 0; all_logs = []; all_changes = []
-        def run_proc(effs, timing, actor, target, skill):
+
+        total_bonus_dmg = 0; all_logs = []
+
+        # 内部関数: 変更内容の即時適用
+        def apply_local_changes(changes):
+            extra_dmg = 0
+            for (char, type, name, value) in changes:
+                if type == "APPLY_STATE":
+                    curr = get_status_value(char, name)
+                    _update_char_stat(room, char, name, curr + value, username=f"[{name}]")
+                elif type == "SET_STATUS":
+                    _update_char_stat(room, char, name, value, username=f"[{name}]")
+                elif type == "CUSTOM_DAMAGE":
+                    extra_dmg += value
+                elif type == "APPLY_BUFF":
+                    apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+                    broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
+                elif type == "REMOVE_BUFF":
+                    remove_buff(char, name)
+                # 広域での特殊効果対応が必要ならここに追加
+            return extra_dmg
+
+        # 内部関数: 処理実行と適用
+        def run_proc_and_apply(effs, timing, actor, target, skill):
             d, l, c = process_skill_effects(effs, timing, actor, target, skill)
+
+            # 重複防止: 攻撃者の自己バフ抑制フラグがONの場合、ターゲットが攻撃者自身である変更を除外
+            final_changes = []
+            if suppress_actor_self_effect and timing in ["WIN", "HIT", "LOSE", "UNOPPOSED"]:
+                for change in c:
+                    change_target = change[0]
+                    # 攻撃者(a_char)への変更をスキップ
+                    if change_target.get('id') == a_char.get('id'):
+                        continue
+                    final_changes.append(change)
+            else:
+                final_changes = c
+
             nonlocal total_bonus_dmg
             total_bonus_dmg += d
             all_logs.extend(l)
-            all_changes.extend(c)
+
+            # 即時適用
+            dmg_val = apply_local_changes(final_changes)
+            total_bonus_dmg += dmg_val
+
         if winner_side == 'attacker':
-            run_proc(effects_a, "HIT", a_char, d_char, d_skill)
-            run_proc(effects_a, "WIN", a_char, d_char, d_skill)
-            run_proc(effects_d, "LOSE", d_char, a_char, a_skill)
+            # WIN -> HIT
+            run_proc_and_apply(effects_a, "WIN", a_char, d_char, d_skill)
+            run_proc_and_apply(effects_a, "HIT", a_char, d_char, d_skill)
+            run_proc_and_apply(effects_d, "LOSE", d_char, a_char, a_skill)
         else:
-            run_proc(effects_a, "LOSE", a_char, d_char, d_skill)
-            run_proc(effects_d, "HIT", d_char, a_char, a_skill)
-            run_proc(effects_d, "WIN", d_char, a_char, a_skill)
-        extra_dmg_val = 0
-        for (char, type, name, value) in all_changes:
-            if type == "APPLY_STATE":
-                curr = get_status_value(char, name)
-                _update_char_stat(room, char, name, curr + value, username=f"[{name}]")
-            elif type == "SET_STATUS":
-                _update_char_stat(room, char, name, value, username=f"[{name}]")
-            elif type == "CUSTOM_DAMAGE":
-                extra_dmg_val += value
-            elif type == "APPLY_BUFF":
-                apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
-            elif type == "REMOVE_BUFF": # ★ここでもREMOVE_BUFF対応
-                remove_buff(char, name)
-        return total_bonus_dmg + extra_dmg_val, all_logs
+            run_proc_and_apply(effects_a, "LOSE", a_char, d_char, d_skill)
+            # WIN -> HIT
+            run_proc_and_apply(effects_d, "WIN", d_char, a_char, a_skill)
+            run_proc_and_apply(effects_d, "HIT", d_char, a_char, a_skill)
+
+        # ★修正: total_bonus_dmg にはすでに extra_dmg 分も含まれているため単独で返す
+        return total_bonus_dmg, all_logs
 
     def process_thorns(char, skill_data):
         if not char or not skill_data: return
@@ -1078,6 +1169,7 @@ def handle_wide_match(data):
     skill_display_actor = format_skill_display_from_command(command_actor, skill_id, skill_data_actor)
     broadcast_log(room, f"⚔️ <strong>{actor_name}</strong> {skill_display_actor} の【{mode_text}】攻撃！ (出目: {actor_power})", 'match')
 
+    # === 広域-個別 (Individual) ===
     if mode == 'individual':
         for defender_info in defenders_data:
             if actor_char['hp'] <= 0:
@@ -1108,12 +1200,15 @@ def handle_wide_match(data):
             if d_skill_id: target_char['used_skills_this_round'].append(d_skill_id)
             msg = ""; d_tags = skill_data_target.get("tags", []) if skill_data_target else []; d_cat = skill_data_target.get("分類", "") if skill_data_target else ""
             skill_display_target = format_skill_display_from_command(d_cmd, d_skill_id, skill_data_target)
+
             if actor_power > target_power:
                 grant_win_fp(actor_char); base_dmg = actor_power
                 if "守備" in d_tags and d_cat == "防御": base_dmg = actor_power - target_power; msg = "(軽減)"
                 elif "守備" in d_tags and d_cat == "回避": base_dmg = actor_power; msg = "(回避失敗)"
+
                 bonus, logs = apply_skill_effects_bidirectional('attacker', actor_char, target_char, skill_data_actor, skill_data_target, base_dmg)
                 final_dmg = base_dmg + bonus
+
                 if any(b.get('name') == "混乱" for b in target_char.get('special_buffs', [])): final_dmg = int(final_dmg * 1.5); msg += " (混乱x1.5)"
                 _update_char_stat(room, target_char, 'HP', target_char['hp'] - final_dmg, username=username)
                 broadcast_log(room, f"➡ vs {target_char['name']} {skill_display_target} ({target_power}): 命中！ {final_dmg}ダメージ {msg} {' '.join(logs)}", 'match')
@@ -1123,13 +1218,16 @@ def handle_wide_match(data):
                     base_dmg = 0; msg = "(回避成功)" if ("守備" in d_tags and d_cat == "回避") else "(防いだ)"
                 else:
                     base_dmg = target_power; msg = "(反撃)"
+
                 bonus, logs = apply_skill_effects_bidirectional('defender', actor_char, target_char, skill_data_actor, skill_data_target, base_dmg)
                 final_dmg = base_dmg + bonus
+
                 if any(b.get('name') == "混乱" for b in target_char.get('special_buffs', [])): final_dmg = int(final_dmg * 1.5); msg += "(混乱x1.5)"
                 if final_dmg > 0: _update_char_stat(room, actor_char, 'HP', actor_char['hp'] - final_dmg, username="[反撃]"); msg += f" {final_dmg}ダメージ"
                 else: msg += " (ダメージなし)"
                 broadcast_log(room, f"➡ vs {target_char['name']} {skill_display_target} ({target_power}): {msg} {' '.join(logs)}", 'match')
 
+    # === 広域-合算 (Combined) ===
     elif mode == 'combined':
         total_def_power = 0; defenders_results = []; valid_targets = []
         for defender_info in defenders_data:
@@ -1159,12 +1257,21 @@ def handle_wide_match(data):
             skill_display_target = format_skill_display_from_command(d_cmd, d_skill_id, skill_data_target)
             defenders_results.append(f"{target_char['name']}{skill_display_target}({res['total']})")
         broadcast_log(room, f"🛡️ 防御側合計: {total_def_power} [{', '.join(defenders_results)}]", 'info')
+
         if actor_power > total_def_power:
             grant_win_fp(actor_char); diff_dmg = actor_power - total_def_power
             broadcast_log(room, f"💥 攻撃成功！ 差分ダメージ: {diff_dmg} を全員に与えます。", 'match')
-            for entry in valid_targets:
+
+            for i, entry in enumerate(valid_targets):
                 target_char = entry['char']
-                bonus, logs = apply_skill_effects_bidirectional('attacker', actor_char, target_char, skill_data_actor, entry['skill_data'], diff_dmg)
+                # 合算モード: 2人目以降は攻撃者自身の自己バフをスキップ
+                should_suppress = (i > 0)
+
+                bonus, logs = apply_skill_effects_bidirectional(
+                    'attacker', actor_char, target_char, skill_data_actor, entry['skill_data'], diff_dmg,
+                    suppress_actor_self_effect=should_suppress
+                )
+
                 final_dmg = diff_dmg + bonus; msg = ""
                 if logs: msg = f"({' '.join(logs)})"
                 if any(b.get('name') == "混乱" for b in target_char.get('special_buffs', [])): final_dmg = int(final_dmg * 1.5); msg += " (混乱)"
@@ -1175,12 +1282,16 @@ def handle_wide_match(data):
             if diff_dmg > 0:
                 _update_char_stat(room, actor_char, 'HP', actor_char['hp'] - diff_dmg, username="[カウンター]"); msg += f" ➡ 攻撃者に {diff_dmg} の反撃ダメージ！"
             broadcast_log(room, msg, 'match')
-            for entry in valid_targets:
-                target_char = entry['char']; grant_win_fp(target_char)
-                _, logs = apply_skill_effects_bidirectional('defender', actor_char, target_char, skill_data_actor, entry['skill_data'], 0)
-                if logs: broadcast_log(room, f"➡ {target_char['name']}の効果: {' '.join(logs)}", 'match')
 
-    # cleanup_one_time_buffs の呼び出しは削除
+            for i, entry in enumerate(valid_targets):
+                target_char = entry['char']; grant_win_fp(target_char)
+                should_suppress = (i > 0)
+
+                _, logs = apply_skill_effects_bidirectional(
+                    'defender', actor_char, target_char, skill_data_actor, entry['skill_data'], 0,
+                    suppress_actor_self_effect=should_suppress
+                )
+                if logs: broadcast_log(room, f"➡ {target_char['name']}の効果: {' '.join(logs)}", 'match')
 
     broadcast_state_update(room)
     save_specific_room_state(room)
