@@ -1,7 +1,7 @@
 /**
  * バフ・デバフ・状態異常の定義データ
  */
-const BUFF_DATA = {
+window.BUFF_DATA = {
     // 静的定義 (説明文などを固定したい場合)
     STATIC_DATA: {
         "混乱": {

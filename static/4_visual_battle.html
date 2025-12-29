@@ -15,31 +15,60 @@
     </div>
 
     <div id="visual-sidebar">
-        <div id="visual-timeline-area">
-            <h4 class="sidebar-header">TimeLine</h4>
-            <div id="visual-timeline-list">
-                </div>
-        </div>
 
-        <div id="visual-staging-area">
-            <h4 class="sidebar-header">Staging (未配置)</h4>
-            <div id="staging-list">
-                </div>
-        </div>
-
-        <div id="visual-controls-area">
-            <button id="visual-next-turn-btn">ターン終了 (Next Turn)</button>
-        </div>
-
-        <div id="visual-chat-area">
-            <div id="visual-chat-log" class="battle-log"></div>
+        <div id="visual-timeline-area" style="flex: 0 0 auto; max-height: 25%; border-bottom: 1px solid #ccc; display: flex; flex-direction: column;">
+            <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>TimeLine</span>
+                <span style="font-size: 0.9em; font-weight: normal;">Round: <span id="visual-round-counter" style="font-weight: bold;">0</span></span>
             </div>
+            <div id="visual-timeline-list" style="overflow-y: auto; flex: 1;">
+                </div>
+        </div>
+
+        <div id="visual-staging-area" style="flex: 0 0 auto; max-height: 15%; border-bottom: 1px solid #ccc; display: flex; flex-direction: column;">
+            <h4 class="sidebar-header">Staging (未配置)</h4>
+            <div id="staging-list" style="overflow-y: auto; flex: 1;">
+                </div>
+        </div>
+
+        <div id="visual-controls-area" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd;">
+            <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                <button id="visual-round-start-btn" class="sidebar-btn" style="display:none; flex: 1; background: #17a2b8; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer;">R開始</button>
+                <button id="visual-round-end-btn" class="sidebar-btn" style="display:none; flex: 1; background: #f0e0e0; color: #c82333; border: 1px solid #e0c0c0; padding: 5px; border-radius: 4px; cursor: pointer;">R終了</button>
+            </div>
+            <button id="visual-next-turn-btn" style="width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
+                ターン終了 (Next Turn)
+            </button>
+        </div>
+
+        <div id="visual-chat-area" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+            <div class="log-header" style="padding: 5px; background: #eee; border-bottom: 1px solid #ddd; display: flex; gap: 5px;">
+                <button class="filter-btn active" data-target="visual-log" data-filter="all" style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">All</button>
+                <button class="filter-btn" data-target="visual-log" data-filter="chat" style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">Chat</button>
+                <button class="filter-btn" data-target="visual-log" data-filter="system" style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">Sys</button>
+            </div>
+
+            <div id="visual-log-area" class="battle-log" style="flex: 1; overflow-y: auto; padding: 5px; font-size: 0.85em; background: #fff;">
+                </div>
+
+            <div style="display: flex; border-top: 1px solid #ccc;">
+                <input type="text" id="visual-chat-input" placeholder="チャット /roll..." style="flex: 1; border: none; padding: 8px;">
+                <button id="visual-chat-send" style="border: none; background: #007bff; color: white; padding: 0 15px; cursor: pointer; font-weight: bold;">Send</button>
+            </div>
+        </div>
+
+        <div id="visual-room-actions" style="padding: 8px; background: #e9ecef; border-top: 1px solid #ccc; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
+            <button id="visual-save-btn" style="padding: 5px; font-size: 0.8em; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; background: #fff;">保存</button>
+            <button id="visual-preset-btn" style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #17a2b8; color: white; border: none; border-radius: 3px;">プリセット</button>
+            <button id="visual-reset-btn" style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 3px;">リセット</button>
+        </div>
+        <div id="visual-status-msg" style="font-size: 0.8em; text-align: center; padding-bottom: 2px; background: #e9ecef; color: #555;"></div>
     </div>
 </div>
 
 <div id="duel-modal-backdrop" class="modal-backdrop" style="display: none;">
-    <div id="duel-modal" class="modal-content duel-modal-content">
-        <h3 class="duel-title">Battle Match Setup</h3>
+    <div class="duel-modal-content">
+        <h3 class="duel-title">Duel Phase</h3>
 
         <div class="duel-container">
             <div class="duel-side attacker" id="duel-side-attacker">
@@ -58,7 +87,7 @@
 
                 <div class="duel-preview-area" id="duel-attacker-preview">
                     <div class="preview-command">---</div>
-                    <div class="preview-damage">Hit: --- / Crit: ---</div>
+                    <div class="preview-damage">---</div>
                 </div>
             </div>
 
@@ -99,5 +128,3 @@
         </div>
     </div>
 </div>
-
-<script src="/static/js/buff_data.js"></script>

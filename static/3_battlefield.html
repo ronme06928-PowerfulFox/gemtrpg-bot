@@ -70,21 +70,19 @@
                 <input type="hidden" id="hidden-command-attacker">
                 <input type="hidden" id="hidden-senritsu-attacker" value="0">
 
-                <div id="skill-preview-attacker" class="skill-preview-box" style="display: none;">
-                    </div>
+                <div id="skill-preview-attacker" class="skill-preview-box" style="display: none;"></div>
 
                 <div id="wide-area-container" style="display: none; margin-top: 10px; border-top: 1px solid #ccc; padding-top: 10px;">
                     <h4 style="margin: 0 0 5px 0; color: #d63384;">広域攻撃モード</h4>
                     <div style="font-size: 0.9em; margin-bottom: 5px;">
                         モード: <span id="wide-area-mode-display" style="font-weight: bold;">---</span>
                     </div>
-                    <div id="wide-defenders-list" style="display: flex; flex-direction: column; gap: 5px; max-height: 200px; overflow-y: auto;">
-                        </div>
+                    <div id="wide-defenders-list" style="display: flex; flex-direction: column; gap: 5px; max-height: 200px; overflow-y: auto;"></div>
                     <button id="execute-wide-action-btn" class="action-btn" style="width: 100%; margin-top: 10px; background-color: #d63384; color: white;">
                         広域攻撃 実行
                     </button>
                 </div>
-                </div>
+            </div>
 
             <div class="action-stack" id="action-column-defender">
                 <h3>対応側</h3>
@@ -109,14 +107,12 @@
                 <input type="hidden" id="hidden-command-defender">
                 <input type="hidden" id="hidden-senritsu-defender" value="0">
 
-                <div id="skill-preview-defender" class="skill-preview-box" style="display: none;">
-                    </div>
+                <div id="skill-preview-defender" class="skill-preview-box" style="display: none;"></div>
             </div>
         </div>
     </div>
 
     <div class="grid-column" id="battlefield-right-column">
-
         <div class="log-container">
             <div class="log-header-group">
                 <h3>ログ</h3>
@@ -129,7 +125,7 @@
             <div class="log-area" id="log-area">
                 <p class="log-line info">戦闘ログを読み込み中...</p>
             </div>
-            </div>
+        </div>
 
         <div class="chat-controls">
             <textarea id="chat-input" placeholder="チャットまたは /roll コマンド" rows="2"></textarea>
@@ -138,12 +134,10 @@
 
         <div class="room-actions">
             <button id="save-state-btn" class="room-action-btn">セーブ</button>
-
             <button id="preset-manager-btn" class="room-action-btn" style="background-color: #17a2b8;">敵プリセット</button>
             <button id="reset-btn" class="room-action-btn danger">リセット</button>
             <button id="leave-room-btn" class="room-action-btn secondary">ルーム一覧に戻る</button>
         </div>
         <p id="save-load-message" class="save-message"></p>
     </div>
-
 </div>
