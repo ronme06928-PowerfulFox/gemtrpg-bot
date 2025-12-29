@@ -1230,9 +1230,9 @@ header h1 {
     font-size: 0.9em;
 }
 
-/* --- static/styles.css (ビジュアルバトル用エリアの置き換え) --- */
 
-/* ビジュアルバトルフィールド全体のコンテナ */
+
+/* --- static/styles.css (ビジュアルバトル用エリア) --- */
 #visual-battle-container {
     display: flex;
     height: calc(100vh - 60px);
@@ -1250,82 +1250,50 @@ header h1 {
     cursor: grab;
     border-right: 2px solid #444;
 }
-
-#map-viewport:active {
-    cursor: grabbing;
-}
+#map-viewport:active { cursor: grabbing; }
 
 #game-map {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 2000px;
-    height: 1500px;
+    top: 0; left: 0;
+    width: 2000px; height: 1500px;
     background-color: #4a4a4a;
-    /* グリッド線 (96px四方に変更) */
     background-image:
         linear-gradient(#555 1px, transparent 1px),
         linear-gradient(90deg, #555 1px, transparent 1px);
-    background-size: 96px 96px; /* ★変更 */
+    background-size: 96px 96px;
     transform-origin: 0 0;
 }
 
-/* マップ操作ボタン */
 #map-controls {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    z-index: 100;
-    display: flex;
-    gap: 5px;
+    position: absolute; bottom: 20px; left: 20px; z-index: 100;
+    display: flex; gap: 5px;
 }
-
 .map-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 20px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    border: 1px solid #666;
-    border-radius: 5px;
-    cursor: pointer;
+    width: 40px; height: 40px; font-size: 20px;
+    background: rgba(0, 0, 0, 0.7); color: white;
+    border: 1px solid #666; border-radius: 5px; cursor: pointer;
 }
 .map-btn:hover { background: rgba(0, 0, 0, 0.9); }
 
-/* --- マップ上のトークン (デザイン刷新) --- */
+/* --- マップ上のトークン --- */
 .map-token {
     position: absolute;
-    width: 88px;  /* 96px - margin等 */
-    height: 88px;
-    /* 背景色などはJSで設定するクラス(.PC/.NPC)に依存 */
+    width: 88px; height: 88px;
     background-color: #fff;
     border: 2px solid #ccc;
-    border-radius: 12px; /* ★角丸スクエア */
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between; /* 上中下配置 */
-    user-select: none;
-    cursor: grab;
+    border-radius: 8px;
+    display: flex; flex-direction: column;
+    user-select: none; cursor: grab;
     box-shadow: 2px 4px 8px rgba(0,0,0,0.6);
-    transition: transform 0.1s, box-shadow 0.2s, border-color 0.2s;
+    transition: transform 0.1s, box-shadow 0.2s;
     z-index: 10;
-    overflow: hidden; /* はみ出し防止 */
+    /* overflow: hidden; ← アイコンを外に出すため削除 */
 }
 
-/* 陣営ごとの基本色 */
 .map-token.PC { border-color: #007bff; background-color: #f0f8ff; }
 .map-token.NPC { border-color: #28a745; background-color: #f0fff4; }
 .map-token.Enemy { border-color: #dc3545; background-color: #fff0f0; }
 
-/* ドラッグ中 */
-.map-token.dragging {
-    opacity: 0.6;
-    cursor: grabbing;
-    z-index: 50;
-    transform: scale(1.1);
-}
-
-/* 手番発光エフェクト (サイズ変更に合わせて調整) */
 .map-token.active-turn {
     box-shadow: 0 0 20px 5px #00ffff;
     border-color: #00ffff;
@@ -1337,134 +1305,213 @@ header h1 {
     to { box-shadow: 0 0 25px 8px #00ffff; transform: scale(1.05); }
 }
 
-/* 選択状態 */
 .map-token.selected {
     border-color: #ffeb3b;
     box-shadow: 0 0 15px 5px rgba(255, 235, 59, 0.7);
     z-index: 20;
 }
 
-/* --- トークン内部要素 --- */
-
-/* 1. 上部: ステータスバー領域 */
+/* トークン内部: バー領域 (HP/MP/FP) */
+/* overflow: hidden をここにつけてバーのはみ出しを防ぐ */
 .token-bars {
-    width: 100%;
-    height: 14px;
-    display: flex;
-    flex-direction: column;
+    width: 100%; height: 18px;
+    display: flex; flex-direction: column;
     background: #333;
-}
-
-.token-bar {
-    height: 50%; /* HP/MPで半分ずつ */
-    width: 100%;
-    position: relative;
-    background: #555;
-}
-
-.token-bar-fill {
-    height: 100%;
-    transition: width 0.3s ease;
-}
-.token-bar-fill.hp { background-color: #28a745; } /* 緑 */
-.token-bar-fill.mp { background-color: #007bff; } /* 青 */
-
-/* 2. 中央: 画像プレースホルダー (将来的にimgタグへ) */
-.token-body {
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    color: rgba(0,0,0,0.2);
-    font-weight: bold;
-}
-
-/* 3. 下部: 名前ラベル */
-.token-label {
-    width: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    font-size: 11px;
-    font-weight: bold;
-    text-align: center;
-    padding: 2px 0;
-    white-space: nowrap;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
     overflow: hidden;
-    text-overflow: ellipsis;
 }
+.token-bar {
+    height: 33.33%; width: 100%; position: relative;
+    background: #555; border-bottom: 1px solid rgba(0,0,0,0.2);
+}
+.token-bar-fill { height: 100%; transition: width 0.3s; }
+.token-bar-fill.hp { background-color: #28a745; }
+.token-bar-fill.mp { background-color: #007bff; }
+.token-bar-fill.fp { background-color: #ffc107; }
+
+/* トークン内部: ボディと名前 */
+.token-body {
+    flex-grow: 1; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; color: rgba(0,0,0,0.2); font-weight: bold;
+    overflow: hidden; /* 名前とボディは枠内に収める */
+}
+.token-label {
+    width: 100%; background: rgba(0, 0, 0, 0.7);
+    color: white; font-size: 10px; font-weight: bold;
+    text-align: center; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; padding: 1px 0;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+/* --- 状態異常アイコン (枠外表示) --- */
+.token-status-overlay {
+    position: absolute;
+    top: 100%; /* 下側に配置 */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px; /* 少し広めに取る */
+    display: flex; flex-wrap: wrap; justify-content: center;
+    gap: 2px;
+    pointer-events: none;
+    z-index: 101;
+    margin-top: 2px;
+}
+
+.mini-status-icon {
+    width: 22px; height: 22px;
+    background: rgba(255,255,255,0.95);
+    border-radius: 50%;
+    border: 2px solid #999; /* デフォルト枠 */
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.mini-status-icon img { width: 16px; height: 16px; object-fit: contain; }
+
+.mini-status-badge {
+    position: absolute; bottom: -4px; right: -4px;
+    background: #333; color: white;
+    font-size: 10px; font-weight: bold;
+    border-radius: 4px; padding: 0 3px;
+    line-height: 1; min-width: 12px; text-align: center;
+    border: 1px solid white;
+}
+
+/* 状態異常ごとの色分け (枠線とバッジ背景) */
+.status-bleed { border-color: #dc3545 !important; } /* 赤 */
+.status-bleed .mini-status-badge { background-color: #dc3545; }
+
+.status-rupture { border-color: #9acd32 !important; } /* 黄緑 */
+.status-rupture .mini-status-badge { background-color: #9acd32; color: #000; }
+
+.status-fissure { border-color: #007bff !important; } /* 青 */
+.status-fissure .mini-status-badge { background-color: #007bff; }
+
+.status-fear { border-color: #87ceeb !important; } /* 空色 */
+.status-fear .mini-status-badge { background-color: #87ceeb; color: #000; }
+
+.status-thorns { border-color: #006400 !important; } /* 濃い緑 */
+.status-thorns .mini-status-badge { background-color: #006400; }
 
 
 /* --- 右側: サイドバー --- */
 #visual-sidebar {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background-color: #f8f9fa;
-    border-left: 1px solid #ccc;
-    min-width: 300px;
-    max-width: 400px;
+    flex: 1; display: flex; flex-direction: column;
+    background-color: #f8f9fa; border-left: 1px solid #ccc;
+    min-width: 320px; max-width: 400px;
 }
-
 .sidebar-header {
-    margin: 0;
-    padding: 10px;
-    background: #e9ecef;
-    border-bottom: 1px solid #ddd;
-    font-size: 14px;
-    color: #333;
+    padding: 8px; background: #e9ecef; border-bottom: 1px solid #ddd;
+    font-size: 14px; font-weight: bold; color: #555;
+    display: flex; justify-content: space-between; align-items: center;
 }
-
-#visual-controls-area {
-    padding: 10px;
-    background: #e9ecef;
-    border-bottom: 1px solid #ddd;
-    text-align: center;
-}
-
+#visual-controls-area { padding: 10px; border-bottom: 1px solid #ddd; background: #fff; }
 #visual-next-turn-btn {
-    background-color: #ffc107;
-    border: 1px solid #e0a800;
-    color: #212529;
-    padding: 8px 20px;
-    font-weight: bold;
-    cursor: pointer;
-    border-radius: 4px;
-    width: 100%;
+    width: 100%; padding: 10px; background-color: #ffc107;
+    border: 1px solid #e0a800; font-weight: bold; cursor: pointer; border-radius: 4px;
 }
 #visual-next-turn-btn:hover { background-color: #e0a800; }
 
-#visual-timeline-area, #visual-staging-area {
-    height: 150px;
-    overflow-y: auto;
-    border-bottom: 1px solid #ccc;
-    padding: 5px;
+/* タイムライン */
+#visual-timeline-area {
+    flex: 1; overflow-y: auto; padding: 5px;
+    background: #f0f0f0; border-bottom: 1px solid #ccc;
+    max-height: 40%;
+}
+.timeline-item {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #fff; padding: 6px 10px; margin-bottom: 4px;
+    border-radius: 4px; border-left: 5px solid #ccc;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1); cursor: pointer;
+}
+.timeline-item:hover { background: #fdfdfd; }
+.timeline-item.ally { border-left-color: #007bff; }
+.timeline-item.enemy { border-left-color: #dc3545; }
+.timeline-item.active-turn {
+    background: #e3f2fd; border: 2px solid #00ffff;
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+}
+.timeline-item.acted {
+    opacity: 0.6; background: #e9ecef; color: #888; border-left-color: #999;
 }
 
-.staging-item {
-    padding: 8px;
-    margin: 2px 0;
-    background: white;
+/* 待機所 & チャット */
+#visual-staging-area { height: 120px; overflow-y: auto; padding: 5px; border-bottom: 1px solid #ccc; }
+#visual-chat-area { flex: 1; display: flex; flex-direction: column; background: white; }
+#visual-chat-log { flex: 1; overflow-y: auto; padding: 5px; font-size: 13px; }
+
+/* --- キャラクター詳細モーダル --- */
+.char-detail-modal {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 500px; max-width: 90%; max-height: 85vh;
+    background: white; padding: 20px;
+    border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    z-index: 2000; overflow-y: auto;
+}
+.detail-header {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;
+}
+.detail-header h2 { margin: 0; font-size: 1.5em; }
+.detail-close-btn {
+    background: none; border: none; font-size: 24px; cursor: pointer; color: #999;
+}
+.detail-close-btn:hover { color: #333; }
+
+.detail-stat-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;
+}
+.detail-stat-box {
+    background: #f8f9fa; padding: 8px; border-radius: 4px; text-align: center;
     border: 1px solid #ddd;
-    border-radius: 4px;
-    cursor: grab;
-    display: flex;
-    justify-content: space-between;
 }
-.staging-item:hover { background: #f0f0f0; }
+.detail-stat-label { font-size: 0.8em; color: #666; display: block; margin-bottom: 2px; }
+.detail-stat-val { font-weight: bold; font-size: 1.2em; }
 
-#visual-chat-area {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background: white;
+.detail-section { margin-bottom: 15px; }
+.detail-section h4 { margin: 0 0 8px 0; border-bottom: 1px solid #eee; color: #555; font-size: 1em; }
+.detail-buff-list { display: flex; flex-wrap: wrap; gap: 5px; }
+.detail-buff-item {
+    background: #fff3cd; border: 1px solid #ffeeba;
+    padding: 4px 10px; border-radius: 12px; font-size: 0.9em; color: #856404;
+    cursor: default;
+    display: flex; align-items: center; gap: 5px;
 }
-#visual-chat-log {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding: 10px;
-    border-bottom: 1px solid #eee;
+/* クリック可能なバフ（特殊効果） */
+.detail-buff-item.special {
+    background: #d4edda; border-color: #c3e6cb; color: #155724;
+    cursor: pointer; /* クリックできることを示す指カーソル */
+    transition: background-color 0.2s;
+}
+.detail-buff-item.special:hover {
+    background-color: #c3e6cb;
+}
+/* 残りラウンド数のバッジ */
+.buff-duration-badge {
+    background: rgba(0,0,0,0.1);
+    border-radius: 4px;
+    padding: 0 4px;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+/* クリックで展開される説明文ボックス */
+.buff-desc-box {
+    width: 100%;
+    background: #f8f9fa;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 8px;
+    margin-top: 4px;
+    margin-bottom: 8px;
+    font-size: 0.85em;
+    color: #555;
+    line-height: 1.4;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
 }
 
 /* ビジュアルバトルフィールド・対決モーダルのレイアウト */
