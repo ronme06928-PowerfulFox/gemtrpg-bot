@@ -339,30 +339,51 @@ tabButtons.forEach(button => {
 async function loadTabContent(tabId) {
     let partialHtmlFile = '';
 
-    // === ▼▼▼ 修正点: スキル検索タブの参照を削除 ▼▼▼
+    // HTMLの data-tab 属性と一致させる
     if (tabId === 'tab-battlefield') {
         partialHtmlFile = '3_battlefield.html';
+    } else if (tabId === 'visual') {
+        partialHtmlFile = '4_visual_battle.html';
     } else {
-        // ★ 存在しないタブはエラーではなく、単にコンテンツなしにする (安全のため)
-        mainContent.innerHTML = '<h2>このタブは利用できなくなりました。</h2>';
+        // コンテンツエリアの取得 (main-content に統一)
+        const contentArea = document.getElementById('main-content');
+        if (contentArea) {
+            contentArea.innerHTML = '<h2>このタブは利用できなくなりました。</h2>';
+        }
         return;
     }
-    // === ▲▲▲ 修正ここまで ▲▲▲ ===
 
     try {
         const response = await fetch(partialHtmlFile, {credentials: 'omit'});
         if (!response.ok) throw new Error(`Network response was not ok (${response.status})`);
-        mainContent.innerHTML = await response.text();
 
-        // 各タブの初期化処理
+        const htmlText = await response.text();
+
+        // コンテンツエリアの取得と書き込み
+        // (グローバル変数の mainContent があれば使い、なければ取得する)
+        const contentArea = (typeof mainContent !== 'undefined')
+                            ? mainContent
+                            : document.getElementById('main-content');
+
+        if (contentArea) {
+            contentArea.innerHTML = htmlText;
+        }
+
+        // === 各タブの初期化処理 ===
         if (tabId === 'tab-battlefield') {
             setupBattlefieldTab();
             renderTokenList();
             renderTimeline();
+        } else if (tabId === 'visual') {
+            setupVisualBattleTab();
         }
+
     } catch (error) {
         console.error('Error loading tab content:', error);
-        mainContent.innerHTML = `<p>コンテンツの読み込みに失敗しました: ${error.message}</p>`;
+        const contentArea = document.getElementById('main-content');
+        if (contentArea) {
+            contentArea.innerHTML = `<p>コンテンツの読み込みに失敗しました: ${error.message}</p>`;
+        }
     }
 }
 

@@ -690,7 +690,6 @@ def handle_match(data):
     save_specific_room_state(room)
 
 
-#ラウンドの開始処理
 @socketio.on('request_new_round')
 def handle_new_round(data):
     room = data.get('room')
@@ -735,7 +734,7 @@ def handle_new_round(data):
         if 'special_buffs' in char:
             remove_buff(char, "再回避ロック")
 
-        # === ▲▲▲ 修正ここまで ▲▲▲ ===
+        # === ▲▲▲ 修正ここまで ▲▲▲
 
         base_speed = get_speed_stat(char)
         roll = random.randint(1, 6)
@@ -753,6 +752,66 @@ def handle_new_round(data):
 
     state['characters'].sort(key=sort_key)
     state['timeline'] = [c['id'] for c in state['characters']]
+
+    # === ▼▼▼ 追加: 最初のキャラクターを手番にする ▼▼▼
+    if state['timeline']:
+        first_id = state['timeline'][0]
+        state['turn_char_id'] = first_id
+
+        # ログ表示用のおまけ処理
+        first_char = next((c for c in state['characters'] if c['id'] == first_id), None)
+        first_name = first_char['name'] if first_char else "不明"
+
+        broadcast_log(room, f"Round {state['round']} 開始: 最初の手番は {first_name} です。", 'info')
+    else:
+        state['turn_char_id'] = None
+    # === ▲▲▲ 追加ここまで ▲▲▲
+
+    broadcast_state_update(room)
+    save_specific_room_state(room)
+
+
+
+@socketio.on('request_next_turn')
+def handle_next_turn(data):
+    room = data.get('room')
+    if not room: return
+
+    state = get_room_state(room)
+    timeline = state.get('timeline', [])
+    current_id = state.get('turn_char_id')
+
+    if not timeline:
+        return
+
+    # 現在の手番IDがタイムラインのどこにあるか探す
+    current_idx = -1
+    if current_id in timeline:
+        current_idx = timeline.index(current_id)
+
+    next_id = None
+
+    # 現在位置の「次」から末尾に向かって、未行動のキャラを探す
+    for i in range(current_idx + 1, len(timeline)):
+        cid = timeline[i]
+        # キャラデータ取得
+        char = next((c for c in state['characters'] if c['id'] == cid), None)
+        # 生存していて、かつ「行動済み(hasActed)」でないなら、その人を次の手番にする
+        if char and char.get('hp', 0) > 0 and not char.get('hasActed', False):
+            next_id = cid
+            break
+
+    # もし見つからなかった場合（全員行動済み、または現在の人が最後）
+    # ループせず「手番なし」状態にする（ラウンド終了待ち）
+
+    if next_id:
+        state['turn_char_id'] = next_id
+        next_char = next((c for c in state['characters'] if c['id'] == next_id), None)
+        char_name = next_char['name'] if next_char else "不明"
+        broadcast_log(room, f"手番が {char_name} に移りました。", 'info')
+    else:
+        state['turn_char_id'] = None
+        broadcast_log(room, "全てのキャラクターが行動を終了しました。ラウンド終了処理を行ってください。", 'info')
 
     broadcast_state_update(room)
     save_specific_room_state(room)
@@ -1295,3 +1354,36 @@ def handle_wide_match(data):
 
     broadcast_state_update(room)
     save_specific_room_state(room)
+
+@socketio.on('request_move_token')
+def handle_move_token(data):
+    """
+    トークンの移動リクエストを処理する
+    data = { 'room': room_name, 'charId': id, 'x': int, 'y': int }
+    """
+    room_name = data.get('room')
+    char_id = data.get('charId')
+    target_x = data.get('x')
+    target_y = data.get('y')
+
+    # ルームデータの取得
+    state = get_room_state(room_name)
+    if not state:
+        return
+
+    # キャラクター検索
+    target_char = next((c for c in state["characters"] if c.get('id') == char_id), None)
+
+    if target_char:
+        # 座標更新 (データがなければ新規作成される)
+        target_char["x"] = int(target_x)
+        target_char["y"] = int(target_y)
+
+        # ログ出力 (デバッグ用)
+        print(f"[MOVE] Room:{room_name}, Char:{target_char['name']} -> ({target_x}, {target_y})")
+
+        # 保存
+        save_specific_room_state(room_name)
+
+        # 全員に更新を通知
+        broadcast_state_update(room_name)

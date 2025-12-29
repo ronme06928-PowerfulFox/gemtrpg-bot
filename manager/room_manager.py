@@ -15,7 +15,19 @@ def get_room_state(room_name):
                 state['logs'] = []
             active_room_states[room_name] = state
         else:
-            state = { "characters": [], "timeline": [], "round": 0, "logs": [] }
+            state = {
+                "characters": [],
+                "timeline": [],
+                "round": 0,
+                "logs": [],
+                # ★ 追加: マップ設定データ
+                "map_data": {
+                    "width": 20,
+                    "height": 15,
+                    "gridSize": 64,
+                    "backgroundImage": None
+                }
+            }
             active_room_states[room_name] = state
 
     try:

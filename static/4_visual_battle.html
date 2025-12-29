@@ -1,0 +1,105 @@
+<div id="visual-battle-container">
+    <div id="map-viewport">
+        <div id="game-map">
+            <div id="map-grid-layer"></div>
+            <div id="map-token-layer"></div>
+        </div>
+
+        <div id="map-controls">
+            <div class="map-control-group">
+                <button id="zoom-in-btn" class="map-btn" title="拡大">＋</button>
+                <button id="zoom-out-btn" class="map-btn" title="縮小">－</button>
+                <button id="reset-view-btn" class="map-btn" title="リセット">⟲</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="visual-sidebar">
+        <div id="visual-timeline-area">
+            <h4 class="sidebar-header">TimeLine</h4>
+            <div id="visual-timeline-list">
+                </div>
+        </div>
+
+        <div id="visual-staging-area">
+            <h4 class="sidebar-header">Staging (未配置)</h4>
+            <div id="staging-list">
+                </div>
+        </div>
+
+        <div id="visual-controls-area">
+            <button id="visual-next-turn-btn">ターン終了 (Next Turn)</button>
+        </div>
+
+        <div id="visual-chat-area">
+            <div id="visual-chat-log" class="battle-log"></div>
+            <div class="chat-input-container">
+                <textarea id="visual-chat-input" placeholder="Chat / Dice (e.g. 2d6+3)"></textarea>
+                <button id="visual-chat-send-btn" class="action-btn">Send</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="duel-modal-backdrop" class="modal-backdrop" style="display: none;">
+    <div id="duel-modal" class="modal-content duel-modal-content">
+        <h3 class="duel-title">Battle Match Setup</h3>
+
+        <div class="duel-container">
+            <div class="duel-side attacker" id="duel-side-attacker">
+                <h4 class="side-title">Attacker (攻)</h4>
+                <div class="duel-char-name" id="duel-attacker-name">Character A</div>
+
+                <div class="duel-form-group">
+                    <label>Skill:</label>
+                    <select id="duel-attacker-skill" class="duel-select"></select>
+                </div>
+
+                <div class="duel-control-btns">
+                    <button id="duel-attacker-calc-btn" class="duel-btn calc">Calculate</button>
+                    <button id="duel-attacker-declare-btn" class="duel-btn declare" disabled>Declare</button>
+                </div>
+
+                <div class="duel-preview-area" id="duel-attacker-preview">
+                    <div class="preview-command">---</div>
+                    <div class="preview-damage">Hit: --- / Crit: ---</div>
+                </div>
+            </div>
+
+            <div class="duel-center-info">
+                <div class="duel-vs">VS</div>
+                <div id="duel-status-message" class="duel-status">Setup Phase</div>
+            </div>
+
+            <div class="duel-side defender" id="duel-side-defender">
+                <h4 class="side-title">Defender (防)</h4>
+                <div class="duel-char-name" id="duel-defender-name">Character B</div>
+
+                <div id="duel-defender-controls">
+                    <div class="duel-form-group">
+                        <label>Skill:</label>
+                        <select id="duel-defender-skill" class="duel-select"></select>
+                    </div>
+
+                    <div class="duel-control-btns">
+                        <button id="duel-defender-calc-btn" class="duel-btn calc">Calculate</button>
+                        <button id="duel-defender-declare-btn" class="duel-btn declare" disabled>Declare</button>
+                    </div>
+                </div>
+
+                <div id="duel-defender-lock-msg" style="display: none; color: #ff6b6b; font-weight: bold; margin: 20px 0;">
+                    ⚠ 行動済みのため防御不可<br>(一方攻撃)
+                </div>
+
+                <div class="duel-preview-area" id="duel-defender-preview">
+                    <div class="preview-command">---</div>
+                    <div class="preview-damage">---</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="duel-actions">
+            <button id="duel-cancel-btn" class="duel-btn secondary">Cancel</button>
+        </div>
+    </div>
+</div>

@@ -216,6 +216,11 @@ def get_skill_metadata():
         }
     return jsonify(metadata)
 
+@app.route('/api/get_skill_data', methods=['GET'])
+def get_skill_data():
+    """フロントエンドにスキルマスターデータを提供するAPI"""
+    return jsonify(all_skill_data)
+
 
 # ==========================================
 #  Main Execution
