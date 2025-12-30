@@ -1044,11 +1044,32 @@ function setupBattlefieldTab() {
             });
             document.getElementById('match-result-area').innerHTML = '... マッチを実行中 ...';
 
-            // 入力リセット
+            // 入力リセットとロック解除 (修正適用済み)
             const prefixes = ['attacker', 'defender'];
             prefixes.forEach(prefix => {
-                document.getElementById(`actor-${prefix}`).value = "";
-                document.getElementById(`skill-${prefix}`).value = "";
+                const actorEl = document.getElementById(`actor-${prefix}`);
+                const targetEl = document.getElementById(`target-${prefix}`);
+                const skillEl = document.getElementById(`skill-${prefix}`);
+
+                // 1. 値のクリア
+                if (actorEl) actorEl.value = "";
+                if (targetEl) targetEl.value = "";
+                if (skillEl) skillEl.value = "";
+
+                // 2. disabled状態の解除
+                if (skillEl) skillEl.disabled = false; // スキルは両者とも選択可能に戻す
+
+                if (prefix === 'attacker') {
+                    // 攻撃側は使用者・対象・スキルすべて選択可能に戻す
+                    if (actorEl) actorEl.disabled = false;
+                    if (targetEl) targetEl.disabled = false;
+                } else {
+                    // 防御側の使用者・対象は攻撃側の選択に連動するため、disabledのままにする
+                    if (actorEl) actorEl.disabled = true;
+                    if (targetEl) targetEl.disabled = true;
+                }
+
+                // その他のUI要素のリセット
                 document.getElementById(`generate-btn-${prefix}`).disabled = false;
                 document.getElementById(`declare-btn-${prefix}`).disabled = true;
                 document.getElementById(`power-display-${prefix}`).value = "[威力計算待ち]";
