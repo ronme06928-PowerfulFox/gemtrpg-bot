@@ -5,7 +5,8 @@ let visualScale = 1.0;
 let visualOffsetX = 0;
 let visualOffsetY = 0;
 const GRID_SIZE = 96;
-let currentVisualLogFilter = 'all';
+// テキストフィールド同様、デフォルトはall
+window.currentVisualLogFilter = 'all';
 
 // マウスイベントハンドラ管理
 window.visualMapHandlers = window.visualMapHandlers || { move: null, up: null };
@@ -66,11 +67,110 @@ let duelState = {
     attackerCommand: null, defenderCommand: null
 };
 
+// --- ★ログ描画用ヘルパー関数 (テキストフィールドの実装を移植) ---
+function appendVisualLogLine(container, logData, filterType) {
+    const isChat = logData.type === 'chat';
+
+    // フィルタリング
+    if (filterType === 'chat' && !isChat) return;
+    if (filterType === 'system' && isChat) return;
+
+    const logLine = document.createElement('div');
+    let className = `log-line ${logData.type}`;
+
+    // シークレットダイスの処理
+    let displayMessage = logData.message;
+    if (logData.secret) {
+        className += ' secret-log';
+        const isSender = (typeof currentUsername !== 'undefined' && logData.user === currentUsername);
+        const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
+
+        if (isGM || isSender) {
+            displayMessage = `<span class="secret-mark">[SECRET]</span> ${logData.message}`;
+        } else {
+            displayMessage = `<span class="secret-masked">（シークレットダイスが振られました）</span>`;
+        }
+    }
+
+    logLine.className = className;
+
+    // チャットの場合の装飾
+    if (logData.type === 'chat' && !logData.secret) {
+         logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
+    } else {
+        logLine.innerHTML = displayMessage;
+    }
+
+    // スタイル適用
+    logLine.style.borderBottom = "1px dotted #eee";
+    logLine.style.padding = "2px 5px";
+    logLine.style.fontSize = "0.9em";
+
+    container.appendChild(logLine);
+}
+
+// --- ★ログ一括描画関数 ---
+// --- 修正: ログ一括描画関数 ---
+function renderVisualLogHistory(logs) {
+    const logArea = document.getElementById('visual-log-area');
+    if (!logArea) return;
+
+    // ログエリアをクリア
+    logArea.innerHTML = '';
+
+    if (!logs || logs.length === 0) {
+        logArea.innerHTML = '<div style="padding:10px; color:#999;">ログはありません</div>';
+        return;
+    }
+
+    // 現在のフィルタ設定を使用
+    const filter = window.currentVisualLogFilter || 'all';
+
+    logs.forEach(log => {
+        appendVisualLogLine(logArea, log, filter);
+    });
+
+    // 1. 要素追加直後に最下部へスクロール
+    logArea.scrollTop = logArea.scrollHeight;
+
+    setTimeout(() => {
+        logArea.scrollTop = logArea.scrollHeight;
+    }, 30); // 50ms後
+
+    setTimeout(() => {
+        logArea.scrollTop = logArea.scrollHeight;
+    }, 80); // 200ms後 (念のため)
+}
+
 // --- タブ初期化関数 ---
 async function setupVisualBattleTab() {
     console.log("Setting up Visual Battle Tab...");
 
-    // スキルデータ読み込み
+    // 1. フィルタ状態の完全リセット
+    window.currentVisualLogFilter = 'all';
+    const filters = document.querySelectorAll('.filter-btn[data-target="visual-log"]');
+    filters.forEach(btn => {
+        if (btn.dataset.filter === 'all') btn.classList.add('active');
+        else btn.classList.remove('active');
+    });
+
+    // 2. ★ログの即時描画 (awaitなどの非同期処理の前に実行して表示遅延を防ぐ)
+    if (typeof battleState !== 'undefined' && battleState.logs) {
+        renderVisualLogHistory(battleState.logs);
+    }
+
+    // 3. マップコントロール等のセットアップ
+    setupMapControls();
+    setupVisualSidebarControls();
+
+    // 4. マップやタイムラインの描画
+    renderVisualMap();
+    renderStagingArea();
+    renderVisualTimeline();
+    updateVisualRoundDisplay(battleState ? battleState.round : 0);
+
+    // 5. スキルデータのロード (非同期)
+    // ※ログ描画後に持ってくることで、通信待ち中もログが表示されるようにする
     if (!window.allSkillData || Object.keys(window.allSkillData).length === 0) {
         try {
             const res = await fetch('/api/get_skill_data');
@@ -78,23 +178,7 @@ async function setupVisualBattleTab() {
         } catch (e) { console.error("Failed to load skill data:", e); }
     }
 
-    setupMapControls();
-    setupVisualSidebarControls();
-
-    renderVisualMap();
-    renderStagingArea();
-    renderVisualTimeline();
-    updateVisualRoundDisplay(battleState ? battleState.round : 0);
-
-    // ★重要: HTML要素の描画待ちを考慮して、ログ表示をわずかに遅延させる
-    // これにより「最初は真っ白」現象を防ぐ
-    if (typeof battleState !== 'undefined' && battleState.logs) {
-        setTimeout(() => {
-            renderVisualLogHistory(battleState.logs);
-        }, 50);
-    }
-
-    // Socketリスナー登録 (初回のみ)
+    // 6. Socketリスナー登録 (初回のみ)
     if (typeof socket !== 'undefined' && !window.battleSocketHandlersRegistered) {
         console.log("Registering Battle Socket Listeners (One-time only / from Visual)");
         window.battleSocketHandlersRegistered = true;
@@ -307,37 +391,6 @@ function setupVisualSidebarControls() {
     };
 }
 
-// --- ログ描画 (IDチェック強化版) ---
-function renderVisualLogHistory(logs) {
-    // 古いIDと新しいIDの両方をチェックして取得
-    const logArea = document.getElementById('visual-log-area') || document.getElementById('visual-chat-log');
-    if (!logArea) return;
-
-    if (!logs || logs.length === 0) {
-        logArea.innerHTML = '<div style="padding:10px; color:#999;">ログはありません</div>';
-        return;
-    }
-
-    logArea.innerHTML = '';
-
-    if (typeof appendLogLineToElement === 'function') {
-        logs.forEach(log => {
-            appendLogLineToElement(logArea, log, window.currentVisualLogFilter || 'all');
-        });
-    } else {
-        logs.forEach(log => {
-            const isChat = log.type === 'chat';
-            if ((window.currentVisualLogFilter || 'all') === 'chat' && !isChat) return;
-            if ((window.currentVisualLogFilter || 'all') === 'system' && isChat) return;
-            const line = document.createElement('div');
-            line.className = `log-line ${log.type}`;
-            line.innerHTML = log.message;
-            logArea.appendChild(line);
-        });
-    }
-    logArea.scrollTop = logArea.scrollHeight;
-}
-
 function updateVisualRoundDisplay(round) {
     const el = document.getElementById('visual-round-counter');
     if(el) el.textContent = round || 0;
@@ -476,6 +529,44 @@ function renderVisualTimeline() {
         `;
         item.addEventListener('click', () => showCharacterDetail(char.id));
         timelineEl.appendChild(item);
+    });
+}
+
+function renderStagingArea() {
+    const stagingEl = document.getElementById('staging-list');
+    if (!stagingEl) return;
+    stagingEl.innerHTML = '';
+
+    if (typeof battleState === 'undefined' || !battleState.characters) return;
+
+    battleState.characters.forEach(char => {
+        // 配置されていない(x<0 または y<0) 生存キャラクターを表示
+        if ((char.x < 0 || char.y < 0) && char.hp > 0) {
+            const item = document.createElement('div');
+            item.className = `staging-item ${char.type || 'NPC'}`;
+            item.style.padding = "5px";
+            item.style.margin = "2px 0";
+            item.style.background = "#fff";
+            item.style.border = "1px solid #ddd";
+            item.style.borderRadius = "4px";
+            item.style.cursor = "grab";
+            item.style.fontSize = "0.9em";
+            item.draggable = true;
+
+            const typeColor = (char.type === 'ally') ? '#007bff' : '#dc3545';
+            item.style.borderLeft = `3px solid ${typeColor}`;
+
+            item.textContent = char.name;
+
+            item.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', char.id);
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            item.addEventListener('click', () => showCharacterDetail(char.id));
+
+            stagingEl.appendChild(item);
+        }
     });
 }
 
