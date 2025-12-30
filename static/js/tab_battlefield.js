@@ -67,76 +67,90 @@ function loadCharacterFromJSON(type, jsonString, resultElement) {
 }
 
 function logToBattleLog(logData) {
-    const logArea = document.getElementById('log-area');
-    if (!logArea) return;
+    // 1. データへの保存
+    if (battleState && battleState.logs) {
+        battleState.logs.push(logData);
+    }
+
+    // 2. テキストバトルフィールドへの描画
+    const textLogArea = document.getElementById('log-area');
+    if (textLogArea) {
+        appendLogLineToElement(textLogArea, logData, currentLogFilter);
+    }
+
+    // 3. ビジュアルバトルフィールドへの描画
+    const visualLogArea = document.getElementById('visual-log-area');
+    // window.currentVisualLogFilter が未定義の場合は 'all' とする
+    const visualFilter = (typeof window.currentVisualLogFilter !== 'undefined') ? window.currentVisualLogFilter : 'all';
+
+    if (visualLogArea) {
+        appendLogLineToElement(visualLogArea, logData, visualFilter);
+    }
+}
+
+// ログ1行を生成して要素に追加するヘルパー関数
+function appendLogLineToElement(container, logData, filterType) {
+    const isChat = logData.type === 'chat';
+
+    // フィルタリング
+    if (filterType === 'chat' && !isChat) return;
+    if (filterType === 'system' && isChat) return;
+
     const logLine = document.createElement('div');
-
-    // クラス設定 (secretの場合専用クラスを追加)
     let className = `log-line ${logData.type}`;
-    if (logData.secret) className += ' secret-log';
-    logLine.className = className;
 
-    // シークレットダイスの表示制御
+    // シークレットダイスの処理
     let displayMessage = logData.message;
-
     if (logData.secret) {
-        // 閲覧権限: GM または 送信者本人
+        className += ' secret-log';
         const isSender = (logData.user === currentUsername);
         const isGM = (currentUserAttribute === 'GM');
 
         if (isGM || isSender) {
-            // 見える人（自分かGM）には [SECRET] マークを付けて表示
             displayMessage = `<span class="secret-mark">[SECRET]</span> ${logData.message}`;
         } else {
-            // 見えない人（他のPL）には伏せ字を表示
             displayMessage = `<span class="secret-masked">（シークレットダイスが振られました）</span>`;
         }
     }
 
-    if (logData.type === 'chat') {
-        // 通常チャットのシークレット化も考慮
-        if (logData.secret) {
-             logLine.innerHTML = displayMessage;
-        } else {
-             logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
-        }
+    logLine.className = className;
+
+    // チャットの場合の装飾
+    if (logData.type === 'chat' && !logData.secret) {
+         logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
     } else {
-        // ダイスロールやシステムメッセージの場合
         logLine.innerHTML = displayMessage;
     }
 
-    // === フィルタ処理 ===
-    if (currentLogFilter === 'chat' && logData.type !== 'chat') {
-        logLine.classList.add('hidden-log');
-    }
-    else if (currentLogFilter === 'system' && logData.type === 'chat') {
-        logLine.classList.add('hidden-log');
-    }
+    logLine.style.borderBottom = "1px dotted #eee";
+    logLine.style.padding = "2px 5px";
+    logLine.style.fontSize = "0.9em";
 
-    logArea.appendChild(logLine);
-
-    // 非表示のログが追加された場合はスクロールしない
-    if (!logLine.classList.contains('hidden-log')) {
-        logArea.scrollTop = logArea.scrollHeight;
-    }
+    container.appendChild(logLine);
+    container.scrollTop = container.scrollHeight;
 }
 
-// === ログ履歴を一括描画する関数 ===
+// ログ履歴を一括描画する関数
 function renderLogHistory(logs) {
     const logArea = document.getElementById('log-area');
     if (!logArea || !logs || !Array.isArray(logs)) return;
 
     // 既にログが表示されている場合は再描画しない（スクロール飛び防止）
-    const currentLines = logArea.querySelectorAll('.log-line');
-    if (currentLines.length > 1) {
-        return;
+    // ただし、中身が空なら描画する
+    if (logArea.children.length > 1) {
+        // 必要に応じて更新ロジックを入れるが、基本は追記型なので放置でも良い
+        // 今回は念のため再描画せずリターン（パフォーマンス優先）
+        // return;
+        // ↑ もしフィルタ切り替え時などに再描画が必要なら、innerHTML = '' してから描画する
+        logArea.innerHTML = '<p class="log-line info">--- 過去ログ ---</p>';
+    } else {
+        logArea.innerHTML = '<p class="log-line info">--- 過去ログ ---</p>';
     }
 
-    logArea.innerHTML = '<p class="log-line info">--- 過去ログ ---</p>';
-
     logs.forEach(logData => {
-        logToBattleLog(logData);
+        appendLogLineToElement(logArea, logData, currentLogFilter);
     });
+    logArea.scrollTop = logArea.scrollHeight;
 }
 
 function safeMathEvaluate(expression) {
@@ -148,6 +162,8 @@ function safeMathEvaluate(expression) {
 
 function rollDiceCommand(command) {
     let calculation = command.replace(/【.*?】/g, '').trim();
+    calculation = calculation.replace(/^(\/sroll|\/sr|\/roll|\/r)\s*/i, '');
+
     let details = calculation;
     const diceRegex = /(\d+)d(\d+)/g;
     let match;
@@ -181,12 +197,11 @@ function renderTokenList() {
     allyContainer.innerHTML = '';
     enemyContainer.innerHTML = '';
 
-    if (battleState.characters.length === 0) {
+    if (!battleState || !battleState.characters || battleState.characters.length === 0) {
         allyContainer.innerHTML = '<p class="char-token-placeholder">キャラクターが読み込まれていません。</p>';
         return;
     }
 
-    // アイコンのマッピング定義
     const iconMap = {
         '出血': 'bleed.png',
         '破裂': 'rupture.png',
@@ -201,7 +216,6 @@ function renderTokenList() {
         token.dataset.id = char.id;
         token.style.borderLeftColor = char.color;
 
-        // --- 1. HP/MP バーの計算 ---
         const hpPercent = Math.max(0, Math.min(100, (char.hp / char.maxHp) * 100));
         const mpPercent = Math.max(0, Math.min(100, (char.mp / char.maxMp) * 100));
 
@@ -209,7 +223,6 @@ function renderTokenList() {
         const fpValue = fpState ? fpState.value : 0;
         const fpPercent = Math.min(100, (fpValue / 15) * 100);
 
-        // --- 2. 状態異常アイコンの生成 ---
         const activeStates = char.states.filter(s => {
             return !['HP', 'MP', 'FP'].includes(s.name) && s.value !== 0;
         });
@@ -219,20 +232,15 @@ function renderTokenList() {
             let itemsHtml = '';
             activeStates.forEach(s => {
                 let iconHtml = '';
-
-                // 特定のデバフ画像がある場合
                 if (iconMap[s.name]) {
                     iconHtml = `<img src="images/${iconMap[s.name]}" class="status-icon-img" alt="${s.name}">`;
-                }
-                // その他の数値変動
-                else {
+                } else {
                     if (s.value > 0) {
                         iconHtml = `<span class="arrow-icon arrow-up">▲</span>`;
                     } else {
                         iconHtml = `<span class="arrow-icon arrow-down">▼</span>`;
                     }
                 }
-
                 itemsHtml += `
                     <div class="token-debuff-item">
                         ${iconHtml}
@@ -243,10 +251,8 @@ function renderTokenList() {
             debuffsHtml = `<div class="token-debuff-list">${itemsHtml}</div>`;
         }
 
-        // --- 3. HTML構築 ---
         token.innerHTML = `
             <h4 class="token-name" style="margin-bottom: 5px;">${char.name}</h4>
-
             <div class="token-stats-grid" style="display: grid; grid-template-columns: 1fr 1fr 60px; gap: 10px; align-items: end;">
                 <div class="stat-group">
                     <div style="font-size: 0.85em; display:flex; justify-content:space-between;">
@@ -256,7 +262,6 @@ function renderTokenList() {
                         <div class="bar-fill hp-fill" style="width: ${hpPercent}%;"></div>
                     </div>
                 </div>
-
                 <div class="stat-group">
                     <div style="font-size: 0.85em; display:flex; justify-content:space-between;">
                         <strong>MP</strong> <span>${char.mp}/${char.maxMp}</span>
@@ -265,7 +270,6 @@ function renderTokenList() {
                         <div class="bar-fill mp-fill" style="width: ${mpPercent}%;"></div>
                     </div>
                 </div>
-
                 <div class="stat-group">
                     <div style="font-size: 0.85em; text-align: center;">
                         <strong>FP</strong>: ${fpValue}
@@ -275,7 +279,6 @@ function renderTokenList() {
                     </div>
                 </div>
             </div>
-
             ${debuffsHtml}
         `;
 
@@ -725,18 +728,14 @@ function renderTimeline() {
     const roundCounterElem = document.getElementById('round-counter');
     const timelineListElem = document.getElementById('timeline-list');
 
-    // 要素がない場合はスキップ (エラー回避)
     if (!timelineListElem || !roundCounterElem) return;
 
-    // 中身をクリア
     timelineListElem.innerHTML = '';
 
-    // ラウンド更新
     if (battleState && battleState.round) {
         roundCounterElem.textContent = battleState.round;
     }
 
-    // タイムライン描画
     if (battleState && battleState.timeline) {
         battleState.timeline.forEach(charId => {
             const char = battleState.characters.find(c => c.id === charId);
@@ -746,22 +745,17 @@ function renderTimeline() {
             item.className = `timeline-item ${char.type || 'NPC'}`;
             if (char.hasActed) item.classList.add('acted');
 
-            // 敵味方のカラー定義
             const typeColor = (char.type === 'ally') ? '#007bff' : '#dc3545';
 
-            // 現在の手番キャラの強調処理
             if (char.id === battleState.turn_char_id) {
                 item.classList.add('active-turn');
-                // 左側の帯（敵味方色）は太くして維持し、それ以外をオレンジ枠にする
                 item.style.borderTop = "2px solid #ff9800";
                 item.style.borderBottom = "2px solid #ff9800";
                 item.style.borderRight = "2px solid #ff9800";
                 item.style.borderLeft = `6px solid ${typeColor}`;
-
                 item.style.fontWeight = "bold";
-                item.style.background = "#fff8e1"; // 薄いオレンジ背景
+                item.style.background = "#fff8e1";
             } else {
-                // 通常時も左線を表示 (CSSクラスの補助)
                 item.style.borderLeft = `4px solid ${typeColor}`;
             }
 
@@ -792,26 +786,21 @@ function openCharSettingsModal(charId) {
             <h3 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px;">
                 ${char.name} の設定
             </h3>
-
             <div style="margin-bottom: 15px; padding: 10px; background: #eef5ff; border: 1px solid #cce5ff; border-radius: 4px; color: #004085;">
                 <span style="font-weight:bold;">所有者:</span> ${ownerName}
             </div>
-
             <label style="display:block; margin-bottom:10px; font-weight:bold;">
                 キャラクター名:
                 <input type="text" id="edit-char-name" value="${char.baseName}" style="width:100%; padding: 5px; margin-top: 5px;">
             </label>
-
             <label style="display:flex; align-items:center; margin-bottom:20px; cursor:pointer;">
                 <input type="checkbox" id="edit-char-gm-only" ${char.gmOnly ? 'checked' : ''} style="transform: scale(1.2); margin-right: 8px;">
                 GMのみ操作可能にする
             </label>
-
             <div style="text-align: right; display: flex; justify-content: flex-end; gap: 10px;">
                 <button id="cancel-settings-btn" style="padding: 8px 16px; cursor: pointer;">キャンセル</button>
                 <button id="save-settings-btn" class="primary-btn" style="padding: 8px 16px; cursor: pointer;">保存</button>
             </div>
-
             <hr style="margin: 20px 0;">
             <button id="delete-char-btn" style="background:#dc3545; color:white; border:none; padding:10px; border-radius:4px; width:100%; cursor: pointer; font-weight:bold;">
                 🗑️ キャラクターを削除する
@@ -855,548 +844,6 @@ function openCharSettingsModal(charId) {
             overlay.remove();
         }
     };
-}
-
-function setupBattlefieldTab() {
-    const openLoadModalBtn = document.getElementById('open-char-load-modal-btn');
-    if (openLoadModalBtn) {
-        openLoadModalBtn.addEventListener('click', openCharLoadModal);
-    }
-
-    if (battleState && battleState.logs) {
-        renderLogHistory(battleState.logs);
-    }
-
-    // ソケットリスナー: ログ同期 (重複登録防止)
-    if (window.battleLogStateListener) {
-        socket.off('state_updated', window.battleLogStateListener);
-    }
-    window.battleLogStateListener = (state) => {
-        if (document.getElementById('log-area')) {
-            renderLogHistory(state.logs);
-        }
-        // ★修正: タイムラインとトークンリストも更新する
-        if (document.getElementById('battlefield-grid')) {
-            renderTimeline();
-            renderTokenList();
-        }
-    };
-    socket.on('state_updated', window.battleLogStateListener);
-
-    const leftColumn = document.getElementById('battlefield-left-column');
-    if (!leftColumn) {
-        return;
-    }
-    if (!leftColumn.dataset.listenerAttached) {
-        leftColumn.dataset.listenerAttached = 'true';
-        leftColumn.addEventListener('click', (e) => {
-            const token = e.target.closest('.char-token');
-            if (token) {
-                const charId = token.dataset.id;
-                const char = battleState.characters.find(c => c.id === charId);
-                if (char && char.gmOnly && currentUserAttribute !== 'GM') {
-                    return;
-                }
-                openCharacterModal(charId);
-            }
-        });
-    }
-
-    const filterButtons = document.querySelectorAll('.filter-btn');
-    const logArea = document.getElementById('log-area');
-
-    filterButtons.forEach(btn => {
-        if (btn.dataset.listenerAttached) return;
-        btn.dataset.listenerAttached = 'true';
-
-        btn.addEventListener('click', () => {
-            filterButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            currentLogFilter = btn.dataset.filter;
-
-            if (logArea) {
-                const logs = logArea.querySelectorAll('.log-line');
-                logs.forEach(line => {
-                    const isChat = line.classList.contains('chat');
-
-                    if (currentLogFilter === 'all') {
-                        line.classList.remove('hidden-log');
-                    } else if (currentLogFilter === 'chat') {
-                        if (isChat) line.classList.remove('hidden-log');
-                        else line.classList.add('hidden-log');
-                    } else if (currentLogFilter === 'system') {
-                        if (!isChat) line.classList.remove('hidden-log');
-                        else line.classList.add('hidden-log');
-                    }
-                });
-                logArea.scrollTop = logArea.scrollHeight;
-            }
-        });
-    });
-
-    window.attackerCol = setupActionColumn('attacker');
-    window.defenderCol = setupActionColumn('defender');
-
-    const actorAttacker = document.getElementById('actor-attacker');
-    const targetAttacker = document.getElementById('target-attacker');
-    const actorDefender = document.getElementById('actor-defender');
-    const targetDefender = document.getElementById('target-defender');
-
-    if (!targetAttacker.dataset.listenerAttached_auto) {
-        targetAttacker.dataset.listenerAttached_auto = 'true';
-        targetAttacker.addEventListener('change', (e) => {
-            const targetId = e.target.value;
-            if (targetId) {
-                actorDefender.value = targetId;
-                window.defenderCol.updateSkillDropdown(targetId);
-            }
-        });
-    }
-
-    if (!actorAttacker.dataset.listenerAttached_auto) {
-        actorAttacker.dataset.listenerAttached_auto = 'true';
-        actorAttacker.addEventListener('change', (e) => {
-            const actorId = e.target.value;
-            if (actorId) {
-                targetDefender.value = actorId;
-            }
-        });
-    }
-
-    const matchStartBtn = document.getElementById('match-start-btn');
-    const matchResultArea = document.getElementById('match-result-area');
-    const hiddenCmdAttacker = document.getElementById('hidden-command-attacker');
-    const hiddenCmdDefender = document.getElementById('hidden-command-defender');
-
-    const resetAllActionUI = () => {
-        const prefixes = ['attacker', 'defender'];
-        prefixes.forEach(prefix => {
-            const actorEl = document.getElementById(`actor-${prefix}`);
-            const targetEl = document.getElementById(`target-${prefix}`);
-
-            if (prefix === 'attacker') {
-                actorEl.disabled = false;
-                targetEl.disabled = false;
-            } else {
-                actorEl.disabled = true;
-                targetEl.disabled = true;
-            }
-
-            document.getElementById(`skill-${prefix}`).disabled = false;
-            actorEl.value = "";
-            targetEl.value = "";
-
-            document.getElementById(`generate-btn-${prefix}`).disabled = false;
-
-            const declareBtn = document.getElementById(`declare-btn-${prefix}`);
-            declareBtn.disabled = true;
-            declareBtn.dataset.isImmediate = 'false';
-
-            const powerDisplay = document.getElementById(`power-display-${prefix}`);
-            powerDisplay.value = "[威力計算待ち]";
-            powerDisplay.style.borderColor = "";
-            powerDisplay.style.fontWeight = "normal";
-
-            const commandDisplay = document.getElementById(`command-display-${prefix}`);
-            commandDisplay.value = "[コマンドプレビュー]";
-            commandDisplay.style.borderColor = "";
-
-            document.getElementById(`hidden-command-${prefix}`).value = "";
-
-            const senritsuField = document.getElementById(`hidden-senritsu-${prefix}`);
-            if (senritsuField) senritsuField.value = "0";
-
-            const previewBox = document.getElementById(`skill-preview-${prefix}`);
-            if(previewBox) {
-                previewBox.innerHTML = '';
-                previewBox.style.display = 'none';
-            }
-        });
-
-        if (window.attackerCol) window.attackerCol.updateSkillDropdown(null);
-        if (window.defenderCol) window.defenderCol.updateSkillDropdown(null);
-        if (window.attackerCol) window.attackerCol.populateSelectors();
-        if (window.defenderCol) window.defenderCol.populateSelectors();
-    };
-
-    const selectNextActor = () => {
-        const nextActor = battleState.characters.find(c => !c.hasActed);
-        if (nextActor) {
-            const actorSelect = document.getElementById('actor-attacker');
-            actorSelect.value = nextActor.id;
-            actorSelect.dispatchEvent(new Event('change'));
-        } else {
-            alert("全てのキャラクターが行動済みです。「R終了処理」を行ってください。");
-        }
-    };
-
-    if (!matchStartBtn.dataset.listenerAttached) {
-        matchStartBtn.dataset.listenerAttached = 'true';
-        matchStartBtn.addEventListener('click', () => {
-            const actorIdA = actorAttacker.value;
-            const actorIdD = actorDefender.value;
-
-            const senritsuA = document.getElementById('hidden-senritsu-attacker').value || 0;
-            const senritsuD = document.getElementById('hidden-senritsu-defender').value || 0;
-
-            if (!hiddenCmdAttacker.value || !hiddenCmdDefender.value || !actorIdA || !actorIdD) {
-                matchResultArea.innerHTML = 'エラー: 攻撃側と対応側の両方が正しく「宣言」されていません。';
-                return;
-            }
-
-            socket.emit('request_match', {
-                room: currentRoomName,
-                actorIdA: actorIdA,
-                actorIdD: actorIdD,
-                commandA: hiddenCmdAttacker.value,
-                commandD: hiddenCmdDefender.value,
-                actorNameA: actorAttacker.options[actorAttacker.selectedIndex].text,
-                actorNameD: actorDefender.options[actorDefender.selectedIndex].text,
-                senritsuPenaltyA: senritsuA,
-                senritsuPenaltyD: senritsuD
-            });
-            matchResultArea.innerHTML = '... マッチを実行中 ...';
-
-            resetAllActionUI();
-        });
-    }
-
-    socket.off('skill_declaration_result');
-    socket.on('skill_declaration_result', (data) => {
-        const prefix = data.prefix;
-
-        if (prefix && prefix.startsWith('wide-def-')) {
-            const charId = prefix.replace('wide-def-', '');
-            const row = document.querySelector(`.wide-defender-row[data-row-id="wide-row-${charId}"]`);
-            if (row) {
-                const resArea = row.querySelector('.wide-result-area');
-                const declBtn = row.querySelector('.wide-declare-btn');
-                const finalCmdInput = row.querySelector('.wide-final-command');
-
-                if (data.error) {
-                    resArea.textContent = data.final_command;
-                    resArea.style.color = "red";
-                    declBtn.disabled = true;
-                } else {
-                    resArea.textContent = `威力: ${data.min_damage}～${data.max_damage} (${data.final_command})`;
-                    resArea.style.color = "blue";
-                    finalCmdInput.value = data.final_command;
-                    declBtn.disabled = false;
-                }
-            }
-            return;
-        }
-
-        const powerDisplay = document.getElementById(`power-display-${prefix}`);
-        const commandDisplay = document.getElementById(`command-display-${prefix}`);
-        const hiddenCommand = document.getElementById(`hidden-command-${prefix}`);
-        const hiddenSenritsu = document.getElementById(`hidden-senritsu-${prefix}`);
-        const declareBtn = document.getElementById(`declare-btn-${prefix}`);
-        const generateBtn = document.getElementById(`generate-btn-${prefix}`);
-        const previewBox = document.getElementById(`skill-preview-${prefix}`);
-
-        if (!powerDisplay) return;
-
-        generateBtn.disabled = false;
-
-        if (data.error) {
-            powerDisplay.value = data.final_command;
-            commandDisplay.value = "--- エラー ---";
-            powerDisplay.style.borderColor = "#dc3545";
-            hiddenCommand.value = "";
-            declareBtn.disabled = true;
-            if(previewBox) previewBox.style.display = 'none';
-            return;
-        }
-
-        powerDisplay.value = `威力: ${data.min_damage} ～ ${data.max_damage}`;
-        commandDisplay.value = data.final_command;
-
-        hiddenCommand.value = data.final_command;
-        if (hiddenSenritsu) {
-            hiddenSenritsu.value = data.senritsu_penalty || 0;
-        }
-
-        declareBtn.disabled = false;
-
-        if (data.is_immediate_skill) {
-            declareBtn.dataset.isImmediate = 'true';
-        } else {
-            declareBtn.dataset.isImmediate = 'false';
-        }
-
-        powerDisplay.style.borderColor = "";
-
-        if (previewBox && data.skill_details) {
-            const d = data.skill_details;
-            const skillSelect = document.getElementById(`skill-${prefix}`);
-            const skillName = skillSelect.options[skillSelect.selectedIndex].text || "スキル詳細";
-
-            previewBox.innerHTML = `
-                <div style="border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 5px;">
-                    <strong>${skillName}</strong><br>
-                    <span style="font-size: 0.85em; color: #555;">
-                        [${d['分類']}] / 距離:${d['距離']} / 属性:${d['属性']}
-                    </span>
-                </div>
-                <div style="font-size: 0.9em; line-height: 1.4;">
-                    ${d['使用時効果'] ? `<div><strong>[使用時]:</strong> ${d['使用時効果']}</div>` : ''}
-                    ${d['発動時効果'] ? `<div><strong>[発動時]:</strong> ${d['発動時効果']}</div>` : ''}
-                    ${d['特記'] ? `<div><strong>[特記]:</strong> ${d['特記']}</div>` : ''}
-                </div>
-            `;
-            previewBox.style.display = 'block';
-        }
-
-        if (prefix === 'attacker' && data.is_one_sided_attack) {
-            const defenderPower = document.getElementById('power-display-defender');
-            const defenderCommand = document.getElementById('command-display-defender');
-            const hiddenDefender = document.getElementById('hidden-command-defender');
-            const declareBtnDefender = document.getElementById('declare-btn-defender');
-            const defenderPreview = document.getElementById('skill-preview-defender');
-
-            if (defenderPower) {
-                const cmd = '【一方攻撃（行動済）】';
-                defenderPower.value = "--- (一方攻撃) ---";
-                defenderCommand.value = cmd;
-                hiddenDefender.value = cmd;
-
-                document.getElementById('actor-defender').disabled = true;
-                document.getElementById('target-defender').disabled = true;
-                document.getElementById('skill-defender').disabled = true;
-                document.getElementById('generate-btn-defender').disabled = true;
-                declareBtnDefender.disabled = true;
-                defenderPower.style.borderColor = "#4CAF50";
-                defenderPower.style.fontWeight = "bold";
-                defenderCommand.style.borderColor = "#4CAF50";
-
-                if(defenderPreview) defenderPreview.style.display = 'none';
-            }
-        }
-
-        if (data.is_instant_action) {
-            resetAllActionUI();
-        }
-    });
-
-    const roundStartBtn = document.getElementById('round-start-btn');
-    const roundEndBtn = document.getElementById('round-end-btn');
-    const battleStartBtn = document.getElementById('battle-start-btn');
-    const combatNextBtn = document.getElementById('combat-next-btn');
-    const gmResetBtn = document.getElementById('gm-reset-action-btn');
-
-    if (currentUserAttribute !== 'GM') {
-        roundStartBtn.style.display = 'none';
-        roundEndBtn.style.display = 'none';
-        if(battleStartBtn) battleStartBtn.style.display = 'none';
-        if(combatNextBtn) combatNextBtn.style.display = 'none';
-        if(gmResetBtn) gmResetBtn.style.display = 'none';
-    } else {
-        if(battleStartBtn) battleStartBtn.style.display = 'inline-block';
-        if(combatNextBtn) combatNextBtn.style.display = 'inline-block';
-        if(gmResetBtn) gmResetBtn.style.display = 'inline-block';
-
-        if (roundEndBtn && !roundEndBtn.dataset.listenerAttached) {
-             roundEndBtn.dataset.listenerAttached = 'true';
-             roundEndBtn.addEventListener('click', () => {
-                const unacted = battleState.characters.filter(c => !c.hasActed);
-                if (unacted.length > 0) {
-                    const names = unacted.map(c => c.name).join(', ');
-                    alert(`まだ行動していないキャラクターがいます: \n${names}\n\nラウンドを終了できません。`);
-                    return;
-                }
-                if (confirm('「ラウンド終了時」の処理（出血ダメージなど）を実行しますか？')) {
-                    socket.emit('request_end_round', { room: currentRoomName });
-                }
-            });
-        }
-        if (roundStartBtn && !roundStartBtn.dataset.listenerAttached) {
-            roundStartBtn.dataset.listenerAttached = 'true';
-            roundStartBtn.addEventListener('click', () => {
-                if (confirm('「次ラウンド開始」の処理（速度ロールなど）を実行しますか？')) {
-                    socket.emit('request_new_round', { room: currentRoomName });
-                }
-            });
-        }
-        if (battleStartBtn && !battleStartBtn.dataset.listenerAttached) {
-            battleStartBtn.dataset.listenerAttached = 'true';
-            battleStartBtn.addEventListener('click', () => {
-                openWideDeclarationModal();
-            });
-        }
-        if (combatNextBtn && !combatNextBtn.dataset.listenerAttached) {
-            combatNextBtn.dataset.listenerAttached = 'true';
-            combatNextBtn.addEventListener('click', () => {
-                resetAllActionUI();
-                selectNextActor();
-            });
-        }
-        if (gmResetBtn && !gmResetBtn.dataset.listenerAttached) {
-            gmResetBtn.dataset.listenerAttached = 'true';
-            gmResetBtn.addEventListener('click', () => {
-                if (confirm('GM専用: アクション欄のロックと宣言を強制的にリセットしますか？')) {
-                    resetAllActionUI();
-                }
-            });
-        }
-    }
-
-    const chatInput = document.getElementById('chat-input');
-    const chatSendBtn = document.getElementById('chat-send-btn');
-    const diceCommandRegex = /^((\d+)?d\d+([\+\-]\d+)?(\s*[\+\-]\s*(\d+)?d\d+([\+\-]\d+)?)*)$/i;
-    const sendChatMessage = () => {
-        let rawMessage = chatInput.value.trim();
-        if (!rawMessage) return;
-
-        let message = rawMessage;
-        let isSecret = false;
-
-        const secretRegex = /^(\/sroll|\/sr)(\s+|$)/i;
-        const normalRegex = /^(\/roll|\/r)(\s+|$)/i;
-
-        if (secretRegex.test(message)) {
-            isSecret = true;
-            message = message.replace(secretRegex, '').trim();
-        } else if (normalRegex.test(message)) {
-            message = message.replace(normalRegex, '').trim();
-        }
-
-        if (!message && isSecret) {
-            alert("シークレットダイス/チャットの内容を入力してください。");
-            return;
-        }
-
-        if (diceCommandRegex.test(message)) {
-            const result = rollDiceCommand(message);
-            const resultHtml = `${message} = ${result.details} = <span class="dice-result-total">${result.total}</span>`;
-            socket.emit('request_log', {
-                room: currentRoomName,
-                message: `[${currentUsername}] ${resultHtml}`,
-                type: 'dice',
-                secret: isSecret,
-                user: currentUsername
-            });
-        } else {
-            socket.emit('request_chat', {
-                room: currentRoomName,
-                user: currentUsername,
-                message: message,
-                secret: isSecret
-            });
-        }
-
-        chatInput.value = '';
-        chatInput.style.height = '60px';
-    };
-
-    if (!chatSendBtn.dataset.listenerAttached) {
-        chatSendBtn.dataset.listenerAttached = 'true';
-        chatSendBtn.addEventListener('click', sendChatMessage);
-    }
-    if (!chatInput.dataset.listenerAttached) {
-        chatInput.dataset.listenerAttached = 'true';
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendChatMessage();
-            }
-        });
-        chatInput.addEventListener('input', () => {
-            chatInput.style.height = 'auto';
-            chatInput.style.height = (chatInput.scrollHeight) + 'px';
-        });
-    }
-
-    const saveBtn = document.getElementById('save-state-btn');
-    const resetBtn = document.getElementById('reset-btn');
-    const saveLoadMsg = document.getElementById('save-load-message');
-    const leaveBtn = document.getElementById('leave-room-btn');
-    const presetBtn = document.getElementById('preset-manager-btn');
-
-    if (saveBtn && saveLoadMsg && resetBtn && leaveBtn) {
-        if (!saveBtn.dataset.listenerAttached) {
-            saveBtn.dataset.listenerAttached = 'true';
-            saveBtn.addEventListener('click', async () => {
-                if (!currentRoomName) return;
-                saveLoadMsg.textContent = 'セーブ中...';
-                saveLoadMsg.style.color = '#333';
-                try {
-                    const response = await fetchWithSession('/save_room', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            room_name: currentRoomName,
-                            state: battleState
-                        })
-                    });
-                    const data = await response.json();
-                    if (response.ok) {
-                        saveLoadMsg.textContent = 'セーブ完了しました。';
-                        saveLoadMsg.style.color = 'green';
-                    } else {
-                        saveLoadMsg.textContent = `セーブ失敗: ${data.error}`;
-                        saveLoadMsg.style.color = 'red';
-                    }
-                } catch (error) {
-                    saveLoadMsg.textContent = `サーバー接続エラー: ${error.message}`;
-                    saveLoadMsg.style.color = 'red';
-                }
-            });
-        }
-
-        if (presetBtn && !presetBtn.dataset.listenerAttached) {
-            presetBtn.dataset.listenerAttached = 'true';
-            presetBtn.addEventListener('click', () => {
-                if (typeof openPresetManagerModal === 'function') {
-                    openPresetManagerModal();
-                } else {
-                    console.error("modals.js が読み込まれていないか、openPresetManagerModal が定義されていません。");
-                }
-            });
-        }
-
-        if (!leaveBtn.dataset.listenerAttached) {
-            leaveBtn.dataset.listenerAttached = 'true';
-            leaveBtn.addEventListener('click', () => {
-                if (confirm('ルーム一覧に戻りますか？\n（保存していない変更は失われます）')) {
-                    if(socket) socket.emit('leave_room', {room: currentRoomName});
-                    currentRoomName = null;
-                    showRoomPortal();
-                }
-            });
-        }
-
-        if (!resetBtn.dataset.listenerAttached) {
-            resetBtn.dataset.listenerAttached = 'true';
-            resetBtn.addEventListener('click', () => {
-                if (typeof openResetTypeModal === 'function') {
-                    openResetTypeModal((resetType) => {
-                        socket.emit('request_reset_battle', {
-                            room: currentRoomName,
-                            mode: resetType
-                        });
-
-                        if (resetType === 'full') {
-                            saveLoadMsg.textContent = '戦闘を完全リセットしました。';
-                        } else {
-                            saveLoadMsg.textContent = 'ステータスをリセットしました。';
-                        }
-                        saveLoadMsg.style.color = 'orange';
-                    });
-                } else {
-                    if (confirm('本当に現在のルームの戦闘をすべてリセットしますか？\n（セーブデータは消えません）')) {
-                        socket.emit('request_reset_battle', {
-                            room: currentRoomName,
-                            mode: 'full'
-                        });
-                        saveLoadMsg.textContent = '戦闘をリセットしました。';
-                        saveLoadMsg.style.color = 'orange';
-                    }
-                }
-            });
-        }
-    }
 }
 
 function openWideDeclarationModal() {
@@ -1488,6 +935,459 @@ function openWideDeclarationModal() {
             }, 500);
         }, 100);
     };
+}
+
+// --- ★初期化関数 (すべてのリスナー登録をここに集約) ---
+function setupBattlefieldTab() {
+    // 1. DOM要素のセットアップ (毎回必要)
+    const openLoadModalBtn = document.getElementById('open-char-load-modal-btn');
+    if (openLoadModalBtn) {
+        openLoadModalBtn.addEventListener('click', openCharLoadModal);
+    }
+
+    if (battleState && battleState.logs) {
+        renderLogHistory(battleState.logs);
+    }
+    renderTimeline();
+    renderTokenList();
+
+    // 2. イベントリスナーの設定 (ボタン等)
+    const leftColumn = document.getElementById('battlefield-left-column');
+    if (leftColumn && !leftColumn.dataset.listenerAttached) {
+        leftColumn.dataset.listenerAttached = 'true';
+        leftColumn.addEventListener('click', (e) => {
+            const token = e.target.closest('.char-token');
+            if (token) {
+                const charId = token.dataset.id;
+                const char = battleState.characters.find(c => c.id === charId);
+                if (char && char.gmOnly && currentUserAttribute !== 'GM') {
+                    return;
+                }
+                openCharacterModal(charId);
+            }
+        });
+    }
+
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    const logArea = document.getElementById('log-area');
+    filterButtons.forEach(btn => {
+        if (btn.dataset.listenerAttached) return;
+        btn.dataset.listenerAttached = 'true';
+        btn.addEventListener('click', () => {
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentLogFilter = btn.dataset.filter;
+            if (logArea) {
+                const logs = logArea.querySelectorAll('.log-line');
+                logs.forEach(line => {
+                    const isChat = line.classList.contains('chat');
+                    if (currentLogFilter === 'all') line.classList.remove('hidden-log');
+                    else if (currentLogFilter === 'chat') {
+                        if (isChat) line.classList.remove('hidden-log'); else line.classList.add('hidden-log');
+                    } else if (currentLogFilter === 'system') {
+                        if (!isChat) line.classList.remove('hidden-log'); else line.classList.add('hidden-log');
+                    }
+                });
+                logArea.scrollTop = logArea.scrollHeight;
+            }
+        });
+    });
+
+    window.attackerCol = setupActionColumn('attacker');
+    window.defenderCol = setupActionColumn('defender');
+
+    const actorAttacker = document.getElementById('actor-attacker');
+    const targetAttacker = document.getElementById('target-attacker');
+    const actorDefender = document.getElementById('actor-defender');
+    const targetDefender = document.getElementById('target-defender');
+
+    if (targetAttacker && !targetAttacker.dataset.listenerAttached_auto) {
+        targetAttacker.dataset.listenerAttached_auto = 'true';
+        targetAttacker.addEventListener('change', (e) => {
+            const targetId = e.target.value;
+            if (targetId && actorDefender && window.defenderCol) {
+                actorDefender.value = targetId;
+                window.defenderCol.updateSkillDropdown(targetId);
+            }
+        });
+    }
+
+    if (actorAttacker && !actorAttacker.dataset.listenerAttached_auto) {
+        actorAttacker.dataset.listenerAttached_auto = 'true';
+        actorAttacker.addEventListener('change', (e) => {
+            const actorId = e.target.value;
+            if (actorId && targetDefender) {
+                targetDefender.value = actorId;
+            }
+        });
+    }
+
+    const matchStartBtn = document.getElementById('match-start-btn');
+    if (matchStartBtn && !matchStartBtn.dataset.listenerAttached) {
+        matchStartBtn.dataset.listenerAttached = 'true';
+        matchStartBtn.addEventListener('click', () => {
+            const hiddenCmdAttacker = document.getElementById('hidden-command-attacker');
+            const hiddenCmdDefender = document.getElementById('hidden-command-defender');
+
+            if (!hiddenCmdAttacker.value || !hiddenCmdDefender.value || !actorAttacker.value || !actorDefender.value) {
+                document.getElementById('match-result-area').innerHTML = 'エラー: 双方の宣言が必要です。';
+                return;
+            }
+            socket.emit('request_match', {
+                room: currentRoomName,
+                actorIdA: actorAttacker.value, actorIdD: actorDefender.value,
+                commandA: hiddenCmdAttacker.value, commandD: hiddenCmdDefender.value,
+                actorNameA: actorAttacker.options[actorAttacker.selectedIndex].text,
+                actorNameD: actorDefender.options[actorDefender.selectedIndex].text,
+                senritsuPenaltyA: document.getElementById('hidden-senritsu-attacker').value || 0,
+                senritsuPenaltyD: document.getElementById('hidden-senritsu-defender').value || 0
+            });
+            document.getElementById('match-result-area').innerHTML = '... マッチを実行中 ...';
+
+            // 入力リセット
+            const prefixes = ['attacker', 'defender'];
+            prefixes.forEach(prefix => {
+                document.getElementById(`actor-${prefix}`).value = "";
+                document.getElementById(`skill-${prefix}`).value = "";
+                document.getElementById(`generate-btn-${prefix}`).disabled = false;
+                document.getElementById(`declare-btn-${prefix}`).disabled = true;
+                document.getElementById(`power-display-${prefix}`).value = "[威力計算待ち]";
+                document.getElementById(`command-display-${prefix}`).value = "[コマンドプレビュー]";
+                document.getElementById(`hidden-command-${prefix}`).value = "";
+                const pb = document.getElementById(`skill-preview-${prefix}`);
+                if(pb) pb.style.display = 'none';
+            });
+        });
+    }
+
+    // チャット、保存、GMボタン
+    const chatInput = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+    const sendChatMessage = () => {
+        let rawMessage = chatInput.value.trim();
+        if (!rawMessage) return;
+        let message = rawMessage;
+        let isSecret = false;
+        if (/^(\/sroll|\/sr)(\s+|$)/i.test(message)) isSecret = true;
+
+        const diceCommandRegex = /^((\d+)?d\d+([\+\-]\d+)?(\s*[\+\-]\s*(\d+)?d\d+([\+\-]\d+)?)*)$/i;
+
+        // ダイス判定強化: メッセージ全体がダイス式か、またはコマンドを含むか
+        let isDice = diceCommandRegex.test(message) || /^(\/roll|\/r|\/sroll|\/sr)/i.test(message);
+
+        if (isDice) {
+            const result = rollDiceCommand(message);
+            // コマンド部分をきれいにする
+            let cleanCmd = message.replace(/^(\/sroll|\/sr|\/roll|\/r)\s*/i, '');
+            const resultHtml = `${cleanCmd} = ${result.details} = <span class="dice-result-total">${result.total}</span>`;
+            socket.emit('request_log', {
+                room: currentRoomName,
+                message: `[${currentUsername}] ${resultHtml}`,
+                type: 'dice',
+                secret: isSecret,
+                user: currentUsername
+            });
+        } else {
+            if (isSecret) message = message.replace(/^(\/sroll|\/sr)\s*/i, '');
+            socket.emit('request_chat', { room: currentRoomName, user: currentUsername, message: message, secret: isSecret });
+        }
+        chatInput.value = '';
+    };
+
+    if (chatSendBtn && !chatSendBtn.dataset.listenerAttached) {
+        chatSendBtn.dataset.listenerAttached = 'true';
+        chatSendBtn.addEventListener('click', sendChatMessage);
+    }
+    if (chatInput && !chatInput.dataset.listenerAttached) {
+        chatInput.dataset.listenerAttached = 'true';
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+        });
+    }
+
+    const roundStartBtn = document.getElementById('round-start-btn');
+    const roundEndBtn = document.getElementById('round-end-btn');
+    const battleStartBtn = document.getElementById('battle-start-btn');
+    const combatNextBtn = document.getElementById('combat-next-btn');
+    const gmResetBtn = document.getElementById('gm-reset-action-btn');
+
+    if (currentUserAttribute === 'GM') {
+        if(battleStartBtn) battleStartBtn.style.display = 'inline-block';
+        if(combatNextBtn) combatNextBtn.style.display = 'inline-block';
+        if(gmResetBtn) gmResetBtn.style.display = 'inline-block';
+
+        if (roundEndBtn && !roundEndBtn.dataset.listenerAttached) {
+             roundEndBtn.dataset.listenerAttached = 'true';
+             roundEndBtn.addEventListener('click', () => {
+                const unacted = battleState.characters.filter(c => !c.hasActed);
+                if (unacted.length > 0) {
+                    const names = unacted.map(c => c.name).join(', ');
+                    alert(`まだ行動していないキャラクターがいます: \n${names}\n\nラウンドを終了できません。`);
+                    return;
+                }
+                if (confirm('「ラウンド終了時」の処理（出血ダメージなど）を実行しますか？')) {
+                    socket.emit('request_end_round', { room: currentRoomName });
+                }
+            });
+        }
+        if (roundStartBtn && !roundStartBtn.dataset.listenerAttached) {
+            roundStartBtn.dataset.listenerAttached = 'true';
+            roundStartBtn.addEventListener('click', () => {
+                if (confirm('「次ラウンド開始」の処理（速度ロールなど）を実行しますか？')) {
+                    socket.emit('request_new_round', { room: currentRoomName });
+                }
+            });
+        }
+        if (battleStartBtn && !battleStartBtn.dataset.listenerAttached) {
+            battleStartBtn.dataset.listenerAttached = 'true';
+            battleStartBtn.addEventListener('click', () => {
+                openWideDeclarationModal();
+            });
+        }
+        if (combatNextBtn && !combatNextBtn.dataset.listenerAttached) {
+            combatNextBtn.dataset.listenerAttached = 'true';
+            combatNextBtn.addEventListener('click', () => {
+                // 次のアクター選択
+                const nextActor = battleState.characters.find(c => !c.hasActed);
+                if (nextActor) {
+                    const actorSelect = document.getElementById('actor-attacker');
+                    actorSelect.value = nextActor.id;
+                    actorSelect.dispatchEvent(new Event('change'));
+                } else {
+                    alert("全てのキャラクターが行動済みです。「R終了処理」を行ってください。");
+                }
+            });
+        }
+        if (gmResetBtn && !gmResetBtn.dataset.listenerAttached) {
+            gmResetBtn.dataset.listenerAttached = 'true';
+            gmResetBtn.addEventListener('click', () => {
+                if (confirm('GM専用: 強制リセットしますか？')) {
+                    const prefixes = ['attacker', 'defender'];
+                    prefixes.forEach(prefix => {
+                        const actorEl = document.getElementById(`actor-${prefix}`);
+                        if(actorEl) {
+                            actorEl.value = "";
+                            actorEl.disabled = (prefix === 'defender'); // defenderは元々disabled
+                        }
+                        // 他のリセット処理
+                        document.getElementById(`skill-${prefix}`).disabled = false;
+                        document.getElementById(`generate-btn-${prefix}`).disabled = false;
+                        document.getElementById(`declare-btn-${prefix}`).disabled = true;
+                    });
+                }
+            });
+        }
+    } else {
+        if(roundStartBtn) roundStartBtn.style.display = 'none';
+        if(roundEndBtn) roundEndBtn.style.display = 'none';
+        if(battleStartBtn) battleStartBtn.style.display = 'none';
+        if(combatNextBtn) combatNextBtn.style.display = 'none';
+        if(gmResetBtn) gmResetBtn.style.display = 'none';
+    }
+
+    const saveBtn = document.getElementById('save-state-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const saveLoadMsg = document.getElementById('save-load-message');
+    const leaveBtn = document.getElementById('leave-room-btn');
+    const presetBtn = document.getElementById('preset-manager-btn');
+
+    if (saveBtn && !saveBtn.dataset.listenerAttached) {
+        saveBtn.dataset.listenerAttached = 'true';
+        saveBtn.addEventListener('click', async () => {
+            if (!currentRoomName) return;
+            saveLoadMsg.textContent = 'セーブ中...';
+            try {
+                await fetchWithSession('/save_room', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_name: currentRoomName, state: battleState })
+                });
+                saveLoadMsg.textContent = 'セーブ完了しました。';
+                saveLoadMsg.style.color = 'green';
+            } catch (error) {
+                saveLoadMsg.textContent = `セーブ失敗: ${error.message}`;
+                saveLoadMsg.style.color = 'red';
+            }
+        });
+    }
+    if (presetBtn && !presetBtn.dataset.listenerAttached) {
+        presetBtn.dataset.listenerAttached = 'true';
+        presetBtn.addEventListener('click', () => {
+            if (typeof openPresetManagerModal === 'function') openPresetManagerModal();
+        });
+    }
+    if (leaveBtn && !leaveBtn.dataset.listenerAttached) {
+        leaveBtn.dataset.listenerAttached = 'true';
+        leaveBtn.addEventListener('click', () => {
+            if (confirm('ルーム一覧に戻りますか？')) {
+                if(socket) socket.emit('leave_room', {room: currentRoomName});
+                currentRoomName = null;
+                showRoomPortal();
+            }
+        });
+    }
+    if (resetBtn && !resetBtn.dataset.listenerAttached) {
+        resetBtn.dataset.listenerAttached = 'true';
+        resetBtn.addEventListener('click', () => {
+            if (typeof openResetTypeModal === 'function') {
+                openResetTypeModal((resetType) => {
+                    socket.emit('request_reset_battle', { room: currentRoomName, mode: resetType });
+                });
+            } else if (confirm('本当にリセットしますか？')) {
+                socket.emit('request_reset_battle', { room: currentRoomName, mode: 'full' });
+            }
+        });
+    }
+
+    // 3. Socketリスナー登録 (初回のみ実行)
+    // --- ★最重要修正: ここで重複を完璧に防ぐ ---
+    if (typeof socket !== 'undefined' && !window.battleSocketHandlersRegistered) {
+        console.log("Registering Battle Socket Listeners (One-time only)");
+        window.battleSocketHandlersRegistered = true;
+
+        // 【状態更新リスナー】 (両方のタブに対応)
+        socket.on('state_updated', (state) => {
+            // A. テキストバトルフィールドが表示中なら更新
+            if (document.getElementById('battlefield-grid')) {
+                if(typeof renderTimeline === 'function') renderTimeline();
+                if(typeof renderTokenList === 'function') renderTokenList();
+            }
+            if (document.getElementById('log-area')) {
+                if(typeof renderLogHistory === 'function') renderLogHistory(state.logs);
+            }
+
+            // B. ビジュアルバトルフィールドが表示中なら更新
+            if (document.getElementById('visual-battle-container')) {
+                if (typeof renderVisualMap === 'function') renderVisualMap();
+                if (typeof renderStagingArea === 'function') renderStagingArea();
+                if (typeof renderVisualTimeline === 'function') renderVisualTimeline();
+                if (typeof renderVisualLogHistory === 'function') renderVisualLogHistory(state.logs);
+                if (typeof updateVisualRoundDisplay === 'function') updateVisualRoundDisplay(state.round);
+            }
+        });
+
+        // 【スキル結果リスナー】 (両方のタブに対応)
+        socket.on('skill_declaration_result', (data) => {
+            // 1. ビジュアル側の処理 (prefixが visual_*)
+            if (data.prefix && data.prefix.startsWith('visual_')) {
+                if (data.is_instant_action && typeof closeDuelModal === 'function') {
+                    closeDuelModal();
+                    return;
+                }
+                if (typeof updateDuelUI === 'function') {
+                    const side = data.prefix.replace('visual_', '');
+                    updateDuelUI(side, data);
+                }
+                return;
+            }
+
+            // 2. テキスト側の処理
+            // (DOM要素が存在するか確認してから操作する)
+
+            // 広域防御の処理
+            if (data.prefix && data.prefix.startsWith('wide-def-')) {
+                const charId = data.prefix.replace('wide-def-', '');
+                const row = document.querySelector(`.wide-defender-row[data-row-id="wide-row-${charId}"]`);
+                if (row) {
+                    const resArea = row.querySelector('.wide-result-area');
+                    const declBtn = row.querySelector('.wide-declare-btn');
+                    const finalCmdInput = row.querySelector('.wide-final-command');
+
+                    if (data.error) {
+                        resArea.textContent = data.final_command;
+                        resArea.style.color = "red";
+                        declBtn.disabled = true;
+                    } else {
+                        resArea.textContent = `威力: ${data.min_damage}～${data.max_damage} (${data.final_command})`;
+                        resArea.style.color = "blue";
+                        finalCmdInput.value = data.final_command;
+                        declBtn.disabled = false;
+                    }
+                }
+                return;
+            }
+
+            // 1vs1アクション (attacker / defender)
+            const prefix = data.prefix;
+            const powerDisplay = document.getElementById(`power-display-${prefix}`);
+
+            // 要素がなければ何もしない (ビジュアルタブ閲覧中など)
+            if (!powerDisplay) return;
+
+            const commandDisplay = document.getElementById(`command-display-${prefix}`);
+            const hiddenCommand = document.getElementById(`hidden-command-${prefix}`);
+            const hiddenSenritsu = document.getElementById(`hidden-senritsu-${prefix}`);
+            const declareBtn = document.getElementById(`declare-btn-${prefix}`);
+            const generateBtn = document.getElementById(`generate-btn-${prefix}`);
+            const previewBox = document.getElementById(`skill-preview-${prefix}`);
+
+            generateBtn.disabled = false;
+
+            if (data.error) {
+                powerDisplay.value = data.final_command;
+                commandDisplay.value = "--- エラー ---";
+                powerDisplay.style.borderColor = "#dc3545";
+                hiddenCommand.value = "";
+                declareBtn.disabled = true;
+                if(previewBox) previewBox.style.display = 'none';
+                return;
+            }
+
+            powerDisplay.value = `威力: ${data.min_damage} ～ ${data.max_damage}`;
+            commandDisplay.value = data.final_command;
+            hiddenCommand.value = data.final_command;
+            if (hiddenSenritsu) hiddenSenritsu.value = data.senritsu_penalty || 0;
+
+            declareBtn.disabled = false;
+            declareBtn.dataset.isImmediate = data.is_immediate_skill ? 'true' : 'false';
+            powerDisplay.style.borderColor = "";
+
+            if (previewBox && data.skill_details) {
+                const d = data.skill_details;
+                const skillSelect = document.getElementById(`skill-${prefix}`);
+                const skillName = skillSelect.options[skillSelect.selectedIndex].text || "スキル詳細";
+                previewBox.innerHTML = `
+                    <div style="border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 5px;">
+                        <strong>${skillName}</strong><br>
+                        <span style="font-size: 0.85em; color: #555;">
+                            [${d['分類']}] / 距離:${d['距離']} / 属性:${d['属性']}
+                        </span>
+                    </div>
+                    <div style="font-size: 0.9em; line-height: 1.4;">
+                        ${d['使用時効果'] ? `<div><strong>[使用時]:</strong> ${d['使用時効果']}</div>` : ''}
+                        ${d['発動時効果'] ? `<div><strong>[発動時]:</strong> ${d['発動時効果']}</div>` : ''}
+                        ${d['特記'] ? `<div><strong>[特記]:</strong> ${d['特記']}</div>` : ''}
+                    </div>
+                `;
+                previewBox.style.display = 'block';
+            }
+
+            if (prefix === 'attacker' && data.is_one_sided_attack) {
+                const defenderPower = document.getElementById('power-display-defender');
+                if (defenderPower) {
+                    defenderPower.value = "--- (一方攻撃) ---";
+                    document.getElementById('command-display-defender').value = '【一方攻撃（行動済）】';
+                    document.getElementById('hidden-command-defender').value = '【一方攻撃（行動済）】';
+                    document.getElementById('actor-defender').disabled = true;
+                    document.getElementById('target-defender').disabled = true;
+                    document.getElementById('skill-defender').disabled = true;
+                    document.getElementById('generate-btn-defender').disabled = true;
+                    document.getElementById('declare-btn-defender').disabled = true;
+                    defenderPower.style.borderColor = "#4CAF50";
+                    defenderPower.style.fontWeight = "bold";
+                    if(document.getElementById('skill-preview-defender')) document.getElementById('skill-preview-defender').style.display = 'none';
+                }
+            }
+
+            if (data.is_instant_action) {
+                const actorEl = document.getElementById('actor-attacker');
+                if(actorEl) {
+                    actorEl.value = "";
+                    actorEl.dispatchEvent(new Event('change'));
+                }
+            }
+        });
+    }
 }
 
 if (typeof fetchSkillMetadata === "function") {

@@ -5,7 +5,50 @@ let visualScale = 1.0;
 let visualOffsetX = 0;
 let visualOffsetY = 0;
 const GRID_SIZE = 96;
-let currentVisualLogFilter = 'all'; // ログフィルタ用
+let currentVisualLogFilter = 'all';
+
+// マウスイベントハンドラ管理
+window.visualMapHandlers = window.visualMapHandlers || { move: null, up: null };
+
+// --- 計算・ダイス関数 ---
+function safeMathEvaluate(expression) {
+    try {
+        const sanitized = expression.replace(/[^-()\d/*+.]/g, '');
+        return new Function('return ' + sanitized)();
+    } catch (e) { console.error("Safe math eval error:", e); return 0; }
+}
+
+function rollDiceCommand(command) {
+    let calculation = command.replace(/【.*?】/g, '').trim();
+    calculation = calculation.replace(/^(\/sroll|\/sr|\/roll|\/r)\s*/i, '');
+
+    let details = calculation;
+    const diceRegex = /(\d+)d(\d+)/g;
+    let match;
+    const allDiceDetails = [];
+
+    while ((match = diceRegex.exec(calculation)) !== null) {
+        const numDice = parseInt(match[1]);
+        const numFaces = parseInt(match[2]);
+        let sum = 0;
+        const rolls = [];
+        for (let i = 0; i < numDice; i++) {
+            const roll = Math.floor(Math.random() * numFaces) + 1;
+            rolls.push(roll);
+            sum += roll;
+        }
+        allDiceDetails.push({ original: match[0], details: `(${rolls.join('+')})`, sum: sum });
+    }
+
+    for (let i = allDiceDetails.length - 1; i >= 0; i--) {
+        const roll = allDiceDetails[i];
+        details = details.replace(roll.original, roll.details);
+        calculation = calculation.replace(roll.original, String(roll.sum));
+    }
+
+    const total = safeMathEvaluate(calculation);
+    return { total: total, details: details };
+}
 
 // 状態異常定義
 const STATUS_CONFIG = {
@@ -36,23 +79,27 @@ async function setupVisualBattleTab() {
     }
 
     setupMapControls();
-    setupVisualSidebarControls(); // ★追加: サイドバーのボタン設定
+    setupVisualSidebarControls();
 
-    // 初期描画
     renderVisualMap();
     renderStagingArea();
-    renderVisualTimeline(); // ★追加: タイムライン描画
+    renderVisualTimeline();
+    updateVisualRoundDisplay(battleState ? battleState.round : 0);
 
-    // ログの初期表示 (テキスト側のログデータがあれば)
+    // ★重要: HTML要素の描画待ちを考慮して、ログ表示をわずかに遅延させる
+    // これにより「最初は真っ白」現象を防ぐ
     if (typeof battleState !== 'undefined' && battleState.logs) {
-        renderVisualLogHistory(battleState.logs);
+        setTimeout(() => {
+            renderVisualLogHistory(battleState.logs);
+        }, 50);
     }
 
-    if (typeof socket !== 'undefined') {
-        // 状態更新リスナー
-        if (window.visualBattleStateListener) socket.off('state_updated', window.visualBattleStateListener);
-        window.visualBattleStateListener = (state) => {
-            // タブが表示されている時のみ更新
+    // Socketリスナー登録 (初回のみ)
+    if (typeof socket !== 'undefined' && !window.battleSocketHandlersRegistered) {
+        console.log("Registering Battle Socket Listeners (One-time only / from Visual)");
+        window.battleSocketHandlersRegistered = true;
+
+        socket.on('state_updated', (state) => {
             if (document.getElementById('visual-battle-container')) {
                 renderVisualMap();
                 renderStagingArea();
@@ -60,33 +107,89 @@ async function setupVisualBattleTab() {
                 renderVisualLogHistory(state.logs);
                 updateVisualRoundDisplay(state.round);
             }
-        };
-        socket.on('state_updated', window.visualBattleStateListener);
+            if (document.getElementById('battlefield-grid')) {
+                if(typeof renderTimeline === 'function') renderTimeline();
+                if(typeof renderTokenList === 'function') renderTokenList();
+            }
+            if (document.getElementById('log-area')) {
+                if(typeof renderLogHistory === 'function') renderLogHistory(state.logs);
+            }
+        });
 
-        // スキル結果リスナー
-        if (window.visualBattleSkillListener) socket.off('skill_declaration_result', window.visualBattleSkillListener);
-        window.visualBattleSkillListener = (data) => {
-            if (!data.prefix || !data.prefix.startsWith('visual_')) return;
-            if (data.is_instant_action) {
-                closeDuelModal();
+        socket.on('skill_declaration_result', (data) => {
+            if (data.prefix && data.prefix.startsWith('visual_')) {
+                if (data.is_instant_action && typeof closeDuelModal === 'function') {
+                    closeDuelModal();
+                    return;
+                }
+                const side = data.prefix.replace('visual_', '');
+                if (typeof updateDuelUI === 'function') updateDuelUI(side, data);
                 return;
             }
-            const side = data.prefix.replace('visual_', '');
-            updateDuelUI(side, data);
-        };
-        socket.on('skill_declaration_result', window.visualBattleSkillListener);
+            if (data.prefix && data.prefix.startsWith('wide-def-')) {
+                const charId = data.prefix.replace('wide-def-', '');
+                const row = document.querySelector(`.wide-defender-row[data-row-id="wide-row-${charId}"]`);
+                if (row) {
+                    const resArea = row.querySelector('.wide-result-area');
+                    const declBtn = row.querySelector('.wide-declare-btn');
+                    const finalCmdInput = row.querySelector('.wide-final-command');
+                    if (data.error) {
+                        resArea.textContent = data.final_command;
+                        resArea.style.color = "red";
+                        declBtn.disabled = true;
+                    } else {
+                        resArea.textContent = `威力: ${data.min_damage}～${data.max_damage} (${data.final_command})`;
+                        resArea.style.color = "blue";
+                        finalCmdInput.value = data.final_command;
+                        declBtn.disabled = false;
+                    }
+                }
+                return;
+            }
+            const powerDisplay = document.getElementById(`power-display-${data.prefix}`);
+            if (powerDisplay) {
+                const prefix = data.prefix;
+                const commandDisplay = document.getElementById(`command-display-${prefix}`);
+                const hiddenCommand = document.getElementById(`hidden-command-${prefix}`);
+                const declareBtn = document.getElementById(`declare-btn-${prefix}`);
+                const generateBtn = document.getElementById(`generate-btn-${prefix}`);
+                generateBtn.disabled = false;
+                if (data.error) {
+                    powerDisplay.value = data.final_command;
+                    commandDisplay.value = "--- エラー ---";
+                    powerDisplay.style.borderColor = "#dc3545";
+                    declareBtn.disabled = true;
+                    return;
+                }
+                powerDisplay.value = `威力: ${data.min_damage} ～ ${data.max_damage}`;
+                commandDisplay.value = data.final_command;
+                hiddenCommand.value = data.final_command;
+                declareBtn.disabled = false;
+                declareBtn.dataset.isImmediate = data.is_immediate_skill ? 'true' : 'false';
+                powerDisplay.style.borderColor = "";
+                if (prefix === 'attacker' && data.is_one_sided_attack) {
+                    const defenderPower = document.getElementById('power-display-defender');
+                    if (defenderPower) {
+                        defenderPower.value = "--- (一方攻撃) ---";
+                        document.getElementById('command-display-defender').value = '【一方攻撃（行動済）】';
+                        document.getElementById('hidden-command-defender').value = '【一方攻撃（行動済）】';
+                        document.getElementById('actor-defender').disabled = true;
+                        document.getElementById('declare-btn-defender').disabled = true;
+                        defenderPower.style.borderColor = "#4CAF50";
+                    }
+                }
+            }
+        });
     }
 }
 
-// --- ★新規: サイドバーのコントロール設定 ---
+// --- サイドバー制御 ---
 function setupVisualSidebarControls() {
-    // 1. ターン・ラウンド操作
     const nextBtn = document.getElementById('visual-next-turn-btn');
     const startRBtn = document.getElementById('visual-round-start-btn');
     const endRBtn = document.getElementById('visual-round-end-btn');
 
     if (nextBtn) {
-        // 重複登録防止のためクローン
         const newBtn = nextBtn.cloneNode(true);
         nextBtn.parentNode.replaceChild(newBtn, nextBtn);
         newBtn.addEventListener('click', () => {
@@ -96,7 +199,6 @@ function setupVisualSidebarControls() {
         });
     }
 
-    // GMのみ表示
     if (currentUserAttribute === 'GM') {
         if(startRBtn) {
             startRBtn.style.display = 'inline-block';
@@ -112,49 +214,66 @@ function setupVisualSidebarControls() {
         }
     }
 
-    // 2. チャット送信
     const chatInput = document.getElementById('visual-chat-input');
     const chatSend = document.getElementById('visual-chat-send');
+    const diceCommandRegex = /^((\/sroll|\/sr|\/roll|\/r)\s+)?((\d+)?d\d+([\+\-]\d+)?(\s*[\+\-]\s*(\d+)?d\d+([\+\-]\d+)?)*)/i;
 
     const sendChat = () => {
-        const msg = chatInput.value.trim();
+        let msg = chatInput.value.trim();
         if (!msg) return;
+        let isSecret = false;
+        if (/^(\/sroll|\/sr)(\s+|$)/i.test(msg)) isSecret = true;
 
-        // ダイスロール判定 (簡易版)
-        if (/^(\/roll|\/r|\/sroll|\/sr|\d+d\d+)/i.test(msg)) {
-            // テキスト側のrollDiceCommandを使うか、ここでも実装するか。
-            // 簡易的にサーバーへ送る (サーバー側で処理できるならベストだが、既存設計に合わせる)
-            // ここではテキスト側のロジックを流用したいが、関数がないので簡易実装
-            let isSecret = msg.startsWith('/sroll') || msg.startsWith('/sr');
-            let content = msg.replace(/^(\/sroll|\/sr|\/roll|\/r)\s*/i, '');
-
-            // 単純なチャットとして送信 (ダイス機能が必要なら rollDiceCommand を main.js に移動推奨)
-            socket.emit('request_chat', {
-                room: currentRoomName, user: currentUsername, message: msg, secret: isSecret
+        if (diceCommandRegex.test(msg)) {
+            const result = rollDiceCommand(msg);
+            const cleanCmd = msg.replace(/^(\/sroll|\/sr|\/roll|\/r)\s*/i, '');
+            const resultHtml = `${cleanCmd} = ${result.details} = <span class="dice-result-total">${result.total}</span>`;
+            socket.emit('request_log', {
+                room: currentRoomName,
+                message: `[${currentUsername}] ${resultHtml}`,
+                type: 'dice',
+                secret: isSecret,
+                user: currentUsername
             });
         } else {
-            socket.emit('request_chat', {
-                room: currentRoomName, user: currentUsername, message: msg, secret: false
-            });
+            msg = msg.replace(/^(\/roll|\/r)(\s+|$)/i, '');
+            if (isSecret) msg = msg.replace(/^(\/sroll|\/sr)(\s+|$)/i, '');
+            if (!msg && isSecret) {
+                alert("シークレットメッセージの内容を入力してください。");
+                return;
+            }
+            if (msg) {
+                socket.emit('request_chat', {
+                    room: currentRoomName,
+                    user: currentUsername,
+                    message: msg,
+                    secret: isSecret
+                });
+            }
         }
         chatInput.value = '';
     };
 
     if (chatSend) chatSend.onclick = sendChat;
-    if (chatInput) chatInput.onkeydown = (e) => { if(e.key === 'Enter') sendChat(); };
+    if (chatInput) {
+        chatInput.onkeydown = (e) => {
+            if(e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+                e.preventDefault();
+                sendChat();
+            }
+        };
+    }
 
-    // 3. ログフィルタ
     const filters = document.querySelectorAll('.filter-btn[data-target="visual-log"]');
     filters.forEach(btn => {
         btn.onclick = () => {
             filters.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            currentVisualLogFilter = btn.dataset.filter;
+            window.currentVisualLogFilter = btn.dataset.filter;
             if(battleState && battleState.logs) renderVisualLogHistory(battleState.logs);
         };
     });
 
-    // 4. ルーム操作
     const saveBtn = document.getElementById('visual-save-btn');
     const presetBtn = document.getElementById('visual-preset-btn');
     const resetBtn = document.getElementById('visual-reset-btn');
@@ -188,43 +307,34 @@ function setupVisualSidebarControls() {
     };
 }
 
-// --- ★新規: ログ描画 (ビジュアル用) ---
+// --- ログ描画 (IDチェック強化版) ---
 function renderVisualLogHistory(logs) {
-    const logArea = document.getElementById('visual-log-area');
-    if (!logArea || !logs) return;
+    // 古いIDと新しいIDの両方をチェックして取得
+    const logArea = document.getElementById('visual-log-area') || document.getElementById('visual-chat-log');
+    if (!logArea) return;
 
-    // 差分更新ではなく全更新 (簡易実装)
-    // ※パフォーマンスが気になる場合は差分更新に書き換えてください
+    if (!logs || logs.length === 0) {
+        logArea.innerHTML = '<div style="padding:10px; color:#999;">ログはありません</div>';
+        return;
+    }
+
     logArea.innerHTML = '';
 
-    logs.forEach(log => {
-        const isChat = log.type === 'chat';
-        if (currentVisualLogFilter === 'chat' && !isChat) return;
-        if (currentVisualLogFilter === 'system' && isChat) return;
-
-        const line = document.createElement('div');
-        line.className = `log-line ${log.type}`;
-        line.style.padding = "2px 0";
-        line.style.borderBottom = "1px dotted #eee";
-
-        let msg = log.message;
-        if (log.secret) {
-            line.classList.add('secret-log');
-            line.style.background = "#fff0f5";
-            if (log.user !== currentUsername && currentUserAttribute !== 'GM') {
-                msg = "<span style='color:#999'>(シークレット)</span>";
-            } else {
-                msg = `<span style='color:#d63384'>[SECRET]</span> ${msg}`;
-            }
-        }
-
-        if (isChat && !log.secret) {
-            line.innerHTML = `<span style="color:#0056b3; font-weight:bold;">${log.user}:</span> ${msg}`;
-        } else {
-            line.innerHTML = msg;
-        }
-        logArea.appendChild(line);
-    });
+    if (typeof appendLogLineToElement === 'function') {
+        logs.forEach(log => {
+            appendLogLineToElement(logArea, log, window.currentVisualLogFilter || 'all');
+        });
+    } else {
+        logs.forEach(log => {
+            const isChat = log.type === 'chat';
+            if ((window.currentVisualLogFilter || 'all') === 'chat' && !isChat) return;
+            if ((window.currentVisualLogFilter || 'all') === 'system' && isChat) return;
+            const line = document.createElement('div');
+            line.className = `log-line ${log.type}`;
+            line.innerHTML = log.message;
+            logArea.appendChild(line);
+        });
+    }
     logArea.scrollTop = logArea.scrollHeight;
 }
 
@@ -233,16 +343,22 @@ function updateVisualRoundDisplay(round) {
     if(el) el.textContent = round || 0;
 }
 
-// --- マップ描画 (変更なし) ---
-function renderVisualMap() {
+// --- マップ位置更新 ---
+function updateMapTransform() {
     const mapEl = document.getElementById('game-map');
+    if (mapEl) {
+        mapEl.style.transform = `translate(${visualOffsetX}px, ${visualOffsetY}px) scale(${visualScale})`;
+    }
+}
+
+// --- マップ描画 ---
+function renderVisualMap() {
     const tokenLayer = document.getElementById('map-token-layer');
-    if (!mapEl || !tokenLayer) return;
+    if (!tokenLayer) return;
 
     tokenLayer.innerHTML = '';
-
-    // ★ここでタイムラインも更新
     renderVisualTimeline();
+    updateMapTransform();
 
     if (typeof battleState === 'undefined' || !battleState.characters) return;
     const currentTurnId = battleState.turn_char_id || null;
@@ -256,66 +372,104 @@ function renderVisualMap() {
             tokenLayer.appendChild(token);
         }
     });
+}
 
-    mapEl.style.transform = `translate(${visualOffsetX}px, ${visualOffsetY}px) scale(${visualScale})`;
+// --- マップ操作 ---
+function setupMapControls() {
+    const mapViewport = document.getElementById('map-viewport');
+    const gameMap = document.getElementById('game-map');
+    if (!mapViewport || !gameMap) return;
+
+    if (window.visualMapHandlers.move) {
+        window.removeEventListener('mousemove', window.visualMapHandlers.move);
+    }
+    if (window.visualMapHandlers.up) {
+        window.removeEventListener('mouseup', window.visualMapHandlers.up);
+    }
+
+    mapViewport.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+    mapViewport.ondrop = (e) => {
+        e.preventDefault();
+        if (e.target.closest('.map-token')) return;
+        const charId = e.dataTransfer.getData('text/plain');
+        if (!charId) return;
+        const rect = gameMap.getBoundingClientRect();
+        const mapX = (e.clientX - rect.left) / visualScale;
+        const mapY = (e.clientY - rect.top) / visualScale;
+        const gridX = Math.floor(mapX / GRID_SIZE);
+        const gridY = Math.floor(mapY / GRID_SIZE);
+        if (typeof socket !== 'undefined' && currentRoomName) {
+            socket.emit('request_move_token', { room: currentRoomName, charId, x: gridX, y: gridY });
+        }
+    };
+
+    const zIn = document.getElementById('zoom-in-btn');
+    const zOut = document.getElementById('zoom-out-btn');
+    const rView = document.getElementById('reset-view-btn');
+    if(zIn) zIn.onclick = () => { visualScale = Math.min(visualScale + 0.1, 3.0); updateMapTransform(); };
+    if(zOut) zOut.onclick = () => { visualScale = Math.max(visualScale - 0.1, 0.5); updateMapTransform(); };
+    if(rView) rView.onclick = () => { visualScale = 1.0; visualOffsetX = 0; visualOffsetY = 0; updateMapTransform(); };
+
+    let isPanning = false, startX, startY;
+    mapViewport.onmousedown = (e) => {
+        if (e.target.closest('.map-token')) return;
+        isPanning = true;
+        startX = e.clientX - visualOffsetX;
+        startY = e.clientY - visualOffsetY;
+    };
+    const onMouseMove = (e) => {
+        if (!isPanning) return;
+        e.preventDefault();
+        visualOffsetX = e.clientX - startX;
+        visualOffsetY = e.clientY - startY;
+        updateMapTransform();
+    };
+    const onMouseUp = () => { isPanning = false; };
+
+    window.visualMapHandlers.move = onMouseMove;
+    window.visualMapHandlers.up = onMouseUp;
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
 }
 
 function renderVisualTimeline() {
     const timelineEl = document.getElementById('visual-timeline-list');
     if (!timelineEl) return;
     timelineEl.innerHTML = '';
-
     if (!battleState.timeline || battleState.timeline.length === 0) {
         timelineEl.innerHTML = '<div style="color:#888; padding:5px;">No Data</div>';
         return;
     }
-
     const currentTurnId = battleState.turn_char_id;
-
     battleState.timeline.forEach(charId => {
         const char = battleState.characters.find(c => c.id === charId);
         if (!char) return;
-
         const item = document.createElement('div');
         item.className = `timeline-item ${char.type || 'NPC'}`;
-
-        // 基本スタイル
         item.style.display = "flex";
         item.style.justifyContent = "space-between";
         item.style.padding = "6px 8px";
         item.style.borderBottom = "1px solid #eee";
         item.style.cursor = "pointer";
         item.style.background = "#fff";
-
-        // 敵味方カラー定義
         const typeColor = (char.type === 'ally') ? '#007bff' : '#dc3545';
-
-        // 通常時の帯
         item.style.borderLeft = `3px solid ${typeColor}`;
-
-        // 現在の手番キャラ強調
         if (char.id === currentTurnId) {
-            item.style.background = "#fff8e1"; // 薄いオレンジ
+            item.style.background = "#fff8e1";
             item.style.fontWeight = "bold";
-            // 帯を太くしつつ、他の枠線をオレンジに
             item.style.borderLeft = `6px solid ${typeColor}`;
             item.style.borderTop = "1px solid #ff9800";
             item.style.borderBottom = "1px solid #ff9800";
-            item.style.borderRight = "1px solid #ff9800"; // 右側も閉じるなら追加
+            item.style.borderRight = "1px solid #ff9800";
         }
-
-        // 行動済み
         if (char.hasActed) {
             item.style.opacity = "0.5";
             item.style.textDecoration = "line-through";
         }
-
-        // 戦闘不能
         if (char.hp <= 0) {
             item.style.opacity = "0.3";
             item.style.background = "#ccc";
         }
-
         item.innerHTML = `
             <span class="name">${char.name}</span>
             <span class="speed" style="font-size:0.85em; color:#666;">SPD:${char.speedRoll}</span>
@@ -331,35 +485,26 @@ function createMapToken(char) {
     token.dataset.id = char.id;
     token.style.left = `${char.x * GRID_SIZE + 4}px`;
     token.style.top = `${char.y * GRID_SIZE + 4}px`;
-
-    // ステータス
     const maxHp = char.maxHp || 1; const hp = char.hp || 0;
     const hpPer = Math.max(0, Math.min(100, (hp / maxHp) * 100));
-
     const maxMp = char.maxMp || 1; const mp = char.mp || 0;
     const mpPer = Math.max(0, Math.min(100, (mp / maxMp) * 100));
-
     const fpState = char.states ? char.states.find(s => s.name === 'FP') : null;
     const fp = fpState ? fpState.value : 0;
     const fpPer = Math.min(100, (fp / 15) * 100);
-
-    // 状態異常アイコン生成 (枠外表示用)
     let iconsHtml = '';
     if (char.states) {
         char.states.forEach(s => {
             if (['HP', 'MP', 'FP'].includes(s.name)) return;
             if (s.value === 0) return;
-
             const config = STATUS_CONFIG[s.name];
             if (config) {
-                // ★修正: 背景色を白(#fff)に固定して見やすくする
                 iconsHtml += `
                     <div class="mini-status-icon" style="background-color: #fff; border-color: ${config.borderColor};">
                         <img src="images/${config.icon}" alt="${s.name}">
                         <div class="mini-status-badge" style="background-color: ${config.color};">${s.value}</div>
                     </div>`;
             } else {
-                // 画像なし (矢印)
                 const arrow = s.value > 0 ? '▲' : '▼';
                 const color = s.value > 0 ? '#28a745' : '#dc3545';
                 iconsHtml += `
@@ -370,7 +515,6 @@ function createMapToken(char) {
             }
         });
     }
-
     token.innerHTML = `
         <div class="token-bars">
             <div class="token-bar" title="HP: ${hp}/${maxHp}">
@@ -387,7 +531,6 @@ function createMapToken(char) {
         <div class="token-label" title="${char.name}">${char.name}</div>
         <div class="token-status-overlay">${iconsHtml}</div>
     `;
-
     token.draggable = true;
     token.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('text/plain', char.id);
@@ -414,26 +557,20 @@ function createMapToken(char) {
     return token;
 }
 
-// --- 詳細モーダル (変更なし) ---
 function showCharacterDetail(charId) {
     const char = battleState.characters.find(c => c.id === charId);
     if (!char) return;
-
     const existing = document.getElementById('char-detail-modal-backdrop');
     if (existing) existing.remove();
-
     const backdrop = document.createElement('div');
     backdrop.id = 'char-detail-modal-backdrop';
     backdrop.className = 'modal-backdrop';
     backdrop.style.display = 'flex';
-
     let paramsHtml = '';
     if (Array.isArray(char.params)) paramsHtml = char.params.map(p => `${p.label}:${p.value}`).join(' / ');
     else if (char.params && typeof char.params === 'object') paramsHtml = Object.entries(char.params).map(([k,v]) => `${k}:${v}`).join(' / ');
     else paramsHtml = 'なし';
-
     const fpVal = (char.states.find(s => s.name === 'FP') || {}).value || 0;
-
     let statesHtml = '';
     char.states.forEach(s => {
         if(['HP','MP','FP'].includes(s.name)) return;
@@ -443,7 +580,6 @@ function showCharacterDetail(charId) {
         statesHtml += `<div class="detail-buff-item" style="${colorStyle}">${s.name}: ${s.value}</div>`;
     });
     if (!statesHtml) statesHtml = '<span style="color:#999; font-size:0.9em;">なし</span>';
-
     let specialBuffsHtml = '';
     if (char.special_buffs && char.special_buffs.length > 0) {
         char.special_buffs.forEach((b, index) => {
@@ -456,17 +592,14 @@ function showCharacterDetail(charId) {
                 }
             }
             if (buffInfo.name.includes('_')) buffInfo.name = buffInfo.name.split('_')[0];
-
             let durationVal = null;
             if (b.lasting !== undefined && b.lasting !== null) durationVal = b.lasting;
             else if (b.round !== undefined && b.round !== null) durationVal = b.round;
             else if (b.duration !== undefined && b.duration !== null) durationVal = b.duration;
-
             let durationHtml = "";
             if (durationVal !== null && !isNaN(durationVal) && durationVal < 99) {
-                durationHtml = `<span class="buff-duration-badge" style="background:#666; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:8px;">${durationVal}R</span>`;
+                durationHtml = `<span class="buff-duration-badge" style="background:#666; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:8px; display:inline-block;">${durationVal}R</span>`;
             }
-
             const buffUniqueId = `buff-detail-${char.id}-${index}`;
             specialBuffsHtml += `
                 <div style="width: 100%; margin-bottom: 4px;">
@@ -483,7 +616,6 @@ function showCharacterDetail(charId) {
         });
     }
     if (!specialBuffsHtml) specialBuffsHtml = '<span style="color:#999; font-size:0.9em;">なし</span>';
-
     backdrop.innerHTML = `
         <div class="char-detail-modal">
             <div class="detail-header">
@@ -512,83 +644,17 @@ function toggleBuffDesc(elementId) {
     if (el) el.style.display = (el.style.display === 'none') ? 'block' : 'none';
 }
 
-function renderStagingArea() {
-    const listEl = document.getElementById('staging-list');
-    if (!listEl) return;
-    listEl.innerHTML = '';
-    if (typeof battleState === 'undefined' || !battleState.characters) return;
-    battleState.characters.forEach(char => {
-        const charX = (char.x !== undefined) ? char.x : -1;
-        if (charX < 0) {
-            const item = document.createElement('div');
-            item.className = 'staging-item';
-            item.textContent = char.name;
-            item.style.padding = "5px 10px";
-            item.style.border = "1px solid #ccc";
-            item.style.borderRadius = "4px";
-            item.style.cursor = "grab";
-            item.style.background = "#fdfdfd";
-            item.draggable = true;
-            item.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', char.id));
-            listEl.appendChild(item);
-        }
-    });
-}
-
-function setupMapControls() {
-    const mapViewport = document.getElementById('map-viewport');
-    const gameMap = document.getElementById('game-map');
-    if (!mapViewport || !gameMap) return;
-
-    mapViewport.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
-    mapViewport.addEventListener('drop', (e) => {
-        e.preventDefault();
-        if (e.target.closest('.map-token')) return;
-        const charId = e.dataTransfer.getData('text/plain');
-        if (!charId) return;
-        const rect = gameMap.getBoundingClientRect();
-        const mapX = (e.clientX - rect.left) / visualScale;
-        const mapY = (e.clientY - rect.top) / visualScale;
-        const gridX = Math.floor(mapX / GRID_SIZE);
-        const gridY = Math.floor(mapY / GRID_SIZE);
-        if (typeof socket !== 'undefined' && currentRoomName) {
-            socket.emit('request_move_token', { room: currentRoomName, charId, x: gridX, y: gridY });
-        }
-    });
-
-    const zIn = document.getElementById('zoom-in-btn');
-    const zOut = document.getElementById('zoom-out-btn');
-    const rView = document.getElementById('reset-view-btn');
-    if(zIn) zIn.onclick = () => { visualScale = Math.min(visualScale + 0.1, 3.0); renderVisualMap(); };
-    if(zOut) zOut.onclick = () => { visualScale = Math.max(visualScale - 0.1, 0.5); renderVisualMap(); };
-    if(rView) rView.onclick = () => { visualScale = 1.0; visualOffsetX = 0; visualOffsetY = 0; renderVisualMap(); };
-
-    let isPanning = false, startX, startY;
-    mapViewport.addEventListener('mousedown', (e) => {
-        if (e.target.closest('.map-token')) return;
-        isPanning = true; startX = e.clientX - visualOffsetX; startY = e.clientY - visualOffsetY;
-    });
-    window.addEventListener('mousemove', (e) => {
-        if (!isPanning) return;
-        e.preventDefault();
-        visualOffsetX = e.clientX - startX; visualOffsetY = e.clientY - startY;
-        renderVisualMap();
-    });
-    window.addEventListener('mouseup', () => isPanning = false);
-}
-
 function selectVisualToken(charId) {
     document.querySelectorAll('.map-token').forEach(el => el.classList.remove('selected'));
     const token = document.querySelector(`.map-token[data-id="${charId}"]`);
     if(token) token.classList.add('selected');
 }
 
-// --- 対決モーダル等は既存のまま ---
+// --- 対決モーダル ---
 function openDuelModal(attackerId, defenderId) {
     const attacker = battleState.characters.find(c => c.id === attackerId);
     const defender = battleState.characters.find(c => c.id === defenderId);
     if (!attacker || !defender) return;
-
     duelState = {
         attackerId, defenderId,
         attackerLocked: false, defenderLocked: false,
@@ -596,12 +662,9 @@ function openDuelModal(attackerId, defenderId) {
         attackerCommand: null, defenderCommand: null
     };
     resetDuelUI();
-
     document.getElementById('duel-attacker-name').textContent = attacker.name;
     document.getElementById('duel-defender-name').textContent = defender.name;
-
     populateCharSkillSelect(attacker, 'duel-attacker-skill');
-
     const hasReEvasion = defender.special_buffs && defender.special_buffs.some(b => b.name === '再回避ロック');
     if (defender.hasActed && !hasReEvasion) {
         duelState.isOneSided = true;
