@@ -5,11 +5,47 @@ let visualScale = 1.0;
 let visualOffsetX = 0;
 let visualOffsetY = 0;
 const GRID_SIZE = 96;
-// テキストフィールド同様、デフォルトはall
 window.currentVisualLogFilter = 'all';
-
-// マウスイベントハンドラ管理
 window.visualMapHandlers = window.visualMapHandlers || { move: null, up: null };
+
+// --- 広域攻撃用の一時変数 (状態管理) ---
+let visualWideState = {
+    attackerId: null,
+    isDeclared: false
+};
+
+// --- ヘルパー: 広域スキル判定 ---
+function isWideSkillData(skillData) {
+    if (!skillData) return false;
+    const tags = skillData['tags'] || [];
+    const cat = skillData['分類'] || '';
+    const dist = skillData['距離'] || '';
+    return (tags.includes('広域-個別') || tags.includes('広域-合算') ||
+            cat.includes('広域') || dist.includes('広域'));
+}
+
+function hasWideSkill(char) {
+    if (!window.allSkillData || !char.commands) return false;
+    const regex = /【(.*?)\s+(.*?)】/g;
+    let match;
+    while ((match = regex.exec(char.commands)) !== null) {
+        const skillId = match[1];
+        const skillData = window.allSkillData[skillId];
+        if (skillData && isWideSkillData(skillData)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// --- ヘルパー: 結果表示フォーマット ---
+function formatWideResult(data) {
+    if (data.error) return data.final_command || "Error";
+    const min = (data.min_damage != null) ? data.min_damage : '?';
+    const max = (data.max_damage != null) ? data.max_damage : '?';
+    // 表示用: Range: X~Y (Command)
+    return `Range: ${min}～${max} (${data.final_command})`;
+}
 
 // --- 計算・ダイス関数 ---
 function safeMathEvaluate(expression) {
@@ -22,12 +58,10 @@ function safeMathEvaluate(expression) {
 function rollDiceCommand(command) {
     let calculation = command.replace(/【.*?】/g, '').trim();
     calculation = calculation.replace(/^(\/sroll|\/sr|\/roll|\/r)\s*/i, '');
-
     let details = calculation;
     const diceRegex = /(\d+)d(\d+)/g;
     let match;
     const allDiceDetails = [];
-
     while ((match = diceRegex.exec(calculation)) !== null) {
         const numDice = parseInt(match[1]);
         const numFaces = parseInt(match[2]);
@@ -40,18 +74,15 @@ function rollDiceCommand(command) {
         }
         allDiceDetails.push({ original: match[0], details: `(${rolls.join('+')})`, sum: sum });
     }
-
     for (let i = allDiceDetails.length - 1; i >= 0; i--) {
         const roll = allDiceDetails[i];
         details = details.replace(roll.original, roll.details);
         calculation = calculation.replace(roll.original, String(roll.sum));
     }
-
     const total = safeMathEvaluate(calculation);
     return { total: total, details: details };
 }
 
-// 状態異常定義
 const STATUS_CONFIG = {
     '出血': { icon: 'bleed.png', color: '#dc3545', borderColor: '#ff0000' },
     '破裂': { icon: 'rupture.png', color: '#28a745', borderColor: '#00ff00' },
@@ -67,207 +98,196 @@ let duelState = {
     attackerCommand: null, defenderCommand: null
 };
 
-// --- ★ログ描画用ヘルパー関数 (テキストフィールドの実装を移植) ---
+// --- ログ描画ヘルパー ---
 function appendVisualLogLine(container, logData, filterType) {
     const isChat = logData.type === 'chat';
-
-    // フィルタリング
     if (filterType === 'chat' && !isChat) return;
     if (filterType === 'system' && isChat) return;
 
     const logLine = document.createElement('div');
     let className = `log-line ${logData.type}`;
-
-    // シークレットダイスの処理
     let displayMessage = logData.message;
+
     if (logData.secret) {
         className += ' secret-log';
         const isSender = (typeof currentUsername !== 'undefined' && logData.user === currentUsername);
         const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
-
-        if (isGM || isSender) {
-            displayMessage = `<span class="secret-mark">[SECRET]</span> ${logData.message}`;
-        } else {
-            displayMessage = `<span class="secret-masked">（シークレットダイスが振られました）</span>`;
-        }
+        if (isGM || isSender) displayMessage = `<span class="secret-mark">[SECRET]</span> ${logData.message}`;
+        else displayMessage = `<span class="secret-masked">（シークレットダイス）</span>`;
     }
 
     logLine.className = className;
-
-    // チャットの場合の装飾
     if (logData.type === 'chat' && !logData.secret) {
          logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
     } else {
         logLine.innerHTML = displayMessage;
     }
-
-    // スタイル適用
     logLine.style.borderBottom = "1px dotted #eee";
     logLine.style.padding = "2px 5px";
     logLine.style.fontSize = "0.9em";
-
     container.appendChild(logLine);
 }
 
-// --- ★ログ一括描画関数 ---
-// --- 修正: ログ一括描画関数 ---
 function renderVisualLogHistory(logs) {
     const logArea = document.getElementById('visual-log-area');
     if (!logArea) return;
-
-    // ログエリアをクリア
     logArea.innerHTML = '';
-
     if (!logs || logs.length === 0) {
         logArea.innerHTML = '<div style="padding:10px; color:#999;">ログはありません</div>';
         return;
     }
-
-    // 現在のフィルタ設定を使用
     const filter = window.currentVisualLogFilter || 'all';
-
-    logs.forEach(log => {
-        appendVisualLogLine(logArea, log, filter);
-    });
-
-    // 1. 要素追加直後に最下部へスクロール
+    logs.forEach(log => appendVisualLogLine(logArea, log, filter));
     logArea.scrollTop = logArea.scrollHeight;
-
-    setTimeout(() => {
-        logArea.scrollTop = logArea.scrollHeight;
-    }, 30); // 50ms後
-
-    setTimeout(() => {
-        logArea.scrollTop = logArea.scrollHeight;
-    }, 80); // 200ms後 (念のため)
+    setTimeout(() => { logArea.scrollTop = logArea.scrollHeight; }, 30);
+    setTimeout(() => { logArea.scrollTop = logArea.scrollHeight; }, 80);
 }
 
-// --- タブ初期化関数 ---
+// --- ★初期化関数 ---
 async function setupVisualBattleTab() {
     console.log("Setting up Visual Battle Tab...");
 
-    // 1. フィルタ状態の完全リセット
+    if (typeof socket !== 'undefined') {
+        // 1. 重複防止: 一度だけ登録すればよいイベント (Map描画など)
+        if (!window.visualBattleSocketHandlersRegistered) {
+            console.log("Registering Visual Battle Base Listeners (Map/Log)");
+            window.visualBattleSocketHandlersRegistered = true;
+
+            socket.on('state_updated', (state) => {
+                if (document.getElementById('visual-battle-container')) {
+                    renderVisualMap();
+                    renderStagingArea();
+                    renderVisualTimeline();
+                    renderVisualLogHistory(state.logs);
+                    updateVisualRoundDisplay(state.round);
+                }
+            });
+
+            socket.on('open_wide_declaration_modal', () => {
+                openVisualWideDeclarationModal();
+            });
+        }
+
+        // 2. 強制更新: 計算ロジックなどは修正を即時反映させるため毎回更新する
+        socket.off('skill_declaration_result');
+
+        // --- ★計算結果/宣言結果の受信 (統合ハンドラ) ---
+        socket.on('skill_declaration_result', (data) => {
+            if (!data.prefix) return;
+
+            // A. 広域攻撃 (攻撃側)
+            if (data.prefix === 'visual_wide_attacker') {
+                const cmdInput = document.getElementById('v-wide-attacker-cmd');
+                const declareBtn = document.getElementById('v-wide-declare-btn');
+                const modeBadge = document.getElementById('v-wide-mode-badge');
+
+                if (cmdInput && declareBtn) {
+                    if (data.error) {
+                        cmdInput.value = data.final_command || "エラー";
+                        cmdInput.style.color = "red";
+                    } else {
+                        // 表示用フォーマットをセット
+                        cmdInput.value = formatWideResult(data);
+                        // 計算用の生データを属性に保存
+                        cmdInput.dataset.raw = data.final_command;
+
+                        cmdInput.style.color = "black";
+                        cmdInput.style.fontWeight = "bold";
+
+                        if(modeBadge) modeBadge.style.display = 'inline-block';
+
+                        // 宣言ボタン有効化
+                        declareBtn.disabled = false;
+                        declareBtn.textContent = "宣言";
+                        declareBtn.classList.remove('locked');
+                        declareBtn.classList.remove('btn-outline-danger');
+                        declareBtn.classList.add('btn-danger');
+                    }
+                }
+                return;
+            }
+
+            // B. 広域攻撃 (防御側個別)
+            if (data.prefix.startsWith('visual_wide_def_')) {
+                const charId = data.prefix.replace('visual_wide_def_', '');
+                const card = document.querySelector(`.wide-defender-card[data-id="${charId}"]`);
+                if (card) {
+                    const cmdInput = card.querySelector('.v-wide-def-cmd');
+                    const statusSpan = card.querySelector('.v-wide-status');
+                    const declareBtn = card.querySelector('.v-wide-def-declare');
+                    const skillSel = card.querySelector('.v-wide-def-skill');
+
+                    if (data.error) {
+                        cmdInput.value = data.final_command;
+                        cmdInput.style.color = "red";
+                        statusSpan.textContent = "エラー";
+                        statusSpan.style.color = "red";
+                    } else {
+                        // 表示用フォーマットと生データの分離
+                        cmdInput.value = formatWideResult(data);
+                        cmdInput.dataset.raw = data.final_command;
+
+                        cmdInput.style.color = "green";
+                        cmdInput.style.fontWeight = "bold";
+                        statusSpan.textContent = "OK";
+                        statusSpan.style.color = "green";
+
+                        // 防御側の宣言ボタン有効化
+                        if(declareBtn) {
+                             declareBtn.disabled = false;
+                             declareBtn.classList.remove('btn-outline-success');
+                             declareBtn.classList.add('btn-success');
+                        }
+                    }
+                }
+                return;
+            }
+
+            // C. 即時発動スキル
+            if (data.is_instant_action && data.prefix.startsWith('visual_')) {
+                if (typeof closeDuelModal === 'function') closeDuelModal();
+                return;
+            }
+
+            // D. 通常1vs1対決UI更新
+            if (data.prefix === 'visual_attacker' || data.prefix === 'visual_defender') {
+                const side = data.prefix.replace('visual_', '');
+                if (typeof updateDuelUI === 'function') updateDuelUI(side, data);
+            }
+        });
+    }
+
+    // 2. DOM操作とイベント登録
     window.currentVisualLogFilter = 'all';
     const filters = document.querySelectorAll('.filter-btn[data-target="visual-log"]');
     filters.forEach(btn => {
-        if (btn.dataset.filter === 'all') btn.classList.add('active');
-        else btn.classList.remove('active');
+        btn.onclick = () => {
+            filters.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            window.currentVisualLogFilter = btn.dataset.filter;
+            if(battleState && battleState.logs) renderVisualLogHistory(battleState.logs);
+        };
     });
 
-    // 2. ★ログの即時描画 (awaitなどの非同期処理の前に実行して表示遅延を防ぐ)
-    if (typeof battleState !== 'undefined' && battleState.logs) {
-        renderVisualLogHistory(battleState.logs);
-    }
+    if (typeof battleState !== 'undefined' && battleState.logs) renderVisualLogHistory(battleState.logs);
 
-    // 3. マップコントロール等のセットアップ
     setupMapControls();
     setupVisualSidebarControls();
-
-    // 4. マップやタイムラインの描画
     renderVisualMap();
     renderStagingArea();
     renderVisualTimeline();
     updateVisualRoundDisplay(battleState ? battleState.round : 0);
 
-    // 5. スキルデータのロード (非同期)
-    // ※ログ描画後に持ってくることで、通信待ち中もログが表示されるようにする
+    // 3. スキルデータロード
     if (!window.allSkillData || Object.keys(window.allSkillData).length === 0) {
         try {
             const res = await fetch('/api/get_skill_data');
             if (res.ok) window.allSkillData = await res.json();
         } catch (e) { console.error("Failed to load skill data:", e); }
     }
-
-    // 6. Socketリスナー登録 (初回のみ)
-    if (typeof socket !== 'undefined' && !window.battleSocketHandlersRegistered) {
-        console.log("Registering Battle Socket Listeners (One-time only / from Visual)");
-        window.battleSocketHandlersRegistered = true;
-
-        socket.on('state_updated', (state) => {
-            if (document.getElementById('visual-battle-container')) {
-                renderVisualMap();
-                renderStagingArea();
-                renderVisualTimeline();
-                renderVisualLogHistory(state.logs);
-                updateVisualRoundDisplay(state.round);
-            }
-            if (document.getElementById('battlefield-grid')) {
-                if(typeof renderTimeline === 'function') renderTimeline();
-                if(typeof renderTokenList === 'function') renderTokenList();
-            }
-            if (document.getElementById('log-area')) {
-                if(typeof renderLogHistory === 'function') renderLogHistory(state.logs);
-            }
-        });
-
-        socket.on('skill_declaration_result', (data) => {
-            if (data.prefix && data.prefix.startsWith('visual_')) {
-                if (data.is_instant_action && typeof closeDuelModal === 'function') {
-                    closeDuelModal();
-                    return;
-                }
-                const side = data.prefix.replace('visual_', '');
-                if (typeof updateDuelUI === 'function') updateDuelUI(side, data);
-                return;
-            }
-            if (data.prefix && data.prefix.startsWith('wide-def-')) {
-                const charId = data.prefix.replace('wide-def-', '');
-                const row = document.querySelector(`.wide-defender-row[data-row-id="wide-row-${charId}"]`);
-                if (row) {
-                    const resArea = row.querySelector('.wide-result-area');
-                    const declBtn = row.querySelector('.wide-declare-btn');
-                    const finalCmdInput = row.querySelector('.wide-final-command');
-                    if (data.error) {
-                        resArea.textContent = data.final_command;
-                        resArea.style.color = "red";
-                        declBtn.disabled = true;
-                    } else {
-                        resArea.textContent = `威力: ${data.min_damage}～${data.max_damage} (${data.final_command})`;
-                        resArea.style.color = "blue";
-                        finalCmdInput.value = data.final_command;
-                        declBtn.disabled = false;
-                    }
-                }
-                return;
-            }
-            const powerDisplay = document.getElementById(`power-display-${data.prefix}`);
-            if (powerDisplay) {
-                const prefix = data.prefix;
-                const commandDisplay = document.getElementById(`command-display-${prefix}`);
-                const hiddenCommand = document.getElementById(`hidden-command-${prefix}`);
-                const declareBtn = document.getElementById(`declare-btn-${prefix}`);
-                const generateBtn = document.getElementById(`generate-btn-${prefix}`);
-                generateBtn.disabled = false;
-                if (data.error) {
-                    powerDisplay.value = data.final_command;
-                    commandDisplay.value = "--- エラー ---";
-                    powerDisplay.style.borderColor = "#dc3545";
-                    declareBtn.disabled = true;
-                    return;
-                }
-                powerDisplay.value = `威力: ${data.min_damage} ～ ${data.max_damage}`;
-                commandDisplay.value = data.final_command;
-                hiddenCommand.value = data.final_command;
-                declareBtn.disabled = false;
-                declareBtn.dataset.isImmediate = data.is_immediate_skill ? 'true' : 'false';
-                powerDisplay.style.borderColor = "";
-                if (prefix === 'attacker' && data.is_one_sided_attack) {
-                    const defenderPower = document.getElementById('power-display-defender');
-                    if (defenderPower) {
-                        defenderPower.value = "--- (一方攻撃) ---";
-                        document.getElementById('command-display-defender').value = '【一方攻撃（行動済）】';
-                        document.getElementById('hidden-command-defender').value = '【一方攻撃（行動済）】';
-                        document.getElementById('actor-defender').disabled = true;
-                        document.getElementById('declare-btn-defender').disabled = true;
-                        defenderPower.style.borderColor = "#4CAF50";
-                    }
-                }
-            }
-        });
-    }
 }
 
-// --- サイドバー制御 ---
+// --- サイドバー ---
 function setupVisualSidebarControls() {
     const nextBtn = document.getElementById('visual-next-turn-btn');
     const startRBtn = document.getElementById('visual-round-start-btn');
@@ -281,6 +301,24 @@ function setupVisualSidebarControls() {
                 socket.emit('request_next_turn', { room: currentRoomName });
             }
         });
+    }
+
+    const controlsArea = document.getElementById('visual-controls-area');
+    if (controlsArea && !document.getElementById('visual-wide-decl-btn')) {
+        const btn = document.createElement('button');
+        btn.id = 'visual-wide-decl-btn';
+        btn.textContent = "⚡ 広域予約";
+        btn.style.width = "100%";
+        btn.style.marginTop = "5px";
+        btn.style.background = "#6f42c1";
+        btn.style.color = "white";
+        btn.style.border = "none";
+        btn.style.padding = "8px";
+        btn.style.borderRadius = "4px";
+        btn.style.fontWeight = "bold";
+        btn.style.cursor = "pointer";
+        btn.onclick = openVisualWideDeclarationModal;
+        controlsArea.appendChild(btn);
     }
 
     if (currentUserAttribute === 'GM') {
@@ -322,16 +360,10 @@ function setupVisualSidebarControls() {
         } else {
             msg = msg.replace(/^(\/roll|\/r)(\s+|$)/i, '');
             if (isSecret) msg = msg.replace(/^(\/sroll|\/sr)(\s+|$)/i, '');
-            if (!msg && isSecret) {
-                alert("シークレットメッセージの内容を入力してください。");
-                return;
-            }
+            if (!msg && isSecret) { alert("シークレットメッセージの内容を入力してください。"); return; }
             if (msg) {
                 socket.emit('request_chat', {
-                    room: currentRoomName,
-                    user: currentUsername,
-                    message: msg,
-                    secret: isSecret
+                    room: currentRoomName, user: currentUsername, message: msg, secret: isSecret
                 });
             }
         }
@@ -341,10 +373,7 @@ function setupVisualSidebarControls() {
     if (chatSend) chatSend.onclick = sendChat;
     if (chatInput) {
         chatInput.onkeydown = (e) => {
-            if(e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-                e.preventDefault();
-                sendChat();
-            }
+            if(e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendChat(); }
         };
     }
 
@@ -375,16 +404,10 @@ function setupVisualSidebarControls() {
             setTimeout(() => statusMsg.textContent = "", 2000);
         } catch(e) { statusMsg.textContent = "保存失敗"; }
     };
-
-    if (presetBtn) presetBtn.onclick = () => {
-        if (typeof openPresetManagerModal === 'function') openPresetManagerModal();
-    };
-
+    if (presetBtn) presetBtn.onclick = () => { if (typeof openPresetManagerModal === 'function') openPresetManagerModal(); };
     if (resetBtn) resetBtn.onclick = () => {
         if (typeof openResetTypeModal === 'function') {
-            openResetTypeModal((type) => {
-                socket.emit('request_reset_battle', { room: currentRoomName, mode: type });
-            });
+            openResetTypeModal((type) => { socket.emit('request_reset_battle', { room: currentRoomName, mode: type }); });
         } else if(confirm("戦闘をリセットしますか？")) {
             socket.emit('request_reset_battle', { room: currentRoomName, mode: 'full' });
         }
@@ -396,49 +419,35 @@ function updateVisualRoundDisplay(round) {
     if(el) el.textContent = round || 0;
 }
 
-// --- マップ位置更新 ---
 function updateMapTransform() {
     const mapEl = document.getElementById('game-map');
-    if (mapEl) {
-        mapEl.style.transform = `translate(${visualOffsetX}px, ${visualOffsetY}px) scale(${visualScale})`;
-    }
+    if (mapEl) mapEl.style.transform = `translate(${visualOffsetX}px, ${visualOffsetY}px) scale(${visualScale})`;
 }
 
-// --- マップ描画 ---
 function renderVisualMap() {
     const tokenLayer = document.getElementById('map-token-layer');
     if (!tokenLayer) return;
-
     tokenLayer.innerHTML = '';
     renderVisualTimeline();
     updateMapTransform();
-
     if (typeof battleState === 'undefined' || !battleState.characters) return;
     const currentTurnId = battleState.turn_char_id || null;
-
     battleState.characters.forEach(char => {
         if (char.x >= 0 && char.y >= 0 && char.hp > 0) {
             const token = createMapToken(char);
-            if (char.id === currentTurnId) {
-                token.classList.add('active-turn');
-            }
+            if (char.id === currentTurnId) token.classList.add('active-turn');
             tokenLayer.appendChild(token);
         }
     });
 }
 
-// --- マップ操作 ---
 function setupMapControls() {
     const mapViewport = document.getElementById('map-viewport');
     const gameMap = document.getElementById('game-map');
     if (!mapViewport || !gameMap) return;
 
-    if (window.visualMapHandlers.move) {
-        window.removeEventListener('mousemove', window.visualMapHandlers.move);
-    }
-    if (window.visualMapHandlers.up) {
-        window.removeEventListener('mouseup', window.visualMapHandlers.up);
-    }
+    if (window.visualMapHandlers.move) window.removeEventListener('mousemove', window.visualMapHandlers.move);
+    if (window.visualMapHandlers.up) window.removeEventListener('mouseup', window.visualMapHandlers.up);
 
     mapViewport.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
     mapViewport.ondrop = (e) => {
@@ -478,7 +487,6 @@ function setupMapControls() {
         updateMapTransform();
     };
     const onMouseUp = () => { isPanning = false; };
-
     window.visualMapHandlers.move = onMouseMove;
     window.visualMapHandlers.up = onMouseUp;
     window.addEventListener('mousemove', onMouseMove);
@@ -536,11 +544,8 @@ function renderStagingArea() {
     const stagingEl = document.getElementById('staging-list');
     if (!stagingEl) return;
     stagingEl.innerHTML = '';
-
     if (typeof battleState === 'undefined' || !battleState.characters) return;
-
     battleState.characters.forEach(char => {
-        // 配置されていない(x<0 または y<0) 生存キャラクターを表示
         if ((char.x < 0 || char.y < 0) && char.hp > 0) {
             const item = document.createElement('div');
             item.className = `staging-item ${char.type || 'NPC'}`;
@@ -552,19 +557,14 @@ function renderStagingArea() {
             item.style.cursor = "grab";
             item.style.fontSize = "0.9em";
             item.draggable = true;
-
             const typeColor = (char.type === 'ally') ? '#007bff' : '#dc3545';
             item.style.borderLeft = `3px solid ${typeColor}`;
-
             item.textContent = char.name;
-
             item.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', char.id);
                 e.dataTransfer.effectAllowed = 'move';
             });
-
             item.addEventListener('click', () => showCharacterDetail(char.id));
-
             stagingEl.appendChild(item);
         }
     });
@@ -606,7 +606,15 @@ function createMapToken(char) {
             }
         });
     }
+
+    const isCurrentTurn = (battleState.turn_char_id === char.id);
+    let wideBtnHtml = '';
+    if (isCurrentTurn && char.isWideUser) {
+        wideBtnHtml = `<button class="wide-attack-trigger-btn" onmousedown="event.stopPropagation(); openVisualWideMatchModal('${char.id}');">⚡ 広域攻撃</button>`;
+    }
+
     token.innerHTML = `
+        ${wideBtnHtml}
         <div class="token-bars">
             <div class="token-bar" title="HP: ${hp}/${maxHp}">
                 <div class="token-bar-fill hp" style="width: ${hpPer}%"></div>
@@ -741,7 +749,6 @@ function selectVisualToken(charId) {
     if(token) token.classList.add('selected');
 }
 
-// --- 対決モーダル ---
 function openDuelModal(attackerId, defenderId) {
     const attacker = battleState.characters.find(c => c.id === attackerId);
     const defender = battleState.characters.find(c => c.id === defenderId);
@@ -756,11 +763,20 @@ function openDuelModal(attackerId, defenderId) {
     document.getElementById('duel-attacker-name').textContent = attacker.name;
     document.getElementById('duel-defender-name').textContent = defender.name;
     populateCharSkillSelect(attacker, 'duel-attacker-skill');
+
+    const isDefenderWideUser = defender.isWideUser;
     const hasReEvasion = defender.special_buffs && defender.special_buffs.some(b => b.name === '再回避ロック');
-    if (defender.hasActed && !hasReEvasion) {
+
+    if ((defender.hasActed && !hasReEvasion) || isDefenderWideUser) {
         duelState.isOneSided = true;
         duelState.defenderLocked = true;
-        duelState.defenderCommand = "【一方攻撃（行動済）】";
+        if (isDefenderWideUser) {
+            duelState.defenderCommand = "【広域待機（防御放棄）】";
+            document.getElementById('duel-defender-lock-msg').textContent = "広域攻撃待機中のため防御スキル使用不可";
+        } else {
+            duelState.defenderCommand = "【一方攻撃（行動済）】";
+            document.getElementById('duel-defender-lock-msg').textContent = "行動済みのため防御不可";
+        }
         document.getElementById('duel-defender-controls').style.display = 'none';
         document.getElementById('duel-defender-lock-msg').style.display = 'block';
         document.getElementById('duel-defender-preview').querySelector('.preview-command').textContent = "No Guard";
@@ -773,9 +789,7 @@ function openDuelModal(attackerId, defenderId) {
     document.getElementById('duel-modal-backdrop').style.display = 'flex';
 }
 
-function closeDuelModal() {
-    document.getElementById('duel-modal-backdrop').style.display = 'none';
-}
+function closeDuelModal() { document.getElementById('duel-modal-backdrop').style.display = 'none'; }
 
 function resetDuelUI() {
     ['attacker', 'defender'].forEach(side => {
@@ -935,8 +949,357 @@ function executeMatch() {
             senritsuPenaltyA: 0, senritsuPenaltyD: 0
         });
         closeDuelModal();
-        setTimeout(() => {
-            socket.emit('request_next_turn', { room: currentRoomName });
-        }, 1000);
+        setTimeout(() => { socket.emit('request_next_turn', { room: currentRoomName }); }, 1000);
     }, 500);
+}
+
+// --- 広域宣言モーダル (Visual版) ---
+function openVisualWideDeclarationModal() {
+    const existing = document.getElementById('visual-wide-decl-modal');
+    if (existing) existing.remove();
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'visual-wide-decl-modal';
+    backdrop.className = 'modal-backdrop';
+
+    let listHtml = '';
+    battleState.characters.forEach(char => {
+        if (char.hp <= 0) return;
+        if (!hasWideSkill(char)) return;
+
+        const typeColor = char.type === 'ally' ? '#007bff' : '#dc3545';
+        listHtml += `
+            <div style="padding: 10px; border-bottom: 1px solid #eee; display:flex; align-items:center;">
+                <input type="checkbox" class="visual-wide-check" value="${char.id}" style="transform:scale(1.3); margin-right:15px;">
+                <span style="font-weight:bold; color:${typeColor}; font-size:1.1em;">${char.name}</span>
+                <span style="margin-left:auto; color:#666;">SPD: ${char.speedRoll}</span>
+            </div>
+        `;
+    });
+
+    if (!listHtml) listHtml = '<div style="padding:15px; color:#666;">広域スキルを所持するキャラクターがいません</div>';
+
+    backdrop.innerHTML = `
+        <div class="modal-content" style="width: 500px; padding: 0;">
+            <div style="padding: 15px; background: #6f42c1; color: white; border-radius: 8px 8px 0 0;">
+                <h3 style="margin:0;">⚡ 広域攻撃予約 (Visual)</h3>
+            </div>
+            <div style="padding: 20px; max-height: 60vh; overflow-y: auto;">
+                <p>今ラウンド、広域攻撃を行うキャラクターを選択してください。<br>※広域タグを持つキャラのみ表示</p>
+                <div style="border: 1px solid #ddd; border-radius: 4px;">${listHtml}</div>
+            </div>
+            <div style="padding: 15px; background: #f8f9fa; text-align: right; border-radius: 0 0 8px 8px;">
+                <button id="visual-wide-cancel" class="duel-btn secondary">キャンセル</button>
+                <button id="visual-wide-confirm" class="duel-btn primary">決定</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(backdrop);
+    document.getElementById('visual-wide-cancel').onclick = () => backdrop.remove();
+    document.getElementById('visual-wide-confirm').onclick = () => {
+        const checks = backdrop.querySelectorAll('.visual-wide-check');
+        const ids = Array.from(checks).filter(c => c.checked).map(c => c.value);
+        socket.emit('request_declare_wide_skill_users', { room: currentRoomName, wideUserIds: ids });
+        backdrop.remove();
+    };
+}
+
+// --- ★広域攻撃実行モーダル (Visual版) - 抜本修正版 ---
+function openVisualWideMatchModal(attackerId) {
+    const char = battleState.characters.find(c => c.id === attackerId);
+    if (!char) return;
+
+    // グローバル状態管理変数へのセット
+    visualWideState.attackerId = attackerId;
+    visualWideState.isDeclared = false;
+
+    const existing = document.getElementById('visual-wide-match-modal');
+    if (existing) existing.remove();
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'visual-wide-match-modal';
+    backdrop.className = 'modal-backdrop';
+
+    // スキル選択肢作成
+    let skillOptions = '<option value="">-- スキルを選択 --</option>';
+    if (char.commands && window.allSkillData) {
+        const regex = /【(.*?)\s+(.*?)】/g;
+        let match;
+        while ((match = regex.exec(char.commands)) !== null) {
+            const sId = match[1];
+            const sName = match[2];
+            const sData = window.allSkillData[sId];
+            if (sData && isWideSkillData(sData)) {
+                skillOptions += `<option value="${sId}">${sId}: ${sName}</option>`;
+            }
+        }
+    }
+
+    // UI構築 (data-raw属性を追加)
+    backdrop.innerHTML = `
+        <div class="modal-content wide-visual-modal">
+            <div class="wide-visual-header">
+                <h3 style="margin:0;">⚡ 広域攻撃実行: ${char.name}</h3>
+                <button class="detail-close-btn" style="color:white;" onclick="document.getElementById('visual-wide-match-modal').remove()">×</button>
+            </div>
+            <div class="wide-visual-body">
+                <div class="wide-attacker-section">
+                    <label style="font-weight:bold;">使用スキル:</label>
+                    <div style="display:flex; gap:10px; margin-top:5px;">
+                        <select id="v-wide-skill-select" class="duel-select" style="flex:1;">${skillOptions}</select>
+                        <button id="v-wide-calc-btn" class="duel-btn calc">威力計算</button>
+                    </div>
+
+                    <div style="margin-top:10px; font-weight:bold; font-size:1.1em; display:flex; align-items:center;">
+                        <span>結果: </span>
+                        <input type="text" id="v-wide-attacker-cmd" class="duel-input" style="margin:0 10px; flex:1;" readonly placeholder="[計算結果]" data-raw="">
+
+                        <span id="v-wide-mode-badge" class="wide-mode-badge" style="display:none; margin-right:10px;">MODE</span>
+
+                        <button id="v-wide-declare-btn" class="duel-btn declare" disabled>宣言</button>
+                    </div>
+                </div>
+
+                <h4 style="border-bottom:2px solid #ddd; padding-bottom:5px;">対象キャラクター (Defenders)</h4>
+                <div id="v-wide-defenders-area" class="wide-defenders-grid">
+                    <div style="grid-column:1/-1; padding:20px; text-align:center; color:#999;">
+                        スキルを選択して「威力計算」を行うと対象が表示されます
+                    </div>
+                </div>
+            </div>
+            <div style="padding:15px; background:#eee; text-align:right;">
+                <button id="v-wide-execute-btn" class="duel-btn declare" disabled>広域攻撃を実行</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(backdrop);
+
+    const skillSelect = document.getElementById('v-wide-skill-select');
+    const calcBtn = document.getElementById('v-wide-calc-btn');
+    const declareBtn = document.getElementById('v-wide-declare-btn');
+    const executeBtn = document.getElementById('v-wide-execute-btn');
+    const defendersArea = document.getElementById('v-wide-defenders-area');
+    const modeBadge = document.getElementById('v-wide-mode-badge');
+    const attackerCmdInput = document.getElementById('v-wide-attacker-cmd');
+
+    let currentMode = null;
+
+    // --- 1. 威力計算ボタン ---
+    calcBtn.onclick = () => {
+        const skillId = skillSelect.value;
+        if (!skillId) return alert("スキルを選択してください");
+
+        // UIリセット
+        attackerCmdInput.value = "計算中...";
+        attackerCmdInput.style.color = "#888";
+        attackerCmdInput.dataset.raw = ""; // リセット
+
+        // 再計算時は宣言状態解除
+        visualWideState.isDeclared = false;
+        if(declareBtn) {
+            declareBtn.disabled = true;
+            declareBtn.textContent = "宣言";
+            declareBtn.classList.remove('locked', 'btn-danger');
+            declareBtn.classList.add('btn-outline-danger');
+        }
+        executeBtn.disabled = true;
+
+        console.log("【送信】広域計算(1vs1流用):", skillId);
+        // 重要: ターゲットに自分自身を指定して、TargetNotSelectedエラーを回避しつつ威力のみ計算させる
+        socket.emit('request_skill_declaration', {
+            room: currentRoomName,
+            prefix: 'visual_wide_attacker',
+            actor_id: attackerId,
+            target_id: attackerId,
+            skill_id: skillId,
+            commit: false // 計算のみ
+        });
+
+        // モード表示と対象リスト更新 (ローカル処理)
+        const skillData = window.allSkillData ? window.allSkillData[skillId] : null;
+        if (skillData) {
+            const cat = skillData['分類'] || '';
+            const dist = skillData['距離'] || '';
+            const tags = skillData['tags'] || [];
+
+            if ((cat.includes('合算') || dist.includes('合算') || tags.includes('広域-合算'))) {
+                currentMode = 'combined';
+                modeBadge.textContent = "合算 (Combined)";
+                modeBadge.style.backgroundColor = "#28a745";
+            } else {
+                currentMode = 'individual';
+                modeBadge.textContent = "個別 (Individual)";
+                modeBadge.style.backgroundColor = "#17a2b8";
+            }
+            modeBadge.style.display = 'inline-block';
+            renderVisualWideDefenders(attackerId, currentMode);
+        }
+    };
+
+    // --- 2. 宣言ボタン (Socket受信後に有効化される) ---
+    declareBtn.onclick = () => {
+        if (!attackerCmdInput.value || attackerCmdInput.value.includes("計算中") || attackerCmdInput.value.startsWith("エラー")) {
+            return;
+        }
+
+        // 状態更新
+        visualWideState.isDeclared = true;
+
+        // UIロック
+        skillSelect.disabled = true;
+        calcBtn.disabled = true;
+        declareBtn.disabled = true;
+        declareBtn.textContent = "宣言済";
+        declareBtn.classList.add('locked');
+        attackerCmdInput.style.backgroundColor = "#e8f0fe";
+
+        // 実行ボタン有効化
+        executeBtn.disabled = false;
+    };
+
+    // --- 3. 実行ボタン ---
+    executeBtn.onclick = () => {
+        if (!visualWideState.isDeclared) {
+             return alert("攻撃側の宣言が完了していません");
+        }
+
+        const defenderCards = defendersArea.querySelectorAll('.wide-defender-card');
+        const defendersData = [];
+        defenderCards.forEach(card => {
+            const defId = card.dataset.id;
+            const cmdInput = card.querySelector('.v-wide-def-cmd');
+            const skillId = card.querySelector('.v-wide-def-skill').value;
+
+            // ★重要: 防御側も生データを送信する
+            // 生データがない(計算していない/防御放棄)場合は空文字
+            const rawCmd = cmdInput.dataset.raw || "";
+
+            // 防御側は宣言必須ではないが、計算結果があればそれを採用
+            defendersData.push({ id: defId, skillId: skillId || "", command: rawCmd });
+        });
+
+        // ★重要: 攻撃側も生データ(dataset.raw)を送信する
+        const attackerRawCmd = attackerCmdInput.dataset.raw;
+        if (!attackerRawCmd) {
+            return alert("攻撃側の計算結果が不正です。再計算してください。");
+        }
+
+        if (confirm(`【${currentMode === 'combined' ? '合算' : '個別'}】広域攻撃を実行しますか？`)) {
+            socket.emit('request_wide_match', {
+                room: currentRoomName,
+                actorId: attackerId,
+                skillId: skillSelect.value,
+                mode: currentMode,
+                commandActor: attackerRawCmd, // 生データを送信
+                defenders: defendersData
+            });
+            backdrop.remove();
+
+            // ★追加: 通常マッチと同様に、少し待ってからターン終了リクエストを送る
+            setTimeout(() => {
+                console.log("Auto-requesting next turn after Wide Match...");
+                socket.emit('request_next_turn', { room: currentRoomName });
+            }, 1000);
+        }
+    };
+}
+
+// --- ★防御側カード生成 (宣言ボタン追加版 + スキル名表示修正) ---
+function renderVisualWideDefenders(attackerId, mode) {
+    const area = document.getElementById('v-wide-defenders-area');
+    area.innerHTML = '';
+    const attacker = battleState.characters.find(c => c.id === attackerId);
+    const targetType = attacker.type === 'ally' ? 'enemy' : 'ally';
+    const targets = battleState.characters.filter(c => c.type === targetType && c.hp > 0);
+
+    if (targets.length === 0) {
+        area.innerHTML = '<div style="padding:20px;">対象がいません</div>';
+        return;
+    }
+
+    targets.forEach(tgt => {
+        const isWideUser = tgt.isWideUser;
+        const hasActed = tgt.hasActed;
+        const hasReEvasion = tgt.special_buffs && tgt.special_buffs.some(b => b.name === '再回避ロック');
+        const isDefenseLocked = (hasActed && !hasReEvasion) || isWideUser;
+
+        let opts = '';
+        if (isDefenseLocked) {
+             if (isWideUser) opts = '<option value="">(防御放棄:広域待機)</option>';
+             else opts = '<option value="">(防御放棄:行動済)</option>';
+        } else {
+            opts = '<option value="">(防御なし)</option>';
+            if (tgt.commands) {
+                const r = /【(.*?)\s+(.*?)】/g;
+                let m;
+                while ((m = r.exec(tgt.commands)) !== null) {
+                    // ★修正: スキル名も表示する (ID: Name)
+                    opts += `<option value="${m[1]}">${m[1]}: ${m[2]}</option>`;
+                }
+            }
+        }
+
+        const card = document.createElement('div');
+        card.className = 'wide-defender-card';
+        card.dataset.id = tgt.id;
+        if (isDefenseLocked) card.style.background = "#f0f0f0";
+
+        // data-raw属性を追加
+        card.innerHTML = `
+            <div style="font-weight:bold; margin-bottom:5px; display:flex; justify-content:space-between;">
+                ${tgt.name}
+                <span class="v-wide-status" style="font-size:0.8em; color:#999;">${isDefenseLocked ? '不可' : '未計算'}</span>
+            </div>
+            <select class="v-wide-def-skill duel-select" style="width:100%; margin-bottom:5px; font-size:12px;" ${isDefenseLocked ? 'disabled' : ''}>${opts}</select>
+            <div style="display:flex; gap:5px; align-items:center;">
+                <button class="v-wide-def-calc duel-btn secondary" style="padding:4px 8px; font-size:12px;" ${isDefenseLocked ? 'disabled' : ''}>Calc</button>
+                <input type="text" class="v-wide-def-cmd duel-input" readonly placeholder="Result" style="flex:1; font-size:12px;" value="${isDefenseLocked ? (isWideUser ? '【防御放棄】' : '【一方攻撃（行動済）】') : ''}" data-raw="">
+                <button class="v-wide-def-declare duel-btn outline-success" style="padding:4px 8px; font-size:12px;" disabled>宣言</button>
+            </div>
+        `;
+        area.appendChild(card);
+
+        const btnCalc = card.querySelector('.v-wide-def-calc');
+        const btnDeclare = card.querySelector('.v-wide-def-declare');
+        const skillSel = card.querySelector('.v-wide-def-skill');
+        const cmdInput = card.querySelector('.v-wide-def-cmd');
+        const statusSpan = card.querySelector('.v-wide-status');
+
+        // Calc Logic
+        btnCalc.onclick = () => {
+            const sId = skillSel.value;
+            statusSpan.textContent = "計算中...";
+            // 計算時には宣言状態をリセット
+            btnDeclare.disabled = true;
+            btnDeclare.classList.remove('btn-success');
+            btnDeclare.classList.add('btn-outline-success');
+            btnDeclare.textContent = "宣言";
+            cmdInput.style.backgroundColor = "";
+            cmdInput.dataset.raw = ""; // リセット
+
+            socket.emit('request_skill_declaration', {
+                room: currentRoomName,
+                prefix: `visual_wide_def_${tgt.id}`,
+                actor_id: tgt.id,
+                target_id: attackerId,
+                skill_id: sId,
+                commit: false
+            });
+        };
+
+        // Declare Logic
+        btnDeclare.onclick = () => {
+             // UI Lock
+             skillSel.disabled = true;
+             btnCalc.disabled = true;
+             btnDeclare.disabled = true;
+             btnDeclare.textContent = "宣言済";
+             btnDeclare.classList.remove('btn-outline-success');
+             btnDeclare.classList.add('btn-success'); // 緑色確定
+             cmdInput.style.backgroundColor = "#e0ffe0"; // 薄緑背景
+             statusSpan.textContent = "宣言済";
+        };
+    });
 }

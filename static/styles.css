@@ -1671,3 +1671,88 @@ header h1 {
     color: #ccc;
     font-size: 0.9em;
 }
+
+/* --- 広域攻撃用スタイル (Visual Battle) --- */
+.wide-attack-trigger-btn {
+    position: absolute;
+    top: -35px; /* トークンの上部に表示 */
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #ff9800, #ff5722);
+    color: white;
+    border: 2px solid #fff;
+    border-radius: 20px;
+    padding: 5px 15px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    z-index: 200;
+    white-space: nowrap;
+    animation: bounce-btn 1.5s infinite;
+}
+.wide-attack-trigger-btn:hover {
+    background: linear-gradient(135deg, #ffb74d, #ff8a65);
+    transform: translateX(-50%) scale(1.05);
+}
+@keyframes bounce-btn {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-5px); }
+}
+
+/* 広域マッチモーダル */
+.wide-visual-modal {
+    width: 950px;
+    max-width: 98%;
+    background: #f8f9fa;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+}
+.wide-visual-header {
+    padding: 15px 20px;
+    background: #343a40;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 8px 8px 0 0;
+}
+.wide-visual-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+.wide-attacker-section {
+    background: #fff;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.wide-defenders-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+}
+.wide-defender-card {
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    position: relative;
+}
+.wide-defender-card.ready {
+    border-color: #28a745;
+    background-color: #f0fff4;
+}
+.wide-mode-badge {
+    background: #17a2b8;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    margin-left: 10px;
+}

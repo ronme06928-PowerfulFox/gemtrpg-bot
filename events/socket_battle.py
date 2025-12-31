@@ -65,7 +65,13 @@ def handle_skill_declaration(data):
     skill_id = data.get('skill_id')
     custom_skill_name = data.get('custom_skill_name')
 
+    # 【修正】ID不足時にエラーを返す
     if not actor_id or not skill_id:
+        socketio.emit('skill_declaration_result', {
+            "prefix": data.get('prefix'),
+            "final_command": "エラー: ID不足 (Actor or Skill)",
+            "min_damage": 0, "max_damage": 0, "error": True
+        }, to=request.sid)
         return
 
     state = get_room_state(room)
@@ -78,7 +84,17 @@ def handle_skill_declaration(data):
     if target_id:
         original_target_char = next((c for c in state["characters"] if c.get('id') == target_id), None)
 
+    # 【修正】データが見つからない場合にエラーを返す
     if not original_actor_char or not skill_data:
+        error_msg = "エラー: データが見つかりません"
+        if not original_actor_char: error_msg += f" (ActorID: {actor_id})"
+        if not skill_data: error_msg += f" (SkillID: {skill_id})"
+
+        socketio.emit('skill_declaration_result', {
+            "prefix": data.get('prefix'),
+            "final_command": error_msg,
+            "min_damage": 0, "max_damage": 0, "error": True
+        }, to=request.sid)
         return
 
     # ★重要: 計算はすべて「複製データ(Sim)」で行う
@@ -228,6 +244,13 @@ def handle_skill_declaration(data):
     # =========================================================
 
     if not target_char:
+        # 広域攻撃の威力計算リクエスト等、ターゲットIDが自身または指定なしの場合があるため
+        # ここでの厳密なエラーチェックは行わず、ターゲットなしとして計算を進めるケースを許容する場合があるが、
+        # 基本的にはマッチには対象が必要。ただし、self-targetingなどのケースも考慮し、
+        # ここではエラーを返すが、クライアント側で target_id = actor_id を送ることで回避可能とする。
+
+        # もし「ターゲットなし」を許容するならここを修正するが、
+        # 現状の仕様では target_id 必須としているためエラーを返す
         socketio.emit('skill_declaration_result', {
             "prefix": data.get('prefix'),
             "final_command": "エラー: マッチには「対象」が必要です",
@@ -720,22 +743,16 @@ def handle_new_round(data):
         return int(param.get('value')) if param else 0
 
     for char in state['characters']:
-        # === ▼▼▼ 修正点 (フェーズ4c) ▼▼▼ ===
+        # === フラグのリセット ===
+        char['isWideUser'] = False # 広域使用フラグのリセット
+        char['hasActed'] = False   # 行動済みフラグのリセット
+        char['used_skills_this_round'] = [] # 使用済みスキルリストのリセット
 
-        char['isWideUser'] = False
-
-        # 1. (既存) 行動済みフラグをリセット
-        char['hasActed'] = False
-
-        # 2. (既存) 「使用済みスキル」リストをリセット
-        char['used_skills_this_round'] = []
-
-        # 3. (新規) 「再回避ロック」 バフを削除
+        # 再回避ロックの解除
         if 'special_buffs' in char:
             remove_buff(char, "再回避ロック")
 
-        # === ▲▲▲ 修正ここまで ▲▲▲
-
+        # === 速度ロール ===
         base_speed = get_speed_stat(char)
         roll = random.randint(1, 6)
         stat_bonus = base_speed // 6
@@ -753,23 +770,15 @@ def handle_new_round(data):
     state['characters'].sort(key=sort_key)
     state['timeline'] = [c['id'] for c in state['characters']]
 
-    # === ▼▼▼ 追加: 最初のキャラクターを手番にする ▼▼▼
-    if state['timeline']:
-        first_id = state['timeline'][0]
-        state['turn_char_id'] = first_id
-
-        # ログ表示用のおまけ処理
-        first_char = next((c for c in state['characters'] if c['id'] == first_id), None)
-        first_name = first_char['name'] if first_char else "不明"
-
-        broadcast_log(room, f"Round {state['round']} 開始: 最初の手番は {first_name} です。", 'info')
-    else:
-        state['turn_char_id'] = None
-    # === ▲▲▲ 追加ここまで ▲▲▲
+    # ★修正点: ここでは手番を決定せず、Noneに設定する
+    # 手番決定は「広域攻撃予約」の後に行う
+    state['turn_char_id'] = None
 
     broadcast_state_update(room)
     save_specific_room_state(room)
 
+    # ★追加: GMのクライアントに対して「広域攻撃予約モーダル」を開くよう指示
+    socketio.emit('open_wide_declaration_modal', {'room': room}, to=request.sid)
 
 
 @socketio.on('request_next_turn')
@@ -987,11 +996,10 @@ def handle_reset_battle(data):
     broadcast_state_update(room)
     save_specific_room_state(room)
 
-# === ▼▼▼ 追加: 広域スキル使用者宣言処理 ▼▼▼
 @socketio.on('request_declare_wide_skill_users')
 def handle_declare_wide_skill_users(data):
     room = data.get('room')
-    wide_user_ids = data.get('wideUserIds', []) # 広域を使用するキャラIDのリスト
+    wide_user_ids = data.get('wideUserIds', [])
 
     if not room: return
 
@@ -1009,34 +1017,35 @@ def handle_declare_wide_skill_users(data):
             char['isWideUser'] = False
 
     if wide_user_names:
-        broadcast_log(room, f"⚡ 広域スキル使用宣言: {', '.join(wide_user_names)}", 'info')
+        broadcast_log(room, f"⚡ 広域スキル使用予約: {', '.join(wide_user_names)}", 'info')
     else:
         broadcast_log(room, f"広域スキル使用者は居ません。通常の速度順で開始します。", 'info')
 
     # 2. タイムラインの再ソート
-    # 優先順位:
-    # 1. isWideUser (Trueが先)
-    # 2. speedRoll (高い順)
-    # 3. is_enemy (敵が先 ※既存ロジック踏襲)
-    # 4. speed_stat (高い順)
-
     def get_speed_stat(char):
         param = next((p for p in char['params'] if p.get('label') == '速度'), None)
         return int(param.get('value')) if param else 0
 
     def sort_key(char):
-        is_wide = 0 if char.get('isWideUser') else 1 # 0(True) < 1(False) なので昇順ソートならこれでOK
+        is_wide = 0 if char.get('isWideUser') else 1
         speed_roll = char['speedRoll']
         is_enemy = 1 if char['type'] == 'enemy' else 2
         speed_stat = get_speed_stat(char)
-        # ランダム要素は再計算せず、既存の順序を維持したいが簡易的に再生成
         random_tiebreak = random.random()
-
-        # 降順にしたい項目はマイナスをつける
         return (is_wide, -speed_roll, is_enemy, -speed_stat, random_tiebreak)
 
     state['characters'].sort(key=sort_key)
     state['timeline'] = [c['id'] for c in state['characters']]
+
+    # ★追加: ここで改めてタイムラインの先頭を手番として確定させる
+    if state['timeline']:
+        first_id = state['timeline'][0]
+        state['turn_char_id'] = first_id
+        first_char = next((c for c in state['characters'] if c['id'] == first_id), None)
+        first_name = first_char['name'] if first_char else "不明"
+        broadcast_log(room, f"Round {state['round']} 開始: 最初の手番は {first_name} です。", 'info')
+    else:
+        state['turn_char_id'] = None
 
     broadcast_state_update(room)
     save_specific_room_state(room)
@@ -1222,6 +1231,10 @@ def handle_wide_match(data):
         except: pass
     process_thorns(actor_char, skill_data_actor)
     actor_char['hasActed'] = True
+
+    # ★追加: 広域攻撃実行後はフラグを下ろす
+    actor_char['isWideUser'] = False
+
     if 'used_skills_this_round' not in actor_char: actor_char['used_skills_this_round'] = []
     actor_char['used_skills_this_round'].append(skill_id)
     mode_text = "広域-個別" if mode == 'individual' else "広域-合算"
