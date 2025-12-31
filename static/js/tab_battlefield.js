@@ -1260,45 +1260,46 @@ function setupBattlefieldTab() {
         });
     }
 
-    // 3. Socketリスナー登録 (初回のみ実行)
-    // --- ★最重要修正: ここで重複を完璧に防ぐ ---
-    if (typeof socket !== 'undefined' && !window.battleSocketHandlersRegistered) {
-        console.log("Registering Battle Socket Listeners (One-time only)");
-        window.battleSocketHandlersRegistered = true;
+    // 3. Socketリスナー登録
+    if (typeof socket !== 'undefined') {
+        // A. 【状態更新リスナー】(初回のみ登録)
+        if (!window.battleSocketHandlersRegistered) {
+            console.log("Registering Battle Socket Listeners (State Update - One Time)");
+            window.battleSocketHandlersRegistered = true;
 
-        // 【状態更新リスナー】 (両方のタブに対応)
-        socket.on('state_updated', (state) => {
-            // A. テキストバトルフィールドが表示中なら更新
-            if (document.getElementById('battlefield-grid')) {
-                if(typeof renderTimeline === 'function') renderTimeline();
-                if(typeof renderTokenList === 'function') renderTokenList();
-            }
-            if (document.getElementById('log-area')) {
-                if(typeof renderLogHistory === 'function') renderLogHistory(state.logs);
-            }
+            socket.on('state_updated', (state) => {
+                // A. テキストバトルフィールドが表示中なら更新
+                if (document.getElementById('battlefield-grid')) {
+                    if(typeof renderTimeline === 'function') renderTimeline();
+                    if(typeof renderTokenList === 'function') renderTokenList();
+                }
+                if (document.getElementById('log-area')) {
+                    if(typeof renderLogHistory === 'function') renderLogHistory(state.logs);
+                }
 
-            // B. ビジュアルバトルフィールドが表示中なら更新
-            if (document.getElementById('visual-battle-container')) {
-                if (typeof renderVisualMap === 'function') renderVisualMap();
-                if (typeof renderStagingArea === 'function') renderStagingArea();
-                if (typeof renderVisualTimeline === 'function') renderVisualTimeline();
-                if (typeof renderVisualLogHistory === 'function') renderVisualLogHistory(state.logs);
-                if (typeof updateVisualRoundDisplay === 'function') updateVisualRoundDisplay(state.round);
-            }
-        });
+                // B. ビジュアルバトルフィールドが表示中なら更新
+                if (document.getElementById('visual-battle-container')) {
+                    if (typeof renderVisualMap === 'function') renderVisualMap();
+                    if (typeof renderStagingArea === 'function') renderStagingArea();
+                    if (typeof renderVisualTimeline === 'function') renderVisualTimeline();
+                    if (typeof renderVisualLogHistory === 'function') renderVisualLogHistory(state.logs);
+                    if (typeof updateVisualRoundDisplay === 'function') updateVisualRoundDisplay(state.round);
+                }
+            });
+        }
 
-        // 【スキル結果リスナー】 (両方のタブに対応)
+        // B. 【スキル結果リスナー】 (★修正: タブ切り替えで消されるため、毎回強制的に再登録する)
+        // まず既存のリスナー（ビジュアルタブ用など）を削除して重複・競合を防止
+        socket.off('skill_declaration_result');
+
+        console.log("Registering Battle Socket Listeners (Skill Result - Text Mode)");
         socket.on('skill_declaration_result', (data) => {
             // 1. ビジュアル側の処理 (prefixが visual_*)
+            // テキストタブにいてもビジュアル用データが飛んでくる可能性に備えて残すが、
+            // 基本的にはテキストタブ用の処理をここで行う
+
             if (data.prefix && data.prefix.startsWith('visual_')) {
-                if (data.is_instant_action && typeof closeDuelModal === 'function') {
-                    closeDuelModal();
-                    return;
-                }
-                if (typeof updateDuelUI === 'function') {
-                    const side = data.prefix.replace('visual_', '');
-                    updateDuelUI(side, data);
-                }
+                // ビジュアルタブ用のデータはここでは無視するか、必要なら処理する
                 return;
             }
 
