@@ -76,7 +76,6 @@ function formatSkillDetailHTML(details) {
         return "";
     };
 
-    // ★変更: 表示ラベルを「使用時」→「コスト」、「発動時」→「効果」へ変更
     html += addSection("コスト", details["使用時効果"]);
     html += addSection("効果", details["発動時効果"]);
     html += addSection("特記", details["特記"]);
@@ -217,11 +216,13 @@ async function setupVisualBattleTab() {
                 const cmdInput = document.getElementById('v-wide-attacker-cmd');
                 const declareBtn = document.getElementById('v-wide-declare-btn');
                 const modeBadge = document.getElementById('v-wide-mode-badge');
+                const descArea = document.getElementById('v-wide-attacker-desc');
 
                 if (cmdInput && declareBtn) {
                     if (data.error) {
                         cmdInput.value = data.final_command || "エラー";
                         cmdInput.style.color = "red";
+                        if (descArea) descArea.innerHTML = "<span style='color:red;'>エラー</span>";
                     } else {
                         // 表示用フォーマットをセット
                         cmdInput.value = formatWideResult(data);
@@ -239,6 +240,11 @@ async function setupVisualBattleTab() {
                         declareBtn.classList.remove('locked');
                         declareBtn.classList.remove('btn-outline-danger');
                         declareBtn.classList.add('btn-danger');
+
+                        // スキル詳細表示
+                        if (descArea && data.skill_details) {
+                            descArea.innerHTML = formatSkillDetailHTML(data.skill_details);
+                        }
                     }
                 }
                 return;
@@ -247,12 +253,12 @@ async function setupVisualBattleTab() {
             // B. 広域攻撃 (防御側個別)
             if (data.prefix.startsWith('visual_wide_def_')) {
                 const charId = data.prefix.replace('visual_wide_def_', '');
-                const card = document.querySelector(`.wide-defender-card[data-id="${charId}"]`);
-                if (card) {
-                    const cmdInput = card.querySelector('.v-wide-def-cmd');
-                    const statusSpan = card.querySelector('.v-wide-status');
-                    const declareBtn = card.querySelector('.v-wide-def-declare');
-                    const skillSel = card.querySelector('.v-wide-def-skill');
+                const row = document.querySelector(`.wide-defender-row[data-id="${charId}"]`);
+                if (row) {
+                    const cmdInput = row.querySelector('.v-wide-def-cmd');
+                    const statusSpan = row.querySelector('.v-wide-status');
+                    const declareBtn = row.querySelector('.v-wide-def-declare');
+                    const descArea = row.querySelector('.v-wide-def-desc');
 
                     if (data.error) {
                         cmdInput.value = data.final_command;
@@ -274,6 +280,11 @@ async function setupVisualBattleTab() {
                              declareBtn.disabled = false;
                              declareBtn.classList.remove('btn-outline-success');
                              declareBtn.classList.add('btn-success');
+                        }
+
+                        // スキル詳細表示
+                        if (descArea && data.skill_details) {
+                            descArea.innerHTML = formatSkillDetailHTML(data.skill_details);
                         }
                     }
                 }
@@ -1103,31 +1114,37 @@ function openVisualWideMatchModal(attackerId) {
     backdrop.innerHTML = `
         <div class="modal-content wide-visual-modal">
             <div class="wide-visual-header">
-                <h3 style="margin:0;">⚡ 広域攻撃実行: ${char.name}</h3>
+                <h3 style="margin:0;">⚡ 広域攻撃実行: ${char.name} <span style="opacity:0.5; margin:0 10px;">|</span> 対象キャラクター (Defenders)</h3>
                 <button class="detail-close-btn" style="color:white;" onclick="document.getElementById('visual-wide-match-modal').remove()">×</button>
             </div>
             <div class="wide-visual-body">
-                <div class="wide-attacker-section">
-                    <label style="font-weight:bold;">使用スキル:</label>
-                    <div style="display:flex; gap:10px; margin-top:5px;">
-                        <select id="v-wide-skill-select" class="duel-select" style="flex:1;">${skillOptions}</select>
-                        <button id="v-wide-calc-btn" class="duel-btn calc">威力計算</button>
-                    </div>
+                <div class="wide-col-attacker">
+                    <div class="wide-attacker-section">
+                        <div style="margin-bottom:5px;">
+                            <label style="font-weight:bold; display:block;">使用スキル:</label>
+                            <select id="v-wide-skill-select" class="duel-select" style="width:100%; margin-top:5px;">${skillOptions}</select>
+                        </div>
 
-                    <div style="margin-top:10px; font-weight:bold; font-size:1.1em; display:flex; align-items:center;">
-                        <span>結果: </span>
-                        <input type="text" id="v-wide-attacker-cmd" class="duel-input" style="margin:0 10px; flex:1;" readonly placeholder="[計算結果]" data-raw="">
+                        <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
+                            <button id="v-wide-calc-btn" class="duel-btn calc" style="width: 100px; flex-shrink:0;">威力計算</button>
+                            <span id="v-wide-mode-badge" class="wide-mode-badge" style="display:none;">MODE</span>
+                        </div>
 
-                        <span id="v-wide-mode-badge" class="wide-mode-badge" style="display:none; margin-right:10px;">MODE</span>
+                        <div style="margin-top:10px; font-weight:bold; font-size:1.1em; display:flex; align-items:center; gap:10px;">
+                            <span style="flex-shrink:0;">結果: </span>
+                            <input type="text" id="v-wide-attacker-cmd" class="duel-input" style="flex:1; min-width:0;" readonly placeholder="[計算結果]" data-raw="">
+                            <button id="v-wide-declare-btn" class="duel-btn declare" disabled style="width: 100px; flex-shrink:0;">宣言</button>
+                        </div>
 
-                        <button id="v-wide-declare-btn" class="duel-btn declare" disabled>宣言</button>
+                        <div id="v-wide-attacker-desc" class="skill-detail-display" style="margin-top:10px;"></div>
                     </div>
                 </div>
 
-                <h4 style="border-bottom:2px solid #ddd; padding-bottom:5px;">対象キャラクター (Defenders)</h4>
-                <div id="v-wide-defenders-area" class="wide-defenders-grid">
-                    <div style="grid-column:1/-1; padding:20px; text-align:center; color:#999;">
-                        スキルを選択して「威力計算」を行うと対象が表示されます
+                <div class="wide-col-defenders">
+                    <div id="v-wide-defenders-area" class="wide-defenders-grid">
+                        <div style="grid-column:1/-1; padding:20px; text-align:center; color:#999;">
+                            スキルを選択して「威力計算」を行うと対象が表示されます
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1146,6 +1163,7 @@ function openVisualWideMatchModal(attackerId) {
     const defendersArea = document.getElementById('v-wide-defenders-area');
     const modeBadge = document.getElementById('v-wide-mode-badge');
     const attackerCmdInput = document.getElementById('v-wide-attacker-cmd');
+    const attackerDescArea = document.getElementById('v-wide-attacker-desc');
 
     let currentMode = null;
 
@@ -1158,6 +1176,7 @@ function openVisualWideMatchModal(attackerId) {
         attackerCmdInput.value = "計算中...";
         attackerCmdInput.style.color = "#888";
         attackerCmdInput.dataset.raw = ""; // リセット
+        if (attackerDescArea) attackerDescArea.innerHTML = ""; // 詳細エリアリセット
 
         // 再計算時は宣言状態解除
         visualWideState.isDeclared = false;
@@ -1228,14 +1247,15 @@ function openVisualWideMatchModal(attackerId) {
              return alert("攻撃側の宣言が完了していません");
         }
 
-        const defenderCards = defendersArea.querySelectorAll('.wide-defender-card');
+        // 修正: 新しい行クラスに対応
+        const defenderRows = defendersArea.querySelectorAll('.wide-defender-row');
         const defendersData = [];
-        defenderCards.forEach(card => {
-            const defId = card.dataset.id;
-            const cmdInput = card.querySelector('.v-wide-def-cmd');
-            const skillId = card.querySelector('.v-wide-def-skill').value;
+        defenderRows.forEach(row => {
+            const defId = row.dataset.id;
+            const cmdInput = row.querySelector('.v-wide-def-cmd');
+            const skillId = row.querySelector('.v-wide-def-skill').value;
 
-            // ★重要: 防御側も生データを送信する
+            // 重要: 防御側も生データを送信する
             // 生データがない(計算していない/防御放棄)場合は空文字
             const rawCmd = cmdInput.dataset.raw || "";
 
@@ -1243,7 +1263,7 @@ function openVisualWideMatchModal(attackerId) {
             defendersData.push({ id: defId, skillId: skillId || "", command: rawCmd });
         });
 
-        // ★重要: 攻撃側も生データ(dataset.raw)を送信する
+        // 重要: 攻撃側も生データ(dataset.raw)を送信する
         const attackerRawCmd = attackerCmdInput.dataset.raw;
         if (!attackerRawCmd) {
             return alert("攻撃側の計算結果が不正です。再計算してください。");
@@ -1260,7 +1280,7 @@ function openVisualWideMatchModal(attackerId) {
             });
             backdrop.remove();
 
-            // ★追加: 通常マッチと同様に、少し待ってからターン終了リクエストを送る
+            // 追加: 通常マッチと同様に、少し待ってからターン終了リクエストを送る
             setTimeout(() => {
                 console.log("Auto-requesting next turn after Wide Match...");
                 socket.emit('request_next_turn', { room: currentRoomName });
@@ -1298,37 +1318,42 @@ function renderVisualWideDefenders(attackerId, mode) {
                 const r = /【(.*?)\s+(.*?)】/g;
                 let m;
                 while ((m = r.exec(tgt.commands)) !== null) {
-                    // ★修正: スキル名も表示する (ID: Name)
+                    // 修正: スキル名も表示する (ID: Name)
                     opts += `<option value="${m[1]}">${m[1]}: ${m[2]}</option>`;
                 }
             }
         }
 
-        const card = document.createElement('div');
-        card.className = 'wide-defender-card';
-        card.dataset.id = tgt.id;
-        if (isDefenseLocked) card.style.background = "#f0f0f0";
+        // 修正: .wide-defender-row クラスを使用し、新しいレイアウトに刷新
+        const row = document.createElement('div');
+        row.className = 'wide-defender-row';
+        row.dataset.id = tgt.id;
+        if (isDefenseLocked) row.style.background = "#f0f0f0";
 
         // data-raw属性を追加
-        card.innerHTML = `
-            <div style="font-weight:bold; margin-bottom:5px; display:flex; justify-content:space-between;">
-                ${tgt.name}
-                <span class="v-wide-status" style="font-size:0.8em; color:#999;">${isDefenseLocked ? '不可' : '未計算'}</span>
+        row.innerHTML = `
+            <div class="wide-def-info">
+                <div>${tgt.name}</div>
+                <div class="v-wide-status" style="font-size:0.8em; color:#999;">${isDefenseLocked ? '不可' : '未計算'}</div>
             </div>
-            <select class="v-wide-def-skill duel-select" style="width:100%; margin-bottom:5px; font-size:12px;" ${isDefenseLocked ? 'disabled' : ''}>${opts}</select>
-            <div style="display:flex; gap:5px; align-items:center;">
-                <button class="v-wide-def-calc duel-btn secondary" style="padding:4px 8px; font-size:12px;" ${isDefenseLocked ? 'disabled' : ''}>Calc</button>
-                <input type="text" class="v-wide-def-cmd duel-input" readonly placeholder="Result" style="flex:1; font-size:12px;" value="${isDefenseLocked ? (isWideUser ? '【防御放棄】' : '【一方攻撃（行動済）】') : ''}" data-raw="">
-                <button class="v-wide-def-declare duel-btn outline-success" style="padding:4px 8px; font-size:12px;" disabled>宣言</button>
+            <div class="wide-def-controls">
+                <select class="v-wide-def-skill duel-select" style="width:100%; margin-bottom:5px; font-size:12px;" ${isDefenseLocked ? 'disabled' : ''}>${opts}</select>
+                <div style="display:flex; gap:5px; align-items:center;">
+                    <button class="v-wide-def-calc duel-btn secondary" style="padding:4px 8px; font-size:12px;" ${isDefenseLocked ? 'disabled' : ''}>Calc</button>
+                    <input type="text" class="v-wide-def-cmd duel-input" readonly placeholder="Result" style="flex:1; font-size:12px;" value="${isDefenseLocked ? (isWideUser ? '【防御放棄】' : '【一方攻撃（行動済）】') : ''}" data-raw="">
+                    <button class="v-wide-def-declare duel-btn outline-success" style="padding:4px 8px; font-size:12px;" disabled>宣言</button>
+                </div>
             </div>
+            <div class="v-wide-def-desc wide-def-desc skill-detail-display" style="margin-top:0; min-height:80px;"></div>
         `;
-        area.appendChild(card);
+        area.appendChild(row);
 
-        const btnCalc = card.querySelector('.v-wide-def-calc');
-        const btnDeclare = card.querySelector('.v-wide-def-declare');
-        const skillSel = card.querySelector('.v-wide-def-skill');
-        const cmdInput = card.querySelector('.v-wide-def-cmd');
-        const statusSpan = card.querySelector('.v-wide-status');
+        const btnCalc = row.querySelector('.v-wide-def-calc');
+        const btnDeclare = row.querySelector('.v-wide-def-declare');
+        const skillSel = row.querySelector('.v-wide-def-skill');
+        const cmdInput = row.querySelector('.v-wide-def-cmd');
+        const statusSpan = row.querySelector('.v-wide-status');
+        const descArea = row.querySelector('.v-wide-def-desc');
 
         // Calc Logic
         btnCalc.onclick = () => {
@@ -1341,6 +1366,7 @@ function renderVisualWideDefenders(attackerId, mode) {
             btnDeclare.textContent = "宣言";
             cmdInput.style.backgroundColor = "";
             cmdInput.dataset.raw = ""; // リセット
+            if(descArea) descArea.innerHTML = ""; // 詳細リセット
 
             socket.emit('request_skill_declaration', {
                 room: currentRoomName,

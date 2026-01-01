@@ -1197,8 +1197,8 @@ header h1 {
 
 /* 広域マッチモーダル (全体幅拡張とフレックスレイアウト) */
 .wide-visual-modal {
-    width: 1200px; /* ★幅を拡張 */
-    max-width: 95%;
+    width: 1400px; /* ★変更: 1200px -> 1400px (余裕を持たせる) */
+    max-width: 98%; /* ★変更: 95% -> 98% */
     background: #f8f9fa;
     padding: 0;
     display: flex;
@@ -1224,7 +1224,7 @@ header h1 {
 
 /* 左カラム: 攻撃側 */
 .wide-col-attacker {
-    flex: 0 0 350px;
+    flex: 0 0 450px; /* ★変更: 350px -> 450px (ボタンが見えるよう拡張) */
     padding: 20px;
     border-right: 1px solid #ddd;
     background: #fff;
