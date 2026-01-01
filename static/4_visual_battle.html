@@ -67,10 +67,12 @@
 </div>
 
 <div id="duel-modal-backdrop" class="modal-backdrop" style="display: none;">
-    <div class="duel-modal-content">
+    <div class="duel-modal-content resizable-modal">
         <h3 class="duel-title">Duel Phase</h3>
 
         <div class="duel-container">
+            <div id="duel-attacker-skill-desc" class="skill-detail-sidebar left"></div>
+
             <div class="duel-side attacker" id="duel-side-attacker">
                 <h4 class="side-title">Attacker (攻)</h4>
                 <div class="duel-char-name" id="duel-attacker-name">Character A</div>
@@ -86,7 +88,7 @@
                     <div class="preview-command">---</div>
                     <div class="preview-damage">---</div>
                 </div>
-            </div>
+                </div>
 
             <div class="duel-center-info">
                 <div class="duel-vs">VS</div>
@@ -113,7 +115,9 @@
                     <div class="preview-command">---</div>
                     <div class="preview-damage">---</div>
                 </div>
-            </div>
+                </div>
+
+            <div id="duel-defender-skill-desc" class="skill-detail-sidebar right"></div>
         </div>
 
         <div class="duel-actions">

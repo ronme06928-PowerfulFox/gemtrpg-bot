@@ -47,6 +47,43 @@ function formatWideResult(data) {
     return `Range: ${min}～${max} (${data.final_command})`;
 }
 
+// --- ★ 追加: スキル詳細HTML生成ヘルパー ---
+function formatSkillDetailHTML(details) {
+    if (!details) return "";
+
+    const category = details["分類"] || "---";
+    const distance = details["距離"] || "---";
+    const attribute = details["属性"] || "---";
+
+    // バッジ部分
+    let html = `
+        <div class="skill-detail-header">
+            <span class="skill-badge badge-category">${category}</span>
+            <span class="skill-badge badge-distance">距離: ${distance}</span>
+            <span class="skill-badge badge-attribute">属性: ${attribute}</span>
+        </div>
+    `;
+
+    // 効果テキスト部分
+    const addSection = (label, text) => {
+        if (text && text !== "なし" && text !== "") {
+            return `
+                <div class="skill-desc-section">
+                    <span class="skill-desc-label">【${label}】</span>
+                    <span class="skill-desc-text">${text}</span>
+                </div>`;
+        }
+        return "";
+    };
+
+    // ★変更: 表示ラベルを「使用時」→「コスト」、「発動時」→「効果」へ変更
+    html += addSection("コスト", details["使用時効果"]);
+    html += addSection("効果", details["発動時効果"]);
+    html += addSection("特記", details["特記"]);
+
+    return html;
+}
+
 // --- 計算・ダイス関数 ---
 function safeMathEvaluate(expression) {
     try {
@@ -791,12 +828,21 @@ function openDuelModal(attackerId, defenderId) {
 
 function closeDuelModal() { document.getElementById('duel-modal-backdrop').style.display = 'none'; }
 
+// --- 修正: resetDuelUI 関数 ---
 function resetDuelUI() {
     ['attacker', 'defender'].forEach(side => {
         const calcBtn = document.getElementById(`duel-${side}-calc-btn`);
         const declBtn = document.getElementById(`duel-${side}-declare-btn`);
         const preview = document.getElementById(`duel-${side}-preview`);
         const skillSelect = document.getElementById(`duel-${side}-skill`);
+
+        // ★修正: 詳細エリアは隠さず、中身だけ空にする
+        const descArea = document.getElementById(`duel-${side}-skill-desc`);
+        if (descArea) {
+            descArea.innerHTML = "";
+            // descArea.classList.remove('visible'); // 削除
+        }
+
         if(calcBtn) calcBtn.disabled = false;
         if(declBtn) {
             declBtn.disabled = true; declBtn.textContent = "Declare";
@@ -879,18 +925,35 @@ function sendSkillDeclaration(side, isCommit) {
     });
 }
 
+// --- 修正: updateDuelUI 関数 ---
 function updateDuelUI(side, data) {
     const previewEl = document.getElementById(`duel-${side}-preview`);
     const cmdEl = previewEl.querySelector('.preview-command');
     const dmgEl = previewEl.querySelector('.preview-damage');
     const declareBtn = document.getElementById(`duel-${side}-declare-btn`);
+
+    // ★追加: 詳細表示エリアの更新処理
+    const descArea = document.getElementById(`duel-${side}-skill-desc`);
+
     if (data.error) {
-        cmdEl.textContent = "Error"; dmgEl.textContent = data.final_command; return;
+        cmdEl.textContent = "Error";
+        dmgEl.textContent = data.final_command;
+
+        // エラー時は枠を残しつつエラーメッセージ
+        if (descArea) descArea.innerHTML = "<div style='color:red;'>計算エラー</div>";
+        return;
     }
+
     cmdEl.innerHTML = data.final_command;
     if (data.min_damage !== undefined) dmgEl.textContent = `Range: ${data.min_damage} ~ ${data.max_damage}`;
     else dmgEl.textContent = "Ready";
     previewEl.classList.add('ready');
+
+    // ★修正: スキル詳細の表示 (クラス操作なし)
+    if (descArea && data.skill_details) {
+        descArea.innerHTML = formatSkillDetailHTML(data.skill_details);
+    }
+
     if (declareBtn) {
         declareBtn.disabled = false;
         if (data.is_immediate_skill) {
