@@ -179,6 +179,19 @@ def handle_skill_declaration(data):
     if is_immediate_skill:
         if is_commit:
             # --- 確定実行 (Declareボタン押下時) ---
+
+            # ★ バリデーション: 使用済みフラグチェック
+            if 'flags' not in original_actor_char:
+                original_actor_char['flags'] = {}
+
+            if original_actor_char['flags'].get('immediate_action_used', False):
+                socketio.emit('skill_declaration_result', {
+                    "prefix": data.get('prefix'),
+                    "final_command": "エラー: 今ラウンドは既に即時発動スキルを使用済みです",
+                    "min_damage": 0, "max_damage": 0, "error": True
+                }, to=request.sid)
+                return
+
             # 1. 実データでコスト消費
             for cost in cost_array:
                 cost_type = cost.get("type")
@@ -201,16 +214,19 @@ def handle_skill_declaration(data):
                     socketio.emit('request_end_round', {"room": room})
                     broadcast_log(room, f"[{skill_id}] の効果でラウンドが強制終了します。", 'round')
 
-            # 3. 使用記録
+            # 3. 使用済みフラグを設定
+            original_actor_char['flags']['immediate_action_used'] = True
+
+            # 4. 使用記録
             if 'used_skills_this_round' not in original_actor_char:
                 original_actor_char['used_skills_this_round'] = []
             original_actor_char['used_skills_this_round'].append(skill_id)
 
-            # 4. 保存
+            # 5. 保存
             broadcast_state_update(room)
             save_specific_room_state(room)
 
-            # 5. クライアントへ応答 (リセット指示)
+            # 6. クライアントへ応答 (リセット指示)
             socketio.emit('skill_declaration_result', {
                 "prefix": data.get('prefix'),
                 "final_command": "--- (効果発動完了) ---",
@@ -747,6 +763,11 @@ def handle_new_round(data):
         char['isWideUser'] = False # 広域使用フラグのリセット
         char['hasActed'] = False   # 行動済みフラグのリセット
         char['used_skills_this_round'] = [] # 使用済みスキルリストのリセット
+
+        # === 即時発動フラグのリセット ===
+        if 'flags' not in char:
+            char['flags'] = {}
+        char['flags']['immediate_action_used'] = False
 
         # 再回避ロックの解除
         if 'special_buffs' in char:

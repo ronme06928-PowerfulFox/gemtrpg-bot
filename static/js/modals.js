@@ -63,7 +63,7 @@ function openUserSettingsModal(allowAttributeChange = false) {
             return;
         }
         try {
-             const response = await fetchWithSession('/api/entry', {
+            const response = await fetchWithSession('/api/entry', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: newName, attribute: newAttr })
@@ -78,8 +78,8 @@ function openUserSettingsModal(allowAttributeChange = false) {
             msgEl.className = 'auth-message success';
             setTimeout(closeModal, 1000);
         } catch (error) {
-             msgEl.textContent = `更新失敗: ${error.message}`;
-             msgEl.className = 'auth-message error';
+            msgEl.textContent = `更新失敗: ${error.message}`;
+            msgEl.className = 'auth-message error';
         }
     });
 }
@@ -374,13 +374,22 @@ function openCharacterModal(charId) {
 function openCharLoadModal() {
     closeCharacterModal();
 
-    // === ▼▼▼ 修正点（GM限定ボタンの追加） ▼▼▼ ===
+
+    // === ▼▼▼ 修正点（GM限定ボタンの追加・分割） ▼▼▼ ===
     let gmButtonHtml = '';
     if (currentUserAttribute === 'GM') {
         gmButtonHtml = `
-            <button id="modal-load-debug-btn" class="room-action-btn danger" style="margin-top: 15px; width: 100%;">
-                ★ GM専用: デバッグキャラ生成 (全スキル, MP/FP 1000)
-            </button>
+            <div style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
+                <p style="font-weight:bold; margin-bottom:5px; font-size: 0.9em; color:#555;">★ GM専用: デバッグキャラ生成 (全スキル, MP/FP 1000)</p>
+                <div style="display: flex; gap: 10px;">
+                    <button id="modal-debug-ally-btn" class="room-action-btn" style="flex: 1; background-color: #007bff; font-size: 0.9em; padding: 6px;">
+                        味方として生成
+                    </button>
+                    <button id="modal-debug-enemy-btn" class="room-action-btn danger" style="flex: 1; font-size: 0.9em; padding: 6px;">
+                        敵として生成
+                    </button>
+                </div>
+            </div>
         `;
     }
     // === ▲▲▲ 修正ここまで ▲▲▲ ===
@@ -429,15 +438,30 @@ function openCharLoadModal() {
         }
     });
 
-    // === ▼▼▼ 修正点（GMボタンのリスナー追加） ▼▼▼ ===
-    const debugBtn = document.getElementById('modal-load-debug-btn');
-    if (debugBtn) {
-        debugBtn.addEventListener('click', () => {
+    // === ▼▼▼ 修正点（GMボタンのリスナー追加・分割） ▼▼▼ ===
+    const debugAllyBtn = document.getElementById('modal-debug-ally-btn');
+    const debugEnemyBtn = document.getElementById('modal-debug-enemy-btn');
+
+    if (debugAllyBtn) {
+        debugAllyBtn.addEventListener('click', () => {
             socket.emit('request_add_debug_character', {
-                room: currentRoomName
+                room: currentRoomName,
+                type: 'ally'
             });
-            resultMsg.textContent = 'デバッグキャラの生成をリクエストしました...';
+            resultMsg.textContent = 'デバッグキャラ(味方)の生成をリクエストしました...';
             resultMsg.style.color = 'blue';
+            setTimeout(() => backdrop.remove(), 1000);
+        });
+    }
+
+    if (debugEnemyBtn) {
+        debugEnemyBtn.addEventListener('click', () => {
+            socket.emit('request_add_debug_character', {
+                room: currentRoomName,
+                type: 'enemy'
+            });
+            resultMsg.textContent = 'デバッグキャラ(敵)の生成をリクエストしました...';
+            resultMsg.style.color = 'red';
             setTimeout(() => backdrop.remove(), 1000);
         });
     }
@@ -537,7 +561,7 @@ function openPresetManagerModal() {
             loadBtn.style.fontSize = '0.85em';
             loadBtn.style.padding = '4px 10px';
             loadBtn.onclick = () => {
-                if(confirm(`現在の敵を消去し、プリセット「${name}」を展開しますか？`)) {
+                if (confirm(`現在の敵を消去し、プリセット「${name}」を展開しますか？`)) {
                     socket.emit('request_load_preset', { room: currentRoomName, name: name });
                     closeFunc();
                 }
@@ -551,7 +575,7 @@ function openPresetManagerModal() {
             delBtn.style.color = 'white';
             delBtn.style.border = 'none';
             delBtn.onclick = () => {
-                if(confirm(`プリセット「${name}」を削除しますか？`)) {
+                if (confirm(`プリセット「${name}」を削除しますか？`)) {
                     socket.emit('request_delete_preset', { room: currentRoomName, name: name });
                     li.remove();
                 }

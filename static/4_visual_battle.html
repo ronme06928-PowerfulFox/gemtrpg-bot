@@ -1,5 +1,26 @@
 <div id="visual-battle-container">
+
+    <!-- ★ アクションドック（画面左端固定） ★ -->
+    <div id="action-dock" class="action-dock">
+        <div id="dock-immediate-icon" class="dock-icon disabled" title="即時発動スキル">⚡</div>
+        <div id="dock-add-char-icon" class="dock-icon" title="キャラ追加">➕</div>
+        <div id="dock-staging-icon" class="dock-icon" title="未配置キャラ">📦</div>
+        <div id="dock-wide-icon" class="dock-icon" title="広域戦闘" style="display:none;">🌐</div>
+    </div>
+
     <div id="map-viewport">
+        <!-- ★ タイムライン（右上に配置） ★ -->
+        <div id="visual-timeline-area">
+            <div class="sidebar-header">
+                <span>TimeLine</span>
+                <span style="font-size: 0.9em; font-weight: normal;">Round: <span id="visual-round-counter"
+                        style="font-weight: bold;">0</span></span>
+                <span class="timeline-toggle-icon">▼</span>
+            </div>
+            <div id="visual-timeline-list" style="overflow-y: auto; max-height: 350px; padding: 5px;">
+            </div>
+        </div>
+
         <div id="game-map">
             <div id="map-grid-layer"></div>
             <div id="map-token-layer"></div>
@@ -16,53 +37,55 @@
 
     <div id="visual-sidebar">
 
-        <div id="visual-timeline-area" style="flex: 0 0 auto; max-height: 25%; border-bottom: 1px solid #ccc; display: flex; flex-direction: column;">
-            <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>TimeLine</span>
-                <span style="font-size: 0.9em; font-weight: normal;">Round: <span id="visual-round-counter" style="font-weight: bold;">0</span></span>
-            </div>
-            <div id="visual-timeline-list" style="overflow-y: auto; flex: 1;">
-                </div>
-        </div>
 
-        <div id="visual-staging-area" style="flex: 0 0 auto; max-height: 15%; border-bottom: 1px solid #ccc; display: flex; flex-direction: column;">
-            <h4 class="sidebar-header">Staging (未配置)</h4>
-            <div id="staging-list" style="overflow-y: auto; flex: 1;">
-                </div>
-        </div>
 
         <div id="visual-controls-area" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd;">
             <div style="display: flex; gap: 5px; margin-bottom: 5px;">
-                <button id="visual-round-start-btn" class="sidebar-btn" style="display:none; flex: 1; background: #17a2b8; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer;">R開始</button>
-                <button id="visual-round-end-btn" class="sidebar-btn" style="display:none; flex: 1; background: #f0e0e0; color: #c82333; border: 1px solid #e0c0c0; padding: 5px; border-radius: 4px; cursor: pointer;">R終了</button>
+                <button id="visual-round-start-btn" class="sidebar-btn"
+                    style="display:none; flex: 1; background: #17a2b8; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer;">R開始</button>
+                <button id="visual-round-end-btn" class="sidebar-btn"
+                    style="display:none; flex: 1; background: #f0e0e0; color: #c82333; border: 1px solid #e0c0c0; padding: 5px; border-radius: 4px; cursor: pointer;">R終了</button>
             </div>
-            <button id="visual-next-turn-btn" style="width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
+            <button id="visual-next-turn-btn"
+                style="width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
                 ターン終了 (Next Turn)
             </button>
-            </div>
+        </div>
 
         <div id="visual-chat-area" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
-            <div class="log-header" style="padding: 5px; background: #eee; border-bottom: 1px solid #ddd; display: flex; gap: 5px;">
-                <button class="filter-btn active" data-target="visual-log" data-filter="all" style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">All</button>
-                <button class="filter-btn" data-target="visual-log" data-filter="chat" style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">Chat</button>
-                <button class="filter-btn" data-target="visual-log" data-filter="system" style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">Sys</button>
+            <div class="log-header"
+                style="padding: 5px; background: #eee; border-bottom: 1px solid #ddd; display: flex; gap: 5px;">
+                <button class="filter-btn active" data-target="visual-log" data-filter="all"
+                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">All</button>
+                <button class="filter-btn" data-target="visual-log" data-filter="chat"
+                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">Chat</button>
+                <button class="filter-btn" data-target="visual-log" data-filter="system"
+                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">Sys</button>
             </div>
 
-            <div id="visual-log-area" class="battle-log" style="flex: 1; overflow-y: auto; padding: 5px; font-size: 0.85em; background: #fff;">
-                </div>
+            <div id="visual-log-area" class="battle-log"
+                style="flex: 1; overflow-y: auto; padding: 5px; font-size: 0.85em; background: #fff; max-height: 300px;">
+            </div>
 
             <div style="display: flex; border-top: 1px solid #ccc;">
-                <input type="text" id="visual-chat-input" placeholder="チャットまたは /roll コマンド" style="flex: 1; border: none; padding: 8px;">
-                <button id="visual-chat-send" style="border: none; background: #007bff; color: white; padding: 0 15px; cursor: pointer; font-weight: bold;">Send</button>
+                <input type="text" id="visual-chat-input" placeholder="チャットまたは /roll コマンド"
+                    style="flex: 1; border: none; padding: 8px;">
+                <button id="visual-chat-send"
+                    style="border: none; background: #007bff; color: white; padding: 0 15px; cursor: pointer; font-weight: bold;">Send</button>
             </div>
         </div>
 
-        <div id="visual-room-actions" style="padding: 8px; background: #e9ecef; border-top: 1px solid #ccc; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
-            <button id="visual-save-btn" style="padding: 5px; font-size: 0.8em; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; background: #fff;">保存</button>
-            <button id="visual-preset-btn" style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #17a2b8; color: white; border: none; border-radius: 3px;">プリセット</button>
-            <button id="visual-reset-btn" style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 3px;">リセット</button>
+        <div id="visual-room-actions"
+            style="padding: 8px; background: #e9ecef; border-top: 1px solid #ccc; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
+            <button id="visual-save-btn"
+                style="padding: 5px; font-size: 0.8em; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; background: #fff;">保存</button>
+            <button id="visual-preset-btn"
+                style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #17a2b8; color: white; border: none; border-radius: 3px;">プリセット</button>
+            <button id="visual-reset-btn"
+                style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 3px;">リセット</button>
         </div>
-        <div id="visual-status-msg" style="font-size: 0.8em; text-align: center; padding-bottom: 2px; background: #e9ecef; color: #555;"></div>
+        <div id="visual-status-msg"
+            style="font-size: 0.8em; text-align: center; padding-bottom: 2px; background: #e9ecef; color: #555;"></div>
     </div>
 </div>
 
@@ -88,7 +111,7 @@
                     <div class="preview-command">---</div>
                     <div class="preview-damage">---</div>
                 </div>
-                </div>
+            </div>
 
             <div class="duel-center-info">
                 <div class="duel-vs">VS</div>
@@ -108,14 +131,15 @@
                         <button id="duel-defender-declare-btn" class="duel-btn declare" disabled>Declare</button>
                     </div>
                 </div>
-                <div id="duel-defender-lock-msg" style="display: none; color: #ff6b6b; font-weight: bold; margin: 20px 0;">
+                <div id="duel-defender-lock-msg"
+                    style="display: none; color: #ff6b6b; font-weight: bold; margin: 20px 0;">
                     ⚠ 行動済みのため防御不可<br>(一方攻撃)
                 </div>
                 <div class="duel-preview-area" id="duel-defender-preview">
                     <div class="preview-command">---</div>
                     <div class="preview-damage">---</div>
                 </div>
-                </div>
+            </div>
 
             <div id="duel-defender-skill-desc" class="skill-detail-sidebar right"></div>
         </div>
@@ -125,3 +149,7 @@
         </div>
     </div>
 </div>
+
+<!-- ★ アクションドック用のCSS読み込み（JSはmain.jsで読み込み済み） ★ -->
+<link rel="stylesheet" href="css/visual_battle_layout.css">
+<link rel="stylesheet" href="css/action_dock.css">

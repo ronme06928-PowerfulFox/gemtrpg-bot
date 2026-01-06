@@ -83,7 +83,7 @@ async function showRoomPortal() {
     } catch (error) {
         console.error('Error fetching room list:', error);
         if (error.message !== '認証が必要です。') {
-             roomPortal.innerHTML = `<h2 style="color: red;">エラー</h2><p>${error.message}</p>`;
+            roomPortal.innerHTML = `<h2 style="color: red;">エラー</h2><p>${error.message}</p>`;
         }
     }
 }
@@ -354,7 +354,7 @@ async function loadTabContent(tabId) {
     }
 
     try {
-        const response = await fetch(partialHtmlFile, {credentials: 'omit'});
+        const response = await fetch(partialHtmlFile, { credentials: 'omit' });
         if (!response.ok) throw new Error(`Network response was not ok (${response.status})`);
 
         const htmlText = await response.text();
@@ -362,8 +362,8 @@ async function loadTabContent(tabId) {
         // コンテンツエリアの取得と書き込み
         // (グローバル変数の mainContent があれば使い、なければ取得する)
         const contentArea = (typeof mainContent !== 'undefined')
-                            ? mainContent
-                            : document.getElementById('main-content');
+            ? mainContent
+            : document.getElementById('main-content');
 
         if (contentArea) {
             contentArea.innerHTML = htmlText;
@@ -374,8 +374,13 @@ async function loadTabContent(tabId) {
             setupBattlefieldTab();
             renderTokenList();
             renderTimeline();
-        } else if (tabId === 'visual') {
-            setupVisualBattleTab();
+        } else if (tabId === 'visual' || tabId === 'tab-visual') {
+            // ビジュアルバトルタブ: setupVisualBattleTab()を呼び出す
+            if (typeof setupVisualBattleTab === 'function') {
+                setupVisualBattleTab();
+            } else {
+                console.error('setupVisualBattleTab is not defined');
+            }
         }
 
     } catch (error) {
@@ -415,7 +420,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (homeBtn) {
         homeBtn.addEventListener('click', () => {
             if (confirm('ルーム一覧に戻りますか？\n（保存していない変更は失われます）')) {
-                if(socket) socket.emit('leave_room', {room: currentRoomName});
+                if (socket) socket.emit('leave_room', { room: currentRoomName });
                 currentRoomName = null;
                 showRoomPortal();
             }

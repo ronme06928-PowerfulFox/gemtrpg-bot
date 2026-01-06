@@ -21,7 +21,7 @@ function isWideSkillData(skillData) {
     const cat = skillData['分類'] || '';
     const dist = skillData['距離'] || '';
     return (tags.includes('広域-個別') || tags.includes('広域-合算') ||
-            cat.includes('広域') || dist.includes('広域'));
+        cat.includes('広域') || dist.includes('広域'));
 }
 
 function hasWideSkill(char) {
@@ -154,7 +154,7 @@ function appendVisualLogLine(container, logData, filterType) {
 
     logLine.className = className;
     if (logData.type === 'chat' && !logData.secret) {
-         logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
+        logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
     } else {
         logLine.innerHTML = displayMessage;
     }
@@ -181,6 +181,7 @@ function renderVisualLogHistory(logs) {
 
 // --- ★初期化関数 ---
 async function setupVisualBattleTab() {
+    console.log('🎬 === setupVisualBattleTab CALLED ===');
     console.log("Setting up Visual Battle Tab...");
 
     if (typeof socket !== 'undefined') {
@@ -190,12 +191,25 @@ async function setupVisualBattleTab() {
             window.visualBattleSocketHandlersRegistered = true;
 
             socket.on('state_updated', (state) => {
+                // グローバルなbattleStateを最新の状態に更新
+                if (typeof battleState !== 'undefined') {
+                    battleState = state;
+                }
+
                 if (document.getElementById('visual-battle-container')) {
                     renderVisualMap();
-                    renderStagingArea();
                     renderVisualTimeline();
                     renderVisualLogHistory(state.logs);
                     updateVisualRoundDisplay(state.round);
+
+                    // ★ アクションドックの更新
+                    if (typeof updateActionDock === 'function') {
+                        try {
+                            updateActionDock();
+                        } catch (e) {
+                            console.error("Error updating action dock:", e);
+                        }
+                    }
                 }
             });
 
@@ -232,7 +246,7 @@ async function setupVisualBattleTab() {
                         cmdInput.style.color = "black";
                         cmdInput.style.fontWeight = "bold";
 
-                        if(modeBadge) modeBadge.style.display = 'inline-block';
+                        if (modeBadge) modeBadge.style.display = 'inline-block';
 
                         // 宣言ボタン有効化
                         declareBtn.disabled = false;
@@ -276,10 +290,10 @@ async function setupVisualBattleTab() {
                         statusSpan.style.color = "green";
 
                         // 防御側の宣言ボタン有効化
-                        if(declareBtn) {
-                             declareBtn.disabled = false;
-                             declareBtn.classList.remove('btn-outline-success');
-                             declareBtn.classList.add('btn-success');
+                        if (declareBtn) {
+                            declareBtn.disabled = false;
+                            declareBtn.classList.remove('btn-outline-success');
+                            declareBtn.classList.add('btn-success');
                         }
 
                         // スキル詳細表示
@@ -313,7 +327,7 @@ async function setupVisualBattleTab() {
             filters.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             window.currentVisualLogFilter = btn.dataset.filter;
-            if(battleState && battleState.logs) renderVisualLogHistory(battleState.logs);
+            if (battleState && battleState.logs) renderVisualLogHistory(battleState.logs);
         };
     });
 
@@ -322,7 +336,9 @@ async function setupVisualBattleTab() {
     setupMapControls();
     setupVisualSidebarControls();
     renderVisualMap();
-    renderStagingArea();
+    renderVisualMap();
+    // renderStagingArea(); // Removed
+    renderVisualTimeline();
     renderVisualTimeline();
     updateVisualRoundDisplay(battleState ? battleState.round : 0);
 
@@ -333,6 +349,40 @@ async function setupVisualBattleTab() {
             if (res.ok) window.allSkillData = await res.json();
         } catch (e) { console.error("Failed to load skill data:", e); }
     }
+
+    // 4. アクションドックの初期化
+    console.log('📍 About to initialize Action Dock...');
+    console.log('   typeof initializeActionDock:', typeof initializeActionDock);
+    if (typeof initializeActionDock === 'function') {
+        console.log('✅ Calling initializeActionDock()...');
+        initializeActionDock();
+        console.log('✅ initializeActionDock() returned');
+    } else {
+        console.error('❌ initializeActionDock is NOT a function!');
+    }
+
+    // 5. タイムライン折り畳み機能の初期化
+    initializeTimelineToggle();
+}
+
+// タイムライン折り畳み機能
+function initializeTimelineToggle() {
+    const timelineArea = document.getElementById('visual-timeline-area');
+    const header = timelineArea ? timelineArea.querySelector('.sidebar-header') : null;
+
+    if (!header) return;
+
+    // ローカルストレージから状態を復元
+    const isCollapsed = localStorage.getItem('visual-timeline-collapsed') === 'true';
+    if (isCollapsed) {
+        timelineArea.classList.add('collapsed');
+    }
+
+    // クリックイベント
+    header.addEventListener('click', () => {
+        const nowCollapsed = timelineArea.classList.toggle('collapsed');
+        localStorage.setItem('visual-timeline-collapsed', nowCollapsed);
+    });
 }
 
 // --- サイドバー ---
@@ -370,16 +420,16 @@ function setupVisualSidebarControls() {
     }
 
     if (currentUserAttribute === 'GM') {
-        if(startRBtn) {
+        if (startRBtn) {
             startRBtn.style.display = 'inline-block';
             startRBtn.onclick = () => {
-                if(confirm("次ラウンドを開始しますか？")) socket.emit('request_new_round', { room: currentRoomName });
+                if (confirm("次ラウンドを開始しますか？")) socket.emit('request_new_round', { room: currentRoomName });
             };
         }
-        if(endRBtn) {
+        if (endRBtn) {
             endRBtn.style.display = 'inline-block';
             endRBtn.onclick = () => {
-                if(confirm("ラウンドを終了しますか？")) socket.emit('request_end_round', { room: currentRoomName });
+                if (confirm("ラウンドを終了しますか？")) socket.emit('request_end_round', { room: currentRoomName });
             };
         }
     }
@@ -421,7 +471,7 @@ function setupVisualSidebarControls() {
     if (chatSend) chatSend.onclick = sendChat;
     if (chatInput) {
         chatInput.onkeydown = (e) => {
-            if(e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendChat(); }
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendChat(); }
         };
     }
 
@@ -431,7 +481,7 @@ function setupVisualSidebarControls() {
             filters.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             window.currentVisualLogFilter = btn.dataset.filter;
-            if(battleState && battleState.logs) renderVisualLogHistory(battleState.logs);
+            if (battleState && battleState.logs) renderVisualLogHistory(battleState.logs);
         };
     });
 
@@ -450,13 +500,13 @@ function setupVisualSidebarControls() {
             });
             statusMsg.textContent = "保存完了";
             setTimeout(() => statusMsg.textContent = "", 2000);
-        } catch(e) { statusMsg.textContent = "保存失敗"; }
+        } catch (e) { statusMsg.textContent = "保存失敗"; }
     };
     if (presetBtn) presetBtn.onclick = () => { if (typeof openPresetManagerModal === 'function') openPresetManagerModal(); };
     if (resetBtn) resetBtn.onclick = () => {
         if (typeof openResetTypeModal === 'function') {
             openResetTypeModal((type) => { socket.emit('request_reset_battle', { room: currentRoomName, mode: type }); });
-        } else if(confirm("戦闘をリセットしますか？")) {
+        } else if (confirm("戦闘をリセットしますか？")) {
             socket.emit('request_reset_battle', { room: currentRoomName, mode: 'full' });
         }
     };
@@ -464,7 +514,7 @@ function setupVisualSidebarControls() {
 
 function updateVisualRoundDisplay(round) {
     const el = document.getElementById('visual-round-counter');
-    if(el) el.textContent = round || 0;
+    if (el) el.textContent = round || 0;
 }
 
 function updateMapTransform() {
@@ -516,9 +566,9 @@ function setupMapControls() {
     const zIn = document.getElementById('zoom-in-btn');
     const zOut = document.getElementById('zoom-out-btn');
     const rView = document.getElementById('reset-view-btn');
-    if(zIn) zIn.onclick = () => { visualScale = Math.min(visualScale + 0.1, 3.0); updateMapTransform(); };
-    if(zOut) zOut.onclick = () => { visualScale = Math.max(visualScale - 0.1, 0.5); updateMapTransform(); };
-    if(rView) rView.onclick = () => { visualScale = 1.0; visualOffsetX = 0; visualOffsetY = 0; updateMapTransform(); };
+    if (zIn) zIn.onclick = () => { visualScale = Math.min(visualScale + 0.1, 3.0); updateMapTransform(); };
+    if (zOut) zOut.onclick = () => { visualScale = Math.max(visualScale - 0.1, 0.5); updateMapTransform(); };
+    if (rView) rView.onclick = () => { visualScale = 1.0; visualOffsetX = 0; visualOffsetY = 0; updateMapTransform(); };
 
     let isPanning = false, startX, startY;
     mapViewport.onmousedown = (e) => {
@@ -588,35 +638,7 @@ function renderVisualTimeline() {
     });
 }
 
-function renderStagingArea() {
-    const stagingEl = document.getElementById('staging-list');
-    if (!stagingEl) return;
-    stagingEl.innerHTML = '';
-    if (typeof battleState === 'undefined' || !battleState.characters) return;
-    battleState.characters.forEach(char => {
-        if ((char.x < 0 || char.y < 0) && char.hp > 0) {
-            const item = document.createElement('div');
-            item.className = `staging-item ${char.type || 'NPC'}`;
-            item.style.padding = "5px";
-            item.style.margin = "2px 0";
-            item.style.background = "#fff";
-            item.style.border = "1px solid #ddd";
-            item.style.borderRadius = "4px";
-            item.style.cursor = "grab";
-            item.style.fontSize = "0.9em";
-            item.draggable = true;
-            const typeColor = (char.type === 'ally') ? '#007bff' : '#dc3545';
-            item.style.borderLeft = `3px solid ${typeColor}`;
-            item.textContent = char.name;
-            item.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', char.id);
-                e.dataTransfer.effectAllowed = 'move';
-            });
-            item.addEventListener('click', () => showCharacterDetail(char.id));
-            stagingEl.appendChild(item);
-        }
-    });
-}
+// function renderStagingArea() {} // Removed
 
 function createMapToken(char) {
     const token = document.createElement('div');
@@ -697,7 +719,7 @@ function createMapToken(char) {
         if (!attackerId || attackerId === char.id) return;
         const attackerChar = battleState.characters.find(c => c.id === attackerId);
         const attackerName = attackerChar ? attackerChar.name : "不明";
-        if(confirm(`【攻撃確認】\n「${attackerName}」が「${char.name}」に攻撃を仕掛けますか？`)) {
+        if (confirm(`【攻撃確認】\n「${attackerName}」が「${char.name}」に攻撃を仕掛けますか？`)) {
             openDuelModal(attackerId, char.id);
         }
     });
@@ -713,20 +735,35 @@ function showCharacterDetail(charId) {
     backdrop.id = 'char-detail-modal-backdrop';
     backdrop.className = 'modal-backdrop';
     backdrop.style.display = 'flex';
+    backdrop.onclick = (e) => {
+        if (e.target === backdrop) backdrop.remove();
+    };
+
+    const content = document.createElement('div');
+    content.className = 'modal-content';
+    content.style.maxWidth = '500px';
+    content.style.width = '90%';
+    content.style.padding = '20px';
+    content.style.position = 'relative';
+
+    // パラメータHTML生成
     let paramsHtml = '';
     if (Array.isArray(char.params)) paramsHtml = char.params.map(p => `${p.label}:${p.value}`).join(' / ');
-    else if (char.params && typeof char.params === 'object') paramsHtml = Object.entries(char.params).map(([k,v]) => `${k}:${v}`).join(' / ');
+    else if (char.params && typeof char.params === 'object') paramsHtml = Object.entries(char.params).map(([k, v]) => `${k}:${v}`).join(' / ');
     else paramsHtml = 'なし';
+
     const fpVal = (char.states.find(s => s.name === 'FP') || {}).value || 0;
+
     let statesHtml = '';
     char.states.forEach(s => {
-        if(['HP','MP','FP'].includes(s.name)) return;
-        if(s.value === 0) return;
+        if (['HP', 'MP', 'FP'].includes(s.name)) return;
+        if (s.value === 0) return;
         const config = STATUS_CONFIG[s.name];
         const colorStyle = config ? `color: ${config.color}; font-weight:bold;` : '';
         statesHtml += `<div class="detail-buff-item" style="${colorStyle}">${s.name}: ${s.value}</div>`;
     });
     if (!statesHtml) statesHtml = '<span style="color:#999; font-size:0.9em;">なし</span>';
+
     let specialBuffsHtml = '';
     if (char.special_buffs && char.special_buffs.length > 0) {
         char.special_buffs.forEach((b, index) => {
@@ -758,16 +795,19 @@ function showCharacterDetail(charId) {
                     <div id="${buffUniqueId}" class="buff-desc-box" style="display:none; padding:8px; font-size:0.9em; background:#fff; border:1px solid #ddd; border-top:none; border-radius: 0 0 4px 4px; color:#555;">
                         ${buffInfo.description || "(説明文なし)"}
                     </div>
-                </div>
-            `;
+                </div>`;
         });
     }
     if (!specialBuffsHtml) specialBuffsHtml = '<span style="color:#999; font-size:0.9em;">なし</span>';
+
     backdrop.innerHTML = `
         <div class="char-detail-modal">
-            <div class="detail-header">
-                <h2>${char.name}</h2>
-                <button class="detail-close-btn">&times;</button>
+            <div class="detail-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <h2 style="margin:0;">${char.name}</h2>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <button class="detail-setting-btn" style="background:none; border:none; font-size:1.4em; cursor:pointer;" title="設定">⚙</button>
+                    <button class="detail-close-btn" style="background:none; border:none; font-size:1.8em; cursor:pointer;" title="閉じる">&times;</button>
+                </div>
             </div>
             <div class="detail-stat-grid">
                 <div class="detail-stat-box"><span class="detail-stat-label">HP</span><span class="detail-stat-val" style="color:#28a745;">${char.hp} / ${char.maxHp}</span></div>
@@ -780,11 +820,101 @@ function showCharacterDetail(charId) {
             <div class="detail-section"><h4>Skills</h4><div style="font-size:0.9em; max-height:100px; overflow-y:auto; border:1px solid #eee; padding:5px; white-space: pre-wrap;">${char.commands || "なし"}</div></div>
         </div>
     `;
+
     document.body.appendChild(backdrop);
+
     const closeFunc = () => backdrop.remove();
     backdrop.querySelector('.detail-close-btn').onclick = closeFunc;
+
+    // 歯車ボタンのイベント設定
+    const settingBtn = backdrop.querySelector('.detail-setting-btn');
+    if (settingBtn) {
+        settingBtn.onclick = (e) => {
+            e.stopPropagation();
+            toggleCharSettingsMenu(char.id, settingBtn);
+        };
+    }
+
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeFunc(); });
 }
+
+// 歯車メニューの表示/非表示
+function toggleCharSettingsMenu(charId, btnElement) {
+    let menu = document.getElementById('char-settings-menu');
+
+    // 既に開いていれば閉じる
+    if (menu) {
+        menu.remove();
+        return;
+    }
+
+    menu = document.createElement('div');
+    menu.id = 'char-settings-menu';
+    menu.style.position = 'absolute';
+    menu.style.background = 'white';
+    menu.style.border = '1px solid #ccc';
+    menu.style.borderRadius = '4px';
+    menu.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+    menu.style.zIndex = '10000';
+    menu.style.minWidth = '150px';
+
+    // ボタンの位置に合わせて表示
+    const rect = btnElement.getBoundingClientRect();
+    menu.style.top = `${rect.bottom + window.scrollY + 5}px`;
+    menu.style.left = `${rect.left + window.scrollX - 100}px`; // 少し左にずらす
+
+    // 未配置に戻すボタン
+    const withdrawBtn = document.createElement('button');
+    withdrawBtn.textContent = '未配置に戻す';
+    withdrawBtn.style.display = 'block';
+    withdrawBtn.style.width = '100%';
+    withdrawBtn.style.padding = '8px 12px';
+    withdrawBtn.style.border = 'none';
+    withdrawBtn.style.background = 'none';
+    withdrawBtn.style.textAlign = 'left';
+    withdrawBtn.style.cursor = 'pointer';
+    withdrawBtn.onmouseover = () => withdrawBtn.style.background = '#f5f5f5';
+    withdrawBtn.onmouseout = () => withdrawBtn.style.background = 'none';
+    withdrawBtn.onclick = () => {
+        if (confirm('このキャラクターを未配置状態に戻しますか？')) {
+            withdrawCharacter(charId);
+            menu.remove();
+            // 親モーダルも閉じる
+            const backdrop = document.getElementById('char-detail-modal-backdrop');
+            if (backdrop) backdrop.remove();
+        }
+    };
+    menu.appendChild(withdrawBtn);
+
+    document.body.appendChild(menu);
+
+    // メニュー外クリックで閉じる
+    setTimeout(() => {
+        const closeHandler = (e) => {
+            if (!menu.contains(e.target) && e.target !== btnElement) {
+                menu.remove();
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        document.addEventListener('click', closeHandler);
+    }, 0);
+}
+
+// キャラクターを未配置に戻す
+function withdrawCharacter(charId) {
+    if (!charId || !currentRoomName) return;
+
+    console.log(`Withdrawing character ${charId}`);
+
+    // 座標 (-1, -1) に移動リクエスト
+    socket.emit('request_move_character', {
+        room: currentRoomName,
+        character_id: charId,
+        x: -1,
+        y: -1
+    });
+}
+
 
 function toggleBuffDesc(elementId) {
     const el = document.getElementById(elementId);
@@ -794,7 +924,7 @@ function toggleBuffDesc(elementId) {
 function selectVisualToken(charId) {
     document.querySelectorAll('.map-token').forEach(el => el.classList.remove('selected'));
     const token = document.querySelector(`.map-token[data-id="${charId}"]`);
-    if(token) token.classList.add('selected');
+    if (token) token.classList.add('selected');
 }
 
 function openDuelModal(attackerId, defenderId) {
@@ -854,8 +984,8 @@ function resetDuelUI() {
             // descArea.classList.remove('visible'); // 削除
         }
 
-        if(calcBtn) calcBtn.disabled = false;
-        if(declBtn) {
+        if (calcBtn) calcBtn.disabled = false;
+        if (declBtn) {
             declBtn.disabled = true; declBtn.textContent = "Declare";
             declBtn.classList.remove('locked');
             declBtn.dataset.isImmediate = 'false';
@@ -888,6 +1018,12 @@ function populateCharSkillSelect(char, elementId) {
         const skillId = match[1];
         const skillName = match[2];
         if (window.allSkillData && window.allSkillData[skillId]) {
+            // ★ フィルタリング: 即時発動スキルを除外（通常マッチでは使用不可）
+            const skillData = window.allSkillData[skillId];
+            if (skillData.tags && skillData.tags.includes('即時発動')) {
+                continue; // スキップ
+            }
+
             const opt = document.createElement('option');
             opt.value = skillId;
             opt.text = `${skillId}: ${skillName}`;
@@ -983,9 +1119,9 @@ function lockSide(side) {
     const btn = document.getElementById(`duel-${side}-declare-btn`);
     const calcBtn = document.getElementById(`duel-${side}-calc-btn`);
     const select = document.getElementById(`duel-${side}-skill`);
-    if(btn) { btn.textContent = "Locked"; btn.classList.add('locked'); btn.disabled = true; }
-    if(calcBtn) calcBtn.disabled = true;
-    if(select) select.disabled = true;
+    if (btn) { btn.textContent = "Locked"; btn.classList.add('locked'); btn.disabled = true; }
+    if (calcBtn) calcBtn.disabled = true;
+    if (select) select.disabled = true;
     if (side === 'attacker') duelState.attackerLocked = true;
     if (side === 'defender') duelState.defenderLocked = true;
     checkAndExecuteMatch();
@@ -1180,7 +1316,7 @@ function openVisualWideMatchModal(attackerId) {
 
         // 再計算時は宣言状態解除
         visualWideState.isDeclared = false;
-        if(declareBtn) {
+        if (declareBtn) {
             declareBtn.disabled = true;
             declareBtn.textContent = "宣言";
             declareBtn.classList.remove('locked', 'btn-danger');
@@ -1244,7 +1380,7 @@ function openVisualWideMatchModal(attackerId) {
     // --- 3. 実行ボタン ---
     executeBtn.onclick = () => {
         if (!visualWideState.isDeclared) {
-             return alert("攻撃側の宣言が完了していません");
+            return alert("攻撃側の宣言が完了していません");
         }
 
         // 修正: 新しい行クラスに対応
@@ -1310,16 +1446,34 @@ function renderVisualWideDefenders(attackerId, mode) {
 
         let opts = '';
         if (isDefenseLocked) {
-             if (isWideUser) opts = '<option value="">(防御放棄:広域待機)</option>';
-             else opts = '<option value="">(防御放棄:行動済)</option>';
+            if (isWideUser) opts = '<option value="">(防御放棄:広域待機)</option>';
+            else opts = '<option value="">(防御放棄:行動済)</option>';
         } else {
             opts = '<option value="">(防御なし)</option>';
             if (tgt.commands) {
                 const r = /【(.*?)\s+(.*?)】/g;
                 let m;
                 while ((m = r.exec(tgt.commands)) !== null) {
+                    const skillId = m[1];
+                    const skillName = m[2];
+
+                    // ★ フィルタリング: 即時発動スキルと広域スキルを除外
+                    if (window.allSkillData && window.allSkillData[skillId]) {
+                        const skillData = window.allSkillData[skillId];
+
+                        // 即時発動スキルを除外
+                        if (skillData.tags && skillData.tags.includes('即時発動')) {
+                            continue;
+                        }
+
+                        // 広域スキルを除外（広域に対する広域迎撃は不可）
+                        if (skillData.tags && (skillData.tags.includes('広域-個別') || skillData.tags.includes('広域-合算'))) {
+                            continue;
+                        }
+                    }
+
                     // 修正: スキル名も表示する (ID: Name)
-                    opts += `<option value="${m[1]}">${m[1]}: ${m[2]}</option>`;
+                    opts += `<option value="${skillId}">${skillId}: ${skillName}</option>`;
                 }
             }
         }
@@ -1366,7 +1520,7 @@ function renderVisualWideDefenders(attackerId, mode) {
             btnDeclare.textContent = "宣言";
             cmdInput.style.backgroundColor = "";
             cmdInput.dataset.raw = ""; // リセット
-            if(descArea) descArea.innerHTML = ""; // 詳細リセット
+            if (descArea) descArea.innerHTML = ""; // 詳細リセット
 
             socket.emit('request_skill_declaration', {
                 room: currentRoomName,
@@ -1380,15 +1534,15 @@ function renderVisualWideDefenders(attackerId, mode) {
 
         // Declare Logic
         btnDeclare.onclick = () => {
-             // UI Lock
-             skillSel.disabled = true;
-             btnCalc.disabled = true;
-             btnDeclare.disabled = true;
-             btnDeclare.textContent = "宣言済";
-             btnDeclare.classList.remove('btn-outline-success');
-             btnDeclare.classList.add('btn-success'); // 緑色確定
-             cmdInput.style.backgroundColor = "#e0ffe0"; // 薄緑背景
-             statusSpan.textContent = "宣言済";
+            // UI Lock
+            skillSel.disabled = true;
+            btnCalc.disabled = true;
+            btnDeclare.disabled = true;
+            btnDeclare.textContent = "宣言済";
+            btnDeclare.classList.remove('btn-outline-success');
+            btnDeclare.classList.add('btn-success'); // 緑色確定
+            cmdInput.style.backgroundColor = "#e0ffe0"; // 薄緑背景
+            statusSpan.textContent = "宣言済";
         };
     });
 }

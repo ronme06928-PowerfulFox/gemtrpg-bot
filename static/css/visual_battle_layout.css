@@ -1,0 +1,69 @@
+/* visual-battle-containerの位置調整 */
+#visual-battle-container {
+    position: relative;
+    /* action-dockのabsolute位置の基準になる */
+    width: 100%;
+    height: 100%;
+    display: flex;
+    overflow: hidden;
+}
+
+/* map-viewportの左マージンを確保 */
+#map-viewport {
+    margin-left: 65px;
+    /* action-dockの幅（60px）+ 5px余白 */
+    flex: 1;
+    position: relative;
+    /* タイムラインのabsolute位置の基準 */
+}
+
+/* タイムラインを右上に配置 */
+#visual-timeline-area {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 220px;
+    max-height: 400px;
+    background: white;
+    border: 2px solid #3498db;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 800;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    overflow: hidden;
+}
+
+/* タイムラインヘッダー */
+#visual-timeline-area .sidebar-header {
+    cursor: pointer;
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    padding: 10px;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#visual-timeline-area .sidebar-header:hover {
+    background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+}
+
+/* 折り畳みアイコン */
+.timeline-toggle-icon {
+    font-size: 1.2em;
+    transition: transform 0.3s;
+}
+
+/* 折り畳み状態 */
+#visual-timeline-area.collapsed {
+    max-height: 45px;
+}
+
+#visual-timeline-area.collapsed .timeline-toggle-icon {
+    transform: rotate(-90deg);
+}
+
+#visual-timeline-area.collapsed #visual-timeline-list {
+    display: none;
+}

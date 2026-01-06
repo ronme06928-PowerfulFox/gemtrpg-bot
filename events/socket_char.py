@@ -43,6 +43,19 @@ def handle_add_character(data):
     char_data['owner_id'] = session.get('user_id')
     # === ▲▲▲ 追加ここまで ▲▲▲
 
+    # === ▼▼▼ 追加: フラグ初期化 ▼▼▼
+    if 'flags' not in char_data:
+        char_data['flags'] = {}
+    char_data['flags']['immediate_action_used'] = False
+    # === ▲▲▲ 追加ここまで ▲▲▲
+
+    # === ▼▼▼ 追加: 初期座標の設定（未配置状態） ▼▼▼
+    if 'x' not in char_data:
+        char_data['x'] = -1
+    if 'y' not in char_data:
+        char_data['y'] = -1
+    # === ▲▲▲ 追加ここまで ▲▲▲
+
     print(f"User {username} adding character to room '{room}': {displayName}")
 
     state["characters"].append(char_data)
@@ -51,11 +64,45 @@ def handle_add_character(data):
     broadcast_state_update(room)
     save_specific_room_state(room)
 
+@socketio.on('request_move_character')
+def handle_move_character(data):
+    room = data.get('room')
+    char_id = data.get('character_id')
+    x = data.get('x')
+    y = data.get('y')
+
+    if not room or not char_id:
+        return
+
+    # 座標のバリデーション（簡易）
+    if x is None or y is None:
+        return
+
+    state = get_room_state(room)
+    char = next((c for c in state["characters"] if c.get('id') == char_id), None)
+
+    if char:
+        old_x = char.get('x', -1)
+        old_y = char.get('y', -1)
+        char['x'] = x
+        char['y'] = y
+
+        # ログ出力（必要に応じて）
+        user_info = get_user_info_from_sid(request.sid)
+        username = user_info.get("username", "System")
+        print(f"[MOVE] Room:{room}, Char:{char.get('name')} -> ({x}, {y}) by {username}")
+
+        # 状態更新をブロードキャスト
+        broadcast_state_update(room)
+        save_specific_room_state(room)
+
+
 # app.py (576行目あたり、handle_delete_character の前に追加)
 @socketio.on('request_add_debug_character')
 def handle_add_debug_character(data):
     """ (★新規★) GM専用のデバッグキャラクターを追加する """
     room = data.get('room')
+    char_type = data.get('type', 'ally') # デフォルトは味方
     if not room: return
 
     user_info = get_user_info_from_sid(request.sid)
@@ -120,8 +167,8 @@ def handle_add_debug_character(data):
         "params": dummy_params,
         "commands": all_commands_str,
         "states": initial_states,
-        "type": "ally",
-        "color": "#FFD700",
+        "type": char_type, # 受け取ったタイプを使用
+        "color": "#007bff" if char_type == 'ally' else "#dc3545", # 色もタイプに合わせて変更
         "speedRoll": 0,
         "hasActed": False,
         "gmOnly": True
