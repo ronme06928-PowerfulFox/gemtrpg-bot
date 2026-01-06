@@ -1,9 +1,10 @@
 // === ▼▼▼ Action Dock & Immediate Skills Functions ▼▼▼ ===
 
 // 即時発動スキル判定関数
+// 即時発動スキル判定関数
 function hasImmediateSkill(char) {
     if (!window.allSkillData || !char.commands) return false;
-    const regex = /《(.*?)》\s+(.*?)《/g;
+    const regex = /【(.*?)\s+(.*?)】/g;
     let match;
     while ((match = regex.exec(char.commands)) !== null) {
         const skillId = match[1];
@@ -193,7 +194,7 @@ function createImmediateCharRow(char) {
     // 即時発動スキルを抽出
     const immediateSkills = [];
     if (char.commands && window.allSkillData) {
-        const regex = /《(.*?)》\s+(.*?)《/g;
+        const regex = /【(.*?)\s+(.*?)】/g;
         let match;
         while ((match = regex.exec(char.commands)) !== null) {
             const skillId = match[1];
