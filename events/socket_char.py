@@ -200,6 +200,50 @@ def handle_delete_character(data):
         broadcast_state_update(room)
         save_specific_room_state(room)
 
+@socketio.on('request_transfer_character_ownership')
+def handle_transfer_character_ownership(data):
+    """キャラクターの所有権を別のユーザーに譲渡"""
+    room = data.get('room')
+    char_id = data.get('character_id')
+    new_owner_id = data.get('new_owner_id')
+    new_owner_name = data.get('new_owner_name')
+
+    if not room or not char_id or not new_owner_id or not new_owner_name:
+        return
+
+    user_info = get_user_info_from_sid(request.sid)
+    current_user_id = user_info.get('user_id')
+    current_username = user_info.get('username', 'System')
+    current_attribute = user_info.get('attribute', 'Player')
+
+    state = get_room_state(room)
+    char = next((c for c in state["characters"] if c.get('id') == char_id), None)
+
+    if not char:
+        return
+
+    # 権限チェック: キャラの所有者またはGMのみ譲渡可能
+    is_owner = char.get('owner_id') == current_user_id
+    is_gm = current_attribute == 'GM'
+
+    if not (is_owner or is_gm):
+        print(f"⚠️ Security: User {current_username} tried to transfer character {char.get('name')} without permission.")
+        emit('transfer_error', {'message': '権限がありません。'}, to=request.sid)
+        return
+
+    # 所有権を更新
+    old_owner = char.get('owner', '不明')
+    char['owner'] = new_owner_name
+    char['owner_id'] = new_owner_id
+
+    print(f"Character ownership transferred: {char.get('name')} from {old_owner} to {new_owner_name}")
+
+    # ログとブロードキャスト
+    broadcast_log(room, f"{current_username} が {char.get('name')} の所有権を {new_owner_name} に譲渡しました。", 'info')
+    broadcast_state_update(room)
+    save_specific_room_state(room)
+
+
 @socketio.on('request_state_update')
 def handle_state_update(data):
     room = data.get('room')

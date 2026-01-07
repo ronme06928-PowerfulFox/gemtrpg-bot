@@ -859,6 +859,9 @@ function toggleCharSettingsMenu(charId, btnElement) {
         return;
     }
 
+    const char = battleState.characters.find(c => c.id === charId);
+    if (!char) return;
+
     menu = document.createElement('div');
     menu.id = 'char-settings-menu';
     menu.style.position = 'absolute';
@@ -867,25 +870,38 @@ function toggleCharSettingsMenu(charId, btnElement) {
     menu.style.borderRadius = '4px';
     menu.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
     menu.style.zIndex = '10000';
-    menu.style.minWidth = '150px';
+    menu.style.minWidth = '180px';
 
     // ボタンの位置に合わせて表示
     const rect = btnElement.getBoundingClientRect();
     menu.style.top = `${rect.bottom + window.scrollY + 5}px`;
     menu.style.left = `${rect.left + window.scrollX - 100}px`; // 少し左にずらす
 
+    // 所有者情報表示
+    const ownerName = char.owner || '不明';
+    const ownerDisplay = document.createElement('div');
+    ownerDisplay.style.cssText = 'padding:8px 12px; margin-bottom:4px; background:#f0f0f0; font-size:0.85em; border-bottom:1px solid #ddd;';
+    ownerDisplay.innerHTML = `<strong>所有者:</strong> ${ownerName}`;
+    menu.appendChild(ownerDisplay);
+
+    // メニューボタンの共通スタイルを適用する関数
+    const styleMenuButton = (btn) => {
+        btn.style.display = 'block';
+        btn.style.width = '100%';
+        btn.style.padding = '8px 12px';
+        btn.style.border = 'none';
+        btn.style.background = 'none';
+        btn.style.textAlign = 'left';
+        btn.style.cursor = 'pointer';
+        btn.onmouseover = () => btn.style.background = '#f5f5f5';
+        btn.onmouseout = () => btn.style.background = 'none';
+        return btn;
+    };
+
     // 未配置に戻すボタン
     const withdrawBtn = document.createElement('button');
     withdrawBtn.textContent = '未配置に戻す';
-    withdrawBtn.style.display = 'block';
-    withdrawBtn.style.width = '100%';
-    withdrawBtn.style.padding = '8px 12px';
-    withdrawBtn.style.border = 'none';
-    withdrawBtn.style.background = 'none';
-    withdrawBtn.style.textAlign = 'left';
-    withdrawBtn.style.cursor = 'pointer';
-    withdrawBtn.onmouseover = () => withdrawBtn.style.background = '#f5f5f5';
-    withdrawBtn.onmouseout = () => withdrawBtn.style.background = 'none';
+    styleMenuButton(withdrawBtn);
     withdrawBtn.onclick = () => {
         if (confirm('このキャラクターを未配置状態に戻しますか？')) {
             withdrawCharacter(charId);
@@ -896,6 +912,34 @@ function toggleCharSettingsMenu(charId, btnElement) {
         }
     };
     menu.appendChild(withdrawBtn);
+
+    // 削除ボタン
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'キャラクターを削除';
+    styleMenuButton(deleteBtn);
+    deleteBtn.style.color = '#dc3545';
+    deleteBtn.onclick = () => {
+        if (confirm(`本当に「${char.name}」を削除しますか？`)) {
+            socket.emit('request_delete_character', {
+                room: currentRoomName,
+                charId: charId
+            });
+            menu.remove();
+            const backdrop = document.getElementById('char-detail-modal-backdrop');
+            if (backdrop) backdrop.remove();
+        }
+    };
+    menu.appendChild(deleteBtn);
+
+    // 所有権譲渡ボタン
+    const transferBtn = document.createElement('button');
+    transferBtn.textContent = '所有権を譲渡 ▶';
+    styleMenuButton(transferBtn);
+    transferBtn.onclick = (e) => {
+        e.stopPropagation();
+        showTransferSubMenu(charId, menu, transferBtn);
+    };
+    menu.appendChild(transferBtn);
 
     document.body.appendChild(menu);
 
@@ -911,6 +955,7 @@ function toggleCharSettingsMenu(charId, btnElement) {
     }, 0);
 }
 
+
 // キャラクターを未配置に戻す
 function withdrawCharacter(charId) {
     if (!charId || !currentRoomName) return;
@@ -925,6 +970,177 @@ function withdrawCharacter(charId) {
         y: -1
     });
 }
+
+// 所有権譲渡サブメニューの表示
+function showTransferSubMenu(charId, parentMenu, parentBtn) {
+    // 既存のサブメニューを削除
+    const existingSubMenu = document.getElementById('transfer-sub-menu');
+    if (existingSubMenu) {
+        existingSubMenu.remove();
+        return;
+    }
+
+    const subMenu = document.createElement('div');
+    subMenu.id = 'transfer-sub-menu';
+    subMenu.style.position = 'absolute';
+    subMenu.style.background = 'white';
+    subMenu.style.border = '1px solid #ccc';
+    subMenu.style.borderRadius = '4px';
+    subMenu.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+    subMenu.style.zIndex = '10001';
+    subMenu.style.minWidth = '200px';
+
+    // 親ボタンの位置に合わせて右側に表示
+    const rect = parentBtn.getBoundingClientRect();
+    subMenu.style.top = `${rect.top + window.scrollY}px`;
+    subMenu.style.left = `${rect.right + window.scrollX + 5}px`;
+
+    // メニュー項目の共通スタイル
+    const styleSubMenuItem = (item) => {
+        item.style.display = 'block';
+        item.style.width = '100%';
+        item.style.padding = '8px 12px';
+        item.style.border = 'none';
+        item.style.background = 'none';
+        item.style.textAlign = 'left';
+        item.style.cursor = 'pointer';
+        item.onmouseover = () => item.style.background = '#f5f5f5';
+        item.onmouseout = () => item.style.background = 'none';
+        return item;
+    };
+
+    // 全ユーザーから選択
+    const allUsersBtn = document.createElement('button');
+    allUsersBtn.textContent = '全ユーザーから選択';
+    styleSubMenuItem(allUsersBtn);
+    allUsersBtn.onclick = () => {
+        openTransferOwnershipModal(charId, 'all');
+        subMenu.remove();
+        parentMenu.remove();
+    };
+    subMenu.appendChild(allUsersBtn);
+
+    // 同じルームのユーザーから選択
+    const roomUsersBtn = document.createElement('button');
+    roomUsersBtn.textContent = '同じルームのユーザーから選択';
+    styleSubMenuItem(roomUsersBtn);
+    roomUsersBtn.onclick = () => {
+        openTransferOwnershipModal(charId, 'room');
+        subMenu.remove();
+        parentMenu.remove();
+    };
+    subMenu.appendChild(roomUsersBtn);
+
+    document.body.appendChild(subMenu);
+
+    // サブメニュー外クリックで閉じる
+    setTimeout(() => {
+        const closeHandler = (e) => {
+            if (!subMenu.contains(e.target) && e.target !== parentBtn) {
+                subMenu.remove();
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        document.addEventListener('click', closeHandler);
+    }, 0);
+}
+
+// 所有権譲渡モーダルを開く
+function openTransferOwnershipModal(charId, mode) {
+    const char = battleState.characters.find(c => c.id === charId);
+    if (!char) return;
+
+    // 既存のモーダルを削除
+    const existing = document.getElementById('transfer-modal-backdrop');
+    if (existing) existing.remove();
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'transfer-modal-backdrop';
+    backdrop.className = 'modal-backdrop';
+    backdrop.style.display = 'flex';
+
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    modalContent.style.maxWidth = '400px';
+    modalContent.style.width = '90%';
+    modalContent.style.padding = '20px';
+
+    const title = mode === 'all' ? '全ユーザーから選択' : '同じルームのユーザーから選択';
+
+    modalContent.innerHTML = `
+        <h3 style="margin-top:0;">所有権譲渡: ${title}</h3>
+        <p style="font-size:0.9em; color:#666;">「${char.name}」の所有権を譲渡するユーザーを選択してください。</p>
+        <div id="user-list-container" style="max-height:300px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; margin:15px 0;">
+            <div style="padding:20px; text-align:center; color:#999;">読み込み中...</div>
+        </div>
+        <div style="text-align:right; margin-top:15px;">
+            <button id="transfer-cancel-btn" style="padding:8px 16px; margin-right:10px;">キャンセル</button>
+        </div>
+    `;
+
+    backdrop.appendChild(modalContent);
+    document.body.appendChild(backdrop);
+
+    // キャンセルボタン
+    modalContent.querySelector('#transfer-cancel-btn').onclick = () => backdrop.remove();
+    backdrop.onclick = (e) => {
+        if (e.target === backdrop) backdrop.remove();
+    };
+
+    // ユーザー一覧を取得
+    const userListContainer = modalContent.querySelector('#user-list-container');
+    let fetchUrl;
+
+    if (mode === 'all') {
+        fetchUrl = '/api/admin/users';
+    } else {
+        fetchUrl = `/api/get_room_users?room=${encodeURIComponent(currentRoomName)}`;
+    }
+
+    fetchWithSession(fetchUrl)
+        .then(res => res.json())
+        .then(users => {
+            if (!users || users.length === 0) {
+                userListContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">ユーザーが見つかりません。</div>';
+                return;
+            }
+
+            userListContainer.innerHTML = '';
+            users.forEach(user => {
+                const userItem = document.createElement('div');
+                userItem.style.cssText = 'padding:10px 15px; border-bottom:1px solid #eee; cursor:pointer; display:flex; justify-content:space-between; align-items:center;';
+                userItem.onmouseover = () => userItem.style.background = '#f5f5f5';
+                userItem.onmouseout = () => userItem.style.background = 'white';
+
+                const userName = mode === 'all' ? user.name : user.username;
+                const userId = user.id || user.user_id;
+
+                userItem.innerHTML = `
+                    <span style="font-weight:bold;">${userName}</span>
+                    <span style="font-size:0.85em; color:#666;">${user.attribute || '不明'}</span>
+                `;
+
+                userItem.onclick = () => {
+                    if (confirm(`「${char.name}」の所有権を「${userName}」に譲渡しますか？`)) {
+                        socket.emit('request_transfer_character_ownership', {
+                            room: currentRoomName,
+                            character_id: charId,
+                            new_owner_id: userId,
+                            new_owner_name: userName
+                        });
+                        backdrop.remove();
+                    }
+                };
+
+                userListContainer.appendChild(userItem);
+            });
+        })
+        .catch(err => {
+            console.error('Failed to fetch users:', err);
+            userListContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#dc3545;">ユーザー一覧の取得に失敗しました。</div>';
+        });
+}
+
 
 
 function toggleBuffDesc(elementId) {

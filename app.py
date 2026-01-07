@@ -221,6 +221,28 @@ def get_skill_data():
     """フロントエンドにスキルマスターデータを提供するAPI"""
     return jsonify(all_skill_data)
 
+@app.route('/api/get_room_users', methods=['GET'])
+@session_required
+def get_room_users():
+    """指定されたルームに参加しているユーザーの一覧を取得"""
+    from extensions import user_sids
+    room_name = request.args.get('room')
+    if not room_name:
+        return jsonify({"error": "Room name required"}), 400
+
+    # user_sidsから該当ルームのユーザーを抽出
+    room_users = []
+    for sid, user_info in user_sids.items():
+        if user_info.get('room') == room_name:
+            room_users.append({
+                'username': user_info.get('username'),
+                'user_id': user_info.get('user_id'),
+                'attribute': user_info.get('attribute')
+            })
+
+    return jsonify(room_users)
+
+
 
 # ==========================================
 #  Main Execution
