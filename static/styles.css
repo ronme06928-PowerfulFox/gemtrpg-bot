@@ -2430,4 +2430,28 @@ header h1 {
 .skill-detail-sidebar .skill-desc-section {
     margin-bottom: 8px;
     line-height: 1.5;
+}/* --- 繧ｿ繝ｼ繧ｲ繝・ヨ驕ｸ謚槭Δ繝ｼ繝峨・繧ｹ繧ｿ繧､繝ｫ --- */
+
+/* 繧ｿ繝ｼ繧ｲ繝・ヨ驕ｸ謚槭Δ繝ｼ繝我ｸｭ縺ｮ繝槭ャ繝励ン繝･繝ｼ繝昴・繝・*/
+#map-viewport.targeting-mode {
+    outline: 3px solid #ff9800;
+    outline-offset: -3px;
+}
+
+/* 謾ｻ謦・・ヨ繝ｼ繧ｯ繝ｳ縺ｮ繝上う繝ｩ繧､繝・*/
+.map-token.targeting-source {
+    box-shadow: 0 0 0 4px #ff9800, 0 0 20px rgba(255, 152, 0, 0.6);
+    animation: pulse-targeting 1s infinite;
+}
+
+@keyframes pulse-targeting {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 4px #ff9800, 0 0 20px rgba(255, 152, 0, 0.6);
+    }
+
+    50% {
+        box-shadow: 0 0 0 6px #ff9800, 0 0 30px rgba(255, 152, 0, 0.8);
+    }
 }

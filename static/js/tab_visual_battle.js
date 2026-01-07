@@ -15,6 +15,12 @@ let visualWideState = {
     isDeclared: false
 };
 
+// --- 攻撃ターゲット選択状態管理 ---
+let attackTargetingState = {
+    attackerId: null,  // 選択中の攻撃者ID
+    isTargeting: false // ターゲット選択モードかどうか
+};
+
 // --- ヘルパー: 広域スキル判定 ---
 function isWideSkillData(skillData) {
     if (!skillData) return false;
@@ -134,6 +140,49 @@ let duelState = {
     isOneSided: false,
     attackerCommand: null, defenderCommand: null
 };
+
+// --- ターゲット選択モード管理関数 ---
+
+// ターゲット選択モードに入る
+function enterAttackTargetingMode(attackerId) {
+    attackTargetingState.attackerId = attackerId;
+    attackTargetingState.isTargeting = true;
+
+    // カーソルをクロスヘアに変更
+    document.body.style.cursor = 'crosshair';
+
+    // マップビューポートに視覚的フィードバックを追加
+    const mapViewport = document.getElementById('map-viewport');
+    if (mapViewport) {
+        mapViewport.classList.add('targeting-mode');
+    }
+
+    // 選択中の攻撃者トークンにハイライトを追加
+    const attackerToken = document.querySelector(`.map-token[data-id="${attackerId}"]`);
+    if (attackerToken) {
+        attackerToken.classList.add('targeting-source');
+    }
+}
+
+// ターゲット選択モードを解除
+function exitAttackTargetingMode() {
+    attackTargetingState.attackerId = null;
+    attackTargetingState.isTargeting = false;
+
+    // カーソルを元に戻す
+    document.body.style.cursor = '';
+
+    // マップビューポートのクラスを削除
+    const mapViewport = document.getElementById('map-viewport');
+    if (mapViewport) {
+        mapViewport.classList.remove('targeting-mode');
+    }
+
+    // ハイライトを削除
+    document.querySelectorAll('.map-token.targeting-source').forEach(token => {
+        token.classList.remove('targeting-source');
+    });
+}
 
 // --- ログ描画ヘルパー ---
 function appendVisualLogLine(container, logData, filterType) {
@@ -588,6 +637,15 @@ function setupMapControls() {
     window.visualMapHandlers.up = onMouseUp;
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
+
+    // マップの空白部分をクリックしたときにターゲット選択モードを解除
+    mapViewport.addEventListener('click', (e) => {
+        // トークンをクリックした場合は何もしない
+        if (e.target.closest('.map-token')) return;
+
+        // ターゲット選択モードを解除
+        exitAttackTargetingMode();
+    });
 }
 
 function renderVisualTimeline() {
@@ -728,20 +786,43 @@ function createMapToken(char) {
     token.addEventListener('dragend', () => token.classList.remove('dragging'));
     token.addEventListener('click', (e) => {
         e.stopPropagation();
-        selectVisualToken(char.id);
-        showCharacterDetail(char.id);
-    });
-    token.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'link'; });
-    token.addEventListener('drop', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        const attackerId = e.dataTransfer.getData('text/plain');
-        if (!attackerId || attackerId === char.id) return;
-        const attackerChar = battleState.characters.find(c => c.id === attackerId);
-        const attackerName = attackerChar ? attackerChar.name : "不明";
-        if (confirm(`【攻撃確認】\n「${attackerName}」が「${char.name}」に攻撃を仕掛けますか？`)) {
-            openDuelModal(attackerId, char.id);
+
+        // ターゲット選択モード中の場合
+        if (attackTargetingState.isTargeting && attackTargetingState.attackerId) {
+            const attackerId = attackTargetingState.attackerId;
+
+            // 自分自身は選択できない
+            if (attackerId === char.id) {
+                return;
+            }
+
+            // 攻撃確認
+            const attackerChar = battleState.characters.find(c => c.id === attackerId);
+            const attackerName = attackerChar ? attackerChar.name : "不明";
+
+            if (confirm(`【攻撃確認】\n「${attackerName}」が「${char.name}」に攻撃を仕掛けますか？`)) {
+                openDuelModal(attackerId, char.id);
+            }
+
+            // ターゲット選択モードを解除
+            exitAttackTargetingMode();
+            return;
+        }
+
+        // 手番キャラの場合、ターゲット選択モードに入る
+        const isCurrentTurn = (battleState.turn_char_id === char.id);
+        if (isCurrentTurn) {
+            enterAttackTargetingMode(char.id);
         }
     });
+
+    // ダブルクリックで詳細モーダルを表示
+    token.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        exitAttackTargetingMode(); // ターゲット選択モードを解除
+        showCharacterDetail(char.id);
+    });
+
     return token;
 }
 
