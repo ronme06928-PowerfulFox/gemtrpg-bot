@@ -1,0 +1,261 @@
+/* --- 2. ログインポータル --- */
+#entry-portal {
+    max-width: 320px;
+    margin: 60px auto;
+    padding: 30px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-header h2 {
+    color: #16a085;
+    margin: 0 0 10px 0;
+    font-size: 1.8em;
+    font-weight: 600;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.auth-form label {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.auth-form input[type="text"],
+.auth-form input[type="password"] {
+    padding: 14px 16px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.auth-form input:focus {
+    border-color: #1abc9c;
+    box-shadow: 0 0 8px rgba(26, 188, 156, 0.3);
+    outline: none;
+}
+
+.auth-form button {
+    padding: 14px 20px;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    background-color: #1abc9c;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.auth-form button:hover {
+    background-color: #16a085;
+    transform: translateY(-2px);
+}
+
+#auth-message {
+    font-size: 0.9em;
+    font-weight: bold;
+    text-align: center;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+#auth-message.success {
+    background-color: #e0f0e0;
+    color: #218838;
+}
+
+#auth-message.error {
+    background-color: #f0e0e0;
+    color: #c82333;
+}
+
+.auth-toggle {
+    font-size: 0.9em;
+    color: #1abc9c;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    margin-top: 10px;
+    text-align: center;
+    width: 100%;
+}
+
+.auth-toggle:hover {
+    text-decoration: underline;
+}
+
+
+/* --- 3. ルームポータル --- */
+#room-portal {
+    display: none;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.room-portal-header {
+    text-align: center;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.room-portal-header h2 {
+    color: #0056b3;
+    margin: 0 0 10px 0;
+}
+
+.room-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+
+#room-search-input {
+    flex-grow: 1;
+    padding: 10px 15px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+#room-search-input:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.25);
+    outline: none;
+}
+
+#create-room-btn {
+    padding: 10px 20px;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    background-color: #28a745;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#create-room-btn:hover {
+    background-color: #218838;
+}
+
+#room-list-container {
+    border-top: 1px solid #eee;
+    padding-top: 15px;
+}
+
+.room-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.room-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.room-list-item:hover {
+    background-color: #fcfcfc;
+}
+
+.room-list-item span {
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.room-list-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.room-list-buttons button {
+    padding: 8px 12px;
+    font-size: 14px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s, opacity 0.3s;
+}
+
+.room-join-btn {
+    background-color: #007bff;
+    color: white;
+}
+
+.room-join-btn:hover {
+    background-color: #0056b3;
+}
+
+.room-delete-btn {
+    background-color: #dc3545;
+    color: white;
+}
+
+.room-delete-btn:hover {
+    background-color: #c82333;
+}
+
+#room-list-empty {
+    color: #777;
+    text-align: center;
+    padding: 20px;
+}
+
+.portal-user-band {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 12px;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.portal-welcome-message {
+    font-size: 1.1em;
+    color: #555;
+    font-weight: 500;
+}
+
+.portal-settings-button {
+    background-color: #f8f8f8;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 1em;
+    font-weight: bold;
+    color: #333;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.portal-settings-button:hover {
+    background-color: #f0f0f0;
+    border-color: #aaa;
+}

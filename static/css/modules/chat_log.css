@@ -1,0 +1,193 @@
+/* ログ */
+.log-container {
+    margin-bottom: 15px;
+}
+
+#log-area {
+    height: 500px;
+    overflow-y: auto;
+    background: #fafafa;
+    border: 1px solid #eee;
+    padding: 10px;
+    font-size: 0.9em;
+    line-height: 1.6;
+}
+
+.log-line {
+    padding: 2px 0;
+    border-bottom: 1px dotted #eee;
+}
+
+.log-line.round {
+    font-weight: bold;
+    color: #0056b3;
+    background: #f0f8ff;
+    margin: 5px 0;
+}
+
+.log-line.info {
+    color: #555;
+}
+
+.log-line.state-change {
+    color: #888;
+}
+
+.log-line.match {
+    font-weight: bold;
+}
+
+.log-line.dice {
+    color: #006400;
+}
+
+.dice-result-total {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.chat-user {
+    font-weight: bold;
+    color: #0056b3;
+}
+
+.chat-controls {
+    display: flex;
+    margin-top: 10px;
+    align-items: flex-end;
+}
+
+#chat-input {
+    flex-grow: 1;
+    border: 1px solid #ccc;
+    padding: 8px;
+    border-radius: 4px 0 0 4px;
+    resize: vertical;
+    min-height: 40px;
+    height: 60px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    box-sizing: border-box;
+}
+
+#chat-send-btn {
+    padding: 8px 15px;
+    border: none;
+    background: #007bff;
+    color: white;
+    cursor: pointer;
+    border-radius: 0 4px 4px 0;
+    height: 40px;
+}
+
+/* 管理ボタン */
+.room-actions {
+    margin-top: 15px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+}
+
+.room-action-btn {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+    background: #f0f0f0;
+    font-weight: bold;
+}
+
+.room-action-btn:hover {
+    border-color: #999;
+}
+
+#save-state-btn {
+    background: #e0f0e0;
+    border-color: #b0d0b0;
+}
+
+#reset-btn {
+    background: #f0e0e0;
+    border-color: #d0b0b0;
+}
+
+#leave-room-btn {
+    background: #f0f0f0;
+    border-color: #ccc;
+}
+
+#save-load-message {
+    font-size: 0.9em;
+    font-weight: bold;
+    margin-top: 10px;
+}
+/* --- Log Header & Filters --- */
+.log-header-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #eee;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+}
+
+.log-header-group h3 {
+    margin: 0;
+    border: none;
+    padding: 0;
+}
+
+.log-filter-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.filter-btn {
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 15px;
+    padding: 4px 12px;
+    font-size: 0.85em;
+    cursor: pointer;
+    color: #555;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    background: #e0e0e0;
+}
+
+.filter-btn.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+    font-weight: bold;
+}
+
+.hidden-log {
+    display: none !important;
+}
+
+.log-line.secret-log {
+    background-color: #f8f0f4;
+    border-left: 3px solid #d63384;
+}
+
+.secret-mark {
+    color: #d63384;
+    font-weight: bold;
+    font-size: 0.85em;
+    margin-right: 5px;
+    border: 1px solid #d63384;
+    padding: 0 4px;
+    border-radius: 4px;
+}
+
+.secret-masked {
+    color: #999;
+    font-style: italic;
+    font-size: 0.9em;
+}
+

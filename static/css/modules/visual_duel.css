@@ -1,0 +1,437 @@
+/* === åºƒç¯„å›²æ”»æ’ƒUIç”¨ã‚¹ã‚¿ã‚¤ãƒ« === */
+.wide-attack-trigger-btn {
+    position: absolute;
+    top: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #ff9800, #ff5722);
+    color: white;
+    border: 2px solid #fff;
+    border-radius: 20px;
+    padding: 5px 15px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    z-index: 200;
+    white-space: nowrap;
+    animation: bounce-btn 1.5s infinite;
+}
+
+.wide-attack-trigger-btn:hover {
+    background: linear-gradient(135deg, #ffb74d, #ff8a65);
+    transform: translateX(-50%) scale(1.05);
+}
+
+@keyframes bounce-btn {
+
+    0%,
+    100% {
+        transform: translateX(-50%) translateY(0);
+    }
+
+    50% {
+        transform: translateX(-50%) translateY(-5px);
+    }
+}
+
+/* åºƒç¯„å›²ãƒãƒƒãƒãƒ¢ãƒ¼ãƒ€ãƒ« (å…¨ä½“å¹…æ‹¡å¼µã¨ãƒ•ãƒ¬ãƒƒã‚¯ã‚¹ãƒ¬ã‚¤ã‚¢ã‚¦ãƒˆ) */
+.wide-visual-modal {
+    width: 1400px;
+    /* â˜…å¤‰æ›´: 1200px -> 1400px (ä½™è£•ã‚’æŒãŸã›ã‚‹) */
+    max-width: 98%;
+    /* â˜…å¤‰æ›´: 95% -> 98% */
+    background: #f8f9fa;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+}
+
+.wide-visual-header {
+    padding: 15px 20px;
+    background: #343a40;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 8px 8px 0 0;
+}
+
+/* ãƒ¢ãƒ¼ãƒ€ãƒ«ãƒœãƒ‡ã‚£ï¼šã‚«ãƒ©ãƒ æ§‹é€ ã«å¤‰æ›´ */
+.wide-visual-body {
+    padding: 0;
+    flex: 1;
+    display: flex;
+    /* Flexbox */
+    overflow: hidden;
+}
+
+/* å·¦ã‚«ãƒ©ãƒ : æ”»æ’ƒå´ */
+.wide-col-attacker {
+    flex: 0 0 450px;
+    /* â˜…å¤‰æ›´: 350px -> 450px (ãƒœã‚¿ãƒ³ãŒè¦‹ãˆã‚‹ã‚ˆã†æ‹¡å¼µ) */
+    padding: 20px;
+    border-right: 1px solid #ddd;
+    background: #fff;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.wide-attacker-section {
+    background: #f9f9f9;
+    padding: 15px;
+    border: 1px solid #eee;
+    border-radius: 5px;
+}
+
+/* å³ã‚«ãƒ©ãƒ : é˜²å¾¡å´ãƒªã‚¹ãƒˆ */
+.wide-col-defenders {
+    flex: 1;
+    padding: 20px;
+    background: #f4f6f9;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* é˜²å¾¡å´ è¡Œã‚¢ã‚¤ãƒ†ãƒ  (æ¨ªé•·ãƒ¬ã‚¤ã‚¢ã‚¦ãƒˆ) */
+.wide-defender-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.wide-defender-row.locked {
+    background-color: #f0f0f0;
+    opacity: 0.9;
+}
+
+/* è¡Œå†…: ã‚­ãƒ£ãƒ©æƒ…å ± */
+.wide-def-info {
+    flex: 0 0 140px;
+    font-weight: bold;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.wide-def-status {
+    font-size: 0.8em;
+    color: #999;
+}
+
+/* è¡Œå†…: æ“ä½œã‚¨ãƒªã‚¢ */
+.wide-def-controls {
+    flex: 0 0 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* è¡Œå†…: ã‚¹ã‚­ãƒ«è©³ç´°ã‚¨ãƒªã‚¢ (ä¼¸ç¸®) */
+.wide-def-desc {
+    flex: 1;
+    min-width: 0;
+    /* ãƒ†ã‚­ã‚¹ãƒˆæŠ˜ã‚Šè¿”ã—ç”¨ */
+    background: #fafafa;
+    border: 1px dashed #ddd;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 0.85em;
+    color: #555;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.wide-mode-badge {
+    background: #17a2b8;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    display: inline-block;
+}
+/* === C³: ƒXƒLƒ‹Ú×ƒTƒCƒhƒo[ (í•\¦ŒÅ’è•) === */
+.skill-detail-sidebar {
+    width: 280px;
+    flex: 0 0 280px;
+    /* k‚Ü‚È‚¢‚æ‚¤‚ÉŒÅ’è */
+    opacity: 1;
+    /* Å‰‚©‚ç•\¦ */
+    padding: 15px;
+    /* Å‰‚©‚ç—]”’Šm•Û */
+
+    background: #fdfdfd;
+    color: #333;
+    border-radius: 8px;
+    font-size: 0.9em;
+    border: 1px solid #ccc;
+    /* Å‰‚©‚ç˜gü‚ğ•\¦ */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+
+    /* ƒeƒLƒXƒgÜ‚è•Ô‚µİ’è */
+    white-space: normal;
+    word-break: break-all;
+    overflow-wrap: break-word;
+
+    display: flex;
+    flex-direction: column;
+
+    /* ’†g‚ª‚È‚¢‚Ì‚‚³Šm•Û */
+    min-height: 200px;
+}
+
+/* ¶‘¤ƒpƒlƒ‹‚ÌƒXƒ^ƒCƒ‹’²® */
+.skill-detail-sidebar.left {
+    order: -1;
+    /* Flexbox‚Ìæ“ª‚É”z’u */
+    margin-right: 10px;
+}
+
+/* ‰E‘¤ƒpƒlƒ‹‚ÌƒXƒ^ƒCƒ‹’²® */
+.skill-detail-sidebar.right {
+    order: 10;
+    /* Flexbox‚Ì––”ö‚É”z’u */
+    margin-left: 10px;
+}
+
+/* ƒTƒCƒhƒo[“à‚Ìƒwƒbƒ_[’²® */
+.skill-detail-sidebar .skill-detail-header {
+    border-bottom: 2px solid #007bff;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+}
+
+/* ƒTƒCƒhƒo[“à‚Ì€–Ú */
+.skill-detail-sidebar .skill-desc-section {
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+
+/* ƒrƒWƒ…ƒAƒ‹ƒoƒgƒ‹ƒtƒB[ƒ‹ƒh‚Ì‘ÎŒˆƒ‚[ƒ_ƒ‹‚ÌƒŒƒCƒAƒEƒg */
+.duel-modal-content.resizable-modal {
+    width: auto;
+    /* ŒÅ’è•‚ğ‰ğœ */
+    min-width: 800px;
+    /* Å¬•‚ğŠm•Û */
+    max-width: 95vw;
+    /* ‰æ–Ê‚©‚ç‚Í‚İo‚³‚È‚¢ */
+    background: #2c3e50;
+    color: white;
+    padding: 20px;
+    transition: width 0.3s ease;
+    /* ƒ‚[ƒ_ƒ‹©‘Ì‚ÌLk‚à‚È‚ß‚ç‚©‚É */
+    display: flex;
+    /* ƒtƒŒƒbƒNƒX‚É‚µ‚Ä’†g‚ğ’†S‚É */
+    flex-direction: column;
+}
+
+.duel-title {
+    text-align: center;
+    margin-top: 0;
+    border-bottom: 1px solid #555;
+    padding-bottom: 10px;
+}
+
+.duel-container {
+    display: flex;
+    justify-content: center;
+    /* ’†‰›‘µ‚¦ */
+    align-items: flex-start;
+    /* ã‘µ‚¦ */
+    gap: 10px;
+    /* ŠeƒJƒ‰ƒ€ŠÔ‚ÌŒ„ŠÔ */
+    margin: 20px 0;
+}
+
+.duel-side {
+    flex: 0 0 300px;
+    /* •‚ğŒÅ’è (ƒŒƒCƒAƒEƒg•ö‚ê–h~) */
+    background: rgba(255, 255, 255, 0.1);
+    padding: 15px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.duel-side.attacker {
+    border: 2px solid #dc3545;
+}
+
+.duel-side.defender {
+    border: 2px solid #007bff;
+}
+
+.side-title {
+    margin: 0;
+    text-align: center;
+    font-size: 1.1em;
+    color: #ddd;
+}
+
+.duel-char-name {
+    text-align: center;
+    font-weight: bold;
+    font-size: 1.2em;
+    margin-bottom: 5px;
+}
+
+.duel-form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.duel-form-group label {
+    font-size: 0.9em;
+    color: #ccc;
+    margin-bottom: 3px;
+}
+
+.duel-select,
+.duel-input {
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #555;
+    background: #fff;
+    font-size: 14px;
+}
+
+.duel-preview {
+    text-align: center;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: #ffc107;
+}
+
+.duel-vs {
+    font-size: 2em;
+    font-weight: bold;
+    color: #ffc107;
+    margin: 0 20px;
+    font-style: italic;
+}
+
+.duel-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid #555;
+    padding-top: 15px;
+}
+
+.duel-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.duel-btn.primary {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.duel-btn.primary:hover {
+    background-color: #c0392b;
+}
+
+.duel-btn.secondary {
+    background-color: #95a5a6;
+    color: white;
+}
+
+.duel-btn.secondary:hover {
+    background-color: #7f8c8d;
+}
+
+.duel-control-btns {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.duel-btn.calc {
+    background-color: #17a2b8;
+    color: white;
+    flex: 1;
+}
+
+.duel-btn.calc:hover {
+    background-color: #138496;
+}
+
+.duel-btn.declare {
+    background-color: #28a745;
+    color: white;
+    flex: 1;
+}
+
+.duel-btn.declare:hover {
+    background-color: #218838;
+}
+
+.duel-btn.declare:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.duel-btn.declare.locked {
+    background-color: #e0a800;
+    color: #000;
+}
+
+.duel-preview-area {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 4px;
+    border: 1px dashed #666;
+    min-height: 60px;
+}
+
+.duel-preview-area.ready {
+    border-style: solid;
+    border-color: #ffc107;
+}
+
+.preview-command {
+    font-family: monospace;
+    font-size: 1.1em;
+    color: #fff;
+    margin-bottom: 5px;
+}
+
+.preview-damage {
+    font-weight: bold;
+    color: #ffc107;
+}
+
+.duel-center-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.duel-status {
+    margin-top: 5px;
+    color: #ccc;
+    font-size: 0.9em;
+}
+

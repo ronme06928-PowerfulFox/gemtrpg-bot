@@ -1,0 +1,365 @@
+/* --- 7. バトルフィールドタブのスタイル --- */
+
+#battlefield-grid {
+    display: grid;
+    grid-template-columns: 300px 1.5fr 0.8fr;
+    gap: 20px;
+    width: 100%;
+}
+
+#battlefield-left-column,
+#battlefield-main-column,
+#battlefield-right-column {
+    background-color: #fdfdfd;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+    align-self: start;
+    min-width: 0;
+    min-height: 70vh;
+}
+
+#battlefield-left-column h3,
+#battlefield-main-column h3,
+#battlefield-right-column h3 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #eee;
+    color: #0056b3;
+}
+
+
+/* 左カラム: キャラリスト */
+.character-list-container {
+    margin-bottom: 20px;
+}
+
+.character-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.character-list-header h3 {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.char-add-btn {
+    padding: 5px 10px;
+    font-size: 0.9em;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#ally-list-column,
+#enemy-list-column {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.char-token-placeholder {
+    padding: 15px;
+    color: #888;
+}
+
+.char-token {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-left-width: 5px;
+    padding: 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: box-shadow 0.3s, transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.char-token:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+}
+
+.token-name {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin: 0 0 8px 0;
+}
+
+.token-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 5px;
+    font-size: 0.9em;
+    color: #444;
+}
+
+.token-stat {
+    white-space: nowrap;
+}
+
+.token-debuff-list {
+    margin-top: 8px;
+    font-size: 0.85em;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.token-debuff {
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: #eee;
+    color: #333;
+}
+
+.shukketsu {
+    background: #fee;
+    color: #b00;
+}
+
+.haretsu {
+    background: #ffe;
+    color: #a50;
+}
+
+.kiretsu {
+    background: #eef;
+    color: #00b;
+}
+
+.senritsu {
+    background: #efe;
+    color: #070;
+}
+
+.keikyoku {
+    background: #fef;
+    color: #a0a;
+}
+
+/* 中央カラム: アクション */
+.action-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.action-header h2 {
+    margin: 0;
+    font-size: 1.5em;
+    color: #333;
+    padding: 0;
+    border: none;
+}
+
+.match-start-button {
+    padding: 12px 20px;
+    font-size: 1.1em;
+    font-weight: bold;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.match-start-button:hover {
+    background-color: #0056b3;
+}
+
+.match-result {
+    margin-top: 0;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f4f4f4;
+    border-radius: 4px;
+    min-height: 20px;
+    font-weight: bold;
+}
+
+.matcher-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 15px;
+}
+
+.action-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.action-stack h3 {
+    text-align: center;
+    color: #333;
+}
+
+.action-selects {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.action-input {
+    width: 100%;
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.command-generation {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.action-btn {
+    padding: 8px 12px;
+    font-size: 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+#generate-btn-attacker,
+#generate-btn-defender {
+    background: #555;
+    color: white;
+}
+
+#generate-btn-attacker:hover,
+#generate-btn-defender:hover {
+    background: #333;
+}
+
+.declare-btn {
+    background-color: #e0f0e0;
+    color: #218838;
+    border: 1px solid #b0d0b0;
+}
+
+.declare-btn:hover {
+    background-color: #c8e6c9;
+}
+
+.declare-btn:disabled {
+    background-color: #f0f0f0;
+    color: #aaa;
+    border-color: #ddd;
+    cursor: not-allowed;
+}
+
+.command-display {
+    width: 100%;
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    background-color: #f4f4f4;
+    color: #333;
+    text-align: center;
+    font-weight: normal;
+    transition: border-color 0.3s, font-weight 0.3s;
+}
+
+/* タイムライン */
+.timeline-container {
+    margin-top: 20px;
+}
+
+.timeline-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.timeline-btn {
+    padding: 8px;
+    font-size: 0.9em;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#round-end-btn {
+    background-color: #f0e0e0;
+    color: #c82333;
+}
+
+#round-start-btn {
+    background: #28a745;
+    color: white;
+}
+
+#timeline-list {
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 5px;
+}
+
+.timeline-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.timeline-item.ally {
+    background-color: #f0f8ff;
+}
+
+.timeline-item.enemy {
+    background-color: #fff0f0;
+}
+
+.timeline-item.acted {
+    opacity: 0.5;
+    background-color: #f8f8f8;
+    text-decoration: line-through;
+}
+
+.timeline-char-name {
+    font-weight: bold;
+}
+
+.timeline-speed-roll {
+    color: #555;
+}
+/* --- Action Header Buttons (Text Battle) --- */
+.action-header-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    margin-left: auto;
+}
+
+.action-header-buttons .match-start-button {
+    width: 100%;
+    margin: 0;
+    padding: 8px 10px;
+    font-size: 14px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+

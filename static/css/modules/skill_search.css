@@ -1,0 +1,80 @@
+/* --- 6. スキル検索タブのスタイル --- */
+.search-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.search-box {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 20px;
+    background: #fdfdfd;
+}
+
+.search-box h3 {
+    margin-top: 0;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: center;
+}
+
+.form-grid label {
+    font-weight: bold;
+}
+
+.form-grid select,
+.form-grid input[type="number"],
+.form-grid input[type="text"] {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.result-grid {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.result-grid dt {
+    font-weight: bold;
+    color: #555;
+}
+
+.result-grid dd {
+    margin: 0;
+}
+
+.power-calc {
+    font-weight: bold;
+    font-size: 1.2em;
+    color: #007bff;
+}
+
+.attribute-row {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 15px;
+    font-size: 0.9em;
+}
+
+.attribute-row dt {
+    font-weight: bold;
+    color: #555;
+}
+
+.attribute-row dd {
+    margin: 0;
+}

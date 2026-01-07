@@ -774,8 +774,10 @@ function createMapToken(char) {
             </div>
         </div>
         <div class="token-body"><span>${char.name.charAt(0)}</span></div>
-        <div class="token-label">${char.name}</div>
-        <div class="token-status-overlay">${iconsHtml}</div>
+        <div class="token-info-container">
+            <div class="token-label">${char.name}</div>
+            <div class="token-status-overlay">${iconsHtml}</div>
+        </div>
     `;
     token.draggable = true;
     token.addEventListener('dragstart', (e) => {

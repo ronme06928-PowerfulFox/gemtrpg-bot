@@ -1,0 +1,173 @@
+/* --- static/styles.css (ビジュアルバトル用エリア) --- */
+#visual-battle-container {
+    position: relative;
+    display: flex;
+    height: calc(100vh - 60px);
+    width: 100%;
+    overflow: hidden;
+    background-color: #222;
+}
+
+#map-viewport {
+    flex: 1;
+    margin-left: 65px;
+    /* Action Dockの幅60px + 余白 */
+    position: relative;
+    overflow: hidden;
+    background-color: #333;
+    cursor: grab;
+    border-right: 2px solid #444;
+}
+
+#map-viewport:active {
+    cursor: grabbing;
+}
+
+
+/* --- 右側: サイドバー --- */
+#visual-sidebar {
+    flex: 0 0 350px;
+    /* 固定幅 */
+    display: flex;
+    flex-direction: column;
+    background-color: #f8f9fa;
+    border-left: 1px solid #ccc;
+    max-width: 400px;
+    z-index: 100;
+}
+
+.sidebar-header {
+    padding: 8px;
+    background: #e9ecef;
+    border-bottom: 1px solid #ddd;
+    font-size: 14px;
+    font-weight: bold;
+    color: #555;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#visual-controls-area {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    background: #fff;
+}
+
+#visual-next-turn-btn {
+    width: 100%;
+    padding: 10px;
+    background-color: #ffc107;
+    border: 1px solid #e0a800;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+#visual-next-turn-btn:hover {
+    background-color: #e0a800;
+}
+
+/* --- タイムライン（絶対配置オーバーレイ） --- */
+#visual-timeline-area {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    /* viewport内の右端 */
+    width: 260px;
+    max-height: 400px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #3498db;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 800;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    transition: max-height 0.3s ease;
+}
+
+/* タイムラインヘッダー */
+#visual-timeline-area .sidebar-header {
+    cursor: pointer;
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    padding: 10px;
+    border-radius: 6px 6px 0 0;
+}
+
+#visual-timeline-area .sidebar-header:hover {
+    background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+}
+
+#visual-timeline-area.collapsed {
+    max-height: 45px;
+    overflow: hidden;
+}
+
+#visual-timeline-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 5px;
+}
+
+/* タイムラインアイテム */
+.timeline-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    border-left: 5px solid #ccc;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+.timeline-item:hover {
+    background: #fdfdfd;
+}
+
+.timeline-item.ally {
+    border-left-color: #007bff;
+}
+
+.timeline-item.enemy {
+    border-left-color: #dc3545;
+}
+
+.timeline-item.active-turn {
+    background: #e3f2fd;
+    border: 2px solid #00ffff;
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+}
+
+.timeline-item.acted {
+    opacity: 0.6;
+    background: #e9ecef;
+    color: #888;
+    border-left-color: #999;
+}
+
+/* --- その他のエリア --- */
+#visual-staging-area {
+    height: 120px;
+    overflow-y: auto;
+    padding: 5px;
+    border-bottom: 1px solid #ccc;
+}
+
+#visual-chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+}
+
+#visual-chat-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 5px;
+    font-size: 13px;
+}
