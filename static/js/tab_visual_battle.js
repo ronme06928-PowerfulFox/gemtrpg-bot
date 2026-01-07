@@ -510,6 +510,17 @@ function setupVisualSidebarControls() {
             socket.emit('request_reset_battle', { room: currentRoomName, mode: 'full' });
         }
     };
+
+    const leaveBtn = document.getElementById('visual-leave-btn');
+    if (leaveBtn) {
+        leaveBtn.onclick = () => {
+            if (confirm('ルーム一覧に戻りますか？\n（保存していない変更は失われます）')) {
+                if (socket) socket.emit('leave_room', { room: currentRoomName });
+                currentRoomName = null;
+                showRoomPortal();
+            }
+        };
+    }
 }
 
 function updateVisualRoundDisplay(round) {

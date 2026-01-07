@@ -1,11 +1,13 @@
-/* visual-battle-containerの位置調整 */
 #visual-battle-container {
     position: relative;
     /* action-dockのabsolute位置の基準になる */
     width: 100%;
-    height: 100%;
+    height: calc(100vh - 60px);
+    /* タブが消えたのでヘッダー分引いて全画面化 */
     display: flex;
     overflow: hidden;
+    background-color: #222;
+    /* 背景色も明示 */
 }
 
 /* map-viewportの左マージンを確保 */
@@ -14,14 +16,34 @@
     /* action-dockの幅（60px）+ 5px余白 */
     flex: 1;
     position: relative;
+    height: 100%;
+    width: 100%;
     /* タイムラインのabsolute位置の基準 */
+}
+
+/* 右カラム（ログ・操作盤）のオーバーレイ化 */
+#visual-sidebar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 340px;
+    background: rgba(255, 255, 255, 0.95);
+    /* 少し透過させる */
+    border-left: 1px solid #ccc;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 850;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease;
 }
 
 /* タイムラインを右上に配置 */
 #visual-timeline-area {
     position: absolute;
     top: 10px;
-    right: 10px;
+    right: 350px;
+    /* サイドバーの幅(340px) + 10px の余白 */
     width: 220px;
     max-height: 400px;
     background: white;
@@ -29,7 +51,7 @@
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     z-index: 800;
-    transition: max-height 0.3s ease, opacity 0.3s ease;
+    transition: max-height 0.3s ease, opacity 0.3s ease, right 0.3s ease;
     overflow: hidden;
 }
 

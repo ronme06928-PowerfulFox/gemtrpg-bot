@@ -251,10 +251,10 @@ async function joinRoom(roomName, initialState = null) {
         document.getElementById('current-room-name').textContent = `現在のルーム: ${currentRoomName}`;
         updateHeaderUserInfo();
 
-        // === ▼▼▼ 修正点: デフォルトタブをバトルフィールドに変更 ▼▼▼
-        loadTabContent('tab-battlefield');
+        // === ▼▼▼ 修正点: デフォルトタブをビジュアルバトルフィールドに変更 ▼▼▼
+        loadTabContent('visual');
         tabButtons.forEach(btn => btn.classList.remove('active'));
-        const defaultTab = document.querySelector('.tab-button[data-tab="tab-battlefield"]');
+        const defaultTab = document.querySelector('.tab-button[data-tab="visual"]');
         if (defaultTab) {
             defaultTab.classList.add('active');
         }

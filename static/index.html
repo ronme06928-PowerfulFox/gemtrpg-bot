@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 </head>
+
 <body>
 
     <div id="entry-portal">
@@ -32,8 +34,10 @@
     <div id="room-portal" style="display: none;">
     </div>
 
-    <div id="user-management-portal" style="display: none; max-width: 800px; margin: 40px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px;">
+    <div id="user-management-portal"
+        style="display: none; max-width: 800px; margin: 40px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px;">
             <h2 style="margin: 0; color: #6f42c1;">ユーザー管理 (GM専用)</h2>
             <button id="back-to-room-portal-btn" style="padding: 8px 16px;">ルーム一覧に戻る</button>
         </div>
@@ -62,7 +66,7 @@
             </div>
         </header>
 
-        <div class="tab-container">
+        <div class="tab-container" style="display:none;"> <!-- タブは非表示だが構造は維持 -->
             <button class="tab-button" data-tab="tab-battlefield">テキストバトルフィールド</button>
             <button class="tab-button" data-tab="visual">ビジュアルバトルフィールド</button>
         </div>
@@ -72,7 +76,7 @@
 
     </div>
 
-<!-- JavaScriptファイルの読み込み（依存関係順） -->
+    <!-- JavaScriptファイルの読み込み（依存関係順） -->
     <script src="js/buff_data.js"></script>
     <script src="js/action_dock.js"></script>
     <script src="js/tab_visual_battle.js"></script>
@@ -82,4 +86,5 @@
     <script src="js/user_management.js"></script>
     <script src="js/main.js"></script>
 </body>
+
 </html>

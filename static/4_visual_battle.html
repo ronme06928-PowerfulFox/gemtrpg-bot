@@ -52,6 +52,18 @@
             </button>
         </div>
 
+        <div id="visual-room-actions"
+            style="padding: 8px; background: #e9ecef; border-bottom: 1px solid #ccc; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+            <button id="visual-save-btn"
+                style="padding: 5px; font-size: 0.8em; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; background: #fff;">保存</button>
+            <button id="visual-preset-btn"
+                style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #17a2b8; color: white; border: none; border-radius: 3px;">プリセット</button>
+            <button id="visual-reset-btn"
+                style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 3px;">リセット</button>
+            <button id="visual-leave-btn"
+                style="padding: 5px; font-size: 0.8em; cursor: pointer; border: 1px solid #aaa; border-radius: 3px; background: #f0f0f0;">退室</button>
+        </div>
+
         <div id="visual-chat-area" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
             <div class="log-header"
                 style="padding: 5px; background: #eee; border-bottom: 1px solid #ddd; display: flex; gap: 5px;">
@@ -64,7 +76,7 @@
             </div>
 
             <div id="visual-log-area" class="battle-log"
-                style="flex: 1; overflow-y: auto; padding: 5px; font-size: 0.85em; background: #fff; max-height: 300px;">
+                style="flex: 1; overflow-y: auto; padding: 5px; font-size: 0.85em; background: #fff;">
             </div>
 
             <div style="display: flex; border-top: 1px solid #ccc;">
@@ -75,15 +87,6 @@
             </div>
         </div>
 
-        <div id="visual-room-actions"
-            style="padding: 8px; background: #e9ecef; border-top: 1px solid #ccc; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
-            <button id="visual-save-btn"
-                style="padding: 5px; font-size: 0.8em; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; background: #fff;">保存</button>
-            <button id="visual-preset-btn"
-                style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #17a2b8; color: white; border: none; border-radius: 3px;">プリセット</button>
-            <button id="visual-reset-btn"
-                style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 3px;">リセット</button>
-        </div>
         <div id="visual-status-msg"
             style="font-size: 0.8em; text-align: center; padding-bottom: 2px; background: #e9ecef; color: #555;"></div>
     </div>
