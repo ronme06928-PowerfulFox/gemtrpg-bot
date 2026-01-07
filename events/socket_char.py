@@ -244,6 +244,29 @@ def handle_transfer_character_ownership(data):
     save_specific_room_state(room)
 
 
+@socketio.on('request_update_token_scale')
+def handle_update_token_scale(data):
+    """駒のサイズスケールを更新"""
+    room = data.get('room')
+    char_id = data.get('charId')
+    scale = data.get('scale', 1.0)
+
+    if not room or not char_id:
+        return
+
+    state = get_room_state(room)
+    char = next((c for c in state["characters"] if c.get('id') == char_id), None)
+
+    if not char:
+        return
+
+    # スケール値を設定（0.5〜2.0の範囲に制限）
+    char['tokenScale'] = max(0.5, min(2.0, float(scale)))
+
+    broadcast_state_update(room)
+    save_specific_room_state(room)
+
+
 @socketio.on('request_state_update')
 def handle_state_update(data):
     room = data.get('room')

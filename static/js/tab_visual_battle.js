@@ -2,9 +2,10 @@
 
 // --- グローバル変数 ---
 let visualScale = 1.0;
-let visualOffsetX = 0;
-let visualOffsetY = 0;
-const GRID_SIZE = 96;
+let visualOffsetX = -900; // 25x25フィールドの中央表示用（調整済み）
+let visualOffsetY = -900;
+const GRID_SIZE = 90; // 駒サイズを90pxに拡大
+const FIELD_SIZE = 25; // フィールドを25x25グリッドに拡大
 window.currentVisualLogFilter = 'all';
 window.visualMapHandlers = window.visualMapHandlers || { move: null, up: null };
 
@@ -401,23 +402,7 @@ function setupVisualSidebarControls() {
         });
     }
 
-    const controlsArea = document.getElementById('visual-controls-area');
-    if (controlsArea && !document.getElementById('visual-wide-decl-btn')) {
-        const btn = document.createElement('button');
-        btn.id = 'visual-wide-decl-btn';
-        btn.textContent = "⚡ 広域予約";
-        btn.style.width = "100%";
-        btn.style.marginTop = "5px";
-        btn.style.background = "#6f42c1";
-        btn.style.color = "white";
-        btn.style.border = "none";
-        btn.style.padding = "8px";
-        btn.style.borderRadius = "4px";
-        btn.style.fontWeight = "bold";
-        btn.style.cursor = "pointer";
-        btn.onclick = openVisualWideDeclarationModal;
-        controlsArea.appendChild(btn);
-    }
+    // 広域予約ボタンは削除（ラウンド開始時に自動表示されるため不要）
 
     if (currentUserAttribute === 'GM') {
         if (startRBtn) {
@@ -567,8 +552,11 @@ function setupMapControls() {
         const rect = gameMap.getBoundingClientRect();
         const mapX = (e.clientX - rect.left) / visualScale;
         const mapY = (e.clientY - rect.top) / visualScale;
+
+        // グリッド座標に変換（90px単位）
         const gridX = Math.floor(mapX / GRID_SIZE);
         const gridY = Math.floor(mapY / GRID_SIZE);
+
         if (typeof socket !== 'undefined' && currentRoomName) {
             socket.emit('request_move_token', { room: currentRoomName, charId, x: gridX, y: gridY });
         }
@@ -653,8 +641,28 @@ function renderVisualTimeline() {
 
 function createMapToken(char) {
     const token = document.createElement('div');
-    token.className = `map-token ${char.color || 'NPC'}`;
+
+    // 色分けの判定: 名前に「味方」「敵」が含まれているかをチェック
+    let colorClass = 'NPC'; // デフォルト
+    if (char.name && char.name.includes('味方')) {
+        colorClass = 'PC';
+    } else if (char.name && char.name.includes('敵')) {
+        colorClass = 'Enemy';
+    } else if (char.color) {
+        colorClass = char.color;
+    }
+
+    token.className = `map-token ${colorClass}`;
     token.dataset.id = char.id;
+
+    // 駒サイズスケールを適用
+    const tokenScale = char.tokenScale || 1.0;
+    const scaledSize = 82 * tokenScale; // 基本サイズ82px
+    token.style.width = `${scaledSize}px`;
+    token.style.height = `${scaledSize}px`;
+
+
+    // グリッド座標をピクセル座標に変換（90px単位）
     token.style.left = `${char.x * GRID_SIZE + 4}px`;
     token.style.top = `${char.y * GRID_SIZE + 4}px`;
     const maxHp = char.maxHp || 1; const hp = char.hp || 0;
@@ -708,7 +716,7 @@ function createMapToken(char) {
             </div>
         </div>
         <div class="token-body"><span>${char.name.charAt(0)}</span></div>
-        <div class="token-label" title="${char.name}">${char.name}</div>
+        <div class="token-label">${char.name}</div>
         <div class="token-status-overlay">${iconsHtml}</div>
     `;
     token.draggable = true;
@@ -883,6 +891,37 @@ function toggleCharSettingsMenu(charId, btnElement) {
     ownerDisplay.style.cssText = 'padding:8px 12px; margin-bottom:4px; background:#f0f0f0; font-size:0.85em; border-bottom:1px solid #ddd;';
     ownerDisplay.innerHTML = `<strong>所有者:</strong> ${ownerName}`;
     menu.appendChild(ownerDisplay);
+
+    // 駒サイズスライダー
+    const tokenScale = char.tokenScale || 1.0;
+    const sizeSection = document.createElement('div');
+    sizeSection.style.cssText = 'padding:8px 12px; margin-bottom:4px; border-bottom:1px solid #ddd;';
+    sizeSection.innerHTML = `
+        <div style="margin-bottom:5px; font-size:0.9em; font-weight:bold;">駒のサイズ</div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <input type="range" id="settings-token-scale-slider" min="0.5" max="2.0" step="0.1" value="${tokenScale}" style="flex:1;">
+            <span id="settings-token-scale-display" style="min-width:35px; font-size:0.85em;">${tokenScale.toFixed(1)}x</span>
+        </div>
+    `;
+    menu.appendChild(sizeSection);
+
+    // スライダーイベント
+    const scaleSlider = sizeSection.querySelector('#settings-token-scale-slider');
+    const scaleDisplay = sizeSection.querySelector('#settings-token-scale-display');
+    if (scaleSlider && scaleDisplay) {
+        scaleSlider.oninput = () => {
+            const newScale = parseFloat(scaleSlider.value);
+            scaleDisplay.textContent = `${newScale.toFixed(1)}x`;
+
+            if (typeof socket !== 'undefined' && currentRoomName) {
+                socket.emit('request_update_token_scale', {
+                    room: currentRoomName,
+                    charId: charId,
+                    scale: newScale
+                });
+            }
+        };
+    }
 
     // メニューボタンの共通スタイルを適用する関数
     const styleMenuButton = (btn) => {

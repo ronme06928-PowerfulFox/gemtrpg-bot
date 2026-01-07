@@ -1645,13 +1645,16 @@ header h1 {
     position: absolute;
     top: 0;
     left: 0;
-    width: 2000px;
-    height: 1500px;
+    width: 2250px;
+    /* 25 * 90px */
+    height: 2250px;
+    /* 25 * 90px */
     background-color: #4a4a4a;
     background-image:
         linear-gradient(#555 1px, transparent 1px),
         linear-gradient(90deg, #555 1px, transparent 1px);
-    background-size: 96px 96px;
+    background-size: 90px 90px;
+    /* グリッドサイズを90pxに */
     transform-origin: 0 0;
 }
 
@@ -1682,10 +1685,12 @@ header h1 {
 /* --- マップ上のトークン --- */
 .map-token {
     position: absolute;
-    width: 88px;
-    height: 88px;
+    width: 82px;
+    /* 90px - 8px margin */
+    height: 82px;
     background-color: #fff;
-    border: 2px solid #ccc;
+    border: 3px solid #ccc;
+    /* 枠線を太くして色分けを明確に */
     border-radius: 8px;
     display: flex;
     flex-direction: column;
@@ -1697,18 +1702,26 @@ header h1 {
 }
 
 .map-token.PC {
-    border-color: #007bff;
+    border-color: #3498db;
+    /* 青色を明るく */
     background-color: #f0f8ff;
+    box-shadow: 0 0 8px rgba(52, 152, 219, 0.5);
+    /* 光彩効果 */
 }
 
 .map-token.NPC {
-    border-color: #28a745;
+    border-color: #27ae60;
+    /* 緑色 */
     background-color: #f0fff4;
+    box-shadow: 0 0 8px rgba(39, 174, 96, 0.5);
 }
 
 .map-token.Enemy {
-    border-color: #dc3545;
+    border-color: #e74c3c;
+    /* 赤色を明るく */
     background-color: #fff0f0;
+    box-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
+    /* 光彩効果 */
 }
 
 .map-token.active-turn {
@@ -1785,18 +1798,27 @@ header h1 {
 }
 
 .token-label {
-    width: 100%;
-    background: rgba(0, 0, 0, 0.7);
+    position: absolute;
+    top: 100%;
+    /* 駒の下に配置 */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    /* 駒より広く */
+    max-width: 150px;
+    background: rgba(0, 0, 0, 0.85);
     color: white;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: bold;
     text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 1px 0;
-    border-bottom-left-radius: 6px;
-    border-bottom-right-radius: 6px;
+    white-space: normal;
+    /* 改行を許可 */
+    word-wrap: break-word;
+    padding: 3px 5px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    z-index: 50;
+    margin-top: 2px;
 }
 
 .token-status-overlay {

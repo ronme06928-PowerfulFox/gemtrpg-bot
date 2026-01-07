@@ -451,6 +451,31 @@ function renderStagingOverlayList(container) {
         infoDiv.appendChild(nameSpan);
         infoDiv.appendChild(statsSpan);
 
+        // ボタンを並べるコンテナ
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '8px';
+
+        // 削除ボタン
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '削除';
+        deleteBtn.style.padding = '8px 16px';
+        deleteBtn.style.background = '#e74c3c';
+        deleteBtn.style.color = 'white';
+        deleteBtn.style.border = 'none';
+        deleteBtn.style.borderRadius = '4px';
+        deleteBtn.style.cursor = 'pointer';
+        deleteBtn.style.fontWeight = 'bold';
+        deleteBtn.onclick = () => {
+            if (confirm(`「${char.name}」を削除しますか？`)) {
+                socket.emit('request_delete_character', {
+                    room: currentRoomName,
+                    charId: char.id
+                });
+            }
+        };
+
+        // 配置ボタン
         const placeBtn = document.createElement('button');
         placeBtn.textContent = '配置';
         placeBtn.style.padding = '8px 16px';
@@ -462,8 +487,11 @@ function renderStagingOverlayList(container) {
         placeBtn.style.fontWeight = 'bold';
         placeBtn.onclick = () => placeCharacterToDefaultPosition(char);
 
+        buttonContainer.appendChild(deleteBtn);
+        buttonContainer.appendChild(placeBtn);
+
         row.appendChild(infoDiv);
-        row.appendChild(placeBtn);
+        row.appendChild(buttonContainer);
         container.appendChild(row);
     });
 }
@@ -473,10 +501,11 @@ function renderStagingOverlayList(container) {
 function placeCharacterToDefaultPosition(char) {
     console.log(`[DEBUG] placeCharacterToDefaultPosition called for ${char.name}`);
 
-    const defaultX = 3;
-    const defaultY = 3;
+    // フィールドの中央をグリッド座標で指定（25x25の中央 = 12, 12）
+    const defaultX = 12;
+    const defaultY = 12;
 
-    // 空き位置を探す
+    // 空き位置を探す（グリッド座標）
     const position = findEmptyPosition(defaultX, defaultY);
     console.log(`[DEBUG] Found empty position: (${position.x}, ${position.y})`);
 
@@ -488,7 +517,7 @@ function placeCharacterToDefaultPosition(char) {
         return;
     }
 
-    // サーバーに移動を通知
+    // サーバーに移動を通知（グリッド座標）
     console.log('[DEBUG] Emitting request_move_character event...');
     socketToUse.emit('request_move_character', {
         room: currentRoomName,
@@ -527,8 +556,54 @@ function findEmptyPosition(startX, startY) {
             const x = startX + dx * radius;
             const y = startY + dy * radius;
 
-            // マップの範囲内かチェック（0-9の範囲と仮定）
-            if (x >= 0 && x < 10 && y >= 0 && y < 10 && !isOccupied(x, y)) {
+            // マップの範囲内かチェック（25x25グリッド）
+            if (x >= 0 && x < 25 && y >= 0 && y < 25 && !isOccupied(x, y)) {
+                return { x, y };
+            }
+        }
+    }
+
+    // 見つからなければデフォルト位置を返す
+    return { x: startX, y: startY };
+}
+
+// ピクセル座標用の空き位置を探す（螺旋状に探索）
+function findEmptyPositionPixel(startX, startY) {
+    if (!battleState || !battleState.characters) {
+        return { x: startX, y: startY };
+    }
+
+    const tokenSize = 90; // 駒のサイズ（余裕を持たせる）
+
+    // 指定位置が空いているか確認（ピクセル座標で判定）
+    const isOccupied = (x, y) => {
+        return battleState.characters.some(c => {
+            // 駒が配置済み（x, y >= 0）かつ重なっているか判定
+            if (c.x < 0 || c.y < 0) return false;
+            const dx = Math.abs(c.x - x);
+            const dy = Math.abs(c.y - y);
+            return dx < tokenSize && dy < tokenSize;
+        });
+    };
+
+    // まず指定位置をチェック
+    if (!isOccupied(startX, startY)) {
+        return { x: startX, y: startY };
+    }
+
+    // 周囲を螺旋状に探索（ピクセル単位）
+    const directions = [
+        [1, 0], [0, 1], [-1, 0], [0, -1],  // 右、下、左、上
+        [1, 1], [1, -1], [-1, 1], [-1, -1] // 斜め
+    ];
+
+    for (let radius = 1; radius <= 10; radius++) {
+        for (const [dx, dy] of directions) {
+            const x = startX + dx * tokenSize;
+            const y = startY + dy * tokenSize;
+
+            // マップの範囲内かチェック（2250px以内）
+            if (x >= 0 && x < 2250 && y >= 0 && y < 2250 && !isOccupied(x, y)) {
                 return { x, y };
             }
         }
