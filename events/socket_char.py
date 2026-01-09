@@ -9,7 +9,7 @@ from flask_socketio import emit
 from extensions import socketio, all_skill_data
 from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_state_update,
-    broadcast_log, get_user_info_from_sid, _update_char_stat
+    broadcast_log, get_user_info_from_sid, _update_char_stat, set_character_owner
 )
 
 @socketio.on('request_add_character')
@@ -59,6 +59,9 @@ def handle_add_character(data):
     print(f"User {username} adding character to room '{room}': {displayName}")
 
     state["characters"].append(char_data)
+
+    # ★ 追加: 所有権マップに登録
+    set_character_owner(room, new_char_id, username)
 
     broadcast_log(room, f"{displayName} が戦闘に参加しました。", 'info')
     broadcast_state_update(room)

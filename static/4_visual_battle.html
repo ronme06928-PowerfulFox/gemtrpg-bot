@@ -5,7 +5,7 @@
         <div id="dock-immediate-icon" class="dock-icon disabled" title="即時発動スキル">⚡</div>
         <div id="dock-add-char-icon" class="dock-icon" title="キャラ追加">➕</div>
         <div id="dock-staging-icon" class="dock-icon" title="未配置キャラ">📦</div>
-        <div id="dock-wide-icon" class="dock-icon" title="広域戦闘" style="display:none;">🌐</div>
+        <div id="dock-match-icon" class="dock-icon" title="マッチ（対決）">⚔️</div>
     </div>
 
     <div id="map-viewport">
@@ -40,16 +40,12 @@
 
 
         <div id="visual-controls-area" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd;">
-            <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+            <div style="display: flex; gap: 5px;">
                 <button id="visual-round-start-btn" class="sidebar-btn"
                     style="display:none; flex: 1; background: #17a2b8; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer;">R開始</button>
                 <button id="visual-round-end-btn" class="sidebar-btn"
                     style="display:none; flex: 1; background: #f0e0e0; color: #c82333; border: 1px solid #e0c0c0; padding: 5px; border-radius: 4px; cursor: pointer;">R終了</button>
             </div>
-            <button id="visual-next-turn-btn"
-                style="width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
-                ターン終了 (Next Turn)
-            </button>
         </div>
 
         <div id="visual-room-actions"
@@ -158,7 +154,7 @@
         </div>
 
         <div class="duel-actions">
-            <button id="duel-cancel-btn" class="duel-btn secondary">Cancel</button>
+            <button id="duel-minimize-btn" class="duel-btn secondary">最小化 (Minimize)</button>
         </div>
     </div>
 </div>

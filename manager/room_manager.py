@@ -26,9 +26,36 @@ def get_room_state(room_name):
                     "height": 15,
                     "gridSize": 64,
                     "backgroundImage": None
+                },
+                # ★ 追加: キャラクター所有権マップ
+                "character_owners": {},
+                # ★ 追加: マッチ状態管理
+                "active_match": {
+                    "is_active": False,
+                    "match_type": None,
+                    "attacker_id": None,
+                    "defender_id": None,
+                    "targets": [],
+                    "attacker_data": {},
+                    "defender_data": {},
                 }
             }
             active_room_states[room_name] = state
+
+    # ★ 追加: 既存ルームで character_owners や active_match がない場合は初期化
+    if 'character_owners' not in state:
+        state['character_owners'] = {}
+    if 'active_match' not in state:
+        state['active_match'] = {
+            "is_active": False,
+            "match_type": None,
+            "attacker_id": None,
+            "defender_id": None,
+            "targets": [],
+            "attacker_data": {},
+            "defender_data": {},
+        }
+
 
     try:
         room_db = Room.query.filter_by(name=room_name).first()
@@ -87,6 +114,30 @@ def broadcast_user_list(room_name):
 
 def get_user_info_from_sid(sid):
     return user_sids.get(sid, {"username": "System", "attribute": "System"})
+
+# ★ 追加: 権限管理関数
+def is_authorized_for_character(room_name, char_id, username, attribute):
+    """
+    ユーザーが指定キャラクターを操作する権限があるかチェック
+    GMまたはキャラクターの所有者であればTrue
+    """
+    # GMは常に権限あり
+    if attribute == 'GM':
+        return True
+
+    # 所有者チェック
+    state = get_room_state(room_name)
+    owners = state.get('character_owners', {})
+    return owners.get(char_id) == username
+
+def set_character_owner(room_name, char_id, username):
+    """キャラクターの所有者を設定"""
+    state = get_room_state(room_name)
+    if 'character_owners' not in state:
+        state['character_owners'] = {}
+    state['character_owners'][char_id] = username
+    save_specific_room_state(room_name)
+
 
 def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_delete=False, username="System"):
     old_value = None

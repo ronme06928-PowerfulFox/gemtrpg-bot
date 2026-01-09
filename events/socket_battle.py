@@ -97,6 +97,18 @@ def handle_skill_declaration(data):
         }, to=request.sid)
         return
 
+    # ★ 追加: 権限チェック - GMまたは所有者のみがスキル宣言可能
+    from manager.room_manager import is_authorized_for_character
+    if not is_authorized_for_character(room, actor_id, username, user_info.get("attribute", "Player")):
+        print(f"⚠️ Security: Player {username} tried to declare skill for character {original_actor_char['name']} without permission.")
+        socketio.emit('skill_declaration_result', {
+            "prefix": data.get('prefix'),
+            "final_command": "エラー: このキャラクターのスキルを使用する権限がありません",
+            "min_damage": 0, "max_damage": 0, "error": True
+        }, to=request.sid)
+        return
+
+
     # ★重要: 計算はすべて「複製データ(Sim)」で行う
     actor_char = copy.deepcopy(original_actor_char)
     target_char = copy.deepcopy(original_target_char) if original_target_char else None
@@ -1391,14 +1403,17 @@ def handle_wide_match(data):
 
 @socketio.on('request_move_token')
 def handle_move_token(data):
-    """
-    トークンの移動リクエストを処理する
-    data = { 'room': room_name, 'charId': id, 'x': int, 'y': int }
-    """
+    """キャラクタートークンを移動させる（ピクセル座標で管理）"""
     room_name = data.get('room')
     char_id = data.get('charId')
     target_x = data.get('x')
     target_y = data.get('y')
+
+    # ★ 追加: 権限チェック
+    from flask import request
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
 
     # ルームデータの取得
     state = get_room_state(room_name)
@@ -1409,15 +1424,132 @@ def handle_move_token(data):
     target_char = next((c for c in state["characters"] if c.get('id') == char_id), None)
 
     if target_char:
+        # ★ 追加: 権限チェック - GMまたは所有者のみ移動可能
+        from manager.room_manager import is_authorized_for_character
+        if not is_authorized_for_character(room_name, char_id, username, attribute):
+            print(f"⚠️ Security: Player {username} tried to move character {target_char['name']} without permission.")
+            socketio.emit('move_denied', {
+                'message': 'このキャラクターを移動する権限がありません。'
+            }, to=request.sid)
+            return
+
         # 座標更新 (データがなければ新規作成される)
         target_char["x"] = int(target_x)
         target_char["y"] = int(target_y)
 
         # ログ出力 (デバッグ用)
-        print(f"[MOVE] Room:{room_name}, Char:{target_char['name']} -> ({target_x}, {target_y})")
+        print(f"[MOVE] Room:{room_name}, Char:{target_char['name']} -> ({target_x}, {target_y}) by {username}")
 
         # 保存
         save_specific_room_state(room_name)
 
         # 全員に更新を通知
         broadcast_state_update(room_name)
+
+# ============================================================
+# マッチモーダル同期機能
+# ============================================================
+
+@socketio.on('open_match_modal')
+def handle_open_match_modal(data):
+    """
+    マッチモーダルを開催し、全員に通知
+    """
+    room = data.get('room')
+    if not room:
+        return
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+
+    match_type = data.get('match_type')  # 'duel' or 'wide'
+    attacker_id = data.get('attacker_id')
+    defender_id = data.get('defender_id')  # duelの場合のみ
+    targets = data.get('targets', [])  # wideの場合のみ
+
+    state = get_room_state(room)
+
+    # マッチ状態を更新
+    state['active_match'] = {
+        'is_active': True,
+        'match_type': match_type,
+        'attacker_id': attacker_id,
+        'defender_id': defender_id,
+        'targets': targets,
+        'attacker_data': {},
+        'defender_data': {},
+        'opened_by': username
+    }
+
+    save_specific_room_state(room)
+
+    # 全員にマッチモーダル開催を通知
+    socketio.emit('match_modal_opened', {
+        'match_type': match_type,
+        'attacker_id': attacker_id,
+        'defender_id': defender_id,
+        'targets': targets
+    }, to=room)
+
+    print(f"[MATCH] {username} opened {match_type} match modal in room {room}")
+
+@socketio.on('sync_match_data')
+def handle_sync_match_data(data):
+    """
+    マッチデータを同期（スキル選択、計算結果など）
+    """
+    room = data.get('room')
+    if not room:
+        return
+
+    side = data.get('side')  # 'attacker' or 'defender'
+    match_data = data.get('data')
+
+    state = get_room_state(room)
+
+    if not state.get('active_match', {}).get('is_active'):
+        return
+
+    # データを更新
+    if side == 'attacker':
+        state['active_match']['attacker_data'] = match_data
+    elif side == 'defender':
+        state['active_match']['defender_data'] = match_data
+
+    save_specific_room_state(room)
+
+    # 全員にデータ同期を通知
+    socketio.emit('match_data_updated', {
+        'side': side,
+        'data': match_data
+    }, to=room)
+
+@socketio.on('close_match_modal')
+def handle_close_match_modal(data):
+    """
+    マッチモーダルを終了（マッチ完了時）
+    """
+    room = data.get('room')
+    if not room:
+        return
+
+    state = get_room_state(room)
+
+    # マッチ状態をリセット
+    state['active_match'] = {
+        'is_active': False,
+        'match_type': None,
+        'attacker_id': None,
+        'defender_id': None,
+        'targets': [],
+        'attacker_data': {},
+        'defender_data': {},
+    }
+
+    save_specific_room_state(room)
+
+    # 全員にモーダル終了を通知
+    socketio.emit('match_modal_closed', {}, to=room)
+
+    print(f"[MATCH] Match modal closed in room {room}")

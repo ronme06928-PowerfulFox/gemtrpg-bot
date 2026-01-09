@@ -468,21 +468,11 @@ function initializeTimelineToggle() {
 
 // --- サイドバー ---
 function setupVisualSidebarControls() {
-    const nextBtn = document.getElementById('visual-next-turn-btn');
     const startRBtn = document.getElementById('visual-round-start-btn');
     const endRBtn = document.getElementById('visual-round-end-btn');
 
-    if (nextBtn) {
-        const newBtn = nextBtn.cloneNode(true);
-        nextBtn.parentNode.replaceChild(newBtn, nextBtn);
-        newBtn.addEventListener('click', () => {
-            if (confirm("手番を終了して次に回しますか？")) {
-                socket.emit('request_next_turn', { room: currentRoomName });
-            }
-        });
-    }
-
     // 広域予約ボタンは削除（ラウンド開始時に自動表示されるため不要）
+
 
     if (currentUserAttribute === 'GM') {
         if (startRBtn) {
@@ -1365,12 +1355,36 @@ function openDuelModal(attackerId, defenderId, isOneSided = false) {
     const attacker = battleState.characters.find(c => c.id === attackerId);
     const defender = battleState.characters.find(c => c.id === defenderId);
     if (!attacker || !defender) return;
+
     duelState = {
         attackerId, defenderId,
         attackerLocked: false, defenderLocked: false,
         isOneSided: false,
         attackerCommand: null, defenderCommand: null
     };
+
+    // ★ 追加: マッチ開催フラグを設定
+    if (!battleState.active_match) {
+        battleState.active_match = {
+            is_active: false,
+            match_type: 'duel',
+            attacker_id: null,
+            defender_id: null,
+            targets: [],
+            attacker_data: {},
+            defender_data: {}
+        };
+    }
+    battleState.active_match.is_active = true;
+    battleState.active_match.match_type = 'duel';
+    battleState.active_match.attacker_id = attackerId;
+    battleState.active_match.defender_id = defenderId;
+
+    // アイコンの状態を更新
+    if (typeof updateActionDock === 'function') {
+        updateActionDock();
+    }
+
     resetDuelUI();
     duelState.isOneSided = isOneSided;
     document.getElementById('duel-attacker-name').textContent = attacker.name;
@@ -1409,7 +1423,19 @@ function openDuelModal(attackerId, defenderId, isOneSided = false) {
     document.getElementById('duel-modal-backdrop').style.display = 'flex';
 }
 
-function closeDuelModal() { document.getElementById('duel-modal-backdrop').style.display = 'none'; }
+function closeDuelModal() {
+    document.getElementById('duel-modal-backdrop').style.display = 'none';
+
+    // ★ 追加: マッチ終了フラグを設定
+    if (battleState.active_match) {
+        battleState.active_match.is_active = false;
+    }
+
+    // アイコンの状態を更新
+    if (typeof updateActionDock === 'function') {
+        updateActionDock();
+    }
+}
 
 // --- 修正: resetDuelUI 関数 ---
 function resetDuelUI() {
@@ -1483,7 +1509,35 @@ function populateCharSkillSelect(char, elementId) {
 }
 
 function setupDuelListeners() {
-    document.getElementById('duel-cancel-btn').onclick = closeDuelModal;
+    const minimizeBtn = document.getElementById('duel-minimize-btn');
+
+    // マッチ開催状態を確認して最小化ボタンの表示を制御
+    if (minimizeBtn) {
+        const isMatchActive = battleState && battleState.active_match && battleState.active_match.is_active;
+
+        if (isMatchActive) {
+            // マッチ開催中は最小化可能
+            minimizeBtn.style.display = 'inline-block';
+            minimizeBtn.textContent = '最小化 (Minimize)';
+            minimizeBtn.onclick = () => {
+                const modal = document.getElementById('duel-modal-backdrop');
+                if (modal) {
+                    modal.style.display = 'none';
+                    const matchIcon = document.getElementById('dock-match-icon');
+                    if (matchIcon) {
+                        matchIcon.classList.add('minimized');
+                    }
+                }
+            };
+        } else {
+            // マッチ未開催時はキャンセルとして機能
+            minimizeBtn.style.display = 'inline-block';
+            minimizeBtn.textContent = 'キャンセル (Cancel)';
+            minimizeBtn.onclick = closeDuelModal;
+        }
+    }
+
+    document.getElementById('duel-attacker-calc-btn').onclick = () => sendSkillDeclaration('attacker', false);
     document.getElementById('duel-attacker-calc-btn').onclick = () => sendSkillDeclaration('attacker', false);
     document.getElementById('duel-defender-calc-btn').onclick = () => sendSkillDeclaration('defender', false);
     document.getElementById('duel-attacker-declare-btn').onclick = () => {
@@ -1600,11 +1654,20 @@ function executeMatch() {
             actorNameA: attackerName, actorNameD: defenderName,
             commandA: stripTags(duelState.attackerCommand),
             commandD: stripTags(duelState.defenderCommand),
-            senritsuPenaltyA: 0, senritsuPenaltyD: 0
+            senritsuPenaltyA: parseInt(document.getElementById('duel-attacker-preview')?.dataset?.senritsuPenalty || 0),
+            senritsuPenaltyD: parseInt(document.getElementById('duel-defender-preview')?.dataset?.senritsuPenalty || 0)
         });
-        closeDuelModal();
-        setTimeout(() => { socket.emit('request_next_turn', { room: currentRoomName }); }, 1000);
-    }, 500);
+
+        // マッチ完了後、モーダルを閉じる
+        setTimeout(() => {
+            closeDuelModal();
+        }, 500);
+
+        // 手番を更新
+        setTimeout(() => {
+            socket.emit('request_next_turn', { room: currentRoomName });
+        }, 1000);
+    }, 300);
 }
 
 // --- 広域宣言モーダル (Visual版) ---

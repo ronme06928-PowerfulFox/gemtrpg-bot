@@ -18,7 +18,7 @@ function hasImmediateSkill(char) {
 // アクションドックの更新関数
 function updateActionDock() {
     const immediateIcon = document.getElementById('dock-immediate-icon');
-    const wideIcon = document.getElementById('dock-wide-icon');
+    const matchIcon = document.getElementById('dock-match-icon');
     const stagingIcon = document.getElementById('dock-staging-icon');
 
     if (!immediateIcon) return;
@@ -51,13 +51,15 @@ function updateActionDock() {
         immediateIcon.classList.add('disabled');
     }
 
-    // 広域アイコンの表示/非表示
-    if (wideIcon) {
-        // 広域マッチが進行中かどうかを判定
-        if (typeof visualWideState !== 'undefined' && visualWideState.isDeclared) {
-            wideIcon.style.display = 'flex';
+    // マッチアイコンの状態表示
+    if (matchIcon) {
+        // マッチが開催中の時のみアイコンを表示
+        if (battleState.active_match && battleState.active_match.is_active) {
+            matchIcon.style.display = 'flex';
+            matchIcon.classList.add('active');
         } else {
-            wideIcon.style.display = 'none';
+            matchIcon.style.display = 'none';
+            matchIcon.classList.remove('active');
         }
     }
 
@@ -275,9 +277,9 @@ function initializeActionDock() {
 
 
     const immediateIcon = document.getElementById('dock-immediate-icon');
-    const addCharIcon = document.getElementById('dock-add-char-icon'); // 追加
+    const addCharIcon = document.getElementById('dock-add-char-icon');
     const stagingIcon = document.getElementById('dock-staging-icon');
-    const wideIcon = document.getElementById('dock-wide-icon');
+    const matchIcon = document.getElementById('dock-match-icon');
 
     if (!immediateIcon) {
         console.error('dock-immediate-icon not found in DOM');
@@ -286,43 +288,38 @@ function initializeActionDock() {
 
     // 即時発動アイコンのクリックイベント
     immediateIcon.onclick = function (e) {
-
         openImmediateSkillModal();
     };
 
-    console.log('✅ Click event registered!');
-
-    console.log('✅ Click event registered!');
+    console.log('✅ Immediate icon click event registered!');
 
     // キャラ追加アイコンのクリックイベント
     if (addCharIcon) {
-        // テキストバトルフィールドと同じJSON読込/デバッグ生成モーダルを使用
         if (typeof openCharLoadModal === 'function') {
             addCharIcon.onclick = openCharLoadModal;
         } else {
             console.warn("openCharLoadModal is not defined.");
         }
-
     }
 
     // 未配置エリアアイコンのクリックイベント
     if (stagingIcon) {
         stagingIcon.onclick = toggleStagingAreaOverlay;
-
     }
 
-    // 広域戦闘アイコンのクリックイベント
-    if (wideIcon) {
-        wideIcon.onclick = () => {
-            const wideModal = document.getElementById('visual-wide-match-modal');
-            if (wideModal) {
-                if (wideModal.style.display === 'none') {
-                    wideModal.style.display = 'block';
-                    wideIcon.classList.remove('minimized');
-                } else {
-                    wideModal.style.display = 'none';
-                    wideIcon.classList.add('minimized');
+    // マッチアイコンのクリックイベント
+    if (matchIcon) {
+        matchIcon.onclick = () => {
+            const duelModal = document.getElementById('duel-modal-backdrop');
+            if (duelModal) {
+                // 最小化されている、または非表示の場合は再表示
+                if (matchIcon.classList.contains('minimized') ||
+                    duelModal.style.display === 'none' ||
+                    !duelModal.style.display) {
+                    duelModal.style.display = 'flex';
+                    matchIcon.classList.remove('minimized');
                 }
+                // 既に表示されている場合は何もしない（最小化は別ボタン）
             }
         };
     }
