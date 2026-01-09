@@ -1,4 +1,4 @@
-/* === åºƒç¯„å›²æ”»æ’ƒUIç”¨ã‚¹ã‚¿ã‚¤ãƒ« === */
+ï»¿/* === åºƒç¯„å›²æ”»æ’ƒUIç”¨ã‚¹ã‚¿ã‚¤ãƒ« === */
 .wide-attack-trigger-btn {
     position: absolute;
     top: -35px;
@@ -160,25 +160,25 @@
     font-size: 0.85em;
     display: inline-block;
 }
-/* === C³: ƒXƒLƒ‹Ú×ƒTƒCƒhƒo[ (í•\¦ŒÅ’è•) === */
+/* === ï¿½Cï¿½ï¿½: ï¿½Xï¿½Lï¿½ï¿½ï¿½Ú×ƒTï¿½Cï¿½hï¿½oï¿½[ (ï¿½íï¿½\ï¿½ï¿½ï¿½Å’è•) === */
 .skill-detail-sidebar {
     width: 280px;
     flex: 0 0 280px;
-    /* k‚Ü‚È‚¢‚æ‚¤‚ÉŒÅ’è */
+    /* ï¿½kï¿½Ü‚È‚ï¿½ï¿½æ‚¤ï¿½ÉŒÅ’ï¿½ */
     opacity: 1;
-    /* Å‰‚©‚ç•\¦ */
+    /* ï¿½Åï¿½ï¿½ï¿½ï¿½ï¿½\ï¿½ï¿½ */
     padding: 15px;
-    /* Å‰‚©‚ç—]”’Šm•Û */
+    /* ï¿½Åï¿½ï¿½ï¿½ï¿½ï¿½]ï¿½ï¿½ï¿½mï¿½ï¿½ */
 
     background: #fdfdfd;
     color: #333;
     border-radius: 8px;
     font-size: 0.9em;
     border: 1px solid #ccc;
-    /* Å‰‚©‚ç˜gü‚ğ•\¦ */
+    /* ï¿½Åï¿½ï¿½ï¿½ï¿½ï¿½gï¿½ï¿½ï¿½ï¿½\ï¿½ï¿½ */
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 
-    /* ƒeƒLƒXƒgÜ‚è•Ô‚µİ’è */
+    /* ï¿½eï¿½Lï¿½Xï¿½gï¿½Ü‚ï¿½Ô‚ï¿½ï¿½İ’ï¿½ */
     white-space: normal;
     word-break: break-all;
     overflow-wrap: break-word;
@@ -186,53 +186,53 @@
     display: flex;
     flex-direction: column;
 
-    /* ’†g‚ª‚È‚¢‚Ì‚‚³Šm•Û */
+    /* ï¿½ï¿½ï¿½gï¿½ï¿½ï¿½È‚ï¿½ï¿½ï¿½ï¿½Ìï¿½ï¿½ï¿½ï¿½mï¿½ï¿½ */
     min-height: 200px;
 }
 
-/* ¶‘¤ƒpƒlƒ‹‚ÌƒXƒ^ƒCƒ‹’²® */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½pï¿½lï¿½ï¿½ï¿½ÌƒXï¿½^ï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 .skill-detail-sidebar.left {
     order: -1;
-    /* Flexbox‚Ìæ“ª‚É”z’u */
+    /* Flexboxï¿½Ìæ“ªï¿½É”zï¿½u */
     margin-right: 10px;
 }
 
-/* ‰E‘¤ƒpƒlƒ‹‚ÌƒXƒ^ƒCƒ‹’²® */
+/* ï¿½Eï¿½ï¿½ï¿½pï¿½lï¿½ï¿½ï¿½ÌƒXï¿½^ï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 .skill-detail-sidebar.right {
     order: 10;
-    /* Flexbox‚Ì––”ö‚É”z’u */
+    /* Flexboxï¿½Ì–ï¿½ï¿½ï¿½ï¿½É”zï¿½u */
     margin-left: 10px;
 }
 
-/* ƒTƒCƒhƒo[“à‚Ìƒwƒbƒ_[’²® */
+/* ï¿½Tï¿½Cï¿½hï¿½oï¿½[ï¿½ï¿½Ìƒwï¿½bï¿½_ï¿½[ï¿½ï¿½ï¿½ï¿½ */
 .skill-detail-sidebar .skill-detail-header {
     border-bottom: 2px solid #007bff;
     margin-bottom: 10px;
     padding-bottom: 5px;
 }
 
-/* ƒTƒCƒhƒo[“à‚Ì€–Ú */
+/* ï¿½Tï¿½Cï¿½hï¿½oï¿½[ï¿½ï¿½Ìï¿½ï¿½ï¿½ */
 .skill-detail-sidebar .skill-desc-section {
     margin-bottom: 8px;
     line-height: 1.5;
 }
 
 
-/* ƒrƒWƒ…ƒAƒ‹ƒoƒgƒ‹ƒtƒB[ƒ‹ƒh‚Ì‘ÎŒˆƒ‚[ƒ_ƒ‹‚ÌƒŒƒCƒAƒEƒg */
+/* ï¿½rï¿½Wï¿½ï¿½ï¿½Aï¿½ï¿½ï¿½oï¿½gï¿½ï¿½ï¿½tï¿½Bï¿½[ï¿½ï¿½ï¿½hï¿½Ì‘ÎŒï¿½ï¿½ï¿½ï¿½[ï¿½_ï¿½ï¿½ï¿½Ìƒï¿½ï¿½Cï¿½Aï¿½Eï¿½g */
 .duel-modal-content.resizable-modal {
     width: auto;
-    /* ŒÅ’è•‚ğ‰ğœ */
+    /* ï¿½Å’è•ï¿½ï¿½ï¿½ï¿½ */
     min-width: 800px;
-    /* Å¬•‚ğŠm•Û */
+    /* ï¿½Åï¿½ï¿½ï¿½ï¿½ï¿½mï¿½ï¿½ */
     max-width: 95vw;
-    /* ‰æ–Ê‚©‚ç‚Í‚İo‚³‚È‚¢ */
+    /* ï¿½ï¿½Ê‚ï¿½ï¿½ï¿½Í‚İoï¿½ï¿½ï¿½È‚ï¿½ */
     background: #2c3e50;
     color: white;
     padding: 20px;
     transition: width 0.3s ease;
-    /* ƒ‚[ƒ_ƒ‹©‘Ì‚ÌLk‚à‚È‚ß‚ç‚©‚É */
+    /* ï¿½ï¿½ï¿½[ï¿½_ï¿½ï¿½ï¿½ï¿½ï¿½Ì‚ÌLï¿½kï¿½ï¿½È‚ß‚ç‚©ï¿½ï¿½ */
     display: flex;
-    /* ƒtƒŒƒbƒNƒX‚É‚µ‚Ä’†g‚ğ’†S‚É */
+    /* ï¿½tï¿½ï¿½ï¿½bï¿½Nï¿½Xï¿½É‚ï¿½ï¿½Ä’ï¿½ï¿½gï¿½ğ’†Sï¿½ï¿½ */
     flex-direction: column;
 }
 
@@ -246,22 +246,23 @@
 .duel-container {
     display: flex;
     justify-content: center;
-    /* ’†‰›‘µ‚¦ */
+    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     align-items: flex-start;
-    /* ã‘µ‚¦ */
+    /* ï¿½ã‘µï¿½ï¿½ */
     gap: 10px;
-    /* ŠeƒJƒ‰ƒ€ŠÔ‚ÌŒ„ŠÔ */
+    /* ï¿½eï¿½Jï¿½ï¿½ï¿½ï¿½ï¿½Ô‚ÌŒï¿½ï¿½ï¿½ */
     margin: 20px 0;
 }
 
 .duel-side {
-    flex: 0 0 300px;
-    /* •‚ğŒÅ’è (ƒŒƒCƒAƒEƒg•ö‚ê–h~) */
+    width: 300px; flex-shrink: 0;
+    /* ï¿½ï¿½ï¿½ï¿½Å’ï¿½ (ï¿½ï¿½ï¿½Cï¿½Aï¿½Eï¿½gï¿½ï¿½ï¿½ï¿½hï¿½~) */
     background: rgba(255, 255, 255, 0.1);
     padding: 15px;
     border-radius: 8px;
     display: flex;
     flex-direction: column;
+    min-height: 320px;  /* Ensure consistent height */
     gap: 10px;
 }
 
@@ -434,4 +435,55 @@
     color: #ccc;
     font-size: 0.9em;
 }
+
+
+/* Duel Modal Status Icons */
+.duel-status-icons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+    margin-top: 8px;
+    min-height: 24px;
+}
+
+.duel-status-icon {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    background-color: #fff;
+    border: 2px solid #555;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.duel-status-icon img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+}
+
+.duel-status-badge {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    background-color: #dc3545;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 8px;
+    min-width: 16px;
+    text-align: center;
+}
+
+/* Wrapper for card + status icons */
+.duel-card-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
 

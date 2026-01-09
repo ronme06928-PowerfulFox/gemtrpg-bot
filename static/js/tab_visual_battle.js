@@ -1335,7 +1335,33 @@ function selectVisualToken(charId) {
     if (token) token.classList.add('selected');
 }
 
-function openDuelModal(attackerId, defenderId) {
+/**
+ * キャラクターのステータスアイコンHTMLを生成
+ * @param {Object} char - キャラクター情報
+ * @param {Array} [char.states] - ステータス効果の配列
+ * @returns {string} ステータスアイコンのHTML
+ */
+function generateStatusIconsHTML(char) {
+    if (!char.states) return '';
+
+    let iconsHtml = '';
+    char.states.forEach(s => {
+        if (['HP', 'MP', 'FP'].includes(s.name)) return;
+        if (s.value === 0) return;
+
+        const config = STATUS_CONFIG[s.name];
+        if (config) {
+            iconsHtml += `
+                <div class="duel-status-icon">
+                    <img src="images/${config.icon}" alt="${s.name}">
+                    <div class="duel-status-badge" style="background-color: ${config.color};">${s.value}</div>
+                </div>`;
+        }
+    });
+    return iconsHtml;
+}
+
+function openDuelModal(attackerId, defenderId, isOneSided = false) {
     const attacker = battleState.characters.find(c => c.id === attackerId);
     const defender = battleState.characters.find(c => c.id === defenderId);
     if (!attacker || !defender) return;
@@ -1346,9 +1372,17 @@ function openDuelModal(attackerId, defenderId) {
         attackerCommand: null, defenderCommand: null
     };
     resetDuelUI();
+    duelState.isOneSided = isOneSided;
     document.getElementById('duel-attacker-name').textContent = attacker.name;
-    document.getElementById('duel-defender-name').textContent = defender.name;
+    document.getElementById('duel-attacker-status').innerHTML = generateStatusIconsHTML(attacker);
     populateCharSkillSelect(attacker, 'duel-attacker-skill');
+    if (isOneSided) {
+        document.getElementById('duel-defender-name').textContent = `${defender.name} (行動済み)`;
+        document.getElementById('duel-defender-status').innerHTML = generateStatusIconsHTML(defender);
+    } else {
+        document.getElementById('duel-defender-name').textContent = defender.name;
+        document.getElementById('duel-defender-status').innerHTML = generateStatusIconsHTML(defender);
+    }
 
     const isDefenderWideUser = defender.isWideUser;
     const hasReEvasion = defender.special_buffs && defender.special_buffs.some(b => b.name === '再回避ロック');
@@ -1420,29 +1454,31 @@ function populateCharSkillSelect(char, elementId) {
     }
     let count = 0;
     const commandsStr = char.commands || "";
+    const selectEl = document.getElementById(elementId);
+    if (!selectEl || !char.commands) return;
+    selectEl.innerHTML = '';
     const regex = /【(.*?)\s+(.*?)】/g;
     let match;
-    while ((match = regex.exec(commandsStr)) !== null) {
+    while ((match = regex.exec(char.commands)) !== null) {
         const skillId = match[1];
         const skillName = match[2];
-        if (window.allSkillData && window.allSkillData[skillId]) {
-            // ★ フィルタリング: 即時発動スキルを除外（通常マッチでは使用不可）
-            const skillData = window.allSkillData[skillId];
-            if (skillData.tags && skillData.tags.includes('即時発動')) {
-                continue; // スキップ
-            }
 
-            const opt = document.createElement('option');
-            opt.value = skillId;
-            opt.text = `${skillId}: ${skillName}`;
-            select.appendChild(opt);
-            count++;
+        // 広域スキルは通常のデュエルモーダルでは除外
+        const skillData = window.allSkillData ? window.allSkillData[skillId] : null;
+        if (skillData && isWideSkillData(skillData)) {
+            continue; // Skip wide-area skills
         }
+
+        const option = document.createElement('option');
+        option.value = skillId;
+        option.textContent = `${skillId}: ${skillName}`;
+        selectEl.appendChild(option);
     }
-    if (count === 0) {
-        const opt = document.createElement('option');
-        opt.value = ""; opt.text = "(有効なスキルがありません)";
-        select.appendChild(opt);
+    if (selectEl.options.length === 0) {
+        const placeholder = document.createElement('option');
+        placeholder.textContent = '(スキルなし)';
+        placeholder.disabled = true;
+        selectEl.appendChild(placeholder);
     }
 }
 

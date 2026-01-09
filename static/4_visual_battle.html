@@ -99,21 +99,26 @@
         <div class="duel-container">
             <div id="duel-attacker-skill-desc" class="skill-detail-sidebar left"></div>
 
-            <div class="duel-side attacker" id="duel-side-attacker">
-                <h4 class="side-title">Attacker (攻)</h4>
-                <div class="duel-char-name" id="duel-attacker-name">Character A</div>
-                <div class="duel-form-group">
-                    <label>Skill:</label>
-                    <select id="duel-attacker-skill" class="duel-select"></select>
+            <!-- Attacker Section -->
+            <div class="duel-card-wrapper">
+                <div class="duel-side attacker" id="duel-side-attacker">
+                    <h4 class="side-title">Attacker (攻)</h4>
+                    <div class="duel-char-name" id="duel-attacker-name">Character A</div>
+                    <div class="duel-form-group">
+                        <label>Skill:</label>
+                        <select id="duel-attacker-skill" class="duel-select"></select>
+                    </div>
+                    <div class="duel-control-btns">
+                        <button id="duel-attacker-calc-btn" class="duel-btn calc">Calculate</button>
+                        <button id="duel-attacker-declare-btn" class="duel-btn declare" disabled>Declare</button>
+                    </div>
+                    <div class="duel-preview-area" id="duel-attacker-preview">
+                        <div class="preview-command">---</div>
+                        <div class="preview-damage">---</div>
+                    </div>
                 </div>
-                <div class="duel-control-btns">
-                    <button id="duel-attacker-calc-btn" class="duel-btn calc">Calculate</button>
-                    <button id="duel-attacker-declare-btn" class="duel-btn declare" disabled>Declare</button>
-                </div>
-                <div class="duel-preview-area" id="duel-attacker-preview">
-                    <div class="preview-command">---</div>
-                    <div class="preview-damage">---</div>
-                </div>
+                <!-- Status icons below attacker card -->
+                <div class="duel-status-icons" id="duel-attacker-status"></div>
             </div>
 
             <div class="duel-center-info">
@@ -121,27 +126,32 @@
                 <div id="duel-status-message" class="duel-status">Setup Phase</div>
             </div>
 
-            <div class="duel-side defender" id="duel-side-defender">
-                <h4 class="side-title">Defender (防)</h4>
-                <div class="duel-char-name" id="duel-defender-name">Character B</div>
-                <div id="duel-defender-controls">
-                    <div class="duel-form-group">
-                        <label>Skill:</label>
-                        <select id="duel-defender-skill" class="duel-select"></select>
+            <!-- Defender Section -->
+            <div class="duel-card-wrapper">
+                <div class="duel-side defender" id="duel-side-defender">
+                    <h4 class="side-title">Defender (防)</h4>
+                    <div class="duel-char-name" id="duel-defender-name">Character B</div>
+                    <div id="duel-defender-controls">
+                        <div class="duel-form-group">
+                            <label>Skill:</label>
+                            <select id="duel-defender-skill" class="duel-select"></select>
+                        </div>
+                        <div class="duel-control-btns">
+                            <button id="duel-defender-calc-btn" class="duel-btn calc">Calculate</button>
+                            <button id="duel-defender-declare-btn" class="duel-btn declare" disabled>Declare</button>
+                        </div>
                     </div>
-                    <div class="duel-control-btns">
-                        <button id="duel-defender-calc-btn" class="duel-btn calc">Calculate</button>
-                        <button id="duel-defender-declare-btn" class="duel-btn declare" disabled>Declare</button>
+                    <div id="duel-defender-lock-msg"
+                        style="display: none; color: #ff6b6b; font-weight: bold; margin: 20px 0;">
+                        ⚠ 行動済みのため防御不可<br>(一方攻撃)
+                    </div>
+                    <div class="duel-preview-area" id="duel-defender-preview">
+                        <div class="preview-command">---</div>
+                        <div class="preview-damage">---</div>
                     </div>
                 </div>
-                <div id="duel-defender-lock-msg"
-                    style="display: none; color: #ff6b6b; font-weight: bold; margin: 20px 0;">
-                    ⚠ 行動済みのため防御不可<br>(一方攻撃)
-                </div>
-                <div class="duel-preview-area" id="duel-defender-preview">
-                    <div class="preview-command">---</div>
-                    <div class="preview-damage">---</div>
-                </div>
+                <!-- Status icons below defender card -->
+                <div class="duel-status-icons" id="duel-defender-status"></div>
             </div>
 
             <div id="duel-defender-skill-desc" class="skill-detail-sidebar right"></div>
