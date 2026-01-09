@@ -11,7 +11,7 @@ async function fetchSkillMetadata() {
         const response = await fetchWithSession('/api/get_skill_metadata');
         if (response.ok) {
             globalSkillMetadata = await response.json();
-            console.log("Skill metadata loaded:", Object.keys(globalSkillMetadata).length);
+
         }
     } catch (e) {
         console.warn("Failed to load skill metadata:", e);
@@ -53,8 +53,8 @@ function loadCharacterFromJSON(type, jsonString, resultElement) {
             gmOnly: (currentUserAttribute === 'GM')
         };
         socket.emit('request_add_character', {
-             room: currentRoomName,
-             charData: newCharacter
+            room: currentRoomName,
+            charData: newCharacter
         });
         resultElement.textContent = `読込成功: ${name} を ${type === 'ally' ? '味方' : '敵'}として追加リクエスト`;
         resultElement.style.color = 'green';
@@ -117,7 +117,7 @@ function appendLogLineToElement(container, logData, filterType) {
 
     // チャットの場合の装飾
     if (logData.type === 'chat' && !logData.secret) {
-         logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
+        logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
     } else {
         logLine.innerHTML = displayMessage;
     }
@@ -487,7 +487,7 @@ function setupActionColumn(prefix) {
         powerDisplay.style.fontWeight = "normal";
         commandDisplay.style.borderColor = "";
 
-        if(previewBox) {
+        if (previewBox) {
             previewBox.innerHTML = '';
             previewBox.style.display = 'none';
         }
@@ -551,8 +551,8 @@ function setupActionColumn(prefix) {
                             wideMode = 'individual';
                         }
                         else if ((cat.includes('広域') && cat.includes('合算')) ||
-                                 (dist.includes('広域') && dist.includes('合算')) ||
-                                 tags.includes('広域-合算')) {
+                            (dist.includes('広域') && dist.includes('合算')) ||
+                            tags.includes('広域-合算')) {
                             wideMode = 'combined';
                         }
 
@@ -1076,7 +1076,7 @@ function setupBattlefieldTab() {
                 document.getElementById(`command-display-${prefix}`).value = "[コマンドプレビュー]";
                 document.getElementById(`hidden-command-${prefix}`).value = "";
                 const pb = document.getElementById(`skill-preview-${prefix}`);
-                if(pb) pb.style.display = 'none';
+                if (pb) pb.style.display = 'none';
             });
         });
     }
@@ -1133,13 +1133,13 @@ function setupBattlefieldTab() {
     const gmResetBtn = document.getElementById('gm-reset-action-btn');
 
     if (currentUserAttribute === 'GM') {
-        if(battleStartBtn) battleStartBtn.style.display = 'inline-block';
-        if(combatNextBtn) combatNextBtn.style.display = 'inline-block';
-        if(gmResetBtn) gmResetBtn.style.display = 'inline-block';
+        if (battleStartBtn) battleStartBtn.style.display = 'inline-block';
+        if (combatNextBtn) combatNextBtn.style.display = 'inline-block';
+        if (gmResetBtn) gmResetBtn.style.display = 'inline-block';
 
         if (roundEndBtn && !roundEndBtn.dataset.listenerAttached) {
-             roundEndBtn.dataset.listenerAttached = 'true';
-             roundEndBtn.addEventListener('click', () => {
+            roundEndBtn.dataset.listenerAttached = 'true';
+            roundEndBtn.addEventListener('click', () => {
                 const unacted = battleState.characters.filter(c => !c.hasActed);
                 if (unacted.length > 0) {
                     const names = unacted.map(c => c.name).join(', ');
@@ -1186,7 +1186,7 @@ function setupBattlefieldTab() {
                     const prefixes = ['attacker', 'defender'];
                     prefixes.forEach(prefix => {
                         const actorEl = document.getElementById(`actor-${prefix}`);
-                        if(actorEl) {
+                        if (actorEl) {
                             actorEl.value = "";
                             actorEl.disabled = (prefix === 'defender'); // defenderは元々disabled
                         }
@@ -1199,11 +1199,11 @@ function setupBattlefieldTab() {
             });
         }
     } else {
-        if(roundStartBtn) roundStartBtn.style.display = 'none';
-        if(roundEndBtn) roundEndBtn.style.display = 'none';
-        if(battleStartBtn) battleStartBtn.style.display = 'none';
-        if(combatNextBtn) combatNextBtn.style.display = 'none';
-        if(gmResetBtn) gmResetBtn.style.display = 'none';
+        if (roundStartBtn) roundStartBtn.style.display = 'none';
+        if (roundEndBtn) roundEndBtn.style.display = 'none';
+        if (battleStartBtn) battleStartBtn.style.display = 'none';
+        if (combatNextBtn) combatNextBtn.style.display = 'none';
+        if (gmResetBtn) gmResetBtn.style.display = 'none';
     }
 
     const saveBtn = document.getElementById('save-state-btn');
@@ -1241,7 +1241,7 @@ function setupBattlefieldTab() {
         leaveBtn.dataset.listenerAttached = 'true';
         leaveBtn.addEventListener('click', () => {
             if (confirm('ルーム一覧に戻りますか？')) {
-                if(socket) socket.emit('leave_room', {room: currentRoomName});
+                if (socket) socket.emit('leave_room', { room: currentRoomName });
                 currentRoomName = null;
                 showRoomPortal();
             }
@@ -1264,17 +1264,17 @@ function setupBattlefieldTab() {
     if (typeof socket !== 'undefined') {
         // A. 【状態更新リスナー】(初回のみ登録)
         if (!window.battleSocketHandlersRegistered) {
-            console.log("Registering Battle Socket Listeners (State Update - One Time)");
+
             window.battleSocketHandlersRegistered = true;
 
             socket.on('state_updated', (state) => {
                 // A. テキストバトルフィールドが表示中なら更新
                 if (document.getElementById('battlefield-grid')) {
-                    if(typeof renderTimeline === 'function') renderTimeline();
-                    if(typeof renderTokenList === 'function') renderTokenList();
+                    if (typeof renderTimeline === 'function') renderTimeline();
+                    if (typeof renderTokenList === 'function') renderTokenList();
                 }
                 if (document.getElementById('log-area')) {
-                    if(typeof renderLogHistory === 'function') renderLogHistory(state.logs);
+                    if (typeof renderLogHistory === 'function') renderLogHistory(state.logs);
                 }
 
                 // B. ビジュアルバトルフィールドが表示中なら更新
@@ -1292,7 +1292,7 @@ function setupBattlefieldTab() {
         // まず既存のリスナー（ビジュアルタブ用など）を削除して重複・競合を防止
         socket.off('skill_declaration_result');
 
-        console.log("Registering Battle Socket Listeners (Skill Result - Text Mode)");
+
         socket.on('skill_declaration_result', (data) => {
             // 1. ビジュアル側の処理 (prefixが visual_*)
             // テキストタブにいてもビジュアル用データが飛んでくる可能性に備えて残すが、
@@ -1351,7 +1351,7 @@ function setupBattlefieldTab() {
                 powerDisplay.style.borderColor = "#dc3545";
                 hiddenCommand.value = "";
                 declareBtn.disabled = true;
-                if(previewBox) previewBox.style.display = 'none';
+                if (previewBox) previewBox.style.display = 'none';
                 return;
             }
 
@@ -1397,13 +1397,13 @@ function setupBattlefieldTab() {
                     document.getElementById('declare-btn-defender').disabled = true;
                     defenderPower.style.borderColor = "#4CAF50";
                     defenderPower.style.fontWeight = "bold";
-                    if(document.getElementById('skill-preview-defender')) document.getElementById('skill-preview-defender').style.display = 'none';
+                    if (document.getElementById('skill-preview-defender')) document.getElementById('skill-preview-defender').style.display = 'none';
                 }
             }
 
             if (data.is_instant_action) {
                 const actorEl = document.getElementById('actor-attacker');
-                if(actorEl) {
+                if (actorEl) {
                     actorEl.value = "";
                     actorEl.dispatchEvent(new Event('change'));
                 }

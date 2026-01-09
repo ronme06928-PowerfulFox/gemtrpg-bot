@@ -1,11 +1,18 @@
 /* static/js/tab_visual_battle.js */
 
+// --- 定数定義 ---
+const GRID_SIZE = 90; // マスのサイズ（ピクセル）
+const FIELD_SIZE = 25; // フィールドのグリッド数（25x25）
+const MAX_FP = 15; // FP（ファイトポイント）の最大値
+const TOKEN_OFFSET = 4; // トークンの位置調整オフセット（ピクセル）
+const PERCENTAGE_MAX = 100; // パーセンテージの最大値
+const CENTER_OFFSET_X = -900; // 25x25フィールドの中央表示用（X軸）
+const CENTER_OFFSET_Y = -900; // 25x25フィールドの中央表示用（Y軸）
+
 // --- グローバル変数 ---
 let visualScale = 1.0;
-let visualOffsetX = -900; // 25x25フィールドの中央表示用（調整済み）
-let visualOffsetY = -900;
-const GRID_SIZE = 90; // 駒サイズを90pxに拡大
-const FIELD_SIZE = 25; // フィールドを25x25グリッドに拡大
+let visualOffsetX = CENTER_OFFSET_X;
+let visualOffsetY = CENTER_OFFSET_Y;
 window.currentVisualLogFilter = 'all';
 window.visualMapHandlers = window.visualMapHandlers || { move: null, up: null };
 
@@ -22,6 +29,14 @@ let attackTargetingState = {
 };
 
 // --- ヘルパー: 広域スキル判定 ---
+/**
+ * スキルデータが広域攻撃スキルかどうかを判定
+ * @param {Object} skillData - スキルデータオブジェクト
+ * @param {Array<string>} [skillData.tags] - スキルタグの配列
+ * @param {string} [skillData.分類] - スキル分類
+ * @param {string} [skillData.距離] - 攻撃距離
+ * @returns {boolean} 広域スキルの場合true
+ */
 function isWideSkillData(skillData) {
     if (!skillData) return false;
     const tags = skillData['tags'] || [];
@@ -31,6 +46,12 @@ function isWideSkillData(skillData) {
         cat.includes('広域') || dist.includes('広域'));
 }
 
+/**
+ * キャラクターが広域スキルを持っているかチェック
+ * @param {Object} char - キャラクター情報
+ * @param {string} [char.commands] - コマンド文字列
+ * @returns {boolean} 広域スキルを持つ場合true
+ */
 function hasWideSkill(char) {
     if (!window.allSkillData || !char.commands) return false;
     const regex = /【(.*?)\s+(.*?)】/g;
@@ -46,6 +67,15 @@ function hasWideSkill(char) {
 }
 
 // --- ヘルパー: 結果表示フォーマット ---
+/**
+ * 広域攻撃の計算結果を表示用にフォーマット
+ * @param {Object} data - スキル計算結果
+ * @param {boolean} [data.error] - エラーの有無
+ * @param {number} [data.min_damage] - 最小ダメージ
+ * @param {number} [data.max_damage] - 最大ダメージ
+ * @param {string} data.final_command - 最終コマンド文字列
+ * @returns {string} フォーマット済み文字列
+ */
 function formatWideResult(data) {
     if (data.error) return data.final_command || "Error";
     const min = (data.min_damage != null) ? data.min_damage : '?';
@@ -230,14 +260,19 @@ function renderVisualLogHistory(logs) {
 }
 
 // --- ★初期化関数 ---
+/**
+ * ビジュアルバトルタブの初期化
+ * Socket.IOイベントハンドラの登録、UI要素の初期化、アクションドックのセットアップを行う
+ * @async
+ * @returns {Promise<void>}
+ */
 async function setupVisualBattleTab() {
-    console.log('🎬 === setupVisualBattleTab CALLED ===');
-    console.log("Setting up Visual Battle Tab...");
+
 
     if (typeof socket !== 'undefined') {
         // 1. 重複防止: 一度だけ登録すればよいイベント (Map描画など)
         if (!window.visualBattleSocketHandlersRegistered) {
-            console.log("Registering Visual Battle Base Listeners (Map/Log)");
+
             window.visualBattleSocketHandlersRegistered = true;
 
             socket.on('state_updated', (state) => {
@@ -401,12 +436,8 @@ async function setupVisualBattleTab() {
     }
 
     // 4. アクションドックの初期化
-    console.log('📍 About to initialize Action Dock...');
-    console.log('   typeof initializeActionDock:', typeof initializeActionDock);
     if (typeof initializeActionDock === 'function') {
-        console.log('✅ Calling initializeActionDock()...');
         initializeActionDock();
-        console.log('✅ initializeActionDock() returned');
     } else {
         console.error('❌ initializeActionDock is NOT a function!');
     }
@@ -562,11 +593,21 @@ function updateVisualRoundDisplay(round) {
     if (el) el.textContent = round || 0;
 }
 
+/**
+ * マップの拡大縮小・移動変換を適用
+ * visualScale, visualOffsetX/Y の値を元にCSS transformを更新
+ * @returns {void}
+ */
 function updateMapTransform() {
     const mapEl = document.getElementById('game-map');
     if (mapEl) mapEl.style.transform = `translate(${visualOffsetX}px, ${visualOffsetY}px) scale(${visualScale})`;
 }
 
+/**
+ * ビジュアルマップの描画
+ * 全キャラクターのトークンをマップ上に配置し、現在のターンを視覚的に表示
+ * @returns {void}
+ */
 function renderVisualMap() {
     const tokenLayer = document.getElementById('map-token-layer');
     if (!tokenLayer) return;
@@ -584,6 +625,11 @@ function renderVisualMap() {
     });
 }
 
+/**
+ * マップコントロールの初期化
+ * ズームボタン、パン操作、トークンドロップなどのイベントハンドラを設定
+ * @returns {void}
+ */
 function setupMapControls() {
     const mapViewport = document.getElementById('map-viewport');
     const gameMap = document.getElementById('game-map');
@@ -697,6 +743,19 @@ function renderVisualTimeline() {
 
 // function renderStagingArea() {} // Removed
 
+/**
+ * キャラクター用のマップトークンを生成
+ * HP/MP/FPバー、ステータスアイコン、ドラッグ&ドロップ機能を持つDOM要素を作成
+ * @param {Object} char - キャラクター情報オブジェクト
+ * @param {string} char.id - キャラクターID
+ * @param {string} char.name - キャラクター名
+ * @param {number} char.x - X座標（グリッド単位）
+ * @param {number} char.y - Y座標（グリッド単位）
+ * @param {number} char.hp - 現在のHP
+ * @param {number} char.maxHp - 最大HP
+ * @param {Array} [char.states] - ステータス効果の配列
+ * @returns {HTMLElement} 生成されたトークン要素
+ */
 function createMapToken(char) {
     const token = document.createElement('div');
 
@@ -721,15 +780,15 @@ function createMapToken(char) {
 
 
     // グリッド座標をピクセル座標に変換（90px単位）
-    token.style.left = `${char.x * GRID_SIZE + 4}px`;
-    token.style.top = `${char.y * GRID_SIZE + 4}px`;
+    token.style.left = `${char.x * GRID_SIZE + TOKEN_OFFSET}px`;
+    token.style.top = `${char.y * GRID_SIZE + TOKEN_OFFSET}px`;
     const maxHp = char.maxHp || 1; const hp = char.hp || 0;
-    const hpPer = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+    const hpPer = Math.max(0, Math.min(PERCENTAGE_MAX, (hp / maxHp) * PERCENTAGE_MAX));
     const maxMp = char.maxMp || 1; const mp = char.mp || 0;
-    const mpPer = Math.max(0, Math.min(100, (mp / maxMp) * 100));
+    const mpPer = Math.max(0, Math.min(PERCENTAGE_MAX, (mp / maxMp) * PERCENTAGE_MAX));
     const fpState = char.states ? char.states.find(s => s.name === 'FP') : null;
     const fp = fpState ? fpState.value : 0;
-    const fpPer = Math.min(100, (fp / 15) * 100);
+    const fpPer = Math.min(PERCENTAGE_MAX, (fp / MAX_FP) * PERCENTAGE_MAX);
     let iconsHtml = '';
     if (char.states) {
         char.states.forEach(s => {
@@ -1082,7 +1141,7 @@ function toggleCharSettingsMenu(charId, btnElement) {
 function withdrawCharacter(charId) {
     if (!charId || !currentRoomName) return;
 
-    console.log(`Withdrawing character ${charId}`);
+
 
     // 座標 (-1, -1) に移動リクエスト
     socket.emit('request_move_character', {
@@ -1673,7 +1732,7 @@ function openVisualWideMatchModal(attackerId) {
         }
         executeBtn.disabled = true;
 
-        console.log("【送信】広域計算(1vs1流用):", skillId);
+
         // 重要: ターゲットに自分自身を指定して、TargetNotSelectedエラーを回避しつつ威力のみ計算させる
         socket.emit('request_skill_declaration', {
             room: currentRoomName,
@@ -1767,7 +1826,7 @@ function openVisualWideMatchModal(attackerId) {
 
             // 追加: 通常マッチと同様に、少し待ってからターン終了リクエストを送る
             setTimeout(() => {
-                console.log("Auto-requesting next turn after Wide Match...");
+
                 socket.emit('request_next_turn', { room: currentRoomName });
             }, 1000);
         }

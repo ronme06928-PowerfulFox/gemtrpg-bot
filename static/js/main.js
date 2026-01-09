@@ -228,7 +228,7 @@ async function deleteRoom(roomName) {
 }
 
 async function joinRoom(roomName, initialState = null) {
-    console.log(`Joining room: ${roomName}`);
+
     try {
         if (!initialState) {
             const response = await fetchWithSession(`/load_room?name=${encodeURIComponent(roomName)}`);
@@ -277,12 +277,12 @@ function updateHeaderUserInfo() {
 // --- 4. SocketIO初期化 ---
 function initializeSocketIO() {
     if (socket && socket.connected) {
-        console.log("Socket.IO is already connected.");
+
         return;
     }
     socket = io(API_BASE_URL, { withCredentials: true });
     socket.on('connect', () => {
-        console.log('✅ WebSocket サーバーに接続しました (ID:', socket.id, ')');
+
         showRoomPortal();
     });
     socket.on('disconnect', () => {
@@ -291,7 +291,7 @@ function initializeSocketIO() {
         location.reload();
     });
     socket.on('state_updated', (newState) => {
-        console.log('Received state update (for my room):', newState);
+
         battleState = newState;
         // バトルフィールドタブが開いている場合のみ再描画
         if (document.getElementById('battlefield-grid')) {
@@ -313,13 +313,13 @@ function initializeSocketIO() {
         logToBattleLog(logData);
     });
     socket.on('user_info_updated', (data) => {
-        console.log('User info updated by server:', data);
+
         currentUsername = data.username;
         currentUserAttribute = data.attribute;
         updateHeaderUserInfo();
     });
     socket.on('user_list_updated', (userList) => {
-        console.log('Received user list update:', userList);
+
         currentRoomUserList = userList;
         if (document.getElementById('user-list-modal-backdrop')) {
             openUserListModal();
@@ -401,7 +401,7 @@ async function checkSessionStatus() {
             currentUsername = data.username;
             currentUserAttribute = data.attribute;
             currentUserId = data.user_id; // ★追加: IDを保存
-            console.log('Found active session:', currentUsername);
+
             initializeSocketIO();
         }
     } catch (error) {

@@ -1,7 +1,6 @@
 // === ▼▼▼ Action Dock & Immediate Skills Functions ▼▼▼ ===
 
 // 即時発動スキル判定関数
-// 即時発動スキル判定関数
 function hasImmediateSkill(char) {
     if (!window.allSkillData || !char.commands) return false;
     const regex = /【(.*?)\s+(.*?)】/g;
@@ -273,7 +272,7 @@ function createImmediateCharRow(char) {
 
 // アクションドックの初期化（イベントリスナー設定のみ）
 function initializeActionDock() {
-    console.log('Initializing Action Dock...');
+
 
     const immediateIcon = document.getElementById('dock-immediate-icon');
     const addCharIcon = document.getElementById('dock-add-char-icon'); // 追加
@@ -287,7 +286,7 @@ function initializeActionDock() {
 
     // 即時発動アイコンのクリックイベント
     immediateIcon.onclick = function (e) {
-        console.log('🎯 ICON CLICKED!', e);
+
         openImmediateSkillModal();
     };
 
@@ -303,13 +302,13 @@ function initializeActionDock() {
         } else {
             console.warn("openCharLoadModal is not defined.");
         }
-        console.log('✅ Add Char icon click event registered');
+
     }
 
     // 未配置エリアアイコンのクリックイベント
     if (stagingIcon) {
         stagingIcon.onclick = toggleStagingAreaOverlay;
-        console.log('✅ Staging icon click event registered');
+
     }
 
     // 広域戦闘アイコンのクリックイベント
@@ -328,7 +327,7 @@ function initializeActionDock() {
         };
     }
 
-    console.log('Action Dock initialized successfully');
+
 
     // 初回更新
     updateActionDock();
@@ -340,7 +339,7 @@ function initializeActionDock() {
 
 // 未配置エリアオーバーレイの表示/非表示
 function toggleStagingAreaOverlay() {
-    console.log('📦 Toggling staging area overlay...');
+
 
     let overlay = document.getElementById('staging-overlay');
 
@@ -499,7 +498,7 @@ function renderStagingOverlayList(container) {
 // キャラクターをデフォルト位置に配置
 // キャラクターをデフォルト位置に配置
 function placeCharacterToDefaultPosition(char) {
-    console.log(`[DEBUG] placeCharacterToDefaultPosition called for ${char.name}`);
+
 
     // フィールドの中央をグリッド座標で指定（25x25の中央 = 12, 12）
     const defaultX = 12;
@@ -507,7 +506,7 @@ function placeCharacterToDefaultPosition(char) {
 
     // 空き位置を探す（グリッド座標）
     const position = findEmptyPosition(defaultX, defaultY);
-    console.log(`[DEBUG] Found empty position: (${position.x}, ${position.y})`);
+
 
     // socketオブジェクトの確認
     const socketToUse = window.socket || socket;
@@ -518,7 +517,7 @@ function placeCharacterToDefaultPosition(char) {
     }
 
     // サーバーに移動を通知（グリッド座標）
-    console.log('[DEBUG] Emitting request_move_character event...');
+
     socketToUse.emit('request_move_character', {
         room: currentRoomName,
         character_id: char.id,
@@ -526,7 +525,7 @@ function placeCharacterToDefaultPosition(char) {
         y: position.y
     });
 
-    console.log(`Placing ${char.name} at (${position.x}, ${position.y})`);
+
 }
 
 // 空き位置を探す（螺旋状に探索）
