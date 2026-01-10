@@ -33,7 +33,7 @@ class SocketClient {
 
         // 既に初期化済みの場合はスキップ
         if (this._initialized) {
-            console.log('SocketClient: Already initialized');
+            // Already initialized, skip
             return true;
         }
 
@@ -56,7 +56,7 @@ class SocketClient {
         // state_updated: サーバーからの状態更新
         // 注意: このハンドラは既存のものと「追加で」動作する
         this.socket.on('state_updated', (data) => {
-            console.log('📦 SocketClient: state_updated received');
+            // state_updated -> Store を更新
 
             // Store を更新（window.battleState も自動同期される）
             store.setState(data);
@@ -67,7 +67,7 @@ class SocketClient {
 
         // room_joined: ルーム参加完了時
         this.socket.on('room_joined', (data) => {
-            console.log('📦 SocketClient: room_joined', data.room);
+            // room_joined -> Store 初期化
             store.setState({ room_name: data.room });
 
             // 初期状態があれば Store を初期化

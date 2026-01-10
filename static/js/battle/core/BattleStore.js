@@ -47,7 +47,7 @@ class BattleStore {
         this._initialized = true;
         this._syncToLegacy();
         this._notify();
-        console.log('📦 BattleStore: Initialized', this._state);
+        console.log('📦 BattleStore: Initialized');
     }
 
     /**
