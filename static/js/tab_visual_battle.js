@@ -2664,24 +2664,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn) {
             setupDuelListeners();
             clearInterval(checkInterval);
+
+            // ★ Refinement: DOMが見つかり次第、即座に同期リクエストを送る (Auto-Sync)
+            console.log('🔄 DOM Ready. Triggering immediate room state sync...');
+            const roomName = document.getElementById('room-name-display')?.textContent || 'ROOM 1';
+
+            // Socket接続確認とリクエスト
+            if (typeof socket !== 'undefined' && socket.connected) {
+                socket.emit('request_room_state', { room: roomName });
+            } else {
+                const checkSocket = setInterval(() => {
+                    if (typeof socket !== 'undefined' && socket.connected) {
+                        socket.emit('request_room_state', { room: roomName });
+                        clearInterval(checkSocket);
+                    }
+                }, 500);
+            }
         }
     }, 100);
 
     // タイムアウト (5秒)
     setTimeout(() => clearInterval(checkInterval), 5000);
-
-    setTimeout(() => {
-        console.log('🔄 Requesting initial room state for sync...');
-        const roomName = document.getElementById('room-name-display')?.textContent || 'ROOM 1';
-        if (typeof socket !== 'undefined' && socket.connected) {
-            socket.emit('request_room_state', { room: roomName });
-        } else {
-            const checkSocket = setInterval(() => {
-                if (typeof socket !== 'undefined' && socket.connected) {
-                    socket.emit('request_room_state', { room: roomName });
-                    clearInterval(checkSocket);
-                }
-            }, 500);
-        }
-    }, 1000);
 });
