@@ -16,6 +16,9 @@ import { store } from './core/BattleStore.js';
 import { eventBus } from './core/EventBus.js';
 import { socketClient } from './core/SocketClient.js';
 
+// --- Phase 3: UI Components ---
+import { timeline } from './components/Timeline.js';
+
 /**
  * 初期化処理
  * DOMContentLoaded後に実行し、socket.ioの準備完了を待つ

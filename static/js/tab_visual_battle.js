@@ -161,6 +161,11 @@ async function setupVisualBattleTab() {
                 window.actionDockInitialized = true;
             }
 
+            // ★ Phase 3: Timeline コンポーネントの初期化
+            if (window.TimelineComponent && typeof window.TimelineComponent.initialize === 'function') {
+                window.TimelineComponent.initialize('visual-timeline-list');
+            }
+
             socket.on('state_updated', (state) => {
                 console.log('📡 state_updated received', {
                     hasActiveMatch: !!state.active_match,
