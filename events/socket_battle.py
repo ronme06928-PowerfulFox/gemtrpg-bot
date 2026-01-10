@@ -21,6 +21,19 @@ from manager.utils import resolve_placeholders
 
 
 
+
+# ★ Phase 7: Cost extraction helper
+def extract_cost_from_text(text):
+    """
+    使用時効果テキストからコスト記述を抽出する（'[使用時]:MPを5消費。' -> 'MPを5消費'）
+    """
+    if not text:
+        return "なし"
+    match = re.search(r'\[使用時\]:?([^\n。]+)', text)
+    if match:
+        return match.group(1).strip()
+    return "なし"
+
 # --- ヘルパー関数: スキル名表示用のHTML生成 (コマンドから抽出版) ---
 def format_skill_display_from_command(command_str, skill_id, skill_data):
     """
@@ -43,6 +56,69 @@ def format_skill_display_from_command(command_str, skill_id, skill_data):
 
     # 視認性が高い色（濃いピンク/マゼンタ系）で太字にする
     return f"<span style='color: #d63384; font-weight: bold;'>{text}</span>"
+
+# --- ヘルパー関数: active_match データからマッチを実行 ---
+def execute_match_from_active_state(room, state, username):
+    """
+    両側が宣言済みの場合に、active_match の保存データを使ってマッチを実行する。
+    この関数はサーバー側で呼び出され、クライアント側での二重実行を防ぐ。
+    """
+    active_match = state.get('active_match')
+    if not active_match or not active_match.get('is_active'):
+        return
+
+    attacker_id = active_match.get('attacker_id')
+    defender_id = active_match.get('defender_id')
+    attacker_data = active_match.get('attacker_data', {})
+    defender_data = active_match.get('defender_data', {})
+
+    command_a = attacker_data.get('final_command', '---')
+    command_d = defender_data.get('final_command', '---')
+    senritsu_a = attacker_data.get('senritsu_penalty', 0)
+    senritsu_d = defender_data.get('senritsu_penalty', 0)
+
+    attacker_char = next((c for c in state["characters"] if c.get('id') == attacker_id), None)
+    defender_char = next((c for c in state["characters"] if c.get('id') == defender_id), None)
+
+    if not attacker_char or not defender_char:
+        print(f"[MATCH ERROR] Characters not found: {attacker_id}, {defender_id}")
+        return
+
+    # request_match と同じデータ形式で内部的に処理
+    match_data = {
+        'room': room,
+        'commandA': command_a,
+        'commandD': command_d,
+        'actorIdA': attacker_id,
+        'actorIdD': defender_id,
+        'actorNameA': attacker_char.get('name', 'Unknown'),
+        'actorNameD': defender_char.get('name', 'Unknown'),
+        'senritsuPenaltyA': senritsu_a,
+        'senritsuPenaltyD': senritsu_d
+    }
+
+    # handle_match 内のロジックを直接呼び出す代わりに、
+    # request_match イベントをサーバー内部で発火させる
+    # ★ 二重実行防止: 既にマッチ実行中なら何もしない
+    if active_match.get('match_executing'):
+        print(f"[MATCH] Match already executing in room {room}, skipping")
+        return
+
+    # 実行中フラグを立てる
+    state['active_match']['match_executing'] = True
+    save_specific_room_state(room)
+
+    # 最初に受信したクライアントだけが実行するよう、
+    # イベント送信前に active_match をクリア (完了したので削除)
+    if 'active_match' in state:
+        del state['active_match']
+
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+
+    # マッチ実行イベントを送信（クライアントが一人だけ処理するよう指示）
+    socketio.emit('match_auto_execute', match_data, to=room)
+    print(f"[MATCH] Auto-executed match in room {room}")
 
 @socketio.on('request_skill_declaration')
 def handle_skill_declaration(data):
@@ -180,9 +256,14 @@ def handle_skill_declaration(data):
         "分類": skill_data.get("分類", "---"),
         "距離": skill_data.get("距離", "---"),
         "属性": skill_data.get("属性", "---"),
-        "使用時効果": skill_data.get("使用時効果", ""),
-        "発動時効果": skill_data.get("発動時効果", ""),
-        "特記": skill_data.get("特記", "")
+        "特記": skill_data.get("特記", "") or "なし",
+        # ★ Phase 7: Additional details for client display (Mapped from available data)
+        "タイミング": skill_data.get("分類", "---"), # Substitute Category for Timing
+        "判定": skill_data.get("判定", "---"),
+        "対象": skill_data.get("対象", "---"),
+        "射程": skill_data.get("距離", "---"), # Map 距離 to 射程
+        "コスト": extract_cost_from_text(skill_data.get("使用時効果", "")), # Extract cost from text
+        "効果": (skill_data.get("使用時効果", "") + "\n" + skill_data.get("発動時効果", "")).strip() # Combine effects
     }
 
     # =========================================================
@@ -239,7 +320,7 @@ def handle_skill_declaration(data):
             save_specific_room_state(room)
 
             # 6. クライアントへ応答 (リセット指示)
-            socketio.emit('skill_declaration_result', {
+            result_payload = {
                 "prefix": data.get('prefix'),
                 "final_command": "--- (効果発動完了) ---",
                 "is_one_sided_attack": False,
@@ -249,7 +330,23 @@ def handle_skill_declaration(data):
                 "is_immediate_skill": True,
                 "skill_details": skill_details_payload,
                 "senritsu_penalty": 0
-            }, to=request.sid)
+            }
+            socketio.emit('skill_declaration_result', result_payload, to=request.sid)
+
+            # ★ 追加: 即時発動の結果も同期
+            side = 'attacker' if 'attacker' in data.get('prefix', '') else 'defender' if 'defender' in data.get('prefix', '') else None
+            if side:
+                sync_payload = {
+                    'skill_id': skill_id,
+                    'final_command': "--- (効果発動完了) ---",
+                    'min_damage': 0, 'max_damage': 0,
+                    'is_immediate': True,
+                    'skill_details': skill_details_payload
+                }
+                socketio.emit('match_data_updated', {
+                    'side': side,
+                    'data': sync_payload
+                }, to=room)
 
         else:
             # --- プレビューのみ (Calculateボタン押下時) ---
@@ -355,7 +452,7 @@ def handle_skill_declaration(data):
         is_one_sided_attack = True
 
     # --- 結果送信 (通常スキルなので即時発動フラグはFalse) ---
-    socketio.emit('skill_declaration_result', {
+    result_payload = {
         "prefix": data.get('prefix'),
         "final_command": final_command,
         "is_one_sided_attack": is_one_sided_attack,
@@ -365,7 +462,45 @@ def handle_skill_declaration(data):
         "is_immediate_skill": False,
         "skill_details": skill_details_payload,
         "senritsu_penalty": senritsu_penalty
-    }, to=request.sid)
+    }
+    socketio.emit('skill_declaration_result', result_payload, to=request.sid)
+
+    # ★ リファクタリング: active_match に計算結果を保存し、state_updated で同期
+    side = 'attacker' if 'attacker' in data.get('prefix', '') else 'defender' if 'defender' in data.get('prefix', '') else None
+
+    if side and state.get('active_match') and state['active_match'].get('is_active'):
+        # active_match に計算結果を保存
+        side_data_key = f'{side}_data'
+        state['active_match'][side_data_key] = {
+            'skill_id': skill_id,
+            'final_command': final_command,
+            'min_damage': min_damage,
+            'max_damage': max_damage,
+            'is_immediate': False,
+            'skill_details': skill_details_payload,
+            'senritsu_penalty': senritsu_penalty
+        }
+
+        # コミット（宣言）の場合は declared フラグを立てる
+        if is_commit:
+            state['active_match'][f'{side}_declared'] = True
+            print(f"[MATCH] {side} declared in room {room}")
+
+        print(f"[MATCH DEBUG] Saved {side} data: {state['active_match'][side_data_key]}")
+        save_specific_room_state(room)
+
+        # ★ 変更: match_data_updated ではなく state_updated を全員に送信
+        broadcast_state_update(room)
+
+        # 両側が宣言済みかチェック
+        attacker_declared = state['active_match'].get('attacker_declared', False)
+        defender_declared = state['active_match'].get('defender_declared', False)
+
+        # 両側が宣言したらサーバー側でマッチを実行
+        if attacker_declared and defender_declared:
+            print(f"[MATCH] Both sides declared in room {room}, executing match...")
+            # ★ 変更: クライアントに通知する代わりにサーバーで直接実行
+            execute_match_from_active_state(room, state, user_info.get("username", "System"))
 
 
 @socketio.on('request_match')
@@ -739,6 +874,16 @@ def handle_match(data):
     broadcast_log(room, match_log, 'match')
     broadcast_state_update(room)
     save_specific_room_state(room)
+
+    # --- 手番更新処理 ---
+    if actor_a_char:
+        has_re_evasion = any(b.get('name') == "再回避ロック" for b in actor_a_char.get('special_buffs', []))
+        if not has_re_evasion:
+             actor_a_char['hasActed'] = True
+             save_specific_room_state(room)
+
+    # 次のターンへ
+    handle_next_turn({'room': room})
 
 
 @socketio.on('request_new_round')
@@ -1470,17 +1615,38 @@ def handle_open_match_modal(data):
 
     state = get_room_state(room)
 
-    # マッチ状態を更新
-    state['active_match'] = {
-        'is_active': True,
-        'match_type': match_type,
-        'attacker_id': attacker_id,
-        'defender_id': defender_id,
-        'targets': targets,
-        'attacker_data': {},
-        'defender_data': {},
-        'opened_by': username
-    }
+    # ★ Phase 9: Resume Logic
+    # 既存のactive_matchがあり、かつ同じアクター/ターゲットなら再開する
+    current_match = state.get('active_match')
+    is_resume = False
+
+    if current_match and \
+       current_match.get('attacker_id') == attacker_id and \
+       current_match.get('defender_id') == defender_id and \
+       current_match.get('match_type') == match_type:
+           # 再開 (Resume)
+           state['active_match']['is_active'] = True
+           # opened_by だけ更新
+           state['active_match']['opened_by'] = username
+           is_resume = True
+           print(f"[MATCH] Resuming existing match for {attacker_id} vs {defender_id}")
+    else:
+        # 新規作成 (New)
+        state['active_match'] = {
+            'is_active': True,
+            'match_type': match_type,
+            'attacker_id': attacker_id,
+            'defender_id': defender_id,
+            'targets': targets,
+            'attacker_data': {},
+            'defender_data': {},
+            'opened_by': username,
+            'attacker_declared': False,
+            'defender_declared': False,
+            # ★ Phase 7: Snapshot
+            'attacker_snapshot': copy.deepcopy(next((c for c in state["characters"] if c.get('id') == attacker_id), None)),
+            'defender_snapshot': copy.deepcopy(next((c for c in state["characters"] if c.get('id') == defender_id), None))
+        }
 
     save_specific_room_state(room)
 
@@ -1489,8 +1655,12 @@ def handle_open_match_modal(data):
         'match_type': match_type,
         'attacker_id': attacker_id,
         'defender_id': defender_id,
-        'targets': targets
+        'targets': targets,
+        'is_resume': is_resume
     }, to=room)
+
+    # ★ 追加: 状態更新もブロードキャストして、クライアントのbattleStateを即時同期させる
+    broadcast_state_update(room)
 
     print(f"[MATCH] {username} opened {match_type} match modal in room {room}")
 
@@ -1536,16 +1706,19 @@ def handle_close_match_modal(data):
 
     state = get_room_state(room)
 
-    # マッチ状態をリセット
-    state['active_match'] = {
-        'is_active': False,
-        'match_type': None,
-        'attacker_id': None,
-        'defender_id': None,
-        'targets': [],
-        'attacker_data': {},
-        'defender_data': {},
-    }
+    # マッチ状態をリセット -> ★ Phase 9: リセットせず一時停止にする（復元可能にするため）
+    if 'active_match' in state:
+        state['active_match']['is_active'] = False
+        # データは保持する
+        # state['active_match'] = { ... } # 削除
+
+    save_specific_room_state(room)
+
+    # 全員にモーダル終了を通知
+    socketio.emit('match_modal_closed', {}, to=room)
+
+    # ★ 状態更新もブロードキャスト
+    broadcast_state_update(room)
 
     save_specific_room_state(room)
 

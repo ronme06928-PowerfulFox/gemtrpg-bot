@@ -13,6 +13,19 @@ def get_room_state(room_name):
             state = all_rooms[room_name]
             if 'logs' not in state:
                 state['logs'] = []
+
+            # ★ 追加: フィールド補完
+            if 'active_match' not in state:
+                state['active_match'] = {
+                    "is_active": False,
+                    "match_type": None,
+                    "attacker_id": None, "defender_id": None,
+                    "targets": [],
+                    "attacker_data": {}, "defender_data": {}
+                }
+            if 'character_owners' not in state:
+                state['character_owners'] = {}
+
             active_room_states[room_name] = state
         else:
             state = {

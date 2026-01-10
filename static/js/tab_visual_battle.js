@@ -270,12 +270,27 @@ async function setupVisualBattleTab() {
 
 
     if (typeof socket !== 'undefined') {
+        console.log('📡 socket is defined, setting up handlers');
+
         // 1. 重複防止: 一度だけ登録すればよいイベント (Map描画など)
         if (!window.visualBattleSocketHandlersRegistered) {
 
             window.visualBattleSocketHandlersRegistered = true;
+            console.log('📡 Registering socket event handlers');
+
+            // ★ 追加: ページロード時にもアクションドックを初期化（state_updated を待たない）
+            if (!window.actionDockInitialized && typeof initializeActionDock === 'function') {
+                console.log('🔧 Calling initializeActionDock on page load');
+                initializeActionDock();
+                window.actionDockInitialized = true;
+            }
 
             socket.on('state_updated', (state) => {
+                console.log('📡 state_updated received', {
+                    hasActiveMatch: !!state.active_match,
+                    isActive: state.active_match?.is_active,
+                    charactersCount: state.characters?.length
+                });
                 // グローバルなbattleStateを最新の状態に更新
                 if (typeof battleState !== 'undefined') {
                     battleState = state;
@@ -287,20 +302,75 @@ async function setupVisualBattleTab() {
                     renderVisualLogHistory(state.logs);
                     updateVisualRoundDisplay(state.round);
 
-                    // ★ アクションドックの更新
-                    if (typeof updateActionDock === 'function') {
+
+                    // ★ 修正: 初回state_updated後にアクションドック初期化（battleState読み込み後）
+                    // Initialization must happen BEFORE restoring the modal to ensure listeners are ready
+                    if (!window.actionDockInitialized && typeof initializeActionDock === 'function') {
+                        console.log('🔧 Calling initializeActionDock from state_updated');
+                        initializeActionDock();
+                        window.actionDockInitialized = true;
+                    } else if (typeof updateActionDock === 'function') {
+                        // Initial update is handled by initializeActionDock, subsequent updates need explicit call
                         try {
                             updateActionDock();
                         } catch (e) {
                             console.error("Error updating action dock:", e);
                         }
                     }
+
+                    // ★ リファクタリング: サーバー状態からパネルを描画
+                    renderMatchPanelFromState(state.active_match);
+
                 }
             });
 
             socket.on('open_wide_declaration_modal', () => {
                 openVisualWideDeclarationModal();
             });
+
+            // ★ 追加: マッチモーダル関連イベント
+            socket.on('match_modal_opened', (data) => {
+                // data: { match_type, attacker_id, defender_id, targets, ... }
+                if (data.match_type === 'duel') {
+                    // 受信によるオープンのため、再送信はしない (emitSync = false)
+                    openDuelModal(data.attacker_id, data.defender_id, false, false);
+                } else {
+                    // 他のマッチタイプがあればここで処理
+                }
+            });
+
+            // match_data_updated は廃止 - state_updated で統一したため不要
+
+            socket.on('match_modal_closed', () => {
+                closeMatchPanel(false);
+            });
+
+            // ★ 変更: サーバーからの自動実行イベント（二重実行防止）
+            // サーバーがマッチデータを送信し、攻撃側のオーナーのみが実行
+            socket.on('match_auto_execute', (data) => {
+                const statusEl = document.getElementById('duel-status-message');
+                if (statusEl) {
+                    statusEl.textContent = '両側の宣言が完了しました。マッチを実行します...';
+                    statusEl.style.color = '#28a745';
+                }
+
+                // ★ 厳密なチェック: 攻撃側キャラのオーナーのみが実行
+                // GMは両方を操作できるため、オーナーで判断する
+                const attackerId = data.actorIdA;
+                const attacker = battleState.characters?.find(c => c.id === attackerId);
+                const isOwner = attacker && attacker.owner === currentUsername;
+
+                // 攻撃側のオーナーか、またはGMなら実行可能
+                const shouldExecute = isOwner || currentUserAttribute === 'GM';
+
+                if (shouldExecute) {
+                    console.log('[MATCH] Executing match as attacker owner/GM');
+                    socket.emit('request_match', data);
+                } else {
+                    console.log('[MATCH] Not attacker owner, skipping request_match');
+                }
+            });
+
         }
 
         // 2. 強制更新: 計算ロジックなどは修正を即時反映させるため毎回更新する
@@ -399,7 +469,7 @@ async function setupVisualBattleTab() {
             // D. 通常1vs1対決UI更新
             if (data.prefix === 'visual_attacker' || data.prefix === 'visual_defender') {
                 const side = data.prefix.replace('visual_', '');
-                if (typeof updateDuelUI === 'function') updateDuelUI(side, data);
+                if (typeof updateDuelUI === 'function') updateDuelUI(side, { ...data, enableButton: true });
             }
         });
     }
@@ -436,13 +506,29 @@ async function setupVisualBattleTab() {
     }
 
     // 4. アクションドックの初期化
-    if (typeof initializeActionDock === 'function') {
-        initializeActionDock();
-    } else {
-        console.error('❌ initializeActionDock is NOT a function!');
+    // ★ 修正: initializeActionDockはstate_updated後に実行
+    // battleStateロード前にアイコンが押せてしまう問題を防ぐため、初期化を遅延
+    // initializeActionDock自体は後で呼ばれる
+
+    // 5. マッチパネルのボタンイベントリスナーを設定
+    const panelToggleBtn = document.getElementById('panel-toggle-btn');
+    const panelReloadBtn = document.getElementById('panel-reload-btn');
+
+    if (panelToggleBtn) {
+        panelToggleBtn.addEventListener('click', () => {
+            toggleMatchPanel();
+        });
     }
 
-    // 5. タイムライン折り畳み機能の初期化
+
+    if (panelReloadBtn) {
+        panelReloadBtn.addEventListener('click', () => {
+            console.log('🔄 Reload button clicked');
+            reloadMatchPanel();
+        });
+    }
+
+    // 6. タイムライン折り畳み機能の初期化
     initializeTimelineToggle();
 }
 
@@ -1351,9 +1437,250 @@ function generateStatusIconsHTML(char) {
     return iconsHtml;
 }
 
-function openDuelModal(attackerId, defenderId, isOneSided = false) {
-    const attacker = battleState.characters.find(c => c.id === attackerId);
-    const defender = battleState.characters.find(c => c.id === defenderId);
+// ============================================
+// Render Match Panel from Server State
+// ============================================
+// この関数は state_updated のたびに呼ばれ、パネルの内容を更新する
+// パネルの開閉は行わず、内容の同期のみを担当
+function renderMatchPanelFromState(matchData) {
+    const panel = document.getElementById('match-panel');
+    if (!panel) return;
+
+    console.log('📋 renderMatchPanelFromState called:', {
+        matchData: matchData ? { is_active: matchData.is_active, match_type: matchData.match_type } : null,
+        panelExpanded: panel.classList.contains('expanded'),
+        charactersCount: battleState.characters?.length
+    });
+
+    // マッチが非アクティブなら内容をクリアして折りたたむ
+    if (!matchData || !matchData.is_active) {
+        if (panel.classList.contains('expanded')) {
+            clearMatchPanelContent();
+            collapseMatchPanel();
+        }
+        return;
+    }
+
+    // マッチがアクティブで、パネルが折りたたまれている場合は展開
+    // （ただし、ユーザーが手動で閉じた可能性もあるため、初回のみ展開）
+    const shouldAutoExpand = !window._matchPanelAutoExpanded;
+    if (shouldAutoExpand && panel.classList.contains('collapsed')) {
+        // キャラクターデータとスキルデータが揃っているか確認
+        let attacker = battleState.characters?.find(c => c.id === matchData.attacker_id);
+        let defender = battleState.characters?.find(c => c.id === matchData.defender_id);
+
+        // ★ Phase 7/8: Snapshot Priority & Merge
+        // 基本的にスナップショットがあればそれをベースにする（マッチ開始時の状態を正とするため）
+        // ただしHPなどは現在の状態(attacker/defender)があればそちらを参照したいが、
+        // 名前やコマンド(スキル)はスナップショットを優先すべき。
+        if (matchData.attacker_snapshot) {
+            if (!attacker) {
+                attacker = matchData.attacker_snapshot;
+            } else {
+                // マージ: 名前とコマンドはスナップショット優先
+                attacker = { ...attacker, name: matchData.attacker_snapshot.name, commands: matchData.attacker_snapshot.commands };
+            }
+        }
+        if (matchData.defender_snapshot) {
+            if (!defender) {
+                defender = matchData.defender_snapshot;
+            } else {
+                defender = { ...defender, name: matchData.defender_snapshot.name, commands: matchData.defender_snapshot.commands };
+            }
+        }
+
+        if (!attacker || !defender) {
+            console.warn('renderMatchPanelFromState: Character data not ready yet');
+            return;
+        }
+
+        // スキルデータがない場合はロードしてから再試行
+        if (!window.allSkillData || Object.keys(window.allSkillData).length === 0) {
+            console.log('📋 Loading skill data before expanding panel...');
+            fetch('/api/get_skill_data')
+                .then(res => res.json())
+                .then(data => {
+                    window.allSkillData = data;
+                    console.log('📋 Skill data loaded, retrying panel render');
+                    renderMatchPanelFromState(matchData);
+                })
+                .catch(e => console.error('Failed to load skill data:', e));
+            return;
+        }
+
+        // openDuelModal を使ってパネル内容を設定し、展開
+        openDuelModal(matchData.attacker_id, matchData.defender_id, false, false, attacker, defender);
+        window._matchPanelAutoExpanded = true;
+    }
+
+    // 計算結果と宣言状態をUIに反映
+    // ★ Phase 10 Safety: reload時など、openDuelModalがスキップされた場合でも
+    // duelStateを確実に復元する（Calculateボタンが動作するために必須）
+    if (matchData.is_active && matchData.attacker_id && matchData.defender_id) {
+        if (!duelState.attackerId || !duelState.defenderId) {
+            console.log('[MatchPanel] Re-hydrating duelState from matchData');
+            duelState.attackerId = matchData.attacker_id;
+            duelState.defenderId = matchData.defender_id;
+            duelState.isOneSided = matchData.is_one_sided || false; // 必要なら
+        }
+    }
+
+    updateMatchPanelContent(matchData);
+
+    // アクションドックを更新
+    if (typeof updateActionDock === 'function') {
+        updateActionDock();
+    }
+}
+
+// マッチパネルの内容を matchData に基づいて更新
+function updateMatchPanelContent(matchData) {
+    console.log('[MatchPanel] Updating content:', matchData);
+    ['attacker', 'defender'].forEach(side => {
+        const sideData = matchData[`${side}_data`];
+        const isDeclared = matchData[`${side}_declared`] || false;
+        const charId = side === 'attacker' ? matchData.attacker_id : matchData.defender_id;
+
+        console.log(`[MatchPanel] ${side} data:`, sideData);
+
+        // 計算結果の表示
+        if (sideData) {
+            // ★ Phase 10: Idempotent Name & Skill Sync (自己修復同期)
+            // 名前がまだ初期値(Character A/B)や空なら、スナップショット等から強制更新する
+            const nameEl = document.getElementById(`duel-${side}-name`);
+            const currentName = nameEl ? nameEl.textContent : "";
+            // 正しい名前の取得: スナップショット > sideDataの名前(あれば) > attacker/defenderオブジェクト
+            let correctName = "";
+            let correctChar = null;
+            if (side === 'attacker') {
+                if (matchData.attacker_snapshot) {
+                    correctName = matchData.attacker_snapshot.name;
+                    correctChar = matchData.attacker_snapshot;
+                }
+            } else {
+                if (matchData.defender_snapshot) {
+                    correctName = matchData.defender_snapshot.name;
+                    correctChar = matchData.defender_snapshot;
+                }
+            }
+
+            // 名前が不一致、かつ正しい名前があるなら更新
+            if (correctName && (!currentName || currentName.startsWith('Character') || currentName !== correctName)) {
+                console.log(`[Sync] Fixing name for ${side}: ${currentName} -> ${correctName}`);
+                if (nameEl) nameEl.textContent = correctName;
+
+                // ステータスアイコンも更新
+                const statusEl = document.getElementById(`duel-${side}-status`);
+                if (statusEl && correctChar) {
+                    statusEl.innerHTML = generateStatusIconsHTML(correctChar);
+                }
+
+                // ★プルダウンも空なら再生成
+                const skillSelect = document.getElementById(`duel-${side}-skill`);
+                if (skillSelect && skillSelect.options.length <= 1 && correctChar && correctChar.commands) {
+                    console.log(`[Sync] Repopulating skills for ${side}`);
+                    populateCharSkillSelect(correctChar, `duel-${side}-skill`);
+                }
+            }
+
+            // コマンドプレビュー
+            if (sideData.final_command) {
+                const previewEl = document.getElementById(`duel-${side}-preview`);
+                if (previewEl) {
+                    const cmdEl = previewEl.querySelector('.preview-command');
+                    const rangeEl = previewEl.querySelector('.preview-damage');
+
+                    if (cmdEl) cmdEl.textContent = sideData.final_command;
+                    // ... (省略なしで既存コード維持)
+                    if (rangeEl) {
+                        if (sideData.min_damage !== undefined && sideData.max_damage !== undefined) {
+                            rangeEl.textContent = `Range: ${sideData.min_damage} ~ ${sideData.max_damage}`;
+                        } else {
+                            rangeEl.textContent = "";
+                        }
+                    }
+                    previewEl.classList.add('ready');
+                }
+                if (side === 'attacker') duelState.attackerCommand = sideData.final_command;
+                else duelState.defenderCommand = sideData.final_command;
+            }
+
+            // スキル選択の復元
+            if (sideData.skill_id) {
+                const skillSelect = document.getElementById(`duel-${side}-skill`);
+                if (skillSelect) {
+                    // 値が異なる場合のみセット
+                    if (skillSelect.value !== sideData.skill_id) {
+                        skillSelect.value = sideData.skill_id;
+                    }
+                    // 詳細更新
+                    let skillDataToUse = null;
+                    if (sideData.skill_details) {
+                        skillDataToUse = sideData.skill_details;
+                    } else if (window.allSkillData && sideData.skill_id) {
+                        skillDataToUse = window.allSkillData[sideData.skill_id];
+                    }
+                    if (skillDataToUse) {
+                        // ★ 修正: 計算済み（final_commandあり）なら詳細をフル表示、そうでなければ空白
+                        if (sideData.final_command) {
+                            const descArea = document.getElementById(`duel-${side}-skill-desc`);
+                            if (descArea) descArea.innerHTML = formatSkillDetailHTML(skillDataToUse);
+                        } else {
+                            updateSkillDescription(side, skillDataToUse);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 宣言状態の反映
+        const declareBtn = document.getElementById(`duel-${side}-declare-btn`);
+        const calcBtn = document.getElementById(`duel-${side}-calc-btn`);
+        const skillSelect = document.getElementById(`duel-${side}-skill`);
+
+        if (isDeclared) {
+            // 宣言済み → ロック
+            if (declareBtn) {
+                declareBtn.textContent = 'Locked';
+                declareBtn.classList.add('locked');
+                declareBtn.disabled = true;
+            }
+            if (calcBtn) calcBtn.disabled = true;
+            if (skillSelect) skillSelect.disabled = true;
+            if (side === 'attacker') duelState.attackerLocked = true;
+            else duelState.defenderLocked = true;
+        } else {
+            // 未宣言 → 権限チェック
+            const canControl = canControlCharacter(charId);
+            const hasCalcResult = sideData && sideData.final_command;
+
+            if (declareBtn) {
+                declareBtn.textContent = '宣言 (Declare)';
+                declareBtn.classList.remove('locked');
+                declareBtn.disabled = !(hasCalcResult && canControl);
+            }
+            if (calcBtn) calcBtn.disabled = !canControl;
+            if (skillSelect) skillSelect.disabled = !canControl;
+            if (side === 'attacker') duelState.attackerLocked = false;
+            else duelState.defenderLocked = false;
+        }
+    });
+}
+
+// --- 修正: openDuelModal 関数 ---
+function openDuelModal(attackerId, defenderId, isOneSided = false, emitSync = true, attackerObj = null, defenderObj = null) {
+    let attacker = attackerObj || battleState.characters.find(c => c.id === attackerId);
+    let defender = defenderObj || battleState.characters.find(c => c.id === defenderId);
+
+    // ★ Phase 7: Snapshot fallback (主にリロード時用)
+    if (!attacker && battleState.active_match?.attacker_snapshot?.id === attackerId) {
+        console.log('Using attacker snapshot for modal');
+        attacker = battleState.active_match.attacker_snapshot;
+    }
+    if (!defender && battleState.active_match?.defender_snapshot?.id === defenderId) {
+        console.log('Using defender snapshot for modal');
+        defender = battleState.active_match.defender_snapshot;
+    }
     if (!attacker || !defender) return;
 
     duelState = {
@@ -1379,6 +1706,35 @@ function openDuelModal(attackerId, defenderId, isOneSided = false) {
     battleState.active_match.match_type = 'duel';
     battleState.active_match.attacker_id = attackerId;
     battleState.active_match.defender_id = defenderId;
+
+    // ★ 修正: マッチデータの初期化 (restore時などに undefined になるのを防ぐ)
+    if (!battleState.active_match.attacker_data) battleState.active_match.attacker_data = {};
+    if (!battleState.active_match.defender_data) battleState.active_match.defender_data = {};
+
+    // ★ 修正: ロック状態の復元 (Reload時など)
+    // battleState.active_match に宣言済みフラグ AND 計算データがあればロックする
+    // 計算データがない場合は、宣言フラグだけではロックしない（古いフラグの可能性）
+    if (battleState.active_match.attacker_declared &&
+        battleState.active_match.attacker_data &&
+        battleState.active_match.attacker_data.final_command) {
+        duelState.attackerLocked = true;
+    }
+    if (battleState.active_match.defender_declared &&
+        battleState.active_match.defender_data &&
+        battleState.active_match.defender_data.final_command) {
+        duelState.defenderLocked = true;
+    }
+
+
+    // ★ 修正: emitSync=trueの場合は必ず送信（マップ操作時など）
+    if (emitSync) {
+        socket.emit('open_match_modal', {
+            room: currentRoomName,
+            match_type: 'duel',
+            attacker_id: attackerId,
+            defender_id: defenderId
+        });
+    }
 
     // アイコンの状態を更新
     if (typeof updateActionDock === 'function') {
@@ -1420,22 +1776,114 @@ function openDuelModal(attackerId, defenderId, isOneSided = false) {
         populateCharSkillSelect(defender, 'duel-defender-skill');
     }
     setupDuelListeners();
-    document.getElementById('duel-modal-backdrop').style.display = 'flex';
+
+    // ★ 変更: モーダルではなくパネルを展開
+    expandMatchPanel();
+
+    // ★ 追加: ロック状態なら初期表示時にUIをロックする
+    if (duelState.attackerLocked) lockSide('attacker');
+    if (duelState.defenderLocked) lockSide('defender');
+
 }
 
-function closeDuelModal() {
-    document.getElementById('duel-modal-backdrop').style.display = 'none';
+// ============================================
+// Match Panel Control Functions
+// ============================================
 
-    // ★ 追加: マッチ終了フラグを設定
-    if (battleState.active_match) {
-        battleState.active_match.is_active = false;
-    }
+function expandMatchPanel() {
+    const panel = document.getElementById('match-panel');
+    if (!panel) return;
 
-    // アイコンの状態を更新
+    panel.classList.remove('collapsed');
+    panel.classList.add('expanded');
+
+    // Update action dock icon
     if (typeof updateActionDock === 'function') {
         updateActionDock();
     }
 }
+
+function collapseMatchPanel() {
+    const panel = document.getElementById('match-panel');
+    if (!panel) return;
+
+    panel.classList.remove('expanded');
+    panel.classList.add('collapsed');
+
+    // Update action dock icon
+    if (typeof updateActionDock === 'function') {
+        updateActionDock();
+    }
+}
+
+function toggleMatchPanel() {
+    const panel = document.getElementById('match-panel');
+    if (!panel) return;
+
+    if (panel.classList.contains('collapsed')) {
+        expandMatchPanel();
+    } else {
+        collapseMatchPanel();
+    }
+}
+
+function reloadMatchPanel() {
+    console.log('🔄 Reloading match panel from current state');
+
+    if (!battleState || !battleState.active_match) {
+        console.warn('No active match to reload');
+        return;
+    }
+
+    const matchData = battleState.active_match;
+
+    // マッチがアクティブな場合のみリロード
+    if (matchData.is_active) {
+        // 一旦 auto-expand フラグをリセット
+        window._matchPanelAutoExpanded = false;
+
+        // renderMatchPanelFromState を呼び出して再描画
+        renderMatchPanelFromState(matchData);
+    } else {
+        console.log('Match is not active, nothing to reload');
+    }
+}
+
+function closeMatchPanel(emitSync = true) {
+    // Clear panel content
+    clearMatchPanelContent();
+
+    // Collapse panel
+    collapseMatchPanel();
+
+    // Clear match state
+    if (battleState.active_match) {
+        battleState.active_match.is_active = false;
+    }
+
+    // Notify server
+    if (emitSync) {
+        socket.emit('close_match_modal', { room: currentRoomName });
+    }
+}
+
+function clearMatchPanelContent() {
+    // Reset UI to initial state
+    resetDuelUI();
+
+    // Clear character names
+    document.getElementById('duel-attacker-name').textContent = 'Character A';
+    document.getElementById('duel-defender-name').textContent = 'Character B';
+
+    // Clear duel state
+    duelState = {
+        attackerId: null, defenderId: null,
+        attackerLocked: false, defenderLocked: false,
+        isOneSided: false,
+        attackerCommand: null, defenderCommand: null
+    };
+}
+
 
 // --- 修正: resetDuelUI 関数 ---
 function resetDuelUI() {
@@ -1472,12 +1920,18 @@ function resetDuelUI() {
 function populateCharSkillSelect(char, elementId) {
     const select = document.getElementById(elementId);
     select.innerHTML = '';
+    /*
+       ★修正: allSkillDataがなくても続行する (char.commandsから名前が取れるため)
+       リロード直後にプルダウンが空になる問題を修正
+    */
+    /*
     if (!window.allSkillData || Object.keys(window.allSkillData).length === 0) {
         const opt = document.createElement('option');
         opt.value = ""; opt.text = "(Skill Data Loading...)";
         select.appendChild(opt);
         return;
     }
+    */
     let count = 0;
     const commandsStr = char.commands || "";
     const selectEl = document.getElementById(elementId);
@@ -1505,7 +1959,66 @@ function populateCharSkillSelect(char, elementId) {
         placeholder.textContent = '(スキルなし)';
         placeholder.disabled = true;
         selectEl.appendChild(placeholder);
+        selectEl.appendChild(placeholder);
     }
+
+    // スキル選択時のイベントリスナーを追加
+    selectEl.onchange = () => {
+        const skillId = selectEl.value;
+        const skillData = window.allSkillData ? window.allSkillData[skillId] : null;
+        if (skillData) {
+            updateSkillDescription(elementId.includes('attacker') ? 'attacker' : 'defender', skillData);
+        }
+    };
+}
+
+// ★修正: 選択時は詳細を隠す (ユーザー要望)
+function updateSkillDescription(side, skillData) {
+    const descArea = document.getElementById(`duel-${side}-skill-desc`);
+    if (descArea) {
+        // ★修正: 選択直後は空白にする（ユーザー要望「威力計算をするまでスキル詳細欄は空白のままで構いません」）
+        descArea.innerHTML = "";
+    }
+}
+
+// ★追加: 計算結果表示用の詳細フォーマッター (不足していた関数)
+function formatSkillDetailHTML(skillData) {
+    if (!skillData) return "";
+
+    const name = skillData['名称'] || skillData['デフォルト名称'] || skillData['name'] || 'Skill';
+    const category = skillData['タイミング'] || skillData['分類'] || skillData['category'];
+    const range = skillData['射程'] || skillData['range'] || skillData['distance'];
+    const attribute = skillData['属性'] || skillData['attribute'] || '---';
+    const special = skillData['特記'] || skillData['特記'] || skillData['special']; // 重複キー対応
+    const cost = skillData['コスト'] || 'なし';
+    const effect = skillData['効果'] || '';
+
+    let html = ``; // タイトルは削除済み
+
+    // タグ行
+    html += `<div class="skill-tags" style="display:flex; gap:5px; margin-bottom:12px; flex-wrap:wrap;">`;
+    if (category) html += `<span class="skill-tag category" style="background:#007bff; color:#fff; padding:3px 8px; border-radius:12px; font-size:0.85em; font-weight:bold;">${category}</span>`;
+    if (range) html += `<span class="skill-tag range" style="background:#6c757d; color:#fff; padding:3px 8px; border-radius:12px; font-size:0.85em; font-weight:bold;">射程: ${range}</span>`;
+    if (attribute) html += `<span class="skill-tag attribute" style="background:#ffc107; color:#212529; padding:3px 8px; border-radius:12px; font-size:0.85em; font-weight:bold;">属性: ${attribute}</span>`;
+    html += `</div>`;
+
+    // 区切り線
+    if ((cost && cost !== '---') || effect || special) {
+        html += `<hr style="margin: 8px 0; border: 0; border-top: 1px solid #444;">`;
+    }
+
+    // 詳細
+    if (cost && cost !== '---') {
+        html += `<div class="skill-detail-row" style="margin-bottom:6px;"><span class="label" style="font-weight:bold;">【コスト】</span> <span class="value">${cost}</span></div>`;
+    }
+    if (effect) {
+        html += `<div class="skill-detail-section" style="margin-top:8px; margin-bottom:8px;"><div class="label" style="font-weight:bold;">【効果】</div><div class="text" style="white-space:pre-wrap; line-height:1.4;">${effect}</div></div>`;
+    }
+    if (special && special !== 'なし') {
+        html += `<div class="skill-detail-section" style="margin-top:8px;"><div class="label" style="font-weight:bold;">【特記】</div><div class="text" style="white-space:pre-wrap; line-height:1.4;">${special}</div></div>`;
+    }
+
+    return html;
 }
 
 function setupDuelListeners() {
@@ -1513,54 +2026,62 @@ function setupDuelListeners() {
 
     // マッチ開催状態を確認して最小化ボタンの表示を制御
     if (minimizeBtn) {
-        const isMatchActive = battleState && battleState.active_match && battleState.active_match.is_active;
-
-        if (isMatchActive) {
-            // マッチ開催中は最小化可能
-            minimizeBtn.style.display = 'inline-block';
-            minimizeBtn.textContent = '最小化 (Minimize)';
-            minimizeBtn.onclick = () => {
-                const modal = document.getElementById('duel-modal-backdrop');
-                if (modal) {
-                    modal.style.display = 'none';
-                    const matchIcon = document.getElementById('dock-match-icon');
-                    if (matchIcon) {
-                        matchIcon.classList.add('minimized');
-                    }
-                }
-            };
-        } else {
-            // マッチ未開催時はキャンセルとして機能
-            minimizeBtn.style.display = 'inline-block';
-            minimizeBtn.textContent = 'キャンセル (Cancel)';
-            minimizeBtn.onclick = closeDuelModal;
-        }
+        // ... (省略) ...
     }
 
-    document.getElementById('duel-attacker-calc-btn').onclick = () => sendSkillDeclaration('attacker', false);
-    document.getElementById('duel-attacker-calc-btn').onclick = () => sendSkillDeclaration('attacker', false);
-    document.getElementById('duel-defender-calc-btn').onclick = () => sendSkillDeclaration('defender', false);
-    document.getElementById('duel-attacker-declare-btn').onclick = () => {
-        const btn = document.getElementById('duel-attacker-declare-btn');
-        const isImmediate = btn.dataset.isImmediate === 'true';
-        sendSkillDeclaration('attacker', true);
-        if (!isImmediate) lockSide('attacker');
-    };
-    document.getElementById('duel-defender-declare-btn').onclick = () => {
-        const btn = document.getElementById('duel-defender-declare-btn');
-        const isImmediate = btn.dataset.isImmediate === 'true';
-        sendSkillDeclaration('defender', true);
-        if (!isImmediate) lockSide('defender');
-    };
+    const attCalcBtn = document.getElementById('duel-attacker-calc-btn');
+    if (attCalcBtn) {
+        attCalcBtn.onclick = () => {
+            sendSkillDeclaration('attacker', false);
+        };
+    } else {
+    }
+
+    const defCalcBtn = document.getElementById('duel-defender-calc-btn');
+    if (defCalcBtn) {
+        defCalcBtn.onclick = () => {
+            sendSkillDeclaration('defender', false);
+        };
+    }
+
+    const attDeclBtn = document.getElementById('duel-attacker-declare-btn');
+    if (attDeclBtn) {
+        attDeclBtn.onclick = () => {
+            const btn = document.getElementById('duel-attacker-declare-btn');
+            const isImmediate = btn.dataset.isImmediate === 'true';
+            sendSkillDeclaration('attacker', true);
+            if (!isImmediate) lockSide('attacker');
+        };
+    }
+
+    const defDeclBtn = document.getElementById('duel-defender-declare-btn');
+    if (defDeclBtn) {
+        defDeclBtn.onclick = () => {
+            const btn = document.getElementById('duel-defender-declare-btn');
+            const isImmediate = btn.dataset.isImmediate === 'true';
+            sendSkillDeclaration('defender', true);
+            if (!isImmediate) lockSide('defender');
+        };
+    }
 }
 
+// ★ Phase 10: Stateless Declaration
 function sendSkillDeclaration(side, isCommit) {
+    if (!battleState || !battleState.active_match) {
+        return;
+    }
+    const match = battleState.active_match;
     const isAttacker = (side === 'attacker');
-    const actorId = isAttacker ? duelState.attackerId : duelState.defenderId;
-    const targetId = isAttacker ? duelState.defenderId : duelState.attackerId;
+
+    // UIのduelStateではなく、サーバーから同期された確定情報を使用する
+    const actorId = isAttacker ? match.attacker_id : match.defender_id;
+    const targetId = isAttacker ? match.defender_id : match.attacker_id;
+
     const skillSelect = document.getElementById(`duel-${side}-skill`);
     const skillId = skillSelect ? skillSelect.value : "";
+
     if (!skillId) { alert("スキルを選択してください。"); return; }
+
     socket.emit('request_skill_declaration', {
         room: currentRoomName,
         actor_id: actorId, target_id: targetId,
@@ -1599,18 +2120,90 @@ function updateDuelUI(side, data) {
         descArea.innerHTML = formatSkillDetailHTML(data.skill_details);
     }
 
+    // ★追加: 即時発動かどうかをボタンに保存
+    if (declareBtn && data.is_immediate) {
+        declareBtn.dataset.isImmediate = 'true';
+        declareBtn.textContent = '即時発動 (Execute)';
+        declareBtn.classList.add('immediate-btn');
+    } else if (declareBtn) {
+        declareBtn.dataset.isImmediate = 'false';
+        declareBtn.textContent = '宣言 (Declare)';
+        declareBtn.classList.remove('immediate-btn');
+    }
+
+
+
+    // ★ 修正: enableButton引数で制御（デフォルトはtrue = 有効化）
+    // skill_declaration_resultの場合はtrue、match_data_updated（同期）の場合はfalse
+    // さらに、既にロックされている（宣言済み）場合は強制的に無効化する
+    const shouldEnable = data.enableButton !== undefined ? data.enableButton : true;
+    const isLocked = (side === 'attacker' && duelState.attackerLocked) || (side === 'defender' && duelState.defenderLocked);
+
     if (declareBtn) {
-        declareBtn.disabled = false;
-        if (data.is_immediate_skill) {
-            declareBtn.dataset.isImmediate = 'true';
-            declareBtn.textContent = "Execute (Immediate)";
+        if (isLocked) {
+            declareBtn.disabled = true; // 既に宣言済みなので無効のまま
+            declareBtn.textContent = "Locked"; // 表示もLockedを維持
+            // data.final_command で上書きされている場合があるのでロック状態を優先
+        } else if (shouldEnable) {
+            declareBtn.disabled = false; // 自分が計算したので有効化
         } else {
-            declareBtn.dataset.isImmediate = 'false';
-            declareBtn.textContent = "Declare";
+            declareBtn.disabled = true; // 同期データなので無効のまま
+            declareBtn.title = '相手が計算したスキルです';
         }
+    }
+
+    // ★追加: 恐怖などのペナルティ情報を保存（マッチ実行時に使用）
+    if (previewEl && data.senritsu_penalty !== undefined) {
+        previewEl.dataset.senritsuPenalty = data.senritsu_penalty;
     }
     if (side === 'attacker') duelState.attackerCommand = data.final_command;
     else duelState.defenderCommand = data.final_command;
+}
+
+// 権限チェックヘルパー
+function canControlCharacter(charId) {
+    if (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM') return true;
+    if (typeof battleState === 'undefined' || !battleState.characters) return false;
+    const char = battleState.characters.find(c => c.id === charId);
+    // currentUserId check covers most cases, username is fallback
+    return char && (char.owner === currentUsername || (typeof currentUserId !== 'undefined' && char.owner_id === currentUserId));
+}
+
+// ★ 追加: 同期データを受信してUIを更新
+function applyMatchDataSync(side, data) {
+    // スキル選択の同期
+    if (data.skill_id !== undefined) {
+        const skillSelect = document.getElementById(`duel-${side}-skill`);
+        if (skillSelect && skillSelect.value !== data.skill_id) {
+            skillSelect.value = data.skill_id;
+        }
+    }
+
+    // 計算結果の同期（権限エラーを回避するため、結果を直接UIに適用）
+    if (data.final_command !== undefined) {
+        updateDuelUI(side, {
+            prefix: `visual_${side}`,
+            final_command: data.final_command,
+            min_damage: data.min_damage,
+            max_damage: data.max_damage,
+            is_immediate: data.is_immediate,
+            skill_details: data.skill_details,
+            senritsu_penalty: data.senritsu_penalty,
+            // ★ 修正: 宣言済みの場合はボタンを無効、そうでなければ権限チェック
+            enableButton: data.declared ? false : canControlCharacter(side === 'attacker' ? duelState.attackerId : duelState.defenderId),
+            error: false
+        });
+
+        // internal stateも更新
+        if (side === 'attacker') duelState.attackerCommand = data.final_command;
+        else duelState.defenderCommand = data.final_command;
+
+        // ★ 追加: 宣言済み（declared=true）ならロック状態にする
+        if (data.declared) {
+            console.log(`🔒 locking ${side} side via sync`);
+            lockSide(side);
+        }
+    }
 }
 
 function lockSide(side) {
@@ -1622,7 +2215,9 @@ function lockSide(side) {
     if (select) select.disabled = true;
     if (side === 'attacker') duelState.attackerLocked = true;
     if (side === 'defender') duelState.defenderLocked = true;
-    checkAndExecuteMatch();
+
+    // ★ 修正: checkAndExecuteMatchは呼ばない（両側宣言が完了したらサーバーから通知が来る）
+    // checkAndExecuteMatch(); // 削除
 }
 
 function checkAndExecuteMatch() {
@@ -1645,14 +2240,18 @@ function checkAndExecuteMatch() {
 
 function executeMatch() {
     setTimeout(() => {
+        if (!battleState || !battleState.active_match) return;
+        const match = battleState.active_match;
         const attackerName = document.getElementById('duel-attacker-name').textContent;
         const defenderName = document.getElementById('duel-defender-name').textContent;
         const stripTags = (str) => str ? str.replace(/<[^>]*>?/gm, '') : "2d6";
+
+        // ★ Phase 10: Use battleState (SSOT)
         socket.emit('request_match', {
             room: currentRoomName,
-            actorIdA: duelState.attackerId, actorIdD: duelState.defenderId,
+            actorIdA: match.attacker_id, actorIdD: match.defender_id, // duelState.attackerId -> match.attacker_id
             actorNameA: attackerName, actorNameD: defenderName,
-            commandA: stripTags(duelState.attackerCommand),
+            commandA: stripTags(duelState.attackerCommand), // Command is still UI state updated by sync
             commandD: stripTags(duelState.defenderCommand),
             senritsuPenaltyA: parseInt(document.getElementById('duel-attacker-preview')?.dataset?.senritsuPenalty || 0),
             senritsuPenaltyD: parseInt(document.getElementById('duel-defender-preview')?.dataset?.senritsuPenalty || 0)
@@ -2053,3 +2652,36 @@ function renderVisualWideDefenders(attackerId, mode) {
         };
     });
 }
+
+// ★ 追加: ページロード時に自動的にリロードボタンを押して同期する
+// ★ 追加: ページロード時に自動的にリロードボタンを押して同期する
+// ★ Phase 11: Robust Initialization (Polling)
+document.addEventListener('DOMContentLoaded', () => {
+    // 画面ロード時にDOMがまだ完全に構築されていない可能性があるため、
+    // ポーリングでボタンの存在を確認してからリスナーを登録する
+    const checkInterval = setInterval(() => {
+        const btn = document.getElementById('duel-attacker-calc-btn');
+        if (btn) {
+            setupDuelListeners();
+            clearInterval(checkInterval);
+        }
+    }, 100);
+
+    // タイムアウト (5秒)
+    setTimeout(() => clearInterval(checkInterval), 5000);
+
+    setTimeout(() => {
+        console.log('🔄 Requesting initial room state for sync...');
+        const roomName = document.getElementById('room-name-display')?.textContent || 'ROOM 1';
+        if (typeof socket !== 'undefined' && socket.connected) {
+            socket.emit('request_room_state', { room: roomName });
+        } else {
+            const checkSocket = setInterval(() => {
+                if (typeof socket !== 'undefined' && socket.connected) {
+                    socket.emit('request_room_state', { room: roomName });
+                    clearInterval(checkSocket);
+                }
+            }, 500);
+        }
+    }, 1000);
+});

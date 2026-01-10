@@ -88,10 +88,17 @@
     </div>
 </div>
 
-<div id="duel-modal-backdrop" class="modal-backdrop" style="display: none;">
-    <div class="duel-modal-content resizable-modal">
-        <h3 class="duel-title">Duel Phase</h3>
+<!-- ★ Match Panel (Fixed on Right Side) ★ -->
+<div id="match-panel" class="match-panel collapsed">
+    <div class="panel-header">
+        <h3>Duel Phase</h3>
+        <div class="panel-header-buttons">
+            <button id="panel-reload-btn" class="panel-reload-btn" title="状態を再同期">🔄</button>
+            <button id="panel-toggle-btn" class="panel-toggle-btn" title="パネルを開閉">▶</button>
+        </div>
+    </div>
 
+    <div class="panel-content">
         <div class="duel-container">
             <div id="duel-attacker-skill-desc" class="skill-detail-sidebar left"></div>
 
@@ -152,15 +159,11 @@
 
             <div id="duel-defender-skill-desc" class="skill-detail-sidebar right"></div>
         </div>
-
-        <div class="duel-actions">
-            <button id="duel-minimize-btn" class="duel-btn secondary">最小化 (Minimize)</button>
-        </div>
     </div>
 </div>
 
 <!-- ★ Visual Battle Scripts - Separated for maintainability ★ -->
-<script src="js/tab_visual_battle.js"></script>
+<script src="js/tab_visual_battle.js?v=20260110_clean"></script>
 
 <!-- ★ アクションドック用のCSS読み込み（JSはmain.jsで読み込み済み。CSSはstyles.css統合済み） ★ -->
 <!-- <link rel="stylesheet" href="css/visual_battle_layout.css"> -->

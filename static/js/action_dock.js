@@ -274,60 +274,76 @@ function createImmediateCharRow(char) {
 
 // アクションドックの初期化（イベントリスナー設定のみ）
 function initializeActionDock() {
-
+    console.log('🔧 initializeActionDock called');
 
     const immediateIcon = document.getElementById('dock-immediate-icon');
     const addCharIcon = document.getElementById('dock-add-char-icon');
     const stagingIcon = document.getElementById('dock-staging-icon');
     const matchIcon = document.getElementById('dock-match-icon');
 
-    if (!immediateIcon) {
-        console.error('dock-immediate-icon not found in DOM');
-        return;
+    // ★ 修正: 個別にチェックして設定（1つがなくても他は設定する）
+    if (immediateIcon) {
+        immediateIcon.onclick = function (e) {
+            console.log('⚡ Immediate icon clicked');
+            openImmediateSkillModal();
+        };
+        console.log('✅ Immediate icon click event registered');
+    } else {
+        console.warn('dock-immediate-icon not found in DOM');
     }
 
-    // 即時発動アイコンのクリックイベント
-    immediateIcon.onclick = function (e) {
-        openImmediateSkillModal();
-    };
-
-    console.log('✅ Immediate icon click event registered!');
-
-    // キャラ追加アイコンのクリックイベント
     if (addCharIcon) {
         if (typeof openCharLoadModal === 'function') {
-            addCharIcon.onclick = openCharLoadModal;
+            addCharIcon.onclick = function (e) {
+                console.log('➕ Add char icon clicked');
+                openCharLoadModal();
+            };
+            console.log('✅ Add char icon click event registered');
         } else {
             console.warn("openCharLoadModal is not defined.");
         }
+    } else {
+        console.warn('dock-add-char-icon not found in DOM');
     }
 
-    // 未配置エリアアイコンのクリックイベント
     if (stagingIcon) {
-        stagingIcon.onclick = toggleStagingAreaOverlay;
+        stagingIcon.onclick = function (e) {
+            console.log('📦 Staging icon clicked');
+            toggleStagingAreaOverlay();
+        };
+        console.log('✅ Staging icon click event registered');
+    } else {
+        console.warn('dock-staging-icon not found in DOM');
     }
 
-    // マッチアイコンのクリックイベント
     if (matchIcon) {
         matchIcon.onclick = () => {
-            const duelModal = document.getElementById('duel-modal-backdrop');
-            if (duelModal) {
-                // 最小化されている、または非表示の場合は再表示
-                if (matchIcon.classList.contains('minimized') ||
-                    duelModal.style.display === 'none' ||
-                    !duelModal.style.display) {
-                    duelModal.style.display = 'flex';
-                    matchIcon.classList.remove('minimized');
-                }
-                // 既に表示されている場合は何もしない（最小化は別ボタン）
+            console.log('🎯 Match icon clicked');
+            // ★ 追加: activeでない場合は無視（誤操作防止）
+            if (!matchIcon.classList.contains('active')) {
+                console.log('  -> ignored (not active)');
+                return;
+            }
+
+            // ★ 変更: パネルをトグル
+            if (typeof toggleMatchPanel === 'function') {
+                toggleMatchPanel();
+                console.log('  -> panel toggled');
+            } else {
+                console.warn('toggleMatchPanel function not found');
             }
         };
+        console.log('✅ Match icon click event registered');
+    } else {
+        console.warn('dock-match-icon not found in DOM');
     }
 
-
-
     // 初回更新
-    updateActionDock();
+    if (typeof updateActionDock === 'function') {
+        updateActionDock();
+    }
+
+    console.log('🔧 initializeActionDock completed');
 }
 
 // === ▲▲▲ Action Dock & Immediate Skills Functions ▲▲▲ ===

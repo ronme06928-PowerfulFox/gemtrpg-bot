@@ -7,11 +7,15 @@ let globalSkillMetadata = {};
 
 // スキルメタデータを取得してキャッシュする
 async function fetchSkillMetadata() {
+    // ★ 修正: fetchWithSession が定義されていない場合はスキップ
+    if (typeof fetchWithSession !== 'function') {
+        console.warn("fetchWithSession is not defined yet, skipping fetchSkillMetadata");
+        return;
+    }
     try {
         const response = await fetchWithSession('/api/get_skill_metadata');
         if (response.ok) {
             globalSkillMetadata = await response.json();
-
         }
     } catch (e) {
         console.warn("Failed to load skill metadata:", e);
