@@ -281,8 +281,13 @@ function initializeSocketIO() {
         return;
     }
     socket = io(API_BASE_URL, { withCredentials: true });
-    socket.on('connect', () => {
+    window.socket = socket; // ★追加: グローバルに公開（SocketClient用）
 
+    socket.on('connect', () => {
+        // ★追加: SocketClient の初期化（Phase 2 モジュール）
+        if (window.SocketClient && typeof window.SocketClient.initialize === 'function') {
+            window.SocketClient.initialize();
+        }
         showRoomPortal();
     });
     socket.on('disconnect', () => {
