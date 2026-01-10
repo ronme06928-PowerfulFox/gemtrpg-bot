@@ -1,13 +1,7 @@
 /* static/js/tab_visual_battle.js */
 
-// --- 定数定義 ---
-const GRID_SIZE = 90; // マスのサイズ（ピクセル）
-const FIELD_SIZE = 25; // フィールドのグリッド数（25x25）
-const MAX_FP = 15; // FP（ファイトポイント）の最大値
-const TOKEN_OFFSET = 4; // トークンの位置調整オフセット（ピクセル）
-const PERCENTAGE_MAX = 100; // パーセンテージの最大値
-const CENTER_OFFSET_X = -900; // 25x25フィールドの中央表示用（X軸）
-const CENTER_OFFSET_Y = -900; // 25x25フィールドの中央表示用（Y軸）
+// --- 定数定義 (Moved to legacy_globals.js for Phase 1 Refactoring) ---
+// Constants are now loaded from static/js/legacy_globals.js
 
 // --- グローバル変数 ---
 let visualScale = 1.0;
@@ -28,141 +22,23 @@ let attackTargetingState = {
     isTargeting: false // ターゲット選択モードかどうか
 };
 
-// --- ヘルパー: 広域スキル判定 ---
-/**
- * スキルデータが広域攻撃スキルかどうかを判定
- * @param {Object} skillData - スキルデータオブジェクト
- * @param {Array<string>} [skillData.tags] - スキルタグの配列
- * @param {string} [skillData.分類] - スキル分類
- * @param {string} [skillData.距離] - 攻撃距離
- * @returns {boolean} 広域スキルの場合true
- */
-function isWideSkillData(skillData) {
-    if (!skillData) return false;
-    const tags = skillData['tags'] || [];
-    const cat = skillData['分類'] || '';
-    const dist = skillData['距離'] || '';
-    return (tags.includes('広域-個別') || tags.includes('広域-合算') ||
-        cat.includes('広域') || dist.includes('広域'));
-}
+// --- ヘルパー: 広域スキル判定 (Moved to legacy_globals.js) ---
+// isWideSkillData is now global
 
-/**
- * キャラクターが広域スキルを持っているかチェック
- * @param {Object} char - キャラクター情報
- * @param {string} [char.commands] - コマンド文字列
- * @returns {boolean} 広域スキルを持つ場合true
- */
-function hasWideSkill(char) {
-    if (!window.allSkillData || !char.commands) return false;
-    const regex = /【(.*?)\s+(.*?)】/g;
-    let match;
-    while ((match = regex.exec(char.commands)) !== null) {
-        const skillId = match[1];
-        const skillData = window.allSkillData[skillId];
-        if (skillData && isWideSkillData(skillData)) {
-            return true;
-        }
-    }
-    return false;
-}
+// hasWideSkill is now global
 
-// --- ヘルパー: 結果表示フォーマット ---
-/**
- * 広域攻撃の計算結果を表示用にフォーマット
- * @param {Object} data - スキル計算結果
- * @param {boolean} [data.error] - エラーの有無
- * @param {number} [data.min_damage] - 最小ダメージ
- * @param {number} [data.max_damage] - 最大ダメージ
- * @param {string} data.final_command - 最終コマンド文字列
- * @returns {string} フォーマット済み文字列
- */
-function formatWideResult(data) {
-    if (data.error) return data.final_command || "Error";
-    const min = (data.min_damage != null) ? data.min_damage : '?';
-    const max = (data.max_damage != null) ? data.max_damage : '?';
-    // 表示用: Range: X~Y (Command)
-    return `Range: ${min}～${max} (${data.final_command})`;
-}
+// --- ヘルパー: 結果表示フォーマット (Moved to legacy_globals.js) ---
+// formatWideResult is now global
 
-// --- ★ 追加: スキル詳細HTML生成ヘルパー ---
-function formatSkillDetailHTML(details) {
-    if (!details) return "";
+// --- ★ 追加: スキル詳細HTML生成ヘルパー (Moved to legacy_globals.js) ---
+// formatSkillDetailHTML is now global
 
-    const category = details["分類"] || "---";
-    const distance = details["距離"] || "---";
-    const attribute = details["属性"] || "---";
+// --- 計算・ダイス関数 (Moved to legacy_globals.js) ---
+// safeMathEvaluate is now global
 
-    // バッジ部分
-    let html = `
-        <div class="skill-detail-header">
-            <span class="skill-badge badge-category">${category}</span>
-            <span class="skill-badge badge-distance">距離: ${distance}</span>
-            <span class="skill-badge badge-attribute">属性: ${attribute}</span>
-        </div>
-    `;
+// rollDiceCommand is now global
 
-    // 効果テキスト部分
-    const addSection = (label, text) => {
-        if (text && text !== "なし" && text !== "") {
-            return `
-                <div class="skill-desc-section">
-                    <span class="skill-desc-label">【${label}】</span>
-                    <span class="skill-desc-text">${text}</span>
-                </div>`;
-        }
-        return "";
-    };
-
-    html += addSection("コスト", details["使用時効果"]);
-    html += addSection("効果", details["発動時効果"]);
-    html += addSection("特記", details["特記"]);
-
-    return html;
-}
-
-// --- 計算・ダイス関数 ---
-function safeMathEvaluate(expression) {
-    try {
-        const sanitized = expression.replace(/[^-()\d/*+.]/g, '');
-        return new Function('return ' + sanitized)();
-    } catch (e) { console.error("Safe math eval error:", e); return 0; }
-}
-
-function rollDiceCommand(command) {
-    let calculation = command.replace(/【.*?】/g, '').trim();
-    calculation = calculation.replace(/^(\/sroll|\/sr|\/roll|\/r)\s*/i, '');
-    let details = calculation;
-    const diceRegex = /(\d+)d(\d+)/g;
-    let match;
-    const allDiceDetails = [];
-    while ((match = diceRegex.exec(calculation)) !== null) {
-        const numDice = parseInt(match[1]);
-        const numFaces = parseInt(match[2]);
-        let sum = 0;
-        const rolls = [];
-        for (let i = 0; i < numDice; i++) {
-            const roll = Math.floor(Math.random() * numFaces) + 1;
-            rolls.push(roll);
-            sum += roll;
-        }
-        allDiceDetails.push({ original: match[0], details: `(${rolls.join('+')})`, sum: sum });
-    }
-    for (let i = allDiceDetails.length - 1; i >= 0; i--) {
-        const roll = allDiceDetails[i];
-        details = details.replace(roll.original, roll.details);
-        calculation = calculation.replace(roll.original, String(roll.sum));
-    }
-    const total = safeMathEvaluate(calculation);
-    return { total: total, details: details };
-}
-
-const STATUS_CONFIG = {
-    '出血': { icon: 'bleed.png', color: '#dc3545', borderColor: '#ff0000' },
-    '破裂': { icon: 'rupture.png', color: '#28a745', borderColor: '#00ff00' },
-    '亀裂': { icon: 'fissure.png', color: '#007bff', borderColor: '#0000ff' },
-    '戦慄': { icon: 'fear.png', color: '#17a2b8', borderColor: '#00ffff' },
-    '荊棘': { icon: 'thorns.png', color: '#155724', borderColor: '#0f0' }
-};
+// STATUS_CONFIG is now global (Moved to legacy_globals.js)
 
 let duelState = {
     attackerId: null, defenderId: null,
@@ -1988,45 +1864,7 @@ function updateSkillDescription(side, skillData) {
     }
 }
 
-// ★追加: 計算結果表示用の詳細フォーマッター (不足していた関数)
-function formatSkillDetailHTML(skillData) {
-    if (!skillData) return "";
-
-    const name = skillData['名称'] || skillData['デフォルト名称'] || skillData['name'] || 'Skill';
-    const category = skillData['タイミング'] || skillData['分類'] || skillData['category'];
-    const range = skillData['射程'] || skillData['range'] || skillData['distance'];
-    const attribute = skillData['属性'] || skillData['attribute'] || '---';
-    const special = skillData['特記'] || skillData['特記'] || skillData['special']; // 重複キー対応
-    const cost = skillData['コスト'] || 'なし';
-    const effect = skillData['効果'] || '';
-
-    let html = ``; // タイトルは削除済み
-
-    // タグ行
-    html += `<div class="skill-tags" style="display:flex; gap:5px; margin-bottom:12px; flex-wrap:wrap;">`;
-    if (category) html += `<span class="skill-tag category" style="background:#007bff; color:#fff; padding:3px 8px; border-radius:12px; font-size:0.85em; font-weight:bold;">${category}</span>`;
-    if (range) html += `<span class="skill-tag range" style="background:#6c757d; color:#fff; padding:3px 8px; border-radius:12px; font-size:0.85em; font-weight:bold;">射程: ${range}</span>`;
-    if (attribute) html += `<span class="skill-tag attribute" style="background:#ffc107; color:#212529; padding:3px 8px; border-radius:12px; font-size:0.85em; font-weight:bold;">属性: ${attribute}</span>`;
-    html += `</div>`;
-
-    // 区切り線
-    if ((cost && cost !== '---') || effect || special) {
-        html += `<hr style="margin: 8px 0; border: 0; border-top: 1px solid #444;">`;
-    }
-
-    // 詳細
-    if (cost && cost !== '---') {
-        html += `<div class="skill-detail-row" style="margin-bottom:6px;"><span class="label" style="font-weight:bold;">【コスト】</span> <span class="value">${cost}</span></div>`;
-    }
-    if (effect) {
-        html += `<div class="skill-detail-section" style="margin-top:8px; margin-bottom:8px;"><div class="label" style="font-weight:bold;">【効果】</div><div class="text" style="white-space:pre-wrap; line-height:1.4;">${effect}</div></div>`;
-    }
-    if (special && special !== 'なし') {
-        html += `<div class="skill-detail-section" style="margin-top:8px;"><div class="label" style="font-weight:bold;">【特記】</div><div class="text" style="white-space:pre-wrap; line-height:1.4;">${special}</div></div>`;
-    }
-
-    return html;
-}
+// formatSkillDetailHTML is now active in legacy_globals.js
 
 function setupDuelListeners() {
     const minimizeBtn = document.getElementById('duel-minimize-btn');
