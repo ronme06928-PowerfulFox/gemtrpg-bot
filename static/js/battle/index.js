@@ -18,6 +18,8 @@ import { socketClient } from './core/SocketClient.js';
 
 // --- Phase 3: UI Components ---
 import { timeline } from './components/Timeline.js';
+import { matchPanelState } from './components/MatchPanelState.js';
+import { actionDock } from './components/ActionDock.js';
 
 /**
  * 初期化処理

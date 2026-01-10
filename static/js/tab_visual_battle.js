@@ -40,7 +40,9 @@ let attackTargetingState = {
 
 // STATUS_CONFIG is now global (Moved to legacy_globals.js)
 
-let duelState = {
+// duelState is now managed by MatchPanelState (Phase 3b)
+// 後方互換性のため window.duelState を参照（MatchPanelState.js が自動同期）
+let duelState = window.duelState || {
     attackerId: null, defenderId: null,
     attackerLocked: false, defenderLocked: false,
     isOneSided: false,
@@ -164,6 +166,11 @@ async function setupVisualBattleTab() {
             // ★ Phase 3: Timeline コンポーネントの初期化
             if (window.TimelineComponent && typeof window.TimelineComponent.initialize === 'function') {
                 window.TimelineComponent.initialize('visual-timeline-list');
+            }
+
+            // ★ Phase 3: ActionDock コンポーネントの初期化
+            if (window.ActionDockComponent && typeof window.ActionDockComponent.initialize === 'function') {
+                window.ActionDockComponent.initialize();
             }
 
             socket.on('state_updated', (state) => {
