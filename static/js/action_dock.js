@@ -69,6 +69,30 @@ function updateActionDock() {
         // console.log('📦 Updating staging overlay list...'); // 頻出しすぎる場合はコメントアウト
         renderStagingOverlayList(stagingList);
     }
+
+    // ★ 一方攻撃時のUI更新
+    updateDefenderUIForOneSidedAttack();
+}
+
+// ★ 一方攻撃時の防御者UI更新（Phase 11バグ修正）
+function updateDefenderUIForOneSidedAttack() {
+    if (!battleState || !battleState.active_match) return;
+
+    const matchData = battleState.active_match;
+    const isOneSided = matchData.is_one_sided_attack || false;
+
+    if (!isOneSided) return; // 通常マッチなら何もしない
+
+    const defenderControls = document.getElementById('duel-defender-controls');
+    const defenderLockMsg = document.getElementById('duel-defender-lock-msg');
+
+    if (defenderControls) {
+        defenderControls.style.display = 'none';
+    }
+
+    if (defenderLockMsg) {
+        defenderLockMsg.style.display = 'block';
+    }
 }
 
 // 即時発動モーダルを開く

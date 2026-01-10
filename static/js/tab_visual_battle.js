@@ -1943,10 +1943,17 @@ function populateCharSkillSelect(char, elementId) {
         const skillId = match[1];
         const skillName = match[2];
 
-        // 広域スキルは通常のデュエルモーダルでは除外
+        // ★ Phase 12.3: 広域スキルと即時発動スキルは通常のデュエルモーダルでは除外
         const skillData = window.allSkillData ? window.allSkillData[skillId] : null;
-        if (skillData && isWideSkillData(skillData)) {
-            continue; // Skip wide-area skills
+        if (skillData) {
+            // 広域スキルを除外
+            if (isWideSkillData(skillData)) {
+                continue;
+            }
+            // 即時発動タグのスキルを除外
+            if (skillData.tags && skillData.tags.includes('即時発動')) {
+                continue;
+            }
         }
 
         const option = document.createElement('option');

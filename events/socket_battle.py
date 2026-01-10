@@ -84,6 +84,19 @@ def execute_match_from_active_state(room, state, username):
         print(f"[MATCH ERROR] Characters not found: {attacker_id}, {defender_id}")
         return
 
+    # ★ Phase 12.2: 攻撃者のスキルが防御/回避属性かチェック
+    attacker_skill_id = attacker_data.get('skill_id')
+    if attacker_skill_id and attacker_skill_id in all_skill_data:
+        attacker_skill = all_skill_data[attacker_skill_id]
+        skill_category = attacker_skill.get('分類', '')
+
+        # 防御/回避スキルの場合はダメージ0のマッチを実行（手番を終了させるため）
+        if skill_category in ['防御', '回避']:
+            print(f"[MATCH] Defensive skill ({skill_category}) - executing match with 0 damage")
+            command_a = "---"
+            command_d = "---"
+            broadcast_log(room, f"[{attacker_char.get('name')}] が {skill_category}スキルを使用したため、ダメージは発生しません。", 'match')
+
     # request_match と同じデータ形式で内部的に処理
     match_data = {
         'room': room,
@@ -263,7 +276,8 @@ def handle_skill_declaration(data):
         "対象": skill_data.get("対象", "---"),
         "射程": skill_data.get("距離", "---"), # Map 距離 to 射程
         "コスト": extract_cost_from_text(skill_data.get("使用時効果", "")), # Extract cost from text
-        "効果": (skill_data.get("使用時効果", "") + "\n" + skill_data.get("発動時効果", "")).strip() # Combine effects
+        # ★ Phase 12.4: 【効果】は発動時効果のみ（使用時効果は【コスト】に表示済み）
+        "効果": skill_data.get("発動時効果", "").strip() or "なし"
     }
 
     # =========================================================
@@ -481,6 +495,32 @@ def handle_skill_declaration(data):
             'senritsu_penalty': senritsu_penalty
         }
 
+        # ★ 一方攻撃フラグを保存（攻撃者側の計算時に再判定）
+        if side == 'attacker':
+            # 防御者データを取得して再判定
+            defender_id = state['active_match'].get('defender_id')
+            defender_char = next((c for c in state["characters"] if c.get('id') == defender_id), None)
+
+            # 一方攻撃かどうかを判定
+            is_one_sided = False
+            if defender_char:
+                has_re_evasion = False
+                if 'special_buffs' in defender_char:
+                    for buff in defender_char['special_buffs']:
+                        if buff.get('name') == "再回避ロック":
+                            has_re_evasion = True
+                            break
+
+                if defender_char.get('hasActed', False) and not has_re_evasion:
+                    is_one_sided = True
+
+            if is_one_sided:
+                state['active_match']['is_one_sided_attack'] = True
+                print(f"[MATCH] One-sided attack detected for room {room}")
+            else:
+                # 通常マッチの場合はフラグを削除（以前の一方攻撃が残らないように）
+                state['active_match'].pop('is_one_sided_attack', None)
+
         # コミット（宣言）の場合は declared フラグを立てる
         if is_commit:
             state['active_match'][f'{side}_declared'] = True
@@ -495,10 +535,19 @@ def handle_skill_declaration(data):
         # 両側が宣言済みかチェック
         attacker_declared = state['active_match'].get('attacker_declared', False)
         defender_declared = state['active_match'].get('defender_declared', False)
+        is_one_sided = state['active_match'].get('is_one_sided_attack', False)
 
-        # 両側が宣言したらサーバー側でマッチを実行
-        if attacker_declared and defender_declared:
+        # ★ 一方攻撃の場合は攻撃者のみの宣言で実行
+        # 通常マッチは両側が宣言したら実行
+        should_execute = False
+        if is_one_sided and attacker_declared:
+            should_execute = True
+            print(f"[MATCH] One-sided attack: attacker declared in room {room}, executing match...")
+        elif attacker_declared and defender_declared:
+            should_execute = True
             print(f"[MATCH] Both sides declared in room {room}, executing match...")
+
+        if should_execute:
             # ★ 変更: クライアントに通知する代わりにサーバーで直接実行
             execute_match_from_active_state(room, state, user_info.get("username", "System"))
 
@@ -1632,6 +1681,20 @@ def handle_open_match_modal(data):
            print(f"[MATCH] Resuming existing match for {attacker_id} vs {defender_id}")
     else:
         # 新規作成 (New)
+        # ★ Phase 12.1: 防御者が行動済みかチェック
+        defender_char = next((c for c in state["characters"] if c.get('id') == defender_id), None)
+        is_one_sided = False
+        if defender_char:
+            has_re_evasion = False
+            if 'special_buffs' in defender_char:
+                for buff in defender_char['special_buffs']:
+                    if buff.get('name') == "再回避ロック":
+                        has_re_evasion = True
+                        break
+
+            if defender_char.get('hasActed', False) and not has_re_evasion:
+                is_one_sided = True
+
         state['active_match'] = {
             'is_active': True,
             'match_type': match_type,
@@ -1643,10 +1706,14 @@ def handle_open_match_modal(data):
             'opened_by': username,
             'attacker_declared': False,
             'defender_declared': False,
+            # ★ Phase 12.1: 一方攻撃フラグを初期化
+            'is_one_sided_attack': is_one_sided,
             # ★ Phase 7: Snapshot
             'attacker_snapshot': copy.deepcopy(next((c for c in state["characters"] if c.get('id') == attacker_id), None)),
-            'defender_snapshot': copy.deepcopy(next((c for c in state["characters"] if c.get('id') == defender_id), None))
+            'defender_snapshot': copy.deepcopy(defender_char)
         }
+        if is_one_sided:
+            print(f"[MATCH] One-sided attack detected at match start for room {room}")
 
     save_specific_room_state(room)
 
