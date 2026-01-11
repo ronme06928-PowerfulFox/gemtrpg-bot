@@ -1793,3 +1793,149 @@ def handle_close_match_modal(data):
     socketio.emit('match_modal_closed', {}, to=room)
 
     print(f"[MATCH] Match modal closed in room {room}")
+
+# ============================================================
+# 広域マッチ パネル同期機能
+# ============================================================
+
+@socketio.on('open_wide_match_modal')
+def handle_open_wide_match_modal(data):
+    """
+    広域攻撃マッチモーダルを開催し、全員に通知
+    """
+    room = data.get('room')
+    if not room:
+        return
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+
+    attacker_id = data.get('attacker_id')
+    defender_ids = data.get('defender_ids', [])  # 複数の防御者ID
+    mode = data.get('mode', 'individual')  # 'individual' or 'combined'
+
+    state = get_room_state(room)
+
+    # 攻撃者情報取得
+    attacker_char = next((c for c in state["characters"] if c.get('id') == attacker_id), None)
+    if not attacker_char:
+        return
+
+    # 防御者リストを構築
+    defenders = []
+    for def_id in defender_ids:
+        def_char = next((c for c in state["characters"] if c.get('id') == def_id), None)
+        if def_char and def_char.get('hp', 0) > 0:
+            defenders.append({
+                'id': def_id,
+                'name': def_char.get('name'),
+                'owner': def_char.get('owner'),
+                'owner_id': def_char.get('owner_id'),
+                'skill_id': None,
+                'command': None,
+                'declared': False,
+                'snapshot': copy.deepcopy(def_char)
+            })
+
+    # active_match に広域マッチ状態を設定
+    state['active_match'] = {
+        'is_active': True,
+        'match_type': 'wide',
+        'attacker_id': attacker_id,
+        'attacker_data': {},
+        'attacker_declared': False,
+        'attacker_snapshot': copy.deepcopy(attacker_char),
+        'defenders': defenders,
+        'mode': mode,
+        'opened_by': username
+    }
+
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+
+    print(f"[WIDE_MATCH] {username} opened wide match modal in room {room} with {len(defenders)} defenders")
+
+
+@socketio.on('wide_declare_skill')
+def handle_wide_declare_skill(data):
+    """
+    広域マッチで防御者がスキルを宣言
+    """
+    room = data.get('room')
+    if not room:
+        return
+
+    defender_id = data.get('defender_id')
+    skill_id = data.get('skill_id')
+    command = data.get('command')
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+
+    state = get_room_state(room)
+    active_match = state.get('active_match')
+
+    if not active_match or not active_match.get('is_active') or active_match.get('match_type') != 'wide':
+        return
+
+    # 権限チェック: GMまたはキャラクター所有者のみ
+    from manager.room_manager import is_authorized_for_character
+    if not is_authorized_for_character(room, defender_id, username, attribute):
+        print(f"[WIDE_MATCH] Unauthorized declaration attempt by {username} for {defender_id}")
+        return
+
+    # 対象の防御者を更新
+    for defender in active_match.get('defenders', []):
+        if defender['id'] == defender_id:
+            defender['skill_id'] = skill_id
+            defender['command'] = command
+            defender['declared'] = True
+            defender['declared_by'] = username
+            print(f"[WIDE_MATCH] Defender {defender['name']} declared skill {skill_id}")
+            break
+
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+
+
+@socketio.on('wide_attacker_declare')
+def handle_wide_attacker_declare(data):
+    """
+    広域マッチで攻撃者がスキルと計算結果を宣言
+    """
+    room = data.get('room')
+    if not room:
+        return
+
+    skill_id = data.get('skill_id')
+    command = data.get('command')
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+
+    state = get_room_state(room)
+    active_match = state.get('active_match')
+
+    if not active_match or not active_match.get('is_active') or active_match.get('match_type') != 'wide':
+        return
+
+    attacker_id = active_match.get('attacker_id')
+
+    # 権限チェック
+    from manager.room_manager import is_authorized_for_character
+    if not is_authorized_for_character(room, attacker_id, username, attribute):
+        print(f"[WIDE_MATCH] Unauthorized declaration attempt by {username} for attacker")
+        return
+
+    active_match['attacker_data'] = {
+        'skill_id': skill_id,
+        'command': command
+    }
+    active_match['attacker_declared'] = True
+
+    print(f"[WIDE_MATCH] Attacker declared skill {skill_id}")
+
+    save_specific_room_state(room)
+    broadcast_state_update(room)

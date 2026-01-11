@@ -99,6 +99,41 @@
     </div>
 
     <div class="panel-content">
+        <!-- Wide Match Container (hidden by default, shown when match_type === 'wide') -->
+        <div id="wide-match-container" class="wide-match-container" style="display: none;">
+            <!-- Top bar with status and execute button -->
+            <div class="wide-match-header-bar">
+                <input type="hidden" id="wide-mode-select" value="individual">
+                <div id="wide-status" class="wide-status">
+                    <span class="waiting">宣言待ち...</span>
+                </div>
+                <button id="wide-execute-btn" class="duel-btn execute" disabled>⚡ 実行</button>
+            </div>
+
+            <div class="wide-attacker-section">
+                <div class="wide-attacker-header-row">
+                    <h4 id="wide-attacker-title">⚔️ 攻撃者: <span id="wide-attacker-name"></span></h4>
+                    <div id="wide-mode-badge" class="wide-mode-badge">モード: <strong id="wide-mode-label">個別</strong>
+                    </div>
+                </div>
+                <div class="wide-attacker-controls">
+                    <select id="wide-attacker-skill" class="duel-select"></select>
+                    <button id="wide-attacker-calc-btn" class="duel-btn calc">計算</button>
+                    <button id="wide-attacker-declare-btn" class="duel-btn declare" disabled>宣言</button>
+                </div>
+                <div id="wide-attacker-skill-detail" class="wide-skill-detail-area"></div>
+                <div id="wide-attacker-result" class="wide-result-display"></div>
+                <div id="wide-attacker-declared-badge" class="declared-badge" style="display: none;">✓ 宣言済</div>
+            </div>
+
+            <div class="wide-vs-divider">VS</div>
+
+            <div class="wide-defenders-section">
+                <h4>🛡️ 防御者 (<span id="wide-defender-count">0</span>人)</h4>
+                <div id="wide-defenders-list" class="wide-defenders-list"></div>
+            </div>
+        </div>
+
         <div class="duel-container">
             <div id="duel-attacker-skill-desc" class="skill-detail-sidebar left"></div>
 
@@ -164,6 +199,7 @@
 
 <!-- ★ Visual Battle Scripts - Separated for maintainability ★ -->
 <script src="js/tab_visual_battle.js?v=20260110_auto_sync"></script>
+<script src="js/wide_match_synced.js?v=20260111_1906"></script>
 
 <!-- ★ アクションドック用のCSS読み込み（JSはmain.jsで読み込み済み。CSSはstyles.css統合済み） ★ -->
 <!-- <link rel="stylesheet" href="css/visual_battle_layout.css"> -->

@@ -792,7 +792,7 @@ function createMapToken(char) {
     const isCurrentTurn = (battleState.turn_char_id === char.id);
     let wideBtnHtml = '';
     if (isCurrentTurn && char.isWideUser) {
-        wideBtnHtml = `<button class="wide-attack-trigger-btn" onmousedown="event.stopPropagation(); openVisualWideMatchModal('${char.id}');">⚡ 広域攻撃</button>`;
+        wideBtnHtml = '<button class="wide-attack-trigger-btn" onmousedown="event.stopPropagation(); openSyncedWideMatchModal(\'' + char.id + '\');">⚡ 広域攻撃</button>';
     }
 
     token.innerHTML = `
@@ -1358,8 +1358,37 @@ function renderMatchPanelFromState(matchData) {
             clearMatchPanelContent();
             collapseMatchPanel();
         }
+        // Hide both containers
+        var wideContainer = document.getElementById('wide-match-container');
+        var duelContainer = document.querySelector('.duel-container');
+        if (wideContainer) wideContainer.style.display = 'none';
+        if (duelContainer) duelContainer.style.display = '';
         return;
     }
+
+    // ★ Wide Match branch - use separate wide_match_synced.js
+    if (matchData.match_type === 'wide') {
+        var wideContainer = document.getElementById('wide-match-container');
+        var duelContainer = document.querySelector('.duel-container');
+        if (wideContainer) wideContainer.style.display = '';
+        if (duelContainer) duelContainer.style.display = 'none';
+
+        if (panel.classList.contains('collapsed')) {
+            expandMatchPanel();
+            window._matchPanelAutoExpanded = true;
+        }
+
+        if (typeof window.populateWideMatchPanel === 'function') {
+            window.populateWideMatchPanel(matchData);
+        }
+        return;
+    }
+
+    // ★ Duel Match - show duel container, hide wide container
+    var wideContainer = document.getElementById('wide-match-container');
+    var duelContainer = document.querySelector('.duel-container');
+    if (wideContainer) wideContainer.style.display = 'none';
+    if (duelContainer) duelContainer.style.display = '';
 
     // マッチがアクティブで、パネルが折りたたまれている場合は展開
     // （ただし、ユーザーが手動で閉じた可能性もあるため、初回のみ展開）

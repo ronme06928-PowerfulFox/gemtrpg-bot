@@ -160,6 +160,7 @@
     font-size: 0.85em;
     display: inline-block;
 }
+
 /* === �C��: �X�L���ڍ׃T�C�h�o�[ (�펞�\���Œ蕝) === */
 .skill-detail-sidebar {
     width: 280px;
@@ -255,14 +256,16 @@
 }
 
 .duel-side {
-    width: 300px; flex-shrink: 0;
+    width: 300px;
+    flex-shrink: 0;
     /* ����Œ� (���C�A�E�g����h�~) */
     background: rgba(255, 255, 255, 0.1);
     padding: 15px;
     border-radius: 8px;
     display: flex;
     flex-direction: column;
-    min-height: 320px;  /* Ensure consistent height */
+    min-height: 320px;
+    /* Ensure consistent height */
     gap: 10px;
 }
 
@@ -486,4 +489,471 @@
     align-items: center;
 }
 
+/* ============================================ */
+/* Wide Match Panel Synchronized Styles        */
+/* ============================================ */
+.wide-match-container {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+}
 
+.wide-attacker-section {
+    flex: 0 0 400px;
+    background: #fff;
+    border: 2px solid #dc3545;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.wide-attacker-section h4 {
+    margin: 0 0 15px 0;
+    color: #dc3545;
+}
+
+.wide-attacker-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.wide-attacker-controls select {
+    flex: 1;
+    min-width: 200px;
+}
+
+.wide-result-display {
+    background: #f0f0f0;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    min-height: 30px;
+    margin-bottom: 10px;
+}
+
+.wide-vs-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2em;
+    font-weight: bold;
+    color: #ffc107;
+    padding: 0 10px;
+}
+
+.wide-defenders-section {
+    flex: 1;
+    background: #fff;
+    border: 2px solid #007bff;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.wide-defenders-section h4 {
+    margin: 0 0 15px 0;
+    color: #007bff;
+}
+
+.wide-defenders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.wide-defender-card {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+    transition: all 0.3s ease;
+}
+
+.wide-defender-card.declared {
+    background: #d4edda;
+    border-color: #28a745;
+}
+
+.wide-defender-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.wide-defender-header .defender-name {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.wide-defender-header .owner-badge {
+    background: #6c757d;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75em;
+}
+
+.wide-defender-header .declared-badge {
+    background: #28a745;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75em;
+    margin-left: auto;
+}
+
+.declared-badge.large {
+    display: block;
+    text-align: center;
+    padding: 8px;
+    margin-top: 10px;
+    font-size: 1em;
+    background: #28a745;
+    color: #fff;
+    border-radius: 4px;
+}
+
+.wide-defender-body {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.wide-defender-body select {
+    flex: 1;
+    min-width: 150px;
+    padding: 6px;
+}
+
+.wide-defender-result {
+    font-family: monospace;
+    color: #666;
+    padding: 5px 0;
+    font-size: 0.9em;
+}
+
+.wide-match-footer {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 15px 20px;
+    background: #343a40;
+    border-radius: 0 0 8px 8px;
+}
+
+.wide-mode-select {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+}
+
+.wide-mode-select select {
+    padding: 6px 12px;
+}
+
+.wide-status {
+    flex: 1;
+    text-align: center;
+}
+
+.wide-status .ready {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.wide-status .waiting {
+    color: #ffc107;
+}
+
+.duel-btn.execute {
+    background: linear-gradient(135deg, #ff9800, #ff5722);
+    color: #fff;
+    font-size: 1.1em;
+    padding: 10px 25px;
+}
+
+.duel-btn.execute:hover {
+    background: linear-gradient(135deg, #ffb74d, #ff8a65);
+}
+
+.duel-btn.execute:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+/* Wide Match Skill Detail Area */
+.wide-skill-detail-area {
+    background: #f8f9fa;
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+    padding: 10px;
+    margin: 4px 0 0 0;
+    /* Removed min-height completely to shrink wrap */
+    /* min-height: 40px; */
+    font-size: 1.1em;
+    /* Increased from 0.9em */
+}
+
+.wide-skill-detail-area .placeholder {
+    color: #999;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+.wide-skill-detail .skill-power-range {
+    color: #dc3545;
+    font-size: 1.3em;
+    /* Increased from 1.1em */
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.wide-skill-detail .skill-category {
+    background: #007bff;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.95em;
+    /* Increased from 0.85em */
+    margin-right: 8px;
+}
+
+.wide-skill-detail .skill-tags {
+    margin-bottom: 8px;
+}
+
+.wide-skill-detail .skill-effect {
+    white-space: pre-wrap;
+    line-height: 1.5;
+    color: #333;
+    font-size: 1.05em;
+}
+
+.wide-mode-badge {
+    margin-top: 0;
+    padding: 8px 15px;
+    background: #6f42c1;
+    color: #fff;
+    border-radius: 20px;
+    text-align: center;
+    display: inline-block;
+}
+
+.wide-mode-badge strong {
+    font-size: 1.2em;
+}
+
+/* ============================================
+   Wide Match Container (Static HTML in panel)
+   ============================================ */
+#wide-match-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 15px;
+    box-sizing: border-box;
+    width: 75%;
+    /* Reduced width */
+    max-width: 900px;
+    margin: 0 auto;
+    /* Center the panel */
+    overflow: hidden;
+}
+
+/* Top header bar with status and execute button */
+#wide-match-container .wide-match-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #343a40;
+    color: #fff;
+    padding: 10px 15px;
+    border-radius: 6px;
+    gap: 15px;
+}
+
+#wide-match-container .wide-match-header-bar .wide-status {
+    flex: 1;
+    font-size: 1.1em;
+}
+
+#wide-match-container .wide-match-header-bar .duel-btn.execute {
+    padding: 8px 25px;
+    font-size: 1.1em;
+}
+
+/* Attacker header row with title and mode badge */
+#wide-match-container .wide-attacker-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+#wide-match-container .wide-attacker-section {
+    width: 100%;
+    /* Ensure it doesn't grow to fill space */
+    flex: 0 0 auto;
+    background: linear-gradient(135deg, #fff 0%, #fff5f5 100%);
+    border: 2px solid #dc3545;
+    border-radius: 8px;
+    padding: 12px;
+    box-sizing: border-box;
+    box-shadow: 0 1px 4px rgba(220, 53, 69, 0.1);
+}
+
+#wide-match-container .wide-attacker-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 1.1em;
+}
+
+#wide-match-container .wide-attacker-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+#wide-match-container .wide-attacker-controls select {
+    flex: 1;
+    min-width: 150px;
+    padding: 6px 8px;
+    font-size: 1em;
+}
+
+#wide-match-container .wide-vs-divider {
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+    color: #6c757d;
+    padding: 5px;
+    background: linear-gradient(90deg, transparent, #e9ecef, transparent);
+    border-radius: 3px;
+}
+
+#wide-match-container .wide-defenders-section {
+    width: 100%;
+    background: linear-gradient(135deg, #fff 0%, #f0f8ff 100%);
+    border: 2px solid #007bff;
+    border-radius: 8px;
+    padding: 12px;
+    box-sizing: border-box;
+    box-shadow: 0 1px 4px rgba(0, 123, 255, 0.1);
+}
+
+#wide-match-container .wide-defenders-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 1.1em;
+}
+
+#wide-match-container .wide-defenders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#wide-match-container .wide-defender-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+#wide-match-container .wide-defender-card.declared {
+    border-color: #28a745;
+    background: #f0fff0;
+}
+
+#wide-match-container .wide-defender-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+#wide-match-container .wide-defender-header .defender-name {
+    font-weight: bold;
+    flex: 1;
+    font-size: 1.1em;
+}
+
+#wide-match-container .wide-defender-header .owner-badge {
+    font-size: 0.9em;
+    background: #6c757d;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
+#wide-match-container .wide-defender-body {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+#wide-match-container .wide-defender-body select {
+    flex: 1;
+    min-width: 150px;
+    padding: 4px 6px;
+    font-size: 1em;
+}
+
+#wide-match-container .wide-defender-result {
+    margin-top: 6px;
+    font-size: 1.05em;
+    color: #666;
+}
+
+#wide-match-container .wide-result-display {
+    margin-top: 4px;
+    padding: 4px 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    /* Removed min-height to allow collapse */
+}
+
+#wide-match-container .wide-match-footer {
+    flex: 0 0 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #343a40;
+    border-radius: 0 0 8px 8px;
+    margin: 0 -20px -20px -20px;
+}
+
+#wide-match-container .wide-status {
+    color: #fff;
+}
+
+#wide-match-container .wide-status .ready {
+    color: #28a745;
+    font-weight: bold;
+}
+
+#wide-match-container .wide-status .waiting {
+    color: #ffc107;
+}
+
+#wide-match-container .declared-badge {
+    background: #28a745;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+#wide-match-container .declared-badge.large {
+    padding: 8px 15px;
+    font-size: 1em;
+    margin-top: 10px;
+}
