@@ -3,10 +3,12 @@
 // --- 定数定義 (Moved to legacy_globals.js for Phase 1 Refactoring) ---
 // Constants are now loaded from static/js/legacy_globals.js
 
-// --- グローバル変数 ---
-let visualScale = 1.0;
-let visualOffsetX = CENTER_OFFSET_X;
-let visualOffsetY = CENTER_OFFSET_Y;
+// --- グローバル変数 (Phase 5: MapState に移行) ---
+// visualScale, visualOffsetX/Y は MapState.js で管理
+// 後方互換性のため window.visualScale 等を参照
+let visualScale = window.visualScale || 1.0;
+let visualOffsetX = window.visualOffsetX || (typeof CENTER_OFFSET_X !== 'undefined' ? CENTER_OFFSET_X : -900);
+let visualOffsetY = window.visualOffsetY || (typeof CENTER_OFFSET_Y !== 'undefined' ? CENTER_OFFSET_Y : -900);
 window.currentVisualLogFilter = 'all';
 window.visualMapHandlers = window.visualMapHandlers || { move: null, up: null };
 
@@ -171,6 +173,11 @@ async function setupVisualBattleTab() {
             // ★ Phase 3: ActionDock コンポーネントの初期化
             if (window.ActionDockComponent && typeof window.ActionDockComponent.initialize === 'function') {
                 window.ActionDockComponent.initialize();
+            }
+
+            // ★ Phase 5: VisualMap コンポーネントの初期化
+            if (window.VisualMapComponent && typeof window.VisualMapComponent.initialize === 'function') {
+                window.VisualMapComponent.initialize();
             }
 
             socket.on('state_updated', (state) => {

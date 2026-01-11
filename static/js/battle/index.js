@@ -20,6 +20,8 @@ import { socketClient } from './core/SocketClient.js';
 import { timeline } from './components/Timeline.js';
 import { matchPanelState } from './components/MatchPanelState.js';
 import { actionDock } from './components/ActionDock.js';
+import { mapState } from './components/MapState.js';
+import { visualMap } from './components/VisualMap.js';
 
 /**
  * 初期化処理
