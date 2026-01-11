@@ -22,6 +22,7 @@ import { matchPanelState } from './components/MatchPanelState.js';
 import { actionDock } from './components/ActionDock.js';
 import { mapState } from './components/MapState.js';
 import { visualMap } from './components/VisualMap.js';
+import { matchPanel } from './components/MatchPanel.js';
 
 /**
  * 初期化処理

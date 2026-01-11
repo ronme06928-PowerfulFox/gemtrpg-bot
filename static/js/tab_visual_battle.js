@@ -180,6 +180,11 @@ async function setupVisualBattleTab() {
                 window.VisualMapComponent.initialize();
             }
 
+            // ★ Phase 6: MatchPanel コンポーネントの初期化
+            if (window.MatchPanelComponent && typeof window.MatchPanelComponent.initialize === 'function') {
+                window.MatchPanelComponent.initialize();
+            }
+
             socket.on('state_updated', (state) => {
                 console.log('📡 state_updated received', {
                     hasActiveMatch: !!state.active_match,
