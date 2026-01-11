@@ -1939,3 +1939,166 @@ def handle_wide_attacker_declare(data):
 
     save_specific_room_state(room)
     broadcast_state_update(room)
+
+
+@socketio.on('execute_synced_wide_match')
+def handle_execute_synced_wide_match(data):
+    """
+    同期パネルからの広域マッチ実行
+    active_matchに保存された宣言データを使用してマッチを実行
+    """
+    room = data.get('room')
+    if not room:
+        return
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+
+    state = get_room_state(room)
+    active_match = state.get('active_match')
+
+    if not active_match or not active_match.get('is_active') or active_match.get('match_type') != 'wide':
+        print(f"[WIDE_MATCH] No active wide match to execute")
+        return
+
+    # Check if all participants have declared
+    if not active_match.get('attacker_declared'):
+        broadcast_log(room, "⚠️ 攻撃者がまだ宣言していません", 'error')
+        return
+
+    defenders = active_match.get('defenders', [])
+    undeclared = [d for d in defenders if not d.get('declared')]
+    if undeclared:
+        broadcast_log(room, f"⚠️ 防御者 {len(undeclared)}人 がまだ宣言していません", 'error')
+        return
+
+    # Get attacker data
+    attacker_id = active_match.get('attacker_id')
+    attacker_data = active_match.get('attacker_data', {})
+    attacker_skill_id = attacker_data.get('skill_id')
+    attacker_command = attacker_data.get('command')
+
+    attacker_char = next((c for c in state['characters'] if c.get('id') == attacker_id), None)
+    if not attacker_char:
+        return
+
+    attacker_skill_data = all_skill_data.get(attacker_skill_id)
+    mode = active_match.get('mode', 'individual')
+
+    # Roll function
+    def roll(cmd_str):
+        calc_str = re.sub(r'【.*?】', '', cmd_str).strip()
+        details_str = calc_str
+        dice_regex = r'(\d+)d(\d+)'
+        matches = list(re.finditer(dice_regex, calc_str))
+        for match in reversed(matches):
+            num_dice = int(match.group(1))
+            num_faces = int(match.group(2))
+            rolls = [random.randint(1, num_faces) for _ in range(num_dice)]
+            roll_sum = sum(rolls)
+            roll_details = f"({'+'.join(map(str, rolls))})"
+            start, end = match.start(), match.end()
+            details_str = details_str[:start] + roll_details + details_str[end:]
+            calc_str = calc_str[:start] + str(roll_sum) + calc_str[end:]
+        try:
+            total = eval(re.sub(r'[^-()\d/*+.]', '', calc_str))
+        except:
+            total = 0
+        return {"total": total, "details": details_str}
+
+    # Execute match
+    broadcast_log(room, f"⚔️ === 広域マッチ開始 ({mode}モード) ===", 'match-start')
+    broadcast_log(room, f"🗡️ 攻撃者: {attacker_char['name']} [{attacker_skill_id}]", 'info')
+
+    attacker_roll = roll(attacker_command)
+    broadcast_log(room, f"   → ロール: {attacker_roll['details']} = {attacker_roll['total']}", 'dice')
+
+    results = []
+    for def_data in defenders:
+        def_id = def_data.get('id')
+        def_char = next((c for c in state['characters'] if c.get('id') == def_id), None)
+        if not def_char:
+            continue
+
+        def_skill_id = def_data.get('skill_id')
+        def_command = def_data.get('command', '2d6')
+
+        def_roll = roll(def_command)
+
+        # Determine winner
+        attacker_total = attacker_roll['total']
+        defender_total = def_roll['total']
+
+        if attacker_total > defender_total:
+            winner = 'attacker'
+            damage = attacker_total - defender_total
+            results.append({'defender': def_char['name'], 'result': 'win', 'damage': damage})
+            broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
+            broadcast_log(room, f"   → 🗡️ 攻撃者勝利! ダメージ: {damage}", 'match-result')
+
+            # Apply damage
+            current_hp = get_status_value(def_char, 'HP')
+            new_hp = max(0, current_hp - damage)
+            _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]")
+
+        elif defender_total > attacker_total:
+            winner = 'defender'
+            damage = defender_total - attacker_total
+            results.append({'defender': def_char['name'], 'result': 'lose', 'damage': damage})
+            broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
+            broadcast_log(room, f"   → 🛡️ 防御者勝利! ダメージ: {damage}", 'match-result')
+
+            # Apply damage to attacker (only in individual mode, or first hit in combined)
+            if mode == 'individual':
+                current_hp = get_status_value(attacker_char, 'HP')
+                new_hp = max(0, current_hp - damage)
+                _update_char_stat(room, attacker_char, 'HP', new_hp, username=f"[{def_skill_id}]")
+        else:
+            results.append({'defender': def_char['name'], 'result': 'draw', 'damage': 0})
+            broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
+            broadcast_log(room, f"   → 引き分け", 'match-result')
+
+    broadcast_log(room, f"⚔️ === 広域マッチ終了 ===", 'match-end')
+
+    # Update hasActed flags
+    attacker_char['hasActed'] = True
+    for def_data in defenders:
+        def_id = def_data.get('id')
+        def_char = next((c for c in state['characters'] if c.get('id') == def_id), None)
+        if def_char:
+            def_char['hasActed'] = True
+
+    # Clear active match
+    state['active_match'] = None
+
+    # Advance to next turn directly
+    timeline = state.get('timeline', [])
+    current_id = state.get('turn_char_id')
+
+    next_id = None
+    if timeline:
+        current_idx = -1
+        if current_id in timeline:
+            current_idx = timeline.index(current_id)
+
+        # Search for next actor
+        for i in range(current_idx + 1, len(timeline)):
+            cid = timeline[i]
+            char = next((c for c in state['characters'] if c['id'] == cid), None)
+            if char and char.get('hp', 0) > 0 and not char.get('hasActed', False):
+                next_id = cid
+                break
+
+    if next_id:
+        state['turn_char_id'] = next_id
+        next_char = next((c for c in state['characters'] if c['id'] == next_id), None)
+        char_name = next_char['name'] if next_char else "不明"
+        broadcast_log(room, f"手番が {char_name} に移りました。", 'info')
+    else:
+        state['turn_char_id'] = None
+        broadcast_log(room, "全てのキャラクターが行動を終了しました。ラウンド終了処理を行ってください。", 'info')
+
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+
+    print(f"[WIDE_MATCH] Executed wide match: {len(results)} defenders processed")

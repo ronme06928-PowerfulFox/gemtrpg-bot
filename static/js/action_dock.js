@@ -298,20 +298,22 @@ function createImmediateCharRow(char) {
 
 // アクションドックの初期化（イベントリスナー設定のみ）
 function initializeActionDock() {
-    console.log('🔧 initializeActionDock called');
+
 
     const immediateIcon = document.getElementById('dock-immediate-icon');
     const addCharIcon = document.getElementById('dock-add-char-icon');
     const stagingIcon = document.getElementById('dock-staging-icon');
     const matchIcon = document.getElementById('dock-match-icon');
 
+
+
     // ★ 修正: 個別にチェックして設定（1つがなくても他は設定する）
     if (immediateIcon) {
         immediateIcon.onclick = function (e) {
-            console.log('⚡ Immediate icon clicked');
+
             openImmediateSkillModal();
         };
-        console.log('✅ Immediate icon click event registered');
+
     } else {
         console.warn('dock-immediate-icon not found in DOM');
     }
@@ -319,10 +321,10 @@ function initializeActionDock() {
     if (addCharIcon) {
         if (typeof openCharLoadModal === 'function') {
             addCharIcon.onclick = function (e) {
-                console.log('➕ Add char icon clicked');
+
                 openCharLoadModal();
             };
-            console.log('✅ Add char icon click event registered');
+
         } else {
             console.warn("openCharLoadModal is not defined.");
         }
@@ -332,32 +334,36 @@ function initializeActionDock() {
 
     if (stagingIcon) {
         stagingIcon.onclick = function (e) {
-            console.log('📦 Staging icon clicked');
+
             toggleStagingAreaOverlay();
         };
-        console.log('✅ Staging icon click event registered');
+
     } else {
         console.warn('dock-staging-icon not found in DOM');
     }
 
     if (matchIcon) {
         matchIcon.onclick = () => {
-            console.log('🎯 Match icon clicked');
+
             // ★ 追加: activeでない場合は無視（誤操作防止）
             if (!matchIcon.classList.contains('active')) {
-                console.log('  -> ignored (not active)');
+
                 return;
             }
 
-            // ★ 変更: パネルをトグル
-            if (typeof toggleMatchPanel === 'function') {
-                toggleMatchPanel();
-                console.log('  -> panel toggled');
-            } else {
-                console.warn('toggleMatchPanel function not found');
+            // ★ 変更: パネルを展開し、最新状態で再描画
+            if (typeof expandMatchPanel === 'function') {
+                expandMatchPanel();
+            }
+            if (typeof reloadMatchPanel === 'function') {
+                reloadMatchPanel();
+
+            } else if (typeof toggleMatchPanel === 'function') {
+                // Fallback: toggleMatchPanel if reloadMatchPanel not available
+                console.warn('reloadMatchPanel not found, using toggle');
             }
         };
-        console.log('✅ Match icon click event registered');
+
     } else {
         console.warn('dock-match-icon not found in DOM');
     }
@@ -367,7 +373,7 @@ function initializeActionDock() {
         updateActionDock();
     }
 
-    console.log('🔧 initializeActionDock completed');
+
 }
 
 // === ▲▲▲ Action Dock & Immediate Skills Functions ▲▲▲ ===

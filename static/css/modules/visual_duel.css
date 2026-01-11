@@ -817,15 +817,26 @@
     display: flex;
     gap: 10px;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    /* Prevent wrapping */
     margin-top: 8px;
 }
 
 #wide-match-container .wide-attacker-controls select {
-    flex: 1;
-    min-width: 150px;
+    flex: 3;
+    /* 60% relative to buttons */
+    min-width: 0;
     padding: 6px 8px;
     font-size: 1em;
+}
+
+#wide-match-container .wide-attacker-controls .duel-btn {
+    flex: 1;
+    /* 20% each */
+    min-width: 80px;
+    white-space: nowrap;
+    text-align: center;
+    justify-content: center;
 }
 
 #wide-match-container .wide-vs-divider {

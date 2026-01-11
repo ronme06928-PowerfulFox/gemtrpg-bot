@@ -152,38 +152,45 @@ async function setupVisualBattleTab() {
     if (typeof socket !== 'undefined') {
         console.log('📡 socket is defined, setting up handlers');
 
-        // 1. 重複防止: 一度だけ登録すればよいイベント (Map描画など)
+        // 1. 重複防止: 一度だけ登録すればよいイベント (socket handlers)
         if (!window.visualBattleSocketHandlersRegistered) {
 
             window.visualBattleSocketHandlersRegistered = true;
             console.log('📡 Registering socket event handlers');
 
-            // ★ 追加: ページロード時にもアクションドックを初期化（state_updated を待たない）
-            if (!window.actionDockInitialized && typeof initializeActionDock === 'function') {
-                console.log('🔧 Calling initializeActionDock on page load');
-                initializeActionDock();
-                window.actionDockInitialized = true;
-            }
+            // Socket handlers are registered below (state_updated, etc.)
+        }
 
-            // ★ Phase 3: Timeline コンポーネントの初期化
-            if (window.TimelineComponent && typeof window.TimelineComponent.initialize === 'function') {
-                window.TimelineComponent.initialize('visual-timeline-list');
-            }
+        // 2. DOM初期化: タブ切り替えのたびに実行（DOM要素が再作成されるため）
+        if (!window.actionDockInitialized && typeof initializeActionDock === 'function') {
+            console.log('🔧 Calling initializeActionDock on page load');
+            initializeActionDock();
+            window.actionDockInitialized = true;
+        }
 
-            // ★ Phase 3: ActionDock コンポーネントの初期化
-            if (window.ActionDockComponent && typeof window.ActionDockComponent.initialize === 'function') {
-                window.ActionDockComponent.initialize();
-            }
+        // ★ Phase 3: Timeline コンポーネントの初期化
+        if (window.TimelineComponent && typeof window.TimelineComponent.initialize === 'function') {
+            window.TimelineComponent.initialize('visual-timeline-list');
+        }
 
-            // ★ Phase 5: VisualMap コンポーネントの初期化
-            if (window.VisualMapComponent && typeof window.VisualMapComponent.initialize === 'function') {
-                window.VisualMapComponent.initialize();
-            }
+        // ★ Phase 3: ActionDock コンポーネントの初期化
+        if (window.ActionDockComponent && typeof window.ActionDockComponent.initialize === 'function') {
+            window.ActionDockComponent.initialize();
+        }
 
-            // ★ Phase 6: MatchPanel コンポーネントの初期化
-            if (window.MatchPanelComponent && typeof window.MatchPanelComponent.initialize === 'function') {
-                window.MatchPanelComponent.initialize();
-            }
+        // ★ Phase 5: VisualMap コンポーネントの初期化
+        if (window.VisualMapComponent && typeof window.VisualMapComponent.initialize === 'function') {
+            window.VisualMapComponent.initialize();
+        }
+
+        // ★ Phase 6: MatchPanel コンポーネントの初期化
+        if (window.MatchPanelComponent && typeof window.MatchPanelComponent.initialize === 'function') {
+            window.MatchPanelComponent.initialize();
+        }
+
+        // 3. ソケットハンドラ登録（一度だけ）
+        if (!window._socketHandlersActuallyRegistered) {
+            window._socketHandlersActuallyRegistered = true;
 
             socket.on('state_updated', (state) => {
                 console.log('📡 state_updated received', {

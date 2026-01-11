@@ -228,6 +228,10 @@ async function deleteRoom(roomName) {
 }
 
 async function joinRoom(roomName, initialState = null) {
+    // Reset DOM initialization flag so dock re-initializes on room change
+    // NOTE: Do NOT reset visualBattleSocketHandlersRegistered - socket handlers must only be registered once
+    window.actionDockInitialized = false;
+    // Debug log removed for production
 
     try {
         if (!initialState) {
@@ -349,6 +353,7 @@ async function loadTabContent(tabId) {
         partialHtmlFile = '3_battlefield.html';
     } else if (tabId === 'visual') {
         partialHtmlFile = '4_visual_battle.html';
+        // Flag reset is done AFTER innerHTML is set (see below)
     } else {
         // コンテンツエリアの取得 (main-content に統一)
         const contentArea = document.getElementById('main-content');
@@ -380,6 +385,10 @@ async function loadTabContent(tabId) {
             renderTokenList();
             renderTimeline();
         } else if (tabId === 'visual' || tabId === 'tab-visual') {
+            // Reset DOM initialization flag AFTER HTML is loaded (DOM elements are now new)
+            window.actionDockInitialized = false;
+            // Debug log removed for production
+
             // ビジュアルバトルタブ: setupVisualBattleTab()を呼び出す
             if (typeof setupVisualBattleTab === 'function') {
                 setupVisualBattleTab();

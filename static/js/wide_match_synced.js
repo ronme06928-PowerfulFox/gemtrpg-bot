@@ -253,6 +253,26 @@
         resultDiv.id = 'wide-def-result-' + defData.id;
         card.appendChild(resultDiv);
 
+        // Restore calculation result - from server or local state
+        // Priority: server declared data > local state
+        if (defData.declared && defData.command) {
+            // Declared via server (another user or self)
+            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + defData.command + ')';
+        } else if (window.wideMatchLocalState &&
+            window.wideMatchLocalState.defenders &&
+            window.wideMatchLocalState.defenders[defData.id]) {
+
+            var saved = window.wideMatchLocalState.defenders[defData.id];
+            if (saved.command) {
+                // If min/max saved use them, otherwise showing command only
+                if (saved.min !== undefined && saved.max !== undefined) {
+                    resultDiv.innerHTML = '<span style="color:#007bff;font-weight:bold;">Range: ' + saved.min + '~' + saved.max + '</span> (' + saved.command + ')';
+                } else {
+                    resultDiv.innerHTML = '<span style="color:#007bff;font-weight:bold;">Command: ' + saved.command + '</span>';
+                }
+            }
+        }
+
         // Skill detail area (initially hidden)
         var skillDetailDiv = document.createElement('div');
         skillDetailDiv.className = 'wide-defender-skill-detail';
@@ -392,6 +412,26 @@
             }
         }
 
+        // Initialize attacker button states based on server declared status
+        var attackerCalcBtn = document.getElementById('wide-attacker-calc-btn');
+        var attackerDeclareBtn = document.getElementById('wide-attacker-declare-btn');
+
+        if (matchData.attacker_declared) {
+            // Attacker already declared - disable all controls
+            if (attackerCalcBtn) {
+                attackerCalcBtn.disabled = true;
+            }
+            if (attackerDeclareBtn) {
+                attackerDeclareBtn.disabled = true;
+                attackerDeclareBtn.textContent = '宣言済';
+            }
+            // Restore attacker result from server data
+            var resultDiv = document.getElementById('wide-attacker-result');
+            if (resultDiv && matchData.attacker_data && matchData.attacker_data.command) {
+                resultDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;">宣言済</span> (' + matchData.attacker_data.command + ')';
+            }
+        }
+
         // Attacker calc button
         var attackerCalcBtn = document.getElementById('wide-attacker-calc-btn');
         if (attackerCalcBtn) {
@@ -463,6 +503,8 @@
                 }
                 wideMatchLocalState.defenders[defId].skillId = skillId;
                 wideMatchLocalState.defenders[defId].command = result.command;
+                wideMatchLocalState.defenders[defId].min = result.min;
+                wideMatchLocalState.defenders[defId].max = result.max;
 
                 var resultDiv = document.getElementById('wide-def-result-' + defId);
                 if (resultDiv) {
@@ -472,12 +514,6 @@
 
                 var declareBtn = document.querySelector('.wide-def-declare-btn[data-def-id="' + defId + '"]');
                 if (declareBtn) declareBtn.disabled = false;
-
-                // Auto-close info panel after calculation
-                var detailDiv = document.getElementById('wide-def-skill-detail-' + defId);
-                if (detailDiv) {
-                    detailDiv.style.display = 'none';
-                }
 
                 console.log("✅ Defender calc result:", defId, result);
             };
@@ -512,6 +548,129 @@
                 }
             };
         });
+
+        // ============================================
+        // Phase 6: Attacker Declare Button
+        // ============================================
+        var attackerDeclareBtn = document.getElementById('wide-attacker-declare-btn');
+        if (attackerDeclareBtn) {
+            attackerDeclareBtn.onclick = function () {
+                var skillId = attackerSkillSelect ? attackerSkillSelect.value : '';
+                var command = wideMatchLocalState.attackerCommand;
+
+                if (!skillId || !command) {
+                    alert('先に計算を実行してください');
+                    return;
+                }
+
+                socket.emit('wide_attacker_declare', {
+                    room: currentRoomName,
+                    skill_id: skillId,
+                    command: command
+                });
+
+                // Disable button to prevent double submission
+                this.disabled = true;
+                this.textContent = '宣言済';
+                console.log("✅ Attacker declared:", skillId, command);
+            };
+        }
+
+        // ============================================
+        // Phase 6: Defender Declare Buttons
+        // ============================================
+        document.querySelectorAll('.wide-def-declare-btn').forEach(function (btn) {
+            btn.onclick = function () {
+                var defId = this.dataset.defId;
+                var localData = wideMatchLocalState.defenders[defId];
+
+                if (!localData || !localData.skillId || !localData.command) {
+                    alert('先に計算を実行してください');
+                    return;
+                }
+
+                socket.emit('wide_declare_skill', {
+                    room: currentRoomName,
+                    defender_id: defId,
+                    skill_id: localData.skillId,
+                    command: localData.command
+                });
+
+                this.disabled = true;
+                this.textContent = '宣言済';
+                console.log("✅ Defender declared:", defId, localData.skillId);
+            };
+        });
+
+        // ============================================
+        // Phase 8: Execute Button
+        // ============================================
+        var executeBtn = document.getElementById('wide-execute-btn');
+        if (executeBtn) {
+            // Only GM or attacker owner can execute
+            var canExecute = canControlCharacter(matchData.attacker_id);
+
+            if (!canExecute) {
+                executeBtn.disabled = true;
+                executeBtn.title = 'GMまたは攻撃者の所有者のみ実行可能';
+            }
+
+            executeBtn.onclick = function () {
+                // Double-check permission
+                if (!canControlCharacter(matchData.attacker_id)) {
+                    alert('GMまたは攻撃者の所有者のみがマッチを実行できます。');
+                    return;
+                }
+
+                socket.emit('execute_synced_wide_match', {
+                    room: currentRoomName
+                });
+
+                this.disabled = true;
+                this.textContent = '実行中...';
+                console.log("✅ Wide match execution requested");
+            };
+        }
+
+        // ============================================
+        // Update Execute Button State
+        // ============================================
+        updateExecuteButtonState(matchData);
     }
+
+    // ============================================
+    // Check if all declared and enable execute button
+    // ============================================
+    function updateExecuteButtonState(matchData) {
+        var executeBtn = document.getElementById('wide-execute-btn');
+        if (!executeBtn) return;
+
+        var attackerDeclared = matchData.attacker_declared;
+        var allDefendersDeclared = matchData.defenders && matchData.defenders.length > 0 &&
+            matchData.defenders.every(function (d) {
+                return d.declared;
+            });
+
+        executeBtn.disabled = !(attackerDeclared && allDefendersDeclared);
+
+        // Update status text
+        var statusDiv = document.getElementById('wide-status');
+        if (statusDiv) {
+            if (attackerDeclared && allDefendersDeclared) {
+                statusDiv.innerHTML = '<span style="color:#28a745;">全員宣言完了！実行可能</span>';
+            } else {
+                var pending = [];
+                if (!attackerDeclared) pending.push('攻撃者');
+                if (matchData.defenders) {
+                    var undeclared = matchData.defenders.filter(function (d) { return !d.declared; });
+                    if (undeclared.length > 0) pending.push('防御者' + undeclared.length + '人');
+                }
+                statusDiv.innerHTML = '<span class="waiting">宣言待ち: ' + pending.join(', ') + '</span>';
+            }
+        }
+    }
+
+    // Export for external use
+    window.updateWideExecuteButtonState = updateExecuteButtonState;
 
 })();
