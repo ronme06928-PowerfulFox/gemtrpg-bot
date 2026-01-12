@@ -85,7 +85,7 @@ def save_specific_room_state(room_name):
     if save_room_to_db(room_name, state):
         return True
     else:
-        print(f"❌ Auto-save failed: {room_name}")
+        print(f"[ERROR] Auto-save failed: {room_name}")
         return False
 
 def broadcast_state_update(room_name):

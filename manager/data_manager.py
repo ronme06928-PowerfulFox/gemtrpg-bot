@@ -33,7 +33,7 @@ def get_gspread_client():
             # ファイルパスとして扱う
             return gspread.service_account(filename=GOOGLE_CREDENTIALS_SOURCE)
     except Exception as e:
-        print(f"❌ Google Auth Error: {e}")
+        print(f"[ERROR] Google Auth Error: {e}")
         return None
 
 def fetch_and_save_sheets_data():
@@ -44,9 +44,9 @@ def fetch_and_save_sheets_data():
 
     try:
         sh = gc.open(SPREADSHEET_NAME)
-        print(f"✅ スプレッドシート '{SPREADSHEET_NAME}' への接続に成功。")
+        print(f"[OK] スプレッドシート '{SPREADSHEET_NAME}' への接続に成功。")
     except Exception as e:
-        print(f"❌ スプレッドシート接続エラー: {e}")
+        print(f"[ERROR] スプレッドシート接続エラー: {e}")
         return False
 
     try:
@@ -57,7 +57,7 @@ def fetch_and_save_sheets_data():
             if name and name not in SHEETS_TO_SKIP
         ]
     except Exception as e:
-        print(f"❌ 目次読み込みエラー: {e}")
+        print(f"[ERROR] 目次読み込みエラー: {e}")
         return False
 
     # === ▼▼▼ 修正: グローバル変数を上書きせず、辞書の中身を更新する ▼▼▼
@@ -90,16 +90,32 @@ def fetch_and_save_sheets_data():
 
                     category = row[3]
                     effect_text = row[11]
-                    tags_list = []
+                    tokki_json_str = row[12] if len(row) > 12 else ""
 
+                    # カテゴリベースのタグ
+                    tags_list = []
                     if category in ["防御", "回避"]:
                         tags_list.append("守備")
                         tags_list.append(category)
                     elif category in ["物理", "魔法"]:
                         tags_list.append("攻撃")
                     elif category == "補助":
+                        # 後方互換: テキストから[即時発動]をパース
                         if "[即時発動]" in effect_text:
                             tags_list.append("即時発動")
+
+                    # 特記処理JSONからタグを読み取り
+                    tokki_data = {}
+                    if tokki_json_str:
+                        try:
+                            tokki_data = json.loads(tokki_json_str)
+                            # JSONに明示的なtagsがあればマージ
+                            json_tags = tokki_data.get("tags", [])
+                            for tag in json_tags:
+                                if tag not in tags_list:
+                                    tags_list.append(tag)
+                        except json.JSONDecodeError:
+                            pass  # JSONパース失敗は無視
 
                     # temp_skill_data に格納
                     temp_skill_data[skill_id] = {
@@ -115,14 +131,14 @@ def fetch_and_save_sheets_data():
                         '使用時効果': row[9],
                         '特記': row[10],
                         '発動時効果': effect_text,
-                        '特記処理': row[12],
+                        '特記処理': tokki_json_str,
                         'tags': tags_list,
                     }
                     total_skills_processed += 1
                 except IndexError:
                     continue
         except Exception as e:
-            print(f"❌ タブ '{sheet_name}' エラー: {e}")
+            print(f"[ERROR] タブ '{sheet_name}' エラー: {e}")
 
     # 最後に本物の all_skill_data を更新
     all_skill_data.clear()
@@ -132,10 +148,10 @@ def fetch_and_save_sheets_data():
     try:
         with open(SKILL_CACHE_FILE, 'w', encoding='utf-8') as f:
             json.dump(all_skill_data, f, ensure_ascii=False, indent=2)
-        print(f"✅ {total_skills_processed} 件のスキルを保存しました。")
+        print(f"[OK] {total_skills_processed} 件のスキルを保存しました。")
         return True
     except Exception as e:
-        print(f"❌ キャッシュ保存エラー: {e}")
+        print(f"[ERROR] キャッシュ保存エラー: {e}")
         return False
 
 def load_skills_from_cache():
@@ -168,7 +184,7 @@ def read_saved_rooms():
             rooms_data[r.name] = r.data
         return rooms_data
     except Exception as e:
-        print(f"❌ DB Read Error: {e}")
+        print(f"[ERROR] DB Read Error: {e}")
         return {}
 
 def save_room_to_db(room_name, room_state):
@@ -185,7 +201,7 @@ def save_room_to_db(room_name, room_state):
         return True
     except Exception as e:
         db.session.rollback()
-        print(f"❌ DB Save Error ({room_name}): {e}")
+        print(f"[ERROR] DB Save Error ({room_name}): {e}")
         return False
 
 def delete_room_from_db(room_name):
@@ -199,7 +215,7 @@ def delete_room_from_db(room_name):
         return False
     except Exception as e:
         db.session.rollback()
-        print(f"❌ DB Delete Error ({room_name}): {e}")
+        print(f"[ERROR] DB Delete Error ({room_name}): {e}")
         return False
 
 if __name__ == '__main__':
@@ -217,7 +233,7 @@ if __name__ == '__main__':
 def init_app_data():
         # 1. DBテーブル作成
         db.create_all()
-        print("✅ Database tables checked/created.")
+        print("[OK] Database tables checked/created.")
 
         # 2. スキルデータの読み込み
         # global all_skill_data  <-- 不要なので削除（all_skill_data自体を書き換えないため）
@@ -233,8 +249,8 @@ def init_app_data():
                 fetch_and_save_sheets_data()
                 # 既に fetch_and_save_sheets_data 内で all_skill_data は更新されているため再ロードは不要
                 # (load_skills_from_cache() を呼んでも良いが、必須ではない)
-                print(f"✅ Data loaded: {len(all_skill_data)} skills.")
+                print(f"[OK] Data loaded: {len(all_skill_data)} skills.")
             except Exception as e:
-                print(f"❌ Error during initial fetch: {e}")
+                print(f"[ERROR] Error during initial fetch: {e}")
         else:
-            print(f"✅ Data loaded from cache: {len(all_skill_data)} skills.")
+            print(f"[OK] Data loaded from cache: {len(all_skill_data)} skills.")

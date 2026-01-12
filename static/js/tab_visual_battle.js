@@ -246,6 +246,11 @@ async function setupVisualBattleTab() {
                 }
             });
 
+            // ★ 追加: マッチエラーハンドラ（挑発チェック等）
+            socket.on('match_error', (data) => {
+                alert(data.error || 'マッチを開始できません。');
+            });
+
             // match_data_updated は廃止 - state_updated で統一したため不要
 
             socket.on('match_modal_closed', () => {
@@ -798,7 +803,9 @@ function createMapToken(char) {
 
     const isCurrentTurn = (battleState.turn_char_id === char.id);
     let wideBtnHtml = '';
-    if (isCurrentTurn && char.isWideUser) {
+    // ★ 修正: 既に広域マッチが進行中ならボタンを表示しない (誤リセット防止)
+    const isWideMatchExecuting = battleState.active_match && battleState.active_match.is_active && battleState.active_match.match_type === 'wide';
+    if (isCurrentTurn && char.isWideUser && !isWideMatchExecuting) {
         wideBtnHtml = '<button class="wide-attack-trigger-btn" onmousedown="event.stopPropagation(); openSyncedWideMatchModal(\'' + char.id + '\');">⚡ 広域攻撃</button>';
     }
 

@@ -12,7 +12,7 @@ from manager.room_manager import (
 @socketio.on('connect')
 def handle_connect():
     if 'username' in session:
-        print(f"✅ Authenticated client connected: {session['username']} (SID: {request.sid})")
+        print(f"[OK] Authenticated client connected: {session['username']} (SID: {request.sid})")
     else:
         print(f"⚠️ Anonymous client connected: {request.sid}. Waiting for entry.")
 

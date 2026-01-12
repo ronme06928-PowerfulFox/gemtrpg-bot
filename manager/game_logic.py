@@ -146,7 +146,7 @@ def execute_custom_effect(effect, actor, target):
         }
         return handler.apply(actor, target, effect, context)
     except Exception as e:
-        print(f"❌ Plugin Error ({effect_name}): {e}", file=sys.stderr)
+        print(f"[ERROR] Plugin Error ({effect_name}): {e}", file=sys.stderr)
         return [], []
 
 def process_skill_effects(effects_array, timing_to_check, actor, target, target_skill_data=None):

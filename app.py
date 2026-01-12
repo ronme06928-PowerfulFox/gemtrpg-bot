@@ -66,7 +66,7 @@ with app.app_context():
 
 @app.route('/')
 def serve_index():
-    print(f"👀 Accessing Root! Serving from: {STATIC_DIR}")
+    print(f"[INFO] Accessing Root! Serving from: {STATIC_DIR}")
     return send_from_directory(STATIC_DIR, 'index.html')
 
 @app.route('/<path:filename>')
@@ -259,4 +259,4 @@ if __name__ == '__main__':
         sys.exit()
 
     print("Starting Flask-SocketIO server...")
-    socketio.run(app, host='127.0.0.1', port=5000, debug=True)
+    socketio.run(app, host='127.0.0.1', port=5000, debug=True, allow_unsafe_werkzeug=True)

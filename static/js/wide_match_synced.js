@@ -127,6 +127,8 @@
 
         if (matchData.attacker_data && matchData.attacker_data.skill_id) {
             selectEl.value = matchData.attacker_data.skill_id;
+        } else {
+            selectEl.value = "";
         }
 
         selectEl.disabled = matchData.attacker_declared || !canControlCharacter(matchData.attacker_id);
@@ -257,7 +259,11 @@
         // Priority: server declared data > local state
         if (defData.declared && defData.command) {
             // Declared via server (another user or self)
-            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + defData.command + ')';
+            if (defData.min !== undefined && defData.max !== undefined) {
+                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済 Range: ' + defData.min + '~' + defData.max + '</span> (' + defData.command + ')';
+            } else {
+                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + defData.command + ')';
+            }
         } else if (window.wideMatchLocalState &&
             window.wideMatchLocalState.defenders &&
             window.wideMatchLocalState.defenders[defData.id]) {
@@ -396,8 +402,28 @@
     // Phase 4-5: Setup Event Listeners
     // ============================================
     function setupWideMatchEventListeners(matchData) {
-        // Attacker skill select change
+        // ★ 強制リセット: 全てのボタン状態を初期化（古い状態を引き継がないように）
         var attackerSkillSelect = document.getElementById('wide-attacker-skill');
+        var attackerCalcBtn = document.getElementById('wide-attacker-calc-btn');
+        var attackerDeclareBtn = document.getElementById('wide-attacker-declare-btn');
+        var attackerResultDiv = document.getElementById('wide-attacker-result');
+
+        // まず全てを有効化・リセット
+        if (attackerSkillSelect) {
+            attackerSkillSelect.disabled = false;
+        }
+        if (attackerCalcBtn) {
+            attackerCalcBtn.disabled = false;
+        }
+        if (attackerDeclareBtn) {
+            attackerDeclareBtn.disabled = true; // 計算前は無効
+            attackerDeclareBtn.textContent = '宣言';
+        }
+        if (attackerResultDiv) {
+            attackerResultDiv.innerHTML = '';
+        }
+
+        // Attacker skill select change
         if (attackerSkillSelect) {
             attackerSkillSelect.onchange = function () {
                 wideMatchLocalState.attackerSkillId = this.value;
@@ -405,18 +431,21 @@
                 updateWideSkillDetail(this.value);
             };
 
-            // Trigger for initial selection
-            if (attackerSkillSelect.value) {
-                updateWideModeBadge(attackerSkillSelect.value);
-                updateWideSkillDetail(attackerSkillSelect.value);
-            }
+            // ★ 修正: スキルが選択されていない場合もリセット表示を行う
+            updateWideModeBadge(attackerSkillSelect.value);
+            updateWideSkillDetail(attackerSkillSelect.value);
         }
 
         // Initialize attacker button states based on server declared status
-        var attackerCalcBtn = document.getElementById('wide-attacker-calc-btn');
-        var attackerDeclareBtn = document.getElementById('wide-attacker-declare-btn');
+        // ★ デバッグログ追加
+        console.log("🔍 setupWideMatchEventListeners matchData:", {
+            attacker_declared: matchData.attacker_declared,
+            attacker_data: matchData.attacker_data
+        });
 
-        if (matchData.attacker_declared) {
+        // ★ 修正: attacker_declared が明示的に true の場合のみ無効化
+        // また、attacker_data にスキル情報がない場合は新規マッチとみなしてスキップ
+        if (matchData.attacker_declared === true && matchData.attacker_data && matchData.attacker_data.skill_id) {
             // Attacker already declared - disable all controls
             if (attackerCalcBtn) {
                 attackerCalcBtn.disabled = true;
@@ -425,10 +454,13 @@
                 attackerDeclareBtn.disabled = true;
                 attackerDeclareBtn.textContent = '宣言済';
             }
-            // Restore attacker result from server data
-            var resultDiv = document.getElementById('wide-attacker-result');
-            if (resultDiv && matchData.attacker_data && matchData.attacker_data.command) {
-                resultDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;">宣言済</span> (' + matchData.attacker_data.command + ')';
+            // Restore attacker result from server data with range if available
+            if (attackerResultDiv && matchData.attacker_data.command) {
+                var displayText = '宣言済';
+                if (matchData.attacker_data.min !== undefined && matchData.attacker_data.max !== undefined) {
+                    displayText += ' Range: ' + matchData.attacker_data.min + '~' + matchData.attacker_data.max;
+                }
+                attackerResultDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;">' + displayText + '</span> (' + matchData.attacker_data.command + ')';
             }
         }
 
@@ -563,15 +595,54 @@
                     return;
                 }
 
+                // ★ FP/MPコストチェック（特記処理.cost配列を使用）
+                var skillData = window.allSkillData[skillId];
+                var attacker = matchData.attacker_snapshot || (battleState.characters && battleState.characters.find(function (c) { return c.id === matchData.attacker_id; }));
+                if (skillData && attacker) {
+                    try {
+                        var ruleJson = skillData['特記処理'] || '{}';
+                        var ruleData = JSON.parse(ruleJson);
+                        var costs = ruleData.cost || [];
+                        for (var i = 0; i < costs.length; i++) {
+                            var cost = costs[i];
+                            var costType = cost.type;
+                            var costValue = parseInt(cost.value || 0, 10);
+                            if (costValue > 0 && costType) {
+                                var currentVal = 0;
+                                if (costType === 'FP') currentVal = attacker.fp || 0;
+                                else if (costType === 'MP') currentVal = attacker.mp || 0;
+                                if (currentVal < costValue) {
+                                    alert(costType + 'が不足しています。必要: ' + costValue + ', 現在: ' + currentVal);
+                                    return;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.log('Cost check parse error:', e);
+                    }
+                }
+
+                // ★ レンジ情報を取得
+                var resultDiv = document.getElementById('wide-attacker-result');
+                var minDmg = resultDiv && resultDiv.dataset.minDamage ? resultDiv.dataset.minDamage : '';
+                var maxDmg = resultDiv && resultDiv.dataset.maxDamage ? resultDiv.dataset.maxDamage : '';
+
                 socket.emit('wide_attacker_declare', {
                     room: currentRoomName,
                     skill_id: skillId,
-                    command: command
+                    command: command,
+                    min: minDmg,
+                    max: maxDmg
                 });
 
-                // Disable button to prevent double submission
+                // Disable button and update display with range preserved
                 this.disabled = true;
                 this.textContent = '宣言済';
+
+                if (resultDiv && minDmg && maxDmg) {
+                    resultDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;">宣言済 Range: ' + minDmg + '~' + maxDmg + '</span> (' + command + ')';
+                }
+
                 console.log("✅ Attacker declared:", skillId, command);
             };
         }
@@ -593,7 +664,9 @@
                     room: currentRoomName,
                     defender_id: defId,
                     skill_id: localData.skillId,
-                    command: localData.command
+                    command: localData.command,
+                    min: localData.min,
+                    max: localData.max
                 });
 
                 this.disabled = true;
