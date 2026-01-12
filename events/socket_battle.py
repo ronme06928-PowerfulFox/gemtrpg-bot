@@ -1226,6 +1226,10 @@ def _process_end_round_logic(room, username):
 
     state['is_round_ended'] = True
     state['turn_char_id'] = None  # ★ 手番キャラをクリア（青い光やボタンを消すため）
+
+    # ★ 追加: ラウンド終了時にアクティブマッチも強制終了
+    state['active_match'] = None
+
     broadcast_state_update(room)
     save_specific_room_state(room)
 
@@ -1284,6 +1288,29 @@ def handle_reset_battle(data):
 
     broadcast_state_update(room)
     save_specific_room_state(room)
+
+@socketio.on('request_force_end_match')
+def handle_force_end_match(data):
+    room = data.get('room')
+    if not room: return
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+
+    if attribute != 'GM':
+        print(f"⚠️ Security: Player {username} tried to force end match. Denied.")
+        return
+
+    state = get_room_state(room)
+    if not state.get('active_match') or not state['active_match'].get('is_active'):
+        socketio.emit('new_log', {"message": "現在アクティブなマッチはありません。", "type": "error"}, to=request.sid)
+        return
+
+    state['active_match'] = None
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+    broadcast_log(room, f"⚠️ GM {username} がマッチを強制終了しました。", 'match-end')
 
 @socketio.on('request_declare_wide_skill_users')
 def handle_declare_wide_skill_users(data):
@@ -1739,6 +1766,9 @@ def handle_open_match_modal(data):
                     if 'special_buffs' in c:
                         for buff in c['special_buffs']:
                             if buff.get('name') == '挑発中':
+                                # ★修正: ディレイ中は効果を発揮しない
+                                if buff.get('delay', 0) > 0:
+                                    continue
                                 provoking_enemies.append(c['id'])
                                 break
 
@@ -1747,7 +1777,7 @@ def handle_open_match_modal(data):
                 socketio.emit('match_error', {
                     'error': '挑発中の敵がいるため、他のキャラクターを攻撃できません。'
                 }, room=request.sid)
-                return
+                return  # ★ ここで終了し、絶対に下に通さない
 
     # ★ Phase 9: Resume Logic
     # 既存のactive_matchがあり、かつ同じアクター/ターゲットなら再開する

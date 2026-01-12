@@ -180,6 +180,7 @@ function renderCharacterCard(char) {
     const specialBuffs = char.special_buffs || [];
     if (specialBuffs.length > 0) {
         specialBuffs.forEach(buff => {
+            console.log("Buff Data:", buff); // ★ Debug Log
             let def = { name: buff.name, description: "説明なし", type: "buff" };
             if (typeof BUFF_DATA !== 'undefined' && typeof BUFF_DATA.get === 'function') {
                 const found = BUFF_DATA.get(buff.name);
@@ -187,13 +188,20 @@ function renderCharacterCard(char) {
             }
 
             // 残り時間の表示
+            // 残り時間の表示
             let timer = '';
-            if (buff.delay > 0) {
-                timer = `(発動まで ${buff.delay}R)`;
-            } else if (buff.lasting > 900) {
-                timer = ''; // 永続なら時間は表示しない
+            // 持続表示
+            if (buff.lasting > 900) {
+                timer = '';
             } else if (buff.lasting > 0) {
                 timer = `(残り ${buff.lasting}R)`;
+            }
+
+            // ディレイ表示（横に追加）
+            // ★修正: 文字列でも数値として扱う
+            const delayVal = parseInt(buff.delay, 10) || 0;
+            if (delayVal > 0) {
+                timer += ` <span style="color: #d63384; font-weight:bold;">(発動まで ${delayVal}R)</span>`;
             }
 
             // 表示用HTMLの生成

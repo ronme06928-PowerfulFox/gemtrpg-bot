@@ -95,6 +95,10 @@ def calculate_buff_power_bonus(actor, target, actor_skill_data):
         effect_data = get_buff_effect(buff_name)
         if not effect_data: continue
 
+        # ★追加: ディレイ中のバフは無効
+        if buff.get('delay', 0) > 0:
+            continue
+
         power_bonuses = effect_data.get('power_bonus', [])
         total_buff_bonus += _calculate_bonus_from_rules(power_bonuses, actor, target, actor_skill_data)
 
@@ -111,6 +115,10 @@ def calculate_state_apply_bonus(actor, target, stat_name):
         buff_name = buff.get('name')
         effect_data = get_buff_effect(buff_name)
         if not effect_data: continue
+
+        # ★追加: ディレイ中のバフは無効
+        if buff.get('delay', 0) > 0:
+            continue
 
         state_bonuses = effect_data.get('state_bonus', [])
         matching_rules = [r for r in state_bonuses if r.get('stat') == stat_name]

@@ -935,6 +935,13 @@ function showCharacterDetail(charId) {
             if (durationVal !== null && !isNaN(durationVal) && durationVal < 99) {
                 durationHtml = `<span class="buff-duration-badge" style="background:#666; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:8px; display:inline-block;">${durationVal}R</span>`;
             }
+
+            // ★追加: デバッグログとディレイ表示
+            console.log("Visual Battle Buff Data:", b);
+            const delayVal = parseInt(b.delay, 10) || 0;
+            if (delayVal > 0) {
+                durationHtml += ` <span style="color: #d63384; font-weight:bold; margin-left:5px;">(発動まで ${delayVal}R)</span>`;
+            }
             const buffUniqueId = `buff-detail-${char.id}-${index}`;
             specialBuffsHtml += `
                 <div style="width: 100%; margin-bottom: 4px;">
@@ -1474,6 +1481,48 @@ function renderMatchPanelFromState(matchData) {
     if (typeof updateActionDock === 'function') {
         updateActionDock();
     }
+
+    // ★ GM用 強制終了ボタンの注入
+    const existingBtn = document.getElementById('force-end-match-btn');
+    if (existingBtn) existingBtn.remove(); // 重複防止のため一度削除
+
+    const headerAttr = document.getElementById('header-attribute');
+    const isGM = headerAttr && (headerAttr.textContent === 'GM' || headerAttr.textContent.includes('GM'));
+
+    if (isGM) {
+        const btn = document.createElement('button');
+        btn.id = 'force-end-match-btn';
+        btn.innerHTML = '⚠️ 強制終了'; // 絵文字付き
+        btn.title = 'GM権限でマッチを強制終了します';
+        btn.style.position = 'absolute';
+        btn.style.top = '10px'; // 少しマージンを取る
+        btn.style.right = '130px'; // 閉じるボタンの左側へ (位置調整: 50px -> 130px)
+        btn.style.zIndex = '2000'; // 最前面
+        btn.style.backgroundColor = '#dc3545'; // Danger Red
+        btn.style.color = 'white';
+        btn.style.border = '1px solid #bd2130';
+        btn.style.borderRadius = '4px';
+        btn.style.padding = '4px 10px';
+        btn.style.fontSize = '12px';
+        btn.style.fontWeight = 'bold';
+        btn.style.cursor = 'pointer';
+        btn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+
+        btn.onclick = function (e) {
+            e.stopPropagation();
+            if (confirm('【GM権限】マッチを強制終了しますか？\n現在行われているマッチ、または意図せず開いているマッチ画面を閉じます。\nこの操作は元に戻せません。')) {
+                if (socket) socket.emit('request_force_end_match', { room: currentRoomName });
+            }
+        };
+
+        panel.appendChild(btn);
+
+        // パネルのposition設定を確認（absolute配置のため）
+        const style = window.getComputedStyle(panel);
+        if (style.position === 'static') {
+            panel.style.position = 'relative';
+        }
+    }
 }
 
 // マッチパネルの内容を matchData に基づいて更新
@@ -1626,6 +1675,19 @@ function openDuelModal(attackerId, defenderId, isOneSided = false, emitSync = tr
     }
     if (!attacker || !defender) return;
 
+    // ★ 修正: emitSync=trueの場合はサーバーにリクエストを送るだけで、
+    // クライアント側ではまだ開かない (サーバーからの match_modal_opened を待つ)
+    if (emitSync) {
+        socket.emit('open_match_modal', {
+            room: currentRoomName,
+            match_type: 'duel',
+            attacker_id: attackerId,
+            defender_id: defenderId
+        });
+        return; // ★ ここで終了し、ローカルでは開かない
+    }
+
+    // ★ 以下はサーバーからの通知で開く場合のみ実行される (emitSync = false)
     duelState = {
         attackerId, defenderId,
         attackerLocked: false, defenderLocked: false,
@@ -1649,35 +1711,6 @@ function openDuelModal(attackerId, defenderId, isOneSided = false, emitSync = tr
     battleState.active_match.match_type = 'duel';
     battleState.active_match.attacker_id = attackerId;
     battleState.active_match.defender_id = defenderId;
-
-    // ★ 修正: マッチデータの初期化 (restore時などに undefined になるのを防ぐ)
-    if (!battleState.active_match.attacker_data) battleState.active_match.attacker_data = {};
-    if (!battleState.active_match.defender_data) battleState.active_match.defender_data = {};
-
-    // ★ 修正: ロック状態の復元 (Reload時など)
-    // battleState.active_match に宣言済みフラグ AND 計算データがあればロックする
-    // 計算データがない場合は、宣言フラグだけではロックしない（古いフラグの可能性）
-    if (battleState.active_match.attacker_declared &&
-        battleState.active_match.attacker_data &&
-        battleState.active_match.attacker_data.final_command) {
-        duelState.attackerLocked = true;
-    }
-    if (battleState.active_match.defender_declared &&
-        battleState.active_match.defender_data &&
-        battleState.active_match.defender_data.final_command) {
-        duelState.defenderLocked = true;
-    }
-
-
-    // ★ 修正: emitSync=trueの場合は必ず送信（マップ操作時など）
-    if (emitSync) {
-        socket.emit('open_match_modal', {
-            room: currentRoomName,
-            match_type: 'duel',
-            attacker_id: attackerId,
-            defender_id: defenderId
-        });
-    }
 
     // アイコンの状態を更新
     if (typeof updateActionDock === 'function') {

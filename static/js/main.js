@@ -299,6 +299,7 @@ function initializeSocketIO() {
         alert('サーバーとの接続が切れました。ページをリロードします。');
         location.reload();
     });
+    // match_error is handled in tab_visual_battle.js
     socket.on('state_updated', (newState) => {
 
         battleState = newState;

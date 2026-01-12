@@ -199,6 +199,24 @@ def handle_delete_character(data):
     if char:
         print(f"User {username} deleting character from room '{room}': {char.get('name')}")
         state["characters"] = [c for c in state["characters"] if c.get('id') != char_id]
+
+        # ★追加: マッチ当事者が消えた場合、アクティブマッチを強制終了する
+        active_match = state.get('active_match')
+        if active_match and active_match.get('is_active'):
+             # Duel: attacker or defender / Wide: attacker or in defenders list
+             is_involved = False
+             if active_match.get('attacker_id') == char_id: is_involved = True
+             elif active_match.get('defender_id') == char_id: is_involved = True
+             elif active_match.get('match_type') == 'wide':
+                 # Check defenders list
+                 for d in active_match.get('defenders', []):
+                     if d.get('id') == char_id:
+                         is_involved = True; break
+
+             if is_involved:
+                 state['active_match'] = None # or {'is_active': False}
+                 broadcast_log(room, f"⚠️ マッチ当事者 {char.get('name')} が削除されたため、マッチをキャンセルしました。", 'match-end')
+
         broadcast_log(room, f"{username} が {char.get('name')} を戦闘から離脱させました。", 'info')
         broadcast_state_update(room)
         save_specific_room_state(room)
