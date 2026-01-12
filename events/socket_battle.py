@@ -1946,6 +1946,34 @@ def handle_open_wide_match_modal(data):
     print(f"[WIDE_MATCH] {username} opened wide match modal in room {room} with {len(defenders)} defenders")
 
 
+# ★ コスト精査ヘルパー
+def verify_skill_cost(char, skill_d):
+    """
+    スキル使用に必要なコストが足りているかチェックする
+    足りていればTrue, 不足していればFalseと不足情報を返す
+    """
+    if not skill_d: return True, None
+
+    rule_json_str = skill_d.get('特記処理', '{}')
+    try:
+        rule_data = json.loads(rule_json_str)
+        tags = rule_data.get('tags', skill_d.get('tags', []))
+        if "即時発動" in tags:
+             return True, None
+
+        for cost in rule_data.get("cost", []):
+            c_type = cost.get("type")
+            c_val = int(cost.get("value", 0))
+            if c_val > 0 and c_type:
+                curr = get_status_value(char, c_type)
+                if curr < c_val:
+                    return False, f"{c_type}不足 (必要:{c_val}, 現在:{curr})"
+    except:
+        pass
+
+    return True, None
+
+
 @socketio.on('wide_declare_skill')
 def handle_wide_declare_skill(data):
     """
@@ -1978,6 +2006,14 @@ def handle_wide_declare_skill(data):
     # 対象の防御者を更新
     for defender in active_match.get('defenders', []):
         if defender['id'] == defender_id:
+            # ★ コストチェック
+            def_char = next((c for c in state['characters'] if c.get('id') == defender_id), None)
+            skill_data = all_skill_data.get(skill_id)
+            ok, msg = verify_skill_cost(def_char, skill_data)
+            if not ok:
+                 broadcast_log(room, f"⚠️ コスト不足により {defender['name']} の宣言を拒否: {msg}", 'error')
+                 return
+
             defender['skill_id'] = skill_id
             defender['command'] = command
             # ★ レンジ情報の保存
@@ -2021,6 +2057,14 @@ def handle_wide_attacker_declare(data):
     if not is_authorized_for_character(room, attacker_id, username, attribute):
         print(f"[WIDE_MATCH] Unauthorized declaration attempt by {username} for attacker")
         return
+
+    # ★ コストチェック
+    attacker_char = next((c for c in state['characters'] if c.get('id') == attacker_id), None)
+    skill_data = all_skill_data.get(skill_id, {})
+    ok, msg = verify_skill_cost(attacker_char, skill_data)
+    if not ok:
+         broadcast_log(room, f"⚠️ コスト不足により攻撃者の宣言を拒否: {msg}", 'error')
+         return
 
     active_match['attacker_data'] = {
         'skill_id': skill_id,
@@ -2110,11 +2154,30 @@ def handle_execute_synced_wide_match(data):
                     c_val = int(cost.get("value", 0))
                     if c_val > 0 and c_type:
                         curr = get_status_value(char, c_type)
+                        # デバッグログ
+                        print(f"[DEBUG_COST] {char['name']} {c_type} val:{c_val} curr:{curr} -> new:{max(0, curr - c_val)}")
+
+                        if curr == 0:
+                             print(f"[DEBUG_DUMP] keys: {list(char.keys())}")
+                             if c_type == 'MP':
+                                 print(f"[DEBUG_DUMP] MP raw: {char.get('mp')}")
+                             if 'states' in char:
+                                 print(f"[DEBUG_DUMP] states: {[s.get('name') for s in char['states']]}")
+
                         new_val = max(0, curr - c_val)
                         _update_char_stat(room, char, c_type, new_val, username=f"[{skill_id_log}]")
-                        print(f"[COST] {char['name']} consumed {c_val} {c_type} for {skill_id_log}")
+
+                        # 明示的にチャットに通知（消費確認用）
+                        broadcast_log(room, f"{char['name']} は {c_type}を{c_val}消費しました (残:{new_val})", 'system')
+
+                        # 更新確認
+                        check_val = get_status_value(char, c_type)
+                        print(f"[DEBUG_CHECK] After update: {check_val}")
+
         except Exception as e:
             print(f"[COST] Error consuming cost for {char['name']}: {e}")
+            import traceback
+            traceback.print_exc()
 
     # 攻撃者のコスト消費
     consume_skill_cost(attacker_char, attacker_skill_data, attacker_skill_id)

@@ -237,6 +237,74 @@
             calcBtn.className = 'duel-btn secondary wide-def-calc-btn';
             calcBtn.dataset.defId = defData.id;
             calcBtn.textContent = '計算';
+            calcBtn.onclick = function () {
+                var defId = defData.id;
+                var select = document.querySelector('.wide-defender-skill[data-def-id="' + defId + '"]');
+                var skillId = select ? select.value : '';
+
+                if (!skillId) {
+                    alert('スキルを選択してください');
+                    return;
+                }
+
+                var skillData = window.allSkillData[skillId];
+                if (!skillData || !defChar) return;
+
+                // ★ コストチェック
+                if (skillData['特記処理']) {
+                    try {
+                        var rule = JSON.parse(skillData['特記処理']);
+                        var tags = skillData.tags || [];
+                        if (rule.cost && tags.indexOf("即時発動") === -1) {
+                            for (var i = 0; i < rule.cost.length; i++) {
+                                var c = rule.cost[i];
+                                var type = c.type;
+                                var val = parseInt(c.value || 0);
+                                if (val > 0 && type) {
+                                    var current = 0;
+                                    if (type === 'MP') current = parseInt(defChar.mp || 0);
+                                    else if (type === 'HP') current = parseInt(defChar.hp || 0);
+                                    else {
+                                        var found = (defChar.states || []).find(s => s.name === type);
+                                        current = found ? parseInt(found.value || 0) : 0;
+                                    }
+
+                                    if (current < val) {
+                                        var resDiv = document.getElementById('wide-def-result-' + defId);
+                                        if (resDiv) {
+                                            resDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;">⚠️ ' + type + '不足 (必要:' + val + ')</span>';
+                                        }
+                                        var dBtn = card.querySelector('.wide-def-declare-btn');
+                                        if (dBtn) dBtn.disabled = true;
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) { console.error(e); }
+                }
+
+                // コストOKなら計算
+                var result = calculateSkillCommand(defChar, skillData);
+
+                if (!wideMatchLocalState.defenders[defId]) {
+                    wideMatchLocalState.defenders[defId] = {};
+                }
+                wideMatchLocalState.defenders[defId].skillId = skillId;
+                wideMatchLocalState.defenders[defId].command = result.command;
+                wideMatchLocalState.defenders[defId].min = result.min;
+                wideMatchLocalState.defenders[defId].max = result.max;
+
+                var resultDiv = document.getElementById('wide-def-result-' + defId);
+                if (resultDiv) {
+                    resultDiv.innerHTML = '<span style="color:#007bff;font-weight:bold;">Range: ' + result.min + '~' + result.max + '</span> (' + result.command + ')';
+                }
+
+                var dBtn = card.querySelector('.wide-def-declare-btn');
+                if (dBtn) dBtn.disabled = false;
+
+                console.log("✅ Defender calc result:", result);
+            };
             body.appendChild(calcBtn);
 
             var declBtn = document.createElement('button');
@@ -244,6 +312,69 @@
             declBtn.dataset.defId = defData.id;
             declBtn.textContent = '宣言';
             declBtn.disabled = true;
+
+            declBtn.onclick = function () {
+                var defId = defData.id; // Access from closure
+                var localData = wideMatchLocalState.defenders[defId];
+
+                if (!localData || !localData.skillId || !localData.command) {
+                    alert('先に計算を実行してください');
+                    return;
+                }
+
+                // ★ インラインコストチェック
+                var skillData = window.allSkillData && window.allSkillData[localData.skillId];
+                if (skillData && skillData['特記処理']) {
+                    try {
+                        var rule = JSON.parse(skillData['特記処理']);
+                        // コストがある場合のみチェック（即時発動はJS側では判定難しいのでタグチェックも入れたいがあれば）
+                        var tags = skillData.tags || [];
+                        // 即時発動タグがあれば消費しないのでチェックしない？（サーバー側ロジックに合わせる）
+
+                        if (rule.cost && tags.indexOf("即時発動") === -1) {
+                            for (var i = 0; i < rule.cost.length; i++) {
+                                var c = rule.cost[i];
+                                var type = c.type;
+                                var val = parseInt(c.value || 0);
+                                if (val > 0 && type) {
+                                    var current = 0;
+                                    if (type === 'MP') current = parseInt(defChar.mp || 0); // defChar from closure
+                                    else if (type === 'HP') current = parseInt(defChar.hp || 0);
+                                    else {
+                                        var found = (defChar.states || []).find(s => s.name === type);
+                                        current = found ? parseInt(found.value || 0) : 0;
+                                    }
+
+                                    if (current < val) {
+                                        // エラー表示
+                                        var resDiv = document.getElementById('wide-def-result-' + defId);
+                                        if (resDiv) {
+                                            resDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;">⚠️ ' + type + '不足 (必要:' + val + ')</span>';
+                                        } else {
+                                            alert(type + "が不足しています (必要:" + val + ", 現在:" + current + ")");
+                                        }
+                                        return; // 中断
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) { console.error(e); }
+                }
+
+                // 成功時
+                socket.emit('wide_declare_skill', {
+                    room: currentRoomName,
+                    defender_id: defId,
+                    skill_id: localData.skillId,
+                    command: localData.command,
+                    min: localData.min,
+                    max: localData.max
+                });
+
+                this.disabled = true;
+                this.textContent = '宣言済';
+            };
+
             body.appendChild(declBtn);
         }
 
@@ -510,46 +641,7 @@
             };
         });
 
-        // Defender calc buttons (event delegation)
-        document.querySelectorAll('.wide-def-calc-btn').forEach(function (btn) {
-            btn.onclick = function () {
-                var defId = this.dataset.defId;
-                var select = document.querySelector('.wide-defender-skill[data-def-id="' + defId + '"]');
-                var skillId = select ? select.value : '';
 
-                if (!skillId) {
-                    alert('スキルを選択してください');
-                    return;
-                }
-
-                var defChar = battleState.characters && battleState.characters.find(function (c) {
-                    return c.id === defId;
-                });
-                var skillData = window.allSkillData[skillId];
-                if (!skillData || !defChar) return;
-
-                var result = calculateSkillCommand(defChar, skillData);
-
-                if (!wideMatchLocalState.defenders[defId]) {
-                    wideMatchLocalState.defenders[defId] = {};
-                }
-                wideMatchLocalState.defenders[defId].skillId = skillId;
-                wideMatchLocalState.defenders[defId].command = result.command;
-                wideMatchLocalState.defenders[defId].min = result.min;
-                wideMatchLocalState.defenders[defId].max = result.max;
-
-                var resultDiv = document.getElementById('wide-def-result-' + defId);
-                if (resultDiv) {
-                    resultDiv.innerHTML = '<span style="color:#007bff;font-weight:bold;">Range: ' + result.min + '~' + result.max + '</span> (' + result.command + ')';
-                    resultDiv.dataset.command = result.command;
-                }
-
-                var declareBtn = document.querySelector('.wide-def-declare-btn[data-def-id="' + defId + '"]');
-                if (declareBtn) declareBtn.disabled = false;
-
-                console.log("✅ Defender calc result:", defId, result);
-            };
-        });
 
         // Defender info buttons
         document.querySelectorAll('.wide-def-info-btn').forEach(function (btn) {
@@ -647,33 +739,7 @@
             };
         }
 
-        // ============================================
-        // Phase 6: Defender Declare Buttons
-        // ============================================
-        document.querySelectorAll('.wide-def-declare-btn').forEach(function (btn) {
-            btn.onclick = function () {
-                var defId = this.dataset.defId;
-                var localData = wideMatchLocalState.defenders[defId];
 
-                if (!localData || !localData.skillId || !localData.command) {
-                    alert('先に計算を実行してください');
-                    return;
-                }
-
-                socket.emit('wide_declare_skill', {
-                    room: currentRoomName,
-                    defender_id: defId,
-                    skill_id: localData.skillId,
-                    command: localData.command,
-                    min: localData.min,
-                    max: localData.max
-                });
-
-                this.disabled = true;
-                this.textContent = '宣言済';
-                console.log("✅ Defender declared:", defId, localData.skillId);
-            };
-        });
 
         // ============================================
         // Phase 8: Execute Button
