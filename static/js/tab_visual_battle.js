@@ -7,6 +7,10 @@
 // visualScale, visualOffsetX/Y は MapState.js で管理
 // 後方互換性のため window.visualScale 等を参照
 let visualScale = window.visualScale || 1.0;
+// グローバル変数: ターン制御用
+window.matchActionInitiated = false;
+window.lastTurnCharId = null;
+
 let visualOffsetX = window.visualOffsetX || (typeof CENTER_OFFSET_X !== 'undefined' ? CENTER_OFFSET_X : -900);
 let visualOffsetY = window.visualOffsetY || (typeof CENTER_OFFSET_Y !== 'undefined' ? CENTER_OFFSET_Y : -900);
 window.currentVisualLogFilter = 'all';
@@ -418,6 +422,22 @@ async function setupVisualBattleTab() {
     setupVisualSidebarControls();
     renderVisualMap();
     renderVisualMap();
+    // === End of Main Functions ===
+
+    // ★ 追加: ターン変更時のフラグリセット用リスナー
+    if (typeof socket !== 'undefined' && !window._visualBattleTurnListenerRegistered) {
+        window._visualBattleTurnListenerRegistered = true;
+        socket.on('state_updated', (newState) => {
+            if (!newState) return;
+
+            // ターンキャラクターが変わったらフラグリセット
+            if (window.lastTurnCharId !== newState.turn_char_id) {
+                console.log(`[TurnChange] ${window.lastTurnCharId} -> ${newState.turn_char_id}. Resetting match flag.`);
+                window.lastTurnCharId = newState.turn_char_id;
+                window.matchActionInitiated = false;
+            }
+        });
+    }
     // renderStagingArea(); // Removed
     renderVisualTimeline();
     renderVisualTimeline();
@@ -857,8 +877,29 @@ function createMapToken(char) {
         token.classList.add('dragging');
     });
     token.addEventListener('dragend', () => token.classList.remove('dragging'));
+    // ダブルクリックで詳細モーダルを表示
+    token.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        exitAttackTargetingMode(); // ターゲット選択モードを解除
+        showCharacterDetail(char.id);
+    });
+
     token.addEventListener('click', (e) => {
         e.stopPropagation();
+
+        // ★修正: アクティブなマッチがある場合の挙動
+        if (battleState.active_match && battleState.active_match.is_active) {
+            const am = battleState.active_match;
+            // 自分が攻撃者 or 防御者なら、ターゲットモードには入らずパネルを開く
+            if (am.attacker_id === char.id || am.defender_id === char.id) {
+                // パネルが閉じていれば開く
+                if (typeof expandMatchPanel === 'function') expandMatchPanel();
+                return;
+            }
+            // 他のキャラをクリックした場合は、現在進行中のマッチを無視してターゲットモードに入るべきか？
+            // ユーザー要望「ハンドキャラをクリック...リセットされてしまう」-> 誤操作防止のため、
+            // 進行中はハンドキャラクリックでパネル表示のみにするのが安全。
+        }
 
         // ターゲット選択モード中の場合
         if (attackTargetingState.isTargeting && attackTargetingState.attackerId) {
@@ -873,6 +914,18 @@ function createMapToken(char) {
             const attackerChar = battleState.characters.find(c => c.id === attackerId);
             const attackerName = attackerChar ? attackerChar.name : "不明";
 
+            // ★修正: 1ターン1回制限のチェック
+            // ここでconfirmを出す前にチェックしても良いが、openDuelModal内でもフラグを立てる
+            /*
+            if (window.matchActionInitiated) {
+                alert("このターンは既にマッチを開始しています。(1ターン1回制限)");
+                exitAttackTargetingMode();
+                return;
+            }
+            */
+            // ↑ ここでチェックすると、ターゲットクリック時に弾かれる。
+            // しかし、ユーザー要望は「再発動の防止」。
+
             if (confirm(`【攻撃確認】\n「${attackerName}」が「${char.name}」に攻撃を仕掛けますか？`)) {
                 openDuelModal(attackerId, char.id);
             }
@@ -885,15 +938,15 @@ function createMapToken(char) {
         // 手番キャラの場合、ターゲット選択モードに入る
         const isCurrentTurn = (battleState.turn_char_id === char.id);
         if (isCurrentTurn) {
+            // ★修正: 1ターン1回制限
+            if (window.matchActionInitiated) {
+                // マッチが終了しているが、このターン既に一度やっている場合
+                alert("1ターンに1回のみマッチを開始できます。\n次のターンまでお待ちください。");
+                return;
+            }
+
             enterAttackTargetingMode(char.id);
         }
-    });
-
-    // ダブルクリックで詳細モーダルを表示
-    token.addEventListener('dblclick', (e) => {
-        e.stopPropagation();
-        exitAttackTargetingMode(); // ターゲット選択モードを解除
-        showCharacterDetail(char.id);
     });
 
     return token;
@@ -1669,7 +1722,7 @@ function updateMatchPanelContent(matchData) {
             const hasCalcResult = sideData && sideData.final_command;
 
             if (declareBtn) {
-                declareBtn.textContent = '宣言 (Declare)';
+                declareBtn.textContent = '宣言';
                 declareBtn.classList.remove('locked');
                 declareBtn.disabled = !(hasCalcResult && canControl);
             }
@@ -1695,11 +1748,16 @@ function openDuelModal(attackerId, defenderId, isOneSided = false, emitSync = tr
         console.log('Using defender snapshot for modal');
         defender = battleState.active_match.defender_snapshot;
     }
+
+
     if (!attacker || !defender) return;
 
     // ★ 修正: emitSync=trueの場合はサーバーにリクエストを送るだけで、
     // クライアント側ではまだ開かない (サーバーからの match_modal_opened を待つ)
     if (emitSync) {
+        // ★修正: マッチ開始フラグを立てる (1ターン1回制限)
+        // window.matchActionInitiated = true; // REMOVED
+
         socket.emit('open_match_modal', {
             room: currentRoomName,
             match_type: 'duel',
@@ -1784,7 +1842,6 @@ function openDuelModal(attackerId, defenderId, isOneSided = false, emitSync = tr
 
 }
 
-// ============================================
 // Match Panel Control Functions
 // ============================================
 
@@ -1900,7 +1957,7 @@ function resetDuelUI() {
 
         if (calcBtn) calcBtn.disabled = false;
         if (declBtn) {
-            declBtn.disabled = true; declBtn.textContent = "Declare";
+            declBtn.disabled = true; declBtn.textContent = "宣言";
             declBtn.classList.remove('locked');
             declBtn.dataset.isImmediate = 'false';
         }
@@ -2094,7 +2151,7 @@ function updateDuelUI(side, data) {
         declareBtn.classList.add('immediate-btn');
     } else if (declareBtn) {
         declareBtn.dataset.isImmediate = 'false';
-        declareBtn.textContent = '宣言 (Declare)';
+        declareBtn.textContent = '宣言';
         declareBtn.classList.remove('immediate-btn');
     }
 
