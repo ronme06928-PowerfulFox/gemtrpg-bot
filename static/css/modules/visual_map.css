@@ -322,9 +322,12 @@
     outline-offset: -3px;
 }
 
-.map-token.targeting-source {
-    box-shadow: 0 0 0 4px #ff9800, 0 0 20px rgba(255, 152, 0, 0.6);
-    animation: pulse-targeting 1s infinite;
+.map-token.targeting-source,
+.map-token.targeting-source.active-turn {
+    box-shadow: 0 0 0 4px #ff9800, 0 0 20px rgba(255, 152, 0, 0.6) !important;
+    border-color: #ff9800 !important;
+    animation: pulse-targeting 1s infinite !important;
+    z-index: 1000;
 }
 
 @keyframes pulse-targeting {
