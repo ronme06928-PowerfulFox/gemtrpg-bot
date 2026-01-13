@@ -75,12 +75,29 @@
     box-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
 }
 
+/* Default active turn (fallback) */
 .map-token.active-turn {
     box-shadow: 0 0 20px 5px #00ffff;
     border-color: #00ffff;
     z-index: 100;
     animation: pulse-turn 1.5s infinite alternate;
 }
+
+/* PC/NPC active turn (Ally - Blue) */
+.map-token.PC.active-turn,
+.map-token.NPC.active-turn {
+    box-shadow: 0 0 20px 5px #007bff;
+    border-color: #007bff;
+    animation: pulse-turn-ally 1.5s infinite alternate !important;
+}
+
+/* Enemy active turn (Enemy - Red) */
+.map-token.Enemy.active-turn {
+    box-shadow: 0 0 20px 5px #dc3545;
+    border-color: #dc3545;
+    animation: pulse-turn-enemy 1.5s infinite alternate !important;
+}
+
 
 @keyframes pulse-turn {
     from {
@@ -90,6 +107,30 @@
 
     to {
         box-shadow: 0 0 25px 8px #00ffff;
+        transform: scale(1.05);
+    }
+}
+
+@keyframes pulse-turn-ally {
+    from {
+        box-shadow: 0 0 10px 2px #007bff;
+        transform: scale(1.0);
+    }
+
+    to {
+        box-shadow: 0 0 25px 8px #007bff;
+        transform: scale(1.05);
+    }
+}
+
+@keyframes pulse-turn-enemy {
+    from {
+        box-shadow: 0 0 10px 2px #dc3545;
+        transform: scale(1.0);
+    }
+
+    to {
+        box-shadow: 0 0 25px 8px #dc3545;
         transform: scale(1.05);
     }
 }
