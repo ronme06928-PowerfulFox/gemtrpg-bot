@@ -25,6 +25,18 @@
 
         if (!attacker) return;
 
+        // ★ 権限チェック: 攻撃者の所有者またはGMのみが実行可能
+        var isOwner = attacker.owner === currentUsername;
+        var isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
+
+        // ★ 重要: openSyncedWideMatchModal は "開始" のための関数。
+        // リロード時の "再表示" は populateWideMatchPanel 等で行われるため、
+        // ここで弾いても同期表示や再表示には影響しない。
+        if (!isOwner && !isGM) {
+            alert("キャラクターの所有者またはGMのみがマッチを開始できます。");
+            return;
+        }
+
         var attackerType = attacker.type;
         var defenderIds = battleState.characters
             .filter(function (c) {

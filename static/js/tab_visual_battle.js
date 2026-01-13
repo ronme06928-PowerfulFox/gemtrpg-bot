@@ -914,6 +914,17 @@ function createMapToken(char) {
             const attackerChar = battleState.characters.find(c => c.id === attackerId);
             const attackerName = attackerChar ? attackerChar.name : "不明";
 
+            // ★ 権限チェック: 攻撃者の所有者またはGMのみが実行可能
+            const isOwner = attackerChar && attackerChar.owner === currentUsername;
+            const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
+
+            if (!isOwner && !isGM) {
+                alert("キャラクターの所有者またはGMのみがマッチを開始できます。");
+                exitAttackTargetingMode();
+                return;
+            }
+
+
             // ★修正: 1ターン1回制限のチェック
             // ここでconfirmを出す前にチェックしても良いが、openDuelModal内でもフラグを立てる
             /*
@@ -938,6 +949,22 @@ function createMapToken(char) {
         // 手番キャラの場合、ターゲット選択モードに入る
         const isCurrentTurn = (battleState.turn_char_id === char.id);
         if (isCurrentTurn) {
+            // ★ 権限チェック: 攻撃者の所有者またはGMのみがターゲットモードに入れる
+            const isOwner = char.owner === currentUsername;
+            const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
+
+            if (!isOwner && !isGM) {
+                // 所有者以外はここは何もしない (クリックで特に反応しない)
+                // あるいは「操作権限がありません」と出すか？
+                // 誤操作防止のため、何も出さないほうがユーザー体験は良いかもしれないが、
+                // 明示的に行動しようとしてクリックしたなら出すべき。
+                // 現状、手番キャラをクリック＝攻撃意志 とみなすUIなので、権限なければ警告。
+                // ただし、単に詳細を見ようとしてダブルクリック手前で反応するのも鬱陶しい。
+                // ここでは、一旦 return するのみとする（反応しない）。
+                // 要望は「ロジックが組まれているか確認」-> 組まれてなければ組む。
+                return;
+            }
+
             // ★修正: 1ターン1回制限
             if (window.matchActionInitiated) {
                 // マッチが終了しているが、このターン既に一度やっている場合
