@@ -557,37 +557,45 @@ function setupVisualSidebarControls() {
     const resetBtn = document.getElementById('visual-reset-btn');
     const statusMsg = document.getElementById('visual-status-msg');
 
-    if (saveBtn) saveBtn.onclick = async () => {
-        statusMsg.textContent = "保存中...";
-        try {
-            await fetchWithSession('/save_room', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_name: currentRoomName, state: battleState })
-            });
-            statusMsg.textContent = "保存完了";
-            setTimeout(() => statusMsg.textContent = "", 2000);
-        } catch (e) { statusMsg.textContent = "保存失敗"; }
-    };
-    if (presetBtn) presetBtn.onclick = () => { if (typeof openPresetManagerModal === 'function') openPresetManagerModal(); };
-    if (resetBtn) resetBtn.onclick = () => {
-        if (typeof openResetTypeModal === 'function') {
-            openResetTypeModal((type) => { socket.emit('request_reset_battle', { room: currentRoomName, mode: type }); });
-        } else if (confirm("戦闘をリセットしますか？")) {
-            socket.emit('request_reset_battle', { room: currentRoomName, mode: 'full' });
+    // GMの場合のみボタンを表示・有効化、それ以外は非表示
+    if (currentUserAttribute === 'GM') {
+        if (saveBtn) {
+            saveBtn.style.display = 'inline-block';
+            saveBtn.onclick = async () => {
+                statusMsg.textContent = "保存中...";
+                try {
+                    await fetchWithSession('/save_room', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room_name: currentRoomName, state: battleState })
+                    });
+                    statusMsg.textContent = "保存完了";
+                    setTimeout(() => statusMsg.textContent = "", 2000);
+                } catch (e) { statusMsg.textContent = "保存失敗"; }
+            };
         }
-    };
-
-    const leaveBtn = document.getElementById('visual-leave-btn');
-    if (leaveBtn) {
-        leaveBtn.onclick = () => {
-            if (confirm('ルーム一覧に戻りますか？\n（保存していない変更は失われます）')) {
-                if (socket) socket.emit('leave_room', { room: currentRoomName });
-                currentRoomName = null;
-                showRoomPortal();
-            }
-        };
+        if (presetBtn) {
+            presetBtn.style.display = 'inline-block';
+            presetBtn.onclick = () => { if (typeof openPresetManagerModal === 'function') openPresetManagerModal(); };
+        }
+        if (resetBtn) {
+            resetBtn.style.display = 'inline-block';
+            resetBtn.onclick = () => {
+                if (typeof openResetTypeModal === 'function') {
+                    openResetTypeModal((type) => { socket.emit('request_reset_battle', { room: currentRoomName, mode: type }); });
+                } else if (confirm("戦闘をリセットしますか？")) {
+                    socket.emit('request_reset_battle', { room: currentRoomName, mode: 'full' });
+                }
+            };
+        }
+    } else {
+        // GMでない場合は非表示にする
+        if (saveBtn) saveBtn.style.display = 'none';
+        if (presetBtn) presetBtn.style.display = 'none';
+        if (resetBtn) resetBtn.style.display = 'none';
     }
+
+    // 退室ボタン(leaveBtn)はHTMLから削除されたため、イベントリスナーも削除
 }
 
 function updateVisualRoundDisplay(round) {
