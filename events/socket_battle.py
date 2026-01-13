@@ -1016,6 +1016,10 @@ def handle_new_round(data):
         return int(param.get('value')) if param else 0
 
     for char in state['characters']:
+        # ★ 未配置キャラクター（座標が負）は速度ロール・ラウンド参加から除外
+        if char.get('x', -1) < 0 or char.get('y', -1) < 0:
+            continue
+
         # === フラグのリセット ===
         char['isWideUser'] = False # 広域使用フラグのリセット
         char['hasActed'] = False   # 行動済みフラグのリセット
@@ -1040,14 +1044,15 @@ def handle_new_round(data):
         broadcast_log(room, log_detail, 'dice')
 
     def sort_key(char):
-        speed_roll = char['speedRoll']
+        speed_roll = char.get('speedRoll', 0)
         is_enemy = 1 if char['type'] == 'enemy' else 2
         speed_stat = get_speed_stat(char)
         random_tiebreak = random.random()
         return (-speed_roll, is_enemy, -speed_stat, random_tiebreak)
 
     state['characters'].sort(key=sort_key)
-    state['timeline'] = [c['id'] for c in state['characters']]
+    # ★ 速度ロールがあり、かつ配置されているキャラクターのみをタイムラインに追加
+    state['timeline'] = [c['id'] for c in state['characters'] if c.get('speedRoll', 0) > 0 and c.get('x', -1) >= 0 and c.get('y', -1) >= 0]
 
     # ★修正点: ここでは手番を決定せず、Noneに設定する
     # 手番決定は「広域攻撃予約」の後に行う
@@ -1344,14 +1349,15 @@ def handle_declare_wide_skill_users(data):
 
     def sort_key(char):
         is_wide = 0 if char.get('isWideUser') else 1
-        speed_roll = char['speedRoll']
+        speed_roll = char.get('speedRoll', 0) # ★ 修正: speedRollがない場合は0
         is_enemy = 1 if char['type'] == 'enemy' else 2
         speed_stat = get_speed_stat(char)
         random_tiebreak = random.random()
         return (is_wide, -speed_roll, is_enemy, -speed_stat, random_tiebreak)
 
     state['characters'].sort(key=sort_key)
-    state['timeline'] = [c['id'] for c in state['characters']]
+    # ★ 修正: 未配置キャラはタイムラインから除外
+    state['timeline'] = [c['id'] for c in state['characters'] if c.get('x', -1) >= 0 and c.get('y', -1) >= 0]
 
     # ★追加: ここで改めてタイムラインの先頭を手番として確定させる
     if state['timeline']:

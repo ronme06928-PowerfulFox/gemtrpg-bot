@@ -744,6 +744,8 @@ function renderTimeline() {
         battleState.timeline.forEach(charId => {
             const char = battleState.characters.find(c => c.id === charId);
             if (!char) return;
+            // ★配置されていないキャラはタイムラインにも表示しない
+            if (char.x < 0 || char.y < 0) return;
 
             const item = document.createElement('div');
             item.className = `timeline-item ${char.type || 'NPC'}`;

@@ -299,6 +299,11 @@ async function setupVisualBattleTab() {
                 const modeBadge = document.getElementById('v-wide-mode-badge');
                 const descArea = document.getElementById('v-wide-attacker-desc');
 
+                // ★ エラー時のアラート表示 (広域攻撃でもエラーなら出す)
+                if (data.error) {
+                    alert(data.final_command || "エラーが発生しました");
+                }
+
                 if (cmdInput && declareBtn) {
                     if (data.error) {
                         cmdInput.value = data.final_command || "エラー";
@@ -368,6 +373,15 @@ async function setupVisualBattleTab() {
                             descArea.innerHTML = formatSkillDetailHTML(data.skill_details);
                         }
                     }
+                }
+                return;
+            }
+
+            // ★ 追加: 即時発動スキル (immediate_) や 宝石スキル (gem_) のエラーハンドリング
+            // これらはここに到達する前に他の条件に引っかからない前提（visual_wide_... ではない）
+            if (data.prefix && (data.prefix.startsWith('immediate_') || data.prefix.startsWith('gem_'))) {
+                if (data.error) {
+                    alert(data.final_command || "エラーが発生しました");
                 }
                 return;
             }
@@ -2226,6 +2240,8 @@ function openVisualWideDeclarationModal() {
     let listHtml = '';
     battleState.characters.forEach(char => {
         if (char.hp <= 0) return;
+        // ★ 未配置キャラクターは除外
+        if (char.x < 0 || char.y < 0) return;
         if (!hasWideSkill(char)) return;
 
         const typeColor = char.type === 'ally' ? '#007bff' : '#dc3545';

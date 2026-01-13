@@ -145,7 +145,8 @@ function openImmediateSkillModal() {
     // キャラクターリストを生成
     if (battleState && battleState.characters) {
         const myChars = battleState.characters.filter(c => {
-            return c.owner === currentUsername || (currentUserId && c.owner_id === currentUserId);
+            // ★配置済みかつ自分のキャラ
+            return (c.x >= 0 && c.y >= 0) && (c.owner === currentUsername || (currentUserId && c.owner_id === currentUserId));
         });
 
         if (myChars.length === 0) {
@@ -469,21 +470,28 @@ function renderStagingOverlayList(container) {
 
     container.innerHTML = '';
 
-    unplacedChars.forEach(char => {
+    const activeChars = unplacedChars.filter(c => c.hp > 0);
+    const deadChars = unplacedChars.filter(c => c.hp <= 0);
+
+    const createCharRow = (char, isDead) => {
         const row = document.createElement('div');
         row.style.padding = '10px';
         row.style.borderBottom = '1px solid #eee';
         row.style.display = 'flex';
         row.style.justifyContent = 'space-between';
         row.style.alignItems = 'center';
+        if (isDead) {
+            row.style.backgroundColor = '#fff0f0'; // 薄い赤背景
+        }
 
         const nameSpan = document.createElement('span');
         nameSpan.textContent = char.name;
         nameSpan.style.fontWeight = 'bold';
         nameSpan.style.display = 'block';
+        if (isDead) nameSpan.style.color = '#c0392b';
 
         const statsSpan = document.createElement('span');
-        statsSpan.textContent = `HP: ${char.hp} / SPD: ${char.SPD}`;
+        statsSpan.textContent = `HP: ${char.hp} / SPD: ${char.speedRoll || '-'}`;
         statsSpan.style.fontSize = '0.9em';
         statsSpan.style.color = '#666';
         statsSpan.style.display = 'block';
@@ -521,21 +529,51 @@ function renderStagingOverlayList(container) {
         const placeBtn = document.createElement('button');
         placeBtn.textContent = '配置';
         placeBtn.style.padding = '8px 16px';
-        placeBtn.style.background = '#3498db';
+        placeBtn.style.background = isDead ? '#95a5a6' : '#3498db';
         placeBtn.style.color = 'white';
         placeBtn.style.border = 'none';
         placeBtn.style.borderRadius = '4px';
-        placeBtn.style.cursor = 'pointer';
+        placeBtn.style.cursor = isDead ? 'not-allowed' : 'pointer';
         placeBtn.style.fontWeight = 'bold';
-        placeBtn.onclick = () => placeCharacterToDefaultPosition(char);
+
+        if (isDead) {
+            placeBtn.disabled = true;
+            placeBtn.title = "HPが0のため配置できません";
+        } else {
+            placeBtn.onclick = () => placeCharacterToDefaultPosition(char);
+        }
 
         buttonContainer.appendChild(deleteBtn);
         buttonContainer.appendChild(placeBtn);
 
         row.appendChild(infoDiv);
         row.appendChild(buttonContainer);
-        container.appendChild(row);
-    });
+        return row;
+    };
+
+    // --- Active Section ---
+    if (activeChars.length > 0) {
+        const header = document.createElement('h4');
+        header.textContent = "未配置 (Active)";
+        header.style.margin = "10px 0 5px 0";
+        header.style.paddingBottom = "5px";
+        header.style.borderBottom = "2px solid #3498db";
+        header.style.color = "#2c3e50";
+        container.appendChild(header);
+        activeChars.forEach(c => container.appendChild(createCharRow(c, false)));
+    }
+
+    // --- Incapacitated Section ---
+    if (deadChars.length > 0) {
+        const header = document.createElement('h4');
+        header.textContent = "戦闘不能 (Incapacitated)";
+        header.style.margin = "20px 0 5px 0";
+        header.style.paddingBottom = "5px";
+        header.style.borderBottom = "2px solid #c0392b";
+        header.style.color = "#c0392b";
+        container.appendChild(header);
+        deadChars.forEach(c => container.appendChild(createCharRow(c, true)));
+    }
 }
 
 // キャラクターをデフォルト位置に配置

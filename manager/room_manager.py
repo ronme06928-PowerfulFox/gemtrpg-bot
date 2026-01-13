@@ -160,6 +160,10 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
         old_value = char['hp']
         char['hp'] = max(0, new_value)
         log_message = f"{username}: {char['name']}: HP ({old_value}) → ({char['hp']})"
+        # ★ HPが0になったら自動的に未配置（戦闘不能）にする
+        if char['hp'] <= 0:
+            char['x'] = -1; char['y'] = -1
+            log_message += " [戦闘不能/未配置へ移動]"
     elif stat_name == 'MP':
         old_value = char['mp']
         char['mp'] = max(0, new_value)
