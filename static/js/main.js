@@ -78,8 +78,9 @@ async function showRoomPortal() {
     try {
         const response = await fetchWithSession('/list_rooms');
         if (!response.ok) throw new Error('サーバーからルーム一覧を取得できませんでした。');
-        const roomNames = await response.json();
-        renderRoomPortal(roomNames);
+        const data = await response.json();
+        // data: { rooms: [{name, owner_id}, ...], current_user_id, is_gm }
+        renderRoomPortal(data.rooms, data.current_user_id, data.is_gm);
     } catch (error) {
         console.error('Error fetching room list:', error);
         if (error.message !== '認証が必要です。') {
@@ -88,7 +89,7 @@ async function showRoomPortal() {
     }
 }
 
-function renderRoomPortal(roomNames) {
+function renderRoomPortal(rooms, currentUserId, isGm) {
     // ★追加: GMの場合のみボタンを表示
     const gmButton = (currentUserAttribute === 'GM')
         ? `<button id="manage-users-btn" class="portal-settings-button" style="margin-left:10px; background:#e0e0ff;">👥 ユーザー管理</button>`
@@ -112,6 +113,7 @@ function renderRoomPortal(roomNames) {
         </div>
         <div class="room-controls">
             <input type="text" id="room-search-input" placeholder="ルームを検索...">
+            <button id="refresh-room-list-btn" title="ルーム一覧を更新">🔄 更新</button>
             <button id="create-room-btn">＋ 新規ルーム作成</button>
         </div>
         <div id="room-list-container">
@@ -124,6 +126,7 @@ function renderRoomPortal(roomNames) {
     const roomList = document.getElementById('room-list');
     const searchInput = document.getElementById('room-search-input');
     const createBtn = document.getElementById('create-room-btn');
+    const refreshBtn = document.getElementById('refresh-room-list-btn');
     const emptyMsg = document.getElementById('room-list-empty');
     const settingsBtn = document.getElementById('portal-user-settings-btn');
 
@@ -143,20 +146,36 @@ function renderRoomPortal(roomNames) {
         });
     }
 
+    // ★追加: 更新ボタンのイベントリスナー
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            showRoomPortal();
+        });
+    }
+
     function populateList(filter = '') {
         roomList.innerHTML = '';
         let count = 0;
         const normalizedFilter = filter.toLowerCase();
 
-        roomNames.forEach(name => {
+        rooms.forEach(roomInfo => {
+            const name = roomInfo.name;
+            const ownerId = roomInfo.owner_id;
             if (name.toLowerCase().includes(normalizedFilter)) {
                 const li = document.createElement('li');
                 li.className = 'room-list-item';
+
+                // 削除ボタン: オーナーまたはGMのみ表示
+                const canDelete = (ownerId === currentUserId) || isGm;
+                const deleteBtn = canDelete
+                    ? `<button class="room-delete-btn" data-room-name="${name}">削除</button>`
+                    : '';
+
                 li.innerHTML = `
                     <span>${name}</span>
                     <div class="room-list-buttons">
                         <button class="room-join-btn" data-room-name="${name}">参加</button>
-                        <button class="room-delete-btn" data-room-name="${name}">削除</button>
+                        ${deleteBtn}
                     </div>
                 `;
                 roomList.appendChild(li);

@@ -18,7 +18,7 @@ from models import Room
 
 # ★ マネージャー（ロジック層）からのインポート
 from manager.data_manager import (
-    init_app_data, read_saved_rooms, save_room_to_db, delete_room_from_db
+    init_app_data, read_saved_rooms, read_saved_rooms_with_owners, save_room_to_db, delete_room_from_db
 )
 from manager.room_manager import get_room_state
 from manager.utils import session_required
@@ -123,8 +123,15 @@ def get_session_user():
 @app.route('/list_rooms', methods=['GET'])
 @session_required
 def list_rooms():
-    rooms = read_saved_rooms()
-    return jsonify(list(rooms.keys()))
+    """ルーム一覧とオーナー情報を返す"""
+    rooms = read_saved_rooms_with_owners()
+    user_id = session.get('user_id')
+    attribute = session.get('attribute')
+    return jsonify({
+        'rooms': rooms,
+        'current_user_id': user_id,
+        'is_gm': attribute == 'GM'
+    })
 
 @app.route('/load_room', methods=['GET'])
 @session_required
@@ -183,7 +190,20 @@ def admin_transfer_user():
 @app.route('/delete_room', methods=['POST'])
 @session_required
 def delete_room():
+    """ルーム削除 - オーナーまたはGMのみ許可"""
     room_name = request.json.get('room_name')
+    user_id = session.get('user_id')
+    attribute = session.get('attribute')
+
+    # ルームのオーナーを取得
+    room = Room.query.filter_by(name=room_name).first()
+    if not room:
+        return jsonify({"error": "Room not found"}), 404
+
+    # 権限チェック: オーナーまたはGMのみ削除可能
+    if room.owner_id != user_id and attribute != 'GM':
+        return jsonify({"error": "Permission denied"}), 403
+
     if delete_room_from_db(room_name):
         if room_name in active_room_states:
             del active_room_states[room_name]

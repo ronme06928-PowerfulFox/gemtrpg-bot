@@ -187,6 +187,21 @@ def read_saved_rooms():
         print(f"[ERROR] DB Read Error: {e}")
         return {}
 
+def read_saved_rooms_with_owners():
+    """DBから全ルームとオーナー情報を取得して返す"""
+    try:
+        rooms = Room.query.all()
+        rooms_list = []
+        for r in rooms:
+            rooms_list.append({
+                'name': r.name,
+                'owner_id': r.owner_id
+            })
+        return rooms_list
+    except Exception as e:
+        print(f"[ERROR] DB Read Error: {e}")
+        return []
+
 def save_room_to_db(room_name, room_state):
     """特定のルームをDBに保存（新規作成 or 更新）"""
     try:
