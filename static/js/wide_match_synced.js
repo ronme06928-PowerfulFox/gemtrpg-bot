@@ -106,6 +106,39 @@
         // Setup event listeners (Phase 4-5)
         setupWideMatchEventListeners(matchData);
 
+        // ★追加: GM用 強制終了ボタンの注入（パネルヘッダーボタン群に配置）
+        // 重複防止のため、両方のIDを削除
+        var existingForceEndBtn = document.getElementById('wide-force-end-match-btn');
+        if (existingForceEndBtn) existingForceEndBtn.remove();
+        var existingDuelBtn = document.getElementById('force-end-match-btn');
+        if (existingDuelBtn) existingDuelBtn.remove();
+
+        var isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
+        if (isGM) {
+            var headerButtons = document.querySelector('.panel-header-buttons');
+            var reloadBtn = document.getElementById('panel-reload-btn');
+
+            // 既にどちらかのボタンが存在しない場合のみ追加
+            if (headerButtons && reloadBtn && !document.getElementById('wide-force-end-match-btn') && !document.getElementById('force-end-match-btn')) {
+                var forceEndBtn = document.createElement('button');
+                forceEndBtn.id = 'wide-force-end-match-btn';
+                forceEndBtn.className = 'panel-reload-btn'; // 更新ボタンと同じクラス
+                forceEndBtn.innerHTML = '⚠️';
+                forceEndBtn.title = 'GM権限でマッチを強制終了します';
+                forceEndBtn.style.cssText = 'background-color:#dc3545; color:white; border:1px solid #bd2130;';
+
+                forceEndBtn.onclick = function (e) {
+                    e.stopPropagation();
+                    if (confirm('【GM権限】マッチを強制終了しますか？\n現在行われているマッチ、または意図せず開いているマッチ画面を閉じます。\nこの操作は元に戻せません。')) {
+                        if (socket) socket.emit('request_force_end_match', { room: currentRoomName });
+                    }
+                };
+
+                // 更新ボタンの前に挿入
+                headerButtons.insertBefore(forceEndBtn, reloadBtn);
+            }
+        }
+
         // Show container
         container.style.display = '';
     };

@@ -946,7 +946,7 @@ function createMapToken(char) {
             return;
         }
 
-        // 手番キャラの場合、ターゲット選択モードに入る
+        // 手番キャラの場合
         const isCurrentTurn = (battleState.turn_char_id === char.id);
         if (isCurrentTurn) {
             // ★ 権限チェック: 攻撃者の所有者またはGMのみがターゲットモードに入れる
@@ -969,6 +969,17 @@ function createMapToken(char) {
             if (window.matchActionInitiated) {
                 // マッチが終了しているが、このターン既に一度やっている場合
                 alert("1ターンに1回のみマッチを開始できます。\n次のターンまでお待ちください。");
+                return;
+            }
+
+            // ★追加: 広域攻撃ボタンが表示されている場合は広域マッチを開始
+            // (isWideUserかつ、広域マッチが進行中でない場合)
+            const isWideMatchExecuting = battleState.active_match && battleState.active_match.is_active && battleState.active_match.match_type === 'wide';
+            if (char.isWideUser && !isWideMatchExecuting) {
+                // 広域マッチを開始（広域攻撃ボタンと同じ処理）
+                if (typeof openSyncedWideMatchModal === 'function') {
+                    openSyncedWideMatchModal(char.id);
+                }
                 return;
             }
 
@@ -1584,45 +1595,38 @@ function renderMatchPanelFromState(matchData) {
         updateActionDock();
     }
 
-    // ★ GM用 強制終了ボタンの注入
+    // ★ GM用 強制終了ボタンの注入（ヘッダーボタン群に配置）
+    // 重複防止のため、両方のIDを削除
     const existingBtn = document.getElementById('force-end-match-btn');
-    if (existingBtn) existingBtn.remove(); // 重複防止のため一度削除
+    if (existingBtn) existingBtn.remove();
+    const existingWideBtn = document.getElementById('wide-force-end-match-btn');
+    if (existingWideBtn) existingWideBtn.remove();
 
-    const headerAttr = document.getElementById('header-attribute');
-    const isGM = headerAttr && (headerAttr.textContent === 'GM' || headerAttr.textContent.includes('GM'));
+    // ★修正: DOM要素ではなくグローバル変数でGM判定（リロード後も正しく動作）
+    const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
 
     if (isGM) {
-        const btn = document.createElement('button');
-        btn.id = 'force-end-match-btn';
-        btn.innerHTML = '⚠️ 強制終了'; // 絵文字付き
-        btn.title = 'GM権限でマッチを強制終了します';
-        btn.style.position = 'absolute';
-        btn.style.top = '10px'; // 少しマージンを取る
-        btn.style.right = '130px'; // 閉じるボタンの左側へ (位置調整: 50px -> 130px)
-        btn.style.zIndex = '2000'; // 最前面
-        btn.style.backgroundColor = '#dc3545'; // Danger Red
-        btn.style.color = 'white';
-        btn.style.border = '1px solid #bd2130';
-        btn.style.borderRadius = '4px';
-        btn.style.padding = '4px 10px';
-        btn.style.fontSize = '12px';
-        btn.style.fontWeight = 'bold';
-        btn.style.cursor = 'pointer';
-        btn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+        const headerButtons = document.querySelector('.panel-header-buttons');
+        const reloadBtn = document.getElementById('panel-reload-btn');
 
-        btn.onclick = function (e) {
-            e.stopPropagation();
-            if (confirm('【GM権限】マッチを強制終了しますか？\n現在行われているマッチ、または意図せず開いているマッチ画面を閉じます。\nこの操作は元に戻せません。')) {
-                if (socket) socket.emit('request_force_end_match', { room: currentRoomName });
-            }
-        };
+        // 既に存在しない場合のみ追加
+        if (headerButtons && reloadBtn && !document.getElementById('force-end-match-btn')) {
+            const btn = document.createElement('button');
+            btn.id = 'force-end-match-btn';
+            btn.className = 'panel-reload-btn'; // 更新ボタンと同じクラスを使用
+            btn.innerHTML = '⚠️';
+            btn.title = 'GM権限でマッチを強制終了します';
+            btn.style.cssText = 'background-color:#dc3545; color:white; border:1px solid #bd2130;';
 
-        panel.appendChild(btn);
+            btn.onclick = function (e) {
+                e.stopPropagation();
+                if (confirm('【GM権限】マッチを強制終了しますか？\n現在行われているマッチ、または意図せず開いているマッチ画面を閉じます。\nこの操作は元に戻せません。')) {
+                    if (socket) socket.emit('request_force_end_match', { room: currentRoomName });
+                }
+            };
 
-        // パネルのposition設定を確認（absolute配置のため）
-        const style = window.getComputedStyle(panel);
-        if (style.position === 'static') {
-            panel.style.position = 'relative';
+            // 更新ボタンの前に挿入
+            headerButtons.insertBefore(btn, reloadBtn);
         }
     }
 }

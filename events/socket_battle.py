@@ -1288,8 +1288,16 @@ def handle_reset_battle(data):
             char['hasActed'] = False
             char['speedRoll'] = 0
             char['used_skills_this_round'] = []
+            # ★追加: 広域攻撃フラグもリセット（広域攻撃ボタンを非表示にするため）
+            char['isWideUser'] = False
+
+        # ★追加: 手番キャラをクリア（発光表示を消すため）
+        state['turn_char_id'] = None
 
         broadcast_log(room, f"--- {username} が全キャラクターの状態をリセットしました ---", 'round')
+
+    # ★追加: リセット時にアクティブマッチも強制終了
+    state['active_match'] = None
 
     broadcast_state_update(room)
     save_specific_room_state(room)

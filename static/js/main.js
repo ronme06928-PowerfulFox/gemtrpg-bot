@@ -113,7 +113,7 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
         </div>
         <div class="room-controls">
             <input type="text" id="room-search-input" placeholder="ルームを検索...">
-            <button id="refresh-room-list-btn" title="ルーム一覧を更新">🔄 更新</button>
+            <button id="refresh-room-list-btn" title="ルーム一覧を更新" style="background-color: #007bff; color: white;">更新</button>
             <button id="create-room-btn">＋ 新規ルーム作成</button>
         </div>
         <div id="room-list-container">
