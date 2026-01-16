@@ -332,6 +332,10 @@ def handle_skill_declaration(data):
                 elif type == "APPLY_BUFF":
                     apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
                     broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
+                elif type == "SET_FLAG":
+                    if 'flags' not in char:
+                        char['flags'] = {}
+                    char['flags'][name] = value
                 elif type == "CUSTOM_EFFECT" and name == "END_ROUND_IMMEDIATELY":
                     # 全キャラを行動済みに
                     for c in state['characters']:
@@ -654,6 +658,10 @@ def handle_match(data):
                     broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
                 elif type == "REMOVE_BUFF":
                     remove_buff(char, name)
+                elif type == "SET_FLAG":
+                    if 'flags' not in char:
+                        char['flags'] = {}
+                    char['flags'][name] = value
         except json.JSONDecodeError: pass
 
     if actor_a_char and senritsu_penalty_a > 0:
@@ -763,6 +771,10 @@ def handle_match(data):
                             if other_char.get("type") != orig_target_type and other_char.get("id") != orig_target_id:
                                 curr = get_status_value(other_char, name)
                                 _update_char_stat(room, other_char, name, curr + value, username=f"[{name}]")
+                    elif type == "SET_FLAG":
+                        if 'flags' not in char:
+                            char['flags'] = {}
+                        char['flags'][name] = value
                     # REGAIN_ACTION はここではハンドルせず、呼び出し元でやるのが一般的だが今回は省略
                 return extra_dmg
 
@@ -854,6 +866,10 @@ def handle_match(data):
                             elif t == "APPLY_BUFF": apply_buff(c, n, v["lasting"], v["delay"], data=v.get("data"))
                             elif t == "REMOVE_BUFF": remove_buff(c, n)
                             elif t == "CUSTOM_DAMAGE": ex += v
+                            elif t == "SET_FLAG":
+                                if 'flags' not in c:
+                                    c['flags'] = {}
+                                c['flags'][n] = v
                         return ex
 
                     # UNOPPOSED適用
@@ -956,6 +972,10 @@ def handle_match(data):
                     if type == "APPLY_STATE": _update_char_stat(room, char, name, get_status_value(char, name)+value, username=f"[{name}]")
                     elif type == "APPLY_BUFF": apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
                     elif type == "REMOVE_BUFF": remove_buff(char, name)
+                    elif type == "SET_FLAG":
+                        if 'flags' not in char:
+                            char['flags'] = {}
+                        char['flags'][name] = value
                 return all_logs
 
             log_a = run_end_match(effects_array_a, actor_a_char, actor_d_char, skill_data_d)
@@ -1030,6 +1050,7 @@ def handle_new_round(data):
             char['flags'] = {}
         char['flags']['gem_skill_used'] = False
         char['flags']['used_immediate_skills'] = []
+        char['flags']['fissure_received_this_round'] = False  # ★亀裂付与制限のリセット
 
         # 再回避ロックの解除
         if 'special_buffs' in char:

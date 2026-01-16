@@ -7,3 +7,5 @@ gunicorn
 python-dotenv
 psycopg2-binary
 gspread
+pytest
+pytest-cov

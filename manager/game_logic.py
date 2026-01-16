@@ -179,6 +179,14 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             stat_name = effect.get("state_name")
             value = int(effect.get("value", 0))
 
+            # ★亀裂の1ラウンド1回付与制限チェック
+            if stat_name == "亀裂" and value > 0 and target_obj:
+                if 'flags' not in target_obj:
+                    target_obj['flags'] = {}
+                if target_obj['flags'].get('fissure_received_this_round', False):
+                    log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
+                    continue  # この効果をスキップし、次の効果へ
+
             # ★修正: ボーナス計算と消費(削除)処理の適用
             # (状態付与値が正の数で、かつ実行者が存在する場合のみボーナスをチェック)
             if value > 0 and actor:
@@ -197,6 +205,9 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
             if stat_name and value != 0:
                 changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value))
+                # ★亀裂の場合はフラグを立てる（付与成功時）
+                if stat_name == "亀裂" and value > 0:
+                    changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
 
         elif effect_type == "APPLY_BUFF":
             buff_name = effect.get("buff_name")
