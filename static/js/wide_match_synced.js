@@ -180,13 +180,54 @@
     }
 
     // ============================================
-    // Populate Defender Cards
+    // Populate Defender Cards (差分更新方式)
     // ============================================
+    // ★ 前回のマッチIDを記憶して、新しいマッチかどうかを判定
+    var _lastWideMatchAttackerId = null;
+
     function populateDefenderCards(defenders, matchData) {
         var listEl = document.getElementById('wide-defenders-list');
         if (!listEl) return;
 
-        listEl.innerHTML = '';
+        var currentAttackerId = matchData.attacker_id;
+
+        // ★ 新しいマッチ（攻撃者が変わった）場合はフルリセット
+        if (_lastWideMatchAttackerId !== currentAttackerId) {
+            console.log("📋 New wide match detected, full reset");
+            listEl.innerHTML = '';
+            _lastWideMatchAttackerId = currentAttackerId;
+
+            // 新規マッチなので全カードを新規作成
+            defenders.forEach(function (def, index) {
+                var defChar = (battleState.characters && battleState.characters.find(function (c) {
+                    return c.id === def.id;
+                })) || def.snapshot;
+
+                if (!defChar) return;
+
+                var card = createDefenderCard(defChar, def, matchData, index);
+                listEl.appendChild(card);
+            });
+            return;
+        }
+
+        // ★ 同じマッチ内での更新 → 差分更新
+        console.log("📋 Same match, incremental update");
+
+        // 既存のカードを取得して選択状態を保持
+        var existingCards = {};
+        var existingSelections = {};
+        listEl.querySelectorAll('.wide-defender-card').forEach(function (card) {
+            var defId = card.dataset.defenderId;
+            if (defId) {
+                existingCards[defId] = card;
+                // 未宣言のスキル選択値を保存
+                var select = card.querySelector('.wide-defender-skill');
+                if (select && select.value) {
+                    existingSelections[defId] = select.value;
+                }
+            }
+        });
 
         defenders.forEach(function (def, index) {
             var defChar = (battleState.characters && battleState.characters.find(function (c) {
@@ -195,10 +236,82 @@
 
             if (!defChar) return;
 
+            var existingCard = existingCards[def.id];
+
+            // ★ 既存のカードがあり、宣言状態が変わっていなければ更新のみ
+            if (existingCard) {
+                var wasDecl = existingCard.classList.contains('declared');
+                var nowDecl = def.declared;
+
+                if (wasDecl === nowDecl) {
+                    // 宣言状態が同じなら何もしない（選択値を維持）
+                    delete existingCards[def.id]; // 処理済みマーク
+                    return;
+                }
+
+                // 宣言状態が変わった場合は、既存カードを更新
+                if (nowDecl && !wasDecl) {
+                    // 未宣言→宣言済みに変わった
+                    existingCard.classList.add('declared');
+
+                    // ヘッダーに宣言済みバッジを追加
+                    var header = existingCard.querySelector('.wide-defender-header');
+                    if (header && !header.querySelector('.declared-badge')) {
+                        var badge = document.createElement('span');
+                        badge.className = 'declared-badge';
+                        badge.textContent = '✓ 宣言済';
+                        header.appendChild(badge);
+                    }
+
+                    // スキル選択を無効化
+                    var select = existingCard.querySelector('.wide-defender-skill');
+                    if (select) {
+                        select.disabled = true;
+                        if (def.skill_id) select.value = def.skill_id;
+                    }
+
+                    // 計算・宣言ボタンを削除
+                    var calcBtn = existingCard.querySelector('.wide-def-calc-btn');
+                    var declBtn = existingCard.querySelector('.wide-def-declare-btn');
+                    if (calcBtn) calcBtn.remove();
+                    if (declBtn) declBtn.remove();
+
+                    // 結果エリアを更新
+                    var resultDiv = existingCard.querySelector('.wide-defender-result');
+                    if (resultDiv && def.command) {
+                        if (def.min !== undefined && def.max !== undefined) {
+                            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済 Range: ' + def.min + '~' + def.max + '</span> (' + def.command + ')';
+                        } else {
+                            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + def.command + ')';
+                        }
+                    }
+                }
+
+                delete existingCards[def.id]; // 処理済みマーク
+                return;
+            }
+
+            // ★ 既存カードがない場合は新規作成
             var card = createDefenderCard(defChar, def, matchData, index);
+
+            // 保存していた選択値を復元（未宣言の場合のみ）
+            if (!def.declared && existingSelections[def.id]) {
+                var select = card.querySelector('.wide-defender-skill');
+                if (select) {
+                    select.value = existingSelections[def.id];
+                }
+            }
+
             listEl.appendChild(card);
         });
     }
+
+    // ★ マッチ終了時にリセットするための関数を公開
+    window.resetWideMatchState = function () {
+        _lastWideMatchAttackerId = null;
+        wideMatchLocalState = { attackerSkillId: null, attackerCommand: null, defenders: {} };
+        window.wideMatchLocalState = wideMatchLocalState;
+    };
 
     // ============================================
     // Create Single Defender Card

@@ -258,6 +258,10 @@ async function setupVisualBattleTab() {
             // match_data_updated は廃止 - state_updated で統一したため不要
 
             socket.on('match_modal_closed', () => {
+                // ★ ワイドマッチ状態をリセット（次のマッチ用）
+                if (typeof window.resetWideMatchState === 'function') {
+                    window.resetWideMatchState();
+                }
                 closeMatchPanel(false);
             });
 
@@ -1935,7 +1939,7 @@ function reloadMatchPanel() {
     }
 }
 
-function closeMatchPanel(emitSync = true) {
+function closeMatchPanel(emitSync = false) {
     // Clear panel content
     clearMatchPanelContent();
 

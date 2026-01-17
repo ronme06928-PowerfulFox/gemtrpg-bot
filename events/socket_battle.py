@@ -129,6 +129,9 @@ def execute_match_from_active_state(room, state, username):
     save_specific_room_state(room)
     broadcast_state_update(room)
 
+    # ★ マッチ終了時に全員のパネルを閉じる
+    socketio.emit('match_modal_closed', {}, to=room)
+
     # マッチ実行イベントを送信（クライアントが一人だけ処理するよう指示）
     socketio.emit('match_auto_execute', match_data, to=room)
     print(f"[MATCH] Auto-executed match in room {room}")
@@ -2513,6 +2516,14 @@ def handle_execute_synced_wide_match(data):
 
     save_specific_room_state(room)
     broadcast_state_update(room)
+
+    # ★ 広域マッチ終了時に全員のパネルを閉じる
+    socketio.emit('match_modal_closed', {}, to=room)
+
+    # ★ 広域マッチ終了後にactive_matchをクリア
+    if 'active_match' in state:
+        del state['active_match']
+        save_specific_room_state(room)
 
     print(f"[WIDE_MATCH] Executed wide match: {len(results)} defenders processed")
 
