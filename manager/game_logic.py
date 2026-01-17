@@ -176,7 +176,8 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
         if not target_obj and effect.get("target") == "target": continue
 
         if effect_type == "APPLY_STATE":
-            stat_name = effect.get("state_name")
+            # ★後方互換: "state_name"と"name"の両方に対応
+            stat_name = effect.get("state_name") or effect.get("name")
             value = int(effect.get("value", 0))
 
             # ★亀裂の1ラウンド1回付与制限チェック
@@ -203,10 +204,51 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0))
                     log_snippets.append(f"({b_name} 消費)")
 
+
             if stat_name and value != 0:
                 changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value))
                 # ★亀裂の場合はフラグを立てる（付与成功時）
                 if stat_name == "亀裂" and value > 0:
+                    changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
+
+        elif effect_type == "APPLY_STATE_PER_N":
+            # ★新機能: パラメータ値に基づく動的状態異常付与
+            # 例: 自分の戦慄2につき亀裂1を付与（最大2）
+            source_type = effect.get("source", "self")
+            source_obj = actor if source_type == "self" else target
+            source_param = effect.get("source_param")
+
+            if not source_obj or not source_param:
+                continue
+
+            # 基準パラメータの値を取得
+            source_param_value = get_status_value(source_obj, source_param)
+
+            # N毎に計算
+            per_N = int(effect.get("per_N", 1))
+            value_per = int(effect.get("value", 1))
+            calculated_value = (source_param_value // per_N) * value_per if per_N > 0 else 0
+
+            # 最大値制限
+            if "max_value" in effect:
+                calculated_value = min(calculated_value, int(effect["max_value"]))
+
+            # 付与実行
+            stat_name = effect.get("state_name")
+            if stat_name and calculated_value > 0:
+                # 亀裂の1ラウンド1回付与制限チェック
+                if stat_name == "亀裂" and target_obj:
+                    if 'flags' not in target_obj:
+                        target_obj['flags'] = {}
+                    if target_obj['flags'].get('fissure_received_this_round', False):
+                        log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
+                        continue
+
+                changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, calculated_value))
+                log_snippets.append(f"[{stat_name}+{calculated_value} ({source_param}{source_param_value}から)]")
+
+                # 亀裂の場合はフラグを立てる
+                if stat_name == "亀裂":
                     changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
 
         elif effect_type == "APPLY_BUFF":
