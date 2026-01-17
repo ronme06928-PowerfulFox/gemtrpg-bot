@@ -199,7 +199,14 @@ def read_saved_rooms_with_owners():
             })
         return rooms_list
     except Exception as e:
+        import traceback
         print(f"[ERROR] DB Read Error: {e}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        # データベース接続エラーの場合、セッションをクリーンアップ
+        try:
+            db.session.rollback()
+        except:
+            pass
         return []
 
 def save_room_to_db(room_name, room_state):

@@ -45,6 +45,14 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_insecure_key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///gemtrpg.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# データベース接続プールの設定（PostgreSQL SSL接続切断対策）
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,  # 接続前に健全性チェック
+    'pool_recycle': 300,    # 5分ごとに接続を再利用
+    'pool_size': 10,        # 接続プールサイズ
+    'max_overflow': 20      # プールがフルの時の追加接続数
+}
+
 # 静的ファイルのパス
 STATIC_DIR = os.path.join(app.root_path, 'static')
 
