@@ -71,15 +71,24 @@ function loadCharacterFromJSON(type, jsonString, resultElement) {
 }
 
 function logToBattleLog(logData) {
-    // 1. データへの保存
+    // タイムスタンプが無い場合は追加（ログの順序を保証）
+    if (!logData.timestamp) {
+        logData.timestamp = Date.now();
+    }
+
+    // 1. データへの保存（常に実行）
     if (battleState && battleState.logs) {
         battleState.logs.push(logData);
+    } else {
+        console.warn('[LOG] battleState.logs is not available, log data may be lost:', logData);
     }
 
     // 2. テキストバトルフィールドへの描画
     const textLogArea = document.getElementById('log-area');
     if (textLogArea) {
         appendLogLineToElement(textLogArea, logData, currentLogFilter);
+    } else {
+        console.debug('[LOG] text log-area not found (tab may not be loaded), saved to battleState.logs');
     }
 
     // 3. ビジュアルバトルフィールドへの描画
@@ -89,6 +98,8 @@ function logToBattleLog(logData) {
 
     if (visualLogArea) {
         appendLogLineToElement(visualLogArea, logData, visualFilter);
+    } else {
+        console.debug('[LOG] visual log-area not found (tab may not be loaded), saved to battleState.logs');
     }
 }
 

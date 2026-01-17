@@ -207,11 +207,21 @@ async function setupVisualBattleTab() {
                     battleState = state;
                 }
 
+
                 if (document.getElementById('visual-battle-container')) {
                     renderVisualMap();
                     renderVisualTimeline();
-                    renderVisualLogHistory(state.logs);
+
+                    // ★ ログ描画を改善: logsの存在を確実にチェック
+                    if (state.logs && Array.isArray(state.logs) && state.logs.length > 0) {
+                        console.log(`📜 Rendering ${state.logs.length} log entries from state_updated`);
+                        renderVisualLogHistory(state.logs);
+                    } else {
+                        console.debug('📜 No logs to render in state_updated (logs array is empty or not present)');
+                    }
+
                     updateVisualRoundDisplay(state.round);
+
 
 
                     // ★ 修正: 初回state_updated後にアクションドック初期化（battleState読み込み後）

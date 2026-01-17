@@ -47,12 +47,22 @@ def handle_join_room(data):
 
     print(f"User {username} [{attribute}] (SID: {request.sid}) joined room: {room}")
 
-    emit('new_log', {'message': f"{username} が入室しました。", 'type': 'system'}, to=room)
-
+    # ★ 修正: まず状態を送信してDOMを初期化させる
     state = get_room_state(room)
+    print(f"[JOIN] Sending state_updated to {username} with {len(state.get('logs', []))} logs")
     emit('state_updated', state, to=request.sid)
 
+    # ★ 短い遅延を入れて、クライアント側のDOM初期化を待つ
+    # eventletの場合は sleep ではなく、emit後に即座に次の処理
+    import time
+    time.sleep(0.1)  # 100ms待機
+
+    # ★ その後、入室ログを全員に送信
+    print(f"[JOIN] Broadcasting join log for {username}")
+    emit('new_log', {'message': f"{username} が入室しました。", 'type': 'system'}, to=room)
+
     broadcast_user_list(room)
+
 
 @socketio.on('request_update_user_info')
 def handle_update_user_info(data):
