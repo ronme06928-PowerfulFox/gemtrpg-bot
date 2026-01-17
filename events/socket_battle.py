@@ -2277,10 +2277,23 @@ def handle_open_wide_match_modal(data):
     defenders = []
     for def_id in defender_ids:
         def_char = next((c for c in state["characters"] if c.get('id') == def_id), None)
-        # ★ 配置チェック: x, y座標が存在するキャラのみを対象
+        # ★ 配置チェック: タイムラインと同様に x, y >= 0 のキャラのみを対象
         if not def_char:
             continue
-        is_placed = def_char.get('x') is not None and def_char.get('y') is not None
+
+        # タイムラインのロジック (c.get('x', -1) >= 0) に準拠
+        x_val = def_char.get('x', -1)
+        y_val = def_char.get('y', -1)
+
+        # None対策 (getのデフォルト値だけではNoneを防げないため念のため)
+        if x_val is None: x_val = -1
+        if y_val is None: y_val = -1
+
+        try:
+            is_placed = int(x_val) >= 0 and int(y_val) >= 0
+        except (ValueError, TypeError):
+            is_placed = False
+
         if def_char.get('hp', 0) > 0 and is_placed:
             defenders.append({
                 'id': def_id,

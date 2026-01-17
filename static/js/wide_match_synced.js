@@ -40,8 +40,9 @@
         var attackerType = attacker.type;
         var defenderIds = battleState.characters
             .filter(function (c) {
-                // フィールドに配置されている（x, y座標がある）キャラのみを対象
-                var isPlaced = (c.x !== undefined && c.x !== null && c.y !== undefined && c.y !== null);
+                // フィールドに配置されている（x, y座標が0以上）キャラのみを対象
+                // 未配置キャラは x=-1 となっている場合があるため、値のチェックも行う
+                var isPlaced = (c.x !== undefined && c.x !== null && c.x >= 0 && c.y !== undefined && c.y !== null && c.y >= 0);
                 return c.id !== attackerId && c.hp > 0 && c.type !== attackerType && isPlaced;
             })
             .map(function (c) { return c.id; });
