@@ -285,11 +285,16 @@ async function setupVisualBattleTab() {
 
                 if (shouldExecute) {
                     console.log('[MATCH] Executing match as attacker owner/GM');
-                    socket.emit('request_match', data);
+                    // ★ マッチIDを含めて送信（重複実行防止用）
+                    socket.emit('request_match', {
+                        ...data,
+                        match_id: data.match_id  // サーバーから受信したマッチIDをそのまま送信
+                    });
                 } else {
                     console.log('[MATCH] Not attacker owner, skipping request_match');
                 }
             });
+
 
         }
 

@@ -110,6 +110,11 @@ def execute_match_from_active_state(room, state, username):
     if not active_match or not active_match.get('is_active'):
         return
 
+    # ★ 重複実行防止: 既にマッチ実行中または実行済みなら何もしない
+    if active_match.get('match_executing') or active_match.get('executed'):
+        print(f"[MATCH] Match already executing/executed in room {room}, skipping")
+        return
+
     attacker_id = active_match.get('attacker_id')
     defender_id = active_match.get('defender_id')
     attacker_data = active_match.get('attacker_data', {})
@@ -145,9 +150,13 @@ def execute_match_from_active_state(room, state, username):
             command_d = "---"
             broadcast_log(room, f"[{attacker_char.get('name')}] が {skill_category}スキルを使用したため、ダメージは発生しません。", 'match')
 
+    # ★ マッチIDを取得（すでに生成されているはず）
+    match_id = active_match.get('match_id', '')
+
     # request_match と同じデータ形式で内部的に処理
     match_data = {
         'room': room,
+        'match_id': match_id,  # ★ マッチIDを追加
         'commandA': command_a,
         'commandD': command_d,
         'actorIdA': attacker_id,
@@ -157,13 +166,6 @@ def execute_match_from_active_state(room, state, username):
         'senritsuPenaltyA': senritsu_a,
         'senritsuPenaltyD': senritsu_d
     }
-
-    # handle_match 内のロジックを直接呼び出す代わりに、
-    # request_match イベントをサーバー内部で発火させる
-    # ★ 二重実行防止: 既にマッチ実行中なら何もしない
-    if active_match.get('match_executing'):
-        print(f"[MATCH] Match already executing in room {room}, skipping")
-        return
 
     # 実行中フラグを立てる
     state['active_match']['match_executing'] = True
@@ -575,6 +577,12 @@ def handle_skill_declaration(data):
         match_type = state['active_match'].get('match_type', 'duel')
         if is_wide_match: match_type = 'wide'
 
+        # ★ マッチIDが未生成なら生成（重複実行防止用）
+        if 'match_id' not in state['active_match']:
+            import uuid
+            state['active_match']['match_id'] = str(uuid.uuid4())
+            print(f"[MATCH] Generated match ID: {state['active_match']['match_id']}")
+
         # 補正内訳データを共通で生成
         power_breakdown_data = {
             'base_power': base_power,
@@ -827,6 +835,28 @@ def handle_match(data):
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     state = get_room_state(room)
+
+    # ★ 重複実行防止: マッチIDをチェック
+    match_id = data.get('match_id')
+    active_match = state.get('active_match', {})
+
+    # active_matchが存在する場合のみIDチェック（通常の手動実行では存在しない）
+    if active_match.get('is_active'):
+        expected_match_id = active_match.get('match_id')
+        if match_id and match_id != expected_match_id:
+            print(f"[MATCH] Match ID mismatch: {match_id} != {expected_match_id}, skipping")
+            return
+
+        # すでに実行済みかチェック
+        if active_match.get('executed'):
+            print(f"[MATCH] Match {match_id} already executed, skipping")
+            return
+
+        # 実行済みフラグを立てる
+        state['active_match']['executed'] = True
+        save_specific_room_state(room)
+        print(f"[MATCH] Executing match {match_id}")
+
     command_a = data.get('commandA')
     command_d = data.get('commandD')
     actor_id_a = data.get('actorIdA')
@@ -1644,6 +1674,35 @@ def handle_wide_match(data):
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     state = get_room_state(room)
+
+    # ★ 重複実行防止: マッチIDをチェック
+    match_id = data.get('match_id')
+    active_match = state.get('active_match', {})
+
+    # active_matchが存在する場合のみIDチェック
+    if active_match.get('is_active') and active_match.get('match_type') == 'wide':
+        # マッチIDが未生成なら生成
+        if 'match_id' not in active_match:
+            import uuid
+            active_match['match_id'] = str(uuid.uuid4())
+            state['active_match'] = active_match
+            print(f"[WIDE_MATCH] Generated match ID: {active_match['match_id']}")
+
+        expected_match_id = active_match.get('match_id')
+        if match_id and match_id != expected_match_id:
+            print(f"[WIDE_MATCH] Match ID mismatch: {match_id} != {expected_match_id}, skipping")
+            return
+
+        # すでに実行済みかチェック
+        if active_match.get('executed'):
+            print(f"[WIDE_MATCH] Match {match_id} already executed, skipping")
+            return
+
+        # 実行済みフラグを立てる
+        state['active_match']['executed'] = True
+        save_specific_room_state(room)
+        print(f"[WIDE_MATCH] Executing match {match_id}")
+
     actor_id = data.get('actorId'); skill_id = data.get('skillId'); mode = data.get('mode'); command_actor = data.get('commandActor'); defenders_data = data.get('defenders', [])
     actor_char = next((c for c in state["characters"] if c.get('id') == actor_id), None)
     if not actor_char: return
