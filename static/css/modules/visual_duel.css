@@ -161,25 +161,25 @@
     display: inline-block;
 }
 
-/* === �C��: �X�L���ڍ׃T�C�h�o�[ (�펞�\���Œ蕝) === */
+/* === 修正: スキル詳細サイドバー (常時表示固定幅) === */
 .skill-detail-sidebar {
     width: 280px;
     flex: 0 0 280px;
-    /* �k�܂Ȃ��悤�ɌŒ� */
+    /* 縮まないように固定 */
     opacity: 1;
-    /* �ŏ�����\�� */
+    /* 最初から表示 */
     padding: 15px;
-    /* �ŏ�����]���m�� */
+    /* 最初から余白確保 */
 
     background: #fdfdfd;
     color: #333;
     border-radius: 8px;
     font-size: 0.9em;
     border: 1px solid #ccc;
-    /* �ŏ�����g����\�� */
+    /* 最初から枠線を表示 */
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 
-    /* �e�L�X�g�܂�Ԃ��ݒ� */
+    /* テキスト折り返し設定 */
     white-space: normal;
     word-break: break-all;
     overflow-wrap: break-word;
@@ -187,25 +187,29 @@
     display: flex;
     flex-direction: column;
 
-    /* ���g���Ȃ����̍����m�� */
+    /* 見出しなしの高さ確保 */
     min-height: 200px;
+
+    /* ★ 追加: スクロール対応 */
+    max-height: 400px;
+    overflow-y: auto;
 }
 
-/* �����p�l���̃X�^�C������ */
+/* 左パネルのスタイル調整 */
 .skill-detail-sidebar.left {
     order: -1;
-    /* Flexbox�̐擪�ɔz�u */
+    /* Flexboxの先頭に配置 */
     margin-right: 10px;
 }
 
-/* �E���p�l���̃X�^�C������ */
+/* 右パネルのスタイル調整 */
 .skill-detail-sidebar.right {
     order: 10;
-    /* Flexbox�̖����ɔz�u */
+    /* Flexboxの末尾に配置 */
     margin-left: 10px;
 }
 
-/* �T�C�h�o�[��̃w�b�_�[���� */
+/* サイドバーのヘッダー部分 */
 .skill-detail-sidebar .skill-detail-header {
     border-bottom: 2px solid #007bff;
     margin-bottom: 10px;

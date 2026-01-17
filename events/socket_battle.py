@@ -68,11 +68,12 @@ def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data
 # ★ Phase 7: Cost extraction helper
 def extract_cost_from_text(text):
     """
-    使用時効果テキストからコスト記述を抽出する（'[使用時]:MPを5消費。' -> 'MPを5消費'）
+    使用時効果テキストからコスト記述を抽出する（'[使用時]:MPを5消費。' -> 'MPを5消費。'）
     """
     if not text:
         return "なし"
-    match = re.search(r'\[使用時\]:?([^\n。]+)', text)
+    # 修正: 句点「。」で切れずに、行末まで取得するように変更
+    match = re.search(r'\[使用時\]:?([^\n]+)', text)
     if match:
         return match.group(1).strip()
     return "なし"
@@ -2272,11 +2273,15 @@ def handle_open_wide_match_modal(data):
     if not attacker_char:
         return
 
-    # 防御者リストを構築
+    # 防御者リストを構築（フィールドに配置されているキャラのみ）
     defenders = []
     for def_id in defender_ids:
         def_char = next((c for c in state["characters"] if c.get('id') == def_id), None)
-        if def_char and def_char.get('hp', 0) > 0:
+        # ★ 配置チェック: x, y座標が存在するキャラのみを対象
+        if not def_char:
+            continue
+        is_placed = def_char.get('x') is not None and def_char.get('y') is not None
+        if def_char.get('hp', 0) > 0 and is_placed:
             defenders.append({
                 'id': def_id,
                 'name': def_char.get('name'),
