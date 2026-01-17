@@ -1696,7 +1696,22 @@ function updateMatchPanelContent(matchData) {
                     // ... (省略なしで既存コード維持)
                     if (rangeEl) {
                         if (sideData.min_damage !== undefined && sideData.max_damage !== undefined) {
-                            rangeEl.textContent = `Range: ${sideData.min_damage} ~ ${sideData.max_damage}`;
+                            // ★ Phase 3: 補正内訳を改行形式で表示
+                            let damageText = `Range: ${sideData.min_damage} ~ ${sideData.max_damage}`;
+
+                            if (sideData.power_breakdown) {
+                                const pb = sideData.power_breakdown;
+
+                                if (pb.base_power_mod && pb.base_power_mod !== 0) {
+                                    damageText += `\n(基礎威力${pb.base_power_mod > 0 ? '+' : ''}${pb.base_power_mod})`;
+                                }
+                                if (pb.additional_power && pb.additional_power !== 0) {
+                                    damageText += `\n(追加威力${pb.additional_power > 0 ? '+' : ''}${pb.additional_power})`;
+                                }
+                            }
+
+                            rangeEl.style.whiteSpace = 'pre-line';
+                            rangeEl.textContent = damageText;
                         } else {
                             rangeEl.textContent = "";
                         }

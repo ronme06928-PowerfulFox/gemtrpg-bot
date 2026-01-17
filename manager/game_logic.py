@@ -235,6 +235,11 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             log_snippets.extend(custom_logs)
         elif effect_type == "FORCE_UNOPPOSED":
             changes_to_apply.append((target_obj, "FORCE_UNOPPOSED", "None", 0))
+        elif effect_type == "MODIFY_BASE_POWER":
+            mod_value = int(effect.get("value", 0))
+            if mod_value != 0:
+                changes_to_apply.append((target_obj, "MODIFY_BASE_POWER", None, mod_value))
+                log_snippets.append(f"[基礎威力 {mod_value:+}]")
 
     return total_bonus_damage, log_snippets, changes_to_apply
 

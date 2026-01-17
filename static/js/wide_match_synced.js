@@ -244,6 +244,22 @@
                 var nowDecl = def.declared;
 
                 if (wasDecl === nowDecl) {
+                    // Update Aux Info (Modifiers) even if input is preserved
+                    updateDefenderAuxInfo(existingCard, def);
+
+                    // If declared, ensure Range/Command display is updated (for dynamic mods)
+                    if (nowDecl) {
+                        var resultDiv = existingCard.querySelector('.wide-defender-result');
+                        var cmd = def.final_command || def.command;
+                        if (resultDiv && cmd) {
+                            if (def.min !== undefined && def.max !== undefined) {
+                                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済 Range: ' + def.min + '~' + def.max + '</span> (' + cmd + ')';
+                            } else {
+                                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + cmd + ')';
+                            }
+                        }
+                    }
+
                     // 宣言状態が同じなら何もしない（選択値を維持）
                     delete existingCards[def.id]; // 処理済みマーク
                     return;
@@ -278,11 +294,12 @@
 
                     // 結果エリアを更新
                     var resultDiv = existingCard.querySelector('.wide-defender-result');
-                    if (resultDiv && def.command) {
+                    var cmd = def.final_command || def.command;
+                    if (resultDiv && cmd) {
                         if (def.min !== undefined && def.max !== undefined) {
-                            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済 Range: ' + def.min + '~' + def.max + '</span> (' + def.command + ')';
+                            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済 Range: ' + def.min + '~' + def.max + '</span> (' + cmd + ')';
                         } else {
-                            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + def.command + ')';
+                            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + cmd + ')';
                         }
                     }
                 }
@@ -548,10 +565,11 @@
         // Priority: server declared data > local state
         if (defData.declared && defData.command) {
             // Declared via server (another user or self)
+            var cmd = defData.final_command || defData.command;
             if (defData.min !== undefined && defData.max !== undefined) {
-                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済 Range: ' + defData.min + '~' + defData.max + '</span> (' + defData.command + ')';
+                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済 Range: ' + defData.min + '~' + defData.max + '</span> (' + cmd + ')';
             } else {
-                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + defData.command + ')';
+                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + cmd + ')';
             }
         } else if (window.wideMatchLocalState &&
             window.wideMatchLocalState.defenders &&
@@ -575,7 +593,39 @@
         skillDetailDiv.style.cssText = 'display:none; padding:10px; background:#f8f9fa; border-radius:4px; margin-top:5px; font-size:0.9em;';
         card.appendChild(skillDetailDiv)
 
+        updateDefenderAuxInfo(card, defData);
         return card;
+    }
+
+    // ============================================
+    // Helper: Update Auxiliary Info (Modifiers)
+    // ============================================
+    function updateDefenderAuxInfo(card, defData) {
+        if (!card || !defData) return;
+
+        // Support both structures (data.power_breakdown or root power_breakdown)
+        var bd = defData.power_breakdown || (defData.data && defData.data.power_breakdown);
+        if (!bd) return;
+
+        var mod = bd.base_power_mod || 0;
+
+        // Remove existing badge if any
+        var existingBadge = card.querySelector('.wide-def-mod-badge');
+        if (existingBadge) existingBadge.remove();
+
+        if (mod !== 0) {
+            var badge = document.createElement('div');
+            badge.className = 'wide-def-mod-badge';
+            var sign = mod > 0 ? '+' : '';
+            badge.textContent = '補正: 基礎威力 ' + sign + mod;
+            badge.style.cssText = 'background:#ffc107; color:#000; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px; font-weight:bold; display:inline-block;';
+
+            // Insert in Header
+            var header = card.querySelector('.wide-defender-header');
+            if (header) {
+                header.appendChild(badge);
+            }
+        }
     }
 
     // ============================================

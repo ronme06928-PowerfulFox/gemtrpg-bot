@@ -22,6 +22,49 @@ from manager.utils import resolve_placeholders
 
 
 
+# ★ Phase 2: 相手スキルを考慮した威力補正計算
+def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data, target_skill_data, all_skill_data_ref):
+    """
+    相手スキルを考慮したPRE_MATCHエフェクトを評価し、各種補正値を返す。
+
+    Returns:
+        dict: {
+            "base_power_mod": int,     # 基礎威力補正
+            "dice_power_mod": int,     # ダイス威力補正（将来拡張用）
+            "stat_correction_mod": int, # 物理/魔法補正（将来拡張用）
+            "additional_power": int     # 追加威力（将来拡張用）
+        }
+    """
+    modifiers = {
+        "base_power_mod": 0,
+        "dice_power_mod": 0,
+        "stat_correction_mod": 0,
+        "additional_power": 0
+    }
+
+    if not actor_skill_data:
+        return modifiers
+
+    try:
+        rule_json_str = actor_skill_data.get('特記処理', '{}')
+        rule_data = json.loads(rule_json_str) if rule_json_str else {}
+        effects_array = rule_data.get("effects", [])
+
+        # PRE_MATCHタイミングのエフェクトを評価
+        _, logs, changes = process_skill_effects(
+            effects_array, "PRE_MATCH", actor_char, target_char, target_skill_data
+        )
+
+        for (char, effect_type, name, value) in changes:
+            if effect_type == "MODIFY_BASE_POWER":
+                # ターゲットへの基礎威力補正
+                if char and target_char and char.get('id') == target_char.get('id'):
+                    modifiers["base_power_mod"] += value
+    except Exception as e:
+        print(f"[ERROR] calculate_opponent_skill_modifiers: {e}")
+
+    return modifiers
+
 # ★ Phase 7: Cost extraction helper
 def extract_cost_from_text(text):
     """
@@ -74,6 +117,11 @@ def execute_match_from_active_state(room, state, username):
 
     command_a = attacker_data.get('final_command', '---')
     command_d = defender_data.get('final_command', '---')
+
+    # ★ 一方攻撃フラグがある場合、防御側コマンドを強制的に一方攻撃専用文字列にする
+    # (handle_match で is_one_sided として判定させるため)
+    if active_match.get('is_one_sided_attack'):
+        command_d = "【一方攻撃（行動済）】"
     senritsu_a = attacker_data.get('senritsu_penalty', 0)
     senritsu_d = defender_data.get('senritsu_penalty', 0)
 
@@ -519,90 +567,257 @@ def handle_skill_declaration(data):
     socketio.emit('skill_declaration_result', result_payload, to=request.sid)
 
     # ★ リファクタリング: active_match に計算結果を保存し、state_updated で同期
-    side = 'attacker' if 'attacker' in data.get('prefix', '') else 'defender' if 'defender' in data.get('prefix', '') else None
+    prefix = data.get('prefix', '')
+    is_wide_match = prefix.startswith('wide_')
+    side = 'attacker' if 'attacker' in prefix else 'defender' if 'defender' in prefix else None
 
     if side and state.get('active_match') and state['active_match'].get('is_active'):
-        # active_match に計算結果を保存
-        side_data_key = f'{side}_data'
-        state['active_match'][side_data_key] = {
-            'skill_id': skill_id,
-            'final_command': final_command,
-            'min_damage': min_damage,
-            'max_damage': max_damage,
-            'is_immediate': False,
-            'skill_details': skill_details_payload,
-            'senritsu_penalty': senritsu_penalty
+        match_type = state['active_match'].get('match_type', 'duel')
+        if is_wide_match: match_type = 'wide'
+
+        # 補正内訳データを共通で生成
+        power_breakdown_data = {
+            'base_power': base_power,
+            'base_power_mod': 0,
+            'dice_power_mod': 0,
+            'stat_correction_mod': 0,
+            'additional_power': power_bonus
         }
 
-        # ★ 一方攻撃フラグを保存（攻撃者側の計算時に再判定）
-        if side == 'attacker':
-            # 防御者データを取得して再判定
-            defender_id = state['active_match'].get('defender_id')
-            defender_char = next((c for c in state["characters"] if c.get('id') == defender_id), None)
+        if match_type == 'wide':
+            # ★ 広域マッチ用の処理
+            if side == 'attacker':
+                # 攻撃者の場合: 攻撃者から防御者への補正を計算（将来の拡張用）
+                state['active_match']['attacker_data'] = {
+                    'skill_id': skill_id,
+                    'final_command': final_command,
+                    'min_damage': min_damage,
+                    'max_damage': max_damage,
+                    'is_immediate': False,
+                    'skill_details': skill_details_payload,
+                    'senritsu_penalty': senritsu_penalty,
+                    'power_breakdown': power_breakdown_data
+                }
 
-            # 一方攻撃かどうかを判定
-            is_one_sided = False
-            no_defender_acted = False
+                # ★ 重要: 攻撃者が宣言/変更した場合、全防御者の補正を再計算して更新する
+                skill_id_attacker = skill_id
+                attacker_skill_data = all_skill_data.get(skill_id_attacker)
+                attacker_char_obj = actor_char # 宣言しているのは攻撃者自身
 
-            # ★ マッチ不可タグのチェック
-            attacker_skill_tags = [] # スキルデータからタグを取得
-            if skill_data:
-                attacker_skill_tags = skill_data.get('tags', [])
+                print(f"[WIDE_MATCH] Attacker declared. Updating modifiers for all defenders...")
 
-            if 'マッチ不可' in attacker_skill_tags:
-                is_one_sided = True
-                no_defender_acted = True  # 防御側は行動済みにならない
-                print(f"[MATCH] マッチ不可 tag detected - forced one-sided, defender won't be marked as acted")
-            elif defender_char:
-                has_re_evasion = False
-                if 'special_buffs' in defender_char:
-                    for buff in defender_char['special_buffs']:
-                        if buff.get('name') == "再回避ロック":
-                            has_re_evasion = True
-                            break
+                for defender in state['active_match'].get('defenders', []):
+                    d_data = defender.get('data')
+                    if d_data and d_data.get('skill_id'):
+                        def_id = defender['id']
+                        # ID比較は文字列で行う
+                        def_char = next((c for c in state["characters"] if str(c.get('id')) == str(def_id)), None)
+                        def_skill_id = d_data['skill_id']
+                        def_skill_data = all_skill_data.get(def_skill_id)
 
-                if defender_char.get('hasActed', False) and not has_re_evasion:
-                    is_one_sided = True
+                        if def_char and def_skill_data and attacker_skill_data:
+                            # 攻撃者スキル -> 防御者への補正 (Actor=Attacker, Target=Defender)
+                            mods = calculate_opponent_skill_modifiers(
+                                attacker_char_obj, def_char, attacker_skill_data, def_skill_data, all_skill_data
+                            )
+                            base_mod = mods.get('base_power_mod', 0)
 
-            if is_one_sided:
-                state['active_match']['is_one_sided_attack'] = True
-                if no_defender_acted:
-                    state['active_match']['no_defender_acted'] = True
-                print(f"[MATCH] One-sided attack detected for room {room}")
+                            # コマンド再計算
+                            def_base = int(def_skill_data.get('基礎威力', 0))
+                            new_base = def_base + base_mod
+                            def_dice = def_skill_data.get('ダイス威力', '2d6')
+                            # Get full dice from chat palette (more reliable than ダイス威力)
+                            palette = def_skill_data.get('チャットパレット', '')
+                            cmd_part = re.sub(r'【.*?】', '', palette).strip()
+                            if '+' in cmd_part:
+                                dice_part = cmd_part.split('+', 1)[1]  # Everything after base power
+                            else:
+                                dice_part = def_dice
+
+                            # 変数ダイスの解決
+                            phys = get_status_value(def_char, '物理補正')
+                            mag = get_status_value(def_char, '魔法補正')
+                            processed_dice = dice_part.replace('{物理補正}', str(phys)).replace('{魔法補正}', str(mag))
+
+                            new_command = f"{new_base}+{processed_dice}"
+
+                            # 威力レンジ再計算
+                            dice_min = 0; dice_max = 0
+                            matches = re.findall(r'(\d+)d(\d+)', processed_dice)
+                            for num_str, sides_str in matches:
+                                num = int(num_str); sides = int(sides_str)
+                                dice_min += num
+                                dice_max += num * sides
+
+                            new_min = new_base + dice_min
+                            new_max = new_base + dice_max
+
+                            # 更新
+                            d_data['final_command'] = new_command
+                            d_data['min_damage'] = new_min
+                            d_data['max_damage'] = new_max
+
+                            if 'power_breakdown' not in d_data: d_data['power_breakdown'] = {}
+                            d_data['power_breakdown']['base_power_mod'] = base_mod
+                            d_data['power_breakdown']['base_power'] = def_base
+
+                            print(f"[WIDE_MATCH DEBUG] Updated Defender {def_id} Command: {new_command} (Mod: {base_mod})")
             else:
-                # 通常マッチの場合はフラグを削除（以前の一方攻撃が残らないように）
-                state['active_match'].pop('is_one_sided_attack', None)
-                state['active_match'].pop('no_defender_acted', None)
+                # 防御者の場合: defenders配列から対象を探して更新
+                attacker_data = state['active_match'].get('attacker_data', {})
+                attacker_skill_id = attacker_data.get('skill_id')
+                attacker_skill_data = all_skill_data.get(attacker_skill_id) if attacker_skill_id else None
 
-        # コミット（宣言）の場合は declared フラグを立てる
-        if is_commit:
-            state['active_match'][f'{side}_declared'] = True
-            print(f"[MATCH] {side} declared in room {room}")
+                # 攻撃者スキルから防御者への補正を計算
+                # actor = 攻撃者, target = 防御者, actor_skill = 攻撃者スキル, target_skill = 防御者スキル
+                if attacker_skill_data:
+                    # 攻撃者キャラを取得
+                    attacker_id = state['active_match'].get('attacker_id')
+                    attacker_char = next((c for c in state["characters"] if str(c.get('id')) == str(attacker_id)), None)
+                    if not attacker_char:
+                        print(f"[WIDE_MATCH ERROR] Attacker char not found for ID: {attacker_id} (Side: Defender Declaring)")
 
-        print(f"[MATCH DEBUG] Saved {side} data: {state['active_match'][side_data_key]}")
-        save_specific_room_state(room)
+                    modifiers = calculate_opponent_skill_modifiers(
+                        attacker_char, actor_char, attacker_skill_data, skill_data, all_skill_data
+                    )
+                    power_breakdown_data['base_power_mod'] = modifiers.get('base_power_mod', 0)
+                    print(f"[WIDE_MATCH DEBUG] Defender {actor_id} base_power_mod: {modifiers.get('base_power_mod', 0)}")
 
-        # ★ 変更: match_data_updated ではなく state_updated を全員に送信
-        broadcast_state_update(room)
+                # defenders配列内の対象を更新
+                updated = False
+                for defender in state['active_match'].get('defenders', []):
+                    if str(defender['id']) == str(actor_id):
+                        defender['data'] = {
+                            'skill_id': skill_id,
+                            'final_command': final_command,
+                            'min_damage': min_damage,
+                            'max_damage': max_damage,
+                            'skill_details': skill_details_payload,
+                            'senritsu_penalty': senritsu_penalty,
+                            'power_breakdown': power_breakdown_data
+                        }
+                        updated = True
+                        break
+                if not updated:
+                    print(f"[WIDE_MATCH ERROR] Defender {actor_id} not found in defenders list for update!")
+        else:
+            # ★ 通常デュエルマッチ用の処理（既存ロジック）
+            opponent_side = 'defender' if side == 'attacker' else 'attacker'
+            opponent_data = state['active_match'].get(f'{opponent_side}_data', {})
+            opponent_skill_id = opponent_data.get('skill_id')
+            opponent_skill_data = all_skill_data.get(opponent_skill_id) if opponent_skill_id else None
 
-        # 両側が宣言済みかチェック
-        attacker_declared = state['active_match'].get('attacker_declared', False)
-        defender_declared = state['active_match'].get('defender_declared', False)
-        is_one_sided = state['active_match'].get('is_one_sided_attack', False)
+            # 相手スキルを考慮した補正計算
+            opponent_modifiers = calculate_opponent_skill_modifiers(
+                actor_char, target_char, skill_data, opponent_skill_data, all_skill_data
+            )
+            power_breakdown_data['base_power_mod'] = opponent_modifiers.get('base_power_mod', 0)
 
-        # ★ 一方攻撃の場合は攻撃者のみの宣言で実行
-        # 通常マッチは両側が宣言したら実行
-        should_execute = False
-        if is_one_sided and attacker_declared:
-            should_execute = True
-            print(f"[MATCH] One-sided attack: attacker declared in room {room}, executing match...")
-        elif attacker_declared and defender_declared:
-            should_execute = True
-            print(f"[MATCH] Both sides declared in room {room}, executing match...")
+            # active_match に計算結果を保存
+            side_data_key = f'{side}_data'
+            state['active_match'][side_data_key] = {
+                'skill_id': skill_id,
+                'final_command': final_command,
+                'min_damage': min_damage,
+                'max_damage': max_damage,
+                'is_immediate': False,
+                'skill_details': skill_details_payload,
+                'senritsu_penalty': senritsu_penalty,
+                'power_breakdown': power_breakdown_data
+            }
 
-        if should_execute:
-            # ★ 変更: クライアントに通知する代わりにサーバーで直接実行
-            execute_match_from_active_state(room, state, user_info.get("username", "System"))
+        # ★ 以下はデュエルマッチ専用の処理（広域マッチはスキップ）
+        if match_type != 'wide':
+            # ★ 一方攻撃フラグを保存（攻撃者側の計算時に再判定）
+            if side == 'attacker':
+                # 防御者データを取得して再判定
+                defender_id = state['active_match'].get('defender_id')
+                defender_char = next((c for c in state["characters"] if c.get('id') == defender_id), None)
+
+                # 一方攻撃かどうかを判定
+                is_one_sided = False
+                no_defender_acted = False
+
+                # ★ マッチ不可タグのチェック
+                attacker_skill_tags = [] # スキルデータからタグを取得
+                if skill_data:
+                    attacker_skill_tags = skill_data.get('tags', [])
+
+                if 'マッチ不可' in attacker_skill_tags:
+                    is_one_sided = True
+                    no_defender_acted = True  # 防御側は行動済みにならない
+                    print(f"[MATCH] マッチ不可 tag detected - forced one-sided, defender won't be marked as acted")
+                elif defender_char:
+                    has_re_evasion = False
+                    if 'special_buffs' in defender_char:
+                        for buff in defender_char['special_buffs']:
+                            if buff.get('name') == "再回避ロック":
+                                has_re_evasion = True
+                                break
+
+                    if defender_char.get('hasActed', False) and not has_re_evasion:
+                        is_one_sided = True
+
+                if is_one_sided:
+                    state['active_match']['is_one_sided_attack'] = True
+                    if no_defender_acted:
+                        state['active_match']['no_defender_acted'] = True
+                    print(f"[MATCH] One-sided attack detected for room {room}")
+                else:
+                    # 通常マッチの場合はフラグを削除（以前の一方攻撃が残らないように）
+                    state['active_match'].pop('is_one_sided_attack', None)
+                    state['active_match'].pop('no_defender_acted', None)
+
+            # コミット（宣言）の場合は declared フラグを立てる
+            if is_commit:
+                state['active_match'][f'{side}_declared'] = True
+                print(f"[MATCH] {side} declared in room {room}")
+
+            side_data_key = f'{side}_data'
+            print(f"[MATCH DEBUG] Saved {side} data: {state['active_match'].get(side_data_key, {})}")
+            save_specific_room_state(room)
+
+            # ★ Phase 2: 相手が既に宣言済みなら、相手の補正も再計算
+            if opponent_skill_data:
+                # 相手側から見た補正を計算（自分のスキルが相手に与える補正）
+                reverse_modifiers = calculate_opponent_skill_modifiers(
+                    target_char, actor_char, opponent_skill_data, skill_data, all_skill_data
+                )
+
+                # 相手の power_breakdown を更新
+                if opponent_data:
+                    if 'power_breakdown' not in opponent_data:
+                        opponent_data['power_breakdown'] = {}
+                    opponent_data['power_breakdown']['base_power_mod'] = reverse_modifiers.get('base_power_mod', 0)
+                    state['active_match'][f'{opponent_side}_data'] = opponent_data
+                    print(f"[MATCH DEBUG] Updated {opponent_side} base_power_mod: {reverse_modifiers.get('base_power_mod', 0)}")
+                    save_specific_room_state(room)
+
+            # ★ 変更: match_data_updated ではなく state_updated を全員に送信
+            broadcast_state_update(room)
+
+            # 両側が宣言済みかチェック
+            attacker_declared = state['active_match'].get('attacker_declared', False)
+            defender_declared = state['active_match'].get('defender_declared', False)
+            is_one_sided = state['active_match'].get('is_one_sided_attack', False)
+
+            # ★ 一方攻撃の場合は攻撃者のみの宣言で実行
+            # 通常マッチは両側が宣言したら実行
+            should_execute = False
+            if is_one_sided and attacker_declared:
+                should_execute = True
+                print(f"[MATCH] One-sided attack: attacker declared in room {room}, executing match...")
+            elif attacker_declared and defender_declared:
+                should_execute = True
+                print(f"[MATCH] Both sides declared in room {room}, executing match...")
+
+            if should_execute:
+                # ★ 変更: クライアントに通知する代わりにサーバーで直接実行
+                execute_match_from_active_state(room, state, user_info.get("username", "System"))
+        else:
+            # ★ 広域マッチの場合は状態保存と同期のみ
+            save_specific_room_state(room)
+            broadcast_state_update(room)
 
 
 @socketio.on('request_match')
@@ -644,13 +859,13 @@ def handle_match(data):
     actor_d_char = next((c for c in state["characters"] if c.get('id') == actor_id_d), None)
 
     # PRE_MATCH 適用関数
-    def apply_pre_match_effects(actor, target, skill_data):
+    def apply_pre_match_effects(actor, target, skill_data, target_skill_data=None):
         if not skill_data or not actor: return
         try:
             rule_json_str = skill_data.get('特記処理', '{}')
             rule_data = json.loads(rule_json_str)
             effects_array = rule_data.get("effects", [])
-            _, logs, changes = process_skill_effects(effects_array, "PRE_MATCH", actor, target, None)
+            _, logs, changes = process_skill_effects(effects_array, "PRE_MATCH", actor, target, target_skill_data)
 
             for (char, type, name, value) in changes:
                 if type == "APPLY_STATE":
@@ -665,6 +880,10 @@ def handle_match(data):
                     if 'flags' not in char:
                         char['flags'] = {}
                     char['flags'][name] = value
+                elif type == "MODIFY_BASE_POWER":
+                    # 基礎威力ボーナスを一時保存（荊棘処理で参照）
+                    char['_base_power_bonus'] = char.get('_base_power_bonus', 0) + value
+                    broadcast_log(room, f"[{char['name']}] 基礎威力 {value:+}", 'state-change')
         except json.JSONDecodeError: pass
 
     if actor_a_char and senritsu_penalty_a > 0:
@@ -683,7 +902,8 @@ def handle_match(data):
         skill_id_a = match_a.group(1)
         skill_data_a = all_skill_data.get(skill_id_a)
         if skill_data_a:
-            apply_pre_match_effects(actor_a_char, actor_d_char, skill_data_a)
+            # ★ 相手スキルデータを渡して条件評価を可能にする
+            apply_pre_match_effects(actor_a_char, actor_d_char, skill_data_a, skill_data_d)
             rule_json_str_a = skill_data_a.get('特記処理')
             if rule_json_str_a:
                 try:
@@ -703,7 +923,8 @@ def handle_match(data):
         skill_id_d = match_d.group(1)
         skill_data_d = all_skill_data.get(skill_id_d)
         if skill_data_d:
-            apply_pre_match_effects(actor_d_char, actor_a_char, skill_data_d)
+            # ★ 相手スキルデータを渡して条件評価を可能にする
+            apply_pre_match_effects(actor_d_char, actor_a_char, skill_data_d, skill_data_a)
             rule_json_str_d = skill_data_d.get('特記処理')
             if rule_json_str_d:
                 try:
@@ -835,7 +1056,11 @@ def handle_match(data):
                 elif attacker_category == "防御" and skill_data_a:
                     try:
                         bp = int(skill_data_a.get('基礎威力', 0))
+                        # ★ 基礎威力ボーナスを加算（MODIFY_BASE_POWERから）
+                        bp += actor_a_char.get('_base_power_bonus', 0)
                         _update_char_stat(room, actor_a_char, "荊棘", max(0, at - bp), username=f"[{skill_data_a.get('デフォルト名称')}]")
+                        # ★ ボーナスをリセット
+                        actor_a_char.pop('_base_power_bonus', None)
                     except ValueError: pass
         if actor_d_char:
             dt = get_status_value(actor_d_char, "荊棘")
@@ -845,7 +1070,11 @@ def handle_match(data):
                 elif defender_category == "防御" and skill_data_d:
                     try:
                         bp = int(skill_data_d.get('基礎威力', 0))
+                        # ★ 基礎威力ボーナスを加算（MODIFY_BASE_POWERから）
+                        bp += actor_d_char.get('_base_power_bonus', 0)
                         _update_char_stat(room, actor_d_char, "荊棘", max(0, dt - bp), username=f"[{skill_data_d.get('デフォルト名称')}]")
+                        # ★ ボーナスをリセット
+                        actor_d_char.pop('_base_power_bonus', None)
                     except ValueError: pass
 
         if "即時発動" in attacker_tags or "即時発動" in defender_tags:
@@ -1347,6 +1576,10 @@ def handle_force_end_match(data):
     state['active_match'] = None
     save_specific_room_state(room)
     broadcast_state_update(room)
+
+    # ★ 全クライアントにマッチパネルを閉じるよう通知
+    socketio.emit('match_modal_closed', {}, to=room)
+
     broadcast_log(room, f"⚠️ GM {username} がマッチを強制終了しました。", 'match-end')
 
 @socketio.on('request_declare_wide_skill_users')
@@ -2089,7 +2322,56 @@ def handle_wide_declare_skill(data):
             defender['max'] = data.get('max')
             defender['declared'] = True
             defender['declared_by'] = username
-            print(f"[WIDE_MATCH] Defender {defender['name']} declared skill {skill_id}")
+            defender['declared_by'] = username
+
+            # ★ Calculate Modifiers from Attacker (if Attacker already declared)
+            attacker_id = active_match.get('attacker_id')
+            attacker_data = active_match.get('attacker_data', {})
+            attacker_skill_id = attacker_data.get('skill_id')
+            attacker_char = next((c for c in state['characters'] if c.get('id') == attacker_id), None)
+
+            if attacker_skill_id and attacker_char:
+                attacker_skill_data = all_skill_data.get(attacker_skill_id)
+                # 攻撃者スキルから防御者への補正を計算
+                if attacker_skill_data:
+                    mods = calculate_opponent_skill_modifiers(
+                         attacker_char, def_char, attacker_skill_data, skill_data, all_skill_data
+                    )
+                    base_mod = mods.get('base_power_mod', 0)
+
+                    if 'power_breakdown' not in defender: defender['power_breakdown'] = {}
+                    defender['power_breakdown']['base_power_mod'] = base_mod
+                    defender['power_breakdown']['base_power'] = int(skill_data.get('基礎威力', 0))
+
+                    # Update Final Command for Display
+                    def_base = int(skill_data.get('基礎威力', 0))
+                    new_base = def_base + base_mod
+                    # Get full dice from chat palette (more reliable than ダイス威力)
+                    palette = skill_data.get('チャットパレット', '')
+                    cmd_part = re.sub(r'【.*?】', '', palette).strip()
+                    if '+' in cmd_part:
+                        dice_part = cmd_part.split('+', 1)[1]  # Everything after base power
+                    else:
+                        dice_part = skill_data.get('ダイス威力', '2d6')
+
+                    # 変数ダイスの解決
+                    phys = get_status_value(def_char, '物理補正')
+                    mag = get_status_value(def_char, '魔法補正')
+                    processed_dice = dice_part.replace('{物理補正}', str(phys)).replace('{魔法補正}', str(mag))
+
+                    defender['final_command'] = f"{new_base}+{processed_dice}"
+
+                    matches = re.findall(r'(\d+)d(\d+)', processed_dice)
+                    dice_min = 0; dice_max = 0
+                    for num_str, sides_str in matches:
+                         num = int(num_str); sides = int(sides_str)
+                         dice_min += num
+                         dice_max += num * sides
+
+                    defender['min'] = new_base + dice_min
+                    defender['max'] = new_base + dice_max
+
+            print(f"[WIDE_MATCH] Defender {defender['name']} declared skill {skill_id} (Mod:{defender.get('power_breakdown',{}).get('base_power_mod',0)})")
             break
 
     save_specific_room_state(room)
@@ -2141,6 +2423,56 @@ def handle_wide_attacker_declare(data):
         'max': data.get('max')
     }
     active_match['attacker_declared'] = True
+
+    # ★ Update modifiers for all defenders (Base Mod, etc.)
+    print(f"[WIDE_MATCH] Attacker declared. Updating modifiers for all defenders...")
+    for defender in active_match.get('defenders', []):
+        d_id = defender.get('id')
+        d_char = next((c for c in state['characters'] if c.get('id') == d_id), None)
+
+        # If no skill declared yet, skip calculation
+        d_skill_id = defender.get('skill_id')
+        d_skill_data = all_skill_data.get(d_skill_id)
+
+        if d_char and d_skill_data:
+            mods = calculate_opponent_skill_modifiers(
+                attacker_char, d_char, skill_data, d_skill_data, all_skill_data
+            )
+            base_mod = mods.get('base_power_mod', 0)
+
+            # Update power_breakdown at root level
+            if 'power_breakdown' not in defender: defender['power_breakdown'] = {}
+            defender['power_breakdown']['base_power_mod'] = base_mod
+
+            # calculate command preview if possible
+            def_base = int(d_skill_data.get('基礎威力', 0))
+            new_base = def_base + base_mod
+            # Get full dice from chat palette (more reliable than ダイス威力)
+            palette = d_skill_data.get('チャットパレット', '')
+            cmd_part = re.sub(r'【.*?】', '', palette).strip()
+            if '+' in cmd_part:
+                dice_part = cmd_part.split('+', 1)[1]  # Everything after base power
+            else:
+                dice_part = d_skill_data.get('ダイス威力', '2d6')
+
+            # 変数ダイスの解決
+            phys = get_status_value(d_char, '物理補正')
+            mag = get_status_value(d_char, '魔法補正')
+            processed_dice = dice_part.replace('{物理補正}', str(phys)).replace('{魔法補正}', str(mag))
+
+            defender['final_command'] = f"{new_base}+{processed_dice}"
+
+            matches = re.findall(r'(\d+)d(\d+)', processed_dice)
+            dice_min = 0; dice_max = 0
+            for num_str, sides_str in matches:
+                    num = int(num_str); sides = int(sides_str)
+                    dice_min += num
+                    dice_max += num * sides
+
+            defender['min'] = new_base + dice_min
+            defender['max'] = new_base + dice_max
+
+            print(f"[WIDE_MATCH DEBUG] Updated Defender {d_id} Mod: {base_mod}")
 
     # ★ マッチ不可タグのチェックと強制宣言処理
     skill_data = all_skill_data.get(skill_id, {})
@@ -2200,7 +2532,7 @@ def handle_execute_synced_wide_match(data):
     attacker_id = active_match.get('attacker_id')
     attacker_data = active_match.get('attacker_data', {})
     attacker_skill_id = attacker_data.get('skill_id')
-    attacker_command = attacker_data.get('command')
+    attacker_command = attacker_data.get('final_command') or attacker_data.get('command')
 
     attacker_char = next((c for c in state['characters'] if c.get('id') == attacker_id), None)
     if not attacker_char:
@@ -2208,6 +2540,33 @@ def handle_execute_synced_wide_match(data):
 
     attacker_skill_data = all_skill_data.get(attacker_skill_id)
     mode = active_match.get('mode', 'individual')
+
+    # ★ Helper: Pre-Match Effects (copied from handle_match for Wide Match consistency)
+    def apply_pre_match_effects(actor, target, skill_data, target_skill_data=None):
+        if not skill_data or not actor: return
+        try:
+            rule_json_str = skill_data.get('特記処理', '{}')
+            rule_data = json.loads(rule_json_str)
+            effects_array = rule_data.get("effects", [])
+            _, logs, changes = process_skill_effects(effects_array, "PRE_MATCH", actor, target, target_skill_data)
+
+            for (char, type, name, value) in changes:
+                if type == "APPLY_STATE":
+                    current_val = get_status_value(char, name)
+                    _update_char_stat(room, char, name, current_val + value, username=f"[{skill_data.get('デフォルト名称', 'スキル')}]")
+                elif type == "APPLY_BUFF":
+                    apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+                    broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
+                elif type == "REMOVE_BUFF":
+                    remove_buff(char, name)
+                elif type == "SET_FLAG":
+                    if 'flags' not in char: char['flags'] = {}
+                    char['flags'][name] = value
+                elif type == "MODIFY_BASE_POWER":
+                    # 基礎威力ボーナスを一時保存（荊棘処理で参照）
+                    char['_base_power_bonus'] = char.get('_base_power_bonus', 0) + value
+                    broadcast_log(room, f"[{char['name']}] 基礎威力 {value:+}", 'state-change')
+        except json.JSONDecodeError: pass
 
     # ★ コスト消費処理ヘルパー
     def consume_skill_cost(char, skill_d, skill_id_log):
@@ -2408,7 +2767,37 @@ def handle_execute_synced_wide_match(data):
                 continue
 
             def_skill_id = def_data.get('skill_id')
+            def_skill_data = all_skill_data.get(def_skill_id)
+
+            # --- Wide Match Thorns & Modifiers Logic ---
+            # Reset temporary bonus
+            attacker_char['_base_power_bonus'] = 0
+            if def_char: def_char['_base_power_bonus'] = 0
+
+            # Apply modifiers
+            apply_pre_match_effects(attacker_char, def_char, attacker_skill_data, def_skill_data)
+            if def_char and def_skill_data:
+                apply_pre_match_effects(def_char, attacker_char, def_skill_data, attacker_skill_data)
+
+            # Thorns (荊棘) Processing - Defender Self-Reduction
+            thorn_val = get_status_value(def_char, "荊棘")
+            if thorn_val > 0 and def_skill_data:
+                 tags = def_skill_data.get('tags', [])
+                 cat = def_skill_data.get('分類', '')
+                 if cat == '防御' or '防御' in tags or '守備' in tags:
+                      bp = int(def_skill_data.get('基礎威力', 0))
+                      bp += def_char.get('_base_power_bonus', 0)
+                      if bp > 0:
+                          _update_char_stat(room, def_char, "荊棘", max(0, thorn_val - bp), username=f"[{def_skill_id}:荊棘詳細]")
             def_command = def_data.get('command', '2d6')
+            if def_data.get('data') and def_data['data'].get('final_command'):
+                def_command = def_data['data']['final_command']
+
+            # ★ Apply dynamic base power modifiers to command
+            bp_mod = def_char.get('_base_power_bonus', 0)
+            if bp_mod != 0:
+                def_command = f"{def_command}+{bp_mod}"
+                print(f"[WIDE_MATCH EXEC] Applied BaseMod {bp_mod} -> {def_command}")
 
             def_roll = roll(def_command)
 

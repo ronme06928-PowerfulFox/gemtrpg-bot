@@ -108,8 +108,23 @@ function renderWideMatchPanelFromState(matchData) {
                     const previewEl = document.getElementById('wide-attacker-preview');
                     if (previewEl) {
                         previewEl.querySelector('.preview-command').textContent = matchData.attacker_data.final_command;
-                        const damageText = `Range: ${matchData.attacker_data.min_damage} ~ ${matchData.attacker_data.max_damage}`;
-                        previewEl.querySelector('.preview-damage').textContent = damageText;
+
+                        // ★ Phase 3: 補正内訳を改行形式で表示
+                        let damageText = `Range: ${matchData.attacker_data.min_damage} ~ ${matchData.attacker_data.max_damage}`;
+                        const pb = matchData.attacker_data.power_breakdown;
+                        if (pb) {
+                            if (pb.base_power_mod && pb.base_power_mod !== 0) {
+                                damageText += `\n(基礎威力${pb.base_power_mod > 0 ? '+' : ''}${pb.base_power_mod})`;
+                            }
+                            if (pb.additional_power && pb.additional_power !== 0) {
+                                damageText += `\n(追加威力${pb.additional_power > 0 ? '+' : ''}${pb.additional_power})`;
+                            }
+                        }
+                        const dmgEl = previewEl.querySelector('.preview-damage');
+                        if (dmgEl) {
+                            dmgEl.style.whiteSpace = 'pre-line';
+                            dmgEl.textContent = damageText;
+                        }
                     }
 
                     // Show skill details if calculated
@@ -203,8 +218,23 @@ function renderWideDefendersList(matchData) {
             if (defData.data.final_command) {
                 const previewEl = card.querySelector('.wide-defender-preview');
                 previewEl.querySelector('.preview-command').textContent = defData.data.final_command;
-                const damageText = `Range: ${defData.data.min_damage} ~ ${defData.data.max_damage}`;
-                previewEl.querySelector('.preview-damage').textContent = damageText;
+
+                // ★ Phase 3: 補正内訳を改行形式で表示
+                let damageText = `Range: ${defData.data.min_damage} ~ ${defData.data.max_damage}`;
+                const pb = defData.data.power_breakdown;
+                if (pb) {
+                    if (pb.base_power_mod && pb.base_power_mod !== 0) {
+                        damageText += `\n(基礎威力${pb.base_power_mod > 0 ? '+' : ''}${pb.base_power_mod})`;
+                    }
+                    if (pb.additional_power && pb.additional_power !== 0) {
+                        damageText += `\n(追加威力${pb.additional_power > 0 ? '+' : ''}${pb.additional_power})`;
+                    }
+                }
+                const dmgEl = previewEl.querySelector('.preview-damage');
+                if (dmgEl) {
+                    dmgEl.style.whiteSpace = 'pre-line';
+                    dmgEl.textContent = damageText;
+                }
 
                 const descEl = card.querySelector('.wide-defender-skill-desc');
                 if (descEl && defData.data.skill_details) {
