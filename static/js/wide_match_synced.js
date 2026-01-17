@@ -802,7 +802,12 @@
                 if (matchData.attacker_data.min !== undefined && matchData.attacker_data.max !== undefined) {
                     displayText += ' Range: ' + matchData.attacker_data.min + '~' + matchData.attacker_data.max;
                 }
-                attackerResultDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;">' + displayText + '</span> (' + matchData.attacker_data.command + ')';
+                // ★ 戦慄によるダイス減少を表示
+                var detailText = '';
+                if (matchData.attacker_data.senritsu_dice_reduction && matchData.attacker_data.senritsu_dice_reduction > 0) {
+                    detailText += '\n(戦慄: ダイス-' + matchData.attacker_data.senritsu_dice_reduction + ')';
+                }
+                attackerResultDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;white-space:pre-line;">' + displayText + detailText + '</span> (' + matchData.attacker_data.command + ')';
             }
         }
 
@@ -1002,6 +1007,11 @@
             });
 
         executeBtn.disabled = !(attackerDeclared && allDefendersDeclared);
+        // ★ 新しいマッチではボタンテキストを「実行」にリセット
+        if (executeBtn.textContent === '実行中...') {
+            // 既にマッチが終了している場合（新しいマッチの場合）はリセット
+            executeBtn.textContent = '実行';
+        }
 
         // Update status text
         var statusDiv = document.getElementById('wide-status');

@@ -313,9 +313,10 @@ def handle_skill_declaration(data):
         elif type == "CUSTOM_EFFECT" and name == "END_ROUND_IMMEDIATELY":
             is_force_end_round = True
 
-    # --- 戦慄ペナルティ計算 ---
+    # --- 戦慄によるダイス面減少計算 ---
     current_senritsu = get_status_value(actor_char, '戦慄')
-    senritsu_penalty = min(current_senritsu, 3) if current_senritsu > 0 else 0
+    senritsu_max_apply = min(current_senritsu, 3) if current_senritsu > 0 else 0  # 最大3まで適用
+    senritsu_dice_reduction = 0  # 実際にダイス面を減らした量（後で計算）
 
     # --- 即時発動かどうか ---
     is_immediate_skill = "即時発動" in skill_data.get("tags", []) or is_force_end_round
@@ -506,7 +507,7 @@ def handle_skill_declaration(data):
     buff_bonus = calculate_buff_power_bonus(actor_char, target_char, skill_data)
     power_bonus += buff_bonus
 
-    total_modifier = power_bonus - senritsu_penalty
+    total_modifier = power_bonus  # 戦慄はダイス面減少として適用済み
 
     final_command = resolved_command
     # (既存のダメージ計算ロジック)
@@ -516,13 +517,29 @@ def handle_skill_declaration(data):
     except ValueError: base_power = 0
     dice_roll_str = skill_data.get('ダイス威力', "")
     dice_min = 0; dice_max = 0
-    dice_match = re.search(r'(\d+)d(\d+)', dice_roll_str)
+    original_num_faces = 0  # 元のダイス面数（戦慄減少表示用）
+    dice_match = re.search(r'([+-]?)(\d+)d(\d+)', dice_roll_str)
     if dice_match:
         try:
-            num_dice = int(dice_match.group(1))
-            num_faces = int(dice_match.group(2))
-            dice_min = num_dice
-            dice_max = num_dice * num_faces
+            sign = dice_match.group(1)
+            is_negative_dice = (sign == '-')
+            num_dice = int(dice_match.group(2))
+            original_num_faces = int(dice_match.group(3))
+            num_faces = original_num_faces
+
+            # 戦慄によるダイス面減少を適用（1d1未満にはならない）
+            if senritsu_max_apply > 0 and num_faces > 1:
+                max_reduction = num_faces - 1  # 1d1が最小
+                senritsu_dice_reduction = min(senritsu_max_apply, max_reduction)
+                num_faces = num_faces - senritsu_dice_reduction
+
+            if is_negative_dice:
+                # マイナスダイス: 最大出目が最小威力、最小出目が最大威力
+                dice_min = -(num_dice * num_faces)
+                dice_max = -num_dice
+            else:
+                dice_min = num_dice
+                dice_max = num_dice * num_faces
         except Exception: pass
 
     phys_correction = get_status_value(actor_char, '物理補正')
@@ -537,6 +554,14 @@ def handle_skill_declaration(data):
 
     min_damage = base_power + dice_min + correction_min + total_modifier
     max_damage = base_power + dice_max + correction_max + total_modifier
+
+    # ★ 戦慄によるダイス減少をコマンド文字列にも反映
+    if senritsu_dice_reduction > 0 and original_num_faces > 0:
+        reduced_faces = original_num_faces - senritsu_dice_reduction
+        # 最初のダイス（基礎威力直後）を減少後の値に置換
+        def replace_first_dice(m):
+            return f"{m.group(1)}{m.group(2)}d{reduced_faces}"
+        final_command = re.sub(r'([+-]?)(\d+)d' + str(original_num_faces), replace_first_dice, final_command, count=1)
 
     if total_modifier > 0:
         if ' 【' in final_command: final_command = final_command.replace(' 【', f"+{total_modifier} 【")
@@ -566,7 +591,10 @@ def handle_skill_declaration(data):
         "is_instant_action": False,
         "is_immediate_skill": False,
         "skill_details": skill_details_payload,
-        "senritsu_penalty": senritsu_penalty
+        "senritsu_penalty": senritsu_dice_reduction,  # ★ 互換性維持: 戦慄によるダイス減少量
+        "senritsu_dice_reduction": senritsu_dice_reduction,  # ★ 新規: ダイス減少量
+        "original_dice_faces": original_num_faces,  # ★ 新規: 元のダイス面数
+        "reduced_dice_faces": original_num_faces - senritsu_dice_reduction if original_num_faces > 0 else 0  # ★ 減少後
     }
     socketio.emit('skill_declaration_result', result_payload, to=request.sid)
 
@@ -605,7 +633,7 @@ def handle_skill_declaration(data):
                     'max_damage': max_damage,
                     'is_immediate': False,
                     'skill_details': skill_details_payload,
-                    'senritsu_penalty': senritsu_penalty,
+                    'senritsu_penalty': senritsu_dice_reduction,
                     'power_breakdown': power_breakdown_data
                 }
 
@@ -703,7 +731,7 @@ def handle_skill_declaration(data):
                             'min_damage': min_damage,
                             'max_damage': max_damage,
                             'skill_details': skill_details_payload,
-                            'senritsu_penalty': senritsu_penalty,
+                            'senritsu_penalty': senritsu_dice_reduction,
                             'power_breakdown': power_breakdown_data
                         }
                         updated = True
@@ -732,7 +760,7 @@ def handle_skill_declaration(data):
                 'max_damage': max_damage,
                 'is_immediate': False,
                 'skill_details': skill_details_payload,
-                'senritsu_penalty': senritsu_penalty,
+                'senritsu_penalty': senritsu_dice_reduction,
                 'power_breakdown': power_breakdown_data
             }
 
@@ -920,10 +948,10 @@ def handle_match(data):
 
     if actor_a_char and senritsu_penalty_a > 0:
         curr = get_status_value(actor_a_char, '戦慄')
-        _update_char_stat(room, actor_a_char, '戦慄', max(0, curr - senritsu_penalty_a), username=f"[{actor_name_a}:戦慄消費]")
+        _update_char_stat(room, actor_a_char, '戦慄', max(0, curr - senritsu_penalty_a), username=f"[{actor_name_a}:戦慄消費(ダイス-{senritsu_penalty_a})]")
     if actor_d_char and senritsu_penalty_d > 0:
         curr = get_status_value(actor_d_char, '戦慄')
-        _update_char_stat(room, actor_d_char, '戦慄', max(0, curr - senritsu_penalty_d), username=f"[{actor_name_d}:戦慄消費]")
+        _update_char_stat(room, actor_d_char, '戦慄', max(0, curr - senritsu_penalty_d), username=f"[{actor_name_d}:戦慄消費(ダイス-{senritsu_penalty_d})]")
 
     skill_id_a = None; skill_data_a = None; effects_array_a = []
     skill_id_d = None; skill_data_d = None; effects_array_d = []
@@ -1764,15 +1792,41 @@ def handle_wide_match(data):
         except: pass
         buff_bonus = calculate_buff_power_bonus(def_char, actor_char, d_skill_data)
         power_bonus += buff_bonus
+
+        # ★ 戦慄によるダイス面減少（最大3まで、1d1未満にはならない）
         senritsu = get_status_value(def_char, '戦慄')
-        penalty = min(senritsu, 3) if senritsu > 0 else 0
-        if penalty > 0:
-             _update_char_stat(room, def_char, '戦慄', max(0, senritsu - penalty), username=f"[{def_char['name']}:戦慄消費]")
-        total_mod = power_bonus - penalty
+        senritsu_max = min(senritsu, 3) if senritsu > 0 else 0
+        dice_reduction = 0
+
+        # ダイス威力からダイス面数を取得して減少を計算
+        dice_str = d_skill_data.get('ダイス威力', '')
+        dice_m = re.search(r'([+-]?)(\d+)d(\d+)', dice_str)
+        if dice_m and senritsu_max > 0:
+            orig_faces = int(dice_m.group(3))
+            if orig_faces > 1:
+                max_red = orig_faces - 1
+                dice_reduction = min(senritsu_max, max_red)
+
+        if dice_reduction > 0:
+            _update_char_stat(room, def_char, '戦慄', max(0, senritsu - dice_reduction), username=f"[{def_char['name']}:戦慄消費(ダイス-{dice_reduction})]")
+
+        total_mod = power_bonus  # 戦慄はダイス面減少として適用済み
         phys = get_status_value(def_char, '物理補正'); mag = get_status_value(def_char, '魔法補正')
         final_cmd = resolved_cmd
         if '{物理補正}' in final_cmd: final_cmd = final_cmd.replace('{物理補正}', str(phys))
         elif '{魔法補正}' in final_cmd: final_cmd = final_cmd.replace('{魔法補正}', str(mag))
+
+        # ★ ダイス面減少をコマンドに適用（例: 1d6 → 1d3）
+        if dice_reduction > 0:
+            def reduce_dice_faces(m):
+                sign = m.group(1) or ''
+                num = m.group(2)
+                faces = int(m.group(3))
+                new_faces = max(1, faces - dice_reduction)
+                return f"{sign}{num}d{new_faces}"
+            # 最初のダイスのみ置換（基礎威力直後のダイス威力）
+            final_cmd = re.sub(r'([+-]?)(\d+)d(\d+)', reduce_dice_faces, final_cmd, count=1)
+
         if total_mod > 0:
             if ' 【' in final_cmd: final_cmd = final_cmd.replace(' 【', f"+{total_mod} 【")
             else: final_cmd += f"+{total_mod}"
@@ -2437,6 +2491,32 @@ def handle_wide_declare_skill(data):
                     mag = get_status_value(def_char, '魔法補正')
                     processed_dice = dice_part.replace('{物理補正}', str(phys)).replace('{魔法補正}', str(mag))
 
+                    # ★ 戦慄によるダイス面減少を適用
+                    current_senritsu = get_status_value(def_char, '戦慄')
+                    senritsu_max_apply = min(current_senritsu, 3) if current_senritsu > 0 else 0
+                    senritsu_dice_reduction = 0
+
+                    dice_str = skill_data.get('ダイス威力', '')
+                    dice_m = re.search(r'([+-]?)(\d+)d(\d+)', dice_str)
+                    if dice_m and senritsu_max_apply > 0:
+                        orig_faces = int(dice_m.group(3))
+                        if orig_faces > 1:
+                            max_red = orig_faces - 1
+                            senritsu_dice_reduction = min(senritsu_max_apply, max_red)
+
+                    # ダイス減少をprocessed_diceに適用
+                    if senritsu_dice_reduction > 0:
+                        def reduce_dice_faces(m):
+                            sign = m.group(1) or ''
+                            num = m.group(2)
+                            faces = int(m.group(3))
+                            new_faces = max(1, faces - senritsu_dice_reduction)
+                            return f"{sign}{num}d{new_faces}"
+                        processed_dice = re.sub(r'([+-]?)(\d+)d(\d+)', reduce_dice_faces, processed_dice, count=1)
+                        # 戦慄消費
+                        _update_char_stat(room, def_char, '戦慄', max(0, current_senritsu - senritsu_dice_reduction), username=f"[{defender['name']}:戦慄消費(ダイス-{senritsu_dice_reduction})]")
+                        defender['senritsu_dice_reduction'] = senritsu_dice_reduction
+
                     defender['final_command'] = f"{new_base}+{processed_dice}"
 
                     matches = re.findall(r'(\d+)d(\d+)', processed_dice)
@@ -2501,6 +2581,15 @@ def handle_wide_attacker_declare(data):
         'max': data.get('max')
     }
     active_match['attacker_declared'] = True
+
+    # ★ スキルの距離フィールドからモードを自動判定して更新
+    distance_field = skill_data.get('距離', '')
+    if '広域-合算' in distance_field:
+        active_match['mode'] = 'combined'
+        print(f"[WIDE_MATCH] Mode set to 'combined' based on skill 距離 field: {distance_field}")
+    elif '広域-個別' in distance_field:
+        active_match['mode'] = 'individual'
+        print(f"[WIDE_MATCH] Mode set to 'individual' based on skill 距離 field: {distance_field}")
 
     # ★ Update modifiers for all defenders (Base Mod, etc.)
     print(f"[WIDE_MATCH] Attacker declared. Updating modifiers for all defenders...")

@@ -120,6 +120,10 @@ function renderWideMatchPanelFromState(matchData) {
                                 damageText += `\n(追加威力${pb.additional_power > 0 ? '+' : ''}${pb.additional_power})`;
                             }
                         }
+                        // ★ 戦慄によるダイス減少を表示
+                        if (matchData.attacker_data.senritsu_dice_reduction && matchData.attacker_data.senritsu_dice_reduction > 0) {
+                            damageText += `\n(戦慄: ダイス-${matchData.attacker_data.senritsu_dice_reduction})`;
+                        }
                         const dmgEl = previewEl.querySelector('.preview-damage');
                         if (dmgEl) {
                             dmgEl.style.whiteSpace = 'pre-line';
@@ -229,6 +233,10 @@ function renderWideDefendersList(matchData) {
                     if (pb.additional_power && pb.additional_power !== 0) {
                         damageText += `\n(追加威力${pb.additional_power > 0 ? '+' : ''}${pb.additional_power})`;
                     }
+                }
+                // ★ 戦慄によるダイス減少を表示
+                if (defData.data.senritsu_dice_reduction && defData.data.senritsu_dice_reduction > 0) {
+                    damageText += `\n(戦慄: ダイス-${defData.data.senritsu_dice_reduction})`;
                 }
                 const dmgEl = previewEl.querySelector('.preview-damage');
                 if (dmgEl) {

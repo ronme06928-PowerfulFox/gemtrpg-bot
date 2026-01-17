@@ -1717,6 +1717,10 @@ function updateMatchPanelContent(matchData) {
                                     damageText += `\n(追加威力${pb.additional_power > 0 ? '+' : ''}${pb.additional_power})`;
                                 }
                             }
+                            // ★ 戦慄によるダイス減少を表示
+                            if (sideData.senritsu_dice_reduction && sideData.senritsu_dice_reduction > 0) {
+                                damageText += `\n(戦慄: ダイス-${sideData.senritsu_dice_reduction})`;
+                            }
 
                             rangeEl.style.whiteSpace = 'pre-line';
                             rangeEl.textContent = damageText;
