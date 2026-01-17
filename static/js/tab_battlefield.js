@@ -580,7 +580,8 @@ function setupActionColumn(prefix) {
         if (!actor) return;
 
         const targetType = (actor.type === 'ally') ? 'enemy' : 'ally';
-        const targets = battleState.characters.filter(c => c.type === targetType && c.hp > 0);
+        // ★ 修正: 未配置キャラクター（x < 0 または y < 0）を除外
+        const targets = battleState.characters.filter(c => c.type === targetType && c.hp > 0 && c.x >= 0 && c.y >= 0);
 
         if (targets.length === 0) {
             wideList.innerHTML = '<div style="padding:10px;">対象となるキャラクターがいません。</div>';

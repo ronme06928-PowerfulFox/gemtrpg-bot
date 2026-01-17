@@ -104,7 +104,7 @@ def format_skill_display_from_command(command_str, skill_id, skill_data):
 def execute_match_from_active_state(room, state, username):
     """
     両側が宣言済みの場合に、active_match の保存データを使ってマッチを実行する。
-    この関数はサーバー側で呼び出され、クライアント側での二重実行を防ぐ。
+    ★ 修正: クライアント経由ではなく、サーバー側で直接マッチ処理を実行する。
     """
     active_match = state.get('active_match')
     if not active_match or not active_match.get('is_active'):
@@ -126,7 +126,7 @@ def execute_match_from_active_state(room, state, username):
     # ★ 一方攻撃フラグがある場合、防御側コマンドを強制的に一方攻撃専用文字列にする
     # (handle_match で is_one_sided として判定させるため)
     if active_match.get('is_one_sided_attack'):
-        command_d = "【一方攻撃（行動済）】"
+        command_d = "【一方攻撃(行動済)】"
     senritsu_a = attacker_data.get('senritsu_penalty', 0)
     senritsu_d = defender_data.get('senritsu_penalty', 0)
 
@@ -150,13 +150,25 @@ def execute_match_from_active_state(room, state, username):
             command_d = "---"
             broadcast_log(room, f"[{attacker_char.get('name')}] が {skill_category}スキルを使用したため、ダメージは発生しません。", 'match')
 
-    # ★ マッチIDを取得（すでに生成されているはず）
-    match_id = active_match.get('match_id', '')
+    # 実行中フラグを立てる
+    state['active_match']['match_executing'] = True
+    state['active_match']['executed'] = True
+    save_specific_room_state(room)
 
-    # request_match と同じデータ形式で内部的に処理
+    # active_match をクリア (完了したので削除)
+    if 'active_match' in state:
+        del state['active_match']
+
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+
+    # ★ マッチ終了時に全員のパネルを閉じる
+    socketio.emit('match_modal_closed', {}, to=room)
+
+    # ★ 修正: クライアント経由ではなく、サーバー側で直接handle_matchを呼び出す
+    # match_data を構築してhandle_matchに渡す
     match_data = {
         'room': room,
-        'match_id': match_id,  # ★ マッチIDを追加
         'commandA': command_a,
         'commandD': command_d,
         'actorIdA': attacker_id,
@@ -167,24 +179,13 @@ def execute_match_from_active_state(room, state, username):
         'senritsuPenaltyD': senritsu_d
     }
 
-    # 実行中フラグを立てる
-    state['active_match']['match_executing'] = True
-    save_specific_room_state(room)
+    # ★ 修正: クライアント経由ではなく、サーバー側で直接handle_matchを呼び出す
+    # match_dataを構築してhandle_matchを直接実行
+    # handle_matchは@socketio.onデコレータがついているが、関数本体は普通に呼び出せる
+    handle_match(match_data)
 
-    # 最初に受信したクライアントだけが実行するよう、
-    # イベント送信前に active_match をクリア (完了したので削除)
-    if 'active_match' in state:
-        del state['active_match']
+    print(f"[MATCH] Match executed directly on server in room {room}")
 
-    save_specific_room_state(room)
-    broadcast_state_update(room)
-
-    # ★ マッチ終了時に全員のパネルを閉じる
-    socketio.emit('match_modal_closed', {}, to=room)
-
-    # マッチ実行イベントを送信（クライアントが一人だけ処理するよう指示）
-    socketio.emit('match_auto_execute', match_data, to=room)
-    print(f"[MATCH] Auto-executed match in room {room}")
 
 @socketio.on('request_skill_declaration')
 def handle_skill_declaration(data):

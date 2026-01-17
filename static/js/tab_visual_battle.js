@@ -265,8 +265,9 @@ async function setupVisualBattleTab() {
                 closeMatchPanel(false);
             });
 
-            // ★ 変更: サーバーからの自動実行イベント（二重実行防止）
-            // サーバーがマッチデータを送信し、攻撃側のオーナーのみが実行
+            // ★ 廃止: サーバー側で直接マッチを実行するため、このハンドラは不要
+            // match_auto_executeイベントは送信されなくなりました
+            /*
             socket.on('match_auto_execute', (data) => {
                 const statusEl = document.getElementById('duel-status-message');
                 if (statusEl) {
@@ -294,6 +295,8 @@ async function setupVisualBattleTab() {
                     console.log('[MATCH] Not attacker owner, skipping request_match');
                 }
             });
+            */
+
 
 
         }
@@ -2618,7 +2621,8 @@ function renderVisualWideDefenders(attackerId, mode) {
     area.innerHTML = '';
     const attacker = battleState.characters.find(c => c.id === attackerId);
     const targetType = attacker.type === 'ally' ? 'enemy' : 'ally';
-    const targets = battleState.characters.filter(c => c.type === targetType && c.hp > 0);
+    // ★ 修正: 未配置キャラクター（x < 0 または y < 0）を除外
+    const targets = battleState.characters.filter(c => c.type === targetType && c.hp > 0 && c.x >= 0 && c.y >= 0);
 
     if (targets.length === 0) {
         area.innerHTML = '<div style="padding:20px;">対象がいません</div>';
