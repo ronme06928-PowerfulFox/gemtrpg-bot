@@ -28,6 +28,7 @@ from manager.utils import session_required
 import events.socket_main
 import events.socket_battle
 import events.socket_char
+import events.socket_wide_match  # ★追加
 
 import uuid
 # ★追加インポート
