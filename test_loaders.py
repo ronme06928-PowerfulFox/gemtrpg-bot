@@ -1,11 +1,12 @@
 """
-輝化スキルとアイテムローダーのテストスクリプト
+輝化スキル、アイテム、特殊パッシブローダーのテストスクリプト
 """
 import sys
 sys.path.insert(0, '.')
 
 from manager.radiance.loader import radiance_loader
 from manager.items.loader import item_loader
+from manager.passives.loader import passive_loader
 
 def test_radiance_loader():
     """輝化スキルローダーのテスト"""
@@ -45,18 +46,42 @@ def test_item_loader():
 
     return len(items) > 0
 
+def test_passive_loader():
+    """特殊パッシブローダーのテスト"""
+    print("\n" + "=" * 60)
+    print("特殊パッシブローダーのテスト開始")
+    print("=" * 60)
+
+    passives = passive_loader.load_passives()
+
+    print(f"\n読み込まれたパッシブ数: {len(passives)}")
+    if len(passives) > 0:
+        print("\n--- パッシブ一覧 ---")
+        for passive_id, passive_data in passives.items():
+            print(f"\n{passive_id}: {passive_data['name']}")
+            print(f"  コスト: {passive_data['cost']}")
+            print(f"  説明: {passive_data['description']}")
+            print(f"  効果: {passive_data['effect']}")
+    else:
+        print("  (データはまだ登録されていません)")
+
+    # パッシブは0件でも成功とみなす（まだデータがない場合）
+    return True
+
 if __name__ == "__main__":
     try:
         skill_success = test_radiance_loader()
         item_success = test_item_loader()
+        passive_success = test_passive_loader()
 
         print("\n" + "=" * 60)
         print("テスト結果")
         print("=" * 60)
         print(f"輝化スキルローダー: {'✓ 成功' if skill_success else '✗ 失敗'}")
         print(f"アイテムローダー: {'✓ 成功' if item_success else '✗ 失敗'}")
+        print(f"特殊パッシブローダー: {'✓ 成功' if passive_success else '✗ 失敗'}")
 
-        if skill_success and item_success:
+        if skill_success and item_success and passive_success:
             print("\n✅ 全てのテストが成功しました！")
             sys.exit(0)
         else:
