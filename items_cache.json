@@ -1,0 +1,16 @@
+{
+  "I-00": {
+    "id": "I-00",
+    "name": "ギルド印の安物ポーション",
+    "description": "味方一人のHPを15回復する。",
+    "flavor": "パン一切れくらいの値段で売っている粗悪な回復薬。それでも何も無いよりは気が休まる。",
+    "consumable": true,
+    "usable": true,
+    "round_limit": -1,
+    "effect": {
+      "type": "HEAL_HP",
+      "value": 15,
+      "target": "single"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "S-00": {
+    "id": "S-00",
+    "name": "魔力の解放",
+    "cost": 1,
+    "description": "MPの上限を1上げる。",
+    "flavor": "幾度も魔力を費やす経験を積み、精神の限界を遠ざけることに成功した証。",
+    "effect": {
+      "type": "STAT_BONUS",
+      "stat": "MP",
+      "value": 1
+    }
+  },
+  "S-01": {
+    "id": "S-01",
+    "name": "体力の研鑽",
+    "cost": 1,
+    "description": "HPの上限を5上げる。",
+    "flavor": "幾度も敵の攻撃を受けることによって肉体が頑健になった証。",
+    "effect": {
+      "type": "STAT_BONUS",
+      "stat": "HP",
+      "value": 5
+    }
+  }
+}
