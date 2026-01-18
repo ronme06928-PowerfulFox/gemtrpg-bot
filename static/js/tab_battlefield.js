@@ -54,7 +54,9 @@ function loadCharacterFromJSON(type, jsonString, resultElement) {
             color: (type === 'ally') ? '#007bff' : '#dc3545',
             speedRoll: 0,
             hasActed: false,
-            gmOnly: (currentUserAttribute === 'GM')
+            gmOnly: (currentUserAttribute === 'GM'),
+            SPassive: charData.data.SPassive || [],
+            inventory: charData.data.inventory || {}
         };
         socket.emit('request_add_character', {
             room: currentRoomName,

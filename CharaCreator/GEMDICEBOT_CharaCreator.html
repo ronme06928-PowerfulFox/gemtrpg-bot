@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ジェムリアTRPG キャラ作成ツール</title>
+    <style>
+        :root {
+            --bg-color: #f4f4f9;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --border-color: #ddd;
+            --primary-color: #007bff;
+            --secondary-bg: #f8f9fa;
+            --readonly-bg: #e9ecef;
+            --error-color: #dc3545;
+            --success-color: #28a745;
+            --warn-color: #ffc107;
+            --magic-color: #9b59b6;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #1e1e1e;
+                --card-bg: #2d2d2d;
+                --text-color: #e0e0e0;
+                --border-color: #444;
+                --secondary-bg: #383838;
+                --readonly-bg: #444;
+            }
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            width: 95%;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        h1,
+        h3,
+        h4 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .section-group {
+            background: var(--secondary-bg);
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+        }
+
+        .section-group h4 {
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+            font-size: 1rem;
+        }
+
+        .grid-auto {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+        }
+
+        .grid-wide {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .grid-wide {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .param-box {
+            display: flex;
+            flex-direction: column;
+        }
+
+        input,
+        select,
+        textarea {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-color);
+            border-radius: 4px;
+        }
+
+        input[readonly] {
+            background: var(--readonly-bg);
+            font-weight: bold;
+            color: #666;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: var(--primary-color);
+            color: white;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-danger {
+            background: var(--error-color);
+        }
+
+        .btn-success {
+            background: var(--success-color);
+        }
+
+        .skill-selector-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        #skill-select {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        #loading-status {
+            font-size: 0.8rem;
+            color: #666;
+            margin-left: 5px;
+        }
+
+        /* プレビューエリア修正 */
+        #skill-preview-box {
+            display: none;
+            background: #fffbf0;
+            color: #5a4a1b;
+            border: 1px solid #e0d099;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+        }
+
+        #skill-preview-box h4 {
+            margin: 0 0 8px 0;
+            color: #856404;
+            font-size: 1.1rem;
+            border-bottom: 2px solid #e0d099;
+            padding-bottom: 5px;
+        }
+
+        .preview-row {
+            display: flex;
+            margin-bottom: 4px;
+            align-items: baseline;
+        }
+
+        .preview-label {
+            font-weight: bold;
+            width: 90px;
+            color: #856404;
+            text-align: right;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .preview-content {
+            flex: 1;
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+
+        #selected-skills-list {
+            background: var(--secondary-bg);
+            padding: 10px;
+            min-height: 50px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .skill-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 5px 10px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .skill-info {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .skill-id {
+            font-family: monospace;
+            color: #333;
+            font-weight: bold;
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .skill-cost {
+            font-size: 0.9em;
+            font-weight: bold;
+            color: #0056b3;
+            white-space: nowrap;
+        }
+
+        .skill-cat {
+            font-size: 0.75em;
+            padding: 1px 5px;
+            border-radius: 3px;
+            background: #eee;
+            color: #777;
+            border: 1px solid #ddd;
+        }
+
+        .skill-name-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .skill-default-name {
+            font-weight: bold;
+            margin-left: 5px;
+        }
+
+        .skill-custom-input {
+            padding: 4px 8px;
+            width: 100%;
+            max-width: 300px;
+            font-size: 0.9rem;
+            border: 1px solid #ccc;
+        }
+
+        .counter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+
+        .counter-val {
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: var(--readonly-bg);
+            margin-left: 10px;
+        }
+
+        .counter-val.ok {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .counter-val.error {
+            background: var(--error-color);
+            color: white;
+        }
+
+        .counter-val.magic {
+            background: var(--magic-color);
+            color: white;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            font-family: monospace;
+        }
+
+        .file-input-wrapper {
+            display: inline-block;
+        }
+
+        /* 技能補正用スタイル */
+        .mod-plus {
+            border-color: #28a745 !important;
+            background-color: #e6fffa !important;
+            color: #006400;
+        }
+
+        .mod-minus {
+            border-color: #dc3545 !important;
+            background-color: #fff5f5 !important;
+            color: #8b0000;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>ジェムリアTRPG キャラ作成ツール</h1>
+
+        <div class="card">
+            <h3>1. プロフィール</h3>
+            <div class="grid-wide" style="margin-bottom:15px;">
+                <div class="param-box">
+                    <label>キャラクター種別</label>
+                    <select id="char-type" onchange="toggleCharacterType()">
+                        <option value="player">プレイヤーキャラクター</option>
+                        <option value="scenario">シナリオキャラクター (NPC/敵)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid-wide">
+                <div class="param-box">
+                    <label>キャラクター名</label>
+                    <input type="text" id="char-name" value="新規キャラクター" oninput="updateJSON()">
+                </div>
+                <div class="param-box">
+                    <label>出身 (Origin)</label>
+                    <select id="char-origin" onchange="calculateStats()">
+                        <option value="1">1: ヨキューク・ツォー</option>
+                        <option value="2">2: アーク・ジェムリア</option>
+                        <option value="3">3: ラティウム</option>
+                        <option value="4">4: アヌッサ・ホロウ(MP+1)</option>
+                        <option value="5">5: マホロバ</option>
+                        <option value="6">6: ラグラゼシス/都市部 (魔法コスト+1, 情報+1)</option>
+                        <option value="7">7: ラグラゼシス/非都市部 (経験+1, 情報-1)</option>
+                        <option value="8">8: ギァン・バルフ</option>
+                        <option value="9">9: 綿津見</option>
+                        <option value="10">10: シンシア</option>
+                        <option value="11">11: リテラール</option>
+                        <option value="12">12: オーセクト</option>
+                        <option value="13">13: ヴァルヴァイレ</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>2. 能力値</h3>
+            <div class="grid-auto">
+                <div class="param-box"><label>筋力</label><input type="number" id="p-str" class="calc-trigger" value="6">
+                </div>
+                <div class="param-box"><label>生命力</label><input type="number" id="p-vit" class="calc-trigger" value="6">
+                </div>
+                <div class="param-box"><label>体格</label><input type="number" id="p-phy" class="calc-trigger" value="6">
+                </div>
+                <div class="param-box"><label>精神力</label><input type="number" id="p-mnt" class="calc-trigger" value="6">
+                </div>
+                <div class="param-box"><label>速度</label><input type="number" id="p-spd" class="calc-trigger" value="6">
+                </div>
+                <div class="param-box"><label>直感</label><input type="number" id="p-int" class="calc-trigger" value="5">
+                </div>
+                <div class="param-box"><label>経験</label><input type="number" id="p-exp" class="calc-trigger" value="5">
+                </div>
+            </div>
+            <div style="margin-top:10px; text-align:right;">
+                <button class="btn-secondary" style="font-size:0.8rem;" onclick="rollAllStats()">🎲 全能力値をランダム生成</button>
+            </div>
+
+            <div class="counter-header">
+                <h4>戦闘能力値 (自動計算)</h4>
+            </div>
+            <div class="grid-auto">
+                <div class="param-box"><label>物理補正</label><input type="number" id="p-phys-mod" readonly></div>
+                <div class="param-box"><label>魔法補正</label><input type="number" id="p-mag-mod" readonly></div>
+                <div class="param-box"><label>速度補正</label><input type="number" id="p-spd-mod" readonly></div>
+            </div>
+
+            <div class="counter-header">
+                <h4>技能習得 (Max 3)</h4>
+                <div id="skill-points-display" class="counter-val">
+                    取得: <span id="sp-current">0</span> / 上限: <span id="sp-max">0</span> (直感)
+                </div>
+            </div>
+
+            <div class="section-group">
+                <h4>冒険技能</h4>
+                <div class="grid-auto">
+                    <div class="param-box"><label>五感</label><input type="number" id="s-senses" class="skill-input"
+                            value="0" min="0" max="3"></div>
+                    <div class="param-box"><label>採取</label><input type="number" id="s-gather" class="skill-input"
+                            value="0" min="0" max="3"></div>
+                    <div class="param-box"><label>本能</label><input type="number" id="s-instinct" class="skill-input"
+                            value="0" min="0" max="3"></div>
+                    <div class="param-box"><label>鑑定</label><input type="number" id="s-appraise" class="skill-input"
+                            value="0" min="0" max="3"></div>
+                </div>
+            </div>
+            <div class="section-group">
+                <h4>情報収集技能</h4>
+                <div class="grid-auto">
+                    <div class="param-box"><label>対話</label><input type="number" id="s-dialogue" class="skill-input"
+                            value="0" min="0" max="3"></div>
+                    <div class="param-box"><label>尋問</label><input type="number" id="s-interrogate" class="skill-input"
+                            value="0" min="0" max="3"></div>
+                    <div class="param-box"><label>諜報</label><input type="number" id="s-intel" class="skill-input"
+                            value="0" min="0" max="3"></div>
+                    <div class="param-box"><label>窃取</label><input type="number" id="s-theft" class="skill-input"
+                            value="0" min="0" max="3"></div>
+                </div>
+            </div>
+            <div class="section-group">
+                <h4>行動技能</h4>
+                <div class="grid-auto">
+                    <div class="param-box"><label>隠密</label><input type="number" id="s-stealth" class="skill-input"
+                            value="0" min="0" max="3"></div>
+                    <div class="param-box"><label>運動</label><input type="number" id="s-athletics" class="skill-input"
+                            value="0" min="0" max="3"></div>
+                    <div class="param-box"><label>制作</label><input type="number" id="s-craft" class="skill-input"
+                            value="0" min="0" max="3"></div>
+                    <div class="param-box"><label>回避</label><input type="number" id="s-evade" class="skill-input"
+                            value="0" min="0" max="3"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>3. ステータス</h3>
+            <div class="grid-auto">
+                <div class="param-box">
+                    <label>HP (現/最)</label>
+                    <div style="display:flex; gap:5px;"><input type="number" id="st-hp-val" readonly><input
+                            type="number" id="st-hp-max" readonly></div>
+                </div>
+                <div class="param-box">
+                    <label>MP (現/最)</label>
+                    <div style="display:flex; gap:5px;"><input type="number" id="st-mp-val" readonly><input
+                            type="number" id="st-mp-max" readonly></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="counter-header" style="margin-top:0;">
+                <h3>4. コマンド / スキル取得</h3>
+                <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                    <div id="cost-display" class="counter-val">
+                        消費経験: <span id="cost-current">0</span> / 上限: <span id="cost-max">0</span>
+                    </div>
+                    <div id="magic-cost-display" class="counter-val magic" style="margin-top:5px; display:none;">
+                        魔法ボーナス消費: <span id="magic-cost-current">0</span> / 上限: <span id="magic-cost-max">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="skill-selector-row">
+                <select id="skill-category-filter" onchange="filterSkills()">
+                    <option value="ALL">全カテゴリ</option>
+                </select>
+                <select id="skill-select" onchange="showSkillPreview()">
+                    <option value="">-- スキルを選択 --</option>
+                </select>
+                <button onclick="addSelectedSkill()">＋ 追加</button>
+                <button class="btn-secondary" onclick="reloadAllData()">🔄 更新</button>
+                <span id="loading-status"></span>
+            </div>
+
+            <div id="skill-preview-box">
+                <h4 id="preview-name">スキル名</h4>
+                <div class="preview-row"><span class="preview-label">基本情報:</span><span class="preview-content">ID: <span
+                            id="preview-id"
+                            style="font-family:monospace; margin-right:15px; font-weight:bold;"></span>コスト: <span
+                            id="preview-cost" style="font-weight:bold;"></span></span></div>
+                <div class="preview-row"><span class="preview-label">スキル特性:</span><span class="preview-content">分類:<span
+                            id="preview-data-cat" style="margin:0 15px 0 5px;"></span>距離:<span id="preview-data-range"
+                            style="margin:0 15px 0 5px;"></span>属性:<span id="preview-data-attr"
+                            style="margin:0 0 0 5px;"></span></span></div>
+                <div class="preview-row"><span class="preview-label">使用時効果:</span><span id="preview-effect-use"
+                        class="preview-content"></span></div>
+                <div class="preview-row"><span class="preview-label">特記:</span><span id="preview-effect-note"
+                        class="preview-content"></span></div>
+                <div class="preview-row"><span class="preview-label">発動時効果:</span><span id="preview-effect-act"
+                        class="preview-content"></span></div>
+                <div class="preview-row"><span class="preview-label">コマンド:</span><span id="preview-cmd"
+                        class="preview-content"
+                        style="font-family:monospace; color:#333; background:#f9f9f9; padding:2px;"></span></div>
+            </div>
+
+            <label style="font-size:0.85rem; font-weight:bold;">取得済みスキル一覧</label>
+            <div id="selected-skills-list">
+                <span style="color:#999; font-size:0.9rem;">追加されたスキルがここに表示されます</span>
+            </div>
+
+            <p style="font-size:0.85rem; margin-top:10px;">生成されたコマンド</p>
+            <textarea id="char-commands" oninput="updateJSON()" placeholder="スキルを追加するとここに自動入力されます..."
+                style="height:200px;"></textarea>
+        </div>
+
+        <div class="card">
+            <h3>5. 輝化スキル取得</h3>
+            <div class="grid-wide" style="margin-bottom:15px;">
+                <div class="param-box">
+                    <label>通過点 (輝化スキルコスト上限)</label>
+                    <input type="number" id="radiance-points" value="0" min="0"
+                        oninput="updateRadianceCost(); updateJSON()">
+                </div>
+                <div class="counter-val" id="radiance-cost-display" style="align-self:end; margin-bottom:8px;">
+                    消費: <span id="radiance-cost-current">0</span> / 上限: <span id="radiance-cost-max">0</span>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; margin-bottom:10px; align-items:center;">
+                <select id="radiance-select" style="flex:1;" onchange="showRadiancePreview()">
+                    <option value="">-- 輝化スキルを選択 --</option>
+                </select>
+                <button onclick="addRadianceSkill()">＋ 追加</button>
+                <button class="btn-secondary" onclick="loadRadianceSkills()">🔄 更新</button>
+                <span id="radiance-loading-status" style="font-size:0.8rem; color:#666;"></span>
+            </div>
+            <div id="radiance-preview-box"
+                style="display:none; background:#f0f8ff; border:1px solid #b0d4f1; padding:10px; border-radius:6px; margin-bottom:10px; font-size:0.9rem;">
+                <div style="font-weight:bold; color:#0056b3; margin-bottom:5px;" id="radiance-preview-name"></div>
+                <div style="margin-bottom:5px;" id="radiance-preview-desc"></div>
+                <div style="font-style:italic; color:#8b7355; font-size:0.85rem;" id="radiance-preview-flavor"></div>
+            </div>
+            <label style="font-size:0.85rem; font-weight:bold;">取得済み輝化スキル一覧</label>
+            <div id="selected-radiance-list"
+                style="background:var(--secondary-bg); padding:10px; min-height:50px; border-radius:4px; border:1px solid var(--border-color);">
+                <span style="color:#999; font-size:0.9rem;">追加された輝化スキルがここに表示されます</span>
+            </div>
+        </div>
+
+        <!-- 特殊パッシブセクション (シナリオキャラのみ表示) -->
+        <div class="card" id="passive-section" style="display:none;">
+            <h3>5.5 特殊パッシブ (シナリオキャラ専用)</h3>
+            <div style="display:flex; gap:10px; margin-bottom:10px; align-items:center;">
+                <select id="passive-select" style="flex:1;" onchange="showPassivePreview()">
+                    <option value="">-- 特殊パッシブを選択 --</option>
+                </select>
+                <button onclick="addPassive()">＋ 追加</button>
+                <button class="btn-secondary" onclick="loadPassives()">🔄 更新</button>
+                <span id="passive-loading-status" style="font-size:0.8rem; color:#666;"></span>
+            </div>
+            <div id="passive-preview-box"
+                style="display:none; background:#fff0f5; border:1px solid #dda0dd; padding:10px; border-radius:6px; margin-bottom:10px; font-size:0.9rem;">
+                <div style="font-weight:bold; color:#8b008b; margin-bottom:5px;" id="passive-preview-name"></div>
+                <div style="margin-bottom:5px;" id="passive-preview-desc"></div>
+                <div style="font-style:italic; color:#8b7355; font-size:0.85rem;" id="passive-preview-flavor"></div>
+            </div>
+            <label style="font-size:0.85rem; font-weight:bold;">取得済み特殊パッシブ一覧</label>
+            <div id="selected-passive-list"
+                style="background:var(--secondary-bg); padding:10px; min-height:50px; border-radius:4px; border:1px solid var(--border-color);">
+                <span style="color:#999; font-size:0.9rem;">追加された特殊パッシブがここに表示されます</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>6. アイテム所持</h3>
+            <div style="display:flex; gap:10px; margin-bottom:10px; align-items:center;">
+                <select id="item-select" style="flex:1;" onchange="showItemPreview()">
+                    <option value="">-- アイテムを選択 --</option>
+                </select>
+                <input type="number" id="item-quantity" value="1" min="1" max="99" style="width:60px;" placeholder="個数">
+                <button onclick="addItem()">＋ 追加</button>
+                <button class="btn-secondary" onclick="loadItems()">🔄 更新</button>
+                <span id="item-loading-status" style="font-size:0.8rem; color:#666;"></span>
+            </div>
+            <div id="item-preview-box"
+                style="display:none; background:#f5fff5; border:1px solid #90ee90; padding:10px; border-radius:6px; margin-bottom:10px; font-size:0.9rem;">
+                <div style="font-weight:bold; color:#228b22; margin-bottom:5px;" id="item-preview-name"></div>
+                <div style="margin-bottom:5px;" id="item-preview-desc"></div>
+                <div style="font-style:italic; color:#8b7355; font-size:0.85rem;" id="item-preview-flavor"></div>
+            </div>
+            <label style="font-size:0.85rem; font-weight:bold;">所持アイテム一覧</label>
+            <div id="selected-items-list"
+                style="background:var(--secondary-bg); padding:10px; min-height:50px; border-radius:4px; border:1px solid var(--border-color);">
+                <span style="color:#999; font-size:0.9rem;">追加されたアイテムがここに表示されます</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>データ入出力</h3>
+            <textarea id="json-output" readonly style="height:150px;"></textarea>
+            <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
+                <button class="btn-success" onclick="copyToClipboard()">📋 コピー</button>
+                <button class="btn-primary" onclick="downloadFile()">💾 保存 (.json)</button>
+                <div class="file-input-wrapper">
+                    <input type="file" id="file-input" accept=".json,.txt" style="display:none;">
+                    <button class="btn-secondary" onclick="document.getElementById('file-input').click()">📂 読込
+                        (.json)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:none;">
+        <input id="st-fp" value="0"><input id="st-bleed" value="0"><input id="st-rupture" value="0">
+        <input id="st-fissure" value="0"><input id="st-fear" value="0"><input id="st-thorns" value="0">
+        <input id="p-magic-bonus-used" value="0">
+    </div>
+
+    <script>
+        const SPREADSHEET_ID = "1aw0w-x8JI9Iwx1xgF9hcKOHzxGHQdozJpLXLAcbp6t8";
+        const TARGET_SHEETS = [
+            { gid: "647570036", cat: "B", name: "宝石の加護" },
+            { gid: "651369391", cat: "C", name: "基本スキル" },
+            { gid: "845931557", cat: "D", name: "守備スキル" },
+            { gid: "961474030", cat: "E", name: "敵専用スキル" },
+            { gid: "0", cat: "Ps", name: "物理・斬撃(Ps)" },
+            { gid: "1107322240", cat: "Pb", name: "物理・打撃(Pb)" },
+            { gid: "1354160581", cat: "Pp", name: "物理・貫通(Pp)" },
+            { gid: "1822847162", cat: "Ms", name: "魔法・斬撃(Ms)" },
+            { gid: "1178813525", cat: "Mb", name: "魔法・打撃(Mb)" },
+            { gid: "1043833354", cat: "Mp", name: "魔法・貫通(Mp)" }
+        ];
+
+        let ALL_SKILLS = [];
+        let SELECTED_SKILLS = [];
+        let ALL_RADIANCE_SKILLS = [];
+        let SELECTED_RADIANCE = [];
+        let ALL_PASSIVES = [];
+        let SELECTED_PASSIVES = [];
+        let ALL_ITEMS = [];
+        let SELECTED_ITEMS = {};
+        let PENDING_REQUESTS = 0;
+        let PENDING_RESTORE_COMMANDS = "";
+
+        window.onload = function () {
+            document.querySelectorAll('.calc-trigger').forEach(el => el.addEventListener('input', calculateStats));
+            document.querySelectorAll('.skill-input').forEach(el => {
+                el.addEventListener('focus', function () { this.dataset.prevValue = this.value; });
+                el.addEventListener('input', checkSkillLimitAndJSON);
+            });
+            calculateStats();
+            reloadAllData();
+            loadRadianceSkills();
+            loadItems();
+        };
+
+        function reloadAllData() {
+            ALL_SKILLS = [];
+            PENDING_REQUESTS = TARGET_SHEETS.length;
+            document.getElementById('loading-status').textContent = "データ更新中...";
+            TARGET_SHEETS.forEach(sheet => {
+                const script = document.createElement('script');
+                script.src = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse;reqId:${sheet.gid}&gid=${sheet.gid}`;
+                script.onerror = () => { checkCompletion(); };
+                document.body.appendChild(script);
+            });
+        }
+
+        window.handleGvizResponse = function (response) {
+            const gid = response.reqId;
+            const sheetInfo = TARGET_SHEETS.find(s => s.gid === gid);
+            if (response.table) parseGvizTable(response.table, sheetInfo ? sheetInfo.cat : "Other");
+            checkCompletion();
+        };
+
+        function checkCompletion() {
+            PENDING_REQUESTS--;
+            if (PENDING_REQUESTS <= 0) {
+                updateSkillSelectDropdown();
+                document.getElementById('loading-status').textContent = `更新完了 (${ALL_SKILLS.length}件)`;
+                if (PENDING_RESTORE_COMMANDS) {
+                    restoreFromCommands(PENDING_RESTORE_COMMANDS);
+                    PENDING_RESTORE_COMMANDS = "";
+                }
+            }
+        }
+
+        function parseGvizTable(table, forceCat) {
+            if (!table.rows) return;
+            for (let r = 0; r < table.rows.length; r++) {
+                const row = table.rows[r].c;
+                if (!row) continue;
+                const getCol = (i) => (row[i] && row[i].v !== null) ? String(row[i].v) : "";
+                const id = getCol(0);
+                if (!id || id === "スキルID" || id.startsWith("---")) continue;
+
+                ALL_SKILLS.push({
+                    id: id,
+                    command: getCol(1),
+                    name: getCol(2),
+                    filterCat: forceCat,
+                    dataCat: getCol(3),
+                    dataRange: getCol(4),
+                    dataAttr: getCol(5),
+                    cost: parseInt(getCol(6)) || 0,
+                    effectUse: getCol(9),
+                    effectNote: getCol(10),
+                    effectAct: getCol(11)
+                });
+            }
+        }
+
+        function updateSkillSelectDropdown() {
+            const catFilter = document.getElementById('skill-category-filter');
+            const selector = document.getElementById('skill-select');
+            const currentCat = catFilter.value;
+            const currentSel = selector.value;
+
+            if (catFilter.options.length === 1) {
+                const cats = ["B", "C", "D", "E", "Ps", "Pb", "Pp", "Ms", "Mb", "Mp"];
+                cats.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c; opt.textContent = c;
+                    catFilter.appendChild(opt);
+                });
+            }
+
+            selector.innerHTML = '<option value="">-- スキルを選択 --</option>';
+            const filtered = (currentCat === "ALL") ? ALL_SKILLS : ALL_SKILLS.filter(s => s.filterCat === currentCat);
+
+            filtered.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = `[${s.id}] [Cost:${s.cost}] ${s.name}`;
+                selector.appendChild(opt);
+            });
+
+            if (currentSel) selector.value = currentSel;
+            showSkillPreview();
+        }
+
+        function filterSkills() { updateSkillSelectDropdown(); }
+
+        function showSkillPreview() {
+            const id = document.getElementById('skill-select').value;
+            const box = document.getElementById('skill-preview-box');
+            if (!id) { box.style.display = 'none'; return; }
+
+            const skill = ALL_SKILLS.find(s => s.id === id);
+            if (skill) {
+                document.getElementById('preview-name').textContent = skill.name;
+                document.getElementById('preview-id').textContent = skill.id;
+                document.getElementById('preview-cost').textContent = skill.cost;
+                document.getElementById('preview-data-cat').textContent = skill.dataCat || "-";
+                document.getElementById('preview-data-range').textContent = skill.dataRange || "-";
+                document.getElementById('preview-data-attr').textContent = skill.dataAttr || "-";
+                document.getElementById('preview-effect-use').textContent = skill.effectUse || "-";
+                document.getElementById('preview-effect-act').textContent = skill.effectAct || "-";
+                document.getElementById('preview-effect-note').textContent = skill.effectNote || "-";
+                document.getElementById('preview-cmd').textContent = skill.command;
+                box.style.display = 'block';
+            }
+        }
+
+        function addSelectedSkill() {
+            const id = document.getElementById('skill-select').value;
+            if (!id) return;
+            const skill = ALL_SKILLS.find(s => s.id === id);
+            if (SELECTED_SKILLS.find(s => s.id === id)) { alert("既に追加されています"); return; }
+
+            const currentExp = parseInt(document.getElementById('p-exp').value) || 0;
+            const currentCost = SELECTED_SKILLS.reduce((a, b) => a + b.cost, 0);
+            if (currentCost + skill.cost > currentExp) {
+                if (!confirm("コスト上限を超えますが追加しますか？")) return;
+            }
+
+            SELECTED_SKILLS.push({ ...skill, customName: "" });
+            renderSelectedSkills();
+            calculateStats();
+        }
+
+        function removeSkill(id) {
+            if (!confirm("削除しますか？")) return;
+            SELECTED_SKILLS = SELECTED_SKILLS.filter(s => s.id !== id);
+            renderSelectedSkills();
+            calculateStats();
+        }
+
+        function updateSkillCustomName(id, val) {
+            const skill = SELECTED_SKILLS.find(s => s.id === id);
+            if (skill) { skill.customName = val; calculateStats(); }
+        }
+
+        function renderSelectedSkills() {
+            const container = document.getElementById('selected-skills-list');
+            if (SELECTED_SKILLS.length === 0) {
+                container.innerHTML = '<span style="color:#999; font-size:0.9rem;">追加されたスキルがここに表示されます</span>';
+                return;
+            }
+            container.innerHTML = '';
+            SELECTED_SKILLS.forEach(s => {
+                const div = document.createElement('div');
+                div.className = 'skill-item';
+                div.innerHTML = `
+                <div class="skill-info">
+                    <span class="skill-id">[${s.id}]</span>
+                    <span class="skill-cost">Cost:${s.cost}</span>
+                    <span class="skill-cat">${s.filterCat}</span>
+                    <div class="skill-name-group">
+                        <span class="skill-default-name">${s.name}</span>
+                        <input type="text" class="skill-custom-input" placeholder="自由名(任意)"
+                            value="${s.customName || ''}"
+                            oninput="updateSkillCustomName('${s.id}', this.value)">
+                    </div>
+                </div>
+                <button class="btn-danger" style="font-size:0.8rem; padding:4px 10px;" onclick="removeSkill('${s.id}')">削除</button>
+            `;
+                container.appendChild(div);
+            });
+        }
+
+        // --- 情報収集技能の補正値を取得 ---
+        function getInfoSkillModifier() {
+            const originId = document.getElementById('char-origin').value;
+            if (originId === "6") return 1; // 都市部: +1
+            if (originId === "7") return -1; // 非都市部: -1
+            return 0;
+        }
+
+        function calculateStats() {
+            const getInt = (id) => parseInt(document.getElementById(id).value) || 0;
+            const str = getInt('p-str'), vit = getInt('p-vit'), phy = getInt('p-phy');
+            const mnt = getInt('p-mnt'), spd = getInt('p-spd'), int = getInt('p-int'), baseExp = getInt('p-exp');
+            const originId = getInt('char-origin');
+
+            const maxHp = 100 + vit + phy;
+            document.getElementById('st-hp-max').value = maxHp;
+            document.getElementById('st-hp-val').value = maxHp;
+
+            let maxMp = 6 + Math.floor(mnt / 2);
+            if (originId === 4) maxMp += 1;
+            document.getElementById('st-mp-max').value = maxMp;
+            document.getElementById('st-mp-val').value = maxMp;
+
+            document.getElementById('p-phys-mod').value = Math.floor((str + phy) / 8);
+            document.getElementById('p-mag-mod').value = Math.floor(mnt / 4);
+            document.getElementById('p-spd-mod').value = Math.floor(spd / 6);
+
+            document.getElementById('sp-max').textContent = int;
+            updateSkillCounter(int);
+
+            // 情報収集技能のビジュアル更新
+            const infoMod = getInfoSkillModifier();
+            const infoSkills = ["s-dialogue", "s-interrogate", "s-intel", "s-theft"];
+            infoSkills.forEach(id => {
+                const el = document.getElementById(id);
+                el.classList.remove('mod-plus', 'mod-minus');
+                if (infoMod > 0) el.classList.add('mod-plus');
+                if (infoMod < 0) el.classList.add('mod-minus');
+                if (infoMod !== 0) {
+                    el.title = `出身補正: ${infoMod > 0 ? '+' : ''}${infoMod} (実数値: ${Math.max(0, (parseInt(el.value) || 0) + infoMod)})`;
+                } else {
+                    el.title = "";
+                }
+            });
+
+            // コスト計算
+            let expLimit = baseExp;
+            let magicBonusLimit = 0;
+            if (originId === 7) expLimit += 1;
+            if (originId === 6) magicBonusLimit = 1;
+
+            let normalCostUsed = 0;
+            let magicBonusUsed = 0;
+
+            SELECTED_SKILLS.forEach(s => {
+                const cost = s.cost;
+                const isMagic = ["Ms", "Mb", "Mp"].includes(s.filterCat);
+
+                if (isMagic && magicBonusUsed < magicBonusLimit) {
+                    const consumeBonus = Math.min(cost, magicBonusLimit - magicBonusUsed);
+                    magicBonusUsed += consumeBonus;
+                    normalCostUsed += (cost - consumeBonus);
+                } else {
+                    normalCostUsed += cost;
+                }
+            });
+
+            document.getElementById('cost-current').textContent = normalCostUsed;
+            document.getElementById('cost-max').textContent = expLimit;
+            document.getElementById('cost-display').className = (normalCostUsed > expLimit) ? 'counter-val error' : 'counter-val ok';
+
+            const magicDisp = document.getElementById('magic-cost-display');
+            if (magicBonusLimit > 0) {
+                magicDisp.style.display = 'block';
+                document.getElementById('magic-cost-current').textContent = magicBonusUsed;
+                document.getElementById('magic-cost-max').textContent = magicBonusLimit;
+            } else {
+                magicDisp.style.display = 'none';
+            }
+
+            const baseCommand = "";
+            const skillCommands = SELECTED_SKILLS.map(s => {
+                let cmd = s.command;
+                if (s.customName) {
+                    const regex = new RegExp(`【(${s.id})\\s+.*?】`);
+                    if (regex.test(cmd)) {
+                        cmd = cmd.replace(regex, `【$1 ${s.customName}】`);
+                    }
+                }
+                return cmd;
+            }).join("\n");
+            document.getElementById('char-commands').value = baseCommand + (skillCommands ? "\n" + skillCommands : "");
+
+            updateJSON();
+        }
+
+        function checkSkillLimitAndJSON(e) {
+            const input = e.target;
+            const newVal = parseInt(input.value) || 0;
+            const maxLimit = parseInt(document.getElementById('p-int').value) || 0;
+            let currentSum = 0;
+            document.querySelectorAll('.skill-input').forEach(el => { if (el !== input) currentSum += parseInt(el.value) || 0; });
+            if (currentSum + newVal > maxLimit) {
+                alert(`直感(${maxLimit})を超えます。`);
+                input.value = input.dataset.prevValue || 0;
+            } else {
+                input.dataset.prevValue = newVal;
+            }
+            updateSkillCounter(maxLimit);
+            updateJSON();
+        }
+
+        function updateSkillCounter(maxLimit) {
+            let sum = 0;
+            document.querySelectorAll('.skill-input').forEach(el => sum += parseInt(el.value) || 0);
+            const display = document.getElementById('skill-points-display');
+            document.getElementById('sp-current').textContent = sum;
+            display.className = (sum > maxLimit) ? 'counter-val error' : 'counter-val ok';
+        }
+
+        function rollAllStats() {
+            if (!confirm("再ロールしますか？")) return;
+            const d = (c, f) => { let s = 0; for (let i = 0; i < c; i++) s += Math.floor(Math.random() * f) + 1; return s; };
+            ['p-str', 'p-vit', 'p-phy', 'p-mnt', 'p-spd'].forEach(id => document.getElementById(id).value = d(6, 4));
+            ['p-int', 'p-exp'].forEach(id => document.getElementById(id).value = d(5, 2));
+            calculateStats();
+        }
+
+        function updateJSON() {
+            const params = [];
+            const addP = (l, id) => params.push({ label: l, value: String(document.getElementById(id).value) });
+
+            // 基本ステータス
+            addP("筋力", "p-str"); addP("生命力", "p-vit"); addP("体格", "p-phy"); addP("精神力", "p-mnt"); addP("速度", "p-spd");
+            addP("直感", "p-int"); addP("経験", "p-exp");
+            addP("物理補正", "p-phys-mod"); addP("魔法補正", "p-mag-mod"); addP("速度補正", "p-spd-mod");
+
+            // 技能 (補正適用して保存)
+            const infoMod = getInfoSkillModifier();
+            const infoSkills = { "対話": "s-dialogue", "尋問": "s-interrogate", "諜報": "s-intel", "窃取": "s-theft" };
+            const allSkillInputs = {
+                "五感": "s-senses", "採取": "s-gather", "本能": "s-instinct", "鑑定": "s-appraise",
+                "対話": "s-dialogue", "尋問": "s-interrogate", "諜報": "s-intel", "窃取": "s-theft",
+                "隠密": "s-stealth", "運動": "s-athletics", "制作": "s-craft", "回避": "s-evade"
+            };
+
+            for (const [label, id] of Object.entries(allSkillInputs)) {
+                let val = parseInt(document.getElementById(id).value) || 0;
+                // 情報収集技能なら補正を加える
+                if (Object.values(infoSkills).includes(id)) {
+                    val += infoMod;
+                    if (val < 0) val = 0; // 0未満にはならない
+                }
+                params.push({ label: label, value: String(val) });
+            }
+
+            params.push({ label: "出身", value: String(document.getElementById('char-origin').value) });
+
+            const status = [
+                { label: "HP", value: parseInt(document.getElementById('st-hp-val').value), max: parseInt(document.getElementById('st-hp-max').value) },
+                { label: "MP", value: parseInt(document.getElementById('st-mp-val').value), max: parseInt(document.getElementById('st-mp-max').value) },
+                { label: "FP", value: 0, max: 0 },
+                { label: "出血", value: 0, max: 0 }, { label: "破裂", value: 0, max: 0 }, { label: "亀裂", value: 0, max: 0 }
+            ];
+
+            const data = {
+                kind: "character",
+                data: {
+                    name: document.getElementById('char-name').value,
+                    status: status,
+                    commands: document.getElementById('char-commands').value,
+                    params: params,
+                    SPassive: [...SELECTED_RADIANCE.map(s => s.id), ...SELECTED_PASSIVES.map(s => s.id)],
+                    inventory: SELECTED_ITEMS
+                }
+            };
+            document.getElementById('json-output').value = JSON.stringify(data, null, 0);
+        }
+
+        function copyToClipboard() { document.getElementById('json-output').select(); document.execCommand('copy'); alert("コピーしました"); }
+        function downloadFile() {
+            const blob = new Blob([document.getElementById('json-output').value], { type: "text/plain" });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = (document.getElementById('char-name').value || "char") + ".json"; a.click();
+        }
+
+        document.getElementById('file-input').addEventListener('change', function (e) {
+            if (!e.target.files[0]) return;
+            const r = new FileReader();
+            r.onload = function (evt) {
+                try {
+                    const j = JSON.parse(evt.target.result);
+                    if (j.data) {
+                        const d = j.data;
+                        document.getElementById('char-name').value = d.name || "";
+                        document.getElementById('char-commands').value = d.commands || "";
+
+                        if (d.params) {
+                            const map = {
+                                "筋力": "p-str", "生命力": "p-vit", "体格": "p-phy", "精神力": "p-mnt", "速度": "p-spd",
+                                "直感": "p-int", "経験": "p-exp",
+                                "五感": "s-senses", "採取": "s-gather", "本能": "s-instinct", "鑑定": "s-appraise",
+                                "対話": "s-dialogue", "尋問": "s-interrogate", "諜報": "s-intel", "窃取": "s-theft",
+                                "隠密": "s-stealth", "運動": "s-athletics", "制作": "s-craft", "回避": "s-evade",
+                                "出身": "char-origin"
+                            };
+
+                            // 出身を先にセット（補正計算のため）
+                            const originParam = d.params.find(p => p.label === "出身");
+                            if (originParam) {
+                                document.getElementById('char-origin').value = originParam.value;
+                            }
+
+                            // 現在の出身地に基づいて補正値を再計算
+                            const infoMod = getInfoSkillModifier();
+                            const infoLabels = ["対話", "尋問", "諜報", "窃取"];
+
+                            d.params.forEach(p => {
+                                if (map[p.label]) {
+                                    const el = document.getElementById(map[p.label]);
+                                    if (el) {
+                                        let val = parseInt(p.value) || 0;
+                                        // 情報収集技能の場合、実数値から補正分を引いて入力値に戻す
+                                        if (infoLabels.includes(p.label)) {
+                                            val -= infoMod;
+                                            if (val < 0) val = 0;
+                                            if (val > 3) val = 3; // コスト上限3
+                                        }
+                                        el.value = val;
+                                        el.dataset.prevValue = val;
+                                    }
+                                }
+                            });
+                        }
+                        if (d.commands && ALL_SKILLS.length > 0) {
+                            restoreFromCommands(d.commands);
+                        } else if (d.commands) {
+                            PENDING_RESTORE_COMMANDS = d.commands;
+                        }
+                        alert("データを読み込みました");
+                        calculateStats();
+                    }
+                } catch (err) { alert("読込エラー: " + err); console.error(err); }
+            };
+            r.readAsText(e.target.files[0]);
+        });
+
+        function restoreFromCommands(commandsText) {
+            SELECTED_SKILLS = [];
+            const lines = commandsText.split('\n');
+            lines.forEach(line => {
+                const match = line.match(/【([A-Za-z0-9\-]+)\s+(.*?)】/);
+                if (match) {
+                    const id = match[1];
+                    const customName = match[2];
+                    const skill = ALL_SKILLS.find(s => s.id === id);
+                    if (skill) {
+                        const isCustom = (customName !== skill.name);
+                        SELECTED_SKILLS.push({ ...skill, customName: isCustom ? customName : "" });
+                    }
+                }
+            });
+            renderSelectedSkills();
+            calculateStats();
+        }
+
+        // ===== CSV パース関数 =====
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                const nextChar = line[i + 1];
+
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current);
+            return result;
+        }
+
+        // ===== 輝化スキル関連 =====
+        const RADIANCE_SPREADSHEET_ID = '1hZpWp5XWgGJLBz9JPm6nYLLOeWqQmg9jL0aAXw0aI8E';
+        const RADIANCE_GID = '0';
+        const ITEM_GID = '110236529';
+        const PASSIVE_GID = '9160848';
+
+        function loadRadianceSkills() {
+            document.getElementById('radiance-loading-status').textContent = '読み込み中...';
+            const script = document.createElement('script');
+            script.src = `https://docs.google.com/spreadsheets/d/${RADIANCE_SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleRadianceResponse&gid=${RADIANCE_GID}`;
+            script.onerror = () => {
+                document.getElementById('radiance-loading-status').textContent = 'エラー';
+            };
+            document.body.appendChild(script);
+        }
+
+        window.handleRadianceResponse = function (response) {
+            ALL_RADIANCE_SKILLS = [];
+            if (response.table && response.table.rows) {
+                for (let r = 0; r < response.table.rows.length; r++) {
+                    const row = response.table.rows[r].c;
+                    if (!row) continue;
+                    const getCol = (i) => (row[i] && row[i].v !== null) ? String(row[i].v) : "";
+                    const id = getCol(0);
+                    if (!id || id === "スキルID") continue;
+
+                    ALL_RADIANCE_SKILLS.push({
+                        id: id,
+                        name: getCol(1),
+                        cost: parseInt(getCol(2)) || 0,
+                        description: getCol(3),
+                        flavor: getCol(4)
+                    });
+                }
+            }
+
+            const select = document.getElementById('radiance-select');
+            select.innerHTML = '<option value="">-- 輝化スキルを選択 --</option>';
+            ALL_RADIANCE_SKILLS.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = `[${s.id}] [Cost:${s.cost}] ${s.name}`;
+                select.appendChild(opt);
+            });
+
+            document.getElementById('radiance-loading-status').textContent = `完了 (${ALL_RADIANCE_SKILLS.length}件)`;
+        };
+
+        function addRadianceSkill() {
+            const id = document.getElementById('radiance-select').value;
+            if (!id) return;
+            const skill = ALL_RADIANCE_SKILLS.find(s => s.id === id);
+            if (!skill) return;
+            if (SELECTED_RADIANCE.find(s => s.id === id)) {
+                alert('既に追加されています');
+                return;
+            }
+
+            // コスト上限チェック
+            const radiancePoints = parseInt(document.getElementById('radiance-points').value) || 0;
+            const currentCost = SELECTED_RADIANCE.reduce((sum, s) => sum + s.cost, 0);
+            if (currentCost + skill.cost > radiancePoints) {
+                if (!confirm(`通過点(${radiancePoints})を超えますが追加しますか？`)) return;
+            }
+
+            SELECTED_RADIANCE.push(skill);
+            renderRadianceSkills();
+            updateRadianceCost();
+            updateJSON();
+        }
+
+        function removeRadianceSkill(id) {
+            if (!confirm('削除しますか？')) return;
+            SELECTED_RADIANCE = SELECTED_RADIANCE.filter(s => s.id !== id);
+            renderRadianceSkills();
+            updateRadianceCost();
+            updateJSON();
+        }
+
+        function renderRadianceSkills() {
+            const container = document.getElementById('selected-radiance-list');
+            if (SELECTED_RADIANCE.length === 0) {
+                container.innerHTML = '<span style="color:#999; font-size:0.9rem;">追加された輝化スキルがここに表示されます</span>';
+                return;
+            }
+            container.innerHTML = '';
+            SELECTED_RADIANCE.forEach(s => {
+                const div = document.createElement('div');
+                div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #ddd; padding:5px 10px; margin-bottom:5px; border-radius:4px;';
+                div.innerHTML = `
+                <div>
+                    <span style="font-family:monospace; font-weight:bold; background:#e9ecef; padding:2px 6px; border-radius:3px; margin-right:8px;">[${s.id}]</span>
+                    <span style="font-weight:bold; color:#0056b3; margin-right:8px;">Cost:${s.cost}</span>
+                    <span>${s.name}</span>
+                </div>
+                <button class="btn-danger" style="font-size:0.8rem; padding:4px 10px;" onclick="removeRadianceSkill('${s.id}')">削除</button>
+            `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateRadianceCost() {
+            const radiancePoints = parseInt(document.getElementById('radiance-points').value) || 0;
+            const currentCost = SELECTED_RADIANCE.reduce((sum, s) => sum + s.cost, 0);
+
+            document.getElementById('radiance-cost-current').textContent = currentCost;
+            document.getElementById('radiance-cost-max').textContent = radiancePoints;
+
+            const display = document.getElementById('radiance-cost-display');
+            display.className = (currentCost > radiancePoints) ? 'counter-val error' : 'counter-val ok';
+        }
+
+        // ===== アイテム関連 =====
+        function loadItems() {
+            document.getElementById('item-loading-status').textContent = '読み込み中...';
+            const script = document.createElement('script');
+            script.src = `https://docs.google.com/spreadsheets/d/${RADIANCE_SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleItemResponse&gid=${ITEM_GID}`;
+            script.onerror = () => {
+                document.getElementById('item-loading-status').textContent = 'エラー';
+            };
+            document.body.appendChild(script);
+        }
+
+        window.handleItemResponse = function (response) {
+            ALL_ITEMS = [];
+            if (response.table && response.table.rows) {
+                for (let r = 0; r < response.table.rows.length; r++) {
+                    const row = response.table.rows[r].c;
+                    if (!row) continue;
+                    const getCol = (i) => (row[i] && row[i].v !== null) ? String(row[i].v) : "";
+                    const id = getCol(0);
+                    if (!id || id === "アイテムID") continue;
+
+                    ALL_ITEMS.push({
+                        id: id,
+                        name: getCol(1),
+                        description: getCol(2),
+                        flavor: getCol(3)
+                    });
+                }
+            }
+
+            const select = document.getElementById('item-select');
+            select.innerHTML = '<option value="">-- アイテムを選択 --</option>';
+            ALL_ITEMS.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.id;
+                opt.textContent = `[${item.id}] ${item.name}`;
+                select.appendChild(opt);
+            });
+
+            document.getElementById('item-loading-status').textContent = `完了 (${ALL_ITEMS.length}件)`;
+        };
+
+        function addItem() {
+            const id = document.getElementById('item-select').value;
+            const quantity = parseInt(document.getElementById('item-quantity').value) || 1;
+            if (!id) return;
+            const item = ALL_ITEMS.find(i => i.id === id);
+            if (!item) return;
+
+            if (SELECTED_ITEMS[id]) {
+                SELECTED_ITEMS[id] += quantity;
+            } else {
+                SELECTED_ITEMS[id] = quantity;
+            }
+
+            renderItems();
+            updateJSON();
+        }
+
+        function removeItem(id) {
+            if (!confirm('削除しますか？')) return;
+            delete SELECTED_ITEMS[id];
+            renderItems();
+            updateJSON();
+        }
+
+        function updateItemQuantity(id, quantity) {
+            const qty = parseInt(quantity) || 0;
+            if (qty <= 0) {
+                removeItem(id);
+            } else {
+                SELECTED_ITEMS[id] = qty;
+                updateJSON();
+            }
+        }
+
+        function renderItems() {
+            const container = document.getElementById('selected-items-list');
+            const itemIds = Object.keys(SELECTED_ITEMS);
+            if (itemIds.length === 0) {
+                container.innerHTML = '<span style="color:#999; font-size:0.9rem;">追加されたアイテムがここに表示されます</span>';
+                return;
+            }
+            container.innerHTML = '';
+            itemIds.forEach(id => {
+                const item = ALL_ITEMS.find(i => i.id === id);
+                const itemName = item ? item.name : id;
+                const div = document.createElement('div');
+                div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #ddd; padding:5px 10px; margin-bottom:5px; border-radius:4px;';
+                div.innerHTML = `
+                <div style="flex:1;">
+                    <span style="font-family:monospace; font-weight:bold; background:#e9ecef; padding:2px 6px; border-radius:3px; margin-right:8px;">[${id}]</span>
+                    <span>${itemName}</span>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <input type="number" value="${SELECTED_ITEMS[id]}" min="1" max="99"
+                        style="width:60px; padding:4px;"
+                        onchange="updateItemQuantity('${id}', this.value)">
+                    <span style="font-size:0.9rem;">個</span>
+                    <button class="btn-danger" style="font-size:0.8rem; padding:4px 10px;" onclick="removeItem('${id}')">削除</button>
+                </div>
+            `;
+                container.appendChild(div);
+            });
+        }
+
+        // ===== キャラクター種別切り替え =====
+        function toggleCharacterType() {
+            const charType = document.getElementById('char-type').value;
+            const passiveSection = document.getElementById('passive-section');
+            if (charType === 'scenario') {
+                passiveSection.style.display = 'block';
+                loadPassives();
+            } else {
+                passiveSection.style.display = 'none';
+            }
+            updateJSON();
+        }
+
+        // ===== プレビュー関数 =====
+        function showRadiancePreview() {
+            const id = document.getElementById('radiance-select').value;
+            const box = document.getElementById('radiance-preview-box');
+            if (!id) { box.style.display = 'none'; return; }
+
+            const skill = ALL_RADIANCE_SKILLS.find(s => s.id === id);
+            if (skill) {
+                document.getElementById('radiance-preview-name').textContent = `[${skill.id}] ${skill.name} (Cost: ${skill.cost})`;
+                document.getElementById('radiance-preview-desc').textContent = skill.description || '-';
+                document.getElementById('radiance-preview-flavor').textContent = skill.flavor || '';
+                box.style.display = 'block';
+            }
+        }
+
+        function showPassivePreview() {
+            const id = document.getElementById('passive-select').value;
+            const box = document.getElementById('passive-preview-box');
+            if (!id) { box.style.display = 'none'; return; }
+
+            const skill = ALL_PASSIVES.find(s => s.id === id);
+            if (skill) {
+                document.getElementById('passive-preview-name').textContent = `[${skill.id}] ${skill.name} (Cost: ${skill.cost})`;
+                document.getElementById('passive-preview-desc').textContent = skill.description || '-';
+                document.getElementById('passive-preview-flavor').textContent = skill.flavor || '';
+                box.style.display = 'block';
+            }
+        }
+
+        function showItemPreview() {
+            const id = document.getElementById('item-select').value;
+            const box = document.getElementById('item-preview-box');
+            if (!id) { box.style.display = 'none'; return; }
+
+            const item = ALL_ITEMS.find(i => i.id === id);
+            if (item) {
+                document.getElementById('item-preview-name').textContent = `[${item.id}] ${item.name}`;
+                document.getElementById('item-preview-desc').textContent = item.description || '-';
+                document.getElementById('item-preview-flavor').textContent = item.flavor || '';
+                box.style.display = 'block';
+            }
+        }
+
+        // ===== 特殊パッシブ関連 =====
+        function loadPassives() {
+            document.getElementById('passive-loading-status').textContent = '読み込み中...';
+            const script = document.createElement('script');
+            script.src = `https://docs.google.com/spreadsheets/d/${RADIANCE_SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handlePassiveResponse&gid=${PASSIVE_GID}`;
+            script.onerror = () => {
+                document.getElementById('passive-loading-status').textContent = 'エラー';
+            };
+            document.body.appendChild(script);
+        }
+
+        window.handlePassiveResponse = function (response) {
+            ALL_PASSIVES = [];
+            if (response.table && response.table.rows) {
+                for (let r = 0; r < response.table.rows.length; r++) {
+                    const row = response.table.rows[r].c;
+                    if (!row) continue;
+                    const getCol = (i) => (row[i] && row[i].v !== null) ? String(row[i].v) : "";
+                    const id = getCol(0);
+                    if (!id || id === "スキルID") continue;
+
+                    ALL_PASSIVES.push({
+                        id: id,
+                        name: getCol(1),
+                        cost: parseInt(getCol(2)) || 0,
+                        description: getCol(3),
+                        flavor: getCol(4)
+                    });
+                }
+            }
+
+            const select = document.getElementById('passive-select');
+            select.innerHTML = '<option value="">-- 特殊パッシブを選択 --</option>';
+            ALL_PASSIVES.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = `[${s.id}] [Cost:${s.cost}] ${s.name}`;
+                select.appendChild(opt);
+            });
+
+            document.getElementById('passive-loading-status').textContent = `完了 (${ALL_PASSIVES.length}件)`;
+        };
+
+        function addPassive() {
+            const id = document.getElementById('passive-select').value;
+            if (!id) return;
+            const skill = ALL_PASSIVES.find(s => s.id === id);
+            if (!skill) return;
+            if (SELECTED_PASSIVES.find(s => s.id === id)) {
+                alert('既に追加されています');
+                return;
+            }
+
+            SELECTED_PASSIVES.push(skill);
+            renderPassives();
+            updateJSON();
+        }
+
+        function removePassive(id) {
+            if (!confirm('削除しますか？')) return;
+            SELECTED_PASSIVES = SELECTED_PASSIVES.filter(s => s.id !== id);
+            renderPassives();
+            updateJSON();
+        }
+
+        function renderPassives() {
+            const container = document.getElementById('selected-passive-list');
+            if (SELECTED_PASSIVES.length === 0) {
+                container.innerHTML = '<span style="color:#999; font-size:0.9rem;">追加された特殊パッシブがここに表示されます</span>';
+                return;
+            }
+            container.innerHTML = '';
+            SELECTED_PASSIVES.forEach(s => {
+                const div = document.createElement('div');
+                div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #ddd; padding:5px 10px; margin-bottom:5px; border-radius:4px;';
+                div.innerHTML = `
+                    <div>
+                        <span style="font-family:monospace; font-weight:bold; background:#f5e6ff; padding:2px 6px; border-radius:3px; margin-right:8px;">[${s.id}]</span>
+                        <span style="font-weight:bold; color:#8b008b; margin-right:8px;">Cost:${s.cost}</span>
+                        <span>${s.name}</span>
+                    </div>
+                    <button class="btn-danger" style="font-size:0.8rem; padding:4px 10px;" onclick="removePassive('${s.id}')">削除</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+    </script>
+
+</body>
+
+</html>

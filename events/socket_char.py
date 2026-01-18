@@ -49,6 +49,13 @@ def handle_add_character(data):
     char_data['flags']['immediate_action_used'] = False
     # === ▲▲▲ 追加ここまで ▲▲▲
 
+    # === ▼▼▼ 追加: 輝化スキルとアイテムの初期化 ▼▼▼
+    if 'SPassive' not in char_data:
+        char_data['SPassive'] = []
+    if 'inventory' not in char_data:
+        char_data['inventory'] = {}
+    # === ▲▲▲ 追加ここまで ▲▲▲
+
     # === ▼▼▼ 追加: 初期座標の設定（未配置状態） ▼▼▼
     if 'x' not in char_data:
         char_data['x'] = -1
