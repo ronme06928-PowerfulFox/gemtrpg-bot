@@ -23,7 +23,6 @@ class BurstEffect(BaseEffect):
         # ★追加: 破裂威力減少無効バフチェック
         # バフがある場合は破裂値を減らさない（更新処理をスキップ）
         if BurstNoConsumeBuff.has_burst_no_consume(target):
-            # print(f"[BurstEffect] {target.get('name')} has BurstNoConsumeBuff. Skip consumption.")
             pass
         else:
             # バフがない場合のみ更新
