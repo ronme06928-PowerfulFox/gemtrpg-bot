@@ -1750,16 +1750,27 @@ function updateMatchPanelContent(matchData) {
                             // ★ Phase 3: 補正内訳を改行形式で表示
                             let damageText = `Range: ${sideData.min_damage} ~ ${sideData.max_damage}`;
 
+                            // ★ 基礎威力補正の取得（power_breakdown または skill_details から）
+                            let basePowerMod = 0;
+                            if (sideData.power_breakdown && sideData.power_breakdown.base_power_mod) {
+                                basePowerMod = sideData.power_breakdown.base_power_mod;
+                            } else if (sideData.skill_details && sideData.skill_details.base_power_mod) {
+                                basePowerMod = sideData.skill_details.base_power_mod;
+                            }
+
+                            // 基礎威力補正を表示
+                            if (basePowerMod !== 0) {
+                                damageText += `\n[基礎威力 ${basePowerMod > 0 ? '+' : ''}${basePowerMod}]`;
+                            }
+
+                            // その他の補正（power_breakdownから）
                             if (sideData.power_breakdown) {
                                 const pb = sideData.power_breakdown;
-
-                                if (pb.base_power_mod && pb.base_power_mod !== 0) {
-                                    damageText += `\n(基礎威力${pb.base_power_mod > 0 ? '+' : ''}${pb.base_power_mod})`;
-                                }
                                 if (pb.additional_power && pb.additional_power !== 0) {
                                     damageText += `\n(追加威力${pb.additional_power > 0 ? '+' : ''}${pb.additional_power})`;
                                 }
                             }
+
                             // ★ 戦慄によるダイス減少を表示
                             if (sideData.senritsu_dice_reduction && sideData.senritsu_dice_reduction > 0) {
                                 damageText += `\n(戦慄: ダイス-${sideData.senritsu_dice_reduction})`;
@@ -2240,8 +2251,18 @@ function updateDuelUI(side, data) {
     }
 
     cmdEl.innerHTML = data.final_command;
-    if (data.min_damage !== undefined) dmgEl.textContent = `Range: ${data.min_damage} ~ ${data.max_damage}`;
-    else dmgEl.textContent = "Ready";
+    if (data.min_damage !== undefined) {
+        let damageText = `Range: ${data.min_damage} ~ ${data.max_damage}`;
+        // ★ 基礎威力補正を表示
+        if (data.skill_details && data.skill_details.base_power_mod) {
+            const mod = data.skill_details.base_power_mod;
+            damageText += `\n[基礎威力 ${mod > 0 ? '+' : ''}${mod}]`;
+        }
+        dmgEl.style.whiteSpace = 'pre-line';
+        dmgEl.textContent = damageText;
+    } else {
+        dmgEl.textContent = "Ready";
+    }
     previewEl.classList.add('ready');
 
     // ★修正: スキル詳細の表示 (クラス操作なし)

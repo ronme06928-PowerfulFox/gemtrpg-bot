@@ -9,7 +9,8 @@
       "type": "STAT_BONUS",
       "stat": "MP",
       "value": 1
-    }
+    },
+    "duration": -1
   },
   "S-01": {
     "id": "S-01",
@@ -21,6 +22,7 @@
       "type": "STAT_BONUS",
       "stat": "HP",
       "value": 5
-    }
+    },
+    "duration": -1
   }
 }

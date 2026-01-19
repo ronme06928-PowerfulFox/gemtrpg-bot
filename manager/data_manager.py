@@ -294,7 +294,7 @@ def update_all_data():
         success = False
 
     # 4. 特殊パッシブデータ更新
-    print("【4/4】特殊パッシブデータを更新中...")
+    print("【4/5】特殊パッシブデータを更新中...")
     try:
         from manager.passives.loader import passive_loader
         passives = passive_loader.refresh()
@@ -305,6 +305,34 @@ def update_all_data():
             success = False
     except Exception as e:
         print(f"❌ 特殊パッシブデータ更新エラー: {e}\n")
+        success = False
+
+    # 5. バフ図鑑データ更新 ★追加
+    print("【5/5】バフ図鑑データを更新中...")
+    try:
+        from manager.buffs.loader import buff_catalog_loader
+        buffs = buff_catalog_loader.refresh()
+        if buffs:
+            print(f"✅ バフ図鑑データの更新に成功しました ({len(buffs)}件)\n")
+        else:
+            print("❌ バフ図鑑データの更新に失敗しました\n")
+            success = False
+    except Exception as e:
+        print(f"❌ バフ図鑑データ更新エラー: {e}\n")
+        success = False
+
+    # 5. バフ図鑑データ更新
+    print("【5/5】バフ図鑑データを更新中...")
+    try:
+        from manager.buffs.loader import buff_catalog_loader
+        buffs = buff_catalog_loader.refresh()
+        if buffs:
+            print(f"✅ バフ図鑑データの更新に成功しました ({len(buffs)}件)\n")
+        else:
+            print("❌ バフ図鑑データの更新に失敗しました\n")
+            success = False
+    except Exception as e:
+        print(f"❌ バフ図鑑データ更新エラー: {e}\n")
         success = False
 
     print("="*60)
@@ -376,3 +404,11 @@ def init_app_data():
             print("[OK] Passive data initialized.")
         except Exception as e:
             print(f"[WARNING] Passive data initialization warning: {e}")
+
+        # 6. バフ図鑑データの読み込み
+        try:
+            from manager.buffs.loader import buff_catalog_loader
+            buff_catalog_loader.load_buffs()
+            print("[OK] Buff catalog data initialized.")
+        except Exception as e:
+            print(f"[WARNING] Buff catalog data initialization warning: {e}")

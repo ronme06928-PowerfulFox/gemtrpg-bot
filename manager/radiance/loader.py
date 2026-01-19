@@ -36,13 +36,21 @@ class RadianceSkillLoader:
                     json_str = row.get("JSON定義", "").strip()
                     effect = json.loads(json_str) if json_str else {}
 
+                    # ★ 持続ラウンドを読み込み（-1=永続、0以上=一時的）
+                    duration_str = row.get("持続ラウンド", "-1").strip()
+                    try:
+                        duration = int(duration_str) if duration_str else -1
+                    except ValueError:
+                        duration = -1  # デフォルトは永続
+
                     skills[skill_id] = {
                         "id": skill_id,
                         "name": row.get("スキル名", ""),
                         "cost": int(row.get("習得コスト", "0") or 0),
                         "description": row.get("スキル効果", ""),
                         "flavor": row.get("フレーバーテキスト", ""),
-                        "effect": effect
+                        "effect": effect,
+                        "duration": duration  # ★ 追加
                     }
                 except (json.JSONDecodeError, ValueError) as e:
                     print(f"[WARNING] スキル {skill_id} のパースに失敗: {e}")

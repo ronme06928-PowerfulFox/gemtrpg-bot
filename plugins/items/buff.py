@@ -46,9 +46,50 @@ class BuffEffect(BaseItemEffect):
                 'consumed': False
             }
 
-        buff_name = params.get('buff_name', 'アイテムバフ')
-        duration = params.get('duration', 0)
-        stat_mods = params.get('stat_mods', {})
+        # ★ バフID参照方式
+        buff_id = params.get('buff_id')
+        if not buff_id:
+            # 後方互換性: buff_nameもサポート
+            buff_id = params.get('buff_name')
+
+        if not buff_id:
+            return {
+                'success': False,
+                'changes': [],
+                'logs': [{'message': 'バフIDが指定されていません', 'type': 'error'}],
+                'consumed': False
+            }
+
+        # バフ図鑑からバフ情報を取得
+        from manager.buffs.loader import buff_catalog_loader
+        buff_data = buff_catalog_loader.get_buff(buff_id)
+
+        if not buff_data:
+            return {
+                'success': False,
+                'changes': [],
+                'logs': [{'message': f'バフ {buff_id} が見つかりません', 'type': 'error'}],
+                'consumed': False
+            }
+
+        # バフ名を取得
+        buff_name = buff_data.get('name', buff_id)
+
+        # パラメータから持続時間を取得（指定がなければバフ図鑑のデフォルトを使用）
+        duration = params.get('duration')
+        if duration is None:
+            duration = buff_data.get('default_duration', 1)
+
+        # ディレイ
+        delay = params.get('delay', 0)
+
+        # ステータス補正
+        stat_mods = buff_data.get('effect', {})
+        if stat_mods.get('type') == 'stat_mod':
+            stat_mods = {stat_mods.get('stat'): stat_mods.get('value', 0)}
+        else:
+            # paramsでstat_modsが指定されている場合はそちらを優先
+            stat_mods = params.get('stat_mods', stat_mods)
 
         # 各対象にバフを付与
         for target in targets:
@@ -64,10 +105,14 @@ class BuffEffect(BaseItemEffect):
             # 新しいバフを追加
             new_buff = {
                 'name': buff_name,
-                'duration': duration,
-                'stat_mods': stat_mods,
                 'source': 'item',
-                'item_id': item_data.get('id', 'unknown')
+                'item_id': item_data.get('id', ''),
+                'delay': delay,
+                'lasting': duration,
+                'is_permanent': False,
+                'stat_mods': stat_mods,
+                'description': buff_data.get('description', ''),
+                'flavor': buff_data.get('flavor', '')
             }
 
             target['special_buffs'].append(new_buff)

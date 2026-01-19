@@ -64,6 +64,42 @@ def remove_buff(char_obj, buff_name):
     if not char_obj or 'special_buffs' not in char_obj: return
     char_obj['special_buffs'] = [b for b in char_obj['special_buffs'] if b.get('name') != buff_name]
 
+def get_buff_stat_mod(char_obj, stat_name):
+    """
+    キャラクターのバフから特定のステータス補正値の合計を取得
+
+    Args:
+        char_obj (dict): キャラクターオブジェクト
+        stat_name (str): ステータス名（例: "基礎威力", "物理補正"）
+
+    Returns:
+        int: 補正値の合計
+    """
+    if not char_obj or 'special_buffs' not in char_obj:
+        return 0
+
+    total_mod = 0
+    for buff in char_obj.get('special_buffs', []):
+        # ディレイ中のバフは無効
+        if buff.get('delay', 0) > 0:
+            continue
+
+        # stat_modsから指定されたステータスの補正値を取得
+        stat_mods = buff.get('stat_mods')
+        if not isinstance(stat_mods, dict):
+            # stat_modsが辞書でない場合はスキップ
+            continue
+
+        if stat_name in stat_mods:
+            try:
+                mod_value = int(stat_mods[stat_name])
+                total_mod += mod_value
+            except (ValueError, TypeError) as e:
+                print(f"[WARNING] バフ '{buff.get('name')}' の stat_mods['{stat_name}'] が不正: {stat_mods[stat_name]}")
+                continue
+
+    return total_mod
+
 # --- 4. ヘルパー関数 ---
 
 def session_required(f):

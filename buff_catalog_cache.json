@@ -1,0 +1,14 @@
+{
+  "Bu-00": {
+    "id": "Bu-00",
+    "name": "鋭敏",
+    "description": "1ラウンドの間スキルの基礎威力を+1する。",
+    "flavor": "神経を研ぎ澄まし、僅かばかりの力を得る。",
+    "effect": {
+      "type": "stat_mod",
+      "stat": "基礎威力",
+      "value": 1
+    },
+    "default_duration": 1
+  }
+}

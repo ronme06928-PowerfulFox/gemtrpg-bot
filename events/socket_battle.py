@@ -511,12 +511,18 @@ def handle_skill_declaration(data):
 
     total_modifier = power_bonus  # 戦慄はダイス面減少として適用済み
 
-    final_command = resolved_command
     # (既存のダメージ計算ロジック)
     base_power = 0
     try:
         base_power = int(skill_data.get('基礎威力', 0))
     except ValueError: base_power = 0
+
+    # ★追加: バフからの基礎威力補正を取得
+    from manager.utils import get_buff_stat_mod
+    base_power_buff_mod = get_buff_stat_mod(actor_char, '基礎威力')
+    base_power += base_power_buff_mod
+
+
     dice_roll_str = skill_data.get('ダイス威力', "")
     dice_min = 0; dice_max = 0
     original_num_faces = 0  # 元のダイス面数（戦慄減少表示用）
@@ -557,6 +563,22 @@ def handle_skill_declaration(data):
     min_damage = base_power + dice_min + correction_min + total_modifier
     max_damage = base_power + dice_max + correction_max + total_modifier
 
+    # ★ コマンド文字列の構築
+    final_command = resolved_command
+
+    # ★ 基礎威力補正をコマンド文字列に反映
+    if base_power_buff_mod != 0:
+        # 基礎威力の数値を置換（例: "5+1d6" → "6+1d6"）
+        try:
+            original_base = int(skill_data.get('基礎威力', 0))
+            if original_base > 0 and f"{original_base}+" in final_command:
+                final_command = final_command.replace(f"{original_base}+", f"{base_power}+", 1)
+            elif base_power > 0 and original_base == 0:
+                # 元が0の場合は先頭に追加
+                final_command = f"{base_power}+" + final_command
+        except Exception as e:
+            print(f"[WARNING] 基礎威力補正の反映に失敗: {e}")
+
     # ★ 戦慄によるダイス減少をコマンド文字列にも反映
     if senritsu_dice_reduction > 0 and original_num_faces > 0:
         reduced_faces = original_num_faces - senritsu_dice_reduction
@@ -584,6 +606,9 @@ def handle_skill_declaration(data):
         is_one_sided_attack = True
 
     # --- 結果送信 (通常スキルなので即時発動フラグはFalse) ---
+    # ★ 基礎威力補正をスキル詳細に追加
+    skill_details_payload['base_power_mod'] = base_power_buff_mod
+
     result_payload = {
         "prefix": data.get('prefix'),
         "final_command": final_command,
@@ -1441,7 +1466,26 @@ def _process_end_round_logic(room, username):
                             broadcast_log(room, f"{char['name']} は意識を取り戻した！ (MP全回復)", 'state-change')
                         # === ▲▲▲ 修正ここまで ▲▲▲ ===
 
+                elif buff.get('is_permanent', False):
+                    # ★ 永続バフ（輝化スキルなど）is_permanentフラグがTrueなら保持
+                    print(f"[DEBUG] 永続バフ保持: {buff.get('name')} (source={buff.get('source')})")
+                    active_buffs.append(buff)
+
             char['special_buffs'] = active_buffs
+
+            # ★ アイテム使用制限をリセット（各キャラごと）
+            if 'round_item_usage' in char:
+                print(f"[DEBUG] {char.get('name')} のアイテム使用制限をリセット")
+                char['round_item_usage'] = {}
+
+            # ★ スキル使用履歴をリセット（各キャラごと）
+            if 'used_immediate_skills_this_round' in char:
+                char['used_immediate_skills_this_round'] = []
+            if 'used_gem_protect_this_round' in char:
+                char['used_gem_protect_this_round'] = False
+            if 'used_skills_this_round' in char:
+                char['used_skills_this_round'] = []
+
 
     state['is_round_ended'] = True
     state['turn_char_id'] = None  # ★ 手番キャラをクリア（青い光やボタンを消すため）
@@ -1496,8 +1540,22 @@ def handle_reset_battle(data):
                 { "name": "荊棘", "value": 0 }
             ]
             char['states'] = initial_states
+            char['状態異常'] = []
+            char['FP'] = char.get('maxFp', 0)
 
-            # === ▼▼▼ Phase 6: initial_stateから復元 ▼▼▼
+            # ★ アイテム使用制限もリセット
+            if 'round_item_usage' in char:
+                char['round_item_usage'] = {}
+
+            # スキル使用履歴もリセット
+            if 'used_immediate_skills_this_round' in char:
+                char['used_immediate_skills_this_round'] = []
+            if 'used_gem_protect_this_round' in char:
+                char['used_gem_protect_this_round'] = False
+            if 'used_skills_this_round' in char:
+                char['used_skills_this_round'] = []
+
+            # ★ initial_stateからバフとアイテムを復元
             if 'initial_state' in char:
                 # アイテムを初期状態に復元
                 char['inventory'] = dict(char['initial_state'].get('inventory', {}))

@@ -2,7 +2,7 @@
   "I-00": {
     "id": "I-00",
     "name": "ギルド印の安物ポーション",
-    "description": "味方一人のHPを15回復する。",
+    "description": "味方1人のHPを15回復する。",
     "flavor": "パン一切れくらいの値段で売っている粗悪な回復薬。それでも何も無いよりは気が休まる。",
     "consumable": true,
     "usable": true,
@@ -10,7 +10,21 @@
     "effect": {
       "type": "heal",
       "target": "single",
-      "hp": 20
+      "hp": 15
+    }
+  },
+  "I-01": {
+    "id": "I-01",
+    "name": "鋭敏の魔力薬",
+    "description": "味方1人を選び、1ラウンドの間スキルの基礎威力を+1する。",
+    "flavor": "短時間身体能力を増大させ、攻撃力を高める薬。非常に苦く、大量に服用することはおすすめしない。",
+    "consumable": true,
+    "usable": true,
+    "round_limit": 1,
+    "effect": {
+      "type": "buff",
+      "target": "single",
+      "buff_id": "Bu-00"
     }
   }
 }

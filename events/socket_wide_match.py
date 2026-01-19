@@ -267,12 +267,50 @@ def handle_wide_declare_skill(data):
 
             defender['skill_id'] = skill_id
             defender['command'] = command
-            # ★ レンジ情報の保存
-            defender['min'] = data.get('min')
-            defender['max'] = data.get('max')
+
+            # ★ サーバー側で基礎威力補正を含めて再計算
+            # クライアント側の計算にはバフ補正が含まれていない可能性があるため
+
+            # 基礎威力の取得
+            def_base = int(skill_data.get('基礎威力', 0))
+
+            # ★ バフからの基礎威力補正を取得
+            from manager.utils import get_buff_stat_mod
+            base_power_buff_mod = get_buff_stat_mod(def_char, '基礎威力')
+            def_base += base_power_buff_mod
+
+            # チャットパレットからダイス部分を取得
+            palette = skill_data.get('チャットパレット', '')
+            cmd_part = re.sub(r'【.*?】', '', palette).strip()
+            if '+' in cmd_part:
+                dice_part = cmd_part.split('+', 1)[1]
+            else:
+                dice_part = skill_data.get('ダイス威力', '2d6')
+
+            # 変数ダイスの解決
+            phys = get_status_value(def_char, '物理補正')
+            mag = get_status_value(def_char, '魔法補正')
+            processed_dice = dice_part.replace('{物理補正}', str(phys)).replace('{魔法補正}', str(mag))
+
+            # ダイスから min/max を計算
+            matches = re.findall(r'(\d+)d(\d+)', processed_dice)
+            dice_min = 0; dice_max = 0
+            for num_str, sides_str in matches:
+                num = int(num_str); sides = int(sides_str)
+                dice_min += num
+                dice_max += num * sides
+
+            # 最終的な min/max（基礎威力補正込み）
+            defender['min'] = def_base + dice_min
+            defender['max'] = def_base + dice_max
             defender['declared'] = True
             defender['declared_by'] = username
-            defender['declared_by'] = username
+
+            # ★ 基礎威力補正を保存（クライアント側で表示するため）
+            if 'skill_details' not in defender:
+                defender['skill_details'] = {}
+            defender['skill_details']['base_power_mod'] = base_power_buff_mod
+
 
             # ★ Calculate Modifiers from Attacker (if Attacker already declared)
             attacker_id = active_match.get('attacker_id')
@@ -295,6 +333,13 @@ def handle_wide_declare_skill(data):
 
                     # Update Final Command for Display
                     def_base = int(skill_data.get('基礎威力', 0))
+
+                    # ★追加: バフからの基礎威力補正を取得
+                    from manager.utils import get_buff_stat_mod
+                    base_power_buff_mod = get_buff_stat_mod(def_char, '基礎威力')
+                    def_base += base_power_buff_mod
+
+
                     new_base = def_base + base_mod
                     # Get full dice from chat palette (more reliable than ダイス威力)
                     palette = skill_data.get('チャットパレット', '')
@@ -431,6 +476,13 @@ def handle_wide_attacker_declare(data):
 
             # calculate command preview if possible
             def_base = int(d_skill_data.get('基礎威力', 0))
+
+            # ★追加: バフからの基礎威力補正を取得
+            from manager.utils import get_buff_stat_mod
+            base_power_buff_mod = get_buff_stat_mod(d_char, '基礎威力')
+            def_base += base_power_buff_mod
+
+
             new_base = def_base + base_mod
             # Get full dice from chat palette (more reliable than ダイス威力)
             palette = d_skill_data.get('チャットパレット', '')
