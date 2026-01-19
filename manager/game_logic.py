@@ -285,6 +285,20 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         if "flavor" not in effect_data:
                             effect_data["flavor"] = buff_data.get("flavor", "")
 
+                        # ★追加: stat_mod の継承 (Phase 10 後半)
+                        # カタログ定義の effect: { type: "stat_mod", stat: "基礎威力", value: 1 }
+                        # を、システムが解釈できる stat_mods: { "基礎威力": 1 } に変換する
+                        catalog_effect = buff_data.get("effect", {})
+                        if catalog_effect.get("type") == "stat_mod":
+                            stat_name = catalog_effect.get("stat")
+                            mod_value = catalog_effect.get("value")
+
+                            if stat_name and mod_value is not None:
+                                if "stat_mods" not in effect_data:
+                                    effect_data["stat_mods"] = {}
+                                effect_data["stat_mods"][stat_name] = mod_value
+                                # print(f"[APPLY_BUFF] Converted stat_mod for {buff_name}: {stat_name}={mod_value}")
+
                 changes_to_apply.append((target_obj, "APPLY_BUFF", buff_name, {"lasting": int(effect.get("lasting", 1)), "delay": int(effect.get("delay", 0)), "data": effect_data}))
                 log_snippets.append(f"[{buff_name} 付与]")
         elif effect_type == "REMOVE_BUFF":
