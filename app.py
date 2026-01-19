@@ -259,6 +259,9 @@ def get_item_data():
     items = item_loader.load_items()
     return jsonify(items)
 
+# ★ バフプラグインシステム
+from plugins.buffs.registry import buff_registry
+
 @app.route('/api/get_radiance_data', methods=['GET'])
 def get_radiance_data():
     """フロントエンドに輝化スキルマスターデータを提供するAPI"""
@@ -312,6 +315,11 @@ if __name__ == '__main__':
             else:
                 print("❌ 一部のデータ更新に失敗しました。")
                 sys.exit(1)
+
+    # ★ バフプラグイン自動検出
+    print("--- Initializing Buff Plugins ---")
+    buff_registry.auto_discover()
+    print()
 
     print("Starting Flask-SocketIO server...")
     socketio.run(app, host='127.0.0.1', port=5000, debug=True, allow_unsafe_werkzeug=True)
