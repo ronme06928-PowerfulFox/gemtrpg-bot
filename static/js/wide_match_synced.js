@@ -256,7 +256,12 @@
                         var cmd = def.final_command || def.command;
                         if (resultDiv && cmd) {
                             if (def.min !== undefined && def.max !== undefined) {
-                                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済 Range: ' + def.min + '~' + def.max + '</span> (' + cmd + ')';
+                                var rangeText = 'Range: ' + def.min + '~' + def.max;
+                                // ★ 基礎威力補正を表示
+                                if (def.base_power_mod && def.base_power_mod !== 0) {
+                                    rangeText += '\n[基礎威力 ' + (def.base_power_mod > 0 ? '+' : '') + def.base_power_mod + ']';
+                                }
+                                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;white-space:pre-line;">宣言済 ' + rangeText + '</span> (' + cmd + ')';
                             } else {
                                 resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + cmd + ')';
                             }
@@ -300,7 +305,12 @@
                     var cmd = def.final_command || def.command;
                     if (resultDiv && cmd) {
                         if (def.min !== undefined && def.max !== undefined) {
-                            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済 Range: ' + def.min + '~' + def.max + '</span> (' + cmd + ')';
+                            var rangeText = 'Range: ' + def.min + '~' + def.max;
+                            // ★ 基礎威力補正を表示
+                            if (def.base_power_mod && def.base_power_mod !== 0) {
+                                rangeText += '\n[基礎威力 ' + (def.base_power_mod > 0 ? '+' : '') + def.base_power_mod + ']';
+                            }
+                            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;white-space:pre-line;">宣言済 ' + rangeText + '</span> (' + cmd + ')';
                         } else {
                             resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + cmd + ')';
                         }

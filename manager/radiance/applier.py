@@ -58,6 +58,9 @@ class RadianceApplier:
                 stat_name = effect.get('stat')
                 value = effect.get('value', 0)
 
+                # ★ stat_modsを初期化
+                stat_mods = {}
+
                 if stat_name == 'HP':
                     # maxHpを増やす
                     current_max = int(char_data.get('maxHp', 0))
@@ -65,6 +68,7 @@ class RadianceApplier:
                     # 現在HPも同じ量増やす（上限を超えないように）
                     char_data['hp'] = min(char_data.get('hp', 0) + value, char_data['maxHp'])
                     print(f"[OK] 輝化スキル '{skill['name']}' でHP上限+{value}（{current_max} → {char_data['maxHp']}）")
+                    stat_mods['maxHp'] = value  # stat_modsに記録
 
                 elif stat_name == 'MP':
                     # maxMpを増やす
@@ -73,10 +77,11 @@ class RadianceApplier:
                     # 現在MPも同じ量増やす（上限を超えないように）
                     char_data['mp'] = min(char_data.get('mp', 0) + value, char_data['maxMp'])
                     print(f"[OK] 輝化スキル '{skill['name']}' でMP上限+{value}（{current_max} → {char_data['maxMp']}）")
-                    stat_mods['maxMp'] = value # maxMpの変更をstat_modsに記録
+                    stat_mods['maxMp'] = value  # stat_modsに記録
 
                 else:
                     print(f"[WARNING] 輝化スキル {skill_id} の STAT_BONUS タイプで未対応のstat: {stat_name}")
+                    stat_mods[stat_name] = value  # ★ 未対応でもstat_modsには入れる
 
                 # ★追加: STAT_BONUSタイプでもバフとして表示用にspecial_buffsに追加
                 # スキルのdurationを使用（スプレッドシートから読み込まれる）

@@ -1369,15 +1369,6 @@ def handle_end_round(data):
         socketio.emit('new_log', {"message": "⚠️ 既にラウンド終了処理は完了しています。", "type": "error"}, to=request.sid)
         return
 
-    _process_end_round_logic(room, username)
-
-
-def _process_end_round_logic(room, username):
-    """
-    ラウンド終了時の共通処理（ログ出力、EndRound効果、バフ減少、フラグ更新）
-    """
-    state = get_room_state(room)
-
     broadcast_log(room, f"--- {username} が Round {state['round']} の終了処理を実行しました ---", 'info')
     characters_to_process = state.get('characters', [])
 
@@ -1436,7 +1427,9 @@ def _process_end_round_logic(room, username):
             _update_char_stat(room, char, '荊棘', thorns_value - 1, username="[荊棘]")
 
         # --- 2. バフタイマーの処理 ---
-        if 'special_buffs' in char and char['special_buffs']:
+        # === Phase 1.1: バフのディレイとlastingを減らす ===
+        if "special_buffs" in char:
+            print(f"[DEBUG] {char.get('name', 'Unknown')}: バフ数={len(char.get('special_buffs', []))}")
             active_buffs = []
             buffs_to_remove = []
 
@@ -1473,20 +1466,23 @@ def _process_end_round_logic(room, username):
 
             char['special_buffs'] = active_buffs
 
-            # ★ アイテム使用制限をリセット（各キャラごと）
-            if 'round_item_usage' in char:
-                print(f"[DEBUG] {char.get('name')} のアイテム使用制限をリセット")
-                char['round_item_usage'] = {}
+        # ★ アイテム使用制限をリセット（全キャラ対象、バフの有無に関わらず）
+        print(f"[DEBUG] {char.get('name', 'Unknown')}: round_item_usage存在チェック: {'round_item_usage' in char}")
+        if 'round_item_usage' in char:
+            print(f"[DEBUG] {char.get('name', 'Unknown')} のアイテム使用制限をリセット: {char['round_item_usage']}")
+            char['round_item_usage'] = {}
+        else:
+            print(f"[DEBUG] {char.get('name', 'Unknown')}: round_item_usageフィールドが存在しません")
 
-            # ★ スキル使用履歴をリセット（各キャラごと）
-            if 'used_immediate_skills_this_round' in char:
-                char['used_immediate_skills_this_round'] = []
-            if 'used_gem_protect_this_round' in char:
-                char['used_gem_protect_this_round'] = False
-            if 'used_skills_this_round' in char:
-                char['used_skills_this_round'] = []
+        # ★ スキル使用履歴をリセット（全キャラ対象）
+        if 'used_immediate_skills_this_round' in char:
+            char['used_immediate_skills_this_round'] = []
+        if 'used_gem_protect_this_round' in char:
+            char['used_gem_protect_this_round'] = False
+        if 'used_skills_this_round' in char:
+            char['used_skills_this_round'] = []
 
-
+    print(f"[DEBUG] ===== ラウンド終了処理完了 =====")
     state['is_round_ended'] = True
     state['turn_char_id'] = None  # ★ 手番キャラをクリア（青い光やボタンを消すため）
 
@@ -1495,6 +1491,54 @@ def _process_end_round_logic(room, username):
 
     broadcast_state_update(room)
     save_specific_room_state(room)
+
+
+def _process_end_round_logic(state, room):
+    """
+    ラウンド終了時の共通処理（バフ減少、アイテムリセットなど）
+    広域マッチからも呼び出される
+    """
+    print(f"[DEBUG] ===== _process_end_round_logic 開始 =====")
+
+    for char in state.get("characters", []):
+        # バフタイマーの処理
+        if "special_buffs" in char:
+            print(f"[DEBUG] {char.get('name', 'Unknown')}: バフ数={len(char.get('special_buffs', []))}")
+            active_buffs = []
+
+            for buff in char['special_buffs']:
+                delay = buff.get("delay", 0)
+                lasting = buff.get("lasting", 0)
+
+                if delay > 0:
+                    buff["delay"] = delay - 1
+                    active_buffs.append(buff)
+                elif lasting > 0:
+                    buff["lasting"] = lasting - 1
+                    if buff["lasting"] > 0:
+                        active_buffs.append(buff)
+                elif buff.get('is_permanent', False):
+                    print(f"[DEBUG] 永続バフ保持: {buff.get('name')} (source={buff.get('source')})")
+                    active_buffs.append(buff)
+
+            char['special_buffs'] = active_buffs
+
+        # アイテム使用制限をリセット
+        if 'round_item_usage' in char:
+            print(f"[DEBUG] {char.get('name', 'Unknown')} のアイテム使用制限をリセット: {char['round_item_usage']}")
+            char['round_item_usage'] = {}
+
+        # スキル使用履歴をリセット
+        if 'used_immediate_skills_this_round' in char:
+            char['used_immediate_skills_this_round'] = []
+        if 'used_gem_protect_this_round' in char:
+            char['used_gem_protect_this_round'] = False
+        if 'used_skills_this_round' in char:
+            char['used_skills_this_round'] = []
+
+    print(f"[DEBUG] ===== _process_end_round_logic 完了 =====")
+
+
 
 @socketio.on('request_reset_battle')
 def handle_reset_battle(data):

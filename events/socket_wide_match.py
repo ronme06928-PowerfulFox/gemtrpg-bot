@@ -297,8 +297,8 @@ def handle_wide_declare_skill(data):
             dice_min = 0; dice_max = 0
             for num_str, sides_str in matches:
                 num = int(num_str); sides = int(sides_str)
-                dice_min += num
-                dice_max += num * sides
+                dice_min += num  # 最小値：ダイスの個数
+                dice_max += num * sides  # ★ 最大値：個数×面数
 
             # 最終的な min/max（基礎威力補正込み）
             defender['min'] = def_base + dice_min
@@ -307,9 +307,10 @@ def handle_wide_declare_skill(data):
             defender['declared_by'] = username
 
             # ★ 基礎威力補正を保存（クライアント側で表示するため）
+            defender['base_power_mod'] = base_power_buff_mod  # ★ 直下に保存
             if 'skill_details' not in defender:
                 defender['skill_details'] = {}
-            defender['skill_details']['base_power_mod'] = base_power_buff_mod
+            defender['skill_details']['base_power_mod'] = base_power_buff_mod  # ★ こちらにも保存
 
 
             # ★ Calculate Modifiers from Attacker (if Attacker already declared)

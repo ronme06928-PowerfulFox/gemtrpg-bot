@@ -91,23 +91,34 @@ class ItemUsageManager:
         effect_params = item_data.get('effect', {})
         effect_type = effect_params.get('type', 'unknown')
 
+        # === ラウンド制限のチェックと記録 ===
+        round_limit = item_data.get('round_limit', -1)
+        if round_limit > 0:
+            if 'round_item_usage' not in user_char:
+                user_char['round_item_usage'] = {}
+
+            print(f"[DEBUG] アイテム使用制限チェック: {item_id}, round_limit={round_limit}")
+            print(f"[DEBUG] 現在のround_item_usage: {user_char.get('round_item_usage', {})}")
+
+            usage_count = user_char['round_item_usage'].get(item_id, 0)
+            if usage_count >= round_limit:
+                return {
+                    'success': False,
+                    'changes': [],
+                    'logs': [{'message': f'このアイテムは1ラウンドに{round_limit}回までしか使用できません。', 'type': 'error'}],
+                    'consumed': False
+                }
+
+            # 使用回数を記録
+            user_char['round_item_usage'][item_id] = usage_count + 1
+            print(f"[DEBUG] アイテム使用を記録: {item_id} ({usage_count + 1}/{round_limit})")
+
         # エフェクトハンドラを取得して適用
         handler = get_effect_handler(effect_type)
         result = handler.apply(user_char, target_char, item_data, effect_params, context)
 
         if not result.get('success', False):
             return result
-
-        # 使用回数を記録
-        round_limit = item_data.get('round_limit', -1)
-        if round_limit > 0:
-            char_id = user_char.get('id')
-            if room not in self._round_usage:
-                self._round_usage[room] = {}
-            if char_id not in self._round_usage[room]:
-                self._round_usage[room][char_id] = {}
-
-            self._round_usage[room][char_id][item_id] = self._round_usage[room][char_id].get(item_id, 0) + 1
 
         # アイテムを消費
         if result.get('consumed', False):
