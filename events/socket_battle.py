@@ -1497,8 +1497,27 @@ def handle_reset_battle(data):
             ]
             char['states'] = initial_states
 
-            # バフ・フラグ削除
-            char['special_buffs'] = []
+            # === ▼▼▼ Phase 6: initial_stateから復元 ▼▼▼
+            if 'initial_state' in char:
+                # アイテムを初期状態に復元
+                char['inventory'] = dict(char['initial_state'].get('inventory', {}))
+                # バフを初期状態に復元（輝化スキル由来のバフを含む）
+                char['special_buffs'] = [dict(b) for b in char['initial_state'].get('special_buffs', [])]
+                # maxHp/maxMpを初期状態に復元（輝化スキルによる増加を反映）
+                char['maxHp'] = int(char['initial_state'].get('maxHp', char.get('maxHp', 0)))
+                char['maxMp'] = int(char['initial_state'].get('maxMp', char.get('maxMp', 0)))
+            else:
+                # initial_stateがない場合は空にする
+                char['special_buffs'] = []
+                if 'inventory' not in char:
+                    char['inventory'] = {}
+            # === ▲▲▲ Phase 6 ここまで ▲▲▲
+
+            # HP/MP を最大値に（復元されたmaxHp/maxMpを使用）
+            char['hp'] = int(char.get('maxHp', 0))
+            char['mp'] = int(char.get('maxMp', 0))
+
+            # フラグ削除
             char['hasActed'] = False
             char['speedRoll'] = 0
             char['used_skills_this_round'] = []

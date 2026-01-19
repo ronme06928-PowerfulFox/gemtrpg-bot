@@ -1053,21 +1053,37 @@ function showCharacterDetail(charId) {
     let specialBuffsHtml = '';
     if (char.special_buffs && char.special_buffs.length > 0) {
         char.special_buffs.forEach((b, index) => {
-            let buffInfo = { name: b.name, description: b.description || "" };
-            if (window.BUFF_DATA && typeof window.BUFF_DATA.get === 'function') {
-                const info = window.BUFF_DATA.get(b.name);
-                if (info) {
-                    buffInfo.name = info.name || b.name;
-                    if (!buffInfo.description && info.description) buffInfo.description = info.description;
+            let buffInfo = { name: b.name, description: b.description || "", flavor: b.flavor || "" };
+
+            // 輝化スキルの場合、skill_idから詳細情報を取得
+            if (b.source === 'radiance' && b.skill_id) {
+                // radianceデータから情報を取得（グローバルに保存されている想定）
+                if (window.radianceSkillData && window.radianceSkillData[b.skill_id]) {
+                    const radianceInfo = window.radianceSkillData[b.skill_id];
+                    buffInfo.description = radianceInfo.description || buffInfo.description;
+                    buffInfo.flavor = radianceInfo.flavor || buffInfo.flavor;
                 }
             }
+
+            // 通常バフの場合、BUFF_DATAから情報を取得
+            if (!b.source || b.source !== 'radiance') {
+                if (window.BUFF_DATA && typeof window.BUFF_DATA.get === 'function') {
+                    const info = window.BUFF_DATA.get(b.name);
+                    if (info) {
+                        buffInfo.name = info.name || b.name;
+                        if (!buffInfo.description && info.description) buffInfo.description = info.description;
+                    }
+                }
+            }
+
             if (buffInfo.name.includes('_')) buffInfo.name = buffInfo.name.split('_')[0];
             let durationVal = null;
             if (b.lasting !== undefined && b.lasting !== null) durationVal = b.lasting;
             else if (b.round !== undefined && b.round !== null) durationVal = b.round;
             else if (b.duration !== undefined && b.duration !== null) durationVal = b.duration;
             let durationHtml = "";
-            if (durationVal !== null && !isNaN(durationVal) && durationVal < 99) {
+            // ★修正: duration=0（永続）の場合は表示しない
+            if (durationVal !== null && !isNaN(durationVal) && durationVal > 0 && durationVal < 99) {
                 durationHtml = `<span class="buff-duration-badge" style="background:#666; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:8px; display:inline-block;">${durationVal}R</span>`;
             }
 
@@ -1077,16 +1093,33 @@ function showCharacterDetail(charId) {
             if (delayVal > 0) {
                 durationHtml += ` <span style="color: #d63384; font-weight:bold; margin-left:5px;">(発動まで ${delayVal}R)</span>`;
             }
+
+            // 輝化スキルの場合はアイコンを追加
+            const radianceIcon = (b.source === 'radiance') ? '✨ ' : '';
+
             const buffUniqueId = `buff-detail-${char.id}-${index}`;
+
+            // 説明文とフレーバーテキストを組み合わせ
+            let descriptionContent = '';
+            if (buffInfo.description) {
+                descriptionContent += `<div style="margin-bottom: 8px;">${buffInfo.description}</div>`;
+            }
+            if (buffInfo.flavor) {
+                descriptionContent += `<div style="font-style: italic; color: #888; font-size: 0.85em;">${buffInfo.flavor}</div>`;
+            }
+            if (!descriptionContent) {
+                descriptionContent = '(説明文なし)';
+            }
+
             specialBuffsHtml += `
                 <div style="width: 100%; margin-bottom: 4px;">
                     <div class="detail-buff-item special" onclick="toggleBuffDesc('${buffUniqueId}')" style="cursor: pointer; background: #f0f0f0; border-radius: 4px; padding: 6px 10px; display:flex; align-items:center;">
-                        <span style="font-weight:bold; color:#333;">${buffInfo.name}</span>
+                        <span style="font-weight:bold; color:#333;">${radianceIcon}${buffInfo.name}</span>
                         ${durationHtml}
                         <span style="font-size:0.8em; opacity:0.7; margin-left:auto;">▼</span>
                     </div>
                     <div id="${buffUniqueId}" class="buff-desc-box" style="display:none; padding:8px; font-size:0.9em; background:#fff; border:1px solid #ddd; border-top:none; border-radius: 0 0 4px 4px; color:#555;">
-                        ${buffInfo.description || "(説明文なし)"}
+                        ${descriptionContent}
                     </div>
                 </div>`;
         });

@@ -258,6 +258,14 @@ def get_item_data():
     items = item_loader.load_items()
     return jsonify(items)
 
+@app.route('/api/get_radiance_data', methods=['GET'])
+def get_radiance_data():
+    """フロントエンドに輝化スキルマスターデータを提供するAPI"""
+    from manager.radiance.loader import radiance_loader
+    radiance_skills = radiance_loader.load_skills()
+    return jsonify(radiance_skills)
+
+
 @app.route('/api/get_room_users', methods=['GET'])
 @session_required
 def get_room_users():

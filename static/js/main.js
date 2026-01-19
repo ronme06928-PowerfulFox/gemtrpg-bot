@@ -455,6 +455,18 @@ window.addEventListener('DOMContentLoaded', () => {
         loadItemData();
     }
 
+    // ★ Phase 6: 輝化スキルデータをグローバルに読み込み
+    fetch('/api/get_radiance_data')
+        .then(res => res.json())
+        .then(data => {
+            window.radianceSkillData = data;
+            console.log('[OK] 輝化スキルデータを読み込みました:', data);
+        })
+        .catch(err => {
+            console.error('[ERROR] 輝化スキルデータの読み込みに失敗:', err);
+            window.radianceSkillData = {};
+        });
+
     const homeBtn = document.getElementById('home-portal-btn');
     if (homeBtn) {
         homeBtn.addEventListener('click', () => {

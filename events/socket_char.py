@@ -56,12 +56,33 @@ def handle_add_character(data):
         char_data['inventory'] = {}
     # === ▲▲▲ 追加ここまで ▲▲▲
 
-    # === ▼▼▼ 追加: 初期座標の設定（未配置状態） ▼▼▼
+    # === ▼▼▼ 初期座標の設定（未配置状態） ▼▼▼
     if 'x' not in char_data:
         char_data['x'] = -1
     if 'y' not in char_data:
         char_data['y'] = -1
     # === ▲▲▲ 追加ここまで ▲▲▲
+
+    # === ▼▼▼ Phase 6: 輝化スキル適用 ▼▼▼
+    if char_data.get('SPassive'):
+        try:
+            from manager.radiance.applier import radiance_applier
+            char_data = radiance_applier.apply_radiance_skills(
+                char_data,
+                char_data['SPassive']
+            )
+        except Exception as e:
+            print(f"[ERROR] 輝化スキル適用エラー: {e}")
+    # === ▲▲▲ Phase 6ここまで ▲▲▲
+
+    # === ▼▼▼ Phase 6 & 9: 初期状態を保存（リセット用） ▼▼▼
+    char_data['initial_state'] = {
+        'inventory': dict(char_data.get('inventory', {})),
+        'special_buffs': [dict(b) for b in char_data.get('special_buffs', [])],
+        'maxHp': int(char_data.get('maxHp', 0)),
+        'maxMp': int(char_data.get('maxMp', 0))
+    }
+    # === ▲▲▲ 初期状態保存ここまで ▲▲▲
 
     print(f"User {username} adding character to room '{room}': {displayName}")
 
