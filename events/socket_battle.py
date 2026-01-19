@@ -261,11 +261,14 @@ def handle_skill_declaration(data):
 
     # === 混乱チェック ===
     if 'special_buffs' in actor_char:
-        is_confused = any(b.get('name') == "混乱" for b in actor_char['special_buffs'])
-        if is_confused:
+        # プラグイン経由で混乱チェック
+        from plugins.buffs.confusion import ConfusionBuff
+        can_act, reason = ConfusionBuff.can_act(actor_char, {})
+
+        if not can_act:
             socketio.emit('skill_declaration_result', {
                 "prefix": data.get('prefix'),
-                "final_command": "混乱により行動できません",
+                "final_command": reason,
                 "min_damage": 0, "max_damage": 0, "error": True
             }, to=request.sid)
             return
@@ -350,6 +353,25 @@ def handle_skill_declaration(data):
                 original_actor_char['flags'] = {}
 
             skill_tags = skill_data.get("tags", [])
+
+            # ★ 再回避ロックチェック
+            from plugins.buffs.dodge_lock import DodgeLockBuff
+            locked_skill_id = DodgeLockBuff.get_locked_skill_id(original_actor_char)
+
+            # [DEBUG] 再回避ロックの状態を確認
+            if locked_skill_id or any(b.get('name') == '再回避ロック' for b in original_actor_char.get('special_buffs', [])):
+                print(f"[DEBUG_LOCK] Char: {original_actor_char['name']}, LockedID: {locked_skill_id}, Declaring: {skill_id}")
+
+            if locked_skill_id:
+                if skill_id != locked_skill_id:
+                    print(f"[DEBUG_LOCK] BLOCKED violation: {skill_id} != {locked_skill_id}")
+                    socketio.emit('skill_declaration_result', {
+                        "prefix": data.get('prefix'),
+                        "final_command": f"エラー: 再回避ロック中は指定されたスキル({locked_skill_id})のみ使用可能です",
+                        "min_damage": 0, "max_damage": 0, "error": True
+                    }, to=request.sid)
+                    return
+
             is_gem_skill = "宝石の加護スキル" in skill_tags
 
             # 宝石の加護スキル: カテゴリ全体で1ラウンド1回
@@ -373,9 +395,15 @@ def handle_skill_declaration(data):
                     return
 
             # 1. 実データでコスト消費
-            for cost in cost_array:
-                cost_type = cost.get("type")
-                cost_value = int(cost.get("value", 0))
+            # 再回避ロック中の指定スキル使用ならコスト消費なし
+            should_consume_cost = True
+            if locked_skill_id and skill_id == locked_skill_id:
+                should_consume_cost = False
+
+            if should_consume_cost:
+                for cost in cost_array:
+                    cost_type = cost.get("type")
+                    cost_value = int(cost.get("value", 0))
                 if cost_value > 0:
                     curr = get_status_value(original_actor_char, cost_type)
                     _update_char_stat(room, original_actor_char, cost_type, curr - cost_value, username=f"[{skill_id}]")
@@ -597,10 +625,9 @@ def handle_skill_declaration(data):
     is_one_sided_attack = False
     has_re_evasion = False
     if target_char and 'special_buffs' in target_char:
-        for buff in target_char['special_buffs']:
-            if buff.get('name') == "再回避ロック":
-                has_re_evasion = True
-                break
+        # プラグイン経由で再回避ロックチェック
+        from plugins.buffs.dodge_lock import DodgeLockBuff
+        has_re_evasion = DodgeLockBuff.has_re_evasion(target_char)
 
     if (target_char.get('hasActed', False) and not has_re_evasion) or force_unopposed:
         is_one_sided_attack = True
@@ -813,12 +840,10 @@ def handle_skill_declaration(data):
                     no_defender_acted = True  # 防御側は行動済みにならない
                     print(f"[MATCH] マッチ不可 tag detected - forced one-sided, defender won't be marked as acted")
                 elif defender_char:
-                    has_re_evasion = False
-                    if 'special_buffs' in defender_char:
-                        for buff in defender_char['special_buffs']:
-                            if buff.get('name') == "再回避ロック":
-                                has_re_evasion = True
-                                break
+                    # プラグイン経由で再回避ロックチェック
+                    from plugins.buffs.dodge_lock import DodgeLockBuff
+                    has_re_evasion = DodgeLockBuff.has_re_evasion(defender_char)
+                    print(f"[MATCH] One-sided check: defender={defender_char.get('name')}, hasActed={defender_char.get('hasActed')}, has_re_evasion={has_re_evasion}")
 
                     if defender_char.get('hasActed', False) and not has_re_evasion:
                         is_one_sided = True
@@ -1149,7 +1174,8 @@ def handle_match(data):
                 _, logs = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d)
                 if actor_d_char:
                     log_snippets.append("[再回避可能！]")
-                    apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d})
+                    # ★修正: dataにbuff_idを含めることでプラグイン判定を有効にする
+                    apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d, "buff_id": "Bu-05"})
                 log_snippets.extend(logs)
                 winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (回避成功)"; damage_message = "(ダメージ 0)"
                 if log_snippets: damage_message += f" ({' '.join(log_snippets)})"
@@ -1215,7 +1241,10 @@ def handle_match(data):
 
     # --- 手番更新処理 ---
     if actor_a_char:
-        has_re_evasion = any(b.get('name') == "再回避ロック" for b in actor_a_char.get('special_buffs', []))
+        # プラグイン経由で再回避ロックチェック
+        from plugins.buffs.dodge_lock import DodgeLockBuff
+        has_re_evasion = DodgeLockBuff.has_re_evasion(actor_a_char)
+
         if not has_re_evasion:
              actor_a_char['hasActed'] = True
              save_specific_room_state(room)

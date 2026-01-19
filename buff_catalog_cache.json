@@ -10,5 +10,81 @@
       "value": 1
     },
     "default_duration": 1
+  },
+  "Bu-01": {
+    "id": "Bu-01",
+    "name": "挑発",
+    "description": "このラウンドで全ての相手の攻撃対象を自分に固定する。",
+    "flavor": "",
+    "effect": {
+      "type": "plugin",
+      "name": "provoke",
+      "category": "debuff"
+    },
+    "default_duration": 1
+  },
+  "Bu-02": {
+    "id": "Bu-02",
+    "name": "混乱",
+    "description": "受けるダメージが1.5倍になり、行動できない。",
+    "flavor": "",
+    "effect": {
+      "type": "plugin",
+      "name": "confusion",
+      "category": "debuff",
+      "damage_multiplier": 1.5,
+      "restore_mp_on_end": false
+    },
+    "default_duration": 2
+  },
+  "Bu-03": {
+    "id": "Bu-03",
+    "name": "混乱(戦慄殺到)",
+    "description": "受けるダメージが1.5倍になり、行動できない。解除時MP全回復。",
+    "flavor": "",
+    "effect": {
+      "type": "plugin",
+      "name": "confusion",
+      "category": "debuff",
+      "damage_multiplier": 1.5,
+      "restore_mp_on_end": true
+    },
+    "default_duration": 2
+  },
+  "Bu-04": {
+    "id": "Bu-04",
+    "name": "行動不能",
+    "description": "このラウンドの間、行動できなくなる。",
+    "flavor": "",
+    "effect": {
+      "type": "plugin",
+      "name": "immobilize",
+      "category": "debuff"
+    },
+    "default_duration": 1
+  },
+  "Bu-05": {
+    "id": "Bu-05",
+    "name": "再回避ロック",
+    "description": "再び回避できるが、特定のスキルしか使用できない。",
+    "flavor": "",
+    "effect": {
+      "type": "plugin",
+      "name": "dodge_lock",
+      "category": "debuff"
+    },
+    "default_duration": 1
+  },
+  "Bu-06": {
+    "id": "Bu-06",
+    "name": "破裂威力減少無効",
+    "description": "このキャラに破裂爆発を発動時、破裂の値を消費しない。",
+    "flavor": "",
+    "effect": {
+      "type": "plugin",
+      "name": "burst_no_consume",
+      "category": "debuff"
+    },
+    "default_duration": 1
   }
 }

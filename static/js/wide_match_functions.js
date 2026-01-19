@@ -282,6 +282,19 @@ function populateWideSkillSelect(char, elementId = null, element = null) {
         const skillId = match[1];
         const skillName = match[2];
 
+        // ★ Phase 9.2: 再回避ロックフィルタ (UIフィルタリング - 広域攻撃共通)
+        // ループ外で判定するのが効率的だが、char変数はループ外にあるのでここで判定
+        if (char.special_buffs && Array.isArray(char.special_buffs)) {
+            const lockBuff = char.special_buffs.find(b =>
+                (b.buff_id === 'Bu-05' || b.name === '再回避ロック') &&
+                (b.delay === 0 || b.delay === '0') &&
+                (b.lasting > 0 || b.lasting === '1')
+            );
+            if (lockBuff && lockBuff.skill_id && skillId !== lockBuff.skill_id) {
+                continue;
+            }
+        }
+
         // Skip wide-area skills in wide match (they should use normal skills)
         const skillData = window.allSkillData ? window.allSkillData[skillId] : null;
         if (skillData && isWideSkillData(skillData)) {

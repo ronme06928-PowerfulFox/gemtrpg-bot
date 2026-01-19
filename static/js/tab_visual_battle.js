@@ -2110,9 +2110,31 @@ function populateCharSkillSelect(char, elementId) {
     selectEl.innerHTML = '';
     const regex = /【(.*?)\s+(.*?)】/g;
     let match;
+
+    // ★ Phase 9.2: 再回避ロック判定 (UIフィルタリング)
+    let lockedSkillId = null;
+    if (char.special_buffs && Array.isArray(char.special_buffs)) {
+        // IDまたは名前で判定（サーバー側の堅牢化に合わせて両方チェック）
+        const lockBuff = char.special_buffs.find(b =>
+            (b.buff_id === 'Bu-05' || b.name === '再回避ロック') &&
+            (b.delay === 0 || b.delay === '0') &&
+            (b.lasting > 0 || b.lasting === '1') // lastingチェックは緩めに
+        );
+
+        if (lockBuff && lockBuff.skill_id) {
+            lockedSkillId = lockBuff.skill_id;
+            console.log(`[UI Filter] Dodge Lock active for ${char.name}. Only allowing: ${lockedSkillId}`);
+        }
+    }
+
     while ((match = regex.exec(char.commands)) !== null) {
         const skillId = match[1];
         const skillName = match[2];
+
+        // ★ 再回避ロックフィルタ: ロック中は指定ID以外を除外
+        if (lockedSkillId && skillId !== lockedSkillId) {
+            continue;
+        }
 
         // ★ Phase 12.3: 広域スキルと即時発動スキルは通常のデュエルモーダルでは除外
         const skillData = window.allSkillData ? window.allSkillData[skillId] : null;
@@ -2491,12 +2513,32 @@ function openVisualWideMatchModal(attackerId) {
 
     // スキル選択肢作成
     let skillOptions = '<option value="">-- スキルを選択 --</option>';
+
+    // ★ Phase 9.2: 再回避ロック判定 (UIフィルタリング - 広域攻撃側)
+    let lockedSkillId = null;
+    if (char.special_buffs && Array.isArray(char.special_buffs)) {
+        const lockBuff = char.special_buffs.find(b =>
+            (b.buff_id === 'Bu-05' || b.name === '再回避ロック') &&
+            (b.delay === 0 || b.delay === '0') &&
+            (b.lasting > 0 || b.lasting === '1')
+        );
+        if (lockBuff && lockBuff.skill_id) {
+            lockedSkillId = lockBuff.skill_id;
+        }
+    }
+
     if (char.commands && window.allSkillData) {
         const regex = /【(.*?)\s+(.*?)】/g;
         let match;
         while ((match = regex.exec(char.commands)) !== null) {
             const sId = match[1];
             const sName = match[2];
+
+            // ★ 再回避ロックフィルタ
+            if (lockedSkillId && sId !== lockedSkillId) {
+                continue;
+            }
+
             const sData = window.allSkillData[sId];
             if (sData && isWideSkillData(sData)) {
                 skillOptions += `<option value="${sId}">${sId}: ${sName}</option>`;
