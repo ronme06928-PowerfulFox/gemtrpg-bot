@@ -155,18 +155,11 @@ def execute_match_from_active_state(room, state, username):
 
     # 実行中フラグを立てる
     state['active_match']['match_executing'] = True
-    state['active_match']['executed'] = True
+    # state['active_match']['executed'] = True # handle_match内で設定されるため削除
     save_specific_room_state(room)
 
-    # active_match をクリア (完了したので削除)
-    if 'active_match' in state:
-        del state['active_match']
-
-    save_specific_room_state(room)
-    broadcast_state_update(room)
-
-    # ★ マッチ終了時に全員のパネルを閉じる
-    socketio.emit('match_modal_closed', {}, to=room)
+    # Note: handle_match実行前にactive_matchを削除してしまうと、
+    # handle_match内でskill_idなどが参照できなくなるため、削除は実行後に行う。
 
     # ★ 修正: クライアント経由ではなく、サーバー側で直接handle_matchを呼び出す
     # match_data を構築してhandle_matchに渡す
@@ -182,10 +175,19 @@ def execute_match_from_active_state(room, state, username):
         'senritsuPenaltyD': senritsu_d
     }
 
-    # ★ 修正: クライアント経由ではなく、サーバー側で直接handle_matchを呼び出す
-    # match_dataを構築してhandle_matchを直接実行
-    # handle_matchは@socketio.onデコレータがついているが、関数本体は普通に呼び出せる
+    # handle_matchを直接実行
     handle_match(match_data)
+
+    # --- 実行完了後のクリーンアップ ---
+    # active_match をクリア
+    if 'active_match' in state:
+        state['active_match'] = None
+
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+
+    # ★ マッチ終了時に全員のパネルを閉じる
+    socketio.emit('match_modal_closed', {}, to=room)
 
     print(f"[MATCH] Match executed directly on server in room {room}")
 
@@ -224,11 +226,34 @@ def handle_skill_declaration(data):
 
     # 実データの取得
     original_actor_char = next((c for c in state["characters"] if c.get('id') == actor_id), None)
-    skill_data = all_skill_data.get(skill_id)
+
+    # 修正: S-Confusionの場合はダミーデータを生成
+    if skill_id == 'S-Confusion':
+        skill_data = {
+            "name": "混乱 (行動不能)",
+            "分類": "特殊",
+            "距離": "自",
+            "属性": "なし",
+            "判定": "なし",
+            "対象": "自分",
+            "使用時効果": "",
+            "発動時効果": "行動不能。ターンを消費する。",
+            "特記処理": "{}",
+            "tags": [],
+            "ダイス威力": "",
+            "チャットパレット": "0"
+        }
+    else:
+        skill_data = all_skill_data.get(skill_id)
 
     original_target_char = None
     if target_id:
         original_target_char = next((c for c in state["characters"] if c.get('id') == target_id), None)
+
+    # ★ 修正: S-Confusionの場合はターゲットを必須としない（自分をターゲットにする）
+    if skill_id == 'S-Confusion' and not original_target_char:
+         original_target_char = original_actor_char
+         target_id = actor_id
 
     # 【修正】データが見つからない場合にエラーを返す
     if not original_actor_char or not skill_data:
@@ -263,15 +288,17 @@ def handle_skill_declaration(data):
     if 'special_buffs' in actor_char:
         # プラグイン経由で混乱チェック
         from plugins.buffs.confusion import ConfusionBuff
-        can_act, reason = ConfusionBuff.can_act(actor_char, {})
+        # 修正: S-Confusion (行動不能) はチェックをスキップ
+        if skill_id != 'S-Confusion':
+            can_act, reason = ConfusionBuff.can_act(actor_char, {})
 
-        if not can_act:
-            socketio.emit('skill_declaration_result', {
-                "prefix": data.get('prefix'),
-                "final_command": reason,
-                "min_damage": 0, "max_damage": 0, "error": True
-            }, to=request.sid)
-            return
+            if not can_act:
+                socketio.emit('skill_declaration_result', {
+                    "prefix": data.get('prefix'),
+                    "final_command": reason,
+                    "min_damage": 0, "max_damage": 0, "error": True
+                }, to=request.sid)
+                return
 
     # --- 特記処理読み込み ---
     rule_json_str = skill_data.get('特記処理', '{}')
@@ -371,6 +398,24 @@ def handle_skill_declaration(data):
                         "min_damage": 0, "max_damage": 0, "error": True
                     }, to=request.sid)
                     return
+
+            # ★ 行動不能チェック (混乱など)
+            # ★ 行動不能チェック (混乱など)
+            from plugins.buffs.confusion import ConfusionBuff
+            # 修正: "S-Confusion" (混乱時の行動不能アクション) は許可する
+            is_incap_action = (skill_id == 'S-Confusion')
+
+            if not is_incap_action and ConfusionBuff.is_incapacitated(original_actor_char):
+                socketio.emit('skill_declaration_result', {
+                    "prefix": data.get('prefix'),
+                    "final_command": "エラー: 混乱中のため行動できません",
+                    "min_damage": 0, "max_damage": 0, "error": True
+                }, to=request.sid)
+                return
+
+            if is_incap_action:
+                 # 混乱アクションの場合、ここでは即時処理を行わない（下流の通常マッチ処理に任せる）
+                 pass
 
             is_gem_skill = "宝石の加護スキル" in skill_tags
 
@@ -949,6 +994,35 @@ def handle_match(data):
     senritsu_penalty_a = int(data.get('senritsuPenaltyA', 0))
     senritsu_penalty_d = int(data.get('senritsuPenaltyD', 0))
 
+    # ★ 追加: S-Confusion (行動不能) チェック
+    # active_matchに保存されているskill_idを確認する
+    # command文字列が "0" になると "S-Confusion" が含まれないため、stateを参照する
+    active_match_data = state.get('active_match', {})
+    attacker_data_s = active_match_data.get('attacker_data', {})
+    defender_data_s = active_match_data.get('defender_data', {})
+
+    skill_id_a_check = attacker_data_s.get('skill_id')
+    skill_id_d_check = defender_data_s.get('skill_id')
+
+    is_incap_a = (skill_id_a_check == 'S-Confusion') or ('S-Confusion' in (command_a or ''))
+    is_incap_d = (skill_id_d_check == 'S-Confusion') or ('S-Confusion' in (command_d or ''))
+
+    # print(f"[DEBUG CONFUSION] is_incap_a={is_incap_a}, is_incap_d={is_incap_d}")
+    # print(f"[DEBUG CONFUSION] skill_id_a_check={skill_id_a_check}, cmd_a={command_a}")
+    # print(f"[DEBUG CONFUSION] active_match keys: {active_match_data.keys()}")
+
+    # 行動不能ログ用
+    incap_logs = []
+
+    if is_incap_a:
+        incap_logs.append(f"{actor_name_a} は混乱により行動できない！ (Turn Skipped)")
+        # ダミーコマンドへ置換 (エラー回避)
+        command_a = "0 【S-Confusion 混乱(行動不能)】"
+
+    if is_incap_d:
+        incap_logs.append(f"{actor_name_d} は混乱により行動できない！ (Turn Skipped)")
+        command_d = "0 【S-Confusion 混乱(行動不能)】"
+
     global all_skill_data
     actor_a_char = next((c for c in state["characters"] if c.get('id') == actor_id_a), None)
     actor_d_char = next((c for c in state["characters"] if c.get('id') == actor_id_d), None)
@@ -1090,6 +1164,53 @@ def handle_match(data):
 
         if "即時発動" in attacker_tags or "即時発動" in defender_tags:
             winner_message = '<strong> → スキル効果の適用のみ</strong>'; damage_message = '(ダメージなし)'
+
+        # ★ 修正: 行動不能(S-Confusion)時の判定
+        # 行動不能側は自動的に敗北（または一方攻撃被弾）扱い
+        elif is_incap_a or is_incap_d:
+            winner_message = ""
+            damage_message = ""
+
+            # --- ケース1: 攻撃側が行動不能 ---
+            if is_incap_a:
+                # 防御側が一方的に成功
+                # grant_win_fp(actor_d_char)
+                damage = result_d['total']
+                if actor_a_char:
+                     # 自分(a)にダメージ
+                    kiretsu = get_status_value(actor_a_char, '亀裂')
+                    # note: skill_data_a はS-Confusionなので効果なし
+                    bonus_damage, logs = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
+                    log_snippets.extend(logs)
+                    final_damage = damage + kiretsu + bonus_damage
+
+                    if any(b.get('name') == "混乱" for b in actor_a_char.get('special_buffs', [])):
+                         # 混乱中に殴られたらダメージ増加？ 要確認だが既存ロジックに合わせる
+                         final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
+
+                    _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username)
+                    winner_message = f"<strong> → {actor_name_d} の一方的攻撃！</strong> (相手は行動不能)"
+                    damage_message += f"({actor_a_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
+
+            # --- ケース2: 防御側が行動不能 ---
+            elif is_incap_d:
+                 # 攻撃側が一方的に成功
+                # grant_win_fp(actor_a_char)
+                damage = result_a['total']
+                if actor_d_char:
+                    kiretsu = get_status_value(actor_d_char, '亀裂')
+                    bonus_damage, logs = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
+                    log_snippets.extend(logs)
+                    final_damage = damage + kiretsu + bonus_damage
+
+                    if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
+                        final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
+
+                    _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
+                    winner_message = f"<strong> → {actor_name_a} の一方的攻撃！</strong> (相手は行動不能)"
+                    damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
+
+
         elif is_one_sided:
             if "守備" in attacker_tags:
                 winner_message = f"<strong> → {actor_name_a} の一方攻撃！</strong> (守備スキルのためダメージなし)"; damage_message = "(ダメージ 0)"
@@ -1234,6 +1355,11 @@ def handle_match(data):
 
     skill_display_a = format_skill_display_from_command(command_a, skill_id_a, skill_data_a)
     skill_display_d = format_skill_display_from_command(command_d, skill_id_d, skill_data_d)
+
+    # 行動不能ログを追記
+    if incap_logs:
+        winner_message = f"{' '.join(incap_logs)}<br>{winner_message}"
+
     match_log = f"<strong>{actor_name_a}</strong> {skill_display_a} (<span class='dice-result-total'>{result_a['total']}</span>) vs <strong>{actor_name_d}</strong> {skill_display_d} (<span class='dice-result-total'>{result_d['total']}</span>) | {winner_message} {damage_message}"
     broadcast_log(room, match_log, 'match')
     broadcast_state_update(room)
@@ -1337,8 +1463,12 @@ def handle_new_round(data):
 def handle_next_turn(data):
     room = data.get('room')
     if not room: return
+    _proceed_next_turn(room)
 
+# ★ リファクタリング: ターン進行ロジックの共通化
+def _proceed_next_turn(room):
     state = get_room_state(room)
+    if not state: return
     timeline = state.get('timeline', [])
     current_id = state.get('turn_char_id')
 
@@ -1353,16 +1483,27 @@ def handle_next_turn(data):
     next_id = None
 
     # 現在位置の「次」から末尾に向かって、未行動のキャラを探す
+    # ★ 修正: 行動不能なキャラは自動的にスキップする
+    from plugins.buffs.confusion import ConfusionBuff
+
     for i in range(current_idx + 1, len(timeline)):
         cid = timeline[i]
         # キャラデータ取得
         char = next((c for c in state['characters'] if c['id'] == cid), None)
-        # 生存していて、かつ「行動済み(hasActed)」でないなら、その人を次の手番にする
+
+        # 生存していて、かつ「行動済み(hasActed)」でない
         if char and char.get('hp', 0) > 0 and not char.get('hasActed', False):
+            # 行動不能チェック
+            if ConfusionBuff.is_incapacitated(char):
+                print(f"[TurnSkip] Skipping {char['name']} due to incapacitation (Confusion)")
+                # 自動的に行動済みにあたる扱いにするか、単にスキップするか
+                # ここではスキップして次へ
+                continue
+
             next_id = cid
             break
 
-    # もし見つからなかった場合（全員行動済み、または現在の人が最後）
+    # もし見つからなかった場合（全員行動済み、または現在の人が最後、または残りが全員行動不能）
     # ループせず「手番なし」状態にする（ラウンド終了待ち）
 
     if next_id:
@@ -1372,7 +1513,8 @@ def handle_next_turn(data):
         broadcast_log(room, f"手番が {char_name} に移りました。", 'info')
     else:
         state['turn_char_id'] = None
-        broadcast_log(room, "全てのキャラクターが行動を終了しました。ラウンド終了処理を行ってください。", 'info')
+        # メッセージを少し変更
+        broadcast_log(room, "全ての行動可能キャラクターが終了しました。ラウンド終了処理を行ってください。", 'info')
 
     broadcast_state_update(room)
     save_specific_room_state(room)
@@ -1400,6 +1542,29 @@ def handle_end_round(data):
 
     broadcast_log(room, f"--- {username} が Round {state['round']} の終了処理を実行しました ---", 'info')
     characters_to_process = state.get('characters', [])
+
+    # ★ 全員行動済みかチェック (バフによる行動不能も考慮)
+    from plugins.buffs.confusion import ConfusionBuff
+
+    not_acted_chars = []
+    for c in characters_to_process:
+        is_dead = c.get('hp', 0) <= 0
+        is_escaped = c.get('is_escaped', False)
+        # 修正: バフによる行動不能も考慮
+        is_incapacitated = ConfusionBuff.is_incapacitated(c)
+
+        # 行動すべきキャラ: 生存かつ逃走しておらず、かつ行動不能でない
+        should_act = not is_dead and not is_escaped and not is_incapacitated
+
+        if should_act and not c.get('hasActed', False):
+            not_acted_chars.append(c.get('name', 'Unknown'))
+
+    if len(not_acted_chars) > 0:
+        msg = f"⚠️ まだ行動していないキャラクターがいます: {', '.join(not_acted_chars)}"
+        print(f"[ROUND_END] Blocked: {msg}")
+        socketio.emit('new_log', {"message": msg, "type": "error"}, to=request.sid)
+        print("Round end aborted due to unacted characters.") # Extra debug
+        return
 
     global all_skill_data
 
@@ -1776,7 +1941,10 @@ def handle_open_match_modal(data):
                 if c.get('type') != attacker_type and c.get('hp', 0) > 0:
                     if 'special_buffs' in c:
                         for buff in c['special_buffs']:
-                            if buff.get('name') == '挑発中':
+                            buff_name = buff.get('name')
+                            buff_id = buff.get('buff_id')
+                            # ★修正: 名前だけでなくIDでも判定 (Bu-01=挑発)
+                            if buff_name in ['挑発中', '挑発'] or buff_id in ['Bu-Provoke', 'Bu-01']:
                                 # ★修正: ディレイ中は効果を発揮しない
                                 if buff.get('delay', 0) > 0:
                                     continue
@@ -1924,6 +2092,69 @@ def handle_close_match_modal(data):
     socketio.emit('match_modal_closed', {}, to=room)
 
     print(f"[MATCH] Match modal closed in room {room}")
+
+
+# ==========================================
+# Debug Events (Testing Only)
+# ==========================================
+@socketio.on('debug_apply_buff')
+def handle_debug_apply_buff(data):
+    """
+    デバッグ用: 指定キャラクターにバフを強制付与する
+    Usage: socket.emit('debug_apply_buff', {room: '...', target_id: '...', buff_id: '...', duration: 2})
+    """
+    room = data.get('room')
+    target_id = data.get('target_id')
+    buff_id = data.get('buff_id')
+    duration = int(data.get('duration', 2)) # デフォルト2ターン
+    delay = int(data.get('delay', 0))
+
+    print(f"[DEBUG] handle_debug_apply_buff: Target={target_id}, Buff={buff_id}")
+
+    if not room or not target_id or not buff_id:
+        print("[DEBUG] Missing arguments")
+        return
+
+    # 修正: active_room_statesを直接参照せず、get_room_stateを使う
+    state = get_room_state(room)
+    if not state:
+        print("[DEBUG] Room state not found")
+        return
+
+    char = next((c for c in state['characters'] if c['id'] == target_id), None)
+    if not char:
+        print(f"[DEBUG] Character not found: {target_id}")
+        return
+
+    # Note: Using apply_buff from manager.utils
+    from manager.utils import apply_buff
+
+    buff_name = data.get('buff_name')
+    if not buff_name:
+        # 簡易カタログ辞書 (テスト用) - IDから名前を解決
+        buff_name_map = {
+            'Bu-02': '混乱',
+            'Bu-03': '混乱(戦慄殺到)',
+            'Bu-05': '再回避ロック',
+            'Bu-06': '挑発'
+        }
+        buff_name = buff_name_map.get(buff_id, buff_id) # IDがマップになければそのまま使う
+
+    print(f"[DEBUG] Validated params: Target={char['name']}, Buff={buff_name}, ID={buff_id}")
+
+    # apply_buff(char, buff_name, lasting, delay, is_reset, is_variable, data)
+    apply_buff(char, buff_name, duration, delay, data={'buff_id': buff_id})
+    result = True # Force True
+
+    # 検証用: 実際に付与されたか確認
+    current_buff_names = [b.get('name') for b in char.get('special_buffs', [])]
+    print(f"[DEBUG] Current buffs on {char['name']}: {current_buff_names}")
+
+    if result:
+        # 変更をブロードキャスト
+        socketio.emit('battle_state_update', state, room=room)
+        socketio.emit('new_log', {'message': f"[DEBUG] {char['name']} に {buff_name}({buff_id}) を付与しました。", 'tab': 'system'}, room=room)
+        print(f"[DEBUG] Applied {buff_name} to {char['name']}")
 
 # ============================================================
 # 広域マッチ パネル同期機能

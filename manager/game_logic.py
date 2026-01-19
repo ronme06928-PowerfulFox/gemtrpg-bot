@@ -253,8 +253,39 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
         elif effect_type == "APPLY_BUFF":
             buff_name = effect.get("buff_name")
+            buff_id = effect.get("buff_id")
+
+            # ★修正: buff_idが指定されている場合、buff_catalogから名前を取得
+            if not buff_name and buff_id:
+                from manager.buff_catalog import get_buff_by_id
+                buff_data = get_buff_by_id(buff_id)
+                if buff_data:
+                    buff_name = buff_data.get("name")
+                    print(f"[APPLY_BUFF] Resolved buff_id '{buff_id}' to buff_name '{buff_name}'")
+                else:
+                    print(f"[APPLY_BUFF WARNING] buff_id '{buff_id}' not found in catalog")
+
             if buff_name:
-                changes_to_apply.append((target_obj, "APPLY_BUFF", buff_name, {"lasting": int(effect.get("lasting", 1)), "delay": int(effect.get("delay", 0)), "data": effect.get("data")}))
+                # ★修正: buff_idも一緒にdataに含める（プラグイン判定用）
+                # さらに description, flavor もカタログから引き継ぐ
+                effect_data = effect.get("data")
+                if effect_data is None:
+                    effect_data = {}
+                else:
+                    # 呼び出し元の副作用を防ぐためコピー
+                    effect_data = effect_data.copy()
+
+                if buff_id:
+                    effect_data["buff_id"] = buff_id
+
+                    # カタログから詳細情報を取得してマージ
+                    if 'buff_data' in locals() and buff_data:
+                        if "description" not in effect_data:
+                            effect_data["description"] = buff_data.get("description", "")
+                        if "flavor" not in effect_data:
+                            effect_data["flavor"] = buff_data.get("flavor", "")
+
+                changes_to_apply.append((target_obj, "APPLY_BUFF", buff_name, {"lasting": int(effect.get("lasting", 1)), "delay": int(effect.get("delay", 0)), "data": effect_data}))
                 log_snippets.append(f"[{buff_name} 付与]")
         elif effect_type == "REMOVE_BUFF":
             buff_name = effect.get("buff_name")

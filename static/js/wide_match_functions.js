@@ -277,6 +277,26 @@ function populateWideSkillSelect(char, elementId = null, element = null) {
 
     selectEl.innerHTML = '';
     const regex = /【(.*?)\s+(.*?)】/g;
+
+    // ★ Phase 10: 混乱(Confusion)判定
+    // 混乱バフがある場合、スキル選択肢を「混乱 (行動不能)」のみにする
+    let isConfused = false;
+    if (char.special_buffs && Array.isArray(char.special_buffs)) {
+        isConfused = char.special_buffs.some(b =>
+            (b.buff_id === 'Bu-02' || b.name === '混乱' || b.buff_id === 'Bu-03' || b.name.includes('混乱')) &&
+            (b.lasting > 0)
+        );
+    }
+
+    if (isConfused) {
+        selectEl.innerHTML = '';
+        const option = document.createElement('option');
+        option.value = 'S-Confusion';
+        option.textContent = '混乱 (行動不能)';
+        selectEl.appendChild(option);
+        return;
+    }
+
     let match;
     while ((match = regex.exec(char.commands)) !== null) {
         const skillId = match[1];

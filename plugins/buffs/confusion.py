@@ -109,6 +109,19 @@ class ConfusionBuff(BaseBuff):
                 'changes': []
             }
 
+
+    @staticmethod
+    def is_incapacitated(char):
+        """
+        行動不能（手番スキップ・ラウンド終了判定対象外）かどうか
+        """
+        # 混乱バフがあるか確認
+        for buff in char.get('special_buffs', []):
+            if buff.get('buff_id') in ['Bu-02', 'Bu-03']:  # Bu-Confusion, Bu-ConfusionSenritsu
+                if buff.get('delay', 0) == 0 and buff.get('lasting', 0) > 0:
+                    return True
+        return False
+
     @staticmethod
     def can_act(char, context):
         """
@@ -121,10 +134,7 @@ class ConfusionBuff(BaseBuff):
         Returns:
             tuple: (can_act: bool, reason: str)
         """
-        # 混乱バフがあるか確認（delayが0で、lastingが残っている場合）
-        for buff in char.get('special_buffs', []):
-            if buff.get('buff_id') in ['Bu-02', 'Bu-03']:  # Bu-Confusion, Bu-ConfusionSenritsu
-                if buff.get('delay', 0) == 0 and buff.get('lasting', 0) > 0:
-                    return False, '混乱中のため行動できません'
+        if ConfusionBuff.is_incapacitated(char):
+            return False, '混乱中のため行動できません'
 
         return True, ''

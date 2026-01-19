@@ -11,7 +11,7 @@ from .base import BaseBuff
 class ProvokeBuff(BaseBuff):
     """挑発バフプラグイン"""
 
-    BUFF_IDS = ['Bu-Provoke']
+    BUFF_IDS = ['Bu-Provoke', 'Bu-01']
 
     def apply(self, char, context):
         """
