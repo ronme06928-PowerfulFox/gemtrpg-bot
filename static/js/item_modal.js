@@ -49,11 +49,42 @@ function openItemModal() {
     const header = document.createElement('div');
     header.className = 'modal-header';
     header.id = 'item-modal-header';
+    header.style.cssText = `
+        background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+        color: white;
+        padding: 15px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 8px 8px 0 0;
+    `;
     header.innerHTML = `
-        <h3>🎒 アイテム使用</h3>
-        <div class="modal-controls">
-            <button class="window-control-btn minimize-btn" title="最小化">_</button>
-            <button class="window-control-btn close-btn" title="閉じる">×</button>
+        <h3 style="margin: 0; font-size: 1.2em;">🎒 アイテム使用</h3>
+        <div class="modal-controls" style="display: flex; gap: 12px;">
+            <button class="window-control-btn minimize-btn" style="
+                background: rgba(255,255,255,0.2);
+                border: none;
+                color: white;
+                width: 36px;
+                height: 36px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 1.2em;
+                font-weight: bold;
+                transition: background 0.2s;
+            " title="最小化">−</button>
+            <button class="window-control-btn close-btn" style="
+                background: rgba(255,255,255,0.2);
+                border: none;
+                color: white;
+                width: 36px;
+                height: 36px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 1.3em;
+                font-weight: bold;
+                transition: background 0.2s;
+            " title="閉じる">×</button>
         </div>
     `;
 
@@ -97,6 +128,21 @@ function showCharacterList() {
 
     // ヘッダー更新
     header.querySelector('h3').textContent = '🎒 アイテム使用';
+    header.querySelector('h3').style.cssText = 'margin: 0; font-size: 1.2em;';
+
+    // ボタンのホバー効果を追加
+    const minimizeBtn = header.querySelector('.minimize-btn');
+    const closeBtn = header.querySelector('.close-btn');
+
+    if (minimizeBtn) {
+        minimizeBtn.onmouseenter = () => { minimizeBtn.style.background = 'rgba(255,255,255,0.3)'; };
+        minimizeBtn.onmouseleave = () => { minimizeBtn.style.background = 'rgba(255,255,255,0.2)'; };
+    }
+
+    if (closeBtn) {
+        closeBtn.onmouseenter = () => { closeBtn.style.background = 'rgba(255,255,255,0.3)'; };
+        closeBtn.onmouseleave = () => { closeBtn.style.background = 'rgba(255,255,255,0.2)'; };
+    }
 
     // ボディをクリア
     body.innerHTML = '';
@@ -182,23 +228,77 @@ function showItemList(charId) {
 
     // ヘッダー更新（戻るボタン追加）
     header.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <button class="back-btn" style="background: none; border: none; color: #3498db; cursor: pointer; font-size: 1.2em;" title="戻る">←</button>
-            <h3 style="margin: 0;">🎒 ${char.name} のアイテム</h3>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <button class="back-btn" style="
+                background: rgba(255,255,255,0.2);
+                border: none;
+                color: white;
+                width: 40px;
+                height: 40px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 1.4em;
+                transition: background 0.2s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            " title="戻る">←</button>
+            <h3 style="margin: 0; font-size: 1.2em;">🎒 ${char.name} のアイテム</h3>
         </div>
-        <div class="modal-controls">
-            <button class="window-control-btn minimize-btn" title="最小化">_</button>
-            <button class="window-control-btn close-btn" title="閉じる">×</button>
+        <div class="modal-controls" style="display: flex; gap: 12px;">
+            <button class="window-control-btn minimize-btn" style="
+                background: rgba(255,255,255,0.2);
+                border: none;
+                color: white;
+                width: 36px;
+                height: 36px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 1.2em;
+                font-weight: bold;
+                transition: background 0.2s;
+            " title="最小化">−</button>
+            <button class="window-control-btn close-btn" style="
+                background: rgba(255,255,255,0.2);
+                border: none;
+                color: white;
+                width: 36px;
+                height: 36px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 1.3em;
+                font-weight: bold;
+                transition: background 0.2s;
+            " title="閉じる">×</button>
         </div>
     `;
 
-    header.querySelector('.back-btn').onclick = showCharacterList;
-    header.querySelector('.minimize-btn').onclick = () => {
-        document.getElementById('item-modal-backdrop').style.display = 'none';
-    };
-    header.querySelector('.close-btn').onclick = () => {
-        document.getElementById('item-modal-backdrop').remove();
-    };
+    // ホバー効果を追加
+    const backBtn = header.querySelector('.back-btn');
+    const minimizeBtn = header.querySelector('.minimize-btn');
+    const closeBtn = header.querySelector('.close-btn');
+
+    if (backBtn) {
+        backBtn.onmouseenter = () => { backBtn.style.background = 'rgba(255,255,255,0.3)'; };
+        backBtn.onmouseleave = () => { backBtn.style.background = 'rgba(255,255,255,0.2)'; };
+        backBtn.onclick = showCharacterList;
+    }
+
+    if (minimizeBtn) {
+        minimizeBtn.onmouseenter = () => { minimizeBtn.style.background = 'rgba(255,255,255,0.3)'; };
+        minimizeBtn.onmouseleave = () => { minimizeBtn.style.background = 'rgba(255,255,255,0.2)'; };
+        minimizeBtn.onclick = () => {
+            document.getElementById('item-modal-backdrop').style.display = 'none';
+        };
+    }
+
+    if (closeBtn) {
+        closeBtn.onmouseenter = () => { closeBtn.style.background = 'rgba(255,255,255,0.3)'; };
+        closeBtn.onmouseleave = () => { closeBtn.style.background = 'rgba(255,255,255,0.2)'; };
+        closeBtn.onclick = () => {
+            document.getElementById('item-modal-backdrop').remove();
+        };
+    }
 
     // ボディをクリア
     body.innerHTML = '';
