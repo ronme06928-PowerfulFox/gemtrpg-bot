@@ -240,6 +240,82 @@ def delete_room_from_db(room_name):
         print(f"[ERROR] DB Delete Error ({room_name}): {e}")
         return False
 
+def update_all_data():
+    """
+    全てのデータ（スキル、アイテム、輝化スキル、特殊パッシブ）を更新
+
+    Returns:
+        bool: 全ての更新が成功したかどうか
+    """
+    print("\n" + "="*60)
+    print("全データ更新を開始...")
+    print("="*60 + "\n")
+
+    success = True
+
+    # 1. スキルデータ更新
+    print("【1/4】スキルデータを更新中...")
+    try:
+        if fetch_and_save_sheets_data():
+            print("✅ スキルデータの更新に成功しました\n")
+        else:
+            print("❌ スキルデータの更新に失敗しました\n")
+            success = False
+    except Exception as e:
+        print(f"❌ スキルデータ更新エラー: {e}\n")
+        success = False
+
+    # 2. アイテムデータ更新
+    print("【2/4】アイテムデータを更新中...")
+    try:
+        from manager.items.loader import item_loader
+        items = item_loader.refresh()
+        if items:
+            print(f"✅ アイテムデータの更新に成功しました ({len(items)}件)\n")
+        else:
+            print("❌ アイテムデータの更新に失敗しました\n")
+            success = False
+    except Exception as e:
+        print(f"❌ アイテムデータ更新エラー: {e}\n")
+        success = False
+
+    # 3. 輝化スキルデータ更新
+    print("【3/4】輝化スキルデータを更新中...")
+    try:
+        from manager.radiance.loader import radiance_loader
+        radiance_skills = radiance_loader.refresh()
+        if radiance_skills:
+            print(f"✅ 輝化スキルデータの更新に成功しました ({len(radiance_skills)}件)\n")
+        else:
+            print("❌ 輝化スキルデータの更新に失敗しました\n")
+            success = False
+    except Exception as e:
+        print(f"❌ 輝化スキルデータ更新エラー: {e}\n")
+        success = False
+
+    # 4. 特殊パッシブデータ更新
+    print("【4/4】特殊パッシブデータを更新中...")
+    try:
+        from manager.passives.loader import passive_loader
+        passives = passive_loader.refresh()
+        if passives:
+            print(f"✅ 特殊パッシブデータの更新に成功しました ({len(passives)}件)\n")
+        else:
+            print("❌ 特殊パッシブデータの更新に失敗しました\n")
+            success = False
+    except Exception as e:
+        print(f"❌ 特殊パッシブデータ更新エラー: {e}\n")
+        success = False
+
+    print("="*60)
+    if success:
+        print("✅ 全データの更新が完了しました")
+    else:
+        print("⚠️  一部のデータ更新に失敗しました")
+    print("="*60 + "\n")
+
+    return success
+
 if __name__ == '__main__':
     print("--- スキルデータの手動アップデートを開始 ---")
     # DBを扱うため、Flaskアプリコンテキストを作成して実行
@@ -258,7 +334,7 @@ def init_app_data():
         print("[OK] Database tables checked/created.")
 
         # 2. スキルデータの読み込み
-        # global all_skill_data  <-- 不要なので削除（all_skill_data自体を書き換えないため）
+        # global all_skill_data  <- 不要なので削除（all_skill_data自体を書き換えないため）
         print("--- Initializing Data ---")
 
         # ★修正: 直接 all_skill_data に代入せず、戻り値チェックだけ行う
@@ -276,3 +352,27 @@ def init_app_data():
                 print(f"[ERROR] Error during initial fetch: {e}")
         else:
             print(f"[OK] Data loaded from cache: {len(all_skill_data)} skills.")
+
+        # 3. アイテムデータの読み込み
+        try:
+            from manager.items.loader import item_loader
+            item_loader.load_items()
+            print("[OK] Item data initialized.")
+        except Exception as e:
+            print(f"[WARNING] Item data initialization warning: {e}")
+
+        # 4. 輝化スキルデータの読み込み
+        try:
+            from manager.radiance.loader import radiance_loader
+            radiance_loader.load_skills()
+            print("[OK] Radiance skill data initialized.")
+        except Exception as e:
+            print(f"[WARNING] Radiance skill data initialization warning: {e}")
+
+        # 5. 特殊パッシブデータの読み込み
+        try:
+            from manager.passives.loader import passive_loader
+            passive_loader.load_passives()
+            print("[OK] Passive data initialized.")
+        except Exception as e:
+            print(f"[WARNING] Passive data initialization warning: {e}")

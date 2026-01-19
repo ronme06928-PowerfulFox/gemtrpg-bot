@@ -450,6 +450,11 @@ async function checkSessionStatus() {
 window.addEventListener('DOMContentLoaded', () => {
     checkSessionStatus();
 
+    // ★ Phase 5: アイテムデータを読み込み
+    if (typeof loadItemData === 'function') {
+        loadItemData();
+    }
+
     const homeBtn = document.getElementById('home-portal-btn');
     if (homeBtn) {
         homeBtn.addEventListener('click', () => {

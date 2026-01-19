@@ -305,6 +305,7 @@ function initializeActionDock() {
     const addCharIcon = document.getElementById('dock-add-char-icon');
     const stagingIcon = document.getElementById('dock-staging-icon');
     const matchIcon = document.getElementById('dock-match-icon');
+    const itemIcon = document.getElementById('dock-item-icon');
 
 
 
@@ -367,6 +368,19 @@ function initializeActionDock() {
 
     } else {
         console.warn('dock-match-icon not found in DOM');
+    }
+
+    // ★ Phase 5: アイテムアイコン
+    if (itemIcon) {
+        itemIcon.onclick = () => {
+            if (typeof openItemModal === 'function') {
+                openItemModal();
+            } else {
+                console.warn('openItemModal is not defined');
+            }
+        };
+    } else {
+        console.warn('dock-item-icon not found in DOM');
     }
 
     // 初回更新

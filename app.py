@@ -29,6 +29,7 @@ import events.socket_main
 import events.socket_battle
 import events.socket_char
 import events.socket_wide_match  # ★追加
+import events.socket_items  # ★Phase 4: アイテムシステム
 
 import uuid
 # ★追加インポート
@@ -250,6 +251,13 @@ def get_skill_data():
     """フロントエンドにスキルマスターデータを提供するAPI"""
     return jsonify(all_skill_data)
 
+@app.route('/api/get_item_data', methods=['GET'])
+def get_item_data():
+    """フロントエンドにアイテムマスターデータを提供するAPI"""
+    from manager.items.loader import item_loader
+    items = item_loader.load_items()
+    return jsonify(items)
+
 @app.route('/api/get_room_users', methods=['GET'])
 @session_required
 def get_room_users():
@@ -279,13 +287,22 @@ def get_room_users():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--update', action='store_true')
+    parser.add_argument('--update', action='store_true', help='スキル・アイテム・輝化スキル・特殊パッシブの全データを更新')
     args = parser.parse_args()
 
     if args.update:
-        from manager.data_manager import fetch_and_save_sheets_data
-        fetch_and_save_sheets_data()
-        sys.exit()
+        # 全データ更新モード
+        print("\n" + "="*60)
+        print("【データ更新モード】")
+        print("="*60)
+        from manager.data_manager import update_all_data
+        with app.app_context():
+            if update_all_data():
+                print("✅ 全データの更新が完了しました。")
+                sys.exit(0)
+            else:
+                print("❌ 一部のデータ更新に失敗しました。")
+                sys.exit(1)
 
     print("Starting Flask-SocketIO server...")
     socketio.run(app, host='127.0.0.1', port=5000, debug=True, allow_unsafe_werkzeug=True)

@@ -8,9 +8,9 @@
     "usable": true,
     "round_limit": -1,
     "effect": {
-      "type": "HEAL_HP",
-      "value": 15,
-      "target": "single"
+      "type": "heal",
+      "target": "single",
+      "hp": 20
     }
   }
 }
