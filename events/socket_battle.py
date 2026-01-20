@@ -1703,7 +1703,8 @@ def handle_end_round(data):
 
                 if delay > 0:
                     buff["delay"] = delay - 1
-                    active_buffs.append(buff)
+
+                    # 遅延完了判定
                     if buff["delay"] == 0:
                         broadcast_log(room, f"[{buff_name}] の効果が {char['name']} で発動可能になった。", 'state-change')
 
@@ -1733,6 +1734,16 @@ def handle_end_round(data):
 
                                         # 必要に応じて他のタイプもここに追加
 
+                        # ★ 修正: lastingが残っていれば維持、なければ削除（appendしない）
+                        if lasting > 0:
+                            active_buffs.append(buff)
+                        else:
+                            # lasting=0なら、発動とともにバフ自体は消滅する
+                            buffs_to_remove.append(buff_name)
+
+                    else:
+                        # まだ遅延中なら維持
+                        active_buffs.append(buff)
 
                 elif lasting > 0:
                     buff["lasting"] = lasting - 1

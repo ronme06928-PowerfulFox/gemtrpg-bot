@@ -1,107 +1,189 @@
-# バフ・ステータス (Buff & Status) 定義マニュアル
+# バフ・ステータス (Buff & Status) 総合マニュアル
 
-バフ図鑑 (`buff_catalog_cache.json`) で定義されるバフおよびデバフのデータ構造です。
-
-## ファイル構造
-- **ファイル名**: `buff_catalog_cache.json` (キャッシュとして生成)
-- **形式**: JSON Object (Key: Buff ID)
-
-## フィールド定義
-
-| フィールド | 型 | 必須 | 説明 | 備考 |
-| :--- | :--- | :--- | :--- | :--- |
-| `id` | string | ✅ | バフID | 例: "Bu-00" |
-| `name` | string | ✅ | バフ名 | |
-| `description` | string | ✅ | 効果説明文 | UI表示用 |
-| `flavor` | string | | フレーバーテキスト | UI表示用 |
-| `default_duration`| integer | ✅ | デフォルト持続時間 | ラウンド数 |
-| `effect` | object | ✅ | 効果詳細オブジェクト | `stat_mod` または `plugin` タイプ |
+本システムにおけるバフ・デバフ、および状態異常は、**スプレッドシート定義**、**動的定義(Naming Patterns)**、**静的定義(Code)** の3つのレイヤーで管理されています。
 
 ---
 
-## Effect Object の種類
+## 1. データの優先順位
 
-### 1. ステータス補正 (Stat Mod)
-キャラクターのステータス（威力、ダイス、補正値など）を数値的に変動させます。
+バフ名が参照された際、システムは以下の順序で定義を検索します。
+
+1. **静的定義 (Static)**:
+   - Pythonコード(`manager/buff_catalog.py`)に直接記述された複雑なバフ。
+   - 例: `背水の陣` など。
+   - 最も優先度が高い。
+
+2. **スプレッドシート定義 (Spreadsheet)**:
+   - Google Spreadsheet で管理されているバフ図鑑。
+   - 一般的なバフの追加・編集はここで行います。
+   - キャッシュファイル: `buff_catalog_cache.json`
+
+3. **動的定義 (Dynamic Patterns)**:
+   - バフ名が特定のパターン（例: `AttackUp_Atk10`）に一致する場合、自動的に効果を生成します。
+   - 定義ファイルが存在しなくても機能します。
+
+---
+
+## 2. スプレッドシート定義 (Spreadsheet)
+
+基本となるバフ定義方法です。
+
+### 必須カラム構成
+
+| カラム名 | 説明 | 備考 |
+| :--- | :--- | :--- |
+| **バフID** | システム管理用ID | 例: `Bu-001` |
+| **バフ名称** | ゲーム内での表示名 | 一意である必要があります |
+| **JSON定義** | 効果内容を記述するJSON | 後述の構成またはPlugin定義を記述 |
+| **持続ラウンド** | バフの持続時間 | デフォルト: `1` |
+| **バフ説明** | マウスオーバー時の説明文 | |
+| **フレーバーテキスト** | 演出用テキスト | **※動的バフでは設定不可** |
+
+### JSON定義の書き方
+
+`JSON定義` カラムには、以下の形式でJSONオブジェクトを記述します。
+
+#### A. ステータス補正型 (Simple Stat Mod)
+
+最も基本的な形式です。
 
 ```json
-"effect": {
+{
   "type": "stat_mod",
   "stat": "基礎威力",
-  "value": 1
+  "value": 5
 }
 ```
 
-- `type`: `"stat_mod"`
-- `stat`: 補正対象パラメータ
-  - `"基礎威力"`: スキルの固定値部分を加算
-  - `"物理補正"`: 物理攻撃のダイスロールなどに影響
-  - `"魔法補正"`: 魔法攻撃のダイスロールなどに影響
-- `value`: 加算する値 (マイナスなら減少)
+- `type`: `"stat_mod"` (固定)
+- `stat`: 対象パラメータ (`基礎威力`, `物理補正`, `魔法補正`, `ダイス威力`)
+- `value`: 変動値 (マイナスでデバフ)
 
-#### 定義例: 鋭敏 (Bu-00)
-```json
-"Bu-00": {
-  "id": "Bu-00",
-  "name": "鋭敏",
-  "description": "1ラウンドの間スキルの基礎威力を+1する。",
-  "effect": {
-    "type": "stat_mod",
-    "stat": "基礎威力",
-    "value": 1
-  },
-  "default_duration": 1
-}
-```
+#### B. プラグイン型 (Plugin Effect)
 
-### 2. プラグイン効果 (Plugin)
-Pythonコード (`plugins/buffs/`) で実装された特殊なロジックを適用します。
+特殊な挙動をするバフです。実装済みのプラグイン名を指定します。
 
 ```json
-"effect": {
+{
   "type": "plugin",
   "name": "provoke",
   "category": "debuff"
 }
 ```
 
-- `type`: `"plugin"`
-- `name`: プラグイン識別子 (実装コード内のクラス定義と紐づく)
-  - `"provoke"`: 挑発 (ターゲット強制)
-  - `"confusion"`: 混乱 (行動順ランダム・FP操作等)
-  - `"immobilize"`: 行動不能
-  - `"dodge_lock"`: 再回避ロック
-- `category`: `"buff"` (有利) または `"debuff"` (不利)
-- `params`: プラグインが必要とする追加パラメータ (任意)
+**利用可能な主要プラグイン一覧** (`plugins/buffs/`):
 
-#### 定義例: 挑発 (Bu-01)
-```json
-"Bu-01": {
-  "id": "Bu-01",
-  "name": "挑発",
-  "description": "このラウンドで全ての相手の攻撃対象を自分に固定する。",
-  "effect": {
-    "type": "plugin",
-    "name": "provoke",
-    "category": "debuff"
-  },
-  "default_duration": 1
+| プラグイン名 (`name`) | 効果概要 | パラメータ |
+| :--- | :--- | :--- |
+| `provoke` | **挑発**: 敵のターゲットを自身に固定 | なし |
+| `confusion` | **混乱**: 被ダメージ倍加 + 行動阻害 | `damage_multiplier` (float), `restore_mp_on_end` (bool) |
+| `immobilize` | **行動不能**: アクション不可 | なし |
+| `dodge_lock` | **再回避ロック**: 回避のみ可能、攻撃不可 | なし |
+| `timebomb_burst`| **時限破裂**: 終了時に破裂を付与 | なし |
+| `burst_no_consume`| **破裂消費無効**: 破裂消費なしで発動可 | なし |
+
+---
+
+## 3. 動的定義 (Dynamic Patterns)
+
+特定の命名規則に従うバフは、定義ファイルを作成しなくても自動的に効果が発動します。
+**注意**: これらは動的に生成されるため、**説明文やフレーバーテキストを持ちません**（システム的な補正のみ）。
+
+### 命名規則一覧
+
+`[任意の接頭辞]` + `[キーワード]` + `[数値]` の形式で記述します。
+例: `AttackBoost_Atk10` (名称: `AttackBoost_Atk10`, 効果: 攻撃威力+10)
+
+| キーワード | 効果 | 例 | 意味 |
+| :--- | :--- | :--- | :--- |
+| `_Atk` | 攻撃タグを持つスキルの威力UP | `Power_Atk10` | 攻撃威力+10 |
+| `_AtkDown` | 攻撃タグを持つスキルの威力DOWN | `Weak_AtkDown5` | 攻撃威力-5 |
+| `_Def` | 守備タグを持つスキルの威力UP | `Shield_Def10` | 守備威力+10 |
+| `_DefDown` | 守備タグを持つスキルの威力DOWN | `Break_DefDown5` | 守備威力-5 |
+| `_Phys` | 物理補正UP (ダイスロール修正) | `Str_Phys2` | 物理補正+2 |
+| `_PhysDown`| 物理補正DOWN | `Weak_PhysDown2` | 物理補正-2 |
+| `_Mag` | 魔法補正UP | `Int_Mag2` | 魔法補正+2 |
+| `_MagDown` | 魔法補正DOWN | `Dull_MagDown2` | 魔法補正-2 |
+| `_DaIn` | 被ダメージ倍率増加 (%) | `Paper_DaIn20` | 被ダメ1.2倍 (20%増) |
+| `_DaCut` | 被ダメージカット率 (%) | `Hard_DaCut20` | 被ダメ0.8倍 (20%減) |
+| `_Crack` | 亀裂付与量UP (**消費しない**) | `Earth_Crack2` | 亀裂付与+2 |
+| `_CrackOnce`| 亀裂付与量UP (**1回消費**) | `Quake_CrackOnce3`| 次の亀裂付与+3 (使用後消滅) |
+| `_BleedReact`| 被弾時、自身に出血付与 | `Blood_BleedReact2`| 被弾するたび出血+2 |
+
+---
+
+## 4. 特殊なバフ定義 (Advanced)
+
+### 条件付きバフ
+
+`stat_mod` よりも複雑な条件（HP10以下のときのみ等）を設定したい場合、JSON内の `effect` を拡張できますが、現在はスプレッドシート上のJSON定義よりも、`manager/buff_catalog.py` の `STATIC_BUFFS` に直接Pythonコードとして記述することが推奨されます。
+
+```python
+# manager/buff_catalog.py の例
+"背水の陣": {
+    "power_bonus": [{
+        "condition": { "source": "self", "param": "HP", "operator": "LTE", "value": 10 },
+        "operation": "FIXED",
+        "value": 5
+    }]
 }
 ```
 
-#### 定義例: 混乱 (Bu-02)
-```json
-"Bu-02": {
-  "id": "Bu-02",
-  "name": "混乱",
-  "description": "受けるダメージが1.5倍になり、行動できない。",
-  "effect": {
-    "type": "plugin",
-    "name": "confusion",
-    "category": "debuff",
-    "damage_multiplier": 1.5,
-    "restore_mp_on_end": false
-  },
-  "default_duration": 2
-}
-```
+### フレーバーテキストと表示名のカスタマイズ
+
+ スキル等の `APPLY_BUFF` アクションにおいて、定義元のバフ設定を上書きすることができます。
+
+#### A. フレーバーテキストの追加・上書き
+
+ `flavor` キーを指定することで、動的バフや既存バフに演出テキストを追加できます。
+
+ ```json
+ {
+   "type": "APPLY_BUFF",
+   "buff_name": "Power_Atk5",
+   "flavor": "全身に力がみなぎる！"
+ }
+ ```
+
+#### B. 表示名とロジックの分離 (Name Overriding)
+
+ `buff_id` と `buff_name` を同時に指定することで、**「効果は特定のIDのものを使いつつ、表示名だけ変える」** ことが可能です。
+
+ ```json
+ {
+   "type": "APPLY_BUFF",
+   "buff_id": "Bu-07",
+   "buff_name": "時限式魔力爆弾",
+   "delay": 3,
+   "lasting": 0
+ }
+ ```
+
+ この例では、システム上は `Bu-07` (時限破裂爆発) として処理されますが、ログや画面には「時限式魔力爆弾」と表示されます。
+
+### 時限発動バフの設定 (Timebomb Configuration)
+
+ 「3ラウンド後に爆発する」といった時限式のバフ（例: `Bu-07` 時限破裂爆発）を設定する場合、`delay` と `lasting` の使い分けが重要です。
+
+- **`delay`**: 発動までの待機ラウンド数。この値が 0 になった瞬間に効果（ダメージ等）が発動します。
+- **`lasting`**: バフアイコンの表示期間。
+
+ **推奨設定:**
+ 爆発と同時にバフを消滅させたい場合は、**`lasting: 0`** に設定してください。
+
+ ```json
+ // 3ラウンド後に爆発し、直後に消滅する設定
+ {
+   "type": "APPLY_BUFF",
+   "buff_id": "Bu-07",
+   "delay": 3,      // カウントダウン
+   "lasting": 0     // 完了後即消滅
+ }
+ ```
+
+---
+
+## 運用のアドバイス
+
+- **基本**: スプレッドシートで管理し、`stat_mod` で数値を定義するのが最も管理しやすい方法です。
+- **一時的・システム的バフ**: スキル効果などで「攻撃力を一時的に上げたい」場合などは、いちいちスプレッドシートに登録せず `_Atk10` などの動的パターンを利用するのが効率的です。
