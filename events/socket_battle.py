@@ -103,6 +103,26 @@ def format_skill_display_from_command(command_str, skill_id, skill_data):
     # 視認性が高い色（濃いピンク/マゼンタ系）で太字にする
     return f"<span style='color: #d63384; font-weight: bold;'>{text}</span>"
 
+def _process_on_damage_buffs(room, char, damage_val, username, log_snippets):
+    """
+    被弾時トリガーバフの処理
+    例: _BleedReact2 -> ダメージを受けると自分の出血+2
+    """
+    if damage_val <= 0: return
+
+    for b in char.get('special_buffs', []):
+        # apply_buffでdataがマージされているので、b直下にon_damage_stateがあるはず
+        conf = b.get('on_damage_state')
+        if not conf: continue
+
+        s_name = conf.get('stat')
+        s_val = conf.get('value', 0)
+
+        if s_name and s_val > 0:
+            curr = get_status_value(char, s_name)
+            _update_char_stat(room, char, s_name, curr + s_val, username=f"[{b.get('name')}]")
+            log_snippets.append(f"[{b.get('name')}→{s_name}+{s_val}]")
+
 # --- ヘルパー関数: active_match データからマッチを実行 ---
 def execute_match_from_active_state(room, state, username):
     """
@@ -1225,6 +1245,7 @@ def handle_match(data):
                     final_damage = int(final_damage * d_mult)
                     if d_mult != 1.0: damage_message = f"({'/'.join(d_mult_logs)} x{d_mult:.2f}) "
                     _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
+                    _process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
                     winner_message = f"<strong> → {actor_name_a} の一方攻撃！</strong>"
                     damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + (f"+ [追加攻撃 {extra_skill_damage}] " if extra_skill_damage > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
         elif attacker_category == "防御" and defender_category == "防御":
@@ -1325,6 +1346,7 @@ def handle_match(data):
                     if d_mult != 1.0: damage_message = f"({'/'.join(d_mult_logs)} x{d_mult:.2f}) "
 
                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username)
+                    _process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
                     winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (カウンター)"
                     damage_message += f"({actor_a_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
             else:

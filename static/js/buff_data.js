@@ -142,11 +142,45 @@ window.BUFF_DATA = {
                     type: "buff"
                 };
             }
+        },
+        {
+            // パターン: [名前]_DaIn[数値]
+            regex: /^(.*)_DaIn(\d+)$/,
+            generator: function (matches) {
+                return {
+                    name: matches[1],
+                    description: `受けるダメージが ${matches[2]}% 増加する。`,
+                    type: "debuff"
+                };
+            }
+        },
+        {
+            // パターン: [名前]_DaCut[数値]
+            regex: /^(.*)_DaCut(\d+)$/,
+            generator: function (matches) {
+                return {
+                    name: matches[1],
+                    description: `受けるダメージを ${matches[2]}% 軽減する。`,
+                    type: "buff"
+                };
+            }
+        },
+        {
+            // パターン: [名前]_BleedReact[数値]
+            regex: /^(.*)_BleedReact(\d+)$/,
+            generator: function (matches) {
+                return {
+                    name: matches[1],
+                    description: `ダメージを受けた時、自分の出血+${matches[2]}。`,
+                    type: "debuff"
+                };
+            }
         }
     ],
 
     /**
      * バフ名から定義データを検索して返す
+     * @param {string} buffId
      */
     get: function (buffId) {
         // 1. 静的定義チェック

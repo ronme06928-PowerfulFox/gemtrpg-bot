@@ -131,6 +131,8 @@ class BuffCatalogLoader:
         Returns:
             dict: バフデータ辞書
         """
+        from extensions import all_buff_data  # 遅延インポートで循環参照回避
+
         # キャッシュから読み込み
         self.buffs = self.load_from_cache()
 
@@ -140,6 +142,10 @@ class BuffCatalogLoader:
             self.buffs = self.fetch_from_csv()
             if self.buffs:
                 self.save_to_cache(self.buffs)
+
+        # extensions.all_buff_data に反映
+        all_buff_data.clear()
+        all_buff_data.update(self.buffs)
 
         return self.buffs
 

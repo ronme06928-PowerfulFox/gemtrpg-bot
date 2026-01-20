@@ -318,6 +318,10 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                                 if sk not in effect_data["stat_mods"]:
                                     effect_data["stat_mods"][sk] = sv
 
+                # ★追加: flavorテキストの継承
+                if "flavor" in effect:
+                    effect_data["flavor"] = effect["flavor"]
+
                 changes_to_apply.append((target_obj, "APPLY_BUFF", buff_name, {"lasting": int(effect.get("lasting", 1)), "delay": int(effect.get("delay", 0)), "data": effect_data}))
                 log_snippets.append(f"[{buff_name} 付与]")
         elif effect_type == "REMOVE_BUFF":

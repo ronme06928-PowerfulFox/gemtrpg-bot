@@ -145,16 +145,46 @@ DYNAMIC_PATTERNS = [
         "generator": lambda m: {
             "damage_multiplier": max(0.0, 1.0 - (int(m.group(2)) / 100.0))
         }
+    },
+
+    # パターン: [名前]_BleedReact[数値] -> 被弾時出血増加 (Reactive Bleed)
+    # 例: Curse_BleedReact2 -> ダメージを受けると自分の出血+2
+    {
+        "pattern": r"^(.*)_BleedReact(\d+)$",
+        "generator": lambda m: {
+            "on_damage_state": {
+                "stat": "出血",
+                "value": int(m.group(2))
+            }
+        }
     }
 ]
 
 def get_buff_effect(buff_name):
-    """バフ名から効果定義を取得する（静的 -> 動的 の順で検索）"""
+    """バフ名から効果定義を取得する（静的 -> スプレッドシート -> 動的 の順で検索）"""
     # 1. 静的定義にあればそれを返す
     if buff_name in STATIC_BUFFS:
         return STATIC_BUFFS[buff_name]
 
-    # 2. なければパターンマッチを試行
+    # 2. スプレッドシートから読み込んだバフ定義を確認
+    # extensionsからのインポートは関数内で行い循環参照を避ける
+    try:
+        from extensions import all_buff_data
+        for b_data in all_buff_data.values():
+            if b_data.get('name') == buff_name:
+                # 効果データ(effect)のコピーを作成
+                eff = b_data.get('effect', {}).copy()
+                # フレーバーテキストがあれば追加
+                if b_data.get('flavor'):
+                    eff['flavor'] = b_data['flavor']
+                # 説明文もあれば追加
+                if b_data.get('description'):
+                    eff['description'] = b_data['description']
+                return eff
+    except ImportError:
+        pass
+
+    # 3. なければパターンマッチを試行
     for entry in DYNAMIC_PATTERNS:
         match = re.match(entry["pattern"], buff_name)
         if match:
