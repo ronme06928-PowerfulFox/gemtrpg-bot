@@ -146,12 +146,18 @@ def execute_match_from_active_state(room, state, username):
         attacker_skill = all_skill_data[attacker_skill_id]
         skill_category = attacker_skill.get('分類', '')
 
-        # 防御/回避スキルの場合はダメージ0のマッチを実行（手番を終了させるため）
-        if skill_category in ['防御', '回避']:
-            print(f"[MATCH] Defensive skill ({skill_category}) - executing match with 0 damage")
+        # 防御/回避スキル同士の場合はダメージ0のマッチを実行（手番を終了させるため）
+        # ★修正: 攻撃側が防御/回避でも、防御側が攻撃中ならマッチを許可する
+        defender_skill_id = defender_data.get('skill_id')
+        defender_skill_category = ""
+        if defender_skill_id and defender_skill_id in all_skill_data:
+            defender_skill_category = all_skill_data[defender_skill_id].get('分類', '')
+
+        if skill_category in ['防御', '回避'] and defender_skill_category in ['防御', '回避']:
+            print(f"[MATCH] Both sides Defensive/Evasive ({skill_category} vs {defender_skill_category}) - executing match with 0 damage")
             command_a = "---"
             command_d = "---"
-            broadcast_log(room, f"[{attacker_char.get('name')}] が {skill_category}スキルを使用したため、ダメージは発生しません。", 'match')
+            broadcast_log(room, f"[{attacker_char.get('name')}] と [{defender_char.get('name')}] が共に防御/回避スキルを使用したため、ダメージは発生しません。", 'match')
 
     # 実行中フラグを立てる
     state['active_match']['match_executing'] = True
@@ -1248,6 +1254,14 @@ def handle_match(data):
                 if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
                     final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
+
+                # ★ 再回避ロック中の回避失敗処理
+                from plugins.buffs.dodge_lock import DodgeLockBuff
+                if DodgeLockBuff.has_re_evasion(actor_d_char):
+                     remove_buff(actor_d_char, "再回避ロック")
+                     log_snippets.append("[再回避失敗！(ロック解除)]")
+                     print(f"[MATCH] Redodge failed for {actor_d_char['name']}, lock removed.")
+
                 winner_message = f"<strong> → {actor_name_a} の勝利！</strong> (回避失敗)"
                 damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
             else:
@@ -1260,6 +1274,62 @@ def handle_match(data):
                 log_snippets.extend(logs)
                 winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (回避成功)"; damage_message = "(ダメージ 0)"
                 if log_snippets: damage_message += f" ({' '.join(log_snippets)})"
+
+        elif attacker_category == "回避":
+            # ★ 追加: 攻撃側が回避スキルを使用した場合 (vs 攻撃/特殊)
+            if result_a['total'] > result_d['total']:
+                # 回避成功
+                grant_win_fp(actor_a_char)
+                winner_message = f"<strong> → {actor_name_a} の勝利！</strong> (回避成功)"
+                damage_message = "(ダメージなし)"
+
+                # ★追加: 攻撃側にも再回避ロックを適用
+                if actor_a_char:
+                    log_snippets.append("[再回避可能！]")
+                    apply_buff(actor_a_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_a, "buff_id": "Bu-05"})
+
+                # 効果適用 (自分へのバフなどがある場合)
+                _, logs = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
+                if logs: damage_message += f" ({' '.join(logs)})"
+            elif result_d['total'] > result_a['total']:
+                # 回避失敗 (カウンター被弾)
+                grant_win_fp(actor_d_char)
+                damage = result_d['total']
+
+                # 自分(Attacker)がダメージを受ける
+                if actor_a_char:
+                    kiretsu = get_status_value(actor_a_char, '亀裂')
+                    bonus_damage, logs = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
+                    log_snippets.extend(logs)
+                    final_damage = damage + kiretsu + bonus_damage
+
+                    if any(b.get('name') == "混乱" for b in actor_a_char.get('special_buffs', [])):
+                        final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
+
+                    _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username)
+                    winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (カウンター)"
+                    damage_message += f"({actor_a_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
+            else:
+                # 引き分け
+                winner_message = '<strong> → 引き分け！</strong> (ダメージなし)'
+                # 引き分け処理 (簡易版: 既存のelseブロックロジックと同様の処理が必要だが、ここでは基本的なEND_MATCHのみ適用)
+                # 既存の run_end_match を使いたいがスコープ外。再定義するか、同様の処理を書く。
+
+                # END_MATCH効果適用
+                def local_end_match(effs, actor, target, skill):
+                    d, l, c = process_skill_effects(effs, "END_MATCH", actor, target, skill)
+                    for (char, type, name, value) in c:
+                        if type == "APPLY_STATE": _update_char_stat(room, char, name, get_status_value(char, name)+value, username=f"[{name}]")
+                        elif type == "APPLY_BUFF": apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+                        elif type == "REMOVE_BUFF": remove_buff(char, name)
+                    return l
+
+                log_a = local_end_match(effects_array_a, actor_a_char, actor_d_char, skill_data_d)
+                log_d = local_end_match(effects_array_d, actor_d_char, actor_a_char, skill_data_a)
+                log_snippets.extend(log_a + log_d)
+                if log_snippets: winner_message += f" ({' '.join(log_snippets)})"
+                damage_message = "(相殺)"
+
         elif result_a['total'] > result_d['total']:
             grant_win_fp(actor_a_char)
             damage = result_a['total']
@@ -1271,6 +1341,14 @@ def handle_match(data):
                 if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
                     final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
+
+                # ★ 再回避ロック中の回避失敗処理 (一般)
+                from plugins.buffs.dodge_lock import DodgeLockBuff
+                if actor_d_char and DodgeLockBuff.has_re_evasion(actor_d_char):
+                     remove_buff(actor_d_char, "再回避ロック")
+                     log_snippets.append("[再回避失敗！(ロック解除)]")
+                     print(f"[MATCH] Redodge failed for {actor_d_char['name']}, lock removed.")
+
                 winner_message = f"<strong> → {actor_name_a} の勝利！</strong>"
                 damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
         elif result_d['total'] > result_a['total']:
