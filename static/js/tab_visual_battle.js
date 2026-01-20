@@ -1765,15 +1765,23 @@ function updateMatchPanelContent(matchData) {
 
                             // その他の補正（power_breakdownから）
                             if (sideData.power_breakdown) {
-                                const pb = sideData.power_breakdown;
-                                if (pb.additional_power && pb.additional_power !== 0) {
-                                    damageText += `\n(追加威力${pb.additional_power > 0 ? '+' : ''}${pb.additional_power})`;
-                                }
+                                // const pb = sideData.power_breakdown;
+                                // if (pb.additional_power && pb.additional_power !== 0) {
+                                //     damageText += `\n(追加威力${pb.additional_power > 0 ? '+' : ''}${pb.additional_power})`;
+                                // }
                             }
 
                             // ★ 戦慄によるダイス減少を表示
                             if (sideData.senritsu_dice_reduction && sideData.senritsu_dice_reduction > 0) {
                                 damageText += `\n(戦慄: ダイス-${sideData.senritsu_dice_reduction})`;
+                            }
+
+                            // ★ 追加: 補正内訳を表示 (updateDuelUIと同様)
+                            if (sideData.correction_details && sideData.correction_details.length > 0) {
+                                sideData.correction_details.forEach(d => {
+                                    const sign = d.value > 0 ? '+' : '';
+                                    damageText += `\n[${d.source} ${sign}${d.value}]`;
+                                });
                             }
 
                             rangeEl.style.whiteSpace = 'pre-line';
@@ -2301,11 +2309,21 @@ function updateDuelUI(side, data) {
     cmdEl.innerHTML = data.final_command;
     if (data.min_damage !== undefined) {
         let damageText = `Range: ${data.min_damage} ~ ${data.max_damage}`;
+
         // ★ 基礎威力補正を表示
         if (data.skill_details && data.skill_details.base_power_mod) {
             const mod = data.skill_details.base_power_mod;
             damageText += `\n[基礎威力 ${mod > 0 ? '+' : ''}${mod}]`;
         }
+
+        // ★追加: 物理/魔法補正の内訳を表示
+        if (data.correction_details && data.correction_details.length > 0) {
+            data.correction_details.forEach(d => {
+                const sign = d.value > 0 ? '+' : '';
+                damageText += `\n[${d.source} ${sign}${d.value}]`;
+            });
+        }
+
         dmgEl.style.whiteSpace = 'pre-line';
         dmgEl.textContent = damageText;
     } else {
@@ -2387,6 +2405,7 @@ function applyMatchDataSync(side, data) {
             is_immediate: data.is_immediate,
             skill_details: data.skill_details,
             senritsu_penalty: data.senritsu_penalty,
+            correction_details: data.correction_details,
             // ★ 修正: 宣言済みの場合はボタンを無効、そうでなければ権限チェック
             enableButton: data.declared ? false : canControlCharacter(side === 'attacker' ? duelState.attackerId : duelState.defenderId),
             error: false

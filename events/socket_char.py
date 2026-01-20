@@ -76,6 +76,22 @@ def handle_add_character(data):
     # === ▲▲▲ Phase 6ここまで ▲▲▲
 
     # === ▼▼▼ Phase 6 & 9: 初期状態を保存（リセット用） ▼▼▼
+
+    # paramsから初期値を抽出して保存
+    initial_params = {}
+    if 'params' in char_data and isinstance(char_data['params'], list):
+        for p in char_data['params']:
+            label = p.get('label')
+            value = p.get('value')
+            if label and value is not None:
+                # 数値変換を試みる（ダイス威力などは文字列のまま）
+                try:
+                    initial_params[label] = int(value)
+                except ValueError:
+                    initial_params[label] = value
+
+    char_data['initial_data'] = initial_params
+
     char_data['initial_state'] = {
         'inventory': dict(char_data.get('inventory', {})),
         'special_buffs': [dict(b) for b in char_data.get('special_buffs', [])],

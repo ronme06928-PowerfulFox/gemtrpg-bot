@@ -255,16 +255,40 @@
                         var resultDiv = existingCard.querySelector('.wide-defender-result');
                         var cmd = def.final_command || def.command;
                         if (resultDiv && cmd) {
-                            if (def.min !== undefined && def.max !== undefined) {
-                                var rangeText = 'Range: ' + def.min + '~' + def.max;
-                                // ★ 基礎威力補正を表示
-                                if (def.base_power_mod && def.base_power_mod !== 0) {
-                                    rangeText += '\n[基礎威力 ' + (def.base_power_mod > 0 ? '+' : '') + def.base_power_mod + ']';
-                                }
-                                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;white-space:pre-line;">宣言済 ' + rangeText + '</span> (' + cmd + ')';
+                            var rangeText = '';
+                            if (def.damage_range_text) {
+                                rangeText = 'Range: ' + def.damage_range_text;
+                            } else if (def.min !== undefined && def.max !== undefined) {
+                                rangeText = 'Range: ' + def.min + '~' + def.max;
                             } else {
-                                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + cmd + ')';
+                                rangeText = 'Command: ' + cmd;
                             }
+
+                            var detailText = '';
+                            // correction_details
+                            var corrections = def.correction_details || (def.data && def.data.correction_details);
+                            var bd = def.power_breakdown || (def.data && def.data.power_breakdown);
+                            var hasCorrections = corrections && corrections.length > 0;
+
+                            if (!hasCorrections && bd) {
+                                var mod = bd.base_power_mod;
+                                if (mod && mod !== 0) {
+                                    detailText += '\n[基礎威力 ' + (mod > 0 ? '+' : '') + mod + ']';
+                                }
+                            }
+
+                            if (def.senritsu_dice_reduction && def.senritsu_dice_reduction > 0) {
+                                detailText += '\n(戦慄: ダイス-' + def.senritsu_dice_reduction + ')';
+                            }
+
+                            if (hasCorrections) {
+                                corrections.forEach(function (d) {
+                                    var sign = d.value > 0 ? '+' : '';
+                                    detailText += '\n[' + d.source + ' ' + sign + d.value + ']';
+                                });
+                            }
+
+                            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;white-space:pre-line;">宣言済 ' + rangeText + ' (' + cmd + ')' + detailText + '</span>';
                         }
                     }
 
@@ -304,16 +328,40 @@
                     var resultDiv = existingCard.querySelector('.wide-defender-result');
                     var cmd = def.final_command || def.command;
                     if (resultDiv && cmd) {
-                        if (def.min !== undefined && def.max !== undefined) {
-                            var rangeText = 'Range: ' + def.min + '~' + def.max;
-                            // ★ 基礎威力補正を表示
-                            if (def.base_power_mod && def.base_power_mod !== 0) {
-                                rangeText += '\n[基礎威力 ' + (def.base_power_mod > 0 ? '+' : '') + def.base_power_mod + ']';
-                            }
-                            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;white-space:pre-line;">宣言済 ' + rangeText + '</span> (' + cmd + ')';
+                        var rangeText = '';
+                        if (def.damage_range_text) {
+                            rangeText = 'Range: ' + def.damage_range_text;
+                        } else if (def.min !== undefined && def.max !== undefined) {
+                            rangeText = 'Range: ' + def.min + '~' + def.max;
                         } else {
-                            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + cmd + ')';
+                            rangeText = 'Command: ' + cmd;
                         }
+
+                        var detailText = '';
+                        // correction_details
+                        var corrections = def.correction_details || (def.data && def.data.correction_details);
+                        var bd = def.power_breakdown || (def.data && def.data.power_breakdown);
+                        var hasCorrections = corrections && corrections.length > 0;
+
+                        if (!hasCorrections && bd) {
+                            var mod = bd.base_power_mod;
+                            if (mod && mod !== 0) {
+                                detailText += '\n[基礎威力 ' + (mod > 0 ? '+' : '') + mod + ']';
+                            }
+                        }
+
+                        if (def.senritsu_dice_reduction && def.senritsu_dice_reduction > 0) {
+                            detailText += '\n(戦慄: ダイス-' + def.senritsu_dice_reduction + ')';
+                        }
+
+                        if (hasCorrections) {
+                            corrections.forEach(function (d) {
+                                var sign = d.value > 0 ? '+' : '';
+                                detailText += '\n[' + d.source + ' ' + sign + d.value + ']';
+                            });
+                        }
+
+                        resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;white-space:pre-line;">宣言済 ' + rangeText + ' (' + cmd + ')' + detailText + '</span>';
                     }
                 }
 
@@ -506,11 +554,38 @@
 
                         // 表示を更新
                         if (resultDiv) {
-                            let displayText = '<span style="color:#007bff;font-weight:bold;">Range: ' + result.min + '~' + result.max + '</span> (' + result.command + ')';
+                            var rangeText = '';
+                            if (result.damage_range_text) {
+                                rangeText = 'Range: ' + result.damage_range_text;
+                            } else {
+                                rangeText = 'Range: ' + result.min + '~' + result.max;
+                            }
 
-                            // ★ 基礎威力補正を表示
-                            if (result.base_power_mod && result.base_power_mod !== 0) {
-                                displayText += '<br><span style="color:#666;font-size:0.9em;">[基礎威力 ' + (result.base_power_mod > 0 ? '+' : '') + result.base_power_mod + ']</span>';
+                            var displayText = '<span style="color:#007bff;font-weight:bold;">' + rangeText + ' (' + result.command + ')</span>';
+
+                            // ★ 詳細な補正内訳を表示 (Declarer display logicと統一)
+
+                            // 1. 基礎威力補正
+                            // correction_detailsがあればそちらを使用
+                            if (!result.correction_details || result.correction_details.length === 0) {
+                                var pb = result.power_breakdown;
+                                var baseMod = pb ? pb.base_power_mod : (result.base_power_mod || 0);
+                                if (baseMod && baseMod !== 0) {
+                                    displayText += '<br><span style="color:#666;font-size:0.9em;">[基礎威力 ' + (baseMod > 0 ? '+' : '') + baseMod + ']</span>';
+                                }
+                            }
+
+                            // 2. 戦慄
+                            if (result.senritsu_dice_reduction && result.senritsu_dice_reduction > 0) {
+                                displayText += '<br><span style="color:#666;font-size:0.9em;">(戦慄: ダイス-' + result.senritsu_dice_reduction + ')</span>';
+                            }
+
+                            // 3. その他補正 (物理/魔法/威力/追加威力)
+                            if (result.correction_details && result.correction_details.length > 0) {
+                                result.correction_details.forEach(function (d) {
+                                    var sign = d.value > 0 ? '+' : '';
+                                    displayText += '<br><span style="color:#666;font-size:0.9em;">[' + d.source + ' ' + sign + d.value + ']</span>';
+                                });
                             }
 
                             resultDiv.innerHTML = displayText;
@@ -610,19 +685,49 @@
         if (defData.declared && defData.command) {
             // Declared via server (another user or self)
             var cmd = defData.final_command || defData.command;
-            if (defData.min !== undefined && defData.max !== undefined) {
-                var rangeText = 'Range: ' + defData.min + '~' + defData.max;
 
-                // ★ 基礎威力補正を表示
-                if (defData.base_power_mod && defData.base_power_mod !== 0) {
-                    var mod = defData.base_power_mod;
-                    rangeText += '\n[基礎威力 ' + (mod > 0 ? '+' : '') + mod + ']';
-                }
-
-                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;white-space:pre-line;">宣言済 ' + rangeText + '</span> (' + cmd + ')';
+            var rangeText = '';
+            if (defData.damage_range_text) {
+                rangeText = 'Range: ' + defData.damage_range_text;
+            } else if (defData.min !== undefined && defData.max !== undefined) {
+                rangeText = 'Range: ' + defData.min + '~' + defData.max;
             } else {
-                resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;">宣言済</span> (' + cmd + ')';
+                rangeText = 'Command: ' + cmd;
             }
+
+            var detailText = '';
+
+            // ★ 補正内訳を表示 (power_breakdown)
+            // correction_detailsがある場合はそちらに基礎威力も含まれるため、重複しないように調整
+            // 基本的に correction_details を優先する
+
+            var bd = defData.power_breakdown || (defData.data && defData.data.power_breakdown);
+            // correction_details がない、もしくは空の場合のみレガシー表示
+            var corrections = defData.correction_details || (defData.data && defData.data.correction_details);
+            var hasCorrections = corrections && corrections.length > 0;
+
+            if (!hasCorrections && bd) {
+                var mod = bd.base_power_mod;
+                if (mod && mod !== 0) {
+                    detailText += '\n[基礎威力 ' + (mod > 0 ? '+' : '') + mod + ']';
+                }
+            }
+
+            // ★ 戦慄によるダイス減少を表示
+            if (defData.senritsu_dice_reduction && defData.senritsu_dice_reduction > 0) {
+                detailText += '\n(戦慄: ダイス-' + defData.senritsu_dice_reduction + ')';
+            }
+
+            // ★ 物理/魔法/威力補正の内訳を表示
+            var corrections = defData.correction_details || (defData.data && defData.data.correction_details);
+            if (corrections && corrections.length > 0) {
+                corrections.forEach(function (d) {
+                    var sign = d.value > 0 ? '+' : '';
+                    detailText += '\n[' + d.source + ' ' + sign + d.value + ']';
+                });
+            }
+
+            resultDiv.innerHTML = '<span style="color:#28a745;font-weight:bold;white-space:pre-line;">宣言済 ' + rangeText + detailText + '</span> (' + cmd + ')';
         } else if (window.wideMatchLocalState &&
             window.wideMatchLocalState.defenders &&
             window.wideMatchLocalState.defenders[defData.id]) {
@@ -848,15 +953,37 @@
             // Restore attacker result from server data with range if available
             if (attackerResultDiv && matchData.attacker_data.command) {
                 var displayText = '宣言済';
-                if (matchData.attacker_data.min !== undefined && matchData.attacker_data.max !== undefined) {
+                if (matchData.attacker_data.damage_range_text) {
+                    displayText += ' Range: ' + matchData.attacker_data.damage_range_text;
+                } else if (matchData.attacker_data.min !== undefined && matchData.attacker_data.max !== undefined) {
                     displayText += ' Range: ' + matchData.attacker_data.min + '~' + matchData.attacker_data.max;
                 }
-                // ★ 戦慄によるダイス減少を表示
+
                 var detailText = '';
+
+                // ★ 補正内訳を表示 (power_breakdown)
+                var pb = matchData.attacker_data.power_breakdown;
+                if (pb) {
+                    if (pb.base_power_mod && pb.base_power_mod !== 0) {
+                        detailText += '\n[基礎威力 ' + (pb.base_power_mod > 0 ? '+' : '') + pb.base_power_mod + ']';
+                    }
+                }
+
+                // ★ 戦慄によるダイス減少を表示
                 if (matchData.attacker_data.senritsu_dice_reduction && matchData.attacker_data.senritsu_dice_reduction > 0) {
                     detailText += '\n(戦慄: ダイス-' + matchData.attacker_data.senritsu_dice_reduction + ')';
                 }
-                attackerResultDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;white-space:pre-line;">' + displayText + detailText + '</span> (' + matchData.attacker_data.command + ')';
+
+                // ★ 物理/魔法/威力補正の内訳を表示
+                if (matchData.attacker_data.correction_details && matchData.attacker_data.correction_details.length > 0) {
+                    matchData.attacker_data.correction_details.forEach(function (d) {
+                        var sign = d.value > 0 ? '+' : '';
+                        detailText += '\n[' + d.source + ' ' + sign + d.value + ']';
+                    });
+                }
+
+                // ★ Commandを1行目の末尾に移動
+                attackerResultDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;white-space:pre-line;">' + displayText + ' (' + matchData.attacker_data.command + ')' + detailText + '</span>';
             }
         }
 
@@ -902,11 +1029,38 @@
                         wideMatchLocalState.attackerCommand = result.command;
 
                         if (resultDiv) {
-                            let displayText = '<span style="color:#dc3545;font-weight:bold;">Range: ' + result.min + '~' + result.max + '</span> (' + result.command + ')';
+                            var rangeText = '';
+                            if (result.damage_range_text) {
+                                rangeText = 'Range: ' + result.damage_range_text;
+                            } else {
+                                rangeText = 'Range: ' + result.min + '~' + result.max;
+                            }
 
-                            // ★ 基礎威力補正を表示
-                            if (result.base_power_mod && result.base_power_mod !== 0) {
-                                displayText += '<br><span style="color:#666;font-size:0.9em;">[基礎威力 ' + (result.base_power_mod > 0 ? '+' : '') + result.base_power_mod + ']</span>';
+                            var displayText = '<span style="color:#dc3545;font-weight:bold;">' + rangeText + ' (' + result.command + ')</span>';
+
+                            // ★ 詳細な補正内訳を表示 (Declarer display logicと統一)
+
+                            // 1. 基礎威力補正
+                            // correction_detailsがあればそちらを使用
+                            if (!result.correction_details || result.correction_details.length === 0) {
+                                var pb = result.power_breakdown;
+                                var baseMod = pb ? pb.base_power_mod : (result.base_power_mod || 0);
+                                if (baseMod && baseMod !== 0) {
+                                    displayText += '<br><span style="color:#666;font-size:0.9em;">[基礎威力 ' + (baseMod > 0 ? '+' : '') + baseMod + ']</span>';
+                                }
+                            }
+
+                            // 2. 戦慄
+                            if (result.senritsu_dice_reduction && result.senritsu_dice_reduction > 0) {
+                                displayText += '<br><span style="color:#666;font-size:0.9em;">(戦慄: ダイス-' + result.senritsu_dice_reduction + ')</span>';
+                            }
+
+                            // 3. その他補正 (物理/魔法/威力/追加威力)
+                            if (result.correction_details && result.correction_details.length > 0) {
+                                result.correction_details.forEach(function (d) {
+                                    var sign = d.value > 0 ? '+' : '';
+                                    displayText += '<br><span style="color:#666;font-size:0.9em;">[' + d.source + ' ' + sign + d.value + ']</span>';
+                                });
                             }
 
                             resultDiv.innerHTML = displayText;

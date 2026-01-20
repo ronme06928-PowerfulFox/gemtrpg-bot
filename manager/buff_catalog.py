@@ -43,6 +43,64 @@ DYNAMIC_PATTERNS = [
             }]
         }
     },
+    # パターン: [名前]_AtkDown[数値] -> 攻撃威力ダウン
+    {
+        "pattern": r"^(.*)_AtkDown(\d+)$",
+        "generator": lambda m: {
+            "power_bonus": [{
+                "condition": { "source": "skill", "param": "tags", "operator": "CONTAINS", "value": "攻撃" },
+                "operation": "FIXED",
+                "value": -int(m.group(2))
+            }]
+        }
+    },
+    # パターン: [名前]_DefDown[数値] -> 守備威力ダウン
+    {
+        "pattern": r"^(.*)_DefDown(\d+)$",
+        "generator": lambda m: {
+            "power_bonus": [{
+                "condition": { "source": "skill", "param": "tags", "operator": "CONTAINS", "value": "守備" },
+                "operation": "FIXED",
+                "value": -int(m.group(2))
+            }]
+        }
+    },
+    # パターン: [名前]_Phys[数値] -> 物理補正アップ
+    {
+        "pattern": r"^(.*)_Phys(\d+)$",
+        "generator": lambda m: {
+            "stat_mods": {
+                "物理補正": int(m.group(2))
+            }
+        }
+    },
+    # パターン: [名前]_PhysDown[数値] -> 物理補正ダウン
+    {
+        "pattern": r"^(.*)_PhysDown(\d+)$",
+        "generator": lambda m: {
+            "stat_mods": {
+                "物理補正": -int(m.group(2))
+            }
+        }
+    },
+    # パターン: [名前]_Mag[数値] -> 魔力補正アップ
+    {
+        "pattern": r"^(.*)_Mag(\d+)$",
+        "generator": lambda m: {
+            "stat_mods": {
+                "魔法補正": int(m.group(2))
+            }
+        }
+    },
+    # パターン: [名前]_MagDown[数値] -> 魔力補正ダウン
+    {
+        "pattern": r"^(.*)_MagDown(\d+)$",
+        "generator": lambda m: {
+            "stat_mods": {
+                "魔法補正": -int(m.group(2))
+            }
+        }
+    },
     # 1. 【ラウンド持続型】 [名前]_Crack[数値] -> 亀裂付与量アップ (減らない)
     {
         "pattern": r"^(.*)_Crack(\d+)$",

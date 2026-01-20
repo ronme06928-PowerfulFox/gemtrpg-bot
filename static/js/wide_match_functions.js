@@ -110,20 +110,35 @@ function renderWideMatchPanelFromState(matchData) {
                         previewEl.querySelector('.preview-command').textContent = matchData.attacker_data.final_command;
 
                         // ★ Phase 3: 補正内訳を改行形式で表示
-                        let damageText = `Range: ${matchData.attacker_data.min_damage} ~ ${matchData.attacker_data.max_damage}`;
+                        // Format: Range: X~Y (Command)
+                        // [Corrections...]
+                        let damageText = "";
+                        if (matchData.attacker_data.damage_range_text) {
+                            damageText = `Range: ${matchData.attacker_data.damage_range_text}`;
+                        } else {
+                            damageText = `Range: ${matchData.attacker_data.min_damage} ~ ${matchData.attacker_data.max_damage}`;
+                        }
+
+                        damageText += ` (${matchData.attacker_data.final_command})`;
+
                         const pb = matchData.attacker_data.power_breakdown;
                         if (pb) {
                             if (pb.base_power_mod && pb.base_power_mod !== 0) {
-                                damageText += `\n(基礎威力${pb.base_power_mod > 0 ? '+' : ''}${pb.base_power_mod})`;
-                            }
-                            if (pb.additional_power && pb.additional_power !== 0) {
-                                damageText += `\n(追加威力${pb.additional_power > 0 ? '+' : ''}${pb.additional_power})`;
+                                damageText += `\n[基礎威力 ${pb.base_power_mod > 0 ? '+' : ''}${pb.base_power_mod}]`;
                             }
                         }
-                        // ★ 戦慄によるダイス減少を表示
                         if (matchData.attacker_data.senritsu_dice_reduction && matchData.attacker_data.senritsu_dice_reduction > 0) {
                             damageText += `\n(戦慄: ダイス-${matchData.attacker_data.senritsu_dice_reduction})`;
                         }
+
+                        // ★追加: 物理/魔法/威力補正の内訳を表示
+                        if (matchData.attacker_data.correction_details && matchData.attacker_data.correction_details.length > 0) {
+                            matchData.attacker_data.correction_details.forEach(d => {
+                                const sign = d.value > 0 ? '+' : '';
+                                damageText += `\n[${d.source} ${sign}${d.value}]`;
+                            });
+                        }
+
                         const dmgEl = previewEl.querySelector('.preview-damage');
                         if (dmgEl) {
                             dmgEl.style.whiteSpace = 'pre-line';
@@ -224,20 +239,40 @@ function renderWideDefendersList(matchData) {
                 previewEl.querySelector('.preview-command').textContent = defData.data.final_command;
 
                 // ★ Phase 3: 補正内訳を改行形式で表示
-                let damageText = `Range: ${defData.data.min_damage} ~ ${defData.data.max_damage}`;
+                // Format: Range: X~Y (Command)
+                let damageText = "";
+                if (defData.data.damage_range_text) {
+                    damageText = `Range: ${defData.data.damage_range_text}`;
+                } else {
+                    damageText = `Range: ${defData.data.min_damage} ~ ${defData.data.max_damage}`;
+                }
+
+                damageText += ` (${defData.data.final_command})`;
+
+                // correction_detailsがあればそちらを使用
+                const corrections = defData.data.correction_details;
                 const pb = defData.data.power_breakdown;
-                if (pb) {
-                    if (pb.base_power_mod && pb.base_power_mod !== 0) {
-                        damageText += `\n(基礎威力${pb.base_power_mod > 0 ? '+' : ''}${pb.base_power_mod})`;
-                    }
-                    if (pb.additional_power && pb.additional_power !== 0) {
-                        damageText += `\n(追加威力${pb.additional_power > 0 ? '+' : ''}${pb.additional_power})`;
+
+                if (!corrections || corrections.length === 0) {
+                    if (pb) {
+                        if (pb.base_power_mod && pb.base_power_mod !== 0) {
+                            damageText += `\n[基礎威力 ${pb.base_power_mod > 0 ? '+' : ''}${pb.base_power_mod}]`;
+                        }
                     }
                 }
-                // ★ 戦慄によるダイス減少を表示
+
                 if (defData.data.senritsu_dice_reduction && defData.data.senritsu_dice_reduction > 0) {
                     damageText += `\n(戦慄: ダイス-${defData.data.senritsu_dice_reduction})`;
                 }
+
+                // ★追加: 物理/魔法/威力補正の内訳を表示
+                if (corrections && corrections.length > 0) {
+                    corrections.forEach(d => {
+                        const sign = d.value > 0 ? '+' : '';
+                        damageText += `\n[${d.source} ${sign}${d.value}]`;
+                    });
+                }
+
                 const dmgEl = previewEl.querySelector('.preview-damage');
                 if (dmgEl) {
                     dmgEl.style.whiteSpace = 'pre-line';

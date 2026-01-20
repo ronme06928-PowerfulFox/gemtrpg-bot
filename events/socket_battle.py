@@ -172,7 +172,10 @@ def execute_match_from_active_state(room, state, username):
         'actorNameA': attacker_char.get('name', 'Unknown'),
         'actorNameD': defender_char.get('name', 'Unknown'),
         'senritsuPenaltyA': senritsu_a,
-        'senritsuPenaltyD': senritsu_d
+        'senritsuPenaltyD': senritsu_d,
+        # ★ 追加: スキルIDを明示的に渡す (コマンド文字からのパースに依存しないため)
+        'skillIdA': attacker_data.get('skill_id'),
+        'skillIdD': defender_data.get('skill_id')
     }
 
     # handle_matchを直接実行
@@ -199,7 +202,8 @@ def handle_skill_declaration(data):
     - preview/commitフラグにより挙動を制御
     """
     room = data.get('room')
-    if not room: return
+    if not room:
+        return
 
     # ★追加: コミット（確定）フラグ。デフォルトはFalse（プレビュー）
     is_commit = data.get('commit', False)
@@ -522,7 +526,8 @@ def handle_skill_declaration(data):
                     'final_command': "--- (効果発動完了) ---",
                     'min_damage': 0, 'max_damage': 0,
                     'is_immediate': True,
-                    'skill_details': skill_details_payload
+                    'skill_details': skill_details_payload,
+                    'correction_details': [] # 即時発動は通常補正なしだが念のため空リスト
                 }
                 socketio.emit('match_data_updated', {
                     'side': side,
@@ -565,121 +570,62 @@ def handle_skill_declaration(data):
         return
 
     # 威力計算等は複製データで行う（変更なし）
-    power_bonus = 0
+    # ★修正: 共通計算ロジックを使用
+    from manager.game_logic import calculate_skill_preview
+
+    # ルールデータの取得 (calculate_skill_preview に渡す準備)
+    power_bonus_rules = []
     if isinstance(rule_data, dict):
         if 'power_bonus' in rule_data:
-            power_bonus_data = rule_data.get('power_bonus')
+            power_bonus_rules = rule_data.get('power_bonus')
         else:
-            power_bonus_data = rule_data
-        power_bonus = calculate_power_bonus(actor_char, target_char, power_bonus_data)
+            # 辞書自体がルールリストを含んでない場合、または構造が違う場合のフォールバック
+            # 既存ロジック： power_bonus_data = rule_data
+            power_bonus_rules = [] # ここは要確認だが、一旦安全側に倒す
+    else:
+        power_bonus_rules = rule_data # リストと想定
 
-    base_command = skill_data.get('チャットパレット', '')
-    actor_params = actor_char.get('params', [])
-    resolved_command = resolve_placeholders(base_command, actor_params)
-    if custom_skill_name:
-        resolved_command = re.sub(r'【.*?】', f'【{skill_id} {custom_skill_name}】', resolved_command)
+    # プレビュー計算実行
+    preview_result = calculate_skill_preview(
+        actor_char, target_char, skill_data,
+        rule_data={'power_bonus': power_bonus_rules}, # 辞書形式で渡すのが安全
+        custom_skill_name=custom_skill_name,
+        senritsu_max_apply=senritsu_max_apply
+    )
 
-    buff_bonus = calculate_buff_power_bonus(actor_char, target_char, skill_data)
-    power_bonus += buff_bonus
+    if preview_result.get('error'):
+        socketio.emit('skill_declaration_result', {
+            "prefix": data.get('prefix'),
+            "final_command": preview_result.get('final_command'),
+            "min_damage": 0, "max_damage": 0, "error": True
+        }, to=request.sid)
+        return
 
-    total_modifier = power_bonus  # 戦慄はダイス面減少として適用済み
-
-    # (既存のダメージ計算ロジック)
-    base_power = 0
-    try:
-        base_power = int(skill_data.get('基礎威力', 0))
-    except ValueError: base_power = 0
-
-    # ★追加: バフからの基礎威力補正を取得
-    from manager.utils import get_buff_stat_mod
-    base_power_buff_mod = get_buff_stat_mod(actor_char, '基礎威力')
-    base_power += base_power_buff_mod
-
-
-    dice_roll_str = skill_data.get('ダイス威力', "")
-    dice_min = 0; dice_max = 0
-    original_num_faces = 0  # 元のダイス面数（戦慄減少表示用）
-    dice_match = re.search(r'([+-]?)(\d+)d(\d+)', dice_roll_str)
-    if dice_match:
-        try:
-            sign = dice_match.group(1)
-            is_negative_dice = (sign == '-')
-            num_dice = int(dice_match.group(2))
-            original_num_faces = int(dice_match.group(3))
-            num_faces = original_num_faces
-
-            # 戦慄によるダイス面減少を適用（1d1未満にはならない）
-            if senritsu_max_apply > 0 and num_faces > 1:
-                max_reduction = num_faces - 1  # 1d1が最小
-                senritsu_dice_reduction = min(senritsu_max_apply, max_reduction)
-                num_faces = num_faces - senritsu_dice_reduction
-
-            if is_negative_dice:
-                # マイナスダイス: 最大出目が最小威力、最小出目が最大威力
-                dice_min = -(num_dice * num_faces)
-                dice_max = -num_dice
-            else:
-                dice_min = num_dice
-                dice_max = num_dice * num_faces
-        except Exception: pass
-
-    phys_correction = get_status_value(actor_char, '物理補正')
-    mag_correction = get_status_value(actor_char, '魔法補正')
-    correction_min = 0; correction_max = 0
-    if '{物理補正}' in base_command:
-        correction_max = phys_correction
-        if phys_correction >= 1: correction_min = 1
-    elif '{魔法補正}' in base_command:
-        correction_max = mag_correction
-        if mag_correction >= 1: correction_min = 1
-
-    min_damage = base_power + dice_min + correction_min + total_modifier
-    max_damage = base_power + dice_max + correction_max + total_modifier
-
-    # ★ コマンド文字列の構築
-    final_command = resolved_command
-
-    # ★ 基礎威力補正をコマンド文字列に反映
-    if base_power_buff_mod != 0:
-        # 基礎威力の数値を置換（例: "5+1d6" → "6+1d6"）
-        try:
-            original_base = int(skill_data.get('基礎威力', 0))
-            if original_base > 0 and f"{original_base}+" in final_command:
-                final_command = final_command.replace(f"{original_base}+", f"{base_power}+", 1)
-            elif base_power > 0 and original_base == 0:
-                # 元が0の場合は先頭に追加
-                final_command = f"{base_power}+" + final_command
-        except Exception as e:
-            print(f"[WARNING] 基礎威力補正の反映に失敗: {e}")
-
-    # ★ 戦慄によるダイス減少をコマンド文字列にも反映
-    if senritsu_dice_reduction > 0 and original_num_faces > 0:
-        reduced_faces = original_num_faces - senritsu_dice_reduction
-        # 最初のダイス（基礎威力直後）を減少後の値に置換
-        def replace_first_dice(m):
-            return f"{m.group(1)}{m.group(2)}d{reduced_faces}"
-        final_command = re.sub(r'([+-]?)(\d+)d' + str(original_num_faces), replace_first_dice, final_command, count=1)
-
-    if total_modifier > 0:
-        if ' 【' in final_command: final_command = final_command.replace(' 【', f"+{total_modifier} 【")
-        else: final_command += f"+{total_modifier}"
-    elif total_modifier < 0:
-        if ' 【' in final_command: final_command = final_command.replace(' 【', f"{total_modifier} 【")
-        else: final_command += f"{total_modifier}"
+    # 結果の展開
+    final_command = preview_result['final_command']
+    min_damage = preview_result['min_damage']
+    max_damage = preview_result['max_damage']
+    damage_range_text = f"Range: {min_damage} ~ {max_damage}"
+    correction_details = preview_result['correction_details']
 
     is_one_sided_attack = False
     has_re_evasion = False
     if target_char and 'special_buffs' in target_char:
-        # プラグイン経由で再回避ロックチェック
         from plugins.buffs.dodge_lock import DodgeLockBuff
         has_re_evasion = DodgeLockBuff.has_re_evasion(target_char)
 
     if (target_char.get('hasActed', False) and not has_re_evasion) or force_unopposed:
         is_one_sided_attack = True
 
-    # --- 結果送信 (通常スキルなので即時発動フラグはFalse) ---
-    # ★ 基礎威力補正をスキル詳細に追加
-    skill_details_payload['base_power_mod'] = base_power_buff_mod
+    # スキル詳細に追加情報
+    skill_details_payload['base_power_mod'] = preview_result['skill_details'].get('base_power_mod', 0)
+
+    # 互換性のためにダイス面数を簡易取得
+    original_num_faces = 0
+    dice_str = skill_data.get('ダイス威力', '')
+    dice_m = re.search(r'([+-]?)(\d+)d(\d+)', dice_str)
+    if dice_m: original_num_faces = int(dice_m.group(3))
+    senritsu_dice_reduction = preview_result.get('senritsu_dice_reduction', 0)
 
     result_payload = {
         "prefix": data.get('prefix'),
@@ -687,13 +633,16 @@ def handle_skill_declaration(data):
         "is_one_sided_attack": is_one_sided_attack,
         "min_damage": min_damage,
         "max_damage": max_damage,
-        "is_instant_action": False,
-        "is_immediate_skill": False,
+        "damage_range_text": damage_range_text,
+        "correction_details": correction_details,
+        "senritsu_penalty": senritsu_dice_reduction,
+        "senritsu_dice_reduction": senritsu_dice_reduction,
+        "original_dice_faces": original_num_faces,
+        "reduced_dice_faces": max(0, original_num_faces - senritsu_dice_reduction),
         "skill_details": skill_details_payload,
-        "senritsu_penalty": senritsu_dice_reduction,  # ★ 互換性維持: 戦慄によるダイス減少量
-        "senritsu_dice_reduction": senritsu_dice_reduction,  # ★ 新規: ダイス減少量
-        "original_dice_faces": original_num_faces,  # ★ 新規: 元のダイス面数
-        "reduced_dice_faces": original_num_faces - senritsu_dice_reduction if original_num_faces > 0 else 0  # ★ 減少後
+        "power_breakdown": preview_result.get('power_breakdown', {}),
+        "is_instant_action": False,
+        "is_immediate_skill": False
     }
     socketio.emit('skill_declaration_result', result_payload, to=request.sid)
 
@@ -713,13 +662,14 @@ def handle_skill_declaration(data):
             print(f"[MATCH] Generated match ID: {state['active_match']['match_id']}")
 
         # 補正内訳データを共通で生成
-        power_breakdown_data = {
-            'base_power': base_power,
-            'base_power_mod': 0,
-            'dice_power_mod': 0,
-            'stat_correction_mod': 0,
-            'additional_power': power_bonus
-        }
+        # 補正内訳データを共通で生成
+        power_breakdown_data = preview_result.get('power_breakdown', {})
+        if not power_breakdown_data:
+             power_breakdown_data = {
+                'base_power': int(skill_data.get('基礎威力', 0)),
+                'base_power_mod': 0,
+                'additional_power': 0
+             }
 
         if match_type == 'wide':
             # ★ 広域マッチ用の処理
@@ -733,7 +683,8 @@ def handle_skill_declaration(data):
                     'is_immediate': False,
                     'skill_details': skill_details_payload,
                     'senritsu_penalty': senritsu_dice_reduction,
-                    'power_breakdown': power_breakdown_data
+                    'power_breakdown': power_breakdown_data,
+                    'correction_details': preview_result.get('correction_details', [])
                 }
 
                 # ★ 重要: 攻撃者が宣言/変更した場合、全防御者の補正を再計算して更新する
@@ -860,7 +811,8 @@ def handle_skill_declaration(data):
                 'is_immediate': False,
                 'skill_details': skill_details_payload,
                 'senritsu_penalty': senritsu_dice_reduction,
-                'power_breakdown': power_breakdown_data
+                'power_breakdown': power_breakdown_data,
+                'correction_details': preview_result.get('correction_details', [])
             }
 
         # ★ 以下はデュエルマッチ専用の処理（広域マッチはスキップ）
@@ -1062,13 +1014,19 @@ def handle_match(data):
         curr = get_status_value(actor_d_char, '戦慄')
         _update_char_stat(room, actor_d_char, '戦慄', max(0, curr - senritsu_penalty_d), username=f"[{actor_name_d}:戦慄消費(ダイス-{senritsu_penalty_d})]")
 
-    skill_id_a = None; skill_data_a = None; effects_array_a = []
-    skill_id_d = None; skill_data_d = None; effects_array_d = []
+    # ★修正: 変数初期化（UnboundLocalError防止）
+    skill_data_a = None; effects_array_a = []
+    skill_data_d = None; effects_array_d = []
+
+    skill_id_a = data.get('skillIdA') # 明示的なIDがあれば優先
+    skill_id_d = data.get('skillIdD')
+
     match_a = re.search(r'【(.*?)\s', command_a)
     match_d = re.search(r'【(.*?)\s', command_d)
 
-    if match_a and actor_a_char:
-        skill_id_a = match_a.group(1)
+    if (match_a or skill_id_a) and actor_a_char:
+        if not skill_id_a and match_a:
+            skill_id_a = match_a.group(1)
         skill_data_a = all_skill_data.get(skill_id_a)
         if skill_data_a:
             # ★ 相手スキルデータを渡して条件評価を可能にする
@@ -1088,11 +1046,13 @@ def handle_match(data):
         if 'used_skills_this_round' not in actor_a_char: actor_a_char['used_skills_this_round'] = []
         actor_a_char['used_skills_this_round'].append(skill_id_a)
 
-    if match_d and actor_d_char:
-        skill_id_d = match_d.group(1)
+    if (match_d or skill_id_d) and actor_d_char:
+        if not skill_id_d and match_d:
+            skill_id_d = match_d.group(1)
         skill_data_d = all_skill_data.get(skill_id_d)
         if skill_data_d:
             # ★ 相手スキルデータを渡して条件評価を可能にする
+            # 修正: apply_pre_match_effects の第2引数 (target) は actor_a_char
             apply_pre_match_effects(actor_d_char, actor_a_char, skill_data_d, skill_data_a)
             rule_json_str_d = skill_data_d.get('特記処理')
             if rule_json_str_d:

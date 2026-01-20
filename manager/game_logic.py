@@ -1,6 +1,8 @@
 # manager/game_logic.py
 import sys
-from manager.utils import get_status_value, set_status_value, apply_buff, remove_buff
+import json
+import re # Added for regex
+from manager.utils import get_status_value, set_status_value, apply_buff, remove_buff, get_buff_stat_mod, get_buff_stat_mod_details, resolve_placeholders
 from manager.buff_catalog import get_buff_effect
 
 # プラグインシステム (pluginsフォルダはルートにあるのでそのままでOK)
@@ -358,3 +360,228 @@ def calculate_power_bonus(actor, target, power_bonus_data):
         rule = power_bonus_data.get("power_bonus", power_bonus_data)
         total = _get_bonus(rule, actor, target)
     return total
+
+def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None, custom_skill_name=None, senritsu_max_apply=0, external_base_power_mod=0):
+    """
+    スキルの威力、コマンド、補正情報のプレビューデータを計算する。
+    Duel/Wide Matchの両方で共通して使用する。
+            "correction_details": list,
+            "senritsu_dice_reduction": int,
+            "skill_details": dict,
+            "power_breakdown": dict
+        }
+    """
+    # 1. 基礎情報の取得
+    base_power = int(skill_data.get('基礎威力', 0))
+
+    # バフからの基礎威力補正
+    base_power_buff_mod = get_buff_stat_mod(actor_char, '基礎威力')
+    base_power += base_power_buff_mod
+
+    # 外部からの基礎威力補正 (Wide MatchのAttackerからのデバフなど)
+    base_power += external_base_power_mod
+
+    skill_details = {
+        'base_power': int(skill_data.get('基礎威力', 0)),
+        'base_power_buff_mod': base_power_buff_mod,
+        'external_mod': external_base_power_mod
+    }
+
+    # 2. 威力ボーナスの計算 (ルールおよびバフ)
+    bonus_power = 0
+
+    # ルールデータの自動パース (引数で渡されていない場合)
+    if not rule_data and skill_data:
+        try:
+            rule_json_str = skill_data.get('特記処理', '{}')
+            rule_data = json.loads(rule_json_str) if rule_json_str else {}
+        except Exception:
+            rule_data = {}
+
+    # ルールベース (スキル特有の条件)
+    if rule_data:
+        rules = rule_data.get('power_bonus', [])
+        bonus_from_rules = _calculate_bonus_from_rules(rules, actor_char, target_char, actor_skill_data=skill_data)
+        bonus_power += bonus_from_rules
+
+    # バフベース (攻撃威力バフなど)
+    buff_bonus = calculate_buff_power_bonus(actor_char, target_char, skill_data)
+    bonus_power += buff_bonus
+
+    skill_details['additional_power'] = bonus_power
+
+    # 3. ダイス部分の解析
+    palette = skill_data.get('チャットパレット', '')
+    cmd_part = re.sub(r'【.*?】', '', palette).strip()
+    if '+' in cmd_part:
+        dice_part = cmd_part.split('+', 1)[1]
+    else:
+        dice_part = skill_data.get('ダイス威力', '2d6')
+
+    # 変数ダイスの解決
+    resolved_dice = resolve_placeholders(dice_part, actor_char)
+
+    # 4. 補正値のカテゴリ別集計 (Aggregated Correction Details)
+    correction_details = []
+
+    # (1) 基礎威力 (Base Power)
+    total_base_mod = base_power_buff_mod + external_base_power_mod
+    if total_base_mod != 0:
+        correction_details.append({'source': '基礎威力', 'value': total_base_mod})
+
+    # (2) 物理補正 (Physical Correction)
+    phys_mod = get_status_value(actor_char, '物理補正')
+    if '{物理補正}' in dice_part and phys_mod != 0:
+        # 元の値 (initial_data) を取得して変動分(delta)のみを表示する
+        base_phys = 0
+        if 'initial_data' in actor_char and '物理補正' in actor_char['initial_data']:
+             # initial_data は str だったり int だったりする可能性があるので安全にキャスト
+             try:
+                 base_phys = int(actor_char['initial_data']['物理補正'])
+             except:
+                 base_phys = 0
+
+        delta_phys = phys_mod - base_phys
+        if delta_phys != 0:
+            correction_details.append({'source': '物理補正', 'value': delta_phys})
+
+    # (3) 魔法補正 (Magical Correction)
+    mag_mod = get_status_value(actor_char, '魔法補正')
+    if '{魔法補正}' in dice_part and mag_mod != 0:
+        # 元の値 (initial_data) を取得して変動分(delta)のみを表示する
+        base_mag = 0
+        if 'initial_data' in actor_char and '魔法補正' in actor_char['initial_data']:
+             try:
+                 base_mag = int(actor_char['initial_data']['魔法補正'])
+             except:
+                 base_mag = 0
+
+        delta_mag = mag_mod - base_mag
+        if delta_mag != 0:
+            correction_details.append({'source': '魔法補正', 'value': delta_mag})
+
+    # (4) ダイス威力 (Dice Power)
+    dice_pow_mod = get_status_value(actor_char, 'ダイス威力')
+    if '{ダイス威力}' in dice_part and dice_pow_mod != 0:
+        # 元の値 (initial_data) を取得して変動分(delta)のみを表示する
+        base_dice_pow = 0
+        if 'initial_data' in actor_char and 'ダイス威力' in actor_char['initial_data']:
+             try:
+                 base_dice_pow = int(actor_char['initial_data']['ダイス威力'])
+             except:
+                 base_dice_pow = 0
+
+        delta_dice_pow = dice_pow_mod - base_dice_pow
+        if delta_dice_pow != 0:
+            correction_details.append({'source': 'ダイス威力', 'value': delta_dice_pow})
+
+    # (5) 威力補正 (Power Correction)
+    total_special_bonus = bonus_power
+    if total_special_bonus != 0:
+        correction_details.append({'source': '威力補正', 'value': total_special_bonus})
+
+
+    # 4. 戦慄(Senritsu)の適用
+    senritsu_dice_reduction = 0
+    processed_dice = resolved_dice
+
+    if senritsu_max_apply > 0:
+        current_senritsu = get_status_value(actor_char, '戦慄')
+        apply_val = min(current_senritsu, senritsu_max_apply) if current_senritsu > 0 else 0
+
+        dice_m = re.search(r'([+-]?)(\d+)d(\d+)', skill_data.get('ダイス威力', ''))
+        if dice_m and apply_val > 0:
+            orig_faces = int(dice_m.group(3))
+            if orig_faces > 1:
+                max_red = orig_faces - 1
+                senritsu_dice_reduction = min(apply_val, max_red)
+
+                # ダイス面数を減少させる置換関数
+                def reduce_dice_faces(m):
+                    sign = m.group(1) or ''
+                    num = m.group(2)
+                    faces = int(m.group(3))
+                    new_faces = max(1, faces - senritsu_dice_reduction)
+                    return f"{sign}{num}d{new_faces}"
+
+                processed_dice = re.sub(r'([+-]?)(\d+)d(\d+)', reduce_dice_faces, processed_dice, count=1)
+                skill_details['senritsu_dice_reduction'] = senritsu_dice_reduction
+
+    # 5. 最終コマンド構築
+    # ボーナスはここに追加すべきか、resolved_diceの一部として計算済みか？
+    # 従来の logic: base + dice + bonus
+    # resolved_dice は "2d6+5" (補正込み) のようになっている
+
+    # ボーナス値をコマンド末尾に追加
+    final_dice_part = processed_dice
+    if bonus_power != 0:
+        final_dice_part += f"{'+' if bonus_power > 0 else ''}{bonus_power}"
+
+    final_command = f"{base_power}+{final_dice_part}"
+
+    # 6. ダメージレンジの計算
+    matches = re.findall(r'(\d+)d(\d+)', final_dice_part)
+    dice_min = 0
+    dice_max = 0
+    for num_str, sides_str in matches:
+        num = int(num_str)
+        sides = int(sides_str)
+        dice_min += num
+        dice_max += num * sides
+
+    # 定数部分の加算 (re.findall で dを含まない数値を探すのは複雑なので、簡易的にevalするか、パースする)
+    # ここでは簡易シミュレーション: コマンド文字列から期待値を計算するのはevalが必要だがセキュリティリスク。
+    # 代わりに、base_power + bonus_power + 変数解決後の固定値 を合計する。
+
+    # 変数解決後の文字列から、"d"を含まない単独の数値を抽出して加算
+    # 例: "2d6+5-2" -> 5, -2
+    # 注意: 正規表現で厳密にやるのは難しい。
+    # 安全な算術評価関数を使うのがベストだが、ここでは get_status_value で取得した補正値などを足し合わせる。
+
+    # 簡易計算:
+    # default range = base_power + bonus_power + dice_min/max + (物理/魔法補正)
+    # 物理/魔法補正は dice_part に既に埋め込まれている ("+{物理補正}" -> "+2")
+
+    # 正規表現で "+2" や "-1" などの定数項を探す
+    constant_total = 0
+    # 行頭または演算子の後の数値をマッチ
+    # 例: 2d6+5 -> +5 matches. 2d6-1 -> -1 matches.
+    # ただし 2d6 の 2 や 6 は除外。
+
+    # 既存ロジック(socket_battle.py)では以下のようにしていた:
+    # min_damage = base_power + dice_min + correction_min + total_modifier
+    # ここでは final_dice_part ("2d6+2+3") を解析する。
+
+    # トークン分割
+    tokens = re.split(r'([+-])', final_dice_part)
+    current_sign = 1
+    for token in tokens:
+        token = token.strip()
+        if not token: continue
+        if token == '+': current_sign = 1
+        elif token == '-': current_sign = -1
+        elif 'd' in token: pass # ダイスは別途計算済み
+        else:
+            try:
+                val = int(token)
+                constant_total += val * current_sign
+            except: pass
+
+    total_min = base_power + dice_min + constant_total
+    total_max = base_power + dice_max + constant_total
+
+    return {
+        "final_command": final_command,
+        "min_damage": total_min,
+        "max_damage": total_max,
+        "damage_range_text": f"{total_min} ~ {total_max}",
+        "correction_details": correction_details,
+        "senritsu_dice_reduction": senritsu_dice_reduction,
+        "skill_details": skill_details,
+        "power_breakdown": {
+            "base_power": int(skill_data.get('基礎威力', 0)),
+            "base_power_mod": base_power_buff_mod + external_base_power_mod,
+            "additional_power": bonus_power,
+            "senritsu_dice_reduction": senritsu_dice_reduction
+        }
+    }

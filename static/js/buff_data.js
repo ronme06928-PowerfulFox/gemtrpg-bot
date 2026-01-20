@@ -36,18 +36,29 @@ window.BUFF_DATA = {
         {
             // パターン: [名前]_Atk[数値]
             regex: /^(.*)_Atk(\d+)$/,
-            generator: function(matches) {
+            generator: function (matches) {
                 return {
-                    name: matches[1], // プレフィックス部分を表示名にする
+                    name: matches[1],
                     description: `このラウンド中、攻撃威力+${matches[2]}。`,
                     type: "buff"
                 };
             }
         },
         {
+            // パターン: [名前]_AtkDown[数値]
+            regex: /^(.*)_AtkDown(\d+)$/,
+            generator: function (matches) {
+                return {
+                    name: matches[1],
+                    description: `このラウンド中、攻撃威力-${matches[2]}。`,
+                    type: "debuff"
+                };
+            }
+        },
+        {
             // パターン: [名前]_Def[数値]
             regex: /^(.*)_Def(\d+)$/,
-            generator: function(matches) {
+            generator: function (matches) {
                 return {
                     name: matches[1],
                     description: `このラウンド中、守備威力+${matches[2]}。`,
@@ -56,9 +67,64 @@ window.BUFF_DATA = {
             }
         },
         {
+            // パターン: [名前]_DefDown[数値]
+            regex: /^(.*)_DefDown(\d+)$/,
+            generator: function (matches) {
+                return {
+                    name: matches[1],
+                    description: `このラウンド中、守備威力-${matches[2]}。`,
+                    type: "debuff"
+                };
+            }
+        },
+        {
+            // パターン: [名前]_Phys[数値]
+            regex: /^(.*)_Phys(\d+)$/,
+            generator: function (matches) {
+                return {
+                    name: matches[1],
+                    description: `このラウンド中、物理補正+${matches[2]}。`,
+                    type: "buff"
+                };
+            }
+        },
+        {
+            // パターン: [名前]_PhysDown[数値]
+            regex: /^(.*)_PhysDown(\d+)$/,
+            generator: function (matches) {
+                return {
+                    name: matches[1],
+                    description: `このラウンド中、物理補正-${matches[2]}。`,
+                    type: "debuff"
+                };
+            }
+        },
+        {
+            // パターン: [名前]_Mag[数値]
+            regex: /^(.*)_Mag(\d+)$/,
+            generator: function (matches) {
+                return {
+                    name: matches[1],
+                    description: `このラウンド中、魔法補正+${matches[2]}。`,
+                    type: "buff"
+                };
+            }
+        },
+        {
+            // パターン: [名前]_MagDown[数値]
+            regex: /^(.*)_MagDown(\d+)$/,
+            generator: function (matches) {
+                return {
+                    name: matches[1],
+                    description: `このラウンド中、魔法補正-${matches[2]}。`,
+                    type: "debuff"
+                };
+            }
+        },
+        {
             // パターン: [名前]_Crack[数値] (持続型)
             regex: /^(.*)_Crack(\d+)$/,
-            generator: function(matches) {
+            generator: function (matches) {
                 return {
                     name: matches[1],
                     description: `このラウンド中、自分が付与する亀裂の値+${matches[2]}。`,
@@ -69,7 +135,7 @@ window.BUFF_DATA = {
         {
             // パターン: [名前]_CrackOnce[数値] (消費型)
             regex: /^(.*)_CrackOnce(\d+)$/,
-            generator: function(matches) {
+            generator: function (matches) {
                 return {
                     name: matches[1],
                     description: `次に亀裂を付与する際、その値+${matches[2]}。適用後に消滅する。`,
@@ -82,7 +148,7 @@ window.BUFF_DATA = {
     /**
      * バフ名から定義データを検索して返す
      */
-    get: function(buffId) {
+    get: function (buffId) {
         // 1. 静的定義チェック
         if (this.STATIC_DATA[buffId]) return this.STATIC_DATA[buffId];
 

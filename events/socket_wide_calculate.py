@@ -68,51 +68,48 @@ def handle_calculate_wide_skill(data):
         }, to=request.sid)
         return
 
-    # 基礎威力の取得
-    base_power = int(skill_data.get('基礎威力', 0))
+    # ★ ターゲットの特定
+    # Wide Matchでは、ターゲットは相手陣営。
+    # - 攻撃者の場合: 防御者リストの先頭（または全員？Preview計算では代表として先頭を使うか、Noneで汎用計算するか）
+    # - 防御者の場合: 攻撃者
 
-    # バフからの基礎威力補正
-    base_power_buff_mod = get_buff_stat_mod(char, '基礎威力')
-    base_power += base_power_buff_mod
+    target_char = None
+    active_match = state.get('active_match', {})
 
-    # チャットパレットからダイス部分を取得
-    palette = skill_data.get('チャットパレット', '')
-    cmd_part = re.sub(r'【.*?】', '', palette).strip()
+    if active_match.get('is_active') and active_match.get('match_type') == 'wide':
+        attacker_id = active_match.get('attacker_id')
 
-    if '+' in cmd_part:
-        dice_part = cmd_part.split('+', 1)[1]
-    else:
-        dice_part = skill_data.get('ダイス威力', '2d6')
+        if char_id == attacker_id:
+            # 計算主体は攻撃者 -> ターゲットは防御者の誰か (とりあえず一人目)
+            defender_ids = active_match.get('defender_ids', [])
+            if defender_ids:
+                target_char = next((c for c in state['characters'] if c.get('id') == defender_ids[0]), None)
+        else:
+            # 計算主体は防御者 -> ターゲットは攻撃者
+            target_char = next((c for c in state['characters'] if c.get('id') == attacker_id), None)
 
-    # 変数ダイスの解決
-    phys = get_status_value(char, '物理補正')
-    mag = get_status_value(char, '魔法補正')
-    processed_dice = dice_part.replace('{物理補正}', str(phys)).replace('{魔法補正}', str(mag))
+    # ★ 統一計算ロジックを使用
+    from manager.game_logic import calculate_skill_preview
 
-    # コマンド文字列
-    final_command = f"{base_power}+{processed_dice}"
-
-    # ダイスから min/max を計算
-    matches = re.findall(r'(\d+)d(\d+)', processed_dice)
-    dice_min = 0
-    dice_max = 0
-
-    for num_str, sides_str in matches:
-        num = int(num_str)
-        sides = int(sides_str)
-        dice_min += num
-        dice_max += num * sides
-
-    # 最終的な min/max
-    final_min = base_power + dice_min
-    final_max = base_power + dice_max
+    preview_data = calculate_skill_preview(
+        actor_char=char,
+        target_char=target_char, # ターゲットを渡すことで対抗補正（亀裂など）が計算される
+        skill_data=skill_data,
+        rule_data=None, # 必要なら特記データを渡す
+        custom_skill_name=None,
+        senritsu_max_apply=0 # 戦慄の適用強度はここでは0またはデフォルト
+    )
 
     # 結果を返す
     socketio.emit('wide_skill_calculated', {
         'char_id': char_id,
         'skill_id': skill_id,
-        'command': final_command,
-        'min': final_min,
-        'max': final_max,
-        'base_power_mod': base_power_buff_mod
+        'command': preview_data['final_command'],
+        'min': preview_data['min_damage'],
+        'max': preview_data['max_damage'],
+        'damage_range_text': preview_data.get('damage_range_text'), # ★ New
+        'base_power_mod': preview_data['power_breakdown']['base_power_mod'],
+        'correction_details': preview_data['correction_details'], # ★ New
+        'senritsu_dice_reduction': preview_data.get('senritsu_dice_reduction', 0), # ★ New
+        'power_breakdown': preview_data['power_breakdown'] # ★ New
     }, to=request.sid)

@@ -268,132 +268,56 @@ def handle_wide_declare_skill(data):
             defender['skill_id'] = skill_id
             defender['command'] = command
 
-            # ★ サーバー側で基礎威力補正を含めて再計算
-            # クライアント側の計算にはバフ補正が含まれていない可能性があるため
+            # ★ サーバー側で統一ロジックを用いて再計算
+            # これにより、亀裂などの対抗補正や詳細な内訳を正確に保存する
 
-            # 基礎威力の取得
-            def_base = int(skill_data.get('基礎威力', 0))
+            # ターゲット（攻撃者）の特定
+            attacker_id = active_match.get('attacker_id')
+            attacker_char = next((c for c in state['characters'] if c.get('id') == attacker_id), None)
 
-            # ★ バフからの基礎威力補正を取得
-            from manager.utils import get_buff_stat_mod
-            base_power_buff_mod = get_buff_stat_mod(def_char, '基礎威力')
-            def_base += base_power_buff_mod
+            # calculate_skill_preview のインポート
+            from manager.game_logic import calculate_skill_preview
 
-            # チャットパレットからダイス部分を取得
-            palette = skill_data.get('チャットパレット', '')
-            cmd_part = re.sub(r'【.*?】', '', palette).strip()
-            if '+' in cmd_part:
-                dice_part = cmd_part.split('+', 1)[1]
-            else:
-                dice_part = skill_data.get('ダイス威力', '2d6')
+            # プレビュー計算
+            # 攻撃者からの外部補正(base_power_mod)を考慮する必要がある
+            # Attacker Declaration時に保存されたdefender['power_breakdown']['base_power_mod']を使う
+            external_mod = 0
+            if 'power_breakdown' in defender and defender['power_breakdown']:
+                external_mod = defender['power_breakdown'].get('base_power_mod', 0)
 
-            # 変数ダイスの解決
-            phys = get_status_value(def_char, '物理補正')
-            mag = get_status_value(def_char, '魔法補正')
-            processed_dice = dice_part.replace('{物理補正}', str(phys)).replace('{魔法補正}', str(mag))
+            preview = calculate_skill_preview(
+                def_char, attacker_char, skill_data,
+                external_base_power_mod=external_mod,
+                senritsu_max_apply=3
+            )
 
-            # ダイスから min/max を計算
-            matches = re.findall(r'(\d+)d(\d+)', processed_dice)
-            dice_min = 0; dice_max = 0
-            for num_str, sides_str in matches:
-                num = int(num_str); sides = int(sides_str)
-                dice_min += num  # 最小値：ダイスの個数
-                dice_max += num * sides  # ★ 最大値：個数×面数
-
-            # 最終的な min/max（基礎威力補正込み）
-            defender['min'] = def_base + dice_min
-            defender['max'] = def_base + dice_max
+            # 結果の保存
+            defender['final_command'] = preview['final_command']
+            defender['min'] = preview['min_damage']
+            defender['max'] = preview['max_damage']
             defender['declared'] = True
             defender['declared_by'] = username
 
-            # ★ 基礎威力補正を保存（クライアント側で表示するため）
-            defender['base_power_mod'] = base_power_buff_mod  # ★ 直下に保存
-            if 'skill_details' not in defender:
-                defender['skill_details'] = {}
-            defender['skill_details']['base_power_mod'] = base_power_buff_mod  # ★ こちらにも保存
+            # 詳細データの保存 (wide_match_synced.jsでの表示に使用)
+            defender['damage_range_text'] = preview['damage_range_text']
+            defender['correction_details'] = preview['correction_details']
+            defender['senritsu_dice_reduction'] = preview['senritsu_dice_reduction']
+            defender['power_breakdown'] = preview['power_breakdown']
 
+            # dataフィールドにも念のため保存（フロントエンドの参照先が混在している可能性があるため）
+            defender['data'] = {
+                'skill_id': skill_id,
+                'final_command': preview['final_command'],
+                'min_damage': preview['min_damage'],
+                'max_damage': preview['max_damage'],
+                'damage_range_text': preview['damage_range_text'],
+                'correction_details': preview['correction_details'],
+                'senritsu_dice_reduction': preview['senritsu_dice_reduction'],
+                'skill_details': preview['skill_details'],
+                'power_breakdown': preview['power_breakdown']
+            }
 
-            # ★ Calculate Modifiers from Attacker (if Attacker already declared)
-            attacker_id = active_match.get('attacker_id')
-            attacker_data = active_match.get('attacker_data', {})
-            attacker_skill_id = attacker_data.get('skill_id')
-            attacker_char = next((c for c in state['characters'] if c.get('id') == attacker_id), None)
-
-            if attacker_skill_id and attacker_char:
-                attacker_skill_data = all_skill_data.get(attacker_skill_id)
-                # 攻撃者スキルから防御者への補正を計算
-                if attacker_skill_data:
-                    mods = calculate_opponent_skill_modifiers(
-                         attacker_char, def_char, attacker_skill_data, skill_data, all_skill_data
-                    )
-                    base_mod = mods.get('base_power_mod', 0)
-
-                    if 'power_breakdown' not in defender: defender['power_breakdown'] = {}
-                    defender['power_breakdown']['base_power_mod'] = base_mod
-                    defender['power_breakdown']['base_power'] = int(skill_data.get('基礎威力', 0))
-
-                    # Update Final Command for Display
-                    def_base = int(skill_data.get('基礎威力', 0))
-
-                    # ★追加: バフからの基礎威力補正を取得
-                    from manager.utils import get_buff_stat_mod
-                    base_power_buff_mod = get_buff_stat_mod(def_char, '基礎威力')
-                    def_base += base_power_buff_mod
-
-
-                    new_base = def_base + base_mod
-                    # Get full dice from chat palette (more reliable than ダイス威力)
-                    palette = skill_data.get('チャットパレット', '')
-                    cmd_part = re.sub(r'【.*?】', '', palette).strip()
-                    if '+' in cmd_part:
-                        dice_part = cmd_part.split('+', 1)[1]  # Everything after base power
-                    else:
-                        dice_part = skill_data.get('ダイス威力', '2d6')
-
-                    # 変数ダイスの解決
-                    phys = get_status_value(def_char, '物理補正')
-                    mag = get_status_value(def_char, '魔法補正')
-                    processed_dice = dice_part.replace('{物理補正}', str(phys)).replace('{魔法補正}', str(mag))
-
-                    # ★ 戦慄によるダイス面減少を適用
-                    current_senritsu = get_status_value(def_char, '戦慄')
-                    senritsu_max_apply = min(current_senritsu, 3) if current_senritsu > 0 else 0
-                    senritsu_dice_reduction = 0
-
-                    dice_str = skill_data.get('ダイス威力', '')
-                    dice_m = re.search(r'([+-]?)(\\d+)d(\\d+)', dice_str)
-                    if dice_m and senritsu_max_apply > 0:
-                        orig_faces = int(dice_m.group(3))
-                        if orig_faces > 1:
-                            max_red = orig_faces - 1
-                            senritsu_dice_reduction = min(senritsu_max_apply, max_red)
-
-                    # ダイス減少をprocessed_diceに適用
-                    if senritsu_dice_reduction > 0:
-                        def reduce_dice_faces(m):
-                            sign = m.group(1) or ''
-                            num = m.group(2)
-                            faces = int(m.group(3))
-                            new_faces = max(1, faces - senritsu_dice_reduction)
-                            return f"{sign}{num}d{new_faces}"
-                        processed_dice = re.sub(r'([+-]?)(\\d+)d(\\d+)', reduce_dice_faces, processed_dice, count=1)
-                        # 戦慄消費
-                        _update_char_stat(room, def_char, '戦慄', max(0, current_senritsu - senritsu_dice_reduction), username=f"[{defender['name']}:戦慄消費(ダイス-{senritsu_dice_reduction})]")
-                        defender['senritsu_dice_reduction'] = senritsu_dice_reduction
-
-                    defender['final_command'] = f"{new_base}+{processed_dice}"
-
-                    matches = re.findall(r'(\\d+)d(\\d+)', processed_dice)
-                    dice_min = 0; dice_max = 0
-                    for num_str, sides_str in matches:
-                         num = int(num_str); sides = int(sides_str)
-                         dice_min += num
-                         dice_max += num * sides
-
-                    defender['min'] = new_base + dice_min
-                    defender['max'] = new_base + dice_max
-
-            print(f"[WIDE_MATCH] Defender {defender['name']} declared skill {skill_id} (Mod:{defender.get('power_breakdown',{}).get('base_power_mod',0)})")
+            print(f"[WIDE_MATCH] Defender {defender['name']} declared skill {skill_id} with full preview data")
             break
 
     save_specific_room_state(room)
@@ -438,11 +362,32 @@ def handle_wide_attacker_declare(data):
          broadcast_log(room, f"⚠️ コスト不足により攻撃者の宣言を拒否: {msg}", 'error')
          return
 
+    # ★ Attacker Preview Calculation
+    # ターゲットは便宜上、最初のディフェンダーか自分自身とする（計算上ターゲット必須のため）
+    target_char = active_match.get('defenders', [None])[0]
+    if target_char:
+        target_char = next((c for c in state['characters'] if c.get('id') == target_char.get('id')), None)
+    if not target_char: target_char = attacker_char # Fallback
+
+    from manager.game_logic import calculate_skill_preview
+    att_preview = calculate_skill_preview(
+        attacker_char, target_char, skill_data,
+        senritsu_max_apply=3
+    )
+
     active_match['attacker_data'] = {
         'skill_id': skill_id,
         'command': command,
-        'min': data.get('min'),
-        'max': data.get('max')
+        'final_command': att_preview['final_command'],
+        'min_damage': att_preview['min_damage'],
+        'max_damage': att_preview['max_damage'],
+        # 'min': data.get('min'), # クライアント計算値は使わずサーバー計算値を使う
+        # 'max': data.get('max'),
+        'damage_range_text': att_preview['damage_range_text'],
+        'correction_details': att_preview['correction_details'],
+        'senritsu_dice_reduction': att_preview['senritsu_dice_reduction'],
+        'skill_details': att_preview['skill_details'],
+        'power_breakdown': att_preview['power_breakdown']
     }
     active_match['attacker_declared'] = True
 
@@ -471,44 +416,41 @@ def handle_wide_attacker_declare(data):
             )
             base_mod = mods.get('base_power_mod', 0)
 
-            # Update power_breakdown at root level
+            # Update power_breakdown at root level (for backward compat or easy access)
             if 'power_breakdown' not in defender: defender['power_breakdown'] = {}
             defender['power_breakdown']['base_power_mod'] = base_mod
+            # defender['power_breakdown']['base_power'] = int(skill_data.get('基礎威力', 0)) # skill_data is attacker's! Fixed below
 
-            # calculate command preview if possible
-            def_base = int(d_skill_data.get('基礎威力', 0))
+            # プレビュー計算 (共通関数)
+            preview = calculate_skill_preview(
+                d_char, attacker_char, d_skill_data,
+                external_base_power_mod=base_mod,
+                senritsu_max_apply=3
+            )
 
-            # ★追加: バフからの基礎威力補正を取得
-            from manager.utils import get_buff_stat_mod
-            base_power_buff_mod = get_buff_stat_mod(d_char, '基礎威力')
-            def_base += base_power_buff_mod
+            # 結果の更新
+            defender['final_command'] = preview['final_command']
+            defender['min'] = preview['min_damage']
+            defender['max'] = preview['max_damage']
 
-
-            new_base = def_base + base_mod
-            # Get full dice from chat palette (more reliable than ダイス威力)
-            palette = d_skill_data.get('チャットパレット', '')
-            cmd_part = re.sub(r'【.*?】', '', palette).strip()
-            if '+' in cmd_part:
-                dice_part = cmd_part.split('+', 1)[1]  # Everything after base power
-            else:
-                dice_part = d_skill_data.get('ダイス威力', '2d6')
-
-            # 変数ダイスの解決
-            phys = get_status_value(d_char, '物理補正')
-            mag = get_status_value(d_char, '魔法補正')
-            processed_dice = dice_part.replace('{物理補正}', str(phys)).replace('{魔法補正}', str(mag))
-
-            defender['final_command'] = f"{new_base}+{processed_dice}"
-
-            matches = re.findall(r'(\d+)d(\d+)', processed_dice)
-            dice_min = 0; dice_max = 0
-            for num_str, sides_str in matches:
-                    num = int(num_str); sides = int(sides_str)
-                    dice_min += num
-                    dice_max += num * sides
-
-            defender['min'] = new_base + dice_min
-            defender['max'] = new_base + dice_max
+            # 詳細データの保存
+            defender['data'] = {
+                'skill_id': d_skill_id,
+                'final_command': preview['final_command'],
+                'min_damage': preview['min_damage'],
+                'max_damage': preview['max_damage'],
+                'damage_range_text': preview['damage_range_text'],
+                'correction_details': preview['correction_details'],
+                'senritsu_dice_reduction': preview['senritsu_dice_reduction'],
+                'skill_details': preview['skill_details'],
+                'power_breakdown': preview['power_breakdown']
+            }
+            # base_mod の再設定 (calculate_skill_preview 内部で加算されているが、内訳として補強)
+            if base_mod != 0:
+                 # preview['power_breakdown'] には自分のバフ等は入っているが、相手からの補正(external)は入っていないかもしれない？
+                 # calculate_skill_preview の返り値の power_breakdown は、base_power_buff_mod と additional_power のみ。
+                 # 外部補正は base_power に足し込まれている。
+                 pass
 
             print(f"[WIDE_MATCH DEBUG] Updated Defender {d_id} Mod: {base_mod}")
 
@@ -808,13 +750,15 @@ def handle_execute_synced_wide_match(data):
                       bp += def_char.get('_base_power_bonus', 0)
                       if bp > 0:
                           _update_char_stat(room, def_char, "荊棘", max(0, thorn_val - bp), username=f"[{def_skill_id}:荊棘詳細]")
+            using_precalc = False
             def_command = def_data.get('command', '2d6')
             if def_data.get('data') and def_data['data'].get('final_command'):
                 def_command = def_data['data']['final_command']
+                using_precalc = True
 
             # ★ Apply dynamic base power modifiers to command
             bp_mod = def_char.get('_base_power_bonus', 0)
-            if bp_mod != 0:
+            if bp_mod != 0 and not using_precalc:
                 def_command = f"{def_command}+{bp_mod}"
                 print(f"[WIDE_MATCH EXEC] Applied BaseMod {bp_mod} -> {def_command}")
 
@@ -937,7 +881,7 @@ def handle_execute_synced_wide_match(data):
 
     # ★ ラウンド終了タグがあった場合、通常の保存・ブロードキャスト後にラウンド終了処理を実行
     if round_end_requested:
-        _process_end_round_logic(room, f"System [{attacker_skill_id}]")
+        _process_end_round_logic(state, room)
 
 
 @socketio.on('request_wide_match')
