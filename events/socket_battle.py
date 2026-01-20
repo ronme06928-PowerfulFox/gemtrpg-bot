@@ -15,7 +15,7 @@ from manager.room_manager import (
 from manager.game_logic import (
     get_status_value, set_status_value, process_skill_effects,
     calculate_power_bonus, calculate_buff_power_bonus, # ★追加
-    apply_buff, remove_buff
+    apply_buff, remove_buff, calculate_damage_multiplier
 )
 from manager.utils import resolve_placeholders
 from manager.dice_roller import roll_dice
@@ -597,7 +597,7 @@ def handle_skill_declaration(data):
 
     # 威力計算等は複製データで行う（変更なし）
     # ★修正: 共通計算ロジックを使用
-    from manager.game_logic import calculate_skill_preview
+    from manager.game_logic import calculate_skill_preview, process_skill_effects, calculate_damage_multiplier
 
     # ルールデータの取得 (calculate_skill_preview に渡す準備)
     power_bonus_rules = []
@@ -1234,16 +1234,9 @@ def handle_match(data):
 
                     final_damage = damage + kiretsu + bonus_damage + extra_skill_damage
                     # ダメージ倍率計算 (混乱 + DaIn/DaCut)
-                    d_mult = 1.0; d_mult_logs = []
-                    for b in actor_d_char.get('special_buffs', []):
-                        if b.get('name') == "混乱": d_mult *= 1.5; d_mult_logs.append("混乱")
-                        elif 'damage_multiplier' in b:
-                            try:
-                                v = float(b['damage_multiplier'])
-                                if v != 1.0: d_mult *= v; d_mult_logs.append(b['name'])
-                            except: pass
+                    d_mult, logs = calculate_damage_multiplier(actor_d_char)
                     final_damage = int(final_damage * d_mult)
-                    if d_mult != 1.0: damage_message = f"({'/'.join(d_mult_logs)} x{d_mult:.2f}) "
+                    if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
                     _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
                     _process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
                     winner_message = f"<strong> → {actor_name_a} の一方攻撃！</strong>"
@@ -1261,8 +1254,9 @@ def handle_match(data):
                 bonus_damage, logs = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                 log_snippets.extend(logs)
                 final_damage = damage + kiretsu + bonus_damage # extra_skill_damageはbonus_damageに含まれる
-                if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
-                    final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
+                d_mult, logs = calculate_damage_multiplier(actor_d_char)
+                final_damage = int(final_damage * d_mult)
+                if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
                 winner_message = f"<strong> → {actor_name_a} の勝利！</strong> (ダメージ軽減)"
                 damage_message += f"(差分 {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
@@ -1281,8 +1275,9 @@ def handle_match(data):
                 bonus_damage, logs = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                 log_snippets.extend(logs)
                 final_damage = damage + kiretsu + bonus_damage
-                if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
-                    final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
+                d_mult, logs = calculate_damage_multiplier(actor_d_char)
+                final_damage = int(final_damage * d_mult)
+                if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
 
                 # ★ 再回避ロック中の回避失敗処理
@@ -1334,16 +1329,9 @@ def handle_match(data):
                     final_damage = damage + kiretsu + bonus_damage
 
                     # ダメージ倍率計算 (混乱 + DaIn/DaCut)
-                    d_mult = 1.0; d_mult_logs = []
-                    for b in actor_a_char.get('special_buffs', []):
-                        if b.get('name') == "混乱": d_mult *= 1.5; d_mult_logs.append("混乱")
-                        elif 'damage_multiplier' in b:
-                            try:
-                                v = float(b['damage_multiplier'])
-                                if v != 1.0: d_mult *= v; d_mult_logs.append(b['name'])
-                            except: pass
+                    d_mult, logs = calculate_damage_multiplier(actor_a_char)
                     final_damage = int(final_damage * d_mult)
-                    if d_mult != 1.0: damage_message = f"({'/'.join(d_mult_logs)} x{d_mult:.2f}) "
+                    if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
 
                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username)
                     _process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
@@ -1378,8 +1366,9 @@ def handle_match(data):
                 bonus_damage, logs = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                 log_snippets.extend(logs)
                 final_damage = damage + kiretsu + bonus_damage
-                if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
-                    final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
+                d_mult, logs = calculate_damage_multiplier(actor_d_char)
+                final_damage = int(final_damage * d_mult)
+                if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
 
                 # ★ 再回避ロック中の回避失敗処理 (一般)
@@ -1399,8 +1388,9 @@ def handle_match(data):
                 bonus_damage, logs = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                 log_snippets.extend(logs)
                 final_damage = damage + kiretsu + bonus_damage
-                if any(b.get('name') == "混乱" for b in actor_a_char.get('special_buffs', [])):
-                    final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
+                d_mult, logs = calculate_damage_multiplier(actor_a_char)
+                final_damage = int(final_damage * d_mult)
+                if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
                 _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username)
                 winner_message = f"<strong> → {actor_name_d} の勝利！</strong>"
                 damage_message += f"({actor_a_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
@@ -1599,6 +1589,7 @@ def _proceed_next_turn(room):
 
 
 # ▼▼▼ ラウンド終了処理 ▼▼▼
+from plugins.buffs.registry import buff_registry
 @socketio.on('request_end_round')
 def handle_end_round(data):
     room = data.get('room')
@@ -1682,7 +1673,7 @@ def handle_end_round(data):
                 current_val = get_status_value(c, name)
                 _update_char_stat(room, c, name, current_val + value, username=f"[{state['round']}R終了時]")
             elif type == "APPLY_BUFF":
-                apply_buff(c, name, value["lasting"], value["delay"])
+                apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
                 broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
 
         # --- 1c. (旧) 出血処理 ---
@@ -1715,6 +1706,33 @@ def handle_end_round(data):
                     active_buffs.append(buff)
                     if buff["delay"] == 0:
                         broadcast_log(room, f"[{buff_name}] の効果が {char['name']} で発動可能になった。", 'state-change')
+
+                        # ★ バフ発動フック (TimeBombBuffなど)
+                        BuffClass = buff_registry.get_handler(buff.get('buff_id'))
+                        if BuffClass:
+                            # インスタンス化 (buffデータ全体を渡す)
+                            plugin = BuffClass(buff)
+                            if hasattr(plugin, 'on_delay_zero'):
+                                print(f"[BuffHook] Triggering on_delay_zero for {buff_name}")
+                                res = plugin.on_delay_zero(char, {'room': room})
+
+                                # ログの処理
+                                for log in res.get('logs', []):
+                                    broadcast_log(room, log.get('message', ''), log.get('type', 'info'))
+
+                                # 変更の処理 (HPダメージなど)
+                                for change in res.get('changes', []):
+                                    # BurstEffect returns: (target, "CUSTOM_DAMAGE", "破裂爆発", damage)
+                                    # Or generic changes: (target, type, name, value)
+                                    if len(change) >= 4:
+                                        c_target, c_type, c_name, c_val = change
+                                        if c_type == "CUSTOM_DAMAGE":
+                                            # ダメージ適用
+                                            current_hp = c_target.get('hp', 0)
+                                            _update_char_stat(room, c_target, 'HP', current_hp - c_val, username=f"[{c_name}]")
+
+                                        # 必要に応じて他のタイプもここに追加
+
 
                 elif lasting > 0:
                     buff["lasting"] = lasting - 1

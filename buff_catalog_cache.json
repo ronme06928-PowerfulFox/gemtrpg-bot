@@ -86,5 +86,17 @@
       "category": "debuff"
     },
     "default_duration": 1
+  },
+  "Bu-07": {
+    "id": "Bu-07",
+    "name": "時限破裂爆発",
+    "description": "一定のラウンド後、このキャラクターに破裂爆発を発動する。",
+    "flavor": "",
+    "effect": {
+      "type": "plugin",
+      "name": "timebomb_burst",
+      "category": "debuff"
+    },
+    "default_duration": 1
   }
 }

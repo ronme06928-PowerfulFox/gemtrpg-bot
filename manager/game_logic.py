@@ -599,10 +599,38 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
         "correction_details": correction_details,
         "senritsu_dice_reduction": senritsu_dice_reduction,
         "skill_details": skill_details,
-        "power_breakdown": {
-            "base_power": int(skill_data.get('基礎威力', 0)),
-            "base_power_mod": base_power_buff_mod + external_base_power_mod,
-            "additional_power": bonus_power,
-            "senritsu_dice_reduction": senritsu_dice_reduction
         }
-    }
+
+
+def calculate_damage_multiplier(character):
+    """
+    キャラクターのバフからダメージ倍率を計算する
+    (混乱 + damage_multiplier)
+
+    Args:
+        character (dict): キャラクターデータ
+
+    Returns:
+        tuple: (final_multiplier, log_list)
+            - final_multiplier (float): 最終的な倍率
+            - log_list (list): 適用された効果の名前リスト
+    """
+    d_mult = 1.0
+    logs = []
+
+    for b in character.get('special_buffs', []):
+        # 混乱: 1.5倍
+        if b.get('name') == "混乱":
+            d_mult *= 1.5
+            logs.append("混乱")
+        # dynamic pattern or plugin multiplier
+        elif 'damage_multiplier' in b:
+            try:
+                v = float(b['damage_multiplier'])
+                if v != 1.0:
+                    d_mult *= v
+                    logs.append(b['name'])
+            except:
+                pass
+
+    return d_mult, logs

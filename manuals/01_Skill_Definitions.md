@@ -82,6 +82,7 @@
   - `"PRE_MATCH"`: マッチ開始前 (即時発動など)
   - `"END_ROUND"`: ラウンド終了時
   - `"END_MATCH"`: マッチ終了時
+  - `"UNOPPOSED"`: 一方攻撃（相手が防御・回避を持たない、または行動不能時）の攻撃時
 - `target`: 効果対象 (`"self"`, `"target"`)
 - `condition`: 発動条件 (任意)
 
