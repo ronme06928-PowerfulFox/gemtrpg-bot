@@ -1213,8 +1213,17 @@ def handle_match(data):
                     bonus_damage = bd_un + bd_hit
 
                     final_damage = damage + kiretsu + bonus_damage + extra_skill_damage
-                    if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
-                        final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
+                    # ダメージ倍率計算 (混乱 + DaIn/DaCut)
+                    d_mult = 1.0; d_mult_logs = []
+                    for b in actor_d_char.get('special_buffs', []):
+                        if b.get('name') == "混乱": d_mult *= 1.5; d_mult_logs.append("混乱")
+                        elif 'damage_multiplier' in b:
+                            try:
+                                v = float(b['damage_multiplier'])
+                                if v != 1.0: d_mult *= v; d_mult_logs.append(b['name'])
+                            except: pass
+                    final_damage = int(final_damage * d_mult)
+                    if d_mult != 1.0: damage_message = f"({'/'.join(d_mult_logs)} x{d_mult:.2f}) "
                     _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
                     winner_message = f"<strong> → {actor_name_a} の一方攻撃！</strong>"
                     damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + (f"+ [追加攻撃 {extra_skill_damage}] " if extra_skill_damage > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
@@ -1303,8 +1312,17 @@ def handle_match(data):
                     log_snippets.extend(logs)
                     final_damage = damage + kiretsu + bonus_damage
 
-                    if any(b.get('name') == "混乱" for b in actor_a_char.get('special_buffs', [])):
-                        final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
+                    # ダメージ倍率計算 (混乱 + DaIn/DaCut)
+                    d_mult = 1.0; d_mult_logs = []
+                    for b in actor_a_char.get('special_buffs', []):
+                        if b.get('name') == "混乱": d_mult *= 1.5; d_mult_logs.append("混乱")
+                        elif 'damage_multiplier' in b:
+                            try:
+                                v = float(b['damage_multiplier'])
+                                if v != 1.0: d_mult *= v; d_mult_logs.append(b['name'])
+                            except: pass
+                    final_damage = int(final_damage * d_mult)
+                    if d_mult != 1.0: damage_message = f"({'/'.join(d_mult_logs)} x{d_mult:.2f}) "
 
                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username)
                     winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (カウンター)"

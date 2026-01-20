@@ -114,6 +114,8 @@ DYNAMIC_PATTERNS = [
         }
     },
 
+
+
     # 2. 【1回消費型】 [名前]_CrackOnce[数値] -> 亀裂付与量アップ (使ったら消える)
     {
         "pattern": r"^(.*)_CrackOnce(\d+)$",
@@ -124,6 +126,24 @@ DYNAMIC_PATTERNS = [
                 "value": int(m.group(2)),
                 "consume": True   # ★消費するフラグ
             }]
+        }
+    },
+
+    # パターン: [名前]_DaIn[数値] -> 被ダメージ倍率 (Damage Increase)
+    # 例: Weakness_DaIn20 -> 被ダメージ1.2倍
+    {
+        "pattern": r"^(.*)_DaIn(\d+)$",
+        "generator": lambda m: {
+            "damage_multiplier": 1.0 + (int(m.group(2)) / 100.0)
+        }
+    },
+
+    # パターン: [名前]_DaCut[数値] -> 被ダメージカット率 (Damage Cut)
+    # 例: Guard_DaCut20 -> 被ダメージ0.8倍
+    {
+        "pattern": r"^(.*)_DaCut(\d+)$",
+        "generator": lambda m: {
+            "damage_multiplier": max(0.0, 1.0 - (int(m.group(2)) / 100.0))
         }
     }
 ]

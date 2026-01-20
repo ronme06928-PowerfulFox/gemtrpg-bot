@@ -301,6 +301,23 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                                 effect_data["stat_mods"][stat_name] = mod_value
                                 # print(f"[APPLY_BUFF] Converted stat_mod for {buff_name}: {stat_name}={mod_value}")
 
+                # ★追加: 動的パターンや静的定義から得られる効果データをマージ
+                # (buff_idがなく、buff_nameのみの場合や、動的生成されたプロパティを取り込む)
+                from manager.buff_catalog import get_buff_effect
+                catalog_effect_data = get_buff_effect(buff_name)
+                if isinstance(catalog_effect_data, dict):
+                    # 既存のeffect_dataにマージ
+                    for k, v in catalog_effect_data.items():
+                        if k not in effect_data:
+                            effect_data[k] = v
+                        elif k == "stat_mods" and isinstance(v, dict):
+                            # stat_modsはマージ
+                            if "stat_mods" not in effect_data:
+                                effect_data["stat_mods"] = {}
+                            for sk, sv in v.items():
+                                if sk not in effect_data["stat_mods"]:
+                                    effect_data["stat_mods"][sk] = sv
+
                 changes_to_apply.append((target_obj, "APPLY_BUFF", buff_name, {"lasting": int(effect.get("lasting", 1)), "delay": int(effect.get("delay", 0)), "data": effect_data}))
                 log_snippets.append(f"[{buff_name} 付与]")
         elif effect_type == "REMOVE_BUFF":
