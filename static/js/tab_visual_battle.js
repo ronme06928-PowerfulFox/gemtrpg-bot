@@ -1697,6 +1697,62 @@ function renderMatchPanelFromState(matchData) {
     }
 }
 
+// ★ キャラクターの簡易ステータスバーを生成するヘルパー関数
+function renderCharacterStatsBar(char, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (!char) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const hp = char.hp || 0;
+    const maxHp = char.maxHp || 1;
+    const mp = char.mp || 0;
+    const maxMp = char.maxMp || 1;
+    // FPはstatesから取得
+    const fpState = char.states ? char.states.find(s => s.name === 'FP') : null;
+    const fp = fpState ? fpState.value : 0;
+
+    // スタイル調整: 背景を溶け込ませ、白枠を削除。隙間をなくす。
+    // 背景色は透明、または非常に薄い暗色オーバーレイ。
+    // 文字色は白系にする。
+
+    const barStyle = "flex: 1; padding: 2px 5px; text-align: center; border-right: 1px solid rgba(255,255,255,0.2);";
+    // 最後の要素はボーダーなしにするため、個別にスタイル調整するか、
+    // 親の flex gap を 0 にして、border-right で区切り線を入れるデザインにする。
+    // "横にすべてくっつけて" -> border-right で区切るのが綺麗。
+
+    const labelStyle = "font-size: 0.7em; color: #ccc; display: block; line-height: 1; margin-bottom: 2px;";
+    const valStyle = "font-weight: bold; font-size: 1.1em; display: block; text-shadow: 0 0 2px rgba(0,0,0,0.5);";
+
+    // カラー設定 (HP: 緑, MP: 青, FP: 黄/オレンジ) - 暗い背景でも見やすく少し明るめに
+    const hpColor = "#4cdc6e"; // 明るい緑
+    const mpColor = "#4da3ff"; // 明るい青
+    const fpColor = "#ffd54f"; // 明るい黄色
+
+    // 枠全体に薄い背景をつける（オプション）
+    const wrapperStyle = "display: flex; gap: 0; margin-bottom: 8px; background: rgba(0,0,0,0.2); border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden;";
+
+    container.innerHTML = `
+        <div style="${wrapperStyle}">
+            <div style="${barStyle}">
+                <span style="${labelStyle}">HP</span>
+                <span style="${valStyle} color: ${hpColor};">${hp} <span style="font-size:0.7em; color:#aaa;">/ ${maxHp}</span></span>
+            </div>
+            <div style="${barStyle}">
+                <span style="${labelStyle}">MP</span>
+                <span style="${valStyle} color: ${mpColor};">${mp} <span style="font-size:0.7em; color:#aaa;">/ ${maxMp}</span></span>
+            </div>
+            <div style="${barStyle} border-right: none;">
+                <span style="${labelStyle}">FP</span>
+                <span style="${valStyle} color: ${fpColor};">${fp}</span>
+            </div>
+        </div>
+    `;
+}
+
 // マッチパネルの内容を matchData に基づいて更新
 function updateMatchPanelContent(matchData) {
     console.log('[MatchPanel] Updating content:', matchData);
@@ -1733,11 +1789,16 @@ function updateMatchPanelContent(matchData) {
                 console.log(`[Sync] Fixing name for ${side}: ${currentName} -> ${correctName}`);
                 if (nameEl) nameEl.textContent = correctName;
 
+                if (nameEl) nameEl.textContent = correctName;
+
                 // ステータスアイコンも更新
                 const statusEl = document.getElementById(`duel-${side}-status`);
                 if (statusEl && correctChar) {
                     statusEl.innerHTML = generateStatusIconsHTML(correctChar);
                 }
+
+                // ★ HP/MP/FP ステータスバーの更新 (Sync時)
+                renderCharacterStatsBar(correctChar, `duel-${side}-stats`);
 
                 // ★プルダウンも空なら再生成
                 const skillSelect = document.getElementById(`duel-${side}-skill`);
@@ -1745,6 +1806,23 @@ function updateMatchPanelContent(matchData) {
                     console.log(`[Sync] Repopulating skills for ${side}`);
                     populateCharSkillSelect(correctChar, `duel-${side}-skill`);
                 }
+            }
+
+            // ★ HP/MP/FP ステータスバーの更新 (通常時)
+            const targetId = side === 'attacker' ? matchData.attacker_id : matchData.defender_id;
+            const charObj = battleState.characters.find(c => c.id === targetId);
+            if (charObj) {
+                renderCharacterStatsBar(charObj, `duel-${side}-stats`);
+            }
+
+            // ★ クリックで詳細を開くイベントの設定
+            if (nameEl && targetId) {
+                nameEl.style.cursor = "pointer";
+                nameEl.title = "クリックで詳細を表示";
+                nameEl.onclick = (e) => {
+                    e.stopPropagation();
+                    showCharacterDetail(targetId);
+                };
             }
 
             // コマンドプレビュー
