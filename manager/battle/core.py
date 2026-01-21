@@ -124,7 +124,12 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
         rule_json_str = skill_data.get('特記処理', '{}')
         rule_data = json.loads(rule_json_str)
         effects_array = rule_data.get("effects", [])
-        _, logs, changes = process_skill_effects(effects_array, "PRE_MATCH", actor, target, target_skill_data)
+
+        # Room state for context
+        state = get_room_state(room)
+        context = {"characters": state['characters']} if state else None
+
+        _, logs, changes = process_skill_effects(effects_array, "PRE_MATCH", actor, target, target_skill_data, context=context)
 
         for (char, type, name, value) in changes:
             if type == "APPLY_STATE":

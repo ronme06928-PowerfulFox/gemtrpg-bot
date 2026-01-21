@@ -2958,9 +2958,6 @@ function renderVisualWideDefenders(attackerId, mode) {
     });
 }
 
-// ★ 追加: ページロード時に自動的にリロードボタンを押して同期する
-// ★ 追加: ページロード時に自動的にリロードボタンを押して同期する
-// ★ Phase 11: Robust Initialization (Polling)
 document.addEventListener('DOMContentLoaded', () => {
     // 画面ロード時にDOMがまだ完全に構築されていない可能性があるため、
     // ポーリングでボタンの存在を確認してからリスナーを登録する

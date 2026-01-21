@@ -159,7 +159,7 @@ def execute_custom_effect(effect, actor, target):
         print(f"[ERROR] Plugin Error ({effect_name}): {e}", file=sys.stderr)
         return [], []
 
-def process_skill_effects(effects_array, timing_to_check, actor, target, target_skill_data=None):
+def process_skill_effects(effects_array, timing_to_check, actor, target, target_skill_data=None, context=None):
     total_bonus_damage = 0
     log_snippets = []
     changes_to_apply = []
@@ -167,205 +167,263 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
     if not actor or not effects_array:
         return 0, [], []
 
+    # Helper for random selection
+    import random
+    def select_random_targets(actor_obj, effect_def, all_chars):
+        # Default settings
+        tgt_type = effect_def.get("target_filter", "ENEMY") # ENEMY, ALLY, ALL
+        count = int(effect_def.get("target_count", 1))
+        include_self = effect_def.get("include_self", False)
+
+        candidates = []
+        actor_type = actor_obj.get("type", "ally")
+
+        for c in all_chars:
+            # Check placement (must have x, y coordinates to be considered "placed")
+            if c.get("x") is None or c.get("y") is None:
+                continue
+
+            # Status Check
+            if c.get("hp", 0) <= 0: continue
+            if c.get("is_escaped"): continue
+
+            # Faction Check
+            c_type = c.get("type", "enemy")
+            is_ally = (c_type == actor_type)
+
+            if tgt_type == "ENEMY" and is_ally: continue
+            if tgt_type == "ALLY" and not is_ally: continue
+            # ALL accepts both (except self if excluded)
+
+            # Self Check
+            if c.get("id") == actor_obj.get("id") and not include_self:
+                continue
+
+            candidates.append(c)
+
+        if not candidates:
+            return []
+
+        # Select distinct
+        if count >= len(candidates):
+            return candidates
+        return random.sample(candidates, count)
+
     for effect in effects_array:
         if effect.get("timing") != timing_to_check: continue
         if not check_condition(effect.get("condition"), actor, target, target_skill_data): continue
 
         effect_type = effect.get("type")
-        target_obj = None
-        if effect.get("target") == "self": target_obj = actor
-        elif effect.get("target") == "target": target_obj = target
-        if not target_obj and effect.get("target") == "target": continue
+        targets_list = []
 
-        if effect_type == "APPLY_STATE":
-            # ★後方互換: "state_name"と"name"の両方に対応
-            stat_name = effect.get("state_name") or effect.get("name")
-            value = int(effect.get("value", 0))
+        # Target Resolution
+        t_select = effect.get("target_select") # NORMAL (default), RANDOM
 
-            # ★亀裂の1ラウンド1回付与制限チェック
-            if stat_name == "亀裂" and value > 0 and target_obj:
-                if 'flags' not in target_obj:
-                    target_obj['flags'] = {}
-                if target_obj['flags'].get('fissure_received_this_round', False):
-                    log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
-                    continue  # この効果をスキップし、次の効果へ
+        if t_select == "RANDOM":
+            if context and "characters" in context:
+                targets_list = select_random_targets(actor, effect, context["characters"])
+                if not targets_list:
+                    log_snippets.append(f"(対象不在)")
+            else:
+                 pass
+        else:
+            # Standard targeting
+            t_str = effect.get("target")
+            if t_str == "self": targets_list = [actor]
+            elif t_str == "target": targets_list = [target] if target else []
 
-            # ★修正: ボーナス計算と消費(削除)処理の適用
-            # (状態付与値が正の数で、かつ実行者が存在する場合のみボーナスをチェック)
-            if value > 0 and actor:
-                # ボーナス値と、削除すべきバフリストを受け取る
-                bonus, buffs_to_remove = calculate_state_apply_bonus(actor, target_obj, stat_name)
+        if not targets_list: continue
 
-                if bonus > 0:
-                    value += bonus
-                    # 必要であればログにボーナス分を表示できますが、ここでは最終値のみ適用します
+        for target_obj in targets_list:
+            if effect_type == "APPLY_STATE":
+                # ★後方互換: "state_name"と"name"の両方に対応
+                stat_name = effect.get("state_name") or effect.get("name")
+                value = int(effect.get("value", 0))
 
-                # ★消費型バフの削除アクションを追加
-                for b_name in buffs_to_remove:
-                    # 自分(actor)のバフを削除する
-                    changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0))
-                    log_snippets.append(f"({b_name} 消費)")
-
-
-            if stat_name and value != 0:
-                changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value))
-                # ★亀裂の場合はフラグを立てる（付与成功時）
-                if stat_name == "亀裂" and value > 0:
-                    changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
-
-        elif effect_type == "APPLY_STATE_PER_N":
-            # ★新機能: パラメータ値に基づく動的状態異常付与
-            # 例: 自分の戦慄2につき亀裂1を付与（最大2）
-            source_type = effect.get("source", "self")
-            source_obj = actor if source_type == "self" else target
-            source_param = effect.get("source_param")
-
-            if not source_obj or not source_param:
-                continue
-
-            # 基準パラメータの値を取得
-            source_param_value = get_status_value(source_obj, source_param)
-
-            # N毎に計算
-            per_N = int(effect.get("per_N", 1))
-            value_per = int(effect.get("value", 1))
-            calculated_value = (source_param_value // per_N) * value_per if per_N > 0 else 0
-
-            # 最大値制限
-            if "max_value" in effect:
-                calculated_value = min(calculated_value, int(effect["max_value"]))
-
-            # 付与実行
-            stat_name = effect.get("state_name")
-            if stat_name and calculated_value > 0:
-                # 亀裂の1ラウンド1回付与制限チェック
-                if stat_name == "亀裂" and target_obj:
+                # ★亀裂の1ラウンド1回付与制限チェック
+                if stat_name == "亀裂" and value > 0 and target_obj:
                     if 'flags' not in target_obj:
                         target_obj['flags'] = {}
                     if target_obj['flags'].get('fissure_received_this_round', False):
                         log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
-                        continue
+                        continue  # この効果をスキップし、次の効果へ
 
-                changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, calculated_value))
-                log_snippets.append(f"[{stat_name}+{calculated_value} ({source_param}{source_param_value}から)]")
+                # ★修正: ボーナス計算と消費(削除)処理の適用
+                # (状態付与値が正の数で、かつ実行者が存在する場合のみボーナスをチェック)
+                if value > 0 and actor:
+                    # ボーナス値と、削除すべきバフリストを受け取る
+                    bonus, buffs_to_remove = calculate_state_apply_bonus(actor, target_obj, stat_name)
 
-                # 亀裂の場合はフラグを立てる
-                if stat_name == "亀裂":
-                    changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
+                    if bonus > 0:
+                        value += bonus
+                        # 必要であればログにボーナス分を表示できますが、ここでは最終値のみ適用します
 
-        elif effect_type == "MULTIPLY_STATE":
-            # ★新機能: 状態異常値の乗算 (四捨五入)
-            stat_name = effect.get("state_name")
-            multiplier = float(effect.get("value", 1.0))
+                    # ★消費型バフの削除アクションを追加
+                    for b_name in buffs_to_remove:
+                        # 自分(actor)のバフを削除する
+                        changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0))
+                        log_snippets.append(f"({b_name} 消費)")
 
-            if stat_name and target_obj:
-                current_val = get_status_value(target_obj, stat_name)
-                # 標準的な四捨五入 (int(val + 0.5))
-                # 例: 2.5 -> 3, 2.4 -> 2
-                new_val = int(current_val * multiplier + 0.5)
-                diff = new_val - current_val
 
-                if diff != 0:
-                    changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, diff))
-                    log_snippets.append(f"[{stat_name} x{multiplier} ({current_val}→{new_val})]")
+                if stat_name and value != 0:
+                    changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value))
+                    # ★亀裂の場合はフラグを立てる（付与成功時）
+                    if stat_name == "亀裂" and value > 0:
+                        changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
 
-        elif effect_type == "APPLY_BUFF":
-            buff_name = effect.get("buff_name")
-            buff_id = effect.get("buff_id")
+            elif effect_type == "APPLY_STATE_PER_N":
+                # ★新機能: パラメータ値に基づく動的状態異常付与
+                # 例: 自分の戦慄2につき亀裂1を付与（最大2）
+                source_type = effect.get("source", "self")
+                source_obj = actor if source_type == "self" else target
+                source_param = effect.get("source_param")
 
-            # ★修正: buff_idが指定されている場合、buff_catalogから名前を取得
-            if not buff_name and buff_id:
-                from manager.buff_catalog import get_buff_by_id
-                buff_data = get_buff_by_id(buff_id)
-                if buff_data:
-                    buff_name = buff_data.get("name")
-                    print(f"[APPLY_BUFF] Resolved buff_id '{buff_id}' to buff_name '{buff_name}'")
-                else:
-                    print(f"[APPLY_BUFF WARNING] buff_id '{buff_id}' not found in catalog")
+                if not source_obj or not source_param:
+                    continue
 
-            if buff_name:
-                # ★修正: buff_idも一緒にdataに含める（プラグイン判定用）
-                # さらに description, flavor もカタログから引き継ぐ
-                effect_data = effect.get("data")
-                if effect_data is None:
-                    effect_data = {}
-                else:
-                    # 呼び出し元の副作用を防ぐためコピー
-                    effect_data = effect_data.copy()
+                # 基準パラメータの値を取得
+                source_param_value = get_status_value(source_obj, source_param)
 
-                if buff_id:
-                    effect_data["buff_id"] = buff_id
+                # N毎に計算
+                per_N = int(effect.get("per_N", 1))
+                value_per = int(effect.get("value", 1))
+                calculated_value = (source_param_value // per_N) * value_per if per_N > 0 else 0
 
-                    # カタログから詳細情報を取得してマージ
-                    if 'buff_data' in locals() and buff_data:
-                        if "description" not in effect_data:
-                            effect_data["description"] = buff_data.get("description", "")
-                        if "flavor" not in effect_data:
-                            effect_data["flavor"] = buff_data.get("flavor", "")
+                # 最大値制限
+                if "max_value" in effect:
+                    calculated_value = min(calculated_value, int(effect["max_value"]))
 
-                        # ★追加: stat_mod の継承 (Phase 10 後半)
-                        # カタログ定義の effect: { type: "stat_mod", stat: "基礎威力", value: 1 }
-                        # を、システムが解釈できる stat_mods: { "基礎威力": 1 } に変換する
-                        catalog_effect = buff_data.get("effect", {})
-                        if catalog_effect.get("type") == "stat_mod":
-                            stat_name = catalog_effect.get("stat")
-                            mod_value = catalog_effect.get("value")
+                # 付与実行
+                stat_name = effect.get("state_name")
+                if stat_name and calculated_value > 0:
+                    # 亀裂の1ラウンド1回付与制限チェック
+                    if stat_name == "亀裂" and target_obj:
+                        if 'flags' not in target_obj:
+                            target_obj['flags'] = {}
+                        if target_obj['flags'].get('fissure_received_this_round', False):
+                            log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
+                            continue
 
-                            if stat_name and mod_value is not None:
+                    changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, calculated_value))
+                    log_snippets.append(f"[{stat_name}+{calculated_value} ({source_param}{source_param_value}から)]")
+
+                    # 亀裂の場合はフラグを立てる
+                    if stat_name == "亀裂":
+                        changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
+
+            elif effect_type == "MULTIPLY_STATE":
+                # ★新機能: 状態異常値の乗算 (四捨五入)
+                stat_name = effect.get("state_name")
+                multiplier = float(effect.get("value", 1.0))
+
+                if stat_name and target_obj:
+                    current_val = get_status_value(target_obj, stat_name)
+                    # 標準的な四捨五入 (int(val + 0.5))
+                    # 例: 2.5 -> 3, 2.4 -> 2
+                    new_val = int(current_val * multiplier + 0.5)
+                    diff = new_val - current_val
+
+                    if diff != 0:
+                        changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, diff))
+                        log_snippets.append(f"[{stat_name} x{multiplier} ({current_val}→{new_val})]")
+
+            elif effect_type == "APPLY_BUFF":
+                buff_name = effect.get("buff_name")
+                buff_id = effect.get("buff_id")
+
+                # ★修正: buff_idが指定されている場合、buff_catalogから名前を取得
+                if not buff_name and buff_id:
+                    from manager.buff_catalog import get_buff_by_id
+                    buff_data = get_buff_by_id(buff_id)
+                    if buff_data:
+                        buff_name = buff_data.get("name")
+                        print(f"[APPLY_BUFF] Resolved buff_id '{buff_id}' to buff_name '{buff_name}'")
+                    else:
+                        print(f"[APPLY_BUFF WARNING] buff_id '{buff_id}' not found in catalog")
+
+                if buff_name:
+                    # ★修正: buff_idも一緒にdataに含める（プラグイン判定用）
+                    # さらに description, flavor もカタログから引き継ぐ
+                    effect_data = effect.get("data")
+                    if effect_data is None:
+                        effect_data = {}
+                    else:
+                        # 呼び出し元の副作用を防ぐためコピー
+                        effect_data = effect_data.copy()
+
+                    if buff_id:
+                        effect_data["buff_id"] = buff_id
+
+                        # カタログから詳細情報を取得してマージ
+                        if 'buff_data' in locals() and buff_data:
+                            if "description" not in effect_data:
+                                effect_data["description"] = buff_data.get("description", "")
+                            if "flavor" not in effect_data:
+                                effect_data["flavor"] = buff_data.get("flavor", "")
+
+                            # ★追加: stat_mod の継承 (Phase 10 後半)
+                            # カタログ定義の effect: { type: "stat_mod", stat: "基礎威力", value: 1 }
+                            # を、システムが解釈できる stat_mods: { "基礎威力": 1 } に変換する
+                            catalog_effect = buff_data.get("effect", {})
+                            if catalog_effect.get("type") == "stat_mod":
+                                stat_name = catalog_effect.get("stat")
+                                mod_value = catalog_effect.get("value")
+
+                                if stat_name and mod_value is not None:
+                                    if "stat_mods" not in effect_data:
+                                        effect_data["stat_mods"] = {}
+                                    effect_data["stat_mods"][stat_name] = mod_value
+                                    # print(f"[APPLY_BUFF] Converted stat_mod for {buff_name}: {stat_name}={mod_value}")
+
+                    # ★追加: 動的パターンや静的定義から得られる効果データをマージ
+                    # (buff_idがなく、buff_nameのみの場合や、動的生成されたプロパティを取り込む)
+                    from manager.buff_catalog import get_buff_effect
+                    catalog_effect_data = get_buff_effect(buff_name)
+                    if isinstance(catalog_effect_data, dict):
+                        # 既存のeffect_dataにマージ
+                        for k, v in catalog_effect_data.items():
+                            if k not in effect_data:
+                                effect_data[k] = v
+                            elif k == "stat_mods" and isinstance(v, dict):
+                                # stat_modsはマージ
                                 if "stat_mods" not in effect_data:
                                     effect_data["stat_mods"] = {}
-                                effect_data["stat_mods"][stat_name] = mod_value
-                                # print(f"[APPLY_BUFF] Converted stat_mod for {buff_name}: {stat_name}={mod_value}")
+                                for sk, sv in v.items():
+                                    if sk not in effect_data["stat_mods"]:
+                                        effect_data["stat_mods"][sk] = sv
 
-                # ★追加: 動的パターンや静的定義から得られる効果データをマージ
-                # (buff_idがなく、buff_nameのみの場合や、動的生成されたプロパティを取り込む)
-                from manager.buff_catalog import get_buff_effect
-                catalog_effect_data = get_buff_effect(buff_name)
-                if isinstance(catalog_effect_data, dict):
-                    # 既存のeffect_dataにマージ
-                    for k, v in catalog_effect_data.items():
-                        if k not in effect_data:
-                            effect_data[k] = v
-                        elif k == "stat_mods" and isinstance(v, dict):
-                            # stat_modsはマージ
-                            if "stat_mods" not in effect_data:
-                                effect_data["stat_mods"] = {}
-                            for sk, sv in v.items():
-                                if sk not in effect_data["stat_mods"]:
-                                    effect_data["stat_mods"][sk] = sv
+                    # ★追加: flavorテキストの継承
+                    if "flavor" in effect:
+                        effect_data["flavor"] = effect["flavor"]
 
-                # ★追加: flavorテキストの継承
-                if "flavor" in effect:
-                    effect_data["flavor"] = effect["flavor"]
-
-                changes_to_apply.append((target_obj, "APPLY_BUFF", buff_name, {"lasting": int(effect.get("lasting", 1)), "delay": int(effect.get("delay", 0)), "data": effect_data}))
-                log_snippets.append(f"[{buff_name} 付与]")
-        elif effect_type == "REMOVE_BUFF":
-            buff_name = effect.get("buff_name")
-            if buff_name:
-                changes_to_apply.append((target_obj, "REMOVE_BUFF", buff_name, 0))
-                log_snippets.append(f"[{buff_name} 解除]")
-        elif effect_type == "DAMAGE_BONUS":
-            damage = int(effect.get("value", 0))
-            if damage > 0:
-                total_bonus_damage += damage
-                log_snippets.append(f"+ [追加ダメージ {damage}]")
-        elif effect_type == "MODIFY_ROLL":
-            mod_value = int(effect.get("value", 0))
-            if mod_value != 0:
-                total_bonus_damage += mod_value
-                log_snippets.append(f"[ロール修正 {mod_value:+,}]")
-        elif effect_type == "CUSTOM_EFFECT":
-            custom_changes, custom_logs = execute_custom_effect(effect, actor, target)
-            changes_to_apply.extend(custom_changes)
-            log_snippets.extend(custom_logs)
-        elif effect_type == "FORCE_UNOPPOSED":
-            changes_to_apply.append((target_obj, "FORCE_UNOPPOSED", "None", 0))
-        elif effect_type == "MODIFY_BASE_POWER":
-            mod_value = int(effect.get("value", 0))
-            if mod_value != 0:
-                changes_to_apply.append((target_obj, "MODIFY_BASE_POWER", None, mod_value))
-                log_snippets.append(f"[基礎威力 {mod_value:+}]")
+                    changes_to_apply.append((target_obj, "APPLY_BUFF", buff_name, {"lasting": int(effect.get("lasting", 1)), "delay": int(effect.get("delay", 0)), "data": effect_data}))
+                    log_snippets.append(f"[{buff_name} 付与]")
+            elif effect_type == "REMOVE_BUFF":
+                buff_name = effect.get("buff_name")
+                if buff_name:
+                    changes_to_apply.append((target_obj, "REMOVE_BUFF", buff_name, 0))
+                    log_snippets.append(f"[{buff_name} 解除]")
+            elif effect_type == "DAMAGE_BONUS":
+                damage = int(effect.get("value", 0))
+                if damage > 0:
+                    total_bonus_damage += damage
+                    log_snippets.append(f"+ [追加ダメージ {damage}]")
+            elif effect_type == "MODIFY_ROLL":
+                mod_value = int(effect.get("value", 0))
+                if mod_value != 0:
+                    total_bonus_damage += mod_value
+                    log_snippets.append(f"[ロール修正 {mod_value:+,}]")
+            elif effect_type == "CUSTOM_EFFECT":
+                custom_changes, custom_logs = execute_custom_effect(effect, actor, target)
+                changes_to_apply.extend(custom_changes)
+                log_snippets.extend(custom_logs)
+            elif effect_type == "FORCE_UNOPPOSED":
+                changes_to_apply.append((target_obj, "FORCE_UNOPPOSED", "None", 0))
+            elif effect_type == "MODIFY_BASE_POWER":
+                mod_value = int(effect.get("value", 0))
+                if mod_value != 0:
+                    changes_to_apply.append((target_obj, "MODIFY_BASE_POWER", None, mod_value))
+                    log_snippets.append(f"[基礎威力 {mod_value:+}]")
 
     return total_bonus_damage, log_snippets, changes_to_apply
 

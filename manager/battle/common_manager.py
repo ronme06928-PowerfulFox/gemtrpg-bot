@@ -58,7 +58,7 @@ def process_full_round_end(room, username):
                 rule_data = json.loads(rule_json_str)
                 effects_array = rule_data.get("effects", [])
                 if effects_array:
-                    _, logs, changes = process_skill_effects(effects_array, "END_ROUND", char, char, None)
+                    _, logs, changes = process_skill_effects(effects_array, "END_ROUND", char, char, None, context={'characters': state['characters']})
                     all_changes.extend(changes)
             except: pass
 

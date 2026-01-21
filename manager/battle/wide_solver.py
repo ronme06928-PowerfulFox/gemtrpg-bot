@@ -273,7 +273,7 @@ def execute_wide_match(room, username):
                 broadcast_log(room, f"   → {def_char['name']} に {diff} ダメージ", 'damage')
 
                 if attacker_effects:
-                    dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None)
+                    dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'characters': state['characters']})
                     for log_msg in logs:
                         broadcast_log(room, log_msg, 'skill-effect')
                     diff_bonus = apply_local_changes(changes)
@@ -352,7 +352,7 @@ def execute_wide_match(room, username):
                 broadcast_log(room, f"   → 🗡️ 攻撃者勝利! ダメージ: {damage}", 'match-result')
 
                 if attacker_effects:
-                    dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None)
+                    dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'characters': state['characters']})
                     for log_msg in logs:
                         broadcast_log(room, log_msg, 'skill-effect')
                     damage += apply_local_changes(changes)

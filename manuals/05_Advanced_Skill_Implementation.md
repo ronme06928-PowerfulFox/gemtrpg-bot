@@ -24,14 +24,14 @@
 
 複雑な効果は主に以下の3つの要素を組み合わせて実現します。
 
-1.  **静的バフ定義 (`buff_catalog_cache.json`)**:
-    *   `plugin` タイプを指定して、カスタムロジック（Pythonコード）と連携させます。
-2.  **動的バフパターン (`manager/buff_catalog.py`)**:
-    *   命名規則（例: `_Burst2x`）に基づいて、効果を自動生成します。
-3.  **プラグイン (`plugins/*.py`)**:
-    *   特定のイベント（被ダメージ時、ラウンド終了時など）で発火するロジックを記述します。
-4.  **スキル特記処理 (`特記処理` JSON)**:
-    *   スキルの発動時（HIT, WINなど）に適用する効果をリストで定義します。
+1. **静的バフ定義 (`buff_catalog_cache.json`)**:
+    - `plugin` タイプを指定して、カスタムロジック（Pythonコード）と連携させます。
+2. **動的バフパターン (`manager/buff_catalog.py`)**:
+    - 命名規則（例: `_Burst2x`）に基づいて、効果を自動生成します。
+3. **プラグイン (`plugins/*.py`)**:
+    - 特定のイベント（被ダメージ時、ラウンド終了時など）で発火するロジックを記述します。
+4. **スキル特記処理 (`特記処理` JSON)**:
+    - スキルの発動時（HIT, WINなど）に適用する効果をリストで定義します。
 
 ---
 
@@ -46,6 +46,7 @@
 
 **ステップ1: バフ定義の追加 (`buff_catalog_cache.json`)**
 「被ダメージ増加」バフを定義します。
+
 ```json
 "Bu-XX": {
   "id": "Bu-XX",
@@ -62,6 +63,7 @@
 
 **ステップ2: スキルデータの設定**
 スプレッドシート等のスキルデータ定義で以下のように記述します。
+
 ```json
 {
   "effects": [
@@ -93,6 +95,7 @@
 プラグイン型のバフを作成し、被ダメージ処理のフックポイントで反撃処理を実行します。
 
 **ステップ1: バフ定義 (`buff_catalog_cache.json`)**
+
 ```json
 "Bu-CounterBleed": {
   "id": "Bu-CounterBleed",
@@ -111,6 +114,7 @@
 被ダメージ時に呼び出されるロジックを作成します。（※システム側で被ダメージフックの実装が必要です）
 
 **ステップ3: スキルデータ設定**
+
 ```json
 {
   "effects": [
@@ -135,6 +139,7 @@
 バフの `delay` パラメータを活用します。ラウンド終了時に `delay` が 0 になったタイミングで発火する処理をシステムに組み込みます。
 
 **ステップ1: スキルデータ設定**
+
 ```json
 {
   "effects": [
@@ -168,6 +173,7 @@
 
 **ステップ1: バフ定義**
 この効果を持つ特殊な状態（デバフ）を定義します。
+
 ```json
 "Bu-BurstChain": {
   "name": "破裂連鎖",
@@ -193,6 +199,7 @@
 新しい `CUSTOM_EFFECT` プラグインを作成し、内部で既存の2つの処理を呼び出します。
 
 **ステップ1: プラグイン実装 (`plugins/dual_collapse_burst.py`)**
+
 ```python
 def apply(actor, target, effect, context):
     registry = context.get("registry", {})
@@ -209,6 +216,7 @@ def apply(actor, target, effect, context):
 ```
 
 **ステップ2: スキルデータ設定**
+
 ```json
 {
   "effects": [
@@ -232,6 +240,7 @@ def apply(actor, target, effect, context):
 自然減少処理のロジックにおいて、「減少阻止バフ」を持っているかチェックする条件分岐を追加します。
 
 **ステップ1: バフ定義**
+
 ```json
 "Bu-BleedSustain": {
   "name": "出血維持",
@@ -241,6 +250,7 @@ def apply(actor, target, effect, context):
 
 **ステップ2: システム修正 (`manager/room_manager.py`)**
 ラウンド終了時の状態異常更新ループ内で：
+
 ```python
 if char.has_buff_with_flag("prevent_bleed_decay"):
     # 出血減少処理をスキップ
@@ -259,6 +269,7 @@ else:
 `manager/buff_catalog.py` の `DYNAMIC_PATTERNS` にパターンを追加するのが最も簡単です。
 
 **ステップ1: パターン定義の追加 (`manager/buff_catalog.py`)**
+
 ```python
 {
     "pattern": r"^(.*)_Burst2x$",
@@ -272,6 +283,7 @@ else:
     }
 }
 ```
+
 これにより、バフ名に `_Burst2x` を付けるだけで自動的に破裂付与量が2倍になります。
 
 ---
@@ -284,6 +296,7 @@ else:
 既存の `APPLY_STATE_PER_N` タイプを使用します。
 
 **スキルデータ設定例:**
+
 ```json
 {
   "effects": [
@@ -306,35 +319,70 @@ else:
 
 ### Case 9: ランダムターゲット選定
 
-「ランダムな敵1体」や「ランダムな味方1体」を対象にする効果です。
+「ランダムな敵1体」や「ランダムな味方1体」、あるいは「戦場にいる全員からランダム」などを対象にする効果です。
+システム側で自動的に「配置されている（座標を持つ）」キャラクターの中から、指定条件に従って対象を選出します。
 
-**実装アプローチ:**
-`manager/game_logic.py` の `process_skill_effects` 関数に、新しいターゲット指定ロジックを追加します。
+**機能仕様:**
+- `target_select`: `"RANDOM"` を指定することでランダム選定モードになります。
+- `target_filter`: 対象の陣営を指定します。
+  - `"ENEMY"`: 敵対陣営（デフォルト）
+  - `"ALLY"`: 味方陣営
+  - `"ALL"`: 全員
+- `target_count`: 選定する人数（デフォルト 1）。
+- `include_self`: 味方陣営または全員の場合に、自分自身を含めるかどうか (`true`/`false`, デフォルト `false`)。
+- **配置制限**: 自動的に「未配置（戦場に出ていない）」キャラクターは除外されます。
 
-**ステップ1: ロジック拡張 (`manager/game_logic.py`)**
-`process_skill_effects` 内で `target_type: "RANDOM_ENEMY"` などを処理する分岐を追加します。
+**スキルデータ設定例:**
 
-```python
-elif effect.get("target_select") == "RANDOM":
-    # 候補リストの作成
-    candidates = [c for c in all_characters if is_enemy(actor, c)]
-    if candidates:
-        import random
-        target_obj = random.choice(candidates)
-        # 以降、選ばれた target_obj に対して効果を適用
+**例1: ランダムな敵2体に「出血3」を付与**
+
+```json
+{
+  "effects": [
+    {
+      "timing": "HIT",
+      "type": "APPLY_STATE",
+      "target": "target",       // 基本ターゲット設定（無視されますが形式上記述）
+      "target_select": "RANDOM",
+      "target_filter": "ENEMY",
+      "target_count": 2,
+      "state_name": "出血",
+      "value": 3
+    }
+  ]
+}
 ```
 
-**ステップ2: スキルデータ設定**
+**例2: 自分以外のランダムな味方1人にバフ付与**
+
 ```json
 {
   "effects": [
     {
       "timing": "HIT",
       "type": "APPLY_BUFF",
-      "target": "target",       // 基本ターゲット設定（無視される場合もあるが形式上必要）
-      "target_select": "RANDOM", // 追加プロパティでランダム指定
-      "target_filter": "ENEMY",  // 敵から選出
-      "buff_name": "ランダムデバフ"
+      "target_select": "RANDOM",
+      "target_filter": "ALLY",
+      "include_self": false,
+      "buff_name": "攻撃力アップ"
+    }
+  ]
+}
+```
+
+**例3: 敵味方問わずランダムに1人を回復（自分含む）**
+
+```json
+{
+  "effects": [
+    {
+      "timing": "HIT",
+      "type": "APPLY_STATE", // 回復は負のダメージや専用処理で
+      "target_select": "RANDOM",
+      "target_filter": "ALL",
+      "include_self": true,
+      "state_name": "HP",  // ※HP直接回復の場合。実装による
+      "value": 10
     }
   ]
 }
@@ -348,15 +396,16 @@ elif effect.get("target_select") == "RANDOM":
 プラグインや個別のJSON定義を作成せずに、名前だけで効果を発揮します。
 
 **パターン:**
-*   `_DaIn[数値]`: 被ダメージ増加 (Damage Increase)
-    *   例: `Weakness_DaIn20` -> 被ダメージ **1.2倍** (+20%)
-*   `_DaCut[数値]`: 被ダメージ軽減 (Damage Cut)
-    *   例: `Guard_DaCut30` -> 被ダメージ **0.7倍** (-30%)
+- `_DaIn[数値]`: 被ダメージ増加 (Damage Increase)
+  - 例: `Weakness_DaIn20` -> 被ダメージ **1.2倍** (+20%)
+- `_DaCut[数値]`: 被ダメージ軽減 (Damage Cut)
+  - 例: `Guard_DaCut30` -> 被ダメージ **0.7倍** (-30%)
 
 **実装アプローチ:**
 スキルデータの `APPLY_BUFF` で名前を指定するだけです。
 
 **スキルデータ設定例:**
+
 ```json
 {
   "effects": [
@@ -398,13 +447,14 @@ elif effect.get("target_select") == "RANDOM":
 「攻撃を受けるたびに状態が悪化する」といった表現に使えます。
 
 **パターン:**
-*   `_BleedReact[数値]`: 被弾時出血増加 (Reactive Bleed)
-    *   例: `Cursed_BleedReact2` -> ダメージを受けると自分の出血 **+2**
+- `_BleedReact[数値]`: 被弾時出血増加 (Reactive Bleed)
+  - 例: `Cursed_BleedReact2` -> ダメージを受けると自分の出血 **+2**
 
 **実装アプローチ:**
 通常のバフ付与と同様に、名前にサフィックスをつけるだけです。
 
 **スキルデータ設定例:**
+
 ```json
 {
   "effects": [
@@ -425,14 +475,16 @@ elif effect.get("target_select") == "RANDOM":
 スプレッドシート（バフ図鑑）にあらかじめ定義されているフレーバーテキストよりも、このJSON定義が優先されます。
 
 **優先順位:**
-1.  **スキルJSON定義**: スキル使用時に指定された `flavor`（最優先）
-2.  **スプレッドシート定義**: バフ図鑑に登録されているデフォルトのフレーバーテキスト
-3.  **なし**: 何も表示されません
+
+1. **スキルJSON定義**: スキル使用時に指定された `flavor`（最優先）
+2. **スプレッドシート定義**: バフ図鑑に登録されているデフォルトのフレーバーテキスト
+3. **なし**: 何も表示されません
 
 **実装アプローチ:**
 `effects` リスト内の `APPLY_BUFF` 要素に、直接 `flavor` キーとテキストを追加します。
 
 **スキルデータ設定例:**
+
 ```json
 {
   "effects": [
@@ -455,6 +507,7 @@ elif effect.get("target_select") == "RANDOM":
 ---
 
 ## 3. 実装が必要なファイル一覧
+
 (以下変更なし)
 
 上記の実装を行うために、主に以下のファイルを編集・作成する必要があります。
