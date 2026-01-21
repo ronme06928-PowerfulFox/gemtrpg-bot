@@ -253,6 +253,22 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 if stat_name == "亀裂":
                     changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
 
+        elif effect_type == "MULTIPLY_STATE":
+            # ★新機能: 状態異常値の乗算 (四捨五入)
+            stat_name = effect.get("state_name")
+            multiplier = float(effect.get("value", 1.0))
+
+            if stat_name and target_obj:
+                current_val = get_status_value(target_obj, stat_name)
+                # 標準的な四捨五入 (int(val + 0.5))
+                # 例: 2.5 -> 3, 2.4 -> 2
+                new_val = int(current_val * multiplier + 0.5)
+                diff = new_val - current_val
+
+                if diff != 0:
+                    changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, diff))
+                    log_snippets.append(f"[{stat_name} x{multiplier} ({current_val}→{new_val})]")
+
         elif effect_type == "APPLY_BUFF":
             buff_name = effect.get("buff_name")
             buff_id = effect.get("buff_id")
