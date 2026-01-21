@@ -5,7 +5,8 @@ from manager.battle.core import proceed_next_turn
 from manager.battle.common_manager import (
     process_full_round_end, reset_battle_logic, force_end_match_logic,
     move_token_logic, open_match_modal_logic, close_match_modal_logic,
-    sync_match_data_logic, process_round_start, process_wide_declarations
+    sync_match_data_logic, process_round_start, process_wide_declarations,
+    process_wide_modal_confirm
 )
 
 
@@ -39,6 +40,18 @@ def on_request_declare_wide_skill_users(data):
 
     # Needs process_wide_declarations in common_manager.py
     process_wide_declarations(room, wide_user_ids)
+
+@socketio.on('request_wide_modal_confirm')
+def on_request_wide_modal_confirm(data):
+    room = data.get('room')
+    if not room: return
+    wide_ids = data.get('wideUserIds', [])
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+
+    process_wide_modal_confirm(room, username, attribute, wide_ids)
 
 
 

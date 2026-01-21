@@ -184,3 +184,61 @@
 | `荊棘飛散` | 荊棘Lvに応じて他対象に荊棘を拡散する。 | `ThornsScatterEffect` |
 | `亀裂崩壊_DAMAGE` | 亀裂による追加ダメージ処理（通常は自動計算だが強制発動用）。 | `FissureEffect` |
 | `APPLY_SKILL_DAMAGE_AGAIN` | 同じスキルのダメージ処理をもう一度実行する（連撃）。 | `SimpleEffect` |
+
+#### その他の効果タイプ (Advanced Types)
+
+**APPLY_STATE_PER_N (定数比例付与)**
+「自分の【ステータスA】Xにつき、【ステータスB】をY与える」といった効果を実現します。
+
+```json
+{
+  "type": "APPLY_STATE_PER_N",
+  "state_name": "亀裂",
+  "source": "self",
+  "source_param": "戦慄",
+  "per_N": 2,
+  "value": 1,
+  "max_value": 5
+}
+```
+
+**MULTIPLY_STATE (状態異常値の乗算)**
+対象の状態異常値（スタック数）を指定した倍率で乗算します。
+
+```json
+{
+  "type": "MULTIPLY_STATE",
+  "state_name": "出血",
+  "value": 2.0,
+  "target": "target"
+}
+```
+
+**ランダムターゲット選定 (Random Target)**
+`effects` 内のフィールドとして記述することで、効果対象をランダムに決定します。
+
+- `target_select`: `"RANDOM"`
+- `target_filter`: `"ENEMY"`, `"ALLY"`, `"ALL"`
+- `target_count`: 選択数
+
+```json
+{
+  "type": "APPLY_STATE",
+  "target_select": "RANDOM",
+  "target_filter": "ENEMY",
+  "target_count": 2,
+  "state_name": "出血",
+  "value": 3
+}
+```
+
+**フレーバーテキスト (Flavor Text)**
+バフ付与などのログに演出テキストを追加します。
+
+```json
+{
+  "type": "APPLY_BUFF",
+  "buff_name": "勇気の印",
+  "flavor": "「負ける気がしない！」心に勇気が湧いてくる。"
+}
+```

@@ -249,6 +249,11 @@ async function setupVisualBattleTab() {
                 openVisualWideDeclarationModal();
             });
 
+            socket.on('close_wide_declaration_modal', () => {
+                const el = document.getElementById('visual-wide-decl-modal');
+                if (el) el.remove();
+            });
+
             // ★ 追加: マッチモーダル関連イベント
             socket.on('match_modal_opened', (data) => {
                 // data: { match_type, attacker_id, defender_id, targets, ... }
@@ -2312,14 +2317,47 @@ function sendSkillDeclaration(side, isCommit) {
             const rule = JSON.parse(skillData['特記処理']);
             const tags = skillData.tags || [];
             if (rule.cost && !tags.includes('即時発動')) {
+                // ヘルパー関数: 値を検索
+                const findStatusValue = (obj, targetKey) => {
+                    // 1. ルートプロパティ (hp, mp, sanなど)
+                    if (obj[targetKey] !== undefined) return parseInt(obj[targetKey]);
+                    if (obj[targetKey.toLowerCase()] !== undefined) return parseInt(obj[targetKey.toLowerCase()]);
+
+                    // 2. states配列 (FPなど)
+                    if (obj.states) {
+                        const state = obj.states.find(s => s.name === targetKey || s.name === targetKey.toUpperCase());
+                        if (state) return parseInt(state.value);
+                    }
+
+                    // 3. params配列 (その他)
+                    if (obj.params) {
+                        const param = obj.params.find(p => p.label === targetKey);
+                        if (param) return parseInt(param.value);
+                    }
+                    return 0;
+                };
+
                 for (const c of rule.cost) {
                     const type = c.type;
                     const val = parseInt(c.value || 0);
                     if (val > 0 && type) {
-                        const key = (type === 'SAN') ? 'sanity' : type.toLowerCase();
-                        const current = parseInt(actor[key] || 0);
+                        const current = findStatusValue(actor, type);
+
                         if (current < val) {
-                            alert(`${type}が不足しています (必要:${val}, 現在:${current})`);
+                            // インラインエラー表示に変更
+                            const previewEl = document.getElementById(`duel-${side}-preview`);
+                            const descEl = document.getElementById(`duel-${side}-skill-desc`);
+
+                            if (previewEl) {
+                                previewEl.textContent = "Cost Error";
+                                previewEl.style.color = "red";
+                            }
+                            if (descEl) {
+                                descEl.innerHTML = `<div style="color: #ff4444; font-weight: bold; padding: 5px; border: 1px solid #ff4444; background: rgba(255,0,0,0.1); border-radius: 4px;">
+                                    ${type}が不足しています<br>
+                                    (必要: ${val}, 現在: ${current})
+                                </div>`;
+                            }
                             return;
                         }
                     }
@@ -2585,23 +2623,32 @@ function openVisualWideDeclarationModal() {
                 <h3 style="margin:0;">⚡ 広域攻撃予約 (Visual)</h3>
             </div>
             <div style="padding: 20px; max-height: 60vh; overflow-y: auto;">
-                <p>今ラウンド、広域攻撃を行うキャラクターを選択してください。<br>※広域タグを持つキャラのみ表示</p>
+                <p>今ラウンド、広域攻撃を行うキャラクターを選択してください。<br>
+                ※GMまたは全員が確認ボタンを押すと確定します。</p>
                 <div style="border: 1px solid #ddd; border-radius: 4px;">${listHtml}</div>
             </div>
             <div style="padding: 15px; background: #f8f9fa; text-align: right; border-radius: 0 0 8px 8px;">
-                <button id="visual-wide-cancel" class="duel-btn secondary">キャンセル</button>
-                <button id="visual-wide-confirm" class="duel-btn primary">決定</button>
+                <!-- キャンセルボタン削除 -->
+                <button id="visual-wide-confirm" class="duel-btn primary" style="width:100%;">決定 (確認)</button>
             </div>
         </div>
     `;
 
     document.body.appendChild(backdrop);
-    document.getElementById('visual-wide-cancel').onclick = () => backdrop.remove();
-    document.getElementById('visual-wide-confirm').onclick = () => {
+    // document.getElementById('visual-wide-cancel').onclick = () => backdrop.remove(); // Removed
+    const confirmBtn = document.getElementById('visual-wide-confirm');
+    confirmBtn.onclick = () => {
         const checks = backdrop.querySelectorAll('.visual-wide-check');
         const ids = Array.from(checks).filter(c => c.checked).map(c => c.value);
-        socket.emit('request_declare_wide_skill_users', { room: currentRoomName, wideUserIds: ids });
-        backdrop.remove();
+
+        // Confirm Button Action
+        socket.emit('request_wide_modal_confirm', { room: currentRoomName, wideUserIds: ids });
+
+        // Disable button to prevent double submit / show waiting state
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "確認済み: 他プレイヤー待機中...";
+        confirmBtn.classList.remove('primary');
+        confirmBtn.classList.add('secondary');
     };
 }
 

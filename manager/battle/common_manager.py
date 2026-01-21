@@ -349,6 +349,11 @@ def process_round_start(room, username):
         print(f"[DEBUG] Room state not found for {room}")
         return
 
+    # Check previous round end flag
+    if state.get('round', 0) > 0 and not state.get('is_round_ended', False):
+        emit('new_log', {'message': 'ラウンド終了処理が完了していません。「ラウンド終了」ボタンを押してください。', 'type': 'error'}, room=room)
+        return
+
     # increment round
     state['round'] = state.get('round', 0) + 1
     state['is_round_ended'] = False
@@ -398,8 +403,9 @@ def process_round_start(room, username):
     broadcast_state_update(room)
     save_specific_room_state(room)
 
-    broadcast_state_update(room)
-    save_specific_room_state(room)
+    # Reset Wide Modal Logic State
+    state['wide_modal_confirms'] = []
+    state['pending_wide_ids'] = []
 
     # Open Wide Declaration Modal (Wait for response)
     socketio.emit('open_wide_declaration_modal', {}, to=room)
@@ -445,5 +451,93 @@ def process_wide_declarations(room, wide_user_ids):
 
     # Proceed to first turn
     proceed_next_turn(room)
+
+def process_wide_modal_confirm(room, user_id, attribute, wide_ids):
+    state = get_room_state(room)
+    if not state: return
+
+    # Init container if missing
+    if 'wide_modal_confirms' not in state: state['wide_modal_confirms'] = []
+    if 'pending_wide_ids' not in state: state['pending_wide_ids'] = []
+
+    # GM Force Confirm
+    if attribute == 'GM':
+        print(f"[WideModal] GM Forced Confirm. IDs: {wide_ids}")
+        # Merge IDs (if GM selected any)
+        for wid in wide_ids:
+            if wid not in state['pending_wide_ids']:
+                state['pending_wide_ids'].append(wid)
+
+        # Execute Wide Declarations
+        process_wide_declarations(room, state['pending_wide_ids'])
+
+        # Close Modal for everyone
+        socketio.emit('close_wide_declaration_modal', {}, to=room)
+        return
+
+    # Normal Player Confirm
+    if user_id not in state['wide_modal_confirms']:
+        state['wide_modal_confirms'].append(user_id)
+
+    # Merge Wide IDs
+    for wid in wide_ids:
+        if wid not in state['pending_wide_ids']:
+            state['pending_wide_ids'].append(wid)
+
+    # Check if all non-GM users have confirmed
+    # Access connected users via room_manager (assuming some way to get online users)
+    # Alternatively, simplistic approach: Check if confirmed count > X?
+    # Better: Wait for GM. But requirements say "GM OR all non-GM".
+
+    # We need a way to know "all non-GM users". This is tricky without a user list.
+    # For now, let's rely on: The modal shows "Confirm" and disables.
+    # We will execute ONLY if GM presses confirm OR if we implement a strict user tracking.
+    # However, user requirement said: "GMがボタンを押すか或いはルームにいるGMを除いた全員がボタンを押すか"
+
+    # Since we don't track "all users in room" strictly in state (only active socket sids),
+    # we might need to iterate connected sids.
+
+    # Let's try to get all connected non-GM users.
+    # Import locally to avoid circular dep if needed, or assume we can't easily get it here.
+    # Actually, let's just broadcast the "Partially Confirmed" status for now?
+    # No, we need to close it automatically if everyone confirmed.
+
+    # WORKAROUND: For this iteration, we might assume if we have accurate room user list.
+    # Use room_manager's user tracking if available.
+
+    # Let's check `manager.room_manager.ROOM_USERS`.
+    from manager.room_manager import ROOM_USERS
+
+    current_room_users = ROOM_USERS.get(room, {}) # {sid: {username, attribute}}
+    non_gm_users = [
+        u['username'] for u in current_room_users.values()
+        if u.get('attribute') != 'GM'
+    ]
+    # Filter unique usernames (in case of multiple tabs)
+    unique_non_gm_users = list(set(non_gm_users))
+
+    # Check if all confirmed
+    # We stored user_id (which is presumably username or specialized ID? Assuming username for now from route)
+    # Let's verify what `user_id` is passed. It should be username.
+
+    confirmed_users = state['wide_modal_confirms']
+
+    # Check coverage
+    all_confirmed = True
+    for u in unique_non_gm_users:
+        if u not in confirmed_users:
+            all_confirmed = False
+            break
+
+    if all_confirmed and len(unique_non_gm_users) > 0:
+        print(f"[WideModal] All players confirmed. Executing.")
+        process_wide_declarations(room, state['pending_wide_ids'])
+        socketio.emit('close_wide_declaration_modal', {}, to=room)
+    else:
+        # Just save state and wait
+        print(f"[WideModal] Player {user_id} confirmed. Waiting for others. ({len(confirmed_users)}/{len(unique_non_gm_users)})")
+        save_specific_room_state(room)
+        # Optional: Broadcast progress
+        # socketio.emit('wide_modal_progress', {'current': len(confirmed_users), 'total': len(unique_non_gm_users)}, to=room)
 
 
