@@ -74,7 +74,15 @@ def process_full_round_end(room, username):
         bleed_value = get_status_value(char, '出血')
         if bleed_value > 0:
             _update_char_stat(room, char, 'HP', char['hp'] - bleed_value, username="[出血]")
-            _update_char_stat(room, char, '出血', bleed_value // 2, username="[出血]")
+
+            # 出血維持バフチェック
+            from plugins.buffs.bleed_maintenance import BleedMaintenanceBuff
+            if BleedMaintenanceBuff.has_bleed_maintenance(char):
+                 # 維持する場合、減少処理をスキップ (値は変わらない)
+                 pass
+            else:
+                 # 通常: 半減
+                _update_char_stat(room, char, '出血', bleed_value // 2, username="[出血]")
 
         # 1d. Thorns
         thorns_value = get_status_value(char, '荊棘')

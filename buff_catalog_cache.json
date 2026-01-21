@@ -98,5 +98,17 @@
       "category": "debuff"
     },
     "default_duration": 1
+  },
+  "Bu-08": {
+    "id": "Bu-08",
+    "name": "出血遷延",
+    "description": "ラウンド終了時、出血威力が減少しない。",
+    "flavor": "刻まれた傷が治る気配はなく、血が夥しく流れ続ける……",
+    "effect": {
+      "type": "plugin",
+      "name": "bleed_maintenance",
+      "category": "debuff"
+    },
+    "default_duration": 1
   }
 }
