@@ -421,7 +421,13 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
     skill_details = {
         'base_power': int(skill_data.get('基礎威力', 0)),
         'base_power_buff_mod': base_power_buff_mod,
-        'external_mod': external_base_power_mod
+        'external_mod': external_base_power_mod,
+        '分類': skill_data.get('分類', skill_data.get('タイミング', '')),
+        '距離': skill_data.get('距離', skill_data.get('射程', '')),
+        '属性': skill_data.get('属性', ''),
+        '使用時効果': skill_data.get('使用時効果', skill_data.get('コスト', '')),
+        '発動時効果': skill_data.get('発動時効果', skill_data.get('効果', '')),
+        '特記': skill_data.get('特記', ''),
     }
 
     # 2. 威力ボーナスの計算 (ルールおよびバフ)
@@ -440,6 +446,18 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
         rules = rule_data.get('power_bonus', [])
         bonus_from_rules = _calculate_bonus_from_rules(rules, actor_char, target_char, actor_skill_data=skill_data)
         bonus_power += bonus_from_rules
+
+        # 戦慄の上限をルールから取得 (指定がなければ0)
+        if senritsu_max_apply == 0:
+            senritsu_max_apply = rule_data.get('senritsu_max', 0)
+
+    # 戦慄の自動判定 (分類が物理/魔法を含むなら上限99として扱う)
+    if senritsu_max_apply == 0:
+        category = skill_data.get('分類', '')
+        if category and ('物理' in category or '魔法' in category):
+            senritsu_max_apply = 99
+
+    skill_details['senritsu_max_apply'] = senritsu_max_apply
 
     # バフベース (攻撃威力バフなど)
     buff_bonus = calculate_buff_power_bonus(actor_char, target_char, skill_data)
@@ -615,7 +633,12 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
         "correction_details": correction_details,
         "senritsu_dice_reduction": senritsu_dice_reduction,
         "skill_details": skill_details,
+        "power_breakdown": {
+            "base_power_mod": base_power_buff_mod + external_base_power_mod,
+            "additional_power": bonus_power,
+             # Add other fields if needed by client
         }
+    }
 
 
 def calculate_damage_multiplier(character):

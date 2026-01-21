@@ -90,6 +90,12 @@
 
         if (!attacker) return;
 
+        // ★ 新規マッチ時（または攻撃者が変わった時）はローカルキャッシュをリセット
+        if (!window._prevWideMatchAttackerId || window._prevWideMatchAttackerId !== matchData.attacker_id) {
+            window._wideLocalCalcCache = { attacker: null, defenders: {} };
+            window._prevWideMatchAttackerId = matchData.attacker_id;
+        }
+
         var defenders = matchData.defenders || [];
 
         // Update attacker section
@@ -498,9 +504,10 @@
                                 var val = parseInt(c.value || 0);
                                 if (val > 0 && type) {
                                     var current = 0;
-                                    if (type === 'MP') current = parseInt(defChar.mp || 0);
-                                    else if (type === 'HP') current = parseInt(defChar.hp || 0);
-                                    else {
+                                    var key = (type === 'SAN') ? 'sanity' : (type === 'FP' || type === 'MP' || type === 'HP') ? type.toLowerCase() : null;
+                                    if (key && defChar[key] !== undefined) {
+                                        current = parseInt(defChar[key] || 0);
+                                    } else {
                                         var found = (defChar.states || []).find(s => s.name === type);
                                         current = found ? parseInt(found.value || 0) : 0;
                                     }
@@ -551,6 +558,13 @@
                         wideMatchLocalState.defenders[defId].command = result.command;
                         wideMatchLocalState.defenders[defId].min = result.min;
                         wideMatchLocalState.defenders[defId].max = result.max;
+
+                        // ★ local cache への保存 (自分が計算した場合)
+                        if (!window._wideLocalCalcCache) window._wideLocalCalcCache = { attacker: null, defenders: {} };
+                        window._wideLocalCalcCache.defenders[defId] = {
+                            result: result,
+                            skillId: select.value
+                        };
 
                         // 表示を更新
                         if (resultDiv) {
@@ -740,6 +754,30 @@
                 } else {
                     resultDiv.innerHTML = '<span style="color:#007bff;font-weight:bold;">Command: ' + saved.command + '</span>';
                 }
+
+                // ★ 宣言ボタンを有効化 (Sync時に計算済みなら押せるように)
+                var dBtn = card.querySelector('.wide-def-declare-btn');
+                if (dBtn) dBtn.disabled = false;
+            }
+        } else if (window._wideLocalCalcCache && window._wideLocalCalcCache.defenders && window._wideLocalCalcCache.defenders[defData.id]) {
+            // ★ local cache からの復元チェック
+            var cached = window._wideLocalCalcCache.defenders[defData.id];
+            var select = card.querySelector('.v-wide-def-skill-select');
+            var currentSkillId = select ? select.value : '';
+            if (cached.skillId === currentSkillId && currentSkillId) {
+                console.log("[Sync] Restoring local wide defender calc result for", defData.id);
+                var res = cached.result;
+                wideMatchLocalState.defenders[defData.id] = {
+                    skillId: res.skill_id,
+                    command: res.command,
+                    min: res.min,
+                    max: res.max
+                };
+                var rangeText = res.damage_range_text ? 'Range: ' + res.damage_range_text : 'Range: ' + res.min + '~' + res.max;
+                resultDiv.innerHTML = '<span style="color:#007bff;font-weight:bold;">' + rangeText + ' (' + res.command + ')</span>';
+
+                var dBtn = card.querySelector('.wide-def-declare-btn');
+                if (dBtn) dBtn.disabled = false;
             }
         }
 
@@ -984,6 +1022,22 @@
 
                 // ★ Commandを1行目の末尾に移動
                 attackerResultDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;white-space:pre-line;">' + displayText + ' (' + matchData.attacker_data.command + ')' + detailText + '</span>';
+            } else if (attackerResultDiv && attackerDeclareBtn && window._wideLocalCalcCache && window._wideLocalCalcCache.attacker) {
+                // ★ local cache からの復元チェック
+                var cached = window._wideLocalCalcCache.attacker;
+                var currentSkillId = attackerSkillSelect ? attackerSkillSelect.value : '';
+                if (cached.attackerId === matchData.attacker_id && cached.skillId === currentSkillId && currentSkillId) {
+                    console.log("[Sync] Restoring local wide attacker calc result");
+                    var res = cached.result;
+                    wideMatchLocalState.attackerCommand = res.command;
+
+                    var rangeText = res.damage_range_text ? 'Range: ' + res.damage_range_text : 'Range: ' + res.min + '~' + res.max;
+                    attackerResultDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;">' + rangeText + ' (' + res.command + ')</span>';
+
+                    attackerDeclareBtn.disabled = false;
+                    attackerDeclareBtn.textContent = '宣言';
+                    attackerDeclareBtn.classList.remove('locked');
+                }
             }
         }
 
@@ -1003,6 +1057,35 @@
                     }));
 
                 if (!attacker) return;
+
+                // ★ コストチェック
+                if (window.allSkillData[skillId] && window.allSkillData[skillId]['特記処理']) {
+                    try {
+                        var rule = JSON.parse(window.allSkillData[skillId]['特記処理']);
+                        var tags = window.allSkillData[skillId].tags || [];
+                        if (rule.cost && tags.indexOf("即時発動") === -1) {
+                            for (var i = 0; i < rule.cost.length; i++) {
+                                var c = rule.cost[i];
+                                var type = c.type;
+                                var val = parseInt(c.value || 0);
+                                if (val > 0 && type) {
+                                    var key = (type === 'SAN') ? 'sanity' : (type === 'FP' || type === 'MP' || type === 'HP') ? type.toLowerCase() : null;
+                                    var current = 0;
+                                    if (key && attacker[key] !== undefined) {
+                                        current = parseInt(attacker[key] || 0);
+                                    } else {
+                                        var found = (attacker.states || []).find(s => s.name === type);
+                                        current = found ? parseInt(found.value || 0) : 0;
+                                    }
+                                    if (current < val) {
+                                        alert(type + 'が不足しています (必要:' + val + ', 現在:' + current + ')');
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) { console.error("Cost check error:", e); }
+                }
 
                 // ★ サーバー側で計算
                 socket.emit('calculate_wide_skill', {
@@ -1027,6 +1110,14 @@
 
                     if (result.char_id === attacker.id) {
                         wideMatchLocalState.attackerCommand = result.command;
+
+                        // ★ local cache への保存 (自分が計算した場合)
+                        if (!window._wideLocalCalcCache) window._wideLocalCalcCache = { attacker: null, defenders: {} };
+                        window._wideLocalCalcCache.attacker = {
+                            result: result,
+                            skillId: skillId,
+                            attackerId: attacker.id
+                        };
 
                         if (resultDiv) {
                             var rangeText = '';

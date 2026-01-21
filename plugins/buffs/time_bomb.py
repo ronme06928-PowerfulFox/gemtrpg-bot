@@ -1,7 +1,7 @@
 
 from .base import BaseBuff
 from plugins.burst import BurstEffect
-from manager.status_manager import get_status_value
+from manager.game_logic import get_status_value
 
 class TimeBombBuff(BaseBuff):
     """時限式破裂爆発バフプラグイン"""

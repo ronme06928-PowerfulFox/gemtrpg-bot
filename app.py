@@ -26,10 +26,10 @@ from manager.utils import session_required
 # ★ イベントハンドラ（SocketIO層）のインポート
 # これをインポートすることで、@socketio.on デコレータが登録されます
 import events.socket_main
-import events.socket_battle
 import events.socket_char
-import events.socket_wide_match  # ★追加
-import events.socket_wide_calculate  # ★追加
+import events.battle # Refactored battle events
+import events.socket_wide_calculate
+
 import events.socket_items  # ★Phase 4: アイテムシステム
 
 import uuid

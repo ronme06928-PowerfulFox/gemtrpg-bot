@@ -869,8 +869,14 @@ function createMapToken(char) {
     let wideBtnHtml = '';
     // ★ 修正: 既に広域マッチが進行中ならボタンを表示しない (誤リセット防止)
     const isWideMatchExecuting = battleState.active_match && battleState.active_match.is_active && battleState.active_match.match_type === 'wide';
+
+    // DEBUG: Wide Button Condition
+    if (char.isWideUser) {
+        console.log(`[WideButtonDebug] ${char.name}: isTurn=${isCurrentTurn}, isWideUser=${char.isWideUser}, Executing=${isWideMatchExecuting}`);
+    }
+
     if (isCurrentTurn && char.isWideUser && !isWideMatchExecuting) {
-        wideBtnHtml = '<button class="wide-attack-trigger-btn" onmousedown="event.stopPropagation(); openSyncedWideMatchModal(\'' + char.id + '\');">⚡ 広域攻撃</button>';
+        wideBtnHtml = '<button class="wide-attack-trigger-btn" onclick="event.stopPropagation(); openSyncedWideMatchModal(\'' + char.id + '\');">⚡ 広域攻撃</button>';
     }
 
     token.innerHTML = `
@@ -1843,7 +1849,24 @@ function updateMatchPanelContent(matchData) {
         } else {
             // 未宣言 → 権限チェック
             const canControl = canControlCharacter(charId);
-            const hasCalcResult = sideData && sideData.final_command;
+
+            // ★ Phase 12: local cache からの復元チェック (他人の宣言による同期で自分の計算結果が消えるのを防ぐ)
+            const skillSelect = document.getElementById(`duel-${side}-skill`);
+            const currentSkillId = skillSelect ? skillSelect.value : "";
+            let hasCalcResult = !!(sideData && sideData.final_command);
+
+            if (!hasCalcResult && canControl && window._duelLocalCalcCache && window._duelLocalCalcCache[side]) {
+                const cached = window._duelLocalCalcCache[side];
+                // キャラクターIDとスキルIDが一致している場合のみ復元
+                if (cached.char_id === charId && cached.skill_id === currentSkillId) {
+                    console.log(`[Sync] Restoring local calc result for ${side}`);
+                    // updateDuelUIを直接呼ぶと再帰や無限ループの恐れがあるため、最低限の反映を行う
+                    // または updateDuelUI(side, { ...cached.data, enableButton: true });
+                    // ただし、updateDuelUI内でも duelState を更新するため、そのまま呼んで良い
+                    updateDuelUI(side, { ...cached.data, enableButton: true });
+                    hasCalcResult = true;
+                }
+            }
 
             if (declareBtn) {
                 declareBtn.textContent = '宣言';
@@ -1898,6 +1921,9 @@ function openDuelModal(attackerId, defenderId, isOneSided = false, emitSync = tr
         isOneSided: false,
         attackerCommand: null, defenderCommand: null
     };
+
+    // ★ 新規マッチ時はローカルキャッシュをリセット
+    window._duelLocalCalcCache = { attacker: null, defender: null };
 
     // ★ 追加: マッチ開催フラグを設定
     if (!battleState.active_match) {
@@ -2278,6 +2304,30 @@ function sendSkillDeclaration(side, isCommit) {
 
     if (!skillId) { alert("スキルを選択してください。"); return; }
 
+    // ★ コストチェック
+    const skillData = window.allSkillData ? window.allSkillData[skillId] : null;
+    const actor = battleState.characters.find(c => c.id === actorId);
+    if (skillData && actor && skillData['特記処理']) {
+        try {
+            const rule = JSON.parse(skillData['特記処理']);
+            const tags = skillData.tags || [];
+            if (rule.cost && !tags.includes('即時発動')) {
+                for (const c of rule.cost) {
+                    const type = c.type;
+                    const val = parseInt(c.value || 0);
+                    if (val > 0 && type) {
+                        const key = (type === 'SAN') ? 'sanity' : type.toLowerCase();
+                        const current = parseInt(actor[key] || 0);
+                        if (current < val) {
+                            alert(`${type}が不足しています (必要:${val}, 現在:${current})`);
+                            return;
+                        }
+                    }
+                }
+            }
+        } catch (e) { console.error("Cost check error:", e); }
+    }
+
     socket.emit('request_skill_declaration', {
         room: currentRoomName,
         actor_id: actorId, target_id: targetId,
@@ -2322,6 +2372,11 @@ function updateDuelUI(side, data) {
                 const sign = d.value > 0 ? '+' : '';
                 damageText += `\n[${d.source} ${sign}${d.value}]`;
             });
+        }
+
+        // ★ 戦慄によるダイス減少を表示
+        if (data.senritsu_dice_reduction && data.senritsu_dice_reduction > 0) {
+            damageText += `\n[ダイス威力 -${data.senritsu_dice_reduction}] (戦慄)`;
         }
 
         dmgEl.style.whiteSpace = 'pre-line';
@@ -2372,6 +2427,16 @@ function updateDuelUI(side, data) {
     if (previewEl && data.senritsu_penalty !== undefined) {
         previewEl.dataset.senritsuPenalty = data.senritsu_penalty;
     }
+    // ★ local cache への保存 (自分が計算した場合)
+    if (data.enableButton) {
+        if (!window._duelLocalCalcCache) window._duelLocalCalcCache = { attacker: null, defender: null };
+        window._duelLocalCalcCache[side] = {
+            data: data,
+            skill_id: data.skill_id,
+            char_id: side === 'attacker' ? duelState.attackerId : duelState.defenderId
+        };
+    }
+
     if (side === 'attacker') duelState.attackerCommand = data.final_command;
     else duelState.defenderCommand = data.final_command;
 }

@@ -111,5 +111,6 @@ def handle_calculate_wide_skill(data):
         'base_power_mod': preview_data['power_breakdown']['base_power_mod'],
         'correction_details': preview_data['correction_details'], # ★ New
         'senritsu_dice_reduction': preview_data.get('senritsu_dice_reduction', 0), # ★ New
-        'power_breakdown': preview_data['power_breakdown'] # ★ New
+        'power_breakdown': preview_data['power_breakdown'], # ★ New
+        'skill_details': preview_data['skill_details'] # ★ New: For descriptive fields
     }, to=request.sid)
