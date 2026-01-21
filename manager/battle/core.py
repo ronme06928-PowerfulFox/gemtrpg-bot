@@ -5,6 +5,7 @@ from extensions import all_skill_data
 from manager.game_logic import (
     process_skill_effects, get_status_value, apply_buff, remove_buff
 )
+from manager.buff_catalog import get_buff_effect
 from manager.room_manager import (
     get_room_state, broadcast_log, broadcast_state_update,
     save_specific_room_state, _update_char_stat
@@ -104,14 +105,21 @@ def process_on_damage_buffs(room, char, damage_val, username, log_snippets):
     if damage_val <= 0: return
 
     for b in char.get('special_buffs', []):
-        conf = b.get('on_damage_state')
+        # Resolve full effect data (dynamic or static)
+        effect_data = get_buff_effect(b.get('name'))
+        if not effect_data: continue
+
+        conf = effect_data.get('on_damage_state')
+        # print(f"[DEBUG] Checking buff {b.get('name')}: on_damage_state={conf}")
         if not conf: continue
 
         s_name = conf.get('stat')
         s_val = conf.get('value', 0)
 
+
         if s_name and s_val > 0:
             curr = get_status_value(char, s_name)
+            # print(f"[DEBUG] Triggering on_damage_state: {s_name} {curr} -> {curr + s_val}")
             _update_char_stat(room, char, s_name, curr + s_val, username=f"[{b.get('name')}]")
             log_snippets.append(f"[{b.get('name')}→{s_name}+{s_val}]")
 
