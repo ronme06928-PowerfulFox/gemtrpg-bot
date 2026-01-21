@@ -100,7 +100,25 @@
 
         // Update attacker section
         var attackerNameEl = document.getElementById('wide-attacker-name');
-        if (attackerNameEl) attackerNameEl.textContent = attacker.name;
+        if (attackerNameEl) {
+            attackerNameEl.textContent = attacker.name;
+            // ★ 詳細リンク
+            attackerNameEl.style.cursor = "pointer";
+            attackerNameEl.title = "クリックで詳細を表示";
+            attackerNameEl.onclick = function (e) {
+                e.stopPropagation();
+                if (window.showCharacterDetail) window.showCharacterDetail(attacker.id);
+            };
+        }
+
+        // ★ 攻撃者ステータス表示
+        // renderCharacterStatsBar は tab_visual_battle.js にあるが、グローバルスコープで利用可能か確認が必要
+        // tab_visual_battle.js は <script> で読み込まれており、strict mode IIFE でない限りグローバル関数になるはず。
+        // 確認上 tab_visual_battle.js の関数定義は `function renderCharacterStatsBar...` なのでグローバル。
+        // ★ 攻撃者ステータス表示 (Compact Mode)
+        if (window.renderCharacterStatsBar) {
+            window.renderCharacterStatsBar(attacker, 'wide-attacker-stats', { compact: true, theme: 'dark' });
+        }
 
         // Populate attacker skill select
         populateAttackerSkillSelect(attacker, matchData);
@@ -412,20 +430,56 @@
         // Header
         var header = document.createElement('div');
         header.className = 'wide-defender-header';
+        // Flexbox for column layout
+        header.style.display = 'flex';
+        header.style.flexDirection = 'column';
+        header.style.alignItems = 'flex-start';
+
+        // Name and Badge Row
+        var nameRow = document.createElement('div');
+        nameRow.style.display = 'flex';
+        nameRow.style.alignItems = 'center';
+        nameRow.style.width = '100%';
 
         var nameSpan = document.createElement('span');
         nameSpan.className = 'defender-name';
         nameSpan.textContent = defChar.name;
-        header.appendChild(nameSpan);
+        nameSpan.textContent = defChar.name;
+        nameRow.appendChild(nameSpan);
 
         if (isDeclared) {
             var badge = document.createElement('span');
             badge.className = 'declared-badge';
             badge.textContent = '✓ 宣言済';
-            header.appendChild(badge);
+            badge.textContent = '✓ 宣言済';
+            nameRow.appendChild(badge);
         }
 
+        header.appendChild(nameRow);
+
         card.appendChild(header);
+
+        // Body
+        // ★ 防御者ステータス表示用コンテナ追加
+        var statsDiv = document.createElement('div');
+        statsDiv.id = 'wide-def-stats-' + defData.id;
+        statsDiv.style.marginTop = '4px';  // Space between name and stats
+        statsDiv.style.marginLeft = '0';   // Align left
+        statsDiv.style.display = 'inline-block';
+        header.appendChild(statsDiv);
+
+        if (window.renderCharacterStatsBar) {
+            // Pass element directly as it is not in DOM yet
+            window.renderCharacterStatsBar(defChar, statsDiv, { compact: true, theme: 'light' });
+        }
+
+        // ★ 名前クリックで詳細
+        nameSpan.style.cursor = "pointer";
+        nameSpan.title = "詳細を表示";
+        nameSpan.onclick = function (e) {
+            e.stopPropagation();
+            if (window.showCharacterDetail) window.showCharacterDetail(defData.id);
+        };
 
         // Body
         var body = document.createElement('div');

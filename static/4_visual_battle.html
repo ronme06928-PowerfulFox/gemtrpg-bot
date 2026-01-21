@@ -115,8 +115,12 @@
             </div>
 
             <div class="wide-attacker-section">
-                <div class="wide-attacker-header-row">
-                    <h4 id="wide-attacker-title">⚔️ 攻撃者: <span id="wide-attacker-name"></span></h4>
+                <div class="wide-attacker-header-row" style="align-items: flex-start;">
+                    <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                        <h4 id="wide-attacker-title" style="margin: 0; margin-bottom: 4px;">⚔️ 攻撃者: <span
+                                id="wide-attacker-name" class="clickable-name"></span></h4>
+                        <div id="wide-attacker-stats" style="margin-left: 0;"></div>
+                    </div>
                     <div id="wide-mode-badge" class="wide-mode-badge">モード: <strong id="wide-mode-label">個別</strong>
                     </div>
                 </div>
@@ -134,7 +138,9 @@
 
             <div class="wide-defenders-section">
                 <h4>🛡️ 防御者 (<span id="wide-defender-count">0</span>人)</h4>
-                <div id="wide-defenders-list" class="wide-defenders-list"></div>
+                <!-- Allow full height for main panel scrolling -->
+                <div id="wide-defenders-list" class="wide-defenders-list" style="max-height: none; overflow: visible;">
+                </div>
             </div>
         </div>
 

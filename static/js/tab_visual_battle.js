@@ -1698,8 +1698,11 @@ function renderMatchPanelFromState(matchData) {
 }
 
 // ★ キャラクターの簡易ステータスバーを生成するヘルパー関数
-function renderCharacterStatsBar(char, containerId) {
-    const container = document.getElementById(containerId);
+window.renderCharacterStatsBar = function (char, containerOrId, options = {}) {
+    const container = (typeof containerOrId === 'string')
+        ? document.getElementById(containerOrId)
+        : containerOrId;
+
     if (!container) return;
 
     if (!char) {
@@ -1711,44 +1714,82 @@ function renderCharacterStatsBar(char, containerId) {
     const maxHp = char.maxHp || 1;
     const mp = char.mp || 0;
     const maxMp = char.maxMp || 1;
-    // FPはstatesから取得
     const fpState = char.states ? char.states.find(s => s.name === 'FP') : null;
     const fp = fpState ? fpState.value : 0;
 
-    // スタイル調整: 背景を溶け込ませ、白枠を削除。隙間をなくす。
-    // 背景色は透明、または非常に薄い暗色オーバーレイ。
-    // 文字色は白系にする。
+    // オプション
+    const isCompact = options.compact || false;
+    const theme = options.theme || 'dark';
 
-    const barStyle = "flex: 1; padding: 2px 5px; text-align: center; border-right: 1px solid rgba(255,255,255,0.2);";
-    // 最後の要素はボーダーなしにするため、個別にスタイル調整するか、
-    // 親の flex gap を 0 にして、border-right で区切り線を入れるデザインにする。
-    // "横にすべてくっつけて" -> border-right で区切るのが綺麗。
+    // スタイル定義
+    const wrapperDisplay = isCompact ? "inline-flex" : "flex";
+    const wrapperMargin = isCompact ? "margin-left: 10px;" : "margin-bottom: 8px;";
 
-    const labelStyle = "font-size: 0.7em; color: #ccc; display: block; line-height: 1; margin-bottom: 2px;";
-    const valStyle = "font-weight: bold; font-size: 1.1em; display: block; text-shadow: 0 0 2px rgba(0,0,0,0.5);";
+    // テーマ別カラー設定
+    let wrapperBg, hpColor, mpColor, fpColor, textColor, textShadow;
+    const borderColor = (theme === 'light') ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.2)";
 
-    // カラー設定 (HP: 緑, MP: 青, FP: 黄/オレンジ) - 暗い背景でも見やすく少し明るめに
-    const hpColor = "#4cdc6e"; // 明るい緑
-    const mpColor = "#4da3ff"; // 明るい青
-    const fpColor = "#ffd54f"; // 明るい黄色
+    if (theme === 'light') {
+        wrapperBg = "rgba(0, 0, 0, 0.05)";
+        hpColor = "#28a745";
+        mpColor = "#007bff";
+        fpColor = "#d39e00";
+        textColor = "#555";
+        textShadow = "none";
+    } else {
+        wrapperBg = isCompact ? "rgba(0, 0, 0, 0.7)" : "rgba(0, 0, 0, 0.4)";
+        hpColor = "#76ff93";
+        mpColor = "#76cfff";
+        fpColor = "#ffe676";
+        textColor = "#ccc";
+        textShadow = "1px 1px 0 #000";
+    }
 
-    // 枠全体に薄い背景をつける（オプション）
-    const wrapperStyle = "display: flex; gap: 0; margin-bottom: 8px; background: rgba(0,0,0,0.2); border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden;";
+    const fontSizeVal = isCompact ? "0.95em" : "1.1em";
+    const fontSizeLabel = isCompact ? "0.6em" : "0.7em";
+    const padding = isCompact ? "1px 6px" : "2px 5px";
+
+    const barStyle = `flex: 1; padding: ${padding}; text-align: center; border-right: 1px solid ${borderColor}; display: flex; align-items: baseline; justify-content: center; gap: 3px;`;
+
+    // ラベルと値を横並びにする (Compact時) または 積み重ねる (通常時)
+    // 視認性向上のため、Compact時は "HP 999" のように横並び推奨
+    const contentLayout = isCompact ? "flex-direction: row; align-items: baseline;" : "flex-direction: column;";
+
+    const labelStyle = `font-size: ${fontSizeLabel}; color: ${textColor}; font-weight: normal; line-height: 1; opacity: 0.8;`;
+    const valStyle = `font-weight: bold; font-size: ${fontSizeVal}; line-height: 1; text-shadow: ${textShadow};`;
+
+    // 枠全体
+    const wrapperStyle = `display: ${wrapperDisplay}; align-items: center; gap: 0; ${wrapperMargin} background: ${wrapperBg}; border-radius: 4px; border: 1px solid ${borderColor}; overflow: hidden; vertical-align: middle; min-width: max-content;`;
+
+    // 内部コンテンツ生成ヘルパー
+    const makeBlock = (label, val, max, color, isLast) => {
+        const borderStyle = isLast ? "border-right: none;" : "";
+        const maxPart = max ? `<span style="font-size: 0.7em; color: #888; margin-left: 2px;">/${max}</span>` : "";
+
+        if (isCompact) {
+            // Compact: Label Val/Max (横並び)
+            return `
+                <div style="${barStyle} ${borderStyle} flex-direction: row; align-items: baseline;">
+                    <span style="${labelStyle} margin-right: 2px;">${label}</span>
+                    <span style="${valStyle} color: ${color};">${val}${maxPart}</span>
+                </div>
+             `;
+        } else {
+            // Normal: Label / Val/Max (縦積み)
+            return `
+                <div style="${barStyle} ${borderStyle} flex-direction: column;">
+                    <span style="${labelStyle} margin-bottom: 2px;">${label}</span>
+                    <span style="${valStyle} color: ${color};">${val}${maxPart}</span>
+                </div>
+             `;
+        }
+    };
 
     container.innerHTML = `
         <div style="${wrapperStyle}">
-            <div style="${barStyle}">
-                <span style="${labelStyle}">HP</span>
-                <span style="${valStyle} color: ${hpColor};">${hp} <span style="font-size:0.7em; color:#aaa;">/ ${maxHp}</span></span>
-            </div>
-            <div style="${barStyle}">
-                <span style="${labelStyle}">MP</span>
-                <span style="${valStyle} color: ${mpColor};">${mp} <span style="font-size:0.7em; color:#aaa;">/ ${maxMp}</span></span>
-            </div>
-            <div style="${barStyle} border-right: none;">
-                <span style="${labelStyle}">FP</span>
-                <span style="${valStyle} color: ${fpColor};">${fp}</span>
-            </div>
+            ${makeBlock("HP", hp, maxHp, hpColor, false)}
+            ${makeBlock("MP", mp, maxMp, mpColor, false)}
+            ${makeBlock("FP", fp, null, fpColor, true)}
         </div>
     `;
 }
