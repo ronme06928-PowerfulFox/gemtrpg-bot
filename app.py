@@ -1,5 +1,8 @@
 import os
-# 1. 【最優先】Render環境ならパッチを当てる（これはそのまま）
+
+# 1. 【最優先】Render環境ならパッチを当てる
+# eventlet.monkey_patch() は、他の標準ライブラリ（socket, threading等）がインポートされる前に実行する必要があります。
+# os は安全ですが、他は極力後にインポートします。
 if 'RENDER' in os.environ:
     import eventlet
     eventlet.monkey_patch()

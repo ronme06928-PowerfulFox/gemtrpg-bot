@@ -11,4 +11,4 @@ __pycache__/
 # ローカル保存されていた古いデータ（念のため除外）
 saved_rooms.json
 battle_state.json
-skills_cache.json
+

@@ -160,14 +160,46 @@ def handle_skill_declaration(room, data, username):
             broadcast_state_update(room)
 
             # --- AUTO EXECUTE ---
-            if active_match.get('attacker_declared') and active_match.get('defender_declared'):
-                # BOTH DECLARED!
-                attacker_id = active_match.get('attacker_id')
-                defender_id = active_match.get('defender_id')
-                attacker_char = next((c for c in state['characters'] if str(c.get('id')) == str(attacker_id)), None)
-                defender_char = next((c for c in state['characters'] if str(c.get('id')) == str(defender_id)), None)
+            # --- AUTO EXECUTE ---
+            attacker_id = active_match.get('attacker_id')
+            defender_id = active_match.get('defender_id')
+            attacker_char = next((c for c in state['characters'] if str(c.get('id')) == str(attacker_id)), None)
+            defender_char = next((c for c in state['characters'] if str(c.get('id')) == str(defender_id)), None)
 
-                if attacker_char and defender_char:
+            # Check if defender has already acted (One-sided attack condition)
+            is_one_sided = defender_char and defender_char.get('hasActed', False)
+
+            # Condition 1: Both declared
+            both_declared = active_match.get('attacker_declared') and active_match.get('defender_declared')
+
+            # Condition 2: Attacker declared AND Defender is one-sided (cannot act)
+            # In this case, we treat defender as "declared" (with empty/dummy command handled in execute_duel_match or here?)
+            # Actually, execute_duel_match expects both commands.
+            # If one-sided, defender command should be "0" or "No Guard".
+            # Usually client handles this by sending "No Guard" if one-sided?
+            # User says: "One-sided attack treated, only one side declaration needed."
+            # Means defender might NOT declare anything.
+
+            can_execute = False
+
+            if both_declared:
+                can_execute = True
+            elif active_match.get('attacker_declared') and is_one_sided:
+                print(f"[AUTO] One-sided Execution! {defender_char['name']} has already acted.")
+                # We need to fill defender data so execute_duel_match doesn't crash or wait.
+                if not active_match.get('defender_data'):
+                     active_match['defender_data'] = {
+                         'skill_id': 'No Guard',
+                         'final_command': '0',
+                         'min_damage': 0,
+                         'max_damage': 0,
+                         'skill_details': [],
+                         'declared': True
+                     }
+                can_execute = True
+
+            if can_execute:
+
                     exec_data = {
                         'room': room,
                         'actorIdA': attacker_id,
