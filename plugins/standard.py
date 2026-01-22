@@ -6,6 +6,7 @@ class BleedOverflowEffect(BaseEffect):
     def apply(self, actor, target, params, context):
         val = get_status_value(target, "出血")
         if val <= 0: return [], []
+        # 出血は維持する
         return [(target, "CUSTOM_DAMAGE", "出血氾濫", val)], [f"《出血氾濫》 {val}ダメージ！"]
 
 class FearSurgeEffect(BaseEffect):
@@ -31,7 +32,24 @@ class ThornsScatterEffect(BaseEffect):
         val = get_status_value(target, "荊棘")
         if val <= 0: return [], []
         set_status_value(target, "荊棘", 0)
-        return [(target, "APPLY_STATE_TO_ALL_OTHERS", "荊棘", val)], [f"《荊棘飛散》 荊棘{val}を拡散！"]
+
+        changes = []
+        logs = [f"《荊棘飛散》 荊棘{val}を拡散！(荊棘全消費)"]
+
+        # コンテキストからキャラ一覧を取得して全員（自分以外）に配布
+        if context and "characters" in context:
+            all_chars = context["characters"]
+            for char in all_chars:
+                # 自身の除外
+                if char.get("id") == target.get("id"): continue
+                # 生存・配置チェック
+                if char.get("hp", 0) <= 0: continue
+                if char.get("x") is None: continue
+
+                changes.append((char, "APPLY_STATE", "荊棘", val))
+                logs.append(f" -> {char['name']} に 荊棘{val} を付与")
+
+        return changes, logs
 
 class SimpleEffect(BaseEffect):
     def __init__(self, change_type, log_msg, target_is_actor=False):

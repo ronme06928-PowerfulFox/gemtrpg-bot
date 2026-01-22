@@ -184,6 +184,7 @@ def proceed_next_turn(room):
 
     # 現在位置の「次」から末尾に向かって、未行動のキャラを探す
     from plugins.buffs.confusion import ConfusionBuff
+    from plugins.buffs.immobilize import ImmobilizeBuff
 
     for i in range(current_idx + 1, len(timeline)):
         cid = timeline[i]
@@ -192,10 +193,15 @@ def proceed_next_turn(room):
 
         # 生存していて、かつ「行動済み(hasActed)」でない
         if char and char.get('hp', 0) > 0 and not char.get('hasActed', False):
-            # 行動不能チェック
+            # 行動不能チェック (混乱)
             if ConfusionBuff.is_incapacitated(char):
                 print(f"[TurnSkip] Skipping {char['name']} due to incapacitation (Confusion)")
-                # ここではスキップして次へ
+                continue
+
+            # 行動不能チェック (Immobilize/Bu-04)
+            can_act, reason = ImmobilizeBuff().can_act(char, {})
+            if not can_act:
+                print(f"[TurnSkip] Skipping {char['name']} due to Immobilize: {reason}")
                 continue
 
             next_id = cid

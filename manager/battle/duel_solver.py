@@ -350,7 +350,14 @@ def execute_duel_match(room, data, username):
         actor_d_char['hasActed'] = True
 
     bonus_damage = 0; log_snippets = []; changes = []
-    is_one_sided = command_d.strip() == "【一方攻撃（行動済）】" or command_a.strip() == "【一方攻撃（行動済）】"
+    is_one_sided = False
+    if command_d.strip() == "【一方攻撃（行動済）】" or command_a.strip() == "【一方攻撃（行動済）】":
+        is_one_sided = True
+    elif actor_d_char and actor_d_char.get('hasActed', False):
+         # 明示的に行動済みフラグが立っている場合も一方攻撃として扱う
+         is_one_sided = True
+         # コマンドを上書きしてログの一貫性を保つ（オプション）
+         command_d = "【一方攻撃（行動済）】"
 
     def grant_win_fp(char):
         if not char: return

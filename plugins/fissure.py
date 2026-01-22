@@ -42,22 +42,38 @@ class FissureEffect(BaseEffect):
         changes = []
         logs = []
 
-        # レジストリを取得して再帰呼び出し
-        registry = context.get("registry")
-        handler = registry.get(triggered_effect_name) if registry else None
-
-        if not handler:
-            logs.append(f"《エラー: 誘発効果 {triggered_effect_name} が見つかりません》")
-            return changes, logs
-
         # サブコンテキスト作成
         sub_context = context.copy()
-        sub_context["trigger_ratio"] = trigger_ratio # 破裂などに渡す用
+        sub_context["trigger_ratio"] = trigger_ratio
 
-        for _ in range(num_triggers):
-            eff_changes, eff_logs = handler.apply(actor, target, {}, sub_context)
-            changes.extend(eff_changes)
-            logs.extend(eff_logs)
+        # ★修正: 連続誘発時のステータス更新シミュレーション
+        # BurstEffectを単純に呼ぶと、status値が更新されないままループするため、
+        # ここで「破裂」の減少をシミュレートしてイベントを発行する。
 
-        logs.append(f"《亀裂崩壊》 {num_triggers}回の {triggered_effect_name} を誘発！ (亀裂{current_fissure}消費)")
+        temp_burst = get_status_value(target, "破裂")
+        total_damage = 0
+
+        # 破裂消費無効バフのチェック
+        # (循環参照を避けるため、文字列で探すか、utilsを使うか... ここではBurstNoConsumeBuffをインポート)
+        from .buffs.burst_no_consume import BurstNoConsumeBuff
+        has_no_consume = BurstNoConsumeBuff.has_burst_no_consume(target)
+
+        for i in range(num_triggers):
+            if temp_burst <= 0: break
+
+            dmg = temp_burst
+
+            # 効果処理の実装 (BurstEffectのロジック再現)
+            changes.append((target, "CUSTOM_DAMAGE", "破裂爆発", dmg))
+            logs.append(f"《亀裂崩壊》 破裂誘発({i+1}回目): {dmg}ダメージ！")
+
+            # 次のループのために値を更新
+            if not has_no_consume:
+                temp_burst = int(temp_burst * trigger_ratio)
+
+        # 最終的な破裂値をセットするイベントを発行
+        if not has_no_consume:
+             changes.append((target, "SET_STATUS", "破裂", temp_burst))
+
+        logs.append(f"《亀裂崩壊》 計{num_triggers}回の誘発終了 (亀裂{current_fissure}消費)")
         return changes, logs

@@ -11,7 +11,7 @@ from .base import BaseBuff
 class ImmobilizeBuff(BaseBuff):
     """行動不能バフプラグイン"""
 
-    BUFF_IDS = ['Bu-Immobilize']
+    BUFF_IDS = ['Bu-Immobilize', 'Bu-04']
 
     def apply(self, char, context):
         """
