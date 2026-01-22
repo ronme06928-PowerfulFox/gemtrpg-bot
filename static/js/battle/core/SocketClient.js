@@ -65,6 +65,16 @@ class SocketClient {
             eventBus.emit('state:updated', data);
         });
 
+        // char_stat_updated: キャラクター個別のステータス更新 (Phase 1 Performance Opt)
+        this.socket.on('char_stat_updated', (data) => {
+            // Storeのキャラデータを部分更新
+            // 注意: Store全体のリロードではない
+            // eventBusで通知し、UIコンポーネントがDOMを直接書き換える
+            console.log("⚡ Diff Update:", data);
+            eventBus.emit('char:stat:updated', data);
+        });
+
+
         // room_joined: ルーム参加完了時
         this.socket.on('room_joined', (data) => {
             // room_joined -> Store 初期化

@@ -9,6 +9,10 @@ from manager.room_manager import (
     broadcast_state_update, _update_char_stat, is_authorized_for_character
 )
 from manager.battle.core import proceed_next_turn
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
+
 
 from manager.game_logic import (
     get_status_value, process_skill_effects, apply_buff, remove_buff, process_battle_start
@@ -436,15 +440,15 @@ def process_wide_declarations(room, wide_user_ids):
 
     # Set new flags
     names = []
-    print(f"[DEBUG] process_wide_declarations ids: {wide_user_ids}")
+    logger.debug(f"[DEBUG] process_wide_declarations ids: {wide_user_ids}")
     for uid in wide_user_ids:
         char = next((c for c in state['characters'] if str(c['id']) == str(uid)), None)
         if char:
             char['isWideUser'] = True
             names.append(char['name'])
-            print(f"[DEBUG] Set isWideUser=True for {char['name']} ({char['id']})")
+            logger.debug(f"[DEBUG] Set isWideUser=True for {char['name']} ({char['id']})")
         else:
-            print(f"[DEBUG] Character not found for uid: {uid}")
+            logger.debug(f"[DEBUG] Character not found for uid: {uid}")
 
     if names:
         broadcast_log(room, f"広域攻撃予約: {', '.join(names)}", 'info')
@@ -457,8 +461,8 @@ def process_wide_declarations(room, wide_user_ids):
 
         # New timeline: [Wide Users] + [Remaining Users]
         state['timeline'] = valid_wide_ids + remaining_timeline
-        print(f"[DEBUG] Valid wide IDs: {valid_wide_ids}")
-        print(f"[DEBUG] New timeline: {state['timeline']}")
+        logger.debug(f"[DEBUG] Valid wide IDs: {valid_wide_ids}")
+        logger.debug(f"[DEBUG] New timeline: {state['timeline']}")
     else:
         broadcast_log(room, "広域攻撃予約: なし", 'info')
 
@@ -478,7 +482,7 @@ def process_wide_modal_confirm(room, user_id, attribute, wide_ids):
 
     # GM Force Confirm
     if attribute == 'GM':
-        print(f"[WideModal] GM Forced Confirm. IDs: {wide_ids}")
+        logger.info(f"[WideModal] GM Forced Confirm. IDs: {wide_ids}")
         # Merge IDs (if GM selected any)
         for wid in wide_ids:
             if wid not in state['pending_wide_ids']:

@@ -10,6 +10,9 @@ from manager.room_manager import (
     get_room_state, broadcast_log, broadcast_state_update,
     save_specific_room_state, _update_char_stat
 )
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data, target_skill_data, all_skill_data_ref):
     """
@@ -201,7 +204,7 @@ def proceed_next_turn(room):
             # 行動不能チェック (Immobilize/Bu-04)
             can_act, reason = ImmobilizeBuff.can_act(char, {})
             if not can_act:
-                print(f"[TurnSkip] Skipping {char['name']} due to Immobilize: {reason}")
+                logger.info(f"[TurnSkip] Skipping {char['name']} due to Immobilize: {reason}")
                 continue
 
             next_id = cid

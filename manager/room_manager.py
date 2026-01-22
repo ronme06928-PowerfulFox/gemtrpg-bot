@@ -4,6 +4,9 @@ from manager.data_manager import read_saved_rooms, save_room_to_db
 from manager.utils import set_status_value, get_status_value, apply_buff, remove_buff
 from models import Room
 from manager.game_logic import process_on_death
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 def get_room_state(room_name):
     if room_name in active_room_states:
@@ -14,6 +17,7 @@ def get_room_state(room_name):
             state = all_rooms[room_name]
             if 'logs' not in state:
                 state['logs'] = []
+
 
             # ★ 追加: フィールド補完
             if 'active_match' not in state:
@@ -76,7 +80,7 @@ def get_room_state(room_name):
         if room_db:
             state['owner_id'] = room_db.owner_id
     except Exception as e:
-        print(f"Error fetching owner_id: {e}")
+        logger.error(f"Error fetching owner_id: {e}")
 
     return state
 
@@ -86,7 +90,7 @@ def save_specific_room_state(room_name):
     if save_room_to_db(room_name, state):
         return True
     else:
-        print(f"[ERROR] Auto-save failed: {room_name}")
+        logger.error(f"[ERROR] Auto-save failed: {room_name}")
         return False
 
 def broadcast_state_update(room_name):
@@ -169,7 +173,7 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
             try:
                 process_on_death(room_name, char, username)
             except Exception as e:
-                print(f"[ERROR] process_on_death failed: {e}")
+                logger.error(f"[ERROR] process_on_death failed: {e}")
     elif stat_name == 'MP':
         old_value = char['mp']
         char['mp'] = max(0, new_value)
@@ -200,6 +204,16 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
         elif not state and stat_name not in ['HP', 'MP']:
             set_status_value(char, stat_name, new_value)
             log_message = f"{username}: {char['name']}: {stat_name} (なし) → ({new_value})"
+
+    # ★ 差分更新イベント送信
+    if str(old_value) != str(new_value):
+        socketio.emit('char_stat_updated', {
+            'room': room_name,
+            'char_id': char['id'],
+            'stat': stat_name,
+            'value': new_value,
+            'log_message': log_message
+        }, to=room_name)
 
     if log_message and (str(old_value) != str(new_value) or is_new or is_delete):
         broadcast_log(room_name, log_message, 'state-change')

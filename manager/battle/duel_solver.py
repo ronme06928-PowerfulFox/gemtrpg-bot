@@ -18,6 +18,9 @@ from manager.battle.core import (
     execute_pre_match_effects, proceed_next_turn
 )
 from plugins.buffs.dodge_lock import DodgeLockBuff
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 def update_duel_declaration(room, data, username):
     state = get_room_state(room)
@@ -98,7 +101,7 @@ def handle_skill_declaration(room, data, username):
         # ★ 追加: 即時発動スキルの処理
         if prefix and prefix.startswith('immediate'):
              # ここで即座に実行する
-             print(f"[Immediate] Executing {skill_id} for {actor['name']}")
+             logger.info(f"[Immediate] Executing {skill_id} for {actor['name']}")
 
              # コスト支払い
              rule_json_str = skill_data.get('特記処理', '{}')
@@ -185,7 +188,7 @@ def handle_skill_declaration(room, data, username):
             if both_declared:
                 can_execute = True
             elif active_match.get('attacker_declared') and is_one_sided:
-                print(f"[AUTO] One-sided Execution! {defender_char['name']} has already acted.")
+                logger.info(f"[AUTO] One-sided Execution! {defender_char['name']} has already acted.")
                 # We need to fill defender data so execute_duel_match doesn't crash or wait.
                 if not active_match.get('defender_data'):
                      active_match['defender_data'] = {
@@ -214,7 +217,7 @@ def handle_skill_declaration(room, data, username):
                         'senritsuPenaltyD': active_match['defender_data'].get('senritsu_penalty', 0),
                         'match_id': active_match.get('match_id')
                     }
-                    print(f"[AUTO] Both sides declared in {room}. Executing Duel Match...")
+                    logger.info(f"[AUTO] Both sides declared in {room}. Executing Duel Match...")
                     execute_duel_match(room, exec_data, "System")
                     return # execute_duel_match handles emission/updates
 
@@ -232,18 +235,18 @@ def execute_duel_match(room, data, username):
     if active_match.get('is_active'):
         expected_match_id = active_match.get('match_id')
         if match_id and match_id != expected_match_id:
-            print(f"[MATCH] Match ID mismatch: {match_id} != {expected_match_id}, skipping")
+            logger.warning(f"[MATCH] Match ID mismatch: {match_id} != {expected_match_id}, skipping")
             return
 
         # すでに実行済みかチェック
         if active_match.get('executed'):
-            print(f"[MATCH] Match {match_id} already executed, skipping")
+            logger.warning(f"[MATCH] Match {match_id} already executed, skipping")
             return
 
         # 実行済みフラグを立てる
         state['active_match']['executed'] = True
         save_specific_room_state(room)
-        print(f"[MATCH] Executing match {match_id}")
+        logger.info(f"[MATCH] Executing match {match_id}")
 
     command_a = data.get('commandA')
     command_d = data.get('commandD')
@@ -622,8 +625,8 @@ def execute_duel_match(room, data, username):
             if log_snippets: winner_message += f" ({' '.join(log_snippets)})"
 
     except Exception as e:
-        print("--- ▼▼▼ エラーをキャッチしました ▼▼▼ ---", flush=True)
-        print(f"エラー内容: {e}", flush=True)
+        logger.error("--- ▼▼▼ エラーをキャッチしました ▼▼▼ ---")
+        logger.error(f"エラー内容: {e}", exc_info=True)
         raise e
 
     skill_display_a = format_skill_display_from_command(command_a, skill_id_a, skill_data_a)
