@@ -987,7 +987,6 @@
                 // 情報収集技能なら補正を加える
                 if (Object.values(infoSkills).includes(id)) {
                     val += infoMod;
-                    if (val < 0) val = 0; // 0未満にはならない
                 }
                 params.push({ label: label, value: String(val) });
             }
