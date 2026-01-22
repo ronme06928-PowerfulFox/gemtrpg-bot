@@ -189,10 +189,10 @@
 
 | 値 (Value) | 説明 | 実装 |
 | :--- | :--- | :--- |
-| `破裂爆発` | 対象の破裂値に応じたダメージを与え、破裂を消費する。 | `BurstEffect` |
-| `出血氾濫` | 出血Lvに応じて全体にダメージを拡散する等の処理。 | `BleedOverflowEffect` |
-| `戦慄殺到` | 戦慄Lvに応じてMP減少や行動不能を付与する。 | `FearSurgeEffect` |
-| `荊棘飛散` | 荊棘Lvに応じて他対象に荊棘を拡散する。 | `ThornsScatterEffect` |
+| `破裂爆発` | 対象の破裂威力に応じたダメージを与え、破裂を消費する。 | `BurstEffect` |
+| `出血氾濫` | 対象が持つ出血威力だけダメージを与える。 | `BleedOverflowEffect` |
+| `戦慄殺到` | 戦慄威力に応じてMP減少や行動不能を付与する。 | `FearSurgeEffect` |
+| `荊棘飛散` | 荊棘威力に応じて他対象に荊棘を拡散する。 | `ThornsScatterEffect` |
 | `亀裂崩壊_DAMAGE` | 亀裂による追加ダメージ処理（通常は自動計算だが強制発動用）。 | `FissureEffect` |
 | `APPLY_SKILL_DAMAGE_AGAIN` | 同じスキルのダメージ処理をもう一度実行する（連撃）。 | `SimpleEffect` |
 

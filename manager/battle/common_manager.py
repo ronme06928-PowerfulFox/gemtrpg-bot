@@ -374,11 +374,12 @@ def process_round_start(room, username):
         if char.get('hp', 0) <= 0: continue
         if char.get('is_escaped', False): continue
 
-        # Calculate Speed
-        initiative = get_status_value(char, '行動値')
+        # Calculate Speed (1d6 + Speed/4)
+        speed_param = get_status_value(char, '速度')
+        initiative = speed_param // 4
 
-        # 1d10
-        roll = random.randint(1, 10)
+        # 1d6
+        roll = random.randint(1, 6)
         char['speedRoll'] = roll
         total_speed = initiative + roll
 

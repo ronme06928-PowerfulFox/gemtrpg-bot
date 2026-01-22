@@ -42,4 +42,6 @@ class SimpleEffect(BaseEffect):
     def apply(self, actor, target, params, context):
         tgt = actor if self.target_is_actor else target
         logs = [self.log_msg] if self.log_msg else []
+        # Return proper change tuple: (target, change_type, name, value)
+        # For simple effects, name="None" and value=0 is standard placeholder if not used
         return [(tgt, self.change_type, "None", 0)], logs

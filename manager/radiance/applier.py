@@ -36,8 +36,14 @@ class RadianceApplier:
             effect = skill.get('effect', {})
             effect_type = effect.get('type')
 
-            # buff効果
-            if effect_type == 'buff':
+            # buff効果 (または battle_start_effect/on_death を含む汎用効果)
+            # type指定がない場合でも、それらのキーが含まれていればバフとして扱う
+            is_generic_buff = False
+            if not effect_type:
+                if 'battle_start_effect' in effect or 'on_death' in effect:
+                    is_generic_buff = True
+
+            if effect_type == 'buff' or is_generic_buff:
                 duration = effect.get('duration', skill.get('duration', -1))  # ★ スキルの duration を使用
                 buff = {
                     'name': skill['name'],
@@ -48,10 +54,11 @@ class RadianceApplier:
                     'is_permanent': (duration == -1),  # ★ -1なら永続
                     'stat_mods': effect.get('stat_mods', {}),
                     'description': skill.get('description', ''),
-                    'flavor': skill.get('flavor', '')
+                    'flavor': skill.get('flavor', ''),
+                    'data': effect # ★追加: 効果定義そのものを保持させる
                 }
                 char_data['special_buffs'].append(buff)
-                print(f"[OK] 輝化スキル '{skill['name']}' (buff) を適用しました (lasting={duration}, permanent={duration == -1})")
+                print(f"[OK] 輝化スキル '{skill['name']}' (buff/generic) を適用しました (lasting={duration}, permanent={duration == -1})")
 
             # STAT_BONUS効果（maxHp/maxMp増加など）
             elif effect_type == 'STAT_BONUS':
@@ -95,7 +102,8 @@ class RadianceApplier:
                     'is_permanent': (duration == -1),  # ★ -1なら永続
                     'stat_mods': stat_mods,
                     'description': skill.get('description', ''),
-                    'flavor': skill.get('flavor', '')
+                    'flavor': skill.get('flavor', ''),
+                    'data': effect # ★追加
                 }
                 char_data['special_buffs'].append(buff)
                 print(f"[OK] 輝化スキル '{skill['name']}' (STAT_BONUS) バフを追加 (lasting={duration}, permanent={duration == -1})")

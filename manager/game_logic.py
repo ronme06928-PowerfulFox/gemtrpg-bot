@@ -95,7 +95,9 @@ def calculate_buff_power_bonus(actor, target, actor_skill_data):
         buff_name = buff.get('name')
         # ★ get_buff_effect を使用
         effect_data = get_buff_effect(buff_name)
-        if not effect_data: continue
+        if not effect_data:
+             if 'data' in buff: effect_data = buff['data']
+             else: continue
 
         # ★追加: ディレイ中のバフは無効
         if buff.get('delay', 0) > 0:
@@ -116,7 +118,9 @@ def calculate_state_apply_bonus(actor, target, stat_name):
     for buff in actor['special_buffs']:
         buff_name = buff.get('name')
         effect_data = get_buff_effect(buff_name)
-        if not effect_data: continue
+        if not effect_data:
+             if 'data' in buff: effect_data = buff['data']
+             else: continue
 
         # ★追加: ディレイ中のバフは無効
         if buff.get('delay', 0) > 0:
@@ -229,6 +233,8 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
         else:
             # Standard targeting
             t_str = effect.get("target")
+            if not t_str: t_str = "target" # Default to target if not specified
+
             if t_str == "self": targets_list = [actor]
             elif t_str == "target": targets_list = [target] if target else []
             # ★ 追加: 全体対象サポート
@@ -561,7 +567,7 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
     if senritsu_max_apply == 0:
         category = skill_data.get('分類', '')
         if category and ('物理' in category or '魔法' in category):
-            senritsu_max_apply = 99
+            senritsu_max_apply = 3 # ★修正: 最大-3まで
 
     skill_details['senritsu_max_apply'] = senritsu_max_apply
 
@@ -792,7 +798,9 @@ def process_on_death(room, char, username):
 
     for buff in char.get('special_buffs', []):
         effect_data = get_buff_effect(buff.get('name'))
-        if not effect_data: continue
+        if not effect_data:
+            if 'data' in buff: effect_data = buff['data']
+            else: continue
 
         on_death_effects = effect_data.get('on_death', [])
         if on_death_effects:
@@ -835,7 +843,12 @@ def process_battle_start(room, char):
         effect_data = get_buff_effect(buff_name)
 
         # effect_data自体がない場合や、battle_start_effectがない場合はスキップ
-        if not effect_data: continue
+        if not effect_data:
+             # ★追加: 動的バフ（輝化スキルなど）で、dataプロパティに直接定義が入っている場合
+             if 'data' in buff:
+                 effect_data = buff['data']
+             else:
+                 continue
 
         start_effects = effect_data.get('battle_start_effect', [])
         if start_effects:

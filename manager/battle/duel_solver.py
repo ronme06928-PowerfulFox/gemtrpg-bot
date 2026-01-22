@@ -95,6 +95,58 @@ def handle_skill_declaration(room, data, username):
 
     # If committing, update state
     if commit:
+        # ★ 追加: 即時発動スキルの処理
+        if prefix and prefix.startswith('immediate'):
+             # ここで即座に実行する
+             print(f"[Immediate] Executing {skill_id} for {actor['name']}")
+
+             # コスト支払い
+             rule_json_str = skill_data.get('特記処理', '{}')
+             try:
+                 rd = json.loads(rule_json_str)
+                 effects_array = rd.get("effects", [])
+                 # 即時発動なのでコストを支払う (verify_skill_costは通過済み想定だが、ここで消費処理)
+                 for cost in rd.get("cost", []):
+                     c_val = int(cost.get("value", 0))
+                     c_type = cost.get("type")
+                     if c_val > 0 and c_type:
+                         curr = get_status_value(actor, c_type)
+                         _update_char_stat(room, actor, c_type, curr - c_val, username=f"[{skill_data.get('デフォルト名称', '')}]")
+             except:
+                 effects_array = []
+                 pass
+
+             # 効果適用 (自分自身へ)
+             # contextにroomを含めることで、get_room_stateなどが使えるようにする
+             state = get_room_state(room) # 再取得
+             context = {'room': room, 'characters': state['characters']}
+             _, logs, changes = process_skill_effects(effects_array, "IMMEDIATE", actor, target, None, context=context)
+
+             # 変更の適用
+             for (c, type, name, value) in changes:
+                 if type == "APPLY_STATE":
+                     curr = get_status_value(c, name)
+                     _update_char_stat(room, c, name, curr + value, username=f"[{skill_data.get('デフォルト名称', '')}]")
+                 elif type == "APPLY_BUFF":
+                     apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
+                     broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
+                 elif type == "REMOVE_BUFF":
+                     remove_buff(c, name)
+                 elif type == "SET_FLAG":
+                     if 'flags' not in c: c['flags'] = {}
+                     c['flags'][name] = value
+
+             # 使用済みフラグを立てる
+             if 'flags' not in actor: actor['flags'] = {}
+             actor['flags']['immediate_action_used'] = True
+
+             broadcast_log(room, f"{actor['name']} が 【{skill_data.get('デフォルト名称')}】 を即時発動しました！", 'info')
+             broadcast_state_update(room)
+             save_specific_room_state(room)
+
+             # マッチ状態は更新しない
+             return
+
         side_key = 'attacker' if 'attacker' in prefix else 'defender'
         active_match = state.get('active_match')
         if active_match:
@@ -341,6 +393,7 @@ def execute_duel_match(room, data, username):
                             elif t == "APPLY_BUFF": apply_buff(c, n, v["lasting"], v["delay"], data=v.get("data"))
                             elif t == "REMOVE_BUFF": remove_buff(c, n)
                             elif t == "CUSTOM_DAMAGE": ex += v
+                            elif t == "APPLY_SKILL_DAMAGE_AGAIN": ex += damage # Add original damage
                             elif t == "SET_FLAG":
                                 if 'flags' not in c: c['flags'] = {}
                                 c['flags'][n] = v
