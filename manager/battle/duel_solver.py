@@ -344,6 +344,13 @@ def execute_duel_match(room, data, username):
     result_d = roll_dice(command_d)
 
     winner_message = ''; damage_message = ''
+
+    # Store initial acted state for One-sided check
+    is_defender_already_acted = False
+    if actor_d_char:
+        is_defender_already_acted = actor_d_char.get('hasActed', False)
+
+    # Set hasActed NOW (actors consume turn by participating)
     if actor_a_char: actor_a_char['hasActed'] = True
     no_defender_acted = state.get('active_match', {}).get('no_defender_acted', False)
     if actor_d_char and not no_defender_acted:
@@ -353,7 +360,7 @@ def execute_duel_match(room, data, username):
     is_one_sided = False
     if command_d.strip() == "【一方攻撃（行動済）】" or command_a.strip() == "【一方攻撃（行動済）】":
         is_one_sided = True
-    elif actor_d_char and actor_d_char.get('hasActed', False):
+    elif is_defender_already_acted:
          # 明示的に行動済みフラグが立っている場合も一方攻撃として扱う
          is_one_sided = True
          # コマンドを上書きしてログの一貫性を保つ（オプション）
