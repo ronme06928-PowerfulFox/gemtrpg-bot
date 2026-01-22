@@ -141,7 +141,6 @@ def process_full_round_end(room, username):
         # Reset limits
         if 'round_item_usage' in char: char['round_item_usage'] = {}
         if 'used_immediate_skills_this_round' in char: char['used_immediate_skills_this_round'] = []
-        if 'used_gem_protect_this_round' in char: char['used_gem_protect_this_round'] = False
         if 'used_skills_this_round' in char: char['used_skills_this_round'] = []
 
     state['is_round_ended'] = True
@@ -184,7 +183,7 @@ def reset_battle_logic(room, mode, username):
 
             if 'round_item_usage' in char: char['round_item_usage'] = {}
             if 'used_immediate_skills_this_round' in char: char['used_immediate_skills_this_round'] = []
-            if 'used_gem_protect_this_round' in char: char['used_gem_protect_this_round'] = False
+            if 'used_gem_protect_this_battle' in char: char['used_gem_protect_this_battle'] = False
             if 'used_skills_this_round' in char: char['used_skills_this_round'] = []
 
             if 'initial_state' in char:
@@ -373,6 +372,8 @@ def process_round_start(room, username):
     for char in state.get('characters', []):
         if char.get('hp', 0) <= 0: continue
         if char.get('is_escaped', False): continue
+        # 未配置チェック (x < 0)
+        if char.get('x', -1) < 0: continue
 
         # Calculate Speed (1d6 + Speed/4)
         speed_param = get_status_value(char, '速度')

@@ -84,6 +84,11 @@ def verify_skill_cost(char, skill_d):
         rule_data = json.loads(rule_json_str)
         tags = rule_data.get('tags', skill_d.get('tags', []))
         if "即時発動" in tags:
+             # ★ 追加: 宝石の加護スキルの回数制限 (1戦闘に1回)
+             if "宝石の加護スキル" in tags:
+                 if char.get('used_gem_protect_this_battle', False):
+                     return False, "宝石の加護は1戦闘に1回しか使用できません。"
+
              return True, None
 
         for cost in rule_data.get("cost", []):

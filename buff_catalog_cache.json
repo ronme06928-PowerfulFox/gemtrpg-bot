@@ -91,7 +91,7 @@
     "id": "Bu-07",
     "name": "時限破裂爆発",
     "description": "一定のラウンド後、このキャラクターに破裂爆発を発動する。",
-    "flavor": "",
+    "flavor": "刻一刻と、その瞬間は迫ってくる。",
     "effect": {
       "type": "plugin",
       "name": "timebomb_burst",

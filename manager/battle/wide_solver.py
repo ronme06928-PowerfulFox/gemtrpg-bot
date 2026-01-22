@@ -96,7 +96,13 @@ def update_defender_declaration(room, data):
             d['skill_id'] = skill_id
             d['command'] = command
             # d['data'] = data # 全データを保存しておくと後で便利かも
-            d['data'] = {'final_command': command} # commandはfinal扱いとする
+            # commandはfinal扱いとする。min/max/range_textも保存して表示用に使用
+            d['data'] = {
+                'final_command': command,
+                'min': data.get('min'),
+                'max': data.get('max'),
+                'damage_range_text': data.get('damage_range_text') # If client sends it
+            }
             updated = True
             break
 
@@ -208,6 +214,13 @@ def execute_wide_match(room, username):
             attacker_effects = d.get('effects', [])
         except: pass
 
+    attacker_effects = []
+    if attacker_skill_data:
+        try:
+            d = json.loads(attacker_skill_data.get('特記処理', '{}'))
+            attacker_effects = d.get('effects', [])
+        except: pass
+
     # Apply Local Changes Helper
     def apply_local_changes(changes):
         extra = 0
@@ -218,6 +231,8 @@ def execute_wide_match(room, username):
             elif type == "APPLY_BUFF":
                 apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
                 broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
+            elif type == "REMOVE_BUFF":
+                remove_buff(char, name)
             elif type == "CUSTOM_DAMAGE":
                 extra += value
             elif type == "APPLY_STATE_TO_ALL_OTHERS":
@@ -229,7 +244,28 @@ def execute_wide_match(room, username):
                         _update_char_stat(room, other_char, name, curr + value, username=f"[{name}]")
         return extra
 
-    if mode == 'combined':
+    # ★ 追加: マッチ不可 (Unmatchable) の処理
+    # ダイス勝負を行わず、一方的に効果 (HIT) を適用する
+    attacker_tags = attacker_skill_data.get('tags', []) if attacker_skill_data else []
+    if "マッチ不可" in attacker_tags:
+        broadcast_log(room, f"⚠️ [マッチ不可] のため、ダイス勝負をスキップして効果を適用します。", 'info')
+
+        for def_data in defenders:
+            def_id = def_data.get('id')
+            def_char = next((c for c in state['characters'] if c.get('id') == def_id), None)
+            if not def_char: continue
+
+            # ダメージは発生しない前提だが、effectsの処理を行う
+            # タイミングは HIT として扱う
+            if attacker_effects:
+                dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'characters': state['characters']})
+                for log_msg in logs:
+                    broadcast_log(room, log_msg, 'skill-effect')
+
+                # apply_local_changes で状態異常等を適用
+                apply_local_changes(changes)
+
+    elif mode == 'combined':
         # Combined Mode
         defender_rolls = []
         valid_defenders = []
@@ -346,10 +382,48 @@ def execute_wide_match(room, username):
             defender_total = def_roll['total']
 
             if attacker_total > defender_total:
-                damage = attacker_total
-                results.append({'defender': def_char['name'], 'result': 'win', 'damage': damage})
-                broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
-                broadcast_log(room, f"   → 🗡️ 攻撃者勝利! ダメージ: {damage}", 'match-result')
+                # 攻撃成功
+                is_defense_skill = False
+                is_evasion_skill = False
+                if def_skill_data:
+                    cat = def_skill_data.get('分類', '')
+                    tags = def_skill_data.get('tags', [])
+                    if cat == '防御' or '防御' in tags or '守備' in tags:
+                        is_defense_skill = True
+                    if cat == '回避' or '回避' in tags:
+                        is_evasion_skill = True
+
+                damage = 0
+                result_type = 'win' # Attacker win
+
+                if is_defense_skill:
+                    # 防御スキル: ダメージ軽減 (攻撃 - 防御)
+                    damage = max(0, attacker_total - defender_total)
+                    broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (防御)", 'dice')
+                    broadcast_log(room, f"   → 🗡️ 攻撃命中 (軽減): {damage} ダメージ", 'match-result')
+                elif is_evasion_skill:
+                    # 回避スキル: 回避失敗なら直撃
+                    damage = attacker_total
+                    broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (回避失敗)", 'dice')
+                    broadcast_log(room, f"   → 🗡️ 攻撃命中 (直撃): {damage} ダメージ", 'match-result')
+
+                    # 再回避ロック解除 check
+                    from plugins.buffs.dodge_lock import DodgeLockBuff
+                    if DodgeLockBuff.has_re_evasion(def_char):
+                         remove_buff(def_char, "再回避ロック")
+                         broadcast_log(room, f"[再回避失敗！(ロック解除)]", 'info')
+
+                else:
+                    # 通常(攻撃スキル等で反撃失敗): 直撃扱い (Duel仕様に準拠)
+                    # または カウンター合戦なら差分？ -> USER要望「回避スキルの場合は攻撃者のダメージがそのまま入る」
+                    # 通常の攻撃スキルでの応戦負けは一般的に「相殺」か「一方的」か？
+                    # Duel Solver Check: result_a > result_d -> damage = result_a (Full Damage) if not Defense.
+                    # 攻撃vs攻撃で負けた場合もFull Damage (Duel Solver Line 520)
+                    damage = attacker_total
+                    broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
+                    broadcast_log(room, f"   → 🗡️ 攻撃命中: {damage} ダメージ", 'match-result')
+
+                results.append({'defender': def_char['name'], 'result': 'win', 'damage': damage}) # Attacker win in terms of dmg
 
                 if attacker_effects:
                     dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'characters': state['characters']})
@@ -362,15 +436,46 @@ def execute_wide_match(room, username):
                 _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]")
 
             elif defender_total > attacker_total:
-                damage = defender_total
-                results.append({'defender': def_char['name'], 'result': 'lose', 'damage': damage})
-                broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
-                broadcast_log(room, f"   → 🛡️ 防御者勝利! ダメージ: {damage}", 'match-result')
+                # 防御側勝利
+                is_defense_skill = False
+                if def_skill_data:
+                    cat = def_skill_data.get('分類', '')
+                    tags = def_skill_data.get('tags', [])
+                    if cat == '防御' or '防御' in tags or '守備' in tags:
+                        is_defense_skill = True
 
-                current_hp = get_status_value(attacker_char, 'HP')
-                new_hp = max(0, current_hp - damage)
-                _update_char_stat(room, attacker_char, 'HP', new_hp, username=f"[{def_skill_id}]")
+                if is_defense_skill:
+                    # 防御スキルでの勝利: ダメージ0 (反撃なし)
+                    damage = 0
+                    results.append({'defender': def_char['name'], 'result': 'lose', 'damage': 0}) # Attacker lose, but 0 dmg
+                    broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (防御成功)", 'dice')
+                    broadcast_log(room, f"   → 🛡️ 防御成功! (ダメージなし)", 'match-result')
+                else:
+                    # 回避スキルや攻撃スキルでの勝利: 反撃ダメージ発生
+                    damage = defender_total
+                    if "回避" in (def_skill_data.get('tags', []) if def_skill_data else []):
+                         # 回避成功: ダメージ0
+                         # 再回避ロック処理
+                         damage = 0
+                         results.append({'defender': def_char['name'], 'result': 'lose', 'damage': 0})
+                         broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (回避成功)", 'dice')
+                         broadcast_log(room, f"   → 🛡️ 回避成功!", 'match-result')
+
+                         broadcast_log(room, "[再回避可能！]", 'info')
+                         apply_buff(def_char, "再回避ロック", 1, 0, data={"skill_id": def_skill_id, "buff_id": "Bu-05"})
+
+                    else:
+                        # 攻撃スキルでの勝利 (カウンター)
+                        results.append({'defender': def_char['name'], 'result': 'lose', 'damage': damage})
+                        broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
+                        broadcast_log(room, f"   → 🛡️ 防御者勝利! (カウンター): {damage}", 'match-result')
+
+                        current_hp = get_status_value(attacker_char, 'HP')
+                        new_hp = max(0, current_hp - damage)
+                        _update_char_stat(room, attacker_char, 'HP', new_hp, username=f"[{def_skill_id}]")
+
             else:
+                # 引き分け
                 results.append({'defender': def_char['name'], 'result': 'draw', 'damage': 0})
                 broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
                 broadcast_log(room, f"   → 引き分け", 'match-result')

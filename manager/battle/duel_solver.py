@@ -136,9 +136,13 @@ def handle_skill_declaration(room, data, username):
                      if 'flags' not in c: c['flags'] = {}
                      c['flags'][name] = value
 
-             # 使用済みフラグを立てる
              if 'flags' not in actor: actor['flags'] = {}
              actor['flags']['immediate_action_used'] = True
+
+             # 宝石の加護フラグ設定
+             skill_tags = skill_data.get('tags', [])
+             if "宝石の加護スキル" in skill_tags:
+                 actor['used_gem_protect_this_battle'] = True
 
              broadcast_log(room, f"{actor['name']} が 【{skill_data.get('デフォルト名称')}】 を即時発動しました！", 'info')
              broadcast_state_update(room)
