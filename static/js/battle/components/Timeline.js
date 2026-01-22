@@ -125,7 +125,7 @@ class Timeline {
 
         item.innerHTML = `
             <span class="name">${char.name}</span>
-            <span class="speed" style="font-size:0.85em; color:#666;">SPD:${char.speedRoll || 0}</span>
+            <span class="speed" style="font-size:0.85em; color:#666;">SPD:${char.totalSpeed || char.speedRoll || 0}</span>
         `;
 
         // クリックイベント

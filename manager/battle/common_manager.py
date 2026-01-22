@@ -386,14 +386,15 @@ def process_round_start(room, username):
         # 未配置チェック (x < 0)
         if char.get('x', -1) < 0: continue
 
-        # Calculate Speed (1d6 + Speed/4)
+        # Calculate Speed (1d6 + Speed/6)
         speed_param = get_status_value(char, '速度')
-        initiative = speed_param // 4
+        initiative = speed_param // 6
 
         # 1d6
         roll = random.randint(1, 6)
         char['speedRoll'] = roll
         total_speed = initiative + roll
+        char['totalSpeed'] = total_speed
 
         timeline_unsorted.append({
             'id': char['id'],

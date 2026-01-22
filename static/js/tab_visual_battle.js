@@ -807,7 +807,7 @@ function renderVisualTimeline() {
         }
         item.innerHTML = `
             <span class="name">${char.name}</span>
-            <span class="speed" style="font-size:0.85em; color:#666;">SPD:${char.speedRoll}</span>
+            <span class="speed" style="font-size:0.85em; color:#666;">SPD:${char.totalSpeed || char.speedRoll || 0}</span>
         `;
         item.addEventListener('click', () => showCharacterDetail(char.id));
         timelineEl.appendChild(item);
@@ -2752,7 +2752,7 @@ function openVisualWideDeclarationModal() {
             <div style="padding: 10px; border-bottom: 1px solid #eee; display:flex; align-items:center;">
                 <input type="checkbox" class="visual-wide-check" value="${char.id}" style="transform:scale(1.3); margin-right:15px;">
                 <span style="font-weight:bold; color:${typeColor}; font-size:1.1em;">${char.name}</span>
-                <span style="margin-left:auto; color:#666;">SPD: ${char.speedRoll}</span>
+                <span style="margin-left:auto; color:#666;">SPD: ${char.totalSpeed || char.speedRoll || 0}</span>
             </div>
         `;
     });

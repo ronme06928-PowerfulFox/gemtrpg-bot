@@ -967,7 +967,7 @@
                 }
                 return cmd;
             }).join("\n");
-            document.getElementById('char-commands').value = baseCommand + (skillCommands ? "\n" + skillCommands : "");
+            document.getElementById('char-commands').value = [baseCommand, skillCommands].filter(s => s).join("\n");
 
             updateJSON();
         }

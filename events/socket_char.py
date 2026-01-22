@@ -108,6 +108,9 @@ def handle_add_character(data):
     # ★ 追加: 所有権マップに登録
     set_character_owner(room, new_char_id, username)
 
+    # ★ 追加: 戦闘開始時効果（戦闘準備など）を適用
+    process_battle_start(room, char_data)
+
     broadcast_log(room, f"{displayName} が戦闘に参加しました。", 'info')
     broadcast_state_update(room)
     save_specific_room_state(room)
