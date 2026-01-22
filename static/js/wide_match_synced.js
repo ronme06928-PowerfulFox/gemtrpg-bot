@@ -1358,6 +1358,16 @@
                     room: currentRoomName
                 });
 
+                // ★ Optimistic UI Update (Phase 1.5)
+                // 即座にパネルを閉じてメイン画面に戻る
+                var wideContainer = document.getElementById('wide-match-container');
+                var duelContainer = document.querySelector('.duel-container');
+                if (wideContainer) wideContainer.style.display = 'none';
+                if (duelContainer) duelContainer.style.display = '';
+
+                // マッチパネル自体も閉じておく (state_updated が来るまでの一時的な措置)
+                if (typeof collapseMatchPanel === 'function') collapseMatchPanel();
+
                 this.disabled = true;
                 this.textContent = '実行中...';
                 console.log("✅ Wide match execution requested");

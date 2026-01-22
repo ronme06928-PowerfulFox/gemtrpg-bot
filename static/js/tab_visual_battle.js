@@ -710,6 +710,22 @@ function setupMapControls() {
         const gridY = Math.floor(mapY / GRID_SIZE);
 
         if (typeof socket !== 'undefined' && currentRoomName) {
+            // ★ Optimistic UI Update (Phase 1.5)
+            // サーバー応答を待たずにローカルで即座に位置を更新して描画する
+            const charIndex = battleState.characters.findIndex(c => c.id === charId);
+            if (charIndex !== -1) {
+                const char = battleState.characters[charIndex];
+                // 位置情報を更新
+                char.x = gridX;
+                char.y = gridY;
+
+                // マップを再描画（即座に反映）
+                renderVisualMap();
+
+                // タイムラインも更新（未配置→配置の場合に表示されるようになるため）
+                renderVisualTimeline();
+            }
+
             socket.emit('request_move_token', { room: currentRoomName, charId, x: gridX, y: gridY });
         }
     };
@@ -1687,6 +1703,13 @@ function renderMatchPanelFromState(matchData) {
             btn.onclick = function (e) {
                 e.stopPropagation();
                 if (confirm('【GM権限】マッチを強制終了しますか？\n現在行われているマッチ、または意図せず開いているマッチ画面を閉じます。\nこの操作は元に戻せません。')) {
+                    // ★ Optimistic UI Update (Phase 1.5)
+                    // 即座にパネルを閉じる
+                    clearMatchPanelContent();
+                    collapseMatchPanel();
+                    document.getElementById('wide-match-container').style.display = 'none';
+                    document.querySelector('.duel-container').style.display = ''; // Default reset
+
                     if (socket) socket.emit('request_force_end_match', { room: currentRoomName });
                 }
             };
