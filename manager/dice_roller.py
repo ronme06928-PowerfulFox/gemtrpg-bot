@@ -3,7 +3,9 @@
 """
 import re
 import random
+from manager.logs import setup_logger
 
+logger = setup_logger(__name__)
 
 def roll_dice(cmd_str):
     """
@@ -51,7 +53,7 @@ def roll_dice(cmd_str):
         sanitized = re.sub(r'[^-\d()/*+.]', '', calc_str)
         total = eval(sanitized)
     except Exception as e:
-        print(f"[DICE_ROLL ERROR] Failed to evaluate '{calc_str}': {e}")
+        logger.error(f"Failed to evaluate '{calc_str}': {e}")
         total = 0
 
     return {"total": total, "details": details_str}

@@ -7,6 +7,9 @@
 """
 
 from .base import BaseBuff
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class DodgeLockBuff(BaseBuff):
@@ -54,7 +57,7 @@ class DodgeLockBuff(BaseBuff):
 
         char['special_buffs'].append(buff_obj)
 
-        print(f"[DodgeLockBuff] Applied {self.name} to {char.get('name')} (skill_id={skill_id})")
+        logger.debug(f"Applied {self.name} to {char.get('name')} (skill_id={skill_id})")
 
         return {
             'success': True,

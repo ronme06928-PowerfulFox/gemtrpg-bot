@@ -2,6 +2,9 @@ import requests
 import csv
 import json
 from io import StringIO
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 # CSV公開URL
 ITEMS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkulkkIx6AQEHBKJiAqnjyzEQX5itUVV3SDwi40sLmXeiVQbXvg0RmMS3-XLSwNo2YHsF3WybyHjMu/pub?gid=110236529&single=true&output=csv'
@@ -15,7 +18,7 @@ class ItemLoader:
 
     def fetch_from_csv(self):
         """CSV URLからアイテムを取得"""
-        print(f"CSV URLからアイテムを取得中...")
+        logger.info("CSV URLからアイテムを取得中...")
 
         try:
             response = requests.get(ITEMS_CSV_URL, timeout=10)
@@ -51,10 +54,10 @@ class ItemLoader:
                         "effect": effect
                     }
                 except (json.JSONDecodeError, ValueError) as e:
-                    print(f"[WARNING] アイテム {item_id} のパースに失敗: {e}")
+                    logger.warning(f"アイテム {item_id} のパースに失敗: {e}")
                     continue
 
-            print(f"[OK] {len(items)} 件のアイテムを読み込みました")
+            logger.info(f"{len(items)} 件のアイテムを読み込みました")
             self._cache = items
 
             # キャッシュに保存
@@ -63,10 +66,10 @@ class ItemLoader:
             return items
 
         except requests.RequestException as e:
-            print(f"[ERROR] CSV取得エラー: {e}")
+            logger.error(f"CSV取得エラー: {e}")
             return {}
         except Exception as e:
-            print(f"[ERROR] データ取得エラー: {e}")
+            logger.error(f"データ取得エラー: {e}")
             return {}
 
     def _save_cache(self, items):
@@ -74,9 +77,9 @@ class ItemLoader:
         try:
             with open(ITEMS_CACHE_FILE, 'w', encoding='utf-8') as f:
                 json.dump(items, f, ensure_ascii=False, indent=2)
-            print(f"[OK] アイテムをキャッシュに保存しました")
+            logger.info("アイテムをキャッシュに保存しました")
         except Exception as e:
-            print(f"[ERROR] キャッシュ保存エラー: {e}")
+            logger.error(f"キャッシュ保存エラー: {e}")
 
     def _load_cache(self):
         """キャッシュファイルから読み込み"""
@@ -86,7 +89,7 @@ class ItemLoader:
         except FileNotFoundError:
             return None
         except Exception as e:
-            print(f"[ERROR] キャッシュ読み込みエラー: {e}")
+            logger.error(f"キャッシュ読み込みエラー: {e}")
             return None
 
     def load_items(self, force_refresh=False):
@@ -99,7 +102,7 @@ class ItemLoader:
             cached = self._load_cache()
             if cached:
                 self._cache = cached
-                print(f"[OK] キャッシュから {len(cached)} 件のアイテムを読み込みました")
+                logger.info(f"キャッシュから {len(cached)} 件のアイテムを読み込みました")
                 return cached
 
         # キャッシュがない場合はCSV URLから取得

@@ -6,6 +6,9 @@
 """
 
 from .base import BaseBuff
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class ProvokeBuff(BaseBuff):
@@ -48,7 +51,7 @@ class ProvokeBuff(BaseBuff):
 
         char['special_buffs'].append(buff_obj)
 
-        print(f"[ProvokeBuff] Applied {self.name} to {char.get('name')} (delay={delay}, lasting={duration})")
+        logger.debug(f"Applied {self.name} to {char.get('name')} (delay={delay}, lasting={duration})")
 
         return {
             'success': True,
@@ -86,7 +89,7 @@ class ProvokeBuff(BaseBuff):
                         provoker_type = char.get('type', 'ally')
 
                         if attacker_type != provoker_type:
-                            print(f"[ProvokeBuff] Target changed: {defender.get('name')} → {char.get('name')} (by provoke)")
+                            logger.info(f"Target changed: {defender.get('name')} → {char.get('name')} (by provoke)")
                             return char
 
         return defender

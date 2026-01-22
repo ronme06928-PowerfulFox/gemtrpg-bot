@@ -44,7 +44,7 @@ def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data
                 if char and target_char and char.get('id') == target_char.get('id'):
                     modifiers["base_power_mod"] += value
     except Exception as e:
-        print(f"[ERROR] calculate_opponent_skill_modifiers: {e}")
+        logger.error(f"calculate_opponent_skill_modifiers: {e}")
 
     return modifiers
 
@@ -198,7 +198,7 @@ def proceed_next_turn(room):
         if char and char.get('hp', 0) > 0 and not char.get('hasActed', False):
             # 行動不能チェック (混乱)
             if ConfusionBuff.is_incapacitated(char):
-                print(f"[TurnSkip] Skipping {char['name']} due to incapacitation (Confusion)")
+                logger.info(f"Skipping {char['name']} due to incapacitation (Confusion)")
                 continue
 
             # 行動不能チェック (Immobilize/Bu-04)
@@ -227,7 +227,7 @@ def process_simple_round_end(state, room):
     ラウンド終了時の共通処理（バフ減少、アイテムリセットなど）
     広域マッチからも呼び出される
     """
-    print(f"[DEBUG] ===== process_simple_round_end 開始 =====")
+    logger.debug("===== process_simple_round_end 開始 =====")
 
     for char in state.get("characters", []):
         # バフタイマーの処理
@@ -261,4 +261,4 @@ def process_simple_round_end(state, room):
         if 'used_skills_this_round' in char:
             char['used_skills_this_round'] = []
 
-    print(f"[DEBUG] ===== process_simple_round_end 完了 =====")
+    logger.debug("===== process_simple_round_end 完了 =====")

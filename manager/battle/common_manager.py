@@ -210,7 +210,7 @@ def reset_battle_logic(room, mode, username):
             try:
                 process_battle_start(room, char)
             except Exception as e:
-                print(f"[ERROR] process_battle_start in reset failed: {e}")
+                logger.error(f"process_battle_start in reset failed: {e}")
 
         state['turn_char_id'] = None
 
@@ -360,10 +360,10 @@ def sync_match_data_logic(room, side, data):
     socketio.emit('match_data_updated', {'side': side, 'data': data}, to=room)
 
 def process_round_start(room, username):
-    print(f"[DEBUG] process_round_start called for room: {room} by {username}")
+    logger.debug(f"process_round_start called for room: {room} by {username}")
     state = get_room_state(room)
     if not state:
-        print(f"[DEBUG] Room state not found for {room}")
+        logger.debug(f"Room state not found for {room}")
         return
 
     # Check previous round end flag
@@ -551,12 +551,12 @@ def process_wide_modal_confirm(room, user_id, attribute, wide_ids):
             break
 
     if all_confirmed and len(unique_non_gm_users) > 0:
-        print(f"[WideModal] All players confirmed. Executing.")
+        logger.info("All players confirmed. Executing.")
         process_wide_declarations(room, state['pending_wide_ids'])
         socketio.emit('close_wide_declaration_modal', {}, to=room)
     else:
         # Just save state and wait
-        print(f"[WideModal] Player {user_id} confirmed. Waiting for others. ({len(confirmed_users)}/{len(unique_non_gm_users)})")
+        logger.info(f"Player {user_id} confirmed. Waiting for others. ({len(confirmed_users)}/{len(unique_non_gm_users)})")
         save_specific_room_state(room)
         # Optional: Broadcast progress
         # socketio.emit('wide_modal_progress', {'current': len(confirmed_users), 'total': len(unique_non_gm_users)}, to=room)

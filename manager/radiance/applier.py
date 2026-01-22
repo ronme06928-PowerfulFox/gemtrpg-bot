@@ -4,6 +4,9 @@
 """
 
 from manager.radiance.loader import radiance_loader
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class RadianceApplier:
@@ -30,7 +33,7 @@ class RadianceApplier:
         for skill_id in skill_ids:
             skill = radiance_loader.get_skill(skill_id)
             if not skill:
-                print(f"[WARNING] 輝化スキル {skill_id} が見つかりません")
+                logger.warning(f"輝化スキル {skill_id} が見つかりません")
                 continue
 
             effect = skill.get('effect', {})
@@ -58,7 +61,7 @@ class RadianceApplier:
                     'data': effect # ★追加: 効果定義そのものを保持させる
                 }
                 char_data['special_buffs'].append(buff)
-                print(f"[OK] 輝化スキル '{skill['name']}' (buff/generic) を適用しました (lasting={duration}, permanent={duration == -1})")
+                logger.info(f"輝化スキル '{skill['name']}' (buff/generic) を適用しました (lasting={duration}, permanent={duration == -1})")
 
             # STAT_BONUS効果（maxHp/maxMp増加など）
             elif effect_type == 'STAT_BONUS':
@@ -74,7 +77,7 @@ class RadianceApplier:
                     char_data['maxHp'] = current_max + value
                     # 現在HPも同じ量増やす（上限を超えないように）
                     char_data['hp'] = min(char_data.get('hp', 0) + value, char_data['maxHp'])
-                    print(f"[OK] 輝化スキル '{skill['name']}' でHP上限+{value}（{current_max} → {char_data['maxHp']}）")
+                    logger.info(f"輝化スキル '{skill['name']}' でHP上限+{value}（{current_max} → {char_data['maxHp']}）")
                     stat_mods['maxHp'] = value  # stat_modsに記録
 
                 elif stat_name == 'MP':
@@ -83,11 +86,11 @@ class RadianceApplier:
                     char_data['maxMp'] = current_max + value
                     # 現在MPも同じ量増やす（上限を超えないように）
                     char_data['mp'] = min(char_data.get('mp', 0) + value, char_data['maxMp'])
-                    print(f"[OK] 輝化スキル '{skill['name']}' でMP上限+{value}（{current_max} → {char_data['maxMp']}）")
+                    logger.info(f"輝化スキル '{skill['name']}' でMP上限+{value}（{current_max} → {char_data['maxMp']}）")
                     stat_mods['maxMp'] = value  # stat_modsに記録
 
                 else:
-                    print(f"[WARNING] 輝化スキル {skill_id} の STAT_BONUS タイプで未対応のstat: {stat_name}")
+                    logger.warning(f"輝化スキル {skill_id} の STAT_BONUS タイプで未対応のstat: {stat_name}")
                     stat_mods[stat_name] = value  # ★ 未対応でもstat_modsには入れる
 
                 # ★追加: STAT_BONUSタイプでもバフとして表示用にspecial_buffsに追加
@@ -106,10 +109,10 @@ class RadianceApplier:
                     'data': effect # ★追加
                 }
                 char_data['special_buffs'].append(buff)
-                print(f"[OK] 輝化スキル '{skill['name']}' (STAT_BONUS) バフを追加 (lasting={duration}, permanent={duration == -1})")
+                logger.info(f"輝化スキル '{skill['name']}' (STAT_BONUS) バフを追加 (lasting={duration}, permanent={duration == -1})")
 
             else:
-                print(f"[WARNING] 輝化スキル {skill_id} は未対応の効果タイプです（type={effect_type}）")
+                logger.warning(f"輝化スキル {skill_id} は未対応の効果タイプです（type={effect_type}）")
 
         return char_data
 

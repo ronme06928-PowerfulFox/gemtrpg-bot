@@ -9,6 +9,9 @@ import os
 import importlib
 import inspect
 from .base import BaseBuff
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class BuffRegistry:
@@ -16,7 +19,7 @@ class BuffRegistry:
 
     def __init__(self):
         self._handlers = {}  # {buff_id: BuffClass}
-        print("[BuffRegistry] Initialized")
+        logger.info("BuffRegistry initialized")
 
     def register(self, buff_id, buff_class):
         """
@@ -30,7 +33,7 @@ class BuffRegistry:
             raise ValueError(f"{buff_class} must extend BaseBuff")
 
         self._handlers[buff_id] = buff_class
-        print(f"[BuffRegistry] Registered {buff_id} -> {buff_class.__name__}")
+        logger.debug(f"Registered {buff_id} -> {buff_class.__name__}")
 
     def get_handler(self, buff_id):
         """
@@ -51,7 +54,7 @@ class BuffRegistry:
         各プラグインファイルで定義されたBaseBuff継承クラスを探し、
         そのクラスのBUFF_IDS属性に基づいて自動登録します。
         """
-        print("[BuffRegistry] Auto-discovering buff plugins...")
+        logger.info("Auto-discovering buff plugins...")
 
         # plugins/buffs/ ディレクトリのパス
         buffs_dir = os.path.dirname(__file__)
@@ -79,12 +82,12 @@ class BuffRegistry:
                             for buff_id in obj.BUFF_IDS:
                                 self.register(buff_id, obj)
                         else:
-                            print(f"[BuffRegistry] Warning: {name} has no BUFF_IDS, skipping")
+                            logger.warning(f"{name} has no BUFF_IDS, skipping")
 
             except Exception as e:
-                print(f"[BuffRegistry] Error loading {module_name}: {e}")
+                logger.error(f"Error loading {module_name}: {e}")
 
-        print(f"[BuffRegistry] Auto-discovery complete. {len(self._handlers)} buff(s) registered.")
+        logger.info(f"Auto-discovery complete. {len(self._handlers)} buff(s) registered.")
 
     def list_registered(self):
         """

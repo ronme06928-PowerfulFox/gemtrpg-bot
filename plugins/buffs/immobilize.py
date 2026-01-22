@@ -6,6 +6,9 @@
 """
 
 from .base import BaseBuff
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class ImmobilizeBuff(BaseBuff):
@@ -46,7 +49,7 @@ class ImmobilizeBuff(BaseBuff):
 
         char['special_buffs'].append(buff_obj)
 
-        print(f"[ImmobilizeBuff] Applied {self.name} to {char.get('name')} (delay={delay}, lasting={duration})")
+        logger.debug(f"Applied {self.name} to {char.get('name')} (delay={delay}, lasting={duration})")
 
         return {
             'success': True,

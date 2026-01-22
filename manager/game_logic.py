@@ -4,9 +4,12 @@ import json
 import re # Added for regex
 from manager.utils import get_status_value, set_status_value, apply_buff, remove_buff, get_buff_stat_mod, get_buff_stat_mod_details, resolve_placeholders
 from manager.buff_catalog import get_buff_effect
+from manager.logs import setup_logger
 
 # プラグインシステム (pluginsフォルダはルートにあるのでそのままでOK)
 from plugins import EFFECT_REGISTRY
+
+logger = setup_logger(__name__)
 
 def _get_value_for_condition(source_obj, param_name):
     if not source_obj: return None
@@ -150,7 +153,7 @@ def execute_custom_effect(effect, actor, target):
     handler = EFFECT_REGISTRY.get(effect_name)
 
     if not handler:
-        print(f"DEBUG: Unknown CUSTOM_EFFECT '{effect_name}'")
+        logger.debug(f"Unknown CUSTOM_EFFECT '{effect_name}'")
         return [], []
 
     try:
@@ -160,7 +163,7 @@ def execute_custom_effect(effect, actor, target):
         }
         return handler.apply(actor, target, effect, context)
     except Exception as e:
-        print(f"[ERROR] Plugin Error ({effect_name}): {e}", file=sys.stderr)
+        logger.error(f"Plugin Error ({effect_name}): {e}")
         return [], []
 
 def process_skill_effects(effects_array, timing_to_check, actor, target, target_skill_data=None, context=None):
@@ -420,9 +423,9 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     buff_data = get_buff_by_id(buff_id)
                     if buff_data:
                         buff_name = buff_data.get("name")
-                        print(f"[APPLY_BUFF] Resolved buff_id '{buff_id}' to buff_name '{buff_name}'")
+                        logger.debug(f"Resolved buff_id '{buff_id}' to buff_name '{buff_name}'")
                     else:
-                        print(f"[APPLY_BUFF WARNING] buff_id '{buff_id}' not found in catalog")
+                        logger.warning(f"buff_id '{buff_id}' not found in catalog")
 
                 if buff_name:
                     # ★修正: buff_idも一緒にdataに含める（プラグイン判定用）

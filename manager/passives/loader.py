@@ -2,6 +2,9 @@ import requests
 import csv
 import json
 from io import StringIO
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 # CSV公開URL
 PASSIVES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkulkkIx6AQEHBKJiAqnjyzEQX5itUVV3SDwi40sLmXeiVQbXvg0RmMS3-XLSwNo2YHsF3WybyHjMu/pub?gid=9160848&single=true&output=csv'
@@ -15,7 +18,7 @@ class PassiveLoader:
 
     def fetch_from_csv(self):
         """CSV URLから特殊パッシブを取得"""
-        print(f"CSV URLから特殊パッシブを取得中...")
+        logger.info("CSV URLから特殊パッシブを取得中...")
 
         try:
             response = requests.get(PASSIVES_CSV_URL, timeout=10)
@@ -45,10 +48,10 @@ class PassiveLoader:
                         "effect": effect
                     }
                 except (json.JSONDecodeError, ValueError) as e:
-                    print(f"[WARNING] パッシブ {passive_id} のパースに失敗: {e}")
+                    logger.warning(f"パッシブ {passive_id} のパースに失敗: {e}")
                     continue
 
-            print(f"[OK] {len(passives)} 件の特殊パッシブを読み込みました")
+            logger.info(f"{len(passives)} 件の特殊パッシブを読み込みました")
             self._cache = passives
 
             # キャッシュに保存
@@ -57,10 +60,10 @@ class PassiveLoader:
             return passives
 
         except requests.RequestException as e:
-            print(f"[ERROR] CSV取得エラー: {e}")
+            logger.error(f"CSV取得エラー: {e}")
             return {}
         except Exception as e:
-            print(f"[ERROR] データ取得エラー: {e}")
+            logger.error(f"データ取得エラー: {e}")
             return {}
 
     def _save_cache(self, passives):
@@ -68,9 +71,9 @@ class PassiveLoader:
         try:
             with open(PASSIVES_CACHE_FILE, 'w', encoding='utf-8') as f:
                 json.dump(passives, f, ensure_ascii=False, indent=2)
-            print(f"[OK] 特殊パッシブをキャッシュに保存しました")
+            logger.info("特殊パッシブをキャッシュに保存しました")
         except Exception as e:
-            print(f"[ERROR] キャッシュ保存エラー: {e}")
+            logger.error(f"キャッシュ保存エラー: {e}")
 
     def _load_cache(self):
         """キャッシュファイルから読み込み"""
@@ -80,7 +83,7 @@ class PassiveLoader:
         except FileNotFoundError:
             return None
         except Exception as e:
-            print(f"[ERROR] キャッシュ読み込みエラー: {e}")
+            logger.error(f"キャッシュ読み込みエラー: {e}")
             return None
 
     def load_passives(self, force_refresh=False):
@@ -93,7 +96,7 @@ class PassiveLoader:
             cached = self._load_cache()
             if cached:
                 self._cache = cached
-                print(f"[OK] キャッシュから {len(cached)} 件の特殊パッシブを読み込みました")
+                logger.info(f"キャッシュから {len(cached)} 件の特殊パッシブを読み込みました")
                 return cached
 
         # キャッシュがない場合はCSV URLから取得

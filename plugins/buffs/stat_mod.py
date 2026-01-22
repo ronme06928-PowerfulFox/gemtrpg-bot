@@ -6,6 +6,9 @@
 """
 
 from .base import BaseBuff
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class StatModBuff(BaseBuff):
@@ -52,7 +55,7 @@ class StatModBuff(BaseBuff):
 
         char['special_buffs'].append(buff_obj)
 
-        print(f"[StatModBuff] Applied {self.name} to {char.get('name')}: {stat}+{value} (duration={duration})")
+        logger.debug(f"Applied {self.name} to {char.get('name')}: {stat}+{value} (duration={duration})")
 
         return {
             'success': True,

@@ -17,6 +17,9 @@ from manager.battle.core import (
     calculate_opponent_skill_modifiers
 )
 from manager.utils import resolve_placeholders
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 def setup_wide_match_declaration(room, data, username):
     state = get_room_state(room)
@@ -140,7 +143,7 @@ def execute_wide_match(room, username):
 
     active_match = state.get('active_match')
     if not active_match or not active_match.get('is_active') or active_match.get('match_type') != 'wide':
-        print(f"[WIDE_MATCH] No active wide match to execute")
+        logger.warning("No active wide match to execute")
         return
 
     # Check if all participants have declared
@@ -374,7 +377,7 @@ def execute_wide_match(room, username):
             bp_mod = def_char.get('_base_power_bonus', 0)
             if bp_mod != 0 and not using_precalc:
                 def_command = f"{def_command}+{bp_mod}"
-                print(f"[WIDE_MATCH EXEC] Applied BaseMod {bp_mod} -> {def_command}")
+                logger.debug(f"Applied BaseMod {bp_mod} -> {def_command}")
 
             def_roll = roll_dice(def_command)
 

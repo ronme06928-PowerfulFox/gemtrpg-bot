@@ -1,6 +1,9 @@
 import re
 from functools import wraps
 from flask import jsonify, session
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 def get_status_value(char_obj, status_name):
     """キャラクターから特定のステータス値を取得する（バフ補正込み）"""
@@ -116,7 +119,7 @@ def get_buff_stat_mod(char_obj, stat_name):
                 mod_value = int(stat_mods[stat_name])
                 total_mod += mod_value
             except (ValueError, TypeError) as e:
-                print(f"[WARNING] バフ '{buff.get('name')}' の stat_mods['{stat_name}'] が不正: {stat_mods[stat_name]}")
+                logger.warning(f"バフ '{buff.get('name')}' の stat_mods['{stat_name}'] が不正: {stat_mods[stat_name]}")
                 continue
 
     return total_mod

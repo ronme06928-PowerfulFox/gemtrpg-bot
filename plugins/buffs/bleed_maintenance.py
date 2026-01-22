@@ -6,6 +6,9 @@
 """
 
 from .base import BaseBuff
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class BleedMaintenanceBuff(BaseBuff):
@@ -46,7 +49,7 @@ class BleedMaintenanceBuff(BaseBuff):
 
         char['special_buffs'].append(buff_obj)
 
-        print(f"[BleedMaintenanceBuff] Applied {self.name} to {char.get('name')}")
+        logger.debug(f"Applied {self.name} to {char.get('name')}")
 
         return {
             'success': True,

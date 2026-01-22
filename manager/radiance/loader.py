@@ -2,6 +2,9 @@ import requests
 import csv
 import json
 from io import StringIO
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 # CSV公開URL
 RADIANCE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkulkkIx6AQEHBKJiAqnjyzEQX5itUVV3SDwi40sLmXeiVQbXvg0RmMS3-XLSwNo2YHsF3WybyHjMu/pub?gid=0&single=true&output=csv'
@@ -15,7 +18,7 @@ class RadianceSkillLoader:
 
     def fetch_from_csv(self):
         """CSV URLから輝化スキルを取得"""
-        print(f"CSV URLから輝化スキルを取得中...")
+        logger.info("CSV URLから輝化スキルを取得中...")
 
         try:
             response = requests.get(RADIANCE_CSV_URL, timeout=10)
@@ -53,10 +56,10 @@ class RadianceSkillLoader:
                         "duration": duration  # ★ 追加
                     }
                 except (json.JSONDecodeError, ValueError) as e:
-                    print(f"[WARNING] スキル {skill_id} のパースに失敗: {e}")
+                    logger.warning(f"スキル {skill_id} のパースに失敗: {e}")
                     continue
 
-            print(f"[OK] {len(skills)} 件の輝化スキルを読み込みました")
+            logger.info(f"{len(skills)} 件の輝化スキルを読み込みました")
             self._cache = skills
 
             # キャッシュに保存
@@ -65,10 +68,10 @@ class RadianceSkillLoader:
             return skills
 
         except requests.RequestException as e:
-            print(f"[ERROR] CSV取得エラー: {e}")
+            logger.error(f"CSV取得エラー: {e}")
             return {}
         except Exception as e:
-            print(f"[ERROR] データ取得エラー: {e}")
+            logger.error(f"データ取得エラー: {e}")
             return {}
 
     def _save_cache(self, skills):
@@ -76,9 +79,9 @@ class RadianceSkillLoader:
         try:
             with open(RADIANCE_CACHE_FILE, 'w', encoding='utf-8') as f:
                 json.dump(skills, f, ensure_ascii=False, indent=2)
-            print(f"[OK] 輝化スキルをキャッシュに保存しました")
+            logger.info("輝化スキルをキャッシュに保存しました")
         except Exception as e:
-            print(f"[ERROR] キャッシュ保存エラー: {e}")
+            logger.error(f"キャッシュ保存エラー: {e}")
 
     def _load_cache(self):
         """キャッシュファイルから読み込み"""
@@ -88,7 +91,7 @@ class RadianceSkillLoader:
         except FileNotFoundError:
             return None
         except Exception as e:
-            print(f"[ERROR] キャッシュ読み込みエラー: {e}")
+            logger.error(f"キャッシュ読み込みエラー: {e}")
             return None
 
     def load_skills(self, force_refresh=False):
@@ -101,7 +104,7 @@ class RadianceSkillLoader:
             cached = self._load_cache()
             if cached:
                 self._cache = cached
-                print(f"[OK] キャッシュから {len(cached)} 件の輝化スキルを読み込みました")
+                logger.info(f"キャッシュから {len(cached)} 件の輝化スキルを読み込みました")
                 return cached
 
         # キャッシュがない場合はCSV URLから取得

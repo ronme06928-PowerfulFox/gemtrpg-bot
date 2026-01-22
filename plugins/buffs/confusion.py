@@ -8,6 +8,9 @@
 """
 
 from .base import BaseBuff
+from manager.logs import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class ConfusionBuff(BaseBuff):
@@ -50,7 +53,7 @@ class ConfusionBuff(BaseBuff):
 
         char['special_buffs'].append(buff_obj)
 
-        print(f"[ConfusionBuff] Applied {self.name} to {char.get('name')} (delay={delay}, lasting={duration})")
+        logger.debug(f"Applied {self.name} to {char.get('name')} (delay={delay}, lasting={duration})")
 
         return {
             'success': True,
@@ -82,7 +85,7 @@ class ConfusionBuff(BaseBuff):
             max_mp = int(char.get('maxMp', 0))
             char['mp'] = max_mp
 
-            print(f"[ConfusionBuff] {char.get('name')} recovered MP (Senritsu version)")
+            logger.info(f"{char.get('name')} recovered MP (Senritsu version)")
 
             return {
                 'logs': [
@@ -97,7 +100,7 @@ class ConfusionBuff(BaseBuff):
             }
         else:
             # MP回復なし（通常版）
-            print(f"[ConfusionBuff] {char.get('name')} recovered (normal version)")
+            logger.info(f"{char.get('name')} recovered (normal version)")
 
             return {
                 'logs': [
