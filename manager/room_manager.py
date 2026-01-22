@@ -3,6 +3,7 @@ from extensions import socketio, active_room_states, user_sids
 from manager.data_manager import read_saved_rooms, save_room_to_db
 from manager.utils import set_status_value, get_status_value, apply_buff, remove_buff
 from models import Room
+from manager.game_logic import process_on_death
 
 def get_room_state(room_name):
     if room_name in active_room_states:
@@ -164,6 +165,11 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
         if char['hp'] <= 0:
             char['x'] = -1; char['y'] = -1
             log_message += " [戦闘不能/未配置へ移動]"
+            # ★ 追加: 死亡時イベントフック
+            try:
+                process_on_death(room_name, char, username)
+            except Exception as e:
+                print(f"[ERROR] process_on_death failed: {e}")
     elif stat_name == 'MP':
         old_value = char['mp']
         char['mp'] = max(0, new_value)

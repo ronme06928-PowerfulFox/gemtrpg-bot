@@ -231,6 +231,54 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             t_str = effect.get("target")
             if t_str == "self": targets_list = [actor]
             elif t_str == "target": targets_list = [target] if target else []
+            # ★ 追加: 全体対象サポート
+            elif t_str == "ALL_ENEMIES" and context and "characters" in context:
+                actor_type = actor.get("type", "ally")
+                target_type = "enemy" if actor_type == "ally" else "ally"
+                targets_list = [c for c in context["characters"] if c.get("type") == target_type and c.get('hp', 0) > 0]
+            elif t_str == "ALL_ALLIES" and context and "characters" in context:
+                actor_type = actor.get("type", "ally")
+                targets_list = [c for c in context["characters"] if c.get("type") == actor_type and c.get('hp', 0) > 0]
+            elif t_str == "ALL" and context and "characters" in context:
+                 targets_list = [c for c in context["characters"] if c.get('hp', 0) > 0]
+            # ★新機能: NEXT_ALLY
+            elif t_str == "NEXT_ALLY" and context and "characters" in context and context.get("room"):
+                from manager.room_manager import get_room_state
+                # コンテキストからルームステートを取得（またはcharactersから推論）
+                # ここではcontextにroom名が渡されていることを期待するか、charactersリストで検索を行う
+                # 簡易実装: charactersリスト内のID順（timeでソート済みと仮定）ではなく、timeline順が必要
+                # room_managerをインポートしてステート全体を取得する方が確実
+                room_name = context.get("room")
+                if room_name:
+                    state = get_room_state(room_name)
+                    timeline = state.get('timeline', [])
+
+                    if timeline and actor:
+                        my_id = actor.get('id')
+                        my_type = actor.get('type', 'ally')
+
+                        # タイムライン上での自分の位置を探す
+                        start_idx = -1
+                        try:
+                            start_idx = timeline.index(my_id)
+                        except ValueError:
+                            pass
+
+                        target_id = None
+
+                        # 自分以降を探索
+                        search_indices = list(range(start_idx + 1, len(timeline))) + list(range(0, start_idx))
+
+                        for idx in search_indices:
+                            tid = timeline[idx]
+                            t_char = next((c for c in state['characters'] if c['id'] == tid), None)
+                            if t_char and t_char.get('type') == my_type and t_char.get('hp', 0) > 0:
+                                target_id = tid
+                                break
+
+                        if target_id:
+                            found = next((c for c in state['characters'] if c['id'] == target_id), None)
+                            if found: targets_list = [found]
 
         if not targets_list: continue
 
@@ -731,3 +779,103 @@ def calculate_damage_multiplier(character):
                 pass
 
     return d_mult, logs
+
+def process_on_death(room, char, username):
+    """
+    死亡時イベント(on_death)を処理する
+    """
+    if not char: return
+    logs = []
+
+    # special_buffs (またはパッシブ) に on_death があれば実行
+    # パッシブは常時バフとして special_buffs に展開されている前提（ローダーの仕組み上そうなっている）
+
+    for buff in char.get('special_buffs', []):
+        effect_data = get_buff_effect(buff.get('name'))
+        if not effect_data: continue
+
+        on_death_effects = effect_data.get('on_death', [])
+        if on_death_effects:
+            # 実行
+            # 死んだ本人を actor として効果処理
+            # ターゲットは効果定義内の target (ALL_ENEMIESなど) に依存
+
+            # コンテキスト作成
+            from manager.room_manager import get_room_state, broadcast_log, _update_char_stat
+            state = get_room_state(room)
+            context = {"characters": state['characters'], "room": room}
+
+            _, l, changes = process_skill_effects(on_death_effects, "IMMEDIATE", char, None, None, context=context)
+
+            if l:
+                broadcast_log(room, f"【{char['name']} 死亡時効果】" + " ".join(l), 'state-change')
+
+            for (c, type, name, value) in changes:
+                if type == "APPLY_STATE":
+                    current = get_status_value(c, name)
+                    _update_char_stat(room, c, name, current + value, username=f"[{char['name']}:遺言]")
+                elif type == "APPLY_BUFF":
+                    apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
+                    broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
+
+    # 通常ログは呼び出し元で処理済み
+
+def process_battle_start(room, char):
+    """
+    戦闘開始時(または参加時)イベント(battle_start_effect)を処理する
+    初期FP付与などに使用
+    """
+    if not char: return
+
+    # パッシブ/バフチェック
+    executed = False
+
+    for buff in char.get('special_buffs', []):
+        buff_name = buff.get('name')
+        effect_data = get_buff_effect(buff_name)
+
+        # effect_data自体がない場合や、battle_start_effectがない場合はスキップ
+        if not effect_data: continue
+
+        start_effects = effect_data.get('battle_start_effect', [])
+        if start_effects:
+            # 実行 (タイミングチェックは不要だが、process_skill_effectsの仕様上タイミング指定が必要ならIMMEDIATE等で代用)
+            # ここではタイミングフィルタを無視するか、データ側で指定させる
+            # 既存関数再利用のため、タイミングは "BATTLE_START" と仮定するが、
+            # process_skill_effectsはタイミング一致を見るので、データ側にも timing: BATTLE_START が必要。
+            # しかし手入力の手間を省くため、ここでは強制的に通すか、process_skill_effectsを使わずに処理する。
+
+            # 簡易実装: ここで処理ループを回す (process_skill_effectsは条件等が複雑なので再利用したい)
+            # データ側に timing: BATTLE_START を付与して渡す
+
+            # deepcopyしてtiming注入
+            import copy
+            effects_to_run = copy.deepcopy(start_effects)
+            for eff in effects_to_run:
+                eff['timing'] = 'BATTLE_START'
+                if not eff.get('target'):
+                    eff['target'] = 'self'
+
+            from manager.room_manager import get_room_state, broadcast_log, _update_char_stat
+            state = get_room_state(room)
+            context = {"characters": state['characters'], "room": room}
+
+            _, l, changes = process_skill_effects(effects_to_run, "BATTLE_START", char, None, None, context=context)
+
+            if l:
+                broadcast_log(room, f"【{char['name']} 開始時効果】" + " ".join(l), 'state-change')
+
+            for (c, type, name, value) in changes:
+                if type == "APPLY_STATE":
+                    current = get_status_value(c, name)
+                    _update_char_stat(room, c, name, current + value, username=f"[{buff_name}]")
+                elif type == "APPLY_BUFF":
+                     apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
+                     broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
+
+            executed = True
+
+    if executed:
+        from manager.room_manager import save_specific_room_state, broadcast_state_update
+        save_specific_room_state(room)
+        broadcast_state_update(room)

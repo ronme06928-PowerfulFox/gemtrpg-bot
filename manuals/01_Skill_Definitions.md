@@ -48,9 +48,14 @@
 ```json
 "cost": [
   {"type": "MP", "value": 5},
-  {"type": "FP", "value": 2}
+  {"type": "MP", "value": 5},
+  {"type": "FP", "value": 2},
+  {"type": "HP", "value": 10}
 ]
 ```
+
+- **type**: `MP`, `FP`, `TP` に加え、**`HP`** も指定可能です。
+  - **HPコストの挙動**: 現在HPを消費します。HPが足りない場合は発動できません（戦闘不能にはなりません）。
 
 ### 2. Power Bonus (威力ボーナス)
 
@@ -88,7 +93,13 @@
   - `"END_ROUND"`: ラウンド終了時
   - `"END_MATCH"`: マッチ終了時
   - `"UNOPPOSED"`: 一方攻撃（相手が防御・回避を持たない、または行動不能時）の攻撃時
-- `target`: 効果対象 (`"self"`, `"target"`)
+- `target`: 効果対象
+  - `"self"`: 自分自身
+  - `"target"`: 選択した対象
+  - **`"NEXT_ALLY"`**: タイムライン上で自分の次に行動する味方
+  - **`"ALL_ENEMIES"`**: 敵全体 (ターゲット選択不要)
+  - **`"ALL_ALLIES"`**: 味方全体 (自分含む)
+  - **`"ALL"`**: 敵味方全員
 - `condition`: 発動条件 (任意)
 
 #### 効果タイプ (Type)

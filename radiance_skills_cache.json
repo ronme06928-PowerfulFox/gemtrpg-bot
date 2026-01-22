@@ -24,5 +24,22 @@
       "value": 5
     },
     "duration": -1
+  },
+  "S-02": {
+    "id": "S-02",
+    "name": "戦闘準備",
+    "cost": 2,
+    "description": "戦闘開始時のFPを+1する。",
+    "flavor": "敵と戦う経験を積み、より早く臨戦態勢に入ることができるようになった証。",
+    "effect": {
+      "battle_start_effect": [
+        {
+          "type": "APPLY_STATE",
+          "state_name": "FP",
+          "value": 1
+        }
+      ]
+    },
+    "duration": -1
   }
 }

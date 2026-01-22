@@ -11,7 +11,7 @@ from manager.room_manager import (
 from manager.battle.core import proceed_next_turn
 
 from manager.game_logic import (
-    get_status_value, process_skill_effects, apply_buff, remove_buff
+    get_status_value, process_skill_effects, apply_buff, remove_buff, process_battle_start
 )
 import random
 
@@ -201,6 +201,13 @@ def reset_battle_logic(room, mode, username):
             char['hasActed'] = False
             char['speedRoll'] = 0
             char['isWideUser'] = False
+
+            # ★ 追加: 戦闘開始時効果 (初期FP等) の再適用
+            # リセット後に適用するため、初期FPパッシブがあればここでFPが入る
+            try:
+                process_battle_start(room, char)
+            except Exception as e:
+                print(f"[ERROR] process_battle_start in reset failed: {e}")
 
         state['turn_char_id'] = None
 

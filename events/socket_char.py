@@ -11,6 +11,7 @@ from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_state_update,
     broadcast_log, get_user_info_from_sid, _update_char_stat, set_character_owner
 )
+from manager.game_logic import process_battle_start
 
 @socketio.on('request_add_character')
 def handle_add_character(data):
