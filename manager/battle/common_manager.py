@@ -218,14 +218,21 @@ def force_end_match_logic(room, username):
     state = get_room_state(room)
     if not state: return
 
-    if not state.get('active_match') or not state['active_match'].get('is_active'):
-        emit('new_log', {"message": "現在アクティブなマッチはありません。", "type": "error"})
+    if not state.get('active_match') and not state.get('pending_wide_ids'):
+        emit('new_log', {"message": "現在アクティブなマッチまたは広域予約はありません。", "type": "error"})
         return
 
+    # リセット処理
     state['active_match'] = None
+    state['pending_wide_ids'] = []  # 広域マッチの予約もクリア
+
     save_specific_room_state(room)
     broadcast_state_update(room)
+
+    # モーダル閉じるイベントを送信 (広域用とDuel用)
     socketio.emit('match_modal_closed', {}, to=room)
+    socketio.emit('force_close_wide_modal', {}, to=room) # 必要であればクライアント側で受ける
+
     broadcast_log(room, f"⚠️ GM {username} がマッチを強制終了しました。", 'match-end')
 
 def move_token_logic(room, char_id, x, y, username, attribute):

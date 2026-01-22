@@ -199,7 +199,7 @@ def proceed_next_turn(room):
                 continue
 
             # 行動不能チェック (Immobilize/Bu-04)
-            can_act, reason = ImmobilizeBuff().can_act(char, {})
+            can_act, reason = ImmobilizeBuff.can_act(char, {})
             if not can_act:
                 print(f"[TurnSkip] Skipping {char['name']} due to Immobilize: {reason}")
                 continue

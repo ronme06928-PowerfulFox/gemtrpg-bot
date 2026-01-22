@@ -59,7 +59,8 @@ class ImmobilizeBuff(BaseBuff):
             'changes': []
         }
 
-    def can_act(self, char, context):
+    @staticmethod
+    def can_act(char, context):
         """
         行動可能か判定（行動不能中は行動不可）
 
@@ -71,8 +72,11 @@ class ImmobilizeBuff(BaseBuff):
             tuple: (can_act: bool, reason: str)
         """
         # 行動不能バフがあるか確認
+        # BUFF_IDSに登録されているIDを持つバフを探す
+        target_ids = ['Bu-Immobilize', 'Bu-04']
+
         for buff in char.get('special_buffs', []):
-            if buff.get('buff_id') == 'Bu-Immobilize':
+            if buff.get('buff_id') in target_ids:
                 if buff.get('delay', 0) == 0 and buff.get('lasting', 0) > 0:
                     return False, '行動不能のため行動できません'
 

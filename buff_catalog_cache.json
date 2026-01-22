@@ -15,7 +15,7 @@
     "id": "Bu-01",
     "name": "挑発",
     "description": "このラウンドで全ての相手の攻撃対象を自分に固定する。",
-    "flavor": "",
+    "flavor": "時に、自らに課す者もいる。だが、理なき雄は蛮勇である。",
     "effect": {
       "type": "plugin",
       "name": "provoke",
@@ -27,7 +27,7 @@
     "id": "Bu-02",
     "name": "混乱",
     "description": "受けるダメージが1.5倍になり、行動できない。",
-    "flavor": "",
+    "flavor": "乱れた武術は、藻掻く様によく似ている。",
     "effect": {
       "type": "plugin",
       "name": "confusion",
@@ -41,7 +41,7 @@
     "id": "Bu-03",
     "name": "混乱(戦慄殺到)",
     "description": "受けるダメージが1.5倍になり、行動できない。解除時MP全回復。",
-    "flavor": "",
+    "flavor": "足掻いた末に手にした正気は、見える景色を変えるだろう。",
     "effect": {
       "type": "plugin",
       "name": "confusion",
@@ -55,7 +55,7 @@
     "id": "Bu-04",
     "name": "行動不能",
     "description": "このラウンドの間、行動できなくなる。",
-    "flavor": "",
+    "flavor": "身体は動かずとも、頭は働く……",
     "effect": {
       "type": "plugin",
       "name": "immobilize",
@@ -67,7 +67,7 @@
     "id": "Bu-05",
     "name": "再回避ロック",
     "description": "再び回避できるが、特定のスキルしか使用できない。",
-    "flavor": "",
+    "flavor": "見切るべし、見切られぬべし。",
     "effect": {
       "type": "plugin",
       "name": "dodge_lock",
@@ -79,7 +79,7 @@
     "id": "Bu-06",
     "name": "破裂威力減少無効",
     "description": "このキャラに破裂爆発を発動時、破裂の値を消費しない。",
-    "flavor": "",
+    "flavor": "一度ついた傷が、そうも簡単に治るものか。",
     "effect": {
       "type": "plugin",
       "name": "burst_no_consume",
