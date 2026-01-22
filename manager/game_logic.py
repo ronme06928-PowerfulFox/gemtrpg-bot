@@ -215,7 +215,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
     for effect in effects_array:
         if effect.get("timing") != timing_to_check: continue
-        if not check_condition(effect.get("condition"), actor, target, target_skill_data): continue
+        # ★条件判定を後に移動（各target_objに対して個別に判定するため）
 
         effect_type = effect.get("type")
         targets_list = []
@@ -289,6 +289,11 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
         if not targets_list: continue
 
         for target_obj in targets_list:
+            # ★条件判定をここで実行（最新の状態で判定）
+            # target_objが決定した後に判定することで、順次処理中の状態変化を反映できる
+            if not check_condition(effect.get("condition"), actor, target_obj, target_skill_data):
+                continue
+
             if effect_type == "APPLY_STATE":
                 # ★後方互換: "state_name"と"name"の両方に対応
                 stat_name = effect.get("state_name") or effect.get("name")
@@ -319,11 +324,22 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         log_snippets.append(f"({b_name} 消費)")
 
 
+
                 if stat_name and value != 0:
+                    # ★即座に状態を更新（次の効果の条件判定で最新値が使えるように）
+                    # これにより、鳩尾殴りのような「破裂5付与→破裂8以上なら追加で破裂5付与」が正しく動作する
+                    current_val = get_status_value(target_obj, stat_name)
+                    set_status_value(target_obj, stat_name, current_val + value)
+
+                    # 変更ログとして記録（後続の処理で使用される）
                     changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value))
+
                     # ★亀裂の場合はフラグを立てる（付与成功時）
                     if stat_name == "亀裂" and value > 0:
-                        changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
+                        if 'flags' not in target_obj:
+                            target_obj['flags'] = {}
+                        target_obj['flags']['fissure_received_this_round'] = True
+
 
             elif effect_type == "APPLY_STATE_PER_N":
                 # ★新機能: パラメータ値に基づく動的状態異常付与
@@ -358,12 +374,20 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                             log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
                             continue
 
+                    # ★即座に状態を更新
+                    current_val = get_status_value(target_obj, stat_name)
+                    set_status_value(target_obj, stat_name, current_val + calculated_value)
+
+                    # 変更ログとして記録
                     changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, calculated_value))
                     log_snippets.append(f"[{stat_name}+{calculated_value} ({source_param}{source_param_value}から)]")
 
                     # 亀裂の場合はフラグを立てる
                     if stat_name == "亀裂":
-                        changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
+                        if 'flags' not in target_obj:
+                            target_obj['flags'] = {}
+                        target_obj['flags']['fissure_received_this_round'] = True
+
 
             elif effect_type == "MULTIPLY_STATE":
                 # ★新機能: 状態異常値の乗算 (四捨五入)
@@ -378,8 +402,13 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     diff = new_val - current_val
 
                     if diff != 0:
+                        # ★即座に状態を更新
+                        set_status_value(target_obj, stat_name, new_val)
+
+                        # 変更ログとして記録
                         changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, diff))
                         log_snippets.append(f"[{stat_name} x{multiplier} ({current_val}→{new_val})]")
+
 
             elif effect_type == "APPLY_BUFF":
                 buff_name = effect.get("buff_name")
