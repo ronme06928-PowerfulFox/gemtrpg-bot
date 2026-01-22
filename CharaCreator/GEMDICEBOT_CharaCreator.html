@@ -397,6 +397,9 @@
                 </div>
                 <div class="param-box"><label>経験</label><input type="number" id="p-exp" class="calc-trigger" value="5">
                 </div>
+                <div class="param-box"><label>シナリオ経験</label><input type="number" id="p-exp-scenario"
+                        class="calc-trigger" value="0">
+                </div>
             </div>
             <div style="margin-top:10px; text-align:right;">
                 <button class="btn-secondary" style="font-size:0.8rem;" onclick="rollAllStats()">🎲 全能力値をランダム生成</button>
@@ -785,10 +788,41 @@
             const skill = ALL_SKILLS.find(s => s.id === id);
             if (SELECTED_SKILLS.find(s => s.id === id)) { alert("既に追加されています"); return; }
 
-            const currentExp = parseInt(document.getElementById('p-exp').value) || 0;
-            const currentCost = SELECTED_SKILLS.reduce((a, b) => a + b.cost, 0);
-            if (currentCost + skill.cost > currentExp) {
-                if (!confirm("コスト上限を超えますが追加しますか？")) return;
+            // コスト上限チェック (addSelectedSkill内で完結させる)
+            const getInt = (id) => parseInt(document.getElementById(id).value) || 0;
+            const baseExp = getInt('p-exp');
+            const scenarioExp = getInt('p-exp-scenario');
+            const originId = getInt('char-origin');
+
+            // 1. 上限計算
+            let expLimit = baseExp + scenarioExp;
+            if (originId === 7) expLimit += 1; // ラグラゼシス非都市部
+
+            let magicBonusLimit = 0;
+            if (originId === 6) magicBonusLimit = 1; // ラグラゼシス都市部
+
+            // 2. 現在のスキル + 新しいスキルのコスト計算
+            // 一時的なスキルリストを作成
+            const tempSkills = [...SELECTED_SKILLS, skill];
+
+            let normalCostUsed = 0;
+            let magicBonusUsed = 0;
+
+            tempSkills.forEach(s => {
+                const cost = s.cost;
+                const isMagic = ["Ms", "Mb", "Mp"].includes(s.filterCat);
+
+                if (isMagic && magicBonusUsed < magicBonusLimit) {
+                    const consumeBonus = Math.min(cost, magicBonusLimit - magicBonusUsed);
+                    magicBonusUsed += consumeBonus;
+                    normalCostUsed += (cost - consumeBonus);
+                } else {
+                    normalCostUsed += cost;
+                }
+            });
+
+            if (normalCostUsed > expLimit) {
+                if (!confirm(`コスト上限(${expLimit})を超えますが追加しますか？\n(現在: ${normalCostUsed})`)) return;
             }
 
             SELECTED_SKILLS.push({ ...skill, customName: "" });
@@ -848,16 +882,21 @@
             const getInt = (id) => parseInt(document.getElementById(id).value) || 0;
             const str = getInt('p-str'), vit = getInt('p-vit'), phy = getInt('p-phy');
             const mnt = getInt('p-mnt'), spd = getInt('p-spd'), int = getInt('p-int'), baseExp = getInt('p-exp');
+            const scenarioExp = getInt('p-exp-scenario');
             const originId = getInt('char-origin');
+            const charType = document.getElementById('char-type').value;
 
-            const maxHp = 100 + vit + phy;
-            document.getElementById('st-hp-max').value = maxHp;
-            document.getElementById('st-hp-val').value = maxHp;
+            // プレイヤーの場合のみ自動計算
+            if (charType !== 'scenario') {
+                const maxHp = 100 + vit + phy;
+                document.getElementById('st-hp-max').value = maxHp;
+                document.getElementById('st-hp-val').value = maxHp;
 
-            let maxMp = 6 + Math.floor(mnt / 2);
-            if (originId === 4) maxMp += 1;
-            document.getElementById('st-mp-max').value = maxMp;
-            document.getElementById('st-mp-val').value = maxMp;
+                let maxMp = 6 + Math.floor(mnt / 2);
+                if (originId === 4) maxMp += 1;
+                document.getElementById('st-mp-max').value = maxMp;
+                document.getElementById('st-mp-val').value = maxMp;
+            }
 
             document.getElementById('p-phys-mod').value = Math.floor((str + phy) / 8);
             document.getElementById('p-mag-mod').value = Math.floor(mnt / 4);
@@ -882,7 +921,8 @@
             });
 
             // コスト計算
-            let expLimit = baseExp;
+            // コスト計算
+            let expLimit = baseExp + scenarioExp;
             let magicBonusLimit = 0;
             if (originId === 7) expLimit += 1;
             if (originId === 6) magicBonusLimit = 1;
@@ -970,7 +1010,7 @@
 
             // 基本ステータス
             addP("筋力", "p-str"); addP("生命力", "p-vit"); addP("体格", "p-phy"); addP("精神力", "p-mnt"); addP("速度", "p-spd");
-            addP("直感", "p-int"); addP("経験", "p-exp");
+            addP("直感", "p-int"); addP("経験", "p-exp"); addP("シナリオ経験", "p-exp-scenario");
             addP("物理補正", "p-phys-mod"); addP("魔法補正", "p-mag-mod"); addP("速度補正", "p-spd-mod");
 
             // 技能 (補正適用して保存)
@@ -1035,7 +1075,7 @@
                         if (d.params) {
                             const map = {
                                 "筋力": "p-str", "生命力": "p-vit", "体格": "p-phy", "精神力": "p-mnt", "速度": "p-spd",
-                                "直感": "p-int", "経験": "p-exp",
+                                "直感": "p-int", "経験": "p-exp", "シナリオ経験": "p-exp-scenario",
                                 "五感": "s-senses", "採取": "s-gather", "本能": "s-instinct", "鑑定": "s-appraise",
                                 "対話": "s-dialogue", "尋問": "s-interrogate", "諜報": "s-intel", "窃取": "s-theft",
                                 "隠密": "s-stealth", "運動": "s-athletics", "制作": "s-craft", "回避": "s-evade",
@@ -1348,14 +1388,20 @@
         }
 
         // ===== キャラクター種別切り替え =====
+        // ===== キャラクター種別切り替え =====
         function toggleCharacterType() {
             const charType = document.getElementById('char-type').value;
             const passiveSection = document.getElementById('passive-section');
+            const hpMpInputs = ['st-hp-val', 'st-hp-max', 'st-mp-val', 'st-mp-max'];
+
             if (charType === 'scenario') {
                 passiveSection.style.display = 'block';
+                hpMpInputs.forEach(id => document.getElementById(id).removeAttribute('readonly'));
                 loadPassives();
             } else {
                 passiveSection.style.display = 'none';
+                hpMpInputs.forEach(id => document.getElementById(id).setAttribute('readonly', 'true'));
+                calculateStats(); // プレイヤーに戻したら再計算
             }
             updateJSON();
         }
