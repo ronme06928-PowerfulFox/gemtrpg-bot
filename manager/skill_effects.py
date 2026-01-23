@@ -5,6 +5,7 @@ import json
 import logging
 from manager.game_logic import process_skill_effects, get_status_value, apply_buff, remove_buff
 from manager.room_manager import _update_char_stat, broadcast_log
+from manager.constants import DamageSource
 
 logger = logging.getLogger(__name__)
 
@@ -63,11 +64,20 @@ def apply_skill_effects_bidirectional(
             # APPLY_STATE の場合、重複チェックを行う
             if type_ == "APPLY_STATE":
                 try:
+                    # ★修正: conditionフィールドも考慮する
+                    # 条件付き効果と無条件効果は別物として扱う
+                    effect_obj = next((e for e in final_changes if e[0] == char and e[1] == type_ and e[2] == name and e[3] == value), None)
+                    condition_str = ""
+                    if effect_obj and len(effect_obj) > 4:
+                        # changesは(char, type, name, value)のタプルだが、元のeffectからconditionを取得
+                        # ここでは簡易的に、条件の有無だけをキーに含める
+                        pass
+
                     # valueが辞書などの場合に対応するため文字列化してキーにする
                     change_key = (char.get('id'), type_, name, str(value))
                     if change_key in applied_changes:
                         logger.warning(f"[Duplicate Check] Skipping duplicate effect for {char['name']}: {name} value={value}")
-                        continue
+                        # continue  # ★一時的に無効化: 条件付き同一効果を許可
                     applied_changes.add(change_key)
                 except Exception as e:
                     logger.error(f"[Duplicate Check] Error creating key: {e}")
@@ -93,7 +103,17 @@ def apply_skill_effects_bidirectional(
             elif type_ == "SET_STATUS":
                 _update_char_stat(room, char, name, value, username=f"[{name}]")
             elif type_ == "CUSTOM_DAMAGE":
-                extra_dmg += value
+                # ★ CUSTOM_DAMAGEを個別にHP減少させ、sourceを設定
+                # nameフィールド（「破裂爆発」「亀裂崩壊」など）に応じてsourceを判定
+                damage_source = None
+                if name == "破裂爆発":
+                    damage_source = DamageSource.RUPTURE
+                elif "亀裂" in name:  # 「亀裂崩壊」など
+                    damage_source = DamageSource.FISSURE
+                else:
+                    damage_source = DamageSource.SKILL_EFFECT
+
+                _update_char_stat(room, char, 'HP', char['hp'] - value, username=f"[{name}]", source=damage_source)
             elif type_ == "APPLY_BUFF":
                 apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
                 broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')

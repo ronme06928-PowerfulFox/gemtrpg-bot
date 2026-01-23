@@ -1,0 +1,12 @@
+/* フローティングアニメーション - スムーズな動き */
+@keyframes floatUp {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.2);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -150%) scale(0.6);
+    }
+}

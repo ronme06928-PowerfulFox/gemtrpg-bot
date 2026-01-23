@@ -846,8 +846,8 @@ function updateCharacterTokenVisuals(data) {
         return;
     }
 
-    const { char_id, stat, new_value, old_value, max_value } = data;
-    console.log(`[updateCharacterTokenVisuals] Extracted: char_id=${char_id}, stat=${stat}, new=${new_value}, old=${old_value}, max=${max_value}`);
+    const { char_id, stat, new_value, old_value, max_value, source } = data;
+    console.log(`[updateCharacterTokenVisuals] Extracted: char_id=${char_id}, stat=${stat}, new=${new_value}, old=${old_value}, max=${max_value}, source=${source}`);
 
     // 対象トークンを取得
     const token = document.querySelector(`.map-token[data-id="${char_id}"]`);
@@ -892,15 +892,17 @@ function updateCharacterTokenVisuals(data) {
         // フローティングテキスト表示（ダメージ/回復の視覚的フィードバック）
         if (old_value !== undefined && old_value !== new_value) {
             const diff = new_value - old_value;
-            showFloatingText(token, diff, stat);
+            showFloatingText(token, diff, stat, source);
         }
-    }
+    } else {
+        // ★ 状態異常の場合もフローティングテキストを表示
+        if (old_value !== undefined && old_value !== new_value) {
+            const diff = new_value - old_value;
+            showFloatingText(token, diff, stat, source);
+        }
 
-    // 状態異常アイコンの更新は複雑なため、必要に応じて renderVisualMap を呼ぶ
-    // （ただし頻繁に呼ぶと差分更新の意味が薄れるため、重要な変更のみ）
-    if (!['HP', 'MP'].includes(stat)) {
-        // 状態異常が変わった場合は、アイコン表示を更新する必要がある
-        // 簡易実装: 該当トークンのみ再描画
+        // 状態異常アイコンの更新は複雑なため、必要に応じて renderVisualMap を呼ぶ
+        // （ただし頻繁に呼ぶと差分更新の意味が薄れるため、重要な変更のみ）
         console.debug(`[updateCharacterTokenVisuals] State change detected: ${stat}, triggering partial re-render`);
         // ここでは全体再描画を避けるため、アイコン部分のみ更新する処理を追加可能
         // 現状は次の state_updated で反映されるため、スキップ
@@ -912,46 +914,97 @@ function updateCharacterTokenVisuals(data) {
  * ダメージや回復を視覚的にポップアップ表示する
  * @param {HTMLElement} token - 対象トークン要素
  * @param {number} diff - 変化量（正: 回復、負: ダメージ）
- * @param {string} stat - ステータス名 ('HP', 'MP')
+ * @param {string} stat - ステータス名 ('HP', 'MP', '出血' など)
+ * @param {string|null} source - ダメージ発生源 ('bleed', 'match_loss' など)
  */
-function showFloatingText(token, diff, stat) {
-    console.log(`[FloatingText] Calling showFloatingText: diff=${diff}, stat=${stat}, token=`, token);
+function showFloatingText(token, diff, stat, source = null) {
+    console.log(`[FloatingText] Calling showFloatingText: diff=${diff}, stat=${stat}, source=${source}, token=`, token);
+
+    // ★ 重要: トークンではなく map-viewport に追加することで、
+    // renderVisualMap() による再描画の影響を受けないようにする
+    const mapViewport = document.getElementById('map-viewport');
+    if (!mapViewport) {
+        console.warn('[FloatingText] map-viewport not found');
+        return;
+    }
+
+    // ★ トークンごとのフローティングテキスト数を管理
+    const charId = token.dataset.id;
+    if (!window.floatingTextCounters) {
+        window.floatingTextCounters = {};
+    }
+    if (!window.floatingTextCounters[charId]) {
+        window.floatingTextCounters[charId] = 0;
+    }
+
+    // 現在のカウントを取得し、インクリメント
+    const currentOffset = window.floatingTextCounters[charId];
+    window.floatingTextCounters[charId]++;
 
     const floatingText = document.createElement('div');
     floatingText.className = 'floating-damage-text';
 
-    // ダメージか回復かで色とテキストを変更
+    // ダメージか回復かで基本クラスを決定
     const isDamage = diff < 0;
     const absValue = Math.abs(diff);
 
-    if (isDamage) {
-        floatingText.textContent = `-${absValue}`;
-        floatingText.style.color = '#ff4444';
+    // HP/MP以外（状態異常）の場合はステータス名も表示
+    let displayText = '';
+    if (stat === 'HP') {
+        // ★ 破裂爆発・亀裂崩壊の場合はラベルを追加
+        if (source === 'rupture') {
+            displayText = isDamage ? `破裂爆発！ -${absValue}` : `破裂爆発！ +${absValue}`;
+        } else if (source === 'fissure') {
+            displayText = isDamage ? `亀裂崩壊！ -${absValue}` : `亀裂崩壊！ +${absValue}`;
+        } else {
+            displayText = isDamage ? `-${absValue}` : `+${absValue}`;
+        }
+    } else if (stat === 'MP') {
+        displayText = isDamage ? `-${absValue}` : `+${absValue}`;
     } else {
-        floatingText.textContent = `+${absValue}`;
-        floatingText.style.color = '#44ff44';
+        // 状態異常の場合
+        displayText = isDamage ? `${stat} -${absValue}` : `${stat} +${absValue}`;
+        floatingText.classList.add('state-change');
+    }
+    floatingText.textContent = displayText;
+
+    // 基本的な色分け（source指定がない場合）
+    if (!source) {
+        if (stat === 'HP') {
+            floatingText.classList.add(isDamage ? 'damage' : 'heal');
+        } else if (stat === 'MP') {
+            floatingText.classList.add(isDamage ? 'mp-cost' : 'mp-heal');
+        }
+    } else {
+        // ★ source指定がある場合は、発生源別クラスを適用
+        floatingText.classList.add(`src-${source}`);
     }
 
-    // スタイル設定
-    floatingText.style.position = 'absolute';
-    floatingText.style.fontSize = '18px';
-    floatingText.style.fontWeight = 'bold';
-    floatingText.style.pointerEvents = 'none';
-    floatingText.style.zIndex = '1000';
-    floatingText.style.textShadow = '0 0 3px rgba(0,0,0,0.8)';
-    floatingText.style.top = '50%';
-    floatingText.style.left = '50%';
-    floatingText.style.transform = 'translate(-50%, -50%)';
-    floatingText.style.animation = 'floatUp 1.5s ease-out forwards';
+    // ★ トークンの絶対位置を計算して、フローティングテキストを配置
+    const tokenRect = token.getBoundingClientRect();
+    const viewportRect = mapViewport.getBoundingClientRect();
 
-    token.appendChild(floatingText);
+    // map-viewport 内での相対位置を計算（スクロール考慮）
+    const relativeLeft = tokenRect.left - viewportRect.left + mapViewport.scrollLeft + (tokenRect.width / 2);
+    // ★ 複数のテキストを縦に並べるため、オフセットを追加（25pxずつ上にずらす）
+    const verticalOffset = currentOffset * 25;
+    const relativeTop = tokenRect.top - viewportRect.top + mapViewport.scrollTop + (tokenRect.height / 2) - verticalOffset;
 
-    // アニメーション終了後に要素を削除
+    floatingText.style.left = `${relativeLeft}px`;
+    floatingText.style.top = `${relativeTop}px`;
+
+    mapViewport.appendChild(floatingText);
+
+    // アニメーション終了後に要素を削除し、カウンターをデクリメント
     setTimeout(() => {
         if (floatingText.parentNode) {
             floatingText.parentNode.removeChild(floatingText);
         }
-    }, 1500);
+        // カウンターをデクリメント
+        if (window.floatingTextCounters && window.floatingTextCounters[charId] > 0) {
+            window.floatingTextCounters[charId]--;
+        }
+    }, 3000);  // ★ CSSアニメーション(3s)と同期
 }
 
 /**

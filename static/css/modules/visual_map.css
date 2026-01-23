@@ -343,3 +343,109 @@
         box-shadow: 0 0 0 6px #ff9800, 0 0 30px rgba(255, 152, 0, 0.8);
     }
 }
+
+/* ========================================
+   フローティングテキスト (Damage Popup)
+   ======================================== */
+
+.floating-damage-text {
+    position: absolute;
+    font-size: 22px;
+    /* ★ 20px → 22px に拡大 */
+    /* ★ 18px → 20px に拡大 */
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 100;
+    /* ★ マッチパネルより下に表示 */
+    text-shadow:
+        -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff,
+        /* 白い縁取り外側 */
+        -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff,
+        /* 白い縁取り内側 */
+        0 0 6px rgba(0, 0, 0, 1.0), 0 0 10px rgba(0, 0, 0, 0.8);
+    /* 黒い影強化 */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: floatUp 4s ease-out forwards;
+    /* ★ 4秒に設定 */
+    white-space: nowrap;
+}
+
+/* デフォルト: ダメージ（赤） */
+.floating-damage-text.damage {
+    color: #ff4444;
+}
+
+/* 回復（緑） */
+.floating-damage-text.heal {
+    color: #44ff44;
+}
+
+/* MP消費（青） */
+.floating-damage-text.mp-cost {
+    color: #4488ff;
+}
+
+/* MP回復（水色） */
+.floating-damage-text.mp-heal {
+    color: #00ccff;
+}
+
+/* 状態異常変化（紫） */
+.floating-damage-text.state-change {
+    color: #ff44ff;
+    font-size: 14px;
+}
+
+/* ========================================
+   ダメージ発生源別の色分け
+   ======================================== */
+
+/* 通常マッチダメージ */
+.floating-damage-text.src-match_loss {
+    color: #ff4444;
+}
+
+/* 一方攻撃 */
+.floating-damage-text.src-one_sided {
+    color: #ff4444;
+}
+
+/* 出血ダメージ（暗赤色） */
+.floating-damage-text.src-bleed,
+.floating-damage-text.src-bleed_flood {
+    color: #cc0000;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(139, 0, 0, 0.8);
+}
+
+/* 荊棘の自傷（深緑） */
+.floating-damage-text.src-thorns {
+    color: #228b22;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 100, 0, 0.8);
+}
+
+/* 破裂爆発（黄緑） */
+.floating-damage-text.src-rupture {
+    color: #08f500;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(255, 140, 0, 0.8);
+}
+
+/* 亀裂崩壊（青紫） */
+.floating-damage-text.src-fissure {
+    color: #8a2be2;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(138, 43, 226, 0.8);
+}
+
+/* フローティングアニメーション - スムーズな動き */
+@keyframes floatUp {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.2);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -150%) scale(0.6);
+    }
+}

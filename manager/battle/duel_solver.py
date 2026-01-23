@@ -8,6 +8,7 @@ from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_log,
     broadcast_state_update, _update_char_stat
 )
+from manager.constants import DamageSource
 from manager.game_logic import (
     get_status_value, calculate_damage_multiplier,
     remove_buff, apply_buff, process_skill_effects
@@ -431,7 +432,7 @@ def execute_duel_match(room, data, username):
                 val = get_status_value(actor, "荊棘")
                 if val > 0:
                     if cat in ["物理", "魔法"]:
-                        _update_char_stat(room, actor, "HP", actor['hp'] - val, username="[荊棘の自傷]")
+                        _update_char_stat(room, actor, "HP", actor['hp'] - val, username="[荊棘の自傷]", source=DamageSource.THORNS)
                     elif cat == "防御" and skill:
                         try:
                             bp = int(skill.get('基礎威力', 0))
@@ -454,7 +455,7 @@ def execute_duel_match(room, data, username):
                     final_damage = damage + kiretsu + bonus_damage
                     if any(b.get('name') == "混乱" for b in actor_a_char.get('special_buffs', [])):
                          final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
-                    _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username)
+                    _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS)
                     process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
                     winner_message = f"<strong> → {actor_name_d} の一方的攻撃！</strong> (相手は行動不能)"
                     damage_message += f"({actor_a_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"
@@ -468,7 +469,7 @@ def execute_duel_match(room, data, username):
                     final_damage = damage + kiretsu + bonus_damage
                     if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
                         final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
-                    _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
+                    _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS)
                     process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
                     winner_message = f"<strong> → {actor_name_a} の一方的攻撃！</strong> (相手は行動不能)"
                     damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {final_damage} ダメージ)"

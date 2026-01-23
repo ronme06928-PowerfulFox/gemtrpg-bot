@@ -157,7 +157,7 @@ def set_character_owner(room_name, char_id, username):
     save_specific_room_state(room_name)
 
 
-def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_delete=False, username="System"):
+def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_delete=False, username="System", source=None):
     old_value = None
     log_message = ""
 
@@ -221,7 +221,8 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
             'new_value': new_value,
             'old_value': old_value,
             'max_value': max_value,
-            'log_message': log_message
+            'log_message': log_message,
+            'source': source  # ★ 追加: ダメージ発生源
         }, to=room_name)
 
     if log_message and (str(old_value) != str(new_value) or is_new or is_delete):

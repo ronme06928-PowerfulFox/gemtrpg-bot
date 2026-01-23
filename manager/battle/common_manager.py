@@ -8,6 +8,7 @@ from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_log,
     broadcast_state_update, _update_char_stat, is_authorized_for_character
 )
+from manager.constants import DamageSource
 from manager.battle.core import proceed_next_turn
 from manager.logs import setup_logger
 
@@ -77,7 +78,7 @@ def process_full_round_end(room, username):
         # 1c. Bleed
         bleed_value = get_status_value(char, '出血')
         if bleed_value > 0:
-            _update_char_stat(room, char, 'HP', char['hp'] - bleed_value, username="[出血]")
+            _update_char_stat(room, char, 'HP', char['hp'] - bleed_value, username="[出血]", source=DamageSource.BLEED)
 
             # 出血維持バフチェック
             from plugins.buffs.bleed_maintenance import BleedMaintenanceBuff
