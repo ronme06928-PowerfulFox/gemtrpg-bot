@@ -3,6 +3,7 @@ Flask-Cors
 Flask-SocketIO
 Flask-SQLAlchemy
 eventlet
+cloudinary
 gunicorn
 python-dotenv
 psycopg2-binary
