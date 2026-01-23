@@ -185,6 +185,11 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
         log_message = f"{username}: {char['name']}: 操作権限 → ({new_status_str})"
     elif stat_name == 'color':
         char['color'] = new_value
+    elif stat_name == 'image':
+        # ★ 追加: 画像URL更新
+        old_value = char.get('image')
+        char['image'] = new_value
+        log_message = f"{username}: {char['name']}: 立ち絵画像を更新しました"
     elif is_new:
         char['states'].append({"name": stat_name, "value": new_value})
         log_message = f"{username}: {char['name']}: {stat_name} (なし) → ({new_value})"
@@ -205,25 +210,29 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
             set_status_value(char, stat_name, new_value)
             log_message = f"{username}: {char['name']}: {stat_name} (なし) → ({new_value})"
 
-    # ★ 差分更新イベント送信
+    # ★ 差分更新イベント送信（HP/MP/状態値のみ、画像や色は除外）
     if str(old_value) != str(new_value):
-        # max_valueを取得（HP/MPの場合）
-        max_value = None
-        if stat_name == 'HP':
-            max_value = char.get('maxHp', 0)
-        elif stat_name == 'MP':
-            max_value = char.get('maxMp', 0)
+        # 画像や色の変更時はフローティングテキストを表示しないため、イベント送信をスキップ
+        should_emit_stat_update = stat_name in ['HP', 'MP'] or (stat_name not in ['image', 'color', 'gmOnly'])
 
-        socketio.emit('char_stat_updated', {
-            'room': room_name,
-            'char_id': char['id'],
-            'stat': stat_name,
-            'new_value': new_value,
-            'old_value': old_value,
-            'max_value': max_value,
-            'log_message': log_message,
-            'source': source  # ★ 追加: ダメージ発生源
-        }, to=room_name)
+        if should_emit_stat_update:
+            # max_valueを取得（HP/MPの場合）
+            max_value = None
+            if stat_name == 'HP':
+                max_value = char.get('maxHp', 0)
+            elif stat_name == 'MP':
+                max_value = char.get('maxMp', 0)
+
+            socketio.emit('char_stat_updated', {
+                'room': room_name,
+                'char_id': char['id'],
+                'stat': stat_name,
+                'new_value': new_value,
+                'old_value': old_value,
+                'max_value': max_value,
+                'log_message': log_message,
+                'source': source  # ★ 追加: ダメージ発生源
+            }, to=room_name)
 
     if log_message and (str(old_value) != str(new_value) or is_new or is_delete):
         broadcast_log(room_name, log_message, 'state-change')

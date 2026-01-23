@@ -1091,6 +1091,15 @@ function createMapToken(char) {
         wideBtnHtml = '<button class="wide-attack-trigger-btn" onclick="event.stopPropagation(); openSyncedWideMatchModal(\'' + char.id + '\');">⚡ 広域攻撃</button>';
     }
 
+    // ★ 画像URLがある場合は背景として設定
+    let tokenBodyStyle = '';
+    let tokenBodyContent = `<span>${char.name.charAt(0)}</span>`;
+
+    if (char.image) {
+        tokenBodyStyle = `style="background-image: url('${char.image}'); background-size: cover; background-position: center; background-repeat: no-repeat;"`;
+        tokenBodyContent = ''; // 画像がある場合はテキストを表示しない
+    }
+
     token.innerHTML = `
         ${wideBtnHtml}
         <div class="token-bars">
@@ -1104,7 +1113,7 @@ function createMapToken(char) {
                 <div class="token-bar-fill fp" style="width: ${fpPer}%"></div>
             </div>
         </div>
-        <div class="token-body"><span>${char.name.charAt(0)}</span></div>
+        <div class="token-body" ${tokenBodyStyle}>${tokenBodyContent}</div>
         <div class="token-info-container">
             <div class="token-label">${char.name}</div>
             <div class="token-status-overlay">${iconsHtml}</div>
@@ -1445,6 +1454,40 @@ function toggleCharSettingsMenu(charId, btnElement) {
                     scale: newScale
                 });
             }
+        };
+    }
+
+    // ★ 画像変更ボタン
+    const imageSection = document.createElement('div');
+    imageSection.style.cssText = 'padding:8px 12px; margin-bottom:4px; border-bottom:1px solid #ddd;';
+    imageSection.innerHTML = `
+        <div style="margin-bottom:5px; font-size:0.9em; font-weight:bold;">立ち絵画像</div>
+        <button id="settings-image-picker-btn" style="width:100%; padding:8px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">画像を変更</button>
+    `;
+    menu.appendChild(imageSection);
+
+    // 画像変更ボタンのイベント
+    const imagePickerBtn = imageSection.querySelector('#settings-image-picker-btn');
+    if (imagePickerBtn) {
+        imagePickerBtn.onclick = () => {
+            // Image Pickerモーダルを開く
+            openImagePicker((selectedImage) => {
+                // 画像選択時のコールバック
+                console.log('[Settings] Image selected for char:', charId, selectedImage);
+
+                // サーバーに保存
+                socket.emit('request_state_update', {
+                    room: currentRoomName,
+                    charId: charId,
+                    statName: 'image',
+                    newValue: selectedImage.url
+                });
+
+                console.log('[Settings] Image updated on server');
+
+                // メニューを閉じる
+                menu.remove();
+            });
         };
     }
 

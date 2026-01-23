@@ -9,3 +9,4 @@ psycopg2-binary
 gspread
 pytest
 pytest-cov
+cloudinary

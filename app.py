@@ -44,6 +44,9 @@ import events.socket_wide_calculate
 import events.socket_items  # ★Phase 4: アイテムシステム
 
 import uuid
+import cloudinary
+import cloudinary.uploader
+
 # ★追加インポート
 from manager.user_manager import upsert_user, get_all_users, delete_user, transfer_ownership, get_user_owned_items
 
@@ -70,6 +73,13 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 # 静的ファイルのパス
 STATIC_DIR = os.path.join(app.root_path, 'static')
 
+# === Cloudinary設定 ===
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+)
+
 # === 初期化 ===
 CORS(app, supports_credentials=True)
 db.init_app(app)
@@ -80,6 +90,8 @@ socketio.init_app(app, cors_allowed_origins="*", async_mode=async_mode)
 
 # データ初期化実行
 with app.app_context():
+    # テーブル作成（Render初回起動時などに必要）
+    db.create_all()
     init_app_data()
 
 # ==========================================
@@ -279,6 +291,118 @@ def get_radiance_data():
     from manager.radiance.loader import radiance_loader
     radiance_skills = radiance_loader.load_skills()
     return jsonify(radiance_skills)
+
+
+@app.route('/api/upload_image', methods=['POST'])
+@session_required
+def upload_image():
+    """
+    Cloudinaryへ画像をアップロードするエンドポイント
+    キャラクター立ち絵などの画像をクラウドストレージに保存
+    """
+    if 'file' not in request.files:
+        return jsonify({'error': 'ファイルがありません'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'ファイルが選択されていません'}), 400
+
+    # オプション: 画像名を取得（未指定の場合はファイル名）
+    image_name = request.form.get('name', file.filename)
+
+    try:
+        # Cloudinaryへアップロード
+        # folder: 保存先フォルダ名（整理用）
+        # transformation: 自動軽量化・リサイズ設定
+        result = cloudinary.uploader.upload(
+            file,
+            folder="gemtrpg/characters",  # フォルダ分け（任意）
+            transformation=[
+                {'width': 300, 'crop': "limit"},  # 幅300pxに制限
+                {'quality': "auto", 'fetch_format': "auto"}  # 自動最適化
+            ]
+        )
+
+        # アップロード成功: セキュアURL（https）を返す
+        secure_url = result['secure_url']
+        public_id = result['public_id']
+
+        logging.info(f"[Cloudinary] Image uploaded: {secure_url}")
+
+        # ★ 画像レジストリに登録
+        from manager.image_manager import register_image
+        user_id = session.get('username', 'unknown')
+        registered_image = register_image(
+            url=secure_url,
+            public_id=public_id,
+            name=image_name,
+            uploader=user_id,
+            image_type='user'
+        )
+
+        logging.info(f"[ImageRegistry] Registered image: {registered_image['id']}")
+
+        return jsonify({
+            'url': secure_url,
+            'id': registered_image['id'],
+            'name': registered_image['name']
+        })
+
+    except Exception as e:
+        # エラーログ出力
+        logging.error(f"[Cloudinary] Upload Error: {e}")
+        return jsonify({'error': 'アップロードに失敗しました'}), 500
+
+
+@app.route('/api/images', methods=['GET'])
+@session_required
+def get_images_api():
+    """
+    画像一覧を取得するAPI
+    クエリパラメータ:
+        q: 検索クエリ（画像名で検索）
+        type: 'user' または 'default'
+    """
+    from manager.image_manager import get_images
+
+    user_id = session.get('username')
+    query = request.args.get('q')
+    image_type = request.args.get('type')
+
+    images = get_images(user_id=user_id, query=query, image_type=image_type)
+    return jsonify(images)
+
+
+@app.route('/api/images/<image_id>', methods=['DELETE'])
+@session_required
+def delete_image_api(image_id):
+    """
+    画像を削除するAPI（Cloudinary + レジストリ）
+    """
+    from manager.image_manager import delete_image, get_image_by_id
+
+    user_id = session.get('username')
+    is_gm = (session.get('attribute') == 'GM')
+
+    # 画像情報を取得
+    image_obj = get_image_by_id(image_id)
+    if not image_obj:
+        return jsonify({'error': '画像が見つかりません'}), 404
+
+    # 権限チェックとレジストリから削除
+    if not delete_image(image_id, user_id, is_gm):
+        return jsonify({'error': '削除権限がありません'}), 403
+
+    # Cloudinaryから削除
+    try:
+        import cloudinary.uploader
+        cloudinary.uploader.destroy(image_obj['public_id'])
+        logging.info(f"[Cloudinary] Deleted image: {image_obj['public_id']}")
+    except Exception as e:
+        logging.warning(f"[Cloudinary] Failed to delete from cloud: {e}")
+        # クラウド削除失敗してもレジストリは削除済みなので続行
+
+    return jsonify({'success': True})
 
 
 @app.route('/api/get_room_users', methods=['GET'])

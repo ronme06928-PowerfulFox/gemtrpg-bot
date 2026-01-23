@@ -1,0 +1,39 @@
+/* ========================================
+   Image Picker Modal Styles
+======================================== */
+
+.image-picker-content {
+    overflow: visible;
+}
+
+/* タブボタン */
+.image-picker-tabs .tab-btn {
+    padding: 10px 20px;
+    border: none;
+    background: #f0f0f0;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.image-picker-tabs .tab-btn:hover {
+    background: #e0e0e0;
+}
+
+.image-picker-tabs .tab-btn.active {
+    background: #fff;
+    border-bottom-color: #007bff;
+    color: #007bff;
+    font-weight: bold;
+}
+
+/* 画像カードのホバー効果 */
+.image-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.image-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}

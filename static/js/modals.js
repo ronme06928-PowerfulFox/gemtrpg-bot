@@ -253,6 +253,20 @@ function renderCharacterCard(char) {
 
             ${gmSettingsHtml}
 
+            <div style="width: 100%; margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">
+                    立ち絵画像
+                </label>
+                <button id="char-image-picker-btn" class="btn-primary" style="margin-bottom: 10px;">画像を変更</button>
+                <input type="hidden" id="char-image-url" value="${char.image || ''}">
+
+                <div id="char-image-preview" style="margin-top: 10px; ${char.image ? '' : 'display: none;'}">
+                    <p style="font-size: 0.85em; color: #555;">プレビュー:</p>
+                    <img id="char-preview-img" src="${char.image || ''}"
+                         style="max-height: 100px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+            </div>
+
             <button class="delete-char-btn" style="margin-left: auto;">このキャラを削除</button>
         </div>
     `;
@@ -310,6 +324,39 @@ function openCharacterModal(charId) {
             newValue: defaultColor
         });
     });
+
+    // ★ 画像選択（Image Picker）処理
+    const imagePickerBtn = modalContent.querySelector('#char-image-picker-btn');
+    const urlInput = modalContent.querySelector('#char-image-url');
+    const previewArea = modalContent.querySelector('#char-image-preview');
+    const previewImg = modalContent.querySelector('#char-preview-img');
+
+    if (imagePickerBtn) {
+        imagePickerBtn.addEventListener('click', () => {
+            // Image Pickerモーダルを開く
+            openImagePicker((selectedImage) => {
+                // 画像選択時のコールバック
+                console.log('[CharModal] Image selected:', selectedImage);
+
+                // プレビュー更新
+                urlInput.value = selectedImage.url;
+                previewImg.src = selectedImage.url;
+                previewArea.style.display = 'block';
+                previewImg.style.opacity = '1.0';
+
+                // サーバーに保存
+                socket.emit('request_state_update', {
+                    room: currentRoomName,
+                    charId: char.id,
+                    statName: 'image',
+                    newValue: selectedImage.url
+                });
+
+                console.log('[CharModal] Image updated on server');
+            });
+        });
+    }
+
     let debounceTimer = null;
     let pendingChanges = {};
     modalContent.addEventListener('input', (e) => {
