@@ -249,6 +249,22 @@ async function setupVisualBattleTab() {
                 openVisualWideDeclarationModal();
             });
 
+            // ★ Phase 2: 差分更新イベントのハンドラ
+            // char:stat:updated イベントをリッスンして、DOM を部分更新
+            // 重複登録を防ぐため、フラグでチェック
+            if (typeof window.EventBus !== 'undefined' && !window._charStatUpdatedListenerRegistered) {
+                window._charStatUpdatedListenerRegistered = true;
+                console.log('✅ Registering char:stat:updated listener');
+                window.EventBus.on('char:stat:updated', (data) => {
+                    console.log('⚡ Diff Update Received:', data);
+                    updateCharacterTokenVisuals(data);
+                });
+            } else if (!window.EventBus) {
+                console.error('❌ EventBus not found. Diff updates will not work.');
+            } else {
+                console.log('ℹ️ char:stat:updated listener already registered');
+            }
+
             socket.on('close_wide_declaration_modal', () => {
                 const el = document.getElementById('visual-wide-decl-modal');
                 if (el) el.remove();
@@ -815,6 +831,128 @@ function renderVisualTimeline() {
 }
 
 // function renderStagingArea() {} // Removed
+
+/**
+ * ★ Phase 2: キャラクタートークンの視覚的な部分更新
+ * サーバーから char_stat_updated イベントを受信したときに、
+ * フルレンダリングせずに該当トークンのDOM要素だけを更新する
+ * @param {Object} data - { char_id, stat, new_value, old_value, max_value }
+ */
+function updateCharacterTokenVisuals(data) {
+    console.log('[updateCharacterTokenVisuals] Called with data:', data);
+
+    if (!data || !data.char_id) {
+        console.warn('[updateCharacterTokenVisuals] Invalid data:', data);
+        return;
+    }
+
+    const { char_id, stat, new_value, old_value, max_value } = data;
+    console.log(`[updateCharacterTokenVisuals] Extracted: char_id=${char_id}, stat=${stat}, new=${new_value}, old=${old_value}, max=${max_value}`);
+
+    // 対象トークンを取得
+    const token = document.querySelector(`.map-token[data-id="${char_id}"]`);
+    if (!token) {
+        console.debug(`[updateCharacterTokenVisuals] Token not found for char_id: ${char_id}`);
+        return;
+    }
+
+    // battleState から該当キャラクターを取得して最新値を反映
+    if (typeof battleState !== 'undefined' && battleState.characters) {
+        const char = battleState.characters.find(c => c.id === char_id);
+        if (char) {
+            // ステータスを更新（battleState を最新に保つ）
+            if (stat === 'HP') char.hp = new_value;
+            else if (stat === 'MP') char.mp = new_value;
+            else {
+                // 状態異常などの場合
+                const stateObj = char.states?.find(s => s.name === stat);
+                if (stateObj) stateObj.value = new_value;
+            }
+        }
+    }
+
+    // HP/MP バーの更新
+    if (stat === 'HP' || stat === 'MP') {
+        const barClass = stat === 'HP' ? 'hp' : 'mp';
+        const barFill = token.querySelector(`.token-bar-fill.${barClass}`);
+        const barContainer = token.querySelector(`.token-bar[title^="${stat}:"]`);
+
+        if (barFill && max_value) {
+            const percentage = Math.max(0, Math.min(100, (new_value / max_value) * 100));
+
+            // CSS transition でスムーズに幅を変更
+            barFill.style.width = `${percentage}%`;
+
+            // title 属性を更新（ホバー時の表示）
+            if (barContainer) {
+                barContainer.title = `${stat}: ${new_value}/${max_value}`;
+            }
+        }
+
+        // フローティングテキスト表示（ダメージ/回復の視覚的フィードバック）
+        if (old_value !== undefined && old_value !== new_value) {
+            const diff = new_value - old_value;
+            showFloatingText(token, diff, stat);
+        }
+    }
+
+    // 状態異常アイコンの更新は複雑なため、必要に応じて renderVisualMap を呼ぶ
+    // （ただし頻繁に呼ぶと差分更新の意味が薄れるため、重要な変更のみ）
+    if (!['HP', 'MP'].includes(stat)) {
+        // 状態異常が変わった場合は、アイコン表示を更新する必要がある
+        // 簡易実装: 該当トークンのみ再描画
+        console.debug(`[updateCharacterTokenVisuals] State change detected: ${stat}, triggering partial re-render`);
+        // ここでは全体再描画を避けるため、アイコン部分のみ更新する処理を追加可能
+        // 現状は次の state_updated で反映されるため、スキップ
+    }
+}
+
+/**
+ * ★ Phase 2: フローティングテキスト表示
+ * ダメージや回復を視覚的にポップアップ表示する
+ * @param {HTMLElement} token - 対象トークン要素
+ * @param {number} diff - 変化量（正: 回復、負: ダメージ）
+ * @param {string} stat - ステータス名 ('HP', 'MP')
+ */
+function showFloatingText(token, diff, stat) {
+    console.log(`[FloatingText] Calling showFloatingText: diff=${diff}, stat=${stat}, token=`, token);
+
+    const floatingText = document.createElement('div');
+    floatingText.className = 'floating-damage-text';
+
+    // ダメージか回復かで色とテキストを変更
+    const isDamage = diff < 0;
+    const absValue = Math.abs(diff);
+
+    if (isDamage) {
+        floatingText.textContent = `-${absValue}`;
+        floatingText.style.color = '#ff4444';
+    } else {
+        floatingText.textContent = `+${absValue}`;
+        floatingText.style.color = '#44ff44';
+    }
+
+    // スタイル設定
+    floatingText.style.position = 'absolute';
+    floatingText.style.fontSize = '18px';
+    floatingText.style.fontWeight = 'bold';
+    floatingText.style.pointerEvents = 'none';
+    floatingText.style.zIndex = '1000';
+    floatingText.style.textShadow = '0 0 3px rgba(0,0,0,0.8)';
+    floatingText.style.top = '50%';
+    floatingText.style.left = '50%';
+    floatingText.style.transform = 'translate(-50%, -50%)';
+    floatingText.style.animation = 'floatUp 1.5s ease-out forwards';
+
+    token.appendChild(floatingText);
+
+    // アニメーション終了後に要素を削除
+    setTimeout(() => {
+        if (floatingText.parentNode) {
+            floatingText.parentNode.removeChild(floatingText);
+        }
+    }, 1500);
+}
 
 /**
  * キャラクター用のマップトークンを生成

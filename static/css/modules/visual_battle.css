@@ -273,3 +273,53 @@
     gap: 15px;
     align-items: flex-start;
 }
+
+/* ============================================
+   Phase 2: 差分更新用のアニメーション
+   ============================================ */
+
+/* HP/MPバーのスムーズな変化 */
+.token-bar-fill {
+    transition: width 0.5s ease-out;
+}
+
+/* フローティングダメージテキストのアニメーション */
+@keyframes floatUp {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    50% {
+        opacity: 1;
+        transform: translate(-50%, -80px) scale(1.2);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -120px) scale(0.8);
+    }
+}
+
+.floating-text {
+    position: absolute;
+    left: 50%;
+    top: -20px;
+    /* トークンの少し上から開始 */
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 1000;
+    white-space: nowrap;
+    animation: floatUp 1.5s ease-out forwards;
+    text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+}
+
+.floating-text.damage {
+    color: #ff3333;
+}
+
+.floating-text.heal {
+    color: #33ff33;
+}

@@ -13,6 +13,9 @@ def setup_logger(name=__name__):
     if logger.handlers:
         return logger
 
+    # ログの伝播を防止 (ルートロガーへの重複出力を防ぐ)
+    logger.propagate = False
+
     # ログレベルの設定
     if os.environ.get('RENDER'):
         logger.setLevel(logging.INFO)

@@ -2,8 +2,11 @@
 スキル効果適用ロジックモジュール
 """
 import json
+import logging
 from manager.game_logic import process_skill_effects, get_status_value, apply_buff, remove_buff
 from manager.room_manager import _update_char_stat, broadcast_log
+
+logger = logging.getLogger(__name__)
 
 
 def apply_skill_effects_bidirectional(
@@ -32,6 +35,8 @@ def apply_skill_effects_bidirectional(
     effects_a = []
     effects_d = []
 
+    logger.debug(f"[apply_skill_effects_bidirectional] Called: winner={winner_side}, a_char={a_char['name'] if a_char else None}, d_char={d_char['name'] if d_char else None}")
+
     if a_skill:
         try:
             effects_a = json.loads(a_skill.get('特記処理', '{}')).get("effects", [])
@@ -50,10 +55,41 @@ def apply_skill_effects_bidirectional(
     # 内部関数: 変更内容の即時適用
     def apply_local_changes(changes):
         extra_dmg = 0
+
+        # 重複防止のためのセット (char_id, type, name, str(value))
+        applied_changes = set()
+
         for (char, type_, name, value) in changes:
+            # APPLY_STATE の場合、重複チェックを行う
             if type_ == "APPLY_STATE":
-                curr = get_status_value(char, name)
-                _update_char_stat(room, char, name, curr + value, username=f"[{name}]")
+                try:
+                    # valueが辞書などの場合に対応するため文字列化してキーにする
+                    change_key = (char.get('id'), type_, name, str(value))
+                    if change_key in applied_changes:
+                        logger.warning(f"[Duplicate Check] Skipping duplicate effect for {char['name']}: {name} value={value}")
+                        continue
+                    applied_changes.add(change_key)
+                except Exception as e:
+                    logger.error(f"[Duplicate Check] Error creating key: {e}")
+
+            if type_ == "APPLY_STATE":
+                # バフ補正を除外した基礎値のみを取得
+                base_curr = 0
+                if name == 'HP':
+                    base_curr = int(char.get('hp', 0))
+                elif name == 'MP':
+                    base_curr = int(char.get('mp', 0))
+                else:
+                    # statesから基礎値を取得
+                    state = next((s for s in char.get('states', []) if s.get('name') == name), None)
+                    if state:
+                        try:
+                            base_curr = int(state.get('value', 0))
+                        except ValueError:
+                            base_curr = 0
+
+                logger.debug(f"[APPLY_STATE] {char['name']}: {name} base_current={base_curr}, adding={value}, new={base_curr + value}")
+                _update_char_stat(room, char, name, base_curr + value, username=f"[{name}]")
             elif type_ == "SET_STATUS":
                 _update_char_stat(room, char, name, value, username=f"[{name}]")
             elif type_ == "CUSTOM_DAMAGE":
@@ -106,13 +142,19 @@ def apply_skill_effects_bidirectional(
 
     if winner_side == 'attacker':
         # WIN -> HIT の順（勝利ボーナスをHITに乗せるため）
+        logger.debug(f"[Attacker Wins] Processing attacker WIN effects")
         run_proc_and_apply(effects_a, "WIN", a_char, d_char, d_skill)
+        logger.debug(f"[Attacker Wins] Processing attacker HIT effects")
         run_proc_and_apply(effects_a, "HIT", a_char, d_char, d_skill)
+        logger.debug(f"[Attacker Wins] Processing defender LOSE effects")
         run_proc_and_apply(effects_d, "LOSE", d_char, a_char, a_skill)
     else:
+        logger.debug(f"[Defender Wins] Processing attacker LOSE effects")
         run_proc_and_apply(effects_a, "LOSE", a_char, d_char, d_skill)
         # 防御側も WIN ->HIT に統一
+        logger.debug(f"[Defender Wins] Processing defender WIN effects")
         run_proc_and_apply(effects_d, "WIN", d_char, a_char, a_skill)
+        logger.debug(f"[Defender Wins] Processing defender HIT effects")
         run_proc_and_apply(effects_d, "HIT", d_char, a_char, a_skill)
 
     return total_bonus_dmg, all_logs

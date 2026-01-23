@@ -1,4 +1,12 @@
 import os
+import logging
+
+# ロギング設定 - DEBUGレベルのログを有効化
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 # 1. 【最優先】Render環境ならパッチを当てる
 # eventlet.monkey_patch() は、他の標準ライブラリ（socket, threading等）がインポートされる前に実行する必要があります。
@@ -325,4 +333,4 @@ if __name__ == '__main__':
     print()
 
     print("Starting Flask-SocketIO server...")
-    socketio.run(app, host='127.0.0.1', port=5000, debug=True, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='127.0.0.1', port=5000, debug=True, use_reloader=False, allow_unsafe_werkzeug=True)

@@ -207,11 +207,20 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
 
     # ★ 差分更新イベント送信
     if str(old_value) != str(new_value):
+        # max_valueを取得（HP/MPの場合）
+        max_value = None
+        if stat_name == 'HP':
+            max_value = char.get('maxHp', 0)
+        elif stat_name == 'MP':
+            max_value = char.get('maxMp', 0)
+
         socketio.emit('char_stat_updated', {
             'room': room_name,
             'char_id': char['id'],
             'stat': stat_name,
-            'value': new_value,
+            'new_value': new_value,
+            'old_value': old_value,
+            'max_value': max_value,
             'log_message': log_message
         }, to=room_name)
 

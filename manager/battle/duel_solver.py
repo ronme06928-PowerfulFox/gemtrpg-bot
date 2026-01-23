@@ -1,5 +1,7 @@
 import re
 import json
+from threading import Lock
+from manager.core.lock_manager import file_lock
 from extensions import all_skill_data, socketio
 
 from manager.room_manager import (
@@ -21,6 +23,8 @@ from plugins.buffs.dodge_lock import DodgeLockBuff
 from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
+
+execution_lock = Lock()
 
 def update_duel_declaration(room, data, username):
     state = get_room_state(room)
@@ -164,6 +168,11 @@ def handle_skill_declaration(room, data, username):
 
             # --- AUTO EXECUTE ---
             # --- AUTO EXECUTE ---
+            # 排他制御: 既に実行中の場合はスキップ
+            if active_match.get('is_executing'):
+                logger.info(f"[AUTO] Match already executing for room {room}. Skipping.")
+                return
+
             attacker_id = active_match.get('attacker_id')
             defender_id = active_match.get('defender_id')
             attacker_char = next((c for c in state['characters'] if str(c.get('id')) == str(attacker_id)), None)
@@ -176,13 +185,6 @@ def handle_skill_declaration(room, data, username):
             both_declared = active_match.get('attacker_declared') and active_match.get('defender_declared')
 
             # Condition 2: Attacker declared AND Defender is one-sided (cannot act)
-            # In this case, we treat defender as "declared" (with empty/dummy command handled in execute_duel_match or here?)
-            # Actually, execute_duel_match expects both commands.
-            # If one-sided, defender command should be "0" or "No Guard".
-            # Usually client handles this by sending "No Guard" if one-sided?
-            # User says: "One-sided attack treated, only one side declaration needed."
-            # Means defender might NOT declare anything.
-
             can_execute = False
 
             if both_declared:
@@ -202,24 +204,66 @@ def handle_skill_declaration(room, data, username):
                 can_execute = True
 
             if can_execute:
+                # プロセス間排他制御 (File Lock)
+                # タイムアウトは短く設定 (重複リクエストなら待つ必要はない)
+                try:
+                    with file_lock(f"duel_exec_{room}", timeout=1.0):
+                        # ステートを再取得して二重チェック (別プロセスが更新した可能性があるため)
+                        state = get_room_state(room)
+                        active_match = state['active_match'] # Refresh active_match refernece
 
-                    exec_data = {
-                        'room': room,
-                        'actorIdA': attacker_id,
-                        'actorIdD': defender_id,
-                        'actorNameA': attacker_char['name'],
-                        'actorNameD': defender_char['name'],
-                        'commandA': active_match['attacker_data']['final_command'],
-                        'commandD': active_match['defender_data']['final_command'],
-                        'skillIdA': active_match['attacker_data']['skill_id'],
-                        'skillIdD': active_match['defender_data']['skill_id'],
-                        'senritsuPenaltyA': active_match['attacker_data'].get('senritsu_penalty', 0),
-                        'senritsuPenaltyD': active_match['defender_data'].get('senritsu_penalty', 0),
-                        'match_id': active_match.get('match_id')
-                    }
-                    logger.info(f"[AUTO] Both sides declared in {room}. Executing Duel Match...")
-                    execute_duel_match(room, exec_data, "System")
-                    return # execute_duel_match handles emission/updates
+                        # 以前のチェック: 実行中フラグ
+                        if active_match.get('is_executing'):
+                            logger.info(f"[AUTO] Match already executing (file locked check) for room {room}. Skipping.")
+                            return
+
+                        # ★追加チェック: 既に完了したマッチIDかどうかの確認
+                        current_match_id = active_match.get('match_id')
+                        last_exec_id = state.get('last_executed_match_id')
+                        if current_match_id and last_exec_id == current_match_id:
+                            logger.warning(f"[AUTO] Match {current_match_id} already executed. Skipping duplicate request.")
+                            return
+
+                        # 実行フラグと実行済みIDをセットして即座に保存（二重実行防止）
+                        active_match['is_executing'] = True
+                        if current_match_id:
+                            state['last_executed_match_id'] = current_match_id
+                        save_specific_room_state(room)
+
+                        try:
+                            exec_data = {
+                                'room': room,
+                                'actorIdA': attacker_id,
+                                'actorIdD': defender_id,
+                                'actorNameA': attacker_char['name'],
+                                'actorNameD': defender_char['name'],
+                                'commandA': active_match['attacker_data']['final_command'],
+                                'commandD': active_match['defender_data']['final_command'],
+                                'skillIdA': active_match['attacker_data']['skill_id'],
+                                'skillIdD': active_match['defender_data']['skill_id'],
+                                'senritsuPenaltyA': active_match['attacker_data'].get('senritsu_penalty', 0),
+                                'senritsuPenaltyD': active_match['defender_data'].get('senritsu_penalty', 0),
+                                'match_id': active_match.get('match_id')
+                            }
+                            logger.info(f"[AUTO] Both sides declared in {room}. Executing Duel Match...")
+                            execute_duel_match(room, exec_data, "System")
+                        except Exception as e:
+                            logger.error(f"[AUTO] Execution failed: {e}")
+                            raise e
+                        finally:
+                            # 実行完了後にフラグ解除 (execute_duel_matchが成功しても失敗しても)
+                            # execute_duel_match内でEND_MATCH処理が呼ばれてリセットされるかもしれないが、念のため
+                            #state = get_room_state(room) # Refresh again
+                            #if state['active_match'].get('is_executing'):
+                            #    state['active_match']['is_executing'] = False
+                            #    save_specific_room_state(room)
+                            pass
+
+                except TimeoutError:
+                    logger.warning(f"[AUTO] Duplicate execution attempt blocked by file lock for room {room}")
+                    return
+
+                return
 
     socketio.emit('skill_declaration_result', result_data, to=room)
 
@@ -437,12 +481,28 @@ def execute_duel_match(room, data, username):
                 if actor_d_char:
                     kiretsu = get_status_value(actor_d_char, '亀裂')
                     # 一方攻撃の特殊処理
+                    logger.debug(f"[UNOPPOSED] Calling process_skill_effects for UNOPPOSED trigger")
                     bd_un, log_un, chg_un = process_skill_effects(effects_array_a, "UNOPPOSED", actor_a_char, actor_d_char, skill_data_d)
 
                     def local_apply(clist):
                         ex = 0
                         for (c, t, n, v) in clist:
-                            if t == "APPLY_STATE": _update_char_stat(room, c, n, get_status_value(c, n)+v, username=f"[{n}]")
+                            if t == "APPLY_STATE":
+                                # バフ補正を除外した基礎値のみを取得
+                                base_curr = 0
+                                if n == 'HP':
+                                    base_curr = int(c.get('hp', 0))
+                                elif n == 'MP':
+                                    base_curr = int(c.get('mp', 0))
+                                else:
+                                    state = next((s for s in c.get('states', []) if s.get('name') == n), None)
+                                    if state:
+                                        try:
+                                            base_curr = int(state.get('value', 0))
+                                        except ValueError:
+                                            base_curr = 0
+                                logger.debug(f"[local_apply UNOPPOSED] {c['name']}: {n} base_current={base_curr}, adding={v}, new={base_curr + v}")
+                                _update_char_stat(room, c, n, base_curr + v, username=f"[{n}]")
                             elif t == "APPLY_BUFF": apply_buff(c, n, v["lasting"], v["delay"], data=v.get("data"))
                             elif t == "REMOVE_BUFF": remove_buff(c, n)
                             elif t == "CUSTOM_DAMAGE": ex += v
@@ -452,8 +512,11 @@ def execute_duel_match(room, data, username):
                                 c['flags'][n] = v
                         return ex
 
+                    logger.debug(f"[UNOPPOSED] Applying changes from UNOPPOSED: {len(chg_un)} changes")
                     local_apply(chg_un)
+                    logger.debug(f"[HIT] Calling process_skill_effects for HIT trigger")
                     bd_hit, log_hit, chg_hit = process_skill_effects(effects_array_a, "HIT", actor_a_char, actor_d_char, skill_data_d)
+                    logger.debug(f"[HIT] Applying changes from HIT: {len(chg_hit)} changes")
                     extra_skill_damage = local_apply(chg_hit)
 
                     log_snippets.extend(log_un + log_hit)
@@ -557,7 +620,21 @@ def execute_duel_match(room, data, username):
                 def local_end_match(effs, actor, target, skill):
                     d, l, c = process_skill_effects(effs, "END_MATCH", actor, target, skill)
                     for (char, type, name, value) in c:
-                        if type == "APPLY_STATE": _update_char_stat(room, char, name, get_status_value(char, name)+value, username=f"[{name}]")
+                        if type == "APPLY_STATE":
+                            # バフ補正を除外した基礎値のみを取得
+                            base_curr = 0
+                            if name == 'HP':
+                                base_curr = int(char.get('hp', 0))
+                            elif name == 'MP':
+                                base_curr = int(char.get('mp', 0))
+                            else:
+                                state = next((s for s in char.get('states', []) if s.get('name') == name), None)
+                                if state:
+                                    try:
+                                        base_curr = int(state.get('value', 0))
+                                    except ValueError:
+                                        base_curr = 0
+                            _update_char_stat(room, char, name, base_curr + value, username=f"[{name}]")
                         elif type == "APPLY_BUFF": apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
                         elif type == "REMOVE_BUFF": remove_buff(char, name)
                     return l
@@ -573,6 +650,7 @@ def execute_duel_match(room, data, username):
             damage = result_a['total']
             if actor_d_char:
                 kiretsu = get_status_value(actor_d_char, '亀裂')
+                logger.debug(f"[NORMAL MATCH] Attacker wins. Calling apply_skill_effects_bidirectional")
                 bonus_damage, logs = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                 log_snippets.extend(logs)
                 final_damage = damage + kiretsu + bonus_damage

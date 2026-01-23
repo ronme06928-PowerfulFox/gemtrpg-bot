@@ -216,9 +216,20 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             return candidates
         return random.sample(candidates, count)
 
+    import copy # 追加
+
+    # シミュレーション用キャッシュ (ID -> char_obj_copy)
+    simulated_chars = {}
+
+    def get_simulated_char(real_char):
+        if not real_char: return None
+        cid = real_char.get('id')
+        if cid not in simulated_chars:
+            simulated_chars[cid] = copy.deepcopy(real_char)
+        return simulated_chars[cid]
+
     for effect in effects_array:
         if effect.get("timing") != timing_to_check: continue
-        # ★条件判定を後に移動（各target_objに対して個別に判定するため）
 
         effect_type = effect.get("type")
         targets_list = []
@@ -253,10 +264,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             # ★新機能: NEXT_ALLY
             elif t_str == "NEXT_ALLY" and context and "characters" in context and context.get("room"):
                 from manager.room_manager import get_room_state
-                # コンテキストからルームステートを取得（またはcharactersから推論）
-                # ここではcontextにroom名が渡されていることを期待するか、charactersリストで検索を行う
-                # 簡易実装: charactersリスト内のID順（timeでソート済みと仮定）ではなく、timeline順が必要
-                # room_managerをインポートしてステート全体を取得する方が確実
                 room_name = context.get("room")
                 if room_name:
                     state = get_room_state(room_name)
@@ -265,26 +272,19 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     if timeline and actor:
                         my_id = actor.get('id')
                         my_type = actor.get('type', 'ally')
-
-                        # タイムライン上での自分の位置を探す
                         start_idx = -1
                         try:
                             start_idx = timeline.index(my_id)
                         except ValueError:
                             pass
-
                         target_id = None
-
-                        # 自分以降を探索
                         search_indices = list(range(start_idx + 1, len(timeline))) + list(range(0, start_idx))
-
                         for idx in search_indices:
                             tid = timeline[idx]
                             t_char = next((c for c in state['characters'] if c['id'] == tid), None)
                             if t_char and t_char.get('type') == my_type and t_char.get('hp', 0) > 0:
                                 target_id = tid
                                 break
-
                         if target_id:
                             found = next((c for c in state['characters'] if c['id'] == target_id), None)
                             if found: targets_list = [found]
@@ -292,9 +292,12 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
         if not targets_list: continue
 
         for target_obj in targets_list:
-            # ★条件判定をここで実行（最新の状態で判定）
-            # target_objが決定した後に判定することで、順次処理中の状態変化を反映できる
-            if not check_condition(effect.get("condition"), actor, target_obj, target_skill_data):
+            # ★重要: 副作用を防ぐため、判定や内部適用はシミュレーション用オブジェクトで行う
+            sim_actor = get_simulated_char(actor)
+            sim_target = get_simulated_char(target_obj)
+
+            # 条件判定 (シミュレーション状態に基づく)
+            if not check_condition(effect.get("condition"), sim_actor, sim_target, target_skill_data):
                 continue
 
             if effect_type == "APPLY_STATE":
@@ -303,18 +306,18 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 value = int(effect.get("value", 0))
 
                 # ★亀裂の1ラウンド1回付与制限チェック
-                if stat_name == "亀裂" and value > 0 and target_obj:
-                    if 'flags' not in target_obj:
-                        target_obj['flags'] = {}
-                    if target_obj['flags'].get('fissure_received_this_round', False):
+                if stat_name == "亀裂" and value > 0 and sim_target:
+                    if 'flags' not in sim_target:
+                        sim_target['flags'] = {}
+                    if sim_target['flags'].get('fissure_received_this_round', False):
                         log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
                         continue  # この効果をスキップし、次の効果へ
 
                 # ★修正: ボーナス計算と消費(削除)処理の適用
                 # (状態付与値が正の数で、かつ実行者が存在する場合のみボーナスをチェック)
-                if value > 0 and actor:
-                    # ボーナス値と、削除すべきバフリストを受け取る
-                    bonus, buffs_to_remove = calculate_state_apply_bonus(actor, target_obj, stat_name)
+                if value > 0 and sim_actor:
+                    # ボーナス値と、削除すべきバフリストを受け取る (シミュレーション状態を使用)
+                    bonus, buffs_to_remove = calculate_state_apply_bonus(sim_actor, sim_target, stat_name)
 
                     if bonus > 0:
                         value += bonus
@@ -323,32 +326,29 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     # ★消費型バフの削除アクションを追加
                     for b_name in buffs_to_remove:
                         # 自分(actor)のバフを削除する
-                        changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0))
+                        # 変更リストには実体を登録、シミュレーションには即時適用
+                        remove_buff(sim_actor, b_name)
+                        changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0)) # 実体に対する変更予約
                         log_snippets.append(f"({b_name} 消費)")
 
-
-
                 if stat_name and value != 0:
-                    # ★即座に状態を更新（次の効果の条件判定で最新値が使えるように）
-                    # これにより、鳩尾殴りのような「破裂5付与→破裂8以上なら追加で破裂5付与」が正しく動作する
-                    current_val = get_status_value(target_obj, stat_name)
-                    set_status_value(target_obj, stat_name, current_val + value)
+                    # ★即座に状態を更新（シミュレーション用オブジェクトに対してのみ）
+                    current_val = get_status_value(sim_target, stat_name)
+                    set_status_value(sim_target, stat_name, current_val + value)
 
-                    # 変更ログとして記録（後続の処理で使用される）
-                    changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value))
+                    # 変更ログとして記録（後続の処理で実体に適用される）
+                    changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value)) # 実体に対する変更予約
 
                     # ★亀裂の場合はフラグを立てる（付与成功時）
                     if stat_name == "亀裂" and value > 0:
-                        if 'flags' not in target_obj:
-                            target_obj['flags'] = {}
-                        target_obj['flags']['fissure_received_this_round'] = True
+                        if 'flags' not in sim_target:
+                            sim_target['flags'] = {}
+                        sim_target['flags']['fissure_received_this_round'] = True
 
 
             elif effect_type == "APPLY_STATE_PER_N":
-                # ★新機能: パラメータ値に基づく動的状態異常付与
-                # 例: 自分の戦慄2につき亀裂1を付与（最大2）
                 source_type = effect.get("source", "self")
-                source_obj = actor if source_type == "self" else target
+                source_obj = sim_actor if source_type == "self" else sim_target # シミュレーションを使用
                 source_param = effect.get("source_param")
 
                 if not source_obj or not source_param:
@@ -370,45 +370,42 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 stat_name = effect.get("state_name")
                 if stat_name and calculated_value > 0:
                     # 亀裂の1ラウンド1回付与制限チェック
-                    if stat_name == "亀裂" and target_obj:
-                        if 'flags' not in target_obj:
-                            target_obj['flags'] = {}
-                        if target_obj['flags'].get('fissure_received_this_round', False):
+                    if stat_name == "亀裂" and sim_target:
+                        if 'flags' not in sim_target:
+                            sim_target['flags'] = {}
+                        if sim_target['flags'].get('fissure_received_this_round', False):
                             log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
                             continue
 
-                    # ★即座に状態を更新
-                    current_val = get_status_value(target_obj, stat_name)
-                    set_status_value(target_obj, stat_name, current_val + calculated_value)
+                    # ★即座に状態を更新 (シミュレーション)
+                    current_val = get_status_value(sim_target, stat_name)
+                    set_status_value(sim_target, stat_name, current_val + calculated_value)
 
-                    # 変更ログとして記録
+                    # 変更ログとして記録 (実体)
                     changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, calculated_value))
                     log_snippets.append(f"[{stat_name}+{calculated_value} ({source_param}{source_param_value}から)]")
 
                     # 亀裂の場合はフラグを立てる
                     if stat_name == "亀裂":
-                        if 'flags' not in target_obj:
-                            target_obj['flags'] = {}
-                        target_obj['flags']['fissure_received_this_round'] = True
+                        if 'flags' not in sim_target:
+                            sim_target['flags'] = {}
+                        sim_target['flags']['fissure_received_this_round'] = True
 
 
             elif effect_type == "MULTIPLY_STATE":
-                # ★新機能: 状態異常値の乗算 (四捨五入)
                 stat_name = effect.get("state_name")
                 multiplier = float(effect.get("value", 1.0))
 
-                if stat_name and target_obj:
-                    current_val = get_status_value(target_obj, stat_name)
-                    # 標準的な四捨五入 (int(val + 0.5))
-                    # 例: 2.5 -> 3, 2.4 -> 2
+                if stat_name and sim_target:
+                    current_val = get_status_value(sim_target, stat_name)
                     new_val = int(current_val * multiplier + 0.5)
                     diff = new_val - current_val
 
                     if diff != 0:
-                        # ★即座に状態を更新
-                        set_status_value(target_obj, stat_name, new_val)
+                        # ★即座に状態を更新 (シミュレーション)
+                        set_status_value(sim_target, stat_name, new_val)
 
-                        # 変更ログとして記録
+                        # 変更ログとして記録 (実体)
                         changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, diff))
                         log_snippets.append(f"[{stat_name} x{multiplier} ({current_val}→{new_val})]")
 
