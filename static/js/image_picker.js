@@ -191,7 +191,8 @@ async function loadDefaultImages(modal, onSelect) {
     const container = modal.querySelector('#default-images');
 
     try {
-        const response = await fetch('/api/images?type=default', {
+        // ★ ローカルAPI（Git同梱素材）から取得するように変更
+        const response = await fetch('/api/local_images', {
             credentials: 'include'
         });
 

@@ -427,6 +427,45 @@ def get_room_users():
     return jsonify(room_users)
 
 
+@app.route('/api/local_images', methods=['GET'])
+def get_local_images():
+    """
+    ローカル（static/images/characters）にある画像一覧を取得するAPI
+    Cloudinaryを使わずにデフォルト素材を提供するため
+    """
+    try:
+        # 画像ディレクトリのパス
+        # static_folderがNoneの場合もあるので、app.root_path基点で作成
+        img_dir = os.path.join(app.root_path, 'static', 'images', 'characters')
+
+        if not os.path.exists(img_dir):
+            return jsonify([])
+
+        # 対応する拡張子
+        valid_extensions = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
+
+        images = []
+        for filename in os.listdir(img_dir):
+            if filename.lower().endswith(valid_extensions):
+                # URLは images/characters/ファイル名 (staticフォルダがルートとして配信されているため)
+                url = f"images/characters/{filename}"
+                name = os.path.splitext(filename)[0]
+
+                images.append({
+                    "name": name,
+                    "url": url,
+                    "type": "default" # フロントエンド互換性のため
+                })
+
+        # 名前順でソート
+        images.sort(key=lambda x: x['name'])
+
+        return jsonify(images)
+    except Exception as e:
+        print(f"Error listing local images: {e}")
+        return jsonify([]), 500
+
+
 
 # ==========================================
 #  Main Execution
