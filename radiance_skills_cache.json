@@ -17,7 +17,7 @@
     "name": "体力の研鑽",
     "cost": 1,
     "description": "HPの上限を5上げる。",
-    "flavor": "幾度も敵の攻撃を受けることによって肉体が頑健になった証。",
+    "flavor": "幾度も敵の攻撃を受けることによって、体力が丈夫になった証。",
     "effect": {
       "type": "STAT_BONUS",
       "stat": "HP",
@@ -28,7 +28,7 @@
   "S-02": {
     "id": "S-02",
     "name": "戦闘準備",
-    "cost": 2,
+    "cost": 3,
     "description": "戦闘開始時のFPを+1する。",
     "flavor": "敵と戦う経験を積み、より早く臨戦態勢に入ることができるようになった証。",
     "effect": {
@@ -38,6 +38,94 @@
           "target": "self",
           "state_name": "FP",
           "value": 1
+        }
+      ]
+    },
+    "duration": -1
+  },
+  "S-03": {
+    "id": "S-03",
+    "name": "魔術の鍛錬",
+    "cost": 3,
+    "description": "MPの上限を2上げる。",
+    "flavor": "幾度も魔術を扱う経験を積み、精神の消耗を抑えることに成功した証。",
+    "effect": {
+      "type": "STAT_BONUS",
+      "stat": "MP",
+      "value": 2
+    },
+    "duration": -1
+  },
+  "S-04": {
+    "id": "S-04",
+    "name": "身体の錬成",
+    "cost": 3,
+    "description": "HPの上限を10上げる。",
+    "flavor": "幾度も敵の攻撃を受け止めることによって、身体が屈強になった証。",
+    "effect": {
+      "type": "STAT_BONUS",
+      "stat": "HP",
+      "value": 10
+    },
+    "duration": -1
+  },
+  "S-05": {
+    "id": "S-05",
+    "name": "準備万端",
+    "cost": 7,
+    "description": "戦闘開始時のFPを+2する。",
+    "flavor": "敵と戦う経験を積み、より適切な戦闘態勢を取ることができるようになった証。",
+    "effect": {
+      "battle_start_effect": [
+        {
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 2
+        }
+      ]
+    },
+    "duration": -1
+  },
+  "S-06": {
+    "id": "S-06",
+    "name": "魔導の完遂",
+    "cost": 7,
+    "description": "MPの上限を5上げる。",
+    "flavor": "幾度も魔導に触れる経験を積み、精神の臨界へ到達することに成功した証。星よ導いてくれたまえ、その究極なる輝きの下に。",
+    "effect": {
+      "type": "STAT_BONUS",
+      "stat": "MP",
+      "value": 5
+    },
+    "duration": -1
+  },
+  "S-07": {
+    "id": "S-07",
+    "name": "肉体の完成",
+    "cost": 7,
+    "description": "HPの上限を25上げる。",
+    "flavor": "幾度も敵の攻撃を受け流すことによって、肉体が頑健になった証。流した血と汗の輝きは、きっと夜空の星にも負けない！",
+    "effect": {
+      "type": "STAT_BONUS",
+      "stat": "HP",
+      "value": 25
+    },
+    "duration": -1
+  },
+  "S-08": {
+    "id": "S-08",
+    "name": "準備完了",
+    "cost": 10,
+    "description": "戦闘開始時のFPを+3する。",
+    "flavor": "敵と戦う経験を積み、完璧な臨戦態勢を整えることが出来るようになった証。敵を知れば、おのずと自分の事も分かる。月はそれに気付いたろうか。",
+    "effect": {
+      "battle_start_effect": [
+        {
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 3
         }
       ]
     },
