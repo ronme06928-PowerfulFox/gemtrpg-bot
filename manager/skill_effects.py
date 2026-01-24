@@ -5,6 +5,7 @@ import json
 import logging
 from manager.game_logic import process_skill_effects, get_status_value, apply_buff, remove_buff
 from manager.room_manager import _update_char_stat, broadcast_log
+from manager.battle.core import process_on_damage_buffs # ★追加
 from manager.constants import DamageSource
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ def apply_skill_effects_bidirectional(
         suppress_actor_self_effect: 攻撃者の自己バフを抑制するか
 
     Returns:
-        tuple: (total_bonus_damage, all_logs)
+        tuple: (total_bonus_damage, all_logs, custom_damage_applied)
     """
     effects_a = []
     effects_d = []
@@ -51,10 +52,12 @@ def apply_skill_effects_bidirectional(
             pass
 
     total_bonus_dmg = 0
+    custom_damage_applied = 0 # ★追加
     all_logs = []
 
     # 内部関数: 変更内容の即時適用
     def apply_local_changes(changes):
+        nonlocal custom_damage_applied # ★移動: ここで宣言
         extra_dmg = 0
 
         # 重複防止のためのセット (char_id, type, name, str(value))
@@ -64,9 +67,11 @@ def apply_skill_effects_bidirectional(
             # APPLY_STATE の場合、重複チェックを行う
             if type_ == "APPLY_STATE":
                 try:
+                    if condition_str: pass
+
                     # ★修正: conditionフィールドも考慮する
                     # 条件付き効果と無条件効果は別物として扱う
-                    effect_obj = next((e for e in final_changes if e[0] == char and e[1] == type_ and e[2] == name and e[3] == value), None)
+                    effect_obj = next((e for e in changes if e[0] == char and e[1] == type_ and e[2] == name and e[3] == value), None)
                     condition_str = ""
                     if effect_obj and len(effect_obj) > 4:
                         # changesは(char, type, name, value)のタプルだが、元のeffectからconditionを取得
@@ -114,13 +119,28 @@ def apply_skill_effects_bidirectional(
                     damage_source = DamageSource.SKILL_EFFECT
 
                 _update_char_stat(room, char, 'HP', char['hp'] - value, username=f"[{name}]", source=damage_source)
+                # ★ 追加: 内部で適用されたダメージとして集計（合計表示用）
+                # nonlocal custom_damage_applied # Removed
+                custom_damage_applied += value
             elif type_ == "APPLY_BUFF":
                 apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
                 broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
             elif type_ == "REMOVE_BUFF":
                 remove_buff(char, name)
             elif type_ == "APPLY_SKILL_DAMAGE_AGAIN":
-                extra_dmg += damage_val
+                # exta_dmg += damage_val ではなく、個別のダメージイベントとして処理する
+                if damage_val > 0:
+                    # 1. 直接HPを減らす
+                     _update_char_stat(room, char, 'HP', char['hp'] - damage_val, username=f"[追撃]", source=DamageSource.SKILL_EFFECT)
+
+                     # 2. 被弾時効果をトリガー (ログは統合)
+                     temp_logs = []
+                     buff_dmg = process_on_damage_buffs(room, char, damage_val, username, temp_logs)
+                     all_logs.extend(temp_logs)
+
+                     # 3. 合計ダメージに加算
+                     # nonlocal custom_damage_applied # Removed
+                     custom_damage_applied += damage_val + buff_dmg
             elif type_ == "APPLY_STATE_TO_ALL_OTHERS":
                 orig_target_id = char.get("id")
                 orig_target_type = char.get("type")
@@ -177,4 +197,4 @@ def apply_skill_effects_bidirectional(
         logger.debug(f"[Defender Wins] Processing defender HIT effects")
         run_proc_and_apply(effects_d, "HIT", d_char, a_char, a_skill)
 
-    return total_bonus_dmg, all_logs
+    return total_bonus_dmg, all_logs, custom_damage_applied

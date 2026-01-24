@@ -110,9 +110,13 @@ def process_on_damage_buffs(room, char, damage_val, username, log_snippets):
     """
     被弾時トリガーバフの処理
     """
-    if damage_val <= 0: return
+    total_applied_damage = 0
+    if damage_val <= 0: return 0
 
     for b in char.get('special_buffs', []):
+        # ★追加: 今回のアクションで適用されたばかりのバフは除外
+        if b.get('newly_applied'):
+            continue
         # Resolve full effect data (dynamic or static)
         effect_data = get_buff_effect(b.get('name'))
         if not effect_data: continue
@@ -130,6 +134,10 @@ def process_on_damage_buffs(room, char, damage_val, username, log_snippets):
             # print(f"[DEBUG] Triggering on_damage_state: {s_name} {curr} -> {curr + s_val}")
             _update_char_stat(room, char, s_name, curr + s_val, username=f"[{b.get('name')}]")
             log_snippets.append(f"[{b.get('name')}→{s_name}+{s_val}]")
+            if s_name == 'HP':
+                total_applied_damage += s_val
+
+    return total_applied_damage
 
 def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data=None):
     """

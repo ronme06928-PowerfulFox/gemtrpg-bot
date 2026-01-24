@@ -68,6 +68,8 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None):
     payload['lasting'] = lasting
     payload['delay'] = delay
 
+    payload['newly_applied'] = True # ★追加: 今回のアクションで適用されたことを示すフラグ
+
     if existing:
         existing['lasting'] = max(existing.get('lasting', 0), lasting)
         existing['delay'] = max(existing.get('delay', 0), delay)
