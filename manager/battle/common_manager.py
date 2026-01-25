@@ -482,84 +482,58 @@ def process_wide_modal_confirm(room, user_id, attribute, wide_ids):
     if 'wide_modal_confirms' not in state: state['wide_modal_confirms'] = []
     if 'pending_wide_ids' not in state: state['pending_wide_ids'] = []
 
-    # GM Force Confirm
-    if attribute == 'GM':
-        logger.info(f"[WideModal] GM Forced Confirm. IDs: {wide_ids}")
-        # Merge IDs (if GM selected any)
-        for wid in wide_ids:
-            if wid not in state['pending_wide_ids']:
-                state['pending_wide_ids'].append(wid)
-
-        # Execute Wide Declarations
-        process_wide_declarations(room, state['pending_wide_ids'])
-
-        # Close Modal for everyone
-        socketio.emit('close_wide_declaration_modal', {}, to=room)
-        return
-
-    # Normal Player Confirm
-    if user_id not in state['wide_modal_confirms']:
-        state['wide_modal_confirms'].append(user_id)
-
-    # Merge Wide IDs
+    # Merge Wide IDs (from this user)
+    # Note: Even if already confirmed, we merge incase they updated selection (though UI locks).
     for wid in wide_ids:
         if wid not in state['pending_wide_ids']:
             state['pending_wide_ids'].append(wid)
 
-    # Check if all non-GM users have confirmed
-    # Access connected users via room_manager (assuming some way to get online users)
-    # Alternatively, simplistic approach: Check if confirmed count > X?
-    # Better: Wait for GM. But requirements say "GM OR all non-GM".
+    # 1. GM Force Confirm (Overrides waiting)
+    if attribute == 'GM':
+        logger.info(f"[WideModal] GM {user_id} Forced Confirm. IDs: {wide_ids}")
 
-    # We need a way to know "all non-GM users". This is tricky without a user list.
-    # For now, let's rely on: The modal shows "Confirm" and disables.
-    # We will execute ONLY if GM presses confirm OR if we implement a strict user tracking.
-    # However, user requirement said: "GMがボタンを押すか或いはルームにいるGMを除いた全員がボタンを押すか"
+        # Execute Wide Declarations immediately
+        process_wide_declarations(room, state['pending_wide_ids'])
 
-    # Since we don't track "all users in room" strictly in state (only active socket sids),
-    # we might need to iterate connected sids.
+        # Close Modal for everyone
+        socketio.emit('close_wide_declaration_modal', {}, to=room)
 
-    # Let's try to get all connected non-GM users.
-    # Import locally to avoid circular dep if needed, or assume we can't easily get it here.
-    # Actually, let's just broadcast the "Partially Confirmed" status for now?
-    # No, we need to close it automatically if everyone confirmed.
+        broadcast_log(room, f"GMにより広域攻撃予約が確定されました。", 'info')
+        return
 
-    # WORKAROUND: For this iteration, we might assume if we have accurate room user list.
-    # Use room_manager's user tracking if available.
+    # 2. Normal Player Confirm
+    if user_id not in state['wide_modal_confirms']:
+        state['wide_modal_confirms'].append(user_id)
+        broadcast_log(room, f"{user_id} が広域予約を確認しました。", 'info')
 
-    # Let's check `manager.room_manager.ROOM_USERS`.
+    # Check coverage (All non-GM users in room)
     from manager.room_manager import ROOM_USERS
+    current_room_users = ROOM_USERS.get(room, {})
 
-    current_room_users = ROOM_USERS.get(room, {}) # {sid: {username, attribute}}
-    non_gm_users = [
-        u['username'] for u in current_room_users.values()
-        if u.get('attribute') != 'GM'
-    ]
-    # Filter unique usernames (in case of multiple tabs)
-    unique_non_gm_users = list(set(non_gm_users))
+    # Filter for active non-GM users
+    non_gm_users = set()
+    for sid, u_info in current_room_users.items():
+        if u_info.get('attribute') != 'GM':
+            non_gm_users.add(u_info.get('username'))
 
-    # Check if all confirmed
-    # We stored user_id (which is presumably username or specialized ID? Assuming username for now from route)
-    # Let's verify what `user_id` is passed. It should be username.
+    # Check if all non-GM users have confirmed
+    confirmed_users = set(state['wide_modal_confirms'])
 
-    confirmed_users = state['wide_modal_confirms']
+    # Logic: If there are non-GM users and all of them confirmed, proceed.
+    # If there are NO non-GM users (only GM in room), GM confirm handled above.
 
-    # Check coverage
-    all_confirmed = True
-    for u in unique_non_gm_users:
-        if u not in confirmed_users:
-            all_confirmed = False
-            break
+    all_confirmed = False
+    if len(non_gm_users) > 0:
+        if non_gm_users.issubset(confirmed_users):
+            all_confirmed = True
 
-    if all_confirmed and len(unique_non_gm_users) > 0:
-        logger.info("All players confirmed. Executing.")
+    if all_confirmed:
+        logger.info("[WideModal] All players confirmed. Executing.")
         process_wide_declarations(room, state['pending_wide_ids'])
         socketio.emit('close_wide_declaration_modal', {}, to=room)
     else:
-        # Just save state and wait
-        logger.info(f"Player {user_id} confirmed. Waiting for others. ({len(confirmed_users)}/{len(unique_non_gm_users)})")
+        # Wait
+        logger.info(f"Player {user_id} confirmed. Waiting... ({len(confirmed_users)}/{len(non_gm_users)})")
         save_specific_room_state(room)
-        # Optional: Broadcast progress
-        # socketio.emit('wide_modal_progress', {'current': len(confirmed_users), 'total': len(unique_non_gm_users)}, to=room)
 
 

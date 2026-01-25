@@ -103,6 +103,11 @@ def serve_index():
     print(f"[INFO] Accessing Root! Serving from: {STATIC_DIR}")
     return send_from_directory(STATIC_DIR, 'index.html')
 
+@app.route('/mobile')
+def serve_mobile_index():
+    print(f"[INFO] Accessing Mobile Root! Serving from: {STATIC_DIR}/mobile")
+    return send_from_directory(os.path.join(STATIC_DIR, 'mobile'), 'index.html')
+
 @app.route('/<path:filename>')
 def serve_static_files(filename):
     return send_from_directory(STATIC_DIR, filename)

@@ -108,5 +108,31 @@ def handle_log(data):
 def handle_chat(data):
     room = data.get('room')
     if not room: return
-    # secret 引数を渡す
-    broadcast_log(room, data['message'], 'chat', data.get('user', '名無し'), secret=data.get('secret', False))
+    import re
+    from manager.dice_roller import roll_dice
+
+    msg = data.get('message', '')
+    secret = data.get('secret', False)
+
+    # コマンド判定 (sroll, /sroll, roll, /roll)
+    # 大文字小文字無視
+    lower_msg = msg.lower()
+
+    if lower_msg.startswith('sroll') or lower_msg.startswith('/sroll'):
+        secret = True
+        # "sroll " などを削除
+        msg = re.sub(r'^/?sroll\s*', '', msg, flags=re.IGNORECASE)
+    elif lower_msg.startswith('roll') or lower_msg.startswith('/roll'):
+        msg = re.sub(r'^/?roll\s*', '', msg, flags=re.IGNORECASE)
+
+    # ダイスロール判定 (XdY が含まれるか)
+    if re.search(r'\d+d\d+', msg):
+        res = roll_dice(msg)
+        # フォーマット例: "2d6+1 -> (3+4)+1 = 8"
+        text = f"{msg} → {res['details']} = {res['total']}"
+        broadcast_log(room, text, 'chat', user=data.get('user', '名無し'), secret=secret)
+    else:
+        # 通常チャット (コマンドだけだったり、ダイス式がない場合も含む)
+        # "sroll" と打っただけの場合は空になる可能性があるのでチェック
+        if msg.strip():
+            broadcast_log(room, msg, 'chat', user=data.get('user', '名無し'), secret=secret)

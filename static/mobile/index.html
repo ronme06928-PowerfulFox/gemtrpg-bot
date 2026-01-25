@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gem DiceBot Mobile</title>
+    <!-- Core Styles -->
+    <!-- Core Styles -->
+    <link rel="stylesheet" href="/css/modules/base.css">
+    <link rel="stylesheet" href="/css/modules/portal.css">
+    <link rel="stylesheet" href="/mobile/style.css">
+
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+
+<body>
+    <!-- 1. Entry Portal (Login) -->
+    <div id="mobile-entry-portal" class="mobile-full-screen-ui">
+        <div class="portal-content">
+            <h1>Gem DiceBot Mobile</h1>
+            <p>スマートフォン版へようこそ</p>
+            <div class="auth-box">
+                <input type="text" id="entry-username" placeholder="ニックネーム" class="mobile-input">
+                <select id="entry-attribute" class="mobile-select">
+                    <option value="PL">PL (プレイヤー)</option>
+                    <option value="GM">GM (ゲームマスター)</option>
+                </select>
+                <button id="entry-btn" class="mobile-btn primary">入室する</button>
+            </div>
+            <p id="entry-message" class="error-msg"></p>
+        </div>
+    </div>
+
+    <!-- 2. Room Portal (Room Select) -->
+    <div id="mobile-room-portal" class="mobile-full-screen-ui hidden">
+        <div class="portal-header">
+            <h2>ルーム選択</h2>
+            <div class="user-status">
+                <span id="mobile-user-display">User</span>
+                <button id="mobile-settings-btn" class="sm-btn">⚙️</button>
+                <button id="mobile-logout-btn" class="sm-btn">Logout</button>
+            </div>
+        </div>
+        <div class="portal-body">
+            <button id="mobile-create-room-btn" class="mobile-btn accent">+ 新規ルーム</button>
+            <button id="mobile-refresh-rooms-btn" class="mobile-btn secondary">更新</button>
+            <ul id="mobile-room-list" class="mobile-list">
+                <!-- Room Items -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- 3. Profile Settings Modal -->
+    <div id="mobile-profile-modal" class="mobile-overlay hidden">
+        <div class="overlay-header">
+            <h3>プロフィール設定</h3>
+            <button class="close-overlay"
+                onclick="document.getElementById('mobile-profile-modal').classList.add('hidden')">×</button>
+        </div>
+        <div class="overlay-content" style="padding: 20px;">
+            <div class="auth-box">
+                <label>名前変更</label>
+                <input type="text" id="profile-username" class="mobile-input" placeholder="Name">
+
+                <label style="margin-top:15px; display:block;">権限変更</label>
+                <select id="profile-attribute" class="mobile-select">
+                    <option value="PL">PL (プレイヤー)</option>
+                    <option value="GM">GM (ゲームマスター)</option>
+                </select>
+
+                <div class="duel-btn-row" style="margin-top:20px;">
+                    <button id="profile-save-btn" class="mobile-btn primary">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full Screen Map Container -->
+    <div id="mobile-map-container" class="hidden">
+        <div id="map-viewport">
+            <div id="game-map">
+                <div id="map-grid-layer"></div>
+                <div id="map-token-layer"></div>
+                <div id="map-effect-layer"></div>
+            </div>
+        </div>
+
+        <!-- Map Controls -->
+        <div id="mobile-map-controls">
+            <button id="btn-zoom-in" class="map-control-btn">+</button>
+            <button id="btn-zoom-out" class="map-control-btn">-</button>
+            <button id="btn-focus-token" class="map-control-btn">🎯</button>
+        </div>
+    </div>
+
+    <!-- Persistent Top Bar -->
+    <div id="mobile-top-bar">
+        <div class="room-info">
+            <span id="current-room-name">Loading...</span>
+            <span id="visual-round-counter">R:0</span>
+        </div>
+        <div class="top-controls">
+            <button id="mobile-log-toggle" class="icon-btn">📝</button>
+            <button id="mobile-menu-toggle" class="icon-btn">⚙️</button>
+        </div>
+    </div>
+
+    <!-- Bottom Action Bar -->
+    <div id="mobile-bottom-bar">
+        <!-- Reusing Action Dock structure but styled horizontally -->
+        <div id="mobile-action-dock" class="scrollable-dock">
+            <!-- Icons injected by JS -->
+        </div>
+    </div>
+
+    <!-- Overlays -->
+    <div id="mobile-log-overlay" class="mobile-overlay hidden">
+        <div class="overlay-header">
+            <h3>Log</h3>
+            <button class="close-overlay">×</button>
+        </div>
+        <div id="visual-log-area" class="overlay-content"></div>
+        <div class="chat-input-area">
+            <input type="text" id="visual-chat-input" placeholder="Chat or Dice...">
+            <button id="visual-chat-send">Send</button>
+        </div>
+    </div>
+
+    <!-- Hidden elements required by tab_visual_battle.js logic -->
+    <div id="visual-battle-container" style="display:none;"></div>
+    <div id="visual-timeline-list" style="display:none;"></div>
+
+    <!-- Scripts -->
+    <!-- Reuse legacy globals and socket logic -->
+    <script src="/js/legacy_globals.js"></script>
+    <script src="/js/tab_visual_battle.js"></script>
+    <script type="module" src="/mobile/main.js"></script>
+</body>
+
+</html>
