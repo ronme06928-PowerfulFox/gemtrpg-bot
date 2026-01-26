@@ -6,7 +6,8 @@ from extensions import socketio, all_skill_data
 from plugins.buffs.registry import buff_registry
 from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_log,
-    broadcast_state_update, _update_char_stat, is_authorized_for_character
+    broadcast_state_update, _update_char_stat, is_authorized_for_character,
+    get_users_in_room
 )
 from manager.constants import DamageSource
 from manager.battle.core import proceed_next_turn
@@ -343,7 +344,7 @@ def close_match_modal_logic(room):
     socketio.emit('match_modal_closed', {}, to=room)
     broadcast_state_update(room)
 
-def sync_match_data_logic(room, side, data):
+def sync_match_data_logic(room, side, data, username, attribute):
     state = get_room_state(room)
     if not state: return
     active_match = state.get('active_match', {})
@@ -351,12 +352,32 @@ def sync_match_data_logic(room, side, data):
     if not active_match.get('is_active') or active_match.get('match_type') != 'duel':
         return
 
+    # ★ 権限チェック: GM または そのキャラクターの所有者のみ許可
+    target_char_id = None
+    if side == 'attacker':
+        target_char_id = active_match.get('attacker_id')
+    elif side == 'defender':
+        target_char_id = active_match.get('defender_id')
+
+    # 所有者確認
+    allowed = False
+    if attribute == 'GM':
+        allowed = True
+    elif target_char_id:
+        owners = state.get('character_owners', {})
+        if owners.get(target_char_id) == username:
+            allowed = True
+
+    if not allowed:
+        # 権限がない場合は無視（ログに出しても良いが、頻繁な同期なのでサイレントに無視するか、デバッグログのみ）
+        logger.warning(f"Unauthorized sync attempt by {username} for side {side} (CharID: {target_char_id})")
+        return
+
     if side == 'attacker':
         state['active_match']['attacker_data'] = data
     elif side == 'defender':
         state['active_match']['defender_data'] = data
 
-    save_specific_room_state(room)
     save_specific_room_state(room)
     socketio.emit('match_data_updated', {'side': side, 'data': data}, to=room)
 
@@ -507,8 +528,8 @@ def process_wide_modal_confirm(room, user_id, attribute, wide_ids):
         broadcast_log(room, f"{user_id} が広域予約を確認しました。", 'info')
 
     # Check coverage (All non-GM users in room)
-    from manager.room_manager import ROOM_USERS
-    current_room_users = ROOM_USERS.get(room, {})
+    # Check coverage (All non-GM users in room)
+    current_room_users = get_users_in_room(room)
 
     # Filter for active non-GM users
     non_gm_users = set()

@@ -157,6 +157,18 @@ def set_character_owner(room_name, char_id, username):
     save_specific_room_state(room_name)
 
 
+def get_users_in_room(room_name):
+    """
+    指定したルームにいるアクティブなユーザーのリスト（辞書）を返す
+    """
+    room_users = {}
+    for sid, info in user_sids.items():
+        if info.get('room') == room_name:
+            room_users[sid] = info
+    return room_users
+
+
+
 def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_delete=False, username="System", source=None):
     old_value = None
     log_message = ""

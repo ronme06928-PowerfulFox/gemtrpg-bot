@@ -125,7 +125,10 @@ def on_sync_match_data(data):
     if not room: return
     side = data.get('side')
     match_data = data.get('data')
-    sync_match_data_logic(room, side, match_data)
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+    sync_match_data_logic(room, side, match_data, username, attribute)
 
 @socketio.on('debug_apply_buff')
 def on_debug_apply_buff(data):
