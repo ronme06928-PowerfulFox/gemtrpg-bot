@@ -2768,6 +2768,10 @@ function sendSkillDeclaration(side, isCommit) {
                                 }
                             });
 
+                            // ★ 追加: 手元のボタンも即座に無効化する
+                            const declareBtn = document.getElementById(`duel-${side}-declare-btn`);
+                            if (declareBtn) declareBtn.disabled = true;
+
                             return;
                         }
                     }
@@ -2910,6 +2914,9 @@ function applyMatchDataSync(side, data) {
 
     // 計算結果の同期（権限エラーを回避するため、結果を直接UIに適用）
     if (data.final_command !== undefined) {
+        // ★ 修正: エラー状態 (data.error) を反映する
+        const isError = data.error === true;
+
         updateDuelUI(side, {
             prefix: `visual_${side}`,
             final_command: data.final_command,
@@ -2919,9 +2926,9 @@ function applyMatchDataSync(side, data) {
             skill_details: data.skill_details,
             senritsu_penalty: data.senritsu_penalty,
             correction_details: data.correction_details,
-            // ★ 修正: 宣言済みの場合はボタンを無効、そうでなければ権限チェック
-            enableButton: data.declared ? false : canControlCharacter(side === 'attacker' ? duelState.attackerId : duelState.defenderId),
-            error: false
+            // ★ 修正: エラー時は強制的に無効、それ以外は通常判定
+            enableButton: isError ? false : (data.declared ? false : canControlCharacter(side === 'attacker' ? duelState.attackerId : duelState.defenderId)),
+            error: isError
         });
 
         // internal stateも更新
