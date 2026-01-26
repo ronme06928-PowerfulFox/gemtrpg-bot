@@ -67,7 +67,7 @@ def apply_skill_effects_bidirectional(
             # APPLY_STATE の場合、重複チェックを行う
             if type_ == "APPLY_STATE":
                 try:
-                    if condition_str: pass
+
 
                     # ★修正: conditionフィールドも考慮する
                     # 条件付き効果と無条件効果は別物として扱う
