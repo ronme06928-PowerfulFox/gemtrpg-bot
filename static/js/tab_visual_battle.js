@@ -2733,20 +2733,41 @@ function sendSkillDeclaration(side, isCommit) {
                         const current = findStatusValue(actor, type);
 
                         if (current < val) {
-                            // インラインエラー表示に変更
+                            // インラインエラー表示に変更 (DOM構造を維持する)
                             const previewEl = document.getElementById(`duel-${side}-preview`);
+                            const cmdEl = previewEl ? previewEl.querySelector('.preview-command') : null;
+                            const dmgEl = previewEl ? previewEl.querySelector('.preview-damage') : null;
                             const descEl = document.getElementById(`duel-${side}-skill-desc`);
 
-                            if (previewEl) {
+                            if (cmdEl && dmgEl) {
+                                cmdEl.textContent = "Cost Error";
+                                dmgEl.textContent = `${type}不足 (必要:${val})`;
+                                previewEl.classList.add('ready'); // 表示スタイル適用のため
+                            } else if (previewEl) {
+                                // 万が一構造が壊れていたらテキストのみ
                                 previewEl.textContent = "Cost Error";
-                                previewEl.style.color = "red";
                             }
+
                             if (descEl) {
                                 descEl.innerHTML = `<div style="color: #ff4444; font-weight: bold; padding: 5px; border: 1px solid #ff4444; background: rgba(255,0,0,0.1); border-radius: 4px;">
                                     ${type}が不足しています<br>
                                     (必要: ${val}, 現在: ${current})
                                 </div>`;
                             }
+
+                            // ★ エラー状態を同期する (相手にもCost Errorと伝える)
+                            socket.emit('sync_match_data', {
+                                room: currentRoomName,
+                                side: side,
+                                data: {
+                                    skill_id: skillId,
+                                    final_command: `${type}不足`,
+                                    error: true,
+                                    enableButton: false, // ボタンは無効化
+                                    declared: false
+                                }
+                            });
+
                             return;
                         }
                     }
