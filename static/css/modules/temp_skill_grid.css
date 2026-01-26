@@ -1,0 +1,71 @@
+
+/* Skill Grid Styles */
+.char-skills {
+    margin-top: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 5px;
+    background-color: #fafafa;
+}
+
+.char-skills-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+.skill-item {
+    border: 1px solid #ccc;
+    background-color: white;
+    padding: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.2s;
+}
+
+.skill-item:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.skill-item.hidden-skill {
+    opacity: 0.6;
+    background-color: #f1f1f1;
+    border-style: dashed;
+}
+
+.skill-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.skill-id {
+    font-size: 0.75em;
+    color: #888;
+    font-weight: bold;
+}
+
+.skill-name {
+    font-weight: bold;
+    font-size: 0.9em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.skill-visibility-toggle {
+    cursor: pointer;
+    font-size: 1.1em;
+    padding: 2px 5px;
+    border-radius: 4px;
+    user-select: none;
+}
+
+.skill-visibility-toggle:hover {
+    background-color: #ddd;
+}

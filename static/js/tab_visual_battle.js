@@ -896,6 +896,13 @@ function updateCharacterTokenVisuals(data) {
         }
     } else {
         // ★ 状態異常の場合もフローティングテキストを表示
+        // ただし、内部ステータス（hidden_skills等）は除外
+        const internalStats = ['hidden_skills', 'gmOnly', 'color', 'image', 'owner', 'commands', 'params'];
+        if (internalStats.includes(stat)) {
+            // これらはフローティングテキストを出さない
+            return;
+        }
+
         if (old_value !== undefined && old_value !== new_value) {
             const diff = new_value - old_value;
             showFloatingText(token, diff, stat, source);
@@ -1240,6 +1247,12 @@ function createMapToken(char) {
 }
 
 function showCharacterDetail(charId) {
+    // 統一されたキャラクター詳細モーダル（modals.js）を使用
+    if (typeof openCharacterModal === 'function') {
+        openCharacterModal(charId);
+        return;
+    }
+
     const char = battleState.characters.find(c => c.id === charId);
     if (!char) return;
     const existing = document.getElementById('char-detail-modal-backdrop');

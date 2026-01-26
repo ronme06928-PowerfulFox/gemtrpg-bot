@@ -189,7 +189,16 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
         # ★ 追加: 画像URL更新
         old_value = char.get('image')
         char['image'] = new_value
+        old_value = char.get('image')
+        char['image'] = new_value
         log_message = f"{username}: {char['name']}: 立ち絵画像を更新しました"
+    elif stat_name == 'hidden_skills':
+        # ★ 追加: スキル表示設定更新
+        # new_value はリストまたは特定の操作用辞書を想定
+        # シンプルにリスト全置換で対応
+        char['hidden_skills'] = new_value
+        log_message = "" # 頻繁な切り替えでログが埋まるのを防ぐため、あえてログは出さないか、デバッグのみにする
+        # log_message = f"{username}: {char['name']}: スキル表示設定を更新"
     elif is_new:
         char['states'].append({"name": stat_name, "value": new_value})
         log_message = f"{username}: {char['name']}: {stat_name} (なし) → ({new_value})"

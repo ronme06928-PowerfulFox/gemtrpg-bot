@@ -94,10 +94,10 @@ window.formatSkillDetailHTML = function (skillData) {
         html += `<div style="margin-bottom:4px; font-size:0.85em;"><strong>【コスト】</strong>${cost}</div>`;
     }
     if (hasEffect) {
-        html += `<div style="margin-bottom:4px; font-size:0.85em;"><strong>【効果】</strong><div style="white-space:pre-wrap; line-height:1.3;">${effect}</div></div>`;
+        html += `<div style="margin-bottom:4px; font-size:0.85em;"><strong>【効果】</strong><div style="white-space:pre-wrap; line-height:1.3; padding-left:1em;">${effect}</div></div>`;
     }
     if (hasSpecial) {
-        html += `<div style="font-size:0.85em;"><strong>【特記】</strong><div style="white-space:pre-wrap; line-height:1.3;">${special}</div></div>`;
+        html += `<div style="font-size:0.85em;"><strong>【特記】</strong><div style="white-space:pre-wrap; line-height:1.3; padding-left:1em;">${special}</div></div>`;
     }
 
     return html;

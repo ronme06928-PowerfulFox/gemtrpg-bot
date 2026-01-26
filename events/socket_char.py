@@ -55,6 +55,8 @@ def handle_add_character(data):
         char_data['SPassive'] = []
     if 'inventory' not in char_data:
         char_data['inventory'] = {}
+    if 'hidden_skills' not in char_data:
+        char_data['hidden_skills'] = []
     # === ▲▲▲ 追加ここまで ▲▲▲
 
     # === ▼▼▼ 初期座標の設定（未配置状態） ▼▼▼
@@ -222,7 +224,8 @@ def handle_add_debug_character(data):
         "color": "#007bff" if char_type == 'ally' else "#dc3545", # 色もタイプに合わせて変更
         "speedRoll": 0,
         "hasActed": False,
-        "gmOnly": True
+        "gmOnly": True,
+        "hidden_skills": []
     }
 
     # 5. 既存のキャラ追加ロジックに渡す
