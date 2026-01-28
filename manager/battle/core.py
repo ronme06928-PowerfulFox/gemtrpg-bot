@@ -3,8 +3,10 @@ import json
 from extensions import all_skill_data
 
 from manager.game_logic import (
-    process_skill_effects, get_status_value, apply_buff, remove_buff
+    process_skill_effects, apply_buff, remove_buff, get_status_value
 )
+from manager.utils import get_effective_origin_id
+from models import Room
 from manager.buff_catalog import get_buff_effect
 from manager.room_manager import (
     get_room_state, broadcast_log, broadcast_state_update,
@@ -139,6 +141,41 @@ def process_on_damage_buffs(room, char, damage_val, username, log_snippets):
 
     return total_applied_damage
 
+def process_on_hit_buffs(actor, target, damage_val, log_snippets):
+    """
+    攻撃ヒット時トリガーバフの処理 (例: 爆縮)
+    Returns: extra_damage (int)
+    """
+    from plugins.buffs.registry import buff_registry
+
+    total_extra_damage = 0
+    if not actor or 'special_buffs' not in actor:
+        return 0
+
+    logger.info(f"[process_on_hit_buffs] Checking buffs for {actor.get('name')}. Count: {len(actor['special_buffs'])}")
+
+    # スナップショットをとって回す（副作用でリストが変わる可能性があるため）
+    for buff_entry in list(actor['special_buffs']):
+        buff_id = buff_entry.get('buff_id')
+        handler_cls = buff_registry.get_handler(buff_id)
+
+        if handler_cls and hasattr(handler_cls, 'on_hit_damage_calculation'):
+            logger.info(f"[process_on_hit_buffs] Executing {handler_cls.__name__} for {buff_id}")
+            # クラスメソッドとして呼び出し
+            new_damage, logs = handler_cls.on_hit_damage_calculation(actor, target, damage_val + total_extra_damage)
+
+            diff = new_damage - (damage_val + total_extra_damage)
+            if diff != 0:
+                logger.info(f"[process_on_hit_buffs] {handler_cls.__name__} added {diff} damage")
+                total_extra_damage += diff
+
+            if logs:
+                log_snippets.extend(logs)
+        else:
+            logger.info(f"[process_on_hit_buffs] No handler or hook for {buff_id} ({buff_entry.get('name')}). Has Handler: {bool(handler_cls)}")
+
+    return total_extra_damage
+
 def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data=None):
     """
     Match実行時のPRE_MATCH効果適用
@@ -187,6 +224,9 @@ def proceed_next_turn(room):
         return
 
     # 現在の手番IDがタイムラインのどこにあるか探す
+    # 0. ターン終了時処理 (前のキャラクター)
+    # マホロバ (ID: 5) ボーナス: ターン終了時 HP+3 -> ラウンド終了時一括処理に変更
+
     current_idx = -1
     if current_id in timeline:
         current_idx = timeline.index(current_id)
@@ -221,8 +261,11 @@ def proceed_next_turn(room):
     if next_id:
         state['turn_char_id'] = next_id
         next_char = next((c for c in state['characters'] if c['id'] == next_id), None)
-        char_name = next_char['name'] if next_char else "不明"
-        broadcast_log(room, f"手番が {char_name} に移りました。", 'info')
+        logger.info(f"[proceed_next_turn] Next turn: {next_char['name']} (ID: {next_id})")
+
+        # ラティウム (ID: 3) ボーナス: ターン開始時 FP+1 -> ラウンド開始時一括処理に変更
+
+        broadcast_log(room, f"--- {next_char['name']} の手番です ---", 'turn-change')
     else:
         state['turn_char_id'] = None
         broadcast_log(room, "全ての行動可能キャラクターが終了しました。ラウンド終了処理を行ってください。", 'info')
@@ -268,5 +311,18 @@ def process_simple_round_end(state, room):
             char['used_gem_protect_this_round'] = False
         if 'used_skills_this_round' in char:
             char['used_skills_this_round'] = []
+
+    # ★ 追加: マホロバ (ID: 5) ラウンド終了時一括処理
+    mahoroba_targets = []
+    for char in state.get('characters', []):
+        if char.get('hp', 0) <= 0: continue
+
+        # Origin Check
+        if get_effective_origin_id(char) == 5:
+            _update_char_stat(room, char, 'HP', char['hp'] + 3, username="[マホロバ恩恵]")
+            mahoroba_targets.append(char['name'])
+
+    if mahoroba_targets:
+        broadcast_log(room, f"[マホロバ恩恵] {', '.join(mahoroba_targets)} のHPが3回復しました。", 'info')
 
     logger.debug("===== process_simple_round_end 完了 =====")

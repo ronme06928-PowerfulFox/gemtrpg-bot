@@ -232,10 +232,24 @@ function renderCharacterCard(char) {
                 nameDisplay = nameDisplay.split('_')[0];
             }
 
-            let durationVal = b.lasting || b.round || b.duration;
+            let durationVal = b.lasting;
+            if (durationVal === undefined) durationVal = b.round;
+            if (durationVal === undefined) durationVal = b.duration;
+
             let durationHtml = "";
-            if (durationVal !== null && !isNaN(durationVal) && durationVal > 0 && durationVal < 99) {
-                durationHtml = `<span class="buff-duration-badge" style="background:#666; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:8px; white-space: nowrap;">残り${durationVal}R</span>`;
+
+            // 1. 持続ラウンド表示 (無限(-1)の場合は非表示)
+            if (durationVal !== null && durationVal !== undefined && !isNaN(durationVal)) {
+                if (durationVal > 0 && durationVal < 99) {
+                    durationHtml += `<span class="buff-duration-badge" style="background:#666; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:8px; white-space: nowrap;">残り${durationVal}R</span>`;
+                }
+                // -1 (無限) の場合は何も追加しない
+            }
+
+            // 2. 残り回数表示 (count > 0 なら表示)
+            const countVal = b.count;
+            if (countVal !== undefined && countVal !== null && countVal > 0) {
+                durationHtml += `<span class="buff-count-badge" style="background:#0dcaf0; color:#000; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:4px; white-space: nowrap; font-weight:bold;">残${countVal}回</span>`;
             }
 
             const delayVal = parseInt(b.delay, 10) || 0;

@@ -57,7 +57,7 @@ def set_status_value(char_obj, status_name, new_value):
         if 'states' not in char_obj: char_obj['states'] = []
         char_obj['states'].append({"name": status_name, "value": safe_new_value})
 
-def apply_buff(char_obj, buff_name, lasting, delay, data=None):
+def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
     """バフを付与・更新する"""
     if not char_obj: return
     if 'special_buffs' not in char_obj: char_obj['special_buffs'] = []
@@ -67,8 +67,28 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None):
     payload['name'] = buff_name
     payload['lasting'] = lasting
     payload['delay'] = delay
+    if count is not None:
+        payload['count'] = count
 
     payload['newly_applied'] = True # ★追加: 今回のアクションで適用されたことを示すフラグ
+
+    # バフ情報の自動補完 (description, flavor, buff_idなど)
+    if 'description' not in payload or 'flavor' not in payload or 'buff_id' not in payload:
+        from manager.buff_catalog import get_buff_effect
+        from extensions import all_buff_data
+
+        # ID解決
+        if 'buff_id' not in payload:
+             found_data = next((d for d in all_buff_data.values() if d.get('name') == buff_name), None)
+             if found_data:
+                 payload['buff_id'] = found_data.get('id')
+
+        effect_data = get_buff_effect(buff_name)
+        if effect_data:
+            if 'description' not in payload and 'description' in effect_data:
+                payload['description'] = effect_data['description']
+            if 'flavor' not in payload and 'flavor' in effect_data:
+                payload['flavor'] = effect_data['flavor']
 
     if existing:
         existing['lasting'] = max(existing.get('lasting', 0), lasting)
@@ -200,3 +220,42 @@ def resolve_placeholders(command_str, char_obj):
         else:
             return f"{num_dice}d0"
     return re.sub(r'(\d+)d\{(.*?)\}', replacer, command_str)
+
+
+def get_effective_origin_id(char_obj):
+    """
+    キャラクターの有効な出身IDを取得する。
+    優先順位:
+    1. 'ボーナス' (or '故郷' for legacy) が存在し、かつ 0 以外であればその値。
+    2. '出身' の値。
+    3. どちらもなければ 0。
+    """
+    if not char_obj: return 0
+    params = char_obj.get('params', [])
+
+    origin_val = 0
+    bonus_val = 0
+
+    for p in params:
+        label = p.get('label')
+        val = p.get('value', '0')
+        try:
+            # 文字列の場合、先頭の数字を抽出 ("3: ラティウム" -> 3)
+            val_str = str(val)
+            import re
+            match = re.match(r'^(-?\d+)', val_str)
+            if match:
+                 int_val = int(match.group(1))
+            else:
+                 int_val = int(val) # fallback
+        except:
+            int_val = 0
+
+        if label == '出身':
+            origin_val = int_val
+        elif label in ['ボーナス', '故郷']:
+            bonus_val = int_val
+
+    if bonus_val != 0:
+        return bonus_val
+    return origin_val

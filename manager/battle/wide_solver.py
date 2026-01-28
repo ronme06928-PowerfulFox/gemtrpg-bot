@@ -14,9 +14,9 @@ from manager.dice_roller import roll_dice
 from manager.battle.core import (
     format_skill_display_from_command, execute_pre_match_effects,
     process_simple_round_end, proceed_next_turn,
-    calculate_opponent_skill_modifiers
+    calculate_opponent_skill_modifiers, process_on_hit_buffs
 )
-from manager.utils import resolve_placeholders
+from manager.utils import resolve_placeholders, get_effective_origin_id
 from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
@@ -209,6 +209,14 @@ def execute_wide_match(room, username):
     attacker_roll = roll_dice(attacker_command)
     broadcast_log(room, f"   → ロール: {attacker_roll['details']} = {attacker_roll['total']}", 'dice')
 
+    attacker_total = attacker_roll['total']
+
+    # --- Wadatsumi (ID: 9) Bonus: Slash Power +1 ---
+    attacker_origin = get_effective_origin_id(attacker_char)
+    if attacker_origin == 9 and attacker_skill_data.get('属性') == '斬撃':
+         attacker_total += 1
+         broadcast_log(room, f"[綿津見恩恵] 斬撃威力+1 → {attacker_total}", 'info')
+
     results = []
     attacker_effects = []
     if attacker_skill_data:
@@ -297,17 +305,39 @@ def execute_wide_match(room, username):
 
             broadcast_log(room, f"🛡️ {def_char['name']} [{def_skill_id}]: {def_roll_result['details']} = {def_roll_result['total']}", 'dice')
 
-        broadcast_log(room, f"📊 防御者合計: {total_defender_roll} vs 攻撃者: {attacker_roll['total']}", 'info')
+            broadcast_log(room, f"🛡️ {def_char['name']} [{def_skill_id}]: {def_roll_result['details']} = {def_roll_result['total']}", 'dice')
 
-        if attacker_roll['total'] > total_defender_roll:
-            diff = attacker_roll['total'] - total_defender_roll
+        # --- Walwaire (ID: 13) Logic (Combined) ---
+        # 1. Attacker is Walwaire -> Defender Total -1 ?
+        # Rule: "マッチ相手の最終威力を-1"
+        # In Combined, opponent is the group. Logic: reduce total by 1? Or each roll?
+        # Typically wide rules apply normally. Let's assume total -1.
+        if attacker_origin == 13:
+             if total_defender_roll > 2:
+                 total_defender_roll -= 1
+                 broadcast_log(room, f"[ヴァルヴァイレ恩恵] 防御側合計 -1", 'info')
+
+        # 2. Any Defender is Walwaire -> Attacker -1 (Non-stacking)
+        has_walwaire_defender = any(get_effective_origin_id(d) == 13 for d in valid_defenders)
+        if has_walwaire_defender:
+             if attacker_total > 2:
+                 attacker_total -= 1
+                 broadcast_log(room, f"[ヴァルヴァイレ恩恵] 攻撃側値 -1", 'info')
+
+        broadcast_log(room, f"📊 防御者合計: {total_defender_roll} vs 攻撃者: {attacker_total}", 'info')
+
+        if attacker_total > total_defender_roll:
+            diff = attacker_total - total_defender_roll
             broadcast_log(room, f"   → 🗡️ 攻撃者勝利! 差分: {diff}", 'match-result')
 
             for dr in defender_rolls:
                 def_char = dr['char']
                 results.append({'defender': def_char['name'], 'result': 'win', 'damage': diff})
                 current_hp = get_status_value(def_char, 'HP')
-                new_hp = max(0, current_hp - diff)
+                extra_dmg = process_on_hit_buffs(attacker_char, def_char, diff, [])
+                if extra_dmg > 0:
+                     broadcast_log(room, f"[{attacker_char['name']}] 追加ダメージ +{extra_dmg}", 'buff')
+                new_hp = max(0, current_hp - (diff + extra_dmg))
                 _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]")
                 broadcast_log(room, f"   → {def_char['name']} に {diff} ダメージ", 'damage')
 
@@ -322,8 +352,8 @@ def execute_wide_match(room, username):
                         _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}追加]")
                         broadcast_log(room, f"   → {def_char['name']} に追加 {diff_bonus} ダメージ", 'damage')
 
-        elif total_defender_roll > attacker_roll['total']:
-            diff = total_defender_roll - attacker_roll['total']
+        elif total_defender_roll > attacker_total:
+            diff = total_defender_roll - attacker_total
             broadcast_log(room, f"   → 🛡️ 防御者勝利! 差分: {diff}", 'match-result')
 
             current_hp = get_status_value(attacker_char, 'HP')
@@ -332,6 +362,20 @@ def execute_wide_match(room, username):
             broadcast_log(room, f"   → {attacker_char['name']} に {diff} ダメージ", 'damage')
             for dr in defender_rolls:
                 results.append({'defender': dr['char']['name'], 'result': 'lose', 'damage': diff})
+
+            # --- Gyan Barth (ID: 8) Reflect Logic (Combined) ---
+            # 防御側勝利時、余剰ダメージを反射
+            # 誰か一人がGyan Barthなら発動するか？全員？
+            # 統合判定では「防御側グループ」が勝利したので、反射もグループとして1回発生とみなすのが自然
+            # ただし発動条件は「Gyan Barth出身者がいること」。
+            # ダメージソースは「余剰分」。攻撃者に与える。
+            # 複数人いても1回のみ（重複記述なし、通常は重複しないのが安全）。
+            if any(get_effective_origin_id(d['char']) == 8 for d in defender_rolls): # Use dr['char'] correct context
+                if diff > 0:
+                     curr_hp = get_status_value(attacker_char, 'HP')
+                     _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[反射ダメージ]")
+                     broadcast_log(room, f"[ギァン・バルフ恩恵] 防御勝利の余剰 {diff} ダメージを攻撃者に反射！", 'info')
+
         else:
             broadcast_log(room, f"   → 引き分け", 'match-result')
             for dr in defender_rolls:
@@ -380,11 +424,29 @@ def execute_wide_match(room, username):
                 logger.debug(f"Applied BaseMod {bp_mod} -> {def_command}")
 
             def_roll = roll_dice(def_command)
-
-            attacker_total = attacker_roll['total']
             defender_total = def_roll['total']
 
-            if attacker_total > defender_total:
+            # --- Walwaire (ID: 13) Logic (Individual) ---
+
+            # 1. Attacker is Walwaire -> Defender -1
+            if attacker_origin == 13:
+                 if defender_total > 2:
+                     defender_total -= 1
+                     # 個別ログはうるさいので省略、または詳細に含める
+
+            # 2. Defender is Walwaire -> Attacker -1
+            # Note: Attacker total effectively reduced for THIS match only
+            effective_attacker_total = attacker_total
+            if get_effective_origin_id(def_char) == 13:
+                 if effective_attacker_total > 2:
+                     effective_attacker_total -= 1
+
+            # Display modified totals if changed
+            if defender_total != def_roll['total'] or effective_attacker_total != attacker_total:
+                 broadcast_log(room, f"   (補正後判定: 攻{effective_attacker_total} vs 防{defender_total})", 'info')
+
+
+            if effective_attacker_total > defender_total:
                 # 攻撃成功
                 is_defense_skill = False
                 is_evasion_skill = False
@@ -401,12 +463,12 @@ def execute_wide_match(room, username):
 
                 if is_defense_skill:
                     # 防御スキル: ダメージ軽減 (攻撃 - 防御)
-                    damage = max(0, attacker_total - defender_total)
+                    damage = max(0, effective_attacker_total - defender_total)
                     broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (防御)", 'dice')
                     broadcast_log(room, f"   → 🗡️ 攻撃命中 (軽減): {damage} ダメージ", 'match-result')
                 elif is_evasion_skill:
                     # 回避スキル: 回避失敗なら直撃
-                    damage = attacker_total
+                    damage = effective_attacker_total
                     broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (回避失敗)", 'dice')
                     broadcast_log(room, f"   → 🗡️ 攻撃命中 (直撃): {damage} ダメージ", 'match-result')
 
@@ -422,7 +484,7 @@ def execute_wide_match(room, username):
                     # 通常の攻撃スキルでの応戦負けは一般的に「相殺」か「一方的」か？
                     # Duel Solver Check: result_a > result_d -> damage = result_a (Full Damage) if not Defense.
                     # 攻撃vs攻撃で負けた場合もFull Damage (Duel Solver Line 520)
-                    damage = attacker_total
+                    damage = effective_attacker_total
                     broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
                     broadcast_log(room, f"   → 🗡️ 攻撃命中: {damage} ダメージ", 'match-result')
 
@@ -433,12 +495,16 @@ def execute_wide_match(room, username):
                     for log_msg in logs:
                         broadcast_log(room, log_msg, 'skill-effect')
                     damage += apply_local_changes(changes)
+                    extra_dmg = process_on_hit_buffs(attacker_char, def_char, damage, [])
+                    if extra_dmg > 0:
+                         broadcast_log(room, f"[{attacker_char['name']}] 追加ダメージ +{extra_dmg}", 'buff')
+                    damage += extra_dmg
 
                 current_hp = get_status_value(def_char, 'HP')
                 new_hp = max(0, current_hp - damage)
                 _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]")
 
-            elif defender_total > attacker_total:
+            elif defender_total > effective_attacker_total:
                 # 防御側勝利
                 is_defense_skill = False
                 if def_skill_data:
@@ -453,6 +519,14 @@ def execute_wide_match(room, username):
                     results.append({'defender': def_char['name'], 'result': 'lose', 'damage': 0}) # Attacker lose, but 0 dmg
                     broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (防御成功)", 'dice')
                     broadcast_log(room, f"   → 🛡️ 防御成功! (ダメージなし)", 'match-result')
+
+                    # --- Gyan Barth (ID: 8) Reflect Logic (Individual) ---
+                    if get_effective_origin_id(def_char) == 8:
+                         diff = defender_total - effective_attacker_total
+                         if diff > 0:
+                             curr_hp = get_status_value(attacker_char, 'HP')
+                             _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[反射ダメージ]")
+                             broadcast_log(room, f"[ギァン・バルフ恩恵] {def_char['name']}が余剰 {diff} ダメージを反射！", 'info')
                 else:
                     # 回避スキルや攻撃スキルでの勝利: 反撃ダメージ発生
                     damage = defender_total

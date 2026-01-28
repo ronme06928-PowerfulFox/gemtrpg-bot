@@ -11,7 +11,8 @@ from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_state_update,
     broadcast_log, get_user_info_from_sid, _update_char_stat, set_character_owner
 )
-from manager.game_logic import process_battle_start
+from manager.game_logic import process_battle_start, process_skill_effects
+from manager.utils import get_status_value, set_status_value, get_effective_origin_id, apply_buff
 
 @socketio.on('request_add_character')
 def handle_add_character(data):
@@ -24,11 +25,20 @@ def handle_add_character(data):
     type = char_data.get('type', 'enemy')
     type_jp = "味方" if type == "ally" else "敵"
 
-    # ▼▼▼ 変更点: タイプ別連番 ▼▼▼
-    count = sum(1 for c in state["characters"] if c.get('type') == type)
-    # ▲▲▲ 変更点 ▲▲▲
+    # ▼▼▼ 変更点: タイプ別連番 (空き番を埋める) ▼▼▼
+    # 既存のキャラクター名を取得
+    existing_names = [c.get('name', '') for c in state["characters"]]
 
-    suffix_num = count + 1
+    suffix_num = 1
+    while True:
+        # この番号が使われているかチェック (例: "[味方 1]" が含まれるかどうか)
+        target_suffix = f"[{type_jp} {suffix_num}]"
+        # 厳密な一致ではなく、suffixが含まれているかチェック (リネーム耐性)
+        if any(target_suffix in name for name in existing_names):
+            suffix_num += 1
+        else:
+            break
+    # ▲▲▲ 変更点 ▲▲▲
     displayName = f"{baseName} [{type_jp} {suffix_num}]"
     new_char_id = f"char_s_{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
     char_data['id'] = new_char_id
@@ -53,6 +63,15 @@ def handle_add_character(data):
     # === ▼▼▼ 追加: 輝化スキルとアイテムの初期化 ▼▼▼
     if 'SPassive' not in char_data:
         char_data['SPassive'] = []
+    if 'radiance_skills' not in char_data: # 新しい輝化スキルリスト
+        char_data['radiance_skills'] = []
+
+    # ★追加: シンシア (ID: 10) の爆縮バフ自動付与
+    origin_id = get_effective_origin_id(char_data)
+    if origin_id == 10:
+        # 爆縮 (Bu-09): count=8, lasting=-1 (無限)
+        apply_buff(char_data, "爆縮", -1, 0, count=8)
+
     if 'inventory' not in char_data:
         char_data['inventory'] = {}
     if 'hidden_skills' not in char_data:

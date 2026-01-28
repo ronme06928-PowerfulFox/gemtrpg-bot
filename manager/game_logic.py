@@ -2,7 +2,7 @@
 import sys
 import json
 import re # Added for regex
-from manager.utils import get_status_value, set_status_value, apply_buff, remove_buff, get_buff_stat_mod, get_buff_stat_mod_details, resolve_placeholders
+from manager.utils import get_status_value, set_status_value, apply_buff, remove_buff, get_buff_stat_mod, get_buff_stat_mod_details, resolve_placeholders, get_effective_origin_id
 from manager.buff_catalog import get_buff_effect
 from manager.logs import setup_logger
 
@@ -598,11 +598,26 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
         if category and ('物理' in category or '魔法' in category):
             senritsu_max_apply = 3 # ★修正: 最大-3まで
 
+    # ★ 追加: ヴァルヴァイレ (ID: 13) 恩恵: 被対象時、相手の威力-1
+    valvile_correction = 0
+    if target_char:
+        from manager.utils import get_effective_origin_id
+        if get_effective_origin_id(target_char) == 13:
+            valvile_correction = -1
+            bonus_power += valvile_correction
+
     skill_details['senritsu_max_apply'] = senritsu_max_apply
 
     # バフベース (攻撃威力バフなど)
     buff_bonus = calculate_buff_power_bonus(actor_char, target_char, skill_data)
     bonus_power += buff_bonus
+
+    # 綿津見 (ID: 9) ボーナス: 斬撃威力+1 (Preview用)
+    try:
+        from manager.utils import get_effective_origin_id
+        if get_effective_origin_id(actor_char) == 9 and skill_data.get('属性') == '斬撃':
+            bonus_power += 1
+    except ImportError: pass
 
     skill_details['additional_power'] = bonus_power
 
@@ -671,10 +686,15 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
         if delta_dice_pow != 0:
             correction_details.append({'source': 'ダイス威力', 'value': delta_dice_pow})
 
-    # (5) 威力補正 (Power Correction)
-    total_special_bonus = bonus_power
-    if total_special_bonus != 0:
-        correction_details.append({'source': '威力補正', 'value': total_special_bonus})
+    # (5) 威力補正 (Power Correction) - ヴァルヴァイレを除く
+    # bonus_power にはヴァルヴァイレ補正が含まれているため、表示用に除外して計算
+    display_bonus_power = bonus_power - valvile_correction
+    if display_bonus_power != 0:
+        correction_details.append({'source': '威力補正', 'value': display_bonus_power})
+
+    # (6) ヴァルヴァイレ補正
+    if valvile_correction != 0:
+        correction_details.append({'source': 'ヴァルヴァイレ恩恵', 'value': valvile_correction})
 
 
     # 4. 戦慄(Senritsu)の適用

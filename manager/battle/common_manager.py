@@ -19,6 +19,7 @@ logger = setup_logger(__name__)
 from manager.game_logic import (
     get_status_value, process_skill_effects, apply_buff, remove_buff, process_battle_start
 )
+from manager.utils import get_effective_origin_id
 import random
 
 
@@ -149,6 +150,18 @@ def process_full_round_end(room, username):
         if 'used_immediate_skills_this_round' in char: char['used_immediate_skills_this_round'] = []
         if 'used_skills_this_round' in char: char['used_skills_this_round'] = []
 
+    # ★ 追加: マホロバ (ID: 5) ラウンド終了時一括処理
+    mahoroba_targets = []
+    for char in characters_to_process:
+        if char.get('hp', 0) <= 0: continue
+        if get_effective_origin_id(char) == 5:
+             # HP回復
+             _update_char_stat(room, char, 'HP', char['hp'] + 3, username="[マホロバ恩恵]")
+             mahoroba_targets.append(char['name'])
+
+    if mahoroba_targets:
+        broadcast_log(room, f"[マホロバ恩恵] {', '.join(mahoroba_targets)} のHPが3回復しました。", 'info')
+
     state['is_round_ended'] = True
     state['turn_char_id'] = None
     state['active_match'] = None
@@ -213,6 +226,12 @@ def reset_battle_logic(room, mode, username):
                 process_battle_start(room, char)
             except Exception as e:
                 logger.error(f"process_battle_start in reset failed: {e}")
+
+            # ★ 追加: シンシア (10) の爆縮 (Bu-09) 回数リセット
+            origin_id = get_effective_origin_id(char)
+            if origin_id == 10:
+                # 既存の爆縮バフを探してカウントをリセット、なければ付与
+                apply_buff(char, "爆縮", -1, 0, count=8)
 
         state['turn_char_id'] = None
 
@@ -443,6 +462,19 @@ def process_round_start(room, username):
 
     emit('new_log', {'message': log_msg, 'type': 'info'}, room=room)
 
+    # ★ 追加: ラティウム (ID: 3) ラウンド開始時一括処理
+    # 全員のFPを+1する
+    latium_targets = []
+    for char in state.get('characters', []):
+        if char.get('hp', 0) <= 0: continue
+        if get_effective_origin_id(char) == 3:
+            current_fp = get_status_value(char, 'FP')
+            _update_char_stat(room, char, 'FP', current_fp + 1, username="[ラティウム恩恵]")
+            latium_targets.append(char['name'])
+
+    if latium_targets:
+        broadcast_log(room, f"[ラティウム恩恵] {', '.join(latium_targets)} のFPが1増加しました。", 'info')
+
     broadcast_state_update(room)
     save_specific_room_state(room)
 
@@ -492,7 +524,11 @@ def process_wide_declarations(room, wide_user_ids):
     save_specific_room_state(room)
     broadcast_state_update(room)
 
-    # Proceed to first turn
+    # 状態保存後に少し待機してからターン進行（念のため）
+    # proceed_next_turn(room)
+
+    # ★修正: Latium (ID: 3) などのターン開始時効果を確実にするため
+    # proceed_next_turn を呼び出し、その結果を確認する
     proceed_next_turn(room)
 
 def process_wide_modal_confirm(room, user_id, attribute, wide_ids):

@@ -15,10 +15,11 @@ from manager.game_logic import (
 )
 from manager.skill_effects import apply_skill_effects_bidirectional
 from manager.dice_roller import roll_dice
+from manager.utils import get_effective_origin_id
 
 from manager.battle.core import (
     format_skill_display_from_command, process_on_damage_buffs,
-    execute_pre_match_effects, proceed_next_turn
+    execute_pre_match_effects, proceed_next_turn, process_on_hit_buffs
 )
 from plugins.buffs.dodge_lock import DodgeLockBuff
 from manager.logs import setup_logger
@@ -391,6 +392,37 @@ def execute_duel_match(room, data, username):
     result_a = roll_dice(command_a)
     result_d = roll_dice(command_d)
 
+    # --- Wadatsumi (ID: 9) Bonus: Slash Power +1 ---
+    attacker_origin_id = get_effective_origin_id(actor_a_char)
+    if attacker_origin_id == 9 and skill_data_a and skill_data_a.get('属性') == '斬撃':
+         result_a['total'] += 1
+         broadcast_log(room, f"[綿津見恩恵] 斬撃威力+1 → {result_a['total']}", 'info')
+
+    # --- Walwaire (ID: 13) Logic ---
+    # マッチ相手の最終威力を-1（下限2）
+    logs = []
+
+    # 1. Attacker is Walwaire -> Defender -1
+    if attacker_origin_id == 13:
+        if result_d['total'] > 2:
+            result_d['total'] -= 1
+            logs.append(f"[ヴァルヴァイレ恩恵] 防御側の最終値 -1")
+        else:
+             logs.append(f"[ヴァルヴァイレ恩恵] 防御側の最終値 -1 (下限のため無効)")
+
+    # 2. Defender is Walwaire -> Attacker -1
+    defender_origin_id = get_effective_origin_id(actor_d_char)
+    if defender_origin_id == 13:
+        if result_a['total'] > 2:
+            result_a['total'] -= 1
+            logs.append(f"[ヴァルヴァイレ恩恵] 攻撃側の最終値 -1")
+        else:
+             logs.append(f"[ヴァルヴァイレ恩恵] 攻撃側の最終値 -1 (下限のため無効)")
+
+    if logs:
+        broadcast_log(room, ' '.join(logs), 'info')
+
+
     winner_message = ''; damage_message = ''
 
     # Store initial acted state for One-sided check
@@ -452,7 +484,8 @@ def execute_duel_match(room, data, username):
                     kiretsu = get_status_value(actor_a_char, '亀裂')
                     bonus_damage, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                     log_snippets.extend(logs)
-                    final_damage = damage + kiretsu + bonus_damage
+                    extra_hit_dmg = process_on_hit_buffs(actor_d_char, actor_a_char, damage + kiretsu + bonus_damage, log_snippets)
+                    final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
                     if any(b.get('name') == "混乱" for b in actor_a_char.get('special_buffs', [])):
                          final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS)
@@ -467,7 +500,8 @@ def execute_duel_match(room, data, username):
                     kiretsu = get_status_value(actor_d_char, '亀裂')
                     bonus_damage, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                     log_snippets.extend(logs)
-                    final_damage = damage + kiretsu + bonus_damage
+                    extra_hit_dmg = process_on_hit_buffs(actor_a_char, actor_d_char, damage + kiretsu + bonus_damage, log_snippets)
+                    final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
                     if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
                         final_damage = int(final_damage * 1.5); damage_message = f"(混乱x1.5) "
                     _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS)
@@ -533,7 +567,8 @@ def execute_duel_match(room, data, username):
 
                     log_snippets.extend(log_un + log_hit)
                     bonus_damage = bd_un + bd_hit
-                    final_damage = damage + kiretsu + bonus_damage + extra_skill_damage
+                    extra_hit_dmg = process_on_hit_buffs(actor_a_char, actor_d_char, damage + kiretsu + bonus_damage + extra_skill_damage, log_snippets)
+                    final_damage = damage + kiretsu + bonus_damage + extra_skill_damage + extra_hit_dmg
                     d_mult, logs = calculate_damage_multiplier(actor_d_char)
                     final_damage = int(final_damage * d_mult)
                     if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
@@ -567,10 +602,18 @@ def execute_duel_match(room, data, username):
             else:
                 grant_win_fp(actor_d_char)
                 winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (防御成功)"
-                _, logs = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d)
+                _, logs, _ = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d)
                 log_snippets.extend(logs)
                 damage_message = "(ダメージ 0)"
                 if log_snippets: damage_message += f" ({' '.join(log_snippets)})"
+
+                # --- Gyan Barth (ID: 8) Reflect Logic ---
+                if get_effective_origin_id(actor_d_char) == 8:
+                     diff = result_d['total'] - result_a['total']
+                     if diff > 0:
+                         curr_hp = get_status_value(actor_a_char, 'HP')
+                         _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反射ダメージ]")
+                         broadcast_log(room, f"[ギァン・バルフ恩恵] 防御勝利の余剰 {diff} ダメージを攻撃者に反射！", 'info')
 
         elif "守備" in defender_tags and defender_category == "回避":
             if result_a['total'] > result_d['total']:
@@ -662,13 +705,14 @@ def execute_duel_match(room, data, username):
 
         elif result_a['total'] > result_d['total']:
             grant_win_fp(actor_a_char)
-            damage = result_a['total']
+            damage = max(0, result_a['total'] - result_d['total'])
             if actor_d_char:
                 kiretsu = get_status_value(actor_d_char, '亀裂')
                 logger.debug(f"[NORMAL MATCH] Attacker wins. Calling apply_skill_effects_bidirectional")
                 bonus_damage, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                 log_snippets.extend(logs)
-                final_damage = damage + kiretsu + bonus_damage
+                extra_hit_dmg = process_on_hit_buffs(actor_a_char, actor_d_char, damage + kiretsu + bonus_damage, log_snippets)
+                final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
                 d_mult, logs = calculate_damage_multiplier(actor_d_char)
                 final_damage = int(final_damage * d_mult)
                 if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
@@ -686,12 +730,13 @@ def execute_duel_match(room, data, username):
 
         elif result_d['total'] > result_a['total']:
             grant_win_fp(actor_d_char)
-            damage = result_d['total']
+            damage = max(0, result_d['total'] - result_a['total'])
             if actor_a_char:
                 kiretsu = get_status_value(actor_a_char, '亀裂')
                 bonus_damage, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                 log_snippets.extend(logs)
-                final_damage = damage + kiretsu + bonus_damage
+                extra_hit_dmg = process_on_hit_buffs(actor_d_char, actor_a_char, damage + kiretsu + bonus_damage, log_snippets)
+                final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
                 d_mult, logs = calculate_damage_multiplier(actor_a_char)
                 final_damage = int(final_damage * d_mult)
                 if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
@@ -700,6 +745,14 @@ def execute_duel_match(room, data, username):
                 winner_message = f"<strong> → {actor_name_d} の勝利！</strong>"
                 display_total = final_damage + custom_dmg + buff_dmg
                 damage_message += f"({actor_a_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
+
+                # --- Gyan Barth (ID: 8) Reflect Logic ---
+                if get_effective_origin_id(actor_d_char) == 8:
+                     diff = result_d['total'] - result_a['total']
+                     if diff > 0:
+                         curr_hp = get_status_value(actor_a_char, 'HP')
+                         _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反射ダメージ]")
+                         broadcast_log(room, f"[ギァン・バルフ恩恵] 防御勝利の余剰 {diff} ダメージを攻撃者に反射！", 'info')
         else:
             winner_message = '<strong> → 引き分け！</strong> (ダメージなし)'
             # END_MATCH Effect (Simplified for Draw)

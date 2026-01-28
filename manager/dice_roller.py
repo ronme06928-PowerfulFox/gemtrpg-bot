@@ -37,8 +37,11 @@ def roll_dice(cmd_str):
         num_dice = int(match.group(1))
         num_faces = int(match.group(2))
 
-        # ダイスをロール
-        rolls = [random.randint(1, num_faces) for _ in range(num_dice)]
+        if num_faces < 1:
+            rolls = [0] * num_dice
+        else:
+            rolls = [random.randint(1, num_faces) for _ in range(num_dice)]
+
         roll_sum = sum(rolls)
         roll_details = f"({'+'.join(map(str, rolls))})"
 
