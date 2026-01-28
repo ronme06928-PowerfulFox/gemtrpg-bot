@@ -361,7 +361,7 @@
                 </div>
                 <div class="param-box">
                     <label>出身 (Origin)</label>
-                    <select id="char-origin" onchange="calculateStats()">
+                    <select id="char-origin" onchange="toggleHometown(); calculateStats()">
                         <option value="0">0: 出身なし</option>
                         <option value="1">1: ヨキューク・ツォー</option>
                         <option value="2">2: アーク・ジェムリア</option>
@@ -376,6 +376,13 @@
                         <option value="11">11: リテラール</option>
                         <option value="12">12: オーセクト</option>
                         <option value="13">13: ヴァルヴァイレ</option>
+                    </select>
+                </div>
+                <div class="param-box" id="hometown-box" style="display:none;">
+                    <label>ボーナス (Bonus)</label>
+                    <select id="char-hometown" onchange="calculateStats()">
+                        <option value="0">0: なし</option>
+                        <!-- Options will be populated by JS -->
                     </select>
                 </div>
             </div>
@@ -663,12 +670,76 @@
         let PENDING_REQUESTS = 0;
         let PENDING_RESTORE_COMMANDS = "";
 
+        const ORIGIN_LIST = [
+            { id: 1, name: "1: ヨキューク・ツォー" },
+            { id: 2, name: "2: アーク・ジェムリア" },
+            { id: 3, name: "3: ラティウム" },
+            { id: 4, name: "4: アヌッサ・ホロウ(MP+1)" },
+            { id: 5, name: "5: マホロバ" },
+            { id: 6, name: "6: ラグラゼシス/都市部 (魔法コスト+1, 情報+1)" },
+            { id: 7, name: "7: ラグラゼシス/非都市部 (経験+1, 情報-1)" },
+            { id: 8, name: "8: ギァン・バルフ" },
+            { id: 9, name: "9: 綿津見" },
+            { id: 10, name: "10: シンシア" },
+            { id: 11, name: "11: リテラール" },
+            { id: 12, name: "12: オーセクト" },
+            { id: 13, name: "13: ヴァルヴァイレ" }
+        ];
+
+        function toggleHometown() {
+            const originId = parseInt(document.getElementById('char-origin').value) || 0;
+            const hometownBox = document.getElementById('hometown-box');
+            const hometownSelect = document.getElementById('char-hometown');
+            const currentHometown = parseInt(hometownSelect.value) || 0;
+
+            // ヨキューク(1), ジェムリア(2), オーセクト(12) の場合のみ表示
+            if ([1, 2, 12].includes(originId)) {
+                hometownBox.style.display = 'flex';
+                // 選択肢を再構築 (1, 2, 12 はボーナスとして選択不可)
+                hometownSelect.innerHTML = '<option value="0">0: なし</option>';
+                ORIGIN_LIST.forEach(opt => {
+                    // 特殊3国(1, 2, 12)以外のみ選択肢に追加
+                    if (![1, 2, 12].includes(opt.id)) {
+                        const option = document.createElement('option');
+                        option.value = opt.id;
+                        option.textContent = opt.name;
+                        hometownSelect.appendChild(option);
+                    }
+                });
+
+                // 値の復元を試みる (無効な値なら0)
+                // optionが存在するかチェック
+                let found = false;
+                for (let i = 0; i < hometownSelect.options.length; i++) {
+                    if (parseInt(hometownSelect.options[i].value) === currentHometown) {
+                        found = true;
+                        break;
+                    }
+                }
+                hometownSelect.value = found ? currentHometown : 0;
+            } else {
+                hometownBox.style.display = 'none';
+                hometownSelect.value = 0;
+            }
+        }
+
+        function getBonusOriginId() {
+            const originId = parseInt(document.getElementById('char-origin').value) || 0;
+            const hometownId = parseInt(document.getElementById('char-hometown').value) || 0;
+            // 特定の国出身で、かつ故郷が設定されている(0以外)場合、ボーナスは故郷のものを使う
+            if ([1, 2, 12].includes(originId) && hometownId > 0) {
+                return hometownId;
+            }
+            return originId;
+        }
+
         window.onload = function () {
             document.querySelectorAll('.calc-trigger').forEach(el => el.addEventListener('input', calculateStats));
             document.querySelectorAll('.skill-input').forEach(el => {
                 el.addEventListener('focus', function () { this.dataset.prevValue = this.value; });
                 el.addEventListener('input', checkSkillLimitAndJSON);
             });
+            toggleHometown(); // 初期表示更新
             calculateStats();
             reloadAllData();
             loadRadianceSkills();
@@ -793,14 +864,14 @@
             const getInt = (id) => parseInt(document.getElementById(id).value) || 0;
             const baseExp = getInt('p-exp');
             const scenarioExp = getInt('p-exp-scenario');
-            const originId = getInt('char-origin');
+            const bonusOriginId = getBonusOriginId();
 
             // 1. 上限計算
             let expLimit = baseExp + scenarioExp;
-            if (originId === 7) expLimit += 1; // ラグラゼシス非都市部
+            if (bonusOriginId === 7) expLimit += 1; // ラグラゼシス非都市部
 
             let magicBonusLimit = 0;
-            if (originId === 6) magicBonusLimit = 1; // ラグラゼシス都市部
+            if (bonusOriginId === 6) magicBonusLimit = 1; // ラグラゼシス都市部
 
             // 2. 現在のスキル + 新しいスキルのコスト計算
             // 一時的なスキルリストを作成
@@ -871,11 +942,10 @@
             });
         }
 
-        // --- 情報収集技能の補正値を取得 ---
         function getInfoSkillModifier() {
-            const originId = document.getElementById('char-origin').value;
-            if (originId === "6") return 1; // 都市部: +1
-            if (originId === "7") return -1; // 非都市部: -1
+            const bonusOriginId = getBonusOriginId();
+            if (bonusOriginId === 6) return 1; // 都市部: +1
+            if (bonusOriginId === 7) return -1; // 非都市部: -1
             return 0;
         }
 
@@ -884,7 +954,7 @@
             const str = getInt('p-str'), vit = getInt('p-vit'), phy = getInt('p-phy');
             const mnt = getInt('p-mnt'), spd = getInt('p-spd'), int = getInt('p-int'), baseExp = getInt('p-exp');
             const scenarioExp = getInt('p-exp-scenario');
-            const originId = getInt('char-origin');
+            const bonusOriginId = getBonusOriginId();
             const charType = document.getElementById('char-type').value;
 
             // プレイヤーの場合のみ自動計算
@@ -894,7 +964,7 @@
                 document.getElementById('st-hp-val').value = maxHp;
 
                 let maxMp = 6 + Math.floor(mnt / 2);
-                if (originId === 4) maxMp += 1;
+                if (bonusOriginId === 4) maxMp += 1;
                 document.getElementById('st-mp-max').value = maxMp;
                 document.getElementById('st-mp-val').value = maxMp;
             }
@@ -922,11 +992,10 @@
             });
 
             // コスト計算
-            // コスト計算
             let expLimit = baseExp + scenarioExp;
             let magicBonusLimit = 0;
-            if (originId === 7) expLimit += 1;
-            if (originId === 6) magicBonusLimit = 1;
+            if (bonusOriginId === 7) expLimit += 1;
+            if (bonusOriginId === 6) magicBonusLimit = 1;
 
             let normalCostUsed = 0;
             let magicBonusUsed = 0;
@@ -1033,6 +1102,7 @@
             }
 
             params.push({ label: "出身", value: String(document.getElementById('char-origin').value) });
+            params.push({ label: "ボーナス", value: String(document.getElementById('char-hometown').value) });
 
             const status = [
                 { label: "HP", value: parseInt(document.getElementById('st-hp-val').value), max: parseInt(document.getElementById('st-hp-max').value) },
@@ -1080,16 +1150,23 @@
                                 "五感": "s-senses", "採取": "s-gather", "本能": "s-instinct", "鑑定": "s-appraise",
                                 "対話": "s-dialogue", "尋問": "s-interrogate", "諜報": "s-intel", "窃取": "s-theft",
                                 "隠密": "s-stealth", "運動": "s-athletics", "制作": "s-craft", "回避": "s-evade",
-                                "出身": "char-origin"
+                                "出身": "char-origin", "ボーナス": "char-hometown", "故郷": "char-hometown"
                             };
 
-                            // 出身を先にセット（補正計算のため）
                             const originParam = d.params.find(p => p.label === "出身");
                             if (originParam) {
                                 document.getElementById('char-origin').value = originParam.value;
                             }
+                            // 出身設定後にボーナスUIを更新
+                            toggleHometown();
 
-                            // 現在の出身地に基づいて補正値を再計算
+                            // ボーナス (旧: 故郷) の読み込み
+                            const bonusParam = d.params.find(p => p.label === "ボーナス" || p.label === "故郷");
+                            if (bonusParam) {
+                                document.getElementById('char-hometown').value = bonusParam.value;
+                            }
+
+                            // 現在の出身地(故郷含む)に基づいて補正値を再計算
                             const infoMod = getInfoSkillModifier();
                             const infoLabels = ["対話", "尋問", "諜報", "窃取"];
 
