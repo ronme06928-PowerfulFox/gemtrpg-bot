@@ -23,5 +23,5 @@ loglevel = 'info'
 proc_name = 'gemtrpg-dicebot'
 
 # ワーカー再起動の設定（メモリリーク対策）
-max_requests = 1000
+max_requests = 5000
 max_requests_jitter = 50

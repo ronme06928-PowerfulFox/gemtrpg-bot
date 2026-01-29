@@ -36,6 +36,19 @@
   * サーバーからのレスポンス（特に初回ロード時の重いデータや、Socket.IOのポーリングフォールバック時）をGzip圧縮して送信。
 * **効果**: テキストデータの転送サイズが **約1/10** に圧縮され、低帯域環境やモバイル環境でのロード時間が短縮。
 
+#### 4. 静的ファイル配信の高速化 (WhiteNoise)
+
+* **課題**: Flask標準の静的ファイル配信 (`send_from_directory`) は、Pythonコードを経由するためオーバーヘッドがあり、高負荷時にボトルネックとなりうる。
+* **対策**:
+  * `WhiteNoise` ミドルウェアを導入。Staticフォルダ内のファイル（画像、JS、CSS）を圧縮・キャッシュヘッダ付与済みの状態で、Flaskアプリケーション層をバイパスして高速に配信。
+* **効果**: 静的リソースのロード時間が短縮され、サーバーのCPUリソースを動的なAPI処理に集中させることが可能となった。
+
+#### 5. ログレベルとプロセス管理の適正化
+
+* **対策**:
+  * **ログレベル**: `app.py` にて、環境変数 `RENDER` がある場合のみ自動的に `INFO` レベルへ引き上げる設定を追加。不要なデバッグログ出力を抑制。
+  * **Gunicorn設定**: `max_requests` を `1000` から `5000` へ緩和。Eventlet使用時の不要なワーカー再起動によるWebSocket切断リスクを低減。
+
 ---
 
 ### 2.2 Frontend 最適化 (JavaScript)
@@ -68,8 +81,9 @@
 
 | カテゴリ | ファイルパス | 主な変更点 |
 | :--- | :--- | :--- |
-| **Backend** | `app.py` | `Flask-Compress` 初期化追加 |
-| | `requirements.txt` | `Flask-Compress` 追加 |
+| **Backend** | `app.py` | `Flask-Compress`, `WhiteNoise` 初期化、ログレベル自動切替 |
+| | `requirements.txt` | `Flask-Compress`, `whitenoise` 追加 |
+| | `gunicorn_config.py` | `max_requests` 緩和 (1000->5000) |
 | | `manager/room_manager.py` | `broadcast_log` に `save` 引数追加 |
 | | `manager/battle/duel_solver.py` | バッチ保存対応、不要なブロードキャスト抑制 |
 | | `manager/battle/wide_solver.py` | バッチ保存対応、差分更新イベント実装 |

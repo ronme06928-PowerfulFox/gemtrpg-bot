@@ -2,8 +2,9 @@ import os
 import logging
 
 # ロギング設定 - DEBUGレベルのログを有効化
+log_level = logging.INFO if 'RENDER' in os.environ else logging.DEBUG
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=log_level,
     format='%(asctime)s [%(levelname)s] %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
@@ -23,6 +24,7 @@ IS_RENDER = 'RENDER' in os.environ
 from flask import Flask, jsonify, request, send_from_directory, session
 from flask_cors import CORS
 from flask_compress import Compress # 追加: 圧縮転送用ライブラリ
+from whitenoise import WhiteNoise # 追加: 静的ファイル配信高速化
 
 # ★ 拡張機能（共有インスタンス）のインポート
 from extensions import db, socketio, active_room_states, all_skill_data
@@ -59,9 +61,13 @@ if os.path.exists(load_dotenv_path):
 
 app = Flask(__name__, static_folder=None)
 app.config['JSON_AS_ASCII'] = False
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_insecure_key')
+app.config['SECRET_KEY'] = 'gem_trpg_secret_key' # SECRET_KEYを直接設定
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///gemtrpg.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# ★ WhiteNoise設定: Staticファイル配信の高速化
+# Flaskを通さずに直接配信することでCPU負荷を低減
+app.wsgi_app = WhiteNoise(app.wsgi_app, root=os.path.join(app.root_path, 'static'), prefix='static/')
 
 # データベース接続プールの設定（PostgreSQL SSL接続切断対策）
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
