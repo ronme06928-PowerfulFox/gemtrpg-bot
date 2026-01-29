@@ -83,6 +83,13 @@ def get_room_state(room_name):
     except Exception as e:
         logger.error(f"Error fetching owner_id: {e}")
 
+    # ★ Phase 13: 権限チェック整合性のため、owner_id を注入
+    if 'character_owners' in state and 'characters' in state:
+        owners = state['character_owners']
+        for char in state['characters']:
+            if char['id'] in owners:
+                char['owner_id'] = owners[char['id']]
+
     return state
 
 def save_specific_room_state(room_name):
@@ -97,6 +104,14 @@ def save_specific_room_state(room_name):
 def broadcast_state_update(room_name):
     state = get_room_state(room_name)
     if state:
+        # ★ Phase 13: 権限チェックのために owner_id をキャラクタデータに注入
+        # (注: get_room_state内でも注入されるが、念のため二重チェック)
+        if 'character_owners' in state and 'characters' in state:
+            owners = state['character_owners']
+            for char in state['characters']:
+                if char['id'] in owners:
+                    char['owner_id'] = owners[char['id']]
+
         socketio.emit('state_updated', state, to=room_name)
 
 # ▼▼▼ 修正箇所: secret 引数対応版のみにする ▼▼▼

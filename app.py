@@ -163,9 +163,13 @@ def admin_get_user_details():
 @app.route('/api/get_session_user', methods=['GET'])
 def get_session_user():
     if 'username' in session:
-        return jsonify({"username": session.get('username'), "attribute": session.get('attribute')})
+        username = session.get('username')
+        attribute = session.get('attribute')
+        user_id = session.get('user_id')
+        logging.info(f"[SESSION CHECK] User: {username}, Attribute: {attribute}, UserID: {user_id}")
+        return jsonify({"username": username, "attribute": attribute, "user_id": user_id})
     else:
-        return jsonify({"username": None, "attribute": None}), 401
+        return jsonify({"username": None, "attribute": None, "user_id": None}), 401
 
 @app.route('/list_rooms', methods=['GET'])
 @session_required

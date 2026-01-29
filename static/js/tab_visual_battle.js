@@ -179,6 +179,18 @@ async function setupVisualBattleTab() {
                 console.log("✅ Socket connected (tab_visual_battle)");
             });
 
+            // ★ デバッグ用: 全てのSocket.IOイベントをログ出力
+            const originalOnevent = socket.onevent;
+            socket.onevent = function (packet) {
+                const args = packet.data || [];
+                const eventName = args[0];
+                // state_updated以外の全イベントをログ
+                if (eventName !== 'char:stat:updated') {
+                    console.log(`[🔔 SOCKET EVENT] "${eventName}"`, args.length > 1 ? args[1] : '');
+                }
+                originalOnevent.call(this, packet);
+            };
+
         } // End inner socket check
 
         // 2. DOM初期化: タブ切り替えのたびに実行（DOM要素が再作成されるため）
@@ -458,7 +470,16 @@ async function setupVisualBattleTab() {
             // D. 通常1vs1対決UI更新
             if (data.prefix === 'visual_attacker' || data.prefix === 'visual_defender') {
                 const side = data.prefix.replace('visual_', '');
-                if (typeof updateDuelUI === 'function') updateDuelUI(side, { ...data, enableButton: true });
+
+                // ★ 権限チェック: キャラクターの所有者またはGMのみがボタンを使用可能
+                const charId = side === 'attacker' ? battleState.active_match?.attacker_id : battleState.active_match?.defender_id;
+                const canControl = charId ? canControlCharacter(charId) : false;
+
+                console.log(`[skill_declaration_result] ${side} side, charId: ${charId}, canControl: ${canControl}`);
+
+                if (typeof updateDuelUI === 'function') {
+                    updateDuelUI(side, { ...data, enableButton: canControl });
+                }
             }
         });
     }
@@ -1876,7 +1897,7 @@ function renderMatchPanelFromState(matchData) {
         // Normal Duel
         document.getElementById('wide-match-container').style.display = 'none';
         document.querySelector('.duel-container').style.display = 'flex'; // Flex layout
-        renderDuelPanelFromState(matchData);
+        // renderDuelPanelFromState is handled by updateMatchPanelContent below
     }
     // マッチがアクティブで、パネルが折りたたまれている場合は展開
     // （ただし、ユーザーが手動で閉じた可能性もあるため、初回のみ展開）
@@ -2092,6 +2113,7 @@ window.renderCharacterStatsBar = function (char, containerOrId, options = {}) {
 // マッチパネルの内容を matchData に基づいて更新
 function updateMatchPanelContent(matchData) {
     console.log('[MatchPanel] Updating content:', matchData);
+
     ['attacker', 'defender'].forEach(side => {
         const sideData = matchData[`${side}_data`];
         const isDeclared = matchData[`${side}_declared`] || false;
@@ -2141,6 +2163,14 @@ function updateMatchPanelContent(matchData) {
                 if (skillSelect && skillSelect.options.length <= 1 && correctChar && correctChar.commands) {
                     console.log(`[Sync] Repopulating skills for ${side}`);
                     populateCharSkillSelect(correctChar, `duel-${side}-skill`);
+                }
+
+                // ★ スキル選択の同期: sideData.skill_id がある場合はプルダウンを更新
+                if (skillSelect && sideData && sideData.skill_id) {
+                    if (skillSelect.value !== sideData.skill_id) {
+                        console.log(`[Sync] Updating skill selection for ${side}: ${skillSelect.value} -> ${sideData.skill_id}`);
+                        skillSelect.value = sideData.skill_id;
+                    }
                 }
             }
 
@@ -2221,12 +2251,13 @@ function updateMatchPanelContent(matchData) {
                 else duelState.defenderCommand = sideData.final_command;
             }
 
-            // スキル選択の復元
+            // ★ スキル選択の同期（計算時に他のユーザーにも反映）
             if (sideData.skill_id) {
                 const skillSelect = document.getElementById(`duel-${side}-skill`);
                 if (skillSelect) {
-                    // 値が異なる場合のみセット
+                    // 値が異なる場合のみセット（同期）
                     if (skillSelect.value !== sideData.skill_id) {
+                        console.log(`[Sync] Updating skill selection for ${side}: ${skillSelect.value} -> ${sideData.skill_id}`);
                         skillSelect.value = sideData.skill_id;
                     }
                     // 詳細更新
@@ -2267,7 +2298,10 @@ function updateMatchPanelContent(matchData) {
             else duelState.defenderLocked = true;
         } else {
             // 未宣言 → 権限チェック
+            console.log(`[updateMatchPanelContent] Checking permissions for ${side}, charId: ${charId}`);
             const canControl = canControlCharacter(charId);
+            console.log(`[updateMatchPanelContent] canControl result for ${side}: ${canControl}`);
+
 
             // ★ Phase 12: local cache からの復元チェック (他人の宣言による同期で自分の計算結果が消えるのを防ぐ)
             const skillSelect = document.getElementById(`duel-${side}-skill`);
@@ -2291,9 +2325,16 @@ function updateMatchPanelContent(matchData) {
                 declareBtn.textContent = '宣言';
                 declareBtn.classList.remove('locked');
                 declareBtn.disabled = !(hasCalcResult && canControl);
+                console.log(`[updateMatchPanelContent] ${side} declareBtn.disabled = ${declareBtn.disabled} (hasCalcResult: ${hasCalcResult}, canControl: ${canControl})`);
             }
-            if (calcBtn) calcBtn.disabled = !canControl;
-            if (skillSelect) skillSelect.disabled = !canControl;
+            if (calcBtn) {
+                calcBtn.disabled = !canControl;
+                console.log(`[updateMatchPanelContent] ${side} calcBtn.disabled = ${calcBtn.disabled}`);
+            }
+            if (skillSelect) {
+                skillSelect.disabled = !canControl;
+                console.log(`[updateMatchPanelContent] ${side} skillSelect.disabled = ${skillSelect.disabled}`);
+            }
             if (side === 'attacker') duelState.attackerLocked = false;
             else duelState.defenderLocked = false;
         }
@@ -2474,6 +2515,13 @@ function reloadMatchPanel() {
 }
 
 function closeMatchPanel(emitSync = false) {
+    // ★ 権限監視インターバルを停止
+    if (window._permissionEnforcerInterval) {
+        clearInterval(window._permissionEnforcerInterval);
+        window._permissionEnforcerInterval = null;
+        console.log('[PERMISSION ENFORCER] Stopped monitoring');
+    }
+
     // Clear panel content
     clearMatchPanelContent();
 
@@ -2824,6 +2872,15 @@ function updateDuelUI(side, data) {
     // ★追加: 詳細表示エリアの更新処理
     const descArea = document.getElementById(`duel-${side}-skill-desc`);
 
+    // ★★ スキル選択の同期（計算時にドロップダウンを更新）
+    if (data.skill_id) {
+        const skillSelect = document.getElementById(`duel-${side}-skill`);
+        if (skillSelect && skillSelect.value !== data.skill_id) {
+            console.log(`[updateDuelUI] Syncing skill selection for ${side}: ${skillSelect.value} -> ${data.skill_id}`);
+            skillSelect.value = data.skill_id;
+        }
+    }
+
     if (data.error) {
         cmdEl.textContent = "Error";
         dmgEl.textContent = data.final_command;
@@ -2920,11 +2977,25 @@ function updateDuelUI(side, data) {
 
 // 権限チェックヘルパー
 function canControlCharacter(charId) {
-    if (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM') return true;
+    console.log(`[PERMISSION CHECK - ENTRY] CharID: ${charId}, currentUserAttribute: ${currentUserAttribute}`);
+    if (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM') {
+        console.log(`[PERMISSION CHECK - GM BYPASS] Returning true because user is GM`);
+        return true;
+    }
     if (typeof battleState === 'undefined' || !battleState.characters) return false;
     const char = battleState.characters.find(c => c.id === charId);
+
+    // Debug logging
+    console.log(`[PERMISSION CHECK] CharID: ${charId}, CharName: ${char ? char.name : 'NOT FOUND'}, Owner: ${char ? char.owner : 'N/A'}, OwnerID: ${char ? char.owner_id : 'N/A'}, CurrentUser: ${currentUsername}, CurrentUserID: ${currentUserId}, UserAttribute: ${currentUserAttribute}`);
+
     // currentUserId check covers most cases, username is fallback
-    return char && (char.owner === currentUsername || (typeof currentUserId !== 'undefined' && char.owner_id === currentUserId));
+    // ★ 修正: owner_id が未定義の場合の誤判定を防ぐ
+    const idMatch = (typeof currentUserId !== 'undefined' && char && char.owner_id && char.owner_id === currentUserId);
+    const nameMatch = (char && char.owner === currentUsername);
+
+    console.log(`[PERMISSION CHECK] ID Match: ${idMatch}, Name Match: ${nameMatch}, Result: ${idMatch || nameMatch}`);
+
+    return idMatch || nameMatch;
 }
 
 // ★ 追加: 同期データを受信してUIを更新
