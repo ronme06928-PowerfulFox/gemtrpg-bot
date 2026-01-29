@@ -1,4 +1,5 @@
 Flask
+Flask-Compress
 Flask-Cors
 Flask-SocketIO
 Flask-SQLAlchemy

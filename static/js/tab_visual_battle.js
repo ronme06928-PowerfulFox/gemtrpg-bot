@@ -161,16 +161,25 @@ async function setupVisualBattleTab() {
 
 
     if (typeof socket !== 'undefined') {
-        console.log('📡 socket is defined, setting up handlers');
+        // --- Socket Events ---
+        // Socket events (state_updated, etc.) are already handled globally by SocketClient.js
+        // OR we register specific listeners here if needed.
+        // In this app, socket_main.js or similar usually sets up global listeners.
+        // But for visual battle specific updates:
 
-        // 1. 重複防止: 一度だけ登録すればよいイベント (socket handlers)
-        if (!window.visualBattleSocketHandlersRegistered) {
+        if (typeof socket !== 'undefined') {
+            console.log("📡 Registering socket event handlers");
 
-            window.visualBattleSocketHandlersRegistered = true;
-            console.log('📡 Registering socket event handlers');
+            // ★ Phase 9: Wide Match Differential Updates
+            if (typeof window.initWideMatchSocketListeners === 'function') {
+                window.initWideMatchSocketListeners();
+            }
 
-            // Socket handlers are registered below (state_updated, etc.)
-        }
+            socket.on('connect', () => {
+                console.log("✅ Socket connected (tab_visual_battle)");
+            });
+
+        } // End inner socket check
 
         // 2. DOM初期化: タブ切り替えのたびに実行（DOM要素が再作成されるため）
         if (!window.actionDockInitialized && typeof initializeActionDock === 'function') {
@@ -1827,9 +1836,9 @@ function generateStatusIconsHTML(char) {
 // ★ Cache for match state to prevent redundant renders
 let _lastRenderedMatchStateStr = "";
 
-function renderMatchPanelFromState(match) {
+function renderMatchPanelFromState(matchData) {
     // 1. マッチがない、または非アクティブな場合
-    if (!match || !match.is_active) {
+    if (!matchData || !matchData.is_active) {
         // パネルを閉じる処理（既に閉じているなら何もしない）
         const panel = document.getElementById('match-panel');
         if (panel && !panel.classList.contains('collapsed')) {
@@ -1845,7 +1854,7 @@ function renderMatchPanelFromState(match) {
 
     // 2. 変更検知 (Deep Compare via JSON string)
     // ログ更新などで頻繁に呼ばれるため、マッチデータが変わっていないなら再描画しない
-    const currentMatchStr = JSON.stringify(match);
+    const currentMatchStr = JSON.stringify(matchData);
     if (currentMatchStr === _lastRenderedMatchStateStr) {
         // console.log("⏩ Skipping match panel render (no change)");
         return;
@@ -1857,17 +1866,17 @@ function renderMatchPanelFromState(match) {
     if (panel) panel.classList.remove('collapsed');
 
     // 3. マッチタイプごとの描画
-    if (match.match_type === 'wide') {
+    if (matchData.match_type === 'wide') {
         document.querySelector('.duel-container').style.display = 'none';
         // wide_match_synced.js の関数を呼び出し
         if (typeof populateWideMatchPanel === 'function') {
-            populateWideMatchPanel(match);
+            populateWideMatchPanel(matchData);
         }
     } else {
         // Normal Duel
         document.getElementById('wide-match-container').style.display = 'none';
         document.querySelector('.duel-container').style.display = 'flex'; // Flex layout
-        renderDuelPanelFromState(match);
+        renderDuelPanelFromState(matchData);
     }
     // マッチがアクティブで、パネルが折りたたまれている場合は展開
     // （ただし、ユーザーが手動で閉じた可能性もあるため、初回のみ展開）

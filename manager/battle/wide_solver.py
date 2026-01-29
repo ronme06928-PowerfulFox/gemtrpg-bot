@@ -111,11 +111,13 @@ def update_defender_declaration(room, data):
 
     if updated:
         save_specific_room_state(room)
-        broadcast_state_update(room) # Force full UI refresh
-        # 部分更新通知 (Keep for specific animations if any)
+        # broadcast_state_update(room) # ★ 修正: 全データ送信を停止 (差分更新イベントのみ送信)
+
+        # 部分更新通知
         socketio.emit('wide_defender_updated', {
             'defender_id': defender_id,
-            'declared': True
+            'declared': True,
+            'data': d['data'] # ★ 追加: 描画に必要な詳細データ
         }, to=room)
 
 def update_attacker_declaration(room, data):
@@ -131,9 +133,12 @@ def update_attacker_declaration(room, data):
     active_match['attacker_data'] = data
 
     save_specific_room_state(room)
-    broadcast_state_update(room) # Force full UI refresh
+    # broadcast_state_update(room) # ★ 修正: 全データ送信を停止
+
     socketio.emit('wide_attacker_updated', {
-        'declared': True
+        'declared': True,
+        'attacker_id': data.get('attacker_id'),
+        'data': active_match['attacker_data'] # ★ 追加
     }, to=room)
 
 

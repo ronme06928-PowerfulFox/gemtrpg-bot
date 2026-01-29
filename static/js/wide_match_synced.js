@@ -64,6 +64,126 @@
     };
 
     // ============================================
+    // Phase 9: Differential Updates (Latency Optimization)
+    // ============================================
+    // Socket初期化後に呼び出すための関数
+    window.initWideMatchSocketListeners = function () {
+        if (typeof socket === 'undefined') {
+            console.warn("⚠️ socket is undefined in initWideMatchSocketListeners");
+            return;
+        }
+        console.log("📡 Initializing Wide Match Differential Listeners");
+
+        // これらのリスナーは初期化時に一度だけ登録されるべきですが、
+        // wide_match_synced.js は通常読み込みっぱなしなのでここで登録します。
+        // 二重登録防止のため、フラグチェックをするか、既に登録済みならoffしてからonします。
+
+        socket.off('wide_defender_updated');
+        socket.on('wide_defender_updated', function (data) {
+            // console.log("⚡ wide_defender_updated received:", data);
+            var defId = data.defender_id;
+
+            // 1. Update button state in UI
+            var btn = document.querySelector('.wide-def-declare-btn[data-def-id="' + defId + '"]');
+            var statusSpan = document.getElementById('wide-def-status-' + defId);
+
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '宣言済';
+                btn.classList.add('locked');
+            }
+            if (statusSpan) {
+                statusSpan.textContent = '宣言完了';
+                statusSpan.style.color = 'green';
+                statusSpan.style.fontWeight = 'bold';
+            }
+
+            // 2. Update local battleState (Optimistic / Consistency)
+            // これをしておかないと、別の要因で populateWideMatchPanel が呼ばれた時に
+            // ボタンが「未宣言」に戻ってしまう（Full Stateが来るまでは）。
+            if (window.battleState && window.battleState.active_match) {
+                if (window.battleState.active_match.defenders) {
+                    // 型変換して比較 (defIdは文字列で来る可能性が高いが、state内は数値の可能性も)
+                    var def = window.battleState.active_match.defenders.find(function (d) { return String(d.id) === String(defId); });
+                    if (def) {
+                        def.declared = true;
+                        // ★ data (command詳細) もマージ
+                        if (data.data) {
+                            def.data = data.data;
+                        }
+
+                        // ★ 完全な再描画を行う (緑色のスタイルなどを適用するため)
+                        if (typeof window.populateWideMatchPanel === 'function') {
+                            window.populateWideMatchPanel(window.battleState.active_match);
+                        }
+                    } else {
+                        console.warn("⚠️ defender not found in local state:", defId);
+                    }
+                } else {
+                    console.warn("⚠️ battleState.active_match.defenders is missing");
+                }
+            } else {
+                console.warn("⚠️ battleState or active_match is missing");
+            }
+
+            // 3. Check execution state
+            // battleState.active_match を更新したので、それを渡してチェック
+            if (window.battleState && window.battleState.active_match) {
+                if (window.updateWideExecuteButtonState) {
+                    window.updateWideExecuteButtonState(window.battleState.active_match);
+                }
+            }
+        });
+
+        socket.off('wide_attacker_updated');
+        socket.on('wide_attacker_updated', function (data) {
+            // console.log("⚡ wide_attacker_updated received:", data);
+
+            // 1. Update UI
+            var declareBtn = document.getElementById('wide-attacker-declare-btn');
+            var calcBtn = document.getElementById('wide-attacker-calc-btn');
+
+            if (declareBtn) {
+                declareBtn.disabled = true;
+                declareBtn.textContent = '宣言済';
+            }
+            if (calcBtn) {
+                calcBtn.disabled = true;
+            }
+
+            // 2. Update local state
+            if (window.battleState && window.battleState.active_match) {
+                window.battleState.active_match.attacker_declared = true;
+
+                // ★ data (command詳細) もマージ
+                if (data.data) {
+                    window.battleState.active_match.attacker_data = data.data;
+                }
+
+                // data.attacker_id がある場合、念のためチェック
+                if (data.attacker_id && String(window.battleState.active_match.attacker_id) !== String(data.attacker_id)) {
+                    console.warn("⚠️ Attacker ID mismatch in event vs local state");
+                }
+
+                // ★ 完全な再描画を行う
+                if (typeof window.populateWideMatchPanel === 'function') {
+                    window.populateWideMatchPanel(window.battleState.active_match);
+                }
+
+            } else {
+                console.warn("⚠️ battleState or active_match is missing (Attacker)");
+            }
+
+            // 3. Execution Check
+            if (window.battleState && window.battleState.active_match) {
+                if (window.updateWideExecuteButtonState) {
+                    window.updateWideExecuteButtonState(window.battleState.active_match);
+                }
+            }
+        });
+    };
+
+    // ============================================
     // Populate Wide Match Panel
     // ============================================
     window.populateWideMatchPanel = function (matchData) {

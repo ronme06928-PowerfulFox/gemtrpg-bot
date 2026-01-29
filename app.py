@@ -22,6 +22,7 @@ IS_RENDER = 'RENDER' in os.environ
 
 from flask import Flask, jsonify, request, send_from_directory, session
 from flask_cors import CORS
+from flask_compress import Compress # 追加: 圧縮転送用ライブラリ
 
 # ★ 拡張機能（共有インスタンス）のインポート
 from extensions import db, socketio, active_room_states, all_skill_data
@@ -82,6 +83,7 @@ cloudinary.config(
 
 # === 初期化 ===
 CORS(app, supports_credentials=True)
+Compress(app) # 追加: 圧縮転送の有効化 (デフォルトでGzip圧縮)
 db.init_app(app)
 
 async_mode = 'eventlet' if IS_RENDER else 'threading'
