@@ -365,16 +365,28 @@ def execute_wide_match(room, username):
 
             # --- Gyan Barth (ID: 8) Reflect Logic (Combined) ---
             # 防御側勝利時、余剰ダメージを反射
-            # 誰か一人がGyan Barthなら発動するか？全員？
-            # 統合判定では「防御側グループ」が勝利したので、反射もグループとして1回発生とみなすのが自然
-            # ただし発動条件は「Gyan Barth出身者がいること」。
-            # ダメージソースは「余剰分」。攻撃者に与える。
-            # 複数人いても1回のみ（重複記述なし、通常は重複しないのが安全）。
-            if any(get_effective_origin_id(d['char']) == 8 for d in defender_rolls): # Use dr['char'] correct context
+            # 条件: Gyan Barth出身者がおり、かつそのキャラクターが「防御スキル」を使用していること
+
+            # 1. バルフ出身かつ防御スキルの使用者がいるかチェック
+            reflector = None
+            for dr in defender_rolls:
+                char = dr['char']
+                if get_effective_origin_id(char) == 8:
+                    # Check skill type
+                    sid = dr.get('skill_id')
+                    sdata = all_skill_data.get(sid)
+                    if sdata:
+                        cat = sdata.get('分類', '')
+                        tags = sdata.get('tags', [])
+                        if cat == '防御' or '防御' in tags or '守備' in tags:
+                            reflector = char
+                            break
+
+            if reflector:
                 if diff > 0:
                      curr_hp = get_status_value(attacker_char, 'HP')
                      _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[反射ダメージ]")
-                     broadcast_log(room, f"[ギァン・バルフ恩恵] 防御勝利の余剰 {diff} ダメージを攻撃者に反射！", 'info')
+                     broadcast_log(room, f"[ギァン・バルフ恩恵] {reflector['name']}が余剰 {diff} ダメージを攻撃者に反射！", 'info')
 
         else:
             broadcast_log(room, f"   → 引き分け", 'match-result')

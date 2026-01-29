@@ -748,11 +748,21 @@ def execute_duel_match(room, data, username):
 
                 # --- Gyan Barth (ID: 8) Reflect Logic ---
                 if get_effective_origin_id(actor_d_char) == 8:
-                     diff = result_d['total'] - result_a['total']
-                     if diff > 0:
-                         curr_hp = get_status_value(actor_a_char, 'HP')
-                         _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反射ダメージ]")
-                         broadcast_log(room, f"[ギァン・バルフ恩恵] 防御勝利の余剰 {diff} ダメージを攻撃者に反射！", 'info')
+                     # 恩恵の発動条件: 「防御スキル」で勝利した時
+                     # skill_data_d の分類 or tags に "防御" or "守備" が含まれるか確認
+                     is_defense_skill = False
+                     if skill_data_d:
+                         d_cat = skill_data_d.get('分類', '')
+                         d_tags = skill_data_d.get('tags', [])
+                         if d_cat == '防御' or '防御' in d_tags or '守備' in d_tags:
+                             is_defense_skill = True
+
+                     if is_defense_skill:
+                         diff = result_d['total'] - result_a['total']
+                         if diff > 0:
+                             curr_hp = get_status_value(actor_a_char, 'HP')
+                             _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反射ダメージ]")
+                             broadcast_log(room, f"[ギァン・バルフ恩恵] 防御勝利の余剰 {diff} ダメージを攻撃者に反射！", 'info')
         else:
             winner_message = '<strong> → 引き分け！</strong> (ダメージなし)'
             # END_MATCH Effect (Simplified for Draw)
