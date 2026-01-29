@@ -98,6 +98,8 @@ function exitAttackTargetingMode() {
     });
 }
 
+const VISUAL_MAX_LOG_ITEMS = 200;
+
 // --- ログ描画ヘルパー ---
 function appendVisualLogLine(container, logData, filterType) {
     const isChat = logData.type === 'chat';
@@ -126,6 +128,11 @@ function appendVisualLogLine(container, logData, filterType) {
     logLine.style.padding = "2px 5px";
     logLine.style.fontSize = "0.9em";
     container.appendChild(logLine);
+
+    // ★ DOM要素数制限
+    while (container.children.length > VISUAL_MAX_LOG_ITEMS) {
+        container.removeChild(container.firstElementChild);
+    }
 }
 
 function renderVisualLogHistory(logs) {
@@ -458,6 +465,17 @@ async function setupVisualBattleTab() {
             if (battleState && battleState.logs) renderVisualLogHistory(battleState.logs);
         };
     });
+
+    const vHistoryBtn = document.getElementById('visual-show-history-btn');
+    if (vHistoryBtn) {
+        vHistoryBtn.onclick = () => {
+            if (typeof openVisualLogHistoryModal === 'function') {
+                openVisualLogHistoryModal();
+            } else {
+                console.warn('openVisualLogHistoryModal not defined');
+            }
+        };
+    }
 
     if (typeof battleState !== 'undefined' && battleState.logs) renderVisualLogHistory(battleState.logs);
 
@@ -3451,4 +3469,75 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // タイムアウト (5秒)
     setTimeout(() => clearInterval(checkInterval), 5000);
+    // タイムアウト (5秒)
+    setTimeout(() => clearInterval(checkInterval), 5000);
 });
+
+function openVisualLogHistoryModal() {
+    const existing = document.getElementById('visual-log-history-modal-backdrop');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'visual-log-history-modal-backdrop';
+    overlay.className = 'modal-backdrop';
+
+    const content = `
+        <div class="modal-content" style="width: 800px; height: 80vh; display: flex; flex-direction: column; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="margin: 0;">📜 全ログ履歴 (All Logs - Visual)</h3>
+                <button id="close-history-btn-visual" style="padding: 5px 15px; cursor: pointer;">閉じる</button>
+            </div>
+            <div id="visual-full-history-container" style="flex-grow: 1; overflow-y: auto; background: #fff; border: 1px solid #ddd; padding: 10px;">
+                <p>ログを読み込み中...</p>
+            </div>
+        </div>
+    `;
+    overlay.innerHTML = content;
+    document.body.appendChild(overlay);
+
+    document.getElementById('close-history-btn-visual').onclick = () => overlay.remove();
+
+    setTimeout(() => {
+        const container = document.getElementById('visual-full-history-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (!battleState || !battleState.logs || battleState.logs.length === 0) {
+            container.innerHTML = '<p>ログはありません。</p>';
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+
+        battleState.logs.forEach(logData => {
+            const div = document.createElement('div');
+            let className = `log-line ${logData.type}`;
+            let displayMessage = logData.message;
+
+            if (logData.secret) {
+                className += ' secret-log';
+                const isSender = (typeof currentUsername !== 'undefined' && logData.user === currentUsername);
+                const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
+                if (isGM || isSender) {
+                    displayMessage = `<span class="secret-mark">[SECRET]</span> ${logData.message}`;
+                } else {
+                    displayMessage = `<span class="secret-masked">（シークレットダイス）</span>`;
+                }
+            }
+            div.className = className;
+            if (logData.type === 'chat' && !logData.secret) {
+                div.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
+            } else {
+                div.innerHTML = displayMessage;
+            }
+            div.style.borderBottom = "1px dotted #eee";
+            div.style.padding = "2px 5px";
+            div.style.fontSize = "0.9em";
+
+            fragment.appendChild(div);
+        });
+
+        container.appendChild(fragment);
+        container.scrollTop = container.scrollHeight;
+    }, 50);
+}

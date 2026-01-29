@@ -105,6 +105,9 @@ function logToBattleLog(logData) {
     }
 }
 
+// ログ表示数の上限
+const MAX_LOG_ITEMS = 200;
+
 // ログ1行を生成して要素に追加するヘルパー関数
 function appendLogLineToElement(container, logData, filterType) {
     const isChat = logData.type === 'chat';
@@ -144,6 +147,12 @@ function appendLogLineToElement(container, logData, filterType) {
     logLine.style.fontSize = "0.9em";
 
     container.appendChild(logLine);
+
+    // ★ DOM要素数制限: 古いログを削除
+    while (container.children.length > MAX_LOG_ITEMS) {
+        container.removeChild(container.firstElementChild);
+    }
+
     container.scrollTop = container.scrollHeight;
 }
 
@@ -1013,6 +1022,19 @@ function setupBattlefieldTab() {
         });
     });
 
+
+    const showHistoryBtn = document.getElementById('show-history-btn');
+    if (showHistoryBtn && !showHistoryBtn.dataset.listenerAttached) {
+        showHistoryBtn.dataset.listenerAttached = 'true';
+        showHistoryBtn.addEventListener('click', () => {
+            if (typeof openLogHistoryModal === 'function') {
+                openLogHistoryModal();
+            } else {
+                alert('機能読み込み中...');
+            }
+        });
+    }
+
     window.attackerCol = setupActionColumn('attacker');
     window.defenderCol = setupActionColumn('defender');
 
@@ -1430,6 +1452,79 @@ function setupBattlefieldTab() {
             }
         });
     }
+}
+
+function openLogHistoryModal() {
+    // 既存のモーダルがあれば削除
+    const existing = document.getElementById('log-history-modal-backdrop');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'log-history-modal-backdrop';
+    overlay.className = 'modal-backdrop';
+
+    // コンテンツ構築
+    const content = `
+        <div class="modal-content" style="width: 800px; height: 80vh; display: flex; flex-direction: column; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="margin: 0;">📜 全ログ履歴 (All Logs)</h3>
+                <button id="close-history-btn" style="padding: 5px 15px; cursor: pointer;">閉じる</button>
+            </div>
+            <div id="full-history-container" style="flex-grow: 1; overflow-y: auto; background: #fff; border: 1px solid #ddd; padding: 10px;">
+                <p>ログを読み込み中...</p>
+            </div>
+        </div>
+    `;
+    overlay.innerHTML = content;
+    document.body.appendChild(overlay);
+
+    // イベント設定
+    document.getElementById('close-history-btn').onclick = () => overlay.remove();
+
+    // ログ描画 (非同期で少し待ってから描画してUIブロックを防ぐ)
+    setTimeout(() => {
+        const container = document.getElementById('full-history-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (!battleState || !battleState.logs || battleState.logs.length === 0) {
+            container.innerHTML = '<p>ログはありません。</p>';
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+
+        battleState.logs.forEach(logData => {
+            const div = document.createElement('div');
+            let className = `log-line ${logData.type}`;
+            let displayMessage = logData.message;
+
+            if (logData.secret) {
+                className += ' secret-log';
+                const isSender = (logData.user === currentUsername);
+                const isGM = (currentUserAttribute === 'GM');
+                if (isGM || isSender) {
+                    displayMessage = `<span class="secret-mark">[SECRET]</span> ${logData.message}`;
+                } else {
+                    displayMessage = `<span class="secret-masked">（シークレットダイス）</span>`;
+                }
+            }
+            div.className = className;
+            if (logData.type === 'chat' && !logData.secret) {
+                div.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
+            } else {
+                div.innerHTML = displayMessage;
+            }
+            div.style.borderBottom = "1px dotted #eee";
+            div.style.padding = "2px 5px";
+            div.style.fontSize = "0.9em";
+
+            fragment.appendChild(div);
+        });
+
+        container.appendChild(fragment);
+        container.scrollTop = container.scrollHeight;
+    }, 50);
 }
 
 if (typeof fetchSkillMetadata === "function") {

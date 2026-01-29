@@ -358,8 +358,8 @@ def execute_wide_match(room, username):
 
             current_hp = get_status_value(attacker_char, 'HP')
             new_hp = max(0, current_hp - diff)
-            _update_char_stat(room, attacker_char, 'HP', new_hp, username="[防御者勝利]")
-            broadcast_log(room, f"   → {attacker_char['name']} に {diff} ダメージ", 'damage')
+            _update_char_stat(room, attacker_char, 'HP', new_hp, username="[防御者勝利]", save=False)
+            broadcast_log(room, f"   → {attacker_char['name']} に {diff} ダメージ", 'damage', save=False)
             for dr in defender_rolls:
                 results.append({'defender': dr['char']['name'], 'result': 'lose', 'damage': diff})
 
@@ -385,8 +385,8 @@ def execute_wide_match(room, username):
             if reflector:
                 if diff > 0:
                      curr_hp = get_status_value(attacker_char, 'HP')
-                     _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[反射ダメージ]")
-                     broadcast_log(room, f"[ギァン・バルフ恩恵] {reflector['name']}が余剰 {diff} ダメージを攻撃者に反射！", 'info')
+                     _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[反射ダメージ]", save=False)
+                     broadcast_log(room, f"[ギァン・バルフ恩恵] {reflector['name']}が余剰 {diff} ダメージを攻撃者に反射！", 'info', save=False)
 
         else:
             broadcast_log(room, f"   → 引き分け", 'match-result')
@@ -421,7 +421,7 @@ def execute_wide_match(room, username):
                       bp = int(def_skill_data.get('基礎威力', 0))
                       bp += def_char.get('_base_power_bonus', 0)
                       if bp > 0:
-                          _update_char_stat(room, def_char, "荊棘", max(0, thorn_val - bp), username=f"[{def_skill_id}:荊棘詳細]")
+                          _update_char_stat(room, def_char, "荊棘", max(0, thorn_val - bp), username=f"[{def_skill_id}:荊棘詳細]", save=False)
 
             using_precalc = False
             def_command = def_data.get('command', '2d6')
@@ -476,13 +476,13 @@ def execute_wide_match(room, username):
                 if is_defense_skill:
                     # 防御スキル: ダメージ軽減 (攻撃 - 防御)
                     damage = max(0, effective_attacker_total - defender_total)
-                    broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (防御)", 'dice')
-                    broadcast_log(room, f"   → 🗡️ 攻撃命中 (軽減): {damage} ダメージ", 'match-result')
+                    broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (防御)", 'dice', save=False)
+                    broadcast_log(room, f"   → 🗡️ 攻撃命中 (軽減): {damage} ダメージ", 'match-result', save=False)
                 elif is_evasion_skill:
                     # 回避スキル: 回避失敗なら直撃
                     damage = effective_attacker_total
-                    broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (回避失敗)", 'dice')
-                    broadcast_log(room, f"   → 🗡️ 攻撃命中 (直撃): {damage} ダメージ", 'match-result')
+                    broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (回避失敗)", 'dice', save=False)
+                    broadcast_log(room, f"   → 🗡️ 攻撃命中 (直撃): {damage} ダメージ", 'match-result', save=False)
 
                     # 再回避ロック解除 check
                     from plugins.buffs.dodge_lock import DodgeLockBuff
@@ -497,8 +497,8 @@ def execute_wide_match(room, username):
                     # Duel Solver Check: result_a > result_d -> damage = result_a (Full Damage) if not Defense.
                     # 攻撃vs攻撃で負けた場合もFull Damage (Duel Solver Line 520)
                     damage = effective_attacker_total
-                    broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
-                    broadcast_log(room, f"   → 🗡️ 攻撃命中: {damage} ダメージ", 'match-result')
+                    broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice', save=False)
+                    broadcast_log(room, f"   → 🗡️ 攻撃命中: {damage} ダメージ", 'match-result', save=False)
 
                 results.append({'defender': def_char['name'], 'result': 'win', 'damage': damage}) # Attacker win in terms of dmg
 
@@ -514,7 +514,7 @@ def execute_wide_match(room, username):
 
                 current_hp = get_status_value(def_char, 'HP')
                 new_hp = max(0, current_hp - damage)
-                _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]")
+                _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]", save=False)
 
             elif defender_total > effective_attacker_total:
                 # 防御側勝利
@@ -537,8 +537,8 @@ def execute_wide_match(room, username):
                          diff = defender_total - effective_attacker_total
                          if diff > 0:
                              curr_hp = get_status_value(attacker_char, 'HP')
-                             _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[反射ダメージ]")
-                             broadcast_log(room, f"[ギァン・バルフ恩恵] {def_char['name']}が余剰 {diff} ダメージを反射！", 'info')
+                             _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[反射ダメージ]", save=False)
+                             broadcast_log(room, f"[ギァン・バルフ恩恵] {def_char['name']}が余剰 {diff} ダメージを反射！", 'info', save=False)
                 else:
                     # 回避スキルや攻撃スキルでの勝利: 反撃ダメージ発生
                     damage = defender_total
@@ -557,11 +557,11 @@ def execute_wide_match(room, username):
                         # 攻撃スキルでの勝利 (カウンター)
                         results.append({'defender': def_char['name'], 'result': 'lose', 'damage': damage})
                         broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
-                        broadcast_log(room, f"   → 🛡️ 防御者勝利! (カウンター): {damage}", 'match-result')
+                        broadcast_log(room, f"   → 🛡️ 防御者勝利! (カウンター): {damage}", 'match-result', save=False)
 
                         current_hp = get_status_value(attacker_char, 'HP')
                         new_hp = max(0, current_hp - damage)
-                        _update_char_stat(room, attacker_char, 'HP', new_hp, username=f"[{def_skill_id}]")
+                        _update_char_stat(room, attacker_char, 'HP', new_hp, username=f"[{def_skill_id}]", save=False)
 
             else:
                 # 引き分け

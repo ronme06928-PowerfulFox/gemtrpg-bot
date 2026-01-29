@@ -716,7 +716,7 @@ def execute_duel_match(room, data, username):
                 d_mult, logs = calculate_damage_multiplier(actor_d_char)
                 final_damage = int(final_damage * d_mult)
                 if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
-                _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
+                _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, save=False)
                 buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
 
                 # 再回避ロック中の回避失敗処理
@@ -740,7 +740,7 @@ def execute_duel_match(room, data, username):
                 d_mult, logs = calculate_damage_multiplier(actor_a_char)
                 final_damage = int(final_damage * d_mult)
                 if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
-                _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username)
+                _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, save=False)
                 buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
                 winner_message = f"<strong> → {actor_name_d} の勝利！</strong>"
                 display_total = final_damage + custom_dmg + buff_dmg
@@ -761,15 +761,15 @@ def execute_duel_match(room, data, username):
                          diff = result_d['total'] - result_a['total']
                          if diff > 0:
                              curr_hp = get_status_value(actor_a_char, 'HP')
-                             _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反射ダメージ]")
-                             broadcast_log(room, f"[ギァン・バルフ恩恵] 防御勝利の余剰 {diff} ダメージを攻撃者に反射！", 'info')
+                             _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反射ダメージ]", save=False)
+                             broadcast_log(room, f"[ギァン・バルフ恩恵] 防御勝利の余剰 {diff} ダメージを攻撃者に反射！", 'info', save=False)
         else:
             winner_message = '<strong> → 引き分け！</strong> (ダメージなし)'
             # END_MATCH Effect (Simplified for Draw)
             def run_end_match(effs, actor, target, skill):
                 d, l, c = process_skill_effects(effs, "END_MATCH", actor, target, skill)
                 for (char, type, name, value) in c:
-                    if type == "APPLY_STATE": _update_char_stat(room, char, name, get_status_value(char, name)+value, username=f"[{name}]")
+                    if type == "APPLY_STATE": _update_char_stat(room, char, name, get_status_value(char, name)+value, username=f"[{name}]", save=False)
                     elif type == "APPLY_BUFF": apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
                     elif type == "REMOVE_BUFF": remove_buff(char, name)
                     elif type == "SET_FLAG":
@@ -794,7 +794,7 @@ def execute_duel_match(room, data, username):
         winner_message = f"{' '.join(incap_logs)}<br>{winner_message}"
 
     match_log = f"<strong>{actor_name_a}</strong> {skill_display_a} (<span class='dice-result-total'>{result_a['total']}</span>) vs <strong>{actor_name_d}</strong> {skill_display_d} (<span class='dice-result-total'>{result_d['total']}</span>) | {winner_message} {damage_message}"
-    broadcast_log(room, match_log, 'match')
+    broadcast_log(room, match_log, 'match', save=True)
     broadcast_state_update(room)
     save_specific_room_state(room)
 

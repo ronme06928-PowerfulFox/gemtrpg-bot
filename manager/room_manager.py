@@ -100,7 +100,7 @@ def broadcast_state_update(room_name):
         socketio.emit('state_updated', state, to=room_name)
 
 # ▼▼▼ 修正箇所: secret 引数対応版のみにする ▼▼▼
-def broadcast_log(room_name, message, type='info', user=None, secret=False):
+def broadcast_log(room_name, message, type='info', user=None, secret=False, save=True):
     """ログを配信し、かつステート(DB)に保存する"""
     log_data = {"message": message, "type": type, "secret": secret}
     if user:
@@ -116,7 +116,9 @@ def broadcast_log(room_name, message, type='info', user=None, secret=False):
         state['logs'] = state['logs'][-500:]
 
     socketio.emit('new_log', log_data, to=room_name)
-    save_specific_room_state(room_name)
+
+    if save:
+        save_specific_room_state(room_name)
 
 def broadcast_user_list(room_name):
     if not room_name: return
@@ -170,7 +172,7 @@ def get_users_in_room(room_name):
 
 
 
-def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_delete=False, username="System", source=None):
+def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_delete=False, username="System", source=None, save=True):
     old_value = None
     log_message = ""
 
@@ -257,4 +259,4 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
             }, to=room_name)
 
     if log_message and (str(old_value) != str(new_value) or is_new or is_delete):
-        broadcast_log(room_name, log_message, 'state-change')
+        broadcast_log(room_name, log_message, 'state-change', save=save)
