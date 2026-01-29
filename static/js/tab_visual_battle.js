@@ -1823,54 +1823,52 @@ function generateStatusIconsHTML(char) {
 // ============================================
 // この関数は state_updated のたびに呼ばれ、パネルの内容を更新する
 // パネルの開閉は行わず、内容の同期のみを担当
-function renderMatchPanelFromState(matchData) {
+// --- マッチパネル描画 (State Driven) ---
+// ★ Cache for match state to prevent redundant renders
+let _lastRenderedMatchStateStr = "";
+
+function renderMatchPanelFromState(match) {
+    // 1. マッチがない、または非アクティブな場合
+    if (!match || !match.is_active) {
+        // パネルを閉じる処理（既に閉じているなら何もしない）
+        const panel = document.getElementById('match-panel');
+        if (panel && !panel.classList.contains('collapsed')) {
+            // Close logic if needed, but currently we just hide inner containers
+        }
+        document.getElementById('wide-match-container').style.display = 'none';
+        document.querySelector('.duel-container').style.display = 'none';
+
+        // Reset cache
+        _lastRenderedMatchStateStr = "";
+        return;
+    }
+
+    // 2. 変更検知 (Deep Compare via JSON string)
+    // ログ更新などで頻繁に呼ばれるため、マッチデータが変わっていないなら再描画しない
+    const currentMatchStr = JSON.stringify(match);
+    if (currentMatchStr === _lastRenderedMatchStateStr) {
+        // console.log("⏩ Skipping match panel render (no change)");
+        return;
+    }
+    _lastRenderedMatchStateStr = currentMatchStr;
+    console.log("🔄 Rendering Match Panel (State Changed)");
+
     const panel = document.getElementById('match-panel');
-    if (!panel) return;
+    if (panel) panel.classList.remove('collapsed');
 
-    console.log('📋 renderMatchPanelFromState called:', {
-        matchData: matchData ? { is_active: matchData.is_active, match_type: matchData.match_type } : null,
-        panelExpanded: panel.classList.contains('expanded'),
-        charactersCount: battleState.characters?.length
-    });
-
-    // マッチが非アクティブなら内容をクリアして折りたたむ
-    if (!matchData || !matchData.is_active) {
-        if (panel.classList.contains('expanded')) {
-            clearMatchPanelContent();
-            collapseMatchPanel();
+    // 3. マッチタイプごとの描画
+    if (match.match_type === 'wide') {
+        document.querySelector('.duel-container').style.display = 'none';
+        // wide_match_synced.js の関数を呼び出し
+        if (typeof populateWideMatchPanel === 'function') {
+            populateWideMatchPanel(match);
         }
-        // Hide both containers
-        var wideContainer = document.getElementById('wide-match-container');
-        var duelContainer = document.querySelector('.duel-container');
-        if (wideContainer) wideContainer.style.display = 'none';
-        if (duelContainer) duelContainer.style.display = '';
-        return;
+    } else {
+        // Normal Duel
+        document.getElementById('wide-match-container').style.display = 'none';
+        document.querySelector('.duel-container').style.display = 'flex'; // Flex layout
+        renderDuelPanelFromState(match);
     }
-
-    // ★ Wide Match branch - use separate wide_match_synced.js
-    if (matchData.match_type === 'wide') {
-        var wideContainer = document.getElementById('wide-match-container');
-        var duelContainer = document.querySelector('.duel-container');
-        if (wideContainer) wideContainer.style.display = '';
-        if (duelContainer) duelContainer.style.display = 'none';
-
-        if (panel.classList.contains('collapsed')) {
-            expandMatchPanel();
-            window._matchPanelAutoExpanded = true;
-        }
-
-        if (typeof window.populateWideMatchPanel === 'function') {
-            window.populateWideMatchPanel(matchData);
-        }
-        return;
-    }
-
-    // ★ Duel Match - show duel container, hide wide container
-    var wideContainer = document.getElementById('wide-match-container');
-    var duelContainer = document.querySelector('.duel-container');
-    if (wideContainer) wideContainer.style.display = 'none';
-    if (duelContainer) duelContainer.style.display = '';
-
     // マッチがアクティブで、パネルが折りたたまれている場合は展開
     // （ただし、ユーザーが手動で閉じた可能性もあるため、初回のみ展開）
     const shouldAutoExpand = !window._matchPanelAutoExpanded;

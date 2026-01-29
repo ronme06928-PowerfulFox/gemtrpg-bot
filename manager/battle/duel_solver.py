@@ -704,47 +704,95 @@ def execute_duel_match(room, data, username):
                 damage_message = "(相殺)"
 
         elif result_a['total'] > result_d['total']:
-            grant_win_fp(actor_a_char)
-            damage = max(0, result_a['total'] - result_d['total'])
-            if actor_d_char:
-                kiretsu = get_status_value(actor_d_char, '亀裂')
-                logger.debug(f"[NORMAL MATCH] Attacker wins. Calling apply_skill_effects_bidirectional")
-                bonus_damage, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
-                log_snippets.extend(logs)
-                extra_hit_dmg = process_on_hit_buffs(actor_a_char, actor_d_char, damage + kiretsu + bonus_damage, log_snippets)
-                final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
-                d_mult, logs = calculate_damage_multiplier(actor_d_char)
-                final_damage = int(final_damage * d_mult)
-                if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
-                _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, save=False)
-                buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
+            attacker_winner_category = skill_data_a.get("分類", "") if skill_data_a else ""
+            attacker_winner_tags = skill_data_a.get("tags", []) if skill_data_a else []
 
-                # 再回避ロック中の回避失敗処理
+            # ★ 修正: 攻撃側が「防御」や「回避」で勝利した場合、ダメージは0 (カウンターでない限り)
+            if attacker_winner_category == "防御" or attacker_winner_category == "回避" or "防御" in attacker_winner_tags or "回避" in attacker_winner_tags:
+                grant_win_fp(actor_a_char)
+                winner_message = f"<strong> → {actor_name_a} の勝利！</strong> ({attacker_winner_category}成功)"
+                damage_message = "(ダメージなし)"
+
+                # スキル効果処理（バフ付与などは行うが、ダメージ関連は発生させない、あるいは効果次第）
+                # ここでは最低限 apply_skill_effects_bidirectional は呼ぶ（恩恵などで回復があるかもしれないため）
+                # ただし damage=0 で呼ぶ
+                _, logs, _ = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
+                if logs: log_snippets.extend(logs)
+                if log_snippets: winner_message += f" ({' '.join(log_snippets)})"
+
+                # 再回避ロック解除 check (防御側がロックされていた場合)
                 if actor_d_char and DodgeLockBuff.has_re_evasion(actor_d_char):
                      remove_buff(actor_d_char, "再回避ロック")
                      log_snippets.append("[再回避失敗！(ロック解除)]")
 
-                winner_message = f"<strong> → {actor_name_a} の勝利！</strong>"
-                display_total = final_damage + custom_dmg + buff_dmg
-                damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
+            else:
+                grant_win_fp(actor_a_char)
+                damage = max(0, result_a['total'] - result_d['total'])
+                if actor_d_char:
+                    kiretsu = get_status_value(actor_d_char, '亀裂')
+                    logger.debug(f"[NORMAL MATCH] Attacker wins. Calling apply_skill_effects_bidirectional")
+                    bonus_damage, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
+                    log_snippets.extend(logs)
+                    extra_hit_dmg = process_on_hit_buffs(actor_a_char, actor_d_char, damage + kiretsu + bonus_damage, log_snippets)
+                    final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
+                    d_mult, logs = calculate_damage_multiplier(actor_d_char)
+                    final_damage = int(final_damage * d_mult)
+                    if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
+                    _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, save=False)
+                    buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
+
+                    # 再回避ロック中の回避失敗処理
+                    if actor_d_char and DodgeLockBuff.has_re_evasion(actor_d_char):
+                         remove_buff(actor_d_char, "再回避ロック")
+                         log_snippets.append("[再回避失敗！(ロック解除)]")
+
+                    winner_message = f"<strong> → {actor_name_a} の勝利！</strong>"
+                    display_total = final_damage + custom_dmg + buff_dmg
+                    damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
 
         elif result_d['total'] > result_a['total']:
-            grant_win_fp(actor_d_char)
-            damage = max(0, result_d['total'] - result_a['total'])
-            if actor_a_char:
-                kiretsu = get_status_value(actor_a_char, '亀裂')
-                bonus_damage, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
-                log_snippets.extend(logs)
-                extra_hit_dmg = process_on_hit_buffs(actor_d_char, actor_a_char, damage + kiretsu + bonus_damage, log_snippets)
-                final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
-                d_mult, logs = calculate_damage_multiplier(actor_a_char)
-                final_damage = int(final_damage * d_mult)
-                if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
-                _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, save=False)
-                buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
-                winner_message = f"<strong> → {actor_name_d} の勝利！</strong>"
-                display_total = final_damage + custom_dmg + buff_dmg
-                damage_message += f"({actor_a_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
+            defender_winner_category = skill_data_d.get("分類", "") if skill_data_d else ""
+            defender_winner_tags = skill_data_d.get("tags", []) if skill_data_d else []
+
+            # ★ 修正: 防御側が「防御」や「回避」で勝利した場合、ダメージは0
+            if defender_winner_category == "防御" or defender_category == "防御" or "防御" in defender_winner_tags:
+                 grant_win_fp(actor_d_char)
+                 winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (防御成功)"
+                 _, logs, _ = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
+                 log_snippets.extend(logs)
+                 damage_message = "(ダメージなし)"
+                 if log_snippets: damage_message += f" ({' '.join(log_snippets)})"
+
+            elif defender_winner_category == "回避" or defender_category == "回避" or "回避" in defender_winner_tags:
+                 grant_win_fp(actor_d_char)
+                 winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (回避成功)"
+                 damage_message = "(ダメージなし)"
+                 _, logs, _ = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
+                 log_snippets.extend(logs)
+                 if log_snippets: damage_message += f" ({' '.join(log_snippets)})"
+
+                 # 再回避ロック付与
+                 if actor_d_char:
+                    log_snippets.append("[再回避可能！]")
+                    apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d, "buff_id": "Bu-05"})
+
+            else:
+                grant_win_fp(actor_d_char)
+                damage = max(0, result_d['total'] - result_a['total'])
+                if actor_a_char:
+                    kiretsu = get_status_value(actor_a_char, '亀裂')
+                    bonus_damage, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
+                    log_snippets.extend(logs)
+                    extra_hit_dmg = process_on_hit_buffs(actor_d_char, actor_a_char, damage + kiretsu + bonus_damage, log_snippets)
+                    final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
+                    d_mult, logs = calculate_damage_multiplier(actor_a_char)
+                    final_damage = int(final_damage * d_mult)
+                    if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
+                    _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, save=False)
+                    buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
+                    winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (カウンター)"
+                    display_total = final_damage + custom_dmg + buff_dmg
+                    damage_message += f"({actor_a_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
 
                 # --- Gyan Barth (ID: 8) Reflect Logic ---
                 if get_effective_origin_id(actor_d_char) == 8:
