@@ -2781,21 +2781,47 @@ function sendSkillDeclaration(side, isCommit) {
             if (rule.cost && !tags.includes('即時発動')) {
                 // ヘルパー関数: 値を検索
                 const findStatusValue = (obj, targetKey) => {
-                    // 1. ルートプロパティ (hp, mp, sanなど)
-                    if (obj[targetKey] !== undefined) return parseInt(obj[targetKey]);
-                    if (obj[targetKey.toLowerCase()] !== undefined) return parseInt(obj[targetKey.toLowerCase()]);
+                    console.log(`[findStatusValue] Searching for: ${targetKey}`);
+                    console.log(`[findStatusValue] Object keys:`, Object.keys(obj));
 
-                    // 2. states配列 (FPなど)
+                    // ★ 修正: states配列を優先的に検索(最新の値が格納されている)
                     if (obj.states) {
-                        const state = obj.states.find(s => s.name === targetKey || s.name === targetKey.toUpperCase());
-                        if (state) return parseInt(state.value);
+                        console.log(`[findStatusValue] Checking states array:`, obj.states);
+                        const state = obj.states.find(s =>
+                            s.name && targetKey &&
+                            s.name.toUpperCase() === targetKey.toUpperCase()
+                        );
+                        if (state) {
+                            console.log(`[findStatusValue] Found in states: ${state.name} = ${state.value}`);
+                            return parseInt(state.value);
+                        }
+                    } else {
+                        console.log(`[findStatusValue] No states array found`);
+                    }
+
+                    // 2. ルートプロパティ (hp, mp, sanなど)
+                    if (obj[targetKey] !== undefined) {
+                        console.log(`[findStatusValue] Found in root: ${targetKey} = ${obj[targetKey]}`);
+                        return parseInt(obj[targetKey]);
+                    }
+                    if (obj[targetKey.toLowerCase()] !== undefined) {
+                        console.log(`[findStatusValue] Found in root (lowercase): ${targetKey.toLowerCase()} = ${obj[targetKey.toLowerCase()]}`);
+                        return parseInt(obj[targetKey.toLowerCase()]);
                     }
 
                     // 3. params配列 (その他)
                     if (obj.params) {
+                        console.log(`[findStatusValue] Checking params array:`, obj.params);
                         const param = obj.params.find(p => p.label === targetKey);
-                        if (param) return parseInt(param.value);
+                        if (param) {
+                            console.log(`[findStatusValue] Found in params: ${param.label} = ${param.value}`);
+                            return parseInt(param.value);
+                        }
+                    } else {
+                        console.log(`[findStatusValue] No params array found`);
                     }
+
+                    console.log(`[findStatusValue] Not found, returning 0`);
                     return 0;
                 };
 
@@ -2804,6 +2830,9 @@ function sendSkillDeclaration(side, isCommit) {
                     const val = parseInt(c.value || 0);
                     if (val > 0 && type) {
                         const current = findStatusValue(actor, type);
+
+                        // ★ デバッグログ追加
+                        console.log(`[COST CHECK] Skill: ${skillId}, Type: ${type}, Required: ${val}, Current: ${current}, Actor:`, actor);
 
                         if (current < val) {
                             // インラインエラー表示に変更 (DOM構造を維持する)

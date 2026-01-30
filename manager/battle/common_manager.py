@@ -428,14 +428,20 @@ def process_round_start(room, username):
         if char.get('x', -1) < 0: continue
 
         # Calculate Speed (1d6 + Speed/6)
+        # ★ デバッグ: totalSpeedをクリアしてから基礎速度値を取得
+        char['totalSpeed'] = None
         speed_param = get_status_value(char, '速度')
         initiative = speed_param // 6
+
+        logger.debug(f"[SPEED ROLL] {char['name']}: speed_param={speed_param}, initiative={initiative}")
 
         # 1d6
         roll = random.randint(1, 6)
         char['speedRoll'] = roll
         total_speed = initiative + roll
         char['totalSpeed'] = total_speed
+
+        logger.debug(f"[SPEED ROLL] {char['name']}: roll={roll}, totalSpeed={total_speed}")
 
         timeline_unsorted.append({
             'id': char['id'],

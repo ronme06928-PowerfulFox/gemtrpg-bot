@@ -11,6 +11,12 @@ def get_status_value(char_obj, status_name):
     if status_name == 'HP': return int(char_obj.get('hp', 0))
     if status_name == 'MP': return int(char_obj.get('mp', 0))
 
+    # ★ 追加: 速度の場合、戦闘中はロール済みの totalSpeed を優先
+    if status_name == '速度':
+        total_speed = char_obj.get('totalSpeed')
+        if total_speed is not None:
+            return int(total_speed)
+
     base_value = 0
     found = False
 
@@ -37,6 +43,7 @@ def get_status_value(char_obj, status_name):
     buff_mod = get_buff_stat_mod(char_obj, status_name)
 
     return base_value + buff_mod
+
 
 def set_status_value(char_obj, status_name, new_value):
     """キャラクターの特定のステータス値を設定する (0未満ガード付き)"""

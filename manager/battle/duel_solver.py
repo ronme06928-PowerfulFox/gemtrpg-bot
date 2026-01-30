@@ -727,7 +727,8 @@ def execute_duel_match(room, data, username):
 
             else:
                 grant_win_fp(actor_a_char)
-                damage = max(0, result_a['total'] - result_d['total'])
+                # ★ 修正: 攻撃vs攻撃の場合、攻撃スキルの威力をそのまま与える
+                damage = result_a['total']  # 差分ではなく、攻撃スキルの威力
                 if actor_d_char:
                     kiretsu = get_status_value(actor_d_char, '亀裂')
                     logger.debug(f"[NORMAL MATCH] Attacker wins. Calling apply_skill_effects_bidirectional")
@@ -749,6 +750,7 @@ def execute_duel_match(room, data, username):
                     winner_message = f"<strong> → {actor_name_a} の勝利！</strong>"
                     display_total = final_damage + custom_dmg + buff_dmg
                     damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
+
 
         elif result_d['total'] > result_a['total']:
             defender_winner_category = skill_data_d.get("分類", "") if skill_data_d else ""
@@ -778,7 +780,8 @@ def execute_duel_match(room, data, username):
 
             else:
                 grant_win_fp(actor_d_char)
-                damage = max(0, result_d['total'] - result_a['total'])
+                # ★ 修正: 防御側が攻撃スキルで勝利した場合も、攻撃スキルの威力をそのまま与える
+                damage = result_d['total']  # 差分ではなく、攻撃スキルの威力
                 if actor_a_char:
                     kiretsu = get_status_value(actor_a_char, '亀裂')
                     bonus_damage, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
@@ -790,9 +793,10 @@ def execute_duel_match(room, data, username):
                     if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, save=False)
                     buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
-                    winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (カウンター)"
+                    winner_message = f"<strong> → {actor_name_d} の勝利！</strong>"
                     display_total = final_damage + custom_dmg + buff_dmg
                     damage_message += f"({actor_a_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
+
 
                 # --- Gyan Barth (ID: 8) Reflect Logic ---
                 if get_effective_origin_id(actor_d_char) == 8:
