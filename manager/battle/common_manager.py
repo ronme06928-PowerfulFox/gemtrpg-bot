@@ -466,7 +466,8 @@ def process_round_start(room, username):
         if char:
             log_msg += f"{idx+1}. {char['name']} (計{item['speed']})<br>"
 
-    emit('new_log', {'message': log_msg, 'type': 'info'}, room=room)
+    # ★ 修正: broadcast_log を使用してログ履歴に保存
+    broadcast_log(room, log_msg, 'info')
 
     # ★ 追加: ラティウム (ID: 3) ラウンド開始時一括処理
     # 全員のFPを+1する

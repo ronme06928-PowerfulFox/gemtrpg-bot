@@ -59,7 +59,7 @@ def handle_join_room(data):
 
     # ★ その後、入室ログを全員に送信
     print(f"[JOIN] Broadcasting join log for {username}")
-    emit('new_log', {'message': f"{username} が入室しました。", 'type': 'system'}, to=room)
+    broadcast_log(room, f"{username} が入室しました。", 'system')
 
     broadcast_user_list(room)
 

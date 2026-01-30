@@ -158,4 +158,4 @@ def on_debug_apply_buff(data):
 
     apply_buff(char, buff_name, duration, delay, data={'buff_id': buff_id})
     broadcast_state_update(room)
-    socketio.emit('new_log', {'message': f"[DEBUG] {char['name']} に {buff_name}({buff_id}) を付与しました。", 'tab': 'system'}, room=room)
+    broadcast_log(room, f"[DEBUG] {char['name']} に {buff_name}({buff_id}) を付与しました。", 'system')
