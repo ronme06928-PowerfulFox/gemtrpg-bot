@@ -1082,6 +1082,7 @@
             addP("筋力", "p-str"); addP("生命力", "p-vit"); addP("体格", "p-phy"); addP("精神力", "p-mnt"); addP("速度", "p-spd");
             addP("直感", "p-int"); addP("経験", "p-exp"); addP("シナリオ経験", "p-exp-scenario");
             addP("物理補正", "p-phys-mod"); addP("魔法補正", "p-mag-mod"); addP("速度補正", "p-spd-mod");
+            addP("通過点", "radiance-points");
 
             // 技能 (補正適用して保存)
             const infoMod = getInfoSkillModifier();
@@ -1150,7 +1151,8 @@
                                 "五感": "s-senses", "採取": "s-gather", "本能": "s-instinct", "鑑定": "s-appraise",
                                 "対話": "s-dialogue", "尋問": "s-interrogate", "諜報": "s-intel", "窃取": "s-theft",
                                 "隠密": "s-stealth", "運動": "s-athletics", "制作": "s-craft", "回避": "s-evade",
-                                "出身": "char-origin", "ボーナス": "char-hometown", "故郷": "char-hometown"
+                                "出身": "char-origin", "ボーナス": "char-hometown", "故郷": "char-hometown",
+                                "通過点": "radiance-points"
                             };
 
                             const originParam = d.params.find(p => p.label === "出身");
@@ -1191,6 +1193,27 @@
                             restoreFromCommands(d.commands);
                         } else if (d.commands) {
                             PENDING_RESTORE_COMMANDS = d.commands;
+                        }
+
+                        // Restore Radiance and Passives from SPassive
+                        if (d.SPassive && Array.isArray(d.SPassive)) {
+                            SELECTED_RADIANCE = [];
+                            SELECTED_PASSIVES = [];
+                            d.SPassive.forEach(id => {
+                                const rad = ALL_RADIANCE_SKILLS.find(r => r.id === id);
+
+                                if (rad) {
+                                    SELECTED_RADIANCE.push(rad);
+                                } else {
+                                    const pas = ALL_PASSIVES.find(p => p.id === id);
+                                    if (pas) {
+                                        SELECTED_PASSIVES.push(pas);
+                                    }
+                                }
+                            });
+                            renderRadianceSkills();
+                            renderPassives();
+                            updateRadianceCost();
                         }
                         alert("データを読み込みました");
                         calculateStats();

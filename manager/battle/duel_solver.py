@@ -129,7 +129,16 @@ def handle_skill_declaration(room, data, username):
              # contextにroomを含めることで、get_room_stateなどが使えるようにする
              state = get_room_state(room) # 再取得
              context = {'room': room, 'characters': state['characters']}
-             _, logs, changes = process_skill_effects(effects_array, "IMMEDIATE", actor, target, None, context=context)
+
+             # Process IMMEDIATE timing
+             _, logs_imm, changes_imm = process_skill_effects(effects_array, "IMMEDIATE", actor, target, None, context=context)
+
+             # Process PRE_MATCH timing (Many instant skills like Brilliance series use PRE_MATCH)
+             _, logs_pre, changes_pre = process_skill_effects(effects_array, "PRE_MATCH", actor, target, None, context=context)
+
+             # Merge results
+             logs = logs_imm + logs_pre
+             changes = changes_imm + changes_pre
 
              # 変更の適用
              for (c, type, name, value) in changes:
