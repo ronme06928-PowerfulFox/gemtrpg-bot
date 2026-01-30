@@ -545,24 +545,24 @@
     "取得コスト": "1",
     "基礎威力": "7",
     "ダイス威力": "+1d4",
-    "使用時効果": "[使用時]:FPを2消費",
+    "使用時効果": "[使用時]:FPを1消費",
     "特記": "",
     "発動時効果": "[的中時]対象に3ダメージ",
-    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"FP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"DAMAGE_BONUS\",\"target\": \"target\",\"value\": 3}]}",
+    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"FP\", \"value\": 1}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"DAMAGE_BONUS\",\"target\": \"target\",\"value\": 3}]}",
     "tags": [
       "攻撃"
     ]
   },
   "Ps-03": {
     "スキルID": "Ps-03",
-    "チャットパレット": "6+1d4+1d{物理補正} 【Ps-03 斬り抜く】",
+    "チャットパレット": "6+1d5+1d{物理補正} 【Ps-03 斬り抜く】",
     "デフォルト名称": "斬り抜く",
     "分類": "物理",
     "距離": "近接",
     "属性": "斬撃",
     "取得コスト": "1",
     "基礎威力": "6",
-    "ダイス威力": "+1d4",
+    "ダイス威力": "+1d5",
     "使用時効果": "[使用時]:FPを2消費",
     "特記": "",
     "発動時効果": "[的中時]出血6を付与",
@@ -709,8 +709,8 @@
     "ダイス威力": "+1d4",
     "使用時効果": "[使用時]:FPを2消費",
     "特記": "",
-    "発動時効果": "[マッチ勝利時]破裂5を付与。",
-    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"FP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"WIN\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 5}]}",
+    "発動時効果": "[マッチ勝利時]破裂7を付与。",
+    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"FP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"WIN\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 7}]}",
     "tags": [
       "攻撃"
     ]
@@ -923,10 +923,10 @@
     "取得コスト": "2",
     "基礎威力": "12",
     "ダイス威力": "+1d2",
-    "使用時効果": "[使用時]:FPを5消費",
+    "使用時効果": "[使用時]:FPを4消費",
     "特記": "対象の亀裂1につき基礎威力+1(最大で3)。このスキルを使用している間、相手の破裂威力は減少しない。",
     "発動時効果": "[的中時] 亀裂崩壊。消費した亀裂5につき1回、破裂爆発。",
-    "特記処理": "{\"power_bonus\": [{\"source\": \"target\",\"param\": \"亀裂\",\"operation\": \"PER_N_BONUS\",\"per_N\": 1,\"value\": 1,\"max_bonus\": 3}],\"cost\": [{\"type\": \"FP\", \"value\": 5}],\n  \"effects\": [{\"timing\": \"PRE_MATCH\",\"type\": \"APPLY_BUFF\",\"target\": \"target\",\"buff_id\": \"Bu-06\",\"lasting\": 1,\"delay\": 0},{\"timing\": \"HIT\",\"type\": \"CUSTOM_EFFECT\",\"value\": \"FISSURE_COLLAPSE\",\"data\": {\"cost_per_trigger\": 5, \"triggered_effect\": \"破裂爆発\", \"trigger_ratio\": 1.0}}]}",
+    "特記処理": "{\"power_bonus\": [{\"source\": \"target\",\"param\": \"亀裂\",\"operation\": \"PER_N_BONUS\",\"per_N\": 1,\"value\": 1,\"max_bonus\": 3}],\"cost\": [{\"type\": \"FP\", \"value\": 4}],\n  \"effects\": [{\"timing\": \"PRE_MATCH\",\"type\": \"APPLY_BUFF\",\"target\": \"target\",\"buff_id\": \"Bu-06\",\"lasting\": 1,\"delay\": 0},{\"timing\": \"HIT\",\"type\": \"CUSTOM_EFFECT\",\"value\": \"FISSURE_COLLAPSE\",\"data\": {\"cost_per_trigger\": 5, \"triggered_effect\": \"破裂爆発\", \"trigger_ratio\": 1.0}}]}",
     "tags": [
       "攻撃"
     ]
@@ -1015,8 +1015,8 @@
     "ダイス威力": "+1d4",
     "使用時効果": "[使用時]:MPを3消費。FPを1消費。",
     "特記": "",
-    "発動時効果": "[的中時] 対象の出血が7以上なら、5ダメージを与える。",
-    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 3},{\"type\":\"FP\",\"value\":1}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"DAMAGE_BONUS\",\"target\": \"target\",\"value\": 5,\"condition\": {\"source\": \"target\",\"param\": \"出血\",\"operator\": \"GTE\",\"value\": 7}}]}",
+    "発動時効果": "[的中時] 対象の出血が5以上なら、5ダメージを与える。",
+    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 3},{\"type\":\"FP\",\"value\":1}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"DAMAGE_BONUS\",\"target\": \"target\",\"value\": 5,\"condition\": {\"source\": \"target\",\"param\": \"出血\",\"operator\": \"GTE\",\"value\": 5}}]}",
     "tags": [
       "攻撃"
     ]
@@ -1244,7 +1244,7 @@
     "分類": "魔法",
     "距離": "遠隔",
     "属性": "打撃",
-    "取得コスト": "3",
+    "取得コスト": "2",
     "基礎威力": "10",
     "ダイス威力": "+1d5",
     "使用時効果": "[使用時]:MPを4消費。FPを2消費。",
@@ -1337,28 +1337,28 @@
     "取得コスト": "2",
     "基礎威力": "11",
     "ダイス威力": "+1d3",
-    "使用時効果": "[使用時]:MPを5消費。FPを2消費。",
+    "使用時効果": "[使用時]:MPを4消費。FPを3消費。",
     "特記": "対象の亀裂1につき、このスキルの基礎威力+1(最大で3)",
     "発動時効果": "[的中時] 亀裂崩壊。消費した亀裂1につき4ダメージ。",
-    "特記処理": "{\"power_bonus\": [{\"source\": \"target\",\"param\": \"亀裂\",\"operation\": \"PER_N_BONUS\",\"per_N\": 1,\"value\": 1,\"max_bonus\": 3}],\"cost\": [{\"type\": \"MP\", \"value\": 5},{\"type\":\"FP\",\"value\":2}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"CUSTOM_EFFECT\",\"value\": \"亀裂崩壊_DAMAGE\",\"damage_per_fissure\": 4}]}",
+    "特記処理": "{\"power_bonus\": [{\"source\": \"target\",\"param\": \"亀裂\",\"operation\": \"PER_N_BONUS\",\"per_N\": 1,\"value\": 1,\"max_bonus\": 3}],\"cost\": [{\"type\": \"MP\", \"value\": 4},{\"type\":\"FP\",\"value\":3}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"CUSTOM_EFFECT\",\"value\": \"亀裂崩壊_DAMAGE\",\"damage_per_fissure\": 4}]}",
     "tags": [
       "攻撃"
     ]
   },
   "Mp-05": {
     "スキルID": "Mp-05",
-    "チャットパレット": "7+1d5+1d{魔法補正} 【Mp-05 そこが弱いの？】",
+    "チャットパレット": "7+1d6+1d{魔法補正} 【Mp-05 そこが弱いの？】",
     "デフォルト名称": "そこが弱いの？",
     "分類": "魔法",
     "距離": "遠隔",
     "属性": "貫通",
     "取得コスト": "1",
     "基礎威力": "7",
-    "ダイス威力": "+1d5",
-    "使用時効果": "[使用時]:MPを2消費。FPを2消費。",
+    "ダイス威力": "+1d6",
+    "使用時効果": "[使用時]:MPを3消費。FPを2消費。",
     "特記": "",
     "発動時効果": "[マッチ勝利時]このラウンドで自分が付与する亀裂の値に+1。[的中時]亀裂2を付与。",
-    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 2},{\"type\":\"FP\",\"value\":2}],\n  \"effects\": [{\"timing\": \"WIN\",\"type\": \"APPLY_BUFF\",\"target\": \"self\",\"buff_name\": \"そこが弱いの？_Crack1\",\"lasting\": 1,\"delay\": 0},{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 2}]}",
+    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 3},{\"type\":\"FP\",\"value\":2}],\n  \"effects\": [{\"timing\": \"WIN\",\"type\": \"APPLY_BUFF\",\"target\": \"self\",\"buff_name\": \"そこが弱いの？_Crack1\",\"lasting\": 1,\"delay\": 0},{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 2}]}",
     "tags": [
       "攻撃"
     ]
