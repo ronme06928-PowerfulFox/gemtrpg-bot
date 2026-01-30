@@ -38,12 +38,6 @@ export function formatSkillDetailHTML(skillData) {
     const hasEffect = effect && effect !== '';
     const hasSpecial = special && special !== 'なし' && special.trim() !== '';
 
-    // コマンド (チャットパレット)
-    const command = skillData['チャットパレット'] || '';
-    if (command) {
-        html += `<div style="font-size:0.85em; color:#555; margin-bottom:8px;"><strong>【コマンド】</strong><div style="font-family:monospace; background:#f8f9fa; padding:4px; border-radius:3px; word-break:break-all;">${command}</div></div>`;
-    }
-
     if (hasCost || hasEffect || hasSpecial) {
         html += `<hr style="margin:6px 0; border:0; border-top:1px solid #555;">`;
     }
