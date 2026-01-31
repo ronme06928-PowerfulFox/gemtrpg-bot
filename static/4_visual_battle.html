@@ -13,7 +13,7 @@
         <div id="dock-staging-icon" class="dock-icon" title="未配置キャラクター">📦</div>
     </div>
 
-    <div id="map-viewport">
+    <div id="map-viewport" class="viewport-container" style="display: block;">
         <!-- ★ タイムライン（右上に配置） ★ -->
         <div id="visual-timeline-area">
             <div class="sidebar-header">
@@ -36,6 +36,29 @@
                 <button id="zoom-in-btn" class="map-btn" title="拡大">＋</button>
                 <button id="zoom-out-btn" class="map-btn" title="縮小">－</button>
                 <button id="reset-view-btn" class="map-btn" title="リセット">⟲</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ★ Exploration Viewport ★ -->
+    <div id="exploration-viewport" class="viewport-container"
+        style="display: none; flex: 1; position: relative; background: #2c3e50; overflow: hidden; cursor: grab;">
+        <div id="exploration-world"
+            style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; transform-origin: 0 0; will-change: transform;">
+            <div id="exploration-background"
+                style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; background-size: cover; background-position: center;">
+            </div>
+            <div id="exploration-token-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+            </div>
+        </div>
+
+        <!-- Exploration Controls similar to map controls -->
+        <div id="exploration-controls" style="position: absolute; bottom: 20px; right: 20px; z-index: 100;">
+            <div class="map-control-group">
+                <button id="exp-zoom-in-btn" class="map-btn" title="拡大">＋</button>
+                <button id="exp-zoom-out-btn" class="map-btn" title="縮小">－</button>
+                <button id="exp-reset-view-btn" class="map-btn" title="リセット">⟲</button>
+                <button id="exp-bg-update-btn" class="map-btn" title="背景変更" style="display:none;">🖼️</button>
             </div>
         </div>
     </div>
@@ -214,6 +237,9 @@
 <!-- ★ Visual Battle Scripts - Separated for maintainability ★ -->
 <script src="js/tab_visual_battle.js?v=20260110_auto_sync"></script>
 <script src="js/wide_match_synced.js?v=20260111_1906"></script>
+<script src="js/exploration/exploration_view.js?v=20260131_001"></script>
+<script src="js/exploration/exploration_dock.js?v=20260131_001"></script>
+
 
 <!-- ★ アクションドック用のCSS読み込み（JSはmain.jsで読み込み済み。CSSはstyles.css統合済み） ★ -->
 <!-- <link rel="stylesheet" href="css/visual_battle_layout.css"> -->

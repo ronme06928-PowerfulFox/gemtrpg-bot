@@ -45,6 +45,7 @@ import events.battle # Refactored battle events
 import events.socket_wide_calculate
 
 import events.socket_items  # ★Phase 4: アイテムシステム
+import events.socket_exploration # ★Phase XX: 探索モード
 
 import uuid
 import cloudinary
@@ -324,19 +325,23 @@ def upload_image():
     if file.filename == '':
         return jsonify({'error': 'ファイルが選択されていません'}), 400
 
-    # オプション: 画像名を取得（未指定の場合はファイル名）
+    # オプション: 画像名とタイプを取得
     image_name = request.form.get('name', file.filename)
+    upload_type = request.form.get('type', 'character') # 'character' or 'background'
+
+    cloudinary_folder = "gemtrpg/characters"
+    if upload_type == 'background':
+        cloudinary_folder = "gemtrpg/backgrounds"
 
     try:
         # Cloudinaryへアップロード
-        # folder: 保存先フォルダ名（整理用）
-        # transformation: 自動軽量化・リサイズ設定
+        # ユーザー要望により圧縮制限を緩和 (10MB制限内なら画質維持)
+        # width制限を撤廃し、画質のみauto設定
         result = cloudinary.uploader.upload(
             file,
-            folder="gemtrpg/characters",  # フォルダ分け（任意）
+            folder=cloudinary_folder,
             transformation=[
-                {'width': 300, 'crop': "limit"},  # 幅300pxに制限
-                {'quality': "auto", 'fetch_format': "auto"}  # 自動最適化
+                {'quality': "auto", 'fetch_format': "auto"}  # 自動最適化のみ
             ]
         )
 
@@ -344,17 +349,25 @@ def upload_image():
         secure_url = result['secure_url']
         public_id = result['public_id']
 
-        logging.info(f"[Cloudinary] Image uploaded: {secure_url}")
+        logging.info(f"[Cloudinary] Image uploaded: {secure_url} (Type: {upload_type})")
 
         # ★ 画像レジストリに登録
         from manager.image_manager import register_image
         user_id = session.get('username', 'unknown')
+
+        # db_type: DB上の分類。frontendのエロフィルタなどと競合しないか確認が必要だが
+        # ここでは 'user' (キャラ) or 'background' としてみる
+        # 既存の 'user' はキャラ扱い。
+        db_image_type = 'user'
+        if upload_type == 'background':
+            db_image_type = 'background'
+
         registered_image = register_image(
             url=secure_url,
             public_id=public_id,
             name=image_name,
             uploader=user_id,
-            image_type='user'
+            image_type=db_image_type
         )
 
         logging.info(f"[ImageRegistry] Registered image: {registered_image['id']}")

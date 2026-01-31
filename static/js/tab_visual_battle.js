@@ -194,9 +194,37 @@ async function setupVisualBattleTab() {
         } // End inner socket check
 
         // 2. DOM初期化: タブ切り替えのたびに実行（DOM要素が再作成されるため）
-        if (!window.actionDockInitialized && typeof initializeActionDock === 'function') {
-            console.log('🔧 Calling initializeActionDock on page load');
-            initializeActionDock();
+
+        // ★ Fix: Check Mode immediately and toggle Viewports
+        // If state_updated arrived before this script ran, battleState has data.
+        if (typeof battleState !== 'undefined') {
+            const mode = battleState.mode || 'battle';
+            const mapViewport = document.getElementById('map-viewport');
+            const expViewport = document.getElementById('exploration-viewport');
+
+            console.log(`[Init] setupVisualBattleTab. Mode: ${mode}`);
+
+            if (mode === 'exploration') {
+                if (mapViewport) mapViewport.style.display = 'none';
+                if (expViewport) expViewport.style.display = 'block';
+                if (window.ExplorationView && typeof window.ExplorationView.render === 'function') {
+                    window.ExplorationView.setup();
+                    window.ExplorationView.render(battleState);
+                }
+            } else {
+                if (mapViewport) mapViewport.style.display = 'block';
+                if (expViewport) expViewport.style.display = 'none';
+            }
+        }
+
+        if (!window.actionDockInitialized) {
+            if (battleState && battleState.mode === 'exploration') {
+                // Skip Battle Dock init, trigger update to render Exploration Dock
+                if (typeof updateActionDock === 'function') setTimeout(updateActionDock, 100);
+            } else if (typeof initializeActionDock === 'function') {
+                console.log('🔧 Calling initializeActionDock on page load');
+                initializeActionDock();
+            }
             window.actionDockInitialized = true;
         }
 
@@ -1294,163 +1322,7 @@ function createMapToken(char) {
     return token;
 }
 
-function showCharacterDetail(charId) {
-    // 統一されたキャラクター詳細モーダル（modals.js）を使用
-    if (typeof openCharacterModal === 'function') {
-        openCharacterModal(charId);
-        return;
-    }
-
-    const char = battleState.characters.find(c => c.id === charId);
-    if (!char) return;
-    const existing = document.getElementById('char-detail-modal-backdrop');
-    if (existing) existing.remove();
-    const backdrop = document.createElement('div');
-    backdrop.id = 'char-detail-modal-backdrop';
-    backdrop.className = 'modal-backdrop';
-    backdrop.style.display = 'flex';
-    backdrop.onclick = (e) => {
-        if (e.target === backdrop) backdrop.remove();
-    };
-
-    const content = document.createElement('div');
-    content.className = 'modal-content';
-    content.style.maxWidth = '500px';
-    content.style.width = '90%';
-    content.style.padding = '20px';
-    content.style.position = 'relative';
-
-    // パラメータHTML生成
-    let paramsHtml = '';
-    if (Array.isArray(char.params)) paramsHtml = char.params.map(p => `${p.label}:${p.value}`).join(' / ');
-    else if (char.params && typeof char.params === 'object') paramsHtml = Object.entries(char.params).map(([k, v]) => `${k}:${v}`).join(' / ');
-    else paramsHtml = 'なし';
-
-    const fpVal = (char.states.find(s => s.name === 'FP') || {}).value || 0;
-
-    let statesHtml = '';
-    char.states.forEach(s => {
-        if (['HP', 'MP', 'FP'].includes(s.name)) return;
-        if (s.value === 0) return;
-        const config = STATUS_CONFIG[s.name];
-        const colorStyle = config ? `color: ${config.color}; font-weight:bold;` : '';
-        statesHtml += `<div class="detail-buff-item" style="${colorStyle}">${s.name}: ${s.value}</div>`;
-    });
-    if (!statesHtml) statesHtml = '<span style="color:#999; font-size:0.9em;">なし</span>';
-
-    let specialBuffsHtml = '';
-    if (char.special_buffs && char.special_buffs.length > 0) {
-        char.special_buffs.forEach((b, index) => {
-            let buffInfo = { name: b.name, description: b.description || "", flavor: b.flavor || "" };
-
-            // 輝化スキルの場合、skill_idから詳細情報を取得
-            if (b.source === 'radiance' && b.skill_id) {
-                // radianceデータから情報を取得（グローバルに保存されている想定）
-                if (window.radianceSkillData && window.radianceSkillData[b.skill_id]) {
-                    const radianceInfo = window.radianceSkillData[b.skill_id];
-                    buffInfo.description = radianceInfo.description || buffInfo.description;
-                    buffInfo.flavor = radianceInfo.flavor || buffInfo.flavor;
-                }
-            }
-
-            // 通常バフの場合、BUFF_DATAから情報を取得
-            if (!b.source || b.source !== 'radiance') {
-                if (window.BUFF_DATA && typeof window.BUFF_DATA.get === 'function') {
-                    const info = window.BUFF_DATA.get(b.name);
-                    if (info) {
-                        buffInfo.name = info.name || b.name;
-                        if (!buffInfo.description && info.description) buffInfo.description = info.description;
-                    }
-                }
-            }
-
-            if (buffInfo.name.includes('_')) buffInfo.name = buffInfo.name.split('_')[0];
-            let durationVal = null;
-            if (b.lasting !== undefined && b.lasting !== null) durationVal = b.lasting;
-            else if (b.round !== undefined && b.round !== null) durationVal = b.round;
-            else if (b.duration !== undefined && b.duration !== null) durationVal = b.duration;
-            let durationHtml = "";
-            // ★修正: duration=0（永続）の場合は表示しない
-            if (durationVal !== null && !isNaN(durationVal) && durationVal > 0 && durationVal < 99) {
-                durationHtml = `<span class="buff-duration-badge" style="background:#666; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:8px; display:inline-block;">${durationVal}R</span>`;
-            }
-
-            // ★追加: デバッグログとディレイ表示
-            console.log("Visual Battle Buff Data:", b);
-            const delayVal = parseInt(b.delay, 10) || 0;
-            if (delayVal > 0) {
-                durationHtml += ` <span style="color: #d63384; font-weight:bold; margin-left:5px;">(発動まで ${delayVal}R)</span>`;
-            }
-
-            // 輝化スキルの場合はアイコンを追加
-            const radianceIcon = (b.source === 'radiance') ? '✨ ' : '';
-
-            const buffUniqueId = `buff-detail-${char.id}-${index}`;
-
-            // 説明文とフレーバーテキストを組み合わせ
-            let descriptionContent = '';
-            if (buffInfo.description) {
-                descriptionContent += `<div style="margin-bottom: 8px;">${buffInfo.description}</div>`;
-            }
-            if (buffInfo.flavor) {
-                descriptionContent += `<div style="font-style: italic; color: #888; font-size: 0.85em;">${buffInfo.flavor}</div>`;
-            }
-            if (!descriptionContent) {
-                descriptionContent = '(説明文なし)';
-            }
-
-            specialBuffsHtml += `
-                <div style="width: 100%; margin-bottom: 4px;">
-                    <div class="detail-buff-item special" onclick="toggleBuffDesc('${buffUniqueId}')" style="cursor: pointer; background: #f0f0f0; border-radius: 4px; padding: 6px 10px; display:flex; align-items:center;">
-                        <span style="font-weight:bold; color:#333;">${radianceIcon}${buffInfo.name}</span>
-                        ${durationHtml}
-                        <span style="font-size:0.8em; opacity:0.7; margin-left:auto;">▼</span>
-                    </div>
-                    <div id="${buffUniqueId}" class="buff-desc-box" style="display:none; padding:8px; font-size:0.9em; background:#fff; border:1px solid #ddd; border-top:none; border-radius: 0 0 4px 4px; color:#555;">
-                        ${descriptionContent}
-                    </div>
-                </div>`;
-        });
-    }
-    if (!specialBuffsHtml) specialBuffsHtml = '<span style="color:#999; font-size:0.9em;">なし</span>';
-
-    backdrop.innerHTML = `
-        <div class="char-detail-modal">
-            <div class="detail-header" style="display:flex; justify-content:space-between; align-items:center;">
-                <h2 style="margin:0;">${char.name}</h2>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <button class="detail-setting-btn" style="background:none; border:none; font-size:1.4em; cursor:pointer;" title="設定">⚙</button>
-                    <button class="detail-close-btn" style="background:none; border:none; font-size:1.8em; cursor:pointer;" title="閉じる">&times;</button>
-                </div>
-            </div>
-            <div class="detail-stat-grid">
-                <div class="detail-stat-box"><span class="detail-stat-label">HP</span><span class="detail-stat-val" style="color:#28a745;">${char.hp} / ${char.maxHp}</span></div>
-                <div class="detail-stat-box"><span class="detail-stat-label">MP</span><span class="detail-stat-val" style="color:#007bff;">${char.mp} / ${char.maxMp}</span></div>
-                <div class="detail-stat-box"><span class="detail-stat-label">FP</span><span class="detail-stat-val" style="color:#ffc107;">${fpVal}</span></div>
-            </div>
-            <div class="detail-section"><h4>Parameters</h4><div style="font-family:monospace; background:#f9f9f9; padding:8px; border-radius:4px; font-weight:bold;">${paramsHtml}</div></div>
-            <div class="detail-section"><h4>状態異常 (Stack)</h4><div class="detail-buff-list">${statesHtml}</div></div>
-            <div class="detail-section"><h4>特殊効果 / バフ (Click for Info)</h4><div class="detail-buff-list" style="display:block;">${specialBuffsHtml}</div></div>
-            <div class="detail-section"><h4>Skills</h4><div style="font-size:0.9em; max-height:100px; overflow-y:auto; border:1px solid #eee; padding:5px; white-space: pre-wrap;">${char.commands || "なし"}</div></div>
-        </div>
-    `;
-
-    document.body.appendChild(backdrop);
-
-    const closeFunc = () => backdrop.remove();
-    backdrop.querySelector('.detail-close-btn').onclick = closeFunc;
-
-    // 歯車ボタンのイベント設定
-    const settingBtn = backdrop.querySelector('.detail-setting-btn');
-    if (settingBtn) {
-        settingBtn.onclick = (e) => {
-            e.stopPropagation();
-            toggleCharSettingsMenu(char.id, settingBtn);
-        };
-    }
-
-    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeFunc(); });
-}
+// function showCharacterDetail(charId) { ... } -> Deleted to use global version from modals.js
 
 // 歯車メニューの表示/非表示
 function toggleCharSettingsMenu(charId, btnElement) {

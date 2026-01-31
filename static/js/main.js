@@ -322,20 +322,55 @@ function initializeSocketIO() {
     socket.on('state_updated', (newState) => {
 
         battleState = newState;
+
+        // ★ Mode Switching Logic
+        const mode = newState.mode || 'battle';
+        console.log(`[Main] state_updated received. Mode: ${mode}`); // ★ ADDED DEBUG LOG
+        const mapViewport = document.getElementById('map-viewport');
+        const expViewport = document.getElementById('exploration-viewport');
+
+        if (mode === 'exploration') {
+            if (mapViewport) mapViewport.style.display = 'none';
+            if (expViewport) expViewport.style.display = 'block';
+
+            // Render Exploration View
+            if (window.ExplorationView && typeof window.ExplorationView.render === 'function') {
+                // Check if setup is needed
+                if (!document.getElementById('exploration-bg')) window.ExplorationView.setup();
+                window.ExplorationView.render(newState);
+            } else {
+                console.warn('window.ExplorationView not found');
+            }
+
+            // Render Exploration Dock via action_dock.js hook or direct call
+            // We'll trust updateActionDock to handle this via mode check
+        } else {
+            if (mapViewport) mapViewport.style.display = 'block';
+            if (expViewport) expViewport.style.display = 'none';
+        }
+
         // バトルフィールドタブが開いている場合のみ再描画
         if (document.getElementById('battlefield-grid')) {
             renderTokenList();
 
-            // === ▼▼▼ 修正点 (フェーズ4c) ▼▼▼ ===
-            // (ドロップダウンのキャラクターリストを更新するために、この呼び出しは必須)
-            // (★ window.xxx を使って、グローバル関数を安全に参照する)
-            if (window.setupActionColumn) {
-                window.attackerCol = setupActionColumn('attacker');
-                window.defenderCol = setupActionColumn('defender');
-            }
-            // === ▲▲▲ 修正ここまで ▲▲▲ ===
+            // Battle Mode Only Logic
+            if (mode === 'battle') {
+                // === ▼▼▼ 修正点 (フェーズ4c) ▼▼▼ ===
+                // (ドロップダウンのキャラクターリストを更新するために、この呼び出しは必須)
+                // (★ window.xxx を使って、グローバル関数を安全に参照する)
+                if (window.setupActionColumn) {
+                    window.attackerCol = setupActionColumn('attacker');
+                    window.defenderCol = setupActionColumn('defender');
+                }
+                // === ▲▲▲ 修正ここまで ▲▲▲ ===
 
-            renderTimeline();
+                renderTimeline();
+            }
+        }
+
+        // Trigger Dock Update
+        if (typeof updateActionDock === 'function') {
+            updateActionDock();
         }
     });
     socket.on('new_log', (logData) => {

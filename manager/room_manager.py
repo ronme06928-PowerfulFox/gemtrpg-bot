@@ -57,6 +57,12 @@ def get_room_state(room_name):
                     "targets": [],
                     "attacker_data": {},
                     "defender_data": {},
+                },
+                # ★ 追加: 探索モード状態
+                "mode": "battle",
+                "exploration": {
+                    "backgroundImage": None,
+                    "tachie_locations": {}
                 }
             }
             active_room_states[room_name] = state
@@ -73,6 +79,14 @@ def get_room_state(room_name):
             "targets": [],
             "attacker_data": {},
             "defender_data": {},
+        }
+    # ★ 追加: 探索モード状態の初期化
+    if 'mode' not in state:
+        state['mode'] = 'battle'  # default is battle
+    if 'exploration' not in state:
+        state['exploration'] = {
+            'backgroundImage': None,
+            'tachie_locations': {}  # char_id -> {x, y, scale}
         }
 
 

@@ -160,9 +160,8 @@ function renderCharacterCard(char) {
     const fpVal = fpState ? fpState.value : 0;
 
     // --- Params ---
-    let paramsHtml = '';
     const coreStats = ['筋力', '生命力', '体格', '精神力', '速度', '直感', '経験', '物理補正', '魔法補正'];
-    let paramItems = [];
+    const explorationStats = ['五感', '採取', '本能', '鑑定', '対話', '尋問', '諜報', '窃取', '隠密', '運動', '制作', '回避'];
 
     // Normalize params to array of objects
     let charParams = [];
@@ -172,19 +171,42 @@ function renderCharacterCard(char) {
         charParams = Object.entries(char.params).map(([k, v]) => ({ label: k, value: v }));
     }
 
-    // Generate Grid Items
-    coreStats.forEach(stat => {
-        const p = charParams.find(cp => cp.label === stat);
-        const val = p ? p.value : 0;
-        paramItems.push(`
-            <div class="char-param-item">
-                <span class="param-label">${stat}</span>
-                <span class="param-value">${val}</span>
-            </div>
-        `);
-    });
+    // Helper to generate grid HTML
+    const renderParamsGrid = (labels) => {
+        const items = labels.map(stat => {
+            const p = charParams.find(cp => cp.label === stat);
+            const val = p ? p.value : 0;
+            return `
+                <div class="char-param-item">
+                    <span class="param-label">${stat}</span>
+                    <span class="param-value">${val}</span>
+                </div>
+            `;
+        });
+        return `<div class="char-params-grid">${items.join('')}</div>`;
+    };
 
-    paramsHtml = `<div class="char-params-grid">${paramItems.join('')}</div>`;
+    // Determine default view mode based on global BattleState
+    const isExploration = (typeof battleState !== 'undefined' && battleState.mode === 'exploration');
+    const displayBattle = isExploration ? 'none' : 'block';
+    const displayExploration = isExploration ? 'block' : 'none';
+    const btnText = isExploration ? '戦闘ステータスへ' : '探索技能へ';
+
+    const paramsHtml = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+             <h4 style="margin:0; color:#333; font-size:1em;">Parameters</h4>
+             <button class="params-toggle-btn action-btn secondary"
+                style="font-size:0.8em; padding:2px 8px; cursor:pointer;">
+                ${btnText}
+             </button>
+        </div>
+        <div class="params-container params-battle" style="display:${displayBattle};">
+            ${renderParamsGrid(coreStats)}
+        </div>
+        <div class="params-container params-exploration" style="display:${displayExploration};">
+            ${renderParamsGrid(explorationStats)}
+        </div>
+    `;
 
     // --- States (Stack) ---
     let statesHtml = '';
@@ -456,7 +478,6 @@ function renderCharacterCard(char) {
             </div>
 
             <div class="detail-section" style="margin-bottom:20px;">
-                <h4 style="margin:0 0 8px 0; color:#333; font-size:1em; border-bottom:2px solid #eee; padding-bottom:4px;">Parameters</h4>
                 ${paramsHtml}
             </div>
 
@@ -569,11 +590,66 @@ function openCharacterModal(charId) {
             socket.emit('request_state_update', {
                 room: currentRoomName,
                 charId: char.id,
-                statName: 'hidden_skills',
-                newValue: currentHidden
+                changes: { hidden_skills: currentHidden }
             });
         });
     });
+
+    // --- Parameter Toggle Listener ---
+    const paramToggleBtn = modalContent.querySelector('.params-toggle-btn');
+    if (paramToggleBtn) {
+        paramToggleBtn.addEventListener('click', () => {
+            // Re-define stats locally or get from scope if available.
+            // Since renderParamsGrid helper is not available here, we need to replicate logic or expose it.
+            // Better option: Use the renderCharacterCard's scope? No, that's closed.
+            // We need to re-implement the grid generation logic here or just toggle visibility if we rendered both.
+            // Let's re-implement for simplicity.
+
+            const coreStats = ['筋力', '生命力', '体格', '精神力', '速度', '直感', '経験', '物理補正', '魔法補正'];
+            const explorationStats = ['五感', '採取', '本能', '鑑定', '対話', '尋問', '諜報', '窃取', '隠密', '運動', '制作', '回避'];
+
+            let charParams = [];
+            if (Array.isArray(char.params)) {
+                charParams = char.params;
+            } else if (char.params && typeof char.params === 'object') {
+                charParams = Object.entries(char.params).map(([k, v]) => ({ label: k, value: v }));
+            }
+
+            const renderGrid = (labels) => {
+                const items = labels.map(stat => {
+                    const p = charParams.find(cp => cp.label === stat);
+                    const val = p ? p.value : 0;
+                    return `
+                        <div class="char-param-item">
+                            <span class="param-label">${stat}</span>
+                            <span class="param-value">${val}</span>
+                        </div>
+                    `;
+                });
+                return `<div class="char-params-grid">${items.join('')}</div>`;
+            };
+
+            // Find container (it is the next sibling of the parent of the button)
+            // Structure:
+            // <div><h4>...</h4> <button>... </button></div>
+            // <div id="params-container...">...</div>
+            const container = paramToggleBtn.parentElement.nextElementSibling;
+            if (container) {
+                const currentMode = paramToggleBtn.dataset.mode;
+                if (currentMode === 'exploration') {
+                    // Mode is exploration, switch TO Battle
+                    container.innerHTML = renderGrid(coreStats);
+                    paramToggleBtn.textContent = '探索技能へ';
+                    paramToggleBtn.dataset.mode = 'battle';
+                } else {
+                    // Mode is battle, switch TO Exploration
+                    container.innerHTML = renderGrid(explorationStats);
+                    paramToggleBtn.textContent = 'ステータスへ';
+                    paramToggleBtn.dataset.mode = 'exploration';
+                }
+            }
+        });
+    }
 }
 
 /**
@@ -1101,3 +1177,6 @@ function openResetTypeModal(callback) {
         }
     };
 }
+
+// Global Alias for Character Detail Modal (Used by Battle/Exploration views)
+window.showCharacterDetail = openCharacterModal;

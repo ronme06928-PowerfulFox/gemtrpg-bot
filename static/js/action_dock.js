@@ -16,7 +16,79 @@ function hasImmediateSkill(char) {
 }
 
 // アクションドックの更新関数
+// アクションドックの更新関数
 function updateActionDock() {
+    // ★ Exploration Mode Check
+    const mode = battleState ? (battleState.mode || 'battle') : 'unknown';
+    console.log(`[ActionDock] Update called. Mode: ${mode}`);
+
+    // ★ Unplaced Area (Shared Modal) Update
+    // Always update this if it exists, regardless of mode
+    const stagingList = document.getElementById('staging-overlay-list');
+    if (stagingList) {
+        renderStagingOverlayList(stagingList);
+    }
+
+    // Force Exploration Dock if mode is exploration
+    if (mode === 'exploration') {
+        const dock = document.getElementById('action-dock');
+
+        // Ensure we don't have battle icons
+        if (dock && !dock.classList.contains('exploration-mode')) {
+            console.log('[ActionDock] Switching to Exploration Dock (Clearing content)');
+            dock.innerHTML = '';
+            dock.className = 'action-dock exploration-mode';
+        }
+
+        if (window.ExplorationDock && typeof window.ExplorationDock.render === 'function') {
+            console.log('[ActionDock] Rendering ExplorationDock content');
+            window.ExplorationDock.render();
+        } else {
+            // Script might not be loaded yet
+            console.warn('[ActionDock] ExplorationDock not ready, retrying...');
+            setTimeout(updateActionDock, 200);
+        }
+        return; // Always return to prevent Battle Dock rendering
+    }
+
+    // Battle Mode Logic
+    // Reset to Battle Dock (if switching back)
+    const dock = document.getElementById('action-dock');
+    if (dock && dock.classList.contains('exploration-mode')) {
+        console.log('[ActionDock] Switching back to Battle Dock');
+        dock.className = 'action-dock';
+        dock.innerHTML = `
+            <div id="dock-match-icon" class="dock-icon" style="display: none;" title="マッチ実行">⚔️</div>
+            <div id="dock-immediate-icon" class="dock-icon disabled" title="即時発動スキル">⚡</div>
+            <div id="dock-item-icon" class="dock-icon" title="アイテム使用">🎒</div>
+            <div id="dock-add-char-icon" class="dock-icon" title="キャラクター追加">➕</div>
+            <div id="dock-staging-icon" class="dock-icon" title="未配置キャラクター">📦</div>
+        `;
+        // Re-initialize listeners
+        initializeActionDock();
+    }
+
+    // ★ Add Switch to Exploration Button for GM (if not exists)
+    if (currentUserAttribute === 'GM' && dock) {
+        let expBtn = document.getElementById('dock-to-exploration-btn');
+        if (!expBtn) {
+            expBtn = document.createElement('div');
+            expBtn.id = 'dock-to-exploration-btn';
+            expBtn.className = 'dock-icon';
+            expBtn.textContent = '🗺️';
+            expBtn.title = '探索パートへ切替';
+            expBtn.style.background = '#27ae60'; // Green
+            expBtn.onclick = () => {
+                if (confirm('探索パートへ切り替えますか？')) {
+                    socket.emit('request_change_mode', { room: currentRoomName, mode: 'exploration' });
+                }
+            };
+            // Insert at bottom
+            dock.appendChild(expBtn);
+        }
+    }
+
+
     const immediateIcon = document.getElementById('dock-immediate-icon');
     const matchIcon = document.getElementById('dock-match-icon');
     const stagingIcon = document.getElementById('dock-staging-icon');
@@ -64,7 +136,7 @@ function updateActionDock() {
     }
 
     // 未配置エリア（モーダル）のリストがあれば無条件に更新（非表示でも最新化しておく）
-    const stagingList = document.getElementById('staging-overlay-list');
+    // const stagingList = document.getElementById('staging-overlay-list'); // Moved to top
     if (stagingList) {
         // console.log('📦 Updating staging overlay list...'); // 頻出しすぎる場合はコメントアウト
         renderStagingOverlayList(stagingList);
@@ -130,12 +202,12 @@ function openImmediateSkillModal() {
     const header = document.createElement('div');
     header.className = 'modal-header';
     header.innerHTML = `
-        <h3>⚡ 即時発動スキル</h3>
-        <div class="modal-controls">
-            <button class="window-control-btn minimize-btn" title="最小化">_</button>
-            <button class="window-control-btn close-btn" title="閉じる">×</button>
-        </div>
-    `;
+            < h3 >⚡ 即時発動スキル</h3 >
+                <div class="modal-controls">
+                    <button class="window-control-btn minimize-btn" title="最小化">_</button>
+                    <button class="window-control-btn close-btn" title="閉じる">×</button>
+                </div>
+        `;
 
     // ボディ
     const body = document.createElement('div');
@@ -246,7 +318,7 @@ function createImmediateCharRow(char) {
         immediateSkills.forEach(skill => {
             const option = document.createElement('option');
             option.value = skill.id;
-            option.textContent = `${skill.id} ${skill.name}`;
+            option.textContent = `${skill.id} ${skill.name} `;
             select.appendChild(option);
         });
     }
@@ -274,7 +346,7 @@ function createImmediateCharRow(char) {
             target_id: char.id, // 即時発動スキルは自身がターゲット
             skill_id: selectedSkillId,
             commit: true,
-            prefix: `immediate_${char.id}`
+            prefix: `immediate_${char.id} `
         });
 
         // 少し待ってからモーダルを閉じる
@@ -299,6 +371,13 @@ function createImmediateCharRow(char) {
 
 // アクションドックの初期化（イベントリスナー設定のみ）
 function initializeActionDock() {
+    // If in Exploration Mode, do NOT initialize battle dock listeners.
+    if (battleState && battleState.mode === 'exploration') {
+        console.log('[InitializeActionDock] Skipping Battle Dock init due to Exploration Mode.');
+        // Ensure dock is cleared or delegates to updateActionDock
+        if (typeof updateActionDock === 'function') updateActionDock();
+        return;
+    }
 
 
     const immediateIcon = document.getElementById('dock-immediate-icon');
