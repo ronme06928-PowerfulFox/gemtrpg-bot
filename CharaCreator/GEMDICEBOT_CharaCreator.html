@@ -475,13 +475,21 @@
             <div class="grid-auto">
                 <div class="param-box">
                     <label>HP (現/最)</label>
-                    <div style="display:flex; gap:5px;"><input type="number" id="st-hp-val" readonly><input
-                            type="number" id="st-hp-max" readonly></div>
+                    <div style="display:flex; gap:5px; width:100%;">
+                        <input type="number" id="st-hp-val" readonly oninput="updateJSON()" style="flex:1; min-width:0;"
+                            placeholder="現在">
+                        <input type="number" id="st-hp-max" readonly oninput="updateJSON()" style="flex:1; min-width:0;"
+                            placeholder="最大">
+                    </div>
                 </div>
                 <div class="param-box">
                     <label>MP (現/最)</label>
-                    <div style="display:flex; gap:5px;"><input type="number" id="st-mp-val" readonly><input
-                            type="number" id="st-mp-max" readonly></div>
+                    <div style="display:flex; gap:5px; width:100%;">
+                        <input type="number" id="st-mp-val" readonly oninput="updateJSON()" style="flex:1; min-width:0;"
+                            placeholder="現在">
+                        <input type="number" id="st-mp-max" readonly oninput="updateJSON()" style="flex:1; min-width:0;"
+                            placeholder="最大">
+                    </div>
                 </div>
             </div>
         </div>
