@@ -6,7 +6,7 @@ from manager.battle.common_manager import (
     process_full_round_end, reset_battle_logic, force_end_match_logic,
     move_token_logic, open_match_modal_logic, close_match_modal_logic,
     sync_match_data_logic, process_round_start, process_wide_declarations,
-    process_wide_modal_confirm
+    process_wide_modal_confirm, update_battle_background_logic
 )
 
 
@@ -159,3 +159,19 @@ def on_debug_apply_buff(data):
     apply_buff(char, buff_name, duration, delay, data={'buff_id': buff_id})
     broadcast_state_update(room)
     broadcast_log(room, f"[DEBUG] {char['name']} に {buff_name}({buff_id}) を付与しました。", 'system')
+
+@socketio.on('request_update_battle_background')
+def on_request_update_battle_background(data):
+    room = data.get('room')
+    image_url = data.get('imageUrl')
+    scale = data.get('scale')
+    offset_x = data.get('offsetX')
+    offset_y = data.get('offsetY')
+
+    if not room: return
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+
+    update_battle_background_logic(room, image_url, scale, offset_x, offset_y, username, attribute)

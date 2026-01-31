@@ -460,13 +460,17 @@ def get_room_users():
 @app.route('/api/local_images', methods=['GET'])
 def get_local_images():
     """
-    ローカル（static/images/characters）にある画像一覧を取得するAPI
+    ローカル（static/images/characters|backgrounds）にある画像一覧を取得するAPI
     Cloudinaryを使わずにデフォルト素材を提供するため
     """
     try:
+        # 画像タイプを取得 ('character' or 'background')
+        image_type = request.args.get('type', 'character')
+        subdir = 'backgrounds' if image_type == 'background' else 'characters'
+
         # 画像ディレクトリのパス
         # static_folderがNoneの場合もあるので、app.root_path基点で作成
-        img_dir = os.path.join(app.root_path, 'static', 'images', 'characters')
+        img_dir = os.path.join(app.root_path, 'static', 'images', subdir)
 
         if not os.path.exists(img_dir):
             return jsonify([])
@@ -477,23 +481,20 @@ def get_local_images():
         images = []
         for filename in os.listdir(img_dir):
             if filename.lower().endswith(valid_extensions):
-                # URLは images/characters/ファイル名 (staticフォルダがルートとして配信されているため)
-                url = f"images/characters/{filename}"
-                name = os.path.splitext(filename)[0]
-
+                # URLは images/subdir/ファイル名
                 images.append({
-                    "name": name,
-                    "url": url,
-                    "type": "default" # フロントエンド互換性のため
+                    'id': f'local_{subdir}_{filename}',
+                    'name': filename,
+                    'url': f'images/{subdir}/{filename}',
+                    'type': 'default'
                 })
 
-        # 名前順でソート
-        images.sort(key=lambda x: x['name'])
-
         return jsonify(images)
+
     except Exception as e:
-        print(f"Error listing local images: {e}")
-        return jsonify([]), 500
+        logging.error(f"[LocalImages] Error: {e}")
+        return jsonify([])
+
 
 
 

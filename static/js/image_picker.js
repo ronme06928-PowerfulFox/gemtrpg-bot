@@ -142,7 +142,7 @@ function openImagePicker(onSelect, pickType = 'character') {
     setupUploadTab(modal, onSelect);
 
     // デフォルト画像タブの初期化 (pickTypeに関わらず一旦全部出す、あるいはフィルタする？今回はそのまま)
-    loadDefaultImages(modal, onSelect);
+    loadDefaultImages(modal, onSelect, pickType);
 
     // 検索機能
     const searchInput = modal.querySelector('#image-search-input');
@@ -199,11 +199,11 @@ async function loadGalleryImages(modal, onSelect, query = '', pickType = 'charac
 /**
  * デフォルト画像を読み込んで表示
  */
-async function loadDefaultImages(modal, onSelect) {
+async function loadDefaultImages(modal, onSelect, pickType = 'character') {
     const container = modal.querySelector('#default-images');
 
     try {
-        const response = await fetch('/api/local_images', {
+        const response = await fetch(`/api/local_images?type=${pickType}`, {
             credentials: 'include'
         });
 

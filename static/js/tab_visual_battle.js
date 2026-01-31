@@ -763,6 +763,22 @@ function renderVisualMap() {
     tokenLayer.innerHTML = '';
     renderVisualTimeline();
     updateMapTransform();
+
+    // ★ 背景画像の適用
+    const mapEl = document.getElementById('game-map');
+    if (mapEl && battleState.battle_map_data) {
+        const bgData = battleState.battle_map_data;
+        if (bgData.background_image) {
+            mapEl.style.backgroundImage = `url('${bgData.background_image}')`;
+            mapEl.style.backgroundSize = 'contain'; // or cover? Exploration uses contain.
+            mapEl.style.backgroundRepeat = 'no-repeat';
+            mapEl.style.backgroundPosition = 'center';
+        } else {
+            // Reset if no image
+            mapEl.style.backgroundImage = '';
+        }
+    }
+
     if (typeof battleState === 'undefined' || !battleState.characters) return;
     const currentTurnId = battleState.turn_char_id || null;
     battleState.characters.forEach(char => {
@@ -772,6 +788,44 @@ function renderVisualMap() {
             tokenLayer.appendChild(token);
         }
     });
+
+    // ★ GM用背景設定ボタンの注入 (一度だけ)
+    const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
+    if (isGM && !document.getElementById('battle-bg-settings-btn')) {
+        const zIn = document.getElementById('zoom-in-btn');
+        if (zIn && zIn.parentElement) {
+            const btn = document.createElement('button');
+            btn.id = 'battle-bg-settings-btn';
+            btn.innerHTML = '🖼️'; // Image Icon
+            btn.title = '戦闘背景設定';
+            btn.className = 'map-control-btn'; // Assume same class as zoom buttons
+            btn.style.marginLeft = '5px';
+            btn.onclick = () => {
+                // 背景設定ロジック
+                if (typeof openImagePicker === 'function') {
+                    // ★ 'background' タイプを指定して探索パートの画像も表示
+                    openImagePicker((selectedImage) => {
+                        socket.emit('request_update_battle_background', {
+                            room: currentRoomName,
+                            imageUrl: selectedImage.url,
+                            scale: 1.0, // Default
+                            offsetX: 0,
+                            offsetY: 0
+                        });
+                    }, 'background');
+                } else {
+                    const url = prompt("背景画像のURLを入力してください:", battleState.battle_map_data?.background_image || "");
+                    if (url) {
+                        socket.emit('request_update_battle_background', {
+                            room: currentRoomName,
+                            imageUrl: url
+                        });
+                    }
+                }
+            };
+            zIn.parentElement.appendChild(btn);
+        }
+    }
 }
 
 /**
@@ -784,22 +838,49 @@ function setupMapControls() {
     const gameMap = document.getElementById('game-map');
     if (!mapViewport || !gameMap) return;
 
+    // ★ Initializing Custom Drag Logic
+    if (typeof setupBattleTokenDrag === 'function') setupBattleTokenDrag();
+
     if (window.visualMapHandlers.move) window.removeEventListener('mousemove', window.visualMapHandlers.move);
     if (window.visualMapHandlers.up) window.removeEventListener('mouseup', window.visualMapHandlers.up);
 
     mapViewport.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
     mapViewport.ondrop = (e) => {
         e.preventDefault();
+        // ★ 既存トークンのドラッグ移動は MouseEvent で処理するため、ここでは無視する
+        // ただし、外部（Dock）からのドロップは受ける必要がある。
+        // MouseEventドラッグ中は e.dataTransfer は空のはずなので問題ないが、念のため
+        // class check
         if (e.target.closest('.map-token')) return;
+
         const charId = e.dataTransfer.getData('text/plain');
         if (!charId) return;
+
+        // ★ 重複配置の防止 (既にマップ上にある場合は移動とみなすか？)
+        // 今回の仕様変更で「マップ上のトークン移動」は MouseEvent 管理になる。
+        // Dock からのドロップは「新規配置」または「強制移動」。
+        // 現状の Dock のリストアイテムは HTML5 Draggable なので、ここに来る。
+
+        // --- 以下、座標計算 ---
         const rect = gameMap.getBoundingClientRect();
         const mapX = (e.clientX - rect.left) / visualScale;
         const mapY = (e.clientY - rect.top) / visualScale;
 
-        // グリッド座標に変換（90px単位）
-        const gridX = Math.floor(mapX / GRID_SIZE);
-        const gridY = Math.floor(mapY / GRID_SIZE);
+        // グリッド座標に変換（90px単位）- ★フリー移動対応: Math.floorを削除して小数座標を許容
+        // センタリング補正: マウス位置がトークンの中心になるように調整 (GRID_SIZE / 2 相当を引く？)
+        // いや、従来は左上基準だった。直感的な配置のため、マウス位置を中心にしたいなら補正が必要。
+        // ただし、createMapTokenでは TOKEN_OFFSET (+5px) が加算される。
+        // ここでは単純に座標を計算し、微調整はユーザーのドラッグ操作に任せるのが自然。
+        let gridX = mapX / GRID_SIZE;
+        let gridY = mapY / GRID_SIZE;
+
+        // 画面外への配置防止 (最低限 0以上)
+        if (gridX < 0) gridX = 0;
+        if (gridY < 0) gridY = 0;
+
+        // 小数点第2位程度で丸める（通信量削減と浮動小数点誤差防止）
+        gridX = Math.round(gridX * 100) / 100;
+        gridY = Math.round(gridY * 100) / 100;
 
         if (typeof socket !== 'undefined' && currentRoomName) {
             // ★ Optimistic UI Update (Phase 1.5)
@@ -1103,212 +1184,321 @@ function showFloatingText(token, diff, stat, source = null) {
  * @param {Array} [char.states] - ステータス効果の配列
  * @returns {HTMLElement} 生成されたトークン要素
  */
+/**
+ * キャラクター用のマップトークンを生成 (New Design: Rounded Square)
+ * 角丸スクエアデザイン、数値付きステータスバー、外付けデバフアイコンを採用
+ * @param {Object} char - キャラクター情報オブジェクト
+ * @returns {HTMLElement} 生成されたトークン要素
+ */
 function createMapToken(char) {
     const token = document.createElement('div');
 
-    // 色分けの判定: 名前に「味方」「敵」が含まれているかをチェック
+    // 色分けの判定
     let colorClass = 'NPC'; // デフォルト
+    let borderColor = '#999'; // Default Gray
+
     if (char.name && char.name.includes('味方')) {
         colorClass = 'PC';
+        borderColor = '#007bff'; // Blue
     } else if (char.name && char.name.includes('敵')) {
         colorClass = 'Enemy';
+        borderColor = '#dc3545'; // Red
     } else if (char.color) {
         colorClass = char.color;
+        borderColor = char.color; // Custom color if available
     }
 
     token.className = `map-token ${colorClass}`;
     token.dataset.id = char.id;
 
-    // 駒サイズスケールを適用
+    // ★ 駒サイズスケールを適用 (基本サイズ拡大: 132px)
     const tokenScale = char.tokenScale || 1.0;
-    const scaledSize = 82 * tokenScale; // 基本サイズ82px
+    const baseSize = 132;
+    const scaledSize = baseSize * tokenScale;
+
     token.style.width = `${scaledSize}px`;
     token.style.height = `${scaledSize}px`;
 
+    // ★ デザイン: 角丸スクエア (下部は直角)
+    token.style.borderRadius = "18px 18px 0 0";
+    token.style.border = `4px solid ${borderColor}`;
+    token.style.boxShadow = "0 4px 8px rgba(0,0,0,0.4)"; // Drop shadow for depth
+    token.style.overflow = "visible"; // Allow badges to stick out
 
-    // グリッド座標をピクセル座標に変換（90px単位）
+    // グリッド座標をピクセル座標に変換
     token.style.left = `${char.x * GRID_SIZE + TOKEN_OFFSET}px`;
     token.style.top = `${char.y * GRID_SIZE + TOKEN_OFFSET}px`;
+    // ★ カスタム移動のための絶対配置
+    token.style.position = 'absolute';
+
+    // --- ステータス値の計算 ---
     const maxHp = char.maxHp || 1; const hp = char.hp || 0;
     const hpPer = Math.max(0, Math.min(PERCENTAGE_MAX, (hp / maxHp) * PERCENTAGE_MAX));
+
     const maxMp = char.maxMp || 1; const mp = char.mp || 0;
     const mpPer = Math.max(0, Math.min(PERCENTAGE_MAX, (mp / maxMp) * PERCENTAGE_MAX));
+
     const fpState = char.states ? char.states.find(s => s.name === 'FP') : null;
     const fp = fpState ? fpState.value : 0;
-    const fpPer = Math.min(PERCENTAGE_MAX, (fp / MAX_FP) * PERCENTAGE_MAX);
+    // FP bar removed, using badge instead
+
+    // --- デバフアイコン (External Badge) - Resized & Wrapped ---
     let iconsHtml = '';
     if (char.states) {
+        let badgeCount = 0;
+        const badgesPerRow = 3; // 3つ並んだら折り返し
+
         char.states.forEach(s => {
             if (['HP', 'MP', 'FP'].includes(s.name)) return;
             if (s.value === 0) return;
+
             const config = STATUS_CONFIG[s.name];
+
+            // グリッド配置計算 (右から左へ、下から上へ積み上げ？あるいは上へ)
+            // top: -25px が基準 (さらに上へ)
+            const row = Math.floor(badgeCount / badgesPerRow);
+            const col = badgeCount % badgesPerRow;
+
+            const rightPos = -10 + (col * 30); // spacing 30px
+            const topPos = -25 - (row * 36);   // spacing 36px vertically
+
+            // バッジサイズ (34px, Font 12px)
+            const badgeStyle = `
+                width: 34px; height: 34px;
+                display: flex; align-items: center; justify-content: center;
+                border-radius: 50%; box-shadow: 0 3px 5px rgba(0,0,0,0.5);
+                background: #fff; border: 2px solid #ccc;
+                position: absolute; right: ${rightPos}px; top: ${topPos}px; z-index: ${5 + row};
+            `;
+
+            // 数値表示のスタイル (右下)
+            const countStyle = `
+                position: absolute; bottom: -5px; right: -5px;
+                background: ${config ? config.color : (s.value > 0 ? '#28a745' : '#dc3545')};
+                color: white; font-size: 12px; font-weight: bold;
+                padding: 0 3px; border-radius: 4px; border: 1px solid white;
+            `;
+
             if (config) {
                 iconsHtml += `
-                    <div class="mini-status-icon" style="background-color: #fff; border-color: ${config.borderColor};">
-                        <img src="images/${config.icon}" alt="${s.name}">
-                        <div class="mini-status-badge" style="background-color: ${config.color};">${s.value}</div>
+                    <div class="status-badge" style="${badgeStyle} border-color: ${config.borderColor};" title="${s.name}: ${s.value}">
+                        <img src="images/${config.icon}" style="width:100%; height:100%; border-radius:50%;">
+                        <div style="${countStyle}">${s.value}</div>
                     </div>`;
             } else {
                 const arrow = s.value > 0 ? '▲' : '▼';
                 const color = s.value > 0 ? '#28a745' : '#dc3545';
                 iconsHtml += `
-                    <div class="mini-status-icon" style="color:${color}; font-weight:bold; border-color:${color};">
+                    <div class="status-badge" style="${badgeStyle} color:${color}; border-color:${color}; font-weight:bold; background:#fff; font-size:20px;" title="${s.name}: ${s.value}">
                         ${arrow}
-                        <div class="mini-status-badge" style="background:${color}; border-color:${color};">${s.value}</div>
+                        <div style="${countStyle}">${s.value}</div>
                     </div>`;
             }
+            badgeCount++;
         });
     }
 
     const isCurrentTurn = (battleState.turn_char_id === char.id);
+
+    // ★ ターゲットモード時のハイライト表示
+    if (attackTargetingState && attackTargetingState.isTargeting) {
+        if (attackTargetingState.attackerId === char.id) {
+            token.style.boxShadow = `0 0 15px 5px #00aaff`; // Attacker Glow (Blue)
+            token.style.zIndex = 100;
+            token.classList.add("targeting-attacker");
+        } else {
+            // Target candidates (exclude self)
+            // token.style.boxShadow = `0 0 10px 2px #ff4444`; // Candidate Glow (Red)
+        }
+    } else if (isCurrentTurn) {
+        // アクティブなターンなら背後を金色に発光させる (枠線の色は変えない)
+        token.style.boxShadow = `0 0 25px 10px rgba(255, 215, 0, 0.8)`; // Strong Gold Glow
+        token.style.zIndex = 100; // 手前に
+        // token.style.borderColor = "#ffc107"; // Removed as per request
+    }
+
+    // --- 広域攻撃ボタン ---
     let wideBtnHtml = '';
-    // ★ 修正: 既に広域マッチが進行中ならボタンを表示しない (誤リセット防止)
     const isWideMatchExecuting = battleState.active_match && battleState.active_match.is_active && battleState.active_match.match_type === 'wide';
-
-    // DEBUG: Wide Button Condition
-    if (char.isWideUser) {
-        console.log(`[WideButtonDebug] ${char.name}: isTurn=${isCurrentTurn}, isWideUser=${char.isWideUser}, Executing=${isWideMatchExecuting}`);
-    }
-
     if (isCurrentTurn && char.isWideUser && !isWideMatchExecuting) {
-        wideBtnHtml = '<button class="wide-attack-trigger-btn" onclick="event.stopPropagation(); openSyncedWideMatchModal(\'' + char.id + '\');">⚡ 広域攻撃</button>';
+        // ボタンも少し大きく、押しやすく
+        wideBtnHtml = '<button class="wide-attack-trigger-btn" style="transform: scale(1.2); top: -40px; font-size: 1.1em;" onclick="event.stopPropagation(); window._dragBlockClick = true; openSyncedWideMatchModal(\'' + char.id + '\');">⚡ 広域</button>';
     }
 
-    // ★ 画像URLがある場合は背景として設定
-    let tokenBodyStyle = '';
-    let tokenBodyContent = `<span>${char.name.charAt(0)}</span>`;
+    // --- 背景画像 ---
+    // tokenBodyStyle は内部 content 用
+    let tokenBodyStyle = `width: 100%; height: 100%; border-radius: 14px 14px 0 0; overflow: hidden; position: relative; background: #eee;`;
+    let tokenBodyContent = `<span style="font-size: 3em; font-weight: bold; color: #555; display: flex; align-items: center; justify-content: center; height: 100%;">${char.name.charAt(0)}</span>`;
 
     if (char.image) {
-        tokenBodyStyle = `style="background-image: url('${char.image}'); background-size: cover; background-position: center; background-repeat: no-repeat;"`;
-        tokenBodyContent = ''; // 画像がある場合はテキストを表示しない
+        tokenBodyStyle += `background-image: url('${char.image}'); background-size: cover; background-position: center; background-repeat: no-repeat;`;
+        tokenBodyContent = '';
     }
+
+    // --- ステータスバー (New Overlay Design v3) ---
+    // 下部: ステータス (HP, MP) - FP Removed
+    const statusOverlayStyle = `
+        position: absolute; bottom: 0; left: 0; width: 100%;
+        background: rgba(0, 0, 0, 0.75);
+        padding: 5px; box-sizing: border-box;
+        border-bottom-left-radius: 0; border-bottom-right-radius: 0; /* Square bottom */
+        display: flex; flex-direction: column; gap: 4px;
+        pointer-events: none; /* クリック透過 */
+    `;
+
+    // ★ Name Label (Outside Bottom)
+    // トークンの外側下部に配置。
+    const nameLabelStyle = `
+        position: absolute;
+        top: ${scaledSize + 6}px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: bold;
+        white-space: nowrap;
+        z-index: 101;
+        text-shadow: 1px 1px 2px black;
+        pointer-events: none;
+    `;
+    const nameLabelHtml = `<div class="token-name-label" style="${nameLabelStyle}">${char.name}</div>`;
+
+    // バー生成ヘルパー (Height 14px, Font 14px/18px)
+    const createBar = (cls, per, val, max, label) => `
+        <div style="display:flex; align-items:center; height: 14px; gap: 4px;">
+            <div style="font-size:14px; font-weight:bold; color:#ccc; width:22px; text-align:left; line-height:1;">${label}</div>
+            <div style="flex-grow:1; background:#444; height:100%; border-radius:3px; position:relative; overflow:hidden;">
+                <div class="${cls}" style="width:${per}%; height:100%; position:absolute; left:0; top:0; border-radius:3px;"></div>
+            </div>
+            <div style="font-size:18px; color:white; font-weight:bold; text-shadow:1px 1px 1px #000; min-width:30px; text-align:right; line-height:1;">${val}</div>
+        </div>
+    `;
+
+    const statusHtml = `
+        <div style="${statusOverlayStyle}">
+            ${createBar('token-bar-fill hp', hpPer, hp, maxHp, 'HP')}
+            ${createBar('token-bar-fill mp', mpPer, mp, maxMp, 'MP')}
+        </div>
+    `;
+
+    // ★ FP Badge (Top Left)
+    const fpBadgeHtml = `
+        <div class="fp-badge" style="
+            position: absolute; top: -12px; left: -12px;
+            width: 32px; height: 32px;
+            background: #ff9800;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: bold; font-size: 16px;
+            z-index: 20;
+        " title="FP: ${fp}">
+            ${fp}
+        </div>
+    `;
 
     token.innerHTML = `
         ${wideBtnHtml}
-        <div class="token-bars">
-            <div class="token-bar" title="HP: ${hp}/${maxHp}">
-                <div class="token-bar-fill hp" style="width: ${hpPer}%"></div>
-            </div>
-            <div class="token-bar" title="MP: ${mp}/${maxMp}">
-                <div class="token-bar-fill mp" style="width: ${mpPer}%"></div>
-            </div>
-            <div class="token-bar" title="FP: ${fp}">
-                <div class="token-bar-fill fp" style="width: ${fpPer}%"></div>
-            </div>
+        ${fpBadgeHtml}
+        <div class="token-body" style="${tokenBodyStyle}">
+            ${tokenBodyContent}
+            ${statusHtml}
         </div>
-        <div class="token-body" ${tokenBodyStyle}>${tokenBodyContent}</div>
-        <div class="token-info-container">
-            <div class="token-label">${char.name}</div>
-            <div class="token-status-overlay">${iconsHtml}</div>
+        ${nameLabelHtml}
+        <div class="token-badges" style="position: absolute; top:0; right:0; width:0; height:0;">
+            ${iconsHtml}
         </div>
     `;
-    token.draggable = true;
-    token.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', char.id);
-        e.dataTransfer.effectAllowed = 'move';
-        token.classList.add('dragging');
-    });
-    token.addEventListener('dragend', () => token.classList.remove('dragging'));
+
+    // ★ HTML5 Draggable を無効化（カスタム移動のため）
+    token.draggable = false;
+    token.style.cursor = 'grab';
+
     // ダブルクリックで詳細モーダルを表示
     token.addEventListener('dblclick', (e) => {
         e.stopPropagation();
-        exitAttackTargetingMode(); // ターゲット選択モードを解除
+        exitAttackTargetingMode();
         showCharacterDetail(char.id);
     });
 
+    // シングルクリックで攻撃対象選択・ターゲティングモード開始
     token.addEventListener('click', (e) => {
         e.stopPropagation();
+        console.log(`[Click] Token clicked: ${char.name} (${char.id})`);
 
-        // ★修正: アクティブなマッチがある場合の挙動
+        // ★ Drag後のクリック防止
+        if (window._dragBlockClick) {
+            console.log('[Click] ❌ Blocked due to recent drag (window._dragBlockClick=true)');
+            return;
+        }
+
+        // ★ 重なり対策: クリックしたトークンを一時的に最前面へ
+        document.querySelectorAll('.map-token').forEach(t => t.style.zIndex = '');
+        token.style.zIndex = 500;
+
+        // アクティブマッチ中のキャラクターをクリック → パネル展開
         if (battleState.active_match && battleState.active_match.is_active) {
             const am = battleState.active_match;
-            // 自分が攻撃者 or 防御者なら、ターゲットモードには入らずパネルを開く
             if (am.attacker_id === char.id || am.defender_id === char.id) {
-                // パネルが閉じていれば開く
+                console.log('[Click] Expanding match panel (active match participant)');
                 if (typeof expandMatchPanel === 'function') expandMatchPanel();
                 return;
             }
-            // 他のキャラをクリックした場合は、現在進行中のマッチを無視してターゲットモードに入るべきか？
-            // ユーザー要望「ハンドキャラをクリック...リセットされてしまう」-> 誤操作防止のため、
-            // 進行中はハンドキャラクリックでパネル表示のみにするのが安全。
         }
 
-        // ターゲット選択モード中の場合
-        if (attackTargetingState.isTargeting && attackTargetingState.attackerId) {
-            const attackerId = attackTargetingState.attackerId;
+        // ターゲティングモード中 → 対象選択
+        console.log(`[Click] Targeting state check: isTargeting=${window.attackTargetingState.isTargeting}, attackerId=${window.attackTargetingState.attackerId}`);
+        if (window.attackTargetingState.isTargeting && window.attackTargetingState.attackerId) {
+            const attackerId = window.attackTargetingState.attackerId;
+            console.log(`[Click] ✅ In targeting mode. Attacker: ${attackerId}, Target: ${char.id}`);
 
-            // 自分自身は選択できない
             if (attackerId === char.id) {
-                return;
+                console.log('[Click] ❌ Cannot target self, ignoring');
+                return; // 自分自身は無視
             }
 
-            // 攻撃確認
             const attackerChar = battleState.characters.find(c => c.id === attackerId);
             const attackerName = attackerChar ? attackerChar.name : "不明";
 
-            // ★ 権限チェック: 攻撃者の所有者またはGMのみが実行可能
             const isOwner = attackerChar && attackerChar.owner === currentUsername;
             const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
 
+            console.log(`[Click] Permission check: isOwner=${isOwner}, isGM=${isGM}`);
             if (!isOwner && !isGM) {
                 alert("キャラクターの所有者またはGMのみがマッチを開始できます。");
                 exitAttackTargetingMode();
                 return;
             }
 
-
-            // ★修正: 1ターン1回制限のチェック
-            // ここでconfirmを出す前にチェックしても良いが、openDuelModal内でもフラグを立てる
-            /*
-            if (window.matchActionInitiated) {
-                alert("このターンは既にマッチを開始しています。(1ターン1回制限)");
-                exitAttackTargetingMode();
-                return;
-            }
-            */
-            // ↑ ここでチェックすると、ターゲットクリック時に弾かれる。
-            // しかし、ユーザー要望は「再発動の防止」。
-
+            console.log(`[Click] 🎯 Showing attack confirmation dialog`);
             if (confirm(`【攻撃確認】\n「${attackerName}」が「${char.name}」に攻撃を仕掛けますか？`)) {
                 openDuelModal(attackerId, char.id);
             }
-
-            // ターゲット選択モードを解除
             exitAttackTargetingMode();
             return;
         }
 
-        // 手番キャラの場合
-        const isCurrentTurn = (battleState.turn_char_id === char.id);
-        if (isCurrentTurn) {
-            // ★ 権限チェック: 攻撃者の所有者またはGMのみがターゲットモードに入れる
+        // 自分のターン → ターゲティングモード開始
+        const currentTurnCharId = battleState.turn_char_id;
+        const isNowTurn = (currentTurnCharId === char.id);
+
+        if (isNowTurn) {
             const isOwner = char.owner === currentUsername;
             const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
 
-            if (!isOwner && !isGM) {
-                // 所有者以外はここは何もしない (クリックで特に反応しない)
-                // あるいは「操作権限がありません」と出すか？
-                // 誤操作防止のため、何も出さないほうがユーザー体験は良いかもしれないが、
-                // 明示的に行動しようとしてクリックしたなら出すべき。
-                // 現状、手番キャラをクリック＝攻撃意志 とみなすUIなので、権限なければ警告。
-                // ただし、単に詳細を見ようとしてダブルクリック手前で反応するのも鬱陶しい。
-                // ここでは、一旦 return するのみとする（反応しない）。
-                // 要望は「ロジックが組まれているか確認」-> 組まれてなければ組む。
-                return;
-            }
+            if (!isOwner && !isGM) return;
 
-            // ★修正: 1ターン1回制限
             if (window.matchActionInitiated) {
-                // マッチが終了しているが、このターン既に一度やっている場合
                 alert("1ターンに1回のみマッチを開始できます。\n次のターンまでお待ちください。");
                 return;
             }
 
-            // ★追加: 広域攻撃ボタンが表示されている場合は広域マッチを開始
-            // (isWideUserかつ、広域マッチが進行中でない場合)
             const isWideMatchExecuting = battleState.active_match && battleState.active_match.is_active && battleState.active_match.match_type === 'wide';
             if (char.isWideUser && !isWideMatchExecuting) {
-                // 広域マッチを開始（広域攻撃ボタンと同じ処理）
                 if (typeof openSyncedWideMatchModal === 'function') {
                     openSyncedWideMatchModal(char.id);
                 }
@@ -1321,6 +1511,200 @@ function createMapToken(char) {
 
     return token;
 }
+
+// --- Battle Token Custom Drag Logic (Smooth Movement) ---
+function setupBattleTokenDrag() {
+    const tokenLayer = document.getElementById('map-token-layer');
+    if (!tokenLayer) return;
+
+    let isDragging = false;
+    let dragTarget = null;
+    let startX, startY;
+    let initialLeft, initialTop;
+    let dragCharId = null;
+    let hasMovedSignificantDistance = false; // ★ Click判定用フラグ
+
+    tokenLayer.addEventListener('mousedown', (e) => {
+        // 右クリックなどは無視
+        if (e.button !== 0) return;
+
+        const target = e.target.closest('.map-token');
+        if (!target) return;
+
+        // ボタンクリックなどは無視
+        if (e.target.closest('button')) return;
+        if (e.target.closest('.token-badges')) return;
+
+        e.preventDefault();
+        dragTarget = target;
+        dragCharId = target.dataset.id;
+
+        // 権限チェック (所有者 or GM)
+        const char = battleState.characters.find(c => c.id === dragCharId);
+        if (!char) return;
+        const isOwner = char.owner === currentUsername;
+        const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
+        if (!isOwner && !isGM) {
+            dragTarget = null;
+            return;
+        }
+
+        isDragging = true;
+        hasMovedSignificantDistance = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        initialLeft = parseFloat(target.style.left || 0);
+        initialTop = parseFloat(target.style.top || 0);
+
+        target.style.zIndex = 1000; // 最前面
+        target.style.cursor = 'grabbing';
+        target.classList.add('dragging');
+
+        // ★ 吸い付き防止: Transitionを一時的に無効化
+        target.style.transition = 'none';
+        // さらに、子要素（token-bar-fillなど）のtransitionも無効にした方が良いかもしれないが
+        // token-bar-fillはwidthのtransitionなので移動には関係ない。
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging || !dragTarget) return;
+        e.preventDefault();
+
+        // ズーム倍率を考慮して移動量を計算
+        const scale = window.visualScale || 1.0;
+        const dx = (e.clientX - startX) / scale;
+        const dy = (e.clientY - startY) / scale;
+
+        // ★ 一定距離以上動いたらドラッグとみなす
+        // 3px -> 5px に緩和 (Clickの誤判定防止)
+        if (!hasMovedSignificantDistance && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+            hasMovedSignificantDistance = true;
+        }
+
+        dragTarget.style.left = `${initialLeft + dx}px`;
+        dragTarget.style.top = `${initialTop + dy}px`;
+    });
+
+    window.addEventListener('mouseup', (e) => {
+        if (!isDragging || !dragTarget) return;
+        isDragging = false;
+        dragTarget.style.cursor = 'grab';
+        dragTarget.classList.remove('dragging');
+
+        // ★ Restore Transition (遅延させて戻さないと最後のジャンプでアニメーションしてしまう？いや、即戻してOK)
+        // いや、DOM更新（場所変更）と同時にTransition戻すと、もし位置補正が入った場合に動いてしまう。
+        // ここでは位置は固定されるので戻してOK。
+        // requestAnimationFrame で次のフレームに戻すのが安全。
+        const target = dragTarget;
+        requestAnimationFrame(() => {
+            target.style.transition = '';
+        });
+
+        // ★ Drag判定されていたらクリックをブロック
+        if (hasMovedSignificantDistance) {
+            window._dragBlockClick = true;
+            // 短時間で解除 (clickイベントはmouseup直後に発生するため)
+            setTimeout(() => {
+                window._dragBlockClick = false;
+            }, 100);
+        }
+
+        // 座標確定・送信
+        const currentLeft = parseFloat(dragTarget.style.left || 0);
+        const currentTop = parseFloat(dragTarget.style.top || 0);
+
+        let finalX = (currentLeft - TOKEN_OFFSET) / GRID_SIZE;
+        let finalY = (currentTop - TOKEN_OFFSET) / GRID_SIZE;
+
+        // 負の値防止
+        if (finalX < 0) finalX = 0;
+        if (finalY < 0) finalY = 0;
+
+        // 精度調整: 1/100 単位
+        finalX = Math.round(finalX * 10000) / 10000;
+        finalY = Math.round(finalY * 10000) / 10000;
+
+        console.log(`[BattleDrag] Dropped at pixel(${currentLeft}, ${currentTop}) -> grid(${finalX}, ${finalY})`);
+
+        // Update Local State Optimistically
+        const char = battleState.characters.find(c => c.id === dragCharId);
+        if (char) {
+            char.x = finalX;
+            char.y = finalY;
+        }
+
+        // request_move_token イベント送信
+        if (typeof socket !== 'undefined' && currentRoomName) {
+            socket.emit('request_move_token', {
+                room: currentRoomName,
+                charId: dragCharId,
+                x: finalX,
+                y: finalY
+            });
+        }
+
+        dragTarget = null;
+        dragCharId = null;
+    });
+}
+
+// --- Attack Targeting Mode Logic (Highlight & Global State) ---
+window.attackTargetingState = {
+    isTargeting: false,
+    attackerId: null
+};
+
+window.enterAttackTargetingMode = function (attackerId) {
+    if (window.attackTargetingState.isTargeting) return;
+
+    console.log(`[Targeting] Enter mode. Attacker: ${attackerId}`);
+    window.attackTargetingState.isTargeting = true;
+    window.attackTargetingState.attackerId = attackerId;
+
+    // Show Toast Notification
+    const toast = document.createElement('div');
+    toast.className = 'visual-toast info';
+    toast.textContent = "攻撃対象を選択してください（対象をクリック）";
+    toast.style.position = 'absolute';
+    toast.style.top = '10%';
+    toast.style.left = '50%';
+    toast.style.transform = 'translateX(-50%)';
+    toast.style.padding = '10px 20px';
+    toast.style.background = 'rgba(0,0,0,0.8)';
+    toast.style.color = 'white';
+    toast.style.borderRadius = '20px';
+    toast.style.zIndex = '2000';
+    toast.style.pointerEvents = 'none';
+    toast.id = 'targeting-toast';
+
+    const viewport = document.getElementById('map-viewport') || document.body;
+    viewport.appendChild(toast);
+
+    // Cancel on ESC
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            exitAttackTargetingMode();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    // Re-render to show highlights
+    if (typeof renderVisualMap === 'function') renderVisualMap();
+};
+
+window.exitAttackTargetingMode = function () {
+    if (!window.attackTargetingState.isTargeting) return;
+
+    console.log(`[Targeting] Exit mode.`);
+    window.attackTargetingState.isTargeting = false;
+    window.attackTargetingState.attackerId = null;
+
+    const toast = document.getElementById('targeting-toast');
+    if (toast) toast.remove();
+
+    if (typeof renderVisualMap === 'function') renderVisualMap();
+};
 
 // function showCharacterDetail(charId) { ... } -> Deleted to use global version from modals.js
 
@@ -3520,3 +3904,194 @@ function openVisualLogHistoryModal() {
         container.scrollTop = container.scrollHeight;
     }, 50);
 }
+
+// --- Battle Token Custom Drag Logic (Smooth Movement) ---
+function setupBattleTokenDrag() {
+    const tokenLayer = document.getElementById('map-token-layer');
+    if (!tokenLayer) return;
+
+    let isDragging = false;
+    let dragTarget = null;
+    let startX, startY;
+    let initialLeft, initialTop;
+    let dragCharId = null;
+    let hasMovedSignificantDistance = false; // ★ Click判定用フラグ
+
+    tokenLayer.addEventListener('mousedown', (e) => {
+        // 右クリックなどは無視
+        if (e.button !== 0) return;
+
+        const target = e.target.closest('.map-token');
+        if (!target) return;
+
+        // ボタンクリックなどは無視
+        if (e.target.closest('button')) return; // 広域ボタンなど
+        if (e.target.closest('.token-badges')) return; // バッジクリック？(現状バッジはクリックイベント持ってないが念のため)
+
+        e.preventDefault(); // テキスト選択などを防止
+        dragTarget = target;
+        dragCharId = target.dataset.id;
+
+        // 権限チェック (所有者 or GM)
+        const char = battleState.characters.find(c => c.id === dragCharId);
+        if (!char) return;
+        const isOwner = char.owner === currentUsername;
+        const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
+        if (!isOwner && !isGM) {
+            dragTarget = null;
+            return;
+        }
+
+        isDragging = true;
+        hasMovedSignificantDistance = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        initialLeft = parseFloat(target.style.left || 0);
+        initialTop = parseFloat(target.style.top || 0);
+
+        target.style.zIndex = 1000; // 最前面
+        target.style.cursor = 'grabbing';
+        target.classList.add('dragging');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging || !dragTarget) return;
+        e.preventDefault();
+
+        // ズーム倍率を考慮して移動量を計算
+        // visualScale は tab_visual_battle.js 内のグローバル変数
+        const scale = window.visualScale || 1.0;
+        const dx = (e.clientX - startX) / scale;
+        const dy = (e.clientY - startY) / scale;
+
+        // ★ 一定距離以上動いたらドラッグとみなす (3px)
+        if (!hasMovedSignificantDistance && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+            hasMovedSignificantDistance = true;
+        }
+
+        dragTarget.style.left = `${initialLeft + dx}px`;
+        dragTarget.style.top = `${initialTop + dy}px`;
+    });
+
+    window.addEventListener('mouseup', (e) => {
+        if (!isDragging || !dragTarget) return;
+        isDragging = false;
+        dragTarget.style.cursor = 'grab';
+        dragTarget.classList.remove('dragging');
+
+        // ★ Drag判定されていたらクリックをブロック
+        if (hasMovedSignificantDistance) {
+            window._dragBlockClick = true;
+            // 短時間で解除 (clickイベントはmouseup直後に発生するため)
+            setTimeout(() => {
+                window._dragBlockClick = false;
+            }, 100);
+        }
+
+        // Z-Index reset handled by render but good to reset here or keep until next click
+        // But if we reset, it might fall behind overlapped tokens.
+        // Let's leave high z-index until other actions?
+        // Or reset to default. createMapToken handles click to bring to front.
+        // dragTarget.style.zIndex = '';
+
+        // 座標確定・送信
+        const currentLeft = parseFloat(dragTarget.style.left || 0);
+        const currentTop = parseFloat(dragTarget.style.top || 0);
+
+        let finalX = (currentLeft - TOKEN_OFFSET) / GRID_SIZE;
+        let finalY = (currentTop - TOKEN_OFFSET) / GRID_SIZE;
+
+        // 負の値防止
+        if (finalX < 0) finalX = 0;
+        if (finalY < 0) finalY = 0;
+
+        // 精度調整: 1/100 単位 (0.9px刻み)
+        // もしユーザーが「吸い付く」と感じているのがこの丸め処理なら、
+        // もう少し高精度にするか、raw floatを送る。
+        // Exploration Modeと同様、特に制限しない方が「ぬるぬる」かもしれない。
+        // ただしデータ量削減のため小数点第4位くらいまでにする。
+        finalX = Math.round(finalX * 10000) / 10000;
+        finalY = Math.round(finalY * 10000) / 10000;
+
+        console.log(`[BattleDrag] Dropped at pixel(${currentLeft}, ${currentTop}) -> grid(${finalX}, ${finalY})`);
+
+        // Update Local State Optimistically
+        const char = battleState.characters.find(c => c.id === dragCharId);
+        if (char) {
+            char.x = finalX;
+            char.y = finalY;
+        }
+
+        // request_move_token イベント送信
+        if (typeof socket !== 'undefined' && currentRoomName) {
+            socket.emit('request_move_token', {
+                room: currentRoomName,
+                charId: dragCharId,
+                x: finalX,
+                y: finalY
+            });
+        }
+
+
+        dragTarget = null;
+        dragCharId = null;
+    });
+}
+
+// --- Attack Targeting Mode Logic (Highlight & Global State) ---
+window.attackTargetingState = {
+    isTargeting: false,
+    attackerId: null
+};
+
+window.enterAttackTargetingMode = function (attackerId) {
+    if (window.attackTargetingState.isTargeting) return;
+
+    console.log(`[Targeting] Enter mode. Attacker: ${attackerId}`);
+    window.attackTargetingState.isTargeting = true;
+    window.attackTargetingState.attackerId = attackerId;
+
+    // Show Toast Notification
+    const toast = document.createElement('div');
+    toast.className = 'visual-toast info';
+    toast.textContent = "攻撃対象を選択してください（対象をクリック）";
+    toast.style.position = 'absolute';
+    toast.style.top = '10%';
+    toast.style.left = '50%';
+    toast.style.transform = 'translateX(-50%)';
+    toast.style.padding = '10px 20px';
+    toast.style.background = 'rgba(0,0,0,0.8)';
+    toast.style.color = 'white';
+    toast.style.borderRadius = '20px';
+    toast.style.zIndex = '2000';
+    toast.style.pointerEvents = 'none';
+    toast.id = 'targeting-toast';
+
+    const viewport = document.getElementById('map-viewport') || document.body;
+    viewport.appendChild(toast);
+
+    // Cancel on ESC
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            exitAttackTargetingMode();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    // Re-render to show highlights
+    if (typeof renderVisualMap === 'function') renderVisualMap();
+};
+
+window.exitAttackTargetingMode = function () {
+    if (!window.attackTargetingState.isTargeting) return;
+
+    console.log(`[Targeting] Exit mode.`);
+    window.attackTargetingState.isTargeting = false;
+    window.attackTargetingState.attackerId = null;
+
+    const toast = document.getElementById('targeting-toast');
+    if (toast) toast.remove();
+
+    if (typeof renderVisualMap === 'function') renderVisualMap();
+};

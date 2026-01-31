@@ -271,8 +271,8 @@ def move_token_logic(room, char_id, x, y, username, attribute):
         emit('move_denied', {'message': '権限がありません。'})
         return
 
-    target_char["x"] = int(x)
-    target_char["y"] = int(y)
+    target_char["x"] = float(x)
+    target_char["y"] = float(y)
 
     save_specific_room_state(room)
     broadcast_state_update(room)
@@ -601,3 +601,30 @@ def process_wide_modal_confirm(room, user_id, attribute, wide_ids):
         save_specific_room_state(room)
 
 
+
+def update_battle_background_logic(room, image_url, scale, offset_x, offset_y, username, attribute):
+    """
+    戦闘画面の背景画像を更新するロジック
+    """
+    if attribute != 'GM':
+        emit('new_log', {'message': '背景設定はGMのみ可能です。', 'type': 'error'})
+        return
+
+    state = get_room_state(room)
+    if not state: return
+
+    # データ構造の初期化
+    if 'battle_map_data' not in state:
+        state['battle_map_data'] = {}
+
+    # 値の更新
+    state['battle_map_data']['background_image'] = image_url
+    if scale is not None:
+        state['battle_map_data']['background_scale'] = scale
+    if offset_x is not None:
+        state['battle_map_data']['background_offset_x'] = offset_x
+    if offset_y is not None:
+        state['battle_map_data']['background_offset_y'] = offset_y
+
+    broadcast_state_update(room)
+    broadcast_log(room, f"戦闘マップの背景が変更されました。", 'system')
