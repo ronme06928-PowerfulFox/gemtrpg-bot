@@ -941,11 +941,18 @@ function renderVisualMap() {
         // FP Badge Update
         const fpBadge = token.querySelector('.fp-badge');
         if (fpBadge) {
-            // Check content and title
+            // Extract FP safely (from states, similar to createMapToken)
+            let fpVal = char.fp;
+            if (fpVal === undefined && char.states) {
+                const s = char.states.find(st => st.name === 'FP');
+                fpVal = s ? s.value : 0;
+            }
+            if (fpVal === undefined) fpVal = 0;
+
             const currentText = fpBadge.textContent.trim();
-            if (currentText != char.fp) {
-                fpBadge.textContent = char.fp;
-                fpBadge.title = `FP: ${char.fp}`;
+            if (currentText != fpVal) {
+                fpBadge.textContent = fpVal;
+                fpBadge.title = `FP: ${fpVal}`;
             }
         }
 
