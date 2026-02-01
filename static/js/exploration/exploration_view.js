@@ -285,26 +285,28 @@ if (!window.ExplorationView) {
             const x = parseFloat(loc.x) || 0;
             const y = parseFloat(loc.y) || 0;
 
-            // ★ Timestamp Check for Sync Stability
-            let isStale = false;
-            if (window._lastSentExpMoveTS && window._lastSentExpMoveTS[char.id]) {
-                const myTS = window._lastSentExpMoveTS[char.id];
-                const serverTS = loc.last_move_ts || 0; // Treat undefined as old
+            // ★ Local State Override Check
+            let renderX = x;
+            let renderY = y;
 
-                if (serverTS < myTS) {
-                    // console.log(`[Exploration] Stale update for ${char.name}: Server(${serverTS}) < Client(${myTS})`);
-                    isStale = true;
+            if (window._localExpPositions && window._localExpPositions[char.id]) {
+                const localMove = window._localExpPositions[char.id];
+                const serverTS = loc.last_move_ts || 0;
+
+                if (serverTS < localMove.ts) {
+                    // Override with local state
+                    renderX = localMove.x;
+                    renderY = localMove.y;
                 }
             }
 
-            // ドラッグ中、クールダウン中(100ms)、またはStaleな場合は更新をスキップ
-            // (Note: dragTarget check is simple here, might need more robust dragging check if multiple users)
+            // ドラッグ中、クールダウン中(100ms)だけスキップ
             const isDraggingThis = (dragTarget && dragTarget.dataset.charId === char.id);
             const inCooldown = window._dragEndTime && (Date.now() - window._dragEndTime < 100);
 
-            if (!isDraggingThis && !inCooldown && !isStale) {
-                el.style.left = `${x}px`;
-                el.style.top = `${y}px`;
+            if (!isDraggingThis && !inCooldown) {
+                el.style.left = `${renderX}px`;
+                el.style.top = `${renderY}px`;
             }
 
             // スケール (Container Width Strategy)
@@ -472,6 +474,14 @@ if (!window.ExplorationView) {
             // ★ Sync Fix: Set drag end time to prevent immediate overwrite by server
             window._dragEndTime = Date.now();
             const now = Date.now();
+
+            // Local State Override
+            if (!window._localExpPositions) window._localExpPositions = {};
+            window._localExpPositions[charId] = {
+                x: finalX,
+                y: finalY,
+                ts: now
+            };
 
             if (!window._lastSentExpMoveTS) window._lastSentExpMoveTS = {};
             window._lastSentExpMoveTS[charId] = now;

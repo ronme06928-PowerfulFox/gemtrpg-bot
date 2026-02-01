@@ -835,34 +835,44 @@ function renderVisualMap() {
                 if (char.id === currentTurnId) token.classList.add('active-turn');
                 else token.classList.remove('active-turn');
 
-                // ★ 座標更新 (Drag中はスキップ + 同期ズレ防止)
-                const isDragging = token.classList.contains('dragging');
-                // 直近でドラッグしていた場合もサーバー更新を一時的に無視する (100ms - イベント被り防止の最小限)
-                // ★ Timestampチェックが厳密になったため、長時間のクールダウンは不要(逆に同期ズレの元)
-                const inCooldown = window._dragEndTime && (Date.now() - window._dragEndTime < 100);
+                // ★ Local State Override Check
+                // サーバーの情報が古い(またはLocalに新しい操作がある)場合、Localの値を正とする
+                let renderX = char.x;
+                let renderY = char.y;
+                // "表示更新をスキップするか" 判定用 (今回は常に更新するので isStale は使わない)
 
-                // ★ Strong Timestamp Check
-                // 自分が移動させてから、その確認(Echo)が返ってくるまでは、古い(またはTS無しの)更新を無視する
-                let isStale = false;
-                if (window._lastSentMoveTS && window._lastSentMoveTS[char.id]) {
-                    const myTS = window._lastSentMoveTS[char.id];
-                    const serverTS = char.last_move_ts || 0; // undefined は 0 (古い) とみなす
+                if (window._localCharPositions && window._localCharPositions[char.id]) {
+                    const localMove = window._localCharPositions[char.id];
+                    const serverTS = char.last_move_ts || 0;
 
-                    if (serverTS < myTS) {
-                        // console.log(`[Sync] Avoiding overwrite: Server(${serverTS}) < Client(${myTS})`);
-                        isStale = true;
+                    // サーバーのタイムスタンプがLocalより古い場合、ローカル座標で上書き
+                    if (serverTS < localMove.ts) {
+                        // console.log(`[Sync] Override with Local State: ${char.name}`);
+                        renderX = localMove.x;
+                        renderY = localMove.y;
+
+                        // Stale判定は「更新スキップ」のために使っていたが、
+                        // 強制上書きする場合は更新が必要なので isStale = false のままにする
+                    } else {
+                        // サーバーがLocalに追いついた場合、Local情報をクリアしてメモリ節約
+                        // delete window._localCharPositions[char.id]; // (チラつき防止のためあえて残すアプローチも可。今回は残す)
                     }
                 }
 
-                if (!isDragging && !inCooldown && !isStale) {
-                    const left = char.x * GRID_SIZE + TOKEN_OFFSET;
-                    const top = char.y * GRID_SIZE + TOKEN_OFFSET;
+                // ★ 座標更新 (Drag中はスキップ)
+                const isDragging = token.classList.contains('dragging');
+                // クールダウンは以前削除したため不要だが変数だけ残っている場合への対処
+                const inCooldown = window._dragEndTime && (Date.now() - window._dragEndTime < 100);
+
+                if (!isDragging && !inCooldown) {
+                    const left = renderX * GRID_SIZE + TOKEN_OFFSET;
+                    const top = renderY * GRID_SIZE + TOKEN_OFFSET;
 
                     // 値が変わる場合のみスタイル更新
                     token.style.left = `${left}px`;
                     token.style.top = `${top}px`;
                 } else {
-                    // console.log(`[renderVisualMap] Skipping update for ${char.name} (Dragging/Cooldown/Stale)`);
+                    // console.log(`[renderVisualMap] Skipping update for ${char.name} (Dragging)`);
                 }
 
                 // 内部コンテンツの更新 (HPバー、ステータスアイコンなど)
@@ -1382,7 +1392,7 @@ function generateMapTokenBadgesHTML(char) {
                 position: absolute; bottom: -5px; right: -5px;
                 background: ${config ? config.color : (s.value > 0 ? '#28a745' : '#dc3545')};
                 color: white; font-size: 12px; font-weight: bold;
-                padding: 0 3px; border-radius: 4px; border: 1px solid white;
+                padding: 0 3px; border-radius: 44px; border: 1px solid white;
             `;
 
             if (config) {
@@ -1799,9 +1809,17 @@ function setupBattleTokenDrag() {
 
         // request_move_token イベント送信
         if (typeof socket !== 'undefined' && currentRoomName) {
+            // ★ Sync Fix: Store Local Move for Override
+            const now = Date.now();
+            if (!window._localCharPositions) window._localCharPositions = {};
+            window._localCharPositions[dragCharId] = {
+                x: finalX,
+                y: finalY,
+                ts: now
+            };
+
             // ★ Sync Fix: Set drag end time & TS
             window._dragEndTime = Date.now();
-            const now = Date.now();
 
             if (!window._lastSentMoveTS) window._lastSentMoveTS = {};
             window._lastSentMoveTS[dragCharId] = now;
