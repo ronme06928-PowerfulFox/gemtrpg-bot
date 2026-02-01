@@ -155,10 +155,21 @@ def handle_move_character(data):
     char = next((c for c in state["characters"] if c.get('id') == char_id), None)
 
     if char:
+        # ★ Server-Side Sync Check
+        current_ts = char.get('last_move_ts', 0)
+        # リクエストにTSが含まれていて、かつ現在のTSより古い(または同じ)場合は無視
+        # (ネットワーク遅延で順番が前後した場合の対策)
+        if ts is not None and current_ts is not None:
+             if ts < current_ts:
+                 print(f"[Sync] Ignored old move request for {char.get('name')}: Req({ts}) < Cur({current_ts})")
+                 return
+
         old_x = char.get('x', -1)
         old_y = char.get('y', -1)
         char['x'] = x
         char['y'] = y
+        char['active_round'] = 0 # reset active state
+
         if ts:
              char['last_move_ts'] = ts
 

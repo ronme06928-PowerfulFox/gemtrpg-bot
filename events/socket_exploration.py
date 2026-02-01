@@ -89,6 +89,15 @@ def handle_update_tachie_location(data):
         if char_id in state['exploration']['tachie_locations']:
             del state['exploration']['tachie_locations'][char_id]
     else:
+        # ★ Server-Side Sync Check
+        current_loc = state['exploration']['tachie_locations'].get(char_id, {})
+        current_ts = current_loc.get('last_move_ts', 0)
+
+        if ts is not None and current_ts is not None:
+            if ts < current_ts:
+                print(f"[Sync] Ignored old exploration move: Req({ts}) < Cur({current_ts})")
+                return
+
         state['exploration']['tachie_locations'][char_id] = {
             'x': x,
             'y': y,
