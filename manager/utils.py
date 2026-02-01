@@ -129,8 +129,10 @@ def get_buff_stat_mod(char_obj, stat_name):
         if buff.get('delay', 0) > 0:
             continue
 
-        # stat_modsを取得
+        # stat_modsを取得 (トップレベル or data内)
         stat_mods = buff.get('stat_mods')
+        if not stat_mods and 'data' in buff:
+            stat_mods = buff['data'].get('stat_mods')
 
         # キャッシュされていない場合、または動的パターンの可能性がある場合は解決を試みる
         if not stat_mods:
@@ -169,6 +171,9 @@ def get_buff_stat_mod_details(char_obj, stat_name):
             continue
 
         stat_mods = buff.get('stat_mods')
+        if not stat_mods and 'data' in buff:
+            stat_mods = buff['data'].get('stat_mods')
+
         if not stat_mods:
             from manager.buff_catalog import get_buff_effect
             effect_data = get_buff_effect(buff.get('name'))

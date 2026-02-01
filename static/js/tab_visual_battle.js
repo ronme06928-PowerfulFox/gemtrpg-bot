@@ -265,7 +265,25 @@ async function setupVisualBattleTab() {
 
 
                 if (document.getElementById('visual-battle-container')) {
-                    renderVisualMap();
+                    // ★ 修正案: モードに応じた描画切り替え
+                    const mode = state.mode || 'battle';
+                    const mapViewport = document.getElementById('map-viewport');
+                    const expViewport = document.getElementById('exploration-viewport');
+
+                    if (mode === 'exploration') {
+                        if (mapViewport) mapViewport.style.display = 'none';
+                        if (expViewport) expViewport.style.display = 'block';
+
+                        if (window.ExplorationView && typeof window.ExplorationView.render === 'function') {
+                            window.ExplorationView.render(state);
+                        }
+                    } else {
+                        if (mapViewport) mapViewport.style.display = 'block';
+                        if (expViewport) expViewport.style.display = 'none';
+
+                        renderVisualMap();
+                    }
+
                     renderVisualTimeline();
 
                     // ★ ログ描画を改善: logsの存在を確実にチェック
@@ -757,10 +775,18 @@ function updateMapTransform() {
  * 全キャラクターのトークンをマップ上に配置し、現在のターンを視覚的に表示
  * @returns {void}
  */
+/**
+ * ビジュアルマップの描画 (Diff Update版)
+ * 全キャラクターのトークンをマップ上に配置し、現在のターンを視覚的に表示
+ * 全削除せず、差分更新を行うことでドラッグ中のちらつきを防止
+ * @returns {void}
+ */
 function renderVisualMap() {
     const tokenLayer = document.getElementById('map-token-layer');
     if (!tokenLayer) return;
-    tokenLayer.innerHTML = '';
+
+    // tokenLayer.innerHTML = ''; // ★ 廃止: 全削除は行わない
+
     renderVisualTimeline();
     updateMapTransform();
 
@@ -769,25 +795,136 @@ function renderVisualMap() {
     if (mapEl && battleState.battle_map_data) {
         const bgData = battleState.battle_map_data;
         if (bgData.background_image) {
-            mapEl.style.backgroundImage = `url('${bgData.background_image}')`;
-            mapEl.style.backgroundSize = 'contain'; // or cover? Exploration uses contain.
+            // 背景画像が変更された場合のみ更新（チラつき防止）
+            const newBg = `url('${bgData.background_image}')`;
+            if (mapEl.style.backgroundImage !== newBg.replace(/'/g, '"') && mapEl.style.backgroundImage !== newBg) {
+                mapEl.style.backgroundImage = newBg;
+            }
+            mapEl.style.backgroundSize = 'contain';
             mapEl.style.backgroundRepeat = 'no-repeat';
             mapEl.style.backgroundPosition = 'center';
         } else {
-            // Reset if no image
             mapEl.style.backgroundImage = '';
         }
     }
 
     if (typeof battleState === 'undefined' || !battleState.characters) return;
     const currentTurnId = battleState.turn_char_id || null;
-    battleState.characters.forEach(char => {
-        if (char.x >= 0 && char.y >= 0 && char.hp > 0) {
-            const token = createMapToken(char);
-            if (char.id === currentTurnId) token.classList.add('active-turn');
-            tokenLayer.appendChild(token);
+
+    // 1. 現在のDOM上のトークンをマッピング (id -> element)
+    const existingTokens = {};
+    document.querySelectorAll('#map-token-layer .map-token').forEach(el => {
+        if (el.dataset.id) {
+            existingTokens[el.dataset.id] = el;
         }
     });
+
+    // 2. 有効なキャラクターIDセットを作成
+    const validCharIds = new Set();
+
+    battleState.characters.forEach(char => {
+        if (char.x >= 0 && char.y >= 0 && char.hp > 0) {
+            validCharIds.add(char.id);
+
+            let token = existingTokens[char.id];
+
+            if (token) {
+                // --- 更新処理 (Update) ---
+
+                // Active Turn Class
+                if (char.id === currentTurnId) token.classList.add('active-turn');
+                else token.classList.remove('active-turn');
+
+                // ★ 座標更新 (Drag中はスキップ)
+                const isDragging = token.classList.contains('dragging'); // classで判定
+                if (!isDragging) {
+                    const left = char.x * GRID_SIZE + TOKEN_OFFSET;
+                    const top = char.y * GRID_SIZE + TOKEN_OFFSET;
+
+                    // 値が変わる場合のみスタイル更新
+                    token.style.left = `${left}px`;
+                    token.style.top = `${top}px`;
+                } else {
+                    console.log(`[renderVisualMap] Skipping position update for dragging token: ${char.name}`);
+                }
+
+                // 内部コンテンツの更新 (HPバー、ステータスアイコンなど)
+                // createMapTokenは要素生成関数なので、中身だけ更新するロジックが必要だが、
+                // 構造が複雑なため、ここではinnerHTMLを書き換える簡易アプローチをとるか、
+                // 専用のupdate関数を作るか。
+                // 既存のcreateMapTokenを呼んで、新しい要素の中身を移植する。
+                // ただしイベントリスナーが消える問題がある。
+                // createMapTokenが返す要素は div.map-token。
+
+                // 簡易的なアップデート: 中身のHTMLを更新 (イベントリスナーはガワのdivについているので内側は書き換えてもOK?)
+                // createMapTokenの実装を確認すると、addEventListenerは `token` 自体に追加されている。
+                // したがって、token.innerHTML を書き換えても containerのイベントは消えないが、
+                // token直下に追加したイベントも消えない。
+                // しかし、createMapToken内で token.innerHTML = ... しているなら、
+                // ここで helper的に updateTokenContent(token, char) が欲しい。
+
+                // NOTE: 完全なDifferential Updateは難しいので、
+                // 「ドラッグ中以外は置き換える」または「位置だけ更新して中身は都度再生成」
+                // ここでは「位置だけ更新」し、中身の更新はcreateMapTokenのロジックを模倣して更新する。 (バーやバッジ)
+
+                updateTokenVisuals(token, char);
+
+            } else {
+                // --- 新規作成 (Create) ---
+                token = createMapToken(char);
+                if (char.id === currentTurnId) token.classList.add('active-turn');
+                tokenLayer.appendChild(token);
+            }
+        }
+    });
+
+    // 3. 存在しなくなったトークンを削除 (Delete)
+    Object.keys(existingTokens).forEach(id => {
+        if (!validCharIds.has(id)) {
+            const el = existingTokens[id];
+            el.remove();
+        }
+    });
+
+    // Helper: トークンの見た目（位置以外）を更新
+    function updateTokenVisuals(token, char) {
+        // 画像
+        const img = token.querySelector('.token-image');
+        if (img && char.image && img.src !== char.image) { // src check might be tricky with absolute paths
+            img.src = char.image;
+        }
+
+        // HP Bar
+        const hpFill = token.querySelector('.token-bar-fill.hp');
+        if (hpFill) {
+            const hpCtx = (char.hp / char.max_hp) * 100;
+            hpFill.style.width = `${Math.min(100, Math.max(0, hpCtx))}%`;
+        }
+
+        // MP Bar
+        const mpFill = token.querySelector('.token-bar-fill.mp');
+        if (mpFill) {
+            const mpCtx = (char.mp / char.max_mp) * 100;
+            mpFill.style.width = `${Math.min(100, Math.max(0, mpCtx))}%`;
+        }
+
+        // バッジ更新 (再生成が安全)
+        const badgesContainer = token.querySelector('.token-badges');
+        if (badgesContainer) {
+            // ★ Use Common Function
+            badgesContainer.innerHTML = generateMapTokenBadgesHTML(char);
+        }
+
+        // 名前ラベル
+        const nameLabel = token.querySelector('.token-name');
+        if (nameLabel && nameLabel.textContent !== char.name) {
+            nameLabel.textContent = char.name;
+        }
+
+        // 行動済みフィルタ (CSS filter)
+        // 行動済みフィルタ (ユーザー要望により廃止)
+        token.style.filter = 'none';
+    }
 
     // ★ GM用背景設定ボタンの注入 (一度だけ)
     const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
@@ -1190,59 +1327,11 @@ function showFloatingText(token, diff, stat, source = null) {
  * @param {Object} char - キャラクター情報オブジェクト
  * @returns {HTMLElement} 生成されたトークン要素
  */
-function createMapToken(char) {
-    const token = document.createElement('div');
-
-    // 色分けの判定
-    let colorClass = 'NPC'; // デフォルト
-    let borderColor = '#999'; // Default Gray
-
-    if (char.name && char.name.includes('味方')) {
-        colorClass = 'PC';
-        borderColor = '#007bff'; // Blue
-    } else if (char.name && char.name.includes('敵')) {
-        colorClass = 'Enemy';
-        borderColor = '#dc3545'; // Red
-    } else if (char.color) {
-        colorClass = char.color;
-        borderColor = char.color; // Custom color if available
-    }
-
-    token.className = `map-token ${colorClass}`;
-    token.dataset.id = char.id;
-
-    // ★ 駒サイズスケールを適用 (基本サイズ拡大: 132px)
-    const tokenScale = char.tokenScale || 1.0;
-    const baseSize = 132;
-    const scaledSize = baseSize * tokenScale;
-
-    token.style.width = `${scaledSize}px`;
-    token.style.height = `${scaledSize}px`;
-
-    // ★ デザイン: 角丸スクエア (下部は直角)
-    token.style.borderRadius = "18px 18px 0 0";
-    token.style.border = `4px solid ${borderColor}`;
-    token.style.boxShadow = "0 4px 8px rgba(0,0,0,0.4)"; // Drop shadow for depth
-    token.style.overflow = "visible"; // Allow badges to stick out
-
-    // グリッド座標をピクセル座標に変換
-    token.style.left = `${char.x * GRID_SIZE + TOKEN_OFFSET}px`;
-    token.style.top = `${char.y * GRID_SIZE + TOKEN_OFFSET}px`;
-    // ★ カスタム移動のための絶対配置
-    token.style.position = 'absolute';
-
-    // --- ステータス値の計算 ---
-    const maxHp = char.maxHp || 1; const hp = char.hp || 0;
-    const hpPer = Math.max(0, Math.min(PERCENTAGE_MAX, (hp / maxHp) * PERCENTAGE_MAX));
-
-    const maxMp = char.maxMp || 1; const mp = char.mp || 0;
-    const mpPer = Math.max(0, Math.min(PERCENTAGE_MAX, (mp / maxMp) * PERCENTAGE_MAX));
-
-    const fpState = char.states ? char.states.find(s => s.name === 'FP') : null;
-    const fp = fpState ? fpState.value : 0;
-    // FP bar removed, using badge instead
-
-    // --- デバフアイコン (External Badge) - Resized & Wrapped ---
+/**
+ * マップトークン用のバッジHTMLを生成する共通関数
+ * createMapToken と updateTokenVisuals の両方で使用
+ */
+function generateMapTokenBadgesHTML(char) {
     let iconsHtml = '';
     if (char.states) {
         let badgeCount = 0;
@@ -1297,6 +1386,63 @@ function createMapToken(char) {
             badgeCount++;
         });
     }
+    return iconsHtml;
+}
+
+function createMapToken(char) {
+    const token = document.createElement('div');
+
+    // 色分けの判定
+    let colorClass = 'NPC'; // デフォルト
+    let borderColor = '#999'; // Default Gray
+
+    if (char.name && char.name.includes('味方')) {
+        colorClass = 'PC';
+        borderColor = '#007bff'; // Blue
+    } else if (char.name && char.name.includes('敵')) {
+        colorClass = 'Enemy';
+        borderColor = '#dc3545'; // Red
+    } else if (char.color) {
+        colorClass = char.color;
+        borderColor = char.color; // Custom color if available
+    }
+
+    token.className = `map-token ${colorClass}`;
+    token.dataset.id = char.id;
+
+    // ★ 駒サイズスケールを適用 (基本サイズ拡大: 132px)
+    const tokenScale = char.tokenScale || 1.0;
+    const baseSize = 132;
+    const scaledSize = baseSize * tokenScale;
+
+    token.style.width = `${scaledSize}px`;
+    token.style.height = `${scaledSize}px`;
+
+    // ★ デザイン: 角丸スクエア (下部は直角)
+    token.style.borderRadius = "18px 18px 0 0";
+    token.style.border = `4px solid ${borderColor}`;
+    token.style.boxShadow = "0 4px 8px rgba(0,0,0,0.4)"; // Drop shadow for depth
+    token.style.overflow = "visible"; // Allow badges to stick out
+
+    // グリッド座標をピクセル座標に変換
+    token.style.left = `${char.x * GRID_SIZE + TOKEN_OFFSET}px`;
+    token.style.top = `${char.y * GRID_SIZE + TOKEN_OFFSET}px`;
+    // ★ カスタム移動のための絶対配置
+    token.style.position = 'absolute';
+
+    // --- ステータス値の計算 ---
+    const maxHp = char.maxHp || 1; const hp = char.hp || 0;
+    const hpPer = Math.max(0, Math.min(PERCENTAGE_MAX, (hp / maxHp) * PERCENTAGE_MAX));
+
+    const maxMp = char.maxMp || 1; const mp = char.mp || 0;
+    const mpPer = Math.max(0, Math.min(PERCENTAGE_MAX, (mp / maxMp) * PERCENTAGE_MAX));
+
+    const fpState = char.states ? char.states.find(s => s.name === 'FP') : null;
+    const fp = fpState ? fpState.value : 0;
+    // FP bar removed, using badge instead
+
+    // --- デバフアイコン (External Badge) - Using Common Function ---
+    let iconsHtml = generateMapTokenBadgesHTML(char);
 
     const isCurrentTurn = (battleState.turn_char_id === char.id);
 

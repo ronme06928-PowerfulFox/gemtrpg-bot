@@ -18,10 +18,25 @@ if (!window.ExplorationView) {
     let isInitialized = false; // ★ Idempotency flag
 
     function setupExplorationView() {
-        if (isInitialized) return; // Prevent double setup
-        console.log("Setting up Exploration View...");
-
         const viewport = document.getElementById('exploration-viewport');
+        if (!viewport) return;
+
+        // Prevent double setup on the SAME element
+        if (viewport.dataset.isInitialized === 'true') {
+            return;
+        }
+        viewport.dataset.isInitialized = 'true';
+
+        // ★ State Reset (Fix for re-entry ghost elements)
+        // SPA遷移でJS変数が残ってしまうため、DOM再生成時は変数もリセットする
+        tachieElements = {};
+        dragTarget = null;
+        panX = 0;
+        panY = 0;
+        viewScale = 1.0;
+        explorationState = null;
+
+        console.log("Setting up Exploration View (State Reset Done)...");
         const world = document.getElementById('exploration-world');
         const layer = document.getElementById('exploration-token-layer'); // Use 'layer' to match setupDragEvents
         const bgUpdateBtn = document.getElementById('exp-bg-update-btn');

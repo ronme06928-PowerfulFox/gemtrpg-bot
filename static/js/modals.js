@@ -191,12 +191,14 @@ function renderCharacterCard(char) {
     const displayBattle = isExploration ? 'none' : 'block';
     const displayExploration = isExploration ? 'block' : 'none';
     const btnText = isExploration ? '戦闘ステータスへ' : '探索技能へ';
+    const currentMode = isExploration ? 'exploration' : 'battle';
 
     const paramsHtml = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
              <h4 style="margin:0; color:#333; font-size:1em;">Parameters</h4>
              <button class="params-toggle-btn action-btn secondary"
-                style="font-size:0.8em; padding:2px 8px; cursor:pointer;">
+                style="font-size:0.8em; padding:2px 8px; cursor:pointer;"
+                data-mode="${currentMode}">
                 ${btnText}
              </button>
         </div>
@@ -207,6 +209,14 @@ function renderCharacterCard(char) {
             ${renderParamsGrid(explorationStats)}
         </div>
     `;
+
+    // ... (rest of renderCharacterCard) ...
+
+    /* Note: Ideally we shouldn't have to duplicate the logic, but since we are modifying lines far apart,
+       we will handle the event listener replacement in a separate chunk within this same tool call or if needed separately.
+       Wait, I can't modify multiple non-contiguous blocks in one 'replace_file_content'.
+       Ill use this block for the HTML generation part first.
+    */
 
     // --- States (Stack) ---
     let statesHtml = '';
@@ -599,54 +609,22 @@ function openCharacterModal(charId) {
     const paramToggleBtn = modalContent.querySelector('.params-toggle-btn');
     if (paramToggleBtn) {
         paramToggleBtn.addEventListener('click', () => {
-            // Re-define stats locally or get from scope if available.
-            // Since renderParamsGrid helper is not available here, we need to replicate logic or expose it.
-            // Better option: Use the renderCharacterCard's scope? No, that's closed.
-            // We need to re-implement the grid generation logic here or just toggle visibility if we rendered both.
-            // Let's re-implement for simplicity.
+            const currentMode = paramToggleBtn.dataset.mode;
+            const battleContainer = modalContent.querySelector('.params-battle');
+            const explorationContainer = modalContent.querySelector('.params-exploration');
 
-            const coreStats = ['筋力', '生命力', '体格', '精神力', '速度', '直感', '経験', '物理補正', '魔法補正'];
-            const explorationStats = ['五感', '採取', '本能', '鑑定', '対話', '尋問', '諜報', '窃取', '隠密', '運動', '制作', '回避'];
-
-            let charParams = [];
-            if (Array.isArray(char.params)) {
-                charParams = char.params;
-            } else if (char.params && typeof char.params === 'object') {
-                charParams = Object.entries(char.params).map(([k, v]) => ({ label: k, value: v }));
-            }
-
-            const renderGrid = (labels) => {
-                const items = labels.map(stat => {
-                    const p = charParams.find(cp => cp.label === stat);
-                    const val = p ? p.value : 0;
-                    return `
-                        <div class="char-param-item">
-                            <span class="param-label">${stat}</span>
-                            <span class="param-value">${val}</span>
-                        </div>
-                    `;
-                });
-                return `<div class="char-params-grid">${items.join('')}</div>`;
-            };
-
-            // Find container (it is the next sibling of the parent of the button)
-            // Structure:
-            // <div><h4>...</h4> <button>... </button></div>
-            // <div id="params-container...">...</div>
-            const container = paramToggleBtn.parentElement.nextElementSibling;
-            if (container) {
-                const currentMode = paramToggleBtn.dataset.mode;
-                if (currentMode === 'exploration') {
-                    // Mode is exploration, switch TO Battle
-                    container.innerHTML = renderGrid(coreStats);
-                    paramToggleBtn.textContent = '探索技能へ';
-                    paramToggleBtn.dataset.mode = 'battle';
-                } else {
-                    // Mode is battle, switch TO Exploration
-                    container.innerHTML = renderGrid(explorationStats);
-                    paramToggleBtn.textContent = 'ステータスへ';
-                    paramToggleBtn.dataset.mode = 'exploration';
-                }
+            if (currentMode === 'exploration') {
+                // Switch TO Battle
+                if (battleContainer) battleContainer.style.display = 'block';
+                if (explorationContainer) explorationContainer.style.display = 'none';
+                paramToggleBtn.textContent = '探索技能へ';
+                paramToggleBtn.dataset.mode = 'battle';
+            } else {
+                // Switch TO Exploration
+                if (battleContainer) battleContainer.style.display = 'none';
+                if (explorationContainer) explorationContainer.style.display = 'block';
+                paramToggleBtn.textContent = '戦闘ステータスへ';
+                paramToggleBtn.dataset.mode = 'exploration';
             }
         });
     }

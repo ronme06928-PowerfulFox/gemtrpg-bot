@@ -215,6 +215,9 @@ def save_room_to_db(room_name, room_state):
         room = Room.query.filter_by(name=room_name).first()
         if room:
             room.data = room_state
+            # ★ Explicitly mark as modified for JSON field changes
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(room, "data")
         else:
             new_room = Room(name=room_name, data=room_state)
             db.session.add(new_room)
