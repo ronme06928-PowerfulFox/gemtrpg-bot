@@ -73,7 +73,9 @@ def handle_update_tachie_location(data):
     char_id = data.get('char_id')
     x = data.get('x') # % or px
     y = data.get('y')
+    y = data.get('y')
     scale = data.get('scale', 1.0)
+    ts = data.get('ts') # Timestamp for sync logic
 
     state = get_room_state(room_name)
     if not state: return
@@ -90,7 +92,8 @@ def handle_update_tachie_location(data):
         state['exploration']['tachie_locations'][char_id] = {
             'x': x,
             'y': y,
-            'scale': scale
+            'scale': scale,
+            'last_move_ts': ts
         }
 
     save_specific_room_state(room_name)

@@ -78,7 +78,15 @@ function openImagePicker(onSelect, pickType = 'character') {
                                 </select>
 
                                 <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">画像名（省略可）:</label>
-                                <input type="text" id="picker-image-name" placeholder="例: 戦士_男" style="width: 100%; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em;">
+                                <input type="text" id="picker-image-name" placeholder="例: 戦士_男" style="width: 100%; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; margin-bottom: 15px;">
+
+                                <div id="gm-only-option" style="display: none; margin-bottom: 15px; background: #fff3cd; padding: 10px; border-radius: 8px; border: 1px solid #ffeeba;">
+                                    <label style="display: flex; align-items: center; cursor: pointer;">
+                                        <input type="checkbox" id="picker-gm-only" style="width: 18px; height: 18px; margin-right: 8px;">
+                                        <span style="font-weight: bold; color: #856404;">🔒 GM限定画像として保存</span>
+                                    </label>
+                                    <div style="font-size: 0.85em; color: #856404; margin-top: 4px; margin-left: 26px;">GM権限を持つユーザーのみ閲覧・使用できます</div>
+                                </div>
                             </div>
                             <div id="upload-preview" style="margin-top: 20px; display: none;">
                                 <img id="upload-preview-img" style="max-width: 240px; max-height: 240px; border: 3px solid #667eea; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
@@ -240,7 +248,9 @@ function createImageCard(imageData, onClickCallback, allowDelete = false) {
     card.style.cssText = 'position: relative; border: 2px solid #ddd; border-radius: 4px; overflow: hidden; cursor: pointer; transition: all 0.2s; background: #f9f9f9;';
 
     card.innerHTML = `
-        <div style="aspect-ratio: 1; background-image: url('${imageData.url}'); background-size: cover; background-position: center;"></div>
+        <div style="aspect-ratio: 1; background-image: url('${imageData.url}'); background-size: cover; background-position: center;">
+             ${imageData.visibility === 'gm' ? '<div style="position:absolute; top:5px; left:5px; background:rgba(0,0,0,0.6); color:#ffc107; padding:2px 6px; border-radius:4px; font-size:0.8em; font-weight:bold;">🔒 GM</div>' : ''}
+        </div>
         <div style="padding: 5px; font-size: 0.8em; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${imageData.name || '無題'}</div>
     `;
 
@@ -317,6 +327,13 @@ function setupUploadTab(modal, onSelect) {
     const previewImg = modal.querySelector('#upload-preview-img');
     const statusText = modal.querySelector('#upload-status');
     const dropzone = modal.querySelector('#upload-dropzone');
+    const gmOnlyCheck = modal.querySelector('#picker-gm-only');
+    const gmOnlyArea = modal.querySelector('#gm-only-option');
+
+    // Show GM option if user is GM
+    if (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM') {
+        gmOnlyArea.style.display = 'block';
+    }
 
     // Create Upload Button dynamically
     const uploadBtn = document.createElement('button');
@@ -402,7 +419,11 @@ function setupUploadTab(modal, onSelect) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('name', nameInput.value || file.name);
+        formData.append('name', nameInput.value || file.name);
         formData.append('type', typeSelect.value); // ★ タイプ送信
+        if (gmOnlyCheck && gmOnlyCheck.checked) {
+            formData.append('visibility', 'gm');
+        }
 
         try {
             const response = await fetch('/api/upload_image', {

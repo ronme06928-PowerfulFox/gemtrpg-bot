@@ -284,8 +284,25 @@ if (!window.ExplorationView) {
             // 位置更新 (Ensure numbers)
             const x = parseFloat(loc.x) || 0;
             const y = parseFloat(loc.y) || 0;
-            el.style.left = `${x}px`;
-            el.style.top = `${y}px`;
+
+            // ★ Timestamp Check for Sync Stability
+            let isStale = false;
+            if (window._lastSentExpMoveTS && window._lastSentExpMoveTS[char.id]) {
+                if (loc.last_move_ts && loc.last_move_ts < window._lastSentExpMoveTS[char.id]) {
+                    // console.log(`[Exploration] Stale update for ${char.name}`);
+                    isStale = true;
+                }
+            }
+
+            // ドラッグ中、クールダウン中、またはStaleな場合は更新をスキップ
+            // (Note: dragTarget check is simple here, might need more robust dragging check if multiple users)
+            const isDraggingThis = (dragTarget && dragTarget.dataset.charId === char.id);
+            const inCooldown = window._dragEndTime && (Date.now() - window._dragEndTime < 2000);
+
+            if (!isDraggingThis && !inCooldown && !isStale) {
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
+            }
 
             // スケール (Container Width Strategy)
             // char.tokenScale が未設定の場合は1.0
@@ -451,13 +468,18 @@ if (!window.ExplorationView) {
 
             // ★ Sync Fix: Set drag end time to prevent immediate overwrite by server
             window._dragEndTime = Date.now();
+            const now = Date.now();
+
+            if (!window._lastSentExpMoveTS) window._lastSentExpMoveTS = {};
+            window._lastSentExpMoveTS[charId] = now;
 
             socket.emit('request_update_tachie_location', {
                 room: currentRoomName,
                 char_id: charId,
                 x: finalX,
                 y: finalY,
-                scale: currentScale
+                scale: currentScale,
+                ts: now
             });
         });
     }

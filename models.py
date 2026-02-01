@@ -37,6 +37,7 @@ class ImageRegistry(db.Model):
     url = db.Column(db.String(500), nullable=False)   # Cloudinary URL
     public_id = db.Column(db.String(200), nullable=True)  # Cloudinary public_id
     type = db.Column(db.String(20), default='user')   # 'user' or 'default'
+    visibility = db.Column(db.String(20), default='public') # 'public' or 'gm'
     uploader = db.Column(db.String(100), nullable=True)  # アップロードしたユーザー名
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -47,7 +48,10 @@ class ImageRegistry(db.Model):
             'name': self.name,
             'url': self.url,
             'public_id': self.public_id,
+            'url': self.url,
+            'public_id': self.public_id,
             'type': self.type,
+            'visibility': self.visibility,
             'uploader': self.uploader,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }

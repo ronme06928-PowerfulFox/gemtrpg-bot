@@ -142,6 +142,7 @@ def handle_move_character(data):
     char_id = data.get('character_id')
     x = data.get('x')
     y = data.get('y')
+    ts = data.get('ts') # Timestamp for sync logic
 
     if not room or not char_id:
         return
@@ -158,6 +159,8 @@ def handle_move_character(data):
         old_y = char.get('y', -1)
         char['x'] = x
         char['y'] = y
+        if ts:
+             char['last_move_ts'] = ts
 
         # ログ出力（必要に応じて）
         user_info = get_user_info_from_sid(request.sid)

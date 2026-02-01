@@ -8,7 +8,7 @@ from models import ImageRegistry
 from extensions import db
 
 
-def register_image(url: str, public_id: str, name: str, uploader: str, image_type: str = 'user') -> Dict:
+def register_image(url: str, public_id: str, name: str, uploader: str, image_type: str = 'user', visibility: str = 'public') -> Dict:
     """
     画像をレジストリに登録
 
@@ -28,6 +28,7 @@ def register_image(url: str, public_id: str, name: str, uploader: str, image_typ
         url=url,
         public_id=public_id,
         type=image_type,
+        visibility=visibility,
         uploader=uploader
     )
 
@@ -37,7 +38,7 @@ def register_image(url: str, public_id: str, name: str, uploader: str, image_typ
     return image.to_dict()
 
 
-def get_images(user_id: Optional[str] = None, query: Optional[str] = None, image_type: Optional[str] = None) -> List[Dict]:
+def get_images(user_id: Optional[str] = None, query: Optional[str] = None, image_type: Optional[str] = None, is_gm: bool = False) -> List[Dict]:
     """
     画像一覧を取得（フィルタリング対応）
 
@@ -65,6 +66,20 @@ def get_images(user_id: Optional[str] = None, query: Optional[str] = None, image
     if query:
         # 大文字小文字を区別しない部分一致検索
         images_query = images_query.filter(ImageRegistry.name.ilike(f'%{query}%'))
+
+    # GM画像フィルタリング
+    if not is_gm:
+        # GMでない場合、visibility='gm'の画像を除外 (ただし自分の画像は見れるべき？現状仕様ではアップロードした本人は見れる)
+        # uploader=user_id の条件は既に上でついているが、user_idがNoneの場合（全員取得）はpublicのみにする
+        if user_id:
+            # 自分アップロード以外で gm 限定のものを除外
+            images_query = images_query.filter(
+                (ImageRegistry.visibility == 'public') |
+                (ImageRegistry.uploader == user_id)
+            )
+        else:
+            # ログインユーザー指定なし（ありえないが）ならpublicのみ
+             images_query = images_query.filter(ImageRegistry.visibility == 'public')
 
     # 新しい順にソート
     images_query = images_query.order_by(ImageRegistry.created_at.desc())

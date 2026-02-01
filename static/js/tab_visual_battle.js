@@ -1785,14 +1785,19 @@ function setupBattleTokenDrag() {
 
         // request_move_token イベント送信
         if (typeof socket !== 'undefined' && currentRoomName) {
-            // ★ Sync Fix: Set drag end time
+            // ★ Sync Fix: Set drag end time & TS
             window._dragEndTime = Date.now();
+            const now = Date.now();
+
+            if (!window._lastSentMoveTS) window._lastSentMoveTS = {};
+            window._lastSentMoveTS[dragCharId] = now;
 
             socket.emit('request_move_token', {
                 room: currentRoomName,
                 charId: dragCharId,
                 x: finalX,
-                y: finalY
+                y: finalY,
+                ts: now
             });
         }
 
