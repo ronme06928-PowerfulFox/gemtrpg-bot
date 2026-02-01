@@ -623,7 +623,8 @@
                     var tags = skillData.tags || [];
                     var isImmediate = tags.indexOf('即時発動') >= 0;
                     var isWide = window.isWideSkillData && window.isWideSkillData(skillData);
-                    if (isImmediate || isWide) continue;
+                    var isUnmatchable = tags.indexOf('マッチ不可') >= 0;
+                    if (isImmediate || isWide || isUnmatchable) continue;
                 }
 
                 var option = document.createElement('option');

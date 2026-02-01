@@ -587,6 +587,83 @@ def execute_duel_match(room, data, username):
                     display_total = final_damage + buff_dmg + custom_dmg_onesided
                     damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + (f"+ [追加攻撃 {extra_skill_damage}] " if extra_skill_damage > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
 
+        # ★ 追加: マッチ不可 (Unmatchable) - 相互一方攻撃
+        elif "マッチ不可" in attacker_tags or "マッチ不可" in defender_tags:
+            winner_message = "<strong> → 相互一方攻撃 (マッチ不可)</strong>"
+            damage_message = ""
+
+            # 1. Attacker -> Defender
+            dmg_a = 0
+            if attacker_category in ["防御", "回避"] or "防御" in attacker_tags or "回避" in attacker_tags:
+                dmg_a = 0
+                log_snippets.append(f"攻撃側({attacker_category})のためDMGなし")
+            else:
+                dmg_a = result_a['total']
+
+            if actor_d_char:
+                # Attacker Effects & Hit Processing
+                kiretsu = get_status_value(actor_d_char, '亀裂')
+                bonus_dmg, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, dmg_a)
+                log_snippets.extend(logs)
+
+                # If base damage is 0, we treat it as no hit for damage calculation purposes, but effects might apply?
+                # User spec: "互いに最終威力分のダメージをお互いに与え" -> implies simple application
+                final_dmg_a = dmg_a + kiretsu + bonus_dmg
+
+                # Check for 0 damage explicit (if original was 0 and no bonus)
+                if final_dmg_a > 0 or custom_dmg > 0:
+                     extra_hit = process_on_hit_buffs(actor_a_char, actor_d_char, final_dmg_a, log_snippets)
+                     final_dmg_a += extra_hit
+
+                     d_mult, logs = calculate_damage_multiplier(actor_d_char)
+                     final_dmg_a = int(final_dmg_a * d_mult)
+                     if logs: log_snippets.append(f"(防:{'/'.join(logs)} x{d_mult:.2f})")
+
+                     _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_dmg_a, username=f"{username}(相互)", save=False)
+                     buff_dmg = process_on_damage_buffs(room, actor_d_char, final_dmg_a, username, log_snippets)
+
+                     total_a = final_dmg_a + custom_dmg + buff_dmg
+                     damage_message += f"防:{total_a} "
+                else:
+                     damage_message += f"防:0 "
+
+            # 2. Defender -> Attacker
+            dmg_d = 0
+            if defender_category in ["防御", "回避"] or "防御" in defender_tags or "回避" in defender_tags:
+                dmg_d = 0
+                log_snippets.append(f"防御側({defender_category})のためDMGなし")
+            else:
+                dmg_d = result_d['total']
+
+            if actor_a_char:
+                # Defender Effects & Hit Processing
+                # Note: 'defender' role in apply_skill_effects_bidirectional usually implies winning or reaction.
+                # Here both are acting as attackers effectively.
+                # However, apply_skill_effects_bidirectional(..., 'defender', ...) executes Defender's HIT effects against Attacker.
+
+                kiretsu = get_status_value(actor_a_char, '亀裂')
+                bonus_dmg, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, dmg_d)
+                log_snippets.extend(logs)
+
+                final_dmg_d = dmg_d + kiretsu + bonus_dmg
+
+                if final_dmg_d > 0 or custom_dmg > 0:
+                     extra_hit = process_on_hit_buffs(actor_d_char, actor_a_char, final_dmg_d, log_snippets)
+                     final_dmg_d += extra_hit
+
+                     d_mult, logs = calculate_damage_multiplier(actor_a_char)
+                     final_dmg_d = int(final_dmg_d * d_mult)
+                     if logs: log_snippets.append(f"(攻:{'/'.join(logs)} x{d_mult:.2f})")
+
+                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_dmg_d, username=f"{username}(相互)", save=False)
+                     buff_dmg = process_on_damage_buffs(room, actor_a_char, final_dmg_d, username, log_snippets)
+
+                     total_d = final_dmg_d + custom_dmg + buff_dmg
+                     damage_message += f"攻:{total_d}"
+                else:
+                     damage_message += f"攻:0"
+
+
         elif attacker_category == "防御" and defender_category == "防御":
             winner_message = "<strong> → 両者防御のため、ダメージなし</strong>"; damage_message = "(相殺)"
         elif (attacker_category == "防御" and defender_category == "回避") or (attacker_category == "回避" and defender_category == "防御"):

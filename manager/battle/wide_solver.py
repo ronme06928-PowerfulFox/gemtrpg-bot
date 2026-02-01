@@ -7,7 +7,7 @@ from manager.room_manager import (
 )
 from manager.game_logic import (
     get_status_value, remove_buff, apply_buff, process_skill_effects,
-    calculate_power_bonus, calculate_buff_power_bonus
+    calculate_power_bonus, calculate_buff_power_bonus, calculate_damage_multiplier
 )
 from manager.skill_effects import apply_skill_effects_bidirectional
 from manager.dice_roller import roll_dice
@@ -271,15 +271,60 @@ def execute_wide_match(room, username):
             def_char = next((c for c in state['characters'] if c.get('id') == def_id), None)
             if not def_char: continue
 
-            # ダメージは発生しない前提だが、effectsの処理を行う
-            # タイミングは HIT として扱う
-            if attacker_effects:
-                dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'characters': state['characters']})
-                for log_msg in logs:
-                    broadcast_log(room, log_msg, 'skill-effect')
 
-                # apply_local_changes で状態異常等を適用
-                apply_local_changes(changes)
+            # ★ 1. ダメージ計算 (Unmatchableでも攻撃側の値は既に計算済み: attacker_total)
+            damage = attacker_total
+
+            # Attacker's HIT & UNOPPOSED effects
+            # Pre-calc effects from attacker_effects
+
+            # process_skill_effects expects 'attacker' or 'defender' logic?
+            # It primarily processes the effects list.
+
+            total_damage = damage
+            log_snippets = []
+
+            # Apply HIT effects
+            hit_bonus, hit_logs, hit_changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'characters': state['characters']})
+            log_snippets.extend(hit_logs)
+            apply_local_changes(hit_changes)
+            total_damage += hit_bonus
+
+            # Apply UNOPPOSED effects
+            unop_bonus, unop_logs, unop_changes = process_skill_effects(attacker_effects, "UNOPPOSED", attacker_char, def_char, None, context={'characters': state['characters']})
+            log_snippets.extend(unop_logs)
+            apply_local_changes(unop_changes)
+            total_damage += unop_bonus
+
+            # Apply Damage to Defender
+            # Defense multiplier (def_char might have generic defense mods, but no roll here)
+            d_mult, d_logs = calculate_damage_multiplier(def_char)
+            final_damage = int(total_damage * d_mult)
+
+            if d_logs:
+                 log_snippets.append(f"(防:{'/'.join(d_logs)} x{d_mult:.2f})")
+
+            # Apply damage
+            if final_damage > 0:
+                 current_hp = get_status_value(def_char, 'HP')
+                 _update_char_stat(room, def_char, 'HP', current_hp - final_damage, username=f"[{attacker_skill_id}]")
+                 broadcast_log(room, f"{def_char['name']} に {final_damage} ダメージ {' '.join(log_snippets)}", 'damage')
+            else:
+                 if log_snippets:
+                     broadcast_log(room, f"{def_char['name']} に効果適用: {' '.join(log_snippets)}", 'info')
+
+            # ★ 追加: 防御側の PRE_MATCH 効果を適用 (自己バフなど)
+            for def_data in defenders:
+                def_id = def_data.get('id')
+                def_char = next((c for c in state['characters'] if c.get('id') == def_id), None)
+                if not def_char: continue
+
+                def_skill_id = def_data.get('skill_id')
+                def_skill_data = all_skill_data.get(def_skill_id)
+
+                # PRE_MATCH実行
+                if def_skill_data:
+                    execute_pre_match_effects(room, def_char, attacker_char, def_skill_data, attacker_skill_data)
 
     elif mode == 'combined':
         # Combined Mode
@@ -601,16 +646,37 @@ def execute_wide_match(room, username):
     broadcast_log(room, f"⚔️ === 広域マッチ終了 ===", 'match-end')
 
     attacker_char['hasActed'] = True
-    no_defender_acted = False
-    attacker_tags = attacker_skill_data.get('tags', []) if attacker_skill_data else []
-    if 'マッチ不可' in attacker_tags:
-        no_defender_acted = True
 
+    # ★ 修正: マッチ不可であっても防御側は行動済みとする (コスト消費や効果発動があるため)
     for def_data in defenders:
         def_id = def_data.get('id')
         def_char = next((c for c in state['characters'] if c.get('id') == def_id), None)
-        if def_char and not no_defender_acted:
+        if def_char:
             def_char['hasActed'] = True
+
+    # ★ 追加: END_MATCH 効果処理
+    def execute_end_match(actor, target, skill_d, target_skill_d):
+        if not skill_d: return
+        try:
+            d = json.loads(skill_d.get('特記処理', '{}'))
+            effs = d.get('effects', [])
+            _, logs, changes = process_skill_effects(effs, "END_MATCH", actor, target, target_skill_d, context={'characters': state['characters']})
+            for log_msg in logs:
+                broadcast_log(room, log_msg, 'skill-effect')
+            apply_local_changes(changes) # Re-use local helper
+        except: pass
+
+    # Attacker END_MATCH
+    execute_end_match(attacker_char, None, attacker_skill_data, None)
+
+    # Defenders END_MATCH
+    for def_data in defenders:
+        def_id = def_data.get('id')
+        def_char = next((c for c in state['characters'] if c.get('id') == def_id), None)
+        if def_char:
+            def_skill_id = def_data.get('skill_id')
+            def_skill_data = all_skill_data.get(def_skill_id)
+            execute_end_match(def_char, attacker_char, def_skill_data, attacker_skill_data)
 
     state['active_match'] = None
 
