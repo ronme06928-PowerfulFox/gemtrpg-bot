@@ -297,10 +297,10 @@ if (!window.ExplorationView) {
                 }
             }
 
-            // ドラッグ中、クールダウン中、またはStaleな場合は更新をスキップ
+            // ドラッグ中、クールダウン中(100ms)、またはStaleな場合は更新をスキップ
             // (Note: dragTarget check is simple here, might need more robust dragging check if multiple users)
             const isDraggingThis = (dragTarget && dragTarget.dataset.charId === char.id);
-            const inCooldown = window._dragEndTime && (Date.now() - window._dragEndTime < 2000);
+            const inCooldown = window._dragEndTime && (Date.now() - window._dragEndTime < 100);
 
             if (!isDraggingThis && !inCooldown && !isStale) {
                 el.style.left = `${x}px`;

@@ -837,8 +837,9 @@ function renderVisualMap() {
 
                 // ★ 座標更新 (Drag中はスキップ + 同期ズレ防止)
                 const isDragging = token.classList.contains('dragging');
-                // 直近でドラッグしていた場合もサーバー更新を一時的に無視する (2秒) - Fallback
-                const inCooldown = window._dragEndTime && (Date.now() - window._dragEndTime < 2000);
+                // 直近でドラッグしていた場合もサーバー更新を一時的に無視する (100ms - イベント被り防止の最小限)
+                // ★ Timestampチェックが厳密になったため、長時間のクールダウンは不要(逆に同期ズレの元)
+                const inCooldown = window._dragEndTime && (Date.now() - window._dragEndTime < 100);
 
                 // ★ Strong Timestamp Check
                 // 自分が移動させてから、その確認(Echo)が返ってくるまでは、古い(またはTS無しの)更新を無視する
