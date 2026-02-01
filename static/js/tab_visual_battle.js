@@ -851,9 +851,12 @@ function renderVisualMap() {
             if (token) {
                 // --- 更新処理 (Update) ---
 
-                // Active Turn Class
-                if (char.id === currentTurnId) token.classList.add('active-turn');
-                else token.classList.remove('active-turn');
+                // Active Turn Class (Ensure force toggle)
+                if (char.id === currentTurnId) {
+                    if (!token.classList.contains('active-turn')) token.classList.add('active-turn');
+                } else {
+                    if (token.classList.contains('active-turn')) token.classList.remove('active-turn');
+                }
 
                 // ★ Local Override Logic (Simplified)
                 // 上記 Global Check で既に char.x/y は上書き済みなので、ここではそのまま描画するだけ
@@ -917,35 +920,30 @@ function renderVisualMap() {
 
     // Helper: トークンの見た目（位置以外）を更新
     function updateTokenVisuals(token, char) {
-        // 画像
-        const img = token.querySelector('.token-image');
-        if (img && char.image && img.src !== char.image) { // src check might be tricky with absolute paths
-            img.src = char.image;
-        }
-
         // HP Bar
-        const hpFill = token.querySelector('.token-bar-fill.hp');
-        const hpVal = token.querySelector('.token-bar-fill.hp')?.closest('div')?.parentElement?.querySelector('.token-bar-value');
-        if (hpFill) {
-            const hpCtx = (char.hp / char.max_hp) * 100;
-            hpFill.style.width = `${Math.min(100, Math.max(0, hpCtx))}%`;
-            if (hpVal) hpVal.textContent = char.hp;
+        const hpRow = token.querySelector('.token-stat-row[data-stat="HP"]');
+        if (hpRow) {
+            const bar = hpRow.querySelector('.token-bar-fill.hp');
+            const val = hpRow.querySelector('.token-bar-value');
+            if (bar) bar.style.width = `${Math.min(100, Math.max(0, (char.hp / char.max_hp) * 100))}%`;
+            if (val) val.textContent = char.hp;
         }
 
         // MP Bar
-        const mpFill = token.querySelector('.token-bar-fill.mp');
-        const mpVal = token.querySelector('.token-bar-fill.mp')?.closest('div')?.parentElement?.querySelector('.token-bar-value');
-        if (mpFill) {
-            const mpCtx = (char.mp / char.max_mp) * 100;
-            mpFill.style.width = `${Math.min(100, Math.max(0, mpCtx))}%`;
-            if (mpVal) mpVal.textContent = char.mp;
+        const mpRow = token.querySelector('.token-stat-row[data-stat="MP"]');
+        if (mpRow) {
+            const bar = mpRow.querySelector('.token-bar-fill.mp');
+            const val = mpRow.querySelector('.token-bar-value');
+            if (bar) bar.style.width = `${Math.min(100, Math.max(0, (char.mp / char.max_mp) * 100))}%`;
+            if (val) val.textContent = char.mp;
         }
 
         // FP Badge Update
         const fpBadge = token.querySelector('.fp-badge');
         if (fpBadge) {
-            const currentFP = fpBadge.textContent.trim();
-            if (currentFP != char.fp) {
+            // Check content and title
+            const currentText = fpBadge.textContent.trim();
+            if (currentText != char.fp) {
                 fpBadge.textContent = char.fp;
                 fpBadge.title = `FP: ${char.fp}`;
             }
@@ -1558,7 +1556,7 @@ function createMapToken(char) {
 
     // バー生成ヘルパー (Height 14px, Font 14px/18px)
     const createBar = (cls, per, val, max, label) => `
-        <div style="display:flex; align-items:center; height: 14px; gap: 4px;">
+        <div class="token-stat-row" data-stat="${label}" style="display:flex; align-items:center; height: 14px; gap: 4px;">
             <div style="font-size:14px; font-weight:bold; color:#ccc; width:22px; text-align:left; line-height:1;">${label}</div>
             <div style="flex-grow:1; background:#444; height:100%; border-radius:3px; position:relative; overflow:hidden;">
                 <div class="${cls}" style="width:${per}%; height:100%; position:absolute; left:0; top:0; border-radius:3px;"></div>
