@@ -532,6 +532,12 @@ if __name__ == '__main__':
                 print("❌ 一部のデータ更新に失敗しました。")
                 sys.exit(1)
 
+    # ★ DBスキーマ自動修正 (Renderデプロイ対策)
+    print("--- Checking Database Schema ---")
+    from manager.db_migration import run_auto_migration
+    run_auto_migration(app)
+    print()
+
     # ★ バフプラグイン自動検出
     print("--- Initializing Buff Plugins ---")
     buff_registry.auto_discover()
