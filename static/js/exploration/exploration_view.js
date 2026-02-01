@@ -288,8 +288,11 @@ if (!window.ExplorationView) {
             // ★ Timestamp Check for Sync Stability
             let isStale = false;
             if (window._lastSentExpMoveTS && window._lastSentExpMoveTS[char.id]) {
-                if (loc.last_move_ts && loc.last_move_ts < window._lastSentExpMoveTS[char.id]) {
-                    // console.log(`[Exploration] Stale update for ${char.name}`);
+                const myTS = window._lastSentExpMoveTS[char.id];
+                const serverTS = loc.last_move_ts || 0; // Treat undefined as old
+
+                if (serverTS < myTS) {
+                    // console.log(`[Exploration] Stale update for ${char.name}: Server(${serverTS}) < Client(${myTS})`);
                     isStale = true;
                 }
             }

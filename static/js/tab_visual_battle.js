@@ -835,12 +835,25 @@ function renderVisualMap() {
                 if (char.id === currentTurnId) token.classList.add('active-turn');
                 else token.classList.remove('active-turn');
 
-                // ★ 座標更新 (Drag中はスキップ + 同期ズレ防止クールダウン)
+                // ★ 座標更新 (Drag中はスキップ + 同期ズレ防止)
                 const isDragging = token.classList.contains('dragging');
-                // 直近でドラッグしていた場合もサーバー更新を一時的に無視する (2秒)
+                // 直近でドラッグしていた場合もサーバー更新を一時的に無視する (2秒) - Fallback
                 const inCooldown = window._dragEndTime && (Date.now() - window._dragEndTime < 2000);
 
-                if (!isDragging && !inCooldown) {
+                // ★ Strong Timestamp Check
+                // 自分が移動させてから、その確認(Echo)が返ってくるまでは、古い(またはTS無しの)更新を無視する
+                let isStale = false;
+                if (window._lastSentMoveTS && window._lastSentMoveTS[char.id]) {
+                    const myTS = window._lastSentMoveTS[char.id];
+                    const serverTS = char.last_move_ts || 0; // undefined は 0 (古い) とみなす
+
+                    if (serverTS < myTS) {
+                        // console.log(`[Sync] Avoiding overwrite: Server(${serverTS}) < Client(${myTS})`);
+                        isStale = true;
+                    }
+                }
+
+                if (!isDragging && !inCooldown && !isStale) {
                     const left = char.x * GRID_SIZE + TOKEN_OFFSET;
                     const top = char.y * GRID_SIZE + TOKEN_OFFSET;
 
@@ -848,7 +861,7 @@ function renderVisualMap() {
                     token.style.left = `${left}px`;
                     token.style.top = `${top}px`;
                 } else {
-                    console.log(`[renderVisualMap] Skipping position update for dragging token: ${char.name}`);
+                    // console.log(`[renderVisualMap] Skipping update for ${char.name} (Dragging/Cooldown/Stale)`);
                 }
 
                 // 内部コンテンツの更新 (HPバー、ステータスアイコンなど)
