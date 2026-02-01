@@ -106,7 +106,7 @@ with app.app_context():
     db.create_all()  # テーブル作成 (既存の場合はスキップ)
 
     # バフプラグインの自動検出（ここでも呼んでおく）
-    from manager.buff_manager import buff_registry
+    from plugins.buffs.registry import buff_registry
     buff_registry.auto_discover()
 
     init_app_data()
