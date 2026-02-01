@@ -287,11 +287,16 @@ async function setupVisualBattleTab() {
                     renderVisualTimeline();
 
                     // ★ ログ描画を改善: logsの存在を確実にチェック
-                    if (state.logs && Array.isArray(state.logs) && state.logs.length > 0) {
-                        console.log(`📜 Rendering ${state.logs.length} log entries from state_updated`);
-                        renderVisualLogHistory(state.logs);
+                    // ★ ログ描画を改善: 差分チェック
+                    const newLogCount = (state.logs && Array.isArray(state.logs)) ? state.logs.length : 0;
+                    if (newLogCount !== window._lastLogCount) {
+                        // console.log(`📜 Rendering ${newLogCount} log entries (was ${window._lastLogCount})`);
+                        if (newLogCount > 0) {
+                            renderVisualLogHistory(state.logs);
+                        }
+                        window._lastLogCount = newLogCount;
                     } else {
-                        console.debug('📜 No logs to render in state_updated (logs array is empty or not present)');
+                        // console.debug('📜 Skipping log render (no change in log count)');
                     }
 
                     updateVisualRoundDisplay(state.round);
@@ -833,9 +838,11 @@ function renderVisualMap() {
                 const serverTS = char.last_move_ts || 0;
 
                 if (serverTS < localMove.ts) {
-                    // console.log(`[Sync] Global Override for ${char.name}: (${localMove.x}, ${localMove.y})`);
+                    // console.log(`[Sync] OVERRIDE ${char.name}`);
                     char.x = localMove.x;
                     char.y = localMove.y;
+                } else {
+                    // Server caught up
                 }
             }
 
@@ -848,44 +855,26 @@ function renderVisualMap() {
                 if (char.id === currentTurnId) token.classList.add('active-turn');
                 else token.classList.remove('active-turn');
 
-                // ★ Local State Override Check
-                // サーバーの情報が古い(またはLocalに新しい操作がある)場合、Localの値を正とする
-                let renderX = char.x;
-                let renderY = char.y;
-                // "表示更新をスキップするか" 判定用 (今回は常に更新するので isStale は使わない)
-
-                if (window._localCharPositions && window._localCharPositions[char.id]) {
-                    const localMove = window._localCharPositions[char.id];
-                    const serverTS = char.last_move_ts || 0;
-
-                    // サーバーのタイムスタンプがLocalより古い場合、ローカル座標で上書き
-                    if (serverTS < localMove.ts) {
-                        // console.log(`[Sync] Override with Local State: ${char.name}`);
-                        renderX = localMove.x;
-                        renderY = localMove.y;
-
-                        // Stale判定は「更新スキップ」のために使っていたが、
-                        // 強制上書きする場合は更新が必要なので isStale = false のままにする
-                    } else {
-                        // サーバーがLocalに追いついた場合、Local情報をクリアしてメモリ節約
-                        // delete window._localCharPositions[char.id]; // (チラつき防止のためあえて残すアプローチも可。今回は残す)
-                    }
-                }
+                // ★ Local Override Logic (Simplified)
+                // 上記 Global Check で既に char.x/y は上書き済みなので、ここではそのまま描画するだけ
 
                 // ★ 座標更新 (Drag中はスキップ)
                 const isDragging = token.classList.contains('dragging');
-                // クールダウンは以前削除したため不要だが変数だけ残っている場合への対処
+                // クールダウン (念のため残す)
                 const inCooldown = window._dragEndTime && (Date.now() - window._dragEndTime < 100);
 
                 if (!isDragging && !inCooldown) {
-                    const left = renderX * GRID_SIZE + TOKEN_OFFSET;
-                    const top = renderY * GRID_SIZE + TOKEN_OFFSET;
+                    const left = char.x * GRID_SIZE + TOKEN_OFFSET;
+                    const top = char.y * GRID_SIZE + TOKEN_OFFSET;
 
-                    // 値が変わる場合のみスタイル更新
-                    token.style.left = `${left}px`;
-                    token.style.top = `${top}px`;
-                } else {
-                    // console.log(`[renderVisualMap] Skipping update for ${char.name} (Dragging)`);
+                    // 値が変わる場合のみスタイル更新 (文字列比較で負荷軽減)
+                    const newLeft = `${left}px`;
+                    const newTop = `${top}px`;
+
+                    if (token.style.left !== newLeft || token.style.top !== newTop) {
+                        token.style.left = newLeft;
+                        token.style.top = newTop;
+                    }
                 }
 
                 // 内部コンテンツの更新 (HPバー、ステータスアイコンなど)
@@ -936,16 +925,30 @@ function renderVisualMap() {
 
         // HP Bar
         const hpFill = token.querySelector('.token-bar-fill.hp');
+        const hpVal = token.querySelector('.token-bar-fill.hp')?.closest('div')?.parentElement?.querySelector('.token-bar-value');
         if (hpFill) {
             const hpCtx = (char.hp / char.max_hp) * 100;
             hpFill.style.width = `${Math.min(100, Math.max(0, hpCtx))}%`;
+            if (hpVal) hpVal.textContent = char.hp;
         }
 
         // MP Bar
         const mpFill = token.querySelector('.token-bar-fill.mp');
+        const mpVal = token.querySelector('.token-bar-fill.mp')?.closest('div')?.parentElement?.querySelector('.token-bar-value');
         if (mpFill) {
             const mpCtx = (char.mp / char.max_mp) * 100;
             mpFill.style.width = `${Math.min(100, Math.max(0, mpCtx))}%`;
+            if (mpVal) mpVal.textContent = char.mp;
+        }
+
+        // FP Badge Update
+        const fpBadge = token.querySelector('.fp-badge');
+        if (fpBadge) {
+            const currentFP = fpBadge.textContent.trim();
+            if (currentFP != char.fp) {
+                fpBadge.textContent = char.fp;
+                fpBadge.title = `FP: ${char.fp}`;
+            }
         }
 
         // バッジ更新 (再生成が安全)
@@ -1560,7 +1563,7 @@ function createMapToken(char) {
             <div style="flex-grow:1; background:#444; height:100%; border-radius:3px; position:relative; overflow:hidden;">
                 <div class="${cls}" style="width:${per}%; height:100%; position:absolute; left:0; top:0; border-radius:3px;"></div>
             </div>
-            <div style="font-size:18px; color:white; font-weight:bold; text-shadow:1px 1px 1px #000; min-width:30px; text-align:right; line-height:1;">${val}</div>
+            <div class="token-bar-value" style="font-size:18px; color:white; font-weight:bold; text-shadow:1px 1px 1px #000; min-width:30px; text-align:right; line-height:1;">${val}</div>
         </div>
     `;
 
