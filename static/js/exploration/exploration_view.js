@@ -305,8 +305,9 @@ if (!window.ExplorationView) {
             const inCooldown = window._dragEndTime && (Date.now() - window._dragEndTime < 100);
 
             if (!isDraggingThis && !inCooldown) {
-                el.style.left = `${renderX}px`;
-                el.style.top = `${renderY}px`;
+                // char.x/y are already overridden above if needed
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
             }
 
             // スケール (Container Width Strategy)

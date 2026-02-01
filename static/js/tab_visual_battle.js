@@ -826,6 +826,19 @@ function renderVisualMap() {
         if (char.x >= 0 && char.y >= 0 && char.hp > 0) {
             validCharIds.add(char.id);
 
+            // ★ Global Local State Override
+            // UpdateとCreateの両方で有効になるよう、charオブジェクト自体の座標を一時的に上書きする
+            if (window._localCharPositions && window._localCharPositions[char.id]) {
+                const localMove = window._localCharPositions[char.id];
+                const serverTS = char.last_move_ts || 0;
+
+                if (serverTS < localMove.ts) {
+                    // console.log(`[Sync] Global Override for ${char.name}: (${localMove.x}, ${localMove.y})`);
+                    char.x = localMove.x;
+                    char.y = localMove.y;
+                }
+            }
+
             let token = existingTokens[char.id];
 
             if (token) {
