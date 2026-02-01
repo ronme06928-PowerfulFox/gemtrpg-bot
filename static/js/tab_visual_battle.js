@@ -1506,33 +1506,35 @@ function createMapToken(char) {
         }
     } else if (isCurrentTurn) {
         // アクティブなターンなら背後を金色に発光させる (枠線の色は変えない)
-        token.style.boxShadow = `0 0 25px 10px rgba(255, 215, 0, 0.8)`; // Strong Gold Glow
-        token.style.zIndex = 100; // 手前に
-        // token.style.borderColor = "#ffc107"; // Removed as per request
+        // ★ User Request: 金色の光は不要とのことで削除
+        // token.style.boxShadow = `0 0 25px 10px rgba(255, 215, 0, 0.8)`;
+        // token.style.zIndex = 100; // 手前に
     }
+    // token.style.borderColor = "#ffc107"; // Removed as per request
+}
 
-    // --- 広域攻撃ボタン ---
-    let wideBtnHtml = '';
-    const isWideMatchExecuting = battleState.active_match && battleState.active_match.is_active && battleState.active_match.match_type === 'wide';
-    if (isCurrentTurn && char.isWideUser && !isWideMatchExecuting) {
-        // ボタンも少し大きく、押しやすく
-        wideBtnHtml = '<button class="wide-attack-trigger-btn" style="transform: scale(1.2); top: -40px; font-size: 1.1em;" onclick="event.stopPropagation(); window._dragBlockClick = true; openSyncedWideMatchModal(\'' + char.id + '\');">⚡ 広域</button>';
-    }
+// --- 広域攻撃ボタン ---
+let wideBtnHtml = '';
+const isWideMatchExecuting = battleState.active_match && battleState.active_match.is_active && battleState.active_match.match_type === 'wide';
+if (isCurrentTurn && char.isWideUser && !isWideMatchExecuting) {
+    // ボタンも少し大きく、押しやすく
+    wideBtnHtml = '<button class="wide-attack-trigger-btn" style="transform: scale(1.2); top: -40px; font-size: 1.1em;" onclick="event.stopPropagation(); window._dragBlockClick = true; openSyncedWideMatchModal(\'' + char.id + '\');">⚡ 広域</button>';
+}
 
-    // --- 背景画像 ---
-    // tokenBodyStyle は内部 content 用
-    let tokenBodyStyle = `width: 100%; height: 100%; border-radius: 14px 14px 0 0; overflow: hidden; position: relative; background: #eee;`;
-    let tokenBodyContent = `<span style="font-size: 3em; font-weight: bold; color: #555; display: flex; align-items: center; justify-content: center; height: 100%;">${char.name.charAt(0)}</span>`;
+// --- 背景画像 ---
+// tokenBodyStyle は内部 content 用
+let tokenBodyStyle = `width: 100%; height: 100%; border-radius: 14px 14px 0 0; overflow: hidden; position: relative; background: #eee;`;
+let tokenBodyContent = `<span style="font-size: 3em; font-weight: bold; color: #555; display: flex; align-items: center; justify-content: center; height: 100%;">${char.name.charAt(0)}</span>`;
 
-    if (char.image) {
-        // Refactored to use <img> for lazy loading
-        tokenBodyContent = `<img src="${char.image}" loading="lazy" style="width:100%; height:100%; object-fit:cover;">`;
-        // tokenBodyStyle += `background-image: url('${char.image}'); background-size: cover; background-position: center; background-repeat: no-repeat;`;
-    }
+if (char.image) {
+    // Refactored to use <img> for lazy loading
+    tokenBodyContent = `<img src="${char.image}" loading="lazy" style="width:100%; height:100%; object-fit:cover;">`;
+    // tokenBodyStyle += `background-image: url('${char.image}'); background-size: cover; background-position: center; background-repeat: no-repeat;`;
+}
 
-    // --- ステータスバー (New Overlay Design v3) ---
-    // 下部: ステータス (HP, MP) - FP Removed
-    const statusOverlayStyle = `
+// --- ステータスバー (New Overlay Design v3) ---
+// 下部: ステータス (HP, MP) - FP Removed
+const statusOverlayStyle = `
         position: absolute; bottom: 0; left: 0; width: 100%;
         background: rgba(0, 0, 0, 0.75);
         padding: 5px; box-sizing: border-box;
@@ -1541,9 +1543,9 @@ function createMapToken(char) {
         pointer-events: none; /* クリック透過 */
     `;
 
-    // ★ Name Label (Outside Bottom)
-    // トークンの外側下部に配置。
-    const nameLabelStyle = `
+// ★ Name Label (Outside Bottom)
+// トークンの外側下部に配置。
+const nameLabelStyle = `
         position: absolute;
         top: ${scaledSize + 6}px;
         left: 50%;
@@ -1559,10 +1561,10 @@ function createMapToken(char) {
         text-shadow: 1px 1px 2px black;
         pointer-events: none;
     `;
-    const nameLabelHtml = `<div class="token-name-label" style="${nameLabelStyle}">${char.name}</div>`;
+const nameLabelHtml = `<div class="token-name-label" style="${nameLabelStyle}">${char.name}</div>`;
 
-    // バー生成ヘルパー (Height 14px, Font 14px/18px)
-    const createBar = (cls, per, val, max, label) => `
+// バー生成ヘルパー (Height 14px, Font 14px/18px)
+const createBar = (cls, per, val, max, label) => `
         <div class="token-stat-row" data-stat="${label}" style="display:flex; align-items:center; height: 14px; gap: 4px;">
             <div style="font-size:14px; font-weight:bold; color:#ccc; width:22px; text-align:left; line-height:1;">${label}</div>
             <div style="flex-grow:1; background:#444; height:100%; border-radius:3px; position:relative; overflow:hidden;">
@@ -1572,15 +1574,15 @@ function createMapToken(char) {
         </div>
     `;
 
-    const statusHtml = `
+const statusHtml = `
         <div style="${statusOverlayStyle}">
             ${createBar('token-bar-fill hp', hpPer, hp, maxHp, 'HP')}
             ${createBar('token-bar-fill mp', mpPer, mp, maxMp, 'MP')}
         </div>
     `;
 
-    // ★ FP Badge (Top Left)
-    const fpBadgeHtml = `
+// ★ FP Badge (Top Left)
+const fpBadgeHtml = `
         <div class="fp-badge" style="
             position: absolute; top: -12px; left: -12px;
             width: 32px; height: 32px;
@@ -1596,7 +1598,7 @@ function createMapToken(char) {
         </div>
     `;
 
-    token.innerHTML = `
+token.innerHTML = `
         ${wideBtnHtml}
         ${fpBadgeHtml}
         <div class="token-body" style="${tokenBodyStyle}">
@@ -1609,102 +1611,102 @@ function createMapToken(char) {
         </div>
     `;
 
-    // ★ HTML5 Draggable を無効化（カスタム移動のため）
-    token.draggable = false;
-    token.style.cursor = 'grab';
+// ★ HTML5 Draggable を無効化（カスタム移動のため）
+token.draggable = false;
+token.style.cursor = 'grab';
 
-    // ダブルクリックで詳細モーダルを表示
-    token.addEventListener('dblclick', (e) => {
-        e.stopPropagation();
-        exitAttackTargetingMode();
-        showCharacterDetail(char.id);
-    });
+// ダブルクリックで詳細モーダルを表示
+token.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    exitAttackTargetingMode();
+    showCharacterDetail(char.id);
+});
 
-    // シングルクリックで攻撃対象選択・ターゲティングモード開始
-    token.addEventListener('click', (e) => {
-        e.stopPropagation();
-        console.log(`[Click] Token clicked: ${char.name} (${char.id})`);
+// シングルクリックで攻撃対象選択・ターゲティングモード開始
+token.addEventListener('click', (e) => {
+    e.stopPropagation();
+    console.log(`[Click] Token clicked: ${char.name} (${char.id})`);
 
-        // ★ Drag後のクリック防止
-        if (window._dragBlockClick) {
-            console.log('[Click] ❌ Blocked due to recent drag (window._dragBlockClick=true)');
+    // ★ Drag後のクリック防止
+    if (window._dragBlockClick) {
+        console.log('[Click] ❌ Blocked due to recent drag (window._dragBlockClick=true)');
+        return;
+    }
+
+    // ★ 重なり対策: クリックしたトークンを一時的に最前面へ
+    document.querySelectorAll('.map-token').forEach(t => t.style.zIndex = '');
+    token.style.zIndex = 500;
+
+    // アクティブマッチ中のキャラクターをクリック → パネル展開
+    if (battleState.active_match && battleState.active_match.is_active) {
+        const am = battleState.active_match;
+        if (am.attacker_id === char.id || am.defender_id === char.id) {
+            console.log('[Click] Expanding match panel (active match participant)');
+            if (typeof expandMatchPanel === 'function') expandMatchPanel();
             return;
         }
+    }
 
-        // ★ 重なり対策: クリックしたトークンを一時的に最前面へ
-        document.querySelectorAll('.map-token').forEach(t => t.style.zIndex = '');
-        token.style.zIndex = 500;
+    // ターゲティングモード中 → 対象選択
+    console.log(`[Click] Targeting state check: isTargeting=${window.attackTargetingState.isTargeting}, attackerId=${window.attackTargetingState.attackerId}`);
+    if (window.attackTargetingState.isTargeting && window.attackTargetingState.attackerId) {
+        const attackerId = window.attackTargetingState.attackerId;
+        console.log(`[Click] ✅ In targeting mode. Attacker: ${attackerId}, Target: ${char.id}`);
 
-        // アクティブマッチ中のキャラクターをクリック → パネル展開
-        if (battleState.active_match && battleState.active_match.is_active) {
-            const am = battleState.active_match;
-            if (am.attacker_id === char.id || am.defender_id === char.id) {
-                console.log('[Click] Expanding match panel (active match participant)');
-                if (typeof expandMatchPanel === 'function') expandMatchPanel();
-                return;
-            }
+        if (attackerId === char.id) {
+            console.log('[Click] ❌ Cannot target self, ignoring');
+            return; // 自分自身は無視
         }
 
-        // ターゲティングモード中 → 対象選択
-        console.log(`[Click] Targeting state check: isTargeting=${window.attackTargetingState.isTargeting}, attackerId=${window.attackTargetingState.attackerId}`);
-        if (window.attackTargetingState.isTargeting && window.attackTargetingState.attackerId) {
-            const attackerId = window.attackTargetingState.attackerId;
-            console.log(`[Click] ✅ In targeting mode. Attacker: ${attackerId}, Target: ${char.id}`);
+        const attackerChar = battleState.characters.find(c => c.id === attackerId);
+        const attackerName = attackerChar ? attackerChar.name : "不明";
 
-            if (attackerId === char.id) {
-                console.log('[Click] ❌ Cannot target self, ignoring');
-                return; // 自分自身は無視
-            }
+        const isOwner = attackerChar && attackerChar.owner === currentUsername;
+        const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
 
-            const attackerChar = battleState.characters.find(c => c.id === attackerId);
-            const attackerName = attackerChar ? attackerChar.name : "不明";
-
-            const isOwner = attackerChar && attackerChar.owner === currentUsername;
-            const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
-
-            console.log(`[Click] Permission check: isOwner=${isOwner}, isGM=${isGM}`);
-            if (!isOwner && !isGM) {
-                alert("キャラクターの所有者またはGMのみがマッチを開始できます。");
-                exitAttackTargetingMode();
-                return;
-            }
-
-            console.log(`[Click] 🎯 Showing attack confirmation dialog`);
-            if (confirm(`【攻撃確認】\n「${attackerName}」が「${char.name}」に攻撃を仕掛けますか？`)) {
-                openDuelModal(attackerId, char.id);
-            }
+        console.log(`[Click] Permission check: isOwner=${isOwner}, isGM=${isGM}`);
+        if (!isOwner && !isGM) {
+            alert("キャラクターの所有者またはGMのみがマッチを開始できます。");
             exitAttackTargetingMode();
             return;
         }
 
-        // 自分のターン → ターゲティングモード開始
-        const currentTurnCharId = battleState.turn_char_id;
-        const isNowTurn = (currentTurnCharId === char.id);
-
-        if (isNowTurn) {
-            const isOwner = char.owner === currentUsername;
-            const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
-
-            if (!isOwner && !isGM) return;
-
-            if (window.matchActionInitiated) {
-                alert("1ターンに1回のみマッチを開始できます。\n次のターンまでお待ちください。");
-                return;
-            }
-
-            const isWideMatchExecuting = battleState.active_match && battleState.active_match.is_active && battleState.active_match.match_type === 'wide';
-            if (char.isWideUser && !isWideMatchExecuting) {
-                if (typeof openSyncedWideMatchModal === 'function') {
-                    openSyncedWideMatchModal(char.id);
-                }
-                return;
-            }
-
-            enterAttackTargetingMode(char.id);
+        console.log(`[Click] 🎯 Showing attack confirmation dialog`);
+        if (confirm(`【攻撃確認】\n「${attackerName}」が「${char.name}」に攻撃を仕掛けますか？`)) {
+            openDuelModal(attackerId, char.id);
         }
-    });
+        exitAttackTargetingMode();
+        return;
+    }
 
-    return token;
+    // 自分のターン → ターゲティングモード開始
+    const currentTurnCharId = battleState.turn_char_id;
+    const isNowTurn = (currentTurnCharId === char.id);
+
+    if (isNowTurn) {
+        const isOwner = char.owner === currentUsername;
+        const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
+
+        if (!isOwner && !isGM) return;
+
+        if (window.matchActionInitiated) {
+            alert("1ターンに1回のみマッチを開始できます。\n次のターンまでお待ちください。");
+            return;
+        }
+
+        const isWideMatchExecuting = battleState.active_match && battleState.active_match.is_active && battleState.active_match.match_type === 'wide';
+        if (char.isWideUser && !isWideMatchExecuting) {
+            if (typeof openSyncedWideMatchModal === 'function') {
+                openSyncedWideMatchModal(char.id);
+            }
+            return;
+        }
+
+        enterAttackTargetingMode(char.id);
+    }
+});
+
+return token;
 }
 
 // --- Battle Token Custom Drag Logic (Smooth Movement) ---
