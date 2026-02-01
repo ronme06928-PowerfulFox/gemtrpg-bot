@@ -112,6 +112,17 @@ def serve_index():
     print(f"[INFO] Accessing Root! Serving from: {STATIC_DIR}")
     return send_from_directory(STATIC_DIR, 'index.html')
 
+@app.after_request
+def add_header(response):
+    """
+    静的ファイル(画像, CSS, JS)に強力なキャッシュヘッダーを付与する
+    (WhiteNoiseが処理しきれない場合や、動的生成コンテンツへのキャッシュ適用のため)
+    """
+    if request.path.startswith('/static/') or request.path.startswith('/images/'):
+        # Cache for 1 year
+        response.headers['Cache-Control'] = 'public, max-age=31536000'
+    return response
+
 @app.route('/mobile')
 def serve_mobile_index():
     print(f"[INFO] Accessing Mobile Root! Serving from: {STATIC_DIR}/mobile")

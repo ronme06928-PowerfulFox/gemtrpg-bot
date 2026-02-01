@@ -835,9 +835,12 @@ function renderVisualMap() {
                 if (char.id === currentTurnId) token.classList.add('active-turn');
                 else token.classList.remove('active-turn');
 
-                // ★ 座標更新 (Drag中はスキップ)
-                const isDragging = token.classList.contains('dragging'); // classで判定
-                if (!isDragging) {
+                // ★ 座標更新 (Drag中はスキップ + 同期ズレ防止クールダウン)
+                const isDragging = token.classList.contains('dragging');
+                // 直近でドラッグしていた場合もサーバー更新を一時的に無視する (2秒)
+                const inCooldown = window._dragEndTime && (Date.now() - window._dragEndTime < 2000);
+
+                if (!isDragging && !inCooldown) {
                     const left = char.x * GRID_SIZE + TOKEN_OFFSET;
                     const top = char.y * GRID_SIZE + TOKEN_OFFSET;
 
@@ -1371,7 +1374,7 @@ function generateMapTokenBadgesHTML(char) {
             if (config) {
                 iconsHtml += `
                     <div class="status-badge" style="${badgeStyle} border-color: ${config.borderColor};" title="${s.name}: ${s.value}">
-                        <img src="images/${config.icon}" style="width:100%; height:100%; border-radius:50%;">
+                        <img src="images/${config.icon}" loading="lazy" style="width:100%; height:100%; border-radius:50%;">
                         <div style="${countStyle}">${s.value}</div>
                     </div>`;
             } else {
@@ -1477,8 +1480,9 @@ function createMapToken(char) {
     let tokenBodyContent = `<span style="font-size: 3em; font-weight: bold; color: #555; display: flex; align-items: center; justify-content: center; height: 100%;">${char.name.charAt(0)}</span>`;
 
     if (char.image) {
-        tokenBodyStyle += `background-image: url('${char.image}'); background-size: cover; background-position: center; background-repeat: no-repeat;`;
-        tokenBodyContent = '';
+        // Refactored to use <img> for lazy loading
+        tokenBodyContent = `<img src="${char.image}" loading="lazy" style="width:100%; height:100%; object-fit:cover;">`;
+        // tokenBodyStyle += `background-image: url('${char.image}'); background-size: cover; background-position: center; background-repeat: no-repeat;`;
     }
 
     // --- ステータスバー (New Overlay Design v3) ---
@@ -1781,6 +1785,9 @@ function setupBattleTokenDrag() {
 
         // request_move_token イベント送信
         if (typeof socket !== 'undefined' && currentRoomName) {
+            // ★ Sync Fix: Set drag end time
+            window._dragEndTime = Date.now();
+
             socket.emit('request_move_token', {
                 room: currentRoomName,
                 charId: dragCharId,

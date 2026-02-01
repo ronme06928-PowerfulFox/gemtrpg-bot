@@ -328,6 +328,7 @@ if (!window.ExplorationView) {
             const img = document.createElement('img');
             img.src = char.image;
             img.setAttribute('src', char.image); // Explicitly set attribute for diffing
+            img.loading = 'lazy'; // ★ Performance Optimization
             img.style.width = '100%';
             img.style.height = 'auto';
             img.style.pointerEvents = 'none';
@@ -447,6 +448,9 @@ if (!window.ExplorationView) {
 
             dragTarget.style.zIndex = 10;
             dragTarget = null;
+
+            // ★ Sync Fix: Set drag end time to prevent immediate overwrite by server
+            window._dragEndTime = Date.now();
 
             socket.emit('request_update_tachie_location', {
                 room: currentRoomName,
