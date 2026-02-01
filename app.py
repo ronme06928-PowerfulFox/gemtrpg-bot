@@ -93,15 +93,28 @@ CORS(app, supports_credentials=True)
 Compress(app) # 追加: 圧縮転送の有効化 (デフォルトでGzip圧縮)
 db.init_app(app)
 
+# ★ DB初期化とマイグレーション
+# ★ DBスキーマ自動修正 (Renderデプロイ対策 - Global execution for Gunicorn)
+# アプリケーション初期化時に実行
+print("--- Checking Database Schema (Global) ---")
+from manager.db_migration import run_auto_migration
+run_auto_migration(app)
+print()
+
+# ★ 起動時のデータ読み込み
+with app.app_context():
+    db.create_all()  # テーブル作成 (既存の場合はスキップ)
+
+    # バフプラグインの自動検出（ここでも呼んでおく）
+    from manager.buff_manager import buff_registry
+    buff_registry.auto_discover()
+
+    init_app_data()
+    read_saved_rooms_with_owners()
+
 async_mode = 'eventlet' if IS_RENDER else 'threading'
 # extensionsにあるsocketioをアプリと紐付け
 socketio.init_app(app, cors_allowed_origins="*", async_mode=async_mode)
-
-# データ初期化実行
-with app.app_context():
-    # テーブル作成（Render初回起動時などに必要）
-    db.create_all()
-    init_app_data()
 
 # ==========================================
 #  HTTP Routes
@@ -531,12 +544,6 @@ if __name__ == '__main__':
             else:
                 print("❌ 一部のデータ更新に失敗しました。")
                 sys.exit(1)
-
-    # ★ DBスキーマ自動修正 (Renderデプロイ対策)
-    print("--- Checking Database Schema ---")
-    from manager.db_migration import run_auto_migration
-    run_auto_migration(app)
-    print()
 
     # ★ バフプラグイン自動検出
     print("--- Initializing Buff Plugins ---")
