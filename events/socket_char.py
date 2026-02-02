@@ -181,14 +181,20 @@ def handle_move_character(data):
         # 状態更新をブロードキャスト (Legacy Full Update)
         # broadcast_state_update(room)
 
-        # ★ Differential Update (軽量更新)
-        # 部屋全体には "移動した" 事実と座標だけを送る
-        socketio.emit('character_moved', {
-            'character_id': char_id,
-            'x': x,
-            'y': y,
-            'last_move_ts': ts if ts else 0
-        }, to=room)
+        if old_x < 0 or old_y < 0 or x < 0 or y < 0:
+            # ★ Placement/Dropout (Creation or Removal) -> Full Update
+            # 未配置からの配置、または盤外へのドロップ（撤退）は
+            # DOM生成・削除やリスト更新が必要なため、フルステート更新を行う
+            broadcast_state_update(room)
+        else:
+            # ★ Moving (Existing Token) -> Differential Update
+            # 部屋全体には "移動した" 事実と座標だけを送る
+            socketio.emit('character_moved', {
+                'character_id': char_id,
+                'x': x,
+                'y': y,
+                'last_move_ts': ts if ts else 0
+            }, to=room)
 
         save_specific_room_state(room)
 
