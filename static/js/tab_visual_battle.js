@@ -324,6 +324,45 @@ async function setupVisualBattleTab() {
                 }
             });
 
+            // ★ Differential Movement Update Listener
+            socket.on('character_moved', (data) => {
+                // data: { character_id, x, y, last_move_ts }
+                const charId = data.character_id;
+                const serverTS = data.last_move_ts || 0;
+
+                // 1. Update Internal State
+                if (typeof battleState !== 'undefined' && battleState.characters) {
+                    const char = battleState.characters.find(c => c.id === charId);
+                    if (char) {
+                        char.x = data.x;
+                        char.y = data.y;
+                        char.last_move_ts = serverTS;
+                    }
+                }
+
+                // 2. Local Sync Check (Override)
+                if (window._localCharPositions && window._localCharPositions[charId]) {
+                    const localMove = window._localCharPositions[charId];
+                    // ServerTS <= LocalTS: Ignore server update (keep local)
+                    if (serverTS <= localMove.ts) {
+                        return;
+                    }
+                }
+
+                // 3. Direct DOM Update
+                const token = document.querySelector(`.map-token[data-id="${charId}"]`);
+                if (token) {
+                    // Check if dragging (prevent override during drag)
+                    if (token.classList.contains('dragging')) return;
+
+                    const left = data.x * GRID_SIZE + TOKEN_OFFSET;
+                    const top = data.y * GRID_SIZE + TOKEN_OFFSET;
+
+                    token.style.left = `${left}px`;
+                    token.style.top = `${top}px`;
+                }
+            });
+
             socket.on('open_wide_declaration_modal', () => {
                 openVisualWideDeclarationModal();
             });

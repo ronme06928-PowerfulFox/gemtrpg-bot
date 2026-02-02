@@ -178,8 +178,18 @@ def handle_move_character(data):
         username = user_info.get("username", "System")
         print(f"[MOVE] Room:{room}, Char:{char.get('name')} -> ({x}, {y}) by {username}")
 
-        # 状態更新をブロードキャスト
-        broadcast_state_update(room)
+        # 状態更新をブロードキャスト (Legacy Full Update)
+        # broadcast_state_update(room)
+
+        # ★ Differential Update (軽量更新)
+        # 部屋全体には "移動した" 事実と座標だけを送る
+        socketio.emit('character_moved', {
+            'character_id': char_id,
+            'x': x,
+            'y': y,
+            'last_move_ts': ts if ts else 0
+        }, to=room)
+
         save_specific_room_state(room)
 
 
