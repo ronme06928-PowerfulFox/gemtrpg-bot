@@ -263,6 +263,12 @@ async function setupVisualBattleTab() {
                     battleState = state;
                 }
 
+                // ★ Fix: Ensure BattleStore is updated (Timeline.js relies on this)
+                if (window.BattleStore) {
+                    console.log('🔄 Syncing BattleStore from legacy handler');
+                    window.BattleStore.setState(state);
+                }
+
 
                 if (document.getElementById('visual-battle-container')) {
                     // ★ 修正案: モードに応じた描画切り替え
@@ -284,7 +290,7 @@ async function setupVisualBattleTab() {
                         renderVisualMap();
                     }
 
-                    renderVisualTimeline();
+                    // renderVisualTimeline(); // Disabled: Use Timeline.js Component
 
                     // ★ ログ描画を改善: logsの存在を確実にチェック
                     // ★ ログ描画を改善: 差分チェック
@@ -620,8 +626,8 @@ async function setupVisualBattleTab() {
         });
     }
     // renderStagingArea(); // Removed
-    renderVisualTimeline();
-    renderVisualTimeline();
+    // renderVisualTimeline(); // Disabled: Use Timeline.js Component
+    // renderVisualTimeline(); // Disabled: Use Timeline.js Component
     updateVisualRoundDisplay(battleState ? battleState.round : 0);
 
     // 3. スキルデータロード
@@ -831,7 +837,7 @@ function renderVisualMap() {
 
     // tokenLayer.innerHTML = ''; // ★ 廃止: 全削除は行わない
 
-    renderVisualTimeline();
+    // renderVisualTimeline(); // Disabled: Use Timeline.js Component
     updateMapTransform();
 
     // ★ 背景画像の適用
@@ -1120,7 +1126,7 @@ function setupMapControls() {
                 renderVisualMap();
 
                 // タイムラインも更新（未配置→配置の場合に表示されるようになるため）
-                renderVisualTimeline();
+                // renderVisualTimeline(); // Disabled: Use Timeline.js Component
             }
 
             socket.emit('request_move_token', { room: currentRoomName, charId, x: gridX, y: gridY });

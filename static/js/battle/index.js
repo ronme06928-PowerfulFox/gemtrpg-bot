@@ -17,7 +17,7 @@ import { eventBus } from './core/EventBus.js';
 import { socketClient } from './core/SocketClient.js';
 
 // --- Phase 3: UI Components ---
-import { timeline } from './components/Timeline.js';
+import { timeline } from './components/Timeline.js?v=20260204_2';
 import { matchPanelState } from './components/MatchPanelState.js';
 import { actionDock } from './components/ActionDock.js';
 import { mapState } from './components/MapState.js';
@@ -41,6 +41,14 @@ function initializeBattleSystem() {
             if (window.battleState) {
                 store.initialize(window.battleState);
             }
+
+            // Phase 3: Initialize UI Components
+            const timelineInit = timeline.initialize();
+            console.log(`Timeline initialized: ${timelineInit}`);
+
+            // matchPanel, actionDock, etc. initialization if needed
+            // Currently they might self-initialize or handle their own events,
+            // but Timeline specifically has an initialize method we must call.
         } else if (retryCount < 20) {
             // 100ms待ってリトライ（最大20回 = 2秒）
             setTimeout(() => tryInitSocket(retryCount + 1), 100);

@@ -420,35 +420,45 @@ def process_round_start(room, username):
 
     # Update Speed and Create Timeline
     timeline_unsorted = []
+    import uuid
 
     for char in state.get('characters', []):
         if char.get('hp', 0) <= 0: continue
         if char.get('is_escaped', False): continue
-        # 未配置チェック (x < 0)
         if char.get('x', -1) < 0: continue
 
         # Calculate Speed (1d6 + Speed/6)
-        # ★ デバッグ: totalSpeedをクリアしてから基礎速度値を取得
+        # Clear previous totalSpeed
         char['totalSpeed'] = None
         speed_param = get_status_value(char, '速度')
         initiative = speed_param // 6
 
-        logger.debug(f"[SPEED ROLL] {char['name']}: speed_param={speed_param}, initiative={initiative}")
+        # 行動回数を取得 (デフォルト1)
+        action_count = get_status_value(char, '行動回数')
+        action_count = max(1, action_count)
 
-        # 1d6
-        roll = random.randint(1, 6)
-        char['speedRoll'] = roll
-        total_speed = initiative + roll
-        char['totalSpeed'] = total_speed
+        logger.debug(f"[SPEED ROLL] {char['name']}: speed={speed_param} (init={initiative}), count={action_count}")
 
-        logger.debug(f"[SPEED ROLL] {char['name']}: roll={roll}, totalSpeed={total_speed}")
+        for i in range(action_count):
+            roll = random.randint(1, 6)
+            total_speed = initiative + roll
+            logger.debug(f"  > Action {i+1}: Roll={roll}, Total={total_speed}")
 
-        timeline_unsorted.append({
-            'id': char['id'],
-            'speed': total_speed,
-            'stat_speed': initiative,
-            'roll': roll
-        })
+            entry_id = str(uuid.uuid4())
+            timeline_unsorted.append({
+                'id': entry_id,          # UNIQUE ID for this action
+                'char_id': char['id'],   # Link to Character
+                'speed': total_speed,
+                'stat_speed': initiative,
+                'roll': roll,
+                'acted': False,
+                'is_extra': (i > 0)
+            })
+
+            # For backward compatibility / display on char token
+            if i == 0:
+                char['speedRoll'] = roll
+                char['totalSpeed'] = total_speed
 
         # Reset Turn State
         char['hasActed'] = False
@@ -456,17 +466,19 @@ def process_round_start(room, username):
     # Sort Timeline (Speed Descending)
     timeline_unsorted.sort(key=lambda x: x['speed'], reverse=True)
 
-    state['timeline'] = [item['id'] for item in timeline_unsorted]
+    # Store full objects
+    state['timeline'] = timeline_unsorted
     state['turn_char_id'] = None
+    state['turn_entry_id'] = None
 
     # Broadcast Timeline Info
     log_msg = "行動順が決まりました:<br>"
     for idx, item in enumerate(timeline_unsorted):
-        char = next((c for c in state['characters'] if c['id'] == item['id']), None)
+        char = next((c for c in state['characters'] if c['id'] == item['char_id']), None)
         if char:
-            log_msg += f"{idx+1}. {char['name']} (計{item['speed']})<br>"
+            suffix = f" (#{item['speed']})" if item.get('is_extra') else f" (計{item['speed']})"
+            log_msg += f"{idx+1}. {char['name']}{suffix}<br>"
 
-    # ★ 修正: broadcast_log を使用してログ履歴に保存
     broadcast_log(room, log_msg, 'info')
 
     # ★ 追加: ラティウム (ID: 3) ラウンド開始時一括処理
@@ -516,15 +528,16 @@ def process_wide_declarations(room, wide_user_ids):
         broadcast_log(room, f"広域攻撃予約: {', '.join(names)}", 'info')
         # Reorder timeline: Move wide users to the front
         current_timeline = state.get('timeline', [])
-        # Remove wide users from current positions
-        remaining_timeline = [uid for uid in current_timeline if uid not in wide_user_ids]
-        # Prepend wide users (filter valid ones)
-        valid_wide_ids = [uid for uid in wide_user_ids if any(str(c['id']) == str(uid) for c in state['characters'])]
 
-        # New timeline: [Wide Users] + [Remaining Users]
-        state['timeline'] = valid_wide_ids + remaining_timeline
-        logger.debug(f"[DEBUG] Valid wide IDs: {valid_wide_ids}")
-        logger.debug(f"[DEBUG] New timeline: {state['timeline']}")
+        # New Logic for Object Timeline
+        valid_wide_char_ids = [str(uid) for uid in wide_user_ids if any(str(c['id']) == str(uid) for c in state['characters'])]
+
+        wide_entries = [entry for entry in current_timeline if str(entry['char_id']) in valid_wide_char_ids]
+        remaining_entries = [entry for entry in current_timeline if str(entry['char_id']) not in valid_wide_char_ids]
+
+        # New timeline: [Wide Entries] + [Remaining Entries]
+        state['timeline'] = wide_entries + remaining_entries
+        logger.debug(f"[DEBUG] New timeline len: {len(state['timeline'])}")
     else:
         broadcast_log(room, "広域攻撃予約: なし", 'info')
 

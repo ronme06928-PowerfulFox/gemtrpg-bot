@@ -440,9 +440,39 @@ def execute_duel_match(room, data, username):
         is_defender_already_acted = actor_d_char.get('hasActed', False)
 
     # Set hasActed NOW (actors consume turn by participating)
-    if actor_a_char: actor_a_char['hasActed'] = True
+    # Set hasActed NOW (actors consume turn by participating)
+    timeline = state.get('timeline', [])
+    current_entry_id = state.get('turn_entry_id')
+
+    # Attacker consumption
+    if actor_a_char:
+        consumed = False
+        # 1. Provide priority to current turn entry
+        if current_entry_id:
+            for entry in timeline:
+                if entry['id'] == current_entry_id and entry['char_id'] == actor_a_char['id']:
+                    entry['acted'] = True
+                    consumed = True
+                    break
+        # 2. Consume first available if not current turn
+        if not consumed:
+             for entry in timeline:
+                 if entry['char_id'] == actor_a_char['id'] and not entry.get('acted', False):
+                     entry['acted'] = True
+                     consumed = True
+                     break
+        # Fallback for backward compatibility
+        actor_a_char['hasActed'] = True
+
     no_defender_acted = state.get('active_match', {}).get('no_defender_acted', False)
+    # Defender consumption
     if actor_d_char and not no_defender_acted:
+        consumed = False
+        for entry in timeline:
+             if entry['char_id'] == actor_d_char['id'] and not entry.get('acted', False):
+                 entry['acted'] = True
+                 consumed = True
+                 break
         actor_d_char['hasActed'] = True
 
     bonus_damage = 0; log_snippets = []; changes = []

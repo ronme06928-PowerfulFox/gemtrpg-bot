@@ -129,6 +129,16 @@ DYNAMIC_PATTERNS = [
         }
     },
 
+    # パターン: [名前]_Act[数値] -> 行動回数アップ
+    {
+        "pattern": r"^(.*)_Act(\d+)$",
+        "generator": lambda m: {
+            "stat_mods": {
+                "行動回数": int(m.group(2))
+            }
+        }
+    },
+
     # パターン: [名前]_DaIn[数値] -> 被ダメージ倍率 (Damage Increase)
     # 例: Weakness_DaIn20 -> 被ダメージ1.2倍
     {

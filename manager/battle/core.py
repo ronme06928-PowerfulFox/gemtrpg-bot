@@ -218,56 +218,69 @@ def proceed_next_turn(room):
     state = get_room_state(room)
     if not state: return
     timeline = state.get('timeline', [])
-    current_id = state.get('turn_char_id')
+    current_entry_id = state.get('turn_entry_id')
+    current_char_id = state.get('turn_char_id') # Maintain for compatibility
 
     if not timeline:
         return
 
-    # 現在の手番IDがタイムラインのどこにあるか探す
-    # 0. ターン終了時処理 (前のキャラクター)
-    # マホロバ (ID: 5) ボーナス: ターン終了時 HP+3 -> ラウンド終了時一括処理に変更
-
+    # 現在の手番エントリIDがタイムラインのどこにあるか探す
     current_idx = -1
-    if current_id in timeline:
-        current_idx = timeline.index(current_id)
+    if current_entry_id:
+        # Find index by entry ID
+        for idx, entry in enumerate(timeline):
+            if entry['id'] == current_entry_id:
+                current_idx = idx
+                break
 
-    next_id = None
+    next_entry = None
 
-    # 現在位置の「次」から末尾に向かって、未行動のキャラを探す
+    # 現在位置の「次」から末尾に向かって、未行動のエントリを探す
     from plugins.buffs.confusion import ConfusionBuff
     from plugins.buffs.immobilize import ImmobilizeBuff
 
     for i in range(current_idx + 1, len(timeline)):
-        cid = timeline[i]
+        entry = timeline[i]
+
+        # 行動済みチェック (Entry flag)
+        if entry.get('acted', False):
+            continue
+
+        cid = entry['char_id']
         # キャラデータ取得
         char = next((c for c in state['characters'] if c['id'] == cid), None)
 
-        # 生存していて、かつ「行動済み(hasActed)」でない
-        if char and char.get('hp', 0) > 0 and not char.get('hasActed', False):
+        # 生存しているか
+        if char and char.get('hp', 0) > 0:
             # 行動不能チェック (混乱)
             if ConfusionBuff.is_incapacitated(char):
                 logger.info(f"Skipping {char['name']} due to incapacitation (Confusion)")
+                # entry is skipped but not consumed? Or consumed?
+                # Usually incapacitation consumes the turn.
+                entry['acted'] = True
                 continue
 
             # 行動不能チェック (Immobilize/Bu-04)
             can_act, reason = ImmobilizeBuff.can_act(char, {})
             if not can_act:
                 logger.info(f"[TurnSkip] Skipping {char['name']} due to Immobilize: {reason}")
+                entry['acted'] = True
                 continue
 
-            next_id = cid
+            next_entry = entry
             break
 
-    if next_id:
-        state['turn_char_id'] = next_id
-        next_char = next((c for c in state['characters'] if c['id'] == next_id), None)
-        logger.info(f"[proceed_next_turn] Next turn: {next_char['name']} (ID: {next_id})")
+    if next_entry:
+        state['turn_entry_id'] = next_entry['id']
+        state['turn_char_id'] = next_entry['char_id'] # Sync for frontend 'currentTurnId'
 
-        # ラティウム (ID: 3) ボーナス: ターン開始時 FP+1 -> ラウンド開始時一括処理に変更
+        next_char = next((c for c in state['characters'] if c['id'] == next_entry['char_id']), None)
+        logger.info(f"[proceed_next_turn] Next turn: {next_char['name']} (EntryID: {next_entry['id']})")
 
         broadcast_log(room, f"--- {next_char['name']} の手番です ---", 'turn-change')
     else:
         state['turn_char_id'] = None
+        state['turn_entry_id'] = None
         broadcast_log(room, "全ての行動可能キャラクターが終了しました。ラウンド終了処理を行ってください。", 'info')
 
     broadcast_state_update(room)

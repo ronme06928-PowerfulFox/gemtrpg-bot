@@ -334,6 +334,13 @@ def get_radiance_data():
     radiance_skills = radiance_loader.load_skills()
     return jsonify(radiance_skills)
 
+@app.route('/api/get_passive_data', methods=['GET'])
+def get_passive_data():
+    """フロントエンドに特殊パッシブマスターデータを提供するAPI"""
+    from manager.passives.loader import passive_loader
+    passives = passive_loader.load_passives()
+    return jsonify(passives)
+
 
 @app.route('/api/upload_image', methods=['POST'])
 @session_required

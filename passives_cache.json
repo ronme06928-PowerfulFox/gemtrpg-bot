@@ -1,10 +1,26 @@
 {
   "Pa-00": {
     "id": "Pa-00",
-    "name": "",
+    "name": "迅速",
     "cost": 0,
-    "description": "",
-    "flavor": "",
-    "effect": {}
+    "description": "1ラウンドあたりの行動回数+1。",
+    "flavor": "素早い思考は素早い行動を可能とする。",
+    "effect": {
+      "stat_mods": {
+        "行動回数": 1
+      }
+    }
+  },
+  "Pa-01": {
+    "id": "Pa-01",
+    "name": "神速",
+    "cost": 0,
+    "description": "1ラウンドあたりの行動回数+2。",
+    "flavor": "稚拙な思考や研鑽では届かない境地。心身相共にあり、光陰矢の如し。",
+    "effect": {
+      "stat_mods": {
+        "行動回数": 2
+      }
+    }
   }
 }

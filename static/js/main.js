@@ -502,6 +502,18 @@ window.addEventListener('DOMContentLoaded', () => {
             window.radianceSkillData = {};
         });
 
+    // ★ Phase 7: 特殊パッシブデータをグローバルに読み込み
+    fetch('/api/get_passive_data')
+        .then(res => res.json())
+        .then(data => {
+            window.allPassiveData = data;
+            console.log('[OK] 特殊パッシブデータを読み込みました:', data);
+        })
+        .catch(err => {
+            console.error('[ERROR] 特殊パッシブデータの読み込みに失敗:', err);
+            window.allPassiveData = {};
+        });
+
     const homeBtn = document.getElementById('home-portal-btn');
     if (homeBtn) {
         homeBtn.addEventListener('click', () => {

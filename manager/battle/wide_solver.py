@@ -645,14 +645,39 @@ def execute_wide_match(room, username):
 
     broadcast_log(room, f"⚔️ === 広域マッチ終了 ===", 'match-end')
 
-    attacker_char['hasActed'] = True
+    # helper to consume action
+    def consume_action(char_obj):
+        if not char_obj: return
+        timeline = state.get('timeline', [])
+        current_entry_id = state.get('turn_entry_id')
+        consumed = False
+
+        # Priority: Current Turn
+        if current_entry_id:
+            for entry in timeline:
+                if entry['id'] == current_entry_id and entry['char_id'] == char_obj['id']:
+                    entry['acted'] = True
+                    consumed = True
+                    break
+
+        # Fallback: First Available
+        if not consumed:
+            for entry in timeline:
+                if entry['char_id'] == char_obj['id'] and not entry.get('acted', False):
+                    entry['acted'] = True
+                    consumed = True
+                    break
+
+        char_obj['hasActed'] = True
+
+    consume_action(attacker_char)
 
     # ★ 修正: マッチ不可であっても防御側は行動済みとする (コスト消費や効果発動があるため)
     for def_data in defenders:
         def_id = def_data.get('id')
         def_char = next((c for c in state['characters'] if c.get('id') == def_id), None)
         if def_char:
-            def_char['hasActed'] = True
+            consume_action(def_char)
 
     # ★ 追加: END_MATCH 効果処理
     def execute_end_match(actor, target, skill_d, target_skill_d):
@@ -681,9 +706,15 @@ def execute_wide_match(room, username):
     state['active_match'] = None
 
     round_end_requested = False
+    round_end_requested = False
     if 'ラウンド終了' in attacker_tags:
+        # Mark ALL timeline entries as acted
+        for entry in state.get('timeline', []):
+            entry['acted'] = True
+
         for c in state['characters']:
             c['hasActed'] = True
+
         broadcast_log(room, f"[{attacker_skill_id}] の効果でラウンドが強制終了します。", 'round')
         round_end_requested = True
 

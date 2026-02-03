@@ -17,6 +17,25 @@ def get_status_value(char_obj, status_name):
         if total_speed is not None:
             return int(total_speed)
 
+    # ★ 追加: 行動回数のデフォルト値は 1
+    if status_name == '行動回数':
+        # paramsになくてもデフォルトで1を返す (その後バフ補正が乗る)
+        val = 0
+        found = False
+        for param in char_obj.get('params', []):
+            if param.get('label') == status_name:
+                try:
+                    val = int(param.get('value', 0))
+                    found = True
+                    break
+                except ValueError: pass
+        if not found:
+            val = 1
+
+        # バフ補正を加算して返す
+        buff_mod = get_buff_stat_mod(char_obj, status_name)
+        return max(1, val + buff_mod) # 最低1回は保証
+
     base_value = 0
     found = False
 
@@ -153,6 +172,34 @@ def get_buff_stat_mod(char_obj, stat_name):
                 logger.warning(f"バフ '{buff.get('name')}' の stat_mods['{stat_name}'] が不正: {stat_mods[stat_name]}")
                 continue
 
+    return total_mod + get_passive_stat_mod(char_obj, stat_name)
+
+def get_passive_stat_mod(char_obj, stat_name):
+    """
+    キャラクターのパッシブスキル(SPassive)から特定のステータス補正値の合計を取得
+    """
+    if not char_obj or 'SPassive' not in char_obj:
+        return 0
+
+    total_mod = 0
+    from manager.passives.loader import passive_loader
+    passives_cache = passive_loader.load_passives() or {}
+
+    for passive_id in char_obj.get('SPassive', []):
+        passive_data = passives_cache.get(passive_id)
+        if not passive_data:
+            continue
+
+        # effect または effect.stat_mods を取得
+        effect = passive_data.get('effect', {})
+        stat_mods = effect.get('stat_mods', {})
+
+        if stat_name in stat_mods:
+             try:
+                mod_value = int(stat_mods[stat_name])
+                total_mod += mod_value
+             except (ValueError, TypeError):
+                continue
     return total_mod
 
 def get_buff_stat_mod_details(char_obj, stat_name):

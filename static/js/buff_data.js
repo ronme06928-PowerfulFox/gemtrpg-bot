@@ -34,6 +34,17 @@ window.BUFF_DATA = {
     // 動的パターン定義
     DYNAMIC_PATTERNS: [
         {
+            // パターン: [名前]_Act[数値]
+            regex: /^(.*)_Act(\d+)$/,
+            generator: function (matches) {
+                return {
+                    name: matches[1],
+                    description: `このラウンドの行動回数+${matches[2]}。`,
+                    type: "buff"
+                };
+            }
+        },
+        {
             // パターン: [名前]_Atk[数値]
             regex: /^(.*)_Atk(\d+)$/,
             generator: function (matches) {

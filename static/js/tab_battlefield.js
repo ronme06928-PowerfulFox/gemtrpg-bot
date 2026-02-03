@@ -1323,7 +1323,7 @@ function setupBattlefieldTab() {
                 if (document.getElementById('visual-battle-container')) {
                     if (typeof renderVisualMap === 'function') renderVisualMap();
                     if (typeof renderStagingArea === 'function') renderStagingArea();
-                    if (typeof renderVisualTimeline === 'function') renderVisualTimeline();
+                    // if (typeof renderVisualTimeline === 'function') renderVisualTimeline(); // Disabled
                     if (typeof renderVisualLogHistory === 'function') renderVisualLogHistory(state.logs);
                     if (typeof updateVisualRoundDisplay === 'function') updateVisualRoundDisplay(state.round);
                 }

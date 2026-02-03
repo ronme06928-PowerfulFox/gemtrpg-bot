@@ -306,6 +306,34 @@ function renderCharacterCard(char) {
             `;
         });
     }
+
+    // --- Passives (SPassive) ---
+    if (char.SPassive && Array.isArray(char.SPassive) && char.SPassive.length > 0) {
+        char.SPassive.forEach(pid => {
+            const pData = (window.allPassiveData && window.allPassiveData[pid]) ? window.allPassiveData[pid] : null;
+            // データがなくてもIDだけは表示する
+            const name = pData ? pData.name : pid;
+            const desc = pData ? pData.description : "詳細情報なし";
+            const flavor = pData ? pData.flavor : "";
+
+            specialBuffsHtml += `
+                <details class="detail-buff-item" style="border: 1px solid #e0cffc; border-radius: 4px; margin-bottom: 5px; overflow: hidden; background: #fff;">
+                    <summary style="background: #f3e5f5; padding: 8px 10px; cursor: pointer; font-weight: bold; font-size: 0.95em; display: flex; align-items: center; justify-content: space-between; outline: none;">
+                        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 5px;">
+                            <span style="color: #6a1b9a;">★ ${name}</span>
+                            <span style="background:#6a1b9a; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.7em; margin-left:8px;">パッシブ</span>
+                        </div>
+                        <span style="font-size: 0.8em; color: #666;">▼</span>
+                    </summary>
+                    <div style="padding: 10px; background: #fff; border-top: 1px solid #e0cffc;">
+                        <div class="buff-desc-row" style="font-weight: bold; color: #212529; font-size: 0.9em; margin-bottom: 5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;">${desc}</div>
+                        ${flavor ? `<div class="buff-flavor-row" style="color: #6c757d; font-size: 0.85em; font-style: italic; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; border-top: 1px dashed #eee; margin-top: 5px; padding-top: 5px;">${flavor}</div>` : ''}
+                    </div>
+                </details>
+            `;
+        });
+    }
+
     if (!specialBuffsHtml) specialBuffsHtml = '<span style="color:#999; font-size:0.9em;">なし</span>';
 
     // --- Skills ---
