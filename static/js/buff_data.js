@@ -39,7 +39,7 @@ window.BUFF_DATA = {
             generator: function (matches) {
                 return {
                     name: matches[1],
-                    description: `このラウンドの行動回数+${matches[2]}。`,
+                    description: `ラウンドごとの行動回数+${matches[2]}。`,
                     type: "buff"
                 };
             }
