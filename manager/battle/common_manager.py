@@ -442,7 +442,6 @@ def process_round_start(room, username):
         for i in range(action_count):
             roll = random.randint(1, 6)
             total_speed = initiative + roll
-            logger.debug(f"  > Action {i+1}: Roll={roll}, Total={total_speed}")
 
             entry_id = str(uuid.uuid4())
             timeline_unsorted.append({
