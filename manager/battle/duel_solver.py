@@ -463,7 +463,7 @@ def execute_duel_match(room, data, username):
                      break
         # Status Update Logic
         def update_has_acted(char, timeline):
-            remaining = any(e['char_id'] == char['id'] and not e.get('acted', False) for e in timeline)
+            remaining = any(str(e['char_id']) == str(char['id']) and not e.get('acted', False) for e in timeline)
             char['hasActed'] = not remaining
             logger.debug(f"[ActStatus] {char['name']}: remaining={remaining}, hasActed={char['hasActed']}")
 
@@ -973,11 +973,13 @@ def execute_duel_match(room, data, username):
     save_specific_room_state(room)
 
     # 手番更新
+    # 手番更新 (Already handled by update_has_acted earlier)
     if actor_a_char:
         has_re_evasion = DodgeLockBuff.has_re_evasion(actor_a_char)
         if not has_re_evasion:
-             actor_a_char['hasActed'] = True
-             save_specific_room_state(room)
+             # update_has_acted(actor_a_char, state.get('timeline', [])) # Already done at start
+             pass
+        save_specific_room_state(room)
 
     proceed_next_turn(room)
 

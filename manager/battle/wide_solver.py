@@ -661,14 +661,17 @@ def execute_wide_match(room, username):
                     break
 
         # Fallback: First Available
+        # Strict ID comparison
         if not consumed:
             for entry in timeline:
-                if entry['char_id'] == char_obj['id'] and not entry.get('acted', False):
+                if str(entry['char_id']) == str(char_obj['id']) and not entry.get('acted', False):
                     entry['acted'] = True
                     consumed = True
                     break
 
-        char_obj['hasActed'] = True
+        remaining = any(str(e['char_id']) == str(char_obj['id']) and not e.get('acted', False) for e in timeline)
+        char_obj['hasActed'] = not remaining
+        logger.debug(f"[ActStatus(Wide)] {char_obj['name']}: remaining={remaining}, hasActed={char_obj['hasActed']}")
 
     consume_action(attacker_char)
 
@@ -713,6 +716,7 @@ def execute_wide_match(room, username):
             entry['acted'] = True
 
         for c in state['characters']:
+            # Force act all
             c['hasActed'] = True
 
         broadcast_log(room, f"[{attacker_skill_id}] の効果でラウンドが強制終了します。", 'round')
