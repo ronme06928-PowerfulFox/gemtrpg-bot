@@ -461,8 +461,13 @@ def execute_duel_match(room, data, username):
                      entry['acted'] = True
                      consumed = True
                      break
-        # Fallback for backward compatibility
-        actor_a_char['hasActed'] = True
+        # Status Update Logic
+        def update_has_acted(char, timeline):
+            remaining = any(e['char_id'] == char['id'] and not e.get('acted', False) for e in timeline)
+            char['hasActed'] = not remaining
+            logger.debug(f"[ActStatus] {char['name']}: remaining={remaining}, hasActed={char['hasActed']}")
+
+        update_has_acted(actor_a_char, timeline)
 
     no_defender_acted = state.get('active_match', {}).get('no_defender_acted', False)
     # Defender consumption
@@ -473,7 +478,8 @@ def execute_duel_match(room, data, username):
                  entry['acted'] = True
                  consumed = True
                  break
-        actor_d_char['hasActed'] = True
+
+        update_has_acted(actor_d_char, timeline)
 
     bonus_damage = 0; log_snippets = []; changes = []
     is_one_sided = False
