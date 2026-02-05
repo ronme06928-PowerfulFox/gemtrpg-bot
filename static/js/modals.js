@@ -1130,6 +1130,7 @@ function openPresetManagerModal() {
 }
 
 
+
 function openResetTypeModal(callback) {
     const existing = document.getElementById('reset-type-modal-backdrop');
     if (existing) existing.remove();
@@ -1139,26 +1140,49 @@ function openResetTypeModal(callback) {
     overlay.className = 'modal-backdrop';
 
     overlay.innerHTML = `
-        <div class="modal-content" style="width: 400px; padding: 25px; text-align: center;">
-            <h3 style="margin-top: 0; color: #dc3545;">リセットの種類の選択</h3>
-            <p style="color: #555; margin-bottom: 20px;">
-                実行したいリセット処理を選択してください。
-            </p>
+        <div class="modal-content" style="width: 450px; padding: 25px;">
+            <h3 style="margin-top: 0; color: #dc3545; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                戦闘リセット設定
+            </h3>
+
+            <div style="margin-bottom: 20px;">
+                <h4 style="margin: 0 0 10px 0; color: #555;">ステータスリセットの対象</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #dee2e6;">
+                    <label style="cursor: pointer; display: flex; align-items: center;">
+                        <input type="checkbox" id="reset-opt-hp" checked> <span style="margin-left: 5px;">HP全快</span>
+                    </label>
+                    <label style="cursor: pointer; display: flex; align-items: center;">
+                        <input type="checkbox" id="reset-opt-mp" checked> <span style="margin-left: 5px;">MP全快</span>
+                    </label>
+                    <label style="cursor: pointer; display: flex; align-items: center;">
+                        <input type="checkbox" id="reset-opt-fp" checked> <span style="margin-left: 5px;">FP/蓄積値リセット</span>
+                    </label>
+                    <label style="cursor: pointer; display: flex; align-items: center;">
+                        <input type="checkbox" id="reset-opt-bad" checked> <span style="margin-left: 5px;">状態異常解除</span>
+                    </label>
+                    <label style="cursor: pointer; display: flex; align-items: center; grid-column: span 2;">
+                        <input type="checkbox" id="reset-opt-buffs" checked> <span style="margin-left: 5px;">バフ・特殊状態リセット</span>
+                    </label>
+                </div>
+                <div style="font-size: 0.85em; color: #666; margin-top: 5px;">
+                    ※「バフリセット」は初期所持バフ（パッシブ由来など）を除き削除します。
+                </div>
+            </div>
 
             <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button id="reset-status-btn" class="room-action-btn" style="padding: 12px; background-color: #ffc107; color: #333; font-weight: bold;">
-                    ステータスのみリセット<br>
-                    <span style="font-size: 0.8em; font-weight: normal;">(HP/MP/FP全快、状態異常・バフ解除)</span>
+                <button id="reset-status-exec-btn" class="room-action-btn" style="padding: 12px; background-color: #ffc107; color: #333; font-weight: bold; border: 1px solid #e0a800;">
+                    上記の内容でステータスのみリセット
                 </button>
 
-                <button id="reset-full-btn" class="room-action-btn danger" style="padding: 12px; font-weight: bold;">
-                    完全リセット<br>
-                    <span style="font-size: 0.8em; font-weight: normal;">(キャラクターを全員削除し、初期状態へ)</span>
+                <hr style="width: 100%; border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
+
+                <button id="reset-full-exec-btn" class="room-action-btn danger" style="padding: 10px; background-color: #dc3545; color: white; font-weight: bold;">
+                    ⚠️ 完全リセット (全キャラ削除・初期化)
                 </button>
             </div>
 
-            <div style="margin-top: 20px;">
-                <button id="reset-cancel-btn" style="padding: 8px 16px; border: none; background: #ccc; border-radius: 4px; cursor: pointer;">キャンセル</button>
+            <div style="margin-top: 20px; text-align: right;">
+                <button id="reset-cancel-btn" style="padding: 8px 16px; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer;">キャンセル</button>
             </div>
         </div>
     `;
@@ -1166,19 +1190,33 @@ function openResetTypeModal(callback) {
     document.body.appendChild(overlay);
 
     const closeFunc = () => overlay.remove();
-
     document.getElementById('reset-cancel-btn').onclick = closeFunc;
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeFunc();
+    });
 
-    document.getElementById('reset-status-btn').onclick = () => {
-        if (confirm('全キャラクターのHP・MP等を回復し、状態異常を解除しますか？\n(キャラ自体は削除されません)')) {
-            callback('status');
+    // ステータスリセット実行
+    document.getElementById('reset-status-exec-btn').onclick = () => {
+        const options = {
+            hp: document.getElementById('reset-opt-hp').checked,
+            mp: document.getElementById('reset-opt-mp').checked,
+            fp: document.getElementById('reset-opt-fp').checked,
+            states: document.getElementById('reset-opt-fp').checked, // 蓄積値はFPと一緒に扱う簡易実装
+            bad_states: document.getElementById('reset-opt-bad').checked,
+            buffs: document.getElementById('reset-opt-buffs').checked,
+            timeline: false // ステータスリセットではタイムラインはクリアしない（必要ならオプション追加）
+        };
+
+        if (confirm('選択した内容でステータスをリセットしますか？')) {
+            callback('status', options);
             closeFunc();
         }
     };
 
-    document.getElementById('reset-full-btn').onclick = () => {
+    // 完全リセット実行
+    document.getElementById('reset-full-exec-btn').onclick = () => {
         if (confirm('本当にキャラクターを全員削除し、戦闘を初期化しますか？\nこの操作は取り消せません。')) {
-            callback('full');
+            callback('full', null); // オプションなし=デフォルト
             closeFunc();
         }
     };

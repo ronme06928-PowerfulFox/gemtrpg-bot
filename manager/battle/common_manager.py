@@ -169,11 +169,25 @@ def process_full_round_end(room, username):
     broadcast_state_update(room)
     save_specific_room_state(room)
 
-def reset_battle_logic(room, mode, username):
+def reset_battle_logic(room, mode, username, reset_options=None):
     state = get_room_state(room)
     if not state: return
 
-    broadcast_log(room, f"\n--- {username} が戦闘をリセットしました (Mode: {mode}) ---", 'round')
+    # Default options if None (Full reset behavior)
+    if reset_options is None:
+        reset_options = {
+            'hp': True,
+            'mp': True,
+            'fp': True,
+            'states': True, # 出血等
+            'bad_states': True, # 状態異常 (麻痺など)
+            'buffs': True,
+            'timeline': True if mode == 'full' else False
+        }
+
+    log_msg = f"\n--- {username} が戦闘をリセットしました (Mode: {mode}) ---\n"
+    # log_msg += f"Opt: {json.dumps(reset_options, ensure_ascii=False)}"
+    broadcast_log(room, log_msg, 'round')
 
     if mode == 'full':
         state['characters'] = []
@@ -181,57 +195,111 @@ def reset_battle_logic(room, mode, username):
         state['round'] = 0
         state['is_round_ended'] = False
     elif mode == 'status':
+        # ラウンド数はリセットしない要望もあるかもしれないが、一旦デフォルトは0に戻す
+        # (Status only reset usually implies starting over but keeping chars)
         state['round'] = 0
-        state['timeline'] = []
         state['is_round_ended'] = False
 
+        if reset_options.get('timeline'):
+            state['timeline'] = []
+
         for char in state.get('characters', []):
-            char['hp'] = int(char.get('maxHp', 0))
-            char['mp'] = int(char.get('maxMp', 0))
+            initial = char.get('initial_state', {})
 
-            char['states'] = [
-                { "name": "FP", "value": 0 },
-                { "name": "出血", "value": 0 },
-                { "name": "破裂", "value": 0 },
-                { "name": "亀裂", "value": 0 },
-                { "name": "戦慄", "value": 0 },
-                { "name": "荊棘", "value": 0 }
-            ]
-            char['状態異常'] = []
-            char['FP'] = char.get('maxFp', 0)
+            # --- HP ---
+            if reset_options.get('hp'):
+                max_hp = int(initial.get('maxHp', char.get('maxHp', 0)))
+                # 初期値があればそれ、なければ現在のMax
+                char['maxHp'] = max_hp
+                char['hp'] = max_hp
 
+            # --- MP ---
+            if reset_options.get('mp'):
+                max_mp = int(initial.get('maxMp', char.get('maxMp', 0)))
+                char['maxMp'] = max_mp
+                char['mp'] = max_mp
+
+            # --- FP & Stackable States (出血, 破裂 etc) ---
+            if reset_options.get('fp') or reset_options.get('states'):
+                # これらは 'states' 配列に入っている
+                # FPは独立して管理されることも多いが、ここでは states リスト内のもので判断
+
+                # まず既存の states を維持しつつ、対象のものだけリセット
+                # ただし、構造上 states はリストなので、全部作り直したほうが安全
+
+                new_states = []
+                # デフォルトのステータス定義
+                default_states = {
+                    "FP": 0, "出血": 0, "破裂": 0, "亀裂": 0, "戦慄": 0, "荊棘": 0
+                }
+
+                # 既存の状態を取得
+                current_states = {s['name']: s['value'] for s in char.get('states', [])}
+
+                for s_name, def_val in default_states.items():
+                    # FP
+                    if s_name == 'FP':
+                        if reset_options.get('fp'):
+                            # 初期FPは 0 ではなく process_battle_start で入るかもしれないが、
+                            # ベースとしては 0 (または maxFp?)
+                            # 実装では FP = maxFp (初期値) としている箇所が見当たる
+                            # ここでは 0 にしてから process_battle_start に任せるか、maxFpにするか
+                            # 既存ロジック: char['FP'] = char.get('maxFp', 0)
+                            char['FP'] = char.get('maxFp', 0)
+                            new_states.append({"name": "FP", "value": 0}) # 表示用?
+                        else:
+                            # 維持
+                            val = current_states.get(s_name, def_val)
+                            new_states.append({"name": s_name, "value": val})
+
+                    # 他の蓄積値
+                    else:
+                        if reset_options.get('states'):
+                            new_states.append({"name": s_name, "value": 0})
+                        else:
+                            val = current_states.get(s_name, def_val)
+                            new_states.append({"name": s_name, "value": val})
+
+                char['states'] = new_states
+
+            # --- Status Effects (麻痺, 毒 etc - char['状態異常'] list) ---
+            if reset_options.get('bad_states'):
+                char['状態異常'] = []
+
+            # --- Buffs ---
+            if reset_options.get('buffs'):
+                # 初期バフ（パッシブ由来やキャラ作成時バフ）は initial_state にある
+                # initial_state の special_buffs を復元
+                raw_initial_buffs = initial.get('special_buffs', [])
+                char['special_buffs'] = [dict(b) for b in raw_initial_buffs]
+
+            # --- Common Reset (Always) ---
+            # これらは「戦闘状態」なのでリセット必須
             if 'round_item_usage' in char: char['round_item_usage'] = {}
             if 'used_immediate_skills_this_round' in char: char['used_immediate_skills_this_round'] = []
             if 'used_gem_protect_this_battle' in char: char['used_gem_protect_this_battle'] = False
             if 'used_skills_this_round' in char: char['used_skills_this_round'] = []
 
-            if 'initial_state' in char:
-                char['inventory'] = dict(char['initial_state'].get('inventory', {}))
-                char['special_buffs'] = [dict(b) for b in char['initial_state'].get('special_buffs', [])]
-                char['maxHp'] = int(char['initial_state'].get('maxHp', char.get('maxHp', 0)))
-                char['maxMp'] = int(char['initial_state'].get('maxMp', char.get('maxMp', 0)))
-                char['hp'] = char['maxHp']
-                char['mp'] = char['maxMp']
-            else:
-                 char['special_buffs'] = []
-                 if 'inventory' not in char: char['inventory'] = {}
-
             char['hasActed'] = False
             char['speedRoll'] = 0
             char['isWideUser'] = False
 
-            # ★ 追加: 戦闘開始時効果 (初期FP等) の再適用
-            # リセット後に適用するため、初期FPパッシブがあればここでFPが入る
-            try:
-                process_battle_start(room, char)
-            except Exception as e:
-                logger.error(f"process_battle_start in reset failed: {e}")
+            # ★ 追加: 戦闘開始時効果の再適用 (FPリセットなどが有効な場合のみ)
+            # リセットオプションにかかわらず、戦闘開始時処理は走らせるべきか？
+            # 例えば「FPリセット」を選んだ場合のみ、初期FP付与などの処理を再度適用したい。
+            # しかし process_battle_start は副作用があるかもしれない。
+            # ここではシンプルに、「HP/MP/FPのいずれかがリセットされた場合」は再適用する、とする
+            if reset_options.get('hp') or reset_options.get('mp') or reset_options.get('fp'):
+                 try:
+                     process_battle_start(room, char)
+                 except Exception as e:
+                     logger.error(f"process_battle_start in reset failed: {e}")
 
-            # ★ 追加: シンシア (10) の爆縮 (Bu-09) 回数リセット
-            origin_id = get_effective_origin_id(char)
-            if origin_id == 10:
-                # 既存の爆縮バフを探してカウントをリセット、なければ付与
-                apply_buff(char, "爆縮", -1, 0, count=8)
+            # ★ 追加: 爆縮リセット (バフリセット時のみ)
+            if reset_options.get('buffs'):
+                origin_id = get_effective_origin_id(char)
+                if origin_id == 10:
+                    apply_buff(char, "爆縮", -1, 0, count=8)
 
         state['turn_char_id'] = None
 

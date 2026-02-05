@@ -1293,8 +1293,8 @@ function setupBattlefieldTab() {
         resetBtn.dataset.listenerAttached = 'true';
         resetBtn.addEventListener('click', () => {
             if (typeof openResetTypeModal === 'function') {
-                openResetTypeModal((resetType) => {
-                    socket.emit('request_reset_battle', { room: currentRoomName, mode: resetType });
+                openResetTypeModal((resetType, options) => {
+                    socket.emit('request_reset_battle', { room: currentRoomName, mode: resetType, options: options });
                 });
             } else if (confirm('本当にリセットしますか？')) {
                 socket.emit('request_reset_battle', { room: currentRoomName, mode: 'full' });

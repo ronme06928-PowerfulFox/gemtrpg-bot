@@ -75,9 +75,10 @@ def on_request_reset_battle(data):
     room = data.get('room')
     if not room: return
     mode = data.get('mode', 'full')
+    options = data.get('options') # get dictionary or None
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
-    reset_battle_logic(room, mode, username)
+    reset_battle_logic(room, mode, username, options)
 
 @socketio.on('request_force_end_match')
 def on_request_force_end_match(data):

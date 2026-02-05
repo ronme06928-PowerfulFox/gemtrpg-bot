@@ -787,9 +787,10 @@ function setupVisualSidebarControls() {
         }
         if (resetBtn) {
             resetBtn.style.display = 'inline-block';
+            resetBtn.style.display = 'inline-block';
             resetBtn.onclick = () => {
                 if (typeof openResetTypeModal === 'function') {
-                    openResetTypeModal((type) => { socket.emit('request_reset_battle', { room: currentRoomName, mode: type }); });
+                    openResetTypeModal((type, options) => { socket.emit('request_reset_battle', { room: currentRoomName, mode: type, options: options }); });
                 } else if (confirm("戦闘をリセットしますか？")) {
                     socket.emit('request_reset_battle', { room: currentRoomName, mode: 'full' });
                 }
@@ -998,6 +999,54 @@ function renderVisualMap() {
             if (currentText != fpVal) {
                 fpBadge.textContent = fpVal;
                 fpBadge.title = `FP: ${fpVal}`;
+            }
+        }
+
+        // Image Update
+        const bodyEl = token.querySelector('.token-body');
+        if (bodyEl) {
+            const currentImg = bodyEl.querySelector('img');
+            // Status Overlay is usually the div with absolute positioning at bottom.
+            // We want to avoid wiping it.
+
+            if (char.image) {
+                if (currentImg) {
+                    // Update existing image
+                    if (!currentImg.src.includes(char.image)) {
+                        currentImg.src = char.image;
+                    }
+                } else {
+                    // No image exists. Remove text span if any.
+                    const span = bodyEl.querySelector('span');
+                    if (span) span.remove();
+
+                    // Insert new Image
+                    const img = document.createElement('img');
+                    img.src = char.image;
+                    img.loading = "lazy";
+                    img.style.width = "100%";
+                    img.style.height = "100%";
+                    img.style.objectFit = "cover";
+
+                    // Prepend to ensure it sits 'under' the status bars in DOM order (though bars are absolute)
+                    bodyEl.prepend(img);
+                }
+            } else {
+                // No Image -> Show Text
+                if (currentImg) {
+                    currentImg.remove();
+                }
+
+                let span = bodyEl.querySelector('span');
+                if (!span) {
+                    span = document.createElement('span');
+                    span.style.cssText = "font-size: 3em; font-weight: bold; color: #555; display: flex; align-items: center; justify-content: center; height: 100%;";
+                    bodyEl.prepend(span);
+                }
+
+                if (span.textContent !== char.name.charAt(0)) {
+                    span.textContent = char.name.charAt(0);
+                }
             }
         }
 

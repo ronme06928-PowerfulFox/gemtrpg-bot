@@ -61,11 +61,21 @@ function updateActionDock() {
             <div id="dock-match-icon" class="dock-icon" style="display: none;" title="マッチ実行">⚔️</div>
             <div id="dock-immediate-icon" class="dock-icon disabled" title="即時発動スキル">⚡</div>
             <div id="dock-item-icon" class="dock-icon" title="アイテム使用">🎒</div>
+            <div id="dock-quick-edit-icon" class="dock-icon" title="簡易ステータス編集">📝</div>
             <div id="dock-add-char-icon" class="dock-icon" title="キャラクター追加">➕</div>
             <div id="dock-staging-icon" class="dock-icon" title="未配置キャラクター">📦</div>
         `;
         // Re-initialize listeners
         initializeActionDock();
+
+        // ★ Explorationから戻った場合にラウンドボタン表示を復帰させる
+        // GMの場合のみ表示する (setupVisualSidebarControlsのロジックと同様)
+        if (currentUserAttribute === 'GM') {
+            const rStartBtn = document.getElementById('visual-round-start-btn');
+            const rEndBtn = document.getElementById('visual-round-end-btn');
+            if (rStartBtn) rStartBtn.style.display = 'inline-block';
+            if (rEndBtn) rEndBtn.style.display = 'inline-block';
+        }
     }
 
     // ★ Add Switch to Exploration Button for GM (if not exists)
@@ -92,6 +102,7 @@ function updateActionDock() {
     const immediateIcon = document.getElementById('dock-immediate-icon');
     const matchIcon = document.getElementById('dock-match-icon');
     const stagingIcon = document.getElementById('dock-staging-icon');
+    const quickEditIcon = document.getElementById('dock-quick-edit-icon');
 
     if (!immediateIcon) return;
 
@@ -140,6 +151,15 @@ function updateActionDock() {
     if (stagingList) {
         // console.log('📦 Updating staging overlay list...'); // 頻出しすぎる場合はコメントアウト
         renderStagingOverlayList(stagingList);
+    }
+
+    // Quick Edit Icon is always available but only works if characters exist
+    if (quickEditIcon) {
+        if (battleState.characters.length > 0) {
+            quickEditIcon.classList.remove('disabled');
+        } else {
+            quickEditIcon.classList.add('disabled');
+        }
     }
 
     // ★ 一方攻撃時のUI更新
@@ -202,11 +222,11 @@ function openImmediateSkillModal() {
     const header = document.createElement('div');
     header.className = 'modal-header';
     header.innerHTML = `
-            < h3 >⚡ 即時発動スキル</h3 >
-                <div class="modal-controls">
-                    <button class="window-control-btn minimize-btn" title="最小化">_</button>
-                    <button class="window-control-btn close-btn" title="閉じる">×</button>
-                </div>
+            <h3>⚡ 即時発動スキル</h3>
+            <div class="modal-controls">
+                <button class="window-control-btn minimize-btn" title="最小化">_</button>
+                <button class="window-control-btn close-btn" title="閉じる">×</button>
+            </div>
         `;
 
     // ボディ
@@ -369,6 +389,347 @@ function createImmediateCharRow(char) {
     return row;
 }
 
+// 簡易ステータス編集モーダルを開く
+function openQuickEditModal() {
+    const icon = document.getElementById('dock-quick-edit-icon');
+    if (icon && icon.classList.contains('disabled')) return;
+
+    let backdrop = document.getElementById('quick-edit-modal-backdrop');
+    if (backdrop) {
+        if (backdrop.style.display === 'none') {
+            backdrop.style.display = 'flex';
+        } else {
+            backdrop.style.display = 'none';
+        }
+        return;
+    }
+
+    backdrop = document.createElement('div');
+    backdrop.id = 'quick-edit-modal-backdrop';
+    backdrop.className = 'modal-backdrop';
+    backdrop.style.display = 'flex';
+    backdrop.style.alignItems = 'flex-start'; // 上寄せにする
+    backdrop.style.paddingTop = '50px';
+
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    modalContent.style.width = '700px';
+    modalContent.style.maxHeight = '85vh';
+    modalContent.style.display = 'flex';
+    modalContent.style.flexDirection = 'column';
+    modalContent.style.borderRadius = '12px';
+    modalContent.style.border = 'none';
+    modalContent.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+    modalContent.style.background = '#f4f6f9'; // 少しグレーがかった背景
+
+    // カスタムスタイル定義
+    const style = document.createElement('style');
+    style.textContent = `
+        .qe-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: grid;
+            grid-template-columns: 60px 1fr 280px 80px; /* Icon, Name, Stats, Button */
+            align-items: center;
+            gap: 15px;
+            border-left: 5px solid #ccc;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .qe-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .qe-card.ally { border-left-color: #3498db; }
+        .qe-card.enemy { border-left-color: #e74c3c; }
+
+        .qe-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #eee;
+            background: #ddd;
+        }
+        .qe-name-area {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .qe-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .qe-sub {
+            font-size: 0.85em;
+            color: #777;
+        }
+
+        .qe-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+        .qe-stat-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .qe-label {
+            font-size: 0.75em;
+            font-weight: bold;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+        .qe-input {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1em;
+            transition: border-color 0.2s;
+        }
+        .qe-input:focus {
+            border-color: #3498db;
+            outline: none;
+            background: #f0f8ff;
+        }
+
+        /* Stat Specific Colors */
+        .stat-hp .qe-label { color: #27ae60; }
+        .stat-hp .qe-input { color: #27ae60; }
+
+        .stat-mp .qe-label { color: #2980b9; }
+        .stat-mp .qe-input { color: #2980b9; }
+
+        .stat-fp .qe-label { color: #d35400; }
+        .stat-fp .qe-input { color: #d35400; }
+
+        .qe-update-btn {
+            background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            padding: 8px 0;
+            cursor: pointer;
+            font-weight: bold;
+            color: #555;
+            transition: all 0.2s;
+        }
+        .qe-update-btn:hover {
+            background: #e2e6ea;
+            border-color: #adb5bd;
+            color: #333;
+        }
+        .qe-update-btn:active {
+            transform: scale(0.98);
+        }
+        .qe-update-btn.success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        /* Scrollbar styling */
+        .modal-body::-webkit-scrollbar { width: 8px; }
+        .modal-body::-webkit-scrollbar-track { background: transparent; }
+        .modal-body::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 4px; }
+        .modal-body::-webkit-scrollbar-thumb:hover { background: #a0aec0; }
+    `;
+    modalContent.appendChild(style);
+
+    modalContent.innerHTML += `
+        <div class="modal-header" style="background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: white; padding: 15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius: 12px 12px 0 0;">
+            <div style="display:flex; align-items:center;">
+                <span style="font-size: 1.5em; margin-right: 10px;">📝</span>
+                <div>
+                    <h3 style="margin:0; font-size: 1.25em;">簡易ステータス編集</h3>
+                    <div style="font-size: 0.8em; opacity: 0.9; font-weight: normal;">Combat Status Quick Editor</div>
+                </div>
+            </div>
+            <button class="window-control-btn close-btn" style="border:none; background:rgba(255,255,255,0.2); color:white; width: 32px; height: 32px; border-radius: 50%; font-size:1.2em; cursor:pointer; display:flex; align-items:center; justify-content:center; transition: background 0.2s;">×</button>
+        </div>
+        <div class="modal-body" style="overflow-y:auto; flex:1; padding: 20px; background: #f4f6f9;">
+            <div id="quick-edit-list"></div>
+        </div>
+    `;
+
+    backdrop.appendChild(modalContent);
+    document.body.appendChild(backdrop);
+
+    const closeFunc = () => backdrop.remove();
+    modalContent.querySelector('.close-btn').addEventListener('click', closeFunc);
+    backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) closeFunc();
+    });
+
+    // Close button hover effect
+    const closeBtn = modalContent.querySelector('.close-btn');
+    closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255,255,255,0.4)';
+    closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255,255,255,0.2)';
+
+    const listContainer = document.getElementById('quick-edit-list');
+    renderQuickEditList(listContainer);
+}
+
+function renderQuickEditList(container) {
+    if (!battleState || !battleState.characters) return;
+
+    // GMは全キャラ、PLは自分の持ちキャラのみ
+    const targetChars = battleState.characters.filter(c => {
+        if (currentUserAttribute === 'GM') return true;
+        return c.owner === currentUsername || (currentUserId && c.owner_id === currentUserId);
+    });
+
+    if (targetChars.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center; padding: 40px; color:#999;">
+                <div style="font-size: 3em; margin-bottom: 10px;">👻</div>
+                <p>編集可能なキャラクターがいません</p>
+            </div>`;
+        return;
+    }
+
+    // ソート: 味方 -> 敵, 名前順
+    targetChars.sort((a, b) => {
+        if (a.type !== b.type) return a.type === 'ally' ? -1 : 1;
+        return a.name.localeCompare(b.name);
+    });
+
+    targetChars.forEach(char => {
+        const row = document.createElement('div');
+        const isAlly = char.type === 'ally';
+        row.className = `qe-card ${isAlly ? 'ally' : 'enemy'}`;
+
+        // 1. Icon Section
+        const iconDiv = document.createElement('div');
+        iconDiv.style.textAlign = 'center';
+
+        if (char.image) {
+            const img = document.createElement('img');
+            img.src = char.image;
+            img.className = 'qe-icon';
+            img.onerror = () => { img.src = ''; img.style.display = 'none'; iconDiv.textContent = '👤'; iconDiv.style.fontSize = '2em'; };
+            iconDiv.appendChild(img);
+        } else {
+            const initial = document.createElement('div');
+            initial.className = 'qe-icon';
+            initial.style.display = 'flex';
+            initial.style.alignItems = 'center';
+            initial.style.justifyContent = 'center';
+            initial.style.background = char.color || '#ccc';
+            initial.style.color = 'white';
+            initial.style.fontWeight = 'bold';
+            initial.textContent = char.name.charAt(0);
+            iconDiv.appendChild(initial);
+        }
+
+        // 2. Name Section
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'qe-name-area';
+        nameDiv.innerHTML = `
+            <div class="qe-name" style="color: ${char.color || '#333'}">${char.name}</div>
+            <div class="qe-sub">${isAlly ? '味方' : '敵'} / Init: ${char.speedRoll || '-'}</div>
+        `;
+
+        // 3. Stats Section
+        const statsDiv = document.createElement('div');
+        statsDiv.className = 'qe-stats-grid';
+
+        const createStatBox = (label, value, cls) => {
+            const box = document.createElement('div');
+            box.className = `qe-stat-box ${cls}`;
+            box.innerHTML = `<div class="qe-label">${label}</div>`;
+
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.value = value;
+            input.className = 'qe-input';
+
+            box.appendChild(input);
+            return { box, input };
+        };
+
+        const hpGrp = createStatBox('HP', char.hp, 'stat-hp');
+        const mpGrp = createStatBox('MP', char.mp, 'stat-mp');
+
+        // FP Logic
+        const fpState = char.states ? char.states.find(s => s.name === 'FP') : null;
+        const fpVal = fpState ? fpState.value : 0;
+        const fpGrp = createStatBox('FP', fpVal, 'stat-fp');
+
+        statsDiv.appendChild(hpGrp.box);
+        statsDiv.appendChild(mpGrp.box);
+        statsDiv.appendChild(fpGrp.box);
+
+        // 4. Button Section
+        const btnDiv = document.createElement('div');
+        const btn = document.createElement('button');
+        btn.innerHTML = '更新';
+        btn.className = 'qe-update-btn';
+        btn.style.width = '100%';
+
+        btn.onclick = () => {
+            const newHp = parseInt(hpGrp.input.value, 10);
+            const newMp = parseInt(mpGrp.input.value, 10);
+            const newFp = parseInt(fpGrp.input.value, 10);
+
+            if (isNaN(newHp) || isNaN(newMp) || isNaN(newFp)) {
+                alert('数値を入力してください');
+                return;
+            }
+
+            const changes = {};
+            // 差分チェック
+            if (newHp !== char.hp) changes.HP = newHp;
+            if (newMp !== char.mp) changes.MP = newMp;
+            if (newFp !== fpVal) changes.FP = newFp;
+
+            if (Object.keys(changes).length > 0) {
+                const socketToUse = window.socket || (typeof socket !== 'undefined' ? socket : null);
+                if (socketToUse) {
+                    socketToUse.emit('request_state_update', {
+                        room: currentRoomName,
+                        charId: char.id,
+                        changes: changes
+                    });
+                } else {
+                    console.error("Socket not found");
+                    alert("通信エラーが発生しました。");
+                    return;
+                }
+
+                // Visual feedback
+                btn.innerHTML = '✔';
+                btn.classList.add('success');
+                setTimeout(() => {
+                    btn.innerHTML = '更新';
+                    btn.classList.remove('success');
+                }, 1000);
+            } else {
+                // No changes
+                btn.style.transform = 'translateX(2px)';
+                setTimeout(() => btn.style.transform = 'translateX(-2px)', 50);
+                setTimeout(() => btn.style.transform = 'translateX(0)', 100);
+            }
+        };
+        btnDiv.appendChild(btn);
+
+        // Append All
+        row.appendChild(iconDiv);
+        row.appendChild(nameDiv);
+        row.appendChild(statsDiv);
+        row.appendChild(btnDiv);
+
+        container.appendChild(row);
+    });
+}
+
 // アクションドックの初期化（イベントリスナー設定のみ）
 function initializeActionDock() {
     // If in Exploration Mode, do NOT initialize battle dock listeners.
@@ -385,7 +746,7 @@ function initializeActionDock() {
     const stagingIcon = document.getElementById('dock-staging-icon');
     const matchIcon = document.getElementById('dock-match-icon');
     const itemIcon = document.getElementById('dock-item-icon');
-
+    const quickEditIcon = document.getElementById('dock-quick-edit-icon');
 
 
     // ★ 修正: 個別にチェックして設定（1つがなくても他は設定する）
@@ -397,6 +758,14 @@ function initializeActionDock() {
 
     } else {
         console.warn('dock-immediate-icon not found in DOM');
+    }
+
+    if (quickEditIcon) {
+        quickEditIcon.onclick = () => {
+            openQuickEditModal();
+        };
+    } else {
+        // console.warn('dock-quick-edit-icon not found in DOM'); // Suppress if not needed
     }
 
     if (addCharIcon) {
