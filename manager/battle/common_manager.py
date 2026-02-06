@@ -206,6 +206,15 @@ def reset_battle_logic(room, mode, username, reset_options=None):
         for char in state.get('characters', []):
             initial = char.get('initial_state', {})
 
+            # ★ 修正: 未配置(x<0)かつ生存(hp>0)の場合はリセット対象外
+            # (戦闘不能キャラは未配置でもリセットして復帰させる)
+            is_unplaced = char.get('x', -1) < 0
+            is_dead = char.get('hp', 0) <= 0
+
+            if is_unplaced and not is_dead:
+                # リセットしない
+                continue
+
             # --- HP ---
             if reset_options.get('hp'):
                 max_hp = int(initial.get('maxHp', char.get('maxHp', 0)))
