@@ -601,6 +601,9 @@ def execute_wide_match(room, username):
 
                 if is_defense_skill:
                     # 防御スキルでの勝利: ダメージ0 (反撃なし)
+                    # ★ 修正: 防御勝利時にFP+1を付与
+                    curr_fp = get_status_value(def_char, 'FP')
+                    _update_char_stat(room, def_char, 'FP', curr_fp + 1, username="[マッチ勝利]", save=False)
                     damage = 0
                     results.append({'defender': def_char['name'], 'result': 'lose', 'damage': 0}) # Attacker lose, but 0 dmg
                     broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (防御成功)", 'dice')
@@ -618,6 +621,9 @@ def execute_wide_match(room, username):
                     damage = defender_total
                     if "回避" in (def_skill_data.get('tags', []) if def_skill_data else []):
                          # 回避成功: ダメージ0
+                         # ★ 修正: 回避勝利時にFP+1を付与
+                         curr_fp = get_status_value(def_char, 'FP')
+                         _update_char_stat(room, def_char, 'FP', curr_fp + 1, username="[マッチ勝利]", save=False)
                          # 再回避ロック処理
                          damage = 0
                          results.append({'defender': def_char['name'], 'result': 'lose', 'damage': 0})

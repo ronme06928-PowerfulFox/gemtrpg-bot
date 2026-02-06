@@ -707,7 +707,8 @@ def execute_duel_match(room, data, username):
 
         elif "守備" in defender_tags and defender_category == "防御":
             if result_a['total'] > result_d['total']:
-                grant_win_fp(actor_a_char)
+                # ★ 修正: 守備スキル敗北時、攻撃側にFPを付与しない
+                # grant_win_fp(actor_a_char)  # <- 削除
                 damage = result_a['total'] - result_d['total']
                 kiretsu = get_status_value(actor_d_char, '亀裂')
                 bonus_damage, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
@@ -722,7 +723,14 @@ def execute_duel_match(room, data, username):
                 display_total = final_damage + custom_dmg + buff_dmg
                 damage_message += f"(差分 {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
             else:
-                grant_win_fp(actor_d_char)
+                # ★★ 修正: 敗者（Attacker）が守備スキルを使用していない場合のFP獲得
+                attacker_loser_category = skill_data_a.get("分類", "") if skill_data_a else ""
+                attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
+                is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
+
+                if not is_attacker_using_defense:
+                    grant_win_fp(actor_d_char)
+
                 winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (防御成功)"
                 _, logs, _ = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d)
                 log_snippets.extend(logs)
@@ -739,7 +747,8 @@ def execute_duel_match(room, data, username):
 
         elif "守備" in defender_tags and defender_category == "回避":
             if result_a['total'] > result_d['total']:
-                grant_win_fp(actor_a_char)
+                # ★ 修正: 守備スキル敗北時、攻撃側にFPを付与しない
+                # grant_win_fp(actor_a_char)  # <- 削除
                 damage = result_a['total']
                 kiretsu = get_status_value(actor_d_char, '亀裂')
                 bonus_damage, logs, custom_dmg = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
@@ -759,7 +768,14 @@ def execute_duel_match(room, data, username):
                 display_total = final_damage + custom_dmg + buff_dmg
                 damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂 {kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
             else:
-                grant_win_fp(actor_d_char)
+                # ★★ 修正: 敗者（Attacker）が守備スキルを使用していない場合のFP獲得
+                attacker_loser_category = skill_data_a.get("分類", "") if skill_data_a else ""
+                attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
+                is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
+
+                if not is_attacker_using_defense:
+                    grant_win_fp(actor_d_char)
+
                 _, logs, _ = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d)
                 if actor_d_char:
                     log_snippets.append("[再回避可能！]")
@@ -770,7 +786,14 @@ def execute_duel_match(room, data, username):
 
         elif attacker_category == "回避":
             if result_a['total'] > result_d['total']:
-                grant_win_fp(actor_a_char)
+                # ★★ 修正: 敗者（Defender）が守備スキルを使用していない場合のFP獲得
+                defender_loser_category = skill_data_d.get("分類", "") if skill_data_d else ""
+                defender_loser_tags = skill_data_d.get("tags", []) if skill_data_d else []
+                is_defender_using_defense = (defender_loser_category in ["防御", "回避"] or "防御" in defender_loser_tags or "回避" in defender_loser_tags or "守備" in defender_loser_tags)
+
+                if not is_defender_using_defense:
+                    grant_win_fp(actor_a_char)
+
                 winner_message = f"<strong> → {actor_name_a} の勝利！</strong> (回避成功)"
                 damage_message = "(ダメージなし)"
                 if actor_a_char:
@@ -779,7 +802,9 @@ def execute_duel_match(room, data, username):
                 _, logs, _ = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
                 if logs: damage_message += f" ({' '.join(logs)})"
             elif result_d['total'] > result_a['total']:
-                grant_win_fp(actor_d_char)
+                # ★★ 修正: 敗者（Attacker）は「回避」を使用しているため、DefenderにFPは付与しない
+                # grant_win_fp(actor_d_char)
+
                 damage = result_d['total']
                 if actor_a_char:
                     kiretsu = get_status_value(actor_a_char, '亀裂')
@@ -831,7 +856,14 @@ def execute_duel_match(room, data, username):
 
             # ★ 修正: 攻撃側が「防御」や「回避」で勝利した場合、ダメージは0 (カウンターでない限り)
             if attacker_winner_category == "防御" or attacker_winner_category == "回避" or "防御" in attacker_winner_tags or "回避" in attacker_winner_tags:
-                grant_win_fp(actor_a_char)
+                # ★★ 修正: 敗者が守備スキルを使用していない場合のFP獲得
+                defender_loser_category = skill_data_d.get("分類", "") if skill_data_d else ""
+                defender_loser_tags = skill_data_d.get("tags", []) if skill_data_d else []
+                is_defender_using_defense = (defender_loser_category in ["防御", "回避"] or "防御" in defender_loser_tags or "回避" in defender_loser_tags or "守備" in defender_loser_tags)
+
+                if not is_defender_using_defense:
+                    grant_win_fp(actor_a_char)
+
                 winner_message = f"<strong> → {actor_name_a} の勝利！</strong> ({attacker_winner_category}成功)"
                 damage_message = "(ダメージなし)"
 
@@ -848,7 +880,14 @@ def execute_duel_match(room, data, username):
                      log_snippets.append("[再回避失敗！(ロック解除)]")
 
             else:
-                grant_win_fp(actor_a_char)
+                # ★★ 修正: 敗者が守備スキルを使用していた場合、FPを付与しない
+                defender_loser_category = skill_data_d.get("分類", "") if skill_data_d else ""
+                defender_loser_tags = skill_data_d.get("tags", []) if skill_data_d else []
+                is_defender_using_defense = (defender_loser_category in ["防御", "回避"] or "防御" in defender_loser_tags or "回避" in defender_loser_tags or "守備" in defender_loser_tags)
+
+                if not is_defender_using_defense:
+                    grant_win_fp(actor_a_char)
+
                 # ★ 修正: 攻撃vs攻撃の場合、攻撃スキルの威力をそのまま与える
                 damage = result_a['total']  # 差分ではなく、攻撃スキルの威力
                 if actor_d_char:
@@ -880,7 +919,19 @@ def execute_duel_match(room, data, username):
 
             # ★ 修正: 防御側が「防御」や「回避」で勝利した場合、ダメージは0
             if defender_winner_category == "防御" or defender_category == "防御" or "防御" in defender_winner_tags:
-                 grant_win_fp(actor_d_char)
+                 logger.debug(f"[BRANCH] Defender防御勝利ブランチ（L912）")
+                 # ★★ 修正: 敗者が守備スキルを使用していない場合のFP獲得
+                 attacker_loser_category = skill_data_a.get("分類", "") if skill_data_a else ""
+                 attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
+                 is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
+                 logger.debug(f"[FP CHECK] Defender防御勝利. Attacker skill: {skill_id_a}, category: {attacker_loser_category}, tags: {attacker_loser_tags}, is_defense: {is_attacker_using_defense}")
+
+                 if not is_attacker_using_defense:
+                     grant_win_fp(actor_d_char)
+                     logger.debug(f"[FP GRANTED] Defender {actor_name_d} granted FP (attacker NOT using defense)")
+                 else:
+                     logger.debug(f"[FP SKIPPED] Defender {actor_name_d} NOT granted FP (attacker using defense skill)")
+
                  winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (防御成功)"
                  _, logs, _ = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
                  log_snippets.extend(logs)
@@ -888,7 +939,19 @@ def execute_duel_match(room, data, username):
                  if log_snippets: damage_message += f" ({' '.join(log_snippets)})"
 
             elif defender_winner_category == "回避" or defender_category == "回避" or "回避" in defender_winner_tags:
-                 grant_win_fp(actor_d_char)
+                 logger.debug(f"[BRANCH] Defender回避勝利ブランチ（L927）")
+                 # ★★ 修正: 敗者が守備スキルを使用していない場合のFP獲得
+                 attacker_loser_category = skill_data_a.get("分類", "") if skill_data_a else ""
+                 attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
+                 is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
+                 logger.debug(f"[FP CHECK] Defender回避勝利. Attacker skill: {skill_id_a}, category: {attacker_loser_category}, tags: {attacker_loser_tags}, is_defense: {is_attacker_using_defense}")
+
+                 if not is_attacker_using_defense:
+                     grant_win_fp(actor_d_char)
+                     logger.debug(f"[FP GRANTED] Defender {actor_name_d} granted FP (attacker NOT using defense)")
+                 else:
+                     logger.debug(f"[FP SKIPPED] Defender {actor_name_d} NOT granted FP (attacker using defense skill)")
+
                  winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (回避成功)"
                  damage_message = "(ダメージなし)"
                  _, logs, _ = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
@@ -901,7 +964,19 @@ def execute_duel_match(room, data, username):
                     apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d, "buff_id": "Bu-05"})
 
             else:
-                grant_win_fp(actor_d_char)
+                logger.debug(f"[BRANCH] Defender攻撃勝利ブランチ（L947）- カウンター")
+                # ★★ 修正: 敗者が守備スキルを使用していた場合、FPを付与しない
+                attacker_loser_category = skill_data_a.get("分類", "") if skill_data_a else ""
+                attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
+                is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
+                logger.debug(f"[FP CHECK] Defender攻撃勝利(カウンター). Attacker skill: {skill_id_a}, category: {attacker_loser_category}, tags: {attacker_loser_tags}, is_defense: {is_attacker_using_defense}")
+
+                if not is_attacker_using_defense:
+                    grant_win_fp(actor_d_char)
+                    logger.debug(f"[FP GRANTED] Defender {actor_name_d} granted FP (attacker NOT using defense)")
+                else:
+                    logger.debug(f"[FP SKIPPED] Defender {actor_name_d} NOT granted FP (attacker using defense skill)")
+
                 # ★ 修正: 防御側が攻撃スキルで勝利した場合も、攻撃スキルの威力をそのまま与える
                 damage = result_d['total']  # 差分ではなく、攻撃スキルの威力
                 if actor_a_char:
