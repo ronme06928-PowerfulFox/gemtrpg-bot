@@ -20,7 +20,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 4. [輝化スキル・出身ボーナス定義](#4-輝化スキル出身ボーナス定義)
 5. [アセット管理・外部画像](#5-アセット管理外部画像)
 
----
+<div style="page-break-after: always;"></div>
 
 ## 1. スキル定義 (`skill_data.json` / 特記処理)
 
@@ -59,7 +59,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 **共通パラメータ:**
 
 * `timing`: 発動タイミング（必須）。
-  * `HIT` (命中時), `WIN` (勝利時), `LOSE` (敗北時), `PRE_MATCH` (開始前), `END_MATCH` (終了時), `UNOPPOSED` (一方攻撃時)
+  * **<span style="color:#e74c3c; font-weight:bold;">HIT</span>** (命中時), **<span style="color:#e74c3c; font-weight:bold;">WIN</span>** (勝利時), **<span style="color:#3498db; font-weight:bold;">LOSE</span>** (敗北時), **<span style="color:#f1c40f; font-weight:bold;">PRE_MATCH</span>** (開始前), **<span style="color:#f1c40f; font-weight:bold;">END_MATCH</span>** (終了時), **<span style="color:#e74c3c; font-weight:bold;">UNOPPOSED</span>** (一方攻撃時)
 * `target`: 効果対象。
   * `self` (自分), `target` (対象), `ALL_ENEMIES` (敵全体), `ALL_ALLIES` (味方全体), `ALL` (全員), `NEXT_ALLY` (次手番の味方)
 * `condition`: 発動条件（任意）。
@@ -69,14 +69,14 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 
 | Type | 説明 | パラメータ例 |
 | :--- | :--- | :--- |
-| `APPLY_STATE` | 状態異常（数値）を付与 | `state_name`: "出血", `value`: 3 |
-| `APPLY_BUFF` | 定義済みバフを付与 | `buff_id`: "Bu-01", `buff_name`: "Power_Atk5", `flavor`: "演出テキスト" |
-| `REMOVE_BUFF` | バフを削除 | `buff_name`: "Bu-01" |
-| `MODIFY_BASE_POWER` | 基礎威力を変更 (PRE_MATCH用) | `value`: 2 |
-| `DAMAGE_BONUS` | 追加ダメージ (HIT/WIN用) | `value`: 5 |
-| `MODIFY_ROLL` | ロール結果値の修正 | `value`: -1 |
-| `FORCE_UNOPPOSED` | 相手の抵抗を封じる（一方攻撃化） | なし |
-| `CUSTOM_EFFECT` | プラグイン効果を実行 | `value`: "破裂爆発" |
+| **<span style="color:#9b59b6; font-weight:bold;">APPLY_STATE</span>** | 状態異常（数値）を付与 | `state_name`: "出血", `value`: 3 |
+| **<span style="color:#9b59b6; font-weight:bold;">APPLY_BUFF</span>** | 定義済みバフを付与 | `buff_id`: "Bu-01", `buff_name`: "Power_Atk5", `flavor`: "演出テキスト" |
+| **<span style="color:#9b59b6; font-weight:bold;">REMOVE_BUFF</span>** | バフを削除 | `buff_name`: "Bu-01" |
+| **<span style="color:#2ecc71; font-weight:bold;">MODIFY_BASE_POWER</span>** | 基礎威力を変更 (PRE_MATCH用) | `value`: 2 |
+| **<span style="color:#e74c3c; font-weight:bold;">DAMAGE_BONUS</span>** | 追加ダメージ (HIT/WIN用) | `value`: 5 |
+| **<span style="color:#2ecc71; font-weight:bold;">MODIFY_ROLL</span>** | ロール結果値の修正 | `value`: -1 |
+| **<span style="color:#e67e22; font-weight:bold;">FORCE_UNOPPOSED</span>** | 相手の抵抗を封じる（一方攻撃化） | なし |
+| **<span style="color:#34495e; font-weight:bold;">CUSTOM_EFFECT</span>** | プラグイン効果を実行 | `value`: "破裂爆発" |
 
 **Custom Effects (Plugin):**
 
@@ -125,7 +125,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 
 * **stat_mods**: ステータスへの加算値を Key-Value で指定します。
 
----
+<div style="page-break-after: always;"></div>
 
 ## 2. バフ・状態異常定義 (Static / Dynamic / Plugin)
 
@@ -162,7 +162,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 | `Bu-09` | 爆縮 | (`implosion`) 攻撃時、追加ダメージを与える。 |
 | `Bu-10` | 豊穣の風 | (`latium`) ラウンド開始時効果（実装依存）。 |
 
----
+<div style="page-break-after: always;"></div>
 
 ## 3. アイテム定義 (`items_cache.json`)
 
@@ -182,7 +182,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 }
 ```
 
----
+<div style="page-break-after: always;"></div>
 
 ## 4. 輝化スキル・出身ボーナス定義
 
@@ -210,14 +210,14 @@ ID `S-XX` で定義されるパッシブスキルです。
 
 `manager/utils.py` 等でハードコード処理されている自動効果です。
 
-* **ラティウム (ID:3)**: R開始時 FP+1。
-* **マホロバ (ID:5)**: R終了時 HP+3。
+* **ラティウム (ID:3)**: R開始時 <span style="color:#f1c40f; font-weight:bold;">FP+1</span>。
+* **マホロバ (ID:5)**: R終了時 <span style="color:#f1c40f; font-weight:bold;">HP+3</span>。
 * **ギァン・バルフ (ID:8)**: デュエル防御成功時、余剰反射ダメージ。
-* **綿津見 (ID:9)**: 斬撃スキル威力(ダイス)補正+1。
+* **綿津見 (ID:9)**: <span style="color:#e74c3c; font-weight:bold;">斬撃</span>スキル威力(ダイス)補正+1。
 * **シンシア (ID:10)**: 戦闘開始時「爆縮」バフ（ダメージ+5 / 8回）所持。
 * **ヴァルヴァイレ (ID:13)**: 対峙相手の最終達成値-1。
 
----
+<div style="page-break-after: always;"></div>
 
 ## 5. アセット管理・外部画像
 
