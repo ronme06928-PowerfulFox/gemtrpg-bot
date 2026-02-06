@@ -163,6 +163,22 @@ function renderCharacterCard(char) {
     const coreStats = ['筋力', '生命力', '体格', '精神力', '速度', '直感', '経験', '物理補正', '魔法補正'];
     const explorationStats = ['五感', '採取', '本能', '鑑定', '対話', '尋問', '諜報', '窃取', '隠密', '運動', '制作', '回避'];
 
+    const ORIGIN_NAMES = {
+        1: "ヨキューク・ツォー",
+        2: "アーク・ジェムリア",
+        3: "ラティウム",
+        4: "アヌッサ・ホロウ",
+        5: "マホロバ",
+        6: "ラグラゼシス(都市部)",
+        7: "ラグラゼシス(非都市部)",
+        8: "ギァン・バルフ",
+        9: "綿津見",
+        10: "シンシア",
+        11: "リテラール",
+        12: "オーセクト",
+        13: "ヴァルヴァイレ"
+    };
+
     // Normalize params to array of objects
     let charParams = [];
     if (Array.isArray(char.params)) {
@@ -208,6 +224,33 @@ function renderCharacterCard(char) {
         <div class="params-container params-exploration" style="display:${displayExploration};">
             ${renderParamsGrid(explorationStats)}
         </div>
+        ${(() => {
+            const originParam = charParams.find(p => p.label === '出身');
+            const bonusParam = charParams.find(p => p.label === 'ボーナス');
+            let originText = "不明";
+            let bonusText = "";
+
+            if (originParam) {
+                const originId = parseInt(originParam.value, 10);
+                if (originId === 0) return ''; // 出身なしの場合は表示しない、または「出身なし」と表示するか？ここでは表示しないか、シンプルにする
+                originText = ORIGIN_NAMES[originId] || "その他/不明";
+
+                if ([1, 2, 12].includes(originId) && bonusParam) {
+                    const bonusId = parseInt(bonusParam.value, 10);
+                    if (bonusId > 0 && ORIGIN_NAMES[bonusId]) {
+                        // ヨキューク、アーク・ジェムリア、オーセクトの場合はボーナス国を表示
+                        bonusText = ` <span style="color:#666; font-weight:normal;">(ボーナス: ${ORIGIN_NAMES[bonusId]})</span>`;
+                    }
+                }
+                return `
+                <div style="margin-top: 8px; font-size: 0.9em; color: #555; background: #f9f9f9; padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd; display: flex; align-items: center;">
+                    <span style="font-weight: bold; margin-right: 6px; color: #333;">出身:</span>
+                    <span style="font-weight: bold; color: #222;">${originText}</span>
+                    ${bonusText}
+                </div>`;
+            }
+            return '';
+        })()}
     `;
 
     // ... (rest of renderCharacterCard) ...
