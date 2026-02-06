@@ -919,18 +919,13 @@ def execute_duel_match(room, data, username):
 
             # ★ 修正: 防御側が「防御」や「回避」で勝利した場合、ダメージは0
             if defender_winner_category == "防御" or defender_category == "防御" or "防御" in defender_winner_tags:
-                 logger.debug(f"[BRANCH] Defender防御勝利ブランチ（L912）")
                  # ★★ 修正: 敗者が守備スキルを使用していない場合のFP獲得
                  attacker_loser_category = skill_data_a.get("分類", "") if skill_data_a else ""
                  attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
                  is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
-                 logger.debug(f"[FP CHECK] Defender防御勝利. Attacker skill: {skill_id_a}, category: {attacker_loser_category}, tags: {attacker_loser_tags}, is_defense: {is_attacker_using_defense}")
 
                  if not is_attacker_using_defense:
                      grant_win_fp(actor_d_char)
-                     logger.debug(f"[FP GRANTED] Defender {actor_name_d} granted FP (attacker NOT using defense)")
-                 else:
-                     logger.debug(f"[FP SKIPPED] Defender {actor_name_d} NOT granted FP (attacker using defense skill)")
 
                  winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (防御成功)"
                  _, logs, _ = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
@@ -939,18 +934,13 @@ def execute_duel_match(room, data, username):
                  if log_snippets: damage_message += f" ({' '.join(log_snippets)})"
 
             elif defender_winner_category == "回避" or defender_category == "回避" or "回避" in defender_winner_tags:
-                 logger.debug(f"[BRANCH] Defender回避勝利ブランチ（L927）")
                  # ★★ 修正: 敗者が守備スキルを使用していない場合のFP獲得
                  attacker_loser_category = skill_data_a.get("分類", "") if skill_data_a else ""
                  attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
                  is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
-                 logger.debug(f"[FP CHECK] Defender回避勝利. Attacker skill: {skill_id_a}, category: {attacker_loser_category}, tags: {attacker_loser_tags}, is_defense: {is_attacker_using_defense}")
 
                  if not is_attacker_using_defense:
                      grant_win_fp(actor_d_char)
-                     logger.debug(f"[FP GRANTED] Defender {actor_name_d} granted FP (attacker NOT using defense)")
-                 else:
-                     logger.debug(f"[FP SKIPPED] Defender {actor_name_d} NOT granted FP (attacker using defense skill)")
 
                  winner_message = f"<strong> → {actor_name_d} の勝利！</strong> (回避成功)"
                  damage_message = "(ダメージなし)"
@@ -964,18 +954,13 @@ def execute_duel_match(room, data, username):
                     apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d, "buff_id": "Bu-05"})
 
             else:
-                logger.debug(f"[BRANCH] Defender攻撃勝利ブランチ（L947）- カウンター")
                 # ★★ 修正: 敗者が守備スキルを使用していた場合、FPを付与しない
                 attacker_loser_category = skill_data_a.get("分類", "") if skill_data_a else ""
                 attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
                 is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
-                logger.debug(f"[FP CHECK] Defender攻撃勝利(カウンター). Attacker skill: {skill_id_a}, category: {attacker_loser_category}, tags: {attacker_loser_tags}, is_defense: {is_attacker_using_defense}")
 
                 if not is_attacker_using_defense:
                     grant_win_fp(actor_d_char)
-                    logger.debug(f"[FP GRANTED] Defender {actor_name_d} granted FP (attacker NOT using defense)")
-                else:
-                    logger.debug(f"[FP SKIPPED] Defender {actor_name_d} NOT granted FP (attacker using defense skill)")
 
                 # ★ 修正: 防御側が攻撃スキルで勝利した場合も、攻撃スキルの威力をそのまま与える
                 damage = result_d['total']  # 差分ではなく、攻撃スキルの威力
