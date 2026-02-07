@@ -238,7 +238,7 @@ def execute_wide_match(room, username):
         except: pass
 
     # Apply Local Changes Helper
-    def apply_local_changes(changes):
+    def apply_local_changes(changes, primary_target=None):
         extra = 0
         for (char, type, name, value) in changes:
             if type == "APPLY_STATE":
@@ -250,7 +250,13 @@ def execute_wide_match(room, username):
             elif type == "REMOVE_BUFF":
                 remove_buff(char, name)
             elif type == "CUSTOM_DAMAGE":
-                extra += value
+                # ★修正: 攻撃対象へのダメージのみを加算し、それ以外（自傷など）は直接適用する
+                if primary_target and char.get('id') == primary_target.get('id'):
+                    extra += value
+                else:
+                    curr = get_status_value(char, 'HP')
+                    _update_char_stat(room, char, 'HP', max(0, curr - value), username=f"[{name}]", source=DamageSource.SKILL_EFFECT)
+
             elif type == "APPLY_STATE_TO_ALL_OTHERS":
                 orig_target_id = char.get("id")
                 orig_target_type = char.get("type")
@@ -287,13 +293,13 @@ def execute_wide_match(room, username):
             # Apply HIT effects
             hit_bonus, hit_logs, hit_changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
             log_snippets.extend(hit_logs)
-            apply_local_changes(hit_changes)
+            apply_local_changes(hit_changes, def_char)
             total_damage += hit_bonus
 
             # Apply UNOPPOSED effects
             unop_bonus, unop_logs, unop_changes = process_skill_effects(attacker_effects, "UNOPPOSED", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
             log_snippets.extend(unop_logs)
-            apply_local_changes(unop_changes)
+            apply_local_changes(unop_changes, def_char)
             total_damage += unop_bonus
 
             # Apply Damage to Defender
@@ -405,7 +411,7 @@ def execute_wide_match(room, username):
                         dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
                         for log_msg in logs:
                             broadcast_log(room, log_msg, 'skill-effect')
-                        diff_bonus = apply_local_changes(changes)
+                        diff_bonus = apply_local_changes(changes, def_char)
                         if diff_bonus > 0:
                             current_hp = get_status_value(def_char, 'HP')
                             new_hp = max(0, current_hp - diff_bonus)
@@ -580,7 +586,7 @@ def execute_wide_match(room, username):
                     dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'characters': state['characters']})
                     for log_msg in logs:
                         broadcast_log(room, log_msg, 'skill-effect')
-                    damage += apply_local_changes(changes)
+                    damage += apply_local_changes(changes, def_char)
                     extra_dmg = process_on_hit_buffs(attacker_char, def_char, damage, [])
                     if extra_dmg > 0:
                          broadcast_log(room, f"[{attacker_char['name']}] 追加ダメージ +{extra_dmg}", 'buff')
@@ -697,7 +703,7 @@ def execute_wide_match(room, username):
             _, logs, changes = process_skill_effects(effs, "END_MATCH", actor, target, target_skill_d, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
             for log_msg in logs:
                 broadcast_log(room, log_msg, 'skill-effect')
-            apply_local_changes(changes) # Re-use local helper
+            apply_local_changes(changes, target) # Re-use local helper
         except: pass
 
     # Attacker END_MATCH

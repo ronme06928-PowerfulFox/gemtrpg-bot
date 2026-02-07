@@ -111,6 +111,8 @@ def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None, con
 
         if 'max_bonus' in rule:
             bonus = min(bonus, int(rule['max_bonus']))
+        if 'min_bonus' in rule:
+            bonus = max(bonus, int(rule['min_bonus']))
 
         total += bonus
     return total
@@ -194,7 +196,7 @@ def execute_custom_effect(effect, actor, target):
         logger.error(f"Plugin Error ({effect_name}): {e}")
         return [], []
 
-def process_skill_effects(effects_array, timing_to_check, actor, target, target_skill_data=None, context=None):
+def process_skill_effects(effects_array, timing_to_check, actor, target, target_skill_data=None, context=None, base_damage=0):
     total_bonus_damage = 0
     log_snippets = []
     changes_to_apply = []
@@ -525,7 +527,9 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     total_bonus_damage += mod_value
                     log_snippets.append(f"[ロール修正 {mod_value:+,}]")
             elif effect_type == "CUSTOM_EFFECT":
-                custom_changes, custom_logs = execute_custom_effect(effect, actor, target)
+                # ★修正: target="self" の場合は自分を対象にする
+                target_obj = actor if effect.get("target") == "self" else target
+                custom_changes, custom_logs = execute_custom_effect(effect, actor, target_obj)
                 changes_to_apply.extend(custom_changes)
                 log_snippets.extend(custom_logs)
             elif effect_type == "FORCE_UNOPPOSED":
@@ -535,6 +539,28 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 if mod_value != 0:
                     changes_to_apply.append((target_obj, "MODIFY_BASE_POWER", None, mod_value))
                     log_snippets.append(f"[基礎威力 {mod_value:+}]")
+            elif effect_type == "DRAIN_HP":
+                 # ★追加: ダメージ吸収 (base_damageに基づく)
+                 if base_damage > 0:
+                     rate = float(effect.get("value", 0))
+
+                     # ★ 追加: 対象(攻撃相手)のHPを上限にする
+                     calc_base = base_damage
+                     if target: # 攻撃対象が存在する場合
+                         target_current_hp = get_status_value(target, 'HP')
+                         if target_current_hp < calc_base:
+                             calc_base = target_current_hp
+
+                     heal_val = int(calc_base * rate)
+                     if heal_val > 0:
+                         # 即座に回復 (シミュレーション)
+                         current_hp = get_status_value(sim_actor, 'HP')
+                         set_status_value(sim_actor, 'HP', current_hp + heal_val)
+
+                         # 変更予約 (実体)
+                         changes_to_apply.append((actor, "APPLY_STATE", "HP", heal_val))
+                         log_snippets.append(f"[吸収 {heal_val}]")
+
 
     return total_bonus_damage, log_snippets, changes_to_apply
 
@@ -611,10 +637,21 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
             rule_data = {}
 
     # ルールベース (スキル特有の条件)
+    dice_bonus_power = 0
     if rule_data:
         rules = rule_data.get('power_bonus', [])
-        bonus_from_rules = _calculate_bonus_from_rules(rules, actor_char, target_char, actor_skill_data=skill_data, context=context)
+
+        # ★追加: ダイス威力補正(apply_to='dice')と通常威力補正を分離
+        base_rules = [r for r in rules if r.get('apply_to') != 'dice']
+        dice_rules = [r for r in rules if r.get('apply_to') == 'dice']
+
+        # 通常ボーナス
+        bonus_from_rules = _calculate_bonus_from_rules(base_rules, actor_char, target_char, actor_skill_data=skill_data, context=context)
         bonus_power += bonus_from_rules
+
+        # ★追加: ダイスボーナス
+        dice_bonus_from_rules = _calculate_bonus_from_rules(dice_rules, actor_char, target_char, actor_skill_data=skill_data, context=context)
+        dice_bonus_power += dice_bonus_from_rules
 
         # 戦慄の上限をルールから取得 (指定がなければ0)
         if senritsu_max_apply == 0:
@@ -652,10 +689,21 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
     # 3. ダイス部分の解析
     palette = skill_data.get('チャットパレット', '')
     cmd_part = re.sub(r'【.*?】', '', palette).strip()
-    if '+' in cmd_part:
-        dice_part = cmd_part.split('+', 1)[1]
+
+    # ★修正: 先頭の数値を基礎威力として除外し、残りをダイス部分とする
+    # (22-1d6+... のようなケースで split('+') だと -1d6 が消えるため)
+    match_base = re.match(r'^(\d+)(.*)$', cmd_part)
+    if match_base:
+        dice_part = match_base.group(2).strip()
+        if not dice_part:
+             # コマンドにダイス部分がない場合、JSONの定義を使う
+             dice_part = skill_data.get('ダイス威力', '')
     else:
-        dice_part = skill_data.get('ダイス威力', '2d6')
+        # 数値で始まらない、または形式不明
+        if '+' in cmd_part:
+            dice_part = cmd_part.split('+', 1)[1]
+        else:
+            dice_part = skill_data.get('ダイス威力', '2d6')
 
     # 変数ダイスの解決
     resolved_dice = resolve_placeholders(dice_part, actor_char)
@@ -725,9 +773,30 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
         correction_details.append({'source': 'ヴァルヴァイレ恩恵', 'value': valvile_correction})
 
 
-    # 4. 戦慄(Senritsu)の適用
-    senritsu_dice_reduction = 0
+    # 4. バフ・ダイスボーナスの適用 (Dice Face Modification)
+    # dice_bonus_power (apply_to='dice') を面数に加算する
+    # 例: -1d6 + (-2) -> -1d4 (faces decreased by 2)
     processed_dice = resolved_dice
+
+    if dice_bonus_power != 0:
+        def modify_dice_faces(m):
+            sign = m.group(1) or ''
+            num = m.group(2)
+            faces = int(m.group(3))
+
+            # 面数を変更 (最低1)
+            # dice_bonus_power が -1 なら faces - 1
+            new_faces = max(1, faces + dice_bonus_power)
+            return f"{sign}{num}d{new_faces}"
+
+        processed_dice = re.sub(r'([+-]?)(\d+)d(\d+)', modify_dice_faces, processed_dice, count=1)
+
+        # ★追加: 内訳表示用にダイス威力補正を追加
+        correction_details.append({'source': 'ダイス威力', 'value': dice_bonus_power})
+
+
+    # 5. 戦慄(Senritsu)の適用
+    senritsu_dice_reduction = 0
 
     if senritsu_max_apply > 0:
         current_senritsu = get_status_value(actor_char, '戦慄')
@@ -745,6 +814,7 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
                     sign = m.group(1) or ''
                     num = m.group(2)
                     faces = int(m.group(3))
+
                     new_faces = max(1, faces - senritsu_dice_reduction)
                     return f"{sign}{num}d{new_faces}"
 
@@ -758,67 +828,72 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
 
     # ボーナス値をコマンド末尾に追加
     final_dice_part = processed_dice
+
+
+
     if bonus_power != 0:
         final_dice_part += f"{'+' if bonus_power > 0 else ''}{bonus_power}"
 
-    final_command = f"{base_power}+{final_dice_part}"
+    # ★修正: base_power補正時の符号重複回避
+    # final_dice_part が + または - で始まる場合はそのまま結合、そうでなければ + を挟む
+    if final_dice_part.startswith('+') or final_dice_part.startswith('-'):
+        final_command = f"{base_power}{final_dice_part}"
+    else:
+        final_command = f"{base_power}+{final_dice_part}"
 
     # 6. ダメージレンジの計算
-    matches = re.findall(r'(\d+)d(\d+)', final_dice_part)
-    dice_min = 0
-    dice_max = 0
-    for num_str, sides_str in matches:
-        num = int(num_str)
-        sides = int(sides_str)
-        dice_min += num
-        dice_max += num * sides
 
-    # 定数部分の加算 (re.findall で dを含まない数値を探すのは複雑なので、簡易的にevalするか、パースする)
-    # ここでは簡易シミュレーション: コマンド文字列から期待値を計算するのはevalが必要だがセキュリティリスク。
-    # 代わりに、base_power + bonus_power + 変数解決後の固定値 を合計する。
+    # final_command (例: "22-1d5+1d5") を解析して最小・最大を計算
+    tokens = re.split(r'([+-])', final_command)
 
-    # 変数解決後の文字列から、"d"を含まない単独の数値を抽出して加算
-    # 例: "2d6+5-2" -> 5, -2
-    # 注意: 正規表現で厳密にやるのは難しい。
-    # 安全な算術評価関数を使うのがベストだが、ここでは get_status_value で取得した補正値などを足し合わせる。
-
-    # 簡易計算:
-    # default range = base_power + bonus_power + dice_min/max + (物理/魔法補正)
-    # 物理/魔法補正は dice_part に既に埋め込まれている ("+{物理補正}" -> "+2")
-
-    # 正規表現で "+2" や "-1" などの定数項を探す
-    constant_total = 0
-    # 行頭または演算子の後の数値をマッチ
-    # 例: 2d6+5 -> +5 matches. 2d6-1 -> -1 matches.
-    # ただし 2d6 の 2 や 6 は除外。
-
-    # 既存ロジック(socket_battle.py)では以下のようにしていた:
-    # min_damage = base_power + dice_min + correction_min + total_modifier
-    # ここでは final_dice_part ("2d6+2+3") を解析する。
-
-    # トークン分割
-    tokens = re.split(r'([+-])', final_dice_part)
+    range_min = 0
+    range_max = 0
     current_sign = 1
+
     for token in tokens:
         token = token.strip()
-        if not token: continue
-        if token == '+': current_sign = 1
-        elif token == '-': current_sign = -1
-        elif 'd' in token: pass # ダイスは別途計算済み
-        else:
-            try:
-                val = int(token)
-                constant_total += val * current_sign
-            except: pass
+        if not token:
+            continue
 
-    total_min = base_power + dice_min + constant_total
-    total_max = base_power + dice_max + constant_total
+        if token == '+':
+            current_sign = 1
+        elif token == '-':
+            current_sign = -1
+        else:
+            # 数値またはダイス
+            dice_match = re.match(r'^(\d+)d(\d+)$', token)
+            if dice_match:
+                num = int(dice_match.group(1))
+                sides = int(dice_match.group(2))
+
+                # ダイスの最小・最大
+                d_min = num
+                d_max = num * sides
+
+                if current_sign == 1:
+                    range_min += d_min
+                    range_max += d_max
+                else:
+                    # マイナスの場合: 最小値には最大値を引き(最も減る)、最大値には最小値を引く(最も減らない)
+                    range_min -= d_max
+                    range_max -= d_min
+            else:
+                # 定数
+                try:
+                    val = int(token)
+                    range_min += current_sign * val
+                    range_max += current_sign * val
+                except ValueError:
+                    pass
+
+    skill_details['range_min'] = range_min
+    skill_details['range_max'] = range_max
 
     return {
         "final_command": final_command,
-        "min_damage": total_min,
-        "max_damage": total_max,
-        "damage_range_text": f"{total_min} ~ {total_max}",
+        "min_damage": range_min,
+        "max_damage": range_max,
+        "damage_range_text": f"{range_min} ~ {range_max}",
         "correction_details": correction_details,
         "senritsu_dice_reduction": senritsu_dice_reduction,
         "skill_details": skill_details,

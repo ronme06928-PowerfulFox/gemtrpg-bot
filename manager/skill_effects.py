@@ -33,7 +33,7 @@ def apply_skill_effects_bidirectional(
         context: コンテキストデータ (timelineなど)
 
     Returns:
-        tuple: (total_bonus_damage, all_logs, custom_damage_applied)
+        tuple: (total_bonus_damage, all_logs, custom_damage_applied, damage_events)
     """
     effects_a = []
     effects_d = []
@@ -54,6 +54,7 @@ def apply_skill_effects_bidirectional(
 
     total_bonus_dmg = 0
     custom_damage_applied = 0
+    damage_events = []
     all_logs = []
 
     # Context構築 (もし渡されていなければ作成)
@@ -64,8 +65,10 @@ def apply_skill_effects_bidirectional(
             'timeline': state.get('timeline', [])
         }
 
+    primary_target = d_char if winner_side == 'attacker' else a_char
+
     # 内部関数: 変更内容の即時適用
-    def apply_local_changes(changes):
+    def apply_local_changes(changes, target_char):
         nonlocal custom_damage_applied
         extra_dmg = 0
 
@@ -115,7 +118,11 @@ def apply_skill_effects_bidirectional(
                     damage_source = DamageSource.SKILL_EFFECT
 
                 _update_char_stat(room, char, 'HP', char['hp'] - value, username=f"[{name}]", source=damage_source)
-                custom_damage_applied += value
+                damage_events.append({'target_name': char['name'], 'target_id': char.get('id'), 'source': name, 'value': value})
+
+                # ★修正: 対象が本来のダメージ対象(敗者)の場合のみ合計に加算
+                if target_char and char.get('id') == target_char.get('id'):
+                    custom_damage_applied += value
             elif type_ == "APPLY_BUFF":
                 apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
                 broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
@@ -128,6 +135,7 @@ def apply_skill_effects_bidirectional(
                      buff_dmg = process_on_damage_buffs(room, char, damage_val, username, temp_logs)
                      all_logs.extend(temp_logs)
                      custom_damage_applied += damage_val + buff_dmg
+                     damage_events.append({'target_name': char['name'], 'target_id': char.get('id'), 'source': '追撃', 'value': damage_val + buff_dmg})
             elif type_ == "APPLY_STATE_TO_ALL_OTHERS":
                 orig_target_id = char.get("id")
                 orig_target_type = char.get("type")
@@ -145,7 +153,10 @@ def apply_skill_effects_bidirectional(
     def run_proc_and_apply(effs, timing, actor, target, skill):
         nonlocal total_bonus_dmg
 
-        d, l, c = process_skill_effects(effs, timing, actor, target, skill, context=context)
+        # contextをprocess_skill_effectsに渡す
+        # ★修正: base_damage に現在の合計値(damage_val + total_bonus_dmg)を渡す
+        current_base_damage = damage_val + total_bonus_dmg
+        d, l, c = process_skill_effects(effs, timing, actor, target, skill, context=context, base_damage=current_base_damage)
 
         # 重複防止: 攻撃者の自己バフ抑制フラグがONの場合、ターゲットが攻撃者自身である変更を除外
         final_changes = []
@@ -163,7 +174,7 @@ def apply_skill_effects_bidirectional(
         all_logs.extend(l)
 
         # 即時適用
-        dmg_val = apply_local_changes(final_changes)
+        dmg_val = apply_local_changes(final_changes, primary_target)
         total_bonus_dmg += dmg_val
 
     if winner_side == 'attacker':
@@ -183,4 +194,4 @@ def apply_skill_effects_bidirectional(
         logger.debug(f"[Defender Wins] Processing defender HIT effects")
         run_proc_and_apply(effects_d, "HIT", d_char, a_char, a_skill)
 
-    return total_bonus_dmg, all_logs, custom_damage_applied
+    return total_bonus_dmg, all_logs, custom_damage_applied, damage_events
