@@ -1226,13 +1226,13 @@
     "分類": "魔法",
     "距離": "近接",
     "属性": "斬撃",
-    "取得コスト": "1",
+    "取得コスト": "2",
     "基礎威力": "11",
     "ダイス威力": "+1d7",
-    "使用時効果": "[使用時]:MPを1消費。HPを5消費。",
+    "使用時効果": "[使用時]:MPを2消費。HPを5消費。",
     "特記": "",
     "発動時効果": "[使用時] 自分に出血8を付与。 [的中時] 与えたダメージの半分の値、自分のHPを回復する。",
-    "特記処理": "{\"cost\": [{\"type\": \"MP\", \"value\": 1}, {\"type\": \"HP\", \"value\": 5}], \"effects\": [{\"timing\": \"PRE_MATCH\", \"type\": \"APPLY_STATE\", \"target\": \"self\", \"state_name\": \"出血\", \"value\": 8}, {\"timing\": \"HIT\", \"type\": \"DRAIN_HP\", \"target\": \"self\", \"value\": 0.5}]}",
+    "特記処理": "{\"cost\": [{\"type\": \"MP\", \"value\": 2}, {\"type\": \"HP\", \"value\": 5}], \"effects\": [{\"timing\": \"PRE_MATCH\", \"type\": \"APPLY_STATE\", \"target\": \"self\", \"state_name\": \"出血\", \"value\": 8}, {\"timing\": \"HIT\", \"type\": \"DRAIN_HP\", \"target\": \"self\", \"value\": 0.5}]}",
     "tags": [
       "攻撃"
     ]
@@ -1589,10 +1589,10 @@
     "取得コスト": "3",
     "基礎威力": "13",
     "ダイス威力": "+1d5",
-    "使用時効果": "[使用時]:MPを6消費。FPを3消費。",
+    "使用時効果": "[使用時]:MPを6消費。FPを4消費。",
     "特記": "",
     "発動時効果": "[的中時] 亀裂3を付与。[マッチ敗北時] 亀裂1を付与。",
-    "特記処理": "{\"cost\": [{\"type\": \"MP\",\"value\": 6},{\"type\": \"FP\",\"value\": 3}],\n  \"power_bonus\": [],\"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 3},{\"timing\": \"LOSE\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 1}]}",
+    "特記処理": "{\"cost\": [{\"type\": \"MP\",\"value\": 6},{\"type\": \"FP\",\"value\": 4}],\n  \"power_bonus\": [],\"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 3},{\"timing\": \"LOSE\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 1}]}",
     "tags": [
       "攻撃"
     ]
