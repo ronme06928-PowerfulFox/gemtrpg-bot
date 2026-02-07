@@ -564,7 +564,7 @@ def execute_duel_match(room, data, username):
                     kiretsu = get_status_value(actor_d_char, '亀裂')
                     # 一方攻撃の特殊処理
                     logger.debug(f"[UNOPPOSED] Calling process_skill_effects for UNOPPOSED trigger")
-                    bd_un, log_un, chg_un = process_skill_effects(effects_array_a, "UNOPPOSED", actor_a_char, actor_d_char, skill_data_d)
+                    bd_un, log_un, chg_un = process_skill_effects(effects_array_a, "UNOPPOSED", actor_a_char, actor_d_char, skill_data_d, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
 
                     custom_dmg_onesided = 0 # ★追加
                     def local_apply(clist):
@@ -606,7 +606,7 @@ def execute_duel_match(room, data, username):
                     logger.debug(f"[UNOPPOSED] Applying changes from UNOPPOSED: {len(chg_un)} changes")
                     local_apply(chg_un)
                     logger.debug(f"[HIT] Calling process_skill_effects for HIT trigger")
-                    bd_hit, log_hit, chg_hit = process_skill_effects(effects_array_a, "HIT", actor_a_char, actor_d_char, skill_data_d)
+                    bd_hit, log_hit, chg_hit = process_skill_effects(effects_array_a, "HIT", actor_a_char, actor_d_char, skill_data_d, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
                     logger.debug(f"[HIT] Applying changes from HIT: {len(chg_hit)} changes")
                     extra_skill_damage = local_apply(chg_hit)
 

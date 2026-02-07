@@ -11,12 +11,33 @@ from plugins import EFFECT_REGISTRY
 
 logger = setup_logger(__name__)
 
-def _get_value_for_condition(source_obj, param_name):
+def _get_value_for_condition(source_obj, param_name, context=None):
     if not source_obj: return None
     if param_name == "tags": return source_obj.get("tags", [])
+
+    # ★修正: 「速度値」(イニシアチブ)の参照ロジック
+    # 戦闘中(contextにtimelineがある)かつ、targetがtimelineに含まれている場合、
+    # そのキャラクターの全手番の中で最も高い速度値(イニシアチブ)を返す。
+    # ユーザー指摘:「速度」はパラメータ、「速度値」はロール結果
+    if param_name == "速度値" and context and 'timeline' in context:
+        timeline = context['timeline']
+        char_id = source_obj.get('id')
+
+        # 該当キャラの全エントリを抽出 (行動済みかどうかに関わらず)
+        my_entries = [t for t in timeline if t.get('char_id') == char_id]
+
+        if my_entries:
+            # 全エントリの中で最大の速度(speed)を返す
+            max_speed = max(t.get('speed', 0) for t in my_entries)
+            return max_speed
+        else:
+            # タイムラインに存在しない場合 (戦闘開始前など)
+            # ユーザー要望に基づき 0 を返す (常に行動済み/参加不能扱い)
+            return 0
+
     return get_status_value(source_obj, param_name)
 
-def check_condition(condition_obj, actor, target, target_skill_data=None, actor_skill_data=None):
+def check_condition(condition_obj, actor, target, target_skill_data=None, actor_skill_data=None, context=None):
     if not condition_obj: return True
     source_str = condition_obj.get("source")
     param_name = condition_obj.get("param")
@@ -31,7 +52,8 @@ def check_condition(condition_obj, actor, target, target_skill_data=None, actor_
     elif source_str == "target_skill": source_obj = target_skill_data
     elif source_str == "skill" or source_str == "actor_skill": source_obj = actor_skill_data
 
-    current_value = _get_value_for_condition(source_obj, param_name)
+    # Contextを渡す
+    current_value = _get_value_for_condition(source_obj, param_name, context=context)
     if current_value is None: return False
 
     try:
@@ -48,13 +70,13 @@ def check_condition(condition_obj, actor, target, target_skill_data=None, actor_
     return False
 
 # ★修正: 汎用ボーナス計算ロジック（内部用）
-def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None):
+def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None, context=None):
     total = 0
     for rule in rules:
         # 条件チェック
         condition = rule.get('condition')
         if condition:
-            if not check_condition(condition, actor, target, actor_skill_data=actor_skill_data):
+            if not check_condition(condition, actor, target, actor_skill_data=actor_skill_data, context=context):
                 continue
 
         # 加算値計算
@@ -68,6 +90,12 @@ def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None):
             src_type = rule.get('source', 'self')
             src_obj = target if src_type == 'target' else actor
             p_name = rule.get('param')
+            # ここでも _get_value_for_condition を使うべきだが、
+            # ボーナス値の基準にするパラメータ(param)は通常ステータス値(HP, MP, 筋力など)であり、
+            # イニシアチブ値(速度)を基準に倍率を掛けることは稀。
+            # しかし一貫性を保つため _get_value_for_condition を使うのが良いが、
+            # 既存実装は get_status_value を直接呼んでいる。
+            # ここでは安全のため既存通り get_status_value にしておく (イニシアチブ値で倍率計算するケースがあれば修正)
             val = get_status_value(src_obj, p_name)
 
             if operation == 'MULTIPLY':
@@ -89,7 +117,7 @@ def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None):
 
 
 # ★修正: バフによる威力ボーナス計算
-def calculate_buff_power_bonus(actor, target, actor_skill_data):
+def calculate_buff_power_bonus(actor, target, actor_skill_data, context=None):
     total_buff_bonus = 0
     if not actor or 'special_buffs' not in actor:
         return 0
@@ -107,11 +135,11 @@ def calculate_buff_power_bonus(actor, target, actor_skill_data):
             continue
 
         power_bonuses = effect_data.get('power_bonus', [])
-        total_buff_bonus += _calculate_bonus_from_rules(power_bonuses, actor, target, actor_skill_data)
+        total_buff_bonus += _calculate_bonus_from_rules(power_bonuses, actor, target, actor_skill_data, context=context)
 
     return total_buff_bonus
 
-def calculate_state_apply_bonus(actor, target, stat_name):
+def calculate_state_apply_bonus(actor, target, stat_name, context=None):
     total_bonus = 0
     buffs_to_remove = []  # ★削除リスト
 
@@ -133,7 +161,7 @@ def calculate_state_apply_bonus(actor, target, stat_name):
         matching_rules = [r for r in state_bonuses if r.get('stat') == stat_name]
 
         # ボーナス計算
-        bonus = _calculate_bonus_from_rules(matching_rules, actor, target, None)
+        bonus = _calculate_bonus_from_rules(matching_rules, actor, target, None, context=context)
 
         if bonus > 0:
             total_bonus += bonus
@@ -297,7 +325,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             sim_target = get_simulated_char(target_obj)
 
             # 条件判定 (シミュレーション状態に基づく)
-            if not check_condition(effect.get("condition"), sim_actor, sim_target, target_skill_data):
+            if not check_condition(effect.get("condition"), sim_actor, sim_target, target_skill_data, context=context):
                 continue
 
             if effect_type == "APPLY_STATE":
@@ -317,7 +345,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 # (状態付与値が正の数で、かつ実行者が存在する場合のみボーナスをチェック)
                 if value > 0 and sim_actor:
                     # ボーナス値と、削除すべきバフリストを受け取る (シミュレーション状態を使用)
-                    bonus, buffs_to_remove = calculate_state_apply_bonus(sim_actor, sim_target, stat_name)
+                    bonus, buffs_to_remove = calculate_state_apply_bonus(sim_actor, sim_target, stat_name, context=context)
 
                     if bonus > 0:
                         value += bonus
@@ -510,14 +538,14 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
     return total_bonus_damage, log_snippets, changes_to_apply
 
-def calculate_power_bonus(actor, target, power_bonus_data):
+def calculate_power_bonus(actor, target, power_bonus_data, context=None):
     # (この関数は変更なし、ロジックそのまま)
     def _get_bonus(rule, s, t):
         if not rule: return 0
         src = s if rule.get('source') != 'target' else t
         if not src: return 0
         p_name = rule.get('param')
-        val = get_status_value(src, p_name)
+        val = _get_value_for_condition(src, p_name, context=context) # ★修正: ここも context対応
         bonus = 0
         op = rule.get('operation')
         if op == 'MULTIPLY':
@@ -539,7 +567,7 @@ def calculate_power_bonus(actor, target, power_bonus_data):
         total = _get_bonus(rule, actor, target)
     return total
 
-def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None, custom_skill_name=None, senritsu_max_apply=0, external_base_power_mod=0):
+def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None, custom_skill_name=None, senritsu_max_apply=0, external_base_power_mod=0, context=None):
     """
     スキルの威力、コマンド、補正情報のプレビューデータを計算する。
     Duel/Wide Matchの両方で共通して使用する。
@@ -585,7 +613,7 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
     # ルールベース (スキル特有の条件)
     if rule_data:
         rules = rule_data.get('power_bonus', [])
-        bonus_from_rules = _calculate_bonus_from_rules(rules, actor_char, target_char, actor_skill_data=skill_data)
+        bonus_from_rules = _calculate_bonus_from_rules(rules, actor_char, target_char, actor_skill_data=skill_data, context=context)
         bonus_power += bonus_from_rules
 
         # 戦慄の上限をルールから取得 (指定がなければ0)
@@ -609,7 +637,7 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
     skill_details['senritsu_max_apply'] = senritsu_max_apply
 
     # バフベース (攻撃威力バフなど)
-    buff_bonus = calculate_buff_power_bonus(actor_char, target_char, skill_data)
+    buff_bonus = calculate_buff_power_bonus(actor_char, target_char, skill_data, context=context)
     bonus_power += buff_bonus
 
     # 綿津見 (ID: 9) ボーナス: 斬撃威力+1 (Preview用)

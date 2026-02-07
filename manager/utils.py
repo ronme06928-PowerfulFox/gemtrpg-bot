@@ -116,6 +116,31 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
             if 'flavor' not in payload and 'flavor' in effect_data:
                 payload['flavor'] = effect_data['flavor']
 
+    # ★ 追加: 加速(Bu-11)・減速(Bu-12) の特殊処理
+    # これらは永続(lasting=-1)であり、スタック加算される
+    if payload.get('buff_id') in ['Bu-11', 'Bu-12']:
+        lasting = -1
+        payload['lasting'] = -1
+        payload['is_permanent'] = True
+
+        # スタック数の加算処理
+        if existing:
+            current_count = existing.get('count', 0)
+            added_count = payload.get('count', 1) # デフォルト1
+            # data内のcountも考慮 (game_logicから渡される場合 data={'count': N} となっていることが多い)
+            if 'data' in payload and isinstance(payload['data'], dict):
+                 if 'count' in payload['data']:
+                     added_count = payload['data']['count']
+
+            new_count = current_count + int(added_count)
+            payload['count'] = new_count
+            # data内も更新しておく（表示等で使われる場合のため）
+            if 'data' not in payload: payload['data'] = {}
+            if isinstance(payload['data'], dict):
+                payload['data']['count'] = new_count
+
+            logger.debug(f"[SpeedMod] Stack update for {buff_name}: {current_count} + {added_count} -> {new_count}")
+
     if existing:
         existing['lasting'] = max(existing.get('lasting', 0), lasting)
         existing['delay'] = max(existing.get('delay', 0), delay)

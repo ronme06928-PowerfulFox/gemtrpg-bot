@@ -5,7 +5,7 @@ import json
 import logging
 from manager.game_logic import process_skill_effects, get_status_value, apply_buff, remove_buff
 from manager.room_manager import _update_char_stat, broadcast_log
-from manager.battle.core import process_on_damage_buffs # ★追加
+from manager.battle.core import process_on_damage_buffs
 from manager.constants import DamageSource
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def apply_skill_effects_bidirectional(
     room, state, username,
     winner_side, a_char, d_char, a_skill, d_skill,
-    damage_val=0, suppress_actor_self_effect=False
+    damage_val=0, suppress_actor_self_effect=False, context=None
 ):
     """
     マッチ双方のスキル効果を適用する
@@ -30,6 +30,7 @@ def apply_skill_effects_bidirectional(
         d_skill: 防御者スキルデータ
         damage_val: ダメージ値（再適用用）
         suppress_actor_self_effect: 攻撃者の自己バフを抑制するか
+        context: コンテキストデータ (timelineなど)
 
     Returns:
         tuple: (total_bonus_damage, all_logs, custom_damage_applied)
@@ -52,12 +53,20 @@ def apply_skill_effects_bidirectional(
             pass
 
     total_bonus_dmg = 0
-    custom_damage_applied = 0 # ★追加
+    custom_damage_applied = 0
     all_logs = []
+
+    # Context構築 (もし渡されていなければ作成)
+    if context is None:
+        context = {
+            'room': room,
+            'characters': state.get('characters', []),
+            'timeline': state.get('timeline', [])
+        }
 
     # 内部関数: 変更内容の即時適用
     def apply_local_changes(changes):
-        nonlocal custom_damage_applied # ★移動: ここで宣言
+        nonlocal custom_damage_applied
         extra_dmg = 0
 
         # 重複防止のためのセット (char_id, type, name, str(value))
@@ -67,22 +76,11 @@ def apply_skill_effects_bidirectional(
             # APPLY_STATE の場合、重複チェックを行う
             if type_ == "APPLY_STATE":
                 try:
-
-
-                    # ★修正: conditionフィールドも考慮する
-                    # 条件付き効果と無条件効果は別物として扱う
-                    effect_obj = next((e for e in changes if e[0] == char and e[1] == type_ and e[2] == name and e[3] == value), None)
-                    condition_str = ""
-                    if effect_obj and len(effect_obj) > 4:
-                        # changesは(char, type, name, value)のタプルだが、元のeffectからconditionを取得
-                        # ここでは簡易的に、条件の有無だけをキーに含める
-                        pass
-
                     # valueが辞書などの場合に対応するため文字列化してキーにする
                     change_key = (char.get('id'), type_, name, str(value))
                     if change_key in applied_changes:
                         logger.warning(f"[Duplicate Check] Skipping duplicate effect for {char['name']}: {name} value={value}")
-                        # continue  # ★一時的に無効化: 条件付き同一効果を許可
+                        # continue  # 条件付き同一効果を許可する場合、ここを調整
                     applied_changes.add(change_key)
                 except Exception as e:
                     logger.error(f"[Duplicate Check] Error creating key: {e}")
@@ -96,10 +94,10 @@ def apply_skill_effects_bidirectional(
                     base_curr = int(char.get('mp', 0))
                 else:
                     # statesから基礎値を取得
-                    state = next((s for s in char.get('states', []) if s.get('name') == name), None)
-                    if state:
+                    state_obj = next((s for s in char.get('states', []) if s.get('name') == name), None)
+                    if state_obj:
                         try:
-                            base_curr = int(state.get('value', 0))
+                            base_curr = int(state_obj.get('value', 0))
                         except ValueError:
                             base_curr = 0
 
@@ -108,19 +106,15 @@ def apply_skill_effects_bidirectional(
             elif type_ == "SET_STATUS":
                 _update_char_stat(room, char, name, value, username=f"[{name}]")
             elif type_ == "CUSTOM_DAMAGE":
-                # ★ CUSTOM_DAMAGEを個別にHP減少させ、sourceを設定
-                # nameフィールド（「破裂爆発」「亀裂崩壊」など）に応じてsourceを判定
                 damage_source = None
                 if name == "破裂爆発":
                     damage_source = DamageSource.RUPTURE
-                elif "亀裂" in name:  # 「亀裂崩壊」など
+                elif "亀裂" in name:
                     damage_source = DamageSource.FISSURE
                 else:
                     damage_source = DamageSource.SKILL_EFFECT
 
                 _update_char_stat(room, char, 'HP', char['hp'] - value, username=f"[{name}]", source=damage_source)
-                # ★ 追加: 内部で適用されたダメージとして集計（合計表示用）
-                # nonlocal custom_damage_applied # Removed
                 custom_damage_applied += value
             elif type_ == "APPLY_BUFF":
                 apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
@@ -128,24 +122,16 @@ def apply_skill_effects_bidirectional(
             elif type_ == "REMOVE_BUFF":
                 remove_buff(char, name)
             elif type_ == "APPLY_SKILL_DAMAGE_AGAIN":
-                # exta_dmg += damage_val ではなく、個別のダメージイベントとして処理する
                 if damage_val > 0:
-                    # 1. 直接HPを減らす
                      _update_char_stat(room, char, 'HP', char['hp'] - damage_val, username=f"[追撃]", source=DamageSource.SKILL_EFFECT)
-
-                     # 2. 被弾時効果をトリガー (ログは統合)
                      temp_logs = []
                      buff_dmg = process_on_damage_buffs(room, char, damage_val, username, temp_logs)
                      all_logs.extend(temp_logs)
-
-                     # 3. 合計ダメージに加算
-                     # nonlocal custom_damage_applied # Removed
                      custom_damage_applied += damage_val + buff_dmg
             elif type_ == "APPLY_STATE_TO_ALL_OTHERS":
                 orig_target_id = char.get("id")
                 orig_target_type = char.get("type")
                 for other_char in state["characters"]:
-                    # 敵側（異なるタイプ）のキャラクターに適用
                     if other_char.get("type") != orig_target_type and other_char.get("id") != orig_target_id:
                         curr = get_status_value(other_char, name)
                         _update_char_stat(room, other_char, name, curr + value, username=f"[{name}]")
@@ -159,7 +145,7 @@ def apply_skill_effects_bidirectional(
     def run_proc_and_apply(effs, timing, actor, target, skill):
         nonlocal total_bonus_dmg
 
-        d, l, c = process_skill_effects(effs, timing, actor, target, skill)
+        d, l, c = process_skill_effects(effs, timing, actor, target, skill, context=context)
 
         # 重複防止: 攻撃者の自己バフ抑制フラグがONの場合、ターゲットが攻撃者自身である変更を除外
         final_changes = []

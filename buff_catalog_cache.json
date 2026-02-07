@@ -134,5 +134,29 @@
       "category": "buff"
     },
     "default_duration": -1
+  },
+  "Bu-11": {
+    "id": "Bu-11",
+    "name": "加速",
+    "description": "ラウンド開始時、速度補正に+（スタック数）を加算。速度ロール後にクリアされる。",
+    "flavor": "",
+    "effect": {
+      "type": "plugin",
+      "name": "speed_mod",
+      "category": "buff"
+    },
+    "default_duration": -1
+  },
+  "Bu-12": {
+    "id": "Bu-12",
+    "name": "減速",
+    "description": "ラウンド開始時、速度補正に−（スタック数）を減算。速度ロール後にクリアされる。",
+    "flavor": "",
+    "effect": {
+      "type": "plugin",
+      "name": "speed_mod",
+      "category": "debuff"
+    },
+    "default_duration": -1
   }
 }

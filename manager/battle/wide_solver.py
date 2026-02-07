@@ -285,13 +285,13 @@ def execute_wide_match(room, username):
             log_snippets = []
 
             # Apply HIT effects
-            hit_bonus, hit_logs, hit_changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'characters': state['characters']})
+            hit_bonus, hit_logs, hit_changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
             log_snippets.extend(hit_logs)
             apply_local_changes(hit_changes)
             total_damage += hit_bonus
 
             # Apply UNOPPOSED effects
-            unop_bonus, unop_logs, unop_changes = process_skill_effects(attacker_effects, "UNOPPOSED", attacker_char, def_char, None, context={'characters': state['characters']})
+            unop_bonus, unop_logs, unop_changes = process_skill_effects(attacker_effects, "UNOPPOSED", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
             log_snippets.extend(unop_logs)
             apply_local_changes(unop_changes)
             total_damage += unop_bonus
@@ -402,7 +402,7 @@ def execute_wide_match(room, username):
                     broadcast_log(room, f"   → {def_char['name']} に {diff} ダメージ", 'damage')
 
                     if attacker_effects:
-                        dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'characters': state['characters']})
+                        dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
                         for log_msg in logs:
                             broadcast_log(room, log_msg, 'skill-effect')
                         diff_bonus = apply_local_changes(changes)
@@ -694,7 +694,7 @@ def execute_wide_match(room, username):
         try:
             d = json.loads(skill_d.get('特記処理', '{}'))
             effs = d.get('effects', [])
-            _, logs, changes = process_skill_effects(effs, "END_MATCH", actor, target, target_skill_d, context={'characters': state['characters']})
+            _, logs, changes = process_skill_effects(effs, "END_MATCH", actor, target, target_skill_d, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
             for log_msg in logs:
                 broadcast_log(room, log_msg, 'skill-effect')
             apply_local_changes(changes) # Re-use local helper

@@ -65,7 +65,7 @@ def process_full_round_end(room, username):
                 rule_data = json.loads(rule_json_str)
                 effects_array = rule_data.get("effects", [])
                 if effects_array:
-                    _, logs, changes = process_skill_effects(effects_array, "END_ROUND", char, char, None, context={'characters': state['characters']})
+                    _, logs, changes = process_skill_effects(effects_array, "END_ROUND", char, char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
                     all_changes.extend(changes)
             except: pass
 
@@ -508,7 +508,19 @@ def process_round_start(room, username):
         # Clear previous totalSpeed
         char['totalSpeed'] = None
         speed_param = get_status_value(char, '速度')
-        initiative = speed_param // 6
+
+        # ★ 加速・減速による速度補正
+        from plugins.buffs.speed_mod import SpeedModBuff
+        speed_modifier = SpeedModBuff.get_speed_modifier(char)
+
+        initiative = (speed_param // 6) + speed_modifier
+
+        if speed_modifier != 0:
+            mod_text = f"+{speed_modifier}" if speed_modifier > 0 else str(speed_modifier)
+            broadcast_log(room, f"{char['name']} の速度補正: {mod_text} (加速/減速)", 'info')
+
+        # 速度ロール後に加速・減速をクリア
+        SpeedModBuff.clear_speed_modifiers(char)
 
         # 行動回数を取得 (デフォルト1)
         action_count = get_status_value(char, '行動回数')
@@ -519,6 +531,9 @@ def process_round_start(room, username):
         for i in range(action_count):
             roll = random.randint(1, 6)
             total_speed = initiative + roll
+
+            # ★ 追加: 速度値の下限は1
+            total_speed = max(1, total_speed)
 
             entry_id = str(uuid.uuid4())
             timeline_unsorted.append({
@@ -552,8 +567,15 @@ def process_round_start(room, username):
     for idx, item in enumerate(timeline_unsorted):
         char = next((c for c in state['characters'] if c['id'] == item['char_id']), None)
         if char:
-            suffix = f" (#{item['speed']})" if item.get('is_extra') else f" (計{item['speed']})"
-            log_msg += f"{idx+1}. {char['name']}{suffix}<br>"
+            roll = item.get('roll', 0)
+            stat = item.get('stat_speed', 0)
+            total = item.get('speed', 0)
+            sign = "+" if stat >= 0 else ""
+
+            # ユーザー要望: 1d6(X)+Y の形式で内訳表示
+            breakdown = f"1d6({roll}){sign}{stat} = {total}"
+
+            log_msg += f"{idx+1}. {char['name']} ({breakdown})<br>"
 
     broadcast_log(room, log_msg, 'info')
 

@@ -584,7 +584,7 @@
     "使用時効果": "[使用時]:FPを3消費",
     "特記": "",
     "発動時効果": "[的中時]出血4を付与。自分の速度値が8以上なら、このスキルのダメージをもう一度与える。",
-    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"FP\", \"value\": 3}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"出血\",\"value\": 4},{\"timing\": \"HIT\",\"type\": \"CUSTOM_EFFECT\",\"value\": \"APPLY_SKILL_DAMAGE_AGAIN\",\"condition\": {\"source\": \"self\",\"param\": \"速度\",\"operator\": \"GTE\",\"value\": 8}}]}",
+    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"FP\", \"value\": 3}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"出血\",\"value\": 4},{\"timing\": \"HIT\",\"type\": \"CUSTOM_EFFECT\",\"value\": \"APPLY_SKILL_DAMAGE_AGAIN\",\"condition\": {\"source\": \"self\",\"param\": \"速度値\",\"operator\": \"GTE\",\"value\": 8}}]}",
     "tags": [
       "攻撃"
     ]
@@ -675,6 +675,24 @@
     "特記": "対象に出血があるなら基礎威力+1。",
     "発動時効果": "[的中時] 対象に亀裂1を付与。",
     "特記処理": "{\"power_bonus\": [{\"source\": \"target\",\"param\": \"出血\",\"operation\": \"FIXED_IF_EXISTS\",\"value\": 1}],\"cost\": [{\"type\": \"FP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 1}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "Ps-10": {
+    "スキルID": "Ps-10",
+    "チャットパレット": "3+1d11+1d{物理補正} 【Ps-10 枷を解いて】",
+    "デフォルト名称": "枷を解いて",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "2",
+    "基礎威力": "3",
+    "ダイス威力": "+1d11",
+    "使用時効果": "[使用時]:FPを2消費",
+    "特記": "",
+    "発動時効果": "[的中時] 出血4を付与。[ラウンド終了時] 加速2を得る。",
+    "特記処理": "{\"cost\": [{\"type\": \"FP\", \"value\": 2}], \"effects\": [{\"timing\": \"HIT\", \"type\": \"APPLY_STATE\", \"target\": \"target\", \"state_name\": \"出血\", \"value\": 4}, {\"timing\": \"END_ROUND\", \"type\": \"APPLY_BUFF\", \"target\": \"self\", \"buff_id\": \"Bu-11\", \"data\": {\"count\": 2}}]}",
     "tags": [
       "攻撃"
     ]
@@ -1211,7 +1229,7 @@
     "取得コスト": "1",
     "基礎威力": "4",
     "ダイス威力": "+1d3",
-    "使用時効果": "[使用時]:MPを2消費",
+    "使用時効果": "[使用時]:MPを2消費。",
     "特記": "",
     "発動時効果": "[的中時] 破裂5を付与",
     "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 5}]}",
@@ -1229,7 +1247,7 @@
     "取得コスト": "1",
     "基礎威力": "6",
     "ダイス威力": "+1d4",
-    "使用時効果": "[使用時]:MPを2消費",
+    "使用時効果": "[使用時]:MPを2消費。",
     "特記": "",
     "発動時効果": "[マッチ勝利時] 破裂4を付与",
     "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"WIN\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 4}]}",
@@ -1303,7 +1321,7 @@
     "ダイス威力": "+1d2",
     "使用時効果": "[使用時]:MPを2消費。FPを1消費。",
     "特記": "",
-    "発動時効果": "[使用時] 対象を次のラウンドで全ての味方の攻撃対象に固定し、対象が受けるダメージを20%上げる。",
+    "発動時効果": "[使用時] 対象を次のラウンドにおける全ての味方の攻撃対象として固定し、対象が受けるダメージを20%上げる。",
     "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"PRE_MATCH\",\"type\": \"APPLY_BUFF\",\"target\": \"target\",\"buff_id\": \"Bu-01\",\"lasting\":1,\"delay\":1 },{\"timing\": \"PRE_MATCH\",\"type\": \"APPLY_BUFF\",\"target\": \"target\",\"buff_name\": \"アイツを狙え！_DaIn20\",\"lasting\":1,\"delay\":1 }]}",
     "tags": [
       "攻撃"
@@ -1341,6 +1359,42 @@
     "特記": "",
     "発動時効果": "[的中時] 対象の破裂が20以下なら、対象の破裂威力を2倍にする。",
     "特記処理": "{\"power_bonus\": [],\"cost\": [ { \"type\": \"MP\", \"value\": 4 },{ \"type\": \"FP\", \"value\": 2 }],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"MULTIPLY_STATE\",\"state_name\": \"破裂\",\"value\": 2.0,\"target\": \"target\", \"condition\": {\"source\": \"target\",\"param\": \"破裂\",\"operator\": \"LTE\",\"value\": 20}}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "Mb-09": {
+    "スキルID": "Mb-09",
+    "チャットパレット": "8+1d4+1d{魔法補正} 【Mb-09 脚を掬う】",
+    "デフォルト名称": "脚を掬う",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "8",
+    "ダイス威力": "+1d4",
+    "使用時効果": "[使用時]:MPを2消費。FPを1消費。",
+    "特記": "",
+    "発動時効果": "[的中時] 対象に減速1を付与。対象に破裂3を付与。",
+    "特記処理": "{\"cost\": [{\"type\": \"MP\", \"value\": 2}, {\"type\": \"FP\", \"value\": 1}],\n \"effects\": [{\"timing\": \"HIT\", \"type\": \"APPLY_BUFF\", \"target\": \"target\", \"buff_id\": \"Bu-12\", \"data\": {\"count\": 1}}, {\"timing\": \"HIT\", \"type\": \"APPLY_STATE\", \"target\": \"target\", \"state_name\": \"破裂\", \"value\": 3}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "Mb-10": {
+    "スキルID": "Mb-10",
+    "チャットパレット": "7+1d5+1d{魔法補正} 【Mb-10 大地裂】",
+    "デフォルト名称": "大地裂",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "7",
+    "ダイス威力": "+1d5",
+    "使用時効果": "[使用時]:MPを3消費。",
+    "特記": "",
+    "発動時効果": "[的中時] 対象に減速2を付与。対象のこのラウンドにおける速度値が4以下なら、破裂8を付与。",
+    "特記処理": "{\"cost\": [{\"type\": \"MP\", \"value\": 3}], \"effects\": [{\"timing\": \"HIT\", \"type\": \"APPLY_BUFF\", \"target\": \"target\", \"buff_id\": \"Bu-12\", \"data\": {\"count\": 2}}, {\"timing\": \"HIT\", \"type\": \"APPLY_STATE\", \"target\": \"target\", \"state_name\": \"破裂\", \"value\": 8, \"condition\": {\"source\": \"target\", \"param\": \"速度値\", \"operator\": \"LTE\", \"value\": 4}}]}",
     "tags": [
       "攻撃"
     ]

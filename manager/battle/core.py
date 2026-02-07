@@ -188,7 +188,10 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
 
         # Room state for context
         state = get_room_state(room)
-        context = {"characters": state['characters']} if state else None
+        context = {
+            "characters": state['characters'],
+            "timeline": state.get('timeline', [])
+        } if state else None
 
         _, logs, changes = process_skill_effects(effects_array, "PRE_MATCH", actor, target, target_skill_data, context=context)
 
