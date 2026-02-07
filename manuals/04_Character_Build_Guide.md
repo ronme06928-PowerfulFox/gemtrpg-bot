@@ -16,6 +16,7 @@
   * 強力なスキルはFPやMPを消費します。消費し続けるとガス欠になるため、**コスト0の基本スキル（-00系）**を合間に挟んでリソースを回復する立ち回りが必須です。
   * **<span style="color:#e74c3c; font-weight:bold;">物理基本</span> (Ps-00, Pb-00, Pp-00)**: ラウンド終了時に **<span style="color:#f1c40f; font-weight:bold;">FP+2</span>**。
   * **<span style="color:#3498db; font-weight:bold;">魔法基本</span> (Ms-00, Mb-00, Mp-00)**: ラウンド終了時に **<span style="color:#f1c40f; font-weight:bold;">FP+1, MP+1</span>**。
+  * **HPコスト**: 一部の強力なスキルは**HP**を消費します。HPが尽きれば戦闘不能になるため、ハイリスク・ハイリターンな運用が求められます。
 
 <div style="page-break-after: always;"></div>
 
