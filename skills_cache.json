@@ -1245,23 +1245,23 @@
     "取得コスト": "1",
     "基礎威力": "22",
     "ダイス威力": "-1d6",
-    "使用時効果": "[使用時]:MPを2消費。HPを10消費。FPを1消費。",
+    "使用時効果": "[使用時]:MPを2消費。HPを10消費。FPを2消費。",
     "特記": "自分の出血3につきダイス威力-1(最小で-5)。自分に出血が3以上ないなら基礎威力-7。",
     "発動時効果": "[的中時] 自分に出血氾濫。[マッチ勝利時] 自分の出血の値だけ対象に出血を付与。",
-    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":2},{\"type\":\"HP\",\"value\":10},{\"type\":\"FP\",\"value\":1}],\"power_bonus\":[{\"operation\":\"PER_N_BONUS\",\"per_N\":3,\"value\":-1,\"source\":\"self\",\"param\":\"出血\",\"min_bonus\":-5,\"apply_to\":\"dice\"},{\"value\":-7,\"condition\":{\"source\":\"self\",\"param\":\"出血\",\"operator\":\"LT\",\"value\":3}}],\n\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"self\",\"value\":\"出血氾濫\"},{\"timing\":\"WIN\",\"type\":\"APPLY_STATE_PER_N\",\"target\":\"target\",\"source\":\"self\",\"source_param\":\"出血\",\"state_name\":\"出血\",\"per_N\":1,\"value\":1}]}",
+    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":2},{\"type\":\"HP\",\"value\":10},{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[{\"operation\":\"PER_N_BONUS\",\"per_N\":3,\"value\":-1,\"source\":\"self\",\"param\":\"出血\",\"min_bonus\":-5,\"apply_to\":\"dice\"},{\"value\":-7,\"condition\":{\"source\":\"self\",\"param\":\"出血\",\"operator\":\"LT\",\"value\":3}}],\n\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"self\",\"value\":\"出血氾濫\"},{\"timing\":\"WIN\",\"type\":\"APPLY_STATE_PER_N\",\"target\":\"target\",\"source\":\"self\",\"source_param\":\"出血\",\"state_name\":\"出血\",\"per_N\":1,\"value\":1}]}",
     "tags": [
       "攻撃"
     ]
   },
   "Ms-10": {
     "スキルID": "Ms-10",
-    "チャットパレット": "11+1d7+1d{魔法補正} 【Ms-10 一心不乱】",
+    "チャットパレット": "8+1d7+1d{魔法補正} 【Ms-10 一心不乱】",
     "デフォルト名称": "一心不乱",
     "分類": "魔法",
     "距離": "近接",
     "属性": "斬撃",
     "取得コスト": "2",
-    "基礎威力": "11",
+    "基礎威力": "8",
     "ダイス威力": "+1d7",
     "使用時効果": "[使用時]:MPを2消費。HPを5消費。",
     "特記": "",
