@@ -169,6 +169,64 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 | `Bu-11` | 加速 | (`speed_up`) ラウンド開始時の速度ロール補正（+スタック数）。ロール後に解除。 |
 | `Bu-12` | 減速 | (`speed_down`) ラウンド開始時の速度ロール補正（-スタック数）。ロール後に解除。 |
 
+### 2.3 特殊起動タイミング効果
+
+バフやパッシブには、特定のイベントで自動発動する効果を定義できます。
+
+#### 戦闘開始時効果 (`battle_start_effect`)
+
+戦闘が開始されたとき（キャラクターが配置されたとき）に自動発動します。
+
+* タイミング指定は不要（自動的に`IMMEDIATE`として処理）
+* スキル効果と同じ形式で定義可能（`APPLY_STATE`, `APPLY_BUFF`など）
+* 輝化スキルやパッシブで使用可能
+
+#### 死亡時効果 (`on_death`)
+
+キャラクターのHPが0以下になって死亡したときに自動発動します。
+
+**基本仕様:**
+
+* タイミングは`IMMEDIATE`として処理されます
+* 死亡したキャラクター自身が`actor`として効果を発動
+* ターゲット指定が可能（`ALL_ENEMIES`, `ALL_ALLIES`, `NEXT_ALLY`など）
+* バフの`special_buffs`フィールドまたはパッシブスキルに定義可能
+
+**定義例:**
+
+```json
+{
+  "name": "呪詛の刻印",
+  "on_death": [
+    {
+      "timing": "IMMEDIATE",
+      "type": "APPLY_STATE",
+      "target": "ALL_ENEMIES",
+      "state_name": "呪い",
+      "value": 2
+    },
+    {
+      "timing": "IMMEDIATE",
+      "type": "APPLY_BUFF",
+      "target": "NEXT_ALLY",
+      "buff_name": "Power_Atk3",
+      "lasting": 2
+    }
+  ]
+}
+```
+
+このバフを持つキャラクターが死亡すると:
+
+1. 全ての敵に「呪い」スタックを2付与
+2. 次の手番の味方に「Power_Atk3」バフを2ラウンド付与
+
+**使用可能な効果タイプ:**
+
+* `APPLY_STATE`: 状態異常を付与
+* `APPLY_BUFF`: バフを付与
+* その他、スキル効果で使用可能な全てのタイプ
+
 <div style="page-break-after: always;"></div>
 
 ## 3. アイテム定義 (`items_cache.json`)
@@ -212,6 +270,24 @@ ID `S-XX` で定義されるパッシブスキルです。
       ]
     }
     ```
+
+* **Death Effect**: 死亡時に自動発動。
+
+    ```json
+    "effect": {
+      "on_death": [
+        {
+          "timing": "IMMEDIATE",
+          "type": "APPLY_STATE",
+          "target": "ALL_ENEMIES",
+          "state_name": "戦慄",
+          "value": 3
+        }
+      ]
+    }
+    ```
+
+    このキャラクターが死亡すると、全ての敵に「戦慄」を3スタック付与します。
 
 ### 4.2 出身ボーナス (Origin Bonuses)
 
