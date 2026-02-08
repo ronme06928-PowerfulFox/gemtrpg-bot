@@ -727,8 +727,8 @@
     "ダイス威力": "+1d4",
     "使用時効果": "[使用時]:FPを1消費",
     "特記": "",
-    "発動時効果": "[的中時]破裂3を付与。",
-    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"FP\", \"value\": 1}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 3}]}",
+    "発動時効果": "[的中時]破裂5を付与。",
+    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"FP\", \"value\": 1}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 5}]}",
     "tags": [
       "攻撃"
     ]
@@ -745,8 +745,8 @@
     "ダイス威力": "+1d4",
     "使用時効果": "[使用時]:FPを2消費",
     "特記": "対象に破裂があるなら基礎威力+1",
-    "発動時効果": "[的中時]破裂5を付与。対象の破裂が8以上なら、破裂5を付与。",
-    "特記処理": "{\"power_bonus\": [{\"source\": \"target\",\"param\": \"破裂\",\"operation\": \"FIXED_IF_EXISTS\",\"value\": 1}],\"cost\": [{\"type\": \"FP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 5},{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 5,\"condition\": {\"source\": \"target\",\"param\": \"破裂\",\"operator\": \"GTE\",\"value\": 8}}]}",
+    "発動時効果": "[的中時]破裂7を付与。対象の破裂が8以上なら、破裂5を付与。",
+    "特記処理": "{\"power_bonus\": [{\"source\": \"target\",\"param\": \"破裂\",\"operation\": \"FIXED_IF_EXISTS\",\"value\": 1}],\"cost\": [{\"type\": \"FP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 7},{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 5,\"condition\": {\"source\": \"target\",\"param\": \"破裂\",\"operator\": \"GTE\",\"value\": 8}}]}",
     "tags": [
       "攻撃"
     ]
@@ -763,8 +763,8 @@
     "ダイス威力": "+1d4",
     "使用時効果": "[使用時]:FPを2消費",
     "特記": "",
-    "発動時効果": "[マッチ勝利時]破裂7を付与。",
-    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"FP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"WIN\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 7}]}",
+    "発動時効果": "[マッチ勝利時]破裂10を付与。",
+    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"FP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"WIN\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 10}]}",
     "tags": [
       "攻撃"
     ]
@@ -1319,8 +1319,8 @@
     "ダイス威力": "+1d4",
     "使用時効果": "[使用時]:MPを2消費。",
     "特記": "",
-    "発動時効果": "[マッチ勝利時] 破裂4を付与",
-    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"WIN\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 4}]}",
+    "発動時効果": "[マッチ勝利時] 破裂6を付与",
+    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 2}],\n  \"effects\": [{\"timing\": \"WIN\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 6}]}",
     "tags": [
       "攻撃"
     ]
@@ -1373,8 +1373,8 @@
     "ダイス威力": "+1d4",
     "使用時効果": "[使用時]:MPを3消費。FPを2消費。",
     "特記": "対象の破裂2につき、このスキルの基礎威力+1(最大で2)",
-    "発動時効果": "[マッチ勝利時]破裂6を付与。[的中時]破裂4を付与。",
-    "特記処理": "{\"power_bonus\": [{\"source\": \"target\",\"param\": \"破裂\",\"operation\": \"PER_N_BONUS\",\"per_N\": 2,\"value\": 1,\"max_bonus\": 2}],\"cost\": [{\"type\": \"MP\", \"value\": 3},{\"type\":\"FP\",\"value\":2}],\n  \"effects\": [{\"timing\": \"WIN\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 6},{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 4}]}",
+    "発動時効果": "[マッチ勝利時]破裂8を付与。[的中時]破裂6を付与。",
+    "特記処理": "{\"power_bonus\": [{\"source\": \"target\",\"param\": \"破裂\",\"operation\": \"PER_N_BONUS\",\"per_N\": 2,\"value\": 1,\"max_bonus\": 2}],\"cost\": [{\"type\": \"MP\", \"value\": 3},{\"type\":\"FP\",\"value\":2}],\n  \"effects\": [{\"timing\": \"WIN\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 8},{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"破裂\",\"value\": 6}]}",
     "tags": [
       "攻撃"
     ]
