@@ -19,7 +19,8 @@ from manager.utils import get_effective_origin_id
 
 from manager.battle.core import (
     format_skill_display_from_command, process_on_damage_buffs,
-    execute_pre_match_effects, proceed_next_turn, process_on_hit_buffs
+    execute_pre_match_effects, proceed_next_turn, format_skill_name_for_log,
+    process_on_hit_buffs
 )
 from plugins.buffs.dodge_lock import DodgeLockBuff
 from manager.logs import setup_logger
@@ -120,7 +121,7 @@ def handle_skill_declaration(room, data, username):
                      c_type = cost.get("type")
                      if c_val > 0 and c_type:
                          curr = get_status_value(actor, c_type)
-                         _update_char_stat(room, actor, c_type, curr - c_val, username=f"[{skill_data.get('デフォルト名称', '')}]")
+                         _update_char_stat(room, actor, c_type, curr - c_val, username=f"[{format_skill_name_for_log(skill_id, skill_data, actor)}]")
              except:
                  effects_array = []
                  pass
@@ -144,7 +145,7 @@ def handle_skill_declaration(room, data, username):
              for (c, type, name, value) in changes:
                  if type == "APPLY_STATE":
                      curr = get_status_value(c, name)
-                     _update_char_stat(room, c, name, curr + value, username=f"[{skill_data.get('デフォルト名称', '')}]")
+                     _update_char_stat(room, c, name, curr + value, username=f"[{format_skill_name_for_log(skill_id, skill_data, actor)}]")
                  elif type == "APPLY_BUFF":
                      apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
                      broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
@@ -371,7 +372,7 @@ def execute_duel_match(room, data, username):
                             c_val = int(cost.get("value", 0))
                             if c_val > 0:
                                 curr = get_status_value(actor_a_char, cost.get("type"))
-                                _update_char_stat(room, actor_a_char, cost.get("type"), curr - c_val, username=f"[{skill_data_a.get('デフォルト名称')}]")
+                                _update_char_stat(room, actor_a_char, cost.get("type"), curr - c_val, username=f"[{format_skill_name_for_log(skill_id_a, skill_data_a, actor_a_char)}]")
                 except: pass
         if 'used_skills_this_round' not in actor_a_char: actor_a_char['used_skills_this_round'] = []
         actor_a_char['used_skills_this_round'].append(skill_id_a)
@@ -392,7 +393,7 @@ def execute_duel_match(room, data, username):
                             c_val = int(cost.get("value", 0))
                             if c_val > 0:
                                 curr = get_status_value(actor_d_char, cost.get("type"))
-                                _update_char_stat(room, actor_d_char, cost.get("type"), curr - c_val, username=f"[{skill_data_d.get('デフォルト名称')}]")
+                                _update_char_stat(room, actor_d_char, cost.get("type"), curr - c_val, username=f"[{format_skill_name_for_log(skill_id_d, skill_data_d, actor_d_char)}]")
                 except: pass
         if 'used_skills_this_round' not in actor_d_char: actor_d_char['used_skills_this_round'] = []
         actor_d_char['used_skills_this_round'].append(skill_id_d)
@@ -514,7 +515,9 @@ def execute_duel_match(room, data, username):
                         try:
                             bp = int(skill.get('基礎威力', 0))
                             bp += actor.get('_base_power_bonus', 0)
-                            _update_char_stat(room, actor, "荊棘", max(0, val - bp), username=f"[{skill.get('デフォルト名称')}]")
+                            # 荊棘処理では防御側のスキルを参照
+                            skill_id_for_log = skill_id_d if actor == actor_d_char else skill_id_a
+                            _update_char_stat(room, actor, "荊棘", max(0, val - bp), username=f"[{format_skill_name_for_log(skill_id_for_log, skill, actor)}]")
                             actor.pop('_base_power_bonus', None)
                         except ValueError: pass
 
@@ -1127,8 +1130,8 @@ def execute_duel_match(room, data, username):
         logger.error(f"エラー内容: {e}", exc_info=True)
         raise e
 
-    skill_display_a = format_skill_display_from_command(command_a, skill_id_a, skill_data_a)
-    skill_display_d = format_skill_display_from_command(command_d, skill_id_d, skill_data_d)
+    skill_display_a = format_skill_display_from_command(command_a, skill_id_a, skill_data_a, actor_a_char)
+    skill_display_d = format_skill_display_from_command(command_d, skill_id_d, skill_data_d, actor_d_char)
 
     if incap_logs:
         winner_message = f"{' '.join(incap_logs)}<br>{winner_message}"

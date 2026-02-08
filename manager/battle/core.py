@@ -61,20 +61,90 @@ def extract_cost_from_text(text):
         return match.group(1).strip()
     return "なし"
 
-def format_skill_display_from_command(command_str, skill_id, skill_data):
+def extract_custom_skill_name(character, skill_id):
     """
-    コマンド文字列に含まれる【ID 名称】を抽出して目立つ色で表示する。
+    キャラクターのcommandsからスキルIDに対応するカスタム名を抽出
+
+    Args:
+        character (dict): キャラクターデータ
+        skill_id (str): スキルID (例: "Pp-01")
+
+    Returns:
+        str: カスタムスキル名またはNone
     """
-    match = re.search(r'【(.*?)】', command_str)
-    text = ""
+    if not character or not skill_id:
+        return None
+
+    commands = character.get('commands', '')
+    if not commands:
+        return None
+
+    # 【Pp-01 刺し込むA】や【Pp-01: 刺し込むA】のようなパターンを検索
+    # スペースまたはコロン（全角・半角）で区切られた名前を抽出
+    pattern = rf'【{re.escape(skill_id)}[\s:：]+(.*?)】'
+    match = re.search(pattern, commands)
 
     if match:
-        text = f"【{match.group(1)}】"
-    elif skill_id and skill_data:
-        name = skill_data.get('デフォルト名称', '不明')
-        text = f"【{skill_id}: {name}】"
+        return match.group(1).strip()
+
+    return None
+
+def format_skill_name_for_log(skill_id, skill_data, character=None):
+    """
+    ログ用のスキル名をフォーマットする
+    キャラクター情報が提供されている場合はカスタム名を優先、
+    なければデフォルト名を使用
+
+    Args:
+        skill_id (str): スキルID (例: "Pp-01")
+        skill_data (dict): スキルデータ
+        character (dict): キャラクターデータ（オプション）
+
+    Returns:
+        str: フォーマットされたスキル名 (例: "Pp-01: 刺し込むA")
+    """
+    if not skill_id:
+        return "不明"
+
+    # カスタム名を取得
+    custom_name = None
+    if character:
+        custom_name = extract_custom_skill_name(character, skill_id)
+
+    # カスタム名があればそれを使用、なければデフォルト名
+    if custom_name:
+        return f"{skill_id}: {custom_name}"
+    elif skill_data:
+        default_name = skill_data.get('デフォルト名称', '')
+        if default_name:
+            return f"{skill_id}: {default_name}"
+
+    # フォールバック: スキルIDのみ
+    return skill_id
+
+def format_skill_display_from_command(command_str, skill_id, skill_data, character=None):
+    """
+    コマンド文字列に含まれる【ID 名称】を抽出して目立つ色で表示する。
+    キャラクター情報が提供されている場合、カスタムスキル名を優先的に使用する。
+    """
+    # まずキャラクターのカスタム名を試みる
+    custom_name = None
+    if character and skill_id:
+        custom_name = extract_custom_skill_name(character, skill_id)
+
+    text = ""
+    if custom_name:
+        text = f"【{skill_id}: {custom_name}】"
     else:
-        return ""
+        # 既存のロジック：コマンド文字列から抽出
+        match = re.search(r'【(.*?)】', command_str)
+        if match:
+            text = f"【{match.group(1)}】"
+        elif skill_id and skill_data:
+            name = skill_data.get('デフォルト名称', '不明')
+            text = f"【{skill_id}: {name}】"
+        else:
+            return ""
 
     return f"<span style='color: #d63384; font-weight: bold;'>{text}</span>"
 
@@ -181,6 +251,12 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
     Match実行時のPRE_MATCH効果適用
     """
     if not skill_data or not actor: return
+
+    # スキルIDを取得（actor['used_skills_this_round']から最後に使用したスキルを取得）
+    skill_id = None
+    if 'used_skills_this_round' in actor and actor['used_skills_this_round']:
+        skill_id = actor['used_skills_this_round'][-1]
+
     try:
         rule_json_str = skill_data.get('特記処理', '{}')
         rule_data = json.loads(rule_json_str)
@@ -198,7 +274,7 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
         for (char, type, name, value) in changes:
             if type == "APPLY_STATE":
                 current_val = get_status_value(char, name)
-                _update_char_stat(room, char, name, current_val + value, username=f"[{skill_data.get('デフォルト名称', 'スキル')}]")
+                _update_char_stat(room, char, name, current_val + value, username=f"[{format_skill_name_for_log(skill_id, skill_data, actor)}]")
             elif type == "APPLY_BUFF":
                 apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
                 broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
