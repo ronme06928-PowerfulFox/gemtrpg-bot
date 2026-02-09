@@ -128,18 +128,14 @@
     "name": "小麦色の風",
     "description": "ラウンド開始時、FPを1獲得する。",
     "flavor": "よく食べ、よく働き、よく眠り、よく戦う。昼夜が移るように、花が咲き枯れるように、風が自由に巡るように。ラティウムで生きるというのは、そういうことだ。",
-    "effect": {
-      "type": "plugin",
-      "name": "latium",
-      "category": "buff"
-    },
+    "effect": {},
     "default_duration": -1
   },
   "Bu-11": {
     "id": "Bu-11",
     "name": "加速",
-    "description": "ラウンド開始時、速度補正に+（スタック数）を加算。速度ロール後にクリアされる。",
-    "flavor": "",
+    "description": "ラウンド開始時、速度補正に+（スタック数）を加算。速度値ロール後にクリアされる。",
+    "flavor": "逸る気持ち、滾る血液。なんでも早いに越したことはない。あるいは、速ければ越されることもない。",
     "effect": {
       "type": "plugin",
       "name": "speed_mod",
@@ -150,13 +146,93 @@
   "Bu-12": {
     "id": "Bu-12",
     "name": "減速",
-    "description": "ラウンド開始時、速度補正に−（スタック数）を減算。速度ロール後にクリアされる。",
-    "flavor": "",
+    "description": "ラウンド開始時、速度補正に−（スタック数）を減算。速度値ロール後にクリアされる。",
+    "flavor": "焦る気持ち、止る足取り。追い付こうとして変に急くよりも、追い越した者たちの背をよく見るべきかもしれない。",
     "effect": {
       "type": "plugin",
       "name": "speed_mod",
       "category": "debuff"
     },
+    "default_duration": -1
+  },
+  "Bu-13": {
+    "id": "Bu-13",
+    "name": "アヌッサ・ホロウ",
+    "description": "MPの上限+1。",
+    "flavor": "",
+    "effect": {},
+    "default_duration": -1
+  },
+  "Bu-14": {
+    "id": "Bu-14",
+    "name": "マホロバ",
+    "description": "ラウンド終了時、HPを3回復する。",
+    "flavor": "",
+    "effect": {},
+    "default_duration": -1
+  },
+  "Bu-15": {
+    "id": "Bu-15",
+    "name": "ラグラゼシス・都市部",
+    "description": "魔法スキル限定の経験+1。情報系探索スキルのLvが+1。",
+    "flavor": "",
+    "effect": {},
+    "default_duration": -1
+  },
+  "Bu-16": {
+    "id": "Bu-16",
+    "name": "ラグラゼシス・非都市部",
+    "description": "経験+1。情報系探索スキルのLvが-1。",
+    "flavor": "",
+    "effect": {},
+    "default_duration": -1
+  },
+  "Bu-17": {
+    "id": "Bu-17",
+    "name": "反撃の石",
+    "description": "防御スキルを使用してマッチ勝利時、自分スキルの威力が相手スキルの威力を越えた分の値だけ相手に反撃ダメージ。",
+    "flavor": "固めた防御姿勢から、瞬時に反撃を為す。ギァン・バルフの実力者たちは皆こう言う。「耐え、守り、潰す。勝つために必要なのは、その意志だ」",
+    "effect": {},
+    "default_duration": -1
+  },
+  "Bu-18": {
+    "id": "Bu-18",
+    "name": "綿津見",
+    "description": "斬撃スキルの基礎威力+1。",
+    "flavor": "",
+    "effect": {},
+    "default_duration": -1
+  },
+  "Bu-19": {
+    "id": "Bu-19",
+    "name": "畏怖の衣",
+    "description": "マッチ相手のスキル最終威力を-１。",
+    "flavor": "血と涙で魂を濯ぎ、血肉に重ねた研鑽。重厚なる威圧となり、万敵の気勢を削がん。",
+    "effect": {},
+    "default_duration": -1
+  },
+  "Bu-20": {
+    "id": "Bu-20",
+    "name": "世界を見下ろす黒鳥",
+    "description": "他の国の出身ボーナスを一つ選んで取得できる。",
+    "flavor": "世界を観察する黒い羽達――彼等を縛る組織、国はなくただただ自由に世界を舞う。",
+    "effect": {},
+    "default_duration": -1
+  },
+  "Bu-21": {
+    "id": "Bu-21",
+    "name": "ヨキューク・ツォー",
+    "description": "他の国の出身ボーナスを一つ選んで取得できる。",
+    "flavor": "",
+    "effect": {},
+    "default_duration": -1
+  },
+  "Bu-22": {
+    "id": "Bu-22",
+    "name": "アーク・ジェムリア",
+    "description": "他の国の出身ボーナスを一つ選んで取得できる。",
+    "flavor": "",
+    "effect": {},
     "default_duration": -1
   }
 }
