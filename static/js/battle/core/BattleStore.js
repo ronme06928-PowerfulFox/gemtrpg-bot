@@ -78,8 +78,10 @@ class BattleStore {
 
         if (!isClearingCharacters && isPreservingCharacters) {
             if (newState.timeline && newState.timeline.length === 0 && this._state.timeline && this._state.timeline.length > 0) {
-                console.warn('BattleStore: Attempt to clear TIMELINE rejected (Safety Guard). Characters are preserved.');
-                delete newState.timeline;
+                // Relaxed guard: Allow clearing timeline for Status Reset
+                // console.warn('BattleStore: Attempt to clear TIMELINE rejected (Safety Guard). Characters are preserved.');
+                // delete newState.timeline;
+                console.log('BattleStore: Timeline cleared while characters preserved (Status Reset mode).');
             }
         }
 

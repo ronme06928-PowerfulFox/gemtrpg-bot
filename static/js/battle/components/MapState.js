@@ -10,10 +10,18 @@ import { CENTER_OFFSET_X, CENTER_OFFSET_Y } from '../utils/Constants.js';
 
 class MapState {
     constructor() {
+        // Initialize from localStorage
+        const storedScale = localStorage.getItem('gem_visualScale');
+        const storedX = localStorage.getItem('gem_visualOffsetX');
+        const storedY = localStorage.getItem('gem_visualOffsetY');
+        const defaultScale = 0.6; // Default to 0.6
+        const defaultOffsetX = typeof CENTER_OFFSET_X !== 'undefined' ? CENTER_OFFSET_X : -900;
+        const defaultOffsetY = typeof CENTER_OFFSET_Y !== 'undefined' ? CENTER_OFFSET_Y : -900;
+
         this._state = {
-            scale: 1.0,
-            offsetX: typeof CENTER_OFFSET_X !== 'undefined' ? CENTER_OFFSET_X : -900,
-            offsetY: typeof CENTER_OFFSET_Y !== 'undefined' ? CENTER_OFFSET_Y : -900
+            scale: storedScale ? parseFloat(storedScale) : defaultScale,
+            offsetX: storedX ? parseFloat(storedX) : defaultOffsetX,
+            offsetY: storedY ? parseFloat(storedY) : defaultOffsetY
         };
         this._listeners = new Set();
     }
@@ -76,7 +84,7 @@ class MapState {
         const defaultOffsetX = typeof CENTER_OFFSET_X !== 'undefined' ? CENTER_OFFSET_X : -900;
         const defaultOffsetY = typeof CENTER_OFFSET_Y !== 'undefined' ? CENTER_OFFSET_Y : -900;
         this.setState({
-            scale: 1.0,
+            scale: 0.6,
             offsetX: defaultOffsetX,
             offsetY: defaultOffsetY
         });

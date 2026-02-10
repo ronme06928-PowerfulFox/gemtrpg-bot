@@ -43,22 +43,35 @@ def ai_select_targets(state, room_id=None):
     log_messages = []
 
     for enemy in enemies:
-        # Random Target Selection
-        target = random.choice(allies)
+        if enemy.get('isWideUser', False):
+            # Wide Attack: Target ALL allies
+            for ally in allies:
+                arrow = {
+                    "from_id": enemy['id'],
+                    "to_id": ally['id'],
+                    "type": "attack",
+                    "visible": True
+                }
+                new_arrows.append(arrow)
 
-        arrow = {
-            "from_id": enemy['id'],
-            "to_id": target['id'],
-            "type": "attack",
-            "visible": True
-        }
-        new_arrows.append(arrow)
+            msg = f"{enemy['name']} ➔ 全員 (広域攻撃)"
+        else:
+            # Random Target Selection (Normal)
+            target = random.choice(allies)
 
-        # Update enemy internal state
-        enemy['ai_current_target_id'] = target['id']
+            arrow = {
+                "from_id": enemy['id'],
+                "to_id": target['id'],
+                "type": "attack",
+                "visible": True
+            }
+            new_arrows.append(arrow)
 
-        # Log Message Construction
-        msg = f"{enemy['name']} ➔ {target['name']}"
+            # Update enemy internal state
+            enemy['ai_current_target_id'] = target['id']
+
+            # Log Message Construction
+            msg = f"{enemy['name']} ➔ {target['name']}"
 
         # Planned Skill Display
         if enemy.get('flags', {}).get('show_planned_skill'):

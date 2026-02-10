@@ -301,4 +301,9 @@ window.setupVisualSocketHandlers = function () {
     }
 
     console.log('[visual_socket] Socket handlers registered.');
+
+    // Initialize Wide Match Listeners (Phase 4-5)
+    if (typeof window.initWideMatchSocketListeners === 'function') {
+        window.initWideMatchSocketListeners();
+    }
 }

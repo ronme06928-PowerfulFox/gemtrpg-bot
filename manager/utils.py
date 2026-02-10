@@ -80,8 +80,18 @@ def set_status_value(char_obj, status_name, new_value):
     if state:
         state['value'] = safe_new_value
     else:
-        if 'states' not in char_obj: char_obj['states'] = []
-        char_obj['states'].append({"name": status_name, "value": safe_new_value})
+        # Check params if not in states
+        # paramsの値を更新することで、get_status_valueがparams優先で取得する挙動と整合させる
+        updated_param = False
+        for param in char_obj.get('params', []):
+            if param.get('label') == status_name:
+                param['value'] = str(safe_new_value)
+                updated_param = True
+                break
+
+        if not updated_param:
+            if 'states' not in char_obj: char_obj['states'] = []
+            char_obj['states'].append({"name": status_name, "value": safe_new_value})
 
 def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
     """バフを付与・更新する"""

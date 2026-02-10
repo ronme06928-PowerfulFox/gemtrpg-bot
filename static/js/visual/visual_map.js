@@ -53,6 +53,8 @@ window.renderVisualMap = function () {
         if (char.x >= 0 && char.y >= 0 && char.hp > 0) {
             validCharIds.add(char.id);
 
+
+
             // Global Local State Override (Optimistic UI)
             if (window._localCharPositions && window._localCharPositions[char.id]) {
                 const localMove = window._localCharPositions[char.id];
@@ -70,8 +72,30 @@ window.renderVisualMap = function () {
                 // Update Existing Token
                 if (char.id === currentTurnId) {
                     if (!token.classList.contains('active-turn')) token.classList.add('active-turn');
+
+                    // Check and Add Wide Button if missing
+                    const isWideMatchExecuting = battleState.active_match && battleState.active_match.is_active && battleState.active_match.match_type === 'wide';
+                    let wideBtn = token.querySelector('.wide-attack-trigger-btn');
+
+                    if (char.isWideUser && !isWideMatchExecuting) {
+                        if (!wideBtn) {
+                            // Create button
+                            const btnHtml = '<button class="wide-attack-trigger-btn" style="transform: scale(1.2); top: -40px; font-size: 1.1em;" onclick="event.stopPropagation(); window._dragBlockClick = true; setTimeout(() => { window._dragBlockClick = false; }, 100); openSyncedWideMatchModal(\'' + char.id + '\');">⚡ 広域</button>';
+                            // Prepend to token (similar to createMapToken)
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = btnHtml;
+                            const newBtn = tempDiv.firstElementChild;
+                            token.insertBefore(newBtn, token.firstChild);
+                        }
+                    } else {
+                        // Remove if exists but shouldn't (e.g. executed)
+                        if (wideBtn) wideBtn.remove();
+                    }
                 } else {
                     if (token.classList.contains('active-turn')) token.classList.remove('active-turn');
+                    // Cleanup Wide Button if not turn char
+                    const wideBtn = token.querySelector('.wide-attack-trigger-btn');
+                    if (wideBtn) wideBtn.remove();
                 }
 
                 // Update Position (Skip if dragging)
@@ -475,7 +499,7 @@ window.createMapToken = function (char) {
     let wideBtnHtml = '';
     const isWideMatchExecuting = battleState.active_match && battleState.active_match.is_active && battleState.active_match.match_type === 'wide';
     if (isCurrentTurn && char.isWideUser && !isWideMatchExecuting) {
-        wideBtnHtml = '<button class="wide-attack-trigger-btn" style="transform: scale(1.2); top: -40px; font-size: 1.1em;" onclick="event.stopPropagation(); window._dragBlockClick = true; openSyncedWideMatchModal(\'' + char.id + '\');">⚡ 広域</button>';
+        wideBtnHtml = '<button class="wide-attack-trigger-btn" style="transform: scale(1.2); top: -40px; font-size: 1.1em;" onclick="event.stopPropagation(); window._dragBlockClick = true; setTimeout(() => { window._dragBlockClick = false; }, 100); openSyncedWideMatchModal(\'' + char.id + '\');">⚡ 広域</button>';
     }
 
     let tokenBodyStyle = `width: 100%; height: 100%; border-radius: 14px 14px 0 0; overflow: hidden; position: relative; background: #eee;`;

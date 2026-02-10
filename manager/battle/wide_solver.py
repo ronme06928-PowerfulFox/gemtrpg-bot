@@ -104,7 +104,8 @@ def update_defender_declaration(room, data):
                 'final_command': command,
                 'min': data.get('min'),
                 'max': data.get('max'),
-                'damage_range_text': data.get('damage_range_text') # If client sends it
+                'damage_range_text': data.get('damage_range_text'), # If client sends it
+                'senritsu_penalty': data.get('senritsu_penalty', 0)
             }
             updated = True
             break
@@ -202,6 +203,9 @@ def execute_wide_match(room, username):
              def_skill_id = def_data.get('skill_id')
              def_skill_data = all_skill_data.get(def_skill_id)
              consume_skill_cost(def_char, def_skill_data, def_skill_id)
+             if 'used_skills_this_round' not in def_char:
+                 def_char['used_skills_this_round'] = []
+             def_char['used_skills_this_round'].append(def_skill_id)
 
     if 'used_skills_this_round' not in attacker_char:
         attacker_char['used_skills_this_round'] = []
@@ -215,6 +219,15 @@ def execute_wide_match(room, username):
     broadcast_log(room, f"   → ロール: {attacker_roll['details']} = {attacker_roll['total']}", 'dice')
 
     attacker_total = attacker_roll['total']
+
+    # --- Senritsu (Terror) Penalty: Attacker ---
+    attacker_senritsu_penalty = int(attacker_data.get('senritsu_penalty', 0))
+    if attacker_senritsu_penalty > 0:
+        attacker_total = max(0, attacker_total - attacker_senritsu_penalty)
+        # Consume Senritsu
+        curr_senritsu = get_status_value(attacker_char, '戦慄')
+        _update_char_stat(room, attacker_char, '戦慄', max(0, curr_senritsu - attacker_senritsu_penalty), username=f"[{attacker_char['name']}:戦慄消費(ダイス-{attacker_senritsu_penalty})]")
+        broadcast_log(room, f"   → 戦慄ペナルティ: -{attacker_senritsu_penalty} (最終: {attacker_total})", 'dice')
 
     # --- Wadatsumi (ID: 9) Bonus: Slash Power +1 ---
     attacker_origin = get_effective_origin_id(attacker_char)
@@ -350,6 +363,15 @@ def execute_wide_match(room, username):
                  def_command = def_data['data']['final_command']
 
             def_roll_result = roll_dice(def_command)
+
+            # --- Senritsu (Terror) Penalty: Defender ---
+            def_senritsu_penalty = int(def_data.get('data', {}).get('senritsu_penalty', 0))
+            if def_senritsu_penalty > 0:
+                def_roll_result['total'] = max(0, def_roll_result['total'] - def_senritsu_penalty)
+                # Consume Senritsu
+                curr_senritsu = get_status_value(def_char, '戦慄')
+                _update_char_stat(room, def_char, '戦慄', max(0, curr_senritsu - def_senritsu_penalty), username=f"[{def_char['name']}:戦慄消費(ダイス-{def_senritsu_penalty})]")
+                def_roll_result['details'] += f" -戦慄({def_senritsu_penalty})"
 
             defender_rolls.append({
                 'char': def_char,
@@ -503,6 +525,16 @@ def execute_wide_match(room, username):
 
             def_roll = roll_dice(def_command)
             defender_total = def_roll['total']
+
+            # --- Senritsu (Terror) Penalty: Defender ---
+            def_senritsu_penalty = int(def_data.get('data', {}).get('senritsu_penalty', 0))
+            if def_senritsu_penalty > 0:
+                defender_total = max(0, defender_total - def_senritsu_penalty)
+                def_roll['total'] = defender_total
+                # Consume Senritsu
+                curr_senritsu = get_status_value(def_char, '戦慄')
+                _update_char_stat(room, def_char, '戦慄', max(0, curr_senritsu - def_senritsu_penalty), username=f"[{def_char['name']}:戦慄消費(ダイス-{def_senritsu_penalty})]")
+                def_roll['details'] += f" -戦慄({def_senritsu_penalty})"
 
             # --- Walwaire (ID: 13) Logic (Individual) ---
 

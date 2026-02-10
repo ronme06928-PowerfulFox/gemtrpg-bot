@@ -70,7 +70,7 @@ window.setupMapControls = function () {
         saveVisualSettings();
     };
     if (rView) rView.onclick = () => {
-        visualScale = 0.7; // Default 0.7
+        visualScale = 0.6; // Default 0.6
         visualOffsetX = (typeof CENTER_OFFSET_X !== 'undefined' ? CENTER_OFFSET_X : -900);
         visualOffsetY = (typeof CENTER_OFFSET_Y !== 'undefined' ? CENTER_OFFSET_Y : -900);
         updateMapTransform();

@@ -21,6 +21,10 @@ window.renderArrows = function () {
     }
 
     if (!window.VISUAL_SHOW_ARROWS) return;
+
+    // ★ Added: Hide arrows if not in PvE mode (User requirement)
+    if (battleState.battle_mode !== 'pve') return;
+
     if (!battleState || !battleState.ai_target_arrows) return;
 
     const currentTurnCharId = battleState.turn_char_id;

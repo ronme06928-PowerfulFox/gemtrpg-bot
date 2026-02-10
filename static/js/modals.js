@@ -1267,7 +1267,7 @@ function openResetTypeModal(callback) {
             states: document.getElementById('reset-opt-fp').checked, // 蓄積値はFPと一緒に扱う簡易実装
             bad_states: document.getElementById('reset-opt-bad').checked,
             buffs: document.getElementById('reset-opt-buffs').checked,
-            timeline: false // ステータスリセットではタイムラインはクリアしない（必要ならオプション追加）
+            timeline: true // ステータスリセット時にタイムラインもクリア
         };
 
         if (confirm('選択した内容でステータスをリセットしますか？')) {

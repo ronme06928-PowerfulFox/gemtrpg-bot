@@ -733,6 +733,7 @@
                         wideMatchLocalState.defenders[defId].command = result.command;
                         wideMatchLocalState.defenders[defId].min = result.min;
                         wideMatchLocalState.defenders[defId].max = result.max;
+                        wideMatchLocalState.defenders[defId].senritsu_dice_reduction = result.senritsu_dice_reduction; // ★ 追加
 
                         // ★ local cache への保存 (自分が計算した場合)
                         if (!window._wideLocalCalcCache) window._wideLocalCalcCache = { attacker: null, defenders: {} };
@@ -851,7 +852,8 @@
                     skill_id: localData.skillId,
                     command: localData.command,
                     min: localData.min,
-                    max: localData.max
+                    max: localData.max,
+                    senritsu_penalty: localData.senritsu_dice_reduction || 0
                 });
 
                 this.disabled = true;
@@ -1438,7 +1440,8 @@
                     skill_id: skillId,
                     command: command,
                     min: minDmg,
-                    max: maxDmg
+                    max: maxDmg,
+                    senritsu_penalty: wideMatchLocalState.attackerSenritsuDiceReduction || 0
                 });
 
                 // Disable button and update display with range preserved

@@ -266,7 +266,16 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
             log_message = f"{username}: {char['name']}: {stat_name} ({old_value}) → (なし)"
     else:
         state = next((s for s in char['states'] if s.get('name') == stat_name), None)
-        if state:
+        # ★ 追加: paramsにも存在する場合、そちらを優先する (get/set_status_valueの挙動に合わせる)
+        param = next((p for p in char.get('params', []) if p.get('label') == stat_name), None)
+
+        if param:
+             try: old_value = int(param.get('value', 0))
+             except: old_value = param.get('value')
+             set_status_value(char, stat_name, new_value)
+             new_val_from_logic = get_status_value(char, stat_name)
+             log_message = f"{username}: {char['name']}: {stat_name} ({old_value}) → ({new_val_from_logic})"
+        elif state:
             old_value = state['value']
             set_status_value(char, stat_name, new_value)
             new_val_from_logic = get_status_value(char, stat_name)

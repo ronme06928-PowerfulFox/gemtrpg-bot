@@ -9,7 +9,7 @@ const storedScale = localStorage.getItem('gem_visualScale');
 const storedX = localStorage.getItem('gem_visualOffsetX');
 const storedY = localStorage.getItem('gem_visualOffsetY');
 
-window.visualScale = storedScale ? parseFloat(storedScale) : 0.7; // Default to 0.7 as requested
+window.visualScale = storedScale ? parseFloat(storedScale) : 0.6; // Default to 0.6 as requested
 window.visualOffsetX = storedX ? parseFloat(storedX) : (typeof CENTER_OFFSET_X !== 'undefined' ? CENTER_OFFSET_X : -900);
 window.visualOffsetY = storedY ? parseFloat(storedY) : (typeof CENTER_OFFSET_Y !== 'undefined' ? CENTER_OFFSET_Y : -900);
 

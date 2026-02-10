@@ -11,6 +11,7 @@ from manager.room_manager import (
 )
 from manager.constants import DamageSource
 from manager.battle.core import proceed_next_turn
+from manager.battle.battle_ai import ai_select_targets
 from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
@@ -202,6 +203,7 @@ def reset_battle_logic(room, mode, username, reset_options=None):
         # (Status only reset usually implies starting over but keeping chars)
         state['round'] = 0
         state['is_round_ended'] = False
+        state['ai_target_arrows'] = [] # Reset AI arrows
 
         if reset_options.get('timeline'):
             state['timeline'] = []
@@ -684,6 +686,8 @@ def process_wide_declarations(room, wide_user_ids):
 
     # ★修正: Latium (ID: 3) などのターン開始時効果を確実にするため
     # proceed_next_turn を呼び出し、その結果を確認する
+    # Also update AI Arrows (for Wide Match visualization)
+    ai_select_targets(state, room)
     proceed_next_turn(room)
 
 def process_wide_modal_confirm(room, user_id, attribute, wide_ids):
@@ -789,13 +793,11 @@ def process_switch_battle_mode(room, mode, username):
     state['battle_mode'] = mode
     broadcast_log(room, f"戦闘モードが変更されました: {old_mode.upper()} → {mode.upper()}", 'system')
 
-    # PvEになったらターゲット再抽選
-    if mode == 'pve':
-        from manager.battle.battle_ai import ai_select_targets
-        ai_select_targets(state)
-        # ログは ai_select_targets 内では出ないのでここで出すか、AIロジック側で出すか
-        # とりあえずAI側でdebugログ出してるが、ユーザーに見えるログも少し出す
-        broadcast_log(room, "AIがターゲットを選定しました。", 'info', secret=True)
+    # PvEになったらターゲット再抽選 -> ユーザー要望により廃止 (ラウンド開始時のみ)
+    # if mode == 'pve':
+    #     from manager.battle.battle_ai import ai_select_targets
+    #     ai_select_targets(state)
+    #     broadcast_log(room, "AIがターゲットを選定しました。", 'info', secret=True)
 
     save_specific_room_state(room)
     broadcast_state_update(room)
