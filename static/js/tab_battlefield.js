@@ -968,6 +968,11 @@ function openWideDeclarationModal() {
 
 // --- ★初期化関数 (すべてのリスナー登録をここに集約) ---
 function setupBattlefieldTab() {
+    // Ensure skill metadata is loaded (moved from top-level)
+    if (typeof fetchSkillMetadata === 'function') {
+        fetchSkillMetadata();
+    }
+
     // 1. DOM要素のセットアップ (毎回必要)
     const openLoadModalBtn = document.getElementById('open-char-load-modal-btn');
     if (openLoadModalBtn) {
@@ -1527,6 +1532,7 @@ function openLogHistoryModal() {
     }, 50);
 }
 
-if (typeof fetchSkillMetadata === "function") {
-    fetchSkillMetadata();
-}
+// if (typeof fetchSkillMetadata === "function") {
+//     fetchSkillMetadata();
+// }
+console.log('✅ tab_battlefield.js loaded (wait for main.js init)');
