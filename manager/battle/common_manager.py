@@ -502,21 +502,44 @@ def process_round_start(room, username):
     timeline_unsorted = []
     import uuid
 
+    # Debug: Log start of timeline generation
+    logger.info(f"[Timeline] Starting generation for Round {state.get('round')}. Total chars: {len(state.get('characters', []))}")
+
     for char in state.get('characters', []):
-        if char.get('hp', 0) <= 0: continue
-        if char.get('is_escaped', False): continue
-        if char.get('x', -1) < 0: continue
+        # Type-safe checks
+        try:
+            hp = int(char.get('hp', 0))
+            x_val = float(char.get('x', -1))
+            escaped = bool(char.get('is_escaped', False))
+        except (ValueError, TypeError):
+            logger.warning(f"[Timeline] Type mismatch for char {char.get('name', 'Unknown')}. Skipping.")
+            continue
+
+        if hp <= 0:
+            logger.debug(f"[Timeline] Skip {char.get('name')} (HP<=0)")
+            continue
+        if escaped:
+             logger.debug(f"[Timeline] Skip {char.get('name')} (Escaped)")
+             continue
+        if x_val < 0:
+             logger.debug(f"[Timeline] Skip {char.get('name')} (Unplaced x={x_val})")
+             continue
 
         # Calculate Speed (1d6 + Speed/6)
         # Clear previous totalSpeed
         char['totalSpeed'] = None
-        speed_param = get_status_value(char, '速度')
+
+        speed_val = 0
+        try:
+            speed_val = int(get_status_value(char, '速度'))
+        except:
+            speed_val = 0
 
         # ★ 加速・減速による速度補正
         from plugins.buffs.speed_mod import SpeedModBuff
         speed_modifier = SpeedModBuff.get_speed_modifier(char)
 
-        initiative = (speed_param // 6) + speed_modifier
+        initiative = (speed_val // 6) + speed_modifier
 
         if speed_modifier != 0:
             mod_text = f"+{speed_modifier}" if speed_modifier > 0 else str(speed_modifier)
@@ -526,10 +549,13 @@ def process_round_start(room, username):
         SpeedModBuff.clear_speed_modifiers(char)
 
         # 行動回数を取得 (デフォルト1)
-        action_count = get_status_value(char, '行動回数')
+        try:
+             action_count = int(get_status_value(char, '行動回数'))
+        except:
+             action_count = 1
         action_count = max(1, action_count)
 
-        logger.debug(f"[SPEED ROLL] {char['name']}: speed={speed_param} (init={initiative}), count={action_count}")
+        logger.debug(f"[SPEED ROLL] {char['name']}: speed={speed_val} (init={initiative}), count={action_count}")
 
         for i in range(action_count):
             roll = random.randint(1, 6)
@@ -562,6 +588,8 @@ def process_round_start(room, username):
 
     # Store full objects
     state['timeline'] = timeline_unsorted
+    logger.info(f"[Timeline] Generated {len(timeline_unsorted)} entries.")
+
     state['turn_char_id'] = None
     state['turn_entry_id'] = None
 

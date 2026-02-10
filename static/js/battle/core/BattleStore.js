@@ -55,6 +55,36 @@ class BattleStore {
      * @param {Object} newState - 更新する状態のサブセット
      */
     setState(newState) {
+        // Debug: Log Store Update
+        const newtl = newState.timeline ? newState.timeline.length : 'undef';
+        const newch = newState.characters ? newState.characters.length : 'undef';
+        const oldtl = this._state.timeline ? this._state.timeline.length : 'undef';
+        console.log(`📦 Store.setState: New(tl=${newtl}, ch=${newch}) vs Old(tl=${oldtl})`);
+
+        // Safety check: Prevent wiping state with empty arrays if we have valid data
+        // This is a heuristic to prevent accidental wipes from partial/glitchy updates.
+
+        // Refined Logic (Phase 3 Fix):
+        // 1. We ALLOW clearing characters (Room Result). So NO guard for characters.
+
+        // 2. Protect Timeline ONLY if characters remain active.
+        // If characters are being cleared (newState.characters === []), we should allow timeline clear too.
+        // If characters are NOT being cleared (newState.characters undefined or > 0), AND we have old characters,
+        // then an empty timeline is suspicious.
+
+        const isClearingCharacters = (newState.characters && newState.characters.length === 0);
+        const hasOldCharacters = (this._state.characters && this._state.characters.length > 0);
+        const isPreservingCharacters = (!newState.characters && hasOldCharacters) || (newState.characters && newState.characters.length > 0);
+
+        if (!isClearingCharacters && isPreservingCharacters) {
+            if (newState.timeline && newState.timeline.length === 0 && this._state.timeline && this._state.timeline.length > 0) {
+                console.warn('BattleStore: Attempt to clear TIMELINE rejected (Safety Guard). Characters are preserved.');
+                delete newState.timeline;
+            }
+        }
+
+
+
         this._state = { ...this._state, ...newState };
         this._syncToLegacy();
         this._notify();

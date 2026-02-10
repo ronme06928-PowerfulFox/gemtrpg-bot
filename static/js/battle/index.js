@@ -43,8 +43,14 @@ function initializeBattleSystem() {
             }
 
             // Phase 3: Initialize UI Components
-            const timelineInit = timeline.initialize();
-            console.log(`Timeline initialized: ${timelineInit}`);
+            // Timeline: Check if container exists before initializing to avoid errors on non-visual tabs
+            const timelineContainer = document.getElementById('visual-timeline-list');
+            if (timelineContainer) {
+                const timelineInit = timeline.initialize();
+                console.log(`Timeline initialized: ${timelineInit}`);
+            } else {
+                console.log('Timeline initialization skipped (Container not found). Will be initialized by visual_main.js later.');
+            }
 
             // matchPanel, actionDock, etc. initialization if needed
             // Currently they might self-initialize or handle their own events,

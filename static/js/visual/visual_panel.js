@@ -639,8 +639,19 @@ window.populateCharSkillSelect = function (char, elementId) {
         const skillData = window.allSkillData ? window.allSkillData[skillId] : null;
         if (skillData) {
             // Include explicit tag checks
-            const tags = skillData.tags || [];
-            if (tags.includes('広域') || tags.includes('広域攻撃') || tags.includes('即時発動') || tags.includes('宝石の加護')) continue;
+            let tags = skillData.tags || [];
+            if (typeof tags === 'string') {
+                // If tags is a string (comma separated or just one), split it or check directly
+                if (tags.includes(',')) tags = tags.split(',').map(t => t.trim());
+                else tags = [tags.trim()];
+            }
+
+            // Check for specific tags
+            const hasRestrictedTag = tags.some(t =>
+                ['広域', '広域攻撃', '即時発動', '宝石の加護'].includes(t)
+            );
+
+            if (hasRestrictedTag) continue;
 
             // Legacy check
             if (typeof isWideSkillData === 'function' && isWideSkillData(skillData)) continue;

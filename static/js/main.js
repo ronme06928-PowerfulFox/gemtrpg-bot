@@ -490,6 +490,18 @@ window.addEventListener('DOMContentLoaded', () => {
         loadItemData();
     }
 
+    // ★追加: 全スキルデータを読み込み (フィルタリング用)
+    fetch('/api/get_skill_data')
+        .then(res => res.json())
+        .then(data => {
+            window.allSkillData = data;
+            console.log('[OK] 全スキルデータを読み込みました:', Object.keys(data).length + '件');
+        })
+        .catch(err => {
+            console.error('[ERROR] スキルデータの読み込みに失敗:', err);
+            window.allSkillData = {};
+        });
+
     // ★ Phase 6: 輝化スキルデータをグローバルに読み込み
     fetch('/api/get_radiance_data')
         .then(res => res.json())

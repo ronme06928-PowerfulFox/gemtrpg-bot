@@ -56,6 +56,9 @@ window.setupVisualBattleTab = async function () {
         if (typeof updateVisualRoundDisplay === 'function') {
             updateVisualRoundDisplay(battleState.round);
         }
+        if (typeof renderVisualTimeline === 'function') {
+            renderVisualTimeline();
+        }
         if (typeof renderMatchPanelFromState === 'function') {
             renderMatchPanelFromState(battleState.active_match);
         }
@@ -72,6 +75,27 @@ window.setupVisualBattleTab = async function () {
     }
 
     console.log("✅ Visual Battle Tab Initialized.");
+}
+
+// Global wrapper for TimelineComponent
+window.renderVisualTimeline = function () {
+    if (window.TimelineComponent) {
+        // Ensure initialized
+        // Ensure initialized
+        const container = document.getElementById('visual-timeline-list');
+        if (container) {
+            // If not initialized OR container is empty (maybe re-created by tab switch), re-init
+            if (!window.TimelineComponent._initialized || container.children.length === 0) {
+                console.log('[VisualMain] Re-initializing Timeline component...');
+                window.TimelineComponent.initialize('visual-timeline-list');
+            }
+        }
+
+        if (typeof window.TimelineComponent.render === 'function') {
+            // Fix: TimelineComponent.render expects the FULL state object, not just the array
+            window.TimelineComponent.render(battleState || {});
+        }
+    }
 }
 
 // Auto-init if DOM is ready and we are not waiting for tab switch

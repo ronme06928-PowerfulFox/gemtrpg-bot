@@ -62,11 +62,11 @@ class Timeline {
         }
 
         if (!this._containerEl) {
-            console.error('Timeline: Container element is missing during render!');
+            console.warn('Timeline: Container element is missing during render! (Tab might be hidden)');
             return;
         }
 
-        const timeline = state.timeline || [];
+        const timeline = (state && state.timeline) ? state.timeline : [];
         const characters = state.characters || [];
         const currentTurnId = state.turn_char_id;
 
@@ -75,7 +75,8 @@ class Timeline {
         this._containerEl.innerHTML = '';
 
         if (timeline.length === 0) {
-            console.log('Timeline: No data to display.');
+            console.log(`Timeline: No data to display. Chars: ${characters.length}`);
+            // console.trace('Timeline Empty Render Trace');
             this._containerEl.innerHTML = '<div style="color:#888; padding:5px;">No Data</div>';
             return;
         }
@@ -100,7 +101,7 @@ class Timeline {
                 return;
             }
 
-            const item = this._createTimelineItem(char, entryId, state.turn_entry_id, acted, speed);
+            const item = this._createTimelineItem(char, entryId, state.turn_entry_id, state.turn_char_id, acted, speed);
             this._containerEl.appendChild(item);
         });
 
@@ -116,7 +117,7 @@ class Timeline {
      * @param {number} speed - 速度
      * @returns {HTMLElement}
      */
-    _createTimelineItem(char, entryId, currentTurnEntryId, acted, speed) {
+    _createTimelineItem(char, entryId, currentTurnEntryId, currentTurnCharId, acted, speed) {
         const item = document.createElement('div');
         item.className = `timeline-item ${char.type || 'NPC'}`;
 
@@ -135,9 +136,10 @@ class Timeline {
         const typeColor = (char.type === 'ally') ? '#007bff' : '#dc3545';
         item.style.borderLeft = `3px solid ${typeColor}`;
 
-        // 現在のターンのハイライト (Entry ID match)
-        // If currentTurnEntryId is missing (old state), backup check with char.id not perfect but okay
-        const isCurrentTurn = (currentTurnEntryId && entryId === currentTurnEntryId);
+        // 現在のターンのハイライト (Entry ID match OR Char ID match fallback)
+        // If currentTurnEntryId is missing (old state or reconstructed), backup check with char.id
+        const isCurrentTurn = (currentTurnEntryId && String(entryId) === String(currentTurnEntryId)) ||
+            (!currentTurnEntryId && String(char.id) === String(currentTurnCharId));
 
         if (isCurrentTurn) {
             Object.assign(item.style, {

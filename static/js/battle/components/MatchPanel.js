@@ -34,6 +34,17 @@ class MatchPanel {
             this._onMatchStateChange(state);
         });
 
+        // Bind UI Events
+        const toggleBtn = document.getElementById('panel-toggle-btn');
+        if (toggleBtn) {
+            toggleBtn.onclick = () => this.toggle();
+        }
+
+        const reloadBtn = document.getElementById('panel-reload-btn');
+        if (reloadBtn && typeof window.reloadMatchPanel === 'function') {
+            reloadBtn.onclick = () => window.reloadMatchPanel();
+        }
+
         this._initialized = true;
         console.log('✅ MatchPanel Component: Initialized');
         return true;

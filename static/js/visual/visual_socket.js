@@ -12,13 +12,23 @@ window.setupVisualSocketHandlers = function () {
 
     // --- State Update ---
     socket.on('state_updated', (state) => {
-        // console.log('📡 state_updated received');
-        if (typeof battleState !== 'undefined') {
-            battleState = state;
-        }
+        // Debug: Log incoming state details
+        const timelineLen = state.timeline ? state.timeline.length : 'undefined';
+        const charsLen = state.characters ? state.characters.length : 'undefined';
+        console.log(`📡 state_updated: timeline=${timelineLen}, chars=${charsLen}`, state);
+
+        // Create a flag to track if we handled this via Store
+        let processedByStore = false;
 
         if (window.BattleStore) {
+            // Let Store handle state management and sync to global battleState
+            // This allows Store guards to protect against invalid data
             window.BattleStore.setState(state);
+            processedByStore = true;
+        }
+
+        if (!processedByStore && typeof battleState !== 'undefined') {
+            battleState = state;
         }
 
         if (document.getElementById('visual-battle-container')) {

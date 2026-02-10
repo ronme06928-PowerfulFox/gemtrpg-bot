@@ -13,6 +13,7 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined') ?
 window.renderArrows = function () {
     const layer = document.getElementById('map-arrow-layer');
     if (!layer) return;
+    layer.style.zIndex = "9999"; // Force z-index to ensure visibility
 
     // クリア
     while (layer.lastChild) {
@@ -32,16 +33,20 @@ window.renderArrows = function () {
         defs.id = 'arrow-defs';
 
         // 赤マーカー
-        const markerRed = createMarker('arrowhead-red', '#dc3545');
+        const markerRed = createMarker('arrowhead-red', '#dc3545', 0.9);
         defs.appendChild(markerRed);
 
         // 警告マーカー
-        const markerWarn = createMarker('arrowhead-warn', '#ffc107');
+        const markerWarn = createMarker('arrowhead-warn', '#ffc107', 0.9);
         defs.appendChild(markerWarn);
 
         // デフォルトマーカー
-        const markerGray = createMarker('arrowhead-gray', '#888');
+        const markerGray = createMarker('arrowhead-gray', '#888', 0.5);
         defs.appendChild(markerGray);
+
+        // 青マーカー (Enemy Intent) ★追加
+        const markerBlue = createMarker('arrowhead-blue', '#1e90ff', 0.9);
+        defs.appendChild(markerBlue);
 
         layer.appendChild(defs);
     }
@@ -57,12 +62,12 @@ window.renderArrows = function () {
 
         if (!fromEl || !toEl) return;
 
+        // ★ Added: Has acted check (Display nothing)
+        const fromChar = battleState.characters.find(c => String(c.id) === String(fromId));
+        if (fromChar && fromChar.hasActed) return;
+
         // 座標計算 (Tokenの中心)
         // offsetLeft/Top は relative parent (game-map) からの座標なのでそのまま使える
-        // ただし transform がかかっている map-token-layer 内ではなく、
-        // game-map 直下の map-token-layer と兄弟の SVG なので、同じ座標系。
-
-        // トークンは position:absolute; left/top 指定されている
         const fromX = parseFloat(fromEl.style.left) + (fromEl.offsetWidth / 2);
         const fromY = parseFloat(fromEl.style.top) + (fromEl.offsetHeight / 2);
 
@@ -76,9 +81,6 @@ window.renderArrows = function () {
         if (dist < 20) return;
 
         // ターゲットの縁で止める (オプション: トークン半径分引く)
-        // トークンは base 132px, scale変倍。半径は約 66 * scale。
-        // 正確には toEl.offsetWidth / 2
-        // 修正: トークンの下に入り込まないよう、半径 + マージンをとる
         const targetRadius = (toEl.offsetWidth / 2) + 5;
         const sourceRadius = (fromEl.offsetWidth / 2) + 5;
 
@@ -93,15 +95,17 @@ window.renderArrows = function () {
         let color = '#888';
         let markerId = 'arrowhead-gray';
         let strokeWidth = 2;
-        let opacity = 0.3; // Default opacity lowered
+        let opacity = 0.5; // Slightly more visible for gray
+        let strokeDashArray = "5,5"; // Default dotted for planned actions
 
         // 判定ロジック
-        // 1. 攻撃者の手番 (Active Enemy)
+        // 1. 攻撃者の手番 (Active Enemy/Ally)
         if (currentTurnCharId === fromId) {
             color = '#dc3545'; // Red
             markerId = 'arrowhead-red';
             strokeWidth = 4;
             opacity = 0.9;
+            strokeDashArray = "none"; // Solid for active
         }
         // 2. 防御者の手番 かつ 自分がターゲット (Warning)
         else if (currentTurnCharId === toId) {
@@ -109,6 +113,16 @@ window.renderArrows = function () {
             markerId = 'arrowhead-warn';
             strokeWidth = 4;
             opacity = 0.9;
+            strokeDashArray = "none";
+        }
+        // 3. 敵の非手番 (Enemy Intent - Blue) ★追加
+        // char.type判定: 'enemy', 'boss' など (ally, player 以外)
+        else if (fromChar && fromChar.type !== 'ally' && fromChar.type !== 'player') {
+            color = '#1e90ff'; // DodgerBlue
+            markerId = 'arrowhead-blue'; // Need to create this marker
+            strokeWidth = 3;
+            opacity = 0.9; // Explicitly visible
+            strokeDashArray = "none"; // Solid line to be "firmly recognized"
         }
 
         // SVG要素作成
@@ -120,6 +134,9 @@ window.renderArrows = function () {
         line.setAttribute('stroke', color);
         line.setAttribute('stroke-width', strokeWidth);
         line.setAttribute('opacity', opacity);
+        if (strokeDashArray !== "none") {
+            line.setAttribute('stroke-dasharray', strokeDashArray);
+        }
         line.setAttribute('marker-end', `url(#${markerId})`);
 
         // アニメーション (Active時のみ破線アニメーション等)
@@ -132,7 +149,7 @@ window.renderArrows = function () {
     });
 };
 
-function createMarker(id, color) {
+function createMarker(id, color, opacity = 1.0) {
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
     marker.setAttribute('id', id);
     marker.setAttribute('markerWidth', '10');
@@ -145,6 +162,7 @@ function createMarker(id, color) {
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', 'M0,0 L0,6 L9,3 z');
     path.setAttribute('fill', color);
+    path.setAttribute('fill-opacity', opacity);
 
     marker.appendChild(path);
     return marker;

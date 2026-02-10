@@ -255,14 +255,28 @@ window.initializeTimelineToggle = function () {
 window.renderVisualTimeline = function () {
     const timelineEl = document.getElementById('visual-timeline-list');
     if (!timelineEl) return;
+
+    // If Timeline Component is active, let it handle rendering
+    if (window.TimelineComponent && typeof window.TimelineComponent.render === 'function') {
+        const componentCtn = document.getElementById('visual-timeline-list');
+        // Ensure component checks this container
+        if (window.TimelineComponent._containerEl === componentCtn) {
+            return;
+        }
+    }
+
     timelineEl.innerHTML = '';
     if (!battleState.timeline || battleState.timeline.length === 0) {
         timelineEl.innerHTML = '<div style="color:#888; padding:5px;">No Data</div>';
         return;
     }
     const currentTurnId = battleState.turn_char_id;
-    battleState.timeline.forEach(charId => {
-        const char = battleState.characters.find(c => c.id === charId);
+    battleState.timeline.forEach(entry => {
+        let charId = entry;
+        if (typeof entry === 'object' && entry !== null) {
+            charId = entry.char_id;
+        }
+        const char = battleState.characters.find(c => String(c.id) === String(charId));
         if (!char) return;
         const item = document.createElement('div');
         item.className = `timeline-item ${char.type || 'NPC'}`;
