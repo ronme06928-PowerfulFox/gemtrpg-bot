@@ -64,6 +64,7 @@ function updateActionDock() {
             <div id="dock-quick-edit-icon" class="dock-icon" title="簡易ステータス編集">📝</div>
             <div id="dock-add-char-icon" class="dock-icon" title="キャラクター追加">➕</div>
             <div id="dock-staging-icon" class="dock-icon" title="未配置キャラクター">📦</div>
+            <div id="dock-arrow-toggle-icon" class="dock-icon" title="矢印表示切替">🏹</div>
         `;
         // Re-initialize listeners
         initializeActionDock();
@@ -747,9 +748,40 @@ function initializeActionDock() {
     const matchIcon = document.getElementById('dock-match-icon');
     const itemIcon = document.getElementById('dock-item-icon');
     const quickEditIcon = document.getElementById('dock-quick-edit-icon');
+    const arrowIcon = document.getElementById('dock-arrow-toggle-icon');
 
 
     // ★ 修正: 個別にチェックして設定（1つがなくても他は設定する）
+    if (arrowIcon) {
+        // 初期状態の反映
+        if (typeof window.VISUAL_SHOW_ARROWS !== 'undefined' && !window.VISUAL_SHOW_ARROWS) {
+            arrowIcon.classList.add('disabled'); // 便宜上 disabled クラスで薄くする
+            arrowIcon.style.opacity = '0.3';
+        }
+
+        arrowIcon.onclick = () => {
+            if (typeof window.VISUAL_SHOW_ARROWS === 'undefined') window.VISUAL_SHOW_ARROWS = true;
+            window.VISUAL_SHOW_ARROWS = !window.VISUAL_SHOW_ARROWS;
+
+            // Visual Feedback
+            if (window.VISUAL_SHOW_ARROWS) {
+                arrowIcon.style.opacity = '1.0';
+                arrowIcon.classList.remove('disabled');
+            } else {
+                arrowIcon.style.opacity = '0.3';
+                arrowIcon.classList.add('disabled');
+            }
+
+            // Redraw
+            if (typeof window.renderArrows === 'function') {
+                window.renderArrows();
+            } else {
+                // If renderArrows not globally available yet, force map update
+                if (typeof window.renderVisualMap === 'function') window.renderVisualMap();
+            }
+        };
+    }
+
     if (immediateIcon) {
         immediateIcon.onclick = function (e) {
 

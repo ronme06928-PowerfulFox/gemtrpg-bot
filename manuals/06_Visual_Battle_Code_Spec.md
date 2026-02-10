@@ -1,143 +1,74 @@
-# ビジュアルバトル・コード仕様書 (`tab_visual_battle.js`)
+# ビジュアルバトル・コード仕様書
 
 ## 1. 概要
 
-`tab_visual_battle.js` は、「ビジュアルバトル（Visual Battle）」タブを担当するコアとなるクライアントサイドスクリプトです。インタラクティブなマップ操作、キャラクタートークンの管理、戦闘操作UI（デュエル/広域戦闘）、およびSocket.IOを通じたサーバーとのリアルタイム同期を制御します。
+本仕様書は、リファクタリング（2026-02-10実施）後の「ビジュアルバトル（Visual Battle）」タブのコード構造について記述します。
+かつての巨大な `tab_visual_battle.js` は、機能ごとに分割された複数のモジュール群によって構成されています。
 
-**現在の規模:** 約4400行
-**主な責務:**
-
-- マップの描画と操作（パン/ズーム/ドラッグ）
-- キャラクタートークンの管理（移動、ステータスバー、バッジ）
-- 戦闘ロジックとの統合（デュエルおよび広域戦闘モーダル）
-- リアルタイムの状態同期
+**配置ディレクトリ:** `static/js/visual/`
+**エントリーポイント:** `visual_main.js` (`setupVisualBattleTab`)
 
 ---
 
-## 2. グローバル変数 (Global State Variables)
+## 2. モジュール構造 (Module Structure)
 
-このファイルは状態を維持するためにいくつかのグローバル変数に依存しています。
+`static/js/visual/` 以下のファイル構成と責務は以下の通りです。
 
-| 変数名 | 型 | 説明 |
-| :--- | :--- | :--- |
-| `visualScale` | `Number` | マップの現在のズームレベル（デフォルト: 1.0）。 |
-| `visualOffsetX`, `visualOffsetY` | `Number` | 現在のマップのパン（移動）オフセット（ピクセル単位）。 |
-| `battleState` | `Object` | 同期されたバトルルームの状態（キャラクター、ログ、マッチ状況）。`state_updated` イベントで更新されます。 |
-| `duelState` | `Object` | アクティブなデュエルマッチの **ローカルUI状態**。`attackerId`, `defenderId`, ロック状態, 宣言コマンドなどを保持します。 |
-| `visualWideState` | `Object` | アクティブな広域戦闘実行モーダルの **ローカルUI状態**。`attackerId` や宣言状態を保持します。 |
-| `window.allSkillData` | `Object` | `/api/get_skill_data` からロードされたスキルデータのキャッシュ。 |
-| `window._matchPanelAutoExpanded` | `Boolean` | リロード後にマッチパネルが繰り返し自動展開されるのを防ぐためのフラグ。 |
-| `window._duelLocalCalcCache` | `Object` | 再描画後にUI状態を復元するために計算結果をキャッシュします。 |
-
----
-
-## 3. コアモジュールと関数 (Core Modules & Functions)
-
-### 3.1. 初期化 (Initialization)
-
-エントリーポイント: `setupVisualBattleTab()`
-
-- **DOMセットアップ:** マップコンテナ、アクションドック、タイムライン、操作ボタンなどを初期化します。
-- **Socket リスナー:** `state_updated`, `char:stat:updated`, `request_move_token` などの `socket.on` ハンドラを登録します。
-- **ポーリング:** 権限更新のチェック (`window._permissionEnforcerInterval`) や DOMの準備完了確認のためのインターバルを開始します。
-
-### 3.2. マップ描画 (Map Rendering)
-
-コア関数: `renderVisualMap()`
-
-- **Canvas/DOM:** HTML要素 (`div.map-token`) をコンテナ上に絶対配置することで描画します。
-- **最適化:**
-  - `updateCharacterTokenVisuals(diff)`: ステータス変動時に完全な再描画を避け、HP/MPバーのみを部分的更新します。
-  - `_lastRenderedStateStr`: 単純な文字列比較を行い、変更がない場合の `state_updated` による再描画をスキップします。
-- **トークン生成 (`createMapToken`)**:
-  - HP/MPバー、バッジ、名前ラベル、キャラクター画像のHTMLを生成します。
-  - 選択やキャラクター詳細表示 (`showCharacterDetail`) のための `mousedown`/`dblclick` リスナーを追加します。
-
-### 3.3. マップ操作 (Map Controls & Interaction)
-
-コア関数: `setupMapControls()`, `setupBattleTokenDrag()`
-
-- **パン & ズーム:**
-  - `#visual-map-content` に対して `transform: translate(...) scale(...)` を更新します。
-  - マウスホイールでのズーム、ドラッグでのパン操作をサポートします。
-- **トークン・ドラッグアンドドロップ:**
-  - `setupBattleTokenDrag()`: カスタムドラッグロジックを実装しています。
-  - ピクセル座標と `visualScale` に基づいてグリッド座標を計算します。
-  - **楽観的UI (Optimistic UI):** ローカルのDOMを即座に更新し、その後 `request_move_token` を送信します。
-- **ターゲットモード:**
-  - `enterAttackTargetingMode(attackerId)`: マップを強調表示し、クリックでターゲットを選択できるようにフィルタリングします。
-  - `exitAttackTargetingMode()`: 強調表示を解除します。
-
-### 3.4. マッチパネル (Duel)
-
-1対1の戦闘インターフェース用ロジック。
-
-- **同期ロジック:** `renderMatchPanelFromState(matchData)`
-  - `battleState.active_match` の変更を検知します。
-  - `updateMatchPanelContent` を呼び出し、名前、スキル、結果を表示します。
-  - **自己修復 (Self-Correction):** 名前やスキルがサーバー状態と一致しない場合、ローカルUIを強制的に更新します（「冪等な同期」）。
-- **ユーザー操作:**
-  - `openDuelModal`: `duelState` を初期化し、パネルを展開します。
-  - `sendSkillDeclaration`: MP/HP/FPコストを検証し -> `request_skill_declaration` を送信します。
-  - `executeMatch`: 最終コマンドを含めて `request_match` を送信します。
-- **権限管理:** `canControlCharacter` で所有権やGMステータスをチェックし、ボタンの有効/無効を切り替えます。
-
-### 3.5. 広域戦闘 (Wide Match)
-
-1対多、または多対多の戦闘用ロジック。
-
-- **実行モーダル:** `openVisualWideMatchModal(attackerId)`
-  - デュエルパネルとは異なり、専用のモーダル (`#visual-wide-match-modal`) を使用します。
-  - すべての有効なターゲット（敵対陣営）をリストアップします。
-- **防御側行の生成:** `renderVisualWideDefenders`
-  - 各ターゲットに対して、スキル選択、威力計算ボタン、宣言ボタンを持つ行を生成します。
-  - 防御側の選択肢から「広域」スキルや「即時発動」スキルを除外します。
-- **実行:** 攻撃側のコマンドと、防御側コマンドの配列を含むペイロードで `request_wide_match` を送信します。
-
-### 3.6. ログとチャット (Logging & Chat)
-
-- **ログ履歴:** `openVisualLogHistoryModal()` で `battleState.logs` を表示します。
-- **チャット:** `socket.on('chat_message')` で受信し、`#visual-chat-log` に追記します。
-
----
-
-## 4. 主要なSocketイベント
-
-| イベント名 | 方向 | ペイロード | 説明 |
-| :--- | :--- | :--- | :--- |
-| `state_updated` | Server -> Client | `BattleState` | ルーム状態の完全同期。`renderVisualMap` と `renderMatchPanelFromState` をトリガーします。 |
-| `char:stat:updated` | Server -> Client | `{ id, changes }` | キャラクター・ステータスの差分更新。`updateCharacterTokenVisuals` をトリガーします。 |
-| `request_move_token` | Client -> Server | `{ charId, x, y }` | トークンの移動リクエスト。 |
-| `request_move_token` | Server -> Client | `{ charId, x, y }` | トークン移動のブロードキャスト。 |
-| `request_skill_declaration` | Client -> Server | `{ actor_id, skill_id, ... }` | ユーザーが「計算」または「宣言」をクリックした際に送信。 |
-| `skill_declaration_result` | Server -> Client | `{ final_command, damage, ... }` | サーバーでの計算結果。`updateDuelUI` をトリガーします。 |
-| `match_modal_opened` | Server -> Client | `{ attacker_id, defender_id }` | デュエルパネルを開くよう指示します。 |
-| `request_force_end_match` | Client -> Server | `{ room }` | GMによるマッチの強制終了。 |
-
----
-
-## 5. リファクタリングのポイントと技術的負債 (Tech Debt)
-
-1. **肥大化したファイル:** 4400行以上あり、可読性と保守性が低下しています。
-2. **関心の混在:** 描画ロジック、ビジネスロジック（コスト計算）、Socket通信が混在しています。
-3. **複雑な状態同期:**
-    - `renderMatchPanelFromState` には、スナップショットとライブデータ間の競合を解決するための複雑な「自己修復」ロジックが含まれています。
-    - `duelState`（ローカル）と `battleState.active_match`（サーバー）の重複が同期ズレの原因になりがちです。
-4. **コスト検証の重複:** スキルコスト（MP/HP/FP）の確認ロジックが `sendSkillDeclaration` にハードコードされていますが、サーバー側にも同様のロジックが存在するはずです。
-5. **直接的なDOM操作:** `document.getElementById` や `innerHTML` の文字列結合が多用されています。
-6. **グローバル名前空間の汚染:** 多くの関数や変数が `window` にアタッチされたり、グローバルスコープで宣言されています。
-
-## 6. モジュール化計画 (Modularization Plan)
-
-リファクタリングでは、このファイルを以下のモジュールに分割して `static/js/visual/` に配置する予定です：
-
-| モジュール名 | 責務 |
+| ファイル名 | 責務・内容 |
 | :--- | :--- |
-| `visual_globals.js` | 共有状態 (`battleState`, `visualScale`) と定数。 |
-| `visual_map.js` | マップ描画、トークン生成 (`renderVisualMap`, `createMapToken`)。 |
-| `visual_controls.js` | 入力ハンドリング (`setupMapControls`, `setupBattleTokenDrag`)。 |
-| `visual_ui.js` | UIコンポーネント (アクションドック, タイムライン, ログモーダル)。 |
-| `visual_panel.js` | デュエルマッチパネルのロジック (`renderMatchPanelFromState`, `updateDuelUI`)。 |
-| `visual_wide.js` | 広域戦闘モーダルのロジック (`openVisualWideMatchModal`)。 |
-| `visual_socket.js` | Socketイベントの登録とディスパッチ。 |
-| `visual_main.js` | エントリーポイント (`setupVisualBattleTab`) と全体の調整。 |
+| **`visual_globals.js`** | **グローバル状態と定数**。<br>`battleState`, `visualScale`, `visualOffsetX/Y`, `VISUAL_MAX_LOG_ITEMS` などのグローバル変数を定義・初期化します。他の全モジュールから参照されます。 |
+| **`visual_main.js`** | **エントリーポイント**。<br>`setupVisualBattleTab` 関数を定義し、各コンポーネント（マップ、UI、Socket）の初期化順序を制御します。DOMの準備確認や初回描画のトリガーも行います。 |
+| **`visual_map.js`** | **マップ描画**。<br>`renderVisualMap` 関数を含み、背景画像とキャラクタートークン (`createMapToken`) の生成・配置を行います。 |
+| **`visual_controls.js`** | **入力操作**。<br>マップのパン・ズーム操作 (`setupMapControls`)、トークンのドラッグ＆ドロップ移動ロジック (`setupBattleTokenDrag`) を担当します。 |
+| **`visual_ui.js`** | **UIコンポーネント**。<br>アクションドックの初期化、タイムラインの表示制御、バトルログの追記 (`appendVisualLogLine`) を担当します。 |
+| **`visual_panel.js`** | **デュエル（1vs1）パネル**。<br>`renderMatchPanelFromState` を中心に、対決画面の描画、スキル選択、コスト計算、宣言送信ロジックを制御します。 |
+| **`visual_wide.js`** | **広域戦闘（1vsMany）**。<br>広域・乱戦用のモーダル制御 (`openVisualWideMatchModal`)、防御側リストの生成、一括実行処理を担当します。 |
+| **`visual_socket.js`** | **通信ハンドラ**。<br>`socket.on` イベントリスナー（`state_updated`, `skill_declaration_result` 等）を一元管理し、適切な描画関数を呼び出します。 |
+
+※ 旧 `tab_visual_battle.js` は空のファイルとして残されており、後方互換性のため `index.html` で読み込まれていますが、実質的な処理は行いません。
+
+---
+
+## 3. グローバル変数 (Global State Variables)
+
+状態変数は `visual_globals.js` で初期化され、`window` オブジェクトを通じて共有されます。
+
+| 変数名 | 初期値 | 説明 |
+| :--- | :--- | :--- |
+| `visualScale` | `0.7` | マップのズーム倍率。 |
+| `visualOffsetX/Y` | `-900` | マップの表示オフセット座標。 |
+| `battleState` | `null` | サーバー同期されたルームの最新状態。 |
+| `attackTargetingState` | `{isTargeting:false}` | 攻撃対象選択モードの状態管理。 |
+| `visualMapHandlers` | `{}` | マップ操作イベントリスナーの参照保持（削除用）。 |
+| `VISUAL_MAX_LOG_ITEMS` | `100` | ビジュアルログの最大表示件数。 |
+
+---
+
+## 4. 主要フロー (Key Flows)
+
+### 4.1 初期化フロー (`visual_main.js`)
+
+1. `setupVisualBattleTab()` が呼び出される。
+2. 各コンポーネントの初期化関数 (`initializeActionDock`, `setupMapControls` 等) を順次実行。
+3. `setupVisualSocketHandlers()` でSocketイベントを登録。
+4. `battleState` が存在すれば、`renderVisualMap`, `renderLogHistory` などで初回描画を行う。
+
+### 4.2 状態更新フロー (`visual_socket.js`)
+
+1. サーバーから `state_updated` イベント受信。
+2. `battleState` グローバル変数を更新。
+3. 以下の描画関数をトリガー:
+   - `renderVisualMap()` (マップ・トークン)
+   - `renderMatchPanelFromState()` (デュエルパネル)
+   - `renderVisualLogHistory()` (ログ)
+   - `updateVisualRoundDisplay()` (ラウンド数)
+
+---
+
+## 5. 今後の拡張 (Future Extensions)
+
+**フェーズ3予定:**
+
+- **PvEモード**: 自動ターゲット選定ロジックと連携。
+- **矢印表示**: `visual_arrows.js` (仮) を追加し、ターゲット可視化を行う。
+- **視点保存**: `visual_controls.js` に `localStorage` への保存処理を追加。

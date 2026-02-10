@@ -461,6 +461,47 @@ window.openDuelModal = function (attackerId, defenderId, isOneSided = false, emi
 
     if (duelState.attackerLocked) lockSide('attacker');
     if (duelState.defenderLocked) lockSide('defender');
+
+    // Add AI Suggest Button for GM (Attacker Side)
+    if (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM') {
+        const attackerSide = document.getElementById('duel-attacker-controls');
+        const btnContainer = attackerSide ? attackerSide.querySelector('.duel-control-btns') : null;
+        if (btnContainer && !document.getElementById('duel-ai-suggest-btn')) {
+            const aiBtn = document.createElement('button');
+            aiBtn.id = 'duel-ai-suggest-btn';
+            aiBtn.textContent = 'AI Suggest';
+            aiBtn.className = 'duel-btn'; // Reuse base class
+            aiBtn.style.cssText = 'background: #17a2b8; color: white; margin-left: 5px; font-size: 0.8em; padding: 2px 8px;';
+            aiBtn.onclick = () => {
+                socket.emit('request_ai_suggest_skill', {
+                    room: currentRoomName,
+                    charId: attackerId // Server expects 'charId'
+                });
+                aiBtn.textContent = 'Thinking...';
+                aiBtn.disabled = true;
+                setTimeout(() => {
+                    aiBtn.textContent = 'AI Suggest';
+                    aiBtn.disabled = false;
+                }, 1000);
+            };
+            btnContainer.appendChild(aiBtn);
+        }
+
+        // Ensure button is not duplicated if re-opened
+        // The check !document.getElementById('duel-ai-suggest-btn') handles it globally,
+        // but if modal content is reset/cleared, it might be gone.
+        // resetDuelUI doesn't clear buttons, but openDuelModal might rely on static HTML.
+        // Actually, renderMatchPanelFromState might clear things? No, it updates content.
+        // If the button persists, we are good. If not, we re-add.
+        // But since ID is unique, if we switch match, we might need to remove old button?
+        // Actually, openDuelModal is called when match opens.
+        // If we close and open another match, the previous button might still be there if we don't clear it.
+        // But wait, the button is added to 'duel-attacker-controls' in the DOM.
+        // Does closeMatchPanel clear DOM? No, just hides/resets values.
+        // So the button persists.
+        // We should remove it first to be safe (or check if it exists).
+        // Since we check ID, it won't duplicate.
+    }
 }
 
 window.expandMatchPanel = function () {
@@ -597,9 +638,12 @@ window.populateCharSkillSelect = function (char, elementId) {
 
         const skillData = window.allSkillData ? window.allSkillData[skillId] : null;
         if (skillData) {
-            // isWideSkillData is assumed to be global/available
+            // Include explicit tag checks
+            const tags = skillData.tags || [];
+            if (tags.includes('広域') || tags.includes('広域攻撃') || tags.includes('即時発動') || tags.includes('宝石の加護')) continue;
+
+            // Legacy check
             if (typeof isWideSkillData === 'function' && isWideSkillData(skillData)) continue;
-            if (skillData.tags && skillData.tags.includes('即時発動')) continue;
         }
 
         const option = document.createElement('option');

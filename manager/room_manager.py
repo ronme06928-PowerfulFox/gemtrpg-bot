@@ -63,7 +63,10 @@ def get_room_state(room_name):
                 "exploration": {
                     "backgroundImage": None,
                     "tachie_locations": {}
-                }
+                },
+                # ★ 追加: PvEモード
+                "battle_mode": 'pvp',
+                "ai_target_arrows": []
             }
             active_room_states[room_name] = state
 
@@ -80,6 +83,11 @@ def get_room_state(room_name):
             "attacker_data": {},
             "defender_data": {},
         }
+    # ★ 追加: PvEモード初期化
+    if 'battle_mode' not in state:
+        state['battle_mode'] = 'pvp'
+    if 'ai_target_arrows' not in state:
+        state['ai_target_arrows'] = []
     # ★ 追加: 探索モード状態の初期化
     if 'mode' not in state:
         state['mode'] = 'battle'  # default is battle
@@ -243,6 +251,10 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
         char['hidden_skills'] = new_value
         log_message = "" # 頻繁な切り替えでログが埋まるのを防ぐため、あえてログは出さないか、デバッグのみにする
         # log_message = f"{username}: {char['name']}: スキル表示設定を更新"
+    elif stat_name == 'flags':
+        # ★ 追加: 汎用フラグ更新
+        char['flags'] = new_value
+        log_message = "" # ログ不要
     elif is_new:
         char['states'].append({"name": stat_name, "value": new_value})
         log_message = f"{username}: {char['name']}: {stat_name} (なし) → ({new_value})"

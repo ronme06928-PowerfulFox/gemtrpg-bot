@@ -50,12 +50,32 @@ window.setupMapControls = function () {
         }
     };
 
+    const saveVisualSettings = () => {
+        localStorage.setItem('gem_visualScale', visualScale);
+        localStorage.setItem('gem_visualOffsetX', visualOffsetX);
+        localStorage.setItem('gem_visualOffsetY', visualOffsetY);
+    };
+
     const zIn = document.getElementById('zoom-in-btn');
     const zOut = document.getElementById('zoom-out-btn');
     const rView = document.getElementById('reset-view-btn');
-    if (zIn) zIn.onclick = () => { visualScale = Math.min(visualScale + 0.1, 3.0); updateMapTransform(); };
-    if (zOut) zOut.onclick = () => { visualScale = Math.max(visualScale - 0.1, 0.5); updateMapTransform(); };
-    if (rView) rView.onclick = () => { visualScale = 1.0; visualOffsetX = 0; visualOffsetY = 0; updateMapTransform(); };
+    if (zIn) zIn.onclick = () => {
+        visualScale = Math.min(visualScale + 0.1, 3.0);
+        updateMapTransform();
+        saveVisualSettings();
+    };
+    if (zOut) zOut.onclick = () => {
+        visualScale = Math.max(visualScale - 0.1, 0.5);
+        updateMapTransform();
+        saveVisualSettings();
+    };
+    if (rView) rView.onclick = () => {
+        visualScale = 0.7; // Default 0.7
+        visualOffsetX = (typeof CENTER_OFFSET_X !== 'undefined' ? CENTER_OFFSET_X : -900);
+        visualOffsetY = (typeof CENTER_OFFSET_Y !== 'undefined' ? CENTER_OFFSET_Y : -900);
+        updateMapTransform();
+        saveVisualSettings();
+    };
 
     let isPanning = false, startX, startY;
     mapViewport.onmousedown = (e) => {
@@ -71,7 +91,12 @@ window.setupMapControls = function () {
         visualOffsetY = e.clientY - startY;
         updateMapTransform();
     };
-    const onMouseUp = () => { isPanning = false; };
+    const onMouseUp = () => {
+        if (isPanning) {
+            isPanning = false;
+            saveVisualSettings();
+        }
+    };
     window.visualMapHandlers.move = onMouseMove;
     window.visualMapHandlers.up = onMouseUp;
     window.addEventListener('mousemove', onMouseMove);

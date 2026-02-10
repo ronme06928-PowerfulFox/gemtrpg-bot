@@ -758,6 +758,13 @@ function createSettingsContextMenu(triggerEl, char) {
             </div>
             ` : ''}
 
+            <div style="margin-bottom:15px; padding: 5px; background: #fff8e1; border-radius: 4px;">
+                <label style="display:flex; align-items:center; cursor: pointer;">
+                    <input type="checkbox" id="ctx-show-planned" class="settings-input" ${(char.flags && char.flags.show_planned_skill) ? 'checked' : ''} style="margin-right: 8px;">
+                    <span style="font-size: 0.9em; color: #495057;">予約スキルを公開 (AI用)</span>
+                </label>
+            </div>
+
             <hr style="border:0; border-top:1px solid #e9ecef; margin:10px 0 15px 0;">
             <button id="ctx-delete-btn" style="width:100%; background:#dc3545; color:white; border:none; padding:10px; border-radius:4px; font-weight:bold; cursor: pointer; transition: background 0.2s;">削除</button>
         </div>
@@ -852,6 +859,19 @@ function createSettingsContextMenu(triggerEl, char) {
         gmToggle.addEventListener('change', (e) => {
             socket.emit('request_state_update', {
                 room: currentRoomName, charId: char.id, statName: 'gmOnly', newValue: e.target.checked
+            });
+        });
+    }
+
+    // Show Planned Skill Toggle (For AI)
+    const planToggle = menu.querySelector('#ctx-show-planned');
+    if (planToggle) {
+        planToggle.addEventListener('change', (e) => {
+            // Clone existing flags to avoid mutating local state prematurely (though render updates it anyway)
+            const currentFlags = char.flags || {};
+            const newFlags = Object.assign({}, currentFlags, { show_planned_skill: e.target.checked });
+            socket.emit('request_state_update', {
+                room: currentRoomName, charId: char.id, statName: 'flags', newValue: newFlags
             });
         });
     }

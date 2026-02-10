@@ -182,12 +182,15 @@ def reset_battle_logic(room, mode, username, reset_options=None):
             'states': True, # 出血等
             'bad_states': True, # 状態異常 (麻痺など)
             'buffs': True,
-            'timeline': True if mode == 'full' else False
+            'timeline': True # Force timeline reset for status mode too based on user request
         }
 
     log_msg = f"\n--- {username} が戦闘をリセットしました (Mode: {mode}) ---\n"
     # log_msg += f"Opt: {json.dumps(reset_options, ensure_ascii=False)}"
     broadcast_log(room, log_msg, 'round')
+
+    # ★ 追加: 矢印は常にリセット
+    state['ai_target_arrows'] = []
 
     if mode == 'full':
         state['characters'] = []
@@ -595,6 +598,12 @@ def process_round_start(room, username):
     broadcast_state_update(room)
     save_specific_room_state(room)
 
+    # ★ 追加: PvEモードならターゲット抽選
+    if state.get('battle_mode') == 'pve':
+        from manager.battle.battle_ai import ai_select_targets
+        ai_select_targets(state, room)
+        logger.info(f"PvE AI Targets updated for Round {state['round']}")
+
     # Reset Wide Modal Logic State
     state['wide_modal_confirms'] = []
     state['pending_wide_ids'] = []
@@ -739,3 +748,40 @@ def update_battle_background_logic(room, image_url, scale, offset_x, offset_y, u
 
     broadcast_state_update(room)
     broadcast_log(room, f"戦闘マップの背景が変更されました。", 'system')
+
+# ★ 追加: PvEモード切替ロジック
+def process_switch_battle_mode(room, mode, username):
+    state = get_room_state(room)
+    if not state: return
+
+    old_mode = state.get('battle_mode', 'pvp')
+    if old_mode == mode:
+        return
+
+    state['battle_mode'] = mode
+    broadcast_log(room, f"戦闘モードが変更されました: {old_mode.upper()} → {mode.upper()}", 'system')
+
+    # PvEになったらターゲット再抽選
+    if mode == 'pve':
+        from manager.battle.battle_ai import ai_select_targets
+        ai_select_targets(state)
+        # ログは ai_select_targets 内では出ないのでここで出すか、AIロジック側で出すか
+        # とりあえずAI側でdebugログ出してるが、ユーザーに見えるログも少し出す
+        broadcast_log(room, "AIがターゲットを選定しました。", 'info', secret=True)
+
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+
+# ★ 追加: AIスキル提案API (Socket経由で呼ばれる想定だが、routesで実装してもいい。ここではロジックのみ)
+def process_ai_suggest_skill(room, char_id):
+    # これは戻り値を返すタイプなので、Socketのコールバックで返すのが一般的
+    # common_managerにおく必要性は薄いかもしれないが、一応
+    state = get_room_state(room)
+    if not state: return None
+
+    char = next((c for c in state['characters'] if c['id'] == char_id), None)
+    if not char: return None
+
+    from manager.battle.battle_ai import ai_suggest_skill
+    return ai_suggest_skill(char)
+

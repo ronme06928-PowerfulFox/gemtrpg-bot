@@ -48,6 +48,10 @@ window.setupVisualSocketHandlers = function () {
 
             updateVisualRoundDisplay(state.round);
 
+            if (typeof renderVisualTimeline === 'function') {
+                renderVisualTimeline();
+            }
+
             if (!window.actionDockInitialized && typeof initializeActionDock === 'function') {
                 initializeActionDock();
                 window.actionDockInitialized = true;
@@ -226,6 +230,50 @@ window.setupVisualSocketHandlers = function () {
 
             console.log(`[skill_declaration_result] ${side} side, charId: ${charId}, canControl: ${canControl}`);
             updateDuelUI(side, { ...data, enableButton: canControl });
+        }
+    });
+
+    // --- AI Suggestion Result ---
+    socket.on('ai_skill_suggested', (data) => {
+        if (!data || !data.charId || !data.skillId) return;
+
+        const match = battleState.active_match;
+        if (!match || !match.is_active) return;
+
+        let side = null;
+        if (match.attacker_id === data.charId) side = 'attacker';
+        else if (match.defender_id === data.charId) side = 'defender';
+
+        if (side) {
+            const select = document.getElementById(`duel-${side}-skill`);
+            if (select) {
+                select.value = data.skillId;
+                // Trigger change event to update description
+                select.dispatchEvent(new Event('change'));
+
+                // Feedback
+                const status = document.getElementById(`duel-${side}-status`);
+                if (status) {
+                    // Create visual indicator
+                    const badge = document.createElement('div');
+                    badge.textContent = "AI Suggest ✓";
+                    badge.className = "visual-toast success"; // Reuse style if exists, or inline
+                    badge.style.cssText = "position: absolute; top: -30px; left: 0; background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; opacity: 0; transition: opacity 0.3s;";
+
+                    // Append to side wrapper
+                    const wrapper = document.getElementById(`duel-side-${side}`);
+                    if (wrapper) {
+                        wrapper.style.position = 'relative';
+                        wrapper.appendChild(badge);
+                        // Animate
+                        requestAnimationFrame(() => badge.style.opacity = 1);
+                        setTimeout(() => {
+                            badge.style.opacity = 0;
+                            setTimeout(() => badge.remove(), 300);
+                        }, 2000);
+                    }
+                }
+            }
         }
     });
 

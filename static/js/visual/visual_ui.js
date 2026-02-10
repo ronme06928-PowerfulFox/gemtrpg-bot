@@ -145,6 +145,53 @@ window.setupVisualSidebarControls = function () {
     const resetBtn = document.getElementById('visual-reset-btn');
     const statusMsg = document.getElementById('visual-status-msg');
 
+    // ★ 追加: アクションエリアにボタンを追加 (DOM生成で)
+    const actionContainer = document.getElementById('visual-room-actions');
+    if (actionContainer && !document.getElementById('visual-pve-btn')) {
+        // Grid調整 (既存: 1fr 1fr -> 2列で折り返す形にするか、flexにするか)
+        actionContainer.style.display = 'flex';
+        actionContainer.style.flexWrap = 'wrap';
+        actionContainer.style.gap = '5px';
+
+        actionContainer.style.gap = '5px';
+
+        // PvEモード切替 (GMのみ)
+        if (currentUserAttribute === 'GM') {
+            const pveBtn = document.createElement('button');
+            pveBtn.id = 'visual-pve-btn';
+
+            const updateBtnText = () => {
+                const mode = (battleState && battleState.battle_mode) ? battleState.battle_mode : 'pvp';
+                pveBtn.textContent = (mode === 'pve') ? 'Mode: PvE' : 'Mode: PvP';
+                pveBtn.style.background = (mode === 'pve') ? '#28a745' : '#6c757d'; // Green for PvE, Gray for PvP
+                pveBtn.style.color = 'white';
+            };
+
+            // 初回更新待機
+            setTimeout(updateBtnText, 500);
+            // 状態更新時にボタンテキストも変えたいが、ここでの登録はクリックイベントのみ
+            // 状態更新イベントリスナーは別途必要だが、簡易的にクリック時にトグルする
+            // ★本当はVue.jsやReactを使いたい場所だが、Vanilla JSなので...
+            // socket.on('state_update')などで更新すべきだが、visual_socket.jsが担当している。
+            // ここではクリックトリガーで変更要求を送る。
+
+            pveBtn.style.cssText = "padding: 5px; font-size: 0.8em; cursor: pointer; border: none; border-radius: 3px; background: #6c757d; color: white; flex: 1; min-width: 60px;";
+            pveBtn.onclick = () => {
+                const currentMode = (battleState && battleState.battle_mode) ? battleState.battle_mode : 'pvp';
+                const nextMode = (currentMode === 'pve') ? 'pvp' : 'pve';
+                if (confirm(`戦闘モードを変更しますか？\n${currentMode.toUpperCase()} -> ${nextMode.toUpperCase()}`)) {
+                    socket.emit('request_switch_battle_mode', { room: currentRoomName, mode: nextMode });
+                    // Optimistic update
+                    pveBtn.textContent = (nextMode === 'pve') ? 'Mode: PvE' : 'Mode: PvP';
+                }
+            };
+            actionContainer.appendChild(pveBtn);
+
+            // 定期更新 (ダサいが確実)
+            setInterval(updateBtnText, 2000);
+        }
+    }
+
     if (currentUserAttribute === 'GM') {
         if (saveBtn) {
             saveBtn.style.display = 'inline-block';

@@ -145,6 +145,11 @@ window.renderVisualMap = function () {
             zIn.parentElement.appendChild(btn);
         }
     }
+
+    // 4. Render Arrows (PvE Mode)
+    if (typeof window.renderArrows === 'function') {
+        window.renderArrows();
+    }
 }
 
 // Helper: Update token visual contents (bars, badges, etc)

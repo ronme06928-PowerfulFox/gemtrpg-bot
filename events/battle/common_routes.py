@@ -176,3 +176,41 @@ def on_request_update_battle_background(data):
     attribute = user_info.get("attribute", "Player")
 
     update_battle_background_logic(room, image_url, scale, offset_x, offset_y, username, attribute)
+
+# ★ 追加: PvEモード切替
+@socketio.on('request_switch_battle_mode')
+def on_request_switch_battle_mode(data):
+    room = data.get('room')
+    mode = data.get('mode') # 'pvp' or 'pve'
+
+    if not room or not mode: return
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+
+    if attribute != 'GM':
+        return # GM only
+
+    from manager.battle.common_manager import process_switch_battle_mode
+    process_switch_battle_mode(room, mode, username)
+
+# ★ 追加: AIスキル提案
+@socketio.on('request_ai_suggest_skill')
+def on_request_ai_suggest_skill(data):
+    room = data.get('room')
+    char_id = data.get('charId')
+
+    if not room or not char_id: return
+
+    # 権限チェックは緩めでOK（誰でも提案は見れる、あるいはGMのみ）
+    # いったん誰でもOKとする
+
+    from manager.battle.common_manager import process_ai_suggest_skill
+    suggested_skill_id = process_ai_suggest_skill(room, char_id)
+
+    emit('ai_skill_suggested', {
+        'charId': char_id,
+        'skillId': suggested_skill_id
+    })
+
