@@ -508,7 +508,11 @@ def process_round_start(room, username):
     logger.info(f"[Timeline] Starting generation for Round {state.get('round')}. Total chars: {len(state.get('characters', []))}")
 
     for char in state.get('characters', []):
+        # Reset Wide User Flag (Start of Round)
+        char['isWideUser'] = False
+
         # Type-safe checks
+
         try:
             hp = int(char.get('hp', 0))
             x_val = float(char.get('x', -1))
