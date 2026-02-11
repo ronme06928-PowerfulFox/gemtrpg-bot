@@ -1124,6 +1124,8 @@
                 kind: "character",
                 data: {
                     name: document.getElementById('char-name').value,
+                    characterType: document.getElementById('char-type').value,
+                    isNPC: document.getElementById('char-type').value === 'scenario',
                     status: status,
                     commands: document.getElementById('char-commands').value,
                     params: params,
@@ -1151,6 +1153,39 @@
                         const d = j.data;
                         document.getElementById('char-name').value = d.name || "";
                         document.getElementById('char-commands').value = d.commands || "";
+
+                        const findStatus = (key) => {
+                            if (!Array.isArray(d.status)) return null;
+                            return d.status.find(s => s && (s.label === key || s.name === key)) || null;
+                        };
+                        const readStatusNumber = (statusObj, keys) => {
+                            if (!statusObj) return null;
+                            for (const key of keys) {
+                                if (statusObj[key] !== undefined && statusObj[key] !== null) {
+                                    const n = parseInt(statusObj[key], 10);
+                                    if (!Number.isNaN(n)) return n;
+                                }
+                            }
+                            return null;
+                        };
+                        const readRootNumber = (keys) => {
+                            for (const key of keys) {
+                                if (d[key] !== undefined && d[key] !== null) {
+                                    const n = parseInt(d[key], 10);
+                                    if (!Number.isNaN(n)) return n;
+                                }
+                            }
+                            return null;
+                        };
+
+                        const hasExplicitCharacterType =
+                            (d.characterType === 'player' || d.characterType === 'scenario' || typeof d.isNPC === 'boolean');
+                        let savedCharacterType =
+                            (d.characterType === 'player' || d.characterType === 'scenario')
+                                ? d.characterType
+                                : (typeof d.isNPC === 'boolean' ? (d.isNPC ? 'scenario' : 'player') : 'player');
+                        document.getElementById('char-type').value = savedCharacterType;
+                        toggleCharacterType();
 
                         if (d.params) {
                             const map = {
@@ -1197,6 +1232,61 @@
                                 }
                             });
                         }
+
+                        if (!hasExplicitCharacterType && (Array.isArray(d.status) || d.maxHp !== undefined || d.maxMp !== undefined)) {
+                            const hpStatus = findStatus("HP");
+                            const mpStatus = findStatus("MP");
+                            const getInt = (id) => parseInt(document.getElementById(id).value) || 0;
+                            const expectedHpMax = 100 + getInt('p-vit') + getInt('p-phy');
+                            let expectedMpMax = 6 + Math.floor(getInt('p-mnt') / 2);
+                            if (getBonusOriginId() === 4) expectedMpMax += 1;
+
+                            const hpValue = readStatusNumber(hpStatus, ['value', 'current']) ?? readRootNumber(['hp']);
+                            const mpValue = readStatusNumber(mpStatus, ['value', 'current']) ?? readRootNumber(['mp']);
+                            const hpMax = readStatusNumber(hpStatus, ['max', 'maxValue', 'max_value', 'maximum', 'limit'])
+                                ?? readRootNumber(['maxHp', 'max_hp'])
+                                ?? hpValue;
+                            const mpMax = readStatusNumber(mpStatus, ['max', 'maxValue', 'max_value', 'maximum', 'limit'])
+                                ?? readRootNumber(['maxMp', 'max_mp'])
+                                ?? mpValue;
+                            const npcLikely =
+                                (hpMax !== null && hpMax !== expectedHpMax) ||
+                                (mpMax !== null && mpMax !== expectedMpMax);
+
+                            if (npcLikely) {
+                                savedCharacterType = 'scenario';
+                                document.getElementById('char-type').value = savedCharacterType;
+                                toggleCharacterType();
+                            }
+                        }
+
+                        if (Array.isArray(d.status) || d.hp !== undefined || d.mp !== undefined || d.maxHp !== undefined || d.maxMp !== undefined) {
+                            const hp = findStatus("HP");
+                            const mp = findStatus("MP");
+
+                            const hpValue = readStatusNumber(hp, ['value', 'current']) ?? readRootNumber(['hp']);
+                            const hpMax = readStatusNumber(hp, ['max', 'maxValue', 'max_value', 'maximum', 'limit'])
+                                ?? readRootNumber(['maxHp', 'max_hp'])
+                                ?? hpValue;
+                            if (hpValue !== null) {
+                                document.getElementById('st-hp-val').value = hpValue;
+                            }
+                            if (hpMax !== null) {
+                                document.getElementById('st-hp-max').value = hpMax;
+                            }
+
+                            const mpValue = readStatusNumber(mp, ['value', 'current']) ?? readRootNumber(['mp']);
+                            const mpMax = readStatusNumber(mp, ['max', 'maxValue', 'max_value', 'maximum', 'limit'])
+                                ?? readRootNumber(['maxMp', 'max_mp'])
+                                ?? mpValue;
+                            if (mpValue !== null) {
+                                document.getElementById('st-mp-val').value = mpValue;
+                            }
+                            if (mpMax !== null) {
+                                document.getElementById('st-mp-max').value = mpMax;
+                            }
+                        }
+
                         if (d.commands && ALL_SKILLS.length > 0) {
                             restoreFromCommands(d.commands);
                         } else if (d.commands) {
