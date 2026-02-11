@@ -632,11 +632,11 @@ def process_round_start(room, username):
     broadcast_state_update(room)
     save_specific_room_state(room)
 
-    # ★ 追加: PvEモードならターゲット抽選
-    if state.get('battle_mode') == 'pve':
-        from manager.battle.battle_ai import ai_select_targets
-        ai_select_targets(state, room)
-        logger.info(f"PvE AI Targets updated for Round {state['round']}")
+    # ★ 追加: PvEモードならターゲット抽選 -> 広域予約確定後に一本化
+    # if state.get('battle_mode') == 'pve':
+    #     from manager.battle.battle_ai import ai_select_targets
+    #     ai_select_targets(state, room)
+    #     logger.info(f"PvE AI Targets updated for Round {state['round']}")
 
     # Reset Wide Modal Logic State
     state['wide_modal_confirms'] = []
