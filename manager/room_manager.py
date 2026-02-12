@@ -215,7 +215,16 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
 
     if stat_name == 'HP':
         old_value = char['hp']
-        char['hp'] = max(0, new_value)
+        try:
+            numeric_new = int(float(new_value))
+        except Exception:
+            numeric_new = 0
+        max_hp = int(char.get('maxHp', 0) or 0)
+        clamped_hp = max(0, numeric_new)
+        if max_hp > 0:
+            clamped_hp = min(clamped_hp, max_hp)
+        char['hp'] = clamped_hp
+        new_value = char['hp']
         log_message = f"{username}: {char['name']}: HP ({old_value}) → ({char['hp']})"
         # ★ HPが0になったら自動的に未配置（戦闘不能）にする
         if char['hp'] <= 0:
@@ -228,7 +237,16 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
                 logger.error(f"[ERROR] process_on_death failed: {e}")
     elif stat_name == 'MP':
         old_value = char['mp']
-        char['mp'] = max(0, new_value)
+        try:
+            numeric_new = int(float(new_value))
+        except Exception:
+            numeric_new = 0
+        max_mp = int(char.get('maxMp', 0) or 0)
+        clamped_mp = max(0, numeric_new)
+        if max_mp > 0:
+            clamped_mp = min(clamped_mp, max_mp)
+        char['mp'] = clamped_mp
+        new_value = char['mp']
         log_message = f"{username}: {char['name']}: MP ({old_value}) → ({char['mp']})"
     elif stat_name == 'gmOnly':
         old_value = char.get('gmOnly', False)
