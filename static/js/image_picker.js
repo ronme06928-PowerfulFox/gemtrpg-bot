@@ -147,7 +147,7 @@ function openImagePicker(onSelect, pickType = 'character') {
     loadGalleryImages(modal, onSelect, '', pickType);
 
     // アップロードタブの初期化
-    setupUploadTab(modal, onSelect);
+    setupUploadTab(modal, onSelect, pickType);
 
     // デフォルト画像タブの初期化 (pickTypeに関わらず一旦全部出す、あるいはフィルタする？今回はそのまま)
     loadDefaultImages(modal, onSelect, pickType);
@@ -161,6 +161,239 @@ function openImagePicker(onSelect, pickType = 'character') {
             loadGalleryImages(modal, onSelect, searchInput.value, pickType);
         }, 300);
     };
+}
+
+async function maybeCropImageSelection(imageData, pickType) {
+    if (pickType !== 'character') {
+        return {
+            ...imageData,
+            originalUrl: imageData.url,
+            croppedUrl: imageData.url
+        };
+    }
+    return openImageCropperModal(imageData);
+}
+
+function openImageCropperModal(imageData) {
+    return new Promise((resolve) => {
+        const existing = document.getElementById('image-cropper-modal');
+        if (existing) existing.remove();
+
+        const viewportSize = 320;
+        const modal = document.createElement('div');
+        modal.id = 'image-cropper-modal';
+        modal.className = 'modal-backdrop';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '11000';
+        modal.innerHTML = `
+            <div class="modal-content" style="width: 92%; max-width: 560px; padding: 18px; border-radius: 12px;">
+                <h3 style="margin: 0 0 12px 0;">画像の表示範囲を調整</h3>
+                <p style="margin: 0 0 12px 0; color: #666; font-size: 0.9em;">ズームとドラッグで切り抜き範囲を決めます。</p>
+                <div id="crop-viewport" style="
+                    width: ${viewportSize}px;
+                    height: ${viewportSize}px;
+                    margin: 0 auto 12px auto;
+                    border: 2px solid #667eea;
+                    border-radius: 10px;
+                    overflow: hidden;
+                    position: relative;
+                    background: #f2f4f8;
+                    touch-action: none;
+                    cursor: grab;
+                ">
+                    <img id="crop-image" alt="crop preview" style="position: absolute; user-select: none; -webkit-user-drag: none; max-width: none; max-height: none;">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label for="crop-zoom" style="display:block; font-size:0.9em; margin-bottom:6px;">ズーム</label>
+                    <input id="crop-zoom" type="range" min="1" max="4" step="0.01" value="1" style="width:100%;">
+                </div>
+                <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap: wrap;">
+                    <button id="crop-cancel-btn" class="btn-secondary" type="button">キャンセル</button>
+                    <button id="crop-original-btn" class="btn-secondary" type="button">元画像のまま使う</button>
+                    <button id="crop-apply-btn" class="btn-primary" type="button">切り抜いて決定</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        const viewport = modal.querySelector('#crop-viewport');
+        const imgEl = modal.querySelector('#crop-image');
+        const zoomInput = modal.querySelector('#crop-zoom');
+        const cancelBtn = modal.querySelector('#crop-cancel-btn');
+        const originalBtn = modal.querySelector('#crop-original-btn');
+        const applyBtn = modal.querySelector('#crop-apply-btn');
+
+        const sourceImg = new Image();
+        let baseScale = 1;
+        let zoom = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let dragOriginX = 0;
+        let dragOriginY = 0;
+        let dragging = false;
+
+        let resolved = false;
+        const onMouseMove = (e) => moveDrag(e.clientX, e.clientY);
+        const onMouseUp = () => endDrag();
+        const onTouchMove = (e) => {
+            if (!e.touches || !e.touches[0]) return;
+            moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+        };
+        const onTouchEnd = () => endDrag();
+
+        const closeWith = (value) => {
+            if (resolved) return;
+            resolved = true;
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('touchend', onTouchEnd);
+            modal.remove();
+            resolve(value);
+        };
+
+        const clampOffsets = () => {
+            const scale = baseScale * zoom;
+            const w = sourceImg.naturalWidth * scale;
+            const h = sourceImg.naturalHeight * scale;
+            const maxX = Math.max(0, (w - viewportSize) / 2);
+            const maxY = Math.max(0, (h - viewportSize) / 2);
+            offsetX = Math.min(maxX, Math.max(-maxX, offsetX));
+            offsetY = Math.min(maxY, Math.max(-maxY, offsetY));
+        };
+
+        const renderCropPreview = () => {
+            const scale = baseScale * zoom;
+            const w = sourceImg.naturalWidth * scale;
+            const h = sourceImg.naturalHeight * scale;
+            clampOffsets();
+            const left = (viewportSize - w) / 2 + offsetX;
+            const top = (viewportSize - h) / 2 + offsetY;
+            imgEl.style.width = `${w}px`;
+            imgEl.style.height = `${h}px`;
+            imgEl.style.left = `${left}px`;
+            imgEl.style.top = `${top}px`;
+        };
+
+        const startDrag = (clientX, clientY) => {
+            dragging = true;
+            dragStartX = clientX;
+            dragStartY = clientY;
+            dragOriginX = offsetX;
+            dragOriginY = offsetY;
+            viewport.style.cursor = 'grabbing';
+        };
+
+        const moveDrag = (clientX, clientY) => {
+            if (!dragging) return;
+            offsetX = dragOriginX + (clientX - dragStartX);
+            offsetY = dragOriginY + (clientY - dragStartY);
+            renderCropPreview();
+        };
+
+        const endDrag = () => {
+            dragging = false;
+            viewport.style.cursor = 'grab';
+        };
+
+        viewport.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            startDrag(e.clientX, e.clientY);
+        });
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+        viewport.addEventListener('touchstart', (e) => {
+            if (!e.touches || !e.touches[0]) return;
+            startDrag(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: true });
+        window.addEventListener('touchmove', onTouchMove, { passive: true });
+        window.addEventListener('touchend', onTouchEnd);
+
+        zoomInput.addEventListener('input', () => {
+            zoom = parseFloat(zoomInput.value) || 1;
+            renderCropPreview();
+        });
+
+        cancelBtn.onclick = () => closeWith(null);
+        originalBtn.onclick = () => closeWith({
+            ...imageData,
+            originalUrl: imageData.url,
+            croppedUrl: imageData.url
+        });
+
+        applyBtn.onclick = () => {
+            try {
+                const scale = baseScale * zoom;
+                const w = sourceImg.naturalWidth * scale;
+                const h = sourceImg.naturalHeight * scale;
+                const left = (viewportSize - w) / 2 + offsetX;
+                const top = (viewportSize - h) / 2 + offsetY;
+                const sxRaw = (0 - left) / scale;
+                const syRaw = (0 - top) / scale;
+                const swRaw = viewportSize / scale;
+                const shRaw = viewportSize / scale;
+                const sw = Math.min(sourceImg.naturalWidth, swRaw);
+                const sh = Math.min(sourceImg.naturalHeight, shRaw);
+                const sx = Math.max(0, Math.min(sourceImg.naturalWidth - sw, sxRaw));
+                const sy = Math.max(0, Math.min(sourceImg.naturalHeight - sh, syRaw));
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    closeWith({
+                        ...imageData,
+                        originalUrl: imageData.url,
+                        croppedUrl: imageData.url
+                    });
+                    return;
+                }
+                ctx.drawImage(sourceImg, sx, sy, sw, sh, 0, 0, 512, 512);
+                const croppedUrl = canvas.toDataURL('image/png');
+                closeWith({
+                    ...imageData,
+                    originalUrl: imageData.url,
+                    croppedUrl: croppedUrl,
+                    url: croppedUrl,
+                    name: `${imageData.name || 'image'} (cropped)`
+                });
+            } catch (err) {
+                console.error('[ImagePicker] Crop error:', err);
+                alert('画像の切り抜きに失敗しました。元画像を使用します。');
+                closeWith({
+                    ...imageData,
+                    originalUrl: imageData.url,
+                    croppedUrl: imageData.url
+                });
+            }
+        };
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeWith(null);
+        });
+
+        sourceImg.onload = () => {
+            baseScale = Math.max(viewportSize / sourceImg.naturalWidth, viewportSize / sourceImg.naturalHeight);
+            zoom = 1;
+            zoomInput.value = '1';
+            offsetX = 0;
+            offsetY = 0;
+            imgEl.src = imageData.url;
+            renderCropPreview();
+        };
+        sourceImg.onerror = () => {
+            alert('画像の読み込みに失敗しました。元画像を使用します。');
+            closeWith({
+                ...imageData,
+                originalUrl: imageData.url,
+                croppedUrl: imageData.url
+            });
+        };
+        sourceImg.src = imageData.url;
+    });
 }
 
 /**
@@ -191,8 +424,10 @@ async function loadGalleryImages(modal, onSelect, query = '', pickType = 'charac
 
         container.innerHTML = '';
         images.forEach(img => {
-            const card = createImageCard(img, () => {
-                onSelect({ url: img.url, id: img.id, name: img.name });
+            const card = createImageCard(img, async () => {
+                const selected = await maybeCropImageSelection({ url: img.url, id: img.id, name: img.name }, pickType);
+                if (!selected) return;
+                onSelect(selected);
                 modal.remove();
             }, true); // ★ 削除ボタン有効
             container.appendChild(card);
@@ -224,8 +459,10 @@ async function loadDefaultImages(modal, onSelect, pickType = 'character') {
 
         container.innerHTML = '';
         images.forEach(img => {
-            const card = createImageCard(img, () => {
-                onSelect({ url: img.url, id: img.id, name: img.name });
+            const card = createImageCard(img, async () => {
+                const selected = await maybeCropImageSelection({ url: img.url, id: img.id, name: img.name }, pickType);
+                if (!selected) return;
+                onSelect(selected);
                 modal.remove();
             }, false); // ★ 削除不可
             container.appendChild(card);
@@ -319,7 +556,7 @@ function createImageCard(imageData, onClickCallback, allowDelete = false) {
 /**
  * アップロードタブの設定
  */
-function setupUploadTab(modal, onSelect) {
+function setupUploadTab(modal, onSelect, pickType = 'character') {
     const fileInput = modal.querySelector('#picker-file-input');
     const nameInput = modal.querySelector('#picker-image-name');
     const typeSelect = modal.querySelector('#picker-image-type');
@@ -440,8 +677,10 @@ function setupUploadTab(modal, onSelect) {
                 uploadBtn.style.display = 'none'; // Hide button on success
 
                 // 成功したら自動的に選択して閉じる
-                setTimeout(() => {
-                    onSelect({ url: data.url, id: data.id, name: data.name });
+                setTimeout(async () => {
+                    const selected = await maybeCropImageSelection({ url: data.url, id: data.id, name: data.name }, typeSelect.value || pickType);
+                    if (!selected) return;
+                    onSelect(selected);
                     modal.remove();
                 }, 500);
             } else {

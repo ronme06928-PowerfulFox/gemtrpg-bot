@@ -325,7 +325,7 @@ window.updateCharacterTokenVisuals = function (data) {
             showFloatingText(token, diff, stat, source);
         }
     } else {
-        const internalStats = ['hidden_skills', 'gmOnly', 'color', 'image', 'owner', 'commands', 'params'];
+        const internalStats = ['hidden_skills', 'gmOnly', 'color', 'image', 'imageOriginal', 'owner', 'commands', 'params'];
         if (internalStats.includes(stat)) return;
 
         if (old_value !== undefined && old_value !== new_value) {
@@ -770,11 +770,15 @@ window.toggleCharSettingsMenu = function (charId, btnElement) {
     if (imagePickerBtn) {
         imagePickerBtn.onclick = () => {
             openImagePicker((selectedImage) => {
+                const battleImage = selectedImage.croppedUrl || selectedImage.url;
+                const explorationImage = selectedImage.originalUrl || selectedImage.url;
                 socket.emit('request_state_update', {
                     room: currentRoomName,
                     charId: charId,
-                    statName: 'image',
-                    newValue: selectedImage.url
+                    changes: {
+                        image: battleImage,
+                        imageOriginal: explorationImage
+                    }
                 });
                 menu.remove();
             });

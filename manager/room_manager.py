@@ -262,6 +262,10 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
         old_value = char.get('image')
         char['image'] = new_value
         log_message = f"{username}: {char['name']}: 立ち絵画像を更新しました"
+    elif stat_name == 'imageOriginal':
+        old_value = char.get('imageOriginal')
+        char['imageOriginal'] = new_value
+        log_message = f"{username}: {char['name']}: 探索用画像を更新しました"
     elif stat_name == 'hidden_skills':
         # ★ 追加: スキル表示設定更新
         # new_value はリストまたは特定の操作用辞書を想定
@@ -305,7 +309,7 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
     # ★ 差分更新イベント送信（HP/MP/状態値のみ、画像や色は除外）
     if str(old_value) != str(new_value):
         # 画像や色の変更時はフローティングテキストを表示しないため、イベント送信をスキップ
-        should_emit_stat_update = stat_name in ['HP', 'MP'] or (stat_name not in ['image', 'color', 'gmOnly'])
+        should_emit_stat_update = stat_name in ['HP', 'MP'] or (stat_name not in ['image', 'imageOriginal', 'color', 'gmOnly'])
 
         if should_emit_stat_update:
             # max_valueを取得（HP/MPの場合）

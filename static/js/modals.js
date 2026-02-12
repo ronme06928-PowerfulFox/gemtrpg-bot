@@ -816,14 +816,21 @@ function createSettingsContextMenu(triggerEl, char) {
     const imgBtn = menu.querySelector('#ctx-image-btn');
     imgBtn.addEventListener('click', () => {
         openImagePicker((selectedImage) => {
+            const battleImage = selectedImage.croppedUrl || selectedImage.url;
+            const explorationImage = selectedImage.originalUrl || selectedImage.url;
             socket.emit('request_state_update', {
-                room: currentRoomName, charId: char.id, statName: 'image', newValue: selectedImage.url
+                room: currentRoomName,
+                charId: char.id,
+                changes: {
+                    image: battleImage,
+                    imageOriginal: explorationImage
+                }
             });
             // Update modal preview immediately if possible
             const previewImg = document.getElementById('char-preview-img');
             const previewArea = document.getElementById('char-image-preview');
             if (previewImg) {
-                previewImg.src = selectedImage.url;
+                previewImg.src = battleImage;
                 previewArea.style.display = 'block';
             }
             closeMenu();

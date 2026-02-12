@@ -170,6 +170,10 @@ if (!window.ExplorationView) {
         }
     }
 
+    function getExplorationImage(char) {
+        return char.imageOriginal || char.image || '';
+    }
+
     function updateTachies(state) {
         const layer = document.getElementById('exploration-token-layer');
         if (!layer) return;
@@ -257,7 +261,8 @@ if (!window.ExplorationView) {
                 // Determine current state
                 const img = el.querySelector('img');
                 const hasImage = !!img;
-                const shouldHaveImage = !!char.image;
+                const explorationImage = getExplorationImage(char);
+                const shouldHaveImage = !!explorationImage;
 
                 // State Transition Check: Image <-> Placeholder OR Image URL Changed
                 if (hasImage !== shouldHaveImage) {
@@ -268,9 +273,9 @@ if (!window.ExplorationView) {
                     const currentSrc = img.getAttribute('src');
                     // Handle relative/absolute path differences loosely or strict?
                     // Since we control setting, checking exact match of attribute is best.
-                    if (currentSrc !== char.image) {
-                        console.log(`[ExplorationView] Updating image for ${char.name}. Old: ${currentSrc}, New: ${char.image}`);
-                        img.src = char.image;
+                    if (currentSrc !== explorationImage) {
+                        console.log(`[ExplorationView] Updating image for ${char.name}. Old: ${currentSrc}, New: ${explorationImage}`);
+                        img.src = explorationImage;
                     }
                 }
             }
@@ -345,12 +350,13 @@ if (!window.ExplorationView) {
     // Helper to render inner content
     function renderTachieContent(div, char) {
         div.innerHTML = ''; // Clear existing
+        const explorationImage = getExplorationImage(char);
 
         // Image or Placeholder
-        if (char.image) {
+        if (explorationImage) {
             const img = document.createElement('img');
-            img.src = char.image;
-            img.setAttribute('src', char.image); // Explicitly set attribute for diffing
+            img.src = explorationImage;
+            img.setAttribute('src', explorationImage); // Explicitly set attribute for diffing
             img.loading = 'lazy'; // ★ Performance Optimization
             img.style.width = '100%';
             img.style.height = 'auto';
