@@ -178,6 +178,18 @@ window.renderVisualMap = function () {
 
 // Helper: Update token visual contents (bars, badges, etc)
 function updateTokenVisuals(token, char) {
+    // Keep token size in sync when tokenScale changes after initial creation.
+    const tokenScale = char.tokenScale || 1.0;
+    const baseSize = 132;
+    const scaledSize = baseSize * tokenScale;
+    token.style.width = `${scaledSize}px`;
+    token.style.height = `${scaledSize}px`;
+
+    const nameLabelTop = token.querySelector('.token-name-label');
+    if (nameLabelTop) {
+        nameLabelTop.style.top = `${scaledSize + 6}px`;
+    }
+
     // HP Bar
     const hpRow = token.querySelector('.token-stat-row[data-stat="HP"]');
     if (hpRow) {
