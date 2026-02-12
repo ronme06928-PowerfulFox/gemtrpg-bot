@@ -1237,6 +1237,10 @@ function openResetTypeModal(callback) {
                     上記の内容でステータスのみリセット
                 </button>
 
+                <button id="reset-logs-exec-btn" class="room-action-btn" style="padding: 10px; background-color: #17a2b8; color: white; font-weight: bold;">
+                    ログのみリセット
+                </button>
+
                 <hr style="width: 100%; border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
 
                 <button id="reset-full-exec-btn" class="room-action-btn danger" style="padding: 10px; background-color: #dc3545; color: white; font-weight: bold;">
@@ -1272,6 +1276,14 @@ function openResetTypeModal(callback) {
 
         if (confirm('選択した内容でステータスをリセットしますか？')) {
             callback('status', options);
+            closeFunc();
+        }
+    };
+
+    // ログのみリセット実行
+    document.getElementById('reset-logs-exec-btn').onclick = () => {
+        if (confirm('ログだけを削除しますか？')) {
+            callback('logs', null);
             closeFunc();
         }
     };

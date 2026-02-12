@@ -50,7 +50,7 @@ window.setupVisualSocketHandlers = function () {
 
             const newLogCount = (state.logs && Array.isArray(state.logs)) ? state.logs.length : 0;
             if (newLogCount !== window._lastLogCount) {
-                if (newLogCount > 0) {
+                if (typeof renderVisualLogHistory === 'function') {
                     renderVisualLogHistory(state.logs);
                 }
                 window._lastLogCount = newLogCount;

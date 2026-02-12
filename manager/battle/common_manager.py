@@ -174,6 +174,12 @@ def reset_battle_logic(room, mode, username, reset_options=None):
     state = get_room_state(room)
     if not state: return
 
+    if mode == 'logs':
+        state['logs'] = []
+        broadcast_state_update(room)
+        save_specific_room_state(room)
+        return
+
     # Default options if None (Full reset behavior)
     if reset_options is None:
         reset_options = {
