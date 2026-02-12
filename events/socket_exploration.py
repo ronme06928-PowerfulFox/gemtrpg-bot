@@ -132,19 +132,16 @@ def handle_exploration_roll(data):
     total_val = dice_total + skill_level
 
     # 判定
-    result_str = ""
-    is_success = False
+    result_html = ""
     if difficulty > 0:
         if total_val >= difficulty:
-            result_str = "SUCCESS"
-            is_success = True
+            result_html = '<span style="color:#1e90ff; font-weight:bold;">【SUCCESS】</span>'
         else:
-            result_str = "FAILURE"
-            is_success = False
+            result_html = '<span style="color:#e53935; font-weight:bold;">【FAILURE】</span>'
 
     # ログメッセージ構築
-    log_msg = f"{skill_name}判定: {dice_count}d6({dice_total}) + Lv{skill_level} = {total_val}"
+    log_msg = f"{char_name} の {skill_name}判定:<br>{dice_count}d6({dice_total}) + Lv{skill_level} = {total_val}"
     if difficulty > 0:
-        log_msg += f" (目標:{difficulty}) -> 【{result_str}】"
+        log_msg += f" (目標:{difficulty}) -> {result_html}"
 
     broadcast_log(room_name, log_msg, 'dice_roll')
