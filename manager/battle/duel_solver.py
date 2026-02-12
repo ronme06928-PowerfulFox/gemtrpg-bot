@@ -843,7 +843,10 @@ def execute_duel_match(room, data, username):
                 if not is_attacker_using_defense:
                     grant_win_fp(actor_d_char)
 
-                _, logs, _ = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d)
+                _, logs, _, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d)
+                for evt in dmg_evts:
+                    t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
+                    if t_key: damage_report[t_key].append(evt)
                 if actor_d_char:
                     log_snippets.append("[再回避可能！]")
                     apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d, "buff_id": "Bu-05"})
