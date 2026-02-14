@@ -13,6 +13,9 @@ window.setupVisualBattleTab = async function () {
     if (window.ActionDockComponent && typeof window.ActionDockComponent.initialize === 'function') {
         window.ActionDockComponent.initialize();
     }
+    if (window.DeclarePanelComponent && typeof window.DeclarePanelComponent.initialize === 'function') {
+        window.DeclarePanelComponent.initialize();
+    }
     if (window.VisualMapComponent && typeof window.VisualMapComponent.initialize === 'function') {
         window.VisualMapComponent.initialize();
     }

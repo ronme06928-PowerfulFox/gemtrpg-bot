@@ -9,6 +9,90 @@ from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
 
+
+def _log_battle_emit(event_name, room_id, battle_id, payload):
+    payload = payload or {}
+    timeline_len = len(payload.get('timeline', []) or [])
+    slots_len = len(payload.get('slots', {}) or {})
+    intents_len = len(payload.get('intents', {}) or {})
+    trace_len = len(payload.get('trace', []) or [])
+    phase = payload.get('phase') or payload.get('to') or payload.get('from')
+    logger.info(
+        "[EMIT] %s room=%s battle=%s phase=%s timeline=%d slots=%d intents=%d trace=%d",
+        event_name, room_id, battle_id, phase, timeline_len, slots_len, intents_len, trace_len
+    )
+
+
+def emit_select_resolve_events(room_name, to_sid=None, include_round_started=False):
+    """
+    Emit select/resolve snapshot events to the same namespace/room path as state_updated.
+    This is additive and keeps legacy state_updated flow intact.
+    """
+    state = get_room_state(room_name)
+    if not state:
+        return
+
+    try:
+        from manager.battle.common_manager import ensure_battle_state_vNext, build_select_resolve_state_payload
+    except Exception as e:
+        logger.error(f"emit_select_resolve_events import failed room={room_name}: {e}")
+        return
+
+    battle_id = f"battle_{room_name}"
+    battle_state = ensure_battle_state_vNext(
+        state,
+        battle_id=battle_id,
+        round_value=state.get('round', 0)
+    )
+    if not battle_state:
+        return
+
+    battle_id = battle_state.get('battle_id') or battle_id
+    target = to_sid if to_sid else room_name
+
+    timeline = battle_state.get('timeline', []) or []
+    if not timeline:
+        room_timeline = state.get('timeline', [])
+        if room_timeline and isinstance(room_timeline[0], dict):
+            timeline = [
+                e.get('id') for e in room_timeline
+                if e.get('id') in battle_state.get('slots', {})
+            ]
+        elif room_timeline and isinstance(room_timeline[0], str):
+            timeline = [sid for sid in room_timeline if sid in battle_state.get('slots', {})]
+    if not timeline:
+        slots = battle_state.get('slots', {})
+        timeline = sorted(
+            slots.keys(),
+            key=lambda sid: (-int(slots.get(sid, {}).get('initiative', 0)), str(sid))
+        )
+    battle_state['timeline'] = timeline
+
+    if include_round_started:
+        round_started_payload = {
+            'room_id': room_name,
+            'battle_id': battle_id,
+            'round': battle_state.get('round', state.get('round', 0)),
+            'phase': battle_state.get('phase', 'select'),
+            'slots': battle_state.get('slots', {}),
+            'timeline': timeline,
+            'tiebreak': battle_state.get('tiebreak', [])
+        }
+        _log_battle_emit('battle_round_started', room_name, battle_id, round_started_payload)
+        socketio.emit('battle_round_started', round_started_payload, to=target)
+
+    payload = build_select_resolve_state_payload(room_name, battle_id=battle_id)
+    if not payload:
+        return
+
+    # Add timeline/tiebreak for easier client-side synchronization/debug.
+    payload['timeline'] = timeline
+    payload['tiebreak'] = battle_state.get('tiebreak', [])
+
+    _log_battle_emit('battle_state_updated', room_name, battle_id, payload)
+    socketio.emit('battle_state_updated', payload, to=target)
+
+
 def get_room_state(room_name):
     if room_name in active_room_states:
         state = active_room_states[room_name]
@@ -39,6 +123,7 @@ def get_room_state(room_name):
                 "timeline": [],
                 "round": 0,
                 "logs": [],
+                "battle_state": {},
                 # ★ 追加: マップ設定データ
                 "map_data": {
                     "width": 20,
@@ -96,6 +181,8 @@ def get_room_state(room_name):
             'backgroundImage': None,
             'tachie_locations': {}  # char_id -> {x, y, scale}
         }
+    if 'battle_state' not in state:
+        state['battle_state'] = {}
 
 
     try:
@@ -111,6 +198,12 @@ def get_room_state(room_name):
         for char in state['characters']:
             if char['id'] in owners:
                 char['owner_id'] = owners[char['id']]
+
+    try:
+        from manager.battle.common_manager import ensure_battle_state_vNext
+        ensure_battle_state_vNext(state, round_value=state.get('round', 0))
+    except Exception as e:
+        logger.error(f"battle_state ensure failed for room={room_name}: {e}")
 
     return state
 
@@ -135,6 +228,12 @@ def broadcast_state_update(room_name):
                     char['owner_id'] = owners[char['id']]
 
         socketio.emit('state_updated', state, to=room_name)
+
+        # Additive emit for new Select->Resolve flow (same room path as legacy state_updated).
+        try:
+            emit_select_resolve_events(room_name, include_round_started=False)
+        except Exception as e:
+            logger.error(f"emit_select_resolve_events failed room={room_name}: {e}")
 
 # ▼▼▼ 修正箇所: secret 引数対応版のみにする ▼▼▼
 def broadcast_log(room_name, message, type='info', user=None, secret=False, save=True):

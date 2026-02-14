@@ -16,10 +16,30 @@ class BattleStore {
             timeline: [],
             logs: [],
             round: 0,
-            room_name: null
+            room_name: null,
+            phase: 'select',
+            slots: {},
+            intents: {},
+            redirects: [],
+            resolveTrace: [],
+            resolveReady: false,
+            resolveReadyInfo: null,
+            room_id: null,
+            battle_id: null,
+            selectedSlotId: null,
+            targetSelectMode: false,
+            battleError: null,
+            declare: {
+                sourceSlotId: null,
+                targetSlotId: null,
+                skillId: null,
+                mode: 'idle',
+                calc: null
+            }
         };
         this._listeners = new Set();
         this._initialized = false;
+        this._debugLastLogAt = 0;
     }
 
     /**
@@ -61,33 +81,261 @@ class BattleStore {
         const oldtl = this._state.timeline ? this._state.timeline.length : 'undef';
         console.log(`📦 Store.setState: New(tl=${newtl}, ch=${newch}) vs Old(tl=${oldtl})`);
 
-        // Safety check: Prevent wiping state with empty arrays if we have valid data
-        // This is a heuristic to prevent accidental wipes from partial/glitchy updates.
+        // Guard: while select/resolve is active and slots exist, ignore empty timeline overwrite.
+        const phase = newState.phase ?? this._state.phase;
+        const guardPhases = new Set(['select', 'resolve_mass', 'resolve_single']);
+        const nextSlots = (newState.slots !== undefined) ? (newState.slots || {}) : (this._state.slots || {});
+        const slotsCount = Array.isArray(nextSlots) ? nextSlots.length : Object.keys(nextSlots || {}).length;
+        const hasOldTimeline = Array.isArray(this._state.timeline) && this._state.timeline.length > 0;
+        const incomingTimelineEmpty = Array.isArray(newState.timeline) && newState.timeline.length === 0;
 
-        // Refined Logic (Phase 3 Fix):
-        // 1. We ALLOW clearing characters (Room Result). So NO guard for characters.
-
-        // 2. Protect Timeline ONLY if characters remain active.
-        // If characters are being cleared (newState.characters === []), we should allow timeline clear too.
-        // If characters are NOT being cleared (newState.characters undefined or > 0), AND we have old characters,
-        // then an empty timeline is suspicious.
-
-        const isClearingCharacters = (newState.characters && newState.characters.length === 0);
-        const hasOldCharacters = (this._state.characters && this._state.characters.length > 0);
-        const isPreservingCharacters = (!newState.characters && hasOldCharacters) || (newState.characters && newState.characters.length > 0);
-
-        if (!isClearingCharacters && isPreservingCharacters) {
-            if (newState.timeline && newState.timeline.length === 0 && this._state.timeline && this._state.timeline.length > 0) {
-                // Relaxed guard: Allow clearing timeline for Status Reset
-                // console.warn('BattleStore: Attempt to clear TIMELINE rejected (Safety Guard). Characters are preserved.');
-                // delete newState.timeline;
-                console.log('BattleStore: Timeline cleared while characters preserved (Status Reset mode).');
-            }
+        if (incomingTimelineEmpty && hasOldTimeline && guardPhases.has(phase) && slotsCount > 0) {
+            delete newState.timeline;
+            console.debug(`[BattleStore] guarded timeline overwrite phase=${phase} slots=${slotsCount}`);
         }
 
 
 
         this._state = { ...this._state, ...newState };
+        this._syncToLegacy();
+        this._notify();
+        this._debugLogSelectResolveSummary('setState');
+    }
+
+    setRoundStarted(payload) {
+        this._state = {
+            ...this._state,
+            room_id: payload.room_id || this._state.room_id,
+            battle_id: payload.battle_id || this._state.battle_id,
+            room_name: payload.room_id || this._state.room_name,
+            round: payload.round ?? this._state.round,
+            phase: payload.phase || this._state.phase,
+            slots: payload.slots || {},
+            timeline: payload.timeline || [],
+            intents: {},
+            redirects: [],
+            resolveTrace: [],
+            resolveReady: false,
+            resolveReadyInfo: null,
+            selectedSlotId: null,
+            targetSelectMode: false,
+            battleError: null,
+            declare: {
+                sourceSlotId: null,
+                targetSlotId: null,
+                skillId: null,
+                mode: 'idle',
+                calc: null
+            }
+        };
+        this._syncToLegacy();
+        this._notify();
+        this._debugLogSelectResolveSummary('battle_round_started');
+    }
+
+    applyBattleState(payload) {
+        this._state = {
+            ...this._state,
+            room_id: payload.room_id || this._state.room_id,
+            battle_id: payload.battle_id || this._state.battle_id,
+            room_name: payload.room_id || this._state.room_name,
+            round: payload.round ?? this._state.round,
+            phase: payload.phase || this._state.phase,
+            slots: payload.slots || {},
+            intents: payload.intents || {},
+            redirects: payload.redirects || [],
+            resolveReady: payload.resolve_ready !== undefined ? !!payload.resolve_ready : this._state.resolveReady,
+            resolveReadyInfo: payload.resolve_ready_info !== undefined ? (payload.resolve_ready_info || null) : this._state.resolveReadyInfo,
+            battleError: payload.battle_error || null
+        };
+        this._syncToLegacy();
+        this._notify();
+        this._debugLogSelectResolveSummary('battle_state_updated');
+    }
+
+    setPhase(phase) {
+        const nextPhase = phase || this._state.phase;
+        this._state = {
+            ...this._state,
+            phase: nextPhase,
+            resolveReady: nextPhase === 'select' ? this._state.resolveReady : false,
+            resolveReadyInfo: nextPhase === 'select' ? this._state.resolveReadyInfo : null
+        };
+        this._syncToLegacy();
+        this._notify();
+        this._debugLogSelectResolveSummary('battle_phase_changed');
+    }
+
+    appendResolveTrace(traceEntries) {
+        const nextEntries = Array.isArray(traceEntries) ? traceEntries : [];
+        this._state = {
+            ...this._state,
+            resolveTrace: [...(this._state.resolveTrace || []), ...nextEntries]
+        };
+        this._syncToLegacy();
+        this._notify();
+        this._debugLogSelectResolveSummary('battle_resolve_trace_appended');
+    }
+
+    setRoundFinished(round) {
+        this._state = {
+            ...this._state,
+            round: round ?? this._state.round,
+            phase: 'round_end',
+            resolveReady: false,
+            resolveReadyInfo: null,
+            targetSelectMode: false,
+            declare: {
+                sourceSlotId: null,
+                targetSlotId: null,
+                skillId: null,
+                mode: 'idle',
+                calc: null
+            }
+        };
+        this._syncToLegacy();
+        this._notify();
+        this._debugLogSelectResolveSummary('battle_round_finished');
+    }
+
+    setBattleError(message) {
+        this._state = {
+            ...this._state,
+            battleError: message || null
+        };
+        this._syncToLegacy();
+        this._notify();
+    }
+
+    setResolveReady(payload) {
+        const info = payload || {};
+        this._state = {
+            ...this._state,
+            resolveReady: (info.ready !== undefined) ? !!info.ready : true,
+            resolveReadyInfo: info
+        };
+        this._syncToLegacy();
+        this._notify();
+        this._debugLogSelectResolveSummary('battle_resolve_ready');
+    }
+
+    clearBattleError() {
+        if (!this._state.battleError) return;
+        this._state = {
+            ...this._state,
+            battleError: null
+        };
+        this._syncToLegacy();
+        this._notify();
+    }
+
+    selectSlot(slotId) {
+        this._state = {
+            ...this._state,
+            selectedSlotId: slotId || null
+        };
+        this._syncToLegacy();
+        this._notify();
+    }
+
+    setSelectedSlotId(slotId) {
+        this.selectSlot(slotId);
+    }
+
+    setDeclare(nextDeclare = {}) {
+        const current = this._state.declare || {};
+        const merged = {
+            sourceSlotId: nextDeclare.sourceSlotId !== undefined ? nextDeclare.sourceSlotId : (current.sourceSlotId || null),
+            targetSlotId: nextDeclare.targetSlotId !== undefined ? nextDeclare.targetSlotId : (current.targetSlotId || null),
+            skillId: nextDeclare.skillId !== undefined ? nextDeclare.skillId : (current.skillId || null),
+            mode: nextDeclare.mode || current.mode || 'idle',
+            calc: nextDeclare.calc !== undefined ? nextDeclare.calc : (current.calc || null)
+        };
+        const identityChanged =
+            String(merged.sourceSlotId || '') !== String(current.sourceSlotId || '')
+            || String(merged.targetSlotId || '') !== String(current.targetSlotId || '')
+            || String(merged.skillId || '') !== String(current.skillId || '');
+        if (identityChanged && nextDeclare.calc === undefined) {
+            merged.calc = null;
+        }
+        this._state = {
+            ...this._state,
+            declare: merged,
+            selectedSlotId: merged.sourceSlotId || null
+        };
+        this._syncToLegacy();
+        this._notify();
+    }
+
+    resetDeclare() {
+        this._state = {
+            ...this._state,
+            declare: {
+                sourceSlotId: null,
+                targetSlotId: null,
+                skillId: null,
+                mode: 'idle',
+                calc: null
+            }
+        };
+        this._syncToLegacy();
+        this._notify();
+    }
+
+    setDeclareCalc(calcPayload) {
+        const current = this._state.declare || {
+            sourceSlotId: null,
+            targetSlotId: null,
+            skillId: null,
+            mode: 'idle',
+            calc: null
+        };
+        this._state = {
+            ...this._state,
+            declare: {
+                ...current,
+                calc: calcPayload || null
+            }
+        };
+        this._syncToLegacy();
+        this._notify();
+    }
+
+    setTargetSelectMode(enabled) {
+        this._state = {
+            ...this._state,
+            targetSelectMode: !!enabled
+        };
+        this._syncToLegacy();
+        this._notify();
+    }
+
+    upsertIntentLocal(slotId, patch) {
+        if (!slotId) return;
+        const current = (this._state.intents && this._state.intents[slotId]) || {
+            slot_id: slotId,
+            actor_id: this._state.slots?.[slotId]?.actor_id || null,
+            skill_id: null,
+            target: { type: 'none', slot_id: null },
+            tags: { instant: false, mass_type: null, no_redirect: false },
+            committed: false,
+            committed_at: null
+        };
+        const next = {
+            ...current,
+            ...patch,
+            target: {
+                ...(current.target || { type: 'none', slot_id: null }),
+                ...((patch && patch.target) || {})
+            }
+        };
+        this._state = {
+            ...this._state,
+            intents: {
+                ...(this._state.intents || {}),
+                [slotId]: next
+            }
+        };
         this._syncToLegacy();
         this._notify();
     }
@@ -132,6 +380,22 @@ class BattleStore {
                 console.error('BattleStore: Listener error', e);
             }
         });
+    }
+
+    _debugLogSelectResolveSummary(source) {
+        const now = Date.now();
+        if (now - this._debugLastLogAt < 200) {
+            return;
+        }
+        this._debugLastLogAt = now;
+
+        const slotsCount = Object.keys(this._state.slots || {}).length;
+        const intentsCount = Object.keys(this._state.intents || {}).length;
+        const traceLen = (this._state.resolveTrace || []).length;
+        const resolveReady = !!this._state.resolveReady;
+        console.log(
+            `[BattleStore:${source}] phase=${this._state.phase} slots=${slotsCount} intents=${intentsCount} trace=${traceLen} resolveReady=${resolveReady}`
+        );
     }
 
     /**

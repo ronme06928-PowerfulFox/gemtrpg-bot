@@ -32,6 +32,7 @@ def mock_on_decorator(*args, **kwargs):
 mock_socketio_obj.on.side_effect = mock_on_decorator
 
 mock_extensions.socketio = mock_socketio_obj
+mock_extensions.db = MagicMock()
 
 # Mock Skill Data
 mock_skill_data = {
@@ -84,6 +85,7 @@ mock_rm.get_user_info_from_sid = mock_get_user_info
 mock_rm._update_char_stat = mock_update_char_stat
 mock_rm.is_authorized_for_character = mock_is_authorized
 mock_rm.get_all_users = MagicMock(return_value=[]) # Needed if core uses it?
+mock_rm.get_users_in_room = MagicMock(return_value={})
 sys.modules['manager.room_manager'] = mock_rm
 
 # manager.game_logic
@@ -97,6 +99,7 @@ mock_utils.apply_buff = MagicMock()
 mock_utils.remove_buff = MagicMock()
 mock_utils.calculate_buff_power_bonus = lambda *args: 0
 mock_utils.calculate_damage_multiplier = lambda c: (1.0, [])
+mock_utils.get_effective_origin_id = lambda c: 0
 sys.modules['manager.utils'] = mock_utils
 
 mock_buff_catalog = types.ModuleType('manager.buff_catalog')
@@ -115,6 +118,11 @@ mock_confusion = types.ModuleType('plugins.buffs.confusion')
 mock_confusion.ConfusionBuff = MagicMock()
 mock_confusion.ConfusionBuff.is_incapacitated.return_value = False
 sys.modules['plugins.buffs.confusion'] = mock_confusion
+
+mock_immobilize = types.ModuleType('plugins.buffs.immobilize')
+mock_immobilize.ImmobilizeBuff = MagicMock()
+mock_immobilize.ImmobilizeBuff.can_act.return_value = (True, None)
+sys.modules['plugins.buffs.immobilize'] = mock_immobilize
 
 mock_dodge = types.ModuleType('plugins.buffs.dodge_lock')
 mock_dodge.DodgeLockBuff = MagicMock()

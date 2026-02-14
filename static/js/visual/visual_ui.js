@@ -270,6 +270,43 @@ window.renderVisualTimeline = function () {
         timelineEl.innerHTML = '<div style="color:#888; padding:5px;">No Data</div>';
         return;
     }
+    const slotMode = Array.isArray(battleState.timeline) &&
+        battleState.timeline.length > 0 &&
+        typeof battleState.timeline[0] === 'string' &&
+        battleState.slots &&
+        battleState.slots[battleState.timeline[0]];
+
+    if (slotMode) {
+        const selectedSlotId = battleState.selectedSlotId || null;
+        battleState.timeline.forEach(slotId => {
+            const slot = battleState.slots[slotId];
+            if (!slot) return;
+            const char = battleState.characters.find(c => String(c.id) === String(slot.actor_id));
+            const intent = (battleState.intents || {})[slotId] || {};
+            const item = document.createElement('div');
+            item.className = `timeline-item ${slot.team || 'NPC'}`;
+            item.style.cssText = "display:flex; justify-content:space-between; gap:8px; padding:6px 8px; border-bottom:1px solid #eee; cursor:pointer; background:#fff;";
+            if (String(slotId) === String(selectedSlotId)) {
+                item.style.background = '#e8f4ff';
+                item.style.border = '1px solid #66a3ff';
+            }
+            const actorName = char ? char.name : slot.actor_id;
+            const targetText = intent?.target?.slot_id ? `-> ${intent.target.slot_id}` : '-> none';
+            const committedText = intent?.committed ? '[committed]' : '';
+            item.innerHTML = `
+                <span class="name">${actorName} (${String(slotId).slice(-12)})</span>
+                <span class="speed" style="font-size:0.85em; color:#666;">ini:${slot.initiative} ${targetText} ${committedText}</span>
+            `;
+            item.addEventListener('click', () => {
+                if (char && typeof showCharacterDetail === 'function') {
+                    showCharacterDetail(char.id);
+                }
+            });
+            timelineEl.appendChild(item);
+        });
+        return;
+    }
+
     const currentTurnId = battleState.turn_char_id;
     battleState.timeline.forEach(entry => {
         let charId = entry;

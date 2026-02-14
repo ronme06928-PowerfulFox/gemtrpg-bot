@@ -23,6 +23,7 @@ import { actionDock } from './components/ActionDock.js';
 import { mapState } from './components/MapState.js';
 import { visualMap } from './components/VisualMap.js';
 import { matchPanel } from './components/MatchPanel.js';
+import { declarePanel } from './components/DeclarePanel.js';
 
 /**
  * 初期化処理
@@ -52,9 +53,10 @@ function initializeBattleSystem() {
                 console.log('Timeline initialization skipped (Container not found). Will be initialized by visual_main.js later.');
             }
 
-            // matchPanel, actionDock, etc. initialization if needed
-            // Currently they might self-initialize or handle their own events,
-            // but Timeline specifically has an initialize method we must call.
+            const actionDockInit = actionDock.initialize();
+            console.log(`ActionDock initialized: ${actionDockInit}`);
+            const declarePanelInit = declarePanel.initialize();
+            console.log(`DeclarePanel initialized: ${declarePanelInit}`);
         } else if (retryCount < 20) {
             // 100ms待ってリトライ（最大20回 = 2秒）
             setTimeout(() => tryInitSocket(retryCount + 1), 100);

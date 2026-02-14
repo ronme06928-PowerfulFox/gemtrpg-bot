@@ -85,6 +85,44 @@ class SocketClient {
                 store.initialize(data.state);
             }
         });
+
+        this.socket.on('battle_round_started', (payload) => {
+            store.setRoundStarted(payload || {});
+            eventBus.emit('battle:round:started', payload || {});
+        });
+
+        this.socket.on('battle_state_updated', (payload) => {
+            store.applyBattleState(payload || {});
+            eventBus.emit('battle:state:updated', payload || {});
+        });
+
+        this.socket.on('battle_resolve_ready', (payload) => {
+            store.setResolveReady(payload || { ready: true });
+            eventBus.emit('battle:resolve:ready', payload || {});
+        });
+
+        this.socket.on('battle_phase_changed', (payload) => {
+            store.setPhase((payload || {}).to);
+            eventBus.emit('battle:phase:changed', payload || {});
+        });
+
+        this.socket.on('battle_resolve_trace_appended', (payload) => {
+            const trace = (payload && payload.trace) || [];
+            store.appendResolveTrace(trace);
+            eventBus.emit('battle:resolve:trace:appended', payload || {});
+        });
+
+        this.socket.on('battle_round_finished', (payload) => {
+            store.setRoundFinished((payload || {}).round);
+            eventBus.emit('battle:round:finished', payload || {});
+        });
+
+        this.socket.on('battle_error', (payload) => {
+            const message = (payload && payload.message) ? String(payload.message) : 'Battle error';
+            store.setBattleError(message);
+            console.warn('[battle_error]', message, payload || {});
+            eventBus.emit('battle:error', payload || { message });
+        });
     }
 
     /**
@@ -131,6 +169,63 @@ class SocketClient {
             attacker_id: attackerId,
             defender_id: defenderId,
             is_one_sided: isOneSided
+        });
+    }
+
+    sendIntentPreview(roomId, battleId, slotId, skillId, target) {
+        if (!this.socket) {
+            console.warn(`[emit] battle_intent_preview skip: socket missing slot=${slotId} room=${roomId} battle=${battleId}`);
+            return;
+        }
+        const connected = !!this.socket.connected;
+        const targetSlot = target?.slot_id ?? null;
+        console.log(`[emit] battle_intent_preview connected=${connected} room=${roomId} battle=${battleId} slot=${slotId} skill=${skillId ?? 'null'} target_slot=${targetSlot}`);
+        this.socket.emit('battle_intent_preview', {
+            room_id: roomId,
+            battle_id: battleId,
+            slot_id: slotId,
+            skill_id: skillId ?? null,
+            target: target || { type: 'none', slot_id: null }
+        });
+    }
+
+    sendIntentCommit(roomId, battleId, slotId, skillId, target) {
+        if (!this.socket) {
+            console.warn(`[emit] battle_intent_commit skip: socket missing slot=${slotId} room=${roomId} battle=${battleId}`);
+            return;
+        }
+        const connected = !!this.socket.connected;
+        const targetSlot = target?.slot_id ?? null;
+        console.log(`[emit] battle_intent_commit connected=${connected} room=${roomId} battle=${battleId} slot=${slotId} skill=${skillId ?? 'null'} target_slot=${targetSlot}`);
+        this.socket.emit('battle_intent_commit', {
+            room_id: roomId,
+            battle_id: battleId,
+            slot_id: slotId,
+            skill_id: skillId,
+            target: target,
+            client_ts: Math.floor(Date.now() / 1000)
+        });
+    }
+
+    sendIntentUncommit(roomId, battleId, slotId) {
+        if (!this.socket) return;
+        this.socket.emit('battle_intent_uncommit', {
+            room_id: roomId,
+            battle_id: battleId,
+            slot_id: slotId
+        });
+    }
+
+    sendResolveConfirm(roomId, battleId) {
+        if (!this.socket) {
+            console.warn(`[emit] battle_resolve_confirm skip: socket missing room=${roomId} battle=${battleId}`);
+            return;
+        }
+        const connected = !!this.socket.connected;
+        console.log(`[emit] battle_resolve_confirm connected=${connected} room=${roomId} battle=${battleId}`);
+        this.socket.emit('battle_resolve_confirm', {
+            room_id: roomId,
+            battle_id: battleId
         });
     }
 }

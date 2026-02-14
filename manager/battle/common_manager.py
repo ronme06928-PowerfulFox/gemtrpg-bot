@@ -6,12 +6,13 @@ from extensions import socketio, all_skill_data
 from plugins.buffs.registry import buff_registry
 from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_log,
-    broadcast_state_update, _update_char_stat, is_authorized_for_character,
+    broadcast_state_update, emit_select_resolve_events, _update_char_stat, is_authorized_for_character,
     get_users_in_room
 )
 from manager.constants import DamageSource
 from manager.battle.core import proceed_next_turn
 from manager.battle.battle_ai import ai_select_targets
+from manager.dice_roller import roll_dice
 from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
@@ -167,6 +168,23 @@ def process_full_round_end(room, username):
     state['turn_char_id'] = None
     state['active_match'] = None
 
+    battle_state = ensure_battle_state_vNext(
+        state,
+        battle_id=f"battle_{room}",
+        round_value=state.get('round', 0),
+        rebuild_slots=True
+    )
+    if battle_state:
+        battle_state['phase'] = 'round_end'
+        battle_state['intents'] = {}
+        battle_state['redirects'] = []
+        battle_state['resolve_ready'] = False
+        battle_state['resolve_ready_info'] = {}
+        battle_state['resolve']['mass_queue'] = []
+        battle_state['resolve']['single_queue'] = []
+        battle_state['resolve']['resolved_slots'] = []
+        battle_state['resolve']['trace'] = []
+
     broadcast_state_update(room)
     save_specific_room_state(room)
 
@@ -204,6 +222,8 @@ def reset_battle_logic(room, mode, username, reset_options=None):
         state['timeline'] = []
         state['round'] = 0
         state['is_round_ended'] = False
+        state['turn_char_id'] = None
+        state['turn_entry_id'] = None
     elif mode == 'status':
         # ラウンド数はリセットしない要望もあるかもしれないが、一旦デフォルトは0に戻す
         # (Status only reset usually implies starting over but keeping chars)
@@ -211,8 +231,8 @@ def reset_battle_logic(room, mode, username, reset_options=None):
         state['is_round_ended'] = False
         state['ai_target_arrows'] = [] # Reset AI arrows
 
-        if reset_options.get('timeline'):
-            state['timeline'] = []
+        # Status reset always clears timeline.
+        state['timeline'] = []
 
         for char in state.get('characters', []):
             initial = char.get('initial_state', {})
@@ -322,9 +342,37 @@ def reset_battle_logic(room, mode, username, reset_options=None):
                     apply_buff(char, "爆縮", -1, 0, count=8)
 
         state['turn_char_id'] = None
+        state['turn_entry_id'] = None
+
+    # Keep Select/Resolve snapshot in sync with room reset.
+    # Without this, old slots remain in battle_state and slot badges keep rendering.
+    should_clear_select_resolve = (mode == 'full') or (mode == 'status')
+    if should_clear_select_resolve:
+        battle_state = ensure_battle_state_vNext(
+            state,
+            battle_id=f"battle_{room}",
+            round_value=state.get('round', 0),
+            rebuild_slots=False
+        )
+        if battle_state:
+            battle_state['phase'] = 'round_end'
+            battle_state['slots'] = {}
+            battle_state['timeline'] = []
+            battle_state['tiebreak'] = []
+            battle_state['intents'] = {}
+            battle_state['redirects'] = []
+            battle_state['resolve_ready'] = False
+            battle_state['resolve_ready_info'] = {}
+            battle_state['resolve']['mass_queue'] = []
+            battle_state['resolve']['single_queue'] = []
+            battle_state['resolve']['resolved_slots'] = []
+            battle_state['resolve']['trace'] = []
+            logger.info("[reset] cleared select_resolve snapshot room=%s mode=%s", room, mode)
 
     state['active_match'] = None
     broadcast_state_update(room)
+    if should_clear_select_resolve:
+        emit_select_resolve_events(room, include_round_started=False)
     save_specific_room_state(room)
 
 def force_end_match_logic(room, username):
@@ -648,6 +696,24 @@ def process_round_start(room, username):
     state['wide_modal_confirms'] = []
     state['pending_wide_ids'] = []
 
+    battle_state = ensure_battle_state_vNext(
+        state,
+        battle_id=f"battle_{room}",
+        round_value=state.get('round', 0),
+        rebuild_slots=True
+    )
+    if battle_state:
+        battle_state['phase'] = 'select'
+        battle_state['intents'] = {}
+        battle_state['redirects'] = []
+        battle_state['resolve_ready'] = False
+        battle_state['resolve_ready_info'] = {}
+        battle_state['resolve']['mass_queue'] = []
+        battle_state['resolve']['single_queue'] = []
+        battle_state['resolve']['resolved_slots'] = []
+        battle_state['resolve']['trace'] = []
+        emit_select_resolve_events(room, include_round_started=True)
+
     # Open Wide Declaration Modal (Wait for response)
     socketio.emit('open_wide_declaration_modal', {}, to=room)
 
@@ -825,3 +891,371 @@ def process_ai_suggest_skill(room, char_id):
     from manager.battle.battle_ai import ai_suggest_skill
     return ai_suggest_skill(char)
 
+
+def _build_select_resolve_slots_from_timeline(room_state):
+    slots = {}
+    timeline = room_state.get('timeline', [])
+    characters = room_state.get('characters', [])
+    char_map = {c.get('id'): c for c in characters if isinstance(c, dict)}
+    actor_slot_count = {}
+
+    for entry in timeline:
+        if not isinstance(entry, dict):
+            continue
+        slot_id = entry.get('id')
+        actor_id = entry.get('char_id')
+        if not slot_id or not actor_id:
+            continue
+
+        char = char_map.get(actor_id, {})
+        index_in_actor = actor_slot_count.get(actor_id, 0)
+        actor_slot_count[actor_id] = index_in_actor + 1
+
+        slots[slot_id] = {
+            'slot_id': slot_id,
+            'actor_id': actor_id,
+            'team': char.get('type', 'unknown'),
+            'index_in_actor': index_in_actor,
+            'initiative': entry.get('speed', 0),
+            'disabled': False,
+            'locked_target': False,
+            'status': 'ready' if char.get('hp', 0) > 0 else 'down',
+            'is_alive': bool(char.get('hp', 0) > 0)
+        }
+
+    return slots
+
+
+def ensure_battle_state_vNext(room_state, battle_id=None, round_value=None, rebuild_slots=False):
+    if not isinstance(room_state, dict):
+        return None
+
+    migrated = room_state.get('select_resolve_battle_state')
+    battle_state = room_state.get('battle_state')
+    if not isinstance(battle_state, dict):
+        battle_state = migrated if isinstance(migrated, dict) else {}
+
+    battle_state['battle_id'] = battle_id or battle_state.get('battle_id') or 'battle_main'
+    battle_state['round'] = round_value if isinstance(round_value, int) else battle_state.get('round', room_state.get('round', 0))
+    battle_state['phase'] = battle_state.get('phase', 'select')
+    battle_state['slots'] = battle_state.get('slots', {})
+    battle_state['timeline'] = battle_state.get('timeline', [])
+    battle_state['tiebreak'] = battle_state.get('tiebreak', [])
+    battle_state['intents'] = battle_state.get('intents', {})
+    battle_state['redirects'] = battle_state.get('redirects', [])
+    battle_state['resolve_ready'] = bool(battle_state.get('resolve_ready', False))
+    battle_state['resolve_ready_info'] = battle_state.get('resolve_ready_info', {})
+    battle_state['resolve'] = battle_state.get('resolve', {})
+    battle_state['resolve']['mass_queue'] = battle_state['resolve'].get('mass_queue', [])
+    battle_state['resolve']['single_queue'] = battle_state['resolve'].get('single_queue', [])
+    battle_state['resolve']['resolved_slots'] = battle_state['resolve'].get('resolved_slots', [])
+    battle_state['resolve']['trace'] = battle_state['resolve'].get('trace', [])
+
+    if rebuild_slots or not battle_state['slots']:
+        battle_state['slots'] = _build_select_resolve_slots_from_timeline(room_state)
+
+    room_state['battle_state'] = battle_state
+    if 'select_resolve_battle_state' in room_state:
+        room_state.pop('select_resolve_battle_state', None)
+
+    logger.debug(
+        "[battle_state.ensure] phase=%s slots=%s intents=%s",
+        battle_state.get('phase'),
+        len(battle_state.get('slots', {})),
+        len(battle_state.get('intents', {}))
+    )
+    return battle_state
+
+
+def get_or_create_select_resolve_state(room, battle_id=None, round_value=None, rebuild_slots=False):
+    room_state = get_room_state(room)
+    if not room_state:
+        return None
+    return ensure_battle_state_vNext(
+        room_state,
+        battle_id=battle_id,
+        round_value=round_value,
+        rebuild_slots=rebuild_slots
+    )
+
+
+def build_select_resolve_state_payload(room, battle_id=None):
+    battle_state = get_or_create_select_resolve_state(room, battle_id=battle_id)
+    if not battle_state:
+        return None
+    return {
+        'room_id': room,
+        'battle_id': battle_state.get('battle_id'),
+        'round': battle_state.get('round', 0),
+        'phase': battle_state.get('phase', 'select'),
+        'slots': battle_state.get('slots', {}),
+        'intents': battle_state.get('intents', {}),
+        'redirects': battle_state.get('redirects', []),
+        'resolve_ready': bool(battle_state.get('resolve_ready', False)),
+        'resolve_ready_info': battle_state.get('resolve_ready_info', {})
+    }
+
+
+def process_select_resolve_round_start(room, battle_id, round_value):
+    state = get_room_state(room)
+    if not state:
+        return None
+
+    def _roll_1d6():
+        result = roll_dice("1d6")
+        try:
+            return int(result.get('total', 1))
+        except Exception:
+            return 1
+
+    battle_state = ensure_battle_state_vNext(
+        state,
+        battle_id=battle_id,
+        round_value=round_value,
+        rebuild_slots=False
+    )
+    if not battle_state:
+        return None
+
+    characters = state.get('characters', [])
+    slot_entries = []
+
+    for char in characters:
+        try:
+            hp = int(char.get('hp', 0))
+            x_val = float(char.get('x', -1))
+            escaped = bool(char.get('is_escaped', False))
+        except (ValueError, TypeError):
+            continue
+
+        if hp <= 0 or escaped or x_val < 0:
+            continue
+
+        actor_id = char.get('id')
+        if not actor_id:
+            continue
+
+        try:
+            action_count = int(get_status_value(char, '陦悟虚蝗樊焚'))
+        except Exception:
+            action_count = 1
+        action_count = max(1, action_count)
+
+        try:
+            speed_val = int(get_status_value(char, '騾溷ｺｦ'))
+        except Exception:
+            speed_val = 0
+        base_initiative = speed_val // 6
+
+        for i in range(action_count):
+            slot_id = f"{actor_id}:r{round_value}:s{i}"
+            initiative = base_initiative + _roll_1d6()
+            slot_entries.append({
+                'slot_id': slot_id,
+                'actor_id': actor_id,
+                'team': char.get('type', 'unknown'),
+                'index_in_actor': i,
+                'initiative': initiative,
+                'disabled': False,
+                'locked_target': False,
+                'status': 'ready',
+                'is_alive': True,
+                '_tie_roll': None
+            })
+
+    grouped_by_init = {}
+    for entry in slot_entries:
+        grouped_by_init.setdefault(entry['initiative'], []).append(entry)
+
+    tiebreak_payload = []
+    for initiative, group in grouped_by_init.items():
+        if len(group) <= 1:
+            continue
+        rolls = {}
+        for slot in group:
+            tie_roll = _roll_1d6()
+            slot['_tie_roll'] = tie_roll
+            rolls[slot['slot_id']] = tie_roll
+        tiebreak_payload.append({
+            'initiative': initiative,
+            'group': sorted([slot['slot_id'] for slot in group]),
+            'rolls': rolls
+        })
+
+    slot_entries.sort(
+        key=lambda x: (
+            -x['initiative'],
+            -(x['_tie_roll'] if x['_tie_roll'] is not None else -1),
+            x['slot_id']
+        )
+    )
+
+    slots_dict = {}
+    timeline = []
+    for slot in slot_entries:
+        slot_id = slot['slot_id']
+        slots_dict[slot_id] = {
+            'slot_id': slot_id,
+            'actor_id': slot['actor_id'],
+            'team': slot['team'],
+            'index_in_actor': slot['index_in_actor'],
+            'initiative': slot['initiative'],
+            'disabled': slot['disabled'],
+            'locked_target': slot['locked_target'],
+            'status': slot['status'],
+            'is_alive': slot['is_alive']
+        }
+        timeline.append(slot_id)
+
+    battle_state['round'] = round_value
+    battle_state['phase'] = 'select'
+    battle_state['slots'] = slots_dict
+    battle_state['timeline'] = timeline
+    battle_state['tiebreak'] = tiebreak_payload
+    battle_state['intents'] = {}
+    battle_state['redirects'] = []
+    battle_state['resolve_ready'] = False
+    battle_state['resolve_ready_info'] = {}
+    battle_state['resolve']['mass_queue'] = []
+    battle_state['resolve']['single_queue'] = []
+    battle_state['resolve']['resolved_slots'] = []
+    battle_state['resolve']['trace'] = []
+
+    save_specific_room_state(room)
+
+    logger.info(
+        "[battle_round_start] room=%s battle_id=%s round=%s slots=%s timeline_head=%s tiebreak_groups=%s",
+        room,
+        battle_id,
+        round_value,
+        len(slots_dict),
+        timeline[:5],
+        len(tiebreak_payload)
+    )
+
+    return {
+        'room_id': room,
+        'battle_id': battle_id,
+        'round': round_value,
+        'phase': 'select',
+        'slots': slots_dict,
+        'timeline': timeline,
+        'tiebreak': tiebreak_payload
+    }
+
+
+def _get_character_by_id(state, actor_id):
+    if not state or not actor_id:
+        return None
+    return next((c for c in state.get('characters', []) if c.get('id') == actor_id), None)
+
+
+def is_dodge_lock_active(state, actor_id):
+    actor = _get_character_by_id(state, actor_id)
+    if not actor:
+        return False
+    try:
+        from plugins.buffs.dodge_lock import DodgeLockBuff
+        return DodgeLockBuff.has_re_evasion(actor)
+    except Exception:
+        return False
+
+
+def get_dodge_lock_skill_id(state, actor_id):
+    actor = _get_character_by_id(state, actor_id)
+    if not actor:
+        return None
+    try:
+        from plugins.buffs.dodge_lock import DodgeLockBuff
+        return DodgeLockBuff.get_locked_skill_id(actor)
+    except Exception:
+        return None
+
+
+def _is_evade_skill(skill_id):
+    if not skill_id:
+        return False
+    skill_data = all_skill_data.get(skill_id, {})
+    category = str(skill_data.get('分類', ''))
+    if category == '回避':
+        return True
+    for tag in skill_data.get('tags', []) or []:
+        if isinstance(tag, str) and '回避' in tag:
+            return True
+    return False
+
+
+def _choose_highest_initiative_slot(slot_ids, slots):
+    if not slot_ids:
+        return None
+    return max(
+        slot_ids,
+        key=lambda s: (int(slots.get(s, {}).get('initiative', 0)), str(s))
+    )
+
+
+def select_evade_insert_slot(state, battle_state, defender_actor_id, attacker_slot):
+    if not defender_actor_id or not attacker_slot:
+        return None, None
+    if not is_dodge_lock_active(state, defender_actor_id):
+        return None, None
+
+    slots = battle_state.get('slots', {})
+    intents = battle_state.get('intents', {})
+    locked_skill_id = get_dodge_lock_skill_id(state, defender_actor_id)
+
+    actor_slot_ids = [
+        slot_id
+        for slot_id, slot in slots.items()
+        if slot.get('actor_id') == defender_actor_id
+    ]
+    if not actor_slot_ids:
+        return None, None
+
+    def _is_locked_skill_match(skill_id):
+        if not locked_skill_id:
+            return True
+        return skill_id == locked_skill_id
+
+    direct_candidates = []
+    for slot_id in actor_slot_ids:
+        intent = intents.get(slot_id, {})
+        skill_id = intent.get('skill_id')
+        if not intent.get('committed', False):
+            continue
+        if not _is_evade_skill(skill_id):
+            continue
+        if not _is_locked_skill_match(skill_id):
+            continue
+        target = intent.get('target', {})
+        if target.get('type') == 'single_slot' and target.get('slot_id') == attacker_slot:
+            direct_candidates.append(slot_id)
+    picked = _choose_highest_initiative_slot(direct_candidates, slots)
+    if picked:
+        return picked, 'targeted_evade'
+
+    evade_candidates = []
+    for slot_id in actor_slot_ids:
+        intent = intents.get(slot_id, {})
+        skill_id = intent.get('skill_id')
+        if not intent.get('committed', False):
+            continue
+        if not _is_evade_skill(skill_id):
+            continue
+        if not _is_locked_skill_match(skill_id):
+            continue
+        evade_candidates.append(slot_id)
+    picked = _choose_highest_initiative_slot(evade_candidates, slots)
+    if picked:
+        return picked, 'evade_slot_reuse'
+
+    resolved_slots = battle_state.get('resolve', {}).get('resolved_slots', [])
+    reusable = [
+        slot_id for slot_id in resolved_slots
+        if slots.get(slot_id, {}).get('actor_id') == defender_actor_id
+    ]
+    picked = _choose_highest_initiative_slot(reusable, slots)
+    if picked:
+        return picked, 'resolved_slot_reuse'
+
+    return None, None

@@ -174,6 +174,341 @@ window.renderVisualMap = function () {
     if (typeof window.renderArrows === 'function') {
         window.renderArrows();
     }
+
+    // 5. Render Select/Resolve slot badges on tokens (select phase)
+    if (typeof window.renderSlotBadgesForAllTokens === 'function') {
+        window.renderSlotBadgesForAllTokens();
+    }
+}
+
+window.renderSlotBadgesForAllTokens = function () {
+    const tokenLayer = document.getElementById('map-token-layer');
+    if (!tokenLayer) return;
+
+    const storeState = (window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : null;
+    const legacyState = window.battleState || {};
+    const storeChars = Array.isArray(storeState?.characters) ? storeState.characters.length : 0;
+    const storeSlots = storeState?.slots
+        ? (Array.isArray(storeState.slots) ? storeState.slots.length : Object.keys(storeState.slots).length)
+        : 0;
+    const legacyChars = Array.isArray(legacyState?.characters) ? legacyState.characters.length : 0;
+    const legacySlots = legacyState?.slots
+        ? (Array.isArray(legacyState.slots) ? legacyState.slots.length : Object.keys(legacyState.slots).length)
+        : 0;
+
+    const stateRef = (storeState && (storeChars > 0 || storeSlots > 0))
+        ? storeState
+        : legacyState;
+    const phase = stateRef.phase || 'select';
+    const characters = stateRef.characters || [];
+    const intents = stateRef.intents || {};
+    const selectedSlotId = stateRef.selectedSlotId || null;
+    const rawSlots = stateRef.slots || {};
+    const slots = Array.isArray(rawSlots)
+        ? rawSlots
+        : Object.entries(rawSlots).map(([sid, slot]) => ({
+            ...(slot || {}),
+            slot_id: (slot && slot.slot_id) ? slot.slot_id : sid
+        }));
+
+    tokenLayer.querySelectorAll('.slot-badge-container').forEach(el => el.remove());
+
+    const now = Date.now();
+    if (!window._slotBadgeLogAt || now - window._slotBadgeLogAt > 600) {
+        const perActor = {};
+        for (const slot of slots) {
+            const actorId = slot?.actor_id ?? slot?.actor_char_id;
+            if (!actorId) continue;
+            const key = String(actorId);
+            perActor[key] = (perActor[key] || 0) + 1;
+        }
+        const source = (stateRef === storeState) ? 'BattleStore' : 'battleState';
+        console.log(`[slot_badges] source=${source} phase=${phase} chars=${characters.length} slots=${slots.length} per_actor=${JSON.stringify(perActor)}`);
+        window._slotBadgeLogAt = now;
+    }
+
+    if (phase !== 'select' || slots.length === 0) {
+        return;
+    }
+
+    const tokenEls = tokenLayer.querySelectorAll('.map-token[data-id]');
+    tokenEls.forEach(token => {
+        const charId = String(token.dataset.id || '');
+        if (!charId) return;
+
+        const actorSlots = slots
+            .filter(slot => String(slot?.actor_id ?? slot?.actor_char_id ?? '') === charId)
+            .sort((a, b) => {
+                const ai = Number(a?.index_in_actor ?? 9999);
+                const bi = Number(b?.index_in_actor ?? 9999);
+                if (ai !== bi) return ai - bi;
+                const ain = Number(a?.initiative ?? 0);
+                const bin = Number(b?.initiative ?? 0);
+                return bin - ain;
+            });
+
+        if (actorSlots.length === 0) return;
+
+        const container = document.createElement('div');
+        container.className = 'slot-badge-container';
+
+        actorSlots.forEach(slot => {
+            const slotId = slot?.slot_id ?? slot?.id;
+            const actorId = slot?.actor_id ?? slot?.actor_char_id ?? null;
+            const intent = (slotId && intents) ? (intents[slotId] || {}) : {};
+            const committed = !!intent?.committed;
+            const lockedTarget = !!slot?.locked_target || !!intent?.locked_target;
+            const initiative = Number(slot?.initiative ?? 0);
+
+            const badge = document.createElement('div');
+            const isSelected = selectedSlotId && String(selectedSlotId) === String(slotId);
+            badge.className = `slot-badge${committed ? ' is-committed' : ''}${lockedTarget ? ' is-locked' : ''}${isSelected ? ' is-selected' : ''}`;
+            badge.title = _buildSlotBadgeTitle(slotId, initiative, stateRef);
+            if (slotId) badge.dataset.slotId = String(slotId);
+            if (actorId) badge.dataset.actorId = String(actorId);
+
+            const num = document.createElement('span');
+            num.className = 'slot-badge-num';
+            num.textContent = String(initiative);
+            badge.appendChild(num);
+
+            badge.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (!slotId) return;
+                if (phase !== 'select') return;
+                console.log(`[slot_badges] clicked slot=${slotId} actor=${actorId || 'unknown'}`);
+                _handleDeclareSlotClick(String(slotId), String(actorId || ''));
+            });
+
+            container.appendChild(badge);
+        });
+
+        token.appendChild(container);
+    });
+};
+function _getSelectResolveStateRef() {
+    if (window.BattleStore && window.BattleStore.state) {
+        return window.BattleStore.state;
+    }
+    if (typeof battleState !== 'undefined' && battleState) {
+        return battleState;
+    }
+    return {};
+}
+
+function _resolveTargetSlotIdForActor(actorId, stateRef) {
+    if (!actorId || !stateRef) return null;
+    const slotsMap = stateRef.slots || {};
+    const timeline = Array.isArray(stateRef.timeline) ? stateRef.timeline : [];
+
+    const candidates = Object.entries(slotsMap)
+        .map(([sid, slot]) => ({
+            slot_id: (slot && slot.slot_id) ? slot.slot_id : sid,
+            ...(slot || {})
+        }))
+        .filter(slot => String(slot.actor_id || slot.actor_char_id || '') === String(actorId));
+
+    if (candidates.length === 0) return null;
+
+    if (timeline.length > 0) {
+        for (const timelineSlotId of timeline) {
+            const found = candidates.find(s => String(s.slot_id) === String(timelineSlotId));
+            if (found) return found.slot_id;
+        }
+    }
+
+    candidates.sort((a, b) => {
+        const ai = Number(a.initiative ?? 0);
+        const bi = Number(b.initiative ?? 0);
+        if (ai !== bi) return bi - ai;
+        return String(a.slot_id).localeCompare(String(b.slot_id));
+    });
+    return candidates[0].slot_id;
+}
+
+function _pickPreviewSkillId(stateRef, slotId) {
+    const intentSkill = stateRef?.intents?.[slotId]?.skill_id;
+    if (intentSkill) return intentSkill;
+
+    const all = window.allSkillData || {};
+    const preferred = 'basic_attack';
+    if (all[preferred]) return preferred;
+
+    const ids = Object.keys(all);
+    if (ids.length === 0) return preferred;
+
+    for (const id of ids) {
+        const skill = all[id] || {};
+        const text = [
+            skill.name,
+            skill.description,
+            skill.summary,
+            skill.type,
+            skill.category
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (/attack|atk|謾ｻ謦ポ譁ｬ|謇倒蛻ｺ/.test(text)) {
+            return id;
+        }
+    }
+
+    return ids[0];
+}
+
+function _getSkillTooltipMeta(skillId) {
+    const all = window.allSkillData || {};
+    const skill = (skillId && all[skillId]) ? all[skillId] : null;
+    if (!skill) return null;
+    const name = skill.name || skill.default_name || skill.skill_name || skillId;
+    const description = skill.description || skill.desc || skill.summary || '';
+    const shortDesc = String(description || '').replace(/\s+/g, ' ').slice(0, 80);
+    return { name, shortDesc };
+}
+
+function _buildSlotBadgeTitle(slotId, initiative, stateRef) {
+    const actorId = _getActorIdBySlotId(stateRef, slotId);
+    const slot = stateRef?.slots?.[slotId];
+    const index = Number(slot?.index_in_actor ?? 0) + 1;
+    const actor = (stateRef?.characters || []).find((c) => String(c.id) === String(actorId));
+    const actorName = actor?.name || 'actor';
+    const base = `${actorName} #${index} / SPD:${initiative}`;
+    const selectedSkillId = stateRef?.declare?.skillId;
+    if (!selectedSkillId) return base;
+
+    const meta = _getSkillTooltipMeta(selectedSkillId);
+    if (!meta) return `${base}\nskill: ${selectedSkillId}`;
+    if (!meta.shortDesc) return `${base}\nskill: ${meta.name}`;
+    return `${base}\nskill: ${meta.name}\n${meta.shortDesc}`;
+}
+
+function _getActorIdBySlotId(stateRef, slotId) {
+    if (!stateRef || !slotId) return null;
+    const slotsMap = stateRef.slots || {};
+
+    if (Array.isArray(slotsMap)) {
+        const found = slotsMap.find(s => String(s?.slot_id ?? s?.id ?? '') === String(slotId));
+        return found ? (found.actor_id ?? found.actor_char_id ?? null) : null;
+    }
+
+    const slot = slotsMap[slotId];
+    if (!slot) return null;
+    return slot.actor_id ?? slot.actor_char_id ?? null;
+}
+
+function _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId) {
+    const roomId = stateRef?.room_id || stateRef?.room_name || window.currentRoomName || null;
+    const battleId = stateRef?.battle_id || null;
+    const effectiveSkillId = skillId || null;
+    const target = targetSlotId
+        ? { type: 'single_slot', slot_id: targetSlotId }
+        : { type: 'none', slot_id: null };
+
+    if (!roomId || !battleId) {
+        console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_slot=${targetSlotId || 'null'} (skip: missing room/battle)`);
+        return;
+    }
+    if (!window.SocketClient || typeof window.SocketClient.sendIntentPreview !== 'function') {
+        console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_slot=${targetSlotId || 'null'} (skip: socket client unavailable)`);
+        return;
+    }
+
+    console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_slot=${targetSlotId || 'null'}`);
+    window.SocketClient.sendIntentPreview(roomId, battleId, sourceSlotId, effectiveSkillId, target);
+}
+
+function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
+    const stateRef = _getSelectResolveStateRef();
+    if ((stateRef.phase || 'select') !== 'select') return;
+
+    const currentDeclare = stateRef.declare || {};
+    const intents = stateRef.intents || {};
+    const clickedIntent = intents[clickedSlotId] || null;
+    let mode = currentDeclare.mode || 'idle';
+    let sourceSlotId = currentDeclare.sourceSlotId || null;
+    let targetSlotId = currentDeclare.targetSlotId || null;
+    let skillId = currentDeclare.skillId || null;
+    const effectiveClickedActorId = clickedActorId || _getActorIdBySlotId(stateRef, clickedSlotId);
+    const sourceActorId = sourceSlotId ? _getActorIdBySlotId(stateRef, sourceSlotId) : null;
+    const isTargetChoosing = !!sourceSlotId && (mode === 'choose_target' || mode === 'ready');
+    const isDifferentActorClick = (
+        !!sourceActorId
+        && !!effectiveClickedActorId
+        && String(sourceActorId) !== String(effectiveClickedActorId)
+    );
+
+    // If clicked slot is already committed, open read-only view only when not target-choosing.
+    // During target choosing, committed enemy slots must remain selectable as target.
+    if (clickedIntent && clickedIntent.committed && !(isTargetChoosing && isDifferentActorClick)) {
+        sourceSlotId = clickedSlotId;
+        targetSlotId = clickedIntent?.target?.slot_id || null;
+        skillId = clickedIntent?.skill_id || null;
+        mode = 'locked';
+
+        if (window.BattleStore && typeof window.BattleStore.setDeclare === 'function') {
+            window.BattleStore.setDeclare({ sourceSlotId, targetSlotId, skillId, mode });
+        } else if (window.BattleStore && typeof window.BattleStore.setSelectedSlotId === 'function') {
+            window.BattleStore.setSelectedSlotId(sourceSlotId);
+        } else if (typeof battleState !== 'undefined') {
+            battleState.selectedSlotId = sourceSlotId;
+        }
+
+        console.log(`[declare] mode=locked source=${sourceSlotId || 'null'} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
+        return;
+    }
+
+    const switchSource = () => {
+        sourceSlotId = clickedSlotId;
+        targetSlotId = null;
+        skillId = null;
+        mode = 'choose_target';
+    };
+
+    if (mode === 'idle' || !sourceSlotId) {
+        switchSource();
+    } else if (mode === 'locked') {
+        switchSource();
+    } else if (mode === 'choose_target') {
+        if (
+            sourceActorId
+            && effectiveClickedActorId
+            && String(sourceActorId) !== String(effectiveClickedActorId)
+        ) {
+            targetSlotId = clickedSlotId;
+            mode = 'ready';
+        } else {
+            switchSource();
+        }
+    } else if (mode === 'ready') {
+        if (
+            sourceActorId
+            && effectiveClickedActorId
+            && String(sourceActorId) !== String(effectiveClickedActorId)
+        ) {
+            targetSlotId = clickedSlotId;
+            mode = 'ready';
+        } else {
+            switchSource();
+        }
+    } else {
+        switchSource();
+    }
+
+    if (window.BattleStore && typeof window.BattleStore.setDeclare === 'function') {
+        window.BattleStore.setDeclare({
+            sourceSlotId,
+            targetSlotId,
+            skillId,
+            mode
+        });
+    } else if (window.BattleStore && typeof window.BattleStore.setSelectedSlotId === 'function') {
+        window.BattleStore.setSelectedSlotId(sourceSlotId);
+    } else if (typeof battleState !== 'undefined') {
+        battleState.selectedSlotId = sourceSlotId;
+    }
+
+    console.log(`[declare] mode=${mode} source=${sourceSlotId || 'null'} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
+    _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId);
 }
 
 // Helper: Update token visual contents (bars, badges, etc)
@@ -608,12 +943,37 @@ window.createMapToken = function (char) {
         console.log(`[Click] Token clicked: ${char.name} (${char.id})`);
 
         if (window._dragBlockClick) {
-            console.log('[Click] ❌ Blocked due to recent drag');
+            console.log('[Click] blocked due to recent drag');
             return;
         }
 
         document.querySelectorAll('.map-token').forEach(t => t.style.zIndex = '');
         token.style.zIndex = 500;
+
+        // Select/Resolve target selection mode: pick target slot from clicked token actor.
+        const srState = _getSelectResolveStateRef();
+        if (srState.phase === 'select' && srState.targetSelectMode) {
+            const selectedSlotId = srState.selectedSlotId;
+            if (!selectedSlotId) {
+                console.log('[slot_badges] target click ignored: no selectedSlotId');
+                return;
+            }
+
+            const targetSlotId = _resolveTargetSlotIdForActor(char.id, srState);
+            if (!targetSlotId) {
+                console.log(`[slot_badges] target click ignored: no slot for actor=${char.id}`);
+                return;
+            }
+
+            if (window.EventBus && typeof window.EventBus.emit === 'function') {
+                window.EventBus.emit('timeline:target-slot-clicked', {
+                    targetSlotId,
+                    actorId: char.id
+                });
+                console.log(`[slot_badges] target selected slot=${targetSlotId} actor=${char.id}`);
+            }
+            return;
+        }
 
         // Active Match Expansion
         if (battleState.active_match && battleState.active_match.is_active) {
@@ -989,3 +1349,4 @@ window.toggleBuffDesc = function (elementId) {
 }
 
 console.log('[visual_map] Loaded.');
+

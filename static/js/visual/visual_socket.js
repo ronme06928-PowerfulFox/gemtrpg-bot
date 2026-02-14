@@ -10,6 +10,49 @@ window.setupVisualSocketHandlers = function () {
 
     console.log('[visual_socket] Registering socket handlers...');
 
+    const applyBattleStore = (fnName, payload) => {
+        if (window.BattleStore && typeof window.BattleStore[fnName] === 'function') {
+            window.BattleStore[fnName](payload);
+            return true;
+        }
+        return false;
+    };
+
+    const syncLegacyBattleStateFromStore = () => {
+        if (typeof battleState === 'undefined') return;
+        if (!window.BattleStore || !window.BattleStore.state) return;
+        const s = window.BattleStore.state;
+        if (s.phase !== undefined) battleState.phase = s.phase;
+        if (s.round !== undefined) battleState.round = s.round;
+        if (s.timeline !== undefined) battleState.timeline = s.timeline;
+        if (s.slots !== undefined) battleState.slots = s.slots;
+        if (s.intents !== undefined) battleState.intents = s.intents;
+        if (s.redirects !== undefined) battleState.redirects = s.redirects;
+        if (s.resolveTrace !== undefined) battleState.resolveTrace = s.resolveTrace;
+        if (s.selectedSlotId !== undefined) battleState.selectedSlotId = s.selectedSlotId;
+        if (s.battleError !== undefined) battleState.battleError = s.battleError;
+    };
+
+    const applyBattlePayloadToLegacy = (payload) => {
+        if (typeof battleState === 'undefined' || !payload) return;
+        if (payload.room_id !== undefined) battleState.room_id = payload.room_id;
+        if (payload.battle_id !== undefined) battleState.battle_id = payload.battle_id;
+        if (payload.round !== undefined) battleState.round = payload.round;
+        if (payload.phase !== undefined) battleState.phase = payload.phase;
+        if (payload.slots !== undefined) battleState.slots = payload.slots || {};
+        if (payload.timeline !== undefined) battleState.timeline = payload.timeline || [];
+        if (payload.intents !== undefined) battleState.intents = payload.intents || {};
+        if (payload.redirects !== undefined) battleState.redirects = payload.redirects || [];
+        if (payload.resolve_ready !== undefined) battleState.resolveReady = !!payload.resolve_ready;
+        if (payload.resolve_ready_info !== undefined) battleState.resolveReadyInfo = payload.resolve_ready_info || null;
+        if (payload.battle_error !== undefined) battleState.battleError = payload.battle_error || null;
+        if (payload.trace !== undefined) {
+            const current = Array.isArray(battleState.resolveTrace) ? battleState.resolveTrace : [];
+            const append = Array.isArray(payload.trace) ? payload.trace : [];
+            battleState.resolveTrace = current.concat(append);
+        }
+    };
+
     // --- State Update ---
     socket.on('state_updated', (state) => {
         // Debug: Log incoming state details
@@ -30,6 +73,7 @@ window.setupVisualSocketHandlers = function () {
         if (!processedByStore && typeof battleState !== 'undefined') {
             battleState = state;
         }
+        syncLegacyBattleStateFromStore();
 
         if (document.getElementById('visual-battle-container')) {
             const mode = state.mode || 'battle';
@@ -61,6 +105,9 @@ window.setupVisualSocketHandlers = function () {
             if (typeof renderVisualTimeline === 'function') {
                 renderVisualTimeline();
             }
+            if (typeof renderSlotBadgesForAllTokens === 'function') {
+                renderSlotBadgesForAllTokens();
+            }
 
             if (!window.actionDockInitialized && typeof initializeActionDock === 'function') {
                 initializeActionDock();
@@ -71,6 +118,75 @@ window.setupVisualSocketHandlers = function () {
 
             renderMatchPanelFromState(state.active_match);
         }
+    });
+
+    // --- Select/Resolve New Flow Events ---
+    socket.on('battle_round_started', (payload) => {
+        console.log('[visual_socket] battle_round_started', payload);
+        const handled = applyBattleStore('setRoundStarted', payload || {});
+        if (handled) syncLegacyBattleStateFromStore();
+        else applyBattlePayloadToLegacy(payload || {});
+        if (typeof renderVisualTimeline === 'function') renderVisualTimeline();
+        if (typeof renderSlotBadgesForAllTokens === 'function') renderSlotBadgesForAllTokens();
+        if (typeof updateActionDock === 'function') updateActionDock();
+    });
+
+    socket.on('battle_state_updated', (payload) => {
+        const slotsLen = payload?.slots ? Object.keys(payload.slots).length : 0;
+        const intentsLen = payload?.intents ? Object.keys(payload.intents).length : 0;
+        console.log(`[visual_socket] battle_state_updated phase=${payload?.phase} slots=${slotsLen} intents=${intentsLen}`);
+        const handled = applyBattleStore('applyBattleState', payload || {});
+        if (handled) syncLegacyBattleStateFromStore();
+        else applyBattlePayloadToLegacy(payload || {});
+        if (typeof renderVisualTimeline === 'function') renderVisualTimeline();
+        if (typeof renderSlotBadgesForAllTokens === 'function') renderSlotBadgesForAllTokens();
+        if (typeof updateActionDock === 'function') updateActionDock();
+    });
+
+    socket.on('battle_resolve_ready', (payload) => {
+        console.log('[visual_socket] battle_resolve_ready', payload);
+        const handled = applyBattleStore('setResolveReady', payload || { ready: true });
+        if (handled) syncLegacyBattleStateFromStore();
+        else applyBattlePayloadToLegacy({ resolve_ready: true, resolve_ready_info: payload || {} });
+        if (typeof updateActionDock === 'function') updateActionDock();
+    });
+
+    socket.on('battle_phase_changed', (payload) => {
+        console.log('[visual_socket] battle_phase_changed', payload);
+        const handled = applyBattleStore('setPhase', (payload || {}).to);
+        if (handled) syncLegacyBattleStateFromStore();
+        else applyBattlePayloadToLegacy({ phase: (payload || {}).to });
+        if (typeof renderSlotBadgesForAllTokens === 'function') renderSlotBadgesForAllTokens();
+        if (typeof updateActionDock === 'function') updateActionDock();
+    });
+
+    socket.on('battle_resolve_trace_appended', (payload) => {
+        const trace = (payload && payload.trace) || [];
+        console.log(`[visual_socket] battle_resolve_trace_appended +${trace.length}`);
+        const handled = applyBattleStore('appendResolveTrace', trace);
+        if (handled) syncLegacyBattleStateFromStore();
+        else applyBattlePayloadToLegacy({ trace });
+        // Keep minimal storage-only for now; replay UI comes later.
+    });
+
+    socket.on('battle_round_finished', (payload) => {
+        console.log('[visual_socket] battle_round_finished', payload);
+        const handled = applyBattleStore('setRoundFinished', (payload || {}).round);
+        if (handled) syncLegacyBattleStateFromStore();
+        else applyBattlePayloadToLegacy({ round: (payload || {}).round, phase: 'round_end' });
+        if (typeof updateActionDock === 'function') updateActionDock();
+    });
+
+    socket.on('battle_error', (payload) => {
+        const message = payload?.message || 'Battle error';
+        console.warn('[visual_socket] battle_error', payload);
+        if (!applyBattleStore('setBattleError', message) && typeof battleState !== 'undefined') {
+            battleState.battleError = message;
+        }
+        if (window.EventBus && typeof window.EventBus.emit === 'function') {
+            window.EventBus.emit('battle:error', payload || { message });
+        }
+        if (typeof updateActionDock === 'function') updateActionDock();
     });
 
     // --- Character Movement (Differential) ---
@@ -142,6 +258,19 @@ window.setupVisualSocketHandlers = function () {
     socket.off('skill_declaration_result'); // Remove existing to prevent duplicates if re-initialized
     socket.on('skill_declaration_result', (data) => {
         if (!data.prefix) return;
+
+        // Select/Resolve Declare Panel calc result
+        if (String(data.prefix).startsWith('declare_panel_')) {
+            const declaredSource = String(data.prefix).replace('declare_panel_', '');
+            const currentSource = String(window.BattleStore?.state?.declare?.sourceSlotId || '');
+            if (window.BattleStore && typeof window.BattleStore.setDeclareCalc === 'function') {
+                if (!currentSource || currentSource === declaredSource) {
+                    window.BattleStore.setDeclareCalc(data || null);
+                }
+            }
+            console.log(`[declare] calc_result source=${declaredSource} skill=${data.skill_id} min=${data.min_damage} max=${data.max_damage} error=${!!data.error}`);
+            return;
+        }
 
         // Visual Wide Attacker
         if (data.prefix === 'visual_wide_attacker') {

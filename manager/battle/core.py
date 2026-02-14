@@ -1,6 +1,9 @@
 import re
 import json
+import time
 from extensions import all_skill_data
+from extensions import socketio
+from manager.dice_roller import roll_dice
 
 from manager.game_logic import (
     process_skill_effects, apply_buff, remove_buff, get_status_value
@@ -15,6 +18,397 @@ from manager.room_manager import (
 from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
+
+
+def _resolve_server_ts():
+    return int(time.time())
+
+
+def _log_battle_emit(event_name, room_id, battle_id, payload):
+    payload = payload or {}
+    timeline_len = len(payload.get('timeline', []) or [])
+    slots_len = len(payload.get('slots', {}) or {})
+    intents_len = len(payload.get('intents', {}) or {})
+    trace_len = len(payload.get('trace', []) or [])
+    phase = payload.get('phase') or payload.get('to') or payload.get('from')
+    logger.info(
+        "[EMIT] %s room=%s battle=%s phase=%s timeline=%d slots=%d intents=%d trace=%d",
+        event_name, room_id, battle_id, phase, timeline_len, slots_len, intents_len, trace_len
+    )
+
+
+def _emit_battle_trace(room, battle_id, battle_state, trace_entry):
+    payload = {
+        'room_id': room,
+        'battle_id': battle_id,
+        'round': battle_state.get('round', 0),
+        'phase': battle_state.get('phase', 'resolve_mass'),
+        'trace': [trace_entry]
+    }
+    _log_battle_emit('battle_resolve_trace_appended', room, battle_id, payload)
+    socketio.emit('battle_resolve_trace_appended', payload, to=room)
+
+
+def _append_trace(
+    room,
+    battle_id,
+    battle_state,
+    kind,
+    attacker_slot,
+    defender_slot=None,
+    target_actor_id=None,
+    notes=None,
+    outcome='no_effect',
+    cost=None,
+    rolls=None,
+    extra_fields=None
+):
+    trace = battle_state.get('resolve', {}).get('trace', [])
+    entry = {
+        'step': len(trace) + 1,
+        'kind': kind,
+        'attacker_slot': attacker_slot,
+        'defender_slot': defender_slot,
+        'target_actor_id': target_actor_id,
+        'rolls': rolls or {},
+        'outcome': outcome,
+        'cost': cost or {'mp': 0, 'hp': 0},
+        'notes': notes
+    }
+    if extra_fields:
+        entry.update(extra_fields)
+    trace.append(entry)
+    battle_state['resolve']['trace'] = trace
+    logger.info("[resolve_trace] kind=%s attacker_slot=%s", kind, attacker_slot)
+    _emit_battle_trace(room, battle_id, battle_state, entry)
+
+
+def _is_actor_placed(state, actor_id):
+    actor = next((c for c in state.get('characters', []) if c.get('id') == actor_id), None)
+    if not actor:
+        return False
+    try:
+        x_val = float(actor.get('x', -1))
+    except (ValueError, TypeError):
+        x_val = -1
+    if x_val < 0:
+        return False
+    if actor.get('hp', 0) <= 0:
+        return False
+    if actor.get('is_escaped', False):
+        return False
+    return True
+
+
+def _build_resolve_queues(battle_state):
+    timeline = battle_state.get('timeline', [])
+    slots = battle_state.get('slots', {})
+    intents = battle_state.get('intents', {})
+    index_map = {slot_id: idx for idx, slot_id in enumerate(timeline)}
+
+    mass_slots = []
+    for slot_id in timeline:
+        intent = intents.get(slot_id, {})
+        tags = intent.get('tags', {})
+        mass_type = tags.get('mass_type')
+        if mass_type in ['individual', 'summation', 'mass_individual', 'mass_summation']:
+            mass_slots.append(slot_id)
+
+    mass_slots.sort(key=lambda s: index_map.get(s, 10**9))
+
+    single_slots = []
+    for slot_id in timeline:
+        intent = intents.get(slot_id, {})
+        tags = intent.get('tags', {})
+        mass_type = tags.get('mass_type')
+        is_mass = mass_type in ['individual', 'summation', 'mass_individual', 'mass_summation']
+        if is_mass:
+            continue
+        if tags.get('instant', False):
+            continue
+        single_slots.append(slot_id)
+
+    battle_state['resolve']['mass_queue'] = mass_slots
+    battle_state['resolve']['single_queue'] = single_slots
+
+
+def _compare_outcome(attacker_power, defender_power):
+    if attacker_power > defender_power:
+        return 'attacker_win'
+    if attacker_power < defender_power:
+        return 'defender_win'
+    return 'draw'
+
+
+def _roll_power_for_slot(battle_state, slot_id):
+    intents = battle_state.get('intents', {})
+    intent = intents.get(slot_id, {})
+    skill_id = intent.get('skill_id')
+
+    # Prefer deterministic+visible debug values: 1d20 + optional static bonus from skill data.
+    base_roll = int(roll_dice("1d20").get('total', 1))
+    bonus = 0
+    if skill_id:
+        skill_data = all_skill_data.get(skill_id, {})
+        for key in ['基礎威力補正', 'ダイス補正']:
+            try:
+                bonus += int(skill_data.get(key, 0))
+            except Exception:
+                pass
+    return max(0, base_roll + bonus)
+
+
+def _gather_slots_targeting_slot_s(state, battle_state, slot_s):
+    intents = battle_state.get('intents', {})
+    slots = battle_state.get('slots', {})
+    candidates = []
+
+    for slot_id, intent in intents.items():
+        if not intent.get('committed', False):
+            continue
+        if intent.get('tags', {}).get('instant', False):
+            continue
+        target = intent.get('target', {})
+        if target.get('type') != 'single_slot':
+            continue
+        if target.get('slot_id') != slot_s:
+            continue
+        slot_data = slots.get(slot_id)
+        if not slot_data:
+            continue
+        actor_id = slot_data.get('actor_id')
+        if not actor_id:
+            continue
+        if not _is_actor_placed(state, actor_id):
+            continue
+        candidates.append((slot_id, actor_id, int(slot_data.get('initiative', 0))))
+
+    best_by_actor = {}
+    for slot_id, actor_id, initiative in candidates:
+        prev = best_by_actor.get(actor_id)
+        if (
+            prev is None
+            or initiative > prev[2]
+            or (initiative == prev[2] and slot_id < prev[0])
+        ):
+            best_by_actor[actor_id] = (slot_id, actor_id, initiative)
+
+    return [v[0] for v in best_by_actor.values()]
+
+
+def run_select_resolve_auto(room, battle_id):
+    state = get_room_state(room)
+    if not state:
+        return
+
+    from manager.battle.common_manager import (
+        ensure_battle_state_vNext,
+        build_select_resolve_state_payload,
+        select_evade_insert_slot
+    )
+    battle_state = ensure_battle_state_vNext(state, battle_id=battle_id, round_value=state.get('round', 0))
+    if not battle_state:
+        return
+
+    if battle_state.get('phase') not in ['resolve_mass', 'resolve_single']:
+        return
+
+    _build_resolve_queues(battle_state)
+
+    if battle_state.get('phase') == 'resolve_mass':
+        for slot_id in battle_state['resolve'].get('mass_queue', []):
+            intent = battle_state.get('intents', {}).get(slot_id, {})
+            tags = intent.get('tags', {})
+            mass_type = tags.get('mass_type')
+            attacker_slot_data = battle_state.get('slots', {}).get(slot_id, {})
+            attacker_actor_id = attacker_slot_data.get('actor_id')
+            attacker_team = attacker_slot_data.get('team')
+            if not attacker_actor_id or not _is_actor_placed(state, attacker_actor_id):
+                _append_trace(room, battle_id, battle_state, 'fizzle', slot_id, notes='attacker_unplaced')
+                battle_state['resolve']['resolved_slots'].append(slot_id)
+                continue
+
+            if mass_type in ['summation', 'mass_summation']:
+                participant_slots = _gather_slots_targeting_slot_s(state, battle_state, slot_id)
+                attacker_power = _roll_power_for_slot(battle_state, slot_id)
+                defender_powers = {}
+                for p_slot in participant_slots:
+                    defender_powers[p_slot] = _roll_power_for_slot(battle_state, p_slot)
+                defender_sum = sum(defender_powers.values())
+                outcome = _compare_outcome(attacker_power, defender_sum)
+                _append_trace(
+                    room,
+                    battle_id,
+                    battle_state,
+                    'mass_summation',
+                    slot_id,
+                    rolls={
+                        'attacker_power': attacker_power,
+                        'defender_powers': defender_powers,
+                        'defender_sum': defender_sum
+                    },
+                    outcome=outcome,
+                    extra_fields={'participants': participant_slots}
+                )
+            else:
+                participant_slots = _gather_slots_targeting_slot_s(state, battle_state, slot_id)
+                participant_by_actor = {}
+                for p_slot in participant_slots:
+                    actor_id = battle_state.get('slots', {}).get(p_slot, {}).get('actor_id')
+                    if actor_id:
+                        participant_by_actor[actor_id] = p_slot
+
+                enemy_actors = []
+                for actor in state.get('characters', []):
+                    actor_id = actor.get('id')
+                    if not actor_id:
+                        continue
+                    if actor.get('type') == attacker_team:
+                        continue
+                    if not _is_actor_placed(state, actor_id):
+                        continue
+                    enemy_actors.append(actor_id)
+
+                for defender_actor_id in enemy_actors:
+                    defender_slot = participant_by_actor.get(defender_actor_id)
+                    attacker_power = _roll_power_for_slot(battle_state, slot_id)
+                    if defender_slot:
+                        defender_power = _roll_power_for_slot(battle_state, defender_slot)
+                        outcome = _compare_outcome(attacker_power, defender_power)
+                    else:
+                        defender_power = 0
+                        outcome = 'attacker_win'
+
+                    _append_trace(
+                        room,
+                        battle_id,
+                        battle_state,
+                        'mass_individual',
+                        slot_id,
+                        defender_slot=defender_slot,
+                        target_actor_id=defender_actor_id,
+                        rolls={
+                            'attacker_power': attacker_power,
+                            'defender_power': defender_power
+                        },
+                        outcome=outcome
+                    )
+
+            battle_state['resolve']['resolved_slots'].append(slot_id)
+
+        battle_state['phase'] = 'resolve_single'
+        phase_payload = {
+            'room_id': room,
+            'battle_id': battle_id,
+            'round': battle_state.get('round', 0),
+            'from': 'resolve_mass',
+            'to': 'resolve_single'
+        }
+        _log_battle_emit('battle_phase_changed', room, battle_id, phase_payload)
+        socketio.emit('battle_phase_changed', phase_payload, to=room)
+        payload = build_select_resolve_state_payload(room, battle_id=battle_id)
+        if payload:
+            _log_battle_emit('battle_state_updated', room, battle_id, payload)
+            socketio.emit('battle_state_updated', payload, to=room)
+
+    if battle_state.get('phase') == 'resolve_single':
+        intents = battle_state.get('intents', {})
+        slots = battle_state.get('slots', {})
+        processed_slots = set()
+
+        def _mark_processed(slot_key):
+            if not slot_key:
+                return
+            if slot_key in processed_slots:
+                return
+            processed_slots.add(slot_key)
+            resolved_slots = battle_state['resolve'].get('resolved_slots', [])
+            if slot_key not in resolved_slots:
+                resolved_slots.append(slot_key)
+                battle_state['resolve']['resolved_slots'] = resolved_slots
+
+        for slot_id in battle_state['resolve'].get('single_queue', []):
+            if slot_id in processed_slots:
+                logger.debug("[resolve_single] skip slot=%s reason=processed", slot_id)
+                continue
+
+            intent_a = intents.get(slot_id, {})
+            skill_id = intent_a.get('skill_id')
+            if not intent_a or not skill_id:
+                _append_trace(room, battle_id, battle_state, 'fizzle', slot_id, notes='no_intent')
+                _mark_processed(slot_id)
+                continue
+
+            target = intent_a.get('target', {})
+            target_slot = target.get('slot_id')
+            if target.get('type') != 'single_slot' or not target_slot:
+                _append_trace(room, battle_id, battle_state, 'fizzle', slot_id, notes='invalid_target')
+                _mark_processed(slot_id)
+                continue
+
+            target_actor_id = slots.get(target_slot, {}).get('actor_id')
+            if not target_actor_id or not _is_actor_placed(state, target_actor_id):
+                _append_trace(room, battle_id, battle_state, 'fizzle', slot_id, target_actor_id=target_actor_id, notes='target_unplaced')
+                _mark_processed(slot_id)
+                continue
+
+            intent_b = intents.get(target_slot, {})
+            is_clash = (
+                intent_b.get('target', {}).get('type') == 'single_slot'
+                and intent_b.get('target', {}).get('slot_id') == slot_id
+            )
+            clash_defender_slot = target_slot if is_clash else None
+            if (not is_clash) and target_actor_id:
+                evade_slot, evade_reason = select_evade_insert_slot(
+                    state, battle_state, target_actor_id, slot_id
+                )
+                if evade_slot:
+                    logger.info(
+                        "[evade_insert] attacker_slot=%s defender_actor=%s defender_slot=%s reason=%s",
+                        slot_id, target_actor_id, evade_slot, evade_reason
+                    )
+                    _append_trace(
+                        room,
+                        battle_id,
+                        battle_state,
+                        'evade_insert',
+                        slot_id,
+                        defender_slot=evade_slot,
+                        target_actor_id=target_actor_id,
+                        notes=f"dodge_lock insert ({evade_reason})",
+                        outcome='no_effect'
+                    )
+                    is_clash = True
+                    clash_defender_slot = evade_slot
+
+            if is_clash:
+                _append_trace(
+                    room, battle_id, battle_state, 'clash', slot_id,
+                    defender_slot=clash_defender_slot, target_actor_id=target_actor_id
+                )
+                _mark_processed(slot_id)
+                _mark_processed(clash_defender_slot)
+            else:
+                _append_trace(
+                    room, battle_id, battle_state, 'one_sided', slot_id,
+                    target_actor_id=target_actor_id
+                )
+                _mark_processed(slot_id)
+
+        battle_state['phase'] = 'round_end'
+        round_finished_payload = {
+            'room_id': room,
+            'battle_id': battle_id,
+            'round': battle_state.get('round', 0)
+        }
+        _log_battle_emit('battle_round_finished', room, battle_id, round_finished_payload)
+        socketio.emit('battle_round_finished', round_finished_payload, to=room)
+        payload = build_select_resolve_state_payload(room, battle_id=battle_id)
+        if payload:
+            _log_battle_emit('battle_state_updated', room, battle_id, payload)
+            socketio.emit('battle_state_updated', payload, to=room)
+
+    save_specific_room_state(room)
 
 def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data, target_skill_data, all_skill_data_ref):
     """
@@ -296,6 +690,12 @@ def proceed_next_turn(room):
     """
     state = get_room_state(room)
     if not state: return
+    try:
+        from manager.battle.common_manager import ensure_battle_state_vNext
+        ensure_battle_state_vNext(state, round_value=state.get('round', 0))
+    except Exception as e:
+        logger.error(f"battle_state ensure failed in proceed_next_turn room={room}: {e}")
+
     timeline = state.get('timeline', [])
     current_entry_id = state.get('turn_entry_id')
     current_char_id = state.get('turn_char_id') # Maintain for compatibility

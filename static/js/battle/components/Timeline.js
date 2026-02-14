@@ -13,6 +13,8 @@ class Timeline {
         this._containerEl = null;
         this._unsubscribe = null;
         this._initialized = false;
+        this._lastSelectedSlotId = null;
+        this._lastSlotModeLogAt = 0;
     }
 
     /**
@@ -69,6 +71,23 @@ class Timeline {
         const timeline = (state && state.timeline) ? state.timeline : [];
         const characters = state.characters || [];
         const currentTurnId = state.turn_char_id;
+        const slots = state.slots || {};
+        const intents = state.intents || {};
+        const selectedSlotId = state.selectedSlotId;
+        const slotMode = timeline.length > 0 && typeof timeline[0] === 'string' && !!slots[timeline[0]];
+        if (slotMode) {
+            const now = Date.now();
+            if (now - this._lastSlotModeLogAt > 400) {
+                this._lastSlotModeLogAt = now;
+                console.log(`[Timeline] slot mode render: slots=${timeline.length}, selected=${selectedSlotId || 'none'}`);
+            }
+        }
+        if (selectedSlotId !== this._lastSelectedSlotId) {
+            this._lastSelectedSlotId = selectedSlotId;
+            if (selectedSlotId) {
+                console.log(`[Timeline] selectedSlotId changed: ${selectedSlotId}`);
+            }
+        }
 
         console.log(`Timeline Render Start. Items: ${timeline.length}, Container:`, this._containerEl);
 
@@ -82,6 +101,17 @@ class Timeline {
         }
 
         timeline.forEach((entry, index) => {
+            if (slotMode) {
+                const slotId = entry;
+                const slot = slots[slotId];
+                if (!slot) return;
+                const char = characters.find(c => String(c.id) === String(slot.actor_id));
+                const intent = intents[slotId] || null;
+                const item = this._createSlotTimelineItem(slot, char, intent, selectedSlotId, state);
+                this._containerEl.appendChild(item);
+                return;
+            }
+
             let charId, entryId, acted, speed;
             if (typeof entry === 'object' && entry !== null) {
                 charId = entry.char_id;
@@ -106,6 +136,48 @@ class Timeline {
         });
 
         console.log('Timeline Render Complete.');
+    }
+
+    _createSlotTimelineItem(slot, char, intent, selectedSlotId, state) {
+        const item = document.createElement('div');
+        item.className = `timeline-item slot-item ${(slot.team || 'NPC')}`;
+        Object.assign(item.style, {
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: '8px',
+            padding: '6px 8px',
+            borderBottom: '1px solid #eee',
+            cursor: 'pointer',
+            background: '#fff',
+            color: '#333',
+            minHeight: '24px',
+            alignItems: 'center'
+        });
+
+        if (String(slot.slot_id) === String(selectedSlotId)) {
+            item.style.background = '#e8f4ff';
+            item.style.border = '1px solid #66a3ff';
+        }
+
+        const actorName = char?.name || slot.actor_id || 'unknown';
+        const shortSlot = String(slot.slot_id).slice(-14);
+        const targetText = intent?.target?.slot_id ? `-> ${String(intent.target.slot_id).slice(-14)}` : '-> none';
+        const committedText = intent?.committed ? '[committed]' : '';
+        const lockedText = slot.locked_target ? '[locked]' : '';
+
+        item.innerHTML = `
+            <span class="slot-main">${actorName} (${shortSlot})</span>
+            <span class="slot-meta" style="font-size:0.82em; color:#666;">ini:${slot.initiative} ${targetText} ${committedText} ${lockedText}</span>
+        `;
+
+        item.addEventListener('click', () => {
+            if (char && typeof window.showCharacterDetail === 'function') {
+                window.showCharacterDetail(char.id);
+                eventBus.emit('timeline:character-clicked', { charId: char.id });
+            }
+        });
+
+        return item;
     }
 
     /**

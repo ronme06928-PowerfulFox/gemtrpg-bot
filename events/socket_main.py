@@ -5,7 +5,7 @@ from flask_socketio import join_room, leave_room, emit
 # 拡張機能とマネージャーからのインポート
 from extensions import socketio, user_sids
 from manager.room_manager import (
-    get_room_state, broadcast_log, broadcast_user_list
+    get_room_state, broadcast_log, broadcast_user_list, emit_select_resolve_events
 )
 
 # --- 5.2. SocketIO イベントハンドラ ---
@@ -51,6 +51,7 @@ def handle_join_room(data):
     state = get_room_state(room)
     print(f"[JOIN] Sending state_updated to {username} with {len(state.get('logs', []))} logs")
     emit('state_updated', state, to=request.sid)
+    emit_select_resolve_events(room, to_sid=request.sid, include_round_started=True)
 
     # ★ 短い遅延を入れて、クライアント側のDOM初期化を待つ
     # eventletの場合は sleep ではなく、emit後に即座に次の処理
