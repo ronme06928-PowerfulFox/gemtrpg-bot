@@ -146,53 +146,54 @@
 /* Select/Resolve slot badges (token overlay) */
 .slot-badge-container {
     position: absolute;
-    top: -28px;
+    top: -52px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 4px;
+    gap: 7px;
     align-items: flex-start;
-    z-index: 120;
+    z-index: 140;
     pointer-events: none;
 }
 
 .slot-badge {
-    min-width: 26px;
-    height: 24px;
-    padding: 2px 4px;
-    border-radius: 6px;
-    border: 2px solid #3a3a3a;
-    background: rgba(255, 255, 255, 0.95);
-    color: #222;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 999px;
+    border: 2px solid #4a3a28;
+    background: radial-gradient(circle at 32% 28%, #fff6da 0%, #efd7a6 72%, #d5b37a 100%);
+    color: #2c1f12;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 15px;
+    font-weight: 800;
     line-height: 1;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.42);
     pointer-events: auto;
     cursor: pointer;
 }
 
 .slot-badge.is-committed {
-    border-color: #2e9a43;
-    background: rgba(232, 252, 236, 0.98);
+    border-color: #2b8b46;
+    background: radial-gradient(circle at 30% 26%, #f5ffe9 0%, #cdecb5 70%, #9fcd7a 100%);
 }
 
 .slot-badge.is-locked {
-    border-color: #b35f00;
+    border-color: #9f5210;
+    background: radial-gradient(circle at 30% 26%, #fff2df 0%, #f0c88f 72%, #d89a4f 100%);
 }
 
 .slot-badge.is-selected {
     border-color: #2a6bff;
-    box-shadow: 0 0 0 2px rgba(42, 107, 255, 0.25), 0 4px 10px rgba(20, 50, 140, 0.45);
-    transform: translateY(-1px);
+    box-shadow: 0 0 0 3px rgba(42, 107, 255, 0.3), 0 5px 12px rgba(20, 50, 140, 0.5);
+    transform: translateY(-2px) scale(1.03);
 }
 
 .slot-badge-num {
-    font-size: 12px;
+    font-size: 16px;
     font-weight: 800;
 }
 

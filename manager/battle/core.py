@@ -56,6 +56,22 @@ def _emit_battle_trace(room, battle_id, battle_state, trace_entry):
         entry_lines = trace_entry.get('log_lines')
     if not isinstance(entry_lines, list):
         entry_lines = []
+
+    # Persist resolve lines into room logs so they survive history re-render on next round.
+    if entry_lines:
+        room_state = get_room_state(room)
+        if isinstance(room_state, dict):
+            logs = room_state.get('logs')
+            if not isinstance(logs, list):
+                logs = []
+                room_state['logs'] = logs
+            for line in entry_lines:
+                if line is None:
+                    continue
+                logs.append({'message': str(line), 'type': 'info', 'secret': False})
+            if len(logs) > 500:
+                room_state['logs'] = logs[-500:]
+
     payload = {
         'room_id': room,
         'battle_id': battle_id,
@@ -586,8 +602,16 @@ def to_legacy_duel_log_input(outcome_payload, state, intents, attacker_slot, def
     command_a = rolls.get('command') or "0"
     command_b = rolls.get('command_b') or "0"
 
-    skill_display_a = format_skill_display_from_command(command_a, attacker_skill_id, attacker_skill_data, attacker_char) or format_skill_name_for_log(attacker_skill_id, attacker_skill_data, attacker_char)
-    skill_display_d = format_skill_display_from_command(command_b, defender_skill_id, defender_skill_data, defender_char) if defender_skill_id else format_skill_name_for_log(defender_skill_id, defender_skill_data, defender_char)
+    skill_display_a = format_skill_display_from_command(command_a, attacker_skill_id, attacker_skill_data, attacker_char)
+    if not skill_display_a:
+        skill_display_a = f"【{format_skill_name_for_log(attacker_skill_id, attacker_skill_data, attacker_char)}】"
+
+    if defender_skill_id:
+        skill_display_d = format_skill_display_from_command(command_b, defender_skill_id, defender_skill_data, defender_char)
+        if not skill_display_d:
+            skill_display_d = f"【{format_skill_name_for_log(defender_skill_id, defender_skill_data, defender_char)}】"
+    else:
+        skill_display_d = "-"
 
     power_a = rolls.get('power_a')
     if power_a is None:
@@ -595,6 +619,11 @@ def to_legacy_duel_log_input(outcome_payload, state, intents, attacker_slot, def
     power_b = rolls.get('power_b')
     if power_b is None:
         power_b = 0
+
+    # In one-sided/fizzle logs, defender side is not an opposed roll.
+    if kind in ['one_sided', 'fizzle']:
+        skill_display_d = "-"
+        power_b = "-"
 
     if kind == 'fizzle':
         winner_message = "<strong> → 不発</strong>"
@@ -691,17 +720,42 @@ def _snapshot_for_outcome(actor):
             states_map[n] = int(s.get('value', 0))
         except (TypeError, ValueError):
             states_map[n] = 0
+    # Some legacy effects are stored outside states[].
+    bad_states_map = {}
+    for bs in actor.get('bad_states', []) or actor.get('迥ｶ諷狗焚蟶ｸ', []) or []:
+        if isinstance(bs, dict):
+            name = bs.get('name') or bs.get('type')
+            if not name:
+                continue
+            try:
+                bad_states_map[str(name)] = int(bs.get('value', 1))
+            except (TypeError, ValueError):
+                bad_states_map[str(name)] = 1
+        elif isinstance(bs, str):
+            bad_states_map[bs] = bad_states_map.get(bs, 0) + 1
+
+    buffs_map = {}
+    for b in actor.get('special_buffs', []) or []:
+        if not isinstance(b, dict):
+            continue
+        name = b.get('name')
+        if not name:
+            continue
+        buffs_map[str(name)] = buffs_map.get(str(name), 0) + 1
+
     return {
         'id': actor.get('id'),
         'hp': int(actor.get('hp', 0)),
         'mp': int(actor.get('mp', 0)),
         'fp': int(get_status_value(actor, 'FP')),
         'states': states_map,
+        'bad_states': bad_states_map,
+        'buffs': buffs_map,
         'flags': dict(actor.get('flags', {}) or {}),
     }
 
 
-def _diff_snapshot(before, after):
+def _diff_snapshot(before, after, damage_source='ダイスダメージ'):
     if not before or not after:
         return {'damage': [], 'statuses': [], 'flags': []}
     actor_id = after.get('id')
@@ -711,7 +765,7 @@ def _diff_snapshot(before, after):
 
     hp_loss = int(before.get('hp', 0)) - int(after.get('hp', 0))
     if hp_loss > 0:
-        damage.append({'target_id': actor_id, 'hp': hp_loss, 'source': 'one_sided_delegate'})
+        damage.append({'target_id': actor_id, 'hp': hp_loss, 'source': str(damage_source or 'ダイスダメージ')})
 
     state_names = set(before.get('states', {}).keys()) | set(after.get('states', {}).keys())
     for name in state_names:
@@ -719,6 +773,20 @@ def _diff_snapshot(before, after):
         a = int(after.get('states', {}).get(name, 0))
         if a != b:
             statuses.append({'target_id': actor_id, 'name': name, 'before': b, 'after': a, 'delta': a - b})
+
+    bad_state_names = set(before.get('bad_states', {}).keys()) | set(after.get('bad_states', {}).keys())
+    for name in bad_state_names:
+        b = int(before.get('bad_states', {}).get(name, 0))
+        a = int(after.get('bad_states', {}).get(name, 0))
+        if a != b:
+            statuses.append({'target_id': actor_id, 'name': name, 'before': b, 'after': a, 'delta': a - b})
+
+    buff_names = set(before.get('buffs', {}).keys()) | set(after.get('buffs', {}).keys())
+    for name in buff_names:
+        b = int(before.get('buffs', {}).get(name, 0))
+        a = int(after.get('buffs', {}).get(name, 0))
+        if a != b:
+            statuses.append({'target_id': actor_id, 'name': f"buff:{name}", 'before': b, 'after': a, 'delta': a - b})
 
     flag_names = set(before.get('flags', {}).keys()) | set(after.get('flags', {}).keys())
     for name in flag_names:
@@ -841,8 +909,8 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
 
     after_a = _snapshot_for_outcome(attacker_char)
     after_d = _snapshot_for_outcome(defender_char)
-    delta_a = _diff_snapshot(before_a, after_a)
-    delta_d = _diff_snapshot(before_d, after_d)
+    delta_a = _diff_snapshot(before_a, after_a, damage_source='一方攻撃')
+    delta_d = _diff_snapshot(before_d, after_d, damage_source='一方攻撃')
 
     summary = {
         'damage': delta_a.get('damage', []) + delta_d.get('damage', []),
@@ -1052,8 +1120,23 @@ def _resolve_clash_by_existing_logic(
 
     after_a = _snapshot_for_outcome(attacker_char)
     after_d = _snapshot_for_outcome(defender_char)
-    delta_a = _diff_snapshot(before_a, after_a)
-    delta_d = _diff_snapshot(before_d, after_d)
+    delta_a = _diff_snapshot(before_a, after_a, damage_source='ダイスダメージ')
+    delta_d = _diff_snapshot(before_d, after_d, damage_source='ダイスダメージ')
+
+    try:
+        burst_before = int((before_d or {}).get('states', {}).get('破裂', 0))
+        burst_after = int((after_d or {}).get('states', {}).get('破裂', 0))
+    except Exception:
+        burst_before, burst_after = None, None
+    logger.info(
+        "[clash_status_probe] attacker=%s defender=%s burst_before=%s burst_after=%s status_events_a=%d status_events_d=%d",
+        actor_a_id,
+        actor_d_id,
+        str(burst_before),
+        str(burst_after),
+        len(delta_a.get('statuses', []) or []),
+        len(delta_d.get('statuses', []) or [])
+    )
 
     power_a, power_d = _extract_power_pair_from_match_log(captured.get('match_log'))
     outcome = 'no_effect'
@@ -1258,6 +1341,10 @@ def run_select_resolve_auto(room, battle_id):
                     defender_powers[p_slot] = _roll_power_for_slot(battle_state, p_slot)
                 defender_sum = sum(defender_powers.values())
                 outcome = _compare_outcome(attacker_power, defender_sum)
+                logger.info(
+                    "[resolve_mass] type=summation slot=%s participants=%d attacker_power=%s defender_sum=%s outcome=%s",
+                    slot_id, len(participant_slots), attacker_power, defender_sum, outcome
+                )
                 _append_trace(
                     room,
                     battle_id,
@@ -1300,6 +1387,10 @@ def run_select_resolve_auto(room, battle_id):
                     else:
                         defender_power = 0
                         outcome = 'attacker_win'
+                    logger.info(
+                        "[resolve_mass] type=individual slot=%s defender_actor=%s defender_slot=%s attacker_power=%s defender_power=%s outcome=%s",
+                        slot_id, defender_actor_id, defender_slot, attacker_power, defender_power, outcome
+                    )
 
                     _append_trace(
                         room,
@@ -1538,30 +1629,28 @@ def run_select_resolve_auto(room, battle_id):
                     'power_b': clash_rolls.get('power_b'),
                     'tie_break': clash_rolls.get('tie_break')
                 }
-                clash_legacy_lines = list(clash_summary.get('legacy_log_lines', []) or [])
-                if not clash_legacy_lines:
-                    clash_legacy_input = to_legacy_duel_log_input(
-                        outcome_payload=clash_outcome_payload,
-                        state=state,
-                        intents=intents,
-                        attacker_slot=slot_id,
-                        defender_slot=clash_defender_slot,
-                        applied=clash_applied,
-                        kind='clash',
-                        outcome=clash_outcome,
-                        notes=clash_notes
-                    )
-                    clash_legacy_lines = format_duel_result_lines(
-                        clash_legacy_input['actor_name_a'],
-                        clash_legacy_input['skill_display_a'],
-                        clash_legacy_input['total_a'],
-                        clash_legacy_input['actor_name_d'],
-                        clash_legacy_input['skill_display_d'],
-                        clash_legacy_input['total_d'],
-                        clash_legacy_input['winner_message'],
-                        damage_report=clash_legacy_input['damage_report'],
-                        extra_lines=clash_legacy_input.get('extra_lines')
-                    )
+                clash_legacy_input = to_legacy_duel_log_input(
+                    outcome_payload=clash_outcome_payload,
+                    state=state,
+                    intents=intents,
+                    attacker_slot=slot_id,
+                    defender_slot=clash_defender_slot,
+                    applied=clash_applied,
+                    kind='clash',
+                    outcome=clash_outcome,
+                    notes=clash_notes
+                )
+                clash_legacy_lines = format_duel_result_lines(
+                    clash_legacy_input['actor_name_a'],
+                    clash_legacy_input['skill_display_a'],
+                    clash_legacy_input['total_a'],
+                    clash_legacy_input['actor_name_d'],
+                    clash_legacy_input['skill_display_d'],
+                    clash_legacy_input['total_d'],
+                    clash_legacy_input['winner_message'],
+                    damage_report=clash_legacy_input['damage_report'],
+                    extra_lines=clash_legacy_input.get('extra_lines')
+                )
                 clash_outcome_payload['log_lines'] = clash_legacy_lines
                 clash_outcome_payload['lines'] = clash_legacy_lines
                 clash_applied['log_lines'] = clash_legacy_lines

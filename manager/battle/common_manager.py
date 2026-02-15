@@ -18,6 +18,19 @@ from manager.logs import setup_logger
 logger = setup_logger(__name__)
 
 
+def _is_select_resolve_active(state):
+    if not isinstance(state, dict):
+        return False
+    battle_state = state.get('battle_state') or {}
+    if not isinstance(battle_state, dict):
+        return False
+    phase = battle_state.get('phase')
+    if phase not in ['select', 'resolve_mass', 'resolve_single']:
+        return False
+    slots = battle_state.get('slots', {})
+    return isinstance(slots, dict) and len(slots) > 0
+
+
 from manager.game_logic import (
     get_status_value, process_skill_effects, apply_buff, remove_buff, process_battle_start
 )
@@ -714,12 +727,20 @@ def process_round_start(room, username):
         battle_state['resolve']['trace'] = []
         emit_select_resolve_events(room, include_round_started=True)
 
-    # Open Wide Declaration Modal (Wait for response)
-    socketio.emit('open_wide_declaration_modal', {}, to=room)
+    # Select/Resolve flow should not invoke legacy wide modal auto path.
+    if _is_select_resolve_active(state):
+        logger.info("[round_start] skip legacy wide modal room=%s reason=select_resolve_active", room)
+    else:
+        socketio.emit('open_wide_declaration_modal', {}, to=room)
 
 def process_wide_declarations(room, wide_user_ids):
     state = get_room_state(room)
     if not state: return
+
+    # Legacy wide declaration flow must not mutate state during select/resolve.
+    if _is_select_resolve_active(state):
+        logger.info("[wide_declarations] ignored room=%s reason=select_resolve_active ids=%s", room, wide_user_ids)
+        return
 
     # Reset wide flags for everyone first (safety)
     for char in state.get('characters', []):
@@ -762,6 +783,11 @@ def process_wide_declarations(room, wide_user_ids):
 
     # ★修正: Latium (ID: 3) などのターン開始時効果を確実にするため
     # proceed_next_turn を呼び出し、その結果を確認する
+    # In Select/Resolve mode, do not run legacy turn progression.
+    if _is_select_resolve_active(state):
+        logger.info("[wide_declarations] skip legacy proceed_next_turn room=%s reason=select_resolve_active", room)
+        return
+
     # Also update AI Arrows (for Wide Match visualization)
     ai_select_targets(state, room)
     proceed_next_turn(room)
@@ -769,6 +795,14 @@ def process_wide_declarations(room, wide_user_ids):
 def process_wide_modal_confirm(room, user_id, attribute, wide_ids):
     state = get_room_state(room)
     if not state: return
+
+    # Ignore legacy wide modal confirms while select/resolve flow is active.
+    if _is_select_resolve_active(state):
+        logger.info(
+            "[wide_modal_confirm] ignored room=%s user=%s reason=select_resolve_active ids=%s",
+            room, user_id, wide_ids
+        )
+        return
 
     # Init container if missing
     if 'wide_modal_confirms' not in state: state['wide_modal_confirms'] = []
@@ -926,6 +960,44 @@ def _build_select_resolve_slots_from_timeline(room_state):
     return slots
 
 
+def _build_select_resolve_timeline_from_room(room_state, slots):
+    slots = slots if isinstance(slots, dict) else {}
+    if not slots:
+        return []
+
+    slot_ids = set(slots.keys())
+    room_timeline = room_state.get('timeline', []) if isinstance(room_state, dict) else []
+    ordered = []
+
+    if isinstance(room_timeline, list) and room_timeline:
+        first = room_timeline[0]
+        if isinstance(first, dict):
+            for entry in room_timeline:
+                if not isinstance(entry, dict):
+                    continue
+                slot_id = entry.get('id')
+                if slot_id in slot_ids:
+                    ordered.append(slot_id)
+        elif isinstance(first, str):
+            for slot_id in room_timeline:
+                if slot_id in slot_ids:
+                    ordered.append(slot_id)
+
+    if not ordered:
+        return sorted(
+            slots.keys(),
+            key=lambda sid: (-int(slots.get(sid, {}).get('initiative', 0)), str(sid))
+        )
+
+    seen = set(ordered)
+    missing = [sid for sid in slots.keys() if sid not in seen]
+    if missing:
+        missing.sort(key=lambda sid: (-int(slots.get(sid, {}).get('initiative', 0)), str(sid)))
+        ordered.extend(missing)
+
+    return ordered
+
+
 def ensure_battle_state_vNext(room_state, battle_id=None, round_value=None, rebuild_slots=False):
     if not isinstance(room_state, dict):
         return None
@@ -953,6 +1025,40 @@ def ensure_battle_state_vNext(room_state, battle_id=None, round_value=None, rebu
 
     if rebuild_slots or not battle_state['slots']:
         battle_state['slots'] = _build_select_resolve_slots_from_timeline(room_state)
+
+    slots = battle_state.get('slots', {})
+    slot_ids = set(slots.keys()) if isinstance(slots, dict) else set()
+
+    current_timeline = battle_state.get('timeline', [])
+    if not isinstance(current_timeline, list):
+        current_timeline = []
+    current_timeline = [sid for sid in current_timeline if sid in slot_ids]
+    current_set = set(current_timeline)
+    desired_timeline = _build_select_resolve_timeline_from_room(room_state, slots)
+
+    # Keep timeline and slots in sync across rounds.
+    # Without this, resolve queue can reference stale slot IDs and all actions fizzle as no_intent.
+    if rebuild_slots or current_set != slot_ids:
+        battle_state['timeline'] = desired_timeline
+    else:
+        battle_state['timeline'] = current_timeline
+
+    if isinstance(battle_state.get('intents'), dict):
+        battle_state['intents'] = {
+            sid: intent for sid, intent in battle_state.get('intents', {}).items()
+            if sid in slot_ids
+        }
+
+    resolved_slots = battle_state['resolve'].get('resolved_slots', [])
+    if not isinstance(resolved_slots, list):
+        resolved_slots = []
+    battle_state['resolve']['resolved_slots'] = [sid for sid in resolved_slots if sid in slot_ids]
+
+    for queue_key in ['mass_queue', 'single_queue']:
+        queue = battle_state['resolve'].get(queue_key, [])
+        if not isinstance(queue, list):
+            queue = []
+        battle_state['resolve'][queue_key] = [sid for sid in queue if sid in slot_ids]
 
     room_state['battle_state'] = battle_state
     if 'select_resolve_battle_state' in room_state:
@@ -988,6 +1094,8 @@ def build_select_resolve_state_payload(room, battle_id=None):
         'battle_id': battle_state.get('battle_id'),
         'round': battle_state.get('round', 0),
         'phase': battle_state.get('phase', 'select'),
+        'timeline': battle_state.get('timeline', []),
+        'tiebreak': battle_state.get('tiebreak', []),
         'slots': battle_state.get('slots', {}),
         'intents': battle_state.get('intents', {}),
         'redirects': battle_state.get('redirects', []),

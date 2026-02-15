@@ -18,6 +18,38 @@ window.setupVisualSocketHandlers = function () {
         return false;
     };
 
+    const _countSpentEntries = (stateLike) => {
+        if (!stateLike) return 0;
+        const tl = Array.isArray(stateLike.timeline) ? stateLike.timeline : [];
+        if (tl.length === 0) return 0;
+
+        // Legacy timeline entries: [{ acted: true/false, ... }]
+        if (typeof tl[0] === 'object' && tl[0] !== null) {
+            return tl.filter((e) => !!(e?.acted || e?.spent || e?.consumed || e?.done)).length;
+        }
+
+        // Slot timeline entries: [slot_id, ...], infer from slots.
+        const slots = stateLike.slots || {};
+        return tl.filter((slotId) => {
+            const s = slots?.[slotId];
+            return !!(s?.disabled || s?.spent || s?.consumed || s?.done);
+        }).length;
+    };
+
+    const _activeMarker = (stateLike, payloadLike) => {
+        const s = stateLike || {};
+        const p = payloadLike || {};
+        return (
+            p.active_slot_id ||
+            p.turn_entry_id ||
+            p.turn_char_id ||
+            s.active_slot_id ||
+            s.turn_entry_id ||
+            s.turn_char_id ||
+            null
+        );
+    };
+
     const syncLegacyBattleStateFromStore = () => {
         if (typeof battleState === 'undefined') return;
         if (!window.BattleStore || !window.BattleStore.state) return;
@@ -162,6 +194,16 @@ window.setupVisualSocketHandlers = function () {
         const handled = applyBattleStore('applyBattleState', payload || {});
         if (handled) syncLegacyBattleStateFromStore();
         else applyBattlePayloadToLegacy(payload || {});
+
+        // Observation log for select/resolve correctness checks.
+        const observed = (window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : battleState;
+        const tlLen = Array.isArray(observed?.timeline) ? observed.timeline.length : 0;
+        const spent = _countSpentEntries(observed);
+        const active = _activeMarker(observed, payload);
+        console.info(
+            `[OBS] phase=${observed?.phase || payload?.phase || 'n/a'} tl=${tlLen} slots=${Object.keys(observed?.slots || {}).length} intents=${Object.keys(observed?.intents || {}).length} active=${active || 'none'} spent=${spent}`
+        );
+
         if (typeof renderVisualTimeline === 'function') renderVisualTimeline();
         if (typeof renderSlotBadgesForAllTokens === 'function') renderSlotBadgesForAllTokens();
         if (typeof updateActionDock === 'function') updateActionDock();
@@ -213,6 +255,7 @@ window.setupVisualSocketHandlers = function () {
 
     socket.on('battle_round_finished', (payload) => {
         console.log('[visual_socket] battle_round_finished', payload);
+        console.info('[OBS] round_finished payload_keys=', Object.keys(payload || {}));
         const handled = applyBattleStore('setRoundFinished', (payload || {}).round);
         if (handled) syncLegacyBattleStateFromStore();
         else applyBattlePayloadToLegacy({ round: (payload || {}).round, phase: 'round_end' });

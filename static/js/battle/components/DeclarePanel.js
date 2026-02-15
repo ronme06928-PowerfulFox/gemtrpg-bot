@@ -64,6 +64,7 @@ class DeclarePanel {
         const sourceSlot = state.slots?.[sourceSlotId] || null;
         const sourceActorId = sourceSlot?.actor_id || null;
         const sourceChar = (state.characters || []).find(c => String(c.id) === String(sourceActorId)) || null;
+        const targetOptions = this._buildTargetOptions(state, sourceSlotId, targetSlotId);
         const sourceLabel = this._formatSlotLabel(state, sourceSlotId);
         const targetLabel = targetSlotId ? this._formatSlotLabel(state, targetSlotId) : '未選択';
         const skillOptions = this._buildSkillOptions(sourceChar);
@@ -73,18 +74,13 @@ class DeclarePanel {
         const powerSummary = this._resolvePowerSummaryText(calc, powerAdjustRows);
         const costCheck = this._evaluateCost(state, sourceActorId, skillId, calc);
         const canCommit = !!(sourceSlotId && skillId && targetSlotId && !costCheck.insufficient && !isDeclaredLocked);
-        const autoCalcHint = isDeclaredLocked
-            ? 'このスロットは宣言済みです。'
-            : skillId
-            ? 'スキル/対象の変更時に自動で再計算します。'
-            : 'スキルを選択すると自動で計算します。';
         const calcErrorText = (calc && calc.error) ? (calc.final_command || '計算エラー') : null;
 
         panel.innerHTML = `
             <div class="declare-panel-header">
-                <div class="declare-panel-title">宣言</div>
+                <div class="declare-panel-title">スキル選択</div>
                 <div class="declare-panel-header-right">
-                    <div class="declare-panel-mode">${isDeclaredLocked ? 'mode: locked' : `mode: ${mode}`}</div>
+                    <button id="declare-commit-btn-header" class="declare-commit-btn declare-commit-btn-header" ${canCommit ? '' : 'disabled'}>${isDeclaredLocked ? '宣言済み' : '宣言'}</button>
                     <button id="declare-close-btn" class="declare-close-btn" title="閉じる">x</button>
                 </div>
             </div>
@@ -94,7 +90,12 @@ class DeclarePanel {
             </div>
             <div class="declare-panel-row">
                 <span>対象</span>
-                <span class="declare-human-label" data-slot-id="${targetSlotId || ''}">${targetLabel}</span>
+                <div class="declare-target-controls">
+                    <span class="declare-human-label" data-slot-id="${targetSlotId || ''}">${targetLabel}</span>
+                    <select id="declare-target-select" class="declare-target-select" ${isDeclaredLocked ? 'disabled' : ''}>
+                        ${targetOptions}
+                    </select>
+                </div>
             </div>
             <div class="declare-panel-row">
                 <span>スキル</span>
@@ -117,10 +118,6 @@ class DeclarePanel {
             </div>
             ${costCheck.insufficient ? `<div class="declare-cost-warning">${costCheck.message}</div>` : ''}
             ${calcErrorText ? `<div class="declare-cost-warning">${calcErrorText}</div>` : ''}
-            <div class="declare-panel-actions">
-                <button id="declare-commit-btn" class="declare-commit-btn" ${canCommit ? '' : 'disabled'}>${isDeclaredLocked ? '宣言済み' : '宣言'}</button>
-            </div>
-            <div class="declare-calc-hint">${autoCalcHint}</div>
         `;
 
         const closeBtn = panel.querySelector('#declare-close-btn');
@@ -150,7 +147,26 @@ class DeclarePanel {
             };
         }
 
-        const commitBtn = panel.querySelector('#declare-commit-btn');
+        const targetSelect = panel.querySelector('#declare-target-select');
+        if (targetSelect) {
+            targetSelect.value = targetSlotId || '';
+            targetSelect.disabled = isDeclaredLocked;
+            targetSelect.onchange = (e) => {
+                if (isDeclaredLocked) return;
+                const nextTargetSlotId = e.target.value || null;
+                const current = store.get('declare') || {};
+                const nextDeclare = {
+                    ...current,
+                    targetSlotId: nextTargetSlotId,
+                    mode: nextTargetSlotId ? 'ready' : 'choose_target'
+                };
+                store.setDeclare(nextDeclare);
+                this._emitPreviewFromDeclare(store.state, nextDeclare);
+                this._requestCalc(store.state, nextDeclare, true);
+            };
+        }
+
+        const commitBtn = panel.querySelector('#declare-commit-btn-header') || panel.querySelector('#declare-commit-btn');
         if (commitBtn) {
             commitBtn.onclick = () => {
                 if (isDeclaredLocked) return;
@@ -196,6 +212,47 @@ class DeclarePanel {
             const selected = (id === selectedSkillId) ? ' selected' : '';
             options.push(`<option value="${id}"${selected}>[${id}] ${displayName}</option>`);
         });
+        return options.join('');
+    }
+
+    _buildTargetOptions(state, sourceSlotId, selectedTargetSlotId) {
+        const slots = state?.slots || {};
+        const sourceSlot = sourceSlotId ? slots[sourceSlotId] : null;
+        const sourceActorId = sourceSlot?.actor_id || null;
+        const sourceTeam = sourceSlot?.team || null;
+        const options = ['<option value="">-- 対象スロット --</option>'];
+        const rows = [];
+
+        Object.keys(slots).forEach((slotId) => {
+            const slot = slots[slotId];
+            if (!slot || String(slotId) === String(sourceSlotId)) return;
+
+            const actorId = slot.actor_id;
+            if (sourceActorId && actorId && String(actorId) === String(sourceActorId)) return;
+            if (sourceTeam && slot.team && String(sourceTeam) === String(slot.team)) return;
+            if (slot.disabled) return;
+
+            const label = this._formatSlotLabel(state, slotId);
+            const initiative = Number(slot.initiative ?? 0);
+            rows.push({ slotId, label: `${label} (SPD:${initiative})` });
+        });
+
+        rows.sort((a, b) => String(a.label).localeCompare(String(b.label), 'ja'));
+        rows.forEach((row) => {
+            const selected = String(row.slotId) === String(selectedTargetSlotId || '') ? ' selected' : '';
+            options.push(`<option value="${row.slotId}"${selected}>${this._escapeHtml(row.label)}</option>`);
+        });
+
+        if (
+            selectedTargetSlotId
+            && !rows.some((row) => String(row.slotId) === String(selectedTargetSlotId))
+        ) {
+            const selectedLabel = this._formatSlotLabel(state, selectedTargetSlotId);
+            options.push(
+                `<option value="${selectedTargetSlotId}" selected>${this._escapeHtml(selectedLabel)}</option>`
+            );
+        }
+
         return options.join('');
     }
 

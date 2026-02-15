@@ -16,6 +16,8 @@ class BattleStore {
             timeline: [],
             logs: [],
             round: 0,
+            turn_char_id: null,
+            turn_entry_id: null,
             room_name: null,
             phase: 'select',
             slots: {},
@@ -83,7 +85,7 @@ class BattleStore {
 
         // Guard: while select/resolve is active and slots exist, ignore empty timeline overwrite.
         const phase = newState.phase ?? this._state.phase;
-        const guardPhases = new Set(['select', 'resolve_mass', 'resolve_single']);
+        const guardPhases = new Set(['select', 'resolve_mass', 'resolve_single', 'round_end']);
         const nextSlots = (newState.slots !== undefined) ? (newState.slots || {}) : (this._state.slots || {});
         const slotsCount = Array.isArray(nextSlots) ? nextSlots.length : Object.keys(nextSlots || {}).length;
         const hasOldTimeline = Array.isArray(this._state.timeline) && this._state.timeline.length > 0;
@@ -123,6 +125,8 @@ class BattleStore {
             room_name: payload.room_id || this._state.room_name,
             round: payload.round ?? this._state.round,
             phase: payload.phase || this._state.phase,
+            turn_char_id: null,
+            turn_entry_id: null,
             slots: payload.slots || {},
             timeline: payload.timeline || [],
             intents: {},
@@ -147,8 +151,9 @@ class BattleStore {
     }
 
     applyBattleState(payload) {
-        const guardPhases = new Set(['select', 'resolve_mass', 'resolve_single']);
+        const guardPhases = new Set(['select', 'resolve_mass', 'resolve_single', 'round_end']);
         const phase = payload.phase || this._state.phase;
+        const isSelectResolvePhase = new Set(['select', 'resolve_mass', 'resolve_single', 'round_end']).has(phase);
         const incomingSlots = payload.slots;
         const incomingTimeline = payload.timeline;
         const oldSlots = this._state.slots || {};
@@ -169,6 +174,12 @@ class BattleStore {
             room_name: payload.room_id || this._state.room_name,
             round: payload.round ?? this._state.round,
             phase,
+            turn_char_id: Object.prototype.hasOwnProperty.call(payload, 'turn_char_id')
+                ? (payload.turn_char_id ?? null)
+                : (isSelectResolvePhase ? null : this._state.turn_char_id),
+            turn_entry_id: Object.prototype.hasOwnProperty.call(payload, 'turn_entry_id')
+                ? (payload.turn_entry_id ?? null)
+                : (isSelectResolvePhase ? null : this._state.turn_entry_id),
             slots: preserveSlots ? this._state.slots : (payload.slots || {}),
             timeline: preserveTimeline ? this._state.timeline : (payload.timeline ?? this._state.timeline),
             intents: payload.intents || {},
@@ -217,6 +228,8 @@ class BattleStore {
             ...this._state,
             round: round ?? this._state.round,
             phase: 'round_end',
+            turn_char_id: null,
+            turn_entry_id: null,
             resolveReady: false,
             resolveReadyInfo: null,
             targetSelectMode: false,

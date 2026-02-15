@@ -7,8 +7,14 @@ from extensions import socketio, all_skill_data
 from manager.logs import setup_logger
 from manager.room_manager import (
     get_user_info_from_sid, get_room_state, broadcast_log, broadcast_state_update,
-    emit_select_resolve_events
 )
+try:
+    from manager.room_manager import emit_select_resolve_events
+except Exception:
+    # Test suites may monkeypatch manager.room_manager with partial stubs.
+    # Keep routes importable in that environment.
+    def emit_select_resolve_events(*args, **kwargs):
+        return None
 from manager.battle.core import proceed_next_turn, run_select_resolve_auto
 from manager.battle.common_manager import (
     process_full_round_end, reset_battle_logic, force_end_match_logic,
@@ -455,6 +461,19 @@ def _start_select_resolve_if_ready(room_id, battle_id, source_event):
         source_event, room_id, battle_id, len(required), committed_count, waiting_slots[:8]
     )
 
+    if len(required) == 0:
+        logger.warning(
+            "[FLOW] %s_abort room=%s battle=%s reason=no_required_slots",
+            source_event, room_id, battle_id
+        )
+        emit('battle_error', {
+            'message': 'no required slots to resolve',
+            'required_count': 0,
+            'committed_count': committed_count
+        }, to=request.sid)
+        _emit_battle_state_updated(room_id, battle_id)
+        return
+
     if committed_count != len(required):
         emit('battle_error', {
             'message': 'not all required slots are committed',
@@ -512,6 +531,14 @@ def _maybe_advance_phase_to_resolve_mass(room_id, battle_id, state):
         "[FLOW] commit_progress room=%s battle=%s required=%d committed=%d waiting=%s",
         room_id, battle_id, len(required), committed_count, waiting_slots[:8]
     )
+    if len(required) == 0:
+        state['resolve_ready'] = False
+        state['resolve_ready_info'] = {
+            'required_count': 0,
+            'committed_count': committed_count,
+            'waiting_slots': waiting_slots
+        }
+        return
     if not ready:
         return
 
