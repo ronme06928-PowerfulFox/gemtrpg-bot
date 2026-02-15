@@ -88,8 +88,14 @@ class DeclarePanel {
                     <button id="declare-close-btn" class="declare-close-btn" title="閉じる">x</button>
                 </div>
             </div>
-            <div class="declare-panel-row"><span>使用者</span><code title="${sourceSlotId}">${sourceLabel}</code></div>
-            <div class="declare-panel-row"><span>対象</span><code title="${targetSlotId || ''}">${targetLabel}</code></div>
+            <div class="declare-panel-row">
+                <span>使用者</span>
+                <span class="declare-human-label" data-slot-id="${sourceSlotId}">${sourceLabel}</span>
+            </div>
+            <div class="declare-panel-row">
+                <span>対象</span>
+                <span class="declare-human-label" data-slot-id="${targetSlotId || ''}">${targetLabel}</span>
+            </div>
             <div class="declare-panel-row">
                 <span>スキル</span>
                 <select id="declare-skill-select" class="declare-skill-select" ${isDeclaredLocked ? 'disabled' : ''}>
@@ -374,12 +380,13 @@ class DeclarePanel {
     _formatSlotLabel(state, slotId) {
         if (!slotId) return '-';
         const slot = state?.slots?.[slotId];
-        if (!slot) return slotId;
+        if (!slot) return '不明';
 
         const actorId = slot.actor_id;
         const char = (state.characters || []).find(c => String(c.id) === String(actorId));
-        const name = char?.name || actorId || 'unknown';
-        const index = Number(slot.index_in_actor ?? 0) + 1;
+        const name = char?.name || '不明';
+        const indexRaw = Number(slot.index_in_actor ?? 0);
+        const index = Number.isFinite(indexRaw) ? (indexRaw + 1) : 1;
         return `${name} #${index}`;
     }
 

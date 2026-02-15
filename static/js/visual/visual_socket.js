@@ -53,6 +53,30 @@ window.setupVisualSocketHandlers = function () {
         }
     };
 
+    if (typeof window.appendSystemLines !== 'function') {
+        window.appendSystemLines = function (lines) {
+            const safeLines = Array.isArray(lines) ? lines.filter(v => v !== null && v !== undefined).map(v => String(v)) : [];
+            if (safeLines.length === 0) return;
+
+            const container = document.getElementById('chat-log')
+                || document.getElementById('visual-log-area')
+                || document.getElementById('log-area');
+            if (!container) {
+                console.warn('[trace_chat_append] chat container not found');
+                return;
+            }
+
+            safeLines.forEach((line) => {
+                const row = document.createElement('div');
+                row.className = 'log-line system';
+                row.innerHTML = line;
+                container.appendChild(row);
+            });
+            container.scrollTop = container.scrollHeight;
+            console.log('[trace_chat_append] n=', safeLines.length);
+        };
+    }
+
     // --- State Update ---
     socket.on('state_updated', (state) => {
         // Debug: Log incoming state details
@@ -161,6 +185,24 @@ window.setupVisualSocketHandlers = function () {
     });
 
     socket.on('battle_resolve_trace_appended', (payload) => {
+        console.log('[trace_recv] keys=', Object.keys(payload || {}));
+        console.log('[trace_recv] sample=', payload?.lines?.[0] ?? payload?.text ?? payload?.message ?? payload?.kind ?? null);
+
+        // Avoid duplicate append: prefer top-level payload.lines, fallback to first trace row lines.
+        let toAppend = [];
+        if (Array.isArray(payload?.lines) && payload.lines.length > 0) {
+            toAppend = payload.lines;
+        } else {
+            const traceRows = Array.isArray(payload?.trace) ? payload.trace : [];
+            const firstWithLines = traceRows.find((row) => row && Array.isArray(row.lines) && row.lines.length > 0);
+            if (firstWithLines) {
+                toAppend = firstWithLines.lines;
+            }
+        }
+        if (toAppend.length > 0) {
+            window.appendSystemLines(toAppend);
+        }
+
         const trace = (payload && payload.trace) || [];
         console.log(`[visual_socket] battle_resolve_trace_appended +${trace.length}`);
         const handled = applyBattleStore('appendResolveTrace', trace);

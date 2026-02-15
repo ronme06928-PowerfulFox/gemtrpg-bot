@@ -5,7 +5,10 @@ from flask import request
 from flask_socketio import emit, rooms
 from extensions import socketio, all_skill_data
 from manager.logs import setup_logger
-from manager.room_manager import get_user_info_from_sid, get_room_state, broadcast_log, broadcast_state_update
+from manager.room_manager import (
+    get_user_info_from_sid, get_room_state, broadcast_log, broadcast_state_update,
+    emit_select_resolve_events
+)
 from manager.battle.core import proceed_next_turn, run_select_resolve_auto
 from manager.battle.common_manager import (
     process_full_round_end, reset_battle_logic, force_end_match_logic,
@@ -397,6 +400,97 @@ def _emit_battle_resolve_ready(room_id, battle_id, state, required_count, commit
     socketio.emit('battle_resolve_ready', payload, to=room_id)
 
 
+def _resolve_room_for_battle_start(data):
+    room_id = (data or {}).get('room_id') or (data or {}).get('room')
+    if room_id:
+        return room_id
+
+    user_info = get_user_info_from_sid(request.sid) or {}
+    sid_room = user_info.get('room')
+    if sid_room:
+        return sid_room
+
+    try:
+        sid_rooms = list(rooms(request.sid))
+    except Exception:
+        sid_rooms = []
+    for rid in sid_rooms:
+        if rid and rid != request.sid:
+            return rid
+    return None
+
+
+def _resolve_battle_id_for_room(room_id, data):
+    battle_id = (data or {}).get('battle_id') or (data or {}).get('battle')
+    if battle_id:
+        return battle_id
+
+    room_state = get_room_state(room_id) or {}
+    existing = (room_state.get('battle_state') or {}).get('battle_id')
+    if existing:
+        return existing
+    return f"battle_{room_id}"
+
+
+def _start_select_resolve_if_ready(room_id, battle_id, source_event):
+    state = get_or_create_select_resolve_state(room_id, battle_id=battle_id)
+    if not state:
+        emit('battle_error', {'message': 'room state not found'}, to=request.sid)
+        return
+
+    phase = state.get('phase')
+    if not _is_select_phase(state):
+        emit('battle_error', {'message': f'{source_event} is only allowed in select phase', 'phase': phase}, to=request.sid)
+        return
+
+    required = _required_slots(room_id, state)
+    committed_count = _count_committed_required(required, state)
+    waiting_slots = sorted([
+        slot_id for slot_id in required
+        if not state.get('intents', {}).get(slot_id, {}).get('committed', False)
+    ])
+
+    logger.info(
+        "[FLOW] %s_check room=%s battle=%s required=%d committed=%d waiting=%s",
+        source_event, room_id, battle_id, len(required), committed_count, waiting_slots[:8]
+    )
+
+    if committed_count != len(required):
+        emit('battle_error', {
+            'message': 'not all required slots are committed',
+            'required_count': len(required),
+            'committed_count': committed_count,
+            'missing_count': max(0, len(required) - committed_count),
+            'waiting_slots': waiting_slots
+        }, to=request.sid)
+        _emit_battle_state_updated(room_id, battle_id)
+        return
+
+    state['resolve_ready'] = False
+    state['resolve_ready_info'] = {}
+    state['phase'] = 'resolve_mass'
+    state.setdefault('resolve', {})
+    state['resolve']['mass_queue'] = state['resolve'].get('mass_queue', [])
+    state['resolve']['single_queue'] = state['resolve'].get('single_queue', [])
+    state['resolve']['resolved_slots'] = state['resolve'].get('resolved_slots', [])
+    state['resolve']['trace'] = state['resolve'].get('trace', [])
+
+    payload = {
+        'room_id': room_id,
+        'battle_id': battle_id,
+        'round': state.get('round', 0),
+        'from': 'select',
+        'to': 'resolve_mass'
+    }
+    logger.info("[FLOW] %s_start room=%s battle=%s", source_event, room_id, battle_id)
+    _log_battle_emit('battle_phase_changed', room_id, battle_id, payload)
+    socketio.emit('battle_phase_changed', payload, to=room_id)
+
+    # Keep new battle_* state synchronized through the same room pathway.
+    emit_select_resolve_events(room_id, include_round_started=False)
+    run_select_resolve_auto(room_id, battle_id)
+
+
 def _refresh_resolve_ready(room_id, state):
     required, committed_count, waiting_slots = _commit_progress(room_id, state)
     ready = committed_count == len(required)
@@ -749,25 +843,25 @@ def on_battle_resolve_confirm(data):
         return
 
     logger.info("[FLOW] resolve_confirm room=%s battle=%s by=%s", room_id, battle_id, username)
-    state['resolve_ready'] = False
-    state['resolve_ready_info'] = {}
-    state['phase'] = 'resolve_mass'
-    state['resolve']['mass_queue'] = state['resolve'].get('mass_queue', [])
-    state['resolve']['single_queue'] = state['resolve'].get('single_queue', [])
-    state['resolve']['resolved_slots'] = state['resolve'].get('resolved_slots', [])
-    state['resolve']['trace'] = state['resolve'].get('trace', [])
+    _start_select_resolve_if_ready(room_id, battle_id, source_event='battle_resolve_confirm')
 
-    payload = {
-        'room_id': room_id,
-        'battle_id': battle_id,
-        'round': state.get('round', 0),
-        'from': 'select',
-        'to': 'resolve_mass'
-    }
-    _log_battle_emit('battle_phase_changed', room_id, battle_id, payload)
-    socketio.emit('battle_phase_changed', payload, to=room_id)
-    _emit_battle_state_updated(room_id, battle_id)
-    run_select_resolve_auto(room_id, battle_id)
+
+@socketio.on('battle_resolve_start')
+def on_battle_resolve_start(data):
+    data = data or {}
+    _log_battle_recv('battle_resolve_start', data)
+
+    room_id = _resolve_room_for_battle_start(data)
+    if not room_id:
+        emit('battle_error', {'message': 'room is required'}, to=request.sid)
+        return
+    battle_id = _resolve_battle_id_for_room(room_id, data)
+
+    logger.info(
+        "[FLOW] resolve_start_request sid=%s room=%s battle=%s",
+        request.sid, room_id, battle_id
+    )
+    _start_select_resolve_if_ready(room_id, battle_id, source_event='battle_resolve_start')
 
 
 @socketio.on('battle_intent_uncommit')

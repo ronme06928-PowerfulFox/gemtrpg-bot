@@ -36,7 +36,10 @@ window.renderVisualMap = function () {
     }
 
     if (typeof battleState === 'undefined' || !battleState.characters) return;
-    const currentTurnId = battleState.turn_char_id || null;
+    const srStateForTurn = _getSelectResolveStateRef();
+    const srPhaseForTurn = srStateForTurn?.phase || null;
+    const suppressLegacyTurnHighlight = ['select', 'resolve_mass', 'resolve_single'].includes(srPhaseForTurn);
+    const currentTurnId = suppressLegacyTurnHighlight ? null : (battleState.turn_char_id || null);
 
     // 1. Map existing tokens
     const existingTokens = {};
@@ -196,14 +199,18 @@ window.renderSlotBadgesForAllTokens = function () {
         ? (Array.isArray(legacyState.slots) ? legacyState.slots.length : Object.keys(legacyState.slots).length)
         : 0;
 
-    const stateRef = (storeState && (storeChars > 0 || storeSlots > 0))
-        ? storeState
-        : legacyState;
-    const phase = stateRef.phase || 'select';
-    const characters = stateRef.characters || [];
-    const intents = stateRef.intents || {};
-    const selectedSlotId = stateRef.selectedSlotId || null;
-    const rawSlots = stateRef.slots || {};
+    const preferStore = !!(storeState && (storeChars > 0 || storeSlots > 0));
+    const phase = (preferStore ? storeState?.phase : legacyState?.phase) || 'select';
+    const characters = (storeChars > 0 ? storeState.characters : (legacyState.characters || []));
+    const rawSlots = (storeSlots > 0 ? storeState.slots : (legacyState.slots || {}));
+    const intents = (() => {
+        const s = storeState?.intents || {};
+        const l = legacyState?.intents || {};
+        const sLen = Array.isArray(s) ? s.length : Object.keys(s).length;
+        const lLen = Array.isArray(l) ? l.length : Object.keys(l).length;
+        return sLen >= lLen ? s : l;
+    })();
+    const selectedSlotId = storeState?.selectedSlotId || legacyState?.selectedSlotId || null;
     const slots = Array.isArray(rawSlots)
         ? rawSlots
         : Object.entries(rawSlots).map(([sid, slot]) => ({
@@ -222,7 +229,7 @@ window.renderSlotBadgesForAllTokens = function () {
             const key = String(actorId);
             perActor[key] = (perActor[key] || 0) + 1;
         }
-        const source = (stateRef === storeState) ? 'BattleStore' : 'battleState';
+        const source = preferStore ? 'BattleStore' : 'battleState';
         console.log(`[slot_badges] source=${source} phase=${phase} chars=${characters.length} slots=${slots.length} per_actor=${JSON.stringify(perActor)}`);
         window._slotBadgeLogAt = now;
     }
@@ -263,7 +270,7 @@ window.renderSlotBadgesForAllTokens = function () {
             const badge = document.createElement('div');
             const isSelected = selectedSlotId && String(selectedSlotId) === String(slotId);
             badge.className = `slot-badge${committed ? ' is-committed' : ''}${lockedTarget ? ' is-locked' : ''}${isSelected ? ' is-selected' : ''}`;
-            badge.title = _buildSlotBadgeTitle(slotId, initiative, stateRef);
+            badge.title = _buildSlotBadgeTitle(slotId, initiative, preferStore ? storeState : legacyState);
             if (slotId) badge.dataset.slotId = String(slotId);
             if (actorId) badge.dataset.actorId = String(actorId);
 
@@ -972,6 +979,12 @@ window.createMapToken = function (char) {
                 });
                 console.log(`[slot_badges] target selected slot=${targetSlotId} actor=${char.id}`);
             }
+            return;
+        }
+
+        // Disable legacy turn-based token-click match flow while Select/Resolve pipeline is active.
+        if (['select', 'resolve_mass', 'resolve_single'].includes(srState.phase)) {
+            console.log(`[Click] legacy turn-match flow blocked in phase=${srState.phase}`);
             return;
         }
 

@@ -84,6 +84,7 @@ mock_rm.broadcast_log = MagicMock()
 mock_rm.get_user_info_from_sid = mock_get_user_info
 mock_rm._update_char_stat = mock_update_char_stat
 mock_rm.is_authorized_for_character = mock_is_authorized
+mock_rm.emit_select_resolve_events = MagicMock()
 mock_rm.get_all_users = MagicMock(return_value=[]) # Needed if core uses it?
 mock_rm.get_users_in_room = MagicMock(return_value={})
 sys.modules['manager.room_manager'] = mock_rm

@@ -88,10 +88,23 @@ class BattleStore {
         const slotsCount = Array.isArray(nextSlots) ? nextSlots.length : Object.keys(nextSlots || {}).length;
         const hasOldTimeline = Array.isArray(this._state.timeline) && this._state.timeline.length > 0;
         const incomingTimelineEmpty = Array.isArray(newState.timeline) && newState.timeline.length === 0;
+        const hasOldSlots = (() => {
+            const oldSlots = this._state.slots || {};
+            return Array.isArray(oldSlots) ? oldSlots.length > 0 : Object.keys(oldSlots).length > 0;
+        })();
+        const incomingSlotsEmpty = (() => {
+            if (newState.slots === undefined) return false;
+            const incoming = newState.slots || {};
+            return Array.isArray(incoming) ? incoming.length === 0 : Object.keys(incoming).length === 0;
+        })();
 
         if (incomingTimelineEmpty && hasOldTimeline && guardPhases.has(phase) && slotsCount > 0) {
             delete newState.timeline;
             console.debug(`[BattleStore] guarded timeline overwrite phase=${phase} slots=${slotsCount}`);
+        }
+        if (incomingSlotsEmpty && hasOldSlots && guardPhases.has(phase)) {
+            delete newState.slots;
+            console.debug(`[BattleStore] guarded slots overwrite phase=${phase}`);
         }
 
 
@@ -134,20 +147,42 @@ class BattleStore {
     }
 
     applyBattleState(payload) {
+        const guardPhases = new Set(['select', 'resolve_mass', 'resolve_single']);
+        const phase = payload.phase || this._state.phase;
+        const incomingSlots = payload.slots;
+        const incomingTimeline = payload.timeline;
+        const oldSlots = this._state.slots || {};
+        const oldTimeline = this._state.timeline || [];
+        const oldSlotsCount = Array.isArray(oldSlots) ? oldSlots.length : Object.keys(oldSlots).length;
+        const incomingSlotsCount = incomingSlots === undefined
+            ? null
+            : (Array.isArray(incomingSlots) ? incomingSlots.length : Object.keys(incomingSlots || {}).length);
+        const preserveSlots = guardPhases.has(phase) && oldSlotsCount > 0 && incomingSlotsCount === 0;
+        const preserveTimeline = guardPhases.has(phase)
+            && Array.isArray(oldTimeline) && oldTimeline.length > 0
+            && Array.isArray(incomingTimeline) && incomingTimeline.length === 0;
+
         this._state = {
             ...this._state,
             room_id: payload.room_id || this._state.room_id,
             battle_id: payload.battle_id || this._state.battle_id,
             room_name: payload.room_id || this._state.room_name,
             round: payload.round ?? this._state.round,
-            phase: payload.phase || this._state.phase,
-            slots: payload.slots || {},
+            phase,
+            slots: preserveSlots ? this._state.slots : (payload.slots || {}),
+            timeline: preserveTimeline ? this._state.timeline : (payload.timeline ?? this._state.timeline),
             intents: payload.intents || {},
             redirects: payload.redirects || [],
             resolveReady: payload.resolve_ready !== undefined ? !!payload.resolve_ready : this._state.resolveReady,
             resolveReadyInfo: payload.resolve_ready_info !== undefined ? (payload.resolve_ready_info || null) : this._state.resolveReadyInfo,
             battleError: payload.battle_error || null
         };
+        if (preserveSlots) {
+            console.debug(`[BattleStore] guarded slots overwrite phase=${phase}`);
+        }
+        if (preserveTimeline) {
+            console.debug(`[BattleStore] guarded timeline overwrite phase=${phase}`);
+        }
         this._syncToLegacy();
         this._notify();
         this._debugLogSelectResolveSummary('battle_state_updated');

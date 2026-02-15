@@ -228,6 +228,16 @@ class SocketClient {
             battle_id: battleId
         });
     }
+
+    sendResolveStart(roomName) {
+        if (!this.socket) {
+            console.warn('[SocketClient] battle_resolve_start skip: socket missing');
+            return;
+        }
+        const payload = roomName ? { room: roomName } : {};
+        console.info('[SocketClient] battle_resolve_start', payload);
+        this.socket.emit('battle_resolve_start', payload);
+    }
 }
 
 // シングルトンインスタンス

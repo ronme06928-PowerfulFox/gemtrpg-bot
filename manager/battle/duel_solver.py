@@ -20,7 +20,7 @@ from manager.utils import get_effective_origin_id
 from manager.battle.core import (
     format_skill_display_from_command, process_on_damage_buffs,
     execute_pre_match_effects, proceed_next_turn, format_skill_name_for_log,
-    process_on_hit_buffs
+    process_on_hit_buffs, format_duel_result_lines
 )
 from plugins.buffs.dodge_lock import DodgeLockBuff
 from manager.logs import setup_logger
@@ -1139,16 +1139,21 @@ def execute_duel_match(room, data, username):
     if incap_logs:
         winner_message = f"{' '.join(incap_logs)}<br>{winner_message}"
 
-    match_log = f"<strong>{actor_name_a}</strong> {skill_display_a} (<span class='dice-result-total'>{result_a['total']}</span>) vs <strong>{actor_name_d}</strong> {skill_display_d} (<span class='dice-result-total'>{result_d['total']}</span>) | {winner_message}"
-    broadcast_log(room, match_log, 'match', save=True)
-
-    # Detailed Damage Report Log
-    for target_key, char_name in [('D', actor_name_d), ('A', actor_name_a)]:
-        if damage_report[target_key]:
-            total_dmg = sum(item['value'] for item in damage_report[target_key])
-            details = " + ".join([f"[{item['source']} {item['value']}]" for item in damage_report[target_key]])
-            log_msg = f"<strong>{char_name}</strong> に <strong>{total_dmg}</strong> ダメージ<br><span style='font-size:0.9em; color:#888;'>内訳: {details}</span>"
-            broadcast_log(room, log_msg, 'damage', save=True)
+    legacy_lines = format_duel_result_lines(
+        actor_name_a=actor_name_a,
+        skill_display_a=skill_display_a,
+        total_a=result_a.get('total', 0),
+        actor_name_d=actor_name_d,
+        skill_display_d=skill_display_d,
+        total_d=result_d.get('total', 0),
+        winner_message=winner_message,
+        damage_report=damage_report,
+        extra_lines=None
+    )
+    if legacy_lines:
+        broadcast_log(room, legacy_lines[0], 'match', save=True)
+        for line in legacy_lines[1:]:
+            broadcast_log(room, line, 'damage', save=True)
     broadcast_state_update(room)
     save_specific_room_state(room)
 

@@ -204,3 +204,87 @@
 }
 
 /* === ▲▲▲ Action Dock & Immediate Skills CSS ▲▲▲ === */
+/* Select/Resolve controls in ActionDock */
+#select-resolve-dock-panel {
+    background: rgba(14, 24, 34, 0.92);
+    border: 1px solid rgba(118, 170, 224, 0.44);
+    border-radius: 10px;
+    color: #e7f2ff;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(2px);
+}
+
+#select-resolve-dock-panel > div:first-child {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+    padding-bottom: 7px;
+    border-bottom: 1px solid rgba(135, 182, 225, 0.24);
+}
+
+#select-resolve-dock-panel > div {
+    line-height: 1.45;
+    margin-bottom: 6px;
+}
+
+#select-resolve-dock-panel [data-slot-id] {
+    display: inline-block;
+    padding: 3px 7px;
+    border-radius: 6px;
+    border: 1px solid rgba(180, 218, 245, 0.28);
+    background: rgba(255, 255, 255, 0.08);
+    min-height: 24px;
+    box-sizing: border-box;
+}
+
+#select-resolve-dock-panel #sr-skill-select {
+    width: 100%;
+    min-height: 34px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    border: 1px solid #5d86ad;
+    background: rgba(255, 255, 255, 0.95);
+    color: #13283b;
+    box-sizing: border-box;
+}
+
+#select-resolve-dock-panel button {
+    min-height: 34px;
+    padding: 7px 12px;
+    border-radius: 7px;
+    border: 1px solid rgba(173, 207, 239, 0.45);
+    background: linear-gradient(180deg, #3b5a76 0%, #2c455c 100%);
+    color: #ecf6ff;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.18s ease, transform 0.12s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
+#select-resolve-dock-panel button:hover:not(:disabled) {
+    background: linear-gradient(180deg, #4a6f8f 0%, #355570 100%);
+    border-color: rgba(193, 222, 248, 0.72);
+    transform: translateY(-1px);
+}
+
+#select-resolve-dock-panel #sr-commit-btn,
+#select-resolve-dock-panel #sr-resolve-confirm-btn {
+    background: linear-gradient(180deg, #2f84ea 0%, #2368bf 100%);
+    border-color: #7db8f7;
+    color: #ffffff;
+}
+
+#select-resolve-dock-panel #sr-commit-btn:hover:not(:disabled),
+#select-resolve-dock-panel #sr-resolve-confirm-btn:hover:not(:disabled) {
+    background: linear-gradient(180deg, #4697f8 0%, #2f78d3 100%);
+    border-color: #a8d1ff;
+    box-shadow: 0 3px 10px rgba(46, 132, 234, 0.35);
+}
+
+#select-resolve-dock-panel button:disabled,
+#select-resolve-dock-panel #sr-skill-select:disabled {
+    opacity: 0.45;
+    filter: grayscale(0.52);
+    cursor: not-allowed;
+    box-shadow: none;
+}

@@ -291,11 +291,9 @@ window.renderVisualTimeline = function () {
                 item.style.border = '1px solid #66a3ff';
             }
             const actorName = char ? char.name : slot.actor_id;
-            const targetText = intent?.target?.slot_id ? `-> ${intent.target.slot_id}` : '-> none';
-            const committedText = intent?.committed ? '[committed]' : '';
             item.innerHTML = `
-                <span class="name">${actorName} (${String(slotId).slice(-12)})</span>
-                <span class="speed" style="font-size:0.85em; color:#666;">ini:${slot.initiative} ${targetText} ${committedText}</span>
+                <span class="name">${actorName}</span>
+                <span class="speed" style="font-size:0.85em; color:#666;">SPD:${slot.initiative}</span>
             `;
             item.addEventListener('click', () => {
                 if (char && typeof showCharacterDetail === 'function') {

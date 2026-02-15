@@ -160,14 +160,9 @@ class Timeline {
         }
 
         const actorName = char?.name || slot.actor_id || 'unknown';
-        const shortSlot = String(slot.slot_id).slice(-14);
-        const targetText = intent?.target?.slot_id ? `-> ${String(intent.target.slot_id).slice(-14)}` : '-> none';
-        const committedText = intent?.committed ? '[committed]' : '';
-        const lockedText = slot.locked_target ? '[locked]' : '';
-
         item.innerHTML = `
-            <span class="slot-main">${actorName} (${shortSlot})</span>
-            <span class="slot-meta" style="font-size:0.82em; color:#666;">ini:${slot.initiative} ${targetText} ${committedText} ${lockedText}</span>
+            <span class="slot-main">${actorName}</span>
+            <span class="slot-meta" style="font-size:0.82em; color:#666;">SPD:${slot.initiative}</span>
         `;
 
         item.addEventListener('click', () => {
