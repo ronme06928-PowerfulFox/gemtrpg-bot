@@ -355,7 +355,7 @@ function _pickPreviewSkillId(stateRef, slotId) {
             skill.type,
             skill.category
         ].filter(Boolean).join(' ').toLowerCase();
-        if (/attack|atk|謾ｻ謦ポ譁ｬ|謇倒蛻ｺ/.test(text)) {
+        if (/attack|atk|攻撃|斬/.test(text)) {
             return id;
         }
     }
@@ -403,24 +403,38 @@ function _getActorIdBySlotId(stateRef, slotId) {
     return slot.actor_id ?? slot.actor_char_id ?? null;
 }
 
-function _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId) {
+function _normalizeDeclareTargetType(type) {
+    const t = String(type || '').trim();
+    if (t === 'single_slot' || t === 'mass_individual' || t === 'mass_summation' || t === 'none') {
+        return t;
+    }
+    return 'single_slot';
+}
+
+function _isMassDeclareTargetType(type) {
+    const t = _normalizeDeclareTargetType(type);
+    return t === 'mass_individual' || t === 'mass_summation';
+}
+
+function _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId, targetType = 'single_slot') {
     const roomId = stateRef?.room_id || stateRef?.room_name || window.currentRoomName || null;
     const battleId = stateRef?.battle_id || null;
     const effectiveSkillId = skillId || null;
-    const target = targetSlotId
-        ? { type: 'single_slot', slot_id: targetSlotId }
-        : { type: 'none', slot_id: null };
+    const normalizedTargetType = _normalizeDeclareTargetType(targetType);
+    const target = _isMassDeclareTargetType(normalizedTargetType)
+        ? { type: normalizedTargetType, slot_id: null }
+        : (targetSlotId ? { type: 'single_slot', slot_id: targetSlotId } : { type: 'none', slot_id: null });
 
     if (!roomId || !battleId) {
-        console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_slot=${targetSlotId || 'null'} (skip: missing room/battle)`);
+        console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_type=${target.type} target_slot=${target.slot_id || 'null'} (skip: missing room/battle)`);
         return;
     }
     if (!window.SocketClient || typeof window.SocketClient.sendIntentPreview !== 'function') {
-        console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_slot=${targetSlotId || 'null'} (skip: socket client unavailable)`);
+        console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_type=${target.type} target_slot=${target.slot_id || 'null'} (skip: socket client unavailable)`);
         return;
     }
 
-    console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_slot=${targetSlotId || 'null'}`);
+    console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_type=${target.type} target_slot=${target.slot_id || 'null'}`);
     window.SocketClient.sendIntentPreview(roomId, battleId, sourceSlotId, effectiveSkillId, target);
 }
 
@@ -434,33 +448,57 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
     let mode = currentDeclare.mode || 'idle';
     let sourceSlotId = currentDeclare.sourceSlotId || null;
     let targetSlotId = currentDeclare.targetSlotId || null;
+    let targetType = _normalizeDeclareTargetType(currentDeclare.targetType || 'single_slot');
     let skillId = currentDeclare.skillId || null;
+    let lastSingleTargetSlotId = currentDeclare.lastSingleTargetSlotId || null;
     const effectiveClickedActorId = clickedActorId || _getActorIdBySlotId(stateRef, clickedSlotId);
     const sourceActorId = sourceSlotId ? _getActorIdBySlotId(stateRef, sourceSlotId) : null;
-    const isTargetChoosing = !!sourceSlotId && (mode === 'choose_target' || mode === 'ready');
+    const isMassMode = _isMassDeclareTargetType(targetType);
+    const isTargetChoosing = !!sourceSlotId && !isMassMode && (mode === 'choose_target' || mode === 'ready');
     const isDifferentActorClick = (
         !!sourceActorId
         && !!effectiveClickedActorId
         && String(sourceActorId) !== String(effectiveClickedActorId)
     );
 
+    // In mass mode, keep click UX but suppress target changes on enemy slot click.
+    if (isMassMode && sourceSlotId && isDifferentActorClick) {
+        console.log(`[declare] mass_target_locked source=${sourceSlotId} clicked=${clickedSlotId}`);
+        if (window.BattleStore && typeof window.BattleStore.setDeclare === 'function') {
+            window.BattleStore.setDeclare({
+                sourceSlotId,
+                targetSlotId: null,
+                targetType,
+                lastSingleTargetSlotId,
+                skillId,
+                mode: 'ready'
+            });
+        }
+        _emitDeclarePreview(stateRef, sourceSlotId, skillId, null, targetType);
+        return;
+    }
+
     // If clicked slot is already committed, open read-only view only when not target-choosing.
     // During target choosing, committed enemy slots must remain selectable as target.
     if (clickedIntent && clickedIntent.committed && !(isTargetChoosing && isDifferentActorClick)) {
         sourceSlotId = clickedSlotId;
         targetSlotId = clickedIntent?.target?.slot_id || null;
+        targetType = _normalizeDeclareTargetType(clickedIntent?.target?.type || 'single_slot');
         skillId = clickedIntent?.skill_id || null;
+        if (targetSlotId) {
+            lastSingleTargetSlotId = targetSlotId;
+        }
         mode = 'locked';
 
         if (window.BattleStore && typeof window.BattleStore.setDeclare === 'function') {
-            window.BattleStore.setDeclare({ sourceSlotId, targetSlotId, skillId, mode });
+            window.BattleStore.setDeclare({ sourceSlotId, targetSlotId, targetType, lastSingleTargetSlotId, skillId, mode });
         } else if (window.BattleStore && typeof window.BattleStore.setSelectedSlotId === 'function') {
             window.BattleStore.setSelectedSlotId(sourceSlotId);
         } else if (typeof battleState !== 'undefined') {
             battleState.selectedSlotId = sourceSlotId;
         }
 
-        console.log(`[declare] mode=locked source=${sourceSlotId || 'null'} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
+        console.log(`[declare] mode=locked source=${sourceSlotId || 'null'} target_type=${targetType} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
         return;
     }
 
@@ -468,6 +506,7 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
         sourceSlotId = clickedSlotId;
         targetSlotId = null;
         skillId = null;
+        targetType = 'single_slot';
         mode = 'choose_target';
     };
 
@@ -482,6 +521,7 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
             && String(sourceActorId) !== String(effectiveClickedActorId)
         ) {
             targetSlotId = clickedSlotId;
+            lastSingleTargetSlotId = clickedSlotId;
             mode = 'ready';
         } else {
             switchSource();
@@ -493,6 +533,7 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
             && String(sourceActorId) !== String(effectiveClickedActorId)
         ) {
             targetSlotId = clickedSlotId;
+            lastSingleTargetSlotId = clickedSlotId;
             mode = 'ready';
         } else {
             switchSource();
@@ -505,6 +546,8 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
         window.BattleStore.setDeclare({
             sourceSlotId,
             targetSlotId,
+            targetType,
+            lastSingleTargetSlotId,
             skillId,
             mode
         });
@@ -514,8 +557,8 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
         battleState.selectedSlotId = sourceSlotId;
     }
 
-    console.log(`[declare] mode=${mode} source=${sourceSlotId || 'null'} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
-    _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId);
+    console.log(`[declare] mode=${mode} source=${sourceSlotId || 'null'} target_type=${targetType} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
+    _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId, targetType);
 }
 
 // Helper: Update token visual contents (bars, badges, etc)
@@ -636,16 +679,35 @@ window.updateCharacterTokenVisuals = function (data) {
         return;
     }
 
-    // Update battleState cache
-    if (typeof battleState !== 'undefined' && battleState.characters) {
-        const char = battleState.characters.find(c => c.id === char_id);
-        if (char) {
-            if (stat === 'HP') char.hp = new_value;
-            else if (stat === 'MP') char.mp = new_value;
-            else {
-                const stateObj = char.states?.find(s => s.name === stat);
-                if (stateObj) stateObj.value = new_value;
-            }
+    const _toNumberOrNull = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+    };
+    const _upsertCharState = (char, stateName, rawValue) => {
+        if (!char || !stateName) return;
+        if (!Array.isArray(char.states)) char.states = [];
+        const idx = char.states.findIndex((s) => s && s.name === stateName);
+        const n = _toNumberOrNull(rawValue);
+        const nextVal = n !== null ? n : rawValue;
+        const shouldDelete = (n !== null && n <= 0);
+
+        if (idx >= 0) {
+            if (shouldDelete) char.states.splice(idx, 1);
+            else char.states[idx].value = nextVal;
+            return;
+        }
+        if (!shouldDelete) {
+            char.states.push({ name: stateName, value: nextVal });
+        }
+    };
+
+    let battleChar = null;
+    if (typeof battleState !== 'undefined' && Array.isArray(battleState.characters)) {
+        battleChar = battleState.characters.find(c => c.id === char_id) || null;
+        if (battleChar) {
+            if (stat === 'HP') battleChar.hp = new_value;
+            else if (stat === 'MP') battleChar.mp = new_value;
+            else _upsertCharState(battleChar, stat, new_value);
         }
     }
 
@@ -674,7 +736,24 @@ window.updateCharacterTokenVisuals = function (data) {
             const diff = new_value - old_value;
             showFloatingText(token, diff, stat, source);
         }
-        console.debug(`[updateCharacterTokenVisuals] State change detected: ${stat}, triggering partial re-render`);
+
+        // Immediately refresh status/debuff badges for state changes.
+        const badgesContainer = token.querySelector('.token-badges');
+        if (badgesContainer && battleChar) {
+            badgesContainer.innerHTML = generateMapTokenBadgesHTML(battleChar);
+        }
+
+        // FP badge is a dedicated top-left circle; keep it in sync.
+        const fpBadge = token.querySelector('.fp-badge');
+        if (fpBadge && battleChar) {
+            const fpState = Array.isArray(battleChar.states)
+                ? battleChar.states.find((s) => s && s.name === 'FP')
+                : null;
+            const fpVal = fpState ? Number(fpState.value || 0) : 0;
+            fpBadge.textContent = String(Math.max(0, fpVal));
+            fpBadge.title = `FP: ${Math.max(0, fpVal)}`;
+        }
+        console.debug(`[updateCharacterTokenVisuals] State change detected: ${stat}, badges refreshed`);
     }
 }
 

@@ -1144,13 +1144,13 @@ def process_select_resolve_round_start(room, battle_id, round_value):
             continue
 
         try:
-            action_count = int(get_status_value(char, '陦悟虚蝗樊焚'))
+            action_count = int(get_status_value(char, '行動回数'))
         except Exception:
             action_count = 1
         action_count = max(1, action_count)
 
         try:
-            speed_val = int(get_status_value(char, '騾溷ｺｦ'))
+            speed_val = int(get_status_value(char, '速度'))
         except Exception:
             speed_val = 0
         base_initiative = speed_val // 6

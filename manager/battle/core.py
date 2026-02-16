@@ -173,6 +173,52 @@ def _consume_legacy_timeline_entries_for_slots(state, slots, processed_slots):
     return consumed
 
 
+def _sync_legacy_has_acted_flags_from_timeline(state, actor_ids=None):
+    if not isinstance(state, dict):
+        return 0
+
+    timeline = state.get('timeline', [])
+    characters = state.get('characters', [])
+    if not isinstance(timeline, list) or not isinstance(characters, list):
+        return 0
+
+    actor_filter = None
+    if actor_ids is not None:
+        actor_filter = {str(aid) for aid in actor_ids if aid}
+
+    remaining_by_actor = {}
+    present_actor_ids = set()
+    for entry in timeline:
+        if not isinstance(entry, dict):
+            continue
+        actor_id = entry.get('char_id')
+        if not actor_id:
+            continue
+        actor_key = str(actor_id)
+        if actor_filter is not None and actor_key not in actor_filter:
+            continue
+        present_actor_ids.add(actor_key)
+        if not entry.get('acted', False):
+            remaining_by_actor[actor_key] = True
+
+    synced = 0
+    for char in characters:
+        actor_id = char.get('id')
+        if not actor_id:
+            continue
+        actor_key = str(actor_id)
+        if actor_filter is not None and actor_key not in actor_filter:
+            continue
+        if actor_key not in present_actor_ids:
+            continue
+        has_acted = not remaining_by_actor.get(actor_key, False)
+        if char.get('hasActed') != has_acted:
+            synced += 1
+        char['hasActed'] = has_acted
+
+    return synced
+
+
 def _snapshot_legacy_timeline_state(state):
     if not isinstance(state, dict):
         return {'total': 0, 'acted': 0, 'current_entry_id': None, 'current_char_id': None, 'head': []}
@@ -386,6 +432,79 @@ def _apply_outcome_to_state(outcome, characters_by_id):
     return applied
 
 
+def _emit_char_stat_update(room, char_obj, stat_name, old_value, new_value, source='select_resolve'):
+    if not isinstance(char_obj, dict):
+        return False
+    if old_value is None or new_value is None:
+        return False
+    if str(old_value) == str(new_value):
+        return False
+    max_value = None
+    if stat_name == 'HP':
+        max_value = char_obj.get('maxHp', 0)
+    elif stat_name == 'MP':
+        max_value = char_obj.get('maxMp', 0)
+    socketio.emit('char_stat_updated', {
+        'room': room,
+        'char_id': char_obj.get('id'),
+        'stat': stat_name,
+        'new_value': new_value,
+        'old_value': old_value,
+        'max_value': max_value,
+        'log_message': None,
+        'source': source
+    }, to=room)
+    return True
+
+
+def _emit_stat_updates_from_applied(room, applied, characters_by_id, source='select_resolve_delegate'):
+    if not isinstance(applied, dict):
+        return 0
+    emitted = 0
+
+    for damage in (applied.get('damage', []) or []):
+        if not isinstance(damage, dict):
+            continue
+        target_id = damage.get('target_id')
+        if not target_id:
+            continue
+        char_obj = characters_by_id.get(target_id) if isinstance(characters_by_id, dict) else None
+        if not isinstance(char_obj, dict):
+            continue
+        try:
+            hp_delta = int(damage.get('hp', 0) or 0)
+        except (TypeError, ValueError):
+            hp_delta = 0
+        if hp_delta == 0:
+            continue
+        new_hp = int(char_obj.get('hp', 0))
+        old_hp = int(new_hp + hp_delta)
+        if _emit_char_stat_update(room, char_obj, 'HP', old_hp, new_hp, source=source):
+            emitted += 1
+
+    for status in (applied.get('statuses', []) or []):
+        if not isinstance(status, dict):
+            continue
+        target_id = status.get('target_id')
+        stat_name = status.get('name')
+        if (not target_id) or (not stat_name):
+            continue
+        stat_name = str(stat_name)
+        if stat_name.startswith('buff:'):
+            continue
+        char_obj = characters_by_id.get(target_id) if isinstance(characters_by_id, dict) else None
+        if not isinstance(char_obj, dict):
+            continue
+        old_value = status.get('before')
+        new_value = status.get('after')
+        if old_value is None or new_value is None:
+            continue
+        if _emit_char_stat_update(room, char_obj, stat_name, old_value, new_value, source=source):
+            emitted += 1
+
+    return emitted
+
+
 def _resolve_actor_name(characters_by_id, actor_id):
     if not actor_id:
         return "(none)"
@@ -403,12 +522,54 @@ def _resolve_skill_name(skill_id, skill_data=None):
         skill_data.get('name')
         or skill_data.get('default_name')
         or skill_data.get('デフォルト名称')
-        or skill_data.get('繝・ヵ繧ｩ繝ｫ繝亥錐遘ｰ')
         or (str(skill_id) if skill_id else "(none)")
     )
     if skill_id:
         return f"{name} ({skill_id})"
     return str(name)
+
+
+def _extract_skill_id_from_data(skill_data, fallback=None):
+    if fallback:
+        return str(fallback)
+    if not isinstance(skill_data, dict):
+        return None
+
+    direct_keys = ['id', 'skill_id', 'skillID', 'スキルID']
+    for key in direct_keys:
+        val = skill_data.get(key)
+        if val:
+            return str(val)
+
+    # Heuristic: any id-like key with id-like value.
+    for k, v in skill_data.items():
+        if not isinstance(k, str):
+            continue
+        if not isinstance(v, str):
+            continue
+        k_lower = k.lower()
+        if 'id' not in k_lower:
+            continue
+        m = re.search(r'^\s*([A-Za-z]{1,4}-\d{2,3})\s*$', v)
+        if m:
+            return str(m.group(1))
+
+    # Fallback: scan all string fields (chat palette etc.) for embedded skill id token.
+    for v in skill_data.values():
+        if not isinstance(v, str):
+            continue
+        m = re.search(r'\b([A-Za-z]{1,4}-\d{2,3})\b', v)
+        if m:
+            return str(m.group(1))
+
+    # Fallback: locate key by object identity in all_skill_data cache.
+    try:
+        for sid, sdata in (all_skill_data or {}).items():
+            if sdata is skill_data:
+                return str(sid)
+    except Exception:
+        pass
+    return None
 
 
 def _format_damage_lines(damage_events, characters_by_id):
@@ -722,7 +883,7 @@ def _snapshot_for_outcome(actor):
             states_map[n] = 0
     # Some legacy effects are stored outside states[].
     bad_states_map = {}
-    for bs in actor.get('bad_states', []) or actor.get('迥ｶ諷狗焚蟶ｸ', []) or []:
+    for bs in actor.get('bad_states', []) or actor.get('状態異常', []) or []:
         if isinstance(bs, dict):
             name = bs.get('name') or bs.get('type')
             if not name:
@@ -1021,8 +1182,8 @@ def _resolve_clash_by_existing_logic(
     actor_d_id = defender_char.get('id')
     actor_a_name = attacker_char.get('name', str(actor_a_id))
     actor_d_name = defender_char.get('name', str(actor_d_id))
-    skill_id_a = attacker_skill_data.get('id') or attacker_skill_data.get('skill_id')
-    skill_id_d = defender_skill_data.get('id') or defender_skill_data.get('skill_id')
+    skill_id_a = _extract_skill_id_from_data(attacker_skill_data)
+    skill_id_d = _extract_skill_id_from_data(defender_skill_data)
 
     captured = {
         'match_log': None,
@@ -1205,20 +1366,40 @@ def _build_resolve_queues(battle_state):
     timeline = battle_state.get('timeline', [])
     slots = battle_state.get('slots', {})
     intents = battle_state.get('intents', {})
-    index_map = {slot_id: idx for idx, slot_id in enumerate(timeline)}
+    ordered_slots = []
+    seen_slots = set()
+    if isinstance(timeline, list):
+        for slot_id in timeline:
+            if slot_id in slots and slot_id not in seen_slots:
+                ordered_slots.append(slot_id)
+                seen_slots.add(slot_id)
+
+    # Fallback for stale/missing timeline entries: append remaining slots by initiative desc.
+    remaining_slots = [sid for sid in slots.keys() if sid not in seen_slots]
+    remaining_slots.sort(
+        key=lambda sid: (
+            -int((slots.get(sid) or {}).get('initiative', 0)),
+            str(sid)
+        )
+    )
+    ordered_slots.extend(remaining_slots)
 
     mass_slots = []
-    for slot_id in timeline:
+    for slot_id in ordered_slots:
+        slot = slots.get(slot_id) or {}
+        if slot.get('disabled', False):
+            continue
         intent = intents.get(slot_id, {})
         tags = intent.get('tags', {})
         mass_type = tags.get('mass_type')
         if mass_type in ['individual', 'summation', 'mass_individual', 'mass_summation']:
             mass_slots.append(slot_id)
 
-    mass_slots.sort(key=lambda s: index_map.get(s, 10**9))
-
     single_slots = []
-    for slot_id in timeline:
+    for slot_id in ordered_slots:
+        slot = slots.get(slot_id) or {}
+        if slot.get('disabled', False):
+            continue
         intent = intents.get(slot_id, {})
         tags = intent.get('tags', {})
         mass_type = tags.get('mass_type')
@@ -1233,6 +1414,21 @@ def _build_resolve_queues(battle_state):
     battle_state['resolve']['single_queue'] = single_slots
 
 
+def _consume_resolve_slot(battle_state, slot_id):
+    if not isinstance(battle_state, dict) or not slot_id:
+        return
+    slots = battle_state.get('slots', {})
+    slot_data = slots.get(slot_id)
+    if isinstance(slot_data, dict):
+        slot_data['disabled'] = True
+        slot_data['status'] = 'consumed'
+    resolve = battle_state.setdefault('resolve', {})
+    resolved_slots = resolve.get('resolved_slots', [])
+    if slot_id not in resolved_slots:
+        resolved_slots.append(slot_id)
+        resolve['resolved_slots'] = resolved_slots
+
+
 def _compare_outcome(attacker_power, defender_power):
     if attacker_power > defender_power:
         return 'attacker_win'
@@ -1245,21 +1441,99 @@ def _roll_power_for_slot(battle_state, slot_id):
     intents = battle_state.get('intents', {})
     intent = intents.get(slot_id, {})
     skill_id = intent.get('skill_id')
+    if not skill_id:
+        return 0
 
-    # Prefer deterministic+visible debug values: 1d20 + optional static bonus from skill data.
-    base_roll = int(roll_dice("1d20").get('total', 1))
-    bonus = 0
-    if skill_id:
-        skill_data = all_skill_data.get(skill_id, {})
-        for key in ['基礎威力補正', 'ダイス補正']:
+    skill_data = all_skill_data.get(skill_id, {}) if isinstance(all_skill_data, dict) else {}
+    slots = battle_state.get('slots', {}) if isinstance(battle_state, dict) else {}
+    slot_data = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
+    attacker_actor_id = slot_data.get('actor_id')
+    target = intent.get('target', {}) if isinstance(intent, dict) else {}
+
+    target_slot_id = None
+    if isinstance(target, dict) and target.get('type') == 'single_slot':
+        target_slot_id = target.get('slot_id')
+    elif isinstance(target, dict) and target.get('type') in ['mass_individual', 'mass_summation']:
+        # For mass skills, pick one representative defender (highest initiative) for preview context.
+        candidates = []
+        attacker_team = slot_data.get('team')
+        for defender_slot_id, defender_intent in intents.items():
+            if not isinstance(defender_intent, dict) or not defender_intent.get('committed', False):
+                continue
+            defender_target = defender_intent.get('target', {}) or {}
+            if defender_target.get('type') != 'single_slot':
+                continue
+            if defender_target.get('slot_id') != slot_id:
+                continue
+            defender_slot_data = slots.get(defender_slot_id, {}) if isinstance(slots, dict) else {}
+            if attacker_team and defender_slot_data.get('team') == attacker_team:
+                continue
+            candidates.append((
+                -int(defender_slot_data.get('initiative', 0) or 0),
+                str(defender_slot_id),
+                defender_slot_id,
+            ))
+        if candidates:
+            candidates.sort()
+            target_slot_id = candidates[0][2]
+
+    room_state = battle_state.get('__room_state_ref__') if isinstance(battle_state, dict) else None
+    if isinstance(room_state, dict):
+        chars_by_id = {
+            c.get('id'): c
+            for c in room_state.get('characters', [])
+            if isinstance(c, dict) and c.get('id')
+        }
+        attacker_char = chars_by_id.get(attacker_actor_id)
+        defender_char = None
+        if target_slot_id and isinstance(slots, dict):
+            defender_slot_data = slots.get(target_slot_id, {}) or {}
+            defender_char = chars_by_id.get(defender_slot_data.get('actor_id'))
+
+        if isinstance(attacker_char, dict) and isinstance(skill_data, dict):
             try:
-                bonus += int(skill_data.get(key, 0))
-            except Exception:
-                pass
-    return max(0, base_roll + bonus)
+                context = {'room_state': room_state}
+                preview = calculate_skill_preview(attacker_char, defender_char or attacker_char, skill_data, context=context)
+                final_command = (preview or {}).get('final_command') or "0"
+                total = int((roll_dice(final_command) or {}).get('total', 0) or 0)
+                logger.info(
+                    "[roll_power_slot] slot=%s skill=%s command=%s total=%s mode=preview target_slot=%s",
+                    slot_id, skill_id, final_command, total, target_slot_id
+                )
+                return max(0, total)
+            except Exception as e:
+                logger.warning(
+                    "[roll_power_slot] preview roll failed slot=%s skill=%s target_slot=%s error=%s",
+                    slot_id, skill_id, target_slot_id, e
+                )
+
+    # Fallback: static power expression from skill data.
+    try:
+        base_power = int(skill_data.get('基礎威力', skill_data.get('base_power', 0)) or 0)
+    except Exception:
+        base_power = 0
+    dice_part = str(skill_data.get('ダイス威力', skill_data.get('dice_power', '')) or '').strip()
+    if base_power and dice_part:
+        command = f"{base_power}{dice_part}" if dice_part.startswith(('+', '-')) else f"{base_power}+{dice_part}"
+    elif dice_part:
+        command = dice_part
+    elif base_power:
+        command = str(base_power)
+    else:
+        command = "1d20"
+
+    try:
+        total = int((roll_dice(command) or {}).get('total', 0) or 0)
+    except Exception:
+        total = 0
+    logger.info(
+        "[roll_power_slot] slot=%s skill=%s command=%s total=%s mode=fallback",
+        slot_id, skill_id, command, total
+    )
+    return max(0, total)
 
 
-def _gather_slots_targeting_slot_s(state, battle_state, slot_s):
+def _gather_slots_targeting_slot_s(state, battle_state, slot_s, attacker_team=None):
     intents = battle_state.get('intents', {})
     slots = battle_state.get('slots', {})
     candidates = []
@@ -1276,6 +1550,8 @@ def _gather_slots_targeting_slot_s(state, battle_state, slot_s):
             continue
         slot_data = slots.get(slot_id)
         if not slot_data:
+            continue
+        if attacker_team and slot_data.get('team') == attacker_team:
             continue
         actor_id = slot_data.get('actor_id')
         if not actor_id:
@@ -1318,33 +1594,246 @@ def run_select_resolve_auto(room, battle_id):
     if battle_state.get('phase') not in ['resolve_mass', 'resolve_single']:
         return
 
+    # Ephemeral context for resolve-time power roll helpers.
+    battle_state['__room_state_ref__'] = state
+
     _build_resolve_queues(battle_state)
 
     if battle_state.get('phase') == 'resolve_mass':
+        intents = battle_state.get('intents', {})
+        slots = battle_state.get('slots', {})
+
+        def _enemy_actor_ids_for_team(attacker_team):
+            enemy_actors = []
+            for actor in state.get('characters', []):
+                actor_id = actor.get('id')
+                if not actor_id:
+                    continue
+                if actor.get('type') == attacker_team:
+                    continue
+                if not _is_actor_placed(state, actor_id):
+                    continue
+                enemy_actors.append(actor_id)
+            return enemy_actors
+
+        def _emit_hp_diff(char_obj, old_hp, new_hp, source='mass_summation'):
+            if not isinstance(char_obj, dict):
+                return
+            if int(old_hp) == int(new_hp):
+                return
+            socketio.emit('char_stat_updated', {
+                'room': room,
+                'char_id': char_obj.get('id'),
+                'stat': 'HP',
+                'new_value': int(new_hp),
+                'old_value': int(old_hp),
+                'max_value': int(char_obj.get('maxHp', 0) or 0),
+                'log_message': f"[{source}] {char_obj.get('name', char_obj.get('id'))}: HP ({int(old_hp)}) -> ({int(new_hp)})",
+                'source': source
+            }, to=room)
+
+        def _apply_mass_summation_delta_damage(target_actor_ids, delta_value):
+            damage_events = []
+            delta_int = int(max(0, delta_value))
+            if delta_int <= 0:
+                return damage_events
+
+            for actor_id in (target_actor_ids or []):
+                defender_char = characters_by_id.get(actor_id)
+                if not isinstance(defender_char, dict):
+                    continue
+                before_hp = int(defender_char.get('hp', 0))
+                after_hp = max(0, before_hp - delta_int)
+                if after_hp == before_hp:
+                    continue
+                defender_char['hp'] = after_hp
+                _emit_hp_diff(defender_char, before_hp, after_hp, source='mass_summation')
+                damage_events.append({
+                    'target_id': actor_id,
+                    'hp': int(before_hp - after_hp),
+                    'damage_type': 'mass_summation_delta'
+                })
+            return damage_events
+
         for slot_id in battle_state['resolve'].get('mass_queue', []):
-            intent = battle_state.get('intents', {}).get(slot_id, {})
+            intent = intents.get(slot_id, {})
             tags = intent.get('tags', {})
             mass_type = tags.get('mass_type')
-            attacker_slot_data = battle_state.get('slots', {}).get(slot_id, {})
+            attacker_skill_id = intent.get('skill_id')
+            attacker_skill_data = all_skill_data.get(attacker_skill_id, {}) if attacker_skill_id else {}
+            attacker_slot_data = slots.get(slot_id, {})
             attacker_actor_id = attacker_slot_data.get('actor_id')
             attacker_team = attacker_slot_data.get('team')
-            if not attacker_actor_id or not _is_actor_placed(state, attacker_actor_id):
-                _append_trace(room, battle_id, battle_state, 'fizzle', slot_id, notes='attacker_unplaced')
-                battle_state['resolve']['resolved_slots'].append(slot_id)
+            attacker_char = characters_by_id.get(attacker_actor_id)
+
+            if not attacker_actor_id or not attacker_char or not _is_actor_placed(state, attacker_actor_id):
+                _append_trace(
+                    room,
+                    battle_id,
+                    battle_state,
+                    'fizzle',
+                    slot_id,
+                    notes='attacker_unplaced',
+                    extra_fields={'lines': ['reason: attacker_unplaced'], 'log_lines': ['reason: attacker_unplaced']},
+                )
+                _consume_resolve_slot(battle_state, slot_id)
                 continue
 
+            def _emit_mass_one_sided(defender_actor_id, defender_slot=None, trace_kind='mass_individual', trace_notes=None):
+                defender_char = characters_by_id.get(defender_actor_id)
+                if not isinstance(defender_char, dict):
+                    _append_trace(
+                        room,
+                        battle_id,
+                        battle_state,
+                        'fizzle',
+                        slot_id,
+                        defender_slot=defender_slot,
+                        target_actor_id=defender_actor_id,
+                        notes='target_unplaced',
+                        extra_fields={'lines': ['reason: target_unplaced'], 'log_lines': ['reason: target_unplaced']},
+                    )
+                    return
+
+                defender_intent = intents.get(defender_slot, {}) if defender_slot else {}
+                defender_skill_id = defender_intent.get('skill_id')
+                defender_skill_data = all_skill_data.get(defender_skill_id, {}) if defender_skill_id else None
+
+                delegated = _resolve_one_sided_by_existing_logic(
+                    room=room,
+                    state=state,
+                    attacker_char=attacker_char,
+                    defender_char=defender_char,
+                    attacker_skill_data=attacker_skill_data,
+                    defender_skill_data=defender_skill_data
+                )
+                delegate_ok = bool((delegated or {}).get('ok', False))
+                delegate_summary = delegated.get('summary', {}) if delegate_ok else {}
+
+                outcome_payload = {
+                    'attacker_id': attacker_actor_id,
+                    'target_id': defender_actor_id,
+                    'skill_id': attacker_skill_id,
+                    'skill': attacker_skill_data,
+                    'apply_cost': False,
+                    'cost_policy': COST_CONSUME_POLICY,
+                    'delegate_applied': delegate_ok,
+                    'delegate_summary': delegate_summary if delegate_ok else {}
+                }
+                applied = _apply_outcome_to_state(outcome_payload, characters_by_id)
+
+                one_sided_notes = None if delegate_ok else (delegated.get('reason') if isinstance(delegated, dict) else 'delegate_failed')
+                legacy_input = to_legacy_duel_log_input(
+                    outcome_payload=outcome_payload,
+                    state=state,
+                    intents=intents,
+                    attacker_slot=slot_id,
+                    defender_slot=defender_slot,
+                    applied=applied,
+                    kind='one_sided',
+                    outcome=('attacker_win' if delegate_ok else 'no_effect'),
+                    notes=(trace_notes or one_sided_notes)
+                )
+                log_lines = format_duel_result_lines(
+                    legacy_input['actor_name_a'],
+                    legacy_input['skill_display_a'],
+                    legacy_input['total_a'],
+                    legacy_input['actor_name_d'],
+                    legacy_input['skill_display_d'],
+                    legacy_input['total_d'],
+                    legacy_input['winner_message'],
+                    damage_report=legacy_input['damage_report'],
+                    extra_lines=legacy_input.get('extra_lines')
+                )
+                _log_match_result(log_lines)
+
+                outcome_payload['log_lines'] = log_lines
+                outcome_payload['lines'] = log_lines
+                applied['log_lines'] = log_lines
+                applied['lines'] = log_lines
+
+                _append_trace(
+                    room,
+                    battle_id,
+                    battle_state,
+                    trace_kind,
+                    slot_id,
+                    defender_slot=defender_slot,
+                    target_actor_id=defender_actor_id,
+                    notes=(trace_notes or one_sided_notes),
+                    outcome=('attacker_win' if delegate_ok else 'no_effect'),
+                    cost={
+                        'mp': int(applied.get('cost', {}).get('mp', 0)),
+                        'hp': int(applied.get('cost', {}).get('hp', 0)),
+                        'fp': int(applied.get('cost', {}).get('fp', 0)),
+                    },
+                    rolls=(delegate_summary.get('rolls', {}) if isinstance(delegate_summary, dict) else {}),
+                    extra_fields={
+                        'resolution_kind': 'one_sided',
+                        'outcome_payload': outcome_payload,
+                        'applied': applied,
+                        'lines': log_lines,
+                        'log_lines': log_lines
+                    }
+                )
+
             if mass_type in ['summation', 'mass_summation']:
-                participant_slots = _gather_slots_targeting_slot_s(state, battle_state, slot_id)
+                participant_slots = _gather_slots_targeting_slot_s(
+                    state,
+                    battle_state,
+                    slot_id,
+                    attacker_team=attacker_team
+                )
+
                 attacker_power = _roll_power_for_slot(battle_state, slot_id)
                 defender_powers = {}
                 for p_slot in participant_slots:
                     defender_powers[p_slot] = _roll_power_for_slot(battle_state, p_slot)
                 defender_sum = sum(defender_powers.values())
                 outcome = _compare_outcome(attacker_power, defender_sum)
+                delta = abs(int(attacker_power) - int(defender_sum))
+                attacker_name = _resolve_actor_name(characters_by_id, attacker_actor_id)
+                skill_name = _resolve_skill_name(attacker_skill_id, attacker_skill_data)
+                defender_actor_ids = _enemy_actor_ids_for_team(attacker_team)
                 logger.info(
-                    "[resolve_mass] type=summation slot=%s participants=%d attacker_power=%s defender_sum=%s outcome=%s",
-                    slot_id, len(participant_slots), attacker_power, defender_sum, outcome
+                    "[resolve_mass] type=summation slot=%s participants=%d attacker_power=%s defender_sum=%s outcome=%s delta=%s",
+                    slot_id, len(participant_slots), attacker_power, defender_sum, outcome, delta
                 )
+
+                damage_events = []
+                if outcome == 'attacker_win' and delta > 0:
+                    damage_events = _apply_mass_summation_delta_damage(defender_actor_ids, delta)
+                elif outcome == 'defender_win' and delta > 0:
+                    damage_events = _apply_mass_summation_delta_damage([attacker_actor_id], delta)
+
+                if outcome == 'attacker_win':
+                    winner_message = '広域側の勝利'
+                elif outcome == 'defender_win':
+                    winner_message = '防御合算側の勝利'
+                else:
+                    winner_message = '引き分け'
+
+                summary_lines = [
+                    (
+                        f"<strong>{attacker_name}</strong> "
+                        f"<span style='color: #d63384; font-weight: bold;'>【{skill_name}】</span> "
+                        f"(<span class='dice-result-total'>{attacker_power}</span>) vs "
+                        f"<strong>防御合算</strong> "
+                        f"(<span class='dice-result-total'>{defender_sum}</span>) | "
+                        f"<strong> → {winner_message}</strong>"
+                    ),
+                    f"[mass_summation] participants={len(participant_slots)} delta={delta}",
+                ]
+                for e in damage_events:
+                    target_name = _resolve_actor_name(characters_by_id, e.get('target_id'))
+                    dmg_val = int(e.get('hp', 0) or 0)
+                    if dmg_val > 0:
+                        summary_lines.append(
+                            f"<strong>{target_name}</strong> に <strong>{dmg_val}</strong> ダメージ"
+                            f"<br><span style='font-size:0.9em; color:#888;'>内訳: [広域合算差分 {dmg_val}]</span>"
+                        )
+                _log_match_result(summary_lines)
+
                 _append_trace(
                     room,
                     battle_id,
@@ -1354,62 +1843,134 @@ def run_select_resolve_auto(room, battle_id):
                     rolls={
                         'attacker_power': attacker_power,
                         'defender_powers': defender_powers,
-                        'defender_sum': defender_sum
+                        'defender_sum': defender_sum,
+                        'delta': delta
                     },
                     outcome=outcome,
-                    extra_fields={'participants': participant_slots}
+                    target_actor_id=attacker_actor_id,
+                    extra_fields={
+                        'participants': participant_slots,
+                        'damage_events': damage_events,
+                        'lines': summary_lines,
+                        'log_lines': summary_lines
+                    }
                 )
+
+                for p_slot in participant_slots:
+                    _consume_resolve_slot(battle_state, p_slot)
             else:
-                participant_slots = _gather_slots_targeting_slot_s(state, battle_state, slot_id)
+                participant_slots = _gather_slots_targeting_slot_s(
+                    state,
+                    battle_state,
+                    slot_id,
+                    attacker_team=attacker_team
+                )
                 participant_by_actor = {}
                 for p_slot in participant_slots:
-                    actor_id = battle_state.get('slots', {}).get(p_slot, {}).get('actor_id')
+                    actor_id = slots.get(p_slot, {}).get('actor_id')
                     if actor_id:
                         participant_by_actor[actor_id] = p_slot
 
-                enemy_actors = []
-                for actor in state.get('characters', []):
-                    actor_id = actor.get('id')
-                    if not actor_id:
-                        continue
-                    if actor.get('type') == attacker_team:
-                        continue
-                    if not _is_actor_placed(state, actor_id):
-                        continue
-                    enemy_actors.append(actor_id)
-
-                for defender_actor_id in enemy_actors:
+                for defender_actor_id in _enemy_actor_ids_for_team(attacker_team):
                     defender_slot = participant_by_actor.get(defender_actor_id)
-                    attacker_power = _roll_power_for_slot(battle_state, slot_id)
-                    if defender_slot:
-                        defender_power = _roll_power_for_slot(battle_state, defender_slot)
-                        outcome = _compare_outcome(attacker_power, defender_power)
+                    defender_intent = intents.get(defender_slot, {}) if defender_slot else {}
+                    defender_skill_id = defender_intent.get('skill_id')
+
+                    if defender_slot and defender_skill_id:
+                        defender_char = characters_by_id.get(defender_actor_id)
+                        defender_skill_data = all_skill_data.get(defender_skill_id, {}) if defender_skill_id else None
+                        clash_delegated = _resolve_clash_by_existing_logic(
+                            room=room,
+                            state=state,
+                            attacker_char=attacker_char,
+                            defender_char=defender_char,
+                            attacker_skill_data=attacker_skill_data,
+                            defender_skill_data=defender_skill_data
+                        )
+                        clash_ok = bool((clash_delegated or {}).get('ok', False))
+                        clash_summary = clash_delegated.get('summary', {}) if clash_ok else {}
+                        clash_outcome = clash_delegated.get('outcome', 'no_effect') if clash_ok else 'no_effect'
+
+                        clash_payload = {
+                            'attacker_id': attacker_actor_id,
+                            'target_id': defender_actor_id,
+                            'skill_id': attacker_skill_id,
+                            'skill': attacker_skill_data,
+                            'apply_cost': False,
+                            'cost_policy': COST_CONSUME_POLICY,
+                            'delegate_applied': clash_ok,
+                            'delegate_summary': clash_summary if clash_ok else {}
+                        }
+                        clash_applied = _apply_outcome_to_state(clash_payload, characters_by_id)
+                        if clash_ok:
+                            _emit_stat_updates_from_applied(
+                                room,
+                                clash_applied,
+                                characters_by_id,
+                                source='resolve_mass_clash'
+                            )
+                        clash_notes = None if clash_ok else (
+                            clash_delegated.get('reason') if isinstance(clash_delegated, dict) else 'delegate_failed'
+                        )
+                        legacy_input = to_legacy_duel_log_input(
+                            outcome_payload=clash_payload,
+                            state=state,
+                            intents=intents,
+                            attacker_slot=slot_id,
+                            defender_slot=defender_slot,
+                            applied=clash_applied,
+                            kind='clash',
+                            outcome=clash_outcome,
+                            notes=clash_notes
+                        )
+                        log_lines = format_duel_result_lines(
+                            legacy_input['actor_name_a'],
+                            legacy_input['skill_display_a'],
+                            legacy_input['total_a'],
+                            legacy_input['actor_name_d'],
+                            legacy_input['skill_display_d'],
+                            legacy_input['total_d'],
+                            legacy_input['winner_message'],
+                            damage_report=legacy_input['damage_report'],
+                            extra_lines=legacy_input.get('extra_lines')
+                        )
+                        _log_match_result(log_lines)
+                        _append_trace(
+                            room,
+                            battle_id,
+                            battle_state,
+                            'mass_individual',
+                            slot_id,
+                            defender_slot=defender_slot,
+                            target_actor_id=defender_actor_id,
+                            notes=clash_notes,
+                            outcome=clash_outcome,
+                            rolls=(clash_summary.get('rolls', {}) if isinstance(clash_summary, dict) else {}),
+                            cost={
+                                'mp': int(clash_applied.get('cost', {}).get('mp', 0)),
+                                'hp': int(clash_applied.get('cost', {}).get('hp', 0)),
+                                'fp': int(clash_applied.get('cost', {}).get('fp', 0)),
+                            },
+                            extra_fields={
+                                'resolution_kind': 'clash',
+                                'outcome_payload': clash_payload,
+                                'applied': clash_applied,
+                                'lines': log_lines,
+                                'log_lines': log_lines
+                            }
+                        )
+                        _consume_resolve_slot(battle_state, defender_slot)
                     else:
-                        defender_power = 0
-                        outcome = 'attacker_win'
-                    logger.info(
-                        "[resolve_mass] type=individual slot=%s defender_actor=%s defender_slot=%s attacker_power=%s defender_power=%s outcome=%s",
-                        slot_id, defender_actor_id, defender_slot, attacker_power, defender_power, outcome
-                    )
+                        _emit_mass_one_sided(
+                            defender_actor_id=defender_actor_id,
+                            defender_slot=defender_slot,
+                            trace_kind='mass_individual'
+                        )
 
-                    _append_trace(
-                        room,
-                        battle_id,
-                        battle_state,
-                        'mass_individual',
-                        slot_id,
-                        defender_slot=defender_slot,
-                        target_actor_id=defender_actor_id,
-                        rolls={
-                            'attacker_power': attacker_power,
-                            'defender_power': defender_power
-                        },
-                        outcome=outcome
-                    )
-
-            battle_state['resolve']['resolved_slots'].append(slot_id)
+            _consume_resolve_slot(battle_state, slot_id)
 
         battle_state['phase'] = 'resolve_single'
+        _build_resolve_queues(battle_state)
         phase_payload = {
             'room_id': room,
             'battle_id': battle_id,
@@ -1620,6 +2181,13 @@ def run_select_resolve_auto(room, battle_id):
                     'delegate_summary': clash_summary if clash_ok else {}
                 }
                 clash_applied = _apply_outcome_to_state(clash_outcome_payload, characters_by_id)
+                if clash_ok:
+                    _emit_stat_updates_from_applied(
+                        room,
+                        clash_applied,
+                        characters_by_id,
+                        source='resolve_single_clash'
+                    )
                 attacker_name = _resolve_actor_name(characters_by_id, attacker_actor_id)
                 defender_name = _resolve_actor_name(characters_by_id, defender_actor_id)
                 attacker_skill_name = _resolve_skill_name(skill_id, skill_data)
@@ -1802,15 +2370,27 @@ def run_select_resolve_auto(room, battle_id):
         )
 
         timeline_before = _snapshot_legacy_timeline_state(state)
+        resolved_slots = battle_state.get('resolve', {}).get('resolved_slots', []) or []
+        sync_slot_ids = [sid for sid in resolved_slots if sid in slots] or list(processed_slots)
         processed_actor_ids = [
             slots.get(sid, {}).get('actor_id')
-            for sid in processed_slots
+            for sid in sync_slot_ids
             if slots.get(sid, {}).get('actor_id')
         ]
-        consumed_entries = _consume_legacy_timeline_entries_for_slots(state, slots, processed_slots)
+        consumed_entries = _consume_legacy_timeline_entries_for_slots(state, slots, sync_slot_ids)
+        synced_has_acted = _sync_legacy_has_acted_flags_from_timeline(
+            state,
+            actor_ids=processed_actor_ids
+        )
         logger.info(
-            "[resolve_single_turn_sync] room=%s battle=%s processed_slots=%d actors=%d consumed_entries=%d",
-            room, battle_id, len(processed_slots), len(set(processed_actor_ids)), consumed_entries
+            "[resolve_single_turn_sync] room=%s battle=%s processed_slots=%d sync_slots=%d actors=%d consumed_entries=%d has_acted_synced=%d",
+            room,
+            battle_id,
+            len(processed_slots),
+            len(sync_slot_ids),
+            len(set(processed_actor_ids)),
+            consumed_entries,
+            synced_has_acted
         )
         try:
             proceed_next_turn(room, suppress_logs=True, suppress_state_emit=True)
@@ -1842,6 +2422,7 @@ def run_select_resolve_auto(room, battle_id):
         for entry in state.get('timeline', []) or []:
             if isinstance(entry, dict):
                 entry['acted'] = True
+        _sync_legacy_has_acted_flags_from_timeline(state)
 
         round_finished_payload = {
             'room_id': room,
@@ -1859,6 +2440,7 @@ def run_select_resolve_auto(room, battle_id):
             _log_battle_emit('battle_state_updated', room, battle_id, payload)
             socketio.emit('battle_state_updated', payload, to=room)
 
+    battle_state.pop('__room_state_ref__', None)
     save_specific_room_state(room)
 
 def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data, target_skill_data, all_skill_data_ref):

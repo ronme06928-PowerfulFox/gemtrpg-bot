@@ -34,6 +34,8 @@ class BattleStore {
             declare: {
                 sourceSlotId: null,
                 targetSlotId: null,
+                targetType: 'single_slot',
+                lastSingleTargetSlotId: null,
                 skillId: null,
                 mode: 'idle',
                 calc: null
@@ -140,6 +142,8 @@ class BattleStore {
             declare: {
                 sourceSlotId: null,
                 targetSlotId: null,
+                targetType: 'single_slot',
+                lastSingleTargetSlotId: null,
                 skillId: null,
                 mode: 'idle',
                 calc: null
@@ -236,6 +240,8 @@ class BattleStore {
             declare: {
                 sourceSlotId: null,
                 targetSlotId: null,
+                targetType: 'single_slot',
+                lastSingleTargetSlotId: null,
                 skillId: null,
                 mode: 'idle',
                 calc: null
@@ -295,6 +301,8 @@ class BattleStore {
         const merged = {
             sourceSlotId: nextDeclare.sourceSlotId !== undefined ? nextDeclare.sourceSlotId : (current.sourceSlotId || null),
             targetSlotId: nextDeclare.targetSlotId !== undefined ? nextDeclare.targetSlotId : (current.targetSlotId || null),
+            targetType: nextDeclare.targetType !== undefined ? nextDeclare.targetType : (current.targetType || 'single_slot'),
+            lastSingleTargetSlotId: nextDeclare.lastSingleTargetSlotId !== undefined ? nextDeclare.lastSingleTargetSlotId : (current.lastSingleTargetSlotId || null),
             skillId: nextDeclare.skillId !== undefined ? nextDeclare.skillId : (current.skillId || null),
             mode: nextDeclare.mode || current.mode || 'idle',
             calc: nextDeclare.calc !== undefined ? nextDeclare.calc : (current.calc || null)
@@ -302,6 +310,7 @@ class BattleStore {
         const identityChanged =
             String(merged.sourceSlotId || '') !== String(current.sourceSlotId || '')
             || String(merged.targetSlotId || '') !== String(current.targetSlotId || '')
+            || String(merged.targetType || 'single_slot') !== String(current.targetType || 'single_slot')
             || String(merged.skillId || '') !== String(current.skillId || '');
         if (identityChanged && nextDeclare.calc === undefined) {
             merged.calc = null;
@@ -321,6 +330,8 @@ class BattleStore {
             declare: {
                 sourceSlotId: null,
                 targetSlotId: null,
+                targetType: 'single_slot',
+                lastSingleTargetSlotId: null,
                 skillId: null,
                 mode: 'idle',
                 calc: null
@@ -334,6 +345,8 @@ class BattleStore {
         const current = this._state.declare || {
             sourceSlotId: null,
             targetSlotId: null,
+            targetType: 'single_slot',
+            lastSingleTargetSlotId: null,
             skillId: null,
             mode: 'idle',
             calc: null

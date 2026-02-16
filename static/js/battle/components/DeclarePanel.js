@@ -54,6 +54,10 @@ class DeclarePanel {
         const calc = declare.calc || null;
         const sourceIntent = state?.intents?.[sourceSlotId] || null;
         const isDeclaredLocked = mode === 'locked' || !!sourceIntent?.committed;
+        const declaredTargetType = this._normalizeTargetType(declare.targetType || sourceIntent?.target?.type);
+        const effectiveTargetType = this._resolveEffectiveTargetType(skillId, declaredTargetType);
+        const isMassTarget = this._isMassTargetType(effectiveTargetType);
+        const effectiveTargetSlotId = isMassTarget ? null : targetSlotId;
 
         if (phase !== 'select' || !sourceSlotId) {
             panel.style.display = 'none';
@@ -64,16 +68,24 @@ class DeclarePanel {
         const sourceSlot = state.slots?.[sourceSlotId] || null;
         const sourceActorId = sourceSlot?.actor_id || null;
         const sourceChar = (state.characters || []).find(c => String(c.id) === String(sourceActorId)) || null;
-        const targetOptions = this._buildTargetOptions(state, sourceSlotId, targetSlotId);
+        const targetOptions = this._buildTargetOptions(state, sourceSlotId, effectiveTargetSlotId, effectiveTargetType);
         const sourceLabel = this._formatSlotLabel(state, sourceSlotId);
-        const targetLabel = targetSlotId ? this._formatSlotLabel(state, targetSlotId) : '未選択';
+        const targetLabel = isMassTarget
+            ? this._getMassTargetLabel(sourceSlot)
+            : (effectiveTargetSlotId ? this._formatSlotLabel(state, effectiveTargetSlotId) : '未選択');
         const skillOptions = this._buildSkillOptions(sourceChar);
         const meta = this._resolveDisplayMeta(skillId, calc);
         const commandText = this._resolveCommandText(calc);
         const powerAdjustRows = this._resolvePowerAdjustRows(calc);
         const powerSummary = this._resolvePowerSummaryText(calc, powerAdjustRows);
         const costCheck = this._evaluateCost(state, sourceActorId, skillId, calc);
-        const canCommit = !!(sourceSlotId && skillId && targetSlotId && !costCheck.insufficient && !isDeclaredLocked);
+        const canCommit = !!(
+            sourceSlotId
+            && skillId
+            && !costCheck.insufficient
+            && !isDeclaredLocked
+            && (isMassTarget || !!effectiveTargetSlotId)
+        );
         const calcErrorText = (calc && calc.error) ? (calc.final_command || '計算エラー') : null;
 
         panel.innerHTML = `
@@ -91,8 +103,8 @@ class DeclarePanel {
             <div class="declare-panel-row">
                 <span>対象</span>
                 <div class="declare-target-controls">
-                    <span class="declare-human-label" data-slot-id="${targetSlotId || ''}">${targetLabel}</span>
-                    <select id="declare-target-select" class="declare-target-select" ${isDeclaredLocked ? 'disabled' : ''}>
+                    <span class="declare-human-label" data-slot-id="${effectiveTargetSlotId || ''}">${targetLabel}</span>
+                    <select id="declare-target-select" class="declare-target-select" ${(isDeclaredLocked || isMassTarget) ? 'disabled' : ''}>
                         ${targetOptions}
                     </select>
                 </div>
@@ -136,10 +148,32 @@ class DeclarePanel {
                 if (isDeclaredLocked) return;
                 const nextSkillId = e.target.value || '';
                 const current = store.get('declare') || {};
+                const prevTargetType = this._normalizeTargetType(current.targetType || declaredTargetType);
+                const nextTargetType = this._resolveEffectiveTargetType(nextSkillId, prevTargetType);
+                let nextTargetSlotId = current.targetSlotId || null;
+                let nextLastSingleTargetSlotId = current.lastSingleTargetSlotId || null;
+
+                if (this._isMassTargetType(nextTargetType)) {
+                    if (!this._isMassTargetType(prevTargetType) && nextTargetSlotId) {
+                        nextLastSingleTargetSlotId = nextTargetSlotId;
+                    }
+                    nextTargetSlotId = null;
+                } else {
+                    if (this._isMassTargetType(prevTargetType)) {
+                        nextTargetSlotId = current.lastSingleTargetSlotId || null;
+                    }
+                    if (nextTargetSlotId) {
+                        nextLastSingleTargetSlotId = nextTargetSlotId;
+                    }
+                }
+
                 const nextDeclare = {
                     ...current,
                     skillId: nextSkillId || null,
-                    mode: current.targetSlotId ? 'ready' : 'choose_target'
+                    targetType: nextTargetType,
+                    targetSlotId: nextTargetSlotId,
+                    lastSingleTargetSlotId: nextLastSingleTargetSlotId,
+                    mode: this._resolveDeclareMode(nextTargetType, nextTargetSlotId)
                 };
                 store.setDeclare(nextDeclare);
                 this._emitPreviewFromDeclare(store.state, nextDeclare);
@@ -149,16 +183,19 @@ class DeclarePanel {
 
         const targetSelect = panel.querySelector('#declare-target-select');
         if (targetSelect) {
-            targetSelect.value = targetSlotId || '';
-            targetSelect.disabled = isDeclaredLocked;
+            targetSelect.value = effectiveTargetSlotId || '';
+            targetSelect.disabled = isDeclaredLocked || isMassTarget;
             targetSelect.onchange = (e) => {
-                if (isDeclaredLocked) return;
+                if (isDeclaredLocked || isMassTarget) return;
                 const nextTargetSlotId = e.target.value || null;
                 const current = store.get('declare') || {};
+                const currentTargetType = this._normalizeTargetType(current.targetType || effectiveTargetType);
                 const nextDeclare = {
                     ...current,
                     targetSlotId: nextTargetSlotId,
-                    mode: nextTargetSlotId ? 'ready' : 'choose_target'
+                    targetType: currentTargetType,
+                    lastSingleTargetSlotId: nextTargetSlotId || current.lastSingleTargetSlotId || null,
+                    mode: this._resolveDeclareMode(currentTargetType, nextTargetSlotId)
                 };
                 store.setDeclare(nextDeclare);
                 this._emitPreviewFromDeclare(store.state, nextDeclare);
@@ -175,21 +212,28 @@ class DeclarePanel {
                 const src = latestDeclare.sourceSlotId;
                 const tgt = latestDeclare.targetSlotId;
                 const sk = latestDeclare.skillId;
+                const targetType = this._resolveEffectiveTargetType(sk, latestDeclare.targetType || effectiveTargetType);
+                const isMassCommit = this._isMassTargetType(targetType);
                 const latestSourceActorId = latestState.slots?.[src]?.actor_id || null;
                 const latestCostCheck = this._evaluateCost(latestState, latestSourceActorId, sk, latestDeclare.calc);
-                if (!(latestState.phase === 'select' && src && sk && tgt) || latestCostCheck.insufficient) {
+                if (!(latestState.phase === 'select' && src && sk) || latestCostCheck.insufficient) {
+                    return;
+                }
+                if (!isMassCommit && !tgt) {
                     return;
                 }
 
                 const roomId = latestState.room_id || latestState.room_name || window.currentRoomName || null;
                 const battleId = latestState.battle_id || null;
                 if (!roomId || !battleId) {
-                    console.warn(`[emit] battle_intent_commit skip slot=${src} skill=${sk} target=${tgt} reason=missing_room_or_battle`);
+                    console.warn(`[emit] battle_intent_commit skip slot=${src} skill=${sk} target_type=${targetType} target=${tgt} reason=missing_room_or_battle`);
                     return;
                 }
 
-                const target = { type: 'single_slot', slot_id: tgt };
-                console.log(`[emit] battle_intent_commit slot=${src} skill=${sk} target=${tgt}`);
+                const target = isMassCommit
+                    ? { type: targetType, slot_id: null }
+                    : { type: 'single_slot', slot_id: tgt };
+                console.log(`[emit] battle_intent_commit slot=${src} skill=${sk} target_type=${target.type} target=${target.slot_id || 'null'}`);
                 socketClient.sendIntentCommit(roomId, battleId, src, sk, target);
 
                 store.resetDeclare();
@@ -215,7 +259,11 @@ class DeclarePanel {
         return options.join('');
     }
 
-    _buildTargetOptions(state, sourceSlotId, selectedTargetSlotId) {
+    _buildTargetOptions(state, sourceSlotId, selectedTargetSlotId, targetType = 'single_slot') {
+        const normalizedType = this._normalizeTargetType(targetType);
+        if (this._isMassTargetType(normalizedType)) {
+            return `<option value="">${this._escapeHtml(this._getMassTargetLabel(state?.slots?.[sourceSlotId] || null))}</option>`;
+        }
         const slots = state?.slots || {};
         const sourceSlot = sourceSlotId ? slots[sourceSlotId] : null;
         const sourceActorId = sourceSlot?.actor_id || null;
@@ -376,9 +424,13 @@ class DeclarePanel {
         const battleId = state.battle_id || null;
         if (!roomId || !battleId) return;
 
-        const target = declare?.targetSlotId
-            ? { type: 'single_slot', slot_id: declare.targetSlotId }
-            : { type: 'none', slot_id: null };
+        const targetType = this._resolveEffectiveTargetType(skillId, declare?.targetType || 'single_slot');
+        let target = { type: 'none', slot_id: null };
+        if (this._isMassTargetType(targetType)) {
+            target = { type: targetType, slot_id: null };
+        } else if (declare?.targetSlotId) {
+            target = { type: 'single_slot', slot_id: declare.targetSlotId };
+        }
 
         socketClient.sendIntentPreview(roomId, battleId, sourceSlotId, skillId, target);
     }
@@ -389,13 +441,16 @@ class DeclarePanel {
         if (!sourceSlotId || !skillId) return;
         if (state.phase !== 'select') return;
 
+        const targetType = this._resolveEffectiveTargetType(skillId, declare?.targetType || 'single_slot');
         const targetSlotId = declare?.targetSlotId || null;
-        const calcKey = `${sourceSlotId}|${skillId}|${targetSlotId || 'none'}`;
+        const calcKey = `${sourceSlotId}|${skillId}|${targetType}|${targetSlotId || 'none'}`;
         if (!force && this._lastCalcKey === calcKey) return;
         this._lastCalcKey = calcKey;
 
         const sourceActorId = state.slots?.[sourceSlotId]?.actor_id || null;
-        const targetActorId = targetSlotId ? (state.slots?.[targetSlotId]?.actor_id || null) : null;
+        const targetActorId = (this._isMassTargetType(targetType) || !targetSlotId)
+            ? null
+            : (state.slots?.[targetSlotId]?.actor_id || null);
         if (!sourceActorId) return;
 
         console.log(`[declare] calc_request source_slot=${sourceSlotId} target_slot=${targetSlotId || 'none'} skill=${skillId}`);
@@ -568,6 +623,96 @@ class DeclarePanel {
 
         const stateVal = (actor.states || []).find((s) => String(s?.name || '').toUpperCase() === key);
         return Number(stateVal?.value ?? 0);
+    }
+
+    _normalizeTargetType(type) {
+        const t = String(type || '').trim();
+        if (t === 'single_slot' || t === 'mass_individual' || t === 'mass_summation' || t === 'none') {
+            return t;
+        }
+        return 'single_slot';
+    }
+
+    _isMassTargetType(type) {
+        const t = this._normalizeTargetType(type);
+        return t === 'mass_individual' || t === 'mass_summation';
+    }
+
+    _resolveEffectiveTargetType(skillId, currentType = 'single_slot') {
+        const normalizedCurrent = this._normalizeTargetType(currentType);
+        const inferred = this._inferTargetTypeFromSkill(skillId);
+        if (!skillId) {
+            return normalizedCurrent;
+        }
+        if (this._isMassTargetType(inferred)) return inferred;
+        return 'single_slot';
+    }
+
+    _inferTargetTypeFromSkill(skillId) {
+        if (!skillId) return 'single_slot';
+        const all = window.allSkillData || {};
+        const skill = all[skillId] || {};
+        const directCandidates = [
+            skill.mass_type,
+            skill.target_type,
+            skill.targeting,
+            skill.targetType
+        ];
+        for (const raw of directCandidates) {
+            const t = this._normalizeTargetType(raw);
+            if (this._isMassTargetType(t)) return t;
+        }
+
+        const rule = this._extractRuleData(skill) || {};
+        const ruleCandidates = [rule.mass_type, rule.target_type, rule.targeting, rule.targetType];
+        for (const raw of ruleCandidates) {
+            const t = this._normalizeTargetType(raw);
+            if (this._isMassTargetType(t)) return t;
+        }
+
+        const tags = []
+            .concat(Array.isArray(skill.tags) ? skill.tags : [])
+            .concat(Array.isArray(rule.tags) ? rule.tags : [])
+            .map((v) => String(v || '').toLowerCase());
+        const cat = String(skill['category'] || skill['分類'] || skill['カテゴリ'] || '').toLowerCase();
+        const dist = String(skill['distance'] || skill['距離'] || skill['射程'] || '').toLowerCase();
+        const merged = `${tags.join(' ')} ${cat} ${dist}`;
+
+        if (
+            merged.includes('mass_summation')
+            || merged.includes('広域-合算')
+            || merged.includes('合算')
+        ) {
+            return 'mass_summation';
+        }
+        if (
+            merged.includes('mass_individual')
+            || merged.includes('広域-個別')
+            || merged.includes('個別')
+        ) {
+            return 'mass_individual';
+        }
+
+        if (merged.includes('広域')) {
+            return 'mass_individual';
+        }
+
+        if (typeof window.isWideSkillData === 'function' && window.isWideSkillData(skill)) {
+            return 'mass_individual';
+        }
+        return 'single_slot';
+    }
+
+    _resolveDeclareMode(targetType, targetSlotId) {
+        if (this._isMassTargetType(targetType)) return 'ready';
+        return targetSlotId ? 'ready' : 'choose_target';
+    }
+
+    _getMassTargetLabel(sourceSlot) {
+        const sourceTeam = String(sourceSlot?.team || '').toLowerCase();
+        if (sourceTeam === 'ally') return '敵全体（固定）';
+        if (sourceTeam === 'enemy') return '味方全体（固定）';
+        return '対象陣営全体（固定）';
     }
 }
 

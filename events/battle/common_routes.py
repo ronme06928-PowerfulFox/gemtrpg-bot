@@ -28,7 +28,7 @@ from plugins.buffs.confusion import ConfusionBuff
 from plugins.buffs.immobilize import ImmobilizeBuff
 
 
-from manager.utils import apply_buff # For debug
+from manager.utils import apply_buff, get_status_value, set_status_value # For debug
 
 logger = setup_logger(__name__)
 
@@ -292,34 +292,293 @@ def _default_target(target):
     return {'type': 'none', 'slot_id': None}
 
 
+def _normalize_target_slot_id(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        return text if text else None
+    return str(value)
+
+
+def _validate_and_normalize_target(target, state, allow_none=True):
+    normalized = _default_target(target)
+    target_type = normalized.get('type')
+    slot_id = _normalize_target_slot_id(normalized.get('slot_id'))
+
+    if target_type == 'none':
+        if not allow_none:
+            return None, 'target.type none is not allowed here'
+        return {'type': 'none', 'slot_id': None}, None
+
+    if target_type == 'single_slot':
+        if not slot_id:
+            return None, 'single_slot target requires slot_id'
+        if slot_id not in (state.get('slots', {}) or {}):
+            return None, 'target.slot_id is unknown'
+        return {'type': 'single_slot', 'slot_id': slot_id}, None
+
+    if target_type in ['mass_individual', 'mass_summation']:
+        return {'type': target_type, 'slot_id': None}, None
+
+    return None, 'invalid target.type'
+
+
 def _extract_skill_tags(skill_id):
     if not skill_id:
         return []
     skill_data = all_skill_data.get(skill_id, {})
     tags = list(skill_data.get('tags', []))
-    rule_json = skill_data.get('特記処理', '{}')
-    try:
-        rule_data = json.loads(rule_json) if rule_json else {}
-        for t in rule_data.get('tags', []):
-            if t not in tags:
-                tags.append(t)
-    except Exception:
-        pass
+    rule_data = _extract_skill_rule_data(skill_data)
+    for t in rule_data.get('tags', []) if isinstance(rule_data, dict) else []:
+        if t not in tags:
+            tags.append(t)
     return tags
+
+
+def _extract_skill_rule_data(skill_data):
+    if not isinstance(skill_data, dict):
+        return {}
+    for key in ['rule_json', 'rule']:
+        raw = skill_data.get(key)
+        if not raw:
+            continue
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                continue
+    for raw in skill_data.values():
+        if not isinstance(raw, str):
+            continue
+        text = raw.strip()
+        if not text.startswith('{'):
+            continue
+        if '"effects"' not in text and '"cost"' not in text and '"tags"' not in text:
+            continue
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            continue
+    return {}
+
+
+def _coerce_mass_type(raw_value):
+    text = str(raw_value or '').strip().lower()
+    if not text:
+        return None
+    if text in ['mass_summation', 'summation', 'sum']:
+        return 'mass_summation'
+    if text in ['mass_individual', 'individual']:
+        return 'mass_individual'
+    return None
+
+
+def _infer_mass_type_from_skill(skill_id):
+    if not skill_id:
+        return None
+    skill_data = all_skill_data.get(skill_id, {})
+    if not isinstance(skill_data, dict):
+        return None
+
+    rule_data = _extract_skill_rule_data(skill_data)
+
+    direct_candidates = [
+        skill_data.get('mass_type'),
+        skill_data.get('target_type'),
+        skill_data.get('targeting'),
+        skill_data.get('targetType'),
+        rule_data.get('mass_type') if isinstance(rule_data, dict) else None,
+        rule_data.get('target_type') if isinstance(rule_data, dict) else None,
+        rule_data.get('targeting') if isinstance(rule_data, dict) else None,
+        rule_data.get('targetType') if isinstance(rule_data, dict) else None,
+    ]
+    for raw in direct_candidates:
+        coerced = _coerce_mass_type(raw)
+        if coerced:
+            return coerced
+
+    merged_parts = []
+    merged_parts.extend(_extract_skill_tags(skill_id))
+    if isinstance(rule_data, dict):
+        rule_tags = rule_data.get('tags', [])
+        if isinstance(rule_tags, list):
+            merged_parts.extend(rule_tags)
+
+    for key in [
+        'category',
+        'distance',
+        '分類',
+        '距離',
+        'target',
+        'target_type',
+        'targeting',
+        'mass_type',
+    ]:
+        if isinstance(skill_data.get(key), str):
+            merged_parts.append(skill_data.get(key))
+        if isinstance(rule_data, dict) and isinstance(rule_data.get(key), str):
+            merged_parts.append(rule_data.get(key))
+
+    merged = ' '.join(str(v or '').lower() for v in merged_parts)
+    if not merged:
+        return None
+
+    if (
+        'mass_summation' in merged
+        or 'summation' in merged
+        or 'sum' in merged
+        or '広域-合算' in merged
+        or '合算' in merged
+    ):
+        return 'mass_summation'
+
+    if (
+        'mass_individual' in merged
+        or 'individual' in merged
+        or '広域-個別' in merged
+        or '個別' in merged
+    ):
+        return 'mass_individual'
+
+    if '広域' in merged:
+        return 'mass_individual'
+    return None
+
+
+def _normalize_target_by_skill(skill_id, target, allow_none=True):
+    normalized = _default_target(target)
+    inferred_mass = _infer_mass_type_from_skill(skill_id)
+    if inferred_mass in ['mass_individual', 'mass_summation']:
+        return {'type': inferred_mass, 'slot_id': None}, None
+
+    if normalized.get('type') in ['mass_individual', 'mass_summation']:
+        return None, 'this skill does not support mass target'
+    if normalized.get('type') == 'none':
+        if allow_none:
+            return {'type': 'none', 'slot_id': None}, None
+        return None, 'target.type none is not allowed here'
+    if normalized.get('type') == 'single_slot':
+        slot_id = _normalize_target_slot_id(normalized.get('slot_id'))
+        if not slot_id:
+            return None, 'single_slot target requires slot_id'
+        return {'type': 'single_slot', 'slot_id': slot_id}, None
+    return None, 'invalid target.type'
 
 
 def _build_tags(skill_id, target):
     skill_tags = _extract_skill_tags(skill_id)
     target_type = (target or {}).get('type')
-    if target_type in ['mass_individual', 'mass_summation']:
+    inferred_mass = _infer_mass_type_from_skill(skill_id)
+    if inferred_mass in ['mass_individual', 'mass_summation']:
+        mass_type = inferred_mass
+    elif target_type in ['mass_individual', 'mass_summation']:
         mass_type = target_type
     else:
         mass_type = None
+    tags_text = ' '.join(str(t or '').lower() for t in skill_tags)
     return {
-        'instant': ('即時発動' in skill_tags),
+        'instant': ('instant' in skill_tags or '即時' in tags_text or '即時発動' in tags_text),
         'mass_type': mass_type,
-        'no_redirect': ('no_redirect' in skill_tags or '対象変更不可' in skill_tags)
+        'no_redirect': ('no_redirect' in skill_tags or '対象変更不可' in tags_text)
     }
+
+def _extract_skill_cost_entries(skill_data):
+    if not isinstance(skill_data, dict):
+        return []
+    direct = skill_data.get('cost')
+    if isinstance(direct, list):
+        return direct
+
+    rule_data = _extract_skill_rule_data(skill_data)
+    if isinstance(rule_data, dict) and isinstance(rule_data.get('cost'), list):
+        return rule_data.get('cost', [])
+    return []
+
+
+def _consume_mass_costs_on_resolve_start(room_id, state, required_slots):
+    room_state = get_room_state(room_id) or {}
+    chars = room_state.get('characters', []) if isinstance(room_state, dict) else []
+    chars_by_id = {
+        c.get('id'): c for c in chars
+        if isinstance(c, dict) and c.get('id')
+    }
+
+    intents = state.get('intents', {}) if isinstance(state, dict) else {}
+    slots = state.get('slots', {}) if isinstance(state, dict) else {}
+    consumed_rows = []
+
+    for slot_id in sorted(required_slots or []):
+        intent = intents.get(slot_id, {})
+        if not isinstance(intent, dict):
+            continue
+
+        tags = intent.get('tags', {}) or {}
+        mass_type = tags.get('mass_type')
+        if mass_type not in ['mass_individual', 'mass_summation', 'individual', 'summation']:
+            continue
+        if not intent.get('committed', False):
+            continue
+        if intent.get('cost_consumed_at_resolve_start', False):
+            continue
+
+        actor_id = (slots.get(slot_id) or {}).get('actor_id')
+        actor = chars_by_id.get(actor_id)
+        skill_id = intent.get('skill_id')
+        skill_data = all_skill_data.get(skill_id, {}) if skill_id else {}
+        spent = {'hp': 0, 'mp': 0, 'fp': 0}
+
+        if isinstance(actor, dict):
+            for entry in _extract_skill_cost_entries(skill_data):
+                if not isinstance(entry, dict):
+                    continue
+                c_type = str(entry.get('type', '')).strip().upper()
+                if not c_type:
+                    continue
+                try:
+                    c_val = int(entry.get('value', 0))
+                except (TypeError, ValueError):
+                    c_val = 0
+                if c_val <= 0:
+                    continue
+
+                curr = int(get_status_value(actor, c_type))
+                new_val = max(0, curr - c_val)
+                consumed = max(0, curr - new_val)
+                if consumed <= 0:
+                    continue
+
+                if c_type == 'HP':
+                    actor['hp'] = new_val
+                    spent['hp'] += consumed
+                elif c_type == 'MP':
+                    actor['mp'] = new_val
+                    spent['mp'] += consumed
+                elif c_type == 'FP':
+                    if 'fp' in actor:
+                        actor['fp'] = new_val
+                    set_status_value(actor, 'FP', new_val)
+                    spent['fp'] += consumed
+                else:
+                    set_status_value(actor, c_type, new_val)
+
+        intent['cost_consumed_at_resolve_start'] = True
+        intents[slot_id] = intent
+        if spent['hp'] or spent['mp'] or spent['fp']:
+            consumed_rows.append({
+                'slot_id': slot_id,
+                'actor_id': actor_id,
+                'skill_id': skill_id,
+                'spent': spent
+            })
+
+    return consumed_rows
 
 
 def _is_select_phase(state):
@@ -484,6 +743,20 @@ def _start_select_resolve_if_ready(room_id, battle_id, source_event):
         }, to=request.sid)
         _emit_battle_state_updated(room_id, battle_id)
         return
+
+    consumed_rows = _consume_mass_costs_on_resolve_start(room_id, state, required)
+    for row in consumed_rows:
+        logger.info(
+            "[FLOW] resolve_start_cost room=%s battle=%s slot=%s actor=%s skill=%s spent=%s",
+            room_id,
+            battle_id,
+            row.get('slot_id'),
+            row.get('actor_id'),
+            row.get('skill_id'),
+            row.get('spent')
+        )
+    if consumed_rows:
+        broadcast_state_update(room_id)
 
     state['resolve_ready'] = False
     state['resolve_ready_info'] = {}
@@ -671,6 +944,16 @@ def _try_apply_redirect(room_id, battle_id, state, slot_a):
     intent_b = _ensure_intent_for_slot(state, slot_b)
     slot_b_data = state['slots'][slot_b]
 
+    # If slot_b is currently aiming at a mass skill slot, keep that pairing stable.
+    # This prevents higher-initiative third parties from stealing the clash target.
+    slot_b_target = (intent_b.get('target') or {})
+    slot_b_target_slot = slot_b_target.get('slot_id') if slot_b_target.get('type') == 'single_slot' else None
+    if slot_b_target_slot:
+        intent_targeted_by_b = _ensure_intent_for_slot(state, slot_b_target_slot)
+        target_mass_type = ((intent_targeted_by_b.get('tags') or {}).get('mass_type'))
+        if target_mass_type in ['mass_individual', 'mass_summation', 'individual', 'summation']:
+            return
+
     init_a = int(slot_a_data.get('initiative', 0))
     init_b = int(slot_b_data.get('initiative', 0))
     if init_a <= init_b:
@@ -760,10 +1043,24 @@ def on_battle_intent_preview(data):
     if slot_id not in state.get('slots', {}):
         print(f"[battle_intent_preview] unknown slot_id={slot_id} in battle_id={battle_id}")
 
+    skill_id = data.get('skill_id')
+    target, target_error = _validate_and_normalize_target(
+        data.get('target'),
+        state,
+        allow_none=True
+    )
+    if target_error:
+        emit('battle_error', {'message': target_error}, to=request.sid)
+        return
+    target, target_error = _normalize_target_by_skill(skill_id, target, allow_none=True)
+    if target_error:
+        emit('battle_error', {'message': target_error}, to=request.sid)
+        return
+
     intent = state['intents'].get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)
-    intent['skill_id'] = data.get('skill_id')
-    intent['target'] = _default_target(data.get('target'))
+    intent['skill_id'] = skill_id
+    intent['target'] = target
     intent['committed'] = False
     intent['committed_at'] = None
     intent['tags'] = _default_intent_tags(_build_tags(intent['skill_id'], intent['target']))
@@ -805,17 +1102,26 @@ def on_battle_intent_commit(data):
     if slot_id not in state.get('slots', {}):
         print(f"[battle_intent_commit] unknown slot_id={slot_id} in battle_id={battle_id}")
 
-    target = _default_target(data.get('target'))
-    if target.get('type') not in ['single_slot', 'mass_individual', 'mass_summation']:
-        emit('battle_error', {'message': 'commit target.type must be single_slot|mass_individual|mass_summation'}, to=request.sid)
+    skill_id = data.get('skill_id')
+    target, target_error = _validate_and_normalize_target(
+        data.get('target'),
+        state,
+        allow_none=False
+    )
+    if target_error:
+        emit('battle_error', {'message': target_error}, to=request.sid)
         return
-    if not data.get('skill_id'):
+    if not skill_id:
         emit('battle_error', {'message': 'commit requires skill_id'}, to=request.sid)
+        return
+    target, target_error = _normalize_target_by_skill(skill_id, target, allow_none=False)
+    if target_error:
+        emit('battle_error', {'message': target_error}, to=request.sid)
         return
 
     intent = state['intents'].get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)
-    intent['skill_id'] = data.get('skill_id')
+    intent['skill_id'] = skill_id
     intent['target'] = target
     intent['committed'] = True
     intent['committed_at'] = data.get('client_ts')
@@ -951,6 +1257,11 @@ def on_battle_intent_change_skill(data):
     intent['skill_id'] = data.get('skill_id')
     if 'target' not in intent:
         intent['target'] = {'type': 'none', 'slot_id': None}
+    normalized_target, target_error = _normalize_target_by_skill(intent['skill_id'], intent.get('target'), allow_none=True)
+    if target_error:
+        emit('battle_error', {'message': target_error}, to=request.sid)
+        return
+    intent['target'] = normalized_target
     intent['tags'] = _default_intent_tags(_build_tags(intent['skill_id'], intent['target']))
     intent.setdefault('committed', False)
     state['intents'][slot_id] = intent
@@ -986,13 +1297,27 @@ def on_battle_intent_change_target(data):
         emit('battle_error', {'message': 'target is locked by redirect'}, to=request.sid)
         return
 
+    target, target_error = _validate_and_normalize_target(
+        data.get('target'),
+        state,
+        allow_none=True
+    )
+    if target_error:
+        emit('battle_error', {'message': target_error}, to=request.sid)
+        return
+
     intent = state['intents'].get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)
-    intent['target'] = _default_target(data.get('target'))
+    normalized_target, target_error = _normalize_target_by_skill(intent.get('skill_id'), target, allow_none=True)
+    if target_error:
+        emit('battle_error', {'message': target_error}, to=request.sid)
+        return
+    intent['target'] = normalized_target
     intent['tags'] = _default_intent_tags(_build_tags(intent.get('skill_id'), intent['target']))
     intent.setdefault('committed', False)
     state['intents'][slot_id] = intent
 
     _refresh_resolve_ready(room_id, state)
     _emit_battle_state_updated(room_id, battle_id)
+
 

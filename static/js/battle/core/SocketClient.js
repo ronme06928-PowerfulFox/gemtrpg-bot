@@ -178,14 +178,18 @@ class SocketClient {
             return;
         }
         const connected = !!this.socket.connected;
-        const targetSlot = target?.slot_id ?? null;
+        const normalizedTarget = {
+            type: (target && target.type) ? target.type : 'none',
+            slot_id: (target && Object.prototype.hasOwnProperty.call(target, 'slot_id')) ? target.slot_id : null
+        };
+        const targetSlot = normalizedTarget.slot_id ?? null;
         console.log(`[emit] battle_intent_preview connected=${connected} room=${roomId} battle=${battleId} slot=${slotId} skill=${skillId ?? 'null'} target_slot=${targetSlot}`);
         this.socket.emit('battle_intent_preview', {
             room_id: roomId,
             battle_id: battleId,
             slot_id: slotId,
             skill_id: skillId ?? null,
-            target: target || { type: 'none', slot_id: null }
+            target: normalizedTarget
         });
     }
 
@@ -195,14 +199,18 @@ class SocketClient {
             return;
         }
         const connected = !!this.socket.connected;
-        const targetSlot = target?.slot_id ?? null;
+        const normalizedTarget = {
+            type: (target && target.type) ? target.type : 'none',
+            slot_id: (target && Object.prototype.hasOwnProperty.call(target, 'slot_id')) ? target.slot_id : null
+        };
+        const targetSlot = normalizedTarget.slot_id ?? null;
         console.log(`[emit] battle_intent_commit connected=${connected} room=${roomId} battle=${battleId} slot=${slotId} skill=${skillId ?? 'null'} target_slot=${targetSlot}`);
         this.socket.emit('battle_intent_commit', {
             room_id: roomId,
             battle_id: battleId,
             slot_id: slotId,
             skill_id: skillId,
-            target: target,
+            target: normalizedTarget,
             client_ts: Math.floor(Date.now() / 1000)
         });
     }
