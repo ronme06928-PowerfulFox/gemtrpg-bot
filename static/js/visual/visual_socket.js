@@ -18,6 +18,63 @@ window.setupVisualSocketHandlers = function () {
         return false;
     };
 
+    const deferredResolveLogLines = [];
+    let deferredHistoryDirty = false;
+
+    const shouldDeferResolveLogs = () => {
+        const s = (window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : (typeof battleState !== 'undefined' ? battleState : {});
+        const phase = String(s?.phase || '');
+        if (phase === 'resolve_mass' || phase === 'resolve_single') return true;
+        if (document.getElementById('resolve-flow-panel')) return true;
+        return false;
+    };
+
+    const flushDeferredResolveLogs = () => {
+        const lines = deferredResolveLogLines.splice(0, deferredResolveLogLines.length);
+        if (deferredHistoryDirty) {
+            if (typeof renderVisualLogHistory === 'function' && typeof battleState !== 'undefined') {
+                renderVisualLogHistory(battleState.logs || []);
+                window._lastLogCount = Array.isArray(battleState.logs) ? battleState.logs.length : window._lastLogCount;
+            }
+            deferredHistoryDirty = false;
+        }
+        if (lines.length > 0 && typeof window.appendSystemLines === 'function') {
+            let linesToAppend = lines;
+            if (typeof battleState !== 'undefined' && Array.isArray(battleState.logs) && battleState.logs.length > 0) {
+                const historyMessages = new Set(
+                    battleState.logs
+                        .map((row) => (row && row.message !== undefined && row.message !== null) ? String(row.message) : null)
+                        .filter((v) => !!v)
+                );
+                linesToAppend = lines.filter((line) => !historyMessages.has(String(line)));
+            }
+            if (linesToAppend.length > 0) {
+                window.appendSystemLines(linesToAppend);
+            }
+        }
+    };
+    window.flushDeferredResolveLogs = flushDeferredResolveLogs;
+
+    const bindResolveFlowFlushListener = () => {
+        if (window._resolveFlowLogFlushListenerBound) return true;
+        if (!window.EventBus || typeof window.EventBus.on !== 'function') return false;
+        window._resolveFlowLogFlushListenerBound = true;
+        window.EventBus.on('battle:resolve:flow:completed', () => {
+            flushDeferredResolveLogs();
+        });
+        return true;
+    };
+
+    if (!bindResolveFlowFlushListener()) {
+        let retryCount = 0;
+        const retryTimer = setInterval(() => {
+            retryCount += 1;
+            if (bindResolveFlowFlushListener() || retryCount >= 20) {
+                clearInterval(retryTimer);
+            }
+        }, 250);
+    }
+
     const _countSpentEntries = (stateLike) => {
         if (!stateLike) return 0;
         const tl = Array.isArray(stateLike.timeline) ? stateLike.timeline : [];
@@ -61,12 +118,28 @@ window.setupVisualSocketHandlers = function () {
         if (s.intents !== undefined) battleState.intents = s.intents;
         if (s.redirects !== undefined) battleState.redirects = s.redirects;
         if (s.resolveTrace !== undefined) battleState.resolveTrace = s.resolveTrace;
+        if (s.resolveView !== undefined) battleState.resolveView = s.resolveView;
         if (s.selectedSlotId !== undefined) battleState.selectedSlotId = s.selectedSlotId;
         if (s.battleError !== undefined) battleState.battleError = s.battleError;
     };
 
     const applyBattlePayloadToLegacy = (payload) => {
         if (typeof battleState === 'undefined' || !payload) return;
+        const prevRound = Number(battleState.round ?? 0);
+        const nextRound = (payload.round !== undefined) ? Number(payload.round ?? prevRound) : prevRound;
+        const roundChanged = Number.isFinite(nextRound) && nextRound !== prevRound;
+        const nextPhase = payload.phase !== undefined ? String(payload.phase || '') : String(battleState.phase || '');
+        if (roundChanged || nextPhase === 'select') {
+            battleState.resolveTrace = [];
+            battleState.resolveView = {
+                status: 'idle',
+                phase: nextPhase || null,
+                stepTotal: 0,
+                stepDone: 0,
+                currentStep: null,
+                recentSteps: []
+            };
+        }
         if (payload.room_id !== undefined) battleState.room_id = payload.room_id;
         if (payload.battle_id !== undefined) battleState.battle_id = payload.battle_id;
         if (payload.round !== undefined) battleState.round = payload.round;
@@ -78,10 +151,59 @@ window.setupVisualSocketHandlers = function () {
         if (payload.resolve_ready !== undefined) battleState.resolveReady = !!payload.resolve_ready;
         if (payload.resolve_ready_info !== undefined) battleState.resolveReadyInfo = payload.resolve_ready_info || null;
         if (payload.battle_error !== undefined) battleState.battleError = payload.battle_error || null;
+        if (payload.resolve_view !== undefined) battleState.resolveView = payload.resolve_view || null;
         if (payload.trace !== undefined) {
             const current = Array.isArray(battleState.resolveTrace) ? battleState.resolveTrace : [];
             const append = Array.isArray(payload.trace) ? payload.trace : [];
             battleState.resolveTrace = current.concat(append);
+            if (append.length > 0) {
+                const rv = battleState.resolveView || {
+                    status: 'idle',
+                    phase: battleState.phase || null,
+                    stepTotal: 0,
+                    stepDone: 0,
+                    currentStep: null,
+                    recentSteps: []
+                };
+                let stepDone = Number(rv.stepDone || 0);
+                let stepTotal = Number(rv.stepTotal || 0);
+                let currentStep = rv.currentStep || null;
+                let recent = Array.isArray(rv.recentSteps) ? rv.recentSteps.slice() : [];
+                append.forEach((raw) => {
+                    const stepIndex = Number.isFinite(Number(raw?.step_index))
+                        ? Number(raw.step_index)
+                        : (Number.isFinite(Number(raw?.step)) ? (Number(raw.step) - 1) : stepDone);
+                    const total = Number.isFinite(Number(raw?.step_total)) ? Number(raw.step_total) : 0;
+                    const normalized = {
+                        stepIndex: Math.max(0, stepIndex),
+                        stepTotal: Math.max(0, total),
+                        kind: String(raw?.kind || 'unknown'),
+                        outcome: String(raw?.outcome || 'no_effect'),
+                        phase: String(raw?.phase || battleState.phase || ''),
+                        attackerSlotId: raw?.attacker_slot_id || raw?.attacker_slot || null,
+                        defenderSlotId: raw?.defender_slot_id || raw?.defender_slot || null,
+                        attackerActorId: raw?.attacker_actor_id || null,
+                        defenderActorId: raw?.defender_actor_id || raw?.target_actor_id || null,
+                        notes: raw?.notes || null,
+                        timestamp: Number(raw?.timestamp || Math.floor(Date.now() / 1000)),
+                        lines: Array.isArray(raw?.lines) ? raw.lines : (Array.isArray(raw?.log_lines) ? raw.log_lines : [])
+                    };
+                    currentStep = normalized;
+                    stepDone = Math.max(stepDone, normalized.stepIndex + 1);
+                    if (normalized.stepTotal > 0) stepTotal = Math.max(stepTotal, normalized.stepTotal);
+                    if (stepTotal < stepDone) stepTotal = stepDone;
+                    recent = [normalized, ...recent].slice(0, 5);
+                });
+                battleState.resolveView = {
+                    ...rv,
+                    status: rv.status === 'finished' ? 'finished' : 'running',
+                    phase: String(payload.phase || rv.phase || battleState.phase || ''),
+                    stepTotal,
+                    stepDone,
+                    currentStep,
+                    recentSteps: recent
+                };
+            }
         }
     };
 
@@ -90,8 +212,8 @@ window.setupVisualSocketHandlers = function () {
             const safeLines = Array.isArray(lines) ? lines.filter(v => v !== null && v !== undefined).map(v => String(v)) : [];
             if (safeLines.length === 0) return;
 
-            const container = document.getElementById('chat-log')
-                || document.getElementById('visual-log-area')
+            const container = document.getElementById('visual-log-area')
+                || document.getElementById('chat-log')
                 || document.getElementById('log-area');
             if (!container) {
                 console.warn('[trace_chat_append] chat container not found');
@@ -150,10 +272,12 @@ window.setupVisualSocketHandlers = function () {
 
             const newLogCount = (state.logs && Array.isArray(state.logs)) ? state.logs.length : 0;
             if (newLogCount !== window._lastLogCount) {
-                if (typeof renderVisualLogHistory === 'function') {
+                if (shouldDeferResolveLogs()) {
+                    deferredHistoryDirty = true;
+                } else if (typeof renderVisualLogHistory === 'function') {
                     renderVisualLogHistory(state.logs);
+                    window._lastLogCount = newLogCount;
                 }
-                window._lastLogCount = newLogCount;
             }
 
             updateVisualRoundDisplay(state.round);
@@ -194,6 +318,7 @@ window.setupVisualSocketHandlers = function () {
         const handled = applyBattleStore('applyBattleState', payload || {});
         if (handled) syncLegacyBattleStateFromStore();
         else applyBattlePayloadToLegacy(payload || {});
+        if (!shouldDeferResolveLogs()) flushDeferredResolveLogs();
 
         // Observation log for select/resolve correctness checks.
         const observed = (window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : battleState;
@@ -222,6 +347,7 @@ window.setupVisualSocketHandlers = function () {
         const handled = applyBattleStore('setPhase', (payload || {}).to);
         if (handled) syncLegacyBattleStateFromStore();
         else applyBattlePayloadToLegacy({ phase: (payload || {}).to });
+        if (!shouldDeferResolveLogs()) flushDeferredResolveLogs();
         if (typeof renderSlotBadgesForAllTokens === 'function') renderSlotBadgesForAllTokens();
         if (typeof updateActionDock === 'function') updateActionDock();
     });
@@ -242,7 +368,11 @@ window.setupVisualSocketHandlers = function () {
             }
         }
         if (toAppend.length > 0) {
-            window.appendSystemLines(toAppend);
+            if (shouldDeferResolveLogs()) {
+                deferredResolveLogLines.push(...toAppend);
+            } else {
+                window.appendSystemLines(toAppend);
+            }
         }
 
         const trace = (payload && payload.trace) || [];
@@ -259,6 +389,7 @@ window.setupVisualSocketHandlers = function () {
         const handled = applyBattleStore('setRoundFinished', (payload || {}).round);
         if (handled) syncLegacyBattleStateFromStore();
         else applyBattlePayloadToLegacy({ round: (payload || {}).round, phase: 'round_end' });
+        if (!shouldDeferResolveLogs()) flushDeferredResolveLogs();
         if (typeof updateActionDock === 'function') updateActionDock();
     });
 

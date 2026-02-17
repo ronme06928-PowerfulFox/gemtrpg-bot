@@ -28,6 +28,13 @@ def _resolve_server_ts():
     return int(time.time())
 
 
+def _safe_int(value, default=0):
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
 def _log_battle_emit(event_name, room_id, battle_id, payload):
     payload = payload or {}
     def _len_or_na(key, default_container):
@@ -99,9 +106,31 @@ def _append_trace(
     extra_fields=None
 ):
     trace = battle_state.get('resolve', {}).get('trace', [])
+    step_index = len(trace)
+    step_total = _safe_int(battle_state.get('resolve', {}).get('step_total'), 0)
+    if step_total <= step_index:
+        step_total = step_index + 1
+        battle_state.setdefault('resolve', {})['step_total'] = step_total
+
+    slots = battle_state.get('slots', {}) if isinstance(battle_state, dict) else {}
+    attacker_slot_id = str(attacker_slot) if attacker_slot else None
+    defender_slot_id = str(defender_slot) if defender_slot else None
+    attacker_actor_id = (slots.get(attacker_slot_id, {}) or {}).get('actor_id') if attacker_slot_id else None
+    defender_actor_id = (slots.get(defender_slot_id, {}) or {}).get('actor_id') if defender_slot_id else None
+    if not defender_actor_id and target_actor_id:
+        defender_actor_id = target_actor_id
+
     entry = {
-        'step': len(trace) + 1,
+        'step': step_index + 1,
+        'step_index': step_index,
+        'step_total': step_total,
+        'timestamp': _resolve_server_ts(),
         'kind': kind,
+        'phase': battle_state.get('phase', 'resolve_mass'),
+        'attacker_slot_id': attacker_slot_id,
+        'defender_slot_id': defender_slot_id,
+        'attacker_actor_id': attacker_actor_id,
+        'defender_actor_id': defender_actor_id,
         'attacker_slot': attacker_slot,
         'defender_slot': defender_slot,
         'target_actor_id': target_actor_id,
@@ -1083,6 +1112,8 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         'logs': log_snippets,
         'rolls': {
             'command': final_command,
+            'min_damage': (preview or {}).get('min_damage'),
+            'max_damage': (preview or {}).get('max_damage'),
             'base_damage': base_damage,
             'kiretsu': kiretsu,
             'bonus_damage': bonus_damage,
@@ -1347,6 +1378,12 @@ def _resolve_clash_by_existing_logic(
             'power_a': power_a,
             'power_b': power_d,
             'tie_break': tie_break,
+            'command': command_a,
+            'command_b': command_d,
+            'min_damage_a': (preview_a or {}).get('min_damage'),
+            'max_damage_a': (preview_a or {}).get('max_damage'),
+            'min_damage_b': (preview_d or {}).get('min_damage'),
+            'max_damage_b': (preview_d or {}).get('max_damage'),
         },
         'match_log': captured.get('match_log'),
         'legacy_log_lines': (
@@ -1412,6 +1449,123 @@ def _build_resolve_queues(battle_state, intents_override=None):
 
     battle_state['resolve']['mass_queue'] = mass_slots
     battle_state['resolve']['single_queue'] = single_slots
+
+
+def _enemy_actor_ids_for_team(state, attacker_team):
+    enemies = []
+    for actor in state.get('characters', []):
+        actor_id = actor.get('id')
+        if not actor_id:
+            continue
+        if attacker_team and actor.get('type') == attacker_team:
+            continue
+        if not _is_actor_placed(state, actor_id):
+            continue
+        enemies.append(actor_id)
+    return enemies
+
+
+def _estimate_mass_trace_steps(state, battle_state, intents):
+    resolve = battle_state.get('resolve', {}) if isinstance(battle_state, dict) else {}
+    slots = battle_state.get('slots', {}) if isinstance(battle_state, dict) else {}
+    mass_queue = resolve.get('mass_queue', []) or []
+    total = 0
+    for slot_id in mass_queue:
+        slot_data = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
+        attacker_actor_id = slot_data.get('actor_id')
+        if not attacker_actor_id or not _is_actor_placed(state, attacker_actor_id):
+            total += 1
+            continue
+        intent = intents.get(slot_id, {}) if isinstance(intents, dict) else {}
+        tags = intent.get('tags', {}) if isinstance(intent, dict) else {}
+        mass_type = tags.get('mass_type')
+        if mass_type in ['summation', 'mass_summation']:
+            total += 1
+            continue
+        attacker_team = slot_data.get('team')
+        total += len(_enemy_actor_ids_for_team(state, attacker_team))
+    return int(max(0, total))
+
+
+def _estimate_single_trace_steps(state, battle_state, intents):
+    resolve = battle_state.get('resolve', {}) if isinstance(battle_state, dict) else {}
+    slots = battle_state.get('slots', {}) if isinstance(battle_state, dict) else {}
+    single_queue = resolve.get('single_queue', []) or []
+    processed = set()
+    total = 0
+
+    target_claims = {}
+    for slot_id in single_queue:
+        intent = intents.get(slot_id, {}) if isinstance(intents, dict) else {}
+        if not isinstance(intent, dict):
+            continue
+        target = intent.get('target', {}) or {}
+        target_slot = target.get('slot_id') if target.get('type') == 'single_slot' else None
+        if not target_slot:
+            continue
+        if not intent.get('committed', False):
+            continue
+        if not intent.get('skill_id'):
+            continue
+        target_claims.setdefault(target_slot, []).append((
+            slot_id,
+            _safe_int(intent.get('committed_at'), 0),
+            _safe_int(intent.get('intent_rev'), 0),
+        ))
+
+    contested_losers = set()
+    for _target_slot, claims in target_claims.items():
+        if not claims:
+            continue
+        winner = max(claims, key=lambda row: (row[1], row[2], str(row[0])))
+        if len(claims) > 1:
+            for claim in claims:
+                if claim[0] != winner[0]:
+                    contested_losers.add(claim[0])
+
+    for slot_id in single_queue:
+        if slot_id in processed:
+            continue
+        intent_a = intents.get(slot_id, {}) if isinstance(intents, dict) else {}
+        skill_id = intent_a.get('skill_id') if isinstance(intent_a, dict) else None
+        if not intent_a or not skill_id:
+            total += 1
+            processed.add(slot_id)
+            continue
+
+        target = intent_a.get('target', {}) if isinstance(intent_a, dict) else {}
+        target_slot = target.get('slot_id') if isinstance(target, dict) else None
+        if target.get('type') != 'single_slot' or not target_slot:
+            total += 1
+            processed.add(slot_id)
+            continue
+
+        target_actor_id = (slots.get(target_slot, {}) or {}).get('actor_id') if isinstance(slots, dict) else None
+        if not target_actor_id or not _is_actor_placed(state, target_actor_id):
+            total += 1
+            processed.add(slot_id)
+            continue
+
+        attacker_is_contested_loser = slot_id in contested_losers
+        defender_is_invalid = target_slot in contested_losers
+        intent_b = intents.get(target_slot, {}) if isinstance(intents, dict) else {}
+        is_clash = (
+            not attacker_is_contested_loser
+            and not defender_is_invalid
+            and isinstance(intent_b, dict)
+            and intent_b.get('target', {}).get('type') == 'single_slot'
+            and intent_b.get('target', {}).get('slot_id') == slot_id
+            and target_slot not in processed
+        )
+        if is_clash:
+            total += 1
+            processed.add(slot_id)
+            processed.add(target_slot)
+        else:
+            total += 1
+            processed.add(slot_id)
+
+    return int(max(0, total))
 
 
 def _consume_resolve_slot(battle_state, slot_id):
@@ -1605,6 +1759,18 @@ def run_select_resolve_auto(room, battle_id):
     battle_state['__resolve_intents_override'] = resolve_intents
 
     _build_resolve_queues(battle_state, intents_override=resolve_intents)
+    resolve_ctx = battle_state.setdefault('resolve', {})
+    mass_steps_est = _estimate_mass_trace_steps(state, battle_state, resolve_intents)
+    single_steps_est = _estimate_single_trace_steps(state, battle_state, resolve_intents)
+    step_total_est = int(max(0, mass_steps_est + single_steps_est))
+    existing_total = _safe_int(resolve_ctx.get('step_total'), 0)
+    trace_len = len(resolve_ctx.get('trace', []) or [])
+    resolve_ctx['step_total'] = int(max(existing_total, step_total_est, trace_len))
+    resolve_ctx['step_estimate'] = {
+        'mass': int(mass_steps_est),
+        'single': int(single_steps_est),
+        'total': int(resolve_ctx['step_total']),
+    }
 
     if battle_state.get('phase') == 'resolve_mass':
         intents = resolve_intents
@@ -1999,12 +2165,6 @@ def run_select_resolve_auto(room, battle_id):
         slots = battle_state.get('slots', {})
         processed_slots = set()
         single_queue = battle_state['resolve'].get('single_queue', []) or []
-
-        def _safe_int(value, default=0):
-            try:
-                return int(value)
-            except Exception:
-                return default
 
         # Contention rule: when multiple attackers point to the same defender slot,
         # the latest committed intent wins. Other attackers resolve as one-sided.
@@ -2406,6 +2566,7 @@ def run_select_resolve_auto(room, battle_id):
 
                 _append_trace(
                     room, battle_id, battle_state, 'one_sided', slot_id,
+                    defender_slot=target_slot,
                     target_actor_id=target_actor_id,
                     notes=trace_notes,
                     outcome=trace_outcome,

@@ -22,6 +22,9 @@ window.setupVisualBattleTab = async function () {
     if (window.MatchPanelComponent && typeof window.MatchPanelComponent.initialize === 'function') {
         window.MatchPanelComponent.initialize();
     }
+    if (window.ResolveFlowPanelComponent && typeof window.ResolveFlowPanelComponent.initialize === 'function') {
+        window.ResolveFlowPanelComponent.initialize();
+    }
 
     // 2. Setup Controls & UI
     if (typeof setupMapControls === 'function') setupMapControls();

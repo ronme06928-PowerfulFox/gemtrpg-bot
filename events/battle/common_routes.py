@@ -1229,6 +1229,44 @@ def on_battle_resolve_start(data):
     _start_select_resolve_if_ready(room_id, battle_id, source_event='battle_resolve_start')
 
 
+@socketio.on('battle_resolve_flow_advance_request')
+def on_battle_resolve_flow_advance_request(data):
+    data = data or {}
+    room_id = data.get('room_id') or data.get('room') or data.get('room_name')
+    if not room_id:
+        emit('battle_error', {'message': 'room is required'}, to=request.sid)
+        return
+
+    user_info = get_user_info_from_sid(request.sid) or {}
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+    if attribute != 'GM':
+        logger.info(
+            "[FLOW] resolve_flow_advance_denied room=%s user=%s attr=%s",
+            room_id, username, attribute
+        )
+        emit('battle_error', {'message': 'battle_resolve_flow_advance_request is GM only'}, to=request.sid)
+        return
+
+    payload = {
+        'room_id': room_id,
+        'battle_id': data.get('battle_id'),
+        'round': data.get('round'),
+        'expected_step_index': data.get('expected_step_index'),
+        'requested_by': username,
+        'server_ts': int(time.time())
+    }
+    logger.info(
+        "[FLOW] resolve_flow_advance room=%s battle=%s round=%s step=%s by=%s",
+        payload.get('room_id'),
+        payload.get('battle_id'),
+        payload.get('round'),
+        payload.get('expected_step_index'),
+        username
+    )
+    socketio.emit('battle_resolve_flow_advance', payload, to=room_id)
+
+
 @socketio.on('battle_intent_uncommit')
 def on_battle_intent_uncommit(data):
     data = data or {}

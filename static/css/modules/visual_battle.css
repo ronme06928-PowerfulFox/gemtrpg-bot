@@ -111,6 +111,435 @@
     padding: 5px;
 }
 
+#resolve-flow-panel.resolve-flow-panel {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 905;
+    pointer-events: auto;
+}
+
+#resolve-flow-panel .resolve-flow-overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(22, 24, 34, 0.12) 0%, rgba(6, 8, 14, 0.5) 100%);
+    pointer-events: none;
+}
+
+#resolve-flow-panel .resolve-flow-card {
+    position: relative;
+    width: min(94vw, 1320px);
+    height: min(82vh, 900px);
+    max-height: 90vh;
+    border-radius: 20px;
+    border: 2px solid rgba(255, 197, 84, 0.75);
+    background:
+        linear-gradient(160deg, rgba(20, 26, 38, 0.96) 0%, rgba(13, 17, 27, 0.96) 65%, rgba(30, 20, 10, 0.92) 100%);
+    color: #fff4dd;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.52), inset 0 0 0 1px rgba(255, 227, 178, 0.3);
+    padding: clamp(18px, 1.9vw, 30px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 1vw, 14px);
+    font-family: "Yu Gothic UI", "Meiryo", sans-serif;
+}
+
+#resolve-flow-panel .resolve-flow-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+#resolve-flow-panel .resolve-flow-header .title {
+    font-size: clamp(28px, 2.6vw, 44px);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: #ffe5ae;
+    font-family: "Impact", "Arial Black", "Yu Gothic UI", sans-serif;
+}
+
+#resolve-flow-panel .resolve-flow-header .meta {
+    font-size: clamp(18px, 1.2vw, 24px);
+    color: #d8c8a4;
+}
+
+#resolve-flow-panel .resolve-flow-kind {
+    font-size: clamp(22px, 1.8vw, 30px);
+    font-weight: 700;
+    color: #9fd8ff;
+    margin-bottom: 2px;
+    font-family: "Impact", "Arial Black", "Yu Gothic UI", sans-serif;
+}
+
+#resolve-flow-panel .resolve-flow-reveal-stage {
+    font-size: clamp(20px, 1.6vw, 28px);
+    font-weight: 800;
+    color: #ffdca6;
+    min-height: 1.3em;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+}
+
+#resolve-flow-panel .resolve-flow-versus {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: stretch;
+    gap: clamp(10px, 1.1vw, 18px);
+    margin-bottom: 2px;
+    flex: 0 0 auto;
+    min-height: 0;
+}
+
+#resolve-flow-panel .resolve-flow-versus .side {
+    min-width: 0;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: clamp(12px, 1.1vw, 18px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 0.7vw, 10px);
+    justify-content: center;
+    min-height: clamp(150px, 18vh, 210px);
+}
+
+#resolve-flow-panel .resolve-flow-versus .side.attacker {
+    border-color: rgba(249, 166, 75, 0.44);
+    background: linear-gradient(160deg, rgba(249, 166, 75, 0.2) 0%, rgba(249, 166, 75, 0.06) 100%);
+}
+
+#resolve-flow-panel .resolve-flow-versus .side.defender {
+    border-color: rgba(102, 181, 255, 0.44);
+    background: linear-gradient(160deg, rgba(102, 181, 255, 0.2) 0%, rgba(102, 181, 255, 0.06) 100%);
+}
+
+#resolve-flow-panel .resolve-flow-versus .name {
+    font-size: clamp(30px, 2.3vw, 42px);
+    font-weight: 800;
+    line-height: 1.18;
+    white-space: normal;
+    word-break: break-word;
+}
+
+#resolve-flow-panel .resolve-flow-versus .skill,
+#resolve-flow-panel .resolve-flow-versus .power {
+    font-size: clamp(24px, 1.7vw, 30px);
+    color: #f8ecd3;
+    line-height: 1.28;
+}
+
+#resolve-flow-panel .resolve-flow-versus .power .range {
+    color: #e6dfce;
+    font-weight: 700;
+}
+
+#resolve-flow-panel .resolve-flow-versus .power .arrow {
+    margin: 0 0.3em;
+    color: #ffe3ad;
+    font-weight: 900;
+}
+
+#resolve-flow-panel .resolve-flow-versus .power .actual {
+    font-weight: 900;
+}
+
+#resolve-flow-panel .resolve-flow-versus .power .actual.attacker {
+    color: #ffb14f;
+    text-shadow: 0 0 8px rgba(255, 177, 79, 0.4);
+}
+
+#resolve-flow-panel .resolve-flow-versus .power .actual.defender {
+    color: #7bc4ff;
+    text-shadow: 0 0 8px rgba(123, 196, 255, 0.38);
+}
+
+#resolve-flow-panel .resolve-flow-versus .vs {
+    align-self: center;
+    font-size: clamp(46px, 3.6vw, 66px);
+    font-weight: 900;
+    color: #fff7e0;
+    text-shadow: 0 0 10px rgba(255, 183, 77, 0.4);
+}
+
+#resolve-flow-panel .resolve-flow-outcome {
+    margin-top: 6px;
+    font-size: clamp(36px, 2.8vw, 52px);
+    font-weight: 800;
+    color: #ffdf9e;
+    text-align: center;
+    line-height: 1.22;
+    font-family: "Impact", "Arial Black", "Yu Gothic UI", sans-serif;
+    word-break: break-word;
+}
+
+#resolve-flow-panel .resolve-flow-outcome .result {
+    font-size: clamp(22px, 1.4vw, 28px);
+    color: #f6e7c8;
+    margin-left: 6px;
+}
+
+#resolve-flow-panel .resolve-flow-damage {
+    margin-top: 4px;
+    font-size: clamp(24px, 1.6vw, 30px);
+    color: #f4ecd9;
+    text-align: center;
+    line-height: 1.3;
+}
+
+#resolve-flow-panel .resolve-flow-notes {
+    margin-top: 6px;
+    font-size: clamp(15px, 1vw, 20px);
+    color: #c4d1dd;
+    text-align: center;
+}
+
+#resolve-flow-panel .resolve-flow-advance {
+    min-height: 42px;
+    margin-top: 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 160ms ease, transform 160ms ease;
+    pointer-events: auto;
+}
+
+#resolve-flow-panel.awaiting-advance .resolve-flow-advance {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#resolve-flow-panel .resolve-flow-next-btn {
+    display: none;
+    min-width: 220px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 204, 116, 0.8);
+    background: linear-gradient(180deg, #f1b95c 0%, #de9442 100%);
+    color: #2b1906;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+}
+
+#resolve-flow-panel.awaiting-advance.gm-user .resolve-flow-next-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#resolve-flow-panel .resolve-flow-next-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+#resolve-flow-panel .resolve-flow-auto-label {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: clamp(16px, 1vw, 19px);
+    color: #f3ddb0;
+    font-weight: 700;
+    pointer-events: auto;
+    user-select: none;
+}
+
+#resolve-flow-panel.awaiting-advance.gm-user .resolve-flow-auto-label {
+    display: inline-flex;
+}
+
+#resolve-flow-panel .resolve-flow-auto-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: #ffb347;
+    cursor: pointer;
+}
+
+#resolve-flow-panel .resolve-flow-waiting {
+    font-size: clamp(18px, 1.2vw, 22px);
+    color: #ffe3b2;
+    font-weight: 700;
+    text-align: center;
+    pointer-events: none;
+}
+
+#resolve-flow-panel .resolve-flow-timer {
+    margin-top: auto;
+    width: 100%;
+    height: clamp(12px, 1.1vw, 16px);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    overflow: hidden;
+}
+
+#resolve-flow-panel .resolve-flow-timer .fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #ffcb6f 0%, #ff9f43 100%);
+    transition: width 120ms linear;
+}
+
+#resolve-flow-panel .resolve-flow-summation {
+    border: 1px solid rgba(255, 213, 140, 0.34);
+    border-radius: 12px;
+    margin-top: 2px;
+    padding: clamp(10px, 1vw, 16px);
+    background: rgba(255, 214, 139, 0.08);
+}
+
+#resolve-flow-panel .resolve-flow-summation .summation-label {
+    font-size: clamp(20px, 1.5vw, 26px);
+    font-weight: 800;
+    color: #ffd486;
+    margin-bottom: 6px;
+}
+
+#resolve-flow-panel .resolve-flow-summation .summation-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+#resolve-flow-panel .resolve-flow-summation .charge-chip {
+    font-size: clamp(17px, 1.2vw, 21px);
+    color: #fff7df;
+    background: rgba(255, 179, 84, 0.16);
+    border: 1px solid rgba(255, 179, 84, 0.35);
+    border-radius: 999px;
+    padding: 4px 10px;
+}
+
+#resolve-flow-panel .resolve-flow-summation .summation-total {
+    margin-top: 8px;
+    font-size: clamp(20px, 1.4vw, 24px);
+    color: #ffecc8;
+}
+
+#resolve-flow-panel .reveal-block {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(0.8px);
+    transition: opacity 200ms ease, transform 200ms ease, filter 200ms ease;
+}
+
+#resolve-flow-panel.reveal-names .reveal-names,
+#resolve-flow-panel.reveal-skills .reveal-names,
+#resolve-flow-panel.reveal-power .reveal-names,
+#resolve-flow-panel.reveal-outcome .reveal-names,
+#resolve-flow-panel.reveal-skills .reveal-skills,
+#resolve-flow-panel.reveal-power .reveal-skills,
+#resolve-flow-panel.reveal-outcome .reveal-skills,
+#resolve-flow-panel.reveal-power .reveal-power,
+#resolve-flow-panel.reveal-outcome .reveal-power,
+#resolve-flow-panel.reveal-outcome .reveal-outcome {
+    opacity: 1;
+    transform: translateY(0);
+    filter: none;
+}
+
+#resolve-flow-panel.reveal-names .resolve-flow-reveal-stage {
+    color: #9fd8ff;
+}
+
+#resolve-flow-panel.reveal-skills .resolve-flow-reveal-stage {
+    color: #ffd486;
+}
+
+#resolve-flow-panel.reveal-power .resolve-flow-reveal-stage {
+    color: #ffc572;
+}
+
+#resolve-flow-panel.reveal-outcome .resolve-flow-reveal-stage {
+    color: #ffdf9e;
+}
+
+#resolve-flow-panel .resolve-flow-intro-card {
+    position: relative;
+    width: min(90vw, 980px);
+    min-height: min(42vh, 440px);
+    border-radius: 24px;
+    border: 2px solid rgba(255, 216, 120, 0.86);
+    background:
+        radial-gradient(circle at 50% 10%, rgba(255, 221, 147, 0.2) 0%, rgba(255, 221, 147, 0) 40%),
+        linear-gradient(165deg, rgba(20, 24, 38, 0.97) 0%, rgba(8, 10, 18, 0.97) 72%, rgba(32, 18, 8, 0.94) 100%);
+    box-shadow: 0 20px 54px rgba(0, 0, 0, 0.55), 0 0 44px rgba(255, 182, 72, 0.22);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: clamp(22px, 2.2vw, 34px);
+}
+
+#resolve-flow-panel .resolve-flow-intro-main {
+    font-family: "Impact", "Arial Black", "Yu Gothic UI", sans-serif;
+    font-size: clamp(74px, 8.2vw, 136px);
+    letter-spacing: 0.12em;
+    line-height: 1;
+    color: #ffe0a4;
+    text-shadow:
+        0 0 14px rgba(255, 180, 78, 0.65),
+        0 4px 0 rgba(48, 28, 6, 0.8);
+}
+
+#resolve-flow-panel .resolve-flow-intro-sub {
+    font-family: "Impact", "Arial Black", "Yu Gothic UI", sans-serif;
+    font-size: clamp(22px, 2vw, 34px);
+    letter-spacing: 0.42em;
+    color: #ffd58a;
+    opacity: 0.9;
+}
+
+@media (max-width: 980px) {
+    #resolve-flow-panel .resolve-flow-card {
+        width: min(94vw, 660px);
+        height: auto;
+        max-height: 92vh;
+        padding: 14px 14px 14px 14px;
+    }
+
+    #resolve-flow-panel .resolve-flow-versus {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        flex: none;
+    }
+
+    #resolve-flow-panel .resolve-flow-versus .vs {
+        font-size: 18px;
+    }
+
+    #resolve-flow-panel .resolve-flow-versus .name {
+        font-size: 24px;
+    }
+
+    #resolve-flow-panel .resolve-flow-reveal-stage {
+        font-size: 18px;
+    }
+
+    #resolve-flow-panel .resolve-flow-outcome {
+        font-size: 28px;
+    }
+
+    #resolve-flow-panel .resolve-flow-outcome .result {
+        font-size: 17px;
+    }
+
+    #resolve-flow-panel .resolve-flow-versus .skill,
+    #resolve-flow-panel .resolve-flow-versus .power,
+    #resolve-flow-panel .resolve-flow-damage {
+        font-size: 18px;
+    }
+}
+
 /* タイムラインアイテム */
 .timeline-item {
     display: flex;

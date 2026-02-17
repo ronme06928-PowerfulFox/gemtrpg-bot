@@ -14,7 +14,11 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         lastRenderDigest: null,
         freezeKey: null,
         frozenGraph: null,
-        resizeBound: false
+        resizeBound: false,
+        highlightKey: null,
+        highlightUntil: 0,
+        highlightFromSlotId: null,
+        highlightToSlotId: null
     };
 
     function getCurrentState() {
@@ -442,6 +446,18 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
             .sort((a, b) => a.id.localeCompare(b.id));
 
         const declare = state?.declare || {};
+        const resolveView = state?.resolveView || {};
+        const currentStep = resolveView?.currentStep || {};
+        const stepIndex = Number.isFinite(Number(currentStep?.stepIndex))
+            ? Number(currentStep.stepIndex)
+            : (Number.isFinite(Number(currentStep?.step_index)) ? Number(currentStep.step_index) : null);
+        const stepKey = [
+            stepIndex !== null ? `idx:${stepIndex}` : '',
+            String(currentStep?.attackerSlotId || currentStep?.attacker_slot_id || currentStep?.attacker_slot || ''),
+            String(currentStep?.defenderSlotId || currentStep?.defender_slot_id || currentStep?.defender_slot || ''),
+            String(currentStep?.kind || '')
+        ].join('|');
+
         return {
             battle_id: String(state?.battle_id || ''),
             round: Number(state?.round ?? 0),
@@ -455,6 +471,11 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
                 targetSlotId: String(declare?.targetSlotId || ''),
                 targetType: normalizeTargetType(declare?.targetType || 'single_slot'),
                 skillId: String(declare?.skillId || '')
+            },
+            resolveView: {
+                status: String(resolveView?.status || ''),
+                phase: String(resolveView?.phase || ''),
+                stepKey
             },
             chars
         };
@@ -493,41 +514,50 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         layer.appendChild(defs);
     }
 
-    function getArrowStyle(arrow) {
+    function getArrowStyle(arrow, highlighted = false) {
         const isMass = !!arrow?.meta?.massType;
+        let baseStyle = null;
         if (arrow.kind === 'match') {
-            return {
+            baseStyle = {
                 stroke: '#ffb020',
                 width: 4,
                 opacity: 0.98,
                 dash: '',
                 markerId: 'arrowhead-match'
             };
-        }
-        if (arrow.status === 'redirected') {
-            return {
+        } else if (arrow.status === 'redirected') {
+            baseStyle = {
                 stroke: '#d58a1a',
                 width: 3,
                 opacity: 0.95,
                 dash: '9 5',
                 markerId: 'arrowhead-redirected'
             };
-        }
-        if (isMass) {
-            return {
+        } else if (isMass) {
+            baseStyle = {
                 stroke: '#6a7bff',
                 width: 2.8,
                 opacity: 0.9,
                 dash: '7 5',
                 markerId: 'arrowhead-mass'
             };
+        } else {
+            baseStyle = {
+                stroke: '#8a93a3',
+                width: 2.8,
+                opacity: 0.9,
+                dash: '7 5',
+                markerId: 'arrowhead-pending'
+            };
         }
+        if (!highlighted) return baseStyle;
         return {
-            stroke: '#8a93a3',
-            width: 2.8,
-            opacity: 0.9,
-            dash: '7 5',
-            markerId: 'arrowhead-pending'
+            ...baseStyle,
+            stroke: '#ffe066',
+            width: baseStyle.width + 1.8,
+            opacity: 1,
+            dash: '',
+            markerId: 'arrowhead-match'
         };
     }
 
@@ -652,6 +682,13 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
             list.sort((a, b) => String(a.toSlotId || '').localeCompare(String(b.toSlotId || '')));
         }
 
+        const now = Date.now();
+        const highlightActive = (
+            runtime.highlightUntil > 0
+            && now < runtime.highlightUntil
+            && !!runtime.highlightFromSlotId
+        );
+
         for (const arrow of arrows) {
             const from = getSlotAnchor(layer, arrow.fromSlotId, slotsById);
             const to = getSlotAnchor(layer, arrow.toSlotId, slotsById);
@@ -663,7 +700,17 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
             const d = buildCurve(from, to, laneIndex, laneTotal);
             if (!d) continue;
 
-            const style = getArrowStyle(arrow);
+            const arrowFrom = String(arrow.fromSlotId || '');
+            const arrowTo = String(arrow.toSlotId || '');
+            const isHighlighted = (
+                highlightActive
+                && arrowFrom === String(runtime.highlightFromSlotId || '')
+                && (
+                    !runtime.highlightToSlotId
+                    || arrowTo === String(runtime.highlightToSlotId || '')
+                )
+            );
+            const style = getArrowStyle(arrow, isHighlighted);
             const path = document.createElementNS(SVG_NS, 'path');
             path.setAttribute('d', d);
             path.setAttribute('fill', 'none');
@@ -714,6 +761,24 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         }
 
         const subset = buildStateSubset(state);
+        const resolveStep = state?.resolveView?.currentStep || null;
+        if (resolveStep) {
+            const stepIndex = Number.isFinite(Number(resolveStep?.stepIndex))
+                ? Number(resolveStep.stepIndex)
+                : (Number.isFinite(Number(resolveStep?.step_index)) ? Number(resolveStep.step_index) : null);
+            const nextKey = [
+                stepIndex !== null ? `idx:${stepIndex}` : '',
+                String(resolveStep?.attackerSlotId || resolveStep?.attacker_slot_id || resolveStep?.attacker_slot || ''),
+                String(resolveStep?.defenderSlotId || resolveStep?.defender_slot_id || resolveStep?.defender_slot || ''),
+                String(resolveStep?.kind || '')
+            ].join('|');
+            if (nextKey && nextKey !== runtime.highlightKey) {
+                runtime.highlightKey = nextKey;
+                runtime.highlightUntil = Date.now() + 800;
+                runtime.highlightFromSlotId = String(resolveStep?.attackerSlotId || resolveStep?.attacker_slot_id || resolveStep?.attacker_slot || '') || null;
+                runtime.highlightToSlotId = String(resolveStep?.defenderSlotId || resolveStep?.defender_slot_id || resolveStep?.defender_slot || '') || null;
+            }
+        }
         const subsetHash = JSON.stringify(subset);
         let graph;
 

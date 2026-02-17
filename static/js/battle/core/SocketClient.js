@@ -112,6 +112,10 @@ class SocketClient {
             eventBus.emit('battle:resolve:trace:appended', payload || {});
         });
 
+        this.socket.on('battle_resolve_flow_advance', (payload) => {
+            eventBus.emit('battle:resolve:flow:advance', payload || {});
+        });
+
         this.socket.on('battle_round_finished', (payload) => {
             store.setRoundFinished((payload || {}).round);
             eventBus.emit('battle:round:finished', payload || {});
@@ -245,6 +249,30 @@ class SocketClient {
         const payload = roomName ? { room: roomName } : {};
         console.info('[SocketClient] battle_resolve_start', payload);
         this.socket.emit('battle_resolve_start', payload);
+    }
+
+    sendResolveFlowAdvance(payload) {
+        if (!this.socket) {
+            console.warn('[SocketClient] battle_resolve_flow_advance_request skip: socket missing');
+            return false;
+        }
+        const body = (payload && typeof payload === 'object') ? payload : {};
+        this.socket.emit('battle_resolve_flow_advance_request', body);
+        return true;
+    }
+
+    sendRoundEnd(roomName) {
+        if (!this.socket) {
+            console.warn('[SocketClient] request_end_round skip: socket missing');
+            return false;
+        }
+        const room = roomName || store.get('room_name') || window.currentRoomName || null;
+        if (!room) {
+            console.warn('[SocketClient] request_end_round skip: room missing');
+            return false;
+        }
+        this.socket.emit('request_end_round', { room });
+        return true;
     }
 }
 

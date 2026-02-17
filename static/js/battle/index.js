@@ -24,6 +24,7 @@ import { mapState } from './components/MapState.js';
 import { visualMap } from './components/VisualMap.js';
 import { matchPanel } from './components/MatchPanel.js';
 import { declarePanel } from './components/DeclarePanel.js';
+import { resolveFlowPanel } from './components/ResolveFlowPanel.js';
 
 /**
  * 初期化処理
@@ -57,6 +58,8 @@ function initializeBattleSystem() {
             console.log(`ActionDock initialized: ${actionDockInit}`);
             const declarePanelInit = declarePanel.initialize();
             console.log(`DeclarePanel initialized: ${declarePanelInit}`);
+            const resolveFlowInit = resolveFlowPanel.initialize();
+            console.log(`ResolveFlowPanel initialized: ${resolveFlowInit}`);
         } else if (retryCount < 20) {
             // 100ms待ってリトライ（最大20回 = 2秒）
             setTimeout(() => tryInitSocket(retryCount + 1), 100);

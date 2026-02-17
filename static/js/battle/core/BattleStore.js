@@ -24,6 +24,14 @@ class BattleStore {
             intents: {},
             redirects: [],
             resolveTrace: [],
+            resolveView: {
+                status: 'idle',
+                phase: null,
+                stepTotal: 0,
+                stepDone: 0,
+                currentStep: null,
+                recentSteps: []
+            },
             resolveReady: false,
             resolveReadyInfo: null,
             room_id: null,
@@ -44,6 +52,7 @@ class BattleStore {
         this._listeners = new Set();
         this._initialized = false;
         this._debugLastLogAt = 0;
+        this._resolveStepSeen = new Set();
     }
 
     /**
@@ -67,6 +76,20 @@ class BattleStore {
     initialize(initialState) {
         if (initialState) {
             this._state = { ...this._state, ...initialState };
+        }
+        this._resolveStepSeen.clear();
+        this._state = {
+            ...this._state,
+            resolveView: {
+                ...this._createResolveView(),
+                ...(this._state.resolveView || {})
+            }
+        };
+        if (Array.isArray(this._state.resolveTrace) && this._state.resolveTrace.length > 0) {
+            this._state = {
+                ...this._state,
+                resolveView: this._appendResolveViewSteps(this._state.resolveView, this._state.resolveTrace)
+            };
         }
         this._initialized = true;
         this._syncToLegacy();
@@ -113,6 +136,20 @@ class BattleStore {
 
 
 
+        const hasIncomingRound = Object.prototype.hasOwnProperty.call(newState, 'round');
+        const nextRound = hasIncomingRound ? (newState.round ?? this._state.round) : this._state.round;
+        const roundChanged = Number(nextRound) !== Number(this._state.round);
+        const nextPhase = newState.phase ?? this._state.phase;
+        if (roundChanged) {
+            this._resolveStepSeen.clear();
+            if (!Object.prototype.hasOwnProperty.call(newState, 'resolveTrace')) {
+                newState.resolveTrace = [];
+            }
+            if (!Object.prototype.hasOwnProperty.call(newState, 'resolveView')) {
+                newState.resolveView = this._createResolveView('idle', nextPhase || 'select');
+            }
+        }
+
         this._state = { ...this._state, ...newState };
         this._syncToLegacy();
         this._notify();
@@ -134,6 +171,7 @@ class BattleStore {
             intents: {},
             redirects: [],
             resolveTrace: [],
+            resolveView: this._createResolveView('idle', payload.phase || this._state.phase),
             resolveReady: false,
             resolveReadyInfo: null,
             selectedSlotId: null,
@@ -149,6 +187,7 @@ class BattleStore {
                 calc: null
             }
         };
+        this._resolveStepSeen.clear();
         this._syncToLegacy();
         this._notify();
         this._debugLogSelectResolveSummary('battle_round_started');
@@ -171,6 +210,34 @@ class BattleStore {
             && Array.isArray(oldTimeline) && oldTimeline.length > 0
             && Array.isArray(incomingTimeline) && incomingTimeline.length === 0;
 
+        const hasIncomingRound = Object.prototype.hasOwnProperty.call(payload, 'round');
+        const nextRound = hasIncomingRound ? (payload.round ?? this._state.round) : this._state.round;
+        const roundChanged = Number(nextRound) !== Number(this._state.round);
+
+        let resolveView = roundChanged
+            ? this._createResolveView('idle', phase)
+            : (this._state.resolveView || this._createResolveView());
+        if (this._isResolvePhase(phase)) {
+            resolveView = {
+                ...resolveView,
+                status: 'running',
+                phase
+            };
+        } else if (phase === 'round_end' && resolveView.status === 'running') {
+            resolveView = {
+                ...resolveView,
+                status: 'finished',
+                phase
+            };
+        } else {
+            resolveView = {
+                ...resolveView,
+                phase
+            };
+        }
+
+        const baseResolveTrace = roundChanged ? [] : (this._state.resolveTrace || []);
+
         this._state = {
             ...this._state,
             room_id: payload.room_id || this._state.room_id,
@@ -188,10 +255,22 @@ class BattleStore {
             timeline: preserveTimeline ? this._state.timeline : (payload.timeline ?? this._state.timeline),
             intents: payload.intents || {},
             redirects: payload.redirects || [],
+            resolveTrace: baseResolveTrace,
+            resolveView,
             resolveReady: payload.resolve_ready !== undefined ? !!payload.resolve_ready : this._state.resolveReady,
             resolveReadyInfo: payload.resolve_ready_info !== undefined ? (payload.resolve_ready_info || null) : this._state.resolveReadyInfo,
             battleError: payload.battle_error || null
         };
+        if (roundChanged) {
+            this._resolveStepSeen.clear();
+        }
+        if (Array.isArray(payload.trace) && payload.trace.length > 0) {
+            this._state = {
+                ...this._state,
+                resolveTrace: [...baseResolveTrace, ...payload.trace],
+                resolveView: this._appendResolveViewSteps(this._state.resolveView, payload.trace)
+            };
+        }
         if (preserveSlots) {
             console.debug(`[BattleStore] guarded slots overwrite phase=${phase}`);
         }
@@ -205,12 +284,29 @@ class BattleStore {
 
     setPhase(phase) {
         const nextPhase = phase || this._state.phase;
+        const currentResolveView = this._state.resolveView || this._createResolveView();
+        let nextStatus = currentResolveView.status;
+        if (this._isResolvePhase(nextPhase)) {
+            nextStatus = 'running';
+        } else if (nextPhase === 'round_end' && nextStatus === 'running') {
+            nextStatus = 'finished';
+        }
+        const resetResolveForSelect = nextPhase === 'select';
         this._state = {
             ...this._state,
             phase: nextPhase,
+            resolveTrace: resetResolveForSelect ? [] : (this._state.resolveTrace || []),
+            resolveView: {
+                ...(resetResolveForSelect ? this._createResolveView('idle', 'select') : currentResolveView),
+                status: resetResolveForSelect ? 'idle' : nextStatus,
+                phase: nextPhase
+            },
             resolveReady: nextPhase === 'select' ? this._state.resolveReady : false,
             resolveReadyInfo: nextPhase === 'select' ? this._state.resolveReadyInfo : null
         };
+        if (resetResolveForSelect) {
+            this._resolveStepSeen.clear();
+        }
         this._syncToLegacy();
         this._notify();
         this._debugLogSelectResolveSummary('battle_phase_changed');
@@ -220,7 +316,8 @@ class BattleStore {
         const nextEntries = Array.isArray(traceEntries) ? traceEntries : [];
         this._state = {
             ...this._state,
-            resolveTrace: [...(this._state.resolveTrace || []), ...nextEntries]
+            resolveTrace: [...(this._state.resolveTrace || []), ...nextEntries],
+            resolveView: this._appendResolveViewSteps(this._state.resolveView, nextEntries)
         };
         this._syncToLegacy();
         this._notify();
@@ -232,6 +329,11 @@ class BattleStore {
             ...this._state,
             round: round ?? this._state.round,
             phase: 'round_end',
+            resolveView: {
+                ...(this._state.resolveView || this._createResolveView()),
+                status: 'finished',
+                phase: 'round_end'
+            },
             turn_char_id: null,
             turn_entry_id: null,
             resolveReady: false,
@@ -405,6 +507,116 @@ class BattleStore {
      * 状態の一部を取得
      * @param {string} key - 取得するキー
      */
+    _isResolvePhase(phase) {
+        return phase === 'resolve_mass' || phase === 'resolve_single';
+    }
+
+    _createResolveView(status = 'idle', phase = null) {
+        return {
+            status: status || 'idle',
+            phase: phase || null,
+            stepTotal: 0,
+            stepDone: 0,
+            currentStep: null,
+            recentSteps: []
+        };
+    }
+
+    _toNumber(value, fallback = 0) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : fallback;
+    }
+
+    _normalizeResolveStep(entry, fallbackIndex = 0) {
+        const raw = (entry && typeof entry === 'object') ? entry : {};
+        const idxFromPayload = (raw.step_index !== undefined && raw.step_index !== null)
+            ? this._toNumber(raw.step_index, NaN)
+            : ((raw.step !== undefined && raw.step !== null) ? (this._toNumber(raw.step, 1) - 1) : NaN);
+        const stepIndex = Number.isFinite(idxFromPayload) ? Math.max(0, idxFromPayload) : Math.max(0, this._toNumber(fallbackIndex, 0));
+        const stepTotalRaw = this._toNumber(raw.step_total, 0);
+        const stepTotal = stepTotalRaw > 0 ? stepTotalRaw : 0;
+
+        return {
+            stepIndex,
+            stepTotal,
+            kind: String(raw.kind || 'unknown'),
+            outcome: String(raw.outcome || 'no_effect'),
+            phase: String(raw.phase || this._state.phase || ''),
+            attackerSlotId: raw.attacker_slot_id || raw.attacker_slot || null,
+            defenderSlotId: raw.defender_slot_id || raw.defender_slot || null,
+            attackerActorId: raw.attacker_actor_id || null,
+            defenderActorId: raw.defender_actor_id || raw.target_actor_id || null,
+            notes: raw.notes || null,
+            timestamp: this._toNumber(raw.timestamp, Math.floor(Date.now() / 1000)),
+            lines: Array.isArray(raw.lines) ? raw.lines.slice() : (Array.isArray(raw.log_lines) ? raw.log_lines.slice() : [])
+        };
+    }
+
+    _resolveStepKey(step) {
+        if (!step || typeof step !== 'object') return null;
+        if (Number.isFinite(step.stepIndex)) {
+            return `idx:${step.stepIndex}`;
+        }
+        return [
+            String(step.kind || ''),
+            String(step.attackerSlotId || ''),
+            String(step.defenderSlotId || ''),
+            String(step.outcome || ''),
+            String(step.timestamp || '')
+        ].join('|');
+    }
+
+    _appendResolveViewSteps(baseView, traceEntries) {
+        const entries = Array.isArray(traceEntries) ? traceEntries : [];
+        if (entries.length === 0) return baseView || this._createResolveView();
+
+        const view = {
+            ...this._createResolveView(),
+            ...(baseView || {})
+        };
+        let recent = Array.isArray(view.recentSteps) ? view.recentSteps.slice() : [];
+        let currentStep = view.currentStep || null;
+        let stepDone = this._toNumber(view.stepDone, 0);
+        let stepTotal = this._toNumber(view.stepTotal, 0);
+
+        entries.forEach((rawEntry, idx) => {
+            const normalized = this._normalizeResolveStep(rawEntry, stepDone + idx);
+            const key = this._resolveStepKey(normalized);
+            if (key && this._resolveStepSeen.has(key)) {
+                stepDone = Math.max(stepDone, normalized.stepIndex + 1);
+                if (normalized.stepTotal > 0) stepTotal = Math.max(stepTotal, normalized.stepTotal);
+                return;
+            }
+            if (key) this._resolveStepSeen.add(key);
+
+            currentStep = normalized;
+            stepDone = Math.max(stepDone, normalized.stepIndex + 1);
+            if (normalized.stepTotal > 0) stepTotal = Math.max(stepTotal, normalized.stepTotal);
+
+            const seen = new Set();
+            const nextRecent = [normalized, ...recent];
+            recent = nextRecent.filter((step) => {
+                const k = this._resolveStepKey(step);
+                if (!k) return false;
+                if (seen.has(k)) return false;
+                seen.add(k);
+                return true;
+            }).slice(0, 5);
+        });
+
+        if (stepTotal < stepDone) stepTotal = stepDone;
+
+        return {
+            ...view,
+            status: view.status === 'finished' ? 'finished' : 'running',
+            phase: currentStep?.phase || view.phase || this._state.phase || null,
+            stepTotal,
+            stepDone,
+            currentStep,
+            recentSteps: recent
+        };
+    }
+
     get(key) {
         return this._state[key];
     }
