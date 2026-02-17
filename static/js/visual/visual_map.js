@@ -173,14 +173,14 @@ window.renderVisualMap = function () {
         }
     }
 
-    // 4. Render Arrows (PvE Mode)
-    if (typeof window.renderArrows === 'function') {
-        window.renderArrows();
-    }
-
-    // 5. Render Select/Resolve slot badges on tokens (select phase)
+    // 4. Render Select/Resolve slot badges on tokens (select phase)
     if (typeof window.renderSlotBadgesForAllTokens === 'function') {
         window.renderSlotBadgesForAllTokens();
+    }
+
+    // 5. Render Arrows (depends on slot badge anchors in select phase)
+    if (typeof window.renderArrows === 'function') {
+        window.renderArrows();
     }
 }
 
@@ -417,6 +417,13 @@ function _isMassDeclareTargetType(type) {
 }
 
 function _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId, targetType = 'single_slot') {
+    const sourceIntent = stateRef?.intents?.[sourceSlotId] || null;
+    // Keep committed declaration stable until explicit re-commit.
+    if (sourceIntent?.committed) {
+        console.log(`[emit] battle_intent_preview skip: source committed slot=${sourceSlotId}`);
+        return;
+    }
+
     const roomId = stateRef?.room_id || stateRef?.room_name || window.currentRoomName || null;
     const battleId = stateRef?.battle_id || null;
     const effectiveSkillId = skillId || null;
@@ -478,7 +485,7 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
         return;
     }
 
-    // If clicked slot is already committed, open read-only view only when not target-choosing.
+    // If clicked slot is already committed, enter re-edit mode with current declared values.
     // During target choosing, committed enemy slots must remain selectable as target.
     if (clickedIntent && clickedIntent.committed && !(isTargetChoosing && isDifferentActorClick)) {
         sourceSlotId = clickedSlotId;
@@ -488,7 +495,9 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
         if (targetSlotId) {
             lastSingleTargetSlotId = targetSlotId;
         }
-        mode = 'locked';
+        mode = _isMassDeclareTargetType(targetType)
+            ? 'ready'
+            : (targetSlotId ? 'ready' : 'choose_target');
 
         if (window.BattleStore && typeof window.BattleStore.setDeclare === 'function') {
             window.BattleStore.setDeclare({ sourceSlotId, targetSlotId, targetType, lastSingleTargetSlotId, skillId, mode });
@@ -498,7 +507,7 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
             battleState.selectedSlotId = sourceSlotId;
         }
 
-        console.log(`[declare] mode=locked source=${sourceSlotId || 'null'} target_type=${targetType} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
+        console.log(`[declare] mode=reedit source=${sourceSlotId || 'null'} target_type=${targetType} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
         return;
     }
 

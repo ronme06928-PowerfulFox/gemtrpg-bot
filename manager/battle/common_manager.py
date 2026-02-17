@@ -190,6 +190,8 @@ def process_full_round_end(room, username):
     if battle_state:
         battle_state['phase'] = 'round_end'
         battle_state['intents'] = {}
+        battle_state['resolve_snapshot_intents'] = {}
+        battle_state['resolve_snapshot_at'] = None
         battle_state['redirects'] = []
         battle_state['resolve_ready'] = False
         battle_state['resolve_ready_info'] = {}
@@ -1014,6 +1016,8 @@ def ensure_battle_state_vNext(room_state, battle_id=None, round_value=None, rebu
     battle_state['timeline'] = battle_state.get('timeline', [])
     battle_state['tiebreak'] = battle_state.get('tiebreak', [])
     battle_state['intents'] = battle_state.get('intents', {})
+    battle_state['resolve_snapshot_intents'] = battle_state.get('resolve_snapshot_intents', {})
+    battle_state['resolve_snapshot_at'] = battle_state.get('resolve_snapshot_at')
     battle_state['redirects'] = battle_state.get('redirects', [])
     battle_state['resolve_ready'] = bool(battle_state.get('resolve_ready', False))
     battle_state['resolve_ready_info'] = battle_state.get('resolve_ready_info', {})
@@ -1046,6 +1050,11 @@ def ensure_battle_state_vNext(room_state, battle_id=None, round_value=None, rebu
     if isinstance(battle_state.get('intents'), dict):
         battle_state['intents'] = {
             sid: intent for sid, intent in battle_state.get('intents', {}).items()
+            if sid in slot_ids
+        }
+    if isinstance(battle_state.get('resolve_snapshot_intents'), dict):
+        battle_state['resolve_snapshot_intents'] = {
+            sid: intent for sid, intent in battle_state.get('resolve_snapshot_intents', {}).items()
             if sid in slot_ids
         }
 
@@ -1221,6 +1230,8 @@ def process_select_resolve_round_start(room, battle_id, round_value):
     battle_state['timeline'] = timeline
     battle_state['tiebreak'] = tiebreak_payload
     battle_state['intents'] = {}
+    battle_state['resolve_snapshot_intents'] = {}
+    battle_state['resolve_snapshot_at'] = None
     battle_state['redirects'] = []
     battle_state['resolve_ready'] = False
     battle_state['resolve_ready_info'] = {}

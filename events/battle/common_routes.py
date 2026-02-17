@@ -1,3 +1,4 @@
+import copy
 import json
 import time
 
@@ -758,6 +759,11 @@ def _start_select_resolve_if_ready(room_id, battle_id, source_event):
     if consumed_rows:
         broadcast_state_update(room_id)
 
+    # Freeze intents at the exact moment GM starts resolve.
+    # Resolve must not read mutable select-phase intents directly.
+    state['resolve_snapshot_intents'] = copy.deepcopy(state.get('intents', {}))
+    state['resolve_snapshot_at'] = _server_ts_ms()
+
     state['resolve_ready'] = False
     state['resolve_ready_info'] = {}
     state['phase'] = 'resolve_mass'
@@ -867,6 +873,17 @@ def _server_ts():
     return int(time.time())
 
 
+def _server_ts_ms():
+    return int(time.time() * 1000)
+
+
+def _next_intent_revision(state):
+    current = int(state.get('intent_revision_seq', 0) or 0)
+    nxt = current + 1
+    state['intent_revision_seq'] = nxt
+    return nxt
+
+
 def _ensure_intent_for_slot(state, slot_id):
     intent = state.get('intents', {}).get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)
@@ -875,8 +892,24 @@ def _ensure_intent_for_slot(state, slot_id):
     intent.setdefault('tags', _default_intent_tags())
     intent.setdefault('committed', False)
     intent.setdefault('committed_at', None)
+    intent.setdefault('committed_by', None)
+    intent.setdefault('intent_rev', 0)
     state['intents'][slot_id] = intent
     return intent
+
+
+def _clear_redirect_state(state):
+    if not isinstance(state, dict):
+        return
+    slots = state.get('slots', {})
+    if isinstance(slots, dict):
+        for slot in slots.values():
+            if not isinstance(slot, dict):
+                continue
+            slot['locked_target'] = False
+            slot.pop('locked_by_slot', None)
+            slot.pop('locked_by_initiative', None)
+    state['redirects'] = []
 
 
 def _append_redirect_record(state, record):
@@ -1063,10 +1096,10 @@ def on_battle_intent_preview(data):
     intent['target'] = target
     intent['committed'] = False
     intent['committed_at'] = None
+    intent['committed_by'] = None
     intent['tags'] = _default_intent_tags(_build_tags(intent['skill_id'], intent['target']))
     state['intents'][slot_id] = intent
-    if intent['tags'].get('no_redirect', False):
-        _cancel_redirect_by_no_redirect(room_id, battle_id, state, slot_id, reset_target=True)
+    _clear_redirect_state(state)
     logger.info(
         "[FLOW] preview_saved room=%s battle=%s slot=%s committed=%s skill=%s target=%s",
         room_id, battle_id, slot_id, intent.get('committed'), intent.get('skill_id'), intent.get('target')
@@ -1124,13 +1157,12 @@ def on_battle_intent_commit(data):
     intent['skill_id'] = skill_id
     intent['target'] = target
     intent['committed'] = True
-    intent['committed_at'] = data.get('client_ts')
+    intent['committed_at'] = _server_ts_ms()
+    intent['committed_by'] = (get_user_info_from_sid(request.sid) or {}).get('username') or request.sid
+    intent['intent_rev'] = _next_intent_revision(state)
     intent['tags'] = _default_intent_tags(_build_tags(intent['skill_id'], intent['target']))
     state['intents'][slot_id] = intent
-    if intent['tags'].get('no_redirect', False):
-        _cancel_redirect_by_no_redirect(room_id, battle_id, state, slot_id, reset_target=False)
-    else:
-        _try_apply_redirect(room_id, battle_id, state, slot_id)
+    _clear_redirect_state(state)
     logger.info(
         "[FLOW] commit_saved room=%s battle=%s slot=%s committed=%s skill=%s target=%s",
         room_id, battle_id, slot_id, intent.get('committed'), intent.get('skill_id'), intent.get('target')
@@ -1222,10 +1254,12 @@ def on_battle_intent_uncommit(data):
     intent = _apply_intent_identity(intent, state, slot_id)
     intent['committed'] = False
     intent['committed_at'] = None
+    intent['committed_by'] = None
     intent['tags'] = _default_intent_tags(intent.get('tags'))
     if 'target' not in intent:
         intent['target'] = {'type': 'none', 'slot_id': None}
     state['intents'][slot_id] = intent
+    _clear_redirect_state(state)
 
     _refresh_resolve_ready(room_id, state)
     _emit_battle_state_updated(room_id, battle_id)
@@ -1263,10 +1297,11 @@ def on_battle_intent_change_skill(data):
         return
     intent['target'] = normalized_target
     intent['tags'] = _default_intent_tags(_build_tags(intent['skill_id'], intent['target']))
-    intent.setdefault('committed', False)
+    intent['committed'] = False
+    intent['committed_at'] = None
+    intent['committed_by'] = None
     state['intents'][slot_id] = intent
-    if intent['tags'].get('no_redirect', False):
-        _cancel_redirect_by_no_redirect(room_id, battle_id, state, slot_id, reset_target=True)
+    _clear_redirect_state(state)
 
     _refresh_resolve_ready(room_id, state)
     _emit_battle_state_updated(room_id, battle_id)
@@ -1292,10 +1327,6 @@ def on_battle_intent_change_target(data):
 
     if slot_id not in state.get('slots', {}):
         print(f"[battle_intent_change_target] unknown slot_id={slot_id} in battle_id={battle_id}")
-    slot_data = state.get('slots', {}).get(slot_id, {})
-    if slot_data.get('locked_target', False):
-        emit('battle_error', {'message': 'target is locked by redirect'}, to=request.sid)
-        return
 
     target, target_error = _validate_and_normalize_target(
         data.get('target'),
@@ -1314,8 +1345,11 @@ def on_battle_intent_change_target(data):
         return
     intent['target'] = normalized_target
     intent['tags'] = _default_intent_tags(_build_tags(intent.get('skill_id'), intent['target']))
-    intent.setdefault('committed', False)
+    intent['committed'] = False
+    intent['committed_at'] = None
+    intent['committed_by'] = None
     state['intents'][slot_id] = intent
+    _clear_redirect_state(state)
 
     _refresh_resolve_ready(room_id, state)
     _emit_battle_state_updated(room_id, battle_id)

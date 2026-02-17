@@ -1362,10 +1362,10 @@ def _resolve_clash_by_existing_logic(
     return {'ok': True, 'summary': summary, 'outcome': outcome}
 
 
-def _build_resolve_queues(battle_state):
+def _build_resolve_queues(battle_state, intents_override=None):
     timeline = battle_state.get('timeline', [])
     slots = battle_state.get('slots', {})
-    intents = battle_state.get('intents', {})
+    intents = intents_override if isinstance(intents_override, dict) else battle_state.get('intents', {})
     ordered_slots = []
     seen_slots = set()
     if isinstance(timeline, list):
@@ -1437,8 +1437,10 @@ def _compare_outcome(attacker_power, defender_power):
     return 'draw'
 
 
-def _roll_power_for_slot(battle_state, slot_id):
-    intents = battle_state.get('intents', {})
+def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
+    if not isinstance(intents_override, dict):
+        intents_override = battle_state.get('__resolve_intents_override')
+    intents = intents_override if isinstance(intents_override, dict) else battle_state.get('intents', {})
     intent = intents.get(slot_id, {})
     skill_id = intent.get('skill_id')
     if not skill_id:
@@ -1533,8 +1535,8 @@ def _roll_power_for_slot(battle_state, slot_id):
     return max(0, total)
 
 
-def _gather_slots_targeting_slot_s(state, battle_state, slot_s, attacker_team=None):
-    intents = battle_state.get('intents', {})
+def _gather_slots_targeting_slot_s(state, battle_state, slot_s, attacker_team=None, intents_override=None):
+    intents = intents_override if isinstance(intents_override, dict) else battle_state.get('intents', {})
     slots = battle_state.get('slots', {})
     candidates = []
 
@@ -1597,10 +1599,15 @@ def run_select_resolve_auto(room, battle_id):
     # Ephemeral context for resolve-time power roll helpers.
     battle_state['__room_state_ref__'] = state
 
-    _build_resolve_queues(battle_state)
+    resolve_intents = battle_state.get('resolve_snapshot_intents')
+    if not isinstance(resolve_intents, dict) or len(resolve_intents) == 0:
+        resolve_intents = battle_state.get('intents', {})
+    battle_state['__resolve_intents_override'] = resolve_intents
+
+    _build_resolve_queues(battle_state, intents_override=resolve_intents)
 
     if battle_state.get('phase') == 'resolve_mass':
-        intents = battle_state.get('intents', {})
+        intents = resolve_intents
         slots = battle_state.get('slots', {})
 
         def _enemy_actor_ids_for_team(attacker_team):
@@ -1782,7 +1789,8 @@ def run_select_resolve_auto(room, battle_id):
                     state,
                     battle_state,
                     slot_id,
-                    attacker_team=attacker_team
+                    attacker_team=attacker_team,
+                    intents_override=intents
                 )
 
                 attacker_power = _roll_power_for_slot(battle_state, slot_id)
@@ -1863,7 +1871,8 @@ def run_select_resolve_auto(room, battle_id):
                     state,
                     battle_state,
                     slot_id,
-                    attacker_team=attacker_team
+                    attacker_team=attacker_team,
+                    intents_override=intents
                 )
                 participant_by_actor = {}
                 for p_slot in participant_slots:
@@ -1970,7 +1979,7 @@ def run_select_resolve_auto(room, battle_id):
             _consume_resolve_slot(battle_state, slot_id)
 
         battle_state['phase'] = 'resolve_single'
-        _build_resolve_queues(battle_state)
+        _build_resolve_queues(battle_state, intents_override=intents)
         phase_payload = {
             'room_id': room,
             'battle_id': battle_id,
@@ -1986,10 +1995,56 @@ def run_select_resolve_auto(room, battle_id):
             socketio.emit('battle_state_updated', payload, to=room)
 
     if battle_state.get('phase') == 'resolve_single':
-        intents = battle_state.get('intents', {})
+        intents = resolve_intents
         slots = battle_state.get('slots', {})
         processed_slots = set()
         single_queue = battle_state['resolve'].get('single_queue', []) or []
+
+        def _safe_int(value, default=0):
+            try:
+                return int(value)
+            except Exception:
+                return default
+
+        # Contention rule: when multiple attackers point to the same defender slot,
+        # the latest committed intent wins. Other attackers resolve as one-sided.
+        target_claims = {}
+        for slot_id in single_queue:
+            intent = intents.get(slot_id, {}) if isinstance(intents, dict) else {}
+            if not isinstance(intent, dict):
+                continue
+            target = intent.get('target', {}) or {}
+            target_slot = target.get('slot_id') if target.get('type') == 'single_slot' else None
+            if not target_slot:
+                continue
+            if not intent.get('committed', False):
+                continue
+            if not intent.get('skill_id'):
+                continue
+            target_claims.setdefault(target_slot, []).append((
+                slot_id,
+                _safe_int(intent.get('committed_at'), 0),
+                _safe_int(intent.get('intent_rev'), 0),
+            ))
+
+        contention_winner_by_target = {}
+        contested_losers = set()
+        for target_slot, claims in target_claims.items():
+            if not claims:
+                continue
+            winner = max(claims, key=lambda row: (row[1], row[2], str(row[0])))
+            contention_winner_by_target[target_slot] = winner[0]
+            if len(claims) > 1:
+                for claim in claims:
+                    if claim[0] != winner[0]:
+                        contested_losers.add(claim[0])
+
+        if contested_losers:
+            logger.info(
+                "[resolve_single_contention] losers=%s winners=%s",
+                sorted(contested_losers),
+                contention_winner_by_target
+            )
 
         queue_kind_counts = {'clash': 0, 'one_sided': 0, 'fizzle': 0}
         queue_pairs = []
@@ -2011,6 +2066,8 @@ def run_select_resolve_auto(room, battle_id):
                 else:
                     q_intent_b = intents.get(q_target_slot, {})
                     if (
+                        q_target_slot not in contested_losers
+                        and
                         q_intent_b.get('target', {}).get('type') == 'single_slot'
                         and q_intent_b.get('target', {}).get('slot_id') == q_slot_id
                     ):
@@ -2097,6 +2154,8 @@ def run_select_resolve_auto(room, battle_id):
                 logger.debug("[resolve_single] skip slot=%s reason=processed", slot_id)
                 continue
 
+            attacker_is_contested_loser = slot_id in contested_losers
+
             intent_a = intents.get(slot_id, {})
             skill_id = intent_a.get('skill_id')
             if not intent_a or not skill_id:
@@ -2119,7 +2178,12 @@ def run_select_resolve_auto(room, battle_id):
                 continue
 
             intent_b = intents.get(target_slot, {})
+            defender_is_invalid = (target_slot in contested_losers)
             is_clash = (
+                not attacker_is_contested_loser
+                and
+                not defender_is_invalid
+                and
                 intent_b.get('target', {}).get('type') == 'single_slot'
                 and intent_b.get('target', {}).get('slot_id') == slot_id
             )
@@ -2415,6 +2479,8 @@ def run_select_resolve_auto(room, battle_id):
 
         battle_state['phase'] = 'round_end'
         battle_state['intents'] = {}
+        battle_state['resolve_snapshot_intents'] = {}
+        battle_state['resolve_snapshot_at'] = None
 
         # Stop legacy sequential turn flow after select/resolve round is finished.
         state['turn_char_id'] = None
@@ -2441,6 +2507,7 @@ def run_select_resolve_auto(room, battle_id):
             socketio.emit('battle_state_updated', payload, to=room)
 
     battle_state.pop('__room_state_ref__', None)
+    battle_state.pop('__resolve_intents_override', None)
     save_specific_room_state(room)
 
 def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data, target_skill_data, all_skill_data_ref):

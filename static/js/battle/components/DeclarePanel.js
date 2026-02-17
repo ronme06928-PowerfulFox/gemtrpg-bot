@@ -53,7 +53,8 @@ class DeclarePanel {
         const mode = declare.mode || 'idle';
         const calc = declare.calc || null;
         const sourceIntent = state?.intents?.[sourceSlotId] || null;
-        const isDeclaredLocked = mode === 'locked' || !!sourceIntent?.committed;
+        const hasCommittedIntent = !!sourceIntent?.committed;
+        const isDeclaredLocked = mode === 'locked';
         const declaredTargetType = this._normalizeTargetType(declare.targetType || sourceIntent?.target?.type);
         const effectiveTargetType = this._resolveEffectiveTargetType(skillId, declaredTargetType);
         const isMassTarget = this._isMassTargetType(effectiveTargetType);
@@ -92,7 +93,7 @@ class DeclarePanel {
             <div class="declare-panel-header">
                 <div class="declare-panel-title">スキル選択</div>
                 <div class="declare-panel-header-right">
-                    <button id="declare-commit-btn-header" class="declare-commit-btn declare-commit-btn-header" ${canCommit ? '' : 'disabled'}>${isDeclaredLocked ? '宣言済み' : '宣言'}</button>
+                    <button id="declare-commit-btn-header" class="declare-commit-btn declare-commit-btn-header" ${canCommit ? '' : 'disabled'}>${isDeclaredLocked ? '宣言済み' : (hasCommittedIntent ? '再宣言' : '宣言')}</button>
                     <button id="declare-close-btn" class="declare-close-btn" title="閉じる">x</button>
                 </div>
             </div>
@@ -419,6 +420,9 @@ class DeclarePanel {
         const skillId = declare?.skillId || null;
         if (!sourceSlotId) return;
         if (state.phase !== 'select') return;
+        const sourceIntent = state?.intents?.[sourceSlotId] || null;
+        // Keep committed declaration stable until explicit re-commit.
+        if (sourceIntent?.committed) return;
 
         const roomId = state.room_id || state.room_name || window.currentRoomName || null;
         const battleId = state.battle_id || null;
