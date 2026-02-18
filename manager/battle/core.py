@@ -1487,20 +1487,23 @@ def _estimate_mass_trace_steps(state, battle_state, intents):
     return int(max(0, total))
 
 
-def _estimate_single_trace_steps(state, battle_state, intents):
-    resolve = battle_state.get('resolve', {}) if isinstance(battle_state, dict) else {}
-    slots = battle_state.get('slots', {}) if isinstance(battle_state, dict) else {}
-    single_queue = resolve.get('single_queue', []) or []
-    processed = set()
-    total = 0
+def _intent_single_target_slot(intent):
+    if not isinstance(intent, dict):
+        return None
+    target = intent.get('target', {}) or {}
+    if target.get('type') != 'single_slot':
+        return None
+    slot_id = target.get('slot_id')
+    return str(slot_id) if slot_id else None
 
+
+def _compute_single_contention(intents, single_queue):
     target_claims = {}
     for slot_id in single_queue:
         intent = intents.get(slot_id, {}) if isinstance(intents, dict) else {}
         if not isinstance(intent, dict):
             continue
-        target = intent.get('target', {}) or {}
-        target_slot = target.get('slot_id') if target.get('type') == 'single_slot' else None
+        target_slot = _intent_single_target_slot(intent)
         if not target_slot:
             continue
         if not intent.get('committed', False):
@@ -1513,15 +1516,38 @@ def _estimate_single_trace_steps(state, battle_state, intents):
             _safe_int(intent.get('intent_rev'), 0),
         ))
 
+    contention_winner_by_target = {}
     contested_losers = set()
-    for _target_slot, claims in target_claims.items():
+    for target_slot, claims in target_claims.items():
         if not claims:
             continue
-        winner = max(claims, key=lambda row: (row[1], row[2], str(row[0])))
+        target_intent = intents.get(target_slot, {}) if isinstance(intents, dict) else {}
+        reciprocal_slot = _intent_single_target_slot(target_intent)
+        preferred_claims = [claim for claim in claims if claim[0] == reciprocal_slot]
+        candidate_claims = preferred_claims if preferred_claims else claims
+        winner = max(candidate_claims, key=lambda row: (row[1], row[2], str(row[0])))
+        contention_winner_by_target[target_slot] = winner[0]
         if len(claims) > 1:
             for claim in claims:
                 if claim[0] != winner[0]:
                     contested_losers.add(claim[0])
+
+    return {
+        'target_claims': target_claims,
+        'contention_winner_by_target': contention_winner_by_target,
+        'contested_losers': contested_losers,
+    }
+
+
+def _estimate_single_trace_steps(state, battle_state, intents):
+    resolve = battle_state.get('resolve', {}) if isinstance(battle_state, dict) else {}
+    slots = battle_state.get('slots', {}) if isinstance(battle_state, dict) else {}
+    single_queue = resolve.get('single_queue', []) or []
+    processed = set()
+    total = 0
+
+    contention = _compute_single_contention(intents, single_queue)
+    contested_losers = set(contention.get('contested_losers', set()) or set())
 
     for slot_id in single_queue:
         if slot_id in processed:
@@ -1547,11 +1573,9 @@ def _estimate_single_trace_steps(state, battle_state, intents):
             continue
 
         attacker_is_contested_loser = slot_id in contested_losers
-        defender_is_invalid = target_slot in contested_losers
         intent_b = intents.get(target_slot, {}) if isinstance(intents, dict) else {}
         is_clash = (
             not attacker_is_contested_loser
-            and not defender_is_invalid
             and isinstance(intent_b, dict)
             and intent_b.get('target', {}).get('type') == 'single_slot'
             and intent_b.get('target', {}).get('slot_id') == slot_id
@@ -2167,37 +2191,10 @@ def run_select_resolve_auto(room, battle_id):
         single_queue = battle_state['resolve'].get('single_queue', []) or []
 
         # Contention rule: when multiple attackers point to the same defender slot,
-        # the latest committed intent wins. Other attackers resolve as one-sided.
-        target_claims = {}
-        for slot_id in single_queue:
-            intent = intents.get(slot_id, {}) if isinstance(intents, dict) else {}
-            if not isinstance(intent, dict):
-                continue
-            target = intent.get('target', {}) or {}
-            target_slot = target.get('slot_id') if target.get('type') == 'single_slot' else None
-            if not target_slot:
-                continue
-            if not intent.get('committed', False):
-                continue
-            if not intent.get('skill_id'):
-                continue
-            target_claims.setdefault(target_slot, []).append((
-                slot_id,
-                _safe_int(intent.get('committed_at'), 0),
-                _safe_int(intent.get('intent_rev'), 0),
-            ))
-
-        contention_winner_by_target = {}
-        contested_losers = set()
-        for target_slot, claims in target_claims.items():
-            if not claims:
-                continue
-            winner = max(claims, key=lambda row: (row[1], row[2], str(row[0])))
-            contention_winner_by_target[target_slot] = winner[0]
-            if len(claims) > 1:
-                for claim in claims:
-                    if claim[0] != winner[0]:
-                        contested_losers.add(claim[0])
+        # preserve reciprocal clash candidate first; remaining attackers resolve one-sided.
+        contention = _compute_single_contention(intents, single_queue)
+        contention_winner_by_target = dict(contention.get('contention_winner_by_target', {}) or {})
+        contested_losers = set(contention.get('contested_losers', set()) or set())
 
         if contested_losers:
             logger.info(
@@ -2226,7 +2223,7 @@ def run_select_resolve_auto(room, battle_id):
                 else:
                     q_intent_b = intents.get(q_target_slot, {})
                     if (
-                        q_target_slot not in contested_losers
+                        q_slot_id not in contested_losers
                         and
                         q_intent_b.get('target', {}).get('type') == 'single_slot'
                         and q_intent_b.get('target', {}).get('slot_id') == q_slot_id
@@ -2338,11 +2335,8 @@ def run_select_resolve_auto(room, battle_id):
                 continue
 
             intent_b = intents.get(target_slot, {})
-            defender_is_invalid = (target_slot in contested_losers)
             is_clash = (
                 not attacker_is_contested_loser
-                and
-                not defender_is_invalid
                 and
                 intent_b.get('target', {}).get('type') == 'single_slot'
                 and intent_b.get('target', {}).get('slot_id') == slot_id

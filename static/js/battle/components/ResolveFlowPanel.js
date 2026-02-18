@@ -11,6 +11,7 @@ class ResolveFlowPanel {
         this._traceSeen = new Set();
         this._displayIndexByKey = new Map();
         this._displayIndexCursor = 0;
+        this._presentedStepCount = 0;
         this._playQueue = [];
         this._activeStep = null;
         this._roundKey = null;
@@ -60,6 +61,7 @@ class ResolveFlowPanel {
         this._traceSeen.clear();
         this._displayIndexByKey.clear();
         this._displayIndexCursor = 0;
+        this._presentedStepCount = 0;
         this._playQueue = [];
         this._activeStep = null;
         this._roundKey = null;
@@ -257,6 +259,21 @@ class ResolveFlowPanel {
         }
     }
 
+    _emitResolveFlowStepFinished(step, state) {
+        const stateNow = state || store.state || {};
+        if (!step || this._isIntroStep(step)) return;
+        const payload = {
+            room_id: this._resolveActiveRoomId(stateNow),
+            battle_id: stateNow?.battle_id || null,
+            round: this._toNumber(stateNow?.round, 0),
+            step_index: this._toNumber(step?.stepIndex, -1),
+            step_display_index: this._toNumber(step?.displayIndex, -1),
+            kind: String(step?.kind || 'unknown'),
+            key: this._traceKey(step) || null
+        };
+        eventBus.emit('battle:resolve:flow:step-finished', payload);
+    }
+
     _scheduleAutoAdvanceIfNeeded(state) {
         if (this._pendingAdvanceTimer) return;
         if (!this._waitingForAdvance || !this._activeStep) return;
@@ -436,6 +453,7 @@ class ResolveFlowPanel {
             this._traceSeen.clear();
             this._displayIndexByKey.clear();
             this._displayIndexCursor = 0;
+            this._presentedStepCount = 0;
             this._playQueue = [];
             this._activeStep = null;
             this._renderedStepKey = null;
@@ -450,6 +468,7 @@ class ResolveFlowPanel {
             this._traceSeen.clear();
             this._displayIndexByKey.clear();
             this._displayIndexCursor = 0;
+            this._presentedStepCount = 0;
             this._playQueue = [];
             this._activeStep = null;
             this._renderedStepKey = null;
@@ -525,6 +544,10 @@ class ResolveFlowPanel {
             return;
         }
         this._activeStep = this._playQueue.shift();
+        if (this._activeStep && !this._isIntroStep(this._activeStep)) {
+            this._presentedStepCount += 1;
+            this._activeStep.presentedIndex = this._presentedStepCount;
+        }
         this._renderedStepKey = null;
         this._stepStartedAt = Date.now();
         this._renderStep(store.state || {});
@@ -549,6 +572,7 @@ class ResolveFlowPanel {
             this._clearTimers();
             this._waitingForAdvance = true;
             this._renderStep(store.state || {});
+            this._emitResolveFlowStepFinished(this._activeStep, store.state || {});
             this._scheduleAutoAdvanceIfNeeded(store.state || {});
             if (this._pendingSyncedAdvanceCount > 0) {
                 this._pendingSyncedAdvanceCount -= 1;
@@ -963,14 +987,17 @@ class ResolveFlowPanel {
         const revealStage = this._revealStageByElapsed(elapsed, durationMs);
         const revealLabel = this._escape(this._revealLabel(revealStage));
 
-        const stepNumRaw = Number(step.displayIndex);
-        const stepNum = Number.isFinite(stepNumRaw) && stepNumRaw > 0
-            ? stepNumRaw
-            : Math.max(1, Number(step.stepIndex || 0) + 1);
-        const knownTraceCount = this._traceSeen.size;
-        const activeAndQueueCount = (this._activeStep && !this._isIntroStep(this._activeStep) ? 1 : 0)
-            + this._playQueue.filter((row) => !this._isIntroStep(row)).length;
-        const stepTotal = Math.max(stepNum, knownTraceCount, activeAndQueueCount, 1);
+        const stepNumPresentedRaw = Number(step.presentedIndex);
+        const stepNumDisplayRaw = Number(step.displayIndex);
+        const stepNum = (Number.isFinite(stepNumPresentedRaw) && stepNumPresentedRaw > 0)
+            ? stepNumPresentedRaw
+            : ((Number.isFinite(stepNumDisplayRaw) && stepNumDisplayRaw > 0)
+                ? stepNumDisplayRaw
+                : Math.max(1, Number(step.stepIndex || 0) + 1));
+        const remainingQueueCount = this._playQueue.filter((row) => !this._isIntroStep(row)).length;
+        const stepTotalByCursor = this._toNumber(this._displayIndexCursor, 0);
+        const stepTotalByPresentation = stepNum + remainingQueueCount;
+        const stepTotal = Math.max(stepNum, stepTotalByCursor, stepTotalByPresentation, 1);
         const kindClass = this._escape(String(step.kind || 'unknown'));
         const kindLabel = this._escape(this._kindLabel(step.kind));
         const outcomeLabel = this._escape(this._outcomeLabel(step.outcome));

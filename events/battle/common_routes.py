@@ -1019,6 +1019,35 @@ def _try_apply_redirect(room_id, battle_id, state, slot_a):
     print(f"redirect {slot_b} -> {slot_a} by {slot_a}(init={init_a} > {init_b})")
 
 
+def _recalculate_redirect_state(room_id, battle_id, state):
+    if not isinstance(state, dict):
+        return
+    _clear_redirect_state(state)
+    slots = state.get('slots', {}) or {}
+    intents = state.get('intents', {}) or {}
+    if not isinstance(slots, dict) or not isinstance(intents, dict):
+        return
+
+    ordered_slot_ids = sorted(
+        [sid for sid in slots.keys()],
+        key=lambda sid: (int((slots.get(sid) or {}).get('initiative', 0)), str(sid))
+    )
+
+    for slot_id in ordered_slot_ids:
+        intent = _ensure_intent_for_slot(state, slot_id)
+        if not intent.get('committed', False):
+            continue
+        target = intent.get('target', {}) or {}
+        if target.get('type') != 'single_slot':
+            continue
+        if not intent.get('skill_id'):
+            continue
+        if intent.get('tags', {}).get('no_redirect', False):
+            _cancel_redirect_by_no_redirect(room_id, battle_id, state, slot_id, reset_target=False)
+            continue
+        _try_apply_redirect(room_id, battle_id, state, slot_id)
+
+
 @socketio.on('battle_round_request_start')
 def on_battle_round_request_start(data):
     data = data or {}
@@ -1099,7 +1128,7 @@ def on_battle_intent_preview(data):
     intent['committed_by'] = None
     intent['tags'] = _default_intent_tags(_build_tags(intent['skill_id'], intent['target']))
     state['intents'][slot_id] = intent
-    _clear_redirect_state(state)
+    _recalculate_redirect_state(room_id, battle_id, state)
     logger.info(
         "[FLOW] preview_saved room=%s battle=%s slot=%s committed=%s skill=%s target=%s",
         room_id, battle_id, slot_id, intent.get('committed'), intent.get('skill_id'), intent.get('target')
@@ -1162,7 +1191,7 @@ def on_battle_intent_commit(data):
     intent['intent_rev'] = _next_intent_revision(state)
     intent['tags'] = _default_intent_tags(_build_tags(intent['skill_id'], intent['target']))
     state['intents'][slot_id] = intent
-    _clear_redirect_state(state)
+    _recalculate_redirect_state(room_id, battle_id, state)
     logger.info(
         "[FLOW] commit_saved room=%s battle=%s slot=%s committed=%s skill=%s target=%s",
         room_id, battle_id, slot_id, intent.get('committed'), intent.get('skill_id'), intent.get('target')
@@ -1297,7 +1326,7 @@ def on_battle_intent_uncommit(data):
     if 'target' not in intent:
         intent['target'] = {'type': 'none', 'slot_id': None}
     state['intents'][slot_id] = intent
-    _clear_redirect_state(state)
+    _recalculate_redirect_state(room_id, battle_id, state)
 
     _refresh_resolve_ready(room_id, state)
     _emit_battle_state_updated(room_id, battle_id)
@@ -1339,7 +1368,7 @@ def on_battle_intent_change_skill(data):
     intent['committed_at'] = None
     intent['committed_by'] = None
     state['intents'][slot_id] = intent
-    _clear_redirect_state(state)
+    _recalculate_redirect_state(room_id, battle_id, state)
 
     _refresh_resolve_ready(room_id, state)
     _emit_battle_state_updated(room_id, battle_id)
@@ -1387,7 +1416,7 @@ def on_battle_intent_change_target(data):
     intent['committed_at'] = None
     intent['committed_by'] = None
     state['intents'][slot_id] = intent
-    _clear_redirect_state(state)
+    _recalculate_redirect_state(room_id, battle_id, state)
 
     _refresh_resolve_ready(room_id, state)
     _emit_battle_state_updated(room_id, battle_id)

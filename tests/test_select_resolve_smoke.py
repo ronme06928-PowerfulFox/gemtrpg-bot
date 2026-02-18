@@ -307,6 +307,43 @@ def test_case7_clash_pair_is_resolved_once(monkeypatch):
     assert resolved_slots.count("B_slot") == 1
 
 
+def test_case7b_mutual_clash_is_preserved_under_third_party_contention(monkeypatch):
+    _, battle_core = _mods()
+    state = _base_state(
+        [
+            _make_actor("A1", "ally"),
+            _make_actor("B1", "enemy"),
+            _make_actor("A2", "ally"),
+            _make_actor("B2", "enemy"),
+        ]
+    )
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 9, 0)
+    _add_slot(state, "C_slot", "A2", "ally", 8, 0)
+    _add_slot(state, "D_slot", "B2", "enemy", 7, 0)
+
+    # A <-> B is mutual clash. C also targets B (contention). D targets C.
+    _set_intent(state, "A_slot", "A1", "atk_a", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "atk_b", "single_slot", "A_slot")
+    _set_intent(state, "C_slot", "A2", "atk_c", "single_slot", "B_slot")
+    _set_intent(state, "D_slot", "B2", "atk_d", "single_slot", "C_slot")
+    state["battle_state"]["phase"] = "resolve_single"
+
+    _patch_room_and_socket(monkeypatch, state)
+    battle_core.run_select_resolve_auto("room_t", "battle_test")
+
+    trace = [t for t in state["battle_state"]["resolve"]["trace"] if t["kind"] in {"clash", "one_sided", "fizzle"}]
+    clash_traces = [t for t in trace if t["kind"] == "clash"]
+    one_sided_traces = [t for t in trace if t["kind"] == "one_sided"]
+    fizzle_traces = [t for t in trace if t["kind"] == "fizzle"]
+
+    assert len(clash_traces) == 1
+    assert clash_traces[0]["attacker_slot"] == "A_slot"
+    assert clash_traces[0]["defender_slot"] == "B_slot"
+    assert len(one_sided_traces) == 2
+    assert len(fizzle_traces) == 0
+
+
 def test_case8_duplicate_single_queue_slot_is_skipped(monkeypatch):
     _, battle_core = _mods()
     state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])
