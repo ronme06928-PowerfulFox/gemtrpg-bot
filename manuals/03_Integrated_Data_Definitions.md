@@ -309,3 +309,84 @@ ID `S-XX` で定義されるパッシブスキルです。
 
 * **環境変数**: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` が必須。
 * **アップロード**: キャラクター詳細設定からアップロードAPI (`/api/upload_image`) を経由して保存されます。
+
+---
+
+## 付録: 効果タイミング実行時期一覧（実装準拠 / 2026-02）
+
+この節は、`effects[].timing` が「いつ」「どこで」実行されるかを、運用順にまとめた参照表です。
+
+### A. 判定の共通仕様
+- 効果の実行可否は `manager/game_logic.py` の `process_skill_effects(...)` で判定されます。
+- 判定条件は `effect.timing == timing_to_check` の完全一致です。
+- したがって、データ側の `timing` 名と呼び出し側で渡す `timing_to_check` の一致が必須です。
+
+### B. 「使用時」はどこで処理されるか
+現在、`使用時` は専用タイミング名ではなく、以下で表現されています。
+
+1. 即時発動スキルの宣言確定時（実質的な使用時）
+- 実行箇所: `manager/battle/duel_solver.py`
+- `IMMEDIATE` を実行
+- 続けて `PRE_MATCH` も実行（即時系の互換運用）
+
+2. 通常解決フローの実行直前（解決フェーズ中の使用時相当）
+- 実行箇所: `manager/battle/core.py`
+- マッチ/一方攻撃の解決前に `PRE_MATCH` を実行
+
+### C. タイミング別 実行時期一覧
+
+- `IMMEDIATE`
+  - 実行時期: 宣言確定直後（主に即時発動）
+  - 主呼び出し: `manager/battle/duel_solver.py`
+
+- `PRE_MATCH`
+  - 実行時期: 実行直前（威力ロール前）
+  - 主呼び出し: `manager/battle/core.py`, `manager/battle/duel_solver.py`
+
+- `BEFORE_POWER_ROLL`
+  - 実行時期: 威力レンジ表示後、実威力ロールの直前
+  - 主呼び出し: `manager/battle/core.py`
+
+- `UNOPPOSED`
+  - 実行時期: 一方攻撃の成立後、ダメージ算出の処理中
+  - 主呼び出し: `manager/battle/core.py`, `manager/battle/duel_solver.py`, `manager/battle/wide_solver.py`
+
+- `HIT`
+  - 実行時期: 命中処理中（ダメージ計算の文脈）
+  - 主呼び出し: `manager/battle/core.py`, `manager/battle/duel_solver.py`, `manager/battle/wide_solver.py`
+
+- `WIN` / `LOSE`
+  - 実行時期: 勝敗確定後
+  - 主呼び出し: `manager/skill_effects.py`（`apply_skill_effects_bidirectional`）
+
+- `AFTER_DAMAGE_APPLY`
+  - 実行時期: HP反映直後
+  - 主呼び出し: `manager/battle/core.py`
+
+- `END_MATCH`
+  - 実行時期: 1マッチ解決の末尾
+  - 主呼び出し: `manager/battle/duel_solver.py`, `manager/battle/wide_solver.py`
+
+- `RESOLVE_STEP_END`
+  - 実行時期: 1処理（1マッチ/1一方攻撃/1広域）表示完了時
+  - 主呼び出し: `manager/battle/core.py`
+
+- `RESOLVE_START`
+  - 実行時期: 解決フェーズ開始直後
+  - 主呼び出し: `manager/battle/core.py`
+
+- `RESOLVE_END`
+  - 実行時期: 解決フェーズ全体の表示完了後
+  - 主呼び出し: `manager/battle/core.py`
+
+- `END_ROUND`
+  - 実行時期: ラウンド終了処理時
+  - 主呼び出し: `manager/battle/common_manager.py`
+
+- `BATTLE_START`
+  - 実行時期: バトル開始時
+  - 主呼び出し: `manager/game_logic.py`（戦闘開始効果処理）
+
+### D. 実装上の注意
+- `使用時効果` テキスト列は主に表示/互換用途で、実際の効果発火は `特記処理.effects[]` が基準です。
+- 新規効果を追加する際は、`timing` の定義（データ）と呼び出し点（コード）の両方を合わせて更新してください。
