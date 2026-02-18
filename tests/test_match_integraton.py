@@ -2,16 +2,65 @@ import unittest
 import sys
 import os
 import types
+import importlib
 from unittest.mock import MagicMock, patch
+
+_PATCHED_MODULE_KEYS = [
+    'flask',
+    'flask_socketio',
+    'extensions',
+    'manager.room_manager',
+    'manager.utils',
+    'manager.buff_catalog',
+    'plugins',
+    'plugins.buffs',
+    'plugins.buffs.confusion',
+    'plugins.buffs.immobilize',
+    'plugins.buffs.dodge_lock',
+    'plugins.buffs.registry',
+    'manager.dice_roller',
+    'events.battle.duel_routes',
+    'manager.battle.duel_solver',
+    'manager.game_logic',
+]
+_ORIGINAL_MODULES = {k: sys.modules.get(k) for k in _PATCHED_MODULE_KEYS}
+
+
+def _restore_patched_modules():
+    for key, original in _ORIGINAL_MODULES.items():
+        if original is None:
+            sys.modules.pop(key, None)
+        else:
+            sys.modules[key] = original
+        if '.' in key:
+            pkg_name, attr_name = key.rsplit('.', 1)
+            pkg = sys.modules.get(pkg_name)
+            if pkg is not None:
+                if key in sys.modules:
+                    setattr(pkg, attr_name, sys.modules[key])
+                elif hasattr(pkg, attr_name):
+                    delattr(pkg, attr_name)
+    for name in ('manager.utils', 'manager.room_manager', 'manager.game_logic'):
+        try:
+            importlib.import_module(name)
+        except Exception:
+            pass
 
 # ==========================================
 # 1. Mock External Dependencies (Flask, SocketIO)
 # ==========================================
 mock_flask = MagicMock()
+mock_flask_globals = MagicMock()
+mock_flask.globals = mock_flask_globals
 mock_request = MagicMock()
 mock_request.sid = 'test_sid'
 mock_flask.request = mock_request
 sys.modules['flask'] = mock_flask
+sys.modules['flask.globals'] = mock_flask_globals
+
+mock_sqlalchemy_mod = MagicMock()
+mock_sqlalchemy_mod.SQLAlchemy = MagicMock()
+sys.modules['flask_sqlalchemy'] = mock_sqlalchemy_mod
 
 mock_socketio_mod = MagicMock()
 mock_emit = MagicMock()
@@ -148,14 +197,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import Real Modules for Logic
 from manager.game_logic import calculate_skill_preview, process_skill_effects
-sys.modules['manager.game_logic'].calculate_skill_preview = calculate_skill_preview
-sys.modules['manager.game_logic'].process_skill_effects = process_skill_effects
-sys.modules['manager.game_logic'].get_status_value = mock_utils.get_status_value # Inject
-sys.modules['manager.game_logic'].calculate_damage_multiplier = mock_utils.calculate_damage_multiplier
 
 # Target Modules (New Routes)
 import events.battle.duel_routes as dr
 import manager.battle.duel_solver as ds
+
+# Restore global module table after binding local test targets, so this module
+# does not leak mock sys.modules entries into other test files during collection.
+_restore_patched_modules()
 
 class TestMatchIntegration(unittest.TestCase):
     def setUp(self):

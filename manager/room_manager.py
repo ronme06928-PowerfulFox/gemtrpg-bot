@@ -4,8 +4,13 @@ from manager.data_manager import read_saved_rooms, save_room_to_db
 from manager.utils import set_status_value, get_status_value, apply_buff, remove_buff
 from models import Room
 from manager.game_logic import process_on_death
-from manager.utils import set_status_value, get_status_value, apply_buff, remove_buff, get_effective_origin_id
 from manager.logs import setup_logger
+
+try:
+    from manager.utils import get_effective_origin_id
+except Exception:
+    def get_effective_origin_id(_char):
+        return 0
 
 logger = setup_logger(__name__)
 

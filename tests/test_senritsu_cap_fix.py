@@ -2,6 +2,7 @@
 import sys
 import os
 import re
+import pytest
 
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -16,6 +17,10 @@ from unittest.mock import MagicMock
 
 from manager import game_logic
 
+_ORIG_GET_STATUS_VALUE = game_logic.get_status_value
+_ORIG_GET_BUFF_STAT_MOD = game_logic.get_buff_stat_mod
+_ORIG_RESOLVE_PLACEHOLDERS = game_logic.resolve_placeholders
+
 # Mock get_status_value to return controlled values
 def mock_get_status_value(char, param):
     if param == '戦慄':
@@ -29,6 +34,14 @@ def mock_get_status_value(char, param):
 game_logic.get_status_value = mock_get_status_value
 game_logic.get_buff_stat_mod = MagicMock(return_value=0)
 game_logic.resolve_placeholders = lambda x, y: x # No placeholders
+
+
+@pytest.fixture(autouse=True)
+def _restore_game_logic_patches():
+    yield
+    game_logic.get_status_value = _ORIG_GET_STATUS_VALUE
+    game_logic.get_buff_stat_mod = _ORIG_GET_BUFF_STAT_MOD
+    game_logic.resolve_placeholders = _ORIG_RESOLVE_PLACEHOLDERS
 
 def test_senritsu_logic():
     print("Testing Senritsu Logic...")

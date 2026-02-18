@@ -703,6 +703,10 @@ def _apply_step_end_timing_from_trace(room, battle_state, trace_entry):
 
     state = battle_state.get('__room_state_ref__')
     if not isinstance(state, dict):
+        room_name = battle_state.get('__room_name')
+        if room_name:
+            state = get_room_state(room_name)
+    if not isinstance(state, dict):
         return 0
     slots = battle_state.get('slots', {}) if isinstance(battle_state.get('slots'), dict) else {}
     intents = battle_state.get('__resolve_intents_override')
@@ -2288,6 +2292,10 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
             target_slot_id = candidates[0][2]
 
     room_state = battle_state.get('__room_state_ref__') if isinstance(battle_state, dict) else None
+    if not isinstance(room_state, dict):
+        room_name = battle_state.get('__room_name') if isinstance(battle_state, dict) else None
+        if room_name:
+            room_state = get_room_state(room_name)
     if isinstance(room_state, dict):
         chars_by_id = {
             c.get('id'): c
@@ -2424,7 +2432,7 @@ def run_select_resolve_auto(room, battle_id):
         return
 
     # Ephemeral context for resolve-time power roll helpers.
-    battle_state['__room_state_ref__'] = state
+    # Keep only room name to avoid serializing circular references into room state.
     battle_state['__room_name'] = room
 
     resolve_intents = battle_state.get('resolve_snapshot_intents')

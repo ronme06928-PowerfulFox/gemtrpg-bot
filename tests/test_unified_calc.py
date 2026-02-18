@@ -2,7 +2,35 @@ import unittest
 import sys
 import os
 import types
+import importlib
 from unittest.mock import MagicMock, patch
+
+_PATCHED_MODULE_KEYS = [
+    'manager.utils',
+    'manager.buff_catalog',
+    'plugins',
+]
+_ORIGINAL_MODULES = {k: sys.modules.get(k) for k in _PATCHED_MODULE_KEYS}
+
+
+def _restore_patched_modules():
+    for key, original in _ORIGINAL_MODULES.items():
+        if original is None:
+            sys.modules.pop(key, None)
+        else:
+            sys.modules[key] = original
+        if '.' in key:
+            pkg_name, attr_name = key.rsplit('.', 1)
+            pkg = sys.modules.get(pkg_name)
+            if pkg is not None:
+                if key in sys.modules:
+                    setattr(pkg, attr_name, sys.modules[key])
+                elif hasattr(pkg, attr_name):
+                    delattr(pkg, attr_name)
+    try:
+        importlib.import_module('manager.game_logic')
+    except Exception:
+        pass
 
 # --- Mock manager.utils ---
 mock_utils = types.ModuleType('manager.utils')
@@ -39,6 +67,7 @@ mock_utils.remove_buff = mock_remove_buff
 mock_utils.get_buff_stat_mod = mock_get_buff_stat_mod
 mock_utils.get_buff_stat_mod_details = mock_get_buff_stat_mod_details
 mock_utils.resolve_placeholders = mock_resolve_placeholders
+mock_utils.get_effective_origin_id = lambda _c: 0
 
 sys.modules['manager.utils'] = mock_utils
 
@@ -59,9 +88,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Now import game_logic
 from manager.game_logic import calculate_skill_preview
+_restore_patched_modules()
 
 class TestUnifiedCalculation(unittest.TestCase):
     def setUp(self):
+        sys.modules['manager.utils'] = mock_utils
+        sys.modules['manager.buff_catalog'] = mock_buff_catalog
+        sys.modules['plugins'] = mock_plugins
         self.actor = {
             'id': 'Actor1',
             'name': 'Hero',
@@ -78,6 +111,9 @@ class TestUnifiedCalculation(unittest.TestCase):
             'ダイス威力': '2d6',
             'チャットパレット': '【TestSkill】 5+2d6+{物理補正}'
         }
+
+    def tearDown(self):
+        _restore_patched_modules()
 
     def test_basic_calc(self):
         # Base 5, Dice 2d6, Phys 2. Total Mod = 2.

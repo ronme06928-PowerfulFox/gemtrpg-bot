@@ -1,4 +1,4 @@
-import copy
+﻿import copy
 import json
 import time
 
@@ -85,7 +85,7 @@ def on_request_new_round(data):
     attribute = user_info.get("attribute", "Player")
 
     if attribute != 'GM':
-        emit('new_log', {'message': 'ラウンド開始はGMのみ可能です。', 'type': 'error'})
+        emit('new_log', {'message': 'ラウンド開始はGMのみ実行可能です。', 'type': 'error'})
         return
 
     process_round_start(room, username)
@@ -123,7 +123,7 @@ def on_request_end_round(data):
     attribute = user_info.get("attribute", "Player")
 
     if attribute != 'GM':
-        print(f"⚠️ Security: Player {username} tried to end round. Denied.")
+        print(f"笞・・Security: Player {username} tried to end round. Denied.")
         return
 
     process_full_round_end(room, username)
@@ -208,10 +208,10 @@ def on_debug_apply_buff(data):
     buff_name = data.get('buff_name')
     if not buff_name:
         buff_name_map = {
-            'Bu-02': '混乱',
-            'Bu-03': '混乱(戦慄殺到)',
-            'Bu-05': '再回避ロック',
-            'Bu-06': '挑発'
+            'Bu-02': '豺ｷ荵ｱ',
+            'Bu-03': '豺ｷ荵ｱ(謌ｦ諷・ｮｺ蛻ｰ)',
+            'Bu-05': '蜀榊屓驕ｿ繝ｭ繝・け',
+            'Bu-06': '謖醍匱'
         }
         buff_name = buff_name_map.get(buff_id, buff_id)
 
@@ -235,7 +235,7 @@ def on_request_update_battle_background(data):
 
     update_battle_background_logic(room, image_url, scale, offset_x, offset_y, username, attribute)
 
-# ★ 追加: PvEモード切替
+# 笘・霑ｽ蜉: PvE繝｢繝ｼ繝牙・譖ｿ
 @socketio.on('request_switch_battle_mode')
 def on_request_switch_battle_mode(data):
     room = data.get('room')
@@ -253,16 +253,14 @@ def on_request_switch_battle_mode(data):
     from manager.battle.common_manager import process_switch_battle_mode
     process_switch_battle_mode(room, mode, username)
 
-# ★ 追加: AIスキル提案
-@socketio.on('request_ai_suggest_skill')
+# 笘・霑ｽ蜉: AI繧ｹ繧ｭ繝ｫ謠先｡・@socketio.on('request_ai_suggest_skill')
 def on_request_ai_suggest_skill(data):
     room = data.get('room')
     char_id = data.get('charId')
 
     if not room or not char_id: return
 
-    # 権限チェックは緩めでOK（誰でも提案は見れる、あるいはGMのみ）
-    # いったん誰でもOKとする
+    # 讓ｩ髯舌メ繧ｧ繝・け縺ｯ邱ｩ繧√〒OK・郁ｪｰ縺ｧ繧よ署譯医・隕九ｌ繧九√≠繧九＞縺ｯGM縺ｮ縺ｿ・・    # 縺・▲縺溘ｓ隱ｰ縺ｧ繧０K縺ｨ縺吶ｋ
 
     from manager.battle.common_manager import process_ai_suggest_skill
     suggested_skill_id = process_ai_suggest_skill(room, char_id)
@@ -417,6 +415,7 @@ def _infer_mass_type_from_skill(skill_id):
         'distance',
         '分類',
         '距離',
+        '射程',
         'target',
         'target_type',
         'targeting',
@@ -443,12 +442,12 @@ def _infer_mass_type_from_skill(skill_id):
     if (
         'mass_individual' in merged
         or 'individual' in merged
-        or '広域-個別' in merged
-        or '個別' in merged
+        or '蠎・沺-蛟句挨' in merged
+        or '蛟句挨' in merged
     ):
         return 'mass_individual'
 
-    if '広域' in merged:
+    if '蠎・沺' in merged:
         return 'mass_individual'
     return None
 
@@ -485,9 +484,16 @@ def _build_tags(skill_id, target):
         mass_type = None
     tags_text = ' '.join(str(t or '').lower() for t in skill_tags)
     return {
-        'instant': ('instant' in skill_tags or '即時' in tags_text or '即時発動' in tags_text),
+        'instant': (
+            'instant' in skill_tags
+            or '即時' in tags_text
+            or '即時発動' in tags_text
+        ),
         'mass_type': mass_type,
-        'no_redirect': ('no_redirect' in skill_tags or '対象変更不可' in tags_text)
+        'no_redirect': (
+            'no_redirect' in skill_tags
+            or '対象変更不可' in tags_text
+        )
     }
 
 def _extract_skill_cost_entries(skill_data):
@@ -1420,5 +1426,6 @@ def on_battle_intent_change_target(data):
 
     _refresh_resolve_ready(room_id, state)
     _emit_battle_state_updated(room_id, battle_id)
+
 
 

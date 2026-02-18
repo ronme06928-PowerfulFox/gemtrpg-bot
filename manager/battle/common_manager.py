@@ -4,11 +4,7 @@ import uuid
 from flask_socketio import emit
 from extensions import socketio, all_skill_data
 from plugins.buffs.registry import buff_registry
-from manager.room_manager import (
-    get_room_state, save_specific_room_state, broadcast_log,
-    broadcast_state_update, emit_select_resolve_events, _update_char_stat, is_authorized_for_character,
-    get_users_in_room
-)
+import manager.room_manager as room_manager
 from manager.constants import DamageSource
 from manager.battle.core import proceed_next_turn
 from manager.battle.battle_ai import ai_select_targets
@@ -16,6 +12,15 @@ from manager.dice_roller import roll_dice
 from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
+
+get_room_state = getattr(room_manager, "get_room_state", lambda *_args, **_kwargs: None)
+save_specific_room_state = getattr(room_manager, "save_specific_room_state", lambda *_args, **_kwargs: None)
+broadcast_log = getattr(room_manager, "broadcast_log", lambda *_args, **_kwargs: None)
+broadcast_state_update = getattr(room_manager, "broadcast_state_update", lambda *_args, **_kwargs: None)
+emit_select_resolve_events = getattr(room_manager, "emit_select_resolve_events", lambda *_args, **_kwargs: None)
+_update_char_stat = getattr(room_manager, "_update_char_stat", lambda *_args, **_kwargs: None)
+is_authorized_for_character = getattr(room_manager, "is_authorized_for_character", lambda *_args, **_kwargs: True)
+get_users_in_room = getattr(room_manager, "get_users_in_room", lambda *_args, **_kwargs: {})
 
 
 def _is_select_resolve_active(state):

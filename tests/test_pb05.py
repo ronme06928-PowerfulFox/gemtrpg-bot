@@ -6,7 +6,9 @@ from unittest.mock import MagicMock
 # Add project root to path
 sys.path.append(os.getcwd())
 
-# Mock modules that might cause issues
+# Mock modules only for local import bootstrap and restore immediately
+_ORIG_EXTENSIONS = sys.modules.get('extensions')
+_ORIG_FLASK = sys.modules.get('flask')
 sys.modules['extensions'] = MagicMock()
 sys.modules['flask'] = MagicMock()
 
@@ -14,6 +16,16 @@ sys.modules['flask'] = MagicMock()
 from manager.game_logic import process_skill_effects
 from manager.utils import get_status_value, set_status_value
 from plugins import EFFECT_REGISTRY
+
+# Restore global module table to avoid cross-test contamination.
+if _ORIG_EXTENSIONS is None:
+    sys.modules.pop('extensions', None)
+else:
+    sys.modules['extensions'] = _ORIG_EXTENSIONS
+if _ORIG_FLASK is None:
+    sys.modules.pop('flask', None)
+else:
+    sys.modules['flask'] = _ORIG_FLASK
 
 def test_pb05_logic():
     print("--- Testing Pb-05 Burst Logic ---")

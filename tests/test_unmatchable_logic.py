@@ -3,7 +3,50 @@ import sys
 import os
 import types
 import json
+import importlib
 from unittest.mock import MagicMock, patch
+
+_PATCHED_MODULE_KEYS = [
+    'flask',
+    'flask.globals',
+    'flask_sqlalchemy',
+    'flask_socketio',
+    'extensions',
+    'manager.room_manager',
+    'manager.utils',
+    'manager.buff_catalog',
+    'plugins',
+    'plugins.buffs',
+    'plugins.buffs.confusion',
+    'plugins.buffs.dodge_lock',
+    'plugins.buffs.registry',
+    'manager.dice_roller',
+    'manager.battle.duel_solver',
+    'manager.battle.wide_solver',
+    'manager.game_logic',
+]
+_ORIGINAL_MODULES = {k: sys.modules.get(k) for k in _PATCHED_MODULE_KEYS}
+
+
+def _restore_patched_modules():
+    for key, original in _ORIGINAL_MODULES.items():
+        if original is None:
+            sys.modules.pop(key, None)
+        else:
+            sys.modules[key] = original
+        if '.' in key:
+            pkg_name, attr_name = key.rsplit('.', 1)
+            pkg = sys.modules.get(pkg_name)
+            if pkg is not None:
+                if key in sys.modules:
+                    setattr(pkg, attr_name, sys.modules[key])
+                elif hasattr(pkg, attr_name):
+                    delattr(pkg, attr_name)
+    for name in ('manager.utils', 'manager.room_manager', 'manager.game_logic'):
+        try:
+            importlib.import_module(name)
+        except Exception:
+            pass
 
 # ==========================================
 # 1. Mock External Dependencies (Flask, SocketIO, SQLAlchemy)
@@ -146,18 +189,27 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Load Real Modules
 from manager.game_logic import calculate_skill_preview, process_skill_effects
-sys.modules['manager.game_logic'].process_skill_effects = process_skill_effects
-sys.modules['manager.game_logic'].get_status_value = mock_utils.get_status_value
-sys.modules['manager.game_logic'].calculate_damage_multiplier = mock_utils.calculate_damage_multiplier
 
 # Target Modules
 import manager.battle.duel_solver as duel_solver
 import manager.battle.wide_solver as wide_solver
 wide_solver.calculate_damage_multiplier = mock_utils.calculate_damage_multiplier
 
+# Restore global module table after local targets are imported.
+_restore_patched_modules()
+
 class TestUnmatchableLogic(unittest.TestCase):
     def setUp(self):
         mock_rm.broadcast_log.reset_mock()
+        duel_solver.get_room_state = mock_get_room_state
+        duel_solver.broadcast_log = mock_rm.broadcast_log
+        duel_solver._update_char_stat = mock_update_char_stat
+        duel_solver.all_skill_data = mock_skill_data
+        wide_solver.get_room_state = mock_get_room_state
+        wide_solver.broadcast_log = mock_rm.broadcast_log
+        wide_solver._update_char_stat = mock_update_char_stat
+        wide_solver.roll_dice = mock_dice.roll_dice
+        wide_solver.all_skill_data = mock_skill_data
         # Reset Chars
         test_room_state['characters'][0]['hp'] = 20
         test_room_state['characters'][0]['hasActed'] = False

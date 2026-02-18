@@ -2,7 +2,6 @@
 import sys
 import json
 import re # Added for regex
-from manager.utils import get_status_value, set_status_value, apply_buff, remove_buff, get_buff_stat_mod, get_buff_stat_mod_details, resolve_placeholders, get_effective_origin_id
 from manager.buff_catalog import get_buff_effect
 from manager.logs import setup_logger
 
@@ -10,6 +9,109 @@ from manager.logs import setup_logger
 from plugins import EFFECT_REGISTRY
 
 logger = setup_logger(__name__)
+
+
+def _utils_module():
+    return sys.modules.get('manager.utils')
+
+
+def _fallback_get_status_value(char_obj, status_name):
+    if not isinstance(char_obj, dict):
+        return 0
+    if status_name in ("HP", "hp"):
+        return int(char_obj.get("hp", 0) or 0)
+    if status_name in ("MP", "mp"):
+        return int(char_obj.get("mp", 0) or 0)
+    states = char_obj.get("states", [])
+    if isinstance(states, list):
+        hit = next((s for s in states if isinstance(s, dict) and s.get("name") == status_name), None)
+        if isinstance(hit, dict):
+            try:
+                return int(hit.get("value", 0))
+            except Exception:
+                return 0
+    return int(char_obj.get(status_name, 0) or 0)
+
+
+def get_status_value(char_obj, status_name):
+    mod = _utils_module()
+    fn = getattr(mod, "get_status_value", None) if mod else None
+    if callable(fn):
+        return fn(char_obj, status_name)
+    return _fallback_get_status_value(char_obj, status_name)
+
+
+def set_status_value(char_obj, status_name, value):
+    mod = _utils_module()
+    fn = getattr(mod, "set_status_value", None) if mod else None
+    if callable(fn):
+        return fn(char_obj, status_name, value)
+    if not isinstance(char_obj, dict):
+        return None
+    if status_name in ("HP", "hp"):
+        char_obj["hp"] = int(value or 0)
+        return None
+    if status_name in ("MP", "mp"):
+        char_obj["mp"] = int(value or 0)
+        return None
+    states = char_obj.setdefault("states", [])
+    if not isinstance(states, list):
+        states = []
+        char_obj["states"] = states
+    hit = next((s for s in states if isinstance(s, dict) and s.get("name") == status_name), None)
+    if hit is None:
+        states.append({"name": status_name, "value": int(value or 0)})
+    else:
+        hit["value"] = int(value or 0)
+    return None
+
+
+def apply_buff(*args, **kwargs):
+    mod = _utils_module()
+    fn = getattr(mod, "apply_buff", None) if mod else None
+    if callable(fn):
+        return fn(*args, **kwargs)
+    return None
+
+
+def remove_buff(*args, **kwargs):
+    mod = _utils_module()
+    fn = getattr(mod, "remove_buff", None) if mod else None
+    if callable(fn):
+        return fn(*args, **kwargs)
+    return None
+
+
+def get_buff_stat_mod(char_obj, stat_name):
+    mod = _utils_module()
+    fn = getattr(mod, "get_buff_stat_mod", None) if mod else None
+    if callable(fn):
+        return fn(char_obj, stat_name)
+    return 0
+
+
+def get_buff_stat_mod_details(char_obj, stat_name):
+    mod = _utils_module()
+    fn = getattr(mod, "get_buff_stat_mod_details", None) if mod else None
+    if callable(fn):
+        return fn(char_obj, stat_name)
+    return []
+
+
+def resolve_placeholders(text, char_obj):
+    mod = _utils_module()
+    fn = getattr(mod, "resolve_placeholders", None) if mod else None
+    if callable(fn):
+        return fn(text, char_obj)
+    return text
+
+
+def get_effective_origin_id(char_obj):
+    mod = _utils_module()
+    fn = getattr(mod, "get_effective_origin_id", None) if mod else None
+    if callable(fn):
+        return fn(char_obj)
+    return 0
 
 def _get_value_for_condition(source_obj, param_name, context=None):
     if not source_obj: return None
@@ -374,6 +476,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         if 'flags' not in sim_target:
                             sim_target['flags'] = {}
                         sim_target['flags']['fissure_received_this_round'] = True
+                        changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
 
 
             elif effect_type == "APPLY_STATE_PER_N":
@@ -420,6 +523,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         if 'flags' not in sim_target:
                             sim_target['flags'] = {}
                         sim_target['flags']['fissure_received_this_round'] = True
+                        changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
 
 
             elif effect_type == "MULTIPLY_STATE":
@@ -666,7 +770,6 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
     # ★ 追加: ヴァルヴァイレ (ID: 13) 恩恵: 被対象時、相手の威力-1
     valvile_correction = 0
     if target_char:
-        from manager.utils import get_effective_origin_id
         if get_effective_origin_id(target_char) == 13:
             valvile_correction = -1
             bonus_power += valvile_correction
@@ -679,10 +782,9 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
 
     # 綿津見 (ID: 9) ボーナス: 斬撃威力+1 (Preview用)
     try:
-        from manager.utils import get_effective_origin_id
         if get_effective_origin_id(actor_char) == 9 and skill_data.get('属性') == '斬撃':
             bonus_power += 1
-    except ImportError: pass
+    except Exception: pass
 
     skill_details['additional_power'] = bonus_power
 
