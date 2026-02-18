@@ -150,6 +150,15 @@ def _append_trace(
     battle_state['resolve']['trace'] = trace
     logger.info("[resolve_trace] kind=%s attacker_slot=%s", kind, attacker_slot)
     _emit_battle_trace(room, battle_id, battle_state, entry)
+    try:
+        _apply_step_end_timing_from_trace(room, battle_state, entry)
+    except Exception as e:
+        logger.warning(
+            "[timing_effect] RESOLVE_STEP_END failed kind=%s attacker_slot=%s error=%s",
+            kind,
+            attacker_slot,
+            e
+        )
 
 
 def _consume_legacy_timeline_entries_for_slots(state, slots, processed_slots):
@@ -461,6 +470,302 @@ def _apply_outcome_to_state(outcome, characters_by_id):
     return applied
 
 
+def _snapshot_characters_for_timing(state):
+    if not isinstance(state, dict):
+        return {}
+    out = {}
+    for char in state.get('characters', []) or []:
+        if not isinstance(char, dict):
+            continue
+        cid = char.get('id')
+        if not cid:
+            continue
+        out[cid] = _snapshot_for_outcome(char)
+    return out
+
+
+def _diff_timing_snapshots(before_map, after_map, damage_source='timing_effect'):
+    merged = {'damage': [], 'statuses': [], 'flags': []}
+    if not isinstance(before_map, dict) or not isinstance(after_map, dict):
+        return merged
+    for cid, before in before_map.items():
+        after = after_map.get(cid)
+        if not before or not after:
+            continue
+        diff = _diff_snapshot(before, after, damage_source=damage_source)
+        merged['damage'].extend(diff.get('damage', []) or [])
+        merged['statuses'].extend(diff.get('statuses', []) or [])
+        merged['flags'].extend(diff.get('flags', []) or [])
+    return merged
+
+
+def _run_skill_timing_effects(
+    room,
+    state,
+    actor_char,
+    target_char,
+    skill_data,
+    timing,
+    target_skill_data=None,
+    base_damage=0
+):
+    result = {
+        'bonus_damage': 0,
+        'extra_primary_damage': 0,
+        'logs': [],
+        'changes': [],
+        'damage': [],
+        'statuses': [],
+        'flags': [],
+    }
+    if not isinstance(actor_char, dict):
+        return result
+    if not isinstance(skill_data, dict):
+        return result
+
+    rule_data = _extract_rule_data_from_skill(skill_data)
+    effects_array = rule_data.get('effects', []) if isinstance(rule_data, dict) else []
+    if not isinstance(effects_array, list) or not effects_array:
+        return result
+
+    before_map = _snapshot_characters_for_timing(state)
+    context = {
+        'timeline': (state.get('timeline', []) if isinstance(state, dict) else []),
+        'characters': (state.get('characters', []) if isinstance(state, dict) else []),
+        'room': room,
+    }
+    try:
+        bonus_damage, logs, changes = process_skill_effects(
+            effects_array,
+            timing,
+            actor_char,
+            target_char,
+            target_skill_data,
+            context=context,
+            base_damage=base_damage
+        )
+    except Exception as e:
+        logger.warning(
+            "[timing_effect] timing=%s actor=%s failed: %s",
+            timing,
+            actor_char.get('id'),
+            e
+        )
+        return result
+
+    result['bonus_damage'] = int(bonus_damage or 0)
+    result['logs'] = list(logs or [])
+    result['changes'] = list(changes or [])
+    result['extra_primary_damage'] = int(
+        _apply_effect_changes_like_duel(
+            room,
+            state,
+            result['changes'],
+            actor_char,
+            target_char,
+            int(base_damage or 0),
+            result['logs']
+        ) or 0
+    )
+
+    after_map = _snapshot_characters_for_timing(state)
+    diff = _diff_timing_snapshots(
+        before_map,
+        after_map,
+        damage_source=f"{str(timing).lower()}_effect"
+    )
+    result['damage'] = diff.get('damage', []) or []
+    result['statuses'] = diff.get('statuses', []) or []
+    result['flags'] = diff.get('flags', []) or []
+    return result
+
+
+def _trigger_skill_timing_effects(
+    room,
+    state,
+    characters_by_id,
+    timing,
+    actor_char,
+    target_char,
+    skill_data,
+    target_skill_data=None,
+    base_damage=0,
+    emit_source='select_resolve_timing'
+):
+    res = _run_skill_timing_effects(
+        room=room,
+        state=state,
+        actor_char=actor_char,
+        target_char=target_char,
+        skill_data=skill_data,
+        timing=timing,
+        target_skill_data=target_skill_data,
+        base_damage=base_damage
+    )
+    if res.get('damage') or res.get('statuses'):
+        _emit_stat_updates_from_applied(
+            room,
+            {
+                'damage': res.get('damage', []),
+                'statuses': res.get('statuses', []),
+                'flags': res.get('flags', []),
+            },
+            characters_by_id if isinstance(characters_by_id, dict) else {},
+            source=emit_source
+        )
+    if res.get('logs'):
+        logger.info(
+            "[timing_effect] timing=%s actor=%s target=%s logs=%d",
+            timing,
+            actor_char.get('id') if isinstance(actor_char, dict) else None,
+            target_char.get('id') if isinstance(target_char, dict) else None,
+            len(res.get('logs') or [])
+        )
+    return res
+
+
+def _apply_phase_timing_for_committed_intents(
+    room,
+    state,
+    battle_state,
+    characters_by_id,
+    timing,
+    intents_override=None
+):
+    if not isinstance(state, dict) or not isinstance(battle_state, dict):
+        return 0
+    intents = intents_override if isinstance(intents_override, dict) else battle_state.get('intents', {})
+    slots = battle_state.get('slots', {}) if isinstance(battle_state.get('slots'), dict) else {}
+    resolve_ctx = battle_state.setdefault('resolve', {})
+    marks = resolve_ctx.setdefault('timing_marks', {})
+    applied_count = 0
+
+    for slot_id, intent in (intents or {}).items():
+        if not isinstance(intent, dict):
+            continue
+        if not intent.get('committed', False):
+            continue
+        if intent.get('tags', {}).get('instant', False):
+            continue
+        skill_id = intent.get('skill_id')
+        if not skill_id:
+            continue
+        mark_key = f"{timing}:{slot_id}"
+        if marks.get(mark_key):
+            continue
+
+        slot_data = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
+        attacker_actor_id = slot_data.get('actor_id') or intent.get('actor_id')
+        attacker_char = characters_by_id.get(attacker_actor_id) if isinstance(characters_by_id, dict) else None
+        if not isinstance(attacker_char, dict):
+            marks[mark_key] = True
+            continue
+
+        skill_data = all_skill_data.get(skill_id, {}) if isinstance(all_skill_data, dict) else {}
+        if not isinstance(skill_data, dict):
+            marks[mark_key] = True
+            continue
+
+        target = intent.get('target', {}) if isinstance(intent.get('target'), dict) else {}
+        target_slot_id = target.get('slot_id') if target.get('type') == 'single_slot' else None
+        target_slot_data = slots.get(target_slot_id, {}) if target_slot_id and isinstance(slots, dict) else {}
+        target_actor_id = target_slot_data.get('actor_id')
+        target_char = characters_by_id.get(target_actor_id) if target_actor_id else None
+        target_skill_data = None
+        if target_slot_id and isinstance(intents.get(target_slot_id), dict):
+            t_skill_id = intents.get(target_slot_id, {}).get('skill_id')
+            if t_skill_id:
+                target_skill_data = all_skill_data.get(t_skill_id, {}) if isinstance(all_skill_data, dict) else None
+
+        _trigger_skill_timing_effects(
+            room=room,
+            state=state,
+            characters_by_id=characters_by_id,
+            timing=timing,
+            actor_char=attacker_char,
+            target_char=target_char,
+            skill_data=skill_data,
+            target_skill_data=target_skill_data,
+            base_damage=0,
+            emit_source=f"resolve_{str(timing).lower()}"
+        )
+        marks[mark_key] = True
+        applied_count += 1
+    return applied_count
+
+
+def _apply_step_end_timing_from_trace(room, battle_state, trace_entry):
+    if not isinstance(battle_state, dict) or not isinstance(trace_entry, dict):
+        return 0
+    kind = str(trace_entry.get('kind') or '')
+    if kind not in {'clash', 'one_sided', 'mass_individual', 'mass_summation'}:
+        return 0
+
+    state = battle_state.get('__room_state_ref__')
+    if not isinstance(state, dict):
+        return 0
+    slots = battle_state.get('slots', {}) if isinstance(battle_state.get('slots'), dict) else {}
+    intents = battle_state.get('__resolve_intents_override')
+    if not isinstance(intents, dict):
+        intents = battle_state.get('intents', {})
+    chars = state.get('characters', []) if isinstance(state.get('characters'), list) else []
+    characters_by_id = {c.get('id'): c for c in chars if isinstance(c, dict) and c.get('id')}
+
+    attacker_slot_id = trace_entry.get('attacker_slot_id') or trace_entry.get('attacker_slot')
+    defender_slot_id = trace_entry.get('defender_slot_id') or trace_entry.get('defender_slot')
+    attacker_actor_id = trace_entry.get('attacker_actor_id') or (slots.get(attacker_slot_id, {}) or {}).get('actor_id')
+    defender_actor_id = trace_entry.get('defender_actor_id') or trace_entry.get('target_actor_id') or (slots.get(defender_slot_id, {}) or {}).get('actor_id')
+    attacker_char = characters_by_id.get(attacker_actor_id)
+    defender_char = characters_by_id.get(defender_actor_id)
+
+    attacker_intent = intents.get(attacker_slot_id, {}) if attacker_slot_id and isinstance(intents, dict) else {}
+    defender_intent = intents.get(defender_slot_id, {}) if defender_slot_id and isinstance(intents, dict) else {}
+    attacker_skill_id = attacker_intent.get('skill_id')
+    defender_skill_id = defender_intent.get('skill_id')
+    attacker_skill_data = all_skill_data.get(attacker_skill_id, {}) if attacker_skill_id and isinstance(all_skill_data, dict) else None
+    defender_skill_data = all_skill_data.get(defender_skill_id, {}) if defender_skill_id and isinstance(all_skill_data, dict) else None
+
+    rolls = trace_entry.get('rolls', {}) if isinstance(trace_entry.get('rolls'), dict) else {}
+    base_damage = int(
+        rolls.get('total_damage')
+        or rolls.get('final_damage')
+        or rolls.get('base_damage')
+        or rolls.get('delta')
+        or 0
+    )
+
+    applied = 0
+    if isinstance(attacker_char, dict) and isinstance(attacker_skill_data, dict):
+        _trigger_skill_timing_effects(
+            room=room,
+            state=state,
+            characters_by_id=characters_by_id,
+            timing='RESOLVE_STEP_END',
+            actor_char=attacker_char,
+            target_char=defender_char,
+            skill_data=attacker_skill_data,
+            target_skill_data=defender_skill_data,
+            base_damage=base_damage,
+            emit_source='resolve_step_end'
+        )
+        applied += 1
+    if isinstance(defender_char, dict) and isinstance(defender_skill_data, dict):
+        _trigger_skill_timing_effects(
+            room=room,
+            state=state,
+            characters_by_id=characters_by_id,
+            timing='RESOLVE_STEP_END',
+            actor_char=defender_char,
+            target_char=attacker_char,
+            skill_data=defender_skill_data,
+            target_skill_data=attacker_skill_data,
+            base_damage=base_damage,
+            emit_source='resolve_step_end'
+        )
+        applied += 1
+    return applied
+
+
 def _emit_char_stat_update(room, char_obj, stat_name, old_value, new_value, source='select_resolve'):
     if not isinstance(char_obj, dict):
         return False
@@ -699,6 +1004,84 @@ def _log_match_result(log_lines):
         logger.info("[match_result] %s", str(line))
 
 
+def _is_dice_damage_source(source_name):
+    src = str(source_name or '').strip()
+    if not src:
+        return False
+    src_lower = src.lower()
+    if 'ダイス' in src:
+        return True
+    if 'dice' in src_lower:
+        return True
+    if 'base_damage' in src_lower or 'power_roll' in src_lower:
+        return True
+    if 'mass_summation_delta' in src_lower:
+        return True
+    if '差分ダメージ' in src:
+        return True
+    if '合計ダメージ' in src:
+        return True
+    return False
+
+
+def _split_damage_entries_for_display(entries):
+    out = {
+        'dice_total': 0,
+        'effect_total': 0,
+        'dice_parts': [],
+        'effect_parts': [],
+    }
+    for item in entries or []:
+        if not isinstance(item, dict):
+            continue
+        src = str(item.get('source', 'ダメージ') or 'ダメージ')
+        try:
+            value = int(item.get('value', 0))
+        except (TypeError, ValueError):
+            value = 0
+        if value <= 0:
+            continue
+        part_label = f"[{src} {value}]"
+        if _is_dice_damage_source(src):
+            out['dice_total'] += value
+            out['dice_parts'].append(part_label)
+        else:
+            out['effect_total'] += value
+            out['effect_parts'].append(part_label)
+    return out
+
+
+def _extract_damage_parts_from_legacy_lines(lines, attacker_name, defender_name):
+    out = {'A': [], 'D': []}
+    if not isinstance(lines, list):
+        return out
+    for line in lines:
+        if not isinstance(line, str):
+            continue
+        if ('内訳' not in line) or ('<strong>' not in line):
+            continue
+        m_target = re.search(r"<strong>([^<]+)</strong>", line)
+        if not m_target:
+            continue
+        target_name = str(m_target.group(1) or '').strip()
+        side_key = 'A' if target_name == attacker_name else ('D' if target_name == defender_name else None)
+        if not side_key:
+            continue
+        details_text = line.split("内訳:", 1)[1] if "内訳:" in line else ""
+        for src, raw_value in re.findall(r"\[([^\[\]]+?)\s+(-?\d+)\]", details_text):
+            source = str(src or '').strip()
+            if not source:
+                continue
+            try:
+                value = int(raw_value)
+            except (TypeError, ValueError):
+                value = 0
+            if value <= 0:
+                continue
+            out[side_key].append({'source': source, 'value': value})
+    return out
+
+
 def format_duel_result_lines(
     actor_name_a,
     skill_display_a,
@@ -724,24 +1107,23 @@ def format_duel_result_lines(
         entries = report.get(target_key, []) or []
         if not entries:
             continue
-        total_dmg = 0
-        details_parts = []
-        for item in entries:
-            if not isinstance(item, dict):
-                continue
-            src = item.get('source', 'ダイスダメージ')
-            try:
-                value = int(item.get('value', 0))
-            except (TypeError, ValueError):
-                value = 0
-            if value <= 0:
-                continue
-            total_dmg += value
-            details_parts.append(f"[{src} {value}]")
-
+        split = _split_damage_entries_for_display(entries)
+        dice_total = int(split.get('dice_total', 0))
+        effect_total = int(split.get('effect_total', 0))
+        total_dmg = dice_total + effect_total
         if total_dmg <= 0:
             continue
-        details = " + ".join(details_parts)
+
+        details_parts = []
+        if dice_total > 0:
+            details_parts.append(f"[ダイス {dice_total}]")
+        if effect_total > 0:
+            if split.get('effect_parts'):
+                details_parts.extend(split.get('effect_parts'))
+            else:
+                details_parts.append(f"[効果 {effect_total}]")
+        details = " + ".join(details_parts) if details_parts else "[内訳なし]"
+
         damage_line = (
             f"<strong>{char_name}</strong> に <strong>{total_dmg}</strong> ダメージ"
             f"<br><span style='font-size:0.9em; color:#888;'>内訳: {details}</span>"
@@ -778,7 +1160,7 @@ def to_legacy_duel_log_input(outcome_payload, state, intents, attacker_slot, def
     defender_char = chars_by_id.get(defender_actor_id, {})
 
     attacker_name = attacker_char.get('name') or f"slot:{attacker_slot}"
-    defender_name = defender_char.get('name') or (f"slot:{defender_slot}" if defender_slot else "対象不在")
+    defender_name = defender_char.get('name') or (f"slot:{defender_slot}" if defender_slot else "対象不明")
 
     attacker_intent = intents.get(attacker_slot, {})
     defender_intent = intents.get(defender_slot, {}) if defender_slot else {}
@@ -814,6 +1196,8 @@ def to_legacy_duel_log_input(outcome_payload, state, intents, attacker_slot, def
     if kind in ['one_sided', 'fizzle']:
         skill_display_d = "-"
         power_b = "-"
+        if rolls.get('base_damage') is not None:
+            power_a = rolls.get('base_damage')
 
     if kind == 'fizzle':
         winner_message = "<strong> → 不発</strong>"
@@ -821,7 +1205,7 @@ def to_legacy_duel_log_input(outcome_payload, state, intents, attacker_slot, def
         winner_message = (
             f"<strong> → {attacker_name} の一方攻撃！</strong>"
             if outcome == 'attacker_win'
-            else "<strong> → 一方攻撃不成立</strong>"
+            else "<strong> → 一方攻撃（不成立）</strong>"
         )
     else:
         if outcome == 'attacker_win':
@@ -831,12 +1215,13 @@ def to_legacy_duel_log_input(outcome_payload, state, intents, attacker_slot, def
         elif outcome == 'draw':
             winner_message = "<strong> → 引き分け！</strong> (ダメージなし)"
         else:
-            winner_message = "<strong> → 決着なし</strong>"
+            winner_message = "<strong> → 効果なし</strong>"
 
     damage_report = {'A': [], 'D': []}
     source_alias = {
         'one_sided_delegate': '一方攻撃',
     }
+    per_side_total = {'A': 0, 'D': 0}
     for dmg in applied.get('damage', []) or []:
         if not isinstance(dmg, dict):
             continue
@@ -847,12 +1232,130 @@ def to_legacy_duel_log_input(outcome_payload, state, intents, attacker_slot, def
             amount = 0
         if amount <= 0:
             continue
-        source_raw = str(dmg.get('source') or 'ダイスダメージ')
-        source = source_alias.get(source_raw, source_raw)
         if target_id == attacker_actor_id:
-            damage_report['A'].append({'source': source, 'value': amount})
+            per_side_total['A'] += amount
         elif target_id == defender_actor_id:
-            damage_report['D'].append({'source': source, 'value': amount})
+            per_side_total['D'] += amount
+
+    delegate_legacy_parts = _extract_damage_parts_from_legacy_lines(
+        (delegate_summary.get('legacy_log_lines', []) if isinstance(delegate_summary, dict) else []),
+        attacker_name,
+        defender_name
+    )
+
+    def _append_split(side_key, total_value, dice_value):
+        total_value = int(total_value or 0)
+        if total_value <= 0:
+            return
+        dice_part = min(max(int(dice_value or 0), 0), total_value)
+        effect_part = max(0, total_value - dice_part)
+        if dice_part > 0:
+            damage_report[side_key].append({'source': 'ダイスダメージ', 'value': dice_part})
+        if effect_part > 0:
+            damage_report[side_key].append({'source': 'キーワード効果ダメージ', 'value': effect_part})
+        if dice_part <= 0 and effect_part <= 0:
+            damage_report[side_key].append({'source': 'ダメージ', 'value': total_value})
+
+    def _append_legacy_parts_with_cap(side_key, total_value):
+        total_value = int(total_value or 0)
+        if total_value <= 0:
+            return {'used_total': 0, 'used_dice': 0}
+        remaining = total_value
+        used_total = 0
+        used_dice = 0
+        for item in delegate_legacy_parts.get(side_key, []) or []:
+            if not isinstance(item, dict):
+                continue
+            source = str(item.get('source', '') or '').strip()
+            if not source:
+                continue
+            try:
+                value = int(item.get('value', 0))
+            except (TypeError, ValueError):
+                value = 0
+            if value <= 0 or remaining <= 0:
+                continue
+            take = min(value, remaining)
+            damage_report[side_key].append({'source': source, 'value': take})
+            used_total += take
+            if _is_dice_damage_source(source):
+                used_dice += take
+            remaining -= take
+            if remaining <= 0:
+                break
+        return {'used_total': used_total, 'used_dice': used_dice}
+
+    if kind in ['one_sided', 'fizzle']:
+        try:
+            base_roll_damage = int(rolls.get('base_damage', 0) or 0)
+        except (TypeError, ValueError):
+            base_roll_damage = 0
+        _append_split('D', per_side_total.get('D', 0), base_roll_damage)
+        if int(per_side_total.get('A', 0) or 0) > 0:
+            damage_report['A'].append({'source': 'キーワード効果ダメージ', 'value': int(per_side_total.get('A', 0) or 0)})
+    elif kind == 'clash':
+        try:
+            power_a = int(rolls.get('power_a', 0) or 0)
+        except (TypeError, ValueError):
+            power_a = 0
+        try:
+            power_b = int(rolls.get('power_b', 0) or 0)
+        except (TypeError, ValueError):
+            power_b = 0
+        if outcome == 'attacker_win':
+            d_total = int(per_side_total.get('D', 0) or 0)
+            d_used = _append_legacy_parts_with_cap('D', d_total)
+            d_remain = max(0, d_total - int(d_used.get('used_total', 0)))
+            d_dice_remain = max(0, int(power_a or 0) - int(d_used.get('used_dice', 0)))
+            _append_split('D', d_remain, d_dice_remain)
+            if int(per_side_total.get('A', 0) or 0) > 0:
+                a_total = int(per_side_total.get('A', 0) or 0)
+                a_used = _append_legacy_parts_with_cap('A', a_total)
+                a_remain = max(0, a_total - int(a_used.get('used_total', 0)))
+                if a_remain > 0:
+                    damage_report['A'].append({'source': 'キーワード効果ダメージ', 'value': a_remain})
+        elif outcome == 'defender_win':
+            a_total = int(per_side_total.get('A', 0) or 0)
+            a_used = _append_legacy_parts_with_cap('A', a_total)
+            a_remain = max(0, a_total - int(a_used.get('used_total', 0)))
+            a_dice_remain = max(0, int(power_b or 0) - int(a_used.get('used_dice', 0)))
+            _append_split('A', a_remain, a_dice_remain)
+            if int(per_side_total.get('D', 0) or 0) > 0:
+                d_total = int(per_side_total.get('D', 0) or 0)
+                d_used = _append_legacy_parts_with_cap('D', d_total)
+                d_remain = max(0, d_total - int(d_used.get('used_total', 0)))
+                if d_remain > 0:
+                    damage_report['D'].append({'source': 'キーワード効果ダメージ', 'value': d_remain})
+        else:
+            if int(per_side_total.get('A', 0) or 0) > 0:
+                a_total = int(per_side_total.get('A', 0) or 0)
+                a_used = _append_legacy_parts_with_cap('A', a_total)
+                a_remain = max(0, a_total - int(a_used.get('used_total', 0)))
+                if a_remain > 0:
+                    damage_report['A'].append({'source': 'キーワード効果ダメージ', 'value': a_remain})
+            if int(per_side_total.get('D', 0) or 0) > 0:
+                d_total = int(per_side_total.get('D', 0) or 0)
+                d_used = _append_legacy_parts_with_cap('D', d_total)
+                d_remain = max(0, d_total - int(d_used.get('used_total', 0)))
+                if d_remain > 0:
+                    damage_report['D'].append({'source': 'キーワード効果ダメージ', 'value': d_remain})
+    else:
+        for dmg in applied.get('damage', []) or []:
+            if not isinstance(dmg, dict):
+                continue
+            target_id = dmg.get('target_id')
+            try:
+                amount = int(dmg.get('hp', dmg.get('amount', 0)))
+            except (TypeError, ValueError):
+                amount = 0
+            if amount <= 0:
+                continue
+            source_raw = str(dmg.get('source') or 'ダイスダメージ')
+            source = source_alias.get(source_raw, source_raw)
+            if target_id == attacker_actor_id:
+                damage_report['A'].append({'source': source, 'value': amount})
+            elif target_id == defender_actor_id:
+                damage_report['D'].append({'source': source, 'value': amount})
 
     extra_lines = []
     tie_break = rolls.get('tie_break')
@@ -912,7 +1415,7 @@ def _snapshot_for_outcome(actor):
             states_map[n] = 0
     # Some legacy effects are stored outside states[].
     bad_states_map = {}
-    for bs in actor.get('bad_states', []) or actor.get('状態異常', []) or []:
+    for bs in actor.get('bad_states', []) or actor.get('迥ｶ諷狗焚蟶ｸ', []) or []:
         if isinstance(bs, dict):
             name = bs.get('name') or bs.get('type')
             if not name:
@@ -945,7 +1448,7 @@ def _snapshot_for_outcome(actor):
     }
 
 
-def _diff_snapshot(before, after, damage_source='ダイスダメージ'):
+def _diff_snapshot(before, after, damage_source='繝繧､繧ｹ繝繝｡繝ｼ繧ｸ'):
     if not before or not after:
         return {'damage': [], 'statuses': [], 'flags': []}
     actor_id = after.get('id')
@@ -955,7 +1458,7 @@ def _diff_snapshot(before, after, damage_source='ダイスダメージ'):
 
     hp_loss = int(before.get('hp', 0)) - int(after.get('hp', 0))
     if hp_loss > 0:
-        damage.append({'target_id': actor_id, 'hp': hp_loss, 'source': str(damage_source or 'ダイスダメージ')})
+        damage.append({'target_id': actor_id, 'hp': hp_loss, 'source': str(damage_source or '繝繧､繧ｹ繝繝｡繝ｼ繧ｸ')})
 
     state_names = set(before.get('states', {}).keys()) | set(after.get('states', {}).keys())
     for name in state_names:
@@ -1019,7 +1522,7 @@ def _apply_effect_changes_like_duel(room, state, changes, attacker_char, defende
                 _update_char_stat(room, char, 'HP', max(0, curr_hp - int(value)), username=f"[{name}]", source=DamageSource.SKILL_EFFECT)
         elif effect_type == "APPLY_SKILL_DAMAGE_AGAIN":
             if base_damage > 0:
-                _update_char_stat(room, char, 'HP', int(char.get('hp', 0)) - int(base_damage), username="[追撃]", source=DamageSource.SKILL_EFFECT)
+                _update_char_stat(room, char, 'HP', int(char.get('hp', 0)) - int(base_damage), username="[霑ｽ謦ゾ", source=DamageSource.SKILL_EFFECT)
                 temp_logs = []
                 b_dmg = process_on_damage_buffs(room, char, int(base_damage), "[select_resolve_one_sided]", temp_logs)
                 log_snippets.extend(temp_logs)
@@ -1047,14 +1550,62 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     before_d = _snapshot_for_outcome(defender_char)
 
     context = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room}
+    characters_by_id = {
+        c.get('id'): c for c in state.get('characters', [])
+        if isinstance(c, dict) and c.get('id')
+    }
+    attacker_rule = _extract_rule_data_from_skill(attacker_skill_data)
+    effects_array_a = attacker_rule.get('effects', []) if isinstance(attacker_rule, dict) else []
+    log_snippets = []
+
+    # Select/Resolve one-sided now aligns with duel order: PRE_MATCH first.
+    pre_a = _trigger_skill_timing_effects(
+        room=room,
+        state=state,
+        characters_by_id=characters_by_id,
+        timing='PRE_MATCH',
+        actor_char=attacker_char,
+        target_char=defender_char,
+        skill_data=attacker_skill_data,
+        target_skill_data=defender_skill_data,
+        base_damage=0,
+        emit_source='one_sided_pre_match'
+    )
+    if pre_a.get('logs'):
+        log_snippets.extend(pre_a.get('logs', []))
+    if isinstance(defender_skill_data, dict):
+        pre_d = _trigger_skill_timing_effects(
+            room=room,
+            state=state,
+            characters_by_id=characters_by_id,
+            timing='PRE_MATCH',
+            actor_char=defender_char,
+            target_char=attacker_char,
+            skill_data=defender_skill_data,
+            target_skill_data=attacker_skill_data,
+            base_damage=0,
+            emit_source='one_sided_pre_match'
+        )
+        if pre_d.get('logs'):
+            log_snippets.extend(pre_d.get('logs', []))
+
+    _trigger_skill_timing_effects(
+        room=room,
+        state=state,
+        characters_by_id=characters_by_id,
+        timing='BEFORE_POWER_ROLL',
+        actor_char=attacker_char,
+        target_char=defender_char,
+        skill_data=attacker_skill_data,
+        target_skill_data=defender_skill_data,
+        base_damage=0,
+        emit_source='before_power_roll'
+    )
+
     preview = calculate_skill_preview(attacker_char, defender_char, attacker_skill_data, context=context)
     final_command = (preview or {}).get('final_command') or "0"
     roll_result = roll_dice(final_command)
     base_damage = int(roll_result.get('total', 0))
-
-    attacker_rule = _extract_rule_data_from_skill(attacker_skill_data)
-    effects_array_a = attacker_rule.get('effects', []) if isinstance(attacker_rule, dict) else []
-    log_snippets = []
 
     bd_un, log_un, chg_un = process_skill_effects(
         effects_array_a, "UNOPPOSED", attacker_char, defender_char, defender_skill_data, context=context
@@ -1096,6 +1647,32 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     _update_char_stat(room, defender_char, 'HP', int(defender_char.get('hp', 0)) - final_damage, username="[select_resolve_one_sided]")
     on_damage_extra = int(process_on_damage_buffs(room, defender_char, final_damage, "[select_resolve_one_sided]", log_snippets))
     total_damage = int(final_damage) + int(on_damage_extra)
+
+    _trigger_skill_timing_effects(
+        room=room,
+        state=state,
+        characters_by_id=characters_by_id,
+        timing='AFTER_DAMAGE_APPLY',
+        actor_char=attacker_char,
+        target_char=defender_char,
+        skill_data=attacker_skill_data,
+        target_skill_data=defender_skill_data,
+        base_damage=total_damage,
+        emit_source='after_damage_apply'
+    )
+    if isinstance(defender_skill_data, dict):
+        _trigger_skill_timing_effects(
+            room=room,
+            state=state,
+            characters_by_id=characters_by_id,
+            timing='AFTER_DAMAGE_APPLY',
+            actor_char=defender_char,
+            target_char=attacker_char,
+            skill_data=defender_skill_data,
+            target_skill_data=attacker_skill_data,
+            base_damage=total_damage,
+            emit_source='after_damage_apply'
+        )
 
     after_a = _snapshot_for_outcome(attacker_char)
     after_d = _snapshot_for_outcome(defender_char)
@@ -1204,6 +1781,34 @@ def _resolve_clash_by_existing_logic(
     before_d = _snapshot_for_outcome(defender_char)
 
     context = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room}
+    characters_by_id = {
+        c.get('id'): c for c in state.get('characters', [])
+        if isinstance(c, dict) and c.get('id')
+    }
+    _trigger_skill_timing_effects(
+        room=room,
+        state=state,
+        characters_by_id=characters_by_id,
+        timing='BEFORE_POWER_ROLL',
+        actor_char=attacker_char,
+        target_char=defender_char,
+        skill_data=attacker_skill_data,
+        target_skill_data=defender_skill_data,
+        base_damage=0,
+        emit_source='before_power_roll'
+    )
+    _trigger_skill_timing_effects(
+        room=room,
+        state=state,
+        characters_by_id=characters_by_id,
+        timing='BEFORE_POWER_ROLL',
+        actor_char=defender_char,
+        target_char=attacker_char,
+        skill_data=defender_skill_data,
+        target_skill_data=attacker_skill_data,
+        base_damage=0,
+        emit_source='before_power_roll'
+    )
     preview_a = calculate_skill_preview(attacker_char, defender_char, attacker_skill_data, context=context)
     preview_d = calculate_skill_preview(defender_char, attacker_char, defender_skill_data, context=context)
     command_a = (preview_a or {}).get('final_command') or "0"
@@ -1310,10 +1915,35 @@ def _resolve_clash_by_existing_logic(
         attacker_char['hasActed'] = old_has_acted_a
         defender_char['hasActed'] = old_has_acted_d
 
+    _trigger_skill_timing_effects(
+        room=room,
+        state=state,
+        characters_by_id=characters_by_id,
+        timing='AFTER_DAMAGE_APPLY',
+        actor_char=attacker_char,
+        target_char=defender_char,
+        skill_data=attacker_skill_data,
+        target_skill_data=defender_skill_data,
+        base_damage=0,
+        emit_source='after_damage_apply'
+    )
+    _trigger_skill_timing_effects(
+        room=room,
+        state=state,
+        characters_by_id=characters_by_id,
+        timing='AFTER_DAMAGE_APPLY',
+        actor_char=defender_char,
+        target_char=attacker_char,
+        skill_data=defender_skill_data,
+        target_skill_data=attacker_skill_data,
+        base_damage=0,
+        emit_source='after_damage_apply'
+    )
+
     after_a = _snapshot_for_outcome(attacker_char)
     after_d = _snapshot_for_outcome(defender_char)
-    delta_a = _diff_snapshot(before_a, after_a, damage_source='ダイスダメージ')
-    delta_d = _diff_snapshot(before_d, after_d, damage_source='ダイスダメージ')
+    delta_a = _diff_snapshot(before_a, after_a, damage_source='繝繧､繧ｹ繝繝｡繝ｼ繧ｸ')
+    delta_d = _diff_snapshot(before_d, after_d, damage_source='繝繧､繧ｹ繝繝｡繝ｼ繧ｸ')
 
     try:
         burst_before = int((before_d or {}).get('states', {}).get('破裂', 0))
@@ -1341,12 +1971,12 @@ def _resolve_clash_by_existing_logic(
             outcome = 'defender_win'
         else:
             tie_break = 'draw'
-            if '引き分け' in match_log:
+            if '蠑輔″蛻・￠' in match_log:
                 outcome = 'draw'
-            elif f"{actor_a_name} の勝利" in match_log:
+            elif f"{actor_a_name} 縺ｮ蜍晏茜" in match_log:
                 outcome = 'attacker_win'
                 tie_break = 'existing_rule_attacker'
-            elif f"{actor_d_name} の勝利" in match_log:
+            elif f"{actor_d_name} 縺ｮ蜍晏茜" in match_log:
                 outcome = 'defender_win'
                 tie_break = 'existing_rule_defender'
             else:
@@ -1669,9 +2299,28 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
         if target_slot_id and isinstance(slots, dict):
             defender_slot_data = slots.get(target_slot_id, {}) or {}
             defender_char = chars_by_id.get(defender_slot_data.get('actor_id'))
+        defender_skill_data = None
+        if target_slot_id and isinstance(intents.get(target_slot_id), dict):
+            defender_skill_id = intents.get(target_slot_id, {}).get('skill_id')
+            if defender_skill_id and isinstance(all_skill_data, dict):
+                defender_skill_data = all_skill_data.get(defender_skill_id, {})
 
         if isinstance(attacker_char, dict) and isinstance(skill_data, dict):
             try:
+                room_name = battle_state.get('__room_name') if isinstance(battle_state, dict) else None
+                if room_name:
+                    _trigger_skill_timing_effects(
+                        room=room_name,
+                        state=room_state,
+                        characters_by_id=chars_by_id,
+                        timing='BEFORE_POWER_ROLL',
+                        actor_char=attacker_char,
+                        target_char=defender_char or attacker_char,
+                        skill_data=skill_data,
+                        target_skill_data=defender_skill_data,
+                        base_damage=0,
+                        emit_source='before_power_roll'
+                    )
                 context = {'room_state': room_state}
                 preview = calculate_skill_preview(attacker_char, defender_char or attacker_char, skill_data, context=context)
                 final_command = (preview or {}).get('final_command') or "0"
@@ -1689,10 +2338,10 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
 
     # Fallback: static power expression from skill data.
     try:
-        base_power = int(skill_data.get('基礎威力', skill_data.get('base_power', 0)) or 0)
+        base_power = int(skill_data.get('蝓ｺ遉主ｨ∝鴨', skill_data.get('base_power', 0)) or 0)
     except Exception:
         base_power = 0
-    dice_part = str(skill_data.get('ダイス威力', skill_data.get('dice_power', '')) or '').strip()
+    dice_part = str(skill_data.get('繝繧､繧ｹ螽∝鴨', skill_data.get('dice_power', '')) or '').strip()
     if base_power and dice_part:
         command = f"{base_power}{dice_part}" if dice_part.startswith(('+', '-')) else f"{base_power}+{dice_part}"
     elif dice_part:
@@ -1776,6 +2425,7 @@ def run_select_resolve_auto(room, battle_id):
 
     # Ephemeral context for resolve-time power roll helpers.
     battle_state['__room_state_ref__'] = state
+    battle_state['__room_name'] = room
 
     resolve_intents = battle_state.get('resolve_snapshot_intents')
     if not isinstance(resolve_intents, dict) or len(resolve_intents) == 0:
@@ -1795,6 +2445,17 @@ def run_select_resolve_auto(room, battle_id):
         'single': int(single_steps_est),
         'total': int(resolve_ctx['step_total']),
     }
+    try:
+        _apply_phase_timing_for_committed_intents(
+            room=room,
+            state=state,
+            battle_state=battle_state,
+            characters_by_id=characters_by_id,
+            timing='RESOLVE_START',
+            intents_override=resolve_intents
+        )
+    except Exception as e:
+        logger.warning("[timing_effect] RESOLVE_START failed room=%s battle=%s error=%s", room, battle_id, e)
 
     if battle_state.get('phase') == 'resolve_mass':
         intents = resolve_intents
@@ -1813,7 +2474,7 @@ def run_select_resolve_auto(room, battle_id):
                 enemy_actors.append(actor_id)
             return enemy_actors
 
-        def _emit_hp_diff(char_obj, old_hp, new_hp, source='mass_summation'):
+        def _emit_hp_diff(char_obj, old_hp, new_hp, source='広域-合算'):
             if not isinstance(char_obj, dict):
                 return
             if int(old_hp) == int(new_hp):
@@ -1844,11 +2505,11 @@ def run_select_resolve_auto(room, battle_id):
                 if after_hp == before_hp:
                     continue
                 defender_char['hp'] = after_hp
-                _emit_hp_diff(defender_char, before_hp, after_hp, source='mass_summation')
+                _emit_hp_diff(defender_char, before_hp, after_hp, source='広域-合算')
                 damage_events.append({
                     'target_id': actor_id,
                     'hp': int(before_hp - after_hp),
-                    'damage_type': 'mass_summation_delta'
+                    'damage_type': '合計ダメージ'
                 })
             return damage_events
 
@@ -1994,7 +2655,7 @@ def run_select_resolve_auto(room, battle_id):
                 skill_name = _resolve_skill_name(attacker_skill_id, attacker_skill_data)
                 defender_actor_ids = _enemy_actor_ids_for_team(attacker_team)
                 logger.info(
-                    "[resolve_mass] type=summation slot=%s participants=%d attacker_power=%s defender_sum=%s outcome=%s delta=%s",
+                    "[resolve_mass] type=広域-合算 slot=%s 参加人数=%d attacker_power=%s defender_sum=%s outcome=%s 威力差=%s",
                     slot_id, len(participant_slots), attacker_power, defender_sum, outcome, delta
                 )
 
@@ -2003,11 +2664,26 @@ def run_select_resolve_auto(room, battle_id):
                     damage_events = _apply_mass_summation_delta_damage(defender_actor_ids, delta)
                 elif outcome == 'defender_win' and delta > 0:
                     damage_events = _apply_mass_summation_delta_damage([attacker_actor_id], delta)
+                target_for_timing = None
+                if damage_events:
+                    target_for_timing = characters_by_id.get(damage_events[0].get('target_id'))
+                _trigger_skill_timing_effects(
+                    room=room,
+                    state=state,
+                    characters_by_id=characters_by_id,
+                    timing='AFTER_DAMAGE_APPLY',
+                    actor_char=attacker_char,
+                    target_char=target_for_timing,
+                    skill_data=attacker_skill_data,
+                    target_skill_data=None,
+                    base_damage=int(delta or 0),
+                    emit_source='after_damage_apply'
+                )
 
                 if outcome == 'attacker_win':
-                    winner_message = '広域側の勝利'
+                    winner_message = '攻撃側の勝利'
                 elif outcome == 'defender_win':
-                    winner_message = '防御合算側の勝利'
+                    winner_message = '防御側の勝利'
                 else:
                     winner_message = '引き分け'
 
@@ -2016,11 +2692,11 @@ def run_select_resolve_auto(room, battle_id):
                         f"<strong>{attacker_name}</strong> "
                         f"<span style='color: #d63384; font-weight: bold;'>【{skill_name}】</span> "
                         f"(<span class='dice-result-total'>{attacker_power}</span>) vs "
-                        f"<strong>防御合算</strong> "
+                        f"<strong>防御威力合計</strong> "
                         f"(<span class='dice-result-total'>{defender_sum}</span>) | "
                         f"<strong> → {winner_message}</strong>"
                     ),
-                    f"[mass_summation] participants={len(participant_slots)} delta={delta}",
+                    f"[広域-合算] 参加人数={len(participant_slots)} 威力差={delta}",
                 ]
                 for e in damage_events:
                     target_name = _resolve_actor_name(characters_by_id, e.get('target_id'))
@@ -2028,7 +2704,7 @@ def run_select_resolve_auto(room, battle_id):
                     if dmg_val > 0:
                         summary_lines.append(
                             f"<strong>{target_name}</strong> に <strong>{dmg_val}</strong> ダメージ"
-                            f"<br><span style='font-size:0.9em; color:#888;'>内訳: [広域合算差分 {dmg_val}]</span>"
+                            f"<br><span style='font-size:0.9em; color:#888;'>内訳: [合計ダメージ {dmg_val}]</span>"
                         )
                 _log_match_result(summary_lines)
 
@@ -2632,10 +3308,23 @@ def run_select_resolve_auto(room, battle_id):
             timeline_after.get('head')
         )
 
+        try:
+            _apply_phase_timing_for_committed_intents(
+                room=room,
+                state=state,
+                battle_state=battle_state,
+                characters_by_id=characters_by_id,
+                timing='RESOLVE_END',
+                intents_override=resolve_intents
+            )
+        except Exception as e:
+            logger.warning("[timing_effect] RESOLVE_END failed room=%s battle=%s error=%s", room, battle_id, e)
+
         battle_state['phase'] = 'round_end'
         battle_state['intents'] = {}
         battle_state['resolve_snapshot_intents'] = {}
         battle_state['resolve_snapshot_at'] = None
+        battle_state.setdefault('resolve', {})['timing_marks'] = {}
 
         # Stop legacy sequential turn flow after select/resolve round is finished.
         state['turn_char_id'] = None
@@ -2662,12 +3351,13 @@ def run_select_resolve_auto(room, battle_id):
             socketio.emit('battle_state_updated', payload, to=room)
 
     battle_state.pop('__room_state_ref__', None)
+    battle_state.pop('__room_name', None)
     battle_state.pop('__resolve_intents_override', None)
     save_specific_room_state(room)
 
 def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data, target_skill_data, all_skill_data_ref):
     """
-    相手スキルを考慮したPRE_MATCHエフェクトを評価し、各種補正値を返す。
+    逶ｸ謇九せ繧ｭ繝ｫ繧定・・縺励◆PRE_MATCH繧ｨ繝輔ぉ繧ｯ繝医ｒ隧穂ｾ｡縺励∝推遞ｮ陬懈ｭ｣蛟､繧定ｿ斐☆縲・
     """
     modifiers = {
         "base_power_mod": 0,
@@ -2680,18 +3370,17 @@ def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data
         return modifiers
 
     try:
-        rule_json_str = actor_skill_data.get('特記処理', '{}')
-        rule_data = json.loads(rule_json_str) if rule_json_str else {}
-        effects_array = rule_data.get("effects", [])
+        rule_data = _extract_rule_data_from_skill(actor_skill_data)
+        effects_array = rule_data.get("effects", []) if isinstance(rule_data, dict) else []
 
-        # PRE_MATCHタイミングのエフェクトを評価
+        # PRE_MATCH繧ｿ繧､繝溘Φ繧ｰ縺ｮ繧ｨ繝輔ぉ繧ｯ繝医ｒ隧穂ｾ｡
         _, logs, changes = process_skill_effects(
             effects_array, "PRE_MATCH", actor_char, target_char, target_skill_data
         )
 
         for (char, effect_type, name, value) in changes:
             if effect_type == "MODIFY_BASE_POWER":
-                # ターゲットへの基礎威力補正
+                # 繧ｿ繝ｼ繧ｲ繝・ヨ縺ｸ縺ｮ蝓ｺ遉主ｨ∝鴨陬懈ｭ｣
                 if char and target_char and char.get('id') == target_char.get('id'):
                     modifiers["base_power_mod"] += value
     except Exception as e:
@@ -2701,25 +3390,25 @@ def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data
 
 def extract_cost_from_text(text):
     """
-    使用時効果テキストからコスト記述を抽出する
+    菴ｿ逕ｨ譎ょ柑譫懊ユ繧ｭ繧ｹ繝医°繧峨さ繧ｹ繝郁ｨ倩ｿｰ繧呈歓蜃ｺ縺吶ｋ
     """
     if not text:
         return "なし"
-    match = re.search(r'\[使用時\]:?([^\n]+)', text)
+    match = re.search(r'\[菴ｿ逕ｨ譎・]:?([^\n]+)', text)
     if match:
         return match.group(1).strip()
     return "なし"
 
 def extract_custom_skill_name(character, skill_id):
     """
-    キャラクターのcommandsからスキルIDに対応するカスタム名を抽出
+    繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ縺ｮcommands縺九ｉ繧ｹ繧ｭ繝ｫID縺ｫ蟇ｾ蠢懊☆繧九き繧ｹ繧ｿ繝蜷阪ｒ謚ｽ蜃ｺ
 
     Args:
-        character (dict): キャラクターデータ
-        skill_id (str): スキルID (例: "Pp-01")
+        character (dict): 繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ繝・・繧ｿ
+        skill_id (str): 繧ｹ繧ｭ繝ｫID (萓・ "Pp-01")
 
     Returns:
-        str: カスタムスキル名またはNone
+        str: 繧ｫ繧ｹ繧ｿ繝繧ｹ繧ｭ繝ｫ蜷阪∪縺溘・None
     """
     if not character or not skill_id:
         return None
@@ -2728,8 +3417,8 @@ def extract_custom_skill_name(character, skill_id):
     if not commands:
         return None
 
-    # 【Pp-01 刺し込むA】や【Pp-01: 刺し込むA】のようなパターンを検索
-    # スペースまたはコロン（全角・半角）で区切られた名前を抽出
+    # 縲娠p-01 蛻ｺ縺苓ｾｼ繧A縲代ｄ縲娠p-01: 蛻ｺ縺苓ｾｼ繧A縲代・繧医≧縺ｪ繝代ち繝ｼ繝ｳ繧呈､懃ｴ｢
+    # 繧ｹ繝壹・繧ｹ縺ｾ縺溘・繧ｳ繝ｭ繝ｳ・亥・隗偵・蜊願ｧ抵ｼ峨〒蛹ｺ蛻・ｉ繧後◆蜷榊燕繧呈歓蜃ｺ
     pattern = rf'【{re.escape(skill_id)}[\s:：]+(.*?)】'
     match = re.search(pattern, commands)
 
@@ -2740,43 +3429,45 @@ def extract_custom_skill_name(character, skill_id):
 
 def format_skill_name_for_log(skill_id, skill_data, character=None):
     """
-    ログ用のスキル名をフォーマットする
-    キャラクター情報が提供されている場合はカスタム名を優先、
-    なければデフォルト名を使用
+    繝ｭ繧ｰ逕ｨ縺ｮ繧ｹ繧ｭ繝ｫ蜷阪ｒ繝輔か繝ｼ繝槭ャ繝医☆繧・
+    繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ諠・ｱ縺梧署萓帙＆繧後※縺・ｋ蝣ｴ蜷医・繧ｫ繧ｹ繧ｿ繝蜷阪ｒ蜆ｪ蜈医・
+    縺ｪ縺代ｌ縺ｰ繝・ヵ繧ｩ繝ｫ繝亥錐繧剃ｽｿ逕ｨ
 
     Args:
-        skill_id (str): スキルID (例: "Pp-01")
-        skill_data (dict): スキルデータ
-        character (dict): キャラクターデータ（オプション）
+        skill_id (str): 繧ｹ繧ｭ繝ｫID (萓・ "Pp-01")
+        skill_data (dict): 繧ｹ繧ｭ繝ｫ繝・・繧ｿ
+        character (dict): 繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ繝・・繧ｿ・医が繝励す繝ｧ繝ｳ・・
 
     Returns:
-        str: フォーマットされたスキル名 (例: "Pp-01: 刺し込むA")
+        str: 繝輔か繝ｼ繝槭ャ繝医＆繧後◆繧ｹ繧ｭ繝ｫ蜷・(萓・ "Pp-01: 蛻ｺ縺苓ｾｼ繧A")
     """
     if not skill_id:
-        return "不明"
+        return "荳肴・"
 
-    # カスタム名を取得
+    # 繧ｫ繧ｹ繧ｿ繝蜷阪ｒ蜿門ｾ・
     custom_name = None
     if character:
         custom_name = extract_custom_skill_name(character, skill_id)
 
-    # カスタム名があればそれを使用、なければデフォルト名
+    # 繧ｫ繧ｹ繧ｿ繝蜷阪′縺ゅｌ縺ｰ縺昴ｌ繧剃ｽｿ逕ｨ縲√↑縺代ｌ縺ｰ繝・ヵ繧ｩ繝ｫ繝亥錐
     if custom_name:
         return f"{skill_id}: {custom_name}"
     elif skill_data:
-        default_name = skill_data.get('デフォルト名称', '')
+        default_name = skill_data.get('繝・ヵ繧ｩ繝ｫ繝亥錐遘ｰ', '')
         if default_name:
             return f"{skill_id}: {default_name}"
 
-    # フォールバック: スキルIDのみ
+    # 繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ: 繧ｹ繧ｭ繝ｫID縺ｮ縺ｿ
     return skill_id
 
 def format_skill_display_from_command(command_str, skill_id, skill_data, character=None):
     """
-    コマンド文字列に含まれる【ID 名称】を抽出して目立つ色で表示する。
-    キャラクター情報が提供されている場合、カスタムスキル名を優先的に使用する。
+    Build a highlighted skill display string for battle logs.
+    Priority:
+    1) custom name from character command palette
+    2) explicit [ ... ] section from command string
+    3) fallback to skill id + skill name
     """
-    # まずキャラクターのカスタム名を試みる
     custom_name = None
     if character and skill_id:
         custom_name = extract_custom_skill_name(character, skill_id)
@@ -2785,12 +3476,17 @@ def format_skill_display_from_command(command_str, skill_id, skill_data, charact
     if custom_name:
         text = f"【{skill_id}: {custom_name}】"
     else:
-        # 既存のロジック：コマンド文字列から抽出
-        match = re.search(r'【(.*?)】', command_str)
+        command_text = str(command_str or "")
+        match = re.search(r'【(.*?)】', command_text)
         if match:
             text = f"【{match.group(1)}】"
         elif skill_id and skill_data:
-            name = skill_data.get('デフォルト名称', '不明')
+            name = (
+                skill_data.get('デフォルト名称')
+                or skill_data.get('name')
+                or skill_data.get('名称')
+                or '不明'
+            )
             text = f"【{skill_id}: {name}】"
         else:
             return ""
@@ -2798,44 +3494,41 @@ def format_skill_display_from_command(command_str, skill_id, skill_data, charact
     return f"<span style='color: #d63384; font-weight: bold;'>{text}</span>"
 
 def verify_skill_cost(char, skill_d):
-    """
-    スキル使用に必要なコストが足りているかチェックする
-    """
-    if not skill_d: return True, None
+    """Validate whether actor can pay skill cost."""
+    if not skill_d:
+        return True, None
 
-    rule_json_str = skill_d.get('特記処理', '{}')
     try:
-        rule_data = json.loads(rule_json_str)
-        tags = rule_data.get('tags', skill_d.get('tags', []))
-        if "即時発動" in tags:
-             # ★ 追加: 宝石の加護スキルの回数制限 (1戦闘に1回)
-             if "宝石の加護スキル" in tags:
-                 if char.get('used_gem_protect_this_battle', False):
-                     return False, "宝石の加護は1戦闘に1回しか使用できません。"
+        rule_data = _extract_rule_data_from_skill(skill_d)
+        tags = rule_data.get('tags', skill_d.get('tags', [])) if isinstance(rule_data, dict) else skill_d.get('tags', [])
+        if isinstance(tags, list) and ("即時発動" in tags):
+            if "星見の加護スキル" in tags and char.get('used_gem_protect_this_battle', False):
+                return False, "星見の加護スキルは1ラウンドに1回までです。"
+            return True, None
 
-             return True, None
-
-        for cost in rule_data.get("cost", []):
+        for cost in (rule_data.get("cost", []) if isinstance(rule_data, dict) else []):
+            if not isinstance(cost, dict):
+                continue
             c_type = cost.get("type")
-            c_val = int(cost.get("value", 0))
+            c_val = int(cost.get("value", 0) or 0)
             if c_val > 0 and c_type:
-                curr = get_status_value(char, c_type)
+                curr = int(get_status_value(char, c_type) or 0)
                 if curr < c_val:
                     return False, f"{c_type}不足 (必要:{c_val}, 現在:{curr})"
-    except:
+    except Exception:
         pass
 
     return True, None
 
 def process_on_damage_buffs(room, char, damage_val, username, log_snippets):
     """
-    被弾時トリガーバフの処理
+    陲ｫ蠑ｾ譎ゅヨ繝ｪ繧ｬ繝ｼ繝舌ヵ縺ｮ蜃ｦ逅・
     """
     total_applied_damage = 0
     if damage_val <= 0: return 0
 
     for b in char.get('special_buffs', []):
-        # ★追加: 今回のアクションで適用されたばかりのバフは除外
+        # 笘・ｿｽ蜉: 莉雁屓縺ｮ繧｢繧ｯ繧ｷ繝ｧ繝ｳ縺ｧ驕ｩ逕ｨ縺輔ｌ縺溘・縺九ｊ縺ｮ繝舌ヵ縺ｯ髯､螟・
         if b.get('newly_applied'):
             continue
         # Resolve full effect data (dynamic or static)
@@ -2862,7 +3555,7 @@ def process_on_damage_buffs(room, char, damage_val, username, log_snippets):
 
 def process_on_hit_buffs(actor, target, damage_val, log_snippets):
     """
-    攻撃ヒット時トリガーバフの処理 (例: 爆縮)
+    謾ｻ謦・ヲ繝・ヨ譎ゅヨ繝ｪ繧ｬ繝ｼ繝舌ヵ縺ｮ蜃ｦ逅・(萓・ 辷・ｸｮ)
     Returns: extra_damage (int)
     """
     from plugins.buffs.registry import buff_registry
@@ -2873,14 +3566,14 @@ def process_on_hit_buffs(actor, target, damage_val, log_snippets):
 
     logger.info(f"[process_on_hit_buffs] Checking buffs for {actor.get('name')}. Count: {len(actor['special_buffs'])}")
 
-    # スナップショットをとって回す（副作用でリストが変わる可能性があるため）
+    # 繧ｹ繝翫ャ繝励す繝ｧ繝・ヨ繧偵→縺｣縺ｦ蝗槭☆・亥憶菴懃畑縺ｧ繝ｪ繧ｹ繝医′螟峨ｏ繧句庄閭ｽ諤ｧ縺後≠繧九◆繧・ｼ・
     for buff_entry in list(actor['special_buffs']):
         buff_id = buff_entry.get('buff_id')
         handler_cls = buff_registry.get_handler(buff_id)
 
         if handler_cls and hasattr(handler_cls, 'on_hit_damage_calculation'):
             logger.info(f"[process_on_hit_buffs] Executing {handler_cls.__name__} for {buff_id}")
-            # クラスメソッドとして呼び出し
+            # 繧ｯ繝ｩ繧ｹ繝｡繧ｽ繝・ラ縺ｨ縺励※蜻ｼ縺ｳ蜃ｺ縺・
             new_damage, logs = handler_cls.on_hit_damage_calculation(actor, target, damage_val + total_extra_damage)
 
             diff = new_damage - (damage_val + total_extra_damage)
@@ -2897,19 +3590,18 @@ def process_on_hit_buffs(actor, target, damage_val, log_snippets):
 
 def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data=None):
     """
-    Match実行時のPRE_MATCH効果適用
+    Match螳溯｡梧凾縺ｮPRE_MATCH蜉ｹ譫憺←逕ｨ
     """
     if not skill_data or not actor: return
 
-    # スキルIDを取得（actor['used_skills_this_round']から最後に使用したスキルを取得）
+    # 繧ｹ繧ｭ繝ｫID繧貞叙蠕暦ｼ・ctor['used_skills_this_round']縺九ｉ譛蠕後↓菴ｿ逕ｨ縺励◆繧ｹ繧ｭ繝ｫ繧貞叙蠕暦ｼ・
     skill_id = None
     if 'used_skills_this_round' in actor and actor['used_skills_this_round']:
         skill_id = actor['used_skills_this_round'][-1]
 
     try:
-        rule_json_str = skill_data.get('特記処理', '{}')
-        rule_data = json.loads(rule_json_str)
-        effects_array = rule_data.get("effects", [])
+        rule_data = _extract_rule_data_from_skill(skill_data)
+        effects_array = rule_data.get("effects", []) if isinstance(rule_data, dict) else []
 
         # Room state for context
         state = get_room_state(room)
@@ -2934,14 +3626,15 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
                     char['flags'] = {}
                 char['flags'][name] = value
             elif type == "MODIFY_BASE_POWER":
-                # 基礎威力ボーナスを一時保存（荊棘処理で参照）
+                # 蝓ｺ遉主ｨ∝鴨繝懊・繝翫せ繧剃ｸ譎ゆｿ晏ｭ假ｼ郁濠譽伜・逅・〒蜿ら・・・
                 char['_base_power_bonus'] = char.get('_base_power_bonus', 0) + value
                 broadcast_log(room, f"[{char['name']}] 基礎威力 {value:+}", 'state-change')
-    except json.JSONDecodeError: pass
+    except Exception:
+        pass
 
 def proceed_next_turn(room, suppress_logs=False, suppress_state_emit=False):
     """
-    ターン進行ロジック
+    繧ｿ繝ｼ繝ｳ騾ｲ陦後Ο繧ｸ繝・け
     """
     state = get_room_state(room)
     if not state: return
@@ -2958,7 +3651,7 @@ def proceed_next_turn(room, suppress_logs=False, suppress_state_emit=False):
     if not timeline:
         return
 
-    # 現在の手番エントリIDがタイムラインのどこにあるか探す
+    # 迴ｾ蝨ｨ縺ｮ謇狗分繧ｨ繝ｳ繝医ΜID縺後ち繧､繝繝ｩ繧､繝ｳ縺ｮ縺ｩ縺薙↓縺ゅｋ縺区爾縺・
     current_idx = -1
     if current_entry_id:
         # Find index by entry ID
@@ -2969,24 +3662,24 @@ def proceed_next_turn(room, suppress_logs=False, suppress_state_emit=False):
 
     next_entry = None
 
-    # 現在位置の「次」から末尾に向かって、未行動のエントリを探す
+    # 迴ｾ蝨ｨ菴咲ｽｮ縺ｮ縲梧ｬ｡縲阪°繧画忰蟆ｾ縺ｫ蜷代°縺｣縺ｦ縲∵悴陦悟虚縺ｮ繧ｨ繝ｳ繝医Μ繧呈爾縺・
     from plugins.buffs.confusion import ConfusionBuff
     from plugins.buffs.immobilize import ImmobilizeBuff
 
     for i in range(current_idx + 1, len(timeline)):
         entry = timeline[i]
 
-        # 行動済みチェック (Entry flag)
+        # 陦悟虚貂医∩繝√ぉ繝・け (Entry flag)
         if entry.get('acted', False):
             continue
 
         cid = entry['char_id']
-        # キャラデータ取得
+        # 繧ｭ繝｣繝ｩ繝・・繧ｿ蜿門ｾ・
         char = next((c for c in state['characters'] if c['id'] == cid), None)
 
-        # 生存しているか
+        # 逕溷ｭ倥＠縺ｦ縺・ｋ縺・
         if char and char.get('hp', 0) > 0:
-            # 行動不能チェック (混乱)
+            # 陦悟虚荳崎・繝√ぉ繝・け (豺ｷ荵ｱ)
             if ConfusionBuff.is_incapacitated(char):
                 logger.info(f"Skipping {char['name']} due to incapacitation (Confusion)")
                 # entry is skipped but not consumed? Or consumed?
@@ -2994,7 +3687,7 @@ def proceed_next_turn(room, suppress_logs=False, suppress_state_emit=False):
                 entry['acted'] = True
                 continue
 
-            # 行動不能チェック (Immobilize/Bu-04)
+            # 陦悟虚荳崎・繝√ぉ繝・け (Immobilize/Bu-04)
             can_act, reason = ImmobilizeBuff.can_act(char, {})
             if not can_act:
                 logger.info(f"[TurnSkip] Skipping {char['name']} due to Immobilize: {reason}")
@@ -3012,12 +3705,12 @@ def proceed_next_turn(room, suppress_logs=False, suppress_state_emit=False):
         logger.info(f"[proceed_next_turn] Next turn: {next_char['name']} (EntryID: {next_entry['id']})")
 
         if not suppress_logs:
-            broadcast_log(room, f"--- {next_char['name']} の手番です ---", 'turn-change')
+            broadcast_log(room, f"--- {next_char['name']} の行動です ---", 'turn-change')
     else:
         state['turn_char_id'] = None
         state['turn_entry_id'] = None
         if not suppress_logs:
-            broadcast_log(room, "全ての行動可能キャラクターが終了しました。ラウンド終了処理を行ってください。", 'info')
+            broadcast_log(room, "全ての行動可能キャラクターが行動済みです。ラウンド終了処理を行ってください。", 'info')
 
     if not suppress_state_emit:
         broadcast_state_update(room)
@@ -3025,13 +3718,13 @@ def proceed_next_turn(room, suppress_logs=False, suppress_state_emit=False):
 
 def process_simple_round_end(state, room):
     """
-    ラウンド終了時の共通処理（バフ減少、アイテムリセットなど）
-    広域マッチからも呼び出される
+    繝ｩ繧ｦ繝ｳ繝臥ｵゆｺ・凾縺ｮ蜈ｱ騾壼・逅・ｼ医ヰ繝墓ｸ帛ｰ代√い繧､繝・Β繝ｪ繧ｻ繝・ヨ縺ｪ縺ｩ・・
+    蠎・沺繝槭ャ繝√°繧峨ｂ蜻ｼ縺ｳ蜃ｺ縺輔ｌ繧・
     """
-    logger.debug("===== process_simple_round_end 開始 =====")
+    logger.debug("===== process_simple_round_end 髢句ｧ・=====")
 
     for char in state.get("characters", []):
-        # バフタイマーの処理
+        # 繝舌ヵ繧ｿ繧､繝槭・縺ｮ蜃ｦ逅・
         if "special_buffs" in char:
             active_buffs = []
             for buff in char['special_buffs']:
@@ -3050,11 +3743,11 @@ def process_simple_round_end(state, room):
 
             char['special_buffs'] = active_buffs
 
-        # アイテム使用制限をリセット
+        # 繧｢繧､繝・Β菴ｿ逕ｨ蛻ｶ髯舌ｒ繝ｪ繧ｻ繝・ヨ
         if 'round_item_usage' in char:
             char['round_item_usage'] = {}
 
-        # スキル使用履歴をリセット
+        # 繧ｹ繧ｭ繝ｫ菴ｿ逕ｨ螻･豁ｴ繧偵Μ繧ｻ繝・ヨ
         if 'used_immediate_skills_this_round' in char:
             char['used_immediate_skills_this_round'] = []
         if 'used_gem_protect_this_round' in char:
@@ -3062,17 +3755,18 @@ def process_simple_round_end(state, room):
         if 'used_skills_this_round' in char:
             char['used_skills_this_round'] = []
 
-    # ★ 追加: マホロバ (ID: 5) ラウンド終了時一括処理
+    # 笘・霑ｽ蜉: 繝槭・繝ｭ繝・(ID: 5) 繝ｩ繧ｦ繝ｳ繝臥ｵゆｺ・凾荳諡ｬ蜃ｦ逅・
     mahoroba_targets = []
     for char in state.get('characters', []):
         if char.get('hp', 0) <= 0: continue
 
         # Origin Check
         if get_effective_origin_id(char) == 5:
-            _update_char_stat(room, char, 'HP', char['hp'] + 3, username="[マホロバ恩恵]")
+            _update_char_stat(room, char, 'HP', char['hp'] + 3, username="[マホロバ回血]")
             mahoroba_targets.append(char['name'])
 
     if mahoroba_targets:
-        broadcast_log(room, f"[マホロバ恩恵] {', '.join(mahoroba_targets)} のHPが3回復しました。", 'info')
+        broadcast_log(room, f"[マホロバ回血] {', '.join(mahoroba_targets)} のHPが回復しました。", 'info')
 
-    logger.debug("===== process_simple_round_end 完了 =====")
+    logger.debug("===== process_simple_round_end 螳御ｺ・=====")
+

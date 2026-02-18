@@ -288,3 +288,16 @@
 - `UNOPPOSED` - 一方攻撃時
 - `END_MATCH` - マッチ終了時
 - `END_ROUND` - ラウンド終了時
+- `RESOLVE_START` - 解決フェーズ演出開始時（ネタバレ防止の起点）
+- `BEFORE_POWER_ROLL` - 威力レンジ表示直後、実威力ロール前
+- `AFTER_DAMAGE_APPLY` - ダメージ反映直後（状態変化ログ出力可）
+- `RESOLVE_STEP_END` - 1マッチ/1一方攻撃の表示完了時
+- `RESOLVE_END` - 全表示終了後（まとめログ出力、ラウンド終了遷移）
+
+### Select/Resolve 実適用（2026-02 更新）
+
+- `RESOLVE_START`: 解決処理開始時に、コミット済み各スロットのスキルへ適用
+- `BEFORE_POWER_ROLL`: 実威力ロールの直前に適用（一方攻撃・マッチ・広域ロール）
+- `AFTER_DAMAGE_APPLY`: ダメージ反映直後に適用（一方攻撃・マッチ・広域）
+- `RESOLVE_STEP_END`: 各トレース（1マッチ/1一方攻撃）確定後に適用
+- `RESOLVE_END`: 解決フェーズ全処理完了直前に、コミット済み各スロットへ適用

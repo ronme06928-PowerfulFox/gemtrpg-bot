@@ -303,17 +303,17 @@ def execute_wide_match(room, username):
             total_damage = damage
             log_snippets = []
 
-            # Apply HIT effects
-            hit_bonus, hit_logs, hit_changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
-            log_snippets.extend(hit_logs)
-            apply_local_changes(hit_changes, def_char)
-            total_damage += hit_bonus
-
             # Apply UNOPPOSED effects
             unop_bonus, unop_logs, unop_changes = process_skill_effects(attacker_effects, "UNOPPOSED", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
             log_snippets.extend(unop_logs)
             apply_local_changes(unop_changes, def_char)
             total_damage += unop_bonus
+
+            # Apply HIT effects (order is aligned with select/resolve one-sided chain)
+            hit_bonus, hit_logs, hit_changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
+            log_snippets.extend(hit_logs)
+            apply_local_changes(hit_changes, def_char)
+            total_damage += hit_bonus
 
             # Apply Damage to Defender
             # Defense multiplier (def_char might have generic defense mods, but no roll here)

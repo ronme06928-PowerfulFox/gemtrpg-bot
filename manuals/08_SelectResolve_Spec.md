@@ -90,6 +90,15 @@ RoundStart は次の順序で処理する。
 - 第三者介入は不可。
 - 条件成立時、`one-sided` は `clash` へ昇格し得る。
 
+## 9.1 解決タイミングフック（2026-02 追加）
+Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSED/END_MATCH/END_ROUND`）に加えて以下を扱う。
+
+- `RESOLVE_START`: 解決フェーズ開始直後（ネタバレ防止制御の起点）
+- `BEFORE_POWER_ROLL`: 威力レンジ表示後、実威力ロール直前
+- `AFTER_DAMAGE_APPLY`: ダメージ反映直後
+- `RESOLVE_STEP_END`: 1マッチ/1一方攻撃の表示完了時
+- `RESOLVE_END`: 解決フェーズ全処理完了時（まとめログ出力、ラウンド終了遷移）
+
 ## 10. Mass（広域）
 ### 10.1 mass_individual：敵全員へ個別、対象側がSをtargetしているスロットがあればclash、複数ならinitiative最大1つ、無ければone-sided
 - 攻撃側スロット S は敵全員に対して個別解決を行う。

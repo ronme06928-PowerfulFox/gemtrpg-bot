@@ -60,6 +60,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 
 * `timing`: 発動タイミング（必須）。
   * **<span style="color:#e74c3c; font-weight:bold;">HIT</span>** (命中時), **<span style="color:#e74c3c; font-weight:bold;">WIN</span>** (勝利時), **<span style="color:#3498db; font-weight:bold;">LOSE</span>** (敗北時), **<span style="color:#f1c40f; font-weight:bold;">PRE_MATCH</span>** (開始前), **<span style="color:#f1c40f; font-weight:bold;">END_MATCH</span>** (終了時), **<span style="color:#e74c3c; font-weight:bold;">UNOPPOSED</span>** (一方攻撃時)
+  * **<span style="color:#1abc9c; font-weight:bold;">RESOLVE_START</span>** (解決フェーズ開始), **<span style="color:#1abc9c; font-weight:bold;">BEFORE_POWER_ROLL</span>** (実威力ロール前), **<span style="color:#1abc9c; font-weight:bold;">AFTER_DAMAGE_APPLY</span>** (ダメージ反映直後), **<span style="color:#1abc9c; font-weight:bold;">RESOLVE_STEP_END</span>** (1処理表示完了), **<span style="color:#1abc9c; font-weight:bold;">RESOLVE_END</span>** (解決フェーズ終了)
 * `target`: 効果対象。
   * `self` (自分), `target` (対象), `ALL_ENEMIES` (敵全体), `ALL_ALLIES` (味方全体), `ALL` (全員), `NEXT_ALLY` (次手番の味方)
 * `condition`: 発動条件（任意）。

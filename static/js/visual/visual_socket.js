@@ -110,13 +110,83 @@ window.setupVisualSocketHandlers = function () {
         ].join('|');
     };
 
-    const sumDamageOfTraceRow = (row) => {
+    const isDiceDamageSource = (sourceRaw) => {
+        const source = String(sourceRaw || '').trim();
+        if (!source) return false;
+        const lower = source.toLowerCase();
+        if (source.includes('ダイス')) return true;
+        if (lower.includes('dice')) return true;
+        if (lower.includes('base_damage') || lower.includes('power_roll')) return true;
+        if (lower.includes('mass_summation_delta')) return true;
+        if (source.includes('差分ダメージ')) return true;
+        if (source.includes('合計ダメージ')) return true;
+        return false;
+    };
+
+    const splitDamageOfTraceRow = (row) => {
         const appliedDamage = Array.isArray(row?.applied?.damage) ? row.applied.damage : [];
         const eventDamage = Array.isArray(row?.damage_events) ? row.damage_events : [];
-        return [...appliedDamage, ...eventDamage].reduce((sum, d) => {
+        const all = [...appliedDamage, ...eventDamage];
+        const kind = String(row?.kind || '');
+        let total = 0;
+        let dice = 0;
+        let effect = 0;
+
+        if ((kind === 'one_sided' || kind === 'fizzle') && Number.isFinite(Number(row?.rolls?.base_damage))) {
+            const base = Math.max(0, Number(row?.rolls?.base_damage || 0));
+            total = all.reduce((sum, d) => {
+                const n = Number(d?.hp ?? d?.amount ?? 0);
+                return sum + (Number.isFinite(n) && n > 0 ? n : 0);
+            }, 0);
+            dice = Math.min(base, total);
+            effect = Math.max(0, total - dice);
+            return { total, dice, effect };
+        }
+
+        if (kind === 'clash') {
+            const rolls = (row?.rolls && typeof row.rolls === 'object') ? row.rolls : {};
+            const outcome = String(row?.outcome || '');
+            const powerA = Number(rolls?.power_a ?? 0);
+            const powerB = Number(rolls?.power_b ?? 0);
+            const primaryTarget = (
+                outcome === 'attacker_win'
+                    ? String(row?.defender_actor_id || row?.target_actor_id || all?.[0]?.target_id || '')
+                    : (outcome === 'defender_win'
+                        ? String(row?.attacker_actor_id || all?.[0]?.target_id || '')
+                        : '')
+            );
+            const primaryDice = outcome === 'attacker_win'
+                ? (Number.isFinite(powerA) ? Math.max(0, powerA) : 0)
+                : (outcome === 'defender_win'
+                    ? (Number.isFinite(powerB) ? Math.max(0, powerB) : 0)
+                    : 0);
+
+            let primaryTotal = 0;
+            let secondaryTotal = 0;
+            all.forEach((d) => {
+                const n = Number(d?.hp ?? d?.amount ?? 0);
+                if (!Number.isFinite(n) || n <= 0) return;
+                total += n;
+                const targetId = String(d?.target_id || '');
+                if (primaryTarget && targetId === primaryTarget) primaryTotal += n;
+                else secondaryTotal += n;
+            });
+            if (primaryTotal > 0) {
+                dice = Math.min(primaryDice, primaryTotal);
+                effect = Math.max(0, primaryTotal - dice) + Math.max(0, secondaryTotal);
+                return { total, dice, effect };
+            }
+        }
+
+        all.forEach((d) => {
             const n = Number(d?.hp ?? d?.amount ?? 0);
-            return sum + (Number.isFinite(n) && n > 0 ? n : 0);
-        }, 0);
+            if (!Number.isFinite(n) || n <= 0) return;
+            total += n;
+            const src = d?.source ?? d?.damage_type ?? '';
+            if (isDiceDamageSource(src)) dice += n;
+            else effect += n;
+        });
+        return { total, dice, effect };
     };
 
     const buildResolveSummaryLines = (stateLike) => {
@@ -138,6 +208,8 @@ window.setupVisualSocketHandlers = function () {
         let oneSidedCount = 0;
         let massCount = 0;
         let totalDamage = 0;
+        let totalDiceDamage = 0;
+        let totalEffectDamage = 0;
         const stepLines = [];
 
         visible.forEach((row, idx) => {
@@ -146,8 +218,13 @@ window.setupVisualSocketHandlers = function () {
             else if (kind === 'one_sided' || kind === 'fizzle') oneSidedCount += 1;
             else if (kind.startsWith('mass_')) massCount += 1;
 
-            const thisDamage = sumDamageOfTraceRow(row);
+            const split = splitDamageOfTraceRow(row);
+            const thisDamage = Number(split?.total || 0);
+            const thisDiceDamage = Number(split?.dice || 0);
+            const thisEffectDamage = Number(split?.effect || 0);
             totalDamage += thisDamage;
+            totalDiceDamage += thisDiceDamage;
+            totalEffectDamage += thisEffectDamage;
 
             const attackerId = row?.attacker_actor_id || null;
             const defenderId = row?.defender_actor_id || row?.target_actor_id || null;
@@ -156,13 +233,13 @@ window.setupVisualSocketHandlers = function () {
             const title = (kind === 'one_sided' || kind === 'fizzle')
                 ? `${attackerName} \u306e\u4e00\u65b9\u653b\u6483`
                 : `${attackerName} vs ${defenderName}`;
-            stepLines.push(`${idx + 1}. [${resolveKindLabel(kind)}] ${title} / ${resolveOutcomeLabel(row?.outcome)} / \u7dcf\u30c0\u30e1\u30fc\u30b8 ${thisDamage}`);
+            stepLines.push(`${idx + 1}. [${resolveKindLabel(kind)}] ${title} / ${resolveOutcomeLabel(row?.outcome)} / 総${thisDamage} (ダイス ${thisDiceDamage} / 効果 ${thisEffectDamage})`);
         });
 
         return [
             `<strong>\u3010\u89e3\u6c7a\u30d5\u30a7\u30fc\u30ba\u7d50\u679c\u307e\u3068\u3081\u3011</strong>`,
             `\u51e6\u7406\u6570: ${visible.length} (\u30de\u30c3\u30c1 ${clashCount} / \u4e00\u65b9\u653b\u6483 ${oneSidedCount} / \u5e83\u57df ${massCount})`,
-            `\u5408\u8a08\u30c0\u30e1\u30fc\u30b8: ${totalDamage}`,
+            `合計ダメージ: ${totalDamage} (ダイス ${totalDiceDamage} / 効果 ${totalEffectDamage})`,
             ...stepLines
         ];
     };
@@ -807,4 +884,6 @@ window.setupVisualSocketHandlers = function () {
         window.initWideMatchSocketListeners();
     }
 }
+
+
 

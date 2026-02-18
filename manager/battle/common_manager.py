@@ -698,8 +698,6 @@ def process_round_start(room, username):
     if latium_targets:
         broadcast_log(room, f"[ラティウム恩恵] {', '.join(latium_targets)} のFPが1増加しました。", 'info')
 
-    broadcast_state_update(room)
-    save_specific_room_state(room)
 
     # ★ 追加: PvEモードならターゲット抽選 -> 広域予約確定後に一本化
     # if state.get('battle_mode') == 'pve':
@@ -727,6 +725,12 @@ def process_round_start(room, username):
         battle_state['resolve']['single_queue'] = []
         battle_state['resolve']['resolved_slots'] = []
         battle_state['resolve']['trace'] = []
+
+    # Broadcast after switching to select phase to avoid transient round_end emits.
+    broadcast_state_update(room)
+    save_specific_room_state(room)
+
+    if battle_state:
         emit_select_resolve_events(room, include_round_started=True)
 
     # Select/Resolve flow should not invoke legacy wide modal auto path.

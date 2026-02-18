@@ -1,4 +1,4 @@
-import { store } from '../core/BattleStore.js';
+﻿import { store } from '../core/BattleStore.js';
 import { eventBus } from '../core/EventBus.js';
 import { socketClient } from '../core/SocketClient.js';
 
@@ -31,6 +31,7 @@ class ResolveFlowPanel {
         this._advanceRequestPendingTimer = null;
         this._pendingSyncedAdvanceCount = 0;
         this._completionEmittedRounds = new Set();
+        this._roundSawResolvePhase = false;
     }
 
     initialize() {
@@ -73,6 +74,7 @@ class ResolveFlowPanel {
         this._clearAdvanceRequestPending();
         this._pendingSyncedAdvanceCount = 0;
         this._completionEmittedRounds.clear();
+        this._roundSawResolvePhase = false;
         this._initialized = false;
         const panel = document.getElementById(this._panelId);
         if (panel) panel.remove();
@@ -234,8 +236,19 @@ class ResolveFlowPanel {
         return true;
     }
 
+    _canCompleteCurrentRound(state) {
+        const stateNow = state || store.state || {};
+        const phase = String(stateNow?.phase || '');
+        if (phase !== 'round_end') return false;
+        const roundKey = this._roundStateKey(stateNow);
+        if (!roundKey) return false;
+        // Prevent false completion on reconnect/round-start transient round_end snapshots.
+        return this._roundSawResolvePhase || this._introShownRounds.has(roundKey) || this._presentedStepCount > 0;
+    }
+
     _emitResolveFlowCompleted(state) {
         const stateNow = state || store.state || {};
+        if (!this._canCompleteCurrentRound(stateNow)) return;
         const roundKey = this._roundStateKey(stateNow);
         if (!roundKey || this._completionEmittedRounds.has(roundKey)) return;
         this._completionEmittedRounds.add(roundKey);
@@ -461,6 +474,7 @@ class ResolveFlowPanel {
             this._clearPendingAdvanceTimer();
             this._clearAdvanceRequestPending();
             this._pendingSyncedAdvanceCount = 0;
+            this._roundSawResolvePhase = false;
         }
 
         if (!isBattle) {
@@ -477,12 +491,14 @@ class ResolveFlowPanel {
             this._clearPendingAdvanceTimer();
             this._clearAdvanceRequestPending();
             this._pendingSyncedAdvanceCount = 0;
+            this._roundSawResolvePhase = false;
             this._removePanel();
             return;
         }
 
         const inResolve = this._isResolvePhase(phase);
         const canPlayback = this._isPlaybackPhase(phase);
+        if (inResolve) this._roundSawResolvePhase = true;
         if (inResolve && !this._introShownRounds.has(roundKey)) {
             this._enqueueBattleStartIntro(roundKey);
         }
@@ -709,7 +725,7 @@ class ResolveFlowPanel {
     _resolvePowerValues(step) {
         const rolls = step?.rolls || {};
         const kind = String(step?.kind || '');
-        const attackPower = (
+        let attackPower = (
             rolls.power_a ??
             rolls.attacker_power ??
             rolls.total_damage ??
@@ -717,6 +733,17 @@ class ResolveFlowPanel {
             rolls.base_damage ??
             '-'
         );
+        // One-sided flow should display the dice roll power (base), not post-effect total.
+        if (kind === 'one_sided' || kind === 'fizzle') {
+            attackPower = (
+                rolls.base_damage ??
+                rolls.power_a ??
+                rolls.attacker_power ??
+                rolls.total_damage ??
+                rolls.final_damage ??
+                '-'
+            );
+        }
 
         let defensePower = rolls.power_b ?? rolls.defender_sum ?? '-';
         if (kind === 'one_sided' || kind === 'fizzle') defensePower = '-';
@@ -724,6 +751,19 @@ class ResolveFlowPanel {
             attacker: String(attackPower),
             defender: String(defensePower)
         };
+    }
+
+    _isDiceDamageSource(sourceRaw) {
+        const source = String(sourceRaw || '').trim();
+        if (!source) return false;
+        const lower = source.toLowerCase();
+        if (source.includes('ダイス')) return true;
+        if (lower.includes('dice')) return true;
+        if (lower.includes('base_damage') || lower.includes('power_roll')) return true;
+        if (lower.includes('mass_summation_delta')) return true;
+        if (source.includes('差分ダメージ')) return true;
+        if (source.includes('合計ダメージ')) return true;
+        return false;
     }
 
     _commandForSide(step, side) {
@@ -837,42 +877,136 @@ class ResolveFlowPanel {
 
     _collectDamageSummary(step, state) {
         const bucket = new Map();
-        const pushDamage = (targetIdRaw, amountRaw, sourceRaw = '') => {
+        const pushDamage = (targetIdRaw, amountRaw, sourceRaw = '', forcedKind = null) => {
             const amount = this._toNumber(amountRaw, 0);
             if (amount <= 0) return;
             const targetId = String(targetIdRaw || '');
             const key = targetId || 'unknown';
             if (!bucket.has(key)) {
-                bucket.set(key, { targetId, total: 0, details: [] });
+                bucket.set(key, { targetId, total: 0, dice: 0, effect: 0, details: [] });
             }
             const row = bucket.get(key);
             row.total += amount;
             const source = String(sourceRaw || '').trim();
-            if (source) row.details.push(`${source}:${amount}`);
+            const kind = forcedKind || (this._isDiceDamageSource(source) ? 'dice' : 'effect');
+            const normalizedSource = source.toLowerCase().includes('mass_summation_delta')
+                ? '合計ダメージ'
+                : (source || (kind === 'dice' ? 'ダイスダメージ' : 'キーワード効果ダメージ'));
+            row.details.push({ source: normalizedSource, amount, kind });
+            if (kind === 'dice') row.dice += amount;
+            else row.effect += amount;
         };
 
         const applied = step?.applied || {};
         const appliedDamage = Array.isArray(applied.damage) ? applied.damage : [];
+        const massDamage = Array.isArray(step?.damageEvents) ? step.damageEvents : [];
+        const allDamageRows = [];
         appliedDamage.forEach((d) => {
             if (!d || typeof d !== 'object') return;
-            pushDamage(d.target_id, d.hp ?? d.amount ?? 0, d.source || '');
+            allDamageRows.push({
+                target_id: d.target_id,
+                amount: d.hp ?? d.amount ?? 0,
+                source: d.source || ''
+            });
         });
-
-        const massDamage = Array.isArray(step?.damageEvents) ? step.damageEvents : [];
         massDamage.forEach((d) => {
             if (!d || typeof d !== 'object') return;
-            pushDamage(d.target_id, d.hp ?? d.amount ?? 0, d.damage_type || d.source || '');
+            allDamageRows.push({
+                target_id: d.target_id,
+                amount: d.hp ?? d.amount ?? 0,
+                source: d.damage_type || d.source || ''
+            });
         });
+
+        const kind = String(step?.kind || '');
+        const rolls = step?.rolls || {};
+        const baseRoll = this._toNumber(rolls.base_damage, 0);
+        if (kind === 'clash' && allDamageRows.length > 0) {
+            const outcome = String(step?.outcome || '');
+            const powerA = this._toNumber(rolls.power_a, 0);
+            const powerB = this._toNumber(rolls.power_b, 0);
+            let primaryTargetId = '';
+            let primaryDice = 0;
+            if (outcome === 'attacker_win') {
+                primaryTargetId = String(step?.defenderActorId || step?.targetActorId || allDamageRows[0]?.target_id || '');
+                primaryDice = powerA;
+            } else if (outcome === 'defender_win') {
+                primaryTargetId = String(step?.attackerActorId || allDamageRows[0]?.target_id || '');
+                primaryDice = powerB;
+            }
+            let primaryTotal = 0;
+            const secondary = [];
+            allDamageRows.forEach((row) => {
+                const targetId = String(row?.target_id || '');
+                const amount = this._toNumber(row?.amount, 0);
+                if (amount <= 0) return;
+                if (primaryTargetId && targetId === primaryTargetId) primaryTotal += amount;
+                else secondary.push(row);
+            });
+            if (primaryTotal > 0) {
+                const dicePart = Math.min(Math.max(0, primaryDice), primaryTotal);
+                const effectPart = Math.max(0, primaryTotal - dicePart);
+                if (dicePart > 0) pushDamage(primaryTargetId, dicePart, 'ダイスダメージ', 'dice');
+                if (effectPart > 0) pushDamage(primaryTargetId, effectPart, 'キーワード効果ダメージ', 'effect');
+            }
+            secondary.forEach((row) => {
+                pushDamage(row.target_id, row.amount, row.source || 'キーワード効果ダメージ', 'effect');
+            });
+        } else if ((kind === 'one_sided' || kind === 'fizzle') && allDamageRows.length > 0) {
+            const primaryTargetId = String(
+                step?.targetActorId || step?.defenderActorId || allDamageRows[0]?.target_id || ''
+            );
+            let primaryTotal = 0;
+            const secondary = [];
+            allDamageRows.forEach((row) => {
+                const targetId = String(row?.target_id || '');
+                const amount = this._toNumber(row?.amount, 0);
+                if (amount <= 0) return;
+                if (targetId === primaryTargetId) primaryTotal += amount;
+                else secondary.push(row);
+            });
+            if (primaryTotal > 0) {
+                const dicePart = Math.min(baseRoll, primaryTotal);
+                const effectPart = Math.max(0, primaryTotal - dicePart);
+                if (dicePart > 0) pushDamage(primaryTargetId, dicePart, 'ダイスダメージ', 'dice');
+                if (effectPart > 0) pushDamage(primaryTargetId, effectPart, 'キーワード効果ダメージ', 'effect');
+            }
+            secondary.forEach((row) => {
+                pushDamage(row.target_id, row.amount, row.source || 'キーワード効果ダメージ', 'effect');
+            });
+        } else {
+            allDamageRows.forEach((row) => {
+                pushDamage(row.target_id, row.amount, row.source || '');
+            });
+        }
 
         const entries = Array.from(bucket.values());
         const total = entries.reduce((sum, row) => sum + this._toNumber(row.total, 0), 0);
-        const lines = entries.map((row) => {
-            const targetName = this._actorNameById(row.targetId, state) || row.targetId || 'Unknown';
-            return `${targetName} -${row.total}`;
-        });
+        const diceTotal = entries.reduce((sum, row) => sum + this._toNumber(row.dice, 0), 0);
+        const effectTotal = entries.reduce((sum, row) => sum + this._toNumber(row.effect, 0), 0);
+        const summarizeByKind = (kind) => {
+            const m = new Map();
+            entries.forEach((row) => {
+                const details = Array.isArray(row.details) ? row.details : [];
+                details.forEach((d) => {
+                    if (!d || d.kind !== kind) return;
+                    const src = String(d.source || '').trim() || (kind === 'dice' ? 'ダイスダメージ' : 'キーワード効果ダメージ');
+                    const amount = this._toNumber(d.amount, 0);
+                    if (amount <= 0) return;
+                    m.set(src, (m.get(src) || 0) + amount);
+                });
+            });
+            return Array.from(m.entries()).map(([src, n]) => `${src} ${n}`);
+        };
+        const diceLines = summarizeByKind('dice');
+        const effectLines = summarizeByKind('effect');
         return {
             total,
-            text: lines.length > 0 ? lines.join(' / ') : '\u30c0\u30e1\u30fc\u30b8\u306a\u3057'
+            text: total > 0 ? `${total}` : '\u30c0\u30e1\u30fc\u30b8\u306a\u3057',
+            diceTotal,
+            effectTotal,
+            diceText: diceLines.length > 0 ? diceLines.join(' + ') : '\u306a\u3057',
+            effectText: effectLines.length > 0 ? effectLines.join(' + ') : '\u306a\u3057'
         };
     }
 
@@ -883,7 +1017,10 @@ class ResolveFlowPanel {
         }
         const outcome = String(step?.outcome || 'no_effect');
         if (outcome === 'attacker_win') return `${attackerName} \u52dd\u5229`;
-        if (outcome === 'defender_win') return `${defenderName} \u52dd\u5229`;
+        if (outcome === 'defender_win') {
+            if (kind === 'mass_summation') return '\u9632\u885b\u5074\u52dd\u5229';
+            return `${defenderName} \u52dd\u5229`;
+        }
         if (outcome === 'draw') return '\u5f15\u304d\u5206\u3051';
         return '\u52b9\u679c\u306a\u3057';
     }
@@ -970,10 +1107,11 @@ class ResolveFlowPanel {
             return;
         }
 
+        const isSummationKind = String(step.kind) === 'mass_summation';
         const attackerNameRaw = this._actorNameFromStep(step, state, 'attacker');
         const defenderNameRaw = this._actorNameFromStep(step, state, 'defender');
         const attackerName = this._escape(attackerNameRaw);
-        const defenderName = this._escape(defenderNameRaw);
+        const defenderName = this._escape(isSummationKind ? '防御威力合計' : defenderNameRaw);
         const attackerSkill = this._resolveSkillMeta(step, 'attacker');
         const defenderSkill = this._resolveSkillMeta(step, 'defender');
         const powers = this._resolvePowerValues(step);
@@ -1001,7 +1139,7 @@ class ResolveFlowPanel {
         const kindClass = this._escape(String(step.kind || 'unknown'));
         const kindLabel = this._escape(this._kindLabel(step.kind));
         const outcomeLabel = this._escape(this._outcomeLabel(step.outcome));
-        const headline = this._escape(this._outcomeHeadline(step, attackerNameRaw, defenderNameRaw));
+        const headline = this._escape(this._outcomeHeadline(step, attackerNameRaw, isSummationKind ? '防御側' : defenderNameRaw));
         const isOneSided = String(step.kind) === 'one_sided' || String(step.kind) === 'fizzle';
         const defenderSkillHtml = isOneSided
             ? '[-] -'
@@ -1014,15 +1152,22 @@ class ResolveFlowPanel {
         const participantsHtml = participants.map((row) => (
             `<span class="charge-chip">${this._escape(row.name)} +${this._escape(row.power)}</span>`
         )).join('');
-        const summationHtml = String(step.kind) === 'mass_summation'
+        const summationInlineHtml = isSummationKind
             ? `
-            <div class="resolve-flow-summation reveal-block reveal-power">
-                <div class="summation-label">\u5408\u7b97\u30c1\u30e3\u30fc\u30b8</div>
+            <div class="resolve-flow-summation-inline reveal-block reveal-power">
+                <div class="summation-label">防御威力合計チャージ</div>
                 <div class="summation-chips">${participantsHtml || '<span class="charge-chip">\u53c2\u52a0\u8005\u306a\u3057</span>'}</div>
-                <div class="summation-total">\u9632\u885b\u5074\u5408\u8a08\u5a01\u529b: <strong>${this._escape(powers.defender)}</strong></div>
+                <div class="summation-total">防御威力合計: <strong>${this._escape(powers.defender)}</strong></div>
             </div>
             `
             : '';
+        const defenderSideContentHtml = isSummationKind
+            ? `${summationInlineHtml}`
+            : `
+                            <div class="name reveal-block reveal-names">${defenderName}</div>
+                            <div class="skill reveal-block reveal-skills">${defenderSkillHtml}</div>
+                            <div class="power reveal-block reveal-power">\u5a01\u529b <span class="range">${this._escape(powerRanges.defender)}</span> <span class="arrow">\u2192</span> <span class="actual defender">${this._escape(powers.defender)}</span></div>
+            `;
 
         const stateNow = store.state || state || {};
         const isGM = this._detectIsGM(stateNow);
@@ -1045,15 +1190,13 @@ class ResolveFlowPanel {
                             <div class="power reveal-block reveal-power">\u5a01\u529b <span class="range">${this._escape(powerRanges.attacker)}</span> <span class="arrow">\u2192</span> <span class="actual attacker">${this._escape(powers.attacker)}</span></div>
                         </div>
                         <div class="vs">VS</div>
-                        <div class="side defender">
-                            <div class="name reveal-block reveal-names">${defenderName}</div>
-                            <div class="skill reveal-block reveal-skills">${defenderSkillHtml}</div>
-                            <div class="power reveal-block reveal-power">\u5a01\u529b <span class="range">${this._escape(powerRanges.defender)}</span> <span class="arrow">\u2192</span> <span class="actual defender">${this._escape(powers.defender)}</span></div>
+                        <div class="side defender${isSummationKind ? ' summation-only' : ''}">
+                            ${defenderSideContentHtml}
                         </div>
                     </div>
-                    ${summationHtml}
                     <div class="resolve-flow-outcome reveal-block reveal-outcome">${headline}${outcomeResultHtml}</div>
-                    <div class="resolve-flow-damage reveal-block reveal-outcome">\u7dcf\u30c0\u30e1\u30fc\u30b8: <strong>${this._escape(String(damage.total))}</strong> / ${this._escape(damage.text)}</div>
+                    <div class="resolve-flow-damage reveal-block reveal-outcome">\u7dcf\u30c0\u30e1\u30fc\u30b8: <strong>${this._escape(String(damage.total))}</strong></div>
+                    <div class="resolve-flow-damage-breakdown reveal-block reveal-outcome">\u30c0\u30a4\u30b9\u7531\u6765: <strong>${this._escape(String(damage.diceTotal))}</strong> / ${this._escape(damage.diceText)} | \u52b9\u679c\u7531\u6765: <strong>${this._escape(String(damage.effectTotal))}</strong> / ${this._escape(damage.effectText)}</div>
                     ${notes}
                     <div class="resolve-flow-advance">
                         <button type="button" class="resolve-flow-next-btn">\u6b21\u306e\u30de\u30c3\u30c1\u3078</button>
@@ -1121,4 +1264,7 @@ export const resolveFlowPanel = new ResolveFlowPanel();
 if (typeof window !== 'undefined') {
     window.ResolveFlowPanelComponent = resolveFlowPanel;
 }
+
+
+
 

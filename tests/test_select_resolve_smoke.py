@@ -677,3 +677,130 @@ def test_case16_infer_mass_summation_from_japanese_distance_key():
     )
     assert err is None
     assert normalized == {"type": "mass_summation", "slot_id": None}
+
+
+def test_case17_select_resolve_phase_timings_are_invoked(monkeypatch):
+    _, battle_core = _mods()
+    state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])
+    _add_slot(state, "A_slot", "A1", "ally", 8, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 6, 0)
+    _set_intent(state, "A_slot", "A1", "a_skill", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "b_skill", "none", None, committed=False)
+    state["battle_state"]["phase"] = "resolve_single"
+    state["battle_state"]["resolve"]["single_queue"] = ["A_slot"]
+
+    _patch_room_and_socket(monkeypatch, state)
+
+    old_a = battle_core.all_skill_data.get("a_skill")
+    battle_core.all_skill_data["a_skill"] = {
+        "base_power": 5,
+        "dice_power": "1d1",
+        "rule_data": {
+            "effects": [
+                {"timing": "RESOLVE_START", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1},
+                {"timing": "RESOLVE_STEP_END", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1},
+                {"timing": "RESOLVE_END", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1},
+            ]
+        },
+    }
+
+    seen_timings = []
+
+    def _stub_process_skill_effects(effects_array, timing_to_check, actor, target, target_skill_data=None, context=None, base_damage=0):
+        seen_timings.append(str(timing_to_check))
+        return 0, [], []
+
+    def _stub_one_sided(**_kwargs):
+        return {
+            "ok": True,
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "logs": [],
+                "rolls": {"total_damage": 0},
+            },
+        }
+
+    monkeypatch.setattr(battle_core, "process_skill_effects", _stub_process_skill_effects)
+    monkeypatch.setattr(battle_core, "_resolve_one_sided_by_existing_logic", _stub_one_sided)
+    try:
+        battle_core.run_select_resolve_auto("room_t", "battle_test")
+    finally:
+        if old_a is None:
+            battle_core.all_skill_data.pop("a_skill", None)
+        else:
+            battle_core.all_skill_data["a_skill"] = old_a
+
+    assert "RESOLVE_START" in seen_timings
+    assert "RESOLVE_STEP_END" in seen_timings
+    assert "RESOLVE_END" in seen_timings
+
+
+def test_case18_one_sided_chain_includes_pre_before_after_damage(monkeypatch):
+    _, battle_core = _mods()
+    attacker = _make_actor("A1", "ally")
+    defender = _make_actor("B1", "enemy")
+    state = _base_state([attacker, defender])
+
+    skill_a = {
+        "base_power": 5,
+        "dice_power": "1d1",
+        "rule_data": {
+            "effects": [
+                {"timing": "PRE_MATCH", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1},
+                {"timing": "BEFORE_POWER_ROLL", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1},
+                {"timing": "UNOPPOSED", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1},
+                {"timing": "HIT", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1},
+                {"timing": "AFTER_DAMAGE_APPLY", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1},
+            ]
+        },
+    }
+    skill_d = {
+        "base_power": 3,
+        "dice_power": "1d1",
+        "rule_data": {"effects": [{"timing": "PRE_MATCH", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1}]},
+    }
+
+    seen_timings = []
+
+    def _stub_process_skill_effects(effects_array, timing_to_check, actor, target, target_skill_data=None, context=None, base_damage=0):
+        seen_timings.append(str(timing_to_check))
+        return 0, [], []
+
+    monkeypatch.setattr(battle_core, "process_skill_effects", _stub_process_skill_effects)
+    monkeypatch.setattr(battle_core, "roll_dice", lambda _cmd: {"total": 5})
+    monkeypatch.setattr(battle_core, "process_on_hit_buffs", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(battle_core, "process_on_damage_buffs", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(battle_core, "calculate_damage_multiplier", lambda *_args, **_kwargs: (1.0, []))
+
+    def _stub_update_char_stat(_room, char, name, value, **_kwargs):
+        if name == "HP":
+            char["hp"] = int(value)
+        elif name == "MP":
+            char["mp"] = int(value)
+        else:
+            states = char.setdefault("states", [])
+            hit = next((s for s in states if s.get("name") == name), None)
+            if hit is None:
+                states.append({"name": name, "value": int(value)})
+            else:
+                hit["value"] = int(value)
+
+    monkeypatch.setattr(battle_core, "_update_char_stat", _stub_update_char_stat)
+
+    battle_core._resolve_one_sided_by_existing_logic(
+        room="room_t",
+        state=state,
+        attacker_char=attacker,
+        defender_char=defender,
+        attacker_skill_data=skill_a,
+        defender_skill_data=skill_d,
+    )
+
+    assert "PRE_MATCH" in seen_timings
+    assert "BEFORE_POWER_ROLL" in seen_timings
+    assert "UNOPPOSED" in seen_timings
+    assert "HIT" in seen_timings
+    assert "AFTER_DAMAGE_APPLY" in seen_timings
