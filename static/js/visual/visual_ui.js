@@ -231,20 +231,43 @@ window.setupVisualSidebarControls = function () {
 
 // --- Timeline Controls ---
 
+const VISUAL_TIMELINE_COLLAPSED_KEY = 'visual-timeline-collapsed';
+const VISUAL_TIMELINE_USER_SET_KEY = 'visual-timeline-collapsed-user-set';
+
 window.initializeTimelineToggle = function () {
     const timelineArea = document.getElementById('visual-timeline-area');
     const header = timelineArea ? timelineArea.querySelector('.sidebar-header') : null;
 
     if (!header) return;
 
-    const isCollapsed = localStorage.getItem('visual-timeline-collapsed') === 'true';
+    const currentState = (window.BattleStore && window.BattleStore.state)
+        ? window.BattleStore.state
+        : (typeof battleState !== 'undefined' ? battleState : {});
+    const isSelectPhase = (currentState && currentState.phase === 'select');
+    const userSet = localStorage.getItem(VISUAL_TIMELINE_USER_SET_KEY) === '1';
+    let collapsedRaw = localStorage.getItem(VISUAL_TIMELINE_COLLAPSED_KEY);
+
+    // Default behavior for Select phase: collapsed unless user explicitly chose otherwise.
+    if (isSelectPhase && !userSet) {
+        collapsedRaw = 'true';
+        localStorage.setItem(VISUAL_TIMELINE_COLLAPSED_KEY, collapsedRaw);
+    }
+    if (collapsedRaw === null) {
+        collapsedRaw = 'true';
+        localStorage.setItem(VISUAL_TIMELINE_COLLAPSED_KEY, collapsedRaw);
+    }
+
+    const isCollapsed = collapsedRaw === 'true';
     if (isCollapsed) {
         timelineArea.classList.add('collapsed');
+    } else {
+        timelineArea.classList.remove('collapsed');
     }
 
     header.addEventListener('click', () => {
         const nowCollapsed = timelineArea.classList.toggle('collapsed');
-        localStorage.setItem('visual-timeline-collapsed', nowCollapsed);
+        localStorage.setItem(VISUAL_TIMELINE_COLLAPSED_KEY, String(nowCollapsed));
+        localStorage.setItem(VISUAL_TIMELINE_USER_SET_KEY, '1');
     });
 }
 

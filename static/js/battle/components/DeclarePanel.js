@@ -59,9 +59,18 @@ class DeclarePanel {
         const effectiveTargetType = this._resolveEffectiveTargetType(skillId, declaredTargetType);
         const isMassTarget = this._isMassTargetType(effectiveTargetType);
         const effectiveTargetSlotId = isMassTarget ? null : targetSlotId;
+        const declareDiff = (typeof store.compareDeclareWithCommitted === 'function')
+            ? store.compareDeclareWithCommitted(sourceSlotId)
+            : { hasDiff: true, diffSummary: '' };
+        const hasDeclareDiff = !!declareDiff?.hasDiff;
+        const forceOpenWithoutTarget = !!(sourceSlotId && !isMassTarget && !effectiveTargetSlotId && mode === 'ready');
+        const shouldShowPanel = !!(sourceSlotId && (isMassTarget || !!effectiveTargetSlotId || forceOpenWithoutTarget));
+        const closeBtnTitle = hasDeclareDiff ? '閉じる（未確定の変更は破棄）' : '閉じる';
 
-        if (phase !== 'select' || !sourceSlotId) {
+        if (phase !== 'select' || !shouldShowPanel) {
             panel.style.display = 'none';
+            // Re-opening the panel should trigger fresh calc request for same slot/skill.
+            this._lastCalcKey = null;
             return;
         }
         panel.style.display = 'block';
@@ -86,6 +95,7 @@ class DeclarePanel {
             && !costCheck.insufficient
             && !isDeclaredLocked
             && (isMassTarget || !!effectiveTargetSlotId)
+            && hasDeclareDiff
         );
         const calcErrorText = (calc && calc.error) ? (calc.final_command || '計算エラー') : null;
 
@@ -94,7 +104,7 @@ class DeclarePanel {
                 <div class="declare-panel-title">スキル選択</div>
                 <div class="declare-panel-header-right">
                     <button id="declare-commit-btn-header" class="declare-commit-btn declare-commit-btn-header" ${canCommit ? '' : 'disabled'}>${isDeclaredLocked ? '宣言済み' : (hasCommittedIntent ? '再宣言' : '宣言')}</button>
-                    <button id="declare-close-btn" class="declare-close-btn" title="閉じる">x</button>
+                    <button id="declare-close-btn" class="declare-close-btn" title="${this._escapeHtml(closeBtnTitle)}">x</button>
                 </div>
             </div>
             <div class="declare-panel-row">
@@ -110,6 +120,7 @@ class DeclarePanel {
                     </select>
                 </div>
             </div>
+            ${forceOpenWithoutTarget ? `<div class="declare-panel-row"><span></span><span class="declare-help-text">target を選択してください</span></div>` : ''}
             <div class="declare-panel-row">
                 <span>スキル</span>
                 <select id="declare-skill-select" class="declare-skill-select" ${isDeclaredLocked ? 'disabled' : ''}>

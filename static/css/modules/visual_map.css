@@ -192,6 +192,51 @@
     transform: translateY(-2px) scale(1.03);
 }
 
+.slot-badge.is-source {
+    border-color: #2a6bff;
+    box-shadow: 0 0 0 4px rgba(42, 107, 255, 0.26), 0 6px 14px rgba(20, 50, 140, 0.45);
+}
+
+.slot-badge.is-target-candidate {
+    outline: 2px dashed rgba(139, 97, 31, 0.75);
+    outline-offset: 1px;
+    animation: slot-target-candidate-pulse 0.9s ease-in-out infinite alternate;
+}
+
+.slot-badge.is-committed.is-target-candidate {
+    border-color: #2b8b46;
+}
+
+.slot-badge.is-target-selected {
+    border-color: #2d8e4a;
+    box-shadow: 0 0 0 3px rgba(45, 142, 74, 0.25), 0 5px 12px rgba(25, 96, 49, 0.4);
+}
+
+@keyframes slot-target-candidate-pulse {
+    from {
+        transform: translateY(0) scale(1);
+    }
+    to {
+        transform: translateY(-1px) scale(1.05);
+    }
+}
+
+.select-resolve-mode-hint {
+    position: absolute;
+    left: 16px;
+    top: 14px;
+    z-index: 860;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(42, 107, 255, 0.55);
+    background: rgba(236, 244, 255, 0.92);
+    color: #1e396d;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: 0 4px 10px rgba(20, 40, 80, 0.22);
+    pointer-events: none;
+}
+
 .slot-badge-num {
     font-size: 16px;
     font-weight: 800;

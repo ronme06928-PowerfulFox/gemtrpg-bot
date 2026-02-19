@@ -207,9 +207,6 @@ window.setupVisualSocketHandlers = function () {
         let clashCount = 0;
         let oneSidedCount = 0;
         let massCount = 0;
-        let totalDamage = 0;
-        let totalDiceDamage = 0;
-        let totalEffectDamage = 0;
         const stepLines = [];
 
         visible.forEach((row, idx) => {
@@ -222,9 +219,6 @@ window.setupVisualSocketHandlers = function () {
             const thisDamage = Number(split?.total || 0);
             const thisDiceDamage = Number(split?.dice || 0);
             const thisEffectDamage = Number(split?.effect || 0);
-            totalDamage += thisDamage;
-            totalDiceDamage += thisDiceDamage;
-            totalEffectDamage += thisEffectDamage;
 
             const attackerId = row?.attacker_actor_id || null;
             const defenderId = row?.defender_actor_id || row?.target_actor_id || null;
@@ -239,7 +233,6 @@ window.setupVisualSocketHandlers = function () {
         return [
             `<strong>\u3010\u89e3\u6c7a\u30d5\u30a7\u30fc\u30ba\u7d50\u679c\u307e\u3068\u3081\u3011</strong>`,
             `\u51e6\u7406\u6570: ${visible.length} (\u30de\u30c3\u30c1 ${clashCount} / \u4e00\u65b9\u653b\u6483 ${oneSidedCount} / \u5e83\u57df ${massCount})`,
-            `合計ダメージ: ${totalDamage} (ダイス ${totalDiceDamage} / 効果 ${totalEffectDamage})`,
             ...stepLines
         ];
     };

@@ -8,6 +8,7 @@ from extensions import socketio, all_skill_data
 from manager.logs import setup_logger
 from manager.room_manager import (
     get_user_info_from_sid, get_room_state, broadcast_log, broadcast_state_update,
+    is_authorized_for_character,
 )
 try:
     from manager.room_manager import emit_select_resolve_events
@@ -379,6 +380,37 @@ def _coerce_mass_type(raw_value):
     return None
 
 
+def _infer_mass_type_from_text(text):
+    merged = str(text or '').lower()
+    if not merged:
+        return None
+
+    if (
+        'mass_summation' in merged
+        or 'summation' in merged
+        or 'sum' in merged
+        or '広域-合算' in merged
+        or '合算' in merged
+        or '蠎・沺-蜷育ｮ・' in merged
+        or '蜷育ｮ・' in merged
+    ):
+        return 'mass_summation'
+
+    if (
+        'mass_individual' in merged
+        or 'individual' in merged
+        or '広域-個別' in merged
+        or '個別' in merged
+        or '蠎・沺-蛟句挨' in merged
+        or '蛟句挨' in merged
+    ):
+        return 'mass_individual'
+
+    if '広域' in merged or '蠎・沺' in merged:
+        return 'mass_individual'
+    return None
+
+
 def _infer_mass_type_from_skill(skill_id):
     if not skill_id:
         return None
@@ -414,8 +446,13 @@ def _infer_mass_type_from_skill(skill_id):
         'category',
         'distance',
         '分類',
+        'カテゴリ',
         '距離',
         '射程',
+        '範囲',
+        'target_scope',
+        '蛻・｡・',
+        '霍晞屬',
         'target',
         'target_type',
         'targeting',
@@ -427,29 +464,7 @@ def _infer_mass_type_from_skill(skill_id):
             merged_parts.append(rule_data.get(key))
 
     merged = ' '.join(str(v or '').lower() for v in merged_parts)
-    if not merged:
-        return None
-
-    if (
-        'mass_summation' in merged
-        or 'summation' in merged
-        or 'sum' in merged
-        or '広域-合算' in merged
-        or '合算' in merged
-    ):
-        return 'mass_summation'
-
-    if (
-        'mass_individual' in merged
-        or 'individual' in merged
-        or '蠎・沺-蛟句挨' in merged
-        or '蛟句挨' in merged
-    ):
-        return 'mass_individual'
-
-    if '蠎・沺' in merged:
-        return 'mass_individual'
-    return None
+    return _infer_mass_type_from_text(merged)
 
 
 def _normalize_target_by_skill(skill_id, target, allow_none=True):
@@ -590,6 +605,53 @@ def _consume_mass_costs_on_resolve_start(room_id, state, required_slots):
 
 def _is_select_phase(state):
     return state.get('phase') == 'select'
+
+
+def _authorize_intent_slot_control(room_id, battle_id, state, slot_id, event_name):
+    slots = state.get('slots', {}) if isinstance(state, dict) else {}
+    slot = slots.get(slot_id) if isinstance(slots, dict) else None
+    if not isinstance(slot, dict):
+        logger.warning(
+            "[FLOW] %s_denied room=%s battle=%s slot=%s reason=unknown_slot",
+            event_name, room_id, battle_id, slot_id
+        )
+        emit('battle_error', {'message': 'unknown slot_id', 'slot_id': slot_id}, to=request.sid)
+        return False
+
+    actor_id = slot.get('actor_id')
+    if not actor_id:
+        logger.warning(
+            "[FLOW] %s_denied room=%s battle=%s slot=%s reason=slot_actor_missing",
+            event_name, room_id, battle_id, slot_id
+        )
+        emit(
+            'battle_error',
+            {'message': 'slot actor is missing', 'slot_id': slot_id},
+            to=request.sid
+        )
+        return False
+
+    user_info = get_user_info_from_sid(request.sid) or {}
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+    allowed = is_authorized_for_character(room_id, actor_id, username, attribute)
+    if not allowed:
+        logger.warning(
+            "[FLOW] %s_denied room=%s battle=%s slot=%s actor=%s user=%s attribute=%s",
+            event_name, room_id, battle_id, slot_id, actor_id, username, attribute
+        )
+        emit(
+            'battle_error',
+            {
+                'message': f'{event_name} permission denied',
+                'slot_id': slot_id,
+                'actor_id': actor_id
+            },
+            to=request.sid
+        )
+        return False
+
+    return True
 
 
 def _is_actor_actionable(room_id, actor_id):
@@ -1108,8 +1170,8 @@ def on_battle_intent_preview(data):
         emit('battle_error', {'message': 'battle_intent_preview is only allowed in select phase'}, to=request.sid)
         return
 
-    if slot_id not in state.get('slots', {}):
-        print(f"[battle_intent_preview] unknown slot_id={slot_id} in battle_id={battle_id}")
+    if not _authorize_intent_slot_control(room_id, battle_id, state, slot_id, 'battle_intent_preview'):
+        return
 
     skill_id = data.get('skill_id')
     target, target_error = _validate_and_normalize_target(
@@ -1167,8 +1229,8 @@ def on_battle_intent_commit(data):
         emit('battle_error', {'message': 'battle_intent_commit is only allowed in select phase'}, to=request.sid)
         return
 
-    if slot_id not in state.get('slots', {}):
-        print(f"[battle_intent_commit] unknown slot_id={slot_id} in battle_id={battle_id}")
+    if not _authorize_intent_slot_control(room_id, battle_id, state, slot_id, 'battle_intent_commit'):
+        return
 
     skill_id = data.get('skill_id')
     target, target_error = _validate_and_normalize_target(
@@ -1320,8 +1382,8 @@ def on_battle_intent_uncommit(data):
         emit('battle_error', {'message': 'battle_intent_uncommit is only allowed in select phase'}, to=request.sid)
         return
 
-    if slot_id not in state.get('slots', {}):
-        print(f"[battle_intent_uncommit] unknown slot_id={slot_id} in battle_id={battle_id}")
+    if not _authorize_intent_slot_control(room_id, battle_id, state, slot_id, 'battle_intent_uncommit'):
+        return
 
     intent = state['intents'].get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)

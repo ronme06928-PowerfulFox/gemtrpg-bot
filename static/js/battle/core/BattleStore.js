@@ -621,6 +621,125 @@ class BattleStore {
         return this._state[key];
     }
 
+    _normalizeDiffTargetType(type) {
+        const t = String(type || '').trim();
+        if (t === 'single_slot' || t === 'mass_individual' || t === 'mass_summation' || t === 'none') {
+            return t;
+        }
+        return 'single_slot';
+    }
+
+    _normalizeDiffTarget(target, fallbackSlotId = null) {
+        const raw = (target && typeof target === 'object') ? target : {};
+        const guessedType = raw.type || (fallbackSlotId ? 'single_slot' : 'none');
+        const type = this._normalizeDiffTargetType(guessedType);
+        const slotIdRaw = raw.slot_id ?? raw.slotId ?? fallbackSlotId ?? null;
+        const slotId = (type === 'single_slot' && slotIdRaw !== null && slotIdRaw !== undefined && slotIdRaw !== '')
+            ? String(slotIdRaw)
+            : null;
+        return { type, slotId };
+    }
+
+    _normalizeCommittedForDiff(intent) {
+        if (!intent || typeof intent !== 'object' || !intent.committed) {
+            return {
+                skillId: null,
+                targetType: 'none',
+                targetSlotId: null
+            };
+        }
+        const normalizedTarget = this._normalizeDiffTarget(
+            intent.target || {},
+            intent.target_slot_id ?? intent.targetSlotId ?? null
+        );
+        return {
+            skillId: intent.skill_id || null,
+            targetType: normalizedTarget.type,
+            targetSlotId: normalizedTarget.slotId
+        };
+    }
+
+    _normalizeDraftForDiff(declare) {
+        const draft = (declare && typeof declare === 'object') ? declare : {};
+        const targetType = this._normalizeDiffTargetType(draft.targetType || 'single_slot');
+        const targetSlotIdRaw = draft.targetSlotId ?? null;
+        const targetSlotId = (targetType === 'single_slot' && targetSlotIdRaw !== null && targetSlotIdRaw !== undefined && targetSlotIdRaw !== '')
+            ? String(targetSlotIdRaw)
+            : null;
+        return {
+            skillId: draft.skillId || null,
+            targetType,
+            targetSlotId
+        };
+    }
+
+    _formatDiffSlotLabel(state, slotId) {
+        if (!slotId) return '-';
+        const slots = state?.slots || {};
+        const slot = slots[slotId] || null;
+        if (!slot) return '-';
+
+        const actorId = slot.actor_id ?? slot.actor_char_id ?? null;
+        const actor = (state?.characters || []).find((c) => String(c.id) === String(actorId));
+        const actorName = actor?.name || actorId || 'unknown';
+        const indexRaw = Number(slot.index_in_actor ?? 0);
+        const index = Number.isFinite(indexRaw) ? (indexRaw + 1) : 1;
+        return `${actorName} #${index}`;
+    }
+
+    _formatDiffTarget(state, type, slotId) {
+        const t = this._normalizeDiffTargetType(type);
+        if (t === 'single_slot') {
+            return slotId ? this._formatDiffSlotLabel(state, slotId) : '-';
+        }
+        if (t === 'mass_individual') return 'mass_individual';
+        if (t === 'mass_summation') return 'mass_summation';
+        return '-';
+    }
+
+    compareDeclareWithCommitted(sourceSlotId = null) {
+        const state = this._state || {};
+        const declare = state.declare || {};
+        const sourceId = sourceSlotId || declare.sourceSlotId || null;
+        if (!sourceId) {
+            return {
+                sourceSlotId: null,
+                hasDiff: false,
+                diffSummary: '',
+                committed: this._normalizeCommittedForDiff(null),
+                draft: this._normalizeDraftForDiff(declare)
+            };
+        }
+
+        const intent = (state.intents || {})[sourceId] || null;
+        const committed = this._normalizeCommittedForDiff(intent);
+        const draft = this._normalizeDraftForDiff(declare);
+
+        const skillChanged = String(draft.skillId || '') !== String(committed.skillId || '');
+        const targetChanged =
+            String(draft.targetType || '') !== String(committed.targetType || '')
+            || String(draft.targetSlotId || '') !== String(committed.targetSlotId || '');
+        const hasDiff = skillChanged || targetChanged;
+
+        const lines = [];
+        if (skillChanged) {
+            lines.push(`skill: ${committed.skillId || '-'} -> ${draft.skillId || '-'}`);
+        }
+        if (targetChanged) {
+            lines.push(
+                `target: ${this._formatDiffTarget(state, committed.targetType, committed.targetSlotId)} -> ${this._formatDiffTarget(state, draft.targetType, draft.targetSlotId)}`
+            );
+        }
+
+        return {
+            sourceSlotId: sourceId,
+            hasDiff,
+            diffSummary: lines.join(' / '),
+            committed,
+            draft
+        };
+    }
+
     /**
      * 購読（Subscribe）
      * @param {Function} listener - 状態変更時に呼び出されるコールバック

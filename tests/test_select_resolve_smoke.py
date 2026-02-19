@@ -679,6 +679,28 @@ def test_case16_infer_mass_summation_from_japanese_distance_key():
     assert normalized == {"type": "mass_summation", "slot_id": None}
 
 
+def test_case16b_infer_mass_individual_from_legacy_distance_key_without_mass_tag():
+    battle_routes = _load_battle_common_routes_module()
+    battle_routes.all_skill_data.clear()
+    battle_routes.all_skill_data["E-10"] = {
+        "繧ｹ繧ｭ繝ｫID": "E-10",
+        "蛻・｡・": "鬲疲ｳ・",
+        "霍晞屬": "蠎・沺-蛟句挨",
+        "tags": ["謾ｻ謦・"],
+    }
+
+    inferred = battle_routes._infer_mass_type_from_skill("E-10")
+    assert inferred == "mass_individual"
+
+    normalized, err = battle_routes._normalize_target_by_skill(
+        "E-10",
+        {"type": "single_slot", "slot_id": "any_slot"},
+        allow_none=False,
+    )
+    assert err is None
+    assert normalized == {"type": "mass_individual", "slot_id": None}
+
+
 def test_case17_select_resolve_phase_timings_are_invoked(monkeypatch):
     _, battle_core = _mods()
     state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])

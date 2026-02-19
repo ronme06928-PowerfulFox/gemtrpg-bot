@@ -217,8 +217,32 @@ window.renderSlotBadgesForAllTokens = function () {
             ...(slot || {}),
             slot_id: (slot && slot.slot_id) ? slot.slot_id : sid
         }));
+    const stateRef = preferStore ? (storeState || {}) : (legacyState || {});
+    const declare = stateRef?.declare || {};
+    const declareMode = declare.mode || 'idle';
+    const declareSourceSlotId = declare.sourceSlotId || null;
+    const declareTargetSlotId = declare.targetSlotId || null;
+    const declareTargetType = _normalizeDeclareTargetType(declare.targetType || 'single_slot');
+    const isMassDeclare = _isMassDeclareTargetType(declareTargetType);
+    const isTargetPending = !!(
+        declareSourceSlotId
+        && !isMassDeclare
+        && !declareTargetSlotId
+        && (declareMode === 'choose_target' || declareMode === 'ready')
+    );
+    const slotsById = {};
+    slots.forEach((slot) => {
+        const sid = String(slot?.slot_id ?? slot?.id ?? '');
+        if (!sid) return;
+        slotsById[sid] = slot || {};
+    });
+    const sourceSlot = declareSourceSlotId ? (slotsById[String(declareSourceSlotId)] || null) : null;
+    const sourceActorId = sourceSlot?.actor_id ?? sourceSlot?.actor_char_id ?? null;
+    const sourceTeam = sourceSlot?.team ?? null;
 
     tokenLayer.querySelectorAll('.slot-badge-container').forEach(el => el.remove());
+    _ensureSelectResolveClickAwayHandler();
+    _renderSelectResolveModeHint(phase, stateRef);
 
     const now = Date.now();
     if (!window._slotBadgeLogAt || now - window._slotBadgeLogAt > 600) {
@@ -269,8 +293,20 @@ window.renderSlotBadgesForAllTokens = function () {
 
             const badge = document.createElement('div');
             const isSelected = selectedSlotId && String(selectedSlotId) === String(slotId);
-            badge.className = `slot-badge${committed ? ' is-committed' : ''}${lockedTarget ? ' is-locked' : ''}${isSelected ? ' is-selected' : ''}`;
-            badge.title = _buildSlotBadgeTitle(slotId, initiative, preferStore ? storeState : legacyState);
+            const isSource = !!(declareSourceSlotId && String(declareSourceSlotId) === String(slotId));
+            const isCurrentTarget = !!(declareTargetSlotId && String(declareTargetSlotId) === String(slotId));
+            const sameActorAsSource = !!(sourceActorId && actorId && String(sourceActorId) === String(actorId));
+            const sameTeamAsSource = !!(sourceTeam && slot?.team && String(sourceTeam) === String(slot.team));
+            const isTargetCandidate = !!(
+                isTargetPending
+                && !isSource
+                && !sameActorAsSource
+                && !sameTeamAsSource
+                && !slot?.disabled
+            );
+
+            badge.className = `slot-badge${committed ? ' is-committed' : ''}${lockedTarget ? ' is-locked' : ''}${isSelected ? ' is-selected' : ''}${isSource ? ' is-source' : ''}${isTargetCandidate ? ' is-target-candidate' : ''}${isCurrentTarget ? ' is-target-selected' : ''}`;
+            badge.title = _buildSlotBadgeTitle(slotId, initiative, stateRef);
             if (slotId) badge.dataset.slotId = String(slotId);
             if (actorId) badge.dataset.actorId = String(actorId);
 
@@ -285,8 +321,21 @@ window.renderSlotBadgesForAllTokens = function () {
 
                 if (!slotId) return;
                 if (phase !== 'select') return;
-                console.log(`[slot_badges] clicked slot=${slotId} actor=${actorId || 'unknown'}`);
-                _handleDeclareSlotClick(String(slotId), String(actorId || ''));
+                _scheduleSlotBadgeSingleClick(() => {
+                    console.log(`[slot_badges] clicked slot=${slotId} actor=${actorId || 'unknown'}`);
+                    _handleDeclareSlotClick(String(slotId), String(actorId || ''));
+                });
+            });
+
+            badge.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (!slotId) return;
+                if (phase !== 'select') return;
+                _cancelSlotBadgeSingleClick();
+                console.log(`[slot_badges] dblclick slot=${slotId} actor=${actorId || 'unknown'}`);
+                _handleDeclareSlotDoubleClick(String(slotId), String(actorId || ''));
             });
 
             container.appendChild(badge);
@@ -295,6 +344,26 @@ window.renderSlotBadgesForAllTokens = function () {
         token.appendChild(container);
     });
 };
+
+function _cancelSlotBadgeSingleClick() {
+    if (window._slotBadgeSingleClickTimer) {
+        clearTimeout(window._slotBadgeSingleClickTimer);
+        window._slotBadgeSingleClickTimer = null;
+    }
+}
+
+function _scheduleSlotBadgeSingleClick(handler) {
+    _cancelSlotBadgeSingleClick();
+    window._slotBadgeSingleClickTimer = setTimeout(() => {
+        window._slotBadgeSingleClickTimer = null;
+        try {
+            handler();
+        } catch (e) {
+            console.error('[slot_badges] single-click handler failed', e);
+        }
+    }, 190);
+}
+
 function _getSelectResolveStateRef() {
     if (window.BattleStore && window.BattleStore.state) {
         return window.BattleStore.state;
@@ -373,6 +442,31 @@ function _getSkillTooltipMeta(skillId) {
     return { name, shortDesc };
 }
 
+function _formatSlotLabelForTooltip(stateRef, slotId) {
+    if (!slotId) return '-';
+    const slot = stateRef?.slots?.[slotId];
+    if (!slot) return '-';
+
+    const actorId = slot.actor_id ?? slot.actor_char_id ?? null;
+    const actor = (stateRef?.characters || []).find((c) => String(c.id) === String(actorId));
+    const actorName = actor?.name || actorId || 'unknown';
+    const indexRaw = Number(slot.index_in_actor ?? 0);
+    const index = Number.isFinite(indexRaw) ? (indexRaw + 1) : 1;
+    return `${actorName} #${index}`;
+}
+
+function _formatIntentTargetForTooltip(stateRef, targetRaw) {
+    const target = (targetRaw && typeof targetRaw === 'object') ? targetRaw : {};
+    const targetType = _normalizeDeclareTargetType(target.type || 'none');
+    if (targetType === 'single_slot') {
+        const targetSlotId = target.slot_id || target.slotId || null;
+        return targetSlotId ? _formatSlotLabelForTooltip(stateRef, targetSlotId) : '-';
+    }
+    if (targetType === 'mass_individual') return 'mass_individual';
+    if (targetType === 'mass_summation') return 'mass_summation';
+    return '-';
+}
+
 function _buildSlotBadgeTitle(slotId, initiative, stateRef) {
     const actorId = _getActorIdBySlotId(stateRef, slotId);
     const slot = stateRef?.slots?.[slotId];
@@ -380,13 +474,116 @@ function _buildSlotBadgeTitle(slotId, initiative, stateRef) {
     const actor = (stateRef?.characters || []).find((c) => String(c.id) === String(actorId));
     const actorName = actor?.name || 'actor';
     const base = `${actorName} #${index} / SPD:${initiative}`;
-    const selectedSkillId = stateRef?.declare?.skillId;
-    if (!selectedSkillId) return base;
+    const intent = stateRef?.intents?.[slotId] || null;
+    if (!intent?.committed) return base;
 
-    const meta = _getSkillTooltipMeta(selectedSkillId);
-    if (!meta) return `${base}\nskill: ${selectedSkillId}`;
-    if (!meta.shortDesc) return `${base}\nskill: ${meta.name}`;
-    return `${base}\nskill: ${meta.name}\n${meta.shortDesc}`;
+    const skillId = intent?.skill_id || null;
+    const targetSummary = _formatIntentTargetForTooltip(stateRef, intent?.target || {});
+    if (!skillId) {
+        return `${base}\nskill_id: -\ntarget: ${targetSummary}`;
+    }
+
+    const meta = _getSkillTooltipMeta(skillId);
+    const lines = [
+        base,
+        `skill_id: ${skillId}`,
+        `skill: ${meta?.name || skillId}`,
+        `target: ${targetSummary}`
+    ];
+    if (meta?.shortDesc) {
+        lines.push(meta.shortDesc);
+    }
+    return lines.join('\n');
+}
+
+function _isTargetSelectionPendingState(stateRef) {
+    if (!stateRef || stateRef.phase !== 'select') return false;
+    const declare = stateRef.declare || {};
+    const sourceSlotId = declare.sourceSlotId || null;
+    if (!sourceSlotId) return false;
+    const targetType = _normalizeDeclareTargetType(declare.targetType || 'single_slot');
+    if (_isMassDeclareTargetType(targetType)) return false;
+    const targetSlotId = declare.targetSlotId || null;
+    if (targetSlotId) return false;
+    const mode = declare.mode || 'idle';
+    return mode === 'choose_target' || mode === 'ready';
+}
+
+function _resetDeclareSelectionState(reason = 'outside_click') {
+    if (window.BattleStore && typeof window.BattleStore.resetDeclare === 'function') {
+        window.BattleStore.resetDeclare();
+        if (typeof window.BattleStore.setSelectedSlotId === 'function') {
+            window.BattleStore.setSelectedSlotId(null);
+        }
+        console.log(`[declare] selection_cleared reason=${reason}`);
+        return true;
+    }
+
+    if (typeof battleState !== 'undefined' && battleState) {
+        battleState.selectedSlotId = null;
+        battleState.declare = {
+            sourceSlotId: null,
+            targetSlotId: null,
+            targetType: 'single_slot',
+            lastSingleTargetSlotId: null,
+            skillId: null,
+            mode: 'idle',
+            calc: null
+        };
+        console.log(`[declare] selection_cleared_legacy reason=${reason}`);
+        return true;
+    }
+    return false;
+}
+
+function _ensureSelectResolveClickAwayHandler() {
+    if (window._selectResolveClickAwayBound) return;
+    window._selectResolveClickAwayBound = true;
+
+    document.addEventListener('click', (e) => {
+        const stateRef = _getSelectResolveStateRef();
+        if (!_isTargetSelectionPendingState(stateRef)) return;
+
+        const target = e.target;
+        if (!target || typeof target.closest !== 'function') return;
+
+        const mapViewport = document.getElementById('map-viewport');
+        if (mapViewport && !mapViewport.contains(target)) return;
+
+        if (
+            target.closest('.slot-badge')
+            || target.closest('.slot-badge-container')
+            || target.closest('.declare-panel')
+            || target.closest('#select-resolve-declare-panel')
+        ) {
+            return;
+        }
+
+        _resetDeclareSelectionState('click_away');
+    }, true);
+}
+
+function _renderSelectResolveModeHint(phase, stateRef) {
+    const viewport = document.getElementById('map-viewport');
+    if (!viewport) return;
+
+    let hint = document.getElementById('select-resolve-mode-hint');
+    if (!hint) {
+        hint = document.createElement('div');
+        hint.id = 'select-resolve-mode-hint';
+        hint.className = 'select-resolve-mode-hint';
+        hint.style.display = 'none';
+        viewport.appendChild(hint);
+    }
+
+    if (phase !== 'select' || !_isTargetSelectionPendingState(stateRef)) {
+        hint.style.display = 'none';
+        return;
+    }
+
+    const sourceLabel = _formatSlotLabelForTooltip(stateRef, stateRef?.declare?.sourceSlotId || null);
+    hint.textContent = `対象選択中: ${sourceLabel} の対象を選択してください（空き領域クリックで解除）`;
+    hint.style.display = 'block';
 }
 
 function _getActorIdBySlotId(stateRef, slotId) {
@@ -443,6 +640,49 @@ function _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId, targ
 
     console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_type=${target.type} target_slot=${target.slot_id || 'null'}`);
     window.SocketClient.sendIntentPreview(roomId, battleId, sourceSlotId, effectiveSkillId, target);
+}
+
+function _handleDeclareSlotDoubleClick(clickedSlotId, clickedActorId) {
+    const stateRef = _getSelectResolveStateRef();
+    if ((stateRef.phase || 'select') !== 'select') return;
+
+    const clickedIntent = (stateRef.intents || {})[clickedSlotId] || null;
+    let sourceSlotId = clickedSlotId;
+    let targetSlotId = null;
+    let targetType = 'single_slot';
+    let skillId = null;
+    let lastSingleTargetSlotId = null;
+
+    if (clickedIntent && clickedIntent.committed) {
+        targetType = _normalizeDeclareTargetType(clickedIntent?.target?.type || 'single_slot');
+        skillId = clickedIntent?.skill_id || null;
+        if (_isMassDeclareTargetType(targetType)) {
+            targetSlotId = null;
+        } else {
+            targetSlotId = clickedIntent?.target?.slot_id || null;
+            lastSingleTargetSlotId = targetSlotId || null;
+        }
+    }
+
+    // Keep panel open on dblclick even when single target is not selected yet.
+    const mode = 'ready';
+    if (window.BattleStore && typeof window.BattleStore.setDeclare === 'function') {
+        window.BattleStore.setDeclare({
+            sourceSlotId,
+            targetSlotId,
+            targetType,
+            lastSingleTargetSlotId,
+            skillId,
+            mode
+        });
+    } else if (window.BattleStore && typeof window.BattleStore.setSelectedSlotId === 'function') {
+        window.BattleStore.setSelectedSlotId(sourceSlotId);
+    } else if (typeof battleState !== 'undefined') {
+        battleState.selectedSlotId = sourceSlotId;
+    }
+
+    console.log(`[declare] mode=dblclick source=${sourceSlotId || 'null'} target_type=${targetType} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
+    _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId, targetType);
 }
 
 function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
