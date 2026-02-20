@@ -6,13 +6,18 @@
 import csv
 import json
 import requests
-from pathlib import Path
+from manager.cache_paths import (
+    BUFF_CATALOG_CACHE_FILE,
+    LEGACY_BUFF_CATALOG_CACHE_FILE,
+    load_json_cache,
+    save_json_cache,
+)
 
 # バフ図鑑CSVのURL
 BUFF_CATALOG_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkulkkIx6AQEHBKJiAqnjyzEQX5itUVV3SDwi40sLmXeiVQbXvg0RmMS3-XLSwNo2YHsF3WybyHjMu/pub?gid=1708552572&single=true&output=csv"
 
 # キャッシュファイルのパス
-CACHE_FILE = Path(__file__).parent.parent.parent / 'buff_catalog_cache.json'
+CACHE_FILE = BUFF_CATALOG_CACHE_FILE
 
 
 class BuffCatalogLoader:
@@ -86,8 +91,7 @@ class BuffCatalogLoader:
             buffs (dict): バフデータ辞書
         """
         try:
-            with open(CACHE_FILE, 'w', encoding='utf-8') as f:
-                json.dump(buffs, f, ensure_ascii=False, indent=2)
+            save_json_cache(CACHE_FILE, buffs)
             print(f"[OK] バフ図鑑データをキャッシュに保存しました: {CACHE_FILE}")
         except Exception as e:
             print(f"[ERROR] バフ図鑑データのキャッシュ保存に失敗: {e}")
@@ -99,12 +103,8 @@ class BuffCatalogLoader:
         Returns:
             dict: バフデータ辞書、失敗時は空辞書
         """
-        if not CACHE_FILE.exists():
-            return {}
-
         try:
-            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
-                buffs = json.load(f)
+            buffs = load_json_cache(CACHE_FILE, legacy_paths=[LEGACY_BUFF_CATALOG_CACHE_FILE]) or {}
             print(f"[OK] キャッシュから {len(buffs)} 件のバフ図鑑データを読み込みました")
             return buffs
         except Exception as e:

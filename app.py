@@ -27,7 +27,7 @@ from flask_compress import Compress # 追加: 圧縮転送用ライブラリ
 from whitenoise import WhiteNoise # 追加: 静的ファイル配信高速化
 
 # ★ 拡張機能（共有インスタンス）のインポート
-from extensions import db, socketio, active_room_states, all_skill_data
+from extensions import db, socketio, active_room_states, all_skill_data, all_glossary_data
 from models import Room
 
 # ★ マネージャー（ロジック層）からのインポート
@@ -341,6 +341,14 @@ def get_passive_data():
     passives = passive_loader.load_passives()
     return jsonify(passives)
 
+@app.route('/api/get_glossary_data', methods=['GET'])
+def get_glossary_data():
+    """フロントエンドに用語辞書データを提供するAPI"""
+    if not all_glossary_data:
+        from manager.glossary.loader import glossary_catalog_loader
+        glossary_catalog_loader.load_terms()
+    return jsonify(all_glossary_data)
+
 
 @app.route('/api/upload_image', methods=['POST'])
 @session_required
@@ -536,7 +544,7 @@ def get_local_images():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--update', action='store_true', help='スキル・アイテム・輝化スキル・特殊パッシブの全データを更新')
+    parser.add_argument('--update', action='store_true', help='スキル・アイテム・輝化スキル・特殊パッシブ・バフ図鑑・用語辞書の全データを更新')
     args = parser.parse_args()
 
     if args.update:

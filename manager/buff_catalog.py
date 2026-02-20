@@ -207,21 +207,21 @@ def get_buff_by_id(buff_id):
     バフIDからバフ情報を取得する
     (buff_catalog_cache.json を参照)
     """
-    import os
-    import json
+    from manager.cache_paths import (
+        BUFF_CATALOG_CACHE_FILE,
+        LEGACY_BUFF_CATALOG_CACHE_FILE,
+        load_json_cache,
+    )
 
-    # キャッシュファイルのパス (簡易実装: 相対パスで探す)
-    # 実行ディレクトリ(app.pyがある場所)からの相対パスを想定
-    cache_path = os.path.join(os.getcwd(), 'buff_catalog_cache.json')
-
-    if os.path.exists(cache_path):
-        try:
-            with open(cache_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                return data.get(buff_id)
-        except Exception as e:
-            print(f"[ERROR] get_buff_by_id: Failed to load cache: {e}")
+    try:
+        data = load_json_cache(
+            BUFF_CATALOG_CACHE_FILE,
+            legacy_paths=[LEGACY_BUFF_CATALOG_CACHE_FILE],
+        )
+        if not isinstance(data, dict):
+            print(f"[WARNING] get_buff_by_id: Cache file not found at {BUFF_CATALOG_CACHE_FILE}")
             return None
-    else:
-        print(f"[WARNING] get_buff_by_id: Cache file not found at {cache_path}")
+        return data.get(buff_id)
+    except Exception as e:
+        print(f"[ERROR] get_buff_by_id: Failed to load cache: {e}")
         return None

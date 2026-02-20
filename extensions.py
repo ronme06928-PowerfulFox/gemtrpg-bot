@@ -10,5 +10,6 @@ socketio = SocketIO()
 # app.py や data_manager.py にあった変数を移動
 all_skill_data = {}
 all_buff_data = {}  # ★追加: バフ図鑑のデータを保持
+all_glossary_data = {}
 active_room_states = {}
 user_sids = {}

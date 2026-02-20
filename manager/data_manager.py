@@ -8,6 +8,12 @@ from dotenv import load_dotenv
 # ★ extensions から db と all_skill_data をインポートするように変更
 from extensions import db, all_skill_data
 from models import Room
+from manager.cache_paths import (
+    SKILLS_CACHE_FILE,
+    LEGACY_SKILLS_CACHE_FILE,
+    load_json_cache,
+    save_json_cache,
+)
 
 # .env ファイルをロード
 load_dotenv()
@@ -16,7 +22,7 @@ load_dotenv()
 # 環境変数から取得。なければデフォルトのファイル名を使用
 GOOGLE_CREDENTIALS_SOURCE = os.environ.get('GOOGLE_CREDENTIALS_JSON', 'gemtrpgdicebot-ee5a4f0c50df.json')
 SPREADSHEET_NAME = 'ジェムリアTRPG_スキル一覧'
-SKILL_CACHE_FILE = 'skills_cache.json'
+SKILL_CACHE_FILE = SKILLS_CACHE_FILE
 
 TOC_WORKSHEET_NAME = '参照リスト'
 SHEETS_TO_SKIP = ['参照リスト', 'スキル検索']
@@ -146,8 +152,7 @@ def fetch_and_save_sheets_data():
     # === ▲▲▲ 修正ここまで ▲▲▲
 
     try:
-        with open(SKILL_CACHE_FILE, 'w', encoding='utf-8') as f:
-            json.dump(all_skill_data, f, ensure_ascii=False, indent=2)
+        save_json_cache(SKILL_CACHE_FILE, all_skill_data)
         print(f"[OK] {total_skills_processed} 件のスキルを保存しました。")
         return True
     except Exception as e:
@@ -155,17 +160,16 @@ def fetch_and_save_sheets_data():
         return False
 
 def load_skills_from_cache():
-    if not os.path.exists(SKILL_CACHE_FILE):
-        print(f"Cache not found.")
-        return None
     try:
-        with open(SKILL_CACHE_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        data = load_json_cache(SKILL_CACHE_FILE, legacy_paths=[LEGACY_SKILLS_CACHE_FILE])
+        if not data:
+            print("Cache not found.")
+            return None
 
-            # === ▼▼▼ 修正: 辞書の中身を更新する ▼▼▼
-            all_skill_data.clear()
-            all_skill_data.update(data)
-            # === ▲▲▲ 修正ここまで ▲▲▲
+        # === ▼▼▼ 修正: 辞書の中身を更新する ▼▼▼
+        all_skill_data.clear()
+        all_skill_data.update(data)
+        # === ▲▲▲ 修正ここまで ▲▲▲
 
         return all_skill_data
     except Exception as e:
@@ -245,7 +249,7 @@ def delete_room_from_db(room_name):
 
 def update_all_data():
     """
-    全てのデータ（スキル、アイテム、輝化スキル、特殊パッシブ）を更新
+    全てのデータ（スキル、アイテム、輝化スキル、特殊パッシブ、バフ図鑑、用語辞書）を更新
 
     Returns:
         bool: 全ての更新が成功したかどうか
@@ -257,7 +261,7 @@ def update_all_data():
     success = True
 
     # 1. スキルデータ更新
-    print("【1/4】スキルデータを更新中...")
+    print("【1/6】スキルデータを更新中...")
     try:
         if fetch_and_save_sheets_data():
             print("✅ スキルデータの更新に成功しました\n")
@@ -269,7 +273,7 @@ def update_all_data():
         success = False
 
     # 2. アイテムデータ更新
-    print("【2/4】アイテムデータを更新中...")
+    print("【2/6】アイテムデータを更新中...")
     try:
         from manager.items.loader import item_loader
         items = item_loader.refresh()
@@ -283,7 +287,7 @@ def update_all_data():
         success = False
 
     # 3. 輝化スキルデータ更新
-    print("【3/4】輝化スキルデータを更新中...")
+    print("【3/6】輝化スキルデータを更新中...")
     try:
         from manager.radiance.loader import radiance_loader
         radiance_skills = radiance_loader.refresh()
@@ -297,7 +301,7 @@ def update_all_data():
         success = False
 
     # 4. 特殊パッシブデータ更新
-    print("【4/5】特殊パッシブデータを更新中...")
+    print("【4/6】特殊パッシブデータを更新中...")
     try:
         from manager.passives.loader import passive_loader
         passives = passive_loader.refresh()
@@ -311,7 +315,7 @@ def update_all_data():
         success = False
 
     # 5. バフ図鑑データ更新 ★追加
-    print("【5/5】バフ図鑑データを更新中...")
+    print("【5/6】バフ図鑑データを更新中...")
     try:
         from manager.buffs.loader import buff_catalog_loader
         buffs = buff_catalog_loader.refresh()
@@ -324,18 +328,18 @@ def update_all_data():
         print(f"❌ バフ図鑑データ更新エラー: {e}\n")
         success = False
 
-    # 5. バフ図鑑データ更新
-    print("【5/5】バフ図鑑データを更新中...")
+    # 6. 用語辞書データ更新
+    print("【6/6】用語辞書データを更新中...")
     try:
-        from manager.buffs.loader import buff_catalog_loader
-        buffs = buff_catalog_loader.refresh()
-        if buffs:
-            print(f"✅ バフ図鑑データの更新に成功しました ({len(buffs)}件)\n")
+        from manager.glossary.loader import glossary_catalog_loader
+        terms = glossary_catalog_loader.refresh()
+        if terms:
+            print(f"✅ 用語辞書データの更新に成功しました ({len(terms)}件)\n")
         else:
-            print("❌ バフ図鑑データの更新に失敗しました\n")
+            print("❌ 用語辞書データの更新に失敗しました\n")
             success = False
     except Exception as e:
-        print(f"❌ バフ図鑑データ更新エラー: {e}\n")
+        print(f"❌ 用語辞書データ更新エラー: {e}\n")
         success = False
 
     print("="*60)
@@ -415,3 +419,11 @@ def init_app_data():
             print("[OK] Buff catalog data initialized.")
         except Exception as e:
             print(f"[WARNING] Buff catalog data initialization warning: {e}")
+
+        # 7. 用語辞書データの読み込み
+        try:
+            from manager.glossary.loader import glossary_catalog_loader
+            glossary_catalog_loader.load_terms()
+            print("[OK] Glossary data initialized.")
+        except Exception as e:
+            print(f"[WARNING] Glossary data initialization warning: {e}")

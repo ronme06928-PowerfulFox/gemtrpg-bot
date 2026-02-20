@@ -3,13 +3,17 @@ import csv
 import json
 from io import StringIO
 from manager.logs import setup_logger
+from manager.cache_paths import (
+    RADIANCE_CACHE_FILE,
+    LEGACY_RADIANCE_CACHE_FILE,
+    load_json_cache,
+    save_json_cache,
+)
 
 logger = setup_logger(__name__)
 
 # CSV公開URL
 RADIANCE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkulkkIx6AQEHBKJiAqnjyzEQX5itUVV3SDwi40sLmXeiVQbXvg0RmMS3-XLSwNo2YHsF3WybyHjMu/pub?gid=0&single=true&output=csv'
-RADIANCE_CACHE_FILE = 'radiance_skills_cache.json'
-
 class RadianceSkillLoader:
     """輝化スキルのCSV URL読み込み"""
 
@@ -77,8 +81,7 @@ class RadianceSkillLoader:
     def _save_cache(self, skills):
         """キャッシュファイルに保存"""
         try:
-            with open(RADIANCE_CACHE_FILE, 'w', encoding='utf-8') as f:
-                json.dump(skills, f, ensure_ascii=False, indent=2)
+            save_json_cache(RADIANCE_CACHE_FILE, skills)
             logger.info("輝化スキルをキャッシュに保存しました")
         except Exception as e:
             logger.error(f"キャッシュ保存エラー: {e}")
@@ -86,10 +89,7 @@ class RadianceSkillLoader:
     def _load_cache(self):
         """キャッシュファイルから読み込み"""
         try:
-            with open(RADIANCE_CACHE_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return None
+            return load_json_cache(RADIANCE_CACHE_FILE, legacy_paths=[LEGACY_RADIANCE_CACHE_FILE])
         except Exception as e:
             logger.error(f"キャッシュ読み込みエラー: {e}")
             return None

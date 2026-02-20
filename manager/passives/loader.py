@@ -3,13 +3,17 @@ import csv
 import json
 from io import StringIO
 from manager.logs import setup_logger
+from manager.cache_paths import (
+    PASSIVES_CACHE_FILE,
+    LEGACY_PASSIVES_CACHE_FILE,
+    load_json_cache,
+    save_json_cache,
+)
 
 logger = setup_logger(__name__)
 
 # CSV公開URL
 PASSIVES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkulkkIx6AQEHBKJiAqnjyzEQX5itUVV3SDwi40sLmXeiVQbXvg0RmMS3-XLSwNo2YHsF3WybyHjMu/pub?gid=9160848&single=true&output=csv'
-PASSIVES_CACHE_FILE = 'passives_cache.json'
-
 class PassiveLoader:
     """特殊パッシブのCSV URL読み込み"""
 
@@ -69,8 +73,7 @@ class PassiveLoader:
     def _save_cache(self, passives):
         """キャッシュファイルに保存"""
         try:
-            with open(PASSIVES_CACHE_FILE, 'w', encoding='utf-8') as f:
-                json.dump(passives, f, ensure_ascii=False, indent=2)
+            save_json_cache(PASSIVES_CACHE_FILE, passives)
             logger.info("特殊パッシブをキャッシュに保存しました")
         except Exception as e:
             logger.error(f"キャッシュ保存エラー: {e}")
@@ -78,10 +81,7 @@ class PassiveLoader:
     def _load_cache(self):
         """キャッシュファイルから読み込み"""
         try:
-            with open(PASSIVES_CACHE_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return None
+            return load_json_cache(PASSIVES_CACHE_FILE, legacy_paths=[LEGACY_PASSIVES_CACHE_FILE])
         except Exception as e:
             logger.error(f"キャッシュ読み込みエラー: {e}")
             return None
