@@ -1,23 +1,23 @@
 # 用語ポップアップ（Glossary）機能 実装計画（リポジトリ統合版・現状反映）
 
-## 0. 現状確認サマリ（2026-02-19）
+## 0. 現状確認サマリ（2026-02-21）
 以下を現行コードで確認済み。
 
-- Glossary機能は未実装
-  - `extensions.py` に `all_glossary_data` がない
-  - `manager/glossary/loader.py` がない
-  - APIに Glossary配布エンドポイントがない
-- スキル詳細HTMLは未エスケープで `innerHTML` に挿入されている
+- Glossaryの**サーバ側基盤は実装済み**
+  - `extensions.py` に `all_glossary_data` あり
+  - `manager/glossary/loader.py` あり
+  - API `/api/get_glossary_data` あり
+- 用語CSVローダーは日本語キー/英語キーの両方を受理
+  - 例: `term_id` / `ID`, `display_name` / `名称`, `links` / `関連用語ID`
+- `links` / `synonyms` はカンマ区切り配列化
+  - `,` と `、` の両方を区切りとして扱う
+- スキル詳細のGlossary埋め込みUIは**未接続**
   - `static/js/battle/utils/DomUtils.js`
   - `static/js/legacy_globals.js`
-- `formatSkillDetailHTML` が2箇所に重複実装されている
+  - 現在は `[[TERM_ID]]` 記法をHTMLリンク化する処理が入っていない
+- `formatSkillDetailHTML` は2箇所に重複
   - モジュール版: `static/js/battle/utils/DomUtils.js`
   - レガシー版: `static/js/legacy_globals.js`
-- フロントのデータAPI命名は `get_*_data` 系に統一されている
-  - 例: `/api/get_skill_data`, `/api/get_item_data`, `/api/get_radiance_data`, `/api/get_passive_data`
-- `main.js` は `DOMContentLoaded` で初期データを順次 fetch している
-  - `static/js/main.js`
-- `manager/data_manager.py` の `update_all_data()` はバフ更新ブロックが重複している（既存状態）
 
 ---
 
@@ -101,6 +101,45 @@
   - 外側クリック、`Esc`
 - 表示位置:
   - 対象要素の `getBoundingClientRect()` 基準で画面内に補正
+
+### 4.4 スプレッドシート入力ルール（現行ローダー準拠）
+- `関連効果ID` ではなく `関連用語ID`（内部キー: `links`）を使う。
+- `links` / `synonyms` は**カンマ区切り**で入力する。
+- 区切りは `,` と `、` のどちらでも可。ローダー側で同等に処理する。
+
+受理される主な列キー（どちらかあれば可）:
+- `term_id` または `ID`
+- `display_name` または `名称`
+- `category` または `分類`
+- `short` または `短文説明`
+- `long` または `本説明`（または `説明`）
+- `flavor` または `フレーバー`（または `フレーバーテキスト`）
+- `links` または `関連用語ID`
+- `synonyms` または `別名`
+- `icon` または `アイコン`
+- `sort_order` または `表示順`
+- `is_enabled` または `表示の有無`
+- `extra_json` または `追加JSON`
+
+入力例:
+- `関連用語ID`: `W-00,W-01,W-15`
+- `別名`: `Bleed,継続ダメージ`
+
+### 4.5 スキル説明文への埋め込み記法
+- 基本記法: `[[TERM_ID|表示名]]`
+- 表示名省略: `[[TERM_ID]]`
+- 例:
+  - `対象に[[W-00|出血]]を2付与する。`
+  - `自身が[[W-12]]状態なら威力+2。`
+
+埋め込み先の想定列:
+- `コスト` / `使用時効果`
+- `効果` / `発動時効果`
+- `特記`
+- `チャットパレット`
+
+注記:
+- 現在はサーバ辞書基盤まで実装済みで、上記記法のUI変換は今後のフロント統合タスクで有効化する。
 
 ---
 

@@ -485,6 +485,10 @@ async function checkSessionStatus() {
 window.addEventListener('DOMContentLoaded', () => {
     checkSessionStatus();
 
+    if (window.Glossary && typeof window.Glossary.initOnce === 'function') {
+        window.Glossary.initOnce();
+    }
+
     // ★ Phase 5: アイテムデータを読み込み
     if (typeof loadItemData === 'function') {
         loadItemData();

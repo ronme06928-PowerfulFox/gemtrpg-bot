@@ -185,7 +185,13 @@ class DeclarePanel {
                     targetType: nextTargetType,
                     targetSlotId: nextTargetSlotId,
                     lastSingleTargetSlotId: nextLastSingleTargetSlotId,
-                    mode: this._resolveDeclareMode(nextTargetType, nextTargetSlotId)
+                    mode: (
+                        !this._isMassTargetType(nextTargetType)
+                        && !nextTargetSlotId
+                        && String(current.mode || '') === 'ready'
+                    )
+                        ? 'ready'
+                        : this._resolveDeclareMode(nextTargetType, nextTargetSlotId)
                 };
                 store.setDeclare(nextDeclare);
                 this._emitPreviewFromDeclare(store.state, nextDeclare);
@@ -207,7 +213,13 @@ class DeclarePanel {
                     targetSlotId: nextTargetSlotId,
                     targetType: currentTargetType,
                     lastSingleTargetSlotId: nextTargetSlotId || current.lastSingleTargetSlotId || null,
-                    mode: this._resolveDeclareMode(currentTargetType, nextTargetSlotId)
+                    mode: (
+                        !this._isMassTargetType(currentTargetType)
+                        && !nextTargetSlotId
+                        && String(current.mode || '') === 'ready'
+                    )
+                        ? 'ready'
+                        : this._resolveDeclareMode(currentTargetType, nextTargetSlotId)
                 };
                 store.setDeclare(nextDeclare);
                 this._emitPreviewFromDeclare(store.state, nextDeclare);

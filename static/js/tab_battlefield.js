@@ -1415,17 +1415,34 @@ function setupBattlefieldTab() {
                 const d = data.skill_details;
                 const skillSelect = document.getElementById(`skill-${prefix}`);
                 const skillName = skillSelect.options[skillSelect.selectedIndex].text || "スキル詳細";
+                const escapeText = (value) => {
+                    if (window.Glossary && typeof window.Glossary.escapeHtml === 'function') {
+                        return window.Glossary.escapeHtml(value);
+                    }
+                    return String(value ?? '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;');
+                };
+                const markupToHtml = (value) => {
+                    if (window.Glossary && typeof window.Glossary.parseMarkupToHTML === 'function') {
+                        return window.Glossary.parseMarkupToHTML(value);
+                    }
+                    return escapeText(value).replace(/\n/g, '<br>');
+                };
                 previewBox.innerHTML = `
                     <div style="border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 5px;">
-                        <strong>${skillName}</strong><br>
+                        <strong>${escapeText(skillName)}</strong><br>
                         <span style="font-size: 0.85em; color: #555;">
-                            [${d['分類']}] / 距離:${d['距離']} / 属性:${d['属性']}
+                            [${escapeText(d['分類'])}] / 距離:${escapeText(d['距離'])} / 属性:${escapeText(d['属性'])}
                         </span>
                     </div>
                     <div style="font-size: 0.9em; line-height: 1.4;">
-                        ${d['使用時効果'] ? `<div><strong>[使用時]:</strong> ${d['使用時効果']}</div>` : ''}
-                        ${d['発動時効果'] ? `<div><strong>[発動時]:</strong> ${d['発動時効果']}</div>` : ''}
-                        ${d['特記'] ? `<div><strong>[特記]:</strong> ${d['特記']}</div>` : ''}
+                        ${d['使用時効果'] ? `<div><strong>[使用時]:</strong> ${markupToHtml(d['使用時効果'])}</div>` : ''}
+                        ${d['発動時効果'] ? `<div><strong>[発動時]:</strong> ${markupToHtml(d['発動時効果'])}</div>` : ''}
+                        ${d['特記'] ? `<div><strong>[特記]:</strong> ${markupToHtml(d['特記'])}</div>` : ''}
                     </div>
                 `;
                 previewBox.style.display = 'block';

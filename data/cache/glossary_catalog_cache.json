@@ -2,11 +2,15 @@
   "W-00": {
     "term_id": "W-00",
     "display_name": "出血",
-    "category": "デバフ",
-    "short": "継続ダメージ",
+    "category": "状態異常",
+    "short": "",
     "long": "ラウンド終了時、これの値だけダメージを受ける。その後、これの値を半分にする（端数切捨て）。",
     "flavor": "宝石の加護に抱かれようと、結局は獣である。\n当然だ。巡る血を失えば、生物は死ぬ。",
-    "links": [],
+    "links": [
+      "W-01",
+      "W-12",
+      "W-26"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -14,12 +18,15 @@
   },
   "W-01": {
     "term_id": "W-01",
-    "display_name": "W-01",
-    "category": "",
+    "display_name": "出血氾濫",
+    "category": "効果",
     "short": "",
-    "long": "",
+    "long": "対象に付与されている出血の値だけダメージを与える。",
     "flavor": "",
-    "links": [],
+    "links": [
+      "W-00",
+      "W-26"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -27,12 +34,15 @@
   },
   "W-02": {
     "term_id": "W-02",
-    "display_name": "W-02",
-    "category": "",
+    "display_name": "破裂",
+    "category": "状態異常",
     "short": "",
-    "long": "",
-    "flavor": "",
-    "links": [],
+    "long": "特定のスキルによって蓄積し、破裂爆発によって消費される。",
+    "flavor": "堪え切れぬ程に傷を抱えてはならない。\n人の身など、水疱に過ぎないのだから。",
+    "links": [
+      "W-03",
+      "W-05"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -40,12 +50,14 @@
   },
   "W-03": {
     "term_id": "W-03",
-    "display_name": "W-03",
-    "category": "",
+    "display_name": "破裂爆発",
+    "category": "効果",
     "short": "",
-    "long": "",
+    "long": "対象が持つ破裂の値だけダメージを与え、対象が持つ破裂の値を0にする。",
     "flavor": "",
-    "links": [],
+    "links": [
+      "W-02"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -53,12 +65,15 @@
   },
   "W-04": {
     "term_id": "W-04",
-    "display_name": "W-04",
-    "category": "",
+    "display_name": "亀裂",
+    "category": "状態異常",
     "short": "",
-    "long": "",
-    "flavor": "",
-    "links": [],
+    "long": "スキルでダメージを受ける時、これの値だけ受けるダメージが上がる。（亀裂は1体のキャラクターに対して1ターンに1度しか付与できない。）",
+    "flavor": "ひとたび走ったそれを、安易に消す事はできない。\n硬い宝石、あるいは絆ほど、容易く割れてしまう。",
+    "links": [
+      "W-05",
+      "W-20"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -66,12 +81,14 @@
   },
   "W-05": {
     "term_id": "W-05",
-    "display_name": "W-05",
-    "category": "",
+    "display_name": "亀裂崩壊",
+    "category": "効果",
     "short": "",
-    "long": "",
+    "long": "対象に付与された亀裂を全て消費し、消費量に応じてダメージや効果を与える。",
     "flavor": "",
-    "links": [],
+    "links": [
+      "W-04"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -79,12 +96,16 @@
   },
   "W-06": {
     "term_id": "W-06",
-    "display_name": "W-06",
-    "category": "",
+    "display_name": "戦慄",
+    "category": "状態異常",
     "short": "",
-    "long": "",
-    "flavor": "",
-    "links": [],
+    "long": "スキル使用時、これの値だけダイス威力を低下(最大3・ダイス威力の最低は1d1)。スキル使用後、低下させた威力と同じ値だけこれを取り除く。",
+    "flavor": "歯が鳴って足が震う。そのような獣が、まともに逃げ遂せるはずもない。\n戦慄いたらば、死ぬ。",
+    "links": [
+      "W-07",
+      "W-49",
+      "W-52"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -92,12 +113,16 @@
   },
   "W-07": {
     "term_id": "W-07",
-    "display_name": "W-07",
-    "category": "",
+    "display_name": "戦慄殺到",
+    "category": "効果",
     "short": "",
-    "long": "",
+    "long": "対象の戦慄を全て消費し、同じ値だけ対象のMPを減少。この効果でMPが0になったなら次のラウンド終了時まで対象は混乱し、混乱解除時にMPを全回復。",
     "flavor": "",
-    "links": [],
+    "links": [
+      "W-06",
+      "W-10",
+      "W-26"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -105,12 +130,19 @@
   },
   "W-08": {
     "term_id": "W-08",
-    "display_name": "W-08",
-    "category": "",
+    "display_name": "荊棘",
+    "category": "状態異常",
     "short": "",
-    "long": "",
-    "flavor": "",
-    "links": [],
+    "long": "これを付与された状態でスキルを使用した時、それが攻撃スキルならこれの値だけダメージを受け、守備スキルならこれの値を基礎威力の値だけ減らす。ラウンド終了時、これの値を1減らす。",
+    "flavor": "ちくり、とした痛みは見逃されやすい。\n故に、取り返しがつかない瞬間もまた、近い。",
+    "links": [
+      "W-09",
+      "W-26",
+      "W-38",
+      "W-39",
+      "W-49",
+      "W-52"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -118,12 +150,16 @@
   },
   "W-09": {
     "term_id": "W-09",
-    "display_name": "W-09",
-    "category": "",
+    "display_name": "荊棘飛散",
+    "category": "効果",
     "short": "",
-    "long": "",
+    "long": "対象の荊棘を全て消費し、対象を除く全ての相手側キャラクターに消費した数値の同スタックの荊棘を付与する。",
     "flavor": "",
-    "links": [],
+    "links": [
+      "W-08",
+      "W-35",
+      "W-45"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -131,12 +167,15 @@
   },
   "W-10": {
     "term_id": "W-10",
-    "display_name": "W-10",
-    "category": "",
+    "display_name": "混乱",
+    "category": "デバフ",
     "short": "",
-    "long": "",
+    "long": "この状態にあるキャラクターはスキルを使用できない。また、受けるダメージが1.5倍になる。",
     "flavor": "",
-    "links": [],
+    "links": [
+      "W-11",
+      "W-07"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -144,12 +183,14 @@
   },
   "W-11": {
     "term_id": "W-11",
-    "display_name": "W-11",
-    "category": "",
+    "display_name": "行動不能",
+    "category": "デバフ",
     "short": "",
-    "long": "",
+    "long": "この状態にあるキャラクターはスキルを使用できない。また、受けるダメージが1.5倍になる。",
     "flavor": "",
-    "links": [],
+    "links": [
+      "W-10"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -157,12 +198,15 @@
   },
   "W-12": {
     "term_id": "W-12",
-    "display_name": "W-12",
-    "category": "",
+    "display_name": "出血遷延",
+    "category": "デバフ",
     "short": "",
-    "long": "",
+    "long": "ラウンド終了時、出血によるダメージを受けた後に出血の値が減少しなくなる。",
     "flavor": "",
-    "links": [],
+    "links": [
+      "W-00",
+      "W-26"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -170,12 +214,15 @@
   },
   "W-13": {
     "term_id": "W-13",
-    "display_name": "W-13",
-    "category": "",
+    "display_name": "挑発",
+    "category": "デバフ",
     "short": "",
-    "long": "",
+    "long": "この状態にあるキャラクター以外を攻撃対象に選択できなくなる。",
     "flavor": "",
-    "links": [],
+    "links": [
+      "W-17",
+      "W-31"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -183,12 +230,15 @@
   },
   "W-14": {
     "term_id": "W-14",
-    "display_name": "W-14",
-    "category": "",
+    "display_name": "加速",
+    "category": "バフ",
     "short": "",
-    "long": "",
+    "long": "ラウンド開始時、速度補正にスタック数を加算。速度値ロール後にクリアされる。",
     "flavor": "",
-    "links": [],
+    "links": [
+      "W-25",
+      "W-32"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
@@ -196,12 +246,782 @@
   },
   "W-15": {
     "term_id": "W-15",
-    "display_name": "W-15",
-    "category": "",
+    "display_name": "減速",
+    "category": "デバフ",
     "short": "",
-    "long": "",
+    "long": "ラウンド開始時、速度補正にスタック数を減算。速度値ロール後にクリアされる。",
     "flavor": "",
-    "links": [],
+    "links": [
+      "W-25",
+      "W-32"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-16": {
+    "term_id": "W-16",
+    "display_name": "ラウンド",
+    "category": "ルール",
+    "short": "",
+    "long": "戦闘における時間単位。選択フェーズ・解決フェーズをそれぞれ行い、戦闘に参加している行動可能なすべてのキャラクターが行動を消費すると１ラウンドが経過する。",
+    "flavor": "",
+    "links": [
+      "W-17",
+      "W-18",
+      "W-25",
+      "W-26"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-17": {
+    "term_id": "W-17",
+    "display_name": "選択フェーズ",
+    "category": "ルール",
+    "short": "",
+    "long": "この段階において、行動可能なキャラクターは行動回数の数だけ攻撃対象と使用するスキルを選択する。実行可能な全ての行動が選択されると、解決フェーズに移行する。",
+    "flavor": "",
+    "links": [
+      "W-16",
+      "W-18",
+      "W-31"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-18": {
+    "term_id": "W-18",
+    "display_name": "解決フェーズ",
+    "category": "ルール",
+    "short": "",
+    "long": "この段階において、選択フェーズで指定されたスキルが行動スロットの速度値の順に使用される。全ての行動スロットのスキルが使用されると、ラウンド終了処理に移行する。",
+    "flavor": "",
+    "links": [
+      "W-16",
+      "W-17",
+      "W-29",
+      "W-30"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-19": {
+    "term_id": "W-19",
+    "display_name": "使用時",
+    "category": "タイミング",
+    "short": "",
+    "long": "戦闘でスキルを使用し、マッチもしくは一方攻撃の威力計算が始まる直前のタイミング。",
+    "flavor": "",
+    "links": [
+      "W-20",
+      "W-21",
+      "W-22",
+      "W-23",
+      "W-24",
+      "W-49",
+      "W-52"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-20": {
+    "term_id": "W-20",
+    "display_name": "的中時",
+    "category": "タイミング",
+    "short": "",
+    "long": "スキルによるダメージを相手に与えた瞬間のタイミング。",
+    "flavor": "",
+    "links": [
+      "W-19",
+      "W-21",
+      "W-23"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-21": {
+    "term_id": "W-21",
+    "display_name": "マッチ勝利時",
+    "category": "タイミング",
+    "short": "",
+    "long": "マッチによる威力の比較に勝利し、スキルによるダメージを相手に与えた瞬間のタイミング。",
+    "flavor": "",
+    "links": [
+      "W-20",
+      "W-22",
+      "W-24",
+      "W-29",
+      "W-49",
+      "W-52"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-22": {
+    "term_id": "W-22",
+    "display_name": "マッチ敗北時",
+    "category": "タイミング",
+    "short": "",
+    "long": "マッチによる威力の比較に敗北し、スキルによるダメージを相手から受けた瞬間のタイミング。",
+    "flavor": "",
+    "links": [
+      "W-21",
+      "W-24",
+      "W-29",
+      "W-49",
+      "W-52"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-23": {
+    "term_id": "W-23",
+    "display_name": "一方攻撃時",
+    "category": "タイミング",
+    "short": "",
+    "long": "一方攻撃によってスキルによるダメージを相手に与えた瞬間のタイミング。",
+    "flavor": "",
+    "links": [
+      "W-20",
+      "W-30"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-24": {
+    "term_id": "W-24",
+    "display_name": "マッチ終了時",
+    "category": "タイミング",
+    "short": "",
+    "long": "マッチが決着し、スキルによるダメージを与える処理が行われた直後のタイミング。",
+    "flavor": "",
+    "links": [
+      "W-21",
+      "W-22",
+      "W-29"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-25": {
+    "term_id": "W-25",
+    "display_name": "ラウンド開始時",
+    "category": "タイミング",
+    "short": "",
+    "long": "ラウンド開始処理によってそのラウンドにおける速度値の決定が行われた直後のタイミング。",
+    "flavor": "",
+    "links": [
+      "W-16",
+      "W-32",
+      "W-14",
+      "W-15"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-26": {
+    "term_id": "W-26",
+    "display_name": "ラウンド終了時",
+    "category": "タイミング",
+    "short": "",
+    "long": "解決フェーズの終了後、ラウンド終了処理が行われるタイミング。",
+    "flavor": "",
+    "links": [
+      "W-16",
+      "W-00",
+      "W-12",
+      "W-08"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-27": {
+    "term_id": "W-27",
+    "display_name": "戦闘開始時",
+    "category": "タイミング",
+    "short": "",
+    "long": "選択フェーズの処理を完了し、解決フェーズを開始するタイミング。",
+    "flavor": "",
+    "links": [
+      "W-16",
+      "W-18",
+      "W-47"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-28": {
+    "term_id": "W-28",
+    "display_name": "戦闘終了時",
+    "category": "タイミング",
+    "short": "",
+    "long": "そのラウンドにおけるすべてのスキル処理を完了し、解決フェーズを終了するタイミング。",
+    "flavor": "",
+    "links": [
+      "W-16",
+      "W-18",
+      "W-26"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-29": {
+    "term_id": "W-29",
+    "display_name": "マッチ",
+    "category": "ルール",
+    "short": "",
+    "long": "２つのスキル対象がお互いのスロットを向いているとき、より速度値が高いスキルの使用時に開始される。ここではお互いのスキルのダイスロール後の威力を比較し、より数値が高いキャラクターが勝利する。その後、勝利したスキルの威力の値だけ敗北したキャラクターにダメージを与える。",
+    "flavor": "",
+    "links": [
+      "W-30",
+      "W-31",
+      "W-32",
+      "W-21",
+      "W-22",
+      "W-49",
+      "W-52"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-30": {
+    "term_id": "W-30",
+    "display_name": "一方攻撃",
+    "category": "ルール",
+    "short": "",
+    "long": "スキル対象にされたスロットの対象が他のスロットを向いているとき、もしくは対象のスロットが行動済みの時に開始される。ダイスロールによってスキルの威力を決定し、その値だけ対象にダメージを与える。",
+    "flavor": "",
+    "links": [
+      "W-29",
+      "W-31",
+      "W-23",
+      "W-49",
+      "W-52"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-31": {
+    "term_id": "W-31",
+    "display_name": "スロット",
+    "category": "ルール",
+    "short": "",
+    "long": "フィールドのキャラクター駒の上に表示されるアイコン。ラウンド開始時に決定された速度値をそれぞれ持ち、解決フェーズにおいてこの値が高い順にセットされたスキルを使用する。",
+    "flavor": "",
+    "links": [
+      "W-32",
+      "W-17",
+      "W-18",
+      "W-29",
+      "W-30"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-32": {
+    "term_id": "W-32",
+    "display_name": "速度値",
+    "category": "ルール",
+    "short": "",
+    "long": "スロットの行動順を決定する値。各ラウンドの開始時に速度値ロールによって決定される。その値は1d6+速度補正である。",
+    "flavor": "",
+    "links": [
+      "W-31",
+      "W-14",
+      "W-15",
+      "W-25"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-33": {
+    "term_id": "W-33",
+    "display_name": "宝石の加護",
+    "category": "スキルタグ",
+    "short": "",
+    "long": "特殊なスキルタグ。このタグが付いているスキルはバトルにおいて一度のみ使用できる。",
+    "flavor": "",
+    "links": [
+      "W-34",
+      "W-36",
+      "W-37"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-34": {
+    "term_id": "W-34",
+    "display_name": "即時発動",
+    "category": "スキルタグ",
+    "short": "",
+    "long": "スキルタグの一つ。このタグが付いたスキルは即時発動画面でのみ宣言でき、解決フェーズを経ずに宣言した瞬間に効果を発揮する。このタグが付いたスキルは各ラウンドにおいて一度まで使用できる。",
+    "flavor": "",
+    "links": [
+      "W-19",
+      "W-17",
+      "W-33",
+      "W-49",
+      "W-52"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-35": {
+    "term_id": "W-35",
+    "display_name": "広域",
+    "category": "スキルタグ",
+    "short": "",
+    "long": "スキル分類の一つ。広域-個別と広域-合算の二つに分けられる。広域スキルは相手側キャラクター全員のスロットを一つずつターゲットに指定する。",
+    "flavor": "",
+    "links": [
+      "W-45",
+      "W-46"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-36": {
+    "term_id": "W-36",
+    "display_name": "ラウンド終了",
+    "category": "スキルタグ",
+    "short": "",
+    "long": "特殊なスキル効果。このスキルが使用された後、強制的に解決フェーズを終了してラウンド終了処理を行う。その時点で未発動のスキルは全て使用をスキップされる。",
+    "flavor": "",
+    "links": [
+      "W-26",
+      "W-18",
+      "W-33",
+      "W-49",
+      "W-52"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-37": {
+    "term_id": "W-37",
+    "display_name": "マッチ不可",
+    "category": "スキルタグ",
+    "short": "",
+    "long": "特殊なスキル効果。このスキルによる攻撃は強制的に一方攻撃として扱われる。",
+    "flavor": "",
+    "links": [
+      "W-30",
+      "W-29",
+      "W-33",
+      "W-49",
+      "W-52"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-38": {
+    "term_id": "W-38",
+    "display_name": "攻撃",
+    "category": "ルール",
+    "short": "",
+    "long": "スキル分類の一つ。相手にダメージを与えるスキル。物理、魔法タイプのスキルが属する。",
+    "flavor": "",
+    "links": [
+      "W-39",
+      "W-40",
+      "W-41"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-39": {
+    "term_id": "W-39",
+    "display_name": "守備",
+    "category": "ルール",
+    "short": "",
+    "long": "スキル分類の一つ。相手の攻撃を防ぐスキル。防御・回避タイプのスキルが属する。",
+    "flavor": "",
+    "links": [
+      "W-38",
+      "W-42",
+      "W-43"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-40": {
+    "term_id": "W-40",
+    "display_name": "物理",
+    "category": "ルール",
+    "short": "",
+    "long": "スキル分類の一つ。使用時、物理補正の値と同じ面を持つダイスをロールして威力を上げる。",
+    "flavor": "",
+    "links": [
+      "W-38",
+      "W-41",
+      "W-49",
+      "W-52"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-41": {
+    "term_id": "W-41",
+    "display_name": "魔法",
+    "category": "ルール",
+    "short": "",
+    "long": "スキル分類の一つ。使用時、魔法補正の値と同じ面を持つダイスをロールして威力を上げる。",
+    "flavor": "",
+    "links": [
+      "W-38",
+      "W-40",
+      "W-49",
+      "W-52"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-42": {
+    "term_id": "W-42",
+    "display_name": "防御",
+    "category": "ルール",
+    "short": "",
+    "long": "スキル分類の一つ。このスキルを使用してマッチ勝利時、ダメージを受けない。マッチ敗北時、受けるダメージがこのスキルの威力の値だけ減少する。",
+    "flavor": "",
+    "links": [
+      "W-39",
+      "W-29",
+      "W-43",
+      "W-49",
+      "W-52"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-43": {
+    "term_id": "W-43",
+    "display_name": "回避",
+    "category": "ルール",
+    "short": "",
+    "long": "スキル分類の一つ。このスキルを使用してマッチ勝利時、ダメージを受けない。加えて、ラウンド終了時まで一方攻撃を受ける時に同じ回避スキルを再使用してマッチを行うことができる。マッチ敗北時、相手のスキル威力の値だけダメージを受ける。",
+    "flavor": "",
+    "links": [
+      "W-39",
+      "W-29",
+      "W-30",
+      "W-42",
+      "W-49",
+      "W-52"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-44": {
+    "term_id": "W-44",
+    "display_name": "補助",
+    "category": "ルール",
+    "short": "",
+    "long": "スキル分類の一つ。攻撃、防御の双方に分類されないスキルが属する。",
+    "flavor": "",
+    "links": [
+      "W-38",
+      "W-39",
+      "W-34"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-45": {
+    "term_id": "W-45",
+    "display_name": "広域-個別",
+    "category": "ルール",
+    "short": "",
+    "long": "スキル分類の一つ。全ての相手側キャラクターを対象に一度ずつスキルを使用する。",
+    "flavor": "",
+    "links": [
+      "W-35",
+      "W-46",
+      "W-30"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-46": {
+    "term_id": "W-46",
+    "display_name": "広域-合算",
+    "category": "ルール",
+    "short": "",
+    "long": "スキル分類の一つ。全ての相手側キャラクターに同時にスキルを使用し、相手側のスキル威力の合算値と比較してマッチを行う。",
+    "flavor": "",
+    "links": [
+      "W-35",
+      "W-45",
+      "W-29"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-47": {
+    "term_id": "W-47",
+    "display_name": "輝化スキル",
+    "category": "ルール",
+    "short": "",
+    "long": "シナリオクリア報酬である通過点を消費して獲得できる特殊なスキル。フィールドに出現した時から効果を発揮し、ステータスの上昇やその他特別なバフを得ることができる。",
+    "flavor": "",
+    "links": [
+      "W-48",
+      "W-27",
+      "W-33"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-48": {
+    "term_id": "W-48",
+    "display_name": "通過点",
+    "category": "ルール",
+    "short": "",
+    "long": "キャラクターの成長要素の一つ。シナリオクリア時、キャラクターはシナリオによって定められた値の通過点を入手する。これを消費すると、輝化スキルを取得することができる。",
+    "flavor": "",
+    "links": [
+      "W-47"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-49": {
+    "term_id": "W-49",
+    "display_name": "威力",
+    "category": "ルール",
+    "short": "",
+    "long": "スキルの強さの程度を示す値。基礎威力、ダイス威力、補正威力およびその他の威力変動効果の和で表現される。",
+    "flavor": "",
+    "links": [
+      "W-50",
+      "W-51",
+      "W-52",
+      "W-53",
+      "W-54",
+      "W-29",
+      "W-30",
+      "W-40",
+      "W-41"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-50": {
+    "term_id": "W-50",
+    "display_name": "基礎威力",
+    "category": "ルール",
+    "short": "",
+    "long": "スキルが持つ固定値の威力。",
+    "flavor": "",
+    "links": [
+      "W-49",
+      "W-51",
+      "W-52",
+      "W-08"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-51": {
+    "term_id": "W-51",
+    "display_name": "ダイス威力",
+    "category": "ルール",
+    "short": "",
+    "long": "スキルを使用するごとに変動する威力。1dX（Xは任意の数字）の形式で表現され、この値が大きいほど威力のばらつきが広がる。",
+    "flavor": "",
+    "links": [
+      "W-49",
+      "W-52",
+      "W-06",
+      "W-40",
+      "W-41"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-52": {
+    "term_id": "W-52",
+    "display_name": "最終威力",
+    "category": "ルール",
+    "short": "",
+    "long": "マッチおよび一方攻撃前にダイスロールを行って確定されたスキルの威力。各種の威力変動効果も最終威力の計算に用いられる。",
+    "flavor": "",
+    "links": [
+      "W-49",
+      "W-29",
+      "W-30",
+      "W-20",
+      "W-21",
+      "W-22",
+      "W-23"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-53": {
+    "term_id": "W-53",
+    "display_name": "物理補正",
+    "category": "ルール",
+    "short": "",
+    "long": "物理スキルを使用する時にスキル威力に付加される値。1dXの形で表現され、Xの値は『(筋力+体格)/8』である。",
+    "flavor": "",
+    "links": [
+      "W-40",
+      "W-49",
+      "W-51"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-54": {
+    "term_id": "W-54",
+    "display_name": "魔法補正",
+    "category": "ルール",
+    "short": "",
+    "long": "魔法スキルを使用する時にスキル威力に付加される値。1dXの形で表現され、Xの値は『精神/4』である。",
+    "flavor": "",
+    "links": [
+      "W-41",
+      "W-49",
+      "W-51"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-55": {
+    "term_id": "W-55",
+    "display_name": "効果",
+    "category": "ルール",
+    "short": "",
+    "long": "スキルの発動後、特定のタイミング条件を満たすことによって適用されるスキルに固有の能力のこと。",
+    "flavor": "",
+    "links": [
+      "W-19",
+      "W-20",
+      "W-21",
+      "W-22",
+      "W-23",
+      "W-24",
+      "W-57"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-56": {
+    "term_id": "W-56",
+    "display_name": "コスト",
+    "category": "ルール",
+    "short": "",
+    "long": "スキル使用時に消費されるパラメータのこと。ほとんどのスキルはFPやMPを消費する。",
+    "flavor": "",
+    "links": [
+      "W-19",
+      "W-34",
+      "W-38",
+      "W-39"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-57": {
+    "term_id": "W-57",
+    "display_name": "特記",
+    "category": "ルール",
+    "short": "",
+    "long": "スキルの発動を介さずに適用され続ける特殊な効果や、スキルの特性を示すタグ表示のこと。",
+    "flavor": "",
+    "links": [
+      "W-55",
+      "W-33",
+      "W-34",
+      "W-35",
+      "W-36",
+      "W-37",
+      "W-47"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
