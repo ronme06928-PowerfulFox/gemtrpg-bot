@@ -87,9 +87,8 @@ class ActionDock {
         if (!panel) {
             panel = document.createElement('div');
             panel.id = this._dockPanelId;
-            panel.style.marginTop = '8px';
-            panel.style.padding = '8px 6px';
-            panel.style.borderTop = '1px solid #35506f';
+            panel.style.marginTop = 'auto';
+            panel.style.padding = '8px 0 2px';
             panel.style.display = 'flex';
             panel.style.justifyContent = 'center';
             dock.appendChild(panel);
@@ -99,12 +98,11 @@ class ActionDock {
         panel.innerHTML = `
             <button
                 id="sr-resolve-confirm-btn"
-                class="dock-icon ${resolveReady ? 'active' : 'disabled'}"
+                class="dock-icon dock-button ${resolveReady ? 'active' : 'disabled'}"
                 title="戦闘開始"
                 aria-label="戦闘開始"
                 ${resolveReady ? '' : 'disabled'}
-                style="width:56px;height:56px;font-size:24px;line-height:1;"
-            >⚔</button>
+            >⚔️</button>
         `;
 
         const btn = panel.querySelector('#sr-resolve-confirm-btn');

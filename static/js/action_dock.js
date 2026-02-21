@@ -65,6 +65,7 @@ function updateActionDock() {
             <div id="dock-add-char-icon" class="dock-icon" title="キャラクター追加">➕</div>
             <div id="dock-staging-icon" class="dock-icon" title="未配置キャラクター">📦</div>
             <div id="dock-arrow-toggle-icon" class="dock-icon" title="矢印表示切替">🏹</div>
+            <div id="dock-glossary-icon" class="dock-icon" title="用語図鑑">📚</div>
         `;
         // Re-initialize listeners
         initializeActionDock();
@@ -388,6 +389,283 @@ function createImmediateCharRow(char) {
     row.appendChild(executeBtn);
 
     return row;
+}
+
+function openGlossaryCatalogModal() {
+    const existing = document.getElementById('glossary-catalog-backdrop');
+    if (existing) {
+        existing.style.display = (existing.style.display === 'none') ? 'flex' : 'none';
+        if (existing.style.display === 'flex') {
+            if (typeof existing._refreshGlossaryCatalog === 'function') {
+                existing._refreshGlossaryCatalog();
+            }
+            const searchInput = existing.querySelector('#glossary-catalog-search');
+            if (searchInput) searchInput.focus();
+        }
+        return;
+    }
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'glossary-catalog-backdrop';
+    backdrop.className = 'glossary-catalog-backdrop';
+    backdrop.style.display = 'flex';
+
+    const panel = document.createElement('div');
+    panel.className = 'glossary-catalog-modal';
+    panel.innerHTML = `
+        <div class="glossary-catalog-header">
+            <h3>用語図鑑</h3>
+            <button type="button" class="glossary-catalog-close" aria-label="閉じる">×</button>
+        </div>
+        <div class="glossary-catalog-controls">
+            <input id="glossary-catalog-search" type="text" placeholder="キーワード検索（ID・名称・説明）">
+            <select id="glossary-catalog-category">
+                <option value="all">全カテゴリ</option>
+            </select>
+            <select id="glossary-catalog-sort">
+                <option value="sort_order">表示順</option>
+                <option value="category">カテゴリ順</option>
+                <option value="name">名称順</option>
+                <option value="id" selected>ID順</option>
+            </select>
+        </div>
+        <div class="glossary-catalog-status">
+            <span id="glossary-catalog-count">読み込み中...</span>
+        </div>
+        <div id="glossary-catalog-list" class="glossary-catalog-list"></div>
+    `;
+
+    backdrop.appendChild(panel);
+    document.body.appendChild(backdrop);
+
+    const closeBtn = panel.querySelector('.glossary-catalog-close');
+    const searchInput = panel.querySelector('#glossary-catalog-search');
+    const categorySelect = panel.querySelector('#glossary-catalog-category');
+    const sortSelect = panel.querySelector('#glossary-catalog-sort');
+    const countEl = panel.querySelector('#glossary-catalog-count');
+    const listEl = panel.querySelector('#glossary-catalog-list');
+
+    const close = () => {
+        backdrop.style.display = 'none';
+    };
+    if (closeBtn) closeBtn.onclick = close;
+    backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) close();
+    });
+
+    function normalizeText(value) {
+        return String(value ?? '').trim();
+    }
+
+    function escapeHtml(value) {
+        const base = String(value ?? '');
+        return base
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function parseCsvOrArray(value) {
+        if (Array.isArray(value)) {
+            return value.map((v) => normalizeText(v)).filter(Boolean);
+        }
+        return normalizeText(value)
+            .split(',')
+            .map((v) => normalizeText(v))
+            .filter(Boolean);
+    }
+
+    function isEnabledTerm(term) {
+        if (!term || typeof term !== 'object') return true;
+        const raw = term.is_enabled;
+        if (raw === undefined || raw === null || raw === '') return true;
+        const v = normalizeText(raw).toLowerCase();
+        return !(v === 'false' || v === '0' || v === 'off' || v === 'no' || v === 'disabled');
+    }
+
+    function toNum(value, fallback = 999999) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : fallback;
+    }
+
+    function resolveCategory(term) {
+        const category = normalizeText(term?.category);
+        return category || '未分類';
+    }
+
+    function resolveLabel(termId, term) {
+        const label = normalizeText(term?.display_name || term?.name);
+        return label || termId;
+    }
+
+    function toTermEntries(termsRaw) {
+        const terms = (termsRaw && typeof termsRaw === 'object') ? termsRaw : {};
+        return Object.keys(terms).map((termId) => {
+            const term = terms[termId] || {};
+            const label = resolveLabel(termId, term);
+            const shortText = normalizeText(term.short || term.summary || term.short_desc);
+            const longText = normalizeText(term.long || term.description || term.detail);
+            const synonyms = parseCsvOrArray(term.synonyms);
+            const links = parseCsvOrArray(term.links);
+            const category = resolveCategory(term);
+            const searchBlob = [
+                termId,
+                label,
+                category,
+                shortText,
+                longText,
+                synonyms.join(' '),
+                links.join(' ')
+            ].join(' ').toLowerCase();
+
+            return {
+                id: termId,
+                label,
+                category,
+                shortText,
+                longText,
+                sortOrder: toNum(term.sort_order, 999999),
+                enabled: isEnabledTerm(term),
+                searchBlob
+            };
+        }).filter((entry) => entry.enabled);
+    }
+
+    function compareTextJa(a, b) {
+        return String(a).localeCompare(String(b), 'ja');
+    }
+
+    function renderCategoryOptions(entries) {
+        const current = categorySelect ? String(categorySelect.value || 'all') : 'all';
+        const categories = Array.from(new Set(entries.map((entry) => entry.category))).sort(compareTextJa);
+        if (categorySelect) {
+            categorySelect.innerHTML = `<option value="all">全カテゴリ</option>${categories.map((cat) => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join('')}`;
+            if (categories.includes(current)) {
+                categorySelect.value = current;
+            } else {
+                categorySelect.value = 'all';
+            }
+        }
+    }
+
+    let entries = [];
+    function getVisibleEntries() {
+        const query = normalizeText(searchInput?.value).toLowerCase();
+        const category = normalizeText(categorySelect?.value || 'all');
+        const sortMode = normalizeText(sortSelect?.value || 'id');
+
+        let rows = entries.slice();
+        if (category && category !== 'all') {
+            rows = rows.filter((entry) => String(entry.category) === category);
+        }
+        if (query) {
+            rows = rows.filter((entry) => entry.searchBlob.includes(query));
+        }
+
+        rows.sort((a, b) => {
+            if (sortMode === 'name') {
+                const byName = compareTextJa(a.label, b.label);
+                return byName !== 0 ? byName : compareTextJa(a.id, b.id);
+            }
+            if (sortMode === 'id') {
+                return compareTextJa(a.id, b.id);
+            }
+            if (sortMode === 'category') {
+                const byCategory = compareTextJa(a.category, b.category);
+                if (byCategory !== 0) return byCategory;
+                if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+                const byName = compareTextJa(a.label, b.label);
+                return byName !== 0 ? byName : compareTextJa(a.id, b.id);
+            }
+            if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+            const byName = compareTextJa(a.label, b.label);
+            return byName !== 0 ? byName : compareTextJa(a.id, b.id);
+        });
+
+        return rows;
+    }
+
+    function renderList() {
+        if (!listEl || !countEl) return;
+        const visible = getVisibleEntries();
+        countEl.textContent = `${visible.length} / ${entries.length} 件`;
+        listEl.innerHTML = '';
+
+        if (visible.length === 0) {
+            listEl.innerHTML = '<div class="glossary-catalog-empty">該当する用語がありません。</div>';
+            return;
+        }
+
+        visible.forEach((entry) => {
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'glossary-catalog-item';
+            row.setAttribute('data-term-id', entry.id);
+
+            const summary = entry.shortText || entry.longText || '説明未登録';
+            row.innerHTML = `
+                <div class="glossary-catalog-item-top">
+                    <span class="glossary-catalog-item-name">${escapeHtml(entry.label)}</span>
+                    <span class="glossary-catalog-item-id">${escapeHtml(entry.id)}</span>
+                </div>
+                <div class="glossary-catalog-item-meta">${escapeHtml(entry.category)}</div>
+                <div class="glossary-catalog-item-summary">${escapeHtml(summary)}</div>
+            `;
+
+            row.addEventListener('click', () => {
+                if (window.Glossary && typeof window.Glossary.showPopup === 'function') {
+                    window.Glossary.showPopup(entry.id);
+                }
+            });
+
+            listEl.appendChild(row);
+        });
+    }
+
+    function renderLoading(text) {
+        if (countEl) countEl.textContent = text || '読み込み中...';
+        if (listEl) listEl.innerHTML = '<div class="glossary-catalog-empty">読み込み中...</div>';
+    }
+
+    function renderError(text) {
+        if (countEl) countEl.textContent = '0 / 0 件';
+        if (listEl) listEl.innerHTML = `<div class="glossary-catalog-empty">${escapeHtml(text || '読み込みに失敗しました。')}</div>`;
+    }
+
+    function refreshCatalog() {
+        if (!window.Glossary || typeof window.Glossary.ensureDataLoaded !== 'function') {
+            renderError('Glossary API が利用できません。');
+            return;
+        }
+
+        renderLoading('読み込み中...');
+        window.Glossary.ensureDataLoaded()
+            .then((terms) => {
+                entries = toTermEntries(terms || window.glossaryData || {});
+                renderCategoryOptions(entries);
+                renderList();
+            })
+            .catch((err) => {
+                console.warn('[GlossaryCatalog] data load failed:', err);
+                entries = [];
+                renderError('用語データの読み込みに失敗しました。');
+            });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', () => renderList());
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') close();
+        });
+    }
+    if (categorySelect) categorySelect.addEventListener('change', () => renderList());
+    if (sortSelect) sortSelect.addEventListener('change', () => renderList());
+
+    backdrop._refreshGlossaryCatalog = refreshCatalog;
+    refreshCatalog();
+    if (searchInput) searchInput.focus();
 }
 
 // 簡易ステータス編集モーダルを開く
@@ -749,6 +1027,7 @@ function initializeActionDock() {
     const itemIcon = document.getElementById('dock-item-icon');
     const quickEditIcon = document.getElementById('dock-quick-edit-icon');
     const arrowIcon = document.getElementById('dock-arrow-toggle-icon');
+    const glossaryIcon = document.getElementById('dock-glossary-icon');
 
 
     // ★ 修正: 個別にチェックして設定（1つがなくても他は設定する）
@@ -861,6 +1140,12 @@ function initializeActionDock() {
         };
     } else {
         console.warn('dock-item-icon not found in DOM');
+    }
+
+    if (glossaryIcon) {
+        glossaryIcon.onclick = () => {
+            openGlossaryCatalogModal();
+        };
     }
 
     // 初回更新

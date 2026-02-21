@@ -50,7 +50,17 @@ if (!window.ExplorationDock) {
         });
         dock.appendChild(quickEditBtn);
 
-        // 4. キャラクター追加ボタン (共通モーダル)
+        // 4.5 用語図鑑
+        const glossaryBtn = createDockIcon('📚', '用語図鑑', () => {
+            if (typeof openGlossaryCatalogModal === 'function') {
+                openGlossaryCatalogModal();
+            } else {
+                alert("用語図鑑機能が見つかりません");
+            }
+        });
+        dock.appendChild(glossaryBtn);
+
+        // 5. キャラクター追加ボタン (共通モーダル)
         const loadCharBtn = createDockIcon('➕', 'キャラクター読み込み', () => {
             if (typeof openCharLoadModal === 'function') {
                 openCharLoadModal();
@@ -60,7 +70,7 @@ if (!window.ExplorationDock) {
         });
         dock.appendChild(loadCharBtn);
 
-        // 5. 未配置キャラボタン (共通モーダル)
+        // 6. 未配置キャラボタン (共通モーダル)
         const stagingBtn = createDockIcon('📦', '未配置キャラクター', () => {
             if (typeof toggleStagingAreaOverlay === 'function') {
                 toggleStagingAreaOverlay();
@@ -70,7 +80,7 @@ if (!window.ExplorationDock) {
         });
         dock.appendChild(stagingBtn);
 
-        // 6. 戦闘へ戻るボタン (GMのみ) - 一番下へ配置
+        // 7. 戦闘へ戻るボタン (GMのみ) - 一番下へ配置
         if (userAttr === 'GM') {
             const backBtn = createDockIcon('⚔️', '戦闘パートへ戻る', () => {
                 if (confirm('戦闘パートに戻りますか？')) {
