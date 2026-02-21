@@ -2329,7 +2329,12 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
                         base_damage=0,
                         emit_source='before_power_roll'
                     )
-                context = {'room_state': room_state}
+                context = {
+                    'room_state': room_state,
+                    'battle_state': room_state.get('battle_state', {}) if isinstance(room_state, dict) else {},
+                    'timeline': room_state.get('timeline', []) if isinstance(room_state, dict) else [],
+                    'characters': room_state.get('characters', []) if isinstance(room_state, dict) else [],
+                }
                 preview = calculate_skill_preview(attacker_char, defender_char or attacker_char, skill_data, context=context)
                 final_command = (preview or {}).get('final_command') or "0"
                 total = int((roll_dice(final_command) or {}).get('total', 0) or 0)

@@ -1145,6 +1145,8 @@ def process_select_resolve_round_start(room, battle_id, round_value):
 
     characters = state.get('characters', [])
     slot_entries = []
+    legacy_timeline_entries = []
+    from plugins.buffs.speed_mod import SpeedModBuff
 
     for char in characters:
         try:
@@ -1167,27 +1169,54 @@ def process_select_resolve_round_start(room, battle_id, round_value):
             action_count = 1
         action_count = max(1, action_count)
 
+        char['totalSpeed'] = None
+
         try:
             speed_val = int(get_status_value(char, '速度'))
         except Exception:
             speed_val = 0
-        base_initiative = speed_val // 6
+        speed_modifier = SpeedModBuff.get_speed_modifier(char)
+        base_initiative = (speed_val // 6) + speed_modifier
+
+        if speed_modifier != 0:
+            mod_text = f"+{speed_modifier}" if speed_modifier > 0 else str(speed_modifier)
+            broadcast_log(room, f"{char.get('name', actor_id)} の速度補正: {mod_text} (加速/減速)", 'info')
 
         for i in range(action_count):
             slot_id = f"{actor_id}:r{round_value}:s{i}"
-            initiative = base_initiative + _roll_1d6()
+            roll = _roll_1d6()
+            initiative = max(1, base_initiative + roll)
             slot_entries.append({
                 'slot_id': slot_id,
                 'actor_id': actor_id,
                 'team': char.get('type', 'unknown'),
                 'index_in_actor': i,
                 'initiative': initiative,
+                'speed_stat': speed_val,
+                'speed_base': base_initiative,
+                'speed_modifier': speed_modifier,
+                'speed_roll': roll,
                 'disabled': False,
                 'locked_target': False,
                 'status': 'ready',
                 'is_alive': True,
                 '_tie_roll': None
             })
+            legacy_timeline_entries.append({
+                'id': slot_id,
+                'char_id': actor_id,
+                'speed': initiative,
+                'stat_speed': base_initiative,
+                'roll': roll,
+                'acted': False,
+                'is_extra': (i > 0)
+            })
+            if i == 0:
+                char['speedRoll'] = roll
+                char['totalSpeed'] = initiative
+
+        SpeedModBuff.clear_speed_modifiers(char)
+        char['hasActed'] = False
 
     grouped_by_init = {}
     for entry in slot_entries:
@@ -1218,6 +1247,10 @@ def process_select_resolve_round_start(room, battle_id, round_value):
 
     slots_dict = {}
     timeline = []
+    legacy_by_slot_id = {
+        str(entry.get('id')): entry for entry in legacy_timeline_entries if isinstance(entry, dict)
+    }
+    legacy_timeline_sorted = []
     for slot in slot_entries:
         slot_id = slot['slot_id']
         slots_dict[slot_id] = {
@@ -1226,12 +1259,19 @@ def process_select_resolve_round_start(room, battle_id, round_value):
             'team': slot['team'],
             'index_in_actor': slot['index_in_actor'],
             'initiative': slot['initiative'],
+            'speed_stat': slot['speed_stat'],
+            'speed_base': slot['speed_base'],
+            'speed_modifier': slot['speed_modifier'],
+            'speed_roll': slot['speed_roll'],
             'disabled': slot['disabled'],
             'locked_target': slot['locked_target'],
             'status': slot['status'],
             'is_alive': slot['is_alive']
         }
         timeline.append(slot_id)
+        legacy_entry = legacy_by_slot_id.get(slot_id)
+        if isinstance(legacy_entry, dict):
+            legacy_timeline_sorted.append(legacy_entry)
 
     battle_state['round'] = round_value
     battle_state['phase'] = 'select'
@@ -1248,6 +1288,7 @@ def process_select_resolve_round_start(room, battle_id, round_value):
     battle_state['resolve']['single_queue'] = []
     battle_state['resolve']['resolved_slots'] = []
     battle_state['resolve']['trace'] = []
+    state['timeline'] = legacy_timeline_sorted
 
     save_specific_room_state(room)
 

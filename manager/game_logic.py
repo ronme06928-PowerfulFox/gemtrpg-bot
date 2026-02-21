@@ -117,25 +117,54 @@ def _get_value_for_condition(source_obj, param_name, context=None):
     if not source_obj: return None
     if param_name == "tags": return source_obj.get("tags", [])
 
-    # ★修正: 「速度値」(イニシアチブ)の参照ロジック
-    # 戦闘中(contextにtimelineがある)かつ、targetがtimelineに含まれている場合、
-    # そのキャラクターの全手番の中で最も高い速度値(イニシアチブ)を返す。
-    # ユーザー指摘:「速度」はパラメータ、「速度値」はロール結果
-    if param_name == "速度値" and context and 'timeline' in context:
-        timeline = context['timeline']
+    # 「速度値」はロール結果。旧timeline形式/新battle_state形式の両方を参照する。
+    if param_name == "速度値":
         char_id = source_obj.get('id')
+        speed_values = []
 
-        # 該当キャラの全エントリを抽出 (行動済みかどうかに関わらず)
-        my_entries = [t for t in timeline if t.get('char_id') == char_id]
+        ctx = context if isinstance(context, dict) else {}
 
-        if my_entries:
-            # 全エントリの中で最大の速度(speed)を返す
-            max_speed = max(t.get('speed', 0) for t in my_entries)
-            return max_speed
-        else:
-            # タイムラインに存在しない場合 (戦闘開始前など)
-            # ユーザー要望に基づき 0 を返す (常に行動済み/参加不能扱い)
-            return 0
+        timeline = ctx.get('timeline')
+        if isinstance(timeline, list):
+            for entry in timeline:
+                if not isinstance(entry, dict):
+                    continue
+                if str(entry.get('char_id')) != str(char_id):
+                    continue
+                try:
+                    speed_values.append(int(entry.get('speed', 0)))
+                except Exception:
+                    continue
+
+        battle_state = ctx.get('battle_state')
+        if not isinstance(battle_state, dict):
+            room_state = ctx.get('room_state')
+            if isinstance(room_state, dict):
+                battle_state = room_state.get('battle_state')
+
+        if isinstance(battle_state, dict):
+            slots = battle_state.get('slots', {})
+            if isinstance(slots, dict):
+                for slot in slots.values():
+                    if not isinstance(slot, dict):
+                        continue
+                    if str(slot.get('actor_id')) != str(char_id):
+                        continue
+                    try:
+                        speed_values.append(int(slot.get('initiative', 0)))
+                    except Exception:
+                        continue
+
+        if speed_values:
+            return max(speed_values)
+
+        try:
+            total_speed = source_obj.get('totalSpeed')
+            if total_speed is not None:
+                return int(total_speed)
+        except Exception:
+            pass
+        return 0
 
     return get_status_value(source_obj, param_name)
 

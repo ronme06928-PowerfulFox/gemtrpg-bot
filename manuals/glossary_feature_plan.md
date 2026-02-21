@@ -68,13 +68,22 @@
 - `synonyms` (optional CSV)
 - `icon` (optional)
 
+`category` の運用固定値:
+- `状態異常`
+- `効果`
+- `バフ`
+- `デバフ`
+- `ルール`
+- `スキルタグ`
+- `タイミング`
+
 配布JSON（term_idキー）:
 ```json
 {
   "TERM_BLEED": {
     "term_id": "TERM_BLEED",
     "display_name": "出血",
-    "category": "status",
+    "category": "状態異常",
     "short": "継続ダメージ。",
     "long": "ラウンド進行時に追加ダメージを受ける。",
     "links": ["TERM_BLEED_FLOOD"]
@@ -218,4 +227,3 @@ CSS追加（`glossary.css`, `styles.css`）
 - 用語本文（`short/long`）は常に `textContent`。
 - `parseMarkupToHTML()` は「エスケープ -> マークアップ置換」の順序を厳守。
 - `innerHTML` に入るのは、アプリ側が生成した最小限タグのみ。
-

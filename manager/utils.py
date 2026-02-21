@@ -11,11 +11,14 @@ def get_status_value(char_obj, status_name):
     if status_name == 'HP': return int(char_obj.get('hp', 0))
     if status_name == 'MP': return int(char_obj.get('mp', 0))
 
-    # ★ 追加: 速度の場合、戦闘中はロール済みの totalSpeed を優先
-    if status_name == '速度':
+    # 速度と速度値は別概念:
+    # - 速度   : パラメータ値
+    # - 速度値 : ロール後の値
+    if status_name == '速度値':
         total_speed = char_obj.get('totalSpeed')
         if total_speed is not None:
             return int(total_speed)
+        return 0
 
     # ★ 追加: 行動回数のデフォルト値は 1
     if status_name == '行動回数':
