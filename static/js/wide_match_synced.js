@@ -1032,15 +1032,17 @@
             console.log("🔧 Generated HTML preview:", generatedHTML.substring(0, 200));
         } else {
             console.error("❌ formatSkillDetailHTML NOT AVAILABLE!");
-            const effectText = (window.Glossary && typeof window.Glossary.parseMarkupToHTML === 'function')
-                ? window.Glossary.parseMarkupToHTML(skill['発動時効果'] || '---')
-                : String(skill['発動時効果'] || '---')
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#39;')
-                    .replace(/\n/g, '<br>');
+            const effectText = (typeof window.formatGlossaryMarkupToHTML === 'function')
+                ? window.formatGlossaryMarkupToHTML(skill['発動時効果'] || '---')
+                : ((window.Glossary && typeof window.Glossary.parseMarkupToHTML === 'function')
+                    ? window.Glossary.parseMarkupToHTML(skill['発動時効果'] || '---')
+                    : String(skill['発動時効果'] || '---')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;')
+                        .replace(/\n/g, '<br>'));
             generatedHTML = '<div><strong>効果:</strong> ' + effectText + '</div>';
         }
 

@@ -54,6 +54,55 @@ window.formatWideResult = function (data) {
 // 2つのデータ形式に対応:
 // 1) サーバー変換済み (socket_battle.py): コスト, 効果
 // 2) 生データ (allSkillData): 使用時効果, 発動時効果
+window.formatGlossaryMarkupFallbackHTML = function (value) {
+    const src = String(value ?? '');
+    const escapeText = (v) => String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const resolveTermLabel = (termId) => {
+        const id = String(termId || '').trim();
+        if (!id) return '???';
+
+        if (window.Glossary && typeof window.Glossary.getTerm === 'function') {
+            const term = window.Glossary.getTerm(id);
+            if (term && term.display_name) return String(term.display_name);
+        }
+
+        const raw = (window.glossaryData && typeof window.glossaryData === 'object')
+            ? window.glossaryData[id]
+            : null;
+        if (raw && raw.display_name) return String(raw.display_name);
+        return id;
+    };
+
+    const regex = /\[\[([^|\]]+?)(?:\|([^\]]+?))?\]\]/g;
+    let html = '';
+    let lastIndex = 0;
+    let match = null;
+
+    while ((match = regex.exec(src)) !== null) {
+        html += escapeText(src.slice(lastIndex, match.index));
+        const termId = String(match[1] || '').trim();
+        const explicitLabel = String(match[2] || '').trim();
+        const label = explicitLabel || resolveTermLabel(termId);
+        html += escapeText(label);
+        lastIndex = regex.lastIndex;
+    }
+    html += escapeText(src.slice(lastIndex));
+    return html.replace(/\n/g, '<br>');
+};
+
+window.formatGlossaryMarkupToHTML = function (value) {
+    if (window.Glossary && typeof window.Glossary.parseMarkupToHTML === 'function') {
+        return window.Glossary.parseMarkupToHTML(value);
+    }
+    return window.formatGlossaryMarkupFallbackHTML(value);
+};
+
 window.formatSkillDetailHTML = function (skillData) {
     if (!skillData) return "";
 
@@ -69,8 +118,8 @@ window.formatSkillDetailHTML = function (skillData) {
             .replace(/'/g, '&#39;');
     };
     const markupToHtml = (value) => {
-        if (window.Glossary && typeof window.Glossary.parseMarkupToHTML === 'function') {
-            return window.Glossary.parseMarkupToHTML(value);
+        if (typeof window.formatGlossaryMarkupToHTML === 'function') {
+            return window.formatGlossaryMarkupToHTML(value);
         }
         return escapeText(value).replace(/\n/g, '<br>');
     };

@@ -21,6 +21,9 @@ export function formatSkillDetailHTML(skillData) {
             .replace(/'/g, '&#39;');
     };
     const markupToHtml = (value) => {
+        if (typeof window.formatGlossaryMarkupToHTML === 'function') {
+            return window.formatGlossaryMarkupToHTML(value);
+        }
         if (window.Glossary && typeof window.Glossary.parseMarkupToHTML === 'function') {
             return window.Glossary.parseMarkupToHTML(value);
         }

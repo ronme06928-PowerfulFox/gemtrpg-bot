@@ -205,6 +205,33 @@
             line-height: 1.4;
         }
 
+        .preview-glossary-term {
+            display: inline-block;
+            padding: 0 2px;
+            border-bottom: 1px dotted #7c6320;
+            color: #5b4a1d;
+            font-weight: 600;
+            cursor: help;
+        }
+
+        #glossary-mini-tooltip {
+            position: fixed;
+            z-index: 9999;
+            max-width: min(420px, 80vw);
+            background: rgba(26, 33, 44, 0.96);
+            color: #f2f7ff;
+            border: 1px solid rgba(170, 198, 235, 0.6);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 0.82rem;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+            pointer-events: none;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+            display: none;
+        }
+
         #selected-skills-list {
             background: var(--secondary-bg);
             padding: 10px;
@@ -666,6 +693,7 @@
             { gid: "1178813525", cat: "Mb", name: "魔法・打撃(Mb)" },
             { gid: "1043833354", cat: "Mp", name: "魔法・貫通(Mp)" }
         ];
+        const GLOSSARY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkulkkIx6AQEHBKJiAqnjyzEQX5itUVV3SDwi40sLmXeiVQbXvg0RmMS3-XLSwNo2YHsF3WybyHjMu/pub?gid=1131733208&single=true&output=csv";
 
         let ALL_SKILLS = [];
         let SELECTED_SKILLS = [];
@@ -675,6 +703,9 @@
         let SELECTED_PASSIVES = [];
         let ALL_ITEMS = [];
         let SELECTED_ITEMS = {};
+        let GLOSSARY_NAME_MAP = {};
+        let GLOSSARY_TERM_MAP = {};
+        let GLOSSARY_TOOLTIP_ACTIVE_TERM = null;
         let PENDING_REQUESTS = 0;
         let PENDING_RESTORE_COMMANDS = "";
 
@@ -693,6 +724,275 @@
             { id: 12, name: "12: オーセクト" },
             { id: 13, name: "13: ヴァルヴァイレ" }
         ];
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function normalizeHeaderName(value) {
+            return String(value || '')
+                .replace(/^\uFEFF/, '')
+                .trim()
+                .toLowerCase();
+        }
+
+        function findHeaderIndex(headers, candidates) {
+            const normalizedCandidates = candidates.map(v => String(v).trim().toLowerCase());
+            for (let i = 0; i < headers.length; i++) {
+                if (normalizedCandidates.includes(headers[i])) return i;
+            }
+            return -1;
+        }
+
+        function resolveGlossaryLabel(termId) {
+            const id = String(termId || '').trim();
+            if (!id) return '';
+            return GLOSSARY_NAME_MAP[id] || id;
+        }
+
+        function resolveGlossaryTerm(termId) {
+            const id = String(termId || '').trim();
+            if (!id) return null;
+            return GLOSSARY_TERM_MAP[id] || null;
+        }
+
+        function formatGlossaryMarkupForPreview(value) {
+            const src = String(value ?? '');
+            const regex = /\[\[([^|\]]+?)(?:\|([^\]]+?))?\]\]/g;
+            let html = '';
+            let lastIndex = 0;
+            let match = null;
+
+            while ((match = regex.exec(src)) !== null) {
+                html += escapeHtml(src.slice(lastIndex, match.index));
+                const termId = String(match[1] || '').trim();
+                const explicitLabel = String(match[2] || '').trim();
+                const label = explicitLabel || resolveGlossaryLabel(termId) || termId || '???';
+                html += `<span class="preview-glossary-term" data-term-id="${escapeHtml(termId)}" data-term-label="${escapeHtml(explicitLabel || '')}">${escapeHtml(label)}</span>`;
+                lastIndex = regex.lastIndex;
+            }
+
+            html += escapeHtml(src.slice(lastIndex));
+            return html.replace(/\n/g, '<br>');
+        }
+
+        function setPreviewValue(id, value, withGlossaryMarkup = false) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const text = String(value ?? '');
+            if (withGlossaryMarkup) {
+                hideGlossaryTooltip();
+                el.innerHTML = formatGlossaryMarkupForPreview(text || '-');
+            } else {
+                el.innerHTML = escapeHtml(text || '-').replace(/\n/g, '<br>');
+            }
+        }
+
+        function ensureGlossaryTooltipEl() {
+            let el = document.getElementById('glossary-mini-tooltip');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'glossary-mini-tooltip';
+                document.body.appendChild(el);
+            }
+            return el;
+        }
+
+        function buildGlossaryTooltipText(termId, fallbackLabel = '') {
+            const id = String(termId || '').trim();
+            if (!id) return '';
+
+            const term = resolveGlossaryTerm(id);
+            const fallback = String(fallbackLabel || '').trim();
+            const resolved = resolveGlossaryLabel(id);
+            const name = term
+                ? (term.name || fallback || resolved || id)
+                : ((resolved && resolved !== id) ? resolved : (fallback || resolved || id));
+            const category = term && term.category ? `分類: ${term.category}` : '';
+            const body = term
+                ? (term.short || term.long || '説明未登録')
+                : '説明未登録';
+            const header = `${name} (${id})`;
+            return [header, category, body].filter(Boolean).join('\n');
+        }
+
+        function positionGlossaryTooltip(clientX, clientY) {
+            const tooltip = ensureGlossaryTooltipEl();
+            if (!tooltip || tooltip.style.display === 'none') return;
+
+            const margin = 12;
+            const rect = tooltip.getBoundingClientRect();
+            let x = clientX + 16;
+            let y = clientY + 16;
+
+            if (x + rect.width > window.innerWidth - margin) {
+                x = window.innerWidth - rect.width - margin;
+            }
+            if (y + rect.height > window.innerHeight - margin) {
+                y = clientY - rect.height - 14;
+            }
+            if (x < margin) x = margin;
+            if (y < margin) y = margin;
+
+            tooltip.style.left = `${Math.round(x)}px`;
+            tooltip.style.top = `${Math.round(y)}px`;
+        }
+
+        function showGlossaryTooltip(termId, clientX, clientY, fallbackLabel = '') {
+            const text = buildGlossaryTooltipText(termId, fallbackLabel);
+            if (!text) return;
+            const tooltip = ensureGlossaryTooltipEl();
+            tooltip.textContent = text;
+            tooltip.style.display = 'block';
+            positionGlossaryTooltip(clientX, clientY);
+        }
+
+        function hideGlossaryTooltip() {
+            const tooltip = document.getElementById('glossary-mini-tooltip');
+            if (!tooltip) return;
+            tooltip.style.display = 'none';
+            tooltip.textContent = '';
+            GLOSSARY_TOOLTIP_ACTIVE_TERM = null;
+        }
+
+        function setupPreviewGlossaryTooltip() {
+            if (window.__charCreatorGlossaryTooltipBound) return;
+            window.__charCreatorGlossaryTooltipBound = true;
+
+            document.addEventListener('mouseover', (e) => {
+                const termEl = e.target && e.target.closest ? e.target.closest('.preview-glossary-term') : null;
+                if (!termEl) return;
+                const termId = termEl.getAttribute('data-term-id') || '';
+                const termLabel = termEl.getAttribute('data-term-label') || termEl.textContent || '';
+                if (!termId) return;
+                GLOSSARY_TOOLTIP_ACTIVE_TERM = termId;
+                showGlossaryTooltip(termId, e.clientX || 0, e.clientY || 0, termLabel);
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!GLOSSARY_TOOLTIP_ACTIVE_TERM) return;
+                positionGlossaryTooltip(e.clientX || 0, e.clientY || 0);
+            });
+
+            document.addEventListener('mouseout', (e) => {
+                const termEl = e.target && e.target.closest ? e.target.closest('.preview-glossary-term') : null;
+                if (!termEl) return;
+                const toEl = e.relatedTarget;
+                if (toEl && termEl.contains(toEl)) return;
+                hideGlossaryTooltip();
+            });
+
+            document.addEventListener('scroll', () => {
+                if (GLOSSARY_TOOLTIP_ACTIVE_TERM) hideGlossaryTooltip();
+            }, true);
+        }
+
+        function enrichGlossaryMarkupWithDefaultLabel(value) {
+            const src = String(value ?? '');
+            return src.replace(/\[\[([^|\]]+?)\]\]/g, (full, termIdRaw) => {
+                const termId = String(termIdRaw || '').trim();
+                if (!termId) return full;
+                const label = resolveGlossaryLabel(termId);
+                if (!label || label === termId) return full;
+                return `[[${termId}|${label}]]`;
+            });
+        }
+
+        function applyGlossaryCatalog(headersRaw, rows) {
+            const headers = (headersRaw || []).map(normalizeHeaderName);
+            const idIdx = findHeaderIndex(headers, ['id', 'term_id', '用語id', '用語id ']);
+            const nameIdx = findHeaderIndex(headers, ['名称', 'display_name', 'name', '表示名']);
+            const categoryIdx = findHeaderIndex(headers, ['分類', 'category', 'cat']);
+            const shortIdx = findHeaderIndex(headers, ['短文説明', 'short', 'short_desc', 'summary', 'shorttext']);
+            const longIdx = findHeaderIndex(headers, ['本説明', 'long', '説明', 'description', 'detail']);
+            if (idIdx < 0 || nameIdx < 0) return false;
+
+            const nextMap = {};
+            const nextTermMap = {};
+            for (let i = 0; i < rows.length; i++) {
+                const cols = rows[i] || [];
+                const id = String(cols[idIdx] || '').trim();
+                const name = String(cols[nameIdx] || '').trim();
+                if (!id) continue;
+                const category = (categoryIdx >= 0) ? String(cols[categoryIdx] || '').trim() : '';
+                const shortText = (shortIdx >= 0) ? String(cols[shortIdx] || '').trim() : '';
+                const longText = (longIdx >= 0) ? String(cols[longIdx] || '').trim() : '';
+                const resolvedName = name || id;
+
+                nextMap[id] = resolvedName;
+                nextTermMap[id] = {
+                    id,
+                    name: resolvedName,
+                    category,
+                    short: shortText,
+                    long: longText
+                };
+            }
+
+            GLOSSARY_NAME_MAP = nextMap;
+            GLOSSARY_TERM_MAP = nextTermMap;
+
+            // 図鑑データ読込後に表示中プレビューを更新
+            showSkillPreview();
+            showRadiancePreview();
+            showPassivePreview();
+            showItemPreview();
+            return true;
+        }
+
+        async function loadGlossaryCatalogFromCsv() {
+            if (!GLOSSARY_CSV_URL) return;
+            try {
+                const res = await fetch(GLOSSARY_CSV_URL);
+                if (!res.ok) return;
+                const text = await res.text();
+                if (!text) return;
+
+                const rows = parseCSVRows(text);
+                if (rows.length === 0) return;
+                applyGlossaryCatalog(rows[0], rows.slice(1));
+            } catch (e) {
+                console.warn('glossary csv load failed:', e);
+            }
+        }
+
+        window.handleGlossaryResponse = function (response) {
+            try {
+                const table = response && response.table ? response.table : null;
+                if (!table || response.status !== 'ok') {
+                    loadGlossaryCatalogFromCsv();
+                    return;
+                }
+
+                const headersRaw = (table.cols || []).map(col => String((col && col.label != null) ? col.label : ''));
+                const rows = [];
+                (table.rows || []).forEach((rowObj) => {
+                    const cells = (rowObj && rowObj.c) ? rowObj.c : [];
+                    rows.push(cells.map(cell => String((cell && cell.v != null) ? cell.v : '')));
+                });
+
+                const loaded = applyGlossaryCatalog(headersRaw, rows);
+                if (!loaded) loadGlossaryCatalogFromCsv();
+            } catch (e) {
+                console.warn('glossary gviz parse failed:', e);
+                loadGlossaryCatalogFromCsv();
+            }
+        };
+
+        function loadGlossaryCatalog() {
+            const script = document.createElement('script');
+            script.src = `https://docs.google.com/spreadsheets/d/${RADIANCE_SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleGlossaryResponse;reqId:${GLOSSARY_GID}&gid=${GLOSSARY_GID}`;
+            script.onerror = () => {
+                console.warn('glossary gviz load failed: fallback to csv');
+                loadGlossaryCatalogFromCsv();
+            };
+            document.body.appendChild(script);
+        }
 
         function toggleHometown() {
             const originId = parseInt(document.getElementById('char-origin').value) || 0;
@@ -742,6 +1042,7 @@
         }
 
         window.onload = function () {
+            setupPreviewGlossaryTooltip();
             document.querySelectorAll('.calc-trigger').forEach(el => el.addEventListener('input', calculateStats));
             document.querySelectorAll('.skill-input').forEach(el => {
                 el.addEventListener('focus', function () { this.dataset.prevValue = this.value; });
@@ -750,6 +1051,7 @@
             toggleHometown(); // 初期表示更新
             calculateStats();
             reloadAllData();
+            loadGlossaryCatalog();
             loadRadianceSkills();
             loadItems();
         };
@@ -848,16 +1150,16 @@
 
             const skill = ALL_SKILLS.find(s => s.id === id);
             if (skill) {
-                document.getElementById('preview-name').textContent = skill.name;
-                document.getElementById('preview-id').textContent = skill.id;
-                document.getElementById('preview-cost').textContent = skill.cost;
-                document.getElementById('preview-data-cat').textContent = skill.dataCat || "-";
-                document.getElementById('preview-data-range').textContent = skill.dataRange || "-";
-                document.getElementById('preview-data-attr').textContent = skill.dataAttr || "-";
-                document.getElementById('preview-effect-use').textContent = skill.effectUse || "-";
-                document.getElementById('preview-effect-act').textContent = skill.effectAct || "-";
-                document.getElementById('preview-effect-note').textContent = skill.effectNote || "-";
-                document.getElementById('preview-cmd').textContent = skill.command;
+                setPreviewValue('preview-name', skill.name);
+                setPreviewValue('preview-id', skill.id);
+                setPreviewValue('preview-cost', skill.cost);
+                setPreviewValue('preview-data-cat', skill.dataCat || '-');
+                setPreviewValue('preview-data-range', skill.dataRange || '-');
+                setPreviewValue('preview-data-attr', skill.dataAttr || '-');
+                setPreviewValue('preview-effect-use', skill.effectUse || '-', true);
+                setPreviewValue('preview-effect-act', skill.effectAct || '-', true);
+                setPreviewValue('preview-effect-note', skill.effectNote || '-', true);
+                setPreviewValue('preview-cmd', skill.command || '-', true);
                 box.style.display = 'block';
             }
         }
@@ -1036,7 +1338,7 @@
 
             const baseCommand = "";
             const skillCommands = SELECTED_SKILLS.map(s => {
-                let cmd = s.command;
+                let cmd = enrichGlossaryMarkupWithDefaultLabel(s.command || "");
                 if (s.customName) {
                     const regex = new RegExp(`【(${s.id})\\s+.*?】`);
                     if (regex.test(cmd)) {
@@ -1368,9 +1670,60 @@
             return result;
         }
 
+        // 引用符内改行を含むCSVをレコード配列に変換
+        function parseCSVRows(text) {
+            const rows = [];
+            let row = [];
+            let current = '';
+            let inQuotes = false;
+            const src = String(text ?? '');
+
+            for (let i = 0; i < src.length; i++) {
+                const char = src[i];
+                const nextChar = src[i + 1];
+
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                    continue;
+                }
+
+                if (char === ',' && !inQuotes) {
+                    row.push(current);
+                    current = '';
+                    continue;
+                }
+
+                if ((char === '\n' || char === '\r') && !inQuotes) {
+                    if (char === '\r' && nextChar === '\n') i++;
+                    row.push(current);
+                    if (row.some(col => String(col || '').trim() !== '')) {
+                        rows.push(row);
+                    }
+                    row = [];
+                    current = '';
+                    continue;
+                }
+
+                current += char;
+            }
+
+            row.push(current);
+            if (row.some(col => String(col || '').trim() !== '')) {
+                rows.push(row);
+            }
+
+            return rows;
+        }
+
         // ===== 輝化スキル関連 =====
         const RADIANCE_SPREADSHEET_ID = '1hZpWp5XWgGJLBz9JPm6nYLLOeWqQmg9jL0aAXw0aI8E';
         const RADIANCE_GID = '0';
+        const GLOSSARY_GID = '1131733208';
         const ITEM_GID = '110236529';
         const PASSIVE_GID = '9160848';
 
@@ -1613,9 +1966,9 @@
 
             const skill = ALL_RADIANCE_SKILLS.find(s => s.id === id);
             if (skill) {
-                document.getElementById('radiance-preview-name').textContent = `[${skill.id}] ${skill.name} (Cost: ${skill.cost})`;
-                document.getElementById('radiance-preview-desc').textContent = skill.description || '-';
-                document.getElementById('radiance-preview-flavor').textContent = skill.flavor || '';
+                setPreviewValue('radiance-preview-name', `[${skill.id}] ${skill.name} (Cost: ${skill.cost})`);
+                setPreviewValue('radiance-preview-desc', skill.description || '-', true);
+                setPreviewValue('radiance-preview-flavor', skill.flavor || '', true);
                 box.style.display = 'block';
             }
         }
@@ -1627,9 +1980,9 @@
 
             const skill = ALL_PASSIVES.find(s => s.id === id);
             if (skill) {
-                document.getElementById('passive-preview-name').textContent = `[${skill.id}] ${skill.name} (Cost: ${skill.cost})`;
-                document.getElementById('passive-preview-desc').textContent = skill.description || '-';
-                document.getElementById('passive-preview-flavor').textContent = skill.flavor || '';
+                setPreviewValue('passive-preview-name', `[${skill.id}] ${skill.name} (Cost: ${skill.cost})`);
+                setPreviewValue('passive-preview-desc', skill.description || '-', true);
+                setPreviewValue('passive-preview-flavor', skill.flavor || '', true);
                 box.style.display = 'block';
             }
         }
@@ -1641,9 +1994,9 @@
 
             const item = ALL_ITEMS.find(i => i.id === id);
             if (item) {
-                document.getElementById('item-preview-name').textContent = `[${item.id}] ${item.name}`;
-                document.getElementById('item-preview-desc').textContent = item.description || '-';
-                document.getElementById('item-preview-flavor').textContent = item.flavor || '';
+                setPreviewValue('item-preview-name', `[${item.id}] ${item.name}`);
+                setPreviewValue('item-preview-desc', item.description || '-', true);
+                setPreviewValue('item-preview-flavor', item.flavor || '', true);
                 box.style.display = 'block';
             }
         }
