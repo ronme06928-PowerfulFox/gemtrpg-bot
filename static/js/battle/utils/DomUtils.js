@@ -45,40 +45,60 @@ export function formatSkillDetailHTML(skillData) {
     if (typeof effect === 'string') effect = effect.trim();
     if (effect === 'なし') effect = '';
 
-    let html = ``;
-
-    // タグ行
-    html += `<div style="display:flex; gap:4px; margin-bottom:8px; flex-wrap:wrap;">`;
-    if (category) html += `<span style="background:#007bff; color:#fff; padding:2px 6px; border-radius:8px; font-size:0.75em; font-weight:bold;">${escapeText(category)}</span>`;
-    if (range) html += `<span style="background:#6c757d; color:#fff; padding:2px 6px; border-radius:8px; font-size:0.75em; font-weight:bold;">射程:${escapeText(range)}</span>`;
-    if (attribute && attribute !== '---') html += `<span style="background:#ffc107; color:#212529; padding:2px 6px; border-radius:8px; font-size:0.75em; font-weight:bold;">属性:${escapeText(attribute)}</span>`;
-    html += `</div>`;
-
-    // 詳細セクション
     const hasCost = cost && cost !== 'なし' && cost !== '';
     const hasEffect = effect && effect !== '';
     const hasSpecial = special && special !== 'なし' && special.trim() !== '';
-
-    // コマンド (チャットパレット)
     const command = skillData['チャットパレット'] || '';
+
+    let html = `<div class="skill-detail-card">`;
+    html += `<div class="skill-detail-tags">`;
+    if (category) html += `<span class="skill-detail-pill is-category">${escapeText(category)}</span>`;
+    if (range) html += `<span class="skill-detail-pill is-range">射程:${escapeText(range)}</span>`;
+    if (attribute && attribute !== '---') html += `<span class="skill-detail-pill is-attr">属性:${escapeText(attribute)}</span>`;
+    html += `</div>`;
+
     if (command) {
-        html += `<div style="font-size:0.85em; color:#555; margin-bottom:8px;"><strong>【コマンド】</strong><div style="font-family:monospace; background:#f8f9fa; padding:4px; border-radius:3px; word-break:break-all;">${markupToHtml(command)}</div></div>`;
+        html += `
+            <section class="skill-detail-section skill-detail-section-command">
+                <div class="skill-detail-label">コマンド</div>
+                <div class="skill-detail-command">${markupToHtml(command)}</div>
+            </section>
+        `;
     }
 
     if (hasCost || hasEffect || hasSpecial) {
-        html += `<hr style="margin:6px 0; border:0; border-top:1px solid #555;">`;
+        html += `<div class="skill-detail-divider"></div>`;
     }
 
     if (hasCost) {
-        html += `<div style="margin-bottom:4px; font-size:0.85em;"><strong>【コスト】</strong>${markupToHtml(cost)}</div>`;
+        html += `
+            <section class="skill-detail-section">
+                <div class="skill-detail-label">【コスト】</div>
+                <div class="skill-detail-main">${markupToHtml(cost)}</div>
+            </section>
+        `;
     }
     if (hasEffect) {
-        html += `<div style="margin-bottom:4px; font-size:0.85em;"><strong>【効果】</strong><div style="white-space:pre-wrap; line-height:1.3;">${markupToHtml(effect)}</div></div>`;
+        html += `
+            <section class="skill-detail-section">
+                <div class="skill-detail-label">【効果】</div>
+                <div class="skill-detail-main">${markupToHtml(effect)}</div>
+            </section>
+        `;
     }
     if (hasSpecial) {
-        html += `<div style="font-size:0.85em;"><strong>【特記】</strong><div style="white-space:pre-wrap; line-height:1.3;">${markupToHtml(special)}</div></div>`;
+        html += `
+            <section class="skill-detail-section">
+                <div class="skill-detail-label">【特記】</div>
+                <div class="skill-detail-main">${markupToHtml(special)}</div>
+            </section>
+        `;
+    }
+    if (!hasCost && !hasEffect && !hasSpecial && !command) {
+        html += `<div class="skill-detail-empty">説明未登録</div>`;
     }
 
+    html += `</div>`;
     return html;
 }
 

@@ -901,32 +901,32 @@ function openSkillDetailModal(skillId, skillName) {
 
     const overlay = document.createElement('div');
     overlay.id = 'skill-detail-modal-backdrop';
-    overlay.className = 'modal-backdrop';
+    overlay.className = 'modal-backdrop book-modal-backdrop';
 
     const content = document.createElement('div');
-    content.className = 'modal-content';
-    content.style.maxWidth = '500px';
+    content.className = 'modal-content book-skill-detail-modal';
+    content.style.maxWidth = '680px';
     content.style.padding = '20px';
 
     let bodyHtml = '';
     if (skillData) {
         bodyHtml = `
-            <div style="margin-bottom: 10px;">
-                <span style="font-size: 0.85em; color: #666; font-weight: bold;">[${skillId}]</span>
-                <span class="skill-detail-category" style="float:right; font-size:0.8em; background:#eee; padding:2px 6px; border-radius:4px;">${skillData['分類'] || '---'}</span>
+            <div class="book-skill-meta">
+                <span class="book-skill-id">[${skillId}]</span>
+                <span class="book-skill-category">${skillData['分類'] || '---'}</span>
             </div>
-            <div class="skill-detail-body">
+            <div class="skill-detail-body book-reading-body">
                 ${formatSkillDetailHTML(skillData)}
             </div>
         `;
     } else {
-        bodyHtml = `<p>スキルデータが見つかりません: ${skillId}</p>`;
+        bodyHtml = `<p class="book-reading-body">スキルデータが見つかりません: ${skillId}</p>`;
     }
 
     content.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding-bottom:10px; margin-bottom:15px;">
-            <h3 style="margin:0;">${skillName || skillId}</h3>
-            <button class="modal-close-btn" style="border:none; background:none; font-size:1.5em; cursor:pointer;">×</button>
+        <div class="book-modal-header">
+            <h3 class="book-modal-title">${skillName || skillId}</h3>
+            <button class="modal-close-btn book-modal-close" aria-label="閉じる">×</button>
         </div>
         ${bodyHtml}
     `;

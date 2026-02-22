@@ -1,0 +1,435 @@
+:root {
+    --book-serif: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", "Times New Roman", serif;
+    --book-paper: #f4ead7;
+    --book-paper-deep: #eadbbf;
+    --book-ink: #2f2418;
+    --book-ink-soft: #5a4732;
+    --book-line: #cfbf9f;
+    --book-accent: #84613c;
+    --book-shadow: rgba(36, 24, 14, 0.34);
+}
+
+.book-modal-backdrop,
+.glossary-popup-backdrop,
+.glossary-catalog-backdrop {
+    background: rgba(16, 12, 8, 0.56);
+    backdrop-filter: blur(2px);
+}
+
+.book-skill-detail-modal {
+    width: min(760px, 94vw);
+    border-radius: 14px;
+    border: 1px solid var(--book-line);
+    box-shadow: 0 18px 45px var(--book-shadow);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0)),
+        repeating-linear-gradient(0deg, rgba(117, 92, 57, 0.04) 0 34px, rgba(117, 92, 57, 0.08) 34px 35px),
+        linear-gradient(180deg, #f9f2e3 0%, var(--book-paper) 100%);
+    color: var(--book-ink);
+}
+
+.book-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--book-line);
+}
+
+.book-modal-title {
+    margin: 0;
+    font-family: var(--book-serif);
+    color: var(--book-ink);
+    font-size: 1.9rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.book-modal-close {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #b9a27f;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #fff9ee 0%, #eadfc9 100%);
+    color: #5a4125;
+    font-size: 1.45rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.book-modal-close:hover,
+.book-modal-close:focus {
+    background: linear-gradient(180deg, #fffdf4 0%, #f3e8d1 100%);
+    color: #3e2b17;
+    outline: none;
+}
+
+.book-skill-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.book-skill-id {
+    font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
+    font-size: 0.86rem;
+    color: #6a563f;
+    letter-spacing: 0.02em;
+}
+
+.book-skill-category {
+    display: inline-block;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #4d3a26;
+    background: #efe0c3;
+    border: 1px solid #d4bd93;
+    border-radius: 999px;
+    padding: 2px 10px;
+}
+
+.book-reading-body {
+    font-family: var(--book-serif);
+    color: var(--book-ink);
+}
+
+.skill-detail-card {
+    color: var(--book-ink);
+}
+
+.skill-detail-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.skill-detail-pill {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border: 1px solid #c0a87f;
+    background: #eee0c2;
+    color: #45331e;
+}
+
+.skill-detail-pill.is-range {
+    background: #e6dcc8;
+    border-color: #c4b499;
+}
+
+.skill-detail-pill.is-attr {
+    background: #f0dba5;
+    border-color: #d7bb71;
+}
+
+.skill-detail-section {
+    margin-bottom: 10px;
+}
+
+.skill-detail-label {
+    margin-bottom: 4px;
+    color: var(--book-accent);
+    font-size: 0.96rem;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+}
+
+.skill-detail-main {
+    color: var(--book-ink);
+    line-height: 1.8;
+    font-size: 1.08rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.skill-detail-main .glossary-term {
+    border-bottom-color: #5fa8da;
+    color: #2b79b2;
+    background: transparent;
+}
+
+.skill-detail-main .glossary-term:hover,
+.skill-detail-main .glossary-term:focus {
+    color: #1f6394;
+    background: transparent;
+}
+
+.skill-detail-main .glossary-term.is-missing {
+    color: #6f8fa8;
+    border-bottom-color: #8ab7d8;
+}
+
+.skill-detail-command {
+    border: 1px solid #ccb895;
+    background: rgba(255, 251, 242, 0.92);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #43311d;
+    word-break: break-all;
+}
+
+.skill-detail-divider {
+    border-top: 1px dashed #b8a17c;
+    margin: 10px 0 12px;
+}
+
+.skill-detail-empty {
+    color: #80684a;
+    font-size: 0.94rem;
+}
+
+.glossary-tooltip {
+    border-radius: 8px;
+    border: 1px solid #ccb792;
+    background: linear-gradient(180deg, #fffaf0 0%, #efe4ce 100%);
+    color: #3e2f20;
+    box-shadow: 0 8px 26px rgba(35, 25, 15, 0.28);
+    font-family: var(--book-serif);
+    line-height: 1.65;
+}
+
+.glossary-popup {
+    border-radius: 12px;
+    border: 1px solid #ccb794;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0)),
+        repeating-linear-gradient(0deg, rgba(117, 92, 57, 0.04) 0 35px, rgba(117, 92, 57, 0.07) 35px 36px),
+        linear-gradient(180deg, #fbf4e4 0%, #f0e4ce 100%);
+    color: #2f2418;
+    box-shadow: 0 18px 46px rgba(37, 25, 14, 0.36);
+    font-family: var(--book-serif);
+    padding: 18px 20px 16px;
+}
+
+.glossary-popup-close {
+    width: 32px;
+    height: 32px;
+    border: 1px solid #bfa884;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #fff8ea 0%, #e8dcc4 100%);
+    color: #5c4328;
+}
+
+.glossary-popup-title {
+    font-size: 1.4rem;
+    line-height: 1.25;
+    color: #2c2117;
+    margin-bottom: 6px;
+}
+
+.glossary-popup-category {
+    color: #6d5639;
+    font-size: 0.92rem;
+    margin-bottom: 12px;
+}
+
+.glossary-popup-short {
+    color: #5f4a32;
+    font-size: 0.98rem;
+    line-height: 1.75;
+    margin-bottom: 8px;
+}
+
+.glossary-popup-long {
+    color: #2f2418;
+    font-size: 1.08rem;
+    line-height: 1.9;
+    margin-bottom: 10px;
+}
+
+.glossary-popup-flavor {
+    color: #6f5a42;
+    border-left: 3px solid #cab694;
+    padding-left: 10px;
+    margin-top: 12px;
+    line-height: 1.8;
+}
+
+.glossary-popup-links {
+    border-top: 1px dashed #bba684;
+    margin-top: 12px;
+    padding-top: 10px;
+    color: #5f4d36;
+    font-size: 0.9rem;
+}
+
+.glossary-popup-link {
+    color: #4f3a22;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+}
+
+.glossary-popup-link:hover,
+.glossary-popup-link:focus {
+    color: #2f2214;
+}
+
+.glossary-catalog-modal {
+    width: min(980px, 96vw);
+    border-radius: 12px;
+    border: 1px solid #cbb58f;
+    box-shadow: 0 18px 48px rgba(33, 22, 12, 0.42);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0)),
+        linear-gradient(180deg, #f7edda 0%, var(--book-paper) 100%);
+    color: #2f2418;
+    font-family: var(--book-serif);
+}
+
+.glossary-catalog-header {
+    border-bottom: 1px solid #cbb58d;
+    background: linear-gradient(180deg, #fbf5e7 0%, #efe2c7 100%);
+    padding: 13px 16px;
+}
+
+.glossary-catalog-header h3 {
+    font-size: 1.5rem;
+    letter-spacing: 0.02em;
+    color: #2f2418;
+}
+
+.glossary-catalog-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #baa27e;
+    background: linear-gradient(180deg, #fff8ea 0%, #e7dac0 100%);
+    color: #5b4227;
+}
+
+.glossary-catalog-controls {
+    border-bottom: 1px solid #d3c09a;
+    background: rgba(245, 233, 207, 0.78);
+    padding: 10px 14px;
+    grid-template-columns: 1fr 190px 160px;
+}
+
+.glossary-catalog-controls input,
+.glossary-catalog-controls select {
+    min-height: 38px;
+    border: 1px solid #bca783;
+    border-radius: 9px;
+    background: #fffaf0;
+    color: #342719;
+    font-family: var(--book-serif);
+    font-size: 0.96rem;
+}
+
+.glossary-catalog-status {
+    border-bottom: 1px dashed #cbb58f;
+    background: rgba(251, 244, 229, 0.85);
+    color: #6b5438;
+    padding: 9px 14px;
+    font-size: 0.88rem;
+}
+
+.glossary-catalog-list {
+    padding: 12px 14px;
+    gap: 10px;
+}
+
+.glossary-catalog-item {
+    border: 1px solid #d0bc98;
+    border-left: 5px solid #b59163;
+    border-radius: 10px;
+    background: rgba(255, 251, 242, 0.96);
+    color: #2e2318;
+    padding: 12px 12px;
+}
+
+.glossary-catalog-item:hover,
+.glossary-catalog-item:focus {
+    border-color: #af8c62;
+    background: #fff8ea;
+}
+
+.glossary-catalog-item-top {
+    margin-bottom: 4px;
+}
+
+.glossary-catalog-item-name {
+    font-size: 1.36rem;
+    line-height: 1.25;
+    color: #2f2418;
+    letter-spacing: 0.01em;
+}
+
+.glossary-catalog-item-id {
+    color: #7c6549;
+    font-size: 0.8rem;
+    font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
+}
+
+.glossary-catalog-item-meta {
+    background: #e8d8b8;
+    border: 1px solid #ccb38a;
+    color: #5a4429;
+    font-size: 0.8rem;
+    margin-bottom: 6px;
+}
+
+.glossary-catalog-item-summary {
+    color: #3a2c1d;
+    font-size: 1.03rem;
+    line-height: 1.72;
+    white-space: normal;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
+.glossary-catalog-empty {
+    border: 1px dashed #c8b18a;
+    background: #f8efdc;
+    color: #735f44;
+    font-family: var(--book-serif);
+}
+
+@media (max-width: 900px) {
+    .book-modal-title {
+        font-size: 1.5rem;
+    }
+
+    .glossary-catalog-header h3 {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .book-skill-detail-modal {
+        width: 96vw;
+        padding: 16px !important;
+    }
+
+    .glossary-catalog-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .glossary-catalog-item-name {
+        font-size: 1.14rem;
+    }
+
+    .glossary-popup {
+        padding: 16px 14px 14px;
+    }
+
+    .glossary-popup-title {
+        font-size: 1.2rem;
+    }
+
+    .glossary-popup-long {
+        font-size: 1rem;
+        line-height: 1.82;
+    }
+}
