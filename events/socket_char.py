@@ -12,7 +12,7 @@ from manager.room_manager import (
     broadcast_log, get_user_info_from_sid, _update_char_stat, set_character_owner
 )
 from manager.game_logic import process_battle_start, process_skill_effects
-from manager.utils import get_status_value, set_status_value, get_effective_origin_id, apply_buff
+from manager.utils import get_status_value, set_status_value, apply_origin_bonus_buffs
 
 @socketio.on('request_add_character')
 def handle_add_character(data):
@@ -66,11 +66,8 @@ def handle_add_character(data):
     if 'radiance_skills' not in char_data: # 新しい輝化スキルリスト
         char_data['radiance_skills'] = []
 
-    # ★追加: シンシア (ID: 10) の爆縮バフ自動付与
-    origin_id = get_effective_origin_id(char_data)
-    if origin_id == 10:
-        # 爆縮 (Bu-09): count=8, lasting=-1 (無限)
-        apply_buff(char_data, "爆縮", -1, 0, count=8)
+    # ★追加: 出身国ボーナスバフ自動付与
+    apply_origin_bonus_buffs(char_data)
 
     if 'inventory' not in char_data:
         char_data['inventory'] = {}

@@ -39,7 +39,7 @@ def _is_select_resolve_active(state):
 from manager.game_logic import (
     get_status_value, process_skill_effects, apply_buff, remove_buff, process_battle_start
 )
-from manager.utils import get_effective_origin_id
+from manager.utils import get_effective_origin_id, apply_origin_bonus_buffs
 import random
 
 
@@ -355,11 +355,9 @@ def reset_battle_logic(room, mode, username, reset_options=None):
                  except Exception as e:
                      logger.error(f"process_battle_start in reset failed: {e}")
 
-            # ★ 追加: 爆縮リセット (バフリセット時のみ)
+            # ★ 追加: 出身国ボーナスバフを再適用 (バフリセット時のみ)
             if reset_options.get('buffs'):
-                origin_id = get_effective_origin_id(char)
-                if origin_id == 10:
-                    apply_buff(char, "爆縮", -1, 0, count=8)
+                apply_origin_bonus_buffs(char)
 
         state['turn_char_id'] = None
         state['turn_entry_id'] = None

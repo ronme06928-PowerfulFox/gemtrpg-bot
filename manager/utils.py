@@ -5,6 +5,25 @@ from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
 
+# 出身国ボーナスとして常時付与するバフ定義
+# ※ id=1,2,12 は「他国ボーナス選択」対象
+ORIGIN_BONUS_BUFFS = {
+    1: {"buff_id": "Bu-21", "name": "色とりどりの輝石"},
+    2: {"buff_id": "Bu-22", "name": "空を巡る叡智"},
+    3: {"buff_id": "Bu-10", "name": "小麦色の風"},
+    4: {"buff_id": "Bu-13", "name": "大魔女の末裔"},
+    5: {"buff_id": "Bu-14", "name": "神樹の恩寵"},
+    6: {"buff_id": "Bu-15", "name": "厄災を探究せし理性"},
+    7: {"buff_id": "Bu-16", "name": "厄災と共に生きる知恵"},
+    8: {"buff_id": "Bu-17", "name": "反撃の石"},
+    9: {"buff_id": "Bu-18", "name": "誉れ高き刃"},
+    10: {"buff_id": "Bu-09", "name": "爆縮", "count": 8},
+    12: {"buff_id": "Bu-20", "name": "世界を見下ろす黒鳥"},
+    13: {"buff_id": "Bu-19", "name": "畏怖の衣"},
+}
+
+BONUS_SELECTABLE_ORIGINS = {1, 2, 12}
+
 def get_status_value(char_obj, status_name):
     """キャラクターから特定のステータス値を取得する（バフ補正込み）"""
     if not char_obj: return 0
@@ -319,40 +338,98 @@ def resolve_placeholders(command_str, char_obj):
     return re.sub(r'(\d+)d\{(.*?)\}', replacer, command_str)
 
 
-def get_effective_origin_id(char_obj):
+def _parse_origin_value(raw_value):
+    try:
+        val_str = str(raw_value).strip()
+        match = re.match(r'^(-?\d+)', val_str)
+        if match:
+            return int(match.group(1))
+        return int(raw_value)
+    except Exception:
+        return 0
+
+
+def get_origin_and_bonus_ids(char_obj):
     """
-    キャラクターの有効な出身IDを取得する。
-    優先順位:
-    1. 'ボーナス' (or '故郷' for legacy) が存在し、かつ 0 以外であればその値。
-    2. '出身' の値。
-    3. どちらもなければ 0。
+    キャラクターの「出身」「ボーナス(故郷)」IDを取得する。
     """
-    if not char_obj: return 0
-    params = char_obj.get('params', [])
+    if not char_obj:
+        return 0, 0
 
     origin_val = 0
     bonus_val = 0
+    params = char_obj.get('params', [])
 
     for p in params:
         label = p.get('label')
-        val = p.get('value', '0')
-        try:
-            # 文字列の場合、先頭の数字を抽出 ("3: ラティウム" -> 3)
-            val_str = str(val)
-            import re
-            match = re.match(r'^(-?\d+)', val_str)
-            if match:
-                 int_val = int(match.group(1))
-            else:
-                 int_val = int(val) # fallback
-        except:
-            int_val = 0
+        int_val = _parse_origin_value(p.get('value', '0'))
 
         if label == '出身':
             origin_val = int_val
         elif label in ['ボーナス', '故郷']:
             bonus_val = int_val
 
-    if bonus_val != 0:
+    return origin_val, bonus_val
+
+
+def get_origin_bonus_buffs(char_obj):
+    """
+    出身/ボーナス設定から、初期付与すべき出身国ボーナスバフ一覧を返す。
+    """
+    origin_val, bonus_val = get_origin_and_bonus_ids(char_obj)
+    selected_origin_ids = []
+
+    # 自国バフ
+    if origin_val in ORIGIN_BONUS_BUFFS:
+        selected_origin_ids.append(origin_val)
+
+    # 特殊3国のみ「他国ボーナス」を追加
+    if origin_val in BONUS_SELECTABLE_ORIGINS and bonus_val in ORIGIN_BONUS_BUFFS:
+        if bonus_val not in selected_origin_ids:
+            selected_origin_ids.append(bonus_val)
+    # 旧データ互換: 出身が未設定でボーナスだけある場合
+    elif origin_val == 0 and bonus_val in ORIGIN_BONUS_BUFFS:
+        if bonus_val not in selected_origin_ids:
+            selected_origin_ids.append(bonus_val)
+
+    return [dict(ORIGIN_BONUS_BUFFS[o_id]) for o_id in selected_origin_ids]
+
+
+def apply_origin_bonus_buffs(char_obj):
+    """
+    出身国ボーナスバフを付与する。
+    特殊3国(1,2,12)は「自国+ボーナス国」の2種を同時付与する。
+    """
+    if not char_obj:
+        return
+
+    for buff in get_origin_bonus_buffs(char_obj):
+        payload = {
+            "buff_id": buff.get("buff_id"),
+            "origin_bonus": True,
+        }
+        apply_buff(
+            char_obj,
+            buff.get("name"),
+            -1,
+            0,
+            data=payload,
+            count=buff.get("count"),
+        )
+
+
+def get_effective_origin_id(char_obj):
+    """
+    キャラクターの有効な出身IDを取得する。
+    優先順位:
+    1. 出身が特殊3国(1/2/12)で、'ボーナス'(or '故郷') が 0 以外ならその値。
+    2. それ以外は '出身' の値。
+    3. 旧データ互換として、出身が 0 かつボーナスのみ存在する場合はボーナス値。
+    """
+    origin_val, bonus_val = get_origin_and_bonus_ids(char_obj)
+
+    if origin_val in BONUS_SELECTABLE_ORIGINS and bonus_val != 0:
+        return bonus_val
+    if origin_val == 0 and bonus_val != 0:
         return bonus_val
     return origin_val
