@@ -643,6 +643,9 @@ def execute_duel_match(room, data, username):
                                     damage_report[target_key].append({'source': n, 'value': v})
 
                             elif t == "APPLY_SKILL_DAMAGE_AGAIN" or t == "USE_SKILL_AGAIN":
+                                if state.get('__select_resolve_delegate__', False):
+                                    # In select/resolve delegated execution, re-use is queued in battle/core.
+                                    continue
                                 # Legacy duel modal fallback: resolve as same-damage follow-up hit.
                                 # Select/Resolve flow uses virtual-slot re-use in battle/core.py.
                                 # one-sided matchでも追撃を個別処理

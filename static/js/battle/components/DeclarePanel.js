@@ -505,7 +505,8 @@ class DeclarePanel {
                 const id = m[1];
                 const name = (m[2] || '').trim();
                 if (!id || seen.has(id)) continue;
-                if (allSkillMap[id]) {
+                const skillData = allSkillMap[id];
+                if (skillData && !this._isInstantSkillData(skillData)) {
                     seen.add(id);
                     list.push({ id, name: name || this._readSkillMeta(id).name });
                 }
@@ -513,7 +514,20 @@ class DeclarePanel {
         }
 
         if (list.length > 0) return list;
-        return idsAll.map((id) => ({ id, name: this._readSkillMeta(id).name }));
+        return idsAll
+            .filter((id) => !this._isInstantSkillData(allSkillMap[id]))
+            .map((id) => ({ id, name: this._readSkillMeta(id).name }));
+    }
+
+    _isInstantSkillData(skillData) {
+        if (!skillData || typeof skillData !== 'object') return false;
+        const tags = Array.isArray(skillData.tags) ? skillData.tags : [];
+        if (tags.some((t) => String(t || '').trim() === '即時発動')) return true;
+
+        const rule = this._extractRuleData(skillData) || {};
+        const ruleTags = Array.isArray(rule.tags) ? rule.tags : [];
+        if (ruleTags.some((t) => String(t || '').trim() === '即時発動')) return true;
+        return false;
     }
 
     _formatSlotLabel(state, slotId) {
@@ -592,8 +606,11 @@ class DeclarePanel {
         if (skill.rule_data && typeof skill.rule_data === 'object') return skill.rule_data;
 
         const ruleKeys = Object.keys(skill).filter((k) => {
-            const lower = String(k).toLowerCase();
-            return lower.includes('rule') || lower.includes('special');
+            const key = String(k || '');
+            const lower = key.toLowerCase();
+            return lower.includes('rule')
+                || lower.includes('special')
+                || key.includes('特記処理');
         });
         for (const key of ruleKeys) {
             const raw = skill[key];
@@ -608,7 +625,7 @@ class DeclarePanel {
             }
         }
 
-        // Fallback: parse any JSON-like field and pick one that has "cost".
+        // Fallback: parse any JSON-like field and pick one that looks like rule JSON.
         for (const key of Object.keys(skill)) {
             const raw = skill[key];
             if (typeof raw !== 'string') continue;
@@ -616,7 +633,15 @@ class DeclarePanel {
             if (!trimmed.startsWith('{')) continue;
             try {
                 const parsed = JSON.parse(trimmed);
-                if (parsed && typeof parsed === 'object' && Array.isArray(parsed.cost)) {
+                if (
+                    parsed
+                    && typeof parsed === 'object'
+                    && (
+                        Array.isArray(parsed.cost)
+                        || Array.isArray(parsed.effects)
+                        || Array.isArray(parsed.tags)
+                    )
+                ) {
                     return parsed;
                 }
             } catch (_) {

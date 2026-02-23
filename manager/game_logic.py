@@ -705,10 +705,30 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 max_reuses = max(1, max_reuses)
 
                 consume_cost = bool(effect.get("consume_cost", False))
+                raw_reuse_cost = effect.get("reuse_cost", effect.get("reuse_costs", []))
+                if isinstance(raw_reuse_cost, dict):
+                    raw_reuse_cost = [raw_reuse_cost]
+                reuse_cost = []
+                if isinstance(raw_reuse_cost, list):
+                    for entry in raw_reuse_cost:
+                        if not isinstance(entry, dict):
+                            continue
+                        c_type = str(entry.get("type", "")).strip()
+                        if not c_type:
+                            continue
+                        try:
+                            c_val = int(entry.get("value", 0))
+                        except (TypeError, ValueError):
+                            c_val = 0
+                        if c_val <= 0:
+                            continue
+                        reuse_cost.append({"type": c_type, "value": c_val})
                 request_payload = {
                     "max_reuses": max_reuses,
                     "consume_cost": consume_cost,
                 }
+                if reuse_cost:
+                    request_payload["reuse_cost"] = reuse_cost
                 changes_to_apply.append((target_obj, "USE_SKILL_AGAIN", "None", request_payload))
                 log_snippets.append(f"[同スキル再使用 x{max_reuses}]")
             elif effect_type == "CUSTOM_EFFECT":

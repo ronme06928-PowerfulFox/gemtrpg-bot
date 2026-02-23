@@ -1,4 +1,4 @@
-﻿/* === 広範囲攻撃UI用スタイル === */
+/* === 広範囲攻撃UI用スタイル === */
 .wide-attack-trigger-btn {
     position: absolute;
     top: -35px;
@@ -216,28 +216,28 @@
     padding-bottom: 5px;
 }
 
-/* �T�C�h�o�[��̍��� */
+/* サイドバー本文 */
 .skill-detail-sidebar .skill-desc-section {
     margin-bottom: 8px;
     line-height: 1.5;
 }
 
 
-/* �r�W���A���o�g���t�B�[���h�̑Ό����[�_���̃��C�A�E�g */
+/* ビジュアルバトルの対戦モーダルレイアウト */
 .duel-modal-content.resizable-modal {
     width: auto;
-    /* �Œ蕝���� */
+    /* 最小幅を固定 */
     min-width: 800px;
-    /* �ŏ�����m�� */
+    /* 最大幅を制限 */
     max-width: 95vw;
-    /* ��ʂ���͂ݏo���Ȃ� */
+    /* 画面外にはみ出さない */
     background: #2c3e50;
     color: white;
     padding: 20px;
     transition: width 0.3s ease;
-    /* ���[�_�����̂̐L�k��Ȃ߂炩�� */
+    /* モーダル全体の伸縮を滑らかに */
     display: flex;
-    /* �t���b�N�X�ɂ��Ē��g�𒆐S�� */
+    /* flexで中央寄せ */
     flex-direction: column;
 }
 
@@ -251,18 +251,18 @@
 .duel-container {
     display: flex;
     justify-content: center;
-    /* �������� */
+    /* 横方向中央 */
     align-items: flex-start;
-    /* �㑵�� */
+    /* 上揃え */
     gap: 10px;
-    /* �e�J�����Ԃ̌��� */
+    /* カラム間隔 */
     margin: 20px 0;
 }
 
 .duel-side {
     width: 300px;
     flex-shrink: 0;
-    /* ����Œ� (���C�A�E�g����h�~) */
+    /* 幅固定 (レイアウト崩れ防止) */
     background: rgba(255, 255, 255, 0.1);
     padding: 15px;
     border-radius: 8px;

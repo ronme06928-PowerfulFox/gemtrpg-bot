@@ -1459,7 +1459,7 @@ def _snapshot_for_outcome(actor):
     }
 
 
-def _diff_snapshot(before, after, damage_source='繝繧､繧ｹ繝繝｡繝ｼ繧ｸ'):
+def _diff_snapshot(before, after, damage_source='ダメージ'):
     if not before or not after:
         return {'damage': [], 'statuses': [], 'flags': []}
     actor_id = after.get('id')
@@ -1469,7 +1469,7 @@ def _diff_snapshot(before, after, damage_source='繝繧､繧ｹ繝繝｡繝
 
     hp_loss = int(before.get('hp', 0)) - int(after.get('hp', 0))
     if hp_loss > 0:
-        damage.append({'target_id': actor_id, 'hp': hp_loss, 'source': str(damage_source or '繝繧､繧ｹ繝繝｡繝ｼ繧ｸ')})
+        damage.append({'target_id': actor_id, 'hp': hp_loss, 'source': str(damage_source or 'ダメージ')})
 
     state_names = set(before.get('states', {}).keys()) | set(after.get('states', {}).keys())
     for name in state_names:
@@ -1542,7 +1542,7 @@ def _apply_effect_changes_like_duel(
                 _update_char_stat(room, char, 'HP', max(0, curr_hp - int(value)), username=f"[{name}]", source=DamageSource.SKILL_EFFECT)
         elif effect_type == "APPLY_SKILL_DAMAGE_AGAIN":
             if base_damage > 0:
-                _update_char_stat(room, char, 'HP', int(char.get('hp', 0)) - int(base_damage), username="[霑ｽ謦ゾ", source=DamageSource.SKILL_EFFECT)
+                _update_char_stat(room, char, 'HP', int(char.get('hp', 0)) - int(base_damage), username="[追撃]", source=DamageSource.SKILL_EFFECT)
                 temp_logs = []
                 b_dmg = process_on_damage_buffs(room, char, int(base_damage), "[select_resolve_one_sided]", temp_logs)
                 log_snippets.extend(temp_logs)
@@ -1552,10 +1552,25 @@ def _apply_effect_changes_like_duel(
             max_reuses = _safe_int(payload.get('max_reuses', 1), 1)
             if max_reuses <= 0:
                 max_reuses = 1
+            raw_reuse_cost = payload.get('reuse_cost', [])
+            if isinstance(raw_reuse_cost, dict):
+                raw_reuse_cost = [raw_reuse_cost]
+            reuse_cost = []
+            if isinstance(raw_reuse_cost, list):
+                for entry in raw_reuse_cost:
+                    if not isinstance(entry, dict):
+                        continue
+                    c_type = str(entry.get('type', '')).strip()
+                    c_val = _safe_int(entry.get('value', 0), 0)
+                    if not c_type or c_val <= 0:
+                        continue
+                    reuse_cost.append({'type': c_type, 'value': c_val})
             req = {
                 'max_reuses': int(max_reuses),
                 'consume_cost': bool(payload.get('consume_cost', False))
             }
+            if reuse_cost:
+                req['reuse_cost'] = reuse_cost
             if isinstance(char, dict) and char.get('id'):
                 req['target_id'] = char.get('id')
             if isinstance(reuse_requests, list):
@@ -1904,6 +1919,8 @@ def _resolve_clash_by_existing_logic(
     old_turn_char = state.get('turn_char_id')
     had_last_exec = 'last_executed_match_id' in state
     old_last_exec = state.get('last_executed_match_id')
+    had_sr_delegate_flag = '__select_resolve_delegate__' in state
+    old_sr_delegate_flag = state.get('__select_resolve_delegate__')
     old_has_acted_a = attacker_char.get('hasActed')
     old_has_acted_d = defender_char.get('hasActed')
 
@@ -1930,6 +1947,7 @@ def _resolve_clash_by_existing_logic(
         state['turn_entry_id'] = synthetic_timeline[0]['id']
         state['turn_char_id'] = actor_a_id
         state['active_match'] = {}
+        state['__select_resolve_delegate__'] = True
         if 'last_executed_match_id' in state:
             del state['last_executed_match_id']
         attacker_char['hasActed'] = False
@@ -1963,6 +1981,10 @@ def _resolve_clash_by_existing_logic(
             state['last_executed_match_id'] = old_last_exec
         else:
             state.pop('last_executed_match_id', None)
+        if had_sr_delegate_flag:
+            state['__select_resolve_delegate__'] = old_sr_delegate_flag
+        else:
+            state.pop('__select_resolve_delegate__', None)
         attacker_char['hasActed'] = old_has_acted_a
         defender_char['hasActed'] = old_has_acted_d
 
@@ -1993,8 +2015,8 @@ def _resolve_clash_by_existing_logic(
 
     after_a = _snapshot_for_outcome(attacker_char)
     after_d = _snapshot_for_outcome(defender_char)
-    delta_a = _diff_snapshot(before_a, after_a, damage_source='繝繧､繧ｹ繝繝｡繝ｼ繧ｸ')
-    delta_d = _diff_snapshot(before_d, after_d, damage_source='繝繧､繧ｹ繝繝｡繝ｼ繧ｸ')
+    delta_a = _diff_snapshot(before_a, after_a, damage_source='ダメージ')
+    delta_d = _diff_snapshot(before_d, after_d, damage_source='ダメージ')
 
     try:
         burst_before = int((before_d or {}).get('states', {}).get('破裂', 0))
@@ -2022,12 +2044,12 @@ def _resolve_clash_by_existing_logic(
             outcome = 'defender_win'
         else:
             tie_break = 'draw'
-            if '蠑輔″蛻・￠' in match_log:
+            if '引き分け' in match_log:
                 outcome = 'draw'
-            elif f"{actor_a_name} 縺ｮ蜍晏茜" in match_log:
+            elif f"{actor_a_name} の勝利" in match_log:
                 outcome = 'attacker_win'
                 tie_break = 'existing_rule_attacker'
-            elif f"{actor_d_name} 縺ｮ蜍晏茜" in match_log:
+            elif f"{actor_d_name} の勝利" in match_log:
                 outcome = 'defender_win'
                 tie_break = 'existing_rule_defender'
             else:
@@ -2410,10 +2432,20 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
 
     # Fallback: static power expression from skill data.
     try:
-        base_power = int(skill_data.get('蝓ｺ遉主ｨ∝鴨', skill_data.get('base_power', 0)) or 0)
+        base_power = int(
+            skill_data.get(
+                '基礎威力',
+                skill_data.get('base_power', 0)
+            ) or 0
+        )
     except Exception:
         base_power = 0
-    dice_part = str(skill_data.get('繝繧､繧ｹ螽∝鴨', skill_data.get('dice_power', '')) or '').strip()
+    dice_part = str(
+        skill_data.get(
+            'ダイス威力',
+            skill_data.get('dice_power', '')
+        ) or ''
+    ).strip()
     if base_power and dice_part:
         command = f"{base_power}{dice_part}" if dice_part.startswith(('+', '-')) else f"{base_power}+{dice_part}"
     elif dice_part:
@@ -2509,8 +2541,11 @@ def run_select_resolve_auto(room, battle_id):
     mass_steps_est = _estimate_mass_trace_steps(state, battle_state, resolve_intents)
     single_steps_est = _estimate_single_trace_steps(state, battle_state, resolve_intents)
     step_total_est = int(max(0, mass_steps_est + single_steps_est))
-    existing_total = _safe_int(resolve_ctx.get('step_total'), 0)
     trace_len = len(resolve_ctx.get('trace', []) or [])
+    existing_total = _safe_int(resolve_ctx.get('step_total'), 0)
+    # If trace is freshly reset, stale step_total from a previous round must not survive.
+    if trace_len <= 0:
+        existing_total = 0
     resolve_ctx['step_total'] = int(max(existing_total, step_total_est, trace_len))
     resolve_ctx['step_estimate'] = {
         'mass': int(mass_steps_est),
@@ -3027,13 +3062,14 @@ def run_select_resolve_auto(room, battle_id):
 
         def _collect_reuse_policy(delegate_summary):
             if not isinstance(delegate_summary, dict):
-                return {'enabled': False, 'max_reuses': 0, 'consume_cost': False}
+                return {'enabled': False, 'max_reuses': 0, 'consume_cost': False, 'reuse_cost': []}
             requests = delegate_summary.get('reuse_requests', [])
             if not isinstance(requests, list):
-                return {'enabled': False, 'max_reuses': 0, 'consume_cost': False}
+                return {'enabled': False, 'max_reuses': 0, 'consume_cost': False, 'reuse_cost': []}
 
             max_reuses = 0
             consume_cost = False
+            reuse_cost = []
             for req in requests:
                 if not isinstance(req, dict):
                     continue
@@ -3041,14 +3077,64 @@ def run_select_resolve_auto(room, battle_id):
                 if req_max > max_reuses:
                     max_reuses = req_max
                 consume_cost = consume_cost or bool(req.get('consume_cost', False))
+                if (not reuse_cost) and isinstance(req.get('reuse_cost'), list):
+                    normalized = []
+                    for entry in req.get('reuse_cost', []):
+                        if not isinstance(entry, dict):
+                            continue
+                        c_type = str(entry.get('type', '')).strip()
+                        c_val = _safe_int(entry.get('value', 0), 0)
+                        if not c_type or c_val <= 0:
+                            continue
+                        normalized.append({'type': c_type, 'value': c_val})
+                    if normalized:
+                        reuse_cost = normalized
 
             if max_reuses <= 0:
-                return {'enabled': False, 'max_reuses': 0, 'consume_cost': consume_cost}
+                return {'enabled': False, 'max_reuses': 0, 'consume_cost': consume_cost, 'reuse_cost': reuse_cost}
             return {
                 'enabled': True,
                 'max_reuses': min(int(max_reuses), int(MAX_USE_SKILL_AGAIN_CHAIN_HARD_CAP)),
                 'consume_cost': bool(consume_cost),
+                'reuse_cost': reuse_cost,
             }
+
+        def _extract_reuse_requests_from_changes(changes):
+            requests = []
+            for row in (changes or []):
+                if not isinstance(row, (list, tuple)) or len(row) < 4:
+                    continue
+                target_obj, effect_type, _name, payload = row
+                if effect_type not in {'USE_SKILL_AGAIN', 'APPLY_SKILL_DAMAGE_AGAIN'}:
+                    continue
+                value = payload if isinstance(payload, dict) else {}
+                default_reuses = 1
+                if effect_type == 'APPLY_SKILL_DAMAGE_AGAIN':
+                    # Backward-compat: old tag is treated as single re-use request in select/resolve.
+                    default_reuses = 1
+                req = {
+                    'max_reuses': max(1, _safe_int(value.get('max_reuses', default_reuses), default_reuses)),
+                    'consume_cost': bool(value.get('consume_cost', False)),
+                }
+                raw_reuse_cost = value.get('reuse_cost', [])
+                if isinstance(raw_reuse_cost, dict):
+                    raw_reuse_cost = [raw_reuse_cost]
+                if isinstance(raw_reuse_cost, list):
+                    normalized = []
+                    for entry in raw_reuse_cost:
+                        if not isinstance(entry, dict):
+                            continue
+                        c_type = str(entry.get('type', '')).strip()
+                        c_val = _safe_int(entry.get('value', 0), 0)
+                        if not c_type or c_val <= 0:
+                            continue
+                        normalized.append({'type': c_type, 'value': c_val})
+                    if normalized:
+                        req['reuse_cost'] = normalized
+                if isinstance(target_obj, dict) and target_obj.get('id'):
+                    req['target_id'] = target_obj.get('id')
+                requests.append(req)
+            return requests
 
         def _schedule_single_reuse_slot(current_slot_id, queue_index, intent_obj, policy, origin_label):
             if not isinstance(intent_obj, dict):
@@ -3061,6 +3147,7 @@ def run_select_resolve_auto(room, battle_id):
                 return None
 
             origin_slot = str(intent_obj.get('reuse_origin_slot') or current_slot_id)
+            carried_origin_label = str(intent_obj.get('reuse_origin_label') or origin_label or '').strip()
             current_depth = _safe_int(intent_obj.get('reuse_depth', 0), 0)
             existing_limit = _safe_int(intent_obj.get('reuse_chain_limit', 0), 0)
             chain_limit = min(
@@ -3080,6 +3167,52 @@ def run_select_resolve_auto(room, battle_id):
             base_slot = slots.get(current_slot_id, {}) if isinstance(slots, dict) else {}
             if not isinstance(base_slot, dict):
                 return None
+
+            # Optional per-reuse cost: if unaffordable, skip scheduling this reuse.
+            raw_reuse_cost = policy.get('reuse_cost', [])
+            if isinstance(raw_reuse_cost, dict):
+                raw_reuse_cost = [raw_reuse_cost]
+            reuse_cost = []
+            if isinstance(raw_reuse_cost, list):
+                for entry in raw_reuse_cost:
+                    if not isinstance(entry, dict):
+                        continue
+                    c_type = str(entry.get('type', '')).strip()
+                    c_val = _safe_int(entry.get('value', 0), 0)
+                    if not c_type or c_val <= 0:
+                        continue
+                    reuse_cost.append({'type': c_type, 'value': c_val})
+
+            if reuse_cost:
+                actor_id = intent_obj.get('actor_id') or base_slot.get('actor_id')
+                actor = characters_by_id.get(actor_id) if actor_id else None
+                if not isinstance(actor, dict):
+                    return None
+                affordable = True
+                for c in reuse_cost:
+                    current_val = _safe_int(get_status_value(actor, c.get('type')), 0)
+                    if current_val < _safe_int(c.get('value', 0), 0):
+                        affordable = False
+                        break
+                if not affordable:
+                    logger.info(
+                        "[reuse_schedule_skip] slot=%s actor=%s reason=insufficient_reuse_cost required=%s",
+                        current_slot_id,
+                        actor_id,
+                        reuse_cost
+                    )
+                    return None
+                for c in reuse_cost:
+                    c_type = str(c.get('type'))
+                    spend = _safe_int(c.get('value', 0), 0)
+                    current_val = _safe_int(get_status_value(actor, c_type), 0)
+                    _update_char_stat(
+                        room,
+                        actor,
+                        c_type,
+                        max(0, int(current_val) - int(spend)),
+                        username="[再使用コスト]"
+                    )
 
             base_id = f"{origin_slot}__EX{next_depth}"
             next_slot_id = base_id
@@ -3110,7 +3243,7 @@ def run_select_resolve_auto(room, battle_id):
                 'reuse_origin_slot': origin_slot,
                 'reuse_depth': next_depth,
                 'reuse_chain_limit': chain_limit,
-                'reuse_origin_label': str(origin_label or ''),
+                'reuse_origin_label': carried_origin_label,
                 'apply_cost_on_execute': bool(policy.get('consume_cost', False)),
             }
             intents[next_slot_id] = next_intent
@@ -3169,14 +3302,18 @@ def run_select_resolve_auto(room, battle_id):
                 }
             )
 
-        single_queue_runtime = battle_state['resolve'].get('single_queue', [])
-        if not isinstance(single_queue_runtime, list):
-            single_queue_runtime = []
-            battle_state['resolve']['single_queue'] = single_queue_runtime
-
-        for queue_index, slot_id in enumerate(single_queue_runtime):
+        queue_index = 0
+        while True:
+            single_queue_runtime = battle_state.get('resolve', {}).get('single_queue', [])
+            if not isinstance(single_queue_runtime, list):
+                single_queue_runtime = []
+                battle_state.setdefault('resolve', {})['single_queue'] = single_queue_runtime
+            if queue_index >= len(single_queue_runtime):
+                break
+            slot_id = single_queue_runtime[queue_index]
             if slot_id in processed_slots:
                 logger.debug("[resolve_single] skip slot=%s reason=processed", slot_id)
+                queue_index += 1
                 continue
 
             attacker_is_contested_loser = slot_id in contested_losers
@@ -3186,6 +3323,7 @@ def run_select_resolve_auto(room, battle_id):
             if not intent_a or not skill_id:
                 _emit_fizzle_with_log(slot_id, 'no_intent')
                 _mark_processed(slot_id)
+                queue_index += 1
                 continue
             skill_data = all_skill_data.get(skill_id, {}) if skill_id else {}
             trace_display_label = _resolve_reuse_display_label(slot_id)
@@ -3195,12 +3333,14 @@ def run_select_resolve_auto(room, battle_id):
             if target.get('type') != 'single_slot' or not target_slot:
                 _emit_fizzle_with_log(slot_id, 'invalid_target')
                 _mark_processed(slot_id)
+                queue_index += 1
                 continue
 
             target_actor_id = slots.get(target_slot, {}).get('actor_id')
             if not target_actor_id or not _is_actor_placed(state, target_actor_id):
                 _emit_fizzle_with_log(slot_id, 'target_unplaced', target_actor_id=target_actor_id)
                 _mark_processed(slot_id)
+                queue_index += 1
                 continue
 
             intent_b = intents.get(target_slot, {})
@@ -3256,6 +3396,55 @@ def run_select_resolve_auto(room, battle_id):
                 clash_outcome = clash_delegated.get('outcome', 'no_effect') if clash_ok else 'no_effect'
                 clash_rolls = clash_summary.get('rolls', {}) if isinstance(clash_summary, dict) else {}
                 clash_notes = None if clash_ok else (clash_delegated.get('reason') if isinstance(clash_delegated, dict) else 'delegate_failed')
+
+                clash_reuse_slot = None
+                clash_reuse_intent = None
+                clash_reuse_policy = {'enabled': False, 'max_reuses': 0, 'consume_cost': False}
+                clash_reuse_origin_label = trace_display_label
+
+                if clash_ok and clash_outcome in {'attacker_win', 'defender_win'}:
+                    winner_is_attacker = clash_outcome == 'attacker_win'
+                    winner_slot = slot_id if winner_is_attacker else clash_defender_slot
+                    winner_intent = intent_a if winner_is_attacker else clash_intent
+                    winner_char = attacker_char if winner_is_attacker else defender_char
+                    loser_char = defender_char if winner_is_attacker else attacker_char
+                    winner_skill_data = skill_data if winner_is_attacker else defender_skill_data
+                    loser_skill_data = defender_skill_data if winner_is_attacker else skill_data
+
+                    clash_reuse_slot = winner_slot
+                    clash_reuse_intent = winner_intent if isinstance(winner_intent, dict) else None
+
+                    # Preferred source: delegate summary (one-sided path uses this today).
+                    clash_reuse_policy = _collect_reuse_policy(clash_summary)
+
+                    # Clash delegate uses legacy duel internals and may not expose re-use intents.
+                    # Fallback: evaluate HIT timing on winner skill and extract USE_SKILL_AGAIN changes.
+                    if (
+                        (not clash_reuse_policy.get('enabled', False))
+                        and isinstance(winner_char, dict)
+                        and isinstance(loser_char, dict)
+                        and isinstance(winner_skill_data, dict)
+                    ):
+                        winner_rule = _extract_rule_data_from_skill(winner_skill_data)
+                        winner_effects = winner_rule.get('effects', []) if isinstance(winner_rule, dict) else []
+                        reuse_context = {
+                            'timeline': state.get('timeline', []),
+                            'characters': state.get('characters', []),
+                            'room': room,
+                            'battle_state': state.get('battle_state'),
+                            'room_state': state
+                        }
+                        _tmp_dmg, _tmp_logs, winner_changes = process_skill_effects(
+                            winner_effects,
+                            "HIT",
+                            winner_char,
+                            loser_char,
+                            loser_skill_data,
+                            context=reuse_context,
+                            base_damage=0
+                        )
+                        winner_reuse_requests = _extract_reuse_requests_from_changes(winner_changes)
+                        clash_reuse_policy = _collect_reuse_policy({'reuse_requests': winner_reuse_requests})
 
                 clash_outcome_payload = {
                     'attacker_id': attacker_actor_id,
@@ -3326,7 +3515,7 @@ def run_select_resolve_auto(room, battle_id):
                     'fp': int(clash_applied.get('cost', {}).get('fp', 0))
                 }
 
-                _append_trace(
+                clash_trace_entry = _append_trace(
                     room, battle_id, battle_state, 'clash', slot_id,
                     defender_slot=clash_defender_slot,
                     target_actor_id=target_actor_id,
@@ -3342,6 +3531,21 @@ def run_select_resolve_auto(room, battle_id):
                         'log_lines': clash_legacy_lines
                     }
                 )
+                if (
+                    clash_ok
+                    and clash_reuse_slot
+                    and isinstance(clash_reuse_intent, dict)
+                    and clash_reuse_policy.get('enabled', False)
+                ):
+                    if not clash_reuse_origin_label and isinstance(clash_trace_entry, dict):
+                        clash_reuse_origin_label = str(clash_trace_entry.get('step') or '')
+                    _schedule_single_reuse_slot(
+                        current_slot_id=clash_reuse_slot,
+                        queue_index=queue_index,
+                        intent_obj=clash_reuse_intent,
+                        policy=clash_reuse_policy,
+                        origin_label=clash_reuse_origin_label
+                    )
                 _mark_processed(slot_id)
                 _mark_processed(clash_defender_slot)
             else:
@@ -3458,6 +3662,8 @@ def run_select_resolve_auto(room, battle_id):
                     )
                 _mark_processed(slot_id)
 
+            queue_index += 1
+
         remaining_slots = sum(
             1 for slot in (slots or {}).values()
             if isinstance(slot, dict) and not slot.get('disabled', False)
@@ -3564,7 +3770,7 @@ def run_select_resolve_auto(room, battle_id):
 
 def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data, target_skill_data, all_skill_data_ref):
     """
-    逶ｸ謇九せ繧ｭ繝ｫ繧定・・縺励◆PRE_MATCH繧ｨ繝輔ぉ繧ｯ繝医ｒ隧穂ｾ｡縺励∝推遞ｮ陬懈ｭ｣蛟､繧定ｿ斐☆縲・
+    相手スキルの PRE_MATCH 効果を評価し、対象に適用される威力補正を返す。
     """
     modifiers = {
         "base_power_mod": 0,
@@ -3581,14 +3787,14 @@ def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data
         rule_data = _extract_rule_data_from_skill(actor_skill_data)
         effects_array = rule_data.get("effects", []) if isinstance(rule_data, dict) else []
 
-        # PRE_MATCH繧ｿ繧､繝溘Φ繧ｰ縺ｮ繧ｨ繝輔ぉ繧ｯ繝医ｒ隧穂ｾ｡
+        # PRE_MATCH タイミングの効果を評価
         _, logs, changes = process_skill_effects(
             effects_array, "PRE_MATCH", actor_char, target_char, target_skill_data
         )
 
         for (char, effect_type, name, value) in changes:
             if effect_type == "MODIFY_BASE_POWER":
-                # 繧ｿ繝ｼ繧ｲ繝・ヨ縺ｸ縺ｮ蝓ｺ遉主ｨ∝鴨陬懈ｭ｣
+                # ターゲットへの基礎威力補正
                 if char and target_char and char.get('id') == target_char.get('id'):
                     modifiers["base_power_mod"] += value
             elif effect_type == "MODIFY_FINAL_POWER":
@@ -3601,25 +3807,25 @@ def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data
 
 def extract_cost_from_text(text):
     """
-    菴ｿ逕ｨ譎ょ柑譫懊ユ繧ｭ繧ｹ繝医°繧峨さ繧ｹ繝郁ｨ倩ｿｰ繧呈歓蜃ｺ縺吶ｋ
+    テキストログからコスト表記を抽出する。
     """
     if not text:
         return "なし"
-    match = re.search(r'\[菴ｿ逕ｨ譎・]:?([^\n]+)', text)
+    match = re.search(r'\[(?:コスト|使用時)\]:?([^\n]+)', text)
     if match:
         return match.group(1).strip()
     return "なし"
 
 def extract_custom_skill_name(character, skill_id):
     """
-    繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ縺ｮcommands縺九ｉ繧ｹ繧ｭ繝ｫID縺ｫ蟇ｾ蠢懊☆繧九き繧ｹ繧ｿ繝蜷阪ｒ謚ｽ蜃ｺ
+    キャラクターの `commands` から、指定スキルIDのカスタム名を抽出する。
 
     Args:
-        character (dict): 繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ繝・・繧ｿ
-        skill_id (str): 繧ｹ繧ｭ繝ｫID (萓・ "Pp-01")
+        character (dict): キャラクターデータ
+        skill_id (str): スキルID (例: "Pp-01")
 
     Returns:
-        str: 繧ｫ繧ｹ繧ｿ繝繧ｹ繧ｭ繝ｫ蜷阪∪縺溘・None
+        str | None: カスタムスキル名
     """
     if not character or not skill_id:
         return None
@@ -3628,8 +3834,7 @@ def extract_custom_skill_name(character, skill_id):
     if not commands:
         return None
 
-    # 縲娠p-01 蛻ｺ縺苓ｾｼ繧A縲代ｄ縲娠p-01: 蛻ｺ縺苓ｾｼ繧A縲代・繧医≧縺ｪ繝代ち繝ｼ繝ｳ繧呈､懃ｴ｢
-    # 繧ｹ繝壹・繧ｹ縺ｾ縺溘・繧ｳ繝ｭ繝ｳ・亥・隗偵・蜊願ｧ抵ｼ峨〒蛹ｺ蛻・ｉ繧後◆蜷榊燕繧呈歓蜃ｺ
+    # 例: "【Pp-01 斬り込む】" / "【Pp-01: 斬り込む】"
     pattern = rf'【{re.escape(skill_id)}[\s:：]+(.*?)】'
     match = re.search(pattern, commands)
 
@@ -3640,35 +3845,38 @@ def extract_custom_skill_name(character, skill_id):
 
 def format_skill_name_for_log(skill_id, skill_data, character=None):
     """
-    繝ｭ繧ｰ逕ｨ縺ｮ繧ｹ繧ｭ繝ｫ蜷阪ｒ繝輔か繝ｼ繝槭ャ繝医☆繧・
-    繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ諠・ｱ縺梧署萓帙＆繧後※縺・ｋ蝣ｴ蜷医・繧ｫ繧ｹ繧ｿ繝蜷阪ｒ蜆ｪ蜈医・
-    縺ｪ縺代ｌ縺ｰ繝・ヵ繧ｩ繝ｫ繝亥錐繧剃ｽｿ逕ｨ
+    ログ表示用のスキル名をフォーマットする。
+    キャラ固有のカスタム名があれば優先し、なければスキル定義の名称を使う。
 
     Args:
-        skill_id (str): 繧ｹ繧ｭ繝ｫID (萓・ "Pp-01")
-        skill_data (dict): 繧ｹ繧ｭ繝ｫ繝・・繧ｿ
-        character (dict): 繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ繝・・繧ｿ・医が繝励す繝ｧ繝ｳ・・
+        skill_id (str): スキルID (例: "Pp-01")
+        skill_data (dict): スキルデータ
+        character (dict): キャラクターデータ（任意）
 
     Returns:
-        str: 繝輔か繝ｼ繝槭ャ繝医＆繧後◆繧ｹ繧ｭ繝ｫ蜷・(萓・ "Pp-01: 蛻ｺ縺苓ｾｼ繧A")
+        str: 例 "Pp-01: 斬り込む"
     """
     if not skill_id:
-        return "荳肴・"
+        return "不明"
 
-    # 繧ｫ繧ｹ繧ｿ繝蜷阪ｒ蜿門ｾ・
+    # カスタム名を優先
     custom_name = None
     if character:
         custom_name = extract_custom_skill_name(character, skill_id)
 
-    # 繧ｫ繧ｹ繧ｿ繝蜷阪′縺ゅｌ縺ｰ縺昴ｌ繧剃ｽｿ逕ｨ縲√↑縺代ｌ縺ｰ繝・ヵ繧ｩ繝ｫ繝亥錐
+    # カスタム名がなければスキル定義名
     if custom_name:
         return f"{skill_id}: {custom_name}"
     elif skill_data:
-        default_name = skill_data.get('繝・ヵ繧ｩ繝ｫ繝亥錐遘ｰ', '')
+        default_name = (
+            skill_data.get('デフォルト名称')
+            or skill_data.get('name')
+            or skill_data.get('名称')
+        )
         if default_name:
             return f"{skill_id}: {default_name}"
 
-    # 繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ: 繧ｹ繧ｭ繝ｫID縺ｮ縺ｿ
+    # フォールバック: スキルIDのみ
     return skill_id
 
 def format_skill_display_from_command(command_str, skill_id, skill_data, character=None):
@@ -3733,13 +3941,13 @@ def verify_skill_cost(char, skill_d):
 
 def process_on_damage_buffs(room, char, damage_val, username, log_snippets):
     """
-    陲ｫ蠑ｾ譎ゅヨ繝ｪ繧ｬ繝ｼ繝舌ヵ縺ｮ蜃ｦ逅・
+    被ダメージ時トリガーバフの処理。
     """
     total_applied_damage = 0
     if damage_val <= 0: return 0
 
     for b in char.get('special_buffs', []):
-        # 笘・ｿｽ蜉: 莉雁屓縺ｮ繧｢繧ｯ繧ｷ繝ｧ繝ｳ縺ｧ驕ｩ逕ｨ縺輔ｌ縺溘・縺九ｊ縺ｮ繝舌ヵ縺ｯ髯､螟・
+        # このターン新規付与のバフは発動させない
         if b.get('newly_applied'):
             continue
         # Resolve full effect data (dynamic or static)
@@ -3766,7 +3974,7 @@ def process_on_damage_buffs(room, char, damage_val, username, log_snippets):
 
 def process_on_hit_buffs(actor, target, damage_val, log_snippets):
     """
-    謾ｻ謦・ヲ繝・ヨ譎ゅヨ繝ｪ繧ｬ繝ｼ繝舌ヵ縺ｮ蜃ｦ逅・(萓・ 辷・ｸｮ)
+    的中時トリガーバフの処理（追加ダメージ計算）。
     Returns: extra_damage (int)
     """
     from plugins.buffs.registry import buff_registry
@@ -3777,14 +3985,14 @@ def process_on_hit_buffs(actor, target, damage_val, log_snippets):
 
     logger.info(f"[process_on_hit_buffs] Checking buffs for {actor.get('name')}. Count: {len(actor['special_buffs'])}")
 
-    # 繧ｹ繝翫ャ繝励す繝ｧ繝・ヨ繧偵→縺｣縺ｦ蝗槭☆・亥憶菴懃畑縺ｧ繝ｪ繧ｹ繝医′螟峨ｏ繧句庄閭ｽ諤ｧ縺後≠繧九◆繧・ｼ・
+    # スナップショットを取り、差分で追加ダメージを計上
     for buff_entry in list(actor['special_buffs']):
         buff_id = buff_entry.get('buff_id')
         handler_cls = buff_registry.get_handler(buff_id)
 
         if handler_cls and hasattr(handler_cls, 'on_hit_damage_calculation'):
             logger.info(f"[process_on_hit_buffs] Executing {handler_cls.__name__} for {buff_id}")
-            # 繧ｯ繝ｩ繧ｹ繝｡繧ｽ繝・ラ縺ｨ縺励※蜻ｼ縺ｳ蜃ｺ縺・
+            # クラスメソッドとして呼び出し
             new_damage, logs = handler_cls.on_hit_damage_calculation(actor, target, damage_val + total_extra_damage)
 
             diff = new_damage - (damage_val + total_extra_damage)
@@ -3801,11 +4009,11 @@ def process_on_hit_buffs(actor, target, damage_val, log_snippets):
 
 def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data=None):
     """
-    Match螳溯｡梧凾縺ｮPRE_MATCH蜉ｹ譫憺←逕ｨ
+    マッチ解決前の PRE_MATCH 効果を適用する。
     """
     if not skill_data or not actor: return
 
-    # 繧ｹ繧ｭ繝ｫID繧貞叙蠕暦ｼ・ctor['used_skills_this_round']縺九ｉ譛蠕後↓菴ｿ逕ｨ縺励◆繧ｹ繧ｭ繝ｫ繧貞叙蠕暦ｼ・
+    # 直近に使用したスキルID（ログ表示用）
     skill_id = None
     if 'used_skills_this_round' in actor and actor['used_skills_this_round']:
         skill_id = actor['used_skills_this_round'][-1]
@@ -3837,7 +4045,7 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
                     char['flags'] = {}
                 char['flags'][name] = value
             elif type == "MODIFY_BASE_POWER":
-                # 蝓ｺ遉主ｨ∝鴨繝懊・繝翫せ繧剃ｸ譎ゆｿ晏ｭ假ｼ郁濠譽伜・逅・〒蜿ら・・・
+                # 基礎威力補正を蓄積
                 char['_base_power_bonus'] = char.get('_base_power_bonus', 0) + value
                 broadcast_log(room, f"[{char['name']}] 基礎威力 {value:+}", 'state-change')
             elif type == "MODIFY_FINAL_POWER":
@@ -3848,7 +4056,7 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
 
 def proceed_next_turn(room, suppress_logs=False, suppress_state_emit=False):
     """
-    繧ｿ繝ｼ繝ｳ騾ｲ陦後Ο繧ｸ繝・け
+    ターン進行ロジック。
     """
     state = get_room_state(room)
     if not state: return
@@ -3865,7 +4073,7 @@ def proceed_next_turn(room, suppress_logs=False, suppress_state_emit=False):
     if not timeline:
         return
 
-    # 迴ｾ蝨ｨ縺ｮ謇狗分繧ｨ繝ｳ繝医ΜID縺後ち繧､繝繝ｩ繧､繝ｳ縺ｮ縺ｩ縺薙↓縺ゅｋ縺区爾縺・
+    # 現在のエントリIDからタイムライン上の位置を特定
     current_idx = -1
     if current_entry_id:
         # Find index by entry ID
@@ -3876,24 +4084,24 @@ def proceed_next_turn(room, suppress_logs=False, suppress_state_emit=False):
 
     next_entry = None
 
-    # 迴ｾ蝨ｨ菴咲ｽｮ縺ｮ縲梧ｬ｡縲阪°繧画忰蟆ｾ縺ｫ蜷代°縺｣縺ｦ縲∵悴陦悟虚縺ｮ繧ｨ繝ｳ繝医Μ繧呈爾縺・
+    # 行動不能系バフを評価して次の行動者を探す
     from plugins.buffs.confusion import ConfusionBuff
     from plugins.buffs.immobilize import ImmobilizeBuff
 
     for i in range(current_idx + 1, len(timeline)):
         entry = timeline[i]
 
-        # 陦悟虚貂医∩繝√ぉ繝・け (Entry flag)
+        # 既に処理済みのエントリはスキップ
         if entry.get('acted', False):
             continue
 
         cid = entry['char_id']
-        # 繧ｭ繝｣繝ｩ繝・・繧ｿ蜿門ｾ・
+        # キャラクター参照
         char = next((c for c in state['characters'] if c['id'] == cid), None)
 
-        # 逕溷ｭ倥＠縺ｦ縺・ｋ縺・
+        # 生存者のみ
         if char and char.get('hp', 0) > 0:
-            # 陦悟虚荳崎・繝√ぉ繝・け (豺ｷ荵ｱ)
+            # 行動不能（混乱）
             if ConfusionBuff.is_incapacitated(char):
                 logger.info(f"Skipping {char['name']} due to incapacitation (Confusion)")
                 # entry is skipped but not consumed? Or consumed?
@@ -3901,7 +4109,7 @@ def proceed_next_turn(room, suppress_logs=False, suppress_state_emit=False):
                 entry['acted'] = True
                 continue
 
-            # 陦悟虚荳崎・繝√ぉ繝・け (Immobilize/Bu-04)
+            # 行動不能（Immobilize/Bu-04）
             can_act, reason = ImmobilizeBuff.can_act(char, {})
             if not can_act:
                 logger.info(f"[TurnSkip] Skipping {char['name']} due to Immobilize: {reason}")
@@ -3932,13 +4140,12 @@ def proceed_next_turn(room, suppress_logs=False, suppress_state_emit=False):
 
 def process_simple_round_end(state, room):
     """
-    繝ｩ繧ｦ繝ｳ繝臥ｵゆｺ・凾縺ｮ蜈ｱ騾壼・逅・ｼ医ヰ繝墓ｸ帛ｰ代√い繧､繝・Β繝ｪ繧ｻ繝・ヨ縺ｪ縺ｩ・・
-    蠎・沺繝槭ャ繝√°繧峨ｂ蜻ｼ縺ｳ蜃ｺ縺輔ｌ繧・
+    ラウンド終了時の共通処理（バフ時間経過、利用回数リセットなど）。
     """
-    logger.debug("===== process_simple_round_end 髢句ｧ・=====")
+    logger.debug("===== process_simple_round_end start =====")
 
     for char in state.get("characters", []):
-        # 繝舌ヵ繧ｿ繧､繝槭・縺ｮ蜃ｦ逅・
+        # バフの delay/lasting を進める
         if "special_buffs" in char:
             active_buffs = []
             for buff in char['special_buffs']:
@@ -3957,11 +4164,11 @@ def process_simple_round_end(state, room):
 
             char['special_buffs'] = active_buffs
 
-        # 繧｢繧､繝・Β菴ｿ逕ｨ蛻ｶ髯舌ｒ繝ｪ繧ｻ繝・ヨ
+        # アイテム使用回数リセット
         if 'round_item_usage' in char:
             char['round_item_usage'] = {}
 
-        # 繧ｹ繧ｭ繝ｫ菴ｿ逕ｨ螻･豁ｴ繧偵Μ繧ｻ繝・ヨ
+        # スキル使用回数リセット
         if 'used_immediate_skills_this_round' in char:
             char['used_immediate_skills_this_round'] = []
         if 'used_gem_protect_this_round' in char:
@@ -3969,7 +4176,7 @@ def process_simple_round_end(state, room):
         if 'used_skills_this_round' in char:
             char['used_skills_this_round'] = []
 
-    # 笘・霑ｽ蜉: 繝槭・繝ｭ繝・(ID: 5) 繝ｩ繧ｦ繝ｳ繝臥ｵゆｺ・凾荳諡ｬ蜃ｦ逅・
+    # マホロバ(ID:5) のラウンド終了時効果
     mahoroba_targets = []
     for char in state.get('characters', []):
         if char.get('hp', 0) <= 0: continue
@@ -3982,5 +4189,5 @@ def process_simple_round_end(state, room):
     if mahoroba_targets:
         broadcast_log(room, f"[マホロバ回血] {', '.join(mahoroba_targets)} のHPが回復しました。", 'info')
 
-    logger.debug("===== process_simple_round_end 螳御ｺ・=====")
+    logger.debug("===== process_simple_round_end end =====")
 

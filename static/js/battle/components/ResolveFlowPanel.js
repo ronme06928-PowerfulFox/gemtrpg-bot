@@ -12,6 +12,7 @@ class ResolveFlowPanel {
         this._displayIndexByKey = new Map();
         this._displayIndexCursor = 0;
         this._presentedStepCount = 0;
+        this._baseStepTotal = 0;
         this._playQueue = [];
         this._activeStep = null;
         this._roundKey = null;
@@ -63,6 +64,7 @@ class ResolveFlowPanel {
         this._displayIndexByKey.clear();
         this._displayIndexCursor = 0;
         this._presentedStepCount = 0;
+        this._baseStepTotal = 0;
         this._playQueue = [];
         this._activeStep = null;
         this._roundKey = null;
@@ -440,6 +442,18 @@ class ResolveFlowPanel {
                 return this._toNumber(a?.timestamp, 0) - this._toNumber(b?.timestamp, 0);
             });
         }
+
+        // Keep denominator based on original planned steps (exclude virtual re-use steps).
+        if (this._baseStepTotal <= 0) {
+            const baseCandidate = trace
+                .map((raw, idx) => this._normalizeTraceEntry(raw, idx, state))
+                .filter((step) => !this._isIntroStep(step) && !this._isReuseStep(step))
+                .map((step) => this._toNumber(step?.stepTotal, 0))
+                .find((n) => n > 0);
+            if (baseCandidate && Number.isFinite(baseCandidate)) {
+                this._baseStepTotal = Math.max(1, Number(baseCandidate));
+            }
+        }
     }
 
     _assignDisplayIndex(step, key = null) {
@@ -460,6 +474,7 @@ class ResolveFlowPanel {
     _onStateUpdated(state) {
         const isBattle = (state?.mode || 'battle') === 'battle';
         const phase = String(state?.phase || '');
+        const traceLen = Array.isArray(state?.resolveTrace) ? state.resolveTrace.length : 0;
         const roundKey = this._roundStateKey(state);
         const hasRoundChanged = this._roundKey !== roundKey;
 
@@ -470,6 +485,7 @@ class ResolveFlowPanel {
             this._displayIndexByKey.clear();
             this._displayIndexCursor = 0;
             this._presentedStepCount = 0;
+            this._baseStepTotal = 0;
             this._playQueue = [];
             this._activeStep = null;
             this._renderedStepKey = null;
@@ -486,6 +502,7 @@ class ResolveFlowPanel {
             this._displayIndexByKey.clear();
             this._displayIndexCursor = 0;
             this._presentedStepCount = 0;
+            this._baseStepTotal = 0;
             this._playQueue = [];
             this._activeStep = null;
             this._renderedStepKey = null;
@@ -497,6 +514,23 @@ class ResolveFlowPanel {
             this._roundSawResolvePhase = false;
             this._removePanel();
             return;
+        }
+
+        // Defensive reset: when returning to select with an empty resolve trace,
+        // stale denominator/index state must not survive within the same round.
+        if (phase === 'select' && traceLen === 0) {
+            this._traceSeen.clear();
+            this._displayIndexByKey.clear();
+            this._displayIndexCursor = 0;
+            this._presentedStepCount = 0;
+            this._baseStepTotal = 0;
+            this._playQueue = [];
+            this._activeStep = null;
+            this._renderedStepKey = null;
+            this._waitingForAdvance = false;
+            this._clearPendingAdvanceTimer();
+            this._clearAdvanceRequestPending();
+            this._pendingSyncedAdvanceCount = 0;
         }
 
         const inResolve = this._isResolvePhase(phase);
@@ -1057,6 +1091,14 @@ class ResolveFlowPanel {
         return String(step?.kind || '') === 'battle_start';
     }
 
+    _isReuseStep(step) {
+        if (!step || typeof step !== 'object') return false;
+        const slotId = String(step.attackerSlotId || '');
+        if (slotId.includes('__EX')) return true;
+        const label = String(step.displayLabel || '').trim();
+        return /(?:^|-)EX\d*$/.test(label);
+    }
+
     _enqueueBattleStartIntro(roundKey) {
         if (!roundKey) return;
         if (this._introShownRounds.has(roundKey)) return;
@@ -1142,7 +1184,10 @@ class ResolveFlowPanel {
         const remainingQueueCount = this._playQueue.filter((row) => !this._isIntroStep(row)).length;
         const stepTotalByCursor = this._toNumber(this._displayIndexCursor, 0);
         const stepTotalByPresentation = stepNum + remainingQueueCount;
-        const stepTotal = Math.max(stepNum, stepTotalByCursor, stepTotalByPresentation, 1);
+        const dynamicStepTotal = Math.max(stepNum, stepTotalByCursor, stepTotalByPresentation, 1);
+        const stepTotal = this._baseStepTotal > 0
+            ? Math.max(1, this._baseStepTotal)
+            : dynamicStepTotal;
         const kindClass = this._escape(String(step.kind || 'unknown'));
         const kindLabel = this._escape(this._kindLabel(step.kind));
         const outcomeLabel = this._escape(this._outcomeLabel(step.outcome));

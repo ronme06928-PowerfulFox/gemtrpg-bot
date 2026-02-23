@@ -129,6 +129,10 @@ def apply_skill_effects_bidirectional(
             elif type_ == "REMOVE_BUFF":
                 remove_buff(char, name)
             elif type_ == "APPLY_SKILL_DAMAGE_AGAIN" or type_ == "USE_SKILL_AGAIN":
+                if state.get('__select_resolve_delegate__', False):
+                    # In select/resolve clash delegation, re-use is scheduled as virtual slots in battle/core.
+                    # Do not convert to immediate extra damage here.
+                    continue
                 # Legacy duel/wide path fallback: treat as extra same-damage hit.
                 # Select/Resolve flow has dedicated re-use handling in battle/core.py.
                 if damage_val > 0:

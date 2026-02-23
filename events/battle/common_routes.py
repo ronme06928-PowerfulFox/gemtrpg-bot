@@ -1,4 +1,4 @@
-﻿import copy
+import copy
 import json
 import time
 
@@ -124,7 +124,7 @@ def on_request_end_round(data):
     attribute = user_info.get("attribute", "Player")
 
     if attribute != 'GM':
-        print(f"笞・・Security: Player {username} tried to end round. Denied.")
+        print(f"[Security] Player {username} tried to end round. Denied.")
         return
 
     process_full_round_end(room, username)
@@ -209,10 +209,10 @@ def on_debug_apply_buff(data):
     buff_name = data.get('buff_name')
     if not buff_name:
         buff_name_map = {
-            'Bu-02': '豺ｷ荵ｱ',
-            'Bu-03': '豺ｷ荵ｱ(謌ｦ諷・ｮｺ蛻ｰ)',
-            'Bu-05': '蜀榊屓驕ｿ繝ｭ繝・け',
-            'Bu-06': '謖醍匱'
+            'Bu-02': '混乱',
+            'Bu-03': '混乱(戦慄殺到)',
+            'Bu-05': '再回避ロック',
+            'Bu-06': '破裂威力減少無効'
         }
         buff_name = buff_name_map.get(buff_id, buff_id)
 
@@ -236,7 +236,7 @@ def on_request_update_battle_background(data):
 
     update_battle_background_logic(room, image_url, scale, offset_x, offset_y, username, attribute)
 
-# 笘・霑ｽ蜉: PvE繝｢繝ｼ繝牙・譖ｿ
+# NOTE: PvE / PvP モード切り替え
 @socketio.on('request_switch_battle_mode')
 def on_request_switch_battle_mode(data):
     room = data.get('room')
@@ -254,14 +254,14 @@ def on_request_switch_battle_mode(data):
     from manager.battle.common_manager import process_switch_battle_mode
     process_switch_battle_mode(room, mode, username)
 
-# 笘・霑ｽ蜉: AI繧ｹ繧ｭ繝ｫ謠先｡・@socketio.on('request_ai_suggest_skill')
+# NOTE: AIスキル提案
 def on_request_ai_suggest_skill(data):
     room = data.get('room')
     char_id = data.get('charId')
 
     if not room or not char_id: return
 
-    # 讓ｩ髯舌メ繧ｧ繝・け縺ｯ邱ｩ繧√〒OK・郁ｪｰ縺ｧ繧よ署譯医・隕九ｌ繧九√≠繧九＞縺ｯGM縺ｮ縺ｿ・・    # 縺・▲縺溘ｓ隱ｰ縺ｧ繧０K縺ｨ縺吶ｋ
+    # 誰でも要求可能（最終採用はGM判断）
 
     from manager.battle.common_manager import process_ai_suggest_skill
     suggested_skill_id = process_ai_suggest_skill(room, char_id)
@@ -391,8 +391,6 @@ def _infer_mass_type_from_text(text):
         or 'sum' in merged
         or '広域-合算' in merged
         or '合算' in merged
-        or '蠎・沺-蜷育ｮ・' in merged
-        or '蜷育ｮ・' in merged
     ):
         return 'mass_summation'
 
@@ -401,12 +399,10 @@ def _infer_mass_type_from_text(text):
         or 'individual' in merged
         or '広域-個別' in merged
         or '個別' in merged
-        or '蠎・沺-蛟句挨' in merged
-        or '蛟句挨' in merged
     ):
         return 'mass_individual'
 
-    if '広域' in merged or '蠎・沺' in merged:
+    if '広域' in merged:
         return 'mass_individual'
     return None
 
@@ -451,8 +447,6 @@ def _infer_mass_type_from_skill(skill_id):
         '射程',
         '範囲',
         'target_scope',
-        '蛻・｡・',
-        '霍晞屬',
         'target',
         'target_type',
         'targeting',

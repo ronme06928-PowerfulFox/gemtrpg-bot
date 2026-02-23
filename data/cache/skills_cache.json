@@ -1646,7 +1646,7 @@
     "使用時効果": "([[W-19|使用時]]):MPを3消費。",
     "特記": "",
     "発動時効果": "([[W-20|的中時]]):FPを1消費し、このスキルを[[W-58|再使用]]。(この効果による[[W-58|再使用]]は2回まで)",
-    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 3}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"USE_SKILL_AGAIN\",\"max_reuses\": 2,\"consume_cost\": false,\"condition\": {\"source\": \"self\",\"param\": \"FP\",\"operator\": \"GTE\",\"value\": 1}},\n    {\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"self\",\"state_name\": \"FP\",\"value\": -1,\"condition\": {\"source\": \"self\",\"param\": \"FP\",\"operator\": \"GTE\",\"value\": 1}}]}",
+    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 3}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"USE_SKILL_AGAIN\",\"max_reuses\": 2,\"consume_cost\": false,\"reuse_cost\": [{ \"type\": \"FP\", \"value\": 1 }]}]}",
     "tags": [
       "攻撃"
     ]

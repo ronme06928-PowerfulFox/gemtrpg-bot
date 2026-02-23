@@ -683,10 +683,10 @@ def test_case16b_infer_mass_individual_from_legacy_distance_key_without_mass_tag
     battle_routes = _load_battle_common_routes_module()
     battle_routes.all_skill_data.clear()
     battle_routes.all_skill_data["E-10"] = {
-        "繧ｹ繧ｭ繝ｫID": "E-10",
-        "蛻・｡・": "鬲疲ｳ・",
-        "霍晞屬": "蠎・沺-蛟句挨",
-        "tags": ["謾ｻ謦・"],
+        "スキルID": "E-10",
+        "分類": "魔法",
+        "距離": "広域-個別",
+        "tags": ["攻撃"],
     }
 
     inferred = battle_routes._infer_mass_type_from_skill("E-10")
@@ -889,3 +889,446 @@ def test_case19_use_skill_again_reuses_same_skill_once_without_extra_cost(monkey
     assert int(one_sided[0].get("cost", {}).get("fp", 0)) == 3
     assert int(one_sided[1].get("cost", {}).get("fp", 0)) == 0
     assert one_sided[1].get("display_label") == f"{one_sided[0].get('step')}-EX"
+
+
+def test_case20_use_skill_again_triggers_after_clash_win(monkeypatch):
+    _, battle_core = _mods()
+    state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 9, 0)
+    _set_intent(state, "A_slot", "A1", "atk_reuse", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "def_skill", "single_slot", "A_slot")
+    state["battle_state"]["phase"] = "resolve_single"
+
+    _patch_room_and_socket(monkeypatch, state)
+
+    old_atk = battle_core.all_skill_data.get("atk_reuse")
+    old_def = battle_core.all_skill_data.get("def_skill")
+    battle_core.all_skill_data["atk_reuse"] = {
+        "base_power": 5,
+        "dice_power": "1d1",
+        "rule_data": {
+            "effects": [
+                {"timing": "HIT", "type": "USE_SKILL_AGAIN", "max_reuses": 1}
+            ]
+        },
+    }
+    battle_core.all_skill_data["def_skill"] = {
+        "base_power": 4,
+        "dice_power": "1d1",
+        "rule_data": {"effects": []},
+    }
+
+    def _stub_clash(**_kwargs):
+        return {
+            "ok": True,
+            "outcome": "attacker_win",
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "rolls": {"power_a": 12, "power_b": 8, "tie_break": None},
+            },
+        }
+
+    def _stub_one_sided(**_kwargs):
+        return {
+            "ok": True,
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "logs": [],
+                "rolls": {"total_damage": 0},
+            },
+        }
+
+    def _stub_update_char_stat(_room, char, name, value, **_kwargs):
+        if name == "HP":
+            char["hp"] = int(value)
+        elif name == "MP":
+            char["mp"] = int(value)
+        else:
+            states = char.setdefault("states", [])
+            hit = next((s for s in states if s.get("name") == name), None)
+            if hit is None:
+                states.append({"name": name, "value": int(value)})
+            else:
+                hit["value"] = int(value)
+
+    monkeypatch.setattr(battle_core, "_resolve_clash_by_existing_logic", _stub_clash)
+    monkeypatch.setattr(battle_core, "_resolve_one_sided_by_existing_logic", _stub_one_sided)
+    monkeypatch.setattr(battle_core, "_update_char_stat", _stub_update_char_stat)
+    try:
+        battle_core.run_select_resolve_auto("room_t", "battle_test")
+    finally:
+        if old_atk is None:
+            battle_core.all_skill_data.pop("atk_reuse", None)
+        else:
+            battle_core.all_skill_data["atk_reuse"] = old_atk
+        if old_def is None:
+            battle_core.all_skill_data.pop("def_skill", None)
+        else:
+            battle_core.all_skill_data["def_skill"] = old_def
+
+    trace = [t for t in state["battle_state"]["resolve"]["trace"] if t.get("kind") in {"clash", "one_sided"}]
+    assert len(trace) == 2
+    assert trace[0].get("kind") == "clash"
+    assert trace[1].get("kind") == "one_sided"
+    assert str(trace[1].get("attacker_slot", "")).startswith("A_slot__EX1")
+    assert trace[1].get("display_label") == f"{trace[0].get('step')}-EX"
+
+
+def test_case21_use_skill_again_survives_single_queue_rebinding(monkeypatch):
+    _, battle_core = _mods()
+    state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 9, 0)
+    _set_intent(state, "A_slot", "A1", "atk_reuse", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "def_skill", "single_slot", "A_slot")
+    state["battle_state"]["phase"] = "resolve_single"
+
+    _patch_room_and_socket(monkeypatch, state)
+
+    old_atk = battle_core.all_skill_data.get("atk_reuse")
+    old_def = battle_core.all_skill_data.get("def_skill")
+    battle_core.all_skill_data["atk_reuse"] = {
+        "base_power": 5,
+        "dice_power": "1d1",
+        "rule_data": {
+            "effects": [
+                {"timing": "HIT", "type": "USE_SKILL_AGAIN", "max_reuses": 1}
+            ]
+        },
+    }
+    battle_core.all_skill_data["def_skill"] = {
+        "base_power": 4,
+        "dice_power": "1d1",
+        "rule_data": {"effects": []},
+    }
+
+    def _stub_clash(**_kwargs):
+        return {
+            "ok": True,
+            "outcome": "attacker_win",
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "rolls": {"power_a": 12, "power_b": 8, "tie_break": None},
+            },
+        }
+
+    def _stub_one_sided(**_kwargs):
+        return {
+            "ok": True,
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "logs": [],
+                "rolls": {"total_damage": 0},
+            },
+        }
+
+    def _stub_log_match_result(_lines):
+        # Reproduce runtime side-effect where ensure can reassign single_queue list object.
+        resolve = state["battle_state"].setdefault("resolve", {})
+        queue = resolve.get("single_queue", [])
+        resolve["single_queue"] = list(queue)
+
+    monkeypatch.setattr(battle_core, "_resolve_clash_by_existing_logic", _stub_clash)
+    monkeypatch.setattr(battle_core, "_resolve_one_sided_by_existing_logic", _stub_one_sided)
+    monkeypatch.setattr(battle_core, "_log_match_result", _stub_log_match_result)
+    try:
+        battle_core.run_select_resolve_auto("room_t", "battle_test")
+    finally:
+        if old_atk is None:
+            battle_core.all_skill_data.pop("atk_reuse", None)
+        else:
+            battle_core.all_skill_data["atk_reuse"] = old_atk
+        if old_def is None:
+            battle_core.all_skill_data.pop("def_skill", None)
+        else:
+            battle_core.all_skill_data["def_skill"] = old_def
+
+    trace = [t for t in state["battle_state"]["resolve"]["trace"] if t.get("kind") in {"clash", "one_sided"}]
+    assert len(trace) == 2
+    assert trace[0].get("kind") == "clash"
+    assert trace[1].get("kind") == "one_sided"
+    assert str(trace[1].get("attacker_slot", "")).startswith("A_slot__EX1")
+
+
+def test_case22_use_skill_again_label_stays_origin_based(monkeypatch):
+    _, battle_core = _mods()
+    state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 9, 0)
+    _set_intent(state, "A_slot", "A1", "atk_reuse", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "def_skill", "single_slot", "A_slot")
+    state["battle_state"]["phase"] = "resolve_single"
+
+    _patch_room_and_socket(monkeypatch, state)
+
+    old_atk = battle_core.all_skill_data.get("atk_reuse")
+    old_def = battle_core.all_skill_data.get("def_skill")
+    battle_core.all_skill_data["atk_reuse"] = {
+        "base_power": 5,
+        "dice_power": "1d1",
+        "rule_data": {
+            "effects": [
+                {"timing": "HIT", "type": "USE_SKILL_AGAIN", "max_reuses": 2}
+            ]
+        },
+    }
+    battle_core.all_skill_data["def_skill"] = {
+        "base_power": 4,
+        "dice_power": "1d1",
+        "rule_data": {"effects": []},
+    }
+
+    def _stub_clash(**_kwargs):
+        return {
+            "ok": True,
+            "outcome": "attacker_win",
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "rolls": {"power_a": 12, "power_b": 8, "tie_break": None},
+            },
+        }
+
+    def _stub_one_sided(**_kwargs):
+        return {
+            "ok": True,
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "logs": [],
+                "reuse_requests": [{"max_reuses": 2, "consume_cost": False}],
+                "rolls": {"total_damage": 0},
+            },
+        }
+
+    def _stub_update_char_stat(_room, char, name, value, **_kwargs):
+        if name == "HP":
+            char["hp"] = int(value)
+        elif name == "MP":
+            char["mp"] = int(value)
+        else:
+            states = char.setdefault("states", [])
+            hit = next((s for s in states if s.get("name") == name), None)
+            if hit is None:
+                states.append({"name": name, "value": int(value)})
+            else:
+                hit["value"] = int(value)
+
+    monkeypatch.setattr(battle_core, "_resolve_clash_by_existing_logic", _stub_clash)
+    monkeypatch.setattr(battle_core, "_resolve_one_sided_by_existing_logic", _stub_one_sided)
+    monkeypatch.setattr(battle_core, "_update_char_stat", _stub_update_char_stat)
+    try:
+        battle_core.run_select_resolve_auto("room_t", "battle_test")
+    finally:
+        if old_atk is None:
+            battle_core.all_skill_data.pop("atk_reuse", None)
+        else:
+            battle_core.all_skill_data["atk_reuse"] = old_atk
+        if old_def is None:
+            battle_core.all_skill_data.pop("def_skill", None)
+        else:
+            battle_core.all_skill_data["def_skill"] = old_def
+
+    trace = [t for t in state["battle_state"]["resolve"]["trace"] if t.get("kind") in {"clash", "one_sided"}]
+    assert len(trace) == 3
+    assert trace[0].get("kind") == "clash"
+    assert str(trace[1].get("attacker_slot", "")).startswith("A_slot__EX1")
+    assert str(trace[2].get("attacker_slot", "")).startswith("A_slot__EX2")
+    assert trace[1].get("display_label") == f"{trace[0].get('step')}-EX"
+    assert trace[2].get("display_label") == f"{trace[0].get('step')}-EX2"
+
+
+def test_case23_use_skill_again_reuse_cost_blocks_next_reuse_when_insufficient(monkeypatch):
+    _, battle_core = _mods()
+    state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])
+    attacker = next(c for c in state["characters"] if c["id"] == "A1")
+    attacker["states"] = [{"name": "FP", "value": 1}]
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 9, 0)
+    _set_intent(state, "A_slot", "A1", "atk_reuse", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "def_skill", "single_slot", "A_slot")
+    state["battle_state"]["phase"] = "resolve_single"
+
+    _patch_room_and_socket(monkeypatch, state)
+
+    old_atk = battle_core.all_skill_data.get("atk_reuse")
+    old_def = battle_core.all_skill_data.get("def_skill")
+    battle_core.all_skill_data["atk_reuse"] = {
+        "base_power": 5,
+        "dice_power": "1d1",
+        "rule_data": {
+            "effects": [
+                {
+                    "timing": "HIT",
+                    "type": "USE_SKILL_AGAIN",
+                    "max_reuses": 2,
+                    "reuse_cost": [{"type": "FP", "value": 1}],
+                }
+            ]
+        },
+    }
+    battle_core.all_skill_data["def_skill"] = {
+        "base_power": 4,
+        "dice_power": "1d1",
+        "rule_data": {"effects": []},
+    }
+
+    def _stub_clash(**_kwargs):
+        return {
+            "ok": True,
+            "outcome": "attacker_win",
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "rolls": {"power_a": 12, "power_b": 8, "tie_break": None},
+            },
+        }
+
+    def _stub_one_sided(**_kwargs):
+        return {
+            "ok": True,
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "logs": [],
+                "reuse_requests": [
+                    {
+                        "max_reuses": 2,
+                        "consume_cost": False,
+                        "reuse_cost": [{"type": "FP", "value": 1}],
+                    }
+                ],
+                "rolls": {"total_damage": 0},
+            },
+        }
+
+    def _stub_update_char_stat(_room, char, name, value, **_kwargs):
+        if name == "HP":
+            char["hp"] = int(value)
+        elif name == "MP":
+            char["mp"] = int(value)
+        else:
+            states = char.setdefault("states", [])
+            hit = next((s for s in states if s.get("name") == name), None)
+            if hit is None:
+                states.append({"name": name, "value": int(value)})
+            else:
+                hit["value"] = int(value)
+
+    monkeypatch.setattr(battle_core, "_resolve_clash_by_existing_logic", _stub_clash)
+    monkeypatch.setattr(battle_core, "_resolve_one_sided_by_existing_logic", _stub_one_sided)
+    monkeypatch.setattr(battle_core, "_update_char_stat", _stub_update_char_stat)
+    try:
+        battle_core.run_select_resolve_auto("room_t", "battle_test")
+    finally:
+        if old_atk is None:
+            battle_core.all_skill_data.pop("atk_reuse", None)
+        else:
+            battle_core.all_skill_data["atk_reuse"] = old_atk
+        if old_def is None:
+            battle_core.all_skill_data.pop("def_skill", None)
+        else:
+            battle_core.all_skill_data["def_skill"] = old_def
+
+    trace = [t for t in state["battle_state"]["resolve"]["trace"] if t.get("kind") in {"clash", "one_sided"}]
+    assert len(trace) == 2
+    assert trace[0].get("kind") == "clash"
+    assert trace[1].get("kind") == "one_sided"
+    assert str(trace[1].get("attacker_slot", "")).startswith("A_slot__EX1")
+    fp_state = next((s for s in attacker.get("states", []) if s.get("name") == "FP"), None)
+    assert int((fp_state or {}).get("value", 0)) == 0
+
+
+def test_case24_step_total_does_not_carry_over_when_trace_reset(monkeypatch):
+    _, battle_core = _mods()
+    state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 9, 0)
+    _set_intent(state, "A_slot", "A1", "atk", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "def", "single_slot", "A_slot")
+    state["battle_state"]["phase"] = "resolve_single"
+    # Reproduce stale carry-over from a previous round.
+    state["battle_state"].setdefault("resolve", {})["step_total"] = 29
+    state["battle_state"]["resolve"]["trace"] = []
+
+    _patch_room_and_socket(monkeypatch, state)
+
+    old_atk = battle_core.all_skill_data.get("atk")
+    old_def = battle_core.all_skill_data.get("def")
+    battle_core.all_skill_data["atk"] = {
+        "base_power": 5,
+        "dice_power": "1d1",
+        "rule_data": {"effects": []},
+    }
+    battle_core.all_skill_data["def"] = {
+        "base_power": 4,
+        "dice_power": "1d1",
+        "rule_data": {"effects": []},
+    }
+
+    def _stub_clash(**_kwargs):
+        return {
+            "ok": True,
+            "outcome": "attacker_win",
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "rolls": {"power_a": 10, "power_b": 8, "tie_break": None},
+            },
+        }
+
+    def _stub_one_sided(**_kwargs):
+        return {
+            "ok": True,
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "logs": [],
+                "rolls": {"total_damage": 0},
+            },
+        }
+
+    monkeypatch.setattr(battle_core, "_resolve_clash_by_existing_logic", _stub_clash)
+    monkeypatch.setattr(battle_core, "_resolve_one_sided_by_existing_logic", _stub_one_sided)
+    try:
+        battle_core.run_select_resolve_auto("room_t", "battle_test")
+    finally:
+        if old_atk is None:
+            battle_core.all_skill_data.pop("atk", None)
+        else:
+            battle_core.all_skill_data["atk"] = old_atk
+        if old_def is None:
+            battle_core.all_skill_data.pop("def", None)
+        else:
+            battle_core.all_skill_data["def"] = old_def
+
+    trace = state["battle_state"]["resolve"]["trace"]
+    assert len(trace) >= 1
+    first_total = int((trace[0] or {}).get("step_total", 0))
+    assert first_total > 0
+    assert first_total < 29
