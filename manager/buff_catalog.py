@@ -28,7 +28,8 @@ DYNAMIC_PATTERNS = [
             "power_bonus": [{
                 "condition": { "source": "skill", "param": "tags", "operator": "CONTAINS", "value": "攻撃" },
                 "operation": "FIXED",
-                "value": int(m.group(2))
+                "value": int(m.group(2)),
+                "apply_to": "final"
             }]
         }
     },
@@ -39,7 +40,8 @@ DYNAMIC_PATTERNS = [
             "power_bonus": [{
                 "condition": { "source": "skill", "param": "tags", "operator": "CONTAINS", "value": "守備" },
                 "operation": "FIXED",
-                "value": int(m.group(2))
+                "value": int(m.group(2)),
+                "apply_to": "final"
             }]
         }
     },
@@ -50,7 +52,8 @@ DYNAMIC_PATTERNS = [
             "power_bonus": [{
                 "condition": { "source": "skill", "param": "tags", "operator": "CONTAINS", "value": "攻撃" },
                 "operation": "FIXED",
-                "value": -int(m.group(2))
+                "value": -int(m.group(2)),
+                "apply_to": "final"
             }]
         }
     },
@@ -61,7 +64,8 @@ DYNAMIC_PATTERNS = [
             "power_bonus": [{
                 "condition": { "source": "skill", "param": "tags", "operator": "CONTAINS", "value": "守備" },
                 "operation": "FIXED",
-                "value": -int(m.group(2))
+                "value": -int(m.group(2)),
+                "apply_to": "final"
             }]
         }
     },

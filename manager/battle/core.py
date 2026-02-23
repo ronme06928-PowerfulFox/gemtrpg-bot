@@ -7,7 +7,8 @@ from manager.dice_roller import roll_dice
 
 from manager.game_logic import (
     process_skill_effects, apply_buff, remove_buff, get_status_value,
-    calculate_skill_preview, calculate_damage_multiplier
+    calculate_skill_preview, calculate_damage_multiplier,
+    build_power_result_snapshot
 )
 from manager.utils import get_effective_origin_id, set_status_value
 from models import Room
@@ -1531,6 +1532,10 @@ def _apply_effect_changes_like_duel(room, state, changes, attacker_char, defende
                 b_dmg = process_on_damage_buffs(room, char, int(base_damage), "[select_resolve_one_sided]", temp_logs)
                 log_snippets.extend(temp_logs)
                 extra_primary_damage += int(base_damage) + int(b_dmg)
+        elif effect_type == "MODIFY_BASE_POWER":
+            char['_base_power_bonus'] = int(char.get('_base_power_bonus', 0) or 0) + int(value or 0)
+        elif effect_type == "MODIFY_FINAL_POWER":
+            char['_final_power_bonus'] = int(char.get('_final_power_bonus', 0) or 0) + int(value or 0)
         elif effect_type == "SET_FLAG":
             if 'flags' not in char:
                 char['flags'] = {}
@@ -1558,6 +1563,10 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         c.get('id'): c for c in state.get('characters', [])
         if isinstance(c, dict) and c.get('id')
     }
+    attacker_char['_base_power_bonus'] = 0
+    attacker_char['_final_power_bonus'] = 0
+    defender_char['_base_power_bonus'] = 0
+    defender_char['_final_power_bonus'] = 0
     attacker_rule = _extract_rule_data_from_skill(attacker_skill_data)
     effects_array_a = attacker_rule.get('effects', []) if isinstance(attacker_rule, dict) else []
     log_snippets = []
@@ -1610,6 +1619,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     final_command = (preview or {}).get('final_command') or "0"
     roll_result = roll_dice(final_command)
     base_damage = int(roll_result.get('total', 0))
+    power_snapshot = build_power_result_snapshot(preview, roll_result)
 
     bd_un, log_un, chg_un = process_skill_effects(
         effects_array_a, "UNOPPOSED", attacker_char, defender_char, defender_skill_data, context=context
@@ -1695,6 +1705,9 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
             'command': final_command,
             'min_damage': (preview or {}).get('min_damage'),
             'max_damage': (preview or {}).get('max_damage'),
+            'power_breakdown': (preview or {}).get('power_breakdown', {}),
+            'power_snapshot': power_snapshot,
+            'roll_breakdown': (roll_result or {}).get('breakdown', {}),
             'base_damage': base_damage,
             'kiretsu': kiretsu,
             'bonus_damage': bonus_damage,
@@ -1789,6 +1802,10 @@ def _resolve_clash_by_existing_logic(
         c.get('id'): c for c in state.get('characters', [])
         if isinstance(c, dict) and c.get('id')
     }
+    attacker_char['_base_power_bonus'] = 0
+    attacker_char['_final_power_bonus'] = 0
+    defender_char['_base_power_bonus'] = 0
+    defender_char['_final_power_bonus'] = 0
     _trigger_skill_timing_effects(
         room=room,
         state=state,
@@ -1993,6 +2010,9 @@ def _resolve_clash_by_existing_logic(
         elif delta_a.get('damage') or delta_d.get('damage'):
             outcome = 'draw'
 
+    snapshot_a = build_power_result_snapshot(preview_a, {'total': power_a if power_a is not None else 0})
+    snapshot_d = build_power_result_snapshot(preview_d, {'total': power_d if power_d is not None else 0})
+
     cost_a = _estimate_cost_for_skill_from_snapshot(before_a, attacker_skill_data)
     cost_d = _estimate_cost_for_skill_from_snapshot(before_d, defender_skill_data)
     total_cost = {
@@ -2018,6 +2038,10 @@ def _resolve_clash_by_existing_logic(
             'max_damage_a': (preview_a or {}).get('max_damage'),
             'min_damage_b': (preview_d or {}).get('min_damage'),
             'max_damage_b': (preview_d or {}).get('max_damage'),
+            'power_breakdown_a': (preview_a or {}).get('power_breakdown', {}),
+            'power_breakdown_b': (preview_d or {}).get('power_breakdown', {}),
+            'power_snapshot_a': snapshot_a,
+            'power_snapshot_b': snapshot_d,
         },
         'match_log': captured.get('match_log'),
         'legacy_log_lines': (
@@ -2315,6 +2339,11 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
 
         if isinstance(attacker_char, dict) and isinstance(skill_data, dict):
             try:
+                attacker_char['_base_power_bonus'] = 0
+                attacker_char['_final_power_bonus'] = 0
+                if isinstance(defender_char, dict):
+                    defender_char['_base_power_bonus'] = 0
+                    defender_char['_final_power_bonus'] = 0
                 room_name = battle_state.get('__room_name') if isinstance(battle_state, dict) else None
                 if room_name:
                     _trigger_skill_timing_effects(
@@ -3374,6 +3403,7 @@ def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data
     """
     modifiers = {
         "base_power_mod": 0,
+        "final_power_mod": 0,
         "dice_power_mod": 0,
         "stat_correction_mod": 0,
         "additional_power": 0
@@ -3396,6 +3426,9 @@ def calculate_opponent_skill_modifiers(actor_char, target_char, actor_skill_data
                 # 繧ｿ繝ｼ繧ｲ繝・ヨ縺ｸ縺ｮ蝓ｺ遉主ｨ∝鴨陬懈ｭ｣
                 if char and target_char and char.get('id') == target_char.get('id'):
                     modifiers["base_power_mod"] += value
+            elif effect_type == "MODIFY_FINAL_POWER":
+                if char and target_char and char.get('id') == target_char.get('id'):
+                    modifiers["final_power_mod"] += value
     except Exception as e:
         logger.error(f"calculate_opponent_skill_modifiers: {e}")
 
@@ -3642,6 +3675,9 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
                 # 蝓ｺ遉主ｨ∝鴨繝懊・繝翫せ繧剃ｸ譎ゆｿ晏ｭ假ｼ郁濠譽伜・逅・〒蜿ら・・・
                 char['_base_power_bonus'] = char.get('_base_power_bonus', 0) + value
                 broadcast_log(room, f"[{char['name']}] 基礎威力 {value:+}", 'state-change')
+            elif type == "MODIFY_FINAL_POWER":
+                char['_final_power_bonus'] = char.get('_final_power_bonus', 0) + value
+                broadcast_log(room, f"[{char['name']}] 最終威力 {value:+}", 'state-change')
     except Exception:
         pass
 

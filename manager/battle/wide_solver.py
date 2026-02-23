@@ -172,6 +172,8 @@ def execute_wide_match(room, username):
     attacker_char = next((c for c in state['characters'] if c.get('id') == attacker_id), None)
     if not attacker_char:
         return
+    attacker_char['_base_power_bonus'] = 0
+    attacker_char['_final_power_bonus'] = 0
 
     attacker_skill_data = all_skill_data.get(attacker_skill_id)
     mode = active_match.get('mode', 'individual')
@@ -262,6 +264,10 @@ def execute_wide_match(room, username):
                 broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
             elif type == "REMOVE_BUFF":
                 remove_buff(char, name)
+            elif type == "MODIFY_BASE_POWER":
+                char['_base_power_bonus'] = int(char.get('_base_power_bonus', 0) or 0) + int(value or 0)
+            elif type == "MODIFY_FINAL_POWER":
+                char['_final_power_bonus'] = int(char.get('_final_power_bonus', 0) or 0) + int(value or 0)
             elif type == "CUSTOM_DAMAGE":
                 # ★修正: 攻撃対象へのダメージのみを加算し、それ以外（自傷など）は直接適用する
                 if primary_target and char.get('id') == primary_target.get('id'):
@@ -493,7 +499,9 @@ def execute_wide_match(room, username):
 
             # Reset temp bonus
             attacker_char['_base_power_bonus'] = 0
+            attacker_char['_final_power_bonus'] = 0
             def_char['_base_power_bonus'] = 0
+            def_char['_final_power_bonus'] = 0
 
             # Apply Pre-Match
             execute_pre_match_effects(room, attacker_char, def_char, attacker_skill_data, def_skill_data)
@@ -517,11 +525,14 @@ def execute_wide_match(room, username):
                 def_command = def_data['data']['final_command']
                 using_precalc = True
 
-            # Dynamic base power mod logic (replicated from socket_wide_match)
-            bp_mod = def_char.get('_base_power_bonus', 0)
-            if bp_mod != 0 and not using_precalc:
-                def_command = f"{def_command}+{bp_mod}"
-                logger.debug(f"Applied BaseMod {bp_mod} -> {def_command}")
+            # Dynamic power mod logic
+            # PRE_MATCH はロール直前に適用されるため、precalcコマンドにも追記する。
+            bp_mod = int(def_char.get('_base_power_bonus', 0) or 0)
+            fp_mod = int(def_char.get('_final_power_bonus', 0) or 0)
+            total_power_mod = bp_mod + fp_mod
+            if total_power_mod != 0:
+                def_command = f"{def_command}{'+' if total_power_mod > 0 else ''}{total_power_mod}"
+                logger.debug(f"Applied PowerMod base={bp_mod} final={fp_mod} -> {def_command} (precalc={using_precalc})")
 
             def_roll = roll_dice(def_command)
             defender_total = def_roll['total']

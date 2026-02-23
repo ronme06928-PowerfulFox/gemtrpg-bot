@@ -249,28 +249,64 @@ def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None, con
     return total
 
 
-# ★修正: バフによる威力ボーナス計算
-def calculate_buff_power_bonus(actor, target, actor_skill_data, context=None):
-    total_buff_bonus = 0
+def _split_power_bonus_rules(rules):
+    """
+    power_bonus ルールを適用先ごとに分割する。
+    apply_to 未指定は base 扱い。
+    """
+    buckets = {"base": [], "dice": [], "final": []}
+    for rule in (rules or []):
+        if not isinstance(rule, dict):
+            continue
+        apply_to = str(rule.get("apply_to", "base") or "base").lower()
+        if apply_to == "dice":
+            buckets["dice"].append(rule)
+        elif apply_to == "final":
+            buckets["final"].append(rule)
+        else:
+            buckets["base"].append(rule)
+    return buckets
+
+
+def calculate_buff_power_bonus_parts(actor, target, actor_skill_data, context=None):
+    """
+    バフ由来の威力補正を適用先ごとに返す。
+    Returns: {"base": int, "dice": int, "final": int}
+    """
+    parts = {"base": 0, "dice": 0, "final": 0}
     if not actor or 'special_buffs' not in actor:
-        return 0
+        return parts
 
     for buff in actor['special_buffs']:
         buff_name = buff.get('name')
-        # ★ get_buff_effect を使用
         effect_data = get_buff_effect(buff_name)
         if not effect_data:
-             if 'data' in buff: effect_data = buff['data']
-             else: continue
+            if 'data' in buff:
+                effect_data = buff['data']
+            else:
+                continue
 
-        # ★追加: ディレイ中のバフは無効
         if buff.get('delay', 0) > 0:
             continue
 
-        power_bonuses = effect_data.get('power_bonus', [])
-        total_buff_bonus += _calculate_bonus_from_rules(power_bonuses, actor, target, actor_skill_data, context=context)
+        buckets = _split_power_bonus_rules(effect_data.get('power_bonus', []))
+        parts["base"] += _calculate_bonus_from_rules(
+            buckets["base"], actor, target, actor_skill_data, context=context
+        )
+        parts["dice"] += _calculate_bonus_from_rules(
+            buckets["dice"], actor, target, actor_skill_data, context=context
+        )
+        parts["final"] += _calculate_bonus_from_rules(
+            buckets["final"], actor, target, actor_skill_data, context=context
+        )
 
-    return total_buff_bonus
+    return parts
+
+
+# 後方互換: 既存呼び出しは「定数加算」の総量を期待するため base + final を返す。
+def calculate_buff_power_bonus(actor, target, actor_skill_data, context=None):
+    parts = calculate_buff_power_bonus_parts(actor, target, actor_skill_data, context=context)
+    return int(parts.get("base", 0)) + int(parts.get("final", 0))
 
 def calculate_state_apply_bonus(actor, target, stat_name, context=None):
     total_bonus = 0
@@ -672,6 +708,11 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 if mod_value != 0:
                     changes_to_apply.append((target_obj, "MODIFY_BASE_POWER", None, mod_value))
                     log_snippets.append(f"[基礎威力 {mod_value:+}]")
+            elif effect_type == "MODIFY_FINAL_POWER":
+                mod_value = int(effect.get("value", 0))
+                if mod_value != 0:
+                    changes_to_apply.append((target_obj, "MODIFY_FINAL_POWER", None, mod_value))
+                    log_snippets.append(f"[最終威力 {mod_value:+}]")
             elif effect_type == "DRAIN_HP":
                  # ★追加: ダメージ吸収 (base_damageに基づく)
                  if base_damage > 0:
@@ -726,30 +767,49 @@ def calculate_power_bonus(actor, target, power_bonus_data, context=None):
         total = _get_bonus(rule, actor, target)
     return total
 
-def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None, custom_skill_name=None, senritsu_max_apply=0, external_base_power_mod=0, context=None):
+def calculate_skill_preview(
+    actor_char,
+    target_char,
+    skill_data,
+    rule_data=None,
+    custom_skill_name=None,
+    senritsu_max_apply=0,
+    external_base_power_mod=0,
+    external_final_power_mod=0,
+    context=None
+):
     """
     スキルの威力、コマンド、補正情報のプレビューデータを計算する。
-    Duel/Wide Matchの両方で共通して使用する。
-            "correction_details": list,
-            "senritsu_dice_reduction": int,
-            "skill_details": dict,
-            "power_breakdown": dict
-        }
     """
-    # 1. 基礎情報の取得
-    base_power = int(skill_data.get('基礎威力', 0))
+    def _to_int(v, default=0):
+        try:
+            return int(v)
+        except Exception:
+            return default
 
-    # バフからの基礎威力補正
-    base_power_buff_mod = get_buff_stat_mod(actor_char, '基礎威力')
-    base_power += base_power_buff_mod
+    actor_char = actor_char if isinstance(actor_char, dict) else {}
+    target_char = target_char if isinstance(target_char, dict) else {}
+    skill_data = skill_data if isinstance(skill_data, dict) else {}
 
-    # 外部からの基礎威力補正 (Wide MatchのAttackerからのデバフなど)
-    base_power += external_base_power_mod
+    raw_base_power = _to_int(skill_data.get('基礎威力', 0))
+    base_power_buff_mod = _to_int(get_buff_stat_mod(actor_char, '基礎威力'))
+    temp_base_power_mod = _to_int(actor_char.get('_base_power_bonus', 0))
+    temp_final_power_mod = _to_int(actor_char.get('_final_power_bonus', 0))
+
+    final_base_power = (
+        raw_base_power
+        + base_power_buff_mod
+        + _to_int(external_base_power_mod)
+        + temp_base_power_mod
+    )
 
     skill_details = {
-        'base_power': int(skill_data.get('基礎威力', 0)),
+        'base_power': raw_base_power,
         'base_power_buff_mod': base_power_buff_mod,
-        'external_mod': external_base_power_mod,
+        'temp_base_power_mod': temp_base_power_mod,
+        'external_mod': _to_int(external_base_power_mod),
+        'final_base_power': final_base_power,
+        'final_power_mod': _to_int(external_final_power_mod) + temp_final_power_mod,
         '分類': skill_data.get('分類', skill_data.get('タイミング', '')),
         '距離': skill_data.get('距離', skill_data.get('射程', '')),
         '属性': skill_data.get('属性', ''),
@@ -758,10 +818,7 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
         '特記': skill_data.get('特記', ''),
     }
 
-    # 2. 威力ボーナスの計算 (ルールおよびバフ)
-    bonus_power = 0
-
-    # ルールデータの自動パース (引数で渡されていない場合)
+    # ルールデータの自動パース
     if not rule_data and skill_data:
         try:
             rule_json_str = skill_data.get('特記処理', '{}')
@@ -769,168 +826,146 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
         except Exception:
             rule_data = {}
 
-    # ルールベース (スキル特有の条件)
+    bonus_power = 0                 # 従来の威力補正(base/default)
+    final_power_bonus = _to_int(external_final_power_mod) + temp_final_power_mod
     dice_bonus_power = 0
+
+    rule_base_bonus = 0
+    rule_final_bonus = 0
+    rule_dice_bonus = 0
+
     if rule_data:
         rules = rule_data.get('power_bonus', [])
+        buckets = _split_power_bonus_rules(rules)
 
-        # ★追加: ダイス威力補正(apply_to='dice')と通常威力補正を分離
-        base_rules = [r for r in rules if r.get('apply_to') != 'dice']
-        dice_rules = [r for r in rules if r.get('apply_to') == 'dice']
+        rule_base_bonus = _calculate_bonus_from_rules(
+            buckets["base"], actor_char, target_char, actor_skill_data=skill_data, context=context
+        )
+        rule_dice_bonus = _calculate_bonus_from_rules(
+            buckets["dice"], actor_char, target_char, actor_skill_data=skill_data, context=context
+        )
+        rule_final_bonus = _calculate_bonus_from_rules(
+            buckets["final"], actor_char, target_char, actor_skill_data=skill_data, context=context
+        )
 
-        # 通常ボーナス
-        bonus_from_rules = _calculate_bonus_from_rules(base_rules, actor_char, target_char, actor_skill_data=skill_data, context=context)
-        bonus_power += bonus_from_rules
+        bonus_power += rule_base_bonus
+        dice_bonus_power += rule_dice_bonus
+        final_power_bonus += rule_final_bonus
 
-        # ★追加: ダイスボーナス
-        dice_bonus_from_rules = _calculate_bonus_from_rules(dice_rules, actor_char, target_char, actor_skill_data=skill_data, context=context)
-        dice_bonus_power += dice_bonus_from_rules
-
-        # 戦慄の上限をルールから取得 (指定がなければ0)
         if senritsu_max_apply == 0:
             senritsu_max_apply = rule_data.get('senritsu_max', 0)
 
-    # 戦慄の自動判定 (分類が物理/魔法を含むなら上限99として扱う)
+    # 物理/魔法スキルなら戦慄上限をデフォルト適用
     if senritsu_max_apply == 0:
         category = skill_data.get('分類', '')
         if category and ('物理' in category or '魔法' in category):
-            senritsu_max_apply = 3 # ★修正: 最大-3まで
+            senritsu_max_apply = 3
 
-    # ★ 追加: ヴァルヴァイレ (ID: 13) 恩恵: 被対象時、相手の威力-1
+    # バフ由来補正（apply_to=base/dice/final を分離）
+    buff_bonus_parts = calculate_buff_power_bonus_parts(
+        actor_char, target_char, skill_data, context=context
+    )
+    bonus_power += _to_int(buff_bonus_parts.get("base", 0))
+    dice_bonus_power += _to_int(buff_bonus_parts.get("dice", 0))
+    final_power_bonus += _to_int(buff_bonus_parts.get("final", 0))
+
+    # 固有恩恵
+    wadatsumi_bonus = 0
     valvile_correction = 0
-    if target_char:
-        if get_effective_origin_id(target_char) == 13:
-            valvile_correction = -1
-            bonus_power += valvile_correction
-
-    skill_details['senritsu_max_apply'] = senritsu_max_apply
-
-    # バフベース (攻撃威力バフなど)
-    buff_bonus = calculate_buff_power_bonus(actor_char, target_char, skill_data, context=context)
-    bonus_power += buff_bonus
-
-    # 綿津見 (ID: 9) ボーナス: 斬撃威力+1 (Preview用)
     try:
         if get_effective_origin_id(actor_char) == 9 and skill_data.get('属性') == '斬撃':
-            bonus_power += 1
-    except Exception: pass
+            wadatsumi_bonus = 1
+    except Exception:
+        wadatsumi_bonus = 0
+    try:
+        if target_char and get_effective_origin_id(target_char) == 13:
+            valvile_correction = -1
+    except Exception:
+        valvile_correction = 0
 
-    skill_details['additional_power'] = bonus_power
+    final_power_bonus += wadatsumi_bonus
+    final_power_bonus += valvile_correction
 
-    # 3. ダイス部分の解析
+    total_flat_bonus = bonus_power + final_power_bonus
+    skill_details['senritsu_max_apply'] = senritsu_max_apply
+    skill_details['additional_power'] = total_flat_bonus
+    skill_details['base_power_mod'] = base_power_buff_mod + _to_int(external_base_power_mod) + temp_base_power_mod
+    skill_details['final_power_total_mod'] = final_power_bonus
+
+    # ダイス部分の解析
     palette = skill_data.get('チャットパレット', '')
     cmd_part = re.sub(r'【.*?】', '', palette).strip()
 
-    # ★修正: 先頭の数値を基礎威力として除外し、残りをダイス部分とする
-    # (22-1d6+... のようなケースで split('+') だと -1d6 が消えるため)
     match_base = re.match(r'^(\d+)(.*)$', cmd_part)
     if match_base:
         dice_part = match_base.group(2).strip()
         if not dice_part:
-             # コマンドにダイス部分がない場合、JSONの定義を使う
-             dice_part = skill_data.get('ダイス威力', '')
+            dice_part = skill_data.get('ダイス威力', '')
     else:
-        # 数値で始まらない、または形式不明
         if '+' in cmd_part:
             dice_part = cmd_part.split('+', 1)[1]
         else:
             dice_part = skill_data.get('ダイス威力', '2d6')
 
-    # 変数ダイスの解決
     resolved_dice = resolve_placeholders(dice_part, actor_char)
 
-    # 4. 補正値のカテゴリ別集計 (Aggregated Correction Details)
+    # 補正表示（UI向け）
     correction_details = []
-
-    # (1) 基礎威力 (Base Power)
-    total_base_mod = base_power_buff_mod + external_base_power_mod
+    total_base_mod = base_power_buff_mod + _to_int(external_base_power_mod) + temp_base_power_mod
     if total_base_mod != 0:
         correction_details.append({'source': '基礎威力', 'value': total_base_mod})
 
-    # (2) 物理補正 (Physical Correction)
-    phys_mod = get_status_value(actor_char, '物理補正')
-    if '{物理補正}' in dice_part and phys_mod != 0:
-        # 元の値 (initial_data) を取得して変動分(delta)のみを表示する
-        base_phys = 0
-        if 'initial_data' in actor_char and '物理補正' in actor_char['initial_data']:
-             # initial_data は str だったり int だったりする可能性があるので安全にキャスト
-             try:
-                 base_phys = int(actor_char['initial_data']['物理補正'])
-             except:
-                 base_phys = 0
+    phys_mod = _to_int(get_status_value(actor_char, '物理補正'))
+    mag_mod = _to_int(get_status_value(actor_char, '魔法補正'))
+    dice_pow_mod = _to_int(get_status_value(actor_char, 'ダイス威力'))
 
+    delta_phys = 0
+    delta_mag = 0
+    delta_dice_pow = 0
+
+    if '{物理補正}' in dice_part and phys_mod != 0:
+        base_phys = _to_int((actor_char.get('initial_data') or {}).get('物理補正', 0))
         delta_phys = phys_mod - base_phys
         if delta_phys != 0:
             correction_details.append({'source': '物理補正', 'value': delta_phys})
 
-    # (3) 魔法補正 (Magical Correction)
-    mag_mod = get_status_value(actor_char, '魔法補正')
     if '{魔法補正}' in dice_part and mag_mod != 0:
-        # 元の値 (initial_data) を取得して変動分(delta)のみを表示する
-        base_mag = 0
-        if 'initial_data' in actor_char and '魔法補正' in actor_char['initial_data']:
-             try:
-                 base_mag = int(actor_char['initial_data']['魔法補正'])
-             except:
-                 base_mag = 0
-
+        base_mag = _to_int((actor_char.get('initial_data') or {}).get('魔法補正', 0))
         delta_mag = mag_mod - base_mag
         if delta_mag != 0:
             correction_details.append({'source': '魔法補正', 'value': delta_mag})
 
-    # (4) ダイス威力 (Dice Power)
-    dice_pow_mod = get_status_value(actor_char, 'ダイス威力')
     if '{ダイス威力}' in dice_part and dice_pow_mod != 0:
-        # 元の値 (initial_data) を取得して変動分(delta)のみを表示する
-        base_dice_pow = 0
-        if 'initial_data' in actor_char and 'ダイス威力' in actor_char['initial_data']:
-             try:
-                 base_dice_pow = int(actor_char['initial_data']['ダイス威力'])
-             except:
-                 base_dice_pow = 0
-
+        base_dice_pow = _to_int((actor_char.get('initial_data') or {}).get('ダイス威力', 0))
         delta_dice_pow = dice_pow_mod - base_dice_pow
         if delta_dice_pow != 0:
             correction_details.append({'source': 'ダイス威力', 'value': delta_dice_pow})
 
-    # (5) 威力補正 (Power Correction) - ヴァルヴァイレを除く
-    # bonus_power にはヴァルヴァイレ補正が含まれているため、表示用に除外して計算
-    display_bonus_power = bonus_power - valvile_correction
-    if display_bonus_power != 0:
-        correction_details.append({'source': '威力補正', 'value': display_bonus_power})
+    if bonus_power != 0:
+        correction_details.append({'source': '威力補正', 'value': bonus_power})
 
-    # (6) ヴァルヴァイレ補正
+    final_power_display = final_power_bonus - valvile_correction
+    if final_power_display != 0:
+        correction_details.append({'source': '最終威力補正', 'value': final_power_display})
+
     if valvile_correction != 0:
         correction_details.append({'source': 'ヴァルヴァイレ恩恵', 'value': valvile_correction})
 
-
-    # 4. バフ・ダイスボーナスの適用 (Dice Face Modification)
-    # dice_bonus_power (apply_to='dice') を面数に加算する
-    # 例: -1d6 + (-2) -> -1d4 (faces decreased by 2)
     processed_dice = resolved_dice
-
     if dice_bonus_power != 0:
         def modify_dice_faces(m):
             sign = m.group(1) or ''
             num = m.group(2)
             faces = int(m.group(3))
-
-            # 面数を変更 (最低1)
-            # dice_bonus_power が -1 なら faces - 1
             new_faces = max(1, faces + dice_bonus_power)
             return f"{sign}{num}d{new_faces}"
 
         processed_dice = re.sub(r'([+-]?)(\d+)d(\d+)', modify_dice_faces, processed_dice, count=1)
-
-        # ★追加: 内訳表示用にダイス威力補正を追加
         correction_details.append({'source': 'ダイス威力', 'value': dice_bonus_power})
 
-
-    # 5. 戦慄(Senritsu)の適用
     senritsu_dice_reduction = 0
-
     if senritsu_max_apply > 0:
-        current_senritsu = get_status_value(actor_char, '戦慄')
+        current_senritsu = _to_int(get_status_value(actor_char, '戦慄'))
         apply_val = min(current_senritsu, senritsu_max_apply) if current_senritsu > 0 else 0
 
         dice_m = re.search(r'([+-]?)(\d+)d(\d+)', skill_data.get('ダイス威力', ''))
@@ -940,43 +975,26 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
                 max_red = orig_faces - 1
                 senritsu_dice_reduction = min(apply_val, max_red)
 
-                # ダイス面数を減少させる置換関数
                 def reduce_dice_faces(m):
                     sign = m.group(1) or ''
                     num = m.group(2)
                     faces = int(m.group(3))
-
                     new_faces = max(1, faces - senritsu_dice_reduction)
                     return f"{sign}{num}d{new_faces}"
 
                 processed_dice = re.sub(r'([+-]?)(\d+)d(\d+)', reduce_dice_faces, processed_dice, count=1)
                 skill_details['senritsu_dice_reduction'] = senritsu_dice_reduction
 
-    # 5. 最終コマンド構築
-    # ボーナスはここに追加すべきか、resolved_diceの一部として計算済みか？
-    # 従来の logic: base + dice + bonus
-    # resolved_dice は "2d6+5" (補正込み) のようになっている
-
-    # ボーナス値をコマンド末尾に追加
     final_dice_part = processed_dice
+    if total_flat_bonus != 0:
+        final_dice_part += f"{'+' if total_flat_bonus > 0 else ''}{total_flat_bonus}"
 
-
-
-    if bonus_power != 0:
-        final_dice_part += f"{'+' if bonus_power > 0 else ''}{bonus_power}"
-
-    # ★修正: base_power補正時の符号重複回避
-    # final_dice_part が + または - で始まる場合はそのまま結合、そうでなければ + を挟む
     if final_dice_part.startswith('+') or final_dice_part.startswith('-'):
-        final_command = f"{base_power}{final_dice_part}"
+        final_command = f"{final_base_power}{final_dice_part}"
     else:
-        final_command = f"{base_power}+{final_dice_part}"
+        final_command = f"{final_base_power}+{final_dice_part}"
 
-    # 6. ダメージレンジの計算
-
-    # final_command (例: "22-1d5+1d5") を解析して最小・最大を計算
     tokens = re.split(r'([+-])', final_command)
-
     range_min = 0
     range_max = 0
     current_sign = 1
@@ -985,40 +1003,63 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
         token = token.strip()
         if not token:
             continue
-
         if token == '+':
             current_sign = 1
-        elif token == '-':
+            continue
+        if token == '-':
             current_sign = -1
-        else:
-            # 数値またはダイス
-            dice_match = re.match(r'^(\d+)d(\d+)$', token)
-            if dice_match:
-                num = int(dice_match.group(1))
-                sides = int(dice_match.group(2))
+            continue
 
-                # ダイスの最小・最大
-                d_min = num
-                d_max = num * sides
-
-                if current_sign == 1:
-                    range_min += d_min
-                    range_max += d_max
-                else:
-                    # マイナスの場合: 最小値には最大値を引き(最も減る)、最大値には最小値を引く(最も減らない)
-                    range_min -= d_max
-                    range_max -= d_min
+        dice_match = re.match(r'^(\d+)d(\d+)$', token)
+        if dice_match:
+            num = int(dice_match.group(1))
+            sides = int(dice_match.group(2))
+            d_min = num
+            d_max = num * sides
+            if current_sign == 1:
+                range_min += d_min
+                range_max += d_max
             else:
-                # 定数
-                try:
-                    val = int(token)
-                    range_min += current_sign * val
-                    range_max += current_sign * val
-                except ValueError:
-                    pass
+                range_min -= d_max
+                range_max -= d_min
+            continue
+
+        try:
+            val = int(token)
+            range_min += current_sign * val
+            range_max += current_sign * val
+        except ValueError:
+            pass
 
     skill_details['range_min'] = range_min
     skill_details['range_max'] = range_max
+
+    power_breakdown = {
+        "base_power": raw_base_power,
+        "base_power_mod": total_base_mod,
+        "base_power_buff_mod": base_power_buff_mod,
+        "external_base_power_mod": _to_int(external_base_power_mod),
+        "temp_base_power_mod": temp_base_power_mod,
+        "final_base_power": final_base_power,
+        "rule_power_bonus": rule_base_bonus,
+        "buff_power_bonus": _to_int(buff_bonus_parts.get("base", 0)),
+        "rule_final_power_bonus": rule_final_bonus,
+        "buff_final_power_bonus": _to_int(buff_bonus_parts.get("final", 0)),
+        "external_final_power_mod": _to_int(external_final_power_mod),
+        "temp_final_power_mod": temp_final_power_mod,
+        "wadatsumi_bonus": wadatsumi_bonus,
+        "valvile_correction": valvile_correction,
+        "final_power_mod": final_power_bonus,
+        "rule_dice_bonus_power": rule_dice_bonus,
+        "buff_dice_bonus_power": _to_int(buff_bonus_parts.get("dice", 0)),
+        "dice_bonus_power": dice_bonus_power,
+        "senritsu_dice_reduction": senritsu_dice_reduction,
+        "physical_correction": delta_phys,
+        "magical_correction": delta_mag,
+        "dice_stat_correction": delta_dice_pow,
+        "additional_power": total_flat_bonus,
+        "total_flat_bonus": total_flat_bonus,
+    }
 
     return {
         "final_command": final_command,
@@ -1028,12 +1069,50 @@ def calculate_skill_preview(actor_char, target_char, skill_data, rule_data=None,
         "correction_details": correction_details,
         "senritsu_dice_reduction": senritsu_dice_reduction,
         "skill_details": skill_details,
-        "power_breakdown": {
-            "base_power_mod": base_power_buff_mod + external_base_power_mod,
-            "additional_power": bonus_power,
-             # Add other fields if needed by client
+        "power_breakdown": power_breakdown,
+    }
+
+
+def build_power_result_snapshot(preview_data, roll_result):
+    """
+    プレビュー時の内訳とロール結果を統合し、確定威力の参照データを返す。
+    """
+    preview_data = preview_data if isinstance(preview_data, dict) else {}
+    roll_result = roll_result if isinstance(roll_result, dict) else {}
+    power_breakdown = preview_data.get("power_breakdown", {}) if isinstance(preview_data.get("power_breakdown"), dict) else {}
+    roll_breakdown = roll_result.get("breakdown", {}) if isinstance(roll_result.get("breakdown"), dict) else {}
+
+    def _to_int(v, default=0):
+        try:
+            return int(v)
+        except Exception:
+            return default
+
+    final_power = _to_int(roll_result.get("total", 0))
+    final_base_power = _to_int(power_breakdown.get("final_base_power", 0))
+
+    dice_power = _to_int(roll_breakdown.get("dice_total", 0))
+    constant_power = _to_int(roll_breakdown.get("constant_total", 0))
+    if dice_power == 0 and final_power != 0 and constant_power != 0:
+        dice_power = final_power - constant_power
+
+    snapshot = {
+        "base_power_after_mod": final_base_power,
+        "dice_power_after_roll": dice_power,
+        "physical_power": _to_int(power_breakdown.get("physical_correction", 0)),
+        "magical_power": _to_int(power_breakdown.get("magical_correction", 0)),
+        "dice_stat_power": _to_int(power_breakdown.get("dice_stat_correction", 0)),
+        "flat_power_bonus": _to_int(power_breakdown.get("total_flat_bonus", power_breakdown.get("additional_power", 0))),
+        "final_power": final_power,
+        "constant_power_after_roll": constant_power,
+        "raw": {
+            "preview": preview_data,
+            "roll": roll_result,
+            "power_breakdown": power_breakdown,
+            "roll_breakdown": roll_breakdown,
         }
     }
+    return snapshot
 
 
 def calculate_damage_multiplier(character):

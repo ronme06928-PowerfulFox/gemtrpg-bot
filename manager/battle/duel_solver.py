@@ -337,6 +337,12 @@ def execute_duel_match(room, data, username):
 
     actor_a_char = next((c for c in state["characters"] if c.get('id') == actor_id_a), None)
     actor_d_char = next((c for c in state["characters"] if c.get('id') == actor_id_d), None)
+    if actor_a_char:
+        actor_a_char['_base_power_bonus'] = 0
+        actor_a_char['_final_power_bonus'] = 0
+    if actor_d_char:
+        actor_d_char['_base_power_bonus'] = 0
+        actor_d_char['_final_power_bonus'] = 0
 
     # 戦慄消費
     if actor_a_char and senritsu_penalty_a > 0:
@@ -397,6 +403,17 @@ def execute_duel_match(room, data, username):
                 except: pass
         if 'used_skills_this_round' not in actor_d_char: actor_d_char['used_skills_this_round'] = []
         actor_d_char['used_skills_this_round'].append(skill_id_d)
+
+    def _apply_temp_power_bonus_to_command(command, actor):
+        if not isinstance(actor, dict):
+            return command
+        total_bonus = int(actor.get('_base_power_bonus', 0) or 0) + int(actor.get('_final_power_bonus', 0) or 0)
+        if total_bonus == 0:
+            return command
+        return f"{command}{'+' if total_bonus > 0 else ''}{total_bonus}"
+
+    command_a = _apply_temp_power_bonus_to_command(command_a, actor_a_char)
+    command_d = _apply_temp_power_bonus_to_command(command_d, actor_d_char)
 
     # ダイスロール
     result_a = roll_dice(command_a)
@@ -519,6 +536,7 @@ def execute_duel_match(room, data, username):
                             skill_id_for_log = skill_id_d if actor == actor_d_char else skill_id_a
                             _update_char_stat(room, actor, "荊棘", max(0, val - bp), username=f"[{format_skill_name_for_log(skill_id_for_log, skill, actor)}]")
                             actor.pop('_base_power_bonus', None)
+                            actor.pop('_final_power_bonus', None)
                         except ValueError: pass
 
         damage_report = {'A': [], 'D': []}

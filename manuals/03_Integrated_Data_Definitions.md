@@ -74,6 +74,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 | **<span style="color:#9b59b6; font-weight:bold;">APPLY_BUFF</span>** | 定義済みバフを付与 | `buff_id`: "Bu-01", `buff_name`: "Power_Atk5", `flavor`: "演出テキスト" |
 | **<span style="color:#9b59b6; font-weight:bold;">REMOVE_BUFF</span>** | バフを削除 | `buff_name`: "Bu-01" |
 | **<span style="color:#2ecc71; font-weight:bold;">MODIFY_BASE_POWER</span>** | 基礎威力を変更 (PRE_MATCH用) | `value`: 2 |
+| **<span style="color:#2ecc71; font-weight:bold;">MODIFY_FINAL_POWER</span>** | 最終威力を変更 (PRE_MATCH / BEFORE_POWER_ROLL用) | `value`: -1 |
 | **<span style="color:#e74c3c; font-weight:bold;">DAMAGE_BONUS</span>** | 追加ダメージ (HIT/WIN用) | `value`: 5 |
 | **<span style="color:#2ecc71; font-weight:bold;">MODIFY_ROLL</span>** | ロール結果値の修正 | `value`: -1 |
 | **<span style="color:#e67e22; font-weight:bold;">FORCE_UNOPPOSED</span>** | 相手の抵抗を封じる（一方攻撃化） | なし |
@@ -107,8 +108,9 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 * `FIXED_IF_EXISTS`: 値が1以上あれば+Value。
 * `MULTIPLY`: 値 × Value_per_param。
 * `max_bonus`: 加算値の上限を設定。
-* `apply_to`: 補正の適用先を指定 (`base`: 基礎威力(デフォルト), `dice`: ダイス面数)。
+* `apply_to`: 補正の適用先を指定 (`base`: 基礎威力(デフォルト), `dice`: ダイス面数, `final`: 最終威力)。
   * 例: `{"source": "self", "param": "HP", "operator": "PER_N_BONUS", "per_N": 10, "value": 2, "apply_to": "dice"}` -> HP10ごとにダイスサイズ+2
+  * 例: `{"condition": {"source": "skill", "param": "tags", "operator": "CONTAINS", "value": "攻撃"}, "operation": "FIXED", "value": 5, "apply_to": "final"}` -> 攻撃スキルの最終威力+5
 
 ---
 

@@ -276,8 +276,9 @@
 6. **CUSTOM_EFFECT** - カスタム効果（プラグインで実装）
 7. **FORCE_UNOPPOSED** - 一方攻撃強制
 8. **MODIFY_BASE_POWER** - 基礎威力変更
-9. **MULTIPLY_STATE** - 状態異常値の乗算
-10. **APPLY_STATE_PER_N** - パラメータに基づく動的付与
+9. **MODIFY_FINAL_POWER** - 最終威力変更
+10. **MULTIPLY_STATE** - 状態異常値の乗算
+11. **APPLY_STATE_PER_N** - パラメータに基づく動的付与
 
 各タイミング：
 
