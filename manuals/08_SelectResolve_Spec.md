@@ -1,5 +1,10 @@
 ﻿# 08 Select/Resolve 確定仕様書 v1.2
 
+**最終更新日**: 2026-02-23
+**文書バージョン**: v1.3
+**対象実装**: `events/battle/common_routes.py` / `manager/battle/common_manager.py` / `manager/battle/core.py`
+**版注記**: 本更新で v1.3 相当の仕様差分（権限/再使用/snapshot/イベント）を反映
+
 ## 1. 目的・スコープ
 本仕様は、現行の逐次手番式を廃止し、1ラウンドを `RoundStart -> Select -> Resolve` で処理するための確定仕様を定義する。
 
@@ -43,6 +48,8 @@ RoundStart は次の順序で処理する。
 3. 各 `slot` ごとに `initiative` をロールし、ラウンド中固定する。
 4. `initiative` 降順で `timeline` を作成する。
 5. 同速が存在する場合、同一 initiative の同速グループのみ追加ロールで順序確定する。
+6. `加速(Bu-11)` / `減速(Bu-12)` は initiative 計算にのみ反映し、ロール後に解除する。
+7. legacy互換として `state.timeline` も同スロットIDで再構築し、`hasActed=false` を初期化する。
 
 ## 5. Select（行動可能者のみ、全スロット選択→commitでのみ進行、instantはcommit時発動でスロット消費なし、全公開矢印）
 - 選択可能なのは行動可能キャラクターのみ（混乱・行動不能は除外）。
@@ -50,6 +57,13 @@ RoundStart は次の順序で処理する。
 - Resolve への進行は全対象スロットの `commit` 完了時のみ。
 - `instant` タグのスキルは `commit` 時に即時発動し、スロットを消費しない（Resolve 対象外）。
 - 目標指定は全公開矢印として可視化する。
+- `required slots` は「行動可能かつ未消費」のスロットのみ。行動不能者や `committed+instant` は Resolve 必須条件から除外する。
+
+### 5.1 Select時の権限・入力バリデーション（実装準拠）
+- `battle_intent_preview` / `battle_intent_commit` / `battle_intent_uncommit` は、対象 `slot_id` が存在しない場合 `battle_error: unknown slot_id` を返し、状態を変更しない。
+- 各 intent イベントは「そのスロットの actor を操作可能なユーザー」だけが実行できる。権限不足時は `battle_error: <event> permission denied` を返し、状態を変更しない。
+- `GM` は全キャラクターのスロットを代理操作可能。
+- `battle_resolve_confirm` と `battle_resolve_flow_advance_request` は `GM` 専用。
 
 ## 6. redirect（自動、init(A)>init(B)でB.target=A、競合は最大initiativeが最終勝者・後から再上書き、同速不可、マッチできなくなった側はone-sided）
 - A が単体で B（相手スロット）を target にして commit したとき、`initiative(A) > initiative(B)` なら `B.target = A` に自動変更する。
@@ -57,6 +71,7 @@ RoundStart は次の順序で処理する。
 - 後から到着したより高 initiative の redirect は再上書き可能。
 - 同速（`initiative(A) == initiative(B)`）では redirect 不可。
 - redirect の結果、相互指定を失ってマッチできなくなった側は `one-sided` として実行する（対象が盤面に残る限り）。
+- 例外: B が「広域スロット（`mass_individual` / `mass_summation`）」を単体 target 中なら、その target は redirect で横取りしない（広域対決の安定化）。
 
 ## 7. no_redirect（引き寄せできない/されない、locked_targetでも解除して自由にtarget再選択、過去の引き寄せは無効化され得る）
 - `no_redirect` スキルを選択したスロットは、redirect できず、redirect されない。
@@ -80,9 +95,19 @@ RoundStart は次の順序で処理する。
 - それ以外の関連解決は `one-sided` とする。
 
 実行時判定:
-- コスト消費は実行時に行う。
+- コスト消費は「通常解決では実行時」が原則（`mass` は Resolve開始時に先払い）。
 - 対象消失は「理由を問わず未配置（盤面から消失）」として扱う。
 - 実行時に対象が未配置なら不発（`fizzle`）とする。
+
+### 8.1 Resolve開始時の固定化（snapshot）
+- Resolve 開始時に `resolve_snapshot_intents` を作成し、Resolve中はこの snapshot を参照する。
+- 目的は、Selectフェーズの後続編集が進行中 Resolve に混入しないようにすること。
+- `resolve_snapshot_intents` は `round_end` でクリアする。
+
+### 8.2 進行カウンタ（step_total）の扱い
+- `resolve.trace` 各要素は `step` に加えて `step_index` / `step_total` を持つ。
+- `step_total` は「mass推定件数 + single推定件数」で初期化し、必要に応じて実件数で増補する。
+- 新ラウンドで `trace` が空のとき、前ラウンドの `step_total` は持ち越さない。
 
 ## 9. 再回避差し込み（再回避状態、回避スロット or 解決済みスロットを無料再利用、回避スロットがtargetしている相手スキルの解決時のみ差し込み、第三者介入なし、one-sided→clashに昇格）
 - 再回避状態のキャラクターは、回避スロットまたは解決済みスロットを無料で再利用できる。
@@ -99,12 +124,22 @@ Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSE
 - `RESOLVE_STEP_END`: 1マッチ/1一方攻撃の表示完了時
 - `RESOLVE_END`: 解決フェーズ全処理完了時（まとめログ出力、ラウンド終了遷移）
 
+## 9.2 USE_SKILL_AGAIN（再使用チェーン）
+- `effects[].type = USE_SKILL_AGAIN` は「同スキルを同対象スロットへ再実行」要求として解決層で扱う。
+- 再使用は仮想スロット（`<origin_slot>__EX1`, `__EX2`, ...）を `single_queue` 直後へ差し込んで処理する。
+- 既定では再使用時に通常コストを再消費しない（`apply_cost_on_execute = false`）。
+- `consume_cost: true` を指定した場合のみ、再使用分も通常コストを消費する。
+- `reuse_cost` を指定した場合、差し込み時点で支払い可能なときのみ再使用スロットを生成する。
+- 連鎖上限は `max_reuses` と実装ハード上限（20）の小さい方。
+- トレース表示ラベルは元ステップ基準で `n-EX`, `n-EX2` ... を使用する。
+
 ## 10. Mass（広域）
 ### 10.1 mass_individual：敵全員へ個別、対象側がSをtargetしているスロットがあればclash、複数ならinitiative最大1つ、無ければone-sided
 - 攻撃側スロット S は敵全員に対して個別解決を行う。
 - 各対象について、その対象側が S を target にしているスロットがあれば `clash`。
 - 複数該当時は initiative 最大の1スロットのみ採用。
 - 該当なしは `one-sided`。
+- `mass` スロット自身の通常コストは Resolve 開始時に1回だけ先払いする（`cost_consumed_at_resolve_start=true` で二重消費防止）。
 
 ### 10.2 mass_summation：攻撃側威力A、参加は“Sをtargetしているスロットのみ”、1キャラ1スロット（initiative最大）、D=合計、A vs D
 - 攻撃側スロット S の威力を A とする。
@@ -112,6 +147,14 @@ Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSE
 - 防御側は1キャラ1スロットのみ参加可能（initiative 最大を採用）。
 - 防御値 D は参加スロットの合計値（`D = sum`）。
 - 解決は `A vs D`。
+- ダメージは `delta = |A-D|`。`attacker_win` なら敵陣営全員へ `delta`、`defender_win` なら攻撃者へ `delta`、`draw` は0。
+
+### 10.3 mass種別の推論（後方互換）
+- `mass_type` 未指定でも、スキルの `tags` / `distance` / `距離` / `target_type` などから自動推論する。
+- `広域-合算` / `summation` / `sum` を含む場合は `mass_summation`。
+- `広域-個別` / `individual` を含む場合は `mass_individual`。
+- `広域` のみ判定できる場合は `mass_individual` を既定とする。
+- 自動推論された `mass` は target を `{"type":"mass_*","slot_id":null}` に正規化する。
 
 ## 11. データモデル（battle_stateに持つべき slots/intents/phase/redirects/resolve.trace の推奨JSON例）
 `battle_state` の推奨最小構造例:
@@ -141,9 +184,14 @@ Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSE
   "timeline": ["slot_a", "slot_b"],
   "intents": {
     "slot_a": {
+      "slot_id": "slot_a",
+      "actor_id": "char_A",
       "skill_id": "skill_attack_01",
       "target": { "type": "single_slot", "slot_id": "slot_b" },
       "committed": true,
+      "committed_at": 1730000000123,
+      "committed_by": "player_a",
+      "intent_rev": 4,
       "tags": {
         "instant": false,
         "mass_type": null,
@@ -159,17 +207,41 @@ Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSE
       "applied": true
     }
   ],
+  "resolve_snapshot_intents": {
+    "slot_a": {
+      "slot_id": "slot_a",
+      "actor_id": "char_A",
+      "skill_id": "skill_attack_01",
+      "target": { "type": "single_slot", "slot_id": "slot_b" },
+      "committed": true,
+      "committed_at": 1730000000123,
+      "committed_by": "player_a",
+      "intent_rev": 4,
+      "tags": { "instant": false, "mass_type": null, "no_redirect": false }
+    }
+  },
+  "resolve_snapshot_at": 1730000000456,
   "resolve": {
+    "mass_queue": [],
+    "single_queue": [],
+    "resolved_slots": [],
+    "step_total": 3,
+    "step_estimate": { "mass": 1, "single": 2, "total": 3 },
     "trace": [
       {
         "step": 1,
+        "step_index": 0,
+        "step_total": 3,
         "kind": "redirect",
         "attacker_slot": "slot_a",
         "defender_slot": "slot_b",
         "target_actor_id": "char_B",
+        "attacker_actor_id": "char_A",
+        "defender_actor_id": "char_B",
         "rolls": {},
         "outcome": "no_effect",
-        "cost": { "mp": 0, "hp": 0 },
+        "cost": { "mp": 0, "hp": 0, "fp": 0 },
+        "display_label": "1",
         "notes": null
       }
     ]
@@ -187,13 +259,19 @@ Client→Server:
 - battle_intent_uncommit
 - battle_intent_change_skill
 - battle_intent_change_target
+- battle_resolve_confirm（GM専用）
+- battle_resolve_start
+- battle_resolve_flow_advance_request（GM専用）
 
 Server→Client:
 - battle_round_started
 - battle_state_updated
+- battle_resolve_ready
 - battle_phase_changed
 - battle_resolve_trace_appended
+- battle_resolve_flow_advance
 - battle_round_finished
+- battle_error
 
 payload例（このまま貼る）:
 
@@ -216,21 +294,39 @@ battle_intent_change_skill:
 battle_intent_change_target:
 {"room_id":"string","battle_id":"string","slot_id":"string","target":{"type":"single_slot|mass_individual|mass_summation|none","slot_id":"string|null"}}
 
+battle_resolve_confirm:
+{"room_id":"string","battle_id":"string"}
+
+battle_resolve_start:
+{"room_id":"string","battle_id":"string|null"}
+
+battle_resolve_flow_advance_request:
+{"room_id":"string","battle_id":"string","round":12,"expected_step_index":3}
+
 [Server→Client]
 battle_round_started (最小):
 {"room_id":"string","battle_id":"string","round":12,"phase":"select","slots":{"slot_id":{"actor_id":"...","initiative":8,"index_in_actor":0,"disabled":false,"locked_target":false}},"timeline":["slot_a","slot_b"],"tiebreak":[{"initiative":7,"group":["slot_x","slot_y"],"rolls":{"slot_x":3,"slot_y":5}}]}
 
 battle_state_updated (全量例):
-{"room_id":"string","battle_id":"string","round":12,"phase":"select|resolve_mass|resolve_single","slots":{},"intents":{"slot_id":{"skill_id":"...","target":{"type":"...","slot_id":"..."},"committed":true,"tags":{"instant":false,"mass_type":null,"no_redirect":false}}},"redirects":[]}
+{"room_id":"string","battle_id":"string","round":12,"phase":"select|resolve_mass|resolve_single","slots":{},"intents":{"slot_id":{"skill_id":"...","target":{"type":"...","slot_id":"..."},"committed":true,"tags":{"instant":false,"mass_type":null,"no_redirect":false}}},"redirects":[],"resolve_ready":false}
+
+battle_resolve_ready:
+{"room_id":"string","battle_id":"string","round":12,"phase":"select","ready":true,"required_count":4,"committed_count":4,"waiting_slots":[]}
 
 battle_phase_changed:
 {"room_id":"string","battle_id":"string","round":12,"from":"select","to":"resolve_mass"}
 
 battle_resolve_trace_appended:
-{"room_id":"string","battle_id":"string","round":12,"phase":"resolve_mass|resolve_single","trace":[{"step":1,"kind":"redirect|redirect_cancelled_by_no_redirect|mass_individual|mass_summation|clash|one_sided|fizzle|evade_insert","attacker_slot":"slot_a","defender_slot":"slot_b|null","target_actor_id":"char_X|null","rolls":{},"outcome":"attacker_win|defender_win|draw|no_effect","cost":{"mp":0,"hp":0},"notes":"string|null"}]}
+{"room_id":"string","battle_id":"string","round":12,"phase":"resolve_mass|resolve_single","trace":[{"step":1,"step_index":0,"step_total":9,"kind":"redirect|redirect_cancelled_by_no_redirect|mass_individual|mass_summation|clash|one_sided|fizzle|evade_insert","attacker_slot":"slot_a","defender_slot":"slot_b|null","target_actor_id":"char_X|null","display_label":"1|1-EX|1-EX2|null","rolls":{},"outcome":"attacker_win|defender_win|draw|no_effect","cost":{"mp":0,"hp":0,"fp":0},"notes":"string|null"}]}
+
+battle_resolve_flow_advance:
+{"room_id":"string","battle_id":"string","round":12,"expected_step_index":3,"requested_by":"gm"}
 
 battle_round_finished:
 {"room_id":"string","battle_id":"string","round":12}
+
+battle_error:
+{"message":"unknown slot_id|<event> permission denied|...","slot_id":"string|null","actor_id":"string|null"}
 
 ---
 
@@ -279,3 +375,14 @@ battle_round_finished:
 - `mass_summation_delta` は「合計ダメージ」として扱う。
 - 広域-合算UIでは防御側カードの主情報を「防御威力合計」とする。
 - 広域-合算の差分ダメージはダイス由来ダメージとして集計する。
+
+### A-6. 再使用（USE_SKILL_AGAIN）運用確定
+- 再使用は `one_sided` / `clash` の勝者起点で同対象へ差し込み解決する。
+- 追加スロットIDは `origin_slot__EXn` 形式、表示ラベルは `origin_step-EXn` 形式を使用する。
+- `reuse_cost` が不足する場合、その再使用差し込みはスキップする（元処理は有効）。
+- 旧 `APPLY_SKILL_DAMAGE_AGAIN` は後方互換として「再使用1回要求」に読み替える。
+
+### A-7. Resolve開始・同期運用
+- Resolve開始時に `resolve_snapshot_intents` を固定化し、Resolve中は snapshot を参照する。
+- `battle_resolve_ready` は「全 required slot が commit 済み」を通知するが、開始権限は GM のみ。
+- `battle_error` は unknown slot / 権限不足 / phase不一致 などの拒否理由を返す。

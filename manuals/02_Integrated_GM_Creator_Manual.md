@@ -85,3 +85,6 @@ GM権限でログインすると、プレイヤー画面にはない管理用コ
 - 解決表示中は事前ネタバレ防止のため、状態変化ログは段階表示後に反映されます。
 - 全件表示完了後にまとめログをチャットへ送信し、`round_end` へ遷移します。
 - 広域-合算は「防御威力合計」を基準に判定し、差分はダイス由来ダメージとして扱います。
+- `battle_resolve_confirm` / `battle_resolve_flow_advance_request` は GM のみ実行できます。
+- intent操作は対象スロットの操作権限チェックを通過した場合のみ反映されます（GMは全スロット代理操作可）。
+- 無効な `slot_id` や権限不足は `battle_error`（`unknown slot_id` / `permission denied`）として返されます。

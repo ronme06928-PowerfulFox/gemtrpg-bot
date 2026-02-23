@@ -1,6 +1,6 @@
 # ジェムリアTRPGダイスボット データ定義統合マニュアル
 
-**最終更新日**: 2026-02-05
+**最終更新日**: 2026-02-23
 **対象バージョン**: Current
 
 ---
@@ -51,6 +51,17 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 | `即時発動` | マッチを行わず、宣言と同時に効果を発揮・消費する。 |
 | `宝石の加護スキル` | 1戦闘に1回しか使用できない回数制限がかかる。 |
 | `回復` | 回復スキルとして認識される（UI表示などで考慮される場合あり）。 |
+| `対象変更不可` (`no_redirect`) | Select/Resolve の引き寄せ（redirect）を行わず、受けもしない。 |
+
+#### mass種別の自動推論（Select/Resolve）
+
+`mass_type` を明示しない既存データは、以下の文字列から自動推論されます。
+
+- `mass_summation` 判定: `mass_summation`, `summation`, `sum`, `広域-合算`, `合算`
+- `mass_individual` 判定: `mass_individual`, `individual`, `広域-個別`, `個別`
+- `広域` のみ判定可能な場合は `mass_individual` 扱い
+
+参照キーは `mass_type` / `target_type` / `targeting` / `distance` / `距離` / `射程` / `範囲` / `tags` などです。
 
 #### 1.2 効果 (effects)
 
@@ -65,6 +76,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
   * `self` (自分), `target` (対象), `ALL_ENEMIES` (敵全体), `ALL_ALLIES` (味方全体), `ALL` (全員), `NEXT_ALLY` (次手番の味方)
 * `condition`: 発動条件（任意）。
   * 例: `{"source": "target", "param": "HP", "operator": "LTE", "value": 10}`
+  * `param: "速度値"` は通常ステータスではなく initiative 参照。`context.timeline` / `context.battle_state.slots` / `actor.totalSpeed` の順で評価されます。
 
 **Effect Type 一覧:**
 
@@ -77,7 +89,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 | **<span style="color:#2ecc71; font-weight:bold;">MODIFY_FINAL_POWER</span>** | 最終威力を変更 (PRE_MATCH / BEFORE_POWER_ROLL用) | `value`: -1 |
 | **<span style="color:#e74c3c; font-weight:bold;">DAMAGE_BONUS</span>** | 追加ダメージ (HIT/WIN用) | `value`: 5 |
 | **<span style="color:#2ecc71; font-weight:bold;">MODIFY_ROLL</span>** | ロール結果値の修正 | `value`: -1 |
-| **<span style="color:#2ecc71; font-weight:bold;">USE_SKILL_AGAIN</span>** | 同スキルを同対象スロットへ再使用 | `max_reuses`: 1, `consume_cost`: false |
+| **<span style="color:#2ecc71; font-weight:bold;">USE_SKILL_AGAIN</span>** | 同スキルを同対象スロットへ再使用 | `max_reuses`: 1, `consume_cost`: false, `reuse_cost`: [{"type":"FP","value":1}] |
 | **<span style="color:#e67e22; font-weight:bold;">FORCE_UNOPPOSED</span>** | 相手の抵抗を封じる（一方攻撃化） | なし |
 | **<span style="color:#34495e; font-weight:bold;">CUSTOM_EFFECT</span>** | プラグイン効果を実行 | `value`: "破裂爆発" |
 
@@ -89,12 +101,13 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 * `出血氾濫`: 「出血」値分のダメージを与える。
 * `戦慄殺到`: 「戦慄」値に応じたMP減少・行動不能判定。
 * `荊棘飛散`: 「荊棘」値に応じて拡散処理。
-* `荊棘飛散`: 「荊棘」値に応じて拡散処理。
 * `APPLY_SKILL_DAMAGE_AGAIN`: 旧仕様。ダメージ再適用を直接行う後方互換用。
 * `DRAIN_HP`: 与えたダメージの一定割合をHPとして吸収する。`value`: 吸収率(1.0=100%)。
 
 `USE_SKILL_AGAIN` は `CUSTOM_EFFECT` ではなく通常 `effects[].type` として定義します。  
-デフォルトでは再使用時コストは消費せず、`consume_cost: true` を指定した場合のみ再使用分も消費します。
+デフォルトでは再使用時コストは消費せず、`consume_cost: true` を指定した場合のみ再使用分も消費します。  
+`reuse_cost` を指定した場合は差し込み時に即時支払い判定され、不足時はその再使用だけスキップされます。  
+連鎖回数は `max_reuses` を尊重しつつ、実装上限（20）で打ち止めされます。
 
 #### 1.3 威力ボーナス (power_bonus)
 
@@ -170,7 +183,6 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 | `Bu-06` | 破裂保護 | (`burst_no_consume`) 破裂爆発時、破裂値を消費しない。 |
 | `Bu-07` | 時限破裂 | (`timebomb_burst`) `delay` ラウンド経過後に爆発ダメージを与える。 |
 | `Bu-08` | 出血維持 | (`bleed_maintenance`) ラウンド終了時の出血減少（半減）を無効化。 |
-| `Bu-09` | 爆縮 | (`implosion`) 攻撃時、追加ダメージを与える。 |
 | `Bu-09` | 爆縮 | (`implosion`) 攻撃時、追加ダメージを与える。 |
 | `Bu-10` | 豊穣の風 | (`latium`) ラウンド開始時効果（実装依存）。 |
 | `Bu-11` | 加速 | (`speed_up`) ラウンド開始時の速度ロール補正（+スタック数）。ロール後に解除。 |
@@ -373,6 +385,7 @@ ID `S-XX` で定義されるパッシブスキルです。
 - 効果の実行可否は `manager/game_logic.py` の `process_skill_effects(...)` で判定されます。
 - 判定条件は `effect.timing == timing_to_check` の完全一致です。
 - したがって、データ側の `timing` 名と呼び出し側で渡す `timing_to_check` の一致が必須です。
+- 同一 `effects[]` 内では先行効果の反映結果を後続効果の条件判定に利用します（逐次シミュレーション）。
 
 ### B. 「使用時」はどこで処理されるか
 現在、`使用時` は専用タイミング名ではなく、以下で表現されています。
@@ -443,3 +456,5 @@ ID `S-XX` で定義されるパッシブスキルです。
 ### D. 実装上の注意
 - `使用時効果` テキスト列は主に表示/互換用途で、実際の効果発火は `特記処理.effects[]` が基準です。
 - 新規効果を追加する際は、`timing` の定義（データ）と呼び出し点（コード）の両方を合わせて更新してください。
+- `速度値` 条件はスロット initiative（最大値）を参照するため、通常 `params` の `速度` とは別物です。
+- Select/Resolve での再使用演算・表示ラベル規則は `manuals/08_SelectResolve_Spec.md` の 9.2 / 付録A-6 を参照してください。
