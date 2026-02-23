@@ -695,6 +695,22 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 if mod_value != 0:
                     total_bonus_damage += mod_value
                     log_snippets.append(f"[ロール修正 {mod_value:+,}]")
+            elif effect_type == "USE_SKILL_AGAIN":
+                # Resolve-layer feature: request reusing the same skill against the same slot target.
+                max_reuses = effect.get("max_reuses", effect.get("max_reuse_count", effect.get("value", 1)))
+                try:
+                    max_reuses = int(max_reuses)
+                except (TypeError, ValueError):
+                    max_reuses = 1
+                max_reuses = max(1, max_reuses)
+
+                consume_cost = bool(effect.get("consume_cost", False))
+                request_payload = {
+                    "max_reuses": max_reuses,
+                    "consume_cost": consume_cost,
+                }
+                changes_to_apply.append((target_obj, "USE_SKILL_AGAIN", "None", request_payload))
+                log_snippets.append(f"[同スキル再使用 x{max_reuses}]")
             elif effect_type == "CUSTOM_EFFECT":
                 # ★修正: target="self" の場合は自分を対象にする
                 target_obj = actor if effect.get("target") == "self" else target

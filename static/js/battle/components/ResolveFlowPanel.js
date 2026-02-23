@@ -387,6 +387,9 @@ class ResolveFlowPanel {
             defenderActorId: raw.defender_actor_id || raw.target_actor_id || null,
             targetActorId: raw.target_actor_id || null,
             notes: raw.notes || null,
+            displayLabel: (raw.display_label !== undefined && raw.display_label !== null)
+                ? String(raw.display_label)
+                : null,
             timestamp: this._toNumber(raw.timestamp, Math.floor(Date.now() / 1000)),
             rolls,
             applied: (raw.applied && typeof raw.applied === 'object') ? raw.applied : {},
@@ -1132,6 +1135,10 @@ class ResolveFlowPanel {
             : ((Number.isFinite(stepNumDisplayRaw) && stepNumDisplayRaw > 0)
                 ? stepNumDisplayRaw
                 : Math.max(1, Number(step.stepIndex || 0) + 1));
+        const explicitStepLabel = (typeof step.displayLabel === 'string' && step.displayLabel.trim())
+            ? step.displayLabel.trim()
+            : null;
+        const stepNumLabel = explicitStepLabel || String(stepNum);
         const remainingQueueCount = this._playQueue.filter((row) => !this._isIntroStep(row)).length;
         const stepTotalByCursor = this._toNumber(this._displayIndexCursor, 0);
         const stepTotalByPresentation = stepNum + remainingQueueCount;
@@ -1146,7 +1153,7 @@ class ResolveFlowPanel {
             : `[${this._escape(defenderSkill.id)}] ${this._escape(defenderSkill.name)}`;
         const outcomeResultHtml = isOneSided ? '' : ` <span class="result">(${outcomeLabel})</span>`;
         const notes = step.notes ? `<div class="resolve-flow-notes reveal-block reveal-outcome">${this._escape(String(step.notes))}</div>` : '';
-        const stepBodyKey = this._traceKey(step) || `fallback:${stepNum}:${kindClass}`;
+        const stepBodyKey = this._traceKey(step) || `fallback:${stepNumLabel}:${kindClass}`;
 
         const participants = this._summationParticipants(step, state);
         const participantsHtml = participants.map((row) => (
@@ -1179,7 +1186,7 @@ class ResolveFlowPanel {
                 <div class="resolve-flow-card">
                     <div class="resolve-flow-header">
                         <span class="title">RESOLVE</span>
-                        <span class="meta">#${this._escape(String(stepNum))} / ${this._escape(String(stepTotal))}</span>
+                        <span class="meta">#${this._escape(stepNumLabel)} / ${this._escape(String(stepTotal))}</span>
                     </div>
                     <div class="resolve-flow-kind">${kindLabel}</div>
                     <div class="resolve-flow-reveal-stage">${revealLabel}</div>

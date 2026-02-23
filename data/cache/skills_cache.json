@@ -583,8 +583,8 @@
     "ダイス威力": "+1d6",
     "使用時効果": "([[W-19|使用時]]):FPを3消費",
     "特記": "",
-    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]4を付与。自分の速度値が8以上なら、このスキルのダメージをもう一度与える。",
-    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"FP\", \"value\": 3}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"出血\",\"value\": 4},{\"timing\": \"HIT\",\"type\": \"CUSTOM_EFFECT\",\"value\": \"APPLY_SKILL_DAMAGE_AGAIN\",\"condition\": {\"source\": \"self\",\"param\": \"速度値\",\"operator\": \"GTE\",\"value\": 8}}]}",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]4を付与。自分の速度値が8以上なら、このスキルを[[W-58|再使用]]。(この効果による[[W-58|再使用]]は1ラウンドに1度まで)",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":3}],\n\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":4},{\"timing\":\"HIT\",\"type\":\"USE_SKILL_AGAIN\",\"max_reuses\":1,\"consume_cost\":false,\"condition\":{\"source\":\"self\",\"param\":\"速度値\",\"operator\":\"GTE\",\"value\":8}}]}\n",
     "tags": [
       "攻撃"
     ]
@@ -894,22 +894,6 @@
     "tags": [
       "攻撃"
     ]
-  },
-  "Pb-11": {
-    "スキルID": "Pb-11",
-    "チャットパレット": " 【Pb-11 】",
-    "デフォルト名称": "",
-    "分類": "",
-    "距離": "",
-    "属性": "",
-    "取得コスト": "",
-    "基礎威力": "",
-    "ダイス威力": "",
-    "使用時効果": "",
-    "特記": "",
-    "発動時効果": "",
-    "特記処理": "",
-    "tags": []
   },
   "Pp-00": {
     "スキルID": "Pp-00",
@@ -1645,6 +1629,24 @@
     "特記": "",
     "発動時効果": "([[W-20|的中時]]):[[W-04|亀裂]]3を付与。([[W-22|マッチ敗北時]]):[[W-04|亀裂]]1を付与。",
     "特記処理": "{\"cost\": [{\"type\": \"MP\",\"value\": 6},{\"type\": \"FP\",\"value\": 4}],\n  \"power_bonus\": [],\"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 3},{\"timing\": \"LOSE\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 1}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "Mp-09": {
+    "スキルID": "Mp-09",
+    "チャットパレット": "2+1d4+1d{魔法補正} 【Mp-09 五月雨式】",
+    "デフォルト名称": "五月雨式",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "2",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを3消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):FPを1消費し、このスキルを[[W-58|再使用]]。(この効果による[[W-58|再使用]]は2回まで)",
+    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 3}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"USE_SKILL_AGAIN\",\"max_reuses\": 2,\"consume_cost\": false,\"condition\": {\"source\": \"self\",\"param\": \"FP\",\"operator\": \"GTE\",\"value\": 1}},\n    {\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"self\",\"state_name\": \"FP\",\"value\": -1,\"condition\": {\"source\": \"self\",\"param\": \"FP\",\"operator\": \"GTE\",\"value\": 1}}]}",
     "tags": [
       "攻撃"
     ]

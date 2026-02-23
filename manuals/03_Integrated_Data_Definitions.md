@@ -77,6 +77,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 | **<span style="color:#2ecc71; font-weight:bold;">MODIFY_FINAL_POWER</span>** | 最終威力を変更 (PRE_MATCH / BEFORE_POWER_ROLL用) | `value`: -1 |
 | **<span style="color:#e74c3c; font-weight:bold;">DAMAGE_BONUS</span>** | 追加ダメージ (HIT/WIN用) | `value`: 5 |
 | **<span style="color:#2ecc71; font-weight:bold;">MODIFY_ROLL</span>** | ロール結果値の修正 | `value`: -1 |
+| **<span style="color:#2ecc71; font-weight:bold;">USE_SKILL_AGAIN</span>** | 同スキルを同対象スロットへ再使用 | `max_reuses`: 1, `consume_cost`: false |
 | **<span style="color:#e67e22; font-weight:bold;">FORCE_UNOPPOSED</span>** | 相手の抵抗を封じる（一方攻撃化） | なし |
 | **<span style="color:#34495e; font-weight:bold;">CUSTOM_EFFECT</span>** | プラグイン効果を実行 | `value`: "破裂爆発" |
 
@@ -89,8 +90,11 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 * `戦慄殺到`: 「戦慄」値に応じたMP減少・行動不能判定。
 * `荊棘飛散`: 「荊棘」値に応じて拡散処理。
 * `荊棘飛散`: 「荊棘」値に応じて拡散処理。
-* `APPLY_SKILL_DAMAGE_AGAIN`: このスキルのダメージ計算をもう一度実行する（連撃）。
+* `APPLY_SKILL_DAMAGE_AGAIN`: 旧仕様。ダメージ再適用を直接行う後方互換用。
 * `DRAIN_HP`: 与えたダメージの一定割合をHPとして吸収する。`value`: 吸収率(1.0=100%)。
+
+`USE_SKILL_AGAIN` は `CUSTOM_EFFECT` ではなく通常 `effects[].type` として定義します。  
+デフォルトでは再使用時コストは消費せず、`consume_cost: true` を指定した場合のみ再使用分も消費します。
 
 #### 1.3 威力ボーナス (power_bonus)
 

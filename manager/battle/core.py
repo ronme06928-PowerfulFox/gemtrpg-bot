@@ -23,6 +23,7 @@ from manager.logs import setup_logger
 logger = setup_logger(__name__)
 
 COST_CONSUME_POLICY = "on_execute"
+MAX_USE_SKILL_AGAIN_CHAIN_HARD_CAP = 20
 
 
 def _resolve_server_ts():
@@ -160,6 +161,7 @@ def _append_trace(
             attacker_slot,
             e
         )
+    return entry
 
 
 def _consume_legacy_timeline_entries_for_slots(state, slots, processed_slots):
@@ -173,7 +175,11 @@ def _consume_legacy_timeline_entries_for_slots(state, slots, processed_slots):
     slot_map = slots if isinstance(slots, dict) else {}
     actor_consume_counts = {}
     for sid in (processed_slots or []):
-        actor_id = (slot_map.get(sid, {}) or {}).get('actor_id')
+        slot_data = (slot_map.get(sid, {}) or {})
+        if slot_data.get('virtual_reuse', False):
+            # Virtual re-use slots are resolve-only steps and must not consume extra legacy turn entries.
+            continue
+        actor_id = slot_data.get('actor_id')
         if not actor_id:
             continue
         key = str(actor_id)
@@ -1496,7 +1502,16 @@ def _diff_snapshot(before, after, damage_source='繝繧､繧ｹ繝繝｡繝
     return {'damage': damage, 'statuses': statuses, 'flags': flags}
 
 
-def _apply_effect_changes_like_duel(room, state, changes, attacker_char, defender_char, base_damage, log_snippets):
+def _apply_effect_changes_like_duel(
+    room,
+    state,
+    changes,
+    attacker_char,
+    defender_char,
+    base_damage,
+    log_snippets,
+    reuse_requests=None
+):
     extra_primary_damage = 0
     for (char, effect_type, name, value) in changes:
         if not isinstance(char, dict):
@@ -1532,6 +1547,19 @@ def _apply_effect_changes_like_duel(room, state, changes, attacker_char, defende
                 b_dmg = process_on_damage_buffs(room, char, int(base_damage), "[select_resolve_one_sided]", temp_logs)
                 log_snippets.extend(temp_logs)
                 extra_primary_damage += int(base_damage) + int(b_dmg)
+        elif effect_type == "USE_SKILL_AGAIN":
+            payload = value if isinstance(value, dict) else {}
+            max_reuses = _safe_int(payload.get('max_reuses', 1), 1)
+            if max_reuses <= 0:
+                max_reuses = 1
+            req = {
+                'max_reuses': int(max_reuses),
+                'consume_cost': bool(payload.get('consume_cost', False))
+            }
+            if isinstance(char, dict) and char.get('id'):
+                req['target_id'] = char.get('id')
+            if isinstance(reuse_requests, list):
+                reuse_requests.append(req)
         elif effect_type == "MODIFY_BASE_POWER":
             char['_base_power_bonus'] = int(char.get('_base_power_bonus', 0) or 0) + int(value or 0)
         elif effect_type == "MODIFY_FINAL_POWER":
@@ -1570,6 +1598,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     attacker_rule = _extract_rule_data_from_skill(attacker_skill_data)
     effects_array_a = attacker_rule.get('effects', []) if isinstance(attacker_rule, dict) else []
     log_snippets = []
+    reuse_requests = []
 
     # Select/Resolve one-sided now aligns with duel order: PRE_MATCH first.
     pre_a = _trigger_skill_timing_effects(
@@ -1625,14 +1654,14 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         effects_array_a, "UNOPPOSED", attacker_char, defender_char, defender_skill_data, context=context
     )
     extra_un = _apply_effect_changes_like_duel(
-        room, state, chg_un, attacker_char, defender_char, base_damage, log_snippets
+        room, state, chg_un, attacker_char, defender_char, base_damage, log_snippets, reuse_requests=reuse_requests
     )
 
     bd_hit, log_hit, chg_hit = process_skill_effects(
         effects_array_a, "HIT", attacker_char, defender_char, defender_skill_data, context=context
     )
     extra_hit_from_changes = _apply_effect_changes_like_duel(
-        room, state, chg_hit, attacker_char, defender_char, base_damage, log_snippets
+        room, state, chg_hit, attacker_char, defender_char, base_damage, log_snippets, reuse_requests=reuse_requests
     )
 
     try:
@@ -1701,6 +1730,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         'hit': bool(total_damage > 0),
         'win': True,
         'logs': log_snippets,
+        'reuse_requests': reuse_requests,
         'rolls': {
             'command': final_command,
             'min_damage': (preview or {}).get('min_damage'),
@@ -2980,9 +3010,123 @@ def run_select_resolve_auto(room, battle_id):
             actor_id = slots.get(slot_key, {}).get('actor_id') if slot_key else None
             return _resolve_actor_name(characters_by_id, actor_id), actor_id
 
+        def _resolve_reuse_display_label(slot_key):
+            intent = intents.get(slot_key, {}) if slot_key else {}
+            if not isinstance(intent, dict):
+                return None
+            if not intent.get('reuse_virtual', False):
+                return None
+            origin_label = str(intent.get('reuse_origin_label') or '').strip()
+            depth = _safe_int(intent.get('reuse_depth', 0), 0)
+            if depth <= 0:
+                depth = 1
+            suffix = 'EX' if depth == 1 else f'EX{depth}'
+            if origin_label:
+                return f"{origin_label}-{suffix}"
+            return suffix
+
+        def _collect_reuse_policy(delegate_summary):
+            if not isinstance(delegate_summary, dict):
+                return {'enabled': False, 'max_reuses': 0, 'consume_cost': False}
+            requests = delegate_summary.get('reuse_requests', [])
+            if not isinstance(requests, list):
+                return {'enabled': False, 'max_reuses': 0, 'consume_cost': False}
+
+            max_reuses = 0
+            consume_cost = False
+            for req in requests:
+                if not isinstance(req, dict):
+                    continue
+                req_max = _safe_int(req.get('max_reuses', 1), 1)
+                if req_max > max_reuses:
+                    max_reuses = req_max
+                consume_cost = consume_cost or bool(req.get('consume_cost', False))
+
+            if max_reuses <= 0:
+                return {'enabled': False, 'max_reuses': 0, 'consume_cost': consume_cost}
+            return {
+                'enabled': True,
+                'max_reuses': min(int(max_reuses), int(MAX_USE_SKILL_AGAIN_CHAIN_HARD_CAP)),
+                'consume_cost': bool(consume_cost),
+            }
+
+        def _schedule_single_reuse_slot(current_slot_id, queue_index, intent_obj, policy, origin_label):
+            if not isinstance(intent_obj, dict):
+                return None
+            if not isinstance(policy, dict) or not policy.get('enabled', False):
+                return None
+
+            max_reuses = _safe_int(policy.get('max_reuses', 0), 0)
+            if max_reuses <= 0:
+                return None
+
+            origin_slot = str(intent_obj.get('reuse_origin_slot') or current_slot_id)
+            current_depth = _safe_int(intent_obj.get('reuse_depth', 0), 0)
+            existing_limit = _safe_int(intent_obj.get('reuse_chain_limit', 0), 0)
+            chain_limit = min(
+                int(MAX_USE_SKILL_AGAIN_CHAIN_HARD_CAP),
+                max(int(max_reuses), int(existing_limit))
+            )
+            next_depth = current_depth + 1
+            if next_depth > chain_limit:
+                return None
+
+            target = intent_obj.get('target', {}) if isinstance(intent_obj.get('target'), dict) else {}
+            target_type = target.get('type')
+            target_slot_id = target.get('slot_id')
+            if target_type != 'single_slot' or not target_slot_id:
+                return None
+
+            base_slot = slots.get(current_slot_id, {}) if isinstance(slots, dict) else {}
+            if not isinstance(base_slot, dict):
+                return None
+
+            base_id = f"{origin_slot}__EX{next_depth}"
+            next_slot_id = base_id
+            suffix = 2
+            while next_slot_id in slots:
+                next_slot_id = f"{base_id}_{suffix}"
+                suffix += 1
+
+            next_slot = dict(base_slot)
+            next_slot['slot_id'] = next_slot_id
+            next_slot['disabled'] = False
+            next_slot['status'] = 'queued_reuse'
+            next_slot['virtual_reuse'] = True
+            next_slot['reuse_origin_slot'] = origin_slot
+            next_slot['reuse_depth'] = next_depth
+            slots[next_slot_id] = next_slot
+
+            next_intent = {
+                'slot_id': next_slot_id,
+                'actor_id': intent_obj.get('actor_id'),
+                'skill_id': intent_obj.get('skill_id'),
+                'target': {'type': 'single_slot', 'slot_id': target_slot_id},
+                'tags': dict(intent_obj.get('tags', {}) if isinstance(intent_obj.get('tags'), dict) else {}),
+                'committed': True,
+                'committed_at': _resolve_server_ts(),
+                'intent_rev': _safe_int(intent_obj.get('intent_rev', 0), 0) + 1,
+                'reuse_virtual': True,
+                'reuse_origin_slot': origin_slot,
+                'reuse_depth': next_depth,
+                'reuse_chain_limit': chain_limit,
+                'reuse_origin_label': str(origin_label or ''),
+                'apply_cost_on_execute': bool(policy.get('consume_cost', False)),
+            }
+            intents[next_slot_id] = next_intent
+
+            queue_ref = battle_state.get('resolve', {}).get('single_queue', [])
+            if not isinstance(queue_ref, list):
+                queue_ref = []
+                battle_state.setdefault('resolve', {})['single_queue'] = queue_ref
+            insert_at = min(len(queue_ref), int(queue_index) + 1)
+            queue_ref.insert(insert_at, next_slot_id)
+            return next_slot_id
+
         def _emit_fizzle_with_log(attacker_slot, notes, target_actor_id=None):
             attacker_name, attacker_actor_id = _actor_name_from_slot(attacker_slot)
             skill_id_local = intents.get(attacker_slot, {}).get('skill_id')
+            display_label = _resolve_reuse_display_label(attacker_slot)
             _ = attacker_name  # keep local extraction for stable actor_id resolution
             outcome_payload = {
                 'attacker_id': attacker_actor_id,
@@ -3018,13 +3162,19 @@ def run_select_resolve_auto(room, battle_id):
                 target_actor_id=target_actor_id,
                 notes=notes,
                 extra_fields={
+                    'display_label': display_label,
                     'lines': log_lines,
                     'log_lines': log_lines,
                     'outcome_payload': dict(outcome_payload, log_lines=log_lines)
                 }
             )
 
-        for slot_id in battle_state['resolve'].get('single_queue', []):
+        single_queue_runtime = battle_state['resolve'].get('single_queue', [])
+        if not isinstance(single_queue_runtime, list):
+            single_queue_runtime = []
+            battle_state['resolve']['single_queue'] = single_queue_runtime
+
+        for queue_index, slot_id in enumerate(single_queue_runtime):
             if slot_id in processed_slots:
                 logger.debug("[resolve_single] skip slot=%s reason=processed", slot_id)
                 continue
@@ -3038,6 +3188,7 @@ def run_select_resolve_auto(room, battle_id):
                 _mark_processed(slot_id)
                 continue
             skill_data = all_skill_data.get(skill_id, {}) if skill_id else {}
+            trace_display_label = _resolve_reuse_display_label(slot_id)
 
             target = intent_a.get('target', {})
             target_slot = target.get('slot_id')
@@ -3184,6 +3335,7 @@ def run_select_resolve_auto(room, battle_id):
                     cost=trace_cost,
                     rolls=clash_rolls,
                     extra_fields={
+                        'display_label': trace_display_label,
                         'outcome_payload': clash_outcome_payload,
                         'applied': clash_applied,
                         'lines': clash_legacy_lines,
@@ -3215,7 +3367,7 @@ def run_select_resolve_auto(room, battle_id):
                     'target_id': target_actor_id,
                     'skill_id': skill_id,
                     'skill': skill_data,
-                    'apply_cost': True,
+                    'apply_cost': bool(intent_a.get('apply_cost_on_execute', True)),
                     'cost_policy': COST_CONSUME_POLICY,
                     'delegate_applied': delegate_ok,
                     'delegate_summary': delegate_summary if delegate_ok else {}
@@ -3276,7 +3428,7 @@ def run_select_resolve_auto(room, battle_id):
                 trace_notes = one_sided_notes
                 trace_rolls = delegate_summary.get('rolls', {}) if isinstance(delegate_summary, dict) else {}
 
-                _append_trace(
+                trace_entry = _append_trace(
                     room, battle_id, battle_state, 'one_sided', slot_id,
                     defender_slot=target_slot,
                     target_actor_id=target_actor_id,
@@ -3285,12 +3437,25 @@ def run_select_resolve_auto(room, battle_id):
                     cost=trace_cost,
                     rolls=trace_rolls,
                     extra_fields={
+                        'display_label': trace_display_label,
                         'outcome_payload': outcome_payload,
                         'applied': applied,
                         'lines': one_sided_log_lines,
                         'log_lines': one_sided_log_lines
                     }
                 )
+                if delegate_ok:
+                    reuse_policy = _collect_reuse_policy(delegate_summary)
+                    current_label = trace_display_label
+                    if not current_label and isinstance(trace_entry, dict):
+                        current_label = str(trace_entry.get('step') or '')
+                    _schedule_single_reuse_slot(
+                        current_slot_id=slot_id,
+                        queue_index=queue_index,
+                        intent_obj=intent_a,
+                        policy=reuse_policy,
+                        origin_label=current_label
+                    )
                 _mark_processed(slot_id)
 
         remaining_slots = sum(

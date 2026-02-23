@@ -642,7 +642,9 @@ def execute_duel_match(room, data, username):
                                 if target_key:
                                     damage_report[target_key].append({'source': n, 'value': v})
 
-                            elif t == "APPLY_SKILL_DAMAGE_AGAIN":
+                            elif t == "APPLY_SKILL_DAMAGE_AGAIN" or t == "USE_SKILL_AGAIN":
+                                # Legacy duel modal fallback: resolve as same-damage follow-up hit.
+                                # Select/Resolve flow uses virtual-slot re-use in battle/core.py.
                                 # one-sided matchでも追撃を個別処理
                                 if damage > 0:
                                      _update_char_stat(room, c, 'HP', c.get('hp', 0) - damage, username=f"[追撃]", source=DamageSource.SKILL_EFFECT)

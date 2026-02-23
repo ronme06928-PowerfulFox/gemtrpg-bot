@@ -1031,5 +1031,21 @@
     "icon": "",
     "sort_order": null,
     "is_enabled": true
+  },
+  "W-58": {
+    "term_id": "W-58",
+    "display_name": "再使用",
+    "category": "効果",
+    "short": "",
+    "long": "回避スキルでマッチ勝利時や特定のスキル効果で発動し、対象となったスキルを特定のタイミングでもう一度使用できる。\n原則として再使用時にスキルコストは消費されない。",
+    "flavor": "",
+    "links": [
+      "W-56",
+      "W-43"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
   }
 }

@@ -128,7 +128,9 @@ def apply_skill_effects_bidirectional(
                 broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
             elif type_ == "REMOVE_BUFF":
                 remove_buff(char, name)
-            elif type_ == "APPLY_SKILL_DAMAGE_AGAIN":
+            elif type_ == "APPLY_SKILL_DAMAGE_AGAIN" or type_ == "USE_SKILL_AGAIN":
+                # Legacy duel/wide path fallback: treat as extra same-damage hit.
+                # Select/Resolve flow has dedicated re-use handling in battle/core.py.
                 if damage_val > 0:
                      _update_char_stat(room, char, 'HP', char['hp'] - damage_val, username=f"[追撃]", source=DamageSource.SKILL_EFFECT)
                      temp_logs = []
