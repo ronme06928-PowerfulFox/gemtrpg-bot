@@ -342,7 +342,7 @@ def calculate_state_apply_bonus(actor, target, stat_name, context=None):
 
     return total_bonus, buffs_to_remove
 
-def execute_custom_effect(effect, actor, target):
+def execute_custom_effect(effect, actor, target, context=None):
     """
     プラグイン化されたカスタム効果を実行する
     """
@@ -354,11 +354,15 @@ def execute_custom_effect(effect, actor, target):
         return [], []
 
     try:
-        # コンテキストとしてレジストリを渡す（亀裂崩壊などで再帰的に使うため）
-        context = {
+        # コンテキストとしてレジストリを渡す（亀裂崩壊などで再帰的に使うため）。
+        # 呼び出し側のcontext(キャラ一覧など)も取り込んで、プラグイン側で利用できるようにする。
+        plugin_context = {
             "registry": EFFECT_REGISTRY
         }
-        return handler.apply(actor, target, effect, context)
+        if isinstance(context, dict):
+            plugin_context.update(context)
+            plugin_context["registry"] = EFFECT_REGISTRY
+        return handler.apply(actor, target, effect, plugin_context)
     except Exception as e:
         logger.error(f"Plugin Error ({effect_name}): {e}")
         return [], []
@@ -758,7 +762,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             elif effect_type == "CUSTOM_EFFECT":
                 # ★修正: target="self" の場合は自分を対象にする
                 target_obj = actor if effect.get("target") == "self" else target
-                custom_changes, custom_logs = execute_custom_effect(effect, actor, target_obj)
+                custom_changes, custom_logs = execute_custom_effect(effect, actor, target_obj, context=context)
                 changes_to_apply.extend(custom_changes)
                 log_snippets.extend(custom_logs)
             elif effect_type == "FORCE_UNOPPOSED":
