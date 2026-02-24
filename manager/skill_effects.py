@@ -7,6 +7,7 @@ from manager.game_logic import process_skill_effects, get_status_value, apply_bu
 from manager.room_manager import _update_char_stat, broadcast_log
 from manager.battle.core import process_on_damage_buffs
 from manager.constants import DamageSource
+from manager.summons.service import apply_summon_change
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +154,12 @@ def apply_skill_effects_bidirectional(
                 if 'flags' not in char:
                     char['flags'] = {}
                 char['flags'][name] = value
+            elif type_ == "SUMMON_CHARACTER":
+                res = apply_summon_change(room, state, char, value)
+                if res.get("ok"):
+                    broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                else:
+                    logger.warning("[apply_skill_effects_bidirectional summon failed] %s", res.get("message"))
         return extra_dmg
 
     # 内部関数: 処理実行と適用

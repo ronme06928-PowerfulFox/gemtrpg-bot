@@ -1181,13 +1181,6 @@ class ResolveFlowPanel {
             ? step.displayLabel.trim()
             : null;
         const stepNumLabel = explicitStepLabel || String(stepNum);
-        const remainingQueueCount = this._playQueue.filter((row) => !this._isIntroStep(row)).length;
-        const stepTotalByCursor = this._toNumber(this._displayIndexCursor, 0);
-        const stepTotalByPresentation = stepNum + remainingQueueCount;
-        const dynamicStepTotal = Math.max(stepNum, stepTotalByCursor, stepTotalByPresentation, 1);
-        const stepTotal = this._baseStepTotal > 0
-            ? Math.max(1, this._baseStepTotal)
-            : dynamicStepTotal;
         const kindClass = this._escape(String(step.kind || 'unknown'));
         const kindLabel = this._escape(this._kindLabel(step.kind));
         const outcomeLabel = this._escape(this._outcomeLabel(step.outcome));
@@ -1231,7 +1224,7 @@ class ResolveFlowPanel {
                 <div class="resolve-flow-card">
                     <div class="resolve-flow-header">
                         <span class="title">RESOLVE</span>
-                        <span class="meta">#${this._escape(stepNumLabel)} / ${this._escape(String(stepTotal))}</span>
+                        <span class="meta">#${this._escape(stepNumLabel)}</span>
                     </div>
                     <div class="resolve-flow-kind">${kindLabel}</div>
                     <div class="resolve-flow-reveal-stage">${revealLabel}</div>

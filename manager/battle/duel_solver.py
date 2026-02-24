@@ -22,6 +22,7 @@ from manager.battle.core import (
     execute_pre_match_effects, proceed_next_turn, format_skill_name_for_log,
     process_on_hit_buffs, format_duel_result_lines
 )
+from manager.summons.service import apply_summon_change
 from plugins.buffs.dodge_lock import DodgeLockBuff
 from manager.logs import setup_logger
 
@@ -154,6 +155,12 @@ def handle_skill_declaration(room, data, username):
                  elif type == "SET_FLAG":
                      if 'flags' not in c: c['flags'] = {}
                      c['flags'][name] = value
+                 elif type == "SUMMON_CHARACTER":
+                     res = apply_summon_change(room, state, c, value)
+                     if res.get("ok"):
+                         broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                     else:
+                         logger.warning("[immediate summon failed] %s", res.get("message"))
 
              if 'flags' not in actor: actor['flags'] = {}
              actor['flags']['immediate_action_used'] = True
@@ -619,16 +626,22 @@ def execute_duel_match(room, data, username):
                                 elif n == 'MP':
                                     base_curr = int(c.get('mp', 0))
                                 else:
-                                    state = next((s for s in c.get('states', []) if s.get('name') == n), None)
-                                    if state:
+                                    state_obj = next((s for s in c.get('states', []) if s.get('name') == n), None)
+                                    if state_obj:
                                         try:
-                                            base_curr = int(state.get('value', 0))
+                                            base_curr = int(state_obj.get('value', 0))
                                         except ValueError:
                                             base_curr = 0
                                 logger.debug(f"[local_apply UNOPPOSED] {c['name']}: {n} base_current={base_curr}, adding={v}, new={base_curr + v}")
                                 _update_char_stat(room, c, n, base_curr + v, username=f"[{n}]")
                             elif t == "APPLY_BUFF": apply_buff(c, n, v["lasting"], v["delay"], data=v.get("data"))
                             elif t == "REMOVE_BUFF": remove_buff(c, n)
+                            elif t == "SUMMON_CHARACTER":
+                                res = apply_summon_change(room, None, c, v)
+                                if res.get("ok"):
+                                    broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                                else:
+                                    logger.warning("[unopposed summon failed] %s", res.get("message"))
                             elif t == "CUSTOM_DAMAGE":
                                 # ★修正: 攻撃対象へのダメージのみを加算し、それ以外（自傷など）は直接適用する
                                 if primary_target and c.get('id') == primary_target.get('id'):
@@ -943,6 +956,12 @@ def execute_duel_match(room, data, username):
                         elif type == "SET_FLAG":
                             if 'flags' not in char: char['flags'] = {}
                             char['flags'][name] = value
+                        elif type == "SUMMON_CHARACTER":
+                            res = apply_summon_change(room, state, char, value)
+                            if res.get("ok"):
+                                broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change", save=False)
+                            else:
+                                logger.warning("[draw end_match summon failed] %s", res.get("message"))
                     return l
 
                 log_a = local_end_match(effects_array_a, actor_a_char, actor_d_char, skill_data_d)
@@ -1144,6 +1163,12 @@ def execute_duel_match(room, data, username):
                     elif type == "SET_FLAG":
                         if 'flags' not in char: char['flags'] = {}
                         char['flags'][name] = value
+                    elif type == "SUMMON_CHARACTER":
+                        res = apply_summon_change(room, state, char, value)
+                        if res.get("ok"):
+                            broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change", save=False)
+                        else:
+                            logger.warning("[draw summon failed] %s", res.get("message"))
                 return l
 
             log_a = run_end_match(effects_array_a, actor_a_char, actor_d_char, skill_data_d)

@@ -274,6 +274,29 @@ function renderCharacterCard(char) {
 
     // --- Buffs (Flavor Text Handling Fix) ---
     let specialBuffsHtml = '';
+    const summonDurationMode = String(char.summon_duration_mode || '').toLowerCase();
+    const summonRemainingRounds = parseInt(char.remaining_summon_rounds, 10);
+    if (
+        char.is_summoned
+        && summonDurationMode === 'duration_rounds'
+        && Number.isFinite(summonRemainingRounds)
+        && summonRemainingRounds > 0
+    ) {
+        specialBuffsHtml += `
+            <details class="detail-buff-item" style="border: 1px solid #ffc078; border-radius: 4px; margin-bottom: 5px; overflow: hidden; background: #fff;">
+                <summary style="background: #fff3bf; padding: 8px 10px; cursor: pointer; font-weight: bold; font-size: 0.95em; display: flex; align-items: center; justify-content: space-between; outline: none;">
+                    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 5px;">
+                        <span>召喚継続</span>
+                        <span class="buff-duration-badge" style="background:#666; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:8px; white-space: nowrap;">残り${summonRemainingRounds}R</span>
+                    </div>
+                    <span style="font-size: 0.8em; color: #666;">▼</span>
+                </summary>
+                <div style="padding: 10px; background: #fff; border-top: 1px solid #ffe8a1;">
+                    <div class="buff-desc-row" style="font-weight: bold; color: #212529; font-size: 0.9em; margin-bottom: 5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;">この召喚体はラウンド終了時に残り継続ラウンドが減少し、0で消滅します。</div>
+                </div>
+            </details>
+        `;
+    }
     if (char.special_buffs && char.special_buffs.length > 0) {
         char.special_buffs.forEach((b) => {
             let descriptionText = b.description;

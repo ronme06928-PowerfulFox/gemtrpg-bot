@@ -770,6 +770,61 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                          # 変更予約 (実体)
                          changes_to_apply.append((actor, "APPLY_STATE", "HP", heal_val))
                          log_snippets.append(f"[吸収 {heal_val}]")
+            elif effect_type == "SUMMON_CHARACTER":
+                summon_template_id = (
+                    effect.get("summon_template_id")
+                    or effect.get("template_id")
+                    or effect.get("summon_id")
+                )
+                if not summon_template_id:
+                    continue
+                summon_payload = {
+                    "summon_template_id": summon_template_id,
+                }
+                duration_mode_raw = effect.get("summon_duration_mode", effect.get("duration_mode"))
+                if duration_mode_raw not in (None, ""):
+                    summon_payload["summon_duration_mode"] = duration_mode_raw
+                duration_raw = effect.get("summon_duration", effect.get("duration"))
+                if duration_raw not in (None, ""):
+                    summon_payload["summon_duration"] = duration_raw
+                summon_team_raw = effect.get("summon_type", effect.get("summon_team"))
+                if summon_team_raw not in (None, ""):
+                    summon_payload["type"] = summon_team_raw
+                for key in [
+                    "name",
+                    "base_name",
+                    "x",
+                    "y",
+                    "offset_x",
+                    "offset_y",
+                    "commands",
+                    "initial_skill_ids",
+                    "custom_skill_names",
+                    "SPassive",
+                    "special_buffs",
+                    "radiance_skills",
+                    "params",
+                    "states",
+                    "hp",
+                    "maxHp",
+                    "mp",
+                    "maxMp",
+                ]:
+                    if key in effect:
+                        summon_payload[key] = copy.deepcopy(effect.get(key))
+
+                # target を別に取る定義では、座標が未指定なら target 座標をスポーン地点に使う。
+                if (
+                    isinstance(target_obj, dict)
+                    and target_obj.get("id") != actor.get("id")
+                    and "x" not in summon_payload
+                    and "y" not in summon_payload
+                ):
+                    summon_payload["x"] = target_obj.get("x")
+                    summon_payload["y"] = target_obj.get("y")
+
+                changes_to_apply.append((actor, "SUMMON_CHARACTER", str(summon_template_id), summon_payload))
+                log_snippets.append(f"[召喚:{summon_template_id}]")
 
 
     return total_bonus_damage, log_snippets, changes_to_apply
@@ -1223,6 +1278,14 @@ def process_on_death(room, char, username):
                 elif type == "APPLY_BUFF":
                     apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
                     broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
+                elif type == "SUMMON_CHARACTER":
+                    from manager.summons.service import apply_summon_change
+
+                    res = apply_summon_change(room, state, c, value)
+                    if res.get("ok"):
+                        broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                    else:
+                        logger.warning("[on_death summon failed] %s", res.get("message"))
 
     # 通常ログは呼び出し元で処理済み
 
@@ -1283,6 +1346,14 @@ def process_battle_start(room, char):
                 elif type == "APPLY_BUFF":
                      apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
                      broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
+                elif type == "SUMMON_CHARACTER":
+                     from manager.summons.service import apply_summon_change
+
+                     res = apply_summon_change(room, state, c, value)
+                     if res.get("ok"):
+                         broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                     else:
+                         logger.warning("[battle_start summon failed] %s", res.get("message"))
 
             executed = True
 

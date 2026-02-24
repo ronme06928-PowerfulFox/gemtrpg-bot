@@ -1,0 +1,69 @@
+{
+  "U-00": {
+    "baseName": "U-00",
+    "name": "鉄の小蜘蛛",
+    "hp": 30,
+    "maxHp": 30,
+    "mp": 0,
+    "maxMp": 0,
+    "initial_skill_ids": [
+      "E-17",
+      "E-18"
+    ],
+    "SPassive": [],
+    "radiance_skills": [],
+    "hidden_skills": [],
+    "inventory": {},
+    "summon_duration_mode": "duration_rounds",
+    "summon_duration": 3,
+    "allow_duplicate_same_team": true,
+    "params": [
+      {
+        "label": "速度",
+        "value": "2"
+      },
+      {
+        "label": "物理補正",
+        "value": "1"
+      },
+      {
+        "label": "魔法補正",
+        "value": "0"
+      }
+    ]
+  },
+  "U-01": {
+    "baseName": "U-01",
+    "name": "マフィアの下っ端",
+    "hp": 55,
+    "maxHp": 55,
+    "mp": 8,
+    "maxMp": 8,
+    "initial_skill_ids": [
+      "Ps-00",
+      "Ps-01",
+      "Ps-02"
+    ],
+    "SPassive": [],
+    "radiance_skills": [],
+    "hidden_skills": [],
+    "inventory": {},
+    "summon_duration_mode": "permanent",
+    "summon_duration": 0,
+    "allow_duplicate_same_team": true,
+    "params": [
+      {
+        "label": "速度",
+        "value": "6"
+      },
+      {
+        "label": "物理補正",
+        "value": "2"
+      },
+      {
+        "label": "魔法補正",
+        "value": "2"
+      }
+    ]
+  }
+}

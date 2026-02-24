@@ -16,6 +16,7 @@ from manager.battle.core import (
     process_simple_round_end, proceed_next_turn,
     calculate_opponent_skill_modifiers, process_on_hit_buffs
 )
+from manager.summons.service import apply_summon_change
 from manager.utils import resolve_placeholders, get_effective_origin_id
 from manager.logs import setup_logger
 
@@ -283,6 +284,12 @@ def execute_wide_match(room, username):
                     if other_char.get("type") == orig_target_type and other_char.get("id") != orig_target_id:
                         curr = get_status_value(other_char, name)
                         _update_char_stat(room, other_char, name, curr + value, username=f"[{name}]")
+            elif type == "SUMMON_CHARACTER":
+                res = apply_summon_change(room, state, char, value)
+                if res.get("ok"):
+                    broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                else:
+                    logger.warning("[wide summon failed] %s", res.get("message"))
         return extra
 
     # ★ 追加: マッチ不可 (Unmatchable) の処理

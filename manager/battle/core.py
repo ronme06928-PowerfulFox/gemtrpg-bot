@@ -19,6 +19,7 @@ from manager.room_manager import (
 )
 from manager.constants import DamageSource
 from manager.logs import setup_logger
+from manager.summons.service import apply_summon_change, process_summon_round_end
 
 logger = setup_logger(__name__)
 
@@ -1583,6 +1584,12 @@ def _apply_effect_changes_like_duel(
             if 'flags' not in char:
                 char['flags'] = {}
             char['flags'][name] = value
+        elif effect_type == "SUMMON_CHARACTER":
+            res = apply_summon_change(room, state, char, value)
+            if res.get("ok"):
+                broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+            else:
+                logger.warning("[select_resolve summon failed] %s", res.get("message"))
     return extra_primary_damage
 
 
@@ -4051,6 +4058,12 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
             elif type == "MODIFY_FINAL_POWER":
                 char['_final_power_bonus'] = char.get('_final_power_bonus', 0) + value
                 broadcast_log(room, f"[{char['name']}] 最終威力 {value:+}", 'state-change')
+            elif type == "SUMMON_CHARACTER":
+                res = apply_summon_change(room, state, char, value)
+                if res.get("ok"):
+                    broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                else:
+                    logger.warning("[pre_match summon failed] %s", res.get("message"))
     except Exception:
         pass
 
@@ -4175,6 +4188,13 @@ def process_simple_round_end(state, room):
             char['used_gem_protect_this_round'] = False
         if 'used_skills_this_round' in char:
             char['used_skills_this_round'] = []
+
+    removed_summons = process_summon_round_end(state, room=room)
+    for summoned in removed_summons:
+        try:
+            broadcast_log(room, f"{summoned.get('name', '召喚体')} は時間切れで消滅した。", "state-change")
+        except Exception:
+            pass
 
     # マホロバ(ID:5) のラウンド終了時効果
     mahoroba_targets = []

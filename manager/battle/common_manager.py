@@ -11,6 +11,7 @@ from manager.battle.core import proceed_next_turn
 from manager.battle.battle_ai import ai_select_targets, ai_suggest_skill
 from manager.dice_roller import roll_dice
 from manager.logs import setup_logger
+from manager.summons.service import apply_summon_change, process_summon_round_end
 
 logger = setup_logger(__name__)
 
@@ -65,6 +66,50 @@ def _is_pve_actionable_character(char):
     except (TypeError, ValueError):
         return False
     return x_val >= 0
+
+
+def _is_summon_action_locked(char, round_value):
+    if not isinstance(char, dict):
+        return False
+    if not bool(char.get('is_summoned', False)):
+        return False
+    try:
+        can_act_from_round = int(char.get('can_act_from_round', 0) or 0)
+    except (TypeError, ValueError):
+        can_act_from_round = 0
+    try:
+        current_round = int(round_value or 0)
+    except (TypeError, ValueError):
+        current_round = 0
+    return can_act_from_round > current_round
+
+
+def _remove_summoned_characters(state):
+    if not isinstance(state, dict):
+        return 0
+
+    chars = state.get('characters', [])
+    if not isinstance(chars, list):
+        return 0
+
+    kept = []
+    removed_ids = []
+    for char in chars:
+        if isinstance(char, dict) and bool(char.get('is_summoned', False)):
+            removed_ids.append(str(char.get('id', '') or ''))
+            continue
+        kept.append(char)
+
+    if not removed_ids:
+        return 0
+
+    state['characters'] = kept
+    owners = state.get('character_owners', {})
+    if isinstance(owners, dict):
+        for char_id in removed_ids:
+            owners.pop(char_id, None)
+
+    return len(removed_ids)
 
 
 def _extract_skill_rule_data(skill_data):
@@ -421,12 +466,19 @@ def process_full_round_end(room, username):
 
     # 全員行動済みかチェック
     from plugins.buffs.confusion import ConfusionBuff
+    current_round = int(state.get('round', 0) or 0)
     not_acted_chars = []
     for c in characters_to_process:
         is_dead = c.get('hp', 0) <= 0
         is_escaped = c.get('is_escaped', False)
         is_incapacitated = ConfusionBuff.is_incapacitated(c)
-        should_act = not is_dead and not is_escaped and not is_incapacitated
+        is_action_locked_summon = _is_summon_action_locked(c, current_round)
+        should_act = (
+            not is_dead
+            and not is_escaped
+            and not is_incapacitated
+            and not is_action_locked_summon
+        )
 
         if should_act and not c.get('hasActed', False):
             not_acted_chars.append(c.get('name', 'Unknown'))
@@ -461,6 +513,12 @@ def process_full_round_end(room, username):
             elif type == "APPLY_BUFF":
                 apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
                 broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
+            elif type == "SUMMON_CHARACTER":
+                res = apply_summon_change(room, state, c, value)
+                if res.get("ok"):
+                    broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                else:
+                    logger.warning("[end_round summon failed] %s", res.get("message"))
 
         # 1c. Bleed
         bleed_value = get_status_value(char, '出血')
@@ -535,9 +593,13 @@ def process_full_round_end(room, username):
         if 'used_immediate_skills_this_round' in char: char['used_immediate_skills_this_round'] = []
         if 'used_skills_this_round' in char: char['used_skills_this_round'] = []
 
+    removed_summons = process_summon_round_end(state, room=room)
+    for summoned in removed_summons:
+        broadcast_log(room, f"{summoned.get('name', '召喚体')} は時間切れで消滅した。", "state-change")
+
     # ★ 追加: マホロバ (ID: 5) ラウンド終了時一括処理
     mahoroba_targets = []
-    for char in characters_to_process:
+    for char in state.get('characters', []):
         if char.get('hp', 0) <= 0: continue
         if get_effective_origin_id(char) == 5:
              # HP回復
@@ -618,6 +680,10 @@ def reset_battle_logic(room, mode, username, reset_options=None):
 
         # Status reset always clears timeline.
         state['timeline'] = []
+
+        removed_summon_count = _remove_summoned_characters(state)
+        if removed_summon_count > 0:
+            broadcast_log(room, f"[リセット] 召喚体 {removed_summon_count} 体を盤面から除去しました。", 'info')
 
         for char in state.get('characters', []):
             initial = char.get('initial_state', {})
@@ -967,6 +1033,15 @@ def process_round_start(room, username):
         if x_val < 0:
              logger.debug(f"[Timeline] Skip {char.get('name')} (Unplaced x={x_val})")
              continue
+        can_act_from_round = int(char.get('can_act_from_round', 0) or 0)
+        if bool(char.get('is_summoned', False)) and can_act_from_round > int(state.get('round', 0)):
+            logger.debug(
+                "[Timeline] Skip %s (summon lock: can_act_from=%s current=%s)",
+                char.get('name'),
+                can_act_from_round,
+                state.get('round', 0),
+            )
+            continue
 
         # Calculate Speed (1d6 + Speed/6)
         # Clear previous totalSpeed
@@ -1526,6 +1601,9 @@ def process_select_resolve_round_start(room, battle_id, round_value):
             continue
 
         if hp <= 0 or escaped or x_val < 0:
+            continue
+        can_act_from_round = int(char.get('can_act_from_round', 0) or 0)
+        if bool(char.get('is_summoned', False)) and can_act_from_round > int(round_value):
             continue
 
         actor_id = char.get('id')

@@ -15,6 +15,7 @@ RADIANCE_CACHE_FILE = CACHE_DIR / "radiance_skills_cache.json"
 PASSIVES_CACHE_FILE = CACHE_DIR / "passives_cache.json"
 BUFF_CATALOG_CACHE_FILE = CACHE_DIR / "buff_catalog_cache.json"
 GLOSSARY_CACHE_FILE = CACHE_DIR / "glossary_catalog_cache.json"
+SUMMON_TEMPLATES_CACHE_FILE = CACHE_DIR / "summon_templates_cache.json"
 
 LEGACY_SKILLS_CACHE_FILE = REPO_ROOT / "skills_cache.json"
 LEGACY_ITEMS_CACHE_FILE = REPO_ROOT / "items_cache.json"
@@ -22,6 +23,7 @@ LEGACY_RADIANCE_CACHE_FILE = REPO_ROOT / "radiance_skills_cache.json"
 LEGACY_PASSIVES_CACHE_FILE = REPO_ROOT / "passives_cache.json"
 LEGACY_BUFF_CATALOG_CACHE_FILE = REPO_ROOT / "buff_catalog_cache.json"
 LEGACY_GLOSSARY_CACHE_FILE = REPO_ROOT / "glossary_catalog_cache.json"
+LEGACY_SUMMON_TEMPLATES_CACHE_FILE = REPO_ROOT / "summon_templates_cache.json"
 
 
 def ensure_cache_dir() -> None:
@@ -48,4 +50,3 @@ def load_json_cache(cache_file: Path, legacy_paths: Optional[Iterable[Path]] = N
         return data
 
     return None
-
