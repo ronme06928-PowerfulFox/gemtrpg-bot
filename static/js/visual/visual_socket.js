@@ -503,7 +503,19 @@ window.setupVisualSocketHandlers = function () {
                 if (shouldDeferResolveLogs()) {
                     deferredHistoryDirty = true;
                 } else if (typeof renderVisualLogHistory === 'function') {
-                    renderVisualLogHistory(state.logs);
+                    const prevLogCount = Number(window._lastLogCount || 0);
+                    const canAppendOnly = (
+                        typeof window.appendVisualLogBatch === 'function'
+                        && prevLogCount > 0
+                        && newLogCount > prevLogCount
+                        && (newLogCount - prevLogCount) <= 20
+                        && Array.isArray(state.logs)
+                    );
+                    if (canAppendOnly) {
+                        window.appendVisualLogBatch(state.logs.slice(prevLogCount));
+                    } else {
+                        renderVisualLogHistory(state.logs);
+                    }
                     window._lastLogCount = newLogCount;
                 }
             }
@@ -537,6 +549,7 @@ window.setupVisualSocketHandlers = function () {
         const handled = applyBattleStore('setRoundStarted', payload || {});
         if (handled) syncLegacyBattleStateFromStore();
         else applyBattlePayloadToLegacy(payload || {});
+        if (typeof renderVisualMap === 'function') renderVisualMap();
         if (typeof renderVisualTimeline === 'function') renderVisualTimeline();
         if (typeof renderSlotBadgesForAllTokens === 'function') renderSlotBadgesForAllTokens();
         if (typeof updateActionDock === 'function') updateActionDock();
@@ -560,6 +573,7 @@ window.setupVisualSocketHandlers = function () {
             `[OBS] phase=${observed?.phase || payload?.phase || 'n/a'} tl=${tlLen} slots=${Object.keys(observed?.slots || {}).length} intents=${Object.keys(observed?.intents || {}).length} active=${active || 'none'} spent=${spent}`
         );
 
+        if (typeof renderVisualMap === 'function') renderVisualMap();
         if (typeof renderVisualTimeline === 'function') renderVisualTimeline();
         if (typeof renderSlotBadgesForAllTokens === 'function') renderSlotBadgesForAllTokens();
         if (typeof updateActionDock === 'function') updateActionDock();

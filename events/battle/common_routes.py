@@ -255,6 +255,7 @@ def on_request_switch_battle_mode(data):
     process_switch_battle_mode(room, mode, username)
 
 # NOTE: AIスキル提案
+@socketio.on('request_ai_suggest_skill')
 def on_request_ai_suggest_skill(data):
     room = data.get('room')
     char_id = data.get('charId')
@@ -671,6 +672,188 @@ def _is_actor_actionable(room_id, actor_id):
     if not can_act:
         return False
     return True
+
+
+def _canonical_team(raw_value):
+    text = str(raw_value or '').strip().lower()
+    if text in ['ally', 'player', 'friend', 'friends']:
+        return 'ally'
+    if text in ['enemy', 'foe', 'opponent', 'boss', 'npc']:
+        return 'enemy'
+    return None
+
+
+def _is_actor_targetable(room_id, actor_id):
+    room_state = get_room_state(room_id)
+    if not room_state:
+        return False
+    actor = next((c for c in room_state.get('characters', []) if c.get('id') == actor_id), None)
+    if not actor:
+        return False
+    if actor.get('hp', 0) <= 0:
+        return False
+    if actor.get('is_escaped', False):
+        return False
+    try:
+        x_val = float(actor.get('x', -1))
+    except (TypeError, ValueError):
+        x_val = -1
+    return x_val >= 0
+
+
+def _is_valid_single_target_slot_for_pve_enemy(room_id, state, source_slot_id, target_slot_id):
+    slots = state.get('slots', {}) or {}
+    source_slot = slots.get(source_slot_id, {}) if isinstance(slots, dict) else {}
+    target_slot = slots.get(target_slot_id, {}) if isinstance(slots, dict) else {}
+    if not isinstance(source_slot, dict) or not isinstance(target_slot, dict):
+        return False
+    if bool(target_slot.get('disabled', False)):
+        return False
+
+    source_team = _canonical_team(source_slot.get('team'))
+    target_team = _canonical_team(target_slot.get('team'))
+    if source_team and target_team and source_team == target_team:
+        return False
+    if target_team and target_team != 'ally':
+        return False
+
+    target_actor_id = target_slot.get('actor_id')
+    if not target_actor_id:
+        return False
+    if not _is_actor_targetable(room_id, target_actor_id):
+        return False
+    return True
+
+
+def _pick_default_pve_enemy_target_slot(room_id, state, source_slot_id, preferred_slot_id=None):
+    slots = state.get('slots', {}) or {}
+    if not isinstance(slots, dict):
+        return None
+
+    if preferred_slot_id and _is_valid_single_target_slot_for_pve_enemy(
+        room_id, state, source_slot_id, preferred_slot_id
+    ):
+        return preferred_slot_id
+
+    candidates = []
+    for slot_id, slot in slots.items():
+        if not _is_valid_single_target_slot_for_pve_enemy(room_id, state, source_slot_id, slot_id):
+            continue
+        candidates.append((int(slot.get('initiative', 0) or 0), str(slot_id)))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda row: (-row[0], row[1]))
+    return candidates[0][1]
+
+
+def _is_pve_enemy_auto_target_slot(room_id, state, slot_id):
+    room_state = get_room_state(room_id) or {}
+    if room_state.get('battle_mode', 'pvp') != 'pve':
+        return False
+
+    slots = state.get('slots', {}) or {}
+    slot = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
+    if not isinstance(slot, dict):
+        return False
+
+    slot_team = _canonical_team(slot.get('team'))
+    if slot_team and slot_team != 'enemy':
+        return False
+
+    actor_id = slot.get('actor_id')
+    if not actor_id:
+        return False
+
+    actor = next((c for c in room_state.get('characters', []) if c.get('id') == actor_id), None)
+    if not actor:
+        return False
+
+    actor_team = _canonical_team(actor.get('type'))
+    if actor_team and actor_team != 'enemy':
+        return False
+
+    flags = actor.get('flags', {}) if isinstance(actor.get('flags'), dict) else {}
+    return bool(flags.get('auto_target_select', True))
+
+
+def _apply_pve_enemy_intent_defaults(
+    room_id,
+    state,
+    slot_id,
+    intent,
+    intent_before=None,
+    requested_skill_id=None,
+    requested_target=None
+):
+    """
+    Keep PvE enemy slot target stable:
+    - If client sends target none, restore previous/default ally target.
+    - If user explicitly sets single_slot target, respect it.
+    - If auto_skill_select is on and skill is empty, suggest from AI pool.
+    """
+    if not _is_pve_enemy_auto_target_slot(room_id, state, slot_id):
+        return intent
+    if not isinstance(intent, dict):
+        return intent
+
+    prev = intent_before if isinstance(intent_before, dict) else {}
+    req_target = requested_target if isinstance(requested_target, dict) else {}
+    explicit_target_slot = None
+    if req_target.get('type') == 'single_slot':
+        explicit_target_slot = _normalize_target_slot_id(req_target.get('slot_id'))
+
+    target = intent.get('target', {}) if isinstance(intent.get('target'), dict) else {}
+    curr_target_slot = _normalize_target_slot_id(target.get('slot_id')) if target.get('type') == 'single_slot' else None
+    prev_target = (prev.get('target') or {}) if isinstance(prev.get('target'), dict) else {}
+    prev_target_slot = _normalize_target_slot_id(prev_target.get('slot_id')) if prev_target.get('type') == 'single_slot' else None
+
+    if explicit_target_slot:
+        intent['target'] = {'type': 'single_slot', 'slot_id': explicit_target_slot}
+    else:
+        chosen_target = None
+        if curr_target_slot and _is_valid_single_target_slot_for_pve_enemy(room_id, state, slot_id, curr_target_slot):
+            chosen_target = curr_target_slot
+        if not chosen_target and prev_target_slot and _is_valid_single_target_slot_for_pve_enemy(
+            room_id, state, slot_id, prev_target_slot
+        ):
+            chosen_target = prev_target_slot
+        if not chosen_target:
+            chosen_target = _pick_default_pve_enemy_target_slot(
+                room_id,
+                state,
+                slot_id,
+                preferred_slot_id=prev_target_slot,
+            )
+        if chosen_target:
+            intent['target'] = {'type': 'single_slot', 'slot_id': chosen_target}
+
+    room_state = get_room_state(room_id) or {}
+    slots = state.get('slots', {}) or {}
+    actor_id = (slots.get(slot_id) or {}).get('actor_id') if isinstance(slots, dict) else None
+    actor = next((c for c in room_state.get('characters', []) if c.get('id') == actor_id), None)
+    flags = actor.get('flags', {}) if isinstance(actor, dict) and isinstance(actor.get('flags'), dict) else {}
+    auto_skill_select = bool(
+        flags.get('auto_skill_select', False)
+        or flags.get('show_planned_skill', False)
+    )
+    explicit_skill = requested_skill_id not in [None, '']
+
+    if auto_skill_select and not explicit_skill and not intent.get('skill_id'):
+        from manager.battle.battle_ai import ai_suggest_skill
+        suggested = ai_suggest_skill(actor)
+        if suggested:
+            intent['skill_id'] = suggested
+
+    normalized_target, target_error = _normalize_target_by_skill(
+        intent.get('skill_id'),
+        intent.get('target'),
+        allow_none=True
+    )
+    if not target_error:
+        intent['target'] = normalized_target
+    intent['tags'] = _default_intent_tags(_build_tags(intent.get('skill_id'), intent.get('target')))
+    return intent
 
 
 def _required_slots(room_id, state):
@@ -1181,6 +1364,7 @@ def on_battle_intent_preview(data):
         emit('battle_error', {'message': target_error}, to=request.sid)
         return
 
+    intent_before = copy.deepcopy(state['intents'].get(slot_id, {}))
     intent = state['intents'].get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)
     intent['skill_id'] = skill_id
@@ -1189,6 +1373,15 @@ def on_battle_intent_preview(data):
     intent['committed_at'] = None
     intent['committed_by'] = None
     intent['tags'] = _default_intent_tags(_build_tags(intent['skill_id'], intent['target']))
+    intent = _apply_pve_enemy_intent_defaults(
+        room_id,
+        state,
+        slot_id,
+        intent,
+        intent_before=intent_before,
+        requested_skill_id=skill_id,
+        requested_target=target,
+    )
     state['intents'][slot_id] = intent
     _recalculate_redirect_state(room_id, battle_id, state)
     logger.info(
@@ -1379,6 +1572,7 @@ def on_battle_intent_uncommit(data):
     if not _authorize_intent_slot_control(room_id, battle_id, state, slot_id, 'battle_intent_uncommit'):
         return
 
+    intent_before = copy.deepcopy(state['intents'].get(slot_id, {}))
     intent = state['intents'].get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)
     intent['committed'] = False
@@ -1387,6 +1581,15 @@ def on_battle_intent_uncommit(data):
     intent['tags'] = _default_intent_tags(intent.get('tags'))
     if 'target' not in intent:
         intent['target'] = {'type': 'none', 'slot_id': None}
+    intent = _apply_pve_enemy_intent_defaults(
+        room_id,
+        state,
+        slot_id,
+        intent,
+        intent_before=intent_before,
+        requested_skill_id=None,
+        requested_target=intent.get('target'),
+    )
     state['intents'][slot_id] = intent
     _recalculate_redirect_state(room_id, battle_id, state)
 
@@ -1415,6 +1618,7 @@ def on_battle_intent_change_skill(data):
     if slot_id not in state.get('slots', {}):
         print(f"[battle_intent_change_skill] unknown slot_id={slot_id} in battle_id={battle_id}")
 
+    intent_before = copy.deepcopy(state['intents'].get(slot_id, {}))
     intent = state['intents'].get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)
     intent['skill_id'] = data.get('skill_id')
@@ -1429,6 +1633,15 @@ def on_battle_intent_change_skill(data):
     intent['committed'] = False
     intent['committed_at'] = None
     intent['committed_by'] = None
+    intent = _apply_pve_enemy_intent_defaults(
+        room_id,
+        state,
+        slot_id,
+        intent,
+        intent_before=intent_before,
+        requested_skill_id=data.get('skill_id'),
+        requested_target=intent.get('target'),
+    )
     state['intents'][slot_id] = intent
     _recalculate_redirect_state(room_id, battle_id, state)
 
@@ -1466,6 +1679,7 @@ def on_battle_intent_change_target(data):
         emit('battle_error', {'message': target_error}, to=request.sid)
         return
 
+    intent_before = copy.deepcopy(state['intents'].get(slot_id, {}))
     intent = state['intents'].get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)
     normalized_target, target_error = _normalize_target_by_skill(intent.get('skill_id'), target, allow_none=True)
@@ -1477,6 +1691,15 @@ def on_battle_intent_change_target(data):
     intent['committed'] = False
     intent['committed_at'] = None
     intent['committed_by'] = None
+    intent = _apply_pve_enemy_intent_defaults(
+        room_id,
+        state,
+        slot_id,
+        intent,
+        intent_before=intent_before,
+        requested_skill_id=intent.get('skill_id'),
+        requested_target=target,
+    )
     state['intents'][slot_id] = intent
     _recalculate_redirect_state(room_id, battle_id, state)
 

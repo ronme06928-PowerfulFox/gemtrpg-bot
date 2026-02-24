@@ -1,5 +1,6 @@
 import copy
 import json
+import time
 import uuid
 from flask_socketio import emit
 from extensions import socketio, all_skill_data
@@ -7,7 +8,7 @@ from plugins.buffs.registry import buff_registry
 import manager.room_manager as room_manager
 from manager.constants import DamageSource
 from manager.battle.core import proceed_next_turn
-from manager.battle.battle_ai import ai_select_targets
+from manager.battle.battle_ai import ai_select_targets, ai_suggest_skill
 from manager.dice_roller import roll_dice
 from manager.logs import setup_logger
 
@@ -41,6 +42,370 @@ from manager.game_logic import (
 )
 from manager.utils import get_effective_origin_id, apply_origin_bonus_buffs
 import random
+
+
+def _canonical_team(raw_value):
+    text = str(raw_value or '').strip().lower()
+    if text in ['ally', 'player', 'friend', 'friends']:
+        return 'ally'
+    if text in ['enemy', 'foe', 'opponent', 'boss', 'npc']:
+        return 'enemy'
+    return None
+
+
+def _is_pve_actionable_character(char):
+    if not isinstance(char, dict):
+        return False
+    if int(char.get('hp', 0) or 0) <= 0:
+        return False
+    if bool(char.get('is_escaped', False)):
+        return False
+    try:
+        x_val = float(char.get('x', -1))
+    except (TypeError, ValueError):
+        return False
+    return x_val >= 0
+
+
+def _extract_skill_rule_data(skill_data):
+    if not isinstance(skill_data, dict):
+        return {}
+
+    for key in ['rule_data', 'rule_json', 'rule', '特記処理']:
+        raw = skill_data.get(key)
+        if not raw:
+            continue
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, str):
+            text = raw.strip()
+            if not text.startswith('{'):
+                continue
+            try:
+                parsed = json.loads(text)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                continue
+    return {}
+
+
+def _extract_skill_tags(skill_id):
+    if not skill_id:
+        return []
+    skill_data = all_skill_data.get(skill_id, {})
+    if not isinstance(skill_data, dict):
+        return []
+
+    tags = []
+    raw_tags = skill_data.get('tags', [])
+    if isinstance(raw_tags, list):
+        tags.extend(raw_tags)
+
+    rule_data = _extract_skill_rule_data(skill_data)
+    rule_tags = rule_data.get('tags', []) if isinstance(rule_data, dict) else []
+    if isinstance(rule_tags, list):
+        tags.extend(rule_tags)
+
+    normalized = []
+    for tag in tags:
+        text = str(tag or '').strip().lower()
+        if text:
+            normalized.append(text)
+    return normalized
+
+
+def _coerce_mass_type(raw_value):
+    text = str(raw_value or '').strip().lower()
+    if not text:
+        return None
+    if text in ['mass_summation', 'summation', 'sum']:
+        return 'mass_summation'
+    if text in ['mass_individual', 'individual']:
+        return 'mass_individual'
+    return None
+
+
+def _infer_mass_type_from_text(text):
+    merged = str(text or '').lower()
+    if not merged:
+        return None
+    if (
+        'mass_summation' in merged
+        or 'summation' in merged
+        or 'sum' in merged
+        or '広域-合算' in merged
+        or '合算' in merged
+    ):
+        return 'mass_summation'
+    if (
+        'mass_individual' in merged
+        or 'individual' in merged
+        or '広域-個別' in merged
+        or '個別' in merged
+        or '広域' in merged
+    ):
+        return 'mass_individual'
+    return None
+
+
+def _infer_mass_type_from_skill(skill_id):
+    if not skill_id:
+        return None
+    skill_data = all_skill_data.get(skill_id, {})
+    if not isinstance(skill_data, dict):
+        return None
+
+    rule_data = _extract_skill_rule_data(skill_data)
+    direct_candidates = [
+        skill_data.get('mass_type'),
+        skill_data.get('target_type'),
+        skill_data.get('targeting'),
+        skill_data.get('targetType'),
+        rule_data.get('mass_type') if isinstance(rule_data, dict) else None,
+        rule_data.get('target_type') if isinstance(rule_data, dict) else None,
+        rule_data.get('targeting') if isinstance(rule_data, dict) else None,
+        rule_data.get('targetType') if isinstance(rule_data, dict) else None,
+    ]
+    for raw in direct_candidates:
+        coerced = _coerce_mass_type(raw)
+        if coerced:
+            return coerced
+
+    merged_parts = _extract_skill_tags(skill_id)
+    for key in [
+        'category', 'distance', '分類', 'カテゴリ', '距離', '射程', '範囲',
+        'target_scope', 'target', 'target_type', 'targeting', 'mass_type'
+    ]:
+        if isinstance(skill_data.get(key), str):
+            merged_parts.append(skill_data.get(key))
+        if isinstance(rule_data, dict) and isinstance(rule_data.get(key), str):
+            merged_parts.append(rule_data.get(key))
+
+    return _infer_mass_type_from_text(' '.join(str(v or '') for v in merged_parts))
+
+
+def _default_intent_tags(existing=None):
+    tags = dict(existing or {})
+    tags.setdefault('instant', False)
+    tags.setdefault('mass_type', None)
+    tags.setdefault('no_redirect', False)
+    return tags
+
+
+def _build_pve_intent_tags(skill_id, target_type='single_slot'):
+    tags = _extract_skill_tags(skill_id)
+    tags_text = ' '.join(tags)
+    inferred_mass = _infer_mass_type_from_skill(skill_id)
+    if inferred_mass in ['mass_individual', 'mass_summation']:
+        mass_type = inferred_mass
+    elif target_type in ['mass_individual', 'mass_summation']:
+        mass_type = target_type
+    else:
+        mass_type = None
+    return _default_intent_tags({
+        'instant': ('instant' in tags or '即時' in tags_text or '即時発動' in tags_text),
+        'mass_type': mass_type,
+        'no_redirect': ('no_redirect' in tags or '対象変更不可' in tags_text),
+    })
+
+
+def _resolve_skill_display_name(skill_id):
+    if not skill_id:
+        return None
+    skill_data = all_skill_data.get(skill_id, {})
+    if not isinstance(skill_data, dict):
+        return str(skill_id)
+    return (
+        skill_data.get('name')
+        or skill_data.get('デフォルト名称')
+        or skill_data.get('skill_name')
+        or str(skill_id)
+    )
+
+
+def _format_slot_actor_label(slot, actor):
+    actor_name = (actor or {}).get('name') or (slot or {}).get('actor_id') or 'Unknown'
+    try:
+        idx = int((slot or {}).get('index_in_actor', 0)) + 1
+    except (TypeError, ValueError):
+        idx = 1
+    return f"{actor_name}#{idx}"
+
+
+def _broadcast_pve_round_start_preview_log(state, room, preview_rows, round_value=None):
+    if not isinstance(state, dict):
+        return
+    if state.get('battle_mode', 'pvp') != 'pve':
+        return
+    rows = preview_rows if isinstance(preview_rows, list) else []
+    if not rows:
+        return
+
+    try:
+        normalized_round = int(round_value if round_value is not None else state.get('round', 0) or 0)
+    except (TypeError, ValueError):
+        normalized_round = int(state.get('round', 0) or 0)
+    if int(state.get('_pve_preview_log_round', -1) or -1) == normalized_round:
+        return
+
+    lines = []
+    for row in rows:
+        from_label = row.get('from_label') or 'Enemy'
+        target_label = row.get('target_label') or 'Target'
+        skill_id = row.get('skill_id')
+        if skill_id:
+            skill_name = _resolve_skill_display_name(skill_id)
+            lines.append(f"{from_label} → {target_label} / 使用予定: [{skill_id}] {skill_name}")
+        else:
+            lines.append(f"{from_label} → {target_label}")
+
+    if lines:
+        msg = "<strong>[PvE行動予告]</strong><br>" + "<br>".join(lines)
+        broadcast_log(room, msg, 'info')
+        state['_pve_preview_log_round'] = normalized_round
+
+
+def _apply_pve_auto_enemy_intents(state, battle_state, room):
+    """
+    PvE round start helper.
+    - Enemies with auto target enabled get target intents per slot.
+    - Enemies with auto skill enabled are auto-committed with suggested skill.
+    """
+    if not isinstance(state, dict) or not isinstance(battle_state, dict):
+        return {'applied_slots': 0, 'committed_slots': 0, 'preview_rows': []}
+    if state.get('battle_mode', 'pvp') != 'pve':
+        return {'applied_slots': 0, 'committed_slots': 0, 'preview_rows': []}
+
+    slots = battle_state.get('slots', {})
+    if not isinstance(slots, dict) or len(slots) == 0:
+        state['ai_target_arrows'] = []
+        return {'applied_slots': 0, 'committed_slots': 0, 'preview_rows': []}
+
+    characters = state.get('characters', [])
+    char_by_id = {
+        c.get('id'): c for c in characters
+        if isinstance(c, dict) and c.get('id')
+    }
+
+    def _slot_team(slot):
+        slot_team = _canonical_team((slot or {}).get('team'))
+        if slot_team:
+            return slot_team
+        actor_id = (slot or {}).get('actor_id')
+        actor = char_by_id.get(actor_id, {})
+        return _canonical_team(actor.get('type'))
+
+    def _slot_is_actionable(slot):
+        if not isinstance(slot, dict):
+            return False
+        if bool(slot.get('disabled', False)):
+            return False
+        actor = char_by_id.get(slot.get('actor_id'))
+        return _is_pve_actionable_character(actor)
+
+    ally_target_slots = []
+    enemy_slots = []
+    for slot_id, slot in slots.items():
+        if not _slot_is_actionable(slot):
+            continue
+        team = _slot_team(slot)
+        if team == 'ally':
+            ally_target_slots.append(str(slot_id))
+        elif team == 'enemy':
+            actor = char_by_id.get(slot.get('actor_id'), {})
+            flags = actor.get('flags', {}) if isinstance(actor.get('flags'), dict) else {}
+            if flags.get('auto_target_select', True):
+                enemy_slots.append(str(slot_id))
+
+    if not ally_target_slots or not enemy_slots:
+        state['ai_target_arrows'] = []
+        return {'applied_slots': 0, 'committed_slots': 0, 'preview_rows': []}
+
+    intents = battle_state.get('intents', {})
+    if not isinstance(intents, dict):
+        intents = {}
+    now_ms = int(time.time() * 1000)
+    seq = int(battle_state.get('intent_revision_seq', 0) or 0)
+    arrows = []
+    applied_slots = 0
+    committed_slots = 0
+    preview_rows = []
+
+    for idx, enemy_slot_id in enumerate(enemy_slots):
+        slot = slots.get(enemy_slot_id, {}) if isinstance(slots, dict) else {}
+        actor_id = slot.get('actor_id')
+        actor = char_by_id.get(actor_id, {})
+        if not actor_id or not _is_pve_actionable_character(actor):
+            continue
+
+        target_slot_id = random.choice(ally_target_slots)
+        target_slot = slots.get(target_slot_id, {}) if isinstance(slots, dict) else {}
+        target_actor_id = target_slot.get('actor_id')
+
+        flags = actor.get('flags', {}) if isinstance(actor.get('flags'), dict) else {}
+        auto_skill_select = bool(
+            flags.get('auto_skill_select', False)
+            or flags.get('show_planned_skill', False)
+        )
+        suggested_skill_id = ai_suggest_skill(actor) if auto_skill_select else None
+
+        target_type = 'single_slot'
+        target_payload = {'type': 'single_slot', 'slot_id': target_slot_id}
+        inferred_mass = _infer_mass_type_from_skill(suggested_skill_id)
+        if inferred_mass in ['mass_individual', 'mass_summation']:
+            target_type = inferred_mass
+            target_payload = {'type': inferred_mass, 'slot_id': None}
+
+        committed = bool(auto_skill_select and suggested_skill_id)
+        if committed:
+            seq += 1
+            committed_slots += 1
+
+        intents[enemy_slot_id] = {
+            'slot_id': enemy_slot_id,
+            'actor_id': actor_id,
+            'skill_id': suggested_skill_id,
+            'target': target_payload,
+            'tags': _build_pve_intent_tags(suggested_skill_id, target_type=target_type),
+            'committed': committed,
+            'committed_at': (now_ms + idx) if committed else None,
+            'committed_by': 'AI:PVE' if committed else None,
+            'intent_rev': seq if committed else int(intents.get(enemy_slot_id, {}).get('intent_rev', 0) or 0),
+        }
+        applied_slots += 1
+
+        if target_actor_id:
+            arrows.append({
+                'from_id': actor_id,
+                'to_id': target_actor_id,
+                'type': 'attack',
+                'visible': True
+            })
+
+        from_label = _format_slot_actor_label(slot, actor)
+        if target_type in ['mass_individual', 'mass_summation']:
+            target_label = '味方全体'
+        else:
+            target_label = _format_slot_actor_label(target_slot, char_by_id.get(target_actor_id, {}))
+        preview_rows.append({
+            'from_label': from_label,
+            'target_label': target_label,
+            'skill_id': suggested_skill_id,
+        })
+
+    battle_state['intents'] = intents
+    battle_state['intent_revision_seq'] = seq
+    state['ai_target_arrows'] = arrows
+    logger.info(
+        "[pve_auto_intents] room=%s applied=%d committed=%d",
+        room, applied_slots, committed_slots
+    )
+    return {
+        'applied_slots': applied_slots,
+        'committed_slots': committed_slots,
+        'preview_rows': preview_rows,
+    }
 
 
 def process_full_round_end(room, username):
@@ -728,6 +1093,13 @@ def process_round_start(room, username):
         battle_state['resolve']['single_queue'] = []
         battle_state['resolve']['resolved_slots'] = []
         battle_state['resolve']['trace'] = []
+        pve_auto_result = _apply_pve_auto_enemy_intents(state, battle_state, room)
+        _broadcast_pve_round_start_preview_log(
+            state,
+            room,
+            pve_auto_result.get('preview_rows', []) if isinstance(pve_auto_result, dict) else [],
+            round_value=battle_state.get('round')
+        )
 
     # Broadcast after switching to select phase to avoid transient round_end emits.
     broadcast_state_update(room)
@@ -931,7 +1303,6 @@ def process_ai_suggest_skill(room, char_id):
     char = next((c for c in state['characters'] if c['id'] == char_id), None)
     if not char: return None
 
-    from manager.battle.battle_ai import ai_suggest_skill
     return ai_suggest_skill(char)
 
 
@@ -1286,6 +1657,13 @@ def process_select_resolve_round_start(room, battle_id, round_value):
     battle_state['resolve']['single_queue'] = []
     battle_state['resolve']['resolved_slots'] = []
     battle_state['resolve']['trace'] = []
+    pve_auto_result = _apply_pve_auto_enemy_intents(state, battle_state, room)
+    _broadcast_pve_round_start_preview_log(
+        state,
+        room,
+        pve_auto_result.get('preview_rows', []) if isinstance(pve_auto_result, dict) else [],
+        round_value=battle_state.get('round')
+    )
     state['timeline'] = legacy_timeline_sorted
 
     save_specific_room_state(room)

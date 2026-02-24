@@ -33,6 +33,9 @@ window.setupVisualBattleTab = async function () {
 
     // 3. Register Socket Handlers
     if (typeof setupVisualSocketHandlers === 'function') setupVisualSocketHandlers();
+    if (window.socket && (typeof currentRoomName !== 'undefined') && currentRoomName) {
+        window.socket.emit('request_select_resolve_sync', { room: currentRoomName });
+    }
 
     // 4. Initial Render (if state exists)
     if (typeof battleState !== 'undefined') {

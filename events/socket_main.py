@@ -53,16 +53,22 @@ def handle_join_room(data):
     emit('state_updated', state, to=request.sid)
     emit_select_resolve_events(room, to_sid=request.sid, include_round_started=True)
 
-    # ★ 短い遅延を入れて、クライアント側のDOM初期化を待つ
-    # eventletの場合は sleep ではなく、emit後に即座に次の処理
-    import time
-    time.sleep(0.1)  # 100ms待機
-
     # ★ その後、入室ログを全員に送信
     print(f"[JOIN] Broadcasting join log for {username}")
     broadcast_log(room, f"{username} が入室しました。", 'system')
 
     broadcast_user_list(room)
+
+
+@socketio.on('request_select_resolve_sync')
+def handle_request_select_resolve_sync(data):
+    data = data or {}
+    room = data.get('room')
+    if not room:
+        return
+
+    # Re-send latest select/resolve snapshot to the requesting client only.
+    emit_select_resolve_events(room, to_sid=request.sid, include_round_started=True)
 
 
 @socketio.on('request_update_user_info')

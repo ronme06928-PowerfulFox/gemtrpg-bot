@@ -45,9 +45,20 @@ window.renderVisualLogHistory = function (logs) {
     }
     const filter = window.currentVisualLogFilter || 'all';
     logs.forEach(log => appendVisualLogLine(logArea, log, filter));
+    window._lastLogCount = Array.isArray(logs) ? logs.length : 0;
     logArea.scrollTop = logArea.scrollHeight;
     setTimeout(() => { logArea.scrollTop = logArea.scrollHeight; }, 30);
     setTimeout(() => { logArea.scrollTop = logArea.scrollHeight; }, 80);
+}
+
+window.appendVisualLogBatch = function (logs) {
+    const logArea = document.getElementById('visual-log-area');
+    if (!logArea || !Array.isArray(logs) || logs.length === 0) return;
+
+    const filter = window.currentVisualLogFilter || 'all';
+    logs.forEach(log => appendVisualLogLine(logArea, log, filter));
+    window._lastLogCount = Number(window._lastLogCount || 0) + logs.length;
+    logArea.scrollTop = logArea.scrollHeight;
 }
 
 // --- Round Display ---

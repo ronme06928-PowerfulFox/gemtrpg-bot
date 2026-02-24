@@ -10,6 +10,109 @@ from manager.room_manager import broadcast_log
 
 import re
 
+
+def _extract_skill_rule_data(skill_data):
+    if not isinstance(skill_data, dict):
+        return {}
+
+    for key in ['rule_data', 'rule_json', 'rule', '特記処理']:
+        raw = skill_data.get(key)
+        if not raw:
+            continue
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, str):
+            text = raw.strip()
+            if not text.startswith('{'):
+                continue
+            try:
+                parsed = json.loads(text)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                continue
+    return {}
+
+
+def _extract_skill_tags(skill_data):
+    tags = []
+    if isinstance(skill_data, dict):
+        raw_tags = skill_data.get('tags', [])
+        if isinstance(raw_tags, list):
+            tags.extend(raw_tags)
+
+    rule_data = _extract_skill_rule_data(skill_data)
+    rule_tags = rule_data.get('tags', []) if isinstance(rule_data, dict) else []
+    if isinstance(rule_tags, list):
+        tags.extend(rule_tags)
+
+    normalized = []
+    for tag in tags:
+        text = str(tag or '').strip().lower()
+        if text:
+            normalized.append(text)
+    return normalized
+
+
+def _extract_skill_ids_from_commands(commands_text):
+    if not commands_text:
+        return []
+
+    # Examples:
+    # - 【S-01: 斬撃】
+    # - 【S-01：斬撃】
+    # - 【S-01 斬撃】
+    # - [S-01 Slash]
+    bracket_pattern = re.compile(r'[【\[]\s*([A-Za-z0-9][A-Za-z0-9_-]*)[^\]】]*[】\]]')
+    matches = bracket_pattern.findall(str(commands_text))
+    ordered = []
+    seen = set()
+    for skill_id in matches:
+        sid = str(skill_id or '').strip()
+        if not sid or sid in seen:
+            continue
+        seen.add(sid)
+        ordered.append(sid)
+    return ordered
+
+
+def list_usable_skill_ids(char, allow_instant=False):
+    """
+    Returns skill IDs that:
+    1) are declared in character commands
+    2) exist in all_skill_data
+    3) pass cost check
+    4) are not instant (unless allow_instant=True)
+    """
+    if not isinstance(char, dict):
+        return []
+
+    commands_text = char.get('commands', '')
+    skill_ids_in_command = _extract_skill_ids_from_commands(commands_text)
+    if not skill_ids_in_command:
+        return []
+
+    usable_skills = []
+    for skill_id in skill_ids_in_command:
+        skill_data = all_skill_data.get(skill_id)
+        if not isinstance(skill_data, dict):
+            continue
+
+        tags = _extract_skill_tags(skill_data)
+        tags_text = ' '.join(tags)
+        if (not allow_instant) and (
+            'instant' in tags
+            or '即時' in tags_text
+            or '即時発動' in tags_text
+        ):
+            continue
+
+        can_use, _reason = verify_skill_cost(char, skill_data)
+        if can_use:
+            usable_skills.append(skill_id)
+
+    return usable_skills
+
 def ai_select_targets(state, room_id=None):
     """
     敵キャラクター(type='enemy')のターゲットを決定し、state['ai_target_arrows']を更新する。
@@ -118,67 +221,17 @@ def ai_suggest_skill(char):
     if not char:
         return None
 
-    commands_text = char.get('commands', '')
-    if not commands_text:
-        return None
-
-    usable_skills = []
-
-    # Simple parsing of commands (assuming standard format)
-    # This logic mimics the client-side parsing or should leverage a shared parser if available.
-    # For now, we iterate through all known skills in all_skill_data and check if present in commands.
-    # (Checking raw text for "【ID: 名称】" or similar is safer if commands are free text)
-
-    # 既存のコマンド解析ロジック（簡易版）
-    # コアロジックと重複するが、サーバーサイドで信頼できるリストを作る
-
-    # 1. Extract skill IDs from command text
-    import re
-    # Pattern: 【(ID)(: space? Name)?】
-    # e.g. 【S-01: 斬撃】 or 【S-01】
-    # Also handle the hidden ID format if any
-
-    cmd_lines = commands_text.split('\n')
-    skill_ids_in_command = []
-
-    for line in cmd_lines:
-        match = re.search(r'【([a-zA-Z0-9-]+)(?:[:\s].*)?】', line)
-        if match:
-            skill_ids_in_command.append(match.group(1))
-
-    # 2. Filter valid skills
-    for skill_id in skill_ids_in_command:
-        skill_data = all_skill_data.get(skill_id)
-        if not skill_data:
-            continue
-
-        # Parse rule data
-        rule_json = skill_data.get('特記処理', '{}')
-        try:
-            rule = json.loads(rule_json)
-            tags = rule.get('tags', skill_data.get('tags', []))
-
-            # Filter: Instant or Wide
-            if "即時発動" in tags:
-                continue
-            if "広域" in tags:
-                continue
-
-            # Filter: Cost Check
-            can_use, reason = verify_skill_cost(char, skill_data)
-            if can_use:
-                usable_skills.append(skill_id)
-            else:
-                pass
-                # logger.debug(f"[AI] Skill {skill_id} rejected for {char['name']}: {reason}")
-
-        except json.JSONDecodeError:
-            continue
+    usable_skills = list_usable_skill_ids(char, allow_instant=False)
 
     if not usable_skills:
         return None
 
     # Random selection
     suggested = random.choice(usable_skills)
-    logger.info(f"[AI] Suggested skill {suggested} for {char['name']}")
+    logger.info(
+        "[AI] Suggested skill %s for %s (pool=%d)",
+        suggested,
+        char.get('name', 'Unknown'),
+        len(usable_skills)
+    )
     return suggested

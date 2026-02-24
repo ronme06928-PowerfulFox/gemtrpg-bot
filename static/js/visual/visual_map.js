@@ -653,7 +653,7 @@ function _handleDeclareSlotDoubleClick(clickedSlotId, clickedActorId) {
     let skillId = null;
     let lastSingleTargetSlotId = null;
 
-    if (clickedIntent && clickedIntent.committed) {
+    if (clickedIntent) {
         targetType = _normalizeDeclareTargetType(clickedIntent?.target?.type || 'single_slot');
         skillId = clickedIntent?.skill_id || null;
         if (_isMassDeclareTargetType(targetType)) {
