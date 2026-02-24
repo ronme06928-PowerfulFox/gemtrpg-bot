@@ -78,7 +78,7 @@ class DeclarePanel {
         const sourceSlot = state.slots?.[sourceSlotId] || null;
         const sourceActorId = sourceSlot?.actor_id || null;
         const sourceChar = (state.characters || []).find(c => String(c.id) === String(sourceActorId)) || null;
-        const targetOptions = this._buildTargetOptions(state, sourceSlotId, effectiveTargetSlotId, effectiveTargetType);
+        const targetOptions = this._buildTargetOptions(state, sourceSlotId, effectiveTargetSlotId, effectiveTargetType, skillId);
         const sourceLabel = this._formatSlotLabel(state, sourceSlotId);
         const targetLabel = isMassTarget
             ? this._getMassTargetLabel(sourceSlot)
@@ -283,7 +283,7 @@ class DeclarePanel {
         return options.join('');
     }
 
-    _buildTargetOptions(state, sourceSlotId, selectedTargetSlotId, targetType = 'single_slot') {
+    _buildTargetOptions(state, sourceSlotId, selectedTargetSlotId, targetType = 'single_slot', skillId = null) {
         const normalizedType = this._normalizeTargetType(targetType);
         if (this._isMassTargetType(normalizedType)) {
             return `<option value="">${this._escapeHtml(this._getMassTargetLabel(state?.slots?.[sourceSlotId] || null))}</option>`;
@@ -291,7 +291,9 @@ class DeclarePanel {
         const slots = state?.slots || {};
         const sourceSlot = sourceSlotId ? slots[sourceSlotId] : null;
         const sourceActorId = sourceSlot?.actor_id || null;
-        const sourceTeam = sourceSlot?.team || null;
+        const sourceChar = (state?.characters || []).find((c) => String(c.id) === String(sourceActorId)) || null;
+        const sourceTeam = sourceSlot?.team || sourceChar?.type || null;
+        const targetScope = this._inferTargetScopeFromSkill(skillId);
         const options = ['<option value="">-- 対象スロット --</option>'];
         const rows = [];
 
@@ -301,7 +303,17 @@ class DeclarePanel {
 
             const actorId = slot.actor_id;
             if (sourceActorId && actorId && String(actorId) === String(sourceActorId)) return;
-            if (sourceTeam && slot.team && String(sourceTeam) === String(slot.team)) return;
+            if (
+                sourceTeam
+                && slot.team
+                && !this._isTargetTeamAllowedByScope(
+                    String(sourceTeam).toLowerCase(),
+                    String(slot.team).toLowerCase(),
+                    targetScope
+                )
+            ) {
+                return;
+            }
             if (slot.disabled) return;
 
             const label = this._formatSlotLabel(state, slotId);
@@ -683,6 +695,47 @@ class DeclarePanel {
             return t;
         }
         return 'single_slot';
+    }
+
+    _normalizeTargetScope(scope) {
+        const s = String(scope || '').trim().toLowerCase();
+        if (s === 'ally' || s === 'enemy' || s === 'any') return s;
+        return 'enemy';
+    }
+
+    _isTargetTeamAllowedByScope(sourceTeam, targetTeam, scope) {
+        const normalizedScope = this._normalizeTargetScope(scope);
+        if (normalizedScope === 'any') return true;
+        if (normalizedScope === 'ally') return String(sourceTeam) === String(targetTeam);
+        return String(sourceTeam) !== String(targetTeam);
+    }
+
+    _inferTargetScopeFromSkill(skillId) {
+        if (!skillId) return 'enemy';
+        const all = window.allSkillData || {};
+        const skill = all[skillId] || {};
+        const rule = this._extractRuleData(skill) || {};
+        const candidates = [
+            skill.target_scope,
+            skill.targetScope,
+            skill.target_team,
+            skill.targetTeam,
+            rule.target_scope,
+            rule.targetScope,
+            rule.target_team,
+            rule.targetTeam
+        ];
+        for (const raw of candidates) {
+            const text = String(raw || '').trim().toLowerCase();
+            if (!text) continue;
+            if (text === 'enemy' || text === 'ally' || text === 'any') {
+                return text;
+            }
+            if (text === 'all' || text === 'both') {
+                return 'any';
+            }
+        }
+        return 'enemy';
     }
 
     _isMassTargetType(type) {

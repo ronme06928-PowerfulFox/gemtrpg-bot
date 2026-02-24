@@ -20,6 +20,11 @@ from manager.room_manager import (
 from manager.constants import DamageSource
 from manager.logs import setup_logger
 from manager.summons.service import apply_summon_change, process_summon_round_end
+from manager.granted_skills.service import (
+    apply_grant_skill_change,
+    process_granted_skill_round_end,
+    consume_granted_skill_use,
+)
 
 logger = setup_logger(__name__)
 
@@ -36,6 +41,47 @@ def _safe_int(value, default=0):
         return int(value)
     except Exception:
         return default
+
+
+def _has_skill_tag(skill_data, tag_name):
+    if not isinstance(skill_data, dict):
+        return False
+    tag = str(tag_name or "").strip()
+    if not tag:
+        return False
+
+    tags = []
+    rule_data = _extract_rule_data_from_skill(skill_data)
+    if isinstance(rule_data, dict):
+        raw_tags = rule_data.get('tags')
+        if isinstance(raw_tags, list):
+            tags.extend([str(v).strip() for v in raw_tags if str(v).strip()])
+
+    skill_tags = skill_data.get('tags', [])
+    if isinstance(skill_tags, list):
+        tags.extend([str(v).strip() for v in skill_tags if str(v).strip()])
+
+    return tag in tags
+
+
+def _apply_self_destruct_if_needed(room, actor_char, skill_data):
+    if not isinstance(actor_char, dict):
+        return False
+    if int(actor_char.get('hp', 0) or 0) <= 0:
+        return False
+    if not _has_skill_tag(skill_data, "自滅"):
+        return False
+
+    _update_char_stat(
+        room,
+        actor_char,
+        'HP',
+        0,
+        username='[自滅]',
+        source=DamageSource.SKILL_EFFECT
+    )
+    broadcast_log(room, f"{actor_char.get('name', 'Unknown')} は自滅した。", "state-change")
+    return True
 
 
 def _log_battle_emit(event_name, room_id, battle_id, payload):
@@ -356,6 +402,10 @@ def _apply_cost(attacker, skill, policy):
         return consumed
     if policy != COST_CONSUME_POLICY:
         return consumed
+
+    used_skill_id = _extract_skill_id_from_data(skill)
+    if used_skill_id:
+        consume_granted_skill_use(attacker, used_skill_id)
 
     for entry in _extract_skill_cost_entries(skill):
         if not isinstance(entry, dict):
@@ -1590,6 +1640,15 @@ def _apply_effect_changes_like_duel(
                 broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
             else:
                 logger.warning("[select_resolve summon failed] %s", res.get("message"))
+        elif effect_type == "GRANT_SKILL":
+            grant_payload = dict(value) if isinstance(value, dict) else {}
+            if "skill_id" not in grant_payload:
+                grant_payload["skill_id"] = name
+            res = apply_grant_skill_change(room, state, attacker_char, char, grant_payload)
+            if res.get("ok"):
+                broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+            else:
+                logger.warning("[select_resolve grant_skill failed] %s", res.get("message"))
     return extra_primary_damage
 
 
@@ -3538,6 +3597,18 @@ def run_select_resolve_auto(room, battle_id):
                         'log_lines': clash_legacy_lines
                     }
                 )
+                attacker_self_destructed = _apply_self_destruct_if_needed(room, attacker_char, skill_data)
+                defender_self_destructed = _apply_self_destruct_if_needed(room, defender_char, defender_skill_data)
+                if (
+                    clash_ok
+                    and clash_reuse_slot
+                    and isinstance(clash_reuse_intent, dict)
+                    and clash_reuse_policy.get('enabled', False)
+                ):
+                    if clash_reuse_slot == slot_id and attacker_self_destructed:
+                        clash_reuse_slot = None
+                    if clash_reuse_slot == clash_defender_slot and defender_self_destructed:
+                        clash_reuse_slot = None
                 if (
                     clash_ok
                     and clash_reuse_slot
@@ -3655,18 +3726,20 @@ def run_select_resolve_auto(room, battle_id):
                         'log_lines': one_sided_log_lines
                     }
                 )
+                attacker_self_destructed = _apply_self_destruct_if_needed(room, attacker_char, skill_data)
                 if delegate_ok:
                     reuse_policy = _collect_reuse_policy(delegate_summary)
                     current_label = trace_display_label
                     if not current_label and isinstance(trace_entry, dict):
                         current_label = str(trace_entry.get('step') or '')
-                    _schedule_single_reuse_slot(
-                        current_slot_id=slot_id,
-                        queue_index=queue_index,
-                        intent_obj=intent_a,
-                        policy=reuse_policy,
-                        origin_label=current_label
-                    )
+                    if not attacker_self_destructed:
+                        _schedule_single_reuse_slot(
+                            current_slot_id=slot_id,
+                            queue_index=queue_index,
+                            intent_obj=intent_a,
+                            policy=reuse_policy,
+                            origin_label=current_label
+                        )
                 _mark_processed(slot_id)
 
             queue_index += 1
@@ -4064,6 +4137,15 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
                     broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
                 else:
                     logger.warning("[pre_match summon failed] %s", res.get("message"))
+            elif type == "GRANT_SKILL":
+                grant_payload = dict(value) if isinstance(value, dict) else {}
+                if "skill_id" not in grant_payload:
+                    grant_payload["skill_id"] = name
+                res = apply_grant_skill_change(room, state, actor, char, grant_payload)
+                if res.get("ok"):
+                    broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+                else:
+                    logger.warning("[pre_match grant_skill failed] %s", res.get("message"))
     except Exception:
         pass
 
@@ -4193,6 +4275,15 @@ def process_simple_round_end(state, room):
     for summoned in removed_summons:
         try:
             broadcast_log(room, f"{summoned.get('name', '召喚体')} は時間切れで消滅した。", "state-change")
+        except Exception:
+            pass
+
+    expired_granted = process_granted_skill_round_end(state, room=room)
+    for row in expired_granted:
+        try:
+            char_name = row.get("char_name") or "キャラクター"
+            skill_id = row.get("skill_id") or "UNKNOWN"
+            broadcast_log(room, f"{char_name} から付与スキル {skill_id} が解除された。", "state-change")
         except Exception:
             pass
 

@@ -407,15 +407,30 @@ function renderCharacterCard(char) {
     const hiddenSkills = char.hidden_skills || [];
     const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
 
+    const grantedSkillRows = Array.isArray(char.granted_skills) ? char.granted_skills : [];
+    const grantedBySkillId = {};
+    grantedSkillRows.forEach((row) => {
+        if (!row || typeof row !== 'object') return;
+        const sid = String(row.skill_id || '').trim();
+        if (!sid) return;
+        grantedBySkillId[sid] = row;
+    });
+
     if (char.commands) {
         const regex = /【(.*?)\s+(.*?)】/g;
         let match;
         let skillItems = [];
+        const escAttr = (value) => String(value ?? '').replace(/"/g, '&quot;');
 
         while ((match = regex.exec(char.commands)) !== null) {
             const skillId = match[1];
             const skillName = match[2];
             const isHidden = hiddenSkills.includes(skillId);
+            const granted = grantedBySkillId[skillId] || null;
+            const isGranted = !!granted;
+            const grantMode = isGranted ? String(granted.mode || '').trim() : '';
+            const remainingRounds = isGranted && granted.remaining_rounds != null ? parseInt(granted.remaining_rounds, 10) : NaN;
+            const remainingUses = isGranted && granted.remaining_uses != null ? parseInt(granted.remaining_uses, 10) : NaN;
 
             if (!isGM && isHidden) continue;
 
@@ -432,13 +447,15 @@ function renderCharacterCard(char) {
 
             let itemClass = 'char-skill-item skill-item';
             if (isGM && isHidden) itemClass += ' hidden';
+            if (isGranted) itemClass += ' granted';
 
             skillItems.push(`
-                <div class="${itemClass}" data-skill-id="${skillId}" data-skill-name="${skillName}">
+                <div class="${itemClass}" data-skill-id="${escAttr(skillId)}" data-skill-name="${escAttr(skillName)}" data-is-granted="${isGranted ? '1' : '0'}" data-grant-mode="${escAttr(grantMode)}" data-grant-rounds="${Number.isFinite(remainingRounds) ? remainingRounds : ''}" data-grant-uses="${Number.isFinite(remainingUses) ? remainingUses : ''}">
                     <div style="display:flex; flex-direction:column; overflow:hidden;">
                         <span style="font-size:0.75em; color:#888;">${skillId}</span>
                         <span style="font-weight:bold; font-size:0.9em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${skillName}</span>
                     </div>
+                    ${isGranted ? '<span style="background:#ffe08a; color:#5a4300; border:1px solid #f3c34a; border-radius:10px; font-size:0.72em; padding:1px 6px; margin-right:6px; white-space:nowrap;">付与</span>' : ''}
                     ${toggleHtml}
                 </div>
             `);
@@ -484,6 +501,15 @@ function renderCharacterCard(char) {
                 background: #f9f9f9;
                 opacity: 0.7;
                 border: 1px dashed #ccc;
+            }
+            .char-skill-item.granted {
+                background: #fff8dc;
+                border-color: #f1cf67;
+            }
+            .char-skill-item.granted:hover,
+            .char-skill-item.granted.selected {
+                background: #ffefb0;
+                border-color: #dfb33f;
             }
             /* Parameter Grid Styles */
             .char-params-grid {
@@ -672,8 +698,18 @@ function openCharacterModal(charId) {
     skillItems.forEach(item => {
         item.addEventListener('click', (e) => {
             if (e.target.closest('.skill-visibility-checkbox') || e.target.classList.contains('skill-public-toggle')) return;
+            skillItems.forEach(el => el.classList.remove('selected'));
+            item.classList.add('selected');
             const skillId = item.dataset.skillId;
-            openSkillDetailModal(skillId, item.dataset.skillName);
+            const isGranted = item.dataset.isGranted === '1';
+            const grantRoundsRaw = parseInt(item.dataset.grantRounds, 10);
+            const grantUsesRaw = parseInt(item.dataset.grantUses, 10);
+            const granted = isGranted ? {
+                mode: item.dataset.grantMode || '',
+                remaining_rounds: Number.isFinite(grantRoundsRaw) ? grantRoundsRaw : null,
+                remaining_uses: Number.isFinite(grantUsesRaw) ? grantUsesRaw : null,
+            } : null;
+            openSkillDetailModal(skillId, item.dataset.skillName, { granted });
         });
     });
 
@@ -914,9 +950,13 @@ function closeGameModal(id) {
 }
 
 
-function openSkillDetailModal(skillId, skillName) {
+function openSkillDetailModal(skillId, skillName, options = {}) {
     // スキルデータを取得
     const skillData = (window.allSkillData && window.allSkillData[skillId]) ? window.allSkillData[skillId] : null;
+    const granted = (options && typeof options === 'object' && options.granted && typeof options.granted === 'object')
+        ? options.granted
+        : null;
+    const isGranted = !!granted;
 
     // 既存のスキル詳細モーダルがあれば削除
     const existing = document.getElementById('skill-detail-modal-backdrop');
@@ -930,6 +970,32 @@ function openSkillDetailModal(skillId, skillName) {
     content.className = 'modal-content book-skill-detail-modal';
     content.style.maxWidth = '680px';
     content.style.padding = '20px';
+    if (isGranted) {
+        content.style.borderColor = '#dfb33f';
+        content.style.boxShadow = '0 18px 45px rgba(120, 88, 22, 0.40)';
+    }
+
+    let grantInfoHtml = '';
+    if (isGranted) {
+        const mode = String(granted.mode || '').toLowerCase();
+        const rounds = parseInt(granted.remaining_rounds, 10);
+        const uses = parseInt(granted.remaining_uses, 10);
+        let statusHtml = '<span style="background:#ffe08a; color:#5a4300; border:1px solid #f3c34a; border-radius:999px; padding:2px 10px; font-weight:700; font-size:0.82em;">付与スキル</span>';
+        if (mode === 'permanent') {
+            statusHtml += '<span style="background:#f6f6f6; color:#555; border:1px solid #ddd; border-radius:999px; padding:2px 10px; font-weight:700; font-size:0.82em; margin-left:6px;">永続</span>';
+        }
+        if (Number.isFinite(rounds) && rounds > 0) {
+            statusHtml += `<span style="background:#fff3bf; color:#5a4300; border:1px solid #f3c34a; border-radius:999px; padding:2px 10px; font-weight:700; font-size:0.82em; margin-left:6px;">残り${rounds}R</span>`;
+        }
+        if (Number.isFinite(uses) && uses >= 0) {
+            statusHtml += `<span style="background:#fff3bf; color:#5a4300; border:1px solid #f3c34a; border-radius:999px; padding:2px 10px; font-weight:700; font-size:0.82em; margin-left:6px;">残り${uses}回</span>`;
+        }
+        grantInfoHtml = `
+            <div style="margin: 0 0 10px 0; padding: 8px 10px; border: 1px solid #f3c34a; border-radius: 8px; background: #fff8dc;">
+                ${statusHtml}
+            </div>
+        `;
+    }
 
     let bodyHtml = '';
     if (skillData) {
@@ -938,6 +1004,7 @@ function openSkillDetailModal(skillId, skillName) {
                 <span class="book-skill-id">[${skillId}]</span>
                 <span class="book-skill-category">${skillData['分類'] || '---'}</span>
             </div>
+            ${grantInfoHtml}
             <div class="skill-detail-body book-reading-body">
                 ${formatSkillDetailHTML(skillData)}
             </div>
@@ -948,7 +1015,7 @@ function openSkillDetailModal(skillId, skillName) {
 
     content.innerHTML = `
         <div class="book-modal-header">
-            <h3 class="book-modal-title">${skillName || skillId}</h3>
+            <h3 class="book-modal-title" style="${isGranted ? 'color:#7a5a16;' : ''}">${skillName || skillId}</h3>
             <button class="modal-close-btn book-modal-close" aria-label="閉じる">×</button>
         </div>
         ${bodyHtml}

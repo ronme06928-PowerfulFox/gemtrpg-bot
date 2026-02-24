@@ -30,14 +30,24 @@
 {
   "timing": "HIT",
   "type": "GRANT_SKILL",
-  "target": "ALL_ALLIES",
+  "target": "target",
+  "target_scope": "ally",
   "skill_id": "Ps-10",
-  "grant_mode": "permanent"
+  "grant_mode": "duration_rounds",
+  "duration": 3,
+  "overwrite": true
 }
 ```
 
 ### 2.3 パラメータ
 
+- `timing` (必須)
+  - 既存の任意タイミングを使用可能（`HIT`, `WIN`, `PRE_MATCH`, `END_MATCH` など）
+- `target` (必須)
+  - `target` (単体), `ALL_ALLIES` (術者を含む味方全体), `ALL_OTHER_ALLIES` (術者を除く味方全体)
+- `target_scope` (任意, `target` の時のみ有効)
+  - `enemy` / `ally` / `any`
+  - 未指定時の既定値は `enemy`
 - `skill_id` (必須)
   - 付与する既存スキルID
   - 未定義IDは不発（ログ出力）
@@ -51,6 +61,10 @@
   - `grant_mode=usage_count` の時に必須
 - `custom_name` (任意)
   - `commands` 表示名の上書き。未指定時はデフォルト名
+- `overwrite` (任意)
+  - 同一 `skill_id` が既に付与済みの場合の挙動
+  - `true`: 既存付与を上書き（今回の標準運用）
+  - `false`: 既存付与を維持して新規付与を無視
 
 ### 2.4 3パターンの管理方式
 
@@ -64,7 +78,7 @@
 
 - 付与時に `granted_skills` 管理配列へ登録
   - 例: `{ skill_id, mode: 'duration_rounds', remaining_rounds: 2 }`
-- ラウンド終了時に `remaining_rounds--`
+- ラウンド終了時に `remaining_rounds--`（付与ラウンド終了時を含む）
 - `0` になったら該当スキル行を `commands` から削除
 
 #### C. 一定回数 (`usage_count`)
@@ -87,7 +101,9 @@
     "remaining_uses": null,
     "source_actor_id": "char_x",
     "source_skill_id": "Ps-99",
-    "granted_at_round": 5
+    "granted_at_round": 5,
+    "custom_name": null,
+    "injected": true
   }
 ]
 ```
@@ -96,7 +112,37 @@
 
 - `commands` は最終表示・選択の実体
 - `granted_skills` は寿命管理の実体
+- `injected=true` は「付与時に commands へ行を追加した」ことを示す
+  - 元々そのスキルを所持していた場合は `injected=false` とし、解除時に元スキル行を消さない
 - どちらか一方だけだと保守性が下がるため、二層管理を推奨
+
+### 2.6 実装適用ポイント（現実装）
+
+- 効果生成: `manager/game_logic.py::process_skill_effects`
+  - `GRANT_SKILL` と `ALL_OTHER_ALLIES` を解釈
+- 効果反映:
+  - `manager/battle/core.py`（Select/Resolve）
+  - `manager/battle/duel_solver.py`（通常マッチ/即時）
+  - `manager/battle/wide_solver.py`（広域）
+  - `manager/skill_effects.py`（双方向適用ヘルパー）
+- 付与実体管理: `manager/granted_skills/service.py`
+  - 付与/上書き、回数消費、ラウンド減衰、コマンド行追加/削除
+- ラウンド終了減衰:
+  - `manager/battle/common_manager.py::process_full_round_end`
+  - `manager/battle/core.py::process_simple_round_end`
+- 単体対象のチーム制約:
+  - サーバー: `events/battle/common_routes.py` で `target_scope` 検証
+  - UI: `static/js/battle/components/DeclarePanel.js` で候補フィルタ
+
+### 2.7 UI表示仕様（利用者向け）
+
+- 付与スキルはキャラクター詳細の `Skills` 一覧で黄色系に強調表示される
+- 付与スキルをクリックしたスキル詳細では、上部に付与状態バッジを表示する
+  - `付与スキル`
+  - `残りX R`（`duration_rounds` の時）
+  - `残りX回`（`usage_count` の時）
+  - `永続`（`permanent` の時）
+- 表示ソースは対象キャラの `granted_skills[]` を参照し、`skill_id` 単位で照合する
 
 ---
 
@@ -155,6 +201,13 @@
 
 これにより、Select/Resolve の全ロジックを壊さず要件を満たせる。
 
+### 3.7 UI上の扱い（利用者向け）
+
+- 期限切れで消滅した召喚体、および戦闘不能になった召喚体は、未配置モーダルに表示しない
+- 召喚体の継続情報はキャラクター詳細の「特殊効果 / バフ」内に表示する
+  - `duration_rounds` のみ `残りX R` を表示
+  - `permanent` はラウンド数を表示しない
+
 ---
 
 ## 4. 自滅タグ仕様
@@ -174,9 +227,13 @@
 
 ### 4.3 実装ポイント
 
-- 実装位置は `duel` / `wide` / `select_resolve` で共通化する
-- 共通ヘルパー例: `apply_self_destruct_if_needed(room, actor, skill_data, source)`
+- 共通ヘルパー: `apply_self_destruct_if_needed(room, actor, skill_data)`
 - `skill_data.tags` と `rule_data.tags` の両方を見て判定する
+- 現行（2026-02-25時点）では、Select/Resolve本体 (`manager/battle/core.py`) で
+  - 通常マッチ（clash）後
+  - 一方攻撃（one_sided）後
+  に自滅判定を実行する
+- 自滅した行動者には再使用予約（`USE_SKILL_AGAIN`）を積まない
 
 ---
 

@@ -1332,3 +1332,74 @@ def test_case24_step_total_does_not_carry_over_when_trace_reset(monkeypatch):
     first_total = int((trace[0] or {}).get("step_total", 0))
     assert first_total > 0
     assert first_total < 29
+
+
+def test_case25_one_sided_self_destruct_kills_attacker(monkeypatch):
+    _, battle_core = _mods()
+    attacker = _make_actor("A1", "ally")
+    defender = _make_actor("B1", "enemy")
+    state = _base_state([attacker, defender])
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 8, 0)
+    _set_intent(state, "A_slot", "A1", "sd_skill", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "idle", "none", None, committed=False)
+    state["battle_state"]["phase"] = "resolve_single"
+
+    _patch_room_and_socket(monkeypatch, state)
+
+    old_skill = battle_core.all_skill_data.get("sd_skill")
+    battle_core.all_skill_data["sd_skill"] = {
+        "base_power": 1,
+        "dice_power": "1d1",
+        "rule_data": {"tags": ["自滅"], "effects": []},
+        "tags": ["攻撃", "自滅"],
+    }
+
+    def _stub_one_sided(**_kwargs):
+        return {
+            "ok": True,
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "logs": [],
+                "rolls": {"total_damage": 0},
+            },
+        }
+
+    def _stub_update_char_stat(_room, char, name, value, **_kwargs):
+        if name == "HP":
+            char["hp"] = int(value)
+            if char["hp"] <= 0:
+                char["x"] = -1
+                char["y"] = -1
+        elif name == "MP":
+            char["mp"] = int(value)
+        else:
+            states = char.setdefault("states", [])
+            hit = next((s for s in states if s.get("name") == name), None)
+            if hit is None:
+                states.append({"name": name, "value": int(value)})
+            else:
+                hit["value"] = int(value)
+
+    logs = []
+    monkeypatch.setattr(battle_core, "_resolve_one_sided_by_existing_logic", _stub_one_sided)
+    monkeypatch.setattr(battle_core, "_update_char_stat", _stub_update_char_stat)
+    monkeypatch.setattr(
+        battle_core,
+        "broadcast_log",
+        lambda _room, message, _type="system", save=True: logs.append(str(message)),
+    )
+
+    try:
+        battle_core.run_select_resolve_auto("room_t", "battle_test")
+    finally:
+        if old_skill is None:
+            battle_core.all_skill_data.pop("sd_skill", None)
+        else:
+            battle_core.all_skill_data["sd_skill"] = old_skill
+
+    assert int(attacker.get("hp", 0)) == 0
+    assert any("自滅" in line for line in logs)

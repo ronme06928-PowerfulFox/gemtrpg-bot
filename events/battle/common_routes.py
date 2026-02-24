@@ -462,7 +462,76 @@ def _infer_mass_type_from_skill(skill_id):
     return _infer_mass_type_from_text(merged)
 
 
-def _normalize_target_by_skill(skill_id, target, allow_none=True):
+def _normalize_target_scope(raw_value, default='enemy'):
+    text = str(raw_value or '').strip().lower()
+    if text in ['', 'default', 'auto']:
+        return str(default or 'enemy')
+    if text in ['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対']:
+        return 'enemy'
+    if text in ['ally', 'allies', 'friend', 'friends', '味方', '味方全体']:
+        return 'ally'
+    if text in ['any', 'all', 'both', '全体', 'all_targets']:
+        return 'any'
+    return str(default or 'enemy')
+
+
+def _infer_target_scope_from_skill(skill_id):
+    if not skill_id:
+        return 'enemy'
+    skill_data = all_skill_data.get(skill_id, {})
+    if not isinstance(skill_data, dict):
+        return 'enemy'
+    rule_data = _extract_skill_rule_data(skill_data)
+    candidates = [
+        skill_data.get('target_scope'),
+        skill_data.get('targetScope'),
+        skill_data.get('target_team'),
+        skill_data.get('targetTeam'),
+        rule_data.get('target_scope') if isinstance(rule_data, dict) else None,
+        rule_data.get('targetScope') if isinstance(rule_data, dict) else None,
+        rule_data.get('target_team') if isinstance(rule_data, dict) else None,
+        rule_data.get('targetTeam') if isinstance(rule_data, dict) else None,
+    ]
+    for raw in candidates:
+        if raw not in [None, '']:
+            return _normalize_target_scope(raw, default='enemy')
+    return 'enemy'
+
+
+def _resolve_slot_team(state, slot_id):
+    if not isinstance(state, dict) or not slot_id:
+        return None
+    slots = state.get('slots', {}) or {}
+    slot = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
+    team = str(slot.get('team', '') or '').strip().lower()
+    if team in ['ally', 'enemy']:
+        return team
+
+    actor_id = slot.get('actor_id')
+    chars = state.get('characters', []) if isinstance(state.get('characters'), list) else []
+    actor = next((c for c in chars if str(c.get('id')) == str(actor_id)), None)
+    actor_team = str((actor or {}).get('type', '') or '').strip().lower()
+    if actor_team in ['ally', 'enemy']:
+        return actor_team
+    return None
+
+
+def _validate_single_target_scope(state, source_slot_id, target_slot_id, target_scope):
+    scope = _normalize_target_scope(target_scope, default='enemy')
+    if scope == 'any':
+        return None
+    source_team = _resolve_slot_team(state, source_slot_id)
+    target_team = _resolve_slot_team(state, target_slot_id)
+    if source_team not in ['ally', 'enemy'] or target_team not in ['ally', 'enemy']:
+        return None
+    if scope == 'enemy' and source_team == target_team:
+        return 'target_scope=enemy のため味方スロットは指定できません'
+    if scope == 'ally' and source_team != target_team:
+        return 'target_scope=ally のため敵スロットは指定できません'
+    return None
+
+
+def _normalize_target_by_skill(skill_id, target, state=None, source_slot_id=None, allow_none=True):
     normalized = _default_target(target)
     inferred_mass = _infer_mass_type_from_skill(skill_id)
     if inferred_mass in ['mass_individual', 'mass_summation']:
@@ -478,6 +547,11 @@ def _normalize_target_by_skill(skill_id, target, allow_none=True):
         slot_id = _normalize_target_slot_id(normalized.get('slot_id'))
         if not slot_id:
             return None, 'single_slot target requires slot_id'
+        if state and source_slot_id:
+            target_scope = _infer_target_scope_from_skill(skill_id)
+            scope_error = _validate_single_target_scope(state, source_slot_id, slot_id, target_scope)
+            if scope_error:
+                return None, scope_error
         return {'type': 'single_slot', 'slot_id': slot_id}, None
     return None, 'invalid target.type'
 
@@ -848,6 +922,8 @@ def _apply_pve_enemy_intent_defaults(
     normalized_target, target_error = _normalize_target_by_skill(
         intent.get('skill_id'),
         intent.get('target'),
+        state=state,
+        source_slot_id=slot_id,
         allow_none=True
     )
     if not target_error:
@@ -1359,7 +1435,13 @@ def on_battle_intent_preview(data):
     if target_error:
         emit('battle_error', {'message': target_error}, to=request.sid)
         return
-    target, target_error = _normalize_target_by_skill(skill_id, target, allow_none=True)
+    target, target_error = _normalize_target_by_skill(
+        skill_id,
+        target,
+        state=state,
+        source_slot_id=slot_id,
+        allow_none=True
+    )
     if target_error:
         emit('battle_error', {'message': target_error}, to=request.sid)
         return
@@ -1431,7 +1513,13 @@ def on_battle_intent_commit(data):
     if not skill_id:
         emit('battle_error', {'message': 'commit requires skill_id'}, to=request.sid)
         return
-    target, target_error = _normalize_target_by_skill(skill_id, target, allow_none=False)
+    target, target_error = _normalize_target_by_skill(
+        skill_id,
+        target,
+        state=state,
+        source_slot_id=slot_id,
+        allow_none=False
+    )
     if target_error:
         emit('battle_error', {'message': target_error}, to=request.sid)
         return
@@ -1624,7 +1712,13 @@ def on_battle_intent_change_skill(data):
     intent['skill_id'] = data.get('skill_id')
     if 'target' not in intent:
         intent['target'] = {'type': 'none', 'slot_id': None}
-    normalized_target, target_error = _normalize_target_by_skill(intent['skill_id'], intent.get('target'), allow_none=True)
+    normalized_target, target_error = _normalize_target_by_skill(
+        intent['skill_id'],
+        intent.get('target'),
+        state=state,
+        source_slot_id=slot_id,
+        allow_none=True
+    )
     if target_error:
         emit('battle_error', {'message': target_error}, to=request.sid)
         return
@@ -1682,7 +1776,13 @@ def on_battle_intent_change_target(data):
     intent_before = copy.deepcopy(state['intents'].get(slot_id, {}))
     intent = state['intents'].get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)
-    normalized_target, target_error = _normalize_target_by_skill(intent.get('skill_id'), target, allow_none=True)
+    normalized_target, target_error = _normalize_target_by_skill(
+        intent.get('skill_id'),
+        target,
+        state=state,
+        source_slot_id=slot_id,
+        allow_none=True
+    )
     if target_error:
         emit('battle_error', {'message': target_error}, to=request.sid)
         return

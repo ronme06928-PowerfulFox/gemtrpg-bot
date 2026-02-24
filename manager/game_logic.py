@@ -456,6 +456,15 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             elif t_str == "ALL_ALLIES" and context and "characters" in context:
                 actor_type = actor.get("type", "ally")
                 targets_list = [c for c in context["characters"] if c.get("type") == actor_type and c.get('hp', 0) > 0]
+            elif t_str == "ALL_OTHER_ALLIES" and context and "characters" in context:
+                actor_type = actor.get("type", "ally")
+                actor_id = actor.get("id")
+                targets_list = [
+                    c for c in context["characters"]
+                    if c.get("type") == actor_type
+                    and c.get('hp', 0) > 0
+                    and str(c.get("id")) != str(actor_id)
+                ]
             elif t_str == "ALL" and context and "characters" in context:
                  targets_list = [c for c in context["characters"] if c.get('hp', 0) > 0]
             # ★新機能: NEXT_ALLY
@@ -680,6 +689,21 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
                     changes_to_apply.append((target_obj, "APPLY_BUFF", buff_name, {"lasting": int(effect.get("lasting", 1)), "delay": int(effect.get("delay", 0)), "data": effect_data}))
                     log_snippets.append(f"[{buff_name} 付与]")
+            elif effect_type == "GRANT_SKILL":
+                grant_skill_id = str(effect.get("skill_id", effect.get("grant_skill_id", "")) or "").strip()
+                if not grant_skill_id:
+                    continue
+                grant_payload = {
+                    "skill_id": grant_skill_id,
+                    "grant_mode": effect.get("grant_mode", "permanent"),
+                    "duration": effect.get("duration", effect.get("rounds")),
+                    "uses": effect.get("uses", effect.get("count")),
+                    "custom_name": effect.get("custom_name"),
+                    "overwrite": effect.get("overwrite", True),
+                    "source_skill_id": effect.get("source_skill_id"),
+                }
+                changes_to_apply.append((target_obj, "GRANT_SKILL", grant_skill_id, grant_payload))
+                log_snippets.append(f"[スキル付与:{grant_skill_id}]")
             elif effect_type == "REMOVE_BUFF":
                 buff_name = effect.get("buff_name")
                 if buff_name:
@@ -1286,6 +1310,17 @@ def process_on_death(room, char, username):
                         broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
                     else:
                         logger.warning("[on_death summon failed] %s", res.get("message"))
+                elif type == "GRANT_SKILL":
+                    from manager.granted_skills.service import apply_grant_skill_change
+
+                    grant_payload = dict(value) if isinstance(value, dict) else {}
+                    if "skill_id" not in grant_payload:
+                        grant_payload["skill_id"] = name
+                    res = apply_grant_skill_change(room, state, char, c, grant_payload)
+                    if res.get("ok"):
+                        broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+                    else:
+                        logger.warning("[on_death grant_skill failed] %s", res.get("message"))
 
     # 通常ログは呼び出し元で処理済み
 
@@ -1354,6 +1389,17 @@ def process_battle_start(room, char):
                          broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
                      else:
                          logger.warning("[battle_start summon failed] %s", res.get("message"))
+                elif type == "GRANT_SKILL":
+                     from manager.granted_skills.service import apply_grant_skill_change
+
+                     grant_payload = dict(value) if isinstance(value, dict) else {}
+                     if "skill_id" not in grant_payload:
+                         grant_payload["skill_id"] = name
+                     res = apply_grant_skill_change(room, state, char, c, grant_payload)
+                     if res.get("ok"):
+                         broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+                     else:
+                         logger.warning("[battle_start grant_skill failed] %s", res.get("message"))
 
             executed = True
 

@@ -12,6 +12,7 @@ from manager.battle.battle_ai import ai_select_targets, ai_suggest_skill
 from manager.dice_roller import roll_dice
 from manager.logs import setup_logger
 from manager.summons.service import apply_summon_change, process_summon_round_end
+from manager.granted_skills.service import process_granted_skill_round_end, apply_grant_skill_change
 
 logger = setup_logger(__name__)
 
@@ -513,6 +514,15 @@ def process_full_round_end(room, username):
             elif type == "APPLY_BUFF":
                 apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
                 broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
+            elif type == "GRANT_SKILL":
+                grant_payload = dict(value) if isinstance(value, dict) else {}
+                if "skill_id" not in grant_payload:
+                    grant_payload["skill_id"] = name
+                res = apply_grant_skill_change(room, state, char, c, grant_payload)
+                if res.get("ok"):
+                    broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+                else:
+                    logger.warning("[end_round grant_skill failed] %s", res.get("message"))
             elif type == "SUMMON_CHARACTER":
                 res = apply_summon_change(room, state, c, value)
                 if res.get("ok"):
@@ -596,6 +606,11 @@ def process_full_round_end(room, username):
     removed_summons = process_summon_round_end(state, room=room)
     for summoned in removed_summons:
         broadcast_log(room, f"{summoned.get('name', '召喚体')} は時間切れで消滅した。", "state-change")
+    expired_granted = process_granted_skill_round_end(state, room=room)
+    for row in expired_granted:
+        char_name = row.get("char_name") or "キャラクター"
+        skill_id = row.get("skill_id") or "UNKNOWN"
+        broadcast_log(room, f"{char_name} から付与スキル {skill_id} が解除された。", "state-change")
 
     # ★ 追加: マホロバ (ID: 5) ラウンド終了時一括処理
     mahoroba_targets = []

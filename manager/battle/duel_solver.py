@@ -23,6 +23,7 @@ from manager.battle.core import (
     process_on_hit_buffs, format_duel_result_lines
 )
 from manager.summons.service import apply_summon_change
+from manager.granted_skills.service import apply_grant_skill_change, consume_granted_skill_use
 from plugins.buffs.dodge_lock import DodgeLockBuff
 from manager.logs import setup_logger
 
@@ -161,9 +162,19 @@ def handle_skill_declaration(room, data, username):
                          broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
                      else:
                          logger.warning("[immediate summon failed] %s", res.get("message"))
+                 elif type == "GRANT_SKILL":
+                     grant_payload = dict(value) if isinstance(value, dict) else {}
+                     if "skill_id" not in grant_payload:
+                         grant_payload["skill_id"] = name
+                     res = apply_grant_skill_change(room, state, actor, c, grant_payload)
+                     if res.get("ok"):
+                         broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+                     else:
+                         logger.warning("[immediate grant_skill failed] %s", res.get("message"))
 
              if 'flags' not in actor: actor['flags'] = {}
              actor['flags']['immediate_action_used'] = True
+             consume_granted_skill_use(actor, skill_id)
 
              # 宝石の加護フラグ設定
              skill_tags = skill_data.get('tags', [])
@@ -389,6 +400,7 @@ def execute_duel_match(room, data, username):
                 except: pass
         if 'used_skills_this_round' not in actor_a_char: actor_a_char['used_skills_this_round'] = []
         actor_a_char['used_skills_this_round'].append(skill_id_a)
+        consume_granted_skill_use(actor_a_char, skill_id_a)
 
     if (match_d or skill_id_d) and actor_d_char:
         if not skill_id_d and match_d:
@@ -410,6 +422,7 @@ def execute_duel_match(room, data, username):
                 except: pass
         if 'used_skills_this_round' not in actor_d_char: actor_d_char['used_skills_this_round'] = []
         actor_d_char['used_skills_this_round'].append(skill_id_d)
+        consume_granted_skill_use(actor_d_char, skill_id_d)
 
     def _apply_temp_power_bonus_to_command(command, actor):
         if not isinstance(actor, dict):
@@ -642,6 +655,15 @@ def execute_duel_match(room, data, username):
                                     broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
                                 else:
                                     logger.warning("[unopposed summon failed] %s", res.get("message"))
+                            elif t == "GRANT_SKILL":
+                                grant_payload = dict(v) if isinstance(v, dict) else {}
+                                if "skill_id" not in grant_payload:
+                                    grant_payload["skill_id"] = n
+                                res = apply_grant_skill_change(room, state, actor_a_char, c, grant_payload)
+                                if res.get("ok"):
+                                    broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+                                else:
+                                    logger.warning("[unopposed grant_skill failed] %s", res.get("message"))
                             elif t == "CUSTOM_DAMAGE":
                                 # ★修正: 攻撃対象へのダメージのみを加算し、それ以外（自傷など）は直接適用する
                                 if primary_target and c.get('id') == primary_target.get('id'):
@@ -962,6 +984,15 @@ def execute_duel_match(room, data, username):
                                 broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change", save=False)
                             else:
                                 logger.warning("[draw end_match summon failed] %s", res.get("message"))
+                        elif type == "GRANT_SKILL":
+                            grant_payload = dict(value) if isinstance(value, dict) else {}
+                            if "skill_id" not in grant_payload:
+                                grant_payload["skill_id"] = name
+                            res = apply_grant_skill_change(room, state, actor, char, grant_payload)
+                            if res.get("ok"):
+                                broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change", save=False)
+                            else:
+                                logger.warning("[draw end_match grant_skill failed] %s", res.get("message"))
                     return l
 
                 log_a = local_end_match(effects_array_a, actor_a_char, actor_d_char, skill_data_d)
@@ -1169,6 +1200,15 @@ def execute_duel_match(room, data, username):
                             broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change", save=False)
                         else:
                             logger.warning("[draw summon failed] %s", res.get("message"))
+                    elif type == "GRANT_SKILL":
+                        grant_payload = dict(value) if isinstance(value, dict) else {}
+                        if "skill_id" not in grant_payload:
+                            grant_payload["skill_id"] = name
+                        res = apply_grant_skill_change(room, state, actor, char, grant_payload)
+                        if res.get("ok"):
+                            broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change", save=False)
+                        else:
+                            logger.warning("[draw grant_skill failed] %s", res.get("message"))
                 return l
 
             log_a = run_end_match(effects_array_a, actor_a_char, actor_d_char, skill_data_d)

@@ -1240,7 +1240,22 @@ function renderStagingOverlayList(container) {
         return;
     }
 
-    const unplacedChars = battleState.characters.filter(c => c.x < 0 || c.y < 0);
+    const unplacedChars = battleState.characters.filter(c => {
+        const isUnplaced = c.x < 0 || c.y < 0;
+        if (!isUnplaced) return false;
+
+        // 期限切れ/戦闘不能になった召喚物は未配置モーダルに出さない
+        const isSummoned = !!c.is_summoned;
+        if (!isSummoned) return true;
+
+        const hp = Number(c.hp || 0);
+        const mode = String(c.summon_duration_mode || '').toLowerCase();
+        const remaining = Number(c.remaining_summon_rounds);
+        const isExpiredDurationSummon =
+            mode === 'duration_rounds' && Number.isFinite(remaining) && remaining <= 0;
+
+        return !(hp <= 0 || isExpiredDurationSummon);
+    });
 
     if (unplacedChars.length === 0) {
         container.innerHTML = '<p style="text-align:center; color:#999;">未配置のキャラクターはいません</p>';

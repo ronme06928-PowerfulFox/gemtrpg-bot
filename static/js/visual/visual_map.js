@@ -600,6 +600,77 @@ function _getActorIdBySlotId(stateRef, slotId) {
     return slot.actor_id ?? slot.actor_char_id ?? null;
 }
 
+function _normalizeDeclareTargetScope(scope) {
+    const s = String(scope || '').trim().toLowerCase();
+    if (s === 'ally' || s === 'enemy' || s === 'any') return s;
+    if (s === 'all' || s === 'both') return 'any';
+    return 'enemy';
+}
+
+function _extractRuleDataForTargetScope(skill) {
+    if (!skill || typeof skill !== 'object') return {};
+    if (skill.rule_data && typeof skill.rule_data === 'object') return skill.rule_data;
+    const keys = Object.keys(skill);
+    for (const key of keys) {
+        const raw = skill[key];
+        const k = String(key || '').toLowerCase();
+        if (!(k.includes('rule') || k.includes('special') || String(key || '').includes('特記処理'))) continue;
+        if (raw && typeof raw === 'object') return raw;
+        if (typeof raw === 'string') {
+            const txt = raw.trim();
+            if (!txt.startsWith('{')) continue;
+            try {
+                const parsed = JSON.parse(txt);
+                if (parsed && typeof parsed === 'object') return parsed;
+            } catch (_) { }
+        }
+    }
+    return {};
+}
+
+function _inferDeclareTargetScopeFromSkill(skillId) {
+    if (!skillId) return 'enemy';
+    const all = window.allSkillData || {};
+    const skill = all[skillId] || {};
+    const rule = _extractRuleDataForTargetScope(skill);
+    const candidates = [
+        skill.target_scope,
+        skill.targetScope,
+        skill.target_team,
+        skill.targetTeam,
+        rule.target_scope,
+        rule.targetScope,
+        rule.target_team,
+        rule.targetTeam
+    ];
+    for (const raw of candidates) {
+        const val = String(raw || '').trim();
+        if (!val) continue;
+        return _normalizeDeclareTargetScope(val);
+    }
+    return 'enemy';
+}
+
+function _getSlotTeamById(stateRef, slotId) {
+    if (!stateRef || !slotId) return null;
+    const slot = (stateRef.slots || {})[slotId] || null;
+    const slotTeam = String(slot?.team || '').toLowerCase();
+    if (slotTeam === 'ally' || slotTeam === 'enemy') return slotTeam;
+    const actorId = _getActorIdBySlotId(stateRef, slotId);
+    const actor = (stateRef.characters || []).find((c) => String(c.id) === String(actorId));
+    const actorTeam = String(actor?.type || '').toLowerCase();
+    if (actorTeam === 'ally' || actorTeam === 'enemy') return actorTeam;
+    return null;
+}
+
+function _isTargetTeamAllowedByScope(sourceTeam, targetTeam, scope) {
+    const normalizedScope = _normalizeDeclareTargetScope(scope);
+    if (normalizedScope === 'any') return true;
+    if (!sourceTeam || !targetTeam) return true;
+    if (normalizedScope === 'ally') return String(sourceTeam) === String(targetTeam);
+    return String(sourceTeam) !== String(targetTeam);
+}
+
 function _normalizeDeclareTargetType(type) {
     const t = String(type || '').trim();
     if (t === 'single_slot' || t === 'mass_individual' || t === 'mass_summation' || t === 'none') {
@@ -700,6 +771,9 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
     let lastSingleTargetSlotId = currentDeclare.lastSingleTargetSlotId || null;
     const effectiveClickedActorId = clickedActorId || _getActorIdBySlotId(stateRef, clickedSlotId);
     const sourceActorId = sourceSlotId ? _getActorIdBySlotId(stateRef, sourceSlotId) : null;
+    const sourceTeam = sourceSlotId ? _getSlotTeamById(stateRef, sourceSlotId) : null;
+    const clickedTeam = clickedSlotId ? _getSlotTeamById(stateRef, clickedSlotId) : null;
+    const targetScope = _inferDeclareTargetScopeFromSkill(skillId);
     const isMassMode = _isMassDeclareTargetType(targetType);
     const isTargetChoosing = !!sourceSlotId && !isMassMode && (mode === 'choose_target' || mode === 'ready');
     const isDifferentActorClick = (
@@ -707,6 +781,7 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
         && !!effectiveClickedActorId
         && String(sourceActorId) !== String(effectiveClickedActorId)
     );
+    const isAllowedTargetByScope = _isTargetTeamAllowedByScope(sourceTeam, clickedTeam, targetScope);
 
     // In mass mode, keep click UX but suppress target changes on enemy slot click.
     if (isMassMode && sourceSlotId && isDifferentActorClick) {
@@ -768,6 +843,7 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
             sourceActorId
             && effectiveClickedActorId
             && String(sourceActorId) !== String(effectiveClickedActorId)
+            && isAllowedTargetByScope
         ) {
             targetSlotId = clickedSlotId;
             lastSingleTargetSlotId = clickedSlotId;
@@ -780,6 +856,7 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
             sourceActorId
             && effectiveClickedActorId
             && String(sourceActorId) !== String(effectiveClickedActorId)
+            && isAllowedTargetByScope
         ) {
             targetSlotId = clickedSlotId;
             lastSingleTargetSlotId = clickedSlotId;

@@ -8,7 +8,8 @@
     "maxMp": 0,
     "initial_skill_ids": [
       "E-17",
-      "E-18"
+      "E-18",
+      "E-22"
     ],
     "SPassive": [],
     "radiance_skills": [],

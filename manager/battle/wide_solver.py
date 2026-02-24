@@ -17,6 +17,7 @@ from manager.battle.core import (
     calculate_opponent_skill_modifiers, process_on_hit_buffs
 )
 from manager.summons.service import apply_summon_change
+from manager.granted_skills.service import apply_grant_skill_change, consume_granted_skill_use
 from manager.utils import resolve_placeholders, get_effective_origin_id
 from manager.logs import setup_logger
 
@@ -209,10 +210,12 @@ def execute_wide_match(room, username):
              if 'used_skills_this_round' not in def_char:
                  def_char['used_skills_this_round'] = []
              def_char['used_skills_this_round'].append(def_skill_id)
+             consume_granted_skill_use(def_char, def_skill_id)
 
     if 'used_skills_this_round' not in attacker_char:
         attacker_char['used_skills_this_round'] = []
     attacker_char['used_skills_this_round'].append(attacker_skill_id)
+    consume_granted_skill_use(attacker_char, attacker_skill_id)
 
     # Execute match
     broadcast_log(room, f"⚔️ === 広域マッチ開始 ({mode}モード) ===", 'match-start')
@@ -290,6 +293,15 @@ def execute_wide_match(room, username):
                     broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
                 else:
                     logger.warning("[wide summon failed] %s", res.get("message"))
+            elif type == "GRANT_SKILL":
+                grant_payload = dict(value) if isinstance(value, dict) else {}
+                if "skill_id" not in grant_payload:
+                    grant_payload["skill_id"] = name
+                res = apply_grant_skill_change(room, state, attacker_char, char, grant_payload)
+                if res.get("ok"):
+                    broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+                else:
+                    logger.warning("[wide grant_skill failed] %s", res.get("message"))
         return extra
 
     # ★ 追加: マッチ不可 (Unmatchable) の処理
