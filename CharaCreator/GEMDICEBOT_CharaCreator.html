@@ -664,6 +664,7 @@
             <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
                 <button class="btn-success" onclick="copyToClipboard()">📋 コピー</button>
                 <button class="btn-primary" onclick="downloadFile()">💾 保存 (.json)</button>
+                <button class="btn-primary" onclick="exportCharacterSheetImage()">🖼 画像出力 (.png)</button>
                 <div class="file-input-wrapper">
                     <input type="file" id="file-input" accept=".json,.txt" style="display:none;">
                     <button class="btn-secondary" onclick="document.getElementById('file-input').click()">📂 読込
@@ -1443,6 +1444,321 @@
             const blob = new Blob([document.getElementById('json-output').value], { type: "text/plain" });
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
             a.download = (document.getElementById('char-name').value || "char") + ".json"; a.click();
+        }
+
+        function sanitizeFilename(name) {
+            const sanitized = String(name || 'character').replace(/[\\/:*?"<>|]/g, '_').trim();
+            return sanitized || 'character';
+        }
+
+        function wrapTextByChar(ctx, text, maxWidth) {
+            const src = String(text ?? '');
+            if (!src) return [''];
+            const lines = [];
+            let current = '';
+            for (const ch of src) {
+                const next = current + ch;
+                if (ctx.measureText(next).width > maxWidth && current) {
+                    lines.push(current);
+                    current = ch;
+                } else {
+                    current = next;
+                }
+            }
+            if (current) lines.push(current);
+            return lines.length ? lines : [''];
+        }
+
+        function drawRoundedRect(ctx, x, y, width, height, radius) {
+            const r = Math.min(radius, width / 2, height / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + width, y, x + width, y + height, r);
+            ctx.arcTo(x + width, y + height, x, y + height, r);
+            ctx.arcTo(x, y + height, x, y, r);
+            ctx.arcTo(x, y, x + width, y, r);
+            ctx.closePath();
+        }
+
+        function getCharacterSheetExportData() {
+            const getInt = (id) => parseInt(document.getElementById(id).value, 10) || 0;
+            const getVal = (id) => String(document.getElementById(id).value ?? '');
+            const getSelectedText = (id) => {
+                const el = document.getElementById(id);
+                if (!el || !el.selectedOptions || !el.selectedOptions[0]) return '';
+                return String(el.selectedOptions[0].textContent || '');
+            };
+
+            const infoMod = getInfoSkillModifier();
+            const skillDefs = [
+                { label: '五感', id: 's-senses', info: false }, { label: '採取', id: 's-gather', info: false },
+                { label: '本能', id: 's-instinct', info: false }, { label: '鑑定', id: 's-appraise', info: false },
+                { label: '対話', id: 's-dialogue', info: true }, { label: '尋問', id: 's-interrogate', info: true },
+                { label: '諜報', id: 's-intel', info: true }, { label: '窃取', id: 's-theft', info: true },
+                { label: '隠密', id: 's-stealth', info: false }, { label: '運動', id: 's-athletics', info: false },
+                { label: '制作', id: 's-craft', info: false }, { label: '回避', id: 's-evade', info: false }
+            ];
+
+            const primaryStats = [
+                { label: '筋力', value: String(getInt('p-str')) },
+                { label: '生命力', value: String(getInt('p-vit')) },
+                { label: '体格', value: String(getInt('p-phy')) },
+                { label: '精神力', value: String(getInt('p-mnt')) },
+                { label: '速度', value: String(getInt('p-spd')) },
+                { label: '直感', value: String(getInt('p-int')) },
+                { label: '経験', value: String(getInt('p-exp')) },
+                { label: 'シナリオ経験', value: String(getInt('p-exp-scenario')) }
+            ];
+
+            const battleStats = [
+                { label: '物理補正', value: String(getInt('p-phys-mod')) },
+                { label: '魔法補正', value: String(getInt('p-mag-mod')) },
+                { label: '速度補正', value: String(getInt('p-spd-mod')) },
+                { label: 'HP', value: `${getInt('st-hp-val')} / ${getInt('st-hp-max')}` },
+                { label: 'MP', value: `${getInt('st-mp-val')} / ${getInt('st-mp-max')}` }
+            ];
+
+            let skillValues = skillDefs.map(s => {
+                let value = getInt(s.id);
+                if (s.info) value += infoMod;
+                if (value < 0) value = 0;
+                return { label: s.label, value: String(value), numericValue: value };
+            }).filter(s => s.numericValue !== 0);
+
+            if (skillValues.length === 0) {
+                skillValues = [{ label: '表示', value: 'なし（全て0）', numericValue: 0 }];
+            }
+
+            const selectedSkills = SELECTED_SKILLS.length
+                ? SELECTED_SKILLS.map(s => {
+                    const displayName = s.customName ? `${s.customName} (${s.name})` : s.name;
+                    return `[${s.id}] Cost:${s.cost} ${displayName}`;
+                })
+                : ['なし'];
+            const radianceSkills = SELECTED_RADIANCE.length
+                ? SELECTED_RADIANCE.map(s => `[${s.id}] Cost:${s.cost} ${s.name}`)
+                : ['なし'];
+            const passiveSkills = SELECTED_PASSIVES.length
+                ? SELECTED_PASSIVES.map(s => `[${s.id}] Cost:${s.cost} ${s.name}`)
+                : ['なし'];
+
+            const itemIds = Object.keys(SELECTED_ITEMS);
+            const items = itemIds.length
+                ? itemIds.map(id => {
+                    const item = ALL_ITEMS.find(i => i.id === id);
+                    const itemName = item ? item.name : id;
+                    return `[${id}] ${itemName} x${SELECTED_ITEMS[id]}`;
+                })
+                : ['なし'];
+
+            const bonusOriginId = parseInt(getVal('char-hometown'), 10) || 0;
+            const bonusText = bonusOriginId > 0 ? getSelectedText('char-hometown') : '0: なし';
+            const isScenarioChar = getVal('char-type') === 'scenario';
+            const charType = isScenarioChar ? 'シナリオキャラクター' : 'プレイヤーキャラクター';
+            const name = getVal('char-name') || '新規キャラクター';
+            const listSections = [
+                { title: '取得スキル', lines: selectedSkills },
+                { title: '輝化スキル', lines: radianceSkills }
+            ];
+            if (isScenarioChar) {
+                listSections.push({ title: '特殊パッシブ', lines: passiveSkills });
+            }
+            listSections.push({ title: '所持アイテム', lines: items });
+
+            return {
+                title: `${name} キャラシート`,
+                metaLines: [
+                    `種別: ${charType}`,
+                    `出身: ${getSelectedText('char-origin')}`,
+                    `ボーナス: ${bonusText}`
+                ],
+                primaryStats,
+                battleStats,
+                skillValues,
+                listSections
+            };
+        }
+
+        function exportCharacterSheetImage() {
+            calculateStats();
+            const data = getCharacterSheetExportData();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                alert('画像出力に失敗しました (canvas初期化エラー)');
+                return;
+            }
+
+            const width = 1800;
+            const pagePadding = 30;
+            const cardPadding = 16;
+            const cardGap = 22;
+            const cardRadius = 14;
+            const cardTitleHeight = 44;
+            const gridCellHeight = 64;
+            const gridCellGap = 10;
+            const metaLineHeight = 36;
+            const listLineHeight = 30;
+
+            const computeGridCardHeight = (itemCount, columns, minRows) => {
+                const rows = Math.max(minRows, Math.ceil(Math.max(itemCount, 1) / columns));
+                return cardPadding + cardTitleHeight + (rows * gridCellHeight) + ((rows - 1) * gridCellGap) + cardPadding;
+            };
+
+            const leftColumnWidth = Math.floor((width - (pagePadding * 2) - cardGap) * 0.56);
+            const rightColumnWidth = (width - (pagePadding * 2) - cardGap) - leftColumnWidth;
+            const fullWidth = width - (pagePadding * 2);
+            const listColumnWidth = Math.floor((width - (pagePadding * 2) - cardGap) / 2);
+
+            ctx.font = '22px "Yu Gothic UI", "Meiryo", sans-serif';
+
+            const prepareListCard = (section) => {
+                const contentWidth = listColumnWidth - (cardPadding * 2);
+                const wrappedLines = [];
+                section.lines.forEach(line => {
+                    wrappedLines.push(...wrapTextByChar(ctx, line, contentWidth));
+                });
+                if (!wrappedLines.length) wrappedLines.push('なし');
+                const height = cardPadding + cardTitleHeight + (wrappedLines.length * listLineHeight) + cardPadding;
+                return {
+                    title: section.title,
+                    lines: wrappedLines,
+                    height
+                };
+            };
+
+            const preparedListCards = data.listSections.map(prepareListCard);
+
+            const abilityCardHeight = computeGridCardHeight(data.primaryStats.length, 4, 2);
+            const battleCardHeight = computeGridCardHeight(data.battleStats.length, 3, 2);
+            const skillCardHeight = computeGridCardHeight(data.skillValues.length, 6, 1);
+            const topRowHeight = Math.max(abilityCardHeight, battleCardHeight);
+            const topBlockHeight = topRowHeight + cardGap + skillCardHeight;
+            const listRows = [];
+            for (let i = 0; i < preparedListCards.length; i += 2) {
+                const leftCard = preparedListCards[i];
+                const rightCard = preparedListCards[i + 1] || null;
+                const rowHeight = rightCard ? Math.max(leftCard.height, rightCard.height) : leftCard.height;
+                listRows.push({ leftCard, rightCard, rowHeight });
+            }
+            const listBlockHeight = listRows.length
+                ? listRows.reduce((sum, row) => sum + row.rowHeight, 0) + (cardGap * (listRows.length - 1))
+                : 0;
+
+            const totalHeight =
+                pagePadding +
+                60 +
+                (data.metaLines.length * metaLineHeight) +
+                10 +
+                topBlockHeight +
+                (listRows.length ? cardGap + listBlockHeight : 0) +
+                pagePadding;
+
+            canvas.width = width;
+            canvas.height = Math.max(980, totalHeight);
+
+            const drawCardBase = (x, y, cardWidth, cardHeight, title) => {
+                drawRoundedRect(ctx, x, y, cardWidth, cardHeight, cardRadius);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                ctx.strokeStyle = '#cfd9ea';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.fillStyle = '#2454a2';
+                ctx.font = 'bold 30px "Yu Gothic UI", "Meiryo", sans-serif';
+                ctx.fillText(title, x + cardPadding, y + cardPadding + 26);
+            };
+
+            const drawGridCard = (x, y, cardWidth, title, entries, columns, minRows) => {
+                const rows = Math.max(minRows, Math.ceil(Math.max(entries.length, 1) / columns));
+                const cardHeight = computeGridCardHeight(entries.length, columns, minRows);
+                drawCardBase(x, y, cardWidth, cardHeight, title);
+
+                const gridTop = y + cardPadding + cardTitleHeight;
+                const cellWidth = Math.floor((cardWidth - (cardPadding * 2) - ((columns - 1) * gridCellGap)) / columns);
+
+                for (let i = 0; i < entries.length; i++) {
+                    const row = Math.floor(i / columns);
+                    const col = i % columns;
+                    const cellX = x + cardPadding + (col * (cellWidth + gridCellGap));
+                    const cellY = gridTop + (row * (gridCellHeight + gridCellGap));
+                    const entry = entries[i];
+
+                    drawRoundedRect(ctx, cellX, cellY, cellWidth, gridCellHeight, 10);
+                    ctx.fillStyle = '#f7f9fe';
+                    ctx.fill();
+                    ctx.strokeStyle = '#d9e3f5';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#2c3d5a';
+                    ctx.font = '20px "Yu Gothic UI", "Meiryo", sans-serif';
+                    ctx.fillText(entry.label, cellX + 10, cellY + 25);
+                    ctx.fillStyle = '#0f325f';
+                    ctx.font = 'bold 24px "Yu Gothic UI", "Meiryo", sans-serif';
+                    ctx.fillText(entry.value, cellX + 10, cellY + 54);
+                }
+
+                return cardHeight;
+            };
+
+            const drawListCard = (x, y, cardWidth, cardData) => {
+                drawCardBase(x, y, cardWidth, cardData.height, cardData.title);
+                ctx.fillStyle = '#1f2f46';
+                ctx.font = '22px "Yu Gothic UI", "Meiryo", sans-serif';
+                cardData.lines.forEach((line, idx) => {
+                    ctx.fillText(line, x + cardPadding, y + cardPadding + cardTitleHeight + 24 + (idx * listLineHeight));
+                });
+            };
+
+            const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bg.addColorStop(0, '#f7fbff');
+            bg.addColorStop(1, '#edf2ff');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            let y = pagePadding;
+            ctx.fillStyle = '#123f89';
+            ctx.font = 'bold 52px "Yu Gothic UI", "Meiryo", sans-serif';
+            ctx.fillText(data.title, pagePadding, y + 50);
+            y += 68;
+
+            ctx.fillStyle = '#284164';
+            ctx.font = '27px "Yu Gothic UI", "Meiryo", sans-serif';
+            data.metaLines.forEach(line => {
+                ctx.fillText(line, pagePadding, y + 28);
+                y += metaLineHeight;
+            });
+            y += 10;
+
+            const topY = y;
+            const leftX = pagePadding;
+            const rightX = pagePadding + leftColumnWidth + cardGap;
+
+            drawGridCard(leftX, topY, leftColumnWidth, '能力値', data.primaryStats, 4, 2);
+            drawGridCard(rightX, topY, rightColumnWidth, '戦闘ステータス', data.battleStats, 3, 2);
+            const skillY = topY + topRowHeight + cardGap;
+            drawGridCard(pagePadding, skillY, fullWidth, '技能値（0を除外）', data.skillValues, 6, 1);
+
+            if (listRows.length) {
+                y = topY + topBlockHeight + cardGap;
+                const listX1 = pagePadding;
+                const listX2 = pagePadding + listColumnWidth + cardGap;
+                listRows.forEach((row, idx) => {
+                    drawListCard(listX1, y, listColumnWidth, row.leftCard);
+                    if (row.rightCard) {
+                        drawListCard(listX2, y, listColumnWidth, row.rightCard);
+                    }
+                    if (idx < listRows.length - 1) {
+                        y += row.rowHeight + cardGap;
+                    }
+                });
+            }
+
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL('image/png');
+            a.download = `${sanitizeFilename(document.getElementById('char-name').value)}_sheet.png`;
+            a.click();
         }
 
         document.getElementById('file-input').addEventListener('change', function (e) {

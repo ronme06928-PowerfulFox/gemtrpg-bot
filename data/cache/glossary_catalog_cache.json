@@ -1047,5 +1047,44 @@
     "icon": "",
     "sort_order": null,
     "is_enabled": true
+  },
+  "W-59": {
+    "term_id": "W-59",
+    "display_name": "自滅",
+    "category": "効果",
+    "short": "",
+    "long": "特殊なスキル効果の一種。このタグを持つスキルを使用すると、そのスキルの処理後に使用者は戦闘不能になる。",
+    "flavor": "",
+    "links": [],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-60": {
+    "term_id": "W-60",
+    "display_name": "伝授",
+    "category": "効果",
+    "short": "",
+    "long": "本来キャラクターが所持しない特定のスキルを使用可能にする効果。この効果で使用可能になったスキルには使用回数などの制限が課せられる場合がある。",
+    "flavor": "",
+    "links": [],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-61": {
+    "term_id": "W-61",
+    "display_name": "召喚",
+    "category": "効果",
+    "short": "",
+    "long": "バトルに参加するキャラクターを生み出し、途中から参加させる効果。召喚されるキャラクターのステータスや所持スキルは予め決められている。召喚されたキャラクターには継続ラウンドなどの制限が課せられる場合がある。",
+    "flavor": "",
+    "links": [],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
   }
 }
