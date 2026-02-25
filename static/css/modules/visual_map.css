@@ -182,8 +182,8 @@
 }
 
 .slot-badge.is-locked {
-    border-color: #9f5210;
-    background: radial-gradient(circle at 30% 26%, #fff2df 0%, #f0c88f 72%, #d89a4f 100%);
+    /* Keep base/declared fill color stable. Lock state is shown as an extra ring only. */
+    box-shadow: 0 0 0 2px rgba(159, 82, 16, 0.35), 0 3px 8px rgba(0, 0, 0, 0.42);
 }
 
 .slot-badge.is-selected {
