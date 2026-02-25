@@ -118,6 +118,41 @@ def _patch_room_and_socket(monkeypatch, state):
     return emit_calls
 
 
+def _stub_update_char_stat(_room, char, stat, new_value, username=None, source=None):
+    stat_name = str(stat or "")
+    upper = stat_name.upper()
+    if upper == "HP":
+        char["hp"] = int(new_value)
+        return
+    if upper == "MP":
+        char["mp"] = int(new_value)
+        return
+
+    states = char.setdefault("states", [])
+    hit = None
+    for row in states:
+        if str(row.get("name", "")) == stat_name:
+            hit = row
+            break
+    if hit is None:
+        states.append({"name": stat_name, "value": int(new_value)})
+    else:
+        hit["value"] = int(new_value)
+
+
+def _state_value(char, stat):
+    stat_name = str(stat or "")
+    upper = stat_name.upper()
+    if upper == "HP":
+        return int(char.get("hp", 0) or 0)
+    if upper == "MP":
+        return int(char.get("mp", 0) or 0)
+    for row in char.get("states", []):
+        if str(row.get("name", "")) == stat_name:
+            return int(row.get("value", 0) or 0)
+    return 0
+
+
 def test_case1_mass_processed_before_single(monkeypatch):
     _, battle_core = _mods()
     state = _base_state(
@@ -143,14 +178,14 @@ def test_case1_mass_processed_before_single(monkeypatch):
     assert any(t["kind"] in {"clash", "one_sided", "fizzle"} for t in trace[1:])
 
 
-def test_case2_redirect_overwrite_by_higher_initiative():
+def test_case2_redirect_overwrite_by_latest_declaration():
     battle_routes = _load_battle_common_routes_module()
     state = _base_state([])
     slots = state["battle_state"]["slots"]
     intents = state["battle_state"]["intents"]
-    slots["A"] = {"slot_id": "A", "actor_id": "A1", "initiative": 9, "locked_target": False}
+    slots["A"] = {"slot_id": "A", "actor_id": "A1", "initiative": 10, "locked_target": False}
     slots["B"] = {"slot_id": "B", "actor_id": "B1", "initiative": 3, "locked_target": False}
-    slots["C"] = {"slot_id": "C", "actor_id": "C1", "initiative": 10, "locked_target": False}
+    slots["C"] = {"slot_id": "C", "actor_id": "C1", "initiative": 9, "locked_target": False}
     intents["A"] = {
         "slot_id": "A",
         "actor_id": "A1",
@@ -158,7 +193,8 @@ def test_case2_redirect_overwrite_by_higher_initiative():
         "target": {"type": "single_slot", "slot_id": "B"},
         "tags": {"instant": False, "mass_type": None, "no_redirect": False},
         "committed": True,
-        "committed_at": 1,
+        "committed_at": 100,
+        "intent_rev": 1,
     }
     intents["B"] = {
         "slot_id": "B",
@@ -168,6 +204,7 @@ def test_case2_redirect_overwrite_by_higher_initiative():
         "tags": {"instant": False, "mass_type": None, "no_redirect": False},
         "committed": True,
         "committed_at": 1,
+        "intent_rev": 1,
     }
     intents["C"] = {
         "slot_id": "C",
@@ -176,7 +213,8 @@ def test_case2_redirect_overwrite_by_higher_initiative():
         "target": {"type": "single_slot", "slot_id": "B"},
         "tags": {"instant": False, "mass_type": None, "no_redirect": False},
         "committed": True,
-        "committed_at": 1,
+        "committed_at": 200,
+        "intent_rev": 2,
     }
 
     battle_routes._try_apply_redirect("room_t", "battle_test", state["battle_state"], "A")
@@ -186,6 +224,59 @@ def test_case2_redirect_overwrite_by_higher_initiative():
     battle_routes._try_apply_redirect("room_t", "battle_test", state["battle_state"], "C")
     assert state["battle_state"]["intents"]["B"]["target"]["slot_id"] == "C"
     assert state["battle_state"]["slots"]["B"]["locked_target"] is True
+    assert state["battle_state"]["slots"]["B"]["locked_by_intent_rev"] == 2
+
+
+def test_case2b_recalculate_redirect_prefers_latest_commit():
+    battle_routes = _load_battle_common_routes_module()
+    state = _base_state([])
+    bs = state["battle_state"]
+    slots = bs["slots"]
+    intents = bs["intents"]
+
+    slots["A"] = {"slot_id": "A", "actor_id": "A1", "initiative": 10, "locked_target": False}
+    slots["B"] = {"slot_id": "B", "actor_id": "B1", "initiative": 3, "locked_target": False}
+    slots["C"] = {"slot_id": "C", "actor_id": "C1", "initiative": 9, "locked_target": False}
+
+    intents["A"] = {
+        "slot_id": "A",
+        "actor_id": "A1",
+        "skill_id": "atk_a",
+        "target": {"type": "single_slot", "slot_id": "B"},
+        "tags": {"instant": False, "mass_type": None, "no_redirect": False},
+        "committed": True,
+        "committed_at": 100,
+        "intent_rev": 1,
+    }
+    intents["B"] = {
+        "slot_id": "B",
+        "actor_id": "B1",
+        "skill_id": "atk_b",
+        "target": {"type": "single_slot", "slot_id": "A"},
+        "tags": {"instant": False, "mass_type": None, "no_redirect": False},
+        "committed": True,
+        "committed_at": 50,
+        "intent_rev": 1,
+    }
+    intents["C"] = {
+        "slot_id": "C",
+        "actor_id": "C1",
+        "skill_id": "atk_c",
+        "target": {"type": "single_slot", "slot_id": "B"},
+        "tags": {"instant": False, "mass_type": None, "no_redirect": False},
+        "committed": True,
+        "committed_at": 200,
+        "intent_rev": 2,
+    }
+
+    battle_routes._recalculate_redirect_state("room_t", "battle_test", bs)
+    assert bs["intents"]["B"]["target"]["slot_id"] == "C"
+
+    # A re-commits later than C -> redirect winner returns to A.
+    intents["A"]["intent_rev"] = 3
+    intents["A"]["committed_at"] = 300
+    battle_routes._recalculate_redirect_state("room_t", "battle_test", bs)
+    assert bs["intents"]["B"]["target"]["slot_id"] == "A"
 
 
 def test_case3_no_redirect_unlocks_target():
@@ -199,6 +290,8 @@ def test_case3_no_redirect_unlocks_target():
         "locked_target": True,
         "locked_by_slot": "A",
         "locked_by_initiative": 9,
+        "locked_by_intent_rev": 7,
+        "locked_by_committed_at": 170,
     }
     bs["intents"]["B"] = {
         "slot_id": "B",
@@ -213,8 +306,72 @@ def test_case3_no_redirect_unlocks_target():
     battle_routes._cancel_redirect_by_no_redirect("room_t", "battle_test", bs, "B", reset_target=True)
 
     assert bs["slots"]["B"]["locked_target"] is False
+    assert "locked_by_intent_rev" not in bs["slots"]["B"]
+    assert "locked_by_committed_at" not in bs["slots"]["B"]
     assert bs["intents"]["B"]["target"]["type"] == "none"
     assert bs["intents"]["B"]["target"]["slot_id"] is None
+
+
+def test_case3b_one_sided_tracks_used_skill_and_triggers_end_round(monkeypatch):
+    battle_common, battle_core = _mods()
+    state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])
+    state["round"] = 1
+    state["is_round_ended"] = False
+
+    _add_slot(state, "A", "A1", "ally", 9, 0)
+    _add_slot(state, "B", "B1", "enemy", 5, 0)
+    _set_intent(state, "A", "A1", "S-END", "single_slot", "B", committed=True)
+    _set_intent(state, "B", "B1", "S-NOOP", "none", None, committed=True)
+    state["battle_state"]["phase"] = "resolve_single"
+
+    end_round_skill = {
+        "スキルID": "S-END",
+        "デフォルト名称": "Round End Grant",
+        "基礎威力": 0,
+        "ダイス威力": "1d1",
+        "チャットパレット": "0+1d1 【S-END Round End Grant】",
+        "分類": "攻撃",
+        "距離": "近接",
+        "属性": "物理",
+        "特記処理": "{\"cost\": [], \"effects\": [{\"timing\": \"END_ROUND\", \"type\": \"APPLY_STATE\", \"target\": \"self\", \"state_name\": \"FP\", \"value\": 2}]}",
+    }
+    noop_skill = {
+        "スキルID": "S-NOOP",
+        "デフォルト名称": "Noop",
+        "基礎威力": 0,
+        "ダイス威力": "1d1",
+        "チャットパレット": "0+1d1 【S-NOOP Noop】",
+        "分類": "攻撃",
+        "距離": "近接",
+        "属性": "物理",
+        "特記処理": "{\"cost\": [], \"effects\": []}",
+    }
+
+    monkeypatch.setitem(battle_core.all_skill_data, "S-END", end_round_skill)
+    monkeypatch.setitem(battle_core.all_skill_data, "S-NOOP", noop_skill)
+    monkeypatch.setitem(battle_common.all_skill_data, "S-END", end_round_skill)
+    monkeypatch.setitem(battle_common.all_skill_data, "S-NOOP", noop_skill)
+
+    _patch_room_and_socket(monkeypatch, state)
+    monkeypatch.setattr(battle_core, "_update_char_stat", _stub_update_char_stat)
+    monkeypatch.setattr(battle_common, "_update_char_stat", _stub_update_char_stat)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "broadcast_state_update", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda *args, **kwargs: True)
+    monkeypatch.setattr(battle_common, "emit", lambda *args, **kwargs: None)
+
+    battle_core.run_select_resolve_auto("room_t", "battle_test")
+
+    actor_a = next(c for c in state["characters"] if c["id"] == "A1")
+    assert "S-END" in (actor_a.get("used_skills_this_round") or [])
+
+    for char in state["characters"]:
+        char["hasActed"] = True
+
+    fp_before = _state_value(actor_a, "FP")
+    battle_common.process_full_round_end("room_t", "gm")
+    fp_after = _state_value(actor_a, "FP")
+    assert fp_after == fp_before + 2
 
 
 def test_case4_mass_summation_uses_one_slot_per_actor(monkeypatch):

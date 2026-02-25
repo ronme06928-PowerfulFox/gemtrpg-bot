@@ -487,6 +487,20 @@ def _apply_status(defender, status_payload):
     return applied
 
 
+def _record_used_skill_for_actor(actor, skill_id):
+    """Track resolved skill usage for END_ROUND effects."""
+    if not isinstance(actor, dict):
+        return
+    sid = str(skill_id or '').strip()
+    if not sid:
+        return
+    used = actor.get('used_skills_this_round')
+    if not isinstance(used, list):
+        used = []
+        actor['used_skills_this_round'] = used
+    used.append(sid)
+
+
 def _apply_outcome_to_state(outcome, characters_by_id):
     applied = {'cost': {'mp': 0, 'hp': 0, 'fp': 0}, 'damage': [], 'statuses': [], 'flags': [], 'log_lines': []}
     if not isinstance(outcome, dict):
@@ -1664,6 +1678,9 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     if not attacker_char or not defender_char or not attacker_skill_data:
         return {'ok': False, 'reason': 'missing_actor_or_skill'}
 
+    # Select/Resolve path must track used skills so END_ROUND effects can resolve.
+    _record_used_skill_for_actor(attacker_char, _extract_skill_id_from_data(attacker_skill_data))
+
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
 
@@ -2710,6 +2727,9 @@ def run_select_resolve_auto(room, battle_id):
                 _consume_resolve_slot(battle_state, slot_id)
                 continue
 
+            # Mass attacker skill is resolved in this phase and should count for END_ROUND effects.
+            _record_used_skill_for_actor(attacker_char, attacker_skill_id)
+
             def _emit_mass_one_sided(defender_actor_id, defender_slot=None, trace_kind='mass_individual', trace_notes=None):
                 defender_char = characters_by_id.get(defender_actor_id)
                 if not isinstance(defender_char, dict):
@@ -2820,6 +2840,10 @@ def run_select_resolve_auto(room, battle_id):
                 attacker_power = _roll_power_for_slot(battle_state, slot_id)
                 defender_powers = {}
                 for p_slot in participant_slots:
+                    participant_actor_id = slots.get(p_slot, {}).get('actor_id')
+                    participant_char = characters_by_id.get(participant_actor_id)
+                    participant_skill_id = (intents.get(p_slot, {}) or {}).get('skill_id')
+                    _record_used_skill_for_actor(participant_char, participant_skill_id)
                     defender_powers[p_slot] = _roll_power_for_slot(battle_state, p_slot)
                 defender_sum = sum(defender_powers.values())
                 outcome = _compare_outcome(attacker_power, defender_sum)

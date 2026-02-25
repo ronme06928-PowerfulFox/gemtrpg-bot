@@ -1230,6 +1230,8 @@ def _clear_redirect_state(state):
             slot['locked_target'] = False
             slot.pop('locked_by_slot', None)
             slot.pop('locked_by_initiative', None)
+            slot.pop('locked_by_intent_rev', None)
+            slot.pop('locked_by_committed_at', None)
     state['redirects'] = []
 
 
@@ -1267,6 +1269,10 @@ def _cancel_redirect_by_no_redirect(room_id, battle_id, state, slot_id, reset_ta
         slot.pop('locked_by_slot', None)
     if 'locked_by_initiative' in slot:
         slot.pop('locked_by_initiative', None)
+    if 'locked_by_intent_rev' in slot:
+        slot.pop('locked_by_intent_rev', None)
+    if 'locked_by_committed_at' in slot:
+        slot.pop('locked_by_committed_at', None)
     if reset_target:
         intent['target'] = {'type': 'none', 'slot_id': None}
 
@@ -1318,15 +1324,25 @@ def _try_apply_redirect(room_id, battle_id, state, slot_a):
     if intent_b.get('tags', {}).get('no_redirect', False):
         return
 
-    current_locked_by_init = int(slot_b_data.get('locked_by_initiative', -999999))
-    if slot_b_data.get('locked_target', False) and init_a < current_locked_by_init:
-        return
+    # Redirect contention rule:
+    # among faster-than-B candidates, the most recently committed declaration wins.
+    intent_rev_a = int(intent_a.get('intent_rev', 0) or 0)
+    committed_at_a = int(intent_a.get('committed_at', 0) or 0)
+    current_locked_by_rev = int(slot_b_data.get('locked_by_intent_rev', -999999))
+    current_locked_by_ts = int(slot_b_data.get('locked_by_committed_at', -999999))
+    if slot_b_data.get('locked_target', False):
+        if intent_rev_a < current_locked_by_rev:
+            return
+        if intent_rev_a == current_locked_by_rev and committed_at_a < current_locked_by_ts:
+            return
 
     old_target_slot = intent_b.get('target', {}).get('slot_id')
     intent_b['target'] = {'type': 'single_slot', 'slot_id': slot_a}
     slot_b_data['locked_target'] = True
     slot_b_data['locked_by_slot'] = slot_a
     slot_b_data['locked_by_initiative'] = init_a
+    slot_b_data['locked_by_intent_rev'] = intent_rev_a
+    slot_b_data['locked_by_committed_at'] = committed_at_a
 
     redirect_record = {
         'ts': _server_ts(),
@@ -1337,7 +1353,10 @@ def _try_apply_redirect(room_id, battle_id, state, slot_a):
         'new_target_slot': slot_a
     }
     _append_redirect_record(state, redirect_record)
-    print(f"redirect {slot_b} -> {slot_a} by {slot_a}(init={init_a} > {init_b})")
+    print(
+        f"redirect {slot_b} -> {slot_a} by {slot_a}"
+        f"(init={init_a} > {init_b}, rev={intent_rev_a}, ts={committed_at_a})"
+    )
 
 
 def _recalculate_redirect_state(room_id, battle_id, state):
@@ -1349,10 +1368,16 @@ def _recalculate_redirect_state(room_id, battle_id, state):
     if not isinstance(slots, dict) or not isinstance(intents, dict):
         return
 
-    ordered_slot_ids = sorted(
-        [sid for sid in slots.keys()],
-        key=lambda sid: (int((slots.get(sid) or {}).get('initiative', 0)), str(sid))
-    )
+    def _redirect_sort_key(slot_id):
+        intent = intents.get(slot_id, {}) if isinstance(intents, dict) else {}
+        slot = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
+        # Lower values first so later declarations are processed later and can overwrite.
+        intent_rev = int(intent.get('intent_rev', 0) or 0)
+        committed_at = int(intent.get('committed_at', 0) or 0)
+        initiative = int(slot.get('initiative', 0) or 0)
+        return (intent_rev, committed_at, initiative, str(slot_id))
+
+    ordered_slot_ids = sorted([sid for sid in slots.keys()], key=_redirect_sort_key)
 
     for slot_id in ordered_slot_ids:
         intent = _ensure_intent_for_slot(state, slot_id)
