@@ -2,6 +2,8 @@
 import time
 import random
 import copy
+import json
+from datetime import datetime, timezone
 from flask import request, session
 from flask_socketio import emit
 
@@ -418,6 +420,98 @@ def handle_state_update(data):
     save_specific_room_state(room)
 
 
+def _normalize_behavior_profile_safe(raw_profile):
+    try:
+        from manager.battle.enemy_behavior import normalize_behavior_profile
+        return normalize_behavior_profile(raw_profile)
+    except Exception:
+        profile = raw_profile if isinstance(raw_profile, dict) else {}
+        return {
+            "enabled": bool(profile.get("enabled", False)),
+            "version": 1,
+            "initial_loop_id": None,
+            "loops": {},
+        }
+
+
+def _normalize_enemy_for_preset(enemy):
+    if not isinstance(enemy, dict):
+        return None
+    normalized = copy.deepcopy(enemy)
+    flags = normalized.get('flags')
+    if not isinstance(flags, dict):
+        flags = {}
+        normalized['flags'] = flags
+    if 'behavior_profile' in flags:
+        flags['behavior_profile'] = _normalize_behavior_profile_safe(flags.get('behavior_profile'))
+    return normalized
+
+
+def _normalize_preset_record(raw_preset):
+    created_at = int(time.time() * 1000)
+    if isinstance(raw_preset, list):
+        enemies_raw = raw_preset
+    elif isinstance(raw_preset, dict):
+        enemies_raw = raw_preset.get('enemies', [])
+        if not isinstance(enemies_raw, list):
+            enemies_raw = []
+        try:
+            created_at = int(raw_preset.get('created_at', created_at) or created_at)
+        except Exception:
+            created_at = int(time.time() * 1000)
+    else:
+        enemies_raw = []
+
+    enemies = []
+    for enemy in enemies_raw:
+        normalized_enemy = _normalize_enemy_for_preset(enemy)
+        if isinstance(normalized_enemy, dict):
+            enemies.append(normalized_enemy)
+
+    return {
+        "version": 2,
+        "created_at": created_at,
+        "enemies": enemies,
+    }
+
+
+def _get_preset_store(state):
+    presets = state.get('presets')
+    if not isinstance(presets, dict):
+        presets = {}
+        state['presets'] = presets
+    return presets
+
+
+def _emit_preset_error(error_code, message, event_name='preset_error'):
+    socketio.emit(
+        event_name,
+        {
+            "error": str(error_code or "unknown_error"),
+            "message": str(message or "エラーが発生しました。"),
+        },
+        to=request.sid
+    )
+
+
+def _require_preset_gm():
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+    if attribute == 'GM':
+        return True, user_info
+    print(f"⚠️ Security: Player {username} tried to access preset API. Denied.")
+    _emit_preset_error('permission_denied', 'プリセット操作はGMのみ可能です。')
+    return False, user_info
+
+
+def _reset_behavior_runtime_after_enemy_reload(state):
+    battle_state = state.get('battle_state')
+    if not isinstance(battle_state, dict):
+        return
+    battle_state['behavior_runtime'] = {}
+
+
 # === ▼▼▼エネミープリセット機能 ▼▼▼ ===
 @socketio.on('request_save_preset')
 def handle_save_preset(data):
@@ -427,14 +521,16 @@ def handle_save_preset(data):
 
     if not room or not preset_name: return
 
-    state = get_room_state(room)
+    allowed, _ = _require_preset_gm()
+    if not allowed:
+        _emit_preset_error('permission_denied', 'プリセット操作はGMのみ可能です。', event_name='preset_save_error')
+        return
 
-    # プリセット保存領域がない場合は作成
-    if 'presets' not in state:
-        state['presets'] = {}
+    state = get_room_state(room)
+    presets = _get_preset_store(state)
 
     # 上書き確認 (許可がない場合)
-    if preset_name in state['presets'] and not overwrite:
+    if preset_name in presets and not overwrite:
         socketio.emit('preset_save_error', {"error": "duplicate", "message": "同名のプリセットが存在します。上書きしますか？"}, to=request.sid)
         return
 
@@ -445,8 +541,8 @@ def handle_save_preset(data):
         socketio.emit('preset_save_error', {"error": "empty", "message": "敵キャラクターがいません。"}, to=request.sid)
         return
 
-    # データを保存 (ディープコピー推奨だが、JSON化されるので簡易的にリスト化)
-    state['presets'][preset_name] = current_enemies
+    normalized_payload = _normalize_preset_record(current_enemies)
+    presets[preset_name] = copy.deepcopy(normalized_payload)
 
     save_specific_room_state(room)
 
@@ -461,24 +557,26 @@ def handle_load_preset(data):
 
     if not room or not preset_name: return
 
-    state = get_room_state(room)
-    if 'presets' not in state or preset_name not in state['presets']:
+    allowed, user_info = _require_preset_gm()
+    if not allowed:
         return
 
-    preset_data = state['presets'][preset_name]
+    state = get_room_state(room)
+    presets = _get_preset_store(state)
+    if preset_name not in presets:
+        _emit_preset_error('not_found', f'プリセット「{preset_name}」が見つかりません。')
+        return
+
+    preset_payload = _normalize_preset_record(presets.get(preset_name))
+    presets[preset_name] = copy.deepcopy(preset_payload)
+    preset_enemies = list(preset_payload.get('enemies', []))
 
     # 1. 現在の「敵」を全て削除 (味方は残す)
     state['characters'] = [c for c in state['characters'] if c.get('type') != 'enemy']
-
-    # 2. プリセットデータを展開して追加 (IDは新規発行)
-    import time
-    import random
-    import copy
-
-    user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
 
-    for original_char in preset_data:
+    # 2. プリセットデータを展開して追加 (IDは新規発行)
+    for original_char in preset_enemies:
         # データを複製
         new_char = copy.deepcopy(original_char)
 
@@ -496,6 +594,8 @@ def handle_load_preset(data):
 
         state['characters'].append(new_char)
 
+    _reset_behavior_runtime_after_enemy_reload(state)
+
     broadcast_log(room, f"--- {username} がプリセット「{preset_name}」を展開しました ---", 'info')
     broadcast_state_update(room)
     save_specific_room_state(room)
@@ -507,11 +607,18 @@ def handle_delete_preset(data):
 
     if not room or not preset_name: return
 
+    allowed, _ = _require_preset_gm()
+    if not allowed:
+        return
+
     state = get_room_state(room)
-    if 'presets' in state and preset_name in state['presets']:
-        del state['presets'][preset_name]
+    presets = _get_preset_store(state)
+    if preset_name in presets:
+        del presets[preset_name]
         save_specific_room_state(room)
         socketio.emit('preset_deleted', {"name": preset_name}, to=request.sid)
+    else:
+        _emit_preset_error('not_found', f'プリセット「{preset_name}」が見つかりません。')
 
 @socketio.on('request_get_presets')
 def handle_get_presets(data):
@@ -519,10 +626,104 @@ def handle_get_presets(data):
     room = data.get('room')
     if not room: return
 
+    allowed, _ = _require_preset_gm()
+    if not allowed:
+        return
+
     state = get_room_state(room)
-    presets = list(state.get('presets', {}).keys())
+    presets_map = _get_preset_store(state)
+    presets = list(presets_map.keys())
     # 名前順にソート (Q3要件)
     presets.sort()
 
     socketio.emit('receive_preset_list', {"presets": presets}, to=request.sid)
+
+
+@socketio.on('request_export_preset_json')
+def handle_export_preset_json(data):
+    room = data.get('room')
+    preset_name = data.get('name')
+    if not room or not preset_name:
+        return
+
+    allowed, _ = _require_preset_gm()
+    if not allowed:
+        return
+
+    state = get_room_state(room)
+    presets = _get_preset_store(state)
+    if preset_name not in presets:
+        _emit_preset_error('not_found', f'プリセット「{preset_name}」が見つかりません。', event_name='preset_export_error')
+        return
+
+    payload = _normalize_preset_record(presets.get(preset_name))
+    presets[preset_name] = copy.deepcopy(payload)
+
+    export_obj = {
+        "schema": "gem_dicebot_enemy_preset.v1",
+        "exported_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "preset_name": preset_name,
+        "payload": payload,
+    }
+    socketio.emit(
+        'preset_json_exported',
+        {
+            "name": preset_name,
+            "payload": export_obj,
+            "json": json.dumps(export_obj, ensure_ascii=False, separators=(',', ':')),
+        },
+        to=request.sid
+    )
+
+
+@socketio.on('request_import_preset_json')
+def handle_import_preset_json(data):
+    room = data.get('room')
+    if not room:
+        return
+
+    allowed, _ = _require_preset_gm()
+    if not allowed:
+        return
+
+    raw_json = data.get('json') or data.get('text')
+    raw_payload = data.get('payload')
+    overwrite = bool(data.get('overwrite', False))
+    forced_name = str(data.get('name', '') or '').strip()
+
+    parsed = None
+    if isinstance(raw_payload, dict):
+        parsed = raw_payload
+    elif isinstance(raw_json, str):
+        try:
+            parsed = json.loads(raw_json)
+        except Exception:
+            parsed = None
+
+    if not isinstance(parsed, dict):
+        _emit_preset_error('invalid_json', 'JSONの解析に失敗しました。', event_name='preset_import_error')
+        return
+    if str(parsed.get('schema', '')).strip() != 'gem_dicebot_enemy_preset.v1':
+        _emit_preset_error('invalid_schema', 'schema が不正です。', event_name='preset_import_error')
+        return
+
+    payload = parsed.get('payload')
+    if not isinstance(payload, dict):
+        _emit_preset_error('invalid_payload', 'payload が不正です。', event_name='preset_import_error')
+        return
+    if not isinstance(payload.get('enemies'), list):
+        _emit_preset_error('invalid_payload', 'payload.enemies が不正です。', event_name='preset_import_error')
+        return
+
+    preset_name = forced_name or str(parsed.get('preset_name', '')).strip() or f"import_{int(time.time())}"
+    state = get_room_state(room)
+    presets = _get_preset_store(state)
+    if (preset_name in presets) and not overwrite:
+        _emit_preset_error('duplicate', '同名のプリセットが存在します。上書きしますか？', event_name='preset_import_error')
+        return
+
+    normalized_payload = _normalize_preset_record(payload)
+    presets[preset_name] = copy.deepcopy(normalized_payload)
+    save_specific_room_state(room)
+    socketio.emit('preset_imported', {"name": preset_name}, to=request.sid)
 

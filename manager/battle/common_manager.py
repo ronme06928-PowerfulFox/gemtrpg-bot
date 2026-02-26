@@ -42,8 +42,20 @@ def _is_select_resolve_active(state):
 from manager.game_logic import (
     get_status_value, process_skill_effects, apply_buff, remove_buff, process_battle_start
 )
-from manager.utils import get_effective_origin_id, apply_origin_bonus_buffs
+import manager.utils as _utils_mod
+from manager.battle.enemy_behavior import (
+    normalize_behavior_profile,
+    initialize_behavior_runtime_entry,
+    evaluate_transitions,
+    pick_step_actions,
+    advance_step_pointer,
+    choose_actions_for_slot_count,
+)
 import random
+
+get_effective_origin_id = getattr(_utils_mod, 'get_effective_origin_id', lambda *_args, **_kwargs: 0)
+apply_origin_bonus_buffs = getattr(_utils_mod, 'apply_origin_bonus_buffs', lambda *_args, **_kwargs: None)
+clear_newly_applied_flags = getattr(_utils_mod, 'clear_newly_applied_flags', lambda *_args, **_kwargs: 0)
 
 
 def _canonical_team(raw_value):
@@ -312,6 +324,39 @@ def _broadcast_pve_round_start_preview_log(state, room, preview_rows, round_valu
         state['_pve_preview_log_round'] = normalized_round
 
 
+def _group_enemy_slots_by_actor(enemy_slot_ids, slots):
+    grouped = {}
+    for slot_id in enemy_slot_ids or []:
+        slot = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
+        actor_id = slot.get('actor_id')
+        if not actor_id:
+            continue
+        grouped.setdefault(str(actor_id), []).append(str(slot_id))
+
+    for actor_id, actor_slots in grouped.items():
+        actor_slots.sort(
+            key=lambda sid: (
+                int((slots.get(sid, {}) or {}).get('index_in_actor', 0)),
+                -int((slots.get(sid, {}) or {}).get('initiative', 0)),
+                str(sid)
+            )
+        )
+        grouped[actor_id] = actor_slots
+    return grouped
+
+
+def _read_behavior_profile_from_actor(actor):
+    if not isinstance(actor, dict):
+        return {"enabled": False, "version": 1, "initial_loop_id": None, "loops": {}}
+    flags = actor.get('flags')
+    if not isinstance(flags, dict):
+        flags = {}
+        actor['flags'] = flags
+    profile = normalize_behavior_profile(flags.get('behavior_profile'))
+    flags['behavior_profile'] = profile
+    return profile
+
+
 def _apply_pve_auto_enemy_intents(state, battle_state, room):
     """
     PvE round start helper.
@@ -368,80 +413,128 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
         state['ai_target_arrows'] = []
         return {'applied_slots': 0, 'committed_slots': 0, 'preview_rows': []}
 
+    grouped_enemy_slots = _group_enemy_slots_by_actor(enemy_slots, slots)
     intents = battle_state.get('intents', {})
     if not isinstance(intents, dict):
         intents = {}
+    behavior_runtime = battle_state.get('behavior_runtime', {})
+    if not isinstance(behavior_runtime, dict):
+        behavior_runtime = {}
+
     now_ms = int(time.time() * 1000)
     seq = int(battle_state.get('intent_revision_seq', 0) or 0)
     arrows = []
     applied_slots = 0
     committed_slots = 0
     preview_rows = []
+    round_value = int(battle_state.get('round', state.get('round', 0)) or 0)
 
-    for idx, enemy_slot_id in enumerate(enemy_slots):
-        slot = slots.get(enemy_slot_id, {}) if isinstance(slots, dict) else {}
-        actor_id = slot.get('actor_id')
+    for actor_id, actor_slot_ids in grouped_enemy_slots.items():
         actor = char_by_id.get(actor_id, {})
-        if not actor_id or not _is_pve_actionable_character(actor):
+        if not _is_pve_actionable_character(actor):
             continue
-
-        target_slot_id = random.choice(ally_target_slots)
-        target_slot = slots.get(target_slot_id, {}) if isinstance(slots, dict) else {}
-        target_actor_id = target_slot.get('actor_id')
 
         flags = actor.get('flags', {}) if isinstance(actor.get('flags'), dict) else {}
         auto_skill_select = bool(
             flags.get('auto_skill_select', False)
             or flags.get('show_planned_skill', False)
         )
-        suggested_skill_id = ai_suggest_skill(actor) if auto_skill_select else None
 
-        target_type = 'single_slot'
-        target_payload = {'type': 'single_slot', 'slot_id': target_slot_id}
-        inferred_mass = _infer_mass_type_from_skill(suggested_skill_id)
-        if inferred_mass in ['mass_individual', 'mass_summation']:
-            target_type = inferred_mass
-            target_payload = {'type': inferred_mass, 'slot_id': None}
+        behavior_profile = _read_behavior_profile_from_actor(actor)
+        use_behavior_chart = bool(behavior_profile.get('enabled', False) and behavior_profile.get('loops'))
+        planned_actions = [None for _ in actor_slot_ids]
+        runtime_entry = behavior_runtime.get(actor_id) if isinstance(behavior_runtime.get(actor_id), dict) else {}
 
-        committed = bool(auto_skill_select and suggested_skill_id)
-        if committed:
-            seq += 1
-            committed_slots += 1
+        if use_behavior_chart:
+            runtime_entry = initialize_behavior_runtime_entry(
+                behavior_profile,
+                runtime_entry=runtime_entry,
+                round_value=round_value,
+            )
+            transition_result = evaluate_transitions(
+                behavior_profile,
+                runtime_entry,
+                actor_char=actor,
+                state=state,
+                battle_state=battle_state,
+            )
+            runtime_entry = transition_result.get('runtime', runtime_entry)
+            picked = pick_step_actions(behavior_profile, runtime_entry)
+            runtime_entry = picked.get('runtime', runtime_entry)
+            planned_actions = choose_actions_for_slot_count(
+                picked.get('actions', []),
+                len(actor_slot_ids),
+            )
 
-        intents[enemy_slot_id] = {
-            'slot_id': enemy_slot_id,
-            'actor_id': actor_id,
-            'skill_id': suggested_skill_id,
-            'target': target_payload,
-            'tags': _build_pve_intent_tags(suggested_skill_id, target_type=target_type),
-            'committed': committed,
-            'committed_at': (now_ms + idx) if committed else None,
-            'committed_by': 'AI:PVE' if committed else None,
-            'intent_rev': seq if committed else int(intents.get(enemy_slot_id, {}).get('intent_rev', 0) or 0),
-        }
-        applied_slots += 1
+        committed_skill_ids = []
+        for idx, enemy_slot_id in enumerate(actor_slot_ids):
+            slot = slots.get(enemy_slot_id, {}) if isinstance(slots, dict) else {}
+            target_slot_id = random.choice(ally_target_slots)
+            target_slot = slots.get(target_slot_id, {}) if isinstance(slots, dict) else {}
+            target_actor_id = target_slot.get('actor_id')
 
-        if target_actor_id:
-            arrows.append({
-                'from_id': actor_id,
-                'to_id': target_actor_id,
-                'type': 'attack',
-                'visible': True
+            suggested_skill_id = planned_actions[idx] if idx < len(planned_actions) else None
+            if suggested_skill_id and suggested_skill_id not in all_skill_data:
+                suggested_skill_id = None
+            if (not suggested_skill_id) and auto_skill_select:
+                suggested_skill_id = ai_suggest_skill(actor)
+
+            target_type = 'single_slot'
+            target_payload = {'type': 'single_slot', 'slot_id': target_slot_id}
+            inferred_mass = _infer_mass_type_from_skill(suggested_skill_id)
+            if inferred_mass in ['mass_individual', 'mass_summation']:
+                target_type = inferred_mass
+                target_payload = {'type': inferred_mass, 'slot_id': None}
+
+            committed = bool(suggested_skill_id)
+            if committed:
+                seq += 1
+                committed_slots += 1
+                committed_skill_ids.append(str(suggested_skill_id))
+
+            intents[enemy_slot_id] = {
+                'slot_id': enemy_slot_id,
+                'actor_id': actor_id,
+                'skill_id': suggested_skill_id,
+                'target': target_payload,
+                'tags': _build_pve_intent_tags(suggested_skill_id, target_type=target_type),
+                'committed': committed,
+                'committed_at': (now_ms + idx) if committed else None,
+                'committed_by': 'AI:PVE' if committed else None,
+                'intent_rev': seq if committed else int(intents.get(enemy_slot_id, {}).get('intent_rev', 0) or 0),
+            }
+            applied_slots += 1
+
+            if target_actor_id:
+                arrows.append({
+                    'from_id': actor_id,
+                    'to_id': target_actor_id,
+                    'type': 'attack',
+                    'visible': True
+                })
+
+            from_label = _format_slot_actor_label(slot, actor)
+            if target_type in ['mass_individual', 'mass_summation']:
+                target_label = '味方全体'
+            else:
+                target_label = _format_slot_actor_label(target_slot, char_by_id.get(target_actor_id, {}))
+            preview_rows.append({
+                'from_label': from_label,
+                'target_label': target_label,
+                'skill_id': suggested_skill_id,
             })
 
-        from_label = _format_slot_actor_label(slot, actor)
-        if target_type in ['mass_individual', 'mass_summation']:
-            target_label = '味方全体'
+        if use_behavior_chart:
+            runtime_entry['last_skill_ids'] = committed_skill_ids
+            runtime_entry['last_round'] = round_value
+            runtime_entry = advance_step_pointer(behavior_profile, runtime_entry)
+            behavior_runtime[actor_id] = runtime_entry
         else:
-            target_label = _format_slot_actor_label(target_slot, char_by_id.get(target_actor_id, {}))
-        preview_rows.append({
-            'from_label': from_label,
-            'target_label': target_label,
-            'skill_id': suggested_skill_id,
-        })
+            behavior_runtime.pop(actor_id, None)
 
     battle_state['intents'] = intents
     battle_state['intent_revision_seq'] = seq
+    battle_state['behavior_runtime'] = behavior_runtime
     state['ai_target_arrows'] = arrows
     logger.info(
         "[pve_auto_intents] room=%s applied=%d committed=%d",
@@ -1006,6 +1099,7 @@ def process_round_start(room, username):
     if not state:
         logger.debug(f"Room state not found for {room}")
         return
+    clear_newly_applied_flags(state)
 
     # Check previous round end flag
     if state.get('round', 0) > 0 and not state.get('is_round_ended', False):
@@ -1486,6 +1580,7 @@ def ensure_battle_state_vNext(room_state, battle_id=None, round_value=None, rebu
     battle_state['intents'] = battle_state.get('intents', {})
     battle_state['resolve_snapshot_intents'] = battle_state.get('resolve_snapshot_intents', {})
     battle_state['resolve_snapshot_at'] = battle_state.get('resolve_snapshot_at')
+    battle_state['behavior_runtime'] = battle_state.get('behavior_runtime', {})
     battle_state['redirects'] = battle_state.get('redirects', [])
     battle_state['resolve_ready'] = bool(battle_state.get('resolve_ready', False))
     battle_state['resolve_ready_info'] = battle_state.get('resolve_ready_info', {})
@@ -1524,6 +1619,17 @@ def ensure_battle_state_vNext(room_state, battle_id=None, round_value=None, rebu
         battle_state['resolve_snapshot_intents'] = {
             sid: intent for sid, intent in battle_state.get('resolve_snapshot_intents', {}).items()
             if sid in slot_ids
+        }
+    if isinstance(battle_state.get('behavior_runtime'), dict):
+        actor_ids = {
+            str((slot or {}).get('actor_id'))
+            for slot in (slots.values() if isinstance(slots, dict) else [])
+            if isinstance(slot, dict) and slot.get('actor_id')
+        }
+        battle_state['behavior_runtime'] = {
+            str(actor_id): runtime
+            for actor_id, runtime in battle_state.get('behavior_runtime', {}).items()
+            if str(actor_id) in actor_ids and isinstance(runtime, dict)
         }
 
     resolved_slots = battle_state['resolve'].get('resolved_slots', [])
@@ -1585,6 +1691,7 @@ def process_select_resolve_round_start(room, battle_id, round_value):
     state = get_room_state(room)
     if not state:
         return None
+    clear_newly_applied_flags(state)
 
     def _roll_1d6():
         result = roll_dice("1d6")
@@ -1895,5 +2002,75 @@ def select_evade_insert_slot(state, battle_state, defender_actor_id, attacker_sl
     picked = _choose_highest_initiative_slot(reusable, slots)
     if picked:
         return picked, 'resolved_slot_reuse'
+
+    return None, None
+
+
+def select_hard_followup_evade_slot(state, battle_state, defender_actor_id, attacker_slot):
+    """
+    強硬追撃向けの回避差し込み選定。
+    優先順位:
+      1) 強硬追撃元を target 指定している未解決回避
+      2) 未解決の回避スロット
+      3) 再回避ロック時のみ、解決済み回避の再利用
+    """
+    if not defender_actor_id or not attacker_slot:
+        return None, None
+
+    slots = battle_state.get('slots', {})
+    intents = battle_state.get('intents', {})
+    resolved_slots = battle_state.get('resolve', {}).get('resolved_slots', [])
+    resolved_set = set(resolved_slots if isinstance(resolved_slots, list) else [])
+
+    actor_slot_ids = [
+        slot_id
+        for slot_id, slot in slots.items()
+        if isinstance(slot, dict) and slot.get('actor_id') == defender_actor_id
+    ]
+    if not actor_slot_ids:
+        return None, None
+
+    def _is_unresolved(slot_id):
+        return str(slot_id) not in resolved_set
+
+    def _is_committed_evade(slot_id):
+        intent = intents.get(slot_id, {}) if isinstance(intents, dict) else {}
+        skill_id = intent.get('skill_id')
+        if not intent.get('committed', False):
+            return False
+        return _is_evade_skill(skill_id)
+
+    # 1) 明示targetの未解決回避
+    direct_targeted = []
+    for slot_id in actor_slot_ids:
+        if not _is_unresolved(slot_id):
+            continue
+        if not _is_committed_evade(slot_id):
+            continue
+        target = intents.get(slot_id, {}).get('target', {})
+        if target.get('type') == 'single_slot' and target.get('slot_id') == attacker_slot:
+            direct_targeted.append(slot_id)
+    picked = _choose_highest_initiative_slot(direct_targeted, slots)
+    if picked:
+        return picked, 'targeted_evade'
+
+    # 2) 未解決回避
+    unresolved_evade = [
+        slot_id for slot_id in actor_slot_ids
+        if _is_unresolved(slot_id) and _is_committed_evade(slot_id)
+    ]
+    picked = _choose_highest_initiative_slot(unresolved_evade, slots)
+    if picked:
+        return picked, 'unresolved_evade'
+
+    # 3) 再回避ロック時のみ解決済み再利用
+    if is_dodge_lock_active(state, defender_actor_id):
+        reusable = [
+            slot_id for slot_id in actor_slot_ids
+            if str(slot_id) in resolved_set
+        ]
+        picked = _choose_highest_initiative_slot(reusable, slots)
+        if picked:
+            return picked, 're_evasion_reuse'
 
     return None, None

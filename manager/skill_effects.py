@@ -85,7 +85,7 @@ def apply_skill_effects_bidirectional(
                     change_key = (char.get('id'), type_, name, str(value))
                     if change_key in applied_changes:
                         logger.warning(f"[Duplicate Check] Skipping duplicate effect for {char['name']}: {name} value={value}")
-                        # continue  # 条件付き同一効果を許可する場合、ここを調整
+                        continue
                     applied_changes.add(change_key)
                 except Exception as e:
                     logger.error(f"[Duplicate Check] Error creating key: {e}")
@@ -165,7 +165,7 @@ def apply_skill_effects_bidirectional(
                 grant_payload = dict(value) if isinstance(value, dict) else {}
                 if "skill_id" not in grant_payload:
                     grant_payload["skill_id"] = name
-                res = apply_grant_skill_change(room, state, attacker_char, char, grant_payload)
+                res = apply_grant_skill_change(room, state, a_char, char, grant_payload)
                 if res.get("ok"):
                     broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
                 else:

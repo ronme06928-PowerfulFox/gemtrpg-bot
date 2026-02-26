@@ -113,8 +113,30 @@ def get_effective_origin_id(char_obj):
         return fn(char_obj)
     return 0
 
-def _get_value_for_condition(source_obj, param_name, context=None):
+def _canonical_team(value):
+    text = str(value or "").strip().lower()
+    if text in {"ally", "friend", "friends", "player"}:
+        return "ally"
+    if text in {"enemy", "foe", "opponent", "npc", "boss"}:
+        return "enemy"
+    return text
+
+
+def _get_value_for_condition(source_obj, param_name, context=None, actor=None, target=None, source_type=None):
+    if source_type == "relation":
+        actor_team = _canonical_team((actor or {}).get("type"))
+        target_team = _canonical_team((target or {}).get("type"))
+        same_team = int(bool(actor_team and target_team and actor_team == target_team))
+        target_is_ally = same_team
+        target_is_enemy = int(bool(actor_team and target_team and actor_team != target_team))
+
+        if param_name in {"same_team", "target_is_ally"}:
+            return same_team if param_name == "same_team" else target_is_ally
+        if param_name == "target_is_enemy":
+            return target_is_enemy
+        return None
     if not source_obj: return None
+
     if param_name == "tags": return source_obj.get("tags", [])
 
     # 「速度値」はロール結果。旧timeline形式/新battle_state形式の両方を参照する。
@@ -182,9 +204,17 @@ def check_condition(condition_obj, actor, target, target_skill_data=None, actor_
     elif source_str == "target": source_obj = target
     elif source_str == "target_skill": source_obj = target_skill_data
     elif source_str == "skill" or source_str == "actor_skill": source_obj = actor_skill_data
+    elif source_str == "relation": source_obj = {}
 
     # Contextを渡す
-    current_value = _get_value_for_condition(source_obj, param_name, context=context)
+    current_value = _get_value_for_condition(
+        source_obj,
+        param_name,
+        context=context,
+        actor=actor,
+        target=target,
+        source_type=source_str,
+    )
     if current_value is None: return False
 
     try:
@@ -1234,6 +1264,92 @@ def build_power_result_snapshot(preview_data, roll_result):
     return snapshot
 
 
+def _resolve_buff_multiplier_value(buff_entry, keys):
+    if not isinstance(buff_entry, dict):
+        return None
+    for key in keys:
+        if key in buff_entry:
+            try:
+                return float(buff_entry.get(key))
+            except Exception:
+                pass
+    data = buff_entry.get('data')
+    if isinstance(data, dict):
+        for key in keys:
+            if key in data:
+                try:
+                    return float(data.get(key))
+                except Exception:
+                    pass
+    effect_data = get_buff_effect(buff_entry.get('name'))
+    if isinstance(effect_data, dict):
+        for key in keys:
+            if key in effect_data:
+                try:
+                    return float(effect_data.get(key))
+                except Exception:
+                    pass
+    return None
+
+
+def compute_damage_multipliers(attacker, defender, context=None):
+    """
+    与ダメ(outgoing) と被ダメ(incoming) の倍率を一括計算する。
+    Returns:
+        {
+            "outgoing": float,
+            "incoming": float,
+            "final": float,
+            "outgoing_logs": list[str],
+            "incoming_logs": list[str],
+        }
+    """
+    _ = context
+    outgoing = 1.0
+    incoming = 1.0
+    outgoing_logs = []
+    incoming_logs = []
+
+    for buff in (defender or {}).get('special_buffs', []):
+        if not isinstance(buff, dict):
+            continue
+        buff_name = str(buff.get('name', '') or '').strip()
+
+        if buff_name == "混乱":
+            incoming *= 1.5
+            incoming_logs.append("混乱")
+
+        incoming_value = _resolve_buff_multiplier_value(
+            buff,
+            keys=['incoming_damage_multiplier', 'damage_multiplier'],
+        )
+        if incoming_value is not None and incoming_value != 1.0:
+            incoming *= incoming_value
+            if buff_name:
+                incoming_logs.append(buff_name)
+
+    for buff in (attacker or {}).get('special_buffs', []):
+        if not isinstance(buff, dict):
+            continue
+        buff_name = str(buff.get('name', '') or '').strip()
+        outgoing_value = _resolve_buff_multiplier_value(
+            buff,
+            keys=['outgoing_damage_multiplier'],
+        )
+        if outgoing_value is not None and outgoing_value != 1.0:
+            outgoing *= outgoing_value
+            if buff_name:
+                outgoing_logs.append(buff_name)
+
+    return {
+        "outgoing": outgoing,
+        "incoming": incoming,
+        "final": outgoing * incoming,
+        "outgoing_logs": outgoing_logs,
+        "incoming_logs": incoming_logs,
+    }
+
+
 def calculate_damage_multiplier(character):
     """
     キャラクターのバフからダメージ倍率を計算する
@@ -1247,25 +1363,8 @@ def calculate_damage_multiplier(character):
             - final_multiplier (float): 最終的な倍率
             - log_list (list): 適用された効果の名前リスト
     """
-    d_mult = 1.0
-    logs = []
-
-    for b in character.get('special_buffs', []):
-        # 混乱: 1.5倍
-        if b.get('name') == "混乱":
-            d_mult *= 1.5
-            logs.append("混乱")
-        # dynamic pattern or plugin multiplier
-        elif 'damage_multiplier' in b:
-            try:
-                v = float(b['damage_multiplier'])
-                if v != 1.0:
-                    d_mult *= v
-                    logs.append(b['name'])
-            except:
-                pass
-
-    return d_mult, logs
+    mult = compute_damage_multipliers(None, character)
+    return mult.get("incoming", 1.0), mult.get("incoming_logs", [])
 
 def process_on_death(room, char, username):
     """

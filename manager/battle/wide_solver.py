@@ -7,7 +7,7 @@ from manager.room_manager import (
 )
 from manager.game_logic import (
     get_status_value, remove_buff, apply_buff, process_skill_effects,
-    calculate_power_bonus, calculate_buff_power_bonus, calculate_damage_multiplier
+    calculate_power_bonus, calculate_buff_power_bonus, compute_damage_multipliers
 )
 from manager.skill_effects import apply_skill_effects_bidirectional
 from manager.dice_roller import roll_dice
@@ -342,11 +342,15 @@ def execute_wide_match(room, username):
 
             # Apply Damage to Defender
             # Defense multiplier (def_char might have generic defense mods, but no roll here)
-            d_mult, d_logs = calculate_damage_multiplier(def_char)
-            final_damage = int(total_damage * d_mult)
+            mult_info = compute_damage_multipliers(attacker_char, def_char)
+            final_damage = int(total_damage * float(mult_info.get('final', 1.0) or 1.0))
+            d_logs = mult_info.get('incoming_logs', []) or []
+            a_logs = mult_info.get('outgoing_logs', []) or []
 
             if d_logs:
-                 log_snippets.append(f"(防:{'/'.join(d_logs)} x{d_mult:.2f})")
+                 log_snippets.append(f"(防:{'/'.join(d_logs)} x{float(mult_info.get('incoming', 1.0) or 1.0):.2f})")
+            if a_logs:
+                 log_snippets.append(f"(攻:{'/'.join(a_logs)} x{float(mult_info.get('outgoing', 1.0) or 1.0):.2f})")
 
             # Apply damage
             if final_damage > 0:

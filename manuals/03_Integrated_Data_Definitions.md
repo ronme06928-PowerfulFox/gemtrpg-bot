@@ -1,6 +1,6 @@
 # ジェムリアTRPGダイスボット データ定義統合マニュアル
 
-**最終更新日**: 2026-02-23
+**最終更新日**: 2026-02-26
 **対象バージョン**: Current
 
 ---
@@ -172,9 +172,16 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 | `_Act{N}` | 行動回数 +N | `Haste_Act1` |
 | `_DaIn{N}` | 被ダメ N% 増加 | `Vuln_DaIn20` |
 | `_DaCut{N}` | 被ダメ N% 軽減 | `Guard_DaCut10` |
+| `_DaOut{N}` | 与ダメ N% 増加 | `Fury_DaOut20` |
+| `_DaOutDown{N}` | 与ダメ N% 減少 | `Weaken_DaOutDown15` |
 | `_BleedReact{N}` | 被弾時、自身に出血+N | `Blood_BleedReact2` |
 | `_Crack{N}` | 亀裂付与量+N (消費せず) | `Earth_Crack1` |
 | `_CrackOnce{N}` | 亀裂付与量+N (1回で消費) | `Quake_CrackOnce2` |
+
+補足:
+- 戦闘計算は `manager/buff_catalog.py` の動的パターンを基準に解釈される。
+- ツールチップ説明文は `static/js/buff_data.js` の `DYNAMIC_PATTERNS` で生成される。
+- `_DaIn/_DaCut/_DaOut/_DaOutDown` はサーバー効果とクライアント説明文を同時更新すること。
 
 ### 2.2 システムバフ (Plugins)
 
@@ -462,3 +469,90 @@ ID `S-XX` で定義されるパッシブスキルです。
 - 新規効果を追加する際は、`timing` の定義（データ）と呼び出し点（コード）の両方を合わせて更新してください。
 - `速度値` 条件はスロット initiative（最大値）を参照するため、通常 `params` の `速度` とは別物です。
 - Select/Resolve での再使用演算・表示ラベル規則は `manuals/08_SelectResolve_Spec.md` の 9.2 / 付録A-6 を参照してください。
+
+---
+
+## 追補A: 2026-02 統合拡張（実装確定）
+
+### A-1. スキル追加フィールド
+- `deals_damage: false`
+  - one-sided / clash でHP減算を行わない非ダメージスキル指定。
+  - `HIT` などのタイミング効果は通常どおり評価。
+
+### A-2. 条件ソース拡張
+- `condition.source: relation`
+  - `param: same_team | target_is_ally | target_is_enemy`
+  - 戻り値は 0/1（`EQUALS 1` 等で判定）
+
+### A-3. ダメージ倍率キー拡張
+- 既存: `damage_multiplier`（被ダメ倍率）
+- 追加:
+  - `incoming_damage_multiplier`（被ダメ倍率）
+  - `outgoing_damage_multiplier`（与ダメ倍率）
+- 動的命名:
+  - `_DaInN`, `_DaCutN`, `_DaOutN`, `_DaOutDownN`
+
+### A-4. PvE敵行動チャート定義
+`character.flags.behavior_profile`:
+
+```json
+{
+  "enabled": true,
+  "version": 1,
+  "initial_loop_id": "phase_1",
+  "loops": {
+    "phase_1": {
+      "repeat": true,
+      "steps": [{"actions": ["SKILL_A"]}],
+      "transitions": [
+        {
+          "priority": 10,
+          "when_all": [{"source": "self", "param": "HP", "operator": "LTE", "value": 50}],
+          "to_loop_id": "phase_2",
+          "reset_step_index": true
+        }
+      ]
+    }
+  }
+}
+```
+
+`battle_state.behavior_runtime`:
+
+```json
+{
+  "<actor_id>": {
+    "active_loop_id": "phase_1",
+    "step_index": 0,
+    "last_round": 3,
+    "last_skill_ids": ["SKILL_A"]
+  }
+}
+```
+
+### A-5. プリセット保存スキーマ v2
+- ルーム保存:
+
+```json
+{
+  "version": 2,
+  "created_at": 1760000000000,
+  "enemies": [ ... ]
+}
+```
+
+- JSON搬出入:
+
+```json
+{
+  "schema": "gem_dicebot_enemy_preset.v1",
+  "exported_at": "2026-02-26T00:00:00Z",
+  "preset_name": "BossPhase",
+  "payload": { "version": 2, "enemies": [ ... ] }
+}
+```
+
+運用確定:
+- プリセット関連 Socket はサーバー側で GM 権限チェックを必須とする。
+- 保存/読込時は v1/v2 の互換正規化を通して `payload.version=2` へ寄せる。
+- `behavior_profile` を含む敵定義は、ルーム保存・JSON搬出入の双方で同じ schema で扱う。

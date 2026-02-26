@@ -7,10 +7,10 @@ from manager.dice_roller import roll_dice
 
 from manager.game_logic import (
     process_skill_effects, apply_buff, remove_buff, get_status_value,
-    calculate_skill_preview, calculate_damage_multiplier,
+    calculate_skill_preview, calculate_damage_multiplier, compute_damage_multipliers,
     build_power_result_snapshot
 )
-from manager.utils import get_effective_origin_id, set_status_value
+import manager.utils as _utils_mod
 from models import Room
 from manager.buff_catalog import get_buff_effect
 from manager.room_manager import (
@@ -27,6 +27,10 @@ from manager.granted_skills.service import (
 )
 
 logger = setup_logger(__name__)
+
+get_effective_origin_id = getattr(_utils_mod, 'get_effective_origin_id', lambda *_args, **_kwargs: 0)
+set_status_value = getattr(_utils_mod, 'set_status_value', lambda *_args, **_kwargs: None)
+clear_newly_applied_flags = getattr(_utils_mod, 'clear_newly_applied_flags', lambda *_args, **_kwargs: 0)
 
 COST_CONSUME_POLICY = "on_execute"
 MAX_USE_SKILL_AGAIN_CHAIN_HARD_CAP = 20
@@ -62,6 +66,51 @@ def _has_skill_tag(skill_data, tag_name):
         tags.extend([str(v).strip() for v in skill_tags if str(v).strip()])
 
     return tag in tags
+
+
+def _skill_deals_damage(skill_data):
+    if not isinstance(skill_data, dict):
+        return True
+    direct = skill_data.get('deals_damage')
+    if isinstance(direct, bool):
+        return direct
+    rule_data = _extract_rule_data_from_skill(skill_data)
+    if isinstance(rule_data, dict) and isinstance(rule_data.get('deals_damage'), bool):
+        return bool(rule_data.get('deals_damage'))
+    return True
+
+
+def _is_hard_skill(skill_data):
+    for tag in ['強硬', '強硬スキル', 'hard_skill']:
+        if _has_skill_tag(skill_data, tag):
+            return True
+    return False
+
+
+def _is_feint_skill(skill_data):
+    for tag in ['牽制', '牽制スキル', 'feint_skill']:
+        if _has_skill_tag(skill_data, tag):
+            return True
+    return False
+
+
+def _is_normal_skill(skill_data):
+    return (not _is_hard_skill(skill_data)) and (not _is_feint_skill(skill_data))
+
+
+def _append_multiplier_logs(log_snippets, mult_info, incoming_label='防', outgoing_label='攻'):
+    if not isinstance(log_snippets, list):
+        return
+    if not isinstance(mult_info, dict):
+        return
+    incoming_logs = mult_info.get('incoming_logs', []) or []
+    outgoing_logs = mult_info.get('outgoing_logs', []) or []
+    incoming = float(mult_info.get('incoming', 1.0) or 1.0)
+    outgoing = float(mult_info.get('outgoing', 1.0) or 1.0)
+    if incoming_logs:
+        log_snippets.append(f"({incoming_label}:{'/'.join(incoming_logs)} x{incoming:.2f})")
+    if outgoing_logs:
+        log_snippets.append(f"({outgoing_label}:{'/'.join(outgoing_logs)} x{outgoing:.2f})")
 
 
 def _apply_self_destruct_if_needed(room, actor_char, skill_data):
@@ -407,6 +456,22 @@ def _apply_cost(attacker, skill, policy):
     if used_skill_id:
         consume_granted_skill_use(attacker, used_skill_id)
 
+    def _safe_set_status_value_local(char_obj, stat_name, stat_value):
+        try:
+            set_status_value(char_obj, stat_name, stat_value)
+            return
+        except Exception:
+            pass
+        states = char_obj.setdefault('states', [])
+        if not isinstance(states, list):
+            states = []
+            char_obj['states'] = states
+        hit = next((s for s in states if isinstance(s, dict) and s.get('name') == stat_name), None)
+        if hit is None:
+            states.append({'name': stat_name, 'value': int(stat_value or 0)})
+        else:
+            hit['value'] = int(stat_value or 0)
+
     for entry in _extract_skill_cost_entries(skill):
         if not isinstance(entry, dict):
             continue
@@ -433,10 +498,10 @@ def _apply_cost(attacker, skill, policy):
         elif c_norm == 'FP':
             if 'fp' in attacker:
                 attacker['fp'] = new_val
-            set_status_value(attacker, 'FP', new_val)
+            _safe_set_status_value_local(attacker, 'FP', new_val)
             consumed['fp'] += spent
         else:
-            set_status_value(attacker, c_type, new_val)
+            _safe_set_status_value_local(attacker, c_type, new_val)
 
     return consumed
 
@@ -770,7 +835,7 @@ def _apply_step_end_timing_from_trace(room, battle_state, trace_entry):
     if not isinstance(battle_state, dict) or not isinstance(trace_entry, dict):
         return 0
     kind = str(trace_entry.get('kind') or '')
-    if kind not in {'clash', 'one_sided', 'mass_individual', 'mass_summation'}:
+    if kind not in {'clash', 'one_sided', 'hard_attack', 'mass_individual', 'mass_summation'}:
         return 0
 
     state = battle_state.get('__room_state_ref__')
@@ -1779,14 +1844,19 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         log_snippets
     ))
 
+    skill_deals_damage = _skill_deals_damage(attacker_skill_data)
     final_damage = base_damage + kiretsu + bonus_damage + extra_skill_damage + extra_on_hit
-    d_mult, mult_logs = calculate_damage_multiplier(defender_char)
-    final_damage = int(final_damage * d_mult)
-    if mult_logs:
-        log_snippets.append(f"(mult:{'/'.join(mult_logs)} x{d_mult:.2f})")
+    if skill_deals_damage:
+        mult_info = compute_damage_multipliers(attacker_char, defender_char, context=context)
+        final_damage = int(final_damage * float(mult_info.get('final', 1.0) or 1.0))
+        _append_multiplier_logs(log_snippets, mult_info)
 
-    _update_char_stat(room, defender_char, 'HP', int(defender_char.get('hp', 0)) - final_damage, username="[select_resolve_one_sided]")
-    on_damage_extra = int(process_on_damage_buffs(room, defender_char, final_damage, "[select_resolve_one_sided]", log_snippets))
+        _update_char_stat(room, defender_char, 'HP', int(defender_char.get('hp', 0)) - final_damage, username="[select_resolve_one_sided]")
+        on_damage_extra = int(process_on_damage_buffs(room, defender_char, final_damage, "[select_resolve_one_sided]", log_snippets))
+    else:
+        final_damage = 0
+        on_damage_extra = 0
+        log_snippets.append("[非ダメージスキル]")
     total_damage = int(final_damage) + int(on_damage_extra)
 
     _trigger_skill_timing_effects(
@@ -1844,6 +1914,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
             'final_damage': final_damage,
             'on_damage_extra': on_damage_extra,
             'total_damage': total_damage,
+            'deals_damage': bool(skill_deals_damage),
         },
     }
     logger.info(
@@ -2145,6 +2216,17 @@ def _resolve_clash_by_existing_logic(
         elif delta_a.get('damage') or delta_d.get('damage'):
             outcome = 'draw'
 
+    if outcome == 'attacker_win' and not _skill_deals_damage(attacker_skill_data):
+        defender_char['hp'] = int((before_d or {}).get('hp', defender_char.get('hp', 0)))
+        after_d = _snapshot_for_outcome(defender_char)
+        delta_d = _diff_snapshot(before_d, after_d, damage_source='ダメージ')
+        captured['effect_logs'].append('[非ダメージスキル] 攻撃側のHP減算をスキップ')
+    elif outcome == 'defender_win' and not _skill_deals_damage(defender_skill_data):
+        attacker_char['hp'] = int((before_a or {}).get('hp', attacker_char.get('hp', 0)))
+        after_a = _snapshot_for_outcome(attacker_char)
+        delta_a = _diff_snapshot(before_a, after_a, damage_source='ダメージ')
+        captured['effect_logs'].append('[非ダメージスキル] 防御側のHP減算をスキップ')
+
     snapshot_a = build_power_result_snapshot(preview_a, {'total': power_a if power_a is not None else 0})
     snapshot_d = build_power_result_snapshot(preview_d, {'total': power_d if power_d is not None else 0})
 
@@ -2189,6 +2271,117 @@ def _resolve_clash_by_existing_logic(
         "[clash_apply] attacker=%s defender=%s power_a=%s power_b=%s tie_break=%s outcome=%s",
         actor_a_id, actor_d_id, str(power_a), str(power_d), str(tie_break), outcome
     )
+    return {'ok': True, 'summary': summary, 'outcome': outcome}
+
+
+def _resolve_hard_attack_followup(
+    room,
+    state,
+    attacker_char,
+    defender_char,
+    attacker_skill_data,
+    defender_skill_data=None,
+):
+    if not isinstance(attacker_char, dict) or not isinstance(defender_char, dict):
+        return {"ok": False, "reason": "missing_actor"}
+    if not isinstance(attacker_skill_data, dict):
+        return {"ok": False, "reason": "missing_skill"}
+
+    before_a = _snapshot_for_outcome(attacker_char)
+    before_d = _snapshot_for_outcome(defender_char)
+    context = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room}
+    attacker_rule = _extract_rule_data_from_skill(attacker_skill_data)
+    effects_array_a = attacker_rule.get('effects', []) if isinstance(attacker_rule, dict) else []
+
+    preview_a = calculate_skill_preview(attacker_char, defender_char, attacker_skill_data, context=context)
+    base_damage = int(((preview_a or {}).get('power_breakdown', {}) or {}).get('final_base_power', 0) or 0)
+    if base_damage < 0:
+        base_damage = 0
+
+    defense_power = None
+    blocked_by_evade = False
+    if isinstance(defender_skill_data, dict):
+        preview_d = calculate_skill_preview(defender_char, attacker_char, defender_skill_data, context=context)
+        command_d = (preview_d or {}).get('final_command') or "0"
+        roll_d = roll_dice(command_d)
+        try:
+            defense_power = int(roll_d.get('total', 0) or 0)
+        except Exception:
+            defense_power = 0
+        blocked_by_evade = defense_power >= base_damage
+
+    log_snippets = []
+    reuse_requests = []
+    bd_lose, log_lose, chg_lose = process_skill_effects(
+        effects_array_a,
+        "LOSE",
+        attacker_char,
+        defender_char,
+        defender_skill_data,
+        context=context,
+        base_damage=base_damage,
+    )
+    extra_lose = _apply_effect_changes_like_duel(
+        room, state, chg_lose, attacker_char, defender_char, base_damage, log_snippets, reuse_requests=reuse_requests
+    )
+
+    bd_hit, log_hit, chg_hit = process_skill_effects(
+        effects_array_a,
+        "HIT",
+        attacker_char,
+        defender_char,
+        defender_skill_data,
+        context=context,
+        base_damage=base_damage,
+    )
+    extra_hit = _apply_effect_changes_like_duel(
+        room, state, chg_hit, attacker_char, defender_char, base_damage, log_snippets, reuse_requests=reuse_requests
+    )
+    log_snippets.extend(log_lose or [])
+    log_snippets.extend(log_hit or [])
+
+    final_damage = 0
+    on_damage_extra = 0
+    if not blocked_by_evade and _skill_deals_damage(attacker_skill_data):
+        raw_damage = int(base_damage) + int(bd_lose) + int(bd_hit) + int(extra_lose) + int(extra_hit)
+        mult_info = compute_damage_multipliers(attacker_char, defender_char, context=context)
+        final_damage = int(raw_damage * float(mult_info.get('final', 1.0) or 1.0))
+        _append_multiplier_logs(log_snippets, mult_info)
+        if final_damage > 0:
+            _update_char_stat(room, defender_char, 'HP', int(defender_char.get('hp', 0)) - final_damage, username="[hard_attack]")
+            on_damage_extra = int(process_on_damage_buffs(room, defender_char, final_damage, "[hard_attack]", log_snippets))
+    elif blocked_by_evade:
+        log_snippets.append("[強硬攻撃] 回避成功")
+    else:
+        log_snippets.append("[強硬攻撃] 非ダメージ")
+
+    total_damage = int(final_damage) + int(on_damage_extra)
+    after_a = _snapshot_for_outcome(attacker_char)
+    after_d = _snapshot_for_outcome(defender_char)
+    delta_a = _diff_snapshot(before_a, after_a, damage_source='強硬攻撃')
+    delta_d = _diff_snapshot(before_d, after_d, damage_source='強硬攻撃')
+
+    outcome = 'attacker_win' if (not blocked_by_evade and total_damage > 0) else 'defender_win'
+    summary = {
+        'damage': delta_a.get('damage', []) + delta_d.get('damage', []),
+        'statuses': delta_a.get('statuses', []) + delta_d.get('statuses', []),
+        'flags': delta_a.get('flags', []) + delta_d.get('flags', []),
+        'cost': {'mp': 0, 'hp': 0, 'fp': 0},
+        'hit': bool(total_damage > 0),
+        'win': bool(outcome == 'attacker_win'),
+        'logs': log_snippets,
+        'reuse_requests': reuse_requests,
+        'rolls': {
+            'base_damage': base_damage,
+            'defense_power': defense_power,
+            'blocked_by_evade': blocked_by_evade,
+            'final_damage': final_damage,
+            'on_damage_extra': on_damage_extra,
+            'total_damage': total_damage,
+            'deals_damage': bool(_skill_deals_damage(attacker_skill_data)),
+            'hard_attack': True,
+        },
+    }
     return {'ok': True, 'summary': summary, 'outcome': outcome}
 
 
@@ -2597,7 +2790,8 @@ def run_select_resolve_auto(room, battle_id):
     from manager.battle.common_manager import (
         ensure_battle_state_vNext,
         build_select_resolve_state_payload,
-        select_evade_insert_slot
+        select_evade_insert_slot,
+        select_hard_followup_evade_slot,
     )
     battle_state = ensure_battle_state_vNext(state, battle_id=battle_id, round_value=state.get('round', 0))
     if not battle_state:
@@ -2704,6 +2898,7 @@ def run_select_resolve_auto(room, battle_id):
             return damage_events
 
         for slot_id in battle_state['resolve'].get('mass_queue', []):
+            clear_newly_applied_flags(state)
             intent = intents.get(slot_id, {})
             tags = intent.get('tags', {})
             mass_type = tags.get('mass_type')
@@ -3401,6 +3596,7 @@ def run_select_resolve_auto(room, battle_id):
             if queue_index >= len(single_queue_runtime):
                 break
             slot_id = single_queue_runtime[queue_index]
+            clear_newly_applied_flags(state)
             if slot_id in processed_slots:
                 logger.debug("[resolve_single] skip slot=%s reason=processed", slot_id)
                 queue_index += 1
@@ -3491,6 +3687,8 @@ def run_select_resolve_auto(room, battle_id):
                 clash_reuse_intent = None
                 clash_reuse_policy = {'enabled': False, 'max_reuses': 0, 'consume_cost': False}
                 clash_reuse_origin_label = trace_display_label
+                hard_followup_plan = None
+                hard_followup_block_reason = None
 
                 if clash_ok and clash_outcome in {'attacker_win', 'defender_win'}:
                     winner_is_attacker = clash_outcome == 'attacker_win'
@@ -3503,6 +3701,24 @@ def run_select_resolve_auto(room, battle_id):
 
                     clash_reuse_slot = winner_slot
                     clash_reuse_intent = winner_intent if isinstance(winner_intent, dict) else None
+
+                    loser_slot = clash_defender_slot if winner_is_attacker else slot_id
+                    loser_intent = clash_intent if winner_is_attacker else intent_a
+                    if (
+                        _is_hard_skill(loser_skill_data)
+                        and _is_normal_skill(winner_skill_data)
+                    ):
+                        if _is_feint_skill(winner_skill_data):
+                            hard_followup_block_reason = 'feint_blocked'
+                        else:
+                            hard_followup_plan = {
+                                'attacker_slot': loser_slot,
+                                'attacker_intent': loser_intent if isinstance(loser_intent, dict) else {},
+                                'attacker_char': loser_char,
+                                'attacker_skill_data': loser_skill_data,
+                                'defender_slot': winner_slot,
+                                'defender_char': winner_char,
+                            }
 
                     # Preferred source: delegate summary (one-sided path uses this today).
                     clash_reuse_policy = _collect_reuse_policy(clash_summary)
@@ -3535,6 +3751,11 @@ def run_select_resolve_auto(room, battle_id):
                         )
                         winner_reuse_requests = _extract_reuse_requests_from_changes(winner_changes)
                         clash_reuse_policy = _collect_reuse_policy({'reuse_requests': winner_reuse_requests})
+                if hard_followup_block_reason:
+                    if clash_notes:
+                        clash_notes = f"{clash_notes} / {hard_followup_block_reason}"
+                    else:
+                        clash_notes = hard_followup_block_reason
 
                 clash_outcome_payload = {
                     'attacker_id': attacker_actor_id,
@@ -3648,6 +3869,113 @@ def run_select_resolve_auto(room, battle_id):
                         policy=clash_reuse_policy,
                         origin_label=clash_reuse_origin_label
                     )
+
+                if clash_ok and isinstance(hard_followup_plan, dict):
+                    hf_attacker_slot = hard_followup_plan.get('attacker_slot')
+                    hf_attacker_char = hard_followup_plan.get('attacker_char')
+                    hf_attacker_skill_data = hard_followup_plan.get('attacker_skill_data')
+                    hf_defender_char = hard_followup_plan.get('defender_char')
+                    hf_defender_slot = hard_followup_plan.get('defender_slot')
+                    hf_defender_actor_id = (hf_defender_char or {}).get('id')
+                    hf_evade_slot = None
+                    hf_evade_reason = None
+                    hf_defender_skill_data = None
+
+                    if hf_defender_actor_id and hf_attacker_slot:
+                        hf_evade_slot, hf_evade_reason = select_hard_followup_evade_slot(
+                            state, battle_state, hf_defender_actor_id, hf_attacker_slot
+                        )
+                    if hf_evade_slot:
+                        hf_defender_slot = hf_evade_slot
+                        hf_evade_intent = intents.get(hf_evade_slot, {})
+                        hf_evade_skill_id = hf_evade_intent.get('skill_id')
+                        hf_defender_skill_data = all_skill_data.get(hf_evade_skill_id, {}) if hf_evade_skill_id else None
+
+                    hard_res = _resolve_hard_attack_followup(
+                        room=room,
+                        state=state,
+                        attacker_char=hf_attacker_char,
+                        defender_char=hf_defender_char,
+                        attacker_skill_data=hf_attacker_skill_data,
+                        defender_skill_data=hf_defender_skill_data,
+                    )
+                    hard_ok = bool((hard_res or {}).get('ok', False))
+                    hard_summary = hard_res.get('summary', {}) if hard_ok else {}
+                    hard_outcome = hard_res.get('outcome', 'no_effect') if hard_ok else 'no_effect'
+                    hard_notes = hf_evade_reason if hf_evade_reason else None
+                    if not hard_ok:
+                        hard_notes = hard_res.get('reason', 'hard_followup_failed')
+
+                    hf_skill_id = _extract_skill_id_from_data(hf_attacker_skill_data)
+                    hard_payload = {
+                        'attacker_id': (hf_attacker_char or {}).get('id'),
+                        'target_id': (hf_defender_char or {}).get('id'),
+                        'skill_id': hf_skill_id,
+                        'skill': hf_attacker_skill_data,
+                        'apply_cost': False,
+                        'cost_policy': COST_CONSUME_POLICY,
+                        'delegate_applied': hard_ok,
+                        'delegate_summary': hard_summary if hard_ok else {},
+                    }
+                    hard_applied = _apply_outcome_to_state(hard_payload, characters_by_id)
+                    if hard_ok:
+                        _emit_stat_updates_from_applied(
+                            room,
+                            hard_applied,
+                            characters_by_id,
+                            source='resolve_single_hard_attack'
+                        )
+
+                    hard_legacy_input = to_legacy_duel_log_input(
+                        outcome_payload=hard_payload,
+                        state=state,
+                        intents=intents,
+                        attacker_slot=hf_attacker_slot,
+                        defender_slot=hf_defender_slot,
+                        applied=hard_applied,
+                        kind='one_sided',
+                        outcome=hard_outcome,
+                        notes=hard_notes
+                    )
+                    hard_lines = format_duel_result_lines(
+                        hard_legacy_input['actor_name_a'],
+                        hard_legacy_input['skill_display_a'],
+                        hard_legacy_input['total_a'],
+                        hard_legacy_input['actor_name_d'],
+                        hard_legacy_input['skill_display_d'],
+                        hard_legacy_input['total_d'],
+                        hard_legacy_input['winner_message'],
+                        damage_report=hard_legacy_input['damage_report'],
+                        extra_lines=hard_legacy_input.get('extra_lines')
+                    )
+                    hard_payload['log_lines'] = hard_lines
+                    hard_payload['lines'] = hard_lines
+                    hard_applied['log_lines'] = hard_lines
+                    hard_applied['lines'] = hard_lines
+                    _log_match_result(hard_lines)
+                    _append_trace(
+                        room, battle_id, battle_state, 'hard_attack', hf_attacker_slot,
+                        defender_slot=hf_defender_slot,
+                        target_actor_id=hf_defender_actor_id,
+                        notes=hard_notes,
+                        outcome=hard_outcome,
+                        cost={
+                            'mp': int(hard_applied.get('cost', {}).get('mp', 0)),
+                            'hp': int(hard_applied.get('cost', {}).get('hp', 0)),
+                            'fp': int(hard_applied.get('cost', {}).get('fp', 0)),
+                        },
+                        rolls=hard_summary.get('rolls', {}) if isinstance(hard_summary, dict) else {},
+                        extra_fields={
+                            'display_label': _resolve_reuse_display_label(hf_attacker_slot),
+                            'outcome_payload': hard_payload,
+                            'applied': hard_applied,
+                            'lines': hard_lines,
+                            'log_lines': hard_lines,
+                            'hard_followup': True,
+                        }
+                    )
+                    if hf_evade_slot:
+                        _mark_processed(hf_evade_slot)
                 _mark_processed(slot_id)
                 _mark_processed(clash_defender_slot)
             else:

@@ -1,6 +1,6 @@
 # スキルロジック実装リファレンス（実装準拠）
 
-**最終更新日**: 2026-02-23  
+**最終更新日**: 2026-02-26  
 **対象実装**: `manager/game_logic.py` / `manager/battle/core.py` / `events/battle/common_routes.py`
 
 ---
@@ -163,3 +163,40 @@
 - 亀裂制限: `tests/test_fissure.py`
 
 仕様変更時は上記テストの期待値とマニュアル記述を同時更新してください。
+
+---
+
+## 10. 2026-02 統合追補（実装確定）
+
+### 10.1 relation条件
+- `check_condition` は `source: relation` を受け付ける。
+- 利用可能 `param`:
+  - `same_team`
+  - `target_is_ally`
+  - `target_is_enemy`
+- 戻り値は 0/1 数値として比較される。
+
+### 10.2 非ダメージスキル
+- `deals_damage: false` 指定時:
+  - HP減算をスキップ
+  - `on_damage` 連鎖をスキップ
+  - `HIT/LOSE` 等の効果評価自体は継続
+
+### 10.3 ダメージ倍率の統合
+- 新規API: `compute_damage_multipliers(attacker, defender, context)`
+  - `incoming`（被ダメ）
+  - `outgoing`（与ダメ）
+  - `final = incoming * outgoing`
+- 動的バフは `_DaIn/_DaCut` に加えて `_DaOut/_DaOutDown` を扱う。
+- 既存 `calculate_damage_multiplier(defender)` は互換関数として `incoming` のみ返す。
+
+### 10.4 強硬/牽制（Select/Resolve）
+- 強硬敗北時、条件一致で `hard_attack` trace を差し込む。
+- 強硬追撃は基礎威力ベースで解決され、回避差し込み優先順を持つ。
+- 牽制勝利時は強硬追撃の抑止対象となる（不発）。
+- 牽制勝利時の半減は duel/wide 両ソルバの最終ダメージへ適用される。
+- UI表示ラベルは `ResolveFlowPanel` で `hard_attack -> 強硬攻撃` を使用する。
+
+### 10.5 再付与フラグ管理
+- `newly_applied` 系フラグはラウンド進行で統一クリアされる。
+- 目的は「付与直後のみ無効化する on_damage 系」処理の持ち越し防止。

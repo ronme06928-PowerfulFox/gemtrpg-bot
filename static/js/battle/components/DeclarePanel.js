@@ -78,12 +78,26 @@ class DeclarePanel {
         const sourceSlot = state.slots?.[sourceSlotId] || null;
         const sourceActorId = sourceSlot?.actor_id || null;
         const sourceChar = (state.characters || []).find(c => String(c.id) === String(sourceActorId)) || null;
+        const shouldClearIncompatibleSkill = (
+            !isDeclaredLocked
+            && !isMassTarget
+            && !!effectiveTargetSlotId
+            && !!skillId
+            && !this._isSkillCompatibleWithTarget(state, sourceSlotId, effectiveTargetSlotId, skillId)
+        );
+        if (shouldClearIncompatibleSkill) {
+            const nextDeclare = { ...(declare || {}), skillId: null };
+            store.setDeclare(nextDeclare);
+            this._emitPreviewFromDeclare(state, nextDeclare);
+            this._requestCalc(state, nextDeclare, true);
+            return;
+        }
         const targetOptions = this._buildTargetOptions(state, sourceSlotId, effectiveTargetSlotId, effectiveTargetType, skillId);
         const sourceLabel = this._formatSlotLabel(state, sourceSlotId);
         const targetLabel = isMassTarget
             ? this._getMassTargetLabel(sourceSlot)
             : (effectiveTargetSlotId ? this._formatSlotLabel(state, effectiveTargetSlotId) : '未選択');
-        const skillOptions = this._buildSkillOptions(sourceChar);
+        const skillOptions = this._buildSkillOptions(sourceChar, state, sourceSlotId, effectiveTargetSlotId);
         const meta = this._resolveDisplayMeta(skillId, calc);
         const commandText = this._resolveCommandText(calc);
         const powerAdjustRows = this._resolvePowerAdjustRows(calc);
@@ -208,8 +222,16 @@ class DeclarePanel {
                 const nextTargetSlotId = e.target.value || null;
                 const current = store.get('declare') || {};
                 const currentTargetType = this._normalizeTargetType(current.targetType || effectiveTargetType);
+                const nextSkillId = (
+                    current.skillId
+                    && nextTargetSlotId
+                    && !this._isSkillCompatibleWithTarget(state, sourceSlotId, nextTargetSlotId, current.skillId)
+                )
+                    ? null
+                    : current.skillId;
                 const nextDeclare = {
                     ...current,
+                    skillId: nextSkillId,
                     targetSlotId: nextTargetSlotId,
                     targetType: currentTargetType,
                     lastSingleTargetSlotId: nextTargetSlotId || current.lastSingleTargetSlotId || null,
@@ -268,19 +290,38 @@ class DeclarePanel {
         this._requestCalc(state, declare, false);
     }
 
-    _buildSkillOptions(actor) {
+    _buildSkillOptions(actor, state = null, sourceSlotId = null, selectedTargetSlotId = null) {
         const all = window.allSkillData || {};
         const candidates = this._extractActorSkillCandidates(actor, all);
         const selectedSkillId = (store.get('declare') || {}).skillId || '';
         const options = ['<option value="">-- スキル --</option>'];
         candidates.slice(0, 400).forEach((item) => {
             const id = item.id;
+            if (
+                selectedTargetSlotId
+                && !this._isSkillCompatibleWithTarget(state, sourceSlotId, selectedTargetSlotId, id)
+            ) {
+                return;
+            }
             const meta = this._readSkillMeta(id);
             const displayName = item.name || meta.name || id;
             const selected = (id === selectedSkillId) ? ' selected' : '';
             options.push(`<option value="${id}"${selected}>[${id}] ${displayName}</option>`);
         });
         return options.join('');
+    }
+
+    _isSkillCompatibleWithTarget(state, sourceSlotId, targetSlotId, skillId) {
+        if (!state || !sourceSlotId || !targetSlotId || !skillId) return true;
+        const slots = state?.slots || {};
+        const sourceSlot = slots?.[sourceSlotId] || null;
+        const targetSlot = slots?.[targetSlotId] || null;
+        if (!sourceSlot || !targetSlot) return true;
+        const sourceTeam = String(sourceSlot.team || '').toLowerCase();
+        const targetTeam = String(targetSlot.team || '').toLowerCase();
+        if (!sourceTeam || !targetTeam) return true;
+        const scope = this._inferTargetScopeFromSkill(skillId);
+        return this._isTargetTeamAllowedByScope(sourceTeam, targetTeam, scope);
     }
 
     _buildTargetOptions(state, sourceSlotId, selectedTargetSlotId, targetType = 'single_slot', skillId = null) {

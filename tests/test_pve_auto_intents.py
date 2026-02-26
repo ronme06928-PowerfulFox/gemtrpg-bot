@@ -258,3 +258,73 @@ def test_select_resolve_round_start_pvp_does_not_apply_pve_auto_intents(monkeypa
     assert payload is not None
     assert state["battle_state"]["intents"] == {}
     assert state.get("ai_target_arrows", []) == []
+
+
+def test_select_resolve_round_start_behavior_profile_is_prioritized(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "initial_loop_id": "phase_1",
+        "loops": {
+            "phase_1": {
+                "repeat": True,
+                "steps": [{"actions": ["S-BHV"]}],
+                "transitions": [],
+            }
+        },
+    }
+    state = _base_state(mode="pve", enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile})
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    monkeypatch.setattr(battle_common, "ai_suggest_skill", lambda _char: "S-AI")
+    monkeypatch.setattr(battle_common, "all_skill_data", {"S-BHV": {"name": "BehaviorSkill"}})
+
+    payload = battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    assert payload is not None
+    enemy_slot_id = _slot_id_for_actor(state, "E1")
+    intent = state["battle_state"]["intents"].get(enemy_slot_id, {})
+    assert intent.get("skill_id") == "S-BHV"
+    assert intent.get("committed") is True
+
+    runtime = state["battle_state"].get("behavior_runtime", {}).get("E1", {})
+    assert runtime.get("active_loop_id") == "phase_1"
+    assert runtime.get("last_skill_ids") == ["S-BHV"]
+
+
+def test_select_resolve_round_start_behavior_profile_fallbacks_to_ai(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "initial_loop_id": "phase_1",
+        "loops": {
+            "phase_1": {
+                "repeat": True,
+                "steps": [{"actions": ["UNKNOWN_SKILL"]}],
+                "transitions": [],
+            }
+        },
+    }
+    state = _base_state(mode="pve", enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile})
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    monkeypatch.setattr(battle_common, "ai_suggest_skill", lambda _char: "S-AI")
+    monkeypatch.setattr(battle_common, "all_skill_data", {"S-AI": {"name": "AutoSkill"}})
+
+    payload = battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    assert payload is not None
+    enemy_slot_id = _slot_id_for_actor(state, "E1")
+    intent = state["battle_state"]["intents"].get(enemy_slot_id, {})
+    assert intent.get("skill_id") == "S-AI"
+    assert intent.get("committed") is True

@@ -177,6 +177,28 @@ window.BUFF_DATA = {
             }
         },
         {
+            // パターン: [名前]_DaOut[数値]
+            regex: /^(.*)_DaOut(\d+)$/,
+            generator: function (matches) {
+                return {
+                    name: matches[1],
+                    description: `与えるダメージが ${matches[2]}% 増加する。`,
+                    type: "buff"
+                };
+            }
+        },
+        {
+            // パターン: [名前]_DaOutDown[数値]
+            regex: /^(.*)_DaOutDown(\d+)$/,
+            generator: function (matches) {
+                return {
+                    name: matches[1],
+                    description: `与えるダメージが ${matches[2]}% 減少する。`,
+                    type: "debuff"
+                };
+            }
+        },
+        {
             // パターン: [名前]_BleedReact[数値]
             regex: /^(.*)_BleedReact(\d+)$/,
             generator: function (matches) {

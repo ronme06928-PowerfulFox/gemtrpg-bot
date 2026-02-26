@@ -148,7 +148,8 @@ DYNAMIC_PATTERNS = [
     {
         "pattern": r"^(.*)_DaIn(\d+)$",
         "generator": lambda m: {
-            "damage_multiplier": 1.0 + (int(m.group(2)) / 100.0)
+            "damage_multiplier": 1.0 + (int(m.group(2)) / 100.0),
+            "incoming_damage_multiplier": 1.0 + (int(m.group(2)) / 100.0),
         }
     },
 
@@ -157,7 +158,24 @@ DYNAMIC_PATTERNS = [
     {
         "pattern": r"^(.*)_DaCut(\d+)$",
         "generator": lambda m: {
-            "damage_multiplier": max(0.0, 1.0 - (int(m.group(2)) / 100.0))
+            "damage_multiplier": max(0.0, 1.0 - (int(m.group(2)) / 100.0)),
+            "incoming_damage_multiplier": max(0.0, 1.0 - (int(m.group(2)) / 100.0)),
+        }
+    },
+
+    # パターン: [名前]_DaOut[数値] -> 与ダメージ倍率
+    {
+        "pattern": r"^(.*)_DaOut(\d+)$",
+        "generator": lambda m: {
+            "outgoing_damage_multiplier": 1.0 + (int(m.group(2)) / 100.0),
+        }
+    },
+
+    # パターン: [名前]_DaOutDown[数値] -> 与ダメージ低下倍率
+    {
+        "pattern": r"^(.*)_DaOutDown(\d+)$",
+        "generator": lambda m: {
+            "outgoing_damage_multiplier": max(0.0, 1.0 - (int(m.group(2)) / 100.0)),
         }
     },
 

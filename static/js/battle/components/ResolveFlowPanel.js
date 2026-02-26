@@ -95,6 +95,7 @@ class ResolveFlowPanel {
         const map = {
             clash: '\u30de\u30c3\u30c1',
             one_sided: '\u4e00\u65b9\u653b\u6483',
+            hard_attack: '\u5f37\u786c\u653b\u6483',
             mass_individual: '\u5e83\u57df-\u500b\u5225',
             mass_summation: '\u5e83\u57df-\u5408\u7b97',
             fizzle: '\u4e0d\u767a',

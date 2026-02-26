@@ -10,12 +10,12 @@ from manager.room_manager import (
 )
 from manager.constants import DamageSource
 from manager.game_logic import (
-    get_status_value, calculate_damage_multiplier,
+    get_status_value, compute_damage_multipliers,
     remove_buff, apply_buff, process_skill_effects
 )
 from manager.skill_effects import apply_skill_effects_bidirectional
 from manager.dice_roller import roll_dice
-from manager.utils import get_effective_origin_id
+import manager.utils as _utils_mod
 
 from manager.battle.core import (
     format_skill_display_from_command, process_on_damage_buffs,
@@ -29,7 +29,69 @@ from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
 
+get_effective_origin_id = getattr(_utils_mod, 'get_effective_origin_id', lambda *_args, **_kwargs: 0)
+clear_newly_applied_flags = getattr(_utils_mod, 'clear_newly_applied_flags', lambda *_args, **_kwargs: 0)
+
 execution_lock = Lock()
+
+
+def _extract_skill_tags(skill_data):
+    if not isinstance(skill_data, dict):
+        return []
+    tags = []
+    if isinstance(skill_data.get('tags'), list):
+        tags.extend([str(v).strip() for v in skill_data.get('tags', []) if str(v).strip()])
+    rule_data = skill_data.get('rule_data')
+    if isinstance(rule_data, dict) and isinstance(rule_data.get('tags'), list):
+        tags.extend([str(v).strip() for v in rule_data.get('tags', []) if str(v).strip()])
+    return tags
+
+
+def _has_any_tag(skill_data, candidates):
+    tags = set(_extract_skill_tags(skill_data))
+    for candidate in candidates:
+        if str(candidate) in tags:
+            return True
+    return False
+
+
+def _is_hard_skill(skill_data):
+    return _has_any_tag(skill_data, ['強硬', '強硬スキル', 'hard_skill'])
+
+
+def _is_feint_skill(skill_data):
+    return _has_any_tag(skill_data, ['牽制', '牽制スキル', 'feint_skill'])
+
+
+def _is_normal_skill(skill_data):
+    return (not _is_hard_skill(skill_data)) and (not _is_feint_skill(skill_data))
+
+
+def _apply_feint_half_if_needed(final_damage, winner_skill_data, loser_skill_data, log_snippets):
+    dmg = int(final_damage or 0)
+    if dmg <= 0:
+        return 0
+    if _is_feint_skill(winner_skill_data) and _is_normal_skill(loser_skill_data):
+        halved = dmg // 2
+        if isinstance(log_snippets, list):
+            log_snippets.append("[牽制半減]")
+        return halved
+    return dmg
+
+
+def _apply_total_damage_multiplier(attacker, defender, raw_damage, log_snippets=None, incoming_label='防'):
+    mult_info = compute_damage_multipliers(attacker, defender)
+    final_damage = int(int(raw_damage or 0) * float(mult_info.get('final', 1.0) or 1.0))
+    if isinstance(log_snippets, list):
+        incoming_logs = mult_info.get('incoming_logs', []) or []
+        outgoing_logs = mult_info.get('outgoing_logs', []) or []
+        incoming = float(mult_info.get('incoming', 1.0) or 1.0)
+        outgoing = float(mult_info.get('outgoing', 1.0) or 1.0)
+        if incoming_logs:
+            log_snippets.append(f"({incoming_label}:{'/'.join(incoming_logs)} x{incoming:.2f})")
+        if outgoing_logs:
+            log_snippets.append(f"(攻:{'/'.join(outgoing_logs)} x{outgoing:.2f})")
+    return final_damage
 
 def update_duel_declaration(room, data, username):
     state = get_room_state(room)
@@ -717,9 +779,14 @@ def execute_duel_match(room, data, username):
                     if extra_hit_dmg > 0: damage_report['D'].append({'source': '追加攻撃', 'value': extra_hit_dmg})
 
                     final_damage = damage + kiretsu + bonus_damage + extra_skill_damage + extra_hit_dmg
-                    d_mult, logs = calculate_damage_multiplier(actor_d_char)
-                    final_damage = int(final_damage * d_mult)
-                    if logs: log_snippets.append(f"(防:{'/'.join(logs)} x{d_mult:.2f})")
+                    final_damage = _apply_total_damage_multiplier(
+                        actor_a_char,
+                        actor_d_char,
+                        final_damage,
+                        log_snippets=log_snippets,
+                        incoming_label='防',
+                    )
+                    final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
 
                     _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
                     buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
@@ -764,9 +831,13 @@ def execute_duel_match(room, data, username):
                      final_dmg_a += extra_hit
                      if extra_hit > 0: damage_report['D'].append({'source': '追加攻撃', 'value': extra_hit})
 
-                     d_mult, logs = calculate_damage_multiplier(actor_d_char)
-                     final_dmg_a = int(final_dmg_a * d_mult)
-                     if logs: log_snippets.append(f"(防:{'/'.join(logs)} x{d_mult:.2f})")
+                     final_dmg_a = _apply_total_damage_multiplier(
+                         actor_a_char,
+                         actor_d_char,
+                         final_dmg_a,
+                         log_snippets=log_snippets,
+                         incoming_label='防',
+                     )
 
                      _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_dmg_a, username=f"{username}(相互)", save=False)
                      buff_dmg = process_on_damage_buffs(room, actor_d_char, final_dmg_a, username, log_snippets)
@@ -803,9 +874,13 @@ def execute_duel_match(room, data, username):
                      final_dmg_d += extra_hit
                      if extra_hit > 0: damage_report['A'].append({'source': '追加攻撃', 'value': extra_hit})
 
-                     d_mult, logs = calculate_damage_multiplier(actor_a_char)
-                     final_dmg_d = int(final_dmg_d * d_mult)
-                     if logs: log_snippets.append(f"(攻:{'/'.join(logs)} x{d_mult:.2f})")
+                     final_dmg_d = _apply_total_damage_multiplier(
+                         actor_d_char,
+                         actor_a_char,
+                         final_dmg_d,
+                         log_snippets=log_snippets,
+                         incoming_label='攻',
+                     )
 
                      _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_dmg_d, username=f"{username}(相互)", save=False)
                      buff_dmg = process_on_damage_buffs(room, actor_a_char, final_dmg_d, username, log_snippets)
@@ -833,9 +908,14 @@ def execute_duel_match(room, data, username):
                 if damage > 0: damage_report['D'].append({'source': '差分ダメージ', 'value': damage})
 
                 final_damage = damage + kiretsu + bonus_damage
-                d_mult, logs = calculate_damage_multiplier(actor_d_char)
-                final_damage = int(final_damage * d_mult)
-                if logs: log_snippets.append(f"(防:{'/'.join(logs)} x{d_mult:.2f})")
+                final_damage = _apply_total_damage_multiplier(
+                    actor_a_char,
+                    actor_d_char,
+                    final_damage,
+                    log_snippets=log_snippets,
+                    incoming_label='防',
+                )
+                final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
 
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
                 buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
@@ -879,9 +959,14 @@ def execute_duel_match(room, data, username):
                     if t_key: damage_report[t_key].append(evt)
                 log_snippets.extend(logs)
                 final_damage = damage + kiretsu + bonus_damage
-                d_mult, logs = calculate_damage_multiplier(actor_d_char)
-                final_damage = int(final_damage * d_mult)
-                if logs: damage_message = f"({'/'.join(logs)} x{d_mult:.2f}) "
+                final_damage = _apply_total_damage_multiplier(
+                    actor_a_char,
+                    actor_d_char,
+                    final_damage,
+                    log_snippets=log_snippets,
+                    incoming_label='防',
+                )
+                final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
                 buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
 
@@ -949,9 +1034,14 @@ def execute_duel_match(room, data, username):
                     if damage > 0: damage_report['A'].append({'source': 'ダイスダメージ', 'value': damage})
 
                     final_damage = damage + kiretsu + bonus_damage
-                    d_mult, logs = calculate_damage_multiplier(actor_a_char)
-                    final_damage = int(final_damage * d_mult)
-                    if logs: log_snippets.append(f"(攻:{'/'.join(logs)} x{d_mult:.2f})")
+                    final_damage = _apply_total_damage_multiplier(
+                        actor_d_char,
+                        actor_a_char,
+                        final_damage,
+                        log_snippets=log_snippets,
+                        incoming_label='攻',
+                    )
+                    final_damage = _apply_feint_half_if_needed(final_damage, skill_data_d, skill_data_a, log_snippets)
 
                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username)
                     buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
@@ -1059,9 +1149,14 @@ def execute_duel_match(room, data, username):
                     if extra_hit_dmg > 0: damage_report['D'].append({'source': '追加攻撃', 'value': extra_hit_dmg})
 
                     final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
-                    d_mult, logs = calculate_damage_multiplier(actor_d_char)
-                    final_damage = int(final_damage * d_mult)
-                    if logs: log_snippets.append(f"(防:{'/'.join(logs)} x{d_mult:.2f})")
+                    final_damage = _apply_total_damage_multiplier(
+                        actor_a_char,
+                        actor_d_char,
+                        final_damage,
+                        log_snippets=log_snippets,
+                        incoming_label='防',
+                    )
+                    final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
 
                     _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, save=False)
                     buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
@@ -1146,9 +1241,14 @@ def execute_duel_match(room, data, username):
                     if extra_hit_dmg > 0: damage_report['A'].append({'source': '追加攻撃', 'value': extra_hit_dmg})
 
                     final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
-                    d_mult, logs = calculate_damage_multiplier(actor_a_char)
-                    final_damage = int(final_damage * d_mult)
-                    if logs: log_snippets.append(f"(攻:{'/'.join(logs)} x{d_mult:.2f})")
+                    final_damage = _apply_total_damage_multiplier(
+                        actor_d_char,
+                        actor_a_char,
+                        final_damage,
+                        log_snippets=log_snippets,
+                        incoming_label='攻',
+                    )
+                    final_damage = _apply_feint_half_if_needed(final_damage, skill_data_d, skill_data_a, log_snippets)
 
                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, save=False)
                     buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
@@ -1261,12 +1361,8 @@ def execute_duel_match(room, data, username):
     if 'active_match' in state:
         del state['active_match']
 
-    # 特殊バフのフラグ(newly_applied)をクリア
-    for c in state.get('characters', []):
-        if 'special_buffs' in c:
-            for b in c['special_buffs']:
-                if 'newly_applied' in b:
-                    del b['newly_applied']
+    # newly_applied を共通ヘルパーでクリア
+    clear_newly_applied_flags(state)
 
     save_specific_room_state(room)
     broadcast_state_update(room)

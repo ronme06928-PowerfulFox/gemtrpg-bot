@@ -40,10 +40,15 @@ SUPPORTED_EFFECT_TYPES = {
 
 SUPPORTED_EFFECT_TIMINGS = {
     "PRE_MATCH",
+    "BEFORE_POWER_ROLL",
     "WIN",
     "LOSE",
     "HIT",
     "UNOPPOSED",
+    "AFTER_DAMAGE_APPLY",
+    "RESOLVE_START",
+    "RESOLVE_STEP_END",
+    "RESOLVE_END",
     "END_MATCH",
     "END_ROUND",
     "IMMEDIATE",
@@ -66,6 +71,7 @@ SUPPORTED_CONDITION_SOURCES = {
     "target_skill",
     "skill",
     "actor_skill",
+    "relation",
 }
 
 SUPPORTED_CONDITION_OPERATORS = {
@@ -409,7 +415,7 @@ def test_skill_rules_json_and_effect_shape_lint():
     unknown_type_rows = []
     unknown_timing_rows = []
 
-    for skill_id, _, rule_data in _iter_skill_rules(skill_catalog):
+    for skill_id, skill_data, rule_data in _iter_skill_rules(skill_catalog):
         if isinstance(rule_data, json.JSONDecodeError):
             json_errors.append(
                 f"{skill_id}: line={rule_data.lineno} col={rule_data.colno} msg={rule_data.msg}"
@@ -426,6 +432,12 @@ def test_skill_rules_json_and_effect_shape_lint():
         if not isinstance(effects, list):
             shape_errors.append(f"{skill_id}: effects must be list, got {type(effects).__name__}")
             continue
+
+        skill_tags = []
+        for raw_tags in [skill_data.get("tags", []), rule_data.get("tags", [])]:
+            if isinstance(raw_tags, list):
+                skill_tags.extend([str(t).strip() for t in raw_tags if str(t).strip()])
+        has_instant_tag = any(t in {"即時発動", "instant"} for t in skill_tags)
 
         for idx, effect in enumerate(effects):
             if not isinstance(effect, dict):
@@ -448,6 +460,8 @@ def test_skill_rules_json_and_effect_shape_lint():
                 unknown_timing_rows.append(f"{skill_id}[{idx}]: unknown timing '{timing}'")
             if target and target not in SUPPORTED_TARGETS:
                 field_errors.append(f"{skill_id}[{idx}]: unsupported target '{target}'")
+            if timing == "RESOLVE_START" and has_instant_tag:
+                field_errors.append(f"{skill_id}[{idx}]: RESOLVE_START cannot be used with instant tag")
 
             _lint_condition(skill_id, idx, effect.get("condition"), condition_errors)
 

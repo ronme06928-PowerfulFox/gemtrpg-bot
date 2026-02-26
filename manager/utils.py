@@ -185,6 +185,34 @@ def remove_buff(char_obj, buff_name):
     if not char_obj or 'special_buffs' not in char_obj: return
     char_obj['special_buffs'] = [b for b in char_obj['special_buffs'] if b.get('name') != buff_name]
 
+
+def clear_newly_applied_flags(state_or_characters):
+    """
+    newly_applied フラグを一括でクリアする。
+    引数は room_state(dict) か characters(list) のどちらでも受け付ける。
+    Returns:
+        int: クリアしたフラグ数
+    """
+    if isinstance(state_or_characters, dict):
+        characters = state_or_characters.get('characters', [])
+    elif isinstance(state_or_characters, list):
+        characters = state_or_characters
+    else:
+        characters = []
+
+    cleared = 0
+    for char in characters:
+        if not isinstance(char, dict):
+            continue
+        buffs = char.get('special_buffs', [])
+        if not isinstance(buffs, list):
+            continue
+        for buff in buffs:
+            if isinstance(buff, dict) and ('newly_applied' in buff):
+                del buff['newly_applied']
+                cleared += 1
+    return cleared
+
 def get_buff_stat_mod(char_obj, stat_name):
     """
     キャラクターのバフから特定のステータス補正値の合計を取得

@@ -770,6 +770,14 @@ function createSettingsContextMenu(triggerEl, char) {
 
     const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
     const ownerName = char.owner || '不明';
+    const baseBehaviorProfile = (
+        char.flags
+        && typeof char.flags === 'object'
+        && char.flags.behavior_profile
+        && typeof char.flags.behavior_profile === 'object'
+    )
+        ? char.flags.behavior_profile
+        : { enabled: false, version: 1, initial_loop_id: null, loops: {} };
 
     // 譲渡先リスト
     let ownerOptions = '';
@@ -823,6 +831,16 @@ function createSettingsContextMenu(triggerEl, char) {
                     <span style="font-size: 0.9em; color: #495057;">予約スキルを公開 (AI用)</span>
                 </label>
             </div>
+
+            ${isGM ? `
+            <div style="margin-bottom:15px; padding: 8px; background: #eef6ff; border-radius: 4px; border:1px solid #d0e2ff;">
+                <label style="display:flex; align-items:center; cursor: pointer; margin-bottom:8px;">
+                    <input type="checkbox" id="ctx-behavior-enabled" class="settings-input" ${baseBehaviorProfile.enabled ? 'checked' : ''} style="margin-right: 8px;">
+                    <span style="font-size: 0.9em; color: #2f4858;">行動チャート有効</span>
+                </label>
+                <button id="ctx-behavior-edit-btn" style="width:100%; padding: 6px 8px; background:#2f7fbf; color:#fff; border:none; border-radius:4px; cursor:pointer;">行動チャートJSON編集</button>
+            </div>
+            ` : ''}
 
             <hr style="border:0; border-top:1px solid #e9ecef; margin:10px 0 15px 0;">
             <button id="ctx-delete-btn" style="width:100%; background:#dc3545; color:white; border:none; padding:10px; border-radius:4px; font-weight:bold; cursor: pointer; transition: background 0.2s;">削除</button>
@@ -936,6 +954,45 @@ function createSettingsContextMenu(triggerEl, char) {
             // Clone existing flags to avoid mutating local state prematurely (though render updates it anyway)
             const currentFlags = char.flags || {};
             const newFlags = Object.assign({}, currentFlags, { show_planned_skill: e.target.checked });
+            socket.emit('request_state_update', {
+                room: currentRoomName, charId: char.id, statName: 'flags', newValue: newFlags
+            });
+        });
+    }
+
+    const behaviorToggle = menu.querySelector('#ctx-behavior-enabled');
+    if (behaviorToggle) {
+        behaviorToggle.addEventListener('change', (e) => {
+            const currentFlags = char.flags || {};
+            const currentProfile = (currentFlags.behavior_profile && typeof currentFlags.behavior_profile === 'object')
+                ? currentFlags.behavior_profile
+                : { version: 1, initial_loop_id: null, loops: {} };
+            const nextProfile = Object.assign({}, currentProfile, { enabled: !!e.target.checked });
+            const newFlags = Object.assign({}, currentFlags, { behavior_profile: nextProfile });
+            socket.emit('request_state_update', {
+                room: currentRoomName, charId: char.id, statName: 'flags', newValue: newFlags
+            });
+        });
+    }
+
+    const behaviorEditBtn = menu.querySelector('#ctx-behavior-edit-btn');
+    if (behaviorEditBtn) {
+        behaviorEditBtn.addEventListener('click', () => {
+            const currentFlags = char.flags || {};
+            const currentProfile = (currentFlags.behavior_profile && typeof currentFlags.behavior_profile === 'object')
+                ? currentFlags.behavior_profile
+                : { enabled: false, version: 1, initial_loop_id: null, loops: {} };
+            const seed = JSON.stringify(currentProfile, null, 2);
+            const edited = window.prompt('behavior_profile JSON を編集してください', seed);
+            if (edited === null) return;
+            let parsed;
+            try {
+                parsed = JSON.parse(edited);
+            } catch (_) {
+                alert('JSONの形式が不正です。');
+                return;
+            }
+            const newFlags = Object.assign({}, currentFlags, { behavior_profile: parsed });
             socket.emit('request_state_update', {
                 room: currentRoomName, charId: char.id, statName: 'flags', newValue: newFlags
             });
@@ -1168,6 +1225,14 @@ function openPresetManagerModal() {
             </ul>
         </div>
 
+        <div style="margin-top:16px; border-top:1px solid #ddd; padding-top:12px;">
+            <label><strong>プリセットJSON搬出入:</strong></label>
+            <textarea id="preset-json-transfer" placeholder='{"schema":"gem_dicebot_enemy_preset.v1", ...}' style="width:100%; min-height:100px; margin-top:6px; padding:8px; font-family:monospace;"></textarea>
+            <div style="display:flex; justify-content:flex-end; margin-top:6px;">
+                <button id="preset-import-btn" class="room-action-btn" style="padding:6px 12px;">JSON取込</button>
+            </div>
+        </div>
+
         <div style="text-align: right; margin-top: 20px;">
             <button id="modal-close-btn" style="padding: 8px 16px;">閉じる</button>
         </div>
@@ -1180,6 +1245,8 @@ function openPresetManagerModal() {
     const saveBtn = document.getElementById('preset-save-btn');
     const msgArea = document.getElementById('preset-msg-area');
     const listArea = document.getElementById('preset-list');
+    const transferArea = document.getElementById('preset-json-transfer');
+    const importBtn = document.getElementById('preset-import-btn');
     const closeBtn = document.getElementById('modal-close-btn');
 
     const closeFunc = () => {
@@ -1239,6 +1306,16 @@ function openPresetManagerModal() {
                 }
             };
 
+            const exportBtn = document.createElement('button');
+            exportBtn.textContent = 'JSON出力';
+            exportBtn.style.fontSize = '0.85em';
+            exportBtn.style.padding = '4px 10px';
+            exportBtn.style.marginRight = '5px';
+            exportBtn.onclick = () => {
+                socket.emit('request_export_preset_json', { room: currentRoomName, name: name });
+            };
+
+            btnGroup.appendChild(exportBtn);
             btnGroup.appendChild(loadBtn);
             btnGroup.appendChild(delBtn);
             li.appendChild(nameSpan);
@@ -1276,6 +1353,49 @@ function openPresetManagerModal() {
         }
     });
 
+    socket.off('preset_error');
+    socket.on('preset_error', (data) => {
+        msgArea.textContent = data?.message || 'プリセット操作でエラーが発生しました';
+        msgArea.style.color = 'red';
+    });
+
+    socket.off('preset_json_exported');
+    socket.on('preset_json_exported', (data) => {
+        const raw = data?.json || JSON.stringify(data?.payload || {}, null, 2);
+        if (transferArea) transferArea.value = raw;
+        msgArea.textContent = `「${data?.name || 'preset'}」をJSON出力しました`;
+        msgArea.style.color = 'green';
+    });
+
+    socket.off('preset_export_error');
+    socket.on('preset_export_error', (data) => {
+        msgArea.textContent = data?.message || 'JSON出力に失敗しました';
+        msgArea.style.color = 'red';
+    });
+
+    socket.off('preset_imported');
+    socket.on('preset_imported', (data) => {
+        msgArea.textContent = `JSONを「${data?.name || ''}」として取り込みました`;
+        msgArea.style.color = 'green';
+        socket.emit('request_get_presets', { room: currentRoomName });
+    });
+
+    socket.off('preset_import_error');
+    socket.on('preset_import_error', (data) => {
+        if (data?.error === 'duplicate') {
+            if (confirm(data.message || '同名プリセットがあります。上書きしますか？')) {
+                socket.emit('request_import_preset_json', {
+                    room: currentRoomName,
+                    json: transferArea?.value || '',
+                    overwrite: true
+                });
+            }
+            return;
+        }
+        msgArea.textContent = data?.message || 'JSON取込に失敗しました';
+        msgArea.style.color = 'red';
+    });
+
     saveBtn.addEventListener('click', () => {
         const name = saveNameInput.value.trim();
         if (!name) {
@@ -1287,6 +1407,20 @@ function openPresetManagerModal() {
         msgArea.textContent = '保存中...';
         msgArea.style.color = '#333';
     });
+
+    if (importBtn) {
+        importBtn.addEventListener('click', () => {
+            const raw = (transferArea?.value || '').trim();
+            if (!raw) {
+                msgArea.textContent = '取込JSONを入力してください';
+                msgArea.style.color = 'red';
+                return;
+            }
+            socket.emit('request_import_preset_json', { room: currentRoomName, json: raw });
+            msgArea.textContent = 'JSON取込中...';
+            msgArea.style.color = '#333';
+        });
+    }
 }
 
 

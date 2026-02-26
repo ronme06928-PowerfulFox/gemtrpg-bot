@@ -1,9 +1,9 @@
 ﻿# 08 Select/Resolve 確定仕様書 v1.2
 
-**最終更新日**: 2026-02-23
-**文書バージョン**: v1.3
+**最終更新日**: 2026-02-26
+**文書バージョン**: v1.4
 **対象実装**: `events/battle/common_routes.py` / `manager/battle/common_manager.py` / `manager/battle/core.py`
-**版注記**: 本更新で v1.3 相当の仕様差分（権限/再使用/snapshot/イベント）を反映
+**版注記**: 本更新で v1.4 相当の仕様差分（対象先行UI/非ダメージ/強硬追撃）を反映
 
 ## 1. 目的・スコープ
 本仕様は、現行の逐次手番式を廃止し、1ラウンドを `RoundStart -> Select -> Resolve` で処理するための確定仕様を定義する。
@@ -59,7 +59,12 @@ RoundStart は次の順序で処理する。
 - 目標指定は全公開矢印として可視化する。
 - `required slots` は「行動可能かつ未消費」のスロットのみ。行動不能者や `committed+instant` は Resolve 必須条件から除外する。
 
-### 5.1 Select時の権限・入力バリデーション（実装準拠）
+### 5.1 Select UI補正（対象先行）
+- 対象選択後、対象条件に合致するスキルのみ候補表示する（逆方向フィルタ）。
+- 既に選択済みスキルが新しい対象と非整合になった場合、そのスキル選択は自動で解除する。
+- 目的は「宣言可能でない組み合わせ」の commit 前検出。
+
+### 5.2 Select時の権限・入力バリデーション（実装準拠）
 - `battle_intent_preview` / `battle_intent_commit` / `battle_intent_uncommit` は、対象 `slot_id` が存在しない場合 `battle_error: unknown slot_id` を返し、状態を変更しない。
 - 各 intent イベントは「そのスロットの actor を操作可能なユーザー」だけが実行できる。権限不足時は `battle_error: <event> permission denied` を返し、状態を変更しない。
 - `GM` は全キャラクターのスロットを代理操作可能。
@@ -108,6 +113,12 @@ RoundStart は次の順序で処理する。
 - `resolve.trace` 各要素は `step` に加えて `step_index` / `step_total` を持つ。
 - `step_total` は「mass推定件数 + single推定件数」で初期化し、必要に応じて実件数で増補する。
 - 新ラウンドで `trace` が空のとき、前ラウンドの `step_total` は持ち越さない。
+
+### 8.3 非ダメージ・強硬追撃（実装追補）
+- `deals_damage=false` のスキルは `one-sided` / `clash` とも HP減算を行わない。
+- 上記ケースでは `on_damage` 連鎖も発火しない。
+- 強硬タグ側が通常スキルとの clash で敗北した場合、条件一致時に `hard_attack` を1回差し込む。
+- 牽制タグ側が勝利した場合、相手の強硬追撃は差し込まない（抑止）。
 
 ## 9. 再回避差し込み（再回避状態、回避スロット or 解決済みスロットを無料再利用、回避スロットがtargetしている相手スキルの解決時のみ差し込み、第三者介入なし、one-sided→clashに昇格）
 - 再回避状態のキャラクターは、回避スロットまたは解決済みスロットを無料で再利用できる。
@@ -317,7 +328,7 @@ battle_phase_changed:
 {"room_id":"string","battle_id":"string","round":12,"from":"select","to":"resolve_mass"}
 
 battle_resolve_trace_appended:
-{"room_id":"string","battle_id":"string","round":12,"phase":"resolve_mass|resolve_single","trace":[{"step":1,"step_index":0,"step_total":9,"kind":"redirect|redirect_cancelled_by_no_redirect|mass_individual|mass_summation|clash|one_sided|fizzle|evade_insert","attacker_slot":"slot_a","defender_slot":"slot_b|null","target_actor_id":"char_X|null","display_label":"1|1-EX|1-EX2|null","rolls":{},"outcome":"attacker_win|defender_win|draw|no_effect","cost":{"mp":0,"hp":0,"fp":0},"notes":"string|null"}]}
+{"room_id":"string","battle_id":"string","round":12,"phase":"resolve_mass|resolve_single","trace":[{"step":1,"step_index":0,"step_total":9,"kind":"redirect|redirect_cancelled_by_no_redirect|mass_individual|mass_summation|clash|one_sided|fizzle|evade_insert|hard_attack","attacker_slot":"slot_a","defender_slot":"slot_b|null","target_actor_id":"char_X|null","display_label":"1|1-EX|1-EX2|null","rolls":{},"outcome":"attacker_win|defender_win|draw|no_effect","cost":{"mp":0,"hp":0,"fp":0},"notes":"string|null"}]}
 
 battle_resolve_flow_advance:
 {"room_id":"string","battle_id":"string","round":12,"expected_step_index":3,"requested_by":"gm"}
@@ -386,3 +397,8 @@ battle_error:
 - Resolve開始時に `resolve_snapshot_intents` を固定化し、Resolve中は snapshot を参照する。
 - `battle_resolve_ready` は「全 required slot が commit 済み」を通知するが、開始権限は GM のみ。
 - `battle_error` は unknown slot / 権限不足 / phase不一致 などの拒否理由を返す。
+
+### A-8. 強硬追撃と表示
+- 強硬追撃の trace `kind` は `hard_attack` を使用し、UI表示名は常に「強硬攻撃」とする。
+- 強硬追撃時の回避差し込みは「対象指定済み回避 > 未使用回避 > 再回避候補」の順で判定する。
+- 牽制勝利で強硬追撃が抑止された場合、通常の clash 結果のみを採用する。
