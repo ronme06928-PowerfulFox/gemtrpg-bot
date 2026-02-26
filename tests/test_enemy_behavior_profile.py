@@ -1,3 +1,4 @@
+import manager.battle.enemy_behavior as behavior_module
 from manager.battle.enemy_behavior import (
     normalize_behavior_profile,
     initialize_behavior_runtime_entry,
@@ -76,3 +77,9 @@ def test_pick_and_advance_step_pointer_repeat():
 def test_choose_actions_for_slot_count_reuses_last():
     actions = choose_actions_for_slot_count(["S-A", "S-B"], 4)
     assert actions == ["S-A", "S-B", "S-B", "S-B"]
+
+
+def test_choose_actions_for_slot_count_random_when_overflow(monkeypatch):
+    monkeypatch.setattr(behavior_module.random, "sample", lambda seq, k: ["S-D", "S-B"])
+    actions = choose_actions_for_slot_count(["S-A", "S-B", "S-C", "S-D"], 2)
+    assert actions == ["S-D", "S-B"]

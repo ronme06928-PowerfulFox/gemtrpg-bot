@@ -1,4 +1,5 @@
 import copy
+import random
 
 
 def _safe_int(value, default=0):
@@ -283,6 +284,8 @@ def choose_actions_for_slot_count(actions, slot_count):
         return []
     if not actions:
         return [None for _ in range(count)]
+    if len(actions) > count:
+        return random.sample(list(actions), count)
     out = []
     for idx in range(count):
         if idx < len(actions):
