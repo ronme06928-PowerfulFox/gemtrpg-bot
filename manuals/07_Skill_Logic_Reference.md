@@ -128,9 +128,14 @@
 
 ### 7.1 フェーズタイミング
 
-- `RESOLVE_START`: Resolve開始直後、コミット済みスロットごと
+- `RESOLVE_START`: 戦闘開始時（Resolve開始直後）、コミット済みスロットごと
 - `RESOLVE_STEP_END`: `clash/one_sided/mass_*` の各trace確定直後
-- `RESOLVE_END`: Resolve完了直前、コミット済みスロットごと
+- `RESOLVE_END`: 戦闘終了時（Resolve完了直前）、コミット済みスロットごと
+
+補足:
+- `戦闘突入時` は別概念で、現実装では `BATTLE_START` / `battle_start_effect` が該当する。
+- `戦闘離脱時` は用語としては「戦闘フェーズからいなくなる時（離脱/死亡を含む）」を指すが、専用の共通timingはまだ標準化していない。
+- 死亡時だけを扱いたい場合は `on_death` を使用する。
 
 ### 7.2 one-sided 内部順
 

@@ -73,7 +73,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 
 * `timing`: 発動タイミング（必須）。
   * **<span style="color:#e74c3c; font-weight:bold;">HIT</span>** (命中時), **<span style="color:#e74c3c; font-weight:bold;">WIN</span>** (勝利時), **<span style="color:#3498db; font-weight:bold;">LOSE</span>** (敗北時), **<span style="color:#f1c40f; font-weight:bold;">PRE_MATCH</span>** (開始前), **<span style="color:#f1c40f; font-weight:bold;">END_MATCH</span>** (終了時), **<span style="color:#e74c3c; font-weight:bold;">UNOPPOSED</span>** (一方攻撃時)
-  * **<span style="color:#1abc9c; font-weight:bold;">RESOLVE_START</span>** (解決フェーズ開始), **<span style="color:#1abc9c; font-weight:bold;">BEFORE_POWER_ROLL</span>** (実威力ロール前), **<span style="color:#1abc9c; font-weight:bold;">AFTER_DAMAGE_APPLY</span>** (ダメージ反映直後), **<span style="color:#1abc9c; font-weight:bold;">RESOLVE_STEP_END</span>** (1処理表示完了), **<span style="color:#1abc9c; font-weight:bold;">RESOLVE_END</span>** (解決フェーズ終了)
+  * **<span style="color:#1abc9c; font-weight:bold;">RESOLVE_START</span>** (戦闘開始時 / 解決フェーズ開始), **<span style="color:#1abc9c; font-weight:bold;">BEFORE_POWER_ROLL</span>** (実威力ロール前), **<span style="color:#1abc9c; font-weight:bold;">AFTER_DAMAGE_APPLY</span>** (ダメージ反映直後), **<span style="color:#1abc9c; font-weight:bold;">RESOLVE_STEP_END</span>** (1処理表示完了), **<span style="color:#1abc9c; font-weight:bold;">RESOLVE_END</span>** (戦闘終了時 / 解決フェーズ終了)
 * `target`: 効果対象。
   * `self` (自分), `target` (対象), `ALL_ENEMIES` (敵全体), `ALL_ALLIES` (味方全体/術者含む), `ALL_OTHER_ALLIES` (味方全体/術者除く), `ALL` (全員), `NEXT_ALLY` (次手番の味方)
 * `target_scope`: 単体対象（`target`）の対象陣営制御（任意）
@@ -206,13 +206,14 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 
 バフやパッシブには、特定のイベントで自動発動する効果を定義できます。
 
-#### 戦闘開始時効果 (`battle_start_effect`)
+#### 戦闘突入時効果 (`battle_start_effect`)
 
-戦闘が開始されたとき（キャラクターが配置されたとき）に自動発動します。
+戦闘フェーズへ参加したとき（キャラクターが配置されたとき）に自動発動します。
 
 * タイミング指定は不要（自動的に`IMMEDIATE`として処理）
 * スキル効果と同じ形式で定義可能（`APPLY_STATE`, `APPLY_BUFF`など）
 * 輝化スキルやパッシブで使用可能
+* 本書では「戦闘開始時」は `RESOLVE_START` を指し、`battle_start_effect` とは区別します。
 
 #### 死亡時効果 (`on_death`)
 
@@ -294,7 +295,7 @@ ID `S-XX` で定義されるパッシブスキルです。
     "effect": { "type": "STAT_BONUS", "stat": "HP", "value": 10 }
     ```
 
-* **Battle Start Effect**: 戦闘開始時に自動発動。
+* **Battle Start Effect**: 戦闘突入時に自動発動。
 
     ```json
     "effect": {
@@ -330,7 +331,7 @@ ID `S-XX` で定義されるパッシブスキルです。
 * **マホロバ (ID:5)**: R終了時 <span style="color:#f1c40f; font-weight:bold;">HP+3</span>。
 * **ギァン・バルフ (ID:8)**: デュエル防御成功時、余剰反射ダメージ。
 * **綿津見 (ID:9)**: <span style="color:#e74c3c; font-weight:bold;">斬撃</span>スキル威力(ダイス)補正+1。
-* **シンシア (ID:10)**: 戦闘開始時「爆縮」バフ（ダメージ+5 / 8回）所持。
+* **シンシア (ID:10)**: 戦闘突入時「爆縮」バフ（ダメージ+5 / 8回）所持。
 * **ヴァルヴァイレ (ID:13)**: 対峙相手の最終達成値-1。
 
 <div style="page-break-after: always;"></div>
@@ -452,11 +453,11 @@ ID `S-XX` で定義されるパッシブスキルです。
   - 主呼び出し: `manager/battle/core.py`
 
 - `RESOLVE_START`
-  - 実行時期: 解決フェーズ開始直後
+  - 実行時期: 戦闘開始時（解決フェーズ開始直後）
   - 主呼び出し: `manager/battle/core.py`
 
 - `RESOLVE_END`
-  - 実行時期: 解決フェーズ全体の表示完了後
+  - 実行時期: 戦闘終了時（解決フェーズ全体の表示完了後）
   - 主呼び出し: `manager/battle/core.py`
 
 - `END_ROUND`
@@ -464,7 +465,7 @@ ID `S-XX` で定義されるパッシブスキルです。
   - 主呼び出し: `manager/battle/common_manager.py`
 
 - `BATTLE_START`
-  - 実行時期: バトル開始時
+  - 実行時期: 戦闘突入時（バトル参加時 / 配置時）
   - 主呼び出し: `manager/game_logic.py`（戦闘開始効果処理）
 
 ### D. 実装上の注意
@@ -472,6 +473,11 @@ ID `S-XX` で定義されるパッシブスキルです。
 - 新規効果を追加する際は、`timing` の定義（データ）と呼び出し点（コード）の両方を合わせて更新してください。
 - `速度値` 条件はスロット initiative（最大値）を参照するため、通常 `params` の `速度` とは別物です。
 - Select/Resolve での再使用演算・表示ラベル規則は `manuals/08_SelectResolve_Spec.md` の 9.2 / 付録A-6 を参照してください。
+- 用語整理:
+  - `戦闘開始時` = `RESOLVE_START`
+  - `戦闘終了時` = `RESOLVE_END`
+  - `戦闘突入時` = `BATTLE_START` / `battle_start_effect`
+  - `戦闘離脱時` = 戦闘フェーズから離れる概念用語（現時点では専用の標準timing未定義。死亡時は `on_death` を使用）
 
 ---
 

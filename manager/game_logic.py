@@ -1429,7 +1429,7 @@ def process_on_death(room, char, username):
 
 def process_battle_start(room, char):
     """
-    戦闘開始時(または参加時)イベント(battle_start_effect)を処理する
+    戦闘突入時イベント(battle_start_effect)を処理する
     初期FP付与などに使用
     """
     if not char: return
