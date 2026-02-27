@@ -76,6 +76,23 @@ def _extract_skill_ids_from_commands(commands_text):
     return ordered
 
 
+def _extract_granted_skill_ids(char):
+    out = []
+    seen = set()
+    rows = char.get('granted_skills', []) if isinstance(char, dict) else []
+    if not isinstance(rows, list):
+        return out
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        sid = str(row.get('skill_id', '') or '').strip()
+        if not sid or sid in seen:
+            continue
+        seen.add(sid)
+        out.append(sid)
+    return out
+
+
 def list_usable_skill_ids(char, allow_instant=False):
     """
     Returns skill IDs that:
@@ -89,6 +106,8 @@ def list_usable_skill_ids(char, allow_instant=False):
 
     commands_text = char.get('commands', '')
     skill_ids_in_command = _extract_skill_ids_from_commands(commands_text)
+    granted_skill_ids = _extract_granted_skill_ids(char)
+    skill_ids_in_command = list(dict.fromkeys(skill_ids_in_command + granted_skill_ids))
     if not skill_ids_in_command:
         return []
 

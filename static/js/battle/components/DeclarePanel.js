@@ -693,6 +693,9 @@ class DeclarePanel {
                         Array.isArray(parsed.cost)
                         || Array.isArray(parsed.effects)
                         || Array.isArray(parsed.tags)
+                        || typeof parsed.deals_damage === 'boolean'
+                        || parsed.target_scope !== undefined
+                        || parsed.target_team !== undefined
                     )
                 ) {
                     return parsed;
@@ -776,6 +779,15 @@ class DeclarePanel {
                 return 'any';
             }
         }
+
+        const tags = []
+            .concat(Array.isArray(skill.tags) ? skill.tags : [])
+            .concat(Array.isArray(rule.tags) ? rule.tags : [])
+            .map((t) => String(t || '').trim().toLowerCase())
+            .filter(Boolean);
+        if (tags.some((t) => ['any_target', 'target_any', '任意対象', '対象自由'].includes(t))) return 'any';
+        if (tags.some((t) => ['ally_target', 'target_ally', '味方対象', '味方指定'].includes(t))) return 'ally';
+        if (tags.some((t) => ['enemy_target', 'target_enemy', '敵対象'].includes(t))) return 'enemy';
         return 'enemy';
     }
 

@@ -1,6 +1,6 @@
 # スキルロジック実装リファレンス（実装準拠）
 
-**最終更新日**: 2026-02-26  
+**最終更新日**: 2026-02-27  
 **対象実装**: `manager/game_logic.py` / `manager/battle/core.py` / `events/battle/common_routes.py`
 
 ---
@@ -200,3 +200,14 @@
 ### 10.5 再付与フラグ管理
 - `newly_applied` 系フラグはラウンド進行で統一クリアされる。
 - 目的は「付与直後のみ無効化する on_damage 系」処理の持ち越し防止。
+
+### 10.6 `target_scope=ally` の固定化
+- `target_scope` は `rule_data` / `特記処理` だけでなく、タグ（`味方指定`, `ally_target`, `target_ally`）からも推論される。
+- 味方指定スキルは Select の redirect に参加しない（発生・被適用ともに無効）。
+- 同一陣営どうしで片方以上が味方指定スキルの場合、`clash` を作らず `one_sided` として扱う。
+- 同一陣営ペアには再回避差し込み（evade insert）を行わない。
+
+### 10.7 clash の勝敗種別ルール
+- `attack vs attack` 勝敗確定時は勝者へ `FP+1`（`source=match_win_fp`）を付与する。
+- `defense vs defense` 勝敗確定時も同様に `FP+1` を付与する。
+- `defense vs evade` は `no_effect` に正規化し、FPは付与しない。

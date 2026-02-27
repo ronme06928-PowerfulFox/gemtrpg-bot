@@ -8,7 +8,7 @@ from plugins.buffs.registry import buff_registry
 import manager.room_manager as room_manager
 from manager.constants import DamageSource
 from manager.battle.core import proceed_next_turn
-from manager.battle.battle_ai import ai_select_targets, ai_suggest_skill
+from manager.battle.battle_ai import ai_select_targets, ai_suggest_skill, list_usable_skill_ids
 from manager.dice_roller import roll_dice
 from manager.logs import setup_logger
 from manager.summons.service import apply_summon_change, process_summon_round_end
@@ -49,9 +49,20 @@ from manager.battle.enemy_behavior import (
     evaluate_transitions,
     pick_step_actions,
     advance_step_pointer,
-    choose_actions_for_slot_count,
+    choose_action_plans_for_slot_count,
+    BEHAVIOR_TARGET_POLICY_DEFAULT,
 )
 import random
+
+BEHAVIOR_RANDOM_USABLE_SKILL_TOKEN = "__RANDOM_USABLE__"
+BEHAVIOR_RANDOM_USABLE_SKILL_ALIASES = {
+    "__random_usable__",
+    "random_usable",
+    "__random_skill__",
+    "random_skill",
+    "__random__",
+    "random",
+}
 
 get_effective_origin_id = getattr(_utils_mod, 'get_effective_origin_id', lambda *_args, **_kwargs: 0)
 apply_origin_bonus_buffs = getattr(_utils_mod, 'apply_origin_bonus_buffs', lambda *_args, **_kwargs: None)
@@ -243,6 +254,50 @@ def _infer_mass_type_from_skill(skill_id):
     return _infer_mass_type_from_text(' '.join(str(v or '') for v in merged_parts))
 
 
+def _normalize_target_scope(raw_value, default='enemy'):
+    text = str(raw_value or '').strip().lower()
+    if text in ['', 'default', 'auto']:
+        return str(default or 'enemy')
+    if text in ['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対']:
+        return 'enemy'
+    if text in ['ally', 'allies', 'friend', 'friends', '味方', '味方全体']:
+        return 'ally'
+    if text in ['any', 'all', 'both', '全体', 'all_targets']:
+        return 'any'
+    return str(default or 'enemy')
+
+
+def _infer_target_scope_from_skill(skill_id):
+    if not skill_id:
+        return 'enemy'
+    skill_data = all_skill_data.get(skill_id, {})
+    if not isinstance(skill_data, dict):
+        return 'enemy'
+    rule_data = _extract_skill_rule_data(skill_data)
+    candidates = [
+        skill_data.get('target_scope'),
+        skill_data.get('targetScope'),
+        skill_data.get('target_team'),
+        skill_data.get('targetTeam'),
+        rule_data.get('target_scope') if isinstance(rule_data, dict) else None,
+        rule_data.get('targetScope') if isinstance(rule_data, dict) else None,
+        rule_data.get('target_team') if isinstance(rule_data, dict) else None,
+        rule_data.get('targetTeam') if isinstance(rule_data, dict) else None,
+    ]
+    for raw in candidates:
+        if raw not in [None, '']:
+            return _normalize_target_scope(raw, default='enemy')
+
+    normalized_tags = set(_extract_skill_tags(skill_id))
+    if any(tag in normalized_tags for tag in ['any_target', 'target_any', '任意対象', '対象自由']):
+        return 'any'
+    if any(tag in normalized_tags for tag in ['ally_target', 'target_ally', '味方対象', '味方指定']):
+        return 'ally'
+    if any(tag in normalized_tags for tag in ['enemy_target', 'target_enemy', '敵対象']):
+        return 'enemy'
+    return 'enemy'
+
+
 def _default_intent_tags(existing=None):
     tags = dict(existing or {})
     tags.setdefault('instant', False)
@@ -280,6 +335,29 @@ def _resolve_skill_display_name(skill_id):
         or skill_data.get('skill_name')
         or str(skill_id)
     )
+
+
+def _is_random_usable_skill_token(skill_id):
+    raw = str(skill_id or '').strip()
+    if not raw:
+        return False
+    if raw == BEHAVIOR_RANDOM_USABLE_SKILL_TOKEN:
+        return True
+    return raw.lower() in BEHAVIOR_RANDOM_USABLE_SKILL_ALIASES
+
+
+def _resolve_behavior_chart_skill_id(actor, planned_skill_id):
+    raw = str(planned_skill_id or '').strip()
+    if not raw:
+        return None
+    if _is_random_usable_skill_token(raw):
+        usable_ids = list_usable_skill_ids(actor, allow_instant=False)
+        if not usable_ids:
+            return None
+        return random.choice(usable_ids)
+    if raw in all_skill_data:
+        return raw
+    return None
 
 
 def _format_slot_actor_label(slot, actor):
@@ -395,12 +473,15 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
         actor = char_by_id.get(slot.get('actor_id'))
         return _is_pve_actionable_character(actor)
 
+    actionable_slots_by_team = {'ally': [], 'enemy': []}
     ally_target_slots = []
     enemy_slots = []
     for slot_id, slot in slots.items():
         if not _slot_is_actionable(slot):
             continue
         team = _slot_team(slot)
+        if team in actionable_slots_by_team:
+            actionable_slots_by_team[team].append(str(slot_id))
         if team == 'ally':
             ally_target_slots.append(str(slot_id))
         elif team == 'enemy':
@@ -409,7 +490,7 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
             if flags.get('auto_target_select', True):
                 enemy_slots.append(str(slot_id))
 
-    if not ally_target_slots or not enemy_slots:
+    if not enemy_slots:
         state['ai_target_arrows'] = []
         return {'applied_slots': 0, 'committed_slots': 0, 'preview_rows': []}
 
@@ -429,6 +510,72 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
     preview_rows = []
     round_value = int(battle_state.get('round', state.get('round', 0)) or 0)
 
+    def _sort_target_slots(slot_ids, fastest=True):
+        ids = []
+        for sid in slot_ids or []:
+            slot = slots.get(sid, {}) if isinstance(slots, dict) else {}
+            if _slot_is_actionable(slot):
+                ids.append(str(sid))
+        ids.sort(
+            key=lambda sid: (
+                int((slots.get(sid, {}) or {}).get('initiative', 0) or 0),
+                int((slots.get(sid, {}) or {}).get('index_in_actor', 0) or 0),
+                str(sid),
+            ),
+            reverse=bool(fastest),
+        )
+        return ids
+
+    def _pick_target_slot_by_policy(policy, attacker_slot_id, attacker_team):
+        policy_text = str(policy or BEHAVIOR_TARGET_POLICY_DEFAULT).strip().lower() or BEHAVIOR_TARGET_POLICY_DEFAULT
+        if attacker_team == 'ally':
+            enemy_team = 'enemy'
+        elif attacker_team == 'enemy':
+            enemy_team = 'ally'
+        else:
+            enemy_team = None
+
+        enemy_candidates = list(actionable_slots_by_team.get(enemy_team, [])) if enemy_team else []
+        ally_candidates = list(actionable_slots_by_team.get(attacker_team, [])) if attacker_team else []
+        ally_non_self = [sid for sid in ally_candidates if sid != attacker_slot_id]
+
+        if policy_text == 'target_self':
+            if attacker_slot_id in ally_candidates:
+                return attacker_slot_id
+            return None
+        if policy_text == 'target_enemy_fastest':
+            sorted_ids = _sort_target_slots(enemy_candidates, fastest=True)
+            return sorted_ids[0] if sorted_ids else None
+        if policy_text == 'target_enemy_slowest':
+            sorted_ids = _sort_target_slots(enemy_candidates, fastest=False)
+            return sorted_ids[0] if sorted_ids else None
+        if policy_text == 'target_ally_fastest':
+            sorted_ids = _sort_target_slots(ally_non_self or ally_candidates, fastest=True)
+            return sorted_ids[0] if sorted_ids else None
+        if policy_text == 'target_ally_slowest':
+            sorted_ids = _sort_target_slots(ally_non_self or ally_candidates, fastest=False)
+            return sorted_ids[0] if sorted_ids else None
+        if policy_text == 'target_ally_random':
+            pool = [sid for sid in (ally_non_self or ally_candidates) if sid]
+            return random.choice(pool) if pool else None
+
+        # default: target_enemy_random
+        pool = [sid for sid in enemy_candidates if sid]
+        if pool:
+            return random.choice(pool)
+        fallback = [sid for sid in ally_candidates if sid and sid != attacker_slot_id]
+        if fallback:
+            return random.choice(fallback)
+        return attacker_slot_id if attacker_slot_id in ally_candidates else None
+
+    def _is_target_scope_allowed(attacker_team, target_team, target_scope):
+        scope = _normalize_target_scope(target_scope, default='enemy')
+        if scope == 'any':
+            return True
+        if scope == 'ally':
+            return attacker_team == target_team
+        return attacker_team != target_team
+
     for actor_id, actor_slot_ids in grouped_enemy_slots.items():
         actor = char_by_id.get(actor_id, {})
         if not _is_pve_actionable_character(actor):
@@ -442,7 +589,10 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
 
         behavior_profile = _read_behavior_profile_from_actor(actor)
         use_behavior_chart = bool(behavior_profile.get('enabled', False) and behavior_profile.get('loops'))
-        planned_actions = [None for _ in actor_slot_ids]
+        planned_action_plans = [{
+            'skill_id': None,
+            'target_policy': BEHAVIOR_TARGET_POLICY_DEFAULT,
+        } for _ in actor_slot_ids]
         runtime_entry = behavior_runtime.get(actor_id) if isinstance(behavior_runtime.get(actor_id), dict) else {}
 
         if use_behavior_chart:
@@ -461,23 +611,43 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
             runtime_entry = transition_result.get('runtime', runtime_entry)
             picked = pick_step_actions(behavior_profile, runtime_entry)
             runtime_entry = picked.get('runtime', runtime_entry)
-            planned_actions = choose_actions_for_slot_count(
-                picked.get('actions', []),
+            planned_action_plans = choose_action_plans_for_slot_count(
+                picked.get('plans', []),
                 len(actor_slot_ids),
             )
 
         committed_skill_ids = []
         for idx, enemy_slot_id in enumerate(actor_slot_ids):
             slot = slots.get(enemy_slot_id, {}) if isinstance(slots, dict) else {}
-            target_slot_id = random.choice(ally_target_slots)
-            target_slot = slots.get(target_slot_id, {}) if isinstance(slots, dict) else {}
-            target_actor_id = target_slot.get('actor_id')
-
-            suggested_skill_id = planned_actions[idx] if idx < len(planned_actions) else None
-            if suggested_skill_id and suggested_skill_id not in all_skill_data:
-                suggested_skill_id = None
+            attacker_team = _slot_team(slot)
+            planned = planned_action_plans[idx] if idx < len(planned_action_plans) else {}
+            suggested_skill_id = _resolve_behavior_chart_skill_id(actor, (planned or {}).get('skill_id'))
             if (not suggested_skill_id) and auto_skill_select:
                 suggested_skill_id = ai_suggest_skill(actor)
+
+            target_policy = str((planned or {}).get('target_policy') or BEHAVIOR_TARGET_POLICY_DEFAULT).strip().lower()
+            target_scope = _infer_target_scope_from_skill(suggested_skill_id)
+            target_slot_id = _pick_target_slot_by_policy(target_policy, enemy_slot_id, attacker_team)
+            target_slot = slots.get(target_slot_id, {}) if isinstance(slots, dict) else {}
+            target_team = _slot_team(target_slot) if target_slot_id else None
+            if (not target_slot_id) or (target_team and not _is_target_scope_allowed(attacker_team, target_team, target_scope)):
+                fallback_pool = []
+                for sid in actionable_slots_by_team.get('ally', []) + actionable_slots_by_team.get('enemy', []):
+                    if sid == enemy_slot_id:
+                        continue
+                    slot_obj = slots.get(sid, {}) if isinstance(slots, dict) else {}
+                    slot_team = _slot_team(slot_obj)
+                    if not slot_team:
+                        continue
+                    if _is_target_scope_allowed(attacker_team, slot_team, target_scope):
+                        fallback_pool.append(sid)
+                if fallback_pool:
+                    target_slot_id = random.choice(fallback_pool)
+                    target_slot = slots.get(target_slot_id, {}) if isinstance(slots, dict) else {}
+                else:
+                    target_slot_id = None
+                    target_slot = {}
+            target_actor_id = target_slot.get('actor_id')
 
             target_type = 'single_slot'
             target_payload = {'type': 'single_slot', 'slot_id': target_slot_id}
@@ -517,7 +687,7 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
             if target_type in ['mass_individual', 'mass_summation']:
                 target_label = '味方全体'
             else:
-                target_label = _format_slot_actor_label(target_slot, char_by_id.get(target_actor_id, {}))
+                target_label = _format_slot_actor_label(target_slot, char_by_id.get(target_actor_id, {})) if target_slot_id else '対象なし'
             preview_rows.append({
                 'from_label': from_label,
                 'target_label': target_label,
@@ -527,7 +697,11 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
         if use_behavior_chart:
             runtime_entry['last_skill_ids'] = committed_skill_ids
             runtime_entry['last_round'] = round_value
-            runtime_entry = advance_step_pointer(behavior_profile, runtime_entry)
+            runtime_entry = advance_step_pointer(
+                behavior_profile,
+                runtime_entry,
+                step_transition=picked.get('step_transition') if isinstance(picked, dict) else None,
+            )
             behavior_runtime[actor_id] = runtime_entry
         else:
             behavior_runtime.pop(actor_id, None)

@@ -340,7 +340,7 @@ def _extract_skill_tags(skill_id):
 def _extract_skill_rule_data(skill_data):
     if not isinstance(skill_data, dict):
         return {}
-    for key in ['rule_json', 'rule']:
+    for key in ['rule_data', 'rule_json', 'rule', '特記処理']:
         raw = skill_data.get(key)
         if not raw:
             continue
@@ -359,7 +359,14 @@ def _extract_skill_rule_data(skill_data):
         text = raw.strip()
         if not text.startswith('{'):
             continue
-        if '"effects"' not in text and '"cost"' not in text and '"tags"' not in text:
+        if (
+            ('"effects"' not in text)
+            and ('"cost"' not in text)
+            and ('"tags"' not in text)
+            and ('"target_scope"' not in text)
+            and ('"target_team"' not in text)
+            and ('"deals_damage"' not in text)
+        ):
             continue
         try:
             parsed = json.loads(text)
@@ -495,6 +502,22 @@ def _infer_target_scope_from_skill(skill_id):
     for raw in candidates:
         if raw not in [None, '']:
             return _normalize_target_scope(raw, default='enemy')
+
+    tags = []
+    for raw_tag in _extract_skill_tags(skill_id):
+        text = str(raw_tag or '').strip()
+        if text:
+            tags.append(text)
+    normalized = {str(v).strip().lower() for v in tags}
+    ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定'}
+    any_tags = {'any_target', 'target_any', '任意対象', '対象自由'}
+    enemy_tags = {'enemy_target', 'target_enemy', '敵対象'}
+    if any(str(t).lower() in normalized for t in any_tags):
+        return 'any'
+    if any(str(t).lower() in normalized for t in ally_tags):
+        return 'ally'
+    if any(str(t).lower() in normalized for t in enemy_tags):
+        return 'enemy'
     return 'enemy'
 
 
@@ -556,9 +579,33 @@ def _normalize_target_by_skill(skill_id, target, state=None, source_slot_id=None
     return None, 'invalid target.type'
 
 
+def _normalize_target_by_skill_compat(skill_id, target, state=None, source_slot_id=None, allow_none=True):
+    """
+    Backward-compat for tests/patches that monkeypatch _normalize_target_by_skill
+    with older signatures.
+    """
+    try:
+        return _normalize_target_by_skill(
+            skill_id,
+            target,
+            state=state,
+            source_slot_id=source_slot_id,
+            allow_none=allow_none
+        )
+    except TypeError as e:
+        msg = str(e)
+        if 'unexpected keyword argument' in msg:
+            try:
+                return _normalize_target_by_skill(skill_id, target, allow_none=allow_none)
+            except TypeError:
+                return _normalize_target_by_skill(skill_id, target)
+        raise
+
+
 def _build_tags(skill_id, target):
     skill_tags = _extract_skill_tags(skill_id)
     target_type = (target or {}).get('type')
+    target_scope = _infer_target_scope_from_skill(skill_id)
     inferred_mass = _infer_mass_type_from_skill(skill_id)
     if inferred_mass in ['mass_individual', 'mass_summation']:
         mass_type = inferred_mass
@@ -577,6 +624,7 @@ def _build_tags(skill_id, target):
         'no_redirect': (
             'no_redirect' in skill_tags
             or '対象変更不可' in tags_text
+            or target_scope == 'ally'
         )
     }
 
@@ -919,7 +967,7 @@ def _apply_pve_enemy_intent_defaults(
         if suggested:
             intent['skill_id'] = suggested
 
-    normalized_target, target_error = _normalize_target_by_skill(
+    normalized_target, target_error = _normalize_target_by_skill_compat(
         intent.get('skill_id'),
         intent.get('target'),
         state=state,
@@ -1303,6 +1351,11 @@ def _try_apply_redirect(room_id, battle_id, state, slot_a):
 
     intent_b = _ensure_intent_for_slot(state, slot_b)
     slot_b_data = state['slots'][slot_b]
+    scope_a = _infer_target_scope_from_skill(intent_a.get('skill_id'))
+    scope_b = _infer_target_scope_from_skill(intent_b.get('skill_id'))
+    # 味方指定スキルは対象変更の仕組みに参加させない。
+    if scope_a == 'ally' or scope_b == 'ally':
+        return
 
     # If slot_b is currently aiming at a mass skill slot, keep that pairing stable.
     # This prevents higher-initiative third parties from stealing the clash target.
@@ -1460,7 +1513,7 @@ def on_battle_intent_preview(data):
     if target_error:
         emit('battle_error', {'message': target_error}, to=request.sid)
         return
-    target, target_error = _normalize_target_by_skill(
+    target, target_error = _normalize_target_by_skill_compat(
         skill_id,
         target,
         state=state,
@@ -1538,7 +1591,7 @@ def on_battle_intent_commit(data):
     if not skill_id:
         emit('battle_error', {'message': 'commit requires skill_id'}, to=request.sid)
         return
-    target, target_error = _normalize_target_by_skill(
+    target, target_error = _normalize_target_by_skill_compat(
         skill_id,
         target,
         state=state,
@@ -1737,7 +1790,7 @@ def on_battle_intent_change_skill(data):
     intent['skill_id'] = data.get('skill_id')
     if 'target' not in intent:
         intent['target'] = {'type': 'none', 'slot_id': None}
-    normalized_target, target_error = _normalize_target_by_skill(
+    normalized_target, target_error = _normalize_target_by_skill_compat(
         intent['skill_id'],
         intent.get('target'),
         state=state,
@@ -1801,7 +1854,7 @@ def on_battle_intent_change_target(data):
     intent_before = copy.deepcopy(state['intents'].get(slot_id, {}))
     intent = state['intents'].get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)
-    normalized_target, target_error = _normalize_target_by_skill(
+    normalized_target, target_error = _normalize_target_by_skill_compat(
         intent.get('skill_id'),
         target,
         state=state,

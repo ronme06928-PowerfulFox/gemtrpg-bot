@@ -77,6 +77,17 @@ def _skill_deals_damage(skill_data):
     rule_data = _extract_rule_data_from_skill(skill_data)
     if isinstance(rule_data, dict) and isinstance(rule_data.get('deals_damage'), bool):
         return bool(rule_data.get('deals_damage'))
+    no_damage_tags = {
+        '非ダメージ', '非ダメージスキル', 'no_damage', 'non_damage'
+    }
+    tags = []
+    if isinstance(skill_data.get('tags'), list):
+        tags.extend([str(v).strip() for v in skill_data.get('tags', []) if str(v).strip()])
+    if isinstance(rule_data, dict) and isinstance(rule_data.get('tags'), list):
+        tags.extend([str(v).strip() for v in rule_data.get('tags', []) if str(v).strip()])
+    normalized = {str(v or '').strip().lower() for v in tags}
+    if any(str(tag).strip().lower() in normalized for tag in no_damage_tags):
+        return False
     return True
 
 
@@ -96,6 +107,298 @@ def _is_feint_skill(skill_data):
 
 def _is_normal_skill(skill_data):
     return (not _is_hard_skill(skill_data)) and (not _is_feint_skill(skill_data))
+
+
+def _collect_skill_tags(skill_data):
+    tags = []
+    if not isinstance(skill_data, dict):
+        return tags
+    direct_tags = skill_data.get('tags', [])
+    if isinstance(direct_tags, list):
+        tags.extend([str(v).strip() for v in direct_tags if str(v).strip()])
+    rule_data = _extract_rule_data_from_skill(skill_data)
+    if isinstance(rule_data, dict):
+        rule_tags = rule_data.get('tags', [])
+        if isinstance(rule_tags, list):
+            tags.extend([str(v).strip() for v in rule_tags if str(v).strip()])
+    return tags
+
+
+def _resolve_skill_category(skill_data):
+    if not isinstance(skill_data, dict):
+        return ''
+    for key in ('分類', 'category'):
+        value = skill_data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    rule_data = _extract_rule_data_from_skill(skill_data)
+    if isinstance(rule_data, dict):
+        for key in ('分類', 'category'):
+            value = rule_data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return ''
+
+
+def _normalize_target_scope(raw_value, default='enemy'):
+    text = str(raw_value or '').strip().lower()
+    if text in ['', 'default', 'auto']:
+        return str(default or 'enemy')
+    if text in ['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対象']:
+        return 'enemy'
+    if text in ['ally', 'allies', 'friend', 'friends', '味方', '味方対象']:
+        return 'ally'
+    if text in ['any', 'all', 'both', '任意', '対象自由', 'all_targets']:
+        return 'any'
+    return str(default or 'enemy')
+
+
+def _infer_target_scope_from_skill_data(skill_data):
+    if not isinstance(skill_data, dict):
+        return 'enemy'
+    rule_data = _extract_rule_data_from_skill(skill_data)
+    candidates = [
+        skill_data.get('target_scope'),
+        skill_data.get('targetScope'),
+        skill_data.get('target_team'),
+        skill_data.get('targetTeam'),
+        rule_data.get('target_scope') if isinstance(rule_data, dict) else None,
+        rule_data.get('targetScope') if isinstance(rule_data, dict) else None,
+        rule_data.get('target_team') if isinstance(rule_data, dict) else None,
+        rule_data.get('targetTeam') if isinstance(rule_data, dict) else None,
+    ]
+    for raw in candidates:
+        if raw not in [None, '']:
+            return _normalize_target_scope(raw, default='enemy')
+
+    normalized_tags = {str(v or '').strip().lower() for v in _collect_skill_tags(skill_data)}
+    ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定'}
+    any_tags = {'any_target', 'target_any', '任意対象', '対象自由'}
+    enemy_tags = {'enemy_target', 'target_enemy', '敵対象'}
+    if any(tag.lower() in normalized_tags for tag in any_tags):
+        return 'any'
+    if any(tag.lower() in normalized_tags for tag in ally_tags):
+        return 'ally'
+    if any(tag.lower() in normalized_tags for tag in enemy_tags):
+        return 'enemy'
+    return 'enemy'
+
+
+def _is_ally_target_skill_data(skill_data):
+    return _infer_target_scope_from_skill_data(skill_data) == 'ally'
+
+
+def _canonical_slot_team(team_value):
+    text = str(team_value or '').strip().lower()
+    if text in ['ally', 'player', 'friend', 'friends']:
+        return 'ally'
+    if text in ['enemy', 'foe', 'opponent', 'boss', 'npc']:
+        return 'enemy'
+    return None
+
+
+def _is_same_team_slot_pair(slots, slot_a, slot_b):
+    if not isinstance(slots, dict):
+        return False
+    team_a = _canonical_slot_team((slots.get(slot_a) or {}).get('team'))
+    team_b = _canonical_slot_team((slots.get(slot_b) or {}).get('team'))
+    return bool(team_a and team_b and team_a == team_b)
+
+
+def _is_non_clashable_ally_support_pair(slots, slot_a, slot_b, skill_data_a=None, skill_data_b=None):
+    if not _is_same_team_slot_pair(slots, slot_a, slot_b):
+        return False
+    if _is_ally_target_skill_data(skill_data_a):
+        return True
+    if _is_ally_target_skill_data(skill_data_b):
+        return True
+    return False
+
+
+def _resolve_skill_role(skill_data):
+    category = _resolve_skill_category(skill_data)
+    tags = _collect_skill_tags(skill_data)
+    lower_tags = [str(v or '').strip().lower() for v in tags]
+
+    if category == '回避':
+        return 'evade'
+    if any(('回避' in t) for t in tags):
+        return 'evade'
+    if any(('evade' in t) for t in lower_tags):
+        return 'evade'
+
+    if category == '防御':
+        return 'defense'
+    if any(('防御' in t or '守備' in t) for t in tags):
+        return 'defense'
+    if any(('defense' in t) for t in lower_tags):
+        return 'defense'
+
+    return 'attack'
+
+
+def _is_defense_vs_evade_no_match(attacker_skill_data, defender_skill_data):
+    attacker_role = _resolve_skill_role(attacker_skill_data)
+    defender_role = _resolve_skill_role(defender_skill_data)
+    roles = {attacker_role, defender_role}
+    return roles == {'defense', 'evade'}
+
+
+def _should_grant_clash_win_fp(attacker_skill_data, defender_skill_data, clash_outcome):
+    if clash_outcome not in {'attacker_win', 'defender_win'}:
+        return False
+    attacker_role = _resolve_skill_role(attacker_skill_data)
+    defender_role = _resolve_skill_role(defender_skill_data)
+    if attacker_role == 'attack' and defender_role == 'attack':
+        return True
+    if attacker_role == 'defense' and defender_role == 'defense':
+        return True
+    return False
+
+
+def _summary_has_positive_fp_gain(summary, target_id):
+    if not isinstance(summary, dict):
+        return False
+    statuses = summary.get('statuses', [])
+    if not isinstance(statuses, list):
+        return False
+    for row in statuses:
+        if not isinstance(row, dict):
+            continue
+        if row.get('target_id') != target_id:
+            continue
+        name = str(row.get('name') or '').strip().upper()
+        if name != 'FP':
+            continue
+        before_v = row.get('before')
+        after_v = row.get('after')
+        delta_v = row.get('delta')
+        try:
+            delta = int(delta_v if delta_v is not None else (int(after_v or 0) - int(before_v or 0)))
+        except Exception:
+            delta = 0
+        if delta > 0:
+            return True
+    return False
+
+
+def _summary_has_match_win_fp_gain(summary, target_id):
+    if not isinstance(summary, dict):
+        return False
+    statuses = summary.get('statuses', [])
+    if not isinstance(statuses, list):
+        return False
+    for row in statuses:
+        if not isinstance(row, dict):
+            continue
+        if row.get('target_id') != target_id:
+            continue
+        name = str(row.get('name') or '').strip().upper()
+        if name != 'FP':
+            continue
+        source = str(row.get('source') or '').strip().lower()
+        if source == 'match_win_fp':
+            return True
+    return False
+
+
+def _skill_has_direct_fp_gain(skill_data):
+    rule_data = _extract_rule_data_from_skill(skill_data)
+    if not isinstance(rule_data, dict):
+        return False
+    effects = rule_data.get('effects', [])
+    if not isinstance(effects, list):
+        return False
+    for effect in effects:
+        if not isinstance(effect, dict):
+            continue
+        if str(effect.get('type') or '').strip().upper() != 'APPLY_STATE':
+            continue
+        state_name = str(effect.get('state_name') or effect.get('name') or '').strip().upper()
+        if state_name != 'FP':
+            continue
+        try:
+            value = int(effect.get('value', 0))
+        except Exception:
+            value = 0
+        if value > 0:
+            return True
+    return False
+
+
+def _set_actor_status_local(actor, stat_name, value):
+    if not isinstance(actor, dict):
+        return False
+    name = str(stat_name or '').strip()
+    if not name:
+        return False
+    ivalue = int(value or 0)
+    upper = name.upper()
+    if upper == 'HP':
+        actor['hp'] = ivalue
+        return True
+    if upper == 'MP':
+        actor['mp'] = ivalue
+        return True
+
+    states = actor.setdefault('states', [])
+    if not isinstance(states, list):
+        states = []
+        actor['states'] = states
+    for row in states:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get('name') or '') == name:
+            row['value'] = ivalue
+            return True
+    states.append({'name': name, 'value': ivalue})
+    return True
+
+
+def _ensure_clash_winner_fp_gain(room, winner_char, clash_summary, winner_skill_data=None):
+    if not isinstance(winner_char, dict):
+        return None
+    winner_id = winner_char.get('id')
+    if not winner_id:
+        return None
+    if _summary_has_match_win_fp_gain(clash_summary, winner_id):
+        return None
+    if _summary_has_positive_fp_gain(clash_summary, winner_id) and (not _skill_has_direct_fp_gain(winner_skill_data)):
+        return None
+    before_fp = int(get_status_value(winner_char, 'FP') or 0)
+    after_fp = before_fp + 1
+    _set_actor_status_local(winner_char, 'FP', after_fp)
+    return {
+        'target_id': winner_id,
+        'name': 'FP',
+        'before': before_fp,
+        'after': after_fp,
+        'delta': 1,
+        'source': 'match_win_fp',
+    }
+
+
+def _humanize_resolve_reason_token(token):
+    key = str(token or '').strip()
+    if not key:
+        return ''
+    mapping = {
+        'feint_blocked': '牽制により強硬攻撃は無効化',
+        'hard_evaded': '回避成功により強硬攻撃は不発',
+        'defense_evade_no_match': '防御と回避のためマッチ不成立',
+    }
+    return mapping.get(key, key)
+
+
+def _humanize_resolve_reason(notes):
+    raw = str(notes or '').strip()
+    if not raw:
+        return ''
+    parts = [p.strip() for p in raw.split('/') if str(p).strip()]
+    if not parts:
+        return raw
+    humanized = [_humanize_resolve_reason_token(p) for p in parts]
+    return " / ".join([h for h in humanized if str(h).strip()])
 
 
 def _append_multiplier_logs(log_snippets, mult_info, incoming_label='防', outgoing_label='攻'):
@@ -411,6 +714,21 @@ def _extract_rule_data_from_skill(skill_data):
     if not isinstance(skill_data, dict):
         return {}
 
+    for key in ['rule_data', 'rule_json', 'rule', '特記処理']:
+        raw = skill_data.get(key)
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, str):
+            text = raw.strip()
+            if not text.startswith('{'):
+                continue
+            try:
+                parsed = json.loads(text)
+            except Exception:
+                continue
+            if isinstance(parsed, dict):
+                return parsed
+
     direct = skill_data.get('rule_data')
     if isinstance(direct, dict):
         return direct
@@ -421,7 +739,14 @@ def _extract_rule_data_from_skill(skill_data):
         raw = raw.strip()
         if not raw.startswith('{'):
             continue
-        if ('"effects"' not in raw) and ('"cost"' not in raw):
+        if (
+            ('"effects"' not in raw)
+            and ('"cost"' not in raw)
+            and ('"tags"' not in raw)
+            and ('"deals_damage"' not in raw)
+            and ('"target_scope"' not in raw)
+            and ('"target_team"' not in raw)
+        ):
             continue
         try:
             parsed = json.loads(raw)
@@ -1503,7 +1828,8 @@ def to_legacy_duel_log_input(outcome_payload, state, intents, attacker_slot, def
     if tie_break:
         extra_lines.append(f"tie_break: {tie_break}")
     if notes:
-        extra_lines.append(f"reason: {notes}")
+        reason_text = _humanize_resolve_reason(notes)
+        extra_lines.append(f"reason: {reason_text or notes}")
     for st in applied.get('statuses', []) or []:
         if not isinstance(st, dict):
             continue
@@ -1778,21 +2104,8 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     )
     if pre_a.get('logs'):
         log_snippets.extend(pre_a.get('logs', []))
-    if isinstance(defender_skill_data, dict):
-        pre_d = _trigger_skill_timing_effects(
-            room=room,
-            state=state,
-            characters_by_id=characters_by_id,
-            timing='PRE_MATCH',
-            actor_char=defender_char,
-            target_char=attacker_char,
-            skill_data=defender_skill_data,
-            target_skill_data=attacker_skill_data,
-            base_damage=0,
-            emit_source='one_sided_pre_match'
-        )
-        if pre_d.get('logs'):
-            log_snippets.extend(pre_d.get('logs', []))
+    # One-sided resolution must not execute the defender's own PRE_MATCH effects here.
+    # The defender skill (if any) is only used as conditional context for attacker effects.
 
     _trigger_skill_timing_effects(
         room=room,
@@ -2560,12 +2873,22 @@ def _estimate_single_trace_steps(state, battle_state, intents):
 
         attacker_is_contested_loser = slot_id in contested_losers
         intent_b = intents.get(target_slot, {}) if isinstance(intents, dict) else {}
+        defender_skill_id = intent_b.get('skill_id') if isinstance(intent_b, dict) else None
+        defender_skill_data = all_skill_data.get(defender_skill_id, {}) if defender_skill_id else None
+        non_clashable_ally_support = _is_non_clashable_ally_support_pair(
+            slots,
+            slot_id,
+            target_slot,
+            all_skill_data.get(skill_id, {}) if skill_id else None,
+            defender_skill_data,
+        )
         is_clash = (
             not attacker_is_contested_loser
             and isinstance(intent_b, dict)
             and intent_b.get('target', {}).get('type') == 'single_slot'
             and intent_b.get('target', {}).get('slot_id') == slot_id
             and target_slot not in processed
+            and (not non_clashable_ally_support)
         )
         if is_clash:
             total += 1
@@ -3157,6 +3480,29 @@ def run_select_resolve_auto(room, battle_id):
                         clash_ok = bool((clash_delegated or {}).get('ok', False))
                         clash_summary = clash_delegated.get('summary', {}) if clash_ok else {}
                         clash_outcome = clash_delegated.get('outcome', 'no_effect') if clash_ok else 'no_effect'
+                        clash_notes = None if clash_ok else (
+                            clash_delegated.get('reason') if isinstance(clash_delegated, dict) else 'delegate_failed'
+                        )
+                        if clash_ok and _is_defense_vs_evade_no_match(attacker_skill_data, defender_skill_data):
+                            clash_outcome = 'no_effect'
+                            clash_notes = 'defense_evade_no_match'
+                        elif clash_ok and _should_grant_clash_win_fp(attacker_skill_data, defender_skill_data, clash_outcome):
+                            winner_char = attacker_char if clash_outcome == 'attacker_win' else defender_char
+                            winner_skill_data = attacker_skill_data if clash_outcome == 'attacker_win' else defender_skill_data
+                            fp_status = _ensure_clash_winner_fp_gain(
+                                room,
+                                winner_char,
+                                clash_summary,
+                                winner_skill_data=winner_skill_data
+                            )
+                            if isinstance(fp_status, dict):
+                                if not isinstance(clash_summary, dict):
+                                    clash_summary = {}
+                                statuses = clash_summary.get('statuses', [])
+                                if not isinstance(statuses, list):
+                                    statuses = []
+                                statuses.append(fp_status)
+                                clash_summary['statuses'] = statuses
 
                         clash_payload = {
                             'attacker_id': attacker_actor_id,
@@ -3176,9 +3522,6 @@ def run_select_resolve_auto(room, battle_id):
                                 characters_by_id,
                                 source='resolve_mass_clash'
                             )
-                        clash_notes = None if clash_ok else (
-                            clash_delegated.get('reason') if isinstance(clash_delegated, dict) else 'delegate_failed'
-                        )
                         legacy_input = to_legacy_duel_log_input(
                             outcome_payload=clash_payload,
                             state=state,
@@ -3290,11 +3633,21 @@ def run_select_resolve_auto(room, battle_id):
                     q_kind = 'fizzle'
                 else:
                     q_intent_b = intents.get(q_target_slot, {})
+                    q_def_skill_id = q_intent_b.get('skill_id') if isinstance(q_intent_b, dict) else None
+                    q_def_skill_data = all_skill_data.get(q_def_skill_id, {}) if q_def_skill_id else None
+                    non_clashable_ally_support = _is_non_clashable_ally_support_pair(
+                        slots,
+                        q_slot_id,
+                        q_target_slot,
+                        all_skill_data.get(q_skill_id, {}) if q_skill_id else None,
+                        q_def_skill_data,
+                    )
                     if (
                         q_slot_id not in contested_losers
                         and
                         q_intent_b.get('target', {}).get('type') == 'single_slot'
                         and q_intent_b.get('target', {}).get('slot_id') == q_slot_id
+                        and (not non_clashable_ally_support)
                     ):
                         q_kind = 'clash'
 
@@ -3630,14 +3983,25 @@ def run_select_resolve_auto(room, battle_id):
                 continue
 
             intent_b = intents.get(target_slot, {})
+            defender_skill_id_for_pair = intent_b.get('skill_id') if isinstance(intent_b, dict) else None
+            defender_skill_data_for_pair = all_skill_data.get(defender_skill_id_for_pair, {}) if defender_skill_id_for_pair else None
+            non_clashable_ally_support = _is_non_clashable_ally_support_pair(
+                slots,
+                slot_id,
+                target_slot,
+                skill_data,
+                defender_skill_data_for_pair,
+            )
+            same_team_pair = _is_same_team_slot_pair(slots, slot_id, target_slot)
             is_clash = (
                 not attacker_is_contested_loser
                 and
                 intent_b.get('target', {}).get('type') == 'single_slot'
                 and intent_b.get('target', {}).get('slot_id') == slot_id
+                and (not non_clashable_ally_support)
             )
             clash_defender_slot = target_slot if is_clash else None
-            if (not is_clash) and target_actor_id:
+            if (not is_clash) and target_actor_id and (not same_team_pair):
                 evade_slot, evade_reason = select_evade_insert_slot(
                     state, battle_state, target_actor_id, slot_id
                 )
@@ -3682,6 +4046,10 @@ def run_select_resolve_auto(room, battle_id):
                 clash_outcome = clash_delegated.get('outcome', 'no_effect') if clash_ok else 'no_effect'
                 clash_rolls = clash_summary.get('rolls', {}) if isinstance(clash_summary, dict) else {}
                 clash_notes = None if clash_ok else (clash_delegated.get('reason') if isinstance(clash_delegated, dict) else 'delegate_failed')
+                forced_no_match_reason = None
+                if clash_ok and _is_defense_vs_evade_no_match(skill_data, defender_skill_data):
+                    clash_outcome = 'no_effect'
+                    forced_no_match_reason = 'defense_evade_no_match'
 
                 clash_reuse_slot = None
                 clash_reuse_intent = None
@@ -3689,6 +4057,7 @@ def run_select_resolve_auto(room, battle_id):
                 clash_reuse_origin_label = trace_display_label
                 hard_followup_plan = None
                 hard_followup_block_reason = None
+                hard_followup_block_log = None
 
                 if clash_ok and clash_outcome in {'attacker_win', 'defender_win'}:
                     winner_is_attacker = clash_outcome == 'attacker_win'
@@ -3699,6 +4068,22 @@ def run_select_resolve_auto(room, battle_id):
                     winner_skill_data = skill_data if winner_is_attacker else defender_skill_data
                     loser_skill_data = defender_skill_data if winner_is_attacker else skill_data
 
+                    if _should_grant_clash_win_fp(skill_data, defender_skill_data, clash_outcome):
+                        fp_status = _ensure_clash_winner_fp_gain(
+                            room,
+                            winner_char,
+                            clash_summary,
+                            winner_skill_data=winner_skill_data
+                        )
+                        if isinstance(fp_status, dict):
+                            if not isinstance(clash_summary, dict):
+                                clash_summary = {}
+                            statuses = clash_summary.get('statuses', [])
+                            if not isinstance(statuses, list):
+                                statuses = []
+                            statuses.append(fp_status)
+                            clash_summary['statuses'] = statuses
+
                     clash_reuse_slot = winner_slot
                     clash_reuse_intent = winner_intent if isinstance(winner_intent, dict) else None
 
@@ -3706,17 +4091,25 @@ def run_select_resolve_auto(room, battle_id):
                     loser_intent = clash_intent if winner_is_attacker else intent_a
                     if (
                         _is_hard_skill(loser_skill_data)
-                        and _is_normal_skill(winner_skill_data)
+                        and (_is_normal_skill(winner_skill_data) or _is_feint_skill(winner_skill_data))
                     ):
                         if _is_feint_skill(winner_skill_data):
                             hard_followup_block_reason = 'feint_blocked'
+                            winner_name = str((winner_char or {}).get('name') or '不明')
+                            loser_name = str((loser_char or {}).get('name') or '不明')
+                            hard_followup_block_log = f"[牽制] {winner_name} の牽制により {loser_name} の強硬攻撃は発動しない"
+                        elif _resolve_skill_role(winner_skill_data) == 'evade':
+                            hard_followup_block_reason = 'hard_evaded'
+                            winner_name = str((winner_char or {}).get('name') or '不明')
+                            loser_name = str((loser_char or {}).get('name') or '不明')
+                            hard_followup_block_log = f"[回避] {winner_name} が回避に成功し、{loser_name} の強硬攻撃は不発"
                         else:
                             hard_followup_plan = {
                                 'attacker_slot': loser_slot,
                                 'attacker_intent': loser_intent if isinstance(loser_intent, dict) else {},
                                 'attacker_char': loser_char,
                                 'attacker_skill_data': loser_skill_data,
-                                'defender_slot': winner_slot,
+                                'defender_slot': None,
                                 'defender_char': winner_char,
                             }
 
@@ -3751,11 +4144,18 @@ def run_select_resolve_auto(room, battle_id):
                         )
                         winner_reuse_requests = _extract_reuse_requests_from_changes(winner_changes)
                         clash_reuse_policy = _collect_reuse_policy({'reuse_requests': winner_reuse_requests})
+                if forced_no_match_reason:
+                    if clash_notes:
+                        clash_notes = f"{clash_notes} / {forced_no_match_reason}"
+                    else:
+                        clash_notes = forced_no_match_reason
                 if hard_followup_block_reason:
                     if clash_notes:
                         clash_notes = f"{clash_notes} / {hard_followup_block_reason}"
                     else:
                         clash_notes = hard_followup_block_reason
+                if hard_followup_block_log:
+                    broadcast_log(room, hard_followup_block_log, 'info')
 
                 clash_outcome_payload = {
                     'attacker_id': attacker_actor_id,

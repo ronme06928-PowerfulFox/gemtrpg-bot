@@ -1,6 +1,6 @@
 # ジェムリアTRPGダイスボット データ定義統合マニュアル
 
-**最終更新日**: 2026-02-26
+**最終更新日**: 2026-02-27
 **対象バージョン**: Current
 
 ---
@@ -52,6 +52,8 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 | `宝石の加護スキル` | 1戦闘に1回しか使用できない回数制限がかかる。 |
 | `回復` | 回復スキルとして認識される（UI表示などで考慮される場合あり）。 |
 | `対象変更不可` (`no_redirect`) | Select/Resolve の引き寄せ（redirect）を行わず、受けもしない。 |
+| `味方指定` (`ally_target`/`target_ally`) | 単体対象の対象陣営を味方側として扱う。Select/Resolve では `target_scope=ally` 相当。 |
+| `非ダメージ` (`no_damage`/`non_damage`) | `deals_damage=false` の省略指定。命中してもHP減算を行わない。 |
 
 #### mass種別の自動推論（Select/Resolve）
 
@@ -77,6 +79,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 * `target_scope`: 単体対象（`target`）の対象陣営制御（任意）
   * `enemy` / `ally` / `any`
   * 未指定時は `enemy`
+  * `target_scope` 未指定でも、`tags` に `味方指定` / `ally_target` / `target_ally` がある場合は `ally` として解釈されます。
 * `condition`: 発動条件（任意）。
   * 例: `{"source": "target", "param": "HP", "operator": "LTE", "value": 10}`
   * `param: "速度値"` は通常ステータスではなく initiative 参照。`context.timeline` / `context.battle_state.slots` / `actor.totalSpeed` の順で評価されます。
@@ -478,6 +481,8 @@ ID `S-XX` で定義されるパッシブスキルです。
 - `deals_damage: false`
   - one-sided / clash でHP減算を行わない非ダメージスキル指定。
   - `HIT` などのタイミング効果は通常どおり評価。
+- タグ省略記法:
+  - `tags` に `非ダメージ` / `no_damage` / `non_damage` がある場合も `deals_damage=false` 相当として扱う。
 
 ### A-2. 条件ソース拡張
 - `condition.source: relation`
@@ -503,7 +508,13 @@ ID `S-XX` で定義されるパッシブスキルです。
   "loops": {
     "phase_1": {
       "repeat": true,
-      "steps": [{"actions": ["SKILL_A"]}],
+      "steps": [
+        {
+          "actions": ["SKILL_A"],
+          "next_loop_id": "phase_2",
+          "next_reset_step_index": true
+        }
+      ],
       "transitions": [
         {
           "priority": 10,
@@ -516,6 +527,10 @@ ID `S-XX` で定義されるパッシブスキルです。
   }
 }
 ```
+
+補足:
+- `steps[].next_loop_id` は任意。指定時はそのstep使用後に遷移します。
+- `steps[].next_reset_step_index` は任意。`true` なら遷移先loopの先頭stepから開始します（既定 `true`）。
 
 `battle_state.behavior_runtime`:
 
@@ -556,3 +571,10 @@ ID `S-XX` で定義されるパッシブスキルです。
 - プリセット関連 Socket はサーバー側で GM 権限チェックを必須とする。
 - 保存/読込時は v1/v2 の互換正規化を通して `payload.version=2` へ寄せる。
 - `behavior_profile` を含む敵定義は、ルーム保存・JSON搬出入の双方で同じ schema で扱う。
+
+### A-6. `target_scope=ally` の Select/Resolve 固定ルール
+- `target_scope=ally`（または `味方指定` 系タグ）スキルは redirect（引き寄せ）に参加しない。
+  - 発生させない
+  - 受けない
+- 同一陣営どうしの相互指定で、どちらかが `target_scope=ally` の場合は `clash` を組まず `one-sided` として解決する。
+- 同一陣営どうしの上記ペアでは、再回避差し込み（evade insert）を行わない。

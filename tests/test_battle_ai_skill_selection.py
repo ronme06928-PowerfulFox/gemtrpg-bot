@@ -64,3 +64,21 @@ def test_ai_suggest_skill_returns_none_when_pool_empty(monkeypatch):
 
     suggested = battle_ai.ai_suggest_skill(char)
     assert suggested is None
+
+
+def test_list_usable_skill_ids_includes_granted_skills(monkeypatch):
+    skill_map = {
+        "S-CMD": {"name": "CommandSkill", "tags": []},
+        "S-GRANT": {"name": "GrantedSkill", "tags": []},
+    }
+    char = {
+        "name": "Enemy",
+        "commands": "【S-CMD】",
+        "granted_skills": [{"skill_id": "S-GRANT"}],
+    }
+
+    monkeypatch.setattr(battle_ai, "all_skill_data", skill_map)
+    monkeypatch.setattr(battle_ai, "verify_skill_cost", lambda _c, _s: (True, ""))
+
+    usable = battle_ai.list_usable_skill_ids(char, allow_instant=False)
+    assert usable == ["S-CMD", "S-GRANT"]

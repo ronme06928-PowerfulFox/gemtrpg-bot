@@ -48,6 +48,7 @@
 - `target_scope` (任意, `target` の時のみ有効)
   - `enemy` / `ally` / `any`
   - 未指定時の既定値は `enemy`
+  - `target_scope` 未指定時でも、`tags` の `味方指定` / `ally_target` / `target_ally` は `ally` として解釈される
 - `skill_id` (必須)
   - 付与する既存スキルID
   - 未定義IDは不発（ログ出力）
@@ -133,6 +134,7 @@
 - 単体対象のチーム制約:
   - サーバー: `events/battle/common_routes.py` で `target_scope` 検証
   - UI: `static/js/battle/components/DeclarePanel.js` で候補フィルタ
+  - Resolve: `target_scope=ally` のスキルは redirect に参加せず、同一陣営相互指定でも `clash` を組まず `one_sided` 扱い
 
 ### 2.7 UI表示仕様（利用者向け）
 

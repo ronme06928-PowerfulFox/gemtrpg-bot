@@ -1,6 +1,32 @@
 import copy
 import random
 
+BEHAVIOR_TARGET_POLICY_DEFAULT = "target_enemy_random"
+BEHAVIOR_TARGET_POLICIES = {
+    "target_enemy_random",
+    "target_enemy_fastest",
+    "target_enemy_slowest",
+    "target_ally_random",
+    "target_ally_fastest",
+    "target_ally_slowest",
+    "target_self",
+}
+BEHAVIOR_TARGET_POLICY_ALIASES = {
+    "enemy_random": "target_enemy_random",
+    "random_enemy": "target_enemy_random",
+    "enemy_fastest": "target_enemy_fastest",
+    "enemy_highest_speed": "target_enemy_fastest",
+    "enemy_slowest": "target_enemy_slowest",
+    "enemy_lowest_speed": "target_enemy_slowest",
+    "ally_random": "target_ally_random",
+    "random_ally": "target_ally_random",
+    "ally_fastest": "target_ally_fastest",
+    "ally_highest_speed": "target_ally_fastest",
+    "ally_slowest": "target_ally_slowest",
+    "ally_lowest_speed": "target_ally_slowest",
+    "self": "target_self",
+}
+
 
 def _safe_int(value, default=0):
     try:
@@ -123,6 +149,61 @@ def _coerce_actions(raw_actions):
     return [txt] if txt else []
 
 
+def _coerce_target_policy(raw_policy):
+    text = str(raw_policy or "").strip().lower()
+    if not text:
+        return BEHAVIOR_TARGET_POLICY_DEFAULT
+    text = BEHAVIOR_TARGET_POLICY_ALIASES.get(text, text)
+    if text in BEHAVIOR_TARGET_POLICIES:
+        return text
+    return BEHAVIOR_TARGET_POLICY_DEFAULT
+
+
+def _coerce_targets(raw_targets):
+    if isinstance(raw_targets, list):
+        return [_coerce_target_policy(item) for item in raw_targets]
+    if raw_targets is None:
+        return []
+    return [_coerce_target_policy(raw_targets)]
+
+
+def _coerce_step_actions_and_targets(raw_actions, raw_targets):
+    actions = []
+    inline_targets = []
+
+    if isinstance(raw_actions, list):
+        for item in raw_actions:
+            if isinstance(item, dict):
+                skill_raw = item.get("skill_id", item.get("skill", item.get("id")))
+                target_raw = item.get("target_policy", item.get("target", item.get("target_selector")))
+                skill_txt = str(skill_raw or "").strip()
+                actions.append(skill_txt if skill_txt else None)
+                inline_targets.append(_coerce_target_policy(target_raw))
+            elif item is None:
+                actions.append(None)
+                inline_targets.append(BEHAVIOR_TARGET_POLICY_DEFAULT)
+            else:
+                skill_txt = str(item).strip()
+                actions.append(skill_txt if skill_txt else None)
+                inline_targets.append(BEHAVIOR_TARGET_POLICY_DEFAULT)
+    elif raw_actions is None:
+        actions = []
+    else:
+        skill_txt = str(raw_actions).strip()
+        actions = [skill_txt] if skill_txt else []
+        inline_targets = [BEHAVIOR_TARGET_POLICY_DEFAULT for _ in actions]
+
+    explicit_targets = _coerce_targets(raw_targets)
+    base_targets = explicit_targets if explicit_targets else inline_targets
+    targets = []
+    for idx in range(len(actions)):
+        if idx < len(base_targets):
+            targets.append(_coerce_target_policy(base_targets[idx]))
+        else:
+            targets.append(BEHAVIOR_TARGET_POLICY_DEFAULT)
+    return actions, targets
+
+
 def normalize_behavior_profile(raw_profile):
     profile = raw_profile if isinstance(raw_profile, dict) else {}
     loops_raw = profile.get("loops", {})
@@ -139,8 +220,22 @@ def normalize_behavior_profile(raw_profile):
             if isinstance(raw_steps, list):
                 for step in raw_steps:
                     step_obj = step if isinstance(step, dict) else {}
+                    actions, targets = _coerce_step_actions_and_targets(
+                        step_obj.get("actions", []),
+                        step_obj.get("targets", []),
+                    )
+                    next_loop_id = str(
+                        step_obj.get("next_loop_id", step_obj.get("after_step_to_loop_id", "")) or ""
+                    ).strip() or None
+                    next_reset_step_index = _to_bool(
+                        step_obj.get("next_reset_step_index", step_obj.get("after_step_reset_step_index", True)),
+                        True
+                    )
                     steps_out.append({
-                        "actions": _coerce_actions(step_obj.get("actions", []))
+                        "actions": actions,
+                        "targets": targets,
+                        "next_loop_id": next_loop_id,
+                        "next_reset_step_index": next_reset_step_index,
                     })
 
             transitions_out = []
@@ -243,7 +338,7 @@ def pick_step_actions(profile, runtime_entry):
     loop = loops.get(loop_id, {})
     steps = loop.get("steps", []) if isinstance(loop, dict) else []
     if not steps:
-        return {"actions": [], "runtime": runtime}
+        return {"actions": [], "targets": [], "plans": [], "runtime": runtime}
 
     idx = _safe_int(runtime.get("step_index", 0), 0)
     if idx < 0:
@@ -255,11 +350,33 @@ def pick_step_actions(profile, runtime_entry):
             idx = len(steps) - 1
     runtime["step_index"] = idx
     step = steps[idx] if isinstance(steps[idx], dict) else {}
-    actions = _coerce_actions(step.get("actions", []))
-    return {"actions": actions, "runtime": runtime}
+    actions, targets = _coerce_step_actions_and_targets(
+        step.get("actions", []),
+        step.get("targets", []),
+    )
+    step_transition = None
+    next_loop_id = str(step.get("next_loop_id", "") or "").strip()
+    if next_loop_id and next_loop_id in loops:
+        step_transition = {
+            "to_loop_id": next_loop_id,
+            "reset_step_index": _to_bool(step.get("next_reset_step_index", True), True),
+        }
+    plans = []
+    for i, skill_id in enumerate(actions):
+        plans.append({
+            "skill_id": skill_id,
+            "target_policy": targets[i] if i < len(targets) else BEHAVIOR_TARGET_POLICY_DEFAULT,
+        })
+    return {
+        "actions": actions,
+        "targets": targets,
+        "plans": plans,
+        "runtime": runtime,
+        "step_transition": step_transition,
+    }
 
 
-def advance_step_pointer(profile, runtime_entry):
+def advance_step_pointer(profile, runtime_entry, step_transition=None):
     prof = normalize_behavior_profile(profile)
     runtime = initialize_behavior_runtime_entry(prof, runtime_entry=runtime_entry)
     loop_id = runtime.get("active_loop_id")
@@ -268,6 +385,23 @@ def advance_step_pointer(profile, runtime_entry):
     if not steps:
         runtime["step_index"] = 0
         return runtime
+
+    if isinstance(step_transition, dict):
+        to_loop_id = str(step_transition.get("to_loop_id", "") or "").strip()
+        loops = prof.get("loops", {})
+        if to_loop_id and to_loop_id in loops:
+            runtime["active_loop_id"] = to_loop_id
+            if _to_bool(step_transition.get("reset_step_index", True), True):
+                runtime["step_index"] = 0
+            else:
+                next_loop = loops.get(to_loop_id, {})
+                next_steps = next_loop.get("steps", []) if isinstance(next_loop, dict) else []
+                if not next_steps:
+                    runtime["step_index"] = 0
+                else:
+                    current_idx = _safe_int(runtime.get("step_index", 0), 0)
+                    runtime["step_index"] = min(max(0, current_idx), len(next_steps) - 1)
+            return runtime
 
     idx = _safe_int(runtime.get("step_index", 0), 0) + 1
     if _to_bool(loop.get("repeat", True), True):
@@ -279,19 +413,45 @@ def advance_step_pointer(profile, runtime_entry):
 
 
 def choose_actions_for_slot_count(actions, slot_count):
+    action_plans = [{"skill_id": action, "target_policy": BEHAVIOR_TARGET_POLICY_DEFAULT} for action in actions or []]
+    picked = choose_action_plans_for_slot_count(action_plans, slot_count)
+    return [row.get("skill_id") for row in picked]
+
+
+def choose_action_plans_for_slot_count(action_plans, slot_count):
     count = max(0, _safe_int(slot_count, 0))
     if count <= 0:
         return []
-    if not actions:
-        return [None for _ in range(count)]
-    if len(actions) > count:
-        return random.sample(list(actions), count)
+
+    normalized = []
+    for row in action_plans or []:
+        if isinstance(row, dict):
+            skill_raw = row.get("skill_id", row.get("skill", row.get("id")))
+            policy_raw = row.get("target_policy", row.get("target"))
+        else:
+            skill_raw = row
+            policy_raw = None
+        skill_txt = str(skill_raw or "").strip() if skill_raw is not None else ""
+        normalized.append({
+            "skill_id": (skill_txt if skill_txt else None),
+            "target_policy": _coerce_target_policy(policy_raw),
+        })
+
+    if not normalized:
+        return [{
+            "skill_id": None,
+            "target_policy": BEHAVIOR_TARGET_POLICY_DEFAULT,
+        } for _ in range(count)]
+
+    if len(normalized) > count:
+        return [dict(row) for row in random.sample(normalized, count)]
+
     out = []
     for idx in range(count):
-        if idx < len(actions):
-            out.append(actions[idx])
+        if idx < len(normalized):
+            out.append(dict(normalized[idx]))
         else:
-            out.append(actions[-1])
+            out.append(dict(normalized[-1]))
     return out
 
 

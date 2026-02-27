@@ -745,7 +745,7 @@ class ResolveFlowPanel {
             return { id: skillId || '-', name: skillName || '-' };
         }
 
-        if (step?.kind === 'one_sided' || step?.kind === 'fizzle') {
+        if (this._isOneSidedPresentation(step)) {
             return { id: '-', name: '-' };
         }
 
@@ -760,9 +760,19 @@ class ResolveFlowPanel {
         return { id: defenderId || '-', name: defenderName || '-' };
     }
 
+    _isOneSidedPresentation(step) {
+        const kind = String(step?.kind || '');
+        if (kind === 'one_sided' || kind === 'fizzle') return true;
+        if (kind === 'hard_attack') {
+            const rolls = (step?.rolls && typeof step.rolls === 'object') ? step.rolls : {};
+            return !Boolean(rolls.blocked_by_evade);
+        }
+        return false;
+    }
+
     _resolvePowerValues(step) {
         const rolls = step?.rolls || {};
-        const kind = String(step?.kind || '');
+        const isOneSided = this._isOneSidedPresentation(step);
         let attackPower = (
             rolls.power_a ??
             rolls.attacker_power ??
@@ -772,7 +782,7 @@ class ResolveFlowPanel {
             '-'
         );
         // One-sided flow should display the dice roll power (base), not post-effect total.
-        if (kind === 'one_sided' || kind === 'fizzle') {
+        if (isOneSided) {
             attackPower = (
                 rolls.base_damage ??
                 rolls.power_a ??
@@ -784,7 +794,7 @@ class ResolveFlowPanel {
         }
 
         let defensePower = rolls.power_b ?? rolls.defender_sum ?? '-';
-        if (kind === 'one_sided' || kind === 'fizzle') defensePower = '-';
+        if (isOneSided) defensePower = '-';
         return {
             attacker: String(attackPower),
             defender: String(defensePower)
@@ -898,6 +908,7 @@ class ResolveFlowPanel {
 
     _resolvePowerRanges(step) {
         const kind = String(step?.kind || '');
+        const isOneSided = this._isOneSidedPresentation(step);
         const attackerRangeFromRoll = this._resolveRangeFromRolls(step, 'attacker');
         const defenderRangeFromRoll = this._resolveRangeFromRolls(step, 'defender');
         const attackerCmd = this._commandForSide(step, 'attacker');
@@ -907,7 +918,7 @@ class ResolveFlowPanel {
 
         return {
             attacker: aRange ? `${aRange.min}~${aRange.max}` : '-',
-            defender: (kind === 'one_sided' || kind === 'fizzle')
+            defender: isOneSided
                 ? '-'
                 : (dRange ? `${dRange.min}~${dRange.max}` : '-')
         };
@@ -990,7 +1001,7 @@ class ResolveFlowPanel {
             secondary.forEach((row) => {
                 pushDamage(row.target_id, row.amount, row.source || 'キーワード効果ダメージ', 'effect');
             });
-        } else if ((kind === 'one_sided' || kind === 'fizzle') && allDamageRows.length > 0) {
+        } else if (this._isOneSidedPresentation(step) && allDamageRows.length > 0) {
             const primaryTargetId = String(
                 step?.targetActorId || step?.defenderActorId || allDamageRows[0]?.target_id || ''
             );
@@ -1050,7 +1061,7 @@ class ResolveFlowPanel {
 
     _outcomeHeadline(step, attackerName, defenderName) {
         const kind = String(step?.kind || '');
-        if (kind === 'one_sided' || kind === 'fizzle') {
+        if (this._isOneSidedPresentation(step)) {
             return `${attackerName} \u306e\u4e00\u65b9\u653b\u6483`;
         }
         const outcome = String(step?.outcome || 'no_effect');
@@ -1186,7 +1197,7 @@ class ResolveFlowPanel {
         const kindLabel = this._escape(this._kindLabel(step.kind));
         const outcomeLabel = this._escape(this._outcomeLabel(step.outcome));
         const headline = this._escape(this._outcomeHeadline(step, attackerNameRaw, isSummationKind ? '防御側' : defenderNameRaw));
-        const isOneSided = String(step.kind) === 'one_sided' || String(step.kind) === 'fizzle';
+        const isOneSided = this._isOneSidedPresentation(step);
         const defenderSkillHtml = isOneSided
             ? '[-] -'
             : `[${this._escape(defenderSkill.id)}] ${this._escape(defenderSkill.name)}`;

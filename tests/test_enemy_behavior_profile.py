@@ -6,6 +6,7 @@ from manager.battle.enemy_behavior import (
     pick_step_actions,
     advance_step_pointer,
     choose_actions_for_slot_count,
+    choose_action_plans_for_slot_count,
 )
 
 
@@ -80,6 +81,96 @@ def test_choose_actions_for_slot_count_reuses_last():
 
 
 def test_choose_actions_for_slot_count_random_when_overflow(monkeypatch):
-    monkeypatch.setattr(behavior_module.random, "sample", lambda seq, k: ["S-D", "S-B"])
+    monkeypatch.setattr(behavior_module.random, "sample", lambda seq, k: [seq[3], seq[1]])
     actions = choose_actions_for_slot_count(["S-A", "S-B", "S-C", "S-D"], 2)
     assert actions == ["S-D", "S-B"]
+
+
+def test_pick_step_actions_includes_target_policies():
+    profile = normalize_behavior_profile({
+        "enabled": True,
+        "initial_loop_id": "loop_1",
+        "loops": {
+            "loop_1": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["S-A", "S-B"],
+                    "targets": ["target_enemy_fastest", "target_ally_random"],
+                }],
+                "transitions": [],
+            }
+        },
+    })
+    runtime = initialize_behavior_runtime_entry(profile, runtime_entry={"active_loop_id": "loop_1", "step_index": 0})
+    picked = pick_step_actions(profile, runtime)
+    assert picked["actions"] == ["S-A", "S-B"]
+    assert picked["targets"] == ["target_enemy_fastest", "target_ally_random"]
+    assert picked["plans"][0]["target_policy"] == "target_enemy_fastest"
+    assert picked["plans"][1]["target_policy"] == "target_ally_random"
+    assert picked["step_transition"] is None
+
+
+def test_pick_step_actions_exposes_step_transition():
+    profile = normalize_behavior_profile({
+        "enabled": True,
+        "initial_loop_id": "loop_1",
+        "loops": {
+            "loop_1": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["S-A"],
+                    "next_loop_id": "loop_2",
+                    "next_reset_step_index": True,
+                }],
+                "transitions": [],
+            },
+            "loop_2": {
+                "repeat": True,
+                "steps": [{"actions": ["S-B"]}],
+                "transitions": [],
+            },
+        },
+    })
+    runtime = initialize_behavior_runtime_entry(profile, runtime_entry={"active_loop_id": "loop_1", "step_index": 0})
+    picked = pick_step_actions(profile, runtime)
+    assert picked["actions"] == ["S-A"]
+    assert picked["step_transition"] == {"to_loop_id": "loop_2", "reset_step_index": True}
+
+
+def test_advance_step_pointer_applies_step_transition_before_normal_advance():
+    profile = normalize_behavior_profile({
+        "enabled": True,
+        "initial_loop_id": "loop_1",
+        "loops": {
+            "loop_1": {
+                "repeat": True,
+                "steps": [{"actions": ["S-A"]}],
+                "transitions": [],
+            },
+            "loop_2": {
+                "repeat": True,
+                "steps": [{"actions": ["S-B"]}, {"actions": ["S-C"]}],
+                "transitions": [],
+            },
+        },
+    })
+    runtime = initialize_behavior_runtime_entry(profile, runtime_entry={"active_loop_id": "loop_1", "step_index": 0})
+    advanced = advance_step_pointer(
+        profile,
+        runtime,
+        step_transition={"to_loop_id": "loop_2", "reset_step_index": True},
+    )
+    assert advanced["active_loop_id"] == "loop_2"
+    assert int(advanced["step_index"]) == 0
+
+
+def test_choose_action_plans_for_slot_count_random_when_overflow(monkeypatch):
+    source = [
+        {"skill_id": "S-A", "target_policy": "target_enemy_random"},
+        {"skill_id": "S-B", "target_policy": "target_enemy_fastest"},
+        {"skill_id": "S-C", "target_policy": "target_ally_random"},
+    ]
+    monkeypatch.setattr(behavior_module.random, "sample", lambda seq, k: [seq[2], seq[0]])
+    picked = choose_action_plans_for_slot_count(source, 2)
+    assert [row["skill_id"] for row in picked] == ["S-C", "S-A"]
+    assert [row["target_policy"] for row in picked] == ["target_ally_random", "target_enemy_random"]
