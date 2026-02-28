@@ -237,11 +237,36 @@ def _resolve_skill_role(skill_data):
     return 'attack'
 
 
-def _is_defense_vs_evade_no_match(attacker_skill_data, defender_skill_data):
+def _get_forced_clash_no_effect_reason(attacker_skill_data, defender_skill_data):
     attacker_role = _resolve_skill_role(attacker_skill_data)
     defender_role = _resolve_skill_role(defender_skill_data)
     roles = {attacker_role, defender_role}
-    return roles == {'defense', 'evade'}
+    if roles == {'defense', 'evade'}:
+        return 'defense_evade_no_match'
+    if attacker_role == 'evade' and defender_role == 'evade':
+        return 'evade_evade_no_match'
+    return None
+
+
+def _get_inherent_skill_cancel_reason(attacker_skill_data, defender_skill_data):
+    attacker_role = _resolve_skill_role(attacker_skill_data)
+    defender_role = _resolve_skill_role(defender_skill_data)
+    roles = {attacker_role, defender_role}
+    if roles == {'defense', 'evade'}:
+        return 'defense_evade_fizzle'
+    if attacker_role == 'evade' and defender_role == 'evade':
+        return 'evade_evade_fizzle'
+    return None
+
+
+def _sanitize_forced_no_match_clash_summary(summary):
+    if not isinstance(summary, dict):
+        return {}
+    sanitized = dict(summary)
+    sanitized['damage'] = []
+    sanitized['statuses'] = []
+    sanitized['flags'] = []
+    return sanitized
 
 
 def _should_grant_clash_win_fp(attacker_skill_data, defender_skill_data, clash_outcome):
@@ -249,9 +274,14 @@ def _should_grant_clash_win_fp(attacker_skill_data, defender_skill_data, clash_o
         return False
     attacker_role = _resolve_skill_role(attacker_skill_data)
     defender_role = _resolve_skill_role(defender_skill_data)
+    winner_role = attacker_role if clash_outcome == 'attacker_win' else defender_role
     if attacker_role == 'attack' and defender_role == 'attack':
         return True
     if attacker_role == 'defense' and defender_role == 'defense':
+        return True
+    if {attacker_role, defender_role} == {'attack', 'defense'} and winner_role == 'defense':
+        return True
+    if {attacker_role, defender_role} == {'attack', 'evade'} and winner_role == 'evade':
         return True
     return False
 
@@ -386,8 +416,76 @@ def _humanize_resolve_reason_token(token):
         'feint_blocked': '牽制により強硬攻撃は無効化',
         'hard_evaded': '回避成功により強硬攻撃は不発',
         'defense_evade_no_match': '防御と回避のためマッチ不成立',
+        'evade_evade_no_match': '回避どうしのためマッチ不成立',
+        'defense_evade_fizzle': '防御と回避のためスキル不発',
+        'evade_evade_fizzle': '回避どうしのためスキル不発',
     }
     return mapping.get(key, key)
+
+
+def _mark_slot_cancelled_without_use(battle_state, slot_id):
+    if not isinstance(battle_state, dict) or not slot_id:
+        return
+    resolve = battle_state.setdefault('resolve', {})
+    cancelled_slots = resolve.get('cancelled_slots', [])
+    if not isinstance(cancelled_slots, list):
+        cancelled_slots = []
+    if slot_id not in cancelled_slots:
+        cancelled_slots.append(slot_id)
+    resolve['cancelled_slots'] = cancelled_slots
+
+    slot_data = (battle_state.get('slots', {}) or {}).get(slot_id)
+    if isinstance(slot_data, dict):
+        slot_data['cancelled_without_use'] = True
+
+
+def _collect_intrinsic_cancelled_single_slots(state, battle_state, intents_override=None):
+    if not isinstance(state, dict) or not isinstance(battle_state, dict):
+        return set()
+    intents = intents_override if isinstance(intents_override, dict) else battle_state.get('intents', {})
+    if not isinstance(intents, dict):
+        return set()
+    slots = battle_state.get('slots', {}) if isinstance(battle_state.get('slots'), dict) else {}
+    single_queue = battle_state.get('resolve', {}).get('single_queue', []) or []
+    if not isinstance(single_queue, list) or not single_queue:
+        return set()
+
+    contention = _compute_single_contention(intents, single_queue)
+    contested_losers = set(contention.get('contested_losers', set()) or set())
+    cancelled = set()
+
+    for slot_id in single_queue:
+        intent_a = intents.get(slot_id, {})
+        skill_id_a = intent_a.get('skill_id') if isinstance(intent_a, dict) else None
+        if not skill_id_a or slot_id in contested_losers:
+            continue
+
+        target = intent_a.get('target', {}) if isinstance(intent_a.get('target'), dict) else {}
+        target_slot = target.get('slot_id') if target.get('type') == 'single_slot' else None
+        if not target_slot:
+            continue
+
+        target_actor_id = (slots.get(target_slot, {}) or {}).get('actor_id')
+        if not target_actor_id or not _is_actor_placed(state, target_actor_id):
+            continue
+
+        intent_b = intents.get(target_slot, {})
+        skill_id_b = intent_b.get('skill_id') if isinstance(intent_b, dict) else None
+        if not skill_id_b:
+            continue
+
+        skill_data_a = all_skill_data.get(skill_id_a, {}) if isinstance(all_skill_data, dict) else {}
+        skill_data_b = all_skill_data.get(skill_id_b, {}) if isinstance(all_skill_data, dict) else {}
+        if _is_non_clashable_ally_support_pair(slots, slot_id, target_slot, skill_data_a, skill_data_b):
+            continue
+        if intent_b.get('target', {}).get('type') != 'single_slot' or intent_b.get('target', {}).get('slot_id') != slot_id:
+            continue
+
+        if _get_inherent_skill_cancel_reason(skill_data_a, skill_data_b):
+            cancelled.add(slot_id)
+            cancelled.add(target_slot)
+
+    return cancelled
 
 
 def _humanize_resolve_reason(notes):
@@ -1100,6 +1198,17 @@ def _apply_phase_timing_for_committed_intents(
     slots = battle_state.get('slots', {}) if isinstance(battle_state.get('slots'), dict) else {}
     resolve_ctx = battle_state.setdefault('resolve', {})
     marks = resolve_ctx.setdefault('timing_marks', {})
+    cancelled_slots = resolve_ctx.get('cancelled_slots', [])
+    cancelled_slot_set = set(cancelled_slots if isinstance(cancelled_slots, list) else [])
+    if str(timing) == 'RESOLVE_START':
+        intrinsic_cancelled = _collect_intrinsic_cancelled_single_slots(
+            state,
+            battle_state,
+            intents_override=intents
+        )
+        if intrinsic_cancelled:
+            cancelled_slot_set.update(intrinsic_cancelled)
+            resolve_ctx['cancelled_slots'] = list(cancelled_slot_set)
     applied_count = 0
 
     for slot_id, intent in (intents or {}).items():
@@ -1114,6 +1223,9 @@ def _apply_phase_timing_for_committed_intents(
             continue
         mark_key = f"{timing}:{slot_id}"
         if marks.get(mark_key):
+            continue
+        if slot_id in cancelled_slot_set:
+            marks[mark_key] = True
             continue
 
         slot_data = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
@@ -3483,9 +3595,13 @@ def run_select_resolve_auto(room, battle_id):
                         clash_notes = None if clash_ok else (
                             clash_delegated.get('reason') if isinstance(clash_delegated, dict) else 'delegate_failed'
                         )
-                        if clash_ok and _is_defense_vs_evade_no_match(attacker_skill_data, defender_skill_data):
+                        forced_no_match_reason = None
+                        if clash_ok:
+                            forced_no_match_reason = _get_forced_clash_no_effect_reason(attacker_skill_data, defender_skill_data)
+                        if forced_no_match_reason:
+                            clash_summary = _sanitize_forced_no_match_clash_summary(clash_summary)
                             clash_outcome = 'no_effect'
-                            clash_notes = 'defense_evade_no_match'
+                            clash_notes = forced_no_match_reason
                         elif clash_ok and _should_grant_clash_win_fp(attacker_skill_data, defender_skill_data, clash_outcome):
                             winner_char = attacker_char if clash_outcome == 'attacker_win' else defender_char
                             winner_skill_data = attacker_skill_data if clash_outcome == 'attacker_win' else defender_skill_data
@@ -3664,20 +3780,26 @@ def run_select_resolve_auto(room, battle_id):
             queue_pairs
         )
 
-        def _mark_processed(slot_key):
+        def _mark_processed(slot_key, cancelled_without_use=False):
             if not slot_key:
                 return
             if slot_key in processed_slots:
+                if cancelled_without_use:
+                    _mark_slot_cancelled_without_use(battle_state, slot_key)
                 return
             processed_slots.add(slot_key)
             slot_data = slots.get(slot_key)
             if isinstance(slot_data, dict):
                 slot_data['disabled'] = True
                 slot_data['status'] = 'consumed'
+                if cancelled_without_use:
+                    slot_data['cancelled_without_use'] = True
             resolved_slots = battle_state['resolve'].get('resolved_slots', [])
             if slot_key not in resolved_slots:
                 resolved_slots.append(slot_key)
                 battle_state['resolve']['resolved_slots'] = resolved_slots
+            if cancelled_without_use:
+                _mark_slot_cancelled_without_use(battle_state, slot_key)
 
         def _actor_name_from_slot(slot_key):
             actor_id = slots.get(slot_key, {}).get('actor_id') if slot_key else None
@@ -3931,9 +4053,64 @@ def run_select_resolve_auto(room, battle_id):
             _append_trace(
                 room, battle_id, battle_state, 'fizzle', attacker_slot,
                 target_actor_id=target_actor_id,
+                outcome='no_effect',
                 notes=notes,
                 extra_fields={
                     'display_label': display_label,
+                    'lines': log_lines,
+                    'log_lines': log_lines,
+                    'outcome_payload': dict(outcome_payload, log_lines=log_lines)
+                }
+            )
+
+        def _emit_cancelled_clash_with_log(attacker_slot, defender_slot, notes, target_actor_id=None):
+            attacker_name, attacker_actor_id = _actor_name_from_slot(attacker_slot)
+            skill_id_local = intents.get(attacker_slot, {}).get('skill_id')
+            display_label = _resolve_reuse_display_label(attacker_slot)
+            _ = attacker_name
+            outcome_payload = {
+                'attacker_id': attacker_actor_id,
+                'target_id': target_actor_id,
+                'skill_id': skill_id_local,
+                'delegate_summary': {'rolls': {}, 'logs': []}
+            }
+            legacy_input = to_legacy_duel_log_input(
+                outcome_payload=outcome_payload,
+                state=state,
+                intents=intents,
+                attacker_slot=attacker_slot,
+                defender_slot=defender_slot,
+                applied={'damage': [], 'statuses': [], 'cost': {'hp': 0, 'mp': 0, 'fp': 0}},
+                kind='clash',
+                outcome='no_effect',
+                notes=notes
+            )
+            legacy_input['winner_message'] = "<strong> → 不発</strong>"
+            log_lines = format_duel_result_lines(
+                legacy_input['actor_name_a'],
+                legacy_input['skill_display_a'],
+                legacy_input['total_a'],
+                legacy_input['actor_name_d'],
+                legacy_input['skill_display_d'],
+                legacy_input['total_d'],
+                legacy_input['winner_message'],
+                damage_report=legacy_input['damage_report'],
+                extra_lines=legacy_input.get('extra_lines')
+            )
+            _log_match_result(log_lines)
+            _append_trace(
+                room,
+                battle_id,
+                battle_state,
+                'fizzle',
+                attacker_slot,
+                defender_slot=defender_slot,
+                target_actor_id=target_actor_id,
+                outcome='no_effect',
+                notes=notes,
+                extra_fields={
+                    'display_label': display_label,
+                    'resolution_kind': 'cancelled_clash',
                     'lines': log_lines,
                     'log_lines': log_lines,
                     'outcome_payload': dict(outcome_payload, log_lines=log_lines)
@@ -3961,7 +4138,7 @@ def run_select_resolve_auto(room, battle_id):
             skill_id = intent_a.get('skill_id')
             if not intent_a or not skill_id:
                 _emit_fizzle_with_log(slot_id, 'no_intent')
-                _mark_processed(slot_id)
+                _mark_processed(slot_id, cancelled_without_use=True)
                 queue_index += 1
                 continue
             skill_data = all_skill_data.get(skill_id, {}) if skill_id else {}
@@ -3971,14 +4148,14 @@ def run_select_resolve_auto(room, battle_id):
             target_slot = target.get('slot_id')
             if target.get('type') != 'single_slot' or not target_slot:
                 _emit_fizzle_with_log(slot_id, 'invalid_target')
-                _mark_processed(slot_id)
+                _mark_processed(slot_id, cancelled_without_use=True)
                 queue_index += 1
                 continue
 
             target_actor_id = slots.get(target_slot, {}).get('actor_id')
             if not target_actor_id or not _is_actor_placed(state, target_actor_id):
                 _emit_fizzle_with_log(slot_id, 'target_unplaced', target_actor_id=target_actor_id)
-                _mark_processed(slot_id)
+                _mark_processed(slot_id, cancelled_without_use=True)
                 queue_index += 1
                 continue
 
@@ -4032,6 +4209,18 @@ def run_select_resolve_auto(room, battle_id):
                 clash_intent = intents.get(clash_defender_slot, {}) if clash_defender_slot else {}
                 defender_skill_id = clash_intent.get('skill_id')
                 defender_skill_data = all_skill_data.get(defender_skill_id, {}) if defender_skill_id else None
+                cancelled_clash_reason = _get_inherent_skill_cancel_reason(skill_data, defender_skill_data)
+                if cancelled_clash_reason:
+                    _emit_cancelled_clash_with_log(
+                        slot_id,
+                        clash_defender_slot,
+                        cancelled_clash_reason,
+                        target_actor_id=defender_actor_id
+                    )
+                    _mark_processed(slot_id, cancelled_without_use=True)
+                    _mark_processed(clash_defender_slot, cancelled_without_use=True)
+                    queue_index += 1
+                    continue
 
                 clash_delegated = _resolve_clash_by_existing_logic(
                     room=room,
@@ -4046,10 +4235,6 @@ def run_select_resolve_auto(room, battle_id):
                 clash_outcome = clash_delegated.get('outcome', 'no_effect') if clash_ok else 'no_effect'
                 clash_rolls = clash_summary.get('rolls', {}) if isinstance(clash_summary, dict) else {}
                 clash_notes = None if clash_ok else (clash_delegated.get('reason') if isinstance(clash_delegated, dict) else 'delegate_failed')
-                forced_no_match_reason = None
-                if clash_ok and _is_defense_vs_evade_no_match(skill_data, defender_skill_data):
-                    clash_outcome = 'no_effect'
-                    forced_no_match_reason = 'defense_evade_no_match'
 
                 clash_reuse_slot = None
                 clash_reuse_intent = None
@@ -4144,11 +4329,6 @@ def run_select_resolve_auto(room, battle_id):
                         )
                         winner_reuse_requests = _extract_reuse_requests_from_changes(winner_changes)
                         clash_reuse_policy = _collect_reuse_policy({'reuse_requests': winner_reuse_requests})
-                if forced_no_match_reason:
-                    if clash_notes:
-                        clash_notes = f"{clash_notes} / {forced_no_match_reason}"
-                    else:
-                        clash_notes = forced_no_match_reason
                 if hard_followup_block_reason:
                     if clash_notes:
                         clash_notes = f"{clash_notes} / {hard_followup_block_reason}"

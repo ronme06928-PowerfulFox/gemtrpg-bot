@@ -215,4 +215,8 @@
 ### 10.7 clash の勝敗種別ルール
 - `attack vs attack` 勝敗確定時は勝者へ `FP+1`（`source=match_win_fp`）を付与する。
 - `defense vs defense` 勝敗確定時も同様に `FP+1` を付与する。
-- `defense vs evade` は `no_effect` に正規化し、FPは付与しない。
+- `attack vs defense` は `defense` 側が勝利した場合に限り、勝者へ `FP+1` を付与する。
+- `attack vs evade` は `evade` 側が勝利した場合に限り、勝者へ `FP+1` を付与する。
+- `defense vs evade` は `fizzle`（不発）として処理し、スキルは未使用扱い・FPも付与しない。
+- `evade vs evade` も `fizzle`（不発）として処理し、スキルは未使用扱い・FPも付与しない。
+- 上記不発ではコストを消費せず、`RESOLVE_START` / 使用時 / `PRE_MATCH` / `RESOLVE_END` も発動しないが、行動回数だけは消費する。

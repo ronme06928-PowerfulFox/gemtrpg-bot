@@ -1860,7 +1860,10 @@ def test_case30_defense_vs_evade_becomes_no_match_and_no_fp(monkeypatch):
     battle_core.all_skill_data["def_a"] = {"base_power": 1, "dice_power": "1d1", "tags": ["defense"], "rule_data": {"effects": []}}
     battle_core.all_skill_data["ev_b"] = {"base_power": 1, "dice_power": "1d1", "tags": ["evade"], "rule_data": {"effects": []}}
 
+    called = {"value": False}
+
     def _stub_clash(**_kwargs):
+        called["value"] = True
         return {
             "ok": True,
             "outcome": "attacker_win",
@@ -1876,11 +1879,173 @@ def test_case30_defense_vs_evade_becomes_no_match_and_no_fp(monkeypatch):
     monkeypatch.setattr(battle_core, "_resolve_clash_by_existing_logic", _stub_clash)
     battle_core.run_select_resolve_auto("room_t", "battle_test")
 
-    clash_trace = next((t for t in state["battle_state"]["resolve"]["trace"] if t.get("kind") == "clash"), None)
-    assert clash_trace is not None
-    assert clash_trace.get("outcome") == "no_effect"
+    fizzle_trace = next((t for t in state["battle_state"]["resolve"]["trace"] if t.get("kind") == "fizzle"), None)
+    assert called["value"] is False
+    assert fizzle_trace is not None
+    assert fizzle_trace.get("outcome") == "no_effect"
+    assert fizzle_trace.get("notes") == "defense_evade_fizzle"
+    assert next((t for t in state["battle_state"]["resolve"]["trace"] if t.get("kind") == "clash"), None) is None
+    assert state["battle_state"]["slots"]["A_slot"].get("cancelled_without_use") is True
+    assert state["battle_state"]["slots"]["B_slot"].get("cancelled_without_use") is True
     assert _state_value(attacker, "FP") == 0
     assert _state_value(defender, "FP") == 0
+
+
+def test_case30a_evade_vs_evade_becomes_no_match_and_skips_delegate_damage(monkeypatch):
+    _, battle_core = _mods()
+    attacker = _make_actor("A1", "ally")
+    defender = _make_actor("B1", "enemy")
+    state = _base_state([attacker, defender])
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 9, 0)
+    _set_intent(state, "A_slot", "A1", "ev_a", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "ev_b", "single_slot", "A_slot")
+    state["battle_state"]["phase"] = "resolve_single"
+    _patch_room_and_socket(monkeypatch, state)
+    monkeypatch.setattr(battle_core, "_update_char_stat", _stub_update_char_stat)
+
+    battle_core.all_skill_data["ev_a"] = {"base_power": 1, "dice_power": "1d1", "tags": ["evade"], "rule_data": {"effects": []}}
+    battle_core.all_skill_data["ev_b"] = {"base_power": 1, "dice_power": "1d1", "tags": ["evade"], "rule_data": {"effects": []}}
+
+    called = {"value": False}
+
+    def _stub_clash(**_kwargs):
+        called["value"] = True
+        return {
+            "ok": True,
+            "outcome": "defender_win",
+            "summary": {
+                "damage": [{"target_id": "A1", "amount": 9, "before": 20, "after": 11}],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "rolls": {"power_a": 6, "power_b": 7, "tie_break": None},
+            },
+        }
+
+    monkeypatch.setattr(battle_core, "_resolve_clash_by_existing_logic", _stub_clash)
+    battle_core.run_select_resolve_auto("room_t", "battle_test")
+
+    fizzle_trace = next((t for t in state["battle_state"]["resolve"]["trace"] if t.get("kind") == "fizzle"), None)
+    assert called["value"] is False
+    assert fizzle_trace is not None
+    assert fizzle_trace.get("outcome") == "no_effect"
+    assert fizzle_trace.get("notes") == "evade_evade_fizzle"
+    assert next((t for t in state["battle_state"]["resolve"]["trace"] if t.get("kind") == "clash"), None) is None
+    assert _state_value(attacker, "HP") == 100
+    assert _state_value(attacker, "FP") == 0
+    assert _state_value(defender, "FP") == 0
+    assert state["battle_state"]["slots"]["A_slot"].get("cancelled_without_use") is True
+    assert state["battle_state"]["slots"]["B_slot"].get("cancelled_without_use") is True
+
+
+def test_case30aa_intrinsic_fizzle_skips_resolve_start_and_resolve_end(monkeypatch):
+    _, battle_core = _mods()
+    attacker = _make_actor("A1", "ally")
+    defender = _make_actor("B1", "enemy")
+    state = _base_state([attacker, defender])
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 9, 0)
+    _set_intent(state, "A_slot", "A1", "def_a", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "ev_b", "single_slot", "A_slot")
+    state["battle_state"]["phase"] = "resolve_single"
+    _patch_room_and_socket(monkeypatch, state)
+
+    battle_core.all_skill_data["def_a"] = {
+        "base_power": 1,
+        "dice_power": "1d1",
+        "tags": ["defense"],
+        "rule_data": {"effects": [{"timing": "RESOLVE_START", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1}]},
+    }
+    battle_core.all_skill_data["ev_b"] = {
+        "base_power": 1,
+        "dice_power": "1d1",
+        "tags": ["evade"],
+        "rule_data": {"effects": [{"timing": "RESOLVE_END", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1}]},
+    }
+
+    seen_timings = []
+
+    def _stub_process_skill_effects(effects_array, timing_to_check, actor, target, target_skill_data=None, context=None, base_damage=0):
+        seen_timings.append(str(timing_to_check))
+        return 0, [], []
+
+    monkeypatch.setattr(battle_core, "process_skill_effects", _stub_process_skill_effects)
+    monkeypatch.setattr(
+        battle_core,
+        "_resolve_clash_by_existing_logic",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("intrinsic fizzle should not delegate clash"))
+    )
+
+    battle_core.run_select_resolve_auto("room_t", "battle_test")
+
+    assert "RESOLVE_START" not in seen_timings
+    assert "RESOLVE_END" not in seen_timings
+
+
+def test_case30ab_target_unplaced_after_resolve_start_keeps_resolve_start_only(monkeypatch):
+    _, battle_core = _mods()
+    attacker = _make_actor("A1", "ally")
+    defender = _make_actor("B1", "enemy")
+    state = _base_state([attacker, defender])
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 9, 0)
+    _set_intent(state, "A_slot", "A1", "a_skill", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "idle", "none", None, committed=False)
+    state["battle_state"]["phase"] = "resolve_single"
+    _patch_room_and_socket(monkeypatch, state)
+
+    battle_core.all_skill_data["a_skill"] = {
+        "base_power": 1,
+        "dice_power": "1d1",
+        "rule_data": {
+            "effects": [
+                {"timing": "RESOLVE_START", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1},
+                {"timing": "RESOLVE_END", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1},
+            ]
+        },
+    }
+
+    seen_timings = []
+
+    def _stub_process_skill_effects(effects_array, timing_to_check, actor, target, target_skill_data=None, context=None, base_damage=0):
+        seen_timings.append(str(timing_to_check))
+        if str(timing_to_check) == "RESOLVE_START" and isinstance(target, dict):
+            target["x"] = -1
+            target["y"] = -1
+        return 0, [], []
+
+    monkeypatch.setattr(battle_core, "process_skill_effects", _stub_process_skill_effects)
+    monkeypatch.setattr(
+        battle_core,
+        "_resolve_one_sided_by_existing_logic",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("target_unplaced fizzle should not resolve one-sided"))
+    )
+
+    battle_core.run_select_resolve_auto("room_t", "battle_test")
+
+    assert "RESOLVE_START" in seen_timings
+    assert "RESOLVE_END" not in seen_timings
+
+
+def test_case30ac_cancelled_slot_is_ignored_by_evade_insert_selection(monkeypatch):
+    battle_common, _ = _mods()
+    attacker = _make_actor("A1", "ally")
+    defender = _make_actor("B1", "enemy")
+    state = _base_state([attacker, defender])
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 9, 0)
+    _set_intent(state, "B_slot", "B1", "ev_b", "single_slot", "A_slot")
+    state["battle_state"]["slots"]["B_slot"]["cancelled_without_use"] = True
+
+    monkeypatch.setattr(battle_common, "is_dodge_lock_active", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(battle_common, "get_dodge_lock_skill_id", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(battle_common, "_is_evade_skill", lambda *_args, **_kwargs: True)
+
+    picked, reason = battle_common.select_evade_insert_slot(state, state["battle_state"], "B1", "A_slot")
+
+    assert picked is None
+    assert reason is None
 
 
 def test_case30b_clash_win_fp_is_added_even_when_skill_also_grants_fp(monkeypatch):

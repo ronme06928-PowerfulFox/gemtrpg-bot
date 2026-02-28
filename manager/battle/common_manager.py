@@ -2138,6 +2138,9 @@ def select_evade_insert_slot(state, battle_state, defender_actor_id, attacker_sl
 
     direct_candidates = []
     for slot_id in actor_slot_ids:
+        slot_data = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
+        if isinstance(slot_data, dict) and slot_data.get('cancelled_without_use'):
+            continue
         intent = intents.get(slot_id, {})
         skill_id = intent.get('skill_id')
         if not intent.get('committed', False):
@@ -2155,6 +2158,9 @@ def select_evade_insert_slot(state, battle_state, defender_actor_id, attacker_sl
 
     evade_candidates = []
     for slot_id in actor_slot_ids:
+        slot_data = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
+        if isinstance(slot_data, dict) and slot_data.get('cancelled_without_use'):
+            continue
         intent = intents.get(slot_id, {})
         skill_id = intent.get('skill_id')
         if not intent.get('committed', False):
@@ -2172,6 +2178,7 @@ def select_evade_insert_slot(state, battle_state, defender_actor_id, attacker_sl
     reusable = [
         slot_id for slot_id in resolved_slots
         if slots.get(slot_id, {}).get('actor_id') == defender_actor_id
+        and not slots.get(slot_id, {}).get('cancelled_without_use')
     ]
     picked = _choose_highest_initiative_slot(reusable, slots)
     if picked:
@@ -2208,6 +2215,9 @@ def select_hard_followup_evade_slot(state, battle_state, defender_actor_id, atta
         return str(slot_id) not in resolved_set
 
     def _is_committed_evade(slot_id):
+        slot_data = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
+        if isinstance(slot_data, dict) and slot_data.get('cancelled_without_use'):
+            return False
         intent = intents.get(slot_id, {}) if isinstance(intents, dict) else {}
         skill_id = intent.get('skill_id')
         if not intent.get('committed', False):
@@ -2241,7 +2251,7 @@ def select_hard_followup_evade_slot(state, battle_state, defender_actor_id, atta
     if is_dodge_lock_active(state, defender_actor_id):
         reusable = [
             slot_id for slot_id in actor_slot_ids
-            if str(slot_id) in resolved_set
+            if str(slot_id) in resolved_set and not slots.get(slot_id, {}).get('cancelled_without_use')
         ]
         picked = _choose_highest_initiative_slot(reusable, slots)
         if picked:

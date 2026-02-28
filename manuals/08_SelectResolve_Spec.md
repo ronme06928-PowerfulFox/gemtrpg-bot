@@ -135,7 +135,13 @@ RoundStart は次の順序で処理する。
 ### 8.5 clash の勝敗種別と FP 付与（実装追補）
 - 攻撃スキル同士の clash で勝敗が付いた場合、勝者へ `FP+1` を付与する。
 - 防御スキル同士の clash で勝敗が付いた場合も、勝者へ `FP+1` を付与する。
-- 防御スキル vs 回避スキルの組み合わせはマッチ不成立として扱い、`outcome=no_effect` とする（FP増減なし）。
+- 攻撃スキル vs 防御スキルでは、防御スキル側が勝利した場合に限り、勝者へ `FP+1` を付与する。
+- 攻撃スキル vs 回避スキルでは、回避スキル側が勝利した場合に限り、勝者へ `FP+1` を付与する。
+- 防御スキル vs 回避スキルの組み合わせは、マッチ自体を作らず `fizzle`（不発）として扱う。
+- 回避スキル vs 回避スキルの組み合わせも、マッチ自体を作らず `fizzle`（不発）として扱う。
+- 上記の不発では、そのスキルは「未使用」扱いとなる。コストは消費せず、`RESOLVE_START` / 使用時 / `PRE_MATCH` / `RESOLVE_END` を含むスキル効果は発動しない。
+- ただし行動回数だけは消費されるため、そのスロットは解決済みになる。
+- 例外として、`RESOLVE_START` の後に対象消失などで後発的に不発になった場合は、`RESOLVE_START` だけは既に発動済みとして残る。
 
 ## 9. 再回避差し込み（再回避状態、回避スロット or 解決済みスロットを無料再利用、回避スロットがtargetしている相手スキルの解決時のみ差し込み、第三者介入なし、one-sided→clashに昇格）
 - 再回避状態のキャラクターは、回避スロットまたは解決済みスロットを無料で再利用できる。
@@ -422,6 +428,10 @@ battle_error:
 - 抑止時は `trace.notes` に抑止理由（`feint_blocked` / `hard_evaded`）を記録し、チャットログにも理由を表示する。
 
 ### A-9. 防御/回避のマッチ判定と FP
-- `defense` vs `evade` は `clash` を実行しても結果は `no_effect` へ正規化する。
-- `FP+1` の自動付与は、`attack vs attack` または `defense vs defense` の勝敗確定時だけ発生する。
+- `defense` vs `evade` は `clash` を実行せず、`fizzle`（不発）として処理する。
+- `evade` vs `evade` も `clash` を実行せず、`fizzle`（不発）として処理する。
+- 上記不発のスロットは `cancelled_without_use` 扱いになり、後続の再回避差し込み候補にもならない。
+- `FP+1` の自動付与は、`attack vs attack` / `defense vs defense` の勝敗確定時に発生する。
+- `attack vs defense` では `defense` 側が勝利した場合に限り、`FP+1` を付与する。
+- `attack vs evade` では `evade` 側が勝利した場合に限り、`FP+1` を付与する。
 - 上記FPは `source=match_win_fp` として記録し、スキル効果で増えたFPと区別する。

@@ -51,3 +51,17 @@ def test_target_scope_allows_ally_with_tag(monkeypatch):
     )
     assert err is None
     assert target == {"type": "single_slot", "slot_id": "S_ENEMY"}
+
+
+def test_clash_win_fp_granted_for_defense_winning_against_attack():
+    attacker = {"分類": "攻撃"}
+    defender = {"分類": "防御"}
+    assert battle_core._should_grant_clash_win_fp(attacker, defender, "defender_win") is True
+    assert battle_core._should_grant_clash_win_fp(attacker, defender, "attacker_win") is False
+
+
+def test_clash_win_fp_granted_for_evade_winning_against_attack():
+    attacker = {"分類": "攻撃"}
+    defender = {"分類": "回避"}
+    assert battle_core._should_grant_clash_win_fp(attacker, defender, "defender_win") is True
+    assert battle_core._should_grant_clash_win_fp(attacker, defender, "attacker_win") is False

@@ -891,6 +891,8 @@ def execute_duel_match(room, data, username):
             winner_message = "<strong> → 両者防御のため、ダメージなし</strong>"; damage_message = "(相殺)"
         elif (attacker_category == "防御" and defender_category == "回避") or (attacker_category == "回避" and defender_category == "防御"):
             winner_message = "<strong> → 防御と回避のため、マッチ不成立</strong>"; damage_message = "(効果処理なし)"
+        elif attacker_category == "回避" and defender_category == "回避":
+            winner_message = "<strong> → 回避どうしのため、マッチ不成立</strong>"; damage_message = "(効果処理なし)"
 
         elif "守備" in defender_tags and defender_category == "防御":
             if result_a['total'] > result_d['total']:
