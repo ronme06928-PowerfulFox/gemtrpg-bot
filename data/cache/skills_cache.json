@@ -1431,10 +1431,10 @@
     "取得コスト": "1",
     "基礎威力": "22",
     "ダイス威力": "-1d6",
-    "使用時効果": "([[W-19|使用時]]):MPを2消費。HPを10消費。FPを2消費。",
-    "特記": "自分の[[W-00|出血]]3につきダイス威力-1(最小で-5)。自分に[[W-00|出血]]が3以上ないなら[[W-50|基礎威力]]-7。",
-    "発動時効果": "([[W-20|的中時]]):自分に[[W-01|出血氾濫]]。([[W-21|マッチ勝利時]]):自分の[[W-00|出血]]の値だけ対象に[[W-00|出血]]を付与。",
-    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":2},{\"type\":\"HP\",\"value\":10},{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[{\"operation\":\"PER_N_BONUS\",\"per_N\":3,\"value\":-1,\"source\":\"self\",\"param\":\"出血\",\"min_bonus\":-5,\"apply_to\":\"dice\"},{\"value\":-7,\"condition\":{\"source\":\"self\",\"param\":\"出血\",\"operator\":\"LT\",\"value\":3}}],\n\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"self\",\"value\":\"出血氾濫\"},{\"timing\":\"WIN\",\"type\":\"APPLY_STATE_PER_N\",\"target\":\"target\",\"source\":\"self\",\"source_param\":\"出血\",\"state_name\":\"出血\",\"per_N\":1,\"value\":1}]}",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。HPを6消費。FPを2消費。",
+    "特記": "自分の[[W-00|出血]]2につきダイス威力-1(最小で-5)。自分に[[W-00|出血]]が2以上ないなら[[W-50|基礎威力]]-7。",
+    "発動時効果": "([[W-20|的中時]]):自分に[[W-01|出血氾濫]]。([[W-21|マッチ勝利時]]):自分の[[W-00|出血]]の二倍の値の[[W-00|出血]]を対象に付与。",
+    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":2},{\"type\":\"HP\",\"value\":6},{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[{\"operation\":\"PER_N_BONUS\",\"per_N\":2,\"value\":-1,\"source\":\"self\",\"param\":\"出血\",\"min_bonus\":-5,\"apply_to\":\"dice\"},{\"value\":-7,\"condition\":{\"source\":\"self\",\"param\":\"出血\",\"operator\":\"LT\",\"value\":2}}],\n\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"self\",\"value\":\"出血氾濫\"},{\"timing\":\"WIN\",\"type\":\"APPLY_STATE_PER_N\",\"target\":\"target\",\"source\":\"self\",\"source_param\":\"出血\",\"state_name\":\"出血\",\"per_N\":1,\"value\":2}]}",
     "tags": [
       "攻撃"
     ]
@@ -1451,8 +1451,8 @@
     "ダイス威力": "+1d7",
     "使用時効果": "([[W-19|使用時]]):MPを2消費。HPを5消費。",
     "特記": "",
-    "発動時効果": "([[W-19|使用時]]):自分に[[W-00|出血]]8を付与。 ([[W-20|的中時]]):与えたダメージの半分の値、自分のHPを回復する。",
-    "特記処理": "{\"cost\": [{\"type\": \"MP\", \"value\": 2}, {\"type\": \"HP\", \"value\": 5}], \"effects\": [{\"timing\": \"PRE_MATCH\", \"type\": \"APPLY_STATE\", \"target\": \"self\", \"state_name\": \"出血\", \"value\": 8}, {\"timing\": \"HIT\", \"type\": \"DRAIN_HP\", \"target\": \"self\", \"value\": 0.5}]}",
+    "発動時効果": "([[W-19|使用時]]):自分に[[W-00|出血]]6を付与。 ([[W-20|的中時]]):与えたダメージの値、自分のHPを回復する。",
+    "特記処理": "{\"cost\": [{\"type\": \"MP\", \"value\": 2}, {\"type\": \"HP\", \"value\": 5}], \"effects\": [{\"timing\": \"PRE_MATCH\", \"type\": \"APPLY_STATE\", \"target\": \"self\", \"state_name\": \"出血\", \"value\": 6}, {\"timing\": \"HIT\", \"type\": \"DRAIN_HP\", \"target\": \"self\", \"value\": 1}]}",
     "tags": [
       "攻撃"
     ]
