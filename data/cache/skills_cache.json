@@ -1398,7 +1398,7 @@
     "使用時効果": "([[W-19|使用時]]):MPを5消費。FPを1消費。",
     "特記": "",
     "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]5を付与。対象に2[[W-16|ラウンド]]の[[W-12|出血遷延]]を付与。",
-    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 5},{\"type\":\"FP\",\"value\":1}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"出血\",\"value\": 5},{\"timing\": \"HIT\",\"type\": \"APPLY_BUFF\",\"target\": \"target\",\"lasting\": 2,\"buff_id\":\"Bu-08\"}]}",
+    "特記処理": "{\"power_bonus\": [],\"cost\": [{\"type\": \"MP\", \"value\": 5},{\"type\":\"FP\",\"value\":1}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"出血\",\"value\": 5},{\"timing\": \"HIT\",\"type\": \"APPLY_BUFF\",\"target\": \"target\", \"buff_id\":\"Bu-08\",\"data\": {\"count\": 2}}]}",
     "tags": [
       "攻撃"
     ]

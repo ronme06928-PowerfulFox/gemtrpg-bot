@@ -173,6 +173,51 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
 
             logger.debug(f"[SpeedMod] Stack update for {buff_name}: {current_count} + {added_count} -> {new_count}")
 
+    # ★ 追加: 出血遷延(Bu-08) は lasting ではなく count 消費型として扱う
+    if payload.get('buff_id') == 'Bu-08':
+        def _resolve_count_from_payload(row):
+            if isinstance(row.get('count'), (int, str)):
+                try:
+                    return int(row.get('count'))
+                except (TypeError, ValueError):
+                    pass
+            d = row.get('data')
+            if isinstance(d, dict) and isinstance(d.get('count'), (int, str)):
+                try:
+                    return int(d.get('count'))
+                except (TypeError, ValueError):
+                    pass
+            return None
+
+        added_count = _resolve_count_from_payload(payload)
+        if added_count is None and count is not None:
+            try:
+                added_count = int(count)
+            except (TypeError, ValueError):
+                added_count = None
+        if added_count is None:
+            added_count = 1
+        added_count = max(1, int(added_count))
+
+        payload['is_permanent'] = True
+        payload['lasting'] = -1
+        if not isinstance(payload.get('data'), dict):
+            payload['data'] = {}
+
+        current_count = 0
+        if existing and existing.get('buff_id') == 'Bu-08':
+            current_count = _resolve_count_from_payload(existing) or 1
+        new_count = current_count + added_count
+        payload['count'] = new_count
+        payload['data']['count'] = new_count
+
+        if existing:
+            existing['delay'] = max(existing.get('delay', 0), delay)
+            existing.update(payload)
+        else:
+            char_obj['special_buffs'].append(payload)
+        return
+
     if existing:
         existing['lasting'] = max(existing.get('lasting', 0), lasting)
         existing['delay'] = max(existing.get('delay', 0), delay)

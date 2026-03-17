@@ -35,6 +35,30 @@ def handle_join_room(data):
     room = data.get('room')
     username = data.get('username')
     attribute = data.get('attribute')
+    if not room:
+        return
+
+    prev_info = user_sids.get(request.sid)
+    prev_room = (prev_info or {}).get('room')
+
+    # same SID -> same room rejoin: refresh snapshot only (no duplicate join log)
+    if prev_room == room:
+        user_sids[request.sid] = {
+            "username": username,
+            "attribute": attribute,
+            "room": room,
+            "user_id": session.get('user_id')
+        }
+        state = get_room_state(room)
+        emit('state_updated', state, to=request.sid)
+        emit_select_resolve_events(room, to_sid=request.sid, include_round_started=True)
+        broadcast_user_list(room)
+        return
+
+    # move SID from previous room when switching rooms
+    if prev_room and prev_room != room:
+        leave_room(prev_room)
+        broadcast_user_list(prev_room)
 
     join_room(room)
 

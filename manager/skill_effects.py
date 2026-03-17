@@ -9,6 +9,7 @@ from manager.battle.core import process_on_damage_buffs
 from manager.constants import DamageSource
 from manager.summons.service import apply_summon_change
 from manager.granted_skills.service import apply_grant_skill_change
+from manager.bleed_logic import consume_bleed_maintenance_stack
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,10 @@ def apply_skill_effects_bidirectional(
                 # ★修正: 対象が本来のダメージ対象(敗者)の場合のみ合計に加算
                 if target_char and char.get('id') == target_char.get('id'):
                     custom_damage_applied += value
+            elif type_ == "CONSUME_BLEED_MAINTENANCE":
+                consumed, remaining = consume_bleed_maintenance_stack(char, amount=int(value or 1))
+                if consumed > 0:
+                    broadcast_log(room, f"[出血遷延] {char['name']} の維持効果を1消費 (残{remaining})", 'state-change')
             elif type_ == "APPLY_BUFF":
                 apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
                 broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')

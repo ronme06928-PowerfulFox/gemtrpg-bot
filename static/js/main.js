@@ -8,7 +8,23 @@ let currentRoomName = null;
 let currentUsername = null;
 let currentUserAttribute = null;
 let currentRoomUserList = [];
+let socketInitInFlight = false;
+let entryRequestInFlight = false;
 let currentUserId = null; // ★追加: ユーザーID (UUID)
+const receivedLogIds = new Set();
+
+function rememberLogIdsFromState(state) {
+    if (!state || !Array.isArray(state.logs)) return;
+    state.logs.forEach((logData) => {
+        if (!logData || logData.log_id === undefined || logData.log_id === null) return;
+        receivedLogIds.add(String(logData.log_id));
+    });
+    if (receivedLogIds.size > 4000) {
+        const keep = Array.from(receivedLogIds).slice(-2500);
+        receivedLogIds.clear();
+        keep.forEach((id) => receivedLogIds.add(id));
+    }
+}
 
 // --- 1. UIコンテナの参照 ---
 const entryPortal = document.getElementById('entry-portal');
@@ -41,6 +57,7 @@ function showEntryPortal() {
     if (!entryBtn.dataset.listenerAttached) {
         entryBtn.dataset.listenerAttached = 'true';
         entryBtn.addEventListener('click', async () => {
+            if (entryRequestInFlight) return;
             const username = document.getElementById('entry-username').value.trim();
             const attribute = document.getElementById('entry-attribute').value;
             if (!username) {
@@ -49,6 +66,8 @@ function showEntryPortal() {
                 return;
             }
             try {
+                entryRequestInFlight = true;
+                entryBtn.disabled = true;
                 const response = await fetchWithSession('/api/entry', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -64,6 +83,9 @@ function showEntryPortal() {
             } catch (error) {
                 entryMsg.textContent = error.message;
                 entryMsg.className = 'auth-message error';
+            } finally {
+                entryRequestInFlight = false;
+                entryBtn.disabled = false;
             }
         });
     }
@@ -299,21 +321,28 @@ function updateHeaderUserInfo() {
 
 // --- 4. SocketIO初期化 ---
 function initializeSocketIO() {
-    if (socket && socket.connected) {
-
+    if (socket) {
+        if (!socket.connected && typeof socket.connect === 'function') {
+            try { socket.connect(); } catch (_e) {}
+        }
         return;
     }
+    if (socketInitInFlight) {
+        return;
+    }
+    socketInitInFlight = true;
     socket = io(API_BASE_URL, { withCredentials: true });
     window.socket = socket; // ★追加: グローバルに公開（SocketClient用）
 
     socket.on('connect', () => {
-        // ★追加: SocketClient の初期化（Phase 2 モジュール）
+        socketInitInFlight = false;
         if (window.SocketClient && typeof window.SocketClient.initialize === 'function') {
             window.SocketClient.initialize();
         }
         showRoomPortal();
     });
     socket.on('disconnect', () => {
+        socketInitInFlight = false;
         console.warn('WebSocket サーバーから切断されました。');
         alert('サーバーとの接続が切れました。ページをリロードします。');
         location.reload();
@@ -322,6 +351,7 @@ function initializeSocketIO() {
     socket.on('state_updated', (newState) => {
 
         battleState = newState;
+        rememberLogIdsFromState(newState);
 
         // ★ Mode Switching Logic
         const mode = newState.mode || 'battle';
@@ -374,6 +404,13 @@ function initializeSocketIO() {
         }
     });
     socket.on('new_log', (logData) => {
+        if (logData && logData.log_id !== undefined && logData.log_id !== null) {
+            const logId = String(logData.log_id);
+            if (receivedLogIds.has(logId)) {
+                return;
+            }
+            receivedLogIds.add(logId);
+        }
         logToBattleLog(logData);
     });
     socket.on('user_info_updated', (data) => {

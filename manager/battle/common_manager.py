@@ -42,6 +42,7 @@ def _is_select_resolve_active(state):
 from manager.game_logic import (
     get_status_value, process_skill_effects, apply_buff, remove_buff, process_battle_start
 )
+from manager.bleed_logic import resolve_bleed_tick, get_bleed_maintenance_count_from_buff
 import manager.utils as _utils_mod
 from manager.battle.enemy_behavior import (
     normalize_behavior_profile,
@@ -797,19 +798,24 @@ def process_full_round_end(room, username):
                 else:
                     logger.warning("[end_round summon failed] %s", res.get("message"))
 
-        # 1c. Bleed
-        bleed_value = get_status_value(char, '出血')
-        if bleed_value > 0:
-            _update_char_stat(room, char, 'HP', char['hp'] - bleed_value, username="[出血]", source=DamageSource.BLEED)
+        # 1c. Bleed (round-end bleed processing, shared with bleed overflow logic)
+        bleed_tick = resolve_bleed_tick(char, consume_maintenance=True)
+        if bleed_tick.get("damage", 0) > 0:
+            _update_char_stat(
+                room,
+                char,
+                'HP',
+                char['hp'] - int(bleed_tick["damage"]),
+                username="[出血]",
+                source=DamageSource.BLEED
+            )
 
-            # 出血維持バフチェック
-            from plugins.buffs.bleed_maintenance import BleedMaintenanceBuff
-            if BleedMaintenanceBuff.has_bleed_maintenance(char):
-                 # 維持する場合、減少処理をスキップ (値は変わらない)
-                 pass
-            else:
-                 # 通常: 半減
-                _update_char_stat(room, char, '出血', bleed_value // 2, username="[出血]")
+            if int(bleed_tick.get("bleed_after", 0)) != int(bleed_tick.get("bleed_before", 0)):
+                _update_char_stat(room, char, '出血', int(bleed_tick["bleed_after"]), username="[出血]")
+
+            if int(bleed_tick.get("maintenance_consumed", 0)) > 0:
+                remaining = int(bleed_tick.get("maintenance_remaining", 0))
+                broadcast_log(room, f"[出血遷延] {char.get('name', '???')} の維持効果を1消費 (残{remaining})", 'state-change')
 
         # 1d. Thorns
         thorns_value = get_status_value(char, '荊棘')
@@ -825,6 +831,24 @@ def process_full_round_end(room, username):
                 buff_name = buff.get("name")
                 delay = buff.get("delay", 0)
                 lasting = buff.get("lasting", 0)
+
+                # Bu-08: round-based timerを使わず count 消費で管理する
+                if buff.get("buff_id") == "Bu-08":
+                    if delay > 0:
+                        buff["delay"] = delay - 1
+                        if buff["delay"] == 0:
+                            broadcast_log(room, f"[{buff_name}] の効果が {char['name']} で発動可能になった。", 'state-change')
+                        if buff["delay"] >= 0:
+                            active_buffs.append(buff)
+                        continue
+
+                    buff["is_permanent"] = True
+                    buff["lasting"] = -1
+                    if get_bleed_maintenance_count_from_buff(buff) > 0:
+                        active_buffs.append(buff)
+                    else:
+                        buffs_to_remove.append(buff_name)
+                    continue
 
                 if delay > 0:
                     buff["delay"] = delay - 1

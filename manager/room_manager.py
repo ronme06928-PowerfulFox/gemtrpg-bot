@@ -1,4 +1,6 @@
 # manager/room_manager.py
+import time
+
 from extensions import socketio, active_room_states, user_sids
 from manager.data_manager import read_saved_rooms, save_room_to_db
 from manager.utils import set_status_value, get_status_value, apply_buff, remove_buff
@@ -107,6 +109,8 @@ def get_room_state(room_name):
             state = all_rooms[room_name]
             if 'logs' not in state:
                 state['logs'] = []
+            if '_log_seq' not in state:
+                state['_log_seq'] = len(state['logs'])
 
 
             # ★ 追加: フィールド補完
@@ -128,6 +132,7 @@ def get_room_state(room_name):
                 "timeline": [],
                 "round": 0,
                 "logs": [],
+                "_log_seq": 0,
                 "battle_state": {},
                 # ★ 追加: マップ設定データ
                 "map_data": {
@@ -188,6 +193,8 @@ def get_room_state(room_name):
         }
     if 'battle_state' not in state:
         state['battle_state'] = {}
+    if '_log_seq' not in state:
+        state['_log_seq'] = len(state.get('logs', []))
 
 
     try:
@@ -243,13 +250,22 @@ def broadcast_state_update(room_name):
 # ▼▼▼ 修正箇所: secret 引数対応版のみにする ▼▼▼
 def broadcast_log(room_name, message, type='info', user=None, secret=False, save=True):
     """ログを配信し、かつステート(DB)に保存する"""
-    log_data = {"message": message, "type": type, "secret": secret}
-    if user:
-        log_data["user"] = user
-
     state = get_room_state(room_name)
     if 'logs' not in state:
         state['logs'] = []
+    if '_log_seq' not in state:
+        state['_log_seq'] = len(state['logs'])
+
+    state['_log_seq'] += 1
+    log_data = {
+        "log_id": state['_log_seq'],
+        "timestamp": int(time.time() * 1000),
+        "message": message,
+        "type": type,
+        "secret": secret
+    }
+    if user:
+        log_data["user"] = user
 
     state['logs'].append(log_data)
 

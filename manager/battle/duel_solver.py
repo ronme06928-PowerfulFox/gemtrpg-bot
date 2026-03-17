@@ -24,6 +24,7 @@ from manager.battle.core import (
 )
 from manager.summons.service import apply_summon_change
 from manager.granted_skills.service import apply_grant_skill_change, consume_granted_skill_use
+from manager.bleed_logic import consume_bleed_maintenance_stack
 from plugins.buffs.dodge_lock import DodgeLockBuff
 from manager.logs import setup_logger
 
@@ -738,6 +739,10 @@ def execute_duel_match(room, data, username):
                                 target_key = 'A' if actor_a_char and c.get('id') == actor_a_char.get('id') else ('D' if actor_d_char and c.get('id') == actor_d_char.get('id') else None)
                                 if target_key:
                                     damage_report[target_key].append({'source': n, 'value': v})
+                            elif t == "CONSUME_BLEED_MAINTENANCE":
+                                consumed, remaining = consume_bleed_maintenance_stack(c, amount=int(v or 1))
+                                if consumed > 0:
+                                    broadcast_log(room, f"[出血遷延] {c.get('name', '???')} の維持効果を1消費 (残{remaining})", 'state-change')
 
                             elif t == "APPLY_SKILL_DAMAGE_AGAIN" or t == "USE_SKILL_AGAIN":
                                 if state.get('__select_resolve_delegate__', False):
@@ -1067,6 +1072,8 @@ def execute_duel_match(room, data, username):
                             t_key = 'A' if actor_a_char and char['id'] == actor_a_char['id'] else ('D' if actor_d_char and char['id'] == actor_d_char['id'] else None)
                             if t_key: damage_report[t_key].append({'source': name, 'value': value})
                             _update_char_stat(room, char, 'HP', max(0, get_status_value(char, 'HP') - value), username=f"[{name}]", save=False)
+                        elif type == "CONSUME_BLEED_MAINTENANCE":
+                            consume_bleed_maintenance_stack(char, amount=int(value or 1))
                         elif type == "SET_FLAG":
                             if 'flags' not in char: char['flags'] = {}
                             char['flags'][name] = value
@@ -1293,6 +1300,8 @@ def execute_duel_match(room, data, username):
                         t_key = 'A' if actor_a_char and char['id'] == actor_a_char['id'] else ('D' if actor_d_char and char['id'] == actor_d_char['id'] else None)
                         if t_key: damage_report[t_key].append({'source': name, 'value': value})
                         _update_char_stat(room, char, 'HP', max(0, get_status_value(char, 'HP') - value), username=f"[{name}]", save=False)
+                    elif type == "CONSUME_BLEED_MAINTENANCE":
+                        consume_bleed_maintenance_stack(char, amount=int(value or 1))
                     elif type == "SET_FLAG":
                         if 'flags' not in char: char['flags'] = {}
                         char['flags'][name] = value

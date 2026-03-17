@@ -93,16 +93,8 @@ function logToBattleLog(logData) {
         console.debug('[LOG] text log-area not found (tab may not be loaded), saved to battleState.logs');
     }
 
-    // 3. ビジュアルバトルフィールドへの描画
-    const visualLogArea = document.getElementById('visual-log-area');
-    // window.currentVisualLogFilter が未定義の場合は 'all' とする
-    const visualFilter = (typeof window.currentVisualLogFilter !== 'undefined') ? window.currentVisualLogFilter : 'all';
-
-    if (visualLogArea) {
-        appendLogLineToElement(visualLogArea, logData, visualFilter);
-    } else {
-        console.debug('[LOG] visual log-area not found (tab may not be loaded), saved to battleState.logs');
-    }
+    // 3. ビジュアル側ログの描画は visual_socket.js の state_updated 経路に集約する
+    //    (ここでも描画すると二重表示になる)
 }
 
 // ログ表示数の上限

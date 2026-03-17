@@ -1,13 +1,29 @@
 # plugins/standard.py
 from .base import BaseEffect
 from manager.utils import get_status_value, set_status_value
+from manager.bleed_logic import resolve_bleed_tick
 
 class BleedOverflowEffect(BaseEffect):
     def apply(self, actor, target, params, context):
-        val = get_status_value(target, "出血")
-        if val <= 0: return [], []
-        # 出血は維持する
-        return [(target, "CUSTOM_DAMAGE", "出血氾濫", val)], [f"《出血氾濫》 {val}ダメージ！"]
+        tick = resolve_bleed_tick(target, consume_maintenance=True)
+        damage = int(tick.get("damage", 0))
+        if damage <= 0:
+            return [], []
+
+        changes = [(target, "CUSTOM_DAMAGE", "出血氾濫", damage)]
+
+        bleed_delta = int(tick.get("bleed_delta", 0))
+        if bleed_delta != 0:
+            changes.append((target, "APPLY_STATE", "出血", bleed_delta))
+
+        if int(tick.get("maintenance_consumed", 0)) > 0:
+            changes.append((target, "CONSUME_BLEED_MAINTENANCE", "出血遷延", int(tick.get("maintenance_consumed", 0))))
+
+        logs = [f"《出血氾濫》 {damage}ダメージ！"]
+        if int(tick.get("maintenance_consumed", 0)) > 0:
+            logs.append(f"(出血遷延を1消費: 残{int(tick.get('maintenance_remaining', 0))})")
+
+        return changes, logs
 
 class FearSurgeEffect(BaseEffect):
     def apply(self, actor, target, params, context):

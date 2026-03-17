@@ -790,10 +790,23 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 changes_to_apply.append((target_obj, "USE_SKILL_AGAIN", "None", request_payload))
                 log_snippets.append(f"[同スキル再使用 x{max_reuses}]")
             elif effect_type == "CUSTOM_EFFECT":
-                # ★修正: target="self" の場合は自分を対象にする
-                target_obj = actor if effect.get("target") == "self" else target
-                custom_changes, custom_logs = execute_custom_effect(effect, actor, target_obj, context=context)
-                changes_to_apply.extend(custom_changes)
+                # target="self" の場合は自分を対象にする。
+                # 重要: CUSTOM_EFFECT もシミュレーション状態を参照させる。
+                # これにより、同一 effects 配列内で先行した APPLY_STATE の結果を正しく反映できる。
+                custom_target_sim = sim_actor if effect.get("target") == "self" else sim_target
+                custom_changes, custom_logs = execute_custom_effect(effect, sim_actor, custom_target_sim, context=context)
+
+                # 実適用キューには実体参照を積むため、sim参照を actor/target_obj に戻す。
+                remapped_changes = []
+                for c, t, n, v in custom_changes:
+                    mapped_char = c
+                    if c is sim_actor:
+                        mapped_char = actor
+                    elif c is sim_target:
+                        mapped_char = target_obj
+                    remapped_changes.append((mapped_char, t, n, v))
+
+                changes_to_apply.extend(remapped_changes)
                 log_snippets.extend(custom_logs)
             elif effect_type == "FORCE_UNOPPOSED":
                 changes_to_apply.append((target_obj, "FORCE_UNOPPOSED", "None", 0))

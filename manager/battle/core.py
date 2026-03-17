@@ -25,6 +25,7 @@ from manager.granted_skills.service import (
     process_granted_skill_round_end,
     consume_granted_skill_use,
 )
+from manager.bleed_logic import consume_bleed_maintenance_stack
 
 logger = setup_logger(__name__)
 
@@ -2108,6 +2109,10 @@ def _apply_effect_changes_like_duel(
             else:
                 curr_hp = int(get_status_value(char, 'HP'))
                 _update_char_stat(room, char, 'HP', max(0, curr_hp - int(value)), username=f"[{name}]", source=DamageSource.SKILL_EFFECT)
+        elif effect_type == "CONSUME_BLEED_MAINTENANCE":
+            consumed, remaining = consume_bleed_maintenance_stack(char, amount=int(value or 1))
+            if consumed > 0:
+                log_snippets.append(f"[出血遷延] 1消費 (残{remaining})")
         elif effect_type == "APPLY_SKILL_DAMAGE_AGAIN":
             if base_damage > 0:
                 _update_char_stat(room, char, 'HP', int(char.get('hp', 0)) - int(base_damage), username="[追撃]", source=DamageSource.SKILL_EFFECT)

@@ -437,11 +437,9 @@ window.setupVisualSocketHandlers = function () {
             const safeLines = Array.isArray(lines) ? lines.filter(v => v !== null && v !== undefined).map(v => String(v)) : [];
             if (safeLines.length === 0) return;
 
-            const container = document.getElementById('visual-log-area')
-                || document.getElementById('chat-log')
-                || document.getElementById('log-area');
+            const container = document.getElementById('visual-log-area');
             if (!container) {
-                console.warn('[trace_chat_append] chat container not found');
+                console.warn('[trace_chat_append] visual log container not found');
                 return;
             }
 
