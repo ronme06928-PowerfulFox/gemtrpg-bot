@@ -122,11 +122,96 @@ class ResolveFlowPanel {
         return String(actorId);
     }
 
+    _characterById(actorId, state) {
+        if (!actorId) return null;
+        const chars = Array.isArray(state?.characters) ? state.characters : [];
+        return chars.find((c) => String(c?.id || '') === String(actorId)) || null;
+    }
+
+    _initials(name) {
+        const raw = String(name || '')
+            .replace(/\[[^\]]*\]/g, ' ')
+            .trim();
+        if (!raw) return '?';
+        const compact = raw.replace(/\s+/g, ' ').trim();
+        const words = compact.split(' ').filter(Boolean);
+        if (words.length >= 2 && /[A-Za-z]/.test(compact)) {
+            return `${words[0][0] || ''}${words[1][0] || ''}`.toUpperCase();
+        }
+        const plain = compact.replace(/\s+/g, '');
+        if (/^[A-Za-z0-9]+$/.test(plain)) {
+            return plain.slice(0, 2).toUpperCase();
+        }
+        return Array.from(compact).slice(0, 2).join('');
+    }
+
+    _actorVisualMeta(actorId, state, fallbackName = null) {
+        const char = this._characterById(actorId, state);
+        const name = char?.name
+            ? String(char.name)
+            : String(fallbackName || actorId || '-');
+        const image = char?.image || char?.imageOriginal || null;
+        return {
+            actorId: actorId ? String(actorId) : null,
+            name,
+            image: image ? String(image) : null,
+            initials: this._initials(name)
+        };
+    }
+
+    _renderPortrait(meta, variant = 'card') {
+        const visual = (meta && typeof meta === 'object') ? meta : {};
+        const name = this._escape(visual.name || '-');
+        const initials = this._escape(visual.initials || '?');
+        const variantClass = variant === 'inline' ? ' resolve-flow-portrait-inline' : '';
+        if (visual.image) {
+            return `<div class="resolve-flow-portrait${variantClass}" title="${name}"><img src="${this._escape(visual.image)}" alt="${name}"></div>`;
+        }
+        return `<div class="resolve-flow-portrait${variantClass} fallback" title="${name}"><span>${initials}</span></div>`;
+    }
+
     _slotActorId(slotId, state) {
         if (!slotId) return null;
         const slots = state?.slots || {};
         const slot = slots[String(slotId)] || null;
         return slot?.actor_id || slot?.actor_char_id || null;
+    }
+
+    _slotLabel(slotId, state) {
+        if (!slotId) return '-';
+        const slots = state?.slots || {};
+        const slot = slots[String(slotId)] || {};
+        const actorId = slot?.actor_id || slot?.actor_char_id || null;
+        const actorName = this._actorNameById(actorId || slotId, state) || String(slotId);
+        const indexRaw = Number(slot?.index_in_actor);
+        if (Number.isFinite(indexRaw)) {
+            return `${actorName} #${indexRaw + 1}`;
+        }
+        return actorName;
+    }
+
+    _tiebreakNoteForStep(step, state) {
+        const groups = Array.isArray(state?.tiebreak) ? state.tiebreak : [];
+        if (groups.length === 0) return '';
+        const relevantSlotIds = [step?.attackerSlotId, step?.defenderSlotId]
+            .filter(Boolean)
+            .map((slotId) => String(slotId));
+        if (relevantSlotIds.length === 0) return '';
+        const matched = groups.find((group) => {
+            const slotIds = Array.isArray(group?.group) ? group.group.map((slotId) => String(slotId)) : [];
+            return relevantSlotIds.some((slotId) => slotIds.includes(slotId));
+        });
+        if (!matched) return '';
+        const rolls = (matched.rolls && typeof matched.rolls === 'object') ? matched.rolls : {};
+        const details = (Array.isArray(matched.group) ? matched.group : [])
+            .map((slotId) => {
+                const label = this._slotLabel(slotId, state);
+                const roll = rolls[slotId];
+                return `${label}:${roll ?? '-'}`;
+            })
+            .join(' / ');
+        const initiative = matched.initiative ?? '-';
+        return `\u540c\u901f\u5224\u5b9a SPD:${initiative} | ${details}`;
     }
 
     _actorNameFromStep(step, state, side) {
@@ -1082,9 +1167,11 @@ class ResolveFlowPanel {
         return Object.entries(raw).map(([slotId, power]) => {
             const actorId = this._slotActorId(slotId, state);
             const name = this._actorNameById(actorId || slotId, state) || slotId;
+            const visual = this._actorVisualMeta(actorId || slotId, state, name);
             return {
                 name: String(name || slotId),
-                power: String(power ?? 0)
+                power: String(power ?? 0),
+                visual
             };
         });
     }
@@ -1165,10 +1252,18 @@ class ResolveFlowPanel {
         }
 
         const isSummationKind = String(step.kind) === 'mass_summation';
+        const attackerActorId = this._slotActorId(step.attackerSlotId, state) || step.attackerActorId || null;
+        const defenderActorId = isSummationKind
+            ? null
+            : (this._slotActorId(step.defenderSlotId, state) || step.defenderActorId || step.targetActorId || null);
         const attackerNameRaw = this._actorNameFromStep(step, state, 'attacker');
         const defenderNameRaw = this._actorNameFromStep(step, state, 'defender');
         const attackerName = this._escape(attackerNameRaw);
         const defenderName = this._escape(isSummationKind ? '防御威力合計' : defenderNameRaw);
+        const attackerVisual = this._actorVisualMeta(attackerActorId, state, attackerNameRaw);
+        const defenderVisual = isSummationKind
+            ? null
+            : this._actorVisualMeta(defenderActorId, state, defenderNameRaw);
         const attackerSkill = this._resolveSkillMeta(step, 'attacker');
         const defenderSkill = this._resolveSkillMeta(step, 'defender');
         const powers = this._resolvePowerValues(step);
@@ -1202,12 +1297,16 @@ class ResolveFlowPanel {
             ? '[-] -'
             : `[${this._escape(defenderSkill.id)}] ${this._escape(defenderSkill.name)}`;
         const outcomeResultHtml = isOneSided ? '' : ` <span class="result">(${outcomeLabel})</span>`;
+        const tiebreakNote = this._tiebreakNoteForStep(step, state);
+        const tiebreakHtml = tiebreakNote
+            ? `<div class="resolve-flow-tiebreak">${this._escape(tiebreakNote)}</div>`
+            : '';
         const notes = step.notes ? `<div class="resolve-flow-notes reveal-block reveal-outcome">${this._escape(String(step.notes))}</div>` : '';
         const stepBodyKey = this._traceKey(step) || `fallback:${stepNumLabel}:${kindClass}`;
 
         const participants = this._summationParticipants(step, state);
         const participantsHtml = participants.map((row) => (
-            `<span class="charge-chip">${this._escape(row.name)} +${this._escape(row.power)}</span>`
+            `<span class="charge-chip participant-chip">${this._renderPortrait(row.visual, 'inline')}<span class="participant-chip-text">${this._escape(row.name)} <strong>+${this._escape(row.power)}</strong></span></span>`
         )).join('');
         const summationInlineHtml = isSummationKind
             ? `
@@ -1221,6 +1320,7 @@ class ResolveFlowPanel {
         const defenderSideContentHtml = isSummationKind
             ? `${summationInlineHtml}`
             : `
+                            <div class="portrait-wrap reveal-block reveal-names">${this._renderPortrait(defenderVisual)}</div>
                             <div class="name reveal-block reveal-names">${defenderName}</div>
                             <div class="skill reveal-block reveal-skills">${defenderSkillHtml}</div>
                             <div class="power reveal-block reveal-power">\u5a01\u529b <span class="range">${this._escape(powerRanges.defender)}</span> <span class="arrow">\u2192</span> <span class="actual defender">${this._escape(powers.defender)}</span></div>
@@ -1239,9 +1339,11 @@ class ResolveFlowPanel {
                         <span class="meta">#${this._escape(stepNumLabel)}</span>
                     </div>
                     <div class="resolve-flow-kind">${kindLabel}</div>
+                    ${tiebreakHtml}
                     <div class="resolve-flow-reveal-stage">${revealLabel}</div>
                     <div class="resolve-flow-versus">
                         <div class="side attacker">
+                            <div class="portrait-wrap reveal-block reveal-names">${this._renderPortrait(attackerVisual)}</div>
                             <div class="name reveal-block reveal-names">${attackerName}</div>
                             <div class="skill reveal-block reveal-skills">[${this._escape(attackerSkill.id)}] ${this._escape(attackerSkill.name)}</div>
                             <div class="power reveal-block reveal-power">\u5a01\u529b <span class="range">${this._escape(powerRanges.attacker)}</span> <span class="arrow">\u2192</span> <span class="actual attacker">${this._escape(powers.attacker)}</span></div>
@@ -1251,9 +1353,11 @@ class ResolveFlowPanel {
                             ${defenderSideContentHtml}
                         </div>
                     </div>
-                    <div class="resolve-flow-outcome reveal-block reveal-outcome">${headline}${outcomeResultHtml}</div>
-                    <div class="resolve-flow-damage reveal-block reveal-outcome">\u7dcf\u30c0\u30e1\u30fc\u30b8: <strong>${this._escape(String(damage.total))}</strong></div>
-                    <div class="resolve-flow-damage-breakdown reveal-block reveal-outcome">\u30c0\u30a4\u30b9\u7531\u6765: <strong>${this._escape(String(damage.diceTotal))}</strong> / ${this._escape(damage.diceText)} | \u52b9\u679c\u7531\u6765: <strong>${this._escape(String(damage.effectTotal))}</strong> / ${this._escape(damage.effectText)}</div>
+                    <div class="resolve-flow-summary reveal-block reveal-outcome">
+                        <div class="resolve-flow-outcome">${headline}${outcomeResultHtml}</div>
+                        <div class="resolve-flow-damage">\u7dcf\u30c0\u30e1\u30fc\u30b8: <strong>${this._escape(String(damage.total))}</strong></div>
+                        <div class="resolve-flow-damage-breakdown">\u30c0\u30a4\u30b9\u7531\u6765: <strong>${this._escape(String(damage.diceTotal))}</strong> / ${this._escape(damage.diceText)} | \u52b9\u679c\u7531\u6765: <strong>${this._escape(String(damage.effectTotal))}</strong> / ${this._escape(damage.effectText)}</div>
+                    </div>
                     ${notes}
                     <div class="resolve-flow-advance">
                         <button type="button" class="resolve-flow-next-btn">\u6b21\u306e\u30de\u30c3\u30c1\u3078</button>

@@ -500,3 +500,56 @@ GM機能は、まず認可が仕様化されていることが前提です。
 
 一方で、`timeline` は内部進行にも使っているため、今回は削除対象を UI に限定し、内部データは維持する方針です。  
 また、GM運用機能に着手する前に、サーバー側の権限チェックを先に補強することを推奨します。
+## 9. 2026-03-17 UI修正の実施結果
+
+Manual14 の UI 系要望については、2026-03-17 時点で以下を実装済みとする。
+
+### 9.1 実装済み項目
+
+- スロット表示の拡大と上方配置
+  - `static/css/modules/visual_map.css`
+  - Select/Resolve 中のスロット番号を見やすくするため、バッジサイズを拡大し、トークン上部へ退避した。
+- スロット番号と状態異常アイコンの干渉軽減
+  - `static/css/modules/visual_map.css`
+  - バッジの高さを再調整し、右上の状態異常アイコン帯と重なりにくい配置へ変更した。
+- 矢印の始点・終点の視認性改善
+  - `static/js/visual/visual_arrows.js`
+  - 矢印のアンカーをスロット数字の中心から少し外した位置へ寄せ、数字を隠さず、かつ離れすぎない終点に調整した。
+- タイムラインUIの非表示化
+  - `static/css/modules/visual_battle.css`
+  - 画面上の `#visual-timeline-area` は非表示にした。内部の `timeline` データや進行順ロジックは維持している。
+- Resolve 画面の圧縮
+  - `static/css/modules/visual_battle.css`
+  - カード余白、フォント、立ち絵サイズ、下部サマリを再構成し、マッチ結果画面が縦に伸びすぎないよう圧縮した。
+- Resolve 中の立ち絵表示
+  - `static/js/battle/components/ResolveFlowPanel.js`
+  - attacker / defender の立ち絵、および `mass_summation` 参加者の簡易表示を追加した。
+- 同速情報の補助表示
+  - `static/js/battle/components/ResolveFlowPanel.js`
+  - `tiebreak` は現在表示中の Resolve 対象に限って補助表示するよう整理した。
+- フローティングテキストの戦闘中抑制
+  - `static/js/visual/visual_map.js`
+  - `select / resolve_mass / resolve_single / round_end` 中はフローティングテキストを出さないよう変更した。戦闘開始時に一斉表示される問題の回避が目的である。
+
+### 9.2 反映済みとみなす範囲
+
+- Manual14 由来の UI 改善として、今回完了したのは以下の範囲である。
+  - スロット表示調整
+  - タイムラインUI整理
+  - Resolve 表示改善
+  - フローティングテキスト整理
+- 一方で、GM 専用 API や権限チェック強化のようなサーバ側要望は本節の完了対象には含めない。
+
+### 9.3 ドキュメント統合メモ
+
+- UI特化の一時計画書 `manuals/18_Manual14_UI_Focused_Implementation_Plan.md` の内容は、本追補および恒常仕様書へ統合した。
+- 恒常仕様として残す内容は `manuals/08_SelectResolve_Spec.md` と `manuals/06_Visual_Battle_Architecture.md` に反映する。
+- したがって、今後 UI 修正の参照元は `14` の実施結果要約と `06/08` の恒常仕様を正本とする。
+
+### 9.4 フローティングテキストの最終実装方針
+
+- フローティングテキストは、最終的に「平時の数値変化補助」に用途を限定する。
+- `select / resolve_mass / resolve_single / round_end` 中は表示しない方針を維持する。
+- 戦闘中の主表示は `ResolveFlowPanel` とログを正本とする。
+- バフ付与や状態異常付与を戦闘中のマップ上フローティングへ拡張しない。
+- 将来、戦闘中の段階表示を増やす場合は、マップ上オーバーレイではなく `ResolveFlowPanel` 内演出として追加する。

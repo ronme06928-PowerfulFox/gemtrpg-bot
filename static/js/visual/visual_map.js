@@ -1090,6 +1090,12 @@ window.showFloatingText = function (token, diff, stat, source = null) {
     const mapViewport = document.getElementById('map-viewport');
     if (!mapViewport) return;
 
+    const srState = _getSelectResolveStateRef();
+    const srPhase = String(srState?.phase || '');
+    if (['select', 'resolve_mass', 'resolve_single', 'round_end'].includes(srPhase)) {
+        return;
+    }
+
     const charId = token.dataset.id;
     if (!window.floatingTextCounters) window.floatingTextCounters = {};
     if (!window.floatingTextCounters[charId]) window.floatingTextCounters[charId] = 0;

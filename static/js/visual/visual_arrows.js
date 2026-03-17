@@ -579,8 +579,11 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         return { x, y };
     }
 
-    function toLocalCenter(layer, el) {
+    function toLocalCenter(layer, el, extraOffset) {
         if (!layer || !el) return null;
+        const offset = extraOffset || {};
+        const extraX = Number(offset.x || 0);
+        const extraY = Number(offset.y || 0);
 
         const mapRoot = document.getElementById('game-map') || layer.parentElement;
         const offsetCenter = getCenterViaOffset(el, mapRoot);
@@ -601,7 +604,10 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
                     );
                 }
             }
-            return offsetCenter;
+            return {
+                x: offsetCenter.x + extraX,
+                y: offsetCenter.y + extraY
+            };
         }
 
         // Fallback: convert transformed viewport coordinates to map-local coordinates.
@@ -616,7 +622,21 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
                 `[arrow_anchor_fallback] scale=${scale} layer=(${layerRect.left.toFixed(1)},${layerRect.top.toFixed(1)}) center=(${x.toFixed(1)},${y.toFixed(1)})`
             );
         }
-        return { x, y };
+        return {
+            x: x + extraX,
+            y: y + extraY
+        };
+    }
+
+    function getBadgeAnchorProfile(badge) {
+        const width = Math.max(24, Number(badge?.offsetWidth || 0) || 42);
+        const height = Math.max(24, Number(badge?.offsetHeight || 0) || width);
+        const lift = Math.max(10, Math.round(height * 0.32));
+        const padding = Math.max(12, Math.round(width * 0.24));
+        return {
+            offset: { x: 0, y: -lift },
+            padding
+        };
     }
 
     function getSlotAnchor(layer, slotId, slotsById) {
@@ -624,7 +644,9 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         const selectorId = String(slotId).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
         const badge = document.querySelector(`.slot-badge[data-slot-id="${selectorId}"]`);
         if (badge) {
-            return toLocalCenter(layer, badge);
+            const profile = getBadgeAnchorProfile(badge);
+            const point = toLocalCenter(layer, badge, profile.offset);
+            return point ? { ...point, padding: profile.padding } : null;
         }
 
         const slot = slotsById.get(String(slotId));
@@ -635,7 +657,8 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         const actorSelector = actorId.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
         const token = document.querySelector(`.map-token[data-id="${actorSelector}"]`);
         if (!token) return null;
-        return toLocalCenter(layer, token);
+        const point = toLocalCenter(layer, token);
+        return point ? { ...point, padding: 18 } : null;
     }
 
     function buildCurve(start, end, laneIndex, laneTotal) {
@@ -646,8 +669,8 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
 
         const dirX = dx / dist;
         const dirY = dy / dist;
-        const startOffset = 18;
-        const endOffset = 18;
+        const startOffset = Math.max(14, Number(start?.padding || 18));
+        const endOffset = Math.max(18, Number(end?.padding || 18));
         const sx = start.x + dirX * startOffset;
         const sy = start.y + dirY * startOffset;
         const tx = end.x - dirX * endOffset;

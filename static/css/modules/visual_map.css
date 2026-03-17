@@ -146,20 +146,20 @@
 /* Select/Resolve slot badges (token overlay) */
 .slot-badge-container {
     position: absolute;
-    top: -52px;
+    top: -78px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 7px;
+    gap: 8px;
     align-items: flex-start;
     z-index: 140;
     pointer-events: none;
 }
 
 .slot-badge {
-    width: 34px;
-    min-width: 34px;
-    height: 34px;
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
     padding: 0;
     border-radius: 999px;
     border: 2px solid #4a3a28;
@@ -168,7 +168,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 800;
     line-height: 1;
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.42);
@@ -238,7 +238,7 @@
 }
 
 .slot-badge-num {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 800;
 }
 
@@ -260,7 +260,7 @@
     font-size: 9px;
     font-weight: 700;
     color: #444;
-    max-width: 32px;
+    max-width: 40px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -478,8 +478,8 @@
     /* ★ 18px → 20px に拡大 */
     font-weight: bold;
     pointer-events: none;
-    z-index: 100;
-    /* ★ マッチパネルより下に表示 */
+    z-index: 980;
+    /* Resolve overlay より前に出しつつ、モーダル全体は邪魔しない */
     text-shadow:
         -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff,
         /* 白い縁取り外側 */
@@ -493,6 +493,24 @@
     animation: floatUp 4s ease-out forwards;
     /* ★ 4秒に設定 */
     white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+    .slot-badge-container {
+        top: -70px;
+        gap: 6px;
+    }
+
+    .slot-badge {
+        width: 38px;
+        min-width: 38px;
+        height: 38px;
+        font-size: 16px;
+    }
+
+    .slot-badge-num {
+        font-size: 17px;
+    }
 }
 
 /* デフォルト: ダメージ（赤） */
