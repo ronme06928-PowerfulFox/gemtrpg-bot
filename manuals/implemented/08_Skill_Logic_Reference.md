@@ -9,7 +9,7 @@
 
 - 本書は「現在のコードで実際にどう動くか」をまとめた実装準拠リファレンスです。
 - 旧来の手動テスト用バグ調査メモは本書へ統合し、恒常仕様のみを残しています。
-- Select/Resolve の戦闘進行そのものは `manuals/08_SelectResolve_Spec.md` を正とします。
+- Select/Resolve の戦闘進行そのものは `manuals/implemented/09_SelectResolve_Spec.md` を正とします。
 
 ---
 

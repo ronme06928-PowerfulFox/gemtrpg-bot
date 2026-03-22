@@ -495,7 +495,7 @@ ID `S-XX` で定義されるパッシブスキルです。
 - `使用時効果` テキスト列は主に表示/互換用途で、実際の効果発火は `特記処理.effects[]` が基準です。
 - 新規効果を追加する際は、`timing` の定義（データ）と呼び出し点（コード）の両方を合わせて更新してください。
 - `速度値` 条件はスロット initiative（最大値）を参照するため、通常 `params` の `速度` とは別物です。
-- Select/Resolve での再使用演算・表示ラベル規則は `manuals/08_SelectResolve_Spec.md` の 9.2 / 付録A-6 を参照してください。
+- Select/Resolve での再使用演算・表示ラベル規則は `manuals/implemented/09_SelectResolve_Spec.md` の 9.2 / 付録A-6 を参照してください。
 - 用語整理:
   - `戦闘開始時` = `RESOLVE_START`
   - `戦闘終了時` = `RESOLVE_END`

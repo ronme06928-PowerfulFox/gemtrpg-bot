@@ -1,8 +1,8 @@
-# 17 Manual13-15 統合実装ロードマップ（Manual14整理後）
+﻿# 06 新スキル提案・実装プロトコル統合ロードマップ
 
 **更新日**: 2026-03-17  
-**対象**: `manuals/13_*`, `manuals/15_*`  
-**補足**: Manual14 由来の UI/演出改善は `manuals/14_TRPG_Session_Improvement_Feasibility_Plan.md`, `manuals/08_SelectResolve_Spec.md`, `manuals/06_Visual_Battle_Architecture.md` へ統合済みであり、本書の対象外とする。
+**対象**: `manuals/planned/03_*`, `manuals/planned/05_*`
+**補足**: planned/04 由来の UI/演出改善は `manuals/planned/04_TRPG_Session_Improvement_Feasibility_Plan.md`, `manuals/implemented/09_SelectResolve_Spec.md`, `manuals/implemented/06_Visual_Battle_Architecture.md` へ統合済みであり、本書の対象外とする。
 
 ---
 
@@ -34,7 +34,7 @@
 - 新デバフ「震盪」の仕様実装
 - `state_receive_bonus` の追加
 - `APPLY_STATE` / `APPLY_STATE_PER_N` への受け手側補正統合
-- 実装後に `03/07/08` へ仕様を戻す文書更新プロトコル
+- 実装後に `03/07/08` へ仕様を戻し、図鑑系はユーザーのシート/DB更新手順として案内するプロトコル
 
 ---
 
@@ -44,9 +44,9 @@
 **目的**: 実装前に仕様の正本をそろえる。
 
 - 更新先
-  - `manuals/03_Integrated_Data_Definitions.md`
-  - `manuals/07_Skill_Logic_Reference.md`
-  - `manuals/08_SelectResolve_Spec.md`
+  - `manuals/implemented/03_Integrated_Data_Definitions.md`
+  - `manuals/implemented/08_Skill_Logic_Reference.md`
+  - `manuals/implemented/09_SelectResolve_Spec.md`
 - そろえる項目
   - `state_receive_bonus`
   - `condition.source=battle,param=round`
@@ -130,21 +130,27 @@
 ---
 
 ## Phase 3: 文書統合
-**目的**: Manual15 の更新プロトコルに従って、確定仕様を正本へ戻す。
+**目的**: Manual15 の更新プロトコルに従って、確定仕様を正本へ戻し、図鑑系はユーザー更新フローへ接続する。
 
 - 更新先
-  - `manuals/03_Integrated_Data_Definitions.md`
-  - `manuals/07_Skill_Logic_Reference.md`
-  - `manuals/08_SelectResolve_Spec.md`
-  - 必要に応じて `manuals/01_Integrated_Player_Manual.md`
-  - 必要に応じて `manuals/02_Integrated_GM_Creator_Manual.md`
-  - 必要に応じて `manuals/04_Character_Build_Guide.md`
-  - 必要に応じて glossary / buff catalog
+  - `manuals/implemented/03_Integrated_Data_Definitions.md`
+  - `manuals/implemented/08_Skill_Logic_Reference.md`
+  - `manuals/implemented/09_SelectResolve_Spec.md`
+  - 必要に応じて `manuals/implemented/01_Integrated_Player_Manual.md`
+  - 必要に応じて `manuals/implemented/02_Integrated_GM_Creator_Manual.md`
+  - 必要に応じて `manuals/implemented/04_Character_Build_Guide.md`
+- ユーザー向け更新案内
+  - Glossary シート
+  - Buff Catalog シート
+  - スキル正本シート
+  - DB / キャッシュ反映手順
 
 **完了条件**
 
 - 実装内容が 03/07/08 に反映されている
 - ユーザー向け・GM向け説明が必要な項目だけ 01/02/04 に戻されている
+- 図鑑系データについては、AIが直接ファイル更新せず、ユーザー向けに更新手順が提示されている
+- ユーザーがシート/DB反映を行う前提の確認項目まで整理されている
 - 一時計画書にしか存在しない仕様が残っていない
 
 ---
@@ -172,8 +178,8 @@
 ## 6. Manual14 の扱い
 
 - Manual14 由来の UI/演出改善は、本書から除外した。
-- 実施結果の要約は `manuals/14_TRPG_Session_Improvement_Feasibility_Plan.md`
-- Select/Resolve の恒常仕様は `manuals/08_SelectResolve_Spec.md`
-- Visual Battle 側の構造整理は `manuals/06_Visual_Battle_Architecture.md`
+- 実施結果の要約は `manuals/planned/04_TRPG_Session_Improvement_Feasibility_Plan.md`
+- Select/Resolve の恒常仕様は `manuals/implemented/09_SelectResolve_Spec.md`
+- Visual Battle 側の構造整理は `manuals/implemented/06_Visual_Battle_Architecture.md`
 
 今後、UI関係の追記は 17 ではなく上記3冊へ直接反映する。

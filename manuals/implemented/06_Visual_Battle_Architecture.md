@@ -65,7 +65,7 @@
 
 ## 5. PvEモードとAIロジック (PvE Mode)
 
-**関連ファイル:** `manuals/05_PvE_Mode_Spec.md` (統合済み)
+**関連ファイル:** `manuals/implemented/05_PvE_Mode_Spec.md` (統合済み)
 
 ### 5.1 概要
 
@@ -94,7 +94,7 @@
 
 ## 6. UIコンポーネント仕様 (UI Components)
 
-**関連ファイル:** `manuals/character_modal_spec.md` (統合済み)
+**関連ファイル:** `manuals/implemented/12_Character_Modal_Spec.md` (統合済み)
 
 ### 6.1 キャラクター詳細モーダル
 

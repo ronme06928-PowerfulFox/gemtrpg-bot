@@ -1,4 +1,4 @@
-﻿# 08 Select/Resolve 確定仕様書 v1.2
+﻿# 09 Select/Resolve 確定仕様書 v1.2
 
 **最終更新日**: 2026-02-27
 **文書バージョン**: v1.5
@@ -365,7 +365,7 @@ battle_error:
 ---
 
 ## 13. 参照リンク（タイミング実行時期）
-- 効果タイミングの実行時期一覧は `manuals/03_Integrated_Data_Definitions.md` の
+- 効果タイミングの実行時期一覧は `manuals/implemented/03_Integrated_Data_Definitions.md` の
   「付録: 効果タイミング実行時期一覧（実装準拠 / 2026-02）」を参照。
 - 解決フェーズ特有の運用（`RESOLVE_START` 以降）は本書の「9.1」「付録A」を参照。
 
