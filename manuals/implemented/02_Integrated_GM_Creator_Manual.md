@@ -63,7 +63,7 @@ GM権限でログインすると、プレイヤー画面にはない管理用コ
 * **バフ定義**: 静的バフ、動的パターン (`_Atk10`等)、プラグイン定義
 * **アイテム定義**: `items_cache.json` の構造
 * **輝化・出身定義**: パッシブスキルおよび出身による自動効果
-* **用語図鑑定義**: 図鑑シート列と埋め込み記法（`manuals/planned/07_Glossary_Feature_Plan.md`）
+* **用語図鑑定義**: 図鑑シート列と埋め込み記法（`manuals/implemented/03_Integrated_Data_Definitions.md`）
 * **外部画像**: Cloudinary連携の設定方法
 
 補助チュートリアル:

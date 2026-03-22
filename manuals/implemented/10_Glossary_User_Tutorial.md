@@ -99,5 +99,5 @@
 
 ## 5. 関連資料
 
-- 実装計画: `manuals/planned/07_Glossary_Feature_Plan.md`
+- 仕様定義: `manuals/implemented/03_Integrated_Data_Definitions.md`
 - データ定義: `manuals/implemented/03_Integrated_Data_Definitions.md`

@@ -24,15 +24,11 @@
 
 ## planned
 
-1. `01_Character_Sheet_Image_Export_Plan.md`
-2. `02_PvE_Enemy_Auto_Declare_Plan.md`
-3. `03_New_Skill_Ideas_Feasibility_Plan.md`
-4. `04_TRPG_Session_Improvement_Feasibility_Plan.md`
-5. `05_Shindou_Skill_Implementation_and_Documentation_Protocol.md`
-6. `06_Integrated_Implementation_Roadmap.md`
-7. `07_Glossary_Feature_Plan.md`
-8. `08_Select_Declare_UI_Improvement_Plan.md`
-9. `09_Status_Stack_Total_Effects_Plan.md`
-10. `10_Faction_Terminology_Alignment_Plan.md`
+1. `03_New_Skill_Ideas_Feasibility_Plan.md`
+2. `04_TRPG_Session_Improvement_Feasibility_Plan.md`
+3. `05_Shindou_Skill_Implementation_and_Documentation_Protocol.md`
+4. `06_Integrated_Implementation_Roadmap.md`
+5. `09_Status_Stack_Total_Effects_Plan.md`
+6. `10_Faction_Terminology_Alignment_Plan.md`
 
 `typst/` は文書出力用の共通アセットとしてそのまま `manuals` 直下に置きます。
