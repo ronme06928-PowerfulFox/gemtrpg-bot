@@ -32,5 +32,7 @@
 6. `06_Integrated_Implementation_Roadmap.md`
 7. `07_Glossary_Feature_Plan.md`
 8. `08_Select_Declare_UI_Improvement_Plan.md`
+9. `09_Status_Stack_Total_Effects_Plan.md`
+10. `10_Faction_Terminology_Alignment_Plan.md`
 
 `typst/` は文書出力用の共通アセットとしてそのまま `manuals` 直下に置きます。
