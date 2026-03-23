@@ -18,6 +18,7 @@ ORIGIN_BONUS_BUFFS = {
     8: {"buff_id": "Bu-17", "name": "反撃の石"},
     9: {"buff_id": "Bu-18", "name": "誉れ高き刃"},
     10: {"buff_id": "Bu-09", "name": "爆縮", "count": 8},
+    11: {"buff_id": "Bu-25", "name": "グラン・リテラール・ブラン：いずれ彩られる純白"},
     12: {"buff_id": "Bu-20", "name": "世界を見下ろす黒鳥"},
     13: {"buff_id": "Bu-19", "name": "畏怖の衣"},
 }
@@ -25,17 +26,16 @@ ORIGIN_BONUS_BUFFS = {
 BONUS_SELECTABLE_ORIGINS = {1, 2, 12}
 
 ORIGIN_FLODIAS = 14
-ORIGIN_GRAND_LITTERAL_BLANC = 15
-ORIGIN_SERVER_LUMINOUS = 16
-ORIGIN_ALTOMAGIA = 17
-ORIGIN_EMRIDA = 18
+ORIGIN_GRAND_LITTERAL_BLANC = 11
+ORIGIN_SERVER_LUMINOUS = 15
+ORIGIN_ALTOMAGIA = 16
+ORIGIN_EMRIDA = 17
 
 COLORATION_BUFF_ID = "Bu-23"
 COLORATION_BUFF_NAME = "色彩"
 
 ORIGIN_BONUS_BUFFS.update({
     ORIGIN_FLODIAS: {"buff_id": "Bu-27", "name": "フローディアス：活力の行き重なる落合"},
-    ORIGIN_GRAND_LITTERAL_BLANC: {"buff_id": "Bu-25", "name": "グラン・リテラール・ブラン：いずれ彩られる純白"},
     ORIGIN_SERVER_LUMINOUS: {"buff_id": "Bu-26", "name": "サーバ・ルミナス：二値を絡め取る電網"},
     ORIGIN_ALTOMAGIA: {"buff_id": "Bu-24", "name": "アルトマギア：狭霧に息づく神秘"},
     ORIGIN_EMRIDA: {"buff_id": "Bu-28", "name": "エムリダ：盛夏と共鳴る高揚"},

@@ -400,14 +400,13 @@
                         <option value="8">8: ギァン・バルフ</option>
                         <option value="9">9: 綿津見</option>
                         <option value="10">10: シンシア</option>
-                        <option value="11">11: リテラール</option>
+                        <option value="11">11: グラン・リテラール・ブラン</option>
                         <option value="12">12: オーセクト</option>
                         <option value="13">13: ヴァルヴァイレ</option>
                         <option value="14">14: フローディアス</option>
-                        <option value="15">15: グラン・リテラール・ブラン</option>
-                        <option value="16">16: サーバ・ルミナス</option>
-                        <option value="17">17: アルトマギア</option>
-                        <option value="18">18: エムリダ</option>
+                        <option value="15">15: サーバ・ルミナス</option>
+                        <option value="16">16: アルトマギア</option>
+                        <option value="17">17: エムリダ</option>
                     </select>
                 </div>
                 <div class="param-box" id="hometown-box" style="display:none;">
@@ -726,14 +725,13 @@
             { id: 8, name: "8: ギァン・バルフ" },
             { id: 9, name: "9: 綿津見" },
             { id: 10, name: "10: シンシア" },
-            { id: 11, name: "11: リテラール" },
+            { id: 11, name: "11: グラン・リテラール・ブラン" },
             { id: 12, name: "12: オーセクト" },
             { id: 13, name: "13: ヴァルヴァイレ" },
             { id: 14, name: "14: フローディアス" },
-            { id: 15, name: "15: グラン・リテラール・ブラン" },
-            { id: 16, name: "16: サーバ・ルミナス" },
-            { id: 17, name: "17: アルトマギア" },
-            { id: 18, name: "18: エムリダ" }
+            { id: 15, name: "15: サーバ・ルミナス" },
+            { id: 16, name: "16: アルトマギア" },
+            { id: 17, name: "17: エムリダ" }
         ];
 
         function escapeHtml(value) {
@@ -1060,7 +1058,7 @@
         }
         function isLuminasFixedSkill(skillId) {
             const checkbox = document.getElementById(getLuminasCheckboxId(skillId));
-            return getBonusOriginId() === 16 && checkbox && checkbox.checked;
+            return getBonusOriginId() === 15 && checkbox && checkbox.checked;
         }
         function getSkillPointValue(skillId) {
             const input = document.getElementById(skillId);
@@ -1083,7 +1081,7 @@
             return "";
         }
         function syncLuminasFixedSkillUI() {
-            const enabled = getBonusOriginId() === 16;
+            const enabled = getBonusOriginId() === 15;
             for (const skillId of getLuminasSkillIds()) {
                 const checkbox = document.getElementById(getLuminasCheckboxId(skillId));
                 const input = document.getElementById(skillId);
@@ -1342,7 +1340,7 @@
         }
         function getOriginSkillBonusByOriginId(skillId, bonusOriginId) {
             if (bonusOriginId === 14 && (skillId === 's-dialogue' || skillId === 's-appraise')) return 2;
-            if (bonusOriginId === 18 && ['s-senses', 's-instinct', 's-athletics', 's-evade'].includes(skillId)) return 1;
+            if (bonusOriginId === 17 && ['s-senses', 's-instinct', 's-athletics', 's-evade'].includes(skillId)) return 1;
             return 0;
         }
         function getAutomaticSkillAdjustment(skillId) {
@@ -1562,7 +1560,7 @@
 
             params.push({ label: "出身", value: String(document.getElementById('char-origin').value) });
             params.push({ label: "ボーナス", value: String(document.getElementById('char-hometown').value) });
-            if (bonusOriginId === 16) {
+            if (bonusOriginId === 15) {
                 const luminasSkillId = getSelectedLuminasSkillId();
                 if (luminasSkillId) {
                     const luminasInput = document.getElementById(luminasSkillId);
@@ -1710,7 +1708,7 @@
             const bonusOriginId = parseInt(getVal('char-hometown'), 10) || 0;
             const bonusText = bonusOriginId > 0 ? getSelectedText('char-hometown') : '0: なし';
             const luminasSkillId = getSelectedLuminasSkillId();
-            const luminasMeta = (getBonusOriginId() === 16 && luminasSkillId)
+            const luminasMeta = (getBonusOriginId() === 15 && luminasSkillId)
                 ? `ルミナス固定: ${skillDefs.find(s => s.id === luminasSkillId)?.label || luminasSkillId}`
                 : null;
             const isScenarioChar = getVal('char-type') === 'scenario';
