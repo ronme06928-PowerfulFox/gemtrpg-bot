@@ -32,6 +32,8 @@ logger = setup_logger(__name__)
 
 get_effective_origin_id = getattr(_utils_mod, 'get_effective_origin_id', lambda *_args, **_kwargs: 0)
 clear_newly_applied_flags = getattr(_utils_mod, 'clear_newly_applied_flags', lambda *_args, **_kwargs: 0)
+compute_origin_skill_modifiers = getattr(_utils_mod, 'compute_origin_skill_modifiers', lambda *_args, **_kwargs: {})
+apply_dice_power_bonus_to_command = getattr(_utils_mod, 'apply_dice_power_bonus_to_command', lambda command, *_args, **_kwargs: command)
 
 execution_lock = Lock()
 
@@ -486,6 +488,18 @@ def execute_duel_match(room, data, username):
         if 'used_skills_this_round' not in actor_d_char: actor_d_char['used_skills_this_round'] = []
         actor_d_char['used_skills_this_round'].append(skill_id_d)
         consume_granted_skill_use(actor_d_char, skill_id_d)
+
+    if actor_a_char and skill_data_a:
+        origin_mod_a = compute_origin_skill_modifiers(actor_a_char, actor_d_char, skill_data_a, state=state)
+        actor_a_char['_base_power_bonus'] = int(actor_a_char.get('_base_power_bonus', 0) or 0) + int(origin_mod_a.get('base_power_bonus', 0) or 0)
+        actor_a_char['_final_power_bonus'] = int(actor_a_char.get('_final_power_bonus', 0) or 0) + int(origin_mod_a.get('final_power_bonus', 0) or 0)
+        command_a = apply_dice_power_bonus_to_command(command_a, origin_mod_a.get('dice_power_bonus', 0))
+
+    if actor_d_char and skill_data_d:
+        origin_mod_d = compute_origin_skill_modifiers(actor_d_char, actor_a_char, skill_data_d, state=state)
+        actor_d_char['_base_power_bonus'] = int(actor_d_char.get('_base_power_bonus', 0) or 0) + int(origin_mod_d.get('base_power_bonus', 0) or 0)
+        actor_d_char['_final_power_bonus'] = int(actor_d_char.get('_final_power_bonus', 0) or 0) + int(origin_mod_d.get('final_power_bonus', 0) or 0)
+        command_d = apply_dice_power_bonus_to_command(command_d, origin_mod_d.get('dice_power_bonus', 0))
 
     def _apply_temp_power_bonus_to_command(command, actor):
         if not isinstance(actor, dict):

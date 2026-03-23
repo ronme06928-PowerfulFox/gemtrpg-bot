@@ -24,6 +24,23 @@ ORIGIN_BONUS_BUFFS = {
 
 BONUS_SELECTABLE_ORIGINS = {1, 2, 12}
 
+ORIGIN_FLODIAS = 14
+ORIGIN_GRAND_LITTERAL_BLANC = 15
+ORIGIN_SERVER_LUMINOUS = 16
+ORIGIN_ALTOMAGIA = 17
+ORIGIN_EMRIDA = 18
+
+COLORATION_BUFF_ID = "Bu-23"
+COLORATION_BUFF_NAME = "色彩"
+
+ORIGIN_BONUS_BUFFS.update({
+    ORIGIN_FLODIAS: {"buff_id": "Bu-27", "name": "フローディアス：活力の行き重なる落合"},
+    ORIGIN_GRAND_LITTERAL_BLANC: {"buff_id": "Bu-25", "name": "グラン・リテラール・ブラン：いずれ彩られる純白"},
+    ORIGIN_SERVER_LUMINOUS: {"buff_id": "Bu-26", "name": "サーバ・ルミナス：二値を絡め取る電網"},
+    ORIGIN_ALTOMAGIA: {"buff_id": "Bu-24", "name": "アルトマギア：狭霧に息づく神秘"},
+    ORIGIN_EMRIDA: {"buff_id": "Bu-28", "name": "エムリダ：盛夏と共鳴る高揚"},
+})
+
 def get_status_value(char_obj, status_name):
     """キャラクターから特定のステータス値を取得する（バフ補正込み）"""
     if not char_obj: return 0
@@ -506,3 +523,213 @@ def get_effective_origin_id(char_obj):
     if origin_val == 0 and bonus_val != 0:
         return bonus_val
     return origin_val
+
+
+def has_buff_named(char_obj, buff_name):
+    if not isinstance(char_obj, dict):
+        return False
+    buffs = char_obj.get('special_buffs', [])
+    if not isinstance(buffs, list):
+        return False
+    return any(isinstance(buff, dict) and buff.get('name') == buff_name for buff in buffs)
+
+
+def _canonical_team(raw_value):
+    text = str(raw_value or '').strip().lower()
+    if text in {'ally', 'friend', 'friends', 'player'}:
+        return 'ally'
+    if text in {'enemy', 'foe', 'opponent', 'npc', 'boss'}:
+        return 'enemy'
+    return text
+
+
+def _resolve_context_characters(state=None, context=None):
+    if isinstance(context, dict):
+        characters = context.get('characters')
+        if isinstance(characters, list):
+            return characters
+        room_state = context.get('room_state')
+        if isinstance(room_state, dict) and isinstance(room_state.get('characters'), list):
+            return room_state.get('characters', [])
+    if isinstance(state, dict) and isinstance(state.get('characters'), list):
+        return state.get('characters', [])
+    return []
+
+
+def _iter_active_characters(state=None, context=None):
+    for char in _resolve_context_characters(state=state, context=context):
+        if not isinstance(char, dict):
+            continue
+        if int(char.get('hp', 0) or 0) <= 0:
+            continue
+        if bool(char.get('is_escaped', False)):
+            continue
+        yield char
+
+
+def is_attack_skill(skill_data):
+    if not isinstance(skill_data, dict):
+        return False
+
+    category = str(skill_data.get('分類') or skill_data.get('category') or '').strip()
+    if category in {'防御', '回避', '回復', '補助'}:
+        return False
+
+    tags = skill_data.get('tags', [])
+    if isinstance(tags, list):
+        for tag in tags:
+            text = str(tag or '').strip()
+            lower = text.lower()
+            if '攻撃' in text or 'attack' in lower:
+                return True
+            if '防御' in text or '回避' in text or '守備' in text:
+                return False
+
+    return category in {'物理', '魔法', '攻撃'}
+
+
+def is_evade_skill(skill_data):
+    if not isinstance(skill_data, dict):
+        return False
+
+    category = str(skill_data.get('分類') or skill_data.get('category') or '').strip()
+    if category == '回避':
+        return True
+
+    tags = skill_data.get('tags', [])
+    if isinstance(tags, list):
+        for tag in tags:
+            text = str(tag or '').strip()
+            lower = text.lower()
+            if '回避' in text or 'evade' in lower:
+                return True
+    return False
+
+
+def team_has_origin(actor_char, origin_id, state=None, context=None):
+    actor_team = _canonical_team((actor_char or {}).get('type'))
+    if not actor_team:
+        return False
+
+    enemy_team = 'enemy' if actor_team == 'ally' else 'ally'
+    for char in _iter_active_characters(state=state, context=context):
+        if str(char.get('id')) == str((actor_char or {}).get('id')):
+            continue
+        if _canonical_team(char.get('type')) != enemy_team:
+            continue
+        if get_effective_origin_id(char) == int(origin_id):
+            return True
+    return False
+
+
+def has_same_speed_peer(actor_char, state=None, context=None):
+    if not isinstance(actor_char, dict):
+        return False
+
+    actor_speed = int(get_status_value(actor_char, '速度値') or 0)
+    if actor_speed <= 0:
+        return False
+
+    actor_id = actor_char.get('id')
+    for char in _iter_active_characters(state=state, context=context):
+        if str(char.get('id')) == str(actor_id):
+            continue
+        other_speed = int(get_status_value(char, '速度値') or 0)
+        if other_speed == actor_speed:
+            return True
+    return False
+
+
+def get_target_coloration_attack_bonus(actor_char, target_char, skill_data):
+    actor_team = _canonical_team((actor_char or {}).get('type'))
+    target_team = _canonical_team((target_char or {}).get('type'))
+    target_is_enemy = bool(actor_team and target_team and actor_team != target_team)
+
+    if not target_is_enemy:
+        return 0
+    if not is_attack_skill(skill_data):
+        return 0
+    if not has_buff_named(target_char, COLORATION_BUFF_NAME):
+        return 0
+    return 1
+
+
+def compute_origin_skill_modifiers(actor_char, target_char, skill_data, state=None, context=None):
+    modifiers = {
+        'base_power_bonus': 0,
+        'final_power_bonus': 0,
+        'dice_power_bonus': 0,
+    }
+    if not isinstance(actor_char, dict):
+        return modifiers
+
+    origin_id = get_effective_origin_id(actor_char)
+    actor_team = _canonical_team(actor_char.get('type'))
+    target_team = _canonical_team((target_char or {}).get('type'))
+    target_is_enemy = bool(actor_team and target_team and actor_team != target_team)
+
+    modifiers['final_power_bonus'] += get_target_coloration_attack_bonus(actor_char, target_char, skill_data)
+
+    if origin_id == ORIGIN_FLODIAS and is_evade_skill(skill_data):
+        modifiers['dice_power_bonus'] += 1
+        if team_has_origin(actor_char, 13, state=state, context=context):
+            modifiers['dice_power_bonus'] += 1
+
+    if origin_id == ORIGIN_EMRIDA and has_same_speed_peer(actor_char, state=state, context=context):
+        modifiers['base_power_bonus'] += 1
+
+    return modifiers
+
+
+def build_origin_hit_changes(actor_char, target_char, context=None):
+    logs = []
+    changes = []
+    if not isinstance(actor_char, dict) or not isinstance(target_char, dict):
+        return logs, changes
+
+    actor_team = _canonical_team(actor_char.get('type'))
+    target_team = _canonical_team(target_char.get('type'))
+    target_is_enemy = bool(actor_team and target_team and actor_team != target_team)
+
+    if get_effective_origin_id(actor_char) == ORIGIN_GRAND_LITTERAL_BLANC and target_is_enemy:
+        changes.append((
+            target_char,
+            "APPLY_BUFF",
+            COLORATION_BUFF_NAME,
+            {
+                "lasting": 2,
+                "delay": 0,
+                "data": {"buff_id": COLORATION_BUFF_ID},
+            }
+        ))
+        logs.append("[色彩付与]")
+
+    return logs, changes
+
+
+def get_round_end_origin_recoveries(char_obj):
+    recoveries = {}
+    origin_id = get_effective_origin_id(char_obj)
+    if origin_id == 5:
+        recoveries['HP'] = 3
+    if origin_id == ORIGIN_ALTOMAGIA:
+        recoveries['MP'] = 1
+    return recoveries
+
+
+def apply_dice_power_bonus_to_command(command, dice_power_bonus):
+    try:
+        bonus = int(dice_power_bonus or 0)
+    except (TypeError, ValueError):
+        bonus = 0
+
+    if bonus == 0 or not isinstance(command, str):
+        return command
+
+    def _replace(match):
+        sign = match.group(1) or ''
+        count = match.group(2)
+        faces = max(1, int(match.group(3)) + bonus)
+        return f"{sign}{count}d{faces}"
+
+    return re.sub(r'([+-]?)(\d+)d(\d+)', _replace, command, count=1)

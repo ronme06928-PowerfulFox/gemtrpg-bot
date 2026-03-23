@@ -113,6 +113,22 @@ def get_effective_origin_id(char_obj):
         return fn(char_obj)
     return 0
 
+
+def compute_origin_skill_modifiers(actor_char, target_char, skill_data, state=None, context=None):
+    mod = _utils_module()
+    fn = getattr(mod, "compute_origin_skill_modifiers", None) if mod else None
+    if callable(fn):
+        return fn(actor_char, target_char, skill_data, state=state, context=context)
+    return {}
+
+
+def build_origin_hit_changes(actor_char, target_char, context=None):
+    mod = _utils_module()
+    fn = getattr(mod, "build_origin_hit_changes", None) if mod else None
+    if callable(fn):
+        return fn(actor_char, target_char, context=context)
+    return [], []
+
 def _canonical_team(value):
     text = str(value or "").strip().lower()
     if text in {"ally", "friend", "friends", "player"}:
@@ -402,8 +418,17 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
     log_snippets = []
     changes_to_apply = []
 
-    if not actor or not effects_array:
+    if not actor:
         return 0, [], []
+    if not effects_array and timing_to_check != "HIT":
+        return 0, [], []
+
+    if timing_to_check == "HIT":
+        origin_logs, origin_changes = build_origin_hit_changes(actor, target, context=context)
+        if origin_logs:
+            log_snippets.extend(origin_logs)
+        if origin_changes:
+            changes_to_apply.extend(origin_changes)
 
     # Helper for random selection
     import random
@@ -953,6 +978,11 @@ def calculate_skill_preview(
     target_char = target_char if isinstance(target_char, dict) else {}
     skill_data = skill_data if isinstance(skill_data, dict) else {}
 
+    origin_modifiers = compute_origin_skill_modifiers(actor_char, target_char, skill_data, context=context)
+    origin_base_power_mod = _to_int(origin_modifiers.get('base_power_bonus', 0))
+    origin_final_power_mod = _to_int(origin_modifiers.get('final_power_bonus', 0))
+    origin_dice_power_mod = _to_int(origin_modifiers.get('dice_power_bonus', 0))
+
     raw_base_power = _to_int(skill_data.get('基礎威力', 0))
     base_power_buff_mod = _to_int(get_buff_stat_mod(actor_char, '基礎威力'))
     temp_base_power_mod = _to_int(actor_char.get('_base_power_bonus', 0))
@@ -963,6 +993,7 @@ def calculate_skill_preview(
         + base_power_buff_mod
         + _to_int(external_base_power_mod)
         + temp_base_power_mod
+        + origin_base_power_mod
     )
 
     skill_details = {
@@ -970,8 +1001,11 @@ def calculate_skill_preview(
         'base_power_buff_mod': base_power_buff_mod,
         'temp_base_power_mod': temp_base_power_mod,
         'external_mod': _to_int(external_base_power_mod),
+        'origin_base_power_mod': origin_base_power_mod,
+        'origin_final_power_mod': origin_final_power_mod,
+        'origin_dice_power_mod': origin_dice_power_mod,
         'final_base_power': final_base_power,
-        'final_power_mod': _to_int(external_final_power_mod) + temp_final_power_mod,
+        'final_power_mod': _to_int(external_final_power_mod) + temp_final_power_mod + origin_final_power_mod,
         '分類': skill_data.get('分類', skill_data.get('タイミング', '')),
         '距離': skill_data.get('距離', skill_data.get('射程', '')),
         '属性': skill_data.get('属性', ''),
@@ -989,8 +1023,8 @@ def calculate_skill_preview(
             rule_data = {}
 
     bonus_power = 0                 # 従来の威力補正(base/default)
-    final_power_bonus = _to_int(external_final_power_mod) + temp_final_power_mod
-    dice_bonus_power = 0
+    final_power_bonus = _to_int(external_final_power_mod) + temp_final_power_mod + origin_final_power_mod
+    dice_bonus_power = origin_dice_power_mod
 
     rule_base_bonus = 0
     rule_final_bonus = 0
@@ -1051,7 +1085,7 @@ def calculate_skill_preview(
     total_flat_bonus = bonus_power + final_power_bonus
     skill_details['senritsu_max_apply'] = senritsu_max_apply
     skill_details['additional_power'] = total_flat_bonus
-    skill_details['base_power_mod'] = base_power_buff_mod + _to_int(external_base_power_mod) + temp_base_power_mod
+    skill_details['base_power_mod'] = base_power_buff_mod + _to_int(external_base_power_mod) + temp_base_power_mod + origin_base_power_mod
     skill_details['final_power_total_mod'] = final_power_bonus
 
     # ダイス部分の解析
@@ -1073,7 +1107,7 @@ def calculate_skill_preview(
 
     # 補正表示（UI向け）
     correction_details = []
-    total_base_mod = base_power_buff_mod + _to_int(external_base_power_mod) + temp_base_power_mod
+    total_base_mod = base_power_buff_mod + _to_int(external_base_power_mod) + temp_base_power_mod + origin_base_power_mod
     if total_base_mod != 0:
         correction_details.append({'source': '基礎威力', 'value': total_base_mod})
 

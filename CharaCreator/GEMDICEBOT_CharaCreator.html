@@ -403,6 +403,11 @@
                         <option value="11">11: リテラール</option>
                         <option value="12">12: オーセクト</option>
                         <option value="13">13: ヴァルヴァイレ</option>
+                        <option value="14">14: フローディアス</option>
+                        <option value="15">15: グラン・リテラール・ブラン</option>
+                        <option value="16">16: サーバ・ルミナス</option>
+                        <option value="17">17: アルトマギア</option>
+                        <option value="18">18: エムリダ</option>
                     </select>
                 </div>
                 <div class="param-box" id="hometown-box" style="display:none;">
@@ -473,13 +478,13 @@
                 <h4>情報収集技能</h4>
                 <div class="grid-auto">
                     <div class="param-box"><label>対話</label><input type="number" id="s-dialogue" class="skill-input"
-                            value="0" min="0" max="3"></div>
+                            value="0" min="0" max="3"><label class="luminas-fix-toggle" style="display:none; align-items:center; gap:6px; margin-top:6px; font-size:0.8rem;"><input type="checkbox" id="luminas-fix-s-dialogue" onchange="handleLuminasFixedSkillChange('s-dialogue')">Lv4固定</label></div>
                     <div class="param-box"><label>尋問</label><input type="number" id="s-interrogate" class="skill-input"
-                            value="0" min="0" max="3"></div>
+                            value="0" min="0" max="3"><label class="luminas-fix-toggle" style="display:none; align-items:center; gap:6px; margin-top:6px; font-size:0.8rem;"><input type="checkbox" id="luminas-fix-s-interrogate" onchange="handleLuminasFixedSkillChange('s-interrogate')">Lv4固定</label></div>
                     <div class="param-box"><label>諜報</label><input type="number" id="s-intel" class="skill-input"
-                            value="0" min="0" max="3"></div>
+                            value="0" min="0" max="3"><label class="luminas-fix-toggle" style="display:none; align-items:center; gap:6px; margin-top:6px; font-size:0.8rem;"><input type="checkbox" id="luminas-fix-s-intel" onchange="handleLuminasFixedSkillChange('s-intel')">Lv4固定</label></div>
                     <div class="param-box"><label>窃取</label><input type="number" id="s-theft" class="skill-input"
-                            value="0" min="0" max="3"></div>
+                            value="0" min="0" max="3"><label class="luminas-fix-toggle" style="display:none; align-items:center; gap:6px; margin-top:6px; font-size:0.8rem;"><input type="checkbox" id="luminas-fix-s-theft" onchange="handleLuminasFixedSkillChange('s-theft')">Lv4固定</label></div>
                 </div>
             </div>
             <div class="section-group">
@@ -723,7 +728,12 @@
             { id: 10, name: "10: シンシア" },
             { id: 11, name: "11: リテラール" },
             { id: 12, name: "12: オーセクト" },
-            { id: 13, name: "13: ヴァルヴァイレ" }
+            { id: 13, name: "13: ヴァルヴァイレ" },
+            { id: 14, name: "14: フローディアス" },
+            { id: 15, name: "15: グラン・リテラール・ブラン" },
+            { id: 16, name: "16: サーバ・ルミナス" },
+            { id: 17, name: "17: アルトマギア" },
+            { id: 18, name: "18: エムリダ" }
         ];
 
         function escapeHtml(value) {
@@ -1042,6 +1052,72 @@
             return originId;
         }
 
+        function getLuminasSkillIds() {
+            return ['s-dialogue', 's-interrogate', 's-intel', 's-theft'];
+        }
+        function getLuminasCheckboxId(skillId) {
+            return `luminas-fix-${skillId}`;
+        }
+        function isLuminasFixedSkill(skillId) {
+            const checkbox = document.getElementById(getLuminasCheckboxId(skillId));
+            return getBonusOriginId() === 16 && checkbox && checkbox.checked;
+        }
+        function getSkillPointValue(skillId) {
+            const input = document.getElementById(skillId);
+            if (!input) return 0;
+            if (isLuminasFixedSkill(skillId)) {
+                return parseInt(input.dataset.luminasBaseValue, 10) || 0;
+            }
+            return parseInt(input.value, 10) || 0;
+        }
+        function getEffectiveSkillValue(skillId) {
+            const input = document.getElementById(skillId);
+            if (!input) return 0;
+            return isLuminasFixedSkill(skillId) ? 4 : (parseInt(input.value, 10) || 0);
+        }
+        function getSelectedLuminasSkillId() {
+            for (const skillId of getLuminasSkillIds()) {
+                const checkbox = document.getElementById(getLuminasCheckboxId(skillId));
+                if (checkbox && checkbox.checked) return skillId;
+            }
+            return "";
+        }
+        function syncLuminasFixedSkillUI() {
+            const enabled = getBonusOriginId() === 16;
+            for (const skillId of getLuminasSkillIds()) {
+                const checkbox = document.getElementById(getLuminasCheckboxId(skillId));
+                const input = document.getElementById(skillId);
+                if (!checkbox || !input) continue;
+                const checkboxLabel = checkbox.closest('.luminas-fix-toggle');
+                if (checkboxLabel) {
+                    checkboxLabel.style.display = enabled ? 'flex' : 'none';
+                }
+                checkbox.disabled = !enabled;
+                const fixed = enabled && checkbox.checked;
+                if (fixed) {
+                    if (input.dataset.luminasBaseValue === undefined || input.dataset.luminasBaseValue === "") {
+                        input.dataset.luminasBaseValue = String(parseInt(input.value, 10) || 0);
+                    }
+                    input.value = 4;
+                    input.readOnly = true;
+                } else {
+                    if (input.dataset.luminasBaseValue !== undefined && input.dataset.luminasBaseValue !== "") {
+                        input.value = input.dataset.luminasBaseValue;
+                        delete input.dataset.luminasBaseValue;
+                    }
+                    input.readOnly = false;
+                }
+            }
+        }
+        function handleLuminasFixedSkillChange(selectedSkillId) {
+            for (const skillId of getLuminasSkillIds()) {
+                const checkbox = document.getElementById(getLuminasCheckboxId(skillId));
+                if (!checkbox) continue;
+                checkbox.checked = (skillId === selectedSkillId) ? checkbox.checked : false;
+            }
+            syncLuminasFixedSkillUI();
+            calculateStats();
+        }
         window.onload = function () {
             setupPreviewGlossaryTooltip();
             document.querySelectorAll('.calc-trigger').forEach(el => el.addEventListener('input', calculateStats));
@@ -1050,6 +1126,7 @@
                 el.addEventListener('input', checkSkillLimitAndJSON);
             });
             toggleHometown(); // 初期表示更新
+            syncLuminasFixedSkillUI();
             calculateStats();
             reloadAllData();
             loadGlossaryCatalog();
@@ -1260,12 +1337,71 @@
             return 0;
         }
 
+        function getOriginSkillBonus(skillId) {
+            return getOriginSkillBonusByOriginId(skillId, getBonusOriginId());
+        }
+        function getOriginSkillBonusByOriginId(skillId, bonusOriginId) {
+            if (bonusOriginId === 14 && (skillId === 's-dialogue' || skillId === 's-appraise')) return 2;
+            if (bonusOriginId === 18 && ['s-senses', 's-instinct', 's-athletics', 's-evade'].includes(skillId)) return 1;
+            return 0;
+        }
+        function getAutomaticSkillAdjustment(skillId) {
+            let total = getOriginSkillBonus(skillId);
+            if (getLuminasSkillIds().includes(skillId)) {
+                total += getInfoSkillModifier();
+            }
+            return total;
+        }
+        function getDisplayedSkillLevel(skillId) {
+            return Math.max(0, getEffectiveSkillValue(skillId) + getAutomaticSkillAdjustment(skillId));
+        }
+        function updateSkillAutoLevelDisplay() {
+            document.querySelectorAll('.skill-input').forEach(input => {
+                const skillId = input.id;
+                const container = input.parentElement;
+                if (!container) return;
+
+                let note = container.querySelector('.skill-auto-note');
+                if (!note) {
+                    note = document.createElement('div');
+                    note.className = 'skill-auto-note';
+                    note.style.marginTop = '6px';
+                    note.style.fontSize = '0.78rem';
+                    note.style.lineHeight = '1.4';
+                    note.style.fontWeight = '600';
+                    container.appendChild(note);
+                }
+
+                const autoAdjustment = getAutomaticSkillAdjustment(skillId);
+                const displayedLevel = getDisplayedSkillLevel(skillId);
+
+                if (isLuminasFixedSkill(skillId)) {
+                    note.textContent = `出身補正でLv4固定 / 実Lv ${displayedLevel}`;
+                    note.style.display = 'block';
+                    note.style.color = '#1d4ed8';
+                    return;
+                }
+
+                if (autoAdjustment !== 0) {
+                    const sign = autoAdjustment > 0 ? '+' : '';
+                    note.textContent = `出身補正 ${sign}${autoAdjustment} / 実Lv ${displayedLevel}`;
+                    note.style.display = 'block';
+                    note.style.color = autoAdjustment > 0 ? '#15803d' : '#b45309';
+                    return;
+                }
+
+                note.textContent = '';
+                note.style.display = 'none';
+            });
+        }
+
         function calculateStats() {
             const getInt = (id) => parseInt(document.getElementById(id).value) || 0;
             const str = getInt('p-str'), vit = getInt('p-vit'), phy = getInt('p-phy');
             const mnt = getInt('p-mnt'), spd = getInt('p-spd'), int = getInt('p-int'), baseExp = getInt('p-exp');
             const scenarioExp = getInt('p-exp-scenario');
             const bonusOriginId = getBonusOriginId();
+            syncLuminasFixedSkillUI();
             const charType = document.getElementById('char-type').value;
 
             // プレイヤーの場合のみ自動計算
@@ -1301,6 +1437,7 @@
                     el.title = "";
                 }
             });
+            updateSkillAutoLevelDisplay();
 
             // コスト計算
             let expLimit = baseExp + scenarioExp;
@@ -1355,10 +1492,17 @@
 
         function checkSkillLimitAndJSON(e) {
             const input = e.target;
+            if (isLuminasFixedSkill(input.id)) {
+                input.value = 4;
+                updateSkillCounter(parseInt(document.getElementById('p-int').value) || 0);
+                updateSkillAutoLevelDisplay();
+                updateJSON();
+                return;
+            }
             const newVal = parseInt(input.value) || 0;
             const maxLimit = parseInt(document.getElementById('p-int').value) || 0;
             let currentSum = 0;
-            document.querySelectorAll('.skill-input').forEach(el => { if (el !== input) currentSum += parseInt(el.value) || 0; });
+            document.querySelectorAll('.skill-input').forEach(el => { if (el !== input) currentSum += getSkillPointValue(el.id); });
             if (currentSum + newVal > maxLimit) {
                 alert(`直感(${maxLimit})を超えます。`);
                 input.value = input.dataset.prevValue || 0;
@@ -1366,12 +1510,13 @@
                 input.dataset.prevValue = newVal;
             }
             updateSkillCounter(maxLimit);
+            updateSkillAutoLevelDisplay();
             updateJSON();
         }
 
         function updateSkillCounter(maxLimit) {
             let sum = 0;
-            document.querySelectorAll('.skill-input').forEach(el => sum += parseInt(el.value) || 0);
+            document.querySelectorAll('.skill-input').forEach(el => sum += getSkillPointValue(el.id));
             const display = document.getElementById('skill-points-display');
             document.getElementById('sp-current').textContent = sum;
             display.className = (sum > maxLimit) ? 'counter-val error' : 'counter-val ok';
@@ -1397,6 +1542,7 @@
 
             // 技能 (補正適用して保存)
             const infoMod = getInfoSkillModifier();
+            const bonusOriginId = getBonusOriginId();
             const infoSkills = { "対話": "s-dialogue", "尋問": "s-interrogate", "諜報": "s-intel", "窃取": "s-theft" };
             const allSkillInputs = {
                 "五感": "s-senses", "採取": "s-gather", "本能": "s-instinct", "鑑定": "s-appraise",
@@ -1405,16 +1551,26 @@
             };
 
             for (const [label, id] of Object.entries(allSkillInputs)) {
-                let val = parseInt(document.getElementById(id).value) || 0;
+                let val = getEffectiveSkillValue(id) + getOriginSkillBonus(id);
                 // 情報収集技能なら補正を加える
                 if (Object.values(infoSkills).includes(id)) {
                     val += infoMod;
                 }
+                if (val < 0) val = 0;
                 params.push({ label: label, value: String(val) });
             }
 
             params.push({ label: "出身", value: String(document.getElementById('char-origin').value) });
             params.push({ label: "ボーナス", value: String(document.getElementById('char-hometown').value) });
+            if (bonusOriginId === 16) {
+                const luminasSkillId = getSelectedLuminasSkillId();
+                if (luminasSkillId) {
+                    const luminasInput = document.getElementById(luminasSkillId);
+                    params.push({ label: "ルミナス固定技能", value: luminasSkillId });
+                    const luminasBaseValue = (luminasInput && luminasInput.dataset) ? luminasInput.dataset.luminasBaseValue : 0;
+                    params.push({ label: "ルミナス固定基礎値", value: String(parseInt(luminasBaseValue, 10) || 0) });
+                }
+            }
 
             const status = [
                 { label: "HP", value: parseInt(document.getElementById('st-hp-val').value), max: parseInt(document.getElementById('st-hp-max').value) },
@@ -1519,7 +1675,7 @@
             ];
 
             let skillValues = skillDefs.map(s => {
-                let value = getInt(s.id);
+                let value = getEffectiveSkillValue(s.id) + getOriginSkillBonus(s.id);
                 if (s.info) value += infoMod;
                 if (value < 0) value = 0;
                 return { label: s.label, value: String(value), numericValue: value };
@@ -1553,6 +1709,10 @@
 
             const bonusOriginId = parseInt(getVal('char-hometown'), 10) || 0;
             const bonusText = bonusOriginId > 0 ? getSelectedText('char-hometown') : '0: なし';
+            const luminasSkillId = getSelectedLuminasSkillId();
+            const luminasMeta = (getBonusOriginId() === 16 && luminasSkillId)
+                ? `ルミナス固定: ${skillDefs.find(s => s.id === luminasSkillId)?.label || luminasSkillId}`
+                : null;
             const isScenarioChar = getVal('char-type') === 'scenario';
             const charType = isScenarioChar ? 'シナリオキャラクター' : 'プレイヤーキャラクター';
             const name = getVal('char-name') || '新規キャラクター';
@@ -1570,7 +1730,8 @@
                 metaLines: [
                     `種別: ${charType}`,
                     `出身: ${getSelectedText('char-origin')}`,
-                    `ボーナス: ${bonusText}`
+                    `ボーナス: ${bonusText}`,
+                    ...(luminasMeta ? [luminasMeta] : [])
                 ],
                 primaryStats,
                 battleStats,
@@ -1829,9 +1990,13 @@
                                 document.getElementById('char-hometown').value = bonusParam.value;
                             }
 
+                            const luminasSkillParam = d.params.find(p => p.label === "ルミナス固定技能");
+                            const luminasBaseParam = d.params.find(p => p.label === "ルミナス固定基礎値");
+
                             // 現在の出身地(故郷含む)に基づいて補正値を再計算
                             const infoMod = getInfoSkillModifier();
                             const infoLabels = ["対話", "尋問", "諜報", "窃取"];
+                            const currentBonusOriginId = getBonusOriginId();
 
                             d.params.forEach(p => {
                                 if (map[p.label]) {
@@ -1844,11 +2009,27 @@
                                             if (val < 0) val = 0;
                                             if (val > 3) val = 3; // コスト上限3
                                         }
+                                        val -= getOriginSkillBonusByOriginId(map[p.label], currentBonusOriginId);
+                                        if (val < 0) val = 0;
                                         el.value = val;
                                         el.dataset.prevValue = val;
                                     }
                                 }
                             });
+
+                            getLuminasSkillIds().forEach(skillId => {
+                                const checkbox = document.getElementById(getLuminasCheckboxId(skillId));
+                                const input = document.getElementById(skillId);
+                                if (!checkbox || !input) return;
+                                checkbox.checked = luminasSkillParam ? luminasSkillParam.value === skillId : false;
+                                if (checkbox.checked) {
+                                    input.dataset.luminasBaseValue = String(parseInt(luminasBaseParam?.value, 10) || 0);
+                                    input.value = input.dataset.luminasBaseValue;
+                                } else {
+                                    delete input.dataset.luminasBaseValue;
+                                }
+                            });
+                            syncLuminasFixedSkillUI();
                         }
 
                         if (!hasExplicitCharacterType && (Array.isArray(d.status) || d.maxHp !== undefined || d.maxMp !== undefined)) {

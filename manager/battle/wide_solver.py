@@ -18,10 +18,25 @@ from manager.battle.core import (
 )
 from manager.summons.service import apply_summon_change
 from manager.granted_skills.service import apply_grant_skill_change, consume_granted_skill_use
-from manager.utils import resolve_placeholders, get_effective_origin_id
+from manager.utils import (
+    resolve_placeholders,
+    get_effective_origin_id,
+    compute_origin_skill_modifiers,
+    apply_dice_power_bonus_to_command,
+    get_target_coloration_attack_bonus,
+)
 from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
+
+
+def _apply_temp_power_bonus_to_command(command, actor):
+    if not isinstance(actor, dict):
+        return command
+    total_bonus = int(actor.get('_base_power_bonus', 0) or 0) + int(actor.get('_final_power_bonus', 0) or 0)
+    if total_bonus == 0:
+        return command
+    return f"{command}{'+' if total_bonus > 0 else ''}{total_bonus}"
 
 def setup_wide_match_declaration(room, data, username):
     state = get_room_state(room)
@@ -221,6 +236,12 @@ def execute_wide_match(room, username):
     broadcast_log(room, f"⚔️ === 広域マッチ開始 ({mode}モード) ===", 'match-start')
     broadcast_log(room, f"🗡️ 攻撃者: {attacker_char['name']} [{attacker_skill_id}]", 'info')
 
+    attacker_origin_mods = compute_origin_skill_modifiers(attacker_char, None, attacker_skill_data, state=state)
+    attacker_char['_base_power_bonus'] = int(attacker_char.get('_base_power_bonus', 0) or 0) + int(attacker_origin_mods.get('base_power_bonus', 0) or 0)
+    attacker_char['_final_power_bonus'] = int(attacker_char.get('_final_power_bonus', 0) or 0) + int(attacker_origin_mods.get('final_power_bonus', 0) or 0)
+    attacker_command = apply_dice_power_bonus_to_command(attacker_command, attacker_origin_mods.get('dice_power_bonus', 0))
+    attacker_command = _apply_temp_power_bonus_to_command(attacker_command, attacker_char)
+
     attacker_roll = roll_dice(attacker_command)
     broadcast_log(room, f"   → ロール: {attacker_roll['details']} = {attacker_roll['total']}", 'dice')
 
@@ -391,6 +412,13 @@ def execute_wide_match(room, username):
             if def_data.get('data') and def_data['data'].get('final_command'):
                  def_command = def_data['data']['final_command']
 
+            def_skill_data = all_skill_data.get(def_skill_id)
+            origin_mods = compute_origin_skill_modifiers(def_char, attacker_char, def_skill_data, state=state)
+            def_char['_base_power_bonus'] = int(def_char.get('_base_power_bonus', 0) or 0) + int(origin_mods.get('base_power_bonus', 0) or 0)
+            def_char['_final_power_bonus'] = int(def_char.get('_final_power_bonus', 0) or 0) + int(origin_mods.get('final_power_bonus', 0) or 0)
+            def_command = apply_dice_power_bonus_to_command(def_command, origin_mods.get('dice_power_bonus', 0))
+            def_command = _apply_temp_power_bonus_to_command(def_command, def_char)
+
             def_roll_result = roll_dice(def_command)
 
             # --- Senritsu (Terror) Penalty: Defender ---
@@ -430,6 +458,9 @@ def execute_wide_match(room, username):
              if attacker_total > 2:
                  attacker_total -= 1
                  broadcast_log(room, f"[ヴァルヴァイレ恩恵] 攻撃側値 -1", 'info')
+
+        if any(get_target_coloration_attack_bonus(attacker_char, defender_char, attacker_skill_data) > 0 for defender_char in valid_defenders):
+             attacker_total += 1
 
         broadcast_log(room, f"📊 防御者合計: {total_defender_roll} vs 攻撃者: {attacker_total}", 'info')
 
@@ -548,6 +579,11 @@ def execute_wide_match(room, username):
                 def_command = def_data['data']['final_command']
                 using_precalc = True
 
+            origin_mods = compute_origin_skill_modifiers(def_char, attacker_char, def_skill_data, state=state)
+            def_char['_base_power_bonus'] = int(def_char.get('_base_power_bonus', 0) or 0) + int(origin_mods.get('base_power_bonus', 0) or 0)
+            def_char['_final_power_bonus'] = int(def_char.get('_final_power_bonus', 0) or 0) + int(origin_mods.get('final_power_bonus', 0) or 0)
+            def_command = apply_dice_power_bonus_to_command(def_command, origin_mods.get('dice_power_bonus', 0))
+
             # Dynamic power mod logic
             # PRE_MATCH はロール直前に適用されるため、precalcコマンドにも追記する。
             bp_mod = int(def_char.get('_base_power_bonus', 0) or 0)
@@ -584,6 +620,8 @@ def execute_wide_match(room, username):
             if get_effective_origin_id(def_char) == 13:
                  if effective_attacker_total > 2:
                      effective_attacker_total -= 1
+
+            effective_attacker_total += get_target_coloration_attack_bonus(attacker_char, def_char, attacker_skill_data)
 
             # Display modified totals if changed
             if defender_total != def_roll['total'] or effective_attacker_total != attacker_total:

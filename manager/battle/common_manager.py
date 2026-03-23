@@ -68,6 +68,7 @@ BEHAVIOR_RANDOM_USABLE_SKILL_ALIASES = {
 get_effective_origin_id = getattr(_utils_mod, 'get_effective_origin_id', lambda *_args, **_kwargs: 0)
 apply_origin_bonus_buffs = getattr(_utils_mod, 'apply_origin_bonus_buffs', lambda *_args, **_kwargs: None)
 clear_newly_applied_flags = getattr(_utils_mod, 'clear_newly_applied_flags', lambda *_args, **_kwargs: 0)
+get_round_end_origin_recoveries = getattr(_utils_mod, 'get_round_end_origin_recoveries', lambda *_args, **_kwargs: {})
 
 
 def _canonical_team(raw_value):
@@ -903,17 +904,21 @@ def process_full_round_end(room, username):
         skill_id = row.get("skill_id") or "UNKNOWN"
         broadcast_log(room, f"{char_name} から付与スキル {skill_id} が解除された。", "state-change")
 
-    # ★ 追加: マホロバ (ID: 5) ラウンド終了時一括処理
-    mahoroba_targets = []
+    round_end_origin_targets = {}
     for char in state.get('characters', []):
         if char.get('hp', 0) <= 0: continue
-        if get_effective_origin_id(char) == 5:
-             # HP回復
-             _update_char_stat(room, char, 'HP', char['hp'] + 3, username="[マホロバ恩恵]")
-             mahoroba_targets.append(char['name'])
+        recoveries = get_round_end_origin_recoveries(char)
+        for status_name, amount in recoveries.items():
+            if int(amount or 0) <= 0:
+                continue
+            new_value = int(get_status_value(char, status_name)) + int(amount)
+            _update_char_stat(room, char, status_name, new_value, username=f"[出身ボーナス:{status_name}]")
+            round_end_origin_targets.setdefault(status_name, []).append(char['name'])
 
-    if mahoroba_targets:
-        broadcast_log(room, f"[マホロバ恩恵] {', '.join(mahoroba_targets)} のHPが3回復しました。", 'info')
+    if round_end_origin_targets.get('HP'):
+        broadcast_log(room, f"[マホロバ恩恵] {', '.join(round_end_origin_targets['HP'])} のHPが3回復しました。", 'info')
+    if round_end_origin_targets.get('MP'):
+        broadcast_log(room, f"[アルトマギア恩恵] {', '.join(round_end_origin_targets['MP'])} のMPが1回復しました。", 'info')
 
     state['is_round_ended'] = True
     state['turn_char_id'] = None
