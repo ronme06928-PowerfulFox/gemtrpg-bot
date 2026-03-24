@@ -753,7 +753,9 @@ class DeclarePanel {
 
     _normalizeTargetScope(scope) {
         const s = String(scope || '').trim().toLowerCase();
-        if (s === 'ally' || s === 'enemy' || s === 'any') return s;
+        if (['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対'].includes(s)) return 'enemy';
+        if (['ally', 'allies', 'friend', 'friends', '味方', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定'].includes(s)) return 'ally';
+        if (['any', 'all', 'both', '全体', 'all_targets'].includes(s)) return 'any';
         return 'enemy';
     }
 
@@ -782,12 +784,9 @@ class DeclarePanel {
         for (const raw of candidates) {
             const text = String(raw || '').trim().toLowerCase();
             if (!text) continue;
-            if (text === 'enemy' || text === 'ally' || text === 'any') {
-                return text;
-            }
-            if (text === 'all' || text === 'both') {
-                return 'any';
-            }
+            if (['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対'].includes(text)) return 'enemy';
+            if (['ally', 'allies', 'friend', 'friends', '味方', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定'].includes(text)) return 'ally';
+            if (['any', 'all', 'both', '全体', 'all_targets'].includes(text)) return 'any';
         }
 
         const tags = []
@@ -796,7 +795,7 @@ class DeclarePanel {
             .map((t) => String(t || '').trim().toLowerCase())
             .filter(Boolean);
         if (tags.some((t) => ['any_target', 'target_any', '任意対象', '対象自由'].includes(t))) return 'any';
-        if (tags.some((t) => ['ally_target', 'target_ally', '味方対象', '味方指定'].includes(t))) return 'ally';
+        if (tags.some((t) => ['ally_target', 'target_ally', '味方対象', '味方指定', '同陣営対象', '同陣営指定'].includes(t))) return 'ally';
         if (tags.some((t) => ['enemy_target', 'target_enemy', '敵対象'].includes(t))) return 'enemy';
         return 'enemy';
     }

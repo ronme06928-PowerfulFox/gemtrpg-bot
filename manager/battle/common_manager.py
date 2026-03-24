@@ -275,6 +275,8 @@ def _normalize_target_scope(raw_value, default='enemy'):
         return 'enemy'
     if text in ['ally', 'allies', 'friend', 'friends', '蜻ｳ譁ｹ', '蜻ｳ譁ｹ蜈ｨ菴・']:
         return 'ally'
+    if text in ['同陣営', '同陣営対象', '同陣営指定']:
+        return 'ally'
     if text in ['any', 'all', 'both', '蜈ｨ菴・', 'all_targets']:
         return 'any'
     return str(default or 'enemy')
@@ -305,6 +307,8 @@ def _infer_target_scope_from_skill(skill_id):
     if any(tag in normalized_tags for tag in ['any_target', 'target_any', '莉ｻ諢丞ｯｾ雎｡', '蟇ｾ雎｡閾ｪ逕ｱ']):
         return 'any'
     if any(tag in normalized_tags for tag in ['ally_target', 'target_ally', '蜻ｳ譁ｹ蟇ｾ雎｡', '蜻ｳ譁ｹ謖・ｮ・']):
+        return 'ally'
+    if any(tag in normalized_tags for tag in ['同陣営対象', '同陣営指定']):
         return 'ally'
     if any(tag in normalized_tags for tag in ['enemy_target', 'target_enemy', '謨ｵ蟇ｾ雎｡']):
         return 'enemy'

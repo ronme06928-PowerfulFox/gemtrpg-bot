@@ -475,7 +475,7 @@ def _normalize_target_scope(raw_value, default='enemy'):
         return str(default or 'enemy')
     if text in ['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対']:
         return 'enemy'
-    if text in ['ally', 'allies', 'friend', 'friends', '味方', '味方全体']:
+    if text in ['ally', 'allies', 'friend', 'friends', '味方', '味方全体', '同陣営', '同陣営対象', '同陣営指定']:
         return 'ally'
     if text in ['any', 'all', 'both', '全体', 'all_targets']:
         return 'any'
@@ -509,7 +509,7 @@ def _infer_target_scope_from_skill(skill_id):
         if text:
             tags.append(text)
     normalized = {str(v).strip().lower() for v in tags}
-    ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定'}
+    ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定', '同陣営対象', '同陣営指定'}
     any_tags = {'any_target', 'target_any', '任意対象', '対象自由'}
     enemy_tags = {'enemy_target', 'target_enemy', '敵対象'}
     if any(str(t).lower() in normalized for t in any_tags):
@@ -1353,7 +1353,7 @@ def _try_apply_redirect(room_id, battle_id, state, slot_a):
     slot_b_data = state['slots'][slot_b]
     scope_a = _infer_target_scope_from_skill(intent_a.get('skill_id'))
     scope_b = _infer_target_scope_from_skill(intent_b.get('skill_id'))
-    # 味方指定スキルは対象変更の仕組みに参加させない。
+    # 同陣営指定（旧: 味方指定）スキルは対象変更の仕組みに参加させない。
     if scope_a == 'ally' or scope_b == 'ally':
         return
 

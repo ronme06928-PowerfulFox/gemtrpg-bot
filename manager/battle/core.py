@@ -151,7 +151,7 @@ def _normalize_target_scope(raw_value, default='enemy'):
         return str(default or 'enemy')
     if text in ['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対象']:
         return 'enemy'
-    if text in ['ally', 'allies', 'friend', 'friends', '味方', '味方対象']:
+    if text in ['ally', 'allies', 'friend', 'friends', '味方', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定']:
         return 'ally'
     if text in ['any', 'all', 'both', '任意', '対象自由', 'all_targets']:
         return 'any'
@@ -177,7 +177,7 @@ def _infer_target_scope_from_skill_data(skill_data):
             return _normalize_target_scope(raw, default='enemy')
 
     normalized_tags = {str(v or '').strip().lower() for v in _collect_skill_tags(skill_data)}
-    ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定'}
+    ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定', '同陣営対象', '同陣営指定'}
     any_tags = {'any_target', 'target_any', '任意対象', '対象自由'}
     enemy_tags = {'enemy_target', 'target_enemy', '敵対象'}
     if any(tag.lower() in normalized_tags for tag in any_tags):

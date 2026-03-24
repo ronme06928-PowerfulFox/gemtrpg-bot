@@ -346,7 +346,7 @@ def test_case3c_ally_target_skill_does_not_trigger_redirect():
 
     old_ally = battle_routes.all_skill_data.get("ally_buff")
     old_atk = battle_routes.all_skill_data.get("atk")
-    battle_routes.all_skill_data["ally_buff"] = {"tags": ["味方指定"], "rule_data": {"effects": []}}
+    battle_routes.all_skill_data["ally_buff"] = {"tags": ["同陣営指定"], "rule_data": {"effects": []}}
     battle_routes.all_skill_data["atk"] = {"tags": [], "rule_data": {"effects": []}}
     try:
         battle_routes._try_apply_redirect("room_t", "battle_test", bs, "A")
@@ -2158,12 +2158,12 @@ def test_case30c_ally_target_pair_does_not_form_clash(monkeypatch):
     battle_core.all_skill_data["sup_a"] = {
         "base_power": 0,
         "dice_power": "1d1",
-        "rule_data": {"tags": ["味方指定"], "effects": []},
+        "rule_data": {"tags": ["同陣営指定"], "effects": []},
     }
     battle_core.all_skill_data["sup_b"] = {
         "base_power": 0,
         "dice_power": "1d1",
-        "rule_data": {"tags": ["味方指定"], "effects": []},
+        "rule_data": {"tags": ["同陣営指定"], "effects": []},
     }
 
     def _stub_one_sided(**_kwargs):
