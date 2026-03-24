@@ -1,6 +1,8 @@
 import re
 import json
 import time
+import html
+import copy
 from extensions import all_skill_data
 from extensions import socketio
 from manager.dice_roller import roll_dice
@@ -33,6 +35,7 @@ get_effective_origin_id = getattr(_utils_mod, 'get_effective_origin_id', lambda 
 set_status_value = getattr(_utils_mod, 'set_status_value', lambda *_args, **_kwargs: None)
 clear_newly_applied_flags = getattr(_utils_mod, 'clear_newly_applied_flags', lambda *_args, **_kwargs: 0)
 get_round_end_origin_recoveries = getattr(_utils_mod, 'get_round_end_origin_recoveries', lambda *_args, **_kwargs: {})
+apply_origin_bonus_buffs = getattr(_utils_mod, 'apply_origin_bonus_buffs', lambda *_args, **_kwargs: None)
 
 COST_CONSUME_POLICY = "on_execute"
 MAX_USE_SKILL_AGAIN_CHAIN_HARD_CAP = 20
@@ -291,13 +294,14 @@ def _should_grant_clash_win_fp(attacker_skill_data, defender_skill_data, clash_o
 def _summary_has_positive_fp_gain(summary, target_id):
     if not isinstance(summary, dict):
         return False
+    target_key = str(target_id)
     statuses = summary.get('statuses', [])
     if not isinstance(statuses, list):
         return False
     for row in statuses:
         if not isinstance(row, dict):
             continue
-        if row.get('target_id') != target_id:
+        if str(row.get('target_id')) != target_key:
             continue
         name = str(row.get('name') or '').strip().upper()
         if name != 'FP':
@@ -314,16 +318,45 @@ def _summary_has_positive_fp_gain(summary, target_id):
     return False
 
 
+def _summary_fp_gain_total(summary, target_id):
+    if not isinstance(summary, dict):
+        return 0
+    target_key = str(target_id)
+    statuses = summary.get('statuses', [])
+    if not isinstance(statuses, list):
+        return 0
+    total = 0
+    for row in statuses:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get('target_id')) != target_key:
+            continue
+        name = str(row.get('name') or '').strip().upper()
+        if name != 'FP':
+            continue
+        before_v = row.get('before')
+        after_v = row.get('after')
+        delta_v = row.get('delta')
+        try:
+            delta = int(delta_v if delta_v is not None else (int(after_v or 0) - int(before_v or 0)))
+        except Exception:
+            delta = 0
+        if delta > 0:
+            total += delta
+    return total
+
+
 def _summary_has_match_win_fp_gain(summary, target_id):
     if not isinstance(summary, dict):
         return False
+    target_key = str(target_id)
     statuses = summary.get('statuses', [])
     if not isinstance(statuses, list):
         return False
     for row in statuses:
         if not isinstance(row, dict):
             continue
-        if row.get('target_id') != target_id:
+        if str(row.get('target_id')) != target_key:
             continue
         name = str(row.get('name') or '').strip().upper()
         if name != 'FP':
@@ -334,13 +367,106 @@ def _summary_has_match_win_fp_gain(summary, target_id):
     return False
 
 
-def _skill_has_direct_fp_gain(skill_data):
+def _iter_summary_log_lines(summary):
+    if not isinstance(summary, dict):
+        return []
+    lines = []
+    for key in ('legacy_log_lines', 'logs'):
+        raw = summary.get(key, [])
+        if not isinstance(raw, list):
+            continue
+        for row in raw:
+            if row is None:
+                continue
+            text = str(row).strip()
+            if text:
+                lines.append(text)
+    return lines
+
+
+def _extract_fp_transition_delta_from_line(line, actor_name=None):
+    if not isinstance(line, str):
+        return None
+    text = str(line).strip()
+    if not text:
+        return None
+    if 'FP' not in text.upper():
+        return None
+    if actor_name:
+        actor_text = str(actor_name).strip()
+        if actor_text and (actor_text not in text):
+            return None
+
+    m = re.search(r"FP[^0-9\-]*(-?\d+)[^0-9\-]+(-?\d+)", text, flags=re.IGNORECASE)
+    if not m:
+        return None
+    try:
+        before = int(m.group(1))
+        after = int(m.group(2))
+    except Exception:
+        return None
+    return after - before
+
+
+def _summary_logs_has_positive_fp_gain(summary, actor_name=None):
+    for line in _iter_summary_log_lines(summary):
+        delta = _extract_fp_transition_delta_from_line(line, actor_name=actor_name)
+        if isinstance(delta, int) and delta > 0:
+            return True
+    return False
+
+
+def _summary_logs_fp_gain_total(summary, actor_name=None):
+    total = 0
+    for line in _iter_summary_log_lines(summary):
+        delta = _extract_fp_transition_delta_from_line(line, actor_name=actor_name)
+        if isinstance(delta, int) and delta > 0:
+            total += delta
+    return total
+
+
+def _summary_logs_has_match_win_fp_gain(summary, actor_name=None):
+    for line in _iter_summary_log_lines(summary):
+        if actor_name:
+            actor_text = str(actor_name).strip()
+            if actor_text and (actor_text not in line):
+                continue
+        lower = line.lower()
+        if ('match_win' in lower) or ('マッチ勝利' in line) or ('match win' in lower):
+            delta = _extract_fp_transition_delta_from_line(line, actor_name=actor_name)
+            if isinstance(delta, int) and delta > 0:
+                return True
+    return False
+
+
+def _normalize_effect_timing(value):
+    return str(value or '').strip().upper()
+
+
+def _effect_targets_self(effect):
+    if not isinstance(effect, dict):
+        return False
+    target = str(effect.get('target') or '').strip().lower()
+    if target in ['', 'self', 'source', 'actor', 'caster', 'owner']:
+        return True
+    return False
+
+
+def _estimate_immediate_self_fp_gain(skill_data):
+    """
+    Estimate immediate self FP gain that can occur during clash execution.
+    This intentionally ignores END_ROUND style delayed effects.
+    """
     rule_data = _extract_rule_data_from_skill(skill_data)
     if not isinstance(rule_data, dict):
-        return False
+        return 0
     effects = rule_data.get('effects', [])
     if not isinstance(effects, list):
-        return False
+        return 0
+
+    # Timings that can contribute FP before/within duel resolution.
+    immediate_timings = {'PRE_MATCH', 'WIN', 'HIT', 'UNOPPOSED'}
+    total = 0
     for effect in effects:
         if not isinstance(effect, dict):
             continue
@@ -349,13 +475,21 @@ def _skill_has_direct_fp_gain(skill_data):
         state_name = str(effect.get('state_name') or effect.get('name') or '').strip().upper()
         if state_name != 'FP':
             continue
+        if not _effect_targets_self(effect):
+            continue
+        if _normalize_effect_timing(effect.get('timing')) not in immediate_timings:
+            continue
         try:
             value = int(effect.get('value', 0))
         except Exception:
             value = 0
         if value > 0:
-            return True
-    return False
+            total += value
+    return total
+
+
+def _skill_has_direct_fp_gain(skill_data):
+    return _estimate_immediate_self_fp_gain(skill_data) > 0
 
 
 def _set_actor_status_local(actor, stat_name, value):
@@ -393,10 +527,22 @@ def _ensure_clash_winner_fp_gain(room, winner_char, clash_summary, winner_skill_
     winner_id = winner_char.get('id')
     if not winner_id:
         return None
+    winner_name = str(winner_char.get('name') or '').strip()
     if _summary_has_match_win_fp_gain(clash_summary, winner_id):
         return None
-    if _summary_has_positive_fp_gain(clash_summary, winner_id) and (not _skill_has_direct_fp_gain(winner_skill_data)):
+    if _summary_logs_has_match_win_fp_gain(clash_summary, actor_name=winner_name):
         return None
+
+    observed_status_gain = _summary_fp_gain_total(clash_summary, winner_id)
+    observed_log_gain = _summary_logs_fp_gain_total(clash_summary, actor_name=winner_name)
+    observed_gain = max(int(observed_status_gain or 0), int(observed_log_gain or 0))
+    expected_direct_gain = _estimate_immediate_self_fp_gain(winner_skill_data)
+
+    # If observed gain already exceeds direct skill gain by at least +1,
+    # the match-win FP has effectively been applied already.
+    if observed_gain >= (expected_direct_gain + 1):
+        return None
+
     before_fp = int(get_status_value(winner_char, 'FP') or 0)
     after_fp = before_fp + 1
     _set_actor_status_local(winner_char, 'FP', after_fp)
@@ -558,6 +704,455 @@ def _log_battle_emit(event_name, room_id, battle_id, payload):
     )
 
 
+def _trace_kind_label(kind):
+    k = str(kind or '')
+    if k == 'clash':
+        return 'マッチ'
+    if k == 'one_sided':
+        return '一方攻撃'
+    if k == 'fizzle':
+        return '不発'
+    if k == 'mass_summation':
+        return '広域-合算'
+    if k == 'mass_individual':
+        return '広域-個別'
+    if k == 'hard_attack':
+        return '追撃'
+    return k or '解決'
+
+
+def _trace_outcome_label(outcome):
+    o = str(outcome or 'no_effect')
+    if o == 'attacker_win':
+        return '攻撃側勝利'
+    if o == 'defender_win':
+        return '防御側勝利'
+    if o == 'draw':
+        return '引き分け'
+    return '効果なし'
+
+
+def _trace_actor_name(chars_by_id, actor_id, fallback='-'):
+    if not actor_id:
+        return str(fallback)
+    actor = chars_by_id.get(actor_id) if isinstance(chars_by_id, dict) else None
+    if isinstance(actor, dict):
+        name = str(actor.get('name') or '').strip()
+        if name:
+            return name
+    return str(actor_id)
+
+
+def _trace_damage_total(trace_entry):
+    total = 0
+    entries = []
+    applied = trace_entry.get('applied', {}) if isinstance(trace_entry, dict) else {}
+    if isinstance(applied, dict) and isinstance(applied.get('damage'), list):
+        entries.extend(applied.get('damage') or [])
+    if isinstance(trace_entry, dict) and isinstance(trace_entry.get('damage_events'), list):
+        entries.extend(trace_entry.get('damage_events') or [])
+    for row in entries:
+        if not isinstance(row, dict):
+            continue
+        try:
+            value = int(row.get('hp', row.get('amount', 0)) or 0)
+        except Exception:
+            value = 0
+        if value > 0:
+            total += value
+    if total > 0:
+        return total
+
+    rolls = trace_entry.get('rolls', {}) if isinstance(trace_entry, dict) else {}
+    if not isinstance(rolls, dict):
+        return 0
+    for key in ('total_damage', 'final_damage', 'base_damage', 'delta'):
+        try:
+            value = int(rolls.get(key, 0) or 0)
+        except Exception:
+            value = 0
+        if value > 0:
+            return value
+    return 0
+
+
+def _format_power_snapshot_line(actor_name, snapshot):
+    if not isinstance(snapshot, dict):
+        return None
+
+    def _to_int(v):
+        try:
+            return int(v or 0)
+        except Exception:
+            return 0
+
+    base_power = _to_int(snapshot.get('base_power_after_mod'))
+    dice_power = _to_int(snapshot.get('dice_power_after_roll'))
+    const_power = _to_int(snapshot.get('constant_power_after_roll'))
+    physical = _to_int(snapshot.get('physical_power'))
+    magical = _to_int(snapshot.get('magical_power'))
+    dice_stat = _to_int(snapshot.get('dice_stat_power'))
+    flat = _to_int(snapshot.get('flat_power_bonus'))
+    final_power = _to_int(snapshot.get('final_power'))
+
+    return (
+        f"{actor_name}: 基礎{base_power} / ダイス{dice_power} / 固定{const_power} / "
+        f"物理{physical:+} / 魔法{magical:+} / ダイス補正{dice_stat:+} / "
+        f"フラット{flat:+} / 最終{final_power}"
+    )
+
+
+def _build_trace_compact_log_message_legacy(trace_entry, room_state):
+    trace_entry = trace_entry if isinstance(trace_entry, dict) else {}
+    room_state = room_state if isinstance(room_state, dict) else {}
+    chars = room_state.get('characters', []) if isinstance(room_state.get('characters'), list) else []
+    chars_by_id = {
+        c.get('id'): c for c in chars
+        if isinstance(c, dict) and c.get('id')
+    }
+
+    kind = str(trace_entry.get('kind') or '')
+    outcome = str(trace_entry.get('outcome') or 'no_effect')
+    attacker_id = trace_entry.get('attacker_actor_id')
+    defender_id = trace_entry.get('defender_actor_id') or trace_entry.get('target_actor_id')
+    attacker_name = _trace_actor_name(chars_by_id, attacker_id, fallback='攻撃側')
+    defender_name = _trace_actor_name(chars_by_id, defender_id, fallback='防御側')
+
+    total_damage = int(_trace_damage_total(trace_entry) or 0)
+
+    if kind in {'one_sided', 'fizzle'}:
+        title = f"{attacker_name} の一方攻撃"
+    else:
+        title = f"{attacker_name} vs {defender_name}"
+
+    summary = f"[{_trace_kind_label(kind)}] {title} / {_trace_outcome_label(outcome)} / 総{total_damage}"
+
+    details = []
+    rolls = trace_entry.get('rolls', {}) if isinstance(trace_entry.get('rolls'), dict) else {}
+    if isinstance(rolls, dict):
+        cmd_a = str(rolls.get('command') or '').strip()
+        cmd_b = str(rolls.get('command_b') or '').strip()
+        if cmd_a:
+            details.append(f"{attacker_name} command: {cmd_a}")
+        if cmd_b:
+            details.append(f"{defender_name} command: {cmd_b}")
+        snap_a = rolls.get('power_snapshot_a') if isinstance(rolls.get('power_snapshot_a'), dict) else rolls.get('power_snapshot')
+        snap_b = rolls.get('power_snapshot_b')
+        line_a = _format_power_snapshot_line(attacker_name, snap_a)
+        line_b = _format_power_snapshot_line(defender_name, snap_b)
+        if line_a:
+            details.append(line_a)
+        if line_b:
+            details.append(line_b)
+
+    raw_lines = trace_entry.get('lines')
+    if not isinstance(raw_lines, list):
+        raw_lines = trace_entry.get('log_lines')
+    if isinstance(raw_lines, list):
+        seen = set()
+        for row in raw_lines:
+            if row is None:
+                continue
+            text = re.sub(r"<[^>]*>", " ", str(row))
+            text = re.sub(r"\s+", " ", text).strip()
+            if not text:
+                continue
+            if text in seen:
+                continue
+            seen.add(text)
+            details.append(text)
+
+    deduped = []
+    seen_detail = set()
+    for row in details:
+        text = str(row or '').strip()
+        if not text:
+            continue
+        if text in seen_detail:
+            continue
+        seen_detail.add(text)
+        deduped.append(text)
+
+    if not deduped:
+        return html.escape(summary)
+
+    summary_html = html.escape(summary)
+    body_html = "<br>".join(html.escape(line) for line in deduped)
+    return (
+        "<details class=\"resolve-log-entry\">"
+        f"<summary>{summary_html}</summary>"
+        f"<div class=\"resolve-log-entry-body\">{body_html}</div>"
+        "</details>"
+    )
+
+
+def _sanitize_power_snapshot(snapshot):
+    if not isinstance(snapshot, dict):
+        return {}
+
+    def _to_int(v):
+        try:
+            return int(v or 0)
+        except Exception:
+            return 0
+
+    return {
+        'base_power_after_mod': _to_int(snapshot.get('base_power_after_mod')),
+        'dice_power_after_roll': _to_int(snapshot.get('dice_power_after_roll')),
+        'constant_power_after_roll': _to_int(snapshot.get('constant_power_after_roll')),
+        'physical_power': _to_int(snapshot.get('physical_power')),
+        'magical_power': _to_int(snapshot.get('magical_power')),
+        'dice_stat_power': _to_int(snapshot.get('dice_stat_power')),
+        'flat_power_bonus': _to_int(snapshot.get('flat_power_bonus')),
+        'final_power': _to_int(snapshot.get('final_power')),
+    }
+
+
+def _sanitize_power_breakdown(breakdown):
+    if not isinstance(breakdown, dict):
+        return {}
+
+    def _to_int(v):
+        try:
+            return int(v or 0)
+        except Exception:
+            return 0
+
+    return {
+        'base_power_mod': _to_int(breakdown.get('base_power_mod', 0)),
+        'dice_bonus_power': _to_int(breakdown.get('dice_bonus_power', 0)),
+        'final_power_mod': _to_int(breakdown.get('final_power_mod', 0)),
+        'total_flat_bonus': _to_int(breakdown.get('total_flat_bonus', breakdown.get('additional_power', 0))),
+        'additional_power': _to_int(breakdown.get('additional_power', breakdown.get('total_flat_bonus', 0))),
+    }
+
+
+def _build_trace_compact_log_message(trace_entry, room_state):
+    trace_entry = trace_entry if isinstance(trace_entry, dict) else {}
+    room_state = room_state if isinstance(room_state, dict) else {}
+    chars = room_state.get('characters', []) if isinstance(room_state.get('characters'), list) else []
+    chars_by_id = {
+        c.get('id'): c for c in chars
+        if isinstance(c, dict) and c.get('id')
+    }
+
+    kind = str(trace_entry.get('kind') or '')
+    outcome = str(trace_entry.get('outcome') or 'no_effect')
+    attacker_id = trace_entry.get('attacker_actor_id')
+    defender_id = trace_entry.get('defender_actor_id') or trace_entry.get('target_actor_id')
+    attacker_name = _trace_actor_name(chars_by_id, attacker_id, fallback='攻撃側')
+    defender_name = _trace_actor_name(chars_by_id, defender_id, fallback='防御側')
+    total_damage = int(_trace_damage_total(trace_entry) or 0)
+
+    if kind in {'one_sided', 'fizzle'}:
+        title = f"{attacker_name} の一方攻撃"
+    else:
+        title = f"{attacker_name} vs {defender_name}"
+
+    summary = f"[{_trace_kind_label(kind)}] {title} / {_trace_outcome_label(outcome)} / 総{total_damage}"
+    summary = f"[{_trace_kind_label(kind)}] {title} - click for detail"
+    return html.escape(summary)
+
+
+def _build_trace_popup_payload(trace_entry, room_state):
+    trace_entry = trace_entry if isinstance(trace_entry, dict) else {}
+    room_state = room_state if isinstance(room_state, dict) else {}
+    chars = room_state.get('characters', []) if isinstance(room_state.get('characters'), list) else []
+    chars_by_id = {
+        c.get('id'): c for c in chars
+        if isinstance(c, dict) and c.get('id')
+    }
+
+    def _extract_skill_from_command(command_text):
+        text = str(command_text or '').strip()
+        if not text:
+            return {'id': None, 'name': None}
+        # Full-width bracket format: 【ID Name】
+        try:
+            import re
+            m = re.search(r'【\s*([^\s】]+)(?:\s+([^】]+))?\s*】', text)
+            if not m:
+                # ASCII bracket format: [ID Name]
+                m = re.search(r'\[\s*([^\s\]]+)(?:\s+([^\]]+))?\s*\]', text)
+            if not m:
+                return {'id': None, 'name': None}
+            sid = str(m.group(1) or '').strip() or None
+            sname = str(m.group(2) or '').strip() or None
+            return {'id': sid, 'name': sname}
+        except Exception:
+            return {'id': None, 'name': None}
+
+    def _non_empty_str(v):
+        if v is None:
+            return ''
+        s = str(v).strip()
+        return s
+
+    def _skill_meta_by_id(skill_id):
+        sid = _non_empty_str(skill_id)
+        if not sid:
+            return {}
+        raw = all_skill_data.get(sid)
+        if not isinstance(raw, dict):
+            return {}
+
+        def _pick(*keys):
+            for k in keys:
+                val = _non_empty_str(raw.get(k))
+                if val:
+                    return val
+            return ''
+
+        name = _pick('デフォルト名称', 'name', '名称')
+        category = _pick('分類', 'category')
+        distance = _pick('距離', 'range')
+        attribute = _pick('属性', 'attribute')
+        effects = []
+        for key in ('使用時効果', '発動時効果', '特記'):
+            text = _pick(key)
+            if text:
+                effects.append({'label': key, 'text': text})
+        return {
+            'id': sid,
+            'name': name,
+            'category': category,
+            'distance': distance,
+            'attribute': attribute,
+            'effects': effects
+        }
+
+    kind = str(trace_entry.get('kind') or '')
+    outcome = str(trace_entry.get('outcome') or 'no_effect')
+    attacker_id = trace_entry.get('attacker_actor_id')
+    defender_id = trace_entry.get('defender_actor_id') or trace_entry.get('target_actor_id')
+    attacker_name = _trace_actor_name(chars_by_id, attacker_id, fallback='攻撃側')
+    defender_name = _trace_actor_name(chars_by_id, defender_id, fallback='防御側')
+    total_damage = int(_trace_damage_total(trace_entry) or 0)
+
+    rolls = trace_entry.get('rolls', {}) if isinstance(trace_entry.get('rolls'), dict) else {}
+    payload = trace_entry.get('outcome_payload')
+    summary_rolls = {}
+    if isinstance(payload, dict):
+        delegate_summary = payload.get('delegate_summary')
+        if isinstance(delegate_summary, dict) and isinstance(delegate_summary.get('rolls'), dict):
+            summary_rolls = delegate_summary.get('rolls') or {}
+
+    cmd_a = str(rolls.get('command') or summary_rolls.get('command') or '').strip()
+    cmd_b = str(rolls.get('command_b') or summary_rolls.get('command_b') or '').strip()
+
+    attacker_slot_id = trace_entry.get('attacker_slot_id') or trace_entry.get('attacker_slot')
+    defender_slot_id = trace_entry.get('defender_slot_id') or trace_entry.get('defender_slot')
+    if attacker_slot_id is not None:
+        attacker_slot_id = str(attacker_slot_id)
+    if defender_slot_id is not None:
+        defender_slot_id = str(defender_slot_id)
+
+    bs = room_state.get('battle_state', {}) if isinstance(room_state.get('battle_state'), dict) else {}
+    slots = bs.get('slots', {}) if isinstance(bs.get('slots'), dict) else {}
+    intents = bs.get('intents', {}) if isinstance(bs.get('intents'), dict) else {}
+    slot_a = slots.get(attacker_slot_id, {}) if attacker_slot_id else {}
+    slot_b = slots.get(defender_slot_id, {}) if defender_slot_id else {}
+    init_a = _safe_int(slot_a.get('initiative'), None) if isinstance(slot_a, dict) else None
+    init_b = _safe_int(slot_b.get('initiative'), None) if isinstance(slot_b, dict) else None
+    idx_a = _safe_int(slot_a.get('index_in_actor'), None) if isinstance(slot_a, dict) else None
+    idx_b = _safe_int(slot_b.get('index_in_actor'), None) if isinstance(slot_b, dict) else None
+
+    parsed_a = _extract_skill_from_command(cmd_a)
+    parsed_b = _extract_skill_from_command(cmd_b)
+
+    def _intent_for_slot(slot_id):
+        if slot_id is None or not isinstance(intents, dict):
+            return {}
+        candidates = [slot_id, str(slot_id)]
+        try:
+            candidates.append(int(str(slot_id)))
+        except Exception:
+            pass
+        for key in candidates:
+            hit = intents.get(key)
+            if isinstance(hit, dict):
+                return hit
+        return {}
+
+    attacker_skill_id = None
+    defender_skill_id = None
+    if isinstance(payload, dict):
+        attacker_skill_id = _non_empty_str(payload.get('skill_id'))
+    defender_skill_id = _non_empty_str(trace_entry.get('defender_skill_id'))
+    if not attacker_skill_id:
+        attacker_skill_id = _non_empty_str(parsed_a.get('id'))
+    if not defender_skill_id:
+        defender_skill_id = _non_empty_str(parsed_b.get('id'))
+    if not attacker_skill_id:
+        attacker_skill_id = _non_empty_str(_intent_for_slot(attacker_slot_id).get('skill_id'))
+    if not defender_skill_id:
+        defender_skill_id = _non_empty_str(_intent_for_slot(defender_slot_id).get('skill_id'))
+    attacker_skill_meta = _skill_meta_by_id(attacker_skill_id)
+    defender_skill_meta = _skill_meta_by_id(defender_skill_id)
+
+    snap_a_raw = rolls.get('power_snapshot_a')
+    if not isinstance(snap_a_raw, dict):
+        snap_a_raw = rolls.get('power_snapshot')
+    if not isinstance(snap_a_raw, dict):
+        snap_a_raw = summary_rolls.get('power_snapshot_a')
+    if not isinstance(snap_a_raw, dict):
+        snap_a_raw = summary_rolls.get('power_snapshot')
+
+    snap_b_raw = rolls.get('power_snapshot_b')
+    if not isinstance(snap_b_raw, dict):
+        snap_b_raw = summary_rolls.get('power_snapshot_b')
+
+    breakdown_a_raw = rolls.get('power_breakdown_a')
+    if not isinstance(breakdown_a_raw, dict):
+        breakdown_a_raw = rolls.get('power_breakdown')
+    if not isinstance(breakdown_a_raw, dict):
+        breakdown_a_raw = summary_rolls.get('power_breakdown_a')
+    if not isinstance(breakdown_a_raw, dict):
+        breakdown_a_raw = summary_rolls.get('power_breakdown')
+
+    breakdown_b_raw = rolls.get('power_breakdown_b')
+    if not isinstance(breakdown_b_raw, dict):
+        breakdown_b_raw = summary_rolls.get('power_breakdown_b')
+
+    return {
+        'kind': kind,
+        'kind_label': _trace_kind_label(kind),
+        'outcome': outcome,
+        'outcome_label': _trace_outcome_label(outcome),
+        'step': int(trace_entry.get('step', 0) or 0),
+        'total_damage': total_damage,
+        'one_sided': bool(kind in {'one_sided', 'fizzle'}),
+        'attacker': {
+            'id': attacker_id,
+            'name': attacker_name,
+            'command': cmd_a,
+            'slot_id': attacker_slot_id,
+            'slot_initiative': init_a,
+            'slot_speed': init_a,
+            'slot_index_in_actor': idx_a,
+            'skill_id': attacker_skill_id or None,
+            'skill_name': attacker_skill_meta.get('name') or parsed_a.get('name') or None,
+            'skill_meta': attacker_skill_meta or {},
+            'power_snapshot': _sanitize_power_snapshot(snap_a_raw),
+            'power_breakdown': _sanitize_power_breakdown(breakdown_a_raw),
+        },
+        'defender': {
+            'id': defender_id,
+            'name': defender_name,
+            'command': cmd_b,
+            'slot_id': defender_slot_id,
+            'slot_initiative': init_b,
+            'slot_speed': init_b,
+            'slot_index_in_actor': idx_b,
+            'skill_id': defender_skill_id or None,
+            'skill_name': defender_skill_meta.get('name') or parsed_b.get('name') or None,
+            'skill_meta': defender_skill_meta or {},
+            'power_snapshot': _sanitize_power_snapshot(snap_b_raw),
+            'power_breakdown': _sanitize_power_breakdown(breakdown_b_raw),
+        },
+    }
+
+
 def _emit_battle_trace(room, battle_id, battle_state, trace_entry):
     entry_lines = trace_entry.get('lines')
     if not isinstance(entry_lines, list):
@@ -565,20 +1160,86 @@ def _emit_battle_trace(room, battle_id, battle_state, trace_entry):
     if not isinstance(entry_lines, list):
         entry_lines = []
 
-    # Persist resolve lines into room logs so they survive history re-render on next round.
-    if entry_lines:
-        room_state = get_room_state(room)
-        if isinstance(room_state, dict):
-            logs = room_state.get('logs')
-            if not isinstance(logs, list):
-                logs = []
-                room_state['logs'] = logs
-            for line in entry_lines:
-                if line is None:
-                    continue
-                logs.append({'message': str(line), 'type': 'info', 'secret': False})
-            if len(logs) > 500:
-                room_state['logs'] = logs[-500:]
+    # Persist resolve trace in compact form for restart-safe history.
+    # Keep this append-only and idempotent per trace entry.
+    try:
+        resolve_ctx = battle_state.setdefault('resolve', {}) if isinstance(battle_state, dict) else {}
+        persisted_keys = resolve_ctx.get('persisted_trace_log_keys', [])
+        if not isinstance(persisted_keys, list):
+            persisted_keys = []
+        trace_key = "|".join([
+            str(battle_state.get('round', 0) if isinstance(battle_state, dict) else 0),
+            str(trace_entry.get('step_index', trace_entry.get('step', ''))),
+            str(trace_entry.get('kind', '')),
+            str(trace_entry.get('attacker_slot_id', trace_entry.get('attacker_slot', ''))),
+            str(trace_entry.get('defender_slot_id', trace_entry.get('defender_slot', ''))),
+            str(trace_entry.get('timestamp', '')),
+        ])
+        if trace_key not in persisted_keys:
+            room_state = get_room_state(room)
+            if isinstance(room_state, dict):
+                logs = room_state.get('logs')
+                if not isinstance(logs, list):
+                    logs = []
+                    room_state['logs'] = logs
+                if '_log_seq' not in room_state:
+                    max_log_id = 0
+                    for row in logs:
+                        if not isinstance(row, dict):
+                            continue
+                        try:
+                            max_log_id = max(max_log_id, int(row.get('log_id', 0) or 0))
+                        except Exception:
+                            continue
+                    room_state['_log_seq'] = int(max(max_log_id, len(logs)))
+
+                compact_message = _build_trace_compact_log_message(trace_entry, room_state)
+                popup_payload = _build_trace_popup_payload(trace_entry, room_state)
+                aux_lines = _extract_step_aux_log_lines(trace_entry)
+                step_idx_raw = trace_entry.get('step_index', trace_entry.get('step'))
+                step_idx = _safe_int(step_idx_raw, -1)
+                resolve_step_key = f"raw:{step_idx}" if step_idx >= 0 else ""
+                for aux_line in aux_lines:
+                    room_state['_log_seq'] = int(room_state.get('_log_seq', 0) or 0) + 1
+                    aux_log = {
+                        "log_id": int(room_state['_log_seq']),
+                        "timestamp": int(time.time() * 1000),
+                        "message": html.escape(str(aux_line)),
+                        "type": "state-change",
+                        "secret": False,
+                        "source": "resolve_trace_aux",
+                        "resolve_step_index": step_idx,
+                        "resolve_step_key": resolve_step_key,
+                    }
+                    logs.append(aux_log)
+                    socketio.emit('new_log', aux_log, to=room)
+                room_state['_log_seq'] = int(room_state.get('_log_seq', 0) or 0) + 1
+                log_data = {
+                    "log_id": int(room_state['_log_seq']),
+                    "timestamp": int(time.time() * 1000),
+                    "message": str(compact_message),
+                    "type": "match",
+                    "secret": False,
+                    "source": "resolve_trace",
+                    "resolve_step_index": step_idx,
+                    "resolve_step_key": resolve_step_key,
+                    "resolve_trace_detail": popup_payload,
+                }
+                logs.append(log_data)
+                socketio.emit('new_log', log_data, to=room)
+                if len(logs) > 500:
+                    room_state['logs'] = logs[-500:]
+                try:
+                    save_specific_room_state(room)
+                except Exception:
+                    pass
+
+            persisted_keys.append(trace_key)
+            if len(persisted_keys) > 800:
+                persisted_keys = persisted_keys[-800:]
+            resolve_ctx['persisted_trace_log_keys'] = persisted_keys
+    except Exception as e:
+        logger.warning("[resolve_trace_persist] failed room=%s battle=%s error=%s", room, battle_id, e)
 
     payload = {
         'room_id': room,
@@ -1711,11 +2372,13 @@ def format_duel_result_lines(
         lines.append(damage_line)
 
     if isinstance(extra_lines, list):
+        seen_extra = set()
         for line in extra_lines:
             if line is None:
                 continue
             line_str = str(line).strip()
-            if line_str:
+            if line_str and (line_str not in seen_extra):
+                seen_extra.add(line_str)
                 lines.append(line_str)
     return lines
 
@@ -1750,6 +2413,11 @@ def to_legacy_duel_log_input(outcome_payload, state, intents, attacker_slot, def
     defender_skill_data = all_skill_data.get(defender_skill_id, {}) if defender_skill_id else {}
 
     delegate_summary = outcome_payload.get('delegate_summary', {})
+    delegate_legacy_lines = (
+        delegate_summary.get('legacy_log_lines', [])
+        if isinstance(delegate_summary, dict)
+        else []
+    )
     rolls = delegate_summary.get('rolls', {}) if isinstance(delegate_summary, dict) else {}
     command_a = rolls.get('command') or "0"
     command_b = rolls.get('command_b') or "0"
@@ -1818,7 +2486,7 @@ def to_legacy_duel_log_input(outcome_payload, state, intents, attacker_slot, def
             per_side_total['D'] += amount
 
     delegate_legacy_parts = _extract_damage_parts_from_legacy_lines(
-        (delegate_summary.get('legacy_log_lines', []) if isinstance(delegate_summary, dict) else []),
+        delegate_legacy_lines,
         attacker_name,
         defender_name
     )
@@ -1944,6 +2612,22 @@ def to_legacy_duel_log_input(outcome_payload, state, intents, attacker_slot, def
     if notes:
         reason_text = _humanize_resolve_reason(notes)
         extra_lines.append(f"reason: {reason_text or notes}")
+    for dmg in applied.get('damage', []) or []:
+        if not isinstance(dmg, dict):
+            continue
+        t_id = dmg.get('target_id')
+        if not t_id:
+            continue
+        try:
+            amount = int(dmg.get('hp', dmg.get('amount', 0)))
+        except (TypeError, ValueError):
+            amount = 0
+        if amount <= 0:
+            continue
+        t_name = chars_by_id.get(t_id, {}).get('name', str(t_id))
+        after_hp = int(chars_by_id.get(t_id, {}).get('hp', 0) or 0)
+        before_hp = after_hp + amount
+        extra_lines.append(f"[状態] {t_name} HP: {before_hp} -> {after_hp}")
     for st in applied.get('statuses', []) or []:
         if not isinstance(st, dict):
             continue
@@ -1963,6 +2647,23 @@ def to_legacy_duel_log_input(outcome_payload, state, intents, attacker_slot, def
         fp = int(cost.get('fp', 0))
         if hp or mp or fp:
             extra_lines.append(f"[コスト] HP:{hp} MP:{mp} FP:{fp}")
+    match_log_line = str(delegate_summary.get('match_log') or '').strip() if isinstance(delegate_summary, dict) else ''
+    for line in (delegate_legacy_lines if isinstance(delegate_legacy_lines, list) else []):
+        if line is None:
+            continue
+        line_str = str(line).strip()
+        if not line_str:
+            continue
+        if match_log_line and line_str == match_log_line:
+            continue
+        # Damage detail lines are reconstructed from structured damage_report.
+        if ('ダメージ' in line_str) and ('<strong>' in line_str):
+            continue
+        if '内訳:' in line_str:
+            continue
+        # Keep buff/debuff application/removal announcements near the match step.
+        if ('付与' in line_str) or ('解除' in line_str):
+            extra_lines.append(line_str)
     for line in (delegate_summary.get('logs', []) if isinstance(delegate_summary, dict) else []):
         if line:
             extra_lines.append(str(line))
@@ -2017,11 +2718,22 @@ def _snapshot_for_outcome(actor):
             continue
         buffs_map[str(name)] = buffs_map.get(str(name), 0) + 1
 
+    fp_value = None
+    for n, v in states_map.items():
+        if str(n or '').strip().upper() == 'FP':
+            try:
+                fp_value = int(v)
+            except Exception:
+                fp_value = 0
+            break
+    if fp_value is None:
+        fp_value = int(get_status_value(actor, 'FP') or 0)
+
     return {
         'id': actor.get('id'),
         'hp': int(actor.get('hp', 0)),
         'mp': int(actor.get('mp', 0)),
-        'fp': int(get_status_value(actor, 'FP')),
+        'fp': int(fp_value),
         'states': states_map,
         'bad_states': bad_states_map,
         'buffs': buffs_map,
@@ -2047,6 +2759,16 @@ def _diff_snapshot(before, after, damage_source='ダメージ'):
         a = int(after.get('states', {}).get(name, 0))
         if a != b:
             statuses.append({'target_id': actor_id, 'name': name, 'before': b, 'after': a, 'delta': a - b})
+
+    # FP can be stored via params/get_status_value without an explicit states[] row.
+    # Capture that top-level diff too so delegated clash summaries don't miss an
+    # already-applied match-win FP gain and re-grant it in select/resolve.
+    before_fp = int(before.get('fp', 0))
+    after_fp = int(after.get('fp', 0))
+    if before_fp != after_fp:
+        has_fp_status = any(str(row.get('name') or '').strip().upper() == 'FP' for row in statuses if isinstance(row, dict))
+        if not has_fp_status:
+            statuses.append({'target_id': actor_id, 'name': 'FP', 'before': before_fp, 'after': after_fp, 'delta': after_fp - before_fp})
 
     bad_state_names = set(before.get('bad_states', {}).keys()) | set(after.get('bad_states', {}).keys())
     for name in bad_state_names:
@@ -2102,8 +2824,10 @@ def _apply_effect_changes_like_duel(
             _update_char_stat(room, char, name, base_curr + value, username=f"[{name}]")
         elif effect_type == "APPLY_BUFF":
             apply_buff(char, name, value.get("lasting", 0), value.get("delay", 0), data=value.get("data"))
+            log_snippets.append(f"[{name}] が {char.get('name', char.get('id', '?'))} に付与されました。")
         elif effect_type == "REMOVE_BUFF":
             remove_buff(char, name)
+            log_snippets.append(f"[{name}] が {char.get('name', char.get('id', '?'))} から解除されました。")
         elif effect_type == "CUSTOM_DAMAGE":
             if defender_char and char.get('id') == defender_char.get('id'):
                 extra_primary_damage += int(value)
@@ -2282,7 +3006,12 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         final_damage = int(final_damage * float(mult_info.get('final', 1.0) or 1.0))
         _append_multiplier_logs(log_snippets, mult_info)
 
-        _update_char_stat(room, defender_char, 'HP', int(defender_char.get('hp', 0)) - final_damage, username="[select_resolve_one_sided]")
+        # Keep one-sided resolve logs consistent with the formatted resolve output.
+        # Direct _update_char_stat logging here creates out-of-band lines such as
+        # "[select_resolve_one_sided]: ...", so apply HP locally and let the
+        # synthesized resolve log render the state transition.
+        curr_hp = int(defender_char.get('hp', 0) or 0)
+        defender_char['hp'] = max(0, curr_hp - int(final_damage or 0))
         on_damage_extra = int(process_on_damage_buffs(room, defender_char, final_damage, "[select_resolve_one_sided]", log_snippets))
     else:
         final_damage = 0
@@ -2367,6 +3096,109 @@ def _extract_power_pair_from_match_log(match_log):
         return None, None
 
 
+def _estimate_roll_breakdown_from_command_and_total(command_text, total_value, fallback_constant=0):
+    expression = str(command_text or '').strip()
+    expression = re.sub(r"【.*?】", "", expression).strip()
+    compact = expression.replace(' ', '')
+
+    constant_total = 0
+    saw_dice_term = False
+    for token in re.finditer(r'([+-]?)(\d+d\d+|\d+)', compact):
+        sign = -1 if token.group(1) == '-' else 1
+        raw = token.group(2)
+        if 'd' in raw.lower():
+            saw_dice_term = True
+            continue
+        try:
+            constant_total += sign * int(raw)
+        except Exception:
+            continue
+
+    if (not saw_dice_term) and constant_total == 0:
+        constant_total = _safe_int(fallback_constant, 0)
+
+    final_total = _safe_int(total_value, 0)
+    dice_total = final_total - constant_total
+    if dice_total < 0:
+        dice_total = 0
+        constant_total = final_total
+
+    return {
+        'expression': compact,
+        'dice_total': int(dice_total),
+        'constant_total': int(constant_total),
+        'final_total': int(final_total),
+    }
+
+
+def _build_clash_power_snapshot(preview, command_text, total_value, roll_result=None):
+    preview_data = preview if isinstance(preview, dict) else {}
+    if isinstance(roll_result, dict):
+        rr = copy.deepcopy(roll_result)
+        rr_total = _safe_int(total_value, _safe_int(rr.get('total', 0), 0))
+        rr['total'] = rr_total
+        br = rr.get('breakdown', {})
+        if isinstance(br, dict):
+            final_total = _safe_int(br.get('final_total', rr_total), rr_total)
+            diff = rr_total - final_total
+            if diff != 0:
+                br['constant_total'] = _safe_int(br.get('constant_total', 0), 0) + diff
+                br['final_total'] = rr_total
+            rr['breakdown'] = br
+        return build_power_result_snapshot(preview_data, rr)
+
+    power_breakdown = preview_data.get('power_breakdown') if isinstance(preview_data.get('power_breakdown'), dict) else {}
+    fallback_constant = _safe_int(power_breakdown.get('final_base_power', 0), 0)
+    roll_breakdown = _estimate_roll_breakdown_from_command_and_total(
+        command_text,
+        total_value,
+        fallback_constant=fallback_constant
+    )
+    return build_power_result_snapshot(
+        preview_data,
+        {'total': _safe_int(total_value, 0), 'breakdown': roll_breakdown}
+    )
+
+
+def _extract_step_aux_log_lines(trace_entry):
+    rows = trace_entry.get('lines')
+    if not isinstance(rows, list):
+        rows = trace_entry.get('log_lines')
+    if not isinstance(rows, list):
+        return []
+
+    aux = []
+    seen = set()
+    for row in rows:
+        if row is None:
+            continue
+        text_raw = str(row).strip()
+        if not text_raw:
+            continue
+        text_plain = re.sub(r"<[^>]*>", " ", text_raw)
+        text_plain = re.sub(r"\s+", " ", text_plain).strip()
+        if not text_plain:
+            continue
+        is_match_headline = (' vs ' in text_plain and '| →' in text_plain)
+        if is_match_headline:
+            continue
+        if (
+            text_plain.startswith('[状態]')
+            or text_plain.startswith('[コスト]')
+            or ('付与' in text_plain)
+            or ('解除' in text_plain)
+            or ('切れた' in text_plain)
+            or ('効果が' in text_plain)
+            or ('ダメージ' in text_plain)
+            or text_plain.startswith('内訳:')
+        ):
+            if text_plain in seen:
+                continue
+            seen.add(text_plain)
+            aux.append(text_plain)
+    return aux
+
+
 def _estimate_cost_for_skill_from_snapshot(before_snapshot, skill_data):
     cost = {'mp': 0, 'hp': 0, 'fp': 0}
     if not isinstance(before_snapshot, dict):
@@ -2423,6 +3255,9 @@ def _resolve_clash_by_existing_logic(
         return {'ok': False, 'reason': 'missing_skill'}
 
     from manager.battle import duel_solver as duel_solver_mod
+    from manager.battle import core as core_mod
+    from manager import room_manager as room_manager_mod
+    from manager import skill_effects as skill_effects_mod
 
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
@@ -2514,6 +3349,11 @@ def _resolve_clash_by_existing_logic(
     orig_state_update = duel_solver_mod.broadcast_state_update
     orig_emit = duel_solver_mod.socketio.emit
     orig_blog = duel_solver_mod.broadcast_log
+    orig_core_blog = core_mod.broadcast_log
+    orig_room_blog = room_manager_mod.broadcast_log
+    orig_skill_effects_blog = getattr(skill_effects_mod, 'broadcast_log', None)
+    orig_roll_dice = getattr(duel_solver_mod, 'roll_dice', None)
+    captured_roll_results = []
 
     def _capture_broadcast_log(room_name, message, log_type='system', save=True):
         if isinstance(message, str):
@@ -2525,6 +3365,19 @@ def _resolve_clash_by_existing_logic(
                 captured['effect_logs'].append(message)
         # In select/resolve clash delegation, capture only; do not emit legacy duel logs.
         return None
+
+    def _capture_roll_dice(command_text):
+        if not callable(orig_roll_dice):
+            return {'total': 0, 'details': '', 'breakdown': {'dice_total': 0, 'constant_total': 0, 'final_total': 0}}
+        result = orig_roll_dice(command_text)
+        try:
+            captured_roll_results.append({
+                'command': str(command_text or ''),
+                'result': copy.deepcopy(result) if isinstance(result, dict) else {'total': _safe_int(result, 0)}
+            })
+        except Exception:
+            pass
+        return result
 
     try:
         # Isolation for select/resolve mode: preserve existing duel math but avoid turn progression side-effects.
@@ -2543,6 +3396,12 @@ def _resolve_clash_by_existing_logic(
         duel_solver_mod.broadcast_state_update = lambda *_args, **_kwargs: None
         duel_solver_mod.socketio.emit = lambda *_args, **_kwargs: None
         duel_solver_mod.broadcast_log = _capture_broadcast_log
+        core_mod.broadcast_log = _capture_broadcast_log
+        room_manager_mod.broadcast_log = _capture_broadcast_log
+        if callable(orig_skill_effects_blog):
+            skill_effects_mod.broadcast_log = _capture_broadcast_log
+        if callable(orig_roll_dice):
+            duel_solver_mod.roll_dice = _capture_roll_dice
 
         duel_solver_mod.execute_duel_match(room, exec_data, "[select_resolve_clash]")
     except Exception as e:
@@ -2554,6 +3413,12 @@ def _resolve_clash_by_existing_logic(
         duel_solver_mod.broadcast_state_update = orig_state_update
         duel_solver_mod.socketio.emit = orig_emit
         duel_solver_mod.broadcast_log = orig_blog
+        core_mod.broadcast_log = orig_core_blog
+        room_manager_mod.broadcast_log = orig_room_blog
+        if callable(orig_skill_effects_blog):
+            skill_effects_mod.broadcast_log = orig_skill_effects_blog
+        if callable(orig_roll_dice):
+            duel_solver_mod.roll_dice = orig_roll_dice
 
         state['timeline'] = old_timeline
         state['turn_entry_id'] = old_turn_entry
@@ -2658,8 +3523,25 @@ def _resolve_clash_by_existing_logic(
         delta_a = _diff_snapshot(before_a, after_a, damage_source='ダメージ')
         captured['effect_logs'].append('[非ダメージスキル] 防御側のHP減算をスキップ')
 
-    snapshot_a = build_power_result_snapshot(preview_a, {'total': power_a if power_a is not None else 0})
-    snapshot_d = build_power_result_snapshot(preview_d, {'total': power_d if power_d is not None else 0})
+    roll_a_entry = captured_roll_results[0] if len(captured_roll_results) > 0 else {}
+    roll_d_entry = captured_roll_results[1] if len(captured_roll_results) > 1 else {}
+    roll_result_a = roll_a_entry.get('result') if isinstance(roll_a_entry, dict) else None
+    roll_result_d = roll_d_entry.get('result') if isinstance(roll_d_entry, dict) else None
+    command_a_used = str((roll_a_entry.get('command') if isinstance(roll_a_entry, dict) else None) or command_a or '')
+    command_d_used = str((roll_d_entry.get('command') if isinstance(roll_d_entry, dict) else None) or command_d or '')
+
+    snapshot_a = _build_clash_power_snapshot(
+        preview_a,
+        command_a_used,
+        power_a if power_a is not None else _safe_int((roll_result_a or {}).get('total', 0), 0),
+        roll_result=roll_result_a
+    )
+    snapshot_d = _build_clash_power_snapshot(
+        preview_d,
+        command_d_used,
+        power_d if power_d is not None else _safe_int((roll_result_d or {}).get('total', 0), 0),
+        roll_result=roll_result_d
+    )
 
     cost_a = _estimate_cost_for_skill_from_snapshot(before_a, attacker_skill_data)
     cost_d = _estimate_cost_for_skill_from_snapshot(before_d, defender_skill_data)
@@ -2680,8 +3562,8 @@ def _resolve_clash_by_existing_logic(
             'power_a': power_a,
             'power_b': power_d,
             'tie_break': tie_break,
-            'command': command_a,
-            'command_b': command_d,
+            'command': command_a_used or command_a,
+            'command_b': command_d_used or command_d,
             'min_damage_a': (preview_a or {}).get('min_damage'),
             'max_damage_a': (preview_a or {}).get('max_damage'),
             'min_damage_b': (preview_d or {}).get('min_damage'),
@@ -2690,6 +3572,8 @@ def _resolve_clash_by_existing_logic(
             'power_breakdown_b': (preview_d or {}).get('power_breakdown', {}),
             'power_snapshot_a': snapshot_a,
             'power_snapshot_b': snapshot_d,
+            'roll_breakdown_a': ((snapshot_a or {}).get('raw', {}) or {}).get('roll_breakdown', {}),
+            'roll_breakdown_b': ((snapshot_d or {}).get('raw', {}) or {}).get('roll_breakdown', {}),
         },
         'match_log': captured.get('match_log'),
         'legacy_log_lines': (
@@ -5196,6 +6080,7 @@ def process_simple_round_end(state, room):
                     active_buffs.append(buff)
 
             char['special_buffs'] = active_buffs
+            apply_origin_bonus_buffs(char)
 
         # アイテム使用回数リセット
         if 'round_item_usage' in char:

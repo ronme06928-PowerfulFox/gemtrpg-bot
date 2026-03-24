@@ -412,12 +412,17 @@ class DeclarePanel {
         const rows = [];
         if (!calc || typeof calc !== 'object') return rows;
 
-        const baseMod = Number(calc?.skill_details?.base_power_mod || 0);
+        const pb = (calc?.power_breakdown && typeof calc.power_breakdown === 'object')
+            ? calc.power_breakdown
+            : {};
+        const ruleBaseMod = Number(pb.rule_power_bonus || 0);
+        const baseMod = Number(calc?.skill_details?.base_power_mod || 0) + ruleBaseMod;
         if (baseMod !== 0) rows.push(`[基礎威力 ${baseMod > 0 ? '+' : ''}${baseMod}]`);
 
         const correctionDetails = Array.isArray(calc?.correction_details) ? calc.correction_details : [];
         correctionDetails.forEach((detail) => {
             const source = String(detail?.source || '補正');
+            if (source === '威力補正') return;
             const value = Number(detail?.value || 0);
             if (value !== 0) {
                 rows.push(`[${source} ${value > 0 ? '+' : ''}${value}]`);
@@ -429,7 +434,6 @@ class DeclarePanel {
             rows.push(`[ダイス威力 -${senritsuPenalty}] (戦慄)`);
         }
 
-        const pb = calc?.power_breakdown;
         if (pb && typeof pb === 'object') {
             const base = Number(pb.base_power ?? NaN);
             const finalBase = Number(pb.final_base_power ?? NaN);
@@ -440,16 +444,22 @@ class DeclarePanel {
             const keyRows = [
                 ['dice_count_mod', 'ダイス個数'],
                 ['dice_face_mod', 'ダイス面数'],
-                ['dice_bonus_mod', 'ダイス固定値'],
-                ['base_power_mod', '基礎威力']
+                ['dice_bonus_mod', 'ダイス固定値']
             ];
             keyRows.forEach(([key, label]) => {
                 const val = Number(pb[key] || 0);
                 if (val !== 0) rows.push(`[${label} ${val > 0 ? '+' : ''}${val}]`);
             });
         }
-
-        return rows;
+        const deduped = [];
+        const seen = new Set();
+        rows.forEach((row) => {
+            const text = String(row || '').trim();
+            if (!text || seen.has(text)) return;
+            seen.add(text);
+            deduped.push(text);
+        });
+        return deduped;
     }
 
     _resolvePowerSummaryText(calc, rows) {

@@ -1,7 +1,62 @@
 # plugins/standard.py
+import importlib
+import sys
+
 from .base import BaseEffect
-from manager.utils import get_status_value, set_status_value
 from manager.bleed_logic import resolve_bleed_tick
+
+
+def _utils_module():
+    mod = sys.modules.get("manager.utils")
+    if mod is None:
+        try:
+            mod = importlib.import_module("manager.utils")
+        except Exception:
+            return None
+    return mod
+
+
+def _get_status_value(char_obj, status_name):
+    mod = _utils_module()
+    fn = getattr(mod, "get_status_value", None) if mod else None
+    if callable(fn):
+        return fn(char_obj, status_name)
+    if status_name in ("HP", "hp"):
+        return int((char_obj or {}).get("hp", 0) or 0)
+    if status_name in ("MP", "mp"):
+        return int((char_obj or {}).get("mp", 0) or 0)
+    for state in ((char_obj or {}).get("states") or []):
+        if isinstance(state, dict) and state.get("name") == status_name:
+            try:
+                return int(state.get("value", 0) or 0)
+            except Exception:
+                return 0
+    return 0
+
+
+def _set_status_value(char_obj, status_name, value):
+    mod = _utils_module()
+    fn = getattr(mod, "set_status_value", None) if mod else None
+    if callable(fn):
+        return fn(char_obj, status_name, value)
+    if not isinstance(char_obj, dict):
+        return None
+    if status_name in ("HP", "hp"):
+        char_obj["hp"] = int(value or 0)
+        return None
+    if status_name in ("MP", "mp"):
+        char_obj["mp"] = int(value or 0)
+        return None
+    states = char_obj.setdefault("states", [])
+    if not isinstance(states, list):
+        states = []
+        char_obj["states"] = states
+    hit = next((s for s in states if isinstance(s, dict) and s.get("name") == status_name), None)
+    if hit is None:
+        states.append({"name": status_name, "value": int(value or 0)})
+    else:
+        hit["value"] = int(value or 0)
+    return None
 
 class BleedOverflowEffect(BaseEffect):
     def apply(self, actor, target, params, context):
@@ -27,7 +82,7 @@ class BleedOverflowEffect(BaseEffect):
 
 class FearSurgeEffect(BaseEffect):
     def apply(self, actor, target, params, context):
-        val = get_status_value(target, "戦慄")
+        val = _get_status_value(target, "戦慄")
         if val <= 0: return [], []
 
         changes = [
@@ -36,7 +91,7 @@ class FearSurgeEffect(BaseEffect):
         ]
         logs = [f"《戦慄殺到》 MPを {val} 減少！ (戦慄全消費)"]
 
-        current_mp = get_status_value(target, "MP")
+        current_mp = _get_status_value(target, "MP")
         if current_mp - val <= 0:
             changes.append((target, "APPLY_BUFF", "混乱", {"lasting": 2, "delay": 0}))
             logs.append("《戦慄殺到》 MP0により [混乱] 付与！")
@@ -45,9 +100,9 @@ class FearSurgeEffect(BaseEffect):
 
 class ThornsScatterEffect(BaseEffect):
     def apply(self, actor, target, params, context):
-        val = get_status_value(target, "荊棘")
+        val = _get_status_value(target, "荊棘")
         if val <= 0: return [], []
-        set_status_value(target, "荊棘", 0)
+        _set_status_value(target, "荊棘", 0)
 
         changes = []
         logs = [f"《荊棘飛散》 荊棘{val}を拡散！(荊棘全消費)"]

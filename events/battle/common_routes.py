@@ -43,7 +43,7 @@ def _log_battle_recv(event_name, data=None, phase=None):
     except Exception:
         sid_rooms = []
     target = data.get('target') or {}
-    logger.info(
+    logger.debug(
         "[RECV] %s sid=%s sid_rooms=%s room=%s battle=%s slot=%s phase=%s skill=%s target_type=%s target_slot=%s",
         event_name,
         sid,
@@ -65,7 +65,7 @@ def _log_battle_emit(event_name, room_id, battle_id, payload):
     intents_len = len(payload.get('intents', {}) or {})
     trace_len = len(payload.get('trace', []) or [])
     phase = payload.get('phase') or payload.get('to') or payload.get('from')
-    logger.info(
+    logger.debug(
         "[EMIT] %s room=%s battle=%s phase=%s timeline=%d slots=%d intents=%d trace=%d",
         event_name, room_id, battle_id, phase, timeline_len, slots_len, intents_len, trace_len
     )

@@ -37,6 +37,39 @@
     font-weight: bold;
 }
 
+.log-line details.resolve-log-entry {
+    border: 1px solid #e6e6e6;
+    border-radius: 6px;
+    background: #fff;
+    padding: 4px 8px;
+}
+
+.log-line details.resolve-log-entry > summary {
+    cursor: pointer;
+    list-style: none;
+    font-weight: 700;
+}
+
+.log-line details.resolve-log-entry > summary::-webkit-details-marker {
+    display: none;
+}
+
+.log-line details.resolve-log-entry > summary::before {
+    content: '▶ ';
+    color: #555;
+}
+
+.log-line details.resolve-log-entry[open] > summary::before {
+    content: '▼ ';
+}
+
+.log-line details.resolve-log-entry .resolve-log-entry-body {
+    margin-top: 6px;
+    color: #555;
+    font-weight: 400;
+    line-height: 1.45;
+}
+
 .log-line.dice {
     color: #006400;
 }

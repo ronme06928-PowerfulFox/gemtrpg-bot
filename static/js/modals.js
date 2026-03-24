@@ -3,6 +3,19 @@
 /**
  * ユーザー設定モーダルを開く
  */
+const _MODAL_STATE_NAME_ALIASES = {
+    '蜃ｺ陦': '出血',
+    '遐ｴ陬・': '亀裂',
+    '莠陬・': '破裂',
+    '謌ｦ諷・': '戦慄',
+    '闕頑｣・': '荊棘',
+};
+
+function normalizeModalStateName(name) {
+    const key = String(name || '').trim();
+    return _MODAL_STATE_NAME_ALIASES[key] || key;
+}
+
 function openUserSettingsModal(allowAttributeChange = false) {
     const oldName = currentUsername;
     const oldAttr = currentUserAttribute;
@@ -268,11 +281,12 @@ function renderCharacterCard(char) {
     // --- States (Stack) ---
     let statesHtml = '';
     char.states.forEach(s => {
-        if (['HP', 'MP', 'FP'].includes(s.name)) return;
+        const normalizedName = normalizeModalStateName(s.name);
+        if (['HP', 'MP', 'FP'].includes(normalizedName)) return;
         if (s.value === 0) return;
-        const config = (typeof STATUS_CONFIG !== 'undefined') ? STATUS_CONFIG[s.name] : null;
+        const config = (typeof STATUS_CONFIG !== 'undefined') ? STATUS_CONFIG[normalizedName] : null;
         const colorStyle = config ? `color: ${config.color}; font-weight:bold;` : '';
-        statesHtml += `<div class="detail-buff-item" style="${colorStyle}">${s.name}: ${s.value}</div>`;
+        statesHtml += `<div class="detail-buff-item" style="${colorStyle}">${normalizedName}: ${s.value}</div>`;
     });
     if (!statesHtml) statesHtml = '<span style="color:#999; font-size:0.9em;">なし</span>';
 
@@ -301,10 +315,47 @@ function renderCharacterCard(char) {
             </details>
         `;
     }
+    const radiancePassiveIds = new Set();
+    const radiancePassiveNames = new Set();
+    if (char.SPassive && Array.isArray(char.SPassive)) {
+        char.SPassive.forEach((pid) => {
+            const key = String(pid || '').trim();
+            if (!key) return;
+            const rData = (window.radianceSkillData && window.radianceSkillData[key]) ? window.radianceSkillData[key] : null;
+            if (!rData) return;
+            radiancePassiveIds.add(key);
+            const rName = String(rData.name || '').trim();
+            if (rName) radiancePassiveNames.add(rName);
+        });
+    }
+
     if (char.special_buffs && char.special_buffs.length > 0) {
         char.special_buffs.forEach((b) => {
+            const buffSkillId = String(b.skill_id || '').trim();
+            const buffName = String(b.name || '').trim();
+            const isRadianceSource = String(b.source || '').trim().toLowerCase() === 'radiance';
+            const duplicatedBySPassive = (
+                (buffSkillId && radiancePassiveIds.has(buffSkillId))
+                || (buffName && radiancePassiveNames.has(buffName))
+            );
+            if (isRadianceSource && duplicatedBySPassive) {
+                return;
+            }
+
+            const buffCatalogId = b.buff_id || (b.data && b.data.buff_id) || null;
             let descriptionText = b.description;
             let flavorText = b.flavor;
+            let nameDisplay = b.name;
+
+            // バフ図鑑が引けるならそちらを正として使う
+            if (typeof BUFF_DATA !== 'undefined' && typeof BUFF_DATA.get === 'function') {
+                const foundById = BUFF_DATA.get(b.name, buffCatalogId);
+                if (foundById) {
+                    if (foundById.name) nameDisplay = foundById.name;
+                    if (foundById.description) descriptionText = foundById.description;
+                    if (typeof foundById.flavor === 'string') flavorText = foundById.flavor;
+                }
+            }
 
             // If description/flavor not present in instance, look up in BUFF_DATA
             if (!descriptionText || !flavorText) {
@@ -312,12 +363,12 @@ function renderCharacterCard(char) {
                 if (lookupName.includes('_')) lookupName = lookupName.split('_')[0];
 
                 if (typeof BUFF_DATA !== 'undefined' && typeof BUFF_DATA.get === 'function') {
-                    const found = BUFF_DATA.get(b.name);
+                    const found = BUFF_DATA.get(b.name, buffCatalogId);
                     if (found) {
                         if (!descriptionText) descriptionText = found.description;
                         if (!flavorText) flavorText = found.flavor;
                     } else {
-                        const foundBase = BUFF_DATA.get(lookupName);
+                        const foundBase = BUFF_DATA.get(lookupName, buffCatalogId);
                         if (foundBase) {
                             if (!descriptionText) descriptionText = foundBase.description;
                             if (!flavorText) flavorText = foundBase.flavor;
@@ -329,7 +380,6 @@ function renderCharacterCard(char) {
             if (!descriptionText) descriptionText = "説明なし";
             if (!flavorText) flavorText = "";
 
-            let nameDisplay = b.name;
             if (nameDisplay && nameDisplay.includes('_')) {
                 nameDisplay = nameDisplay.split('_')[0];
             }
@@ -380,7 +430,12 @@ function renderCharacterCard(char) {
     // --- Passives (SPassive) ---
     if (char.SPassive && Array.isArray(char.SPassive) && char.SPassive.length > 0) {
         char.SPassive.forEach(pid => {
-            const pData = (window.allPassiveData && window.allPassiveData[pid]) ? window.allPassiveData[pid] : null;
+            const passiveData = (window.allPassiveData && window.allPassiveData[pid]) ? window.allPassiveData[pid] : null;
+            const radianceData = (window.radianceSkillData && window.radianceSkillData[pid]) ? window.radianceSkillData[pid] : null;
+            const pData = passiveData || radianceData || null;
+            const badgeText = passiveData ? 'パッシブ' : (radianceData ? '輝化' : '特殊');
+            const badgeColor = passiveData ? '#6a1b9a' : (radianceData ? '#0b7285' : '#666');
+
             // データがなくてもIDだけは表示する
             const name = pData ? pData.name : pid;
             const desc = pData ? pData.description : "詳細情報なし";
@@ -390,8 +445,8 @@ function renderCharacterCard(char) {
                 <details class="detail-buff-item" style="border: 1px solid #e0cffc; border-radius: 4px; margin-bottom: 5px; overflow: hidden; background: #fff;">
                     <summary style="background: #f3e5f5; padding: 8px 10px; cursor: pointer; font-weight: bold; font-size: 0.95em; display: flex; align-items: center; justify-content: space-between; outline: none;">
                         <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 5px;">
-                            <span style="color: #6a1b9a;">★ ${name}</span>
-                            <span style="background:#6a1b9a; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.7em; margin-left:8px;">パッシブ</span>
+                            <span style="color: ${badgeColor};">★ ${name}</span>
+                            <span style="background:${badgeColor}; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.7em; margin-left:8px;">${badgeText}</span>
                         </div>
                         <span style="font-size: 0.8em; color: #666;">▼</span>
                     </summary>

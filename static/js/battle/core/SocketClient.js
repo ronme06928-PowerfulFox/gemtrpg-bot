@@ -12,6 +12,10 @@
 import { store } from './BattleStore.js';
 import { eventBus } from './EventBus.js';
 
+const _battleVerbose = () => (typeof window !== 'undefined' && !!window.BATTLE_DEBUG_VERBOSE);
+const _battleLog = (...args) => { if (_battleVerbose()) console.log(...args); };
+const _battleInfo = (...args) => { if (_battleVerbose()) console.info(...args); };
+
 class SocketClient {
     constructor() {
         this.socket = null;
@@ -39,7 +43,7 @@ class SocketClient {
 
         this._setupCoreListeners();
         this._initialized = true;
-        console.log('✅ SocketClient: Initialized');
+        _battleLog('SocketClient: Initialized');
         return true;
     }
 
@@ -70,7 +74,7 @@ class SocketClient {
             // Storeのキャラデータを部分更新
             // 注意: Store全体のリロードではない
             // eventBusで通知し、UIコンポーネントがDOMを直接書き換える
-            console.log("⚡ Diff Update:", data);
+            _battleLog("⚡ Diff Update:", data);
             eventBus.emit('char:stat:updated', data);
         });
 
@@ -187,7 +191,7 @@ class SocketClient {
             slot_id: (target && Object.prototype.hasOwnProperty.call(target, 'slot_id')) ? target.slot_id : null
         };
         const targetSlot = normalizedTarget.slot_id ?? null;
-        console.log(`[emit] battle_intent_preview connected=${connected} room=${roomId} battle=${battleId} slot=${slotId} skill=${skillId ?? 'null'} target_slot=${targetSlot}`);
+        _battleLog(`[emit] battle_intent_preview connected=${connected} room=${roomId} battle=${battleId} slot=${slotId} skill=${skillId ?? 'null'} target_slot=${targetSlot}`);
         this.socket.emit('battle_intent_preview', {
             room_id: roomId,
             battle_id: battleId,
@@ -208,7 +212,7 @@ class SocketClient {
             slot_id: (target && Object.prototype.hasOwnProperty.call(target, 'slot_id')) ? target.slot_id : null
         };
         const targetSlot = normalizedTarget.slot_id ?? null;
-        console.log(`[emit] battle_intent_commit connected=${connected} room=${roomId} battle=${battleId} slot=${slotId} skill=${skillId ?? 'null'} target_slot=${targetSlot}`);
+        _battleLog(`[emit] battle_intent_commit connected=${connected} room=${roomId} battle=${battleId} slot=${slotId} skill=${skillId ?? 'null'} target_slot=${targetSlot}`);
         this.socket.emit('battle_intent_commit', {
             room_id: roomId,
             battle_id: battleId,
@@ -234,7 +238,7 @@ class SocketClient {
             return;
         }
         const connected = !!this.socket.connected;
-        console.log(`[emit] battle_resolve_confirm connected=${connected} room=${roomId} battle=${battleId}`);
+        _battleLog(`[emit] battle_resolve_confirm connected=${connected} room=${roomId} battle=${battleId}`);
         this.socket.emit('battle_resolve_confirm', {
             room_id: roomId,
             battle_id: battleId
@@ -247,7 +251,7 @@ class SocketClient {
             return;
         }
         const payload = roomName ? { room: roomName } : {};
-        console.info('[SocketClient] battle_resolve_start', payload);
+        _battleInfo('[SocketClient] battle_resolve_start', payload);
         this.socket.emit('battle_resolve_start', payload);
     }
 

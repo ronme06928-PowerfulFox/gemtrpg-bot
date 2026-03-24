@@ -1,6 +1,124 @@
-/* static/js/visual/visual_ui.js */
+﻿/* static/js/visual/visual_ui.js */
 
 // --- Log Rendering ---
+
+const _escapeResolveLogHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const _toResolveNum = (value, fallback = 0) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+};
+
+const _signedResolveNum = (value) => {
+    const n = _toResolveNum(value, 0);
+    return (n >= 0) ? `+${n}` : `${n}`;
+};
+
+const _resolveSidePowerLines = (side) => {
+    const snapshot = (side && typeof side.power_snapshot === 'object') ? side.power_snapshot : {};
+    const breakdown = (side && typeof side.power_breakdown === 'object') ? side.power_breakdown : {};
+
+    const hasSnapshot = Object.keys(snapshot).length > 0;
+    const hasBreakdown = Object.keys(breakdown).length > 0;
+    if (!hasSnapshot && !hasBreakdown) {
+        return {
+            line1: '計算データなし',
+            line2: '補正: 基礎威力+0 / ダイス威力+0 / 最終威力+0'
+        };
+    }
+
+    const base = _toResolveNum(snapshot.base_power_after_mod, 0);
+    const dice = _toResolveNum(snapshot.dice_power_after_roll, 0);
+    const physical = _toResolveNum(snapshot.physical_power, 0);
+    const magical = _toResolveNum(snapshot.magical_power, 0);
+    const attr = physical + magical;
+    const flatBonus = _toResolveNum(snapshot.flat_power_bonus, 0);
+    const final = _toResolveNum(snapshot.final_power, 0);
+    const ruleBase = _toResolveNum(breakdown.rule_power_bonus, 0);
+
+    const baseShown = base + ruleBase;
+    const flatShown = flatBonus - ruleBase;
+    const baseMod = _toResolveNum(breakdown.base_power_mod, 0) + ruleBase;
+    const diceMod = _toResolveNum(breakdown.dice_bonus_power, 0);
+    const finalMod = _toResolveNum(breakdown.final_power_mod, flatShown);
+
+    return {
+        line1: `基礎${baseShown} + ダイス${dice} + 属性${_signedResolveNum(attr)} + 定数${_signedResolveNum(flatShown)} = 合計${final}`,
+        line2: `補正: 基礎威力${_signedResolveNum(baseMod)} / ダイス威力${_signedResolveNum(diceMod)} / 最終威力${_signedResolveNum(finalMod)}`
+    };
+};
+
+window.openResolveTraceDetailModal = function (logData) {
+    const detail = (logData && typeof logData.resolve_trace_detail === 'object') ? logData.resolve_trace_detail : null;
+    if (!detail) return;
+
+    const existing = document.getElementById('resolve-trace-detail-modal');
+    if (existing) existing.remove();
+
+    const attacker = (detail.attacker && typeof detail.attacker === 'object') ? detail.attacker : {};
+    const defender = (detail.defender && typeof detail.defender === 'object') ? detail.defender : {};
+    const attackerLines = _resolveSidePowerLines(attacker);
+    const defenderLines = _resolveSidePowerLines(defender);
+    const oneSided = !!detail.one_sided;
+
+    const renderSide = (side, lines, roleClass) => {
+        const name = _escapeResolveLogHtml(side?.name || '-');
+        const command = _escapeResolveLogHtml(side?.command || '-');
+        return `
+            <div class="resolve-trace-side ${roleClass}">
+                <div class="resolve-trace-side-name">${name}</div>
+                <div class="resolve-trace-side-command">${command}</div>
+                <div class="resolve-trace-side-power-main">${_escapeResolveLogHtml(lines.line1)}</div>
+                <div class="resolve-trace-side-power-sub">${_escapeResolveLogHtml(lines.line2)}</div>
+            </div>
+        `;
+    };
+
+    const overlay = document.createElement('div');
+    overlay.id = 'resolve-trace-detail-modal';
+    overlay.className = 'resolve-trace-modal-backdrop';
+    overlay.innerHTML = `
+        <div class="resolve-trace-modal">
+            <div class="resolve-trace-modal-header">
+                <div class="resolve-trace-modal-title">${_escapeResolveLogHtml(detail.kind_label || '解決ログ詳細')}</div>
+                <button type="button" class="resolve-trace-modal-close">×</button>
+            </div>
+            <div class="resolve-trace-modal-meta">
+                <span>結果: ${_escapeResolveLogHtml(detail.outcome_label || '-')}</span>
+                <span>総ダメージ: ${_escapeResolveLogHtml(String(_toResolveNum(detail.total_damage, 0)))}</span>
+            </div>
+            <div class="resolve-trace-modal-body">
+                ${renderSide(attacker, attackerLines, 'attacker')}
+                <div class="resolve-trace-side-vs">VS</div>
+                ${oneSided
+            ? `<div class="resolve-trace-side defender"><div class="resolve-trace-side-name">${_escapeResolveLogHtml(defender?.name || '-')}</div><div class="resolve-trace-side-command">一方攻撃のため対抗ロールなし</div><div class="resolve-trace-side-power-main">-</div><div class="resolve-trace-side-power-sub">-</div></div>`
+            : renderSide(defender, defenderLines, 'defender')}
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const close = () => {
+        document.removeEventListener('keydown', onKeydown, true);
+        overlay.remove();
+    };
+    const onKeydown = (evt) => {
+        if (evt.key === 'Escape') close();
+    };
+    document.addEventListener('keydown', onKeydown, true);
+
+    overlay.addEventListener('click', (evt) => {
+        if (evt.target === overlay) close();
+    });
+    const closeBtn = overlay.querySelector('.resolve-trace-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', close);
+};
 
 window.appendVisualLogLine = function (container, logData, filterType) {
     const isChat = logData.type === 'chat';
@@ -22,6 +140,30 @@ window.appendVisualLogLine = function (container, logData, filterType) {
     logLine.className = className;
     if (logData.type === 'chat' && !logData.secret) {
         logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
+    } else if (!logData.secret && String(logData.source || '') === 'resolve_trace') {
+        const detail = (logData && typeof logData.resolve_trace_detail === 'object')
+            ? logData.resolve_trace_detail
+            : null;
+        const kindLabel = String(detail?.kind_label || '解決');
+        const attackerName = String(detail?.attacker?.name || '攻撃側');
+        const defenderName = String(detail?.defender?.name || (detail?.one_sided ? '対象' : '防御側'));
+        const matchupLabel = detail?.one_sided
+            ? `${attackerName} -> ${defenderName}`
+            : `${attackerName} vs ${defenderName}`;
+        const buttonLabel = `[${kindLabel}] ${matchupLabel} / 詳細を表示`;
+        logLine.innerHTML = `<button type="button" class="resolve-trace-log-btn">${_escapeResolveLogHtml(buttonLabel)}</button>`;
+        const btn = logLine.querySelector('.resolve-trace-log-btn');
+        if (btn) {
+            if (!detail) {
+                btn.disabled = true;
+            } else {
+                btn.addEventListener('click', () => {
+                    if (typeof window.openResolveTraceDetailModal === 'function') {
+                        window.openResolveTraceDetailModal(logData);
+                    }
+                });
+            }
+        }
     } else {
         logLine.innerHTML = displayMessage;
     }
@@ -34,7 +176,6 @@ window.appendVisualLogLine = function (container, logData, filterType) {
         container.removeChild(container.firstElementChild);
     }
 }
-
 window.renderVisualLogHistory = function (logs) {
     const logArea = document.getElementById('visual-log-area');
     if (!logArea) return;
@@ -59,7 +200,245 @@ window.appendVisualLogBatch = function (logs) {
     logs.forEach(log => appendVisualLogLine(logArea, log, filter));
     window._lastLogCount = Number(window._lastLogCount || 0) + logs.length;
     logArea.scrollTop = logArea.scrollHeight;
-}
+};
+
+// --- Resolve Trace Modal Enhancement ---
+;(() => {
+    const sidePower = (side) => {
+        const snapshot = (side && typeof side.power_snapshot === 'object') ? side.power_snapshot : {};
+        const breakdown = (side && typeof side.power_breakdown === 'object') ? side.power_breakdown : {};
+        const base = _toResolveNum(snapshot.base_power_after_mod, 0);
+        const dice = _toResolveNum(snapshot.dice_power_after_roll, 0);
+        const physical = _toResolveNum(snapshot.physical_power, 0);
+        const magical = _toResolveNum(snapshot.magical_power, 0);
+        const attr = physical + magical;
+        const flatBonus = _toResolveNum(snapshot.flat_power_bonus, 0);
+        const final = _toResolveNum(snapshot.final_power, 0);
+        const ruleBase = _toResolveNum(breakdown.rule_power_bonus, 0);
+        const baseShown = base + ruleBase;
+        const flatShown = flatBonus - ruleBase;
+        const baseMod = _toResolveNum(breakdown.base_power_mod, 0) + ruleBase;
+        const diceMod = _toResolveNum(breakdown.dice_bonus_power, 0);
+        const finalMod = _toResolveNum(breakdown.final_power_mod, flatShown);
+        return {
+            final,
+            line1: `基礎${baseShown} + ダイス${dice} + 属性${_signedResolveNum(attr)} + 定数${_signedResolveNum(flatShown)} = 合計${final}`,
+            line2: `補正: 基礎威力${_signedResolveNum(baseMod)} / ダイス威力${_signedResolveNum(diceMod)} / 最終威力${_signedResolveNum(finalMod)}`
+        };
+    };
+
+    const winnerRole = (detail) => {
+        const outcome = String(detail?.outcome || '');
+        if (outcome === 'attacker_win') return 'attacker';
+        if (outcome === 'defender_win') return 'defender';
+        return null;
+    };
+
+    const outcomeClass = (detail) => {
+        const outcome = String(detail?.outcome || '');
+        if (outcome === 'draw') return 'is-draw';
+        if (outcome === 'attacker_win' || outcome === 'defender_win') return 'is-win';
+        return 'is-neutral';
+    };
+
+    const skillMeta = (side) => {
+        const sideObj = (side && typeof side === 'object') ? side : {};
+        const meta = (sideObj.skill_meta && typeof sideObj.skill_meta === 'object') ? sideObj.skill_meta : {};
+        const all = (window.allSkillData && typeof window.allSkillData === 'object') ? window.allSkillData : {};
+        const skillId = String(sideObj.skill_id || meta.id || '').trim();
+        const fallback = (skillId && all[String(skillId)] && typeof all[String(skillId)] === 'object')
+            ? all[String(skillId)]
+            : {};
+
+        const pick = (...keys) => {
+            for (const key of keys) {
+                const raw = meta[key] ?? fallback[key] ?? '';
+                const s = String(raw || '').trim();
+                if (s) return s;
+            }
+            return '';
+        };
+
+        const effects = [];
+        const metaEffects = Array.isArray(meta.effects) ? meta.effects : [];
+        metaEffects.forEach((e) => {
+            if (!e || typeof e !== 'object') return;
+            const label = String(e.label || '').trim() || 'Effect';
+            const text = String(e.text || '').trim();
+            if (!text) return;
+            effects.push({ label, text });
+        });
+
+        if (effects.length <= 0) {
+            [
+                ['Cost', 'cost'],
+                ['Activation', 'activation_cost'],
+                ['Effect', 'effect'],
+                ['Trigger', 'activation_effect'],
+                ['Special', 'special']
+            ].forEach(([label, key]) => {
+                const text = String(fallback[key] || '').trim();
+                if (!text) return;
+                effects.push({ label, text });
+            });
+        }
+
+        return {
+            id: skillId,
+            name: String(sideObj.skill_name || pick('name') || '').trim(),
+            category: pick('category'),
+            distance: pick('distance', 'range'),
+            attribute: pick('attribute'),
+            effects,
+            raw: (fallback && typeof fallback === 'object' && Object.keys(fallback).length > 0) ? fallback : null
+        };
+    };
+
+    const formatGlossaryText = (value) => {
+        const text = String(value || '').trim();
+        if (!text) return '';
+        if (typeof window.formatGlossaryMarkupToHTML === 'function') {
+            return window.formatGlossaryMarkupToHTML(text);
+        }
+        return _escapeResolveLogHtml(text).replace(/\n/g, '<br>');
+    };
+
+    const renderSkill = (meta) => {
+        const hasMeta = !!meta?.id || !!meta?.name || !!meta?.category || !!meta?.distance || !!meta?.attribute || (Array.isArray(meta?.effects) && meta.effects.length > 0);
+        if (!hasMeta) return '<div class="resolve-trace-skill-empty">スキル詳細なし</div>';
+
+        const skillTitle = [meta.id ? `[${meta.id}]` : '', meta.name || ''].filter(Boolean).join(' ');
+
+        if (meta.raw && typeof window.formatSkillDetailHTML === 'function') {
+            const detailHtml = String(window.formatSkillDetailHTML(meta.raw) || '').trim();
+            if (detailHtml) {
+                return `
+                    <details class="resolve-trace-skill-details">
+                        <summary>スキル詳細: ${_escapeResolveLogHtml(skillTitle || '表示')}</summary>
+                        <div class="resolve-trace-skill-card">
+                            ${detailHtml}
+                        </div>
+                    </details>
+                `;
+            }
+        }
+
+        const chips = [];
+        if (meta.category) chips.push(`<span class="resolve-trace-chip">${_escapeResolveLogHtml(meta.category)}</span>`);
+        if (meta.distance) chips.push(`<span class="resolve-trace-chip">${_escapeResolveLogHtml(meta.distance)}</span>`);
+        if (meta.attribute) chips.push(`<span class="resolve-trace-chip">${_escapeResolveLogHtml(meta.attribute)}</span>`);
+        const effects = Array.isArray(meta.effects) ? meta.effects : [];
+        const effectsHtml = effects.length > 0
+            ? effects.map((e) => `<li><strong>${_escapeResolveLogHtml(e.label || 'Effect')}</strong>: ${formatGlossaryText(e.text || '')}</li>`).join('')
+            : '<li>効果説明なし</li>';
+
+        return `
+            <details class="resolve-trace-skill-details">
+                <summary>スキル詳細: ${_escapeResolveLogHtml(skillTitle || '表示')}</summary>
+                <div class="resolve-trace-skill-card">
+                    <div class="resolve-trace-skill-details-body">
+                        <div class="resolve-trace-skill-chips">${chips.join('')}</div>
+                        <ul class="resolve-trace-skill-effects">${effectsHtml}</ul>
+                    </div>
+                </div>
+            </details>
+        `;
+    };
+
+    const renderSide = (side, role, detail) => {
+        const power = sidePower(side);
+        const wRole = winnerRole(detail);
+        const sideClass = (wRole === role) ? 'is-winner' : (wRole ? 'is-loser' : 'is-neutral');
+        const sMeta = skillMeta(side);
+        const slotIndex = _toResolveNum(side?.slot_index_in_actor, NaN);
+        const spd = _toResolveNum(side?.slot_speed ?? side?.slot_initiative, NaN);
+        return `
+            <div class="resolve-trace-side ${role} ${sideClass}">
+                <div class="resolve-trace-side-name">${_escapeResolveLogHtml(side?.name || '-')}</div>
+                <div class="resolve-trace-side-meta">
+                    <span class="resolve-trace-chip strong">合計威力: ${_escapeResolveLogHtml(String(power.final))}</span>
+                    <span class="resolve-trace-chip">SPD: ${_escapeResolveLogHtml(Number.isFinite(spd) ? String(spd) : '-')}</span>
+                    ${Number.isFinite(slotIndex) ? `<span class="resolve-trace-chip">Slot: #${slotIndex + 1}</span>` : ''}
+                </div>
+                <div class="resolve-trace-side-command">${_escapeResolveLogHtml(side?.command || '-')}</div>
+                <div class="resolve-trace-side-power-main">${_escapeResolveLogHtml(power.line1)}</div>
+                <div class="resolve-trace-side-power-sub">${_escapeResolveLogHtml(power.line2)}</div>
+                ${renderSkill(sMeta)}
+            </div>
+        `;
+    };
+
+    window.openResolveTraceDetailModal = function (logData) {
+        const detail = (logData && typeof logData.resolve_trace_detail === 'object') ? logData.resolve_trace_detail : null;
+        if (!detail) return;
+
+        const existing = document.getElementById('resolve-trace-detail-modal');
+        if (existing) existing.remove();
+
+        const attacker = (detail.attacker && typeof detail.attacker === 'object') ? detail.attacker : {};
+        const defender = (detail.defender && typeof detail.defender === 'object') ? detail.defender : {};
+        const oneSided = !!detail.one_sided;
+        const attackerFinal = sidePower(attacker).final;
+        const defenderFinal = sidePower(defender).final;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'resolve-trace-detail-modal';
+        overlay.className = 'resolve-trace-modal-backdrop';
+        overlay.innerHTML = `
+            <div class="resolve-trace-modal">
+                <div class="resolve-trace-modal-header">
+                    <div class="resolve-trace-modal-title">${_escapeResolveLogHtml(detail.kind_label || '解決ログ詳細')}</div>
+                    <button type="button" class="resolve-trace-modal-close">×</button>
+                </div>
+                <div class="resolve-trace-modal-meta">
+                    <span class="resolve-trace-pill ${outcomeClass(detail)}">結果: ${_escapeResolveLogHtml(detail.outcome_label || '-')}</span>
+                    <span class="resolve-trace-pill">総ダメージ: ${_escapeResolveLogHtml(String(_toResolveNum(detail.total_damage, 0)))}</span>
+                    <span class="resolve-trace-pill">攻撃側合計: ${_escapeResolveLogHtml(String(attackerFinal))}</span>
+                    <span class="resolve-trace-pill">防御側合計: ${_escapeResolveLogHtml(String(defenderFinal))}</span>
+                </div>
+                <div class="resolve-trace-modal-body">
+                    ${renderSide(attacker, 'attacker', detail)}
+                    <div class="resolve-trace-side-vs">VS</div>
+                    ${oneSided
+            ? `<div class="resolve-trace-side defender is-neutral"><div class="resolve-trace-side-name">${_escapeResolveLogHtml(defender?.name || '-')}</div><div class="resolve-trace-side-command">一方攻撃のため対抗ロールなし</div><div class="resolve-trace-side-power-main">-</div><div class="resolve-trace-side-power-sub">-</div></div>`
+            : renderSide(defender, 'defender', detail)}
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const skillPanels = Array.from(overlay.querySelectorAll('.resolve-trace-skill-details'));
+        if (skillPanels.length > 1) {
+            let syncing = false;
+            skillPanels.forEach((panel) => {
+                panel.addEventListener('toggle', () => {
+                    if (syncing) return;
+                    syncing = true;
+                    const nextOpen = !!panel.open;
+                    skillPanels.forEach((other) => {
+                        if (other !== panel) other.open = nextOpen;
+                    });
+                    syncing = false;
+                });
+            });
+        }
+
+        const close = () => {
+            document.removeEventListener('keydown', onKeydown, true);
+            overlay.remove();
+        };
+        const onKeydown = (evt) => {
+            if (evt.key === 'Escape') close();
+        };
+        document.addEventListener('keydown', onKeydown, true);
+        overlay.addEventListener('click', (evt) => {
+            if (evt.target === overlay) close();
+        });
+        const closeBtn = overlay.querySelector('.resolve-trace-modal-close');
+        if (closeBtn) closeBtn.addEventListener('click', close);
+    };
+})();
 
 // --- Round Display ---
 
@@ -73,8 +452,21 @@ window.updateVisualRoundDisplay = function (round) {
 window.setupVisualSidebarControls = function () {
     const startRBtn = document.getElementById('visual-round-start-btn');
     const endRBtn = document.getElementById('visual-round-end-btn');
+    const resolveIsGM = () => {
+        const attr = (typeof currentUserAttribute !== 'undefined')
+            ? currentUserAttribute
+            : (typeof window !== 'undefined' ? window.currentUserAttribute : null);
+        const role = (typeof window !== 'undefined') ? window.currentUserRole : null;
+        const user = (typeof currentUsername !== 'undefined')
+            ? currentUsername
+            : (typeof window !== 'undefined' ? (window.currentUsername || window.currentUserName) : '');
+        const attrNorm = String(attr || '').trim().toUpperCase();
+        const roleNorm = String(role || '').trim().toUpperCase();
+        return attrNorm === 'GM' || roleNorm === 'GM' || (typeof user === 'string' && /\(GM\)/i.test(user));
+    };
+    const isGM = resolveIsGM();
 
-    if (currentUserAttribute === 'GM') {
+    if (isGM) {
         if (startRBtn) {
             startRBtn.style.display = 'inline-block';
             startRBtn.onclick = () => {
@@ -156,18 +548,18 @@ window.setupVisualSidebarControls = function () {
     const resetBtn = document.getElementById('visual-reset-btn');
     const statusMsg = document.getElementById('visual-status-msg');
 
-    // ★ 追加: アクションエリアにボタンを追加 (DOM生成で)
+    // 笘・霑ｽ蜉: 繧｢繧ｯ繧ｷ繝ｧ繝ｳ繧ｨ繝ｪ繧｢縺ｫ繝懊ち繝ｳ繧定ｿｽ蜉 (DOM逕滓・縺ｧ)
     const actionContainer = document.getElementById('visual-room-actions');
     if (actionContainer && !document.getElementById('visual-pve-btn')) {
-        // Grid調整 (既存: 1fr 1fr -> 2列で折り返す形にするか、flexにするか)
+        // Grid隱ｿ謨ｴ (譌｢蟄・ 1fr 1fr -> 2蛻励〒謚倥ｊ霑斐☆蠖｢縺ｫ縺吶ｋ縺九’lex縺ｫ縺吶ｋ縺・
         actionContainer.style.display = 'flex';
         actionContainer.style.flexWrap = 'wrap';
         actionContainer.style.gap = '5px';
 
         actionContainer.style.gap = '5px';
 
-        // PvEモード切替 (GMのみ)
-        if (currentUserAttribute === 'GM') {
+        // PvE繝｢繝ｼ繝牙・譖ｿ (GM縺ｮ縺ｿ)
+        if (isGM) {
             const pveBtn = document.createElement('button');
             pveBtn.id = 'visual-pve-btn';
 
@@ -178,13 +570,13 @@ window.setupVisualSidebarControls = function () {
                 pveBtn.style.color = 'white';
             };
 
-            // 初回更新待機
+            // 蛻晏屓譖ｴ譁ｰ蠕・ｩ・
             setTimeout(updateBtnText, 500);
-            // 状態更新時にボタンテキストも変えたいが、ここでの登録はクリックイベントのみ
-            // 状態更新イベントリスナーは別途必要だが、簡易的にクリック時にトグルする
-            // ★本当はVue.jsやReactを使いたい場所だが、Vanilla JSなので...
-            // socket.on('state_update')などで更新すべきだが、visual_socket.jsが担当している。
-            // ここではクリックトリガーで変更要求を送る。
+            // 迥ｶ諷区峩譁ｰ譎ゅ↓繝懊ち繝ｳ繝・く繧ｹ繝医ｂ螟峨∴縺溘＞縺後√％縺薙〒縺ｮ逋ｻ骭ｲ縺ｯ繧ｯ繝ｪ繝・け繧､繝吶Φ繝医・縺ｿ
+            // 迥ｶ諷区峩譁ｰ繧､繝吶Φ繝医Μ繧ｹ繝翫・縺ｯ蛻･騾泌ｿ・ｦ√□縺後∫ｰ｡譏鍋噪縺ｫ繧ｯ繝ｪ繝・け譎ゅ↓繝医げ繝ｫ縺吶ｋ
+            // 笘・悽蠖薙・Vue.js繧Сeact繧剃ｽｿ縺・◆縺・ｴ謇縺縺後〃anilla JS縺ｪ縺ｮ縺ｧ...
+            // socket.on('state_update')縺ｪ縺ｩ縺ｧ譖ｴ譁ｰ縺吶∋縺阪□縺後」isual_socket.js縺梧球蠖薙＠縺ｦ縺・ｋ縲・
+            // 縺薙％縺ｧ縺ｯ繧ｯ繝ｪ繝・け繝医Μ繧ｬ繝ｼ縺ｧ螟画峩隕∵ｱゅｒ騾√ｋ縲・
 
             pveBtn.style.cssText = "padding: 5px; font-size: 0.8em; cursor: pointer; border: none; border-radius: 3px; background: #6c757d; color: white; flex: 1; min-width: 60px;";
             pveBtn.onclick = () => {
@@ -198,25 +590,25 @@ window.setupVisualSidebarControls = function () {
             };
             actionContainer.appendChild(pveBtn);
 
-            // 定期更新 (ダサいが確実)
+            // 螳壽悄譖ｴ譁ｰ (繝繧ｵ縺・′遒ｺ螳・
             setInterval(updateBtnText, 2000);
         }
     }
 
-    if (currentUserAttribute === 'GM') {
+    if (isGM) {
         if (saveBtn) {
             saveBtn.style.display = 'inline-block';
             saveBtn.onclick = async () => {
-                statusMsg.textContent = "保存中...";
+                statusMsg.textContent = "菫晏ｭ倅ｸｭ...";
                 try {
                     await fetchWithSession('/save_room', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ room_name: currentRoomName, state: battleState })
                     });
-                    statusMsg.textContent = "保存完了";
+                    statusMsg.textContent = "保存しました。";
                     setTimeout(() => statusMsg.textContent = "", 2000);
-                } catch (e) { statusMsg.textContent = "保存失敗"; }
+                } catch (e) { statusMsg.textContent = "保存に失敗しました。"; }
             };
         }
         if (presetBtn) {
@@ -248,6 +640,8 @@ const VISUAL_TIMELINE_USER_SET_KEY = 'visual-timeline-collapsed-user-set';
 window.initializeTimelineToggle = function () {
     const timelineArea = document.getElementById('visual-timeline-area');
     const header = timelineArea ? timelineArea.querySelector('.sidebar-header') : null;
+    const startRBtn = document.getElementById('visual-round-start-btn');
+    const endRBtn = document.getElementById('visual-round-end-btn');
 
     if (!header) return;
 
@@ -262,6 +656,9 @@ window.initializeTimelineToggle = function () {
     if (isSelectPhase && !userSet) {
         collapsedRaw = 'true';
         localStorage.setItem(VISUAL_TIMELINE_COLLAPSED_KEY, collapsedRaw);
+    } else {
+        if (startRBtn) startRBtn.style.display = 'none';
+        if (endRBtn) endRBtn.style.display = 'none';
     }
     if (collapsedRaw === null) {
         collapsedRaw = 'true';
@@ -381,3 +778,5 @@ window.renderVisualTimeline = function () {
 }
 
 console.log('[visual_ui] Loaded.');
+
+

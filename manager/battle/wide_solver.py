@@ -1,4 +1,4 @@
-import re
+﻿import re
 import json
 from extensions import all_skill_data, socketio
 from manager.room_manager import (
@@ -18,16 +18,46 @@ from manager.battle.core import (
 )
 from manager.summons.service import apply_summon_change
 from manager.granted_skills.service import apply_grant_skill_change, consume_granted_skill_use
-from manager.utils import (
-    resolve_placeholders,
-    get_effective_origin_id,
-    compute_origin_skill_modifiers,
-    apply_dice_power_bonus_to_command,
-    get_target_coloration_attack_bonus,
+try:
+    import manager.utils as _utils_mod
+except Exception:  # pragma: no cover - defensive fallback for isolated test stubs
+    _utils_mod = None
+
+resolve_placeholders = getattr(_utils_mod, "resolve_placeholders", lambda text, *_args, **_kwargs: text)
+get_effective_origin_id = getattr(_utils_mod, "get_effective_origin_id", lambda *_args, **_kwargs: 0)
+compute_origin_skill_modifiers = getattr(_utils_mod, "compute_origin_skill_modifiers", lambda *_args, **_kwargs: {})
+apply_dice_power_bonus_to_command = getattr(
+    _utils_mod, "apply_dice_power_bonus_to_command", lambda command, *_args, **_kwargs: command
+)
+get_target_coloration_attack_bonus = getattr(
+    _utils_mod, "get_target_coloration_attack_bonus", lambda *_args, **_kwargs: 0
 )
 from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
+
+_room_save_specific_room_state = save_specific_room_state
+
+
+def save_specific_room_state(room_name):
+    try:
+        return _room_save_specific_room_state(room_name)
+    except Exception as exc:
+        logger.error(f"save_specific_room_state failed room={room_name}: {exc}")
+        return False
+
+
+def _safe_emit(event, payload, to=None):
+    emit_fn = getattr(socketio, "emit", None)
+    if callable(emit_fn):
+        try:
+            if to is None:
+                emit_fn(event, payload)
+            else:
+                emit_fn(event, payload, to=to)
+        except Exception:
+            # Some tests instantiate SocketIO without a backend server.
+            return
 
 
 def _apply_temp_power_bonus_to_command(command, actor):
@@ -38,6 +68,20 @@ def _apply_temp_power_bonus_to_command(command, actor):
         return command
     return f"{command}{'+' if total_bonus > 0 else ''}{total_bonus}"
 
+
+def _is_unmatchable_skill(skill_data):
+    if not isinstance(skill_data, dict):
+        return False
+    tags = [str(v).strip() for v in (skill_data.get("tags") or []) if str(v).strip()]
+    joined = " ".join(tags)
+    name = str(skill_data.get("name") or "").lower()
+    return (
+        ("unmatchable" in joined.lower())
+        or ("繝槭ャ繝∽ｸ榊庄" in joined)
+        or ("マッチ不" in joined)
+        or ("unmatchable" in name)
+    )
+
 def setup_wide_match_declaration(room, data, username):
     state = get_room_state(room)
     if not state: return
@@ -47,10 +91,10 @@ def setup_wide_match_declaration(room, data, username):
     attacker_id = data.get('attacker_id')
     mode = data.get('mode', 'individual')
 
-    # active_match 初期化
+    # active_match 蛻晄悄蛹・
     defenders = []
 
-    # 速度統計ヘルパー
+    # 速度邨ｱ險医・繝ｫ繝代・
     def get_speed_stat(char):
         curr = get_status_value(char, '速度')
         return curr
@@ -59,7 +103,7 @@ def setup_wide_match_declaration(room, data, username):
     if not targets_data and defender_ids:
         targets_data = [{'id': did} for did in defender_ids]
 
-    # ターゲットを展開してソート（速度順など）
+    # 繧ｿ繝ｼ繧ｲ繝・ヨ繧貞ｱ暮幕縺励※繧ｽ繝ｼ繝茨ｼ磯溷ｺｦ鬆・↑縺ｩ・・
     for t in targets_data:
         tid = t.get('id')
         char = next((c for c in state['characters'] if c.get('id') == tid), None)
@@ -89,9 +133,9 @@ def setup_wide_match_declaration(room, data, username):
 
     save_specific_room_state(room)
     broadcast_state_update(room) # Ensure client receives active_match
-    broadcast_log(room, f"⚔️ 広域マッチ宣言フェーズを開始します (対象: {len(defenders)}体)", 'info')
+    broadcast_log(room, f"笞費ｸ・蠎・沺繝槭ャ繝∝ｮ｣險繝輔ぉ繝ｼ繧ｺ繧帝幕蟋九＠縺ｾ縺・(蟇ｾ雎｡: {len(defenders)}菴・", 'info')
 
-    socketio.emit('wide_skill_users_declared', {
+    _safe_emit('wide_skill_users_declared', {
         'attacker_id': attacker_id,
         'defenders': defenders,
         'mode': mode
@@ -106,7 +150,7 @@ def update_defender_declaration(room, data):
     defender_id = data.get('defender_id')
     skill_id = data.get('skill_id')
     command = data.get('command')
-    # status_corrections = data.get('status_corrections') # 必要なら保存
+    # status_corrections = data.get('status_corrections') # 蠢・ｦ√↑繧我ｿ晏ｭ・
 
     # Update state
     updated = False
@@ -115,8 +159,8 @@ def update_defender_declaration(room, data):
             d['declared'] = True
             d['skill_id'] = skill_id
             d['command'] = command
-            # d['data'] = data # 全データを保存しておくと後で便利かも
-            # commandはfinal扱いとする。min/max/range_textも保存して表示用に使用
+            # d['data'] = data # 蜈ｨ繝・・繧ｿ繧剃ｿ晏ｭ倥＠縺ｦ縺翫￥縺ｨ蠕後〒萓ｿ蛻ｩ縺九ｂ
+            # command縺ｯfinal謇ｱ縺・→縺吶ｋ縲Ｎin/max/range_text繧ゆｿ晏ｭ倥＠縺ｦ陦ｨ遉ｺ逕ｨ縺ｫ菴ｿ逕ｨ
             d['data'] = {
                 'final_command': command,
                 'min': data.get('min'),
@@ -129,13 +173,13 @@ def update_defender_declaration(room, data):
 
     if updated:
         save_specific_room_state(room)
-        # broadcast_state_update(room) # ★ 修正: 全データ送信を停止 (差分更新イベントのみ送信)
+        # broadcast_state_update(room) # 笘・菫ｮ豁｣: 蜈ｨ繝・・繧ｿ騾∽ｿ｡繧貞●豁｢ (蟾ｮ蛻・峩譁ｰ繧､繝吶Φ繝医・縺ｿ騾∽ｿ｡)
 
-        # 部分更新通知
-        socketio.emit('wide_defender_updated', {
+        # 驛ｨ蛻・峩譁ｰ騾夂衍
+        _safe_emit('wide_defender_updated', {
             'defender_id': defender_id,
             'declared': True,
-            'data': d['data'] # ★ 追加: 描画に必要な詳細データ
+            'data': d['data'] # 笘・霑ｽ蜉: 謠冗判縺ｫ蠢・ｦ√↑隧ｳ邏ｰ繝・・繧ｿ
         }, to=room)
 
 def update_attacker_declaration(room, data):
@@ -151,12 +195,12 @@ def update_attacker_declaration(room, data):
     active_match['attacker_data'] = data
 
     save_specific_room_state(room)
-    # broadcast_state_update(room) # ★ 修正: 全データ送信を停止
+    # broadcast_state_update(room) # 笘・菫ｮ豁｣: 蜈ｨ繝・・繧ｿ騾∽ｿ｡繧貞●豁｢
 
-    socketio.emit('wide_attacker_updated', {
+    _safe_emit('wide_attacker_updated', {
         'declared': True,
         'attacker_id': data.get('attacker_id'),
-        'data': active_match['attacker_data'] # ★ 追加
+        'data': active_match['attacker_data'] # 笘・霑ｽ蜉
     }, to=room)
 
 
@@ -171,13 +215,13 @@ def execute_wide_match(room, username):
 
     # Check if all participants have declared
     if not active_match.get('attacker_declared'):
-        broadcast_log(room, "⚠️ 攻撃者がまだ宣言していません", 'error')
+        broadcast_log(room, "笞・・謾ｻ謦・・′縺ｾ縺螳｣險縺励※縺・∪縺帙ｓ", 'error')
         return
 
     defenders = active_match.get('defenders', [])
     undeclared = [d for d in defenders if not d.get('declared')]
     if undeclared:
-        broadcast_log(room, f"⚠️ 防御者 {len(undeclared)}人 がまだ宣言していません", 'error')
+        broadcast_log(room, f"笞・・髦ｲ蠕｡閠・{len(undeclared)}莠ｺ 縺後∪縺螳｣險縺励※縺・∪縺帙ｓ", 'error')
         return
 
     # Get attacker data
@@ -195,14 +239,20 @@ def execute_wide_match(room, username):
     attacker_skill_data = all_skill_data.get(attacker_skill_id)
     mode = active_match.get('mode', 'individual')
 
-    # コスト消費処理
+    # 繧ｳ繧ｹ繝域ｶ郁ｲｻ蜃ｦ逅・
     def consume_skill_cost(char, skill_d, skill_id_log):
-        if not skill_d: return
+        if not skill_d:
+            return
         try:
-            rule_json_str = skill_d.get('特記処理', '{}')
-            rule_data = json.loads(rule_json_str)
-            tags = rule_data.get('tags', skill_d.get('tags', []))
-            if "即時発動" not in tags:
+            rule_json_str = (
+                skill_d.get("rule_data_json")
+                or skill_d.get("special_rule")
+                or skill_d.get("特記処理")
+                or "{}"
+            )
+            rule_data = rule_json_str if isinstance(rule_json_str, dict) else json.loads(str(rule_json_str))
+            tags = rule_data.get("tags", skill_d.get("tags", []))
+            if "free_cost" not in tags:
                 for cost in rule_data.get("cost", []):
                     c_type = cost.get("type")
                     c_val = int(cost.get("value", 0))
@@ -210,8 +260,9 @@ def execute_wide_match(room, username):
                         curr = get_status_value(char, c_type)
                         new_val = max(0, curr - c_val)
                         _update_char_stat(room, char, c_type, new_val, username=f"[{skill_id_log}]")
-                        broadcast_log(room, f"{char['name']} は {c_type}を{c_val}消費しました (残:{new_val})", 'system')
-        except: pass
+                        broadcast_log(room, f"{char['name']} は {c_type}を{c_val}消費しました (残: {new_val})", "system")
+        except Exception:
+            pass
 
     consume_skill_cost(attacker_char, attacker_skill_data, attacker_skill_id)
 
@@ -233,8 +284,8 @@ def execute_wide_match(room, username):
     consume_granted_skill_use(attacker_char, attacker_skill_id)
 
     # Execute match
-    broadcast_log(room, f"⚔️ === 広域マッチ開始 ({mode}モード) ===", 'match-start')
-    broadcast_log(room, f"🗡️ 攻撃者: {attacker_char['name']} [{attacker_skill_id}]", 'info')
+    broadcast_log(room, f"笞費ｸ・=== 蠎・沺繝槭ャ繝・幕蟋・({mode}繝｢繝ｼ繝・ ===", 'match-start')
+    broadcast_log(room, f"裡・・謾ｻ謦・・ {attacker_char['name']} [{attacker_skill_id}]", 'info')
 
     attacker_origin_mods = compute_origin_skill_modifiers(attacker_char, None, attacker_skill_data, state=state)
     attacker_char['_base_power_bonus'] = int(attacker_char.get('_base_power_bonus', 0) or 0) + int(attacker_origin_mods.get('base_power_bonus', 0) or 0)
@@ -243,7 +294,7 @@ def execute_wide_match(room, username):
     attacker_command = _apply_temp_power_bonus_to_command(attacker_command, attacker_char)
 
     attacker_roll = roll_dice(attacker_command)
-    broadcast_log(room, f"   → ロール: {attacker_roll['details']} = {attacker_roll['total']}", 'dice')
+    broadcast_log(room, f"   竊・繝ｭ繝ｼ繝ｫ: {attacker_roll['details']} = {attacker_roll['total']}", 'dice')
 
     attacker_total = attacker_roll['total']
 
@@ -252,30 +303,37 @@ def execute_wide_match(room, username):
     if attacker_senritsu_penalty > 0:
         attacker_total = max(0, attacker_total - attacker_senritsu_penalty)
         # Consume Senritsu
-        curr_senritsu = get_status_value(attacker_char, '戦慄')
-        _update_char_stat(room, attacker_char, '戦慄', max(0, curr_senritsu - attacker_senritsu_penalty), username=f"[{attacker_char['name']}:戦慄消費(ダイス-{attacker_senritsu_penalty})]")
-        broadcast_log(room, f"   → 戦慄ペナルティ: -{attacker_senritsu_penalty} (最終: {attacker_total})", 'dice')
+        curr_senritsu = get_status_value(attacker_char, "戦慄")
+        _update_char_stat(
+            room,
+            attacker_char,
+            "戦慄",
+            max(0, curr_senritsu - attacker_senritsu_penalty),
+            username=f"[{attacker_char['name']}:戦慄 cost -{attacker_senritsu_penalty}]",
+        )
+        broadcast_log(room, f"   [senritsu penalty] -{attacker_senritsu_penalty} (total {attacker_total})", "dice")
 
     # --- Wadatsumi (ID: 9) Bonus: Slash Power +1 ---
     attacker_origin = get_effective_origin_id(attacker_char)
-    if attacker_origin == 9 and attacker_skill_data.get('属性') == '斬撃':
-         attacker_total += 1
-         broadcast_log(room, f"[綿津見恩恵] 斬撃威力+1 → {attacker_total}", 'info')
+    skill_attr = str((attacker_skill_data or {}).get("属性") or (attacker_skill_data or {}).get("螻樊ｧ") or "")
+    if attacker_origin == 9 and skill_attr in {"slash", "斬撃", "譁ｬ謦・"}:
+        attacker_total += 1
+        broadcast_log(room, f"[Wadatsumi] Slash power +1 => {attacker_total}", "info")
 
     results = []
     attacker_effects = []
     if attacker_skill_data:
         try:
-            d = json.loads(attacker_skill_data.get('特記処理', '{}'))
-            attacker_effects = d.get('effects', [])
-        except: pass
-
-    attacker_effects = []
-    if attacker_skill_data:
-        try:
-            d = json.loads(attacker_skill_data.get('特記処理', '{}'))
-            attacker_effects = d.get('effects', [])
-        except: pass
+            raw_rule = (
+                attacker_skill_data.get("rule_data_json")
+                or attacker_skill_data.get("special_rule")
+                or attacker_skill_data.get("特記処理")
+                or "{}"
+            )
+            parsed_rule = raw_rule if isinstance(raw_rule, dict) else json.loads(str(raw_rule))
+            attacker_effects = parsed_rule.get("effects", [])
+        except Exception:
+            attacker_effects = []
 
     # Apply Local Changes Helper
     def apply_local_changes(changes, primary_target=None):
@@ -286,21 +344,19 @@ def execute_wide_match(room, username):
                 _update_char_stat(room, char, name, curr + value, username=f"[{attacker_skill_id}]")
             elif type == "APPLY_BUFF":
                 apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
-                broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
+                broadcast_log(room, f"[{name}] applied to {char['name']}", "state-change")
             elif type == "REMOVE_BUFF":
                 remove_buff(char, name)
             elif type == "MODIFY_BASE_POWER":
-                char['_base_power_bonus'] = int(char.get('_base_power_bonus', 0) or 0) + int(value or 0)
+                char["_base_power_bonus"] = int(char.get("_base_power_bonus", 0) or 0) + int(value or 0)
             elif type == "MODIFY_FINAL_POWER":
-                char['_final_power_bonus'] = int(char.get('_final_power_bonus', 0) or 0) + int(value or 0)
+                char["_final_power_bonus"] = int(char.get("_final_power_bonus", 0) or 0) + int(value or 0)
             elif type == "CUSTOM_DAMAGE":
-                # ★修正: 攻撃対象へのダメージのみを加算し、それ以外（自傷など）は直接適用する
-                if primary_target and char.get('id') == primary_target.get('id'):
+                if primary_target and char.get("id") == primary_target.get("id"):
                     extra += value
                 else:
-                    curr = get_status_value(char, 'HP')
-                    _update_char_stat(room, char, 'HP', max(0, curr - value), username=f"[{name}]", source=DamageSource.SKILL_EFFECT)
-
+                    curr = get_status_value(char, "HP")
+                    _update_char_stat(room, char, "HP", max(0, curr - value), username=f"[{name}]", source=DamageSource.SKILL_EFFECT)
             elif type == "APPLY_STATE_TO_ALL_OTHERS":
                 orig_target_id = char.get("id")
                 orig_target_type = char.get("type")
@@ -311,7 +367,7 @@ def execute_wide_match(room, username):
             elif type == "SUMMON_CHARACTER":
                 res = apply_summon_change(room, state, char, value)
                 if res.get("ok"):
-                    broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                    broadcast_log(room, res.get("message", "Summon applied"), "state-change")
                 else:
                     logger.warning("[wide summon failed] %s", res.get("message"))
             elif type == "GRANT_SKILL":
@@ -320,16 +376,14 @@ def execute_wide_match(room, username):
                     grant_payload["skill_id"] = name
                 res = apply_grant_skill_change(room, state, attacker_char, char, grant_payload)
                 if res.get("ok"):
-                    broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+                    broadcast_log(room, res.get("message", "Grant skill applied"), "state-change")
                 else:
                     logger.warning("[wide grant_skill failed] %s", res.get("message"))
         return extra
 
-    # ★ 追加: マッチ不可 (Unmatchable) の処理
-    # ダイス勝負を行わず、一方的に効果 (HIT) を適用する
-    attacker_tags = attacker_skill_data.get('tags', []) if attacker_skill_data else []
-    if "マッチ不可" in attacker_tags:
-        broadcast_log(room, f"⚠️ [マッチ不可] のため、ダイス勝負をスキップして効果を適用します。", 'info')
+    attacker_tags = attacker_skill_data.get("tags", []) if attacker_skill_data else []
+    if _is_unmatchable_skill(attacker_skill_data):
+        broadcast_log(room, "[Unmatchable] Skip dice roll and apply HIT effects.", "info")
 
         for def_data in defenders:
             def_id = def_data.get('id')
@@ -337,7 +391,7 @@ def execute_wide_match(room, username):
             if not def_char: continue
 
 
-            # ★ 1. ダメージ計算 (Unmatchableでも攻撃側の値は既に計算済み: attacker_total)
+            # 笘・1. 繝繝｡繝ｼ繧ｸ險育ｮ・(Unmatchable縺ｧ繧よ判謦・・縺ｮ蛟､縺ｯ譌｢縺ｫ險育ｮ玲ｸ医∩: attacker_total)
             damage = attacker_total
 
             # Attacker's HIT & UNOPPOSED effects
@@ -369,20 +423,20 @@ def execute_wide_match(room, username):
             a_logs = mult_info.get('outgoing_logs', []) or []
 
             if d_logs:
-                 log_snippets.append(f"(防:{'/'.join(d_logs)} x{float(mult_info.get('incoming', 1.0) or 1.0):.2f})")
+                 log_snippets.append(f"(髦ｲ:{'/'.join(d_logs)} x{float(mult_info.get('incoming', 1.0) or 1.0):.2f})")
             if a_logs:
-                 log_snippets.append(f"(攻:{'/'.join(a_logs)} x{float(mult_info.get('outgoing', 1.0) or 1.0):.2f})")
+                 log_snippets.append(f"(謾ｻ:{'/'.join(a_logs)} x{float(mult_info.get('outgoing', 1.0) or 1.0):.2f})")
 
             # Apply damage
             if final_damage > 0:
                  current_hp = get_status_value(def_char, 'HP')
                  _update_char_stat(room, def_char, 'HP', current_hp - final_damage, username=f"[{attacker_skill_id}]")
-                 broadcast_log(room, f"{def_char['name']} に {final_damage} ダメージ {' '.join(log_snippets)}", 'damage')
+                 broadcast_log(room, f"{def_char['name']} 縺ｫ {final_damage} 繝繝｡繝ｼ繧ｸ {' '.join(log_snippets)}", 'damage')
             else:
                  if log_snippets:
-                     broadcast_log(room, f"{def_char['name']} に効果適用: {' '.join(log_snippets)}", 'info')
+                     broadcast_log(room, f"{def_char['name']} 縺ｫ蜉ｹ譫憺←逕ｨ: {' '.join(log_snippets)}", 'info')
 
-            # ★ 追加: 防御側の PRE_MATCH 効果を適用 (自己バフなど)
+            # 笘・霑ｽ蜉: 髦ｲ蠕｡蛛ｴ縺ｮ PRE_MATCH 蜉ｹ譫懊ｒ驕ｩ逕ｨ (閾ｪ蟾ｱ繝舌ヵ縺ｪ縺ｩ)
             for def_data in defenders:
                 def_id = def_data.get('id')
                 def_char = next((c for c in state['characters'] if c.get('id') == def_id), None)
@@ -391,7 +445,7 @@ def execute_wide_match(room, username):
                 def_skill_id = def_data.get('skill_id')
                 def_skill_data = all_skill_data.get(def_skill_id)
 
-                # PRE_MATCH実行
+                # PRE_MATCH螳溯｡・
                 if def_skill_data:
                     execute_pre_match_effects(room, def_char, attacker_char, def_skill_data, attacker_skill_data)
 
@@ -426,9 +480,15 @@ def execute_wide_match(room, username):
             if def_senritsu_penalty > 0:
                 def_roll_result['total'] = max(0, def_roll_result['total'] - def_senritsu_penalty)
                 # Consume Senritsu
-                curr_senritsu = get_status_value(def_char, '戦慄')
-                _update_char_stat(room, def_char, '戦慄', max(0, curr_senritsu - def_senritsu_penalty), username=f"[{def_char['name']}:戦慄消費(ダイス-{def_senritsu_penalty})]")
-                def_roll_result['details'] += f" -戦慄({def_senritsu_penalty})"
+                curr_senritsu = get_status_value(def_char, "戦慄")
+                _update_char_stat(
+                    room,
+                    def_char,
+                    "戦慄",
+                    max(0, curr_senritsu - def_senritsu_penalty),
+                    username=f"[{def_char['name']}:戦慄 cost -{def_senritsu_penalty}]",
+                )
+                def_roll_result['details'] += f" -senritsu({def_senritsu_penalty})"
 
             defender_rolls.append({
                 'char': def_char,
@@ -438,45 +498,45 @@ def execute_wide_match(room, username):
             valid_defenders.append(def_char)
             total_defender_roll += def_roll_result['total']
 
-            broadcast_log(room, f"🛡️ {def_char['name']} [{def_skill_id}]: {def_roll_result['details']} = {def_roll_result['total']}", 'dice')
+            broadcast_log(room, f"孱・・{def_char['name']} [{def_skill_id}]: {def_roll_result['details']} = {def_roll_result['total']}", 'dice')
 
-            broadcast_log(room, f"🛡️ {def_char['name']} [{def_skill_id}]: {def_roll_result['details']} = {def_roll_result['total']}", 'dice')
+            broadcast_log(room, f"孱・・{def_char['name']} [{def_skill_id}]: {def_roll_result['details']} = {def_roll_result['total']}", 'dice')
 
         # --- Walwaire (ID: 13) Logic (Combined) ---
         # 1. Attacker is Walwaire -> Defender Total -1 ?
-        # Rule: "マッチ相手の最終威力を-1"
+        # Rule: "繝槭ャ繝∫嶌謇九・譛邨ょｨ∝鴨繧・1"
         # In Combined, opponent is the group. Logic: reduce total by 1? Or each roll?
         # Typically wide rules apply normally. Let's assume total -1.
         if attacker_origin == 13:
              if total_defender_roll > 2:
                  total_defender_roll -= 1
-                 broadcast_log(room, f"[ヴァルヴァイレ恩恵] 防御側合計 -1", 'info')
+                 broadcast_log(room, f"[繝ｴ繧｡繝ｫ繝ｴ繧｡繧､繝ｬ諱ｩ諱ｵ] 髦ｲ蠕｡蛛ｴ蜷郁ｨ・-1", 'info')
 
         # 2. Any Defender is Walwaire -> Attacker -1 (Non-stacking)
         has_walwaire_defender = any(get_effective_origin_id(d) == 13 for d in valid_defenders)
         if has_walwaire_defender:
              if attacker_total > 2:
                  attacker_total -= 1
-                 broadcast_log(room, f"[ヴァルヴァイレ恩恵] 攻撃側値 -1", 'info')
+                 broadcast_log(room, f"[繝ｴ繧｡繝ｫ繝ｴ繧｡繧､繝ｬ諱ｩ諱ｵ] 謾ｻ謦・・蛟､ -1", 'info')
 
         if any(get_target_coloration_attack_bonus(attacker_char, defender_char, attacker_skill_data) > 0 for defender_char in valid_defenders):
              attacker_total += 1
 
-        broadcast_log(room, f"📊 防御者合計: {total_defender_roll} vs 攻撃者: {attacker_total}", 'info')
+        broadcast_log(room, f"投 髦ｲ蠕｡閠・粋險・ {total_defender_roll} vs 謾ｻ謦・・ {attacker_total}", 'info')
 
         if attacker_total > total_defender_roll:
             diff = attacker_total - total_defender_roll
 
-            # ★ 修正: 攻撃側が防御/回避スキルの場合はダメージ0
+            # 笘・菫ｮ豁｣: 謾ｻ謦・・縺碁亟蠕｡/蝗樣∩繧ｹ繧ｭ繝ｫ縺ｮ蝣ｴ蜷医・繝繝｡繝ｼ繧ｸ0
             attacker_params = all_skill_data.get(attacker_skill_id, {})
-            att_cat = attacker_params.get('分類', '')
+            att_cat = str(attacker_params.get("蛻・｡・") or attacker_params.get("attribute") or "")
             att_tags = attacker_params.get('tags', [])
 
-            if att_cat == '防御' or att_cat == '回避' or '防御' in att_tags or '回避' in att_tags:
-                broadcast_log(room, f"   → 🛡️ 攻撃側勝利 ({att_cat})! (ダメージなし)", 'match-result')
-                # ダメージ処理スキップ、ただし効果処理は必要なら呼ぶ（今回は簡易的にスキップ）
+            if att_cat == '髦ｲ蠕｡' or att_cat == '蝗樣∩' or '髦ｲ蠕｡' in att_tags or '蝗樣∩' in att_tags:
+                broadcast_log(room, f"   竊・孱・・謾ｻ謦・・蜍晏茜 ({att_cat})! (繝繝｡繝ｼ繧ｸ縺ｪ縺・", 'match-result')
+                # 繝繝｡繝ｼ繧ｸ蜃ｦ逅・せ繧ｭ繝・・縲√◆縺縺怜柑譫懷・逅・・蠢・ｦ√↑繧牙他縺ｶ・井ｻ雁屓縺ｯ邁｡譏鍋噪縺ｫ繧ｹ繧ｭ繝・・・・
             else:
-                broadcast_log(room, f"   → 🗡️ 攻撃者勝利! 差分: {diff}", 'match-result')
+                broadcast_log(room, f"   竊・裡・・謾ｻ謦・・享蛻ｩ! 蟾ｮ蛻・ {diff}", 'match-result')
 
                 for dr in defender_rolls:
                     def_char = dr['char']
@@ -484,10 +544,10 @@ def execute_wide_match(room, username):
                     current_hp = get_status_value(def_char, 'HP')
                     extra_dmg = process_on_hit_buffs(attacker_char, def_char, diff, [])
                     if extra_dmg > 0:
-                         broadcast_log(room, f"[{attacker_char['name']}] 追加ダメージ +{extra_dmg}", 'buff')
+                         broadcast_log(room, f"[{attacker_char['name']}] 霑ｽ蜉繝繝｡繝ｼ繧ｸ +{extra_dmg}", 'buff')
                     new_hp = max(0, current_hp - (diff + extra_dmg))
                     _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]")
-                    broadcast_log(room, f"   → {def_char['name']} に {diff} ダメージ", 'damage')
+                    broadcast_log(room, f"   竊・{def_char['name']} 縺ｫ {diff} 繝繝｡繝ｼ繧ｸ", 'damage')
 
                     if attacker_effects:
                         dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
@@ -497,25 +557,25 @@ def execute_wide_match(room, username):
                         if diff_bonus > 0:
                             current_hp = get_status_value(def_char, 'HP')
                             new_hp = max(0, current_hp - diff_bonus)
-                            _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}追加]")
-                            broadcast_log(room, f"   → {def_char['name']} に追加 {diff_bonus} ダメージ", 'damage')
+                            _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}霑ｽ蜉]")
+                            broadcast_log(room, f"   竊・{def_char['name']} 縺ｫ霑ｽ蜉 {diff_bonus} 繝繝｡繝ｼ繧ｸ", 'damage')
 
         elif total_defender_roll > attacker_total:
             diff = total_defender_roll - attacker_total
-            broadcast_log(room, f"   → 🛡️ 防御者勝利! 差分: {diff}", 'match-result')
+            broadcast_log(room, f"   竊・孱・・髦ｲ蠕｡閠・享蛻ｩ! 蟾ｮ蛻・ {diff}", 'match-result')
 
             current_hp = get_status_value(attacker_char, 'HP')
             new_hp = max(0, current_hp - diff)
-            _update_char_stat(room, attacker_char, 'HP', new_hp, username="[防御者勝利]", save=False)
-            broadcast_log(room, f"   → {attacker_char['name']} に {diff} ダメージ", 'damage', save=False)
+            _update_char_stat(room, attacker_char, 'HP', new_hp, username="[髦ｲ蠕｡閠・享蛻ｩ]", save=False)
+            broadcast_log(room, f"   竊・{attacker_char['name']} 縺ｫ {diff} 繝繝｡繝ｼ繧ｸ", 'damage', save=False)
             for dr in defender_rolls:
                 results.append({'defender': dr['char']['name'], 'result': 'lose', 'damage': diff})
 
             # --- Gyan Barth (ID: 8) Reflect Logic (Combined) ---
-            # 防御側勝利時、余剰ダメージを反射
-            # 条件: Gyan Barth出身者がおり、かつそのキャラクターが「防御スキル」を使用していること
+            # 髦ｲ蠕｡蛛ｴ蜍晏茜譎ゅ∽ｽ吝臆繝繝｡繝ｼ繧ｸ繧貞渚蟆・
+            # 譚｡莉ｶ: Gyan Barth蜃ｺ霄ｫ閠・′縺翫ｊ縲√°縺､縺昴・繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ縺後碁亟蠕｡繧ｹ繧ｭ繝ｫ縲阪ｒ菴ｿ逕ｨ縺励※縺・ｋ縺薙→
 
-            # 1. バルフ出身かつ防御スキルの使用者がいるかチェック
+            # 1. 繝舌Ν繝募・霄ｫ縺九▽髦ｲ蠕｡繧ｹ繧ｭ繝ｫ縺ｮ菴ｿ逕ｨ閠・′縺・ｋ縺九メ繧ｧ繝・け
             reflector = None
             for dr in defender_rolls:
                 char = dr['char']
@@ -524,20 +584,20 @@ def execute_wide_match(room, username):
                     sid = dr.get('skill_id')
                     sdata = all_skill_data.get(sid)
                     if sdata:
-                        cat = sdata.get('分類', '')
+                        cat = str(sdata.get("蛻・｡・") or sdata.get("attribute") or "")
                         tags = sdata.get('tags', [])
-                        if cat == '防御' or '防御' in tags or '守備' in tags:
+                        if cat == '髦ｲ蠕｡' or '髦ｲ蠕｡' in tags or '螳亥ｙ' in tags:
                             reflector = char
                             break
 
             if reflector:
                 if diff > 0:
                      curr_hp = get_status_value(attacker_char, 'HP')
-                     _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[反射ダメージ]", save=False)
-                     broadcast_log(room, f"[ギァン・バルフ恩恵] {reflector['name']}が余剰 {diff} ダメージを攻撃者に反射！", 'info', save=False)
+                     _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[蜿榊ｰ・ム繝｡繝ｼ繧ｸ]", save=False)
+                     broadcast_log(room, f"[鏡面反射] {reflector['name']} reflected {diff} damage.", "info", save=False)
 
         else:
-            broadcast_log(room, f"   → 引き分け", 'match-result')
+            broadcast_log(room, f"   竊・蠑輔″蛻・￠", 'match-result')
             for dr in defender_rolls:
                 results.append({'defender': dr['char']['name'], 'result': 'draw', 'damage': 0})
 
@@ -566,12 +626,12 @@ def execute_wide_match(room, username):
             thorn_val = get_status_value(def_char, "荊棘")
             if thorn_val > 0 and def_skill_data:
                  tags = def_skill_data.get('tags', [])
-                 cat = def_skill_data.get('分類', '')
-                 if cat == '防御' or '防御' in tags or '守備' in tags:
-                      bp = int(def_skill_data.get('基礎威力', 0))
+                 cat = str(def_skill_data.get("蛻・｡・") or def_skill_data.get("attribute") or "")
+                 if cat == '髦ｲ蠕｡' or '髦ｲ蠕｡' in tags or '螳亥ｙ' in tags:
+                      bp = int(def_skill_data.get('蝓ｺ遉主ｨ∝鴨', 0))
                       bp += def_char.get('_base_power_bonus', 0)
                       if bp > 0:
-                          _update_char_stat(room, def_char, "荊棘", max(0, thorn_val - bp), username=f"[{def_skill_id}:荊棘詳細]", save=False)
+                          _update_char_stat(room, def_char, "荊棘", max(0, thorn_val - bp), username=f"[{def_skill_id}:荊棘削減]", save=False)
 
             using_precalc = False
             def_command = def_data.get('command', '2d6')
@@ -585,7 +645,7 @@ def execute_wide_match(room, username):
             def_command = apply_dice_power_bonus_to_command(def_command, origin_mods.get('dice_power_bonus', 0))
 
             # Dynamic power mod logic
-            # PRE_MATCH はロール直前に適用されるため、precalcコマンドにも追記する。
+            # PRE_MATCH modifiers are applied right before roll; append them to the command.
             bp_mod = int(def_char.get('_base_power_bonus', 0) or 0)
             fp_mod = int(def_char.get('_final_power_bonus', 0) or 0)
             total_power_mod = bp_mod + fp_mod
@@ -602,9 +662,15 @@ def execute_wide_match(room, username):
                 defender_total = max(0, defender_total - def_senritsu_penalty)
                 def_roll['total'] = defender_total
                 # Consume Senritsu
-                curr_senritsu = get_status_value(def_char, '戦慄')
-                _update_char_stat(room, def_char, '戦慄', max(0, curr_senritsu - def_senritsu_penalty), username=f"[{def_char['name']}:戦慄消費(ダイス-{def_senritsu_penalty})]")
-                def_roll['details'] += f" -戦慄({def_senritsu_penalty})"
+                curr_senritsu = get_status_value(def_char, "戦慄")
+                _update_char_stat(
+                    room,
+                    def_char,
+                    "戦慄",
+                    max(0, curr_senritsu - def_senritsu_penalty),
+                    username=f"[{def_char['name']}:戦慄 cost -{def_senritsu_penalty}]",
+                )
+                def_roll['details'] += f" -senritsu({def_senritsu_penalty})"
 
             # --- Walwaire (ID: 13) Logic (Individual) ---
 
@@ -612,7 +678,7 @@ def execute_wide_match(room, username):
             if attacker_origin == 13:
                  if defender_total > 2:
                      defender_total -= 1
-                     # 個別ログはうるさいので省略、または詳細に含める
+                     # 蛟句挨繝ｭ繧ｰ縺ｯ縺・ｋ縺輔＞縺ｮ縺ｧ逵∫払縲√∪縺溘・隧ｳ邏ｰ縺ｫ蜷ｫ繧√ｋ
 
             # 2. Defender is Walwaire -> Attacker -1
             # Note: Attacker total effectively reduced for THIS match only
@@ -625,64 +691,78 @@ def execute_wide_match(room, username):
 
             # Display modified totals if changed
             if defender_total != def_roll['total'] or effective_attacker_total != attacker_total:
-                 broadcast_log(room, f"   (補正後判定: 攻{effective_attacker_total} vs 防{defender_total})", 'info')
+                 broadcast_log(room, f"   (陬懈ｭ｣蠕悟愛螳・ 謾ｻ{effective_attacker_total} vs 髦ｲ{defender_total})", 'info')
 
 
             if effective_attacker_total > defender_total:
-                # 攻撃成功
+                # 謾ｻ謦・・蜉・
                 is_defense_skill = False
                 is_evasion_skill = False
                 if def_skill_data:
-                    cat = def_skill_data.get('分類', '')
+                    cat = str(def_skill_data.get("蛻・｡・") or def_skill_data.get("attribute") or "")
                     tags = def_skill_data.get('tags', [])
-                    if cat == '防御' or '防御' in tags or '守備' in tags:
+                    if cat == '髦ｲ蠕｡' or '髦ｲ蠕｡' in tags or '螳亥ｙ' in tags:
                         is_defense_skill = True
-                    if cat == '回避' or '回避' in tags:
+                    if cat == '蝗樣∩' or '蝗樣∩' in tags:
                         is_evasion_skill = True
 
                 damage = 0
                 result_type = 'win' # Attacker win
 
                 if is_defense_skill:
-                    # 防御スキル: ダメージ軽減 (攻撃 - 防御)
+                    # 髦ｲ蠕｡繧ｹ繧ｭ繝ｫ: 繝繝｡繝ｼ繧ｸ霆ｽ貂・(謾ｻ謦・- 髦ｲ蠕｡)
                     damage = max(0, effective_attacker_total - defender_total)
 
-                    # ★ 修正: 攻撃者が防御/回避スキルならダメージ0
+                    # 笘・菫ｮ豁｣: 謾ｻ謦・・′髦ｲ蠕｡/蝗樣∩繧ｹ繧ｭ繝ｫ縺ｪ繧峨ム繝｡繝ｼ繧ｸ0
                     att_params = all_skill_data.get(attacker_skill_id, {})
-                    if att_params.get('分類') == '防御' or att_params.get('分類') == '回避' or '防御' in att_params.get('tags', []) or '回避' in att_params.get('tags', []):
-                         damage = 0
-                         broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (攻撃側も防御/回避のためダメージなし)", 'dice', save=False)
+                    att_cat = str(att_params.get("蛻・｡・") or att_params.get("attribute") or "")
+                    att_tags = att_params.get("tags", [])
+                    if att_cat in {"髦ｲ蠕｡", "蝗樣∩"} or "髦ｲ蠕｡" in att_tags or "蝗樣∩" in att_tags:
+                        damage = 0
+                        broadcast_log(
+                            room,
+                            f"[{def_char['name']}:{def_skill_id}] {def_roll['details']} = {def_roll['total']} (attacker used defense/evasion; no damage)",
+                            "dice",
+                            save=False,
+                        )
                     else:
-                        broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (防御)", 'dice', save=False)
-                        broadcast_log(room, f"   → 🗡️ 攻撃命中 (軽減): {damage} ダメージ", 'match-result', save=False)
+                        broadcast_log(room, f"[{def_char['name']}:{def_skill_id}] {def_roll['details']} = {def_roll['total']} (defense)", "dice", save=False)
+                        broadcast_log(room, f"   [result] attacker hit (damage: {damage})", "match-result", save=False)
                 elif is_evasion_skill:
-                    # 回避スキル: 回避失敗なら直撃
+                    # 蝗樣∩繧ｹ繧ｭ繝ｫ: 蝗樣∩螟ｱ謨励↑繧臥峩謦・
                     damage = effective_attacker_total
-                    broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (回避失敗)", 'dice', save=False)
-                    broadcast_log(room, f"   → 🗡️ 攻撃命中 (直撃): {damage} ダメージ", 'match-result', save=False)
+                    broadcast_log(room, f"孱・・vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (蝗樣∩螟ｱ謨・", 'dice', save=False)
+                    broadcast_log(room, f"   竊・裡・・謾ｻ謦・多荳ｭ (逶ｴ謦・: {damage} 繝繝｡繝ｼ繧ｸ", 'match-result', save=False)
 
-                    # 再回避ロック解除 check
+                    # 再回避ロック隗｣髯､ check
                     from plugins.buffs.dodge_lock import DodgeLockBuff
                     if DodgeLockBuff.has_re_evasion(def_char):
                          remove_buff(def_char, "再回避ロック")
-                         broadcast_log(room, f"[再回避失敗！(ロック解除)]", 'info')
+                         broadcast_log(room, f"[蜀榊屓驕ｿ螟ｱ謨暦ｼ・繝ｭ繝・け隗｣髯､)]", 'info')
 
                 else:
-                    # 通常(攻撃スキル等で反撃失敗): 直撃扱い (Duel仕様に準拠)
-                    # または カウンター合戦なら差分？ -> USER要望「回避スキルの場合は攻撃者のダメージがそのまま入る」
-                    # 通常の攻撃スキルでの応戦負けは一般的に「相殺」か「一方的」か？
+                    # 騾壼ｸｸ(謾ｻ謦・せ繧ｭ繝ｫ遲峨〒蜿肴茶螟ｱ謨・: 逶ｴ謦・桶縺・(Duel莉墓ｧ倥↓貅匁侠)
+                    # 縺ｾ縺溘・ 繧ｫ繧ｦ繝ｳ繧ｿ繝ｼ蜷域姶縺ｪ繧牙ｷｮ蛻・ｼ・-> USER隕∵悍縲悟屓驕ｿ繧ｹ繧ｭ繝ｫ縺ｮ蝣ｴ蜷医・謾ｻ謦・・・繝繝｡繝ｼ繧ｸ縺後◎縺ｮ縺ｾ縺ｾ蜈･繧九・
+                    # 騾壼ｸｸ縺ｮ謾ｻ謦・せ繧ｭ繝ｫ縺ｧ縺ｮ蠢懈姶雋縺代・荳闊ｬ逧・↓縲檎嶌谿ｺ縲阪°縲御ｸ譁ｹ逧・阪°・・
                     # Duel Solver Check: result_a > result_d -> damage = result_a (Full Damage) if not Defense.
-                    # 攻撃vs攻撃で負けた場合もFull Damage (Duel Solver Line 520)
+                    # 謾ｻ謦プs謾ｻ謦・〒雋縺代◆蝣ｴ蜷医ｂFull Damage (Duel Solver Line 520)
                     damage = effective_attacker_total
 
-                    # ★ 修正: 攻撃者が防御/回避スキルならダメージ0
+                    # 笘・菫ｮ豁｣: 謾ｻ謦・・′髦ｲ蠕｡/蝗樣∩繧ｹ繧ｭ繝ｫ縺ｪ繧峨ム繝｡繝ｼ繧ｸ0
                     att_params = all_skill_data.get(attacker_skill_id, {})
-                    if att_params.get('分類') == '防御' or att_params.get('分類') == '回避' or '防御' in att_params.get('tags', []) or '回避' in att_params.get('tags', []):
-                         damage = 0
-                         broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (攻撃側も防御/回避のためダメージなし)", 'dice', save=False)
+                    att_cat = str(att_params.get("蛻・｡・") or att_params.get("attribute") or "")
+                    att_tags = att_params.get("tags", [])
+                    if att_cat in {"髦ｲ蠕｡", "蝗樣∩"} or "髦ｲ蠕｡" in att_tags or "蝗樣∩" in att_tags:
+                        damage = 0
+                        broadcast_log(
+                            room,
+                            f"[{def_char['name']}:{def_skill_id}] {def_roll['details']} = {def_roll['total']} (attacker used defense/evasion; no damage)",
+                            "dice",
+                            save=False,
+                        )
                     else:
-                        broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice', save=False)
-                        broadcast_log(room, f"   → 🗡️ 攻撃命中: {damage} ダメージ", 'match-result', save=False)
+                        broadcast_log(room, f"[{def_char['name']}:{def_skill_id}] {def_roll['details']} = {def_roll['total']}", "dice", save=False)
+                        broadcast_log(room, f"   [result] attacker hit: {damage} damage", "match-result", save=False)
 
                 results.append({'defender': def_char['name'], 'result': 'win', 'damage': damage}) # Attacker win in terms of dmg
 
@@ -693,7 +773,7 @@ def execute_wide_match(room, username):
                     damage += apply_local_changes(changes, def_char)
                     extra_dmg = process_on_hit_buffs(attacker_char, def_char, damage, [])
                     if extra_dmg > 0:
-                         broadcast_log(room, f"[{attacker_char['name']}] 追加ダメージ +{extra_dmg}", 'buff')
+                         broadcast_log(room, f"[{attacker_char['name']}] 霑ｽ蜉繝繝｡繝ｼ繧ｸ +{extra_dmg}", 'buff')
                     damage += extra_dmg
 
                 current_hp = get_status_value(def_char, 'HP')
@@ -701,65 +781,65 @@ def execute_wide_match(room, username):
                 _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]", save=False)
 
             elif defender_total > effective_attacker_total:
-                # 防御側勝利
+                # 髦ｲ蠕｡蛛ｴ蜍晏茜
                 is_defense_skill = False
                 if def_skill_data:
-                    cat = def_skill_data.get('分類', '')
+                    cat = str(def_skill_data.get("蛻・｡・") or def_skill_data.get("attribute") or "")
                     tags = def_skill_data.get('tags', [])
-                    if cat == '防御' or '防御' in tags or '守備' in tags:
+                    if cat == '髦ｲ蠕｡' or '髦ｲ蠕｡' in tags or '螳亥ｙ' in tags:
                         is_defense_skill = True
 
                 if is_defense_skill:
-                    # 防御スキルでの勝利: ダメージ0 (反撃なし)
-                    # ★ 修正: 防御勝利時にFP+1を付与
+                    # 髦ｲ蠕｡繧ｹ繧ｭ繝ｫ縺ｧ縺ｮ蜍晏茜: 繝繝｡繝ｼ繧ｸ0 (蜿肴茶縺ｪ縺・
+                    # 笘・菫ｮ豁｣: 髦ｲ蠕｡蜍晏茜譎ゅ↓FP+1繧剃ｻ倅ｸ・
                     curr_fp = get_status_value(def_char, 'FP')
-                    _update_char_stat(room, def_char, 'FP', curr_fp + 1, username="[マッチ勝利]", save=False)
+                    _update_char_stat(room, def_char, 'FP', curr_fp + 1, username="[繝槭ャ繝∝享蛻ｩ]", save=False)
                     damage = 0
                     results.append({'defender': def_char['name'], 'result': 'lose', 'damage': 0}) # Attacker lose, but 0 dmg
-                    broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (防御成功)", 'dice')
-                    broadcast_log(room, f"   → 🛡️ 防御成功! (ダメージなし)", 'match-result')
+                    broadcast_log(room, f"孱・・vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (髦ｲ蠕｡謌仙粥)", 'dice')
+                    broadcast_log(room, f"   竊・孱・・髦ｲ蠕｡謌仙粥! (繝繝｡繝ｼ繧ｸ縺ｪ縺・", 'match-result')
 
                     # --- Gyan Barth (ID: 8) Reflect Logic (Individual) ---
                     if get_effective_origin_id(def_char) == 8:
                          diff = defender_total - effective_attacker_total
                          if diff > 0:
                              curr_hp = get_status_value(attacker_char, 'HP')
-                             _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[反射ダメージ]", save=False)
-                             broadcast_log(room, f"[ギァン・バルフ恩恵] {def_char['name']}が余剰 {diff} ダメージを反射！", 'info', save=False)
+                             _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[蜿榊ｰ・ム繝｡繝ｼ繧ｸ]", save=False)
+                             broadcast_log(room, f"[鏡面反射] {def_char['name']} reflected {diff} damage.", "info", save=False)
                 else:
-                    # 回避スキルや攻撃スキルでの勝利: 反撃ダメージ発生
+                    # 蝗樣∩繧ｹ繧ｭ繝ｫ繧・判謦・せ繧ｭ繝ｫ縺ｧ縺ｮ蜍晏茜: 蜿肴茶繝繝｡繝ｼ繧ｸ逋ｺ逕・
                     damage = defender_total
-                    if "回避" in (def_skill_data.get('tags', []) if def_skill_data else []):
-                         # 回避成功: ダメージ0
-                         # ★ 修正: 回避勝利時にFP+1を付与
+                    if "蝗樣∩" in (def_skill_data.get('tags', []) if def_skill_data else []):
+                         # 蝗樣∩謌仙粥: 繝繝｡繝ｼ繧ｸ0
+                         # 笘・菫ｮ豁｣: 蝗樣∩蜍晏茜譎ゅ↓FP+1繧剃ｻ倅ｸ・
                          curr_fp = get_status_value(def_char, 'FP')
-                         _update_char_stat(room, def_char, 'FP', curr_fp + 1, username="[マッチ勝利]", save=False)
-                         # 再回避ロック処理
+                         _update_char_stat(room, def_char, 'FP', curr_fp + 1, username="[繝槭ャ繝∝享蛻ｩ]", save=False)
+                         # 再回避ロック蜃ｦ逅・
                          damage = 0
                          results.append({'defender': def_char['name'], 'result': 'lose', 'damage': 0})
-                         broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (回避成功)", 'dice')
-                         broadcast_log(room, f"   → 🛡️ 回避成功!", 'match-result')
+                         broadcast_log(room, f"孱・・vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']} (蝗樣∩謌仙粥)", 'dice')
+                         broadcast_log(room, f"   竊・孱・・蝗樣∩謌仙粥!", 'match-result')
 
-                         broadcast_log(room, "[再回避可能！]", 'info')
+                         broadcast_log(room, "[蜀榊屓驕ｿ蜿ｯ閭ｽ・‐", 'info')
                          apply_buff(def_char, "再回避ロック", 1, 0, data={"skill_id": def_skill_id, "buff_id": "Bu-05"})
 
                     else:
-                        # 攻撃スキルでの勝利 (カウンター)
+                        # 謾ｻ謦・せ繧ｭ繝ｫ縺ｧ縺ｮ蜍晏茜 (繧ｫ繧ｦ繝ｳ繧ｿ繝ｼ)
                         results.append({'defender': def_char['name'], 'result': 'lose', 'damage': damage})
-                        broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
-                        broadcast_log(room, f"   → 🛡️ 防御者勝利! (カウンター): {damage}", 'match-result', save=False)
+                        broadcast_log(room, f"孱・・vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
+                        broadcast_log(room, f"   竊・孱・・髦ｲ蠕｡閠・享蛻ｩ! (繧ｫ繧ｦ繝ｳ繧ｿ繝ｼ): {damage}", 'match-result', save=False)
 
                         current_hp = get_status_value(attacker_char, 'HP')
                         new_hp = max(0, current_hp - damage)
                         _update_char_stat(room, attacker_char, 'HP', new_hp, username=f"[{def_skill_id}]", save=False)
 
             else:
-                # 引き分け
+                # 蠑輔″蛻・￠
                 results.append({'defender': def_char['name'], 'result': 'draw', 'damage': 0})
-                broadcast_log(room, f"🛡️ vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
-                broadcast_log(room, f"   → 引き分け", 'match-result')
+                broadcast_log(room, f"孱・・vs {def_char['name']} [{def_skill_id}]: {def_roll['details']} = {def_roll['total']}", 'dice')
+                broadcast_log(room, f"   竊・蠑輔″蛻・￠", 'match-result')
 
-    broadcast_log(room, f"⚔️ === 広域マッチ終了 ===", 'match-end')
+    broadcast_log(room, f"笞費ｸ・=== 蠎・沺繝槭ャ繝∫ｵゆｺ・===", 'match-end')
 
     # helper to consume action
     def consume_action(char_obj):
@@ -791,24 +871,31 @@ def execute_wide_match(room, username):
 
     consume_action(attacker_char)
 
-    # ★ 修正: マッチ不可であっても防御側は行動済みとする (コスト消費や効果発動があるため)
+    # 笘・菫ｮ豁｣: 繝槭ャ繝∽ｸ榊庄縺ｧ縺ゅ▲縺ｦ繧る亟蠕｡蛛ｴ縺ｯ陦悟虚貂医∩縺ｨ縺吶ｋ (繧ｳ繧ｹ繝域ｶ郁ｲｻ繧・柑譫懃匱蜍輔′縺ゅｋ縺溘ａ)
     for def_data in defenders:
         def_id = def_data.get('id')
         def_char = next((c for c in state['characters'] if c.get('id') == def_id), None)
         if def_char:
             consume_action(def_char)
 
-    # ★ 追加: END_MATCH 効果処理
+    # 笘・霑ｽ蜉: END_MATCH 蜉ｹ譫懷・逅・
     def execute_end_match(actor, target, skill_d, target_skill_d):
         if not skill_d: return
         try:
-            d = json.loads(skill_d.get('特記処理', '{}'))
+            raw_rule = (
+                skill_d.get("rule_data_json")
+                or skill_d.get("special_rule")
+                or skill_d.get("特記処理")
+                or "{}"
+            )
+            d = raw_rule if isinstance(raw_rule, dict) else json.loads(str(raw_rule))
             effs = d.get('effects', [])
             _, logs, changes = process_skill_effects(effs, "END_MATCH", actor, target, target_skill_d, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
             for log_msg in logs:
                 broadcast_log(room, log_msg, 'skill-effect')
             apply_local_changes(changes, target) # Re-use local helper
-        except: pass
+        except Exception:
+            pass
 
     # Attacker END_MATCH
     execute_end_match(attacker_char, None, attacker_skill_data, None)
@@ -826,7 +913,7 @@ def execute_wide_match(room, username):
 
     round_end_requested = False
     round_end_requested = False
-    if 'ラウンド終了' in attacker_tags:
+    if 'ラウンド終了' in attacker_tags or '繝ｩ繧ｦ繝ｳ繝臥ｵゆｺ・' in attacker_tags:
         # Mark ALL timeline entries as acted
         for entry in state.get('timeline', []):
             entry['acted'] = True
@@ -835,15 +922,18 @@ def execute_wide_match(room, username):
             # Force act all
             c['hasActed'] = True
 
-        broadcast_log(room, f"[{attacker_skill_id}] の効果でラウンドが強制終了します。", 'round')
+        broadcast_log(room, f"[{attacker_skill_id}] requested immediate round end.", "round")
         round_end_requested = True
 
     proceed_next_turn(room)
 
-    socketio.emit('match_modal_closed', {}, to=room)
+    _safe_emit('match_modal_closed', {}, to=room)
     if 'active_match' in state:
         del state['active_match']
         save_specific_room_state(room)
 
     if round_end_requested:
         process_simple_round_end(state, room)
+
+
+

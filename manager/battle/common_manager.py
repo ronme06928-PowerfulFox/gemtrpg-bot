@@ -1,4 +1,4 @@
-import copy
+﻿import copy
 import json
 import time
 import uuid
@@ -15,6 +15,16 @@ from manager.summons.service import apply_summon_change, process_summon_round_en
 from manager.granted_skills.service import process_granted_skill_round_end, apply_grant_skill_change
 
 logger = setup_logger(__name__)
+
+
+def _safe_emit(event_name, payload, **kwargs):
+    emit_fn = getattr(socketio, "emit", None)
+    if callable(emit_fn):
+        try:
+            emit_fn(event_name, payload, **kwargs)
+        except Exception:
+            return
+
 
 get_room_state = getattr(room_manager, "get_room_state", lambda *_args, **_kwargs: None)
 save_specific_room_state = getattr(room_manager, "save_specific_room_state", lambda *_args, **_kwargs: None)
@@ -68,6 +78,7 @@ BEHAVIOR_RANDOM_USABLE_SKILL_ALIASES = {
 get_effective_origin_id = getattr(_utils_mod, 'get_effective_origin_id', lambda *_args, **_kwargs: 0)
 apply_origin_bonus_buffs = getattr(_utils_mod, 'apply_origin_bonus_buffs', lambda *_args, **_kwargs: None)
 clear_newly_applied_flags = getattr(_utils_mod, 'clear_newly_applied_flags', lambda *_args, **_kwargs: 0)
+clear_round_limited_flags = getattr(_utils_mod, 'clear_round_limited_flags', lambda *_args, **_kwargs: 0)
 get_round_end_origin_recoveries = getattr(_utils_mod, 'get_round_end_origin_recoveries', lambda *_args, **_kwargs: {})
 
 
@@ -142,7 +153,7 @@ def _extract_skill_rule_data(skill_data):
     if not isinstance(skill_data, dict):
         return {}
 
-    for key in ['rule_data', 'rule_json', 'rule', '特記処理']:
+    for key in ['rule_data', 'rule_json', 'rule', '迚ｹ險伜・逅・']:
         raw = skill_data.get(key)
         if not raw:
             continue
@@ -205,16 +216,16 @@ def _infer_mass_type_from_text(text):
         'mass_summation' in merged
         or 'summation' in merged
         or 'sum' in merged
-        or '広域-合算' in merged
-        or '合算' in merged
+        or '蠎・沺-蜷育ｮ・' in merged
+        or '蜷育ｮ・' in merged
     ):
         return 'mass_summation'
     if (
         'mass_individual' in merged
         or 'individual' in merged
-        or '広域-個別' in merged
-        or '個別' in merged
-        or '広域' in merged
+        or '蠎・沺-蛟句挨' in merged
+        or '蛟句挨' in merged
+        or '蠎・沺' in merged
     ):
         return 'mass_individual'
     return None
@@ -245,8 +256,8 @@ def _infer_mass_type_from_skill(skill_id):
 
     merged_parts = _extract_skill_tags(skill_id)
     for key in [
-        'category', 'distance', '分類', 'カテゴリ', '距離', '射程', '範囲',
-        'target_scope', 'target', 'target_type', 'targeting', 'mass_type'
+        'category', 'attribute', 'distance', 'target_scope', 'target', 'target_type', 'targeting', 'mass_type',
+        '蛻・｡・', '霍晞屬', '遽・峇', '繧ｫ繝・ざ繝ｪ',
     ]:
         if isinstance(skill_data.get(key), str):
             merged_parts.append(skill_data.get(key))
@@ -260,11 +271,11 @@ def _normalize_target_scope(raw_value, default='enemy'):
     text = str(raw_value or '').strip().lower()
     if text in ['', 'default', 'auto']:
         return str(default or 'enemy')
-    if text in ['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対']:
+    if text in ['enemy', 'enemies', 'foe', 'opponent', 'opponents', '謨ｵ', '謨ｵ蟇ｾ']:
         return 'enemy'
-    if text in ['ally', 'allies', 'friend', 'friends', '味方', '味方全体']:
+    if text in ['ally', 'allies', 'friend', 'friends', '蜻ｳ譁ｹ', '蜻ｳ譁ｹ蜈ｨ菴・']:
         return 'ally'
-    if text in ['any', 'all', 'both', '全体', 'all_targets']:
+    if text in ['any', 'all', 'both', '蜈ｨ菴・', 'all_targets']:
         return 'any'
     return str(default or 'enemy')
 
@@ -291,11 +302,11 @@ def _infer_target_scope_from_skill(skill_id):
             return _normalize_target_scope(raw, default='enemy')
 
     normalized_tags = set(_extract_skill_tags(skill_id))
-    if any(tag in normalized_tags for tag in ['any_target', 'target_any', '任意対象', '対象自由']):
+    if any(tag in normalized_tags for tag in ['any_target', 'target_any', '莉ｻ諢丞ｯｾ雎｡', '蟇ｾ雎｡閾ｪ逕ｱ']):
         return 'any'
-    if any(tag in normalized_tags for tag in ['ally_target', 'target_ally', '味方対象', '味方指定']):
+    if any(tag in normalized_tags for tag in ['ally_target', 'target_ally', '蜻ｳ譁ｹ蟇ｾ雎｡', '蜻ｳ譁ｹ謖・ｮ・']):
         return 'ally'
-    if any(tag in normalized_tags for tag in ['enemy_target', 'target_enemy', '敵対象']):
+    if any(tag in normalized_tags for tag in ['enemy_target', 'target_enemy', '謨ｵ蟇ｾ雎｡']):
         return 'enemy'
     return 'enemy'
 
@@ -319,9 +330,9 @@ def _build_pve_intent_tags(skill_id, target_type='single_slot'):
     else:
         mass_type = None
     return _default_intent_tags({
-        'instant': ('instant' in tags or '即時' in tags_text or '即時発動' in tags_text),
+        'instant': ('instant' in tags or '蜊ｳ譎・' in tags_text or '蜊ｳ譎ら匱蜍・' in tags_text),
         'mass_type': mass_type,
-        'no_redirect': ('no_redirect' in tags or '対象変更不可' in tags_text),
+        'no_redirect': ('no_redirect' in tags or '蟇ｾ雎｡螟画峩荳榊庄' in tags_text),
     })
 
 
@@ -333,7 +344,7 @@ def _resolve_skill_display_name(skill_id):
         return str(skill_id)
     return (
         skill_data.get('name')
-        or skill_data.get('デフォルト名称')
+        or skill_data.get('繝・ヵ繧ｩ繝ｫ繝亥錐遘ｰ')
         or skill_data.get('skill_name')
         or str(skill_id)
     )
@@ -394,9 +405,9 @@ def _broadcast_pve_round_start_preview_log(state, room, preview_rows, round_valu
         skill_id = row.get('skill_id')
         if skill_id:
             skill_name = _resolve_skill_display_name(skill_id)
-            lines.append(f"{from_label} → {target_label} / 使用予定: [{skill_id}] {skill_name}")
+            lines.append(f"{from_label} -> {target_label} / 使用スキル: [{skill_id}] {skill_name}")
         else:
-            lines.append(f"{from_label} → {target_label}")
+            lines.append(f"{from_label} -> {target_label}")
 
     if lines:
         msg = "<strong>[PvE行動予告]</strong><br>" + "<br>".join(lines)
@@ -687,9 +698,9 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
 
             from_label = _format_slot_actor_label(slot, actor)
             if target_type in ['mass_individual', 'mass_summation']:
-                target_label = '味方全体'
+                target_label = '蜻ｳ譁ｹ蜈ｨ菴・'
             else:
-                target_label = _format_slot_actor_label(target_slot, char_by_id.get(target_actor_id, {})) if target_slot_id else '対象なし'
+                target_label = _format_slot_actor_label(target_slot, char_by_id.get(target_actor_id, {})) if target_slot_id else '蟇ｾ雎｡縺ｪ縺・'
             preview_rows.append({
                 'from_label': from_label,
                 'target_label': target_label,
@@ -728,13 +739,13 @@ def process_full_round_end(room, username):
     if not state: return
 
     if state.get('is_round_ended', False):
-        emit('new_log', {"message": "⚠️ 既にラウンド終了処理は完了しています。", "type": "error"})
+        emit('new_log', {"message": "Round end has already been processed.", "type": "error"})
         return
 
     broadcast_log(room, f"--- {username} が Round {state.get('round', 0)} の終了処理を実行しました ---", 'info')
     characters_to_process = state.get('characters', [])
 
-    # 全員行動済みかチェック
+    # 蜈ｨ蜩｡陦悟虚貂医∩縺九メ繧ｧ繝・け
     from plugins.buffs.confusion import ConfusionBuff
     current_round = int(state.get('round', 0) or 0)
     not_acted_chars = []
@@ -754,7 +765,7 @@ def process_full_round_end(room, username):
             not_acted_chars.append(c.get('name', 'Unknown'))
 
     if not_acted_chars:
-        msg = f"⚠️ まだ行動していないキャラクターがいます: {', '.join(not_acted_chars)}"
+        msg = f"まだ行動していないキャラクターがいます: {', '.join(not_acted_chars)}"
         emit('new_log', {"message": msg, "type": "error"})
         return
 
@@ -768,13 +779,19 @@ def process_full_round_end(room, username):
             if not skill_data: continue
 
             try:
-                rule_json_str = skill_data.get('特記処理', '{}')
-                rule_data = json.loads(rule_json_str)
+                rule_json_str = (
+                    skill_data.get("rule_data_json")
+                    or skill_data.get("special_rule")
+                    or skill_data.get("特記処理")
+                    or "{}"
+                )
+                rule_data = rule_json_str if isinstance(rule_json_str, dict) else json.loads(str(rule_json_str))
                 effects_array = rule_data.get("effects", [])
                 if effects_array:
                     _, logs, changes = process_skill_effects(effects_array, "END_ROUND", char, char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
                     all_changes.extend(changes)
-            except: pass
+            except Exception:
+                pass
 
         for (c, type, name, value) in all_changes:
             if type == "APPLY_STATE":
@@ -782,20 +799,20 @@ def process_full_round_end(room, username):
                 _update_char_stat(room, c, name, current_val + value, username=f"[{state.get('round')}R終了時]")
             elif type == "APPLY_BUFF":
                 apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
-                broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
+                broadcast_log(room, f"[{name}] applied to {c['name']}", "state-change")
             elif type == "GRANT_SKILL":
                 grant_payload = dict(value) if isinstance(value, dict) else {}
                 if "skill_id" not in grant_payload:
                     grant_payload["skill_id"] = name
                 res = apply_grant_skill_change(room, state, char, c, grant_payload)
                 if res.get("ok"):
-                    broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+                    broadcast_log(room, res.get("message", "Grant skill applied"), "state-change")
                 else:
                     logger.warning("[end_round grant_skill failed] %s", res.get("message"))
             elif type == "SUMMON_CHARACTER":
                 res = apply_summon_change(room, state, c, value)
                 if res.get("ok"):
-                    broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                    broadcast_log(room, res.get("message", "Summon applied"), "state-change")
                 else:
                     logger.warning("[end_round summon failed] %s", res.get("message"))
 
@@ -816,12 +833,12 @@ def process_full_round_end(room, username):
 
             if int(bleed_tick.get("maintenance_consumed", 0)) > 0:
                 remaining = int(bleed_tick.get("maintenance_remaining", 0))
-                broadcast_log(room, f"[出血遷延] {char.get('name', '???')} の維持効果を1消費 (残{remaining})", 'state-change')
+                broadcast_log(room, f"[出血遷延] {char.get('name', '???')} consumed 1 stack (remaining {remaining})", "state-change")
 
         # 1d. Thorns
-        thorns_value = get_status_value(char, '荊棘')
+        thorns_value = get_status_value(char, "荊棘")
         if thorns_value > 0:
-            _update_char_stat(room, char, '荊棘', thorns_value - 1, username="[荊棘]")
+            _update_char_stat(room, char, "荊棘", thorns_value - 1, username="[荊棘減少]")
 
         # 2. Buff Timers
         if "special_buffs" in char:
@@ -833,12 +850,12 @@ def process_full_round_end(room, username):
                 delay = buff.get("delay", 0)
                 lasting = buff.get("lasting", 0)
 
-                # Bu-08: round-based timerを使わず count 消費で管理する
+                # Bu-08: round-based timer handling.
                 if buff.get("buff_id") == "Bu-08":
                     if delay > 0:
                         buff["delay"] = delay - 1
                         if buff["delay"] == 0:
-                            broadcast_log(room, f"[{buff_name}] の効果が {char['name']} で発動可能になった。", 'state-change')
+                            broadcast_log(room, f"[{buff_name}] is now active on {char['name']}.", "state-change")
                         if buff["delay"] >= 0:
                             active_buffs.append(buff)
                         continue
@@ -854,7 +871,7 @@ def process_full_round_end(room, username):
                 if delay > 0:
                     buff["delay"] = delay - 1
                     if buff["delay"] == 0:
-                        broadcast_log(room, f"[{buff_name}] の効果が {char['name']} で発動可能になった。", 'state-change')
+                        broadcast_log(room, f"[{buff_name}] is now active on {char['name']}.", "state-change")
 
                         # Hook
                         BuffClass = buff_registry.get_handler(buff.get('buff_id'))
@@ -880,15 +897,16 @@ def process_full_round_end(room, username):
                     if buff["lasting"] > 0:
                         active_buffs.append(buff)
                     else:
-                        broadcast_log(room, f"[{buff_name}] の効果が {char['name']} から切れた。", 'state-change')
+                        broadcast_log(room, f"[{buff_name}]が[{char['name']}]から消失した。", "state-change")
                         buffs_to_remove.append(buff_name)
-                        if buff_name == "混乱":
+                        if buff_name in ("混乱", "混乱(戦慄殺到)"):
                             _update_char_stat(room, char, 'MP', int(char.get('maxMp', 0)), username="[混乱解除]")
-                            broadcast_log(room, f"{char['name']} は意識を取り戻した！ (MP全回復)", 'state-change')
+                            broadcast_log(room, f"{char['name']} は意識を取り戻した (MP全回復)", 'state-change')
                 elif buff.get('is_permanent', False):
                     active_buffs.append(buff)
 
             char['special_buffs'] = active_buffs
+            apply_origin_bonus_buffs(char)
 
         # Reset limits
         if 'round_item_usage' in char: char['round_item_usage'] = {}
@@ -897,12 +915,12 @@ def process_full_round_end(room, username):
 
     removed_summons = process_summon_round_end(state, room=room)
     for summoned in removed_summons:
-        broadcast_log(room, f"{summoned.get('name', '召喚体')} は時間切れで消滅した。", "state-change")
+        broadcast_log(room, f"{summoned.get('name', 'summon')} expired and was removed.", "state-change")
     expired_granted = process_granted_skill_round_end(state, room=room)
     for row in expired_granted:
         char_name = row.get("char_name") or "キャラクター"
         skill_id = row.get("skill_id") or "UNKNOWN"
-        broadcast_log(room, f"{char_name} から付与スキル {skill_id} が解除された。", "state-change")
+        broadcast_log(room, f"{char_name} lost granted skill {skill_id}.", "state-change")
 
     round_end_origin_targets = {}
     for char in state.get('characters', []):
@@ -912,13 +930,13 @@ def process_full_round_end(room, username):
             if int(amount or 0) <= 0:
                 continue
             new_value = int(get_status_value(char, status_name)) + int(amount)
-            _update_char_stat(room, char, status_name, new_value, username=f"[出身ボーナス:{status_name}]")
+            _update_char_stat(room, char, status_name, new_value, username=f"[ラウンド終了ボーナス:{status_name}]")
             round_end_origin_targets.setdefault(status_name, []).append(char['name'])
 
     if round_end_origin_targets.get('HP'):
-        broadcast_log(room, f"[マホロバ恩恵] {', '.join(round_end_origin_targets['HP'])} のHPが3回復しました。", 'info')
+        broadcast_log(room, f"[Round End Bonus] HP recovered: {', '.join(round_end_origin_targets['HP'])}", "info")
     if round_end_origin_targets.get('MP'):
-        broadcast_log(room, f"[アルトマギア恩恵] {', '.join(round_end_origin_targets['MP'])} のMPが1回復しました。", 'info')
+        broadcast_log(room, f"[Round End Bonus] MP recovered: {', '.join(round_end_origin_targets['MP'])}", "info")
 
     state['is_round_ended'] = True
     state['turn_char_id'] = None
@@ -962,8 +980,8 @@ def reset_battle_logic(room, mode, username, reset_options=None):
             'hp': True,
             'mp': True,
             'fp': True,
-            'states': True, # 出血等
-            'bad_states': True, # 状態異常 (麻痺など)
+            'states': True, # 出血遲・
+            'bad_states': True, # 迥ｶ諷狗焚蟶ｸ (鮗ｻ逞ｺ縺ｪ縺ｩ)
             'buffs': True,
             'timeline': True # Force timeline reset for status mode too based on user request
         }
@@ -972,7 +990,7 @@ def reset_battle_logic(room, mode, username, reset_options=None):
     # log_msg += f"Opt: {json.dumps(reset_options, ensure_ascii=False)}"
     broadcast_log(room, log_msg, 'round')
 
-    # ★ 追加: 矢印は常にリセット
+    # 笘・霑ｽ蜉: 遏｢蜊ｰ縺ｯ蟶ｸ縺ｫ繝ｪ繧ｻ繝・ヨ
     state['ai_target_arrows'] = []
 
     if mode == 'full':
@@ -983,8 +1001,7 @@ def reset_battle_logic(room, mode, username, reset_options=None):
         state['turn_char_id'] = None
         state['turn_entry_id'] = None
     elif mode == 'status':
-        # ラウンド数はリセットしない要望もあるかもしれないが、一旦デフォルトは0に戻す
-        # (Status only reset usually implies starting over but keeping chars)
+        # 繝ｩ繧ｦ繝ｳ繝画焚縺ｯ繝ｪ繧ｻ繝・ヨ縺励↑縺・ｦ∵悍繧ゅ≠繧九°繧ゅ＠繧後↑縺・′縲∽ｸ譌ｦ繝・ヵ繧ｩ繝ｫ繝医・0縺ｫ謌ｻ縺・        # (Status only reset usually implies starting over but keeping chars)
         state['round'] = 0
         state['is_round_ended'] = False
         state['ai_target_arrows'] = [] # Reset AI arrows
@@ -994,24 +1011,24 @@ def reset_battle_logic(room, mode, username, reset_options=None):
 
         removed_summon_count = _remove_summoned_characters(state)
         if removed_summon_count > 0:
-            broadcast_log(room, f"[リセット] 召喚体 {removed_summon_count} 体を盤面から除去しました。", 'info')
+            broadcast_log(room, f"[Reset] Removed {removed_summon_count} summoned characters.", "info")
 
         for char in state.get('characters', []):
             initial = char.get('initial_state', {})
 
-            # ★ 修正: 未配置(x<0)かつ生存(hp>0)の場合はリセット対象外
-            # (戦闘不能キャラは未配置でもリセットして復帰させる)
+            # 笘・菫ｮ豁｣: 譛ｪ驟咲ｽｮ(x<0)縺九▽逕溷ｭ・hp>0)縺ｮ蝣ｴ蜷医・繝ｪ繧ｻ繝・ヨ蟇ｾ雎｡螟・
+            # (謌ｦ髣倅ｸ崎・繧ｭ繝｣繝ｩ縺ｯ譛ｪ驟咲ｽｮ縺ｧ繧ゅΜ繧ｻ繝・ヨ縺励※蠕ｩ蟶ｰ縺輔○繧・
             is_unplaced = char.get('x', -1) < 0
             is_dead = char.get('hp', 0) <= 0
 
             if is_unplaced and not is_dead:
-                # リセットしない
+                # 繝ｪ繧ｻ繝・ヨ縺励↑縺・
                 continue
 
             # --- HP ---
             if reset_options.get('hp'):
                 max_hp = int(initial.get('maxHp', char.get('maxHp', 0)))
-                # 初期値があればそれ、なければ現在のMax
+                # 蛻晄悄蛟､縺後≠繧後・縺昴ｌ縲√↑縺代ｌ縺ｰ迴ｾ蝨ｨ縺ｮMax
                 char['maxHp'] = max_hp
                 char['hp'] = max_hp
 
@@ -1021,40 +1038,45 @@ def reset_battle_logic(room, mode, username, reset_options=None):
                 char['maxMp'] = max_mp
                 char['mp'] = max_mp
 
-            # --- FP & Stackable States (出血, 破裂 etc) ---
+                # --- FP & Stackable States (出血, 亀裂 etc) ---
             if reset_options.get('fp') or reset_options.get('states'):
-                # これらは 'states' 配列に入っている
-                # FPは独立して管理されることも多いが、ここでは states リスト内のもので判断
+                # 縺薙ｌ繧峨・ 'states' 驟榊・縺ｫ蜈･縺｣縺ｦ縺・ｋ
+                # FP縺ｯ迢ｬ遶九＠縺ｦ邂｡逅・＆繧後ｋ縺薙→繧ょ､壹＞縺後√％縺薙〒縺ｯ states 繝ｪ繧ｹ繝亥・縺ｮ繧ゅ・縺ｧ蛻､譁ｭ
 
-                # まず既存の states を維持しつつ、対象のものだけリセット
-                # ただし、構造上 states はリストなので、全部作り直したほうが安全
+                # 縺ｾ縺壽里蟄倥・ states 繧堤ｶｭ謖√＠縺､縺､縲∝ｯｾ雎｡縺ｮ繧ゅ・縺縺代Μ繧ｻ繝・ヨ
+                # 縺溘□縺励∵ｧ矩荳・states 縺ｯ繝ｪ繧ｹ繝医↑縺ｮ縺ｧ縲∝・驛ｨ菴懊ｊ逶ｴ縺励◆縺ｻ縺・′螳牙・
 
                 new_states = []
-                # デフォルトのステータス定義
+                # 繝・ヵ繧ｩ繝ｫ繝医・繧ｹ繝・・繧ｿ繧ｹ螳夂ｾｩ
                 default_states = {
-                    "FP": 0, "出血": 0, "破裂": 0, "亀裂": 0, "戦慄": 0, "荊棘": 0
+                    "FP": 0,
+                    "出血": 0,
+                    "亀裂": 0,
+                    "破裂": 0,
+                    "戦慄": 0,
+                    "荊棘": 0,
                 }
 
-                # 既存の状態を取得
+                # 譌｢蟄倥・迥ｶ諷九ｒ蜿門ｾ・
                 current_states = {s['name']: s['value'] for s in char.get('states', [])}
 
                 for s_name, def_val in default_states.items():
                     # FP
                     if s_name == 'FP':
                         if reset_options.get('fp'):
-                            # 初期FPは 0 ではなく process_battle_start で入るかもしれないが、
-                            # ベースとしては 0 (または maxFp?)
-                            # 実装では FP = maxFp (初期値) としている箇所が見当たる
-                            # ここでは 0 にしてから process_battle_start に任せるか、maxFpにするか
-                            # 既存ロジック: char['FP'] = char.get('maxFp', 0)
+                            # 蛻晄悄FP縺ｯ 0 縺ｧ縺ｯ縺ｪ縺・process_battle_start 縺ｧ蜈･繧九°繧ゅ＠繧後↑縺・′縲・
+                            # 繝吶・繧ｹ縺ｨ縺励※縺ｯ 0 (縺ｾ縺溘・ maxFp?)
+                            # 螳溯｣・〒縺ｯ FP = maxFp (蛻晄悄蛟､) 縺ｨ縺励※縺・ｋ邂・園縺瑚ｦ句ｽ薙◆繧・
+                            # 縺薙％縺ｧ縺ｯ 0 縺ｫ縺励※縺九ｉ process_battle_start 縺ｫ莉ｻ縺帙ｋ縺九［axFp縺ｫ縺吶ｋ縺・
+                            # 譌｢蟄倥Ο繧ｸ繝・け: char['FP'] = char.get('maxFp', 0)
                             char['FP'] = char.get('maxFp', 0)
-                            new_states.append({"name": "FP", "value": 0}) # 表示用?
+                            new_states.append({"name": "FP", "value": 0}) # 陦ｨ遉ｺ逕ｨ?
                         else:
-                            # 維持
+                            # 邯ｭ謖・
                             val = current_states.get(s_name, def_val)
                             new_states.append({"name": s_name, "value": val})
 
-                    # 他の蓄積値
+                    # 莉悶・闢・ｩ榊､
                     else:
                         if reset_options.get('states'):
                             new_states.append({"name": s_name, "value": 0})
@@ -1064,19 +1086,19 @@ def reset_battle_logic(room, mode, username, reset_options=None):
 
                 char['states'] = new_states
 
-            # --- Status Effects (麻痺, 毒 etc - char['状態異常'] list) ---
+            # --- Status Effects (鮗ｻ逞ｺ, 豈・etc - char['迥ｶ諷狗焚蟶ｸ'] list) ---
             if reset_options.get('bad_states'):
-                char['状態異常'] = []
+                char['迥ｶ諷狗焚蟶ｸ'] = []
 
             # --- Buffs ---
             if reset_options.get('buffs'):
-                # 初期バフ（パッシブ由来やキャラ作成時バフ）は initial_state にある
-                # initial_state の special_buffs を復元
+                # 蛻晄悄繝舌ヵ・医ヱ繝・す繝也罰譚･繧・く繝｣繝ｩ菴懈・譎ゅヰ繝包ｼ峨・ initial_state 縺ｫ縺ゅｋ
+                # initial_state 縺ｮ special_buffs 繧貞ｾｩ蜈・
                 raw_initial_buffs = initial.get('special_buffs', [])
                 char['special_buffs'] = [dict(b) for b in raw_initial_buffs]
 
             # --- Common Reset (Always) ---
-            # これらは「戦闘状態」なのでリセット必須
+            # 縺薙ｌ繧峨・縲梧姶髣倡憾諷九阪↑縺ｮ縺ｧ繝ｪ繧ｻ繝・ヨ蠢・・
             if 'round_item_usage' in char: char['round_item_usage'] = {}
             if 'used_immediate_skills_this_round' in char: char['used_immediate_skills_this_round'] = []
             if 'used_gem_protect_this_battle' in char: char['used_gem_protect_this_battle'] = False
@@ -1086,18 +1108,18 @@ def reset_battle_logic(room, mode, username, reset_options=None):
             char['speedRoll'] = 0
             char['isWideUser'] = False
 
-            # ★ 追加: 戦闘開始時効果の再適用 (FPリセットなどが有効な場合のみ)
-            # リセットオプションにかかわらず、戦闘開始時処理は走らせるべきか？
-            # 例えば「FPリセット」を選んだ場合のみ、初期FP付与などの処理を再度適用したい。
-            # しかし process_battle_start は副作用があるかもしれない。
-            # ここではシンプルに、「HP/MP/FPのいずれかがリセットされた場合」は再適用する、とする
+            # 笘・霑ｽ蜉: 謌ｦ髣倬幕蟋区凾蜉ｹ譫懊・蜀埼←逕ｨ (FP繝ｪ繧ｻ繝・ヨ縺ｪ縺ｩ縺梧怏蜉ｹ縺ｪ蝣ｴ蜷医・縺ｿ)
+            # 繝ｪ繧ｻ繝・ヨ繧ｪ繝励す繝ｧ繝ｳ縺ｫ縺九°繧上ｉ縺壹∵姶髣倬幕蟋区凾蜃ｦ逅・・襍ｰ繧峨○繧九∋縺阪°・・
+            # 萓九∴縺ｰ縲熊P繝ｪ繧ｻ繝・ヨ縲阪ｒ驕ｸ繧薙□蝣ｴ蜷医・縺ｿ縲∝・譛檳P莉倅ｸ弱↑縺ｩ縺ｮ蜃ｦ逅・ｒ蜀榊ｺｦ驕ｩ逕ｨ縺励◆縺・・
+            # 縺励°縺・process_battle_start 縺ｯ蜑ｯ菴懃畑縺後≠繧九°繧ゅ＠繧後↑縺・・
+            # 縺薙％縺ｧ縺ｯ繧ｷ繝ｳ繝励Ν縺ｫ縲√粂P/MP/FP縺ｮ縺・★繧後°縺後Μ繧ｻ繝・ヨ縺輔ｌ縺溷ｴ蜷医阪・蜀埼←逕ｨ縺吶ｋ縲√→縺吶ｋ
             if reset_options.get('hp') or reset_options.get('mp') or reset_options.get('fp'):
                  try:
                      process_battle_start(room, char)
                  except Exception as e:
                      logger.error(f"process_battle_start in reset failed: {e}")
 
-            # ★ 追加: 出身国ボーナスバフを再適用 (バフリセット時のみ)
+            # 笘・霑ｽ蜉: 蜃ｺ霄ｫ蝗ｽ繝懊・繝翫せ繝舌ヵ繧貞・驕ｩ逕ｨ (繝舌ヵ繝ｪ繧ｻ繝・ヨ譎ゅ・縺ｿ)
             if reset_options.get('buffs'):
                 apply_origin_bonus_buffs(char)
 
@@ -1140,21 +1162,21 @@ def force_end_match_logic(room, username):
     if not state: return
 
     if not state.get('active_match') and not state.get('pending_wide_ids'):
-        emit('new_log', {"message": "現在アクティブなマッチまたは広域予約はありません。", "type": "error"})
+        emit('new_log', {"message": "There is no active match to force-end.", "type": "error"})
         return
 
-    # リセット処理
+    # 繝ｪ繧ｻ繝・ヨ蜃ｦ逅・
     state['active_match'] = None
-    state['pending_wide_ids'] = []  # 広域マッチの予約もクリア
+    state['pending_wide_ids'] = []  # 蠎・沺繝槭ャ繝√・莠育ｴ・ｂ繧ｯ繝ｪ繧｢
 
     save_specific_room_state(room)
     broadcast_state_update(room)
 
-    # モーダル閉じるイベントを送信 (広域用とDuel用)
-    socketio.emit('match_modal_closed', {}, to=room)
-    socketio.emit('force_close_wide_modal', {}, to=room) # 必要であればクライアント側で受ける
+    # 繝｢繝ｼ繝繝ｫ髢峨§繧九う繝吶Φ繝医ｒ騾∽ｿ｡ (蠎・沺逕ｨ縺ｨDuel逕ｨ)
+    _safe_emit('match_modal_closed', {}, to=room)
+    _safe_emit('force_close_wide_modal', {}, to=room) # 蠢・ｦ√〒縺ゅｌ縺ｰ繧ｯ繝ｩ繧､繧｢繝ｳ繝亥・縺ｧ蜿励￠繧・
 
-    broadcast_log(room, f"⚠️ GM {username} がマッチを強制終了しました。", 'match-end')
+    broadcast_log(room, f"[Force End] GM {username} force-ended the current match.", "match-end")
 
 def move_token_logic(room, char_id, x, y, username, attribute):
     state = get_room_state(room)
@@ -1191,7 +1213,7 @@ def open_match_modal_logic(room, data, username):
             for c in state["characters"]:
                 if c.get('type') != attacker_type and c.get('hp', 0) > 0:
                     for buff in c.get('special_buffs', []):
-                         if (buff.get('name') in ['挑発中', '挑発'] or buff.get('buff_id') in ['Bu-Provoke', 'Bu-01']) and buff.get('delay', 0) == 0:
+                         if (buff.get('name') in ['謖醍匱荳ｭ', '謖醍匱'] or buff.get('buff_id') in ['Bu-Provoke', 'Bu-01']) and buff.get('delay', 0) == 0:
                              provoking_enemies.append(c['id'])
                              break
 
@@ -1239,7 +1261,7 @@ def open_match_modal_logic(room, data, username):
         }
 
     save_specific_room_state(room)
-    socketio.emit('match_modal_opened', {
+    _safe_emit('match_modal_opened', {
         'match_type': match_type,
         'attacker_id': attacker_id,
         'defender_id': defender_id,
@@ -1256,7 +1278,7 @@ def close_match_modal_logic(room):
         state['active_match']['is_active'] = False
 
     save_specific_room_state(room)
-    socketio.emit('match_modal_closed', {}, to=room)
+    _safe_emit('match_modal_closed', {}, to=room)
     broadcast_state_update(room)
 
 def sync_match_data_logic(room, side, data, username, attribute):
@@ -1267,14 +1289,14 @@ def sync_match_data_logic(room, side, data, username, attribute):
     if not active_match.get('is_active') or active_match.get('match_type') != 'duel':
         return
 
-    # ★ 権限チェック: GM または そのキャラクターの所有者のみ許可
+    # 笘・讓ｩ髯舌メ繧ｧ繝・け: GM 縺ｾ縺溘・ 縺昴・繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ縺ｮ謇譛芽・・縺ｿ險ｱ蜿ｯ
     target_char_id = None
     if side == 'attacker':
         target_char_id = active_match.get('attacker_id')
     elif side == 'defender':
         target_char_id = active_match.get('defender_id')
 
-    # 所有者確認
+    # 謇譛芽・｢ｺ隱・
     allowed = False
     if attribute == 'GM':
         allowed = True
@@ -1284,7 +1306,7 @@ def sync_match_data_logic(room, side, data, username, attribute):
             allowed = True
 
     if not allowed:
-        # 権限がない場合は無視（ログに出しても良いが、頻繁な同期なのでサイレントに無視するか、デバッグログのみ）
+        # 讓ｩ髯舌′縺ｪ縺・ｴ蜷医・辟｡隕厄ｼ医Ο繧ｰ縺ｫ蜃ｺ縺励※繧り憶縺・′縲・ｻ郢√↑蜷梧悄縺ｪ縺ｮ縺ｧ繧ｵ繧､繝ｬ繝ｳ繝医↓辟｡隕悶☆繧九°縲√ョ繝舌ャ繧ｰ繝ｭ繧ｰ縺ｮ縺ｿ・・
         logger.warning(f"Unauthorized sync attempt by {username} for side {side} (CharID: {target_char_id})")
         return
 
@@ -1294,7 +1316,7 @@ def sync_match_data_logic(room, side, data, username, attribute):
         state['active_match']['defender_data'] = data
 
     save_specific_room_state(room)
-    socketio.emit('match_data_updated', {'side': side, 'data': data}, to=room)
+    _safe_emit('match_data_updated', {'side': side, 'data': data}, to=room)
 
 def process_round_start(room, username):
     logger.debug(f"process_round_start called for room: {room} by {username}")
@@ -1303,10 +1325,11 @@ def process_round_start(room, username):
         logger.debug(f"Room state not found for {room}")
         return
     clear_newly_applied_flags(state)
+    clear_round_limited_flags(state)
 
     # Check previous round end flag
     if state.get('round', 0) > 0 and not state.get('is_round_ended', False):
-        emit('new_log', {'message': 'ラウンド終了処理が完了していません。「ラウンド終了」ボタンを押してください。', 'type': 'error'}, room=room)
+        emit('new_log', {'message': '前ラウンドの終了処理が未完了です。先にラウンド終了を実行してください。', 'type': 'error'}, room=room)
         return
 
     # increment round
@@ -1361,11 +1384,16 @@ def process_round_start(room, username):
 
         speed_val = 0
         try:
-            speed_val = int(get_status_value(char, '速度'))
-        except:
+            speed_val = int(get_status_value(char, "速度"))
+        except Exception:
             speed_val = 0
+        if speed_val <= 0:
+            try:
+                speed_val = int(get_status_value(char, '速度'))
+            except Exception:
+                speed_val = 0
 
-        # ★ 加速・減速による速度補正
+        # 笘・蜉騾溘・貂幃溘↓繧医ｋ速度陬懈ｭ｣
         from plugins.buffs.speed_mod import SpeedModBuff
         speed_modifier = SpeedModBuff.get_speed_modifier(char)
 
@@ -1373,16 +1401,21 @@ def process_round_start(room, username):
 
         if speed_modifier != 0:
             mod_text = f"+{speed_modifier}" if speed_modifier > 0 else str(speed_modifier)
-            broadcast_log(room, f"{char['name']} の速度補正: {mod_text} (加速/減速)", 'info')
+            broadcast_log(room, f"{char['name']} の速度補正: {mod_text} (基礎速度に加算)", 'info')
 
-        # 速度ロール後に加速・減速をクリア
+        # 速度繝ｭ繝ｼ繝ｫ蠕後↓蜉騾溘・貂幃溘ｒ繧ｯ繝ｪ繧｢
         SpeedModBuff.clear_speed_modifiers(char)
 
-        # 行動回数を取得 (デフォルト1)
+        # 陦悟虚蝗樊焚繧貞叙蠕・(繝・ヵ繧ｩ繝ｫ繝・)
         try:
-             action_count = int(get_status_value(char, '行動回数'))
-        except:
-             action_count = 1
+             action_count = int(get_status_value(char, "行動回数"))
+        except Exception:
+             action_count = 0
+        if action_count <= 0:
+            try:
+                action_count = int(get_status_value(char, '陦悟虚蝗樊焚'))
+            except Exception:
+                action_count = 1
         action_count = max(1, action_count)
 
         logger.debug(f"[SPEED ROLL] {char['name']}: speed={speed_val} (init={initiative}), count={action_count}")
@@ -1391,7 +1424,7 @@ def process_round_start(room, username):
             roll = random.randint(1, 6)
             total_speed = initiative + roll
 
-            # ★ 追加: 速度値の下限は1
+            # 笘・霑ｽ蜉: 速度値縺ｮ荳矩剞縺ｯ1
             total_speed = max(1, total_speed)
 
             entry_id = str(uuid.uuid4())
@@ -1433,15 +1466,15 @@ def process_round_start(room, username):
             total = item.get('speed', 0)
             sign = "+" if stat >= 0 else ""
 
-            # ユーザー要望: 1d6(X)+Y の形式で内訳表示
+            # 繝ｦ繝ｼ繧ｶ繝ｼ隕∵悍: 1d6(X)+Y 縺ｮ蠖｢蠑上〒蜀・ｨｳ陦ｨ遉ｺ
             breakdown = f"1d6({roll}){sign}{stat} = {total}"
 
             log_msg += f"{idx+1}. {char['name']} ({breakdown})<br>"
 
     broadcast_log(room, log_msg, 'info')
 
-    # ★ 追加: ラティウム (ID: 3) ラウンド開始時一括処理
-    # 全員のFPを+1する
+    # 笘・霑ｽ蜉: 繝ｩ繝・ぅ繧ｦ繝 (ID: 3) 繝ｩ繧ｦ繝ｳ繝蛾幕蟋区凾荳諡ｬ蜃ｦ逅・
+    # 蜈ｨ蜩｡縺ｮFP繧・1縺吶ｋ
     latium_targets = []
     for char in state.get('characters', []):
         if char.get('hp', 0) <= 0: continue
@@ -1451,10 +1484,10 @@ def process_round_start(room, username):
             latium_targets.append(char['name'])
 
     if latium_targets:
-        broadcast_log(room, f"[ラティウム恩恵] {', '.join(latium_targets)} のFPが1増加しました。", 'info')
+        broadcast_log(room, f"[Round Bonus] FP +1 applied to: {', '.join(latium_targets)}", "info")
 
 
-    # ★ 追加: PvEモードならターゲット抽選 -> 広域予約確定後に一本化
+    # 笘・霑ｽ蜉: PvE繝｢繝ｼ繝峨↑繧峨ち繝ｼ繧ｲ繝・ヨ謚ｽ驕ｸ -> 蠎・沺莠育ｴ・｢ｺ螳壼ｾ後↓荳譛ｬ蛹・
     # if state.get('battle_mode') == 'pve':
     #     from manager.battle.battle_ai import ai_select_targets
     #     ai_select_targets(state, room)
@@ -1499,7 +1532,7 @@ def process_round_start(room, username):
     if _is_select_resolve_active(state):
         logger.info("[round_start] skip legacy wide modal room=%s reason=select_resolve_active", room)
     else:
-        socketio.emit('open_wide_declaration_modal', {}, to=room)
+        _safe_emit('open_wide_declaration_modal', {}, to=room)
 
 def process_wide_declarations(room, wide_user_ids):
     state = get_room_state(room)
@@ -1527,7 +1560,7 @@ def process_wide_declarations(room, wide_user_ids):
             logger.debug(f"[DEBUG] Character not found for uid: {uid}")
 
     if names:
-        broadcast_log(room, f"広域攻撃予約: {', '.join(names)}", 'info')
+        broadcast_log(room, f"広域宣言を適用: {', '.join(names)}", 'info')
         # Reorder timeline: Move wide users to the front
         current_timeline = state.get('timeline', [])
 
@@ -1541,16 +1574,16 @@ def process_wide_declarations(room, wide_user_ids):
         state['timeline'] = wide_entries + remaining_entries
         logger.debug(f"[DEBUG] New timeline len: {len(state['timeline'])}")
     else:
-        broadcast_log(room, "広域攻撃予約: なし", 'info')
+        broadcast_log(room, "No pending wide match entries.", "info")
 
     save_specific_room_state(room)
     broadcast_state_update(room)
 
-    # 状態保存後に少し待機してからターン進行（念のため）
+    # 迥ｶ諷倶ｿ晏ｭ伜ｾ後↓蟆代＠蠕・ｩ溘＠縺ｦ縺九ｉ繧ｿ繝ｼ繝ｳ騾ｲ陦鯉ｼ亥ｿｵ縺ｮ縺溘ａ・・
     # proceed_next_turn(room)
 
-    # ★修正: Latium (ID: 3) などのターン開始時効果を確実にするため
-    # proceed_next_turn を呼び出し、その結果を確認する
+    # 笘・ｿｮ豁｣: Latium (ID: 3) 縺ｪ縺ｩ縺ｮ繧ｿ繝ｼ繝ｳ髢句ｧ区凾蜉ｹ譫懊ｒ遒ｺ螳溘↓縺吶ｋ縺溘ａ
+    # proceed_next_turn 繧貞他縺ｳ蜃ｺ縺励√◎縺ｮ邨先棡繧堤｢ｺ隱阪☆繧・
     # In Select/Resolve mode, do not run legacy turn progression.
     if _is_select_resolve_active(state):
         logger.info("[wide_declarations] skip legacy proceed_next_turn room=%s reason=select_resolve_active", room)
@@ -1590,15 +1623,15 @@ def process_wide_modal_confirm(room, user_id, attribute, wide_ids):
         process_wide_declarations(room, state['pending_wide_ids'])
 
         # Close Modal for everyone
-        socketio.emit('close_wide_declaration_modal', {}, to=room)
+        _safe_emit('close_wide_declaration_modal', {}, to=room)
 
-        broadcast_log(room, f"GMにより広域攻撃予約が確定されました。", 'info')
+        broadcast_log(room, "GM requested wide declaration processing.", "info")
         return
 
     # 2. Normal Player Confirm
     if user_id not in state['wide_modal_confirms']:
         state['wide_modal_confirms'].append(user_id)
-        broadcast_log(room, f"{user_id} が広域予約を確認しました。", 'info')
+        broadcast_log(room, f"{user_id} confirmed wide declaration.", "info")
 
     # Check coverage (All non-GM users in room)
     # Check coverage (All non-GM users in room)
@@ -1624,7 +1657,7 @@ def process_wide_modal_confirm(room, user_id, attribute, wide_ids):
     if all_confirmed:
         logger.info("[WideModal] All players confirmed. Executing.")
         process_wide_declarations(room, state['pending_wide_ids'])
-        socketio.emit('close_wide_declaration_modal', {}, to=room)
+        _safe_emit('close_wide_declaration_modal', {}, to=room)
     else:
         # Wait
         logger.info(f"Player {user_id} confirmed. Waiting... ({len(confirmed_users)}/{len(non_gm_users)})")
@@ -1634,20 +1667,20 @@ def process_wide_modal_confirm(room, user_id, attribute, wide_ids):
 
 def update_battle_background_logic(room, image_url, scale, offset_x, offset_y, username, attribute):
     """
-    戦闘画面の背景画像を更新するロジック
+    謌ｦ髣倡判髱｢縺ｮ閭梧勹逕ｻ蜒上ｒ譖ｴ譁ｰ縺吶ｋ繝ｭ繧ｸ繝・け
     """
     if attribute != 'GM':
-        emit('new_log', {'message': '背景設定はGMのみ可能です。', 'type': 'error'})
+        emit('new_log', {'message': '背景設定はGMのみ変更できます。', 'type': 'error'})
         return
 
     state = get_room_state(room)
     if not state: return
 
-    # データ構造の初期化
+    # 繝・・繧ｿ讒矩縺ｮ蛻晄悄蛹・
     if 'battle_map_data' not in state:
         state['battle_map_data'] = {}
 
-    # 値の更新
+    # 蛟､縺ｮ譖ｴ譁ｰ
     state['battle_map_data']['background_image'] = image_url
     if scale is not None:
         state['battle_map_data']['background_scale'] = scale
@@ -1657,9 +1690,9 @@ def update_battle_background_logic(room, image_url, scale, offset_x, offset_y, u
         state['battle_map_data']['background_offset_y'] = offset_y
 
     broadcast_state_update(room)
-    broadcast_log(room, f"戦闘マップの背景が変更されました。", 'system')
+    broadcast_log(room, "Battle map background updated.", "system")
 
-# ★ 追加: PvEモード切替ロジック
+# 笘・霑ｽ蜉: PvE繝｢繝ｼ繝牙・譖ｿ繝ｭ繧ｸ繝・け
 def process_switch_battle_mode(room, mode, username):
     state = get_room_state(room)
     if not state: return
@@ -1669,21 +1702,21 @@ def process_switch_battle_mode(room, mode, username):
         return
 
     state['battle_mode'] = mode
-    broadcast_log(room, f"戦闘モードが変更されました: {old_mode.upper()} → {mode.upper()}", 'system')
+    broadcast_log(room, f"戦闘モードを変更しました: {old_mode.upper()} -> {mode.upper()}", 'system')
 
-    # PvEになったらターゲット再抽選 -> ユーザー要望により廃止 (ラウンド開始時のみ)
+    # PvE縺ｫ縺ｪ縺｣縺溘ｉ繧ｿ繝ｼ繧ｲ繝・ヨ蜀肴歓驕ｸ -> 繝ｦ繝ｼ繧ｶ繝ｼ隕∵悍縺ｫ繧医ｊ蟒・ｭ｢ (繝ｩ繧ｦ繝ｳ繝蛾幕蟋区凾縺ｮ縺ｿ)
     # if mode == 'pve':
     #     from manager.battle.battle_ai import ai_select_targets
     #     ai_select_targets(state)
-    #     broadcast_log(room, "AIがターゲットを選定しました。", 'info', secret=True)
+    #     broadcast_log(room, "AI縺後ち繝ｼ繧ｲ繝・ヨ繧帝∈螳壹＠縺ｾ縺励◆縲・, 'info', secret=True)
 
     save_specific_room_state(room)
     broadcast_state_update(room)
 
-# ★ 追加: AIスキル提案API (Socket経由で呼ばれる想定だが、routesで実装してもいい。ここではロジックのみ)
+# 笘・霑ｽ蜉: AI繧ｹ繧ｭ繝ｫ謠先｡・PI (Socket邨檎罰縺ｧ蜻ｼ縺ｰ繧後ｋ諠ｳ螳壹□縺後〉outes縺ｧ螳溯｣・＠縺ｦ繧ゅ＞縺・ゅ％縺薙〒縺ｯ繝ｭ繧ｸ繝・け縺ｮ縺ｿ)
 def process_ai_suggest_skill(room, char_id):
-    # これは戻り値を返すタイプなので、Socketのコールバックで返すのが一般的
-    # common_managerにおく必要性は薄いかもしれないが、一応
+    # 縺薙ｌ縺ｯ謌ｻ繧雁､繧定ｿ斐☆繧ｿ繧､繝励↑縺ｮ縺ｧ縲ヾocket縺ｮ繧ｳ繝ｼ繝ｫ繝舌ャ繧ｯ縺ｧ霑斐☆縺ｮ縺御ｸ闊ｬ逧・
+    # common_manager縺ｫ縺翫￥蠢・ｦ∵ｧ縺ｯ阮・＞縺九ｂ縺励ｌ縺ｪ縺・′縲∽ｸ蠢・
     state = get_room_state(room)
     if not state: return None
 
@@ -1850,12 +1883,25 @@ def ensure_battle_state_vNext(room_state, battle_id=None, round_value=None, rebu
     if 'select_resolve_battle_state' in room_state:
         room_state.pop('select_resolve_battle_state', None)
 
-    logger.debug(
-        "[battle_state.ensure] phase=%s slots=%s intents=%s",
-        battle_state.get('phase'),
-        len(battle_state.get('slots', {})),
-        len(battle_state.get('intents', {}))
-    )
+    try:
+        phase_sig = battle_state.get('phase')
+        slots_sig = len(battle_state.get('slots', {}))
+        intents_sig = len(battle_state.get('intents', {}))
+        sig = (phase_sig, slots_sig, intents_sig)
+        now = time.time()
+        last_sig = getattr(ensure_battle_state_vNext, '_last_ensure_sig', None)
+        last_ts = float(getattr(ensure_battle_state_vNext, '_last_ensure_ts', 0.0) or 0.0)
+        if sig != last_sig or (now - last_ts) >= 5.0:
+            logger.debug(
+                "[battle_state.ensure] phase=%s slots=%s intents=%s",
+                phase_sig,
+                slots_sig,
+                intents_sig
+            )
+            setattr(ensure_battle_state_vNext, '_last_ensure_sig', sig)
+            setattr(ensure_battle_state_vNext, '_last_ensure_ts', now)
+    except Exception:
+        logger.debug("[battle_state.ensure] phase=%s", battle_state.get('phase'))
     return battle_state
 
 
@@ -1895,6 +1941,7 @@ def process_select_resolve_round_start(room, battle_id, round_value):
     if not state:
         return None
     clear_newly_applied_flags(state)
+    clear_round_limited_flags(state)
 
     def _roll_1d6():
         result = roll_dice("1d6")
@@ -1936,23 +1983,33 @@ def process_select_resolve_round_start(room, battle_id, round_value):
             continue
 
         try:
-            action_count = int(get_status_value(char, '行動回数'))
+            action_count = int(get_status_value(char, "行動回数"))
         except Exception:
-            action_count = 1
+            action_count = 0
+        if action_count <= 0:
+            try:
+                action_count = int(get_status_value(char, '陦悟虚蝗樊焚'))
+            except Exception:
+                action_count = 1
         action_count = max(1, action_count)
 
         char['totalSpeed'] = None
 
         try:
-            speed_val = int(get_status_value(char, '速度'))
+            speed_val = int(get_status_value(char, "速度"))
         except Exception:
             speed_val = 0
+        if speed_val <= 0:
+            try:
+                speed_val = int(get_status_value(char, '速度'))
+            except Exception:
+                speed_val = 0
         speed_modifier = SpeedModBuff.get_speed_modifier(char)
         base_initiative = (speed_val // 6) + speed_modifier
 
         if speed_modifier != 0:
             mod_text = f"+{speed_modifier}" if speed_modifier > 0 else str(speed_modifier)
-            broadcast_log(room, f"{char.get('name', actor_id)} の速度補正: {mod_text} (加速/減速)", 'info')
+            broadcast_log(room, f"{char.get('name', actor_id)} の速度補正: {mod_text} (基礎速度に加算)", 'info')
 
         for i in range(action_count):
             slot_id = f"{actor_id}:r{round_value}:s{i}"
@@ -2124,12 +2181,19 @@ def _is_evade_skill(skill_id):
     if not skill_id:
         return False
     skill_data = all_skill_data.get(skill_id, {})
-    category = str(skill_data.get('分類', ''))
-    if category == '回避':
+    category = str(
+        skill_data.get('分類')
+        or skill_data.get('蛻・｡・')
+        or skill_data.get('attribute')
+        or ''
+    )
+    if category in ['回避', '蝗樣∩']:
         return True
     for tag in skill_data.get('tags', []) or []:
-        if isinstance(tag, str) and '回避' in tag:
+        if isinstance(tag, str) and ('回避' in tag or '蝗樣∩' in tag):
             return True
+    if '回避' in str(skill_data.get('name') or ''):
+        return True
     return False
 
 
@@ -2218,11 +2282,10 @@ def select_evade_insert_slot(state, battle_state, defender_actor_id, attacker_sl
 
 def select_hard_followup_evade_slot(state, battle_state, defender_actor_id, attacker_slot):
     """
-    強硬追撃向けの回避差し込み選定。
-    優先順位:
-      1) 強硬追撃元を target 指定している未解決回避
-      2) 未解決の回避スロット
-      3) 再回避ロック時のみ、解決済み回避の再利用
+    蠑ｷ遑ｬ霑ｽ謦・髄縺代・蝗樣∩蟾ｮ縺苓ｾｼ縺ｿ驕ｸ螳壹・    蜆ｪ蜈磯・ｽ・
+      1) 蠑ｷ遑ｬ霑ｽ謦・・繧・target 謖・ｮ壹＠縺ｦ縺・ｋ譛ｪ隗｣豎ｺ蝗樣∩
+      2) 譛ｪ隗｣豎ｺ縺ｮ蝗樣∩繧ｹ繝ｭ繝・ヨ
+      3) 再回避ロック譎ゅ・縺ｿ縲∬ｧ｣豎ｺ貂医∩蝗樣∩縺ｮ蜀榊茜逕ｨ
     """
     if not defender_actor_id or not attacker_slot:
         return None, None
@@ -2253,7 +2316,7 @@ def select_hard_followup_evade_slot(state, battle_state, defender_actor_id, atta
             return False
         return _is_evade_skill(skill_id)
 
-    # 1) 明示targetの未解決回避
+    # 1) 譏守､ｺtarget縺ｮ譛ｪ隗｣豎ｺ蝗樣∩
     direct_targeted = []
     for slot_id in actor_slot_ids:
         if not _is_unresolved(slot_id):
@@ -2267,7 +2330,7 @@ def select_hard_followup_evade_slot(state, battle_state, defender_actor_id, atta
     if picked:
         return picked, 'targeted_evade'
 
-    # 2) 未解決回避
+    # 2) 譛ｪ隗｣豎ｺ蝗樣∩
     unresolved_evade = [
         slot_id for slot_id in actor_slot_ids
         if _is_unresolved(slot_id) and _is_committed_evade(slot_id)
@@ -2276,7 +2339,7 @@ def select_hard_followup_evade_slot(state, battle_state, defender_actor_id, atta
     if picked:
         return picked, 'unresolved_evade'
 
-    # 3) 再回避ロック時のみ解決済み再利用
+    # 3) 再回避ロック譎ゅ・縺ｿ隗｣豎ｺ貂医∩蜀榊茜逕ｨ
     if is_dodge_lock_active(state, defender_actor_id):
         reusable = [
             slot_id for slot_id in actor_slot_ids
@@ -2287,3 +2350,7 @@ def select_hard_followup_evade_slot(state, battle_state, defender_actor_id, atta
             return picked, 're_evasion_reuse'
 
     return None, None
+
+
+
+

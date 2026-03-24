@@ -215,11 +215,26 @@ window.BUFF_DATA = {
      * バフ名から定義データを検索して返す
      * @param {string} buffId
      */
-    get: function (buffId) {
+    get: function (buffId, catalogId = null) {
         // 1. 静的定義チェック
         if (this.STATIC_DATA[buffId]) return this.STATIC_DATA[buffId];
 
-        // 2. パターンマッチチェック
+        // 2. バフ図鑑キャッシュを確認
+        const catalog = (typeof window !== 'undefined' && window.buffCatalogData) ? window.buffCatalogData : null;
+        if (catalog && typeof catalog === 'object') {
+            if (catalogId && catalog[catalogId]) {
+                return catalog[catalogId];
+            }
+
+            if (catalog[buffId]) {
+                return catalog[buffId];
+            }
+
+            const byName = Object.values(catalog).find(entry => entry && entry.name === buffId);
+            if (byName) return byName;
+        }
+
+        // 3. パターンマッチチェック
         for (const pattern of this.DYNAMIC_PATTERNS) {
             const match = buffId.match(pattern.regex);
             if (match) {
@@ -227,7 +242,7 @@ window.BUFF_DATA = {
             }
         }
 
-        // 3. フォールバック
+        // 4. フォールバック
         return { name: buffId, description: "効果不明", type: "unknown" };
     }
 };

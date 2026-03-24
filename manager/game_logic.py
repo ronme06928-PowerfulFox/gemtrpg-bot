@@ -5,14 +5,22 @@ import re # Added for regex
 from manager.buff_catalog import get_buff_effect
 from manager.logs import setup_logger
 
-# プラグインシステム (pluginsフォルダはルートにあるのでそのままでOK)
-from plugins import EFFECT_REGISTRY
-
 logger = setup_logger(__name__)
 
 
 def _utils_module():
     return sys.modules.get('manager.utils')
+
+
+def _effect_registry():
+    plugins_mod = sys.modules.get("plugins")
+    if plugins_mod is None:
+        try:
+            import plugins as plugins_mod  # type: ignore
+        except Exception:
+            return {}
+    registry = getattr(plugins_mod, "EFFECT_REGISTRY", None)
+    return registry if isinstance(registry, dict) else {}
 
 
 def _fallback_get_status_value(char_obj, status_name):
@@ -33,19 +41,63 @@ def _fallback_get_status_value(char_obj, status_name):
     return int(char_obj.get(status_name, 0) or 0)
 
 
-def get_status_value(char_obj, status_name):
+def _stable_get_status_value(char_obj, status_name):
     mod = _utils_module()
     fn = getattr(mod, "get_status_value", None) if mod else None
     if callable(fn):
-        return fn(char_obj, status_name)
+        try:
+            primary = fn(char_obj, status_name)
+        except Exception:
+            primary = None
+        fallback = _fallback_get_status_value(char_obj, status_name)
+        try:
+            primary_int = int(primary)
+        except Exception:
+            primary_int = primary
+        # Prefer fallback only when the injected helper misses existing state/param values.
+        if primary is None:
+            return fallback
+        if isinstance(primary_int, int) and primary_int == 0 and fallback != 0:
+            return fallback
+        return primary_int
     return _fallback_get_status_value(char_obj, status_name)
 
 
-def set_status_value(char_obj, status_name, value):
+def get_status_value(char_obj, status_name):
+    return _stable_get_status_value(char_obj, status_name)
+
+
+def _stable_set_status_value(char_obj, status_name, value):
     mod = _utils_module()
     fn = getattr(mod, "set_status_value", None) if mod else None
     if callable(fn):
-        return fn(char_obj, status_name, value)
+        try:
+            result = fn(char_obj, status_name, value)
+        except Exception:
+            result = None
+        if status_name in ("HP", "hp"):
+            char_obj["hp"] = int(value or 0)
+            return result
+        if status_name in ("MP", "mp"):
+            char_obj["mp"] = int(value or 0)
+            return result
+
+        expected = int(value or 0)
+        states = char_obj.get("states", [])
+        if not isinstance(states, list):
+            states = []
+            char_obj["states"] = states
+        hit = next((s for s in states if isinstance(s, dict) and s.get("name") == status_name), None)
+        if hit is None:
+            states.append({"name": status_name, "value": expected})
+        else:
+            try:
+                current = int(hit.get("value", 0) or 0)
+            except Exception:
+                current = None
+            if current != expected:
+                hit["value"] = expected
+        return result
     if not isinstance(char_obj, dict):
         return None
     if status_name in ("HP", "hp"):
@@ -64,6 +116,10 @@ def set_status_value(char_obj, status_name, value):
     else:
         hit["value"] = int(value or 0)
     return None
+
+
+def set_status_value(char_obj, status_name, value):
+    return _stable_set_status_value(char_obj, status_name, value)
 
 
 def apply_buff(*args, **kwargs):
@@ -393,7 +449,8 @@ def execute_custom_effect(effect, actor, target, context=None):
     プラグイン化されたカスタム効果を実行する
     """
     effect_name = effect.get("value")
-    handler = EFFECT_REGISTRY.get(effect_name)
+    registry = _effect_registry()
+    handler = registry.get(effect_name)
 
     if not handler:
         logger.debug(f"Unknown CUSTOM_EFFECT '{effect_name}'")
@@ -403,11 +460,11 @@ def execute_custom_effect(effect, actor, target, context=None):
         # コンテキストとしてレジストリを渡す（亀裂崩壊などで再帰的に使うため）。
         # 呼び出し側のcontext(キャラ一覧など)も取り込んで、プラグイン側で利用できるようにする。
         plugin_context = {
-            "registry": EFFECT_REGISTRY
+            "registry": registry
         }
         if isinstance(context, dict):
             plugin_context.update(context)
-            plugin_context["registry"] = EFFECT_REGISTRY
+            plugin_context["registry"] = registry
         return handler.apply(actor, target, effect, plugin_context)
     except Exception as e:
         logger.error(f"Plugin Error ({effect_name}): {e}")
@@ -598,8 +655,8 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
                 if stat_name and value != 0:
                     # ★即座に状態を更新（シミュレーション用オブジェクトに対してのみ）
-                    current_val = get_status_value(sim_target, stat_name)
-                    set_status_value(sim_target, stat_name, current_val + value)
+                    current_val = _stable_get_status_value(sim_target, stat_name)
+                    _stable_set_status_value(sim_target, stat_name, current_val + value)
 
                     # 変更ログとして記録（後続の処理で実体に適用される）
                     changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value)) # 実体に対する変更予約
@@ -621,7 +678,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     continue
 
                 # 基準パラメータの値を取得
-                source_param_value = get_status_value(source_obj, source_param)
+                source_param_value = _stable_get_status_value(source_obj, source_param)
 
                 # N毎に計算
                 per_N = int(effect.get("per_N", 1))
@@ -644,8 +701,8 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                             continue
 
                     # ★即座に状態を更新 (シミュレーション)
-                    current_val = get_status_value(sim_target, stat_name)
-                    set_status_value(sim_target, stat_name, current_val + calculated_value)
+                    current_val = _stable_get_status_value(sim_target, stat_name)
+                    _stable_set_status_value(sim_target, stat_name, current_val + calculated_value)
 
                     # 変更ログとして記録 (実体)
                     changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, calculated_value))
@@ -664,13 +721,13 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 multiplier = float(effect.get("value", 1.0))
 
                 if stat_name and sim_target:
-                    current_val = get_status_value(sim_target, stat_name)
+                    current_val = _stable_get_status_value(sim_target, stat_name)
                     new_val = int(current_val * multiplier + 0.5)
                     diff = new_val - current_val
 
                     if diff != 0:
                         # ★即座に状態を更新 (シミュレーション)
-                        set_status_value(sim_target, stat_name, new_val)
+                        _stable_set_status_value(sim_target, stat_name, new_val)
 
                         # 変更ログとして記録 (実体)
                         changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, diff))
@@ -853,15 +910,15 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                      # ★ 追加: 対象(攻撃相手)のHPを上限にする
                      calc_base = base_damage
                      if target: # 攻撃対象が存在する場合
-                         target_current_hp = get_status_value(target, 'HP')
+                         target_current_hp = _stable_get_status_value(target, 'HP')
                          if target_current_hp < calc_base:
                              calc_base = target_current_hp
 
                      heal_val = int(calc_base * rate)
                      if heal_val > 0:
                          # 即座に回復 (シミュレーション)
-                         current_hp = get_status_value(sim_actor, 'HP')
-                         set_status_value(sim_actor, 'HP', current_hp + heal_val)
+                         current_hp = _stable_get_status_value(sim_actor, 'HP')
+                         _stable_set_status_value(sim_actor, 'HP', current_hp + heal_val)
 
                          # 変更予約 (実体)
                          changes_to_apply.append((actor, "APPLY_STATE", "HP", heal_val))
@@ -1230,6 +1287,21 @@ def calculate_skill_preview(
     skill_details['range_min'] = range_min
     skill_details['range_max'] = range_max
 
+    dice_term_sources = []
+    try:
+        for m in re.finditer(r'([+-]?)(\d+)d(?:\{([^}]+)\}|(\d+))', str(dice_part or '')):
+            key = str((m.group(3) or '')).strip()
+            if key == '物理補正':
+                dice_term_sources.append('physical')
+            elif key == '魔法補正':
+                dice_term_sources.append('magical')
+            elif key == 'ダイス威力':
+                dice_term_sources.append('dice_stat')
+            else:
+                dice_term_sources.append('dice')
+    except Exception:
+        dice_term_sources = []
+
     power_breakdown = {
         "base_power": raw_base_power,
         "base_power_mod": total_base_mod,
@@ -1255,6 +1327,7 @@ def calculate_skill_preview(
         "dice_stat_correction": delta_dice_pow,
         "additional_power": total_flat_bonus,
         "total_flat_bonus": total_flat_bonus,
+        "dice_term_sources": dice_term_sources,
     }
 
     return {
@@ -1292,11 +1365,40 @@ def build_power_result_snapshot(preview_data, roll_result):
     if dice_power == 0 and final_power != 0 and constant_power != 0:
         dice_power = final_power - constant_power
 
+    dice_terms = roll_breakdown.get("dice_terms", []) if isinstance(roll_breakdown.get("dice_terms"), list) else []
+    dice_term_sources = power_breakdown.get("dice_term_sources", []) if isinstance(power_breakdown.get("dice_term_sources"), list) else []
+    physical_dice_power = 0
+    magical_dice_power = 0
+    dice_stat_dice_power = 0
+    generic_dice_power = 0
+    if dice_terms:
+        for idx, term in enumerate(dice_terms):
+            if not isinstance(term, dict):
+                continue
+            sign = _to_int(term.get("sign", 1), 1)
+            term_sum = _to_int(term.get("sum", 0))
+            signed_sum = sign * term_sum
+            source = str(dice_term_sources[idx]).strip().lower() if idx < len(dice_term_sources) else 'dice'
+            if source == 'physical':
+                physical_dice_power += signed_sum
+            elif source == 'magical':
+                magical_dice_power += signed_sum
+            elif source == 'dice_stat':
+                dice_stat_dice_power += signed_sum
+            else:
+                generic_dice_power += signed_sum
+        # If roll breakdown had extra dice terms (or source parse failed), keep consistency.
+        classified_total = physical_dice_power + magical_dice_power + dice_stat_dice_power + generic_dice_power
+        if classified_total != dice_power:
+            generic_dice_power += (dice_power - classified_total)
+    else:
+        generic_dice_power = dice_power
+
     snapshot = {
         "base_power_after_mod": final_base_power,
-        "dice_power_after_roll": dice_power,
-        "physical_power": _to_int(power_breakdown.get("physical_correction", 0)),
-        "magical_power": _to_int(power_breakdown.get("magical_correction", 0)),
+        "dice_power_after_roll": generic_dice_power + dice_stat_dice_power,
+        "physical_power": physical_dice_power if dice_terms else _to_int(power_breakdown.get("physical_correction", 0)),
+        "magical_power": magical_dice_power if dice_terms else _to_int(power_breakdown.get("magical_correction", 0)),
         "dice_stat_power": _to_int(power_breakdown.get("dice_stat_correction", 0)),
         "flat_power_bonus": _to_int(power_breakdown.get("total_flat_bonus", power_breakdown.get("additional_power", 0))),
         "final_power": final_power,

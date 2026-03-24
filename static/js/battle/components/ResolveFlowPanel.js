@@ -301,8 +301,11 @@ class ResolveFlowPanel {
 
     _buildAdvanceRequestPayload(state) {
         const roomId = this._resolveActiveRoomId(state);
-        const stepIndexRaw = Number(this._activeStep?.stepIndex);
-        const stepIndex = Number.isFinite(stepIndexRaw) ? stepIndexRaw : null;
+        const rawStepIndex = Number(this._activeStep?.rawStepIndex);
+        const displayStepIndex = Number(this._activeStep?.stepIndex);
+        const stepIndex = Number.isFinite(rawStepIndex)
+            ? rawStepIndex
+            : (Number.isFinite(displayStepIndex) ? displayStepIndex : null);
         return {
             room_id: roomId || null,
             battle_id: state?.battle_id || null,
@@ -347,13 +350,6 @@ class ResolveFlowPanel {
             round_key: roundKey
         };
         eventBus.emit('battle:resolve:flow:completed', payload);
-        if (typeof window !== 'undefined' && typeof window.flushDeferredResolveLogs === 'function') {
-            try {
-                window.flushDeferredResolveLogs();
-            } catch (e) {
-                console.warn('[ResolveFlowPanel] flushDeferredResolveLogs failed', e);
-            }
-        }
         if (this._detectIsGM(stateNow)) {
             const roomName = payload.room_id || stateNow?.room_name || null;
             socketClient.sendRoundEnd(roomName);
@@ -373,6 +369,26 @@ class ResolveFlowPanel {
             key: this._traceKey(step) || null
         };
         eventBus.emit('battle:resolve:flow:step-finished', payload);
+    }
+
+    _flushCurrentStepDeferredLogs() {
+        if (!this._activeStep || this._isIntroStep(this._activeStep)) return;
+        if (typeof window === 'undefined' || typeof window.flushDeferredResolveByStepKey !== 'function') return;
+        const stateNow = store.state || {};
+        const payload = {
+            room_id: this._resolveActiveRoomId(stateNow),
+            battle_id: stateNow?.battle_id || null,
+            round: this._toNumber(stateNow?.round, 0),
+            step_index: this._toNumber(this._activeStep?.stepIndex, -1),
+            step_display_index: this._toNumber(this._activeStep?.displayIndex, -1),
+            kind: String(this._activeStep?.kind || 'unknown'),
+            key: this._traceKey(this._activeStep) || null
+        };
+        try {
+            window.flushDeferredResolveByStepKey(payload);
+        } catch (_e) {
+            // no-op
+        }
     }
 
     _scheduleAutoAdvanceIfNeeded(state) {
@@ -721,6 +737,7 @@ class ResolveFlowPanel {
     }
 
     _advanceToNextBySync() {
+        this._flushCurrentStepDeferredLogs();
         this._clearPendingAdvanceTimer();
         this._clearAdvanceRequestPending();
         this._waitingForAdvance = false;
@@ -883,6 +900,83 @@ class ResolveFlowPanel {
         return {
             attacker: String(attackPower),
             defender: String(defensePower)
+        };
+    }
+
+    _powerSnapshotForSide(step, side) {
+        const payload = step?.outcomePayload || {};
+        const delegateSummary = (payload.delegate_summary && typeof payload.delegate_summary === 'object')
+            ? payload.delegate_summary
+            : {};
+        const summaryRolls = (delegateSummary.rolls && typeof delegateSummary.rolls === 'object')
+            ? delegateSummary.rolls
+            : {};
+        const rolls = (step?.rolls && typeof step.rolls === 'object') ? step.rolls : {};
+
+        if (side === 'attacker') {
+            const snapshot = rolls.power_snapshot_a || rolls.power_snapshot || summaryRolls.power_snapshot_a || summaryRolls.power_snapshot;
+            return (snapshot && typeof snapshot === 'object') ? snapshot : null;
+        }
+
+        const snapshot = rolls.power_snapshot_b || summaryRolls.power_snapshot_b;
+        return (snapshot && typeof snapshot === 'object') ? snapshot : null;
+    }
+
+    _powerBreakdownForSide(step, side) {
+        const payload = step?.outcomePayload || {};
+        const delegateSummary = (payload.delegate_summary && typeof payload.delegate_summary === 'object')
+            ? payload.delegate_summary
+            : {};
+        const summaryRolls = (delegateSummary.rolls && typeof delegateSummary.rolls === 'object')
+            ? delegateSummary.rolls
+            : {};
+        const rolls = (step?.rolls && typeof step.rolls === 'object') ? step.rolls : {};
+
+        if (side === 'attacker') {
+            const breakdown = rolls.power_breakdown_a || rolls.power_breakdown || summaryRolls.power_breakdown_a || summaryRolls.power_breakdown;
+            return (breakdown && typeof breakdown === 'object') ? breakdown : null;
+        }
+
+        const breakdown = rolls.power_breakdown_b || summaryRolls.power_breakdown_b;
+        return (breakdown && typeof breakdown === 'object') ? breakdown : null;
+    }
+
+    _formatPowerSnapshotLine(snapshot, breakdown) {
+        const toNum = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+        };
+        const sign = (n) => (n >= 0 ? `+${n}` : `${n}`);
+
+        const snapshotData = (snapshot && typeof snapshot === 'object') ? snapshot : {};
+        const breakdownData = (breakdown && typeof breakdown === 'object') ? breakdown : {};
+        const hasData = Object.keys(snapshotData).length > 0 || Object.keys(breakdownData).length > 0;
+        if (!hasData) {
+            return {
+                line1: '',
+                line2: ''
+            };
+        }
+
+        const base = toNum(snapshotData.base_power_after_mod);
+        const dice = toNum(snapshotData.dice_power_after_roll);
+        const physical = toNum(snapshotData.physical_power);
+        const magical = toNum(snapshotData.magical_power);
+        const final = toNum(snapshotData.final_power);
+        const flatBonus = toNum(snapshotData.flat_power_bonus);
+        const attr = physical !== 0 ? physical : magical;
+        const ruleBase = toNum(breakdownData.rule_power_bonus);
+
+        const baseShown = base + ruleBase;
+        const baseMod = toNum(breakdownData.base_power_mod) + ruleBase;
+        const diceMod = toNum(breakdownData.dice_bonus_power);
+        const finalMod = (breakdownData.final_power_mod !== undefined && breakdownData.final_power_mod !== null)
+            ? toNum(breakdownData.final_power_mod)
+            : (flatBonus - ruleBase);
+
+        return {
+            line1: `基礎${baseShown} + ダイス${dice} + 物理/魔法補正${sign(attr)} = 合計${final}`,
+            line2: `基礎威力補正${sign(baseMod)} / ダイス威力補正${sign(diceMod)} / 最終威力補正${sign(finalMod)}`
         };
     }
 
@@ -1267,6 +1361,14 @@ class ResolveFlowPanel {
         const attackerSkill = this._resolveSkillMeta(step, 'attacker');
         const defenderSkill = this._resolveSkillMeta(step, 'defender');
         const powers = this._resolvePowerValues(step);
+        const attackerPowerLines = this._formatPowerSnapshotLine(
+            this._powerSnapshotForSide(step, 'attacker'),
+            this._powerBreakdownForSide(step, 'attacker')
+        );
+        const defenderPowerLines = this._formatPowerSnapshotLine(
+            this._powerSnapshotForSide(step, 'defender'),
+            this._powerBreakdownForSide(step, 'defender')
+        );
         const powerRanges = this._resolvePowerRanges(step);
         const damage = this._collectDamageSummary(step, state);
 
@@ -1324,6 +1426,8 @@ class ResolveFlowPanel {
                             <div class="name reveal-block reveal-names">${defenderName}</div>
                             <div class="skill reveal-block reveal-skills">${defenderSkillHtml}</div>
                             <div class="power reveal-block reveal-power">\u5a01\u529b <span class="range">${this._escape(powerRanges.defender)}</span> <span class="arrow">\u2192</span> <span class="actual defender">${this._escape(powers.defender)}</span></div>
+                            ${defenderPowerLines.line1 ? `<div class="power-detail reveal-block reveal-power">${this._escape(defenderPowerLines.line1)}</div>` : ''}
+                            ${defenderPowerLines.line2 ? `<div class="power-detail-sub reveal-block reveal-power">${this._escape(defenderPowerLines.line2)}</div>` : ''}
             `;
 
         const stateNow = store.state || state || {};
@@ -1347,6 +1451,8 @@ class ResolveFlowPanel {
                             <div class="name reveal-block reveal-names">${attackerName}</div>
                             <div class="skill reveal-block reveal-skills">[${this._escape(attackerSkill.id)}] ${this._escape(attackerSkill.name)}</div>
                             <div class="power reveal-block reveal-power">\u5a01\u529b <span class="range">${this._escape(powerRanges.attacker)}</span> <span class="arrow">\u2192</span> <span class="actual attacker">${this._escape(powers.attacker)}</span></div>
+                            ${attackerPowerLines.line1 ? `<div class="power-detail reveal-block reveal-power">${this._escape(attackerPowerLines.line1)}</div>` : ''}
+                            ${attackerPowerLines.line2 ? `<div class="power-detail-sub reveal-block reveal-power">${this._escape(attackerPowerLines.line2)}</div>` : ''}
                         </div>
                         <div class="vs">VS</div>
                         <div class="side defender${isSummationKind ? ' summation-only' : ''}">

@@ -20,7 +20,10 @@ function hasImmediateSkill(char) {
 function updateActionDock() {
     // ★ Exploration Mode Check
     const mode = battleState ? (battleState.mode || 'battle') : 'unknown';
-    console.log(`[ActionDock] Update called. Mode: ${mode}`);
+    const isGMUser = isCurrentUserGM();
+    if (typeof window !== 'undefined' && window.BATTLE_DEBUG_VERBOSE) {
+        console.log(`[ActionDock] Update called. Mode: ${mode}`);
+    }
 
     // ★ Unplaced Area (Shared Modal) Update
     // Always update this if it exists, regardless of mode
@@ -31,31 +34,49 @@ function updateActionDock() {
 
     // Force Exploration Dock if mode is exploration
     if (mode === 'exploration') {
+        const rStartBtn = document.getElementById('visual-round-start-btn');
+        const rEndBtn = document.getElementById('visual-round-end-btn');
+        if (rStartBtn) rStartBtn.style.display = 'none';
+        if (rEndBtn) rEndBtn.style.display = 'none';
+
         const dock = document.getElementById('action-dock');
 
         // Ensure we don't have battle icons
         if (dock && !dock.classList.contains('exploration-mode')) {
-            console.log('[ActionDock] Switching to Exploration Dock (Clearing content)');
+            if (typeof window !== 'undefined' && window.BATTLE_DEBUG_VERBOSE) {
+                console.log('[ActionDock] Switching to Exploration Dock (Clearing content)');
+            }
             dock.innerHTML = '';
             dock.className = 'action-dock exploration-mode';
         }
 
         if (window.ExplorationDock && typeof window.ExplorationDock.render === 'function') {
-            console.log('[ActionDock] Rendering ExplorationDock content');
+            if (typeof window !== 'undefined' && window.BATTLE_DEBUG_VERBOSE) {
+                console.log('[ActionDock] Rendering ExplorationDock content');
+            }
             window.ExplorationDock.render();
         } else {
             // Script might not be loaded yet
-            console.warn('[ActionDock] ExplorationDock not ready, retrying...');
+            if (typeof window !== 'undefined' && window.BATTLE_DEBUG_VERBOSE) {
+                console.warn('[ActionDock] ExplorationDock not ready, retrying...');
+            }
             setTimeout(updateActionDock, 200);
         }
         return; // Always return to prevent Battle Dock rendering
     }
 
     // Battle Mode Logic
+    const rStartBtn = document.getElementById('visual-round-start-btn');
+    const rEndBtn = document.getElementById('visual-round-end-btn');
+    if (rStartBtn) rStartBtn.style.display = isGMUser ? 'inline-block' : 'none';
+    if (rEndBtn) rEndBtn.style.display = isGMUser ? 'inline-block' : 'none';
+
     // Reset to Battle Dock (if switching back)
     const dock = document.getElementById('action-dock');
     if (dock && dock.classList.contains('exploration-mode')) {
-        console.log('[ActionDock] Switching back to Battle Dock');
+        if (typeof window !== 'undefined' && window.BATTLE_DEBUG_VERBOSE) {
+            console.log('[ActionDock] Switching back to Battle Dock');
+        }
         dock.className = 'action-dock';
         dock.innerHTML = `
             <div id="dock-match-icon" class="dock-icon" style="display: none;" title="マッチ実行">⚔️</div>
@@ -72,7 +93,7 @@ function updateActionDock() {
 
         // ★ Explorationから戻った場合にラウンドボタン表示を復帰させる
         // GMの場合のみ表示する (setupVisualSidebarControlsのロジックと同様)
-        if (currentUserAttribute === 'GM') {
+        if (isGMUser) {
             const rStartBtn = document.getElementById('visual-round-start-btn');
             const rEndBtn = document.getElementById('visual-round-end-btn');
             if (rStartBtn) rStartBtn.style.display = 'inline-block';
@@ -81,7 +102,7 @@ function updateActionDock() {
     }
 
     // ★ Add Switch to Exploration Button for GM (if not exists)
-    if (currentUserAttribute === 'GM' && dock) {
+    if (isGMUser && dock) {
         let expBtn = document.getElementById('dock-to-exploration-btn');
         if (!expBtn) {
             expBtn = document.createElement('div');
@@ -389,6 +410,19 @@ function createImmediateCharRow(char) {
     row.appendChild(executeBtn);
 
     return row;
+}
+
+function isCurrentUserGM() {
+    const attr = (typeof currentUserAttribute !== 'undefined')
+        ? currentUserAttribute
+        : (typeof window !== 'undefined' ? window.currentUserAttribute : null);
+    const role = (typeof window !== 'undefined') ? window.currentUserRole : null;
+    const user = (typeof currentUsername !== 'undefined')
+        ? currentUsername
+        : (typeof window !== 'undefined' ? (window.currentUsername || window.currentUserName) : '');
+    const attrNorm = String(attr || '').trim().toUpperCase();
+    const roleNorm = String(role || '').trim().toUpperCase();
+    return attrNorm === 'GM' || roleNorm === 'GM' || (typeof user === 'string' && /\(GM\)/i.test(user));
 }
 
 function openGlossaryCatalogModal() {
@@ -861,7 +895,7 @@ function renderQuickEditList(container) {
 
     // GMは全キャラ、PLは自分の持ちキャラのみ
     const targetChars = battleState.characters.filter(c => {
-        if (currentUserAttribute === 'GM') return true;
+        if (isCurrentUserGM()) return true;
         return c.owner === currentUsername || (currentUserId && c.owner_id === currentUserId);
     });
 
@@ -1013,7 +1047,9 @@ function renderQuickEditList(container) {
 function initializeActionDock() {
     // If in Exploration Mode, do NOT initialize battle dock listeners.
     if (battleState && battleState.mode === 'exploration') {
-        console.log('[InitializeActionDock] Skipping Battle Dock init due to Exploration Mode.');
+        if (typeof window !== 'undefined' && window.BATTLE_DEBUG_VERBOSE) {
+            console.log('[InitializeActionDock] Skipping Battle Dock init due to Exploration Mode.');
+        }
         // Ensure dock is cleared or delegates to updateActionDock
         if (typeof updateActionDock === 'function') updateActionDock();
         return;

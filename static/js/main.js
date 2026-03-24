@@ -13,6 +13,25 @@ let entryRequestInFlight = false;
 let currentUserId = null; // ★追加: ユーザーID (UUID)
 const receivedLogIds = new Set();
 
+// Battle debug logs are OFF by default.
+// Enable:
+//   localStorage.setItem('battle_debug_verbose', '1'); location.reload();
+// Disable:
+//   localStorage.removeItem('battle_debug_verbose'); location.reload();
+if (typeof window !== 'undefined' && typeof window.BATTLE_DEBUG_VERBOSE === 'undefined') {
+    try {
+        window.BATTLE_DEBUG_VERBOSE = localStorage.getItem('battle_debug_verbose') === '1';
+    } catch (_e) {
+        window.BATTLE_DEBUG_VERBOSE = false;
+    }
+}
+
+function battleDebugLog(...args) {
+    if (typeof window !== 'undefined' && window.BATTLE_DEBUG_VERBOSE) {
+        console.log(...args);
+    }
+}
+
 function rememberLogIdsFromState(state) {
     if (!state || !Array.isArray(state.logs)) return;
     state.logs.forEach((logData) => {
@@ -79,6 +98,9 @@ function showEntryPortal() {
                 currentUsername = data.username;
                 currentUserAttribute = data.attribute;
                 currentUserId = data.user_id; // ★追加: IDを保存
+                window.currentUsername = currentUsername;
+                window.currentUserAttribute = currentUserAttribute;
+                window.currentUserId = currentUserId;
                 initializeSocketIO();
             } catch (error) {
                 entryMsg.textContent = error.message;
@@ -355,7 +377,7 @@ function initializeSocketIO() {
 
         // ★ Mode Switching Logic
         const mode = newState.mode || 'battle';
-        console.log(`[Main] state_updated received. Mode: ${mode}`); // ★ ADDED DEBUG LOG
+        battleDebugLog(`[Main] state_updated received. Mode: ${mode}`);
         const mapViewport = document.getElementById('map-viewport');
         const expViewport = document.getElementById('exploration-viewport');
 
@@ -417,7 +439,12 @@ function initializeSocketIO() {
 
         currentUsername = data.username;
         currentUserAttribute = data.attribute;
+        window.currentUsername = currentUsername;
+        window.currentUserAttribute = currentUserAttribute;
         updateHeaderUserInfo();
+        if (typeof setupVisualSidebarControls === 'function') {
+            try { setupVisualSidebarControls(); } catch (_e) { }
+        }
     });
     socket.on('user_list_updated', (userList) => {
 
@@ -507,6 +534,9 @@ async function checkSessionStatus() {
             currentUsername = data.username;
             currentUserAttribute = data.attribute;
             currentUserId = data.user_id; // ★追加: IDを保存
+            window.currentUsername = currentUsername;
+            window.currentUserAttribute = currentUserAttribute;
+            window.currentUserId = currentUserId;
 
             initializeSocketIO();
         }
@@ -565,6 +595,17 @@ window.addEventListener('DOMContentLoaded', () => {
         .catch(err => {
             console.error('[ERROR] 特殊パッシブデータの読み込みに失敗:', err);
             window.allPassiveData = {};
+        });
+
+    fetch('/api/get_buff_data')
+        .then(res => res.json())
+        .then(data => {
+            window.buffCatalogData = data;
+            console.log('[OK] バフ図鑑データを読み込みました:', data);
+        })
+        .catch(err => {
+            console.error('[ERROR] バフ図鑑データの読み込みに失敗:', err);
+            window.buffCatalogData = {};
         });
 
     const homeBtn = document.getElementById('home-portal-btn');

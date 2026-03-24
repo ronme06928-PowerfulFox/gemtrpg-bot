@@ -8,6 +8,27 @@ window.updateMapTransform = function () {
     if (mapEl) mapEl.style.transform = `translate(${visualOffsetX}px, ${visualOffsetY}px) scale(${visualScale})`;
 }
 
+const _battleVerboseMap = () => (typeof window !== 'undefined' && !!window.BATTLE_DEBUG_VERBOSE);
+const _battleMapLog = (...args) => {
+    if (_battleVerboseMap()) console.log(...args);
+};
+const _battleMapDebug = (...args) => {
+    if (_battleVerboseMap()) console.debug(...args);
+};
+
+const STATUS_NAME_ALIASES = {
+    '蜃ｺ陦': '出血',
+    '遐ｴ陬・': '亀裂',
+    '莠陬・': '破裂',
+    '謌ｦ諷・': '戦慄',
+    '闕頑｣・': '荊棘',
+};
+
+function normalizeStateName(name) {
+    const key = String(name || '').trim();
+    return STATUS_NAME_ALIASES[key] || key;
+}
+
 /**
  * Main Map Rendering Function
  * Handles background updates and token rendering (differential update).
@@ -254,7 +275,7 @@ window.renderSlotBadgesForAllTokens = function () {
             perActor[key] = (perActor[key] || 0) + 1;
         }
         const source = preferStore ? 'BattleStore' : 'battleState';
-        console.log(`[slot_badges] source=${source} phase=${phase} chars=${characters.length} slots=${slots.length} per_actor=${JSON.stringify(perActor)}`);
+        _battleMapLog(`[slot_badges] source=${source} phase=${phase} chars=${characters.length} slots=${slots.length} per_actor=${JSON.stringify(perActor)}`);
         window._slotBadgeLogAt = now;
     }
 
@@ -322,7 +343,7 @@ window.renderSlotBadgesForAllTokens = function () {
                 if (!slotId) return;
                 if (phase !== 'select') return;
                 _scheduleSlotBadgeSingleClick(() => {
-                    console.log(`[slot_badges] clicked slot=${slotId} actor=${actorId || 'unknown'}`);
+                    _battleMapLog(`[slot_badges] clicked slot=${slotId} actor=${actorId || 'unknown'}`);
                     _handleDeclareSlotClick(String(slotId), String(actorId || ''));
                 });
             });
@@ -334,7 +355,7 @@ window.renderSlotBadgesForAllTokens = function () {
                 if (!slotId) return;
                 if (phase !== 'select') return;
                 _cancelSlotBadgeSingleClick();
-                console.log(`[slot_badges] dblclick slot=${slotId} actor=${actorId || 'unknown'}`);
+                _battleMapLog(`[slot_badges] dblclick slot=${slotId} actor=${actorId || 'unknown'}`);
                 _handleDeclareSlotDoubleClick(String(slotId), String(actorId || ''));
             });
 
@@ -515,7 +536,7 @@ function _resetDeclareSelectionState(reason = 'outside_click') {
         if (typeof window.BattleStore.setSelectedSlotId === 'function') {
             window.BattleStore.setSelectedSlotId(null);
         }
-        console.log(`[declare] selection_cleared reason=${reason}`);
+        _battleMapLog(`[declare] selection_cleared reason=${reason}`);
         return true;
     }
 
@@ -530,7 +551,7 @@ function _resetDeclareSelectionState(reason = 'outside_click') {
             mode: 'idle',
             calc: null
         };
-        console.log(`[declare] selection_cleared_legacy reason=${reason}`);
+        _battleMapLog(`[declare] selection_cleared_legacy reason=${reason}`);
         return true;
     }
     return false;
@@ -688,7 +709,7 @@ function _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId, targ
     const sourceIntent = stateRef?.intents?.[sourceSlotId] || null;
     // Keep committed declaration stable until explicit re-commit.
     if (sourceIntent?.committed) {
-        console.log(`[emit] battle_intent_preview skip: source committed slot=${sourceSlotId}`);
+        _battleMapLog(`[emit] battle_intent_preview skip: source committed slot=${sourceSlotId}`);
         return;
     }
 
@@ -701,15 +722,15 @@ function _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId, targ
         : (targetSlotId ? { type: 'single_slot', slot_id: targetSlotId } : { type: 'none', slot_id: null });
 
     if (!roomId || !battleId) {
-        console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_type=${target.type} target_slot=${target.slot_id || 'null'} (skip: missing room/battle)`);
+        _battleMapLog(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_type=${target.type} target_slot=${target.slot_id || 'null'} (skip: missing room/battle)`);
         return;
     }
     if (!window.SocketClient || typeof window.SocketClient.sendIntentPreview !== 'function') {
-        console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_type=${target.type} target_slot=${target.slot_id || 'null'} (skip: socket client unavailable)`);
+        _battleMapLog(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_type=${target.type} target_slot=${target.slot_id || 'null'} (skip: socket client unavailable)`);
         return;
     }
 
-    console.log(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_type=${target.type} target_slot=${target.slot_id || 'null'}`);
+    _battleMapLog(`[emit] battle_intent_preview source_slot=${sourceSlotId} skill=${effectiveSkillId} target_type=${target.type} target_slot=${target.slot_id || 'null'}`);
     window.SocketClient.sendIntentPreview(roomId, battleId, sourceSlotId, effectiveSkillId, target);
 }
 
@@ -752,7 +773,7 @@ function _handleDeclareSlotDoubleClick(clickedSlotId, clickedActorId) {
         battleState.selectedSlotId = sourceSlotId;
     }
 
-    console.log(`[declare] mode=dblclick source=${sourceSlotId || 'null'} target_type=${targetType} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
+    _battleMapLog(`[declare] mode=dblclick source=${sourceSlotId || 'null'} target_type=${targetType} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
     _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId, targetType);
 }
 
@@ -785,7 +806,7 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
 
     // In mass mode, keep click UX but suppress target changes on enemy slot click.
     if (isMassMode && sourceSlotId && isDifferentActorClick) {
-        console.log(`[declare] mass_target_locked source=${sourceSlotId} clicked=${clickedSlotId}`);
+        _battleMapLog(`[declare] mass_target_locked source=${sourceSlotId} clicked=${clickedSlotId}`);
         if (window.BattleStore && typeof window.BattleStore.setDeclare === 'function') {
             window.BattleStore.setDeclare({
                 sourceSlotId,
@@ -822,7 +843,7 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
             battleState.selectedSlotId = sourceSlotId;
         }
 
-        console.log(`[declare] mode=reedit source=${sourceSlotId || 'null'} target_type=${targetType} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
+        _battleMapLog(`[declare] mode=reedit source=${sourceSlotId || 'null'} target_type=${targetType} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
         return;
     }
 
@@ -883,7 +904,7 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
         battleState.selectedSlotId = sourceSlotId;
     }
 
-    console.log(`[declare] mode=${mode} source=${sourceSlotId || 'null'} target_type=${targetType} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
+    _battleMapLog(`[declare] mode=${mode} source=${sourceSlotId || 'null'} target_type=${targetType} target=${targetSlotId || 'null'} skill=${skillId || 'null'}`);
     _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId, targetType);
 }
 
@@ -989,7 +1010,7 @@ function updateTokenVisuals(token, char) {
  * Partial Update for Token Visuals (Stat Change Event)
  */
 window.updateCharacterTokenVisuals = function (data) {
-    console.log('[updateCharacterTokenVisuals] Called with data:', data);
+    _battleMapLog('[updateCharacterTokenVisuals] Called with data:', data);
 
     if (!data || !data.char_id) {
         console.warn('[updateCharacterTokenVisuals] Invalid data:', data);
@@ -997,11 +1018,11 @@ window.updateCharacterTokenVisuals = function (data) {
     }
 
     const { char_id, stat, new_value, old_value, max_value, source } = data;
-    console.log(`[updateCharacterTokenVisuals] Extracted: char_id=${char_id}, stat=${stat}, new=${new_value}, old=${old_value}, max=${max_value}, source=${source}`);
+    _battleMapLog(`[updateCharacterTokenVisuals] Extracted: char_id=${char_id}, stat=${stat}, new=${new_value}, old=${old_value}, max=${max_value}, source=${source}`);
 
     const token = document.querySelector(`.map-token[data-id="${char_id}"]`);
     if (!token) {
-        console.debug(`[updateCharacterTokenVisuals] Token not found for char_id: ${char_id}`);
+        _battleMapDebug(`[updateCharacterTokenVisuals] Token not found for char_id: ${char_id}`);
         return;
     }
 
@@ -1011,19 +1032,23 @@ window.updateCharacterTokenVisuals = function (data) {
     };
     const _upsertCharState = (char, stateName, rawValue) => {
         if (!char || !stateName) return;
+        const normalizedStateName = normalizeStateName(stateName);
         if (!Array.isArray(char.states)) char.states = [];
-        const idx = char.states.findIndex((s) => s && s.name === stateName);
+        const idx = char.states.findIndex((s) => s && normalizeStateName(s.name) === normalizedStateName);
         const n = _toNumberOrNull(rawValue);
         const nextVal = n !== null ? n : rawValue;
         const shouldDelete = (n !== null && n <= 0);
 
         if (idx >= 0) {
             if (shouldDelete) char.states.splice(idx, 1);
-            else char.states[idx].value = nextVal;
+            else {
+                char.states[idx].name = normalizedStateName;
+                char.states[idx].value = nextVal;
+            }
             return;
         }
         if (!shouldDelete) {
-            char.states.push({ name: stateName, value: nextVal });
+            char.states.push({ name: normalizedStateName, value: nextVal });
         }
     };
 
@@ -1079,7 +1104,7 @@ window.updateCharacterTokenVisuals = function (data) {
             fpBadge.textContent = String(Math.max(0, fpVal));
             fpBadge.title = `FP: ${Math.max(0, fpVal)}`;
         }
-        console.debug(`[updateCharacterTokenVisuals] State change detected: ${stat}, badges refreshed`);
+        _battleMapDebug(`[updateCharacterTokenVisuals] State change detected: ${stat}, badges refreshed`);
     }
 }
 
@@ -1166,10 +1191,11 @@ window.generateMapTokenBadgesHTML = function (char) {
         const badgesPerRow = 3;
 
         char.states.forEach(s => {
-            if (['HP', 'MP', 'FP'].includes(s.name)) return;
+            const normalizedName = normalizeStateName(s.name);
+            if (['HP', 'MP', 'FP'].includes(normalizedName)) return;
             if (s.value === 0) return;
 
-            const config = STATUS_CONFIG[s.name];
+            const config = STATUS_CONFIG[normalizedName];
             const row = Math.floor(badgeCount / badgesPerRow);
             const col = badgeCount % badgesPerRow;
 
@@ -1192,7 +1218,7 @@ window.generateMapTokenBadgesHTML = function (char) {
 
             if (config) {
                 iconsHtml += `
-                    <div class="status-badge" style="${badgeStyle} border-color: ${config.borderColor};" title="${s.name}: ${s.value}">
+                    <div class="status-badge" style="${badgeStyle} border-color: ${config.borderColor};" title="${normalizedName}: ${s.value}">
                         <img src="images/${config.icon}" loading="lazy" style="width:100%; height:100%; border-radius:50%;">
                         <div style="${countStyle}">${s.value}</div>
                     </div>`;
@@ -1200,7 +1226,7 @@ window.generateMapTokenBadgesHTML = function (char) {
                 const arrow = s.value > 0 ? '▲' : '▼';
                 const color = s.value > 0 ? '#28a745' : '#dc3545';
                 iconsHtml += `
-                    <div class="status-badge" style="${badgeStyle} color:${color}; border-color:${color}; font-weight:bold; background:#fff; font-size:20px;" title="${s.name}: ${s.value}">
+                    <div class="status-badge" style="${badgeStyle} color:${color}; border-color:${color}; font-weight:bold; background:#fff; font-size:20px;" title="${normalizedName}: ${s.value}">
                         ${arrow}
                         <div style="${countStyle}">${s.value}</div>
                     </div>`;
@@ -1358,10 +1384,10 @@ window.createMapToken = function (char) {
 
     token.addEventListener('click', (e) => {
         e.stopPropagation();
-        console.log(`[Click] Token clicked: ${char.name} (${char.id})`);
+        _battleMapLog(`[Click] Token clicked: ${char.name} (${char.id})`);
 
         if (window._dragBlockClick) {
-            console.log('[Click] blocked due to recent drag');
+            _battleMapLog('[Click] blocked due to recent drag');
             return;
         }
 
@@ -1373,13 +1399,13 @@ window.createMapToken = function (char) {
         if (srState.phase === 'select' && srState.targetSelectMode) {
             const selectedSlotId = srState.selectedSlotId;
             if (!selectedSlotId) {
-                console.log('[slot_badges] target click ignored: no selectedSlotId');
+                _battleMapLog('[slot_badges] target click ignored: no selectedSlotId');
                 return;
             }
 
             const targetSlotId = _resolveTargetSlotIdForActor(char.id, srState);
             if (!targetSlotId) {
-                console.log(`[slot_badges] target click ignored: no slot for actor=${char.id}`);
+                _battleMapLog(`[slot_badges] target click ignored: no slot for actor=${char.id}`);
                 return;
             }
 
@@ -1388,14 +1414,14 @@ window.createMapToken = function (char) {
                     targetSlotId,
                     actorId: char.id
                 });
-                console.log(`[slot_badges] target selected slot=${targetSlotId} actor=${char.id}`);
+                _battleMapLog(`[slot_badges] target selected slot=${targetSlotId} actor=${char.id}`);
             }
             return;
         }
 
         // Disable legacy turn-based token-click match flow while Select/Resolve pipeline is active.
         if (['select', 'resolve_mass', 'resolve_single'].includes(srState.phase)) {
-            console.log(`[Click] legacy turn-match flow blocked in phase=${srState.phase}`);
+            _battleMapLog(`[Click] legacy turn-match flow blocked in phase=${srState.phase}`);
             return;
         }
 
@@ -1474,13 +1500,14 @@ window.generateStatusIconsHTML = function (char) {
     if (!char.states) return '';
     let iconsHtml = '';
     char.states.forEach(s => {
-        if (['HP', 'MP', 'FP'].includes(s.name)) return;
+        const normalizedName = normalizeStateName(s.name);
+        if (['HP', 'MP', 'FP'].includes(normalizedName)) return;
         if (s.value === 0) return;
-        const config = STATUS_CONFIG[s.name];
+        const config = STATUS_CONFIG[normalizedName];
         if (config) {
             iconsHtml += `
                 <div class="duel-status-icon">
-                    <img src="images/${config.icon}" alt="${s.name}">
+                    <img src="images/${config.icon}" alt="${normalizedName}">
                     <div class="duel-status-badge" style="background-color: ${config.color};">${s.value}</div>
                 </div>`;
         }
@@ -1772,5 +1799,5 @@ window.toggleBuffDesc = function (elementId) {
     if (el) el.style.display = (el.style.display === 'none') ? 'block' : 'none';
 }
 
-console.log('[visual_map] Loaded.');
+_battleMapLog('[visual_map] Loaded.');
 

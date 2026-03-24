@@ -200,7 +200,9 @@ window.setupBattleTokenDrag = function () {
         finalX = Math.round(finalX * 10000) / 10000;
         finalY = Math.round(finalY * 10000) / 10000;
 
-        console.log(`[BattleDrag] Dropped at pixel(${currentLeft}, ${currentTop}) -> grid(${finalX}, ${finalY})`);
+        if (typeof window !== 'undefined' && window.BATTLE_DEBUG_VERBOSE) {
+            console.log(`[BattleDrag] Dropped at pixel(${currentLeft}, ${currentTop}) -> grid(${finalX}, ${finalY})`);
+        }
 
         // Check for collision with same position (optional, depending on logic)
         // Here we allow overlap.

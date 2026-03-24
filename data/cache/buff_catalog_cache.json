@@ -241,15 +241,15 @@
     "description": "ラウンド終了時、自身のMPを1回復する。",
     "flavor": "（アルトマギア）",
     "effect": {},
-    "default_duration": 1
+    "default_duration": -1
   },
   "Bu-24": {
     "id": "Bu-24",
     "name": "いずれ彩られる純白",
     "description": "攻撃スキル的中時、対象に色彩を付与する。2ラウンド継続。味方陣営キャラクターが色彩を持つ相手陣営キャラクターを対象に攻撃スキルを使用する時、スキルの最終威力+1。",
-    "flavor": "（グラン・リテラール・ブラン）",
+    "flavor": "（リテラール）",
     "effect": {},
-    "default_duration": 1
+    "default_duration": -1
   },
   "Bu-25": {
     "id": "Bu-25",
@@ -257,7 +257,7 @@
     "description": "情報収集カテゴリの探索スキルを一つ選び、そのレベルを４にすることができる。",
     "flavor": "（サーバ・ルミナス）",
     "effect": {},
-    "default_duration": 1
+    "default_duration": -1
   },
   "Bu-26": {
     "id": "Bu-26",
@@ -265,7 +265,7 @@
     "description": "対話と鑑定のスキルレベル+2。戦闘中、回避スキルのダイス威力+1。相手陣営にヴァルヴァイレ出身のキャラクターが存在する時、この効果の効果量+1。",
     "flavor": "（フローディアス）",
     "effect": {},
-    "default_duration": 1
+    "default_duration": -1
   },
   "Bu-27": {
     "id": "Bu-27",
@@ -273,6 +273,14 @@
     "description": "五感、本能、運動、回避のスキルレベルを+1する。戦闘中、このラウンドでフィールドに自分と同じ速度のキャラクターがいるなら、自分が使用するスキルの基礎威力+1。",
     "flavor": "（エムリダ）",
     "effect": {},
-    "default_duration": 1
+    "default_duration": -1
+  },
+  "Bu-28": {
+    "id": "Bu-28",
+    "name": "色彩",
+    "description": "これを持つキャラクターを対象に攻撃スキルを使用する相手陣営キャラクターの、スキルの最終威力+1。",
+    "flavor": "",
+    "effect": {},
+    "default_duration": 2
   }
 }

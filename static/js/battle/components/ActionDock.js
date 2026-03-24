@@ -1,6 +1,11 @@
 import { store } from '../core/BattleStore.js';
 import { socketClient } from '../core/SocketClient.js';
 
+const _battleVerbose = () => (typeof window !== 'undefined' && !!window.BATTLE_DEBUG_VERBOSE);
+const _battleLog = (...args) => { if (_battleVerbose()) console.log(...args); };
+const _battleInfo = (...args) => { if (_battleVerbose()) console.info(...args); };
+const _battleDebug = (...args) => { if (_battleVerbose()) console.debug(...args); };
+
 class ActionDock {
     constructor() {
         this._unsubscribe = null;
@@ -22,7 +27,7 @@ class ActionDock {
 
         this._unsubscribe = store.subscribe((state) => this._onStateChange(state));
         this._initialized = true;
-        console.log('ActionDock Component: Initialized');
+        _battleLog('ActionDock Component: Initialized');
         return true;
     }
 
@@ -67,11 +72,11 @@ class ActionDock {
         const selectedSlotId = state?.selectedSlotId || null;
         const isGM = this._detectIsGM(state);
 
-        console.info(
+        _battleInfo(
             `[ActionDock:render] phase=${phase} slots=${slotsCount} intents=${intentsCount} isGM=${isGM} selected=${selectedSlotId || 'null'}`
         );
         if (typeof window !== 'undefined') {
-            console.debug(
+            _battleDebug(
                 `[ActionDock:gm-signal] attr=${window.currentUserAttribute} role=${window.currentUserRole} user=${window.currentUsername || window.currentUserName || ''}`
             );
         }
@@ -123,7 +128,7 @@ class ActionDock {
     _isSelectPhase(actionName) {
         const phase = store.get('phase');
         if (phase === 'select') return true;
-        console.log(`[ActionDock] ignore ${actionName}: phase=${phase}`);
+        _battleLog(`[ActionDock] ignore ${actionName}: phase=${phase}`);
         return false;
     }
 

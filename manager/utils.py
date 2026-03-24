@@ -18,7 +18,7 @@ ORIGIN_BONUS_BUFFS = {
     8: {"buff_id": "Bu-17", "name": "反撃の石"},
     9: {"buff_id": "Bu-18", "name": "誉れ高き刃"},
     10: {"buff_id": "Bu-09", "name": "爆縮", "count": 8},
-    11: {"buff_id": "Bu-25", "name": "グラン・リテラール・ブラン：いずれ彩られる純白"},
+    11: {"buff_id": "Bu-24", "name": "いずれ彩られる純白"},
     12: {"buff_id": "Bu-20", "name": "世界を見下ろす黒鳥"},
     13: {"buff_id": "Bu-19", "name": "畏怖の衣"},
 }
@@ -31,19 +31,91 @@ ORIGIN_SERVER_LUMINOUS = 15
 ORIGIN_ALTOMAGIA = 16
 ORIGIN_EMRIDA = 17
 
-COLORATION_BUFF_ID = "Bu-23"
+COLORATION_BUFF_ID = "Bu-28"
 COLORATION_BUFF_NAME = "色彩"
 
 ORIGIN_BONUS_BUFFS.update({
-    ORIGIN_FLODIAS: {"buff_id": "Bu-27", "name": "フローディアス：活力の行き重なる落合"},
-    ORIGIN_SERVER_LUMINOUS: {"buff_id": "Bu-26", "name": "サーバ・ルミナス：二値を絡め取る電網"},
-    ORIGIN_ALTOMAGIA: {"buff_id": "Bu-24", "name": "アルトマギア：狭霧に息づく神秘"},
-    ORIGIN_EMRIDA: {"buff_id": "Bu-28", "name": "エムリダ：盛夏と共鳴る高揚"},
+    ORIGIN_FLODIAS: {"buff_id": "Bu-26", "name": "活力の行き重なる落合"},
+    ORIGIN_SERVER_LUMINOUS: {"buff_id": "Bu-25", "name": "二値を絡め取る電網"},
+    ORIGIN_ALTOMAGIA: {"buff_id": "Bu-23", "name": "狭霧に息づく神秘"},
+    ORIGIN_EMRIDA: {"buff_id": "Bu-27", "name": "盛夏と共鳴る高揚"},
 })
+
+STATUS_NAME_ALIASES = {
+    "蜃ｺ陦": "出血",
+    "遐ｴ陬・": "亀裂",
+    "莠陬・": "破裂",
+    "謌ｦ諷・": "戦慄",
+    "闕頑｣・": "荊棘",
+    "騾溷ｺｦ": "速度",
+    "騾溷ｺｦ蛟､": "速度値",
+    "陦悟虚蝗樊焚": "行動回数",
+}
+
+BUFF_NAME_ALIASES = {
+    "豺ｷ荵ｱ": "混乱",
+    "蜀榊屓驕ｿ繝ｭ繝・け": "再回避ロック",
+}
+
+
+def normalize_status_name(status_name):
+    text = str(status_name or "").strip()
+    if not text:
+        return text
+    return STATUS_NAME_ALIASES.get(text, text)
+
+
+def normalize_buff_name(buff_name):
+    text = str(buff_name or "").strip()
+    if not text:
+        return text
+    return BUFF_NAME_ALIASES.get(text, text)
+
+
+def normalize_character_labels(char_obj):
+    """Normalize mojibake aliases in states/params/buffs to canonical labels."""
+    if not isinstance(char_obj, dict):
+        return
+
+    states = char_obj.get("states", [])
+    if isinstance(states, list):
+        normalized_states = []
+        index_by_name = {}
+        for row in states:
+            if not isinstance(row, dict):
+                continue
+            name = normalize_status_name(row.get("name"))
+            entry = dict(row)
+            entry["name"] = name
+            if name in index_by_name:
+                normalized_states[index_by_name[name]]["value"] = entry.get(
+                    "value",
+                    normalized_states[index_by_name[name]].get("value", 0),
+                )
+            else:
+                index_by_name[name] = len(normalized_states)
+                normalized_states.append(entry)
+        char_obj["states"] = normalized_states
+
+    params = char_obj.get("params", [])
+    if isinstance(params, list):
+        for row in params:
+            if isinstance(row, dict) and "label" in row:
+                row["label"] = normalize_status_name(row.get("label"))
+
+    buffs = char_obj.get("special_buffs", [])
+    if isinstance(buffs, list):
+        for row in buffs:
+            if not isinstance(row, dict):
+                continue
+            row["name"] = normalize_buff_name(row.get("name"))
+            if isinstance(row.get("data"), dict) and row["data"].get("name"):
+                row["data"]["name"] = normalize_buff_name(row["data"].get("name"))
 
 def get_status_value(char_obj, status_name):
     """キャラクターから特定のステータス値を取得する（バフ補正込み）"""
     if not char_obj: return 0
+    status_name = normalize_status_name(status_name)
     if status_name == 'HP': return int(char_obj.get('hp', 0))
     if status_name == 'MP': return int(char_obj.get('mp', 0))
 
@@ -62,7 +134,7 @@ def get_status_value(char_obj, status_name):
         val = 0
         found = False
         for param in char_obj.get('params', []):
-            if param.get('label') == status_name:
+            if normalize_status_name(param.get('label')) == status_name:
                 try:
                     val = int(param.get('value', 0))
                     found = True
@@ -80,7 +152,7 @@ def get_status_value(char_obj, status_name):
 
     # 1. params (固定値) から検索
     for param in char_obj.get('params', []):
-        if param.get('label') == status_name:
+        if normalize_status_name(param.get('label')) == status_name:
             try:
                 base_value = int(param.get('value', 0))
                 found = True
@@ -90,7 +162,7 @@ def get_status_value(char_obj, status_name):
     # 2. states (変動値) から検索 (paramsになかった場合のみ、または優先度定義によるが現状はparams優先の実装だったためそれに倣う)
     #    ただし元のコードはparamsで見つかればreturnしていたため、同名のものがある場合はparams優先
     if not found:
-        state = next((s for s in char_obj.get('states', []) if s.get('name') == status_name), None)
+        state = next((s for s in char_obj.get('states', []) if normalize_status_name(s.get('name')) == status_name), None)
         if state:
             try:
                 base_value = int(state.get('value', 0))
@@ -106,6 +178,7 @@ def get_status_value(char_obj, status_name):
 def set_status_value(char_obj, status_name, new_value):
     """キャラクターの特定のステータス値を設定する (0未満ガード付き)"""
     if not char_obj: return
+    status_name = normalize_status_name(status_name)
     safe_new_value = max(0, int(new_value))
 
     if status_name == 'HP':
@@ -115,15 +188,17 @@ def set_status_value(char_obj, status_name, new_value):
         char_obj['mp'] = safe_new_value
         return
 
-    state = next((s for s in char_obj.get('states', []) if s.get('name') == status_name), None)
+    state = next((s for s in char_obj.get('states', []) if normalize_status_name(s.get('name')) == status_name), None)
     if state:
+        state['name'] = status_name
         state['value'] = safe_new_value
     else:
         # Check params if not in states
         # paramsの値を更新することで、get_status_valueがparams優先で取得する挙動と整合させる
         updated_param = False
         for param in char_obj.get('params', []):
-            if param.get('label') == status_name:
+            if normalize_status_name(param.get('label')) == status_name:
+                param['label'] = status_name
                 param['value'] = str(safe_new_value)
                 updated_param = True
                 break
@@ -135,35 +210,48 @@ def set_status_value(char_obj, status_name, new_value):
 def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
     """バフを付与・更新する"""
     if not char_obj: return
+    buff_name = normalize_buff_name(buff_name)
     if 'special_buffs' not in char_obj: char_obj['special_buffs'] = []
 
-    existing = next((b for b in char_obj['special_buffs'] if b.get('name') == buff_name), None)
+    existing = next((b for b in char_obj['special_buffs'] if normalize_buff_name(b.get('name')) == buff_name), None)
     payload = data if data is not None else {}
     payload['name'] = buff_name
     payload['lasting'] = lasting
     payload['delay'] = delay
     if count is not None:
         payload['count'] = count
+    if int(lasting or 0) < 0:
+        payload['is_permanent'] = True
 
     payload['newly_applied'] = True # ★追加: 今回のアクションで適用されたことを示すフラグ
 
     # バフ情報の自動補完 (description, flavor, buff_idなど)
     if 'description' not in payload or 'flavor' not in payload or 'buff_id' not in payload:
-        from manager.buff_catalog import get_buff_effect
+        from manager.buff_catalog import get_buff_by_id, get_buff_effect
         from extensions import all_buff_data
 
         # ID解決
         if 'buff_id' not in payload:
-             found_data = next((d for d in all_buff_data.values() if d.get('name') == buff_name), None)
-             if found_data:
-                 payload['buff_id'] = found_data.get('id')
+            found_data = next((d for d in all_buff_data.values() if d.get('name') == buff_name), None)
+            if found_data:
+                payload['buff_id'] = found_data.get('id')
 
-        effect_data = get_buff_effect(buff_name)
-        if effect_data:
-            if 'description' not in payload and 'description' in effect_data:
-                payload['description'] = effect_data['description']
-            if 'flavor' not in payload and 'flavor' in effect_data:
-                payload['flavor'] = effect_data['flavor']
+        catalog_data = None
+        if payload.get('buff_id'):
+            catalog_data = get_buff_by_id(payload.get('buff_id'))
+
+        if catalog_data:
+            if 'description' not in payload and catalog_data.get('description'):
+                payload['description'] = catalog_data['description']
+            if 'flavor' not in payload and catalog_data.get('flavor'):
+                payload['flavor'] = catalog_data['flavor']
+        else:
+            effect_data = get_buff_effect(buff_name)
+            if effect_data:
+                if 'description' not in payload and 'description' in effect_data:
+                    payload['description'] = effect_data['description']
+                if 'flavor' not in payload and 'flavor' in effect_data:
+                    payload['flavor'] = effect_data['flavor']
 
     # ★ 追加: 加速(Bu-11)・減速(Bu-12) の特殊処理
     # これらは永続(lasting=-1)であり、スタック加算される
@@ -245,7 +333,11 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
 def remove_buff(char_obj, buff_name):
     """バフを削除する"""
     if not char_obj or 'special_buffs' not in char_obj: return
-    char_obj['special_buffs'] = [b for b in char_obj['special_buffs'] if b.get('name') != buff_name]
+    buff_name = normalize_buff_name(buff_name)
+    char_obj['special_buffs'] = [
+        b for b in char_obj['special_buffs']
+        if normalize_buff_name(b.get('name')) != buff_name
+    ]
 
 
 def clear_newly_applied_flags(state_or_characters):
@@ -275,6 +367,34 @@ def clear_newly_applied_flags(state_or_characters):
                 cleared += 1
     return cleared
 
+
+def clear_round_limited_flags(state_or_characters):
+    """
+    1ラウンド限定で有効なフラグをラウンド開始時にクリアする。
+
+    NOTE:
+    - `clear_newly_applied_flags` はマッチ単位で頻繁に呼ばれるため、
+      ラウンド単位フラグのクリアはこの関数に分離する。
+    """
+    if isinstance(state_or_characters, dict):
+        characters = state_or_characters.get('characters', [])
+    elif isinstance(state_or_characters, list):
+        characters = state_or_characters
+    else:
+        characters = []
+
+    cleared = 0
+    for char in characters:
+        if not isinstance(char, dict):
+            continue
+        flags = char.get('flags')
+        if not isinstance(flags, dict):
+            continue
+        if 'fissure_received_this_round' in flags:
+            flags.pop('fissure_received_this_round', None)
+            cleared += 1
+    return cleared
+
 def get_buff_stat_mod(char_obj, stat_name):
     """
     キャラクターのバフから特定のステータス補正値の合計を取得
@@ -286,6 +406,7 @@ def get_buff_stat_mod(char_obj, stat_name):
     Returns:
         int: 補正値の合計
     """
+    stat_name = normalize_status_name(stat_name)
     if not char_obj or 'special_buffs' not in char_obj:
         return 0
 
@@ -303,7 +424,7 @@ def get_buff_stat_mod(char_obj, stat_name):
         # キャッシュされていない場合、または動的パターンの可能性がある場合は解決を試みる
         if not stat_mods:
             from manager.buff_catalog import get_buff_effect
-            effect_data = get_buff_effect(buff.get('name'))
+            effect_data = get_buff_effect(normalize_buff_name(buff.get('name')))
             if effect_data:
                 stat_mods = effect_data.get('stat_mods')
 
@@ -311,12 +432,15 @@ def get_buff_stat_mod(char_obj, stat_name):
             # stat_modsが辞書でない場合はスキップ
             continue
 
-        if stat_name in stat_mods:
+        normalized_mods = {normalize_status_name(k): v for k, v in stat_mods.items()}
+        if stat_name in normalized_mods:
             try:
-                mod_value = int(stat_mods[stat_name])
+                mod_value = int(normalized_mods[stat_name])
                 total_mod += mod_value
             except (ValueError, TypeError) as e:
-                logger.warning(f"バフ '{buff.get('name')}' の stat_mods['{stat_name}'] が不正: {stat_mods[stat_name]}")
+                logger.warning(
+                    f"バフ '{normalize_buff_name(buff.get('name'))}' の stat_mods['{stat_name}'] が不正: {normalized_mods.get(stat_name)}"
+                )
                 continue
 
     return total_mod + get_passive_stat_mod(char_obj, stat_name)
@@ -325,6 +449,7 @@ def get_passive_stat_mod(char_obj, stat_name):
     """
     キャラクターのパッシブスキル(SPassive)から特定のステータス補正値の合計を取得
     """
+    stat_name = normalize_status_name(stat_name)
     if not char_obj or 'SPassive' not in char_obj:
         return 0
 
@@ -341,9 +466,10 @@ def get_passive_stat_mod(char_obj, stat_name):
         effect = passive_data.get('effect', {})
         stat_mods = effect.get('stat_mods', {})
 
-        if stat_name in stat_mods:
+        normalized_mods = {normalize_status_name(k): v for k, v in (stat_mods or {}).items()}
+        if stat_name in normalized_mods:
              try:
-                mod_value = int(stat_mods[stat_name])
+                mod_value = int(normalized_mods[stat_name])
                 total_mod += mod_value
              except (ValueError, TypeError):
                 continue
@@ -356,6 +482,7 @@ def get_buff_stat_mod_details(char_obj, stat_name):
     Returns:
         list: [{'source': 'バフ名', 'value': 2, 'type': 'buff'/'debuff'}, ...]
     """
+    stat_name = normalize_status_name(stat_name)
     if not char_obj or 'special_buffs' not in char_obj:
         return []
 
@@ -370,19 +497,20 @@ def get_buff_stat_mod_details(char_obj, stat_name):
 
         if not stat_mods:
             from manager.buff_catalog import get_buff_effect
-            effect_data = get_buff_effect(buff.get('name'))
+            effect_data = get_buff_effect(normalize_buff_name(buff.get('name')))
             if effect_data:
                 stat_mods = effect_data.get('stat_mods')
 
         if not isinstance(stat_mods, dict):
             continue
 
-        if stat_name in stat_mods:
+        normalized_mods = {normalize_status_name(k): v for k, v in stat_mods.items()}
+        if stat_name in normalized_mods:
             try:
-                mod_value = int(stat_mods[stat_name])
+                mod_value = int(normalized_mods[stat_name])
                 if mod_value != 0:
                     details.append({
-                        'source': buff.get('name'),
+                        'source': normalize_buff_name(buff.get('name')),
                         'value': mod_value,
                         'type': 'buff' if mod_value > 0 else 'debuff'
                     })
@@ -528,10 +656,14 @@ def get_effective_origin_id(char_obj):
 def has_buff_named(char_obj, buff_name):
     if not isinstance(char_obj, dict):
         return False
+    buff_name = normalize_buff_name(buff_name)
     buffs = char_obj.get('special_buffs', [])
     if not isinstance(buffs, list):
         return False
-    return any(isinstance(buff, dict) and buff.get('name') == buff_name for buff in buffs)
+    return any(
+        isinstance(buff, dict) and normalize_buff_name(buff.get('name')) == buff_name
+        for buff in buffs
+    )
 
 
 def _canonical_team(raw_value):
@@ -565,6 +697,67 @@ def _iter_active_characters(state=None, context=None):
         if bool(char.get('is_escaped', False)):
             continue
         yield char
+
+
+def _resolve_battle_state_from_context(state=None, context=None):
+    if isinstance(context, dict):
+        battle_state = context.get('battle_state')
+        if isinstance(battle_state, dict):
+            return battle_state
+        room_state = context.get('room_state')
+        if isinstance(room_state, dict) and isinstance(room_state.get('battle_state'), dict):
+            return room_state.get('battle_state', {})
+    if isinstance(state, dict) and isinstance(state.get('battle_state'), dict):
+        return state.get('battle_state', {})
+    return {}
+
+
+def _resolve_actor_round_speed(actor_char, state=None, context=None):
+    if not isinstance(actor_char, dict):
+        return 0
+    try:
+        speed_val = int(get_status_value(actor_char, '騾溷ｺｦ蛟､') or 0)
+    except Exception:
+        speed_val = 0
+    if speed_val > 0:
+        return speed_val
+
+    # Fallback for flows where speed is kept as aggregate fields.
+    for speed_key in ('totalSpeed', 'speed', 'initiative'):
+        try:
+            fallback_speed = int(actor_char.get(speed_key, 0) or 0)
+        except Exception:
+            fallback_speed = 0
+        if fallback_speed > 0:
+            return fallback_speed
+
+    actor_id = actor_char.get('id')
+    if not actor_id:
+        return 0
+
+    battle_state = _resolve_battle_state_from_context(state=state, context=context)
+    slots = battle_state.get('slots', {}) if isinstance(battle_state, dict) else {}
+    if not isinstance(slots, dict):
+        return 0
+
+    slot_speeds = []
+    for slot in slots.values():
+        if not isinstance(slot, dict):
+            continue
+        if str(slot.get('actor_id')) != str(actor_id):
+            continue
+        if bool(slot.get('disabled', False)):
+            continue
+        try:
+            initiative = int(slot.get('initiative', 0) or 0)
+        except Exception:
+            initiative = 0
+        if initiative > 0:
+            slot_speeds.append(initiative)
+
+    if not slot_speeds:
+        return 0
+    return max(slot_speeds)
 
 
 def is_attack_skill(skill_data):
@@ -622,6 +815,24 @@ def team_has_origin(actor_char, origin_id, state=None, context=None):
     return False
 
 
+def _has_same_speed_peer_with_fallback(actor_char, state=None, context=None):
+    if not isinstance(actor_char, dict):
+        return False
+
+    actor_speed = int(_resolve_actor_round_speed(actor_char, state=state, context=context) or 0)
+    if actor_speed <= 0:
+        return False
+
+    actor_id = actor_char.get('id')
+    for char in _iter_active_characters(state=state, context=context):
+        if str(char.get('id')) == str(actor_id):
+            continue
+        other_speed = int(_resolve_actor_round_speed(char, state=state, context=context) or 0)
+        if other_speed == actor_speed:
+            return True
+    return False
+
+
 def has_same_speed_peer(actor_char, state=None, context=None):
     if not isinstance(actor_char, dict):
         return False
@@ -675,7 +886,7 @@ def compute_origin_skill_modifiers(actor_char, target_char, skill_data, state=No
         if team_has_origin(actor_char, 13, state=state, context=context):
             modifiers['dice_power_bonus'] += 1
 
-    if origin_id == ORIGIN_EMRIDA and has_same_speed_peer(actor_char, state=state, context=context):
+    if origin_id == ORIGIN_EMRIDA and _has_same_speed_peer_with_fallback(actor_char, state=state, context=context):
         modifiers['base_power_bonus'] += 1
 
     return modifiers

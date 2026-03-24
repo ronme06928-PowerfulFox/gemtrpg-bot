@@ -2,7 +2,8 @@
 Bleed resolution helpers shared by round-end flow and custom effects.
 """
 
-from manager.utils import get_status_value
+import importlib
+import sys
 
 BLEED_MAINTENANCE_BUFF_ID = "Bu-08"
 
@@ -12,6 +13,38 @@ def _safe_int(value, default=0):
         return int(value)
     except (TypeError, ValueError):
         return int(default)
+
+
+def _fallback_get_status_value(char_obj, status_name):
+    if not isinstance(char_obj, dict):
+        return 0
+    if status_name in ("HP", "hp"):
+        return int(char_obj.get("hp", 0) or 0)
+    if status_name in ("MP", "mp"):
+        return int(char_obj.get("mp", 0) or 0)
+    for param in (char_obj.get("params") or []):
+        if isinstance(param, dict) and param.get("label") == status_name:
+            return _safe_int(param.get("value", 0), 0)
+    for state in (char_obj.get("states") or []):
+        if isinstance(state, dict) and state.get("name") == status_name:
+            return _safe_int(state.get("value", 0), 0)
+    return _safe_int(char_obj.get(status_name, 0), 0)
+
+
+def _get_status_value(char_obj, status_name):
+    mod = sys.modules.get("manager.utils")
+    if mod is None:
+        try:
+            mod = importlib.import_module("manager.utils")
+        except Exception:
+            mod = None
+    fn = getattr(mod, "get_status_value", None) if mod else None
+    if callable(fn):
+        try:
+            return _safe_int(fn(char_obj, status_name), 0)
+        except Exception:
+            pass
+    return _fallback_get_status_value(char_obj, status_name)
 
 
 def get_bleed_maintenance_count_from_buff(buff):
@@ -104,7 +137,7 @@ def resolve_bleed_tick(char, *, consume_maintenance=True):
         "maintenance_remaining": int,
       }
     """
-    bleed_before = max(0, _safe_int(get_status_value(char, "出血"), 0))
+    bleed_before = max(0, _safe_int(_get_status_value(char, "出血"), 0))
     if bleed_before <= 0:
         return {
             "damage": 0,
@@ -137,4 +170,3 @@ def resolve_bleed_tick(char, *, consume_maintenance=True):
         "maintenance_consumed": maintenance_consumed,
         "maintenance_remaining": maintenance_remaining,
     }
-

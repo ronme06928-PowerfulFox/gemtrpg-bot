@@ -8,7 +8,11 @@ window.setupVisualSocketHandlers = function () {
     if (window._socketHandlersActuallyRegistered) return;
     window._socketHandlersActuallyRegistered = true;
 
-    console.log('[visual_socket] Registering socket handlers...');
+    const _battleVerbose = () => (typeof window !== 'undefined' && !!window.BATTLE_DEBUG_VERBOSE);
+    const _battleLog = (...args) => { if (_battleVerbose()) console.log(...args); };
+    const _battleInfo = (...args) => { if (_battleVerbose()) console.info(...args); };
+
+    _battleLog('[visual_socket] Registering socket handlers...');
 
     const applyBattleStore = (fnName, payload) => {
         if (window.BattleStore && typeof window.BattleStore[fnName] === 'function') {
@@ -18,10 +22,11 @@ window.setupVisualSocketHandlers = function () {
         return false;
     };
 
-    const deferredResolveLogBatches = [];
-    const deferredLiveLogLines = [];
-    let deferredHistoryDirty = false;
-    const emittedResolveSummaryKeys = new Set();
+    const deferredLiveLogs = [];
+    const deferredLiveLogIds = new Set();
+    const pendingResolveStepFlushKeys = new Set();
+    let deferWrappedOriginalLogToBattleLog = null;
+    let lastFlushedResolveStepKey = null;
 
     const shouldDeferResolveLogs = () => {
         const s = (window.BattleStore && window.BattleStore.state)
@@ -32,42 +37,223 @@ window.setupVisualSocketHandlers = function () {
         return !!document.getElementById('resolve-flow-panel');
     };
 
-    const appendLinesAvoidingHistoryDup = (lines) => {
-        if (!Array.isArray(lines) || lines.length === 0) return;
-        if (typeof window.appendSystemLines !== 'function') return;
-        let linesToAppend = lines;
-        if (typeof battleState !== 'undefined' && Array.isArray(battleState.logs) && battleState.logs.length > 0) {
-            const historyMessages = new Set(
-                battleState.logs
-                    .map((row) => (row && row.message !== undefined && row.message !== null) ? String(row.message) : null)
-                    .filter((v) => !!v)
-            );
-            linesToAppend = lines.filter((line) => !historyMessages.has(String(line)));
+    const _emitDeferredLogRow = (logData) => {
+        try {
+            const rawId = logData?.log_id;
+            if (rawId !== undefined && rawId !== null) {
+                deferredLiveLogIds.delete(String(rawId));
+            }
+            if (typeof deferWrappedOriginalLogToBattleLog === 'function') {
+                deferWrappedOriginalLogToBattleLog(logData);
+            }
+            // Visual tab uses `visual-log-area`; ensure deferred flush appears there immediately.
+            const visualArea = document.getElementById('visual-log-area');
+            if (
+                visualArea
+                && typeof window.appendVisualLogBatch === 'function'
+            ) {
+                window.appendVisualLogBatch([logData]);
+            } else if (visualArea && typeof window.appendVisualLogLine === 'function') {
+                // Fallback path when batch helper is unavailable.
+                const filter = window.currentVisualLogFilter || 'all';
+                window.appendVisualLogLine(visualArea, logData, filter);
+            }
+            return true;
+        } catch (e) {
+            console.warn('[resolve_log_flush] failed to emit deferred log', e);
+            return false;
         }
-        if (linesToAppend.length > 0) {
-            window.appendSystemLines(linesToAppend);
+    };
+
+    const _resolveStepKeyFromLog = (logData) => {
+        if (!logData || typeof logData !== 'object') return '';
+        const direct = String(logData.resolve_step_key || '').trim();
+        if (direct) return direct;
+        const directIdx = Number(logData.resolve_step_index);
+        if (Number.isFinite(directIdx) && directIdx >= 0) return `raw:${directIdx}`;
+        const detail = (logData.resolve_trace_detail && typeof logData.resolve_trace_detail === 'object')
+            ? logData.resolve_trace_detail
+            : null;
+        if (!detail) return '';
+        const detailStepIndex = Number(detail.step_index);
+        if (Number.isFinite(detailStepIndex) && detailStepIndex >= 0) return `raw:${detailStepIndex}`;
+        // Legacy payload had only 1-based `step`.
+        const detailStep = Number(detail.step);
+        if (Number.isFinite(detailStep)) {
+            if (detailStep > 0) return `raw:${Math.max(0, detailStep - 1)}`;
+            if (detailStep === 0) return 'raw:0';
         }
+        return '';
+    };
+
+    const _resolveStepKeyVariants = (stepKeyRaw) => {
+        const key = String(stepKeyRaw || '').trim();
+        const variants = new Set();
+        if (!key) return variants;
+        variants.add(key);
+        const m = key.match(/^(raw|idx):(-?\d+)$/);
+        if (m) {
+            const idx = Number(m[2]);
+            if (Number.isFinite(idx)) {
+                variants.add(`raw:${idx}`);
+                variants.add(`idx:${idx}`);
+            }
+        }
+        return variants;
+    };
+
+    const _hasAnyKeyVariant = (setLike, variants) => {
+        if (!(setLike instanceof Set) || !(variants instanceof Set) || variants.size <= 0) return false;
+        for (const v of variants) {
+            if (setLike.has(v)) return true;
+        }
+        return false;
+    };
+
+    const _emitDeferredLogs = (count = null) => {
+        if (typeof deferWrappedOriginalLogToBattleLog !== 'function') return 0;
+        const maxCount = Number.isFinite(Number(count))
+            ? Math.max(0, Number(count))
+            : deferredLiveLogs.length;
+        if (maxCount <= 0) return 0;
+        const chunk = deferredLiveLogs.splice(0, maxCount);
+        let emitted = 0;
+        chunk.forEach((logData) => {
+            if (_emitDeferredLogRow(logData)) emitted += 1;
+        });
+        return emitted;
     };
 
     const flushNextDeferredResolveLogBatch = () => {
-        if (deferredResolveLogBatches.length === 0) return;
-        const batch = deferredResolveLogBatches.shift();
-        appendLinesAvoidingHistoryDup(batch);
+        if (deferredLiveLogs.length <= 0) return 0;
+        const chunk = [];
+        let reachedResolveTrace = false;
+        while (deferredLiveLogs.length > 0) {
+            const row = deferredLiveLogs.shift();
+            chunk.push(row);
+            if (String(row?.source || '') === 'resolve_trace') {
+                reachedResolveTrace = true;
+                break;
+            }
+        }
+        if (chunk.length <= 0) return 0;
+        if (!reachedResolveTrace && chunk.length > 1) {
+            // Boundary unknown: emit only one row to avoid "all-at-once" flush.
+            while (chunk.length > 1) {
+                const row = chunk.pop();
+                if (row) deferredLiveLogs.unshift(row);
+            }
+        }
+        let emitted = 0;
+        chunk.forEach((logData) => {
+            if (_emitDeferredLogRow(logData)) emitted += 1;
+        });
+        return emitted;
     };
+    window.flushNextDeferredResolveLogBatch = flushNextDeferredResolveLogBatch;
+
+    const flushDeferredResolveLogsForStepKey = (stepKeyRaw) => {
+        const keyVariants = _resolveStepKeyVariants(stepKeyRaw);
+        if (keyVariants.size <= 0 || deferredLiveLogs.length <= 0) return 0;
+        const firstMatchIdx = deferredLiveLogs.findIndex((row) => {
+            const rowKey = _resolveStepKeyFromLog(row);
+            return !!rowKey && keyVariants.has(rowKey);
+        });
+        if (firstMatchIdx < 0) return 0;
+
+        let start = firstMatchIdx;
+        while (start > 0) {
+            const prevKey = _resolveStepKeyFromLog(deferredLiveLogs[start - 1]);
+            if (prevKey) break;
+            start -= 1;
+        }
+
+        let end = firstMatchIdx;
+        let sawResolveTrace = false;
+        for (let i = firstMatchIdx; i < deferredLiveLogs.length; i += 1) {
+            const row = deferredLiveLogs[i];
+            const rowKey = _resolveStepKeyFromLog(row);
+            const sameKey = !rowKey || keyVariants.has(rowKey);
+            if (!sameKey) break;
+            end = i;
+            if (String(row?.source || '') === 'resolve_trace') {
+                sawResolveTrace = true;
+                break;
+            }
+        }
+        if (!sawResolveTrace) {
+            // Avoid swallowing all lines when boundary is unclear.
+            end = Math.min(end, firstMatchIdx);
+        }
+
+        const matched = deferredLiveLogs.slice(start, end + 1);
+        if (matched.length <= 0) return 0;
+        deferredLiveLogs.splice(start, matched.length);
+        let emitted = 0;
+        matched.forEach((row) => {
+            if (_emitDeferredLogRow(row)) emitted += 1;
+        });
+        return emitted;
+    };
+    window.flushDeferredResolveLogsForStepKey = flushDeferredResolveLogsForStepKey;
 
     const flushDeferredResolveLogs = () => {
-        const lines = deferredResolveLogBatches.splice(0, deferredResolveLogBatches.length).flat();
-        const pendingLive = deferredLiveLogLines.splice(0, deferredLiveLogLines.length);
-        if (deferredHistoryDirty) {
-            if (typeof renderVisualLogHistory === 'function' && typeof battleState !== 'undefined') {
-                renderVisualLogHistory(battleState.logs || []);
-                window._lastLogCount = Array.isArray(battleState.logs) ? battleState.logs.length : window._lastLogCount;
-            }
-            deferredHistoryDirty = false;
+        const emitted = _emitDeferredLogs(null);
+        if (deferredLiveLogs.length <= 0) {
+            pendingResolveStepFlushKeys.clear();
+            lastFlushedResolveStepKey = null;
         }
-        appendLinesAvoidingHistoryDup(lines.concat(pendingLive));
+        return emitted;
     };
     window.flushDeferredResolveLogs = flushDeferredResolveLogs;
+
+    const flushDeferredResolveByStepKey = (payloadOrKey) => {
+        const key = (typeof payloadOrKey === 'string')
+            ? payloadOrKey
+            : String(payloadOrKey?.key || '');
+        const keyVariants = _resolveStepKeyVariants(key);
+        if (key && _hasAnyKeyVariant(_resolveStepKeyVariants(lastFlushedResolveStepKey), keyVariants)) return 0;
+        if (key) {
+            const emitted = flushDeferredResolveLogsForStepKey(key);
+            if (emitted > 0) {
+                _resolveStepKeyVariants(key).forEach((k) => pendingResolveStepFlushKeys.delete(k));
+                lastFlushedResolveStepKey = key;
+                return emitted;
+            }
+            // Fallback: step key mismatch (legacy/new index混在)でも「次のマッチへ」で先頭バッチを進める。
+            const fallbackEmitted = flushNextDeferredResolveLogBatch();
+            if (fallbackEmitted > 0) {
+                keyVariants.forEach((k) => pendingResolveStepFlushKeys.delete(k));
+                lastFlushedResolveStepKey = key;
+                return fallbackEmitted;
+            }
+            keyVariants.forEach((k) => pendingResolveStepFlushKeys.add(k));
+            return 0;
+        }
+        return flushNextDeferredResolveLogBatch();
+    };
+    window.flushDeferredResolveByStepKey = flushDeferredResolveByStepKey;
+
+    const _shouldDeferThisLog = (logData) => {
+        const source = String(logData?.source || '');
+        if (source === 'resolve_trace') return true;
+        return shouldDeferResolveLogs();
+    };
+
+    const _hasPendingResolveTraceLogs = () => (
+        Array.isArray(deferredLiveLogs)
+        && deferredLiveLogs.some((row) => String(row?.source || '') === 'resolve_trace')
+    );
+
+    const _shouldHoldDeferredQueue = () => {
+        if (!_hasPendingResolveTraceLogs()) return false;
+        if (shouldDeferResolveLogs()) return true;
+        const s = (window.BattleStore && window.BattleStore.state)
+            ? window.BattleStore.state
+            : (typeof battleState !== 'undefined' ? battleState : {});
+        const traceLen = Array.isArray(s?.resolveTrace) ? s.resolveTrace.length : 0;
+        return traceLen > 0;
+    };
 
     const resolveOutcomeLabel = (outcomeRaw) => {
         const outcome = String(outcomeRaw || 'no_effect');
@@ -238,25 +424,41 @@ window.setupVisualSocketHandlers = function () {
     };
 
     const installBattleLogDeferHook = () => {
-        if (window._resolveBattleLogDeferHookInstalled) return true;
         if (typeof window.logToBattleLog !== 'function') return false;
-        const original = window.logToBattleLog;
-        if (original && original.__resolveWrapped) {
+        const current = window.logToBattleLog;
+        if (current && current.__resolveWrapped) {
+            deferWrappedOriginalLogToBattleLog = current.__resolveOriginal || current;
             window._resolveBattleLogDeferHookInstalled = true;
             return true;
         }
+        const original = current;
+        deferWrappedOriginalLogToBattleLog = original;
         const wrapped = function (logData) {
             const type = String(logData?.type || '');
             const message = (logData?.message !== undefined && logData?.message !== null)
                 ? String(logData.message)
                 : '';
-            if (message && shouldDeferResolveLogs() && type !== 'chat') {
-                deferredLiveLogLines.push(message);
+            const rawId = logData?.log_id;
+            const id = (rawId !== undefined && rawId !== null) ? String(rawId) : '';
+            if (message && type !== 'chat' && _shouldDeferThisLog(logData)) {
+                if (id && deferredLiveLogIds.has(id)) return;
+                if (id) deferredLiveLogIds.add(id);
+                deferredLiveLogs.push(logData);
+                const stepKey = _resolveStepKeyFromLog(logData);
+                const stepVariants = _resolveStepKeyVariants(stepKey);
+                if (stepKey && _hasAnyKeyVariant(pendingResolveStepFlushKeys, stepVariants)) {
+                    const emitted = flushDeferredResolveLogsForStepKey(stepKey);
+                    if (emitted > 0) {
+                        stepVariants.forEach((k) => pendingResolveStepFlushKeys.delete(k));
+                        lastFlushedResolveStepKey = stepKey;
+                    }
+                }
                 return;
             }
             return original(logData);
         };
         wrapped.__resolveWrapped = true;
+        wrapped.__resolveOriginal = original;
         window.logToBattleLog = wrapped;
         window._resolveBattleLogDeferHookInstalled = true;
         return true;
@@ -266,17 +468,20 @@ window.setupVisualSocketHandlers = function () {
         if (window._resolveFlowLogFlushListenerBound) return true;
         if (!window.EventBus || typeof window.EventBus.on !== 'function') return false;
         window._resolveFlowLogFlushListenerBound = true;
-        window.EventBus.on('battle:resolve:flow:step-finished', () => {
-            flushNextDeferredResolveLogBatch();
+        window.EventBus.on('battle:resolve:flow:step-finished', (_payload) => {
+            // 逐次ログは「次のマッチへ」進行時に同期表示する。
+            // step-finished時点ではflushしない（ネタバレ防止）。
+        });
+        window.EventBus.on('battle:resolve:flow:advance', (payload) => {
+            const idx = Number(payload?.expected_step_index);
+            if (!Number.isFinite(idx) || idx < 0) return;
+            flushDeferredResolveByStepKey({ key: `raw:${idx}` });
         });
         window.EventBus.on('battle:resolve:flow:completed', (payload) => {
             flushDeferredResolveLogs();
-            const key = String(payload?.round_key || `${payload?.battle_id || ''}:${payload?.round || ''}`);
-            if (!key || emittedResolveSummaryKeys.has(key)) return;
-            emittedResolveSummaryKeys.add(key);
-            const stateNow = (window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : battleState;
-            const summaryLines = buildResolveSummaryLines(stateNow || {});
-            appendLinesAvoidingHistoryDup(summaryLines);
+            deferredLiveLogIds.clear();
+            pendingResolveStepFlushKeys.clear();
+            lastFlushedResolveStepKey = null;
         });
         return true;
     };
@@ -285,7 +490,7 @@ window.setupVisualSocketHandlers = function () {
         let retryCount = 0;
         const retryTimer = setInterval(() => {
             retryCount += 1;
-            if (bindResolveFlowFlushListener() || retryCount >= 20) {
+            if (bindResolveFlowFlushListener() || retryCount >= 120) {
                 clearInterval(retryTimer);
             }
         }, 250);
@@ -294,7 +499,7 @@ window.setupVisualSocketHandlers = function () {
         let retryCount = 0;
         const retryTimer = setInterval(() => {
             retryCount += 1;
-            if (installBattleLogDeferHook() || retryCount >= 20) {
+            if (installBattleLogDeferHook() || retryCount >= 120) {
                 clearInterval(retryTimer);
             }
         }, 250);
@@ -450,19 +655,17 @@ window.setupVisualSocketHandlers = function () {
                 container.appendChild(row);
             });
             container.scrollTop = container.scrollHeight;
-            console.log('[trace_chat_append] n=', safeLines.length);
+            _battleLog('[trace_chat_append] n=', safeLines.length);
         };
     }
 
     // --- State Update ---
     socket.on('state_updated', (state) => {
-        if (!window._resolveBattleLogDeferHookInstalled) {
-            installBattleLogDeferHook();
-        }
+        installBattleLogDeferHook();
         // Debug: Log incoming state details
         const timelineLen = state.timeline ? state.timeline.length : 'undefined';
         const charsLen = state.characters ? state.characters.length : 'undefined';
-        console.log(`[state_updated] timeline=${timelineLen}, chars=${charsLen}`, state);
+        _battleLog(`[state_updated] timeline=${timelineLen}, chars=${charsLen}`, state);
 
         // Create a flag to track if we handled this via Store
         let processedByStore = false;
@@ -499,7 +702,8 @@ window.setupVisualSocketHandlers = function () {
             const newLogCount = (state.logs && Array.isArray(state.logs)) ? state.logs.length : 0;
             if (newLogCount !== window._lastLogCount) {
                 if (shouldDeferResolveLogs()) {
-                    deferredHistoryDirty = true;
+                    // Resolve中のstate反映では再描画せず、件数だけ追従して再掲を防ぐ。
+                    window._lastLogCount = newLogCount;
                 } else if (typeof renderVisualLogHistory === 'function') {
                     const prevLogCount = Number(window._lastLogCount || 0);
                     const canAppendOnly = (
@@ -540,10 +744,11 @@ window.setupVisualSocketHandlers = function () {
 
     // --- Select/Resolve New Flow Events ---
     socket.on('battle_round_started', (payload) => {
-        console.log('[visual_socket] battle_round_started', payload);
-        deferredResolveLogBatches.length = 0;
-        deferredLiveLogLines.length = 0;
-        deferredHistoryDirty = false;
+        _battleLog('[visual_socket] battle_round_started', payload);
+        deferredLiveLogs.length = 0;
+        deferredLiveLogIds.clear();
+        pendingResolveStepFlushKeys.clear();
+        lastFlushedResolveStepKey = null;
         const handled = applyBattleStore('setRoundStarted', payload || {});
         if (handled) syncLegacyBattleStateFromStore();
         else applyBattlePayloadToLegacy(payload || {});
@@ -556,18 +761,18 @@ window.setupVisualSocketHandlers = function () {
     socket.on('battle_state_updated', (payload) => {
         const slotsLen = payload?.slots ? Object.keys(payload.slots).length : 0;
         const intentsLen = payload?.intents ? Object.keys(payload.intents).length : 0;
-        console.log(`[visual_socket] battle_state_updated phase=${payload?.phase} slots=${slotsLen} intents=${intentsLen}`);
+        _battleLog(`[visual_socket] battle_state_updated phase=${payload?.phase} slots=${slotsLen} intents=${intentsLen}`);
         const handled = applyBattleStore('applyBattleState', payload || {});
         if (handled) syncLegacyBattleStateFromStore();
         else applyBattlePayloadToLegacy(payload || {});
-        if (!shouldDeferResolveLogs()) flushDeferredResolveLogs();
+        if (!shouldDeferResolveLogs() && !_shouldHoldDeferredQueue()) flushDeferredResolveLogs();
 
         // Observation log for select/resolve correctness checks.
         const observed = (window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : battleState;
         const tlLen = Array.isArray(observed?.timeline) ? observed.timeline.length : 0;
         const spent = _countSpentEntries(observed);
         const active = _activeMarker(observed, payload);
-        console.info(
+        _battleInfo(
             `[OBS] phase=${observed?.phase || payload?.phase || 'n/a'} tl=${tlLen} slots=${Object.keys(observed?.slots || {}).length} intents=${Object.keys(observed?.intents || {}).length} active=${active || 'none'} spent=${spent}`
         );
 
@@ -578,69 +783,59 @@ window.setupVisualSocketHandlers = function () {
     });
 
     socket.on('battle_resolve_ready', (payload) => {
-        console.log('[visual_socket] battle_resolve_ready', payload);
+        _battleLog('[visual_socket] battle_resolve_ready', payload);
         const handled = applyBattleStore('setResolveReady', payload || { ready: true });
         if (handled) syncLegacyBattleStateFromStore();
         else applyBattlePayloadToLegacy({ resolve_ready: true, resolve_ready_info: payload || {} });
         if (typeof updateActionDock === 'function') updateActionDock();
     });
 
+    socket.on('battle_resolve_flow_advance', (payload) => {
+        const idx = Number(payload?.expected_step_index);
+        const key = (Number.isFinite(idx) && idx >= 0) ? `raw:${idx}` : '';
+        const emitted = key ? flushDeferredResolveByStepKey({ key }) : 0;
+        _battleLog(`[visual_socket] battle_resolve_flow_advance step=${Number.isFinite(idx) ? idx : 'n/a'} flushed=${emitted}`);
+    });
+
     socket.on('battle_phase_changed', (payload) => {
-        console.log('[visual_socket] battle_phase_changed', payload);
+        _battleLog('[visual_socket] battle_phase_changed', payload);
         const toPhase = String((payload || {}).to || '');
         if (toPhase === 'select') {
-            deferredResolveLogBatches.length = 0;
-            deferredLiveLogLines.length = 0;
-            deferredHistoryDirty = false;
+            deferredLiveLogs.length = 0;
+            deferredLiveLogIds.clear();
+            pendingResolveStepFlushKeys.clear();
+            lastFlushedResolveStepKey = null;
         }
         const handled = applyBattleStore('setPhase', (payload || {}).to);
         if (handled) syncLegacyBattleStateFromStore();
         else applyBattlePayloadToLegacy({ phase: (payload || {}).to });
-        if (!shouldDeferResolveLogs()) flushDeferredResolveLogs();
+        if (!shouldDeferResolveLogs() && !_shouldHoldDeferredQueue()) flushDeferredResolveLogs();
         if (typeof renderSlotBadgesForAllTokens === 'function') renderSlotBadgesForAllTokens();
         if (typeof updateActionDock === 'function') updateActionDock();
     });
 
     socket.on('battle_resolve_trace_appended', (payload) => {
-        console.log('[trace_recv] keys=', Object.keys(payload || {}));
-        console.log('[trace_recv] sample=', payload?.lines?.[0] ?? payload?.text ?? payload?.message ?? payload?.kind ?? null);
-
-        // Avoid duplicate append: prefer top-level payload.lines, fallback to first trace row lines.
-        let toAppend = [];
-        if (Array.isArray(payload?.lines) && payload.lines.length > 0) {
-            toAppend = payload.lines;
-        } else {
-            const traceRows = Array.isArray(payload?.trace) ? payload.trace : [];
-            const firstWithLines = traceRows.find((row) => row && Array.isArray(row.lines) && row.lines.length > 0);
-            if (firstWithLines) {
-                toAppend = firstWithLines.lines;
-            }
-        }
-        if (toAppend.length > 0 || deferredLiveLogLines.length > 0) {
-            if (shouldDeferResolveLogs()) {
-                const merged = deferredLiveLogLines.splice(0, deferredLiveLogLines.length).concat(toAppend.slice());
-                deferredResolveLogBatches.push(merged);
-            } else {
-                const merged = deferredLiveLogLines.splice(0, deferredLiveLogLines.length).concat(toAppend.slice());
-                window.appendSystemLines(merged);
-            }
-        }
+        _battleLog('[trace_recv] keys=', Object.keys(payload || {}));
+        _battleLog('[trace_recv] sample=', payload?.lines?.[0] ?? payload?.text ?? payload?.message ?? payload?.kind ?? null);
 
         const trace = (payload && payload.trace) || [];
-        console.log(`[visual_socket] battle_resolve_trace_appended +${trace.length}`);
+        _battleLog(`[visual_socket] battle_resolve_trace_appended +${trace.length}`);
         const handled = applyBattleStore('appendResolveTrace', trace);
         if (handled) syncLegacyBattleStateFromStore();
         else applyBattlePayloadToLegacy({ trace });
-        // Keep minimal storage-only for now; replay UI comes later.
     });
 
     socket.on('battle_round_finished', (payload) => {
-        console.log('[visual_socket] battle_round_finished', payload);
-        console.info('[OBS] round_finished payload_keys=', Object.keys(payload || {}));
+        _battleLog('[visual_socket] battle_round_finished', payload);
+        _battleInfo('[OBS] round_finished payload_keys=', Object.keys(payload || {}));
         const handled = applyBattleStore('setRoundFinished', (payload || {}).round);
         if (handled) syncLegacyBattleStateFromStore();
         else applyBattlePayloadToLegacy({ round: (payload || {}).round, phase: 'round_end' });
-        if (!shouldDeferResolveLogs()) flushDeferredResolveLogs();
+        if (!shouldDeferResolveLogs() && !_shouldHoldDeferredQueue()) flushDeferredResolveLogs();
+        if (!shouldDeferResolveLogs()) {
+            pendingResolveStepFlushKeys.clear();
+            lastFlushedResolveStepKey = null;
+        }
         if (typeof updateActionDock === 'function') updateActionDock();
     });
 
@@ -733,7 +928,7 @@ window.setupVisualSocketHandlers = function () {
                     window.BattleStore.setDeclareCalc(data || null);
                 }
             }
-            console.log(`[declare] calc_result source=${declaredSource} skill=${data.skill_id} min=${data.min_damage} max=${data.max_damage} error=${!!data.error}`);
+            _battleLog(`[declare] calc_result source=${declaredSource} skill=${data.skill_id} min=${data.min_damage} max=${data.max_damage} error=${!!data.error}`);
             return;
         }
 
@@ -820,7 +1015,7 @@ window.setupVisualSocketHandlers = function () {
             const side = data.prefix.replace('visual_', '');
             const charId = side === 'attacker' ? battleState.active_match?.attacker_id : battleState.active_match?.defender_id;
             const canControl = charId ? canControlCharacter(charId) : false;
-            console.log(`[skill_declaration_result] ${side} side, charId: ${charId}, canControl: ${canControl}`);
+            _battleLog(`[skill_declaration_result] ${side} side, charId: ${charId}, canControl: ${canControl}`);
             updateDuelUI(side, { ...data, enableButton: canControl });
         }
     });
@@ -875,14 +1070,14 @@ window.setupVisualSocketHandlers = function () {
         socket.on('state_updated', (newState) => {
             if (!newState) return;
             if (window.lastTurnCharId !== newState.turn_char_id) {
-                console.log(`[TurnChange] ${window.lastTurnCharId} -> ${newState.turn_char_id}. Resetting match flag.`);
+                _battleLog(`[TurnChange] ${window.lastTurnCharId} -> ${newState.turn_char_id}. Resetting match flag.`);
                 window.lastTurnCharId = newState.turn_char_id;
                 // window.matchActionInitiated = false; // Removed in Phase 2
             }
         });
     }
 
-    console.log('[visual_socket] Socket handlers registered.');
+    _battleLog('[visual_socket] Socket handlers registered.');
 
     // Initialize Wide Match Listeners (Phase 4-5)
     if (typeof window.initWideMatchSocketListeners === 'function') {

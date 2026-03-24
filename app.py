@@ -341,6 +341,13 @@ def get_passive_data():
     passives = passive_loader.load_passives()
     return jsonify(passives)
 
+@app.route('/api/get_buff_data', methods=['GET'])
+def get_buff_data():
+    """フロントエンドにバフ図鑑データを提供するAPI"""
+    from manager.buffs.loader import buff_catalog_loader
+    buffs = buff_catalog_loader.load_buffs()
+    return jsonify(buffs)
+
 @app.route('/api/get_glossary_data', methods=['GET'])
 def get_glossary_data():
     """フロントエンドに用語辞書データを提供するAPI"""

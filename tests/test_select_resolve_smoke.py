@@ -1844,6 +1844,47 @@ def test_case29_defense_vs_defense_winner_gets_fp_plus_one(monkeypatch):
     assert _state_value(defender, "FP") == 0
 
 
+def test_case29a_existing_fp_gain_with_string_target_id_is_not_granted_twice(monkeypatch):
+    _, battle_core = _mods()
+    attacker = _make_actor("A1", "ally")
+    defender = _make_actor("B1", "enemy")
+    state = _base_state([attacker, defender])
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 9, 0)
+    _set_intent(state, "A_slot", "A1", "atk_a", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "atk_b", "single_slot", "A_slot")
+    state["battle_state"]["phase"] = "resolve_single"
+    _patch_room_and_socket(monkeypatch, state)
+    monkeypatch.setattr(battle_core, "_update_char_stat", _stub_update_char_stat)
+
+    battle_core.all_skill_data["atk_a"] = {"base_power": 1, "dice_power": "1d1", "rule_data": {"effects": []}}
+    battle_core.all_skill_data["atk_b"] = {"base_power": 1, "dice_power": "1d1", "rule_data": {"effects": []}}
+
+    def _stub_clash(**_kwargs):
+        return {
+            "ok": True,
+            "outcome": "attacker_win",
+            "summary": {
+                "damage": [],
+                "statuses": [{"target_id": "A1", "name": "FP", "before": 0, "after": 1, "delta": 1}],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "rolls": {"power_a": 9, "power_b": 6, "tie_break": None},
+            },
+        }
+
+    monkeypatch.setattr(battle_core, "_resolve_clash_by_existing_logic", _stub_clash)
+    battle_core.run_select_resolve_auto("room_t", "battle_test")
+
+    clash_trace = next((t for t in state["battle_state"]["resolve"]["trace"] if t.get("kind") == "clash"), None)
+    assert clash_trace is not None
+    statuses = ((clash_trace.get("applied") or {}).get("statuses") or [])
+    fp_statuses = [s for s in statuses if s.get("target_id") == "A1" and s.get("name") == "FP"]
+    assert len(fp_statuses) == 1
+    assert fp_statuses[0]["before"] == 0
+    assert fp_statuses[0]["after"] == 1
+
+
 def test_case30_defense_vs_evade_becomes_no_match_and_no_fp(monkeypatch):
     _, battle_core = _mods()
     attacker = _make_actor("A1", "ally")

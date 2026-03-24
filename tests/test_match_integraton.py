@@ -210,6 +210,20 @@ class TestMatchIntegration(unittest.TestCase):
     def setUp(self):
         mock_extensions.socketio.reset_mock()
         mock_rm.broadcast_log.reset_mock()
+        mock_rm.broadcast_state_update.reset_mock()
+
+        # Rebind route/solver dependencies every test so this module is
+        # order-independent even when imported after real modules.
+        ds.get_room_state = mock_get_room_state
+        ds.save_specific_room_state = mock_save_specific_room_state
+        ds.broadcast_log = mock_rm.broadcast_log
+        ds.broadcast_state_update = mock_rm.broadcast_state_update
+        ds._update_char_stat = mock_update_char_stat
+        ds.all_skill_data = mock_skill_data
+        dr.get_user_info_from_sid = mock_get_user_info
+        dr.update_duel_declaration = ds.update_duel_declaration
+        dr.execute_duel_match = ds.execute_duel_match
+
         test_room_state['active_match'] = {
             'is_active': True,
             'match_type': 'duel',

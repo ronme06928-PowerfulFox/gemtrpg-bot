@@ -6,6 +6,9 @@
  *
  * 後方互換性のため、状態変更時に window.battleState も更新します。
  */
+const _battleVerbose = () => (typeof window !== 'undefined' && !!window.BATTLE_DEBUG_VERBOSE);
+const _battleLog = (...args) => { if (_battleVerbose()) console.log(...args); };
+const _battleDebug = (...args) => { if (_battleVerbose()) console.debug(...args); };
 
 class BattleStore {
     constructor() {
@@ -94,7 +97,7 @@ class BattleStore {
         this._initialized = true;
         this._syncToLegacy();
         this._notify();
-        console.log('📦 BattleStore: Initialized');
+        _battleLog('📦 BattleStore: Initialized');
     }
 
     /**
@@ -106,7 +109,7 @@ class BattleStore {
         const newtl = newState.timeline ? newState.timeline.length : 'undef';
         const newch = newState.characters ? newState.characters.length : 'undef';
         const oldtl = this._state.timeline ? this._state.timeline.length : 'undef';
-        console.log(`📦 Store.setState: New(tl=${newtl}, ch=${newch}) vs Old(tl=${oldtl})`);
+        _battleLog(`📦 Store.setState: New(tl=${newtl}, ch=${newch}) vs Old(tl=${oldtl})`);
 
         // Guard: while select/resolve is active and slots exist, ignore empty timeline overwrite.
         const phase = newState.phase ?? this._state.phase;
@@ -127,11 +130,11 @@ class BattleStore {
 
         if (incomingTimelineEmpty && hasOldTimeline && guardPhases.has(phase) && slotsCount > 0) {
             delete newState.timeline;
-            console.debug(`[BattleStore] guarded timeline overwrite phase=${phase} slots=${slotsCount}`);
+            _battleDebug(`[BattleStore] guarded timeline overwrite phase=${phase} slots=${slotsCount}`);
         }
         if (incomingSlotsEmpty && hasOldSlots && guardPhases.has(phase)) {
             delete newState.slots;
-            console.debug(`[BattleStore] guarded slots overwrite phase=${phase}`);
+            _battleDebug(`[BattleStore] guarded slots overwrite phase=${phase}`);
         }
 
 
@@ -272,10 +275,10 @@ class BattleStore {
             };
         }
         if (preserveSlots) {
-            console.debug(`[BattleStore] guarded slots overwrite phase=${phase}`);
+            _battleDebug(`[BattleStore] guarded slots overwrite phase=${phase}`);
         }
         if (preserveTimeline) {
-            console.debug(`[BattleStore] guarded timeline overwrite phase=${phase}`);
+            _battleDebug(`[BattleStore] guarded timeline overwrite phase=${phase}`);
         }
         this._syncToLegacy();
         this._notify();
@@ -775,6 +778,7 @@ class BattleStore {
     }
 
     _debugLogSelectResolveSummary(source) {
+        if (!_battleVerbose()) return;
         const now = Date.now();
         if (now - this._debugLastLogAt < 200) {
             return;
@@ -785,7 +789,7 @@ class BattleStore {
         const intentsCount = Object.keys(this._state.intents || {}).length;
         const traceLen = (this._state.resolveTrace || []).length;
         const resolveReady = !!this._state.resolveReady;
-        console.log(
+        _battleLog(
             `[BattleStore:${source}] phase=${this._state.phase} slots=${slotsCount} intents=${intentsCount} trace=${traceLen} resolveReady=${resolveReady}`
         );
     }

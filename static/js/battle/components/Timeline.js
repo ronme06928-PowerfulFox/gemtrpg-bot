@@ -8,6 +8,11 @@
 import { store } from '../core/BattleStore.js';
 import { eventBus } from '../core/EventBus.js';
 
+const _battleVerbose = () => (typeof window !== 'undefined' && !!window.BATTLE_DEBUG_VERBOSE);
+const _battleLog = (...args) => {
+    if (_battleVerbose()) console.log(...args);
+};
+
 class Timeline {
     constructor() {
         this._containerEl = null;
@@ -36,7 +41,7 @@ class Timeline {
         // 初回描画
         this.render(store.state);
         this._initialized = true;
-        console.log('✅ Timeline Component: Initialized');
+        _battleLog('Timeline Component: Initialized');
         return true;
     }
 
@@ -79,22 +84,22 @@ class Timeline {
             const now = Date.now();
             if (now - this._lastSlotModeLogAt > 400) {
                 this._lastSlotModeLogAt = now;
-                console.log(`[Timeline] slot mode render: slots=${timeline.length}, selected=${selectedSlotId || 'none'}`);
+                _battleLog(`[Timeline] slot mode render: slots=${timeline.length}, selected=${selectedSlotId || 'none'}`);
             }
         }
         if (selectedSlotId !== this._lastSelectedSlotId) {
             this._lastSelectedSlotId = selectedSlotId;
             if (selectedSlotId) {
-                console.log(`[Timeline] selectedSlotId changed: ${selectedSlotId}`);
+                _battleLog(`[Timeline] selectedSlotId changed: ${selectedSlotId}`);
             }
         }
 
-        console.log(`Timeline Render Start. Items: ${timeline.length}, Container:`, this._containerEl);
+        _battleLog(`Timeline Render Start. Items: ${timeline.length}, Container:`, this._containerEl);
 
         this._containerEl.innerHTML = '';
 
         if (timeline.length === 0) {
-            console.log(`Timeline: No data to display. Chars: ${characters.length}`);
+            _battleLog(`Timeline: No data to display. Chars: ${characters.length}`);
             // console.trace('Timeline Empty Render Trace');
             this._containerEl.innerHTML = '<div style="color:#888; padding:5px;">No Data</div>';
             return;
@@ -135,7 +140,7 @@ class Timeline {
             this._containerEl.appendChild(item);
         });
 
-        console.log('Timeline Render Complete.');
+        _battleLog('Timeline Render Complete.');
     }
 
     _createSlotTimelineItem(slot, char, intent, selectedSlotId, state) {
