@@ -679,7 +679,7 @@ def execute_duel_match(room, data, username):
             if is_incap_a:
                 damage = result_d['total']
                 if actor_a_char:
-                    kiretsu = get_status_value(actor_a_char, "破裂")
+                    kiretsu = get_status_value(actor_a_char, "亀裂")
                     bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                     for evt in dmg_evts:
                         t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
@@ -708,7 +708,7 @@ def execute_duel_match(room, data, username):
             elif is_incap_d:
                 damage = result_a['total']
                 if actor_d_char:
-                    kiretsu = get_status_value(actor_d_char, "破裂")
+                    kiretsu = get_status_value(actor_d_char, "亀裂")
                     bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                     for evt in dmg_evts:
                         t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
@@ -741,7 +741,7 @@ def execute_duel_match(room, data, username):
             else:
                 damage = result_a['total']
                 if actor_d_char:
-                    kiretsu = get_status_value(actor_d_char, "破裂")
+                    kiretsu = get_status_value(actor_d_char, "亀裂")
 
                     logger.debug(f"[UNOPPOSED] Calling process_skill_effects for UNOPPOSED trigger")
                     bd_un, log_un, chg_un = process_skill_effects(effects_array_a, "UNOPPOSED", actor_a_char, actor_d_char, skill_data_d, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
@@ -867,7 +867,7 @@ def execute_duel_match(room, data, username):
 
             if actor_d_char:
 
-                kiretsu = get_status_value(actor_d_char, "破裂")
+                kiretsu = get_status_value(actor_d_char, "亀裂")
                 bonus_dmg, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, dmg_a)
                 for evt in dmg_evts:
                     t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
@@ -905,7 +905,7 @@ def execute_duel_match(room, data, username):
 
             if actor_a_char:
 
-                kiretsu = get_status_value(actor_a_char, "破裂")
+                kiretsu = get_status_value(actor_a_char, "亀裂")
                 bonus_dmg, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, dmg_d)
                 for evt in dmg_evts:
                     t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
@@ -945,7 +945,7 @@ def execute_duel_match(room, data, username):
             if result_a['total'] > result_d['total']:
 
                 damage = result_a['total'] - result_d['total']
-                kiretsu = get_status_value(actor_d_char, "破裂")
+                kiretsu = get_status_value(actor_d_char, "亀裂")
                 bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                 for evt in dmg_evts:
                     t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
@@ -998,7 +998,7 @@ def execute_duel_match(room, data, username):
             if result_a['total'] > result_d['total']:
 
                 damage = result_a['total']
-                kiretsu = get_status_value(actor_d_char, "破裂")
+                kiretsu = get_status_value(actor_d_char, "亀裂")
                 bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                 for evt in dmg_evts:
                     t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
@@ -1022,7 +1022,7 @@ def execute_duel_match(room, data, username):
 
                 winner_message = f"<strong> → {actor_name_a} の勝利</strong> (回避失敗)"
                 display_total = final_damage + custom_dmg + buff_dmg
-                damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [破裂{kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
+                damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂{kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
             else:
 
                 attacker_loser_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
@@ -1067,7 +1067,7 @@ def execute_duel_match(room, data, username):
 
                 damage = result_d['total']
                 if actor_a_char:
-                    kiretsu = get_status_value(actor_a_char, "破裂")
+                    kiretsu = get_status_value(actor_a_char, "亀裂")
                     bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                     for evt in dmg_evts:
                         t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
@@ -1174,7 +1174,7 @@ def execute_duel_match(room, data, username):
 
                 damage, damage_source = _compute_match_damage_from_rolls(result_a['total'], result_d['total'], skill_data_d)
                 if actor_d_char:
-                    kiretsu = get_status_value(actor_d_char, "破裂")
+                    kiretsu = get_status_value(actor_d_char, "亀裂")
                     logger.debug(f"[NORMAL MATCH] Attacker wins. Calling apply_skill_effects_bidirectional")
                     bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                     for evt in dmg_evts:
@@ -1262,7 +1262,7 @@ def execute_duel_match(room, data, username):
 
                 damage, damage_source = _compute_match_damage_from_rolls(result_d['total'], result_a['total'], skill_data_a)
                 if actor_a_char:
-                    kiretsu = get_status_value(actor_a_char, "破裂")
+                    kiretsu = get_status_value(actor_a_char, "亀裂")
                     bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                     for evt in dmg_evts:
                         t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)

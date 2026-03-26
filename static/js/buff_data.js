@@ -133,6 +133,17 @@ window.BUFF_DATA = {
             }
         },
         {
+            // Pattern: 亀裂R[数値] (時限亀裂バケット)
+            regex: /^\u4e80\u88c2_?R(\d+)$/,
+            generator: function (_matches) {
+                return {
+                    name: "\u4e80\u88c2",
+                    description: "\u3053\u306e\u30d0\u30d5\u306e\u6b8b\u308a\u30e9\u30a6\u30f3\u30c9\u6570\u304c0\u306b\u306a\u3063\u305f\u6642\u3001\u6b8b\u308a\u56de\u6570\u5206\u306e\u4e80\u88c2\u304c\u6d88\u5931\u3059\u308b\u3002",
+                    type: "debuff"
+                };
+            }
+        },
+        {
             // パターン: [名前]_Crack[数値] (持続型)
             regex: /^(.*)_Crack(\d+)$/,
             generator: function (matches) {

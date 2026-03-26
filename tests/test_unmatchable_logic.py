@@ -151,6 +151,8 @@ mock_utils.remove_buff = MagicMock()
 mock_utils.calculate_buff_power_bonus = lambda *args: 0
 mock_utils.calculate_damage_multiplier = lambda c: (1.0, [])
 mock_utils.get_effective_origin_id = lambda c: 0
+mock_utils.apply_origin_bonus_buffs = lambda c: None
+mock_utils.get_round_end_origin_recoveries = lambda c: {}
 sys.modules['manager.utils'] = mock_utils
 
 mock_buff_catalog = types.ModuleType('manager.buff_catalog')
@@ -213,8 +215,12 @@ class TestUnmatchableLogic(unittest.TestCase):
         # Reset Chars
         test_room_state['characters'][0]['hp'] = 20
         test_room_state['characters'][0]['hasActed'] = False
+        test_room_state['characters'][0]['亀裂'] = 0
+        test_room_state['characters'][0]['破裂'] = 0
         test_room_state['characters'][1]['hp'] = 20
         test_room_state['characters'][1]['hasActed'] = False
+        test_room_state['characters'][1]['亀裂'] = 0
+        test_room_state['characters'][1]['破裂'] = 0
         test_room_state['active_match'] = None
 
     def test_normal_match_mutual_one_sided(self):
@@ -271,6 +277,28 @@ class TestUnmatchableLogic(unittest.TestCase):
         # D: 20 -> 10 (Attacker hits)
         self.assertEqual(test_room_state['characters'][0]['hp'], 20, "Attacker should take 0 damage from Defense skill")
         self.assertEqual(test_room_state['characters'][1]['hp'], 10, "Defender should take damage")
+
+    def test_normal_match_unmatchable_applies_fissure_bonus_damage(self):
+        print("\n--- Test Normal Match Unmatchable (Fissure bonus damage) ---")
+        room = 'test_room'
+        test_room_state['characters'][1]['亀裂'] = 3
+
+        data = {
+            'room': room,
+            'match_id': 'm_fissure_bonus',
+            'actorIdA': 'ActorA', 'actorIdD': 'ActorD',
+            'actorNameA': 'A', 'actorNameD': 'D',
+            'commandA': '10', 'commandD': '10',
+            'skillIdA': 'S-Unmatchable', 'skillIdD': 'S-Attack'
+        }
+
+        test_room_state['active_match'] = {'is_active': True, 'match_id': 'm_fissure_bonus', 'executed': False}
+        duel_solver.execute_duel_match(room, data, "GM")
+
+        # attacker still takes 10 from defender's one-sided attack
+        self.assertEqual(test_room_state['characters'][0]['hp'], 10)
+        # defender takes 10 (dice) + 3 (亀裂)
+        self.assertEqual(test_room_state['characters'][1]['hp'], 7)
 
     def test_wide_match_unmatchable_progression(self):
         print("\n--- Test Wide Match Unmatchable (Defenders marked hasActed) ---")

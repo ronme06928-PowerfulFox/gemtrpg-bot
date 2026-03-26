@@ -1146,7 +1146,7 @@
     "使用時効果": "([[W-19|使用時]]):FPを3消費",
     "特記": "対象の[[W-04|亀裂]]1につき[[W-50|基礎威力]]+1(最大で3)。",
     "発動時効果": "([[W-20|的中時]]):4ラウンドの[[W-04|亀裂]]1を付与",
-    "特記処理": "{\"power_bonus\": [{\"source\": \"target\",\"param\": \"亀裂\",\"operation\": \"PER_N_BONUS\",\"per_N\": 1,\"value\": 1,\"max_bonus\": 3}],\"cost\": [{\"type\": \"FP\", \"value\": 3}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 1、\"rounds\": 4}]}",
+    "特記処理": "{\"power_bonus\": [{\"source\": \"target\",\"param\": \"亀裂\",\"operation\": \"PER_N_BONUS\",\"per_N\": 1,\"value\": 1,\"max_bonus\": 3}],\"cost\": [{\"type\": \"FP\", \"value\": 3}],\n  \"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 1,\"rounds\": 4}]}",
     "tags": [
       "攻撃"
     ]
@@ -1812,7 +1812,7 @@
     "使用時効果": "([[W-19|使用時]]):MPを6消費。FPを4消費。",
     "特記": "",
     "発動時効果": "([[W-20|的中時]]):4ラウンドの[[W-04|亀裂]]3を付与。([[W-22|マッチ敗北時]]):5ラウンドの[[W-04|亀裂]]1を付与。",
-    "特記処理": "{\"cost\": [{\"type\": \"MP\",\"value\": 6},{\"type\": \"FP\",\"value\": 4}],\n  \"power_bonus\": [],\"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 3,\"rounds\": 4},{\"timing\": \"LOSE\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 1,,\"rounds\": 5}]}",
+    "特記処理": "{\"cost\": [{\"type\": \"MP\",\"value\": 6},{\"type\": \"FP\",\"value\": 4}],\n  \"power_bonus\": [],\"effects\": [{\"timing\": \"HIT\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 3,\"rounds\": 4},{\"timing\": \"LOSE\",\"type\": \"APPLY_STATE\",\"target\": \"target\",\"state_name\": \"亀裂\",\"value\": 1,\"rounds\": 5}]}",
     "tags": [
       "攻撃"
     ]
