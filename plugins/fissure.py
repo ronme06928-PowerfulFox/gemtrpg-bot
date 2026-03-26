@@ -6,6 +6,35 @@ class FissureEffect(BaseEffect):
     def __init__(self, mode="trigger"):
         self.mode = mode
 
+    @staticmethod
+    def _pop_fissure_buffs(target):
+        if not isinstance(target, dict):
+            return []
+        buffs = target.get("special_buffs", [])
+        if not isinstance(buffs, list):
+            return []
+        keep = []
+        removed_names = []
+        for buff in buffs:
+            if not isinstance(buff, dict):
+                continue
+            if buff.get("buff_id") == "Bu-Fissure":
+                name = str(buff.get("name") or "").strip()
+                if name:
+                    removed_names.append(name)
+                continue
+            keep.append(buff)
+        target["special_buffs"] = keep
+        # Remove duplicates while preserving order.
+        unique = []
+        seen = set()
+        for name in removed_names:
+            if name in seen:
+                continue
+            seen.add(name)
+            unique.append(name)
+        return unique
+
     def apply(self, actor, target, params, context):
         if self.mode == "damage":
             return self._apply_damage(target, params)
@@ -19,8 +48,16 @@ class FissureEffect(BaseEffect):
 
         damage = current_fissure * dmg_per_fissure
         set_status_value(target, "亀裂", 0)
+        removed_buffs = self._pop_fissure_buffs(target)
 
-        return [(target, "CUSTOM_DAMAGE", "亀裂崩壊", damage)], [f"《亀裂崩壊》 {damage}ダメージ！ (亀裂{current_fissure}消費)"]
+        changes = [
+            (target, "APPLY_STATE", "亀裂", -current_fissure),
+            (target, "CUSTOM_DAMAGE", "亀裂崩壊", damage),
+        ]
+        for buff_name in removed_buffs:
+            changes.append((target, "REMOVE_BUFF", buff_name, 0))
+
+        return changes, [f"《亀裂崩壊》 {damage}ダメージ！ (亀裂{current_fissure}消費)"]
 
     def _apply_trigger(self, actor, target, params, context):
         data = params.get("data", {})
@@ -38,8 +75,11 @@ class FissureEffect(BaseEffect):
             num_triggers = min(num_possible, max_triggers)
 
         set_status_value(target, "亀裂", 0)
+        removed_buffs = self._pop_fissure_buffs(target)
 
-        changes = []
+        changes = [(target, "APPLY_STATE", "亀裂", -current_fissure)]
+        for buff_name in removed_buffs:
+            changes.append((target, "REMOVE_BUFF", buff_name, 0))
         logs = []
 
         # サブコンテキスト作成

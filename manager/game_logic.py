@@ -541,6 +541,39 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             simulated_chars[cid] = copy.deepcopy(real_char)
         return simulated_chars[cid]
 
+    def _parse_positive_rounds(raw_value):
+        try:
+            rounds = int(raw_value)
+        except (TypeError, ValueError):
+            return 0
+        return rounds if rounds > 0 else 0
+
+    def _queue_fissure_round_buff(target_obj, sim_target, amount, rounds, source='skill'):
+        amount = int(amount or 0)
+        rounds = int(rounds or 0)
+        if amount <= 0 or rounds <= 0:
+            return
+
+        current_val = _stable_get_status_value(sim_target, "亀裂")
+        _stable_set_status_value(sim_target, "亀裂", current_val + amount)
+
+        changes_to_apply.append((
+            target_obj,
+            "APPLY_BUFF",
+            f"亀裂_R{rounds}",
+            {
+                "lasting": rounds,
+                "delay": 0,
+                "data": {
+                    "buff_id": "Bu-Fissure",
+                    "source": source,
+                    "count": amount,
+                    "fissure_count": amount,
+                    "original_rounds": rounds
+                }
+            }
+        ))
+
     for effect in effects_array:
         if effect.get("timing") != timing_to_check: continue
 
@@ -622,10 +655,47 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             if not check_condition(effect.get("condition"), sim_actor, sim_target, target_skill_data, context=context):
                 continue
 
-            if effect_type == "APPLY_STATE":
+            if effect_type == "APPLY_FISSURE_BUFFED":
+                rounds = _parse_positive_rounds(effect.get("rounds"))
+                value = int(effect.get("value", 0))
+                if rounds <= 0 or value <= 0:
+                    continue
+
+                if not sim_target:
+                    continue
+                if 'flags' not in sim_target:
+                    sim_target['flags'] = {}
+                if sim_target['flags'].get('fissure_received_this_round', False):
+                    log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
+                    continue
+
+                bonus, buffs_to_remove = calculate_state_apply_bonus(sim_actor, sim_target, "亀裂", context=context)
+                final_value = value + max(0, int(bonus or 0))
+                if final_value <= 0:
+                    continue
+
+                for b_name in buffs_to_remove:
+                    remove_buff(sim_actor, b_name)
+                    changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0))
+                    log_snippets.append(f"({b_name} 消費)")
+
+                _queue_fissure_round_buff(
+                    target_obj=target_obj,
+                    sim_target=sim_target,
+                    amount=final_value,
+                    rounds=rounds,
+                    source=effect.get("source", "skill"),
+                )
+                sim_target['flags']['fissure_received_this_round'] = True
+                changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
+                log_snippets.append(f"[亀裂+{final_value} ({rounds}R)]")
+                continue
+
+            elif effect_type == "APPLY_STATE":
                 # ★後方互換: "state_name"と"name"の両方に対応
                 stat_name = effect.get("state_name") or effect.get("name")
                 value = int(effect.get("value", 0))
+                fissure_rounds = _parse_positive_rounds(effect.get("rounds"))
 
                 # ★亀裂の1ラウンド1回付与制限チェック
                 if stat_name == "亀裂" and value > 0 and sim_target:
@@ -654,6 +724,21 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         log_snippets.append(f"({b_name} 消費)")
 
                 if stat_name and value != 0:
+                    if stat_name == "亀裂" and value > 0 and fissure_rounds > 0:
+                        _queue_fissure_round_buff(
+                            target_obj=target_obj,
+                            sim_target=sim_target,
+                            amount=value,
+                            rounds=fissure_rounds,
+                            source=effect.get("source", "skill"),
+                        )
+                        if 'flags' not in sim_target:
+                            sim_target['flags'] = {}
+                        sim_target['flags']['fissure_received_this_round'] = True
+                        changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
+                        log_snippets.append(f"[亀裂+{value} ({fissure_rounds}R)]")
+                        continue
+
                     # ★即座に状態を更新（シミュレーション用オブジェクトに対してのみ）
                     current_val = _stable_get_status_value(sim_target, stat_name)
                     _stable_set_status_value(sim_target, stat_name, current_val + value)
@@ -673,6 +758,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 source_type = effect.get("source", "self")
                 source_obj = sim_actor if source_type == "self" else sim_target # シミュレーションを使用
                 source_param = effect.get("source_param")
+                fissure_rounds = _parse_positive_rounds(effect.get("rounds"))
 
                 if not source_obj or not source_param:
                     continue
@@ -699,6 +785,32 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         if sim_target['flags'].get('fissure_received_this_round', False):
                             log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
                             continue
+
+                    # 亀裂の state_bonus(_Crack/_CrackOnce) 適用
+                    if stat_name == "亀裂" and sim_actor:
+                        bonus, buffs_to_remove = calculate_state_apply_bonus(sim_actor, sim_target, stat_name, context=context)
+                        if bonus > 0:
+                            calculated_value += bonus
+                        for b_name in buffs_to_remove:
+                            remove_buff(sim_actor, b_name)
+                            changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0))
+                            log_snippets.append(f"({b_name} 消費)")
+
+                    # rounds 指定時の新方式（時限亀裂）
+                    if stat_name == "亀裂" and fissure_rounds > 0:
+                        _queue_fissure_round_buff(
+                            target_obj=target_obj,
+                            sim_target=sim_target,
+                            amount=calculated_value,
+                            rounds=fissure_rounds,
+                            source=effect.get("source", "skill"),
+                        )
+                        if 'flags' not in sim_target:
+                            sim_target['flags'] = {}
+                        sim_target['flags']['fissure_received_this_round'] = True
+                        changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
+                        log_snippets.append(f"[亀裂+{calculated_value} ({source_param}{source_param_value}から/{fissure_rounds}R)]")
+                        continue
 
                     # ★即座に状態を更新 (シミュレーション)
                     current_val = _stable_get_status_value(sim_target, stat_name)

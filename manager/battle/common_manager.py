@@ -893,7 +893,19 @@ def process_full_round_end(room, username):
                                             _update_char_stat(room, c_target, 'HP', curr - c_val, username=f"[{c_name}]")
 
                         if lasting > 0: active_buffs.append(buff)
-                        else: buffs_to_remove.append(buff_name)
+                        else:
+                            if buff.get("buff_id") == "Bu-Fissure":
+                                remove_count = int(buff.get("count", 0) or 0)
+                                if remove_count > 0:
+                                    current_fissure = int(get_status_value(char, "亀裂") or 0)
+                                    _update_char_stat(
+                                        room,
+                                        char,
+                                        "亀裂",
+                                        max(0, current_fissure - remove_count),
+                                        username="[亀裂期限切れ]"
+                                    )
+                            buffs_to_remove.append(buff_name)
                     else:
                         active_buffs.append(buff)
                 elif lasting > 0:
@@ -901,6 +913,17 @@ def process_full_round_end(room, username):
                     if buff["lasting"] > 0:
                         active_buffs.append(buff)
                     else:
+                        if buff.get("buff_id") == "Bu-Fissure":
+                            remove_count = int(buff.get("count", 0) or 0)
+                            if remove_count > 0:
+                                current_fissure = int(get_status_value(char, "亀裂") or 0)
+                                _update_char_stat(
+                                    room,
+                                    char,
+                                    "亀裂",
+                                    max(0, current_fissure - remove_count),
+                                    username="[亀裂期限切れ]"
+                                )
                         broadcast_log(room, f"[{buff_name}]が[{char['name']}]から消失した。", "state-change")
                         buffs_to_remove.append(buff_name)
                         if buff_name in ("混乱", "混乱(戦慄殺到)"):

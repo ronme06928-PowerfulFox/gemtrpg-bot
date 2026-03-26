@@ -21,6 +21,7 @@
 10. `10_Glossary_User_Tutorial.md`
 11. `11_Advanced_Skill_Extensions_Spec.md`
 12. `12_Character_Modal_Spec.md`
+13. `13_Fissure_Round_Management_Spec.md`
 
 ## planned
 

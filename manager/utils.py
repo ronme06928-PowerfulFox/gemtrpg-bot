@@ -207,6 +207,43 @@ def set_status_value(char_obj, status_name, new_value):
             if 'states' not in char_obj: char_obj['states'] = []
             char_obj['states'].append({"name": status_name, "value": safe_new_value})
 
+
+def _safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _resolve_fissure_original_rounds(payload, fallback_lasting=0):
+    if not isinstance(payload, dict):
+        return _safe_int(fallback_lasting, 0)
+    if "original_rounds" in payload:
+        return _safe_int(payload.get("original_rounds"), _safe_int(fallback_lasting, 0))
+    data = payload.get("data")
+    if isinstance(data, dict) and "original_rounds" in data:
+        return _safe_int(data.get("original_rounds"), _safe_int(fallback_lasting, 0))
+    if "rounds" in payload:
+        return _safe_int(payload.get("rounds"), _safe_int(fallback_lasting, 0))
+    return _safe_int(fallback_lasting, 0)
+
+
+def _resolve_fissure_add_amount(payload, explicit_count=None):
+    if explicit_count is not None:
+        return max(0, _safe_int(explicit_count, 0))
+    if not isinstance(payload, dict):
+        return 0
+    for key in ("count", "fissure_count", "value"):
+        if key in payload:
+            return max(0, _safe_int(payload.get(key), 0))
+    data = payload.get("data")
+    if isinstance(data, dict):
+        for key in ("count", "fissure_count", "value"):
+            if key in data:
+                return max(0, _safe_int(data.get(key), 0))
+    return 0
+
+
 def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
     """バフを付与・更新する"""
     if not char_obj: return
@@ -252,6 +289,76 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
                     payload['description'] = effect_data['description']
                 if 'flavor' not in payload and 'flavor' in effect_data:
                     payload['flavor'] = effect_data['flavor']
+
+    # 亀裂ラウンド管理（Bu-Fissure）:
+    # - 同じ original_rounds のエントリへ count を加算
+    # - lasting は更新しない（既存の消滅タイミングを保持）
+    # - 付与成功時に「亀裂」ステータスへ同量加算
+    if payload.get('buff_id') == 'Bu-Fissure':
+        rounds = _resolve_fissure_original_rounds(payload, fallback_lasting=lasting)
+        add_amount = _resolve_fissure_add_amount(payload, explicit_count=count)
+        if rounds <= 0 or add_amount <= 0:
+            return
+
+        fissure_name = f"亀裂_R{rounds}"
+        payload['name'] = fissure_name
+        payload['lasting'] = rounds
+        payload['delay'] = max(0, _safe_int(delay, 0))
+        payload['is_permanent'] = False
+        payload['count'] = add_amount
+        if not isinstance(payload.get('data'), dict):
+            payload['data'] = {}
+        payload['data']['original_rounds'] = rounds
+        payload['data']['fissure_count'] = add_amount
+        payload['data']['count'] = add_amount
+
+        existing_bucket = next((
+            b for b in char_obj['special_buffs']
+            if isinstance(b, dict)
+            and b.get('buff_id') == 'Bu-Fissure'
+            and _safe_int((b.get('data') or {}).get('original_rounds'), _safe_int(b.get('lasting'), 0)) == rounds
+        ), None)
+
+        if existing_bucket:
+            prev_count = max(0, _safe_int(existing_bucket.get('count'), 0))
+            new_count = prev_count + add_amount
+            existing_bucket['name'] = fissure_name
+            existing_bucket['count'] = new_count
+            existing_bucket['delay'] = max(_safe_int(existing_bucket.get('delay'), 0), _safe_int(delay, 0))
+            if _safe_int(existing_bucket.get('lasting'), 0) <= 0:
+                existing_bucket['lasting'] = rounds
+            if not isinstance(existing_bucket.get('data'), dict):
+                existing_bucket['data'] = {}
+            existing_bucket['data']['original_rounds'] = rounds
+            existing_bucket['data']['fissure_count'] = new_count
+            existing_bucket['data']['count'] = new_count
+            if payload.get('description') and not existing_bucket.get('description'):
+                existing_bucket['description'] = payload.get('description')
+            if payload.get('flavor') and not existing_bucket.get('flavor'):
+                existing_bucket['flavor'] = payload.get('flavor')
+            existing_bucket['newly_applied'] = True
+        else:
+            char_obj['special_buffs'].append({
+                'name': fissure_name,
+                'source': payload.get('source', 'skill'),
+                'buff_id': 'Bu-Fissure',
+                'delay': max(0, _safe_int(delay, 0)),
+                'lasting': rounds,
+                'is_permanent': False,
+                'description': payload.get('description', ''),
+                'flavor': payload.get('flavor', ''),
+                'count': add_amount,
+                'data': {
+                    'original_rounds': rounds,
+                    'fissure_count': add_amount,
+                    'count': add_amount,
+                },
+                'newly_applied': True,
+            })
+
+        current_fissure = get_status_value(char_obj, '亀裂')
+        set_status_value(char_obj, '亀裂', current_fissure + add_amount)
+        return
 
     # ★ 追加: 加速(Bu-11)・減速(Bu-12) の特殊処理
     # これらは永続(lasting=-1)であり、スタック加算される

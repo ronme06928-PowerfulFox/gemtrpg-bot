@@ -2822,6 +2822,8 @@ def _apply_effect_changes_like_duel(
                     except ValueError:
                         base_curr = 0
             _update_char_stat(room, char, name, base_curr + value, username=f"[{name}]")
+        elif effect_type == "SET_STATUS":
+            _update_char_stat(room, char, name, int(value), username=f"[{name}]")
         elif effect_type == "APPLY_BUFF":
             apply_buff(char, name, value.get("lasting", 0), value.get("delay", 0), data=value.get("data"))
             log_snippets.append(f"[{name}] が {char.get('name', char.get('id', '?'))} に付与されました。")
@@ -6076,6 +6078,12 @@ def process_simple_round_end(state, room):
                     buff["lasting"] = lasting - 1
                     if buff["lasting"] > 0:
                         active_buffs.append(buff)
+                    else:
+                        if buff.get("buff_id") == "Bu-Fissure":
+                            remove_count = int(buff.get("count", 0) or 0)
+                            if remove_count > 0:
+                                current_fissure = int(get_status_value(char, "亀裂") or 0)
+                                set_status_value(char, "亀裂", max(0, current_fissure - remove_count))
                 elif buff.get('is_permanent', False):
                     active_buffs.append(buff)
 
