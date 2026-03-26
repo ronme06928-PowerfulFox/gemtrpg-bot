@@ -566,7 +566,8 @@
       "W-31",
       "W-14",
       "W-15",
-      "W-25"
+      "W-25",
+      "W-72"
     ],
     "synonyms": [],
     "icon": "",
@@ -1007,7 +1008,9 @@
       "W-19",
       "W-34",
       "W-38",
-      "W-39"
+      "W-39",
+      "W-70",
+      "W-71"
     ],
     "synonyms": [],
     "icon": "",
@@ -1194,6 +1197,85 @@
     "long": "特殊なスキル分類。このタグを持つスキルは使用者と同じ陣営のキャラクターを対象として使用する必要がある。",
     "flavor": "",
     "links": [],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-69": {
+    "term_id": "W-69",
+    "display_name": "HP",
+    "category": "ルール",
+    "short": "",
+    "long": "戦闘におけるキャラクターの耐久力を表す数値。攻撃スキルを受けるとその威力に応じてこれが減少し、0になると戦闘不能になる。最大HPはキャラクターのステータスによって決定される。",
+    "flavor": "",
+    "links": [
+      "W-38",
+      "W-63"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-70": {
+    "term_id": "W-70",
+    "display_name": "MP",
+    "category": "ルール",
+    "short": "",
+    "long": "戦闘におけるキャラクターの魔力を表す数値。主に魔法スキル使用時にコストとして消費される。",
+    "flavor": "",
+    "links": [
+      "W-41"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-71": {
+    "term_id": "W-71",
+    "display_name": "FP",
+    "category": "ルール",
+    "short": "",
+    "long": "戦闘におけるキャラクターの行動力を表す数値。スキル使用時にコストとして消費され、物理スキルではより多く消費される。\n成立したマッチにおいて、攻撃スキルの場合攻撃スキルに勝利すると、防御スキルの場合は相手に勝利すると、FPを1得ることができる。",
+    "flavor": "",
+    "links": [
+      "W-29",
+      "W-38",
+      "W-39"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-72": {
+    "term_id": "W-72",
+    "display_name": "速度補正",
+    "category": "ルール",
+    "short": "",
+    "long": "キャラクターの速度の値に応じて得られる補正値。ラウンド開始時の速度値ロールにて、この値が速度値に加算される。",
+    "flavor": "",
+    "links": [
+      "W-32"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-73": {
+    "term_id": "W-73",
+    "display_name": "行動回数",
+    "category": "ルール",
+    "short": "",
+    "long": "1人のキャラクターが1つのラウンドで使用できるスキルの個数を表す。基礎値は1。一部のパッシブスキルで行動回数を増やすことができ、行動回数の数だけスロットがキャラの上に表示される。",
+    "flavor": "",
+    "links": [
+      "W-16",
+      "W-31"
+    ],
     "synonyms": [],
     "icon": "",
     "sort_order": null,
