@@ -874,6 +874,8 @@ class ResolveFlowPanel {
 
     _resolvePowerValues(step) {
         const rolls = step?.rolls || {};
+        const attackerSnapshot = this._powerSnapshotForSide(step, 'attacker') || {};
+        const defenderSnapshot = this._powerSnapshotForSide(step, 'defender') || {};
         const isOneSided = this._isOneSidedPresentation(step);
         let attackPower = (
             rolls.power_a ??
@@ -881,6 +883,7 @@ class ResolveFlowPanel {
             rolls.total_damage ??
             rolls.final_damage ??
             rolls.base_damage ??
+            attackerSnapshot.final_power ??
             '-'
         );
         // One-sided flow should display the dice roll power (base), not post-effect total.
@@ -891,11 +894,12 @@ class ResolveFlowPanel {
                 rolls.attacker_power ??
                 rolls.total_damage ??
                 rolls.final_damage ??
+                attackerSnapshot.final_power ??
                 '-'
             );
         }
 
-        let defensePower = rolls.power_b ?? rolls.defender_sum ?? '-';
+        let defensePower = rolls.power_b ?? rolls.defender_sum ?? defenderSnapshot.final_power ?? '-';
         if (isOneSided) defensePower = '-';
         return {
             attacker: String(attackPower),

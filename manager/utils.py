@@ -41,21 +41,9 @@ ORIGIN_BONUS_BUFFS.update({
     ORIGIN_EMRIDA: {"buff_id": "Bu-27", "name": "盛夏と共鳴る高揚"},
 })
 
-STATUS_NAME_ALIASES = {
-    "蜃ｺ陦": "出血",
-    "遐ｴ陬・": "亀裂",
-    "莠陬・": "破裂",
-    "謌ｦ諷・": "戦慄",
-    "闕頑｣・": "荊棘",
-    "騾溷ｺｦ": "速度",
-    "騾溷ｺｦ蛟､": "速度値",
-    "陦悟虚蝗樊焚": "行動回数",
-}
+STATUS_NAME_ALIASES = {}
 
-BUFF_NAME_ALIASES = {
-    "豺ｷ荵ｱ": "混乱",
-    "蜀榊屓驕ｿ繝ｭ繝・け": "再回避ロック",
-}
+BUFF_NAME_ALIASES = {}
 
 
 def normalize_status_name(status_name):
@@ -823,7 +811,7 @@ def _resolve_actor_round_speed(actor_char, state=None, context=None):
     if not isinstance(actor_char, dict):
         return 0
     try:
-        speed_val = int(get_status_value(actor_char, '騾溷ｺｦ蛟､') or 0)
+        speed_val = int(get_status_value(actor_char, '速度値') or 0)
     except Exception:
         speed_val = 0
     if speed_val > 0:

@@ -1,6 +1,5 @@
 ﻿# manager/room_manager.py
 import time
-import re
 
 from extensions import socketio, active_room_states, user_sids
 from manager.data_manager import read_saved_rooms, save_room_to_db
@@ -20,38 +19,8 @@ except Exception:
 
 logger = setup_logger(__name__)
 
-_MOJIBAKE_TEXT_REPLACEMENTS = {
-    "蜃ｺ陦": "出血",
-    "遐ｴ陬・": "亀裂",
-    "莠陬・": "破裂",
-    "謌ｦ諷・": "戦慄",
-    "闕頑｣・": "荊棘",
-    "豺ｷ荵ｱ": "混乱",
-    "騾溷ｺｦ": "速度",
-    "陦悟虚": "行動",
-    "邨ゆｺ・凾": "終了時",
-    "驍ｨ繧・ｽｺ繝ｻ蜃ｾ": "終了時",
-    "繝ｩ繧ｦ繝ｳ繝臥ｵゆｺ・・繝ｼ繝翫せ": "ラウンド終了ボーナス",
-}
-
-
 def _normalize_log_text(text):
-    value = str(text or "")
-    for src, dst in _MOJIBAKE_TEXT_REPLACEMENTS.items():
-        value = value.replace(src, dst)
-    value = value.replace("陦悟虚鬆・′豎ｺ縺ｾ繧翫∪縺励◆:", "行動順が決まりました:")
-    value = re.sub(
-        r"---\s*(.+?)\s*縺・Round\s*(\d+)\s*繧帝幕蟋九＠縺ｾ縺励◆\s*---",
-        r"--- \1 が Round \2 を開始しました ---",
-        value,
-    )
-    value = re.sub(
-        r"---\s*(.+?)\s*縺・Round\s*(\d+)\s*縺ｮ邨ゆｺ・・逅・ｒ螳溯｡後＠縺ｾ縺励◆\s*---",
-        r"--- \1 が Round \2 の終了処理を実行しました ---",
-        value,
-    )
-    value = re.sub(r"\[(\d+)R(?:終了時|邨ゆｺ・凾|驍ｨ繧・ｽｺ繝ｻ蜃ｾ)\]", r"[\1R終了時]", value)
-    return value
+    return str(text or "")
 
 
 def _safe_emit(event_name, payload, **kwargs):
@@ -159,7 +128,6 @@ def get_room_state(room_name):
                 state['_log_seq'] = len(state['logs'])
 
 
-            # 笘・霑ｽ蜉: 繝輔ぅ繝ｼ繝ｫ繝芽｣懷ｮ・
             if 'active_match' not in state:
                 state['active_match'] = {
                     "is_active": False,
@@ -180,16 +148,13 @@ def get_room_state(room_name):
                 "logs": [],
                 "_log_seq": 0,
                 "battle_state": {},
-                # 笘・霑ｽ蜉: 繝槭ャ繝苓ｨｭ螳壹ョ繝ｼ繧ｿ
                 "map_data": {
                     "width": 20,
                     "height": 15,
                     "gridSize": 64,
                     "backgroundImage": None
                 },
-                # 笘・霑ｽ蜉: 繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ謇譛画ｨｩ繝槭ャ繝・
                 "character_owners": {},
-                # 笘・霑ｽ蜉: 繝槭ャ繝∫憾諷狗ｮ｡逅・
                 "active_match": {
                     "is_active": False,
                     "match_type": None,
@@ -199,19 +164,16 @@ def get_room_state(room_name):
                     "attacker_data": {},
                     "defender_data": {},
                 },
-                # 笘・霑ｽ蜉: 謗｢邏｢繝｢繝ｼ繝臥憾諷・
                 "mode": "battle",
                 "exploration": {
                     "backgroundImage": None,
                     "tachie_locations": {}
                 },
-                # 笘・霑ｽ蜉: PvE繝｢繝ｼ繝・
                 "battle_mode": 'pvp',
                 "ai_target_arrows": []
             }
             active_room_states[room_name] = state
 
-    # 笘・霑ｽ蜉: 譌｢蟄倥Ν繝ｼ繝縺ｧ character_owners 繧・active_match 縺後↑縺・ｴ蜷医・蛻晄悄蛹・
     if 'character_owners' not in state:
         state['character_owners'] = {}
     if 'active_match' not in state:
@@ -224,12 +186,10 @@ def get_room_state(room_name):
             "attacker_data": {},
             "defender_data": {},
         }
-    # 笘・霑ｽ蜉: PvE繝｢繝ｼ繝牙・譛溷喧
     if 'battle_mode' not in state:
         state['battle_mode'] = 'pvp'
     if 'ai_target_arrows' not in state:
         state['ai_target_arrows'] = []
-    # 笘・霑ｽ蜉: 謗｢邏｢繝｢繝ｼ繝臥憾諷九・蛻晄悄蛹・
     if 'mode' not in state:
         state['mode'] = 'battle'  # default is battle
     if 'exploration' not in state:
@@ -250,7 +210,6 @@ def get_room_state(room_name):
     except Exception as e:
         logger.error(f"Error fetching owner_id: {e}")
 
-    # 笘・Phase 13: 讓ｩ髯舌メ繧ｧ繝・け謨ｴ蜷域ｧ縺ｮ縺溘ａ縲｛wner_id 繧呈ｳｨ蜈･
     if 'character_owners' in state and 'characters' in state:
         owners = state['character_owners']
         for char in state['characters']:
@@ -280,8 +239,6 @@ def save_specific_room_state(room_name):
 def broadcast_state_update(room_name):
     state = get_room_state(room_name)
     if state:
-        # 笘・Phase 13: 讓ｩ髯舌メ繧ｧ繝・け縺ｮ縺溘ａ縺ｫ owner_id 繧偵く繝｣繝ｩ繧ｯ繧ｿ繝・・繧ｿ縺ｫ豕ｨ蜈･
-        # (豕ｨ: get_room_state蜀・〒繧よｳｨ蜈･縺輔ｌ繧九′縲∝ｿｵ縺ｮ縺溘ａ莠碁㍾繝√ぉ繝・け)
         if 'character_owners' in state and 'characters' in state:
             owners = state['character_owners']
             for char in state['characters']:
@@ -296,7 +253,6 @@ def broadcast_state_update(room_name):
         except Exception as e:
             logger.error(f"emit_select_resolve_events failed room={room_name}: {e}")
 
-# 笆ｼ笆ｼ笆ｼ 菫ｮ豁｣邂・園: secret 蠑墓焚蟇ｾ蠢懃沿縺ｮ縺ｿ縺ｫ縺吶ｋ 笆ｼ笆ｼ笆ｼ
 def broadcast_log(room_name, message, type='info', user=None, secret=False, save=True):
     """Append and broadcast a log entry for the room."""
     state = get_room_state(room_name)
@@ -333,7 +289,7 @@ def broadcast_user_list(room_name):
     for sid, info in user_sids.items():
         if info.get('room') == room_name:
             user_list.append({
-                "username": info.get('username', '荳肴・'),
+                "username": info.get('username', '不明'),
                 "attribute": info.get('attribute', 'Player'),
                 "user_id": info.get('user_id')
             })
@@ -345,11 +301,9 @@ def get_user_info_from_sid(sid):
 
 def is_authorized_for_character(room_name, char_id, username, attribute):
     """Return whether a user can control a character in the given room."""
-    # GM縺ｯ蟶ｸ縺ｫ讓ｩ髯舌≠繧・
     if attribute == 'GM':
         return True
 
-    # 謇譛芽・メ繧ｧ繝・け
     state = get_room_state(room_name)
     owners = state.get('character_owners', {})
     return owners.get(char_id) == username
@@ -393,11 +347,9 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
         char['hp'] = clamped_hp
         new_value = char['hp']
         log_message = f"{username}: {char['name']}: HP ({old_value}) -> ({char['hp']})"
-        # 笘・HP縺・縺ｫ縺ｪ縺｣縺溘ｉ閾ｪ蜍慕噪縺ｫ譛ｪ驟咲ｽｮ・域姶髣倅ｸ崎・・峨↓縺吶ｋ
         if char['hp'] <= 0:
             char['x'] = -1; char['y'] = -1
             log_message += " [戦闘不能/未配置へ移動]"
-            # 笘・霑ｽ蜉: 豁ｻ莠｡譎ゅう繝吶Φ繝医ヵ繝・け
             try:
                 process_on_death(room_name, char, username)
             except Exception as e:
@@ -423,7 +375,6 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
     elif stat_name == 'color':
         char['color'] = new_value
     elif stat_name == 'image':
-        # 笘・霑ｽ蜉: 逕ｻ蜒酋RL譖ｴ譁ｰ
         old_value = char.get('image')
         char['image'] = new_value
         old_value = char.get('image')
@@ -434,16 +385,11 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
         char['imageOriginal'] = new_value
         log_message = f"{username}: {char['name']}: 元画像を更新しました"
     elif stat_name == 'hidden_skills':
-        # 笘・霑ｽ蜉: 繧ｹ繧ｭ繝ｫ陦ｨ遉ｺ險ｭ螳壽峩譁ｰ
-        # new_value 縺ｯ繝ｪ繧ｹ繝医∪縺溘・迚ｹ螳壹・謫堺ｽ懃畑霎樊嶌繧呈Φ螳・
-        # 繧ｷ繝ｳ繝励Ν縺ｫ繝ｪ繧ｹ繝亥・鄂ｮ謠帙〒蟇ｾ蠢・
         char['hidden_skills'] = new_value
-        log_message = "" # 鬆ｻ郢√↑蛻・ｊ譖ｿ縺医〒繝ｭ繧ｰ縺悟沂縺ｾ繧九・繧帝亟縺舌◆繧√√≠縺医※繝ｭ繧ｰ縺ｯ蜃ｺ縺輔↑縺・°縲√ョ繝舌ャ繧ｰ縺ｮ縺ｿ縺ｫ縺吶ｋ
-        # log_message = f"{username}: {char['name']}: 繧ｹ繧ｭ繝ｫ陦ｨ遉ｺ險ｭ螳壹ｒ譖ｴ譁ｰ"
+        log_message = ""
     elif stat_name == 'flags':
-        # 笘・霑ｽ蜉: 豎守畑繝輔Λ繧ｰ譖ｴ譁ｰ
         char['flags'] = new_value
-        log_message = "" # 繝ｭ繧ｰ荳崎ｦ・
+        log_message = ""
     elif is_new:
         char['states'].append({"name": stat_name, "value": new_value})
         log_message = f"{username}: {char['name']}: {stat_name} (なし) -> ({new_value})"
@@ -455,7 +401,6 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
             log_message = f"{username}: {char['name']}: {stat_name} ({old_value}) -> (削除)"
     else:
         state = next((s for s in char['states'] if s.get('name') == stat_name), None)
-        # 笘・霑ｽ蜉: params縺ｫ繧ょｭ伜惠縺吶ｋ蝣ｴ蜷医√◎縺｡繧峨ｒ蜆ｪ蜈医☆繧・(get/set_status_value縺ｮ謖吝虚縺ｫ蜷医ｏ縺帙ｋ)
         param = next((p for p in char.get('params', []) if p.get('label') == stat_name), None)
 
         if param:
@@ -473,13 +418,10 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
             set_status_value(char, stat_name, new_value)
             log_message = f"{username}: {char['name']}: {stat_name} (なし) -> ({new_value})"
 
-    # 笘・蟾ｮ蛻・峩譁ｰ繧､繝吶Φ繝磯∽ｿ｡・・P/MP/迥ｶ諷句､縺ｮ縺ｿ縲∫判蜒上ｄ濶ｲ縺ｯ髯､螟厄ｼ・
     if str(old_value) != str(new_value):
-        # 逕ｻ蜒上ｄ濶ｲ縺ｮ螟画峩譎ゅ・繝輔Ο繝ｼ繝・ぅ繝ｳ繧ｰ繝・く繧ｹ繝医ｒ陦ｨ遉ｺ縺励↑縺・◆繧√√う繝吶Φ繝磯∽ｿ｡繧偵せ繧ｭ繝・・
         should_emit_stat_update = stat_name in ['HP', 'MP'] or (stat_name not in ['image', 'imageOriginal', 'color', 'gmOnly'])
 
         if should_emit_stat_update:
-            # max_value繧貞叙蠕暦ｼ・P/MP縺ｮ蝣ｴ蜷茨ｼ・
             max_value = None
             if stat_name == 'HP':
                 max_value = char.get('maxHp', 0)
@@ -494,7 +436,7 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
                 'old_value': old_value,
                 'max_value': max_value,
                 'log_message': log_message,
-                'source': source  # 笘・霑ｽ蜉: 繝繝｡繝ｼ繧ｸ逋ｺ逕滓ｺ・
+                'source': source
             }, to=room_name)
 
     if log_message and (str(old_value) != str(new_value) or is_new or is_delete):

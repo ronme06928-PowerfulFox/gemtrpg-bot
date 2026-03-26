@@ -203,7 +203,7 @@ def ai_select_targets(state, room_id=None):
                 # Try to extract custom name from commands
                 # Pattern: 【ID: CustomName】 or 【ID】
                 # specific pattern for this skill_id
-                pattern = re.compile(rf"【{re.escape(skill_id)}(?:[:\s]+(.*?))?】")
+                pattern = re.compile(rf"【{re.escape(skill_id)}(:[:\s]+(.*))】")
                 commands = enemy.get('commands', '')
                 match = pattern.search(commands)
                 if match and match.group(1):

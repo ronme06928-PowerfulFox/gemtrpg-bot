@@ -20,8 +20,10 @@ import manager.utils as _utils_mod
 from manager.battle.core import (
     format_skill_display_from_command, process_on_damage_buffs,
     execute_pre_match_effects, proceed_next_turn, format_skill_name_for_log,
-    process_on_hit_buffs, format_duel_result_lines, _resolve_skill_role
+    process_on_hit_buffs
 )
+from manager.battle.skill_rules import _resolve_skill_role
+from manager.battle.duel_log_utils import format_duel_result_lines
 from manager.summons.service import apply_summon_change
 from manager.granted_skills.service import apply_grant_skill_change, consume_granted_skill_use
 from manager.bleed_logic import consume_bleed_maintenance_stack
@@ -32,7 +34,6 @@ logger = setup_logger(__name__)
 
 _room_save_specific_room_state = save_specific_room_state
 
-
 def save_specific_room_state(room_name):
     try:
         return _room_save_specific_room_state(room_name)
@@ -40,16 +41,14 @@ def save_specific_room_state(room_name):
         logger.error(f"save_specific_room_state failed room={room_name}: {exc}")
         return False
 
-
 def _safe_emit(event_name, payload, **kwargs):
     emit_fn = getattr(socketio, "emit", None)
     if callable(emit_fn):
         try:
             emit_fn(event_name, payload, **kwargs)
         except Exception:
-            # Test/runtime environments may provide a SocketIO stub without a server.
-            return
 
+            return
 
 get_effective_origin_id = getattr(_utils_mod, 'get_effective_origin_id', lambda *_args, **_kwargs: 0)
 clear_newly_applied_flags = getattr(_utils_mod, 'clear_newly_applied_flags', lambda *_args, **_kwargs: 0)
@@ -57,7 +56,6 @@ compute_origin_skill_modifiers = getattr(_utils_mod, 'compute_origin_skill_modif
 apply_dice_power_bonus_to_command = getattr(_utils_mod, 'apply_dice_power_bonus_to_command', lambda command, *_args, **_kwargs: command)
 
 execution_lock = Lock()
-
 
 def _extract_skill_tags(skill_data):
     if not isinstance(skill_data, dict):
@@ -70,7 +68,6 @@ def _extract_skill_tags(skill_data):
         tags.extend([str(v).strip() for v in rule_data.get('tags', []) if str(v).strip()])
     return tags
 
-
 def _has_any_tag(skill_data, candidates):
     tags = set(_extract_skill_tags(skill_data))
     for candidate in candidates:
@@ -78,18 +75,14 @@ def _has_any_tag(skill_data, candidates):
             return True
     return False
 
-
 def _is_hard_skill(skill_data):
-    return _has_any_tag(skill_data, ['蠑ｷ遑ｬ', '蠑ｷ遑ｬ繧ｹ繧ｭ繝ｫ', 'hard_skill'])
-
+    return _has_any_tag(skill_data, ['強硬', '強硬スキル', 'hard_skill'])
 
 def _is_feint_skill(skill_data):
-    return _has_any_tag(skill_data, ['迚ｽ蛻ｶ', '迚ｽ蛻ｶ繧ｹ繧ｭ繝ｫ', 'feint_skill'])
-
+    return _has_any_tag(skill_data, ['牽制', '牽制スキル', 'feint_skill'])
 
 def _is_normal_skill(skill_data):
     return (not _is_hard_skill(skill_data)) and (not _is_feint_skill(skill_data))
-
 
 def _is_unmatchable_skill(skill_data):
     tags = _extract_skill_tags(skill_data)
@@ -97,15 +90,13 @@ def _is_unmatchable_skill(skill_data):
     name = str((skill_data or {}).get("name") or "").lower()
     return (
         ("unmatchable" in joined.lower())
-        or ("繝槭ャ繝∽ｸ榊庄" in joined)
-        or ("マッチ不" in joined)
+        or ("マッチ不可" in joined)
         or ("unmatchable" in name)
     )
 
-
 def _is_defense_or_evasion_skill(skill_data, skill_id=None):
     tags = _extract_skill_tags(skill_data)
-    category = str((skill_data or {}).get("蛻・｡・") or (skill_data or {}).get("attribute") or "")
+    category = str((skill_data or {}).get("分類") or (skill_data or {}).get("attribute") or "")
     name = str((skill_data or {}).get("name") or "")
     sid = str(skill_id or "")
     joined = " ".join(tags + [category, name, sid]).lower()
@@ -114,11 +105,8 @@ def _is_defense_or_evasion_skill(skill_data, skill_id=None):
         or ("evade" in joined)
         or ("防御" in joined)
         or ("回避" in joined)
-        or ("髦ｲ蠕｡" in joined)
-        or ("蝗樣∩" in joined)
-        or ("螳亥ｙ" in joined)
+        or ("守備" in joined)
     )
-
 
 def _apply_feint_half_if_needed(final_damage, winner_skill_data, loser_skill_data, log_snippets):
     dmg = int(final_damage or 0)
@@ -127,12 +115,11 @@ def _apply_feint_half_if_needed(final_damage, winner_skill_data, loser_skill_dat
     if _is_feint_skill(winner_skill_data) and _is_normal_skill(loser_skill_data):
         halved = dmg // 2
         if isinstance(log_snippets, list):
-            log_snippets.append("[迚ｽ蛻ｶ蜊頑ｸ嫋")
+            log_snippets.append("[牽制半減]")
         return halved
     return dmg
 
-
-def _apply_total_damage_multiplier(attacker, defender, raw_damage, log_snippets=None, incoming_label='髦ｲ'):
+def _apply_total_damage_multiplier(attacker, defender, raw_damage, log_snippets=None, incoming_label='防'):
     mult_info = compute_damage_multipliers(attacker, defender)
     final_damage = int(int(raw_damage or 0) * float(mult_info.get('final', 1.0) or 1.0))
     if isinstance(log_snippets, list):
@@ -143,13 +130,11 @@ def _apply_total_damage_multiplier(attacker, defender, raw_damage, log_snippets=
         if incoming_logs:
             log_snippets.append(f"({incoming_label}:{'/'.join(incoming_logs)} x{incoming:.2f})")
         if outgoing_logs:
-            log_snippets.append(f"(謾ｻ:{'/'.join(outgoing_logs)} x{outgoing:.2f})")
+            log_snippets.append(f"(攻:{'/'.join(outgoing_logs)} x{outgoing:.2f})")
     return final_damage
-
 
 def _is_damage_reducing_defense_skill(skill_data):
     return _resolve_skill_role(skill_data) == 'defense'
-
 
 def _compute_match_damage_from_rolls(winner_total, loser_total, loser_skill_data):
     try:
@@ -164,14 +149,13 @@ def _compute_match_damage_from_rolls(winner_total, loser_total, loser_skill_data
         return max(0, winner_power - loser_power), "差分ダメージ"
     return max(0, winner_power), "ダイスダメージ"
 
-
 def update_duel_declaration(room, data, username):
     state = get_room_state(room)
     if not state: return
     active_match = state.get('active_match')
     if not active_match or not active_match.get('is_active'): return
 
-    prefix = data.get('prefix') # 'attacker' or 'defender'
+    prefix = data.get('prefix')
     commit = data.get('commit', False)
 
     updated = False
@@ -200,7 +184,6 @@ def update_duel_declaration(room, data, username):
         }, to=room)
         broadcast_state_update(room)
 
-
 def handle_skill_declaration(room, data, username):
     state = get_room_state(room)
     if not state: return
@@ -209,7 +192,7 @@ def handle_skill_declaration(room, data, username):
     target_id = data.get('target_id')
     skill_id = data.get('skill_id')
     commit = data.get('commit', False)
-    prefix = data.get('prefix') # visual_attacker, visual_defender
+    prefix = data.get('prefix')
 
     actor = next((c for c in state['characters'] if str(c.get('id')) == str(actor_id)), None)
     target = next((c for c in state['characters'] if str(c.get('id')) == str(target_id)), None)
@@ -218,7 +201,6 @@ def handle_skill_declaration(room, data, username):
 
     skill_data = all_skill_data.get(skill_id)
 
-    # Calculate Preview
     from manager.game_logic import calculate_skill_preview
     preview_context = {
         'room': room,
@@ -229,7 +211,6 @@ def handle_skill_declaration(room, data, username):
     }
     preview = calculate_skill_preview(actor, target, skill_data, context=preview_context)
 
-    # Return Result
     result_data = {
         'side': 'attacker' if 'attacker' in prefix else 'defender',
         'skill_id': skill_id,
@@ -242,18 +223,16 @@ def handle_skill_declaration(room, data, username):
         'senritsu_penalty': preview['senritsu_dice_reduction'],
         'power_breakdown': preview.get('power_breakdown', {}),
         'declared': commit,
-        'prefix': prefix, # Required by client listener
+        'prefix': prefix,
         'enableButton': True
     }
 
-    # If committing, update state
     if commit:
-        # 笘・霑ｽ蜉: 蜊ｳ譎ら匱蜍輔せ繧ｭ繝ｫ縺ｮ蜃ｦ逅・
+
         if prefix and prefix.startswith('immediate'):
-             # 縺薙％縺ｧ蜊ｳ蠎ｧ縺ｫ螳溯｡後☆繧・
+
              logger.info(f"[Immediate] Executing {skill_id} for {actor['name']}")
 
-             # 繧ｳ繧ｹ繝域髪謇輔＞
              rule_json_str = (
                  skill_data.get("rule_data_json")
                  or skill_data.get("special_rule")
@@ -263,7 +242,7 @@ def handle_skill_declaration(room, data, username):
              try:
                  rd = rule_json_str if isinstance(rule_json_str, dict) else json.loads(str(rule_json_str))
                  effects_array = rd.get("effects", [])
-                 # 蜊ｳ譎ら匱蜍輔↑縺ｮ縺ｧ繧ｳ繧ｹ繝医ｒ謾ｯ謇輔≧ (verify_skill_cost縺ｯ騾夐℃貂医∩諠ｳ螳壹□縺後√％縺薙〒豸郁ｲｻ蜃ｦ逅・
+
                  for cost in rd.get("cost", []):
                      c_val = int(cost.get("value", 0))
                      c_type = cost.get("type")
@@ -274,22 +253,16 @@ def handle_skill_declaration(room, data, username):
                  effects_array = []
                  pass
 
-             # 蜉ｹ譫憺←逕ｨ (閾ｪ蛻・・霄ｫ縺ｸ)
-             # context縺ｫroom繧貞性繧√ｋ縺薙→縺ｧ縲“et_room_state縺ｪ縺ｩ縺御ｽｿ縺医ｋ繧医≧縺ｫ縺吶ｋ
-             state = get_room_state(room) # 蜀榊叙蠕・
+             state = get_room_state(room)
              context = {'room': room, 'characters': state['characters']}
 
-             # Process IMMEDIATE timing
              _, logs_imm, changes_imm = process_skill_effects(effects_array, "IMMEDIATE", actor, target, None, context=context)
 
-             # Process PRE_MATCH timing (Many instant skills like Brilliance series use PRE_MATCH)
              _, logs_pre, changes_pre = process_skill_effects(effects_array, "PRE_MATCH", actor, target, None, context=context)
 
-             # Merge results
              logs = logs_imm + logs_pre
              changes = changes_imm + changes_pre
 
-             # 螟画峩縺ｮ驕ｩ逕ｨ
              for (c, type, name, value) in changes:
                  if type == "APPLY_STATE":
                      curr = get_status_value(c, name)
@@ -322,29 +295,24 @@ def handle_skill_declaration(room, data, username):
              actor['flags']['immediate_action_used'] = True
              consume_granted_skill_use(actor, skill_id)
 
-             # 螳晉浹縺ｮ蜉隴ｷ繝輔Λ繧ｰ險ｭ螳・
              skill_tags = skill_data.get('tags', [])
-             if "螳晉浹縺ｮ蜉隴ｷ繧ｹ繧ｭ繝ｫ" in skill_tags:
+             if "宝石の加護スキル" in skill_tags:
                  actor['used_gem_protect_this_battle'] = True
 
              broadcast_log(room, f"{actor['name']} used immediate skill: {skill_data.get('name', skill_id)}", "info")
              broadcast_state_update(room)
              save_specific_room_state(room)
 
-             # 繝槭ャ繝∫憾諷九・譖ｴ譁ｰ縺励↑縺・
              return
 
         side_key = 'attacker' if 'attacker' in prefix else 'defender'
         active_match = state.get('active_match')
         if active_match:
             active_match[f'{side_key}_declared'] = True
-            active_match[f'{side_key}_data'] = result_data # Store calc result
+            active_match[f'{side_key}_data'] = result_data
             save_specific_room_state(room)
             broadcast_state_update(room)
 
-            # --- AUTO EXECUTE ---
-            # --- AUTO EXECUTE ---
-            # 謗剃ｻ門宛蠕｡: 譌｢縺ｫ螳溯｡御ｸｭ縺ｮ蝣ｴ蜷医・繧ｹ繧ｭ繝・・
             if active_match.get('is_executing'):
                 logger.info(f"[AUTO] Match already executing for room {room}. Skipping.")
                 return
@@ -354,20 +322,17 @@ def handle_skill_declaration(room, data, username):
             attacker_char = next((c for c in state['characters'] if str(c.get('id')) == str(attacker_id)), None)
             defender_char = next((c for c in state['characters'] if str(c.get('id')) == str(defender_id)), None)
 
-            # Check if defender has already acted (One-sided attack condition)
             is_one_sided = defender_char and defender_char.get('hasActed', False)
 
-            # Condition 1: Both declared
             both_declared = active_match.get('attacker_declared') and active_match.get('defender_declared')
 
-            # Condition 2: Attacker declared AND Defender is one-sided (cannot act)
             can_execute = False
 
             if both_declared:
                 can_execute = True
             elif active_match.get('attacker_declared') and is_one_sided:
                 logger.info(f"[AUTO] One-sided Execution! {defender_char['name']} has already acted.")
-                # We need to fill defender data so execute_duel_match doesn't crash or wait.
+
                 if not active_match.get('defender_data'):
                      active_match['defender_data'] = {
                          'skill_id': 'No Guard',
@@ -380,27 +345,23 @@ def handle_skill_declaration(room, data, username):
                 can_execute = True
 
             if can_execute:
-                # 繝励Ο繧ｻ繧ｹ髢捺賜莉門宛蠕｡ (File Lock)
-                # 繧ｿ繧､繝繧｢繧ｦ繝医・遏ｭ縺剰ｨｭ螳・(驥崎､・Μ繧ｯ繧ｨ繧ｹ繝医↑繧牙ｾ・▽蠢・ｦ√・縺ｪ縺・
+
                 try:
                     with file_lock(f"duel_exec_{room}", timeout=1.0):
-                        # 繧ｹ繝・・繝医ｒ蜀榊叙蠕励＠縺ｦ莠碁㍾繝√ぉ繝・け (蛻･繝励Ο繧ｻ繧ｹ縺梧峩譁ｰ縺励◆蜿ｯ閭ｽ諤ｧ縺後≠繧九◆繧・
-                        state = get_room_state(room)
-                        active_match = state['active_match'] # Refresh active_match refernece
 
-                        # 莉･蜑阪・繝√ぉ繝・け: 螳溯｡御ｸｭ繝輔Λ繧ｰ
+                        state = get_room_state(room)
+                        active_match = state['active_match']
+
                         if active_match.get('is_executing'):
                             logger.info(f"[AUTO] Match already executing (file locked check) for room {room}. Skipping.")
                             return
 
-                        # 笘・ｿｽ蜉繝√ぉ繝・け: 譌｢縺ｫ螳御ｺ・＠縺溘・繝・メID縺九←縺・°縺ｮ遒ｺ隱・
                         current_match_id = active_match.get('match_id')
                         last_exec_id = state.get('last_executed_match_id')
                         if current_match_id and last_exec_id == current_match_id:
                             logger.warning(f"[AUTO] Match {current_match_id} already executed. Skipping duplicate request.")
                             return
 
-                        # 螳溯｡後ヵ繝ｩ繧ｰ縺ｨ螳溯｡梧ｸ医∩ID繧偵そ繝・ヨ縺励※蜊ｳ蠎ｧ縺ｫ菫晏ｭ假ｼ井ｺ碁㍾螳溯｡碁亟豁｢・・
                         active_match['is_executing'] = True
                         if current_match_id:
                             state['last_executed_match_id'] = current_match_id
@@ -427,12 +388,7 @@ def handle_skill_declaration(room, data, username):
                             logger.error(f"[AUTO] Execution failed: {e}")
                             raise e
                         finally:
-                            # 螳溯｡悟ｮ御ｺ・ｾ後↓繝輔Λ繧ｰ隗｣髯､ (execute_duel_match縺梧・蜉溘＠縺ｦ繧ょ､ｱ謨励＠縺ｦ繧・
-                            # execute_duel_match蜀・〒END_MATCH蜃ｦ逅・′蜻ｼ縺ｰ繧後※繝ｪ繧ｻ繝・ヨ縺輔ｌ繧九°繧ゅ＠繧後↑縺・′縲∝ｿｵ縺ｮ縺溘ａ
-                            #state = get_room_state(room) # Refresh again
-                            #if state['active_match'].get('is_executing'):
-                            #    state['active_match']['is_executing'] = False
-                            #    save_specific_room_state(room)
+
                             pass
 
                 except TimeoutError:
@@ -443,12 +399,10 @@ def handle_skill_declaration(room, data, username):
 
     _safe_emit('skill_declaration_result', result_data, to=room)
 
-
 def execute_duel_match(room, data, username):
     state = get_room_state(room)
     if not state: return
 
-    # 驥崎､・ｮ溯｡碁亟豁｢: 繝槭ャ繝！D繧偵メ繧ｧ繝・け
     match_id = data.get('match_id')
     active_match = state.get('active_match', {})
 
@@ -458,12 +412,10 @@ def execute_duel_match(room, data, username):
             logger.warning(f"[MATCH] Match ID mismatch: {match_id} != {expected_match_id}, skipping")
             return
 
-        # 縺吶〒縺ｫ螳溯｡梧ｸ医∩縺九メ繧ｧ繝・け
         if active_match.get('executed'):
             logger.warning(f"[MATCH] Match {match_id} already executed, skipping")
             return
 
-        # 螳溯｡梧ｸ医∩繝輔Λ繧ｰ繧堤ｫ九※繧・
         state['active_match']['executed'] = True
         save_specific_room_state(room)
         logger.info(f"[MATCH] Executing match {match_id}")
@@ -478,7 +430,6 @@ def execute_duel_match(room, data, username):
     senritsu_penalty_a = int(data.get('senritsuPenaltyA', 0))
     senritsu_penalty_d = int(data.get('senritsuPenaltyD', 0))
 
-    # S-Confusion (陦悟虚荳崎・) 繝√ぉ繝・け
     active_match_data = state.get('active_match', {})
     attacker_data_s = active_match_data.get('attacker_data', {})
     defender_data_s = active_match_data.get('defender_data', {})
@@ -492,11 +443,11 @@ def execute_duel_match(room, data, username):
     incap_logs = []
 
     if is_incap_a:
-        incap_logs.append(f"{actor_name_a} 縺ｯ混乱縺ｫ繧医ｊ陦悟虚縺ｧ縺阪↑縺・ｼ・(Turn Skipped)")
+        incap_logs.append(f"{actor_name_a} は混乱により行動できない (Turn Skipped)")
         command_a = "0 [Confusion: skipped]"
 
     if is_incap_d:
-        incap_logs.append(f"{actor_name_d} 縺ｯ混乱縺ｫ繧医ｊ陦悟虚縺ｧ縺阪↑縺・ｼ・(Turn Skipped)")
+        incap_logs.append(f"{actor_name_d} は混乱により行動できない (Turn Skipped)")
         command_d = "0 [Confusion: skipped]"
 
     actor_a_char = next((c for c in state["characters"] if c.get('id') == actor_id_a), None)
@@ -508,7 +459,6 @@ def execute_duel_match(room, data, username):
         actor_d_char['_base_power_bonus'] = 0
         actor_d_char['_final_power_bonus'] = 0
 
-    # 戦慄ｶ郁ｲｻ
     if actor_a_char and senritsu_penalty_a > 0:
         curr = get_status_value(actor_a_char, "戦慄")
         _update_char_stat(room, actor_a_char, "戦慄", max(0, curr - senritsu_penalty_a), username=f"[{actor_name_a}:戦慄 cost -{senritsu_penalty_a}]")
@@ -516,15 +466,14 @@ def execute_duel_match(room, data, username):
         curr = get_status_value(actor_d_char, "戦慄")
         _update_char_stat(room, actor_d_char, "戦慄", max(0, curr - senritsu_penalty_d), username=f"[{actor_name_d}:戦慄 cost -{senritsu_penalty_d}]")
 
-    # 繧ｹ繧ｭ繝ｫ繝・・繧ｿ蜿門ｾ・& Pre-Match螳溯｡・
     skill_data_a = None; effects_array_a = []
     skill_data_d = None; effects_array_d = []
 
     skill_id_a = data.get('skillIdA')
     skill_id_d = data.get('skillIdD')
 
-    match_a = re.search(r'【(.*?)】|\[(.*?)\]', str(command_a or ""))
-    match_d = re.search(r'【(.*?)】|\[(.*?)\]', str(command_d or ""))
+    match_a = re.search(r'【(.*)】|\[(.*)\]', str(command_a or ""))
+    match_d = re.search(r'【(.*)】|\[(.*)\]', str(command_d or ""))
 
     if (match_a or skill_id_a) and actor_a_char:
         if not skill_id_a and match_a:
@@ -605,72 +554,61 @@ def execute_duel_match(room, data, username):
     command_a = _apply_temp_power_bonus_to_command(command_a, actor_a_char)
     command_d = _apply_temp_power_bonus_to_command(command_d, actor_d_char)
 
-    # 繝繧､繧ｹ繝ｭ繝ｼ繝ｫ
     result_a = roll_dice(command_a)
     result_d = roll_dice(command_d)
 
-    # --- Wadatsumi (ID: 9) Bonus: Slash Power +1 ---
     attacker_origin_id = get_effective_origin_id(actor_a_char)
-    skill_attr_a = str((skill_data_a or {}).get("属性") or (skill_data_a or {}).get("螻樊ｧ") or "")
-    if (not delegate_mode) and attacker_origin_id == 9 and skill_attr_a in {"slash", "斬撃", "譁ｬ謦・"}:
+    skill_attr_a = str((skill_data_a or {}).get("属性") or (skill_data_a or {}).get("属性") or "")
+    if (not delegate_mode) and attacker_origin_id == 9 and skill_attr_a in {"slash", "斬撃"}:
         result_a['total'] += 1
         broadcast_log(room, f"[Wadatsumi] Slash power +1 => {result_a['total']}", "info")
 
-    # --- Walwaire (ID: 13) Logic ---
-    # 繝槭ャ繝∫嶌謇九・譛邨ょｨ∝鴨繧・1・井ｸ矩剞2・・
     logs = []
 
-    # 1. Attacker is Walwaire -> Defender -1
     if (not delegate_mode) and attacker_origin_id == 13:
         if result_d['total'] > 2:
             result_d['total'] -= 1
-            logs.append(f"[繝ｴ繧｡繝ｫ繝ｴ繧｡繧､繝ｬ諱ｩ諱ｵ] 髦ｲ蠕｡蛛ｴ縺ｮ譛邨ょ､ -1")
+            logs.append(f"[ヴァルヴァイレ恩恵] 防御側の最終値 -1")
         else:
-             logs.append(f"[繝ｴ繧｡繝ｫ繝ｴ繧｡繧､繝ｬ諱ｩ諱ｵ] 髦ｲ蠕｡蛛ｴ縺ｮ譛邨ょ､ -1 (荳矩剞縺ｮ縺溘ａ辟｡蜉ｹ)")
+             logs.append(f"[ヴァルヴァイレ恩恵] 防御側の最終値 -1 (下限のため無効)")
 
-    # 2. Defender is Walwaire -> Attacker -1
     defender_origin_id = get_effective_origin_id(actor_d_char)
     if (not delegate_mode) and defender_origin_id == 13:
         if result_a['total'] > 2:
             result_a['total'] -= 1
-            logs.append(f"[繝ｴ繧｡繝ｫ繝ｴ繧｡繧､繝ｬ諱ｩ諱ｵ] 謾ｻ謦・・縺ｮ譛邨ょ､ -1")
+            logs.append(f"[ヴァルヴァイレ恩恵] 攻撃側の最終値 -1")
         else:
-             logs.append(f"[繝ｴ繧｡繝ｫ繝ｴ繧｡繧､繝ｬ諱ｩ諱ｵ] 謾ｻ謦・・縺ｮ譛邨ょ､ -1 (荳矩剞縺ｮ縺溘ａ辟｡蜉ｹ)")
+             logs.append(f"[ヴァルヴァイレ恩恵] 攻撃側の最終値 -1 (下限のため無効)")
 
     if (not delegate_mode) and logs:
         broadcast_log(room, ' '.join(logs), 'info')
 
-
     winner_message = ''; damage_message = ''
 
-    # Store initial acted state for One-sided check
     is_defender_already_acted = False
     if actor_d_char:
         is_defender_already_acted = actor_d_char.get('hasActed', False)
 
-    # Set hasActed NOW (actors consume turn by participating)
-    # Set hasActed NOW (actors consume turn by participating)
     timeline = state.get('timeline', [])
     current_entry_id = state.get('turn_entry_id')
 
-    # Attacker consumption
     if actor_a_char:
         consumed = False
-        # 1. Provide priority to current turn entry
+
         if current_entry_id:
             for entry in timeline:
                 if entry['id'] == current_entry_id and entry['char_id'] == actor_a_char['id']:
                     entry['acted'] = True
                     consumed = True
                     break
-        # 2. Consume first available if not current turn
+
         if not consumed:
              for entry in timeline:
                  if entry['char_id'] == actor_a_char['id'] and not entry.get('acted', False):
                      entry['acted'] = True
                      consumed = True
                      break
-        # Status Update Logic
+
         def update_has_acted(char, timeline):
             remaining = any(str(e['char_id']) == str(char['id']) and not e.get('acted', False) for e in timeline)
             char['hasActed'] = not remaining
@@ -679,7 +617,7 @@ def execute_duel_match(room, data, username):
         update_has_acted(actor_a_char, timeline)
 
     no_defender_acted = state.get('active_match', {}).get('no_defender_acted', False)
-    # Defender consumption
+
     if actor_d_char and not no_defender_acted:
         consumed = False
         for entry in timeline:
@@ -696,35 +634,34 @@ def execute_duel_match(room, data, username):
     if command_d.strip() == one_sided_marker or command_a.strip() == one_sided_marker:
         is_one_sided = True
     elif is_defender_already_acted:
-         # 譏守､ｺ逧・↓陦悟虚貂医∩繝輔Λ繧ｰ縺檎ｫ九▲縺ｦ縺・ｋ蝣ｴ蜷医ｂ荳譁ｹ謾ｻ謦・→縺励※謇ｱ縺・
+
          is_one_sided = True
-         # 繧ｳ繝槭Φ繝峨ｒ荳頑嶌縺阪＠縺ｦ繝ｭ繧ｰ縺ｮ荳雋ｫ諤ｧ繧剃ｿ昴▽・医が繝励す繝ｧ繝ｳ・・
+
          command_d = one_sided_marker
 
     def grant_win_fp(char):
         if not char: return
         curr = get_status_value(char, 'FP')
-        _update_char_stat(room, char, 'FP', curr + 1, username="[繝槭ャ繝∝享蛻ｩ]")
+        _update_char_stat(room, char, 'FP', curr + 1, username="[マッチ勝利]")
 
     try:
         damage = 0; final_damage = 0; extra_skill_damage = 0
         attacker_tags = skill_data_a.get("tags", []) if skill_data_a else []
         defender_tags = skill_data_d.get("tags", []) if skill_data_d else []
-        attacker_category = str((skill_data_a or {}).get("蛻・｡・") or (skill_data_a or {}).get("attribute") or "")
-        defender_category = str((skill_data_d or {}).get("蛻・｡・") or (skill_data_d or {}).get("attribute") or "")
+        attacker_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
+        defender_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
 
-        # 闕頑｣伜・逅・
         for (actor, cat, skill) in [(actor_a_char, attacker_category, skill_data_a), (actor_d_char, defender_category, skill_data_d)]:
             if actor:
                 val = get_status_value(actor, "荊棘")
                 if val > 0:
-                    if cat in ["迚ｩ逅・", "鬲疲ｳ・"]:
+                    if cat in ["物琁", "魔況"]:
                         _update_char_stat(room, actor, "HP", actor['hp'] - val, username="[荊棘自傷]", source=DamageSource.THORNS)
-                    elif cat == "髦ｲ蠕｡" and skill:
+                    elif cat == "防御" and skill:
                         try:
-                            bp = int(skill.get('蝓ｺ遉主ｨ∝鴨', 0))
+                            bp = int(skill.get('基礎威力', 0))
                             bp += actor.get('_base_power_bonus', 0)
-                            # 闕頑｣伜・逅・〒縺ｯ髦ｲ蠕｡蛛ｴ縺ｮ繧ｹ繧ｭ繝ｫ繧貞盾辣ｧ
+
                             skill_id_for_log = skill_id_d if actor == actor_d_char else skill_id_a
                             _update_char_stat(room, actor, "荊棘", max(0, val - bp), username=f"[{format_skill_name_for_log(skill_id_for_log, skill, actor)}]")
                             actor.pop('_base_power_bonus', None)
@@ -798,23 +735,23 @@ def execute_duel_match(room, data, username):
                     winner_message = f"<strong>{actor_name_a} wins (opponent incapacitated)</strong>"
 
         elif is_one_sided:
-            if "螳亥ｙ" in attacker_tags:
+            if "守備" in attacker_tags:
                 winner_message = f"<strong>{actor_name_a} wins one-sidedly</strong>"
                 damage_message = "(damage 0)"
             else:
                 damage = result_a['total']
                 if actor_d_char:
                     kiretsu = get_status_value(actor_d_char, "破裂")
-                    # 荳譁ｹ謾ｻ謦・・迚ｹ谿雁・逅・
+
                     logger.debug(f"[UNOPPOSED] Calling process_skill_effects for UNOPPOSED trigger")
                     bd_un, log_un, chg_un = process_skill_effects(effects_array_a, "UNOPPOSED", actor_a_char, actor_d_char, skill_data_d, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
 
-                    custom_dmg_onesided = 0 # 笘・ｿｽ蜉
+                    custom_dmg_onesided = 0
                     def local_apply(clist, primary_target=None):
                         ex = 0
                         for (c, t, n, v) in clist:
                             if t == "APPLY_STATE":
-                                # 繝舌ヵ陬懈ｭ｣繧帝勁螟悶＠縺溷渕遉主､縺ｮ縺ｿ繧貞叙蠕・
+
                                 base_curr = 0
                                 if n == 'HP':
                                     base_curr = int(c.get('hp', 0))
@@ -847,28 +784,26 @@ def execute_duel_match(room, data, username):
                                 else:
                                     logger.warning("[unopposed grant_skill failed] %s", res.get("message"))
                             elif t == "CUSTOM_DAMAGE":
-                                # 笘・ｿｮ豁｣: 謾ｻ謦・ｯｾ雎｡縺ｸ縺ｮ繝繝｡繝ｼ繧ｸ縺ｮ縺ｿ繧貞刈邂励＠縲√◎繧御ｻ･螟厄ｼ郁・蛯ｷ縺ｪ縺ｩ・峨・逶ｴ謗･驕ｩ逕ｨ縺吶ｋ
+
                                 if primary_target and c.get('id') == primary_target.get('id'):
                                     ex += v
                                 else:
                                     curr = get_status_value(c, 'HP')
                                     _update_char_stat(room, c, 'HP', max(0, curr - v), username=f"[{n}]", source=DamageSource.SKILL_EFFECT)
 
-                                # Record event
                                 target_key = 'A' if actor_a_char and c.get('id') == actor_a_char.get('id') else ('D' if actor_d_char and c.get('id') == actor_d_char.get('id') else None)
                                 if target_key:
                                     damage_report[target_key].append({'source': n, 'value': v})
                             elif t == "CONSUME_BLEED_MAINTENANCE":
                                 consumed, remaining = consume_bleed_maintenance_stack(c, amount=int(v or 1))
                                 if consumed > 0:
-                                    broadcast_log(room, f"[出血遷延] {c.get('name', '???')} consumed 1 stack (remaining {remaining})", "state-change")
+                                    broadcast_log(room, f"[出血遷延] {c.get('name', '')} consumed 1 stack (remaining {remaining})", "state-change")
 
                             elif t == "APPLY_SKILL_DAMAGE_AGAIN" or t == "USE_SKILL_AGAIN":
                                 if state.get('__select_resolve_delegate__', False):
-                                    # In select/resolve delegated execution, re-use is queued in battle/core.
+
                                     continue
-                                # Legacy duel modal fallback: resolve as same-damage follow-up hit.
-                                # Select/Resolve flow uses virtual-slot re-use in battle/core.py.
+
                                 if damage > 0:
                                     _update_char_stat(room, c, 'HP', c.get('hp', 0) - damage, username="[follow-up]", source=DamageSource.SKILL_EFFECT)
                                     temp_logs = []
@@ -877,7 +812,6 @@ def execute_duel_match(room, data, username):
                                     nonlocal custom_dmg_onesided
                                     custom_dmg_onesided += damage + b_dmg
 
-                                    # Record event
                                     target_key = 'A' if actor_a_char and c.get('id') == actor_a_char.get('id') else ('D' if actor_d_char and c.get('id') == actor_d_char.get('id') else None)
                                     if target_key:
                                         damage_report[target_key].append({'source': 'custom_damage', 'value': damage + b_dmg})
@@ -888,13 +822,13 @@ def execute_duel_match(room, data, username):
 
                     logger.debug(f"[UNOPPOSED] Applying changes from UNOPPOSED: {len(chg_un)} changes")
                     local_apply(chg_un, primary_target=actor_d_char)
-                    if bd_un > 0: damage_report['D'].append({'source': '螽∝鴨陬懈ｭ｣(Pre)', 'value': bd_un})
+                    if bd_un > 0: damage_report['D'].append({'source': '威力補正(Pre)', 'value': bd_un})
 
                     logger.debug(f"[HIT] Calling process_skill_effects for HIT trigger")
                     bd_hit, log_hit, chg_hit = process_skill_effects(effects_array_a, "HIT", actor_a_char, actor_d_char, skill_data_d, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
                     logger.debug(f"[HIT] Applying changes from HIT: {len(chg_hit)} changes")
                     extra_skill_damage = local_apply(chg_hit, primary_target=actor_d_char)
-                    if bd_hit > 0: damage_report['D'].append({'source': '螽∝鴨陬懈ｭ｣(Hit)', 'value': bd_hit})
+                    if bd_hit > 0: damage_report['D'].append({'source': '威力補正(Hit)', 'value': bd_hit})
 
                     log_snippets.extend(log_un + log_hit)
                     bonus_damage = bd_un + bd_hit
@@ -907,7 +841,7 @@ def execute_duel_match(room, data, username):
                         actor_d_char,
                         final_damage,
                         log_snippets=log_snippets,
-                        incoming_label='髦ｲ',
+                        incoming_label='防',
                     )
                     final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
 
@@ -915,17 +849,15 @@ def execute_duel_match(room, data, username):
                     buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
                     if buff_dmg > 0: damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
-                    if damage > 0: damage_report['D'].append({'source': '繝繧､繧ｹ繝繝｡繝ｼ繧ｸ', 'value': damage})
+                    if damage > 0: damage_report['D'].append({'source': 'ダイスダメージ', 'value': damage})
                     if kiretsu > 0: damage_report['D'].append({'source': 'fissure', 'value': kiretsu})
 
-                    winner_message = f"<strong> 竊・{actor_name_a} 縺ｮ荳譁ｹ謾ｻ謦・ｼ・/strong>"
+                    winner_message = f"<strong> → {actor_name_a} の一方攻撃</strong>"
 
-        # 笘・霑ｽ蜉: 繝槭ャ繝∽ｸ榊庄 (Unmatchable) - 逶ｸ莠剃ｸ譁ｹ謾ｻ謦・
         elif _is_unmatchable_skill(skill_data_a) or _is_unmatchable_skill(skill_data_d):
-            winner_message = "<strong> 竊・逶ｸ莠剃ｸ譁ｹ謾ｻ謦・(繝槭ャ繝∽ｸ榊庄)</strong>"
+            winner_message = "<strong> → 相互一方攻撃(マッチ不可)</strong>"
             broadcast_log(room, "相互一方攻撃", "info", save=False)
 
-            # 1. Attacker -> Defender
             dmg_a = 0
             if _is_defense_or_evasion_skill(skill_data_a, skill_id_a):
                 dmg_a = 0
@@ -934,7 +866,7 @@ def execute_duel_match(room, data, username):
                 dmg_a = result_a['total']
 
             if actor_d_char:
-                # Attacker Effects & Hit Processing
+
                 kiretsu = get_status_value(actor_d_char, "破裂")
                 bonus_dmg, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, dmg_a)
                 for evt in dmg_evts:
@@ -943,13 +875,10 @@ def execute_duel_match(room, data, username):
                 log_snippets.extend(logs)
 
                 if kiretsu > 0: damage_report['D'].append({'source': 'fissure', 'value': kiretsu})
-                if dmg_a > 0: damage_report['D'].append({'source': '繝繧､繧ｹ繝繝｡繝ｼ繧ｸ', 'value': dmg_a})
+                if dmg_a > 0: damage_report['D'].append({'source': 'ダイスダメージ', 'value': dmg_a})
 
-                # If base damage is 0, we treat it as no hit for damage calculation purposes, but effects might apply?
-                # User spec: "莠偵＞縺ｫ譛邨ょｨ∝鴨蛻・・繝繝｡繝ｼ繧ｸ繧偵♀莠偵＞縺ｫ荳弱∴" -> implies simple application
                 final_dmg_a = dmg_a + kiretsu + bonus_dmg
 
-                # Check for 0 damage explicit (if original was 0 and no bonus)
                 if final_dmg_a > 0 or custom_dmg > 0:
                      extra_hit = process_on_hit_buffs(actor_a_char, actor_d_char, final_dmg_a, log_snippets)
                      final_dmg_a += extra_hit
@@ -960,14 +889,13 @@ def execute_duel_match(room, data, username):
                          actor_d_char,
                          final_dmg_a,
                          log_snippets=log_snippets,
-                         incoming_label='髦ｲ',
+                         incoming_label='防',
                      )
 
-                     _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_dmg_a, username=f"{username}(逶ｸ莠・", save=False)
+                     _update_char_stat(room, actor_d_char, "HP", actor_d_char["hp"] - final_dmg_a, username=f"{username}(相殺", save=False)
                      buff_dmg = process_on_damage_buffs(room, actor_d_char, final_dmg_a, username, log_snippets)
                      if buff_dmg > 0: damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
-            # 2. Defender -> Attacker
             dmg_d = 0
             if _is_defense_or_evasion_skill(skill_data_d, skill_id_d):
                 dmg_d = 0
@@ -976,10 +904,6 @@ def execute_duel_match(room, data, username):
                 dmg_d = result_d['total']
 
             if actor_a_char:
-                # Defender Effects & Hit Processing
-                # Note: 'defender' role in apply_skill_effects_bidirectional usually implies winning or reaction.
-                # Here both are acting as attackers effectively.
-                # However, apply_skill_effects_bidirectional(..., 'defender', ...) executes Defender's HIT effects against Attacker.
 
                 kiretsu = get_status_value(actor_a_char, "破裂")
                 bonus_dmg, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, dmg_d)
@@ -989,7 +913,7 @@ def execute_duel_match(room, data, username):
                 log_snippets.extend(logs)
 
                 if kiretsu > 0: damage_report['A'].append({'source': 'fissure', 'value': kiretsu})
-                if dmg_d > 0: damage_report['A'].append({'source': '繝繧､繧ｹ繝繝｡繝ｼ繧ｸ', 'value': dmg_d})
+                if dmg_d > 0: damage_report['A'].append({'source': 'ダイスダメージ', 'value': dmg_d})
 
                 final_dmg_d = dmg_d + kiretsu + bonus_dmg
 
@@ -1003,25 +927,23 @@ def execute_duel_match(room, data, username):
                          actor_a_char,
                          final_dmg_d,
                          log_snippets=log_snippets,
-                         incoming_label='謾ｻ',
+                         incoming_label='攻',
                      )
 
-                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_dmg_d, username=f"{username}(逶ｸ莠・", save=False)
+                     _update_char_stat(room, actor_a_char, "HP", actor_a_char["hp"] - final_dmg_d, username=f"{username}(相殺", save=False)
                      buff_dmg = process_on_damage_buffs(room, actor_a_char, final_dmg_d, username, log_snippets)
                      if buff_dmg > 0: damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
 
+        elif attacker_category == "防御" and defender_category == "防御":
+            winner_message = "<strong> → 双方防御のため、ダメージなし</strong>"; damage_message = "(相殺)"
+        elif (attacker_category == "防御" and defender_category == "回避") or (attacker_category == "回避" and defender_category == "防御"):
+            winner_message = "<strong> → 防御と回避のためスキル不発</strong>"; damage_message = "(効果なし)"
+        elif attacker_category == "回避" and defender_category == "回避":
+            winner_message = "<strong> → 回避どうしのためスキル不発</strong>"; damage_message = "(効果なし)"
 
-        elif attacker_category == "髦ｲ蠕｡" and defender_category == "髦ｲ蠕｡":
-            winner_message = "<strong> 竊・荳｡閠・亟蠕｡縺ｮ縺溘ａ縲√ム繝｡繝ｼ繧ｸ縺ｪ縺・/strong>"; damage_message = "(逶ｸ谿ｺ)"
-        elif (attacker_category == "髦ｲ蠕｡" and defender_category == "蝗樣∩") or (attacker_category == "蝗樣∩" and defender_category == "髦ｲ蠕｡"):
-            winner_message = "<strong> 竊・髦ｲ蠕｡縺ｨ蝗樣∩縺ｮ縺溘ａ縲√・繝・メ荳肴・遶・/strong>"; damage_message = "(蜉ｹ譫懷・逅・↑縺・"
-        elif attacker_category == "蝗樣∩" and defender_category == "蝗樣∩":
-            winner_message = "<strong> 竊・蝗樣∩縺ｩ縺・＠縺ｮ縺溘ａ縲√・繝・メ荳肴・遶・/strong>"; damage_message = "(蜉ｹ譫懷・逅・↑縺・"
-
-        elif "螳亥ｙ" in defender_tags and defender_category == "髦ｲ蠕｡":
+        elif "守備" in defender_tags and defender_category == "防御":
             if result_a['total'] > result_d['total']:
-                # 笘・菫ｮ豁｣: 螳亥ｙ繧ｹ繧ｭ繝ｫ謨怜圏譎ゅ∵判謦・・縺ｫFP繧剃ｻ倅ｸ弱＠縺ｪ縺・
-                # grant_win_fp(actor_a_char)  # <- 蜑企勁
+
                 damage = result_a['total'] - result_d['total']
                 kiretsu = get_status_value(actor_d_char, "破裂")
                 bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
@@ -1031,7 +953,7 @@ def execute_duel_match(room, data, username):
                 log_snippets.extend(logs)
 
                 if kiretsu > 0: damage_report['D'].append({'source': 'fissure', 'value': kiretsu})
-                if damage > 0: damage_report['D'].append({'source': '蟾ｮ蛻・ム繝｡繝ｼ繧ｸ', 'value': damage})
+                if damage > 0: damage_report['D'].append({'source': '差分ダメージ', 'value': damage})
 
                 final_damage = damage + kiretsu + bonus_damage
                 final_damage = _apply_total_damage_multiplier(
@@ -1039,7 +961,7 @@ def execute_duel_match(room, data, username):
                     actor_d_char,
                     final_damage,
                     log_snippets=log_snippets,
-                    incoming_label='髦ｲ',
+                    incoming_label='防',
                 )
                 final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
 
@@ -1047,36 +969,34 @@ def execute_duel_match(room, data, username):
                 buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
                 if buff_dmg > 0: damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
-                winner_message = f"<strong> 竊・{actor_name_a} 縺ｮ蜍晏茜・・/strong> (繝繝｡繝ｼ繧ｸ霆ｽ貂・"
+                winner_message = f"<strong> → {actor_name_a} の勝利</strong> (ダメージ軽減)"
             else:
-                # 笘・・ 菫ｮ豁｣: 謨苓・ｼ・ttacker・峨′螳亥ｙ繧ｹ繧ｭ繝ｫ繧剃ｽｿ逕ｨ縺励※縺・↑縺・ｴ蜷医・FP迯ｲ蠕・
-                attacker_loser_category = str((skill_data_a or {}).get("蛻・｡・") or (skill_data_a or {}).get("attribute") or "")
+
+                attacker_loser_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
                 attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
-                is_attacker_using_defense = (attacker_loser_category in ["髦ｲ蠕｡", "蝗樣∩"] or "髦ｲ蠕｡" in attacker_loser_tags or "蝗樣∩" in attacker_loser_tags or "螳亥ｙ" in attacker_loser_tags)
+                is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
 
                 if not is_attacker_using_defense:
                     grant_win_fp(actor_d_char)
 
-                winner_message = f"<strong> 竊・{actor_name_d} 縺ｮ蜍晏茜・・/strong> (髦ｲ蠕｡謌仙粥)"
+                winner_message = f"<strong> → {actor_name_d} の勝利</strong> (防御成功)"
                 _, logs, _, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d)
                 for evt in dmg_evts:
                     t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
                     if t_key: damage_report[t_key].append(evt)
                 log_snippets.extend(logs)
 
-                # --- Gyan Barth (ID: 8) Reflect Logic ---
                 if get_effective_origin_id(actor_d_char) == 8:
                      diff = result_d['total'] - result_a['total']
                      if diff > 0:
                          curr_hp = get_status_value(actor_a_char, 'HP')
-                         _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[蜿榊ｰ・ム繝｡繝ｼ繧ｸ]")
-                         damage_report['A'].append({'source': '蜿榊ｰ・繧ｮ繧｡繝ｳ繝ｻ繝舌Ν繝・', 'value': diff})
+                         _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反封ムメージ]")
+                         damage_report['A'].append({'source': '反封ギァン・バルチ', 'value': diff})
                          broadcast_log(room, f"[鏡面反射] reflected {diff} damage.", "info")
 
-        elif "螳亥ｙ" in defender_tags and defender_category == "蝗樣∩":
+        elif "守備" in defender_tags and defender_category == "回避":
             if result_a['total'] > result_d['total']:
-                # 笘・菫ｮ豁｣: 螳亥ｙ繧ｹ繧ｭ繝ｫ謨怜圏譎ゅ∵判謦・・縺ｫFP繧剃ｻ倅ｸ弱＠縺ｪ縺・
-                # grant_win_fp(actor_a_char)  # <- 蜑企勁
+
                 damage = result_a['total']
                 kiretsu = get_status_value(actor_d_char, "破裂")
                 bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
@@ -1090,7 +1010,7 @@ def execute_duel_match(room, data, username):
                     actor_d_char,
                     final_damage,
                     log_snippets=log_snippets,
-                    incoming_label='髦ｲ',
+                    incoming_label='防',
                 )
                 final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
@@ -1098,16 +1018,16 @@ def execute_duel_match(room, data, username):
 
                 if DodgeLockBuff.has_re_evasion(actor_d_char):
                      remove_buff(actor_d_char, "再回避ロック")
-                     log_snippets.append("[蜀榊屓驕ｿ螟ｱ謨暦ｼ・繝ｭ繝・け隗｣髯､)]")
+                     log_snippets.append("[再回避失敗！ロック解除]")
 
-                winner_message = f"<strong> 竊・{actor_name_a} 縺ｮ蜍晏茜・・/strong> (蝗樣∩螟ｱ謨・"
+                winner_message = f"<strong> → {actor_name_a} の勝利</strong> (回避失敗)"
                 display_total = final_damage + custom_dmg + buff_dmg
-                damage_message += f"({actor_d_char['name']} 縺ｫ {damage} " + (f"+ [破裂{kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} 繝繝｡繝ｼ繧ｸ)"
+                damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [破裂{kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
             else:
-                # 笘・・ 菫ｮ豁｣: 謨苓・ｼ・ttacker・峨′螳亥ｙ繧ｹ繧ｭ繝ｫ繧剃ｽｿ逕ｨ縺励※縺・↑縺・ｴ蜷医・FP迯ｲ蠕・
-                attacker_loser_category = str((skill_data_a or {}).get("蛻・｡・") or (skill_data_a or {}).get("attribute") or "")
+
+                attacker_loser_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
                 attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
-                is_attacker_using_defense = (attacker_loser_category in ["髦ｲ蠕｡", "蝗樣∩"] or "髦ｲ蠕｡" in attacker_loser_tags or "蝗樣∩" in attacker_loser_tags or "螳亥ｙ" in attacker_loser_tags)
+                is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
 
                 if not is_attacker_using_defense:
                     grant_win_fp(actor_d_char)
@@ -1117,26 +1037,26 @@ def execute_duel_match(room, data, username):
                     t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
                     if t_key: damage_report[t_key].append(evt)
                 if actor_d_char:
-                    log_snippets.append("[蜀榊屓驕ｿ蜿ｯ閭ｽ・‐")
+                    log_snippets.append("[再回避可能]")
                     apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d, "buff_id": "Bu-05"})
                 log_snippets.extend(logs)
-                winner_message = f"<strong> 竊・{actor_name_d} 縺ｮ蜍晏茜・・/strong> (蝗樣∩謌仙粥)"; damage_message = "(繝繝｡繝ｼ繧ｸ 0)"
+                winner_message = f"<strong> → {actor_name_d} の勝利</strong> (回避成功)"; damage_message = "(ダメージ 0)"
                 if log_snippets: damage_message += f" ({' '.join(log_snippets)})"
 
-        elif attacker_category == "蝗樣∩":
+        elif attacker_category == "回避":
             if result_a['total'] > result_d['total']:
-                # 笘・・ 菫ｮ豁｣: 謨苓・ｼ・efender・峨′螳亥ｙ繧ｹ繧ｭ繝ｫ繧剃ｽｿ逕ｨ縺励※縺・↑縺・ｴ蜷医・FP迯ｲ蠕・
-                defender_loser_category = str((skill_data_d or {}).get("蛻・｡・") or (skill_data_d or {}).get("attribute") or "")
+
+                defender_loser_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
                 defender_loser_tags = skill_data_d.get("tags", []) if skill_data_d else []
-                is_defender_using_defense = (defender_loser_category in ["髦ｲ蠕｡", "蝗樣∩"] or "髦ｲ蠕｡" in defender_loser_tags or "蝗樣∩" in defender_loser_tags or "螳亥ｙ" in defender_loser_tags)
+                is_defender_using_defense = (defender_loser_category in ["防御", "回避"] or "防御" in defender_loser_tags or "回避" in defender_loser_tags or "守備" in defender_loser_tags)
 
                 if not is_defender_using_defense:
                     grant_win_fp(actor_a_char)
 
-                winner_message = f"<strong> 竊・{actor_name_a} 縺ｮ蜍晏茜・・/strong> (蝗樣∩謌仙粥)"
-                damage_message = "(繝繝｡繝ｼ繧ｸ縺ｪ縺・"
+                winner_message = f"<strong> → {actor_name_a} の勝利</strong> (回避成功)"
+                damage_message = "(ダメージ 0)"
                 if actor_a_char:
-                    log_snippets.append("[蜀榊屓驕ｿ蜿ｯ閭ｽ・‐")
+                    log_snippets.append("[再回避可能]")
                     apply_buff(actor_a_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_a, "buff_id": "Bu-05"})
                 _, logs, _, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
                 for evt in dmg_evts:
@@ -1144,8 +1064,6 @@ def execute_duel_match(room, data, username):
                     if t_key: damage_report[t_key].append(evt)
                 if logs: log_snippets.extend(logs)
             elif result_d['total'] > result_a['total']:
-                # 笘・・ 菫ｮ豁｣: 謨苓・ｼ・ttacker・峨・縲悟屓驕ｿ縲阪ｒ菴ｿ逕ｨ縺励※縺・ｋ縺溘ａ縲．efender縺ｫFP縺ｯ莉倅ｸ弱＠縺ｪ縺・
-                # grant_win_fp(actor_d_char)
 
                 damage = result_d['total']
                 if actor_a_char:
@@ -1157,7 +1075,7 @@ def execute_duel_match(room, data, username):
                     log_snippets.extend(logs)
 
                     if kiretsu > 0: damage_report['A'].append({'source': 'fissure', 'value': kiretsu})
-                    if damage > 0: damage_report['A'].append({'source': '繝繧､繧ｹ繝繝｡繝ｼ繧ｸ', 'value': damage})
+                    if damage > 0: damage_report['A'].append({'source': 'ダイスダメージ', 'value': damage})
 
                     final_damage = damage + kiretsu + bonus_damage
                     final_damage = _apply_total_damage_multiplier(
@@ -1165,7 +1083,7 @@ def execute_duel_match(room, data, username):
                         actor_a_char,
                         final_damage,
                         log_snippets=log_snippets,
-                        incoming_label='謾ｻ',
+                        incoming_label='攻',
                     )
                     final_damage = _apply_feint_half_if_needed(final_damage, skill_data_d, skill_data_a, log_snippets)
 
@@ -1173,10 +1091,10 @@ def execute_duel_match(room, data, username):
                     buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
                     if buff_dmg > 0: damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
 
-                    winner_message = f"<strong> 竊・{actor_name_d} 縺ｮ蜍晏茜・・/strong> (繧ｫ繧ｦ繝ｳ繧ｿ繝ｼ)"
+                    winner_message = f"<strong> → {actor_name_d} の勝利</strong> (カウンター)"
             else:
-                winner_message = '<strong> 竊・蠑輔″蛻・￠・・/strong> (繝繝｡繝ｼ繧ｸ縺ｪ縺・'
-                # END_MATCH蜃ｦ逅・
+                winner_message = "<strong> → 不発</strong> (ダメージなし)"
+
                 def local_end_match(effs, actor, target, skill):
                     d, l, c = process_skill_effects(effs, "END_MATCH", actor, target, skill)
                     for (char, type, name, value) in c:
@@ -1217,27 +1135,23 @@ def execute_duel_match(room, data, username):
                 log_d = local_end_match(effects_array_d, actor_d_char, actor_a_char, skill_data_a)
                 log_snippets.extend(log_a + log_d)
                 if log_snippets: winner_message += f" ({' '.join(log_snippets)})"
-                damage_message = "(逶ｸ谿ｺ)"
+                damage_message = "(相殺)"
 
         elif result_a['total'] > result_d['total']:
-            attacker_winner_category = str((skill_data_a or {}).get("蛻・｡・") or (skill_data_a or {}).get("attribute") or "")
+            attacker_winner_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
             attacker_winner_tags = skill_data_a.get("tags", []) if skill_data_a else []
 
-            # 笘・菫ｮ豁｣: 謾ｻ謦・・縺後碁亟蠕｡縲阪ｄ縲悟屓驕ｿ縲阪〒蜍晏茜縺励◆蝣ｴ蜷医√ム繝｡繝ｼ繧ｸ縺ｯ0 (繧ｫ繧ｦ繝ｳ繧ｿ繝ｼ縺ｧ縺ｪ縺・剞繧・
-            if attacker_winner_category == "髦ｲ蠕｡" or attacker_winner_category == "蝗樣∩" or "髦ｲ蠕｡" in attacker_winner_tags or "蝗樣∩" in attacker_winner_tags:
-                # 笘・・ 菫ｮ豁｣: 謨苓・′螳亥ｙ繧ｹ繧ｭ繝ｫ繧剃ｽｿ逕ｨ縺励※縺・↑縺・ｴ蜷医・FP迯ｲ蠕・
-                defender_loser_category = str((skill_data_d or {}).get("蛻・｡・") or (skill_data_d or {}).get("attribute") or "")
+            if attacker_winner_category == "防御" or attacker_winner_category == "回避" or "防御" in attacker_winner_tags or "回避" in attacker_winner_tags:
+
+                defender_loser_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
                 defender_loser_tags = skill_data_d.get("tags", []) if skill_data_d else []
-                is_defender_using_defense = (defender_loser_category in ["髦ｲ蠕｡", "蝗樣∩"] or "髦ｲ蠕｡" in defender_loser_tags or "蝗樣∩" in defender_loser_tags or "螳亥ｙ" in defender_loser_tags)
+                is_defender_using_defense = (defender_loser_category in ["防御", "回避"] or "防御" in defender_loser_tags or "回避" in defender_loser_tags or "守備" in defender_loser_tags)
 
                 if not is_defender_using_defense:
                     grant_win_fp(actor_a_char)
 
-                winner_message = f"<strong> 竊・{actor_name_a} 縺ｮ蜍晏茜・・/strong> ({attacker_winner_category}謌仙粥)"
+                winner_message = f"<strong> → {actor_name_a} の勝利</strong> ({attacker_winner_category}成功)"
 
-                # 繧ｹ繧ｭ繝ｫ蜉ｹ譫懷・逅・ｼ医ヰ繝穂ｻ倅ｸ弱↑縺ｩ縺ｯ陦後≧縺後√ム繝｡繝ｼ繧ｸ髢｢騾｣縺ｯ逋ｺ逕溘＆縺帙↑縺・√≠繧九＞縺ｯ蜉ｹ譫懈ｬ｡隨ｬ・・
-                # 縺薙％縺ｧ縺ｯ譛菴朱剞 apply_skill_effects_bidirectional 縺ｯ蜻ｼ縺ｶ・域←諱ｵ縺ｪ縺ｩ縺ｧ蝗槫ｾｩ縺後≠繧九°繧ゅ＠繧後↑縺・◆繧・ｼ・
-                # 縺溘□縺・damage=0 縺ｧ蜻ｼ縺ｶ
                 _, logs, _, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
                 for evt in dmg_evts:
                     t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
@@ -1245,21 +1159,19 @@ def execute_duel_match(room, data, username):
                 if logs: log_snippets.extend(logs)
                 if log_snippets: winner_message += f" ({' '.join(log_snippets)})"
 
-                # 再回避ロック隗｣髯､ check (髦ｲ蠕｡蛛ｴ縺後Ο繝・け縺輔ｌ縺ｦ縺・◆蝣ｴ蜷・
                 if actor_d_char and DodgeLockBuff.has_re_evasion(actor_d_char):
                      remove_buff(actor_d_char, "再回避ロック")
-                     log_snippets.append("[蜀榊屓驕ｿ螟ｱ謨暦ｼ・繝ｭ繝・け隗｣髯､)]")
+                     log_snippets.append("[再回避失敗！ロック解除]")
 
             else:
-                # 笘・・ 菫ｮ豁｣: 謨苓・′螳亥ｙ繧ｹ繧ｭ繝ｫ繧剃ｽｿ逕ｨ縺励※縺・◆蝣ｴ蜷医：P繧剃ｻ倅ｸ弱＠縺ｪ縺・
-                defender_loser_category = str((skill_data_d or {}).get("蛻・｡・") or (skill_data_d or {}).get("attribute") or "")
+
+                defender_loser_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
                 defender_loser_tags = skill_data_d.get("tags", []) if skill_data_d else []
-                is_defender_using_defense = (defender_loser_category in ["髦ｲ蠕｡", "蝗樣∩"] or "髦ｲ蠕｡" in defender_loser_tags or "蝗樣∩" in defender_loser_tags or "螳亥ｙ" in defender_loser_tags)
+                is_defender_using_defense = (defender_loser_category in ["防御", "回避"] or "防御" in defender_loser_tags or "回避" in defender_loser_tags or "守備" in defender_loser_tags)
 
                 if not is_defender_using_defense:
                     grant_win_fp(actor_a_char)
 
-                # 笘・菫ｮ豁｣: 謾ｻ謦プs謾ｻ謦・・蝣ｴ蜷医∵判謦・せ繧ｭ繝ｫ縺ｮ螽∝鴨繧偵◎縺ｮ縺ｾ縺ｾ荳弱∴繧・
                 damage, damage_source = _compute_match_damage_from_rolls(result_a['total'], result_d['total'], skill_data_d)
                 if actor_d_char:
                     kiretsu = get_status_value(actor_d_char, "破裂")
@@ -1282,7 +1194,7 @@ def execute_duel_match(room, data, username):
                         actor_d_char,
                         final_damage,
                         log_snippets=log_snippets,
-                        incoming_label='髦ｲ',
+                        incoming_label='防',
                     )
                     final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
 
@@ -1290,29 +1202,26 @@ def execute_duel_match(room, data, username):
                     buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
                     if buff_dmg > 0: damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
-                    # 再回避ロック荳ｭ縺ｮ蝗樣∩螟ｱ謨怜・逅・
                     if actor_d_char and DodgeLockBuff.has_re_evasion(actor_d_char):
                          remove_buff(actor_d_char, "再回避ロック")
-                         log_snippets.append("[蜀榊屓驕ｿ螟ｱ謨暦ｼ・繝ｭ繝・け隗｣髯､)]")
+                         log_snippets.append("[再回避失敗！ロック解除]")
 
-                    winner_message = f"<strong> 竊・{actor_name_a} 縺ｮ蜍晏茜・・/strong>"
-
+                    winner_message = f"<strong> → {actor_name_a} の勝利</strong>"
 
         elif result_d['total'] > result_a['total']:
-            defender_winner_category = str((skill_data_d or {}).get("蛻・｡・") or (skill_data_d or {}).get("attribute") or "")
+            defender_winner_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
             defender_winner_tags = skill_data_d.get("tags", []) if skill_data_d else []
 
-            # 笘・菫ｮ豁｣: 髦ｲ蠕｡蛛ｴ縺後碁亟蠕｡縲阪ｄ縲悟屓驕ｿ縲阪〒蜍晏茜縺励◆蝣ｴ蜷医√ム繝｡繝ｼ繧ｸ縺ｯ0
-            if defender_winner_category == "髦ｲ蠕｡" or defender_category == "髦ｲ蠕｡" or "髦ｲ蠕｡" in defender_winner_tags:
-                 # 笘・・ 菫ｮ豁｣: 謨苓・′螳亥ｙ繧ｹ繧ｭ繝ｫ繧剃ｽｿ逕ｨ縺励※縺・↑縺・ｴ蜷医・FP迯ｲ蠕・
-                 attacker_loser_category = str((skill_data_a or {}).get("蛻・｡・") or (skill_data_a or {}).get("attribute") or "")
+            if defender_winner_category == "防御" or defender_category == "防御" or "防御" in defender_winner_tags:
+
+                 attacker_loser_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
                  attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
-                 is_attacker_using_defense = (attacker_loser_category in ["髦ｲ蠕｡", "蝗樣∩"] or "髦ｲ蠕｡" in attacker_loser_tags or "蝗樣∩" in attacker_loser_tags or "螳亥ｙ" in attacker_loser_tags)
+                 is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
 
                  if not is_attacker_using_defense:
                      grant_win_fp(actor_d_char)
 
-                 winner_message = f"<strong> 竊・{actor_name_d} 縺ｮ蜍晏茜・・/strong> (髦ｲ蠕｡謌仙粥)"
+                 winner_message = f"<strong> → {actor_name_d} の勝利</strong> (防御成功)"
                  _, logs, _, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
                  for evt in dmg_evts:
                      t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
@@ -1320,17 +1229,17 @@ def execute_duel_match(room, data, username):
                  log_snippets.extend(logs)
                  if logs: winner_message += f" ({' '.join(logs)})"
 
-            elif defender_winner_category == "蝗樣∩" or defender_category == "蝗樣∩" or "蝗樣∩" in defender_winner_tags:
-                 # 笘・・ 菫ｮ豁｣: 謨苓・′螳亥ｙ繧ｹ繧ｭ繝ｫ繧剃ｽｿ逕ｨ縺励※縺・↑縺・ｴ蜷医・FP迯ｲ蠕・
-                 attacker_loser_category = str((skill_data_a or {}).get("蛻・｡・") or (skill_data_a or {}).get("attribute") or "")
+            elif defender_winner_category == "回避" or defender_category == "回避" or "回避" in defender_winner_tags:
+
+                 attacker_loser_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
                  attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
-                 is_attacker_using_defense = (attacker_loser_category in ["髦ｲ蠕｡", "蝗樣∩"] or "髦ｲ蠕｡" in attacker_loser_tags or "蝗樣∩" in attacker_loser_tags or "螳亥ｙ" in attacker_loser_tags)
+                 is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
 
                  if not is_attacker_using_defense:
                      grant_win_fp(actor_d_char)
 
-                 winner_message = f"<strong> 竊・{actor_name_d} 縺ｮ蜍晏茜・・/strong> (蝗樣∩謌仙粥)"
-                 # No damage message
+                 winner_message = f"<strong> → {actor_name_d} の勝利</strong> (回避成功)"
+
                  _, logs, _, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
                  for evt in dmg_evts:
                      t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
@@ -1338,21 +1247,19 @@ def execute_duel_match(room, data, username):
                  log_snippets.extend(logs)
                  if logs: winner_message += f" ({' '.join(logs)})"
 
-                 # 再回避ロック莉倅ｸ・
                  if actor_d_char:
-                    log_snippets.append("[蜀榊屓驕ｿ蜿ｯ閭ｽ・‐")
+                    log_snippets.append("[再回避可能]")
                     apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d, "buff_id": "Bu-05"})
 
             else:
-                # 笘・・ 菫ｮ豁｣: 謨苓・′螳亥ｙ繧ｹ繧ｭ繝ｫ繧剃ｽｿ逕ｨ縺励※縺・◆蝣ｴ蜷医：P繧剃ｻ倅ｸ弱＠縺ｪ縺・
-                attacker_loser_category = str((skill_data_a or {}).get("蛻・｡・") or (skill_data_a or {}).get("attribute") or "")
+
+                attacker_loser_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
                 attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
-                is_attacker_using_defense = (attacker_loser_category in ["髦ｲ蠕｡", "蝗樣∩"] or "髦ｲ蠕｡" in attacker_loser_tags or "蝗樣∩" in attacker_loser_tags or "螳亥ｙ" in attacker_loser_tags)
+                is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
 
                 if not is_attacker_using_defense:
                     grant_win_fp(actor_d_char)
 
-                # 笘・菫ｮ豁｣: 髦ｲ蠕｡蛛ｴ縺梧判謦・せ繧ｭ繝ｫ縺ｧ蜍晏茜縺励◆蝣ｴ蜷医ｂ縲∵判謦・せ繧ｭ繝ｫ縺ｮ螽∝鴨繧偵◎縺ｮ縺ｾ縺ｾ荳弱∴繧・
                 damage, damage_source = _compute_match_damage_from_rolls(result_d['total'], result_a['total'], skill_data_a)
                 if actor_a_char:
                     kiretsu = get_status_value(actor_a_char, "破裂")
@@ -1374,7 +1281,7 @@ def execute_duel_match(room, data, username):
                         actor_a_char,
                         final_damage,
                         log_snippets=log_snippets,
-                        incoming_label='謾ｻ',
+                        incoming_label='攻',
                     )
                     final_damage = _apply_feint_half_if_needed(final_damage, skill_data_d, skill_data_a, log_snippets)
 
@@ -1382,29 +1289,26 @@ def execute_duel_match(room, data, username):
                     buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
                     if buff_dmg > 0: damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
 
-                    winner_message = f"<strong> 竊・{actor_name_d} 縺ｮ蜍晏茜・・/strong>"
+                    winner_message = f"<strong> → {actor_name_d} の勝利</strong>"
 
-
-                # --- Gyan Barth (ID: 8) Reflect Logic ---
                 if get_effective_origin_id(actor_d_char) == 8:
-                     # 諱ｩ諱ｵ縺ｮ逋ｺ蜍墓擅莉ｶ: 縲碁亟蠕｡繧ｹ繧ｭ繝ｫ縲阪〒蜍晏茜縺励◆譎・
-                     # skill_data_d 縺ｮ蛻・｡・or tags 縺ｫ "髦ｲ蠕｡" or "螳亥ｙ" 縺悟性縺ｾ繧後ｋ縺狗｢ｺ隱・
+
                      is_defense_skill = False
                      if skill_data_d:
-                         d_cat = str(skill_data_d.get("蛻・｡・") or skill_data_d.get("attribute") or "")
+                         d_cat = str(skill_data_d.get("分類") or skill_data_d.get("attribute") or "")
                          d_tags = skill_data_d.get('tags', [])
-                         if d_cat == '髦ｲ蠕｡' or '髦ｲ蠕｡' in d_tags or '螳亥ｙ' in d_tags:
+                         if d_cat == '防御' or '防御' in d_tags or '守備' in d_tags:
                              is_defense_skill = True
 
                      if is_defense_skill:
                          diff = result_d['total'] - result_a['total']
                          if diff > 0:
                              curr_hp = get_status_value(actor_a_char, 'HP')
-                             _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[蜿榊ｰ・ム繝｡繝ｼ繧ｸ]", save=False)
+                             _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反封ムメージ]", save=False)
                              broadcast_log(room, f"[鏡面反射] reflected {diff} damage.", "info", save=False)
         else:
-            winner_message = '<strong> 竊・蠑輔″蛻・￠・・/strong> (繝繝｡繝ｼ繧ｸ縺ｪ縺・'
-            # END_MATCH Effect (Simplified for Draw)
+            winner_message = "<strong> → 不発</strong> (ダメージなし)"
+
             def run_end_match(effs, actor, target, skill):
                 d, l, c = process_skill_effects(effs, "END_MATCH", actor, target, skill)
                 for (char, type, name, value) in c:
@@ -1447,8 +1351,8 @@ def execute_duel_match(room, data, username):
             if log_snippets: winner_message += f" ({' '.join(log_snippets)})"
 
     except Exception as e:
-        logger.error("--- 笆ｼ笆ｼ笆ｼ 繧ｨ繝ｩ繝ｼ繧偵く繝｣繝・メ縺励∪縺励◆ 笆ｼ笆ｼ笆ｼ ---")
-        logger.error(f"繧ｨ繝ｩ繝ｼ蜀・ｮｹ: {e}", exc_info=True)
+        logger.error("--- ▼▼▼ エラーをキャッチしました ▼▼▼ ---")
+        logger.error(f"エラー詳細: {e}", exc_info=True)
         raise e
 
     skill_display_a = format_skill_display_from_command(command_a, skill_id_a, skill_data_a, actor_a_char)
@@ -1475,29 +1379,22 @@ def execute_duel_match(room, data, username):
     broadcast_state_update(room)
     save_specific_room_state(room)
 
-    # 謇狗分譖ｴ譁ｰ
-    # 謇狗分譖ｴ譁ｰ (Already handled by update_has_acted earlier)
     if actor_a_char:
         has_re_evasion = DodgeLockBuff.has_re_evasion(actor_a_char)
         if not has_re_evasion:
-             # update_has_acted(actor_a_char, state.get('timeline', [])) # Already done at start
+
              pass
         save_specific_room_state(room)
 
     proceed_next_turn(room)
 
-    # 繝槭ャ繝∫ｵゆｺ・・逅・
     state['active_match'] = None
     if 'active_match' in state:
         del state['active_match']
 
-    # newly_applied 繧貞・騾壹・繝ｫ繝代・縺ｧ繧ｯ繝ｪ繧｢
     clear_newly_applied_flags(state)
 
     save_specific_room_state(room)
     broadcast_state_update(room)
     _safe_emit('match_modal_closed', {}, to=room)
-
-
-
 
