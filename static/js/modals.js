@@ -1242,9 +1242,9 @@ function openBehaviorFlowEditorModal(char) {
                     <div>・<strong>手順</strong>: 1ラウンドごとに現在の手順を参照して行動します（ラウンド終了時に次の手順へ進行）。</div>
                 <div>・<strong>手順内スキル</strong>: スロット数より多い場合はランダム抽選、少ない場合は最後のスキルを繰り返します。</div>
                 <div>・<strong>ランダム予約</strong>: 「使用可能スキルからランダム」を選ぶと、その手順で使用可能な所持スキルから都度ランダムに選びます。</div>
-                <div>・<strong>対象選択</strong>: 行ごとに「敵/味方」「最速/最遅/ランダム」を指定できます。</div>
+                <div>・<strong>対象選択</strong>: 行ごとに「相手陣営/同陣営（従来: 敵/味方）」「最速/最遅/ランダム」を指定できます。</div>
                 <div>・<strong>手順遷移</strong>: 手順ごとに「スキル使用後にループ遷移」を有効化すると、次ラウンドから指定ループへ進みます。</div>
-                <div>・<strong>味方対象タグ</strong>: 味方を指定するにはスキル側に <code>ally_target</code> / <code>味方対象</code> タグが必要です。</div>
+                <div>・<strong>同陣営対象の指定</strong>: 新規定義は <code>target_scope: "same_team"</code> を推奨。互換として <code>同陣営対象</code> / <code>同陣営指定</code> / <code>味方対象</code> / <code>味方指定</code> / <code>ally_target</code> / <code>target_ally</code> を受理します。</div>
                 <div>・<strong>条件遷移</strong>: 優先度が高い順に判定し、最初に成立した遷移だけ適用します。</div>
                 <div>・<strong>判定元</strong>: 自身（HP/MP/状態値）または戦闘全体（ラウンド/フェーズなど）。</div>
                 <div>・<strong>未保存確認</strong>: 変更後に閉じると確認ダイアログが表示されます。</div>
@@ -1537,7 +1537,7 @@ function openBehaviorFlowEditorModal(char) {
                     <div style="font-weight:bold; color:#2f566f; font-size:0.88em;">手順</div>
                     <button id="behavior-step-add-btn" style="padding:4px 8px; border:none; background:#2f7fbf; color:#fff; border-radius:5px; cursor:pointer;">追加</button>
                 </div>
-                <div style="font-size:0.77em; color:#5b7890; margin-bottom:5px;">※所持スキルと対象選択（敵/味方）を行ごとに設定します。</div>
+                <div style="font-size:0.77em; color:#5b7890; margin-bottom:5px;">※所持スキルと対象選択（相手陣営/同陣営）を行ごとに設定します。</div>
                 <div id="behavior-step-list"></div>
             </div>
             <div style="border:1px solid #dbeaf6; border-radius:7px; padding:8px;">

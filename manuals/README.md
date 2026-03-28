@@ -30,6 +30,5 @@
 3. `05_Shindou_Skill_Implementation_and_Documentation_Protocol.md`
 4. `06_Integrated_Implementation_Roadmap.md`
 5. `09_Status_Stack_Total_Effects_Plan.md`
-6. `10_Faction_Terminology_Alignment_Plan.md`
 
 `typst/` は文書出力用の共通アセットとしてそのまま `manuals` 直下に置きます。

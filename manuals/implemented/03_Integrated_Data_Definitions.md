@@ -43,6 +43,12 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 
 システムの挙動を変えるキーワードです。
 
+#### 用語方針（陣営）
+
+- 仕様語は `同陣営` / `相手陣営` を優先します。
+- 表示語（UI/ログ）は文脈に応じて `味方` / `敵` を使います。
+- 内部キーは当面 `ally` / `enemy` を維持します。
+
 | タグ名 | 効果 |
 | :--- | :--- |
 | `攻撃` | 攻撃スキルとして扱われる（バフの `_Atk` 補正などが乗る）。 |
@@ -52,7 +58,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 | `宝石の加護スキル` | 1戦闘に1回しか使用できない回数制限がかかる。 |
 | `回復` | 回復スキルとして認識される（UI表示などで考慮される場合あり）。 |
 | `対象変更不可` (`no_redirect`) | Select/Resolve の引き寄せ（redirect）を行わず、受けもしない。 |
-| `味方指定` (`ally_target`/`target_ally`) | 単体対象の対象陣営を味方側として扱う。Select/Resolve では `target_scope=ally` 相当。 |
+| `味方指定` / `同陣営指定` (`ally_target`/`target_ally`/`同陣営対象`/`同陣営指定`) | 旧タグ互換。術者から見た同陣営単体を示す。新規定義では `target_scope=same_team` を推奨。 |
 | `非ダメージ` (`no_damage`/`non_damage`) | `deals_damage=false` の省略指定。命中してもHP減算を行わない。 |
 
 #### mass種別の自動推論（Select/Resolve）
@@ -77,9 +83,10 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 * `target`: 効果対象。
   * `self` (自分), `target` (対象), `ALL_ENEMIES` (敵全体), `ALL_ALLIES` (味方全体/術者含む), `ALL_OTHER_ALLIES` (味方全体/術者除く), `ALL` (全員), `NEXT_ALLY` (次手番の味方)
 * `target_scope`: 単体対象（`target`）の対象陣営制御（任意）
-  * `enemy` / `ally` / `any`
+  * `same_team` / `opposing_team` / `any`（互換: `ally` / `enemy` / `any`）
   * 未指定時は `enemy`
-  * `target_scope` 未指定でも、`tags` に `味方指定` / `ally_target` / `target_ally` がある場合は `ally` として解釈されます。
+  * `target_scope` 未指定でも、`tags` に `味方指定` / `味方対象` / `同陣営` / `同陣営対象` / `同陣営指定` / `ally_target` / `target_ally` がある場合は `same_team` 相当（内部解釈は `ally`）として扱います。
+  * `target_scope` 未指定でも、`tags` に `敵対象` / `相手陣営対象` / `相手陣営指定` / `enemy_target` / `target_enemy` がある場合は `opposing_team` 相当（内部解釈は `enemy`）として扱います。
 * `condition`: 発動条件（任意）。
   * 例: `{"source": "target", "param": "HP", "operator": "LTE", "value": 10}`
   * `param: "速度値"` は通常ステータスではなく initiative 参照。`context.timeline` / `context.battle_state.slots` / `actor.totalSpeed` の順で評価されます。
@@ -601,9 +608,9 @@ ID `S-XX` で定義されるパッシブスキルです。
 - 保存/読込時は v1/v2 の互換正規化を通して `payload.version=2` へ寄せる。
 - `behavior_profile` を含む敵定義は、ルーム保存・JSON搬出入の双方で同じ schema で扱う。
 
-### A-6. `target_scope=ally` の Select/Resolve 固定ルール
-- `target_scope=ally`（または `味方指定` 系タグ）スキルは redirect（引き寄せ）に参加しない。
+### A-6. `target_scope=same_team`（互換: `ally`）の Select/Resolve 固定ルール
+- `target_scope=same_team`（互換: `ally`、または `味方指定` / `同陣営指定` 系タグ）スキルは redirect（引き寄せ）に参加しない。
   - 発生させない
   - 受けない
-- 同一陣営どうしの相互指定で、どちらかが `target_scope=ally` の場合は `clash` を組まず `one-sided` として解決する。
+- 同一陣営どうしの相互指定で、どちらかが `target_scope=same_team`（互換: `ally`）の場合は `clash` を組まず `one-sided` として解決する。
 - 同一陣営どうしの上記ペアでは、再回避差し込み（evade insert）を行わない。

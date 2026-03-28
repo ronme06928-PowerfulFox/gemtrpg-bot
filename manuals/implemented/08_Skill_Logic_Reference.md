@@ -216,10 +216,11 @@
 - `newly_applied` 系フラグはラウンド進行で統一クリアされる。
 - 目的は「付与直後のみ無効化する on_damage 系」処理の持ち越し防止。
 
-### 10.6 `target_scope=ally` の固定化
-- `target_scope` は `rule_data` / `特記処理` だけでなく、タグ（`味方指定`, `ally_target`, `target_ally`）からも推論される。
-- 味方指定スキルは Select の redirect に参加しない（発生・被適用ともに無効）。
-- 同一陣営どうしで片方以上が味方指定スキルの場合、`clash` を作らず `one_sided` として扱う。
+### 10.6 `target_scope=same_team`（互換: `ally`）の固定化
+- `target_scope` は `rule_data` / `特記処理` だけでなく、タグ（`味方指定`, `味方対象`, `同陣営`, `同陣営対象`, `同陣営指定`, `ally_target`, `target_ally`）からも推論される。
+- `target_scope=opposing_team`（互換: `enemy`）は、`敵対象`, `相手陣営対象`, `相手陣営指定`, `enemy_target`, `target_enemy` を互換入力として受理する。
+- `target_scope=same_team`（互換: `ally`）スキルは Select の redirect に参加しない（発生・被適用ともに無効）。
+- 同一陣営どうしで片方以上が `target_scope=same_team`（互換: `ally`）スキルの場合、`clash` を作らず `one_sided` として扱う。
 - 同一陣営ペアには再回避差し込み（evade insert）を行わない。
 
 ### 10.7 clash の勝敗種別ルール

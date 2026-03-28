@@ -659,7 +659,7 @@
     "使用時効果": "",
     "特記": "[[W-68|同陣営指定]]スキル。[[W-67|非ダメージ]]スキル。",
     "発動時効果": "([[W-27|戦闘開始時]]):対象に、ラウンド終了時まで攻撃スキルの威力+1の効果を与える。",
-    "特記処理": "{\"tags\":[\"非ダメージ\",\"同陣営指定\"],\"power_bonus\": [],\"cost\": [],\n  \"effects\": [{\"timing\": \"RESOLVE_START\",\"type\": \"APPLY_BUFF\",\"target\": \"target\",\"buff_name\": \"筋力強化_Atk1\",\"lasting\": 1,\"delay\": 0}]}",
+    "特記処理": "{\"tags\":[\"非ダメージ\",\"同陣営指定\"],\"target_scope\": \"same_team\",\"power_bonus\": [],\"cost\": [],\n  \"effects\": [{\"timing\": \"RESOLVE_START\",\"type\": \"APPLY_BUFF\",\"target\": \"target\",\"buff_name\": \"筋力強化_Atk1\",\"lasting\": 1,\"delay\": 0}]}",
     "tags": [
       "非ダメージ",
       "同陣営指定"

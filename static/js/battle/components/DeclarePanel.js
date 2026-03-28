@@ -753,8 +753,8 @@ class DeclarePanel {
 
     _normalizeTargetScope(scope) {
         const s = String(scope || '').trim().toLowerCase();
-        if (['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対'].includes(s)) return 'enemy';
-        if (['ally', 'allies', 'friend', 'friends', '味方', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定'].includes(s)) return 'ally';
+        if (['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対', 'opposing_team', '相手陣営', '相手陣営対象', '相手陣営指定'].includes(s)) return 'enemy';
+        if (['ally', 'allies', 'friend', 'friends', '味方', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定', 'same_team'].includes(s)) return 'ally';
         if (['any', 'all', 'both', '全体', 'all_targets'].includes(s)) return 'any';
         return 'enemy';
     }
@@ -784,8 +784,8 @@ class DeclarePanel {
         for (const raw of candidates) {
             const text = String(raw || '').trim().toLowerCase();
             if (!text) continue;
-            if (['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対'].includes(text)) return 'enemy';
-            if (['ally', 'allies', 'friend', 'friends', '味方', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定'].includes(text)) return 'ally';
+            if (['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対', 'opposing_team', '相手陣営', '相手陣営対象', '相手陣営指定'].includes(text)) return 'enemy';
+            if (['ally', 'allies', 'friend', 'friends', '味方', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定', 'same_team'].includes(text)) return 'ally';
             if (['any', 'all', 'both', '全体', 'all_targets'].includes(text)) return 'any';
         }
 
@@ -795,8 +795,8 @@ class DeclarePanel {
             .map((t) => String(t || '').trim().toLowerCase())
             .filter(Boolean);
         if (tags.some((t) => ['any_target', 'target_any', '任意対象', '対象自由'].includes(t))) return 'any';
-        if (tags.some((t) => ['ally_target', 'target_ally', '味方対象', '味方指定', '同陣営対象', '同陣営指定'].includes(t))) return 'ally';
-        if (tags.some((t) => ['enemy_target', 'target_enemy', '敵対象'].includes(t))) return 'enemy';
+        if (tags.some((t) => ['ally_target', 'target_ally', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定'].includes(t))) return 'ally';
+        if (tags.some((t) => ['enemy_target', 'target_enemy', '敵対象', '相手陣営対象', '相手陣営指定'].includes(t))) return 'enemy';
         return 'enemy';
     }
 

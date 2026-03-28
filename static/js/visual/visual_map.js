@@ -623,8 +623,8 @@ function _getActorIdBySlotId(stateRef, slotId) {
 
 function _normalizeDeclareTargetScope(scope) {
     const s = String(scope || '').trim().toLowerCase();
-    if (['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対'].includes(s)) return 'enemy';
-    if (['ally', 'allies', 'friend', 'friends', '味方', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定'].includes(s)) return 'ally';
+    if (['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対', 'opposing_team', '相手陣営', '相手陣営対象', '相手陣営指定'].includes(s)) return 'enemy';
+    if (['ally', 'allies', 'friend', 'friends', '味方', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定', 'same_team'].includes(s)) return 'ally';
     if (['any', 'all', 'both', '全体', 'all_targets'].includes(s)) return 'any';
     return 'enemy';
 }

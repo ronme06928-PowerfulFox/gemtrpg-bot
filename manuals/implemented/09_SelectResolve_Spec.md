@@ -1,9 +1,9 @@
 ﻿# 09 Select/Resolve 確定仕様書 v1.2
 
-**最終更新日**: 2026-02-27
-**文書バージョン**: v1.5
+**最終更新日**: 2026-03-28
+**文書バージョン**: v1.6
 **対象実装**: `events/battle/common_routes.py` / `manager/battle/common_manager.py` / `manager/battle/core.py`
-**版注記**: 本更新で v1.5 相当の仕様差分（味方指定タグの固定ルール）を反映
+**版注記**: 本更新で v1.6 相当の仕様差分（`same_team/opposing_team` 記法と同陣営指定タグの固定ルール）を反映
 
 ## 1. 目的・スコープ
 本仕様は、現行の逐次手番式を廃止し、1ラウンドを `RoundStart -> Select -> Resolve` で処理するための確定仕様を定義する。
@@ -77,14 +77,14 @@ RoundStart は次の順序で処理する。
 - 同速（`initiative(A) == initiative(B)`）では redirect 不可。
 - redirect の結果、相互指定を失ってマッチできなくなった側は `one-sided` として実行する（対象が盤面に残る限り）。
 - 例外: B が「広域スロット（`mass_individual` / `mass_summation`）」を単体 target 中なら、その target は redirect で横取りしない（広域対決の安定化）。
-- 追加固定ルール（2026-02-27）: `target_scope=ally`（味方指定）スキルは redirect に参加しない（発生させない/受けない）。
+- 追加固定ルール（2026-03-28）: `target_scope=same_team`（互換: `ally`、同陣営指定/味方指定）スキルは redirect に参加しない（発生させない/受けない）。
 
 ## 7. no_redirect（引き寄せできない/されない、locked_targetでも解除して自由にtarget再選択、過去の引き寄せは無効化され得る）
 - `no_redirect` スキルを選択したスロットは、redirect できず、redirect されない。
 - `locked_target` 状態でもロックを解除し、自由に target を再選択できる。
 - 過去に適用済みの redirect 結果は無効化され得る。
 - その結果、相互指定が崩れた引き寄せ側は `one-sided` へ移行し得る。
-- 追加固定ルール（2026-02-27）: `target_scope=ally`（味方指定）スキルは宣言時に `no_redirect` 相当として扱う。
+- 追加固定ルール（2026-03-28）: `target_scope=same_team`（互換: `ally`、同陣営指定/味方指定）スキルは宣言時に `no_redirect` 相当として扱う。
 
 ## 8. Resolve（処理順：Mass最優先→Singleはtimeline、clashは相互指定のみ、one-sidedの対象は“選択時の対象スロットのactor”、1スロット複数絡みはclash1組のみ、コストは実行時、対象消失＝未配置なら不発）
 処理順:
@@ -96,7 +96,7 @@ RoundStart は次の順序で処理する。
 - `clash` は相互指定のみ成立。
 - それ以外は `one-sided`。
 - `one-sided` の対象は「選択時に指定した対象スロットの actor」とする。
-- 追加固定ルール（2026-02-27）: 同一陣営どうしの相互指定で、どちらかが `target_scope=ally`（味方指定）なら `clash` を作らず `one-sided` として扱う。
+- 追加固定ルール（2026-03-28）: 同一陣営どうしの相互指定で、どちらかが `target_scope=same_team`（互換: `ally`）なら `clash` を作らず `one-sided` として扱う。
 - 追加固定ルール（2026-02-27）: 同一陣営ペアには再回避差し込み（evade insert）を行わない。
 
 複数絡み制約:
