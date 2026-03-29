@@ -41,4 +41,5 @@
 ## 4. 今回の再編方針（2026-03-30）
 
 - GMバフ/デバフ付与・解除、アイテム付与/没収、認可強化（Phase A/B/C）の確定内容を `implemented/14_GM_Buff_Item_Operations_Spec.md` へ集約。
-- `planned/04` と `planned/07` は実装済み詳細を削除し、未完了・追跡事項だけを保持。
+- `planned/07_GM_Buff_Item_Operation_Implementation_Plan.md` は実装済み確認後に削除した。
+- `planned/04_TRPG_Session_Improvement_Feasibility_Plan.md` は未完了の追跡事項のみ保持する。
