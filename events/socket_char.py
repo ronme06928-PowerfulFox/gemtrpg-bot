@@ -11,10 +11,20 @@ from flask_socketio import emit
 from extensions import socketio, all_skill_data
 from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_state_update,
-    broadcast_log, get_user_info_from_sid, _update_char_stat, set_character_owner
+    broadcast_log, get_user_info_from_sid, _update_char_stat, set_character_owner,
+    is_authorized_for_character
 )
 from manager.game_logic import process_battle_start, process_skill_effects
-from manager.utils import get_status_value, set_status_value, apply_origin_bonus_buffs
+from manager.utils import (
+    get_status_value, set_status_value, apply_origin_bonus_buffs, apply_buff, remove_buff
+)
+
+
+def _safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 @socketio.on('request_add_character')
 def handle_add_character(data):
@@ -397,10 +407,21 @@ def handle_state_update(data):
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
+    user_id = user_info.get("user_id")
 
     state = get_room_state(room)
     char = next((c for c in state["characters"] if c.get('id') == char_id), None)
     if not char:
+        return
+
+    authorized = is_authorized_for_character(room, char_id, username, attribute)
+    if not authorized and attribute != 'GM':
+        owner_name = char.get('owner')
+        owner_id = char.get('owner_id')
+        authorized = (owner_name == username) or (user_id and owner_id == user_id)
+    if not authorized:
+        print(f"[WARNING] Security: User {username} tried to update {char_id} without permission.")
+        emit('error', {'message': 'Permission denied.'}, to=request.sid)
         return
 
     if 'changes' in data:
@@ -416,6 +437,161 @@ def handle_state_update(data):
             return
         _update_char_stat(room, char, data.get('statName'), data.get('newValue'), data.get('isNew', False), data.get('isDelete', False), username=username)
 
+    broadcast_state_update(room)
+    save_specific_room_state(room)
+
+
+@socketio.on('request_gm_apply_buff')
+def handle_gm_apply_buff(data):
+    room = data.get('room')
+    target_id = data.get('target_id')
+    raw_buff_id = data.get('buff_id')
+    raw_buff_name = data.get('buff_name')
+    lasting = _safe_int(data.get('lasting', 1), 1)
+    delay = max(0, _safe_int(data.get('delay', 0), 0))
+    raw_count = data.get('count')
+
+    if not room or not target_id or (not raw_buff_id and not raw_buff_name):
+        emit('gm_buff_error', {'message': 'Missing required parameters.'}, to=request.sid)
+        return
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+    if attribute != 'GM':
+        print(f"[WARNING] Security: Player {username} tried to apply GM buff. Denied.")
+        emit('gm_buff_error', {'message': 'GM permission required.'}, to=request.sid)
+        return
+
+    state = get_room_state(room)
+    target_char = next((c for c in state["characters"] if c.get('id') == target_id), None)
+    if not target_char:
+        emit('gm_buff_error', {'message': 'Target character not found.'}, to=request.sid)
+        return
+
+    buff_id = str(raw_buff_id).strip() if raw_buff_id is not None else ''
+    buff_name = str(raw_buff_name).strip() if raw_buff_name is not None else ''
+    if not buff_name and buff_id:
+        try:
+            from manager.buff_catalog import get_buff_by_id
+            buff_data = get_buff_by_id(buff_id)
+            if isinstance(buff_data, dict):
+                buff_name = str(buff_data.get('name', '')).strip()
+        except Exception:
+            buff_name = ''
+
+    if not buff_name:
+        emit('gm_buff_error', {'message': 'Could not resolve buff name.'}, to=request.sid)
+        return
+
+    payload = data.get('data')
+    if not isinstance(payload, dict):
+        payload = {}
+    if buff_id and 'buff_id' not in payload:
+        payload['buff_id'] = buff_id
+
+    count = None
+    if raw_count not in (None, ''):
+        count = _safe_int(raw_count, 0)
+
+    apply_buff(target_char, buff_name, lasting, delay, data=payload, count=count)
+    count_text = f", count={count}" if count is not None else ""
+    id_text = f" ({buff_id})" if buff_id else ""
+    broadcast_log(
+        room,
+        f"GM {username}: {target_char.get('name', '???')} buff applied {buff_name}{id_text} "
+        f"(lasting={lasting}, delay={delay}{count_text})",
+        'info'
+    )
+    broadcast_state_update(room)
+    save_specific_room_state(room)
+
+
+@socketio.on('request_gm_remove_buff')
+def handle_gm_remove_buff(data):
+    room = data.get('room')
+    target_id = data.get('target_id')
+    raw_buff_id = data.get('buff_id')
+    raw_buff_name = data.get('buff_name')
+
+    if not room or not target_id or (not raw_buff_id and not raw_buff_name):
+        emit('gm_buff_error', {'message': 'Missing required parameters.'}, to=request.sid)
+        return
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+    if attribute != 'GM':
+        print(f"[WARNING] Security: Player {username} tried to remove GM buff. Denied.")
+        emit('gm_buff_error', {'message': 'GM permission required.'}, to=request.sid)
+        return
+
+    state = get_room_state(room)
+    target_char = next((c for c in state["characters"] if c.get('id') == target_id), None)
+    if not target_char:
+        emit('gm_buff_error', {'message': 'Target character not found.'}, to=request.sid)
+        return
+
+    buffs = target_char.get('special_buffs', [])
+    if not isinstance(buffs, list):
+        buffs = []
+        target_char['special_buffs'] = buffs
+
+    buff_id = str(raw_buff_id).strip() if raw_buff_id is not None else ''
+    buff_name = str(raw_buff_name).strip() if raw_buff_name is not None else ''
+
+    removed_count = 0
+    if buff_id:
+        kept = []
+        for entry in buffs:
+            if not isinstance(entry, dict):
+                kept.append(entry)
+                continue
+            entry_data = entry.get('data') if isinstance(entry.get('data'), dict) else {}
+            entry_id = str(entry.get('buff_id') or entry_data.get('buff_id') or '').strip()
+            if entry_id and entry_id == buff_id:
+                removed_count += 1
+                continue
+            kept.append(entry)
+        target_char['special_buffs'] = kept
+
+    if removed_count <= 0:
+        if not buff_name and buff_id:
+            for entry in buffs:
+                if not isinstance(entry, dict):
+                    continue
+                entry_data = entry.get('data') if isinstance(entry.get('data'), dict) else {}
+                entry_id = str(entry.get('buff_id') or entry_data.get('buff_id') or '').strip()
+                if entry_id == buff_id:
+                    buff_name = str(entry.get('name', '')).strip()
+                    if buff_name:
+                        break
+
+        if not buff_name and buff_id:
+            try:
+                from manager.buff_catalog import get_buff_by_id
+                buff_data = get_buff_by_id(buff_id)
+                if isinstance(buff_data, dict):
+                    buff_name = str(buff_data.get('name', '')).strip()
+            except Exception:
+                buff_name = ''
+
+        if buff_name:
+            before = len(target_char.get('special_buffs', []))
+            remove_buff(target_char, buff_name)
+            after = len(target_char.get('special_buffs', []))
+            removed_count = max(0, before - after)
+
+    if removed_count <= 0:
+        emit('gm_buff_error', {'message': 'Specified buff not found.'}, to=request.sid)
+        return
+
+    buff_label = buff_name if buff_name else buff_id
+    broadcast_log(
+        room,
+        f"GM {username}: {target_char.get('name', '???')} buff removed {buff_label} ({removed_count})",
+        'info'
+    )
     broadcast_state_update(room)
     save_specific_room_state(room)
 
@@ -726,4 +902,3 @@ def handle_import_preset_json(data):
     presets[preset_name] = copy.deepcopy(normalized_payload)
     save_specific_room_state(room)
     socketio.emit('preset_imported', {"name": preset_name}, to=request.sid)
-

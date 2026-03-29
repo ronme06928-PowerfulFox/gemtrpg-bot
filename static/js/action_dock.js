@@ -848,6 +848,76 @@ function openQuickEditModal() {
             color: #155724;
         }
 
+        .qe-gm-panel {
+            grid-column: 1 / -1;
+            margin-top: 10px;
+            padding: 12px;
+            border: 1px solid #d7e2ec;
+            border-radius: 8px;
+            background: #f8fbff;
+        }
+        .qe-gm-title {
+            font-size: 0.82em;
+            font-weight: 700;
+            color: #31465a;
+            margin-bottom: 8px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .qe-gm-help {
+            display: grid;
+            grid-template-columns: 1.25fr 0.8fr 0.8fr 0.8fr auto;
+            gap: 8px;
+            align-items: start;
+            margin: 2px 0 6px;
+        }
+        .qe-gm-help span {
+            font-size: 0.74em;
+            color: #60768d;
+            line-height: 1.3;
+        }
+        .qe-gm-help .qe-gm-help-empty {
+            visibility: hidden;
+        }
+        .qe-gm-row {
+            display: grid;
+            grid-template-columns: 1.25fr 0.8fr 0.8fr 0.8fr auto;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .qe-gm-row.items {
+            grid-template-columns: 1.6fr 0.9fr auto;
+            margin-bottom: 4px;
+        }
+        .qe-gm-row select,
+        .qe-gm-row input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #c8d4df;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 0.92em;
+        }
+        .qe-gm-btn {
+            border: 1px solid #b7c8d8;
+            background: #fff;
+            color: #1f3b5a;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .qe-gm-btn:hover {
+            background: #edf4fb;
+        }
+        .qe-gm-note {
+            margin-top: 2px;
+            font-size: 0.8em;
+            color: #5a7189;
+        }
+
         /* Scrollbar styling */
         .modal-body::-webkit-scrollbar { width: 8px; }
         .modal-body::-webkit-scrollbar-track { background: transparent; }
@@ -892,10 +962,12 @@ function openQuickEditModal() {
 
 function renderQuickEditList(container) {
     if (!battleState || !battleState.characters) return;
+    container.innerHTML = '';
+    const isGMView = isCurrentUserGM();
 
     // GMは全キャラ、PLは自分の持ちキャラのみ
     const targetChars = battleState.characters.filter(c => {
-        if (isCurrentUserGM()) return true;
+        if (isGMView) return true;
         return c.owner === currentUsername || (currentUserId && c.owner_id === currentUserId);
     });
 
@@ -1033,11 +1105,218 @@ function renderQuickEditList(container) {
         };
         btnDiv.appendChild(btn);
 
-        // Append All
+        // Append base sections
         row.appendChild(iconDiv);
         row.appendChild(nameDiv);
         row.appendChild(statsDiv);
         row.appendChild(btnDiv);
+
+        if (isGMView) {
+            const gmPanel = document.createElement('div');
+            gmPanel.className = 'qe-gm-panel';
+
+            const gmTitle = document.createElement('div');
+            gmTitle.className = 'qe-gm-title';
+            gmTitle.textContent = 'GM Buff / Item Control';
+            gmPanel.appendChild(gmTitle);
+
+            const applyHelp = document.createElement('div');
+            applyHelp.className = 'qe-gm-help';
+
+            const helpBuff = document.createElement('span');
+            helpBuff.textContent = 'buff_id/buff_name: Bu-xx かバフ名';
+            const helpLasting = document.createElement('span');
+            helpLasting.textContent = 'lasting: 効果が続くR数';
+            const helpDelay = document.createElement('span');
+            helpDelay.textContent = 'delay: 発動までの待機R数';
+            const helpCount = document.createElement('span');
+            helpCount.textContent = 'count: 回数/スタック(任意)';
+            const helpBtnPad = document.createElement('span');
+            helpBtnPad.className = 'qe-gm-help-empty';
+            helpBtnPad.textContent = '-';
+
+            applyHelp.appendChild(helpBuff);
+            applyHelp.appendChild(helpLasting);
+            applyHelp.appendChild(helpDelay);
+            applyHelp.appendChild(helpCount);
+            applyHelp.appendChild(helpBtnPad);
+            gmPanel.appendChild(applyHelp);
+
+            const applyRow = document.createElement('div');
+            applyRow.className = 'qe-gm-row';
+            const applyBuffInput = document.createElement('input');
+            applyBuffInput.type = 'text';
+            applyBuffInput.placeholder = 'buff_id or buff_name';
+            applyBuffInput.title = 'Bu-xx またはバフ名を入力';
+            const applyLastingInput = document.createElement('input');
+            applyLastingInput.type = 'number';
+            applyLastingInput.value = '1';
+            applyLastingInput.placeholder = 'lasting';
+            applyLastingInput.title = '効果が続くラウンド数';
+            const applyDelayInput = document.createElement('input');
+            applyDelayInput.type = 'number';
+            applyDelayInput.value = '0';
+            applyDelayInput.placeholder = 'delay';
+            applyDelayInput.title = '効果が有効になるまでの待機ラウンド数';
+            const applyCountInput = document.createElement('input');
+            applyCountInput.type = 'number';
+            applyCountInput.placeholder = 'count(optional)';
+            applyCountInput.title = '回数/スタック系バフに使う任意値';
+            const applyBtn = document.createElement('button');
+            applyBtn.className = 'qe-gm-btn';
+            applyBtn.textContent = 'バフ付与';
+            applyRow.appendChild(applyBuffInput);
+            applyRow.appendChild(applyLastingInput);
+            applyRow.appendChild(applyDelayInput);
+            applyRow.appendChild(applyCountInput);
+            applyRow.appendChild(applyBtn);
+            gmPanel.appendChild(applyRow);
+
+            const removeRow = document.createElement('div');
+            removeRow.className = 'qe-gm-row';
+            const removeSelect = document.createElement('select');
+            const removeDefault = document.createElement('option');
+            removeDefault.value = '';
+            removeDefault.textContent = '解除するバフを選択';
+            removeSelect.appendChild(removeDefault);
+            const buffEntries = Array.isArray(char.special_buffs)
+                ? char.special_buffs.filter((b) => b && typeof b === 'object')
+                : [];
+            buffEntries.forEach((buff, idx) => {
+                const entryData = (buff.data && typeof buff.data === 'object') ? buff.data : {};
+                const entryId = buff.buff_id || entryData.buff_id || '';
+                const option = document.createElement('option');
+                option.value = String(idx);
+                option.textContent = entryId
+                    ? `${buff.name || '(no name)'} [${entryId}]`
+                    : `${buff.name || '(no name)'}`;
+                removeSelect.appendChild(option);
+            });
+            const removeSpacer1 = document.createElement('input');
+            removeSpacer1.disabled = true;
+            removeSpacer1.style.visibility = 'hidden';
+            const removeSpacer2 = document.createElement('input');
+            removeSpacer2.disabled = true;
+            removeSpacer2.style.visibility = 'hidden';
+            const removeSpacer3 = document.createElement('input');
+            removeSpacer3.disabled = true;
+            removeSpacer3.style.visibility = 'hidden';
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'qe-gm-btn';
+            removeBtn.textContent = 'バフ解除';
+            removeRow.appendChild(removeSelect);
+            removeRow.appendChild(removeSpacer1);
+            removeRow.appendChild(removeSpacer2);
+            removeRow.appendChild(removeSpacer3);
+            removeRow.appendChild(removeBtn);
+            gmPanel.appendChild(removeRow);
+
+            const itemRow = document.createElement('div');
+            itemRow.className = 'qe-gm-row items';
+            const itemIdInput = document.createElement('input');
+            itemIdInput.type = 'text';
+            itemIdInput.placeholder = 'item_id';
+            const itemDeltaInput = document.createElement('input');
+            itemDeltaInput.type = 'number';
+            itemDeltaInput.value = '1';
+            itemDeltaInput.placeholder = 'delta (+/-)';
+            const itemBtn = document.createElement('button');
+            itemBtn.className = 'qe-gm-btn';
+            itemBtn.textContent = 'アイテム増減';
+            itemRow.appendChild(itemIdInput);
+            itemRow.appendChild(itemDeltaInput);
+            itemRow.appendChild(itemBtn);
+            gmPanel.appendChild(itemRow);
+
+            const note = document.createElement('div');
+            note.className = 'qe-gm-note';
+            note.textContent = '送信先: GM専用API';
+            gmPanel.appendChild(note);
+
+            const getSocket = () => window.socket || (typeof socket !== 'undefined' ? socket : null);
+
+            applyBtn.onclick = () => {
+                const socketToUse = getSocket();
+                if (!socketToUse) {
+                    alert('Socket not found');
+                    return;
+                }
+                const rawBuff = String(applyBuffInput.value || '').trim();
+                if (!rawBuff) {
+                    alert('buff_id か buff_name を入力してください');
+                    return;
+                }
+                const lastingVal = parseInt(applyLastingInput.value, 10);
+                const delayVal = parseInt(applyDelayInput.value, 10);
+                const payload = {
+                    room: currentRoomName,
+                    target_id: char.id,
+                    lasting: Number.isFinite(lastingVal) ? lastingVal : 1,
+                    delay: Number.isFinite(delayVal) ? delayVal : 0,
+                };
+                if (/^Bu-/i.test(rawBuff)) payload.buff_id = rawBuff;
+                else payload.buff_name = rawBuff;
+
+                const countRaw = String(applyCountInput.value || '').trim();
+                if (countRaw !== '') {
+                    const countVal = parseInt(countRaw, 10);
+                    if (Number.isFinite(countVal)) payload.count = countVal;
+                }
+
+                socketToUse.emit('request_gm_apply_buff', payload);
+                note.textContent = `送信: バフ付与 (${rawBuff})`;
+            };
+
+            removeBtn.onclick = () => {
+                const socketToUse = getSocket();
+                if (!socketToUse) {
+                    alert('Socket not found');
+                    return;
+                }
+                const idx = parseInt(removeSelect.value, 10);
+                if (!Number.isFinite(idx) || idx < 0 || idx >= buffEntries.length) {
+                    alert('解除するバフを選択してください');
+                    return;
+                }
+                const buff = buffEntries[idx];
+                const entryData = (buff.data && typeof buff.data === 'object') ? buff.data : {};
+                const payload = {
+                    room: currentRoomName,
+                    target_id: char.id,
+                };
+                if (buff.buff_id || entryData.buff_id) payload.buff_id = buff.buff_id || entryData.buff_id;
+                if (buff.name) payload.buff_name = buff.name;
+                socketToUse.emit('request_gm_remove_buff', payload);
+                note.textContent = `送信: バフ解除 (${buff.name || payload.buff_id || 'unknown'})`;
+            };
+
+            itemBtn.onclick = () => {
+                const socketToUse = getSocket();
+                if (!socketToUse) {
+                    alert('Socket not found');
+                    return;
+                }
+                const itemId = String(itemIdInput.value || '').trim();
+                const deltaVal = parseInt(itemDeltaInput.value, 10);
+                if (!itemId) {
+                    alert('item_id を入力してください');
+                    return;
+                }
+                if (!Number.isFinite(deltaVal) || deltaVal === 0) {
+                    alert('delta は 0 以外の整数で指定してください');
+                    return;
+                }
+                socketToUse.emit('request_gm_adjust_item', {
+                    room: currentRoomName,
+                    target_id: char.id,
+                    item_id: itemId,
+                    delta: deltaVal,
+                });
+                note.textContent = `送信: アイテム増減 (${itemId}, ${deltaVal})`;
+            };
+
+            row.appendChild(gmPanel);
+        }
 
         container.appendChild(row);
     });

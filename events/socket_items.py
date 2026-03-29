@@ -9,10 +9,17 @@ from flask_socketio import emit
 from extensions import socketio
 from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_state_update,
-    broadcast_log, get_user_info_from_sid
+    broadcast_log, get_user_info_from_sid, is_authorized_for_character
 )
 from manager.items.usage_manager import item_usage_manager
 from manager.items.loader import item_loader
+
+
+def _safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 @socketio.on('request_use_item')
 def handle_use_item(data):
@@ -44,6 +51,20 @@ def handle_use_item(data):
         return
 
     # 対象キャラクターを取得（単体対象時）
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get('username', 'System')
+    attribute = user_info.get('attribute', 'Player')
+    user_session_id = user_info.get('user_id')
+    authorized = is_authorized_for_character(room, user_id, username, attribute)
+    if not authorized and attribute != 'GM':
+        owner_name = user_char.get('owner')
+        owner_id = user_char.get('owner_id')
+        authorized = (owner_name == username) or (user_session_id and owner_id == user_session_id)
+    if not authorized:
+        print(f"[WARNING] Security: User {username} tried to use item as {user_id} without permission.")
+        emit('item_use_error', {'message': 'Permission denied.'})
+        return
+
     target_char = None
     if target_id:
         target_char = next((c for c in state['characters'] if c.get('id') == target_id), None)
@@ -127,6 +148,57 @@ def handle_gm_grant_item(data):
         save_specific_room_state(room)
     else:
         emit('item_grant_error', {'message': 'アイテムの付与に失敗しました'})
+
+@socketio.on('request_gm_adjust_item')
+def handle_gm_adjust_item(data):
+    room = data.get('room')
+    target_id = data.get('target_id')
+    item_id = data.get('item_id')
+    delta = _safe_int(data.get('delta', 0), 0)
+
+    if not room or not target_id or not item_id:
+        emit('item_adjust_error', {'message': 'Missing required parameters.'})
+        return
+    if delta == 0:
+        emit('item_adjust_error', {'message': 'delta must not be zero.'})
+        return
+
+    user_info = get_user_info_from_sid(request.sid)
+    if user_info.get('attribute') != 'GM':
+        emit('item_adjust_error', {'message': 'GM permission required.'})
+        return
+
+    state = get_room_state(room)
+    target_char = next((c for c in state['characters'] if c.get('id') == target_id), None)
+    if not target_char:
+        emit('item_adjust_error', {'message': 'Target character not found.'})
+        return
+
+    item_data = item_loader.get_item(item_id)
+    if not item_data:
+        emit('item_adjust_error', {'message': f'Item not found: {item_id}'})
+        return
+
+    item_name = item_data.get('name', item_id)
+    target_name = target_char.get('name', '???')
+
+    if delta > 0:
+        success = item_usage_manager.grant_item(target_char, item_id, delta)
+        if not success:
+            emit('item_adjust_error', {'message': 'Failed to grant item.'})
+            return
+        broadcast_log(room, f'GM granted {item_name} x{delta} to {target_name}', 'info')
+    else:
+        remove_qty = abs(delta)
+        success = item_usage_manager.consume_item(target_char, item_id, remove_qty)
+        if not success:
+            emit('item_adjust_error', {'message': f'Insufficient stock: {item_name} for {target_name}'})
+            return
+        broadcast_log(room, f'GM removed {item_name} x{remove_qty} from {target_name}', 'info')
+
+    broadcast_state_update(room)
+    save_specific_room_state(room)
+
 
 @socketio.on('request_refresh_items')
 def handle_refresh_items(data):
