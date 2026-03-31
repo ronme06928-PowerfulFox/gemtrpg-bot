@@ -26,18 +26,51 @@ class DeclarePanel {
         this._initialized = false;
     }
 
-    _ensurePanelEl() {
-        let panel = document.getElementById(this._panelId);
-        if (panel) return panel;
+    _resolvePanelMountTarget() {
+        const sidebarHost = document.getElementById('declare-panel-sidebar-host');
+        if (sidebarHost) {
+            return { parent: sidebarHost, variant: 'sidebar' };
+        }
 
-        const parent = document.getElementById('map-viewport') || document.getElementById('visual-battle-container');
+        const chatArea = document.getElementById('visual-chat-area');
+        if (chatArea) {
+            return { parent: chatArea, variant: 'sidebar' };
+        }
+
+        const mapViewport = document.getElementById('map-viewport');
+        if (mapViewport) {
+            return { parent: mapViewport, variant: 'map' };
+        }
+
+        const visualRoot = document.getElementById('visual-battle-container');
+        if (visualRoot) {
+            return { parent: visualRoot, variant: 'map' };
+        }
+
+        return { parent: null, variant: 'map' };
+    }
+
+    _ensurePanelEl() {
+        const mountTarget = this._resolvePanelMountTarget();
+        const parent = mountTarget.parent;
         if (!parent) return null;
 
-        panel = document.createElement('div');
-        panel.id = this._panelId;
-        panel.className = 'declare-panel';
-        panel.style.display = 'none';
-        parent.appendChild(panel);
+        let panel = document.getElementById(this._panelId);
+
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = this._panelId;
+            panel.style.display = 'none';
+        }
+
+        if (panel.parentElement !== parent) {
+            parent.appendChild(panel);
+        }
+
+        panel.className = (mountTarget.variant === 'sidebar')
+            ? 'declare-panel declare-panel--sidebar'
+            : 'declare-panel declare-panel--map';
+        panel.dataset.mountVariant = mountTarget.variant;
         return panel;
     }
 

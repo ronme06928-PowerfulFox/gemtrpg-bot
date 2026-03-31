@@ -472,3 +472,11 @@ battle_error:
 - 代わりに ResolvePanel とログで結果が追えることを優先する。
 - 本実装では、戦闘フェーズ中のマップ上フローティングテキストは抑止を標準とする。
 - 戦闘中の追加演出が必要な場合は、ResolvePanel 内で段階同期して表示する。
+
+### B.6 宣言パネルの右列オーバーレイ固定
+
+- Select のスキル選択パネル（`#select-resolve-declare-panel`）は、右列サイドバー上へのオーバーレイ表示を標準とする。
+- 描画先は `#declare-panel-sidebar-host` を優先し、欠落時のみ `#visual-chat-area -> #map-viewport -> #visual-battle-container` へフォールバックする。
+- 右列表示時は `.declare-panel--sidebar` を適用し、表示高さは右列上端（R開始/R終了ボタン帯）から下端までを使用する。
+- 表示幅は従来より拡張し、実装上の目安は `clamp(520px, calc(100% * 1.5), 760px)` とする。
+- 本追補は表示領域のUX改善であり、`battle_intent_preview` / `battle_intent_commit` を含む Select/Resolve のイベント仕様には変更を加えない。
