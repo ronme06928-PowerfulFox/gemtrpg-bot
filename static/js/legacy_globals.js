@@ -79,6 +79,16 @@ window.formatGlossaryMarkupFallbackHTML = function (value) {
         return id;
     };
 
+    const resolveSkillLabel = (skillId) => {
+        const id = String(skillId || '').trim();
+        if (!id) return '???';
+        const all = (window.allSkillData && typeof window.allSkillData === 'object')
+            ? window.allSkillData
+            : {};
+        const skill = all[id];
+        return (skill && (skill.name || skill.default_name || skill.skill_name)) || id;
+    };
+
     const regex = /\[\[([^|\]]+?)(?:\|([^\]]+?))?\]\]/g;
     let html = '';
     let lastIndex = 0;
@@ -86,10 +96,19 @@ window.formatGlossaryMarkupFallbackHTML = function (value) {
 
     while ((match = regex.exec(src)) !== null) {
         html += escapeText(src.slice(lastIndex, match.index));
-        const termId = String(match[1] || '').trim();
+        const rawRef = String(match[1] || '').trim();
         const explicitLabel = String(match[2] || '').trim();
-        const label = explicitLabel || resolveTermLabel(termId);
-        html += escapeText(label);
+        const skillMatch = rawRef.match(/^skill\s*:\s*(.+)$/i);
+
+        if (skillMatch) {
+            const skillId = String(skillMatch[1] || '').trim();
+            const label = explicitLabel || resolveSkillLabel(skillId);
+            html += `<span class="glossary-term glossary-skill-ref" data-ref-type="skill" data-skill-id="${escapeText(skillId)}" tabindex="0" role="button">${escapeText(label)}</span>`;
+        } else {
+            const termId = rawRef;
+            const label = explicitLabel || resolveTermLabel(termId);
+            html += `<span class="glossary-term" data-ref-type="term" data-term-id="${escapeText(termId)}" tabindex="0" role="button">${escapeText(label)}</span>`;
+        }
         lastIndex = regex.lastIndex;
     }
     html += escapeText(src.slice(lastIndex));

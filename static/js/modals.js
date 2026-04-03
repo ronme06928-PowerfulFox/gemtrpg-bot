@@ -278,6 +278,25 @@ function renderCharacterCard(char) {
        Ill use this block for the HTML generation part first.
     */
 
+    const escapeDetailHtml = (value) => {
+        if (window.Glossary && typeof window.Glossary.escapeHtml === 'function') {
+            return window.Glossary.escapeHtml(value);
+        }
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
+    const markupToHtml = (value) => {
+        if (typeof window.formatGlossaryMarkupToHTML === 'function') {
+            return window.formatGlossaryMarkupToHTML(value);
+        }
+        return escapeDetailHtml(value).replace(/\n/g, '<br>');
+    };
+    const charIdAttr = escapeDetailHtml((char && char.id != null) ? char.id : '');
+
     // --- States (Stack) ---
     let statesHtml = '';
     char.states.forEach(s => {
@@ -419,8 +438,8 @@ function renderCharacterCard(char) {
                         <span style="font-size: 0.8em; color: #666;">▼</span>
                     </summary>
                     <div style="padding: 10px; background: #fff; border-top: 1px solid #dee2e6;">
-                        <div class="buff-desc-row" style="font-weight: bold; color: #212529; font-size: 0.9em; margin-bottom: 5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;">${descriptionText}</div>
-                        ${flavorText ? `<div class="buff-flavor-row" style="color: #6c757d; font-size: 0.85em; font-style: italic; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; border-top: 1px dashed #eee; margin-top: 5px; padding-top: 5px;">${flavorText}</div>` : ''}
+                        <div class="buff-desc-row" style="font-weight: bold; color: #212529; font-size: 0.9em; margin-bottom: 5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;">${markupToHtml(descriptionText)}</div>
+                        ${flavorText ? `<div class="buff-flavor-row" style="color: #6c757d; font-size: 0.85em; font-style: italic; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; border-top: 1px dashed #eee; margin-top: 5px; padding-top: 5px;">${markupToHtml(flavorText)}</div>` : ''}
                     </div>
                 </details>
             `;
@@ -451,8 +470,8 @@ function renderCharacterCard(char) {
                         <span style="font-size: 0.8em; color: #666;">▼</span>
                     </summary>
                     <div style="padding: 10px; background: #fff; border-top: 1px solid #e0cffc;">
-                        <div class="buff-desc-row" style="font-weight: bold; color: #212529; font-size: 0.9em; margin-bottom: 5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;">${desc}</div>
-                        ${flavor ? `<div class="buff-flavor-row" style="color: #6c757d; font-size: 0.85em; font-style: italic; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; border-top: 1px dashed #eee; margin-top: 5px; padding-top: 5px;">${flavor}</div>` : ''}
+                        <div class="buff-desc-row" style="font-weight: bold; color: #212529; font-size: 0.9em; margin-bottom: 5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;">${markupToHtml(desc)}</div>
+                        ${flavor ? `<div class="buff-flavor-row" style="color: #6c757d; font-size: 0.85em; font-style: italic; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; border-top: 1px dashed #eee; margin-top: 5px; padding-top: 5px;">${markupToHtml(flavor)}</div>` : ''}
                     </div>
                 </details>
             `;
@@ -638,7 +657,7 @@ function renderCharacterCard(char) {
 
     return `
         ${inlineStyle}
-        <div class="char-detail-modal-content" style="padding:10px; width:650px; max-width:90vw;">
+        <div class="char-detail-modal-content" data-char-id="${charIdAttr}" style="padding:10px; width:650px; max-width:90vw;">
             <div class="detail-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                 <h2 style="margin:0; font-size:1.5em; border-left:5px solid ${char.color}; padding-left:10px;">${char.name}</h2>
                 <div style="display:flex; gap:15px; align-items:center;">
@@ -768,7 +787,7 @@ function openCharacterModal(charId) {
                 remaining_rounds: Number.isFinite(grantRoundsRaw) ? grantRoundsRaw : null,
                 remaining_uses: Number.isFinite(grantUsesRaw) ? grantUsesRaw : null,
             } : null;
-            openSkillDetailModal(skillId, item.dataset.skillName, { granted });
+            openSkillDetailModal(skillId, item.dataset.skillName, { granted, ownerCharId: char.id });
         });
     });
 
@@ -2469,6 +2488,9 @@ function openSkillDetailModal(skillId, skillName, options = {}) {
     const granted = (options && typeof options === 'object' && options.granted && typeof options.granted === 'object')
         ? options.granted
         : null;
+    const ownerCharId = (options && typeof options === 'object' && options.ownerCharId != null)
+        ? String(options.ownerCharId || '').trim()
+        : '';
     const isGranted = !!granted;
 
     // 既存のスキル詳細モーダルがあれば削除
@@ -2481,6 +2503,9 @@ function openSkillDetailModal(skillId, skillName, options = {}) {
 
     const content = document.createElement('div');
     content.className = 'modal-content book-skill-detail-modal';
+    if (ownerCharId) {
+        content.setAttribute('data-owner-char-id', ownerCharId);
+    }
     content.style.maxWidth = '680px';
     content.style.padding = '20px';
     if (isGranted) {
@@ -2986,3 +3011,4 @@ function openResetTypeModal(callback) {
 
 // Global Alias for Character Detail Modal (Used by Battle/Exploration views)
 window.showCharacterDetail = openCharacterModal;
+window.openSkillDetailModal = openSkillDetailModal;

@@ -4,6 +4,7 @@
         eventsBound: false,
         dataLoaded: false,
         dataPromise: null,
+        skillDataPromise: null,
         terms: {},
         tooltipEl: null,
         popupBackdropEl: null,
@@ -120,9 +121,86 @@
         return state.dataPromise;
     }
 
+    function _hasSkillDataLoaded() {
+        return !!(window.allSkillData && typeof window.allSkillData === 'object' && Object.keys(window.allSkillData).length > 0);
+    }
+
+    function ensureSkillDataLoaded() {
+        if (_hasSkillDataLoaded()) return Promise.resolve(window.allSkillData);
+        if (state.skillDataPromise) return state.skillDataPromise;
+
+        state.skillDataPromise = fetch('/api/get_skill_data')
+            .then((res) => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
+            .then((data) => {
+                window.allSkillData = (data && typeof data === 'object') ? data : {};
+                return window.allSkillData;
+            })
+            .catch((err) => {
+                console.warn('[Glossary] skill data load failed:', err);
+                if (!window.allSkillData || typeof window.allSkillData !== 'object') {
+                    window.allSkillData = {};
+                }
+                return window.allSkillData;
+            })
+            .finally(() => {
+                state.skillDataPromise = null;
+            });
+
+        return state.skillDataPromise;
+    }
+
     function getTerm(termId) {
         if (!termId) return null;
         return state.terms[String(termId).trim()] || null;
+    }
+
+    function getSkill(skillId) {
+        if (!skillId) return null;
+        const all = (window.allSkillData && typeof window.allSkillData === 'object') ? window.allSkillData : {};
+        return all[String(skillId).trim()] || null;
+    }
+
+    function _resolveSkillLabel(skillId) {
+        const skill = getSkill(skillId);
+        return (skill && (skill.name || skill.default_name || skill.skill_name)) || skillId || '???';
+    }
+
+    function _getCharacterById(charId) {
+        const id = String(charId || '').trim();
+        if (!id) return null;
+        const chars = (typeof battleState !== 'undefined' && Array.isArray(battleState.characters))
+            ? battleState.characters
+            : [];
+        return chars.find((row) => String((row && row.id) || '').trim() === id) || null;
+    }
+
+    function _resolveSkillLabelFromCharacter(skillId, charId) {
+        const id = String(skillId || '').trim();
+        const ch = _getCharacterById(charId);
+        if (!id || !ch || typeof ch.commands !== 'string') return '';
+
+        const regex = /【(.*?)\s+(.*?)】/g;
+        let match = null;
+        while ((match = regex.exec(ch.commands)) !== null) {
+            const sid = String(match[1] || '').trim();
+            const sname = String(match[2] || '').trim();
+            if (sid === id) return sname || id;
+        }
+        return '';
+    }
+
+    function _resolveContextCharId(anchorEl) {
+        if (!anchorEl || !anchorEl.closest) return '';
+        const directOwner = anchorEl.closest('[data-owner-char-id]');
+        const directChar = anchorEl.closest('[data-char-id]');
+
+        const ownerId = directOwner ? String(directOwner.getAttribute('data-owner-char-id') || '').trim() : '';
+        if (ownerId) return ownerId;
+        const charId = directChar ? String(directChar.getAttribute('data-char-id') || '').trim() : '';
+        return charId;
     }
 
     function parseMarkupToHTML(text) {
@@ -136,13 +214,23 @@
         while ((match = regex.exec(src)) !== null) {
             html += escapeHtml(src.slice(lastIndex, match.index));
 
-            const termId = String(match[1] || '').trim();
+            const rawRef = String(match[1] || '').trim();
             const explicitLabel = String(match[2] || '').trim();
-            const term = getTerm(termId);
-            const label = explicitLabel || (term && term.display_name) || termId || '???';
-            const known = term ? '1' : '0';
-
-            html += `<span class="glossary-term${known === '1' ? '' : ' is-missing'}" data-term-id="${escapeHtml(termId)}" data-term-known="${known}" tabindex="0" role="button">${escapeHtml(label)}</span>`;
+            const skillMatch = rawRef.match(/^skill\s*:\s*(.+)$/i);
+            if (skillMatch) {
+                const skillId = String(skillMatch[1] || '').trim();
+                const hasSkillData = _hasSkillDataLoaded();
+                const skill = getSkill(skillId);
+                const known = hasSkillData ? !!skill : true;
+                const label = explicitLabel || _resolveSkillLabel(skillId);
+                html += `<span class="glossary-term glossary-skill-ref${known ? '' : ' is-missing'}" data-ref-type="skill" data-skill-id="${escapeHtml(skillId)}" data-skill-known="${known ? '1' : '0'}" tabindex="0" role="button">${escapeHtml(label)}</span>`;
+            } else {
+                const termId = rawRef;
+                const term = getTerm(termId);
+                const label = explicitLabel || (term && term.display_name) || termId || '???';
+                const known = term ? '1' : '0';
+                html += `<span class="glossary-term${known === '1' ? '' : ' is-missing'}" data-ref-type="term" data-term-id="${escapeHtml(termId)}" data-term-known="${known}" tabindex="0" role="button">${escapeHtml(label)}</span>`;
+            }
             lastIndex = regex.lastIndex;
         }
 
@@ -253,6 +341,38 @@
         _renderPopup(termId);
     }
 
+    function _openSkillDetailById(skillId, fallbackLabel, anchorEl) {
+        const id = String(skillId || '').trim();
+        if (!id) return;
+        const contextCharId = _resolveContextCharId(anchorEl);
+
+        const openModal = () => {
+            const contextualLabel = _resolveSkillLabelFromCharacter(id, contextCharId);
+            const label = contextualLabel || String(fallbackLabel || '').trim() || _resolveSkillLabel(id);
+            if (typeof window.openSkillDetailModal === 'function') {
+                window.openSkillDetailModal(id, label, contextCharId ? { ownerCharId: contextCharId } : {});
+            }
+        };
+
+        if (_hasSkillDataLoaded()) {
+            openModal();
+            return;
+        }
+        ensureSkillDataLoaded().finally(openModal);
+    }
+
+    function _openReference(el) {
+        if (!el || !el.getAttribute) return;
+        const refType = String(el.getAttribute('data-ref-type') || 'term').toLowerCase();
+        if (refType === 'skill') {
+            const skillId = el.getAttribute('data-skill-id');
+            const explicitLabel = el.textContent || '';
+            _openSkillDetailById(skillId, explicitLabel, el);
+            return;
+        }
+        showPopup(el);
+    }
+
     function hideAll() {
         hideTooltip();
         if (state.popupBackdropEl) {
@@ -264,6 +384,10 @@
     function _onPointerEnter(e) {
         const termEl = e.target && e.target.closest ? e.target.closest('.glossary-term') : null;
         if (!termEl) return;
+        if (String(termEl.getAttribute('data-ref-type') || '').toLowerCase() === 'skill') {
+            hideTooltip();
+            return;
+        }
         showTooltip(termEl);
     }
 
@@ -288,7 +412,7 @@
         if (!termEl) return;
         e.preventDefault();
         hideTooltip();
-        showPopup(termEl);
+        _openReference(termEl);
     }
 
     function _onKeyDown(e) {
@@ -300,7 +424,7 @@
         if (!active || !active.classList || !active.classList.contains('glossary-term')) return;
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            showPopup(active);
+            _openReference(active);
         }
     }
 
@@ -324,11 +448,13 @@
         initOnce,
         ensureDataLoaded,
         getTerm,
+        getSkill,
         parseMarkupToHTML,
         bindDelegatedEvents,
         showTooltip,
         showPopup,
         hideAll,
+        ensureSkillDataLoaded,
         escapeHtml,
     };
 })();
