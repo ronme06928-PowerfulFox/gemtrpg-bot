@@ -29,7 +29,7 @@
     "id": "S-02",
     "name": "戦闘準備",
     "cost": 3,
-    "description": "バトル開始時のFPを+1する。",
+    "description": "戦闘突入時のFPを+1する。",
     "flavor": "敵と戦う経験を積み、より早く臨戦態勢に入ることができるようになった証。",
     "effect": {
       "battle_start_effect": [
@@ -73,7 +73,7 @@
     "id": "S-05",
     "name": "準備万端",
     "cost": 7,
-    "description": "バトル開始時のFPを+2する。",
+    "description": "戦闘突入時のFPを+2する。",
     "flavor": "敵と戦う経験を積み、より適切な戦闘態勢を取ることができるようになった証。",
     "effect": {
       "battle_start_effect": [
@@ -117,7 +117,7 @@
     "id": "S-08",
     "name": "準備完了",
     "cost": 10,
-    "description": "バトル開始時のFPを+3する。",
+    "description": "戦闘突入時のFPを+3する。",
     "flavor": "敵と戦う経験を積み、完璧な臨戦態勢を整えることが出来るようになった証。敵を知れば、おのずと自分の事も分かる。月はそれに気付いたろうか。",
     "effect": {
       "battle_start_effect": [
