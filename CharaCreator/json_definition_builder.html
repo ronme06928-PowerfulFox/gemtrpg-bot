@@ -5,20 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>JSON定義ビルダー</title>
   <style>
-    :root{--bg:#f4f7fb;--panel:#fff;--line:#d8dfec;--text:#162033;--muted:#56627c;--accent:#2357d8;--danger:#b32d2d}
+    :root{--bg:#e9eef7;--panel:#fff;--line:#b9c5db;--line-strong:#8ea2c8;--text:#101a2b;--muted:#3f4f6d;--accent:#1f55d1;--danger:#b32d2d}
     html,body{height:100%}
     body{margin:0;font-family:"Yu Gothic UI","Meiryo",sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
     .wrap{max-width:1760px;height:calc(100vh - 16px);margin:8px auto;padding:0 12px 8px;display:grid;gap:14px;grid-template-columns:1.35fr .95fr;min-height:0}
     .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;overflow-y:auto;min-height:0;overscroll-behavior:contain}
+    .card-left{background:#f3f7ff;border-color:var(--line-strong)}
+    .card-right{background:#fff}
     h1{margin:0 0 8px;font-size:22px} h2{margin:0 0 8px;font-size:16px} p{margin:0 0 8px;font-size:12px;color:var(--muted)}
     .grid2,.grid3,.grid4{display:grid;gap:8px}.grid2{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:repeat(3,minmax(210px,1fr))}.grid4{grid-template-columns:repeat(2,minmax(280px,1fr))}
-    .section{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;background:#fbfdff}
-    .row{border:1px dashed var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:#fff}
-    label{display:block;font-size:12px;margin-bottom:4px;color:#37435d}
-    input,select,textarea,button{font:inherit} input,select,textarea{width:100%;border:1px solid var(--line);border-radius:7px;padding:9px 10px;box-sizing:border-box;font-size:13px}
+    .section{border:1px solid var(--line-strong);border-radius:8px;padding:10px;margin-bottom:10px;background:#fff}
+    .row{border:1px dashed #a9bad8;border-radius:8px;padding:10px;margin-bottom:8px;background:#fff}
+    label{display:block;font-size:12px;margin-bottom:4px;color:#243754;font-weight:600}
+    input,select,textarea,button{font:inherit} input,select,textarea{width:100%;border:1px solid var(--line-strong);border-radius:7px;padding:9px 10px;box-sizing:border-box;font-size:13px;background:#fff}
+    input:focus,select:focus,textarea:focus{outline:2px solid rgba(31,85,209,.2);outline-offset:0;border-color:var(--accent)}
     textarea{min-height:80px;resize:vertical}.mono{font-family:ui-monospace,Consolas,monospace}
     .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
-    .btn{border:0;border-radius:7px;padding:8px 12px;color:#fff;background:var(--accent);cursor:pointer}.btn-ghost{background:#e9efff;color:#1e2f58}.btn-danger{background:var(--danger)}
+    .btn{border:0;border-radius:7px;padding:8px 12px;color:#fff;background:var(--accent);cursor:pointer}.btn-ghost{background:#dce7ff;color:#173160}.btn-danger{background:var(--danger)}
     pre{margin:0;background:#0f1728;color:#d8e5ff;border:1px solid #1f2c46;border-radius:8px;padding:12px;min-height:320px;white-space:pre-wrap;word-break:break-word;font-size:12px}
     .table-wrap{border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:240px;background:#fff} table{border-collapse:collapse;width:100%;font-size:12px}
     th,td{border-bottom:1px solid #e7edf7;text-align:left;vertical-align:top;padding:6px 8px} th{position:sticky;top:0;background:#f5f9ff}
@@ -43,13 +46,23 @@
     .panel-close:hover{background:#f2f6ff}
     .guide-line{margin-top:4px}
     .btn-main-output{width:100%;padding:12px 14px;font-size:15px;font-weight:700;letter-spacing:.02em;box-shadow:0 6px 14px rgba(35,87,216,.2)}
+    .editor-top-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px}
+    .mode-box{min-width:240px;flex:1}
+    .tab-switch{display:flex;gap:6px;flex-wrap:wrap}
+    .tab-btn{border:1px solid var(--line-strong);border-radius:8px;background:#edf3ff;color:#183565;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer}
+    .tab-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+    .builder-tab-section[hidden]{display:none}
+    .mode-note{margin-top:4px}
+    .field-hidden-note{font-size:11px;color:#4a5e85}
+    .template-box{border:1px solid var(--line);background:#f7faff;border-radius:8px;padding:8px;margin-bottom:8px}
+    .template-desc{margin-top:6px}
     @media (max-width:1080px){.panel-btn-grid{grid-template-columns:repeat(2,minmax(120px,1fr));}}
     @media (max-width:1080px){body{overflow:auto}.wrap{height:auto;grid-template-columns:1fr}.card{overflow:visible}.grid4{grid-template-columns:1fr 1fr}} @media (max-width:760px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
+    <div class="card card-left">
       <h1>JSON定義ビルダー（rule_data）</h1>
       <p>power_bonusを条件付きで選択入力し、必要なID参照を同画面で確認できます。</p>
 
@@ -63,10 +76,39 @@
           <div><label>cost（例: FP:2,MP:1）</label><input id="costInput" placeholder="例: FP:2, MP:1" /></div>
           <div><label>power_bonus（生成プレビュー）</label><textarea id="powerBonusInput" class="mono" readonly></textarea></div>
         </div>
+        <div class="editor-top-controls">
+          <div class="mode-box">
+            <label>編集モード</label>
+            <select id="editorMode">
+              <option value="beginner" selected>初心者（最小入力）</option>
+              <option value="advanced">詳細（全入力項目）</option>
+            </select>
+            <div class="small mode-note">初心者モードでは必要度の低い入力を折りたたみ表示します。</div>
+          </div>
+          <div>
+            <label>編集タブ</label>
+            <div class="tab-switch" id="builderTabs">
+              <button class="tab-btn active" type="button" data-tab="pbEditorSection">Power Bonus</button>
+              <button class="tab-btn" type="button" data-tab="effectsEditorSection">Effects</button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="section">
+      <div class="section builder-tab-section" id="pbEditorSection">
         <h2>power_bonus</h2>
+        <div class="template-box">
+          <div class="grid2">
+            <div>
+              <label>1行目クイックテンプレ（初心者向け）</label>
+              <select id="pbQuickTemplate"></select>
+            </div>
+            <div class="toolbar" style="margin:20px 0 0;">
+              <button class="btn btn-ghost" type="button" id="applyPbTemplateBtn">1行目に適用</button>
+            </div>
+          </div>
+          <div id="pbTemplateDesc" class="small template-desc"></div>
+        </div>
         <div id="pbRoot"></div>
         <div class="toolbar">
           <button class="btn btn-ghost" type="button" id="addPbBtn">+ power_bonus追加</button>
@@ -88,8 +130,20 @@
         </details>
       </div>
 
-      <div class="section">
+      <div class="section builder-tab-section" id="effectsEditorSection" hidden>
         <h2>effects</h2>
+        <div class="template-box">
+          <div class="grid2">
+            <div>
+              <label>1行目クイックテンプレ（初心者向け）</label>
+              <select id="effectQuickTemplate"></select>
+            </div>
+            <div class="toolbar" style="margin:20px 0 0;">
+              <button class="btn btn-ghost" type="button" id="applyEffectTemplateBtn">1行目に適用</button>
+            </div>
+          </div>
+          <div id="effectTemplateDesc" class="small template-desc"></div>
+        </div>
         <div id="effectsRoot"></div>
         <div class="toolbar">
           <button class="btn btn-ghost" type="button" id="addEffectBtn">+ effect追加</button>
@@ -99,7 +153,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card card-right">
       <div class="section">
         <h2>JSON出力</h2>
         <button class="btn btn-main-output" type="button" id="generateShowBtn">JSONを生成して表示</button>
@@ -120,6 +174,7 @@
         <div id="refPanelButtons" class="panel-btn-grid">
           <button class="panel-btn" type="button" data-panel="panelPbCheat">PBクイック表</button>
           <button class="panel-btn" type="button" data-panel="panelEffectCheat">Effects Type表</button>
+          <button class="panel-btn" type="button" data-panel="panelCustomEffects">CUSTOM_EFFECT一覧</button>
           <button class="panel-btn" type="button" data-panel="panelHelp">用語ヘルプ</button>
           <button class="panel-btn" type="button" data-panel="panelState">状態候補</button>
           <button class="panel-btn" type="button" data-panel="panelBuff">バフ参照</button>
@@ -153,6 +208,18 @@
               </table>
             </div>
             <div class="small" style="margin-top:6px;">※ `APPLY_STATE_PER_N` など追加キーが必要なTypeは `extra_json` で補完できます。</div>
+          </section>
+
+          <section class="ref-panel" id="panelCustomEffects" hidden>
+            <div class="ref-panel-head"><div class="ref-panel-title">実装済み CUSTOM_EFFECT 一覧</div><button class="panel-close" type="button">×</button></div>
+            <div class="grid2"><input id="customEffectFilter" placeholder="effect名 / 概要 / 追加キーで検索" /><div id="customEffectCount" class="small"></div></div>
+            <div class="table-wrap" style="margin-top:8px;">
+              <table>
+                <thead><tr><th>value</th><th>概要</th><th>主要キー</th></tr></thead>
+                <tbody id="customEffectTableBody"></tbody>
+              </table>
+            </div>
+            <div class="small" style="margin-top:6px;">出典: `plugins/__init__.py` の EFFECT_REGISTRY（実装済みエフェクト）</div>
           </section>
 
           <section class="ref-panel" id="panelHelp" hidden>
@@ -211,13 +278,36 @@
 
   <script src="./json_builder_reference_data.js"></script>
   <script>
-    const REF = window.JSON_BUILDER_REFERENCE || { buff_refs: [], skill_refs: [], summon_refs: [], state_refs: ["HP", "MP", "FP", "行動値", "速度値"] };
+    const REF = window.JSON_BUILDER_REFERENCE || { buff_refs: [], skill_refs: [], summon_refs: [], state_refs: ["HP", "MP", "FP", "行動回数", "速度値"] };
     const TIMINGS = ["PRE_MATCH","BEFORE_POWER_ROLL","WIN","LOSE","HIT","UNOPPOSED","AFTER_DAMAGE_APPLY","RESOLVE_START","RESOLVE_STEP_END","RESOLVE_END","END_MATCH","END_ROUND","IMMEDIATE","BATTLE_START"];
     const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","MULTIPLY_STATE","APPLY_BUFF","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER"];
     const TARGETS = ["","self","target","ALL_ENEMIES","ALL_ALLIES","ALL_OTHER_ALLIES","ALL","NEXT_ALLY"];
     const POWER_OPS = ["FIXED","FIXED_IF_EXISTS","PER_N_BONUS","MULTIPLY"];
     const COND_SOURCES = ["self","target","skill","target_skill","relation"];
     const COND_OPS = ["GTE","LTE","GT","LT","EQUALS","CONTAINS"];
+    const COND_OP_MEANINGS = {
+      GTE: "以上（>=）",
+      LTE: "以下（<=）",
+      GT: "より大きい（>）",
+      LT: "より小さい（<）",
+      EQUALS: "等しい（==）",
+      CONTAINS: "含む（配列/tags向け）"
+    };
+    const RELATION_PARAMS = ["same_team","target_is_ally","target_is_enemy"];
+    const COND_SOURCE_MEANINGS = {
+      self: "自分（actor）の状態値を参照します。例: HP / MP / FP / 速度値。",
+      target: "対象（target）の状態値を参照します。例: targetの破裂や出血。",
+      skill: "発動者側スキル（actor_skill）の情報を参照します。主に param=tags + CONTAINS。",
+      target_skill: "対象側スキル（target_skill）の情報を参照します。主に相手スキルの tags 判定に使います。対抗相手のスキル情報が無い場面では条件は false になります。",
+      relation: "actor と target の陣営関係を 0/1 で参照します。param は same_team / target_is_ally / target_is_enemy を使います。"
+    };
+    const COND_SOURCE_PARAM_HINTS = {
+      self: "推奨param: HP / MP / FP / 速度値 / 各種状態名",
+      target: "推奨param: HP / MP / FP / 速度値 / 破裂 / 出血 / 亀裂 など",
+      skill: "推奨param: tags（operator=CONTAINS 推奨）",
+      target_skill: "推奨param: tags（operator=CONTAINS 推奨）",
+      relation: "推奨param: same_team / target_is_ally / target_is_enemy（EQUALS 0/1）"
+    };
     const TIMING_MEANINGS = {
       PRE_MATCH: "判定前の事前処理。威力補正・付与準備向け。",
       BEFORE_POWER_ROLL: "威力ロール直前。対抗結果に関わる補正向け。",
@@ -234,9 +324,51 @@
       IMMEDIATE: "即時発動（割り込み系）。",
       BATTLE_START: "戦闘開始時に発動。"
     };
-    const HELP_ROWS = [["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","命中時/勝利時/敗北時"],["type: APPLY_BUFF","buff_id / buff_name を付与"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","動的バフ命名で効果を自動解釈"]];
+    const CUSTOM_EFFECT_REFS = [
+      {
+        value: "破裂爆発",
+        summary: "targetの破裂値ぶんの追加ダメージを与え、破裂を比率で減衰させる。",
+        keys: "rupture_remainder_ratio"
+      },
+      {
+        value: "亀裂崩壊_DAMAGE",
+        summary: "targetの亀裂を全消費してダメージ化する（亀裂×係数）。",
+        keys: "damage_per_fissure"
+      },
+      {
+        value: "FISSURE_COLLAPSE",
+        summary: "亀裂をコスト消費して指定CUSTOM_EFFECTを連続誘発する。",
+        keys: "data.cost_per_trigger, data.triggered_effect, data.max_triggers, data.trigger_ratio"
+      },
+      {
+        value: "出血氾濫",
+        summary: "出血tickを即時実行し、ダメージ処理と出血遷延消費を行う。",
+        keys: "(追加キーなし)"
+      },
+      {
+        value: "戦慄殺到",
+        summary: "戦慄値ぶんMPを減らし、戦慄を消費。MP0以下なら混乱付与。",
+        keys: "(追加キーなし)"
+      },
+      {
+        value: "荊棘飛散",
+        summary: "targetの荊棘を全消費し、他キャラへ同値の荊棘を拡散。",
+        keys: "(追加キーなし)"
+      },
+      {
+        value: "APPLY_SKILL_DAMAGE_AGAIN",
+        summary: "追加攻撃の単純トリガーを発行する。",
+        keys: "(追加キーなし)"
+      },
+      {
+        value: "END_ROUND_IMMEDIATELY",
+        summary: "ラウンドを即時終了する要求を発行する。",
+        keys: "(追加キーなし)"
+      }
+    ];
+    const HELP_ROWS = [["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","命中時/勝利時/敗北時"],["condition.source: target_skill","対象側が宣言したスキル情報（主に tags）を参照。相手スキル情報が無い場面では条件false"],["condition.source: relation","actor-targetの関係を参照。paramは same_team / target_is_ally / target_is_enemy（0/1判定）"],["type: APPLY_BUFF","buff_id / buff_name を付与"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","動的バフ命名で効果を自動解釈"]];
     const DYNAMIC_BUFF_PATTERNS = [
-      { suffix: "_ActN",   meaning: "行動値 +N",                 effect: "stat_mods.行動値",                         example: "迅速_Act2",         regex: /^(.*)_Act(\d+)$/ },
+      { suffix: "_ActN",   meaning: "行動回数 +N",               effect: "stat_mods.行動回数",                       example: "迅速_Act2",         regex: /^(.*)_Act(\d+)$/ },
       { suffix: "_AtkN",   meaning: "攻撃タグ時の最終威力 +N",   effect: "power_bonus(FIXED, apply_to=final)",     example: "猛攻_Atk5",         regex: /^(.*)_Atk(\d+)$/ },
       { suffix: "_AtkDownN", meaning: "攻撃タグ時の最終威力 -N", effect: "power_bonus(FIXED, apply_to=final)",     example: "弱体_AtkDown3",     regex: /^(.*)_AtkDown(\d+)$/ },
       { suffix: "_DefN",   meaning: "守備タグ時の最終威力 +N",   effect: "power_bonus(FIXED, apply_to=final)",     example: "守護_Def4",         regex: /^(.*)_Def(\d+)$/ },
@@ -306,6 +438,21 @@
         rule: { operation: "MULTIPLY", source: "self", param: "FP", value_per_param: 0.5 },
         note: "valueは使わない。value_per_paramが必須"
       }
+    ];
+    const PB_QUICK_TEMPLATES = [
+      { id: "", label: "テンプレを選択してください", desc: "1行目を典型パターンで自動入力します。", seed: null },
+      { id: "pb_fixed_final", label: "常時: 最終威力 +2", desc: "常時乗る固定加算。condition不要。", seed: { operation: "FIXED", value: 2, apply_to: "final" } },
+      { id: "pb_exists_rupture", label: "条件内蔵: 破裂>=1で +3", desc: "FIXED_IF_EXISTS で target.破裂 がある時だけ加算。", seed: { operation: "FIXED_IF_EXISTS", source: "target", param: "破裂", threshold: 1, value: 3 } },
+      { id: "pb_pern_bleed", label: "段階: 出血3ごとに +1", desc: "PER_N_BONUS の典型。target出血を段階加算。", seed: { operation: "PER_N_BONUS", source: "target", param: "出血", per_N: 3, value: 1, max_bonus: 4 } },
+      { id: "pb_multi_fp", label: "倍率: FP×0.5 を加算", desc: "MULTIPLY の典型。self.FPに比例して加算。", seed: { operation: "MULTIPLY", source: "self", param: "FP", value_per_param: 0.5 } }
+    ];
+    const EFFECT_QUICK_TEMPLATES = [
+      { id: "", label: "テンプレを選択してください", desc: "1行目をType別の典型パターンで自動入力します。", seed: null },
+      { id: "ef_hit_bleed", label: "命中時: 出血 +2", desc: "HITで target の出血を増やす基本形。", seed: { timing: "HIT", type: "APPLY_STATE", target: "target", state_name: "出血", value: 2 } },
+      { id: "ef_win_buff", label: "勝利時: selfに猛攻バフ", desc: "WINで自分に動的buff_nameを付与。", seed: { timing: "WIN", type: "APPLY_BUFF", target: "self", buff_name: "猛攻_Atk3", lasting: 1 } },
+      { id: "ef_pre_power", label: "マッチ前: 最終威力 +2", desc: "MODIFY_FINAL_POWERは PRE_MATCH/BEFORE_POWER_ROLL 推奨。", seed: { timing: "PRE_MATCH", type: "MODIFY_FINAL_POWER", target: "self", value: 2 } },
+      { id: "ef_pern_rupture", label: "判定前: 出血3ごとに破裂+1", desc: "APPLY_STATE_PER_Nの典型。source/source_param/per_Nが必須。", seed: { timing: "BEFORE_POWER_ROLL", type: "APPLY_STATE_PER_N", target: "target", source: "target", source_param: "出血", per_N: 3, state_name: "破裂", value: 1 } },
+      { id: "ef_damage_bonus", label: "命中時: ダメージ固定 +5", desc: "DAMAGE_BONUS の単純加算例。", seed: { timing: "HIT", type: "DAMAGE_BONUS", target: "target", value: 5 } }
     ];
     const EFFECT_TYPE_SPEC = {
       APPLY_STATE: {
@@ -434,10 +581,60 @@
       const ban=new Set(["tags","tag","???","？？？"]);
       return Array.from(new Set((Array.isArray(arr)?arr:[]).map(x=>String(x||"").trim()).filter(Boolean))).filter(s=>!ban.has(s.toLowerCase())&&!/^\?+$/.test(s)&&!/^[？]+$/.test(s));
     }
+    function getEditorMode(){return document.getElementById("editorMode")?.value||"beginner";}
+    function isBeginnerMode(){return getEditorMode()==="beginner";}
+    function fieldHasValue(field,key){
+      const el=field?.querySelector("input,select,textarea");
+      if(!el) return false;
+      if(el.type==="checkbox") return !!el.checked;
+      const v=String(el.value??"").trim();
+      if(!v) return false;
+      if(key==="source" && v==="self") return false;
+      if(key==="apply_to" && v==="base") return false;
+      if(key==="target" && v==="target") return false;
+      return true;
+    }
 
     function fillDatalist(id,items){const dl=document.getElementById(id);dl.innerHTML="";items.forEach(v=>{const o=document.createElement("option");o.value=v;dl.appendChild(o)})}
     function readCond(host){const source=host.querySelector(".condSource")?.value?.trim();const param=host.querySelector(".condParam")?.value?.trim();const operator=host.querySelector(".condOp")?.value?.trim();const rv=host.querySelector(".condVal")?.value?.trim();if(!source||!param||!operator||rv==="")return null;const n=Number(rv);return {source,param,operator,value:Number.isNaN(n)?rv:n}}
-    function renderCond(host,seed={}){host.innerHTML="";const g=document.createElement("div");g.className="grid4";g.innerHTML=`<div><label>condition.source</label><select class="condSource">${COND_SOURCES.map(x=>`<option value="${x}" ${x===(seed.source||"target")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>condition.param</label><input class="condParam" list="stateNameList" value="${esc(seed.param||"HP")}" /></div><div><label>condition.operator</label><select class="condOp">${COND_OPS.map(x=>`<option value="${x}" ${x===(seed.operator||"GTE")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>condition.value</label><input class="condVal" value="${esc(seed.value??"")}" /></div>`;host.appendChild(g)}
+    function renderCond(host,seed={}){
+      host.innerHTML="";
+      const g=document.createElement("div");
+      g.className="grid4";
+      g.innerHTML=`<div><label>condition.source</label><select class="condSource">${COND_SOURCES.map(x=>`<option value="${x}" ${x===(seed.source||"target")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>condition.param</label><input class="condParam" list="stateNameList" value="${esc(seed.param||"HP")}" /></div><div><label>condition.operator</label><select class="condOp">${COND_OPS.map(x=>`<option value="${x}" ${x===(seed.operator||"GTE")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>condition.value</label><input class="condVal" value="${esc(seed.value??"")}" /></div>`;
+      host.appendChild(g);
+      const help=document.createElement("div");
+      help.className="small condOpHelp";
+      help.style.marginTop="6px";
+      host.appendChild(help);
+      const srcHelp=document.createElement("div");
+      srcHelp.className="small condSourceHelp";
+      srcHelp.style.marginTop="4px";
+      host.appendChild(srcHelp);
+      const paramHelp=document.createElement("div");
+      paramHelp.className="small condParamHelp";
+      paramHelp.style.marginTop="4px";
+      host.appendChild(paramHelp);
+      const opSel=g.querySelector(".condOp");
+      const sourceSel=g.querySelector(".condSource");
+      const paramInput=g.querySelector(".condParam");
+      const sync=()=>{
+        const key=opSel?.value||"";
+        const src=sourceSel?.value||"";
+        const param=String(paramInput?.value||"").trim();
+        help.textContent=`operator意味: ${key}${COND_OP_MEANINGS[key]?` = ${COND_OP_MEANINGS[key]}`:""}`;
+        srcHelp.textContent=`source意味: ${src}${COND_SOURCE_MEANINGS[src]?` - ${COND_SOURCE_MEANINGS[src]}`:""}`;
+        let extra="";
+        if(src==="relation" && param && !RELATION_PARAMS.includes(param)){
+          extra=` / 注意: relation では param=${RELATION_PARAMS.join(" / ")} のみ有効`;
+        }
+        paramHelp.textContent=`paramガイド: ${COND_SOURCE_PARAM_HINTS[src]||"状態値/配列タグのキー名を指定"}${extra}`;
+      };
+      if(opSel) opSel.addEventListener("change",sync);
+      if(sourceSel) sourceSel.addEventListener("change",sync);
+      if(paramInput) paramInput.addEventListener("input",sync);
+      sync();
+    }
 
     function getPbRowRaw(row){
       const raw={operation:row.querySelector(".pbOp").value};
@@ -468,6 +665,9 @@
         if(raw[k]===undefined||raw[k]==="") warns.push(`必須: ${k}`);
       });
       if(raw._cond_enabled && !raw.condition) warns.push("conditionをONにしていますが、source/param/operator/valueが未入力です");
+      if(raw.condition?.source==="relation" && !RELATION_PARAMS.includes(String(raw.condition?.param||""))){
+        warns.push(`relation の param は ${RELATION_PARAMS.join(" / ")} を使用してください`);
+      }
       if(op==="PER_N_BONUS" && raw.per_N!==undefined && raw.per_N<=0) warns.push("per_N は 1以上を推奨");
       if(op==="MULTIPLY" && raw.value_per_param===undefined) warns.push("value_per_param が必要です");
       return warns;
@@ -492,21 +692,58 @@
       row.querySelector(".pbPreview").textContent=`自然文: ${buildPbNatural(raw)}`;
       const warns=validatePbRaw(raw);
       row.querySelector(".pbWarn").innerHTML=warns.length?warns.map(w=>`<div>・${esc(w)}</div>`).join(""):"";
+      const beginner=isBeginnerMode();
+      const expanded=(row.dataset.expanded==="1") || !beginner;
+      const alwaysShow=new Set(["operation"]);
+      row.querySelectorAll(".pbField").forEach(el=>{
+        const showOps=(el.dataset.show||"").split(",").filter(Boolean);
+        const byOp=!showOps.length || showOps.includes(op);
+        if(!byOp){el.style.display="none";return;}
+        if(!beginner || expanded){el.style.display="block";return;}
+        const key=el.dataset.pbKey||"";
+        const isRequired=(spec.required||[]).includes(key);
+        const visible=alwaysShow.has(key) || isRequired || fieldHasValue(el,key);
+        el.style.display=visible?"block":"none";
+      });
+      const extraWrap=row.querySelector(".pbExtraWrap");
+      if(extraWrap){
+        const hasExtra=((row.querySelector(".pbExtra")?.value)||"").trim()!=="";
+        extraWrap.style.display=(!beginner || expanded || hasExtra)?"block":"none";
+      }
+      const condHost=row.querySelector(".pbCond");
+      const condOn=!!row.querySelector(".pbCondEnable")?.checked;
+      if(condHost) condHost.style.display=condOn?"block":"none";
+      const expandBtn=row.querySelector(".pbExpandBtn");
+      if(expandBtn){
+        if(beginner){
+          expandBtn.style.display="inline-block";
+          expandBtn.textContent=expanded?"詳細項目を隠す":"詳細項目を表示";
+        }else{
+          expandBtn.style.display="none";
+        }
+      }
+      const note=row.querySelector(".pbFoldNote");
+      if(note) note.style.display=(beginner && !expanded)?"block":"none";
     }
 
-    function addPowerBonusRow(seed={}){
+    function addPowerBonusRow(seed={},opt={}){
       const row=document.createElement("div");row.className="row";
-      row.innerHTML=`<div class="grid4"><div><label>operation</label><select class="pbOp">${POWER_OPS.map(x=>`<option value="${x}" ${x===(seed.operation||"FIXED")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>source</label><select class="pbSource"><option value="self" ${(seed.source||"self")==="self"?"selected":""}>self</option><option value="target" ${(seed.source||"self")==="target"?"selected":""}>target</option></select></div><div><label>param</label><input class="pbParam" list="stateNameList" value="${esc(seed.param||"")}" /></div><div><label>apply_to</label><select class="pbApply"><option value="base" ${(seed.apply_to||"base")==="base"?"selected":""}>base</option><option value="dice" ${(seed.apply_to||"")==="dice"?"selected":""}>dice</option><option value="final" ${(seed.apply_to||"")==="final"?"selected":""}>final</option></select></div></div><div class="grid4" style="margin-top:8px;"><div data-show="FIXED,FIXED_IF_EXISTS,PER_N_BONUS"><label>value</label><input class="pbValue" type="number" step="any" value="${esc(seed.value??"")}"/></div><div data-show="PER_N_BONUS"><label>per_N</label><input class="pbPerN" type="number" value="${esc(seed.per_N??"")}"/></div><div data-show="FIXED_IF_EXISTS"><label>threshold</label><input class="pbThreshold" type="number" value="${esc(seed.threshold??1)}"/></div><div data-show="MULTIPLY"><label>value_per_param</label><input class="pbVpp" type="number" step="any" value="${esc(seed.value_per_param??"")}"/></div><div><label>max_bonus</label><input class="pbMax" type="number" value="${esc(seed.max_bonus??"")}"/></div><div><label>min_bonus</label><input class="pbMin" type="number" value="${esc(seed.min_bonus??"")}"/></div></div><div class="toolbar"><label><input type="checkbox" class="pbCondEnable" ${seed.condition?"checked":""}/> 常時適用でない時だけ condition を使う</label><button class="btn btn-danger" type="button">削除</button></div><div class="pbCond"></div><div><label>extra_json（任意）</label><input class="pbExtra mono" placeholder='{"custom":true}' /></div><div class="small pbMeta"></div><div class="small ok pbPreview"></div><div class="warn pbWarn"></div>`;
+      row.dataset.expanded="0";
+      row.innerHTML=`<div class="grid4"><div class="pbField" data-pb-key="operation"><label>operation</label><select class="pbOp">${POWER_OPS.map(x=>`<option value="${x}" ${x===(seed.operation||"FIXED")?"selected":""}>${x}</option>`).join("")}</select></div><div class="pbField" data-pb-key="source"><label>source</label><select class="pbSource"><option value="self" ${(seed.source||"self")==="self"?"selected":""}>self</option><option value="target" ${(seed.source||"self")==="target"?"selected":""}>target</option></select></div><div class="pbField" data-pb-key="param"><label>param</label><input class="pbParam" list="stateNameList" value="${esc(seed.param||"")}" /></div><div class="pbField" data-pb-key="apply_to"><label>apply_to</label><select class="pbApply"><option value="base" ${(seed.apply_to||"base")==="base"?"selected":""}>base</option><option value="dice" ${(seed.apply_to||"")==="dice"?"selected":""}>dice</option><option value="final" ${(seed.apply_to||"")==="final"?"selected":""}>final</option></select></div></div><div class="grid4" style="margin-top:8px;"><div class="pbField" data-pb-key="value" data-show="FIXED,FIXED_IF_EXISTS,PER_N_BONUS"><label>value</label><input class="pbValue" type="number" step="any" value="${esc(seed.value??"")}"/></div><div class="pbField" data-pb-key="per_N" data-show="PER_N_BONUS"><label>per_N</label><input class="pbPerN" type="number" value="${esc(seed.per_N??"")}"/></div><div class="pbField" data-pb-key="threshold" data-show="FIXED_IF_EXISTS"><label>threshold</label><input class="pbThreshold" type="number" value="${esc(seed.threshold??1)}"/></div><div class="pbField" data-pb-key="value_per_param" data-show="MULTIPLY"><label>value_per_param</label><input class="pbVpp" type="number" step="any" value="${esc(seed.value_per_param??"")}"/></div><div class="pbField" data-pb-key="max_bonus"><label>max_bonus</label><input class="pbMax" type="number" value="${esc(seed.max_bonus??"")}"/></div><div class="pbField" data-pb-key="min_bonus"><label>min_bonus</label><input class="pbMin" type="number" value="${esc(seed.min_bonus??"")}"/></div></div><div class="toolbar"><label><input type="checkbox" class="pbCondEnable" ${seed.condition?"checked":""}/> 常時適用でない時だけ condition を使う</label><button class="btn btn-ghost pbExpandBtn" type="button">詳細項目を表示</button><button class="btn btn-danger" type="button">削除</button></div><div class="pbCond"></div><div class="pbExtraWrap"><label>extra_json（任意）</label><input class="pbExtra mono" placeholder='{"custom":true}' /></div><div class="field-hidden-note pbFoldNote">初心者モード: 不要項目を折りたたみ中（「詳細項目を表示」で展開）</div><div class="small pbMeta"></div><div class="small ok pbPreview"></div><div class="warn pbWarn"></div>`;
       const condHost=row.querySelector(".pbCond"); if(seed.condition)renderCond(condHost,seed.condition);
-      const sync=()=>{const op=row.querySelector(".pbOp").value;row.querySelectorAll("[data-show]").forEach(el=>{const arr=el.dataset.show.split(",");el.style.display=arr.includes(op)?"block":"none"});updatePbRowGuide(row)};
-      row.querySelector(".pbOp").addEventListener("change",()=>{sync();generate()});
-      sync();
+      row.querySelector(".pbOp").addEventListener("change",()=>{updatePbRowGuide(row);generate()});
+      row.querySelector(".pbExpandBtn").addEventListener("click",()=>{row.dataset.expanded=row.dataset.expanded==="1"?"0":"1";updatePbRowGuide(row);});
       row.querySelector(".pbCondEnable").addEventListener("change",e=>{condHost.innerHTML="";if(e.target.checked)renderCond(condHost,{});updatePbRowGuide(row);generate()});
       row.querySelector(".btn-danger").addEventListener("click",()=>{row.remove();generate()});
       row.addEventListener("input",()=>{updatePbRowGuide(row);generate()});
       row.addEventListener("change",()=>{updatePbRowGuide(row);generate()});
-      document.getElementById("pbRoot").appendChild(row);
+      const root=document.getElementById("pbRoot");
+      root.appendChild(row);
+      if(opt.atTop && root.firstElementChild!==row){
+        root.insertBefore(row,root.firstElementChild);
+      }
       updatePbRowGuide(row);
+      return row;
     }
 
     function collectPowerBonus(){
@@ -572,6 +809,9 @@
         if(!ok) warns.push(`必須: ${group.join(" または ")}`);
       });
       if(raw._cond_enabled && !raw.condition) warns.push("conditionをONにしていますが、source/param/operator/valueが未入力です");
+      if(raw.condition?.source==="relation" && !RELATION_PARAMS.includes(String(raw.condition?.param||""))){
+        warns.push(`relation の param は ${RELATION_PARAMS.join(" / ")} を使用してください`);
+      }
       if(raw._extra_error) warns.push("extra_json が不正JSONです");
       if(raw.type==="APPLY_STATE_PER_N" && raw.per_N!==undefined && raw.per_N<=0) warns.push("per_N は1以上を推奨");
       if(raw.type==="REMOVE_BUFF" && raw.buff_id && !raw.buff_name) warns.push("REMOVE_BUFF は buff_name 指定を推奨");
@@ -602,23 +842,57 @@
 
       const fieldKeys=["state_name","source","source_param","per_N","value","buff_id","buff_name","skill_id","lasting","delay","summon_template_id"];
       const unusedSet=new Set((spec.unused||[]).filter(k=>fieldKeys.includes(k)));
+      const beginner=isBeginnerMode();
+      const expanded=(row.dataset.expanded==="1") || !beginner;
+      const requiredSet=new Set(spec.required||[]);
+      (spec.requiredAny||[]).forEach(group=>group.forEach(k=>requiredSet.add(k)));
       row.querySelectorAll(".efField").forEach(el=>{
         const k=el.dataset.ekey;
-        el.style.opacity=unusedSet.has(k)?"0.45":"1";
+        if(beginner && !expanded){
+          const visible=requiredSet.has(k) || fieldHasValue(el,k);
+          el.style.display=visible?"block":"none";
+        }else{
+          el.style.display="block";
+        }
+        el.style.opacity=unusedSet.has(k)?(beginner && !expanded?"0.62":"0.45"):"1";
       });
+      const condHost=row.querySelector(".efCond");
+      if(condHost) condHost.style.display=row.querySelector(".efCondEnable")?.checked?"block":"none";
+      const extraWrap=row.querySelector(".efExtraWrap");
+      if(extraWrap){
+        const hasExtra=((row.querySelector(".efExtra")?.value)||"").trim()!=="";
+        extraWrap.style.display=(!beginner || expanded || hasExtra)?"block":"none";
+      }
+      const expandBtn=row.querySelector(".efExpandBtn");
+      if(expandBtn){
+        if(beginner){
+          expandBtn.style.display="inline-block";
+          expandBtn.textContent=expanded?"詳細項目を隠す":"詳細項目を表示";
+        }else{
+          expandBtn.style.display="none";
+        }
+      }
+      const note=row.querySelector(".efFoldNote");
+      if(note) note.style.display=(beginner && !expanded)?"block":"none";
     }
 
-    function addEffectRow(seed={}){
-      const row=document.createElement("div");row.className="row";const id="e"+(++effectSeq);
-      row.innerHTML=`<div class="grid3"><div><label>timing</label><select class="timingSel">${TIMINGS.map(x=>`<option value="${x}" ${x===(seed.timing||"HIT")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>type</label><select class="typeSel">${TYPES.map(x=>`<option value="${x}" ${x===(seed.type||"APPLY_STATE")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>target</label><select class="targetSel">${TARGETS.map(x=>`<option value="${x}" ${x===(seed.target||"target")?"selected":""}>${x||"(未指定)"}</option>`).join("")}</select></div></div><div class="grid4" style="margin-top:8px;"><div class="efField" data-ekey="state_name"><label>state_name</label><input class="efState" list="stateNameList" value="${esc(seed.state_name||"")}"/></div><div class="efField" data-ekey="source"><label>source</label><select class="efSource"><option value="" ${(seed.source||"")===""?"selected":""}>(未指定)</option><option value="self" ${(seed.source||"")==="self"?"selected":""}>self</option><option value="target" ${(seed.source||"")==="target"?"selected":""}>target</option></select></div><div class="efField" data-ekey="source_param"><label>source_param</label><input class="efSourceParam" list="stateNameList" value="${esc(seed.source_param||"")}"/></div><div class="efField" data-ekey="per_N"><label>per_N</label><input class="efPerN" type="number" step="1" value="${esc(seed.per_N??"")}"/></div><div class="efField" data-ekey="value"><label class="efValueLabel">value</label><input class="efValue" type="number" step="any" value="${esc(seed.value??"")}"/></div><div class="efField" data-ekey="buff_id"><label>buff_id</label><input class="efBuffId" list="buffIdList" value="${esc(seed.buff_id||"")}"/></div><div class="efField" data-ekey="buff_name"><label>buff_name</label><input class="efBuffName" list="buffNameList" value="${esc(seed.buff_name||"")}"/></div><div class="efField" data-ekey="skill_id"><label>skill_id</label><input class="efSkillId" list="skillIdList" value="${esc(seed.skill_id||"")}"/></div><div class="efField" data-ekey="lasting"><label>lasting</label><input class="efLasting" type="number" value="${esc(seed.lasting??"")}"/></div><div class="efField" data-ekey="delay"><label>delay</label><input class="efDelay" type="number" value="${esc(seed.delay??"")}"/></div><div class="efField" data-ekey="summon_template_id"><label>summon_template_id</label><input class="efSummonId" list="summonIdList" value="${esc(seed.summon_template_id||"")}"/></div></div><div class="toolbar"><label><input type="checkbox" class="efCondEnable" ${seed.condition?"checked":""}/> conditionを使う</label><button class="btn btn-danger" type="button">削除</button></div><div class="efCond"></div><div><label>extra_json（任意）</label><input class="efExtra mono" placeholder='{"rounds":3}' /></div><div class="small efMeta"></div><div class="small ok efTypeMeaning"></div><div class="small guide-line efValueGuide"></div><div class="small guide-line efTimingGuide"></div><div class="warn efWarn"></div>`;
+    function addEffectRow(seed={},opt={}){
+      const row=document.createElement("div");row.className="row";row.dataset.expanded="0";effectSeq++;
+      row.innerHTML=`<div class="grid3"><div><label>timing</label><select class="timingSel">${TIMINGS.map(x=>`<option value="${x}" ${x===(seed.timing||"HIT")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>type</label><select class="typeSel">${TYPES.map(x=>`<option value="${x}" ${x===(seed.type||"APPLY_STATE")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>target</label><select class="targetSel">${TARGETS.map(x=>`<option value="${x}" ${x===(seed.target||"target")?"selected":""}>${x||"(未指定)"}</option>`).join("")}</select></div></div><div class="grid4" style="margin-top:8px;"><div class="efField" data-ekey="state_name"><label>state_name</label><input class="efState" list="stateNameList" value="${esc(seed.state_name||"")}"/></div><div class="efField" data-ekey="source"><label>source</label><select class="efSource"><option value="" ${(seed.source||"")===""?"selected":""}>(未指定)</option><option value="self" ${(seed.source||"")==="self"?"selected":""}>self</option><option value="target" ${(seed.source||"")==="target"?"selected":""}>target</option></select></div><div class="efField" data-ekey="source_param"><label>source_param</label><input class="efSourceParam" list="stateNameList" value="${esc(seed.source_param||"")}"/></div><div class="efField" data-ekey="per_N"><label>per_N</label><input class="efPerN" type="number" step="1" value="${esc(seed.per_N??"")}"/></div><div class="efField" data-ekey="value"><label class="efValueLabel">value</label><input class="efValue" type="number" step="any" value="${esc(seed.value??"")}"/></div><div class="efField" data-ekey="buff_id"><label>buff_id</label><input class="efBuffId" list="buffIdList" value="${esc(seed.buff_id||"")}"/></div><div class="efField" data-ekey="buff_name"><label>buff_name</label><input class="efBuffName" list="buffNameList" value="${esc(seed.buff_name||"")}"/></div><div class="efField" data-ekey="skill_id"><label>skill_id</label><input class="efSkillId" list="skillIdList" value="${esc(seed.skill_id||"")}"/></div><div class="efField" data-ekey="lasting"><label>lasting</label><input class="efLasting" type="number" value="${esc(seed.lasting??"")}"/></div><div class="efField" data-ekey="delay"><label>delay</label><input class="efDelay" type="number" value="${esc(seed.delay??"")}"/></div><div class="efField" data-ekey="summon_template_id"><label>summon_template_id</label><input class="efSummonId" list="summonIdList" value="${esc(seed.summon_template_id||"")}"/></div></div><div class="toolbar"><label class="efCondToggleWrap"><input type="checkbox" class="efCondEnable" ${seed.condition?"checked":""}/> conditionを使う</label><button class="btn btn-ghost efExpandBtn" type="button">詳細項目を表示</button><button class="btn btn-danger" type="button">削除</button></div><div class="efCond"></div><div class="efExtraWrap"><label>extra_json（任意）</label><input class="efExtra mono" placeholder='{"rounds":3}' /></div><div class="field-hidden-note efFoldNote">初心者モード: Type必須中心で表示中（「詳細項目を表示」で全入力）</div><div class="small efMeta"></div><div class="small ok efTypeMeaning"></div><div class="small guide-line efValueGuide"></div><div class="small guide-line efTimingGuide"></div><div class="warn efWarn"></div>`;
       const cHost=row.querySelector(".efCond");if(seed.condition)renderCond(cHost,seed.condition);
+      row.querySelector(".efExpandBtn").addEventListener("click",()=>{row.dataset.expanded=row.dataset.expanded==="1"?"0":"1";updateEffectRowGuide(row);});
       row.querySelector(".efCondEnable").addEventListener("change",e=>{cHost.innerHTML="";if(e.target.checked)renderCond(cHost,{});updateEffectRowGuide(row);generate()});
       row.querySelector(".typeSel").addEventListener("change",()=>{updateEffectRowGuide(row);generate()});
       row.querySelector(".btn-danger").addEventListener("click",()=>{row.remove();generate()});
       row.addEventListener("input",()=>{updateEffectRowGuide(row);generate()});
       row.addEventListener("change",()=>{updateEffectRowGuide(row);generate()});
-      document.getElementById("effectsRoot").appendChild(row);
+      const root=document.getElementById("effectsRoot");
+      root.appendChild(row);
+      if(opt.atTop && root.firstElementChild!==row){
+        root.insertBefore(row,root.firstElementChild);
+      }
       updateEffectRowGuide(row);
+      return row;
     }
 
     function collectEffects(){
@@ -640,6 +914,12 @@
     async function copyJson(){let txt=document.getElementById("jsonOut").textContent||"";if(!txt.trim()){generate();txt=document.getElementById("jsonOut").textContent||"";}if(!txt.trim())return;try{await navigator.clipboard.writeText(txt);document.getElementById("copyStatus").textContent="コピーしました"}catch(_){document.getElementById("copyStatus").textContent="コピー失敗"}setTimeout(()=>document.getElementById("copyStatus").textContent="",1500)}
 
     function renderHelp(){document.getElementById("helpTableBody").innerHTML=HELP_ROWS.map(([k,v])=>`<tr><td class="mono">${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}
+    function renderCustomEffects(){
+      const q=(document.getElementById("customEffectFilter")?.value||"").trim().toLowerCase();
+      const rows=CUSTOM_EFFECT_REFS.filter(x=>`${x.value}\n${x.summary}\n${x.keys}`.toLowerCase().includes(q));
+      document.getElementById("customEffectTableBody").innerHTML=rows.map(x=>`<tr><td class="mono">${esc(x.value)}</td><td>${esc(x.summary)}</td><td class="mono">${esc(x.keys)}</td></tr>`).join("");
+      document.getElementById("customEffectCount").textContent=`${rows.length} / ${CUSTOM_EFFECT_REFS.length} 件`;
+    }
     function renderState(){const arr=sanitizeStateRefs(REF.state_refs);document.getElementById("stateRefRoot").innerHTML=arr.map(s=>`<span class="chip mono">${esc(s)}</span>`).join("")}
     function renderBuff(){const q=(document.getElementById("buffFilter").value||"").trim().toLowerCase();const rows=(REF.buff_refs||[]).filter(b=>`${b.id}\n${b.name}\n${b.description}\n${JSON.stringify(b.effect||{})}`.toLowerCase().includes(q));document.getElementById("buffTableBody").innerHTML=rows.map(b=>`<tr><td class="mono">${esc(b.id)}</td><td>${esc(b.name||"")}</td><td>${esc(b.description||"")}</td><td class="mono">${esc(JSON.stringify(b.effect||{}))}</td></tr>`).join("");document.getElementById("buffCount").textContent=`${rows.length} / ${(REF.buff_refs||[]).length} 件`}
     function renderSkill(){const q=(document.getElementById("skillFilter").value||"").trim().toLowerCase();const rows=(REF.skill_refs||[]).filter(s=>`${s.id}\n${s.name}\n${(s.tags||[]).join(",")}`.toLowerCase().includes(q));document.getElementById("skillTableBody").innerHTML=rows.map(s=>`<tr><td class="mono">${esc(s.id)}</td><td>${esc(s.name||"")}</td><td>${esc((s.tags||[]).join(", "))}</td></tr>`).join("");document.getElementById("skillCount").textContent=`${rows.length} / ${(REF.skill_refs||[]).length} 件`}
@@ -664,6 +944,64 @@
       const i=Number(idx);
       if(Number.isNaN(i)||!PB_RECIPES[i]) return;
       addPowerBonusRow(PB_RECIPES[i].rule||{});
+      generate();
+    }
+    function fillTemplateSelect(selectId,templates){
+      const sel=document.getElementById(selectId);
+      if(!sel) return;
+      sel.innerHTML=templates.map(t=>`<option value="${esc(t.id)}">${esc(t.label)}</option>`).join("");
+    }
+    function findTemplateById(templates,id){
+      return templates.find(t=>String(t.id)===String(id))||templates[0]||null;
+    }
+    function updatePbTemplateDesc(){
+      const sel=document.getElementById("pbQuickTemplate");
+      const desc=document.getElementById("pbTemplateDesc");
+      if(!sel||!desc) return;
+      const t=findTemplateById(PB_QUICK_TEMPLATES,sel.value);
+      desc.textContent=t?.desc||"";
+    }
+    function updateEffectTemplateDesc(){
+      const sel=document.getElementById("effectQuickTemplate");
+      const desc=document.getElementById("effectTemplateDesc");
+      if(!sel||!desc) return;
+      const t=findTemplateById(EFFECT_QUICK_TEMPLATES,sel.value);
+      desc.textContent=t?.desc||"";
+    }
+    function applyPbFirstRowTemplate(){
+      const sel=document.getElementById("pbQuickTemplate");
+      const t=findTemplateById(PB_QUICK_TEMPLATES,sel?.value||"");
+      if(!t||!t.seed) return;
+      const root=document.getElementById("pbRoot");
+      const first=root.querySelector(".row");
+      if(first) first.remove();
+      addPowerBonusRow(t.seed,{atTop:true});
+      generate();
+    }
+    function applyEffectFirstRowTemplate(){
+      const sel=document.getElementById("effectQuickTemplate");
+      const t=findTemplateById(EFFECT_QUICK_TEMPLATES,sel?.value||"");
+      if(!t||!t.seed) return;
+      const root=document.getElementById("effectsRoot");
+      const first=root.querySelector(".row");
+      if(first) first.remove();
+      addEffectRow(t.seed,{atTop:true});
+      generate();
+    }
+    function initQuickTemplates(){
+      fillTemplateSelect("pbQuickTemplate",PB_QUICK_TEMPLATES);
+      fillTemplateSelect("effectQuickTemplate",EFFECT_QUICK_TEMPLATES);
+      updatePbTemplateDesc();
+      updateEffectTemplateDesc();
+    }
+    function setBuilderTab(tabId){
+      document.querySelectorAll(".builder-tab-section").forEach(sec=>{sec.hidden=sec.id!==tabId;});
+      document.querySelectorAll("#builderTabs .tab-btn").forEach(btn=>btn.classList.toggle("active",btn.dataset.tab===tabId));
+    }
+    function refreshEditorView(){
+      const beginner=isBeginnerMode();
+      document.querySelectorAll("#pbRoot .row").forEach(row=>{if(beginner) row.dataset.expanded="0";updatePbRowGuide(row);});
+      document.querySelectorAll("#effectsRoot .row").forEach(row=>{if(beginner) row.dataset.expanded="0";updateEffectRowGuide(row);});
       generate();
     }
 
@@ -695,19 +1033,32 @@
       panel.hidden=!panel.hidden;
     }
 
-    function initRef(){const states=sanitizeStateRefs(REF.state_refs);const buffIds=(REF.buff_refs||[]).map(x=>x.id).filter(Boolean);const buffNames=(REF.buff_refs||[]).map(x=>x.name).filter(Boolean);const skillIds=(REF.skill_refs||[]).map(x=>x.id).filter(Boolean);const summonIds=(REF.summon_refs||[]).map(x=>x.id).filter(Boolean);const tags=new Set(TAG_HINTS);(REF.skill_refs||[]).forEach(s=>(s.tags||[]).forEach(t=>tags.add(String(t))));fillDatalist("stateNameList",states);fillDatalist("buffIdList",buffIds);fillDatalist("buffNameList",buffNames);fillDatalist("skillIdList",skillIds);fillDatalist("summonIdList",summonIds);fillDatalist("tagHintList",Array.from(tags).sort((a,b)=>a.localeCompare(b,"ja")));renderState();renderBuff();renderDynamicBuffPatterns();renderSkill();renderSummon()}
+    function initRef(){const states=sanitizeStateRefs(REF.state_refs);const buffIds=(REF.buff_refs||[]).map(x=>x.id).filter(Boolean);const buffNames=(REF.buff_refs||[]).map(x=>x.name).filter(Boolean);const skillIds=(REF.skill_refs||[]).map(x=>x.id).filter(Boolean);const summonIds=(REF.summon_refs||[]).map(x=>x.id).filter(Boolean);const tags=new Set(TAG_HINTS);(REF.skill_refs||[]).forEach(s=>(s.tags||[]).forEach(t=>tags.add(String(t))));fillDatalist("stateNameList",states);fillDatalist("buffIdList",buffIds);fillDatalist("buffNameList",buffNames);fillDatalist("skillIdList",skillIds);fillDatalist("summonIdList",summonIds);fillDatalist("tagHintList",Array.from(tags).sort((a,b)=>a.localeCompare(b,"ja")));renderState();renderBuff();renderDynamicBuffPatterns();renderSkill();renderSummon();renderCustomEffects()}
 
     function bind(){
       document.getElementById("addPbBtn").addEventListener("click",()=>{addPowerBonusRow();generate()});
       document.getElementById("clearPbBtn").addEventListener("click",()=>{document.getElementById("pbRoot").innerHTML="";addPowerBonusRow();generate()});
       document.getElementById("addEffectBtn").addEventListener("click",()=>{addEffectRow();generate()});
       document.getElementById("clearEffectBtn").addEventListener("click",()=>{document.getElementById("effectsRoot").innerHTML="";addEffectRow();generate()});
+      document.getElementById("pbQuickTemplate").addEventListener("change",updatePbTemplateDesc);
+      document.getElementById("effectQuickTemplate").addEventListener("change",updateEffectTemplateDesc);
+      document.getElementById("applyPbTemplateBtn").addEventListener("click",applyPbFirstRowTemplate);
+      document.getElementById("applyEffectTemplateBtn").addEventListener("click",applyEffectFirstRowTemplate);
+      document.getElementById("editorMode").addEventListener("change",refreshEditorView);
+      document.getElementById("builderTabs").addEventListener("click",(e)=>{
+        const btn=e.target.closest(".tab-btn");
+        if(!btn) return;
+        const tabId=btn.dataset.tab;
+        if(!tabId) return;
+        setBuilderTab(tabId);
+      });
       document.getElementById("generateShowBtn").addEventListener("click",()=>{generate();showJsonPanel();});
       document.getElementById("toggleJsonBtn").addEventListener("click",()=>{if(document.getElementById("jsonPanel").hidden){generate();}toggleJsonPanel();});
       document.getElementById("closeJsonBtn").addEventListener("click",hideJsonPanel);
       document.getElementById("copyBtn").addEventListener("click",copyJson);
       document.getElementById("buffFilter").addEventListener("input",renderBuff);
       document.getElementById("skillFilter").addEventListener("input",renderSkill);
+      document.getElementById("customEffectFilter").addEventListener("input",renderCustomEffects);
       document.getElementById("dynamicBuffNameInput").addEventListener("input",checkDynamicBuffName);
       document.getElementById("pbRecipeList").addEventListener("click",(e)=>{
         const btn=e.target.closest(".pbRecipeBtn");
@@ -738,7 +1089,7 @@
       });
     }
 
-    bind();renderHelp();renderPbDocs();renderEffectDocs();initRef();addPowerBonusRow();addEffectRow();checkDynamicBuffName();toggleRefPanel("panelPbCheat");generate();
+    bind();renderHelp();renderPbDocs();renderEffectDocs();initQuickTemplates();initRef();addPowerBonusRow();addEffectRow();checkDynamicBuffName();setBuilderTab("pbEditorSection");toggleRefPanel("panelPbCheat");generate();
   </script>
 </body>
 </html>
