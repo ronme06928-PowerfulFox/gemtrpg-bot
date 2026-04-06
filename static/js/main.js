@@ -13,6 +13,16 @@ let entryRequestInFlight = false;
 let currentUserId = null; // ★追加: ユーザーID (UUID)
 const receivedLogIds = new Set();
 
+function getLogDedupeKey(logData) {
+    if (!logData || typeof logData !== 'object') return '';
+    const hasId = (logData.log_id !== undefined && logData.log_id !== null);
+    if (!hasId) return '';
+    const id = String(logData.log_id);
+    const hasTs = (logData.timestamp !== undefined && logData.timestamp !== null);
+    if (!hasTs) return id;
+    return `${id}:${String(logData.timestamp)}`;
+}
+
 // Battle debug logs are OFF by default.
 // Enable:
 //   localStorage.setItem('battle_debug_verbose', '1'); location.reload();
@@ -35,8 +45,9 @@ function battleDebugLog(...args) {
 function rememberLogIdsFromState(state) {
     if (!state || !Array.isArray(state.logs)) return;
     state.logs.forEach((logData) => {
-        if (!logData || logData.log_id === undefined || logData.log_id === null) return;
-        receivedLogIds.add(String(logData.log_id));
+        const key = getLogDedupeKey(logData);
+        if (!key) return;
+        receivedLogIds.add(key);
     });
     if (receivedLogIds.size > 4000) {
         const keep = Array.from(receivedLogIds).slice(-2500);
@@ -426,12 +437,30 @@ function initializeSocketIO() {
         }
     });
     socket.on('new_log', (logData) => {
-        if (logData && logData.log_id !== undefined && logData.log_id !== null) {
-            const logId = String(logData.log_id);
-            if (receivedLogIds.has(logId)) {
+        // Play SE before log-id dedupe. state_updated/new_log ordering can differ.
+        const phaseNow = String(
+            (window.BattleStore && window.BattleStore.state && window.BattleStore.state.phase)
+            || (battleState && battleState.phase)
+            || ''
+        );
+        const hasResolvePanel = !!document.getElementById('resolve-flow-panel');
+        const inResolvePlayback = (
+            phaseNow === 'resolve_mass'
+            || phaseNow === 'resolve_single'
+            || (phaseNow === 'round_end' && hasResolvePanel)
+        );
+        const logType = String(logData?.type || '').toLowerCase();
+        const shouldPlayFromLog = !(inResolvePlayback && logType !== 'chat');
+        if (shouldPlayFromLog && window.SoundFx && typeof window.SoundFx.maybePlayForLog === 'function') {
+            window.SoundFx.maybePlayForLog(logData);
+        }
+
+        const key = getLogDedupeKey(logData);
+        if (key) {
+            if (receivedLogIds.has(key)) {
                 return;
             }
-            receivedLogIds.add(logId);
+            receivedLogIds.add(key);
         }
         logToBattleLog(logData);
     });

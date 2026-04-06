@@ -33,6 +33,7 @@ class ResolveFlowPanel {
         this._pendingSyncedAdvanceCount = 0;
         this._completionEmittedRounds = new Set();
         this._roundSawResolvePhase = false;
+        this._powerRevealSePlayedKeys = new Set();
     }
 
     initialize() {
@@ -77,6 +78,7 @@ class ResolveFlowPanel {
         this._pendingSyncedAdvanceCount = 0;
         this._completionEmittedRounds.clear();
         this._roundSawResolvePhase = false;
+        this._powerRevealSePlayedKeys.clear();
         this._initialized = false;
         const panel = document.getElementById(this._panelId);
         if (panel) panel.remove();
@@ -423,6 +425,31 @@ class ResolveFlowPanel {
         return labels[String(stage || '')] || '';
     }
 
+    _rememberPowerSePlayed(stepKey) {
+        if (!stepKey) return;
+        this._powerRevealSePlayedKeys.add(stepKey);
+        if (this._powerRevealSePlayedKeys.size <= 1800) return;
+        const keep = Array.from(this._powerRevealSePlayedKeys).slice(-1300);
+        this._powerRevealSePlayedKeys.clear();
+        keep.forEach((k) => this._powerRevealSePlayedKeys.add(k));
+    }
+
+    _tryPlayPowerRevealSe(stepKey, revealStage) {
+        if (!stepKey) return;
+        const stage = String(revealStage || '');
+        if (stage !== 'power' && stage !== 'outcome') return;
+        if (this._powerRevealSePlayedKeys.has(stepKey)) return;
+        this._rememberPowerSePlayed(stepKey);
+        if (typeof window === 'undefined') return;
+        const sfx = window.SoundFx;
+        if (!sfx || typeof sfx.playDiceRoll !== 'function') return;
+        try {
+            void sfx.playDiceRoll({ bypassThrottle: true });
+        } catch (_e) {
+            // Ignore sound errors in UI flow rendering.
+        }
+    }
+
     _allSkillData() {
         if (typeof window === 'undefined') return {};
         const all = window.allSkillData;
@@ -596,6 +623,7 @@ class ResolveFlowPanel {
             this._clearAdvanceRequestPending();
             this._pendingSyncedAdvanceCount = 0;
             this._roundSawResolvePhase = false;
+            this._powerRevealSePlayedKeys.clear();
         }
 
         if (!isBattle) {
@@ -614,6 +642,20 @@ class ResolveFlowPanel {
             this._clearAdvanceRequestPending();
             this._pendingSyncedAdvanceCount = 0;
             this._roundSawResolvePhase = false;
+            this._powerRevealSePlayedKeys.clear();
+            this._removePanel();
+            return;
+        }
+
+        // If this round's resolve playback was already completed once,
+        // do not replay it again when returning from exploration mode.
+        const alreadyCompletedThisRound = !!roundKey && this._completionEmittedRounds.has(roundKey);
+        if (alreadyCompletedThisRound && phase === 'round_end') {
+            this._stopPlayback();
+            this._playQueue = [];
+            this._activeStep = null;
+            this._renderedStepKey = null;
+            this._waitingForAdvance = false;
             this._removePanel();
             return;
         }
@@ -633,6 +675,7 @@ class ResolveFlowPanel {
             this._clearPendingAdvanceTimer();
             this._clearAdvanceRequestPending();
             this._pendingSyncedAdvanceCount = 0;
+            this._powerRevealSePlayedKeys.clear();
         }
 
         const inResolve = this._isResolvePhase(phase);
@@ -711,7 +754,7 @@ class ResolveFlowPanel {
             this._tickTimer = setInterval(() => {
                 if (!this._activeStep) return;
                 this._renderStep(store.state || {});
-            }, 120);
+            }, 60);
         }
 
         const durationMs = this._stepDuration(this._activeStep);
@@ -1382,6 +1425,7 @@ class ResolveFlowPanel {
         const progress = Math.round(progressRatio * 100);
         const revealStage = this._revealStageByElapsed(elapsed, durationMs);
         const revealLabel = this._escape(this._revealLabel(revealStage));
+        this._tryPlayPowerRevealSe(stepKey, revealStage);
 
         const stepNumPresentedRaw = Number(step.presentedIndex);
         const stepNumDisplayRaw = Number(step.displayIndex);

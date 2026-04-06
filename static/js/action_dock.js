@@ -17,6 +17,40 @@ function hasImmediateSkill(char) {
 
 // アクションドックの更新関数
 // アクションドックの更新関数
+function isSoundFxEnabled() {
+    if (!window.SoundFx || typeof window.SoundFx.getSettings !== 'function') return true;
+    const settings = window.SoundFx.getSettings();
+    return Boolean(settings && settings.enabled);
+}
+
+function refreshSoundDockIcon(icon) {
+    if (!icon) return;
+    const enabled = isSoundFxEnabled();
+    icon.textContent = '♪';
+    icon.title = enabled ? 'SE: ON（クリックでOFF）' : 'SE: OFF（クリックでON）';
+    if (enabled) {
+        icon.classList.add('active');
+        icon.classList.remove('disabled');
+        icon.style.opacity = '1.0';
+    } else {
+        icon.classList.remove('active');
+        icon.classList.add('disabled');
+        icon.style.opacity = '0.5';
+    }
+}
+
+function toggleSoundFxFromDock(icon) {
+    if (!window.SoundFx || typeof window.SoundFx.setEnabled !== 'function') return;
+    const enabled = isSoundFxEnabled();
+    const nextEnabled = !enabled;
+    window.SoundFx.setEnabled(nextEnabled);
+    if (typeof window.SoundFx.unlock === 'function') window.SoundFx.unlock();
+    if (nextEnabled && typeof window.SoundFx.playDiceRoll === 'function') {
+        void window.SoundFx.playDiceRoll({ force: true, bypassThrottle: true });
+    }
+    refreshSoundDockIcon(icon);
+}
+
 function updateActionDock() {
     // ★ Exploration Mode Check
     const mode = battleState ? (battleState.mode || 'battle') : 'unknown';
@@ -87,6 +121,7 @@ function updateActionDock() {
             <div id="dock-staging-icon" class="dock-icon" title="未配置キャラクター">📦</div>
             <div id="dock-arrow-toggle-icon" class="dock-icon" title="矢印表示切替">🏹</div>
             <div id="dock-glossary-icon" class="dock-icon" title="用語図鑑">📚</div>
+            <div id="dock-sound-toggle-icon" class="dock-icon" title="SE切替">♪</div>
         `;
         // Re-initialize listeners
         initializeActionDock();
@@ -1343,6 +1378,7 @@ function initializeActionDock() {
     const quickEditIcon = document.getElementById('dock-quick-edit-icon');
     const arrowIcon = document.getElementById('dock-arrow-toggle-icon');
     const glossaryIcon = document.getElementById('dock-glossary-icon');
+    const soundToggleIcon = document.getElementById('dock-sound-toggle-icon');
 
 
     // ★ 修正: 個別にチェックして設定（1つがなくても他は設定する）
@@ -1460,6 +1496,13 @@ function initializeActionDock() {
     if (glossaryIcon) {
         glossaryIcon.onclick = () => {
             openGlossaryCatalogModal();
+        };
+    }
+
+    if (soundToggleIcon) {
+        refreshSoundDockIcon(soundToggleIcon);
+        soundToggleIcon.onclick = () => {
+            toggleSoundFxFromDock(soundToggleIcon);
         };
     }
 

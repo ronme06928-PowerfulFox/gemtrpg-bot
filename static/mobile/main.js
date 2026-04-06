@@ -110,6 +110,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Listen for new logs (Real-time update)
             window.socket.on('new_log', (logData) => {
+                const phaseNow = String(
+                    (window.BattleStore && window.BattleStore.state && window.BattleStore.state.phase)
+                    || (window.battleState && window.battleState.phase)
+                    || ''
+                );
+                const hasResolvePanel = !!document.getElementById('resolve-flow-panel');
+                const inResolvePlayback = (
+                    phaseNow === 'resolve_mass'
+                    || phaseNow === 'resolve_single'
+                    || (phaseNow === 'round_end' && hasResolvePanel)
+                );
+                const logType = String(logData?.type || '').toLowerCase();
+                const shouldPlayFromLog = !(inResolvePlayback && logType !== 'chat');
+                if (shouldPlayFromLog && window.SoundFx && typeof window.SoundFx.maybePlayForLog === 'function') {
+                    window.SoundFx.maybePlayForLog(logData);
+                }
                 MobileUI.appendLog(logData);
             });
 

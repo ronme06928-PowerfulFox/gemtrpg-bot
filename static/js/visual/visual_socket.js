@@ -40,23 +40,15 @@ window.setupVisualSocketHandlers = function () {
     const _emitDeferredLogRow = (logData) => {
         try {
             const rawId = logData?.log_id;
+            const rawTs = logData?.timestamp;
             if (rawId !== undefined && rawId !== null) {
-                deferredLiveLogIds.delete(String(rawId));
+                const key = (rawTs !== undefined && rawTs !== null)
+                    ? `${String(rawId)}:${String(rawTs)}`
+                    : String(rawId);
+                deferredLiveLogIds.delete(key);
             }
             if (typeof deferWrappedOriginalLogToBattleLog === 'function') {
                 deferWrappedOriginalLogToBattleLog(logData);
-            }
-            // Visual tab uses `visual-log-area`; ensure deferred flush appears there immediately.
-            const visualArea = document.getElementById('visual-log-area');
-            if (
-                visualArea
-                && typeof window.appendVisualLogBatch === 'function'
-            ) {
-                window.appendVisualLogBatch([logData]);
-            } else if (visualArea && typeof window.appendVisualLogLine === 'function') {
-                // Fallback path when batch helper is unavailable.
-                const filter = window.currentVisualLogFilter || 'all';
-                window.appendVisualLogLine(visualArea, logData, filter);
             }
             return true;
         } catch (e) {
@@ -169,21 +161,12 @@ window.setupVisualSocketHandlers = function () {
         }
 
         let end = firstMatchIdx;
-        let sawResolveTrace = false;
-        for (let i = firstMatchIdx; i < deferredLiveLogs.length; i += 1) {
+        for (let i = firstMatchIdx + 1; i < deferredLiveLogs.length; i += 1) {
             const row = deferredLiveLogs[i];
             const rowKey = _resolveStepKeyFromLog(row);
-            const sameKey = !rowKey || keyVariants.has(rowKey);
+            const sameKey = !!rowKey && keyVariants.has(rowKey);
             if (!sameKey) break;
             end = i;
-            if (String(row?.source || '') === 'resolve_trace') {
-                sawResolveTrace = true;
-                break;
-            }
-        }
-        if (!sawResolveTrace) {
-            // Avoid swallowing all lines when boundary is unclear.
-            end = Math.min(end, firstMatchIdx);
         }
 
         const matched = deferredLiveLogs.slice(start, end + 1);
@@ -234,10 +217,30 @@ window.setupVisualSocketHandlers = function () {
     };
     window.flushDeferredResolveByStepKey = flushDeferredResolveByStepKey;
 
+    const _isResolvePlaybackActive = () => {
+        const s = (window.BattleStore && window.BattleStore.state)
+            ? window.BattleStore.state
+            : (typeof battleState !== 'undefined' ? battleState : {});
+        const phase = String(s?.phase || '');
+        if (phase === 'resolve_mass' || phase === 'resolve_single') return true;
+        if (phase === 'round_end' && !!document.getElementById('resolve-flow-panel')) return true;
+        return false;
+    };
+
     const _shouldDeferThisLog = (logData) => {
         const source = String(logData?.source || '');
-        if (source === 'resolve_trace') return true;
-        return shouldDeferResolveLogs();
+        const hasResolveMeta = (
+            logData?.resolve_step_key !== undefined
+            || logData?.resolve_step_index !== undefined
+            || (logData?.resolve_trace_detail && typeof logData.resolve_trace_detail === 'object')
+        );
+        if (source === 'resolve_trace' || hasResolveMeta) return true;
+
+        // During resolve playback, defer non-chat logs to avoid "future logs" appearing
+        // ahead of the current step animation.
+        if (!_isResolvePlaybackActive()) return false;
+        const type = String(logData?.type || '').toLowerCase();
+        return type !== 'chat';
     };
 
     const _hasPendingResolveTraceLogs = () => (
@@ -439,7 +442,10 @@ window.setupVisualSocketHandlers = function () {
                 ? String(logData.message)
                 : '';
             const rawId = logData?.log_id;
-            const id = (rawId !== undefined && rawId !== null) ? String(rawId) : '';
+            const rawTs = logData?.timestamp;
+            const id = (rawId !== undefined && rawId !== null)
+                ? ((rawTs !== undefined && rawTs !== null) ? `${String(rawId)}:${String(rawTs)}` : String(rawId))
+                : '';
             if (message && type !== 'chat' && _shouldDeferThisLog(logData)) {
                 if (id && deferredLiveLogIds.has(id)) return;
                 if (id) deferredLiveLogIds.add(id);

@@ -108,7 +108,25 @@ export const MobileUI = {
                 action: () => document.getElementById('mobile-log-toggle').click()
             });
 
-            // 2. Immediate Skills (If any owned char has one)
+            // 2. Sound toggle
+            actions.push({
+                id: 'sound', icon: '♪', label: 'SE',
+                action: () => {
+                    if (!window.SoundFx || typeof window.SoundFx.setEnabled !== 'function') return;
+                    const settings = (typeof window.SoundFx.getSettings === 'function')
+                        ? window.SoundFx.getSettings()
+                        : { enabled: true };
+                    const nextEnabled = !settings.enabled;
+                    window.SoundFx.setEnabled(nextEnabled);
+                    if (typeof window.SoundFx.unlock === 'function') window.SoundFx.unlock();
+                    if (nextEnabled && typeof window.SoundFx.playDiceRoll === 'function') {
+                        void window.SoundFx.playDiceRoll({ force: true, bypassThrottle: true });
+                    }
+                    if (typeof window.initializeActionDock === 'function') window.initializeActionDock();
+                }
+            });
+
+            // 3. Immediate Skills (If any owned char has one)
             // But checking hasImmediateSkill implies iteration. MobileActions handles this check inside modal open?
             // Or visual cue? PC shows disabled state.
             // Simplified: Always show button, alert if empty inside.
@@ -117,7 +135,7 @@ export const MobileUI = {
                 action: () => MobileActions.openImmediateModal()
             });
 
-            // 3. Match Toggle (If match active)
+            // 4. Match Toggle (If match active)
             if (window.battleState && window.battleState.active_match && window.battleState.active_match.is_active) {
                 actions.push({
                     id: 'match-toggle', icon: '⚔️', label: 'Match',
@@ -125,19 +143,19 @@ export const MobileUI = {
                 });
             }
 
-            // 4. Items
+            // 5. Items
             actions.push({
                 id: 'items', icon: '🎒', label: 'Item',
                 action: () => MobileActions.openItemModal()
             });
 
-            // 5. Add Character
+            // 6. Add Character
             actions.push({
                 id: 'add-char', icon: '➕', label: 'Add',
                 action: () => MobileActions.openLoadCharacterModal()
             });
 
-            // 6. Unplaced (Staging) - Show count?
+            // 7. Unplaced (Staging) - Show count?
             const unplacedCount = (window.battleState && window.battleState.characters)
                 ? window.battleState.characters.filter(c => c.x < 0).length
                 : 0;
@@ -178,6 +196,9 @@ export const MobileUI = {
                 btn.onclick = act.action;
 
                 if (act.id === 'match-toggle') btn.classList.add('active'); // Highlight match
+                if (act.id === 'sound' && window.SoundFx && typeof window.SoundFx.getSettings === 'function' && window.SoundFx.getSettings().enabled) {
+                    btn.classList.add('active');
+                }
 
                 dock.appendChild(btn);
             });

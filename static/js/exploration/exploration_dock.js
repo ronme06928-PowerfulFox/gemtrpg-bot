@@ -60,6 +60,37 @@ if (!window.ExplorationDock) {
         });
         dock.appendChild(glossaryBtn);
 
+        const soundBtn = createDockIcon('♪', 'SE切替', () => {
+            if (!window.SoundFx || typeof window.SoundFx.setEnabled !== 'function') return;
+            const settings = (typeof window.SoundFx.getSettings === 'function')
+                ? window.SoundFx.getSettings()
+                : { enabled: true };
+            const nextEnabled = !settings.enabled;
+            window.SoundFx.setEnabled(nextEnabled);
+            if (typeof window.SoundFx.unlock === 'function') window.SoundFx.unlock();
+            if (nextEnabled && typeof window.SoundFx.playDiceRoll === 'function') {
+                void window.SoundFx.playDiceRoll({ force: true, bypassThrottle: true });
+            }
+            refreshSoundBtn();
+        });
+        const refreshSoundBtn = () => {
+            if (!window.SoundFx || typeof window.SoundFx.getSettings !== 'function') return;
+            const settings = window.SoundFx.getSettings();
+            const enabled = !!settings.enabled;
+            soundBtn.title = enabled ? 'SE: ON（クリックでOFF）' : 'SE: OFF（クリックでON）';
+            if (enabled) {
+                soundBtn.classList.add('active');
+                soundBtn.classList.remove('disabled');
+                soundBtn.style.opacity = '1.0';
+            } else {
+                soundBtn.classList.remove('active');
+                soundBtn.classList.add('disabled');
+                soundBtn.style.opacity = '0.5';
+            }
+        };
+        refreshSoundBtn();
+        dock.appendChild(soundBtn);
+
         // 5. キャラクター追加ボタン (共通モーダル)
         const loadCharBtn = createDockIcon('➕', 'キャラクター読み込み', () => {
             if (typeof openCharLoadModal === 'function') {
