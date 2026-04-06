@@ -1,0 +1,744 @@
+﻿<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JSON定義ビルダー</title>
+  <style>
+    :root{--bg:#f4f7fb;--panel:#fff;--line:#d8dfec;--text:#162033;--muted:#56627c;--accent:#2357d8;--danger:#b32d2d}
+    html,body{height:100%}
+    body{margin:0;font-family:"Yu Gothic UI","Meiryo",sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+    .wrap{max-width:1760px;height:calc(100vh - 16px);margin:8px auto;padding:0 12px 8px;display:grid;gap:14px;grid-template-columns:1.35fr .95fr;min-height:0}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;overflow-y:auto;min-height:0;overscroll-behavior:contain}
+    h1{margin:0 0 8px;font-size:22px} h2{margin:0 0 8px;font-size:16px} p{margin:0 0 8px;font-size:12px;color:var(--muted)}
+    .grid2,.grid3,.grid4{display:grid;gap:8px}.grid2{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:repeat(3,minmax(210px,1fr))}.grid4{grid-template-columns:repeat(2,minmax(280px,1fr))}
+    .section{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;background:#fbfdff}
+    .row{border:1px dashed var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:#fff}
+    label{display:block;font-size:12px;margin-bottom:4px;color:#37435d}
+    input,select,textarea,button{font:inherit} input,select,textarea{width:100%;border:1px solid var(--line);border-radius:7px;padding:9px 10px;box-sizing:border-box;font-size:13px}
+    textarea{min-height:80px;resize:vertical}.mono{font-family:ui-monospace,Consolas,monospace}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+    .btn{border:0;border-radius:7px;padding:8px 12px;color:#fff;background:var(--accent);cursor:pointer}.btn-ghost{background:#e9efff;color:#1e2f58}.btn-danger{background:var(--danger)}
+    pre{margin:0;background:#0f1728;color:#d8e5ff;border:1px solid #1f2c46;border-radius:8px;padding:12px;min-height:320px;white-space:pre-wrap;word-break:break-word;font-size:12px}
+    .table-wrap{border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:240px;background:#fff} table{border-collapse:collapse;width:100%;font-size:12px}
+    th,td{border-bottom:1px solid #e7edf7;text-align:left;vertical-align:top;padding:6px 8px} th{position:sticky;top:0;background:#f5f9ff}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border:1px solid var(--line);border-radius:999px;padding:3px 8px;font-size:11px;background:#f8fbff}
+    .badge{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px;border:1px solid var(--line);background:#f6f9ff}
+    .badge.req{background:#ffecec;border-color:#f2b4b4;color:#8d1d1d}
+    .badge.opt{background:#eef7ff;border-color:#b8d7ff;color:#1f4b8f}
+    .badge.off{background:#f4f4f4;border-color:#d7d7d7;color:#666}
+    .hint-box{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px}
+    .warn{color:#9f2323;font-size:11px}
+    .ok{color:#1f7a36;font-size:11px}
+    details{border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;margin-bottom:8px} summary{cursor:pointer;font-weight:600;font-size:13px}
+    .small{font-size:11px;color:var(--muted)}
+    .panel-btn-grid{display:grid;gap:8px;grid-template-columns:repeat(3,minmax(140px,1fr));margin-bottom:10px}
+    .panel-btn{border:1px solid var(--line);border-radius:8px;background:#f6f9ff;color:#1e2f58;padding:7px 10px;font-size:12px;cursor:pointer}
+    .panel-btn.active{background:#2357d8;color:#fff;border-color:#2357d8}
+    .ref-panel{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px}
+    .ref-panel[hidden]{display:none}
+    .ref-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+    .ref-panel-title{font-size:13px;font-weight:700}
+    .panel-close{border:1px solid var(--line);background:#fff;color:#44516b;border-radius:6px;padding:2px 8px;cursor:pointer}
+    .panel-close:hover{background:#f2f6ff}
+    .guide-line{margin-top:4px}
+    .btn-main-output{width:100%;padding:12px 14px;font-size:15px;font-weight:700;letter-spacing:.02em;box-shadow:0 6px 14px rgba(35,87,216,.2)}
+    @media (max-width:1080px){.panel-btn-grid{grid-template-columns:repeat(2,minmax(120px,1fr));}}
+    @media (max-width:1080px){body{overflow:auto}.wrap{height:auto;grid-template-columns:1fr}.card{overflow:visible}.grid4{grid-template-columns:1fr 1fr}} @media (max-width:760px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>JSON定義ビルダー（rule_data）</h1>
+      <p>power_bonusを条件付きで選択入力し、必要なID参照を同画面で確認できます。</p>
+
+      <div class="section">
+        <h2>基本設定</h2>
+        <div class="grid2">
+          <div><label>tags（カンマ区切り）</label><input id="tagsInput" list="tagHintList" placeholder="例: 攻撃, ally_target, no_damage" /></div>
+          <div><label>target_scope</label><select id="targetScope"><option value="">未指定</option><option value="opposing_team" selected>opposing_team</option><option value="same_team">same_team</option><option value="any">any</option></select></div>
+        </div>
+        <div class="grid2" style="margin-top:8px;">
+          <div><label>cost（例: FP:2,MP:1）</label><input id="costInput" placeholder="例: FP:2, MP:1" /></div>
+          <div><label>power_bonus（生成プレビュー）</label><textarea id="powerBonusInput" class="mono" readonly></textarea></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>power_bonus</h2>
+        <div id="pbRoot"></div>
+        <div class="toolbar">
+          <button class="btn btn-ghost" type="button" id="addPbBtn">+ power_bonus追加</button>
+          <button class="btn btn-ghost" type="button" id="clearPbBtn">power_bonus全削除</button>
+        </div>
+        <div id="pbGlobalWarnings" class="warn"></div>
+        <details>
+          <summary>2. レシピ集（目的別サンプル）</summary>
+          <div id="pbRecipeList" class="small" style="margin-top:8px;"></div>
+        </details>
+        <details>
+          <summary>3. 完全仕様（運用ルール）</summary>
+          <div class="small">
+            <div>・`apply_to`: 未指定は `base` として扱う。</div>
+            <div>・`max_bonus` / `min_bonus`: 計算後の補正値を上限・下限で丸める。</div>
+            <div>・`condition` は `source/param/operator/value` の4項目が揃って初めて有効。</div>
+            <div>・`CONTAINS` は tags など配列判定向け。数値判定は `GTE/LTE/GT/LT/EQUALS` を使う。</div>
+          </div>
+        </details>
+      </div>
+
+      <div class="section">
+        <h2>effects</h2>
+        <div id="effectsRoot"></div>
+        <div class="toolbar">
+          <button class="btn btn-ghost" type="button" id="addEffectBtn">+ effect追加</button>
+          <button class="btn btn-ghost" type="button" id="clearEffectBtn">effects全削除</button>
+        </div>
+        <div id="efGlobalWarnings" class="warn"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section">
+        <h2>JSON出力</h2>
+        <button class="btn btn-main-output" type="button" id="generateShowBtn">JSONを生成して表示</button>
+        <div class="toolbar">
+          <button class="btn btn-ghost" type="button" id="toggleJsonBtn">表示/非表示</button>
+          <button class="btn btn-ghost" type="button" id="copyBtn">コピー</button>
+          <span id="copyStatus" class="small"></span>
+        </div>
+        <section class="ref-panel" id="jsonPanel" hidden>
+          <div class="ref-panel-head"><div class="ref-panel-title">生成JSON</div><button class="panel-close" type="button" id="closeJsonBtn">×</button></div>
+          <pre id="jsonOut"></pre>
+        </section>
+      </div>
+
+      <div class="section" style="margin-top:10px;">
+        <h2>参照パネル</h2>
+        <p class="small">確認したい項目のボタンを押すと表示されます。別パネルを押すと切り替わり、`×`で閉じられます。</p>
+        <div id="refPanelButtons" class="panel-btn-grid">
+          <button class="panel-btn" type="button" data-panel="panelPbCheat">PBクイック表</button>
+          <button class="panel-btn" type="button" data-panel="panelEffectCheat">Effects Type表</button>
+          <button class="panel-btn" type="button" data-panel="panelHelp">用語ヘルプ</button>
+          <button class="panel-btn" type="button" data-panel="panelState">状態候補</button>
+          <button class="panel-btn" type="button" data-panel="panelBuff">バフ参照</button>
+          <button class="panel-btn" type="button" data-panel="panelDynamicBuff">動的バフ名</button>
+          <button class="panel-btn" type="button" data-panel="panelSkill">スキルID</button>
+          <button class="panel-btn" type="button" data-panel="panelSummon">召喚テンプレ</button>
+        </div>
+
+        <div id="refPanels">
+          <section class="ref-panel" id="panelPbCheat" hidden>
+            <div class="ref-panel-head"><div class="ref-panel-title">クイックチートシート（operation別必須項目）</div><button class="panel-close" type="button">×</button></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>operation</th><th>必須</th><th>任意</th><th>基本不要</th></tr></thead>
+                <tbody id="pbReqTableBody"></tbody>
+              </table>
+            </div>
+            <div class="hint-box small" style="margin-top:8px;">
+              conditionの判断:
+              <div>常時乗る補正なら condition 不要。</div>
+              <div>特定条件だけで発動させたい時だけ condition を使う。</div>
+            </div>
+          </section>
+
+          <section class="ref-panel" id="panelEffectCheat" hidden>
+            <div class="ref-panel-head"><div class="ref-panel-title">Type別 必須/任意/不要 チートシート</div><button class="panel-close" type="button">×</button></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>type</th><th>意味</th><th>valueの解釈</th><th>必須</th><th>任意</th><th>基本不要</th></tr></thead>
+                <tbody id="efReqTableBody"></tbody>
+              </table>
+            </div>
+            <div class="small" style="margin-top:6px;">※ `APPLY_STATE_PER_N` など追加キーが必要なTypeは `extra_json` で補完できます。</div>
+          </section>
+
+          <section class="ref-panel" id="panelHelp" hidden>
+            <div class="ref-panel-head"><div class="ref-panel-title">ヘルプ（英語タグの意味）</div><button class="panel-close" type="button">×</button></div>
+            <div class="table-wrap"><table><thead><tr><th>key</th><th>意味</th></tr></thead><tbody id="helpTableBody"></tbody></table></div>
+          </section>
+
+          <section class="ref-panel" id="panelState" hidden>
+            <div class="ref-panel-head"><div class="ref-panel-title">状態候補</div><button class="panel-close" type="button">×</button></div>
+            <div id="stateRefRoot" class="chips"></div>
+          </section>
+
+          <section class="ref-panel" id="panelBuff" hidden>
+            <div class="ref-panel-head"><div class="ref-panel-title">バフ参照（ID/名称/効果）</div><button class="panel-close" type="button">×</button></div>
+            <div class="grid2"><input id="buffFilter" placeholder="buff_id / 名称 / 説明で検索" /><div id="buffCount" class="small"></div></div>
+            <div class="table-wrap" style="margin-top:8px;"><table><thead><tr><th>buff_id</th><th>name</th><th>description</th><th>effect</th></tr></thead><tbody id="buffTableBody"></tbody></table></div>
+          </section>
+
+          <section class="ref-panel" id="panelDynamicBuff" hidden>
+            <div class="ref-panel-head"><div class="ref-panel-title">動的バフ名パターン（よく使う）</div><button class="panel-close" type="button">×</button></div>
+            <p class="small">`buff_name` で使う命名規則です。名称を入れると該当パターンを判定します。</p>
+            <div class="grid2">
+              <input id="dynamicBuffNameInput" placeholder="例: 猛攻_Atk5 / 脆弱_DaIn20 / 亀裂補助_CrackOnce2" />
+              <div id="dynamicBuffMatch" class="small"></div>
+            </div>
+            <div class="table-wrap" style="margin-top:8px;">
+              <table>
+                <thead><tr><th>suffix</th><th>意味</th><th>内部効果</th><th>例</th></tr></thead>
+                <tbody id="dynamicBuffTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="ref-panel" id="panelSkill" hidden>
+            <div class="ref-panel-head"><div class="ref-panel-title">スキルID参照（GRANT_SKILL）</div><button class="panel-close" type="button">×</button></div>
+            <div class="grid2"><input id="skillFilter" placeholder="skill_id / 名称 / tagで検索" /><div id="skillCount" class="small"></div></div>
+            <div class="table-wrap" style="margin-top:8px;"><table><thead><tr><th>skill_id</th><th>name</th><th>tags</th></tr></thead><tbody id="skillTableBody"></tbody></table></div>
+          </section>
+
+          <section class="ref-panel" id="panelSummon" hidden>
+            <div class="ref-panel-head"><div class="ref-panel-title">召喚テンプレ参照（SUMMON_CHARACTER）</div><button class="panel-close" type="button">×</button></div>
+            <div id="summonCount" class="small"></div>
+            <div class="table-wrap" style="margin-top:8px;"><table><thead><tr><th>summon_template_id</th><th>name</th><th>mode</th><th>duration</th></tr></thead><tbody id="summonTableBody"></tbody></table></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <datalist id="stateNameList"></datalist>
+  <datalist id="buffIdList"></datalist>
+  <datalist id="buffNameList"></datalist>
+  <datalist id="skillIdList"></datalist>
+  <datalist id="summonIdList"></datalist>
+  <datalist id="tagHintList"></datalist>
+
+  <script src="./json_builder_reference_data.js"></script>
+  <script>
+    const REF = window.JSON_BUILDER_REFERENCE || { buff_refs: [], skill_refs: [], summon_refs: [], state_refs: ["HP", "MP", "FP", "行動値", "速度値"] };
+    const TIMINGS = ["PRE_MATCH","BEFORE_POWER_ROLL","WIN","LOSE","HIT","UNOPPOSED","AFTER_DAMAGE_APPLY","RESOLVE_START","RESOLVE_STEP_END","RESOLVE_END","END_MATCH","END_ROUND","IMMEDIATE","BATTLE_START"];
+    const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","MULTIPLY_STATE","APPLY_BUFF","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER"];
+    const TARGETS = ["","self","target","ALL_ENEMIES","ALL_ALLIES","ALL_OTHER_ALLIES","ALL","NEXT_ALLY"];
+    const POWER_OPS = ["FIXED","FIXED_IF_EXISTS","PER_N_BONUS","MULTIPLY"];
+    const COND_SOURCES = ["self","target","skill","target_skill","relation"];
+    const COND_OPS = ["GTE","LTE","GT","LT","EQUALS","CONTAINS"];
+    const TIMING_MEANINGS = {
+      PRE_MATCH: "判定前の事前処理。威力補正・付与準備向け。",
+      BEFORE_POWER_ROLL: "威力ロール直前。対抗結果に関わる補正向け。",
+      WIN: "マッチ勝利時のみ発動。",
+      LOSE: "マッチ敗北時のみ発動。",
+      HIT: "命中成立時に発動。",
+      UNOPPOSED: "一方攻撃時（無対抗）に発動。",
+      AFTER_DAMAGE_APPLY: "ダメージ適用後に発動。",
+      RESOLVE_START: "Resolve開始時に発動。",
+      RESOLVE_STEP_END: "Resolveの各ステップ終了時に発動。",
+      RESOLVE_END: "Resolve終了時に発動。",
+      END_MATCH: "マッチ処理完了後に発動。",
+      END_ROUND: "ラウンド終了時に発動。",
+      IMMEDIATE: "即時発動（割り込み系）。",
+      BATTLE_START: "戦闘開始時に発動。"
+    };
+    const HELP_ROWS = [["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","命中時/勝利時/敗北時"],["type: APPLY_BUFF","buff_id / buff_name を付与"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","動的バフ命名で効果を自動解釈"]];
+    const DYNAMIC_BUFF_PATTERNS = [
+      { suffix: "_ActN",   meaning: "行動値 +N",                 effect: "stat_mods.行動値",                         example: "迅速_Act2",         regex: /^(.*)_Act(\d+)$/ },
+      { suffix: "_AtkN",   meaning: "攻撃タグ時の最終威力 +N",   effect: "power_bonus(FIXED, apply_to=final)",     example: "猛攻_Atk5",         regex: /^(.*)_Atk(\d+)$/ },
+      { suffix: "_AtkDownN", meaning: "攻撃タグ時の最終威力 -N", effect: "power_bonus(FIXED, apply_to=final)",     example: "弱体_AtkDown3",     regex: /^(.*)_AtkDown(\d+)$/ },
+      { suffix: "_DefN",   meaning: "守備タグ時の最終威力 +N",   effect: "power_bonus(FIXED, apply_to=final)",     example: "守護_Def4",         regex: /^(.*)_Def(\d+)$/ },
+      { suffix: "_DefDownN", meaning: "守備タグ時の最終威力 -N", effect: "power_bonus(FIXED, apply_to=final)",     example: "脆化_DefDown2",     regex: /^(.*)_DefDown(\d+)$/ },
+      { suffix: "_PhysN",  meaning: "物理補正 +N",               effect: "stat_mods.物理補正",                       example: "剛力_Phys2",        regex: /^(.*)_Phys(\d+)$/ },
+      { suffix: "_PhysDownN", meaning: "物理補正 -N",            effect: "stat_mods.物理補正",                       example: "鈍化_PhysDown2",    regex: /^(.*)_PhysDown(\d+)$/ },
+      { suffix: "_MagN",   meaning: "魔法補正 +N",               effect: "stat_mods.魔法補正",                       example: "賢明_Mag2",         regex: /^(.*)_Mag(\d+)$/ },
+      { suffix: "_MagDownN", meaning: "魔法補正 -N",             effect: "stat_mods.魔法補正",                       example: "沈黙_MagDown2",     regex: /^(.*)_MagDown(\d+)$/ },
+      { suffix: "_CrackN", meaning: "亀裂付与量 +N（消費しない）", effect: "state_bonus(stat=亀裂, consume=false)",  example: "地裂_Crack1",       regex: /^(.*)_Crack(\d+)$/ },
+      { suffix: "_CrackOnceN", meaning: "亀裂付与量 +N（1回消費）", effect: "state_bonus(stat=亀裂, consume=true)", example: "崩し_CrackOnce2",   regex: /^(.*)_CrackOnce(\d+)$/ },
+      { suffix: "_DaInN",  meaning: "被ダメージ N% 増加",         effect: "incoming_damage_multiplier",               example: "脆弱_DaIn20",       regex: /^(.*)_DaIn(\d+)$/ },
+      { suffix: "_DaCutN", meaning: "被ダメージ N% 減少",         effect: "incoming_damage_multiplier",               example: "防壁_DaCut15",      regex: /^(.*)_DaCut(\d+)$/ },
+      { suffix: "_DaOutN", meaning: "与ダメージ N% 増加",         effect: "outgoing_damage_multiplier",               example: "激昂_DaOut20",      regex: /^(.*)_DaOut(\d+)$/ },
+      { suffix: "_DaOutDownN", meaning: "与ダメージ N% 減少",     effect: "outgoing_damage_multiplier",               example: "衰弱_DaOutDown10",  regex: /^(.*)_DaOutDown(\d+)$/ },
+      { suffix: "_BleedReactN", meaning: "被ダメ時に出血 +N",     effect: "on_damage_state(stat=出血)",               example: "呪血_BleedReact2",  regex: /^(.*)_BleedReact(\d+)$/ }
+    ];
+    const PB_RULE_SPEC = {
+      FIXED: {
+        required: ["value"],
+        optional: ["apply_to", "condition", "max_bonus", "min_bonus"],
+        unused: ["source", "param", "per_N", "threshold", "value_per_param"]
+      },
+      FIXED_IF_EXISTS: {
+        required: ["source", "param", "value"],
+        optional: ["threshold", "apply_to", "condition", "max_bonus", "min_bonus"],
+        unused: ["per_N", "value_per_param"]
+      },
+      PER_N_BONUS: {
+        required: ["source", "param", "per_N", "value"],
+        optional: ["apply_to", "condition", "max_bonus", "min_bonus"],
+        unused: ["threshold", "value_per_param"]
+      },
+      MULTIPLY: {
+        required: ["source", "param", "value_per_param"],
+        optional: ["apply_to", "condition", "max_bonus", "min_bonus"],
+        unused: ["value", "per_N", "threshold"]
+      }
+    };
+    const PB_RECIPES = [
+      {
+        title: "常時 固定加算",
+        purpose: "常に最終威力を+2",
+        rule: { operation: "FIXED", value: 2, apply_to: "final" },
+        note: "condition不要（常時補正）"
+      },
+      {
+        title: "状態がある時だけ加算",
+        purpose: "targetの破裂が1以上なら+3",
+        rule: { operation: "FIXED_IF_EXISTS", source: "target", param: "破裂", threshold: 1, value: 3 },
+        note: "この用途はcondition不要。FIXED_IF_EXISTSが条件内蔵"
+      },
+      {
+        title: "Nごとの段階加算",
+        purpose: "target出血3ごとに+1（最大+4）",
+        rule: { operation: "PER_N_BONUS", source: "target", param: "出血", per_N: 3, value: 1, max_bonus: 4 },
+        note: "基礎はPER_N_BONUSで表現"
+      },
+      {
+        title: "条件付き固定加算",
+        purpose: "target破裂が10以上の時だけ+2",
+        rule: { operation: "FIXED", value: 2, condition: { source: "target", param: "破裂", operator: "GTE", value: 10 } },
+        note: "特定状況のみ発動したい時にconditionを付ける"
+      },
+      {
+        title: "MULTIPLY型",
+        purpose: "selfのFPに応じて加算（FP×0.5）",
+        rule: { operation: "MULTIPLY", source: "self", param: "FP", value_per_param: 0.5 },
+        note: "valueは使わない。value_per_paramが必須"
+      }
+    ];
+    const EFFECT_TYPE_SPEC = {
+      APPLY_STATE: {
+        meaning: "target に state_name を value だけ加算/減算します。",
+        value_kind: "flat",
+        value_help: "実数値。例: +3 / -2",
+        required: ["state_name", "value"],
+        optional: ["target", "condition", "extra_json(rounds)"],
+        unused: ["source", "source_param", "per_N", "buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id"]
+      },
+      APPLY_STATE_PER_N: {
+        meaning: "source.source_param を per_N ごとに区切り、value を段階適用して state_name に加算します。",
+        value_kind: "flat",
+        value_help: "1段階あたりの実数値。例: per_N=3, value=2",
+        required: ["state_name", "source", "source_param", "per_N", "value"],
+        optional: ["target", "condition", "extra_json(max_value,rounds)"],
+        unused: ["buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id"]
+      },
+      MULTIPLY_STATE: {
+        meaning: "target の state_name に倍率 value を適用します。",
+        value_kind: "multiplier",
+        value_help: "倍率。1.2=120%, 0.8=80%",
+        required: ["state_name", "value"],
+        optional: ["target", "condition"],
+        unused: ["source", "source_param", "per_N", "buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id"]
+      },
+      APPLY_BUFF: {
+        meaning: "buff_id または buff_name のバフを付与します。",
+        value_kind: "none",
+        value_help: "通常未使用。強度は buff 側定義で管理",
+        requiredAny: [["buff_id", "buff_name"]],
+        optional: ["lasting", "delay", "target", "condition", "extra_json(data,flavor)"],
+        unused: ["source", "source_param", "per_N", "state_name", "skill_id", "summon_template_id", "value"]
+      },
+      GRANT_SKILL: {
+        meaning: "target に skill_id のスキルを一時付与します。",
+        value_kind: "none",
+        value_help: "通常未使用。回数/期間は extra_json で指定",
+        required: ["skill_id"],
+        optional: ["target", "condition", "extra_json(grant_mode,duration,uses,overwrite)"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "buff_name", "lasting", "delay", "summon_template_id", "value"]
+      },
+      REMOVE_BUFF: {
+        meaning: "target から buff_name を持つバフを解除します。",
+        value_kind: "none",
+        value_help: "通常未使用",
+        required: ["buff_name"],
+        optional: ["target", "condition"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "skill_id", "lasting", "delay", "summon_template_id", "value"]
+      },
+      DAMAGE_BONUS: {
+        meaning: "与ダメージ計算に value を固定加算します。",
+        value_kind: "flat",
+        value_help: "実数値。例: +5 / -3",
+        required: ["value"],
+        optional: ["target", "condition"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id"]
+      },
+      MODIFY_ROLL: {
+        meaning: "判定ロールの結果に value を補正します。",
+        value_kind: "flat",
+        value_help: "実数値。例: +1 / -1",
+        required: ["value"],
+        optional: ["target", "condition"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id"]
+      },
+      USE_SKILL_AGAIN: {
+        meaning: "同スキルの再使用を許可します。",
+        value_kind: "none",
+        value_help: "通常未使用。回数制御は extra_json",
+        required: [],
+        optional: ["target", "condition", "extra_json(max_reuses,consume_cost,reuse_cost)"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id", "value"]
+      },
+      CUSTOM_EFFECT: {
+        meaning: "独自処理を呼び出します。詳細は value/extra_json を実装側仕様に合わせます。",
+        value_kind: "custom",
+        value_help: "実装依存。固定値/倍率どちらもあり得る",
+        required: ["value"],
+        optional: ["target", "condition", "extra_json(data)"],
+        unused: ["source", "source_param", "per_N", "buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id"]
+      },
+      MODIFY_BASE_POWER: {
+        meaning: "基礎威力に value を加算/減算します。",
+        value_kind: "flat",
+        value_help: "実数値。例: +2 / -2",
+        required: ["value"],
+        optional: ["target", "condition"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id"]
+      },
+      MODIFY_FINAL_POWER: {
+        meaning: "最終威力に value を加算/減算します。",
+        value_kind: "flat",
+        value_help: "実数値。例: +4 / -4",
+        required: ["value"],
+        optional: ["target", "condition"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id"]
+      },
+      DRAIN_HP: {
+        meaning: "target から HP を吸収します。",
+        value_kind: "flat",
+        value_help: "実数値。例: 10",
+        required: ["value"],
+        optional: ["target", "condition"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id"]
+      },
+      SUMMON_CHARACTER: {
+        meaning: "summon_template_id に対応するユニットを召喚します。",
+        value_kind: "none",
+        value_help: "通常未使用。期間は extra_json で指定",
+        required: ["summon_template_id"],
+        optional: ["target", "condition", "extra_json(summon_duration_mode,summon_duration)"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "buff_name", "skill_id", "lasting", "delay", "value"]
+      }
+    };
+    const TAG_HINTS = ["攻撃","守備","広域","即時発動","マッチ不可","ラウンド終了","ally_target","no_damage","non_damage","同陣営指定"];
+    let effectSeq = 0;
+
+    function esc(s){return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");}
+    function mkSelect(arr,v=""){const s=document.createElement("select");arr.forEach(x=>{const o=document.createElement("option");o.value=x;o.textContent=x||"(未指定)";if(x===v)o.selected=true;s.appendChild(o)});return s;}
+    function parseList(v){return String(v||"").split(",").map(x=>x.trim()).filter(Boolean)}
+    function parseCost(v){const out=[];parseList(v).forEach(tok=>{const [t,n]=tok.split(":");const iv=Number(n);if(!t||Number.isNaN(iv))return;out.push({type:t.trim(),value:iv})});return out}
+    function toNum(v){if(v==null||v==="")return undefined;const n=Number(v);return Number.isNaN(n)?undefined:n}
+    function toBool(v){const s=String(v||"").trim().toLowerCase();if(!s)return undefined;if(["true","1","yes"].includes(s))return true;if(["false","0","no"].includes(s))return false;return undefined}
+    function sanitizeStateRefs(arr){
+      const ban=new Set(["tags","tag","???","？？？"]);
+      return Array.from(new Set((Array.isArray(arr)?arr:[]).map(x=>String(x||"").trim()).filter(Boolean))).filter(s=>!ban.has(s.toLowerCase())&&!/^\?+$/.test(s)&&!/^[？]+$/.test(s));
+    }
+
+    function fillDatalist(id,items){const dl=document.getElementById(id);dl.innerHTML="";items.forEach(v=>{const o=document.createElement("option");o.value=v;dl.appendChild(o)})}
+    function readCond(host){const source=host.querySelector(".condSource")?.value?.trim();const param=host.querySelector(".condParam")?.value?.trim();const operator=host.querySelector(".condOp")?.value?.trim();const rv=host.querySelector(".condVal")?.value?.trim();if(!source||!param||!operator||rv==="")return null;const n=Number(rv);return {source,param,operator,value:Number.isNaN(n)?rv:n}}
+    function renderCond(host,seed={}){host.innerHTML="";const g=document.createElement("div");g.className="grid4";g.innerHTML=`<div><label>condition.source</label><select class="condSource">${COND_SOURCES.map(x=>`<option value="${x}" ${x===(seed.source||"target")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>condition.param</label><input class="condParam" list="stateNameList" value="${esc(seed.param||"HP")}" /></div><div><label>condition.operator</label><select class="condOp">${COND_OPS.map(x=>`<option value="${x}" ${x===(seed.operator||"GTE")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>condition.value</label><input class="condVal" value="${esc(seed.value??"")}" /></div>`;host.appendChild(g)}
+
+    function getPbRowRaw(row){
+      const raw={operation:row.querySelector(".pbOp").value};
+      const source=row.querySelector(".pbSource").value;
+      const param=row.querySelector(".pbParam").value.trim();
+      const apply=row.querySelector(".pbApply").value;
+      if(source)raw.source=source;
+      if(param)raw.param=param;
+      if(apply&&apply!=="base")raw.apply_to=apply;
+      [["value",".pbValue"],["per_N",".pbPerN"],["threshold",".pbThreshold"],["value_per_param",".pbVpp"],["max_bonus",".pbMax"],["min_bonus",".pbMin"]].forEach(([k,sel])=>{
+        const n=toNum(row.querySelector(sel).value);
+        if(n!==undefined)raw[k]=n;
+      });
+      const condEnabled=row.querySelector(".pbCondEnable").checked;
+      if(condEnabled){
+        const c=readCond(row.querySelector(".pbCond"));
+        if(c)raw.condition=c;
+        raw._cond_enabled=true;
+      }
+      return raw;
+    }
+
+    function validatePbRaw(raw){
+      const op=raw.operation||"FIXED";
+      const spec=PB_RULE_SPEC[op]||PB_RULE_SPEC.FIXED;
+      const warns=[];
+      spec.required.forEach(k=>{
+        if(raw[k]===undefined||raw[k]==="") warns.push(`必須: ${k}`);
+      });
+      if(raw._cond_enabled && !raw.condition) warns.push("conditionをONにしていますが、source/param/operator/valueが未入力です");
+      if(op==="PER_N_BONUS" && raw.per_N!==undefined && raw.per_N<=0) warns.push("per_N は 1以上を推奨");
+      if(op==="MULTIPLY" && raw.value_per_param===undefined) warns.push("value_per_param が必要です");
+      return warns;
+    }
+
+    function buildPbNatural(raw){
+      const op=raw.operation||"FIXED";
+      const apply=raw.apply_to||"base";
+      const cond=raw.condition?` 条件(${raw.condition.source}.${raw.condition.param} ${raw.condition.operator} ${raw.condition.value})`:"";
+      if(op==="FIXED") return `${apply} に固定 ${raw.value??"?"} を加算。${cond||" 常時適用"}`;
+      if(op==="FIXED_IF_EXISTS") return `${raw.source||"?"}.${raw.param||"?"} が ${raw.threshold??1} 以上なら ${apply} に ${raw.value??"?"} を加算。${cond}`;
+      if(op==="PER_N_BONUS") return `${raw.source||"?"}.${raw.param||"?"} を ${raw.per_N??"?"} ごとに ${raw.value??"?"} 加算して ${apply} へ反映。${cond}`;
+      return `${raw.source||"?"}.${raw.param||"?"} × ${raw.value_per_param??"?"} を ${apply} に加算。${cond}`;
+    }
+
+    function updatePbRowGuide(row){
+      const op=row.querySelector(".pbOp").value;
+      const spec=PB_RULE_SPEC[op]||PB_RULE_SPEC.FIXED;
+      const badge=(arr,cls)=>arr.map(k=>`<span class="badge ${cls}">${esc(k)}</span>`).join(" ");
+      row.querySelector(".pbMeta").innerHTML=`<div>${badge(spec.required,"req")} ${badge(spec.optional,"opt")} ${badge(spec.unused,"off")}</div>`;
+      const raw=getPbRowRaw(row);
+      row.querySelector(".pbPreview").textContent=`自然文: ${buildPbNatural(raw)}`;
+      const warns=validatePbRaw(raw);
+      row.querySelector(".pbWarn").innerHTML=warns.length?warns.map(w=>`<div>・${esc(w)}</div>`).join(""):"";
+    }
+
+    function addPowerBonusRow(seed={}){
+      const row=document.createElement("div");row.className="row";
+      row.innerHTML=`<div class="grid4"><div><label>operation</label><select class="pbOp">${POWER_OPS.map(x=>`<option value="${x}" ${x===(seed.operation||"FIXED")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>source</label><select class="pbSource"><option value="self" ${(seed.source||"self")==="self"?"selected":""}>self</option><option value="target" ${(seed.source||"self")==="target"?"selected":""}>target</option></select></div><div><label>param</label><input class="pbParam" list="stateNameList" value="${esc(seed.param||"")}" /></div><div><label>apply_to</label><select class="pbApply"><option value="base" ${(seed.apply_to||"base")==="base"?"selected":""}>base</option><option value="dice" ${(seed.apply_to||"")==="dice"?"selected":""}>dice</option><option value="final" ${(seed.apply_to||"")==="final"?"selected":""}>final</option></select></div></div><div class="grid4" style="margin-top:8px;"><div data-show="FIXED,FIXED_IF_EXISTS,PER_N_BONUS"><label>value</label><input class="pbValue" type="number" step="any" value="${esc(seed.value??"")}"/></div><div data-show="PER_N_BONUS"><label>per_N</label><input class="pbPerN" type="number" value="${esc(seed.per_N??"")}"/></div><div data-show="FIXED_IF_EXISTS"><label>threshold</label><input class="pbThreshold" type="number" value="${esc(seed.threshold??1)}"/></div><div data-show="MULTIPLY"><label>value_per_param</label><input class="pbVpp" type="number" step="any" value="${esc(seed.value_per_param??"")}"/></div><div><label>max_bonus</label><input class="pbMax" type="number" value="${esc(seed.max_bonus??"")}"/></div><div><label>min_bonus</label><input class="pbMin" type="number" value="${esc(seed.min_bonus??"")}"/></div></div><div class="toolbar"><label><input type="checkbox" class="pbCondEnable" ${seed.condition?"checked":""}/> 常時適用でない時だけ condition を使う</label><button class="btn btn-danger" type="button">削除</button></div><div class="pbCond"></div><div><label>extra_json（任意）</label><input class="pbExtra mono" placeholder='{"custom":true}' /></div><div class="small pbMeta"></div><div class="small ok pbPreview"></div><div class="warn pbWarn"></div>`;
+      const condHost=row.querySelector(".pbCond"); if(seed.condition)renderCond(condHost,seed.condition);
+      const sync=()=>{const op=row.querySelector(".pbOp").value;row.querySelectorAll("[data-show]").forEach(el=>{const arr=el.dataset.show.split(",");el.style.display=arr.includes(op)?"block":"none"});updatePbRowGuide(row)};
+      row.querySelector(".pbOp").addEventListener("change",()=>{sync();generate()});
+      sync();
+      row.querySelector(".pbCondEnable").addEventListener("change",e=>{condHost.innerHTML="";if(e.target.checked)renderCond(condHost,{});updatePbRowGuide(row);generate()});
+      row.querySelector(".btn-danger").addEventListener("click",()=>{row.remove();generate()});
+      row.addEventListener("input",()=>{updatePbRowGuide(row);generate()});
+      row.addEventListener("change",()=>{updatePbRowGuide(row);generate()});
+      document.getElementById("pbRoot").appendChild(row);
+      updatePbRowGuide(row);
+    }
+
+    function collectPowerBonus(){
+      const out=[];
+      const globalWarn=[];
+      document.querySelectorAll("#pbRoot .row").forEach((row,idx)=>{
+        const raw=getPbRowRaw(row);
+        const ex=row.querySelector(".pbExtra").value.trim();
+        if(ex){
+          try{
+            const o=JSON.parse(ex);
+            if(o&&typeof o==="object"&&!Array.isArray(o))Object.assign(raw,o);
+          }catch(_){
+            globalWarn.push(`power_bonus ${idx+1}: extra_json が不正JSONです`);
+          }
+        }
+        const warns=validatePbRaw(raw);
+        if(warns.length) globalWarn.push(`power_bonus ${idx+1}: ${warns.join(" / ")}`);
+        delete raw._cond_enabled;
+        out.push(raw);
+      });
+      document.getElementById("pbGlobalWarnings").innerHTML=globalWarn.length?globalWarn.map(w=>`<div>・${esc(w)}</div>`).join(""):"";
+      document.getElementById("powerBonusInput").value=JSON.stringify(out,null,2);
+      return out;
+    }
+    function getEffectRowRaw(row){
+      const e={timing:row.querySelector(".timingSel").value,type:row.querySelector(".typeSel").value};
+      const t=row.querySelector(".targetSel").value;
+      if(t)e.target=t;
+      [["state_name",".efState"],["source",".efSource"],["source_param",".efSourceParam"],["buff_id",".efBuffId"],["buff_name",".efBuffName"],["skill_id",".efSkillId"],["summon_template_id",".efSummonId"]].forEach(([k,sel])=>{
+        const v=row.querySelector(sel).value.trim();
+        if(v)e[k]=v;
+      });
+      [["value",".efValue"],["per_N",".efPerN"],["lasting",".efLasting"],["delay",".efDelay"]].forEach(([k,sel])=>{
+        const n=toNum(row.querySelector(sel).value);
+        if(n!==undefined)e[k]=n;
+      });
+      if(row.querySelector(".efCondEnable").checked){
+        e._cond_enabled=true;
+        const c=readCond(row.querySelector(".efCond"));
+        if(c)e.condition=c;
+      }
+      const ex=row.querySelector(".efExtra").value.trim();
+      if(ex){
+        try{
+          const o=JSON.parse(ex);
+          if(o&&typeof o==="object"&&!Array.isArray(o))Object.assign(e,o);
+        }catch(_){
+          e._extra_error=true;
+        }
+      }
+      return e;
+    }
+
+    function validateEffectRaw(raw){
+      const spec=EFFECT_TYPE_SPEC[raw.type]||{required:[],optional:[],unused:[]};
+      const warns=[];
+      (spec.required||[]).forEach(k=>{
+        if(raw[k]===undefined||raw[k]==="") warns.push(`必須: ${k}`);
+      });
+      (spec.requiredAny||[]).forEach(group=>{
+        const ok=group.some(k=>raw[k]!==undefined&&raw[k]!=="");
+        if(!ok) warns.push(`必須: ${group.join(" または ")}`);
+      });
+      if(raw._cond_enabled && !raw.condition) warns.push("conditionをONにしていますが、source/param/operator/valueが未入力です");
+      if(raw._extra_error) warns.push("extra_json が不正JSONです");
+      if(raw.type==="APPLY_STATE_PER_N" && raw.per_N!==undefined && raw.per_N<=0) warns.push("per_N は1以上を推奨");
+      if(raw.type==="REMOVE_BUFF" && raw.buff_id && !raw.buff_name) warns.push("REMOVE_BUFF は buff_name 指定を推奨");
+      if(spec.value_kind==="none" && raw.value!==undefined) warns.push("このTypeでは通常 value は使いません");
+      if(spec.value_kind==="multiplier" && raw.value!==undefined && raw.value<=0) warns.push("倍率valueは 0 より大きい値を推奨");
+      if((raw.type==="MODIFY_BASE_POWER" || raw.type==="MODIFY_FINAL_POWER") && !["PRE_MATCH","BEFORE_POWER_ROLL"].includes(raw.timing||"")) warns.push("MODIFY_* は PRE_MATCH / BEFORE_POWER_ROLL で使うのを推奨");
+      return warns;
+    }
+
+    function updateEffectRowGuide(row){
+      const raw=getEffectRowRaw(row);
+      const spec=EFFECT_TYPE_SPEC[raw.type]||{required:[],optional:[],unused:[]};
+      const badge=(arr,cls)=>arr.map(k=>`<span class="badge ${cls}">${esc(k)}</span>`).join(" ");
+      const reqAny=(spec.requiredAny||[]).map(g=>`<span class="badge req">${esc(g.join(" / "))}</span>`).join(" ");
+      row.querySelector(".efMeta").innerHTML=`<div>${badge(spec.required||[],"req")} ${reqAny} ${badge(spec.optional||[],"opt")} ${badge(spec.unused||[],"off")}</div>`;
+      row.querySelector(".efTypeMeaning").textContent=spec.meaning?`Type意味: ${spec.meaning}`:"";
+      row.querySelector(".efValueGuide").textContent=spec.value_help?`value解釈: ${spec.value_help}`:"";
+      row.querySelector(".efTimingGuide").textContent=TIMING_MEANINGS[raw.timing]?`timing意味: ${TIMING_MEANINGS[raw.timing]}`:"";
+
+      const vLabel=row.querySelector(".efValueLabel");
+      if(spec.value_kind==="multiplier") vLabel.textContent="value（倍率）";
+      else if(spec.value_kind==="none") vLabel.textContent="value（通常不要）";
+      else if(spec.value_kind==="custom") vLabel.textContent="value（実装依存）";
+      else vLabel.textContent="value（実数値）";
+
+      const warns=validateEffectRaw(raw);
+      row.querySelector(".efWarn").innerHTML=warns.length?warns.map(w=>`<div>・${esc(w)}</div>`).join(""):"";
+
+      const fieldKeys=["state_name","source","source_param","per_N","value","buff_id","buff_name","skill_id","lasting","delay","summon_template_id"];
+      const unusedSet=new Set((spec.unused||[]).filter(k=>fieldKeys.includes(k)));
+      row.querySelectorAll(".efField").forEach(el=>{
+        const k=el.dataset.ekey;
+        el.style.opacity=unusedSet.has(k)?"0.45":"1";
+      });
+    }
+
+    function addEffectRow(seed={}){
+      const row=document.createElement("div");row.className="row";const id="e"+(++effectSeq);
+      row.innerHTML=`<div class="grid3"><div><label>timing</label><select class="timingSel">${TIMINGS.map(x=>`<option value="${x}" ${x===(seed.timing||"HIT")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>type</label><select class="typeSel">${TYPES.map(x=>`<option value="${x}" ${x===(seed.type||"APPLY_STATE")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>target</label><select class="targetSel">${TARGETS.map(x=>`<option value="${x}" ${x===(seed.target||"target")?"selected":""}>${x||"(未指定)"}</option>`).join("")}</select></div></div><div class="grid4" style="margin-top:8px;"><div class="efField" data-ekey="state_name"><label>state_name</label><input class="efState" list="stateNameList" value="${esc(seed.state_name||"")}"/></div><div class="efField" data-ekey="source"><label>source</label><select class="efSource"><option value="" ${(seed.source||"")===""?"selected":""}>(未指定)</option><option value="self" ${(seed.source||"")==="self"?"selected":""}>self</option><option value="target" ${(seed.source||"")==="target"?"selected":""}>target</option></select></div><div class="efField" data-ekey="source_param"><label>source_param</label><input class="efSourceParam" list="stateNameList" value="${esc(seed.source_param||"")}"/></div><div class="efField" data-ekey="per_N"><label>per_N</label><input class="efPerN" type="number" step="1" value="${esc(seed.per_N??"")}"/></div><div class="efField" data-ekey="value"><label class="efValueLabel">value</label><input class="efValue" type="number" step="any" value="${esc(seed.value??"")}"/></div><div class="efField" data-ekey="buff_id"><label>buff_id</label><input class="efBuffId" list="buffIdList" value="${esc(seed.buff_id||"")}"/></div><div class="efField" data-ekey="buff_name"><label>buff_name</label><input class="efBuffName" list="buffNameList" value="${esc(seed.buff_name||"")}"/></div><div class="efField" data-ekey="skill_id"><label>skill_id</label><input class="efSkillId" list="skillIdList" value="${esc(seed.skill_id||"")}"/></div><div class="efField" data-ekey="lasting"><label>lasting</label><input class="efLasting" type="number" value="${esc(seed.lasting??"")}"/></div><div class="efField" data-ekey="delay"><label>delay</label><input class="efDelay" type="number" value="${esc(seed.delay??"")}"/></div><div class="efField" data-ekey="summon_template_id"><label>summon_template_id</label><input class="efSummonId" list="summonIdList" value="${esc(seed.summon_template_id||"")}"/></div></div><div class="toolbar"><label><input type="checkbox" class="efCondEnable" ${seed.condition?"checked":""}/> conditionを使う</label><button class="btn btn-danger" type="button">削除</button></div><div class="efCond"></div><div><label>extra_json（任意）</label><input class="efExtra mono" placeholder='{"rounds":3}' /></div><div class="small efMeta"></div><div class="small ok efTypeMeaning"></div><div class="small guide-line efValueGuide"></div><div class="small guide-line efTimingGuide"></div><div class="warn efWarn"></div>`;
+      const cHost=row.querySelector(".efCond");if(seed.condition)renderCond(cHost,seed.condition);
+      row.querySelector(".efCondEnable").addEventListener("change",e=>{cHost.innerHTML="";if(e.target.checked)renderCond(cHost,{});updateEffectRowGuide(row);generate()});
+      row.querySelector(".typeSel").addEventListener("change",()=>{updateEffectRowGuide(row);generate()});
+      row.querySelector(".btn-danger").addEventListener("click",()=>{row.remove();generate()});
+      row.addEventListener("input",()=>{updateEffectRowGuide(row);generate()});
+      row.addEventListener("change",()=>{updateEffectRowGuide(row);generate()});
+      document.getElementById("effectsRoot").appendChild(row);
+      updateEffectRowGuide(row);
+    }
+
+    function collectEffects(){
+      const out=[];
+      const globalWarn=[];
+      document.querySelectorAll("#effectsRoot .row").forEach((row,idx)=>{
+        const raw=getEffectRowRaw(row);
+        const warns=validateEffectRaw(raw);
+        if(warns.length) globalWarn.push(`effects ${idx+1} (${raw.type}): ${warns.join(" / ")}`);
+        delete raw._cond_enabled;
+        delete raw._extra_error;
+        out.push(raw);
+      });
+      document.getElementById("efGlobalWarnings").innerHTML=globalWarn.length?globalWarn.map(w=>`<div>・${esc(w)}</div>`).join(""):"";
+      return out;
+    }
+
+    function generate(){const data={};const tags=parseList(document.getElementById("tagsInput").value);if(tags.length)data.tags=tags;const ts=document.getElementById("targetScope").value;if(ts)data.target_scope=ts;const cost=parseCost(document.getElementById("costInput").value);if(cost.length)data.cost=cost;data.power_bonus=collectPowerBonus();data.effects=collectEffects();document.getElementById("jsonOut").textContent=JSON.stringify(data,null,2);return data}
+    async function copyJson(){let txt=document.getElementById("jsonOut").textContent||"";if(!txt.trim()){generate();txt=document.getElementById("jsonOut").textContent||"";}if(!txt.trim())return;try{await navigator.clipboard.writeText(txt);document.getElementById("copyStatus").textContent="コピーしました"}catch(_){document.getElementById("copyStatus").textContent="コピー失敗"}setTimeout(()=>document.getElementById("copyStatus").textContent="",1500)}
+
+    function renderHelp(){document.getElementById("helpTableBody").innerHTML=HELP_ROWS.map(([k,v])=>`<tr><td class="mono">${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}
+    function renderState(){const arr=sanitizeStateRefs(REF.state_refs);document.getElementById("stateRefRoot").innerHTML=arr.map(s=>`<span class="chip mono">${esc(s)}</span>`).join("")}
+    function renderBuff(){const q=(document.getElementById("buffFilter").value||"").trim().toLowerCase();const rows=(REF.buff_refs||[]).filter(b=>`${b.id}\n${b.name}\n${b.description}\n${JSON.stringify(b.effect||{})}`.toLowerCase().includes(q));document.getElementById("buffTableBody").innerHTML=rows.map(b=>`<tr><td class="mono">${esc(b.id)}</td><td>${esc(b.name||"")}</td><td>${esc(b.description||"")}</td><td class="mono">${esc(JSON.stringify(b.effect||{}))}</td></tr>`).join("");document.getElementById("buffCount").textContent=`${rows.length} / ${(REF.buff_refs||[]).length} 件`}
+    function renderSkill(){const q=(document.getElementById("skillFilter").value||"").trim().toLowerCase();const rows=(REF.skill_refs||[]).filter(s=>`${s.id}\n${s.name}\n${(s.tags||[]).join(",")}`.toLowerCase().includes(q));document.getElementById("skillTableBody").innerHTML=rows.map(s=>`<tr><td class="mono">${esc(s.id)}</td><td>${esc(s.name||"")}</td><td>${esc((s.tags||[]).join(", "))}</td></tr>`).join("");document.getElementById("skillCount").textContent=`${rows.length} / ${(REF.skill_refs||[]).length} 件`}
+    function renderSummon(){const rows=REF.summon_refs||[];document.getElementById("summonTableBody").innerHTML=rows.map(s=>`<tr><td class="mono">${esc(s.id)}</td><td>${esc(s.name||"")}</td><td class="mono">${esc(s.summon_duration_mode||"")}</td><td class="mono">${esc(s.summon_duration??"")}</td></tr>`).join("");document.getElementById("summonCount").textContent=`${rows.length} 件`}
+    function renderDynamicBuffPatterns(){document.getElementById("dynamicBuffTableBody").innerHTML=DYNAMIC_BUFF_PATTERNS.map(p=>`<tr><td class="mono">${esc(p.suffix)}</td><td>${esc(p.meaning)}</td><td class="mono">${esc(p.effect)}</td><td class="mono">${esc(p.example)}</td></tr>`).join("")}
+    function checkDynamicBuffName(){const raw=(document.getElementById("dynamicBuffNameInput").value||"").trim();const out=document.getElementById("dynamicBuffMatch");if(!raw){out.textContent="";return}const hit=DYNAMIC_BUFF_PATTERNS.find(p=>p.regex.test(raw));if(!hit){out.textContent="一致パターンなし（静的buff_id指定か、名前を再確認してください）";return}const m=raw.match(hit.regex);const n=(m&&m[2])?m[2]:"";out.textContent=`一致: ${hit.suffix} / 解釈: ${hit.meaning.replace("N", n||"N")}`;}
+    function renderPbDocs(){
+      const rb=document.getElementById("pbReqTableBody");
+      rb.innerHTML=Object.entries(PB_RULE_SPEC).map(([op,s])=>`<tr><td class="mono">${esc(op)}</td><td>${esc(s.required.join(", "))}</td><td>${esc(s.optional.join(", "))}</td><td>${esc(s.unused.join(", "))}</td></tr>`).join("");
+      const list=document.getElementById("pbRecipeList");
+      list.innerHTML=PB_RECIPES.map((r,i)=>`<div class="hint-box" style="margin-bottom:8px;"><div><b>${esc(r.title)}</b> - ${esc(r.purpose)}</div><div class="small">${esc(r.note)}</div><div class="mono" style="margin:6px 0;white-space:pre-wrap;">${esc(JSON.stringify(r.rule,null,2))}</div><button class="btn btn-ghost pbRecipeBtn" data-recipe="${i}" type="button">このレシピを追加</button></div>`).join("");
+    }
+    function renderEffectDocs(){
+      const rb=document.getElementById("efReqTableBody");
+      rb.innerHTML=Object.entries(EFFECT_TYPE_SPEC).map(([tp,s])=>{
+        const req=(s.required||[]).slice();
+        (s.requiredAny||[]).forEach(g=>req.push(g.join(" / ")));
+        return `<tr><td class="mono">${esc(tp)}</td><td>${esc(s.meaning||"")}</td><td>${esc(s.value_help||"")}</td><td>${esc(req.join(", "))}</td><td>${esc((s.optional||[]).join(", "))}</td><td>${esc((s.unused||[]).join(", "))}</td></tr>`;
+      }).join("");
+    }
+    function applyPbRecipe(idx){
+      const i=Number(idx);
+      if(Number.isNaN(i)||!PB_RECIPES[i]) return;
+      addPowerBonusRow(PB_RECIPES[i].rule||{});
+      generate();
+    }
+
+    function toggleRefPanel(panelId){
+      const panels=document.querySelectorAll("#refPanels .ref-panel");
+      const buttons=document.querySelectorAll("#refPanelButtons .panel-btn");
+      panels.forEach(p=>{p.hidden=p.id!==panelId;});
+      buttons.forEach(btn=>btn.classList.toggle("active",btn.dataset.panel===panelId));
+    }
+
+    function closeRefPanel(panelId){
+      const panel=document.getElementById(panelId);
+      if(panel) panel.hidden=true;
+      document.querySelectorAll("#refPanelButtons .panel-btn").forEach(btn=>{
+        if(btn.dataset.panel===panelId) btn.classList.remove("active");
+      });
+    }
+
+    function showJsonPanel(){
+      document.getElementById("jsonPanel").hidden=false;
+    }
+
+    function hideJsonPanel(){
+      document.getElementById("jsonPanel").hidden=true;
+    }
+
+    function toggleJsonPanel(){
+      const panel=document.getElementById("jsonPanel");
+      panel.hidden=!panel.hidden;
+    }
+
+    function initRef(){const states=sanitizeStateRefs(REF.state_refs);const buffIds=(REF.buff_refs||[]).map(x=>x.id).filter(Boolean);const buffNames=(REF.buff_refs||[]).map(x=>x.name).filter(Boolean);const skillIds=(REF.skill_refs||[]).map(x=>x.id).filter(Boolean);const summonIds=(REF.summon_refs||[]).map(x=>x.id).filter(Boolean);const tags=new Set(TAG_HINTS);(REF.skill_refs||[]).forEach(s=>(s.tags||[]).forEach(t=>tags.add(String(t))));fillDatalist("stateNameList",states);fillDatalist("buffIdList",buffIds);fillDatalist("buffNameList",buffNames);fillDatalist("skillIdList",skillIds);fillDatalist("summonIdList",summonIds);fillDatalist("tagHintList",Array.from(tags).sort((a,b)=>a.localeCompare(b,"ja")));renderState();renderBuff();renderDynamicBuffPatterns();renderSkill();renderSummon()}
+
+    function bind(){
+      document.getElementById("addPbBtn").addEventListener("click",()=>{addPowerBonusRow();generate()});
+      document.getElementById("clearPbBtn").addEventListener("click",()=>{document.getElementById("pbRoot").innerHTML="";addPowerBonusRow();generate()});
+      document.getElementById("addEffectBtn").addEventListener("click",()=>{addEffectRow();generate()});
+      document.getElementById("clearEffectBtn").addEventListener("click",()=>{document.getElementById("effectsRoot").innerHTML="";addEffectRow();generate()});
+      document.getElementById("generateShowBtn").addEventListener("click",()=>{generate();showJsonPanel();});
+      document.getElementById("toggleJsonBtn").addEventListener("click",()=>{if(document.getElementById("jsonPanel").hidden){generate();}toggleJsonPanel();});
+      document.getElementById("closeJsonBtn").addEventListener("click",hideJsonPanel);
+      document.getElementById("copyBtn").addEventListener("click",copyJson);
+      document.getElementById("buffFilter").addEventListener("input",renderBuff);
+      document.getElementById("skillFilter").addEventListener("input",renderSkill);
+      document.getElementById("dynamicBuffNameInput").addEventListener("input",checkDynamicBuffName);
+      document.getElementById("pbRecipeList").addEventListener("click",(e)=>{
+        const btn=e.target.closest(".pbRecipeBtn");
+        if(!btn) return;
+        applyPbRecipe(btn.dataset.recipe);
+      });
+      document.getElementById("refPanelButtons").addEventListener("click",(e)=>{
+        const btn=e.target.closest(".panel-btn");
+        if(!btn) return;
+        const panelId=btn.dataset.panel;
+        if(!panelId) return;
+        if(btn.classList.contains("active")){
+          closeRefPanel(panelId);
+          return;
+        }
+        toggleRefPanel(panelId);
+      });
+      document.getElementById("refPanels").addEventListener("click",(e)=>{
+        const closeBtn=e.target.closest(".panel-close");
+        if(!closeBtn) return;
+        const panel=closeBtn.closest(".ref-panel");
+        if(!panel) return;
+        closeRefPanel(panel.id);
+      });
+      ["tagsInput","targetScope","costInput"].forEach(id=>{
+        document.getElementById(id).addEventListener("input",generate);
+        document.getElementById(id).addEventListener("change",generate);
+      });
+    }
+
+    bind();renderHelp();renderPbDocs();renderEffectDocs();initRef();addPowerBonusRow();addEffectRow();checkDynamicBuffName();toggleRefPanel("panelPbCheat");generate();
+  </script>
+</body>
+</html>
