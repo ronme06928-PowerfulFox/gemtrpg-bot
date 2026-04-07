@@ -157,6 +157,27 @@ if (!window.ExplorationDock) {
     }
 
     // --- 探索判定モーダル ---
+    function isSelectableCharacterForExplorationRoll(char) {
+        if (!char) return false;
+
+        const hp = Number(char.hp || 0);
+        if (!Number.isFinite(hp) || hp <= 0) return false;
+
+        const x = Number(char.x);
+        const y = Number(char.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0) return false;
+
+        if (!!char.is_summoned) {
+            const mode = String(char.summon_duration_mode || '').toLowerCase();
+            if (mode === 'duration_rounds') {
+                const remaining = Number(char.remaining_summon_rounds);
+                if (Number.isFinite(remaining) && remaining <= 0) return false;
+            }
+        }
+
+        return true;
+    }
+
     function openExplorationRollModal() {
         // キャラクター選択 -> 技能選択 -> 難易度設定 -> ロール
         const modalHtml = `
@@ -217,8 +238,10 @@ if (!window.ExplorationDock) {
         let hasChar = false;
         if (battleState && battleState.characters) {
             battleState.characters.forEach(c => {
+                // Hide incapacitated / unplaced / expired summons from roll candidates.
+                if (!isSelectableCharacterForExplorationRoll(c)) return;
                 // 自分のキャラ or GMなら全員
-                // ★ 修正: 未配置でも配置済みでも判定は可能とするか、配置済みのみにするか。ここでは一旦全員。
+                // Candidate ownership check (after availability filter).
                 if (currentUserAttribute === 'GM' || c.owner_id === currentUserId || c.owner === currentUsername) {
                     const opt = document.createElement('option');
                     opt.value = c.id;

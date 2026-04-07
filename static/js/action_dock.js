@@ -17,6 +17,30 @@ function hasImmediateSkill(char) {
 
 // アクションドックの更新関数
 // アクションドックの更新関数
+function isPlacedCharacter(char) {
+    if (!char) return false;
+    const x = Number(char.x);
+    const y = Number(char.y);
+    return Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0;
+}
+
+function isExpiredSummonCharacter(char) {
+    if (!char || !char.is_summoned) return false;
+    const mode = String(char.summon_duration_mode || '').toLowerCase();
+    if (mode !== 'duration_rounds') return false;
+    const remaining = Number(char.remaining_summon_rounds);
+    return Number.isFinite(remaining) && remaining <= 0;
+}
+
+function isSelectableCharacterForQuickEdit(char) {
+    if (!char) return false;
+    const hp = Number(char.hp || 0);
+    if (!Number.isFinite(hp) || hp <= 0) return false;
+    if (!isPlacedCharacter(char)) return false;
+    if (isExpiredSummonCharacter(char)) return false;
+    return true;
+}
+
 function isSoundFxEnabled() {
     if (!window.SoundFx || typeof window.SoundFx.getSettings !== 'function') return true;
     const settings = window.SoundFx.getSettings();
@@ -1000,8 +1024,9 @@ function renderQuickEditList(container) {
     container.innerHTML = '';
     const isGMView = isCurrentUserGM();
 
-    // GMは全キャラ、PLは自分の持ちキャラのみ
+    // First limit to eligible field characters, then apply ownership rules.
     const targetChars = battleState.characters.filter(c => {
+        if (!isSelectableCharacterForQuickEdit(c)) return false;
         if (isGMView) return true;
         return c.owner === currentUsername || (currentUserId && c.owner_id === currentUserId);
     });
