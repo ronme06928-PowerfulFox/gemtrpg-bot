@@ -232,6 +232,19 @@ def _resolve_fissure_add_amount(payload, explicit_count=None):
     return 0
 
 
+def _resolve_stack_count(payload, explicit_count=None, default=0):
+    if explicit_count is not None:
+        return max(0, _safe_int(explicit_count, default))
+    if not isinstance(payload, dict):
+        return max(0, _safe_int(default, 0))
+    if "count" in payload:
+        return max(0, _safe_int(payload.get("count"), default))
+    data = payload.get("data")
+    if isinstance(data, dict) and "count" in data:
+        return max(0, _safe_int(data.get("count"), default))
+    return max(0, _safe_int(default, 0))
+
+
 def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
     """バフを付与・更新する"""
     if not char_obj: return
@@ -413,6 +426,35 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
 
         if existing:
             existing['delay'] = max(existing.get('delay', 0), delay)
+            existing.update(payload)
+        else:
+            char_obj['special_buffs'].append(payload)
+        return
+
+    # ★ 追加: 震盪(Bu-29) は count 加算 + lasting 最大維持
+    if payload.get('buff_id') == 'Bu-29':
+        incoming_count = _resolve_stack_count(payload, explicit_count=count, default=1)
+        existing_count = _resolve_stack_count(existing, default=1) if existing else 0
+        new_count = existing_count + incoming_count
+
+        payload_lasting = _safe_int(lasting, 0)
+        payload_delay = _safe_int(delay, 0)
+        max_lasting = payload_lasting
+        max_delay = payload_delay
+        if existing:
+            max_lasting = max(_safe_int(existing.get('lasting'), 0), payload_lasting)
+            max_delay = max(_safe_int(existing.get('delay'), 0), payload_delay)
+
+        payload['lasting'] = max_lasting
+        payload['delay'] = max_delay
+        payload['count'] = new_count
+        if not isinstance(payload.get('data'), dict):
+            payload['data'] = {}
+        payload['data']['count'] = new_count
+
+        if existing:
+            existing['lasting'] = max_lasting
+            existing['delay'] = max_delay
             existing.update(payload)
         else:
             char_obj['special_buffs'].append(payload)

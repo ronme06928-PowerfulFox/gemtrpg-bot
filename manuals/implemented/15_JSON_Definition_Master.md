@@ -1,6 +1,6 @@
 # 15. JSON定義マスター（Skill/Buff中心）
 
-最終更新: 2026-04-05  
+最終更新: 2026-04-08  
 対象: 実装済み（Current）
 
 ---
@@ -183,6 +183,8 @@
 - `APPLY_BUFF`
   - 必須: `buff_name` または `buff_id`
   - 任意: `lasting`, `delay`, `data`
+  - スタック付与が必要な場合は `data.count` を使用
+    - 例: 震盪2スタック付与 -> `{"type":"APPLY_BUFF","buff_name":"震盪","data":{"count":2}}`
 - `REMOVE_BUFF`
   - 必須: `buff_name`
 - `GRANT_SKILL`
@@ -460,3 +462,73 @@ pytest -q tests/test_skill_target_tags.py
 
 本資料は「Skill/Buff中心」の統合版です。  
 アイテム/輝化/パッシブ/召喚/用語辞書は次版で同一フォーマット化し、同じ章立て（キー一覧・必須条件・lint条件）に揃える。
+
+---
+
+## 18. 震盪（W-64）JSON定義
+
+### 18.1 バフ定義（buff catalog / effect）
+
+`震盪` は受け手側補正のため、`effect.state_receive_bonus` で定義する。
+
+```json
+{
+  "id": "Bu-XX",
+  "name": "震盪",
+  "description": "受ける破裂付与量 +N",
+  "effect": {
+    "state_receive_bonus": [
+      {
+        "stat": "破裂",
+        "operation": "FIXED",
+        "value": 2,
+        "consume": false
+      }
+    ]
+  },
+  "default_duration": 3
+}
+```
+
+### 18.2 スキル側定義（特記処理 / rule_data）
+
+ユーザー要件の例（使用時FP2/MP3、勝利時に震盪2スタック3R、命中時に破裂3）:
+
+```json
+{
+  "tags": [],
+  "target_scope": "opposing_team",
+  "cost": [
+    { "type": "FP", "value": 2 },
+    { "type": "MP", "value": 3 }
+  ],
+  "power_bonus": [],
+  "effects": [
+    {
+      "timing": "WIN",
+      "type": "APPLY_BUFF",
+      "target": "target",
+      "buff_name": "震盪",
+      "lasting": 3,
+      "delay": 0,
+      "data": { "count": 2 }
+    },
+    {
+      "timing": "HIT",
+      "type": "APPLY_STATE",
+      "target": "target",
+      "state_name": "破裂",
+      "value": 3
+    }
+  ]
+}
+```
+
+### 18.3 挙動上の注意
+
+- `state_receive_bonus` は「受ける側（target）」の `special_buffs` を参照する。
+- 破裂増量は正値付与（`APPLY_STATE` / `APPLY_STATE_PER_N`）時のみ適用される。
+- `consume: true` を指定した場合、増量適用時に受け手側の震盪バフが消費される。
+- `Bu-29` を再付与した場合:
+  - `count` は加算される（`data.count` 省略時は +1）。
+  - `lasting` は `max(既存, 新規)` が採用される。

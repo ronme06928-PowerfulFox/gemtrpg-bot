@@ -1,6 +1,6 @@
 # ジェムリアTRPGダイスボット 統合マニュアル (GM・管理者編)
 
-**最終更新日**: 2026-02-27
+**最終更新日**: 2026-04-08
 **対象バージョン**: Current
 
 ---
@@ -68,6 +68,15 @@ GM権限でログインすると、プレイヤー画面にはない管理用コ
 
 補助チュートリアル:
 * **利用者向け用語図鑑ガイド**: `manuals/implemented/10_Glossary_User_Tutorial.md`
+
+### 2.1 JSON定義ビルダー（CharaCreator）追補: 震盪テンプレ
+
+- `CharaCreator/json_definition_builder.html` の Effects タブに `震盪スキル雛形を生成` ボタンを追加。
+- 押下時に以下を一括入力:
+  - `cost`: `FP:2,MP:3`
+  - `effects[0]`: `WIN` + `APPLY_BUFF(target)` + `buff_name="震盪"` + `lasting=3` + `data.count=2`
+  - `effects[1]`: `HIT` + `APPLY_STATE(target)` + `state_name="破裂"` + `value=3`
+- 生成JSONはそのまま `特記処理` 用の rule_data として利用可能。
 
 <div style="page-break-after: always;"></div>
 

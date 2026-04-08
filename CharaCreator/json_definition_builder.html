@@ -143,6 +143,10 @@
             </div>
           </div>
           <div id="effectTemplateDesc" class="small template-desc"></div>
+          <div class="toolbar" style="margin-top:8px;">
+            <button class="btn btn-ghost" type="button" id="applyShindouPresetBtn">震盪スキル雛形を生成</button>
+            <span class="small">FP2/MP3消費・WINで震盪2スタック(3R)・HITで破裂+3 を一括入力します。</span>
+          </div>
         </div>
         <div id="effectsRoot"></div>
         <div class="toolbar">
@@ -366,7 +370,7 @@
         keys: "(追加キーなし)"
       }
     ];
-    const HELP_ROWS = [["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","命中時/勝利時/敗北時"],["condition.source: target_skill","対象側が宣言したスキル情報（主に tags）を参照。相手スキル情報が無い場面では条件false"],["condition.source: relation","actor-targetの関係を参照。paramは same_team / target_is_ally / target_is_enemy（0/1判定）"],["type: APPLY_BUFF","buff_id / buff_name を付与"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","動的バフ命名で効果を自動解釈"]];
+    const HELP_ROWS = [["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","命中時/勝利時/敗北時"],["condition.source: target_skill","対象側が宣言したスキル情報（主に tags）を参照。相手スキル情報が無い場面では条件false"],["condition.source: relation","actor-targetの関係を参照。paramは same_team / target_is_ally / target_is_enemy（0/1判定）"],["type: APPLY_BUFF","buff_id / buff_name を付与"],["APPLY_BUFF.data.count","スタック系バフの付与回数（例: 震盪2スタック）"],["state_receive_bonus","受け手側の状態付与補正（例: 震盪で受ける破裂付与量+N）"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","動的バフ命名で効果を自動解釈"]];
     const DYNAMIC_BUFF_PATTERNS = [
       { suffix: "_ActN",   meaning: "行動回数 +N",               effect: "stat_mods.行動回数",                       example: "迅速_Act2",         regex: /^(.*)_Act(\d+)$/ },
       { suffix: "_AtkN",   meaning: "攻撃タグ時の最終威力 +N",   effect: "power_bonus(FIXED, apply_to=final)",     example: "猛攻_Atk5",         regex: /^(.*)_Atk(\d+)$/ },
@@ -450,10 +454,20 @@
       { id: "", label: "テンプレを選択してください", desc: "1行目をType別の典型パターンで自動入力します。", seed: null },
       { id: "ef_hit_bleed", label: "命中時: 出血 +2", desc: "HITで target の出血を増やす基本形。", seed: { timing: "HIT", type: "APPLY_STATE", target: "target", state_name: "出血", value: 2 } },
       { id: "ef_win_buff", label: "勝利時: selfに猛攻バフ", desc: "WINで自分に動的buff_nameを付与。", seed: { timing: "WIN", type: "APPLY_BUFF", target: "self", buff_name: "猛攻_Atk3", lasting: 1 } },
+      { id: "ef_win_shindou", label: "勝利時: targetに震盪2スタック(3R)", desc: "WINでtargetへ震盪付与。extra_jsonに data.count=2 を自動設定。", seed: { timing: "WIN", type: "APPLY_BUFF", target: "target", buff_name: "震盪", lasting: 3, delay: 0, _extra_json: { data: { count: 2 } } } },
       { id: "ef_pre_power", label: "マッチ前: 最終威力 +2", desc: "MODIFY_FINAL_POWERは PRE_MATCH/BEFORE_POWER_ROLL 推奨。", seed: { timing: "PRE_MATCH", type: "MODIFY_FINAL_POWER", target: "self", value: 2 } },
       { id: "ef_pern_rupture", label: "判定前: 出血3ごとに破裂+1", desc: "APPLY_STATE_PER_Nの典型。source/source_param/per_Nが必須。", seed: { timing: "BEFORE_POWER_ROLL", type: "APPLY_STATE_PER_N", target: "target", source: "target", source_param: "出血", per_N: 3, state_name: "破裂", value: 1 } },
       { id: "ef_damage_bonus", label: "命中時: ダメージ固定 +5", desc: "DAMAGE_BONUS の単純加算例。", seed: { timing: "HIT", type: "DAMAGE_BONUS", target: "target", value: 5 } }
     ];
+    const SHINDOU_SKILL_PRESET = {
+      tags: [],
+      target_scope: "opposing_team",
+      cost: [{ type: "FP", value: 2 }, { type: "MP", value: 3 }],
+      effects: [
+        { timing: "WIN", type: "APPLY_BUFF", target: "target", buff_name: "震盪", lasting: 3, delay: 0, _extra_json: { data: { count: 2 } } },
+        { timing: "HIT", type: "APPLY_STATE", target: "target", state_name: "破裂", value: 3 }
+      ]
+    };
     const EFFECT_TYPE_SPEC = {
       APPLY_STATE: {
         meaning: "target に state_name を value だけ加算/減算します。",
@@ -879,6 +893,10 @@
     function addEffectRow(seed={},opt={}){
       const row=document.createElement("div");row.className="row";row.dataset.expanded="0";effectSeq++;
       row.innerHTML=`<div class="grid3"><div><label>timing</label><select class="timingSel">${TIMINGS.map(x=>`<option value="${x}" ${x===(seed.timing||"HIT")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>type</label><select class="typeSel">${TYPES.map(x=>`<option value="${x}" ${x===(seed.type||"APPLY_STATE")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>target</label><select class="targetSel">${TARGETS.map(x=>`<option value="${x}" ${x===(seed.target||"target")?"selected":""}>${x||"(未指定)"}</option>`).join("")}</select></div></div><div class="grid4" style="margin-top:8px;"><div class="efField" data-ekey="state_name"><label>state_name</label><input class="efState" list="stateNameList" value="${esc(seed.state_name||"")}"/></div><div class="efField" data-ekey="source"><label>source</label><select class="efSource"><option value="" ${(seed.source||"")===""?"selected":""}>(未指定)</option><option value="self" ${(seed.source||"")==="self"?"selected":""}>self</option><option value="target" ${(seed.source||"")==="target"?"selected":""}>target</option></select></div><div class="efField" data-ekey="source_param"><label>source_param</label><input class="efSourceParam" list="stateNameList" value="${esc(seed.source_param||"")}"/></div><div class="efField" data-ekey="per_N"><label>per_N</label><input class="efPerN" type="number" step="1" value="${esc(seed.per_N??"")}"/></div><div class="efField" data-ekey="value"><label class="efValueLabel">value</label><input class="efValue" type="number" step="any" value="${esc(seed.value??"")}"/></div><div class="efField" data-ekey="buff_id"><label>buff_id</label><input class="efBuffId" list="buffIdList" value="${esc(seed.buff_id||"")}"/></div><div class="efField" data-ekey="buff_name"><label>buff_name</label><input class="efBuffName" list="buffNameList" value="${esc(seed.buff_name||"")}"/></div><div class="efField" data-ekey="skill_id"><label>skill_id</label><input class="efSkillId" list="skillIdList" value="${esc(seed.skill_id||"")}"/></div><div class="efField" data-ekey="lasting"><label>lasting</label><input class="efLasting" type="number" value="${esc(seed.lasting??"")}"/></div><div class="efField" data-ekey="delay"><label>delay</label><input class="efDelay" type="number" value="${esc(seed.delay??"")}"/></div><div class="efField" data-ekey="summon_template_id"><label>summon_template_id</label><input class="efSummonId" list="summonIdList" value="${esc(seed.summon_template_id||"")}"/></div></div><div class="toolbar"><label class="efCondToggleWrap"><input type="checkbox" class="efCondEnable" ${seed.condition?"checked":""}/> conditionを使う</label><button class="btn btn-ghost efExpandBtn" type="button">詳細項目を表示</button><button class="btn btn-danger" type="button">削除</button></div><div class="efCond"></div><div class="efExtraWrap"><label>extra_json（任意）</label><input class="efExtra mono" placeholder='{"rounds":3}' /></div><div class="field-hidden-note efFoldNote">初心者モード: Type必須中心で表示中（「詳細項目を表示」で全入力）</div><div class="small efMeta"></div><div class="small ok efTypeMeaning"></div><div class="small guide-line efValueGuide"></div><div class="small guide-line efTimingGuide"></div><div class="warn efWarn"></div>`;
+      if(seed._extra_json!==undefined){
+        const exRaw = typeof seed._extra_json === "string" ? seed._extra_json : JSON.stringify(seed._extra_json);
+        row.querySelector(".efExtra").value = exRaw;
+      }
       const cHost=row.querySelector(".efCond");if(seed.condition)renderCond(cHost,seed.condition);
       row.querySelector(".efExpandBtn").addEventListener("click",()=>{row.dataset.expanded=row.dataset.expanded==="1"?"0":"1";updateEffectRowGuide(row);});
       row.querySelector(".efCondEnable").addEventListener("change",e=>{cHost.innerHTML="";if(e.target.checked)renderCond(cHost,{});updateEffectRowGuide(row);generate()});
@@ -893,6 +911,19 @@
       }
       updateEffectRowGuide(row);
       return row;
+    }
+
+    function applyShindouSkillPreset(){
+      const preset = SHINDOU_SKILL_PRESET;
+      document.getElementById("tagsInput").value = (preset.tags || []).join(", ");
+      document.getElementById("targetScope").value = String(preset.target_scope || "");
+      document.getElementById("costInput").value = (preset.cost || []).map(c => `${c.type}:${c.value}`).join(", ");
+      document.getElementById("pbRoot").innerHTML = "";
+      document.getElementById("effectsRoot").innerHTML = "";
+      (preset.effects || []).forEach(effectSeed => addEffectRow(effectSeed));
+      setBuilderTab("effectsEditorSection");
+      generate();
+      showJsonPanel();
     }
 
     function collectEffects(){
@@ -1044,6 +1075,7 @@
       document.getElementById("effectQuickTemplate").addEventListener("change",updateEffectTemplateDesc);
       document.getElementById("applyPbTemplateBtn").addEventListener("click",applyPbFirstRowTemplate);
       document.getElementById("applyEffectTemplateBtn").addEventListener("click",applyEffectFirstRowTemplate);
+      document.getElementById("applyShindouPresetBtn").addEventListener("click",applyShindouSkillPreset);
       document.getElementById("editorMode").addEventListener("change",refreshEditorView);
       document.getElementById("builderTabs").addEventListener("click",(e)=>{
         const btn=e.target.closest(".tab-btn");

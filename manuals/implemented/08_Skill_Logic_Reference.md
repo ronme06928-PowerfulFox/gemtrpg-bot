@@ -1,6 +1,6 @@
 # スキルロジック実装リファレンス（実装準拠）
 
-**最終更新日**: 2026-03-17  
+**最終更新日**: 2026-04-08  
 **対象実装**: `manager/game_logic.py` / `manager/battle/core.py` / `events/battle/common_routes.py`
 
 ---
@@ -59,10 +59,10 @@
 
 | Type | 概要 | 主な追加仕様 |
 | :--- | :--- | :--- |
-| `APPLY_STATE` | 状態異常・数値付与 | 亀裂（正値付与）は1R1回制限 |
+| `APPLY_STATE` | 状態異常・数値付与 | 亀裂（正値付与）は1R1回制限 / 受け手側 `state_receive_bonus` を合算 |
 | `APPLY_STATE_PER_N` | 参照値Nごとの状態付与 | `source/source_param/per_N/value/max_value` |
 | `MULTIPLY_STATE` | 状態値を乗算 | `int(x * multiplier + 0.5)` で丸め |
-| `APPLY_BUFF` | バフ付与 | `buff_id` から名称解決可 |
+| `APPLY_BUFF` | バフ付与 | `buff_id` から名称解決可 / スタック系は `data.count` |
 | `REMOVE_BUFF` | バフ解除 | 名前一致削除 |
 | `DAMAGE_BONUS` | 追加ダメージ | `total_bonus_damage` へ加算 |
 | `MODIFY_ROLL` | ロール補正 | ロール値補正として加算 |
@@ -119,6 +119,17 @@
   - `Bu-08` が無効なら、処理後の出血値は `floor(出血/2)` へ減衰
 - `Bu-08` は round 経過で減らず、出血ダメージ処理イベント発生時のみ減少する。
 - 互換動作として `count` 未設定の旧 `Bu-08` データは 1 回分として扱う。
+
+### 5.4 震盪（受け手側 `state_receive_bonus`）
+
+- `震盪` はバフ定義の `effect.state_receive_bonus` で定義する。
+- 補正は `APPLY_STATE` / `APPLY_STATE_PER_N` の正値付与時のみ適用される。
+- `stat="破裂"` とした場合、破裂付与値へ加算される（負値付与には適用しない）。
+- 付与側 `state_bonus` と受け手側 `state_receive_bonus` は合算される。
+- `consume=true` のルールは受け手（target）側バフを消費する。
+- `Bu-29` の再付与は専用挙動:
+  - `count` は加算スタックされる（`count` 省略時は +1）。
+  - `lasting` は `max(既存, 新規)` を維持する。
 
 ---
 

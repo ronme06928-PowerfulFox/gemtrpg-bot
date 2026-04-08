@@ -282,5 +282,22 @@
     "flavor": "命に書き加えたささやかな付記。",
     "effect": {},
     "default_duration": 2
+  },
+  "Bu-29": {
+    "id": "Bu-29",
+    "name": "震盪",
+    "description": "これを持つキャラクターがスキルの効果で破裂を付与される時、これのスタック数の値だけ破裂の増加量が増える。",
+    "flavor": "精神が揺れ動けば、同じ筈の痛みもその重みを増してしまう。",
+    "effect": {
+      "state_receive_bonus": [
+        {
+          "stat": "破裂",
+          "operation": "FIXED",
+          "value": 1,
+          "consume": false
+        }
+      ]
+    },
+    "default_duration": 3
   }
 }

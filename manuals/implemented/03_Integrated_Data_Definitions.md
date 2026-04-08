@@ -1,6 +1,6 @@
 # ジェムリアTRPGダイスボット データ定義統合マニュアル
 
-**最終更新日**: 2026-03-17
+**最終更新日**: 2026-04-08
 **対象バージョン**: Current
 
 ---
@@ -96,7 +96,7 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
 | Type | 説明 | パラメータ例 |
 | :--- | :--- | :--- |
 | **<span style="color:#9b59b6; font-weight:bold;">APPLY_STATE</span>** | 状態異常（数値）を付与 | `state_name`: "出血", `value`: 3 |
-| **<span style="color:#9b59b6; font-weight:bold;">APPLY_BUFF</span>** | 定義済みバフを付与 | `buff_id`: "Bu-01", `buff_name`: "Power_Atk5", `flavor`: "演出テキスト" |
+| **<span style="color:#9b59b6; font-weight:bold;">APPLY_BUFF</span>** | 定義済みバフを付与 | `buff_id`: "Bu-01", `buff_name`: "Power_Atk5", `data.count`: 2, `flavor`: "演出テキスト" |
 | **<span style="color:#9b59b6; font-weight:bold;">REMOVE_BUFF</span>** | バフを削除 | `buff_name`: "Bu-01" |
 | **<span style="color:#2ecc71; font-weight:bold;">MODIFY_BASE_POWER</span>** | 基礎威力を変更 (PRE_MATCH用) | `value`: 2 |
 | **<span style="color:#2ecc71; font-weight:bold;">MODIFY_FINAL_POWER</span>** | 最終威力を変更 (PRE_MATCH / BEFORE_POWER_ROLL用) | `value`: -1 |
@@ -231,6 +231,48 @@ GMや開発者が新しいデータを追加・カスタマイズする際のリ
   "data": { "count": 2 }
 }
 ```
+
+### 2.2.2 `震盪`（受け手側破裂付与量補正）
+
+`震盪` は「受ける側」の補正であり、バフ定義JSONでは `state_receive_bonus` を使用します。
+
+```json
+{
+  "id": "Bu-XX",
+  "name": "震盪",
+  "effect": {
+    "state_receive_bonus": [
+      {
+        "stat": "破裂",
+        "operation": "FIXED",
+        "value": 2,
+        "consume": false
+      }
+    ]
+  }
+}
+```
+
+スキル側で震盪を付与する場合:
+
+```json
+{
+  "timing": "WIN",
+  "type": "APPLY_BUFF",
+  "target": "target",
+  "buff_name": "震盪",
+  "lasting": 3,
+  "delay": 0,
+  "data": { "count": 2 }
+}
+```
+
+再付与時の実装仕様（`Bu-29` 専用）:
+
+- 同一対象へ `震盪` を再付与した場合、`count` は加算される。
+- `count` を省略した再付与は `+1` として扱う。
+- `lasting` は `max(既存, 新規)` を採用する（短い再付与で縮まない）。
+- `delay` も `max(既存, 新規)` を採用する。
 
 ### 2.3 特殊起動タイミング効果
 

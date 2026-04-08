@@ -135,6 +135,22 @@ def remove_buff(*args, **kwargs):
     fn = getattr(mod, "remove_buff", None) if mod else None
     if callable(fn):
         return fn(*args, **kwargs)
+    # Fallback: manager.utils 未ロード時でも最低限の削除を行う。
+    try:
+        char_obj = args[0] if len(args) >= 1 else kwargs.get("char_obj")
+        buff_name = args[1] if len(args) >= 2 else kwargs.get("buff_name")
+        if not isinstance(char_obj, dict):
+            return None
+        buffs = char_obj.get("special_buffs")
+        if not isinstance(buffs, list):
+            return None
+        normalized_name = str(buff_name or "").strip()
+        char_obj["special_buffs"] = [
+            b for b in buffs
+            if str((b or {}).get("name", "")).strip() != normalized_name
+        ]
+    except Exception:
+        return None
     return None
 
 
@@ -444,6 +460,86 @@ def calculate_state_apply_bonus(actor, target, stat_name, context=None):
 
     return total_bonus, buffs_to_remove
 
+def calculate_state_receive_bonus(receiver, source, stat_name, context=None):
+    total_bonus = 0
+    buffs_to_remove = []
+
+    if not receiver or 'special_buffs' not in receiver:
+        return 0, []
+
+    def _resolve_stack_count(buff):
+        """受け手側補正のスタック数(count)を正規化して返す。未指定は1。"""
+        if not isinstance(buff, dict):
+            return 1
+        raw_count = buff.get('count')
+        if raw_count is None:
+            data = buff.get('data')
+            if isinstance(data, dict):
+                raw_count = data.get('count')
+        if raw_count is None:
+            return 1
+        try:
+            return max(0, int(raw_count))
+        except Exception:
+            return 1
+
+    for buff in receiver['special_buffs']:
+        buff_name = buff.get('name')
+        effect_data = get_buff_effect(buff_name)
+        if not effect_data:
+            if 'data' in buff:
+                effect_data = buff['data']
+            else:
+                continue
+
+        # キャッシュ/参照タイミング差で get_buff_effect(name) が解決できないケース向けフォールバック:
+        # buff_id からカタログeffectを引き、受け手側補正ルールを補完する。
+        if not isinstance(effect_data, dict):
+            effect_data = {}
+        if not effect_data.get('state_receive_bonus'):
+            try:
+                from manager.buff_catalog import get_buff_by_id
+                buff_id = str(
+                    buff.get('buff_id')
+                    or (buff.get('data') or {}).get('buff_id')
+                    or ''
+                ).strip()
+                if buff_id:
+                    buff_data = get_buff_by_id(buff_id)
+                    if isinstance(buff_data, dict):
+                        catalog_effect = buff_data.get('effect')
+                        if isinstance(catalog_effect, dict) and catalog_effect.get('state_receive_bonus'):
+                            merged = dict(catalog_effect)
+                            merged.update(effect_data)
+                            effect_data = merged
+            except Exception:
+                pass
+
+        # ディレイ中のバフは無効
+        if buff.get('delay', 0) > 0:
+            continue
+
+        receive_rules = effect_data.get('state_receive_bonus', [])
+        matching_rules = [r for r in receive_rules if r.get('stat') == stat_name]
+        if not matching_rules:
+            continue
+
+        stack_count = _resolve_stack_count(buff)
+        if stack_count <= 0:
+            continue
+
+        bonus_per_stack = _calculate_bonus_from_rules(matching_rules, receiver, source, None, context=context)
+        bonus = bonus_per_stack * stack_count
+
+        if bonus > 0:
+            total_bonus += bonus
+            for rule in matching_rules:
+                if rule.get('consume'):
+                    buffs_to_remove.append(buff_name)
+                    break
+
+    return total_bonus, buffs_to_remove
+
 def execute_custom_effect(effect, actor, target, context=None):
     """
     プラグイン化されたカスタム効果を実行する
@@ -705,23 +801,29 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
                         continue  # この効果をスキップし、次の効果へ
 
-                # ★修正: ボーナス計算と消費(削除)処理の適用
-                # (状態付与値が正の数で、かつ実行者が存在する場合のみボーナスをチェック)
-                if value > 0 and sim_actor:
-                    # ボーナス値と、削除すべきバフリストを受け取る (シミュレーション状態を使用)
-                    bonus, buffs_to_remove = calculate_state_apply_bonus(sim_actor, sim_target, stat_name, context=context)
+                # 正値付与時のみ、付与側/受け手側の状態付与ボーナスを適用
+                if value > 0:
+                    if sim_actor:
+                        source_bonus, source_buffs_to_remove = calculate_state_apply_bonus(
+                            sim_actor, sim_target, stat_name, context=context
+                        )
+                        if source_bonus > 0:
+                            value += source_bonus
+                        for b_name in source_buffs_to_remove:
+                            remove_buff(sim_actor, b_name)
+                            changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0))
+                            log_snippets.append(f"({b_name} 消費)")
 
-                    if bonus > 0:
-                        value += bonus
-                        # 必要であればログにボーナス分を表示できますが、ここでは最終値のみ適用します
-
-                    # ★消費型バフの削除アクションを追加
-                    for b_name in buffs_to_remove:
-                        # 自分(actor)のバフを削除する
-                        # 変更リストには実体を登録、シミュレーションには即時適用
-                        remove_buff(sim_actor, b_name)
-                        changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0)) # 実体に対する変更予約
-                        log_snippets.append(f"({b_name} 消費)")
+                    if sim_target:
+                        receive_bonus, receive_buffs_to_remove = calculate_state_receive_bonus(
+                            sim_target, sim_actor, stat_name, context=context
+                        )
+                        if receive_bonus > 0:
+                            value += receive_bonus
+                        for b_name in receive_buffs_to_remove:
+                            remove_buff(sim_target, b_name)
+                            changes_to_apply.append((target_obj, "REMOVE_BUFF", b_name, 0))
+                            log_snippets.append(f"({b_name} 消費)")
 
                 if stat_name and value != 0:
                     if stat_name == "亀裂" and value > 0 and fissure_rounds > 0:
@@ -786,14 +888,27 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                             log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
                             continue
 
-                    # 亀裂の state_bonus(_Crack/_CrackOnce) 適用
-                    if stat_name == "亀裂" and sim_actor:
-                        bonus, buffs_to_remove = calculate_state_apply_bonus(sim_actor, sim_target, stat_name, context=context)
-                        if bonus > 0:
-                            calculated_value += bonus
-                        for b_name in buffs_to_remove:
+                    # 正値付与時のみ、付与側/受け手側の状態付与ボーナスを適用
+                    if sim_actor:
+                        source_bonus, source_buffs_to_remove = calculate_state_apply_bonus(
+                            sim_actor, sim_target, stat_name, context=context
+                        )
+                        if source_bonus > 0:
+                            calculated_value += source_bonus
+                        for b_name in source_buffs_to_remove:
                             remove_buff(sim_actor, b_name)
                             changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0))
+                            log_snippets.append(f"({b_name} 消費)")
+
+                    if sim_target:
+                        receive_bonus, receive_buffs_to_remove = calculate_state_receive_bonus(
+                            sim_target, sim_actor, stat_name, context=context
+                        )
+                        if receive_bonus > 0:
+                            calculated_value += receive_bonus
+                        for b_name in receive_buffs_to_remove:
+                            remove_buff(sim_target, b_name)
+                            changes_to_apply.append((target_obj, "REMOVE_BUFF", b_name, 0))
                             log_snippets.append(f"({b_name} 消費)")
 
                     # rounds 指定時の新方式（時限亀裂）
