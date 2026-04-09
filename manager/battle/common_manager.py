@@ -342,7 +342,7 @@ def process_full_round_end(room, username):
                 current_val = get_status_value(c, name)
                 _update_char_stat(room, c, name, current_val + value, username=f"[{state.get('round')}R終了時]")
             elif type == "APPLY_BUFF":
-                apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
+                apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
                 broadcast_log(room, f"[{name}] applied to {c['name']}", "state-change")
             elif type == "GRANT_SKILL":
                 grant_payload = dict(value) if isinstance(value, dict) else {}

@@ -268,7 +268,7 @@ def handle_skill_declaration(room, data, username):
                      curr = get_status_value(c, name)
                      _update_char_stat(room, c, name, curr + value, username=f"[{format_skill_name_for_log(skill_id, skill_data, actor)}]")
                  elif type == "APPLY_BUFF":
-                     apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
+                     apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
                      broadcast_log(room, f"[{name}] applied to {c['name']}", "state-change")
                  elif type == "REMOVE_BUFF":
                      remove_buff(c, name)
@@ -766,7 +766,7 @@ def execute_duel_match(room, data, username):
                                             base_curr = 0
                                 logger.debug(f"[local_apply UNOPPOSED] {c['name']}: {n} base_current={base_curr}, adding={v}, new={base_curr + v}")
                                 _update_char_stat(room, c, n, base_curr + v, username=f"[{n}]")
-                            elif t == "APPLY_BUFF": apply_buff(c, n, v["lasting"], v["delay"], data=v.get("data"))
+                            elif t == "APPLY_BUFF": apply_buff(c, n, v["lasting"], v["delay"], data=v.get("data"), count=v.get("count"))
                             elif t == "REMOVE_BUFF": remove_buff(c, n)
                             elif t == "SUMMON_CHARACTER":
                                 res = apply_summon_change(room, None, c, v)
@@ -1103,7 +1103,7 @@ def execute_duel_match(room, data, username):
                             if name == 'HP' and value < 0:
                                 t_key = 'A' if actor_a_char and char['id'] == actor_a_char['id'] else ('D' if actor_d_char and char['id'] == actor_d_char['id'] else None)
                                 if t_key: damage_report[t_key].append({'source': 'END_MATCH', 'value': -value})
-                        elif type == "APPLY_BUFF": apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+                        elif type == "APPLY_BUFF": apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
                         elif type == "REMOVE_BUFF": remove_buff(char, name)
                         elif type == "CUSTOM_DAMAGE":
                             t_key = 'A' if actor_a_char and char['id'] == actor_a_char['id'] else ('D' if actor_d_char and char['id'] == actor_d_char['id'] else None)
@@ -1317,7 +1317,7 @@ def execute_duel_match(room, data, username):
                         if name == 'HP' and value < 0:
                             t_key = 'A' if actor_a_char and char['id'] == actor_a_char['id'] else ('D' if actor_d_char and char['id'] == actor_d_char['id'] else None)
                             if t_key: damage_report[t_key].append({'source': 'END_MATCH', 'value': -value})
-                    elif type == "APPLY_BUFF": apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+                    elif type == "APPLY_BUFF": apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
                     elif type == "REMOVE_BUFF": remove_buff(char, name)
                     elif type == "CUSTOM_DAMAGE":
                         t_key = 'A' if actor_a_char and char['id'] == actor_a_char['id'] else ('D' if actor_d_char and char['id'] == actor_d_char['id'] else None)

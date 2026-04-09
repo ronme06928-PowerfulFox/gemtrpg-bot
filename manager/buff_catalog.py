@@ -14,7 +14,15 @@ STATIC_BUFFS = {
             "operation": "FIXED",
             "value": 5
         }]
-    }
+    },
+    "凝魔": {
+        "stack_resource": True,
+        "resource_type": "magic",
+    },
+    "蓄力": {
+        "stack_resource": True,
+        "resource_type": "physical",
+    },
 }
 
 # 2. 命名規則に基づく動的バフ（パターン定義）

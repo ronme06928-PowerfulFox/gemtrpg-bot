@@ -1280,5 +1280,35 @@
     "icon": "",
     "sort_order": null,
     "is_enabled": true
+  },
+  "W-74": {
+    "term_id": "W-74",
+    "display_name": "蓄力",
+    "category": "バフ",
+    "short": "",
+    "long": "特殊なバフスタック。これを消費することで様々な効果を得る。これが10あるごとに1、所有者の物理補正が上昇する。",
+    "flavor": "",
+    "links": [
+      "W-53"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-75": {
+    "term_id": "W-75",
+    "display_name": "凝魔",
+    "category": "バフ",
+    "short": "",
+    "long": "特殊なバフスタック。これを消費することで様々な効果を得る。これが10あるごとに1、所有者の魔法補正が上昇する。",
+    "flavor": "",
+    "links": [
+      "W-54"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
   }
 }

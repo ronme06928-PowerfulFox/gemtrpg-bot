@@ -45,6 +45,13 @@ STATUS_NAME_ALIASES = {}
 
 BUFF_NAME_ALIASES = {}
 
+GYOMA_BUFF_NAME = "凝魔"
+CHIKURYOKU_BUFF_NAME = "蓄力"
+GYOMA_BUFF_ID = "Bu-Gyoma"
+CHIKURYOKU_BUFF_ID = "Bu-Chikuryoku"
+STACK_RESOURCE_BUFF_NAMES = {GYOMA_BUFF_NAME, CHIKURYOKU_BUFF_NAME}
+STACK_RESOURCE_BUFF_IDS = {GYOMA_BUFF_ID, CHIKURYOKU_BUFF_ID}
+
 
 def normalize_status_name(status_name):
     text = str(status_name or "").strip()
@@ -58,6 +65,17 @@ def normalize_buff_name(buff_name):
     if not text:
         return text
     return BUFF_NAME_ALIASES.get(text, text)
+
+
+def _resolve_buff_count_from_row(row, default=0):
+    if not isinstance(row, dict):
+        return max(0, _safe_int(default, 0))
+    if "count" in row:
+        return max(0, _safe_int(row.get("count"), 0))
+    data = row.get("data")
+    if isinstance(data, dict) and "count" in data:
+        return max(0, _safe_int(data.get("count"), 0))
+    return max(0, _safe_int(default, 0))
 
 
 def normalize_character_labels(char_obj):
@@ -386,6 +404,54 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
 
             logger.debug(f"[SpeedMod] Stack update for {buff_name}: {current_count} + {added_count} -> {new_count}")
 
+    # 凝魔/蓄力:
+    # - count スタック加算型の特殊リソースバフ
+    # - lasting 未指定時は永続(-1)として扱う
+    # - 明示 lasting (>0) がある場合のみラウンド減衰させる
+    normalized_name = normalize_buff_name(payload.get('name') or buff_name)
+    is_stack_resource = (
+        normalized_name in STACK_RESOURCE_BUFF_NAMES
+        or payload.get('buff_id') in STACK_RESOURCE_BUFF_IDS
+    )
+    if is_stack_resource:
+        added_count = _resolve_buff_count_from_row(payload, default=(count if count is not None else 1))
+        if added_count <= 0:
+            added_count = max(1, _safe_int(count, 1)) if count is not None else 1
+
+        explicit_lasting = payload.pop("explicit_lasting", None)
+        finite_lasting = _safe_int(lasting, -1) if explicit_lasting else -1
+
+        if not isinstance(payload.get('data'), dict):
+            payload['data'] = {}
+
+        current_count = 0
+        if existing:
+            current_count = _resolve_buff_count_from_row(existing, default=0)
+
+        new_count = current_count + added_count
+        payload['count'] = new_count
+        payload['data']['count'] = new_count
+
+        if finite_lasting > 0:
+            payload['lasting'] = finite_lasting
+            payload['is_permanent'] = False
+        else:
+            payload['lasting'] = -1
+            payload['is_permanent'] = True
+
+        if existing:
+            existing['delay'] = max(_safe_int(existing.get('delay'), 0), _safe_int(delay, 0))
+            if _safe_int(existing.get('lasting'), -1) < 0 or payload['lasting'] < 0:
+                existing['lasting'] = -1
+                existing['is_permanent'] = True
+            else:
+                existing['lasting'] = max(_safe_int(existing.get('lasting'), 0), _safe_int(payload.get('lasting'), 0))
+                existing['is_permanent'] = False
+            existing.update(payload)
+        else:
+            char_obj['special_buffs'].append(payload)
+        return
+
     # ★ 追加: 出血遷延(Bu-08) は lasting ではなく count 消費型として扱う
     if payload.get('buff_id') == 'Bu-08':
         def _resolve_count_from_payload(row):
@@ -431,7 +497,7 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
             char_obj['special_buffs'].append(payload)
         return
 
-    # ★ 追加: 震盪(Bu-29) は count 加算 + lasting 最大維持
+    # ★ 追加: 震盪(Bu-29) は count 加算 + 初回付与時の lasting を維持
     if payload.get('buff_id') == 'Bu-29':
         incoming_count = _resolve_stack_count(payload, explicit_count=count, default=1)
         existing_count = _resolve_stack_count(existing, default=1) if existing else 0
@@ -439,13 +505,14 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
 
         payload_lasting = _safe_int(lasting, 0)
         payload_delay = _safe_int(delay, 0)
-        max_lasting = payload_lasting
+        fixed_lasting = payload_lasting
         max_delay = payload_delay
         if existing:
-            max_lasting = max(_safe_int(existing.get('lasting'), 0), payload_lasting)
+            # 既存がある場合は lasting を上書きせず、最初に付与された継続ラウンドを維持する
+            fixed_lasting = _safe_int(existing.get('lasting'), payload_lasting)
             max_delay = max(_safe_int(existing.get('delay'), 0), payload_delay)
 
-        payload['lasting'] = max_lasting
+        payload['lasting'] = fixed_lasting
         payload['delay'] = max_delay
         payload['count'] = new_count
         if not isinstance(payload.get('data'), dict):
@@ -453,7 +520,7 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
         payload['data']['count'] = new_count
 
         if existing:
-            existing['lasting'] = max_lasting
+            existing['lasting'] = fixed_lasting
             existing['delay'] = max_delay
             existing.update(payload)
         else:
@@ -532,6 +599,27 @@ def clear_round_limited_flags(state_or_characters):
             cleared += 1
     return cleared
 
+
+def _get_stack_resource_stat_bonus(buff, stat_name):
+    if not isinstance(buff, dict):
+        return 0
+    if buff.get('delay', 0) > 0:
+        return 0
+
+    name = normalize_buff_name(buff.get('name'))
+    if name == GYOMA_BUFF_NAME and stat_name != normalize_status_name("魔法補正"):
+        return 0
+    if name == CHIKURYOKU_BUFF_NAME and stat_name != normalize_status_name("物理補正"):
+        return 0
+    if name not in STACK_RESOURCE_BUFF_NAMES:
+        return 0
+
+    stack_count = _resolve_buff_count_from_row(buff, default=0)
+    if stack_count <= 0:
+        return 0
+    return stack_count // 10
+
+
 def get_buff_stat_mod(char_obj, stat_name):
     """
     キャラクターのバフから特定のステータス補正値の合計を取得
@@ -552,6 +640,8 @@ def get_buff_stat_mod(char_obj, stat_name):
         # ディレイ中のバフは無効
         if buff.get('delay', 0) > 0:
             continue
+
+        total_mod += _get_stack_resource_stat_bonus(buff, stat_name)
 
         # stat_modsを取得 (トップレベル or data内)
         stat_mods = buff.get('stat_mods')
@@ -627,6 +717,14 @@ def get_buff_stat_mod_details(char_obj, stat_name):
     for buff in char_obj.get('special_buffs', []):
         if buff.get('delay', 0) > 0:
             continue
+
+        stack_bonus = _get_stack_resource_stat_bonus(buff, stat_name)
+        if stack_bonus != 0:
+            details.append({
+                'source': normalize_buff_name(buff.get('name')),
+                'value': stack_bonus,
+                'type': 'buff'
+            })
 
         stat_mods = buff.get('stat_mods')
         if not stat_mods and 'data' in buff:

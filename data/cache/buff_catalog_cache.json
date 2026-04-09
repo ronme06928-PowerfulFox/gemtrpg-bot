@@ -299,5 +299,21 @@
       ]
     },
     "default_duration": 3
+  },
+  "Bu-30": {
+    "id": "Bu-30",
+    "name": "蓄力",
+    "description": "特殊なバフスタック。これを消費することで様々な効果を得る。これが10あるごとに1、所有者の物理補正が上昇する。",
+    "flavor": "",
+    "effect": {},
+    "default_duration": 1
+  },
+  "Bu-31": {
+    "id": "Bu-31",
+    "name": "凝魔",
+    "description": "特殊なバフスタック。これを消費することで様々な効果を得る。これが10あるごとに1、所有者の魔法補正が上昇する。",
+    "flavor": "",
+    "effect": {},
+    "default_duration": 1
   }
 }

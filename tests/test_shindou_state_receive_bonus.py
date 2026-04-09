@@ -235,7 +235,7 @@ def test_shindou_reapply_stacks_count_and_keeps_longer_lasting():
     assert int(buff.get("lasting", 0)) == 3
 
 
-def test_shindou_reapply_without_count_treated_as_one_and_can_extend_lasting():
+def test_shindou_reapply_without_count_treated_as_one_and_keeps_initial_lasting():
     target = {"id": "T-2", "name": "Target", "special_buffs": []}
 
     apply_buff(target, "震盪", 1, 0, data={"buff_id": "Bu-29", "count": 2})
@@ -245,4 +245,4 @@ def test_shindou_reapply_without_count_treated_as_one_and_can_extend_lasting():
     buff = target["special_buffs"][0]
     assert int(buff.get("count", 0)) == 3
     assert int((buff.get("data") or {}).get("count", 0)) == 3
-    assert int(buff.get("lasting", 0)) == 5
+    assert int(buff.get("lasting", 0)) == 1

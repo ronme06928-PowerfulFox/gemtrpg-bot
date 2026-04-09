@@ -284,7 +284,7 @@
   <script>
     const REF = window.JSON_BUILDER_REFERENCE || { buff_refs: [], skill_refs: [], summon_refs: [], state_refs: ["HP", "MP", "FP", "行動回数", "速度値"] };
     const TIMINGS = ["PRE_MATCH","BEFORE_POWER_ROLL","WIN","LOSE","HIT","UNOPPOSED","AFTER_DAMAGE_APPLY","RESOLVE_START","RESOLVE_STEP_END","RESOLVE_END","END_MATCH","END_ROUND","IMMEDIATE","BATTLE_START"];
-    const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","MULTIPLY_STATE","APPLY_BUFF","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER"];
+    const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","MULTIPLY_STATE","APPLY_BUFF","CONSUME_BUFF_COUNT_FOR_GAIN","CONSUME_BUFF_COUNT_FOR_POWER","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER"];
     const TARGETS = ["","self","target","ALL_ENEMIES","ALL_ALLIES","ALL_OTHER_ALLIES","ALL","NEXT_ALLY"];
     const POWER_OPS = ["FIXED","FIXED_IF_EXISTS","PER_N_BONUS","MULTIPLY"];
     const COND_SOURCES = ["self","target","skill","target_skill","relation"];
@@ -306,8 +306,8 @@
       relation: "actor と target の陣営関係を 0/1 で参照します。param は same_team / target_is_ally / target_is_enemy を使います。"
     };
     const COND_SOURCE_PARAM_HINTS = {
-      self: "推奨param: HP / MP / FP / 速度値 / 各種状態名",
-      target: "推奨param: HP / MP / FP / 速度値 / 破裂 / 出血 / 亀裂 など",
+      self: "推奨param: HP / MP / FP / 速度値 / 各種状態名 / 凝魔_count / 蓄力_count / buff_count:凝魔",
+      target: "推奨param: HP / MP / FP / 速度値 / 破裂 / 出血 / 亀裂 / 凝魔_count / 蓄力_count など",
       skill: "推奨param: tags（operator=CONTAINS 推奨）",
       target_skill: "推奨param: tags（operator=CONTAINS 推奨）",
       relation: "推奨param: same_team / target_is_ally / target_is_enemy（EQUALS 0/1）"
@@ -370,7 +370,7 @@
         keys: "(追加キーなし)"
       }
     ];
-    const HELP_ROWS = [["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","命中時/勝利時/敗北時"],["condition.source: target_skill","対象側が宣言したスキル情報（主に tags）を参照。相手スキル情報が無い場面では条件false"],["condition.source: relation","actor-targetの関係を参照。paramは same_team / target_is_ally / target_is_enemy（0/1判定）"],["type: APPLY_BUFF","buff_id / buff_name を付与"],["APPLY_BUFF.data.count","スタック系バフの付与回数（例: 震盪2スタック）"],["state_receive_bonus","受け手側の状態付与補正（例: 震盪で受ける破裂付与量+N）"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","動的バフ命名で効果を自動解釈"]];
+    const HELP_ROWS = [["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","命中時/勝利時/敗北時"],["condition.source: target_skill","対象側が宣言したスキル情報（主に tags）を参照。相手スキル情報が無い場面では条件false"],["condition.source: relation","actor-targetの関係を参照。paramは same_team / target_is_ally / target_is_enemy（0/1判定）"],["condition.param: 蓄力_count","対象の特殊バフcountを参照"],["condition.param: buff_count:凝魔","buff_count接頭辞でも特殊バフcountを参照"],["type: APPLY_BUFF","buff_id / buff_name を付与"],["APPLY_BUFF.count","スタック系バフの付与回数（凝魔/蓄力など）"],["type: CONSUME_BUFF_COUNT_FOR_GAIN","指定スタックを消費し、FP/MP/HPやバフ付与を行う"],["type: CONSUME_BUFF_COUNT_FOR_POWER","指定スタックを消費し、基礎/最終威力を増減"],["state_receive_bonus","受け手側の状態付与補正（例: 震盪で受ける破裂付与量+N）"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","動的バフ命名で効果を自動解釈"]];
     const DYNAMIC_BUFF_PATTERNS = [
       { suffix: "_ActN",   meaning: "行動回数 +N",               effect: "stat_mods.行動回数",                       example: "迅速_Act2",         regex: /^(.*)_Act(\d+)$/ },
       { suffix: "_AtkN",   meaning: "攻撃タグ時の最終威力 +N",   effect: "power_bonus(FIXED, apply_to=final)",     example: "猛攻_Atk5",         regex: /^(.*)_Atk(\d+)$/ },
@@ -455,6 +455,8 @@
       { id: "ef_hit_bleed", label: "命中時: 出血 +2", desc: "HITで target の出血を増やす基本形。", seed: { timing: "HIT", type: "APPLY_STATE", target: "target", state_name: "出血", value: 2 } },
       { id: "ef_win_buff", label: "勝利時: selfに猛攻バフ", desc: "WINで自分に動的buff_nameを付与。", seed: { timing: "WIN", type: "APPLY_BUFF", target: "self", buff_name: "猛攻_Atk3", lasting: 1 } },
       { id: "ef_win_shindou", label: "勝利時: targetに震盪2スタック(3R)", desc: "WINでtargetへ震盪付与。extra_jsonに data.count=2 を自動設定。", seed: { timing: "WIN", type: "APPLY_BUFF", target: "target", buff_name: "震盪", lasting: 3, delay: 0, _extra_json: { data: { count: 2 } } } },
+      { id: "ef_consume_gyoma_gain", label: "使用時: 凝魔3消費でMP+5", desc: "CONSUME_BUFF_COUNT_FOR_GAIN。extra_json に consume_required/gains を設定。", seed: { timing: "PRE_MATCH", type: "CONSUME_BUFF_COUNT_FOR_GAIN", target: "self", buff_name: "凝魔", _extra_json: { consume_required: 3, gains: [{ type: "MP", value: 5 }] } } },
+      { id: "ef_consume_gyoma_power", label: "使用時: 凝魔最大5消費で最終威力+", desc: "CONSUME_BUFF_COUNT_FOR_POWER。extra_json に consume_max/value_per_stack/apply_to/min_consume を設定。", seed: { timing: "PRE_MATCH", type: "CONSUME_BUFF_COUNT_FOR_POWER", target: "self", buff_name: "凝魔", _extra_json: { consume_max: 5, value_per_stack: 1, apply_to: "final", min_consume: 1 } } },
       { id: "ef_pre_power", label: "マッチ前: 最終威力 +2", desc: "MODIFY_FINAL_POWERは PRE_MATCH/BEFORE_POWER_ROLL 推奨。", seed: { timing: "PRE_MATCH", type: "MODIFY_FINAL_POWER", target: "self", value: 2 } },
       { id: "ef_pern_rupture", label: "判定前: 出血3ごとに破裂+1", desc: "APPLY_STATE_PER_Nの典型。source/source_param/per_Nが必須。", seed: { timing: "BEFORE_POWER_ROLL", type: "APPLY_STATE_PER_N", target: "target", source: "target", source_param: "出血", per_N: 3, state_name: "破裂", value: 1 } },
       { id: "ef_damage_bonus", label: "命中時: ダメージ固定 +5", desc: "DAMAGE_BONUS の単純加算例。", seed: { timing: "HIT", type: "DAMAGE_BONUS", target: "target", value: 5 } }
@@ -500,6 +502,22 @@
         requiredAny: [["buff_id", "buff_name"]],
         optional: ["lasting", "delay", "target", "condition", "extra_json(data,flavor)"],
         unused: ["source", "source_param", "per_N", "state_name", "skill_id", "summon_template_id", "value"]
+      },
+      CONSUME_BUFF_COUNT_FOR_GAIN: {
+        meaning: "指定したバフスタックを消費できるときだけ、gainsの追加効果を適用します。",
+        value_kind: "none",
+        value_help: "通常未使用。consume_required / gains は extra_json で指定",
+        required: ["buff_name"],
+        optional: ["target", "condition", "extra_json(consume_required,gains)"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "skill_id", "lasting", "delay", "summon_template_id", "value"]
+      },
+      CONSUME_BUFF_COUNT_FOR_POWER: {
+        meaning: "指定したバフスタックを消費できるぶんだけ、威力補正を生成します。",
+        value_kind: "none",
+        value_help: "通常未使用。consume_max / value_per_stack / apply_to / min_consume は extra_json で指定",
+        required: ["buff_name"],
+        optional: ["target", "condition", "extra_json(consume_max,value_per_stack,apply_to,min_consume)"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "skill_id", "lasting", "delay", "summon_template_id", "value"]
       },
       GRANT_SKILL: {
         meaning: "target に skill_id のスキルを一時付与します。",

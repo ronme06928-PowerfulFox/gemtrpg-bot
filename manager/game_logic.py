@@ -210,6 +210,60 @@ def _canonical_team(value):
     return text
 
 
+def _normalize_buff_name_for_condition(name):
+    raw = str(name or "").strip()
+    if not raw:
+        return raw
+    mod = _utils_module()
+    fn = getattr(mod, "normalize_buff_name", None) if mod else None
+    if callable(fn):
+        try:
+            return str(fn(raw) or "").strip()
+        except Exception:
+            pass
+    return raw
+
+
+def _safe_int_for_condition(value, default=0):
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _resolve_buff_count_for_condition(source_obj, buff_name):
+    if not isinstance(source_obj, dict):
+        return 0
+    target_name = _normalize_buff_name_for_condition(buff_name)
+    if not target_name:
+        return 0
+
+    total = 0
+    buffs = source_obj.get("special_buffs", [])
+    if not isinstance(buffs, list):
+        return 0
+
+    for buff in buffs:
+        if not isinstance(buff, dict):
+            continue
+        if _safe_int_for_condition(buff.get("delay", 0), 0) > 0:
+            continue
+        row_name = _normalize_buff_name_for_condition(buff.get("name"))
+        if row_name != target_name:
+            continue
+        if buff.get("count") is not None:
+            total += max(0, _safe_int_for_condition(buff.get("count"), 0))
+            continue
+        data = buff.get("data")
+        if isinstance(data, dict) and data.get("count") is not None:
+            total += max(0, _safe_int_for_condition(data.get("count"), 0))
+            continue
+        # count未保持バフも「存在1」として扱えるようにする
+        total += 1
+
+    return total
+
+
 def _get_value_for_condition(source_obj, param_name, context=None, actor=None, target=None, source_type=None):
     if source_type == "relation":
         actor_team = _canonical_team((actor or {}).get("type"))
@@ -224,6 +278,15 @@ def _get_value_for_condition(source_obj, param_name, context=None, actor=None, t
             return target_is_enemy
         return None
     if not source_obj: return None
+
+    normalized_param_name = str(param_name or "").strip()
+    if normalized_param_name:
+        if normalized_param_name.lower().startswith("buff_count:"):
+            buff_name = normalized_param_name.split(":", 1)[1].strip()
+            return _resolve_buff_count_for_condition(source_obj, buff_name)
+        if normalized_param_name.endswith("_count") and len(normalized_param_name) > len("_count"):
+            buff_name = normalized_param_name[:-len("_count")]
+            return _resolve_buff_count_for_condition(source_obj, buff_name)
 
     if param_name == "tags": return source_obj.get("tags", [])
 
@@ -670,6 +733,115 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             }
         ))
 
+    def _normalize_buff_name_local(name):
+        mod = _utils_module()
+        fn = getattr(mod, "normalize_buff_name", None) if mod else None
+        if callable(fn):
+            try:
+                return fn(name)
+            except Exception:
+                pass
+        return str(name or "").strip()
+
+    def _resolve_buff_count_local(buff_row, default=0):
+        if not isinstance(buff_row, dict):
+            return max(0, int(default or 0))
+        try:
+            if buff_row.get("count") is not None:
+                return max(0, int(buff_row.get("count") or 0))
+        except Exception:
+            pass
+        data = buff_row.get("data")
+        if isinstance(data, dict):
+            try:
+                if data.get("count") is not None:
+                    return max(0, int(data.get("count") or 0))
+            except Exception:
+                pass
+        return max(0, int(default or 0))
+
+    def _find_sim_buff(sim_char, buff_name):
+        if not isinstance(sim_char, dict):
+            return None
+        buff_name_n = _normalize_buff_name_local(buff_name)
+        buffs = sim_char.get("special_buffs", [])
+        if not isinstance(buffs, list):
+            return None
+        for row in buffs:
+            if not isinstance(row, dict):
+                continue
+            if _normalize_buff_name_local(row.get("name")) == buff_name_n:
+                return row
+        return None
+
+    def _set_sim_buff_count(sim_char, buff_name, new_count):
+        if not isinstance(sim_char, dict):
+            return
+        buff_name_n = _normalize_buff_name_local(buff_name)
+        buffs = sim_char.get("special_buffs", [])
+        if not isinstance(buffs, list):
+            return
+        updated = []
+        replaced = False
+        for row in buffs:
+            if not isinstance(row, dict):
+                continue
+            if _normalize_buff_name_local(row.get("name")) != buff_name_n:
+                updated.append(row)
+                continue
+            if replaced:
+                continue
+            if int(new_count or 0) > 0:
+                cloned = dict(row)
+                cloned["count"] = int(new_count)
+                data = dict(cloned.get("data") or {})
+                data["count"] = int(new_count)
+                cloned["data"] = data
+                updated.append(cloned)
+                replaced = True
+        sim_char["special_buffs"] = updated
+
+    def _queue_remaining_buff(target_obj, sim_bucket, buff_name, remaining):
+        changes_to_apply.append((target_obj, "REMOVE_BUFF", buff_name, 0))
+        if remaining <= 0:
+            return
+
+        preserved_data = {}
+        preserved_lasting = -1
+        preserved_delay = 0
+        explicit_lasting = False
+        if isinstance(sim_bucket, dict):
+            preserved_data = dict(sim_bucket.get("data") or {})
+            try:
+                preserved_lasting = int(sim_bucket.get("lasting", -1))
+            except (TypeError, ValueError):
+                preserved_lasting = -1
+            try:
+                preserved_delay = int(sim_bucket.get("delay", 0))
+            except (TypeError, ValueError):
+                preserved_delay = 0
+            explicit_lasting = ("lasting" in sim_bucket)
+            if sim_bucket.get("buff_id") and "buff_id" not in preserved_data:
+                preserved_data["buff_id"] = sim_bucket.get("buff_id")
+            if sim_bucket.get("description") and "description" not in preserved_data:
+                preserved_data["description"] = sim_bucket.get("description")
+            if sim_bucket.get("flavor") and "flavor" not in preserved_data:
+                preserved_data["flavor"] = sim_bucket.get("flavor")
+
+        preserved_data["count"] = remaining
+        changes_to_apply.append((
+            target_obj,
+            "APPLY_BUFF",
+            buff_name,
+            {
+                "lasting": preserved_lasting,
+                "delay": preserved_delay,
+                "count": remaining,
+                "data": preserved_data,
+                "explicit_lasting": explicit_lasting,
+            }
+        ))
+
     for effect in effects_array:
         if effect.get("timing") != timing_to_check: continue
 
@@ -1030,8 +1202,159 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     if "flavor" in effect:
                         effect_data["flavor"] = effect["flavor"]
 
-                    changes_to_apply.append((target_obj, "APPLY_BUFF", buff_name, {"lasting": int(effect.get("lasting", 1)), "delay": int(effect.get("delay", 0)), "data": effect_data}))
+                    default_lasting = -1 if _normalize_buff_name_local(buff_name) in {"凝魔", "蓄力"} else 1
+                    raw_lasting = effect.get("lasting", default_lasting)
+                    try:
+                        parsed_lasting = int(raw_lasting)
+                    except (TypeError, ValueError):
+                        parsed_lasting = default_lasting
+                    try:
+                        parsed_delay = int(effect.get("delay", 0))
+                    except (TypeError, ValueError):
+                        parsed_delay = 0
+                    buff_payload = {
+                        "lasting": parsed_lasting,
+                        "delay": parsed_delay,
+                        "data": effect_data,
+                        "explicit_lasting": ("lasting" in effect),
+                    }
+                    if "count" in effect:
+                        try:
+                            parsed_count = int(effect.get("count"))
+                        except (TypeError, ValueError):
+                            parsed_count = 0
+                        if parsed_count > 0:
+                            buff_payload["count"] = parsed_count
+                            if isinstance(effect_data, dict) and "count" not in effect_data:
+                                effect_data["count"] = parsed_count
+                    changes_to_apply.append((target_obj, "APPLY_BUFF", buff_name, buff_payload))
                     log_snippets.append(f"[{buff_name} 付与]")
+            elif effect_type == "CONSUME_BUFF_COUNT_FOR_GAIN":
+                buff_name = effect.get("buff_name")
+                if not buff_name:
+                    continue
+                try:
+                    consume_required = int(effect.get("consume_required", 0))
+                except (TypeError, ValueError):
+                    consume_required = 0
+                if consume_required <= 0:
+                    continue
+
+                sim_bucket = _find_sim_buff(sim_target, buff_name)
+                current_count = _resolve_buff_count_local(sim_bucket, default=0)
+                if current_count < consume_required:
+                    log_snippets.append(f"[{buff_name}不足 {current_count}/{consume_required}]")
+                    continue
+
+                remaining = current_count - consume_required
+                _set_sim_buff_count(sim_target, buff_name, remaining)
+                _queue_remaining_buff(target_obj, sim_bucket, buff_name, remaining)
+
+                gains = effect.get("gains", [])
+                if isinstance(gains, dict):
+                    gains = [gains]
+                gain_count = 0
+                if isinstance(gains, list):
+                    for gain in gains:
+                        if not isinstance(gain, dict):
+                            continue
+                        gain_type = str(gain.get("type", "")).strip().upper()
+                        if gain_type in {"FP", "MP", "HP"}:
+                            try:
+                                gain_value = int(gain.get("value", 0))
+                            except (TypeError, ValueError):
+                                gain_value = 0
+                            if gain_value == 0:
+                                continue
+                            current_val = _stable_get_status_value(sim_target, gain_type)
+                            _stable_set_status_value(sim_target, gain_type, current_val + gain_value)
+                            changes_to_apply.append((target_obj, "APPLY_STATE", gain_type, gain_value))
+                            gain_count += 1
+                        elif gain_type in {"BUFF", "APPLY_BUFF"}:
+                            gain_buff_name = gain.get("buff_name")
+                            if not gain_buff_name:
+                                continue
+                            try:
+                                gain_lasting = int(gain.get("lasting", 1))
+                            except (TypeError, ValueError):
+                                gain_lasting = 1
+                            try:
+                                gain_delay = int(gain.get("delay", 0))
+                            except (TypeError, ValueError):
+                                gain_delay = 0
+                            gain_data = gain.get("data")
+                            if gain_data is None:
+                                gain_data = {}
+                            elif isinstance(gain_data, dict):
+                                gain_data = dict(gain_data)
+                            else:
+                                continue
+                            gain_payload = {
+                                "lasting": gain_lasting,
+                                "delay": gain_delay,
+                                "data": gain_data,
+                                "explicit_lasting": ("lasting" in gain),
+                            }
+                            if "count" in gain:
+                                try:
+                                    gain_payload["count"] = int(gain.get("count"))
+                                except (TypeError, ValueError):
+                                    pass
+                            changes_to_apply.append((target_obj, "APPLY_BUFF", gain_buff_name, gain_payload))
+                            gain_count += 1
+
+                log_snippets.append(f"[{buff_name} {consume_required}消費]")
+                if gain_count > 0:
+                    log_snippets.append(f"[追加効果 {gain_count}件]")
+            elif effect_type == "CONSUME_BUFF_COUNT_FOR_POWER":
+                buff_name = effect.get("buff_name")
+                if not buff_name:
+                    continue
+
+                try:
+                    consume_max = int(effect.get("consume_max", 0))
+                except (TypeError, ValueError):
+                    consume_max = 0
+                if consume_max <= 0:
+                    continue
+
+                try:
+                    value_per_stack = int(effect.get("value_per_stack", 1))
+                except (TypeError, ValueError):
+                    value_per_stack = 1
+                if value_per_stack == 0:
+                    continue
+
+                try:
+                    min_consume = int(effect.get("min_consume", 1))
+                except (TypeError, ValueError):
+                    min_consume = 1
+                if min_consume < 1:
+                    min_consume = 1
+
+                apply_to = str(effect.get("apply_to", "final") or "final").strip().lower()
+                if apply_to not in {"base", "final"}:
+                    apply_to = "final"
+
+                sim_bucket = _find_sim_buff(sim_target, buff_name)
+                current_count = _resolve_buff_count_local(sim_bucket, default=0)
+                consume_amount = min(current_count, consume_max)
+                if consume_amount < min_consume:
+                    log_snippets.append(f"[{buff_name}不足 {current_count}/{min_consume}]")
+                    continue
+
+                remaining = current_count - consume_amount
+                _set_sim_buff_count(sim_target, buff_name, remaining)
+                _queue_remaining_buff(target_obj, sim_bucket, buff_name, remaining)
+
+                power_delta = consume_amount * value_per_stack
+                if power_delta != 0:
+                    change_type = "MODIFY_BASE_POWER" if apply_to == "base" else "MODIFY_FINAL_POWER"
+                    changes_to_apply.append((target_obj, change_type, None, power_delta))
+                    bonus_label = "基礎威力" if apply_to == "base" else "最終威力"
+                    log_snippets.append(f"[{buff_name} {consume_amount}消費 -> {bonus_label}{power_delta:+}]")
+                else:
+                    log_snippets.append(f"[{buff_name} {consume_amount}消費]")
             elif effect_type == "GRANT_SKILL":
                 grant_skill_id = str(effect.get("skill_id", effect.get("grant_skill_id", "")) or "").strip()
                 if not grant_skill_id:
@@ -1779,7 +2102,7 @@ def process_on_death(room, char, username):
                     current = get_status_value(c, name)
                     _update_char_stat(room, c, name, current + value, username=f"[{char['name']}:遺言]")
                 elif type == "APPLY_BUFF":
-                    apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
+                    apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
                     broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
                 elif type == "SUMMON_CHARACTER":
                     from manager.summons.service import apply_summon_change
@@ -1858,7 +2181,7 @@ def process_battle_start(room, char):
                     current = get_status_value(c, name)
                     _update_char_stat(room, c, name, current + value, username=f"[{buff_name}]")
                 elif type == "APPLY_BUFF":
-                     apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"))
+                     apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
                      broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
                 elif type == "SUMMON_CHARACTER":
                      from manager.summons.service import apply_summon_change

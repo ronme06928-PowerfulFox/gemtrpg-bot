@@ -760,7 +760,7 @@ def _apply_effect_changes_like_duel(
         elif effect_type == "SET_STATUS":
             _update_char_stat(room, char, name, int(value), username=f"[{name}]")
         elif effect_type == "APPLY_BUFF":
-            apply_buff(char, name, value.get("lasting", 0), value.get("delay", 0), data=value.get("data"))
+            apply_buff(char, name, value.get("lasting", 0), value.get("delay", 0), data=value.get("data"), count=value.get("count"))
             log_snippets.append(f"[{name}] が {char.get('name', char.get('id', ''))} に付与されました。")
         elif effect_type == "REMOVE_BUFF":
             remove_buff(char, name)

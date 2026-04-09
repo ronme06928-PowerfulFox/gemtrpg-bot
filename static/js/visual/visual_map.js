@@ -29,6 +29,53 @@ function normalizeStateName(name) {
     return STATUS_NAME_ALIASES[key] || key;
 }
 
+const RESOURCE_BUFF_DESCRIPTIONS = {
+    '凝魔': '特定のスキル効果によって獲得する。残り回数を消費し、一部スキルの追加効果を適用することができる。',
+    '蓄力': '特定のスキル効果によって獲得する。残り回数を消費し、一部スキルの追加効果を適用することができる。',
+};
+
+function normalizeBuffName(name) {
+    return String(name || '').trim();
+}
+
+function resolveBuffCount(buff) {
+    if (!buff || typeof buff !== 'object') return 0;
+    const topLevel = Number.parseInt(buff.count, 10);
+    if (Number.isFinite(topLevel)) return Math.max(0, topLevel);
+    const dataLevel = Number.parseInt(buff?.data?.count, 10);
+    if (Number.isFinite(dataLevel)) return Math.max(0, dataLevel);
+    return 0;
+}
+
+function collectSpecialResourceBuffBadges(char) {
+    const result = [];
+    const buffs = Array.isArray(char?.special_buffs) ? char.special_buffs : [];
+    if (!buffs.length) return result;
+
+    const totals = {};
+    buffs.forEach((buff) => {
+        const name = normalizeBuffName(buff?.name);
+        if (name !== '凝魔' && name !== '蓄力') return;
+        const delay = Number.parseInt(buff?.delay, 10);
+        if (Number.isFinite(delay) && delay > 0) return;
+        const count = resolveBuffCount(buff);
+        if (count <= 0) return;
+        totals[name] = (totals[name] || 0) + count;
+    });
+
+    Object.keys(totals).forEach((name) => {
+        const value = Number.parseInt(totals[name], 10);
+        if (!Number.isFinite(value) || value <= 0) return;
+        result.push({
+            name,
+            value,
+            description: RESOURCE_BUFF_DESCRIPTIONS[name] || '',
+        });
+    });
+
+    return result;
+}
+
 /**
  * Main Map Rendering Function
  * Handles background updates and token rendering (differential update).
@@ -1187,14 +1234,26 @@ window.showFloatingText = function (token, diff, stat, source = null) {
  */
 window.generateMapTokenBadgesHTML = function (char) {
     let iconsHtml = '';
-    if (char.states) {
+    if (char.states || char.special_buffs) {
         let badgeCount = 0;
         const badgesPerRow = 3;
 
-        char.states.forEach(s => {
+        const badgeEntries = [];
+        (Array.isArray(char.states) ? char.states : []).forEach(s => {
             const normalizedName = normalizeStateName(s.name);
             if (['HP', 'MP', 'FP'].includes(normalizedName)) return;
             if (s.value === 0) return;
+            badgeEntries.push({ name: normalizedName, value: s.value, description: '' });
+        });
+
+        collectSpecialResourceBuffBadges(char).forEach((row) => {
+            badgeEntries.push(row);
+        });
+
+        badgeEntries.forEach((s) => {
+            const normalizedName = normalizeStateName(s.name);
+            const safeValue = Number.parseInt(s.value, 10);
+            if (!Number.isFinite(safeValue) || safeValue === 0) return;
 
             const config = STATUS_CONFIG[normalizedName];
             const row = Math.floor(badgeCount / badgesPerRow);
@@ -1216,20 +1275,23 @@ window.generateMapTokenBadgesHTML = function (char) {
                 color: white; font-size: 12px; font-weight: bold;
                 padding: 0 3px; border-radius: 44px; border: 1px solid white;
             `;
+            const titleText = s.description
+                ? `${normalizedName}: ${safeValue}\n${s.description}`
+                : `${normalizedName}: ${safeValue}`;
 
             if (config) {
                 iconsHtml += `
-                    <div class="status-badge" style="${badgeStyle} border-color: ${config.borderColor};" title="${normalizedName}: ${s.value}">
+                    <div class="status-badge" style="${badgeStyle} border-color: ${config.borderColor};" title="${titleText}">
                         <img src="images/${config.icon}" loading="lazy" style="width:100%; height:100%; border-radius:50%;">
-                        <div style="${countStyle}">${s.value}</div>
+                        <div style="${countStyle}">${safeValue}</div>
                     </div>`;
             } else {
-                const arrow = s.value > 0 ? '▲' : '▼';
-                const color = s.value > 0 ? '#28a745' : '#dc3545';
+                const arrow = safeValue > 0 ? '▲' : '▼';
+                const color = safeValue > 0 ? '#28a745' : '#dc3545';
                 iconsHtml += `
-                    <div class="status-badge" style="${badgeStyle} color:${color}; border-color:${color}; font-weight:bold; background:#fff; font-size:20px;" title="${normalizedName}: ${s.value}">
+                    <div class="status-badge" style="${badgeStyle} color:${color}; border-color:${color}; font-weight:bold; background:#fff; font-size:20px;" title="${titleText}">
                         ${arrow}
-                        <div style="${countStyle}">${s.value}</div>
+                        <div style="${countStyle}">${safeValue}</div>
                     </div>`;
             }
             badgeCount++;
@@ -1498,18 +1560,29 @@ window.selectVisualToken = function (charId) {
  * Generate Status Icons (Used by Duel Panel as well)
  */
 window.generateStatusIconsHTML = function (char) {
-    if (!char.states) return '';
+    if (!char.states && !char.special_buffs) return '';
     let iconsHtml = '';
-    char.states.forEach(s => {
+    const iconEntries = [];
+    (Array.isArray(char.states) ? char.states : []).forEach(s => {
         const normalizedName = normalizeStateName(s.name);
         if (['HP', 'MP', 'FP'].includes(normalizedName)) return;
         if (s.value === 0) return;
+        iconEntries.push({ name: normalizedName, value: s.value });
+    });
+    collectSpecialResourceBuffBadges(char).forEach((row) => {
+        iconEntries.push(row);
+    });
+
+    iconEntries.forEach((s) => {
+        const normalizedName = normalizeStateName(s.name);
+        const safeValue = Number.parseInt(s.value, 10);
+        if (!Number.isFinite(safeValue) || safeValue === 0) return;
         const config = STATUS_CONFIG[normalizedName];
         if (config) {
             iconsHtml += `
                 <div class="duel-status-icon">
                     <img src="images/${config.icon}" alt="${normalizedName}">
-                    <div class="duel-status-badge" style="background-color: ${config.color};">${s.value}</div>
+                    <div class="duel-status-badge" style="background-color: ${config.color};">${safeValue}</div>
                 </div>`;
         }
     });

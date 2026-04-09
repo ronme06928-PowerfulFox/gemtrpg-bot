@@ -129,7 +129,7 @@
 - `consume=true` のルールは受け手（target）側バフを消費する。
 - `Bu-29` の再付与は専用挙動:
   - `count` は加算スタックされる（`count` 省略時は +1）。
-  - `lasting` は `max(既存, 新規)` を維持する。
+  - `lasting` は更新されず、最初に付与された値を維持する。
 
 ---
 
@@ -242,3 +242,23 @@
 - `defense vs evade` は `fizzle`（不発）として処理し、スキルは未使用扱い・FPも付与しない。
 - `evade vs evade` も `fizzle`（不発）として処理し、スキルは未使用扱い・FPも付与しない。
 - 上記不発ではコストを消費せず、`RESOLVE_START` / 使用時 / `PRE_MATCH` / `RESOLVE_END` も発動しないが、行動回数だけは消費する。
+
+---
+
+## 11. 2026-04 追補: 凝魔・蓄力の処理仕様
+
+### 11.1 付与
+- `APPLY_BUFF` で `buff_name = 凝魔 / 蓄力` を付与した場合、同名スタックへ加算する。
+- `lasting` 未指定時は `-1`（無期限）を既定値として扱う。
+
+### 11.2 消費effect
+- `CONSUME_BUFF_COUNT_FOR_GAIN`:
+  - `consume_required` を満たす時だけ消費と `gains` を適用。
+  - 不足時は不発（消費なし・獲得なし）。
+- `CONSUME_BUFF_COUNT_FOR_POWER`:
+  - 実消費量 `min(current_count, consume_max)` を算出。
+  - 実消費量が `min_consume` 未満なら不発。
+  - `value_per_stack` と `apply_to(base/final)` で威力補正を生成。
+
+### 11.3 condition参照
+- `check_condition` は `param` に `<バフ名>_count` / `buff_count:<バフ名>` を受理する。

@@ -131,7 +131,7 @@ def apply_skill_effects_bidirectional(
                 if consumed > 0:
                     broadcast_log(room, f"[出血遷延] {char['name']} の維持効果を1消費 (残{remaining})", 'state-change')
             elif type_ == "APPLY_BUFF":
-                apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+                apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
                 broadcast_log(room, f"[{name}] が {char['name']} に付与されました。", 'state-change')
             elif type_ == "REMOVE_BUFF":
                 remove_buff(char, name)

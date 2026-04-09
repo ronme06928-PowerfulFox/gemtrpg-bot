@@ -267,6 +267,11 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
     マッチ解決前の PRE_MATCH 効果を適用する。
     """
     if not skill_data or not actor: return
+    state = get_room_state(room)
+    # Select/Resolve delegated clash already applies PRE_MATCH before preview.
+    # Skip legacy PRE_MATCH here to avoid duplicate application.
+    if isinstance(state, dict) and state.get('__select_resolve_delegate__', False):
+        return
 
     # 直近に使用したスキルID（ログ表示用）
     skill_id = None
@@ -278,7 +283,6 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
         effects_array = rule_data.get("effects", []) if isinstance(rule_data, dict) else []
 
         # Room state for context
-        state = get_room_state(room)
         context = {
             "characters": state['characters'],
             "timeline": state.get('timeline', [])

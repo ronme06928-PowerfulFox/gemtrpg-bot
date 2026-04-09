@@ -14,7 +14,9 @@ window.STATUS_CONFIG = {
     '破裂': { icon: 'rupture.png', color: '#28a745', borderColor: '#00ff00' },
     '亀裂': { icon: 'fissure.png', color: '#007bff', borderColor: '#0000ff' },
     '戦慄': { icon: 'fear.png', color: '#17a2b8', borderColor: '#00ffff' },
-    '荊棘': { icon: 'thorns.png', color: '#155724', borderColor: '#0f0' }
+    '荊棘': { icon: 'thorns.png', color: '#155724', borderColor: '#0f0' },
+    '凝魔': { icon: 'gyoma.png', color: '#6f42c1', borderColor: '#8b5cf6' },
+    '蓄力': { icon: 'chikuryoku.png', color: '#fd7e14', borderColor: '#ff922b' }
 };
 
 // --- ヘルパー: 広域スキル判定 ---

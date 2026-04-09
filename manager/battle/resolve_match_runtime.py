@@ -313,6 +313,30 @@ def _resolve_clash_by_existing_logic(
         room=room,
         state=state,
         characters_by_id=characters_by_id,
+        timing='PRE_MATCH',
+        actor_char=attacker_char,
+        target_char=defender_char,
+        skill_data=attacker_skill_data,
+        target_skill_data=defender_skill_data,
+        base_damage=0,
+        emit_source='select_resolve_pre_match'
+    )
+    _trigger_skill_timing_effects(
+        room=room,
+        state=state,
+        characters_by_id=characters_by_id,
+        timing='PRE_MATCH',
+        actor_char=defender_char,
+        target_char=attacker_char,
+        skill_data=defender_skill_data,
+        target_skill_data=attacker_skill_data,
+        base_damage=0,
+        emit_source='select_resolve_pre_match'
+    )
+    _trigger_skill_timing_effects(
+        room=room,
+        state=state,
+        characters_by_id=characters_by_id,
         timing='BEFORE_POWER_ROLL',
         actor_char=attacker_char,
         target_char=defender_char,

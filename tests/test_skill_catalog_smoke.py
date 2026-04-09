@@ -25,6 +25,8 @@ SUPPORTED_EFFECT_TYPES = {
     "APPLY_STATE_PER_N",
     "MULTIPLY_STATE",
     "APPLY_BUFF",
+    "CONSUME_BUFF_COUNT_FOR_GAIN",
+    "CONSUME_BUFF_COUNT_FOR_POWER",
     "GRANT_SKILL",
     "REMOVE_BUFF",
     "DAMAGE_BONUS",
@@ -94,6 +96,8 @@ SIGNAL_EXPECTED_TYPES = {
     "APPLY_STATE_PER_N",
     "MULTIPLY_STATE",
     "APPLY_BUFF",
+    "CONSUME_BUFF_COUNT_FOR_GAIN",
+    "CONSUME_BUFF_COUNT_FOR_POWER",
     "GRANT_SKILL",
     "REMOVE_BUFF",
     "DAMAGE_BONUS",
@@ -363,6 +367,24 @@ def _prime_effect_for_signal(effect, actor, target):
     if effect_type == "DRAIN_HP":
         _set_char_status(actor, "HP", 60)
         _set_char_status(target, "HP", 80)
+
+    if effect_type == "CONSUME_BUFF_COUNT_FOR_GAIN":
+        buff_name = str(effect.get("buff_name", "")).strip()
+        consume_required = int(effect.get("consume_required", 1) or 1)
+        if buff_name:
+            actor.setdefault("special_buffs", []).append(
+                {"name": buff_name, "count": max(1, consume_required), "delay": 0, "lasting": -1}
+            )
+
+    if effect_type == "CONSUME_BUFF_COUNT_FOR_POWER":
+        buff_name = str(effect.get("buff_name", "")).strip()
+        consume_max = int(effect.get("consume_max", 1) or 1)
+        min_consume = int(effect.get("min_consume", 1) or 1)
+        seed_count = max(1, min_consume, consume_max)
+        if buff_name:
+            actor.setdefault("special_buffs", []).append(
+                {"name": buff_name, "count": seed_count, "delay": 0, "lasting": -1}
+            )
 
 
 def _effect_emits_expected_signal(effect, bonus_damage, logs, changes):

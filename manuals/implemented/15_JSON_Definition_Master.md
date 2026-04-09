@@ -531,4 +531,29 @@ pytest -q tests/test_skill_target_tags.py
 - `consume: true` を指定した場合、増量適用時に受け手側の震盪バフが消費される。
 - `Bu-29` を再付与した場合:
   - `count` は加算される（`data.count` 省略時は +1）。
-  - `lasting` は `max(既存, 新規)` が採用される。
+  - `lasting` は更新されず、最初に付与された継続ラウンドを維持する。
+
+---
+
+## 19. 2026-04 追補: 凝魔・蓄力と消費系effect
+
+### 19.1 特殊バフ（凝魔 / 蓄力）
+- `凝魔` と `蓄力` は、通常バフとは別に「スタックをリソースとして使う」用途を持つ。
+- 既定は永続扱い（`lasting` 未指定時は内部で `-1` 扱い）。
+- 付与は `APPLY_BUFF` を使い、スタック値は `count`（または `data.count`）で指定する。
+- 表示上は状態異常アイコンと同様にキャラ駒上へ表示される。
+
+### 19.2 新effect: `CONSUME_BUFF_COUNT_FOR_GAIN`
+- 目的: 指定スタックを消費できる時だけ、追加獲得効果を実行する。
+- 必須キー: `buff_name`, `consume_required`, `gains`
+- `consume_required > 所持スタック` の場合は不発（消費・獲得ともに行わない）。
+
+### 19.3 新effect: `CONSUME_BUFF_COUNT_FOR_POWER`
+- 必須キー: `buff_name`, `consume_max`, `value_per_stack`
+- 任意キー: `apply_to` (`base` / `final`), `min_consume`
+- 実消費量 `< min_consume` の場合は不発（消費・補正ともに行わない）。
+
+### 19.4 `condition.param` の特殊バフカウント参照
+- `<バフ名>_count`（例: `蓄力_count`）
+- `buff_count:<バフ名>`（例: `buff_count:凝魔`）
+- 判定対象は `special_buffs` の有効行（`delay <= 0`）。

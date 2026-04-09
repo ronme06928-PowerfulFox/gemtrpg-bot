@@ -118,3 +118,10 @@ GM権限でログインすると、プレイヤー画面にはない管理用コ
 ### 3) 権限・安全性
 - プリセット保存/読込/削除/搬出入はサーバー側でも GM 権限が必須です。
 - v1旧形式プリセットは読込時に正規化され、v2形式として扱われます。
+
+### 2.2 JSON定義ビルダー追補: 凝魔・蓄力 消費effect
+
+- Effects Type に `CONSUME_BUFF_COUNT_FOR_GAIN` / `CONSUME_BUFF_COUNT_FOR_POWER` を追加。
+- クイックテンプレに「凝魔3消費でMP+5」「凝魔最大5消費で最終威力上昇」を追加。
+- `condition.param` ガイドに `蓄力_count` / `凝魔_count` / `buff_count:凝魔` を追記。
+- 追加キー（`consume_required`, `gains`, `consume_max`, `value_per_stack`, `apply_to`, `min_consume`）は `extra_json` で入力する。

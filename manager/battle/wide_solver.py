@@ -343,7 +343,7 @@ def execute_wide_match(room, username):
                 curr = get_status_value(char, name)
                 _update_char_stat(room, char, name, curr + value, username=f"[{attacker_skill_id}]")
             elif type == "APPLY_BUFF":
-                apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"))
+                apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
                 broadcast_log(room, f"[{name}] applied to {char['name']}", "state-change")
             elif type == "REMOVE_BUFF":
                 remove_buff(char, name)
