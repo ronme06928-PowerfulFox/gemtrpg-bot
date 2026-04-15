@@ -25,8 +25,8 @@
         <!-- ★ タイムライン（右上に配置） ★ -->
         <div id="visual-timeline-area">
             <div class="sidebar-header">
-                <span>TimeLine</span>
-                <span style="font-size: 0.9em; font-weight: normal;">Round: <span id="visual-round-counter"
+                <span>タイムライン</span>
+                <span style="font-size: 0.9em; font-weight: normal;">ラウンド: <span id="visual-round-counter"
                         style="font-weight: bold;">0</span></span>
                 <span class="timeline-toggle-icon">▼</span>
             </div>
@@ -93,6 +93,8 @@
                 style="padding: 5px; font-size: 0.8em; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; background: #fff;">保存</button>
             <button id="visual-preset-btn"
                 style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #17a2b8; color: white; border: none; border-radius: 3px;">プリセット</button>
+            <button id="visual-bo-btn"
+                style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #0ea5e9; color: white; border: none; border-radius: 3px;">戦闘専用</button>
             <button id="visual-reset-btn"
                 style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 3px;">リセット</button>
 
@@ -102,13 +104,13 @@
             <div class="log-header"
                 style="padding: 5px; background: #eee; border-bottom: 1px solid #ddd; display: flex; gap: 5px;">
                 <button class="filter-btn active" data-target="visual-log" data-filter="all"
-                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">All</button>
+                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">すべて</button>
                 <button class="filter-btn" data-target="visual-log" data-filter="chat"
-                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">Chat</button>
+                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">会話</button>
                 <button class="filter-btn" data-target="visual-log" data-filter="system"
-                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">Sys</button>
+                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">システム</button>
                 <button id="visual-show-history-btn" class="filter-btn"
-                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; background-color: #6c757d; color: white;">History</button>
+                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; background-color: #6c757d; color: white;">履歴</button>
             </div>
 
             <div id="visual-log-area" class="battle-log"
@@ -119,7 +121,7 @@
                 <input type="text" id="visual-chat-input" placeholder="チャットまたは /roll コマンド"
                     style="flex: 1; border: none; padding: 8px;">
                 <button id="visual-chat-send"
-                    style="border: none; background: #007bff; color: white; padding: 0 15px; cursor: pointer; font-weight: bold;">Send</button>
+                    style="border: none; background: #007bff; color: white; padding: 0 15px; cursor: pointer; font-weight: bold;">送信</button>
             </div>
         </div>
 
@@ -133,7 +135,7 @@
 <!-- ★ Match Panel (Fixed on Right Side) ★ -->
 <div id="match-panel" class="match-panel collapsed">
     <div class="panel-header">
-        <h3>Duel Phase</h3>
+        <h3>決闘フェーズ</h3>
         <div class="panel-header-buttons">
             <button id="panel-reload-btn" class="panel-reload-btn" title="状態を再同期">🔄</button>
             <button id="panel-toggle-btn" class="panel-toggle-btn" title="パネルを開閉">▶</button>
@@ -188,11 +190,11 @@
             <!-- Attacker Section -->
             <div class="duel-card-wrapper">
                 <div class="duel-side attacker" id="duel-side-attacker">
-                    <h4 class="side-title">Attacker (攻)</h4>
-                    <div class="duel-char-name clickable-name" id="duel-attacker-name">Character A</div>
+                    <h4 class="side-title">攻撃側（攻）</h4>
+                    <div class="duel-char-name clickable-name" id="duel-attacker-name">キャラクターA</div>
                     <div id="duel-attacker-stats" class="duel-char-stats"></div>
                     <div class="duel-form-group">
-                        <label>Skill:</label>
+                        <label>スキル:</label>
                         <select id="duel-attacker-skill" class="duel-select"></select>
                     </div>
                     <div class="duel-control-btns">
@@ -210,18 +212,18 @@
 
             <div class="duel-center-info">
                 <div class="duel-vs">VS</div>
-                <div id="duel-status-message" class="duel-status">Setup Phase</div>
+                <div id="duel-status-message" class="duel-status">準備フェーズ</div>
             </div>
 
             <!-- Defender Section -->
             <div class="duel-card-wrapper">
                 <div class="duel-side defender" id="duel-side-defender">
-                    <h4 class="side-title">Defender (防)</h4>
-                    <div class="duel-char-name clickable-name" id="duel-defender-name">Character B</div>
+                    <h4 class="side-title">防御側（防）</h4>
+                    <div class="duel-char-name clickable-name" id="duel-defender-name">キャラクターB</div>
                     <div id="duel-defender-stats" class="duel-char-stats"></div>
                     <div id="duel-defender-controls">
                         <div class="duel-form-group">
-                            <label>Skill:</label>
+                            <label>スキル:</label>
                             <select id="duel-defender-skill" class="duel-select"></select>
                         </div>
                         <div class="duel-control-btns">

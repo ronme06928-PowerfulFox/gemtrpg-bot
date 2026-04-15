@@ -27,7 +27,6 @@ BONUS_SELECTABLE_ORIGINS = {1, 2, 12}
 
 ORIGIN_FLODIAS = 14
 ORIGIN_GRAND_LITTERAL_BLANC = 11
-ORIGIN_SERVER_LUMINOUS = 15
 ORIGIN_ALTOMAGIA = 16
 ORIGIN_EMRIDA = 17
 
@@ -36,7 +35,6 @@ COLORATION_BUFF_NAME = "色彩"
 
 ORIGIN_BONUS_BUFFS.update({
     ORIGIN_FLODIAS: {"buff_id": "Bu-26", "name": "活力の行き重なる落合"},
-    ORIGIN_SERVER_LUMINOUS: {"buff_id": "Bu-25", "name": "二値を絡め取る電網"},
     ORIGIN_ALTOMAGIA: {"buff_id": "Bu-23", "name": "狭霧に息づく神秘"},
     ORIGIN_EMRIDA: {"buff_id": "Bu-27", "name": "盛夏と共鳴る高揚"},
 })

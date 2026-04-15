@@ -11,6 +11,9 @@
     };
 
     const DEFAULT_DICE_SOURCES = [
+        '/static/audio/dice-roll.mp3'
+    ];
+    const LEGACY_DEFAULT_DICE_SOURCES = new Set([
         '/audio/dice-roll.mp3',
         '/audio/dice-roll.ogg',
         '/audio/dice-roll.wav',
@@ -23,7 +26,7 @@
         'static/audio/dice-roll.mp3',
         'static/audio/dice-roll.ogg',
         'static/audio/dice-roll.wav'
-    ];
+    ]);
 
     const MIN_INTERVAL_MS = 90;
     const MAX_TRACKED_LOG_KEYS = 2500;
@@ -46,6 +49,7 @@
     let enabled = loadBool(STORAGE_KEYS.enabled, true);
     let volume = clamp(loadNumber(STORAGE_KEYS.volume, 0.55), 0, 1);
     let diceSources = normalizeSourceList(loadArray(STORAGE_KEYS.diceSources, DEFAULT_DICE_SOURCES));
+    persist(STORAGE_KEYS.diceSources, JSON.stringify(diceSources));
 
     function loadBool(key, fallback) {
         try {
@@ -101,7 +105,10 @@
             seen.add(s);
             out.push(s);
         });
-        return out.length > 0 ? out : DEFAULT_DICE_SOURCES.slice();
+        if (out.length <= 0) return DEFAULT_DICE_SOURCES.slice();
+        const isLegacyOnly = out.every((src) => LEGACY_DEFAULT_DICE_SOURCES.has(src));
+        if (isLegacyOnly) return DEFAULT_DICE_SOURCES.slice();
+        return out;
     }
 
     function attachUnlockListeners() {

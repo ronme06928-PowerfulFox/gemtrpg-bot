@@ -1051,6 +1051,11 @@ function updateTokenVisuals(token, char) {
         nameLabel.textContent = char.name;
     }
 
+    const tokenStyle = resolveTokenStyle(char);
+    token.classList.remove('PC', 'Enemy', 'NPC');
+    token.classList.add(tokenStyle.className);
+    token.style.border = `4px solid ${tokenStyle.borderColor}`;
+
     token.style.filter = 'none';
 }
 
@@ -1300,27 +1305,40 @@ window.generateMapTokenBadgesHTML = function (char) {
     return iconsHtml;
 }
 
+function resolveTokenSide(char) {
+    const row = (char && typeof char === 'object') ? char : {};
+    const candidates = [row.type, row.team, row.side, row.faction];
+    for (const raw of candidates) {
+        const key = String(raw || '').trim().toLowerCase();
+        if (!key) continue;
+        if (['ally', 'allies', 'player', 'friend', 'friends', 'pc'].includes(key)) return 'ally';
+        if (['enemy', 'enemies', 'foe', 'opponent', 'npc', 'mob'].includes(key)) return 'enemy';
+    }
+    if (row.is_ally === true) return 'ally';
+    if (row.is_enemy === true) return 'enemy';
+
+    const name = String(row.name || '').trim();
+    if (name.includes('味方')) return 'ally';
+    if (name.includes('敵')) return 'enemy';
+    return '';
+}
+
+function resolveTokenStyle(char) {
+    const side = resolveTokenSide(char);
+    if (side === 'ally') return { className: 'PC', borderColor: '#007bff' };
+    if (side === 'enemy') return { className: 'Enemy', borderColor: '#dc3545' };
+    const color = String((char && char.color) || '').trim();
+    if (color) return { className: 'NPC', borderColor: color };
+    return { className: 'NPC', borderColor: '#999' };
+}
+
 /**
  * Creates the DOM element for a map token
  */
 window.createMapToken = function (char) {
     const token = document.createElement('div');
-
-    let colorClass = 'NPC';
-    let borderColor = '#999';
-
-    if (char.name && char.name.includes('味方')) {
-        colorClass = 'PC';
-        borderColor = '#007bff';
-    } else if (char.name && char.name.includes('敵')) {
-        colorClass = 'Enemy';
-        borderColor = '#dc3545';
-    } else if (char.color) {
-        colorClass = char.color;
-        borderColor = char.color;
-    }
-
-    token.className = `map-token ${colorClass}`;
+    const tokenStyle = resolveTokenStyle(char);
+    token.className = `map-token ${tokenStyle.className}`;
     token.dataset.id = char.id;
 
     const tokenScale = char.tokenScale || 1.0;
@@ -1330,7 +1348,7 @@ window.createMapToken = function (char) {
     token.style.width = `${scaledSize}px`;
     token.style.height = `${scaledSize}px`;
     token.style.borderRadius = "18px 18px 0 0";
-    token.style.border = `4px solid ${borderColor}`;
+    token.style.border = `4px solid ${tokenStyle.borderColor}`;
     token.style.boxShadow = "0 4px 8px rgba(0,0,0,0.4)";
     token.style.overflow = "visible";
     token.style.left = `${char.x * GRID_SIZE + TOKEN_OFFSET}px`;

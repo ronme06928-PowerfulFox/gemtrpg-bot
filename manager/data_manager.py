@@ -197,9 +197,16 @@ def read_saved_rooms_with_owners():
         rooms = Room.query.all()
         rooms_list = []
         for r in rooms:
+            state = r.data if isinstance(r.data, dict) else {}
+            play_mode = str(state.get('play_mode', 'normal') or 'normal').strip().lower()
+            if play_mode not in ('normal', 'battle_only'):
+                play_mode = 'normal'
+
             rooms_list.append({
                 'name': r.name,
-                'owner_id': r.owner_id
+                'owner_id': r.owner_id,
+                'play_mode': play_mode,
+                'battle_only_stage_id': None,
             })
         return rooms_list
     except Exception as e:

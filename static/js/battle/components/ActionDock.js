@@ -81,7 +81,9 @@ class ActionDock {
             );
         }
 
-        const show = mode === 'battle' && phase === 'select' && isGM;
+        // 解決開始はサーバー側で ready 判定されるため、
+        // 表示は GM 限定にせず、select フェーズ中の参加者全員に許可する。
+        const show = mode === 'battle' && phase === 'select';
         let panel = document.getElementById(this._dockPanelId);
 
         if (!show) {

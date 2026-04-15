@@ -16,6 +16,7 @@ PASSIVES_CACHE_FILE = CACHE_DIR / "passives_cache.json"
 BUFF_CATALOG_CACHE_FILE = CACHE_DIR / "buff_catalog_cache.json"
 GLOSSARY_CACHE_FILE = CACHE_DIR / "glossary_catalog_cache.json"
 SUMMON_TEMPLATES_CACHE_FILE = CACHE_DIR / "summon_templates_cache.json"
+BATTLE_ONLY_PRESETS_CACHE_FILE = CACHE_DIR / "battle_only_presets_cache.json"
 
 LEGACY_SKILLS_CACHE_FILE = REPO_ROOT / "skills_cache.json"
 LEGACY_ITEMS_CACHE_FILE = REPO_ROOT / "items_cache.json"
@@ -24,6 +25,7 @@ LEGACY_PASSIVES_CACHE_FILE = REPO_ROOT / "passives_cache.json"
 LEGACY_BUFF_CATALOG_CACHE_FILE = REPO_ROOT / "buff_catalog_cache.json"
 LEGACY_GLOSSARY_CACHE_FILE = REPO_ROOT / "glossary_catalog_cache.json"
 LEGACY_SUMMON_TEMPLATES_CACHE_FILE = REPO_ROOT / "summon_templates_cache.json"
+LEGACY_BATTLE_ONLY_PRESETS_CACHE_FILE = REPO_ROOT / "battle_only_presets_cache.json"
 
 
 def ensure_cache_dir() -> None:

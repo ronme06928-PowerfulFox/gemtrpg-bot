@@ -464,6 +464,46 @@ def test_case5_single_target_unplaced_becomes_fizzle(monkeypatch):
     assert any(t["kind"] == "fizzle" and t.get("notes") == "target_unplaced" for t in trace)
 
 
+def test_case5b_single_attacker_dead_mid_resolve_becomes_fizzle(monkeypatch):
+    _, battle_core = _mods()
+    attacker_a = _make_actor("A1", "ally")
+    attacker_b = _make_actor("B1", "enemy")
+    target_c = _make_actor("C1", "ally")
+    state = _base_state([attacker_a, attacker_b, target_c])
+    _add_slot(state, "A_slot", "A1", "ally", 12, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 10, 0)
+    _add_slot(state, "C_slot", "C1", "ally", 8, 0)
+    _set_intent(state, "A_slot", "A1", "atk_a", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "atk_b", "single_slot", "C_slot")
+    _set_intent(state, "C_slot", "C1", "idle", "none", None, committed=False)
+    state["battle_state"]["phase"] = "resolve_single"
+
+    _patch_room_and_socket(monkeypatch, state)
+    one_sided_calls = []
+
+    def _stub_one_sided(**kwargs):
+        attacker_char = kwargs["attacker_char"]
+        defender_char = kwargs["defender_char"]
+        one_sided_calls.append((attacker_char.get("id"), defender_char.get("id")))
+        if attacker_char.get("id") == "A1":
+            defender_char["hp"] = 0
+            return {"ok": True, "summary": {"damage": [], "statuses": [], "cost": {"mp": 0, "hp": 0, "fp": 0}, "logs": [], "rolls": {}}}
+        raise AssertionError("dead attacker slot should not execute one-sided resolve")
+
+    monkeypatch.setattr(battle_core, "_resolve_one_sided_by_existing_logic", _stub_one_sided)
+
+    battle_core.run_select_resolve_auto("room_t", "battle_test")
+
+    assert one_sided_calls == [("A1", "B1")]
+    trace = state["battle_state"]["resolve"]["trace"]
+    assert any(
+        t["kind"] == "fizzle"
+        and t.get("attacker_slot") == "B_slot"
+        and t.get("notes") == "attacker_unplaced"
+        for t in trace
+    )
+
+
 def test_case6_evade_insert_promotes_one_sided_to_clash(monkeypatch):
     battle_common, battle_core = _mods()
     state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])

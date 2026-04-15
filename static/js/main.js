@@ -125,6 +125,12 @@ function showEntryPortal() {
 }
 
 async function showRoomPortal() {
+    if (typeof window.removeBattleOnlyCenterCta === 'function') {
+        try { window.removeBattleOnlyCenterCta(); } catch (_e) {}
+    }
+    if (typeof window.__boQuickStartCleanup === 'function') {
+        try { window.__boQuickStartCleanup(); } catch (_e) {}
+    }
     entryPortal.style.display = 'none';
     mainAppContainer.style.display = 'none';
     roomPortal.style.display = 'block';
@@ -134,7 +140,7 @@ async function showRoomPortal() {
         const response = await fetchWithSession('/list_rooms');
         if (!response.ok) throw new Error('サーバーからルーム一覧を取得できませんでした。');
         const data = await response.json();
-        // data: { rooms: [{name, owner_id}, ...], current_user_id, is_gm }
+        // data: { rooms: [{name, owner_id, play_mode, battle_only_stage_id}, ...], current_user_id, is_gm }
         renderRoomPortal(data.rooms, data.current_user_id, data.is_gm);
     } catch (error) {
         console.error('Error fetching room list:', error);
@@ -168,25 +174,40 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
         </div>
         <div class="room-controls">
             <input type="text" id="room-search-input" placeholder="ルームを検索...">
-            <button id="refresh-room-list-btn" title="ルーム一覧を更新" style="background-color: #007bff; color: white;">更新</button>
+            <button id="refresh-room-list-btn" title="ルーム一覧を更新">更新</button>
             <button id="create-room-btn">＋ 新規ルーム作成</button>
+            <button id="create-battle-only-room-btn">戦闘専用ルーム作成</button>
         </div>
         <div id="room-list-container">
             <h3>既存のルーム</h3>
             <ul id="room-list" class="room-list"></ul>
             <p id="room-list-empty" style="display: none;">該当するルームはありません。</p>
         </div>
+        <button id="open-bo-preset-portal-btn" class="portal-floating-bo-btn">
+            戦闘専用設定
+        </button>
     `;
 
     const roomList = document.getElementById('room-list');
     const searchInput = document.getElementById('room-search-input');
     const createBtn = document.getElementById('create-room-btn');
+    const createBattleOnlyBtn = document.getElementById('create-battle-only-room-btn');
     const refreshBtn = document.getElementById('refresh-room-list-btn');
     const emptyMsg = document.getElementById('room-list-empty');
     const settingsBtn = document.getElementById('portal-user-settings-btn');
+    const boPresetPortalBtn = document.getElementById('open-bo-preset-portal-btn');
 
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => openUserSettingsModal(true));
+    }
+    if (boPresetPortalBtn) {
+        boPresetPortalBtn.addEventListener('click', () => {
+            if (typeof openBattleOnlyCatalogModal === 'function') {
+                openBattleOnlyCatalogModal({ room: null, fromLobby: true });
+            } else {
+                alert('戦闘専用設定画面を読み込めませんでした。');
+            }
+        });
     }
 
     // ★追加: ユーザー管理ボタンのイベントリスナー
@@ -208,31 +229,56 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
         });
     }
 
+    function escapeRoomText(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (ch) => (
+            {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;',
+            }[ch]
+        ));
+    }
+
     function populateList(filter = '') {
         roomList.innerHTML = '';
         let count = 0;
         const normalizedFilter = filter.toLowerCase();
 
         rooms.forEach(roomInfo => {
-            const name = roomInfo.name;
+            const name = String(roomInfo.name || '');
             const ownerId = roomInfo.owner_id;
             if (name.toLowerCase().includes(normalizedFilter)) {
                 const li = document.createElement('li');
                 li.className = 'room-list-item';
 
+                const isBattleOnly = String(roomInfo.play_mode || 'normal').toLowerCase() === 'battle_only';
+                const modeBadge = isBattleOnly
+                    ? '<span class="room-mode-badge battle-only">戦闘専用</span>'
+                    : '<span class="room-mode-badge normal">通常</span>';
+
                 // 削除ボタン: オーナーまたはGMのみ表示
                 const canDelete = (ownerId === currentUserId) || isGm;
                 const deleteBtn = canDelete
-                    ? `<button class="room-delete-btn" data-room-name="${name}">削除</button>`
+                    ? '<button class="room-delete-btn">削除</button>'
                     : '';
 
                 li.innerHTML = `
-                    <span>${name}</span>
+                    <div class="room-list-main">
+                        <span class="room-list-name">${escapeRoomText(name)}</span>
+                        <div class="room-list-meta">${modeBadge}</div>
+                    </div>
                     <div class="room-list-buttons">
-                        <button class="room-join-btn" data-room-name="${name}">参加</button>
+                        <button class="room-join-btn">参加</button>
                         ${deleteBtn}
                     </div>
                 `;
+                const joinBtn = li.querySelector('.room-join-btn');
+                if (joinBtn) joinBtn.dataset.roomName = name;
+                const deleteBtnEl = li.querySelector('.room-delete-btn');
+                if (deleteBtnEl) deleteBtnEl.dataset.roomName = name;
+
                 roomList.appendChild(li);
                 count++;
             }
@@ -243,6 +289,9 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
 
     searchInput.addEventListener('input', (e) => populateList(e.target.value));
     createBtn.addEventListener('click', createNewRoom);
+    if (createBattleOnlyBtn) {
+        createBattleOnlyBtn.addEventListener('click', createBattleOnlyRoom);
+    }
     roomList.addEventListener('click', (e) => {
         const target = e.target;
         const roomName = target.dataset.roomName;
@@ -256,28 +305,46 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
 }
 
 async function createNewRoom() {
-    const roomName = prompt('作成する新しいルーム名を入力してください:');
+    await createRoomByMode('normal');
+}
+
+async function createBattleOnlyRoom() {
+    await createRoomByMode('battle_only');
+}
+
+async function createRoomByMode(playMode) {
+    const isBattleOnly = playMode === 'battle_only';
+    const roomName = prompt(isBattleOnly
+        ? '戦闘専用ルーム名を入力してください'
+        : 'ルーム名を入力してください'
+    );
     if (!roomName || roomName.trim() === '') {
-        alert('ルーム名が入力されていません。');
+        alert('ルーム名は必須です。');
         return;
     }
+
+    const payload = { room_name: roomName.trim() };
+    if (isBattleOnly) {
+        payload.play_mode = 'battle_only';
+    }
+
     try {
         const response = await fetchWithSession('/create_room', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ room_name: roomName })
+            body: JSON.stringify(payload)
         });
         const result = await response.json();
         if (response.status === 201) {
-            joinRoom(roomName, result.state);
+            joinRoom(payload.room_name, result.state);
         } else if (response.status === 409) {
-            alert(`エラー: ルーム名「${roomName}」は既に使用されています。`);
+            alert(`エラー: ルーム名「${payload.room_name}」は既に使用されています。`);
         } else {
-            throw new Error(result.error || '登録に失敗しました');
+            throw new Error(result.error || 'ルームの作成に失敗しました');
         }
     } catch (error) {
         console.error('Error creating room:', error);
-        alert(`ルームの作成に失敗しました: ${error.message}`);
+        alert(`ルーム作成に失敗しました: ${error.message}`);
     }
 }
 

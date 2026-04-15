@@ -35,6 +35,14 @@ from manager.utils import apply_buff, get_status_value, set_status_value # For d
 logger = setup_logger(__name__)
 
 
+def _is_battle_only_mode(room):
+    state = get_room_state(room)
+    if not isinstance(state, dict):
+        return False
+    play_mode = str(state.get('play_mode') or 'normal').strip().lower()
+    return play_mode == 'battle_only'
+
+
 def _log_battle_recv(event_name, data=None, phase=None):
     data = data or {}
     sid = getattr(request, 'sid', None)
@@ -122,12 +130,22 @@ def on_request_end_round(data):
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
+    is_battle_only = _is_battle_only_mode(room)
 
-    if attribute != 'GM':
+    if attribute != 'GM' and not is_battle_only:
         print(f"[Security] Player {username} tried to end round. Denied.")
         return
 
     process_full_round_end(room, username)
+    if not is_battle_only:
+        return
+
+    state = get_room_state(room)
+    if not isinstance(state, dict):
+        return
+    if not state.get('is_round_ended', False):
+        return
+    process_round_start(room, "戦闘専用モード")
 
 @socketio.on('request_reset_battle')
 def on_request_reset_battle(data):
@@ -137,6 +155,13 @@ def on_request_reset_battle(data):
     options = data.get('options') # get dictionary or None
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+    is_battle_only = _is_battle_only_mode(room)
+
+    if attribute != 'GM' and not is_battle_only:
+        print(f"[Security] Player {username} tried to reset battle. Denied.")
+        return
+
     reset_battle_logic(room, mode, username, options)
 
 @socketio.on('request_force_end_match')

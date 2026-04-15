@@ -19,15 +19,18 @@ class BurstEffect(BaseEffect):
 
         damage = current_burst
         new_burst_val = int(current_burst * ratio)
+        changes = []
+        logs = [f"《破裂爆発》 {damage}ダメージ！"]
 
         # ★追加: 破裂威力減少無効バフチェック
         # バフがある場合は破裂値を減らさない（更新処理をスキップ）
         if BurstNoConsumeBuff.has_burst_no_consume(target):
-            pass
+            logs.append("[破裂威力減少無効] 破裂は消費されない")
         else:
             # バフがない場合のみ更新
             set_status_value(target, "破裂", new_burst_val)
+            # 実適用フェーズでも同じ最終値になるよう、SET_STATUSを返す。
+            changes.append((target, "SET_STATUS", "破裂", new_burst_val))
 
-        changes = [(target, "CUSTOM_DAMAGE", "破裂爆発", damage)]
-        logs = [f"《破裂爆発》 {damage}ダメージ！"]
+        changes.append((target, "CUSTOM_DAMAGE", "破裂爆発", damage))
         return changes, logs

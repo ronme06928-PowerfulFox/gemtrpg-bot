@@ -440,6 +440,13 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                 queue_index += 1
                 continue
 
+            attacker_actor_id = slots.get(slot_id, {}).get('actor_id')
+            if not attacker_actor_id or not _is_actor_placed(state, attacker_actor_id):
+                _emit_fizzle_with_log(slot_id, 'attacker_unplaced', target_actor_id=attacker_actor_id)
+                _mark_processed(slot_id, cancelled_without_use=True)
+                queue_index += 1
+                continue
+
             attacker_is_contested_loser = slot_id in contested_losers
 
             intent_a = intents.get(slot_id, {})
@@ -510,7 +517,6 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                     clash_defender_slot = evade_slot
 
             if is_clash:
-                attacker_actor_id = slots.get(slot_id, {}).get('actor_id')
                 defender_actor_id = slots.get(clash_defender_slot, {}).get('actor_id') if clash_defender_slot else target_actor_id
                 attacker_char = characters_by_id.get(attacker_actor_id)
                 defender_char = characters_by_id.get(defender_actor_id)
@@ -867,7 +873,6 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                 _mark_processed(slot_id)
                 _mark_processed(clash_defender_slot)
             else:
-                attacker_actor_id = slots.get(slot_id, {}).get('actor_id')
                 attacker_char = characters_by_id.get(attacker_actor_id)
                 defender_char = characters_by_id.get(target_actor_id)
                 intent_b = intents.get(target_slot, {}) if target_slot else {}
@@ -1082,5 +1087,31 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
         if payload:
             _log_battle_emit('battle_state_updated', room, battle_id, payload)
             socketio.emit('battle_state_updated', payload, to=room)
+        _try_auto_advance_battle_only_round(room, state)
+
+
+def _try_auto_advance_battle_only_round(room, state):
+    if not isinstance(state, dict):
+        return
+    play_mode = str(state.get('play_mode') or 'normal').strip().lower()
+    if play_mode != 'battle_only':
+        return
+    bo = state.get('battle_only') if isinstance(state.get('battle_only'), dict) else {}
+    bo_status = str(bo.get('status') or '').strip().lower()
+    if bo_status and bo_status != 'in_battle':
+        return
+    if state.get('is_round_ended', False):
+        return
+
+    from manager.battle.common_manager import process_full_round_end, process_round_start
+
+    actor = '戦闘専用モード'
+    process_full_round_end(room, actor)
+    refreshed = get_room_state(room)
+    if not isinstance(refreshed, dict):
+        return
+    if not refreshed.get('is_round_ended', False):
+        return
+    process_round_start(room, actor)
 
 

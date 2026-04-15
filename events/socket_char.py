@@ -688,7 +688,8 @@ def _reset_behavior_runtime_after_enemy_reload(state):
     battle_state['behavior_runtime'] = {}
 
 
-# === ▼▼▼エネミープリセット機能 ▼▼▼ ===
+
+# 戦闘専用モードのSocketイベントは events/socket_battle_only.py に分離。
 @socketio.on('request_save_preset')
 def handle_save_preset(data):
     room = data.get('room')
@@ -902,3 +903,4 @@ def handle_import_preset_json(data):
     presets[preset_name] = copy.deepcopy(normalized_payload)
     save_specific_room_state(room)
     socketio.emit('preset_imported', {"name": preset_name}, to=request.sid)
+

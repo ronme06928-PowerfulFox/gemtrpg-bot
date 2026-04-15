@@ -41,6 +41,7 @@ from manager.utils import session_required
 # これをインポートすることで、@socketio.on デコレータが登録されます
 import events.socket_main
 import events.socket_char
+import events.socket_battle_only
 import events.battle # Refactored battle events
 import events.socket_wide_calculate
 
@@ -220,14 +221,27 @@ def load_room():
 @session_required
 def create_room():
     data = request.json
-    room_name = data.get('room_name')
-    if not room_name: return jsonify({"error": "No name"}), 400
+    room_name = str(data.get('room_name') or '').strip()
+    if not room_name:
+        return jsonify({"error": "No name"}), 400
 
     # DBに存在するかチェック
     if Room.query.filter_by(name=room_name).first():
         return jsonify({"error": "Room exists"}), 409
 
-    new_state = { "characters": [], "timeline": [], "round": 0, "logs": [] }
+    play_mode = str(data.get('play_mode') or 'normal').strip().lower()
+    if play_mode not in ('normal', 'battle_only'):
+        play_mode = 'normal'
+
+    new_state = {
+        "characters": [],
+        "timeline": [],
+        "round": 0,
+        "logs": [],
+        "play_mode": play_mode,
+    }
+    if play_mode == 'battle_only':
+        new_state["battle_only"] = {"status": "lobby", "ally_entries": [], "enemy_entries": []}
     active_room_states[room_name] = new_state
 
     # ▼▼▼ 修正: Room作成時に owner_id を保存 ▼▼▼
@@ -237,7 +251,8 @@ def create_room():
     db.session.commit()
     # ▲▲▲ 修正ここまで ▲▲▲
 
-    return jsonify({"message": "Created", "state": new_state}), 201
+    normalized_state = get_room_state(room_name)
+    return jsonify({"message": "Created", "state": normalized_state}), 201
 
 @app.route('/api/admin/users', methods=['GET'])
 @session_required

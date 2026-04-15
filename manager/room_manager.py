@@ -1,4 +1,5 @@
 ﻿# manager/room_manager.py
+import copy
 import time
 
 from extensions import socketio, active_room_states, user_sids
@@ -18,6 +19,47 @@ except Exception:
         return 0
 
 logger = setup_logger(__name__)
+
+
+def _default_battle_only_state():
+    return {
+        "status": "lobby",
+        "ally_entries": [],
+        "enemy_entries": [],
+        "records": [],
+        "active_record_id": None,
+    }
+
+def _ensure_battle_only_defaults(state):
+    if not isinstance(state, dict):
+        return
+
+    play_mode = str(state.get('play_mode', 'normal') or 'normal').strip().lower()
+    if play_mode not in ('normal', 'battle_only'):
+        play_mode = 'normal'
+    state['play_mode'] = play_mode
+
+    bo_default = _default_battle_only_state()
+    battle_only = state.get('battle_only')
+    if not isinstance(battle_only, dict):
+        battle_only = {}
+        state['battle_only'] = battle_only
+
+    for k, v in bo_default.items():
+        if k not in battle_only:
+            battle_only[k] = copy.deepcopy(v) if isinstance(v, (dict, list)) else v
+
+    battle_only['status'] = str(battle_only.get('status', 'lobby') or 'lobby').strip().lower()
+    if battle_only['status'] not in ('lobby', 'draft', 'in_battle'):
+        battle_only['status'] = 'lobby'
+
+    if not isinstance(battle_only.get('ally_entries'), list):
+        battle_only['ally_entries'] = []
+    if not isinstance(battle_only.get('enemy_entries'), list):
+        battle_only['enemy_entries'] = []
+    if not isinstance(battle_only.get('records'), list):
+        battle_only['records'] = []
+
 
 def _normalize_log_text(text):
     return str(text or "")
@@ -201,6 +243,8 @@ def get_room_state(room_name):
         state['battle_state'] = {}
     if '_log_seq' not in state:
         state['_log_seq'] = len(state.get('logs', []))
+
+    _ensure_battle_only_defaults(state)
 
 
     try:

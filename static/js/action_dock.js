@@ -126,8 +126,10 @@ function updateActionDock() {
     // Battle Mode Logic
     const rStartBtn = document.getElementById('visual-round-start-btn');
     const rEndBtn = document.getElementById('visual-round-end-btn');
-    if (rStartBtn) rStartBtn.style.display = isGMUser ? 'inline-block' : 'none';
-    if (rEndBtn) rEndBtn.style.display = isGMUser ? 'inline-block' : 'none';
+    const isBattleOnlyMode = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
+    const canShowRoundButtons = isGMUser && !isBattleOnlyMode;
+    if (rStartBtn) rStartBtn.style.display = canShowRoundButtons ? 'inline-block' : 'none';
+    if (rEndBtn) rEndBtn.style.display = canShowRoundButtons ? 'inline-block' : 'none';
 
     // Reset to Battle Dock (if switching back)
     const dock = document.getElementById('action-dock');
@@ -152,7 +154,7 @@ function updateActionDock() {
 
         // ★ Explorationから戻った場合にラウンドボタン表示を復帰させる
         // GMの場合のみ表示する (setupVisualSidebarControlsのロジックと同様)
-        if (isGMUser) {
+        if (canShowRoundButtons) {
             const rStartBtn = document.getElementById('visual-round-start-btn');
             const rEndBtn = document.getElementById('visual-round-end-btn');
             if (rStartBtn) rStartBtn.style.display = 'inline-block';
@@ -469,6 +471,12 @@ function createImmediateCharRow(char) {
     row.appendChild(executeBtn);
 
     return row;
+}
+
+function logDockMissingElement(message) {
+    if (typeof window !== 'undefined' && window.BATTLE_DEBUG_VERBOSE) {
+        console.warn(message);
+    }
 }
 
 function isCurrentUserGM() {
@@ -1444,7 +1452,7 @@ function initializeActionDock() {
         };
 
     } else {
-        console.warn('dock-immediate-icon not found in DOM');
+        logDockMissingElement('dock-immediate-icon not found in DOM');
     }
 
     if (quickEditIcon) {
@@ -1466,7 +1474,7 @@ function initializeActionDock() {
             console.warn("openCharLoadModal is not defined.");
         }
     } else {
-        console.warn('dock-add-char-icon not found in DOM');
+        logDockMissingElement('dock-add-char-icon not found in DOM');
     }
 
     if (stagingIcon) {
@@ -1476,7 +1484,7 @@ function initializeActionDock() {
         };
 
     } else {
-        console.warn('dock-staging-icon not found in DOM');
+        logDockMissingElement('dock-staging-icon not found in DOM');
     }
 
     if (matchIcon) {
@@ -1502,7 +1510,7 @@ function initializeActionDock() {
         };
 
     } else {
-        console.warn('dock-match-icon not found in DOM');
+        logDockMissingElement('dock-match-icon not found in DOM');
     }
 
     // ★ Phase 5: アイテムアイコン
@@ -1515,7 +1523,7 @@ function initializeActionDock() {
             }
         };
     } else {
-        console.warn('dock-item-icon not found in DOM');
+        logDockMissingElement('dock-item-icon not found in DOM');
     }
 
     if (glossaryIcon) {

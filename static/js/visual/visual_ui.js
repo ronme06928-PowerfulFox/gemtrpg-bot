@@ -263,7 +263,7 @@ window.appendVisualLogBatch = function (logs) {
         const metaEffects = Array.isArray(meta.effects) ? meta.effects : [];
         metaEffects.forEach((e) => {
             if (!e || typeof e !== 'object') return;
-            const label = String(e.label || '').trim() || 'Effect';
+            const label = String(e.label || '').trim() || '効果';
             const text = String(e.text || '').trim();
             if (!text) return;
             effects.push({ label, text });
@@ -271,11 +271,11 @@ window.appendVisualLogBatch = function (logs) {
 
         if (effects.length <= 0) {
             [
-                ['Cost', 'cost'],
-                ['Activation', 'activation_cost'],
-                ['Effect', 'effect'],
-                ['Trigger', 'activation_effect'],
-                ['Special', 'special']
+                ['コスト', 'cost'],
+                ['発動条件', 'activation_cost'],
+                ['効果', 'effect'],
+                ['発動時効果', 'activation_effect'],
+                ['特殊', 'special']
             ].forEach(([label, key]) => {
                 const text = String(fallback[key] || '').trim();
                 if (!text) return;
@@ -329,7 +329,7 @@ window.appendVisualLogBatch = function (logs) {
         if (meta.attribute) chips.push(`<span class="resolve-trace-chip">${_escapeResolveLogHtml(meta.attribute)}</span>`);
         const effects = Array.isArray(meta.effects) ? meta.effects : [];
         const effectsHtml = effects.length > 0
-            ? effects.map((e) => `<li><strong>${_escapeResolveLogHtml(e.label || 'Effect')}</strong>: ${formatGlossaryText(e.text || '')}</li>`).join('')
+            ? effects.map((e) => `<li><strong>${_escapeResolveLogHtml(e.label || '効果')}</strong>: ${formatGlossaryText(e.text || '')}</li>`).join('')
             : '<li>効果説明なし</li>';
 
         return `
@@ -358,7 +358,7 @@ window.appendVisualLogBatch = function (logs) {
                 <div class="resolve-trace-side-meta">
                     <span class="resolve-trace-chip strong">合計威力: ${_escapeResolveLogHtml(String(power.final))}</span>
                     <span class="resolve-trace-chip">SPD: ${_escapeResolveLogHtml(Number.isFinite(spd) ? String(spd) : '-')}</span>
-                    ${Number.isFinite(slotIndex) ? `<span class="resolve-trace-chip">Slot: #${slotIndex + 1}</span>` : ''}
+                    ${Number.isFinite(slotIndex) ? `<span class="resolve-trace-chip">スロット: #${slotIndex + 1}</span>` : ''}
                 </div>
                 <div class="resolve-trace-side-command">${_escapeResolveLogHtml(side?.command || '-')}</div>
                 <div class="resolve-trace-side-power-main">${_escapeResolveLogHtml(power.line1)}</div>
@@ -465,8 +465,9 @@ window.setupVisualSidebarControls = function () {
         return attrNorm === 'GM' || roleNorm === 'GM' || (typeof user === 'string' && /\(GM\)/i.test(user));
     };
     const isGM = resolveIsGM();
+    const isBattleOnlyForRoundControls = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
 
-    if (isGM) {
+    if (isGM && !isBattleOnlyForRoundControls) {
         if (startRBtn) {
             startRBtn.style.display = 'inline-block';
             startRBtn.onclick = () => {
@@ -479,6 +480,9 @@ window.setupVisualSidebarControls = function () {
                 if (confirm("ラウンドを終了しますか？")) socket.emit('request_end_round', { room: currentRoomName });
             };
         }
+    } else {
+        if (startRBtn) startRBtn.style.display = 'none';
+        if (endRBtn) endRBtn.style.display = 'none';
     }
 
     const chatInput = document.getElementById('visual-chat-input');
@@ -545,61 +549,162 @@ window.setupVisualSidebarControls = function () {
 
     const saveBtn = document.getElementById('visual-save-btn');
     const presetBtn = document.getElementById('visual-preset-btn');
+    const boBtn = document.getElementById('visual-bo-btn');
     const resetBtn = document.getElementById('visual-reset-btn');
     const statusMsg = document.getElementById('visual-status-msg');
+    const isBattleOnlyMode = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
+    const canUseResetInRoom = isGM || isBattleOnlyMode;
+    const centerCtaId = 'visual-bo-center-cta';
+    const runtimeGlobal = (typeof window !== 'undefined') ? window : globalThis;
 
-    // 笘・霑ｽ蜉: 繧｢繧ｯ繧ｷ繝ｧ繝ｳ繧ｨ繝ｪ繧｢縺ｫ繝懊ち繝ｳ繧定ｿｽ蜉 (DOM逕滓・縺ｧ)
+    // 追加ボタンを表示できるよう、ルーム操作エリアのレイアウトを拡張
     const actionContainer = document.getElementById('visual-room-actions');
     if (actionContainer && !document.getElementById('visual-pve-btn')) {
-        // Grid隱ｿ謨ｴ (譌｢蟄・ 1fr 1fr -> 2蛻励〒謚倥ｊ霑斐☆蠖｢縺ｫ縺吶ｋ縺九’lex縺ｫ縺吶ｋ縺・
+        // 2カラム固定から折り返し可能なflexレイアウトに変更
         actionContainer.style.display = 'flex';
         actionContainer.style.flexWrap = 'wrap';
         actionContainer.style.gap = '5px';
 
         actionContainer.style.gap = '5px';
 
-        // PvE繝｢繝ｼ繝牙・譖ｿ (GM縺ｮ縺ｿ)
+        // PvE/PvP切替はGMのみ表示
         if (isGM) {
             const pveBtn = document.createElement('button');
             pveBtn.id = 'visual-pve-btn';
 
             const updateBtnText = () => {
-                const mode = (battleState && battleState.battle_mode) ? battleState.battle_mode : 'pvp';
-                pveBtn.textContent = (mode === 'pve') ? 'Mode: PvE' : 'Mode: PvP';
+                const boMode = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
+                const mode = boMode ? 'pve' : ((battleState && battleState.battle_mode) ? battleState.battle_mode : 'pvp');
+                pveBtn.textContent = boMode
+                    ? '戦闘モード: PvE（固定）'
+                    : ((mode === 'pve') ? '戦闘モード: PvE' : '戦闘モード: PvP');
                 pveBtn.style.background = (mode === 'pve') ? '#28a745' : '#6c757d'; // Green for PvE, Gray for PvP
                 pveBtn.style.color = 'white';
+                pveBtn.disabled = boMode;
+                pveBtn.style.opacity = boMode ? '0.75' : '1';
+                pveBtn.style.cursor = boMode ? 'not-allowed' : 'pointer';
             };
 
-            // 蛻晏屓譖ｴ譁ｰ蠕・ｩ・
+            // 初期表示を遅延反映
             setTimeout(updateBtnText, 500);
-            // 迥ｶ諷区峩譁ｰ譎ゅ↓繝懊ち繝ｳ繝・く繧ｹ繝医ｂ螟峨∴縺溘＞縺後√％縺薙〒縺ｮ逋ｻ骭ｲ縺ｯ繧ｯ繝ｪ繝・け繧､繝吶Φ繝医・縺ｿ
-            // 迥ｶ諷区峩譁ｰ繧､繝吶Φ繝医Μ繧ｹ繝翫・縺ｯ蛻･騾泌ｿ・ｦ√□縺後∫ｰ｡譏鍋噪縺ｫ繧ｯ繝ｪ繝・け譎ゅ↓繝医げ繝ｫ縺吶ｋ
-            // 笘・悽蠖薙・Vue.js繧Сeact繧剃ｽｿ縺・◆縺・ｴ謇縺縺後〃anilla JS縺ｪ縺ｮ縺ｧ...
-            // socket.on('state_update')縺ｪ縺ｩ縺ｧ譖ｴ譁ｰ縺吶∋縺阪□縺後」isual_socket.js縺梧球蠖薙＠縺ｦ縺・ｋ縲・
-            // 縺薙％縺ｧ縺ｯ繧ｯ繝ｪ繝・け繝医Μ繧ｬ繝ｼ縺ｧ螟画峩隕∵ｱゅｒ騾√ｋ縲・
+            // battleState更新を拾って表示を同期するため、簡易的に定期更新する
 
             pveBtn.style.cssText = "padding: 5px; font-size: 0.8em; cursor: pointer; border: none; border-radius: 3px; background: #6c757d; color: white; flex: 1; min-width: 60px;";
             pveBtn.onclick = () => {
+                const boMode = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
+                if (boMode) return;
                 const currentMode = (battleState && battleState.battle_mode) ? battleState.battle_mode : 'pvp';
                 const nextMode = (currentMode === 'pve') ? 'pvp' : 'pve';
                 if (confirm(`戦闘モードを変更しますか？\n${currentMode.toUpperCase()} -> ${nextMode.toUpperCase()}`)) {
                     socket.emit('request_switch_battle_mode', { room: currentRoomName, mode: nextMode });
                     // Optimistic update
-                    pveBtn.textContent = (nextMode === 'pve') ? 'Mode: PvE' : 'Mode: PvP';
+                    pveBtn.textContent = (nextMode === 'pve') ? '戦闘モード: PvE' : '戦闘モード: PvP';
                 }
             };
             actionContainer.appendChild(pveBtn);
 
-            // 螳壽悄譖ｴ譁ｰ (繝繧ｵ縺・′遒ｺ螳・
+            // 状態変化を追従
             setInterval(updateBtnText, 2000);
         }
     }
+
+    function removeBattleOnlyCenterCta() {
+        const exists = document.getElementById(centerCtaId);
+        if (exists) exists.remove();
+    }
+    runtimeGlobal.removeBattleOnlyCenterCta = removeBattleOnlyCenterCta;
+
+    function isBattleOnlyPreparationView() {
+        const bs = (battleState && typeof battleState === 'object') ? battleState : {};
+        const boMode = String(bs.play_mode || 'normal').toLowerCase() === 'battle_only';
+        const bo = (bs.battle_only && typeof bs.battle_only === 'object') ? bs.battle_only : {};
+        const status = String(bo.status || 'lobby').trim().toLowerCase();
+        const isPreparation = (status === 'lobby' || status === 'draft');
+        return boMode && isPreparation;
+    }
+
+    function shouldShowBattleOnlyCenterCta() {
+        const roomName = String((typeof currentRoomName !== 'undefined' ? currentRoomName : runtimeGlobal.currentRoomName) || '').trim();
+        const roomPortal = document.getElementById('room-portal');
+        const mainApp = document.getElementById('main-app-container');
+        const inRoomView = !!(mainApp && mainApp.style.display !== 'none' && (!roomPortal || roomPortal.style.display === 'none'));
+        const hasOpenModal = Array.from(document.querySelectorAll('.modal-backdrop')).some((el) => {
+            if (!el || !el.isConnected) return false;
+            const style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+            const opacity = Number(style.opacity || '1');
+            if (Number.isFinite(opacity) && opacity <= 0) return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        });
+        const isVisualTab = !!document.querySelector('.tab-button.active[data-tab="visual"]');
+        return !!roomName && inRoomView && isVisualTab && !isGM && isBattleOnlyPreparationView() && !hasOpenModal;
+    }
+
+    function openBattleOnlyDraftFromUi() {
+        removeBattleOnlyCenterCta();
+        const boModeNow = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
+        if (boModeNow && !isGM && typeof openBattleOnlyQuickStartModal === 'function') {
+            openBattleOnlyQuickStartModal();
+            return;
+        }
+        if (typeof openBattleOnlyDraftModal === 'function') {
+            openBattleOnlyDraftModal();
+            return;
+        }
+        statusMsg.textContent = "戦闘専用モーダルを読み込めませんでした。";
+    }
+
+    function syncBattleOnlyCenterCta() {
+        const exists = document.getElementById(centerCtaId);
+        const shouldShow = shouldShowBattleOnlyCenterCta();
+        if (!shouldShow) {
+            removeBattleOnlyCenterCta();
+            return;
+        }
+
+        const bo = (battleState && typeof battleState.battle_only === 'object') ? battleState.battle_only : {};
+        const status = String(bo.status || 'lobby').trim();
+        const statusLabel = (status === 'in_battle') ? '戦闘中' : (status === 'draft' ? '編成中' : '待機');
+        const formationId = String(bo.enemy_formation_id || '').trim();
+
+        const cta = exists || document.createElement('div');
+        cta.id = centerCtaId;
+        cta.style.position = 'fixed';
+        cta.style.left = '50%';
+        cta.style.top = '50%';
+        cta.style.transform = 'translate(-50%, -50%)';
+        cta.style.zIndex = '900';
+        cta.style.background = 'rgba(17, 24, 39, 0.86)';
+        cta.style.color = '#fff';
+        cta.style.padding = '10px 12px';
+        cta.style.borderRadius = '10px';
+        cta.style.border = '1px solid rgba(255,255,255,0.18)';
+        cta.style.boxShadow = '0 10px 24px rgba(0,0,0,0.30)';
+        cta.style.backdropFilter = 'blur(2px)';
+        cta.style.textAlign = 'center';
+        cta.innerHTML = `
+            <div style="font-size:12px; opacity:0.9; margin-bottom:6px;">戦闘専用モード / ${statusLabel}${formationId ? ` / 敵編成:${formationId}` : ''}</div>
+            <button id="visual-bo-center-cta-btn" style="padding:7px 12px; font-size:13px; border:0; border-radius:8px; cursor:pointer; background:#2563eb; color:#fff;">
+                かんたん戦闘突入
+            </button>
+        `;
+        if (!exists) document.body.appendChild(cta);
+        const btn = document.getElementById('visual-bo-center-cta-btn');
+        if (btn) btn.onclick = openBattleOnlyDraftFromUi;
+    }
+
+    syncBattleOnlyCenterCta();
+    if (runtimeGlobal.__boCenterCtaTimer) {
+        clearInterval(runtimeGlobal.__boCenterCtaTimer);
+    }
+    runtimeGlobal.__boCenterCtaTimer = setInterval(syncBattleOnlyCenterCta, 1200);
 
     if (isGM) {
         if (saveBtn) {
             saveBtn.style.display = 'inline-block';
             saveBtn.onclick = async () => {
-                statusMsg.textContent = "菫晏ｭ倅ｸｭ...";
+                statusMsg.textContent = "保存中...";
                 try {
                     await fetchWithSession('/save_room', {
                         method: 'POST',
@@ -615,7 +720,22 @@ window.setupVisualSidebarControls = function () {
             presetBtn.style.display = 'inline-block';
             presetBtn.onclick = () => { if (typeof openPresetManagerModal === 'function') openPresetManagerModal(); };
         }
-        if (resetBtn) {
+        if (boBtn) {
+            boBtn.style.display = isBattleOnlyMode ? 'inline-block' : 'none';
+            boBtn.textContent = '戦闘専用編成';
+            boBtn.onclick = openBattleOnlyDraftFromUi;
+        }
+    } else {
+        if (saveBtn) saveBtn.style.display = 'none';
+        if (presetBtn) presetBtn.style.display = 'none';
+        if (boBtn) {
+            boBtn.style.display = isBattleOnlyMode ? 'inline-block' : 'none';
+            boBtn.textContent = 'かんたん戦闘突入';
+            boBtn.onclick = openBattleOnlyDraftFromUi;
+        }
+    }
+    if (resetBtn) {
+        if (canUseResetInRoom) {
             resetBtn.style.display = 'inline-block';
             resetBtn.onclick = () => {
                 if (typeof openResetTypeModal === 'function') {
@@ -624,11 +744,9 @@ window.setupVisualSidebarControls = function () {
                     socket.emit('request_reset_battle', { room: currentRoomName, mode: 'full' });
                 }
             };
+        } else {
+            resetBtn.style.display = 'none';
         }
-    } else {
-        if (saveBtn) saveBtn.style.display = 'none';
-        if (presetBtn) presetBtn.style.display = 'none';
-        if (resetBtn) resetBtn.style.display = 'none';
     }
 }
 
@@ -698,7 +816,7 @@ window.renderVisualTimeline = function () {
 
     timelineEl.innerHTML = '';
     if (!battleState.timeline || battleState.timeline.length === 0) {
-        timelineEl.innerHTML = '<div style="color:#888; padding:5px;">No Data</div>';
+        timelineEl.innerHTML = '<div style="color:#888; padding:5px;">データなし</div>';
         return;
     }
     const slotMode = Array.isArray(battleState.timeline) &&

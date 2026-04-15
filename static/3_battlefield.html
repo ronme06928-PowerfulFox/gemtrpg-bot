@@ -4,18 +4,18 @@
 
         <div class="character-list-container">
             <div class="character-list-header">
-                <h3>味方 (Allies)</h3>
+                <h3>味方</h3>
                 <button id="open-char-load-modal-btn" class="char-add-btn">＋ キャラクター追加</button>
             </div>
             <div class="character-list" id="ally-list-column">
                 </div>
-            <h3>敵 (Enemies)</h3>
+            <h3>敵</h3>
             <div class="character-list" id="enemy-list-column">
                 </div>
         </div>
 
         <div class="timeline-container">
-            <h3>タイムライン (Round: <span id="round-counter">0</span>)</h3>
+            <h3>タイムライン (ラウンド: <span id="round-counter">0</span>)</h3>
             <div class="timeline-controls">
                 <button id="round-end-btn" class="timeline-btn" title="ラウンド終了時効果（出血など）を実行">R終了処理</button>
                 <button id="round-start-btn" class="timeline-btn" title="次のラウンドを開始（速度ロールなど）">次R開始</button>
@@ -136,6 +136,7 @@
         <div class="room-actions">
             <button id="save-state-btn" class="room-action-btn">セーブ</button>
             <button id="preset-manager-btn" class="room-action-btn" style="background-color: #17a2b8;">敵プリセット</button>
+            <button id="battle-only-control-btn" class="room-action-btn" style="background-color: #0ea5e9;">戦闘専用</button>
             <button id="reset-btn" class="room-action-btn danger">リセット</button>
             <button id="leave-room-btn" class="room-action-btn secondary">ルーム一覧に戻る</button>
         </div>

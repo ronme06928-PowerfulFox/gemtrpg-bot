@@ -752,7 +752,9 @@ def move_token_logic(room, char_id, x, y, username, attribute):
     target_char = next((c for c in state["characters"] if c.get('id') == char_id), None)
     if not target_char: return
 
-    if not is_authorized_for_character(room, char_id, username, attribute):
+    play_mode = str(state.get('play_mode') or 'normal').strip().lower()
+    is_battle_only = (play_mode == 'battle_only')
+    if not is_battle_only and not is_authorized_for_character(room, char_id, username, attribute):
         emit('move_denied', {'message': '権限がありません。'})
         return
 

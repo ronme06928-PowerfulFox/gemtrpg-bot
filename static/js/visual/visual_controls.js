@@ -138,7 +138,10 @@ window.setupBattleTokenDrag = function () {
         if (!char) return;
         const isOwner = char.owner === currentUsername;
         const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
-        if (!isOwner && !isGM) {
+        const isBattleOnlyMode = String((window.battleState && window.battleState.play_mode) || '')
+            .trim()
+            .toLowerCase() === 'battle_only';
+        if (!isBattleOnlyMode && !isOwner && !isGM) {
             dragTarget = null;
             return;
         }

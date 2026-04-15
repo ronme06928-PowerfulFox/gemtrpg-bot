@@ -1,0 +1,385 @@
+{
+  "version": 2,
+  "character_presets": {
+    "TEST_1": {
+      "id": "TEST_1",
+      "name": "バグ取りの翁",
+      "visibility": "public",
+      "allow_ally": true,
+      "allow_enemy": true,
+      "character_json": {
+        "kind": "character",
+        "data": {
+          "name": "バグ取りの翁",
+          "status": [
+            {
+              "label": "HP",
+              "value": 135,
+              "max": 135
+            },
+            {
+              "label": "MP",
+              "value": 12,
+              "max": 12
+            },
+            {
+              "label": "FP",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "出血",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "破裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "亀裂",
+              "value": 0,
+              "max": 0
+            }
+          ],
+          "commands": "3+1d2+1d{魔法補正} 【Mp-00 魔力の針】\n4+1d3+1d{魔法補正} 【Mp-01 飛ばし貫く】\n6+1d4+1d{魔法補正} 【Mp-02 傷つける】\n6+1d5+1d{魔法補正} 【Mp-03 綻びを狙って】\n11+1d3+1d{魔法補正} 【Mp-04 こじ開ける】\n7+1d5+1d{魔法補正} 【Mp-05 そこが弱いの？】\n8+1d5+1d{物理補正} 【Pp-05 一点突貫】\n7+1d3+1d{物理補正} 【Pp-03 突き崩す】",
+          "params": [
+            {
+              "label": "筋力",
+              "value": "18"
+            },
+            {
+              "label": "生命力",
+              "value": "14"
+            },
+            {
+              "label": "体格",
+              "value": "21"
+            },
+            {
+              "label": "精神力",
+              "value": "13"
+            },
+            {
+              "label": "速度",
+              "value": "21"
+            },
+            {
+              "label": "直感",
+              "value": "8"
+            },
+            {
+              "label": "経験",
+              "value": "7"
+            },
+            {
+              "label": "物理補正",
+              "value": "4"
+            },
+            {
+              "label": "魔法補正",
+              "value": "3"
+            },
+            {
+              "label": "速度補正",
+              "value": "3"
+            },
+            {
+              "label": "五感",
+              "value": "0"
+            },
+            {
+              "label": "採取",
+              "value": "0"
+            },
+            {
+              "label": "本能",
+              "value": "0"
+            },
+            {
+              "label": "鑑定",
+              "value": "0"
+            },
+            {
+              "label": "対話",
+              "value": "0"
+            },
+            {
+              "label": "尋問",
+              "value": "0"
+            },
+            {
+              "label": "諜報",
+              "value": "0"
+            },
+            {
+              "label": "窃取",
+              "value": "3"
+            },
+            {
+              "label": "隠密",
+              "value": "1"
+            },
+            {
+              "label": "運動",
+              "value": "2"
+            },
+            {
+              "label": "制作",
+              "value": "0"
+            },
+            {
+              "label": "回避",
+              "value": "2"
+            },
+            {
+              "label": "出身",
+              "value": "3"
+            }
+          ]
+        }
+      },
+      "created_at": 1776176590848,
+      "updated_at": 1776176590848,
+      "created_by": "RONME",
+      "updated_by": "RONME"
+    },
+    "TEST_2": {
+      "id": "TEST_2",
+      "name": "バグ増やしの媼",
+      "visibility": "public",
+      "allow_ally": true,
+      "allow_enemy": true,
+      "character_json": {
+        "kind": "character",
+        "data": {
+          "name": "バグ増やしの媼",
+          "status": [
+            {
+              "label": "HP",
+              "value": 125,
+              "max": 125
+            },
+            {
+              "label": "MP",
+              "value": 12,
+              "max": 12
+            },
+            {
+              "label": "FP",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "出血",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "破裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "亀裂",
+              "value": 0,
+              "max": 0
+            }
+          ],
+          "commands": "\n4+1d2+1d{物理補正} 【Pb-00 基本の殴打】\n5+1d4+1d{物理補正} 【Pb-01 叩き打ち】\n7+1d4+1d{物理補正} 【Pb-02 鳩尾殴り】\n5+1d4+1d{物理補正} 【Pb-03 ファストハンマー】\n9+1d5+1d{物理補正} 【Pb-04 回転殴撃】\n11+1d5+1d{物理補正} 【Pb-05 圧殺】\n4+1d3+1d{魔法補正} 【Mb-01 叩き伏せる】",
+          "params": [
+            {
+              "label": "筋力",
+              "value": "14"
+            },
+            {
+              "label": "生命力",
+              "value": "13"
+            },
+            {
+              "label": "体格",
+              "value": "12"
+            },
+            {
+              "label": "精神力",
+              "value": "13"
+            },
+            {
+              "label": "速度",
+              "value": "15"
+            },
+            {
+              "label": "直感",
+              "value": "8"
+            },
+            {
+              "label": "経験",
+              "value": "7"
+            },
+            {
+              "label": "物理補正",
+              "value": "3"
+            },
+            {
+              "label": "魔法補正",
+              "value": "3"
+            },
+            {
+              "label": "速度補正",
+              "value": "2"
+            },
+            {
+              "label": "五感",
+              "value": "0"
+            },
+            {
+              "label": "採取",
+              "value": "0"
+            },
+            {
+              "label": "本能",
+              "value": "0"
+            },
+            {
+              "label": "鑑定",
+              "value": "0"
+            },
+            {
+              "label": "対話",
+              "value": "3"
+            },
+            {
+              "label": "尋問",
+              "value": "3"
+            },
+            {
+              "label": "諜報",
+              "value": "3"
+            },
+            {
+              "label": "窃取",
+              "value": "3"
+            },
+            {
+              "label": "隠密",
+              "value": "0"
+            },
+            {
+              "label": "運動",
+              "value": "0"
+            },
+            {
+              "label": "制作",
+              "value": "0"
+            },
+            {
+              "label": "回避",
+              "value": "0"
+            },
+            {
+              "label": "出身",
+              "value": "6"
+            }
+          ]
+        }
+      },
+      "created_at": 1776176635675,
+      "updated_at": 1776176635675,
+      "created_by": "RONME",
+      "updated_by": "RONME"
+    }
+  },
+  "enemy_formations": {
+    "ENEMY_1": {
+      "id": "ENEMY_1",
+      "name": "ダブル媼",
+      "visibility": "public",
+      "recommended_ally_count": 2,
+      "members": [
+        {
+          "preset_id": "TEST_2",
+          "count": 2,
+          "behavior_profile_override": {
+            "enabled": false,
+            "version": 1,
+            "initial_loop_id": "loop_1",
+            "loops": {
+              "loop_1": {
+                "repeat": true,
+                "steps": [
+                  {
+                    "actions": [
+                      "Pb-00"
+                    ],
+                    "targets": [
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "Pb-01"
+                    ],
+                    "targets": [
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "Pb-00"
+                    ],
+                    "targets": [
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "Pb-02"
+                    ],
+                    "targets": [
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "Pb-00"
+                    ],
+                    "targets": [
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "Pb-05"
+                    ],
+                    "targets": [
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  }
+                ],
+                "transitions": []
+              }
+            }
+          }
+        }
+      ],
+      "created_at": 1776267674361,
+      "updated_at": 1776268938065,
+      "created_by": "ろんめ",
+      "updated_by": "ろんめ"
+    }
+  },
+  "updated_at": 1776268938067
+}
