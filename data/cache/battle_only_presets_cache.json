@@ -288,6 +288,169 @@
       "updated_at": 1776176635675,
       "created_by": "RONME",
       "updated_by": "RONME"
+    },
+    "TEST_3": {
+      "id": "TEST_3",
+      "name": "マンティス・ヨールド",
+      "visibility": "gm",
+      "allow_ally": false,
+      "allow_enemy": true,
+      "character_json": {
+        "kind": "character",
+        "data": {
+          "name": "マンティス・ヨールド",
+          "characterType": "scenario",
+          "isNPC": true,
+          "status": [
+            {
+              "label": "HP",
+              "value": 253,
+              "max": 253
+            },
+            {
+              "label": "MP",
+              "value": 10,
+              "max": 10
+            },
+            {
+              "label": "FP",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "出血",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "破裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "亀裂",
+              "value": 0,
+              "max": 0
+            }
+          ],
+          "commands": "4+1d5+1d{物理補正} 【E-26 遅いんじゃないか？】\n6+1d5+1d{物理補正} 【E-27 凍えろッ！】\n5+1d8+1d{物理補正} 【E-28 撫で斬りにする】\n4+1d10+1d{物理補正} 【E-29 忽ち凍れ】\n7+1d8+1d{物理補正} 【E-30 これで終わりだ】\n2+1d10+1d{物理補正} 【E-23 何がなんでも】",
+          "params": [
+            {
+              "label": "筋力",
+              "value": "22"
+            },
+            {
+              "label": "生命力",
+              "value": "16"
+            },
+            {
+              "label": "体格",
+              "value": "19"
+            },
+            {
+              "label": "精神力",
+              "value": "17"
+            },
+            {
+              "label": "速度",
+              "value": "20"
+            },
+            {
+              "label": "直感",
+              "value": "10"
+            },
+            {
+              "label": "経験",
+              "value": "8"
+            },
+            {
+              "label": "シナリオ経験",
+              "value": "0"
+            },
+            {
+              "label": "物理補正",
+              "value": "5"
+            },
+            {
+              "label": "魔法補正",
+              "value": "4"
+            },
+            {
+              "label": "速度補正",
+              "value": "3"
+            },
+            {
+              "label": "通過点",
+              "value": "0"
+            },
+            {
+              "label": "五感",
+              "value": "0"
+            },
+            {
+              "label": "採取",
+              "value": "0"
+            },
+            {
+              "label": "本能",
+              "value": "0"
+            },
+            {
+              "label": "鑑定",
+              "value": "0"
+            },
+            {
+              "label": "対話",
+              "value": "0"
+            },
+            {
+              "label": "尋問",
+              "value": "0"
+            },
+            {
+              "label": "諜報",
+              "value": "0"
+            },
+            {
+              "label": "窃取",
+              "value": "0"
+            },
+            {
+              "label": "隠密",
+              "value": "0"
+            },
+            {
+              "label": "運動",
+              "value": "0"
+            },
+            {
+              "label": "制作",
+              "value": "0"
+            },
+            {
+              "label": "回避",
+              "value": "0"
+            },
+            {
+              "label": "出身",
+              "value": "12"
+            },
+            {
+              "label": "ボーナス",
+              "value": "0"
+            }
+          ],
+          "SPassive": [
+            "Pa-04",
+            "Pa-00"
+          ],
+          "inventory": {}
+        }
+      },
+      "created_at": 1776437648607,
+      "updated_at": 1776437648607,
+      "created_by": "ろんめ",
+      "updated_by": "ろんめ"
     }
   },
   "enemy_formations": {
@@ -379,7 +542,176 @@
       "updated_at": 1776268938065,
       "created_by": "ろんめ",
       "updated_by": "ろんめ"
+    },
+    "ENEMY_2": {
+      "id": "ENEMY_2",
+      "name": "堅氷を叩き斬る狼",
+      "visibility": "public",
+      "recommended_ally_count": 3,
+      "members": [
+        {
+          "preset_id": "TEST_3",
+          "count": 1,
+          "behavior_profile_override": {
+            "enabled": false,
+            "version": 1,
+            "initial_loop_id": "序盤",
+            "loops": {
+              "序盤": {
+                "repeat": true,
+                "steps": [
+                  {
+                    "actions": [
+                      "E-26",
+                      "E-26"
+                    ],
+                    "targets": [
+                      "target_enemy_random",
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "E-26",
+                      "E-27"
+                    ],
+                    "targets": [
+                      "target_enemy_random",
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "E-27",
+                      "E-28"
+                    ],
+                    "targets": [
+                      "target_enemy_random",
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "E-26",
+                      "E-29"
+                    ],
+                    "targets": [
+                      "target_enemy_random",
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "E-28",
+                      "E-27"
+                    ],
+                    "targets": [
+                      "target_enemy_random",
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  }
+                ],
+                "transitions": [
+                  {
+                    "priority": 10,
+                    "to_loop_id": "終盤",
+                    "reset_step_index": true,
+                    "when_all": [
+                      {
+                        "source": "self",
+                        "param": "HP",
+                        "operator": "LTE",
+                        "value": 50
+                      }
+                    ]
+                  }
+                ]
+              },
+              "終盤": {
+                "repeat": true,
+                "steps": [
+                  {
+                    "actions": [
+                      "E-23",
+                      "E-27"
+                    ],
+                    "targets": [
+                      "target_enemy_random",
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "E-28",
+                      "E-28"
+                    ],
+                    "targets": [
+                      "target_enemy_random",
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "E-29",
+                      "E-29"
+                    ],
+                    "targets": [
+                      "target_enemy_random",
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "E-30"
+                    ],
+                    "targets": [
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  },
+                  {
+                    "actions": [
+                      "E-26",
+                      "E-23"
+                    ],
+                    "targets": [
+                      "target_enemy_random",
+                      "target_enemy_random"
+                    ],
+                    "next_loop_id": null,
+                    "next_reset_step_index": true
+                  }
+                ],
+                "transitions": []
+              }
+            }
+          }
+        }
+      ],
+      "created_at": 1776437900590,
+      "updated_at": 1776437900590,
+      "created_by": "ろんめ",
+      "updated_by": "ろんめ"
     }
   },
-  "updated_at": 1776268938067
+  "ally_formations": {},
+  "stage_presets": {},
+  "updated_at": 1776437900593
 }

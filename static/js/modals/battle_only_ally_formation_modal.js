@@ -68,6 +68,9 @@
                     <button id="bo-af-refresh-btn" class="bo-btn bo-btn--sm bo-btn--neutral">再読み込み</button>
                     <button id="bo-af-clear-btn" class="bo-btn bo-btn--sm bo-btn--neutral">新規作成</button>
                     <button id="bo-af-open-catalog-btn" class="bo-btn bo-btn--sm bo-btn--neutral">キャラプリセット編集</button>
+                    <button id="bo-af-import-btn" class="bo-btn bo-btn--sm bo-btn--neutral">JSON読込</button>
+                    <button id="bo-af-export-current-btn" class="bo-btn bo-btn--sm bo-btn--neutral">この味方編成JSON</button>
+                    <input id="bo-af-import-file" type="file" accept=".json,application/json" style="display:none;" />
                 </div>
                 <span id="bo-af-msg" class="bo-inline-msg"></span>
             </div>
@@ -122,6 +125,7 @@
         const recommendedInput = panel.querySelector('#bo-af-recommended');
         const membersEl = panel.querySelector('#bo-af-members');
         const listEl = panel.querySelector('#bo-af-list');
+        const importFileInput = panel.querySelector('#bo-af-import-file');
 
         const state = {
             presets: (options && typeof options.presets === 'object') ? clone(options.presets) : {},
@@ -145,6 +149,75 @@
             if (!msgEl) return;
             msgEl.textContent = text || '';
             msgEl.style.color = color || '#666';
+        }
+
+        function downloadTextFile(filename, content) {
+            const blob = new Blob([String(content || '')], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || `bo_ally_formation_${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+                a.remove();
+            }, 0);
+        }
+
+        function normalizeImportedAllyFormation(parsed) {
+            let src = parsed;
+            if (!src || typeof src !== 'object') return null;
+            if (src.record && typeof src.record === 'object') src = src.record;
+            if (src.items && typeof src.items === 'object' && !Array.isArray(src.items)) {
+                const values = Object.values(src.items).filter((x) => x && typeof x === 'object');
+                if (values.length === 1) src = values[0];
+            }
+            if (!src || typeof src !== 'object') return null;
+            const members = (Array.isArray(src.members) ? src.members : []).map((row) => ({
+                preset_id: String((row && row.preset_id) || '').trim(),
+                slot_label: String((row && row.slot_label) || '').trim(),
+                user_id: String((row && row.user_id) || '').trim() || null,
+            })).filter((row) => !!row.preset_id);
+            if (!members.length) return null;
+            return {
+                id: String(src.id || '').trim(),
+                name: String(src.name || '').trim(),
+                visibility: String(src.visibility || 'public').trim().toLowerCase() === 'gm' ? 'gm' : 'public',
+                recommended_ally_count: Math.max(0, safeInt(src.recommended_ally_count, 0)),
+                members,
+            };
+        }
+
+        function exportAllyFormationRecord(rec) {
+            if (!rec || typeof rec !== 'object') {
+                setMsg('出力対象の味方編成がありません。', 'red');
+                return;
+            }
+            const record = {
+                id: String(rec.id || '').trim(),
+                name: String(rec.name || '').trim(),
+                visibility: String(rec.visibility || 'public').trim().toLowerCase() === 'gm' ? 'gm' : 'public',
+                recommended_ally_count: Math.max(0, safeInt(rec.recommended_ally_count, 0)),
+                members: (Array.isArray(rec.members) ? rec.members : []).map((row) => ({
+                    preset_id: String((row && row.preset_id) || '').trim(),
+                    slot_label: String((row && row.slot_label) || '').trim(),
+                    user_id: String((row && row.user_id) || '').trim() || null,
+                })).filter((row) => !!row.preset_id),
+            };
+            if (!record.members.length) {
+                setMsg('味方編成メンバーが空のため出力できません。', 'red');
+                return;
+            }
+            const payload = {
+                kind: 'bo_ally_formation',
+                version: 1,
+                exported_at: new Date().toISOString(),
+                record,
+            };
+            const filenameId = record.id || `new_${Date.now()}`;
+            downloadTextFile(`bo_ally_formation_${filenameId}.json`, JSON.stringify(payload, null, 2));
+            setMsg('味方編成JSONをダウンロードしました。', 'green');
         }
 
         function allyPresetIds() {
@@ -257,16 +330,29 @@
                 const vis = String(rec.visibility || 'public') === 'gm' ? 'GMのみ' : '全員公開';
                 const selected = (state.selected_formation_id === id);
                 return `
-                    <div class="bo-list-row${selected ? ' is-selected' : ''}" data-id="${escapeHtml(id)}" style="cursor:pointer;">
-                        <div class="bo-list-title">${escapeHtml(rec.name || id)}</div>
-                        <div class="bo-list-meta">ID: ${escapeHtml(id)} / ${escapeHtml(vis)} / 推奨: ${Math.max(0, safeInt(rec.recommended_ally_count, 0))} / メンバー: ${Array.isArray(rec.members) ? rec.members.length : 0}</div>
+                    <div class="bo-list-row${selected ? ' is-selected' : ''}" data-id="${escapeHtml(id)}">
+                        <div class="bo-list-main" style="cursor:pointer;">
+                            <div class="bo-list-title">${escapeHtml(rec.name || id)}</div>
+                            <div class="bo-list-meta">ID: ${escapeHtml(id)} / ${escapeHtml(vis)} / 推奨: ${Math.max(0, safeInt(rec.recommended_ally_count, 0))} / メンバー: ${Array.isArray(rec.members) ? rec.members.length : 0}</div>
+                        </div>
+                        <div class="bo-list-actions">
+                            <button class="bo-af-download-btn bo-btn bo-btn--xs bo-btn--neutral" data-id="${escapeHtml(id)}">JSON</button>
+                        </div>
                     </div>
                 `;
             }).join('');
-            listEl.querySelectorAll('.bo-list-row').forEach((row) => {
+            listEl.querySelectorAll('.bo-list-main').forEach((row) => {
                 row.addEventListener('click', () => {
-                    const id = String(row.getAttribute('data-id') || '').trim();
+                    const card = row.closest('.bo-list-row');
+                    const id = String(card && card.getAttribute('data-id') || '').trim();
                     if (id) loadFormationToEditor(id);
+                });
+            });
+            listEl.querySelectorAll('.bo-af-download-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const id = String(btn.getAttribute('data-id') || '').trim();
+                    if (!id) return;
+                    exportAllyFormationRecord(state.ally_formations[id]);
                 });
             });
         }
@@ -281,6 +367,48 @@
             if (typeof global.openBattleOnlyCatalogModal === 'function') {
                 global.openBattleOnlyCatalogModal({ room: roomName || null });
             }
+        });
+        panel.querySelector('#bo-af-import-btn')?.addEventListener('click', () => {
+            if (!importFileInput) return;
+            importFileInput.value = '';
+            importFileInput.click();
+        });
+        importFileInput?.addEventListener('change', () => {
+            const file = importFileInput.files && importFileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const parsed = JSON.parse(String(reader.result || ''));
+                    const rec = normalizeImportedAllyFormation(parsed);
+                    if (!rec) {
+                        setMsg('味方編成JSONとして読み込めませんでした。', 'red');
+                        return;
+                    }
+                    state.selected_formation_id = null;
+                    idInput.value = rec.id || '';
+                    nameInput.value = rec.name || '';
+                    visibilitySelect.value = rec.visibility || 'public';
+                    recommendedInput.value = String(rec.recommended_ally_count || 0);
+                    state.formation_members = clone(rec.members || []);
+                    renderMembers();
+                    renderList();
+                    setMsg('味方編成JSONをフォームに読み込みました。保存すると登録されます。', 'green');
+                } catch (e) {
+                    setMsg(`JSON解析に失敗しました: ${e.message}`, 'red');
+                }
+            };
+            reader.readAsText(file, 'utf-8');
+        });
+        panel.querySelector('#bo-af-export-current-btn')?.addEventListener('click', () => {
+            const rec = {
+                id: String(idInput.value || '').trim() || null,
+                name: String(nameInput.value || '').trim() || '(未保存の味方編成)',
+                visibility: String(visibilitySelect.value || 'public'),
+                recommended_ally_count: Math.max(0, safeInt(recommendedInput.value, 0)),
+                members: collectMembers(),
+            };
+            exportAllyFormationRecord(rec);
         });
         panel.querySelector('#bo-af-add-member-btn')?.addEventListener('click', () => {
             state.formation_members.push({ preset_id: '', slot_label: '', user_id: null });

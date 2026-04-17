@@ -120,6 +120,9 @@
                     <button id="bo-ef-refresh-btn" class="bo-btn bo-btn--sm bo-btn--neutral">再読み込み</button>
                     <button id="bo-ef-clear-btn" class="bo-btn bo-btn--sm bo-btn--neutral">新規作成</button>
                     <button id="bo-ef-open-catalog-btn" class="bo-btn bo-btn--sm bo-btn--neutral">キャラプリセット編集</button>
+                    <button id="bo-ef-import-btn" class="bo-btn bo-btn--sm bo-btn--neutral">JSON読込</button>
+                    <button id="bo-ef-export-current-btn" class="bo-btn bo-btn--sm bo-btn--neutral">この敵編成JSON</button>
+                    <input id="bo-ef-import-file" type="file" accept=".json,application/json" style="display:none;" />
                 </div>
                 <span id="bo-ef-msg" class="bo-inline-msg"></span>
             </div>
@@ -175,6 +178,7 @@
         const recommendedInput = panel.querySelector('#bo-ef-recommended');
         const membersEl = panel.querySelector('#bo-ef-members');
         const listEl = panel.querySelector('#bo-ef-list');
+        const importFileInput = panel.querySelector('#bo-ef-import-file');
 
         const state = {
             presets: (options && typeof options.presets === 'object') ? clone(options.presets) : {},
@@ -198,6 +202,75 @@
             if (!msgEl) return;
             msgEl.textContent = text || '';
             msgEl.style.color = color || '#666';
+        }
+
+        function downloadTextFile(filename, content) {
+            const blob = new Blob([String(content || '')], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || `bo_enemy_formation_${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+                a.remove();
+            }, 0);
+        }
+
+        function normalizeImportedEnemyFormation(parsed) {
+            let src = parsed;
+            if (!src || typeof src !== 'object') return null;
+            if (src.record && typeof src.record === 'object') src = src.record;
+            if (src.items && typeof src.items === 'object' && !Array.isArray(src.items)) {
+                const values = Object.values(src.items).filter((x) => x && typeof x === 'object');
+                if (values.length === 1) src = values[0];
+            }
+            if (!src || typeof src !== 'object') return null;
+            const members = (Array.isArray(src.members) ? src.members : []).map((row) => ({
+                preset_id: String((row && row.preset_id) || '').trim(),
+                count: Math.max(1, safeInt(row && row.count, 1)),
+                behavior_profile_override: (row && typeof row.behavior_profile_override === 'object') ? clone(row.behavior_profile_override) : {},
+            })).filter((row) => !!row.preset_id);
+            if (!members.length) return null;
+            return {
+                id: String(src.id || '').trim(),
+                name: String(src.name || '').trim(),
+                visibility: String(src.visibility || 'public').trim().toLowerCase() === 'gm' ? 'gm' : 'public',
+                recommended_ally_count: Math.max(0, safeInt(src.recommended_ally_count, 0)),
+                members,
+            };
+        }
+
+        function exportEnemyFormationRecord(rec) {
+            if (!rec || typeof rec !== 'object') {
+                setMsg('出力対象の敵編成がありません。', 'red');
+                return;
+            }
+            const record = {
+                id: String(rec.id || '').trim(),
+                name: String(rec.name || '').trim(),
+                visibility: String(rec.visibility || 'public').trim().toLowerCase() === 'gm' ? 'gm' : 'public',
+                recommended_ally_count: Math.max(0, safeInt(rec.recommended_ally_count, 0)),
+                members: (Array.isArray(rec.members) ? rec.members : []).map((row) => ({
+                    preset_id: String((row && row.preset_id) || '').trim(),
+                    count: Math.max(1, safeInt(row && row.count, 1)),
+                    behavior_profile_override: (row && typeof row.behavior_profile_override === 'object') ? row.behavior_profile_override : {},
+                })).filter((row) => !!row.preset_id),
+            };
+            if (!record.members.length) {
+                setMsg('敵編成メンバーが空のため出力できません。', 'red');
+                return;
+            }
+            const payload = {
+                kind: 'bo_enemy_formation',
+                version: 1,
+                exported_at: new Date().toISOString(),
+                record,
+            };
+            const filenameId = record.id || `new_${Date.now()}`;
+            downloadTextFile(`bo_enemy_formation_${filenameId}.json`, JSON.stringify(payload, null, 2));
+            setMsg('敵編成JSONをダウンロードしました。', 'green');
         }
 
         function enemyPresetIds() {
@@ -481,6 +554,7 @@
                     </div>
                     <div class="bo-list-actions">
                         <button class="bo-ef-load-btn bo-btn bo-btn--xs bo-btn--neutral" data-id="${escapeHtml(id)}">読込</button>
+                        <button class="bo-ef-download-btn bo-btn bo-btn--xs bo-btn--neutral" data-id="${escapeHtml(id)}">JSON</button>
                     </div>
                 `;
                 listEl.appendChild(row);
@@ -489,6 +563,13 @@
                 btn.addEventListener('click', () => {
                     const id = String(btn.getAttribute('data-id') || '').trim();
                     loadFormationToEditor(id);
+                });
+            });
+            listEl.querySelectorAll('.bo-ef-download-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const id = String(btn.getAttribute('data-id') || '').trim();
+                    if (!id) return;
+                    exportEnemyFormationRecord(state.enemy_formations[id]);
                 });
             });
         }
@@ -521,6 +602,50 @@
                 return;
             }
             global.openBattleOnlyCatalogModal({ room: roomName || null, fromLobby: !roomName });
+        });
+        panel.querySelector('#bo-ef-import-btn')?.addEventListener('click', () => {
+            if (!importFileInput) return;
+            importFileInput.value = '';
+            importFileInput.click();
+        });
+        importFileInput?.addEventListener('change', () => {
+            const file = importFileInput.files && importFileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const parsed = JSON.parse(String(reader.result || ''));
+                    const rec = normalizeImportedEnemyFormation(parsed);
+                    if (!rec) {
+                        setMsg('敵編成JSONとして読み込めませんでした。', 'red');
+                        return;
+                    }
+                    state.selected_formation_id = null;
+                    idInput.value = rec.id || '';
+                    nameInput.value = rec.name || '';
+                    visibilitySelect.value = rec.visibility || 'public';
+                    recommendedInput.value = String(rec.recommended_ally_count || 0);
+                    state.formation_members = clone(rec.members || []);
+                    renderFormationMembers();
+                    renderFormationList();
+                    setMsg('敵編成JSONをフォームに読み込みました。保存すると登録されます。', 'green');
+                } catch (e) {
+                    setMsg(`JSON解析に失敗しました: ${e.message}`, 'red');
+                }
+            };
+            reader.readAsText(file, 'utf-8');
+        });
+        panel.querySelector('#bo-ef-export-current-btn')?.addEventListener('click', () => {
+            const members = collectFormationMembersFromEditor();
+            if (!members) return;
+            const rec = {
+                id: String(idInput?.value || '').trim() || null,
+                name: String(nameInput?.value || '').trim() || '(未保存の敵編成)',
+                visibility: String(visibilitySelect?.value || 'public'),
+                recommended_ally_count: Math.max(0, safeInt(recommendedInput?.value, 0)),
+                members,
+            };
+            exportEnemyFormationRecord(rec);
         });
         panel.querySelector('#bo-ef-add-member-btn')?.addEventListener('click', () => {
             ensureFormationMembers();

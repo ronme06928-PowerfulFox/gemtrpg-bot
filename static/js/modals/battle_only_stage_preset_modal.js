@@ -68,6 +68,9 @@
                     <button id="bo-sp-refresh-btn" class="bo-btn bo-btn--sm bo-btn--neutral">再読み込み</button>
                     <button id="bo-sp-clear-btn" class="bo-btn bo-btn--sm bo-btn--neutral">新規作成</button>
                     <button id="bo-sp-open-catalog-btn" class="bo-btn bo-btn--sm bo-btn--neutral">編成管理へ戻る</button>
+                    <button id="bo-sp-import-btn" class="bo-btn bo-btn--sm bo-btn--neutral">JSON読込</button>
+                    <button id="bo-sp-export-current-btn" class="bo-btn bo-btn--sm bo-btn--neutral">このステージJSON</button>
+                    <input id="bo-sp-import-file" type="file" accept=".json,application/json" style="display:none;" />
                 </div>
                 <span id="bo-sp-msg" class="bo-inline-msg"></span>
             </div>
@@ -113,7 +116,7 @@
                         <textarea id="bo-sp-description" class="bo-textarea bo-textarea--compact"></textarea>
                     </label>
                     <div class="bo-toolbar bo-toolbar--between">
-                        <button id="bo-sp-export-btn" class="bo-btn bo-btn--sm bo-btn--neutral">ステージJSONダウンロード</button>
+                        <button id="bo-sp-export-btn" class="bo-btn bo-btn--sm bo-btn--neutral">全ステージJSONダウンロード</button>
                         <div class="bo-toolbar-group">
                             <button id="bo-sp-save-btn" class="bo-btn bo-btn--sm bo-btn--success">ステージを保存</button>
                             <button id="bo-sp-delete-btn" class="bo-btn bo-btn--sm bo-btn--danger">ステージを削除</button>
@@ -145,6 +148,7 @@
         const conceptInput = panel.querySelector('#bo-sp-concept');
         const descriptionInput = panel.querySelector('#bo-sp-description');
         const listEl = panel.querySelector('#bo-sp-list');
+        const importFileInput = panel.querySelector('#bo-sp-import-file');
 
         const state = {
             enemy_formations: (options && typeof options.enemy_formations === 'object') ? clone(options.enemy_formations) : {},
@@ -173,6 +177,63 @@
             if (!msgEl) return;
             msgEl.textContent = text || '';
             msgEl.style.color = color || '#666';
+        }
+
+        function normalizeImportedStagePreset(parsed) {
+            let src = parsed;
+            if (!src || typeof src !== 'object') return null;
+            if (src.record && typeof src.record === 'object') src = src.record;
+            if (src.items && typeof src.items === 'object' && !Array.isArray(src.items)) {
+                const values = Object.values(src.items).filter((x) => x && typeof x === 'object');
+                if (values.length === 1) src = values[0];
+            }
+            if (!src || typeof src !== 'object') return null;
+            const enemyFormationId = String(src.enemy_formation_id || '').trim();
+            if (!enemyFormationId) return null;
+            return {
+                id: String(src.id || '').trim(),
+                name: String(src.name || '').trim(),
+                visibility: String(src.visibility || 'public').trim().toLowerCase() === 'gm' ? 'gm' : 'public',
+                enemy_formation_id: enemyFormationId,
+                ally_formation_id: String(src.ally_formation_id || '').trim() || null,
+                required_ally_count: Math.max(0, safeInt(src.required_ally_count, 0)),
+                sort_key: Math.max(0, safeInt(src.sort_key, 0)),
+                tags: Array.isArray(src.tags) ? src.tags.map((x) => String(x).trim()).filter((x) => !!x) : [],
+                concept: String(src.concept || '').trim(),
+                description: String(src.description || '').trim(),
+            };
+        }
+
+        function exportStagePresetRecord(rec) {
+            if (!rec || typeof rec !== 'object') {
+                setMsg('出力対象のステージがありません。', 'red');
+                return;
+            }
+            const record = {
+                id: String(rec.id || '').trim(),
+                name: String(rec.name || '').trim(),
+                visibility: String(rec.visibility || 'public').trim().toLowerCase() === 'gm' ? 'gm' : 'public',
+                enemy_formation_id: String(rec.enemy_formation_id || '').trim(),
+                ally_formation_id: String(rec.ally_formation_id || '').trim() || null,
+                required_ally_count: Math.max(0, safeInt(rec.required_ally_count, 0)),
+                sort_key: Math.max(0, safeInt(rec.sort_key, 0)),
+                tags: Array.isArray(rec.tags) ? rec.tags.map((x) => String(x).trim()).filter((x) => !!x) : [],
+                concept: String(rec.concept || '').trim(),
+                description: String(rec.description || '').trim(),
+            };
+            if (!record.enemy_formation_id) {
+                setMsg('敵編成が設定されていないため出力できません。', 'red');
+                return;
+            }
+            const payload = {
+                kind: 'bo_stage_preset',
+                version: 1,
+                exported_at: new Date().toISOString(),
+                record,
+            };
+            const filenameId = record.id || `new_${Date.now()}`;
+            downloadTextFile(`bo_stage_preset_${filenameId}.json`, JSON.stringify(payload, null, 2));
+            setMsg('ステージJSONをダウンロードしました。', 'green');
         }
 
         function stageIds() {
@@ -254,16 +315,29 @@
                 const vis = String(rec.visibility || 'public') === 'gm' ? 'GMのみ' : '全員公開';
                 return `
                     <div class="bo-list-row${selected ? ' is-selected' : ''}" data-id="${escapeHtml(id)}" style="cursor:pointer;">
-                        <div class="bo-list-title">${escapeHtml(rec.name || id)}</div>
-                        <div class="bo-list-meta">ID:${escapeHtml(id)} / ${escapeHtml(vis)} / 必要味方:${Math.max(0, safeInt(rec.required_ally_count, 0))} / 表示順:${Math.max(0, safeInt(rec.sort_key, 0))}</div>
-                        <div class="bo-list-meta">${escapeHtml(rec.concept || '')}</div>
+                        <div class="bo-list-main" style="cursor:pointer;">
+                            <div class="bo-list-title">${escapeHtml(rec.name || id)}</div>
+                            <div class="bo-list-meta">ID:${escapeHtml(id)} / ${escapeHtml(vis)} / 必要味方:${Math.max(0, safeInt(rec.required_ally_count, 0))} / 表示順:${Math.max(0, safeInt(rec.sort_key, 0))}</div>
+                            <div class="bo-list-meta">${escapeHtml(rec.concept || '')}</div>
+                        </div>
+                        <div class="bo-list-actions">
+                            <button class="bo-sp-download-btn bo-btn bo-btn--xs bo-btn--neutral" data-id="${escapeHtml(id)}">JSON</button>
+                        </div>
                     </div>
                 `;
             }).join('');
-            listEl.querySelectorAll('.bo-list-row').forEach((row) => {
+            listEl.querySelectorAll('.bo-list-main').forEach((row) => {
                 row.addEventListener('click', () => {
-                    const id = String(row.getAttribute('data-id') || '').trim();
+                    const card = row.closest('.bo-list-row');
+                    const id = String(card && card.getAttribute('data-id') || '').trim();
                     if (id) loadStageToEditor(id);
+                });
+            });
+            listEl.querySelectorAll('.bo-sp-download-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const id = String(btn.getAttribute('data-id') || '').trim();
+                    if (!id) return;
+                    exportStagePresetRecord(state.stage_presets[id]);
                 });
             });
         }
@@ -293,6 +367,57 @@
             if (typeof global.openBattleOnlyCatalogModal === 'function') {
                 global.openBattleOnlyCatalogModal({ room: roomName || null });
             }
+        });
+        panel.querySelector('#bo-sp-import-btn')?.addEventListener('click', () => {
+            if (!importFileInput) return;
+            importFileInput.value = '';
+            importFileInput.click();
+        });
+        importFileInput?.addEventListener('change', () => {
+            const file = importFileInput.files && importFileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const parsed = JSON.parse(String(reader.result || ''));
+                    const rec = normalizeImportedStagePreset(parsed);
+                    if (!rec) {
+                        setMsg('ステージJSONとして読み込めませんでした。', 'red');
+                        return;
+                    }
+                    state.selected_stage_id = null;
+                    idInput.value = rec.id || '';
+                    nameInput.value = rec.name || '';
+                    enemySelect.value = rec.enemy_formation_id || '';
+                    allySelect.value = rec.ally_formation_id || '';
+                    requiredInput.value = String(rec.required_ally_count || 0);
+                    visibilitySelect.value = rec.visibility || 'public';
+                    sortKeyInput.value = String(rec.sort_key || 0);
+                    tagsInput.value = Array.isArray(rec.tags) ? rec.tags.join(', ') : '';
+                    conceptInput.value = rec.concept || '';
+                    descriptionInput.value = rec.description || '';
+                    renderList();
+                    setMsg('ステージJSONをフォームに読み込みました。保存すると登録されます。', 'green');
+                } catch (e) {
+                    setMsg(`JSON解析に失敗しました: ${e.message}`, 'red');
+                }
+            };
+            reader.readAsText(file, 'utf-8');
+        });
+        panel.querySelector('#bo-sp-export-current-btn')?.addEventListener('click', () => {
+            const rec = {
+                id: String(idInput.value || '').trim() || null,
+                name: String(nameInput.value || '').trim() || '(未保存のステージ)',
+                visibility: String(visibilitySelect.value || 'public'),
+                enemy_formation_id: String(enemySelect.value || '').trim(),
+                ally_formation_id: String(allySelect.value || '').trim() || null,
+                required_ally_count: Math.max(0, safeInt(requiredInput.value, 0)),
+                sort_key: Math.max(0, safeInt(sortKeyInput.value, 0)),
+                tags: String(tagsInput.value || '').split(',').map((x) => x.trim()).filter((x) => !!x),
+                concept: String(conceptInput.value || '').trim(),
+                description: String(descriptionInput.value || '').trim(),
+            };
+            exportStagePresetRecord(rec);
         });
         panel.querySelector('#bo-sp-save-btn')?.addEventListener('click', () => {
             const payload = {
