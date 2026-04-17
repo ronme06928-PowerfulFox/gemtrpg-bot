@@ -37,3 +37,36 @@ def test_relation_condition_supports_ally_enemy_checks():
     assert check_condition(cond_ally, actor, enemy_target) is False
     assert check_condition(cond_enemy, actor, enemy_target) is True
     assert check_condition(cond_same, actor, enemy_target) is False
+
+
+def test_compute_damage_multipliers_honors_outgoing_condition():
+    attacker = {
+        "type": "ally",
+        "special_buffs": [
+            {
+                "name": "氷断ち",
+                "outgoing_damage_multiplier": 1.2,
+                "condition": {
+                    "source": "target",
+                    "param": "buff_count:減速",
+                    "operator": "GTE",
+                    "value": 1,
+                },
+            }
+        ],
+    }
+    defender_with_slow = {
+        "type": "enemy",
+        "special_buffs": [
+            {"name": "減速", "count": 1, "delay": 0},
+        ],
+    }
+    defender_without_slow = {"type": "enemy", "special_buffs": []}
+
+    result_hit = compute_damage_multipliers(attacker, defender_with_slow)
+    assert round(float(result_hit["outgoing"]), 4) == 1.2
+    assert round(float(result_hit["final"]), 4) == 1.2
+
+    result_miss = compute_damage_multipliers(attacker, defender_without_slow)
+    assert round(float(result_miss["outgoing"]), 4) == 1.0
+    assert round(float(result_miss["final"]), 4) == 1.0

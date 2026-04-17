@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 from events import socket_battle_only
@@ -867,3 +868,129 @@ def test_bo_validate_entry_reports_missing_enemy_and_count_mismatch(monkeypatch)
     issues = [str(x) for x in payload.get("issues", [])]
     assert any("敵編成が空" in x for x in issues)
     assert any("味方人数が不一致" in x for x in issues)
+
+
+def test_bo_ally_formation_and_stage_select(monkeypatch):
+    state = _base_state()
+    store = {
+        "character_presets": {
+            "ally_1": {
+                "id": "ally_1",
+                "name": "味方A",
+                "visibility": "public",
+                "allow_ally": True,
+                "allow_enemy": False,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+            "enemy_1": {
+                "id": "enemy_1",
+                "name": "敵A",
+                "visibility": "public",
+                "allow_ally": False,
+                "allow_enemy": True,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+        },
+        "enemy_formations": {
+            "ef_1": {
+                "id": "ef_1",
+                "name": "敵編成A",
+                "visibility": "public",
+                "recommended_ally_count": 2,
+                "members": [{"preset_id": "enemy_1", "count": 1, "behavior_profile_override": {}}],
+            }
+        },
+        "ally_formations": {},
+        "stage_presets": {},
+    }
+    emits = _patch_common(monkeypatch, state, store)
+
+    socket_battle_only.handle_bo_ally_formation_save(
+        {
+            "payload": {
+                "name": "味方編成A",
+                "visibility": "public",
+                "recommended_ally_count": 2,
+                "members": [{"preset_id": "ally_1", "slot_label": "前衛1", "user_id": "u_1"}],
+            }
+        }
+    )
+    ally_saved = _find_event(emits, "bo_ally_formation_saved")
+    assert ally_saved
+    ally_formation_id = str(ally_saved[-1][1].get("id") or "")
+    assert ally_formation_id
+    assert ally_formation_id in store.get("ally_formations", {})
+
+    emits.clear()
+    socket_battle_only.handle_bo_stage_preset_save(
+        {
+            "payload": {
+                "name": "入門ステージ",
+                "visibility": "public",
+                "enemy_formation_id": "ef_1",
+                "ally_formation_id": ally_formation_id,
+                "required_ally_count": 2,
+                "concept": "入門",
+                "description": "テスト用",
+            }
+        }
+    )
+    stage_saved = _find_event(emits, "bo_stage_preset_saved")
+    assert stage_saved
+    stage_id = str(stage_saved[-1][1].get("id") or "")
+    assert stage_id
+    assert stage_id in store.get("stage_presets", {})
+
+    emits.clear()
+    socket_battle_only.handle_bo_select_stage_preset({"room": "room_t", "stage_id": stage_id})
+    selected = _find_event(emits, "bo_stage_preset_selected")
+    assert selected
+    bo = state.get("battle_only", {})
+    assert bo.get("selected_stage_id") == stage_id
+    assert bo.get("enemy_formation_id") == "ef_1"
+    assert bo.get("ally_formation_id") == ally_formation_id
+    assert bo.get("ally_mode") == "preset"
+    assert bo.get("required_ally_count") == 2
+    assert isinstance(bo.get("enemy_entries"), list) and bo.get("enemy_entries")
+    assert isinstance(bo.get("ally_entries"), list) and bo.get("ally_entries")
+
+
+def test_bo_export_three_presets_json_filters_visibility_for_player(monkeypatch):
+    state = _base_state()
+    store = {
+        "character_presets": {},
+        "enemy_formations": {
+            "enemy_public": {"id": "enemy_public", "name": "公開敵", "visibility": "public", "members": []},
+            "enemy_gm": {"id": "enemy_gm", "name": "GM敵", "visibility": "gm", "members": []},
+        },
+        "ally_formations": {
+            "ally_public": {"id": "ally_public", "name": "公開味方", "visibility": "public", "members": []},
+            "ally_gm": {"id": "ally_gm", "name": "GM味方", "visibility": "gm", "members": []},
+        },
+        "stage_presets": {
+            "stage_public": {"id": "stage_public", "name": "公開ステージ", "visibility": "public", "enemy_formation_id": "enemy_public"},
+            "stage_gm": {"id": "stage_gm", "name": "GMステージ", "visibility": "gm", "enemy_formation_id": "enemy_gm"},
+        },
+    }
+    emits = _patch_common(
+        monkeypatch,
+        state,
+        store,
+        user_info={"username": "alice", "attribute": "Player", "user_id": "u_1"},
+    )
+
+    socket_battle_only.handle_bo_export_enemy_formations_json({})
+    socket_battle_only.handle_bo_export_ally_formations_json({})
+    socket_battle_only.handle_bo_export_stage_presets_json({})
+
+    enemy_rows = _find_event(emits, "bo_export_enemy_formations_json")
+    ally_rows = _find_event(emits, "bo_export_ally_formations_json")
+    stage_rows = _find_event(emits, "bo_export_stage_presets_json")
+    assert enemy_rows and ally_rows and stage_rows
+
+    enemy_items = json.loads(enemy_rows[-1][1].get("content", "{}")).get("items", {})
+    ally_items = json.loads(ally_rows[-1][1].get("content", "{}")).get("items", {})
+    stage_items = json.loads(stage_rows[-1][1].get("content", "{}")).get("items", {})
+    assert "enemy_public" in enemy_items and "enemy_gm" not in enemy_items
+    assert "ally_public" in ally_items and "ally_gm" not in ally_items
+    assert "stage_public" in stage_items and "stage_gm" not in stage_items

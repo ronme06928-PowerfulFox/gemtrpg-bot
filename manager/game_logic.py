@@ -1991,6 +1991,25 @@ def _resolve_buff_multiplier_value(buff_entry, keys):
     return None
 
 
+def _resolve_buff_condition_value(buff_entry):
+    if not isinstance(buff_entry, dict):
+        return None
+    condition = buff_entry.get('condition')
+    if isinstance(condition, dict):
+        return condition
+    data = buff_entry.get('data')
+    if isinstance(data, dict):
+        condition = data.get('condition')
+        if isinstance(condition, dict):
+            return condition
+    effect_data = get_buff_effect(buff_entry.get('name'))
+    if isinstance(effect_data, dict):
+        condition = effect_data.get('condition')
+        if isinstance(condition, dict):
+            return condition
+    return None
+
+
 def compute_damage_multipliers(attacker, defender, context=None):
     """
     与ダメ(outgoing) と被ダメ(incoming) の倍率を一括計算する。
@@ -2013,6 +2032,9 @@ def compute_damage_multipliers(attacker, defender, context=None):
         if not isinstance(buff, dict):
             continue
         buff_name = str(buff.get('name', '') or '').strip()
+        condition = _resolve_buff_condition_value(buff)
+        if condition and not check_condition(condition, defender, attacker, context=context):
+            continue
 
         if buff_name == "混乱":
             incoming *= 1.5
@@ -2031,6 +2053,9 @@ def compute_damage_multipliers(attacker, defender, context=None):
         if not isinstance(buff, dict):
             continue
         buff_name = str(buff.get('name', '') or '').strip()
+        condition = _resolve_buff_condition_value(buff)
+        if condition and not check_condition(condition, attacker, defender, context=context):
+            continue
         outgoing_value = _resolve_buff_multiplier_value(
             buff,
             keys=['outgoing_damage_multiplier'],

@@ -19,6 +19,7 @@ from manager.room_manager import (
     save_specific_room_state,
     set_character_owner,
 )
+from manager.utils import apply_passive_effect_buffs
 
 
 def _safe_int(value, default=0):
@@ -176,6 +177,26 @@ def _store_enemy_formations(store, create=False):
     return formations if isinstance(formations, dict) else {}
 
 
+def _store_ally_formations(store, create=False):
+    src = store if isinstance(store, dict) else {}
+    formations = src.get('ally_formations')
+    if not isinstance(formations, dict):
+        formations = {} if create else {}
+        if create:
+            src['ally_formations'] = formations
+    return formations if isinstance(formations, dict) else {}
+
+
+def _store_stage_presets(store, create=False):
+    src = store if isinstance(store, dict) else {}
+    stages = src.get('stage_presets')
+    if not isinstance(stages, dict):
+        stages = {} if create else {}
+        if create:
+            src['stage_presets'] = stages
+    return stages if isinstance(stages, dict) else {}
+
+
 def _sort_named_ids(rows):
     if not isinstance(rows, dict):
         return []
@@ -260,6 +281,126 @@ def _normalize_enemy_formation_record(payload, user_info, presets, existing=None
     }
 
 
+def _normalize_ally_formation_record(payload, user_info, presets, existing=None):
+    src = payload if isinstance(payload, dict) else {}
+    current = existing if isinstance(existing, dict) else {}
+    now_ms = _now_ms()
+
+    rec_id = str(src.get('id', '')).strip() or str(current.get('id', '')).strip() or _new_id('baf')
+    name = str(src.get('name', '')).strip() or str(current.get('name', '')).strip()
+    visibility = _normalize_visibility(src.get('visibility', current.get('visibility', 'public')))
+    recommended_ally_count = max(0, _safe_int(src.get('recommended_ally_count', current.get('recommended_ally_count', 0)), 0))
+    members_src = src.get('members', current.get('members', []))
+    members_src = members_src if isinstance(members_src, list) else []
+
+    members = []
+    for row in members_src:
+        if not isinstance(row, dict):
+            continue
+        preset_id = str(row.get('preset_id', '')).strip()
+        if not preset_id:
+            continue
+        preset = presets.get(preset_id)
+        if not isinstance(preset, dict):
+            raise ValueError(f'味方編成のプリセットが見つかりません: {preset_id}')
+        if not bool(preset.get('allow_ally', True)):
+            raise ValueError(f'味方として使えないプリセットです: {preset_id}')
+        slot_label = str(row.get('slot_label', '')).strip()
+        user_id = str(row.get('user_id', '')).strip() or None
+        members.append({
+            "preset_id": preset_id,
+            "slot_label": slot_label,
+            "user_id": user_id,
+        })
+
+    if not members:
+        raise ValueError('味方編成メンバーが空です。')
+
+    try:
+        created_at = int(current.get('created_at', now_ms) or now_ms)
+    except Exception:
+        created_at = now_ms
+
+    creator = str(current.get('created_by', '')).strip() or str((user_info or {}).get('username', '')).strip() or 'GM'
+    updater = str((user_info or {}).get('username', '')).strip() or creator
+
+    return {
+        "id": rec_id,
+        "name": name,
+        "visibility": visibility,
+        "recommended_ally_count": recommended_ally_count,
+        "members": members,
+        "created_at": created_at,
+        "updated_at": now_ms,
+        "created_by": creator,
+        "updated_by": updater,
+    }
+
+
+def _normalize_stage_preset_record(payload, user_info, enemy_formations, ally_formations, existing=None):
+    src = payload if isinstance(payload, dict) else {}
+    current = existing if isinstance(existing, dict) else {}
+    now_ms = _now_ms()
+
+    rec_id = str(src.get('id', '')).strip() or str(current.get('id', '')).strip() or _new_id('bos')
+    name = str(src.get('name', '')).strip() or str(current.get('name', '')).strip()
+    visibility = _normalize_visibility(src.get('visibility', current.get('visibility', 'public')))
+
+    enemy_formation_id = str(src.get('enemy_formation_id', current.get('enemy_formation_id', ''))).strip()
+    if not enemy_formation_id:
+        raise ValueError('enemy_formation_id は必須です。')
+    enemy_form = enemy_formations.get(enemy_formation_id)
+    if not isinstance(enemy_form, dict):
+        raise ValueError(f'敵編成が見つかりません: {enemy_formation_id}')
+
+    ally_formation_id = str(src.get('ally_formation_id', current.get('ally_formation_id', ''))).strip() or None
+    if ally_formation_id:
+        ally_form = ally_formations.get(ally_formation_id)
+        if not isinstance(ally_form, dict):
+            raise ValueError(f'味方編成が見つかりません: {ally_formation_id}')
+
+    required_ally_count = max(0, _safe_int(src.get('required_ally_count', current.get('required_ally_count', 0)), 0))
+    concept = str(src.get('concept', current.get('concept', ''))).strip()
+    description = str(src.get('description', current.get('description', ''))).strip()
+    raw_tags = src.get('tags', current.get('tags', []))
+    tags = [str(x).strip() for x in raw_tags] if isinstance(raw_tags, list) else []
+    tags = [x for x in tags if x]
+    sort_key = max(0, _safe_int(src.get('sort_key', current.get('sort_key', 0)), 0))
+
+    if required_ally_count <= 0:
+        # 既定は敵編成推奨値、次に味方編成推奨値、最後に0
+        required_ally_count = max(
+            0,
+            _safe_int(enemy_form.get('recommended_ally_count'), 0),
+            _safe_int((ally_formations.get(ally_formation_id) or {}).get('recommended_ally_count'), 0) if ally_formation_id else 0,
+        )
+
+    try:
+        created_at = int(current.get('created_at', now_ms) or now_ms)
+    except Exception:
+        created_at = now_ms
+
+    creator = str(current.get('created_by', '')).strip() or str((user_info or {}).get('username', '')).strip() or 'GM'
+    updater = str((user_info or {}).get('username', '')).strip() or creator
+
+    return {
+        "id": rec_id,
+        "name": name,
+        "visibility": visibility,
+        "enemy_formation_id": enemy_formation_id,
+        "ally_formation_id": ally_formation_id,
+        "required_ally_count": required_ally_count,
+        "concept": concept,
+        "description": description,
+        "tags": tags,
+        "sort_key": sort_key,
+        "created_at": created_at,
+        "updated_at": now_ms,
+        "created_by": creator,
+        "updated_by": updater,
+    }
+
+
 def _require_room_participant(room, event_name='bo_draft_error'):
     target_room = str(room or '').strip()
     if not target_room:
@@ -290,7 +431,9 @@ def _ensure_bo_state(state):
         state['battle_only'] = bo
     defaults = {
         "status": "lobby",
+        "selected_stage_id": None,
         "ally_mode": "preset",
+        "ally_formation_id": None,
         "required_ally_count": 0,
         "enemy_formation_id": None,
         "ally_entries": [],
@@ -322,6 +465,10 @@ def _ensure_bo_state(state):
     if bo['ally_mode'] not in ('preset', 'room_existing'):
         bo['ally_mode'] = 'preset'
     bo['required_ally_count'] = max(0, _safe_int(bo.get('required_ally_count'), 0))
+    selected_stage_id = str(bo.get('selected_stage_id', '')).strip()
+    bo['selected_stage_id'] = selected_stage_id or None
+    ally_formation_id = str(bo.get('ally_formation_id', '')).strip()
+    bo['ally_formation_id'] = ally_formation_id or None
     enemy_formation_id = str(bo.get('enemy_formation_id', '')).strip()
     bo['enemy_formation_id'] = enemy_formation_id or None
     bo['status'] = str(bo.get('status', 'lobby') or 'lobby').strip().lower() or 'lobby'
@@ -622,9 +769,7 @@ def _bo_generate_positions(count, width, height, side, gap, center_x=None, cente
     center_x_num = _bo_clamp_anchor(center_x, x_min, x_max, fallback_x)
     center_y_num = _bo_clamp_anchor(center_y, y_min, y_max, fallback_y)
 
-    # 左右の陣営は中央寄せではなく、各サイド外周側から配置して対面距離を確保する。
-    col_anchor = x_min if side == 'left' else x_max
-    cols = _bo_sorted_axis(cols, col_anchor)
+    cols = _bo_sorted_axis(cols, center_x_num)
     rows = _bo_sorted_axis(rows, center_y_num)
 
     positions = []
@@ -841,13 +986,21 @@ def handle_bo_catalog_list(_data):
     store = load_bo_preset_store()
     all_presets = _store_character_presets(store, create=False)
     all_formations = _store_enemy_formations(store, create=False)
+    all_ally_formations = _store_ally_formations(store, create=False)
+    all_stage_presets = _store_stage_presets(store, create=False)
     visible = _filter_visible_presets(all_presets, user_info)
     visible_formations = _filter_visible_rows_by_visibility(all_formations, user_info)
+    visible_ally_formations = _filter_visible_rows_by_visibility(all_ally_formations, user_info)
+    visible_stage_presets = _filter_visible_rows_by_visibility(all_stage_presets, user_info)
     payload = {
         "presets": visible,
         "sorted_ids": _sort_preset_ids(visible),
         "enemy_formations": visible_formations,
         "sorted_enemy_formation_ids": _sort_named_ids(visible_formations),
+        "ally_formations": visible_ally_formations,
+        "sorted_ally_formation_ids": _sort_named_ids(visible_ally_formations),
+        "stage_presets": visible_stage_presets,
+        "sorted_stage_preset_ids": _sort_stage_ids(visible_stage_presets),
         "can_manage": _is_gm(user_info),
     }
     socketio.emit('receive_bo_catalog_list', payload, to=request.sid)
@@ -946,6 +1099,38 @@ def _enemy_entries_from_formation_record(record):
             "behavior_profile_override": copy.deepcopy(behavior_profile_override),
         })
     return out
+
+
+def _ally_entries_from_formation_record(record):
+    src = record if isinstance(record, dict) else {}
+    members = src.get('members')
+    members = members if isinstance(members, list) else []
+    out = []
+    for row in members:
+        if not isinstance(row, dict):
+            continue
+        preset_id = str(row.get('preset_id', '')).strip()
+        if not preset_id:
+            continue
+        user_id = str(row.get('user_id', '')).strip() or None
+        out.append({
+            "preset_id": preset_id,
+            "user_id": user_id,
+        })
+    return out
+
+
+def _sort_stage_ids(rows):
+    if not isinstance(rows, dict):
+        return []
+
+    def _key(stage_id):
+        rec = rows.get(stage_id, {}) if isinstance(rows.get(stage_id), dict) else {}
+        sort_key = max(0, _safe_int(rec.get('sort_key'), 0))
+        name = str(rec.get('name', '')).strip().lower()
+        return (sort_key, name, str(stage_id))
+
+    return sorted(list(rows.keys()), key=_key)
 
 
 @socketio.on('request_bo_enemy_formation_list')
@@ -1059,6 +1244,7 @@ def handle_bo_select_enemy_formation(data):
 
     state = get_room_state(room)
     bo = _ensure_bo_state(state)
+    bo['selected_stage_id'] = None
     bo['enemy_formation_id'] = formation_id
     bo['enemy_entries'] = _enemy_entries_from_formation_record(record)
     recommended = max(0, _safe_int(record.get('recommended_ally_count'), 0))
@@ -1074,6 +1260,303 @@ def handle_bo_select_enemy_formation(data):
             "formation_id": formation_id,
             "enemy_entries": copy.deepcopy(bo.get('enemy_entries', [])),
             "battle_only": copy.deepcopy(bo),
+        },
+        to=request.sid
+    )
+
+
+@socketio.on('request_bo_ally_formation_list')
+def handle_bo_ally_formation_list(_data):
+    user_info = get_user_info_from_sid(request.sid)
+    store = load_bo_preset_store()
+    formations = _store_ally_formations(store, create=False)
+    visible = _filter_visible_rows_by_visibility(formations, user_info)
+    socketio.emit(
+        'bo_ally_formation_list',
+        {
+            "ally_formations": visible,
+            "sorted_ally_formation_ids": _sort_named_ids(visible),
+            "can_manage": _is_gm(user_info),
+        },
+        to=request.sid
+    )
+
+
+@socketio.on('request_bo_ally_formation_save')
+def handle_bo_ally_formation_save(data):
+    allowed, user_info = _require_gm(event_name='bo_ally_formation_error')
+    if not allowed:
+        return
+    src = data if isinstance(data, dict) else {}
+    payload = src.get('payload') if isinstance(src.get('payload'), dict) else src
+    overwrite = bool(src.get('overwrite', False))
+
+    try:
+        incoming_id = str((payload or {}).get('id', '')).strip()
+        existing_holder = {}
+
+        def _mutator(store):
+            presets = _store_character_presets(store, create=False)
+            formations = _store_ally_formations(store, create=True)
+            current = formations.get(incoming_id) if incoming_id else None
+            normalized = _normalize_ally_formation_record(payload, user_info, presets, existing=current)
+            rec_id = normalized['id']
+            if rec_id in formations and not overwrite and not incoming_id:
+                raise RuntimeError('duplicate_id')
+            if not str(normalized.get('name', '')).strip():
+                raise RuntimeError('name_required')
+            formations[rec_id] = normalized
+            existing_holder['record'] = normalized
+
+        mutate_bo_preset_store(_mutator)
+        saved = existing_holder.get('record') or {}
+        socketio.emit('bo_ally_formation_saved', {"id": saved.get('id'), "record": copy.deepcopy(saved)}, to=request.sid)
+    except RuntimeError as ex:
+        code = str(ex)
+        if code == 'duplicate_id':
+            _emit_error('duplicate', '同じIDの味方編成が既に存在します。', event_name='bo_ally_formation_error')
+        elif code == 'name_required':
+            _emit_error('invalid_payload', '味方編成名は必須です。', event_name='bo_ally_formation_error')
+        else:
+            _emit_error('save_failed', '味方編成の保存に失敗しました。', event_name='bo_ally_formation_error')
+    except ValueError as ex:
+        _emit_error('invalid_payload', str(ex), event_name='bo_ally_formation_error')
+    except Exception as ex:
+        _emit_error('invalid_payload', f'保存データが不正です: {ex}', event_name='bo_ally_formation_error')
+
+
+@socketio.on('request_bo_ally_formation_delete')
+def handle_bo_ally_formation_delete(data):
+    allowed, _ = _require_gm(event_name='bo_ally_formation_error')
+    if not allowed:
+        return
+    rec_id = str((data or {}).get('id', '')).strip()
+    if not rec_id:
+        _emit_error('invalid_request', 'id は必須です。', event_name='bo_ally_formation_error')
+        return
+    try:
+        def _mutator(store):
+            formations = _store_ally_formations(store, create=True)
+            if rec_id not in formations:
+                raise RuntimeError('not_found')
+            del formations[rec_id]
+
+        mutate_bo_preset_store(_mutator)
+        socketio.emit('bo_ally_formation_deleted', {"id": rec_id}, to=request.sid)
+    except RuntimeError as ex:
+        if str(ex) == 'not_found':
+            _emit_error('not_found', '味方編成が見つかりません。', event_name='bo_ally_formation_error', extra={"id": rec_id})
+        else:
+            _emit_error('delete_failed', '味方編成の削除に失敗しました。', event_name='bo_ally_formation_error')
+    except Exception:
+        _emit_error('delete_failed', '味方編成の削除に失敗しました。', event_name='bo_ally_formation_error')
+
+
+@socketio.on('request_bo_select_ally_formation')
+def handle_bo_select_ally_formation(data):
+    room = str((data or {}).get('room', '')).strip()
+    if not room:
+        _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
+        return
+    allowed, user_info = _require_room_participant(room, event_name='bo_draft_error')
+    if not allowed:
+        return
+    formation_id = str((data or {}).get('formation_id', '')).strip()
+    if not formation_id:
+        _emit_error('invalid_request', 'formation_id は必須です。', event_name='bo_draft_error')
+        return
+
+    store = load_bo_preset_store()
+    formations = _store_ally_formations(store, create=False)
+    visible_formations = _filter_visible_rows_by_visibility(formations, user_info)
+    record = visible_formations.get(formation_id)
+    if not isinstance(record, dict):
+        _emit_error('not_found', '味方編成が見つかりません。', event_name='bo_draft_error', extra={"id": formation_id})
+        return
+
+    state = get_room_state(room)
+    bo = _ensure_bo_state(state)
+    bo['selected_stage_id'] = None
+    bo['ally_formation_id'] = formation_id
+    bo['ally_entries'] = _ally_entries_from_formation_record(record)
+    bo['required_ally_count'] = max(0, _safe_int(record.get('recommended_ally_count'), 0))
+    bo['ally_mode'] = 'preset'
+    bo['status'] = 'draft'
+    state['play_mode'] = 'battle_only'
+
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+    socketio.emit(
+        'bo_ally_formation_selected',
+        {
+            "formation_id": formation_id,
+            "ally_entries": copy.deepcopy(bo.get('ally_entries', [])),
+            "battle_only": copy.deepcopy(bo),
+        },
+        to=request.sid
+    )
+
+
+@socketio.on('request_bo_stage_preset_list')
+def handle_bo_stage_preset_list(_data):
+    user_info = get_user_info_from_sid(request.sid)
+    store = load_bo_preset_store()
+    stages = _store_stage_presets(store, create=False)
+    visible = _filter_visible_rows_by_visibility(stages, user_info)
+    socketio.emit(
+        'bo_stage_preset_list',
+        {
+            "stage_presets": visible,
+            "sorted_stage_preset_ids": _sort_stage_ids(visible),
+            "can_manage": _is_gm(user_info),
+        },
+        to=request.sid
+    )
+
+
+@socketio.on('request_bo_stage_preset_save')
+def handle_bo_stage_preset_save(data):
+    allowed, user_info = _require_gm(event_name='bo_stage_preset_error')
+    if not allowed:
+        return
+    src = data if isinstance(data, dict) else {}
+    payload = src.get('payload') if isinstance(src.get('payload'), dict) else src
+    overwrite = bool(src.get('overwrite', False))
+
+    try:
+        incoming_id = str((payload or {}).get('id', '')).strip()
+        existing_holder = {}
+
+        def _mutator(store):
+            enemy_formations = _store_enemy_formations(store, create=False)
+            ally_formations = _store_ally_formations(store, create=False)
+            stages = _store_stage_presets(store, create=True)
+            current = stages.get(incoming_id) if incoming_id else None
+            normalized = _normalize_stage_preset_record(
+                payload,
+                user_info,
+                enemy_formations=enemy_formations,
+                ally_formations=ally_formations,
+                existing=current,
+            )
+            rec_id = normalized['id']
+            if rec_id in stages and not overwrite and not incoming_id:
+                raise RuntimeError('duplicate_id')
+            if not str(normalized.get('name', '')).strip():
+                raise RuntimeError('name_required')
+            stages[rec_id] = normalized
+            existing_holder['record'] = normalized
+
+        mutate_bo_preset_store(_mutator)
+        saved = existing_holder.get('record') or {}
+        socketio.emit('bo_stage_preset_saved', {"id": saved.get('id'), "record": copy.deepcopy(saved)}, to=request.sid)
+    except RuntimeError as ex:
+        code = str(ex)
+        if code == 'duplicate_id':
+            _emit_error('duplicate', '同じIDのステージが既に存在します。', event_name='bo_stage_preset_error')
+        elif code == 'name_required':
+            _emit_error('invalid_payload', 'ステージ名は必須です。', event_name='bo_stage_preset_error')
+        else:
+            _emit_error('save_failed', 'ステージの保存に失敗しました。', event_name='bo_stage_preset_error')
+    except ValueError as ex:
+        _emit_error('invalid_payload', str(ex), event_name='bo_stage_preset_error')
+    except Exception as ex:
+        _emit_error('invalid_payload', f'保存データが不正です: {ex}', event_name='bo_stage_preset_error')
+
+
+@socketio.on('request_bo_stage_preset_delete')
+def handle_bo_stage_preset_delete(data):
+    allowed, _ = _require_gm(event_name='bo_stage_preset_error')
+    if not allowed:
+        return
+    rec_id = str((data or {}).get('id', '')).strip()
+    if not rec_id:
+        _emit_error('invalid_request', 'id は必須です。', event_name='bo_stage_preset_error')
+        return
+    try:
+        def _mutator(store):
+            stages = _store_stage_presets(store, create=True)
+            if rec_id not in stages:
+                raise RuntimeError('not_found')
+            del stages[rec_id]
+
+        mutate_bo_preset_store(_mutator)
+        socketio.emit('bo_stage_preset_deleted', {"id": rec_id}, to=request.sid)
+    except RuntimeError as ex:
+        if str(ex) == 'not_found':
+            _emit_error('not_found', 'ステージが見つかりません。', event_name='bo_stage_preset_error', extra={"id": rec_id})
+        else:
+            _emit_error('delete_failed', 'ステージの削除に失敗しました。', event_name='bo_stage_preset_error')
+    except Exception:
+        _emit_error('delete_failed', 'ステージの削除に失敗しました。', event_name='bo_stage_preset_error')
+
+
+@socketio.on('request_bo_select_stage_preset')
+def handle_bo_select_stage_preset(data):
+    room = str((data or {}).get('room', '')).strip()
+    if not room:
+        _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
+        return
+    allowed, user_info = _require_room_participant(room, event_name='bo_draft_error')
+    if not allowed:
+        return
+    stage_id = str((data or {}).get('stage_id', '')).strip()
+    if not stage_id:
+        _emit_error('invalid_request', 'stage_id は必須です。', event_name='bo_draft_error')
+        return
+
+    store = load_bo_preset_store()
+    stages = _store_stage_presets(store, create=False)
+    enemy_formations = _store_enemy_formations(store, create=False)
+    ally_formations = _store_ally_formations(store, create=False)
+    visible_stages = _filter_visible_rows_by_visibility(stages, user_info)
+    stage = visible_stages.get(stage_id)
+    if not isinstance(stage, dict):
+        _emit_error('not_found', 'ステージが見つかりません。', event_name='bo_draft_error', extra={"id": stage_id})
+        return
+
+    enemy_formation_id = str(stage.get('enemy_formation_id', '')).strip()
+    enemy_rec = enemy_formations.get(enemy_formation_id)
+    if not isinstance(enemy_rec, dict):
+        _emit_error('invalid_stage', f'ステージが参照する敵編成が見つかりません: {enemy_formation_id}', event_name='bo_draft_error')
+        return
+    if _normalize_visibility(enemy_rec.get('visibility', 'public')) != 'public' and not _is_gm(user_info):
+        _emit_error('permission_denied', 'このステージの敵編成にはアクセスできません。', event_name='bo_draft_error')
+        return
+
+    ally_formation_id = str(stage.get('ally_formation_id', '')).strip() or None
+    ally_rec = None
+    if ally_formation_id:
+        ally_rec = ally_formations.get(ally_formation_id)
+        if not isinstance(ally_rec, dict):
+            _emit_error('invalid_stage', f'ステージが参照する味方編成が見つかりません: {ally_formation_id}', event_name='bo_draft_error')
+            return
+        if _normalize_visibility(ally_rec.get('visibility', 'public')) != 'public' and not _is_gm(user_info):
+            _emit_error('permission_denied', 'このステージの味方編成にはアクセスできません。', event_name='bo_draft_error')
+            return
+
+    state = get_room_state(room)
+    bo = _ensure_bo_state(state)
+    bo['selected_stage_id'] = stage_id
+    bo['enemy_formation_id'] = enemy_formation_id
+    bo['enemy_entries'] = _enemy_entries_from_formation_record(enemy_rec)
+    bo['ally_formation_id'] = ally_formation_id
+    bo['ally_entries'] = _ally_entries_from_formation_record(ally_rec) if isinstance(ally_rec, dict) else []
+    bo['required_ally_count'] = max(0, _safe_int(stage.get('required_ally_count'), 0))
+    if bo['required_ally_count'] <= 0:
+        bo['required_ally_count'] = max(0, _safe_int(enemy_rec.get('recommended_ally_count'), 0))
+    bo['ally_mode'] = 'preset'
+    bo['status'] = 'draft'
+    state['play_mode'] = 'battle_only'
+
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+    socketio.emit(
+        'bo_stage_preset_selected',
+        {
+            "stage_id": stage_id,
+            "battle_only": copy.deepcopy(bo),
+            "stage_preset": copy.deepcopy(stage),
         },
         to=request.sid
     )
@@ -1142,8 +1625,12 @@ def handle_bo_draft_state(data):
     store = load_bo_preset_store()
     all_presets = _store_character_presets(store, create=False)
     all_formations = _store_enemy_formations(store, create=False)
+    all_ally_formations = _store_ally_formations(store, create=False)
+    all_stage_presets = _store_stage_presets(store, create=False)
     visible = _filter_visible_presets(all_presets, user_info)
     visible_formations = _filter_visible_rows_by_visibility(all_formations, user_info)
+    visible_ally_formations = _filter_visible_rows_by_visibility(all_ally_formations, user_info)
+    visible_stage_presets = _filter_visible_rows_by_visibility(all_stage_presets, user_info)
     payload = {
         "battle_only": copy.deepcopy(bo),
         "users": users,
@@ -1151,6 +1638,10 @@ def handle_bo_draft_state(data):
         "sorted_ids": _sort_preset_ids(visible),
         "enemy_formations": visible_formations,
         "sorted_enemy_formation_ids": _sort_named_ids(visible_formations),
+        "ally_formations": visible_ally_formations,
+        "sorted_ally_formation_ids": _sort_named_ids(visible_ally_formations),
+        "stage_presets": visible_stage_presets,
+        "sorted_stage_preset_ids": _sort_stage_ids(visible_stage_presets),
         "records": copy.deepcopy(_get_records(bo)),
         "active_record_id": str(bo.get('active_record_id', '')).strip() or None,
         "can_manage": _is_gm(user_info),
@@ -1187,10 +1678,14 @@ def handle_bo_draft_update(data):
         return
     required_ally_count = max(0, _safe_int(payload.get('required_ally_count', bo.get('required_ally_count', 0)), 0))
     enemy_formation_id = str(payload.get('enemy_formation_id', bo.get('enemy_formation_id', '') or '')).strip() or None
+    ally_formation_id = str(payload.get('ally_formation_id', bo.get('ally_formation_id', '') or '')).strip() or None
+    selected_stage_id = str(payload.get('selected_stage_id', bo.get('selected_stage_id', '') or '')).strip() or None
 
     bo['ally_mode'] = ally_mode
     bo['required_ally_count'] = required_ally_count
     bo['enemy_formation_id'] = enemy_formation_id
+    bo['ally_formation_id'] = ally_formation_id
+    bo['selected_stage_id'] = selected_stage_id
     bo['ally_entries'] = ally_entries
     bo['enemy_entries'] = enemy_entries
     bo['status'] = 'draft'
@@ -1366,12 +1861,14 @@ def handle_bo_start_battle(data):
         _bo_assign_auto_positions([], built_enemy_chars, state, anchor=anchor)
 
     for char in state.get('characters', []):
+        apply_passive_effect_buffs(char)
         process_battle_start(room, char)
 
     bo['ally_entries'] = ally_entries
     bo['enemy_entries'] = enemy_entries
     bo['status'] = 'in_battle'
     bo['ally_mode'] = ally_mode
+    bo['selected_stage_id'] = str(bo.get('selected_stage_id', '')).strip() or None
     bo['required_ally_count'] = required_ally_count
     bo['options'] = {
         "force_pve": True,
@@ -1387,7 +1884,9 @@ def handle_bo_start_battle(data):
         "started_at": _now_iso(),
         "ended_at": None,
         "config": {
+            "selected_stage_id": bo.get('selected_stage_id'),
             "ally_mode": ally_mode,
+            "ally_formation_id": bo.get('ally_formation_id'),
             "required_ally_count": required_ally_count,
             "enemy_formation_id": bo.get('enemy_formation_id'),
             "options": copy.deepcopy(bo.get('options', {})),
@@ -1485,6 +1984,46 @@ def handle_bo_record_mark_result(data):
     )
 
 
+def _emit_bo_store_export(event_name, filename_prefix, rows, sorted_ids):
+    content = json.dumps(
+        {
+            "version": 1,
+            "exported_at": _now_iso(),
+            "count": len(rows) if isinstance(rows, dict) else 0,
+            "sorted_ids": sorted_ids if isinstance(sorted_ids, list) else [],
+            "items": rows if isinstance(rows, dict) else {},
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+    filename = f"{filename_prefix}_{int(time.time())}.json"
+    socketio.emit(event_name, {"filename": filename, "content": content}, to=request.sid)
+
+
+@socketio.on('request_bo_export_enemy_formations_json')
+def handle_bo_export_enemy_formations_json(_data):
+    user_info = get_user_info_from_sid(request.sid)
+    store = load_bo_preset_store()
+    rows = _filter_visible_rows_by_visibility(_store_enemy_formations(store, create=False), user_info)
+    _emit_bo_store_export('bo_export_enemy_formations_json', 'bo_enemy_formations', rows, _sort_named_ids(rows))
+
+
+@socketio.on('request_bo_export_ally_formations_json')
+def handle_bo_export_ally_formations_json(_data):
+    user_info = get_user_info_from_sid(request.sid)
+    store = load_bo_preset_store()
+    rows = _filter_visible_rows_by_visibility(_store_ally_formations(store, create=False), user_info)
+    _emit_bo_store_export('bo_export_ally_formations_json', 'bo_ally_formations', rows, _sort_named_ids(rows))
+
+
+@socketio.on('request_bo_export_stage_presets_json')
+def handle_bo_export_stage_presets_json(_data):
+    user_info = get_user_info_from_sid(request.sid)
+    store = load_bo_preset_store()
+    rows = _filter_visible_rows_by_visibility(_store_stage_presets(store, create=False), user_info)
+    _emit_bo_store_export('bo_export_stage_presets_json', 'bo_stage_presets', rows, _sort_stage_ids(rows))
+
+
 @socketio.on('request_bo_record_export')
 def handle_bo_record_export(data):
     room = str((data or {}).get('room', '')).strip()
@@ -1505,6 +2044,10 @@ def handle_bo_record_export(data):
         "battle_only": {
             "status": bo.get('status'),
             "active_record_id": bo.get('active_record_id'),
+            "selected_stage_id": bo.get('selected_stage_id'),
+            "ally_formation_id": bo.get('ally_formation_id'),
+            "enemy_formation_id": bo.get('enemy_formation_id'),
+            "required_ally_count": bo.get('required_ally_count'),
             "ally_entries": copy.deepcopy(bo.get('ally_entries', [])),
             "enemy_entries": copy.deepcopy(bo.get('enemy_entries', [])),
         },

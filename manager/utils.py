@@ -1,3 +1,4 @@
+import copy
 import re
 from functools import wraps
 from flask import jsonify, session
@@ -699,6 +700,88 @@ def get_passive_stat_mod(char_obj, stat_name):
              except (ValueError, TypeError):
                 continue
     return total_mod
+
+
+def apply_passive_effect_buffs(char_obj):
+    """
+    SPassive の効果を常時バフとして special_buffs へ展開する。
+    stat_mods は get_passive_stat_mod 側で計算されるためここでは除外する。
+    """
+    if not isinstance(char_obj, dict):
+        return char_obj
+
+    passive_ids = char_obj.get('SPassive', [])
+    if not isinstance(passive_ids, list) or not passive_ids:
+        return char_obj
+
+    if not isinstance(char_obj.get('special_buffs'), list):
+        char_obj['special_buffs'] = []
+
+    try:
+        from manager.passives.loader import passive_loader
+        passives_cache = passive_loader.load_passives() or {}
+    except Exception as e:
+        logger.warning(f"passive load failed while expanding passive effects: {e}")
+        return char_obj
+
+    # Rebuild passive-derived rows to avoid duplicates when this is called repeatedly.
+    rebuilt_buffs = []
+    for buff in char_obj.get('special_buffs', []):
+        if (
+            isinstance(buff, dict)
+            and str(buff.get('source', '')).strip() == 'passive'
+            and str(buff.get('passive_id', '')).strip()
+        ):
+            continue
+        rebuilt_buffs.append(buff)
+
+    for raw_passive_id in passive_ids:
+        passive_id = str(raw_passive_id or '').strip()
+        if not passive_id:
+            continue
+
+        passive_data = passives_cache.get(passive_id)
+        if not isinstance(passive_data, dict):
+            continue
+
+        effect = passive_data.get('effect', {})
+        if not isinstance(effect, dict):
+            continue
+
+        # stat_mods は既存の get_passive_stat_mod と二重加算になるため含めない。
+        effect_wo_stat_mods = {
+            key: copy.deepcopy(value)
+            for key, value in effect.items()
+            if key != 'stat_mods'
+        }
+        if not effect_wo_stat_mods:
+            continue
+
+        buff_payload = {
+            'name': normalize_buff_name(passive_data.get('name') or passive_id),
+            'source': 'passive',
+            'passive_id': passive_id,
+            'delay': 0,
+            'lasting': -1,
+            'is_permanent': True,
+            'description': passive_data.get('description', ''),
+            'flavor': passive_data.get('flavor', ''),
+            'data': effect_wo_stat_mods,
+        }
+        # 既存の倍率解決ロジックで参照されるキーは top-level にも載せる。
+        for multiplier_key in (
+            'damage_multiplier',
+            'incoming_damage_multiplier',
+            'outgoing_damage_multiplier',
+            'condition',
+        ):
+            if multiplier_key in effect_wo_stat_mods:
+                buff_payload[multiplier_key] = copy.deepcopy(effect_wo_stat_mods[multiplier_key])
+
+        rebuilt_buffs.append(buff_payload)
+
+    char_obj['special_buffs'] = rebuilt_buffs
+    return char_obj
 
 def get_buff_stat_mod_details(char_obj, stat_name):
     """

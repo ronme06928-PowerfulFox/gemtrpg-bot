@@ -8,6 +8,7 @@ import time
 from extensions import all_skill_data
 from manager.logs import setup_logger
 from manager.summons.loader import get_summon_template
+from manager.utils import apply_passive_effect_buffs
 
 logger = setup_logger(__name__)
 
@@ -183,12 +184,21 @@ def _get_room_state_fallback(room):
 def _apply_radiance_if_needed(char_obj):
     if not isinstance(char_obj, dict):
         return char_obj
+    apply_passive_effect_buffs(char_obj)
+
     if not char_obj.get("SPassive"):
         return char_obj
     try:
         from manager.radiance.applier import radiance_applier
 
-        return radiance_applier.apply_radiance_skills(char_obj, char_obj.get("SPassive", []))
+        radiance_ids = [
+            str(skill_id).strip()
+            for skill_id in char_obj.get("SPassive", [])
+            if str(skill_id).strip().upper().startswith("S-")
+        ]
+        if not radiance_ids:
+            return char_obj
+        return radiance_applier.apply_radiance_skills(char_obj, radiance_ids)
     except Exception as e:
         logger.warning("summon radiance apply failed: %s", e)
         return char_obj

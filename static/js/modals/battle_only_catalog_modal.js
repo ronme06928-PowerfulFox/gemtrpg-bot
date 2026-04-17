@@ -538,6 +538,21 @@
                         <div id="bo-cat-enemy-formation-summary" class="bo-subcard-note">登録数: 0件</div>
                         <div class="bo-subcard-note">敵編成の作成・編集は専用画面で行います。</div>
                         <button id="bo-cat-open-enemy-formation-btn" class="bo-btn bo-btn--sm bo-btn--primary">敵編成プリセット編集を開く</button>
+                        <button id="bo-cat-export-enemy-formations-btn" class="bo-btn bo-btn--sm bo-btn--neutral" style="margin-top:6px;">敵編成JSONをダウンロード</button>
+                    </section>
+                    <section class="bo-subcard" style="margin-top:12px;">
+                        <div class="bo-subcard-title">味方編成プリセット</div>
+                        <div id="bo-cat-ally-formation-summary" class="bo-subcard-note">登録数: 0件</div>
+                        <div class="bo-subcard-note">味方編成の作成・編集は専用画面で行います。</div>
+                        <button id="bo-cat-open-ally-formation-btn" class="bo-btn bo-btn--sm bo-btn--primary">味方編成プリセット編集を開く</button>
+                        <button id="bo-cat-export-ally-formations-btn" class="bo-btn bo-btn--sm bo-btn--neutral" style="margin-top:6px;">味方編成JSONをダウンロード</button>
+                    </section>
+                    <section class="bo-subcard" style="margin-top:12px;">
+                        <div class="bo-subcard-title">ステージプリセット</div>
+                        <div id="bo-cat-stage-preset-summary" class="bo-subcard-note">登録数: 0件</div>
+                        <div class="bo-subcard-note">ステージ（敵+味方セット）の作成・編集は専用画面で行います。</div>
+                        <button id="bo-cat-open-stage-preset-btn" class="bo-btn bo-btn--sm bo-btn--primary">ステージプリセット編集を開く</button>
+                        <button id="bo-cat-export-stage-presets-btn" class="bo-btn bo-btn--sm bo-btn--neutral" style="margin-top:6px;">ステージJSONをダウンロード</button>
                     </section>
                 </section>
             </div>
@@ -562,7 +577,14 @@
         const searchEl = panel.querySelector('#bo-cat-search');
         const sortEl = panel.querySelector('#bo-cat-sort');
         const enemyFormationSummaryEl = panel.querySelector('#bo-cat-enemy-formation-summary');
+        const allyFormationSummaryEl = panel.querySelector('#bo-cat-ally-formation-summary');
+        const stagePresetSummaryEl = panel.querySelector('#bo-cat-stage-preset-summary');
         const openEnemyFormationBtn = panel.querySelector('#bo-cat-open-enemy-formation-btn');
+        const openAllyFormationBtn = panel.querySelector('#bo-cat-open-ally-formation-btn');
+        const openStagePresetBtn = panel.querySelector('#bo-cat-open-stage-preset-btn');
+        const exportEnemyFormationsBtn = panel.querySelector('#bo-cat-export-enemy-formations-btn');
+        const exportAllyFormationsBtn = panel.querySelector('#bo-cat-export-ally-formations-btn');
+        const exportStagePresetsBtn = panel.querySelector('#bo-cat-export-stage-presets-btn');
         const formIdInput = panel.querySelector('#bo-form-id');
         const formNameInput = panel.querySelector('#bo-form-name');
         const formVisibilitySelect = panel.querySelector('#bo-form-visibility');
@@ -575,6 +597,10 @@
             sorted_ids: [],
             enemy_formations: {},
             sorted_enemy_formation_ids: [],
+            ally_formations: {},
+            sorted_ally_formation_ids: [],
+            stage_presets: {},
+            sorted_stage_preset_ids: [],
             selected_id: null,
             selected_formation_id: null,
             formation_members: [],
@@ -591,6 +617,20 @@
             if (!msgEl) return;
             msgEl.textContent = text || '';
             msgEl.style.color = color || '#666';
+        }
+
+        function downloadTextFile(filename, content) {
+            const blob = new Blob([String(content || '')], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || `bo_export_${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+                a.remove();
+            }, 0);
         }
 
         function setEditorEnabled(enabled) {
@@ -749,6 +789,22 @@
                 ? state.sorted_enemy_formation_ids
                 : Object.keys(state.enemy_formations || {}).sort();
             enemyFormationSummaryEl.textContent = `登録数: ${ids.length}件`;
+        }
+
+        function renderAllyFormationSummary() {
+            if (!allyFormationSummaryEl) return;
+            const ids = (Array.isArray(state.sorted_ally_formation_ids) && state.sorted_ally_formation_ids.length)
+                ? state.sorted_ally_formation_ids
+                : Object.keys(state.ally_formations || {}).sort();
+            allyFormationSummaryEl.textContent = `登録数: ${ids.length}件`;
+        }
+
+        function renderStagePresetSummary() {
+            if (!stagePresetSummaryEl) return;
+            const ids = (Array.isArray(state.sorted_stage_preset_ids) && state.sorted_stage_preset_ids.length)
+                ? state.sorted_stage_preset_ids
+                : Object.keys(state.stage_presets || {}).sort();
+            stagePresetSummaryEl.textContent = `登録数: ${ids.length}件`;
         }
 
         function enemyPresetIds() {
@@ -1068,6 +1124,45 @@
                 can_manage: state.can_manage,
             });
         });
+        openAllyFormationBtn?.addEventListener('click', () => {
+            if (typeof global.openBattleOnlyAllyFormationModal !== 'function') {
+                setMsg('味方編成プリセット編集モーダルを読み込めませんでした。', 'red');
+                return;
+            }
+            global.openBattleOnlyAllyFormationModal({
+                room: roomName || null,
+                presets: state.presets,
+                sorted_ids: state.sorted_ids,
+                ally_formations: state.ally_formations,
+                sorted_ally_formation_ids: state.sorted_ally_formation_ids,
+                can_manage: state.can_manage,
+            });
+        });
+        openStagePresetBtn?.addEventListener('click', () => {
+            if (typeof global.openBattleOnlyStagePresetModal !== 'function') {
+                setMsg('ステージプリセット編集モーダルを読み込めませんでした。', 'red');
+                return;
+            }
+            global.openBattleOnlyStagePresetModal({
+                room: roomName || null,
+                enemy_formations: state.enemy_formations,
+                sorted_enemy_formation_ids: state.sorted_enemy_formation_ids,
+                ally_formations: state.ally_formations,
+                sorted_ally_formation_ids: state.sorted_ally_formation_ids,
+                stage_presets: state.stage_presets,
+                sorted_stage_preset_ids: state.sorted_stage_preset_ids,
+                can_manage: state.can_manage,
+            });
+        });
+        exportEnemyFormationsBtn?.addEventListener('click', () => {
+            socketRef.emit('request_bo_export_enemy_formations_json', {});
+        });
+        exportAllyFormationsBtn?.addEventListener('click', () => {
+            socketRef.emit('request_bo_export_ally_formations_json', {});
+        });
+        exportStagePresetsBtn?.addEventListener('click', () => {
+            socketRef.emit('request_bo_export_stage_presets_json', {});
+        });
         panel.querySelector('#bo-cat-validate-btn')?.addEventListener('click', () => {
             const parsed = parseCharacterJsonText(jsonInput.value);
             if (!parsed.ok) {
@@ -1177,9 +1272,19 @@
             state.sorted_enemy_formation_ids = (data && Array.isArray(data.sorted_enemy_formation_ids))
                 ? data.sorted_enemy_formation_ids
                 : Object.keys(state.enemy_formations).sort();
+            state.ally_formations = (data && typeof data.ally_formations === 'object') ? data.ally_formations : {};
+            state.sorted_ally_formation_ids = (data && Array.isArray(data.sorted_ally_formation_ids))
+                ? data.sorted_ally_formation_ids
+                : Object.keys(state.ally_formations).sort();
+            state.stage_presets = (data && typeof data.stage_presets === 'object') ? data.stage_presets : {};
+            state.sorted_stage_preset_ids = (data && Array.isArray(data.sorted_stage_preset_ids))
+                ? data.sorted_stage_preset_ids
+                : Object.keys(state.stage_presets).sort();
             state.can_manage = !!(data && data.can_manage);
             renderList();
             renderEnemyFormationSummary();
+            renderAllyFormationSummary();
+            renderStagePresetSummary();
             renderFormationList();
             renderFormationMembers();
             setEditorEnabled(state.can_manage);
@@ -1237,8 +1342,64 @@
             setMsg('敵編成を削除しました。', 'green');
             refreshCatalog();
         });
+        onSocket('bo_ally_formation_saved', (data) => {
+            const rec = data && data.record;
+            if (rec && typeof rec === 'object') {
+                const id = String(rec.id || data.id || '').trim();
+                if (id) {
+                    state.ally_formations[id] = rec;
+                    if (!state.sorted_ally_formation_ids.includes(id)) state.sorted_ally_formation_ids.push(id);
+                    state.sorted_ally_formation_ids.sort();
+                }
+            }
+            renderAllyFormationSummary();
+            setMsg('味方編成を保存しました。', 'green');
+            refreshCatalog();
+        });
+        onSocket('bo_ally_formation_deleted', (data) => {
+            const id = String((data && data.id) || '').trim();
+            if (id && state.ally_formations[id]) delete state.ally_formations[id];
+            state.sorted_ally_formation_ids = state.sorted_ally_formation_ids.filter((x) => x !== id);
+            renderAllyFormationSummary();
+            setMsg('味方編成を削除しました。', 'green');
+            refreshCatalog();
+        });
+        onSocket('bo_stage_preset_saved', (data) => {
+            const rec = data && data.record;
+            if (rec && typeof rec === 'object') {
+                const id = String(rec.id || data.id || '').trim();
+                if (id) {
+                    state.stage_presets[id] = rec;
+                    if (!state.sorted_stage_preset_ids.includes(id)) state.sorted_stage_preset_ids.push(id);
+                    state.sorted_stage_preset_ids.sort();
+                }
+            }
+            renderStagePresetSummary();
+            setMsg('ステージを保存しました。', 'green');
+            refreshCatalog();
+        });
+        onSocket('bo_stage_preset_deleted', (data) => {
+            const id = String((data && data.id) || '').trim();
+            if (id && state.stage_presets[id]) delete state.stage_presets[id];
+            state.sorted_stage_preset_ids = state.sorted_stage_preset_ids.filter((x) => x !== id);
+            renderStagePresetSummary();
+            setMsg('ステージを削除しました。', 'green');
+            refreshCatalog();
+        });
+        onSocket('bo_export_enemy_formations_json', (data) => {
+            downloadTextFile(String((data && data.filename) || ''), String((data && data.content) || '{}'));
+            setMsg('敵編成JSONをダウンロードしました。', 'green');
+        });
+        onSocket('bo_export_ally_formations_json', (data) => {
+            downloadTextFile(String((data && data.filename) || ''), String((data && data.content) || '{}'));
+            setMsg('味方編成JSONをダウンロードしました。', 'green');
+        });
+        onSocket('bo_export_stage_presets_json', (data) => {
+            downloadTextFile(String((data && data.filename) || ''), String((data && data.content) || '{}'));
+            setMsg('ステージJSONをダウンロードしました。', 'green');
+        });
 
-        ['bo_preset_error', 'bo_catalog_error', 'bo_enemy_formation_error'].forEach((eventName) => {
+        ['bo_preset_error', 'bo_catalog_error', 'bo_enemy_formation_error', 'bo_ally_formation_error', 'bo_stage_preset_error'].forEach((eventName) => {
             onSocket(eventName, (data) => {
                 const msg = String((data && data.message) || '操作に失敗しました。');
                 setMsg(msg, 'red');
@@ -1265,6 +1426,8 @@
         clearEditor();
         clearFormationEditor();
         renderEnemyFormationSummary();
+        renderAllyFormationSummary();
+        renderStagePresetSummary();
         updateRoomCharOptions();
         setEditorEnabled(isGm);
         refreshCatalog();

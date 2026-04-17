@@ -34,5 +34,21 @@
         "行動回数": 3
       }
     }
+  },
+  "Pa-04": {
+    "id": "Pa-04",
+    "name": "氷断ち",
+    "cost": 0,
+    "description": "スキル対象に減速があるなら、与えるダメージ+50%。",
+    "flavor": "特別な製法で鍛造された刀。それは対象が凍えているほど切れ味を鋭くするという。",
+    "effect": {
+      "outgoing_damage_multiplier": 1.5,
+      "condition": {
+        "source": "target",
+        "param": "buff_count:減速",
+        "operator": "GTE",
+        "value": 1
+      }
+    }
   }
 }

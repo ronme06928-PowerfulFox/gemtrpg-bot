@@ -16,7 +16,8 @@ from manager.room_manager import (
 )
 from manager.game_logic import process_battle_start, process_skill_effects
 from manager.utils import (
-    get_status_value, set_status_value, apply_origin_bonus_buffs, apply_buff, remove_buff
+    get_status_value, set_status_value, apply_origin_bonus_buffs, apply_buff, remove_buff,
+    apply_passive_effect_buffs
 )
 
 
@@ -80,6 +81,7 @@ def handle_add_character(data):
 
     # ★追加: 出身国ボーナスバフ自動付与
     apply_origin_bonus_buffs(char_data)
+    apply_passive_effect_buffs(char_data)
 
     if 'inventory' not in char_data:
         char_data['inventory'] = {}
@@ -98,10 +100,13 @@ def handle_add_character(data):
     if char_data.get('SPassive'):
         try:
             from manager.radiance.applier import radiance_applier
-            char_data = radiance_applier.apply_radiance_skills(
-                char_data,
-                char_data['SPassive']
-            )
+            radiance_ids = [
+                str(skill_id).strip()
+                for skill_id in char_data.get('SPassive', [])
+                if str(skill_id).strip().upper().startswith('S-')
+            ]
+            if radiance_ids:
+                char_data = radiance_applier.apply_radiance_skills(char_data, radiance_ids)
         except Exception as e:
             print(f"[ERROR] 輝化スキル適用エラー: {e}")
     # === ▲▲▲ Phase 6ここまで ▲▲▲
