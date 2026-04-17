@@ -1721,10 +1721,11 @@ def on_battle_resolve_flow_advance_request(data):
     user_info = get_user_info_from_sid(request.sid) or {}
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
-    if attribute != 'GM':
+    is_battle_only = _is_battle_only_mode(room_id)
+    if attribute != 'GM' and not is_battle_only:
         logger.info(
-            "[FLOW] resolve_flow_advance_denied room=%s user=%s attr=%s",
-            room_id, username, attribute
+            "[FLOW] resolve_flow_advance_denied room=%s user=%s attr=%s battle_only=%s",
+            room_id, username, attribute, is_battle_only
         )
         emit('battle_error', {'message': 'battle_resolve_flow_advance_request is GM only'}, to=request.sid)
         return

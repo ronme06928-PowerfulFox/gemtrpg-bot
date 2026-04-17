@@ -1,5 +1,9 @@
-﻿import manager.battle.resolve_auto_mass_phase as _resolve_auto_mass_phase_mod
+﻿import copy
+import time
+
+import manager.battle.resolve_auto_mass_phase as _resolve_auto_mass_phase_mod
 import manager.battle.resolve_auto_single_phase as _resolve_auto_single_phase_mod
+
 
 def _sync_from_core():
     from manager.battle import core as core_mod
@@ -12,6 +16,117 @@ def _sync_from_core():
         if name.startswith("__"):
             continue
         g[name] = value
+
+
+def _bo_canonical_side(raw):
+    text = str(raw or '').strip().lower()
+    if text in {'ally', 'player', 'friend', 'friends'}:
+        return 'ally'
+    if text in {'enemy', 'foe', 'opponent', 'boss', 'npc'}:
+        return 'enemy'
+    return None
+
+
+def _bo_safe_int(value, default=0):
+    try:
+        return int(value)
+    except Exception:
+        return int(default)
+
+
+def _bo_estimate_battle_result(state):
+    allies_alive = False
+    enemies_alive = False
+    for char in (state.get('characters') or []):
+        if not isinstance(char, dict):
+            continue
+        side = (
+            _bo_canonical_side(char.get('type'))
+            or _bo_canonical_side(char.get('team'))
+            or _bo_canonical_side(char.get('side'))
+            or _bo_canonical_side(char.get('faction'))
+        )
+        hp = _bo_safe_int(char.get('hp'), 0)
+        if side == 'ally' and hp > 0:
+            allies_alive = True
+        elif side == 'enemy' and hp > 0:
+            enemies_alive = True
+    if allies_alive and not enemies_alive:
+        return 'ally_win'
+    if enemies_alive and not allies_alive:
+        return 'enemy_win'
+    if not allies_alive and not enemies_alive:
+        return 'draw'
+    return 'in_progress'
+
+
+def _bo_find_active_record(bo):
+    if not isinstance(bo, dict):
+        return None, None
+    records = bo.get('records')
+    if not isinstance(records, list):
+        return None, None
+
+    target_id = str(bo.get('active_record_id') or '').strip()
+    if target_id:
+        for rec in records:
+            if not isinstance(rec, dict):
+                continue
+            if str(rec.get('id') or '').strip() == target_id:
+                return rec, target_id
+
+    for rec in reversed(records):
+        if not isinstance(rec, dict):
+            continue
+        if str(rec.get('status') or '').strip().lower() == 'in_battle':
+            return rec, str(rec.get('id') or '').strip() or None
+    return None, None
+
+
+def _now_iso_fallback():
+    now_iso = globals().get('_now_iso')
+    if callable(now_iso):
+        try:
+            return str(now_iso())
+        except Exception:
+            pass
+    return str(int(time.time()))
+
+
+def _maybe_finalize_battle_only_result(room, state):
+    if not isinstance(state, dict):
+        return None
+    if str(state.get('play_mode') or 'normal').strip().lower() != 'battle_only':
+        return None
+
+    bo = state.get('battle_only')
+    if not isinstance(bo, dict):
+        return None
+
+    bo_status = str(bo.get('status') or '').strip().lower()
+    if bo_status and bo_status != 'in_battle':
+        return None
+
+    result = _bo_estimate_battle_result(state)
+    if result == 'in_progress':
+        return None
+
+    rec, rec_id = _bo_find_active_record(bo)
+    if isinstance(rec, dict):
+        rec['status'] = 'finished'
+        rec['result'] = result
+        rec['ended_at'] = _now_iso_fallback()
+        rec.setdefault('end_reason', 'auto_annihilation')
+    bo['active_record_id'] = None
+    bo['status'] = 'draft'
+
+    record_id = str((rec or {}).get('id') or '').strip() or rec_id or None
+    return {
+        'room': room,
+        'result': result,
+        'record_id': record_id,
+        'record': copy.deepcopy(rec) if isinstance(rec, dict) else None,
+    }
 
 
 def run_select_resolve_auto(room, battle_id):
@@ -90,23 +205,45 @@ def run_select_resolve_auto(room, battle_id):
     battle_state.pop('__room_state_ref__', None)
     battle_state.pop('__room_name', None)
     battle_state.pop('__resolve_intents_override', None)
+
+    bo_result = _maybe_finalize_battle_only_result(room, state)
     save_specific_room_state(room)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    if isinstance(bo_result, dict):
+        result = str(bo_result.get('result') or 'unknown')
+        result_label = {
+            'ally_win': 'ally_win',
+            'enemy_win': 'enemy_win',
+            'draw': 'draw',
+        }.get(result, result)
+        try:
+            broadcast_log(room, f"[BattleOnly] Auto result: {result_label} (annihilation)", 'info')
+        except Exception:
+            pass
+        try:
+            socketio.emit(
+                'bo_record_updated',
+                {
+                    'record_id': bo_result.get('record_id'),
+                    'record': bo_result.get('record'),
+                    'active_record_id': None,
+                },
+                to=room
+            )
+        except Exception:
+            pass
+        try:
+            socketio.emit(
+                'bo_battle_finished',
+                {
+                    'result': result,
+                    'record_id': bo_result.get('record_id'),
+                },
+                to=room
+            )
+        except Exception:
+            pass
+        try:
+            broadcast_state_update(room)
+        except Exception:
+            pass

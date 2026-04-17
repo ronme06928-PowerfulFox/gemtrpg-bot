@@ -59,13 +59,24 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         const tags = []
             .concat(Array.isArray(skill.tags) ? skill.tags : [])
             .map((v) => String(v || '').toLowerCase());
-        const cat = String(skill['category'] || skill['分類'] || skill['カテゴリ'] || '').toLowerCase();
-        const dist = String(skill['distance'] || skill['距離'] || skill['射程'] || '').toLowerCase();
+        const cat = String(
+            skill.category
+            || skill.Category
+            || skill['カテゴリ']
+            || ''
+        ).toLowerCase();
+        const dist = String(
+            skill.distance
+            || skill.Distance
+            || skill['射程']
+            || ''
+        ).toLowerCase();
         const merged = `${tags.join(' ')} ${cat} ${dist}`;
 
         if (
             merged.includes('mass_summation')
             || merged.includes('広域-合算')
+            || merged.includes('範囲-合算')
             || merged.includes('合算')
         ) {
             return 'mass_summation';
@@ -73,8 +84,10 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         if (
             merged.includes('mass_individual')
             || merged.includes('広域-個別')
+            || merged.includes('範囲-個別')
             || merged.includes('個別')
             || merged.includes('広域')
+            || merged.includes('範囲')
         ) {
             return 'mass_individual';
         }
@@ -381,8 +394,49 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
             }
         }
 
+
+        // Collapse clutter:
+        // 1) remove exact directional duplicates
+        // 2) collapse reciprocal matched pairs (A->B and B->A) into one
+        const scoreArrow = (arrow) => {
+            if (arrow?.kind === 'match') return 3;
+            if (arrow?.status === 'redirected') return 2;
+            return 1;
+        };
+        const byDirectedPair = new Map();
+        for (const arrow of arrows) {
+            const from = String(arrow?.fromSlotId || '');
+            const to = String(arrow?.toSlotId || '');
+            if (!from || !to) continue;
+            const key = `${from}=>${to}`;
+            const prev = byDirectedPair.get(key);
+            if (!prev || scoreArrow(arrow) > scoreArrow(prev)) {
+                byDirectedPair.set(key, arrow);
+            }
+        }
+        const directionalUnique = Array.from(byDirectedPair.values());
+        const hiddenReciprocalKeys = new Set();
+        for (const arrow of directionalUnique) {
+            if (arrow?.kind !== 'match') continue;
+            const from = String(arrow?.fromSlotId || '');
+            const to = String(arrow?.toSlotId || '');
+            if (!from || !to || from === to) continue;
+            const reverseKey = `${to}=>${from}`;
+            if (!byDirectedPair.has(reverseKey)) continue;
+            const pairKey = [from, to].sort().join('<->');
+            hiddenReciprocalKeys.add(pairKey);
+        }
+        const finalArrows = directionalUnique.filter((arrow) => {
+            const from = String(arrow?.fromSlotId || '');
+            const to = String(arrow?.toSlotId || '');
+            if (!from || !to || from === to) return true;
+            if (arrow?.kind !== 'match') return true;
+            const pairKey = [from, to].sort().join('<->');
+            if (!hiddenReciprocalKeys.has(pairKey)) return true;
+            return from < to;
+        });
         return {
-            arrows,
+            arrows: finalArrows,
             meta: {
                 phase: String(state?.phase || ''),
                 slotCount: slots.length,
@@ -584,9 +638,15 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         const offset = extraOffset || {};
         const extraX = Number(offset.x || 0);
         const extraY = Number(offset.y || 0);
+        const badgeContainer = (typeof el.closest === 'function')
+            ? el.closest('.slot-badge-container')
+            : null;
+        // slot-badge-container has CSS transform (translateX), so offsetParent
+        // accumulation drifts. Prefer viewport-to-layer conversion for badges.
+        const preferViewportFallback = !!badgeContainer;
 
         const mapRoot = document.getElementById('game-map') || layer.parentElement;
-        const offsetCenter = getCenterViaOffset(el, mapRoot);
+        const offsetCenter = preferViewportFallback ? null : getCenterViaOffset(el, mapRoot);
         if (offsetCenter) {
             if (window.VISUAL_DEBUG_ARROWS) {
                 const layerRect = layer.getBoundingClientRect();
@@ -628,9 +688,18 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         };
     }
 
-    function getBadgeAnchorProfile(badge) {
+    function getBadgeAnchorProfile(badge, role) {
         const width = Math.max(24, Number(badge?.offsetWidth || 0) || 42);
         const height = Math.max(24, Number(badge?.offsetHeight || 0) || width);
+        if (role === 'from') {
+            // Start arrow from the exact top-center of the slot badge.
+            const topOffsetY = -(Math.round(height / 2) + 1);
+            return {
+                offset: { x: 0, y: topOffsetY },
+                padding: 0,
+                fixedOrigin: true
+            };
+        }
         const lift = Math.max(10, Math.round(height * 0.32));
         const padding = Math.max(12, Math.round(width * 0.24));
         return {
@@ -639,14 +708,14 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         };
     }
 
-    function getSlotAnchor(layer, slotId, slotsById) {
+    function getSlotAnchor(layer, slotId, slotsById, role) {
         if (!layer || !slotId) return null;
         const selectorId = String(slotId).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
         const badge = document.querySelector(`.slot-badge[data-slot-id="${selectorId}"]`);
         if (badge) {
-            const profile = getBadgeAnchorProfile(badge);
+            const profile = getBadgeAnchorProfile(badge, role);
             const point = toLocalCenter(layer, badge, profile.offset);
-            return point ? { ...point, padding: profile.padding } : null;
+            return point ? { ...point, padding: profile.padding, fixedOrigin: !!profile.fixedOrigin } : null;
         }
 
         const slot = slotsById.get(String(slotId));
@@ -669,7 +738,8 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
 
         const dirX = dx / dist;
         const dirY = dy / dist;
-        const startOffset = Math.max(14, Number(start?.padding || 18));
+        const fixedOrigin = !!start?.fixedOrigin;
+        const startOffset = fixedOrigin ? 0 : Math.max(14, Number(start?.padding || 18));
         const endOffset = Math.max(18, Number(end?.padding || 18));
         const sx = start.x + dirX * startOffset;
         const sy = start.y + dirY * startOffset;
@@ -713,8 +783,8 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         );
 
         for (const arrow of arrows) {
-            const from = getSlotAnchor(layer, arrow.fromSlotId, slotsById);
-            const to = getSlotAnchor(layer, arrow.toSlotId, slotsById);
+            const from = getSlotAnchor(layer, arrow.fromSlotId, slotsById, 'from');
+            const to = getSlotAnchor(layer, arrow.toSlotId, slotsById, 'to');
             if (!from || !to) continue;
 
             const laneList = lanesBySource.get(String(arrow.fromSlotId || '')) || [];

@@ -430,6 +430,7 @@
     pointer-events: auto;
 }
 
+#resolve-flow-panel.awaiting-advance.can-drive .resolve-flow-next-btn,
 #resolve-flow-panel.awaiting-advance.gm-user .resolve-flow-next-btn {
     display: inline-flex;
     align-items: center;
@@ -452,6 +453,7 @@
     user-select: none;
 }
 
+#resolve-flow-panel.awaiting-advance.can-drive .resolve-flow-auto-label,
 #resolve-flow-panel.awaiting-advance.gm-user .resolve-flow-auto-label {
     display: inline-flex;
 }

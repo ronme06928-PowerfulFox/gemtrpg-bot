@@ -231,8 +231,7 @@
                 exported_at: new Date().toISOString(),
                 record,
             };
-            const filenameId = record.id || `new_${Date.now()}`;
-            downloadTextFile(`bo_stage_preset_${filenameId}.json`, JSON.stringify(payload, null, 2));
+            downloadTextFile(buildStagePresetFilename(record), JSON.stringify(payload, null, 2));
             setMsg('ステージJSONをダウンロードしました。', 'green');
         }
 
@@ -359,6 +358,25 @@
                 URL.revokeObjectURL(url);
                 a.remove();
             }, 0);
+        }
+
+        function sanitizeFilenamePart(value) {
+            return String(value || '')
+                .replace(/[\\/:*?"<>|]/g, '_')
+                .replace(/[\u0000-\u001f]/g, '')
+                .replace(/\s+/g, '_')
+                .replace(/_+/g, '_')
+                .replace(/^_+|_+$/g, '');
+        }
+
+        function buildStagePresetFilename(record) {
+            const idPart = sanitizeFilenamePart(record && record.id);
+            const namePart = sanitizeFilenamePart(record && record.name);
+            const parts = [];
+            if (idPart) parts.push(idPart);
+            if (namePart) parts.push(namePart);
+            if (!parts.length) parts.push(`new_${Date.now()}`);
+            return `bo_stage_preset_${parts.join('_')}.json`;
         }
 
         panel.querySelector('#bo-sp-refresh-btn')?.addEventListener('click', requestAll);

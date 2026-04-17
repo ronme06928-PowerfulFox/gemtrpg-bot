@@ -289,10 +289,937 @@
       "created_by": "RONME",
       "updated_by": "RONME"
     },
+    "TEST_4": {
+      "id": "TEST_4",
+      "name": "リュカ・ヴェイン",
+      "visibility": "public",
+      "allow_ally": true,
+      "allow_enemy": false,
+      "character_json": {
+        "kind": "character",
+        "data": {
+          "name": "リュカ・ヴェイン [味方 1]",
+          "characterType": "player",
+          "isNPC": false,
+          "status": [
+            {
+              "label": "HP",
+              "value": 128,
+              "max": 128
+            },
+            {
+              "label": "MP",
+              "value": 12,
+              "max": 12
+            },
+            {
+              "label": "FP",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "出血",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "破裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "亀裂",
+              "value": 0,
+              "max": 0
+            }
+          ],
+          "commands": "4+1d2+1d{物理補正} 【Ps-00 基本の一太刀】\n6+1d3+1d{物理補正} 【Ps-01 横振り】\n6+1d5+1d{物理補正} 【Ps-03 斬り抜く】\n7+1d6+1d{物理補正} 【Ps-04 乱斬】\n6+1d5+1d{物理補正} 【Ps-07 深く抉る】\n3+1d11+1d{物理補正} 【Ps-10 枷を解いて】\n4+1d9 【D-01 基本の回避】\n6+1d3 【D-00 基本の防御】",
+          "params": [
+            {
+              "label": "筋力",
+              "value": "20"
+            },
+            {
+              "label": "生命力",
+              "value": "12"
+            },
+            {
+              "label": "体格",
+              "value": "16"
+            },
+            {
+              "label": "精神力",
+              "value": "12"
+            },
+            {
+              "label": "速度",
+              "value": "18"
+            },
+            {
+              "label": "直感",
+              "value": "8"
+            },
+            {
+              "label": "経験",
+              "value": "8"
+            },
+            {
+              "label": "シナリオ経験",
+              "value": "0"
+            },
+            {
+              "label": "物理補正",
+              "value": "4"
+            },
+            {
+              "label": "魔法補正",
+              "value": "3"
+            },
+            {
+              "label": "速度補正",
+              "value": "3"
+            },
+            {
+              "label": "通過点",
+              "value": "0"
+            },
+            {
+              "label": "五感",
+              "value": "1"
+            },
+            {
+              "label": "採取",
+              "value": "0"
+            },
+            {
+              "label": "本能",
+              "value": "0"
+            },
+            {
+              "label": "鑑定",
+              "value": "0"
+            },
+            {
+              "label": "対話",
+              "value": "2"
+            },
+            {
+              "label": "尋問",
+              "value": "0"
+            },
+            {
+              "label": "諜報",
+              "value": "0"
+            },
+            {
+              "label": "窃取",
+              "value": "0"
+            },
+            {
+              "label": "隠密",
+              "value": "2"
+            },
+            {
+              "label": "運動",
+              "value": "2"
+            },
+            {
+              "label": "制作",
+              "value": "0"
+            },
+            {
+              "label": "回避",
+              "value": "1"
+            },
+            {
+              "label": "出身",
+              "value": "1"
+            },
+            {
+              "label": "ボーナス",
+              "value": "5"
+            }
+          ],
+          "SPassive": [],
+          "inventory": {},
+          "type": "ally",
+          "color": "#007bff",
+          "hp": 128,
+          "maxHp": 128,
+          "mp": 12,
+          "maxMp": 12,
+          "states": [
+            {
+              "name": "FP",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "出血",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "破裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "亀裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "戦慄",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "荊棘",
+              "value": 0,
+              "max": 0
+            }
+          ],
+          "initial_status": [
+            {
+              "label": "HP",
+              "value": 128,
+              "max": 128
+            },
+            {
+              "label": "MP",
+              "value": 12,
+              "max": 12
+            },
+            {
+              "label": "FP",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "出血",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "破裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "亀裂",
+              "value": 0,
+              "max": 0
+            }
+          ],
+          "gmOnly": true,
+          "hidden_skills": [],
+          "radiance_skills": [],
+          "special_buffs": [
+            {
+              "buff_id": "Bu-21",
+              "origin_bonus": true,
+              "name": "色とりどりの輝石",
+              "lasting": -1,
+              "delay": 0,
+              "is_permanent": true,
+              "newly_applied": true,
+              "description": "他の国の出身ボーナスを一つ選んで取得できる。",
+              "flavor": "類まれなる偶然。歩んできた道のり。魔法を生み出す宝石。それら全てが、この大陸の中心に集まっている。"
+            },
+            {
+              "buff_id": "Bu-14",
+              "origin_bonus": true,
+              "name": "神樹の恩寵",
+              "lasting": -1,
+              "delay": 0,
+              "is_permanent": true,
+              "newly_applied": true,
+              "description": "ラウンド終了時、HPを3回復する。",
+              "flavor": "マホロバの人々はその樹を尊ぶ。根元に生きる遍くものに、廻る季節と豊かさを与えるその神樹を。"
+            }
+          ],
+          "flags": {
+            "immediate_action_used": false
+          },
+          "initial_data": {
+            "筋力": 20,
+            "生命力": 12,
+            "体格": 16,
+            "精神力": 12,
+            "速度": 18,
+            "直感": 8,
+            "経験": 8,
+            "シナリオ経験": 0,
+            "物理補正": 4,
+            "魔法補正": 3,
+            "速度補正": 3,
+            "通過点": 0,
+            "五感": 1,
+            "採取": 0,
+            "本能": 0,
+            "鑑定": 0,
+            "対話": 2,
+            "尋問": 0,
+            "諜報": 0,
+            "窃取": 0,
+            "隠密": 2,
+            "運動": 2,
+            "制作": 0,
+            "回避": 1,
+            "出身": 1,
+            "ボーナス": 5
+          },
+          "initial_state": {
+            "inventory": {},
+            "special_buffs": [
+              {
+                "buff_id": "Bu-21",
+                "origin_bonus": true,
+                "name": "色とりどりの輝石",
+                "lasting": -1,
+                "delay": 0,
+                "is_permanent": true,
+                "newly_applied": true,
+                "description": "他の国の出身ボーナスを一つ選んで取得できる。",
+                "flavor": "類まれなる偶然。歩んできた道のり。魔法を生み出す宝石。それら全てが、この大陸の中心に集まっている。"
+              },
+              {
+                "buff_id": "Bu-14",
+                "origin_bonus": true,
+                "name": "神樹の恩寵",
+                "lasting": -1,
+                "delay": 0,
+                "is_permanent": true,
+                "newly_applied": true,
+                "description": "ラウンド終了時、HPを3回復する。",
+                "flavor": "マホロバの人々はその樹を尊ぶ。根元に生きる遍くものに、廻る季節と豊かさを与えるその神樹を。"
+              }
+            ],
+            "maxHp": 128,
+            "maxMp": 12
+          }
+        }
+      },
+      "created_at": 1776438826521,
+      "updated_at": 1776438826521,
+      "created_by": "ろんめ",
+      "updated_by": "ろんめ"
+    },
+    "TEST_5": {
+      "id": "TEST_5",
+      "name": "ガイアス・ランツェ",
+      "visibility": "public",
+      "allow_ally": true,
+      "allow_enemy": false,
+      "character_json": {
+        "kind": "character",
+        "data": {
+          "name": "ガイアス・ランツェ [味方 2]",
+          "characterType": "player",
+          "isNPC": false,
+          "status": [
+            {
+              "label": "HP",
+              "value": 120,
+              "max": 120
+            },
+            {
+              "label": "MP",
+              "value": 12,
+              "max": 12
+            },
+            {
+              "label": "FP",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "出血",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "破裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "亀裂",
+              "value": 0,
+              "max": 0
+            }
+          ],
+          "commands": "4+1d2+1d{物理補正} 【Pp-00 基本の刺突】\n7+1d4+1d{物理補正} 【Pp-02 狙い突く】\n7+1d3+1d{物理補正} 【Pp-03 突き崩す】\n8+1d5+1d{物理補正} 【Pp-05 一点突貫】\n8+1d4+1d{物理補正} 【Pp-04 隙だらけだな！】\n6+1d2+1d{物理補正} 【Pp-09 待ってもらおう！】\n3+1d9+1d{物理補正} 【Pp-08 討ち取ってこそ】\n6+1d3 【D-00 基本の防御】\n8+1d4+1d{物理補正} 【D-02 鉄壁の防御】",
+          "params": [
+            {
+              "label": "筋力",
+              "value": "15"
+            },
+            {
+              "label": "生命力",
+              "value": "6"
+            },
+            {
+              "label": "体格",
+              "value": "14"
+            },
+            {
+              "label": "精神力",
+              "value": "12"
+            },
+            {
+              "label": "速度",
+              "value": "22"
+            },
+            {
+              "label": "直感",
+              "value": "8"
+            },
+            {
+              "label": "経験",
+              "value": "8"
+            },
+            {
+              "label": "シナリオ経験",
+              "value": "0"
+            },
+            {
+              "label": "物理補正",
+              "value": "3"
+            },
+            {
+              "label": "魔法補正",
+              "value": "3"
+            },
+            {
+              "label": "速度補正",
+              "value": "3"
+            },
+            {
+              "label": "通過点",
+              "value": "0"
+            },
+            {
+              "label": "五感",
+              "value": "0"
+            },
+            {
+              "label": "採取",
+              "value": "0"
+            },
+            {
+              "label": "本能",
+              "value": "0"
+            },
+            {
+              "label": "鑑定",
+              "value": "0"
+            },
+            {
+              "label": "対話",
+              "value": "0"
+            },
+            {
+              "label": "尋問",
+              "value": "0"
+            },
+            {
+              "label": "諜報",
+              "value": "0"
+            },
+            {
+              "label": "窃取",
+              "value": "0"
+            },
+            {
+              "label": "隠密",
+              "value": "0"
+            },
+            {
+              "label": "運動",
+              "value": "0"
+            },
+            {
+              "label": "制作",
+              "value": "0"
+            },
+            {
+              "label": "回避",
+              "value": "0"
+            },
+            {
+              "label": "出身",
+              "value": "3"
+            },
+            {
+              "label": "ボーナス",
+              "value": "0"
+            }
+          ],
+          "SPassive": [],
+          "inventory": {},
+          "type": "ally",
+          "color": "#007bff",
+          "hp": 120,
+          "maxHp": 120,
+          "mp": 12,
+          "maxMp": 12,
+          "states": [
+            {
+              "name": "FP",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "出血",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "破裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "亀裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "戦慄",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "荊棘",
+              "value": 0,
+              "max": 0
+            }
+          ],
+          "initial_status": [
+            {
+              "label": "HP",
+              "value": 120,
+              "max": 120
+            },
+            {
+              "label": "MP",
+              "value": 12,
+              "max": 12
+            },
+            {
+              "label": "FP",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "出血",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "破裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "亀裂",
+              "value": 0,
+              "max": 0
+            }
+          ],
+          "gmOnly": true,
+          "hidden_skills": [],
+          "radiance_skills": [],
+          "special_buffs": [
+            {
+              "buff_id": "Bu-10",
+              "origin_bonus": true,
+              "name": "小麦色の風",
+              "lasting": -1,
+              "delay": 0,
+              "is_permanent": true,
+              "newly_applied": true,
+              "description": "ラウンド開始時、FPを1獲得する。",
+              "flavor": "よく食べ、よく働き、よく眠り、よく戦う。昼夜が移るように、花が咲き枯れるように、風が自由に巡るように。ラティウムで生きるというのは、そういうことだ。"
+            }
+          ],
+          "flags": {
+            "immediate_action_used": false
+          },
+          "initial_data": {
+            "筋力": 15,
+            "生命力": 6,
+            "体格": 14,
+            "精神力": 12,
+            "速度": 22,
+            "直感": 8,
+            "経験": 8,
+            "シナリオ経験": 0,
+            "物理補正": 3,
+            "魔法補正": 3,
+            "速度補正": 3,
+            "通過点": 0,
+            "五感": 0,
+            "採取": 0,
+            "本能": 0,
+            "鑑定": 0,
+            "対話": 0,
+            "尋問": 0,
+            "諜報": 0,
+            "窃取": 0,
+            "隠密": 0,
+            "運動": 0,
+            "制作": 0,
+            "回避": 0,
+            "出身": 3,
+            "ボーナス": 0
+          },
+          "initial_state": {
+            "inventory": {},
+            "special_buffs": [
+              {
+                "buff_id": "Bu-10",
+                "origin_bonus": true,
+                "name": "小麦色の風",
+                "lasting": -1,
+                "delay": 0,
+                "is_permanent": true,
+                "newly_applied": true,
+                "description": "ラウンド開始時、FPを1獲得する。",
+                "flavor": "よく食べ、よく働き、よく眠り、よく戦う。昼夜が移るように、花が咲き枯れるように、風が自由に巡るように。ラティウムで生きるというのは、そういうことだ。"
+              }
+            ],
+            "maxHp": 120,
+            "maxMp": 12
+          }
+        }
+      },
+      "created_at": 1776438879636,
+      "updated_at": 1776438879636,
+      "created_by": "ろんめ",
+      "updated_by": "ろんめ"
+    },
+    "TEST_6": {
+      "id": "TEST_6",
+      "name": "ゴードン・ブレイカー",
+      "visibility": "public",
+      "allow_ally": true,
+      "allow_enemy": true,
+      "character_json": {
+        "kind": "character",
+        "data": {
+          "name": "ゴードン・ブレイカー [味方 3]",
+          "characterType": "player",
+          "isNPC": false,
+          "status": [
+            {
+              "label": "HP",
+              "value": 136,
+              "max": 136
+            },
+            {
+              "label": "MP",
+              "value": 12,
+              "max": 12
+            },
+            {
+              "label": "FP",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "出血",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "破裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "亀裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "戦慄",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "荊棘",
+              "value": 0,
+              "max": 0
+            }
+          ],
+          "commands": "4+1d2+1d{物理補正} 【Pb-00 基本の殴打】\n7+1d4+1d{物理補正} 【Pb-02 鳩尾殴り】\n11+1d5+1d{物理補正} 【Pb-05 圧殺】\n4+1d8+1d{物理補正} 【Pb-07 破砕】\n5+1d4+1d{物理補正} 【Pb-01 叩き打ち】\n0+1d1 【Pb-10 右肩上がり】\n4+1d7+1d{物理補正} 【Pb-09 ヒビを入れる】\n6+1d3 【D-00 基本の防御】",
+          "params": [
+            {
+              "label": "筋力",
+              "value": 20
+            },
+            {
+              "label": "生命力",
+              "value": 16
+            },
+            {
+              "label": "体格",
+              "value": 20
+            },
+            {
+              "label": "精神力",
+              "value": 12
+            },
+            {
+              "label": "速度",
+              "value": 14
+            },
+            {
+              "label": "直感",
+              "value": 8
+            },
+            {
+              "label": "経験",
+              "value": 8
+            },
+            {
+              "label": "シナリオ経験",
+              "value": 0
+            },
+            {
+              "label": "物理補正",
+              "value": 5
+            },
+            {
+              "label": "魔法補正",
+              "value": 3
+            },
+            {
+              "label": "速度補正",
+              "value": 2
+            },
+            {
+              "label": "通過点",
+              "value": 0
+            },
+            {
+              "label": "五感",
+              "value": 0
+            },
+            {
+              "label": "採取",
+              "value": 0
+            },
+            {
+              "label": "本能",
+              "value": 0
+            },
+            {
+              "label": "鑑定",
+              "value": 0
+            },
+            {
+              "label": "対話",
+              "value": 0
+            },
+            {
+              "label": "尋問",
+              "value": 0
+            },
+            {
+              "label": "諜報",
+              "value": 0
+            },
+            {
+              "label": "窃取",
+              "value": 0
+            },
+            {
+              "label": "隠密",
+              "value": 0
+            },
+            {
+              "label": "運動",
+              "value": 0
+            },
+            {
+              "label": "制作",
+              "value": 0
+            },
+            {
+              "label": "回避",
+              "value": 0
+            },
+            {
+              "label": "出身",
+              "value": 8
+            },
+            {
+              "label": "ボーナス",
+              "value": 0
+            }
+          ],
+          "SPassive": [],
+          "inventory": {},
+          "type": "ally",
+          "color": "#007bff",
+          "hp": 136,
+          "maxHp": 136,
+          "mp": 12,
+          "maxMp": 12,
+          "states": [
+            {
+              "name": "FP",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "出血",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "破裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "亀裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "戦慄",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "name": "荊棘",
+              "value": 0,
+              "max": 0
+            }
+          ],
+          "initial_status": [
+            {
+              "label": "HP",
+              "value": 136,
+              "max": 136
+            },
+            {
+              "label": "MP",
+              "value": 12,
+              "max": 12
+            },
+            {
+              "label": "FP",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "出血",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "破裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "亀裂",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "戦慄",
+              "value": 0,
+              "max": 0
+            },
+            {
+              "label": "荊棘",
+              "value": 0,
+              "max": 0
+            }
+          ],
+          "gmOnly": true,
+          "hidden_skills": [],
+          "radiance_skills": [],
+          "special_buffs": [
+            {
+              "buff_id": "Bu-17",
+              "origin_bonus": true,
+              "name": "反撃の石",
+              "lasting": -1,
+              "delay": 0,
+              "is_permanent": true,
+              "newly_applied": true,
+              "description": "防御スキルを使用してマッチ勝利時、自分スキルの威力が相手スキルの威力を越えた分の値だけ相手に反撃ダメージ。",
+              "flavor": "ギァン・バルフの実力者たちは皆、こう言う。「耐え、守り、潰す。勝つために必要なのは、その意志だ」と。"
+            }
+          ],
+          "flags": {
+            "immediate_action_used": false
+          },
+          "initial_data": {
+            "筋力": 20,
+            "生命力": 16,
+            "体格": 20,
+            "精神力": 12,
+            "速度": 14,
+            "直感": 8,
+            "経験": 8,
+            "シナリオ経験": 0,
+            "物理補正": 5,
+            "魔法補正": 3,
+            "速度補正": 2,
+            "通過点": 0,
+            "五感": 0,
+            "採取": 0,
+            "本能": 0,
+            "鑑定": 0,
+            "対話": 0,
+            "尋問": 0,
+            "諜報": 0,
+            "窃取": 0,
+            "隠密": 0,
+            "運動": 0,
+            "制作": 0,
+            "回避": 0,
+            "出身": 8,
+            "ボーナス": 0
+          },
+          "initial_state": {
+            "inventory": {},
+            "special_buffs": [
+              {
+                "buff_id": "Bu-17",
+                "origin_bonus": true,
+                "name": "反撃の石",
+                "lasting": -1,
+                "delay": 0,
+                "is_permanent": true,
+                "newly_applied": true,
+                "description": "防御スキルを使用してマッチ勝利時、自分スキルの威力が相手スキルの威力を越えた分の値だけ相手に反撃ダメージ。",
+                "flavor": "ギァン・バルフの実力者たちは皆、こう言う。「耐え、守り、潰す。勝つために必要なのは、その意志だ」と。"
+              }
+            ],
+            "maxHp": 136,
+            "maxMp": 12
+          }
+        }
+      },
+      "created_at": 1776438915207,
+      "updated_at": 1776438915207,
+      "created_by": "ろんめ",
+      "updated_by": "ろんめ"
+    },
     "TEST_3": {
       "id": "TEST_3",
       "name": "マンティス・ヨールド",
-      "visibility": "gm",
+      "visibility": "public",
       "allow_ally": false,
       "allow_enemy": true,
       "character_json": {
@@ -333,11 +1260,11 @@
               "max": 0
             }
           ],
-          "commands": "4+1d5+1d{物理補正} 【E-26 遅いんじゃないか？】\n6+1d5+1d{物理補正} 【E-27 凍えろッ！】\n5+1d8+1d{物理補正} 【E-28 撫で斬りにする】\n4+1d10+1d{物理補正} 【E-29 忽ち凍れ】\n7+1d8+1d{物理補正} 【E-30 これで終わりだ】\n2+1d10+1d{物理補正} 【E-23 何がなんでも】",
+          "commands": "4+1d5 【E-26 遅いんじゃないか？】\n6+1d7 【E-27 凍えろッ！】\n5+1d6+1d{物理補正} 【E-28 撫で斬りにする】\n4+1d10+1d{物理補正} 【E-29 忽ち凍れ】\n7+1d8+1d{物理補正} 【E-30 これで終わりだ】\n2+1d10+1d{物理補正} 【E-23 何がなんでも】",
           "params": [
             {
               "label": "筋力",
-              "value": "22"
+              "value": "12"
             },
             {
               "label": "生命力",
@@ -369,7 +1296,7 @@
             },
             {
               "label": "物理補正",
-              "value": "5"
+              "value": "3"
             },
             {
               "label": "魔法補正",
@@ -447,8 +1374,8 @@
           "inventory": {}
         }
       },
-      "created_at": 1776437648607,
-      "updated_at": 1776437648607,
+      "created_at": 1776440468647,
+      "updated_at": 1776440468647,
       "created_by": "ろんめ",
       "updated_by": "ろんめ"
     }
@@ -711,7 +1638,55 @@
       "updated_by": "ろんめ"
     }
   },
-  "ally_formations": {},
-  "stage_presets": {},
-  "updated_at": 1776437900593
+  "ally_formations": {
+    "ALLY_1": {
+      "id": "ALLY_1",
+      "name": "物理サンプル",
+      "visibility": "public",
+      "recommended_ally_count": 3,
+      "members": [
+        {
+          "preset_id": "TEST_4",
+          "slot_label": "",
+          "user_id": "None"
+        },
+        {
+          "preset_id": "TEST_5",
+          "slot_label": "",
+          "user_id": "None"
+        },
+        {
+          "preset_id": "TEST_6",
+          "slot_label": "",
+          "user_id": "None"
+        }
+      ],
+      "created_at": 1776439211296,
+      "updated_at": 1776439211296,
+      "created_by": "ろんめ",
+      "updated_by": "ろんめ"
+    }
+  },
+  "stage_presets": {
+    "TESTSTAGE_1": {
+      "id": "TESTSTAGE_1",
+      "name": "堅氷を叩き斬る狼",
+      "visibility": "public",
+      "enemy_formation_id": "ENEMY_2",
+      "ally_formation_id": "ALLY_1",
+      "required_ally_count": 3,
+      "concept": "複数行動を持つ単体ボスとの戦闘",
+      "description": "マンティス・ヨールドは1ラウンドに2回行動するボスキャラ。\n味方の速度値が低いと与えるダメージが増えたりスキルの追加効果が発動したりする。\n適切にマッチをコントロールしながら大技に備えよう。",
+      "tags": [
+        "ボス",
+        "単体戦闘"
+      ],
+      "sort_key": 0,
+      "created_at": 1776439390967,
+      "updated_at": 1776439390967,
+      "created_by": "ろんめ",
+      "updated_by": "ろんめ"
+    }
+  },
+  "updated_at": 1776440468650
 }

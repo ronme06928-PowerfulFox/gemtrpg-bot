@@ -1087,7 +1087,9 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
         if payload:
             _log_battle_emit('battle_state_updated', room, battle_id, payload)
             socketio.emit('battle_state_updated', payload, to=room)
-        _try_auto_advance_battle_only_round(room, state)
+        # Do not auto-advance immediately here.
+        # In battle_only mode, round-end/start should happen after clients finish
+        # resolve-flow playback and explicitly trigger request_end_round.
 
 
 def _try_auto_advance_battle_only_round(room, state):

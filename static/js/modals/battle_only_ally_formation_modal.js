@@ -165,6 +165,25 @@
             }, 0);
         }
 
+        function sanitizeFilenamePart(value) {
+            return String(value || '')
+                .replace(/[\\/:*?"<>|]/g, '_')
+                .replace(/[\u0000-\u001f]/g, '')
+                .replace(/\s+/g, '_')
+                .replace(/_+/g, '_')
+                .replace(/^_+|_+$/g, '');
+        }
+
+        function buildAllyFormationFilename(record) {
+            const idPart = sanitizeFilenamePart(record && record.id);
+            const namePart = sanitizeFilenamePart(record && record.name);
+            const parts = [];
+            if (idPart) parts.push(idPart);
+            if (namePart) parts.push(namePart);
+            if (!parts.length) parts.push(`new_${Date.now()}`);
+            return `bo_ally_formation_${parts.join('_')}.json`;
+        }
+
         function normalizeImportedAllyFormation(parsed) {
             let src = parsed;
             if (!src || typeof src !== 'object') return null;
@@ -215,8 +234,7 @@
                 exported_at: new Date().toISOString(),
                 record,
             };
-            const filenameId = record.id || `new_${Date.now()}`;
-            downloadTextFile(`bo_ally_formation_${filenameId}.json`, JSON.stringify(payload, null, 2));
+            downloadTextFile(buildAllyFormationFilename(record), JSON.stringify(payload, null, 2));
             setMsg('味方編成JSONをダウンロードしました。', 'green');
         }
 

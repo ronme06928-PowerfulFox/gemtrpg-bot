@@ -264,6 +264,29 @@ class ResolveFlowPanel {
         return knownGM || !hasAnyRoleSignal;
     }
 
+    _isBattleOnlyMode(state) {
+        const fromState = String(
+            state?.play_mode
+            || state?.room_play_mode
+            || state?.mode_play
+            || ''
+        ).trim().toLowerCase();
+        if (fromState === 'battle_only') return true;
+        if (typeof window !== 'undefined') {
+            const legacyPlayMode = String(
+                window?.battleState?.play_mode
+                || window?.battleState?.room_play_mode
+                || ''
+            ).trim().toLowerCase();
+            if (legacyPlayMode === 'battle_only') return true;
+        }
+        return false;
+    }
+
+    _canDriveResolveFlow(state) {
+        return this._detectIsGM(state) || this._isBattleOnlyMode(state);
+    }
+
     _stepDuration(step) {
         if (this._isIntroStep(step)) return this._introDurationMs;
         return this._stepDurationMs;
@@ -352,7 +375,7 @@ class ResolveFlowPanel {
             round_key: roundKey
         };
         eventBus.emit('battle:resolve:flow:completed', payload);
-        if (this._detectIsGM(stateNow)) {
+        if (this._canDriveResolveFlow(stateNow)) {
             const roomName = payload.room_id || stateNow?.room_name || null;
             socketClient.sendRoundEnd(roomName);
         }
@@ -398,7 +421,7 @@ class ResolveFlowPanel {
         if (!this._waitingForAdvance || !this._activeStep) return;
         if (this._isIntroStep(this._activeStep)) return;
         if (!this._autoAdvanceEnabled) return;
-        if (!this._detectIsGM(state)) return;
+        if (!this._canDriveResolveFlow(state)) return;
         this._pendingAdvanceTimer = setTimeout(() => {
             this._pendingAdvanceTimer = null;
             this._onAdvanceRequested();
@@ -794,7 +817,7 @@ class ResolveFlowPanel {
         if (evt && typeof evt.stopPropagation === 'function') evt.stopPropagation();
         if (!this._waitingForAdvance || !this._activeStep) return;
         const state = store.state || {};
-        if (!this._detectIsGM(state)) return;
+        if (!this._canDriveResolveFlow(state)) return;
         if (this._advanceRequestPending) return;
         const payload = this._buildAdvanceRequestPayload(state);
         if (!payload.room_id) {
@@ -1480,8 +1503,9 @@ class ResolveFlowPanel {
 
         const stateNow = store.state || state || {};
         const isGM = this._detectIsGM(stateNow);
+        const canDrive = this._canDriveResolveFlow(stateNow);
         const panel = this._ensurePanel(host);
-        panel.className = `resolve-flow-panel kind-${kindClass} reveal-${revealStage}${this._waitingForAdvance ? ' awaiting-advance' : ''}${isGM ? ' gm-user' : ''}`;
+        panel.className = `resolve-flow-panel kind-${kindClass} reveal-${revealStage}${this._waitingForAdvance ? ' awaiting-advance' : ''}${canDrive ? ' can-drive' : ''}${isGM ? ' gm-user' : ''}`;
         if (this._renderedStepKey !== stepBodyKey) {
             panel.innerHTML = `
                 <div class="resolve-flow-overlay"></div>
@@ -1539,7 +1563,7 @@ class ResolveFlowPanel {
                 nextBtn.dataset.bound = '1';
                 nextBtn.addEventListener('click', (evt) => this._onAdvanceRequested(evt));
             }
-            nextBtn.disabled = !(isGM && this._waitingForAdvance) || this._advanceRequestPending;
+            nextBtn.disabled = !(canDrive && this._waitingForAdvance) || this._advanceRequestPending;
         }
         const autoChk = panel.querySelector('.resolve-flow-auto-checkbox');
         if (autoChk) {
@@ -1548,12 +1572,12 @@ class ResolveFlowPanel {
                 autoChk.addEventListener('change', (evt) => this._onAutoAdvanceToggle(evt));
             }
             autoChk.checked = !!this._autoAdvanceEnabled;
-            autoChk.disabled = !isGM;
+            autoChk.disabled = !canDrive;
         }
         const waitingNode = panel.querySelector('.resolve-flow-waiting');
         if (waitingNode) {
             waitingNode.textContent = this._waitingForAdvance
-                ? (isGM
+                ? (canDrive
                     ? (this._advanceRequestPending
                         ? '\u9032\u884c\u8981\u6c42\u9001\u4fe1\u4e2d...'
                         : this._autoAdvanceEnabled

@@ -88,6 +88,8 @@ class DeclarePanel {
         const sourceIntent = state?.intents?.[sourceSlotId] || null;
         const hasCommittedIntent = !!sourceIntent?.committed;
         const isDeclaredLocked = mode === 'locked';
+        const canEditSource = this._canEditSourceSlot(state, sourceSlotId);
+        const isUiReadOnly = isDeclaredLocked || !canEditSource;
         const declaredTargetType = this._normalizeTargetType(declare.targetType || sourceIntent?.target?.type);
         const effectiveTargetType = this._resolveEffectiveTargetType(skillId, declaredTargetType);
         const isMassTarget = this._isMassTargetType(effectiveTargetType);
@@ -112,7 +114,7 @@ class DeclarePanel {
         const sourceActorId = sourceSlot?.actor_id || null;
         const sourceChar = (state.characters || []).find(c => String(c.id) === String(sourceActorId)) || null;
         const shouldClearIncompatibleSkill = (
-            !isDeclaredLocked
+            !isUiReadOnly
             && !isMassTarget
             && !!effectiveTargetSlotId
             && !!skillId
@@ -140,17 +142,23 @@ class DeclarePanel {
             sourceSlotId
             && skillId
             && !costCheck.insufficient
+            && canEditSource
             && !isDeclaredLocked
             && (isMassTarget || !!effectiveTargetSlotId)
             && hasDeclareDiff
         );
-        const calcErrorText = (calc && calc.error) ? (calc.final_command || '計算エラー') : null;
+        const commitButtonText = !canEditSource
+            ? '閲覧'
+            : (isDeclaredLocked ? '宣言済み' : (hasCommittedIntent ? '再宣言' : '宣言'));
+        const calcErrorText = (calc && calc.error)
+            ? (calc.message || calc.final_command || '計算エラー')
+            : null;
 
         panel.innerHTML = `
             <div class="declare-panel-header">
                 <div class="declare-panel-title">スキル選択</div>
                 <div class="declare-panel-header-right">
-                    <button id="declare-commit-btn-header" class="declare-commit-btn declare-commit-btn-header" ${canCommit ? '' : 'disabled'}>${isDeclaredLocked ? '宣言済み' : (hasCommittedIntent ? '再宣言' : '宣言')}</button>
+                    <button id="declare-commit-btn-header" class="declare-commit-btn declare-commit-btn-header" ${canCommit ? '' : 'disabled'}>${commitButtonText}</button>
                     <button id="declare-close-btn" class="declare-close-btn" title="${this._escapeHtml(closeBtnTitle)}">x</button>
                 </div>
             </div>
@@ -162,15 +170,16 @@ class DeclarePanel {
                 <span>対象</span>
                 <div class="declare-target-controls">
                     <span class="declare-human-label" data-slot-id="${effectiveTargetSlotId || ''}">${targetLabel}</span>
-                    <select id="declare-target-select" class="declare-target-select" ${(isDeclaredLocked || isMassTarget) ? 'disabled' : ''}>
+                    <select id="declare-target-select" class="declare-target-select" ${(isUiReadOnly || isMassTarget) ? 'disabled' : ''}>
                         ${targetOptions}
                     </select>
                 </div>
             </div>
             ${forceOpenWithoutTarget ? `<div class="declare-panel-row"><span></span><span class="declare-help-text">target を選択してください</span></div>` : ''}
+            ${!canEditSource ? `<div class="declare-panel-row"><span></span><span class="declare-help-text">このキャラクターの宣言は編集できません（閲覧のみ）</span></div>` : ''}
             <div class="declare-panel-row">
                 <span>スキル</span>
-                <select id="declare-skill-select" class="declare-skill-select" ${isDeclaredLocked ? 'disabled' : ''}>
+                <select id="declare-skill-select" class="declare-skill-select" ${isUiReadOnly ? 'disabled' : ''}>
                     ${skillOptions}
                 </select>
             </div>
@@ -202,9 +211,9 @@ class DeclarePanel {
         const skillSelect = panel.querySelector('#declare-skill-select');
         if (skillSelect) {
             skillSelect.value = skillId || '';
-            skillSelect.disabled = isDeclaredLocked;
+            skillSelect.disabled = isUiReadOnly;
             skillSelect.onchange = (e) => {
-                if (isDeclaredLocked) return;
+                if (isUiReadOnly) return;
                 const nextSkillId = e.target.value || '';
                 const current = store.get('declare') || {};
                 const prevTargetType = this._normalizeTargetType(current.targetType || declaredTargetType);
@@ -249,9 +258,9 @@ class DeclarePanel {
         const targetSelect = panel.querySelector('#declare-target-select');
         if (targetSelect) {
             targetSelect.value = effectiveTargetSlotId || '';
-            targetSelect.disabled = isDeclaredLocked || isMassTarget;
+            targetSelect.disabled = isUiReadOnly || isMassTarget;
             targetSelect.onchange = (e) => {
-                if (isDeclaredLocked || isMassTarget) return;
+                if (isUiReadOnly || isMassTarget) return;
                 const nextTargetSlotId = e.target.value || null;
                 const current = store.get('declare') || {};
                 const currentTargetType = this._normalizeTargetType(current.targetType || effectiveTargetType);
@@ -285,7 +294,7 @@ class DeclarePanel {
         const commitBtn = panel.querySelector('#declare-commit-btn-header') || panel.querySelector('#declare-commit-btn');
         if (commitBtn) {
             commitBtn.onclick = () => {
-                if (isDeclaredLocked) return;
+                if (!canEditSource || isDeclaredLocked) return;
                 const latestState = store.state;
                 const latestDeclare = latestState.declare || {};
                 const src = latestDeclare.sourceSlotId;
@@ -321,6 +330,36 @@ class DeclarePanel {
         }
 
         this._requestCalc(state, declare, false);
+    }
+
+    _canEditSourceSlot(state, sourceSlotId) {
+        if (!state || !sourceSlotId) return false;
+        if (typeof window !== 'undefined' && String(window.currentUserAttribute || '') === 'GM') {
+            return true;
+        }
+
+        const sourceActorId = state?.slots?.[sourceSlotId]?.actor_id || null;
+        if (!sourceActorId) return false;
+
+        if (typeof window !== 'undefined' && typeof window.canControlCharacter === 'function') {
+            try {
+                return !!window.canControlCharacter(sourceActorId);
+            } catch (_) {
+                // fallback below
+            }
+        }
+
+        const actor = (state.characters || []).find((c) => String(c.id) === String(sourceActorId)) || null;
+        if (!actor) return false;
+
+        const currentUserId = (typeof window !== 'undefined') ? window.currentUserId : null;
+        const currentUsername = (typeof window !== 'undefined') ? window.currentUsername : null;
+        const ownerId = actor.owner_id;
+        const ownerName = actor.owner;
+
+        if (currentUserId && ownerId && String(currentUserId) === String(ownerId)) return true;
+        if (currentUsername && ownerName && String(currentUsername) === String(ownerName)) return true;
+        return false;
     }
 
     _buildSkillOptions(actor, state = null, sourceSlotId = null, selectedTargetSlotId = null) {
