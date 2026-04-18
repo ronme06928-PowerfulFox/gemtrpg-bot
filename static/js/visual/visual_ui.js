@@ -19,6 +19,19 @@ const _signedResolveNum = (value) => {
     return (n >= 0) ? `+${n}` : `${n}`;
 };
 
+const _isHiddenResolveTraceLog = (logData) => {
+    if (!logData || typeof logData !== 'object') return false;
+    if (String(logData.source || '') !== 'resolve_trace') return false;
+    const detail = (logData.resolve_trace_detail && typeof logData.resolve_trace_detail === 'object')
+        ? logData.resolve_trace_detail
+        : null;
+    if (!detail) return false;
+    const kind = String(detail.kind || '').trim();
+    const notes = String(detail.notes || '').trim();
+    const attackerSkillId = String(detail?.attacker?.skill_id || '').trim();
+    return kind === 'fizzle' && notes === 'no_intent' && !attackerSkillId;
+};
+
 const _resolveSidePowerLines = (side) => {
     const snapshot = (side && typeof side.power_snapshot === 'object') ? side.power_snapshot : {};
     const breakdown = (side && typeof side.power_breakdown === 'object') ? side.power_breakdown : {};
@@ -124,6 +137,7 @@ window.appendVisualLogLine = function (container, logData, filterType) {
     const isChat = logData.type === 'chat';
     if (filterType === 'chat' && !isChat) return;
     if (filterType === 'system' && isChat) return;
+    if (_isHiddenResolveTraceLog(logData)) return;
 
     const logLine = document.createElement('div');
     let className = `log-line ${logData.type}`;

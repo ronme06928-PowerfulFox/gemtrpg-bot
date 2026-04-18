@@ -133,8 +133,8 @@ def _build_trace_popup_payload(trace_entry, room_state):
     outcome = str(trace_entry.get('outcome') or 'no_effect')
     attacker_id = trace_entry.get('attacker_actor_id')
     defender_id = trace_entry.get('defender_actor_id') or trace_entry.get('target_actor_id')
-    attacker_name = _trace_actor_name(chars_by_id, attacker_id, fallback='謾ｻ謦・・')
-    defender_name = _trace_actor_name(chars_by_id, defender_id, fallback='髦ｲ蠕｡蛛ｴ')
+    attacker_name = _trace_actor_name(chars_by_id, attacker_id, fallback='攻撃側')
+    defender_name = _trace_actor_name(chars_by_id, defender_id, fallback='防御側')
     total_damage = int(_trace_damage_total(trace_entry) or 0)
 
     rolls = trace_entry.get('rolls', {}) if isinstance(trace_entry.get('rolls'), dict) else {}
@@ -225,6 +225,7 @@ def _build_trace_popup_payload(trace_entry, room_state):
     return {
         'kind': kind,
         'kind_label': _trace_kind_label(kind),
+        'notes': str(trace_entry.get('notes') or '').strip() or None,
         'outcome': outcome,
         'outcome_label': _trace_outcome_label(outcome),
         'step': int(trace_entry.get('step', 0) or 0),

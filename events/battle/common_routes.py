@@ -1013,6 +1013,8 @@ def _apply_pve_enemy_intent_defaults(
 
 def _required_slots(room_id, state):
     required = set()
+    room_state = get_room_state(room_id) or {}
+    is_pve_mode = str(room_state.get('battle_mode', 'pvp') or 'pvp').strip().lower() == 'pve'
     for slot_id, slot in state.get('slots', {}).items():
         if slot.get('disabled', False):
             continue
@@ -1024,6 +1026,10 @@ def _required_slots(room_id, state):
         is_committed_instant = bool(intent.get('committed') and intent.get('tags', {}).get('instant'))
         if is_committed_instant:
             continue
+        if is_pve_mode and _resolve_slot_team(state, slot_id) == 'enemy':
+            skill_id = str(intent.get('skill_id', '') or '').strip()
+            if not skill_id:
+                continue
         required.add(slot_id)
     return required
 

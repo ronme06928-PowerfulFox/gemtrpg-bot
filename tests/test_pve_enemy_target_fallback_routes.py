@@ -175,3 +175,52 @@ def test_pve_enemy_show_planned_also_enables_auto_skill_fill(monkeypatch):
     )
 
     assert result["skill_id"] == "S-PLAN"
+
+
+def test_required_slots_excludes_pve_enemy_without_skill(monkeypatch):
+    routes = _load_battle_common_routes_module()
+    state = _base_state()
+    state["intents"] = {
+        "S_E": {
+            "slot_id": "S_E",
+            "actor_id": "E1",
+            "skill_id": None,
+            "target": {"type": "single_slot", "slot_id": "S_A1"},
+            "committed": False,
+            "tags": {"instant": False, "mass_type": None, "no_redirect": False},
+        },
+        "S_A1": {
+            "slot_id": "S_A1",
+            "actor_id": "A1",
+            "skill_id": None,
+            "target": {"type": "single_slot", "slot_id": "S_E"},
+            "committed": False,
+            "tags": {"instant": False, "mass_type": None, "no_redirect": False},
+        },
+    }
+    monkeypatch.setattr(routes, "get_room_state", lambda _room: _room_state(auto_skill=False))
+
+    required = routes._required_slots("room_t", state)
+
+    assert "S_E" not in required
+    assert "S_A1" in required
+
+
+def test_required_slots_keeps_pve_enemy_with_skill(monkeypatch):
+    routes = _load_battle_common_routes_module()
+    state = _base_state()
+    state["intents"] = {
+        "S_E": {
+            "slot_id": "S_E",
+            "actor_id": "E1",
+            "skill_id": "S-ENEMY",
+            "target": {"type": "single_slot", "slot_id": "S_A1"},
+            "committed": False,
+            "tags": {"instant": False, "mass_type": None, "no_redirect": False},
+        }
+    }
+    monkeypatch.setattr(routes, "get_room_state", lambda _room: _room_state(auto_skill=False))
+
+    required = routes._required_slots("room_t", state)
+
+    assert "S_E" in required
