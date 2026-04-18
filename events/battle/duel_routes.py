@@ -80,7 +80,7 @@ def _is_declare_panel_preview_only(data):
     if commit:
         return False
     prefix = str(data.get('prefix', '') or '').strip().lower()
-    return prefix.startswith('declare_panel_')
+    return prefix.startswith('declare_panel_') or prefix.startswith('declare_compare_')
 
 
 @socketio.on('request_match')

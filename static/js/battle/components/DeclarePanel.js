@@ -5,8 +5,15 @@ class DeclarePanel {
     constructor() {
         this._unsubscribe = null;
         this._initialized = false;
-        this._panelId = 'select-resolve-declare-panel';
+        this._panelRootId = 'select-resolve-declare-panels';
+        this._leftPanelId = 'select-resolve-declare-panel-left';
+        this._rightPanelId = 'select-resolve-declare-panel-right';
         this._lastCalcKey = null;
+        this._lastCompareCalcKeyBySlot = {};
+        this._sideUi = {
+            ally: { minimized: false },
+            enemy: { minimized: false }
+        };
     }
 
     initialize() {
@@ -27,6 +34,16 @@ class DeclarePanel {
     }
 
     _resolvePanelMountTarget() {
+        const visualRoot = document.getElementById('visual-battle-container');
+        if (visualRoot) {
+            return { parent: visualRoot, variant: 'map' };
+        }
+
+        const mapViewport = document.getElementById('map-viewport');
+        if (mapViewport) {
+            return { parent: mapViewport, variant: 'map' };
+        }
+
         const sidebarHost = document.getElementById('declare-panel-sidebar-host');
         if (sidebarHost) {
             return { parent: sidebarHost, variant: 'sidebar' };
@@ -37,46 +54,59 @@ class DeclarePanel {
             return { parent: chatArea, variant: 'sidebar' };
         }
 
-        const mapViewport = document.getElementById('map-viewport');
-        if (mapViewport) {
-            return { parent: mapViewport, variant: 'map' };
-        }
-
-        const visualRoot = document.getElementById('visual-battle-container');
-        if (visualRoot) {
-            return { parent: visualRoot, variant: 'map' };
-        }
-
         return { parent: null, variant: 'map' };
     }
 
-    _ensurePanelEl() {
+    _ensurePanelEls() {
         const mountTarget = this._resolvePanelMountTarget();
         const parent = mountTarget.parent;
         if (!parent) return null;
 
-        let panel = document.getElementById(this._panelId);
-
-        if (!panel) {
-            panel = document.createElement('div');
-            panel.id = this._panelId;
-            panel.style.display = 'none';
+        let root = document.getElementById(this._panelRootId);
+        if (!root) {
+            root = document.createElement('div');
+            root.id = this._panelRootId;
+            root.style.display = 'none';
         }
-
-        if (panel.parentElement !== parent) {
-            parent.appendChild(panel);
+        if (root.parentElement !== parent) {
+            parent.appendChild(root);
         }
+        root.className = (mountTarget.variant === 'sidebar')
+            ? 'declare-panels declare-panels--sidebar'
+            : 'declare-panels declare-panels--map';
 
-        panel.className = (mountTarget.variant === 'sidebar')
-            ? 'declare-panel declare-panel--sidebar'
-            : 'declare-panel declare-panel--map';
-        panel.dataset.mountVariant = mountTarget.variant;
-        return panel;
+        let leftPanel = document.getElementById(this._leftPanelId);
+        if (!leftPanel) {
+            leftPanel = document.createElement('div');
+            leftPanel.id = this._leftPanelId;
+            leftPanel.style.display = 'none';
+        }
+        leftPanel.className = (mountTarget.variant === 'sidebar')
+            ? 'declare-panel declare-panel--sidebar declare-panel--side-left'
+            : 'declare-panel declare-panel--map declare-panel--side-left';
+
+        let rightPanel = document.getElementById(this._rightPanelId);
+        if (!rightPanel) {
+            rightPanel = document.createElement('div');
+            rightPanel.id = this._rightPanelId;
+            rightPanel.style.display = 'none';
+        }
+        rightPanel.className = (mountTarget.variant === 'sidebar')
+            ? 'declare-panel declare-panel--sidebar declare-panel--side-right'
+            : 'declare-panel declare-panel--map declare-panel--side-right';
+
+        if (leftPanel.parentElement !== root) root.appendChild(leftPanel);
+        if (rightPanel.parentElement !== root) root.appendChild(rightPanel);
+
+        leftPanel.dataset.mountVariant = mountTarget.variant;
+        rightPanel.dataset.mountVariant = mountTarget.variant;
+        return { root, leftPanel, rightPanel };
     }
 
     _render(state) {
-        const panel = this._ensurePanelEl();
-        if (!panel) return;
+        const panelSet = this._ensurePanelEls();
+        if (!panelSet) return;
+        const { root, leftPanel, rightPanel } = panelSet;
 
         const phase = state.phase;
         const declare = state.declare || {};
@@ -98,21 +128,54 @@ class DeclarePanel {
             ? store.compareDeclareWithCommitted(sourceSlotId)
             : { hasDiff: true, diffSummary: '' };
         const hasDeclareDiff = !!declareDiff?.hasDiff;
-        const forceOpenWithoutTarget = !!(sourceSlotId && !isMassTarget && !effectiveTargetSlotId && mode === 'ready');
-        const shouldShowPanel = !!(sourceSlotId && (isMassTarget || !!effectiveTargetSlotId || forceOpenWithoutTarget));
+        const isTargetPicking = !!(sourceSlotId && !isMassTarget && !effectiveTargetSlotId);
+        const shouldShowPanel = !!sourceSlotId;
         const closeBtnTitle = hasDeclareDiff ? '閉じる（未確定の変更は破棄）' : '閉じる';
 
         if (phase !== 'select' || !shouldShowPanel) {
-            panel.style.display = 'none';
+            root.style.display = 'none';
+            leftPanel.style.display = 'none';
+            rightPanel.style.display = 'none';
             // Re-opening the panel should trigger fresh calc request for same slot/skill.
             this._lastCalcKey = null;
+            this._lastCompareCalcKeyBySlot = {};
+            leftPanel.classList.remove('is-target-picking');
+            rightPanel.classList.remove('is-target-picking');
             return;
         }
-        panel.style.display = 'block';
+        root.style.display = 'block';
+        leftPanel.style.display = 'block';
+        rightPanel.style.display = 'block';
 
         const sourceSlot = state.slots?.[sourceSlotId] || null;
         const sourceActorId = sourceSlot?.actor_id || null;
         const sourceChar = (state.characters || []).find(c => String(c.id) === String(sourceActorId)) || null;
+        const sourceTeam = this._normalizeTeam(sourceSlot?.team || sourceChar?.type || '');
+        const targetTeam = effectiveTargetSlotId ? this._teamForSlot(state, effectiveTargetSlotId) : null;
+        const sideSlots = {
+            ally: null,
+            enemy: null
+        };
+        const compareCalcMap = state?.compareCalcBySlot || {};
+        if (sourceSlotId && (sourceTeam === 'ally' || sourceTeam === 'enemy')) {
+            sideSlots[sourceTeam] = sourceSlotId;
+        }
+        if (effectiveTargetSlotId && (targetTeam === 'ally' || targetTeam === 'enemy')) {
+            sideSlots[targetTeam] = effectiveTargetSlotId;
+        }
+        const visibleSide = {
+            ally: !!sideSlots.ally,
+            enemy: !!sideSlots.enemy
+        };
+        const interactivePanel = sourceTeam === 'enemy' ? rightPanel : leftPanel;
+        const readonlyPanel = sourceTeam === 'enemy' ? leftPanel : rightPanel;
+        const interactiveSide = sourceTeam === 'enemy' ? 'enemy' : 'ally';
+        const readonlySide = sourceTeam === 'enemy' ? 'ally' : 'enemy';
+        const interactiveMinimized = !!this._sideUi?.[interactiveSide]?.minimized;
+        const readonlyMinimized = !!this._sideUi?.[readonlySide]?.minimized;
+        interactivePanel.classList.toggle('is-target-picking', isTargetPicking);
+        readonlyPanel.classList.remove('is-target-picking');
+
         const shouldClearIncompatibleSkill = (
             !isUiReadOnly
             && !isMassTarget
@@ -153,14 +216,44 @@ class DeclarePanel {
         const calcErrorText = (calc && calc.error)
             ? (calc.message || calc.final_command || '計算エラー')
             : null;
+        const flow = this._resolveFlowGuide({
+            sourceSlotId,
+            skillId,
+            isMassTarget,
+            effectiveTargetSlotId
+        });
 
-        panel.innerHTML = `
+        Object.keys(sideSlots).forEach((side) => {
+            const slotId = sideSlots?.[side];
+            if (!slotId) return;
+            if (String(slotId) === String(sourceSlotId || '')) return;
+            const compareSkillId = String(state?.intents?.[slotId]?.skill_id || '').trim();
+            if (!compareSkillId) return;
+            const compareTargetSlotId = this._resolveCompareTargetSlotId(state, slotId);
+            this._requestCompareCalc(state, slotId, compareSkillId, compareTargetSlotId, false);
+        });
+
+        const interactiveTitle = sourceTeam === 'enemy' ? '敵宣言' : '味方宣言';
+        const interactiveRangeText = meta.rangeText || meta.range || '-';
+        const interactiveSkillDisplay = this._resolveSkillDisplayName(skillId, meta.name, sourceChar);
+        const interactiveSummaryHtml = this._buildMinimizedSummaryHtml(interactiveSkillDisplay, interactiveRangeText);
+        const interactiveHtml = `
             <div class="declare-panel-header">
-                <div class="declare-panel-title">スキル選択</div>
+                <div class="declare-panel-title">${interactiveTitle}</div>
                 <div class="declare-panel-header-right">
                     <button id="declare-commit-btn-header" class="declare-commit-btn declare-commit-btn-header" ${canCommit ? '' : 'disabled'}>${commitButtonText}</button>
+                    <button id="declare-minimize-btn" class="declare-minimize-btn" title="${interactiveMinimized ? '展開' : '最小化'}">${interactiveMinimized ? '□' : '－'}</button>
                     <button id="declare-close-btn" class="declare-close-btn" title="${this._escapeHtml(closeBtnTitle)}">x</button>
                 </div>
+            </div>
+            ${interactiveSummaryHtml}
+            <div class="declare-flow-guide">
+                <div class="declare-flow-steps">
+                    <span class="declare-flow-chip ${flow.step1Class}">1 使用者</span>
+                    <span class="declare-flow-chip ${flow.step2Class}">2 スキル</span>
+                    <span class="declare-flow-chip ${flow.step3Class}">3 対象</span>
+                </div>
+                <div class="declare-flow-text">${this._escapeHtml(flow.message)}</div>
             </div>
             <div class="declare-panel-row">
                 <span>使用者</span>
@@ -175,8 +268,7 @@ class DeclarePanel {
                     </select>
                 </div>
             </div>
-            ${forceOpenWithoutTarget ? `<div class="declare-panel-row"><span></span><span class="declare-help-text">target を選択してください</span></div>` : ''}
-            ${!canEditSource ? `<div class="declare-panel-row"><span></span><span class="declare-help-text">このキャラクターの宣言は編集できません（閲覧のみ）</span></div>` : ''}
+            ${isTargetPicking ? `<div class="declare-panel-row"><span></span><span class="declare-help-text">対象スロットをクリックしてください</span></div>` : ''}
             <div class="declare-panel-row">
                 <span>スキル</span>
                 <select id="declare-skill-select" class="declare-skill-select" ${isUiReadOnly ? 'disabled' : ''}>
@@ -184,7 +276,7 @@ class DeclarePanel {
                 </select>
             </div>
             <div class="declare-skill-meta">
-                <div><strong>${meta.name}</strong></div>
+                <div><strong>${this._escapeHtml(interactiveSkillDisplay)}</strong></div>
                 <div>${meta.description || '-'}</div>
                 <div>レンジ: ${meta.rangeText || meta.range}</div>
                 <div>コマンド: <code class="declare-command">${this._escapeHtml(commandText || '-')}</code></div>
@@ -200,7 +292,48 @@ class DeclarePanel {
             ${calcErrorText ? `<div class="declare-cost-warning">${calcErrorText}</div>` : ''}
         `;
 
-        const closeBtn = panel.querySelector('#declare-close-btn');
+        const leftReadonly = this._buildReadonlyPanelHtml(
+            state,
+            sideSlots.ally,
+            'ally',
+            {
+                sourceSlotId,
+                skillId,
+                calc,
+                effectiveTargetSlotId,
+                compareCalc: sideSlots.ally ? (compareCalcMap[String(sideSlots.ally)] || null) : null,
+                isSourceSide: sourceTeam !== 'enemy'
+            }
+        );
+        const rightReadonly = this._buildReadonlyPanelHtml(
+            state,
+            sideSlots.enemy,
+            'enemy',
+            {
+                sourceSlotId,
+                skillId,
+                calc,
+                effectiveTargetSlotId,
+                compareCalc: sideSlots.enemy ? (compareCalcMap[String(sideSlots.enemy)] || null) : null,
+                isSourceSide: sourceTeam === 'enemy'
+            }
+        );
+        if (sourceTeam === 'enemy') {
+            leftPanel.innerHTML = leftReadonly;
+            rightPanel.innerHTML = interactiveHtml;
+        } else {
+            leftPanel.innerHTML = interactiveHtml;
+            rightPanel.innerHTML = rightReadonly;
+        }
+        leftPanel.style.display = visibleSide.ally ? 'block' : 'none';
+        rightPanel.style.display = visibleSide.enemy ? 'block' : 'none';
+        root.style.display = (visibleSide.ally || visibleSide.enemy) ? 'block' : 'none';
+        if (!visibleSide.ally && !visibleSide.enemy) return;
+
+        leftPanel.classList.toggle('is-minimized', visibleSide.ally && !!this._sideUi.ally.minimized);
+        rightPanel.classList.toggle('is-minimized', visibleSide.enemy && !!this._sideUi.enemy.minimized);
+
+        const closeBtn = interactivePanel.querySelector('#declare-close-btn');
         if (closeBtn) {
             closeBtn.onclick = () => {
                 store.resetDeclare();
@@ -208,7 +341,20 @@ class DeclarePanel {
             };
         }
 
-        const skillSelect = panel.querySelector('#declare-skill-select');
+        const interactiveMinBtn = interactivePanel.querySelector('#declare-minimize-btn');
+        if (interactiveMinBtn) {
+            interactiveMinBtn.onclick = () => {
+                this._toggleSideMinimized(interactiveSide);
+            };
+        }
+        const readonlyMinBtn = readonlyPanel.querySelector(`#declare-readonly-min-btn-${readonlySide}`);
+        if (readonlyMinBtn) {
+            readonlyMinBtn.onclick = () => {
+                this._toggleSideMinimized(readonlySide);
+            };
+        }
+
+        const skillSelect = interactivePanel.querySelector('#declare-skill-select');
         if (skillSelect) {
             skillSelect.value = skillId || '';
             skillSelect.disabled = isUiReadOnly;
@@ -255,7 +401,7 @@ class DeclarePanel {
             };
         }
 
-        const targetSelect = panel.querySelector('#declare-target-select');
+        const targetSelect = interactivePanel.querySelector('#declare-target-select');
         if (targetSelect) {
             targetSelect.value = effectiveTargetSlotId || '';
             targetSelect.disabled = isUiReadOnly || isMassTarget;
@@ -291,7 +437,7 @@ class DeclarePanel {
             };
         }
 
-        const commitBtn = panel.querySelector('#declare-commit-btn-header') || panel.querySelector('#declare-commit-btn');
+        const commitBtn = interactivePanel.querySelector('#declare-commit-btn-header') || interactivePanel.querySelector('#declare-commit-btn');
         if (commitBtn) {
             commitBtn.onclick = () => {
                 if (!canEditSource || isDeclaredLocked) return;
@@ -330,6 +476,312 @@ class DeclarePanel {
         }
 
         this._requestCalc(state, declare, false);
+    }
+
+    _teamForSlot(state, slotId) {
+        if (!state || !slotId) return null;
+        const slot = state?.slots?.[slotId];
+        if (!slot) return null;
+        return this._normalizeTeam(slot.team || '');
+    }
+
+    _buildReadonlyPanelHtml(state, slotId, side, context = {}) {
+        const sideTitle = side === 'enemy' ? '敵詳細' : '味方詳細';
+        if (!slotId) {
+            return `
+                <div class="declare-panel-header">
+                    <div class="declare-panel-title">${sideTitle}</div>
+                    <div class="declare-panel-header-right">
+                        <button id="declare-readonly-min-btn-${side}" class="declare-minimize-btn" title="${this._sideUi?.[side]?.minimized ? '展開' : '最小化'}">${this._sideUi?.[side]?.minimized ? '□' : '－'}</button>
+                    </div>
+                </div>
+                <div class="declare-panel-row">
+                    <span>状態</span>
+                    <span class="declare-human-label">未選択</span>
+                </div>
+            `;
+        }
+
+        const slot = state?.slots?.[slotId] || null;
+        if (!slot) {
+            return `
+                <div class="declare-panel-header">
+                    <div class="declare-panel-title">${sideTitle}</div>
+                    <div class="declare-panel-header-right">
+                        <button id="declare-readonly-min-btn-${side}" class="declare-minimize-btn" title="${this._sideUi?.[side]?.minimized ? '展開' : '最小化'}">${this._sideUi?.[side]?.minimized ? '□' : '－'}</button>
+                    </div>
+                </div>
+                <div class="declare-panel-row">
+                    <span>状態</span>
+                    <span class="declare-human-label">スロットなし</span>
+                </div>
+            `;
+        }
+
+        const actorId = slot.actor_id || null;
+        const actor = (state.characters || []).find((c) => String(c.id) === String(actorId)) || null;
+        const isSource = String(context.sourceSlotId || '') === String(slotId || '');
+        const skillId = isSource
+            ? (context.skillId || '')
+            : String((state?.intents?.[slotId]?.skill_id || '') || '');
+        const calc = isSource ? (context.calc || null) : (context.compareCalc || null);
+        const meta = this._resolveDisplayMeta(skillId, calc);
+        const commandText = this._resolveCommandText(calc) || '';
+        const rangeText = this._resolveReadonlyRangeText(meta, calc);
+        const label = this._formatSlotLabel(state, slotId);
+        const detailHtml = meta.detailHtml || '';
+        const skillDisplay = this._resolveSkillDisplayName(skillId, meta.name, actor);
+        const summaryHtml = this._buildMinimizedSummaryHtml(skillDisplay, rangeText);
+
+        return `
+            <div class="declare-panel-header">
+                <div class="declare-panel-title">${sideTitle}</div>
+                <div class="declare-panel-header-right">
+                    <button id="declare-readonly-min-btn-${side}" class="declare-minimize-btn" title="${this._sideUi?.[side]?.minimized ? '展開' : '最小化'}">${this._sideUi?.[side]?.minimized ? '□' : '－'}</button>
+                </div>
+            </div>
+            ${summaryHtml}
+            <div class="declare-panel-row">
+                <span>スロット</span>
+                <span class="declare-human-label">${this._escapeHtml(label)}</span>
+            </div>
+            <div class="declare-panel-row">
+                <span>状態</span>
+                <span class="declare-human-label">${isSource ? '操作中' : '参照中'}</span>
+            </div>
+            <div class="declare-skill-meta">
+                <div><strong>${this._escapeHtml(skillDisplay)}</strong></div>
+                <div>${meta.description || '-'}</div>
+                <div>レンジ: ${this._escapeHtml(rangeText)}</div>
+                <div>コマンド: <code class="declare-command">${this._escapeHtml(commandText || '-')}</code></div>
+                ${detailHtml ? `<div class="declare-skill-detail">${detailHtml}</div>` : ''}
+            </div>
+        `;
+    }
+
+    _resolveSkillDisplayName(skillId, metaName, actor) {
+        const sid = String(skillId || '').trim();
+        const nameFromMeta = String(metaName || '').trim();
+        const isMetaUsable = !!(
+            nameFromMeta
+            && nameFromMeta !== '-'
+            && nameFromMeta !== '(none)'
+            && nameFromMeta !== sid
+        );
+        const nameFromCommands = this._findSkillNameFromActorCommands(actor, sid);
+        const resolvedName = isMetaUsable ? nameFromMeta : nameFromCommands;
+        if (sid && resolvedName && resolvedName !== sid) return `${sid} ${resolvedName}`;
+        if (sid) return sid;
+        if (resolvedName) return resolvedName;
+        return '-';
+    }
+
+    _findSkillNameFromActorCommands(actor, skillId) {
+        const sid = String(skillId || '').trim();
+        if (!sid) return '';
+        const commands = String(actor?.commands || '');
+        if (!commands) return '';
+        const regex = /[\u3010\[]([^ \]\u3011]+)\s+([^\u3011\]]+)[\u3011\]]/g;
+        let match;
+        while ((match = regex.exec(commands)) !== null) {
+            const id = String(match[1] || '').trim();
+            const name = String(match[2] || '').trim();
+            if (id === sid && name) return name;
+        }
+        return '';
+    }
+
+    _toggleSideMinimized(side) {
+        if (!side || !this._sideUi?.[side]) return;
+        this._sideUi[side].minimized = !this._sideUi[side].minimized;
+        this._render(store.state);
+    }
+
+    _buildMinimizedSummaryHtml(skillName, rangeText) {
+        const safeSkillName = this._escapeHtml(skillName || '-');
+        const safeRangeText = this._escapeHtml(rangeText || '-');
+        return `
+            <div class="declare-min-summary" aria-hidden="true">
+                <div class="declare-min-summary-row"><span class="label">スキル</span><span class="value">${safeSkillName}</span></div>
+                <div class="declare-min-summary-row"><span class="label">威力レンジ</span><span class="value">${safeRangeText}</span></div>
+            </div>
+        `;
+    }
+
+    _resolveReadonlyRangeText(meta, calc) {
+        if (calc && calc.min_damage !== undefined && calc.max_damage !== undefined) {
+            return `${calc.min_damage} ~ ${calc.max_damage}`;
+        }
+        return meta.rangeText || meta.range || '-';
+    }
+
+    _resolveCompareTargetSlotId(state, slotId) {
+        if (!state || !slotId) return null;
+        const intent = state?.intents?.[slotId] || null;
+        const target = intent?.target || null;
+        const targetType = this._normalizeTargetType(target?.type || intent?.targetType || '');
+        if (this._isMassTargetType(targetType)) return null;
+        return target?.slot_id || intent?.target_slot_id || null;
+    }
+
+    _buildQuickPreviewFromSkill(actor, skillId) {
+        const all = window.allSkillData || {};
+        const skill = all[skillId];
+        if (!skill || typeof skill !== 'object') return null;
+
+        const basePowerRaw = this._firstValue(skill, ['基礎威力', 'base_power', 'power'], 0);
+        let basePower = Number.parseInt(basePowerRaw, 10);
+        if (!Number.isFinite(basePower)) basePower = 0;
+
+        let palette = String(
+            this._firstValue(skill, ['チャットパレット', 'chat_palette', 'command'], '')
+        );
+        palette = palette.replace(/【.*?】/g, '').trim();
+        if (palette.includes(':')) {
+            const parts = palette.split(':');
+            palette = String(parts[parts.length - 1] || '').trim();
+        }
+
+        let dicePart = '';
+        const matchBase = palette.match(/^(-?\d+)(.*)$/);
+        if (matchBase) {
+            if (!Number.isFinite(Number.parseInt(basePowerRaw, 10))) {
+                basePower = Number.parseInt(matchBase[1], 10) || 0;
+            }
+            dicePart = String(matchBase[2] || '').trim();
+        } else if (palette) {
+            dicePart = palette;
+        }
+        if (!dicePart) {
+            dicePart = String(this._firstValue(skill, ['ダイス威力', 'dice_power'], '2d6') || '2d6');
+        }
+
+        const resolvedDice = this._resolveCommandPlaceholders(dicePart, actor);
+        const compactDice = String(resolvedDice || '').replace(/\s+/g, '');
+        const finalCommand = compactDice
+            ? (/^[+-]/.test(compactDice) ? `${basePower}${compactDice}` : `${basePower}+${compactDice}`)
+            : String(basePower);
+        const range = this._calcRangeFromCommand(finalCommand);
+        return {
+            finalCommand,
+            rangeText: range ? `${range.min} ~ ${range.max}` : '-'
+        };
+    }
+
+    _resolveCommandPlaceholders(commandText, actor) {
+        const raw = String(commandText || '');
+        return raw.replace(/\{([^}]+)\}/g, (_m, labelRaw) => {
+            const label = String(labelRaw || '').trim();
+            return String(this._readActorNumericParam(actor, label));
+        });
+    }
+
+    _readActorNumericParam(actor, label) {
+        if (!actor || !label) return 0;
+        const direct = actor[label];
+        if (direct !== undefined && direct !== null && direct !== '') {
+            const n = Number.parseInt(direct, 10);
+            return Number.isFinite(n) ? n : 0;
+        }
+        const lower = actor[String(label).toLowerCase()];
+        if (lower !== undefined && lower !== null && lower !== '') {
+            const n = Number.parseInt(lower, 10);
+            return Number.isFinite(n) ? n : 0;
+        }
+
+        const states = Array.isArray(actor.states) ? actor.states : [];
+        const stateRow = states.find((s) => String(s?.name || '').trim() === label);
+        if (stateRow) {
+            const n = Number.parseInt(stateRow.value, 10);
+            return Number.isFinite(n) ? n : 0;
+        }
+
+        const params = Array.isArray(actor.params) ? actor.params : [];
+        const paramRow = params.find((p) => String(p?.label || '').trim() === label);
+        if (paramRow) {
+            const n = Number.parseInt(paramRow.value, 10);
+            return Number.isFinite(n) ? n : 0;
+        }
+        return 0;
+    }
+
+    _calcRangeFromCommand(commandText) {
+        const clean = String(commandText || '')
+            .replace(/【.*?】/g, '')
+            .replace(/\s+/g, '')
+            .trim();
+        if (!clean) return null;
+
+        const tokens = clean.split(/([+-])/).filter((t) => t !== '');
+        let currentSign = 1;
+        let min = 0;
+        let max = 0;
+        for (const tokenRaw of tokens) {
+            const token = String(tokenRaw || '').trim();
+            if (!token) continue;
+            if (token === '+') {
+                currentSign = 1;
+                continue;
+            }
+            if (token === '-') {
+                currentSign = -1;
+                continue;
+            }
+
+            const diceMatch = token.match(/^(\d+)d(\d+)$/i);
+            if (diceMatch) {
+                const num = Number.parseInt(diceMatch[1], 10);
+                const sides = Number.parseInt(diceMatch[2], 10);
+                if (!Number.isFinite(num) || !Number.isFinite(sides) || num <= 0 || sides <= 0) continue;
+                const tMin = num;
+                const tMax = num * sides;
+                if (currentSign >= 0) {
+                    min += tMin;
+                    max += tMax;
+                } else {
+                    min -= tMax;
+                    max -= tMin;
+                }
+                continue;
+            }
+
+            const n = Number.parseInt(token, 10);
+            if (Number.isFinite(n)) {
+                min += currentSign * n;
+                max += currentSign * n;
+            }
+        }
+        return { min, max };
+    }
+
+    _resolveFlowGuide({ sourceSlotId, skillId, isMassTarget, effectiveTargetSlotId }) {
+        const hasSource = !!sourceSlotId;
+        const hasSkill = !!skillId;
+        const hasTarget = !!(isMassTarget || effectiveTargetSlotId);
+
+        const step1Class = hasSource ? 'done' : 'active';
+        const step2Class = hasSkill ? 'done' : (hasSource ? 'active' : 'pending');
+        const step3Class = hasTarget ? 'done' : (hasSkill ? 'active' : 'pending');
+
+        let message = '使用者をクリックしてください。';
+        if (hasSource && !hasSkill) {
+            message = '使用スキルを選択してください。';
+        } else if (hasSkill && !hasTarget) {
+            message = isMassTarget
+                ? '広域対象です。宣言ボタンで確定できます。'
+                : '対象スロットをクリックしてください。';
+        } else if (hasSkill && hasTarget) {
+            message = '内容を確認して「宣言」を押してください。';
+        }
+
+        return { step1Class, step2Class, step3Class, message };
+    }
+
+    _normalizeTeam(value) {
+        const t = String(value || '').trim().toLowerCase();
+        if (['enemy', 'foe', 'opponent', 'npc', 'boss', '敵'].includes(t)) return 'enemy';
+        if (['ally', 'friend', 'player', '味方'].includes(t)) return 'ally';
+        return 'ally';
     }
 
     _canEditSourceSlot(state, sourceSlotId) {
@@ -469,8 +921,16 @@ class DeclarePanel {
             this._findByKeyPattern(skill, /desc|effect|text|detail/i) ||
             '';
 
-        const power = this._firstValue(skill, ['power', 'base_power'], this._findByKeyPattern(skill, /power|atk/i) || '-');
-        const range = this._firstValue(skill, ['range', 'attack_range', 'target_range', 'distance'], this._findByKeyPattern(skill, /range|distance|target/i) || '-');
+        const power = this._firstValue(
+            skill,
+            ['power', 'base_power', '基礎威力', '威力'],
+            this._findByKeyPattern(skill, /power|atk|威力|基礎/i) || '-'
+        );
+        const range = this._firstValue(
+            skill,
+            ['range', 'attack_range', 'target_range', 'distance', '射程', '距離'],
+            this._findByKeyPattern(skill, /range|distance|target|射程|距離/i) || '-'
+        );
         return { name, description, power, range };
     }
 
@@ -622,6 +1082,38 @@ class DeclarePanel {
             skill_id: skillId,
             modifier: 0,
             prefix: `declare_panel_${sourceSlotId}`,
+            commit: false,
+            custom_skill_name: ''
+        });
+    }
+
+    _requestCompareCalc(state, slotId, skillId, targetSlotId = null, force = false) {
+        const compareSlotId = slotId || null;
+        const compareSkillId = skillId || null;
+        if (!compareSlotId || !compareSkillId) return;
+        if (state.phase !== 'select') return;
+
+        const calcKey = `${compareSlotId}|${compareSkillId}|${targetSlotId || 'none'}`;
+        const compareKeyMap = this._lastCompareCalcKeyBySlot || {};
+        const hasCurrentCalc = Object.prototype.hasOwnProperty.call(
+            (state?.compareCalcBySlot || {}),
+            String(compareSlotId)
+        );
+        if (!force && compareKeyMap[compareSlotId] === calcKey && hasCurrentCalc) return;
+        this._lastCompareCalcKeyBySlot[compareSlotId] = calcKey;
+
+        const sourceActorId = state?.slots?.[compareSlotId]?.actor_id || null;
+        const targetActorId = targetSlotId
+            ? (state?.slots?.[targetSlotId]?.actor_id || null)
+            : null;
+        if (!sourceActorId) return;
+
+        socketClient.declareSkill({
+            actor_id: sourceActorId,
+            target_id: targetActorId,
+            skill_id: compareSkillId,
+            modifier: 0,
+            prefix: `declare_compare_${compareSlotId}`,
             commit: false,
             custom_skill_name: ''
         });

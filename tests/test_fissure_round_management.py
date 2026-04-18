@@ -105,7 +105,7 @@ def test_apply_state_per_n_with_rounds_routes_to_fissure_buff_and_bonus(sample_a
     assert int(buff_changes[0][3].get("data", {}).get("count", 0)) == 4
 
 
-def test_apply_buff_bu_fissure_stacks_by_original_rounds_without_refresh(sample_target):
+def test_apply_buff_bu_fissure_separates_buckets_when_remaining_rounds_differ(sample_target):
     char = sample_target
     set_status_value(char, "亀裂", 0)
     char["special_buffs"] = []
@@ -131,9 +131,11 @@ def test_apply_buff_bu_fissure_stacks_by_original_rounds_without_refresh(sample_
         data={"buff_id": "Bu-Fissure", "count": 2, "original_rounds": 4},
     )
     assert get_status_value(char, "亀裂") == 5
-    assert len(char["special_buffs"]) == 1
-    assert int(char["special_buffs"][0].get("count", 0)) == 5
-    assert int(char["special_buffs"][0].get("lasting", 0)) == 3
+    assert len(char["special_buffs"]) == 2
+    counts_after_second = sorted(int(b.get("count", 0)) for b in char["special_buffs"])
+    assert counts_after_second == [2, 3]
+    lasting_after_second = sorted(int(b.get("lasting", 0)) for b in char["special_buffs"])
+    assert lasting_after_second == [3, 4]
 
     apply_buff(
         char,
@@ -144,6 +146,11 @@ def test_apply_buff_bu_fissure_stacks_by_original_rounds_without_refresh(sample_
     )
     assert get_status_value(char, "亀裂") == 6
     assert len(char["special_buffs"]) == 2
+    buckets = sorted(
+        ((int(b.get("lasting", 0)), int(b.get("count", 0))) for b in char["special_buffs"]),
+        key=lambda row: row[0],
+    )
+    assert buckets == [(3, 4), (4, 2)]
 
 
 def test_process_simple_round_end_expires_fissure_bucket_and_subtracts(monkeypatch):
@@ -171,6 +178,35 @@ def test_process_simple_round_end_expires_fissure_bucket_and_subtracts(monkeypat
 
     assert _state_value(char, "亀裂") == 3
     assert len(char["special_buffs"]) == 0
+
+
+def test_process_simple_round_end_updates_fissure_bucket_name_to_remaining_rounds(monkeypatch):
+    char = {
+        "id": "t2",
+        "name": "target2",
+        "hp": 100,
+        "states": [{"name": "亀裂", "value": 4}],
+        "special_buffs": [{
+            "name": "亀裂_R4",
+            "buff_id": "Bu-Fissure",
+            "delay": 0,
+            "lasting": 4,
+            "count": 4,
+            "data": {"original_rounds": 4, "fissure_count": 4},
+        }],
+    }
+    state = {"characters": [char]}
+
+    monkeypatch.setattr(battle_core, "apply_origin_bonus_buffs", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(battle_core, "process_summon_round_end", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(battle_core, "process_granted_skill_round_end", lambda *_args, **_kwargs: [])
+
+    battle_core.process_simple_round_end(state, room="room_t")
+
+    assert len(char["special_buffs"]) == 1
+    bucket = char["special_buffs"][0]
+    assert int(bucket.get("lasting", 0)) == 3
+    assert bucket.get("name") == "亀裂_R3"
 
 
 def test_fissure_collapse_returns_clear_changes_and_mutates_sim_target(sample_target):

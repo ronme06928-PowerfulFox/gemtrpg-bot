@@ -334,30 +334,32 @@ function renderCharacterCard(char) {
             </details>
         `;
     }
-    const radiancePassiveIds = new Set();
-    const radiancePassiveNames = new Set();
+    const sPassiveIds = new Set();
+    const sPassiveNames = new Set();
+    const normalizePassiveName = (value) => String(value || '').trim().replace(/_.+$/, '');
     if (char.SPassive && Array.isArray(char.SPassive)) {
         char.SPassive.forEach((pid) => {
             const key = String(pid || '').trim();
             if (!key) return;
+            sPassiveIds.add(key);
+            const pData = (window.allPassiveData && window.allPassiveData[key]) ? window.allPassiveData[key] : null;
+            const pName = normalizePassiveName(pData && pData.name);
+            if (pName) sPassiveNames.add(pName);
             const rData = (window.radianceSkillData && window.radianceSkillData[key]) ? window.radianceSkillData[key] : null;
-            if (!rData) return;
-            radiancePassiveIds.add(key);
-            const rName = String(rData.name || '').trim();
-            if (rName) radiancePassiveNames.add(rName);
+            const rName = normalizePassiveName(rData && rData.name);
+            if (rName) sPassiveNames.add(rName);
         });
     }
 
     if (char.special_buffs && char.special_buffs.length > 0) {
         char.special_buffs.forEach((b) => {
             const buffSkillId = String(b.skill_id || '').trim();
-            const buffName = String(b.name || '').trim();
-            const isRadianceSource = String(b.source || '').trim().toLowerCase() === 'radiance';
+            const buffName = normalizePassiveName(b.name);
             const duplicatedBySPassive = (
-                (buffSkillId && radiancePassiveIds.has(buffSkillId))
-                || (buffName && radiancePassiveNames.has(buffName))
+                (buffSkillId && sPassiveIds.has(buffSkillId))
+                || (buffName && sPassiveNames.has(buffName))
             );
-            if (isRadianceSource && duplicatedBySPassive) {
+            if (duplicatedBySPassive) {
                 return;
             }
 
@@ -2553,7 +2555,7 @@ function openSkillDetailModal(skillId, skillName, options = {}) {
 
     content.innerHTML = `
         <div class="book-modal-header">
-            <h3 class="book-modal-title" style="${isGranted ? 'color:#7a5a16;' : ''}">${skillName || skillId}</h3>
+            <h3 class="book-modal-title" style="${isGranted ? 'color:#7a5a16;' : ''}">${skillName ? `${skillName} [${skillId}]` : skillId}</h3>
             <button class="modal-close-btn book-modal-close" aria-label="閉じる">×</button>
         </div>
         ${bodyHtml}

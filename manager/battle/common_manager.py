@@ -451,6 +451,8 @@ def process_full_round_end(room, username):
                 elif lasting > 0:
                     buff["lasting"] = lasting - 1
                     if buff["lasting"] > 0:
+                        if buff.get("buff_id") == "Bu-Fissure":
+                            buff["name"] = f"亀裂_R{buff['lasting']}"
                         active_buffs.append(buff)
                     else:
                         if buff.get("buff_id") == "Bu-Fissure":

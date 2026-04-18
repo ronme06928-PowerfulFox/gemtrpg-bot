@@ -1154,6 +1154,7 @@
 
         onSocket('bo_battle_started', () => {
             requestDraftState();
+            setTimeout(() => { closeModal(); }, 120);
             requestRecordState();
             setMsg('戦闘に突入しました。', 'green');
         });

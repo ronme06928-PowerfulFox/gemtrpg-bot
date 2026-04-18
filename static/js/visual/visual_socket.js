@@ -938,6 +938,15 @@ window.setupVisualSocketHandlers = function () {
             return;
         }
 
+        if (String(data.prefix).startsWith('declare_compare_')) {
+            const slotId = String(data.prefix).replace('declare_compare_', '');
+            if (window.BattleStore && typeof window.BattleStore.setCompareCalc === 'function') {
+                window.BattleStore.setCompareCalc(slotId, data || null);
+            }
+            _battleLog(`[declare] compare_calc_result slot=${slotId} skill=${data.skill_id} min=${data.min_damage} max=${data.max_damage} error=${!!data.error}`);
+            return;
+        }
+
         if (data.prefix === 'visual_wide_attacker') {
             const cmdInput = document.getElementById('v-wide-attacker-cmd');
             const declareBtn = document.getElementById('v-wide-declare-btn');

@@ -130,3 +130,23 @@ def test_speed_value_condition_reads_battle_state_slots():
 
     assert check_condition(cond_ok, actor, None, context=context) is True
     assert check_condition(cond_ng, actor, None, context=context) is False
+
+
+def test_speed_value_condition_prefers_timeline_for_target():
+    actor = {"id": "D1", "params": [{"label": "速度", "value": 6}], "states": []}
+    target = {"id": "A1", "params": [{"label": "速度", "value": 9}], "states": []}
+    context = {
+        "timeline": [
+            {"id": "S_A1", "char_id": "A1", "speed": 9},
+            {"id": "S_D1", "char_id": "D1", "speed": 6},
+        ]
+    }
+    cond = {"source": "target", "param": "速度値", "operator": "LTE", "value": 4}
+    assert check_condition(cond, actor, target, context=context) is False
+
+
+def test_speed_value_condition_does_not_fire_when_speed_unresolved():
+    actor = {"id": "D1", "params": [{"label": "速度", "value": 6}], "states": []}
+    target = {"id": "A1", "params": [{"label": "速度", "value": 9}], "states": []}
+    cond = {"source": "target", "param": "速度値", "operator": "LTE", "value": 4}
+    assert check_condition(cond, actor, target, context={}) is False

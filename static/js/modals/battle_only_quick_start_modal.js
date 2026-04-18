@@ -389,6 +389,7 @@
         });
         onSocket('bo_battle_started', () => {
             setMsg('戦闘に突入しました。', '#166534');
+            setTimeout(() => { closeModal(); }, 120);
         });
         ['bo_draft_error', 'bo_catalog_error', 'bo_preset_error', 'bo_enemy_formation_error', 'bo_ally_formation_error', 'bo_stage_preset_error'].forEach((eventName) => {
             onSocket(eventName, (data) => {

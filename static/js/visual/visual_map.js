@@ -644,13 +644,29 @@ function _renderSelectResolveModeHint(phase, stateRef) {
         viewport.appendChild(hint);
     }
 
-    if (phase !== 'select' || !_isTargetSelectionPendingState(stateRef)) {
+    if (phase !== 'select') {
         hint.style.display = 'none';
         return;
     }
 
-    const sourceLabel = _formatSlotLabelForTooltip(stateRef, stateRef?.declare?.sourceSlotId || null);
-    hint.textContent = `対象選択中: ${sourceLabel} の対象を選択してください（空き領域クリックで解除）`;
+    const declare = stateRef?.declare || {};
+    const sourceSlotId = declare.sourceSlotId || null;
+    if (!sourceSlotId) {
+        hint.style.display = 'none';
+        return;
+    }
+
+    const skillId = declare.skillId || null;
+    const targetType = _normalizeDeclareTargetType(declare.targetType || 'single_slot');
+    const targetSlotId = declare.targetSlotId || null;
+    const isMass = _isMassDeclareTargetType(targetType);
+    const hasTarget = !!(isMass || targetSlotId);
+    const sourceLabel = _formatSlotLabelForTooltip(stateRef, sourceSlotId);
+
+    let guide = '② スキルを選択';
+    if (skillId && !hasTarget) guide = '③ 対象スロットをクリック';
+    if (skillId && hasTarget) guide = '④ 宣言ボタンで確定';
+    hint.textContent = `宣言フロー: ① 使用者(${sourceLabel}) → ${guide}`;
     hint.style.display = 'block';
 }
 

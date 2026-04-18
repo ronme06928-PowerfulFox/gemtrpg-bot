@@ -288,56 +288,96 @@ def _get_value_for_condition(source_obj, param_name, context=None, actor=None, t
             buff_name = normalized_param_name[:-len("_count")]
             return _resolve_buff_count_for_condition(source_obj, buff_name)
 
-    if param_name == "tags": return source_obj.get("tags", [])
+    if normalized_param_name == "tags":
+        return source_obj.get("tags", [])
 
-    # 「速度値」はロール結果。旧timeline形式/新battle_state形式の両方を参照する。
-    if param_name == "速度値":
-        char_id = source_obj.get('id')
+    # 「速度値」はロール結果。旧timeline形式/新battle_state形式/現在値の全てを横断して解決する。
+    # 参照不可の場合は 0 ではなく None を返し、低速条件 (<= 4 等) の誤発火を防ぐ。
+    if normalized_param_name in {"速度値", "speed_value", "speedvalue", "spd_value"}:
         speed_values = []
-
+        source_id = source_obj.get("id")
+        source_slot_id = source_obj.get("slot_id")
         ctx = context if isinstance(context, dict) else {}
 
-        timeline = ctx.get('timeline')
+        def _append_speed(raw_value):
+            if raw_value is None:
+                return
+            try:
+                speed_values.append(int(raw_value))
+            except Exception:
+                return
+
+        # Prefer shared resolver when available (handles more battle-state variants).
+        mod = _utils_module()
+        speed_resolver = getattr(mod, "_resolve_actor_round_speed", None) if mod else None
+        if callable(speed_resolver):
+            try:
+                resolved_speed = speed_resolver(source_obj, context=ctx)
+                if resolved_speed is not None and int(resolved_speed) > 0:
+                    _append_speed(resolved_speed)
+            except Exception:
+                pass
+
+        for speed_key in ("totalSpeed", "speed", "initiative", "speed_value"):
+            if speed_key in source_obj:
+                _append_speed(source_obj.get(speed_key))
+
+        timeline = ctx.get("timeline")
         if isinstance(timeline, list):
             for entry in timeline:
                 if not isinstance(entry, dict):
                     continue
-                if str(entry.get('char_id')) != str(char_id):
+                entry_char_id = entry.get("char_id") or entry.get("actor_id")
+                entry_slot_id = entry.get("id") or entry.get("slot_id")
+                if source_id and str(entry_char_id) == str(source_id):
+                    _append_speed(entry.get("speed", entry.get("initiative")))
                     continue
-                try:
-                    speed_values.append(int(entry.get('speed', 0)))
-                except Exception:
-                    continue
+                if source_slot_id and str(entry_slot_id) == str(source_slot_id):
+                    _append_speed(entry.get("speed", entry.get("initiative")))
 
-        battle_state = ctx.get('battle_state')
+        battle_state = ctx.get("battle_state")
         if not isinstance(battle_state, dict):
-            room_state = ctx.get('room_state')
+            room_state = ctx.get("room_state")
             if isinstance(room_state, dict):
-                battle_state = room_state.get('battle_state')
+                battle_state = room_state.get("battle_state")
 
         if isinstance(battle_state, dict):
-            slots = battle_state.get('slots', {})
+            slots = battle_state.get("slots", {})
             if isinstance(slots, dict):
-                for slot in slots.values():
+                for slot_id, slot in slots.items():
                     if not isinstance(slot, dict):
                         continue
-                    if str(slot.get('actor_id')) != str(char_id):
+                    if source_id and str(slot.get("actor_id")) == str(source_id):
+                        _append_speed(slot.get("initiative"))
                         continue
-                    try:
-                        speed_values.append(int(slot.get('initiative', 0)))
-                    except Exception:
-                        continue
+                    if source_slot_id and str(slot_id) == str(source_slot_id):
+                        _append_speed(slot.get("initiative"))
 
         if speed_values:
             return max(speed_values)
 
-        try:
-            total_speed = source_obj.get('totalSpeed')
-            if total_speed is not None:
-                return int(total_speed)
-        except Exception:
-            pass
-        return 0
+        # Fallback: if speed value exists explicitly in status rows, allow it.
+        normalized_speed_name = "速度値"
+        params = source_obj.get("params", [])
+        if isinstance(params, list):
+            for row in params:
+                if not isinstance(row, dict):
+                    continue
+                if str(row.get("label", "")).strip() == normalized_speed_name:
+                    _append_speed(row.get("value"))
+                    break
+        states = source_obj.get("states", [])
+        if isinstance(states, list):
+            for row in states:
+                if not isinstance(row, dict):
+                    continue
+                if str(row.get("name", "")).strip() == normalized_speed_name:
+                    _append_speed(row.get("value"))
+                    break
+        if speed_values:
+            return max(speed_values)
+
+        return None
 
     return get_status_value(source_obj, param_name)
 

@@ -309,8 +309,8 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
                     payload['flavor'] = effect_data['flavor']
 
     # 亀裂ラウンド管理（Bu-Fissure）:
-    # - 同じ original_rounds のエントリへ count を加算
-    # - lasting は更新しない（既存の消滅タイミングを保持）
+    # - 同じ「残りラウンド(lasting)」のエントリへ count を加算
+    # - 残りラウンドが異なる亀裂バケットは分離して保持
     # - 付与成功時に「亀裂」ステータスへ同量加算
     if payload.get('buff_id') == 'Bu-Fissure':
         rounds = _resolve_fissure_original_rounds(payload, fallback_lasting=lasting)
@@ -334,7 +334,14 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
             b for b in char_obj['special_buffs']
             if isinstance(b, dict)
             and b.get('buff_id') == 'Bu-Fissure'
-            and _safe_int((b.get('data') or {}).get('original_rounds'), _safe_int(b.get('lasting'), 0)) == rounds
+            and _safe_int(b.get('delay'), 0) == _safe_int(delay, 0)
+            and (
+                _safe_int(b.get('lasting'), 0) == rounds
+                or (
+                    _safe_int(b.get('lasting'), 0) <= 0
+                    and _safe_int((b.get('data') or {}).get('original_rounds'), 0) == rounds
+                )
+            )
         ), None)
 
         if existing_bucket:
@@ -347,7 +354,8 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
                 existing_bucket['lasting'] = rounds
             if not isinstance(existing_bucket.get('data'), dict):
                 existing_bucket['data'] = {}
-            existing_bucket['data']['original_rounds'] = rounds
+            if 'original_rounds' not in existing_bucket['data']:
+                existing_bucket['data']['original_rounds'] = rounds
             existing_bucket['data']['fissure_count'] = new_count
             existing_bucket['data']['count'] = new_count
             if payload.get('description') and not existing_bucket.get('description'):

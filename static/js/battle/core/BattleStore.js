@@ -42,6 +42,7 @@ class BattleStore {
             selectedSlotId: null,
             targetSelectMode: false,
             battleError: null,
+            compareCalcBySlot: {},
             declare: {
                 sourceSlotId: null,
                 targetSlotId: null,
@@ -180,6 +181,7 @@ class BattleStore {
             selectedSlotId: null,
             targetSelectMode: false,
             battleError: null,
+            compareCalcBySlot: {},
             declare: {
                 sourceSlotId: null,
                 targetSlotId: null,
@@ -342,6 +344,7 @@ class BattleStore {
             resolveReady: false,
             resolveReadyInfo: null,
             targetSelectMode: false,
+            compareCalcBySlot: {},
             declare: {
                 sourceSlotId: null,
                 targetSlotId: null,
@@ -422,6 +425,7 @@ class BattleStore {
         }
         this._state = {
             ...this._state,
+            compareCalcBySlot: identityChanged ? {} : (this._state.compareCalcBySlot || {}),
             declare: merged,
             selectedSlotId: merged.sourceSlotId || null
         };
@@ -432,6 +436,7 @@ class BattleStore {
     resetDeclare() {
         this._state = {
             ...this._state,
+            compareCalcBySlot: {},
             declare: {
                 sourceSlotId: null,
                 targetSlotId: null,
@@ -440,6 +445,20 @@ class BattleStore {
                 skillId: null,
                 mode: 'idle',
                 calc: null
+            }
+        };
+        this._syncToLegacy();
+        this._notify();
+    }
+
+    setCompareCalc(slotId, calcPayload) {
+        const sid = (slotId !== undefined && slotId !== null && slotId !== '') ? String(slotId) : null;
+        if (!sid) return;
+        this._state = {
+            ...this._state,
+            compareCalcBySlot: {
+                ...(this._state.compareCalcBySlot || {}),
+                [sid]: calcPayload || null
             }
         };
         this._syncToLegacy();
