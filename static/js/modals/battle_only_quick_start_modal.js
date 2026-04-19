@@ -28,12 +28,35 @@
         return Number.isFinite(n) ? n : fallback;
     }
 
+    function downloadTextFile(filename, content) {
+        const blob = new Blob([String(content || '')], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = String(filename || 'battle_only_records.json');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
     function toStatusLabel(status) {
         const key = String(status || '').trim().toLowerCase();
         if (key === 'lobby') return '待機';
         if (key === 'draft') return '編成中';
         if (key === 'in_battle') return '戦闘中';
         return key || '不明';
+    }
+
+    function toResultLabel(result) {
+        const key = String(result || '').trim().toLowerCase();
+        if (key === 'ally_win') return '味方勝利';
+        if (key === 'enemy_win') return '敵勝利';
+        if (key === 'draw') return '引き分け';
+        if (key === 'aborted') return '中断';
+        if (key === 'unknown') return '不明';
+        if (key === 'in_progress') return '進行中';
+        return key || '-';
     }
 
     function collectBattleMapCenterAnchor() {
@@ -117,8 +140,25 @@
                     <div id="bo-quick-ally-hint" style="margin-top:6px; font-size:12px; color:#555;"></div>
                 </div>
                 <div class="bo-card">
-                    <h4 class="bo-card-title">3. 突入可否チェック</h4>
+                    <h4 class="bo-card-title">3. 操作モード</h4>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                        <select id="bo-quick-control-mode" class="bo-input">
+                            <option value="all">みんなで操作する</option>
+                            <option value="starter_only">戦闘突入した人だけ操作する</option>
+                        </select>
+                    </div>
+                    <div id="bo-quick-control-hint" style="margin-top:6px; font-size:12px; color:#555;"></div>
+                </div>
+                <div class="bo-card">
+                    <h4 class="bo-card-title">4. 突入可否チェック</h4>
                     <div id="bo-quick-validation" class="bo-validation"></div>
+                </div>
+                <div class="bo-card">
+                    <h4 class="bo-card-title">5. 戦績</h4>
+                    <div id="bo-quick-records" class="bo-validation"></div>
+                    <div style="margin-top:8px;">
+                        <button id="bo-quick-export-records" class="bo-btn bo-btn--sm bo-btn--accent">戦績JSON出力</button>
+                    </div>
                 </div>
             </div>
             <div style="display:flex; justify-content:space-between; gap:8px; margin-top:12px; flex-wrap:wrap;">
@@ -137,11 +177,14 @@
         const msgEl = panel.querySelector('#bo-quick-msg');
         const summaryEl = panel.querySelector('#bo-quick-summary');
         const validationEl = panel.querySelector('#bo-quick-validation');
+        const recordsEl = panel.querySelector('#bo-quick-records');
         const stageListEl = panel.querySelector('#bo-quick-stage-list');
         const stageSearchEl = panel.querySelector('#bo-quick-stage-search');
         const stageSortEl = panel.querySelector('#bo-quick-stage-sort');
         const allyModeSel = panel.querySelector('#bo-quick-ally-mode');
         const allyHintEl = panel.querySelector('#bo-quick-ally-hint');
+        const controlModeSel = panel.querySelector('#bo-quick-control-mode');
+        const controlHintEl = panel.querySelector('#bo-quick-control-hint');
         const startBtn = panel.querySelector('#bo-quick-start');
         const listeners = [];
 
@@ -152,6 +195,9 @@
             enemy_formations: {},
             ally_formations: {},
             validation: { ready: false, issues: [] },
+            can_manage: false,
+            records: [],
+            active_record_id: null,
         };
         let pendingStart = false;
 
@@ -163,6 +209,10 @@
 
         function requestDraftState() {
             socketRef.emit('request_bo_draft_state', { room: roomName });
+        }
+
+        function requestRecordState() {
+            socketRef.emit('request_bo_record_state', { room: roomName });
         }
 
         function requestValidate() {
@@ -206,6 +256,20 @@
                 required_ally_count: required,
             });
             return true;
+        }
+
+        function getControlModeValue() {
+            const mode = String(controlModeSel && controlModeSel.value || 'all').trim().toLowerCase();
+            return mode === 'starter_only' ? 'starter_only' : 'all';
+        }
+
+        function applyControlMode() {
+            const mode = getControlModeValue();
+            socketRef.emit('request_bo_set_control_mode', {
+                room: roomName,
+                intent_control_mode: mode,
+            });
+            return mode;
         }
 
         function stageIds() {
@@ -318,6 +382,22 @@
             }
         }
 
+        function renderControlMode() {
+            const bo = model.battle_only || {};
+            const options = (bo.options && typeof bo.options === 'object') ? bo.options : {};
+            const mode = String(options.intent_control_mode || 'all').trim().toLowerCase();
+            if (controlModeSel) {
+                controlModeSel.value = mode === 'starter_only' ? 'starter_only' : 'all';
+                controlModeSel.disabled = !model.can_manage;
+            }
+            if (controlHintEl) {
+                const hint = (controlModeSel && controlModeSel.value === 'starter_only')
+                    ? '戦闘突入を実行した1人（+GM）のみが宣言操作できます。'
+                    : '参加者全員（+GM）が宣言操作できます。';
+                controlHintEl.textContent = model.can_manage ? hint : `${hint}（設定変更はGMのみ）`;
+            }
+        }
+
         function renderValidation() {
             const validation = (model.validation && typeof model.validation === 'object') ? model.validation : {};
             const issues = Array.isArray(validation.issues) ? validation.issues : [];
@@ -337,11 +417,36 @@
             }
         }
 
+        function renderRecords() {
+            const rows = Array.isArray(model.records) ? model.records.slice().reverse() : [];
+            const activeId = String(model.active_record_id || '').trim();
+            if (!recordsEl) return;
+            if (!rows.length) {
+                recordsEl.innerHTML = '<div class="bo-validation-title">戦績はまだありません。</div>';
+                return;
+            }
+            const listHtml = rows.slice(0, 8).map((rec) => {
+                const id = String(rec?.id || '');
+                const status = toStatusLabel(rec?.status || '');
+                const result = toResultLabel(rec?.result || '');
+                const counts = `${safeInt(rec?.ally_count, 0)} / ${safeInt(rec?.enemy_count, 0)}`;
+                const startedAt = String(rec?.started_at || '-');
+                const rowClass = (activeId && id === activeId) ? ' style="font-weight:700;"' : '';
+                return `<li${rowClass}>${escapeHtml(id)} | ${escapeHtml(status)} | ${escapeHtml(result)} | 人数(味方/敵): ${escapeHtml(counts)} | ${escapeHtml(startedAt)}</li>`;
+            }).join('');
+            recordsEl.innerHTML = `
+                <div class="bo-validation-title">最新戦績 ${Math.min(rows.length, 8)} / ${rows.length} 件</div>
+                <ul class="bo-validation-list">${listHtml}</ul>
+            `;
+        }
+
         function renderAll() {
             renderStageList();
             renderAllyMode();
+            renderControlMode();
             renderSummary();
             renderValidation();
+            renderRecords();
         }
 
         function onSocket(eventName, fn) {
@@ -357,6 +462,9 @@
                 : Object.keys(model.stage_presets).sort();
             model.enemy_formations = (data && typeof data.enemy_formations === 'object') ? data.enemy_formations : {};
             model.ally_formations = (data && typeof data.ally_formations === 'object') ? data.ally_formations : {};
+            model.can_manage = !!(data && data.can_manage);
+            model.records = Array.isArray(data && data.records) ? data.records : (Array.isArray(model.records) ? model.records : []);
+            model.active_record_id = data ? (data.active_record_id || null) : model.active_record_id;
             renderAll();
             requestValidate();
         });
@@ -373,6 +481,11 @@
             renderAll();
             requestValidate();
         });
+        onSocket('bo_control_mode_updated', (data) => {
+            if (data && typeof data.battle_only === 'object') model.battle_only = data.battle_only;
+            renderAll();
+            requestValidate();
+        });
         onSocket('bo_entry_validated', (data) => {
             model.validation = (data && typeof data === 'object') ? data : { ready: false, issues: ['検証結果の取得に失敗しました。'] };
             if (data && typeof data.battle_only === 'object') model.battle_only = data.battle_only;
@@ -380,7 +493,11 @@
             if (pendingStart) {
                 pendingStart = false;
                 if (model.validation.ready) {
-                    socketRef.emit('request_bo_start_battle', { room: roomName, anchor: collectBattleMapCenterAnchor() });
+                    socketRef.emit('request_bo_start_battle', {
+                        room: roomName,
+                        anchor: collectBattleMapCenterAnchor(),
+                        intent_control_mode: getControlModeValue(),
+                    });
                     setMsg('戦闘突入を送信しました。', '#444');
                 } else {
                     setMsg((Array.isArray(model.validation.issues) && model.validation.issues[0]) || '未設定項目があります。', '#b91c1c');
@@ -390,6 +507,30 @@
         onSocket('bo_battle_started', () => {
             setMsg('戦闘に突入しました。', '#166534');
             setTimeout(() => { closeModal(); }, 120);
+        });
+        onSocket('bo_record_state', (data) => {
+            model.records = Array.isArray(data && data.records) ? data.records : [];
+            model.active_record_id = data ? (data.active_record_id || null) : null;
+            renderRecords();
+        });
+        onSocket('bo_record_updated', (data) => {
+            const rec = data && data.record;
+            if (rec && typeof rec === 'object') {
+                const id = String(rec.id || '').trim();
+                const rows = Array.isArray(model.records) ? model.records.slice() : [];
+                const idx = rows.findIndex((row) => row && String(row.id || '').trim() === id);
+                if (idx >= 0) rows[idx] = rec;
+                else rows.push(rec);
+                model.records = rows;
+            }
+            model.active_record_id = data ? (data.active_record_id || null) : model.active_record_id;
+            renderRecords();
+        });
+        onSocket('bo_record_export', (data) => {
+            const filename = String((data && data.filename) || 'battle_only_records.json');
+            const content = String((data && data.content) || '');
+            downloadTextFile(filename, content);
+            setMsg(`戦績を出力しました（${safeInt(data && data.record_count, 0)}件）`, '#166534');
         });
         ['bo_draft_error', 'bo_catalog_error', 'bo_preset_error', 'bo_enemy_formation_error', 'bo_ally_formation_error', 'bo_stage_preset_error'].forEach((eventName) => {
             onSocket(eventName, (data) => {
@@ -407,6 +548,10 @@
             applyAllyMode();
             setMsg('味方の参加方法を反映しました。', '#444');
         });
+        controlModeSel?.addEventListener('change', () => {
+            applyControlMode();
+            setMsg('操作モードを反映しました。', '#444');
+        });
         panel.querySelector('#bo-quick-open-full')?.addEventListener('click', () => {
             if (typeof global.openBattleOnlyDraftModal === 'function') {
                 global.openBattleOnlyDraftModal();
@@ -423,6 +568,10 @@
             applyAllyMode();
             pendingStart = true;
             requestValidate();
+        });
+        panel.querySelector('#bo-quick-export-records')?.addEventListener('click', () => {
+            socketRef.emit('request_bo_record_export', { room: roomName });
+            setMsg('戦績出力を送信しました。', '#444');
         });
         stageSearchEl?.addEventListener('input', renderStageList);
         stageSortEl?.addEventListener('change', renderStageList);
@@ -445,6 +594,7 @@
         global.__boQuickStartCleanup = closeModal;
 
         requestDraftState();
+        requestRecordState();
         requestValidate();
         renderAll();
     }

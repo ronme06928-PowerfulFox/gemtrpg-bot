@@ -2,6 +2,7 @@ import copy
 import json
 import time
 import uuid
+import threading
 from flask_socketio import emit
 from extensions import socketio, all_skill_data
 from plugins.buffs.registry import buff_registry
@@ -15,6 +16,20 @@ from manager.summons.service import apply_summon_change, process_summon_round_en
 from manager.granted_skills.service import process_granted_skill_round_end, apply_grant_skill_change
 
 logger = setup_logger(__name__)
+
+
+_ROUND_TRANSITION_LOCKS = {}
+_ROUND_TRANSITION_LOCKS_GUARD = threading.Lock()
+
+
+def _get_round_transition_lock(room):
+    room_key = str(room or "").strip() or "__default__"
+    with _ROUND_TRANSITION_LOCKS_GUARD:
+        lock = _ROUND_TRANSITION_LOCKS.get(room_key)
+        if lock is None:
+            lock = threading.RLock()
+            _ROUND_TRANSITION_LOCKS[room_key] = lock
+        return lock
 
 
 def _safe_emit(event_name, payload, **kwargs):
@@ -279,12 +294,19 @@ def select_hard_followup_evade_slot(state, battle_state, defender_actor_id, atta
 
 
 def process_full_round_end(room, username):
+    lock = _get_round_transition_lock(room)
+    with lock:
+        return _process_full_round_end_impl(room, username)
+
+
+def _process_full_round_end_impl(room, username):
     state = get_room_state(room)
-    if not state: return
+    if not state:
+        return False
 
     if state.get('is_round_ended', False):
         emit('new_log', {"message": "Round end has already been processed.", "type": "error"})
-        return
+        return False
 
     broadcast_log(room, f"--- {username} が Round {state.get('round', 0)} の終了処理を実行しました ---", 'info')
     characters_to_process = state.get('characters', [])
@@ -311,7 +333,7 @@ def process_full_round_end(room, username):
     if not_acted_chars:
         msg = f"まだ行動していないキャラクターがいます: {', '.join(not_acted_chars)}"
         emit('new_log', {"message": msg, "type": "error"})
-        return
+        return False
 
 
     for char in characters_to_process:
@@ -532,6 +554,7 @@ def process_full_round_end(room, username):
 
     broadcast_state_update(room)
     save_specific_room_state(room)
+    return True
 
 def reset_battle_logic(room, mode, username, reset_options=None):
     state = get_room_state(room)
@@ -890,18 +913,25 @@ def sync_match_data_logic(room, side, data, username, attribute):
     _safe_emit('match_data_updated', {'side': side, 'data': data}, to=room)
 
 def process_round_start(room, username):
+    lock = _get_round_transition_lock(room)
+    with lock:
+        return _process_round_start_impl(room, username)
+
+
+def _process_round_start_impl(room, username):
     logger.debug(f"process_round_start called for room: {room} by {username}")
     state = get_room_state(room)
     if not state:
         logger.debug(f"Room state not found for {room}")
-        return
+        return False
     clear_newly_applied_flags(state)
     clear_round_limited_flags(state)
 
 
     if state.get('round', 0) > 0 and not state.get('is_round_ended', False):
-        emit('new_log', {'message': '前ラウンドの終了処理が未完了です。先にラウンド終了を実行してください。', 'type': 'error'}, room=room)
-        return
+        if str(username or '').strip() != '戦闘専用モード':
+            emit('new_log', {'message': '前ラウンドの終了処理が未完了です。先にラウンド終了を実行してください。', 'type': 'error'}, room=room)
+        return False
 
 
     state['round'] = state.get('round', 0) + 1
@@ -1104,6 +1134,7 @@ def process_round_start(room, username):
         logger.info("[round_start] skip legacy wide modal room=%s reason=select_resolve_active", room)
     else:
         _safe_emit('open_wide_declaration_modal', {}, to=room)
+    return True
 
 def process_wide_declarations(room, wide_user_ids):
     state = get_room_state(room)

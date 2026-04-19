@@ -436,6 +436,8 @@ def _ensure_bo_state(state):
         "ally_formation_id": None,
         "required_ally_count": 0,
         "enemy_formation_id": None,
+        "controller_user_id": None,
+        "controller_username": None,
         "ally_entries": [],
         "enemy_entries": [],
         "records": [],
@@ -443,6 +445,7 @@ def _ensure_bo_state(state):
         "options": {
             "force_pve": True,
             "show_enemy_target_arrows": True,
+            "intent_control_mode": "all",
         },
     }
     for key, value in defaults.items():
@@ -458,9 +461,18 @@ def _ensure_bo_state(state):
         bo['options'] = {
             "force_pve": True,
             "show_enemy_target_arrows": True,
+            "intent_control_mode": "all",
         }
     bo['options']['force_pve'] = bool(bo['options'].get('force_pve', True))
     bo['options']['show_enemy_target_arrows'] = bool(bo['options'].get('show_enemy_target_arrows', True))
+    control_mode = str(bo['options'].get('intent_control_mode', 'all') or 'all').strip().lower()
+    if control_mode not in ('all', 'starter_only'):
+        control_mode = 'all'
+    bo['options']['intent_control_mode'] = control_mode
+    controller_user_id = str(bo.get('controller_user_id', '')).strip()
+    bo['controller_user_id'] = controller_user_id or None
+    controller_username = str(bo.get('controller_username', '')).strip()
+    bo['controller_username'] = controller_username or None
     bo['ally_mode'] = str(bo.get('ally_mode', 'preset') or 'preset').strip().lower()
     if bo['ally_mode'] not in ('preset', 'room_existing'):
         bo['ally_mode'] = 'preset'
@@ -1589,6 +1601,32 @@ def handle_bo_set_ally_mode(data):
     socketio.emit('bo_ally_mode_updated', {"battle_only": copy.deepcopy(bo)}, to=request.sid)
 
 
+@socketio.on('request_bo_set_control_mode')
+def handle_bo_set_control_mode(data):
+    room = str((data or {}).get('room', '')).strip()
+    if not room:
+        _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
+        return
+    allowed, _ = _require_gm(event_name='bo_draft_error')
+    if not allowed:
+        return
+
+    mode = str((data or {}).get('intent_control_mode', '')).strip().lower()
+    if mode not in ('all', 'starter_only'):
+        _emit_error('invalid_payload', 'intent_control_mode が不正です。', event_name='bo_draft_error')
+        return
+
+    state = get_room_state(room)
+    bo = _ensure_bo_state(state)
+    options = bo.get('options') if isinstance(bo.get('options'), dict) else {}
+    bo['options'] = options
+    bo['options']['intent_control_mode'] = mode
+
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+    socketio.emit('bo_control_mode_updated', {"battle_only": copy.deepcopy(bo)}, to=request.sid)
+
+
 @socketio.on('request_bo_validate_entry')
 def handle_bo_validate_entry(data):
     room = str((data or {}).get('room', '')).strip()
@@ -1680,6 +1718,15 @@ def handle_bo_draft_update(data):
     enemy_formation_id = str(payload.get('enemy_formation_id', bo.get('enemy_formation_id', '') or '')).strip() or None
     ally_formation_id = str(payload.get('ally_formation_id', bo.get('ally_formation_id', '') or '')).strip() or None
     selected_stage_id = str(payload.get('selected_stage_id', bo.get('selected_stage_id', '') or '')).strip() or None
+    intent_control_mode = str(
+        payload.get(
+            'intent_control_mode',
+            (bo.get('options', {}) if isinstance(bo.get('options'), dict) else {}).get('intent_control_mode', 'all')
+        )
+    ).strip().lower() or 'all'
+    if intent_control_mode not in ('all', 'starter_only'):
+        _emit_error('invalid_payload', 'intent_control_mode が不正です。', event_name='bo_draft_error')
+        return
 
     bo['ally_mode'] = ally_mode
     bo['required_ally_count'] = required_ally_count
@@ -1689,6 +1736,9 @@ def handle_bo_draft_update(data):
     bo['ally_entries'] = ally_entries
     bo['enemy_entries'] = enemy_entries
     bo['status'] = 'draft'
+    options = bo.get('options') if isinstance(bo.get('options'), dict) else {}
+    bo['options'] = options
+    bo['options']['intent_control_mode'] = intent_control_mode
     state['play_mode'] = 'battle_only'
 
     save_specific_room_state(room)
@@ -1870,10 +1920,18 @@ def handle_bo_start_battle(data):
     bo['ally_mode'] = ally_mode
     bo['selected_stage_id'] = str(bo.get('selected_stage_id', '')).strip() or None
     bo['required_ally_count'] = required_ally_count
+    requested_control_mode = str((data or {}).get('intent_control_mode', '')).strip().lower()
+    if requested_control_mode not in ('all', 'starter_only'):
+        requested_control_mode = str((bo.get('options', {}) if isinstance(bo.get('options'), dict) else {}).get('intent_control_mode', 'all')).strip().lower()
+    if requested_control_mode not in ('all', 'starter_only'):
+        requested_control_mode = 'all'
     bo['options'] = {
         "force_pve": True,
         "show_enemy_target_arrows": True,
+        "intent_control_mode": requested_control_mode,
     }
+    bo['controller_user_id'] = str(user_info.get('user_id', '')).strip() or None
+    bo['controller_username'] = str(user_info.get('username', '')).strip() or None
     state['play_mode'] = 'battle_only'
 
     record_id = _new_id('bor')
@@ -2030,7 +2088,7 @@ def handle_bo_record_export(data):
     if not room:
         _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
         return
-    allowed, _ = _require_gm(event_name='bo_draft_error')
+    allowed, _ = _require_room_participant(room, event_name='bo_draft_error')
     if not allowed:
         return
 

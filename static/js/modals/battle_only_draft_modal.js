@@ -471,6 +471,8 @@
             const bo = model.battle_only || {};
             const allyMode = String(bo.ally_mode || 'preset');
             const requiredCount = Math.max(0, safeInt(bo.required_ally_count, 0));
+            const options = (bo.options && typeof bo.options === 'object') ? bo.options : {};
+            const controlMode = String(options.intent_control_mode || 'all').trim().toLowerCase() === 'starter_only' ? 'starter_only' : 'all';
             const allyRows = bo.ally_entries;
             const myUserId = getCurrentUserIdRef();
             const myUsername = getCurrentUsernameRef();
@@ -513,6 +515,10 @@
                             <option value="preset" ${allyMode === 'preset' ? 'selected' : ''}>プリセット編成</option>
                             <option value="room_existing" ${allyMode === 'room_existing' ? 'selected' : ''}>現在ルーム利用</option>
                         </select>
+                        <select id="bo-intent-control-mode" class="bo-select bo-select--compact" title="宣言操作モード">
+                            <option value="all" ${controlMode === 'all' ? 'selected' : ''}>みんなで操作</option>
+                            <option value="starter_only" ${controlMode === 'starter_only' ? 'selected' : ''}>突入者のみ操作</option>
+                        </select>
                         <input id="bo-required-ally-count" class="bo-input bo-input--compact" type="number" min="0" value="${requiredCount}" title="必要味方人数" />
                         <button id="bo-ally-mode-apply-btn" class="bo-btn bo-btn--xs bo-btn--neutral">モード適用</button>
                         <button id="bo-ally-add-btn" class="bo-btn bo-btn--xs bo-btn--neutral">味方追加</button>
@@ -552,6 +558,16 @@
                 const mode = String(allyArea.querySelector('#bo-ally-mode')?.value || 'preset').trim();
                 bo.ally_mode = mode;
                 render();
+                scheduleDraftAutoSync();
+            });
+            allyArea.querySelector('#bo-intent-control-mode')?.addEventListener('change', () => {
+                const mode = String(allyArea.querySelector('#bo-intent-control-mode')?.value || 'all').trim().toLowerCase();
+                if (!bo.options || typeof bo.options !== 'object') bo.options = {};
+                bo.options.intent_control_mode = (mode === 'starter_only') ? 'starter_only' : 'all';
+                socketRef.emit('request_bo_set_control_mode', {
+                    room: roomName,
+                    intent_control_mode: bo.options.intent_control_mode,
+                });
                 scheduleDraftAutoSync();
             });
             allyArea.querySelector('#bo-required-ally-count')?.addEventListener('change', () => {
@@ -858,6 +874,7 @@
             ensureEntries();
             const bo = model.battle_only || {};
             const allyMode = String(allyArea.querySelector('#bo-ally-mode')?.value || bo.ally_mode || 'preset').trim().toLowerCase();
+            const intentControlMode = String(allyArea.querySelector('#bo-intent-control-mode')?.value || (bo.options && bo.options.intent_control_mode) || 'all').trim().toLowerCase();
             const requiredAllyCount = Math.max(0, safeInt(allyArea.querySelector('#bo-required-ally-count')?.value, bo.required_ally_count || 0));
             const selectedFormationId = String(enemyArea.querySelector('#bo-enemy-formation-select')?.value || bo.enemy_formation_id || '').trim();
             const allyRows = [];
@@ -890,12 +907,15 @@
             });
             bo.ally_mode = allyMode;
             bo.required_ally_count = requiredAllyCount;
+            if (!bo.options || typeof bo.options !== 'object') bo.options = {};
+            bo.options.intent_control_mode = (intentControlMode === 'starter_only') ? 'starter_only' : 'all';
             bo.enemy_formation_id = selectedFormationId || null;
             bo.ally_entries = allyRows;
             bo.enemy_entries = enemyRows;
             model.battle_only = bo;
             return {
                 ally_mode: allyMode,
+                intent_control_mode: bo.options.intent_control_mode,
                 required_ally_count: requiredAllyCount,
                 enemy_formation_id: selectedFormationId || null,
                 ally_entries: allyRows,
@@ -1071,7 +1091,12 @@
                 const ok = sendDraftUpdate();
                 if (!ok) return;
             }
-            socketRef.emit('request_bo_start_battle', { room: roomName, anchor: collectBattleMapCenterAnchor() });
+            const modeRaw = String(allyArea.querySelector('#bo-intent-control-mode')?.value || (model.battle_only?.options && model.battle_only.options.intent_control_mode) || 'all').trim().toLowerCase();
+            socketRef.emit('request_bo_start_battle', {
+                room: roomName,
+                anchor: collectBattleMapCenterAnchor(),
+                intent_control_mode: (modeRaw === 'starter_only') ? 'starter_only' : 'all',
+            });
             setMsg('戦闘突入を送信しました。', '#444');
         });
         panel.querySelector('#bo-draft-finish-auto-btn')?.addEventListener('click', () => markResult('auto'));
@@ -1174,6 +1199,13 @@
             }
             render();
             setMsg('味方モードを更新しました。', 'green');
+        });
+        onSocket('bo_control_mode_updated', (data) => {
+            if (data && typeof data.battle_only === 'object') {
+                model.battle_only = data.battle_only;
+            }
+            render();
+            setMsg('操作モードを更新しました。', 'green');
         });
 
         onSocket('bo_record_export', (data) => {

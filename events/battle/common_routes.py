@@ -43,6 +43,20 @@ def _is_battle_only_mode(room):
     return play_mode == 'battle_only'
 
 
+def _get_battle_only_intent_control_policy(room):
+    state = get_room_state(room)
+    if not isinstance(state, dict):
+        return ("all", "", "")
+    bo = state.get('battle_only') if isinstance(state.get('battle_only'), dict) else {}
+    options = bo.get('options') if isinstance(bo.get('options'), dict) else {}
+    mode = str(options.get('intent_control_mode') or 'all').strip().lower()
+    if mode not in ('all', 'starter_only'):
+        mode = 'all'
+    controller_user_id = str(bo.get('controller_user_id') or '').strip()
+    controller_username = str(bo.get('controller_username') or '').strip()
+    return (mode, controller_user_id, controller_username)
+
+
 def _log_battle_recv(event_name, data=None, phase=None):
     data = data or {}
     sid = getattr(request, 'sid', None)
@@ -136,12 +150,19 @@ def on_request_end_round(data):
         print(f"[Security] Player {username} tried to end round. Denied.")
         return
 
-    process_full_round_end(room, username)
+    before_state = get_room_state(room)
+    before_round = int((before_state or {}).get('round', 0) or 0)
+    end_result = process_full_round_end(room, username)
     if not is_battle_only:
         return
 
     state = get_room_state(room)
     if not isinstance(state, dict):
+        return
+    ended = bool(state.get('is_round_ended', False)) if end_result is None else bool(end_result)
+    if not ended:
+        return
+    if int(state.get('round', 0) or 0) != before_round:
         return
     if not state.get('is_round_ended', False):
         return
@@ -782,6 +803,38 @@ def _authorize_intent_slot_control(room_id, battle_id, state, slot_id, event_nam
     user_info = get_user_info_from_sid(request.sid) or {}
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
+
+    # battle_onlyは操作モードで権限を切り替える:
+    # - all: 参加者全員が宣言操作可能
+    # - starter_only: 戦闘突入者(またはGM)のみ操作可能
+    if _is_battle_only_mode(room_id):
+        if str(attribute or '').strip().upper() == 'GM':
+            return True
+        mode, controller_user_id, controller_username = _get_battle_only_intent_control_policy(room_id)
+        if mode == 'starter_only':
+            req_user_id = str(user_info.get('user_id') or '').strip()
+            allowed_starter = False
+            if controller_user_id and req_user_id and controller_user_id == req_user_id:
+                allowed_starter = True
+            elif (not controller_user_id) and controller_username and str(username or '').strip() == controller_username:
+                allowed_starter = True
+            if not allowed_starter:
+                logger.warning(
+                    "[FLOW] %s_denied room=%s battle=%s slot=%s reason=starter_only user=%s",
+                    event_name, room_id, battle_id, slot_id, username
+                )
+                emit(
+                    'battle_error',
+                    {
+                        'message': 'starter_only permission denied',
+                        'slot_id': slot_id,
+                        'actor_id': actor_id
+                    },
+                    to=request.sid
+                )
+                return False
+        return True
+
     allowed = is_authorized_for_character(room_id, actor_id, username, attribute)
     if not allowed:
         logger.warning(
@@ -1498,6 +1551,28 @@ def on_battle_round_request_start(data):
     round_value = data.get('round')
     if not isinstance(round_value, int):
         emit('battle_error', {'message': 'round must be int'}, to=request.sid)
+        return
+
+    room_state = get_room_state(room_id)
+    if not isinstance(room_state, dict):
+        emit('battle_error', {'message': 'room state not found'}, to=request.sid)
+        return
+    current_round = int(room_state.get('round', 0) or 0)
+    # Stale/advanced client requests must not mutate server round state.
+    if round_value != current_round:
+        logger.warning(
+            "[FLOW] battle_round_request_start_denied room=%s battle=%s requested_round=%s current_round=%s",
+            room_id, battle_id, round_value, current_round
+        )
+        emit(
+            'battle_error',
+            {
+                'message': 'stale or invalid round request',
+                'requested_round': round_value,
+                'current_round': current_round,
+            },
+            to=request.sid
+        )
         return
 
     round_started_payload = process_select_resolve_round_start(

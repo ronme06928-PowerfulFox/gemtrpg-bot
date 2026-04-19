@@ -234,7 +234,12 @@ class DeclarePanel {
         });
 
         const interactiveTitle = sourceTeam === 'enemy' ? '敵宣言' : '味方宣言';
-        const interactiveRangeText = meta.rangeText || meta.range || '-';
+        const interactiveRangeText = this._resolvePowerRangeText({
+            meta,
+            calc,
+            actor: sourceChar,
+            skillId
+        });
         const interactiveSkillDisplay = this._resolveSkillDisplayName(skillId, meta.name, sourceChar);
         const interactiveSummaryHtml = this._buildMinimizedSummaryHtml(interactiveSkillDisplay, interactiveRangeText);
         const interactiveHtml = `
@@ -278,7 +283,7 @@ class DeclarePanel {
             <div class="declare-skill-meta">
                 <div><strong>${this._escapeHtml(interactiveSkillDisplay)}</strong></div>
                 <div>${meta.description || '-'}</div>
-                <div>レンジ: ${meta.rangeText || meta.range}</div>
+                <div>威力レンジ: ${this._escapeHtml(interactiveRangeText)}</div>
                 <div>コマンド: <code class="declare-command">${this._escapeHtml(commandText || '-')}</code></div>
                 <div>威力: ${this._escapeHtml(powerSummary)}</div>
                 ${powerAdjustRows.length > 0 ? `
@@ -527,7 +532,7 @@ class DeclarePanel {
         const calc = isSource ? (context.calc || null) : (context.compareCalc || null);
         const meta = this._resolveDisplayMeta(skillId, calc);
         const commandText = this._resolveCommandText(calc) || '';
-        const rangeText = this._resolveReadonlyRangeText(meta, calc);
+        const rangeText = this._resolveReadonlyRangeText(meta, calc, actor, skillId);
         const label = this._formatSlotLabel(state, slotId);
         const detailHtml = meta.detailHtml || '';
         const skillDisplay = this._resolveSkillDisplayName(skillId, meta.name, actor);
@@ -552,7 +557,7 @@ class DeclarePanel {
             <div class="declare-skill-meta">
                 <div><strong>${this._escapeHtml(skillDisplay)}</strong></div>
                 <div>${meta.description || '-'}</div>
-                <div>レンジ: ${this._escapeHtml(rangeText)}</div>
+                <div>威力レンジ: ${this._escapeHtml(rangeText)}</div>
                 <div>コマンド: <code class="declare-command">${this._escapeHtml(commandText || '-')}</code></div>
                 ${detailHtml ? `<div class="declare-skill-detail">${detailHtml}</div>` : ''}
             </div>
@@ -608,11 +613,24 @@ class DeclarePanel {
         `;
     }
 
-    _resolveReadonlyRangeText(meta, calc) {
+    _resolveReadonlyRangeText(meta, calc, actor, skillId) {
+        return this._resolvePowerRangeText({ meta, calc, actor, skillId });
+    }
+
+    _resolvePowerRangeText({ meta, calc, actor, skillId }) {
         if (calc && calc.min_damage !== undefined && calc.max_damage !== undefined) {
             return `${calc.min_damage} ~ ${calc.max_damage}`;
         }
-        return meta.rangeText || meta.range || '-';
+        const metaRangeText = String(meta?.rangeText || '').trim();
+        if (/^-?\d+\s*~\s*-?\d+$/.test(metaRangeText)) {
+            return metaRangeText;
+        }
+        const quick = this._buildQuickPreviewFromSkill(actor, skillId);
+        const quickRangeText = String(quick?.rangeText || '').trim();
+        if (/^-?\d+\s*~\s*-?\d+$/.test(quickRangeText)) {
+            return quickRangeText;
+        }
+        return '-';
     }
 
     _resolveCompareTargetSlotId(state, slotId) {

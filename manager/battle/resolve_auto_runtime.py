@@ -129,6 +129,15 @@ def _maybe_finalize_battle_only_result(room, state):
     }
 
 
+def _auto_reset_battle_only_field(room):
+    try:
+        from manager.battle.common_manager import reset_battle_logic
+        reset_battle_logic(room, 'full', '戦闘専用モード(自動リセット)')
+        return True
+    except Exception:
+        return False
+
+
 def run_select_resolve_auto(room, battle_id):
     _sync_from_core()
     state = get_room_state(room)
@@ -243,6 +252,12 @@ def run_select_resolve_auto(room, battle_id):
             )
         except Exception:
             pass
+        did_reset = _auto_reset_battle_only_field(room)
+        if did_reset:
+            try:
+                broadcast_log(room, "[BattleOnly] 自動判定後にフィールドをリセットしました。", 'info')
+            except Exception:
+                pass
         try:
             broadcast_state_update(room)
         except Exception:
