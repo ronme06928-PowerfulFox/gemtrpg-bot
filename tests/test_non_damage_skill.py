@@ -71,3 +71,71 @@ def test_one_sided_non_damage_skill_does_not_reduce_hp(monkeypatch):
     assert defender["hp"] == 100
     assert on_damage_called["value"] is False
     assert result["summary"]["rolls"]["deals_damage"] is False
+
+
+def test_one_sided_defense_skill_does_not_reduce_hp(monkeypatch):
+    attacker = _make_char("A1", "ally")
+    defender = _make_char("B1", "enemy")
+    state = {"characters": [attacker, defender], "timeline": []}
+
+    skill_a = {
+        "base_power": 9,
+        "dice_power": "1d1",
+        "category": "defense",
+    }
+
+    monkeypatch.setattr(battle_core, "roll_dice", lambda _cmd: {"total": 9})
+    monkeypatch.setattr(battle_core, "process_on_hit_buffs", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(battle_core, "process_on_damage_buffs", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(
+        battle_core,
+        "compute_damage_multipliers",
+        lambda *_args, **_kwargs: {"final": 1.0, "incoming": 1.0, "outgoing": 1.0, "incoming_logs": [], "outgoing_logs": []},
+    )
+
+    result = battle_core._resolve_one_sided_by_existing_logic(
+        room="room_t",
+        state=state,
+        attacker_char=attacker,
+        defender_char=defender,
+        attacker_skill_data=skill_a,
+        defender_skill_data=None,
+    )
+
+    assert result["ok"] is True
+    assert defender["hp"] == 100
+    assert result["summary"]["rolls"]["deals_damage"] is False
+
+
+def test_one_sided_evade_skill_does_not_reduce_hp(monkeypatch):
+    attacker = _make_char("A1", "ally")
+    defender = _make_char("B1", "enemy")
+    state = {"characters": [attacker, defender], "timeline": []}
+
+    skill_a = {
+        "base_power": 9,
+        "dice_power": "1d1",
+        "分類": "回避",
+    }
+
+    monkeypatch.setattr(battle_core, "roll_dice", lambda _cmd: {"total": 9})
+    monkeypatch.setattr(battle_core, "process_on_hit_buffs", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(battle_core, "process_on_damage_buffs", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(
+        battle_core,
+        "compute_damage_multipliers",
+        lambda *_args, **_kwargs: {"final": 1.0, "incoming": 1.0, "outgoing": 1.0, "incoming_logs": [], "outgoing_logs": []},
+    )
+
+    result = battle_core._resolve_one_sided_by_existing_logic(
+        room="room_t",
+        state=state,
+        attacker_char=attacker,
+        defender_char=defender,
+        attacker_skill_data=skill_a,
+        defender_skill_data=None,
+    )
+
+    assert result["ok"] is True
+    assert defender["hp"] == 100
+    assert result["summary"]["rolls"]["deals_damage"] is False

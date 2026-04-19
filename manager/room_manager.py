@@ -28,6 +28,8 @@ def _default_battle_only_state():
         "enemy_entries": [],
         "records": [],
         "active_record_id": None,
+        "pending_auto_reset": False,
+        "pending_auto_reset_round": None,
     }
 
 def _ensure_battle_only_defaults(state):

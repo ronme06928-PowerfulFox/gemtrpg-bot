@@ -847,8 +847,9 @@ class DeclarePanel {
             }
             const meta = this._readSkillMeta(id);
             const displayName = item.name || meta.name || id;
+            const costLabel = this._formatSkillCostLabel(this._extractCosts(id, null));
             const selected = (id === selectedSkillId) ? ' selected' : '';
-            options.push(`<option value="${id}"${selected}>[${id}] ${displayName}</option>`);
+            options.push(`<option value="${id}"${selected}>[${id}] ${displayName}${costLabel}</option>`);
         });
         return options.join('');
     }
@@ -1228,8 +1229,34 @@ class DeclarePanel {
         }
 
         if (shortages.length === 0) return { insufficient: false, message: '' };
-        const text = shortages.map(s => `${s.type} insufficient (need:${s.required} / current:${s.current})`).join(' / ');
+        const text = `コスト不足: ${shortages.map(s => `${s.type} ${s.required}必要 (現在 ${s.current})`).join(' / ')}`;
         return { insufficient: true, message: text };
+    }
+
+    _formatSkillCostLabel(costs) {
+        if (!Array.isArray(costs) || costs.length === 0) return '';
+
+        const normalized = [];
+        for (const c of costs) {
+            const type = String(c?.type || '').toUpperCase();
+            const value = Number(c?.value || 0);
+            if (!type || !Number.isFinite(value) || value <= 0) continue;
+            normalized.push({ type, value: Math.trunc(value) });
+        }
+        if (normalized.length === 0) return '';
+
+        const preferredOrder = ['FP', 'MP', 'HP'];
+        normalized.sort((a, b) => {
+            const ia = preferredOrder.indexOf(a.type);
+            const ib = preferredOrder.indexOf(b.type);
+            if (ia === -1 && ib === -1) return String(a.type).localeCompare(String(b.type), 'ja');
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+        });
+
+        const text = normalized.map((row) => `${row.type}:${row.value}`).join(', ');
+        return `（${text}）`;
     }
 
     _extractCosts(skillId, calc) {

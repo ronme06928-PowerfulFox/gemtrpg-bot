@@ -30,6 +30,7 @@ def test_finalize_battle_only_result_when_enemy_wiped(monkeypatch):
     assert row.get('record_id') == 'bor_1'
     assert state['battle_only']['status'] == 'draft'
     assert state['battle_only']['active_record_id'] is None
+    assert state['battle_only']['pending_auto_reset'] is True
 
     rec = state['battle_only']['records'][0]
     assert rec.get('status') == 'finished'

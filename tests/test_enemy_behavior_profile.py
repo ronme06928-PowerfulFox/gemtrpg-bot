@@ -75,9 +75,14 @@ def test_pick_and_advance_step_pointer_repeat():
     assert picked_3["actions"] == ["S-A"]
 
 
-def test_choose_actions_for_slot_count_reuses_last():
+def test_choose_actions_for_slot_count_fills_missing_with_no_action():
     actions = choose_actions_for_slot_count(["S-A", "S-B"], 4)
-    assert actions == ["S-A", "S-B", "S-B", "S-B"]
+    assert actions == ["S-A", "S-B", None, None]
+
+
+def test_choose_actions_for_slot_count_single_action_does_not_duplicate():
+    actions = choose_actions_for_slot_count(["S-A"], 2)
+    assert actions == ["S-A", None]
 
 
 def test_choose_actions_for_slot_count_random_when_overflow(monkeypatch):

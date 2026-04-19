@@ -433,7 +433,7 @@ def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None, con
 
         # 加算値計算
         bonus = 0
-        operation = rule.get('operation', 'FIXED')
+        operation = str(rule.get('operation', rule.get('operator', 'FIXED')) or 'FIXED').strip().upper()
 
         if operation == 'FIXED':
             bonus = int(rule.get('value', 0))
@@ -1581,7 +1581,7 @@ def calculate_power_bonus(actor, target, power_bonus_data, context=None):
         p_name = rule.get('param')
         val = _get_value_for_condition(src, p_name, context=context) # ★修正: ここも context対応
         bonus = 0
-        op = rule.get('operation')
+        op = str(rule.get('operation', rule.get('operator', '')) or '').strip().upper()
         if op == 'MULTIPLY':
             bonus = int(val * float(rule.get('value_per_param', 0)))
         elif op == 'FIXED_IF_EXISTS':

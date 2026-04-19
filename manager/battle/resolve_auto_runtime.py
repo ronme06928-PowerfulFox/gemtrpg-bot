@@ -119,6 +119,9 @@ def _maybe_finalize_battle_only_result(room, state):
         rec.setdefault('end_reason', 'auto_annihilation')
     bo['active_record_id'] = None
     bo['status'] = 'draft'
+    # Defer field reset until clients finish resolve-flow playback.
+    bo['pending_auto_reset'] = True
+    bo['pending_auto_reset_round'] = int(state.get('round', 0) or 0)
 
     record_id = str((rec or {}).get('id') or '').strip() or rec_id or None
     return {
@@ -252,12 +255,10 @@ def run_select_resolve_auto(room, battle_id):
             )
         except Exception:
             pass
-        did_reset = _auto_reset_battle_only_field(room)
-        if did_reset:
-            try:
-                broadcast_log(room, "[BattleOnly] 自動判定後にフィールドをリセットしました。", 'info')
-            except Exception:
-                pass
+        try:
+            broadcast_log(room, "[BattleOnly] 勝敗確定。解決表示完了後に自動リセットします。", 'info')
+        except Exception:
+            pass
         try:
             broadcast_state_update(room)
         except Exception:

@@ -87,9 +87,33 @@ def _skill_deals_damage(skill_data):
     direct = skill_data.get('deals_damage')
     if isinstance(direct, bool):
         return direct
+    # 防御/回避スキルは一方攻撃でもダメージを発生させない。
+    try:
+        resolved_role = _resolve_skill_role(skill_data)
+    except Exception:
+        resolved_role = None
+    if resolved_role in {'defense', 'evade'}:
+        return False
+
     rule_data = _extract_rule_data_from_skill(skill_data)
     if isinstance(rule_data, dict) and isinstance(rule_data.get('deals_damage'), bool):
         return bool(rule_data.get('deals_damage'))
+
+    # 分類フィールドの揺れ（日本語/英語）をフォールバックで吸収
+    role_tokens = {'defense', 'evade', '防御', '回避', '守備'}
+    role_values = []
+    for key in ('category', '分類'):
+        val = skill_data.get(key)
+        if isinstance(val, str) and val.strip():
+            role_values.append(val.strip())
+        if isinstance(rule_data, dict):
+            rule_val = rule_data.get(key)
+            if isinstance(rule_val, str) and rule_val.strip():
+                role_values.append(rule_val.strip())
+    role_norm = {str(v).strip().lower() for v in role_values if str(v).strip()}
+    if any(str(token).strip().lower() in role_norm for token in role_tokens):
+        return False
+
     no_damage_tags = {
         '非ダメージ', '非ダメージスキル', 'no_damage', 'non_damage'
     }

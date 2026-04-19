@@ -451,7 +451,12 @@ def choose_action_plans_for_slot_count(action_plans, slot_count):
         if idx < len(normalized):
             out.append(dict(normalized[idx]))
         else:
-            out.append(dict(normalized[-1]))
+            # Do not duplicate the last action automatically.
+            # Missing slots are treated as "no action".
+            out.append({
+                "skill_id": None,
+                "target_policy": BEHAVIOR_TARGET_POLICY_DEFAULT,
+            })
     return out
 
 

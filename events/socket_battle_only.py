@@ -442,6 +442,8 @@ def _ensure_bo_state(state):
         "enemy_entries": [],
         "records": [],
         "active_record_id": None,
+        "pending_auto_reset": False,
+        "pending_auto_reset_round": None,
         "options": {
             "force_pve": True,
             "show_enemy_target_arrows": True,
@@ -1917,6 +1919,8 @@ def handle_bo_start_battle(data):
     bo['ally_entries'] = ally_entries
     bo['enemy_entries'] = enemy_entries
     bo['status'] = 'in_battle'
+    bo['pending_auto_reset'] = False
+    bo['pending_auto_reset_round'] = None
     bo['ally_mode'] = ally_mode
     bo['selected_stage_id'] = str(bo.get('selected_stage_id', '')).strip() or None
     bo['required_ally_count'] = required_ally_count

@@ -1,4 +1,4 @@
-import copy
+﻿import copy
 import json
 import time
 
@@ -108,7 +108,7 @@ def on_request_new_round(data):
     attribute = user_info.get("attribute", "Player")
 
     if attribute != 'GM':
-        emit('new_log', {'message': 'ラウンド開始はGMのみ実行可能です。', 'type': 'error'})
+        emit('new_log', {'message': 'ラウンド開始はGMのみ可能です。', 'type': 'error'})
         return
 
     process_round_start(room, username)
@@ -166,6 +166,21 @@ def on_request_end_round(data):
         return
     if not state.get('is_round_ended', False):
         return
+    bo = state.get('battle_only') if isinstance(state.get('battle_only'), dict) else {}
+    if bool(bo.get('pending_auto_reset', False)):
+        bo['pending_auto_reset'] = False
+        bo['pending_auto_reset_round'] = None
+        try:
+            reset_battle_logic(room, 'full', '戦闘専用モード(自動リセット)')
+            broadcast_log(room, "[BattleOnly] 解決表示完了後にフィールドを自動リセットしました。", 'info')
+        except Exception:
+            logger.exception("[BattleOnly] auto reset after resolve completion failed room=%s", room)
+        return
+
+    bo_status = str(bo.get('status', '') or '').strip().lower()
+    if bo_status and bo_status != 'in_battle':
+        return
+
     process_round_start(room, "戦闘専用モード")
 
 @socketio.on('request_reset_battle')
@@ -255,10 +270,10 @@ def on_debug_apply_buff(data):
     buff_name = data.get('buff_name')
     if not buff_name:
         buff_name_map = {
-            'Bu-02': '混乱',
-            'Bu-03': '混乱(戦慄殺到)',
-            'Bu-05': '再回避ロック',
-            'Bu-06': '破裂威力減少無効'
+            'Bu-02': '豺ｷ荵ｱ',
+            'Bu-03': '豺ｷ荵ｱ(謌ｦ諷・ｮｺ蛻ｰ)',
+            'Bu-05': '蜀榊屓驕ｿ繝ｭ繝・け',
+            'Bu-06': '遐ｴ陬ょｨ∝鴨貂帛ｰ醍┌蜉ｹ'
         }
         buff_name = buff_name_map.get(buff_id, buff_id)
 
@@ -282,8 +297,7 @@ def on_request_update_battle_background(data):
 
     update_battle_background_logic(room, image_url, scale, offset_x, offset_y, username, attribute)
 
-# NOTE: PvE / PvP モード切り替え
-@socketio.on('request_switch_battle_mode')
+# NOTE: PvE / PvP 繝｢繝ｼ繝牙・繧頑崛縺・@socketio.on('request_switch_battle_mode')
 def on_request_switch_battle_mode(data):
     room = data.get('room')
     mode = data.get('mode') # 'pvp' or 'pve'
@@ -300,16 +314,14 @@ def on_request_switch_battle_mode(data):
     from manager.battle.common_manager import process_switch_battle_mode
     process_switch_battle_mode(room, mode, username)
 
-# NOTE: AIスキル提案
-@socketio.on('request_ai_suggest_skill')
+# NOTE: AI繧ｹ繧ｭ繝ｫ謠先｡・@socketio.on('request_ai_suggest_skill')
 def on_request_ai_suggest_skill(data):
     room = data.get('room')
     char_id = data.get('charId')
 
     if not room or not char_id: return
 
-    # 誰でも要求可能（最終採用はGM判断）
-
+    # 隱ｰ縺ｧ繧りｦ∵ｱょ庄閭ｽ・域怙邨よ治逕ｨ縺ｯGM蛻､譁ｭ・・
     from manager.battle.common_manager import process_ai_suggest_skill
     suggested_skill_id = process_ai_suggest_skill(room, char_id)
 
@@ -386,7 +398,7 @@ def _extract_skill_tags(skill_id):
 def _extract_skill_rule_data(skill_data):
     if not isinstance(skill_data, dict):
         return {}
-    for key in ['rule_data', 'rule_json', 'rule', '特記処理']:
+    for key in ['rule_data', 'rule_json', 'rule', 'ruleData']:
         raw = skill_data.get(key)
         if not raw:
             continue
@@ -443,16 +455,16 @@ def _infer_mass_type_from_text(text):
         'mass_summation' in merged
         or 'summation' in merged
         or 'sum' in merged
-        or '広域-合算' in merged
         or '合算' in merged
+        or '総和' in merged
     ):
         return 'mass_summation'
 
     if (
         'mass_individual' in merged
         or 'individual' in merged
-        or '広域-個別' in merged
         or '個別' in merged
+        or '単体' in merged
     ):
         return 'mass_individual'
 
@@ -497,9 +509,9 @@ def _infer_mass_type_from_skill(skill_id):
         'distance',
         '分類',
         'カテゴリ',
-        '距離',
         '射程',
-        '範囲',
+        '距離',
+        '対象',
         'target_scope',
         'target',
         'target_type',
@@ -521,12 +533,12 @@ def _normalize_target_scope(raw_value, default='enemy'):
         return str(default or 'enemy')
     if text in [
         'enemy', 'enemies', 'foe', 'opponent', 'opponents',
-        '敵', '敵対', 'opposing_team', '相手陣営', '相手陣営対象', '相手陣営指定'
+        '敵', '敵側', 'opposing_team', '相手チーム', '相手チーム対象', '相手チーム指定'
     ]:
         return 'enemy'
     if text in [
         'ally', 'allies', 'friend', 'friends',
-        '味方', '味方全体', '同陣営', '同陣営対象', '同陣営指定', 'same_team'
+        '味方', '味方全員', '同じチーム', '同じチーム対象', '同じチーム指定', 'same_team'
     ]:
         return 'ally'
     if text in ['any', 'all', 'both', '全体', 'all_targets']:
@@ -561,9 +573,9 @@ def _infer_target_scope_from_skill(skill_id):
         if text:
             tags.append(text)
     normalized = {str(v).strip().lower() for v in tags}
-    ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定'}
-    any_tags = {'any_target', 'target_any', '任意対象', '対象自由'}
-    enemy_tags = {'enemy_target', 'target_enemy', '敵対象', '相手陣営対象', '相手陣営指定'}
+    ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定', '同じチーム対象', '同じチーム指定'}
+    any_tags = {'any_target', 'target_any', '全体対象', '対象自由'}
+    enemy_tags = {'enemy_target', 'target_enemy', '敵対象', '相手チーム対象', '相手チーム指定'}
     if any(str(t).lower() in normalized for t in any_tags):
         return 'any'
     if any(str(t).lower() in normalized for t in ally_tags):
@@ -600,9 +612,9 @@ def _validate_single_target_scope(state, source_slot_id, target_slot_id, target_
     if source_team not in ['ally', 'enemy'] or target_team not in ['ally', 'enemy']:
         return None
     if scope == 'enemy' and source_team == target_team:
-        return 'target_scope=enemy のため味方スロットは指定できません'
+        return 'target_scope=enemy 縺ｮ縺溘ａ蜻ｳ譁ｹ繧ｹ繝ｭ繝・ヨ縺ｯ謖・ｮ壹〒縺阪∪縺帙ｓ'
     if scope == 'ally' and source_team != target_team:
-        return 'target_scope=ally のため敵スロットは指定できません'
+        return 'target_scope=ally 縺ｮ縺溘ａ謨ｵ繧ｹ繝ｭ繝・ヨ縺ｯ謖・ｮ壹〒縺阪∪縺帙ｓ'
     return None
 
 
@@ -675,7 +687,7 @@ def _build_tags(skill_id, target):
         'mass_type': mass_type,
         'no_redirect': (
             'no_redirect' in skill_tags
-            or '対象変更不可' in tags_text
+            or '蟇ｾ雎｡螟画峩荳榊庄' in tags_text
             or target_scope == 'ally'
         )
     }
@@ -804,9 +816,9 @@ def _authorize_intent_slot_control(room_id, battle_id, state, slot_id, event_nam
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
 
-    # battle_onlyは操作モードで権限を切り替える:
-    # - all: 参加者全員が宣言操作可能
-    # - starter_only: 戦闘突入者(またはGM)のみ操作可能
+    # battle_only縺ｯ謫堺ｽ懊Δ繝ｼ繝峨〒讓ｩ髯舌ｒ蛻・ｊ譖ｿ縺医ｋ:
+    # - all: 蜿ょ刈閠・・蜩｡縺悟ｮ｣險謫堺ｽ懷庄閭ｽ
+    # - starter_only: 謌ｦ髣倡ｪ∝・閠・縺ｾ縺溘・GM)縺ｮ縺ｿ謫堺ｽ懷庄閭ｽ
     if _is_battle_only_mode(room_id):
         if str(attribute or '').strip().upper() == 'GM':
             return True
@@ -1443,7 +1455,7 @@ def _try_apply_redirect(room_id, battle_id, state, slot_a):
     slot_b_data = state['slots'][slot_b]
     scope_a = _infer_target_scope_from_skill(intent_a.get('skill_id'))
     scope_b = _infer_target_scope_from_skill(intent_b.get('skill_id'))
-    # 同陣営指定（旧: 味方指定）スキルは対象変更の仕組みに参加させない。
+    # Ally-target skills are excluded from redirect in this route.
     if scope_a == 'ally' or scope_b == 'ally':
         return
 

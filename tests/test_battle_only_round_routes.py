@@ -160,3 +160,74 @@ def test_battle_round_request_start_accepts_current_round(monkeypatch):
 
     assert any(row[0] == "battle_round_started" for row in socket_events)
     assert "state_updated" in events
+
+
+def test_end_round_in_battle_only_resets_when_pending_auto_reset(monkeypatch):
+    state = {
+        "play_mode": "battle_only",
+        "is_round_ended": False,
+        "round": 1,
+        "battle_only": {
+            "status": "draft",
+            "pending_auto_reset": True,
+            "pending_auto_reset_round": 1,
+        },
+    }
+    calls = {"end": [], "start": [], "reset": [], "log": []}
+
+    monkeypatch.setattr(common_routes, "request", SimpleNamespace(sid="sid_test"))
+    monkeypatch.setattr(
+        common_routes,
+        "get_user_info_from_sid",
+        lambda _sid: {"username": "player_bo", "attribute": "Player"},
+    )
+    monkeypatch.setattr(common_routes, "get_room_state", lambda _room: state)
+
+    def _fake_end_round(room, username):
+        calls["end"].append((room, username))
+        state["is_round_ended"] = True
+
+    monkeypatch.setattr(common_routes, "process_full_round_end", _fake_end_round)
+    monkeypatch.setattr(common_routes, "process_round_start", lambda room, username: calls["start"].append((room, username)))
+    monkeypatch.setattr(common_routes, "reset_battle_logic", lambda room, mode, username: calls["reset"].append((room, mode, username)))
+    monkeypatch.setattr(common_routes, "broadcast_log", lambda room, message, kind='info': calls["log"].append((room, message, kind)))
+
+    common_routes.on_request_end_round({"room": "room_t"})
+
+    assert calls["end"] == [("room_t", "player_bo")]
+    assert calls["start"] == []
+    assert calls["reset"] == [("room_t", "full", "戦闘専用モード(自動リセット)")]
+    assert state["battle_only"]["pending_auto_reset"] is False
+
+
+def test_end_round_in_battle_only_does_not_auto_start_when_status_is_draft(monkeypatch):
+    state = {
+        "play_mode": "battle_only",
+        "is_round_ended": False,
+        "round": 1,
+        "battle_only": {
+            "status": "draft",
+            "pending_auto_reset": False,
+        },
+    }
+    calls = {"end": [], "start": []}
+
+    monkeypatch.setattr(common_routes, "request", SimpleNamespace(sid="sid_test"))
+    monkeypatch.setattr(
+        common_routes,
+        "get_user_info_from_sid",
+        lambda _sid: {"username": "player_bo2", "attribute": "Player"},
+    )
+    monkeypatch.setattr(common_routes, "get_room_state", lambda _room: state)
+
+    def _fake_end_round(room, username):
+        calls["end"].append((room, username))
+        state["is_round_ended"] = True
+
+    monkeypatch.setattr(common_routes, "process_full_round_end", _fake_end_round)
+    monkeypatch.setattr(common_routes, "process_round_start", lambda room, username: calls["start"].append((room, username)))
+
+    common_routes.on_request_end_round({"room": "room_t"})
+
+    assert calls["end"] == [("room_t", "player_bo2")]
+    assert calls["start"] == []
