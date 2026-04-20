@@ -118,7 +118,7 @@ window.JSON_BUILDER_REFERENCE = {
     {
       "id": "Bu-10",
       "name": "小麦色の風",
-      "description": "ラウンド開始時、FPを1獲得する。",
+      "description": "ラウンド開始時、50%の確率でFPを1獲得する。",
       "effect": {},
       "default_duration": -1
     },
@@ -230,8 +230,8 @@ window.JSON_BUILDER_REFERENCE = {
     },
     {
       "id": "Bu-25",
-      "name": "二値を絡め取る電網",
-      "description": "情報収集カテゴリの探索スキルを一つ選び、そのレベルを４にすることができる。",
+      "name": "アル・カルメイルの古血",
+      "description": "HPの最大値+20。本能と隠密の探索スキルレベル+2。",
       "effect": {},
       "default_duration": -1
     },

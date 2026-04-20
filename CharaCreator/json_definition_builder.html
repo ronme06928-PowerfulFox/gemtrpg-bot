@@ -370,7 +370,7 @@
         keys: "(追加キーなし)"
       }
     ];
-    const HELP_ROWS = [["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","命中時/勝利時/敗北時"],["condition.source: target_skill","対象側が宣言したスキル情報（主に tags）を参照。相手スキル情報が無い場面では条件false"],["condition.source: relation","actor-targetの関係を参照。paramは same_team / target_is_ally / target_is_enemy（0/1判定）"],["condition.param: 蓄力_count","対象の特殊バフcountを参照"],["condition.param: buff_count:凝魔","buff_count接頭辞でも特殊バフcountを参照"],["type: APPLY_BUFF","buff_id / buff_name を付与"],["APPLY_BUFF.count","スタック系バフの付与回数（凝魔/蓄力など）"],["type: CONSUME_BUFF_COUNT_FOR_GAIN","指定スタックを消費し、FP/MP/HPやバフ付与を行う"],["type: CONSUME_BUFF_COUNT_FOR_POWER","指定スタックを消費し、基礎/最終威力を増減"],["state_receive_bonus","受け手側の状態付与補正（例: 震盪で受ける破裂付与量+N）"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","動的バフ命名で効果を自動解釈"]];
+    const HELP_ROWS = [["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","命中時/勝利時/敗北時"],["condition.source: target_skill","対象側が宣言したスキル情報（主に tags）を参照。相手スキル情報が無い場面では条件false"],["condition.source: relation","actor-targetの関係を参照。paramは same_team / target_is_ally / target_is_enemy（0/1判定）"],["condition.param: 蓄力_count","対象の特殊バフcountを参照"],["condition.param: buff_count:凝魔","buff_count接頭辞でも特殊バフcountを参照"],["type: APPLY_BUFF","buff_id / buff_name を付与"],["APPLY_BUFF(Bu-11/Bu-12)","加速/減速は lasting=1, delay=1（次ラウンド有効）を推奨"],["APPLY_BUFF.count","スタック系バフの付与回数（凝魔/蓄力など）"],["type: CONSUME_BUFF_COUNT_FOR_GAIN","指定スタックを消費し、FP/MP/HPやバフ付与を行う"],["type: CONSUME_BUFF_COUNT_FOR_POWER","指定スタックを消費し、基礎/最終威力を増減"],["state_receive_bonus","受け手側の状態付与補正（例: 震盪で受ける破裂付与量+N）"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","動的バフ命名で効果を自動解釈"]];
     const DYNAMIC_BUFF_PATTERNS = [
       { suffix: "_ActN",   meaning: "行動回数 +N",               effect: "stat_mods.行動回数",                       example: "迅速_Act2",         regex: /^(.*)_Act(\d+)$/ },
       { suffix: "_AtkN",   meaning: "攻撃タグ時の最終威力 +N",   effect: "power_bonus(FIXED, apply_to=final)",     example: "猛攻_Atk5",         regex: /^(.*)_Atk(\d+)$/ },
@@ -801,6 +801,12 @@
       document.getElementById("powerBonusInput").value=JSON.stringify(out,null,2);
       return out;
     }
+    function _isSpeedModBuffRow(raw){
+      if(!raw || typeof raw !== "object") return false;
+      if(raw.type !== "APPLY_BUFF") return false;
+      const buffId = String(raw.buff_id || raw?.data?.buff_id || "").trim();
+      return buffId === "Bu-11" || buffId === "Bu-12";
+    }
     function getEffectRowRaw(row){
       const e={timing:row.querySelector(".timingSel").value,type:row.querySelector(".typeSel").value};
       const t=row.querySelector(".targetSel").value;
@@ -827,6 +833,10 @@
           e._extra_error=true;
         }
       }
+      if(_isSpeedModBuffRow(e)){
+        if(e.lasting===undefined) e.lasting = 1;
+        if(e.delay===undefined) e.delay = 1;
+      }
       return e;
     }
 
@@ -845,6 +855,10 @@
         warns.push(`relation の param は ${RELATION_PARAMS.join(" / ")} を使用してください`);
       }
       if(raw._extra_error) warns.push("extra_json が不正JSONです");
+      if(_isSpeedModBuffRow(raw)){
+        if(raw.lasting !== 1) warns.push("Bu-11/Bu-12 は lasting=1 を推奨");
+        if(raw.delay !== 1) warns.push("Bu-11/Bu-12 は delay=1（次ラウンド有効）を推奨");
+      }
       if(raw.type==="APPLY_STATE_PER_N" && raw.per_N!==undefined && raw.per_N<=0) warns.push("per_N は1以上を推奨");
       if(raw.type==="REMOVE_BUFF" && raw.buff_id && !raw.buff_name) warns.push("REMOVE_BUFF は buff_name 指定を推奨");
       if(spec.value_kind==="none" && raw.value!==undefined) warns.push("このTypeでは通常 value は使いません");

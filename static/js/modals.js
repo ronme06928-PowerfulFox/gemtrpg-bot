@@ -191,7 +191,7 @@ function renderCharacterCard(char) {
         12: "オーセクト",
         13: "ヴァルヴァイレ",
         14: "フローディアス",
-        15: "欠番",
+        15: "アル・カルメイル",
         16: "アルトマギア",
         17: "エムリダ"
     };
@@ -426,6 +426,15 @@ function renderCharacterCard(char) {
             }
 
             const delayVal = parseInt(b.delay, 10) || 0;
+            const speedBuffId = String(b.buff_id || (b.data && b.data.buff_id) || '').trim();
+            const isSpeedModBuff = (speedBuffId === 'Bu-11' || speedBuffId === 'Bu-12');
+            if (isSpeedModBuff) {
+                if (delayVal > 0) {
+                    durationHtml += `<span class="buff-speed-state-badge" style="background:#d63384; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:4px; white-space: nowrap;">予約中(${delayVal}R)</span>`;
+                } else {
+                    durationHtml += `<span class="buff-speed-state-badge" style="background:#198754; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:4px; white-space: nowrap;">適用中</span>`;
+                }
+            }
             if (delayVal > 0) {
                 durationHtml += `<span class="buff-delay-badge" style="background:#d63384; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:4px; white-space: nowrap;">発動まで${delayVal}R</span>`;
             }

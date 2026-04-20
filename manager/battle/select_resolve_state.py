@@ -332,7 +332,6 @@ def process_select_resolve_round_start(room, battle_id, round_value):
                 char['speedRoll'] = roll
                 char['totalSpeed'] = initiative
 
-        SpeedModBuff.clear_speed_modifiers(char)
         char['hasActed'] = False
 
     grouped_by_init = {}

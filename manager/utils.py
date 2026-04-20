@@ -27,6 +27,7 @@ ORIGIN_BONUS_BUFFS = {
 BONUS_SELECTABLE_ORIGINS = {1, 2, 12}
 
 ORIGIN_FLODIAS = 14
+ORIGIN_AL_CARMEIL = 15
 ORIGIN_GRAND_LITTERAL_BLANC = 11
 ORIGIN_ALTOMAGIA = 16
 ORIGIN_EMRIDA = 17
@@ -36,6 +37,7 @@ COLORATION_BUFF_NAME = "色彩"
 
 ORIGIN_BONUS_BUFFS.update({
     ORIGIN_FLODIAS: {"buff_id": "Bu-26", "name": "活力の行き重なる落合"},
+    ORIGIN_AL_CARMEIL: {"buff_id": "Bu-25", "name": "アル・カルメイルの古血"},
     ORIGIN_ALTOMAGIA: {"buff_id": "Bu-23", "name": "狭霧に息づく神秘"},
     ORIGIN_EMRIDA: {"buff_id": "Bu-27", "name": "盛夏と共鳴る高揚"},
 })
@@ -389,27 +391,60 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
     # ★ 追加: 加速(Bu-11)・減速(Bu-12) の特殊処理
     # これらは永続(lasting=-1)であり、スタック加算される
     if payload.get('buff_id') in ['Bu-11', 'Bu-12']:
-        lasting = -1
-        payload['lasting'] = -1
-        payload['is_permanent'] = True
+        if not isinstance(payload.get('data'), dict):
+            payload['data'] = {}
 
-        # スタック数の加算処理
-        if existing:
-            current_count = existing.get('count', 0)
-            added_count = payload.get('count', 1) # デフォルト1
-            # data内のcountも考慮 (game_logicから渡される場合 data={'count': N} となっていることが多い)
-            if 'data' in payload and isinstance(payload['data'], dict):
-                 if 'count' in payload['data']:
-                     added_count = payload['data']['count']
+        added_count = _resolve_stack_count(payload, explicit_count=count, default=1)
+        if added_count <= 0:
+            return
 
-            new_count = current_count + int(added_count)
-            payload['count'] = new_count
-            # data内も更新しておく（表示等で使われる場合のため）
-            if 'data' not in payload: payload['data'] = {}
-            if isinstance(payload['data'], dict):
-                payload['data']['count'] = new_count
+        target_delay = max(1, _safe_int(delay, 0))
+        target_lasting = 1
+        target_buff_id = payload.get('buff_id')
 
-            logger.debug(f"[SpeedMod] Stack update for {buff_name}: {current_count} + {added_count} -> {new_count}")
+        existing_bucket = next((
+            b for b in char_obj.get('special_buffs', [])
+            if isinstance(b, dict)
+            and b.get('buff_id') == target_buff_id
+            and _safe_int(b.get('delay'), 0) == target_delay
+        ), None)
+
+        if existing_bucket:
+            prev_count = _resolve_stack_count(existing_bucket, default=0)
+            new_count = prev_count + added_count
+            existing_bucket['count'] = new_count
+            existing_bucket['delay'] = target_delay
+            existing_bucket['lasting'] = max(_safe_int(existing_bucket.get('lasting'), 0), target_lasting)
+            existing_bucket['is_permanent'] = False
+            if not isinstance(existing_bucket.get('data'), dict):
+                existing_bucket['data'] = {}
+            existing_bucket['data']['count'] = new_count
+            existing_bucket['newly_applied'] = True
+            if payload.get('description') and not existing_bucket.get('description'):
+                existing_bucket['description'] = payload.get('description')
+            if payload.get('flavor') and not existing_bucket.get('flavor'):
+                existing_bucket['flavor'] = payload.get('flavor')
+            logger.debug(
+                "[SpeedMod] bucket stack buff=%s delay=%s count=%s->%s",
+                buff_name,
+                target_delay,
+                prev_count,
+                new_count,
+            )
+        else:
+            payload['delay'] = target_delay
+            payload['lasting'] = target_lasting
+            payload['is_permanent'] = False
+            payload['count'] = added_count
+            payload['data']['count'] = added_count
+            char_obj['special_buffs'].append(payload)
+            logger.debug(
+                "[SpeedMod] bucket create buff=%s delay=%s count=%s",
+                buff_name,
+                target_delay,
+                added_count,
+            )
+        return
 
     # 凝魔/蓄力:
     # - count スタック加算型の特殊リソースバフ

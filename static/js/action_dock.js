@@ -1253,11 +1253,17 @@ function renderQuickEditList(container) {
             buffEntries.forEach((buff, idx) => {
                 const entryData = (buff.data && typeof buff.data === 'object') ? buff.data : {};
                 const entryId = buff.buff_id || entryData.buff_id || '';
+                const delayVal = Number.parseInt(buff.delay, 10) || 0;
+                const isSpeedMod = (entryId === 'Bu-11' || entryId === 'Bu-12');
+                let speedState = '';
+                if (isSpeedMod) {
+                    speedState = delayVal > 0 ? ` [予約中:${delayVal}R]` : ' [適用中]';
+                }
                 const option = document.createElement('option');
                 option.value = String(idx);
                 option.textContent = entryId
-                    ? `${buff.name || '(no name)'} [${entryId}]`
-                    : `${buff.name || '(no name)'}`;
+                    ? `${buff.name || '(no name)'} [${entryId}]${speedState}`
+                    : `${buff.name || '(no name)'}${speedState}`;
                 removeSelect.appendChild(option);
             });
             const removeSpacer1 = document.createElement('input');

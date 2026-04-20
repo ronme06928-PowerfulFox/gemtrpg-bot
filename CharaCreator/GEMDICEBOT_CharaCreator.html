@@ -404,6 +404,7 @@
                         <option value="12">12: オーセクト</option>
                         <option value="13">13: ヴァルヴァイレ</option>
                         <option value="14">14: フローディアス</option>
+                        <option value="15">15: アル・カルメイル</option>
                         <option value="16">16: アルトマギア</option>
                         <option value="17">17: エムリダ</option>
                     </select>
@@ -728,6 +729,7 @@
             { id: 12, name: "12: オーセクト" },
             { id: 13, name: "13: ヴァルヴァイレ" },
             { id: 14, name: "14: フローディアス" },
+            { id: 15, name: "15: アル・カルメイル" },
             { id: 16, name: "16: アルトマギア" },
             { id: 17, name: "17: エムリダ" }
         ];
@@ -1284,6 +1286,7 @@
         }
         function getOriginSkillBonusByOriginId(skillId, bonusOriginId) {
             if (bonusOriginId === 14 && (skillId === 's-dialogue' || skillId === 's-appraise')) return 2;
+            if (bonusOriginId === 15 && (skillId === 's-instinct' || skillId === 's-stealth')) return 2;
             if (bonusOriginId === 17 && ['s-senses', 's-instinct', 's-athletics', 's-evade'].includes(skillId)) return 1;
             return 0;
         }
@@ -1340,7 +1343,8 @@
 
             // プレイヤーの場合のみ自動計算
             if (charType !== 'scenario') {
-                const maxHp = 100 + vit + phy;
+                let maxHp = 100 + vit + phy;
+                if (bonusOriginId === 15) maxHp += 20;
                 document.getElementById('st-hp-max').value = maxHp;
                 document.getElementById('st-hp-val').value = maxHp;
 
@@ -1933,7 +1937,8 @@
                             const hpStatus = findStatus("HP");
                             const mpStatus = findStatus("MP");
                             const getInt = (id) => parseInt(document.getElementById(id).value) || 0;
-                            const expectedHpMax = 100 + getInt('p-vit') + getInt('p-phy');
+                            let expectedHpMax = 100 + getInt('p-vit') + getInt('p-phy');
+                            if (getBonusOriginId() === 15) expectedHpMax += 20;
                             let expectedMpMax = 6 + Math.floor(getInt('p-mnt') / 2);
                             if (getBonusOriginId() === 4) expectedMpMax += 1;
 

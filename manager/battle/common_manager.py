@@ -1005,9 +1005,6 @@ def _process_round_start_impl(room, username):
             broadcast_log(room, f"{char['name']} の速度補正: {mod_text} (基礎速度に加算)", 'info')
 
 
-        SpeedModBuff.clear_speed_modifiers(char)
-
-
         try:
              action_count = int(get_status_value(char, "行動回数"))
         except Exception:
@@ -1076,16 +1073,22 @@ def _process_round_start_impl(room, username):
 
 
 
-    latium_targets = []
+    latium_gain_targets = []
+    latium_no_gain_targets = []
     for char in state.get('characters', []):
         if char.get('hp', 0) <= 0: continue
         if get_effective_origin_id(char) == 3:
-            current_fp = get_status_value(char, 'FP')
-            _update_char_stat(room, char, 'FP', current_fp + 1, username="[ラティウム恩恵]")
-            latium_targets.append(char['name'])
+            if random.random() < 0.5:
+                current_fp = get_status_value(char, 'FP')
+                _update_char_stat(room, char, 'FP', current_fp + 1, username="[ラティウム恩恵]")
+                latium_gain_targets.append(char['name'])
+            else:
+                latium_no_gain_targets.append(char['name'])
 
-    if latium_targets:
-        broadcast_log(room, f"[Round Bonus] FP +1 applied to: {', '.join(latium_targets)}", "info")
+    if latium_gain_targets:
+        broadcast_log(room, f"[ラティウム恩恵] FP +1: {', '.join(latium_gain_targets)}", "info")
+    if latium_no_gain_targets:
+        broadcast_log(room, f"[ラティウム恩恵] 増加なし: {', '.join(latium_no_gain_targets)}", "info")
 
 
 
