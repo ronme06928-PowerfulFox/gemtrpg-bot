@@ -1,579 +1,227 @@
 (function (global) {
     'use strict';
 
-    function getSocketRef() {
-        if (typeof socket !== 'undefined' && socket) return socket;
-        return global.socket || null;
-    }
+    const RULE_TYPES = [
+        { value: 'SPEED_ROLL_MOD', label: '速度ロール補正' },
+        { value: 'DAMAGE_DEALT_MOD', label: '与ダメージ補正' },
+        { value: 'APPLY_STATE_ON_CONDITION', label: '条件付き状態異常付与' },
+    ];
+    const SCOPES = [
+        { value: 'ALL', label: '全員' },
+        { value: 'ALLY', label: '味方のみ' },
+        { value: 'ENEMY', label: '敵のみ' },
+    ];
+    const OPS = [
+        { value: 'GTE', label: '以上' }, { value: 'GT', label: 'より大きい' },
+        { value: 'LTE', label: '以下' }, { value: 'LT', label: 'より小さい' },
+        { value: 'EQ', label: '等しい' }, { value: 'NE', label: '等しくない' },
+    ];
 
-    function getRoomNameRef() {
-        if (typeof currentRoomName !== 'undefined' && currentRoomName) return currentRoomName;
-        return global.currentRoomName || '';
-    }
-
-    function getCurrentUserAttribute() {
-        if (typeof currentUserAttribute !== 'undefined' && currentUserAttribute) return String(currentUserAttribute);
-        return String(global.currentUserAttribute || 'Player');
-    }
-
-    function safeInt(value, fallback) {
-        const n = Number.parseInt(value, 10);
-        return Number.isFinite(n) ? n : fallback;
-    }
-
-    function escapeHtml(value) {
-        return String(value ?? '').replace(/[&<>"']/g, (ch) => (
-            {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;',
-            }[ch]
-        ));
-    }
-
-    function clone(value) {
-        return JSON.parse(JSON.stringify(value));
-    }
+    const socketRef = () => ((typeof socket !== 'undefined' && socket) ? socket : (global.socket || null));
+    const roomRef = () => ((typeof currentRoomName !== 'undefined' && currentRoomName) ? currentRoomName : (global.currentRoomName || ''));
+    const isGm = () => String((typeof currentUserAttribute !== 'undefined' ? currentUserAttribute : global.currentUserAttribute) || 'Player').toUpperCase() === 'GM';
+    const i = (v, d = 0) => { const n = Number.parseInt(v, 10); return Number.isFinite(n) ? n : d; };
+    const h = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const c = (v) => JSON.parse(JSON.stringify(v));
 
     function openBattleOnlyStagePresetModal(options = {}) {
-        const socketRef = getSocketRef();
-        if (!socketRef) {
-            alert('Socket接続がありません。');
-            return;
-        }
-        const roomName = (options && Object.prototype.hasOwnProperty.call(options, 'room'))
-            ? (options.room || '')
-            : getRoomNameRef();
-        const isGm = String(getCurrentUserAttribute()).toUpperCase() === 'GM';
+        const s = socketRef();
+        if (!s) return alert('Socket接続がありません。');
+        if (typeof global.__boStagePresetModalCleanup === 'function') { try { global.__boStagePresetModalCleanup(); } catch (_e) {} }
+        document.getElementById('bo-stage-backdrop')?.remove();
 
-        if (typeof global.__boStagePresetModalCleanup === 'function') {
-            try { global.__boStagePresetModalCleanup(); } catch (_e) {}
-        }
-        const existing = document.getElementById('bo-stage-backdrop');
-        if (existing) existing.remove();
+        const state = {
+            enemy_formations: (options.enemy_formations && typeof options.enemy_formations === 'object') ? c(options.enemy_formations) : {},
+            sorted_enemy_formation_ids: Array.isArray(options.sorted_enemy_formation_ids) ? options.sorted_enemy_formation_ids.slice() : [],
+            ally_formations: (options.ally_formations && typeof options.ally_formations === 'object') ? c(options.ally_formations) : {},
+            sorted_ally_formation_ids: Array.isArray(options.sorted_ally_formation_ids) ? options.sorted_ally_formation_ids.slice() : [],
+            stage_presets: (options.stage_presets && typeof options.stage_presets === 'object') ? c(options.stage_presets) : {},
+            sorted_stage_preset_ids: Array.isArray(options.sorted_stage_preset_ids) ? options.sorted_stage_preset_ids.slice() : [],
+            selected_stage_id: null,
+            can_manage: (typeof options.can_manage === 'boolean') ? options.can_manage : isGm(),
+        };
 
         const overlay = document.createElement('div');
         overlay.id = 'bo-stage-backdrop';
         overlay.className = 'modal-backdrop';
-
-        const panel = document.createElement('div');
-        panel.className = 'modal-content bo-modal bo-modal--enemy-formation';
-        panel.innerHTML = `
-            <h3 class="bo-modal-title">ステージプリセット編集</h3>
-            <div class="bo-modal-lead">敵編成＋味方編成を束ねた、戦闘そのもののプリセットを管理します。</div>
-            <div class="bo-toolbar bo-toolbar--between">
-                <div class="bo-toolbar-group">
-                    <button id="bo-sp-refresh-btn" class="bo-btn bo-btn--sm bo-btn--neutral">再読み込み</button>
-                    <button id="bo-sp-clear-btn" class="bo-btn bo-btn--sm bo-btn--neutral">新規作成</button>
-                    <button id="bo-sp-open-catalog-btn" class="bo-btn bo-btn--sm bo-btn--neutral">編成管理へ戻る</button>
-                    <button id="bo-sp-import-btn" class="bo-btn bo-btn--sm bo-btn--neutral">JSON読込</button>
-                    <button id="bo-sp-export-current-btn" class="bo-btn bo-btn--sm bo-btn--neutral">このステージJSON</button>
-                    <input id="bo-sp-import-file" type="file" accept=".json,application/json" style="display:none;" />
-                </div>
-                <span id="bo-sp-msg" class="bo-inline-msg"></span>
-            </div>
-            <div class="bo-layout bo-layout--catalog">
-                <section class="bo-card">
-                    <div class="bo-field-grid bo-field-grid--2">
-                        <label class="bo-field"><span class="bo-field-label">ステージID（編集時のみ）</span>
-                            <input id="bo-sp-id" class="bo-input" placeholder="新規時は空欄" />
-                        </label>
-                        <label class="bo-field"><span class="bo-field-label">ステージ名</span>
-                            <input id="bo-sp-name" class="bo-input" placeholder="例: 入門: 翁と塩" />
-                        </label>
-                    </div>
-                    <div class="bo-field-grid bo-field-grid--2">
-                        <label class="bo-field"><span class="bo-field-label">敵編成</span>
-                            <select id="bo-sp-enemy" class="bo-select"></select>
-                        </label>
-                        <label class="bo-field"><span class="bo-field-label">味方編成（任意）</span>
-                            <select id="bo-sp-ally" class="bo-select"></select>
-                        </label>
-                    </div>
-                    <div class="bo-field-grid bo-field-grid--4">
-                        <label class="bo-field"><span class="bo-field-label">必要味方人数</span>
-                            <input id="bo-sp-required" class="bo-input" type="number" min="0" value="0" />
-                        </label>
-                        <label class="bo-field"><span class="bo-field-label">公開範囲</span>
-                            <select id="bo-sp-visibility" class="bo-select">
-                                <option value="public">全員に公開</option>
-                                <option value="gm">GMのみ</option>
-                            </select>
-                        </label>
-                        <label class="bo-field"><span class="bo-field-label">表示順</span>
-                            <input id="bo-sp-sort-key" class="bo-input" type="number" min="0" value="0" />
-                        </label>
-                        <label class="bo-field"><span class="bo-field-label">タグ（カンマ区切り）</span>
-                            <input id="bo-sp-tags" class="bo-input" placeholder="入門,2人向け" />
-                        </label>
-                    </div>
-                    <label class="bo-field"><span class="bo-field-label">コンセプト</span>
-                        <input id="bo-sp-concept" class="bo-input" placeholder="短い一言説明" />
-                    </label>
-                    <label class="bo-field"><span class="bo-field-label">説明文</span>
-                        <textarea id="bo-sp-description" class="bo-textarea bo-textarea--compact"></textarea>
-                    </label>
-                    <div class="bo-toolbar bo-toolbar--between">
-                        <button id="bo-sp-export-btn" class="bo-btn bo-btn--sm bo-btn--neutral">全ステージJSONダウンロード</button>
-                        <div class="bo-toolbar-group">
-                            <button id="bo-sp-save-btn" class="bo-btn bo-btn--sm bo-btn--success">ステージを保存</button>
-                            <button id="bo-sp-delete-btn" class="bo-btn bo-btn--sm bo-btn--danger">ステージを削除</button>
-                        </div>
-                    </div>
-                </section>
-                <section class="bo-card">
-                    <div class="bo-subcard-title">登録済みステージ</div>
-                    <div class="bo-subcard-note">読込で左フォームに反映します。</div>
-                    <div id="bo-sp-list" class="bo-list-box bo-list-box--tall"></div>
-                </section>
-            </div>
-            <div class="bo-footer-actions">
-                <button id="bo-sp-close-btn" class="bo-btn bo-btn--neutral">閉じる</button>
-            </div>
-        `;
-        overlay.appendChild(panel);
+        overlay.innerHTML = `
+<div class="modal-content bo-modal bo-modal--enemy-formation">
+  <h3 class="bo-modal-title">ステージプリセット管理</h3>
+  <div class="bo-modal-lead">敵編成・味方編成・ステージ効果をまとめて管理します。</div>
+  <div class="bo-toolbar bo-toolbar--between"><div class="bo-toolbar-group">
+    <button id="bo-sp-refresh-btn" class="bo-btn bo-btn--sm bo-btn--neutral">再読み込み</button>
+    <button id="bo-sp-clear-btn" class="bo-btn bo-btn--sm bo-btn--neutral">新規作成</button>
+    <button id="bo-sp-open-catalog-btn" class="bo-btn bo-btn--sm bo-btn--neutral">編成管理を開く</button>
+    <button id="bo-sp-import-btn" class="bo-btn bo-btn--sm bo-btn--neutral">JSON読込</button>
+    <button id="bo-sp-export-current-btn" class="bo-btn bo-btn--sm bo-btn--neutral">このステージJSON</button>
+    <input id="bo-sp-import-file" type="file" accept=".json,application/json" style="display:none;" />
+  </div><span id="bo-sp-msg" class="bo-inline-msg"></span></div>
+  <div class="bo-layout bo-layout--catalog">
+    <section class="bo-card">
+      <div class="bo-field-grid bo-field-grid--2">
+        <label class="bo-field"><span class="bo-field-label">ステージID（保存時のみ）</span><input id="bo-sp-id" class="bo-input" placeholder="新規時は空欄" /></label>
+        <label class="bo-field"><span class="bo-field-label">ステージ名</span><input id="bo-sp-name" class="bo-input" /></label>
+      </div>
+      <div class="bo-field-grid bo-field-grid--2">
+        <label class="bo-field"><span class="bo-field-label">敵編成</span><select id="bo-sp-enemy" class="bo-select"></select></label>
+        <label class="bo-field"><span class="bo-field-label">味方編成（任意）</span><select id="bo-sp-ally" class="bo-select"></select></label>
+      </div>
+      <div class="bo-field-grid bo-field-grid--4">
+        <label class="bo-field"><span class="bo-field-label">必要味方人数</span><input id="bo-sp-required" class="bo-input" type="number" min="0" value="0" /></label>
+        <label class="bo-field"><span class="bo-field-label">公開範囲</span><select id="bo-sp-visibility" class="bo-select"><option value="public">全体公開</option><option value="gm">GMのみ</option></select></label>
+        <label class="bo-field"><span class="bo-field-label">表示順</span><input id="bo-sp-sort-key" class="bo-input" type="number" min="0" value="0" /></label>
+        <label class="bo-field"><span class="bo-field-label">タグ（カンマ区切り）</span><input id="bo-sp-tags" class="bo-input" /></label>
+      </div>
+      <label class="bo-field"><span class="bo-field-label">コンセプト</span><input id="bo-sp-concept" class="bo-input" /></label>
+      <label class="bo-field"><span class="bo-field-label">説明文</span><textarea id="bo-sp-description" class="bo-textarea bo-textarea--compact"></textarea></label>
+      <div class="bo-field"><div class="bo-field-label">ステージ効果（かんたん設定）</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+          <button id="bo-sp-add-rule-btn" class="bo-btn bo-btn--xs bo-btn--neutral" type="button">効果ルールを追加</button>
+          <span style="font-size:12px;color:#666;">ルール単位で折りたたみ可能</span>
+        </div>
+        <div id="bo-sp-rules-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+      <div class="bo-field"><div class="bo-field-label">ステージアバター（表示用）</div>
+        <div class="bo-field-grid bo-field-grid--2">
+          <label class="bo-field"><span class="bo-field-label">有効</span><select id="bo-sp-avatar-enabled" class="bo-select"><option value="true">有効</option><option value="false">無効</option></select></label>
+          <label class="bo-field"><span class="bo-field-label">アイコン文字</span><input id="bo-sp-avatar-icon" class="bo-input" /></label>
+        </div>
+        <div class="bo-field-grid bo-field-grid--2">
+          <label class="bo-field"><span class="bo-field-label">アバター名</span><input id="bo-sp-avatar-name" class="bo-input" /></label>
+          <label class="bo-field"><span class="bo-field-label">説明</span><input id="bo-sp-avatar-description" class="bo-input" /></label>
+        </div>
+      </div>
+      <details class="bo-field"><summary class="bo-field-label" style="cursor:pointer;">上級者向けJSON編集</summary>
+        <label class="bo-field"><span class="bo-field-label">フィールド効果（JSON）</span><textarea id="bo-sp-field-effects-json" class="bo-textarea bo-textarea--compact"></textarea></label>
+        <label class="bo-field"><span class="bo-field-label">ステージアバター（JSON）</span><textarea id="bo-sp-stage-avatar-json" class="bo-textarea bo-textarea--compact"></textarea></label>
+      </details>
+      <div class="bo-toolbar bo-toolbar--between"><button id="bo-sp-export-btn" class="bo-btn bo-btn--sm bo-btn--neutral">全ステージJSONダウンロード</button><div class="bo-toolbar-group">
+        <button id="bo-sp-save-btn" class="bo-btn bo-btn--sm bo-btn--success">ステージを保存</button>
+        <button id="bo-sp-delete-btn" class="bo-btn bo-btn--sm bo-btn--danger">ステージを削除</button>
+      </div></div>
+    </section>
+    <section class="bo-card"><div class="bo-subcard-title">登録済みステージ</div><div class="bo-subcard-note">クリックでフォームに読み込みます。</div><div id="bo-sp-list" class="bo-list-box bo-list-box--tall"></div></section>
+  </div>
+  <div class="bo-footer-actions"><button id="bo-sp-close-btn" class="bo-btn bo-btn--neutral">閉じる</button></div>
+</div>`;
         document.body.appendChild(overlay);
 
-        const msgEl = panel.querySelector('#bo-sp-msg');
-        const idInput = panel.querySelector('#bo-sp-id');
-        const nameInput = panel.querySelector('#bo-sp-name');
-        const enemySelect = panel.querySelector('#bo-sp-enemy');
-        const allySelect = panel.querySelector('#bo-sp-ally');
-        const requiredInput = panel.querySelector('#bo-sp-required');
-        const visibilitySelect = panel.querySelector('#bo-sp-visibility');
-        const sortKeyInput = panel.querySelector('#bo-sp-sort-key');
-        const tagsInput = panel.querySelector('#bo-sp-tags');
-        const conceptInput = panel.querySelector('#bo-sp-concept');
-        const descriptionInput = panel.querySelector('#bo-sp-description');
-        const listEl = panel.querySelector('#bo-sp-list');
-        const importFileInput = panel.querySelector('#bo-sp-import-file');
-
-        const state = {
-            enemy_formations: (options && typeof options.enemy_formations === 'object') ? clone(options.enemy_formations) : {},
-            sorted_enemy_formation_ids: Array.isArray(options && options.sorted_enemy_formation_ids)
-                ? options.sorted_enemy_formation_ids.slice()
-                : [],
-            ally_formations: (options && typeof options.ally_formations === 'object') ? clone(options.ally_formations) : {},
-            sorted_ally_formation_ids: Array.isArray(options && options.sorted_ally_formation_ids)
-                ? options.sorted_ally_formation_ids.slice()
-                : [],
-            stage_presets: (options && typeof options.stage_presets === 'object') ? clone(options.stage_presets) : {},
-            sorted_stage_preset_ids: Array.isArray(options && options.sorted_stage_preset_ids)
-                ? options.sorted_stage_preset_ids.slice()
-                : [],
-            selected_stage_id: null,
-            can_manage: (typeof options.can_manage === 'boolean') ? options.can_manage : isGm,
+        const $ = (id) => overlay.querySelector(id);
+        const el = {
+            msg: $('#bo-sp-msg'), id: $('#bo-sp-id'), name: $('#bo-sp-name'), enemy: $('#bo-sp-enemy'), ally: $('#bo-sp-ally'),
+            required: $('#bo-sp-required'), visibility: $('#bo-sp-visibility'), sort: $('#bo-sp-sort-key'), tags: $('#bo-sp-tags'),
+            concept: $('#bo-sp-concept'), desc: $('#bo-sp-description'), rules: $('#bo-sp-rules-list'),
+            avatarEnabled: $('#bo-sp-avatar-enabled'), avatarIcon: $('#bo-sp-avatar-icon'), avatarName: $('#bo-sp-avatar-name'), avatarDesc: $('#bo-sp-avatar-description'),
+            effectJson: $('#bo-sp-field-effects-json'), avatarJson: $('#bo-sp-stage-avatar-json'), list: $('#bo-sp-list'), file: $('#bo-sp-import-file'),
         };
-
         const listeners = [];
-        function onSocket(eventName, fn) {
-            socketRef.on(eventName, fn);
-            listeners.push([eventName, fn]);
-        }
-
-        function setMsg(text, color) {
-            if (!msgEl) return;
-            msgEl.textContent = text || '';
-            msgEl.style.color = color || '#666';
-        }
-
-        function normalizeImportedStagePreset(parsed) {
-            let src = parsed;
-            if (!src || typeof src !== 'object') return null;
-            if (src.record && typeof src.record === 'object') src = src.record;
-            if (src.items && typeof src.items === 'object' && !Array.isArray(src.items)) {
-                const values = Object.values(src.items).filter((x) => x && typeof x === 'object');
-                if (values.length === 1) src = values[0];
-            }
-            if (!src || typeof src !== 'object') return null;
-            const enemyFormationId = String(src.enemy_formation_id || '').trim();
-            if (!enemyFormationId) return null;
-            return {
-                id: String(src.id || '').trim(),
-                name: String(src.name || '').trim(),
-                visibility: String(src.visibility || 'public').trim().toLowerCase() === 'gm' ? 'gm' : 'public',
-                enemy_formation_id: enemyFormationId,
-                ally_formation_id: String(src.ally_formation_id || '').trim() || null,
-                required_ally_count: Math.max(0, safeInt(src.required_ally_count, 0)),
-                sort_key: Math.max(0, safeInt(src.sort_key, 0)),
-                tags: Array.isArray(src.tags) ? src.tags.map((x) => String(x).trim()).filter((x) => !!x) : [],
-                concept: String(src.concept || '').trim(),
-                description: String(src.description || '').trim(),
-            };
-        }
-
-        function exportStagePresetRecord(rec) {
-            if (!rec || typeof rec !== 'object') {
-                setMsg('出力対象のステージがありません。', 'red');
-                return;
-            }
-            const record = {
-                id: String(rec.id || '').trim(),
-                name: String(rec.name || '').trim(),
-                visibility: String(rec.visibility || 'public').trim().toLowerCase() === 'gm' ? 'gm' : 'public',
-                enemy_formation_id: String(rec.enemy_formation_id || '').trim(),
-                ally_formation_id: String(rec.ally_formation_id || '').trim() || null,
-                required_ally_count: Math.max(0, safeInt(rec.required_ally_count, 0)),
-                sort_key: Math.max(0, safeInt(rec.sort_key, 0)),
-                tags: Array.isArray(rec.tags) ? rec.tags.map((x) => String(x).trim()).filter((x) => !!x) : [],
-                concept: String(rec.concept || '').trim(),
-                description: String(rec.description || '').trim(),
-            };
-            if (!record.enemy_formation_id) {
-                setMsg('敵編成が設定されていないため出力できません。', 'red');
-                return;
-            }
-            const payload = {
-                kind: 'bo_stage_preset',
-                version: 1,
-                exported_at: new Date().toISOString(),
-                record,
-            };
-            downloadTextFile(buildStagePresetFilename(record), JSON.stringify(payload, null, 2));
-            setMsg('ステージJSONをダウンロードしました。', 'green');
-        }
-
-        function stageIds() {
-            const ids = (Array.isArray(state.sorted_stage_preset_ids) && state.sorted_stage_preset_ids.length)
-                ? state.sorted_stage_preset_ids.slice()
-                : Object.keys(state.stage_presets || {}).sort();
-            ids.sort((a, b) => {
-                const sa = state.stage_presets[a] || {};
-                const sb = state.stage_presets[b] || {};
-                const ka = safeInt(sa.sort_key, 0);
-                const kb = safeInt(sb.sort_key, 0);
-                if (ka !== kb) return ka - kb;
+        const on = (e, f) => { s.on(e, f); listeners.push([e, f]); };
+        const msg = (t, color = '#666') => { el.msg.textContent = String(t || ''); el.msg.style.color = color; };
+        const profile = () => ({ version: 1, rules: Array.from(el.rules.querySelectorAll('.bo-sp-rule-row')).map((row, idx) => {
+            const out = { type: row.querySelector('.bo-sp-rule-type').value, scope: row.querySelector('.bo-sp-rule-scope').value, priority: i(row.querySelector('.bo-sp-rule-priority').value, 0), value: i(row.querySelector('.bo-sp-rule-value').value, 0), rule_id: row.querySelector('.bo-sp-rule-id').value.trim() || `rule_${idx + 1}` };
+            const stateName = row.querySelector('.bo-sp-rule-state-name').value.trim(); if (stateName) out.state_name = stateName;
+            const trigger = row.querySelector('.bo-sp-rule-trigger-state').value.trim(); if (trigger) out.trigger_state_name = trigger;
+            const cp = row.querySelector('.bo-sp-rule-cond-param').value.trim(), cv = row.querySelector('.bo-sp-rule-cond-value').value.trim();
+            if (cp || cv !== '') out.condition = { param: cp || 'HP', operator: row.querySelector('.bo-sp-rule-cond-op').value, value: i(cv, 0) };
+            return out;
+        }) });
+        const avatar = () => ({ enabled: el.avatarEnabled.value !== 'false', name: el.avatarName.value.trim(), description: el.avatarDesc.value.trim(), icon: el.avatarIcon.value.trim() });
+        const syncJson = () => { refreshRuleSummary(); ensureEmptyRuleState(); el.effectJson.value = JSON.stringify(profile(), null, 2); el.avatarJson.value = JSON.stringify(avatar(), null, 2); };
+        const setAvatar = (a) => { const v = (a && typeof a === 'object') ? a : {}; el.avatarEnabled.value = v.enabled === false ? 'false' : 'true'; el.avatarName.value = String(v.name || ''); el.avatarDesc.value = String(v.description || ''); el.avatarIcon.value = String(v.icon || ''); };
+        const ensureEmptyRuleState = () => { if (!el.rules.querySelector('.bo-sp-rule-row')) el.rules.innerHTML = '<div class="bo-empty" style="padding:8px;border:1px dashed #dbe4f0;border-radius:8px;color:#6b7280;">現在、効果ルールはありません。「効果ルールを追加」を押して作成してください。</div>'; };
+        const refreshRuleSummary = () => Array.from(el.rules.querySelectorAll('.bo-sp-rule-row')).forEach((row, idx) => {
+            const t = RULE_TYPES.find((x) => x.value === row.querySelector('.bo-sp-rule-type').value)?.label || row.querySelector('.bo-sp-rule-type').value;
+            const sc = SCOPES.find((x) => x.value === row.querySelector('.bo-sp-rule-scope').value)?.label || row.querySelector('.bo-sp-rule-scope').value;
+            row.querySelector('.bo-sp-rule-summary-text').textContent = `効果ルール ${idx + 1}: ${t} / ${sc} / 値 ${row.querySelector('.bo-sp-rule-value').value || 0}`;
+        });
+        const addRuleRow = (r = {}, open = true) => {
+            if (!el.rules.querySelector('.bo-sp-rule-row')) el.rules.innerHTML = '';
+            const type = String(r.type || 'SPEED_ROLL_MOD').toUpperCase(), scope = String(r.scope || 'ALL').toUpperCase(), cond = (r.condition && typeof r.condition === 'object') ? r.condition : {};
+            const d = document.createElement('details'); d.className = 'bo-sp-rule-row'; if (open) d.open = true; d.style.cssText = 'border:1px solid #dbe4f0;border-radius:8px;background:#f8fbff;';
+            d.innerHTML = `<summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #dbe4f0;"><strong class="bo-sp-rule-summary-text">効果ルール</strong><span style="font-size:11px;color:#6b7280;">クリックで開閉</span></summary><div style="padding:8px;"><div style="display:flex;justify-content:flex-end;margin-bottom:6px;"><button type="button" class="bo-btn bo-btn--xs bo-btn--danger bo-sp-rule-remove">削除</button></div><div class="bo-field-grid bo-field-grid--4"><label class="bo-field"><span class="bo-field-label">種類</span><select class="bo-select bo-sp-rule-type">${RULE_TYPES.map((x) => `<option value="${h(x.value)}"${x.value === type ? ' selected' : ''}>${h(x.label)}</option>`).join('')}</select></label><label class="bo-field"><span class="bo-field-label">対象</span><select class="bo-select bo-sp-rule-scope">${SCOPES.map((x) => `<option value="${h(x.value)}"${x.value === scope ? ' selected' : ''}>${h(x.label)}</option>`).join('')}</select></label><label class="bo-field"><span class="bo-field-label">値</span><input class="bo-input bo-sp-rule-value" value="${h(r.value ?? '')}" /></label><label class="bo-field"><span class="bo-field-label">優先度</span><input class="bo-input bo-sp-rule-priority" type="number" value="${h(i(r.priority, 0))}" /></label></div><div class="bo-field-grid bo-field-grid--4"><label class="bo-field"><span class="bo-field-label">ルールID（任意）</span><input class="bo-input bo-sp-rule-id" value="${h(r.rule_id || '')}" /></label><label class="bo-field"><span class="bo-field-label">付与する状態</span><input class="bo-input bo-sp-rule-state-name" value="${h(r.state_name || '')}" /></label><label class="bo-field"><span class="bo-field-label">トリガー状態名</span><input class="bo-input bo-sp-rule-trigger-state" value="${h(r.trigger_state_name || '')}" /></label><label class="bo-field"><span class="bo-field-label">条件パラメータ</span><input class="bo-input bo-sp-rule-cond-param" value="${h(cond.param || '')}" /></label></div><div class="bo-field-grid bo-field-grid--2"><label class="bo-field"><span class="bo-field-label">条件演算子</span><select class="bo-select bo-sp-rule-cond-op">${OPS.map((x) => `<option value="${h(x.value)}"${x.value === String(cond.operator || 'GTE').toUpperCase() ? ' selected' : ''}>${h(x.label)}</option>`).join('')}</select></label><label class="bo-field"><span class="bo-field-label">条件値</span><input class="bo-input bo-sp-rule-cond-value" value="${h(cond.value ?? '')}" /></label></div></div>`;
+            d.querySelector('.bo-sp-rule-remove').addEventListener('click', () => { d.remove(); syncJson(); });
+            d.querySelectorAll('input,select').forEach((n) => { n.addEventListener('input', syncJson); n.addEventListener('change', syncJson); });
+            el.rules.appendChild(d); syncJson();
+        };
+        const setRules = (rules) => { el.rules.innerHTML = ''; (Array.isArray(rules) ? rules : []).forEach((r) => addRuleRow(r, false)); syncJson(); };
+        const formToPayload = () => ({
+            id: el.id.value.trim() || undefined, name: el.name.value.trim(), enemy_formation_id: el.enemy.value.trim(), ally_formation_id: el.ally.value.trim() || null,
+            required_ally_count: Math.max(0, i(el.required.value, 0)), visibility: el.visibility.value || 'public',
+            sort_key: Math.max(0, i(el.sort.value, 0)), tags: el.tags.value.split(',').map((x) => x.trim()).filter(Boolean),
+            concept: el.concept.value.trim(), description: el.desc.value.trim(), field_effect_profile: profile(), stage_avatar: avatar(),
+        });
+        const loadToForm = (rec, sid = null) => {
+            state.selected_stage_id = sid; el.id.value = String(rec.id || sid || ''); el.name.value = String(rec.name || ''); el.enemy.value = String(rec.enemy_formation_id || '');
+            el.ally.value = String(rec.ally_formation_id || ''); el.required.value = String(Math.max(0, i(rec.required_ally_count, 0))); el.visibility.value = (String(rec.visibility || 'public') === 'gm' ? 'gm' : 'public');
+            el.sort.value = String(Math.max(0, i(rec.sort_key, 0))); el.tags.value = Array.isArray(rec.tags) ? rec.tags.join(', ') : ''; el.concept.value = String(rec.concept || ''); el.desc.value = String(rec.description || '');
+            setRules(Array.isArray(rec?.field_effect_profile?.rules) ? rec.field_effect_profile.rules : []); setAvatar(rec.stage_avatar || {}); syncJson(); renderList();
+        };
+        const clearForm = () => loadToForm({}, null);
+        const renderFormationOptions = () => {
+            const enemyIds = (state.sorted_enemy_formation_ids.length ? state.sorted_enemy_formation_ids.slice() : Object.keys(state.enemy_formations || {}).sort());
+            el.enemy.innerHTML = ['<option value="">- 敵編成を選択 -</option>'].concat(enemyIds.map((id) => `<option value="${h(id)}">${h(state.enemy_formations[id]?.name || id)} [${h(id)}]</option>`)).join('');
+            const allyIds = (state.sorted_ally_formation_ids.length ? state.sorted_ally_formation_ids.slice() : Object.keys(state.ally_formations || {}).sort());
+            el.ally.innerHTML = ['<option value="">- 味方編成なし -</option>'].concat(allyIds.map((id) => `<option value="${h(id)}">${h(state.ally_formations[id]?.name || id)} [${h(id)}]</option>`)).join('');
+        };
+        const renderList = () => {
+            const ids = (state.sorted_stage_preset_ids.length ? state.sorted_stage_preset_ids.slice() : Object.keys(state.stage_presets || {}).sort()).sort((a, b) => {
+                const sa = state.stage_presets[a] || {}, sb = state.stage_presets[b] || {}; const ka = i(sa.sort_key, 0), kb = i(sb.sort_key, 0); if (ka !== kb) return ka - kb;
                 return String(sa.name || a).localeCompare(String(sb.name || b), 'ja');
             });
-            return ids;
-        }
-
-        function renderFormationOptions() {
-            const enemyIds = (Array.isArray(state.sorted_enemy_formation_ids) && state.sorted_enemy_formation_ids.length)
-                ? state.sorted_enemy_formation_ids.slice()
-                : Object.keys(state.enemy_formations || {}).sort();
-            enemySelect.innerHTML = ['<option value="">（敵編成を選択）</option>']
-                .concat(enemyIds.map((id) => {
-                    const rec = state.enemy_formations[id] || {};
-                    return `<option value="${escapeHtml(id)}">${escapeHtml(rec.name || id)} [${escapeHtml(id)}]</option>`;
-                })).join('');
-
-            const allyIds = (Array.isArray(state.sorted_ally_formation_ids) && state.sorted_ally_formation_ids.length)
-                ? state.sorted_ally_formation_ids.slice()
-                : Object.keys(state.ally_formations || {}).sort();
-            allySelect.innerHTML = ['<option value="">（味方編成なし）</option>']
-                .concat(allyIds.map((id) => {
-                    const rec = state.ally_formations[id] || {};
-                    return `<option value="${escapeHtml(id)}">${escapeHtml(rec.name || id)} [${escapeHtml(id)}]</option>`;
-                })).join('');
-        }
-
-        function clearEditor() {
-            state.selected_stage_id = null;
-            idInput.value = '';
-            nameInput.value = '';
-            enemySelect.value = '';
-            allySelect.value = '';
-            requiredInput.value = '0';
-            visibilitySelect.value = 'public';
-            sortKeyInput.value = '0';
-            tagsInput.value = '';
-            conceptInput.value = '';
-            descriptionInput.value = '';
-            renderList();
-        }
-
-        function loadStageToEditor(stageId) {
-            const rec = state.stage_presets[stageId];
-            if (!rec) return;
-            state.selected_stage_id = stageId;
-            idInput.value = String(rec.id || stageId);
-            nameInput.value = String(rec.name || '');
-            enemySelect.value = String(rec.enemy_formation_id || '');
-            allySelect.value = String(rec.ally_formation_id || '');
-            requiredInput.value = String(Math.max(0, safeInt(rec.required_ally_count, 0)));
-            visibilitySelect.value = String(rec.visibility || 'public') === 'gm' ? 'gm' : 'public';
-            sortKeyInput.value = String(Math.max(0, safeInt(rec.sort_key, 0)));
-            tagsInput.value = Array.isArray(rec.tags) ? rec.tags.join(', ') : '';
-            conceptInput.value = String(rec.concept || '');
-            descriptionInput.value = String(rec.description || '');
-            renderList();
-        }
-
-        function renderList() {
-            const ids = stageIds();
-            if (!ids.length) {
-                listEl.innerHTML = '<div class="bo-empty">ステージプリセットがありません。</div>';
-                return;
-            }
-            listEl.innerHTML = ids.map((id) => {
-                const rec = state.stage_presets[id] || {};
-                const selected = state.selected_stage_id === id;
-                const vis = String(rec.visibility || 'public') === 'gm' ? 'GMのみ' : '全員公開';
-                return `
-                    <div class="bo-list-row${selected ? ' is-selected' : ''}" data-id="${escapeHtml(id)}" style="cursor:pointer;">
-                        <div class="bo-list-main" style="cursor:pointer;">
-                            <div class="bo-list-title">${escapeHtml(rec.name || id)}</div>
-                            <div class="bo-list-meta">ID:${escapeHtml(id)} / ${escapeHtml(vis)} / 必要味方:${Math.max(0, safeInt(rec.required_ally_count, 0))} / 表示順:${Math.max(0, safeInt(rec.sort_key, 0))}</div>
-                            <div class="bo-list-meta">${escapeHtml(rec.concept || '')}</div>
-                        </div>
-                        <div class="bo-list-actions">
-                            <button class="bo-sp-download-btn bo-btn bo-btn--xs bo-btn--neutral" data-id="${escapeHtml(id)}">JSON</button>
-                        </div>
-                    </div>
-                `;
+            if (!ids.length) { el.list.innerHTML = '<div class="bo-empty">ステージプリセットはまだありません。</div>'; return; }
+            el.list.innerHTML = ids.map((id) => { const r = state.stage_presets[id] || {}, vis = (String(r.visibility || 'public') === 'gm' ? 'GMのみ' : '全体公開'), cnt = Array.isArray(r?.field_effect_profile?.rules) ? r.field_effect_profile.rules.length : 0;
+                return `<div class="bo-list-row${state.selected_stage_id === id ? ' is-selected' : ''}" data-id="${h(id)}" style="cursor:pointer;"><div class="bo-list-main" style="cursor:pointer;"><div class="bo-list-title">${h(r.name || id)}</div><div class="bo-list-meta">ID:${h(id)} / ${h(vis)} / 必要味方:${Math.max(0, i(r.required_ally_count, 0))} / 表示順:${Math.max(0, i(r.sort_key, 0))}</div><div class="bo-list-meta">効果ルール:${cnt} / ${h(r.concept || '')}</div></div><div class="bo-list-actions"><button class="bo-sp-download-btn bo-btn bo-btn--xs bo-btn--neutral" data-id="${h(id)}">JSON</button></div></div>`;
             }).join('');
-            listEl.querySelectorAll('.bo-list-main').forEach((row) => {
-                row.addEventListener('click', () => {
-                    const card = row.closest('.bo-list-row');
-                    const id = String(card && card.getAttribute('data-id') || '').trim();
-                    if (id) loadStageToEditor(id);
-                });
-            });
-            listEl.querySelectorAll('.bo-sp-download-btn').forEach((btn) => {
-                btn.addEventListener('click', () => {
-                    const id = String(btn.getAttribute('data-id') || '').trim();
-                    if (!id) return;
-                    exportStagePresetRecord(state.stage_presets[id]);
-                });
-            });
-        }
+            el.list.querySelectorAll('.bo-list-main').forEach((n) => n.addEventListener('click', () => { const id = n.closest('.bo-list-row')?.getAttribute('data-id') || ''; if (id) loadToForm(state.stage_presets[id] || {}, id); }));
+            el.list.querySelectorAll('.bo-sp-download-btn').forEach((n) => n.addEventListener('click', () => { const id = n.getAttribute('data-id') || ''; if (!id) return; const payload = { kind: 'bo_stage_preset', version: 1, exported_at: new Date().toISOString(), record: state.stage_presets[id] }; download(`bo_stage_preset_${id}.json`, JSON.stringify(payload, null, 2)); msg('ステージJSONをダウンロードしました。', 'green'); }));
+        };
+        const download = (name, content) => { const b = new Blob([String(content || '')], { type: 'application/json;charset=utf-8' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 0); };
+        const requestAll = () => { s.emit('request_bo_catalog_list', {}); s.emit('request_bo_stage_preset_list', {}); };
 
-        function requestAll() {
-            socketRef.emit('request_bo_catalog_list', {});
-            socketRef.emit('request_bo_stage_preset_list', {});
-        }
+        $('#bo-sp-add-rule-btn').addEventListener('click', () => addRuleRow({}, true));
+        [el.avatarEnabled, el.avatarIcon, el.avatarName, el.avatarDesc].forEach((n) => { n.addEventListener('input', syncJson); n.addEventListener('change', syncJson); });
+        el.effectJson.addEventListener('change', () => { try { const p = JSON.parse(el.effectJson.value || '{}'); setRules(Array.isArray(p.rules) ? p.rules : []); msg('フィールド効果JSONをフォームへ反映しました。', 'green'); } catch (e) { msg(`JSON解析に失敗しました: ${e.message}`, 'red'); } });
+        el.avatarJson.addEventListener('change', () => { try { setAvatar(JSON.parse(el.avatarJson.value || '{}')); syncJson(); msg('ステージアバターJSONをフォームへ反映しました。', 'green'); } catch (e) { msg(`JSON解析に失敗しました: ${e.message}`, 'red'); } });
+        $('#bo-sp-refresh-btn').addEventListener('click', requestAll);
+        $('#bo-sp-clear-btn').addEventListener('click', clearForm);
+        $('#bo-sp-open-catalog-btn').addEventListener('click', () => { if (typeof global.openBattleOnlyCatalogModal === 'function') global.openBattleOnlyCatalogModal({ room: roomRef() || null }); });
+        $('#bo-sp-import-btn').addEventListener('click', () => { el.file.value = ''; el.file.click(); });
+        el.file.addEventListener('change', () => {
+            const f = el.file.files?.[0]; if (!f) return; const r = new FileReader();
+            r.onload = () => { try { const src = JSON.parse(String(r.result || '{}')); const rec = (src.record && typeof src.record === 'object') ? src.record : src; if (!rec || typeof rec !== 'object' || !String(rec.enemy_formation_id || '').trim()) return msg('ステージJSONとして読み込めませんでした。', 'red'); loadToForm(rec, null); msg('ステージJSONをフォームに読み込みました。', 'green'); } catch (e) { msg(`JSON解析に失敗しました: ${e.message}`, 'red'); } };
+            r.readAsText(f, 'utf-8');
+        });
+        $('#bo-sp-export-current-btn').addEventListener('click', () => { const rec = formToPayload(); rec.id = rec.id || null; rec.name = rec.name || '(未保存ステージ)'; if (!rec.enemy_formation_id) return msg('敵編成が未設定のため書き出せません。', 'red'); download(`bo_stage_preset_${rec.id || 'new'}.json`, JSON.stringify({ kind: 'bo_stage_preset', version: 1, exported_at: new Date().toISOString(), record: rec }, null, 2)); msg('ステージJSONをダウンロードしました。', 'green'); });
+        $('#bo-sp-save-btn').addEventListener('click', () => { const payload = formToPayload(); if (!payload.name) return msg('ステージ名は必須です。', 'red'); if (!payload.enemy_formation_id) return msg('敵編成は必須です。', 'red'); s.emit('request_bo_stage_preset_save', { payload, overwrite: true }); msg('保存を実行しました。', '#444'); });
+        $('#bo-sp-delete-btn').addEventListener('click', () => { const id = String(el.id.value || '').trim(); if (!id) return msg('削除するにはステージIDが必要です。', 'red'); if (!confirm(`ステージ ${id} を削除しますか？`)) return; s.emit('request_bo_stage_preset_delete', { id }); msg('削除を実行しました。', '#444'); });
+        $('#bo-sp-export-btn').addEventListener('click', () => s.emit('request_bo_export_stage_presets_json', {}));
 
-        function downloadTextFile(filename, content) {
-            const blob = new Blob([String(content || '')], { type: 'application/json;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename || `bo_stage_presets_${Date.now()}.json`;
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => {
-                URL.revokeObjectURL(url);
-                a.remove();
-            }, 0);
-        }
+        on('receive_bo_catalog_list', (d) => {
+            state.enemy_formations = (d && typeof d.enemy_formations === 'object') ? d.enemy_formations : {};
+            state.sorted_enemy_formation_ids = Array.isArray(d?.sorted_enemy_formation_ids) ? d.sorted_enemy_formation_ids : Object.keys(state.enemy_formations).sort();
+            state.ally_formations = (d && typeof d.ally_formations === 'object') ? d.ally_formations : {};
+            state.sorted_ally_formation_ids = Array.isArray(d?.sorted_ally_formation_ids) ? d.sorted_ally_formation_ids : Object.keys(state.ally_formations).sort();
+            if (d && typeof d.stage_presets === 'object') { state.stage_presets = d.stage_presets; state.sorted_stage_preset_ids = Array.isArray(d.sorted_stage_preset_ids) ? d.sorted_stage_preset_ids : Object.keys(state.stage_presets).sort(); }
+            state.can_manage = !!d?.can_manage; renderFormationOptions(); renderList();
+        });
+        on('bo_stage_preset_list', (d) => { state.stage_presets = (d && typeof d.stage_presets === 'object') ? d.stage_presets : {}; state.sorted_stage_preset_ids = Array.isArray(d?.sorted_stage_preset_ids) ? d.sorted_stage_preset_ids : Object.keys(state.stage_presets).sort(); state.can_manage = !!d?.can_manage; renderList(); });
+        on('bo_stage_preset_saved', (d) => { const rec = d?.record; const id = String(rec?.id || d?.id || '').trim(); if (id && rec && typeof rec === 'object') { state.stage_presets[id] = rec; if (!state.sorted_stage_preset_ids.includes(id)) state.sorted_stage_preset_ids.push(id); loadToForm(rec, id); } renderList(); msg('ステージを保存しました。', 'green'); });
+        on('bo_stage_preset_deleted', (d) => { const id = String(d?.id || '').trim(); if (id) delete state.stage_presets[id]; state.sorted_stage_preset_ids = state.sorted_stage_preset_ids.filter((x) => x !== id); if (state.selected_stage_id === id) clearForm(); renderList(); msg('ステージを削除しました。', 'green'); });
+        on('bo_export_stage_presets_json', (d) => { download(String(d?.filename || `bo_stage_presets_${Date.now()}.json`), String(d?.content || '{}')); msg('ステージJSONをダウンロードしました。', 'green'); });
+        ['bo_stage_preset_error', 'bo_catalog_error'].forEach((e) => on(e, (d) => msg(String(d?.message || 'エラーが発生しました。'), 'red')));
 
-        function sanitizeFilenamePart(value) {
-            return String(value || '')
-                .replace(/[\\/:*?"<>|]/g, '_')
-                .replace(/[\u0000-\u001f]/g, '')
-                .replace(/\s+/g, '_')
-                .replace(/_+/g, '_')
-                .replace(/^_+|_+$/g, '');
-        }
+        const setEditable = (enabled) => {
+            [el.id, el.name, el.enemy, el.ally, el.required, el.visibility, el.sort, el.tags, el.concept, el.desc, $('#bo-sp-add-rule-btn'), el.avatarEnabled, el.avatarIcon, el.avatarName, el.avatarDesc, el.effectJson, el.avatarJson, $('#bo-sp-save-btn'), $('#bo-sp-delete-btn')].forEach((n) => { if (n) n.disabled = !enabled; });
+            if (!enabled) msg('この画面は閲覧専用です。保存・削除はGMのみ可能です。', '#6b7280');
+        };
+        const closeModal = () => { while (listeners.length) { const [e, f] = listeners.pop(); s.off(e, f); } overlay.remove(); if (global.__boStagePresetModalCleanup === closeModal) global.__boStagePresetModalCleanup = null; };
+        $('#bo-sp-close-btn').addEventListener('click', closeModal);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
-        function buildStagePresetFilename(record) {
-            const idPart = sanitizeFilenamePart(record && record.id);
-            const namePart = sanitizeFilenamePart(record && record.name);
-            const parts = [];
-            if (idPart) parts.push(idPart);
-            if (namePart) parts.push(namePart);
-            if (!parts.length) parts.push(`new_${Date.now()}`);
-            return `bo_stage_preset_${parts.join('_')}.json`;
-        }
-
-        panel.querySelector('#bo-sp-refresh-btn')?.addEventListener('click', requestAll);
-        panel.querySelector('#bo-sp-clear-btn')?.addEventListener('click', clearEditor);
-        panel.querySelector('#bo-sp-open-catalog-btn')?.addEventListener('click', () => {
-            if (typeof global.openBattleOnlyCatalogModal === 'function') {
-                global.openBattleOnlyCatalogModal({ room: roomName || null });
-            }
-        });
-        panel.querySelector('#bo-sp-import-btn')?.addEventListener('click', () => {
-            if (!importFileInput) return;
-            importFileInput.value = '';
-            importFileInput.click();
-        });
-        importFileInput?.addEventListener('change', () => {
-            const file = importFileInput.files && importFileInput.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = () => {
-                try {
-                    const parsed = JSON.parse(String(reader.result || ''));
-                    const rec = normalizeImportedStagePreset(parsed);
-                    if (!rec) {
-                        setMsg('ステージJSONとして読み込めませんでした。', 'red');
-                        return;
-                    }
-                    state.selected_stage_id = null;
-                    idInput.value = rec.id || '';
-                    nameInput.value = rec.name || '';
-                    enemySelect.value = rec.enemy_formation_id || '';
-                    allySelect.value = rec.ally_formation_id || '';
-                    requiredInput.value = String(rec.required_ally_count || 0);
-                    visibilitySelect.value = rec.visibility || 'public';
-                    sortKeyInput.value = String(rec.sort_key || 0);
-                    tagsInput.value = Array.isArray(rec.tags) ? rec.tags.join(', ') : '';
-                    conceptInput.value = rec.concept || '';
-                    descriptionInput.value = rec.description || '';
-                    renderList();
-                    setMsg('ステージJSONをフォームに読み込みました。保存すると登録されます。', 'green');
-                } catch (e) {
-                    setMsg(`JSON解析に失敗しました: ${e.message}`, 'red');
-                }
-            };
-            reader.readAsText(file, 'utf-8');
-        });
-        panel.querySelector('#bo-sp-export-current-btn')?.addEventListener('click', () => {
-            const rec = {
-                id: String(idInput.value || '').trim() || null,
-                name: String(nameInput.value || '').trim() || '(未保存のステージ)',
-                visibility: String(visibilitySelect.value || 'public'),
-                enemy_formation_id: String(enemySelect.value || '').trim(),
-                ally_formation_id: String(allySelect.value || '').trim() || null,
-                required_ally_count: Math.max(0, safeInt(requiredInput.value, 0)),
-                sort_key: Math.max(0, safeInt(sortKeyInput.value, 0)),
-                tags: String(tagsInput.value || '').split(',').map((x) => x.trim()).filter((x) => !!x),
-                concept: String(conceptInput.value || '').trim(),
-                description: String(descriptionInput.value || '').trim(),
-            };
-            exportStagePresetRecord(rec);
-        });
-        panel.querySelector('#bo-sp-save-btn')?.addEventListener('click', () => {
-            const payload = {
-                id: String(idInput.value || '').trim() || undefined,
-                name: String(nameInput.value || '').trim(),
-                enemy_formation_id: String(enemySelect.value || '').trim(),
-                ally_formation_id: String(allySelect.value || '').trim() || null,
-                required_ally_count: Math.max(0, safeInt(requiredInput.value, 0)),
-                visibility: String(visibilitySelect.value || 'public'),
-                sort_key: Math.max(0, safeInt(sortKeyInput.value, 0)),
-                tags: String(tagsInput.value || '').split(',').map((x) => x.trim()).filter((x) => !!x),
-                concept: String(conceptInput.value || '').trim(),
-                description: String(descriptionInput.value || '').trim(),
-            };
-            if (!payload.name) {
-                setMsg('ステージ名は必須です。', 'red');
-                return;
-            }
-            if (!payload.enemy_formation_id) {
-                setMsg('敵編成は必須です。', 'red');
-                return;
-            }
-            socketRef.emit('request_bo_stage_preset_save', { payload, overwrite: true });
-            setMsg('ステージ保存を送信しました。', '#444');
-        });
-        panel.querySelector('#bo-sp-delete-btn')?.addEventListener('click', () => {
-            const id = String(idInput.value || '').trim();
-            if (!id) {
-                setMsg('削除するにはステージIDが必要です。', 'red');
-                return;
-            }
-            if (!confirm(`ステージ ${id} を削除しますか？`)) return;
-            socketRef.emit('request_bo_stage_preset_delete', { id });
-            setMsg('ステージ削除を送信しました。', '#444');
-        });
-        panel.querySelector('#bo-sp-export-btn')?.addEventListener('click', () => {
-            socketRef.emit('request_bo_export_stage_presets_json', {});
-        });
-
-        onSocket('receive_bo_catalog_list', (data) => {
-            state.enemy_formations = (data && typeof data.enemy_formations === 'object') ? data.enemy_formations : {};
-            state.sorted_enemy_formation_ids = (data && Array.isArray(data.sorted_enemy_formation_ids))
-                ? data.sorted_enemy_formation_ids
-                : Object.keys(state.enemy_formations).sort();
-            state.ally_formations = (data && typeof data.ally_formations === 'object') ? data.ally_formations : {};
-            state.sorted_ally_formation_ids = (data && Array.isArray(data.sorted_ally_formation_ids))
-                ? data.sorted_ally_formation_ids
-                : Object.keys(state.ally_formations).sort();
-            const incomingStages = (data && typeof data.stage_presets === 'object') ? data.stage_presets : null;
-            if (incomingStages) {
-                state.stage_presets = incomingStages;
-                state.sorted_stage_preset_ids = (data && Array.isArray(data.sorted_stage_preset_ids))
-                    ? data.sorted_stage_preset_ids
-                    : Object.keys(state.stage_presets).sort();
-            }
-            state.can_manage = !!(data && data.can_manage);
-            renderFormationOptions();
-            renderList();
-        });
-        onSocket('bo_stage_preset_list', (data) => {
-            state.stage_presets = (data && typeof data.stage_presets === 'object') ? data.stage_presets : {};
-            state.sorted_stage_preset_ids = (data && Array.isArray(data.sorted_stage_preset_ids))
-                ? data.sorted_stage_preset_ids
-                : Object.keys(state.stage_presets).sort();
-            state.can_manage = !!(data && data.can_manage);
-            renderList();
-        });
-        onSocket('bo_stage_preset_saved', (data) => {
-            const rec = data && data.record;
-            if (rec && typeof rec === 'object') {
-                const id = String(rec.id || data.id || '').trim();
-                if (id) {
-                    state.stage_presets[id] = rec;
-                    if (!state.sorted_stage_preset_ids.includes(id)) state.sorted_stage_preset_ids.push(id);
-                    loadStageToEditor(id);
-                }
-            }
-            renderList();
-            setMsg('ステージを保存しました。', 'green');
-        });
-        onSocket('bo_stage_preset_deleted', (data) => {
-            const id = String((data && data.id) || '').trim();
-            if (id && state.stage_presets[id]) delete state.stage_presets[id];
-            state.sorted_stage_preset_ids = state.sorted_stage_preset_ids.filter((x) => x !== id);
-            if (state.selected_stage_id === id) clearEditor();
-            renderList();
-            setMsg('ステージを削除しました。', 'green');
-        });
-        onSocket('bo_export_stage_presets_json', (data) => {
-            const filename = String((data && data.filename) || `bo_stage_presets_${Date.now()}.json`);
-            const content = String((data && data.content) || '{}');
-            downloadTextFile(filename, content);
-            setMsg('ステージJSONをダウンロードしました。', 'green');
-        });
-        ['bo_stage_preset_error', 'bo_catalog_error'].forEach((eventName) => {
-            onSocket(eventName, (data) => {
-                const msg = String((data && data.message) || '操作に失敗しました。');
-                setMsg(msg, 'red');
-            });
-        });
-
-        function setEditable(enabled) {
-            [
-                idInput, nameInput, enemySelect, allySelect, requiredInput,
-                visibilitySelect, sortKeyInput, tagsInput, conceptInput, descriptionInput,
-                panel.querySelector('#bo-sp-save-btn'),
-                panel.querySelector('#bo-sp-delete-btn')
-            ].forEach((el) => {
-                if (!el) return;
-                el.disabled = !enabled;
-            });
-            if (!enabled) {
-                setMsg('この画面は閲覧専用です。保存・編集はGMのみ可能です。', '#6b7280');
-            }
-        }
-
-        function closeModal() {
-            while (listeners.length) {
-                const [eventName, fn] = listeners.pop();
-                socketRef.off(eventName, fn);
-            }
-            overlay.remove();
-            if (global.__boStagePresetModalCleanup === closeModal) {
-                global.__boStagePresetModalCleanup = null;
-            }
-        }
-
-        panel.querySelector('#bo-sp-close-btn')?.addEventListener('click', closeModal);
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) closeModal();
-        });
-
-        renderFormationOptions();
-        renderList();
-        requestAll();
-        setEditable(state.can_manage);
+        renderFormationOptions(); clearForm(); renderList(); requestAll(); setEditable(state.can_manage);
         global.__boStagePresetModalCleanup = closeModal;
     }
 
     global.openBattleOnlyStagePresetModal = openBattleOnlyStagePresetModal;
 })(window);
+

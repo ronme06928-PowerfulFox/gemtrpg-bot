@@ -953,6 +953,140 @@ def test_bo_ally_formation_and_stage_select(monkeypatch):
     assert bo.get("required_ally_count") == 2
     assert isinstance(bo.get("enemy_entries"), list) and bo.get("enemy_entries")
     assert isinstance(bo.get("ally_entries"), list) and bo.get("ally_entries")
+    assert isinstance(bo.get("stage_field_effect_profile"), dict)
+    assert isinstance(bo.get("stage_avatar_profile"), dict)
+    assert bo.get("stage_field_effect_enabled") is True
+
+
+def test_bo_stage_field_effect_profile_roundtrip_and_start(monkeypatch):
+    state = _base_state()
+    store = {
+        "character_presets": {
+            "ally_1": {
+                "id": "ally_1",
+                "name": "AllyA",
+                "visibility": "public",
+                "allow_ally": True,
+                "allow_enemy": False,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+            "enemy_1": {
+                "id": "enemy_1",
+                "name": "EnemyA",
+                "visibility": "public",
+                "allow_ally": False,
+                "allow_enemy": True,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+        },
+        "enemy_formations": {
+            "ef_1": {
+                "id": "ef_1",
+                "name": "EnemyFormation",
+                "visibility": "public",
+                "recommended_ally_count": 1,
+                "members": [{"preset_id": "enemy_1", "count": 1, "behavior_profile_override": {}}],
+            }
+        },
+        "ally_formations": {},
+        "stage_presets": {},
+    }
+    emits = _patch_common(monkeypatch, state, store)
+
+    socket_battle_only.handle_bo_stage_preset_save(
+        {
+            "payload": {
+                "name": "Stage-Effect",
+                "visibility": "public",
+                "enemy_formation_id": "ef_1",
+                "required_ally_count": 1,
+                "field_effect_profile": {
+                    "version": 1,
+                    "rules": [
+                        {"rule_id": "r_speed_1", "type": "SPEED_ROLL_MOD", "scope": "ALL", "value": -1, "priority": 100}
+                    ],
+                },
+                "stage_avatar": {"enabled": True, "name": "Avatar", "description": "desc", "icon": "icon_1"},
+            }
+        }
+    )
+    stage_saved = _find_event(emits, "bo_stage_preset_saved")
+    assert stage_saved
+    rec = stage_saved[-1][1].get("record", {})
+    stage_id = str(rec.get("id") or "")
+    assert stage_id
+    assert rec.get("field_effect_profile", {}).get("rules", [{}])[0].get("type") == "SPEED_ROLL_MOD"
+    assert rec.get("stage_avatar", {}).get("name") == "Avatar"
+
+    state["battle_only"]["ally_entries"] = [{"preset_id": "ally_1", "user_id": "u_1"}]
+    emits.clear()
+    socket_battle_only.handle_bo_select_stage_preset({"room": "room_t", "stage_id": stage_id})
+    bo = state.get("battle_only", {})
+    assert bo.get("selected_stage_id") == stage_id
+    assert bo.get("stage_field_effect_profile", {}).get("rules", [{}])[0].get("rule_id") == "r_speed_1"
+    assert bo.get("stage_avatar_profile", {}).get("name") == "Avatar"
+    bo["ally_entries"] = [{"preset_id": "ally_1", "user_id": "u_1"}]
+
+    emits.clear()
+    socket_battle_only.handle_bo_start_battle({"room": "room_t"})
+    assert isinstance(state.get("field_effects"), list)
+    assert len(state.get("field_effects")) == 1
+    first = state["field_effects"][0]
+    assert first.get("source_type") == "stage_preset"
+    assert first.get("source_id") == stage_id
+    assert state.get("stage_avatar_profile", {}).get("name") == "Avatar"
+
+
+def test_bo_stage_field_effect_toggle_disables_injection(monkeypatch):
+    state = _base_state()
+    state["battle_only"]["stage_field_effect_profile"] = {
+        "version": 1,
+        "rules": [{"rule_id": "r1", "type": "SPEED_ROLL_MOD", "scope": "ALL", "value": -1}],
+    }
+    state["battle_only"]["stage_field_effect_enabled"] = True
+    state["battle_only"]["ally_entries"] = [{"preset_id": "ally_1", "user_id": "u_1"}]
+    state["battle_only"]["enemy_entries"] = [{"preset_id": "enemy_1", "count": 1}]
+    store = {
+        "character_presets": {
+            "ally_1": {
+                "id": "ally_1",
+                "name": "AllyA",
+                "visibility": "public",
+                "allow_ally": True,
+                "allow_enemy": False,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+            "enemy_1": {
+                "id": "enemy_1",
+                "name": "EnemyA",
+                "visibility": "public",
+                "allow_ally": False,
+                "allow_enemy": True,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+        }
+    }
+    emits = _patch_common(monkeypatch, state, store)
+
+    socket_battle_only.handle_bo_set_stage_field_effect_enabled({"room": "room_t", "enabled": False})
+    assert state["battle_only"]["stage_field_effect_enabled"] is False
+    updated = _find_event(emits, "bo_stage_field_effect_updated")
+    assert updated
+
+    emits.clear()
+    socket_battle_only.handle_bo_start_battle({"room": "room_t"})
+    assert state.get("field_effects") == []
+
+
+def test_bo_stage_avatar_toggle_updates_state(monkeypatch):
+    state = _base_state()
+    store = {"character_presets": {}}
+    emits = _patch_common(monkeypatch, state, store)
+
+    socket_battle_only.handle_bo_set_stage_avatar_enabled({"room": "room_t", "enabled": False})
+    assert state["battle_only"]["stage_avatar_enabled"] is False
+    updated = _find_event(emits, "bo_stage_avatar_updated")
+    assert updated
 
 
 def test_bo_export_three_presets_json_filters_visibility_for_player(monkeypatch):

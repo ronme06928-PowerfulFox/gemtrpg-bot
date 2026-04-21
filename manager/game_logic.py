@@ -3,6 +3,11 @@ import sys
 import json
 import re # Added for regex
 from manager.buff_catalog import get_buff_effect
+from manager.field_effects import (
+    get_state_from_context,
+    get_stage_damage_dealt_mod,
+    get_stage_state_effects,
+)
 from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
@@ -685,6 +690,20 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             log_snippets.extend(origin_logs)
         if origin_changes:
             changes_to_apply.extend(origin_changes)
+
+    stage_state = get_state_from_context(context)
+    if timing_to_check in ("PRE_MATCH", "BEFORE_POWER_ROLL", "HIT", "UNOPPOSED"):
+        stage_damage_mod = get_stage_damage_dealt_mod(stage_state, actor)
+        if stage_damage_mod != 0:
+            total_bonus_damage += int(stage_damage_mod)
+            log_snippets.append(f"[StageDamage {stage_damage_mod:+} source=stage]")
+    if timing_to_check == "HIT" and isinstance(target, dict):
+        for st_name, st_value, rule_id in get_stage_state_effects(stage_state, target):
+            if st_value == 0:
+                continue
+            changes_to_apply.append((target, "APPLY_STATE", st_name, st_value))
+            rid = f" rule={rule_id}" if rule_id else ""
+            log_snippets.append(f"[StageState {st_name}{st_value:+} source=stage{rid}]")
 
     # Helper for random selection
     import random

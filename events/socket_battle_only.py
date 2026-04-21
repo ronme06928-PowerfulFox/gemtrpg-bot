@@ -79,6 +79,17 @@ def _normalize_visibility(raw):
     return 'public'
 
 
+def _normalize_optional_id(raw):
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    if text.lower() in ('none', 'null'):
+        return None
+    return text
+
+
 def _normalize_preset_record(payload, user_info, existing=None):
     src = payload if isinstance(payload, dict) else {}
     current = existing if isinstance(existing, dict) else {}
@@ -353,7 +364,7 @@ def _normalize_stage_preset_record(payload, user_info, enemy_formations, ally_fo
     if not isinstance(enemy_form, dict):
         raise ValueError(f'敵編成が見つかりません: {enemy_formation_id}')
 
-    ally_formation_id = str(src.get('ally_formation_id', current.get('ally_formation_id', ''))).strip() or None
+    ally_formation_id = _normalize_optional_id(src.get('ally_formation_id', current.get('ally_formation_id', '')))
     if ally_formation_id:
         ally_form = ally_formations.get(ally_formation_id)
         if not isinstance(ally_form, dict):
@@ -366,6 +377,10 @@ def _normalize_stage_preset_record(payload, user_info, enemy_formations, ally_fo
     tags = [str(x).strip() for x in raw_tags] if isinstance(raw_tags, list) else []
     tags = [x for x in tags if x]
     sort_key = max(0, _safe_int(src.get('sort_key', current.get('sort_key', 0)), 0))
+    field_effect_profile = _normalize_stage_field_effect_profile(
+        src.get('field_effect_profile', current.get('field_effect_profile'))
+    )
+    stage_avatar = _normalize_stage_avatar(src.get('stage_avatar', current.get('stage_avatar')))
 
     if required_ally_count <= 0:
         # 既定は敵編成推奨値、次に味方編成推奨値、最後に0
@@ -394,6 +409,8 @@ def _normalize_stage_preset_record(payload, user_info, enemy_formations, ally_fo
         "description": description,
         "tags": tags,
         "sort_key": sort_key,
+        "field_effect_profile": field_effect_profile,
+        "stage_avatar": stage_avatar,
         "created_at": created_at,
         "updated_at": now_ms,
         "created_by": creator,
@@ -436,6 +453,10 @@ def _ensure_bo_state(state):
         "ally_formation_id": None,
         "required_ally_count": 0,
         "enemy_formation_id": None,
+        "stage_field_effect_profile": {},
+        "stage_avatar_profile": {},
+        "stage_field_effect_enabled": True,
+        "stage_avatar_enabled": True,
         "controller_user_id": None,
         "controller_username": None,
         "ally_entries": [],
@@ -479,16 +500,86 @@ def _ensure_bo_state(state):
     if bo['ally_mode'] not in ('preset', 'room_existing'):
         bo['ally_mode'] = 'preset'
     bo['required_ally_count'] = max(0, _safe_int(bo.get('required_ally_count'), 0))
-    selected_stage_id = str(bo.get('selected_stage_id', '')).strip()
-    bo['selected_stage_id'] = selected_stage_id or None
-    ally_formation_id = str(bo.get('ally_formation_id', '')).strip()
-    bo['ally_formation_id'] = ally_formation_id or None
-    enemy_formation_id = str(bo.get('enemy_formation_id', '')).strip()
-    bo['enemy_formation_id'] = enemy_formation_id or None
+    bo['stage_field_effect_profile'] = _normalize_stage_field_effect_profile(bo.get('stage_field_effect_profile'))
+    bo['stage_avatar_profile'] = _normalize_stage_avatar(bo.get('stage_avatar_profile'))
+    bo['stage_field_effect_enabled'] = bool(bo.get('stage_field_effect_enabled', True))
+    bo['stage_avatar_enabled'] = bool(bo.get('stage_avatar_enabled', True))
+    bo['selected_stage_id'] = _normalize_optional_id(bo.get('selected_stage_id', ''))
+    bo['ally_formation_id'] = _normalize_optional_id(bo.get('ally_formation_id', ''))
+    bo['enemy_formation_id'] = _normalize_optional_id(bo.get('enemy_formation_id', ''))
     bo['status'] = str(bo.get('status', 'lobby') or 'lobby').strip().lower() or 'lobby'
     if bo['status'] not in ('lobby', 'draft', 'in_battle'):
         bo['status'] = 'lobby'
     return bo
+
+
+def _normalize_stage_field_effect_profile(raw):
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return {}
+        try:
+            raw = json.loads(text)
+        except Exception as ex:
+            raise ValueError(f'field_effect_profile が不正なJSONです: {ex}')
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError('field_effect_profile は object で指定してください。')
+
+    version = max(1, _safe_int(raw.get('version', 1), 1))
+    rules_src = raw.get('rules')
+    if rules_src is None:
+        rules_src = []
+    if not isinstance(rules_src, list):
+        raise ValueError('field_effect_profile.rules は配列で指定してください。')
+
+    rules = []
+    for idx, row in enumerate(rules_src):
+        if not isinstance(row, dict):
+            raise ValueError(f'field_effect_profile.rules[{idx}] は object で指定してください。')
+        rule_type = str(row.get('type', '')).strip()
+        if not rule_type:
+            raise ValueError(f'field_effect_profile.rules[{idx}].type は必須です。')
+        rule = {
+            "type": rule_type,
+            "scope": str(row.get('scope', 'ALL') or 'ALL').strip().upper(),
+            "priority": _safe_int(row.get('priority', 0), 0),
+        }
+        if 'value' in row:
+            rule['value'] = row.get('value')
+        if 'condition' in row and isinstance(row.get('condition'), dict):
+            rule['condition'] = copy.deepcopy(row.get('condition'))
+        if 'state_name' in row:
+            rule['state_name'] = str(row.get('state_name') or '').strip()
+        if 'rule_id' in row:
+            rid = str(row.get('rule_id') or '').strip()
+            if rid:
+                rule['rule_id'] = rid
+        rules.append(rule)
+
+    return {"version": version, "rules": rules}
+
+
+def _normalize_stage_avatar(raw):
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return {}
+        try:
+            raw = json.loads(text)
+        except Exception as ex:
+            raise ValueError(f'stage_avatar が不正なJSONです: {ex}')
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError('stage_avatar は object で指定してください。')
+    return {
+        "enabled": bool(raw.get('enabled', True)),
+        "name": str(raw.get('name', '')).strip(),
+        "description": str(raw.get('description', '')).strip(),
+        "icon": str(raw.get('icon', '')).strip(),
+    }
 
 
 def _room_users(room):
@@ -1538,7 +1629,7 @@ def handle_bo_select_stage_preset(data):
         _emit_error('permission_denied', 'このステージの敵編成にはアクセスできません。', event_name='bo_draft_error')
         return
 
-    ally_formation_id = str(stage.get('ally_formation_id', '')).strip() or None
+    ally_formation_id = _normalize_optional_id(stage.get('ally_formation_id', ''))
     ally_rec = None
     if ally_formation_id:
         ally_rec = ally_formations.get(ally_formation_id)
@@ -1559,6 +1650,9 @@ def handle_bo_select_stage_preset(data):
     bo['required_ally_count'] = max(0, _safe_int(stage.get('required_ally_count'), 0))
     if bo['required_ally_count'] <= 0:
         bo['required_ally_count'] = max(0, _safe_int(enemy_rec.get('recommended_ally_count'), 0))
+    bo['stage_field_effect_profile'] = _normalize_stage_field_effect_profile(stage.get('field_effect_profile'))
+    bo['stage_avatar_profile'] = _normalize_stage_avatar(stage.get('stage_avatar'))
+    bo['stage_field_effect_enabled'] = bool(bo.get('stage_field_effect_enabled', True))
     bo['ally_mode'] = 'preset'
     bo['status'] = 'draft'
     state['play_mode'] = 'battle_only'
@@ -1601,6 +1695,48 @@ def handle_bo_set_ally_mode(data):
     save_specific_room_state(room)
     broadcast_state_update(room)
     socketio.emit('bo_ally_mode_updated', {"battle_only": copy.deepcopy(bo)}, to=request.sid)
+
+
+@socketio.on('request_bo_set_stage_field_effect_enabled')
+def handle_bo_set_stage_field_effect_enabled(data):
+    room = str((data or {}).get('room', '')).strip()
+    if not room:
+        _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
+        return
+    allowed, _ = _require_gm(event_name='bo_draft_error')
+    if not allowed:
+        return
+
+    enabled = bool((data or {}).get('enabled', True))
+    state = get_room_state(room)
+    bo = _ensure_bo_state(state)
+    bo['stage_field_effect_enabled'] = enabled
+    bo['status'] = 'draft'
+    state['play_mode'] = 'battle_only'
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+    socketio.emit('bo_stage_field_effect_updated', {"battle_only": copy.deepcopy(bo)}, to=request.sid)
+
+
+@socketio.on('request_bo_set_stage_avatar_enabled')
+def handle_bo_set_stage_avatar_enabled(data):
+    room = str((data or {}).get('room', '')).strip()
+    if not room:
+        _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
+        return
+    allowed, _ = _require_gm(event_name='bo_draft_error')
+    if not allowed:
+        return
+
+    enabled = bool((data or {}).get('enabled', True))
+    state = get_room_state(room)
+    bo = _ensure_bo_state(state)
+    bo['stage_avatar_enabled'] = enabled
+    bo['status'] = 'draft'
+    state['play_mode'] = 'battle_only'
+    save_specific_room_state(room)
+    broadcast_state_update(room)
+    socketio.emit('bo_stage_avatar_updated', {"battle_only": copy.deepcopy(bo)}, to=request.sid)
 
 
 @socketio.on('request_bo_set_control_mode')
@@ -1735,6 +1871,10 @@ def handle_bo_draft_update(data):
     bo['enemy_formation_id'] = enemy_formation_id
     bo['ally_formation_id'] = ally_formation_id
     bo['selected_stage_id'] = selected_stage_id
+    if 'stage_field_effect_enabled' in payload:
+        bo['stage_field_effect_enabled'] = bool(payload.get('stage_field_effect_enabled'))
+    if 'stage_avatar_enabled' in payload:
+        bo['stage_avatar_enabled'] = bool(payload.get('stage_avatar_enabled'))
     bo['ally_entries'] = ally_entries
     bo['enemy_entries'] = enemy_entries
     bo['status'] = 'draft'
@@ -1924,6 +2064,23 @@ def handle_bo_start_battle(data):
     bo['ally_mode'] = ally_mode
     bo['selected_stage_id'] = str(bo.get('selected_stage_id', '')).strip() or None
     bo['required_ally_count'] = required_ally_count
+    stage_profile = _normalize_stage_field_effect_profile(bo.get('stage_field_effect_profile'))
+    stage_avatar_profile = _normalize_stage_avatar(bo.get('stage_avatar_profile'))
+    stage_effect_enabled = bool(bo.get('stage_field_effect_enabled', True))
+    state['stage_field_effect_profile'] = copy.deepcopy(stage_profile)
+    state['stage_avatar_profile'] = copy.deepcopy(stage_avatar_profile)
+    state['field_effects'] = []
+    if stage_effect_enabled:
+        state['field_effects'] = [
+            {
+                "field_id": str(rule.get('rule_id') or f"stage_rule_{idx + 1}"),
+                "source_type": "stage_preset",
+                "source_id": str(bo.get('selected_stage_id') or ''),
+                "rule": copy.deepcopy(rule),
+            }
+            for idx, rule in enumerate(stage_profile.get('rules', []))
+            if isinstance(rule, dict)
+        ]
     requested_control_mode = str((data or {}).get('intent_control_mode', '')).strip().lower()
     if requested_control_mode not in ('all', 'starter_only'):
         requested_control_mode = str((bo.get('options', {}) if isinstance(bo.get('options'), dict) else {}).get('intent_control_mode', 'all')).strip().lower()
@@ -1947,6 +2104,10 @@ def handle_bo_start_battle(data):
         "ended_at": None,
         "config": {
             "selected_stage_id": bo.get('selected_stage_id'),
+            "stage_field_effect_enabled": stage_effect_enabled,
+            "stage_field_effect_profile": copy.deepcopy(stage_profile),
+            "stage_avatar_enabled": bool(bo.get('stage_avatar_enabled', True)),
+            "stage_avatar_profile": copy.deepcopy(stage_avatar_profile),
             "ally_mode": ally_mode,
             "ally_formation_id": bo.get('ally_formation_id'),
             "required_ally_count": required_ally_count,
@@ -1964,6 +2125,12 @@ def handle_bo_start_battle(data):
 
     save_specific_room_state(room)
     broadcast_state_update(room)
+    if stage_effect_enabled:
+        broadcast_log(
+            room,
+            f"[BattleOnly] Stage field effects active: {len(state.get('field_effects', []))} rules (source=stage).",
+            'info'
+        )
     broadcast_log(room, "[BattleOnly] 戦闘専用編成で戦闘に突入しました。", 'info')
     try:
         _start_battle_only_round(room, user_info)

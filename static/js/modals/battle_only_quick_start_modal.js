@@ -40,6 +40,106 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    function normalizeRuleRows(profile) {
+        const p = (profile && typeof profile === 'object') ? profile : {};
+        const rules = Array.isArray(p.rules) ? p.rules : [];
+        return rules.filter((row) => row && typeof row === 'object');
+    }
+
+    function normalizeAvatarProfile(raw) {
+        const src = (raw && typeof raw === 'object') ? raw : {};
+        return {
+            enabled: !!src.enabled,
+            name: String(src.name || '').trim(),
+            description: String(src.description || '').trim(),
+            icon: String(src.icon || '').trim(),
+        };
+    }
+
+    if (typeof global.openStageFieldEffectDetailModal !== 'function') {
+        global.openStageFieldEffectDetailModal = function openStageFieldEffectDetailModal(payload) {
+            const data = (payload && typeof payload === 'object') ? payload : {};
+            const stageId = String(data.stage_id || '').trim();
+            const stageName = String(data.stage_name || '').trim() || stageId || 'Stage';
+            const rules = normalizeRuleRows(data.stage_field_effect_profile);
+            const avatar = normalizeAvatarProfile(data.stage_avatar_profile);
+            const effectEnabled = !!data.stage_field_effect_enabled;
+            const avatarEnabled = !!data.stage_avatar_enabled;
+
+            const existing = document.getElementById('stage-field-effect-modal-backdrop');
+            if (existing) existing.remove();
+
+            const backdrop = document.createElement('div');
+            backdrop.id = 'stage-field-effect-modal-backdrop';
+            backdrop.className = 'modal-backdrop';
+            const modal = document.createElement('div');
+            modal.className = 'modal-content';
+            modal.style.cssText = 'max-width:760px; width:94vw; max-height:80vh; overflow:auto; padding:18px;';
+
+            const avatarTitle = avatar.name || stageName;
+            const avatarDesc = avatar.description || 'No description.';
+            const avatarIcon = avatar.icon || 'STAGE';
+            const rulesHtml = rules.length
+                ? `<ul style="margin:8px 0 0 0; padding-left:18px;">${rules.map((row, idx) => {
+                    const type = String(row.type || '').trim() || 'UNKNOWN';
+                    const scope = String(row.scope || 'ALL').trim().toUpperCase() || 'ALL';
+                    const value = (row.value === undefined || row.value === null) ? '-' : String(row.value);
+                    const stateName = String(row.state_name || '').trim();
+                    const rid = String(row.rule_id || '').trim() || `rule_${idx + 1}`;
+                    const cond = (row.condition && typeof row.condition === 'object') ? ` / cond: ${escapeHtml(JSON.stringify(row.condition))}` : '';
+                    const statePart = stateName ? ` / state: ${escapeHtml(stateName)}` : '';
+                    return `<li style="margin-bottom:6px;"><code>${escapeHtml(rid)}</code> <strong>${escapeHtml(type)}</strong> / scope:${escapeHtml(scope)} / value:${escapeHtml(value)}${statePart}${cond}</li>`;
+                }).join('')}</ul>`
+                : '<div style="margin-top:8px; color:#6b7280;">No stage rules configured.</div>';
+
+            modal.innerHTML = `
+                <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+                    <div>
+                        <div style="font-size:18px; font-weight:700; color:#111827;">Stage Field Effects</div>
+                        <div style="font-size:12px; color:#4b5563; margin-top:3px;">${escapeHtml(stageName)}${stageId ? ` (ID: ${escapeHtml(stageId)})` : ''}</div>
+                    </div>
+                    <button type="button" id="stage-field-effect-modal-close" class="bo-btn bo-btn--sm">Close</button>
+                </div>
+                <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; font-size:12px;">
+                    <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:${effectEnabled ? '#ecfdf5' : '#f9fafb'}; color:${effectEnabled ? '#166534' : '#6b7280'};">
+                        Stage Effect: ${effectEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                    <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:${avatarEnabled ? '#eff6ff' : '#f9fafb'}; color:${avatarEnabled ? '#1d4ed8' : '#6b7280'};">
+                        Stage Avatar: ${avatarEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                    <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:#fff; color:#374151;">
+                        Rules: ${rules.length}
+                    </span>
+                </div>
+                <div style="margin-top:14px; border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#f8fafc;">
+                    <div style="font-size:12px; color:#6b7280;">Stage Avatar (Display-only)</div>
+                    <div style="margin-top:6px; display:flex; gap:10px; align-items:flex-start;">
+                        <div style="min-width:54px; height:54px; border-radius:10px; border:1px solid #d1d5db; display:flex; align-items:center; justify-content:center; font-weight:700; background:#fff; color:#1f2937;">
+                            ${escapeHtml(avatarIcon)}
+                        </div>
+                        <div style="min-width:0;">
+                            <div style="font-size:15px; font-weight:700; color:#111827;">${escapeHtml(avatarTitle)}</div>
+                            <div style="font-size:13px; color:#374151; margin-top:4px;">${escapeHtml(avatarDesc)}</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top:14px; border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#fff;">
+                    <div style="font-size:14px; font-weight:700; color:#111827;">Rules</div>
+                    ${rulesHtml}
+                </div>
+            `;
+
+            backdrop.appendChild(modal);
+            document.body.appendChild(backdrop);
+
+            const close = () => backdrop.remove();
+            modal.querySelector('#stage-field-effect-modal-close')?.addEventListener('click', close);
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) close();
+            });
+        };
+    }
+
     function toStatusLabel(status) {
         const key = String(status || '').trim().toLowerCase();
         if (key === 'lobby') return '待機';
@@ -148,6 +248,17 @@
                         </select>
                     </div>
                     <div id="bo-quick-control-hint" style="margin-top:6px; font-size:12px; color:#555;"></div>
+                    <div style="margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                        <label style="display:flex; align-items:center; gap:6px;">
+                            <input id="bo-quick-stage-effect-enabled" type="checkbox" />
+                            <span>Stage Field Effect Enabled</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:6px;">
+                            <input id="bo-quick-stage-avatar-enabled" type="checkbox" />
+                            <span>Stage Avatar Enabled</span>
+                        </label>
+                        <button id="bo-quick-stage-detail" class="bo-btn bo-btn--sm">効果詳細を見る</button>
+                    </div>
                 </div>
                 <div class="bo-card">
                     <h4 class="bo-card-title">4. 突入可否チェック</h4>
@@ -185,6 +296,9 @@
         const allyHintEl = panel.querySelector('#bo-quick-ally-hint');
         const controlModeSel = panel.querySelector('#bo-quick-control-mode');
         const controlHintEl = panel.querySelector('#bo-quick-control-hint');
+        const stageEffectEnabledEl = panel.querySelector('#bo-quick-stage-effect-enabled');
+        const stageAvatarEnabledEl = panel.querySelector('#bo-quick-stage-avatar-enabled');
+        const stageDetailBtn = panel.querySelector('#bo-quick-stage-detail');
         const startBtn = panel.querySelector('#bo-quick-start');
         const listeners = [];
 
@@ -270,6 +384,44 @@
                 intent_control_mode: mode,
             });
             return mode;
+        }
+
+        function applyStageFieldEffectEnabled() {
+            const enabled = !!(stageEffectEnabledEl && stageEffectEnabledEl.checked);
+            socketRef.emit('request_bo_set_stage_field_effect_enabled', {
+                room: roomName,
+                enabled,
+            });
+            return enabled;
+        }
+
+        function applyStageAvatarEnabled() {
+            const enabled = !!(stageAvatarEnabledEl && stageAvatarEnabledEl.checked);
+            socketRef.emit('request_bo_set_stage_avatar_enabled', {
+                room: roomName,
+                enabled,
+            });
+            return enabled;
+        }
+
+        function openStageFieldEffectDetailFromCurrent() {
+            const bo = model.battle_only || {};
+            const selectedId = getSelectedStageId();
+            const stage = getStageRecord(selectedId) || {};
+            const stageProfile = (stage.field_effect_profile && typeof stage.field_effect_profile === 'object')
+                ? stage.field_effect_profile
+                : ((bo.stage_field_effect_profile && typeof bo.stage_field_effect_profile === 'object') ? bo.stage_field_effect_profile : {});
+            const avatarProfile = (stage.stage_avatar && typeof stage.stage_avatar === 'object')
+                ? stage.stage_avatar
+                : ((bo.stage_avatar_profile && typeof bo.stage_avatar_profile === 'object') ? bo.stage_avatar_profile : {});
+            global.openStageFieldEffectDetailModal({
+                stage_id: selectedId,
+                stage_name: String(stage.name || selectedId || '').trim(),
+                stage_field_effect_enabled: !!bo.stage_field_effect_enabled,
+                stage_avatar_enabled: !!bo.stage_avatar_enabled,
+                stage_field_effect_profile: stageProfile,
+                stage_avatar_profile: avatarProfile,
+            });
         }
 
         function stageIds() {
@@ -398,6 +550,20 @@
             }
         }
 
+        function renderStageFieldEffectEnabled() {
+            if (!stageEffectEnabledEl) return;
+            const bo = model.battle_only || {};
+            stageEffectEnabledEl.checked = !!bo.stage_field_effect_enabled;
+            stageEffectEnabledEl.disabled = !model.can_manage;
+        }
+
+        function renderStageAvatarEnabled() {
+            if (!stageAvatarEnabledEl) return;
+            const bo = model.battle_only || {};
+            stageAvatarEnabledEl.checked = !!bo.stage_avatar_enabled;
+            stageAvatarEnabledEl.disabled = !model.can_manage;
+        }
+
         function renderValidation() {
             const validation = (model.validation && typeof model.validation === 'object') ? model.validation : {};
             const issues = Array.isArray(validation.issues) ? validation.issues : [];
@@ -444,6 +610,8 @@
             renderStageList();
             renderAllyMode();
             renderControlMode();
+            renderStageFieldEffectEnabled();
+            renderStageAvatarEnabled();
             renderSummary();
             renderValidation();
             renderRecords();
@@ -482,6 +650,16 @@
             requestValidate();
         });
         onSocket('bo_control_mode_updated', (data) => {
+            if (data && typeof data.battle_only === 'object') model.battle_only = data.battle_only;
+            renderAll();
+            requestValidate();
+        });
+        onSocket('bo_stage_field_effect_updated', (data) => {
+            if (data && typeof data.battle_only === 'object') model.battle_only = data.battle_only;
+            renderAll();
+            requestValidate();
+        });
+        onSocket('bo_stage_avatar_updated', (data) => {
             if (data && typeof data.battle_only === 'object') model.battle_only = data.battle_only;
             renderAll();
             requestValidate();
@@ -551,6 +729,17 @@
         controlModeSel?.addEventListener('change', () => {
             applyControlMode();
             setMsg('操作モードを反映しました。', '#444');
+        });
+        stageEffectEnabledEl?.addEventListener('change', () => {
+            const enabled = applyStageFieldEffectEnabled();
+            setMsg(enabled ? 'Stage field effect を有効化しました。' : 'Stage field effect を無効化しました。', '#444');
+        });
+        stageAvatarEnabledEl?.addEventListener('change', () => {
+            const enabled = applyStageAvatarEnabled();
+            setMsg(enabled ? 'Stage avatar enabled.' : 'Stage avatar disabled.', '#444');
+        });
+        stageDetailBtn?.addEventListener('click', () => {
+            openStageFieldEffectDetailFromCurrent();
         });
         panel.querySelector('#bo-quick-open-full')?.addEventListener('click', () => {
             if (typeof global.openBattleOnlyDraftModal === 'function') {

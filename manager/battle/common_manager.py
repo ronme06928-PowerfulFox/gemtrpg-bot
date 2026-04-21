@@ -67,6 +67,7 @@ def _is_select_resolve_active(state):
 from manager.game_logic import (
     get_status_value, process_skill_effects, apply_buff, remove_buff, process_battle_start
 )
+from manager.field_effects import get_stage_speed_roll_mod
 from manager.bleed_logic import resolve_bleed_tick, get_bleed_maintenance_count_from_buff
 import manager.utils as _utils_mod
 from manager.battle.enemy_behavior import (
@@ -997,12 +998,17 @@ def _process_round_start_impl(room, username):
 
         from plugins.buffs.speed_mod import SpeedModBuff
         speed_modifier = SpeedModBuff.get_speed_modifier(char)
+        stage_speed_modifier = get_stage_speed_roll_mod(state, char)
+        total_speed_modifier = speed_modifier + stage_speed_modifier
 
-        initiative = (speed_val // 6) + speed_modifier
+        initiative = (speed_val // 6) + total_speed_modifier
 
         if speed_modifier != 0:
             mod_text = f"+{speed_modifier}" if speed_modifier > 0 else str(speed_modifier)
             broadcast_log(room, f"{char['name']} の速度補正: {mod_text} (基礎速度に加算)", 'info')
+        if stage_speed_modifier != 0:
+            mod_text = f"+{stage_speed_modifier}" if stage_speed_modifier > 0 else str(stage_speed_modifier)
+            broadcast_log(room, f"{char['name']} のステージ速度補正: {mod_text} (source=stage)", 'info')
 
 
         try:
