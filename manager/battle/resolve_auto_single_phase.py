@@ -8,6 +8,15 @@
         g[name] = value
 
 
+from manager.battle.system_skills import (
+    consume_auto_defense_charge,
+    get_system_skill,
+    grant_auto_defense_charge,
+    is_auto_defense_skill_data,
+    queue_selected_power_recovery_from_snapshot,
+)
+
+
 def run_single_phase(room, battle_id, state, battle_state, resolve_intents, characters_by_id):
     _sync_from_core()
     from manager.battle.common_manager import (
@@ -474,6 +483,22 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                 queue_index += 1
                 continue
 
+            if str(target_slot) == str(slot_id) and is_auto_defense_skill_data(skill_data):
+                actor_char = characters_by_id.get(attacker_actor_id)
+                if actor_char:
+                    auto_defense = skill_data.get('auto_defense')
+                    if not isinstance(auto_defense, dict):
+                        auto_defense = (skill_data.get('rule_data') or {}).get('auto_defense', {})
+                    grant_auto_defense_charge(
+                        battle_state,
+                        attacker_actor_id,
+                        skill_id,
+                        count=int((auto_defense or {}).get('count_per_use', 1) or 1)
+                    )
+                _mark_processed(slot_id)
+                queue_index += 1
+                continue
+
             intent_b = intents.get(target_slot, {})
             defender_skill_id_for_pair = intent_b.get('skill_id') if isinstance(intent_b, dict) else None
             defender_skill_data_for_pair = all_skill_data.get(defender_skill_id_for_pair, {}) if defender_skill_id_for_pair else None
@@ -878,6 +903,99 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                 intent_b = intents.get(target_slot, {}) if target_slot else {}
                 defender_skill_id = intent_b.get('skill_id')
                 defender_skill_data = all_skill_data.get(defender_skill_id, {}) if defender_skill_id else None
+                auto_defense_charge = consume_auto_defense_charge(battle_state, target_actor_id)
+
+                if auto_defense_charge and isinstance(defender_char, dict):
+                    charged_skill_id = str((auto_defense_charge or {}).get('skill_id') or '').strip()
+                    charged_skill_data = get_system_skill(charged_skill_id)
+                    delegated = _resolve_clash_by_existing_logic(
+                        room=room,
+                        state=state,
+                        attacker_char=attacker_char,
+                        defender_char=defender_char,
+                        attacker_skill_data=skill_data,
+                        defender_skill_data=charged_skill_data
+                    )
+                    clash_ok = bool((delegated or {}).get('ok', False))
+                    clash_summary = delegated.get('summary', {}) if clash_ok else {}
+                    clash_outcome = delegated.get('outcome', 'no_effect') if clash_ok else 'no_effect'
+                    clash_notes = None if clash_ok else (delegated.get('reason') if isinstance(delegated, dict) else 'delegate_failed')
+
+                    if clash_ok:
+                        queue_selected_power_recovery_from_snapshot(
+                            defender_char,
+                            ((clash_summary.get('rolls', {}) or {}).get('power_snapshot_b', {}))
+                        )
+
+                    clash_outcome_payload = {
+                        'attacker_id': attacker_actor_id,
+                        'target_id': target_actor_id,
+                        'skill_id': skill_id,
+                        'skill': skill_data,
+                        'apply_cost': False,
+                        'cost_policy': COST_CONSUME_POLICY,
+                        'delegate_applied': clash_ok,
+                        'delegate_summary': clash_summary if clash_ok else {}
+                    }
+                    clash_applied = _apply_outcome_to_state(clash_outcome_payload, characters_by_id)
+                    if clash_ok:
+                        _emit_stat_updates_from_applied(
+                            room,
+                            clash_applied,
+                            characters_by_id,
+                            source='resolve_single_auto_defense_clash'
+                        )
+                    clash_legacy_input = to_legacy_duel_log_input(
+                        outcome_payload=clash_outcome_payload,
+                        state=state,
+                        intents=intents,
+                        attacker_slot=slot_id,
+                        defender_slot=target_slot,
+                        applied=clash_applied,
+                        kind='clash',
+                        outcome=clash_outcome,
+                        notes=clash_notes
+                    )
+                    clash_log_lines = format_duel_result_lines(
+                        clash_legacy_input['actor_name_a'],
+                        clash_legacy_input['skill_display_a'],
+                        clash_legacy_input['total_a'],
+                        clash_legacy_input['actor_name_d'],
+                        clash_legacy_input['skill_display_d'],
+                        clash_legacy_input['total_d'],
+                        clash_legacy_input['winner_message'],
+                        damage_report=clash_legacy_input['damage_report'],
+                        extra_lines=clash_legacy_input.get('extra_lines')
+                    )
+                    clash_outcome_payload['log_lines'] = clash_log_lines
+                    clash_outcome_payload['lines'] = clash_log_lines
+                    clash_applied['log_lines'] = clash_log_lines
+                    clash_applied['lines'] = clash_log_lines
+                    _log_match_result(clash_log_lines)
+                    _append_trace(
+                        room, battle_id, battle_state, 'clash', slot_id,
+                        defender_slot=target_slot,
+                        target_actor_id=target_actor_id,
+                        notes=clash_notes,
+                        outcome=clash_outcome,
+                        cost={
+                            'mp': int(clash_applied.get('cost', {}).get('mp', 0)),
+                            'hp': int(clash_applied.get('cost', {}).get('hp', 0)),
+                            'fp': int(clash_applied.get('cost', {}).get('fp', 0))
+                        },
+                        rolls=clash_summary.get('rolls', {}) if isinstance(clash_summary, dict) else {},
+                        extra_fields={
+                            'display_label': trace_display_label,
+                            'outcome_payload': clash_outcome_payload,
+                            'applied': clash_applied,
+                            'lines': clash_log_lines,
+                            'log_lines': clash_log_lines,
+                            'auto_defense': True
+                        }
+                    )
+                    _mark_processed(slot_id)
+                    queue_index += 1
+                    continue
 
                 delegated = _resolve_one_sided_by_existing_logic(
                     room=room,
@@ -1063,6 +1181,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
         battle_state['resolve_snapshot_intents'] = {}
         battle_state['resolve_snapshot_at'] = None
         battle_state.setdefault('resolve', {})['timing_marks'] = {}
+        battle_state.setdefault('resolve', {})['auto_defense_charges'] = {}
 
         # Stop legacy sequential turn flow after select/resolve round is finished.
         state['turn_char_id'] = None

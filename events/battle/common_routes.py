@@ -18,6 +18,8 @@ except Exception:
     def emit_select_resolve_events(*args, **kwargs):
         return None
 from manager.battle.core import proceed_next_turn, run_select_resolve_auto
+from manager.battle.skill_access import can_use_skill_id
+from manager.battle.system_skills import ensure_system_skills_registered
 from manager.battle.common_manager import (
     process_full_round_end, reset_battle_logic, force_end_match_logic,
     move_token_logic, open_match_modal_logic, close_match_modal_logic,
@@ -33,6 +35,7 @@ from plugins.buffs.immobilize import ImmobilizeBuff
 from manager.utils import apply_buff, get_status_value, set_status_value # For debug
 
 logger = setup_logger(__name__)
+ensure_system_skills_registered()
 
 
 def _is_battle_only_mode(room):
@@ -531,6 +534,8 @@ def _normalize_target_scope(raw_value, default='enemy'):
     text = str(raw_value or '').strip().lower()
     if text in ['', 'default', 'auto']:
         return str(default or 'enemy')
+    if text in ['self', 'self_only', 'caster', '自分', '自分対象', '自身']:
+        return 'self'
     if text in [
         'enemy', 'enemies', 'foe', 'opponent', 'opponents',
         '敵', '敵側', 'opposing_team', '相手チーム', '相手チーム対象', '相手チーム指定'
@@ -573,11 +578,14 @@ def _infer_target_scope_from_skill(skill_id):
         if text:
             tags.append(text)
     normalized = {str(v).strip().lower() for v in tags}
-    ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定', '同じチーム対象', '同じチーム指定'}
+    self_tags = {'self_target', 'target_self', '自分対象', '自身対象'}
+    ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定', '同じチーム対象', '同じチーム指定', '同陣営対象', '同陣営指定'}
     any_tags = {'any_target', 'target_any', '全体対象', '対象自由'}
     enemy_tags = {'enemy_target', 'target_enemy', '敵対象', '相手チーム対象', '相手チーム指定'}
     if any(str(t).lower() in normalized for t in any_tags):
         return 'any'
+    if any(str(t).lower() in normalized for t in self_tags):
+        return 'self'
     if any(str(t).lower() in normalized for t in ally_tags):
         return 'ally'
     if any(str(t).lower() in normalized for t in enemy_tags):
@@ -607,6 +615,10 @@ def _validate_single_target_scope(state, source_slot_id, target_slot_id, target_
     scope = _normalize_target_scope(target_scope, default='enemy')
     if scope == 'any':
         return None
+    if scope == 'self':
+        if str(source_slot_id or '') != str(target_slot_id or ''):
+            return 'target_scope=self のため自分スロットのみ指定できます'
+        return None
     source_team = _resolve_slot_team(state, source_slot_id)
     target_team = _resolve_slot_team(state, target_slot_id)
     if source_team not in ['ally', 'enemy'] or target_team not in ['ally', 'enemy']:
@@ -623,6 +635,12 @@ def _normalize_target_by_skill(skill_id, target, state=None, source_slot_id=None
     inferred_mass = _infer_mass_type_from_skill(skill_id)
     if inferred_mass in ['mass_individual', 'mass_summation']:
         return {'type': inferred_mass, 'slot_id': None}, None
+
+    target_scope = _infer_target_scope_from_skill(skill_id)
+    if target_scope == 'self':
+        if not source_slot_id:
+            return None, 'self target requires source slot'
+        return {'type': 'single_slot', 'slot_id': source_slot_id}, None
 
     if normalized.get('type') in ['mass_individual', 'mass_summation']:
         return None, 'this skill does not support mass target'
@@ -688,9 +706,22 @@ def _build_tags(skill_id, target):
         'no_redirect': (
             'no_redirect' in skill_tags
             or '蟇ｾ雎｡螟画峩荳榊庄' in tags_text
-            or target_scope == 'ally'
+            or target_scope in ['ally', 'self']
         )
     }
+
+
+def _resolve_actor_for_slot(state, slot_id):
+    if not isinstance(state, dict) or not slot_id:
+        return None
+    slot = (state.get('slots', {}) or {}).get(slot_id)
+    if not isinstance(slot, dict):
+        return None
+    actor_id = slot.get('actor_id')
+    if not actor_id:
+        return None
+    chars = state.get('characters', []) if isinstance(state.get('characters'), list) else []
+    return next((c for c in chars if str(c.get('id')) == str(actor_id)), None)
 
 def _extract_skill_cost_entries(skill_data):
     if not isinstance(skill_data, dict):
@@ -1707,13 +1738,17 @@ def on_battle_intent_commit(data):
     target, target_error = _validate_and_normalize_target(
         data.get('target'),
         state,
-        allow_none=False
+        allow_none=True
     )
     if target_error:
         emit('battle_error', {'message': target_error}, to=request.sid)
         return
     if not skill_id:
         emit('battle_error', {'message': 'commit requires skill_id'}, to=request.sid)
+        return
+    actor = _resolve_actor_for_slot(state, slot_id)
+    if not can_use_skill_id(actor, skill_id, allow_instant=False):
+        emit('battle_error', {'message': 'このスキルは現在使用できません'}, to=request.sid)
         return
     target, target_error = _normalize_target_by_skill_compat(
         skill_id,
@@ -1912,7 +1947,12 @@ def on_battle_intent_change_skill(data):
     intent_before = copy.deepcopy(state['intents'].get(slot_id, {}))
     intent = state['intents'].get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)
-    intent['skill_id'] = data.get('skill_id')
+    next_skill_id = data.get('skill_id')
+    actor = _resolve_actor_for_slot(state, slot_id)
+    if next_skill_id and not can_use_skill_id(actor, next_skill_id, allow_instant=False):
+        emit('battle_error', {'message': 'このスキルは現在使用できません'}, to=request.sid)
+        return
+    intent['skill_id'] = next_skill_id
     if 'target' not in intent:
         intent['target'] = {'type': 'none', 'slot_id': None}
     normalized_target, target_error = _normalize_target_by_skill_compat(

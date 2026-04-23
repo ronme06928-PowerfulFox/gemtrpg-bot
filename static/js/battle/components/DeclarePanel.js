@@ -122,8 +122,11 @@ class DeclarePanel {
         const isUiReadOnly = isDeclaredLocked || !canEditSource;
         const declaredTargetType = this._normalizeTargetType(declare.targetType || sourceIntent?.target?.type);
         const effectiveTargetType = this._resolveEffectiveTargetType(skillId, declaredTargetType);
+        const effectiveTargetScope = this._inferTargetScopeFromSkill(skillId);
         const isMassTarget = this._isMassTargetType(effectiveTargetType);
-        const effectiveTargetSlotId = isMassTarget ? null : targetSlotId;
+        const effectiveTargetSlotId = isMassTarget
+            ? null
+            : (effectiveTargetScope === 'self' ? sourceSlotId : targetSlotId);
         const declareDiff = (typeof store.compareDeclareWithCommitted === 'function')
             ? store.compareDeclareWithCommitted(sourceSlotId)
             : { hasDiff: true, diffSummary: '' };
@@ -207,7 +210,7 @@ class DeclarePanel {
             && !costCheck.insufficient
             && canEditSource
             && !isDeclaredLocked
-            && (isMassTarget || !!effectiveTargetSlotId)
+            && (isMassTarget || effectiveTargetScope === 'self' || !!effectiveTargetSlotId)
             && hasDeclareDiff
         );
         const commitButtonText = !canEditSource
@@ -369,6 +372,8 @@ class DeclarePanel {
                 const current = store.get('declare') || {};
                 const prevTargetType = this._normalizeTargetType(current.targetType || declaredTargetType);
                 const nextTargetType = this._resolveEffectiveTargetType(nextSkillId, prevTargetType);
+                const prevTargetScope = this._inferTargetScopeFromSkill(current.skillId || '');
+                const nextTargetScope = this._inferTargetScopeFromSkill(nextSkillId);
                 let nextTargetSlotId = current.targetSlotId || null;
                 let nextLastSingleTargetSlotId = current.lastSingleTargetSlotId || null;
 
@@ -384,6 +389,12 @@ class DeclarePanel {
                     if (nextTargetSlotId) {
                         nextLastSingleTargetSlotId = nextTargetSlotId;
                     }
+                }
+                if (prevTargetScope === 'self' && nextTargetSlotId === sourceSlotId) {
+                    nextTargetSlotId = nextLastSingleTargetSlotId || null;
+                }
+                if (nextTargetScope === 'self') {
+                    nextTargetSlotId = sourceSlotId;
                 }
 
                 const nextDeclare = {
@@ -452,13 +463,14 @@ class DeclarePanel {
                 const tgt = latestDeclare.targetSlotId;
                 const sk = latestDeclare.skillId;
                 const targetType = this._resolveEffectiveTargetType(sk, latestDeclare.targetType || effectiveTargetType);
+                const targetScope = this._inferTargetScopeFromSkill(sk);
                 const isMassCommit = this._isMassTargetType(targetType);
                 const latestSourceActorId = latestState.slots?.[src]?.actor_id || null;
                 const latestCostCheck = this._evaluateCost(latestState, latestSourceActorId, sk, latestDeclare.calc);
                 if (!(latestState.phase === 'select' && src && sk) || latestCostCheck.insufficient) {
                     return;
                 }
-                if (!isMassCommit && !tgt) {
+                if (!isMassCommit && targetScope !== 'self' && !tgt) {
                     return;
                 }
 
@@ -471,7 +483,7 @@ class DeclarePanel {
 
                 const target = isMassCommit
                     ? { type: targetType, slot_id: null }
-                    : { type: 'single_slot', slot_id: tgt };
+                    : { type: 'single_slot', slot_id: (targetScope === 'self' ? src : tgt) };
                 console.log(`[emit] battle_intent_commit slot=${src} skill=${sk} target_type=${target.type} target=${target.slot_id || 'null'}`);
                 socketClient.sendIntentCommit(roomId, battleId, src, sk, target);
 
@@ -674,6 +686,38 @@ class DeclarePanel {
             dicePart = String(this._firstValue(skill, ['ダイス威力', 'dice_power'], '2d6') || '2d6');
         }
 
+        const rule = this._extractRuleData(skill) || {};
+        const powerStatChoice = (skill.power_stat_choice && typeof skill.power_stat_choice === 'object')
+            ? skill.power_stat_choice
+            : ((rule.power_stat_choice && typeof rule.power_stat_choice === 'object') ? rule.power_stat_choice : null);
+        if (powerStatChoice && String(powerStatChoice.apply_as || 'final_power').toLowerCase() === 'final_power') {
+            const params = Array.isArray(powerStatChoice.params) ? powerStatChoice.params : [];
+            const tieBreaker = String(powerStatChoice.tie_breaker || '').trim();
+            let selectedValue = 0;
+            let selectedIndex = Number.POSITIVE_INFINITY;
+            for (let i = 0; i < params.length; i += 1) {
+                const paramName = String(params[i] || '').trim();
+                if (!paramName) continue;
+                const value = this._readActorNumericParam(actor, paramName);
+                const isBetter = value > selectedValue;
+                const isTieBreaker = (
+                    value === selectedValue
+                    && paramName === tieBreaker
+                    && i <= selectedIndex
+                );
+                if (isBetter || isTieBreaker) {
+                    selectedValue = value;
+                    selectedIndex = i;
+                }
+            }
+            const finalCommand = String(selectedValue || 0);
+            const range = this._calcRangeFromCommand(finalCommand);
+            return {
+                finalCommand,
+                rangeText: range ? `${range.min} ~ ${range.max}` : '-'
+            };
+        }
+
         const resolvedDice = this._resolveCommandPlaceholders(dicePart, actor);
         const compactDice = String(resolvedDice || '').replace(/\s+/g, '');
         const finalCommand = compactDice
@@ -785,7 +829,10 @@ class DeclarePanel {
         if (hasSource && !hasSkill) {
             message = '使用スキルを選択してください。';
         } else if (hasSkill && !hasTarget) {
-            message = isMassTarget
+            const targetScope = this._inferTargetScopeFromSkill(skillId);
+            message = (targetScope === 'self')
+                ? '自分対象です。宣言ボタンで確定できます。'
+                : isMassTarget
                 ? '広域対象です。宣言ボタンで確定できます。'
                 : '対象スロットをクリックしてください。';
         } else if (hasSkill && hasTarget) {
@@ -872,12 +919,16 @@ class DeclarePanel {
         if (this._isMassTargetType(normalizedType)) {
             return `<option value="">${this._escapeHtml(this._getMassTargetLabel(state?.slots?.[sourceSlotId] || null))}</option>`;
         }
+        const targetScope = this._inferTargetScopeFromSkill(skillId);
+        if (targetScope === 'self') {
+            const label = this._formatSlotLabel(state, sourceSlotId);
+            return `<option value="${this._escapeHtml(sourceSlotId || '')}" selected>${this._escapeHtml(label)}</option>`;
+        }
         const slots = state?.slots || {};
         const sourceSlot = sourceSlotId ? slots[sourceSlotId] : null;
         const sourceActorId = sourceSlot?.actor_id || null;
         const sourceChar = (state?.characters || []).find((c) => String(c.id) === String(sourceActorId)) || null;
         const sourceTeam = sourceSlot?.team || sourceChar?.type || null;
-        const targetScope = this._inferTargetScopeFromSkill(skillId);
         const options = ['<option value="">-- 対象スロット --</option>'];
         const rows = [];
 
@@ -1066,9 +1117,12 @@ class DeclarePanel {
         if (!roomId || !battleId) return;
 
         const targetType = this._resolveEffectiveTargetType(skillId, declare?.targetType || 'single_slot');
+        const targetScope = this._inferTargetScopeFromSkill(skillId);
         let target = { type: 'none', slot_id: null };
         if (this._isMassTargetType(targetType)) {
             target = { type: targetType, slot_id: null };
+        } else if (targetScope === 'self') {
+            target = { type: 'single_slot', slot_id: sourceSlotId };
         } else if (declare?.targetSlotId) {
             target = { type: 'single_slot', slot_id: declare.targetSlotId };
         }
@@ -1083,15 +1137,20 @@ class DeclarePanel {
         if (state.phase !== 'select') return;
 
         const targetType = this._resolveEffectiveTargetType(skillId, declare?.targetType || 'single_slot');
+        const targetScope = this._inferTargetScopeFromSkill(skillId);
         const targetSlotId = declare?.targetSlotId || null;
         const calcKey = `${sourceSlotId}|${skillId}|${targetType}|${targetSlotId || 'none'}`;
         if (!force && this._lastCalcKey === calcKey) return;
         this._lastCalcKey = calcKey;
 
         const sourceActorId = state.slots?.[sourceSlotId]?.actor_id || null;
-        const targetActorId = (this._isMassTargetType(targetType) || !targetSlotId)
+        const targetActorId = this._isMassTargetType(targetType)
             ? null
-            : (state.slots?.[targetSlotId]?.actor_id || null);
+            : (
+                targetScope === 'self'
+                    ? sourceActorId
+                    : (!targetSlotId ? null : (state.slots?.[targetSlotId]?.actor_id || null))
+            );
         if (!sourceActorId) return;
 
         console.log(`[declare] calc_request source_slot=${sourceSlotId} target_slot=${targetSlotId || 'none'} skill=${skillId}`);
@@ -1139,7 +1198,6 @@ class DeclarePanel {
     }
 
     _extractActorSkillCandidates(actor, allSkillMap) {
-        const idsAll = Object.keys(allSkillMap || {});
         const list = [];
         const seen = new Set();
 
@@ -1160,9 +1218,12 @@ class DeclarePanel {
         }
 
         if (list.length > 0) return list;
-        return idsAll
-            .filter((id) => !this._isInstantSkillData(allSkillMap[id]))
-            .map((id) => ({ id, name: this._readSkillMeta(id).name }));
+
+        const fallbackSkill = allSkillMap?.['SYS-STRUGGLE'];
+        if (fallbackSkill && !this._isInstantSkillData(fallbackSkill)) {
+            return [{ id: 'SYS-STRUGGLE', name: this._readSkillMeta('SYS-STRUGGLE').name }];
+        }
+        return [];
     }
 
     _isInstantSkillData(skillData) {
@@ -1362,6 +1423,7 @@ class DeclarePanel {
 
     _normalizeTargetScope(scope) {
         const s = String(scope || '').trim().toLowerCase();
+        if (['self', 'self_only', 'caster', '自分', '自分対象', '自身'].includes(s)) return 'self';
         if (['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対', 'opposing_team', '相手陣営', '相手陣営対象', '相手陣営指定'].includes(s)) return 'enemy';
         if (['ally', 'allies', 'friend', 'friends', '味方', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定', 'same_team'].includes(s)) return 'ally';
         if (['any', 'all', 'both', '全体', 'all_targets'].includes(s)) return 'any';
@@ -1371,6 +1433,7 @@ class DeclarePanel {
     _isTargetTeamAllowedByScope(sourceTeam, targetTeam, scope) {
         const normalizedScope = this._normalizeTargetScope(scope);
         if (normalizedScope === 'any') return true;
+        if (normalizedScope === 'self') return String(sourceTeam) === String(targetTeam);
         if (normalizedScope === 'ally') return String(sourceTeam) === String(targetTeam);
         return String(sourceTeam) !== String(targetTeam);
     }
@@ -1393,6 +1456,7 @@ class DeclarePanel {
         for (const raw of candidates) {
             const text = String(raw || '').trim().toLowerCase();
             if (!text) continue;
+            if (['self', 'self_only', 'caster', '自分', '自分対象', '自身'].includes(text)) return 'self';
             if (['enemy', 'enemies', 'foe', 'opponent', 'opponents', '敵', '敵対', 'opposing_team', '相手陣営', '相手陣営対象', '相手陣営指定'].includes(text)) return 'enemy';
             if (['ally', 'allies', 'friend', 'friends', '味方', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定', 'same_team'].includes(text)) return 'ally';
             if (['any', 'all', 'both', '全体', 'all_targets'].includes(text)) return 'any';
@@ -1404,6 +1468,7 @@ class DeclarePanel {
             .map((t) => String(t || '').trim().toLowerCase())
             .filter(Boolean);
         if (tags.some((t) => ['any_target', 'target_any', '任意対象', '対象自由'].includes(t))) return 'any';
+        if (tags.some((t) => ['self_target', 'target_self', '自分対象', '自身対象'].includes(t))) return 'self';
         if (tags.some((t) => ['ally_target', 'target_ally', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定'].includes(t))) return 'ally';
         if (tags.some((t) => ['enemy_target', 'target_enemy', '敵対象', '相手陣営対象', '相手陣営指定'].includes(t))) return 'enemy';
         return 'enemy';

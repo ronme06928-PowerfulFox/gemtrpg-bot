@@ -116,6 +116,7 @@ def ensure_battle_state_vNext(room_state, battle_id=None, round_value=None, rebu
     battle_state['resolve']['single_queue'] = battle_state['resolve'].get('single_queue', [])
     battle_state['resolve']['resolved_slots'] = battle_state['resolve'].get('resolved_slots', [])
     battle_state['resolve']['trace'] = battle_state['resolve'].get('trace', [])
+    battle_state['resolve']['auto_defense_charges'] = battle_state['resolve'].get('auto_defense_charges', {})
 
     if rebuild_slots or not battle_state['slots']:
         battle_state['slots'] = _build_select_resolve_slots_from_timeline(room_state)

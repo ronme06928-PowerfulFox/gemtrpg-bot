@@ -2,6 +2,7 @@
 import sys
 import json
 import re # Added for regex
+from manager.battle.system_skills import ensure_system_skills_registered
 from manager.buff_catalog import get_buff_effect
 from manager.field_effects import (
     get_state_from_context,
@@ -11,6 +12,7 @@ from manager.field_effects import (
 from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
+ensure_system_skills_registered()
 
 
 def _utils_module():
@@ -1620,6 +1622,64 @@ def calculate_power_bonus(actor, target, power_bonus_data, context=None):
         total = _get_bonus(rule, actor, target)
     return total
 
+def _resolve_power_stat_choice(skill_data, rule_data, actor_char):
+    def _to_int(v, default=0):
+        try:
+            return int(v)
+        except Exception:
+            return default
+
+    candidates = []
+    if isinstance(skill_data, dict) and isinstance(skill_data.get("power_stat_choice"), dict):
+        candidates.append(skill_data.get("power_stat_choice"))
+    if isinstance(rule_data, dict) and isinstance(rule_data.get("power_stat_choice"), dict):
+        candidates.append(rule_data.get("power_stat_choice"))
+    choice = next((c for c in candidates if isinstance(c, dict)), None)
+    if not isinstance(choice, dict):
+        return None
+
+    mode = str(choice.get("mode", "max") or "max").strip().lower()
+    params = choice.get("params", [])
+    if not isinstance(params, list) or not params:
+        return None
+    tie_breaker = str(choice.get("tie_breaker", "") or "").strip()
+    apply_as = str(choice.get("apply_as", "final_power") or "final_power").strip().lower()
+
+    rows = []
+    for idx, param_name in enumerate(params):
+        label = str(param_name or "").strip()
+        if not label:
+            continue
+        rows.append({
+            "index": idx,
+            "param": label,
+            "value": _to_int(get_status_value(actor_char, label), 0),
+        })
+    if not rows:
+        return None
+
+    if mode == "max":
+        selected = max(
+            rows,
+            key=lambda row: (
+                row["value"],
+                1 if tie_breaker and row["param"] == tie_breaker else 0,
+                -row["index"],
+            )
+        )
+    else:
+        selected = rows[0]
+
+    return {
+        "mode": mode,
+        "params": [row["param"] for row in rows],
+        "tie_breaker": tie_breaker,
+        "apply_as": apply_as,
+        "selected_param": selected["param"],
+        "selected_value": int(selected["value"]),
+    }
+
+
 def calculate_skill_preview(
     actor_char,
     target_char,
@@ -1717,6 +1777,13 @@ def calculate_skill_preview(
         if senritsu_max_apply == 0:
             senritsu_max_apply = rule_data.get('senritsu_max', 0)
 
+    power_stat_choice = _resolve_power_stat_choice(skill_data, rule_data, actor_char)
+    selected_power_value = 0
+    selected_power_param = None
+    if isinstance(power_stat_choice, dict):
+        selected_power_value = _to_int(power_stat_choice.get("selected_value", 0), 0)
+        selected_power_param = str(power_stat_choice.get("selected_param", "") or "").strip() or None
+
     # 物理/魔法スキルなら戦慄上限をデフォルト適用
     if senritsu_max_apply == 0:
         category = skill_data.get('分類', '')
@@ -1749,6 +1816,9 @@ def calculate_skill_preview(
     final_power_bonus += valvile_correction
 
     total_flat_bonus = bonus_power + final_power_bonus
+    if selected_power_value and isinstance(power_stat_choice, dict):
+        if power_stat_choice.get("apply_as") == "final_power":
+            total_flat_bonus += selected_power_value
     skill_details['senritsu_max_apply'] = senritsu_max_apply
     skill_details['additional_power'] = total_flat_bonus
     skill_details['base_power_mod'] = base_power_buff_mod + _to_int(external_base_power_mod) + temp_base_power_mod + origin_base_power_mod
@@ -1849,7 +1919,10 @@ def calculate_skill_preview(
 
     final_dice_part = processed_dice
     if total_flat_bonus != 0:
-        final_dice_part += f"{'+' if total_flat_bonus > 0 else ''}{total_flat_bonus}"
+        if str(processed_dice).strip() in ['', '0']:
+            final_dice_part = f"{total_flat_bonus}"
+        else:
+            final_dice_part += f"{'+' if total_flat_bonus > 0 else ''}{total_flat_bonus}"
 
     if final_dice_part.startswith('+') or final_dice_part.startswith('-'):
         final_command = f"{final_base_power}{final_dice_part}"
@@ -1937,6 +2010,8 @@ def calculate_skill_preview(
         "additional_power": total_flat_bonus,
         "total_flat_bonus": total_flat_bonus,
         "dice_term_sources": dice_term_sources,
+        "selected_power_param": selected_power_param,
+        "selected_power_value": selected_power_value,
     }
 
     return {
@@ -2012,6 +2087,8 @@ def build_power_result_snapshot(preview_data, roll_result):
         "flat_power_bonus": _to_int(power_breakdown.get("total_flat_bonus", power_breakdown.get("additional_power", 0))),
         "final_power": final_power,
         "constant_power_after_roll": constant_power,
+        "selected_power_param": power_breakdown.get("selected_power_param"),
+        "selected_power_value": _to_int(power_breakdown.get("selected_power_value", 0)),
         "raw": {
             "preview": preview_data,
             "roll": roll_result,

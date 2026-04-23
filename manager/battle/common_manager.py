@@ -14,6 +14,7 @@ from manager.dice_roller import roll_dice
 from manager.logs import setup_logger
 from manager.summons.service import apply_summon_change, process_summon_round_end
 from manager.granted_skills.service import process_granted_skill_round_end, apply_grant_skill_change
+from manager.battle.system_skills import pop_pending_selected_power_recoveries
 
 logger = setup_logger(__name__)
 
@@ -338,6 +339,10 @@ def _process_full_round_end_impl(room, username):
 
 
     for char in characters_to_process:
+        pending_selected_power = pop_pending_selected_power_recoveries(char)
+        for state_name in pending_selected_power:
+            current_val = get_status_value(char, state_name)
+            _update_char_stat(room, char, state_name, current_val + 1, username=f"[{state.get('round')}R終了時]")
         used_skill_ids = char.get('used_skills_this_round', [])
         all_changes = []
 
