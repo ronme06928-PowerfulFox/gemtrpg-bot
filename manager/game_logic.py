@@ -3,7 +3,7 @@ import sys
 import json
 import re # Added for regex
 from manager.battle.system_skills import ensure_system_skills_registered
-from manager.buff_catalog import get_buff_effect
+from manager.buff_catalog import get_buff_effect, resolve_runtime_buff_effect
 from manager.field_effects import (
     get_state_from_context,
     get_stage_damage_dealt_mod,
@@ -496,6 +496,17 @@ def _split_power_bonus_rules(rules):
     return buckets
 
 
+def _resolve_runtime_buff_effect_data(buff_row):
+    """
+    Resolve buff effect for runtime calculation.
+    Shared resolver:
+    1) Catalog/static effect by buff name
+    2) Merge/override with buff instance data
+    3) Fixed value-driven implementation for Bu-32..Bu-47
+    """
+    return resolve_runtime_buff_effect(buff_row)
+
+
 def calculate_buff_power_bonus_parts(actor, target, actor_skill_data, context=None):
     """
     バフ由来の威力補正を適用先ごとに返す。
@@ -506,13 +517,9 @@ def calculate_buff_power_bonus_parts(actor, target, actor_skill_data, context=No
         return parts
 
     for buff in actor['special_buffs']:
-        buff_name = buff.get('name')
-        effect_data = get_buff_effect(buff_name)
+        effect_data = _resolve_runtime_buff_effect_data(buff)
         if not effect_data:
-            if 'data' in buff:
-                effect_data = buff['data']
-            else:
-                continue
+            continue
 
         if buff.get('delay', 0) > 0:
             continue
@@ -545,10 +552,9 @@ def calculate_state_apply_bonus(actor, target, stat_name, context=None):
 
     for buff in actor['special_buffs']:
         buff_name = buff.get('name')
-        effect_data = get_buff_effect(buff_name)
+        effect_data = _resolve_runtime_buff_effect_data(buff)
         if not effect_data:
-             if 'data' in buff: effect_data = buff['data']
-             else: continue
+            continue
 
         # ★追加: ディレイ中のバフは無効
         if buff.get('delay', 0) > 0:
@@ -595,12 +601,9 @@ def calculate_state_receive_bonus(receiver, source, stat_name, context=None):
 
     for buff in receiver['special_buffs']:
         buff_name = buff.get('name')
-        effect_data = get_buff_effect(buff_name)
+        effect_data = _resolve_runtime_buff_effect_data(buff)
         if not effect_data:
-            if 'data' in buff:
-                effect_data = buff['data']
-            else:
-                continue
+            continue
 
         # キャッシュ/参照タイミング差で get_buff_effect(name) が解決できないケース向けフォールバック:
         # buff_id からカタログeffectを引き、受け手側補正ルールを補完する。
@@ -2116,7 +2119,7 @@ def _resolve_buff_multiplier_value(buff_entry, keys):
                     return float(data.get(key))
                 except Exception:
                     pass
-    effect_data = get_buff_effect(buff_entry.get('name'))
+    effect_data = _resolve_runtime_buff_effect_data(buff_entry)
     if isinstance(effect_data, dict):
         for key in keys:
             if key in effect_data:
@@ -2138,7 +2141,7 @@ def _resolve_buff_condition_value(buff_entry):
         condition = data.get('condition')
         if isinstance(condition, dict):
             return condition
-    effect_data = get_buff_effect(buff_entry.get('name'))
+    effect_data = _resolve_runtime_buff_effect_data(buff_entry)
     if isinstance(effect_data, dict):
         condition = effect_data.get('condition')
         if isinstance(condition, dict):

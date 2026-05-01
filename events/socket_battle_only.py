@@ -19,6 +19,7 @@ from manager.room_manager import (
     save_specific_room_state,
     set_character_owner,
 )
+from manager.json_rule_v2 import normalize_skill_constraints_rows, JsonRuleV2Error
 from manager.utils import apply_passive_effect_buffs
 
 
@@ -556,6 +557,15 @@ def _normalize_stage_field_effect_profile(raw):
             rid = str(row.get('rule_id') or '').strip()
             if rid:
                 rule['rule_id'] = rid
+        constraints = row.get('skill_constraints', None)
+        if constraints is not None:
+            try:
+                rule['skill_constraints'] = normalize_skill_constraints_rows(
+                    constraints,
+                    source_path=f"field_effect_profile.rules[{idx}].skill_constraints",
+                )
+            except JsonRuleV2Error as ex:
+                raise ValueError(str(ex)) from ex
         rules.append(rule)
 
     return {"version": version, "rules": rules}

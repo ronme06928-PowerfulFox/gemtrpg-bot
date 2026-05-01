@@ -295,6 +295,33 @@ function renderCharacterCard(char) {
         }
         return escapeDetailHtml(value).replace(/\n/g, '<br>');
     };
+    const applyBuffTemplateText = (text, buff) => {
+        if (text === null || text === undefined) return text;
+        const source = String(text);
+        const data = (buff && typeof buff === 'object' && buff.data && typeof buff.data === 'object')
+            ? buff.data
+            : {};
+
+        const value = (buff && buff.value !== undefined && buff.value !== null)
+            ? String(buff.value)
+            : ((data.value !== undefined && data.value !== null) ? String(data.value) : '');
+        const count = (buff && buff.count !== undefined && buff.count !== null)
+            ? String(buff.count)
+            : ((data.count !== undefined && data.count !== null) ? String(data.count) : '');
+
+        let duration = '';
+        let durationVal = buff ? buff.lasting : undefined;
+        if (durationVal === undefined && buff) durationVal = buff.round;
+        if (durationVal === undefined && buff) durationVal = buff.duration;
+        if (durationVal !== undefined && durationVal !== null && !Number.isNaN(Number(durationVal))) {
+            duration = String(durationVal);
+        }
+
+        return source
+            .replace(/{{\s*value\s*}}/gi, value)
+            .replace(/{{\s*count\s*}}/gi, count)
+            .replace(/{{\s*duration\s*}}/gi, duration);
+    };
     const charIdAttr = escapeDetailHtml((char && char.id != null) ? char.id : '');
 
     // --- States (Stack) ---
@@ -366,13 +393,23 @@ function renderCharacterCard(char) {
             const buffCatalogId = b.buff_id || (b.data && b.data.buff_id) || null;
             let descriptionText = b.description;
             let flavorText = b.flavor;
-            let nameDisplay = b.name;
+            const explicitDisplayName = String(
+                (b.display_name || (b.data && b.data.display_name) || '')
+            ).trim();
+            let nameDisplay = explicitDisplayName || b.name;
+            const hasExplicitDisplayName = !!explicitDisplayName;
 
             // バフ図鑑が引けるならそちらを正として使う
             if (typeof BUFF_DATA !== 'undefined' && typeof BUFF_DATA.get === 'function') {
                 const foundById = BUFF_DATA.get(b.name, buffCatalogId);
                 if (foundById) {
-                    if (foundById.name) nameDisplay = foundById.name;
+                    if (!hasExplicitDisplayName) {
+                        if (foundById.display_name) {
+                            nameDisplay = foundById.display_name;
+                        } else if (foundById.name) {
+                            nameDisplay = foundById.name;
+                        }
+                    }
                     if (foundById.description) descriptionText = foundById.description;
                     if (typeof foundById.flavor === 'string') flavorText = foundById.flavor;
                 }
@@ -398,10 +435,13 @@ function renderCharacterCard(char) {
                 }
             }
 
+            descriptionText = applyBuffTemplateText(descriptionText, b);
+            flavorText = applyBuffTemplateText(flavorText, b);
+
             if (!descriptionText) descriptionText = "説明なし";
             if (!flavorText) flavorText = "";
 
-            if (nameDisplay && nameDisplay.includes('_')) {
+            if (!hasExplicitDisplayName && nameDisplay && nameDisplay.includes('_')) {
                 nameDisplay = nameDisplay.split('_')[0];
             }
 

@@ -62,3 +62,10 @@ def test_skill_rules_normalize_target_scope_supports_new_aliases():
 def test_pve_intent_planner_normalize_target_scope_supports_new_aliases():
     assert pve_intent_planner._normalize_target_scope("same_team") == "ally"
     assert pve_intent_planner._normalize_target_scope("opposing_team") == "enemy"
+
+
+def test_target_scope_supports_self_tag_alias_ja(monkeypatch):
+    monkeypatch.setattr(common_routes, "all_skill_data", {"S1": {"tags": ["自己対象"]}})
+    assert common_routes._infer_target_scope_from_skill("S1") == "self"
+    assert skill_rules._normalize_target_scope("自己対象") == "self"
+    assert pve_intent_planner._normalize_target_scope("自己対象") == "self"

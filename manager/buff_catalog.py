@@ -200,6 +200,171 @@ DYNAMIC_PATTERNS = [
     }
 ]
 
+VALUE_DRIVEN_BUFF_IDS = {
+    "Bu-32", "Bu-33", "Bu-34", "Bu-35",
+    "Bu-36", "Bu-37", "Bu-38", "Bu-39",
+    "Bu-40", "Bu-41", "Bu-42", "Bu-43",
+    "Bu-44", "Bu-45", "Bu-46", "Bu-47",
+}
+
+
+def _safe_int(value):
+    try:
+        return int(value)
+    except Exception:
+        return None
+
+
+def _extract_buff_id(buff_entry):
+    if not isinstance(buff_entry, dict):
+        return ""
+    buff_id = buff_entry.get("buff_id")
+    if not buff_id and isinstance(buff_entry.get("data"), dict):
+        buff_id = buff_entry["data"].get("buff_id")
+    return str(buff_id or "").strip()
+
+
+def _extract_value_for_value_driven_buff(buff_entry):
+    if not isinstance(buff_entry, dict):
+        return None
+    if "value" in buff_entry:
+        parsed = _safe_int(buff_entry.get("value"))
+        if parsed is not None:
+            return parsed
+    data = buff_entry.get("data")
+    if isinstance(data, dict):
+        return _safe_int(data.get("value"))
+    return None
+
+
+def _build_effect_from_value_driven_buff_id(buff_id, value):
+    if buff_id == "Bu-32":
+        return {
+            "power_bonus": [{
+                "condition": {"source": "skill", "param": "tags", "operator": "CONTAINS", "value": "攻撃"},
+                "operation": "FIXED",
+                "value": value,
+                "apply_to": "final",
+            }]
+        }
+    if buff_id == "Bu-33":
+        return {
+            "power_bonus": [{
+                "condition": {"source": "skill", "param": "tags", "operator": "CONTAINS", "value": "守備"},
+                "operation": "FIXED",
+                "value": value,
+                "apply_to": "final",
+            }]
+        }
+    if buff_id == "Bu-34":
+        return {
+            "power_bonus": [{
+                "condition": {"source": "skill", "param": "tags", "operator": "CONTAINS", "value": "攻撃"},
+                "operation": "FIXED",
+                "value": -value,
+                "apply_to": "final",
+            }]
+        }
+    if buff_id == "Bu-35":
+        return {
+            "power_bonus": [{
+                "condition": {"source": "skill", "param": "tags", "operator": "CONTAINS", "value": "守備"},
+                "operation": "FIXED",
+                "value": -value,
+                "apply_to": "final",
+            }]
+        }
+    if buff_id == "Bu-36":
+        return {"stat_mods": {"物理補正": value}}
+    if buff_id == "Bu-37":
+        return {"stat_mods": {"物理補正": -value}}
+    if buff_id == "Bu-38":
+        return {"stat_mods": {"魔法補正": value}}
+    if buff_id == "Bu-39":
+        return {"stat_mods": {"魔法補正": -value}}
+    if buff_id == "Bu-40":
+        return {
+            "state_bonus": [{
+                "stat": "亀裂",
+                "operation": "FIXED",
+                "value": value,
+                "consume": False,
+            }]
+        }
+    if buff_id == "Bu-41":
+        return {
+            "state_bonus": [{
+                "stat": "亀裂",
+                "operation": "FIXED",
+                "value": value,
+                "consume": True,
+            }]
+        }
+    if buff_id == "Bu-42":
+        return {"stat_mods": {"行動回数": value}}
+    if buff_id == "Bu-43":
+        mult = 1.0 + (value / 100.0)
+        return {
+            "damage_multiplier": mult,
+            "incoming_damage_multiplier": mult,
+        }
+    if buff_id == "Bu-44":
+        mult = max(0.0, 1.0 - (value / 100.0))
+        return {
+            "damage_multiplier": mult,
+            "incoming_damage_multiplier": mult,
+        }
+    if buff_id == "Bu-45":
+        return {"outgoing_damage_multiplier": 1.0 + (value / 100.0)}
+    if buff_id == "Bu-46":
+        return {"outgoing_damage_multiplier": max(0.0, 1.0 - (value / 100.0))}
+    if buff_id == "Bu-47":
+        return {"on_damage_state": {"stat": "出血", "value": value}}
+    return {}
+
+
+def _merge_effect_dict(base, override):
+    result = dict(base or {})
+    for key, value in (override or {}).items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            nested = dict(result.get(key) or {})
+            nested.update(value)
+            result[key] = nested
+        else:
+            result[key] = value
+    return result
+
+
+def resolve_runtime_buff_effect(buff_entry):
+    """
+    Resolve runtime effect data from buff row.
+    1) catalog/static/dynamic by name
+    2) overlay instance data
+    3) for Bu-32..Bu-47, force fixed server implementation from data.value
+    """
+    if not isinstance(buff_entry, dict):
+        return {}
+
+    buff_name = buff_entry.get("name")
+    base = get_buff_effect(buff_name)
+    effect_data = dict(base) if isinstance(base, dict) else {}
+
+    inst_data = buff_entry.get("data")
+    if isinstance(inst_data, dict):
+        effect_data = _merge_effect_dict(effect_data, inst_data)
+
+    buff_id = _extract_buff_id(buff_entry)
+    if buff_id not in VALUE_DRIVEN_BUFF_IDS:
+        return effect_data
+
+    value = _extract_value_for_value_driven_buff(buff_entry)
+    if value is None:
+        raise ValueError(f"{buff_id} requires integer data.value")
+
+    fixed_effect = _build_effect_from_value_driven_buff_id(buff_id, value)
+    return _merge_effect_dict(effect_data, fixed_effect)
+
+
 def get_buff_effect(buff_name):
     """バフ名から効果定義を取得する（静的 -> スプレッドシート -> 動的 の順で検索）"""
     # 1. 静的定義にあればそれを返す

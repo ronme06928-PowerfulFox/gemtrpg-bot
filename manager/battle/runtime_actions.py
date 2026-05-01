@@ -7,7 +7,7 @@ from manager.game_logic import (
     get_status_value,
 )
 from manager.logs import setup_logger
-from manager.buff_catalog import get_buff_effect
+from manager.buff_catalog import resolve_runtime_buff_effect
 from manager.room_manager import (
     get_room_state,
     broadcast_log,
@@ -205,9 +205,10 @@ def process_on_damage_buffs(room, char, damage_val, username, log_snippets):
         # このターン新規付与のバフは発動させない
         if b.get('newly_applied'):
             continue
-        # Resolve full effect data (dynamic or static)
-        effect_data = get_buff_effect(b.get('name'))
-        if not effect_data: continue
+        # Resolve full effect data (catalog + instance data + value-driven buff_id)
+        effect_data = resolve_runtime_buff_effect(b)
+        if not effect_data:
+            continue
 
         conf = effect_data.get('on_damage_state')
         # print(f"[DEBUG] Checking buff {b.get('name')}: on_damage_state={conf}")

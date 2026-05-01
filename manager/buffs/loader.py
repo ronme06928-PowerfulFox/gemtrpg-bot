@@ -1,4 +1,4 @@
-# manager/buffs/loader.py
+﻿# manager/buffs/loader.py
 """
 バフ図鑑データをCSVから読み込むローダー
 """
@@ -70,6 +70,11 @@ class BuffCatalogLoader:
                 buffs[buff_id] = {
                     'id': buff_id,
                     'name': buff_name,
+                    'display_name': (
+                        row.get('display_name', '').strip()
+                        or row.get('表示名', '').strip()
+                        or buff_name
+                    ),
                     'description': row.get('バフ説明', '').strip(),
                     'flavor': row.get('フレーバーテキスト', '').strip(),
                     'effect': effect,

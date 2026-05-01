@@ -1003,7 +1003,21 @@ def test_bo_stage_field_effect_profile_roundtrip_and_start(monkeypatch):
                 "field_effect_profile": {
                     "version": 1,
                     "rules": [
-                        {"rule_id": "r_speed_1", "type": "SPEED_ROLL_MOD", "scope": "ALL", "value": -1, "priority": 100}
+                        {
+                            "rule_id": "r_speed_1",
+                            "type": "SPEED_ROLL_MOD",
+                            "scope": "ALL",
+                            "value": -1,
+                            "priority": 100,
+                            "skill_constraints": [
+                                {
+                                    "id": "stage_fp_block",
+                                    "mode": "block",
+                                    "match": {"cost_types": ["FP"]},
+                                    "reason": "stage block",
+                                }
+                            ],
+                        }
                     ],
                 },
                 "stage_avatar": {"enabled": True, "name": "Avatar", "description": "desc", "icon": "icon_1"},
@@ -1034,6 +1048,8 @@ def test_bo_stage_field_effect_profile_roundtrip_and_start(monkeypatch):
     first = state["field_effects"][0]
     assert first.get("source_type") == "stage_preset"
     assert first.get("source_id") == stage_id
+    assert isinstance(first.get("rule"), dict)
+    assert first.get("rule", {}).get("skill_constraints", [{}])[0].get("id") == "stage_fp_block"
     assert state.get("stage_avatar_profile", {}).get("name") == "Avatar"
 
 

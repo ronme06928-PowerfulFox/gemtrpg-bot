@@ -1,51 +1,25 @@
-import json
+﻿import json
+from manager.json_rule_v2 import extract_and_normalize_skill_rule_data, JsonRuleV2Error
 
 
-def _extract_rule_data_from_skill(skill_data):
-    if not isinstance(skill_data, dict):
+def _extract_rule_data_from_skill(skill_data, *, raise_on_error=False, strict=True):
+    try:
+        skill_id = ""
+        if isinstance(skill_data, dict):
+            skill_id = str(skill_data.get("id", "") or "").strip()
+        return extract_and_normalize_skill_rule_data(
+            skill_data,
+            skill_id=skill_id,
+            strict=strict,
+        )
+    except JsonRuleV2Error:
+        if raise_on_error:
+            raise
         return {}
-
-    for key in ['rule_data', 'rule_json', 'rule', '特記処理']:
-        raw = skill_data.get(key)
-        if isinstance(raw, dict):
-            return raw
-        if isinstance(raw, str):
-            text = raw.strip()
-            if not text.startswith('{'):
-                continue
-            try:
-                parsed = json.loads(text)
-            except Exception:
-                continue
-            if isinstance(parsed, dict):
-                return parsed
-
-    direct = skill_data.get('rule_data')
-    if isinstance(direct, dict):
-        return direct
-
-    for raw in skill_data.values():
-        if not isinstance(raw, str):
-            continue
-        raw = raw.strip()
-        if not raw.startswith('{'):
-            continue
-        if (
-            ('"effects"' not in raw)
-            and ('"cost"' not in raw)
-            and ('"tags"' not in raw)
-            and ('"deals_damage"' not in raw)
-            and ('"target_scope"' not in raw)
-            and ('"target_team"' not in raw)
-        ):
-            continue
-        try:
-            parsed = json.loads(raw)
-        except Exception:
-            continue
-        if isinstance(parsed, dict):
-            return parsed
-    return {}
+    except Exception:
+        if raise_on_error:
+            raise
+        return {}
 
 
 def _extract_skill_cost_entries(skill_data):
@@ -87,7 +61,7 @@ def _skill_deals_damage(skill_data):
     direct = skill_data.get('deals_damage')
     if isinstance(direct, bool):
         return direct
-    # 防御/回避スキルは一方攻撃でもダメージを発生させない。
+    # Defense/evade-like skills are treated as non-damaging by default.
     try:
         resolved_role = _resolve_skill_role(skill_data)
     except Exception:
@@ -99,10 +73,10 @@ def _skill_deals_damage(skill_data):
     if isinstance(rule_data, dict) and isinstance(rule_data.get('deals_damage'), bool):
         return bool(rule_data.get('deals_damage'))
 
-    # 分類フィールドの揺れ（日本語/英語）をフォールバックで吸収
-    role_tokens = {'defense', 'evade', '防御', '回避', '守備'}
+    # role/category based fallback
+    role_tokens = {'defense', 'evade'}
     role_values = []
-    for key in ('category', '分類'):
+    for key in ('category',):
         val = skill_data.get(key)
         if isinstance(val, str) and val.strip():
             role_values.append(val.strip())
@@ -115,7 +89,7 @@ def _skill_deals_damage(skill_data):
         return False
 
     no_damage_tags = {
-        '非ダメージ', '非ダメージスキル', 'no_damage', 'non_damage'
+        '髱槭ム繝｡繝ｼ繧ｸ', '髱槭ム繝｡繝ｼ繧ｸ繧ｹ繧ｭ繝ｫ', 'no_damage', 'non_damage'
     }
     tags = []
     if isinstance(skill_data.get('tags'), list):
@@ -129,14 +103,14 @@ def _skill_deals_damage(skill_data):
 
 
 def _is_hard_skill(skill_data):
-    for tag in ['強硬', '強硬スキル', 'hard_skill']:
+    for tag in ['蠑ｷ遑ｬ', '蠑ｷ遑ｬ繧ｹ繧ｭ繝ｫ', 'hard_skill']:
         if _has_skill_tag(skill_data, tag):
             return True
     return False
 
 
 def _is_feint_skill(skill_data):
-    for tag in ['牽制', '牽制スキル', 'feint_skill']:
+    for tag in ['迚ｽ蛻ｶ', '迚ｽ蛻ｶ繧ｹ繧ｭ繝ｫ', 'feint_skill']:
         if _has_skill_tag(skill_data, tag):
             return True
     return False
@@ -164,13 +138,13 @@ def _collect_skill_tags(skill_data):
 def _resolve_skill_category(skill_data):
     if not isinstance(skill_data, dict):
         return ''
-    for key in ('分類', 'category'):
+    for key in ('category',):
         value = skill_data.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
     rule_data = _extract_rule_data_from_skill(skill_data)
     if isinstance(rule_data, dict):
-        for key in ('分類', 'category'):
+        for key in ('category',):
             value = rule_data.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
@@ -181,17 +155,19 @@ def _normalize_target_scope(raw_value, default='enemy'):
     text = str(raw_value or '').strip().lower()
     if text in ['', 'default', 'auto']:
         return str(default or 'enemy')
+    if text in ['self', 'self_only', 'caster', '自分', '自分対象', '自身', '自己対象']:
+        return 'self'
     if text in [
         'enemy', 'enemies', 'foe', 'opponent', 'opponents',
-        '敵', '敵対象', 'opposing_team', '相手陣営', '相手陣営対象', '相手陣営指定'
+        'opposing_team',
     ]:
         return 'enemy'
     if text in [
         'ally', 'allies', 'friend', 'friends',
-        '味方', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定', 'same_team'
+        'same_team',
     ]:
         return 'ally'
-    if text in ['any', 'all', 'both', '任意', '対象自由', 'all_targets']:
+    if text in ['any', 'all', 'both', 'all_targets']:
         return 'any'
     return str(default or 'enemy')
 
@@ -215,11 +191,14 @@ def _infer_target_scope_from_skill_data(skill_data):
             return _normalize_target_scope(raw, default='enemy')
 
     normalized_tags = {str(v or '').strip().lower() for v in _collect_skill_tags(skill_data)}
-    ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定', '同陣営', '同陣営対象', '同陣営指定'}
-    any_tags = {'any_target', 'target_any', '任意対象', '対象自由'}
-    enemy_tags = {'enemy_target', 'target_enemy', '敵対象', '相手陣営対象', '相手陣営指定'}
+    self_tags = {'self_target', 'target_self', '自分対象', '自身対象', '自己対象'}
+    ally_tags = {'ally_target', 'target_ally'}
+    any_tags = {'any_target', 'target_any'}
+    enemy_tags = {'enemy_target', 'target_enemy'}
     if any(tag.lower() in normalized_tags for tag in any_tags):
         return 'any'
+    if any(tag.lower() in normalized_tags for tag in self_tags):
+        return 'self'
     if any(tag.lower() in normalized_tags for tag in ally_tags):
         return 'ally'
     if any(tag.lower() in normalized_tags for tag in enemy_tags):
@@ -263,16 +242,16 @@ def _resolve_skill_role(skill_data):
     tags = _collect_skill_tags(skill_data)
     lower_tags = [str(v or '').strip().lower() for v in tags]
 
-    if category == '回避':
+    if category == '蝗樣∩':
         return 'evade'
-    if any(('回避' in t) for t in tags):
+    if any(('蝗樣∩' in t) for t in tags):
         return 'evade'
     if any(('evade' in t) for t in lower_tags):
         return 'evade'
 
-    if category == '防御':
+    if category == '髦ｲ蠕｡':
         return 'defense'
-    if any(('防御' in t or '守備' in t) for t in tags):
+    if any(('髦ｲ蠕｡' in t or '螳亥ｙ' in t) for t in tags):
         return 'defense'
     if any(('defense' in t) for t in lower_tags):
         return 'defense'
@@ -352,4 +331,5 @@ def _estimate_immediate_self_fp_gain(skill_data):
 
 def _skill_has_direct_fp_gain(skill_data):
     return _estimate_immediate_self_fp_gain(skill_data) > 0
+
 

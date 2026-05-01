@@ -18,7 +18,8 @@ except Exception:
     def emit_select_resolve_events(*args, **kwargs):
         return None
 from manager.battle.core import proceed_next_turn, run_select_resolve_auto
-from manager.battle.skill_access import can_use_skill_id
+from manager.battle.skill_access import evaluate_skill_access
+from manager.battle.skill_rules import _extract_rule_data_from_skill as _extract_rule_data_from_skill_v2
 from manager.battle.system_skills import ensure_system_skills_registered
 from manager.battle.common_manager import (
     process_full_round_end, reset_battle_logic, force_end_match_logic,
@@ -399,43 +400,7 @@ def _extract_skill_tags(skill_id):
 
 
 def _extract_skill_rule_data(skill_data):
-    if not isinstance(skill_data, dict):
-        return {}
-    for key in ['rule_data', 'rule_json', 'rule', 'ruleData']:
-        raw = skill_data.get(key)
-        if not raw:
-            continue
-        if isinstance(raw, dict):
-            return raw
-        if isinstance(raw, str):
-            try:
-                parsed = json.loads(raw)
-                if isinstance(parsed, dict):
-                    return parsed
-            except Exception:
-                continue
-    for raw in skill_data.values():
-        if not isinstance(raw, str):
-            continue
-        text = raw.strip()
-        if not text.startswith('{'):
-            continue
-        if (
-            ('"effects"' not in text)
-            and ('"cost"' not in text)
-            and ('"tags"' not in text)
-            and ('"target_scope"' not in text)
-            and ('"target_team"' not in text)
-            and ('"deals_damage"' not in text)
-        ):
-            continue
-        try:
-            parsed = json.loads(text)
-            if isinstance(parsed, dict):
-                return parsed
-        except Exception:
-            continue
-    return {}
+    return _extract_rule_data_from_skill_v2(skill_data, raise_on_error=False)
 
 
 def _coerce_mass_type(raw_value):
@@ -534,7 +499,7 @@ def _normalize_target_scope(raw_value, default='enemy'):
     text = str(raw_value or '').strip().lower()
     if text in ['', 'default', 'auto']:
         return str(default or 'enemy')
-    if text in ['self', 'self_only', 'caster', '自分', '自分対象', '自身']:
+    if text in ['self', 'self_only', 'caster', '自分', '自分対象', '自身', '自己対象']:
         return 'self'
     if text in [
         'enemy', 'enemies', 'foe', 'opponent', 'opponents',
@@ -578,7 +543,7 @@ def _infer_target_scope_from_skill(skill_id):
         if text:
             tags.append(text)
     normalized = {str(v).strip().lower() for v in tags}
-    self_tags = {'self_target', 'target_self', '自分対象', '自身対象'}
+    self_tags = {'self_target', 'target_self', '自分対象', '自身対象', '自己対象'}
     ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定', '同じチーム対象', '同じチーム指定', '同陣営対象', '同陣営指定'}
     any_tags = {'any_target', 'target_any', '全体対象', '対象自由'}
     enemy_tags = {'enemy_target', 'target_enemy', '敵対象', '相手チーム対象', '相手チーム指定'}
@@ -711,7 +676,7 @@ def _build_tags(skill_id, target):
     }
 
 
-def _resolve_actor_for_slot(state, slot_id):
+def _resolve_actor_for_slot(state, slot_id, room_id=None):
     if not isinstance(state, dict) or not slot_id:
         return None
     slot = (state.get('slots', {}) or {}).get(slot_id)
@@ -721,7 +686,18 @@ def _resolve_actor_for_slot(state, slot_id):
     if not actor_id:
         return None
     chars = state.get('characters', []) if isinstance(state.get('characters'), list) else []
-    return next((c for c in chars if str(c.get('id')) == str(actor_id)), None)
+    actor = next((c for c in chars if str(c.get('id')) == str(actor_id)), None)
+    if actor:
+        return actor
+
+    fallback_room_id = room_id
+    if not fallback_room_id:
+        fallback_room_id = str(state.get('room_id') or state.get('room') or '').strip()
+    if not fallback_room_id:
+        return None
+    room_state = get_room_state(fallback_room_id) or {}
+    room_chars = room_state.get('characters', []) if isinstance(room_state.get('characters'), list) else []
+    return next((c for c in room_chars if str(c.get('id')) == str(actor_id)), None)
 
 def _extract_skill_cost_entries(skill_data):
     if not isinstance(skill_data, dict):
@@ -1367,8 +1343,59 @@ def _emit_battle_state_updated(room_id, battle_id):
     if state:
         payload['resolve_ready'] = bool(state.get('resolve_ready', False))
         payload['resolve_ready_info'] = state.get('resolve_ready_info', {})
+        payload['slot_skill_access'] = _build_slot_skill_access(state, room_id=room_id)
     _log_battle_emit('battle_state_updated', room_id, battle_id, payload)
     socketio.emit('battle_state_updated', payload, to=room_id)
+
+
+def _build_slot_skill_access(state, room_id=None):
+    if not isinstance(state, dict):
+        return {}
+    slots = state.get("slots", {}) if isinstance(state.get("slots"), dict) else {}
+    out = {}
+    for slot_id, slot in slots.items():
+        actor = _resolve_actor_for_slot(state, slot_id, room_id=room_id)
+        if not isinstance(actor, dict):
+            continue
+        row = {}
+        for skill_id in _normalize_actor_skill_ids(actor):
+            if not skill_id:
+                continue
+            ev = evaluate_skill_access(
+                actor,
+                skill_id,
+                room_state=None,
+                battle_state=state,
+                slot_id=slot_id,
+                allow_instant=False,
+            )
+            reasons = ev.get("blocked_reasons", [])
+            row[skill_id] = {
+                "usable": bool(ev.get("usable", False)),
+                "reason": str((reasons[0] if reasons else "") or ""),
+                "blocked_reasons": list(reasons) if isinstance(reasons, list) else [],
+                "effective_cost": list(ev.get("effective_cost", []) or []),
+            }
+        out[str(slot_id)] = row
+    return out
+
+
+def _normalize_actor_skill_ids(actor):
+    if not isinstance(actor, dict):
+        return []
+    from manager.battle.skill_access import _extract_skill_ids_from_commands, _extract_granted_skill_ids
+
+    skill_ids = _extract_skill_ids_from_commands(actor.get("commands", ""))
+    skill_ids.extend(_extract_granted_skill_ids(actor))
+    out = []
+    seen = set()
+    for skill_id in skill_ids:
+        sid = str(skill_id or "").strip()
+        if not sid or sid in seen:
+            continue
+        seen.add(sid)
+        out.append(sid)
+    return out
 
 
 def _server_ts():
@@ -1746,9 +1773,19 @@ def on_battle_intent_commit(data):
     if not skill_id:
         emit('battle_error', {'message': 'commit requires skill_id'}, to=request.sid)
         return
-    actor = _resolve_actor_for_slot(state, slot_id)
-    if not can_use_skill_id(actor, skill_id, allow_instant=False):
-        emit('battle_error', {'message': 'このスキルは現在使用できません'}, to=request.sid)
+    actor = _resolve_actor_for_slot(state, slot_id, room_id=room_id)
+    access_eval = evaluate_skill_access(
+        actor,
+        skill_id,
+        room_state=None,
+        battle_state=state,
+        slot_id=slot_id,
+        allow_instant=False,
+    )
+    if not access_eval.get("usable", False):
+        reasons = access_eval.get("blocked_reasons", [])
+        message = str((reasons[0] if reasons else "このスキルは現在使用できません") or "このスキルは現在使用できません")
+        emit('battle_error', {'message': message}, to=request.sid)
         return
     target, target_error = _normalize_target_by_skill_compat(
         skill_id,
@@ -1770,6 +1807,7 @@ def on_battle_intent_commit(data):
     intent['committed_by'] = (get_user_info_from_sid(request.sid) or {}).get('username') or request.sid
     intent['intent_rev'] = _next_intent_revision(state)
     intent['tags'] = _default_intent_tags(_build_tags(intent['skill_id'], intent['target']))
+    intent['effective_cost'] = list(access_eval.get('effective_cost', []) or [])
     state['intents'][slot_id] = intent
     _recalculate_redirect_state(room_id, battle_id, state)
     logger.info(
@@ -1948,10 +1986,24 @@ def on_battle_intent_change_skill(data):
     intent = state['intents'].get(slot_id, {})
     intent = _apply_intent_identity(intent, state, slot_id)
     next_skill_id = data.get('skill_id')
-    actor = _resolve_actor_for_slot(state, slot_id)
-    if next_skill_id and not can_use_skill_id(actor, next_skill_id, allow_instant=False):
-        emit('battle_error', {'message': 'このスキルは現在使用できません'}, to=request.sid)
-        return
+    actor = _resolve_actor_for_slot(state, slot_id, room_id=room_id)
+    if next_skill_id:
+        access_eval = evaluate_skill_access(
+            actor,
+            next_skill_id,
+            room_state=None,
+            battle_state=state,
+            slot_id=slot_id,
+            allow_instant=False,
+        )
+        if not access_eval.get("usable", False):
+            reasons = access_eval.get("blocked_reasons", [])
+            message = str((reasons[0] if reasons else "このスキルは現在使用できません") or "このスキルは現在使用できません")
+            emit('battle_error', {'message': message}, to=request.sid)
+            return
+        intent['effective_cost'] = list(access_eval.get('effective_cost', []) or [])
+    else:
+        intent.pop('effective_cost', None)
     intent['skill_id'] = next_skill_id
     if 'target' not in intent:
         intent['target'] = {'type': 'none', 'slot_id': None}

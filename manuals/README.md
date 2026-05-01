@@ -17,15 +17,15 @@
 4. PvE運用時のみ `implemented/05_PvE_Mode_Spec.md`
 
 ### 1.3 データ定義・拡張実装向け
-1. `implemented/03_Integrated_Data_Definitions.md`
-2. `implemented/08_Skill_Logic_Reference.md`
-3. `implemented/11_Advanced_Skill_Extensions_Spec.md`
-4. 亀裂仕様に触れる場合のみ `implemented/13_Fissure_Round_Management_Spec.md`
+1. `implemented/20_JSON_Definition_Strict_v2_Manual.md`（現行正本）
+2. `implemented/17_Phase3_Strict_Errata.md`（旧資料の読み替え）
+3. `implemented/08_Skill_Logic_Reference.md`
+4. `implemented/11_Advanced_Skill_Extensions_Spec.md`
 
 ## 2. implemented の役割整理
 
 - `01`〜`02`: 利用者向けの統合手順（PL/GM）
-- `03`: データ定義の正本仕様
+- `20`: JSON定義の現行正本仕様（Phase3 strict）
 - `04`〜`05`: 運用ガイド（ビルド・PvE）
 - `06`〜`09`: 戦闘表示/フロー仕様
 - `10`: 用語・データ入力チュートリアル

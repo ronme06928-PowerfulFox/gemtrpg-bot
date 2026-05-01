@@ -9,7 +9,8 @@ from plugins.buffs.registry import buff_registry
 import manager.room_manager as room_manager
 from manager.constants import DamageSource
 from manager.battle.core import proceed_next_turn
-from manager.battle.battle_ai import ai_select_targets, ai_suggest_skill, list_usable_skill_ids
+from manager.battle.battle_ai import ai_select_targets, ai_suggest_skill
+from manager.battle.skill_access import list_usable_skill_ids
 from manager.dice_roller import roll_dice
 from manager.logs import setup_logger
 from manager.summons.service import apply_summon_change, process_summon_round_end

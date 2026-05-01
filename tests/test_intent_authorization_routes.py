@@ -85,6 +85,11 @@ def _patch_common(monkeypatch, routes, state, user_info, authorized, emit_calls)
         "_default_intent_tags",
         lambda tags=None: {"instant": False, "mass_type": None, "no_redirect": False},
     )
+    monkeypatch.setattr(
+        routes,
+        "evaluate_skill_access",
+        lambda *args, **kwargs: {"usable": True, "blocked_reasons": [], "effective_cost": [], "matched_rule_ids": []},
+    )
 
 
 @pytest.mark.parametrize(
@@ -174,3 +179,43 @@ def test_intent_events_reject_unknown_slot(monkeypatch, handler_name, payload):
     battle_errors = [row for row in emit_calls if row[0] == "battle_error"]
     assert battle_errors, f"battle_error must be emitted for {handler_name}"
     assert "unknown slot_id" in str(battle_errors[-1][1].get("message", ""))
+
+
+def test_intent_commit_resolves_actor_from_room_state_when_battle_state_has_no_characters(monkeypatch):
+    routes = _load_battle_common_routes_module()
+    state = _base_battle_state()
+    state.pop("characters", None)
+    emit_calls = []
+    _patch_common(
+        monkeypatch,
+        routes,
+        state,
+        user_info={"username": "gm", "attribute": "GM"},
+        authorized=True,
+        emit_calls=emit_calls,
+    )
+    monkeypatch.setattr(
+        routes,
+        "get_room_state",
+        lambda room_id: {
+            "characters": [
+                {"id": "A1", "commands": "[P-01]"},
+                {"id": "B1", "commands": "[P-02]"},
+            ]
+        },
+    )
+
+    routes.on_battle_intent_commit(
+        {
+            "room_id": "room_t",
+            "battle_id": "battle_t",
+            "slot_id": "S1",
+            "skill_id": "commit_skill",
+            "target": {"type": "single_slot", "slot_id": "S2"},
+        }
+    )
+
+    intent = state["intents"]["S1"]
+    assert intent["committed"] is True
+    assert intent["skill_id"] == "commit_skill"
+    assert all(row[0] != "battle_error" for row in emit_calls)

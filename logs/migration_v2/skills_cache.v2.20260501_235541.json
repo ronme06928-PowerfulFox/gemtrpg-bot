@@ -1,0 +1,4993 @@
+{
+  "B-01": {
+    "スキルID": "B-01",
+    "チャットパレット": "0+0 【B-01 猛攻の輝き】",
+    "デフォルト名称": "猛攻の輝き",
+    "分類": "補助",
+    "距離": "",
+    "属性": "",
+    "取得コスト": "0",
+    "基礎威力": "0",
+    "ダイス威力": "+0",
+    "使用時効果": "([[W-19|使用時]]):MPを5消費",
+    "特記": "([[W-33|宝石の加護]])",
+    "発動時効果": "[即時発動]:このラウンドで、自分の使用する[[W-38|攻撃]]スキルの[[W-52|最終威力]]+5",
+    "特記処理": "{\"tags\":[\"即時発動\",\"宝石の加護スキル\"],\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":5}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_name\":\"猛攻の輝き_Atk5\",\"lasting\":1,\"delay\":0,\"buff_id\":\"Bu-32\",\"data\":{\"value\":5}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "即時発動",
+      "宝石の加護スキル"
+    ],
+    "rule_data": {
+      "tags": [
+        "即時発動",
+        "宝石の加護スキル"
+      ],
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 5
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_name": "猛攻の輝き_Atk5",
+          "lasting": 1,
+          "delay": 0,
+          "buff_id": "Bu-32",
+          "data": {
+            "value": 5
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "B-02": {
+    "スキルID": "B-02",
+    "チャットパレット": "0+0 【B-02 守護の輝き】",
+    "デフォルト名称": "守護の輝き",
+    "分類": "補助",
+    "距離": "",
+    "属性": "",
+    "取得コスト": "0",
+    "基礎威力": "0",
+    "ダイス威力": "+0",
+    "使用時効果": "([[W-19|使用時]]):MPを5消費",
+    "特記": "([[W-33|宝石の加護]])",
+    "発動時効果": "[即時発動]:このラウンドで、自分の使用する[[W-39|守備]]スキルの[[W-52|最終威力]]+5",
+    "特記処理": "{\"tags\":[\"即時発動\",\"宝石の加護スキル\"],\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":5}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_name\":\"守護の輝き_Def5\",\"lasting\":1,\"delay\":0,\"buff_id\":\"Bu-33\",\"data\":{\"value\":5}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "即時発動",
+      "宝石の加護スキル"
+    ],
+    "rule_data": {
+      "tags": [
+        "即時発動",
+        "宝石の加護スキル"
+      ],
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 5
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_name": "守護の輝き_Def5",
+          "lasting": 1,
+          "delay": 0,
+          "buff_id": "Bu-33",
+          "data": {
+            "value": 5
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "B-03": {
+    "スキルID": "B-03",
+    "チャットパレット": "0+0 【B-03 敏捷の輝き】",
+    "デフォルト名称": "敏捷の輝き",
+    "分類": "補助",
+    "距離": "",
+    "属性": "",
+    "取得コスト": "0",
+    "基礎威力": "0",
+    "ダイス威力": "+0",
+    "使用時効果": "([[W-19|使用時]]):MPを5消費",
+    "特記": "([[W-33|宝石の加護]])",
+    "発動時効果": "[即時発動]:FPを3獲得する",
+    "特記処理": "{\"tags\":[\"即時発動\",\"宝石の加護スキル\"],\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":5}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"FP\",\"value\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "即時発動",
+      "宝石の加護スキル"
+    ],
+    "rule_data": {
+      "tags": [
+        "即時発動",
+        "宝石の加護スキル"
+      ],
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 5
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "B-04": {
+    "スキルID": "B-04",
+    "チャットパレット": "0+0 【B-04 魔力の輝き】",
+    "デフォルト名称": "魔力の輝き",
+    "分類": "補助",
+    "距離": "",
+    "属性": "",
+    "取得コスト": "0",
+    "基礎威力": "0",
+    "ダイス威力": "+0",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "([[W-33|宝石の加護]])",
+    "発動時効果": "[即時発動]:MPを10回復する",
+    "特記処理": "{\"tags\":[\"即時発動\",\"宝石の加護スキル\"],\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"MP\",\"value\":10}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "即時発動",
+      "宝石の加護スキル"
+    ],
+    "rule_data": {
+      "tags": [
+        "即時発動",
+        "宝石の加護スキル"
+      ],
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "MP",
+          "value": 10
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "C-00": {
+    "スキルID": "C-00",
+    "チャットパレット": "0+0 【C-00 魔力回復】",
+    "デフォルト名称": "魔力回復",
+    "分類": "補助",
+    "距離": "",
+    "属性": "",
+    "取得コスト": "0",
+    "基礎威力": "0",
+    "ダイス威力": "+0",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):MPを6回復する。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"MP\",\"value\":6}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "MP",
+          "value": 6
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "D-00": {
+    "スキルID": "D-00",
+    "チャットパレット": "6+1d3 【D-00 基本の防御】",
+    "デフォルト名称": "基本の防御",
+    "分類": "防御",
+    "距離": "",
+    "属性": "",
+    "取得コスト": "0",
+    "基礎威力": "6",
+    "ダイス威力": "+1d3",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "守備",
+      "防御"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "D-01": {
+    "スキルID": "D-01",
+    "チャットパレット": "4+1d9 【D-01 基本の回避】",
+    "デフォルト名称": "基本の回避",
+    "分類": "回避",
+    "距離": "",
+    "属性": "",
+    "取得コスト": "0",
+    "基礎威力": "4",
+    "ダイス威力": "+1d9",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "守備",
+      "回避"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "D-02": {
+    "スキルID": "D-02",
+    "チャットパレット": "8+1d4+1d{物理補正} 【D-02 鉄壁の防御】",
+    "デフォルト名称": "鉄壁の防御",
+    "分類": "防御",
+    "距離": "",
+    "属性": "",
+    "取得コスト": "1",
+    "基礎威力": "8",
+    "ダイス威力": "+1d4+1d{物理補正}",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "",
+    "発動時効果": "([[W-22|マッチ敗北時]]):FPを1得る",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"LOSE\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"FP\",\"value\":1}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "守備",
+      "防御"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "LOSE",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 1
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "D-03": {
+    "スキルID": "D-03",
+    "チャットパレット": "2+1d18 【D-03 千鳥足】",
+    "デフォルト名称": "千鳥足",
+    "分類": "回避",
+    "距離": "",
+    "属性": "",
+    "取得コスト": "1",
+    "基礎威力": "2",
+    "ダイス威力": "+1d18",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-22|マッチ敗北時]]):自身に5ダメージ",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"LOSE\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"HP\",\"value\":-5}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "守備",
+      "回避"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "LOSE",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "HP",
+          "value": -5
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "D-04": {
+    "スキルID": "D-04",
+    "チャットパレット": "6+1d4+1d{魔法補正} 【D-04 見切ったよ！】",
+    "デフォルト名称": "見切ったよ！",
+    "分類": "回避",
+    "距離": "",
+    "属性": "",
+    "取得コスト": "1",
+    "基礎威力": "6",
+    "ダイス威力": "+1d4+1d{魔法補正}",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-21|マッチ勝利時]]):MPを1回復",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"MP\",\"value\":1}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "守備",
+      "回避"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "WIN",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "MP",
+          "value": 1
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "D-05": {
+    "スキルID": "D-05",
+    "チャットパレット": "7+1d5 【D-05 弱っているな？】",
+    "デフォルト名称": "弱っているな？",
+    "分類": "防御",
+    "距離": "",
+    "属性": "",
+    "取得コスト": "2",
+    "基礎威力": "7",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):FPを1消費",
+    "特記": "対象の[[W-00|出血]]が6以上なら、このスキルの[[W-50|基礎威力]]+4。",
+    "発動時効果": "",
+    "特記処理": "{\"tags\":[\"防御\"],\"cost\":[{\"type\":\"FP\",\"value\":1}],\"power_bonus\":[{\"operation\":\"FIXED_IF_EXISTS\",\"source\":\"target\",\"param\":\"出血\",\"value\":4,\"threshold\":6}],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "守備",
+      "防御"
+    ],
+    "rule_data": {
+      "tags": [
+        "防御"
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "power_bonus": [
+        {
+          "operation": "FIXED_IF_EXISTS",
+          "source": "target",
+          "param": "出血",
+          "value": 4,
+          "threshold": 6
+        }
+      ],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "D-06": {
+    "スキルID": "D-06",
+    "チャットパレット": "8+1d8 【D-06 俺は速いぞッ！】",
+    "デフォルト名称": "俺は速いぞッ！",
+    "分類": "回避",
+    "距離": "",
+    "属性": "",
+    "取得コスト": "2",
+    "基礎威力": "8",
+    "ダイス威力": "+1d8",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "この[[W-16|ラウンド]]の自分の[[W-32|速度値]]が6より高いなら、このスキルの[[W-50|基礎威力]]+2。",
+    "発動時効果": "",
+    "特記処理": "{\"tags\":[\"回避\"],\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[{\"operation\":\"FIXED\",\"value\":2,\"condition\":{\"source\":\"self\",\"param\":\"速度値\",\"operator\":\"GT\",\"value\":6}}],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "守備",
+      "回避"
+    ],
+    "rule_data": {
+      "tags": [
+        "回避"
+      ],
+      "target_scope": "opposing_team",
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "power_bonus": [
+        {
+          "operation": "FIXED",
+          "value": 2,
+          "condition": {
+            "source": "self",
+            "param": "速度値",
+            "operator": "GT",
+            "value": 6
+          }
+        }
+      ],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-00": {
+    "スキルID": "E-00",
+    "チャットパレット": "2+1d2+1d{物理補正} 【E-00 殴る】",
+    "デフォルト名称": "殴る",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "2",
+    "ダイス威力": "+1d2",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "",
+    "特記処理": "{\"tags\":[],\"power_bonus\":[],\"cost\":[],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "tags": [],
+      "power_bonus": [],
+      "cost": [],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-01": {
+    "スキルID": "E-01",
+    "チャットパレット": "1+1d3+1d{物理補正} 【E-01 叩く】",
+    "デフォルト名称": "叩く",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "1",
+    "ダイス威力": "+1d3",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-02": {
+    "スキルID": "E-02",
+    "チャットパレット": "3+1d4+1d{物理補正} 【E-02 突進】",
+    "デフォルト名称": "突進",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "3",
+    "ダイス威力": "+1d4",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-03": {
+    "スキルID": "E-03",
+    "チャットパレット": "1+1d6+1d{物理補正} 【E-03 鋭い腕先】",
+    "デフォルト名称": "鋭い腕先",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "0",
+    "基礎威力": "1",
+    "ダイス威力": "+1d6",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-04|亀裂]]1を付与",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":1}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 1
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-04": {
+    "スキルID": "E-04",
+    "チャットパレット": "1+1d6+1d{物理補正} 【E-04 迫る凶爪】",
+    "デフォルト名称": "迫る凶爪",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "1",
+    "ダイス威力": "+1d6",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]3を付与",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-05": {
+    "スキルID": "E-05",
+    "チャットパレット": "1+1d6+1d{物理補正} 【E-05 砕く剛腕】",
+    "デフォルト名称": "砕く剛腕",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "1",
+    "ダイス威力": "+1d6",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-02|破裂]]3を付与",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-06": {
+    "スキルID": "E-06",
+    "チャットパレット": "99+0 【E-06 カスが効かねぇんだよ！】",
+    "デフォルト名称": "カスが効かねぇんだよ！",
+    "分類": "防御",
+    "距離": "近接",
+    "属性": "",
+    "取得コスト": "0",
+    "基礎威力": "99",
+    "ダイス威力": "+0",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "このスキルは使用したターンの間は消滅せず、再利用する。\n[[W-24|(マッチ終了時)]]:次の[[W-16|ラウンド]]で、行動不能になる。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"END_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-04\",\"lasting\":1,\"delay\":1,\"buff_name\":\"行動不能\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "守備",
+      "防御"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "END_MATCH",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_id": "Bu-04",
+          "lasting": 1,
+          "delay": 1,
+          "buff_name": "行動不能"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-07": {
+    "スキルID": "E-07",
+    "チャットパレット": "6+1d7+1d{魔法補正} 【E-07 王配の輝剣】",
+    "デフォルト名称": "王配の輝剣",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "0",
+    "基礎威力": "6",
+    "ダイス威力": "+1d7",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]6を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":6}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 6
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-08": {
+    "スキルID": "E-08",
+    "チャットパレット": "2+1d7+1d{魔法補正} 【E-08 仄かな光刃】",
+    "デフォルト名称": "仄かな光刃",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "2",
+    "ダイス威力": "+1d7",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]) [[W-04|亀裂]]1を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":1}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 1
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-09": {
+    "スキルID": "E-09",
+    "チャットパレット": "3+1d3+1d{魔法補正} 【E-09 知識の吸収】",
+    "デフォルト名称": "知識の吸収",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "0",
+    "基礎威力": "3",
+    "ダイス威力": "+1d3",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):相手のMPを6減少させ、減少させた分だけ自身のMPを回復する。次の[[W-16|ラウンド]]の間、自身の[[W-54|魔法補正]]+1、対象の[[W-54|魔法補正]]-1。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"MP\",\"value\":-6},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"MP\",\"value\":6},{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_name\":\"知識の吸収_Mag1\",\"lasting\":1,\"delay\":1,\"buff_id\":\"Bu-38\",\"data\":{\"value\":1}},{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_name\":\"知識の吸収_MagDown1\",\"lasting\":1,\"delay\":1,\"buff_id\":\"Bu-39\",\"data\":{\"value\":-1}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "MP",
+          "value": -6
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "MP",
+          "value": 6
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_name": "知識の吸収_Mag1",
+          "lasting": 1,
+          "delay": 1,
+          "buff_id": "Bu-38",
+          "data": {
+            "value": 1
+          }
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_name": "知識の吸収_MagDown1",
+          "lasting": 1,
+          "delay": 1,
+          "buff_id": "Bu-39",
+          "data": {
+            "value": -1
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-10": {
+    "スキルID": "E-10",
+    "チャットパレット": "9+1d6+1d{魔法補正} 【E-10 怖いでしょう？】",
+    "デフォルト名称": "怖いでしょう？",
+    "分類": "魔法",
+    "距離": "広域-個別",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "9",
+    "ダイス威力": "+1d6",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-06|戦慄]]5を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"戦慄\",\"value\":5}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "戦慄",
+          "value": 5
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-11": {
+    "スキルID": "E-11",
+    "チャットパレット": "20+1d8+1d{魔法補正} 【E-11 心に従いましょう】",
+    "デフォルト名称": "心に従いましょう",
+    "分類": "魔法",
+    "距離": "広域-合算",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "20",
+    "ダイス威力": "+1d8",
+    "使用時効果": "",
+    "特記": "メインターゲットの[[W-06|戦慄]]5につき[[W-50|基礎威力]]+1(最大で2)",
+    "発動時効果": "([[W-20|的中時]]):[[W-07|戦慄殺到]]。",
+    "特記処理": "{\"tags\":[\"広域\"],\"power_bonus\":[{\"source\":\"target\",\"param\":\"戦慄\",\"operation\":\"PER_N_BONUS\",\"per_N\":5,\"value\":1,\"max_bonus\":2}],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"target\",\"value\":\"戦慄殺到\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃",
+      "広域"
+    ],
+    "rule_data": {
+      "tags": [
+        "広域"
+      ],
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "戦慄",
+          "operation": "PER_N_BONUS",
+          "per_N": 5,
+          "value": 1,
+          "max_bonus": 2
+        }
+      ],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "target": "target",
+          "value": "戦慄殺到"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-12": {
+    "スキルID": "E-12",
+    "チャットパレット": "1+0+1d{物理補正} 【E-12 種を与えよう】",
+    "デフォルト名称": "種を与えよう",
+    "分類": "物理",
+    "距離": "広域-合算",
+    "属性": "貫通",
+    "取得コスト": "0",
+    "基礎威力": "1",
+    "ダイス威力": "+0",
+    "使用時効果": "",
+    "特記": "([[W-37|マッチ不可]])",
+    "発動時効果": "([[W-20|的中時]]):[[W-08|荊棘]]8を付与。その後、[[W-36|ラウンド終了]]。",
+    "特記処理": "{\"tags\":[\"広域\",\"マッチ不可\",\"ラウンド終了\"],\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"荊棘\",\"value\":8}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃",
+      "広域",
+      "マッチ不可",
+      "ラウンド終了"
+    ],
+    "rule_data": {
+      "tags": [
+        "広域",
+        "マッチ不可",
+        "ラウンド終了"
+      ],
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "荊棘",
+          "value": 8
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-13": {
+    "スキルID": "E-13",
+    "チャットパレット": "10+1d8+1d{物理補正} 【E-13 蔓延るがよい】",
+    "デフォルト名称": "蔓延るがよい",
+    "分類": "物理",
+    "距離": "広域-個別",
+    "属性": "貫通",
+    "取得コスト": "0",
+    "基礎威力": "10",
+    "ダイス威力": "+1d8",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):対象が[[W-39|守備]]スキルを使用しているとき、そのスキルの[[W-50|基礎威力]]+3。([[W-20|的中時]]):[[W-09|荊棘飛散]]。",
+    "特記処理": "{\"tags\":[\"広域\"],\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"MODIFY_BASE_POWER\",\"target\":\"target\",\"value\":3,\"condition\":{\"source\":\"target_skill\",\"param\":\"tags\",\"operator\":\"CONTAINS\",\"value\":\"守備\"}},{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"target\",\"value\":\"荊棘飛散\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃",
+      "広域"
+    ],
+    "rule_data": {
+      "tags": [
+        "広域"
+      ],
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "MODIFY_BASE_POWER",
+          "target": "target",
+          "value": 3,
+          "condition": {
+            "source": "target_skill",
+            "param": "tags",
+            "operator": "CONTAINS",
+            "value": "守備"
+          }
+        },
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "target": "target",
+          "value": "荊棘飛散"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-14": {
+    "スキルID": "E-14",
+    "チャットパレット": "4+1d12+1d{物理補正} 【E-14 死ね】",
+    "デフォルト名称": "死ね",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "4",
+    "ダイス威力": "+1d12",
+    "使用時効果": "([[W-19|使用時]]):FPを3消費。出血を5得る。",
+    "特記": "自身に付与された出血5につき、[[W-50|基礎威力]]+1。",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]10を付与。",
+    "特記処理": "{\"tags\":[\"広域\"],\"power_bonus\":[{\"source\":\"self\",\"param\":\"出血\",\"operation\":\"PER_N_BONUS\",\"per_N\":5,\"value\":1}],\"cost\":[{\"type\":\"FP\",\"value\":3}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"出血\",\"value\":5},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":10}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃",
+      "広域"
+    ],
+    "rule_data": {
+      "tags": [
+        "広域"
+      ],
+      "power_bonus": [
+        {
+          "source": "self",
+          "param": "出血",
+          "operation": "PER_N_BONUS",
+          "per_N": 5,
+          "value": 1
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 3
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "出血",
+          "value": 5
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 10
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-15": {
+    "スキルID": "E-15",
+    "チャットパレット": "9999+0+1d{物理補正} 【E-15 必殺デバッグ撃】",
+    "デフォルト名称": "必殺デバッグ撃",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "9999",
+    "ダイス威力": "+0",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "",
+    "特記処理": "{\"tags\":[],\"power_bonus\":[],\"cost\":[],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "tags": [],
+      "power_bonus": [],
+      "cost": [],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-16": {
+    "スキルID": "E-16",
+    "チャットパレット": "4+5+1d{魔法補正} 【E-16 ちょっとした準備】",
+    "デフォルト名称": "ちょっとした準備",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "0",
+    "基礎威力": "4",
+    "ダイス威力": "+5",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):次の[[W-16|ラウンド]]で自分の[[W-53|物理補正]]+2。2[[W-16|ラウンド]]後に自分の[[W-53|物理補正]]-2。",
+    "特記処理": "{\"tags\":[],\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_name\":\"ちょっとした準備_Phys2\",\"lasting\":1,\"delay\":1,\"buff_id\":\"Bu-36\",\"data\":{\"value\":2}},{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_name\":\"ちょっとした準備_PhysDown2\",\"lasting\":1,\"delay\":2,\"buff_id\":\"Bu-37\",\"data\":{\"value\":-2}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "tags": [],
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_name": "ちょっとした準備_Phys2",
+          "lasting": 1,
+          "delay": 1,
+          "buff_id": "Bu-36",
+          "data": {
+            "value": 2
+          }
+        },
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_name": "ちょっとした準備_PhysDown2",
+          "lasting": 1,
+          "delay": 2,
+          "buff_id": "Bu-37",
+          "data": {
+            "value": -2
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-17": {
+    "スキルID": "E-17",
+    "チャットパレット": "1+1d5+1d{物理補正} 【E-17 絡みつく】",
+    "デフォルト名称": "絡みつく",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "1",
+    "ダイス威力": "+1d5",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象に[[W-15|減速]]1を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-12\",\"lasting\":1,\"delay\":1,\"data\":{\"count\":1},\"buff_name\":\"減速\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_id": "Bu-12",
+          "lasting": 1,
+          "delay": 1,
+          "data": {
+            "count": 1
+          },
+          "buff_name": "減速"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-18": {
+    "スキルID": "E-18",
+    "チャットパレット": "4+1d5+1d{物理補正} 【E-18 食い破る】",
+    "デフォルト名称": "食い破る",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "0",
+    "基礎威力": "4",
+    "ダイス威力": "+1d5",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象に3ダメージ。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"DAMAGE_BONUS\",\"target\":\"target\",\"value\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "DAMAGE_BONUS",
+          "target": "target",
+          "value": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-19": {
+    "スキルID": "E-19",
+    "チャットパレット": "8+1d5+1d{魔法補正} 【E-19 おいで、蜘蛛よ】",
+    "デフォルト名称": "おいで、蜘蛛よ",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "8",
+    "ダイス威力": "+1d5",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):「鉄の小蜘蛛」1体を[[W-61|召喚]]する。",
+    "特記処理": "{\"tags\":[],\"cost\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"SUMMON_CHARACTER\",\"target\":\"self\",\"summon_template_id\":\"U-00\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "tags": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "SUMMON_CHARACTER",
+          "target": "self",
+          "summon_template_id": "U-00"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-20": {
+    "スキルID": "E-20",
+    "チャットパレット": "7+1d4+1d{物理補正} 【E-20 見よう見まねで】",
+    "デフォルト名称": "見よう見まねで",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "7",
+    "ダイス威力": "+1d4",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):２[[W-16|ラウンド]]後まで、自身の[[W-53|物理補正]]+1。",
+    "特記処理": "{\"tags\":[],\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_name\":\"見よう見まねで_Phys1\",\"lasting\":3,\"delay\":0,\"buff_id\":\"Bu-36\",\"data\":{\"value\":1}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "tags": [],
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_name": "見よう見まねで_Phys1",
+          "lasting": 3,
+          "delay": 0,
+          "buff_id": "Bu-36",
+          "data": {
+            "value": 1
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-21": {
+    "スキルID": "E-21",
+    "チャットパレット": "10+1d7+1d{物理補正} 【E-21 このように動け】",
+    "デフォルト名称": "このように動け",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "10",
+    "ダイス威力": "+1d7",
+    "使用時効果": "([[W-19|使用時]]):FPを4消費。",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):自身を除く味方全体に「[[SKILL:E-20|E-20:見よう見まねで]]」を[[W-60|伝授]]する。この効果で付与されたスキルは2回まで使用可能。",
+    "特記処理": "{\"cost\":[{\"type\":\"FP\",\"value\":4}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"GRANT_SKILL\",\"target\":\"ALL_OTHER_ALLIES\",\"skill_id\":\"E-20\",\"grant_mode\":\"usage_count\",\"uses\":2,\"overwrite\":true}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "FP",
+          "value": 4
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "GRANT_SKILL",
+          "target": "ALL_OTHER_ALLIES",
+          "skill_id": "E-20",
+          "grant_mode": "usage_count",
+          "uses": 2,
+          "overwrite": true
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-22": {
+    "スキルID": "E-22",
+    "チャットパレット": "15+1d2+1d{物理補正} 【E-22 受信：自爆指令】",
+    "デフォルト名称": "受信：自爆指令",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "15",
+    "ダイス威力": "+1d2",
+    "使用時効果": "",
+    "特記": "このスキルを使用後、[[W-59|自滅]]する。",
+    "発動時効果": "",
+    "特記処理": "{\"tags\":[\"自滅\"],\"power_bonus\":[],\"cost\":[],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃",
+      "自滅"
+    ],
+    "rule_data": {
+      "tags": [
+        "自滅"
+      ],
+      "power_bonus": [],
+      "cost": [],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-23": {
+    "スキルID": "E-23",
+    "チャットパレット": "2+1d10+1d{物理補正} 【E-23 何がなんでも】",
+    "デフォルト名称": "何がなんでも",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "2",
+    "ダイス威力": "+1d10",
+    "使用時効果": "",
+    "特記": "([[W-65|強硬スキル]])",
+    "発動時効果": "",
+    "特記処理": "{\"tags\":[\"強硬\"],\"power_bonus\":[],\"cost\":[],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃",
+      "強硬"
+    ],
+    "rule_data": {
+      "tags": [
+        "強硬"
+      ],
+      "power_bonus": [],
+      "cost": [],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-24": {
+    "スキルID": "E-24",
+    "チャットパレット": "8+1d4+1d{物理補正} 【E-24 落ち着くことだ】",
+    "デフォルト名称": "落ち着くことだ",
+    "分類": "物理",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "0",
+    "基礎威力": "8",
+    "ダイス威力": "+1d4",
+    "使用時効果": "",
+    "特記": "([[W-66|牽制スキル]])",
+    "発動時効果": "",
+    "特記処理": "{\"tags\":[\"牽制\"],\"power_bonus\":[],\"cost\":[],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃",
+      "牽制"
+    ],
+    "rule_data": {
+      "tags": [
+        "牽制"
+      ],
+      "power_bonus": [],
+      "cost": [],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-25": {
+    "スキルID": "E-25",
+    "チャットパレット": "0+0 【E-25 筋力強化】",
+    "デフォルト名称": "筋力強化",
+    "分類": "補助",
+    "距離": "遠隔",
+    "属性": "",
+    "取得コスト": "0",
+    "基礎威力": "0",
+    "ダイス威力": "+0",
+    "使用時効果": "",
+    "特記": "[[W-68|同陣営指定]]スキル。[[W-67|非ダメージ]]スキル。",
+    "発動時効果": "([[W-27|戦闘開始時]]):対象に、ラウンド終了時まで攻撃スキルの威力+1の効果を与える。",
+    "特記処理": "{\"tags\":[\"非ダメージ\",\"同陣営指定\"],\"target_scope\":\"same_team\",\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"RESOLVE_START\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_name\":\"筋力強化_Atk1\",\"lasting\":1,\"delay\":0,\"buff_id\":\"Bu-32\",\"data\":{\"value\":1}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "非ダメージ",
+      "同陣営指定"
+    ],
+    "rule_data": {
+      "tags": [
+        "非ダメージ",
+        "同陣営指定"
+      ],
+      "target_scope": "same_team",
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "RESOLVE_START",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_name": "筋力強化_Atk1",
+          "lasting": 1,
+          "delay": 0,
+          "buff_id": "Bu-32",
+          "data": {
+            "value": 1
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-26": {
+    "スキルID": "E-26",
+    "チャットパレット": "4+1d8 【E-26 遅いんじゃないか？】",
+    "デフォルト名称": "遅いんじゃないか？",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "4",
+    "ダイス威力": "+1d8",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象の[[W-32|速度値]]が4以下なら、5ダメージ。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"DAMAGE_BONUS\",\"target\":\"target\",\"value\":5,\"condition\":{\"source\":\"target\",\"param\":\"速度値\",\"operator\":\"LTE\",\"value\":4}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "DAMAGE_BONUS",
+          "target": "target",
+          "value": 5,
+          "condition": {
+            "source": "target",
+            "param": "速度値",
+            "operator": "LTE",
+            "value": 4
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-27": {
+    "スキルID": "E-27",
+    "チャットパレット": "6+1d7 【E-27 凍えろッ！】",
+    "デフォルト名称": "凍えろッ！",
+    "分類": "物理",
+    "距離": "遠隔",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "6",
+    "ダイス威力": "+1d7",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象に次の[[W-16|ラウンド]]で[[W-15|減速]]2を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-12\",\"lasting\":1,\"delay\":1,\"data\":{\"count\":2},\"buff_name\":\"減速\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_id": "Bu-12",
+          "lasting": 1,
+          "delay": 1,
+          "data": {
+            "count": 2
+          },
+          "buff_name": "減速"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-28": {
+    "スキルID": "E-28",
+    "チャットパレット": "5+1d7+1d{物理補正} 【E-28 撫で斬りにする】",
+    "デフォルト名称": "撫で斬りにする",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "5",
+    "ダイス威力": "+1d7",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象に[[W-00|出血]]8を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":8}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 8
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-29": {
+    "スキルID": "E-29",
+    "チャットパレット": "4+1d11+1d{物理補正} 【E-29 忽ち凍れ】",
+    "デフォルト名称": "忽ち凍れ",
+    "分類": "物理",
+    "距離": "遠隔",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "4",
+    "ダイス威力": "+1d11",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象に次の[[W-16|ラウンド]]で[[W-15|減速]]3を付与。対象に[[W-00|出血]]があるなら、さらに次の[[W-16|ラウンド]]で[[W-15|減速]]2を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-12\",\"lasting\":1,\"delay\":1,\"data\":{\"count\":3},\"buff_name\":\"減速\"},{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-12\",\"lasting\":1,\"delay\":1,\"data\":{\"count\":2},\"condition\":{\"source\":\"target\",\"param\":\"出血\",\"operator\":\"GTE\",\"value\":1},\"buff_name\":\"減速\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_id": "Bu-12",
+          "lasting": 1,
+          "delay": 1,
+          "data": {
+            "count": 3
+          },
+          "buff_name": "減速"
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_id": "Bu-12",
+          "lasting": 1,
+          "delay": 1,
+          "data": {
+            "count": 2
+          },
+          "condition": {
+            "source": "target",
+            "param": "出血",
+            "operator": "GTE",
+            "value": 1
+          },
+          "buff_name": "減速"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "E-30": {
+    "スキルID": "E-30",
+    "チャットパレット": "7+1d8+1d{物理補正} 【E-30 これで終わりだ】",
+    "デフォルト名称": "これで終わりだ",
+    "分類": "物理",
+    "距離": "広域-個別",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "7",
+    "ダイス威力": "+1d8",
+    "使用時効果": "",
+    "特記": "[[W-32|速度値]]が3以下のキャラクターとマッチ進行時、このスキルの[[W-50|基礎威力]]+4。",
+    "発動時効果": "",
+    "特記処理": "{\"tags\":[\"広域\"],\"cost\":[],\"power_bonus\":[{\"operation\":\"FIXED\",\"apply_to\":\"base\",\"value\":4,\"condition\":{\"source\":\"target\",\"param\":\"速度値\",\"operator\":\"LTE\",\"value\":3}}],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃",
+      "広域"
+    ],
+    "rule_data": {
+      "tags": [
+        "広域"
+      ],
+      "cost": [],
+      "power_bonus": [
+        {
+          "operation": "FIXED",
+          "apply_to": "base",
+          "value": 4,
+          "condition": {
+            "source": "target",
+            "param": "速度値",
+            "operator": "LTE",
+            "value": 3
+          }
+        }
+      ],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ps-00": {
+    "スキルID": "Ps-00",
+    "チャットパレット": "4+1d2+1d{物理補正} 【Ps-00 基本の一太刀】",
+    "デフォルト名称": "基本の一太刀",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "4",
+    "ダイス威力": "+1d2",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-26|ラウンド終了時]]):FPを2得る。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"END_ROUND\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"FP\",\"value\":2}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "END_ROUND",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 2
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ps-01": {
+    "スキルID": "Ps-01",
+    "チャットパレット": "6+1d3+1d{物理補正} 【Ps-01 横振り】",
+    "デフォルト名称": "横振り",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "6",
+    "ダイス威力": "+1d3",
+    "使用時効果": "([[W-19|使用時]]):FPを1消費",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]5を付与",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Ps01\",\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"stat\":\"出血\",\"value\":5}]}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "schema": "skill_json_rule_v2",
+      "id": "SKILL_Ps01",
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "stat": "出血",
+          "value": 5
+        }
+      ]
+    }
+  },
+  "Ps-02": {
+    "スキルID": "Ps-02",
+    "チャットパレット": "7+1d4+1d{物理補正} 【Ps-02 袈裟斬り】",
+    "デフォルト名称": "袈裟斬り",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "7",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):FPを1消費",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象に3ダメージ",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"DAMAGE_BONUS\",\"target\":\"target\",\"value\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "DAMAGE_BONUS",
+          "target": "target",
+          "value": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ps-03": {
+    "スキルID": "Ps-03",
+    "チャットパレット": "6+1d5+1d{物理補正} 【Ps-03 斬り抜く】",
+    "デフォルト名称": "斬り抜く",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "6",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]6を付与",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Ps03\",\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"stat\":\"出血\",\"value\":6}]}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "schema": "skill_json_rule_v2",
+      "id": "SKILL_Ps03",
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "stat": "出血",
+          "value": 6
+        }
+      ]
+    }
+  },
+  "Ps-04": {
+    "スキルID": "Ps-04",
+    "チャットパレット": "7+1d6+1d{物理補正} 【Ps-04 乱斬】",
+    "デフォルト名称": "乱斬",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "2",
+    "基礎威力": "7",
+    "ダイス威力": "+1d6",
+    "使用時効果": "([[W-19|使用時]]):FPを3消費",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]4を付与。自分の速度値が8以上なら、このスキルを[[W-58|再使用]]。(この効果による[[W-58|再使用]]は1ラウンドに1度まで)",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":3}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":4},{\"timing\":\"HIT\",\"type\":\"USE_SKILL_AGAIN\",\"max_reuses\":1,\"consume_cost\":false,\"condition\":{\"source\":\"self\",\"param\":\"速度値\",\"operator\":\"GTE\",\"value\":8}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 3
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 4
+        },
+        {
+          "timing": "HIT",
+          "type": "USE_SKILL_AGAIN",
+          "max_reuses": 1,
+          "consume_cost": false,
+          "condition": {
+            "source": "self",
+            "param": "速度値",
+            "operator": "GTE",
+            "value": 8
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ps-05": {
+    "スキルID": "Ps-05",
+    "チャットパレット": "11+1d4+1d{物理補正} 【Ps-05 霹靂一閃】",
+    "デフォルト名称": "霹靂一閃",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "2",
+    "基礎威力": "11",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):FPを4消費",
+    "特記": "",
+    "発動時効果": "([[W-21|マッチ勝利時]]):[[W-01|出血氾濫]]。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":4}],\"effects\":[{\"timing\":\"WIN\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"target\",\"value\":\"出血氾濫\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 4
+        }
+      ],
+      "effects": [
+        {
+          "timing": "WIN",
+          "type": "CUSTOM_EFFECT",
+          "target": "target",
+          "value": "出血氾濫"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ps-06": {
+    "スキルID": "Ps-06",
+    "チャットパレット": "5+1d4+1d{物理補正} 【Ps-06 一興、なりや】",
+    "デフォルト名称": "一興、なりや",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "5",
+    "ダイス威力": "+1d4",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-21|マッチ勝利時]]):[[W-00|出血]]2を付与。FPを1得る。",
+    "特記処理": "{\"power_bonus\":[],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":2},{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"FP\",\"value\":1}],\"schema\":\"skill_json_rule_v2\",\"cost\":[]}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "effects": [
+        {
+          "timing": "WIN",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 2
+        },
+        {
+          "timing": "WIN",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 1
+        }
+      ],
+      "schema": "skill_json_rule_v2",
+      "cost": []
+    }
+  },
+  "Ps-07": {
+    "スキルID": "Ps-07",
+    "チャットパレット": "6+1d5+1d{物理補正} 【Ps-07 深く抉る】",
+    "デフォルト名称": "深く抉る",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "2",
+    "基礎威力": "6",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象に、「スキルで被ダメージ時[[W-00|出血]]3を得る」状態を与える。4[[W-16|ラウンド]]継続。 ([[W-23|一方攻撃時]]):対象に[[W-00|出血]]3を与える。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_name\":\"抉られた傷_BleedReact3\",\"lasting\":4,\"flavor\":\"奥まで深く届いた傷は、追撃を受ける度に血を滲ませる。\",\"buff_id\":\"Bu-47\",\"data\":{\"value\":3}},{\"timing\":\"UNOPPOSED\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_name": "抉られた傷_BleedReact3",
+          "lasting": 4,
+          "flavor": "奥まで深く届いた傷は、追撃を受ける度に血を滲ませる。",
+          "buff_id": "Bu-47",
+          "data": {
+            "value": 3
+          }
+        },
+        {
+          "timing": "UNOPPOSED",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ps-08": {
+    "スキルID": "Ps-08",
+    "チャットパレット": "5+1d5+1d{物理補正} 【Ps-08 あぶく銭】",
+    "デフォルト名称": "あぶく銭",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "5",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):FPを1消費",
+    "特記": "対象に[[W-00|出血]]があるなら[[W-50|基礎威力]]+1。",
+    "発動時効果": "([[W-20|的中時]]):[[W-02|破裂]]3を付与。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"出血\",\"operation\":\"FIXED_IF_EXISTS\",\"value\":1}],\"cost\":[{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "出血",
+          "operation": "FIXED_IF_EXISTS",
+          "value": 1
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ps-09": {
+    "スキルID": "Ps-09",
+    "チャットパレット": "7+1d3+1d{物理補正} 【Ps-09 斬らば割れよう】",
+    "デフォルト名称": "斬らば割れよう",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "7",
+    "ダイス威力": "+1d3",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "対象に[[W-00|出血]]があるなら[[W-50|基礎威力]]+1。",
+    "発動時効果": "([[W-20|的中時]]):3ラウンドの[[W-04|亀裂]]1を付与。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"出血\",\"operation\":\"FIXED_IF_EXISTS\",\"value\":1}],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":1,\"rounds\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "出血",
+          "operation": "FIXED_IF_EXISTS",
+          "value": 1
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 1,
+          "rounds": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ps-10": {
+    "スキルID": "Ps-10",
+    "チャットパレット": "3+1d11+1d{物理補正} 【Ps-10 枷を解いて】",
+    "デフォルト名称": "枷を解いて",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "2",
+    "基礎威力": "3",
+    "ダイス威力": "+1d11",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]4を付与。([[W-26|ラウンド終了時]]):[[W-14|加速]]2を得る。",
+    "特記処理": "{\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":4},{\"timing\":\"END_ROUND\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-11\",\"lasting\":1,\"delay\":1,\"data\":{\"count\":2},\"buff_name\":\"加速\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 4
+        },
+        {
+          "timing": "END_ROUND",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_id": "Bu-11",
+          "lasting": 1,
+          "delay": 1,
+          "data": {
+            "count": 2
+          },
+          "buff_name": "加速"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ps-11": {
+    "スキルID": "Ps-11",
+    "チャットパレット": "5+1d4+1d{物理補正} 【Ps-11 力む】",
+    "デフォルト名称": "力む",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "5",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):FPを1消費",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):[[W-74|蓄力]]4を得る。",
+    "特記処理": "{\"cost\":[{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_name\":\"蓄力\",\"count\":4,\"lasting\":-1,\"delay\":0,\"data\":{\"buff_id\":\"Bu-Chikuryoku\"},\"buff_id\":\"Bu-30\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_name": "蓄力",
+          "count": 4,
+          "lasting": -1,
+          "delay": 0,
+          "data": {
+            "buff_id": "Bu-Chikuryoku"
+          },
+          "buff_id": "Bu-30"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ps-12": {
+    "スキルID": "Ps-12",
+    "チャットパレット": "7+1d4+1d{物理補正} 【Ps-12 逸ったか】",
+    "デフォルト名称": "逸ったか",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "7",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "",
+    "発動時効果": "([[W-26|ラウンド終了時]]):[[W-74|蓄力]]2を得る。([[W-20|的中時]]):自分に[[W-74|蓄力]]がないなら、[[W-74|蓄力]]5を得る。",
+    "特記処理": "{\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"END_ROUND\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_name\":\"蓄力\",\"count\":2,\"lasting\":-1,\"delay\":0,\"data\":{\"buff_id\":\"Bu-Chikuryoku\"},\"buff_id\":\"Bu-30\"},{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_name\":\"蓄力\",\"count\":5,\"lasting\":-1,\"delay\":0,\"data\":{\"buff_id\":\"Bu-Chikuryoku\"},\"condition\":{\"source\":\"self\",\"param\":\"蓄力_count\",\"operator\":\"EQUALS\",\"value\":0},\"buff_id\":\"Bu-30\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "END_ROUND",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_name": "蓄力",
+          "count": 2,
+          "lasting": -1,
+          "delay": 0,
+          "data": {
+            "buff_id": "Bu-Chikuryoku"
+          },
+          "buff_id": "Bu-30"
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_name": "蓄力",
+          "count": 5,
+          "lasting": -1,
+          "delay": 0,
+          "data": {
+            "buff_id": "Bu-Chikuryoku"
+          },
+          "condition": {
+            "source": "self",
+            "param": "蓄力_count",
+            "operator": "EQUALS",
+            "value": 0
+          },
+          "buff_id": "Bu-30"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ps-13": {
+    "スキルID": "Ps-13",
+    "チャットパレット": "9+1d2+1d{物理補正} 【Ps-13 捩じ切ろう】",
+    "デフォルト名称": "捩じ切ろう",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "9",
+    "ダイス威力": "+1d2",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]7を付与。([[W-20|的中時]]):[[W-74|蓄力]]を4消費し、FPを3得る。",
+    "特記処理": "{\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":7},{\"timing\":\"HIT\",\"type\":\"CONSUME_BUFF_COUNT_FOR_GAIN\",\"target\":\"self\",\"buff_name\":\"蓄力\",\"consume_required\":4,\"gains\":[{\"type\":\"FP\",\"value\":3}]}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 7
+        },
+        {
+          "timing": "HIT",
+          "type": "CONSUME_BUFF_COUNT_FOR_GAIN",
+          "target": "self",
+          "buff_name": "蓄力",
+          "consume_required": 4,
+          "gains": [
+            {
+              "type": "FP",
+              "value": 3
+            }
+          ]
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ps-14": {
+    "スキルID": "Ps-14",
+    "チャットパレット": "4+1d8+1d{物理補正} 【Ps-14 乗りこなそう！】",
+    "デフォルト名称": "乗りこなそう！",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "4",
+    "ダイス威力": "+1d8",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "",
+    "発動時効果": "([[W-21|マッチ勝利時]]):[[W-74|蓄力]]5を得る。([[W-20|的中時]]):[[W-14|加速]]1を得る。",
+    "特記処理": "{\"tags\":[\"攻撃\"],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_name\":\"蓄力\",\"lasting\":-1,\"delay\":0,\"count\":5,\"data\":{\"buff_id\":\"Bu-Chikuryoku\"},\"buff_id\":\"Bu-30\"},{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-11\",\"lasting\":1,\"delay\":1,\"data\":{\"count\":1},\"buff_name\":\"加速\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "tags": [
+        "攻撃"
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "power_bonus": [],
+      "effects": [
+        {
+          "timing": "WIN",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_name": "蓄力",
+          "lasting": -1,
+          "delay": 0,
+          "count": 5,
+          "data": {
+            "buff_id": "Bu-Chikuryoku"
+          },
+          "buff_id": "Bu-30"
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_id": "Bu-11",
+          "lasting": 1,
+          "delay": 1,
+          "data": {
+            "count": 1
+          },
+          "buff_name": "加速"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pb-00": {
+    "スキルID": "Pb-00",
+    "チャットパレット": "4+1d2+1d{物理補正} 【Pb-00 基本の殴打】",
+    "デフォルト名称": "基本の殴打",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "4",
+    "ダイス威力": "+1d2",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-26|ラウンド終了時]]):FPを2得る。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"END_ROUND\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"FP\",\"value\":2}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "END_ROUND",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 2
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pb-01": {
+    "スキルID": "Pb-01",
+    "チャットパレット": "5+1d4+1d{物理補正} 【Pb-01 叩き打ち】",
+    "デフォルト名称": "叩き打ち",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "5",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):FPを1消費",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-02|破裂]]5を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":5}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 5
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pb-02": {
+    "スキルID": "Pb-02",
+    "チャットパレット": "7+1d4+1d{物理補正} 【Pb-02 鳩尾殴り】",
+    "デフォルト名称": "鳩尾殴り",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "7",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "対象に[[W-02|破裂]]があるなら[[W-50|基礎威力]]+1",
+    "発動時効果": "([[W-20|的中時]]):[[W-02|破裂]]7を付与。対象の[[W-02|破裂]]が8以上なら、[[W-02|破裂]]5を付与。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"FIXED_IF_EXISTS\",\"value\":1}],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":7},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":5,\"condition\":{\"source\":\"target\",\"param\":\"破裂\",\"operator\":\"GTE\",\"value\":8}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "破裂",
+          "operation": "FIXED_IF_EXISTS",
+          "value": 1
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 7
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 5,
+          "condition": {
+            "source": "target",
+            "param": "破裂",
+            "operator": "GTE",
+            "value": 8
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pb-03": {
+    "スキルID": "Pb-03",
+    "チャットパレット": "5+1d4+1d{物理補正} 【Pb-03 ファストハンマー】",
+    "デフォルト名称": "ファストハンマー",
+    "分類": "物理",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "5",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "",
+    "発動時効果": "([[W-21|マッチ勝利時]]):[[W-02|破裂]]10を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":10}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "WIN",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 10
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pb-04": {
+    "スキルID": "Pb-04",
+    "チャットパレット": "9+1d5+1d{物理補正} 【Pb-04 回転殴撃】",
+    "デフォルト名称": "回転殴撃",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "2",
+    "基礎威力": "9",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):FPを3消費",
+    "特記": "対象の[[W-02|破裂]]3につき[[W-50|基礎威力]]+1(最大で3)",
+    "発動時効果": "([[W-20|的中時]]):相手の[[W-02|破裂]]が10以上なら、[[W-03|破裂爆発]]。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":3,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"FP\",\"value\":3}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\",\"condition\":{\"source\":\"target\",\"param\":\"破裂\",\"operator\":\"GTE\",\"value\":10}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "破裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 3,
+          "value": 1,
+          "max_bonus": 3
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 3
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "value": "破裂爆発",
+          "condition": {
+            "source": "target",
+            "param": "破裂",
+            "operator": "GTE",
+            "value": 10
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pb-05": {
+    "スキルID": "Pb-05",
+    "チャットパレット": "11+1d5+1d{物理補正} 【Pb-05 圧殺】",
+    "デフォルト名称": "圧殺",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "2",
+    "基礎威力": "11",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):FPを4消費",
+    "特記": "対象の[[W-02|破裂]]3につき[[W-50|基礎威力]]+1(最大で3)",
+    "発動時効果": "([[W-20|的中時]]):[[W-03|破裂爆発]]。この[[W-03|破裂爆発]]は対象の[[W-02|破裂]]威力を半分にする。[[W-03|破裂爆発]]。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":3,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"FP\",\"value\":4}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\",\"rupture_remainder_ratio\":0.5},{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "破裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 3,
+          "value": 1,
+          "max_bonus": 3
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 4
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "value": "破裂爆発",
+          "rupture_remainder_ratio": 0.5
+        },
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "value": "破裂爆発"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pb-06": {
+    "スキルID": "Pb-06",
+    "チャットパレット": "9+1d5+1d{物理補正} 【Pb-06 俺を見ろ！】",
+    "デフォルト名称": "俺を見ろ！",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "9",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):次の[[W-16|ラウンド]]で、自分に[[W-13|挑発]]を付与する。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-01\",\"lasting\":1,\"delay\":1,\"flavor\":\"自らの存在を大きく誇示し、決して捨て置くことを許さない。\",\"buff_name\":\"挑発\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_id": "Bu-01",
+          "lasting": 1,
+          "delay": 1,
+          "flavor": "自らの存在を大きく誇示し、決して捨て置くことを許さない。",
+          "buff_name": "挑発"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pb-07": {
+    "スキルID": "Pb-07",
+    "チャットパレット": "4+1d8+1d{物理補正} 【Pb-07 破砕】",
+    "デフォルト名称": "破砕",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "2",
+    "基礎威力": "4",
+    "ダイス威力": "+1d8",
+    "使用時効果": "([[W-19|使用時]]):FPを4消費",
+    "特記": "対象に[[W-02|破裂]]があるなら[[W-50|基礎威力]]+3。対象に[[W-04|亀裂]]があるなら[[W-50|基礎威力]]+3。",
+    "発動時効果": "([[W-20|的中時]]):[[W-03|破裂爆発]]。[[W-05|亀裂崩壊]]。消費した[[W-04|亀裂]]1につき3ダメージ。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"FIXED_IF_EXISTS\",\"value\":3},{\"source\":\"target\",\"param\":\"亀裂\",\"operation\":\"FIXED_IF_EXISTS\",\"value\":3}],\"cost\":[{\"type\":\"FP\",\"value\":4}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\"},{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"亀裂崩壊_DAMAGE\",\"damage_per_fissure\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "破裂",
+          "operation": "FIXED_IF_EXISTS",
+          "value": 3
+        },
+        {
+          "source": "target",
+          "param": "亀裂",
+          "operation": "FIXED_IF_EXISTS",
+          "value": 3
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 4
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "value": "破裂爆発"
+        },
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "value": "亀裂崩壊_DAMAGE",
+          "damage_per_fissure": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pb-08": {
+    "スキルID": "Pb-08",
+    "チャットパレット": "2+1d6+1d{物理補正} 【Pb-08 出たとこ勝負】",
+    "デフォルト名称": "出たとこ勝負",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "2",
+    "ダイス威力": "+1d6",
+    "使用時効果": "",
+    "特記": "対象に[[W-02|破裂]]がないなら[[W-50|基礎威力]]+2。",
+    "発動時効果": "([[W-20|的中時]]):[[W-02|破裂]]2を付与。",
+    "特記処理": "{\"power_bonus\":[{\"condition\":{\"source\":\"target\",\"param\":\"破裂\",\"operator\":\"EQUALS\",\"value\":0},\"operation\":\"FIXED\",\"value\":2}],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":2}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "condition": {
+            "source": "target",
+            "param": "破裂",
+            "operator": "EQUALS",
+            "value": 0
+          },
+          "operation": "FIXED",
+          "value": 2
+        }
+      ],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 2
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pb-09": {
+    "スキルID": "Pb-09",
+    "チャットパレット": "4+1d7+1d{物理補正} 【Pb-09 ヒビを入れる】",
+    "デフォルト名称": "ヒビを入れる",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "4",
+    "ダイス威力": "+1d7",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "対象に[[W-02|破裂]]があるなら[[W-50|基礎威力]]+1。",
+    "発動時効果": "([[W-20|的中時]]):3ラウンドの[[W-04|亀裂]]1を付与。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"FIXED_IF_EXISTS\",\"value\":1}],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":1,\"rounds\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "破裂",
+          "operation": "FIXED_IF_EXISTS",
+          "value": 1
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 1,
+          "rounds": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pb-10": {
+    "スキルID": "Pb-10",
+    "チャットパレット": "0+1d1 【Pb-10 右肩上がり】",
+    "デフォルト名称": "右肩上がり",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "0",
+    "ダイス威力": "+1d1",
+    "使用時効果": "([[W-19|使用時]]):FPを4消費",
+    "特記": "対象の[[W-02|破裂]][[W-49|威力]]の値だけ[[W-50|基礎威力]]を加算（最大で30）。",
+    "発動時効果": "([[W-22|マッチ敗北時]]):FPを2得る。([[W-20|的中時]]) [[W-03|破裂爆発]]。この[[W-03|破裂爆発]]は対象の[[W-02|破裂]][[W-49|威力]]を半分にする。",
+    "特記処理": "{\"cost\":[{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operator\":\"PER_N_BONUS\",\"per_N\":1,\"value\":1,\"max_bonus\":30}],\"effects\":[{\"timing\":\"LOSE\",\"target\":\"self\",\"type\":\"APPLY_STATE\",\"state_name\":\"FP\",\"value\":2},{\"timing\":\"HIT\",\"target\":\"target\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\",\"rupture_remainder_ratio\":0.5}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "破裂",
+          "operator": "PER_N_BONUS",
+          "per_N": 1,
+          "value": 1,
+          "max_bonus": 30
+        }
+      ],
+      "effects": [
+        {
+          "timing": "LOSE",
+          "target": "self",
+          "type": "APPLY_STATE",
+          "state_name": "FP",
+          "value": 2
+        },
+        {
+          "timing": "HIT",
+          "target": "target",
+          "type": "CUSTOM_EFFECT",
+          "value": "破裂爆発",
+          "rupture_remainder_ratio": 0.5
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pb-11": {
+    "スキルID": "Pb-11",
+    "チャットパレット": "7+1d7+1d{物理補正} 【Pb-11 震え上がれ】",
+    "デフォルト名称": "震え上がれ",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "2",
+    "基礎威力": "7",
+    "ダイス威力": "+1d7",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費。MPを3消費。",
+    "特記": "",
+    "発動時効果": "([[W-21|マッチ勝利時]]):2スタックの[[W-64|震盪]]を付与。3ラウンド継続。([[W-20|的中時]]):破裂3を付与。",
+    "特記処理": "{\"tags\":[],\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":2},{\"type\":\"MP\",\"value\":3}],\"power_bonus\":[],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_name\":\"震盪\",\"lasting\":3,\"delay\":0,\"data\":{\"count\":2},\"buff_id\":\"Bu-29\"},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "tags": [],
+      "target_scope": "opposing_team",
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        },
+        {
+          "type": "MP",
+          "value": 3
+        }
+      ],
+      "power_bonus": [],
+      "effects": [
+        {
+          "timing": "WIN",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_name": "震盪",
+          "lasting": 3,
+          "delay": 0,
+          "data": {
+            "count": 2
+          },
+          "buff_id": "Bu-29"
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pp-00": {
+    "スキルID": "Pp-00",
+    "チャットパレット": "4+1d2+1d{物理補正} 【Pp-00 基本の刺突】",
+    "デフォルト名称": "基本の刺突",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "0",
+    "基礎威力": "4",
+    "ダイス威力": "+1d2",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-26|ラウンド終了時]]):FPを2得る。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"END_ROUND\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"FP\",\"value\":2}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "END_ROUND",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 2
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pp-01": {
+    "スキルID": "Pp-01",
+    "チャットパレット": "5+1d4+1d{物理補正} 【Pp-01 刺し込む】",
+    "デフォルト名称": "刺し込む",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "5",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):FPを1消費",
+    "特記": "対象に[[W-04|亀裂]]があるなら[[W-50|基礎威力]]+1",
+    "発動時効果": "",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"亀裂\",\"operation\":\"FIXED_IF_EXISTS\",\"value\":1}],\"cost\":[{\"type\":\"FP\",\"value\":1}],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "亀裂",
+          "operation": "FIXED_IF_EXISTS",
+          "value": 1
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pp-02": {
+    "スキルID": "Pp-02",
+    "チャットパレット": "7+1d4+1d{物理補正} 【Pp-02 狙い突く】",
+    "デフォルト名称": "狙い突く",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "7",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):3ラウンドの[[W-04|亀裂]]1を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":1,\"rounds\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 1,
+          "rounds": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pp-03": {
+    "スキルID": "Pp-03",
+    "チャットパレット": "7+1d3+1d{物理補正} 【Pp-03 突き崩す】",
+    "デフォルト名称": "突き崩す",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "7",
+    "ダイス威力": "+1d3",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):次にこのキャラクターが付与する[[W-04|亀裂]]の値+1",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pp03\",\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-41\",\"lasting\":999,\"count\":1,\"data\":{\"value\":1,\"display_name\":\"突き崩す（亀裂付与量アップ単発）\"},\"buff_name\":\"亀裂付与量アップ（単発）\"}]}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "schema": "skill_json_rule_v2",
+      "id": "SKILL_Pp03",
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_id": "Bu-41",
+          "lasting": 999,
+          "count": 1,
+          "data": {
+            "value": 1,
+            "display_name": "突き崩す（亀裂付与量アップ単発）"
+          },
+          "buff_name": "亀裂付与量アップ（単発）"
+        }
+      ]
+    }
+  },
+  "Pp-04": {
+    "スキルID": "Pp-04",
+    "チャットパレット": "8+1d4+1d{物理補正} 【Pp-04 隙だらけだな！】",
+    "デフォルト名称": "隙だらけだな！",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "8",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):FPを3消費",
+    "特記": "対象の[[W-04|亀裂]]1につき[[W-50|基礎威力]]+1(最大で3)。",
+    "発動時効果": "([[W-20|的中時]]):4ラウンドの[[W-04|亀裂]]1を付与",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"亀裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":1,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"FP\",\"value\":3}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":1,\"rounds\":4}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "亀裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 1,
+          "value": 1,
+          "max_bonus": 3
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 3
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 1,
+          "rounds": 4
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pp-05": {
+    "スキルID": "Pp-05",
+    "チャットパレット": "8+1d5+1d{物理補正} 【Pp-05 一点突貫】",
+    "デフォルト名称": "一点突貫",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "2",
+    "基礎威力": "8",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):FPを4消費",
+    "特記": "対象の[[W-04|亀裂]]1につき[[W-50|基礎威力]]+1(最大で3)。",
+    "発動時効果": "([[W-20|的中時]]):[[W-05|亀裂崩壊]]。消費した[[W-04|亀裂]]1につき3ダメージ。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"亀裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":1,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"FP\",\"value\":4}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"亀裂崩壊_DAMAGE\",\"damage_per_fissure\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "亀裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 1,
+          "value": 1,
+          "max_bonus": 3
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 4
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "value": "亀裂崩壊_DAMAGE",
+          "damage_per_fissure": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pp-06": {
+    "スキルID": "Pp-06",
+    "チャットパレット": "12+1d2+1d{物理補正} 【Pp-06 トマトみてぇに弾けちまいなっ！】",
+    "デフォルト名称": "トマトみてぇに弾けちまいなっ！",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "2",
+    "基礎威力": "12",
+    "ダイス威力": "+1d2",
+    "使用時効果": "([[W-19|使用時]]):FPを4消費",
+    "特記": "対象の[[W-04|亀裂]]1につき[[W-50|基礎威力]]+1(最大で3)。このスキルを使用している間、相手の[[W-02|破裂]][[W-49|威力]]は減少しない。",
+    "発動時効果": "([[W-20|的中時]]):[[W-05|亀裂崩壊]]。消費した[[W-04|亀裂]]4につき1回、[[W-03|破裂爆発]]。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"亀裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":1,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"FP\",\"value\":4}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-06\",\"lasting\":1,\"delay\":0,\"buff_name\":\"破裂威力減少無効\"},{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"FISSURE_COLLAPSE\",\"data\":{\"cost_per_trigger\":4,\"triggered_effect\":\"破裂爆発\",\"trigger_ratio\":1.0}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "亀裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 1,
+          "value": 1,
+          "max_bonus": 3
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 4
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_id": "Bu-06",
+          "lasting": 1,
+          "delay": 0,
+          "buff_name": "破裂威力減少無効"
+        },
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "value": "FISSURE_COLLAPSE",
+          "data": {
+            "cost_per_trigger": 4,
+            "triggered_effect": "破裂爆発",
+            "trigger_ratio": 1.0
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pp-07": {
+    "スキルID": "Pp-07",
+    "チャットパレット": "6+1d4+1d{物理補正} 【Pp-07 膨れて溢れる】",
+    "デフォルト名称": "膨れて溢れる",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "2",
+    "基礎威力": "6",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):FPを1消費",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象の[[W-04|亀裂]]1につき[[W-00|出血]]2を付与。(最大で10)",
+    "特記処理": "{\"cost\":[{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE_PER_N\",\"source\":\"target\",\"source_param\":\"亀裂\",\"per_N\":1,\"target\":\"target\",\"state_name\":\"出血\",\"value\":2,\"max_value\":10}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE_PER_N",
+          "source": "target",
+          "source_param": "亀裂",
+          "per_N": 1,
+          "target": "target",
+          "state_name": "出血",
+          "value": 2,
+          "max_value": 10
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pp-08": {
+    "スキルID": "Pp-08",
+    "チャットパレット": "3+1d9+1d{物理補正} 【Pp-08 討ち取ってこそ】",
+    "デフォルト名称": "討ち取ってこそ",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "3",
+    "ダイス威力": "+1d9",
+    "使用時効果": "([[W-19|使用時]]):FPを3消費",
+    "特記": "対象に[[W-04|亀裂]]があるなら[[W-50|基礎威力]]+1。",
+    "発動時効果": "([[W-21|マッチ勝利時]]):4ラウンドの[[W-04|亀裂]]2を付与。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"亀裂\",\"operation\":\"FIXED_IF_EXISTS\",\"value\":1}],\"cost\":[{\"type\":\"FP\",\"value\":3}],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":2,\"rounds\":4}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "亀裂",
+          "operation": "FIXED_IF_EXISTS",
+          "value": 1
+        }
+      ],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 3
+        }
+      ],
+      "effects": [
+        {
+          "timing": "WIN",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 2,
+          "rounds": 4
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pp-09": {
+    "スキルID": "Pp-09",
+    "チャットパレット": "6+1d2+1d{物理補正} 【Pp-09 待ってもらおう！】",
+    "デフォルト名称": "待ってもらおう！",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "6",
+    "ダイス威力": "+1d2",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):FPを1得る。 ([[W-21|マッチ勝利時]]):FPを1得る。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"FP\",\"value\":1},{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"FP\",\"value\":1}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 1
+        },
+        {
+          "timing": "WIN",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 1
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Pp-10": {
+    "スキルID": "Pp-10",
+    "チャットパレット": "9+1d5+1d{物理補正} 【Pp-10 賭けは嫌いだ】",
+    "デフォルト名称": "賭けは嫌いだ",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "2",
+    "基礎威力": "9",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):FPを3消費",
+    "特記": "対象の[[W-04|亀裂]]2につき[[W-51|ダイス威力]]-1（最大で4）。対象の[[W-04|亀裂]]2につき[[W-50|基礎威力]]+1(最大で4)。",
+    "発動時効果": "",
+    "特記処理": "{\"tags\":[],\"cost\":[{\"type\":\"FP\",\"value\":3}],\"power_bonus\":[{\"source\":\"target\",\"param\":\"亀裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":2,\"value\":-1,\"apply_to\":\"dice\",\"min_bonus\":-4},{\"source\":\"target\",\"param\":\"亀裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":2,\"value\":1,\"apply_to\":\"base\",\"max_bonus\":4}],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "tags": [],
+      "cost": [
+        {
+          "type": "FP",
+          "value": 3
+        }
+      ],
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "亀裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 2,
+          "value": -1,
+          "apply_to": "dice",
+          "min_bonus": -4
+        },
+        {
+          "source": "target",
+          "param": "亀裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 2,
+          "value": 1,
+          "apply_to": "base",
+          "max_bonus": 4
+        }
+      ],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ms-00": {
+    "スキルID": "Ms-00",
+    "チャットパレット": "3+1d2+1d{魔法補正} 【Ms-00 魔力の刃】",
+    "デフォルト名称": "魔力の刃",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "斬撃",
+    "取得コスト": "0",
+    "基礎威力": "3",
+    "ダイス威力": "+1d2",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-26|ラウンド終了時]]):FPを1得る。MPを1得る。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"END_ROUND\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"FP\",\"value\":1},{\"timing\":\"END_ROUND\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"MP\",\"value\":1}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "END_ROUND",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 1
+        },
+        {
+          "timing": "END_ROUND",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "MP",
+          "value": 1
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ms-01": {
+    "スキルID": "Ms-01",
+    "チャットパレット": "4+1d3+1d{魔法補正} 【Ms-01 飛刃】",
+    "デフォルト名称": "飛刃",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "4",
+    "ダイス威力": "+1d3",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]4を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":4}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 4
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ms-02": {
+    "スキルID": "Ms-02",
+    "チャットパレット": "5+1d4+1d{魔法補正} 【Ms-02 薙ぐように】",
+    "デフォルト名称": "薙ぐように",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "5",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象に[[W-00|出血]]があるなら、[[W-00|出血]]4を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":4,\"condition\":{\"source\":\"target\",\"param\":\"出血\",\"operator\":\"GTE\",\"value\":1}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 4,
+          "condition": {
+            "source": "target",
+            "param": "出血",
+            "operator": "GTE",
+            "value": 1
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ms-03": {
+    "スキルID": "Ms-03",
+    "チャットパレット": "7+1d6+1d{魔法補正} 【Ms-03 軽く撫でてあげる】",
+    "デフォルト名称": "軽く撫でてあげる",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "7",
+    "ダイス威力": "+1d6",
+    "使用時効果": "([[W-19|使用時]]):MPを3消費。FPを1消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象の[[W-00|出血]]が5以上なら、5ダメージを与える。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":3},{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"DAMAGE_BONUS\",\"target\":\"target\",\"value\":5,\"condition\":{\"source\":\"target\",\"param\":\"出血\",\"operator\":\"GTE\",\"value\":5}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 3
+        },
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "DAMAGE_BONUS",
+          "target": "target",
+          "value": 5,
+          "condition": {
+            "source": "target",
+            "param": "出血",
+            "operator": "GTE",
+            "value": 5
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ms-04": {
+    "スキルID": "Ms-04",
+    "チャットパレット": "11+1d3+1d{魔法補正} 【Ms-04 手足とお別れ】",
+    "デフォルト名称": "手足とお別れ",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "斬撃",
+    "取得コスト": "2",
+    "基礎威力": "11",
+    "ダイス威力": "+1d3",
+    "使用時効果": "([[W-19|使用時]]):MPを4消費。FPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]8を付与。自分のFPが5以上なら、[[W-01|出血氾濫]]。 ",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":4},{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":8},{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"target\",\"value\":\"出血氾濫\",\"condition\":{\"source\":\"self\",\"param\":\"FP\",\"operator\":\"GTE\",\"value\":5}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 4
+        },
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 8
+        },
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "target": "target",
+          "value": "出血氾濫",
+          "condition": {
+            "source": "self",
+            "param": "FP",
+            "operator": "GTE",
+            "value": 5
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ms-05": {
+    "スキルID": "Ms-05",
+    "チャットパレット": "10+1d5+1d{魔法補正} 【Ms-05 纏わせ、断つ】",
+    "デフォルト名称": "纏わせ、断つ",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "2",
+    "基礎威力": "10",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):MPを4消費。FPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]6を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":4},{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":6}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 4
+        },
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 6
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ms-06": {
+    "スキルID": "Ms-06",
+    "チャットパレット": "0+1d3+1d{魔法補正} 【Ms-06 総ての色が交ざるように。】",
+    "デフォルト名称": "総ての色が交ざるように。",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "0",
+    "ダイス威力": "+1d3",
+    "使用時効果": "([[W-19|使用時]]):MPを3消費。",
+    "特記": "対象の[[W-04|亀裂]]1につき[[W-50|基礎威力]]+1(最大で5)。対象の[[W-02|破裂]]2につき[[W-50|基礎威力]]+1(最大で5)。対象の[[W-00|出血]]3につき[[W-50|基礎威力]]+1(最大で5)。",
+    "発動時効果": "([[W-20|的中時]]):対象に[[W-04|亀裂]]が5以上あるなら、10ダメージ。対象に[[W-02|破裂]]が10以上あるなら、10ダメージ。対象に[[W-00|出血]]が15以上あるなら、10ダメージ。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"亀裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":1,\"value\":1,\"max_bonus\":5},{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":2,\"value\":1,\"max_bonus\":5},{\"source\":\"target\",\"param\":\"出血\",\"operation\":\"PER_N_BONUS\",\"per_N\":3,\"value\":1,\"max_bonus\":5}],\"cost\":[{\"type\":\"MP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"DAMAGE_BONUS\",\"target\":\"target\",\"value\":10,\"condition\":{\"source\":\"target\",\"param\":\"亀裂\",\"operator\":\"GTE\",\"value\":5}},{\"timing\":\"HIT\",\"type\":\"DAMAGE_BONUS\",\"target\":\"target\",\"value\":10,\"condition\":{\"source\":\"target\",\"param\":\"破裂\",\"operator\":\"GTE\",\"value\":10}},{\"timing\":\"HIT\",\"type\":\"DAMAGE_BONUS\",\"target\":\"target\",\"value\":10,\"condition\":{\"source\":\"target\",\"param\":\"出血\",\"operator\":\"GTE\",\"value\":15}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "亀裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 1,
+          "value": 1,
+          "max_bonus": 5
+        },
+        {
+          "source": "target",
+          "param": "破裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 2,
+          "value": 1,
+          "max_bonus": 5
+        },
+        {
+          "source": "target",
+          "param": "出血",
+          "operation": "PER_N_BONUS",
+          "per_N": 3,
+          "value": 1,
+          "max_bonus": 5
+        }
+      ],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "DAMAGE_BONUS",
+          "target": "target",
+          "value": 10,
+          "condition": {
+            "source": "target",
+            "param": "亀裂",
+            "operator": "GTE",
+            "value": 5
+          }
+        },
+        {
+          "timing": "HIT",
+          "type": "DAMAGE_BONUS",
+          "target": "target",
+          "value": 10,
+          "condition": {
+            "source": "target",
+            "param": "破裂",
+            "operator": "GTE",
+            "value": 10
+          }
+        },
+        {
+          "timing": "HIT",
+          "type": "DAMAGE_BONUS",
+          "target": "target",
+          "value": 10,
+          "condition": {
+            "source": "target",
+            "param": "出血",
+            "operator": "GTE",
+            "value": 15
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ms-07": {
+    "スキルID": "Ms-07",
+    "チャットパレット": "8+1d6+1d{魔法補正} 【Ms-07 放出の呪い】",
+    "デフォルト名称": "放出の呪い",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "斬撃",
+    "取得コスト": "3",
+    "基礎威力": "8",
+    "ダイス威力": "+1d6",
+    "使用時効果": "([[W-19|使用時]]):MPを5消費。FPを1消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]5を付与。対象に2[[W-16|ラウンド]]の[[W-12|出血遷延]]を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":5},{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":5},{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-08\",\"data\":{\"count\":2},\"buff_name\":\"出血遷延\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 5
+        },
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "出血",
+          "value": 5
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_id": "Bu-08",
+          "data": {
+            "count": 2
+          },
+          "buff_name": "出血遷延"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ms-08": {
+    "スキルID": "Ms-08",
+    "チャットパレット": "8+1d4+1d{魔法補正} 【Ms-08 命を放つ】",
+    "デフォルト名称": "命を放つ",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "8",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを3消費。HPを8消費。",
+    "特記": "対象の[[W-00|出血]]2につき[[W-50|基礎威力]]+1(最大で3)",
+    "発動時効果": "([[W-20|的中時]]):[[W-01|出血氾濫]]。",
+    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":3},{\"type\":\"HP\",\"value\":8}],\"power_bonus\":[{\"source\":\"target\",\"param\":\"出血\",\"operation\":\"PER_N_BONUS\",\"per_N\":2,\"value\":1,\"max_bonus\":3}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"target\",\"value\":\"出血氾濫\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "MP",
+          "value": 3
+        },
+        {
+          "type": "HP",
+          "value": 8
+        }
+      ],
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "出血",
+          "operation": "PER_N_BONUS",
+          "per_N": 2,
+          "value": 1,
+          "max_bonus": 3
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "target": "target",
+          "value": "出血氾濫"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ms-09": {
+    "スキルID": "Ms-09",
+    "チャットパレット": "22-1d6+1d{魔法補正} 【Ms-09 瀉血】",
+    "デフォルト名称": "瀉血",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "1",
+    "基礎威力": "22",
+    "ダイス威力": "-1d6",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。HPを6消費。FPを2消費。",
+    "特記": "自分の[[W-00|出血]]2につきダイス威力-1(最小で-5)。自分に[[W-00|出血]]が2以上ないなら[[W-50|基礎威力]]-7。",
+    "発動時効果": "([[W-20|的中時]]):自分に[[W-01|出血氾濫]]。([[W-21|マッチ勝利時]]):自分の[[W-00|出血]]の二倍の値の[[W-00|出血]]を対象に付与。",
+    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":2},{\"type\":\"HP\",\"value\":6},{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[{\"operation\":\"PER_N_BONUS\",\"per_N\":2,\"value\":-1,\"source\":\"self\",\"param\":\"出血\",\"min_bonus\":-5,\"apply_to\":\"dice\"},{\"value\":-7,\"condition\":{\"source\":\"self\",\"param\":\"出血\",\"operator\":\"LT\",\"value\":2}}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"self\",\"value\":\"出血氾濫\"},{\"timing\":\"WIN\",\"type\":\"APPLY_STATE_PER_N\",\"target\":\"target\",\"source\":\"self\",\"source_param\":\"出血\",\"state_name\":\"出血\",\"per_N\":1,\"value\":2}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        },
+        {
+          "type": "HP",
+          "value": 6
+        },
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "power_bonus": [
+        {
+          "operation": "PER_N_BONUS",
+          "per_N": 2,
+          "value": -1,
+          "source": "self",
+          "param": "出血",
+          "min_bonus": -5,
+          "apply_to": "dice"
+        },
+        {
+          "value": -7,
+          "condition": {
+            "source": "self",
+            "param": "出血",
+            "operator": "LT",
+            "value": 2
+          }
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "target": "self",
+          "value": "出血氾濫"
+        },
+        {
+          "timing": "WIN",
+          "type": "APPLY_STATE_PER_N",
+          "target": "target",
+          "source": "self",
+          "source_param": "出血",
+          "state_name": "出血",
+          "per_N": 1,
+          "value": 2
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Ms-10": {
+    "スキルID": "Ms-10",
+    "チャットパレット": "8+1d7+1d{魔法補正} 【Ms-10 一心不乱】",
+    "デフォルト名称": "一心不乱",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "斬撃",
+    "取得コスト": "2",
+    "基礎威力": "8",
+    "ダイス威力": "+1d7",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。HPを5消費。",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):自分に[[W-00|出血]]6を付与。 ([[W-20|的中時]]):与えたダメージの値、自分のHPを回復する。",
+    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":2},{\"type\":\"HP\",\"value\":5}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"出血\",\"value\":6},{\"timing\":\"HIT\",\"type\":\"DRAIN_HP\",\"target\":\"self\",\"value\":1}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        },
+        {
+          "type": "HP",
+          "value": 5
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "出血",
+          "value": 6
+        },
+        {
+          "timing": "HIT",
+          "type": "DRAIN_HP",
+          "target": "self",
+          "value": 1
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-00": {
+    "スキルID": "Mb-00",
+    "チャットパレット": "3+1d2+1d{魔法補正} 【Mb-00 魔力の槌】",
+    "デフォルト名称": "魔力の槌",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "3",
+    "ダイス威力": "+1d2",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-26|ラウンド終了時]]):FPを1得る。MPを1得る。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"END_ROUND\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"FP\",\"value\":1},{\"timing\":\"END_ROUND\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"MP\",\"value\":1}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "END_ROUND",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 1
+        },
+        {
+          "timing": "END_ROUND",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "MP",
+          "value": 1
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-01": {
+    "スキルID": "Mb-01",
+    "チャットパレット": "4+1d3+1d{魔法補正} 【Mb-01 叩き伏せる】",
+    "デフォルト名称": "叩き伏せる",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "4",
+    "ダイス威力": "+1d3",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):[[W-02|破裂]]5を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":5}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 5
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-02": {
+    "スキルID": "Mb-02",
+    "チャットパレット": "6+1d4+1d{魔法補正} 【Mb-02 お前がぶつかるんだ！】",
+    "デフォルト名称": "お前がぶつかるんだ！",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "6",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-21|マッチ勝利時]]):[[W-02|破裂]]6を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":2}],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":6}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "WIN",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 6
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-03": {
+    "スキルID": "Mb-03",
+    "チャットパレット": "7+1d4+1d{魔法補正} 【Mb-03 岩が如き塊】",
+    "デフォルト名称": "岩が如き塊",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "7",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。FPを1消費。",
+    "特記": "対象の[[W-02|破裂]]3につき、このスキルの[[W-50|基礎威力]]+1(最大で2)",
+    "発動時効果": "",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":3,\"value\":1,\"max_bonus\":2}],\"cost\":[{\"type\":\"MP\",\"value\":2},{\"type\":\"FP\",\"value\":1}],\"effects\":[],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "破裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 3,
+          "value": 1,
+          "max_bonus": 2
+        }
+      ],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        },
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-04": {
+    "スキルID": "Mb-04",
+    "チャットパレット": "11+1d5+1d{魔法補正} 【Mb-04 派手に爆ぜな】",
+    "デフォルト名称": "派手に爆ぜな",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "2",
+    "基礎威力": "11",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):MPを3消費。FPを2消費。",
+    "特記": "対象の[[W-02|破裂]]3につき、このスキルの[[W-50|基礎威力]]+1(最大で3)",
+    "発動時効果": "([[W-20|的中時]]):[[W-03|破裂爆発]]。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":3,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"MP\",\"value\":3},{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "破裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 3,
+          "value": 1,
+          "max_bonus": 3
+        }
+      ],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 3
+        },
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "value": "破裂爆発"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-05": {
+    "スキルID": "Mb-05",
+    "チャットパレット": "10+1d4+1d{魔法補正} 【Mb-05 頑なな気流】",
+    "デフォルト名称": "頑なな気流",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "2",
+    "基礎威力": "10",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを3消費。FPを2消費。",
+    "特記": "対象の[[W-02|破裂]]2につき、このスキルの[[W-50|基礎威力]]+1(最大で2)",
+    "発動時効果": "([[W-21|マッチ勝利時]]):[[W-02|破裂]]8を付与。([[W-20|的中時]]):[[W-02|破裂]]6を付与。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":2,\"value\":1,\"max_bonus\":2}],\"cost\":[{\"type\":\"MP\",\"value\":3},{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":8},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":6}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "破裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 2,
+          "value": 1,
+          "max_bonus": 2
+        }
+      ],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 3
+        },
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "WIN",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 8
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 6
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-06": {
+    "スキルID": "Mb-06",
+    "チャットパレット": "8+1d2+1d{魔法補正} 【Mb-06 アイツを狙え！】",
+    "デフォルト名称": "アイツを狙え！",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "8",
+    "ダイス威力": "+1d2",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。FPを1消費。",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):対象に次の[[W-16|ラウンド]]の間[[W-13|挑発]]を付与し、対象が受けるダメージを20%上げる。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":2}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-01\",\"lasting\":1,\"delay\":1,\"buff_name\":\"挑発\"},{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_name\":\"アイツを狙え！_DaIn20\",\"lasting\":1,\"delay\":1,\"buff_id\":\"Bu-43\",\"data\":{\"value\":20}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_id": "Bu-01",
+          "lasting": 1,
+          "delay": 1,
+          "buff_name": "挑発"
+        },
+        {
+          "timing": "PRE_MATCH",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_name": "アイツを狙え！_DaIn20",
+          "lasting": 1,
+          "delay": 1,
+          "buff_id": "Bu-43",
+          "data": {
+            "value": 20
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-07": {
+    "スキルID": "Mb-07",
+    "チャットパレット": "7+1d5+1d{魔法補正} 【Mb-07 憔悴せよ】",
+    "デフォルト名称": "憔悴せよ",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "7",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):MPを1消費。FPを1消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象に、「付与から数えて3回目の[[W-16|ラウンド]]終了時に自身に[[W-03|破裂爆発]]を起こす」状態を与える。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":1},{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"HIT\",\"target\":\"target\",\"type\":\"APPLY_BUFF\",\"buff_id\":\"Bu-07\",\"delay\":3,\"lasting\":0,\"buff_name\":\"時限破裂爆発\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 1
+        },
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "target": "target",
+          "type": "APPLY_BUFF",
+          "buff_id": "Bu-07",
+          "delay": 3,
+          "lasting": 0,
+          "buff_name": "時限破裂爆発"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-08": {
+    "スキルID": "Mb-08",
+    "チャットパレット": "10+1d5+1d{魔法補正} 【Mb-08 膨らむ程に】",
+    "デフォルト名称": "膨らむ程に",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "2",
+    "基礎威力": "10",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):MPを4消費。FPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象の[[W-02|破裂]]が20以下なら、対象の[[W-02|破裂]][[W-49|威力]]を2倍にする。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":4},{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"MULTIPLY_STATE\",\"state_name\":\"破裂\",\"value\":2.0,\"target\":\"target\",\"condition\":{\"source\":\"target\",\"param\":\"破裂\",\"operator\":\"LTE\",\"value\":20}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 4
+        },
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "MULTIPLY_STATE",
+          "state_name": "破裂",
+          "value": 2.0,
+          "target": "target",
+          "condition": {
+            "source": "target",
+            "param": "破裂",
+            "operator": "LTE",
+            "value": 20
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-09": {
+    "スキルID": "Mb-09",
+    "チャットパレット": "8+1d4+1d{魔法補正} 【Mb-09 脚を掬う】",
+    "デフォルト名称": "脚を掬う",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "8",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。FPを1消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象に次のラウンドで[[W-15|減速]]1を付与。対象に[[W-02|破裂]]3を付与。",
+    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":2},{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-12\",\"lasting\":1,\"delay\":1,\"data\":{\"count\":1},\"buff_name\":\"減速\"},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        },
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_id": "Bu-12",
+          "lasting": 1,
+          "delay": 1,
+          "data": {
+            "count": 1
+          },
+          "buff_name": "減速"
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-10": {
+    "スキルID": "Mb-10",
+    "チャットパレット": "7+1d5+1d{魔法補正} 【Mb-10 大地裂】",
+    "デフォルト名称": "大地裂",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "7",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):MPを3消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):対象に次のラウンドで[[W-15|減速]]2を付与。対象のこの[[W-16|ラウンド]]における[[W-32|速度値]]が4以下なら、[[W-02|破裂]]8を付与。",
+    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":3}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-12\",\"lasting\":1,\"delay\":1,\"data\":{\"count\":2},\"buff_name\":\"減速\"},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":8,\"condition\":{\"source\":\"target\",\"param\":\"速度値\",\"operator\":\"LTE\",\"value\":4}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "MP",
+          "value": 3
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "target",
+          "buff_id": "Bu-12",
+          "lasting": 1,
+          "delay": 1,
+          "data": {
+            "count": 2
+          },
+          "buff_name": "減速"
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 8,
+          "condition": {
+            "source": "target",
+            "param": "速度値",
+            "operator": "LTE",
+            "value": 4
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-11": {
+    "スキルID": "Mb-11",
+    "チャットパレット": "4+1d6+1d{魔法補正} 【Mb-11 魔力を溜める】",
+    "デフォルト名称": "魔力を溜める",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "4",
+    "ダイス威力": "+1d6",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):凝魔4を得る。",
+    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_name\":\"凝魔\",\"count\":4,\"lasting\":-1,\"delay\":0,\"data\":{\"buff_id\":\"Bu-Gyoma\"},\"buff_id\":\"Bu-31\"}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_name": "凝魔",
+          "count": 4,
+          "lasting": -1,
+          "delay": 0,
+          "data": {
+            "buff_id": "Bu-Gyoma"
+          },
+          "buff_id": "Bu-31"
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-12": {
+    "スキルID": "Mb-12",
+    "チャットパレット": "4+1d5+1d{魔法補正} 【Mb-12 流動化】",
+    "デフォルト名称": "流動化",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "4",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):FPを1消費。",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):自分の凝魔を3消費し、MPを5回復する。",
+    "特記処理": "{\"cost\":[{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"CONSUME_BUFF_COUNT_FOR_GAIN\",\"target\":\"self\",\"buff_name\":\"凝魔\",\"consume_required\":3,\"gains\":[{\"type\":\"MP\",\"value\":5}]}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "CONSUME_BUFF_COUNT_FOR_GAIN",
+          "target": "self",
+          "buff_name": "凝魔",
+          "consume_required": 3,
+          "gains": [
+            {
+              "type": "MP",
+              "value": 5
+            }
+          ]
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mb-13": {
+    "スキルID": "Mb-13",
+    "チャットパレット": "5+1d4+1d{魔法補正} 【Mb-13 岩と成す】",
+    "デフォルト名称": "岩と成す",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "5",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費。",
+    "特記": "対象の[[W-02|破裂]]4につき、このスキルの[[W-50|基礎威力]]+1(最大で3)",
+    "発動時効果": "([[W-19|使用時]]):自分の凝魔を可能な限り消費し(最大で5)、消費した値だけこのスキルの最終威力を上昇させる。([[W-20|的中時]]):[[W-02|破裂]]4を付与。",
+    "特記処理": "{\"cost\":[{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":4,\"value\":1,\"max_bonus\":3,\"apply_to\":\"base\"}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"CONSUME_BUFF_COUNT_FOR_POWER\",\"target\":\"self\",\"buff_name\":\"凝魔\",\"consume_max\":5,\"value_per_stack\":1,\"apply_to\":\"final\",\"min_consume\":1},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":4}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "破裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 4,
+          "value": 1,
+          "max_bonus": 3,
+          "apply_to": "base"
+        }
+      ],
+      "effects": [
+        {
+          "timing": "PRE_MATCH",
+          "type": "CONSUME_BUFF_COUNT_FOR_POWER",
+          "target": "self",
+          "buff_name": "凝魔",
+          "consume_max": 5,
+          "value_per_stack": 1,
+          "apply_to": "final",
+          "min_consume": 1
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "破裂",
+          "value": 4
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mp-00": {
+    "スキルID": "Mp-00",
+    "チャットパレット": "3+1d2+1d{魔法補正} 【Mp-00 魔力の針】",
+    "デフォルト名称": "魔力の針",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "0",
+    "基礎威力": "3",
+    "ダイス威力": "+1d2",
+    "使用時効果": "",
+    "特記": "",
+    "発動時効果": "([[W-26|ラウンド終了時]]):FPを1得る。MPを1得る。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"END_ROUND\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"FP\",\"value\":1},{\"timing\":\"END_ROUND\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"MP\",\"value\":1}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [],
+      "effects": [
+        {
+          "timing": "END_ROUND",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 1
+        },
+        {
+          "timing": "END_ROUND",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "MP",
+          "value": 1
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mp-01": {
+    "スキルID": "Mp-01",
+    "チャットパレット": "4+1d3+1d{魔法補正} 【Mp-01 飛ばし貫く】",
+    "デフォルト名称": "飛ばし貫く",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "4",
+    "ダイス威力": "+1d3",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):2ラウンドの[[W-04|亀裂]]1を付与",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":1,\"rounds\":2}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 1,
+          "rounds": 2
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mp-02": {
+    "スキルID": "Mp-02",
+    "チャットパレット": "6+1d4+1d{魔法補正} 【Mp-02 傷つける】",
+    "デフォルト名称": "傷つける",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "6",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-21|マッチ勝利時]]):5ラウンドの[[W-04|亀裂]]1を付与",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":2}],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":1,\"rounds\":5}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "WIN",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 1,
+          "rounds": 5
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mp-03": {
+    "スキルID": "Mp-03",
+    "チャットパレット": "6+1d5+1d{魔法補正} 【Mp-03 綻びを狙って】",
+    "デフォルト名称": "綻びを狙って",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "6",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。FPを1消費。",
+    "特記": "対象の[[W-04|亀裂]]1につき、このスキルの[[W-50|基礎威力]]+1(最大で2)",
+    "発動時効果": "([[W-20|的中時]]):自分のFPが3以上あるなら、4ラウンドの[[W-04|亀裂]]2を付与。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"亀裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":1,\"value\":1,\"max_bonus\":2}],\"cost\":[{\"type\":\"MP\",\"value\":2},{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":2,\"rounds\":4,\"condition\":{\"source\":\"self\",\"param\":\"FP\",\"operator\":\"GTE\",\"value\":3}}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "亀裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 1,
+          "value": 1,
+          "max_bonus": 2
+        }
+      ],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 2
+        },
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 2,
+          "rounds": 4,
+          "condition": {
+            "source": "self",
+            "param": "FP",
+            "operator": "GTE",
+            "value": 3
+          }
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mp-04": {
+    "スキルID": "Mp-04",
+    "チャットパレット": "11+1d3+1d{魔法補正} 【Mp-04 こじ開ける】",
+    "デフォルト名称": "こじ開ける",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "2",
+    "基礎威力": "11",
+    "ダイス威力": "+1d3",
+    "使用時効果": "([[W-19|使用時]]):MPを4消費。FPを3消費。",
+    "特記": "対象の[[W-04|亀裂]]1につき、このスキルの[[W-50|基礎威力]]+1(最大で3)",
+    "発動時効果": "([[W-20|的中時]]):[[W-05|亀裂崩壊]]。消費した[[W-04|亀裂]]1につき4ダメージ。",
+    "特記処理": "{\"power_bonus\":[{\"source\":\"target\",\"param\":\"亀裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":1,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"MP\",\"value\":4},{\"type\":\"FP\",\"value\":3}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"亀裂崩壊_DAMAGE\",\"damage_per_fissure\":4}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [
+        {
+          "source": "target",
+          "param": "亀裂",
+          "operation": "PER_N_BONUS",
+          "per_N": 1,
+          "value": 1,
+          "max_bonus": 3
+        }
+      ],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 4
+        },
+        {
+          "type": "FP",
+          "value": 3
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "CUSTOM_EFFECT",
+          "value": "亀裂崩壊_DAMAGE",
+          "damage_per_fissure": 4
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mp-05": {
+    "スキルID": "Mp-05",
+    "チャットパレット": "7+1d6+1d{魔法補正} 【Mp-05 そこが弱いの？】",
+    "デフォルト名称": "そこが弱いの？",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "7",
+    "ダイス威力": "+1d6",
+    "使用時効果": "([[W-19|使用時]]):MPを3消費。FPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-21|マッチ勝利時]]):この[[W-16|ラウンド]]で自分が付与する[[W-04|亀裂]]の値に+1。([[W-20|的中時]]):4ラウンドの[[W-04|亀裂]]2を付与。",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":3},{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_name\":\"そこが弱いの？_Crack1\",\"lasting\":1,\"delay\":0,\"buff_id\":\"Bu-40\",\"data\":{\"value\":1}},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":2,\"rounds\":4}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 3
+        },
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "WIN",
+          "type": "APPLY_BUFF",
+          "target": "self",
+          "buff_name": "そこが弱いの？_Crack1",
+          "lasting": 1,
+          "delay": 0,
+          "buff_id": "Bu-40",
+          "data": {
+            "value": 1
+          }
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 2,
+          "rounds": 4
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mp-06": {
+    "スキルID": "Mp-06",
+    "チャットパレット": "12-1d4+1d{魔法補正} 【Mp-06 恐れはしない】",
+    "デフォルト名称": "恐れはしない",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "2",
+    "基礎威力": "12",
+    "ダイス威力": "-1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを1消費。FPを1消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):自分の[[W-06|戦慄]]2につき1の3ラウンド継続する[[W-04|亀裂]]を付与。(最大で2)",
+    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":1},{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE_PER_N\",\"source\":\"self\",\"source_param\":\"戦慄\",\"per_N\":2,\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":1,\"max_value\":2,\"rounds\":3}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "MP",
+          "value": 1
+        },
+        {
+          "type": "FP",
+          "value": 1
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE_PER_N",
+          "source": "self",
+          "source_param": "戦慄",
+          "per_N": 2,
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 1,
+          "max_value": 2,
+          "rounds": 3
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mp-07": {
+    "スキルID": "Mp-07",
+    "チャットパレット": "9+1d4+1d{魔法補正} 【Mp-07 でも、やっぱり…】",
+    "デフォルト名称": "でも、やっぱり…",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "9",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを1消費。",
+    "特記": "自分に[[W-06|戦慄]]があるならこのスキルの[[W-50|基礎威力]]-5",
+    "発動時効果": "([[W-20|的中時]]):自分に[[W-06|戦慄]]6を付与。",
+    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":1}],\"power_bonus\":[{\"source\":\"self\",\"param\":\"戦慄\",\"operation\":\"FIXED_IF_EXISTS\",\"threshold\":1,\"value\":-5}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"name\":\"戦慄\",\"value\":6}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "MP",
+          "value": 1
+        }
+      ],
+      "power_bonus": [
+        {
+          "source": "self",
+          "param": "戦慄",
+          "operation": "FIXED_IF_EXISTS",
+          "threshold": 1,
+          "value": -5
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "name": "戦慄",
+          "value": 6
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mp-08": {
+    "スキルID": "Mp-08",
+    "チャットパレット": "13+1d5+1d{魔法補正} 【Mp-08 圧し通す】",
+    "デフォルト名称": "圧し通す",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "3",
+    "基礎威力": "13",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):MPを6消費。FPを4消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):4ラウンドの[[W-04|亀裂]]3を付与。([[W-22|マッチ敗北時]]):5ラウンドの[[W-04|亀裂]]1を付与。",
+    "特記処理": "{\"cost\":[{\"type\":\"MP\",\"value\":6},{\"type\":\"FP\",\"value\":4}],\"power_bonus\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":3,\"rounds\":4},{\"timing\":\"LOSE\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":1,\"rounds\":5}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "cost": [
+        {
+          "type": "MP",
+          "value": 6
+        },
+        {
+          "type": "FP",
+          "value": 4
+        }
+      ],
+      "power_bonus": [],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 3,
+          "rounds": 4
+        },
+        {
+          "timing": "LOSE",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "亀裂",
+          "value": 1,
+          "rounds": 5
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mp-09": {
+    "スキルID": "Mp-09",
+    "チャットパレット": "2+1d4+1d{魔法補正} 【Mp-09 五月雨式】",
+    "デフォルト名称": "五月雨式",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "2",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを3消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):FPを1消費し、このスキルを[[W-58|再使用]]。(この効果による[[W-58|再使用]]は2回まで)",
+    "特記処理": "{\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":3}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"USE_SKILL_AGAIN\",\"max_reuses\":2,\"consume_cost\":false,\"reuse_cost\":[{\"type\":\"FP\",\"value\":1}]}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 3
+        }
+      ],
+      "effects": [
+        {
+          "timing": "HIT",
+          "type": "USE_SKILL_AGAIN",
+          "max_reuses": 2,
+          "consume_cost": false,
+          "reuse_cost": [
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  },
+  "Mp-10": {
+    "スキルID": "Mp-10",
+    "チャットパレット": "5+1d7+1d{魔法補正} 【Mp-10 針小棒大】",
+    "デフォルト名称": "針小棒大",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "5",
+    "ダイス威力": "+1d7",
+    "使用時効果": "([[W-19|使用時]]):MPを1消費。FPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-21|マッチ勝利時]]):対象に戦慄3を付与。([[W-20|的中時]]):自分はFPを1得る。",
+    "特記処理": "{\"tags\":[],\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":1},{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"戦慄\",\"value\":3},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"self\",\"state_name\":\"FP\",\"value\":1}],\"schema\":\"skill_json_rule_v2\"}",
+    "tags": [
+      "攻撃"
+    ],
+    "rule_data": {
+      "tags": [],
+      "power_bonus": [],
+      "cost": [
+        {
+          "type": "MP",
+          "value": 1
+        },
+        {
+          "type": "FP",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "timing": "WIN",
+          "type": "APPLY_STATE",
+          "target": "target",
+          "state_name": "戦慄",
+          "value": 3
+        },
+        {
+          "timing": "HIT",
+          "type": "APPLY_STATE",
+          "target": "self",
+          "state_name": "FP",
+          "value": 1
+        }
+      ],
+      "schema": "skill_json_rule_v2"
+    }
+  }
+}

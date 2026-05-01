@@ -60,7 +60,7 @@ GM権限でログインすると、プレイヤー画面にはない管理用コ
 以下のカテゴリに関する詳細仕様は、別冊の **`03_Integrated_Data_Definitions.md` (統合データ定義マニュアル)** を参照してください。
 
 * **スキル定義**: 特記処理 (Special Effects) の記述仕様
-* **バフ定義**: 静的バフ、動的パターン (`_Atk10`等)、プラグイン定義
+* **バフ定義**: `buff_id` 基準の静的/テンプレート定義、プラグイン定義
 * **アイテム定義**: `items_cache.json` の構造
 * **輝化・出身定義**: パッシブスキルおよび出身による自動効果
 * **用語図鑑定義**: 図鑑シート列と埋め込み記法（`manuals/implemented/03_Integrated_Data_Definitions.md`）
@@ -74,7 +74,7 @@ GM権限でログインすると、プレイヤー画面にはない管理用コ
 - `CharaCreator/json_definition_builder.html` の Effects タブに `震盪スキル雛形を生成` ボタンを追加。
 - 押下時に以下を一括入力:
   - `cost`: `FP:2,MP:3`
-  - `effects[0]`: `WIN` + `APPLY_BUFF(target)` + `buff_name="震盪"` + `lasting=3` + `data.count=2`
+  - `effects[0]`: `WIN` + `APPLY_BUFF(target)` + `buff_id="Bu-29"` + `lasting=3` + `data.count=2`
   - `effects[1]`: `HIT` + `APPLY_STATE(target)` + `state_name="破裂"` + `value=3`
 - 生成JSONはそのまま `特記処理` 用の rule_data として利用可能。
 

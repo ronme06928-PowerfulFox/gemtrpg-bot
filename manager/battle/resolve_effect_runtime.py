@@ -25,6 +25,7 @@ from manager.battle.skill_rules import (
     _extract_rule_data_from_skill,
     _extract_skill_cost_entries,
 )
+from manager.battle.skill_access import get_effective_skill_cost
 
 logger = setup_logger(__name__)
 all_skill_data = _default_all_skill_data
@@ -93,7 +94,17 @@ def _apply_cost(attacker, skill, policy):
         else:
             hit['value'] = int(stat_value or 0)
 
-    for entry in _extract_skill_cost_entries(skill):
+    effective_rows = []
+    if isinstance(skill, dict):
+        effective_rows = skill.get("effective_cost", [])
+    if not isinstance(effective_rows, list) or len(effective_rows) <= 0:
+        skill_id = _extract_skill_id_from_data(skill)
+        if skill_id:
+            effective_rows = get_effective_skill_cost(attacker, skill_id, skill_data=skill).get("cost", [])
+    if not isinstance(effective_rows, list) or len(effective_rows) <= 0:
+        effective_rows = _extract_skill_cost_entries(skill)
+
+    for entry in effective_rows:
         if not isinstance(entry, dict):
             continue
         c_type = str(entry.get('type', '')).strip()

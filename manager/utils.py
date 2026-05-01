@@ -48,10 +48,17 @@ BUFF_NAME_ALIASES = {}
 
 GYOMA_BUFF_NAME = "凝魔"
 CHIKURYOKU_BUFF_NAME = "蓄力"
-GYOMA_BUFF_ID = "Bu-Gyoma"
-CHIKURYOKU_BUFF_ID = "Bu-Chikuryoku"
+GYOMA_BUFF_ID = "Bu-31"
+CHIKURYOKU_BUFF_ID = "Bu-30"
+LEGACY_GYOMA_BUFF_ID = "Bu-Gyoma"
+LEGACY_CHIKURYOKU_BUFF_ID = "Bu-Chikuryoku"
 STACK_RESOURCE_BUFF_NAMES = {GYOMA_BUFF_NAME, CHIKURYOKU_BUFF_NAME}
-STACK_RESOURCE_BUFF_IDS = {GYOMA_BUFF_ID, CHIKURYOKU_BUFF_ID}
+STACK_RESOURCE_BUFF_IDS = {
+    GYOMA_BUFF_ID,
+    CHIKURYOKU_BUFF_ID,
+    LEGACY_GYOMA_BUFF_ID,
+    LEGACY_CHIKURYOKU_BUFF_ID,
+}
 
 
 def normalize_status_name(status_name):
@@ -275,6 +282,10 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
     payload['name'] = buff_name
     payload['lasting'] = lasting
     payload['delay'] = delay
+    if isinstance(payload.get('data'), dict):
+        inst_display_name = str(payload['data'].get('display_name', '') or '').strip()
+        if inst_display_name and not str(payload.get('display_name', '') or '').strip():
+            payload['display_name'] = inst_display_name
     if count is not None:
         payload['count'] = count
     if int(lasting or 0) < 0:
@@ -298,6 +309,12 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
             catalog_data = get_buff_by_id(payload.get('buff_id'))
 
         if catalog_data:
+            if not str(payload.get('display_name', '') or '').strip():
+                payload['display_name'] = (
+                    str(catalog_data.get('display_name', '') or '').strip()
+                    or str(catalog_data.get('name', '') or '').strip()
+                    or buff_name
+                )
             if 'description' not in payload and catalog_data.get('description'):
                 payload['description'] = catalog_data['description']
             if 'flavor' not in payload and catalog_data.get('flavor'):
@@ -692,8 +709,8 @@ def get_buff_stat_mod(char_obj, stat_name):
 
         # キャッシュされていない場合、または動的パターンの可能性がある場合は解決を試みる
         if not stat_mods:
-            from manager.buff_catalog import get_buff_effect
-            effect_data = get_buff_effect(normalize_buff_name(buff.get('name')))
+            from manager.buff_catalog import resolve_runtime_buff_effect
+            effect_data = resolve_runtime_buff_effect(buff)
             if effect_data:
                 stat_mods = effect_data.get('stat_mods')
 
@@ -855,8 +872,8 @@ def get_buff_stat_mod_details(char_obj, stat_name):
             stat_mods = buff['data'].get('stat_mods')
 
         if not stat_mods:
-            from manager.buff_catalog import get_buff_effect
-            effect_data = get_buff_effect(normalize_buff_name(buff.get('name')))
+            from manager.buff_catalog import resolve_runtime_buff_effect
+            effect_data = resolve_runtime_buff_effect(buff)
             if effect_data:
                 stat_mods = effect_data.get('stat_mods')
 

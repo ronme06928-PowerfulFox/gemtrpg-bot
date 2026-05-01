@@ -19,6 +19,7 @@ from manager.utils import (
     get_status_value, set_status_value, apply_origin_bonus_buffs, apply_buff, remove_buff,
     apply_passive_effect_buffs
 )
+from manager.json_rule_audit import append_audit
 
 
 def _safe_int(value, default=0):
@@ -451,12 +452,18 @@ def handle_gm_apply_buff(data):
     room = data.get('room')
     target_id = data.get('target_id')
     raw_buff_id = data.get('buff_id')
-    raw_buff_name = data.get('buff_name')
     lasting = _safe_int(data.get('lasting', 1), 1)
     delay = max(0, _safe_int(data.get('delay', 0), 0))
     raw_count = data.get('count')
 
-    if not room or not target_id or (not raw_buff_id and not raw_buff_name):
+    if not room or not target_id or not raw_buff_id:
+        append_audit(
+            "gm_apply_buff_rejected",
+            reason="missing_required_parameters",
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+            has_buff_id=bool(raw_buff_id),
+        )
         emit('gm_buff_error', {'message': 'Missing required parameters.'}, to=request.sid)
         return
 
@@ -465,18 +472,32 @@ def handle_gm_apply_buff(data):
     attribute = user_info.get("attribute", "Player")
     if attribute != 'GM':
         print(f"[WARNING] Security: Player {username} tried to apply GM buff. Denied.")
+        append_audit(
+            "gm_apply_buff_rejected",
+            reason="permission_denied",
+            username=str(username or ""),
+            attribute=str(attribute or ""),
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+        )
         emit('gm_buff_error', {'message': 'GM permission required.'}, to=request.sid)
         return
 
     state = get_room_state(room)
     target_char = next((c for c in state["characters"] if c.get('id') == target_id), None)
     if not target_char:
+        append_audit(
+            "gm_apply_buff_rejected",
+            reason="target_not_found",
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+        )
         emit('gm_buff_error', {'message': 'Target character not found.'}, to=request.sid)
         return
 
     buff_id = str(raw_buff_id).strip() if raw_buff_id is not None else ''
-    buff_name = str(raw_buff_name).strip() if raw_buff_name is not None else ''
-    if not buff_name and buff_id:
+    buff_name = ''
+    if buff_id:
         try:
             from manager.buff_catalog import get_buff_by_id
             buff_data = get_buff_by_id(buff_id)
@@ -486,6 +507,13 @@ def handle_gm_apply_buff(data):
             buff_name = ''
 
     if not buff_name:
+        append_audit(
+            "gm_apply_buff_rejected",
+            reason="buff_id_unresolved",
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+            buff_id=str(buff_id or ""),
+        )
         emit('gm_buff_error', {'message': 'Could not resolve buff name.'}, to=request.sid)
         return
 
@@ -500,6 +528,16 @@ def handle_gm_apply_buff(data):
         count = _safe_int(raw_count, 0)
 
     apply_buff(target_char, buff_name, lasting, delay, data=payload, count=count)
+    append_audit(
+        "gm_apply_buff_ok",
+        room=str(room or ""),
+        target_id=str(target_id or ""),
+        buff_id=str(buff_id or ""),
+        lasting=int(lasting),
+        delay=int(delay),
+        count=(int(count) if count is not None else None),
+        username=str(username or ""),
+    )
     count_text = f", count={count}" if count is not None else ""
     id_text = f" ({buff_id})" if buff_id else ""
     broadcast_log(
@@ -517,9 +555,15 @@ def handle_gm_remove_buff(data):
     room = data.get('room')
     target_id = data.get('target_id')
     raw_buff_id = data.get('buff_id')
-    raw_buff_name = data.get('buff_name')
 
-    if not room or not target_id or (not raw_buff_id and not raw_buff_name):
+    if not room or not target_id or not raw_buff_id:
+        append_audit(
+            "gm_remove_buff_rejected",
+            reason="missing_required_parameters",
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+            has_buff_id=bool(raw_buff_id),
+        )
         emit('gm_buff_error', {'message': 'Missing required parameters.'}, to=request.sid)
         return
 
@@ -528,12 +572,26 @@ def handle_gm_remove_buff(data):
     attribute = user_info.get("attribute", "Player")
     if attribute != 'GM':
         print(f"[WARNING] Security: Player {username} tried to remove GM buff. Denied.")
+        append_audit(
+            "gm_remove_buff_rejected",
+            reason="permission_denied",
+            username=str(username or ""),
+            attribute=str(attribute or ""),
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+        )
         emit('gm_buff_error', {'message': 'GM permission required.'}, to=request.sid)
         return
 
     state = get_room_state(room)
     target_char = next((c for c in state["characters"] if c.get('id') == target_id), None)
     if not target_char:
+        append_audit(
+            "gm_remove_buff_rejected",
+            reason="target_not_found",
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+        )
         emit('gm_buff_error', {'message': 'Target character not found.'}, to=request.sid)
         return
 
@@ -543,7 +601,7 @@ def handle_gm_remove_buff(data):
         target_char['special_buffs'] = buffs
 
     buff_id = str(raw_buff_id).strip() if raw_buff_id is not None else ''
-    buff_name = str(raw_buff_name).strip() if raw_buff_name is not None else ''
+    buff_name = ''
 
     removed_count = 0
     if buff_id:
@@ -561,41 +619,37 @@ def handle_gm_remove_buff(data):
         target_char['special_buffs'] = kept
 
     if removed_count <= 0:
-        if not buff_name and buff_id:
-            for entry in buffs:
-                if not isinstance(entry, dict):
-                    continue
-                entry_data = entry.get('data') if isinstance(entry.get('data'), dict) else {}
-                entry_id = str(entry.get('buff_id') or entry_data.get('buff_id') or '').strip()
-                if entry_id == buff_id:
-                    buff_name = str(entry.get('name', '')).strip()
-                    if buff_name:
-                        break
-
-        if not buff_name and buff_id:
-            try:
-                from manager.buff_catalog import get_buff_by_id
-                buff_data = get_buff_by_id(buff_id)
-                if isinstance(buff_data, dict):
-                    buff_name = str(buff_data.get('name', '')).strip()
-            except Exception:
-                buff_name = ''
-
-        if buff_name:
-            before = len(target_char.get('special_buffs', []))
-            remove_buff(target_char, buff_name)
-            after = len(target_char.get('special_buffs', []))
-            removed_count = max(0, before - after)
-
-    if removed_count <= 0:
+        append_audit(
+            "gm_remove_buff_rejected",
+            reason="buff_not_found",
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+            buff_id=str(buff_id or ""),
+        )
         emit('gm_buff_error', {'message': 'Specified buff not found.'}, to=request.sid)
         return
 
+    if not buff_name and buff_id:
+        try:
+            from manager.buff_catalog import get_buff_by_id
+            buff_data = get_buff_by_id(buff_id)
+            if isinstance(buff_data, dict):
+                buff_name = str(buff_data.get('name', '')).strip()
+        except Exception:
+            buff_name = ''
     buff_label = buff_name if buff_name else buff_id
     broadcast_log(
         room,
         f"GM {username}: {target_char.get('name', '???')} buff removed {buff_label} ({removed_count})",
         'info'
+    )
+    append_audit(
+        "gm_remove_buff_ok",
+        room=str(room or ""),
+        target_id=str(target_id or ""),
+        buff_id=str(buff_id or ""),
+        removed_count=int(removed_count),
+        username=str(username or ""),
     )
     broadcast_state_update(room)
     save_specific_room_state(room)

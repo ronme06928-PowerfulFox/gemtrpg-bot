@@ -1,0 +1,21 @@
+{
+  "timestamp": "20260501_235541",
+  "schema": "skill_json_rule_v2",
+  "migrated": {
+    "skills": 117,
+    "buff_catalog": 48,
+    "field_effects": 0
+  },
+  "failed": {
+    "skills": 0,
+    "buff_catalog": 0,
+    "field_effects": 0
+  },
+  "errors": [],
+  "outputs": {
+    "skills": "C:\\Users\\yharu\\Desktop\\TRPG\\Gem_DiceBotTool\\logs\\migration_v2\\skills_cache.v2.20260501_235541.json",
+    "buff_catalog": "C:\\Users\\yharu\\Desktop\\TRPG\\Gem_DiceBotTool\\logs\\migration_v2\\buff_catalog_cache.v2.20260501_235541.json",
+    "stage_presets": "C:\\Users\\yharu\\Desktop\\TRPG\\Gem_DiceBotTool\\logs\\migration_v2\\battle_only_presets_cache.v2.20260501_235541.json",
+    "report": "C:\\Users\\yharu\\Desktop\\TRPG\\Gem_DiceBotTool\\logs\\migration_v2\\migration_report.20260501_235541.json"
+  }
+}

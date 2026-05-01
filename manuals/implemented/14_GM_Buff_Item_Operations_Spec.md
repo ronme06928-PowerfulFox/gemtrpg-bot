@@ -1,6 +1,6 @@
 # 14 GMバフ/アイテム運用 仕様書（実装確定）
 
-**最終更新日**: 2026-03-30  
+**最終更新日**: 2026-05-02  
 **対象バージョン**: Current  
 **関連フェーズ**: Phase A（認可強化）/ Phase B（GM API）/ Phase C（GM UI）
 
@@ -34,7 +34,7 @@
 
 `static/js/action_dock.js` のクイック編集に GM 専用パネルを実装。
 
-- バフ付与フォーム（`buff_id`/`buff_name`, `lasting`, `delay`, `count`）
+- バフ付与フォーム（`buff_id`, `lasting`, `delay`, `count`）
 - バフ解除フォーム（付与済み一覧から選択）
 - アイテム増減フォーム（`item_id`, `delta`）
 
@@ -44,7 +44,7 @@
 
 ## 3.1 バフ付与欄の意味
 
-- `buff_id/buff_name`: `Bu-xx` 形式のID、またはバフ名
+- `buff_id`: `Bu-xx` 形式のID（必須）
 - `lasting`: 効果が継続するラウンド数
 - `delay`: 効果が有効化されるまでの待機ラウンド数
 - `count`: スタック数/使用回数系バフ向けの任意値
@@ -52,7 +52,7 @@
 ## 3.2 解除欄
 
 - 現在 `special_buffs` に存在するエントリから選択して解除する。
-- 解除要求は `buff_id` 優先、必要に応じて `buff_name` も送る。
+- 解除要求は `buff_id` のみ送る（Phase3仕様）。
 
 ## 3.3 アイテム増減欄
 
@@ -68,15 +68,15 @@
 
 - `room`
 - `target_id`
-- `buff_id` または `buff_name`
+- `buff_id`（必須）
 - `lasting`（省略時はサーバー側既定）
 - `delay`（省略時はサーバー側既定）
 - `count`（任意）
 
 動作:
 
-- `buff_id` 指定時は ID から名称解決して付与。
-- `buff_name` 指定時はその名称で付与。
+- `buff_id` から名称解決して付与する。
+- `buff_name` 単独指定は受理しない（エラー）。
 - 付与後は `broadcast_state_update` で同期。
 
 ## 4.2 `request_gm_remove_buff`
@@ -85,12 +85,12 @@
 
 - `room`
 - `target_id`
-- `buff_id` または `buff_name`
+- `buff_id`（必須）
 
 動作:
 
-- `buff_id` が一致するエントリを優先して対象化。
-- 必要に応じて `buff_name` ベースで解除。
+- `buff_id` が一致するエントリのみ解除対象とする。
+- `buff_name` ベース解除は行わない。
 
 ## 4.3 `request_gm_adjust_item`
 
@@ -108,12 +108,13 @@
 
 ## 5. `buff_name` で動的バフは使えるか
 
-結論: **使える**。  
-`buff_name` 付与時も、既存のバフ解決ロジック（静的定義/拡張データ/動的パターン）で解釈されるため、`Power_Atk10` のような動的パターン名での付与が可能。
+結論: **使えない（Phase3）**。  
+2026-05-02 以降、`buff_name` 単独指定は受理しない。  
+バフ付与/解除は `buff_id` 指定が必須。
 
 運用上の注意:
 
-- 一部のシステム特殊処理は `buff_id` 依存で分岐するため、該当バフは `buff_id` 指定を優先すること。
+- 一部のシステム特殊処理は `buff_id` 依存で分岐するため、常に `buff_id` を指定すること。
 - `count` の意味はバフごとに異なるため、汎用UIでは「任意の追加値」として扱う。
 
 ## 6. 既存マニュアルとの関係

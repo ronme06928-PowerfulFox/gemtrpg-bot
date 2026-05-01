@@ -1192,7 +1192,7 @@ function renderQuickEditList(container) {
             applyHelp.className = 'qe-gm-help';
 
             const helpBuff = document.createElement('span');
-            helpBuff.textContent = 'buff_id/buff_name: Bu-xx かバフ名';
+            helpBuff.textContent = 'buff_id: Bu-xx を指定（必須）';
             const helpLasting = document.createElement('span');
             helpLasting.textContent = 'lasting: 効果が続くR数';
             const helpDelay = document.createElement('span');
@@ -1214,8 +1214,8 @@ function renderQuickEditList(container) {
             applyRow.className = 'qe-gm-row';
             const applyBuffInput = document.createElement('input');
             applyBuffInput.type = 'text';
-            applyBuffInput.placeholder = 'buff_id or buff_name';
-            applyBuffInput.title = 'Bu-xx またはバフ名を入力';
+            applyBuffInput.placeholder = 'buff_id (Bu-xx)';
+            applyBuffInput.title = 'Bu-xx 形式のバフIDを入力';
             const applyLastingInput = document.createElement('input');
             applyLastingInput.type = 'number';
             applyLastingInput.value = '1';
@@ -1317,7 +1317,11 @@ function renderQuickEditList(container) {
                 }
                 const rawBuff = String(applyBuffInput.value || '').trim();
                 if (!rawBuff) {
-                    alert('buff_id か buff_name を入力してください');
+                    alert('buff_id を入力してください');
+                    return;
+                }
+                if (!/^Bu-/i.test(rawBuff)) {
+                    alert('buff_id は Bu-xx 形式で入力してください');
                     return;
                 }
                 const lastingVal = parseInt(applyLastingInput.value, 10);
@@ -1325,11 +1329,10 @@ function renderQuickEditList(container) {
                 const payload = {
                     room: currentRoomName,
                     target_id: char.id,
+                    buff_id: rawBuff,
                     lasting: Number.isFinite(lastingVal) ? lastingVal : 1,
                     delay: Number.isFinite(delayVal) ? delayVal : 0,
                 };
-                if (/^Bu-/i.test(rawBuff)) payload.buff_id = rawBuff;
-                else payload.buff_name = rawBuff;
 
                 const countRaw = String(applyCountInput.value || '').trim();
                 if (countRaw !== '') {
@@ -1358,8 +1361,12 @@ function renderQuickEditList(container) {
                     room: currentRoomName,
                     target_id: char.id,
                 };
-                if (buff.buff_id || entryData.buff_id) payload.buff_id = buff.buff_id || entryData.buff_id;
-                if (buff.name) payload.buff_name = buff.name;
+                const resolvedBuffId = buff.buff_id || entryData.buff_id || '';
+                if (!resolvedBuffId) {
+                    alert('このバフは buff_id が不明なため解除できません');
+                    return;
+                }
+                payload.buff_id = resolvedBuffId;
                 socketToUse.emit('request_gm_remove_buff', payload);
                 note.textContent = `送信: バフ解除 (${buff.name || payload.buff_id || 'unknown'})`;
             };

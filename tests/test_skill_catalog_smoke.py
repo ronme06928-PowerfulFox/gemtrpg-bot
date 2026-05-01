@@ -515,8 +515,8 @@ def test_skill_rules_json_and_effect_shape_lint():
             elif effect_type == "APPLY_BUFF":
                 buff_name = str(effect.get("buff_name", "")).strip()
                 buff_id = str(effect.get("buff_id", "")).strip()
-                if not buff_name and not buff_id:
-                    field_errors.append(f"{skill_id}[{idx}]: APPLY_BUFF needs buff_name or buff_id")
+                if not buff_id:
+                    field_errors.append(f"{skill_id}[{idx}]: APPLY_BUFF needs buff_id")
                 if buff_id and buff_id not in known_buff_ids:
                     field_errors.append(f"{skill_id}[{idx}]: unknown buff_id '{buff_id}'")
                 if buff_name:
@@ -543,8 +543,8 @@ def test_skill_rules_json_and_effect_shape_lint():
                 ):
                     field_errors.append(f"{skill_id}[{idx}]: GRANT_SKILL duration must be positive int")
             elif effect_type == "REMOVE_BUFF":
-                if not str(effect.get("buff_name", "")).strip():
-                    field_errors.append(f"{skill_id}[{idx}]: REMOVE_BUFF needs buff_name")
+                if not str(effect.get("buff_id", "")).strip():
+                    field_errors.append(f"{skill_id}[{idx}]: REMOVE_BUFF needs buff_id")
             elif effect_type in {"DAMAGE_BONUS", "MODIFY_ROLL", "MODIFY_BASE_POWER", "MODIFY_FINAL_POWER"}:
                 if not _can_int(effect.get("value")):
                     field_errors.append(f"{skill_id}[{idx}]: {effect_type} value must be int")
