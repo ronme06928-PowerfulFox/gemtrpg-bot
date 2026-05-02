@@ -36,6 +36,7 @@ from manager.data_manager import (
 )
 from manager.room_manager import get_room_state
 from manager.utils import session_required
+from manager.json_rule_audit import append_audit
 
 # ★ イベントハンドラ（SocketIO層）のインポート
 # これをインポートすることで、@socketio.on デコレータが登録されます
@@ -370,6 +371,29 @@ def get_glossary_data():
         from manager.glossary.loader import glossary_catalog_loader
         glossary_catalog_loader.load_terms()
     return jsonify(all_glossary_data)
+
+@app.route('/api/json_nl_builder_audit', methods=['POST'])
+def json_nl_builder_audit():
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        return jsonify({"error": "invalid payload"}), 400
+    raw = payload.get("payload", {})
+    try:
+        raw_len = len(str(raw))
+    except Exception:
+        raw_len = 0
+    if raw_len > 30000:
+        return jsonify({"error": "payload too large"}), 400
+
+    append_audit(
+        "json_nl_builder",
+        outcome=str(payload.get("outcome", "") or "unknown"),
+        user_id=session.get("user_id"),
+        username=session.get("username"),
+        attribute=session.get("attribute"),
+        payload=raw,
+    )
+    return jsonify({"ok": True})
 
 
 @app.route('/api/upload_image', methods=['POST'])

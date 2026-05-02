@@ -44,3 +44,8 @@
 - GMバフ/デバフ付与・解除、アイテム付与/没収、認可強化（Phase A/B/C）の確定内容を `implemented/14_GM_Buff_Item_Operations_Spec.md` へ集約。
 - `planned/07_GM_Buff_Item_Operation_Implementation_Plan.md` は実装済み確認後に削除した。
 - `planned/04_TRPG_Session_Improvement_Feasibility_Plan.md` は未完了の追跡事項のみ保持する。
+
+## 5. Planned 追記（2026-05-02）
+- `planned/23_自然言語JSON生成_3列入力運用仕様案.md`
+  - スプレッドシート3列（使用時効果 / 発動時効果 / 特記）から `skill_json_rule_v2` JSONを生成する運用案。
+  - timing辞書、文分割ルール、曖昧時エラー停止、strict出力方針を定義。
