@@ -11,7 +11,8 @@
 参照優先順位:
 1. `20_JSON_Definition_Strict_v2_Manual.md`
 2. `17_Phase3_Strict_Errata.md`
-3. 本書
+3. `21_Render_Deploy_Operations_JSON_V2.md`（運用）
+4. 本書
 
 ---
 
