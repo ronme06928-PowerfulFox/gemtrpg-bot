@@ -1,6 +1,6 @@
 # スキルロジック実装リファレンス（実装準拠）
 
-**最終更新日**: 2026-04-08  
+**最終更新日**: 2026-05-05  
 **対象実装**: `manager/game_logic.py` / `manager/battle/core.py` / `events/battle/common_routes.py`
 
 ---
@@ -63,6 +63,12 @@
 - 列挙形式は、指定した状態名のみを合算する（区切りは `,` / `、` / `・`）。
 - 合算対象は正値（`value > 0`）のみ。
 
+### 2.5 `APPLY_BUFF_PER_N` の source 解決
+
+- `source=self` は使用者を参照する。
+- `source=target` かつ `target=self` の場合は、同タイミングの自己バフ増減後状態ではなく「元の対象（命中先）」を参照する。
+- これにより「対象の状態異常合計を基準に、自分へ蓄力/凝魔を得る」が安定して成立する。
+
 ---
 
 ## 3. Effect Type 実装一覧
@@ -71,6 +77,7 @@
 | :--- | :--- | :--- |
 | `APPLY_STATE` | 状態異常・数値付与 | 亀裂（正値付与）は1R1回制限 / 受け手側 `state_receive_bonus` を合算 |
 | `APPLY_STATE_PER_N` | 参照値Nごとの状態付与 | `source/source_param/per_N/value/max_value` |
+| `APPLY_BUFF_PER_N` | 参照値Nごとのバフスタック付与 | `source/source_param/per_N/value/max_count` |
 | `MULTIPLY_STATE` | 状態値を乗算 | `int(x * multiplier + 0.5)` で丸め |
 | `APPLY_BUFF` | バフ付与 | `buff_id` から名称解決可 / スタック系は `data.count` |
 | `REMOVE_BUFF` | バフ解除 | 名前一致削除 |
@@ -273,3 +280,8 @@
 ### 11.3 condition参照
 - `check_condition` は `param` に `<バフ名>_count` / `buff_count:<バフ名>` を受理する。
 - `check_condition` は `param` に `状態異常スタック合計:<状態名...>` を受理する（省略形は禁止）。
+
+### 11.4 `APPLY_BUFF_PER_N`（凝魔/蓄力のNごと付与）
+- `apply_count = floor(source_value / per_N) * value` で付与スタック数を算出する。
+- `max_count` があれば `apply_count` に上限をかける。
+- 実付与時は通常 `APPLY_BUFF` と同じスタック加算経路へ流し込み、ログは「付与」と「スタック増分」を分離して出力する。

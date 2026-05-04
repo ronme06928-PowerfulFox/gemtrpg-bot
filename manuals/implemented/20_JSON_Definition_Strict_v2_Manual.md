@@ -1,6 +1,6 @@
 ﻿# 20. JSON定義マニュアル（Phase3 strict v2 正本）
 
-最終更新: 2026-05-02  
+最終更新: 2026-05-05  
 対象: 実装済み（Current）
 
 ---
@@ -42,7 +42,16 @@
 {"timing":"HIT","type":"REMOVE_BUFF","target":"target","buff_id":"Bu-32"}
 ```
 
-### 3.3 禁止
+### 3.3 APPLY_BUFF_PER_N
+```json
+{"timing":"HIT","type":"APPLY_BUFF_PER_N","target":"self","source":"target","source_param":"状態異常スタック合計:出血,破裂","buff_id":"Bu-30","value":1,"per_N":3,"max_count":7}
+```
+
+- `source.source_param` を `per_N` ごとに区切り、`value` スタックずつ `buff_id` を付与する。
+- `max_count` 指定時は合計付与スタック数を上限で丸める。
+- strict v2 では `buff_id` 必須（`APPLY_BUFF` と同様）。
+
+### 3.4 禁止
 - `buff_name` のみで付与/解除
 
 ---
@@ -54,11 +63,12 @@
 
 ---
 
-## 4.1 condition.param（状態異常スタック合算）
-1. `condition.param` で状態異常スタック合算を使う場合は、必ず状態名を列挙する。  
+## 4.1 condition/source_param（状態異常スタック合算）
+1. `condition.param` / `power_bonus.param` / `effect.source_param` で状態異常スタック合算を使う場合は、必ず状態名を列挙する。  
    例: `状態異常スタック合計:出血,破裂,亀裂,戦慄,荊棘`
 2. `状態異常スタック合計` の省略記法（状態名なし）は strict では不正。
 3. 区切りは `,` / `、` / `・` を許可。
+4. 全種合算したい場合も「全ての状態名を明示列挙」する（`全種` 等の省略は不可）。
 
 ---
 
@@ -83,6 +93,16 @@
 - API: `/api/json_nl_builder_audit`
 - 失敗時: 必ず記録
 - 成功時: サンプリング記録（20%）
+
+### 5.4 発動時効果の対応文型（実装済み）
+1. `対象の出血/破裂/...の合計値3につき1、蓄力を得る（最大で7）`  
+   -> `APPLY_BUFF_PER_N` 1件に変換（条件段階展開はしない）。
+2. `対象の出血・破裂・亀裂の合計が10以上なら基礎威力+3`  
+   -> `power_bonus.operation=FIXED` + `condition.param=状態異常スタック合計:...`。
+3. `対象の出血・亀裂の合計が6あるごとに最終威力+1（最大で4）`  
+   -> `power_bonus.operation=PER_N_BONUS` + `max_bonus`。
+4. `（的中時）対象の出血・破裂の合計12につき1、自分のFPを回復`  
+   -> `APPLY_STATE_PER_N`（`source=target` + `source_param=状態異常スタック合計:...`）。
 
 ---
 

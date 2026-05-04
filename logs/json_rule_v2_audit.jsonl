@@ -13486,3 +13486,6 @@
 {"ts": "2026-05-04T17:45:17.107018+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
 {"ts": "2026-05-04T17:45:17.111441+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 1}
 {"ts": "2026-05-04T17:45:17.112441+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:54:41.742135+00:00", "event": "extract_skill_rule_data_error", "skill_id": "S-COND-01", "source_key": "rule_data", "strict": true, "source_path": "skill[S-COND-01].rule_data", "error": "skill[S-COND-01].rule_data.effects[0].condition.param: status stack sum param must enumerate state names (e.g. 状態異常スタック合計:出血,破裂,亀裂)"}
+{"ts": "2026-05-04T17:54:41.743641+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[S-COND-02].rule_data", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:54:41.743641+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "S-COND-02", "source_key": "rule_data", "strict": true, "schema": "skill_json_rule_v2"}

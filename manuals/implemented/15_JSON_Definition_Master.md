@@ -1,6 +1,6 @@
 ﻿# 15. JSON定義マスター（Phase3 strict運用版）
 
-最終更新: 2026-05-02  
+最終更新: 2026-05-05  
 対象: 実装済み（Current）
 
 ---
@@ -41,6 +41,7 @@
 ### 2.2 よく使うeffect
 - `APPLY_STATE`
 - `APPLY_BUFF`
+- `APPLY_BUFF_PER_N`
 - `REMOVE_BUFF`
 - `DAMAGE_BONUS`
 - `CUSTOM_EFFECT`
@@ -61,9 +62,22 @@
 {"timing":"HIT","type":"REMOVE_BUFF","target":"target","buff_id":"Bu-32"}
 ```
 
-### 3.3 value駆動
+### 3.3 APPLY_BUFF_PER_N（簡略記法）
+```json
+{"timing":"HIT","type":"APPLY_BUFF_PER_N","target":"self","source":"target","source_param":"状態異常スタック合計:破裂,出血","buff_id":"Bu-30","value":1,"per_N":3,"max_count":7}
+```
+
+- 従来の「3/6/9...で条件付き `APPLY_BUFF` を複数行」記法は不要。
+- `source_param` が合計21なら `per_N=3` で7段階、`max_count=7` で上限適用。
+
+### 3.4 value駆動
 - `data.value` は intのみ
 - `%系` は `value=20 => +20%`
+
+### 3.5 状態異常スタック合計記法
+- `状態異常スタック合計` は必ず状態名を列挙する。  
+  例: `状態異常スタック合計:出血,破裂,亀裂,戦慄,荊棘`
+- 全種合算でも列挙必須（省略不可）。
 
 ---
 

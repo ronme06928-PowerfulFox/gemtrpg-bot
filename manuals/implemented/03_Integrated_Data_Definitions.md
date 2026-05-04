@@ -1,6 +1,6 @@
 ﻿# 03. 統合データ定義マニュアル（Phase3 strict版）
 
-最終更新: 2026-05-02  
+最終更新: 2026-05-05  
 対象: 実装済み（Current）
 
 ---
@@ -27,9 +27,11 @@
 ### 1.3 effect共通ルール
 - 必須: `type`, `timing`（型ごとの必須キーは別表に従う）
 - `APPLY_BUFF` / `REMOVE_BUFF` は `buff_id` 必須
+- `APPLY_BUFF_PER_N` も `buff_id` 必須（`source/source_param/per_N/value` を併用）
 - `buff_name` 単独指定は禁止
 - `condition.param` で状態異常スタック合算を使う場合、状態名列挙を必須とする  
   例: `状態異常スタック合計:出血,破裂,亀裂,戦慄,荊棘`
+- 全種合算でも、必ず全状態名を明示列挙する
 
 ---
 

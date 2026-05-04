@@ -1,6 +1,6 @@
 ﻿# manuals フォルダ運用ガイド
 
-最終更新: 2026-05-02
+最終更新: 2026-05-05
 
 このディレクトリは以下の2系統で管理します。
 - `implemented/`: 実装済み仕様の正本
@@ -49,3 +49,13 @@
 移管先:
 - JSON定義・自然言語生成運用: `implemented/20`
 - デプロイ運用: `implemented/21`
+
+## 5. 今回の整理（2026-05-05）
+実装済みのため `planned` から削除:
+- `09_Status_Stack_Total_Effects_Plan.md`
+
+移管先:
+- JSON strict定義（状態異常スタック合計 / APPLY_BUFF_PER_N）: `implemented/20`
+- 運用向けJSON要約: `implemented/15`
+- 実行ロジック仕様: `implemented/08`
+- 統合データ定義: `implemented/03`
