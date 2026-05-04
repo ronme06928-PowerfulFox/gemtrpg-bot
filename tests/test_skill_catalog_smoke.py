@@ -18,6 +18,7 @@ from manager.cache_paths import (
 )
 from manager.buff_catalog import get_buff_effect
 from manager.game_logic import process_skill_effects
+from manager.json_rule_v2 import parse_status_stack_sum_param
 
 
 SUPPORTED_EFFECT_TYPES = {
@@ -414,6 +415,12 @@ def _lint_condition(skill_id, idx, condition, condition_errors):
         condition_errors.append(f"{skill_id}[{idx}]: invalid condition.source '{source}'")
     if not param:
         condition_errors.append(f"{skill_id}[{idx}]: condition.param is required")
+    else:
+        parsed_stack_sum = parse_status_stack_sum_param(param)
+        if isinstance(parsed_stack_sum, dict) and parsed_stack_sum.get("error"):
+            condition_errors.append(
+                f"{skill_id}[{idx}]: condition.param stack-sum notation needs explicit state list"
+            )
     if operator not in SUPPORTED_CONDITION_OPERATORS:
         condition_errors.append(f"{skill_id}[{idx}]: invalid condition.operator '{operator}'")
     if "value" not in condition:

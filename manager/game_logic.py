@@ -48,7 +48,90 @@ def _fallback_get_status_value(char_obj, status_name):
     return int(char_obj.get(status_name, 0) or 0)
 
 
+_STATE_STACK_SUM_KEYS = {
+    "状態異常スタック合計",
+    "状態異常合算",
+    "status_stack_sum",
+    "status_stack_total",
+    "debuff_stack_sum",
+}
+
+
+def _normalize_condition_status_name(status_name):
+    text = str(status_name or "").strip()
+    if not text:
+        return ""
+    mod = _utils_module()
+    fn = getattr(mod, "normalize_status_name", None) if mod else None
+    if callable(fn):
+        try:
+            normalized = fn(text)
+            if normalized:
+                return str(normalized).strip()
+        except Exception:
+            pass
+    return text
+
+
+def _parse_state_stack_sum_param(param_name):
+    raw = str(param_name or "").strip()
+    if not raw:
+        return None
+
+    m = re.match(r"^(.+?)\s*[:：]\s*(.+)$", raw)
+    if not m:
+        return None
+
+    key = str(m.group(1) or "").strip().lower()
+    if key not in {k.lower() for k in _STATE_STACK_SUM_KEYS}:
+        return None
+
+    names_raw = str(m.group(2) or "").strip()
+    if not names_raw:
+        return None
+
+    names = set()
+    for token in re.split(r"[,\s、，/|・]+", names_raw):
+        normalized = _normalize_condition_status_name(token)
+        if normalized:
+            names.add(normalized)
+    return names if names else None
+
+
+def _resolve_state_stack_sum_value(char_obj, param_name):
+    if not isinstance(char_obj, dict):
+        return None
+
+    target_names = _parse_state_stack_sum_param(param_name)
+    if target_names is None:
+        return None
+
+    total = 0
+    states = char_obj.get("states", [])
+    if not isinstance(states, list):
+        return 0
+
+    for row in states:
+        if not isinstance(row, dict):
+            continue
+        state_name = _normalize_condition_status_name(row.get("name"))
+        if state_name not in target_names:
+            continue
+        try:
+            value = int(row.get("value", 0) or 0)
+        except Exception:
+            value = 0
+        if value > 0:
+            total += value
+
+    return total
+
+
 def _stable_get_status_value(char_obj, status_name):
+    state_stack_sum = _resolve_state_stack_sum_value(char_obj, status_name)
+    if state_stack_sum is not None:
+        return state_stack_sum
+
     mod = _utils_module()
     fn = getattr(mod, "get_status_value", None) if mod else None
     if callable(fn):

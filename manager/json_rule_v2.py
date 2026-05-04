@@ -1,5 +1,6 @@
 import copy
 import json
+import re
 
 from manager.json_rule_audit import append_audit
 
@@ -19,6 +20,16 @@ SKILL_RULE_SOURCE_KEYS = [
     "special_rule",
     "特記処理",
 ]
+
+STATE_STACK_SUM_PARAM_KEYS = {
+    "状態異常スタック合計",
+    "状態異常合算",
+    "status_stack_sum",
+    "status_stack_total",
+    "debuff_stack_sum",
+}
+
+_STATE_STACK_SUM_PARAM_KEYSET_LOWER = {k.lower() for k in STATE_STACK_SUM_PARAM_KEYS}
 
 
 class JsonRuleV2Error(ValueError):
@@ -51,6 +62,57 @@ def _resolve_buff_name_by_id(buff_id):
     if not isinstance(data, dict):
         return ""
     return str(data.get("name", "") or "").strip()
+
+
+def parse_status_stack_sum_param(param_value):
+    raw = str(param_value or "").strip()
+    if not raw:
+        return None
+
+    m = re.match(r"^(.+?)\s*[:：]\s*(.*)$", raw)
+    if not m:
+        if raw.lower() in _STATE_STACK_SUM_PARAM_KEYSET_LOWER:
+            return {"is_stack_sum": True, "names": [], "error": "state names are required"}
+        return None
+
+    key = str(m.group(1) or "").strip().lower()
+    if key not in _STATE_STACK_SUM_PARAM_KEYSET_LOWER:
+        return None
+
+    names_raw = str(m.group(2) or "").strip()
+    if not names_raw:
+        return {"is_stack_sum": True, "names": [], "error": "state names are required"}
+
+    names = []
+    for token in re.split(r"[,\s、，/|・]+", names_raw):
+        name = str(token or "").strip()
+        if not name:
+            continue
+        if name not in names:
+            names.append(name)
+    if not names:
+        return {"is_stack_sum": True, "names": [], "error": "state names are required"}
+
+    return {"is_stack_sum": True, "names": names, "error": ""}
+
+
+def _validate_condition_param_notation(param_value, *, path):
+    parsed = parse_status_stack_sum_param(param_value)
+    if parsed is None:
+        return
+    if parsed.get("error"):
+        raise JsonRuleV2Error(
+            "status stack sum param must enumerate state names (e.g. 状態異常スタック合計:出血,破裂,亀裂,戦慄,荊棘)",
+            path=path,
+        )
+
+
+def _validate_condition_row(condition_obj, *, path):
+    if condition_obj is None:
+        return
+    if not isinstance(condition_obj, dict):
+        raise JsonRuleV2Error("condition must be object", path=path)
+    _validate_condition_param_notation(condition_obj.get("param"), path=f"{path}.param")
 
 
 def _normalize_cost_entries(rows, *, path=""):
@@ -97,6 +159,7 @@ def _normalize_effect_rows(
         if not effect_type:
             raise JsonRuleV2Error("effect.type is required", path=f"{e_path}.type")
         row["type"] = effect_type
+        _validate_condition_row(row.get("condition"), path=f"{e_path}.condition")
 
         if effect_type in {"APPLY_BUFF", "REMOVE_BUFF"}:
             buff_id = str(row.get("buff_id", "") or "").strip()
@@ -174,6 +237,20 @@ def normalize_skill_rule_object(rule_obj, *, source_path="rule_data", strict=PHA
         require_buff_id_for_apply=(explicit_v2 and PHASE3_REQUIRE_BUFF_ID_FOR_APPLY),
         require_buff_id_for_remove=(explicit_v2 and PHASE3_REQUIRE_BUFF_ID_FOR_REMOVE),
     )
+    power_bonus_rows = out.get("power_bonus", [])
+    if isinstance(power_bonus_rows, dict):
+        power_bonus_rows = [power_bonus_rows]
+    if power_bonus_rows is None:
+        power_bonus_rows = []
+    if not isinstance(power_bonus_rows, list):
+        raise JsonRuleV2Error("power_bonus must be list", path=f"{source_path}.power_bonus")
+    for idx, row in enumerate(power_bonus_rows):
+        pb_path = f"{source_path}.power_bonus[{idx}]"
+        if not isinstance(row, dict):
+            raise JsonRuleV2Error("power_bonus entry must be object", path=pb_path)
+        _validate_condition_row(row.get("condition"), path=f"{pb_path}.condition")
+        _validate_condition_param_notation(row.get("param"), path=f"{pb_path}.param")
+    out["power_bonus"] = power_bonus_rows
     out["cost"] = _normalize_cost_entries(out.get("cost", []), path=f"{source_path}.cost")
     if "tags" in out and not isinstance(out.get("tags"), list):
         tags = out.get("tags")

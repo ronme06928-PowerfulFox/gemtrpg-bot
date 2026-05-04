@@ -28,6 +28,8 @@
 - 必須: `type`, `timing`（型ごとの必須キーは別表に従う）
 - `APPLY_BUFF` / `REMOVE_BUFF` は `buff_id` 必須
 - `buff_name` 単独指定は禁止
+- `condition.param` で状態異常スタック合算を使う場合、状態名列挙を必須とする  
+  例: `状態異常スタック合計:出血,破裂,亀裂,戦慄,荊棘`
 
 ---
 

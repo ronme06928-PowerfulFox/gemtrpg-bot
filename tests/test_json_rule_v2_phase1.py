@@ -80,6 +80,83 @@ def test_explicit_v2_remove_buff_requires_buff_id():
         )
 
 
+def test_v2_rejects_condition_stack_sum_without_state_list():
+    with pytest.raises(JsonRuleV2Error):
+        extract_and_normalize_skill_rule_data(
+            {
+                "rule_data": {
+                    "schema": "skill_json_rule_v2",
+                    "effects": [
+                        {
+                            "type": "DAMAGE_BONUS",
+                            "timing": "HIT",
+                            "target": "target",
+                            "value": 1,
+                            "condition": {
+                                "source": "target",
+                                "param": "状態異常スタック合計",
+                                "operator": "GTE",
+                                "value": 1,
+                            },
+                        }
+                    ],
+                }
+            },
+            skill_id="S-COND-01",
+        )
+
+
+def test_v2_accepts_condition_stack_sum_with_explicit_state_list():
+    out = extract_and_normalize_skill_rule_data(
+        {
+            "rule_data": {
+                "schema": "skill_json_rule_v2",
+                "effects": [
+                    {
+                        "type": "DAMAGE_BONUS",
+                        "timing": "HIT",
+                        "target": "target",
+                        "value": 1,
+                        "condition": {
+                            "source": "target",
+                            "param": "状態異常スタック合計:出血,破裂,亀裂",
+                            "operator": "GTE",
+                            "value": 1,
+                        },
+                    }
+                ],
+            }
+        },
+        skill_id="S-COND-02",
+    )
+    cond = out.get("effects", [])[0].get("condition", {})
+    assert cond.get("param") == "状態異常スタック合計:出血,破裂,亀裂"
+
+
+def test_v2_rejects_power_bonus_stack_sum_without_state_list():
+    with pytest.raises(JsonRuleV2Error):
+        extract_and_normalize_skill_rule_data(
+            {
+                "rule_data": {
+                    "schema": "skill_json_rule_v2",
+                    "power_bonus": [
+                        {
+                            "operation": "FIXED",
+                            "value": 3,
+                            "condition": {
+                                "source": "target",
+                                "param": "状態異常スタック合計",
+                                "operator": "GTE",
+                                "value": 10,
+                            },
+                        }
+                    ],
+                    "effects": [],
+                }
+            },
+            skill_id="S-COND-03",
+        )
+
 def test_skill_access_duplicate_constraint_ids_are_blocked():
     actor = {"id": "A", "type": "ally", "flags": {"skill_constraints": [
         {"id": "dup", "mode": "block", "match": {"skill_id": "P-01"}},

@@ -341,8 +341,8 @@
       relation: "actor と target の陣営関係を 0/1 で参照します。param は same_team / target_is_ally / target_is_enemy を使います。"
     };
     const COND_SOURCE_PARAM_HINTS = {
-      self: "推奨param: HP / MP / FP / 速度値 / 各種状態名 / 凝魔_count / 蓄力_count / buff_count:凝魔",
-      target: "推奨param: HP / MP / FP / 速度値 / 破裂 / 出血 / 亀裂 / 凝魔_count / 蓄力_count など",
+      self: "推奨param: HP / MP / FP / 速度値 / 各種状態名 / 凝魔_count / 蓄力_count / buff_count:凝魔 / 状態異常スタック合計:出血,破裂,亀裂,戦慄,荊棘（列挙必須）",
+      target: "推奨param: HP / MP / FP / 速度値 / 破裂 / 出血 / 亀裂 / 凝魔_count / 蓄力_count / 状態異常スタック合計:出血,破裂,亀裂（列挙必須）",
       skill: "推奨param: tags（operator=CONTAINS 推奨）",
       target_skill: "推奨param: tags（operator=CONTAINS 推奨）",
       relation: "推奨param: same_team / target_is_ally / target_is_enemy（EQUALS 0/1）"
@@ -406,6 +406,7 @@
       }
     ];
     const HELP_ROWS = [["schema","現行は skill_json_rule_v2 固定で必須"],["id","任意だが推奨。未入力でも実行可能"],["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","的中時/勝利時/敗北時"],["condition.source: target_skill","対象側が宣言したスキル情報（主に tags）を参照。相手スキル情報が無い場面では条件false"],["condition.source: relation","actor-targetの関係を参照。paramは same_team / target_is_ally / target_is_enemy（0/1判定）"],["condition.param: 蓄力_count","対象の特殊バフcountを参照"],["condition.param: buff_count:凝魔","buff_count接頭辞でも特殊バフcountを参照"],["type: APPLY_BUFF","現行は buff_id 指定で付与"],["type: REMOVE_BUFF","現行は buff_id 指定で解除"],["APPLY_BUFF(Bu-11/Bu-12)","加速/減速は lasting=1, delay=1（次ラウンド有効）を推奨"],["APPLY_BUFF.count","スタック系バフの付与回数（凝魔/蓄力など）"],["type: CONSUME_BUFF_COUNT_FOR_GAIN","指定スタックを消費し、FP/MP/HPやバフ付与を行う"],["type: CONSUME_BUFF_COUNT_FOR_POWER","指定スタックを消費し、基礎/最終威力を増減"],["state_receive_bonus","受け手側の状態付与補正（例: 震盪で受ける破裂付与量+N）"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","旧式の動的バフ命名（新規は非推奨）"]];
+    HELP_ROWS.push(["condition.param: 状態異常スタック合計:出血,破裂,...","状態異常スタック合算。省略形（状態名なし）は不可。"]);
     const DYNAMIC_BUFF_PATTERNS = [
       { suffix: "_ActN",   meaning: "行動回数 +N",               effect: "stat_mods.行動回数",                       example: "迅速_Act2",         regex: /^(.*)_Act(\d+)$/ },
       { suffix: "_AtkN",   meaning: "攻撃タグ時の最終威力 +N",   effect: "power_bonus(FIXED, apply_to=final)",     example: "猛攻_Atk5",         regex: /^(.*)_Atk(\d+)$/ },
@@ -778,6 +779,18 @@
       };
       return String(fallback[name]||"");
     }
+    function _nlExtractStackSumStateNames(rawText){
+      const src=String(rawText||"");
+      const rows=[...src.matchAll(/(出血|破裂|亀裂|戦慄|荊棘)/g)].map((m)=>String(m[1]||""));
+      const names=[];
+      rows.forEach((name)=>{ if(name && !names.includes(name)) names.push(name); });
+      return names;
+    }
+    function _nlBuildStackSumParam(rawText){
+      const names=_nlExtractStackSumStateNames(rawText);
+      if(!names.length) return "";
+      return `状態異常スタック合計:${names.join(",")}`;
+    }
     function _nlParseTriggerLine(rawLine, errors, columnName, allowImplicitTiming=true){
       if(/^\d+\s*ラウンド継続$/.test(String(rawLine||"").trim())) return [];
       if(/^\(最大(?:で)?\s*\d+\)?$/.test(String(rawLine||"").trim())) return [];
@@ -820,6 +833,24 @@
       if(body.includes("荊棘飛散")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: "target", value: "荊棘飛散" });
       if(body.includes("ラウンド終了")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: "self", value: "END_ROUND_IMMEDIATELY" });
       if(out.length && !/を付与|を得る|ダメージ|減少|回復|解除|再使用/.test(body)) return out;
+
+      m=body.match(/(対象|相手)の([出血破裂亀裂戦慄荊棘・、，,\/\sと及び]+)の合計\s*(\d+)\s*につき\s*(\d+)\s*[、,，]\s*(自分|自身|対象|相手)の?(FP|MP|HP)\s*を?\s*回復/);
+      if(m){
+        const sourceParam=_nlBuildStackSumParam(m[2]);
+        const recoverTarget=(m[5]==="自分"||m[5]==="自身")?"self":"target";
+        if(sourceParam){
+          add({
+            timing: t.timing,
+            type: "APPLY_STATE_PER_N",
+            target: recoverTarget,
+            source: "target",
+            source_param: sourceParam,
+            per_N: Number(m[3]),
+            state_name: m[6],
+            value: Number(m[4]),
+          });
+        }
+      }
 
       m=body.match(/対象の(出血|破裂|亀裂|戦慄)\s*(\d+)\s*につき.*?(出血|破裂|亀裂|戦慄)\s*(\d+)\s*を付与(?:（?最大\s*(\d+)）?)?/);
       if(m){
@@ -1062,7 +1093,42 @@
           if(parsed && parsed.length) effects.push(...parsed);
           return;
         }
-        let m=line.match(/(対象|相手|メインターゲット)に.*?(出血|破裂|亀裂|戦慄)があるなら.*?(基礎威力|最終威力)\s*([+＋\-−]\s*\d+)/);
+        let m=line.match(/(対象|相手|メインターゲット)の([出血破裂亀裂戦慄荊棘・、，,\/\sと及び]+)の合計が?(\d+)以上(?:あるなら)?[、,，]?\s*(基礎威力|最終威力|ダイス威力)\s*([+＋\-−]\s*\d+)/);
+        if(m){
+          const applyTo=m[4].includes("ダイス")?"dice":(m[4].includes("最終")?"final":"base");
+          const stackParam=_nlBuildStackSumParam(m[2]);
+          if(stackParam){
+            pb.push({
+              operation:"FIXED",
+              value:Number(String(m[5]).replace(/\s+/g,"").replace("−","-")),
+              apply_to:applyTo,
+              condition:{ source:"target", param:stackParam, operator:"GTE", value:Number(m[3]) }
+            });
+            return;
+          }
+        }
+        m=line.match(/(対象|相手|メインターゲット)の([出血破裂亀裂戦慄荊棘・、，,\/\sと及び]+)の合計が?(\d+)\s*あるごとに.*?(基礎威力|最終威力|ダイス威力)\s*([+＋\-−]\s*\d+)(?:.*?最大(?:で)?\s*(\d+))?/);
+        if(m){
+          const applyTo=m[4].includes("ダイス")?"dice":(m[4].includes("最終")?"final":"base");
+          const stackParam=_nlBuildStackSumParam(m[2]);
+          if(stackParam){
+            const row={
+              operation:"PER_N_BONUS",
+              source:"target",
+              param:stackParam,
+              per_N:Number(m[3]),
+              value:Number(String(m[5]).replace(/\s+/g,"").replace("−","-")),
+              apply_to:applyTo
+            };
+            if(m[6]){
+              if(row.value>=0) row.max_bonus=Number(m[6]);
+              else row.min_bonus=-Number(m[6]);
+            }
+            pb.push(row);
+            return;
+          }
+        }
+        m=line.match(/(対象|相手|メインターゲット)に.*?(出血|破裂|亀裂|戦慄)があるなら.*?(基礎威力|最終威力)\s*([+＋\-−]\s*\d+)/);
         if(m){
           pb.push({ operation: "FIXED_IF_EXISTS", source: "target", param: m[2], threshold: 1, value: Number(String(m[4]).replace(/\s+/g,"").replace("−","-")), apply_to: m[3].includes("最終")?"final":"base" });
           return;
