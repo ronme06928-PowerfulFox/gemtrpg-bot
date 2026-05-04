@@ -24,6 +24,7 @@ from manager.json_rule_v2 import parse_status_stack_sum_param
 SUPPORTED_EFFECT_TYPES = {
     "APPLY_STATE",
     "APPLY_STATE_PER_N",
+    "APPLY_BUFF_PER_N",
     "MULTIPLY_STATE",
     "APPLY_BUFF",
     "CONSUME_BUFF_COUNT_FOR_GAIN",
@@ -95,6 +96,7 @@ SUPPORTED_GRANT_MODES = {
 SIGNAL_EXPECTED_TYPES = {
     "APPLY_STATE",
     "APPLY_STATE_PER_N",
+    "APPLY_BUFF_PER_N",
     "MULTIPLY_STATE",
     "APPLY_BUFF",
     "CONSUME_BUFF_COUNT_FOR_GAIN",
@@ -351,6 +353,13 @@ def _prime_effect_for_signal(effect, actor, target):
         if source_param:
             _set_char_status(source_char, source_param, 30)
 
+    if effect_type == "APPLY_BUFF_PER_N":
+        source_param = str(effect.get("source_param", "")).strip()
+        source = str(effect.get("source", "target")).strip()
+        source_char = actor if source == "self" else target
+        if source_param:
+            _set_char_status(source_char, source_param, 30)
+
     if effect_type == "MULTIPLY_STATE":
         stat_name = str(effect.get("state_name", "")).strip()
         if stat_name:
@@ -533,6 +542,23 @@ def test_skill_rules_json_and_effect_shape_lint():
                     field_errors.append(f"{skill_id}[{idx}]: APPLY_BUFF lasting must be int")
                 if "delay" in effect and not _can_int(effect.get("delay")):
                     field_errors.append(f"{skill_id}[{idx}]: APPLY_BUFF delay must be int")
+            elif effect_type == "APPLY_BUFF_PER_N":
+                buff_id = str(effect.get("buff_id", "")).strip()
+                if not buff_id:
+                    field_errors.append(f"{skill_id}[{idx}]: APPLY_BUFF_PER_N needs buff_id")
+                elif buff_id not in known_buff_ids:
+                    field_errors.append(f"{skill_id}[{idx}]: unknown buff_id '{buff_id}'")
+                source = str(effect.get("source", "target")).strip()
+                if source not in {"self", "target"}:
+                    field_errors.append(f"{skill_id}[{idx}]: APPLY_BUFF_PER_N invalid source '{source}'")
+                if not str(effect.get("source_param", "")).strip():
+                    field_errors.append(f"{skill_id}[{idx}]: APPLY_BUFF_PER_N needs source_param")
+                if not _can_int(effect.get("per_N")) or int(effect.get("per_N", 0)) <= 0:
+                    field_errors.append(f"{skill_id}[{idx}]: APPLY_BUFF_PER_N per_N must be > 0 int")
+                if not _can_int(effect.get("value")) or int(effect.get("value", 0)) <= 0:
+                    field_errors.append(f"{skill_id}[{idx}]: APPLY_BUFF_PER_N value must be > 0 int")
+                if "max_count" in effect and (not _can_int(effect.get("max_count")) or int(effect.get("max_count", 0)) < 1):
+                    field_errors.append(f"{skill_id}[{idx}]: APPLY_BUFF_PER_N max_count must be >= 1 int")
             elif effect_type == "GRANT_SKILL":
                 grant_skill_id = str(effect.get("skill_id", effect.get("grant_skill_id", ""))).strip()
                 if not grant_skill_id:

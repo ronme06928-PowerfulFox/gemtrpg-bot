@@ -56,6 +56,9 @@
     .field-hidden-note{font-size:11px;color:#4a5e85}
     .template-box{border:1px solid var(--line);background:#f7faff;border-radius:8px;padding:8px;margin-bottom:8px}
     .template-desc{margin-top:6px}
+    .tag-checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;max-height:124px;overflow:auto;padding:6px;border:1px solid var(--line);border-radius:8px;background:#f9fbff}
+    .tag-check{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#2a3f66;background:#eef3ff;border:1px solid #d6e1fb;border-radius:999px;padding:3px 8px;white-space:nowrap}
+    .tag-check input{margin:0}
     @media (max-width:1080px){.panel-btn-grid{grid-template-columns:repeat(2,minmax(120px,1fr));}}
     @media (max-width:1080px){body{overflow:auto}.wrap{height:auto;grid-template-columns:1fr}.card{overflow:visible}.grid4{grid-template-columns:1fr 1fr}} @media (max-width:760px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
   </style>
@@ -69,7 +72,12 @@
       <div class="section">
         <h2>基本設定</h2>
         <div class="grid2">
-          <div><label>tags（カンマ区切り）</label><input id="tagsInput" list="tagHintList" placeholder="例: 攻撃, ally_target, no_damage" /></div>
+          <div>
+            <label>tags（カンマ区切り）</label>
+            <input id="tagsInput" list="tagHintList" placeholder="例: 攻撃, ally_target, no_damage" />
+            <div id="tagChecks" class="tag-checks"></div>
+            <div class="small" style="margin-top:6px;">チェックボックスで追加/解除できます。手入力したタグとも同期されます。</div>
+          </div>
           <div><label>target_scope</label><select id="targetScope"><option value="">未指定</option><option value="opposing_team" selected>opposing_team</option><option value="same_team">same_team</option><option value="any">any</option></select></div>
         </div>
         <div class="grid2" style="margin-top:8px;">
@@ -317,9 +325,15 @@
 
   <script src="./json_builder_reference_data.js"></script>
   <script>
-    const REF = window.JSON_BUILDER_REFERENCE || { buff_refs: [], skill_refs: [], summon_refs: [], state_refs: ["HP", "MP", "FP", "行動回数", "速度値"] };
+    const REF = window.JSON_BUILDER_REFERENCE || { buff_refs: [], skill_refs: [], summon_refs: [], state_refs: ["HP", "MP", "FP", "行動回数", "速度値"], glossary_refs: [] };
+    const LINK_REF_CACHE = {
+      loaded: false,
+      loading: null,
+      glossaryById: new Map(),
+      skillById: new Map(),
+    };
     const TIMINGS = ["PRE_MATCH","BEFORE_POWER_ROLL","WIN","LOSE","HIT","UNOPPOSED","AFTER_DAMAGE_APPLY","RESOLVE_START","RESOLVE_STEP_END","RESOLVE_END","END_MATCH","END_ROUND","IMMEDIATE","BATTLE_START"];
-    const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","MULTIPLY_STATE","APPLY_BUFF","CONSUME_BUFF_COUNT_FOR_GAIN","CONSUME_BUFF_COUNT_FOR_POWER","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER"];
+    const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","APPLY_BUFF_PER_N","MULTIPLY_STATE","APPLY_BUFF","CONSUME_BUFF_COUNT_FOR_GAIN","CONSUME_BUFF_COUNT_FOR_POWER","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER"];
     const TARGETS = ["","self","target","ALL_ENEMIES","ALL_ALLIES","ALL_OTHER_ALLIES","ALL","NEXT_ALLY"];
     const POWER_OPS = ["FIXED","FIXED_IF_EXISTS","PER_N_BONUS","MULTIPLY"];
     const COND_SOURCES = ["self","target","skill","target_skill","relation"];
@@ -523,6 +537,14 @@
         optional: ["target", "condition", "extra_json(max_value,rounds)"],
         unused: ["buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id"]
       },
+      APPLY_BUFF_PER_N: {
+        meaning: "source.source_param を per_N ごとに区切り、value 段階分のスタックを buff_id にまとめて付与します。",
+        value_kind: "flat",
+        value_help: "1段階あたりの付与スタック数。例: per_N=3, value=1",
+        required: ["buff_id", "source", "source_param", "per_N", "value"],
+        optional: ["target", "condition", "extra_json(max_count)"],
+        unused: ["state_name", "buff_name", "skill_id", "lasting", "delay", "summon_template_id"]
+      },
       MULTIPLY_STATE: {
         meaning: "target の state_name に倍率 value を適用します。",
         value_kind: "multiplier",
@@ -638,6 +660,7 @@
     };
     const TAG_HINTS = ["攻撃","守備","広域","即時発動","マッチ不可","ラウンド終了","ally_target","no_damage","non_damage","同陣営指定"];
     let effectSeq = 0;
+    let tagSyncLock = false;
     const NL_AUDIT_SUCCESS_SAMPLE = 0.2;
     const NL_TIMING_MAP = [
       { key: "ラウンド終了時", timing: "END_ROUND" },
@@ -656,9 +679,176 @@
       { key: "一方攻撃時", timing: "UNOPPOSED" }
     ];
 
+    function _pickGlossaryLabel(entry, fallbackId){
+      if(entry==null) return String(fallbackId||"").trim();
+      if(typeof entry==="string"){
+        const v=String(entry).trim();
+        return v || String(fallbackId||"").trim();
+      }
+      if(typeof entry==="object"){
+        const row=entry||{};
+        const label=String(
+          row.display_name
+          ?? row.name
+          ?? row.title
+          ?? row.term
+          ?? row.word
+          ?? row.label
+          ?? row.short_description
+          ?? row.short
+          ?? ""
+        ).trim();
+        return label || String(fallbackId||"").trim();
+      }
+      return String(fallbackId||"").trim();
+    }
+    function _registerGlossaryEntry(id, entry){
+      const key=String(id||"").trim();
+      if(!key) return;
+      const label=_pickGlossaryLabel(entry, key);
+      if(label) LINK_REF_CACHE.glossaryById.set(key, label);
+    }
+    function _bootstrapLinkRefCache(){
+      if(LINK_REF_CACHE.loaded || LINK_REF_CACHE.loading) return;
+      (Array.isArray(REF.skill_refs)?REF.skill_refs:[]).forEach((row)=>{
+        const id=String(row?.id||"").trim();
+        if(!id) return;
+        const name=String(row?.name||"").trim() || id;
+        LINK_REF_CACHE.skillById.set(id, name);
+      });
+      const grefs=Array.isArray(REF.glossary_refs)?REF.glossary_refs:[];
+      grefs.forEach((row)=>{
+        if(row && typeof row==="object"){
+          _registerGlossaryEntry(row.id || row.term_id || row.key, row);
+        }
+      });
+    }
+    async function _ensureLinkRefCacheLoaded(){
+      _bootstrapLinkRefCache();
+      if(LINK_REF_CACHE.loaded) return;
+      if(LINK_REF_CACHE.loading){
+        await LINK_REF_CACHE.loading;
+        return;
+      }
+      LINK_REF_CACHE.loading=(async()=>{
+        try{
+          const res=await fetch("/api/get_glossary_data",{ credentials:"same-origin" });
+          if(!res.ok) return;
+          const data=await res.json();
+          const rawMap=(data && typeof data==="object" && data.all_glossary_data && typeof data.all_glossary_data==="object")
+            ? data.all_glossary_data
+            : data;
+          if(rawMap && typeof rawMap==="object"){
+            Object.entries(rawMap).forEach(([id,row])=>_registerGlossaryEntry(id,row));
+          }
+        }catch(_e){
+          // fallback to static refs only
+        }finally{
+          LINK_REF_CACHE.loaded=true;
+          LINK_REF_CACHE.loading=null;
+        }
+      })();
+      await LINK_REF_CACHE.loading;
+    }
+    function _resolveLinkRefLabel(rawRef, explicitLabel){
+      const label=String(explicitLabel||"").trim();
+      if(label) return label;
+      const ref=String(rawRef||"").trim();
+      if(!ref) return "";
+      const skillMatch=ref.match(/^skill\s*:\s*(.+)$/i);
+      if(skillMatch){
+        const sid=String(skillMatch[1]||"").trim();
+        return LINK_REF_CACHE.skillById.get(sid) || sid;
+      }
+      return LINK_REF_CACHE.glossaryById.get(ref) || ref;
+    }
+    function _normalizeGlossaryMarkup(raw){
+      let s=String(raw??"");
+      const resolveInner=(inner)=>{
+        const body=String(inner||"").trim();
+        if(!body) return "";
+        const sep=body.search(/[|｜]/);
+        if(sep>=0){
+          return _resolveLinkRefLabel(body.slice(0,sep), body.slice(sep+1));
+        }
+        return _resolveLinkRefLabel(body, "");
+      };
+      s=s.replace(/\[\[([^[\]]+?)\]\]/g,(_m,inner)=>resolveInner(inner));
+      s=s.replace(/\[([^[\]]+?)\]/g,(_m,inner)=>resolveInner(inner));
+      return s;
+    }
+
     function esc(s){return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");}
     function mkSelect(arr,v=""){const s=document.createElement("select");arr.forEach(x=>{const o=document.createElement("option");o.value=x;o.textContent=x||"(未指定)";if(x===v)o.selected=true;s.appendChild(o)});return s;}
     function parseList(v){return String(v||"").split(",").map(x=>x.trim()).filter(Boolean)}
+    function getTagHintOptions(extraTags=[]){
+      const tags=new Set(TAG_HINTS);
+      (REF.skill_refs||[]).forEach((s)=>(s.tags||[]).forEach((t)=>{
+        const v=String(t||"").trim();
+        if(v) tags.add(v);
+      }));
+      (Array.isArray(extraTags)?extraTags:[]).forEach((t)=>{
+        const v=String(t||"").trim();
+        if(v) tags.add(v);
+      });
+      return Array.from(tags).sort((a,b)=>a.localeCompare(b,"ja"));
+    }
+    function renderTagChecks(extraTags=[]){
+      const host=document.getElementById("tagChecks");
+      const input=document.getElementById("tagsInput");
+      if(!host || !input) return;
+      const options=getTagHintOptions([...parseList(input.value), ...extraTags]);
+      const selected=new Set(parseList(input.value));
+      host.innerHTML="";
+      options.forEach((tag)=>{
+        const label=document.createElement("label");
+        label.className="tag-check";
+        const cb=document.createElement("input");
+        cb.type="checkbox";
+        cb.dataset.tag=tag;
+        cb.checked=selected.has(tag);
+        const span=document.createElement("span");
+        span.textContent=tag;
+        label.appendChild(cb);
+        label.appendChild(span);
+        host.appendChild(label);
+      });
+    }
+    function syncTagChecksFromInput(){
+      const host=document.getElementById("tagChecks");
+      const input=document.getElementById("tagsInput");
+      if(!host || !input) return;
+      const selected=new Set(parseList(input.value));
+      host.querySelectorAll('input[type="checkbox"][data-tag]').forEach((el)=>{
+        const tag=String(el.dataset.tag||"");
+        el.checked=selected.has(tag);
+      });
+    }
+    function applyTagChecksToInput(){
+      const host=document.getElementById("tagChecks");
+      const input=document.getElementById("tagsInput");
+      if(!host || !input) return;
+      const before=parseList(input.value);
+      const known=new Set();
+      host.querySelectorAll('input[type="checkbox"][data-tag]').forEach((el)=>{
+        const tag=String(el.dataset.tag||"").trim();
+        if(tag) known.add(tag);
+      });
+      const unknown=before.filter((tag)=>!known.has(tag));
+      const checked=[];
+      host.querySelectorAll('input[type="checkbox"][data-tag]:checked').forEach((el)=>{
+        const tag=String(el.dataset.tag||"").trim();
+        if(tag) checked.push(tag);
+      });
+      input.value=Array.from(new Set([...unknown, ...checked])).join(", ");
+    }
+    function setTagsInputAndSync(raw){
+      const input=document.getElementById("tagsInput");
+      if(!input) return;
+      input.value=String(raw||"");
+      renderTagChecks();
+      syncTagChecksFromInput();
+    }
     function parseCost(v){const out=[];parseList(v).forEach(tok=>{const [t,n]=tok.split(":");const iv=Number(n);if(!t||Number.isNaN(iv))return;out.push({type:t.trim(),value:iv})});return out}
     function toNum(v){if(v==null||v==="")return undefined;const n=Number(v);return Number.isNaN(n)?undefined:n}
     function toBool(v){const s=String(v||"").trim().toLowerCase();if(!s)return undefined;if(["true","1","yes"].includes(s))return true;if(["false","0","no"].includes(s))return false;return undefined}
@@ -690,17 +880,14 @@
       return NL_FORBIDDEN_TIMING_WORDS.find((w)=>s.includes(w)) || "";
     }
     function _nlCleanLine(raw){
-      let s=_nlNormalizeWideChars(String(raw||"").trim());
-      s=s.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g,"$2");
-      s=s.replace(/\[([^\]|]+)\|([^\]]+)\]/g,"$2");
-      s=s.replace(/\[\[([^\]]+)\]\]/g,"$1");
-      s=s.replace(/\[([^\]]+)\]/g,"$1");
+      let s=_nlNormalizeWideChars(_normalizeGlossaryMarkup(String(raw||"").trim()));
       s=s.replace(/[【】]/g,"");
       s=s.replace(/\s+/g," ");
       return s.trim();
     }
     function _nlSplitLines(rawText){
-      const text=String(rawText||"").replace(/\r\n/g,"\n");
+      let text=String(rawText||"").replace(/\r\n/g,"\n");
+      text=text.replace(/。\s*([（(]\s*最大(?:で)?\s*\d+\s*[）)])/g,"$1");
       if(!text.trim()) return { lines: [], errors: [] };
       const errors=[];
       if(text.includes("／")){
@@ -807,11 +994,21 @@
         return null;
       }
       const body=t.body;
-      const target=body.includes("対象") || body.includes("相手") ? "target" : "self";
+      const explicitTarget=body.includes("対象") || body.includes("相手");
+      const explicitSelf=body.includes("自分") || body.includes("自身");
+      const target=explicitTarget ? "target" : "self";
+      const defaultApplyTarget=explicitSelf ? "self" : "target";
 
       let m;
       const out=[];
-      const add=(e)=>{ if(e) out.push(e); };
+      const seen=new Set();
+      const add=(e)=>{
+        if(!e) return;
+        const sig=JSON.stringify(e);
+        if(seen.has(sig)) return;
+        seen.add(sig);
+        out.push(e);
+      };
       if(/^\d+\s*ラウンド継続$/.test(body)) return out;
       if(/^\(最大(?:で)?\s*\d+\)?$/.test(body)) return out;
 
@@ -851,6 +1048,28 @@
           });
         }
       }
+      m=body.match(/(対象|相手)の([出血破裂亀裂戦慄荊棘・、，,\/\sと及び]+)の合計(?:値)?\s*(\d+)\s*につき\s*(\d+)\s*[、,，]?\s*(蓄力|凝魔)\s*を得る(?:.*?最大(?:で)?\s*(\d+))?/);
+      if(m){
+        const sourceParam=_nlBuildStackSumParam(m[2]);
+        const perN=Number(m[3]);
+        const gainPerStep=Number(m[4]);
+        const buffName=String(m[5]||"").trim();
+        const buffId=_nlResolveBuffIdByName(buffName);
+        const maxCount=Math.max(1, Number(m[6]||9999));
+        if(sourceParam && buffId && perN>0 && gainPerStep>0){
+          add({
+            timing:t.timing,
+            type:"APPLY_BUFF_PER_N",
+            target:"self",
+            source:"target",
+            source_param:sourceParam,
+            per_N:perN,
+            value:gainPerStep,
+            buff_id:buffId,
+            max_count:maxCount
+          });
+        }
+      }
 
       m=body.match(/対象の(出血|破裂|亀裂|戦慄)\s*(\d+)\s*につき.*?(出血|破裂|亀裂|戦慄)\s*(\d+)\s*を付与(?:（?最大\s*(\d+)）?)?/);
       if(m){
@@ -865,12 +1084,12 @@
 
       m=body.match(/(\d+)\s*ラウンド.*?(出血|破裂|亀裂|戦慄|荊棘)\s*(-?\d+)\s*を付与/);
       if(m){
-        add({ timing: t.timing, type: "APPLY_STATE", target, state_name: m[2], value: Number(m[3]), rounds: Number(m[1]) });
+        add({ timing: t.timing, type: "APPLY_STATE", target: defaultApplyTarget, state_name: m[2], value: Number(m[3]), rounds: Number(m[1]) });
       }
 
       m=body.match(/(出血|破裂|亀裂|戦慄|荊棘|FP|MP|HP)\s*(-?\d+)\s*を付与/);
       if(m){
-        add({ timing: t.timing, type: "APPLY_STATE", target, state_name: m[1], value: Number(m[2]) });
+        add({ timing: t.timing, type: "APPLY_STATE", target: defaultApplyTarget, state_name: m[1], value: Number(m[2]) });
       }
       m=body.match(/(出血|破裂|亀裂|戦慄|荊棘|FP|MP|HP)\s*(-?\d+)\s*を与える/);
       if(m){
@@ -906,7 +1125,7 @@
 
       m=body.match(/(Bu-\d+)\s*を付与/);
       if(m){
-        const row={ timing: t.timing, type: "APPLY_BUFF", target, buff_id: m[1] };
+        const row={ timing: t.timing, type: "APPLY_BUFF", target: defaultApplyTarget, buff_id: m[1] };
         const lasting=body.match(/(\d+)\s*ラウンド/);
         if(lasting) row.lasting=Number(lasting[1]);
         const count=body.match(/(\d+)\s*スタック/);
@@ -918,6 +1137,13 @@
         add({ timing: t.timing, type: "REMOVE_BUFF", target, buff_id: m[1] });
       }
       m=body.match(/(加速|減速|挑発|行動不能|震盪|蓄力|凝魔|出血遷延)\s*(\d+)?\s*を(付与|得る)/);
+      if(m){
+        // "Xにつき...蓄力を得る" は APPLY_BUFF_PER_N で先に解釈済み。
+        // ここで no-count の蓄力/凝魔を拾うと重複付与になるため抑止する。
+        if(!m[2] && /につき/.test(body) && (m[1]==="蓄力" || m[1]==="凝魔")){
+          m = null;
+        }
+      }
       if(m){
         const bId=_nlResolveBuffIdByName(m[1]);
         if(bId){
@@ -976,6 +1202,43 @@
       if(m){
         add({ timing:t.timing, type:"APPLY_BUFF", target:"target", buff_id:"Bu-12", lasting:1, delay:1, data:{ count:Number(m[2]) }, condition:{ source:"target", param:m[1], operator:"GTE", value:1 } });
       }
+      m=body.match(/(蓄力|凝魔)\s*(\d+)\s*を消費し.*?(基礎威力|最終威力)\s*([+\-−]\s*\d+)/);
+      if(m){
+        const buffName=m[1];
+        const consumeN=Math.max(1, Number(m[2]));
+        const applyTo=m[3].includes("最終")?"final":"base";
+        const delta=Number(String(m[4]).replace(/\s+/g,"").replace("−","-"));
+        if(Number.isFinite(delta) && delta!==0){
+          if(delta % consumeN === 0){
+            add({
+              timing:t.timing,
+              type:"CONSUME_BUFF_COUNT_FOR_POWER",
+              target:"self",
+              buff_name:buffName,
+              consume_max:consumeN,
+              value_per_stack:(delta/consumeN),
+              apply_to:applyTo,
+              min_consume:consumeN
+            });
+          }else{
+            add({
+              timing:t.timing,
+              type:applyTo==="final"?"MODIFY_FINAL_POWER":"MODIFY_BASE_POWER",
+              target:"self",
+              value:delta,
+              condition:{ source:"self", param:`${buffName}_count`, operator:"GTE", value:consumeN }
+            });
+            add({
+              timing:t.timing,
+              type:"CONSUME_BUFF_COUNT_FOR_GAIN",
+              target:"self",
+              buff_name:buffName,
+              consume_required:consumeN,
+              gains:[]
+            });
+          }
+        }
+      }
       m=body.match(/使用する(攻撃|守備)スキルの最終威力\s*([+\-−]\s*\d+)/);
       if(m){
         const val=Number(String(m[2]).replace(/\s+/g,"").replace("−","-"));
@@ -1016,7 +1279,7 @@
         add({ timing:t.timing, type:"APPLY_BUFF", target:"self", buff_id:"Bu-41", lasting:999, count:1, data:{ value:Number(m[1]), display_name:"突き崩す（亀裂付与量アップ単発）" } });
       }
       m=body.match(/([^\s、。]+)\s*(\d+)\s*を(付与|得る)/);
-      if(m && !/(出血|破裂|亀裂|戦慄|FP|MP|HP|Bu-\d+)/.test(m[1])){
+      if(m && !/(出血|破裂|亀裂|戦慄|荊棘|FP|MP|HP|Bu-\d+|加速|減速|挑発|行動不能|震盪|蓄力|凝魔|出血遷延)/.test(m[1])){
         const bName=m[1];
         const bId=_nlResolveBuffIdByName(bName);
         if(bId){
@@ -1212,6 +1475,18 @@
           pb.push(row);
           return;
         }
+        m=line.match(/(自分|自身)の(蓄力|凝魔)\s*(\d+)\s*につき.*?(基礎威力|最終威力|ダイス威力)\s*([+＋\-−]\s*\d+)(?:.*?(最大|最小)(?:で)?\s*([+\-−]?\d+))?/);
+        if(m){
+          const applyTo=m[4].includes("ダイス")?"dice":(m[4].includes("最終")?"final":"base");
+          const row={ operation: "PER_N_BONUS", source:"self", param:`${m[2]}_count`, per_N:Number(m[3]), value:Number(String(m[5]).replace(/\s+/g,"").replace("−","-")), apply_to:applyTo };
+          if(m[7]){
+            const lim=Number(String(m[7]).replace("−","-"));
+            if(m[6]==="最小") row.min_bonus=lim;
+            else row.max_bonus=Math.abs(lim);
+          }
+          pb.push(row);
+          return;
+        }
         m=line.match(/(自分|自身)に付与された(出血|破裂|亀裂|戦慄)\s*(\d+)\s*につき.*?(基礎威力|最終威力|ダイス威力)\s*([+＋\-−]\s*\d+)(?:.*?(最大|最小)(?:で)?\s*([+\-−]?\d+))?/);
         if(m){
           const applyTo=m[4].includes("ダイス")?"dice":(m[4].includes("最終")?"final":"base");
@@ -1269,7 +1544,15 @@
     }
 
     function fillDatalist(id,items){const dl=document.getElementById(id);dl.innerHTML="";items.forEach(v=>{const o=document.createElement("option");o.value=v;dl.appendChild(o)})}
-    function readCond(host){const source=host.querySelector(".condSource")?.value?.trim();const param=host.querySelector(".condParam")?.value?.trim();const operator=host.querySelector(".condOp")?.value?.trim();const rv=host.querySelector(".condVal")?.value?.trim();if(!source||!param||!operator||rv==="")return null;const n=Number(rv);return {source,param,operator,value:Number.isNaN(n)?rv:n}}
+    function readCond(host){
+      const source=host.querySelector(".condSource")?.value?.trim();
+      const param=_nlCleanLine(host.querySelector(".condParam")?.value?.trim());
+      const operator=host.querySelector(".condOp")?.value?.trim();
+      const rvRaw=_nlCleanLine(host.querySelector(".condVal")?.value?.trim());
+      if(!source||!param||!operator||rvRaw==="") return null;
+      const n=Number(rvRaw);
+      return { source, param, operator, value:Number.isNaN(n)?rvRaw:n };
+    }
     function renderCond(host,seed={}){
       host.innerHTML="";
       const g=document.createElement("div");
@@ -1312,7 +1595,7 @@
     function getPbRowRaw(row){
       const raw={operation:row.querySelector(".pbOp").value};
       const source=row.querySelector(".pbSource").value;
-      const param=row.querySelector(".pbParam").value.trim();
+      const param=_nlCleanLine(row.querySelector(".pbParam").value.trim());
       const apply=row.querySelector(".pbApply").value;
       if(source)raw.source=source;
       if(param)raw.param=param;
@@ -1321,6 +1604,8 @@
         const n=toNum(row.querySelector(sel).value);
         if(n!==undefined)raw[k]=n;
       });
+      const spec=PB_RULE_SPEC[raw.operation]||PB_RULE_SPEC.FIXED;
+      (spec.unused||[]).forEach((k)=>{ if(k in raw) delete raw[k]; });
       const condEnabled=row.querySelector(".pbCondEnable").checked;
       if(condEnabled){
         const c=readCond(row.querySelector(".pbCond"));
@@ -1454,7 +1739,12 @@
       if(t)e.target=t;
       [["state_name",".efState"],["source",".efSource"],["source_param",".efSourceParam"],["buff_id",".efBuffId"],["buff_name",".efBuffName"],["skill_id",".efSkillId"],["summon_template_id",".efSummonId"]].forEach(([k,sel])=>{
         const v=row.querySelector(sel).value.trim();
-        if(v)e[k]=v;
+        if(!v) return;
+        if(k==="buff_id" || k==="skill_id" || k==="summon_template_id"){
+          e[k]=v;
+          return;
+        }
+        e[k]=_nlCleanLine(v);
       });
       [["value",".efValue"],["per_N",".efPerN"],["lasting",".efLasting"],["delay",".efDelay"]].forEach(([k,sel])=>{
         const n=toNum(row.querySelector(sel).value);
@@ -1589,7 +1879,7 @@
 
     function applyShindouSkillPreset(){
       const preset = SHINDOU_SKILL_PRESET;
-      document.getElementById("tagsInput").value = (preset.tags || []).join(", ");
+      setTagsInputAndSync((preset.tags || []).join(", "));
       document.getElementById("targetScope").value = String(preset.target_scope || "");
       document.getElementById("costInput").value = (preset.cost || []).map(c => `${c.type}:${c.value}`).join(", ");
       document.getElementById("pbRoot").innerHTML = "";
@@ -1620,6 +1910,7 @@
       const errEl=document.getElementById("nlBuildErrors");
       if(statusEl) statusEl.textContent="";
       if(errEl) errEl.innerHTML="";
+      await _ensureLinkRefCacheLoaded();
 
       const rawCost=String(document.getElementById("nlCostText")?.value||"");
       const rawTrigger=String(document.getElementById("nlTriggerText")?.value||"");
@@ -1710,14 +2001,13 @@
       document.getElementById("costInput").value=costs.map(c=>`${c.type}:${c.value}`).join(", ");
       const mergedTags=new Set(parseList(rawTags));
       (noteParsed.tags||[]).forEach((t)=>mergedTags.add(String(t)));
-      document.getElementById("tagsInput").value=Array.from(mergedTags).join(", ");
+      setTagsInputAndSync(Array.from(mergedTags).join(", "));
       document.getElementById("pbRoot").innerHTML="";
       document.getElementById("effectsRoot").innerHTML="";
 
       (noteParsed.power_bonus||[]).forEach(pb=>addPowerBonusRow(pb));
       const mergedEffects=[...triggerEffects, ...(noteParsed.effects||[])];
       mergedEffects.forEach(ef=>addEffectRow(_nlEffectToSeed(ef)));
-      if((noteParsed.power_bonus||[]).length===0) addPowerBonusRow();
       if(mergedEffects.length===0) addEffectRow();
 
       const pretty=generate();
@@ -1732,7 +2022,7 @@
       return pretty;
     }
 
-    function generate(){const data={};data.schema="skill_json_rule_v2";const sid=String(document.getElementById("skillIdInput")?.value||"").trim();if(sid)data.id=sid;const tags=parseList(document.getElementById("tagsInput").value);if(tags.length)data.tags=tags;const ts=document.getElementById("targetScope").value;if(ts)data.target_scope=ts;const cost=parseCost(document.getElementById("costInput").value);if(cost.length)data.cost=cost;data.power_bonus=collectPowerBonus();data.effects=collectEffects();document.getElementById("jsonOut").textContent=JSON.stringify(data,null,2);return data}
+    function generate(){const data={};data.schema="skill_json_rule_v2";const sid=String(document.getElementById("skillIdInput")?.value||"").trim();if(sid)data.id=sid;const tags=parseList(_nlCleanLine(document.getElementById("tagsInput").value));if(tags.length)data.tags=tags;const ts=document.getElementById("targetScope").value;if(ts)data.target_scope=ts;const cost=parseCost(_nlCleanLine(document.getElementById("costInput").value));if(cost.length)data.cost=cost;data.power_bonus=collectPowerBonus();data.effects=collectEffects();document.getElementById("jsonOut").textContent=JSON.stringify(data,null,2);return data}
     async function copyJson(){
       let txt=document.getElementById("jsonOut").textContent||"";
       if(!txt.trim()){
@@ -1875,11 +2165,31 @@
       panel.hidden=!panel.hidden;
     }
 
-    function initRef(){const states=sanitizeStateRefs(REF.state_refs);const buffIds=(REF.buff_refs||[]).map(x=>x.id).filter(Boolean);const buffNames=(REF.buff_refs||[]).map(x=>x.name).filter(Boolean);const skillIds=(REF.skill_refs||[]).map(x=>x.id).filter(Boolean);const summonIds=(REF.summon_refs||[]).map(x=>x.id).filter(Boolean);const tags=new Set(TAG_HINTS);(REF.skill_refs||[]).forEach(s=>(s.tags||[]).forEach(t=>tags.add(String(t))));fillDatalist("stateNameList",states);fillDatalist("buffIdList",buffIds);fillDatalist("buffNameList",buffNames);fillDatalist("skillIdList",skillIds);fillDatalist("summonIdList",summonIds);fillDatalist("tagHintList",Array.from(tags).sort((a,b)=>a.localeCompare(b,"ja")));renderState();renderBuff();renderDynamicBuffPatterns();renderSkill();renderSummon();renderCustomEffects()}
+    function initRef(){
+      const states=sanitizeStateRefs(REF.state_refs);
+      const buffIds=(REF.buff_refs||[]).map(x=>x.id).filter(Boolean);
+      const buffNames=(REF.buff_refs||[]).map(x=>x.name).filter(Boolean);
+      const skillIds=(REF.skill_refs||[]).map(x=>x.id).filter(Boolean);
+      const summonIds=(REF.summon_refs||[]).map(x=>x.id).filter(Boolean);
+      const tagHints=getTagHintOptions();
+      fillDatalist("stateNameList",states);
+      fillDatalist("buffIdList",buffIds);
+      fillDatalist("buffNameList",buffNames);
+      fillDatalist("skillIdList",skillIds);
+      fillDatalist("summonIdList",summonIds);
+      fillDatalist("tagHintList",tagHints);
+      renderTagChecks();
+      renderState();
+      renderBuff();
+      renderDynamicBuffPatterns();
+      renderSkill();
+      renderSummon();
+      renderCustomEffects();
+    }
 
     function bind(){
       document.getElementById("addPbBtn").addEventListener("click",()=>{addPowerBonusRow();generate()});
-      document.getElementById("clearPbBtn").addEventListener("click",()=>{document.getElementById("pbRoot").innerHTML="";addPowerBonusRow();generate()});
+      document.getElementById("clearPbBtn").addEventListener("click",()=>{document.getElementById("pbRoot").innerHTML="";generate()});
       document.getElementById("addEffectBtn").addEventListener("click",()=>{addEffectRow();generate()});
       document.getElementById("clearEffectBtn").addEventListener("click",()=>{document.getElementById("effectsRoot").innerHTML="";addEffectRow();generate()});
       document.getElementById("pbQuickTemplate").addEventListener("change",updatePbTemplateDesc);
@@ -1927,13 +2237,44 @@
         if(!panel) return;
         closeRefPanel(panel.id);
       });
-      ["skillIdInput","tagsInput","targetScope","costInput"].forEach(id=>{
+      const tagsInputEl=document.getElementById("tagsInput");
+      if(tagsInputEl){
+        tagsInputEl.addEventListener("input",()=>{
+          if(tagSyncLock) return;
+          tagSyncLock=true;
+          renderTagChecks();
+          syncTagChecksFromInput();
+          tagSyncLock=false;
+          generate();
+        });
+        tagsInputEl.addEventListener("change",()=>{
+          if(tagSyncLock) return;
+          tagSyncLock=true;
+          renderTagChecks();
+          syncTagChecksFromInput();
+          tagSyncLock=false;
+          generate();
+        });
+      }
+      const tagChecksEl=document.getElementById("tagChecks");
+      if(tagChecksEl){
+        tagChecksEl.addEventListener("change",(e)=>{
+          const target=e.target;
+          if(!(target instanceof HTMLInputElement) || target.type!=="checkbox") return;
+          if(tagSyncLock) return;
+          tagSyncLock=true;
+          applyTagChecksToInput();
+          tagSyncLock=false;
+          generate();
+        });
+      }
+      ["skillIdInput","targetScope","costInput"].forEach(id=>{
         document.getElementById(id).addEventListener("input",generate);
         document.getElementById(id).addEventListener("change",generate);
       });
     }
 
-    bind();renderHelp();renderPbDocs();renderEffectDocs();initQuickTemplates();initRef();addPowerBonusRow();addEffectRow();checkDynamicBuffName();setBuilderTab("pbEditorSection");toggleRefPanel("panelPbCheat");generate();
+    bind();renderHelp();renderPbDocs();renderEffectDocs();initQuickTemplates();initRef();_ensureLinkRefCacheLoaded();addEffectRow();checkDynamicBuffName();setBuilderTab("pbEditorSection");toggleRefPanel("panelPbCheat");generate();
   </script>
 </body>
 </html>

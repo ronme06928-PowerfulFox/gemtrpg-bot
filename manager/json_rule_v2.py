@@ -1,4 +1,4 @@
-import copy
+﻿import copy
 import json
 import re
 
@@ -18,18 +18,24 @@ SKILL_RULE_SOURCE_KEYS = [
     "rule",
     "ruleData",
     "special_rule",
-    "特記処理",
+    "特記定義",
 ]
 
 STATE_STACK_SUM_PARAM_KEYS = {
     "状態異常スタック合計",
-    "状態異常合算",
+    "状態異常スタック合算",
+    "状態異常スタック総数",
     "status_stack_sum",
     "status_stack_total",
     "debuff_stack_sum",
 }
 
 _STATE_STACK_SUM_PARAM_KEYSET_LOWER = {k.lower() for k in STATE_STACK_SUM_PARAM_KEYS}
+_STATE_STACK_SUM_PARAM_KEYSET_LOWER.update({
+    "状態異常スタック合計".lower(),
+    "状態異常スタック合算".lower(),
+    "状態異常スタック総数".lower(),
+})
 
 
 class JsonRuleV2Error(ValueError):
@@ -69,7 +75,7 @@ def parse_status_stack_sum_param(param_value):
     if not raw:
         return None
 
-    m = re.match(r"^(.+?)\s*[:：]\s*(.*)$", raw)
+    m = re.match(r"^(.+?)\s*[:：・]\s*(.*)$", raw)
     if not m:
         if raw.lower() in _STATE_STACK_SUM_PARAM_KEYSET_LOWER:
             return {"is_stack_sum": True, "names": [], "error": "state names are required"}
@@ -84,7 +90,7 @@ def parse_status_stack_sum_param(param_value):
         return {"is_stack_sum": True, "names": [], "error": "state names are required"}
 
     names = []
-    for token in re.split(r"[,\s、，/|・]+", names_raw):
+    for token in re.split(r"[,，、\s/・|]+", names_raw):
         name = str(token or "").strip()
         if not name:
             continue
@@ -102,7 +108,7 @@ def _validate_condition_param_notation(param_value, *, path):
         return
     if parsed.get("error"):
         raise JsonRuleV2Error(
-            "status stack sum param must enumerate state names (e.g. 状態異常スタック合計:出血,破裂,亀裂,戦慄,荊棘)",
+            "status stack sum param must enumerate state names (e.g. 状態異常スタック合計:出血,破裂,亀裂)",
             path=path,
         )
 
@@ -161,17 +167,17 @@ def _normalize_effect_rows(
         row["type"] = effect_type
         _validate_condition_row(row.get("condition"), path=f"{e_path}.condition")
 
-        if effect_type in {"APPLY_BUFF", "REMOVE_BUFF"}:
+        if effect_type in {"APPLY_BUFF", "REMOVE_BUFF", "APPLY_BUFF_PER_N"}:
             buff_id = str(row.get("buff_id", "") or "").strip()
             buff_name = str(row.get("buff_name", "") or "").strip()
             if not buff_id and not buff_name:
                 raise JsonRuleV2Error(
-                    "APPLY/REMOVE_BUFF needs buff_id or buff_name",
+                    "APPLY/REMOVE/APPLY_BUFF_PER_N needs buff_id or buff_name",
                     path=e_path,
                 )
-            if effect_type == "APPLY_BUFF" and require_buff_id_for_apply and not buff_id:
+            if effect_type in {"APPLY_BUFF", "APPLY_BUFF_PER_N"} and require_buff_id_for_apply and not buff_id:
                 raise JsonRuleV2Error(
-                    "APPLY_BUFF requires buff_id in skill_json_rule_v2",
+                    f"{effect_type} requires buff_id in skill_json_rule_v2",
                     path=e_path,
                 )
             if effect_type == "REMOVE_BUFF" and require_buff_id_for_remove and not buff_id:
@@ -401,3 +407,4 @@ def normalize_skill_constraints_rows(raw_rows, *, source_path="skill_constraints
         count=len(out),
     )
     return out
+

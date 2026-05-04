@@ -888,6 +888,27 @@
     font-family: "Yu Mincho", "Hiragino Mincho ProN", "Times New Roman", serif;
 }
 
+.declare-panel-banner {
+    flex: 0 0 auto;
+    min-height: 0;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background:
+        linear-gradient(150deg, rgba(246, 230, 190, 0.98) 0%, rgba(230, 210, 168, 0.98) 54%, rgba(212, 186, 140, 0.98) 100%),
+        repeating-linear-gradient(18deg, rgba(95, 70, 35, 0.04) 0 2px, rgba(255, 255, 255, 0.03) 2px 5px);
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(84, 58, 26, 0.18);
+}
+
+.declare-panel-scroll {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
+    padding-right: 4px;
+    padding-bottom: 6px;
+}
+
 .declare-panel--map {
     position: absolute;
     left: 16px;
@@ -1098,10 +1119,8 @@
     line-height: 1.62;
     color: #2e2214;
     min-height: 0;
-    flex: 1 1 auto;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    display: block;
+    overflow: visible;
 }
 
 .declare-panel.is-minimized {
@@ -1112,6 +1131,7 @@
 
 .declare-panel.is-minimized .declare-flow-guide,
 .declare-panel.is-minimized .declare-panel-row,
+.declare-panel.is-minimized .declare-panel-scroll,
 .declare-panel.is-minimized .declare-skill-meta,
 .declare-panel.is-minimized .declare-cost-warning,
 .declare-panel.is-minimized .declare-help-text,
@@ -1163,7 +1183,7 @@
 }
 
 .declare-panel.is-target-picking .declare-skill-meta {
-    max-height: 140px;
+    max-height: none;
 }
 
 .declare-panel-actions {
@@ -1260,8 +1280,7 @@
     padding-top: 6px;
     max-height: none;
     min-height: 0;
-    flex: 1 1 auto;
-    overflow-y: auto;
+    overflow: visible;
     padding-right: 6px;
 }
 

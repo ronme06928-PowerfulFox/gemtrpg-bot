@@ -195,9 +195,6 @@ class DeclarePanel {
         }
         const targetOptions = this._buildTargetOptions(state, sourceSlotId, effectiveTargetSlotId, effectiveTargetType, skillId);
         const sourceLabel = this._formatSlotLabel(state, sourceSlotId);
-        const targetLabel = isMassTarget
-            ? this._getMassTargetLabel(sourceSlot)
-            : (effectiveTargetSlotId ? this._formatSlotLabel(state, effectiveTargetSlotId) : '未選択');
         const skillOptions = this._buildSkillOptions(sourceChar, state, sourceSlotId, effectiveTargetSlotId);
         const meta = this._resolveDisplayMeta(skillId, calc);
         const commandText = this._resolveCommandText(calc);
@@ -246,58 +243,61 @@ class DeclarePanel {
         const interactiveSkillDisplay = this._resolveSkillDisplayName(skillId, meta.name, sourceChar);
         const interactiveSummaryHtml = this._buildMinimizedSummaryHtml(interactiveSkillDisplay, interactiveRangeText);
         const interactiveHtml = `
-            <div class="declare-panel-header">
-                <div class="declare-panel-title">${interactiveTitle}</div>
-                <div class="declare-panel-header-right">
-                    <button id="declare-commit-btn-header" class="declare-commit-btn declare-commit-btn-header" ${canCommit ? '' : 'disabled'}>${commitButtonText}</button>
-                    <button id="declare-minimize-btn" class="declare-minimize-btn" title="${interactiveMinimized ? '展開' : '最小化'}">${interactiveMinimized ? '□' : '－'}</button>
-                    <button id="declare-close-btn" class="declare-close-btn" title="${this._escapeHtml(closeBtnTitle)}">x</button>
+            <div class="declare-panel-banner">
+                <div class="declare-panel-header">
+                    <div class="declare-panel-title">${interactiveTitle}</div>
+                    <div class="declare-panel-header-right">
+                        <button id="declare-commit-btn-header" class="declare-commit-btn declare-commit-btn-header" ${canCommit ? '' : 'disabled'}>${commitButtonText}</button>
+                        <button id="declare-minimize-btn" class="declare-minimize-btn" title="${interactiveMinimized ? '展開' : '最小化'}">${interactiveMinimized ? '□' : '－'}</button>
+                        <button id="declare-close-btn" class="declare-close-btn" title="${this._escapeHtml(closeBtnTitle)}">x</button>
+                    </div>
                 </div>
-            </div>
-            ${interactiveSummaryHtml}
-            <div class="declare-flow-guide">
-                <div class="declare-flow-steps">
-                    <span class="declare-flow-chip ${flow.step1Class}">1 使用者</span>
-                    <span class="declare-flow-chip ${flow.step2Class}">2 スキル</span>
-                    <span class="declare-flow-chip ${flow.step3Class}">3 対象</span>
+                ${interactiveSummaryHtml}
+                <div class="declare-flow-guide">
+                    <div class="declare-flow-steps">
+                        <span class="declare-flow-chip ${flow.step1Class}">1 使用者</span>
+                        <span class="declare-flow-chip ${flow.step2Class}">2 スキル</span>
+                        <span class="declare-flow-chip ${flow.step3Class}">3 対象</span>
+                    </div>
+                    <div class="declare-flow-text">${this._escapeHtml(flow.message)}</div>
                 </div>
-                <div class="declare-flow-text">${this._escapeHtml(flow.message)}</div>
-            </div>
-            <div class="declare-panel-row">
-                <span>使用者</span>
-                <span class="declare-human-label" data-slot-id="${sourceSlotId}">${sourceLabel}</span>
-            </div>
-            <div class="declare-panel-row">
-                <span>対象</span>
-                <div class="declare-target-controls">
-                    <span class="declare-human-label" data-slot-id="${effectiveTargetSlotId || ''}">${targetLabel}</span>
-                    <select id="declare-target-select" class="declare-target-select" ${(isUiReadOnly || isMassTarget) ? 'disabled' : ''}>
-                        ${targetOptions}
+                <div class="declare-panel-row">
+                    <span>使用者</span>
+                    <span class="declare-human-label" data-slot-id="${sourceSlotId}">${sourceLabel}</span>
+                </div>
+                <div class="declare-panel-row">
+                    <span>対象</span>
+                    <div class="declare-target-controls">
+                        <select id="declare-target-select" class="declare-target-select" ${(isUiReadOnly || isMassTarget) ? 'disabled' : ''}>
+                            ${targetOptions}
+                        </select>
+                    </div>
+                </div>
+                ${isTargetPicking ? `<div class="declare-panel-row"><span></span><span class="declare-help-text">対象スロットをクリックしてください</span></div>` : ''}
+                <div class="declare-panel-row">
+                    <span>スキル</span>
+                    <select id="declare-skill-select" class="declare-skill-select" ${isUiReadOnly ? 'disabled' : ''}>
+                        ${skillOptions}
                     </select>
                 </div>
             </div>
-            ${isTargetPicking ? `<div class="declare-panel-row"><span></span><span class="declare-help-text">対象スロットをクリックしてください</span></div>` : ''}
-            <div class="declare-panel-row">
-                <span>スキル</span>
-                <select id="declare-skill-select" class="declare-skill-select" ${isUiReadOnly ? 'disabled' : ''}>
-                    ${skillOptions}
-                </select>
+            <div class="declare-panel-scroll">
+                <div class="declare-skill-meta">
+                    <div><strong>${this._escapeHtml(interactiveSkillDisplay)}</strong></div>
+                    <div>${meta.description || '-'}</div>
+                    <div>威力レンジ: ${this._escapeHtml(interactiveRangeText)}</div>
+                    <div>コマンド: <code class="declare-command">${this._escapeHtml(commandText || '-')}</code></div>
+                    <div>威力: ${this._escapeHtml(powerSummary)}</div>
+                    ${powerAdjustRows.length > 0 ? `
+                    <div class="declare-power-adjust">
+                        <div class="declare-power-adjust-title">威力変化の内訳</div>
+                        ${powerAdjustRows.map((row) => `<div class="declare-power-adjust-row">${this._escapeHtml(row)}</div>`).join('')}
+                    </div>` : ''}
+                    ${meta.detailHtml ? `<div class="declare-skill-detail">${meta.detailHtml}</div>` : ''}
+                </div>
+                ${costCheck.insufficient ? `<div class="declare-cost-warning">${costCheck.message}</div>` : ''}
+                ${calcErrorText ? `<div class="declare-cost-warning">${calcErrorText}</div>` : ''}
             </div>
-            <div class="declare-skill-meta">
-                <div><strong>${this._escapeHtml(interactiveSkillDisplay)}</strong></div>
-                <div>${meta.description || '-'}</div>
-                <div>威力レンジ: ${this._escapeHtml(interactiveRangeText)}</div>
-                <div>コマンド: <code class="declare-command">${this._escapeHtml(commandText || '-')}</code></div>
-                <div>威力: ${this._escapeHtml(powerSummary)}</div>
-                ${powerAdjustRows.length > 0 ? `
-                <div class="declare-power-adjust">
-                    <div class="declare-power-adjust-title">威力変化の内訳</div>
-                    ${powerAdjustRows.map((row) => `<div class="declare-power-adjust-row">${this._escapeHtml(row)}</div>`).join('')}
-                </div>` : ''}
-                ${meta.detailHtml ? `<div class="declare-skill-detail">${meta.detailHtml}</div>` : ''}
-            </div>
-            ${costCheck.insufficient ? `<div class="declare-cost-warning">${costCheck.message}</div>` : ''}
-            ${calcErrorText ? `<div class="declare-cost-warning">${calcErrorText}</div>` : ''}
         `;
 
         const leftReadonly = this._buildReadonlyPanelHtml(
@@ -506,15 +506,17 @@ class DeclarePanel {
         const sideTitle = side === 'enemy' ? '敵詳細' : '味方詳細';
         if (!slotId) {
             return `
-                <div class="declare-panel-header">
-                    <div class="declare-panel-title">${sideTitle}</div>
-                    <div class="declare-panel-header-right">
-                        <button id="declare-readonly-min-btn-${side}" class="declare-minimize-btn" title="${this._sideUi?.[side]?.minimized ? '展開' : '最小化'}">${this._sideUi?.[side]?.minimized ? '□' : '－'}</button>
+                <div class="declare-panel-banner">
+                    <div class="declare-panel-header">
+                        <div class="declare-panel-title">${sideTitle}</div>
+                        <div class="declare-panel-header-right">
+                            <button id="declare-readonly-min-btn-${side}" class="declare-minimize-btn" title="${this._sideUi?.[side]?.minimized ? '展開' : '最小化'}">${this._sideUi?.[side]?.minimized ? '□' : '－'}</button>
+                        </div>
                     </div>
-                </div>
-                <div class="declare-panel-row">
-                    <span>状態</span>
-                    <span class="declare-human-label">未選択</span>
+                    <div class="declare-panel-row">
+                        <span>状態</span>
+                        <span class="declare-human-label">未選択</span>
+                    </div>
                 </div>
             `;
         }
@@ -522,15 +524,17 @@ class DeclarePanel {
         const slot = state?.slots?.[slotId] || null;
         if (!slot) {
             return `
-                <div class="declare-panel-header">
-                    <div class="declare-panel-title">${sideTitle}</div>
-                    <div class="declare-panel-header-right">
-                        <button id="declare-readonly-min-btn-${side}" class="declare-minimize-btn" title="${this._sideUi?.[side]?.minimized ? '展開' : '最小化'}">${this._sideUi?.[side]?.minimized ? '□' : '－'}</button>
+                <div class="declare-panel-banner">
+                    <div class="declare-panel-header">
+                        <div class="declare-panel-title">${sideTitle}</div>
+                        <div class="declare-panel-header-right">
+                            <button id="declare-readonly-min-btn-${side}" class="declare-minimize-btn" title="${this._sideUi?.[side]?.minimized ? '展開' : '最小化'}">${this._sideUi?.[side]?.minimized ? '□' : '－'}</button>
+                        </div>
                     </div>
-                </div>
-                <div class="declare-panel-row">
-                    <span>状態</span>
-                    <span class="declare-human-label">スロットなし</span>
+                    <div class="declare-panel-row">
+                        <span>状態</span>
+                        <span class="declare-human-label">スロットなし</span>
+                    </div>
                 </div>
             `;
         }
@@ -551,27 +555,31 @@ class DeclarePanel {
         const summaryHtml = this._buildMinimizedSummaryHtml(skillDisplay, rangeText);
 
         return `
-            <div class="declare-panel-header">
-                <div class="declare-panel-title">${sideTitle}</div>
-                <div class="declare-panel-header-right">
-                    <button id="declare-readonly-min-btn-${side}" class="declare-minimize-btn" title="${this._sideUi?.[side]?.minimized ? '展開' : '最小化'}">${this._sideUi?.[side]?.minimized ? '□' : '－'}</button>
+            <div class="declare-panel-banner">
+                <div class="declare-panel-header">
+                    <div class="declare-panel-title">${sideTitle}</div>
+                    <div class="declare-panel-header-right">
+                        <button id="declare-readonly-min-btn-${side}" class="declare-minimize-btn" title="${this._sideUi?.[side]?.minimized ? '展開' : '最小化'}">${this._sideUi?.[side]?.minimized ? '□' : '－'}</button>
+                    </div>
+                </div>
+                ${summaryHtml}
+                <div class="declare-panel-row">
+                    <span>スロット</span>
+                    <span class="declare-human-label">${this._escapeHtml(label)}</span>
+                </div>
+                <div class="declare-panel-row">
+                    <span>状態</span>
+                    <span class="declare-human-label">${isSource ? '操作中' : '参照中'}</span>
                 </div>
             </div>
-            ${summaryHtml}
-            <div class="declare-panel-row">
-                <span>スロット</span>
-                <span class="declare-human-label">${this._escapeHtml(label)}</span>
-            </div>
-            <div class="declare-panel-row">
-                <span>状態</span>
-                <span class="declare-human-label">${isSource ? '操作中' : '参照中'}</span>
-            </div>
-            <div class="declare-skill-meta">
-                <div><strong>${this._escapeHtml(skillDisplay)}</strong></div>
-                <div>${meta.description || '-'}</div>
-                <div>威力レンジ: ${this._escapeHtml(rangeText)}</div>
-                <div>コマンド: <code class="declare-command">${this._escapeHtml(commandText || '-')}</code></div>
-                ${detailHtml ? `<div class="declare-skill-detail">${detailHtml}</div>` : ''}
+            <div class="declare-panel-scroll">
+                <div class="declare-skill-meta">
+                    <div><strong>${this._escapeHtml(skillDisplay)}</strong></div>
+                    <div>${meta.description || '-'}</div>
+                    <div>威力レンジ: ${this._escapeHtml(rangeText)}</div>
+                    <div>コマンド: <code class="declare-command">${this._escapeHtml(commandText || '-')}</code></div>
+                    ${detailHtml ? `<div class="declare-skill-detail">${detailHtml}</div>` : ''}
+                </div>
             </div>
         `;
     }
@@ -979,16 +987,19 @@ class DeclarePanel {
         const all = window.allSkillData || {};
         const skill = (skillId && all[skillId]) ? all[skillId] : {};
         const name =
+            skill['デフォルト名称'] ||
+            skill['名称'] ||
             skill.name ||
             skill.default_name ||
             this._findByKeyPattern(skill, /name|title/i) ||
             skillId ||
             '(none)';
         const description =
+            skill['説明'] ||
             skill.description ||
             skill.desc ||
             skill.summary ||
-            this._findByKeyPattern(skill, /desc|effect|text|detail/i) ||
+            this._findByKeyPattern(skill, /desc|summary|detail/i) ||
             '';
 
         const power = this._firstValue(
@@ -1007,7 +1018,10 @@ class DeclarePanel {
     _resolveCommandText(calc) {
         if (!calc) return '';
         const raw = calc.final_command || calc.command || '';
-        return this._stripTags(String(raw || '')).trim();
+        return this._stripTags(String(raw || ''))
+            .replace(/【.*?】|\[.*?\]/g, '')
+            .replace(/^(?:\/sroll|\/sr|\/roll|\/r)\s*/i, '')
+            .trim();
     }
 
     _resolvePowerAdjustRows(calc) {
@@ -1252,8 +1266,8 @@ class DeclarePanel {
 
     _resolveDisplayMeta(skillId, calc) {
         const base = this._readSkillMeta(skillId);
+        const baseSkill = (window.allSkillData || {})[skillId] || {};
         if (!calc || calc.error) {
-            const baseSkill = (window.allSkillData || {})[skillId];
             const baseDetailHtml = (baseSkill && typeof window.formatSkillDetailHTML === 'function')
                 ? window.formatSkillDetailHTML(baseSkill)
                 : '';
@@ -1263,8 +1277,24 @@ class DeclarePanel {
         const min = (calc.min_damage !== undefined && calc.min_damage !== null) ? calc.min_damage : null;
         const max = (calc.max_damage !== undefined && calc.max_damage !== null) ? calc.max_damage : null;
         const rangeText = (min !== null && max !== null) ? `${min} ~ ${max}` : null;
-        const detailHtml = (calc.skill_details && typeof window.formatSkillDetailHTML === 'function')
-            ? window.formatSkillDetailHTML(calc.skill_details)
+        const mergedDetail = {
+            ...(baseSkill || {}),
+            ...(calc.skill_details || {})
+        };
+        if (!mergedDetail['チャットパレット'] && calc.final_command) {
+            mergedDetail['チャットパレット'] = this._resolveCommandText(calc);
+        }
+        if (!mergedDetail['発動時効果'] && calc.skill_details?.hit_text) {
+            mergedDetail['発動時効果'] = calc.skill_details.hit_text;
+        }
+        if (!mergedDetail['使用時効果'] && calc.skill_details?.cost_text) {
+            mergedDetail['使用時効果'] = calc.skill_details.cost_text;
+        }
+        if (!mergedDetail['特記'] && calc.skill_details?.notes) {
+            mergedDetail['特記'] = calc.skill_details.notes;
+        }
+        const detailHtml = (typeof window.formatSkillDetailHTML === 'function')
+            ? window.formatSkillDetailHTML(mergedDetail)
             : '';
 
         return { ...base, rangeText, detailHtml };

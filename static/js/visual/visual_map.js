@@ -15,6 +15,7 @@ const _battleMapLog = (...args) => {
 const _battleMapDebug = (...args) => {
     if (_battleVerboseMap()) console.debug(...args);
 };
+const SHOW_SELECT_RESOLVE_MODE_HINT = false;
 
 const STATUS_NAME_ALIASES = {
     '蜃ｺ陦': '出血',
@@ -642,6 +643,11 @@ function _renderSelectResolveModeHint(phase, stateRef) {
         hint.className = 'select-resolve-mode-hint';
         hint.style.display = 'none';
         viewport.appendChild(hint);
+    }
+
+    if (!SHOW_SELECT_RESOLVE_MODE_HINT) {
+        hint.style.display = 'none';
+        return;
     }
 
     if (phase !== 'select') {

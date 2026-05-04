@@ -1,4 +1,4 @@
-# manager/game_logic.py
+﻿# manager/game_logic.py
 import sys
 import json
 import re # Added for regex
@@ -50,7 +50,8 @@ def _fallback_get_status_value(char_obj, status_name):
 
 _STATE_STACK_SUM_KEYS = {
     "状態異常スタック合計",
-    "状態異常合算",
+    "状態異常スタック合算",
+    "状態異常スタック総数",
     "status_stack_sum",
     "status_stack_total",
     "debuff_stack_sum",
@@ -78,7 +79,7 @@ def _parse_state_stack_sum_param(param_name):
     if not raw:
         return None
 
-    m = re.match(r"^(.+?)\s*[:：]\s*(.+)$", raw)
+    m = re.match(r"^(.+?)\s*[:：・]\s*(.+)$", raw)
     if not m:
         return None
 
@@ -91,7 +92,7 @@ def _parse_state_stack_sum_param(param_name):
         return None
 
     names = set()
-    for token in re.split(r"[,\s、，/|・]+", names_raw):
+    for token in re.split(r"[,，、\s/・|]+", names_raw):
         normalized = _normalize_condition_status_name(token)
         if normalized:
             names.add(normalized)
@@ -225,7 +226,7 @@ def remove_buff(*args, **kwargs):
     fn = getattr(mod, "remove_buff", None) if mod else None
     if callable(fn):
         return fn(*args, **kwargs)
-    # Fallback: manager.utils 未ロード時でも最低限の削除を行う。
+    # Fallback: manager.utils 譛ｪ繝ｭ繝ｼ繝画凾縺ｧ繧よ怙菴朱剞縺ｮ蜑企勁繧定｡後≧縲・
     try:
         char_obj = args[0] if len(args) >= 1 else kwargs.get("char_obj")
         buff_name = args[1] if len(args) >= 2 else kwargs.get("buff_name")
@@ -348,7 +349,7 @@ def _resolve_buff_count_for_condition(source_obj, buff_name):
         if isinstance(data, dict) and data.get("count") is not None:
             total += max(0, _safe_int_for_condition(data.get("count"), 0))
             continue
-        # count未保持バフも「存在1」として扱えるようにする
+        # count譛ｪ菫晄戟繝舌ヵ繧ゅ悟ｭ伜惠1縲阪→縺励※謇ｱ縺医ｋ繧医≧縺ｫ縺吶ｋ
         total += 1
 
     return total
@@ -381,9 +382,9 @@ def _get_value_for_condition(source_obj, param_name, context=None, actor=None, t
     if normalized_param_name == "tags":
         return source_obj.get("tags", [])
 
-    # 「速度値」はロール結果。旧timeline形式/新battle_state形式/現在値の全てを横断して解決する。
-    # 参照不可の場合は 0 ではなく None を返し、低速条件 (<= 4 等) の誤発火を防ぐ。
-    if normalized_param_name in {"速度値", "speed_value", "speedvalue", "spd_value"}:
+    # 縲碁溷ｺｦ蛟､縲阪・繝ｭ繝ｼ繝ｫ邨先棡縲よ立timeline蠖｢蠑・譁ｰbattle_state蠖｢蠑・迴ｾ蝨ｨ蛟､縺ｮ蜈ｨ縺ｦ繧呈ｨｪ譁ｭ縺励※隗｣豎ｺ縺吶ｋ縲・
+    # 蜿ら・荳榊庄縺ｮ蝣ｴ蜷医・ 0 縺ｧ縺ｯ縺ｪ縺・None 繧定ｿ斐＠縲∽ｽ朱滓擅莉ｶ (<= 4 遲・ 縺ｮ隱､逋ｺ轣ｫ繧帝亟縺舌・
+    if normalized_param_name in {"騾溷ｺｦ蛟､", "speed_value", "speedvalue", "spd_value"}:
         speed_values = []
         source_id = source_obj.get("id")
         source_slot_id = source_obj.get("slot_id")
@@ -447,7 +448,7 @@ def _get_value_for_condition(source_obj, param_name, context=None, actor=None, t
             return max(speed_values)
 
         # Fallback: if speed value exists explicitly in status rows, allow it.
-        normalized_speed_name = "速度値"
+        normalized_speed_name = "騾溷ｺｦ蛟､"
         params = source_obj.get("params", [])
         if isinstance(params, list):
             for row in params:
@@ -487,7 +488,7 @@ def check_condition(condition_obj, actor, target, target_skill_data=None, actor_
     elif source_str == "skill" or source_str == "actor_skill": source_obj = actor_skill_data
     elif source_str == "relation": source_obj = {}
 
-    # Contextを渡す
+    # Context繧呈ｸ｡縺・
     current_value = _get_value_for_condition(
         source_obj,
         param_name,
@@ -511,17 +512,17 @@ def check_condition(condition_obj, actor, target, target_skill_data=None, actor_
         return False
     return False
 
-# ★修正: 汎用ボーナス計算ロジック（内部用）
+# 笘・ｿｮ豁｣: 豎守畑繝懊・繝翫せ險育ｮ励Ο繧ｸ繝・け・亥・驛ｨ逕ｨ・・
 def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None, context=None):
     total = 0
     for rule in rules:
-        # 条件チェック
+        # 譚｡莉ｶ繝√ぉ繝・け
         condition = rule.get('condition')
         if condition:
             if not check_condition(condition, actor, target, actor_skill_data=actor_skill_data, context=context):
                 continue
 
-        # 加算値計算
+        # 蜉邂怜､險育ｮ・
         bonus = 0
         operation = str(rule.get('operation', rule.get('operator', 'FIXED')) or 'FIXED').strip().upper()
 
@@ -532,13 +533,22 @@ def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None, con
             src_type = rule.get('source', 'self')
             src_obj = target if src_type == 'target' else actor
             p_name = rule.get('param')
-            # ここでも _get_value_for_condition を使うべきだが、
-            # ボーナス値の基準にするパラメータ(param)は通常ステータス値(HP, MP, 筋力など)であり、
-            # イニシアチブ値(速度)を基準に倍率を掛けることは稀。
-            # しかし一貫性を保つため _get_value_for_condition を使うのが良いが、
-            # 既存実装は get_status_value を直接呼んでいる。
-            # ここでは安全のため既存通り get_status_value にしておく (イニシアチブ値で倍率計算するケースがあれば修正)
-            val = get_status_value(src_obj, p_name)
+            # 縺薙％縺ｧ繧・_get_value_for_condition 繧剃ｽｿ縺・∋縺阪□縺後・
+            # 繝懊・繝翫せ蛟､縺ｮ蝓ｺ貅悶↓縺吶ｋ繝代Λ繝｡繝ｼ繧ｿ(param)縺ｯ騾壼ｸｸ繧ｹ繝・・繧ｿ繧ｹ蛟､(HP, MP, 遲句鴨縺ｪ縺ｩ)縺ｧ縺ゅｊ縲・
+            # 繧､繝九す繧｢繝√ヶ蛟､(騾溷ｺｦ)繧貞渕貅悶↓蛟咲紫繧呈寺縺代ｋ縺薙→縺ｯ遞縲・
+            # 縺励°縺嶺ｸ雋ｫ諤ｧ繧剃ｿ昴▽縺溘ａ _get_value_for_condition 繧剃ｽｿ縺・・縺瑚憶縺・′縲・
+            # 譌｢蟄伜ｮ溯｣・・ get_status_value 繧堤峩謗･蜻ｼ繧薙〒縺・ｋ縲・
+            # 縺薙％縺ｧ縺ｯ螳牙・縺ｮ縺溘ａ譌｢蟄倬壹ｊ get_status_value 縺ｫ縺励※縺翫￥ (繧､繝九す繧｢繝√ヶ蛟､縺ｧ蛟咲紫險育ｮ励☆繧九こ繝ｼ繧ｹ縺後≠繧後・菫ｮ豁｣)
+            val = _get_value_for_condition(
+                src_obj,
+                p_name,
+                context=context,
+                actor=actor,
+                target=target,
+                source_type=src_type,
+            )
+            if val is None:
+                val = 0
 
             if operation == 'MULTIPLY':
                 bonus = int(val * float(rule.get('value_per_param', 0)))
@@ -562,8 +572,8 @@ def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None, con
 
 def _split_power_bonus_rules(rules):
     """
-    power_bonus ルールを適用先ごとに分割する。
-    apply_to 未指定は base 扱い。
+    power_bonus 繝ｫ繝ｼ繝ｫ繧帝←逕ｨ蜈医＃縺ｨ縺ｫ蛻・牡縺吶ｋ縲・
+    apply_to 譛ｪ謖・ｮ壹・ base 謇ｱ縺・・
     """
     buckets = {"base": [], "dice": [], "final": []}
     for rule in (rules or []):
@@ -592,7 +602,7 @@ def _resolve_runtime_buff_effect_data(buff_row):
 
 def calculate_buff_power_bonus_parts(actor, target, actor_skill_data, context=None):
     """
-    バフ由来の威力補正を適用先ごとに返す。
+    繝舌ヵ逕ｱ譚･縺ｮ螽∝鴨陬懈ｭ｣繧帝←逕ｨ蜈医＃縺ｨ縺ｫ霑斐☆縲・
     Returns: {"base": int, "dice": int, "final": int}
     """
     parts = {"base": 0, "dice": 0, "final": 0}
@@ -621,17 +631,17 @@ def calculate_buff_power_bonus_parts(actor, target, actor_skill_data, context=No
     return parts
 
 
-# 後方互換: 既存呼び出しは「定数加算」の総量を期待するため base + final を返す。
+# 蠕梧婿莠呈鋤: 譌｢蟄伜他縺ｳ蜃ｺ縺励・縲悟ｮ壽焚蜉邂励阪・邱城㍼繧呈悄蠕・☆繧九◆繧・base + final 繧定ｿ斐☆縲・
 def calculate_buff_power_bonus(actor, target, actor_skill_data, context=None):
     parts = calculate_buff_power_bonus_parts(actor, target, actor_skill_data, context=context)
     return int(parts.get("base", 0)) + int(parts.get("final", 0))
 
 def calculate_state_apply_bonus(actor, target, stat_name, context=None):
     total_bonus = 0
-    buffs_to_remove = []  # ★削除リスト
+    buffs_to_remove = []  # 笘・炎髯､繝ｪ繧ｹ繝・
 
     if not actor or 'special_buffs' not in actor:
-        return 0, [] # ★
+        return 0, [] # 笘・
 
     for buff in actor['special_buffs']:
         buff_name = buff.get('name')
@@ -639,23 +649,23 @@ def calculate_state_apply_bonus(actor, target, stat_name, context=None):
         if not effect_data:
             continue
 
-        # ★追加: ディレイ中のバフは無効
+        # 笘・ｿｽ蜉: 繝・ぅ繝ｬ繧､荳ｭ縺ｮ繝舌ヵ縺ｯ辟｡蜉ｹ
         if buff.get('delay', 0) > 0:
             continue
 
         state_bonuses = effect_data.get('state_bonus', [])
         matching_rules = [r for r in state_bonuses if r.get('stat') == stat_name]
 
-        # ボーナス計算
+        # 繝懊・繝翫せ險育ｮ・
         bonus = _calculate_bonus_from_rules(matching_rules, actor, target, None, context=context)
 
         if bonus > 0:
             total_bonus += bonus
-            # ★ルールの中に "consume": True があれば削除リストに追加
+            # 笘・Ν繝ｼ繝ｫ縺ｮ荳ｭ縺ｫ "consume": True 縺後≠繧後・蜑企勁繝ｪ繧ｹ繝医↓霑ｽ蜉
             for rule in matching_rules:
                 if rule.get('consume'):
                     buffs_to_remove.append(buff_name)
-                    break # 1つのバフ定義内で複数ルールがあっても1回削除登録すれば十分
+                    break # 1縺､縺ｮ繝舌ヵ螳夂ｾｩ蜀・〒隍・焚繝ｫ繝ｼ繝ｫ縺後≠縺｣縺ｦ繧・蝗槫炎髯､逋ｻ骭ｲ縺吶ｌ縺ｰ蜊∝・
 
     return total_bonus, buffs_to_remove
 
@@ -667,7 +677,7 @@ def calculate_state_receive_bonus(receiver, source, stat_name, context=None):
         return 0, []
 
     def _resolve_stack_count(buff):
-        """受け手側補正のスタック数(count)を正規化して返す。未指定は1。"""
+        """Resolve stack count from buff row. Default to 1 when unspecified."""
         if not isinstance(buff, dict):
             return 1
         raw_count = buff.get('count')
@@ -688,8 +698,8 @@ def calculate_state_receive_bonus(receiver, source, stat_name, context=None):
         if not effect_data:
             continue
 
-        # キャッシュ/参照タイミング差で get_buff_effect(name) が解決できないケース向けフォールバック:
-        # buff_id からカタログeffectを引き、受け手側補正ルールを補完する。
+        # 繧ｭ繝｣繝・す繝･/蜿ら・繧ｿ繧､繝溘Φ繧ｰ蟾ｮ縺ｧ get_buff_effect(name) 縺瑚ｧ｣豎ｺ縺ｧ縺阪↑縺・こ繝ｼ繧ｹ蜷代￠繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ:
+        # buff_id 縺九ｉ繧ｫ繧ｿ繝ｭ繧ｰeffect繧貞ｼ輔″縲∝女縺第焔蛛ｴ陬懈ｭ｣繝ｫ繝ｼ繝ｫ繧定｣懷ｮ後☆繧九・
         if not isinstance(effect_data, dict):
             effect_data = {}
         if not effect_data.get('state_receive_bonus'):
@@ -711,7 +721,7 @@ def calculate_state_receive_bonus(receiver, source, stat_name, context=None):
             except Exception:
                 pass
 
-        # ディレイ中のバフは無効
+        # 繝・ぅ繝ｬ繧､荳ｭ縺ｮ繝舌ヵ縺ｯ辟｡蜉ｹ
         if buff.get('delay', 0) > 0:
             continue
 
@@ -738,7 +748,7 @@ def calculate_state_receive_bonus(receiver, source, stat_name, context=None):
 
 def execute_custom_effect(effect, actor, target, context=None):
     """
-    プラグイン化されたカスタム効果を実行する
+    繝励Λ繧ｰ繧､繝ｳ蛹悶＆繧後◆繧ｫ繧ｹ繧ｿ繝蜉ｹ譫懊ｒ螳溯｡後☆繧・
     """
     effect_name = effect.get("value")
     registry = _effect_registry()
@@ -749,8 +759,8 @@ def execute_custom_effect(effect, actor, target, context=None):
         return [], []
 
     try:
-        # コンテキストとしてレジストリを渡す（亀裂崩壊などで再帰的に使うため）。
-        # 呼び出し側のcontext(キャラ一覧など)も取り込んで、プラグイン側で利用できるようにする。
+        # 繧ｳ繝ｳ繝・く繧ｹ繝医→縺励※繝ｬ繧ｸ繧ｹ繝医Μ繧呈ｸ｡縺呻ｼ井ｺ陬ょｴｩ螢翫↑縺ｩ縺ｧ蜀榊ｸｰ逧・↓菴ｿ縺・◆繧・ｼ峨・
+        # 蜻ｼ縺ｳ蜃ｺ縺怜・縺ｮcontext(繧ｭ繝｣繝ｩ荳隕ｧ縺ｪ縺ｩ)繧ょ叙繧願ｾｼ繧薙〒縲√・繝ｩ繧ｰ繧､繝ｳ蛛ｴ縺ｧ蛻ｩ逕ｨ縺ｧ縺阪ｋ繧医≧縺ｫ縺吶ｋ縲・
         plugin_context = {
             "registry": registry
         }
@@ -835,9 +845,9 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             return candidates
         return random.sample(candidates, count)
 
-    import copy # 追加
+    import copy # 霑ｽ蜉
 
-    # シミュレーション用キャッシュ (ID -> char_obj_copy)
+    # 繧ｷ繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ逕ｨ繧ｭ繝｣繝・す繝･ (ID -> char_obj_copy)
     simulated_chars = {}
 
     def get_simulated_char(real_char):
@@ -846,6 +856,9 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
         if cid not in simulated_chars:
             simulated_chars[cid] = copy.deepcopy(real_char)
         return simulated_chars[cid]
+
+    # Original hit target (before per-effect target remapping like target=self).
+    original_sim_target = get_simulated_char(target) if target else None
 
     def _parse_positive_rounds(raw_value):
         try:
@@ -866,7 +879,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
         changes_to_apply.append((
             target_obj,
             "APPLY_BUFF",
-            f"亀裂_R{rounds}",
+            f"亀裂R{rounds}",
             {
                 "lasting": rounds,
                 "delay": 0,
@@ -989,6 +1002,54 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             }
         ))
 
+    def _extract_incoming_buff_count(payload):
+        if not isinstance(payload, dict):
+            return 0
+        try:
+            if payload.get("count") is not None:
+                return max(0, int(payload.get("count") or 0))
+        except Exception:
+            pass
+        data = payload.get("data")
+        if isinstance(data, dict):
+            try:
+                if data.get("count") is not None:
+                    return max(0, int(data.get("count") or 0))
+            except Exception:
+                pass
+        return 0
+
+    def _simulate_apply_buff_stack(sim_char, buff_name, payload):
+        before = _resolve_buff_count_local(_find_sim_buff(sim_char, buff_name), default=0)
+        incoming = _extract_incoming_buff_count(payload)
+        if incoming <= 0:
+            # Non-stack style buff: just ensure presence for subsequent in-turn checks.
+            if _find_sim_buff(sim_char, buff_name) is None:
+                if not isinstance(sim_char.get("special_buffs"), list):
+                    sim_char["special_buffs"] = []
+                sim_char["special_buffs"].append({"name": buff_name})
+            return before, before, 0
+
+        after = before + incoming
+        existing = _find_sim_buff(sim_char, buff_name)
+        if isinstance(existing, dict):
+            existing["count"] = after
+            data = existing.get("data")
+            if not isinstance(data, dict):
+                data = {}
+                existing["data"] = data
+            data["count"] = after
+        else:
+            if not isinstance(sim_char.get("special_buffs"), list):
+                sim_char["special_buffs"] = []
+            sim_char["special_buffs"].append({"name": buff_name, "count": after, "data": {"count": after}})
+        return before, after, incoming
+
+    def _simulate_remove_buff_stack(sim_char, buff_name):
+        before = _resolve_buff_count_local(_find_sim_buff(sim_char, buff_name), default=0)
+        _set_sim_buff_count(sim_char, buff_name, 0)
+        return before, 0
+
     for effect in effects_array:
         if effect.get("timing") != timing_to_check: continue
 
@@ -1002,7 +1063,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             if context and "characters" in context:
                 targets_list = select_random_targets(actor, effect, context["characters"])
                 if not targets_list:
-                    log_snippets.append(f"(対象不在)")
+                    log_snippets.append("(対象なし)")
             else:
                  pass
         else:
@@ -1012,7 +1073,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
             if t_str == "self": targets_list = [actor]
             elif t_str == "target": targets_list = [target] if target else []
-            # ★ 追加: 全体対象サポート
+            # 笘・霑ｽ蜉: 蜈ｨ菴灘ｯｾ雎｡繧ｵ繝昴・繝・
             elif t_str == "ALL_ENEMIES" and context and "characters" in context:
                 actor_type = actor.get("type", "ally")
                 target_type = "enemy" if actor_type == "ally" else "ally"
@@ -1031,7 +1092,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 ]
             elif t_str == "ALL" and context and "characters" in context:
                  targets_list = [c for c in context["characters"] if c.get('hp', 0) > 0]
-            # ★新機能: NEXT_ALLY
+            # 笘・眠讖溯・: NEXT_ALLY
             elif t_str == "NEXT_ALLY" and context and "characters" in context and context.get("room"):
                 from manager.room_manager import get_room_state
                 room_name = context.get("room")
@@ -1062,11 +1123,11 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
         if not targets_list: continue
 
         for target_obj in targets_list:
-            # ★重要: 副作用を防ぐため、判定や内部適用はシミュレーション用オブジェクトで行う
+            # 笘・㍾隕・ 蜑ｯ菴懃畑繧帝亟縺舌◆繧√∝愛螳壹ｄ蜀・Κ驕ｩ逕ｨ縺ｯ繧ｷ繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ逕ｨ繧ｪ繝悶ず繧ｧ繧ｯ繝医〒陦後≧
             sim_actor = get_simulated_char(actor)
             sim_target = get_simulated_char(target_obj)
 
-            # 条件判定 (シミュレーション状態に基づく)
+            # 譚｡莉ｶ蛻､螳・(繧ｷ繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ迥ｶ諷九↓蝓ｺ縺･縺・
             if not check_condition(effect.get("condition"), sim_actor, sim_target, target_skill_data, context=context):
                 continue
 
@@ -1081,7 +1142,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 if 'flags' not in sim_target:
                     sim_target['flags'] = {}
                 if sim_target['flags'].get('fissure_received_this_round', False):
-                    log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
+                    log_snippets.append("[亀裂付与失敗: 同一ラウンド内で既に亀裂付与済み]")
                     continue
 
                 bonus, buffs_to_remove = calculate_state_apply_bonus(sim_actor, sim_target, "亀裂", context=context)
@@ -1092,7 +1153,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 for b_name in buffs_to_remove:
                     remove_buff(sim_actor, b_name)
                     changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0))
-                    log_snippets.append(f"({b_name} 消費)")
+                    log_snippets.append(f"[{b_name} 消費]")
 
                 _queue_fissure_round_buff(
                     target_obj=target_obj,
@@ -1103,24 +1164,24 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 )
                 sim_target['flags']['fissure_received_this_round'] = True
                 changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
-                log_snippets.append(f"[亀裂+{final_value} ({rounds}R)]")
+                log_snippets.append(f"[亀裂 {final_value} ({rounds}R)]")
                 continue
 
             elif effect_type == "APPLY_STATE":
-                # ★後方互換: "state_name"と"name"の両方に対応
+                # 笘・ｾ梧婿莠呈鋤: "state_name"縺ｨ"name"縺ｮ荳｡譁ｹ縺ｫ蟇ｾ蠢・
                 stat_name = effect.get("state_name") or effect.get("name")
                 value = int(effect.get("value", 0))
                 fissure_rounds = _parse_positive_rounds(effect.get("rounds"))
 
-                # ★亀裂の1ラウンド1回付与制限チェック
+                # 笘・ｺ陬ゅ・1繝ｩ繧ｦ繝ｳ繝・蝗樔ｻ倅ｸ主宛髯舌メ繧ｧ繝・け
                 if stat_name == "亀裂" and value > 0 and sim_target:
                     if 'flags' not in sim_target:
                         sim_target['flags'] = {}
                     if sim_target['flags'].get('fissure_received_this_round', False):
-                        log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
-                        continue  # この効果をスキップし、次の効果へ
+                        log_snippets.append("[亀裂付与失敗: 同一ラウンド内で既に亀裂付与済み]")
+                        continue  # 縺薙・蜉ｹ譫懊ｒ繧ｹ繧ｭ繝・・縺励∵ｬ｡縺ｮ蜉ｹ譫懊∈
 
-                # 正値付与時のみ、付与側/受け手側の状態付与ボーナスを適用
+                # 豁｣蛟､莉倅ｸ取凾縺ｮ縺ｿ縲∽ｻ倅ｸ主・/蜿励￠謇句・縺ｮ迥ｶ諷倶ｻ倅ｸ弱・繝ｼ繝翫せ繧帝←逕ｨ
                 if value > 0:
                     if sim_actor:
                         source_bonus, source_buffs_to_remove = calculate_state_apply_bonus(
@@ -1131,7 +1192,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         for b_name in source_buffs_to_remove:
                             remove_buff(sim_actor, b_name)
                             changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0))
-                            log_snippets.append(f"({b_name} 消費)")
+                            log_snippets.append(f"[{b_name} 消費]")
 
                     if sim_target:
                         receive_bonus, receive_buffs_to_remove = calculate_state_receive_bonus(
@@ -1142,7 +1203,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         for b_name in receive_buffs_to_remove:
                             remove_buff(sim_target, b_name)
                             changes_to_apply.append((target_obj, "REMOVE_BUFF", b_name, 0))
-                            log_snippets.append(f"({b_name} 消費)")
+                            log_snippets.append(f"[{b_name} 消費]")
 
                 if stat_name and value != 0:
                     if stat_name == "亀裂" and value > 0 and fissure_rounds > 0:
@@ -1157,17 +1218,17 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                             sim_target['flags'] = {}
                         sim_target['flags']['fissure_received_this_round'] = True
                         changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
-                        log_snippets.append(f"[亀裂+{value} ({fissure_rounds}R)]")
+                        log_snippets.append(f"[亀裂 {value} ({fissure_rounds}R)]")
                         continue
 
-                    # ★即座に状態を更新（シミュレーション用オブジェクトに対してのみ）
+                    # 笘・叉蠎ｧ縺ｫ迥ｶ諷九ｒ譖ｴ譁ｰ・医す繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ逕ｨ繧ｪ繝悶ず繧ｧ繧ｯ繝医↓蟇ｾ縺励※縺ｮ縺ｿ・・
                     current_val = _stable_get_status_value(sim_target, stat_name)
                     _stable_set_status_value(sim_target, stat_name, current_val + value)
 
-                    # 変更ログとして記録（後続の処理で実体に適用される）
-                    changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value)) # 実体に対する変更予約
+                    # 螟画峩繝ｭ繧ｰ縺ｨ縺励※險倬鹸・亥ｾ檎ｶ壹・蜃ｦ逅・〒螳滉ｽ薙↓驕ｩ逕ｨ縺輔ｌ繧具ｼ・
+                    changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value)) # 螳滉ｽ薙↓蟇ｾ縺吶ｋ螟画峩莠育ｴ・
 
-                    # ★亀裂の場合はフラグを立てる（付与成功時）
+                    # 笘・ｺ陬ゅ・蝣ｴ蜷医・繝輔Λ繧ｰ繧堤ｫ九※繧具ｼ井ｻ倅ｸ取・蜉滓凾・・
                     if stat_name == "亀裂" and value > 0:
                         if 'flags' not in sim_target:
                             sim_target['flags'] = {}
@@ -1177,37 +1238,42 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
             elif effect_type == "APPLY_STATE_PER_N":
                 source_type = effect.get("source", "self")
-                source_obj = sim_actor if source_type == "self" else sim_target # シミュレーションを使用
+                if source_type == "self":
+                    source_obj = sim_actor
+                else:
+                    # source=target should still point to the original action target
+                    # when this effect itself is applied to self.
+                    source_obj = original_sim_target if effect.get("target") == "self" and original_sim_target else sim_target
                 source_param = effect.get("source_param")
                 fissure_rounds = _parse_positive_rounds(effect.get("rounds"))
 
                 if not source_obj or not source_param:
                     continue
 
-                # 基準パラメータの値を取得
+                # 蝓ｺ貅悶ヱ繝ｩ繝｡繝ｼ繧ｿ縺ｮ蛟､繧貞叙蠕・
                 source_param_value = _stable_get_status_value(source_obj, source_param)
 
-                # N毎に計算
+                # N豈弱↓險育ｮ・
                 per_N = int(effect.get("per_N", 1))
                 value_per = int(effect.get("value", 1))
                 calculated_value = (source_param_value // per_N) * value_per if per_N > 0 else 0
 
-                # 最大値制限
+                # 譛螟ｧ蛟､蛻ｶ髯・
                 if "max_value" in effect:
                     calculated_value = min(calculated_value, int(effect["max_value"]))
 
-                # 付与実行
+                # 莉倅ｸ主ｮ溯｡・
                 stat_name = effect.get("state_name")
                 if stat_name and calculated_value > 0:
-                    # 亀裂の1ラウンド1回付与制限チェック
+                    # 莠陬ゅ・1繝ｩ繧ｦ繝ｳ繝・蝗樔ｻ倅ｸ主宛髯舌メ繧ｧ繝・け
                     if stat_name == "亀裂" and sim_target:
                         if 'flags' not in sim_target:
                             sim_target['flags'] = {}
                         if sim_target['flags'].get('fissure_received_this_round', False):
-                            log_snippets.append(f"[亀裂付与失敗: 今ラウンド既に付与済み]")
+                            log_snippets.append("[亀裂付与失敗: 同一ラウンド内で既に亀裂付与済み]")
                             continue
 
-                    # 正値付与時のみ、付与側/受け手側の状態付与ボーナスを適用
+                    # 豁｣蛟､莉倅ｸ取凾縺ｮ縺ｿ縲∽ｻ倅ｸ主・/蜿励￠謇句・縺ｮ迥ｶ諷倶ｻ倅ｸ弱・繝ｼ繝翫せ繧帝←逕ｨ
                     if sim_actor:
                         source_bonus, source_buffs_to_remove = calculate_state_apply_bonus(
                             sim_actor, sim_target, stat_name, context=context
@@ -1217,7 +1283,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         for b_name in source_buffs_to_remove:
                             remove_buff(sim_actor, b_name)
                             changes_to_apply.append((actor, "REMOVE_BUFF", b_name, 0))
-                            log_snippets.append(f"({b_name} 消費)")
+                            log_snippets.append(f"[{b_name} 消費]")
 
                     if sim_target:
                         receive_bonus, receive_buffs_to_remove = calculate_state_receive_bonus(
@@ -1228,9 +1294,9 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         for b_name in receive_buffs_to_remove:
                             remove_buff(sim_target, b_name)
                             changes_to_apply.append((target_obj, "REMOVE_BUFF", b_name, 0))
-                            log_snippets.append(f"({b_name} 消費)")
+                            log_snippets.append(f"[{b_name} 消費]")
 
-                    # rounds 指定時の新方式（時限亀裂）
+                    # rounds 謖・ｮ壽凾縺ｮ譁ｰ譁ｹ蠑擾ｼ域凾髯蝉ｺ陬ゑｼ・
                     if stat_name == "亀裂" and fissure_rounds > 0:
                         _queue_fissure_round_buff(
                             target_obj=target_obj,
@@ -1243,18 +1309,18 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                             sim_target['flags'] = {}
                         sim_target['flags']['fissure_received_this_round'] = True
                         changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
-                        log_snippets.append(f"[亀裂+{calculated_value} ({source_param}{source_param_value}から/{fissure_rounds}R)]")
+                        log_snippets.append(f"[亀裂 {calculated_value} ({source_param}{source_param_value}/{fissure_rounds}R)]")
                         continue
 
-                    # ★即座に状態を更新 (シミュレーション)
+                    # 笘・叉蠎ｧ縺ｫ迥ｶ諷九ｒ譖ｴ譁ｰ (繧ｷ繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ)
                     current_val = _stable_get_status_value(sim_target, stat_name)
                     _stable_set_status_value(sim_target, stat_name, current_val + calculated_value)
 
-                    # 変更ログとして記録 (実体)
+                    # 螟画峩繝ｭ繧ｰ縺ｨ縺励※險倬鹸 (螳滉ｽ・
                     changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, calculated_value))
-                    log_snippets.append(f"[{stat_name}+{calculated_value} ({source_param}{source_param_value}から)]")
+                    log_snippets.append(f"[{stat_name} +{calculated_value} ({source_param}={source_param_value})]")
 
-                    # 亀裂の場合はフラグを立てる
+                    # 莠陬ゅ・蝣ｴ蜷医・繝輔Λ繧ｰ繧堤ｫ九※繧・
                     if stat_name == "亀裂":
                         if 'flags' not in sim_target:
                             sim_target['flags'] = {}
@@ -1272,19 +1338,97 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     diff = new_val - current_val
 
                     if diff != 0:
-                        # ★即座に状態を更新 (シミュレーション)
+                        # 笘・叉蠎ｧ縺ｫ迥ｶ諷九ｒ譖ｴ譁ｰ (繧ｷ繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ)
                         _stable_set_status_value(sim_target, stat_name, new_val)
 
-                        # 変更ログとして記録 (実体)
+                        # 螟画峩繝ｭ繧ｰ縺ｨ縺励※險倬鹸 (螳滉ｽ・
                         changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, diff))
-                        log_snippets.append(f"[{stat_name} x{multiplier} ({current_val}→{new_val})]")
+                        log_snippets.append(f"[{stat_name} x{multiplier} ({current_val}->{new_val})]")
 
+
+            elif effect_type == "APPLY_BUFF_PER_N":
+                source_type = effect.get("source", "self")
+                if source_type == "self":
+                    source_obj = sim_actor
+                else:
+                    source_obj = original_sim_target if effect.get("target") == "self" and original_sim_target else sim_target
+                source_param = effect.get("source_param")
+                if not source_obj or not source_param:
+                    continue
+
+                try:
+                    per_n = int(effect.get("per_N", 1))
+                except (TypeError, ValueError):
+                    per_n = 1
+                if per_n <= 0:
+                    continue
+
+                try:
+                    value_per_step = int(effect.get("value", 1))
+                except (TypeError, ValueError):
+                    value_per_step = 1
+                if value_per_step <= 0:
+                    continue
+
+                source_value = _stable_get_status_value(source_obj, source_param)
+                apply_count = (source_value // per_n) * value_per_step
+                try:
+                    max_count = int(effect.get("max_count", 0))
+                except (TypeError, ValueError):
+                    max_count = 0
+                if max_count > 0:
+                    apply_count = min(apply_count, max_count)
+                if apply_count <= 0:
+                    continue
+
+                buff_name = effect.get("buff_name")
+                buff_id = effect.get("buff_id")
+                if not buff_name and buff_id:
+                    from manager.buff_catalog import get_buff_by_id
+                    buff_data = get_buff_by_id(buff_id)
+                    if buff_data:
+                        buff_name = buff_data.get("name")
+                if not buff_name:
+                    continue
+
+                effect_data = effect.get("data")
+                if effect_data is None:
+                    effect_data = {}
+                elif isinstance(effect_data, dict):
+                    effect_data = effect_data.copy()
+                else:
+                    effect_data = {}
+                if buff_id:
+                    effect_data["buff_id"] = buff_id
+                effect_data["count"] = apply_count
+
+                try:
+                    parsed_lasting = int(effect.get("lasting", 1))
+                except (TypeError, ValueError):
+                    parsed_lasting = 1
+                try:
+                    parsed_delay = int(effect.get("delay", 0))
+                except (TypeError, ValueError):
+                    parsed_delay = 0
+                buff_payload = {
+                    "lasting": parsed_lasting,
+                    "delay": parsed_delay,
+                    "data": effect_data,
+                    "explicit_lasting": ("lasting" in effect),
+                    "count": apply_count,
+                }
+                changes_to_apply.append((target_obj, "APPLY_BUFF", buff_name, buff_payload))
+                before_count, after_count, delta_count = _simulate_apply_buff_stack(sim_target, buff_name, buff_payload)
+                log_snippets.append(f"[{buff_name} 付与]")
+                if delta_count != 0:
+                    log_snippets.append(f"[{buff_name} スタック +{delta_count} ({before_count}->{after_count})]")
+                log_snippets.append(f"[{buff_name} 条件: {source_param}={source_value}, per={per_n}]")
 
             elif effect_type == "APPLY_BUFF":
                 buff_name = effect.get("buff_name")
                 buff_id = effect.get("buff_id")
 
-                # ★修正: buff_idが指定されている場合、buff_catalogから名前を取得
+                # 笘・ｿｮ豁｣: buff_id縺梧欠螳壹＆繧後※縺・ｋ蝣ｴ蜷医｜uff_catalog縺九ｉ蜷榊燕繧貞叙蠕・
                 if not buff_name and buff_id:
                     from manager.buff_catalog import get_buff_by_id
                     buff_data = get_buff_by_id(buff_id)
@@ -1295,28 +1439,28 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         logger.warning(f"buff_id '{buff_id}' not found in catalog")
 
                 if buff_name:
-                    # ★修正: buff_idも一緒にdataに含める（プラグイン判定用）
-                    # さらに description, flavor もカタログから引き継ぐ
+                    # 笘・ｿｮ豁｣: buff_id繧ゆｸ邱偵↓data縺ｫ蜷ｫ繧√ｋ・医・繝ｩ繧ｰ繧､繝ｳ蛻､螳夂畑・・
+                    # 縺輔ｉ縺ｫ description, flavor 繧ゅき繧ｿ繝ｭ繧ｰ縺九ｉ蠑輔″邯吶＄
                     effect_data = effect.get("data")
                     if effect_data is None:
                         effect_data = {}
                     else:
-                        # 呼び出し元の副作用を防ぐためコピー
+                        # 蜻ｼ縺ｳ蜃ｺ縺怜・縺ｮ蜑ｯ菴懃畑繧帝亟縺舌◆繧√さ繝斐・
                         effect_data = effect_data.copy()
 
                     if buff_id:
                         effect_data["buff_id"] = buff_id
 
-                        # カタログから詳細情報を取得してマージ
+                        # 繧ｫ繧ｿ繝ｭ繧ｰ縺九ｉ隧ｳ邏ｰ諠・ｱ繧貞叙蠕励＠縺ｦ繝槭・繧ｸ
                         if 'buff_data' in locals() and buff_data:
                             if "description" not in effect_data:
                                 effect_data["description"] = buff_data.get("description", "")
                             if "flavor" not in effect_data:
                                 effect_data["flavor"] = buff_data.get("flavor", "")
 
-                            # ★追加: stat_mod の継承 (Phase 10 後半)
-                            # カタログ定義の effect: { type: "stat_mod", stat: "基礎威力", value: 1 }
-                            # を、システムが解釈できる stat_mods: { "基礎威力": 1 } に変換する
+                            # 笘・ｿｽ蜉: stat_mod 縺ｮ邯呎価 (Phase 10 蠕悟濠)
+                            # 繧ｫ繧ｿ繝ｭ繧ｰ螳夂ｾｩ縺ｮ effect: { type: "stat_mod", stat: "蝓ｺ遉主ｨ∝鴨", value: 1 }
+                            # 繧偵√す繧ｹ繝・Β縺瑚ｧ｣驥医〒縺阪ｋ stat_mods: { "蝓ｺ遉主ｨ∝鴨": 1 } 縺ｫ螟画鋤縺吶ｋ
                             catalog_effect = buff_data.get("effect", {})
                             if catalog_effect.get("type") == "stat_mod":
                                 stat_name = catalog_effect.get("stat")
@@ -1328,28 +1472,28 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                                     effect_data["stat_mods"][stat_name] = mod_value
                                     # print(f"[APPLY_BUFF] Converted stat_mod for {buff_name}: {stat_name}={mod_value}")
 
-                    # ★追加: 動的パターンや静的定義から得られる効果データをマージ
-                    # (buff_idがなく、buff_nameのみの場合や、動的生成されたプロパティを取り込む)
+                    # 笘・ｿｽ蜉: 蜍慕噪繝代ち繝ｼ繝ｳ繧・撕逧・ｮ夂ｾｩ縺九ｉ蠕励ｉ繧後ｋ蜉ｹ譫懊ョ繝ｼ繧ｿ繧偵・繝ｼ繧ｸ
+                    # (buff_id縺後↑縺上｜uff_name縺ｮ縺ｿ縺ｮ蝣ｴ蜷医ｄ縲∝虚逧・函謌舌＆繧後◆繝励Ο繝代ユ繧｣繧貞叙繧願ｾｼ繧)
                     from manager.buff_catalog import get_buff_effect
                     catalog_effect_data = get_buff_effect(buff_name)
                     if isinstance(catalog_effect_data, dict):
-                        # 既存のeffect_dataにマージ
+                        # 譌｢蟄倥・effect_data縺ｫ繝槭・繧ｸ
                         for k, v in catalog_effect_data.items():
                             if k not in effect_data:
                                 effect_data[k] = v
                             elif k == "stat_mods" and isinstance(v, dict):
-                                # stat_modsはマージ
+                                # stat_mods縺ｯ繝槭・繧ｸ
                                 if "stat_mods" not in effect_data:
                                     effect_data["stat_mods"] = {}
                                 for sk, sv in v.items():
                                     if sk not in effect_data["stat_mods"]:
                                         effect_data["stat_mods"][sk] = sv
 
-                    # ★追加: flavorテキストの継承
+                    # 笘・ｿｽ蜉: flavor繝・く繧ｹ繝医・邯呎価
                     if "flavor" in effect:
                         effect_data["flavor"] = effect["flavor"]
 
-                    default_lasting = -1 if _normalize_buff_name_local(buff_name) in {"凝魔", "蓄力"} else 1
+                    default_lasting = -1 if _normalize_buff_name_local(buff_name) in {"蓄力", "凝魔"} else 1
                     raw_lasting = effect.get("lasting", default_lasting)
                     try:
                         parsed_lasting = int(raw_lasting)
@@ -1375,7 +1519,10 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                             if isinstance(effect_data, dict) and "count" not in effect_data:
                                 effect_data["count"] = parsed_count
                     changes_to_apply.append((target_obj, "APPLY_BUFF", buff_name, buff_payload))
+                    before_count, after_count, delta_count = _simulate_apply_buff_stack(sim_target, buff_name, buff_payload)
                     log_snippets.append(f"[{buff_name} 付与]")
+                    if delta_count != 0:
+                        log_snippets.append(f"[{buff_name} スタック +{delta_count} ({before_count}->{after_count})]")
             elif effect_type == "CONSUME_BUFF_COUNT_FOR_GAIN":
                 buff_name = effect.get("buff_name")
                 if not buff_name:
@@ -1390,7 +1537,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 sim_bucket = _find_sim_buff(sim_target, buff_name)
                 current_count = _resolve_buff_count_local(sim_bucket, default=0)
                 if current_count < consume_required:
-                    log_snippets.append(f"[{buff_name}不足 {current_count}/{consume_required}]")
+                    log_snippets.append(f"[{buff_name} 不足 {current_count}/{consume_required}]")
                     continue
 
                 remaining = current_count - consume_required
@@ -1450,9 +1597,10 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                             changes_to_apply.append((target_obj, "APPLY_BUFF", gain_buff_name, gain_payload))
                             gain_count += 1
 
-                log_snippets.append(f"[{buff_name} {consume_required}消費]")
+                log_snippets.append(f"[{buff_name} 消費]")
+                log_snippets.append(f"[{buff_name} スタック -{consume_required} ({current_count}->{remaining})]")
                 if gain_count > 0:
-                    log_snippets.append(f"[追加効果 {gain_count}件]")
+                    log_snippets.append(f"[効果発動 {gain_count}件]")
             elif effect_type == "CONSUME_BUFF_COUNT_FOR_POWER":
                 buff_name = effect.get("buff_name")
                 if not buff_name:
@@ -1487,7 +1635,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 current_count = _resolve_buff_count_local(sim_bucket, default=0)
                 consume_amount = min(current_count, consume_max)
                 if consume_amount < min_consume:
-                    log_snippets.append(f"[{buff_name}不足 {current_count}/{min_consume}]")
+                    log_snippets.append(f"[{buff_name} 不足 {current_count}/{min_consume}]")
                     continue
 
                 remaining = current_count - consume_amount
@@ -1499,9 +1647,12 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     change_type = "MODIFY_BASE_POWER" if apply_to == "base" else "MODIFY_FINAL_POWER"
                     changes_to_apply.append((target_obj, change_type, None, power_delta))
                     bonus_label = "基礎威力" if apply_to == "base" else "最終威力"
-                    log_snippets.append(f"[{buff_name} {consume_amount}消費 -> {bonus_label}{power_delta:+}]")
+                    log_snippets.append(f"[{buff_name} 消費]")
+                    log_snippets.append(f"[{buff_name} スタック -{consume_amount} ({current_count}->{remaining})]")
+                    log_snippets.append(f"[{bonus_label} {power_delta:+}]")
                 else:
-                    log_snippets.append(f"[{buff_name} {consume_amount}消費]")
+                    log_snippets.append(f"[{buff_name} 消費]")
+                    log_snippets.append(f"[{buff_name} スタック -{consume_amount} ({current_count}->{remaining})]")
             elif effect_type == "GRANT_SKILL":
                 grant_skill_id = str(effect.get("skill_id", effect.get("grant_skill_id", "")) or "").strip()
                 if not grant_skill_id:
@@ -1516,22 +1667,25 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     "source_skill_id": effect.get("source_skill_id"),
                 }
                 changes_to_apply.append((target_obj, "GRANT_SKILL", grant_skill_id, grant_payload))
-                log_snippets.append(f"[スキル付与:{grant_skill_id}]")
+                log_snippets.append(f"[スキル付与 {grant_skill_id}]")
             elif effect_type == "REMOVE_BUFF":
                 buff_name = effect.get("buff_name")
                 if buff_name:
                     changes_to_apply.append((target_obj, "REMOVE_BUFF", buff_name, 0))
+                    before_count, _after_count = _simulate_remove_buff_stack(sim_target, buff_name)
                     log_snippets.append(f"[{buff_name} 解除]")
+                    if before_count > 0:
+                        log_snippets.append(f"[{buff_name} スタック -{before_count} ({before_count}->0)]")
             elif effect_type == "DAMAGE_BONUS":
                 damage = int(effect.get("value", 0))
                 if damage > 0:
                     total_bonus_damage += damage
-                    log_snippets.append(f"+ [追加ダメージ {damage}]")
+                    log_snippets.append(f"[追加ダメージ +{damage}]")
             elif effect_type == "MODIFY_ROLL":
                 mod_value = int(effect.get("value", 0))
                 if mod_value != 0:
                     total_bonus_damage += mod_value
-                    log_snippets.append(f"[ロール修正 {mod_value:+,}]")
+                    log_snippets.append(f"[ロール補正 {mod_value:+}]")
             elif effect_type == "USE_SKILL_AGAIN":
                 # Resolve-layer feature: request reusing the same skill against the same slot target.
                 max_reuses = effect.get("max_reuses", effect.get("max_reuse_count", effect.get("value", 1)))
@@ -1567,15 +1721,15 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 if reuse_cost:
                     request_payload["reuse_cost"] = reuse_cost
                 changes_to_apply.append((target_obj, "USE_SKILL_AGAIN", "None", request_payload))
-                log_snippets.append(f"[同スキル再使用 x{max_reuses}]")
+                log_snippets.append(f"[スキル再使用 x{max_reuses}]")
             elif effect_type == "CUSTOM_EFFECT":
-                # target="self" の場合は自分を対象にする。
-                # 重要: CUSTOM_EFFECT もシミュレーション状態を参照させる。
-                # これにより、同一 effects 配列内で先行した APPLY_STATE の結果を正しく反映できる。
+                # target="self" 縺ｮ蝣ｴ蜷医・閾ｪ蛻・ｒ蟇ｾ雎｡縺ｫ縺吶ｋ縲・
+                # 驥崎ｦ・ CUSTOM_EFFECT 繧ゅす繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ迥ｶ諷九ｒ蜿ら・縺輔○繧九・
+                # 縺薙ｌ縺ｫ繧医ｊ縲∝酔荳 effects 驟榊・蜀・〒蜈郁｡後＠縺・APPLY_STATE 縺ｮ邨先棡繧呈ｭ｣縺励￥蜿肴丐縺ｧ縺阪ｋ縲・
                 custom_target_sim = sim_actor if effect.get("target") == "self" else sim_target
                 custom_changes, custom_logs = execute_custom_effect(effect, sim_actor, custom_target_sim, context=context)
 
-                # 実適用キューには実体参照を積むため、sim参照を actor/target_obj に戻す。
+                # 螳滄←逕ｨ繧ｭ繝･繝ｼ縺ｫ縺ｯ螳滉ｽ灘盾辣ｧ繧堤ｩ阪・縺溘ａ縲《im蜿ら・繧・actor/target_obj 縺ｫ謌ｻ縺吶・
                 remapped_changes = []
                 for c, t, n, v in custom_changes:
                     mapped_char = c
@@ -1600,26 +1754,26 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     changes_to_apply.append((target_obj, "MODIFY_FINAL_POWER", None, mod_value))
                     log_snippets.append(f"[最終威力 {mod_value:+}]")
             elif effect_type == "DRAIN_HP":
-                 # ★追加: ダメージ吸収 (base_damageに基づく)
+                 # 笘・ｿｽ蜉: 繝繝｡繝ｼ繧ｸ蜷ｸ蜿・(base_damage縺ｫ蝓ｺ縺･縺・
                  if base_damage > 0:
                      rate = float(effect.get("value", 0))
 
-                     # ★ 追加: 対象(攻撃相手)のHPを上限にする
+                     # 笘・霑ｽ蜉: 蟇ｾ雎｡(謾ｻ謦・嶌謇・縺ｮHP繧剃ｸ企剞縺ｫ縺吶ｋ
                      calc_base = base_damage
-                     if target: # 攻撃対象が存在する場合
+                     if target: # 謾ｻ謦・ｯｾ雎｡縺悟ｭ伜惠縺吶ｋ蝣ｴ蜷・
                          target_current_hp = _stable_get_status_value(target, 'HP')
                          if target_current_hp < calc_base:
                              calc_base = target_current_hp
 
                      heal_val = int(calc_base * rate)
                      if heal_val > 0:
-                         # 即座に回復 (シミュレーション)
+                         # 蜊ｳ蠎ｧ縺ｫ蝗槫ｾｩ (繧ｷ繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ)
                          current_hp = _stable_get_status_value(sim_actor, 'HP')
                          _stable_set_status_value(sim_actor, 'HP', current_hp + heal_val)
 
-                         # 変更予約 (実体)
+                         # 螟画峩莠育ｴ・(螳滉ｽ・
                          changes_to_apply.append((actor, "APPLY_STATE", "HP", heal_val))
-                         log_snippets.append(f"[吸収 {heal_val}]")
+                         log_snippets.append(f"[吸収 +{heal_val}]")
             elif effect_type == "SUMMON_CHARACTER":
                 summon_template_id = (
                     effect.get("summon_template_id")
@@ -1663,7 +1817,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     if key in effect:
                         summon_payload[key] = copy.deepcopy(effect.get(key))
 
-                # target を別に取る定義では、座標が未指定なら target 座標をスポーン地点に使う。
+                # target 繧貞挨縺ｫ蜿悶ｋ螳夂ｾｩ縺ｧ縺ｯ縲∝ｺｧ讓吶′譛ｪ謖・ｮ壹↑繧・target 蠎ｧ讓吶ｒ繧ｹ繝昴・繝ｳ蝨ｰ轤ｹ縺ｫ菴ｿ縺・・
                 if (
                     isinstance(target_obj, dict)
                     and target_obj.get("id") != actor.get("id")
@@ -1674,19 +1828,19 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     summon_payload["y"] = target_obj.get("y")
 
                 changes_to_apply.append((actor, "SUMMON_CHARACTER", str(summon_template_id), summon_payload))
-                log_snippets.append(f"[召喚:{summon_template_id}]")
+                log_snippets.append(f"[召喚 {summon_template_id}]")
 
 
     return total_bonus_damage, log_snippets, changes_to_apply
 
 def calculate_power_bonus(actor, target, power_bonus_data, context=None):
-    # (この関数は変更なし、ロジックそのまま)
+    # (縺薙・髢｢謨ｰ縺ｯ螟画峩縺ｪ縺励√Ο繧ｸ繝・け縺昴・縺ｾ縺ｾ)
     def _get_bonus(rule, s, t):
         if not rule: return 0
         src = s if rule.get('source') != 'target' else t
         if not src: return 0
         p_name = rule.get('param')
-        val = _get_value_for_condition(src, p_name, context=context) # ★修正: ここも context対応
+        val = _get_value_for_condition(src, p_name, context=context) # 笘・ｿｮ豁｣: 縺薙％繧・context蟇ｾ蠢・
         bonus = 0
         op = str(rule.get('operation', rule.get('operator', '')) or '').strip().upper()
         if op == 'MULTIPLY':
@@ -1778,13 +1932,21 @@ def calculate_skill_preview(
     context=None
 ):
     """
-    スキルの威力、コマンド、補正情報のプレビューデータを計算する。
+    繧ｹ繧ｭ繝ｫ縺ｮ螽∝鴨縲√さ繝槭Φ繝峨∬｣懈ｭ｣諠・ｱ縺ｮ繝励Ξ繝薙Η繝ｼ繝・・繧ｿ繧定ｨ育ｮ励☆繧九・
     """
     def _to_int(v, default=0):
         try:
             return int(v)
         except Exception:
             return default
+
+    def _pick_first(dct, keys, default=""):
+        if not isinstance(dct, dict):
+            return default
+        for k in keys:
+            if k in dct and dct.get(k) not in (None, ""):
+                return dct.get(k)
+        return default
 
     actor_char = actor_char if isinstance(actor_char, dict) else {}
     target_char = target_char if isinstance(target_char, dict) else {}
@@ -1795,8 +1957,14 @@ def calculate_skill_preview(
     origin_final_power_mod = _to_int(origin_modifiers.get('final_power_bonus', 0))
     origin_dice_power_mod = _to_int(origin_modifiers.get('dice_power_bonus', 0))
 
-    raw_base_power = _to_int(skill_data.get('基礎威力', 0))
-    base_power_buff_mod = _to_int(get_buff_stat_mod(actor_char, '基礎威力'))
+    key_base_power = "基礎威力"
+    key_dice_power = "ダイス威力"
+    key_palette = "チャットパレット"
+    key_physical = "物理補正"
+    key_magical = "魔法補正"
+
+    raw_base_power = _to_int(_pick_first(skill_data, [key_base_power, "base_power", "power"], 0))
+    base_power_buff_mod = _to_int(get_buff_stat_mod(actor_char, key_base_power))
     temp_base_power_mod = _to_int(actor_char.get('_base_power_bonus', 0))
     temp_final_power_mod = _to_int(actor_char.get('_final_power_bonus', 0))
 
@@ -1818,23 +1986,23 @@ def calculate_skill_preview(
         'origin_dice_power_mod': origin_dice_power_mod,
         'final_base_power': final_base_power,
         'final_power_mod': _to_int(external_final_power_mod) + temp_final_power_mod + origin_final_power_mod,
-        '分類': skill_data.get('分類', skill_data.get('タイミング', '')),
-        '距離': skill_data.get('距離', skill_data.get('射程', '')),
-        '属性': skill_data.get('属性', ''),
-        '使用時効果': skill_data.get('使用時効果', skill_data.get('コスト', '')),
-        '発動時効果': skill_data.get('発動時効果', skill_data.get('効果', '')),
-        '特記': skill_data.get('特記', ''),
+        'timing': _pick_first(skill_data, ['タイミング', 'timing'], ''),
+        'range': _pick_first(skill_data, ['距離', '射程', 'range'], ''),
+        'category': _pick_first(skill_data, ['分類', '種別', 'category'], ''),
+        'cost_text': _pick_first(skill_data, ['使用時効果', 'コスト', 'cost_text'], ''),
+        'hit_text': _pick_first(skill_data, ['発動時効果', '命中時効果', '効果', 'hit_text'], ''),
+        'notes': _pick_first(skill_data, ['特記', 'notes'], ''),
     }
 
-    # ルールデータの自動パース
+    # 繝ｫ繝ｼ繝ｫ繝・・繧ｿ縺ｮ閾ｪ蜍輔ヱ繝ｼ繧ｹ
     if not rule_data and skill_data:
         try:
-            rule_json_str = skill_data.get('特記処理', '{}')
+            rule_json_str = _pick_first(skill_data, ['特記処理', '特記定義', 'rule_data_json'], '{}')
             rule_data = json.loads(rule_json_str) if rule_json_str else {}
         except Exception:
             rule_data = {}
 
-    bonus_power = 0                 # 従来の威力補正(base/default)
+    bonus_power = 0                 # 蠕捺擂縺ｮ螽∝鴨陬懈ｭ｣(base/default)
     final_power_bonus = _to_int(external_final_power_mod) + temp_final_power_mod + origin_final_power_mod
     dice_bonus_power = origin_dice_power_mod
 
@@ -1870,13 +2038,13 @@ def calculate_skill_preview(
         selected_power_value = _to_int(power_stat_choice.get("selected_value", 0), 0)
         selected_power_param = str(power_stat_choice.get("selected_param", "") or "").strip() or None
 
-    # 物理/魔法スキルなら戦慄上限をデフォルト適用
+    # 迚ｩ逅・鬲疲ｳ輔せ繧ｭ繝ｫ縺ｪ繧画姶諷・ｸ企剞繧偵ョ繝輔か繝ｫ繝磯←逕ｨ
     if senritsu_max_apply == 0:
-        category = skill_data.get('分類', '')
-        if category and ('物理' in category or '魔法' in category):
+        category = _pick_first(skill_data, ['分類', '種別', 'category'], '')
+        if category and ('戦慄' in category or '荊棘' in category):
             senritsu_max_apply = 3
 
-    # バフ由来補正（apply_to=base/dice/final を分離）
+    # 繝舌ヵ逕ｱ譚･陬懈ｭ｣・・pply_to=base/dice/final 繧貞・髮｢・・
     buff_bonus_parts = calculate_buff_power_bonus_parts(
         actor_char, target_char, skill_data, context=context
     )
@@ -1884,11 +2052,11 @@ def calculate_skill_preview(
     dice_bonus_power += _to_int(buff_bonus_parts.get("dice", 0))
     final_power_bonus += _to_int(buff_bonus_parts.get("final", 0))
 
-    # 固有恩恵
+    # 蝗ｺ譛画←諱ｵ
     wadatsumi_bonus = 0
     valvile_correction = 0
     try:
-        if get_effective_origin_id(actor_char) == 9 and skill_data.get('属性') == '斬撃':
+        if get_effective_origin_id(actor_char) == 9 and skill_data.get('属性') == '水':
             wadatsumi_bonus = 1
     except Exception:
         wadatsumi_bonus = 0
@@ -1910,64 +2078,67 @@ def calculate_skill_preview(
     skill_details['base_power_mod'] = base_power_buff_mod + _to_int(external_base_power_mod) + temp_base_power_mod + origin_base_power_mod
     skill_details['final_power_total_mod'] = final_power_bonus
 
-    # ダイス部分の解析
-    palette = skill_data.get('チャットパレット', '')
-    cmd_part = re.sub(r'【.*?】', '', palette).strip()
+    # 繝繧､繧ｹ驛ｨ蛻・・隗｣譫・
+    palette = _pick_first(skill_data, [key_palette, 'palette'], '')
+    cmd_part = re.sub(r'【.*?】|\[.*?\]', '', palette).strip()
+    cmd_part = re.sub(r'^(?:/sroll|/sr|/roll|/r)\s*', '', cmd_part, flags=re.IGNORECASE).strip()
+    if ':' in cmd_part:
+        cmd_part = str(cmd_part).split(':')[-1].strip()
 
     match_base = re.match(r'^(\d+)(.*)$', cmd_part)
     if match_base:
         dice_part = match_base.group(2).strip()
         if not dice_part:
-            dice_part = skill_data.get('ダイス威力', '')
+            dice_part = _pick_first(skill_data, [key_dice_power, 'dice_power'], '')
     else:
         if '+' in cmd_part:
             dice_part = cmd_part.split('+', 1)[1]
         else:
-            dice_part = skill_data.get('ダイス威力', '2d6')
+            dice_part = _pick_first(skill_data, [key_dice_power, 'dice_power'], '2d6')
 
     resolved_dice = resolve_placeholders(dice_part, actor_char)
 
-    # 補正表示（UI向け）
+    # 陬懈ｭ｣陦ｨ遉ｺ・・I蜷代￠・・
     correction_details = []
     total_base_mod = base_power_buff_mod + _to_int(external_base_power_mod) + temp_base_power_mod + origin_base_power_mod
     if total_base_mod != 0:
-        correction_details.append({'source': '基礎威力', 'value': total_base_mod})
+        correction_details.append({'source': key_base_power, 'value': total_base_mod})
 
-    phys_mod = _to_int(get_status_value(actor_char, '物理補正'))
-    mag_mod = _to_int(get_status_value(actor_char, '魔法補正'))
-    dice_pow_mod = _to_int(get_status_value(actor_char, 'ダイス威力'))
+    phys_mod = _to_int(get_status_value(actor_char, key_physical))
+    mag_mod = _to_int(get_status_value(actor_char, key_magical))
+    dice_pow_mod = _to_int(get_status_value(actor_char, key_dice_power))
 
     delta_phys = 0
     delta_mag = 0
     delta_dice_pow = 0
 
-    if '{物理補正}' in dice_part and phys_mod != 0:
-        base_phys = _to_int((actor_char.get('initial_data') or {}).get('物理補正', 0))
+    if f'{{{key_physical}}}' in dice_part and phys_mod != 0:
+        base_phys = _to_int((actor_char.get('initial_data') or {}).get(key_physical, 0))
         delta_phys = phys_mod - base_phys
         if delta_phys != 0:
-            correction_details.append({'source': '物理補正', 'value': delta_phys})
+            correction_details.append({'source': key_physical, 'value': delta_phys})
 
-    if '{魔法補正}' in dice_part and mag_mod != 0:
-        base_mag = _to_int((actor_char.get('initial_data') or {}).get('魔法補正', 0))
+    if f'{{{key_magical}}}' in dice_part and mag_mod != 0:
+        base_mag = _to_int((actor_char.get('initial_data') or {}).get(key_magical, 0))
         delta_mag = mag_mod - base_mag
         if delta_mag != 0:
-            correction_details.append({'source': '魔法補正', 'value': delta_mag})
+            correction_details.append({'source': key_magical, 'value': delta_mag})
 
-    if '{ダイス威力}' in dice_part and dice_pow_mod != 0:
-        base_dice_pow = _to_int((actor_char.get('initial_data') or {}).get('ダイス威力', 0))
+    if f'{{{key_dice_power}}}' in dice_part and dice_pow_mod != 0:
+        base_dice_pow = _to_int((actor_char.get('initial_data') or {}).get(key_dice_power, 0))
         delta_dice_pow = dice_pow_mod - base_dice_pow
         if delta_dice_pow != 0:
-            correction_details.append({'source': 'ダイス威力', 'value': delta_dice_pow})
+            correction_details.append({'source': key_dice_power, 'value': delta_dice_pow})
 
     if bonus_power != 0:
-        correction_details.append({'source': '威力補正', 'value': bonus_power})
+        correction_details.append({'source': '基礎威力補正', 'value': bonus_power})
 
     final_power_display = final_power_bonus - valvile_correction
     if final_power_display != 0:
         correction_details.append({'source': '最終威力補正', 'value': final_power_display})
 
     if valvile_correction != 0:
-        correction_details.append({'source': 'ヴァルヴァイレ恩恵', 'value': valvile_correction})
+        correction_details.append({'source': 'ヴァルヴァイル補正', 'value': valvile_correction})
 
     processed_dice = resolved_dice
     if dice_bonus_power != 0:
@@ -1979,14 +2150,14 @@ def calculate_skill_preview(
             return f"{sign}{num}d{new_faces}"
 
         processed_dice = re.sub(r'([+-]?)(\d+)d(\d+)', modify_dice_faces, processed_dice, count=1)
-        correction_details.append({'source': 'ダイス威力', 'value': dice_bonus_power})
+        correction_details.append({'source': key_dice_power, 'value': dice_bonus_power})
 
     senritsu_dice_reduction = 0
     if senritsu_max_apply > 0:
         current_senritsu = _to_int(get_status_value(actor_char, '戦慄'))
         apply_val = min(current_senritsu, senritsu_max_apply) if current_senritsu > 0 else 0
 
-        dice_m = re.search(r'([+-]?)(\d+)d(\d+)', skill_data.get('ダイス威力', ''))
+        dice_m = re.search(r'([+-]?)(\d+)d(\d+)', _pick_first(skill_data, [key_dice_power, 'dice_power'], ''))
         if dice_m and apply_val > 0:
             orig_faces = int(dice_m.group(3))
             if orig_faces > 1:
@@ -2059,11 +2230,11 @@ def calculate_skill_preview(
     try:
         for m in re.finditer(r'([+-]?)(\d+)d(?:\{([^}]+)\}|(\d+))', str(dice_part or '')):
             key = str((m.group(3) or '')).strip()
-            if key == '物理補正':
+            if key == key_physical:
                 dice_term_sources.append('physical')
-            elif key == '魔法補正':
+            elif key == key_magical:
                 dice_term_sources.append('magical')
-            elif key == 'ダイス威力':
+            elif key == key_dice_power:
                 dice_term_sources.append('dice_stat')
             else:
                 dice_term_sources.append('dice')
@@ -2114,7 +2285,7 @@ def calculate_skill_preview(
 
 def build_power_result_snapshot(preview_data, roll_result):
     """
-    プレビュー時の内訳とロール結果を統合し、確定威力の参照データを返す。
+    繝励Ξ繝薙Η繝ｼ譎ゅ・蜀・ｨｳ縺ｨ繝ｭ繝ｼ繝ｫ邨先棡繧堤ｵｱ蜷医＠縲∫｢ｺ螳壼ｨ∝鴨縺ｮ蜿ら・繝・・繧ｿ繧定ｿ斐☆縲・
     """
     preview_data = preview_data if isinstance(preview_data, dict) else {}
     roll_result = roll_result if isinstance(roll_result, dict) else {}
@@ -2234,7 +2405,7 @@ def _resolve_buff_condition_value(buff_entry):
 
 def compute_damage_multipliers(attacker, defender, context=None):
     """
-    与ダメ(outgoing) と被ダメ(incoming) の倍率を一括計算する。
+    荳弱ム繝｡(outgoing) 縺ｨ陲ｫ繝繝｡(incoming) 縺ｮ蛟咲紫繧剃ｸ諡ｬ險育ｮ励☆繧九・
     Returns:
         {
             "outgoing": float,
@@ -2258,9 +2429,9 @@ def compute_damage_multipliers(attacker, defender, context=None):
         if condition and not check_condition(condition, defender, attacker, context=context):
             continue
 
-        if buff_name == "混乱":
+        if buff_name == "豺ｷ荵ｱ":
             incoming *= 1.5
-            incoming_logs.append("混乱")
+            incoming_logs.append("豺ｷ荵ｱ")
 
         incoming_value = _resolve_buff_multiplier_value(
             buff,
@@ -2298,29 +2469,29 @@ def compute_damage_multipliers(attacker, defender, context=None):
 
 def calculate_damage_multiplier(character):
     """
-    キャラクターのバフからダメージ倍率を計算する
-    (混乱 + damage_multiplier)
+    繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ縺ｮ繝舌ヵ縺九ｉ繝繝｡繝ｼ繧ｸ蛟咲紫繧定ｨ育ｮ励☆繧・
+    (豺ｷ荵ｱ + damage_multiplier)
 
     Args:
-        character (dict): キャラクターデータ
+        character (dict): 繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ繝・・繧ｿ
 
     Returns:
         tuple: (final_multiplier, log_list)
-            - final_multiplier (float): 最終的な倍率
-            - log_list (list): 適用された効果の名前リスト
+            - final_multiplier (float): 譛邨ら噪縺ｪ蛟咲紫
+            - log_list (list): 驕ｩ逕ｨ縺輔ｌ縺溷柑譫懊・蜷榊燕繝ｪ繧ｹ繝・
     """
     mult = compute_damage_multipliers(None, character)
     return mult.get("incoming", 1.0), mult.get("incoming_logs", [])
 
 def process_on_death(room, char, username):
     """
-    死亡時イベント(on_death)を処理する
+    豁ｻ莠｡譎ゅう繝吶Φ繝・on_death)繧貞・逅・☆繧・
     """
     if not char: return
     logs = []
 
-    # special_buffs (またはパッシブ) に on_death があれば実行
-    # パッシブは常時バフとして special_buffs に展開されている前提（ローダーの仕組み上そうなっている）
+    # special_buffs (縺ｾ縺溘・繝代ャ繧ｷ繝・ 縺ｫ on_death 縺後≠繧後・螳溯｡・
+    # 繝代ャ繧ｷ繝悶・蟶ｸ譎ゅヰ繝輔→縺励※ special_buffs 縺ｫ螻暮幕縺輔ｌ縺ｦ縺・ｋ蜑肴署・医Ο繝ｼ繝繝ｼ縺ｮ莉慕ｵ・∩荳翫◎縺・↑縺｣縺ｦ縺・ｋ・・
 
     for buff in char.get('special_buffs', []):
         effect_data = get_buff_effect(buff.get('name'))
@@ -2330,11 +2501,11 @@ def process_on_death(room, char, username):
 
         on_death_effects = effect_data.get('on_death', [])
         if on_death_effects:
-            # 実行
-            # 死んだ本人を actor として効果処理
-            # ターゲットは効果定義内の target (ALL_ENEMIESなど) に依存
+            # 螳溯｡・
+            # 豁ｻ繧薙□譛ｬ莠ｺ繧・actor 縺ｨ縺励※蜉ｹ譫懷・逅・
+            # 繧ｿ繝ｼ繧ｲ繝・ヨ縺ｯ蜉ｹ譫懷ｮ夂ｾｩ蜀・・ target (ALL_ENEMIES縺ｪ縺ｩ) 縺ｫ萓晏ｭ・
 
-            # コンテキスト作成
+            # 繧ｳ繝ｳ繝・く繧ｹ繝井ｽ懈・
             from manager.room_manager import get_room_state, broadcast_log, _update_char_stat
             state = get_room_state(room)
             context = {"characters": state['characters'], "room": room}
@@ -2342,21 +2513,21 @@ def process_on_death(room, char, username):
             _, l, changes = process_skill_effects(on_death_effects, "IMMEDIATE", char, None, None, context=context)
 
             if l:
-                broadcast_log(room, f"【{char['name']} 死亡時効果】" + " ".join(l), 'state-change')
+                broadcast_log(room, f"[{char['name']} on_death] " + " ".join(l), "state-change")
 
             for (c, type, name, value) in changes:
                 if type == "APPLY_STATE":
                     current = get_status_value(c, name)
-                    _update_char_stat(room, c, name, current + value, username=f"[{char['name']}:遺言]")
+                    _update_char_stat(room, c, name, current + value, username=f"[{char['name']}:驕ｺ險]")
                 elif type == "APPLY_BUFF":
                     apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
-                    broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
+                    broadcast_log(room, f"[{name}] applied to {c['name']}", "state-change")
                 elif type == "SUMMON_CHARACTER":
                     from manager.summons.service import apply_summon_change
 
                     res = apply_summon_change(room, state, c, value)
                     if res.get("ok"):
-                        broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                        broadcast_log(room, res.get("message", "Summon applied"), "state-change")
                     else:
                         logger.warning("[on_death summon failed] %s", res.get("message"))
                 elif type == "GRANT_SKILL":
@@ -2367,29 +2538,29 @@ def process_on_death(room, char, username):
                         grant_payload["skill_id"] = name
                     res = apply_grant_skill_change(room, state, char, c, grant_payload)
                     if res.get("ok"):
-                        broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+                        broadcast_log(room, res.get("message", "Skill grant applied"), "state-change")
                     else:
                         logger.warning("[on_death grant_skill failed] %s", res.get("message"))
 
-    # 通常ログは呼び出し元で処理済み
+    # 騾壼ｸｸ繝ｭ繧ｰ縺ｯ蜻ｼ縺ｳ蜃ｺ縺怜・縺ｧ蜃ｦ逅・ｸ医∩
 
 def process_battle_start(room, char):
     """
-    戦闘突入時イベント(battle_start_effect)を処理する
-    初期FP付与などに使用
+    謌ｦ髣倡ｪ∝・譎ゅう繝吶Φ繝・battle_start_effect)繧貞・逅・☆繧・
+    蛻晄悄FP莉倅ｸ弱↑縺ｩ縺ｫ菴ｿ逕ｨ
     """
     if not char: return
 
-    # パッシブ/バフチェック
+    # 繝代ャ繧ｷ繝・繝舌ヵ繝√ぉ繝・け
     executed = False
 
     for buff in char.get('special_buffs', []):
         buff_name = buff.get('name')
         effect_data = get_buff_effect(buff_name)
 
-        # effect_data自体がない場合や、battle_start_effectがない場合はスキップ
+        # effect_data閾ｪ菴薙′縺ｪ縺・ｴ蜷医ｄ縲｜attle_start_effect縺後↑縺・ｴ蜷医・繧ｹ繧ｭ繝・・
         if not effect_data:
-             # ★追加: 動的バフ（輝化スキルなど）で、dataプロパティに直接定義が入っている場合
+             # 笘・ｿｽ蜉: 蜍慕噪繝舌ヵ・郁ｼ晏喧繧ｹ繧ｭ繝ｫ縺ｪ縺ｩ・峨〒縲‥ata繝励Ο繝代ユ繧｣縺ｫ逶ｴ謗･螳夂ｾｩ縺悟・縺｣縺ｦ縺・ｋ蝣ｴ蜷・
              if 'data' in buff:
                  effect_data = buff['data']
              else:
@@ -2397,16 +2568,16 @@ def process_battle_start(room, char):
 
         start_effects = effect_data.get('battle_start_effect', [])
         if start_effects:
-            # 実行 (タイミングチェックは不要だが、process_skill_effectsの仕様上タイミング指定が必要ならIMMEDIATE等で代用)
-            # ここではタイミングフィルタを無視するか、データ側で指定させる
-            # 既存関数再利用のため、タイミングは "BATTLE_START" と仮定するが、
-            # process_skill_effectsはタイミング一致を見るので、データ側にも timing: BATTLE_START が必要。
-            # しかし手入力の手間を省くため、ここでは強制的に通すか、process_skill_effectsを使わずに処理する。
+            # 螳溯｡・(繧ｿ繧､繝溘Φ繧ｰ繝√ぉ繝・け縺ｯ荳崎ｦ√□縺後｝rocess_skill_effects縺ｮ莉墓ｧ倅ｸ翫ち繧､繝溘Φ繧ｰ謖・ｮ壹′蠢・ｦ√↑繧迂MMEDIATE遲峨〒莉｣逕ｨ)
+            # 縺薙％縺ｧ縺ｯ繧ｿ繧､繝溘Φ繧ｰ繝輔ぅ繝ｫ繧ｿ繧堤┌隕悶☆繧九°縲√ョ繝ｼ繧ｿ蛛ｴ縺ｧ謖・ｮ壹＆縺帙ｋ
+            # 譌｢蟄倬未謨ｰ蜀榊茜逕ｨ縺ｮ縺溘ａ縲√ち繧､繝溘Φ繧ｰ縺ｯ "BATTLE_START" 縺ｨ莉ｮ螳壹☆繧九′縲・
+            # process_skill_effects縺ｯ繧ｿ繧､繝溘Φ繧ｰ荳閾ｴ繧定ｦ九ｋ縺ｮ縺ｧ縲√ョ繝ｼ繧ｿ蛛ｴ縺ｫ繧・timing: BATTLE_START 縺悟ｿ・ｦ√・
+            # 縺励°縺玲焔蜈･蜉帙・謇矩俣繧堤怐縺上◆繧√√％縺薙〒縺ｯ蠑ｷ蛻ｶ逧・↓騾壹☆縺九｝rocess_skill_effects繧剃ｽｿ繧上★縺ｫ蜃ｦ逅・☆繧九・
 
-            # 簡易実装: ここで処理ループを回す (process_skill_effectsは条件等が複雑なので再利用したい)
-            # データ側に timing: BATTLE_START を付与して渡す
+            # 邁｡譏灘ｮ溯｣・ 縺薙％縺ｧ蜃ｦ逅・Ν繝ｼ繝励ｒ蝗槭☆ (process_skill_effects縺ｯ譚｡莉ｶ遲峨′隍・尅縺ｪ縺ｮ縺ｧ蜀榊茜逕ｨ縺励◆縺・
+            # 繝・・繧ｿ蛛ｴ縺ｫ timing: BATTLE_START 繧剃ｻ倅ｸ弱＠縺ｦ貂｡縺・
 
-            # deepcopyしてtiming注入
+            # deepcopy縺励※timing豕ｨ蜈･
             import copy
             effects_to_run = copy.deepcopy(start_effects)
             for eff in effects_to_run:
@@ -2421,7 +2592,7 @@ def process_battle_start(room, char):
             _, l, changes = process_skill_effects(effects_to_run, "BATTLE_START", char, None, None, context=context)
 
             if l:
-                broadcast_log(room, f"【{char['name']} 開始時効果】" + " ".join(l), 'state-change')
+                broadcast_log(room, f"[{char['name']} battle_start] " + " ".join(l), "state-change")
 
             for (c, type, name, value) in changes:
                 if type == "APPLY_STATE":
@@ -2429,13 +2600,13 @@ def process_battle_start(room, char):
                     _update_char_stat(room, c, name, current + value, username=f"[{buff_name}]")
                 elif type == "APPLY_BUFF":
                      apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
-                     broadcast_log(room, f"[{name}] が {c['name']} に付与されました。", 'state-change')
+                     broadcast_log(room, f"[{name}] applied to {c['name']}", "state-change")
                 elif type == "SUMMON_CHARACTER":
                      from manager.summons.service import apply_summon_change
 
                      res = apply_summon_change(room, state, c, value)
                      if res.get("ok"):
-                         broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                         broadcast_log(room, res.get("message", "Summon applied"), "state-change")
                      else:
                          logger.warning("[battle_start summon failed] %s", res.get("message"))
                 elif type == "GRANT_SKILL":
@@ -2446,7 +2617,7 @@ def process_battle_start(room, char):
                          grant_payload["skill_id"] = name
                      res = apply_grant_skill_change(room, state, char, c, grant_payload)
                      if res.get("ok"):
-                         broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+                         broadcast_log(room, res.get("message", "Skill grant applied"), "state-change")
                      else:
                          logger.warning("[battle_start grant_skill failed] %s", res.get("message"))
 
@@ -2456,3 +2627,4 @@ def process_battle_start(room, char):
         from manager.room_manager import save_specific_room_state, broadcast_state_update
         save_specific_room_state(room)
         broadcast_state_update(room)
+

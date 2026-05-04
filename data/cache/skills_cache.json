@@ -1284,6 +1284,60 @@
       "攻撃"
     ]
   },
+  "Pb-12": {
+    "スキルID": "Pb-12",
+    "チャットパレット": "6+1d5+1d{物理補正} 【Pb-12 チャージ】",
+    "デフォルト名称": "チャージ",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "1",
+    "基礎威力": "6",
+    "ダイス威力": "+1d5",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-19|使用時]]):[[W-74|蓄力]]3を得る。([[W-20|的中時]]):[[W-02|破裂]]2を付与。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb12\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-30\",\"data\":{\"count\":3}},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":2}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "Pb-13": {
+    "スキルID": "Pb-13",
+    "チャットパレット": "4+1d8+1d{物理補正} 【Pb-13 ダッシュ】",
+    "デフォルト名称": "ダッシュ",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "2",
+    "基礎威力": "4",
+    "ダイス威力": "+1d8",
+    "使用時効果": "([[W-19|使用時]]):FPを1消費。",
+    "特記": "([[W-19|使用時]]):[[W-74|蓄力]]2を消費し、このスキルの基礎威力+3。",
+    "発動時効果": "([[W-20|的中時]]):[[W-02|破裂]]5を付与。([[W-20|的中時]]):[[W-00|出血]]6を付与。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb13\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":1}],\"power_bonus\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":5},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":6},{\"timing\":\"PRE_MATCH\",\"type\":\"MODIFY_BASE_POWER\",\"target\":\"self\",\"value\":3,\"condition\":{\"source\":\"self\",\"param\":\"蓄力_count\",\"operator\":\"GTE\",\"value\":2}},{\"timing\":\"PRE_MATCH\",\"type\":\"CONSUME_BUFF_COUNT_FOR_GAIN\",\"target\":\"self\",\"buff_name\":\"蓄力\",\"consume_required\":2,\"gains\":[]}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "Pb-14": {
+    "スキルID": "Pb-14",
+    "チャットパレット": "5+1d6+1d{物理補正} 【Pb-14 エンパワー】",
+    "デフォルト名称": "エンパワー",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "2",
+    "基礎威力": "5",
+    "ダイス威力": "+1d6",
+    "使用時効果": "([[W-19|使用時]]):FPを2消費。",
+    "特記": "自分の[[W-74|蓄力]]3につきこのスキルの最終威力+1。(最大で7)",
+    "発動時効果": "([[W-20|的中時]]):対象の[[W-02|破裂]]と[[W-00|出血]]の合計値3につき1、[[W-74|蓄力]]を得る。（最大で7）",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb14\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[{\"operation\":\"PER_N_BONUS\",\"source\":\"self\",\"param\":\"蓄力_count\",\"apply_to\":\"final\",\"value\":1,\"per_N\":3,\"max_bonus\":7}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF_PER_N\",\"target\":\"self\",\"source\":\"target\",\"source_param\":\"状態異常スタック合計:破裂,出血\",\"buff_id\":\"Bu-30\",\"value\":1,\"per_N\":3,\"max_count\":7}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
   "Pp-00": {
     "スキルID": "Pp-00",
     "チャットパレット": "4+1d2+1d{物理補正} 【Pp-00 基本の刺突】",
