@@ -1296,8 +1296,8 @@
     "ダイス威力": "+1d5",
     "使用時効果": "([[W-19|使用時]]):FPを2消費。",
     "特記": "",
-    "発動時効果": "([[W-19|使用時]]):[[W-74|蓄力]]3を得る。([[W-20|的中時]]):[[W-02|破裂]]2を付与。",
-    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb12\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-30\",\"data\":{\"count\":3}},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":2}]}",
+    "発動時効果": "([[W-19|使用時]]):[[W-74|蓄力]]5を得る。([[W-20|的中時]]):[[W-02|破裂]]2を付与。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb12\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-30\",\"data\":{\"count\":5}},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":2}]}",
     "tags": [
       "攻撃"
     ]
@@ -1566,8 +1566,8 @@
     "ダイス威力": "+1d8",
     "使用時効果": "([[W-19|使用時]]):FPを1消費。",
     "特記": "",
-    "発動時効果": "([[W-19|使用時]]):[[W-74|蓄力]]2を得る。",
-    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pp11\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":1}],\"power_bonus\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-30\",\"data\":{\"count\":2}}]}",
+    "発動時効果": "([[W-19|使用時]]):[[W-74|蓄力]]3を得る。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pp11\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":1}],\"power_bonus\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-30\",\"data\":{\"count\":3}}]}",
     "tags": [
       "攻撃"
     ]
@@ -1584,8 +1584,8 @@
     "ダイス威力": "+1d7",
     "使用時効果": "([[W-19|使用時]]):FPを2消費。",
     "特記": "",
-    "発動時効果": "([[W-19|使用時]]):[[W-74|蓄力]]3を得る。([[W-20|的中時]]):次のラウンドで、対象の受けるダメージ+20%。",
-    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pp12\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-30\",\"data\":{\"count\":3}},{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-43\",\"lasting\":1,\"delay\":1,\"data\":{\"display_name\":\"マーキング\",\"value\":20}}]}",
+    "発動時効果": "([[W-19|使用時]]):[[W-74|蓄力]]4を得る。([[W-20|的中時]]):次のラウンドで、対象の受けるダメージ+20%。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pp12\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-30\",\"data\":{\"count\":4}},{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-43\",\"lasting\":1,\"delay\":1,\"data\":{\"display_name\":\"マーキング\",\"value\":20}}]}",
     "tags": [
       "攻撃"
     ]
