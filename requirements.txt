@@ -5,7 +5,7 @@ Flask-SocketIO
 Flask-SQLAlchemy
 eventlet
 cloudinary
-gunicorn
+gunicorn==22.0.0
 python-dotenv
 psycopg2-binary
 gspread
