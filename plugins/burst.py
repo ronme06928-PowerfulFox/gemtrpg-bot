@@ -1,4 +1,4 @@
-﻿# plugins/burst.py
+# plugins/burst.py
 from .base import BaseEffect
 from manager.utils import get_status_value, set_status_value
 
