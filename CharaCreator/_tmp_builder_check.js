@@ -1,4 +1,4 @@
-﻿const REF = window.JSON_BUILDER_REFERENCE || { buff_refs: [], skill_refs: [], summon_refs: [], state_refs: ["HP", "MP", "FP", "行動値", "速度値"] };
+const REF = window.JSON_BUILDER_REFERENCE || { buff_refs: [], skill_refs: [], summon_refs: [], state_refs: ["HP", "MP", "FP", "行動値", "速度値"] };
     const TIMINGS = ["PRE_MATCH","BEFORE_POWER_ROLL","WIN","LOSE","HIT","UNOPPOSED","AFTER_DAMAGE_APPLY","RESOLVE_START","RESOLVE_STEP_END","RESOLVE_END","END_MATCH","END_ROUND","IMMEDIATE","BATTLE_START"];
     const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","MULTIPLY_STATE","APPLY_BUFF","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","FORCE_UNOPPOSED","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER"];
     const TARGETS = ["","self","target","ALL_ENEMIES","ALL_ALLIES","ALL_OTHER_ALLIES","ALL","NEXT_ALLY"];

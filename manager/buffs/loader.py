@@ -1,4 +1,4 @@
-﻿# manager/buffs/loader.py
+# manager/buffs/loader.py
 """
 バフ図鑑データをCSVから読み込むローダー
 """

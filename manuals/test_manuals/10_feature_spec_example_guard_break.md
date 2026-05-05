@@ -1,4 +1,4 @@
-﻿# 10 New Feature Spec Example: Guard Break (防御崩し)
+# 10 New Feature Spec Example: Guard Break (防御崩し)
 
 ## Feature Name
 - Guard Break (防御崩し)

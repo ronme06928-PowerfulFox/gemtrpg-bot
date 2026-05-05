@@ -1,4 +1,4 @@
-﻿import manager.utils as _utils_mod
+import manager.utils as _utils_mod
 from extensions import all_skill_data as _default_all_skill_data
 from extensions import socketio as _default_socketio
 from manager.buff_catalog import get_buff_effect

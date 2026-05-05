@@ -1,4 +1,4 @@
-﻿import json
+import json
 import re
 
 from extensions import all_skill_data

@@ -1,4 +1,4 @@
-﻿# 15. JSON定義マスター（Phase3 strict運用版）
+# 15. JSON定義マスター（Phase3 strict運用版）
 
 最終更新: 2026-05-05  
 対象: 実装済み（Current）

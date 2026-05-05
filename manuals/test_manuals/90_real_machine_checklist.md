@@ -1,4 +1,4 @@
-﻿# 90 Real Machine Checklist
+# 90 Real Machine Checklist
 
 ## 目的
 - 自動テスト通過後に、実機で見落としやすい統合不具合を捕捉する

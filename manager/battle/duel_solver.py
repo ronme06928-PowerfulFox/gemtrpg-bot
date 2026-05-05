@@ -1,4 +1,4 @@
-﻿import re
+import re
 import json
 from threading import Lock
 from manager.core.lock_manager import file_lock

@@ -1,4 +1,4 @@
-﻿# 05 PvE AI And Round End
+# 05 PvE AI And Round End
 
 ## 責務範囲
 - `manager/battle/pve_intent_planner.py`

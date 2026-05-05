@@ -1,4 +1,4 @@
-﻿# manager/room_manager.py
+# manager/room_manager.py
 import copy
 import time
 

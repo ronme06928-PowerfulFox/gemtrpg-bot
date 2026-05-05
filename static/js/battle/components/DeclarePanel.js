@@ -1,4 +1,4 @@
-﻿import { store } from '../core/BattleStore.js';
+import { store } from '../core/BattleStore.js';
 import { socketClient } from '../core/SocketClient.js';
 
 class DeclarePanel {
@@ -1034,7 +1034,7 @@ class DeclarePanel {
         const correctionDetails = Array.isArray(calc?.correction_details) ? calc.correction_details : [];
         const baseBonus = correctionDetails.reduce((sum, detail) => {
             const source = String(detail?.source || '').trim();
-            if (source !== '基礎威力補正') return sum;
+            if (source !== '??????') return sum;
             return sum + Number(detail?.value || 0);
         }, 0);
         const totalFlatBonus = Number(pb.total_flat_bonus || 0);
@@ -1079,16 +1079,15 @@ class DeclarePanel {
         const pb = (calc?.power_breakdown && typeof calc.power_breakdown === 'object')
             ? calc.power_breakdown
             : {};
-        const ruleBaseMod = Number(pb.rule_power_bonus || 0);
-        let baseMod = Number(calc?.skill_details?.base_power_mod || 0) + ruleBaseMod;
+        let baseMod = Number(calc?.skill_details?.base_power_mod || 0);
 
         const correctionDetails = Array.isArray(calc?.correction_details) ? calc.correction_details : [];
         correctionDetails.forEach((detail) => {
-            const source = String(detail?.source || '補正');
-            if (source === '威力補正') return;
-            if (source === '基礎威力') return;
+            const source = String(detail?.source || '??');
+            if (source === '???????') return;
+            if (source === '????') return;
             const value = Number(detail?.value || 0);
-            if (source === '基礎威力補正') {
+            if (source === '??????') {
                 if (value !== 0) baseMod += value;
                 return;
             }
@@ -1096,24 +1095,24 @@ class DeclarePanel {
                 rows.push(`[${source} ${value > 0 ? '+' : ''}${value}]`);
             }
         });
-        if (baseMod !== 0) rows.unshift(`[基礎威力 ${baseMod > 0 ? '+' : ''}${baseMod}]`);
+        if (baseMod !== 0) rows.unshift(`[???? ${baseMod > 0 ? '+' : ''}${baseMod}]`);
 
         const senritsuPenalty = Number(calc?.senritsu_dice_reduction || 0);
         if (senritsuPenalty > 0) {
-            rows.push(`[ダイス威力 -${senritsuPenalty}] (戦慄)`);
+            rows.push(`[????? -${senritsuPenalty}] (??)`);
         }
 
         if (pb && typeof pb === 'object') {
             const base = Number(pb.base_power ?? NaN);
             const finalBase = Number(pb.final_base_power ?? NaN);
             if (!Number.isNaN(base) && !Number.isNaN(finalBase) && base !== finalBase) {
-                rows.push(`[基礎威力 ${base} -> ${finalBase}]`);
+                rows.push(`[???? ${base} -> ${finalBase}]`);
             }
 
             const keyRows = [
-                ['dice_count_mod', 'ダイス個数'],
-                ['dice_face_mod', 'ダイス面数'],
-                ['dice_bonus_mod', 'ダイス固定値']
+                ['dice_count_mod', '?????'],
+                ['dice_face_mod', '?????'],
+                ['dice_bonus_mod', '??????']
             ];
             keyRows.forEach(([key, label]) => {
                 const val = Number(pb[key] || 0);

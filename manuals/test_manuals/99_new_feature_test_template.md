@@ -1,4 +1,4 @@
-﻿# 99 New Feature Test Template
+# 99 New Feature Test Template
 
 ## Feature Name
 - `<name>`

@@ -59,6 +59,125 @@ STACK_RESOURCE_BUFF_IDS = {
     LEGACY_GYOMA_BUFF_ID,
     LEGACY_CHIKURYOKU_BUFF_ID,
 }
+STACK_RESOURCE_VARIANT_KEY = "variant"
+STACK_RESOURCE_VARIANT_NORMAL = "normal"
+STACK_RESOURCE_VARIANT_BLOOD_PLASMA = "blood_plasma"
+STACK_RESOURCE_KIND_GYOMA = "gyoma"
+STACK_RESOURCE_KIND_CHIKURYOKU = "chikuryoku"
+
+
+def _resolve_stack_resource_kind(resource):
+    text = str(resource or "").strip().lower()
+    if text in {STACK_RESOURCE_KIND_GYOMA, "凝魔"}:
+        return STACK_RESOURCE_KIND_GYOMA
+    if text in {STACK_RESOURCE_KIND_CHIKURYOKU, "蓄力"}:
+        return STACK_RESOURCE_KIND_CHIKURYOKU
+
+    normalized_name = normalize_buff_name(resource)
+    if normalized_name == GYOMA_BUFF_NAME or text in {str(GYOMA_BUFF_ID).lower(), str(LEGACY_GYOMA_BUFF_ID).lower()}:
+        return STACK_RESOURCE_KIND_GYOMA
+    if normalized_name == CHIKURYOKU_BUFF_NAME or text in {str(CHIKURYOKU_BUFF_ID).lower(), str(LEGACY_CHIKURYOKU_BUFF_ID).lower()}:
+        return STACK_RESOURCE_KIND_CHIKURYOKU
+    return ""
+
+
+def resolve_stack_resource_name(resource):
+    kind = _resolve_stack_resource_kind(resource)
+    if kind == STACK_RESOURCE_KIND_GYOMA:
+        return GYOMA_BUFF_NAME
+    if kind == STACK_RESOURCE_KIND_CHIKURYOKU:
+        return CHIKURYOKU_BUFF_NAME
+    return ""
+
+
+def _is_stack_resource_buff_row(buff_row, kind):
+    if not isinstance(buff_row, dict) or not kind:
+        return False
+    row_name = normalize_buff_name(buff_row.get("name"))
+    row_id = str(buff_row.get("buff_id") or (buff_row.get("data") or {}).get("buff_id") or "").strip()
+    if kind == STACK_RESOURCE_KIND_GYOMA:
+        return row_name == GYOMA_BUFF_NAME or row_id in {GYOMA_BUFF_ID, LEGACY_GYOMA_BUFF_ID}
+    if kind == STACK_RESOURCE_KIND_CHIKURYOKU:
+        return row_name == CHIKURYOKU_BUFF_NAME or row_id in {CHIKURYOKU_BUFF_ID, LEGACY_CHIKURYOKU_BUFF_ID}
+    return False
+
+
+def _read_stack_resource_variant(buff_row):
+    if not isinstance(buff_row, dict):
+        return STACK_RESOURCE_VARIANT_NORMAL
+    value = str(buff_row.get(STACK_RESOURCE_VARIANT_KEY) or "").strip()
+    data = buff_row.get("data")
+    if not value and isinstance(data, dict):
+        value = str(data.get(STACK_RESOURCE_VARIANT_KEY) or "").strip()
+    return value or STACK_RESOURCE_VARIANT_NORMAL
+
+
+def get_stack_resource_count(char_obj, resource):
+    kind = _resolve_stack_resource_kind(resource)
+    if not kind or not isinstance(char_obj, dict):
+        return 0
+    total = 0
+    buffs = char_obj.get("special_buffs", [])
+    if not isinstance(buffs, list):
+        return 0
+    for buff in buffs:
+        if not _is_stack_resource_buff_row(buff, kind):
+            continue
+        if _safe_int(buff.get("delay"), 0) > 0:
+            continue
+        total += _resolve_buff_count_from_row(buff, default=0)
+    return max(0, int(total))
+
+
+def get_stack_resource_variant(char_obj, resource):
+    kind = _resolve_stack_resource_kind(resource)
+    if not kind or not isinstance(char_obj, dict):
+        return STACK_RESOURCE_VARIANT_NORMAL
+    buffs = char_obj.get("special_buffs", [])
+    if not isinstance(buffs, list):
+        return STACK_RESOURCE_VARIANT_NORMAL
+    for buff in buffs:
+        if not _is_stack_resource_buff_row(buff, kind):
+            continue
+        if _safe_int(buff.get("delay"), 0) > 0:
+            continue
+        return _read_stack_resource_variant(buff)
+    return STACK_RESOURCE_VARIANT_NORMAL
+
+
+def set_stack_resource_variant(char_obj, resource, variant):
+    kind = _resolve_stack_resource_kind(resource)
+    if not kind or not isinstance(char_obj, dict):
+        return False
+    value = str(variant or "").strip() or STACK_RESOURCE_VARIANT_NORMAL
+    updated = False
+    buffs = char_obj.get("special_buffs", [])
+    if not isinstance(buffs, list):
+        return False
+    for buff in buffs:
+        if not _is_stack_resource_buff_row(buff, kind):
+            continue
+        if _safe_int(buff.get("delay"), 0) > 0:
+            continue
+        buff[STACK_RESOURCE_VARIANT_KEY] = value
+        if not isinstance(buff.get("data"), dict):
+            buff["data"] = {}
+        buff["data"][STACK_RESOURCE_VARIANT_KEY] = value
+        updated = True
+    return updated
+
+
+def get_stack_variant_bleed_apply_bonus(char_obj):
+    if get_stack_resource_variant(char_obj, STACK_RESOURCE_KIND_GYOMA) != STACK_RESOURCE_VARIANT_BLOOD_PLASMA:
+        return 0
+    count = get_stack_resource_count(char_obj, STACK_RESOURCE_KIND_GYOMA)
+    return count // 10 if count > 0 else 0
+
+
+def get_stack_variant_bleed_power_bonus(char_obj):
+    if get_stack_resource_variant(char_obj, STACK_RESOURCE_KIND_GYOMA) != STACK_RESOURCE_VARIANT_BLOOD_PLASMA:
+        return 0
+    return get_stack_resource_count(char_obj, STACK_RESOURCE_KIND_GYOMA)
 
 
 def normalize_status_name(status_name):
@@ -477,11 +596,34 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
         if added_count <= 0:
             added_count = max(1, _safe_int(count, 1)) if count is not None else 1
 
-        explicit_lasting = payload.pop("explicit_lasting", None)
-        finite_lasting = _safe_int(lasting, -1) if explicit_lasting else -1
-
         if not isinstance(payload.get('data'), dict):
             payload['data'] = {}
+        existing_data = dict(existing.get('data') or {}) if isinstance(existing, dict) else {}
+        incoming_variant = str(
+            payload.get(STACK_RESOURCE_VARIANT_KEY)
+            or payload['data'].get(STACK_RESOURCE_VARIANT_KEY)
+            or ""
+        ).strip()
+        if not incoming_variant:
+            preserved_variant = str(
+                (existing.get(STACK_RESOURCE_VARIANT_KEY) if isinstance(existing, dict) else "")
+                or existing_data.get(STACK_RESOURCE_VARIANT_KEY)
+                or ""
+            ).strip()
+            if preserved_variant:
+                payload[STACK_RESOURCE_VARIANT_KEY] = preserved_variant
+                payload['data'][STACK_RESOURCE_VARIANT_KEY] = preserved_variant
+        elif STACK_RESOURCE_VARIANT_KEY not in payload['data']:
+            payload['data'][STACK_RESOURCE_VARIANT_KEY] = incoming_variant
+
+        explicit_lasting = payload.pop("explicit_lasting", None)
+        if not explicit_lasting:
+            explicit_lasting = bool(payload.pop("_explicit_lasting", False))
+        if not explicit_lasting and isinstance(payload.get("data"), dict):
+            explicit_lasting = bool(payload["data"].pop("_explicit_lasting", False))
+        if not explicit_lasting and isinstance(payload.get("data"), dict):
+            explicit_lasting = bool(payload["data"].pop("_explicit_lasting", False))
+        finite_lasting = _safe_int(lasting, -1) if explicit_lasting else -1
 
         current_count = 0
         if existing:
@@ -506,12 +648,19 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
             else:
                 existing['lasting'] = max(_safe_int(existing.get('lasting'), 0), _safe_int(payload.get('lasting'), 0))
                 existing['is_permanent'] = False
-            existing.update(payload)
+            merged = dict(payload)
+            if isinstance(existing.get("data"), dict) and isinstance(payload.get("data"), dict):
+                merged_data = dict(existing.get("data") or {})
+                merged_data.update(payload.get("data") or {})
+                merged["data"] = merged_data
+            existing.update(merged)
         else:
             char_obj['special_buffs'].append(payload)
         return
 
     # ★ 追加: 出血遷延(Bu-08) は lasting ではなく count 消費型として扱う
+    # ????(Bu-08) ? count ?????????
+    # rule v2 ? lasting ?????????????? count ????????
     if payload.get('buff_id') == 'Bu-08':
         def _resolve_count_from_payload(row):
             if isinstance(row.get('count'), (int, str)):
@@ -527,12 +676,24 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
                     pass
             return None
 
+        explicit_lasting = payload.pop("explicit_lasting", None)
+        if not explicit_lasting:
+            explicit_lasting = bool(payload.pop("_explicit_lasting", False))
+        if not explicit_lasting and isinstance(payload.get("data"), dict):
+            explicit_lasting = bool(payload["data"].pop("_explicit_lasting", False))
         added_count = _resolve_count_from_payload(payload)
         if added_count is None and count is not None:
             try:
                 added_count = int(count)
             except (TypeError, ValueError):
                 added_count = None
+        if added_count is None and explicit_lasting:
+            try:
+                parsed_lasting = int(lasting)
+            except (TypeError, ValueError):
+                parsed_lasting = 0
+            if parsed_lasting > 0:
+                added_count = parsed_lasting
         if added_count is None:
             added_count = 1
         added_count = max(1, int(added_count))
@@ -665,12 +826,18 @@ def _get_stack_resource_stat_bonus(buff, stat_name):
     if buff.get('delay', 0) > 0:
         return 0
 
-    name = normalize_buff_name(buff.get('name'))
-    if name == GYOMA_BUFF_NAME and stat_name != normalize_status_name("魔法補正"):
+    kind = _resolve_stack_resource_kind(
+        buff.get("name") or buff.get("buff_id") or (buff.get("data") or {}).get("buff_id")
+    )
+    if not kind:
         return 0
-    if name == CHIKURYOKU_BUFF_NAME and stat_name != normalize_status_name("物理補正"):
+
+    variant = _read_stack_resource_variant(buff)
+    if kind == STACK_RESOURCE_KIND_GYOMA and stat_name != normalize_status_name("魔法補正"):
         return 0
-    if name not in STACK_RESOURCE_BUFF_NAMES:
+    if kind == STACK_RESOURCE_KIND_CHIKURYOKU and stat_name != normalize_status_name("物理補正"):
+        return 0
+    if kind == STACK_RESOURCE_KIND_GYOMA and variant == STACK_RESOURCE_VARIANT_BLOOD_PLASMA:
         return 0
 
     stack_count = _resolve_buff_count_from_row(buff, default=0)

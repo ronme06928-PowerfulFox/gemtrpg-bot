@@ -1,4 +1,4 @@
-﻿# 01 Select/Resolve Core
+# 01 Select/Resolve Core
 
 ## 責務範囲
 - `manager/battle/core.py`

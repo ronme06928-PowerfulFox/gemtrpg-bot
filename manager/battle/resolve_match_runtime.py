@@ -1,4 +1,4 @@
-﻿import copy
+import copy
 import time
 
 from extensions import all_skill_data as _default_all_skill_data

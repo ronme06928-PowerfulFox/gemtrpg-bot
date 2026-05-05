@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
@@ -333,7 +333,7 @@
       skillById: new Map(),
     };
     const TIMINGS = ["PRE_MATCH","BEFORE_POWER_ROLL","WIN","LOSE","HIT","UNOPPOSED","AFTER_DAMAGE_APPLY","RESOLVE_START","RESOLVE_STEP_END","RESOLVE_END","END_MATCH","END_ROUND","IMMEDIATE","BATTLE_START"];
-    const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","APPLY_BUFF_PER_N","MULTIPLY_STATE","APPLY_BUFF","CONSUME_BUFF_COUNT_FOR_GAIN","CONSUME_BUFF_COUNT_FOR_POWER","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER"];
+    const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","APPLY_BUFF_PER_N","MULTIPLY_STATE","APPLY_BUFF","CONSUME_BUFF_COUNT_FOR_GAIN","CONSUME_BUFF_COUNT_FOR_POWER","CONVERT_STACK_RESOURCE_VARIANT","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER"];
     const TARGETS = ["","self","target","ALL_ENEMIES","ALL_ALLIES","ALL_OTHER_ALLIES","ALL","NEXT_ALLY"];
     const POWER_OPS = ["FIXED","FIXED_IF_EXISTS","PER_N_BONUS","MULTIPLY"];
     const COND_SOURCES = ["self","target","skill","target_skill","relation"];
@@ -575,6 +575,14 @@
         value_help: "通常未使用。consume_max / value_per_stack / apply_to / min_consume は extra_json で指定",
         required: ["buff_name"],
         optional: ["target", "condition", "extra_json(consume_max,value_per_stack,apply_to,min_consume)"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "skill_id", "lasting", "delay", "summon_template_id", "value"]
+      },
+      CONVERT_STACK_RESOURCE_VARIANT: {
+        meaning: "凝魔/蓄力などのスタック資源を、スタック数そのままで別variantに変換します。",
+        value_kind: "none",
+        value_help: "通常未使用。to_variant / require_count_gte は extra_json で指定",
+        required: ["buff_name"],
+        optional: ["target", "condition", "extra_json(to_variant,require_count_gte)"],
         unused: ["source", "source_param", "per_N", "state_name", "buff_id", "skill_id", "lasting", "delay", "summon_template_id", "value"]
       },
       GRANT_SKILL: {
@@ -1016,9 +1024,10 @@
         add({ timing: t.timing, type: "USE_SKILL_AGAIN", target: "self", max_reuses: 1, consume_cost: false });
         return out;
       }
-      m=body.match(/(自分|自身)に(\d+)\s*ダメージ/);
+      m=body.match(/(?:自分|自身)(?:に|は|が)?\s*(\d+)\s*ダメージ(?:を)?(?:受ける|受け|被る|くらう)|(?:自分|自身)に\s*(\d+)\s*ダメージ/);
       if(m){
-        add({ timing:t.timing, type:"APPLY_STATE", target:"self", state_name:"HP", value:-Number(m[2]) });
+        const selfDamage = Number(m[1] || m[2] || 0);
+        if(selfDamage > 0) add({ timing:t.timing, type:"APPLY_STATE", target:"self", state_name:"HP", value:-selfDamage });
       }
       if(body.includes("亀裂崩壊")){
         const dmg=body.match(/(\d+)\s*ダメージ/);
@@ -1029,6 +1038,16 @@
       if(body.includes("戦慄殺到")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: "target", value: "戦慄殺到" });
       if(body.includes("荊棘飛散")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: "target", value: "荊棘飛散" });
       if(body.includes("ラウンド終了")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: "self", value: "END_ROUND_IMMEDIATELY" });
+      if(body.includes("血漿転化")){
+        add({
+          timing:t.timing,
+          type:"CONVERT_STACK_RESOURCE_VARIANT",
+          target:"self",
+          buff_name:"凝魔",
+          to_variant:"blood_plasma",
+          require_count_gte:1
+        });
+      }
       if(out.length && !/を付与|を得る|ダメージ|減少|回復|解除|再使用/.test(body)) return out;
 
       m=body.match(/(対象|相手)の([出血破裂亀裂戦慄荊棘・、，,\/\sと及び]+)の合計\s*(\d+)\s*につき\s*(\d+)\s*[、,，]\s*(自分|自身|対象|相手)の?(FP|MP|HP)\s*を?\s*回復/);
@@ -1070,6 +1089,48 @@
           });
         }
       }
+      m=body.match(/(?:自分|自身)の?失ったHP\s*(\d+)\s*につき[、,，]?\s*(蓄力|凝魔)\s*(\d+)\s*を得る(?:.*?最大(?:で)?\s*(\d+))?/);
+      if(m){
+        const perN=Number(m[1]);
+        const buffName=String(m[2]||"").trim();
+        const gainPerStep=Number(m[3]);
+        const buffId=_nlResolveBuffIdByName(buffName);
+        const maxCount=Math.max(1, Number(m[4]||9999));
+        if(buffId && perN>0 && gainPerStep>0){
+          add({
+            timing:t.timing,
+            type:"APPLY_BUFF_PER_N",
+            target:"self",
+            source:"self",
+            source_param:"lost_hp",
+            per_N:perN,
+            value:gainPerStep,
+            buff_id:buffId,
+            max_count:maxCount
+          });
+        }
+      }
+      m=body.match(/(?:自分|自身)の?失ったHP\s*(\d+)\s*につき\s*(\d+)\s*[、,，]?\s*(蓄力|凝魔)\s*を得る(?:.*?最大(?:で)?\s*(\d+))?/);
+      if(m){
+        const perN=Number(m[1]);
+        const gainPerStep=Number(m[2]);
+        const buffName=String(m[3]||"").trim();
+        const buffId=_nlResolveBuffIdByName(buffName);
+        const maxCount=Math.max(1, Number(m[4]||9999));
+        if(buffId && perN>0 && gainPerStep>0){
+          add({
+            timing:t.timing,
+            type:"APPLY_BUFF_PER_N",
+            target:"self",
+            source:"self",
+            source_param:"lost_hp",
+            per_N:perN,
+            value:gainPerStep,
+            buff_id:buffId,
+            max_count:maxCount
+          });
+        }
+      }
 
       m=body.match(/対象の(出血|破裂|亀裂|戦慄)\s*(\d+)\s*につき.*?(出血|破裂|亀裂|戦慄)\s*(\d+)\s*を付与(?:（?最大\s*(\d+)）?)?/);
       if(m){
@@ -1083,12 +1144,14 @@
       }
 
       m=body.match(/(\d+)\s*ラウンド.*?(出血|破裂|亀裂|戦慄|荊棘)\s*(-?\d+)\s*を付与/);
+      let matchedRoundStateApply = false;
       if(m){
+        matchedRoundStateApply = true;
         add({ timing: t.timing, type: "APPLY_STATE", target: defaultApplyTarget, state_name: m[2], value: Number(m[3]), rounds: Number(m[1]) });
       }
 
       m=body.match(/(出血|破裂|亀裂|戦慄|荊棘|FP|MP|HP)\s*(-?\d+)\s*を付与/);
-      if(m){
+      if(m && !matchedRoundStateApply){
         add({ timing: t.timing, type: "APPLY_STATE", target: defaultApplyTarget, state_name: m[1], value: Number(m[2]) });
       }
       m=body.match(/(出血|破裂|亀裂|戦慄|荊棘|FP|MP|HP)\s*(-?\d+)\s*を与える/);
@@ -1096,16 +1159,34 @@
         add({ timing: t.timing, type: "APPLY_STATE", target, state_name: m[1], value: Number(m[2]) });
       }
 
-      m=body.match(/(FP|MP|HP)\s*を\s*(-?\d+)\s*得る/);
+      let matchedConsumeGain = false;
+      m=body.match(/(蓄力|凝魔)\s*(\d+)\s*を消費し[、,，]?\s*(?:自分|自身)?の?\s*(FP|MP|HP)\s*を\s*(-?\d+)\s*(得る|獲得|回復)/);
       if(m){
+        const consumeN=Math.max(1, Number(m[2]));
+        const gainType=m[3];
+        const gainValue=Number(m[4]);
+        if(Number.isFinite(gainValue)){
+          add({
+            timing:t.timing,
+            type:"CONSUME_BUFF_COUNT_FOR_GAIN",
+            target:"self",
+            buff_name:m[1],
+            consume_required:consumeN,
+            gains:[{ type:gainType, value:gainValue }]
+          });
+          matchedConsumeGain = true;
+        }
+      }
+      m=body.match(/(FP|MP|HP)\s*を\s*(-?\d+)\s*得る/);
+      if(m && !matchedConsumeGain){
         add({ timing: t.timing, type: "APPLY_STATE", target, state_name: m[1], value: Number(m[2]) });
       }
       m=body.match(/(FP|MP|HP)\s*を\s*(-?\d+)\s*獲得/);
-      if(m){
+      if(m && !matchedConsumeGain){
         add({ timing: t.timing, type: "APPLY_STATE", target, state_name: m[1], value: Number(m[2]) });
       }
       m=body.match(/(MP|HP)\s*を\s*(\d+)\s*回復/);
-      if(m){
+      if(m && !matchedConsumeGain){
         add({ timing: t.timing, type: "APPLY_STATE", target, state_name: m[1], value: Number(m[2]) });
       }
       m=body.match(/(MP|HP)\s*を\s*(\d+)\s*減少/);
@@ -1123,6 +1204,34 @@
         add({ timing: t.timing, type: "DRAIN_HP", target: "self", value: 1 });
       }
 
+      let matchedConsumeApplyBuff = false;
+      m=body.match(/(蓄力|凝魔)\s*(\d+)\s*を消費し[、,，]?\s*(?:(対象|相手|自分|自身)に?)?\s*(\d+)\s*ラウンド(?:の)?\s*(加速|減速|挑発|行動不能|震盪|蓄力|凝魔|出血遷延)\s*を付与/);
+      if(m){
+        const consumeBuffName = m[1];
+        const consumeRequired = Math.max(1, Number(m[2]));
+        const applyTargetWord = m[3] || "";
+        const applyRounds = Math.max(1, Number(m[4]));
+        const applyBuffName = m[5];
+        const applyTarget = (applyTargetWord==="自分" || applyTargetWord==="自身") ? "self" : "target";
+        const applyBuffId = _nlResolveBuffIdByName(applyBuffName);
+        if(applyBuffId){
+          add({
+            timing:t.timing,
+            type:"CONSUME_BUFF_COUNT_FOR_GAIN",
+            target:"self",
+            buff_name:consumeBuffName,
+            consume_required:consumeRequired,
+            gains:[{
+              type:"APPLY_BUFF",
+              target:applyTarget,
+              buff_id:applyBuffId,
+              lasting:applyRounds
+            }]
+          });
+          matchedConsumeApplyBuff = true;
+        }
+      }
+
       m=body.match(/(Bu-\d+)\s*を付与/);
       if(m){
         const row={ timing: t.timing, type: "APPLY_BUFF", target: defaultApplyTarget, buff_id: m[1] };
@@ -1136,7 +1245,13 @@
       if(m){
         add({ timing: t.timing, type: "REMOVE_BUFF", target, buff_id: m[1] });
       }
-      m=body.match(/(加速|減速|挑発|行動不能|震盪|蓄力|凝魔|出血遷延)\s*(\d+)?\s*を(付与|得る)/);
+      m=body.match(/\[\[[^\]]*?(加速|減速|挑発|行動不能|震盪|蓄力|凝魔|出血遷延)[^\]]*?\]\]\s*を?\s*(\d+)?\s*(付与|得る)/);
+      if(!m){
+        m=body.match(/(加速|減速|挑発|行動不能|震盪|蓄力|凝魔|出血遷延)\s*(\d+)?\s*を(付与|得る)/);
+      }
+      if(!m){
+        m=body.match(/(加速|減速|挑発|行動不能|震盪|蓄力|凝魔|出血遷延)\s*を?\s*(\d+)\s*(付与|得る)/);
+      }
       if(m){
         // "Xにつき...蓄力を得る" は APPLY_BUFF_PER_N で先に解釈済み。
         // ここで no-count の蓄力/凝魔を拾うと重複付与になるため抑止する。
@@ -1144,11 +1259,13 @@
           m = null;
         }
       }
-      if(m){
+      if(m && !matchedConsumeApplyBuff){
         const bId=_nlResolveBuffIdByName(m[1]);
         if(bId){
-          const row={ timing:t.timing, type:"APPLY_BUFF", target:m[3]==="得る"?"self":target, buff_id:bId };
-          if(m[2]) row.data={ count:Number(m[2]) };
+          const action = m[3];
+          const count = m[2];
+          const row={ timing:t.timing, type:"APPLY_BUFF", target:action==="得る"?"self":target, buff_id:bId };
+          if(count) row.data={ count:Number(count) };
           if(/次のラウンド/.test(body)){ row.lasting=1; row.delay=1; }
           add(row);
         }
@@ -1291,22 +1408,55 @@
         }
       }
 
-      m=body.match(/ダメージ(?:固定)?\s*([+\-]\s*\d+|\d+)/);
-      if(m){
-        const n=Number(String(m[1]).replace(/\s+/g,""));
-        if(Number.isFinite(n)) add({ timing: t.timing, type: "DAMAGE_BONUS", target: "target", value: n });
-      }
       m=body.match(/受けるダメージを(\d+)%上げ/);
       if(m){
         const row={ timing:t.timing, type:"APPLY_BUFF", target:"target", buff_id:"Bu-43", data:{ value:Number(m[1]) } };
         if(/次のラウンド/.test(body)){ row.lasting=1; row.delay=1; }
         add(row);
       }
+      m=body.match(/受けるダメージ\s*([+\-−]\s*\d+)\s*%/);
+      if(m){
+        const val=Number(String(m[1]).replace(/\s+/g,"").replace("−","-"));
+        if(Number.isFinite(val)){
+          const row={ timing:t.timing, type:"APPLY_BUFF", target:"target", buff_id:(val>=0?"Bu-43":"Bu-44"), data:{ value:Math.abs(val) } };
+          if(/次のラウンド/.test(body)){ row.lasting=1; row.delay=1; }
+          add(row);
+        }
+      }
       m=body.match(/受けるダメージを(\d+)%下げ/);
       if(m){
         const row={ timing:t.timing, type:"APPLY_BUFF", target:"target", buff_id:"Bu-44", data:{ value:Number(m[1]) } };
         if(/次のラウンド/.test(body)){ row.lasting=1; row.delay=1; }
         add(row);
+      }
+      m=body.match(/与えるダメージを(\d+)%上げ/);
+      if(m){
+        const row={ timing:t.timing, type:"APPLY_BUFF", target:"self", buff_id:"Bu-45", data:{ value:Number(m[1]) } };
+        if(/次のラウンド/.test(body)){ row.lasting=1; row.delay=1; }
+        add(row);
+      }
+      m=body.match(/与えるダメージ\s*([+\-−]\s*\d+)\s*%/);
+      if(m){
+        const val=Number(String(m[1]).replace(/\s+/g,"").replace("−","-"));
+        if(Number.isFinite(val)){
+          const row={ timing:t.timing, type:"APPLY_BUFF", target:"self", buff_id:(val>=0?"Bu-45":"Bu-46"), data:{ value:Math.abs(val) } };
+          if(/次のラウンド/.test(body)){ row.lasting=1; row.delay=1; }
+          add(row);
+        }
+      }
+      m=body.match(/与えるダメージを(\d+)%下げ/);
+      if(m){
+        const row={ timing:t.timing, type:"APPLY_BUFF", target:"self", buff_id:"Bu-46", data:{ value:Number(m[1]) } };
+        if(/次のラウンド/.test(body)){ row.lasting=1; row.delay=1; }
+        add(row);
+      }
+      m=body.match(/ダメージ(?:固定)?\s*([+\-]\s*\d+|\d+)/);
+      if(m){
+        const hasSemanticDamageBuff = /受けるダメージ|与えるダメージ/.test(body);
+        if(!hasSemanticDamageBuff){
+          const n=Number(String(m[1]).replace(/\s+/g,""));
+          if(Number.isFinite(n)) add({ timing: t.timing, type: "DAMAGE_BONUS", target: "target", value: n });
+        }
       }
       m=body.match(/対象の(出血|破裂|亀裂|戦慄)が(\d+)以上.*?(\d+)ダメージ/);
       if(m){
@@ -1323,6 +1473,14 @@
       m=body.match(/(自分|自身)のFPが(\d+)以上なら.*?出血氾濫/);
       if(m){
         add({ timing:t.timing, type:"CUSTOM_EFFECT", target:"target", value:"出血氾濫", condition:{ source:"self", param:"FP", operator:"GTE", value:Number(m[2]) } });
+      }
+
+      if(/次のラウンド/.test(body)){
+        out.forEach((e)=>{
+          if(!e || e.type!=="APPLY_BUFF") return;
+          e.lasting = 1;
+          e.delay = 1;
+        });
       }
 
       if(out.length) return out;
@@ -1526,6 +1684,10 @@
         if(known.includes(k)) seed[k]=v;
         else extra[k]=v;
       });
+      if(effect && typeof effect==="object" && effect.data && typeof effect.data==="object"){
+        const dn=String(effect.data.display_name||"").trim();
+        if(dn) seed.display_name=dn;
+      }
       if(Object.keys(extra).length) seed._extra_json=extra;
       return seed;
     }
@@ -1750,6 +1912,12 @@
         const n=toNum(row.querySelector(sel).value);
         if(n!==undefined)e[k]=n;
       });
+      const displayNameRaw=row.querySelector(".efDisplayName")?.value;
+      const displayName=_nlCleanLine(String(displayNameRaw||"").trim());
+      if(displayName){
+        if(!e.data || typeof e.data!=="object" || Array.isArray(e.data)) e.data={};
+        e.data.display_name=displayName;
+      }
       if(row.querySelector(".efCondEnable").checked){
         e._cond_enabled=true;
         const c=readCond(row.querySelector(".efCond"));
@@ -1759,7 +1927,12 @@
       if(ex){
         try{
           const o=JSON.parse(ex);
-          if(o&&typeof o==="object"&&!Array.isArray(o))Object.assign(e,o);
+          if(o&&typeof o==="object"&&!Array.isArray(o)){
+            if(o.data && typeof o.data==="object" && !Array.isArray(o.data) && e.data && typeof e.data==="object" && !Array.isArray(e.data)){
+              o.data = { ...e.data, ...o.data };
+            }
+            Object.assign(e,o);
+          }
         }catch(_){
           e._extra_error=true;
         }
@@ -1818,7 +1991,7 @@
       const warns=validateEffectRaw(raw);
       row.querySelector(".efWarn").innerHTML=warns.length?warns.map(w=>`<div>・${esc(w)}</div>`).join(""):"";
 
-      const fieldKeys=["state_name","source","source_param","per_N","value","buff_id","buff_name","skill_id","lasting","delay","summon_template_id"];
+      const fieldKeys=["state_name","source","source_param","per_N","value","buff_id","buff_name","skill_id","lasting","delay","summon_template_id","display_name"];
       const unusedSet=new Set((spec.unused||[]).filter(k=>fieldKeys.includes(k)));
       const beginner=isBeginnerMode();
       const expanded=(row.dataset.expanded==="1") || !beginner;
@@ -1856,7 +2029,7 @@
 
     function addEffectRow(seed={},opt={}){
       const row=document.createElement("div");row.className="row";row.dataset.expanded="0";effectSeq++;
-      row.innerHTML=`<div class="grid3"><div><label>timing</label><select class="timingSel">${TIMINGS.map(x=>`<option value="${x}" ${x===(seed.timing||"HIT")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>type</label><select class="typeSel">${TYPES.map(x=>`<option value="${x}" ${x===(seed.type||"APPLY_STATE")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>target</label><select class="targetSel">${TARGETS.map(x=>`<option value="${x}" ${x===(seed.target||"target")?"selected":""}>${x||"(未指定)"}</option>`).join("")}</select></div></div><div class="grid4" style="margin-top:8px;"><div class="efField" data-ekey="state_name"><label>state_name</label><input class="efState" list="stateNameList" value="${esc(seed.state_name||"")}"/></div><div class="efField" data-ekey="source"><label>source</label><select class="efSource"><option value="" ${(seed.source||"")===""?"selected":""}>(未指定)</option><option value="self" ${(seed.source||"")==="self"?"selected":""}>self</option><option value="target" ${(seed.source||"")==="target"?"selected":""}>target</option></select></div><div class="efField" data-ekey="source_param"><label>source_param</label><input class="efSourceParam" list="stateNameList" value="${esc(seed.source_param||"")}"/></div><div class="efField" data-ekey="per_N"><label>per_N</label><input class="efPerN" type="number" step="1" value="${esc(seed.per_N??"")}"/></div><div class="efField" data-ekey="value"><label class="efValueLabel">value</label><input class="efValue" type="number" step="any" value="${esc(seed.value??"")}"/></div><div class="efField" data-ekey="buff_id"><label>buff_id</label><input class="efBuffId" list="buffIdList" value="${esc(seed.buff_id||"")}"/></div><div class="efField" data-ekey="buff_name"><label>buff_name</label><input class="efBuffName" list="buffNameList" value="${esc(seed.buff_name||"")}"/></div><div class="efField" data-ekey="skill_id"><label>skill_id</label><input class="efSkillId" list="skillIdList" value="${esc(seed.skill_id||"")}"/></div><div class="efField" data-ekey="lasting"><label>lasting</label><input class="efLasting" type="number" value="${esc(seed.lasting??"")}"/></div><div class="efField" data-ekey="delay"><label>delay</label><input class="efDelay" type="number" value="${esc(seed.delay??"")}"/></div><div class="efField" data-ekey="summon_template_id"><label>summon_template_id</label><input class="efSummonId" list="summonIdList" value="${esc(seed.summon_template_id||"")}"/></div></div><div class="toolbar"><label class="efCondToggleWrap"><input type="checkbox" class="efCondEnable" ${seed.condition?"checked":""}/> conditionを使う</label><button class="btn btn-ghost efExpandBtn" type="button">詳細項目を表示</button><button class="btn btn-danger" type="button">削除</button></div><div class="efCond"></div><div class="efExtraWrap"><label>extra_json（任意）</label><input class="efExtra mono" placeholder='{"rounds":3}' /></div><div class="field-hidden-note efFoldNote">初心者モード: Type必須中心で表示中（「詳細項目を表示」で全入力）</div><div class="small efMeta"></div><div class="small ok efTypeMeaning"></div><div class="small guide-line efValueGuide"></div><div class="small guide-line efTimingGuide"></div><div class="warn efWarn"></div>`;
+      row.innerHTML=`<div class="grid3"><div><label>timing</label><select class="timingSel">${TIMINGS.map(x=>`<option value="${x}" ${x===(seed.timing||"HIT")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>type</label><select class="typeSel">${TYPES.map(x=>`<option value="${x}" ${x===(seed.type||"APPLY_STATE")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>target</label><select class="targetSel">${TARGETS.map(x=>`<option value="${x}" ${x===(seed.target||"target")?"selected":""}>${x||"(未指定)"}</option>`).join("")}</select></div></div><div class="grid4" style="margin-top:8px;"><div class="efField" data-ekey="state_name"><label>state_name</label><input class="efState" list="stateNameList" value="${esc(seed.state_name||"")}"/></div><div class="efField" data-ekey="source"><label>source</label><select class="efSource"><option value="" ${(seed.source||"")===""?"selected":""}>(未指定)</option><option value="self" ${(seed.source||"")==="self"?"selected":""}>self</option><option value="target" ${(seed.source||"")==="target"?"selected":""}>target</option></select></div><div class="efField" data-ekey="source_param"><label>source_param</label><input class="efSourceParam" list="stateNameList" value="${esc(seed.source_param||"")}"/></div><div class="efField" data-ekey="per_N"><label>per_N</label><input class="efPerN" type="number" step="1" value="${esc(seed.per_N??"")}"/></div><div class="efField" data-ekey="value"><label class="efValueLabel">value</label><input class="efValue" type="number" step="any" value="${esc(seed.value??"")}"/></div><div class="efField" data-ekey="buff_id"><label>buff_id</label><input class="efBuffId" list="buffIdList" value="${esc(seed.buff_id||"")}"/></div><div class="efField" data-ekey="buff_name"><label>buff_name</label><input class="efBuffName" list="buffNameList" value="${esc(seed.buff_name||"")}"/></div><div class="efField" data-ekey="display_name"><label>display_name</label><input class="efDisplayName" value="${esc(seed.display_name||"")}" placeholder="表示名（data.display_name）"/></div><div class="efField" data-ekey="skill_id"><label>skill_id</label><input class="efSkillId" list="skillIdList" value="${esc(seed.skill_id||"")}"/></div><div class="efField" data-ekey="lasting"><label>lasting</label><input class="efLasting" type="number" value="${esc(seed.lasting??"")}"/></div><div class="efField" data-ekey="delay"><label>delay</label><input class="efDelay" type="number" value="${esc(seed.delay??"")}"/></div><div class="efField" data-ekey="summon_template_id"><label>summon_template_id</label><input class="efSummonId" list="summonIdList" value="${esc(seed.summon_template_id||"")}"/></div></div><div class="toolbar"><label class="efCondToggleWrap"><input type="checkbox" class="efCondEnable" ${seed.condition?"checked":""}/> conditionを使う</label><button class="btn btn-ghost efExpandBtn" type="button">詳細項目を表示</button><button class="btn btn-danger" type="button">削除</button></div><div class="efCond"></div><div class="efExtraWrap"><label>extra_json（任意）</label><input class="efExtra mono" placeholder='{"rounds":3}' /></div><div class="field-hidden-note efFoldNote">初心者モード: Type必須中心で表示中（「詳細項目を表示」で全入力）</div><div class="small efMeta"></div><div class="small ok efTypeMeaning"></div><div class="small guide-line efValueGuide"></div><div class="small guide-line efTimingGuide"></div><div class="warn efWarn"></div>`;
       if(seed._extra_json!==undefined){
         const exRaw = typeof seed._extra_json === "string" ? seed._extra_json : JSON.stringify(seed._extra_json);
         row.querySelector(".efExtra").value = exRaw;

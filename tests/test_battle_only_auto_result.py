@@ -1,4 +1,4 @@
-﻿import manager.battle.resolve_auto_runtime as runtime
+import manager.battle.resolve_auto_runtime as runtime
 
 
 def test_finalize_battle_only_result_when_enemy_wiped(monkeypatch):

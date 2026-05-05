@@ -1,4 +1,4 @@
-﻿def _sync_from_core():
+def _sync_from_core():
     from manager.battle import core as core_mod
     g = globals()
     # Pull symbols from core at runtime to preserve test monkeypatch behavior.

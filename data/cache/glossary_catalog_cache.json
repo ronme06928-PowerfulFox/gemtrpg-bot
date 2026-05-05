@@ -1310,5 +1310,72 @@
     "icon": "",
     "sort_order": null,
     "is_enabled": true
+  },
+  "W-76": {
+    "term_id": "W-76",
+    "display_name": "特殊蓄力",
+    "category": "バフ",
+    "short": "",
+    "long": "特殊なバフスタック。これを消費することで様々な効果を得る。様々な効果によって蓄力がこれに変化し、変化は後から上書きされる。",
+    "flavor": "",
+    "links": [
+      "W-74"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-77": {
+    "term_id": "W-77",
+    "display_name": "特殊凝魔",
+    "category": "バフ",
+    "short": "",
+    "long": "特殊なバフスタック。これを消費することで様々な効果を得る。様々な効果によって凝魔がこれに変化し、変化は後から上書きされる。",
+    "flavor": "",
+    "links": [
+      "W-75",
+      "W-78"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-78": {
+    "term_id": "W-78",
+    "display_name": "凝魔-血漿",
+    "category": "バフ",
+    "short": "",
+    "long": "特殊凝魔の一種。これが10あるごとに1、所有者がスキル効果で自分以外に出血を付与する時にその付与値が上昇する。また、スキルが自身の出血威力を参照する時、これの値を加算する。",
+    "flavor": "",
+    "links": [
+      "W-75",
+      "W-77",
+      "W-79",
+      "W-00"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-79": {
+    "term_id": "W-79",
+    "display_name": "血漿転化",
+    "category": "効果",
+    "short": "",
+    "long": "効果対象が持つ凝魔を「凝魔-血漿」に変換する。",
+    "flavor": "",
+    "links": [
+      "W-75",
+      "W-77",
+      "W-78",
+      "W-00"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
   }
 }

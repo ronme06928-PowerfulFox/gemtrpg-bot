@@ -1,4 +1,4 @@
-﻿# 02 Mass Phase
+# 02 Mass Phase
 
 ## 責務範囲
 - `manager/battle/resolve_auto_mass_phase.py`

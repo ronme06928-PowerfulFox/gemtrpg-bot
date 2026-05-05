@@ -1,4 +1,4 @@
-﻿import copy
+import copy
 import time
 
 import manager.battle.resolve_auto_mass_phase as _resolve_auto_mass_phase_mod

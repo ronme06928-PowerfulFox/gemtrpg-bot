@@ -1,4 +1,4 @@
-﻿# 04 Clash And Duel Delegate
+# 04 Clash And Duel Delegate
 
 ## 責務範囲
 - `manager/battle/resolve_match_runtime.py`

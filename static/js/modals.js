@@ -390,7 +390,13 @@ function renderCharacterCard(char) {
                 return;
             }
 
-            const buffCatalogId = b.buff_id || (b.data && b.data.buff_id) || null;
+            const rawBuffCatalogId = b.buff_id || (b.data && b.data.buff_id) || null;
+            const stackVariant = String(b.variant || (b.data && b.data.variant) || '').trim().toLowerCase();
+            // 凝魔-血漿variant時は、表示用の参照ソースをBu-48へ切り替える。
+            const buffCatalogId = (
+                String(rawBuffCatalogId || '').trim() === 'Bu-31'
+                && stackVariant === 'blood_plasma'
+            ) ? 'Bu-48' : rawBuffCatalogId;
             let descriptionText = b.description;
             let flavorText = b.flavor;
             const explicitDisplayName = String(
@@ -398,6 +404,10 @@ function renderCharacterCard(char) {
             ).trim();
             let nameDisplay = explicitDisplayName || b.name;
             const hasExplicitDisplayName = !!explicitDisplayName;
+            const isBloodPlasmaView = String(buffCatalogId || '').trim() === 'Bu-48';
+            if (isBloodPlasmaView) {
+                nameDisplay = '凝魔-血漿';
+            }
 
             // バフ図鑑が引けるならそちらを正として使う
             if (typeof BUFF_DATA !== 'undefined' && typeof BUFF_DATA.get === 'function') {
@@ -450,6 +460,10 @@ function renderCharacterCard(char) {
             if (durationVal === undefined) durationVal = b.duration;
 
             let durationHtml = "";
+            const sourceBadgeId = String(buffCatalogId || '').trim();
+            if (sourceBadgeId) {
+                durationHtml += `<span class="buff-source-badge" style="background:#495057; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.72em; margin-left:4px; white-space: nowrap;">src:${sourceBadgeId}</span>`;
+            }
 
             // 1. 持続ラウンド表示 (無限(-1)の場合は非表示)
             if (durationVal !== null && durationVal !== undefined && !isNaN(durationVal)) {

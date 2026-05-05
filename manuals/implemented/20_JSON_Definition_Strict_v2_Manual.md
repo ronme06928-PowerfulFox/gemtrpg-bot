@@ -1,4 +1,4 @@
-﻿# 20. JSON定義マニュアル（Phase3 strict v2 正本）
+# 20. JSON定義マニュアル（Phase3 strict v2 正本）
 
 最終更新: 2026-05-05  
 対象: 実装済み（Current）

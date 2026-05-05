@@ -1,4 +1,4 @@
-﻿# 03 Single Phase And Reuse
+# 03 Single Phase And Reuse
 
 ## 責務範囲
 - `manager/battle/resolve_auto_single_phase.py`

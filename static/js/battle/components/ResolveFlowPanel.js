@@ -1,4 +1,4 @@
-﻿import { store } from '../core/BattleStore.js';
+import { store } from '../core/BattleStore.js';
 import { eventBus } from '../core/EventBus.js';
 import { socketClient } from '../core/SocketClient.js';
 
@@ -1047,7 +1047,7 @@ class ResolveFlowPanel {
         const ruleBase = toNum(breakdownData.rule_power_bonus);
 
         const baseShown = base + ruleBase;
-        const baseMod = toNum(breakdownData.base_power_mod) + ruleBase;
+        const baseMod = toNum(breakdownData.base_power_mod);
         const diceMod = toNum(breakdownData.dice_bonus_power);
         const finalMod = (breakdownData.final_power_mod !== undefined && breakdownData.final_power_mod !== null)
             ? toNum(breakdownData.final_power_mod)

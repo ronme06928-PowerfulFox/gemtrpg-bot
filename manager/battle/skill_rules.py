@@ -1,4 +1,4 @@
-﻿import json
+import json
 from manager.json_rule_v2 import extract_and_normalize_skill_rule_data, JsonRuleV2Error
 
 

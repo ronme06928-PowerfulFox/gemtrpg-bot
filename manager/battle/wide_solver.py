@@ -1,4 +1,4 @@
-﻿import re
+import re
 import json
 from extensions import all_skill_data, socketio
 from manager.room_manager import (

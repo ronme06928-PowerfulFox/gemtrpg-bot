@@ -1,4 +1,4 @@
-﻿/* static/js/visual/visual_ui.js */
+/* static/js/visual/visual_ui.js */
 
 // --- Log Rendering ---
 
@@ -56,7 +56,7 @@ const _resolveSidePowerLines = (side) => {
 
     const baseShown = base + ruleBase;
     const flatShown = flatBonus - ruleBase;
-    const baseMod = _toResolveNum(breakdown.base_power_mod, 0) + ruleBase;
+    const baseMod = _toResolveNum(breakdown.base_power_mod, 0);
     const diceMod = _toResolveNum(breakdown.dice_bonus_power, 0);
     const finalMod = _toResolveNum(breakdown.final_power_mod, flatShown);
 
@@ -231,7 +231,7 @@ window.appendVisualLogBatch = function (logs) {
         const ruleBase = _toResolveNum(breakdown.rule_power_bonus, 0);
         const baseShown = base + ruleBase;
         const flatShown = flatBonus - ruleBase;
-        const baseMod = _toResolveNum(breakdown.base_power_mod, 0) + ruleBase;
+        const baseMod = _toResolveNum(breakdown.base_power_mod, 0);
         const diceMod = _toResolveNum(breakdown.dice_bonus_power, 0);
         const finalMod = _toResolveNum(breakdown.final_power_mod, flatShown);
         return {

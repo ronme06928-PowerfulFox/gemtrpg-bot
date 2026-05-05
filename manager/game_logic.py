@@ -1,4 +1,4 @@
-﻿# manager/game_logic.py
+# manager/game_logic.py
 import sys
 import json
 import re # Added for regex
@@ -226,7 +226,6 @@ def remove_buff(*args, **kwargs):
     fn = getattr(mod, "remove_buff", None) if mod else None
     if callable(fn):
         return fn(*args, **kwargs)
-    # Fallback: manager.utils 譛ｪ繝ｭ繝ｼ繝画凾縺ｧ繧よ怙菴朱剞縺ｮ蜑企勁繧定｡後≧縲・
     try:
         char_obj = args[0] if len(args) >= 1 else kwargs.get("char_obj")
         buff_name = args[1] if len(args) >= 2 else kwargs.get("buff_name")
@@ -349,7 +348,6 @@ def _resolve_buff_count_for_condition(source_obj, buff_name):
         if isinstance(data, dict) and data.get("count") is not None:
             total += max(0, _safe_int_for_condition(data.get("count"), 0))
             continue
-        # count譛ｪ菫晄戟繝舌ヵ繧ゅ悟ｭ伜惠1縲阪→縺励※謇ｱ縺医ｋ繧医≧縺ｫ縺吶ｋ
         total += 1
 
     return total
@@ -382,9 +380,58 @@ def _get_value_for_condition(source_obj, param_name, context=None, actor=None, t
     if normalized_param_name == "tags":
         return source_obj.get("tags", [])
 
-    # 縲碁溷ｺｦ蛟､縲阪・繝ｭ繝ｼ繝ｫ邨先棡縲よ立timeline蠖｢蠑・譁ｰbattle_state蠖｢蠑・迴ｾ蝨ｨ蛟､縺ｮ蜈ｨ縺ｦ繧呈ｨｪ譁ｭ縺励※隗｣豎ｺ縺吶ｋ縲・
-    # 蜿ら・荳榊庄縺ｮ蝣ｴ蜷医・ 0 縺ｧ縺ｯ縺ｪ縺・None 繧定ｿ斐＠縲∽ｽ朱滓擅莉ｶ (<= 4 遲・ 縺ｮ隱､逋ｺ轣ｫ繧帝亟縺舌・
-    if normalized_param_name in {"騾溷ｺｦ蛟､", "speed_value", "speedvalue", "spd_value"}:
+    if normalized_param_name in {"lost_hp", "失ったHP", "HP欠損"}:
+        current_hp = _safe_int_for_condition(get_status_value(source_obj, "HP"), 0)
+        max_hp_candidates = [
+            source_obj.get("max_hp"),
+            source_obj.get("maxHP"),
+            source_obj.get("hp_max"),
+            source_obj.get("HP_MAX"),
+            source_obj.get("maxHp"),
+        ]
+        max_hp = None
+        for candidate in max_hp_candidates:
+            if candidate is None:
+                continue
+            try:
+                val = int(candidate)
+            except Exception:
+                continue
+            if val > 0:
+                max_hp = val
+                break
+        if max_hp is None:
+            for row in (source_obj.get("states") or []):
+                if not isinstance(row, dict):
+                    continue
+                row_name = str(row.get("name") or "").strip()
+                if row_name not in {"最大HP", "HP上限", "MAX_HP"}:
+                    continue
+                try:
+                    val = int(row.get("value", 0) or 0)
+                except Exception:
+                    continue
+                if val > 0:
+                    max_hp = val
+                    break
+        if max_hp is None:
+            for row in (source_obj.get("params") or []):
+                if not isinstance(row, dict):
+                    continue
+                row_name = str(row.get("label") or row.get("name") or "").strip()
+                if row_name not in {"最大HP", "HP上限", "MAX_HP"}:
+                    continue
+                try:
+                    val = int(row.get("value", 0) or 0)
+                except Exception:
+                    continue
+                if val > 0:
+                    max_hp = val
+                    break
+        if max_hp is None:
+            return 0
+        return max(0, max_hp - current_hp)
+    if normalized_param_name in {"???", "speed_value", "speedvalue", "spd_value"}:
         speed_values = []
         source_id = source_obj.get("id")
         source_slot_id = source_obj.get("slot_id")
@@ -448,7 +495,7 @@ def _get_value_for_condition(source_obj, param_name, context=None, actor=None, t
             return max(speed_values)
 
         # Fallback: if speed value exists explicitly in status rows, allow it.
-        normalized_speed_name = "騾溷ｺｦ蛟､"
+        normalized_speed_name = "???"
         params = source_obj.get("params", [])
         if isinstance(params, list):
             for row in params:
@@ -470,7 +517,17 @@ def _get_value_for_condition(source_obj, param_name, context=None, actor=None, t
 
         return None
 
-    return get_status_value(source_obj, param_name)
+    base_value = get_status_value(source_obj, param_name)
+    normalized_param = _normalize_condition_status_name(param_name)
+    if source_type == "self" and normalized_param in {"出血", "出血威力"}:
+        mod = _utils_module()
+        bonus_fn = getattr(mod, "get_stack_variant_bleed_power_bonus", None) if mod else None
+        if callable(bonus_fn):
+            try:
+                base_value += int(bonus_fn(source_obj) or 0)
+            except Exception:
+                pass
+    return base_value
 
 def check_condition(condition_obj, actor, target, target_skill_data=None, actor_skill_data=None, context=None):
     if not condition_obj: return True
@@ -488,7 +545,6 @@ def check_condition(condition_obj, actor, target, target_skill_data=None, actor_
     elif source_str == "skill" or source_str == "actor_skill": source_obj = actor_skill_data
     elif source_str == "relation": source_obj = {}
 
-    # Context繧呈ｸ｡縺・
     current_value = _get_value_for_condition(
         source_obj,
         param_name,
@@ -512,17 +568,14 @@ def check_condition(condition_obj, actor, target, target_skill_data=None, actor_
         return False
     return False
 
-# 笘・ｿｮ豁｣: 豎守畑繝懊・繝翫せ險育ｮ励Ο繧ｸ繝・け・亥・驛ｨ逕ｨ・・
 def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None, context=None):
     total = 0
     for rule in rules:
-        # 譚｡莉ｶ繝√ぉ繝・け
         condition = rule.get('condition')
         if condition:
             if not check_condition(condition, actor, target, actor_skill_data=actor_skill_data, context=context):
                 continue
 
-        # 蜉邂怜､險育ｮ・
         bonus = 0
         operation = str(rule.get('operation', rule.get('operator', 'FIXED')) or 'FIXED').strip().upper()
 
@@ -533,12 +586,6 @@ def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None, con
             src_type = rule.get('source', 'self')
             src_obj = target if src_type == 'target' else actor
             p_name = rule.get('param')
-            # 縺薙％縺ｧ繧・_get_value_for_condition 繧剃ｽｿ縺・∋縺阪□縺後・
-            # 繝懊・繝翫せ蛟､縺ｮ蝓ｺ貅悶↓縺吶ｋ繝代Λ繝｡繝ｼ繧ｿ(param)縺ｯ騾壼ｸｸ繧ｹ繝・・繧ｿ繧ｹ蛟､(HP, MP, 遲句鴨縺ｪ縺ｩ)縺ｧ縺ゅｊ縲・
-            # 繧､繝九す繧｢繝√ヶ蛟､(騾溷ｺｦ)繧貞渕貅悶↓蛟咲紫繧呈寺縺代ｋ縺薙→縺ｯ遞縲・
-            # 縺励°縺嶺ｸ雋ｫ諤ｧ繧剃ｿ昴▽縺溘ａ _get_value_for_condition 繧剃ｽｿ縺・・縺瑚憶縺・′縲・
-            # 譌｢蟄伜ｮ溯｣・・ get_status_value 繧堤峩謗･蜻ｼ繧薙〒縺・ｋ縲・
-            # 縺薙％縺ｧ縺ｯ螳牙・縺ｮ縺溘ａ譌｢蟄倬壹ｊ get_status_value 縺ｫ縺励※縺翫￥ (繧､繝九す繧｢繝√ヶ蛟､縺ｧ蛟咲紫險育ｮ励☆繧九こ繝ｼ繧ｹ縺後≠繧後・菫ｮ豁｣)
             val = _get_value_for_condition(
                 src_obj,
                 p_name,
@@ -571,10 +618,7 @@ def _calculate_bonus_from_rules(rules, actor, target, actor_skill_data=None, con
 
 
 def _split_power_bonus_rules(rules):
-    """
-    power_bonus 繝ｫ繝ｼ繝ｫ繧帝←逕ｨ蜈医＃縺ｨ縺ｫ蛻・牡縺吶ｋ縲・
-    apply_to 譛ｪ謖・ｮ壹・ base 謇ｱ縺・・
-    """
+    """Split power_bonus rules by apply target. If apply_to is missing, treat it as base."""
     buckets = {"base": [], "dice": [], "final": []}
     for rule in (rules or []):
         if not isinstance(rule, dict):
@@ -601,10 +645,7 @@ def _resolve_runtime_buff_effect_data(buff_row):
 
 
 def calculate_buff_power_bonus_parts(actor, target, actor_skill_data, context=None):
-    """
-    繝舌ヵ逕ｱ譚･縺ｮ螽∝鴨陬懈ｭ｣繧帝←逕ｨ蜈医＃縺ｨ縺ｫ霑斐☆縲・
-    Returns: {"base": int, "dice": int, "final": int}
-    """
+    """Return buff-derived power bonus parts. Returns: {"base": int, "dice": int, "final": int}."""
     parts = {"base": 0, "dice": 0, "final": 0}
     if not actor or 'special_buffs' not in actor:
         return parts
@@ -631,14 +672,13 @@ def calculate_buff_power_bonus_parts(actor, target, actor_skill_data, context=No
     return parts
 
 
-# 蠕梧婿莠呈鋤: 譌｢蟄伜他縺ｳ蜃ｺ縺励・縲悟ｮ壽焚蜉邂励阪・邱城㍼繧呈悄蠕・☆繧九◆繧・base + final 繧定ｿ斐☆縲・
 def calculate_buff_power_bonus(actor, target, actor_skill_data, context=None):
     parts = calculate_buff_power_bonus_parts(actor, target, actor_skill_data, context=context)
     return int(parts.get("base", 0)) + int(parts.get("final", 0))
 
 def calculate_state_apply_bonus(actor, target, stat_name, context=None):
     total_bonus = 0
-    buffs_to_remove = []  # 笘・炎髯､繝ｪ繧ｹ繝・
+    buffs_to_remove = []
 
     if not actor or 'special_buffs' not in actor:
         return 0, [] # 笘・
@@ -649,23 +689,35 @@ def calculate_state_apply_bonus(actor, target, stat_name, context=None):
         if not effect_data:
             continue
 
-        # 笘・ｿｽ蜉: 繝・ぅ繝ｬ繧､荳ｭ縺ｮ繝舌ヵ縺ｯ辟｡蜉ｹ
         if buff.get('delay', 0) > 0:
             continue
 
         state_bonuses = effect_data.get('state_bonus', [])
         matching_rules = [r for r in state_bonuses if r.get('stat') == stat_name]
 
-        # 繝懊・繝翫せ險育ｮ・
         bonus = _calculate_bonus_from_rules(matching_rules, actor, target, None, context=context)
 
         if bonus > 0:
             total_bonus += bonus
-            # 笘・Ν繝ｼ繝ｫ縺ｮ荳ｭ縺ｫ "consume": True 縺後≠繧後・蜑企勁繝ｪ繧ｹ繝医↓霑ｽ蜉
             for rule in matching_rules:
                 if rule.get('consume'):
                     buffs_to_remove.append(buff_name)
-                    break # 1縺､縺ｮ繝舌ヵ螳夂ｾｩ蜀・〒隍・焚繝ｫ繝ｼ繝ｫ縺後≠縺｣縺ｦ繧・蝗槫炎髯､逋ｻ骭ｲ縺吶ｌ縺ｰ蜊∝・
+                    break
+
+    normalized_stat = _normalize_condition_status_name(stat_name)
+    is_other_target = (
+        isinstance(actor, dict)
+        and isinstance(target, dict)
+        and str(actor.get("id", "")) != str(target.get("id", ""))
+    )
+    if normalized_stat == "出血" and is_other_target:
+        mod = _utils_module()
+        bonus_fn = getattr(mod, "get_stack_variant_bleed_apply_bonus", None) if mod else None
+        if callable(bonus_fn):
+            try:
+                total_bonus += int(bonus_fn(actor) or 0)
+            except Exception:
+                pass
 
     return total_bonus, buffs_to_remove
 
@@ -698,8 +750,6 @@ def calculate_state_receive_bonus(receiver, source, stat_name, context=None):
         if not effect_data:
             continue
 
-        # 繧ｭ繝｣繝・す繝･/蜿ら・繧ｿ繧､繝溘Φ繧ｰ蟾ｮ縺ｧ get_buff_effect(name) 縺瑚ｧ｣豎ｺ縺ｧ縺阪↑縺・こ繝ｼ繧ｹ蜷代￠繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ:
-        # buff_id 縺九ｉ繧ｫ繧ｿ繝ｭ繧ｰeffect繧貞ｼ輔″縲∝女縺第焔蛛ｴ陬懈ｭ｣繝ｫ繝ｼ繝ｫ繧定｣懷ｮ後☆繧九・
         if not isinstance(effect_data, dict):
             effect_data = {}
         if not effect_data.get('state_receive_bonus'):
@@ -721,7 +771,6 @@ def calculate_state_receive_bonus(receiver, source, stat_name, context=None):
             except Exception:
                 pass
 
-        # 繝・ぅ繝ｬ繧､荳ｭ縺ｮ繝舌ヵ縺ｯ辟｡蜉ｹ
         if buff.get('delay', 0) > 0:
             continue
 
@@ -747,9 +796,7 @@ def calculate_state_receive_bonus(receiver, source, stat_name, context=None):
     return total_bonus, buffs_to_remove
 
 def execute_custom_effect(effect, actor, target, context=None):
-    """
-    繝励Λ繧ｰ繧､繝ｳ蛹悶＆繧後◆繧ｫ繧ｹ繧ｿ繝蜉ｹ譫懊ｒ螳溯｡後☆繧・
-    """
+    """Execute a registered CUSTOM_EFFECT handler."""
     effect_name = effect.get("value")
     registry = _effect_registry()
     handler = registry.get(effect_name)
@@ -759,8 +806,6 @@ def execute_custom_effect(effect, actor, target, context=None):
         return [], []
 
     try:
-        # 繧ｳ繝ｳ繝・く繧ｹ繝医→縺励※繝ｬ繧ｸ繧ｹ繝医Μ繧呈ｸ｡縺呻ｼ井ｺ陬ょｴｩ螢翫↑縺ｩ縺ｧ蜀榊ｸｰ逧・↓菴ｿ縺・◆繧・ｼ峨・
-        # 蜻ｼ縺ｳ蜃ｺ縺怜・縺ｮcontext(繧ｭ繝｣繝ｩ荳隕ｧ縺ｪ縺ｩ)繧ょ叙繧願ｾｼ繧薙〒縲√・繝ｩ繧ｰ繧､繝ｳ蛛ｴ縺ｧ蛻ｩ逕ｨ縺ｧ縺阪ｋ繧医≧縺ｫ縺吶ｋ縲・
         plugin_context = {
             "registry": registry
         }
@@ -845,9 +890,8 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             return candidates
         return random.sample(candidates, count)
 
-    import copy # 霑ｽ蜉
+    import copy
 
-    # 繧ｷ繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ逕ｨ繧ｭ繝｣繝・す繝･ (ID -> char_obj_copy)
     simulated_chars = {}
 
     def get_simulated_char(real_char):
@@ -931,6 +975,23 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             if not isinstance(row, dict):
                 continue
             if _normalize_buff_name_local(row.get("name")) == buff_name_n:
+                return row
+        return None
+
+    def _find_sim_buff_by_id(sim_char, buff_id):
+        if not isinstance(sim_char, dict):
+            return None
+        target_id = str(buff_id or "").strip()
+        if not target_id:
+            return None
+        buffs = sim_char.get("special_buffs", [])
+        if not isinstance(buffs, list):
+            return None
+        for row in buffs:
+            if not isinstance(row, dict):
+                continue
+            row_id = str(row.get("buff_id") or (row.get("data") or {}).get("buff_id") or "").strip()
+            if row_id == target_id:
                 return row
         return None
 
@@ -1073,7 +1134,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
             if t_str == "self": targets_list = [actor]
             elif t_str == "target": targets_list = [target] if target else []
-            # 笘・霑ｽ蜉: 蜈ｨ菴灘ｯｾ雎｡繧ｵ繝昴・繝・
             elif t_str == "ALL_ENEMIES" and context and "characters" in context:
                 actor_type = actor.get("type", "ally")
                 target_type = "enemy" if actor_type == "ally" else "ally"
@@ -1123,11 +1183,9 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
         if not targets_list: continue
 
         for target_obj in targets_list:
-            # 笘・㍾隕・ 蜑ｯ菴懃畑繧帝亟縺舌◆繧√∝愛螳壹ｄ蜀・Κ驕ｩ逕ｨ縺ｯ繧ｷ繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ逕ｨ繧ｪ繝悶ず繧ｧ繧ｯ繝医〒陦後≧
             sim_actor = get_simulated_char(actor)
             sim_target = get_simulated_char(target_obj)
 
-            # 譚｡莉ｶ蛻､螳・(繧ｷ繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ迥ｶ諷九↓蝓ｺ縺･縺・
             if not check_condition(effect.get("condition"), sim_actor, sim_target, target_skill_data, context=context):
                 continue
 
@@ -1168,20 +1226,17 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 continue
 
             elif effect_type == "APPLY_STATE":
-                # 笘・ｾ梧婿莠呈鋤: "state_name"縺ｨ"name"縺ｮ荳｡譁ｹ縺ｫ蟇ｾ蠢・
                 stat_name = effect.get("state_name") or effect.get("name")
                 value = int(effect.get("value", 0))
                 fissure_rounds = _parse_positive_rounds(effect.get("rounds"))
 
-                # 笘・ｺ陬ゅ・1繝ｩ繧ｦ繝ｳ繝・蝗樔ｻ倅ｸ主宛髯舌メ繧ｧ繝・け
                 if stat_name == "亀裂" and value > 0 and sim_target:
                     if 'flags' not in sim_target:
                         sim_target['flags'] = {}
                     if sim_target['flags'].get('fissure_received_this_round', False):
                         log_snippets.append("[亀裂付与失敗: 同一ラウンド内で既に亀裂付与済み]")
-                        continue  # 縺薙・蜉ｹ譫懊ｒ繧ｹ繧ｭ繝・・縺励∵ｬ｡縺ｮ蜉ｹ譫懊∈
+                        continue
 
-                # 豁｣蛟､莉倅ｸ取凾縺ｮ縺ｿ縲∽ｻ倅ｸ主・/蜿励￠謇句・縺ｮ迥ｶ諷倶ｻ倅ｸ弱・繝ｼ繝翫せ繧帝←逕ｨ
                 if value > 0:
                     if sim_actor:
                         source_bonus, source_buffs_to_remove = calculate_state_apply_bonus(
@@ -1221,14 +1276,11 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         log_snippets.append(f"[亀裂 {value} ({fissure_rounds}R)]")
                         continue
 
-                    # 笘・叉蠎ｧ縺ｫ迥ｶ諷九ｒ譖ｴ譁ｰ・医す繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ逕ｨ繧ｪ繝悶ず繧ｧ繧ｯ繝医↓蟇ｾ縺励※縺ｮ縺ｿ・・
                     current_val = _stable_get_status_value(sim_target, stat_name)
                     _stable_set_status_value(sim_target, stat_name, current_val + value)
 
-                    # 螟画峩繝ｭ繧ｰ縺ｨ縺励※險倬鹸・亥ｾ檎ｶ壹・蜃ｦ逅・〒螳滉ｽ薙↓驕ｩ逕ｨ縺輔ｌ繧具ｼ・
-                    changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value)) # 螳滉ｽ薙↓蟇ｾ縺吶ｋ螟画峩莠育ｴ・
+                    changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value))
 
-                    # 笘・ｺ陬ゅ・蝣ｴ蜷医・繝輔Λ繧ｰ繧堤ｫ九※繧具ｼ井ｻ倅ｸ取・蜉滓凾・・
                     if stat_name == "亀裂" and value > 0:
                         if 'flags' not in sim_target:
                             sim_target['flags'] = {}
@@ -1250,22 +1302,26 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 if not source_obj or not source_param:
                     continue
 
-                # 蝓ｺ貅悶ヱ繝ｩ繝｡繝ｼ繧ｿ縺ｮ蛟､繧貞叙蠕・
-                source_param_value = _stable_get_status_value(source_obj, source_param)
+                source_param_value = _get_value_for_condition(
+                    source_obj,
+                    source_param,
+                    context=context,
+                    actor=sim_actor,
+                    target=sim_target,
+                    source_type=source_type,
+                )
+                if source_param_value is None:
+                    source_param_value = 0
 
-                # N豈弱↓險育ｮ・
                 per_N = int(effect.get("per_N", 1))
                 value_per = int(effect.get("value", 1))
                 calculated_value = (source_param_value // per_N) * value_per if per_N > 0 else 0
 
-                # 譛螟ｧ蛟､蛻ｶ髯・
                 if "max_value" in effect:
                     calculated_value = min(calculated_value, int(effect["max_value"]))
 
-                # 莉倅ｸ主ｮ溯｡・
                 stat_name = effect.get("state_name")
                 if stat_name and calculated_value > 0:
-                    # 莠陬ゅ・1繝ｩ繧ｦ繝ｳ繝・蝗樔ｻ倅ｸ主宛髯舌メ繧ｧ繝・け
                     if stat_name == "亀裂" and sim_target:
                         if 'flags' not in sim_target:
                             sim_target['flags'] = {}
@@ -1273,7 +1329,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                             log_snippets.append("[亀裂付与失敗: 同一ラウンド内で既に亀裂付与済み]")
                             continue
 
-                    # 豁｣蛟､莉倅ｸ取凾縺ｮ縺ｿ縲∽ｻ倅ｸ主・/蜿励￠謇句・縺ｮ迥ｶ諷倶ｻ倅ｸ弱・繝ｼ繝翫せ繧帝←逕ｨ
                     if sim_actor:
                         source_bonus, source_buffs_to_remove = calculate_state_apply_bonus(
                             sim_actor, sim_target, stat_name, context=context
@@ -1296,7 +1351,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                             changes_to_apply.append((target_obj, "REMOVE_BUFF", b_name, 0))
                             log_snippets.append(f"[{b_name} 消費]")
 
-                    # rounds 謖・ｮ壽凾縺ｮ譁ｰ譁ｹ蠑擾ｼ域凾髯蝉ｺ陬ゑｼ・
                     if stat_name == "亀裂" and fissure_rounds > 0:
                         _queue_fissure_round_buff(
                             target_obj=target_obj,
@@ -1312,15 +1366,12 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         log_snippets.append(f"[亀裂 {calculated_value} ({source_param}{source_param_value}/{fissure_rounds}R)]")
                         continue
 
-                    # 笘・叉蠎ｧ縺ｫ迥ｶ諷九ｒ譖ｴ譁ｰ (繧ｷ繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ)
                     current_val = _stable_get_status_value(sim_target, stat_name)
                     _stable_set_status_value(sim_target, stat_name, current_val + calculated_value)
 
-                    # 螟画峩繝ｭ繧ｰ縺ｨ縺励※險倬鹸 (螳滉ｽ・
                     changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, calculated_value))
                     log_snippets.append(f"[{stat_name} +{calculated_value} ({source_param}={source_param_value})]")
 
-                    # 莠陬ゅ・蝣ｴ蜷医・繝輔Λ繧ｰ繧堤ｫ九※繧・
                     if stat_name == "亀裂":
                         if 'flags' not in sim_target:
                             sim_target['flags'] = {}
@@ -1338,10 +1389,8 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     diff = new_val - current_val
 
                     if diff != 0:
-                        # 笘・叉蠎ｧ縺ｫ迥ｶ諷九ｒ譖ｴ譁ｰ (繧ｷ繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ)
                         _stable_set_status_value(sim_target, stat_name, new_val)
 
-                        # 螟画峩繝ｭ繧ｰ縺ｨ縺励※險倬鹸 (螳滉ｽ・
                         changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, diff))
                         log_snippets.append(f"[{stat_name} x{multiplier} ({current_val}->{new_val})]")
 
@@ -1370,7 +1419,16 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 if value_per_step <= 0:
                     continue
 
-                source_value = _stable_get_status_value(source_obj, source_param)
+                source_value = _get_value_for_condition(
+                    source_obj,
+                    source_param,
+                    context=context,
+                    actor=sim_actor,
+                    target=sim_target,
+                    source_type=source_type,
+                )
+                if source_value is None:
+                    source_value = 0
                 apply_count = (source_value // per_n) * value_per_step
                 try:
                     max_count = int(effect.get("max_count", 0))
@@ -1428,7 +1486,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 buff_name = effect.get("buff_name")
                 buff_id = effect.get("buff_id")
 
-                # 笘・ｿｮ豁｣: buff_id縺梧欠螳壹＆繧後※縺・ｋ蝣ｴ蜷医｜uff_catalog縺九ｉ蜷榊燕繧貞叙蠕・
                 if not buff_name and buff_id:
                     from manager.buff_catalog import get_buff_by_id
                     buff_data = get_buff_by_id(buff_id)
@@ -1439,28 +1496,21 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                         logger.warning(f"buff_id '{buff_id}' not found in catalog")
 
                 if buff_name:
-                    # 笘・ｿｮ豁｣: buff_id繧ゆｸ邱偵↓data縺ｫ蜷ｫ繧√ｋ・医・繝ｩ繧ｰ繧､繝ｳ蛻､螳夂畑・・
-                    # 縺輔ｉ縺ｫ description, flavor 繧ゅき繧ｿ繝ｭ繧ｰ縺九ｉ蠑輔″邯吶＄
                     effect_data = effect.get("data")
                     if effect_data is None:
                         effect_data = {}
                     else:
-                        # 蜻ｼ縺ｳ蜃ｺ縺怜・縺ｮ蜑ｯ菴懃畑繧帝亟縺舌◆繧√さ繝斐・
                         effect_data = effect_data.copy()
 
                     if buff_id:
                         effect_data["buff_id"] = buff_id
 
-                        # 繧ｫ繧ｿ繝ｭ繧ｰ縺九ｉ隧ｳ邏ｰ諠・ｱ繧貞叙蠕励＠縺ｦ繝槭・繧ｸ
                         if 'buff_data' in locals() and buff_data:
                             if "description" not in effect_data:
                                 effect_data["description"] = buff_data.get("description", "")
                             if "flavor" not in effect_data:
                                 effect_data["flavor"] = buff_data.get("flavor", "")
 
-                            # 笘・ｿｽ蜉: stat_mod 縺ｮ邯呎価 (Phase 10 蠕悟濠)
-                            # 繧ｫ繧ｿ繝ｭ繧ｰ螳夂ｾｩ縺ｮ effect: { type: "stat_mod", stat: "蝓ｺ遉主ｨ∝鴨", value: 1 }
-                            # 繧偵√す繧ｹ繝・Β縺瑚ｧ｣驥医〒縺阪ｋ stat_mods: { "蝓ｺ遉主ｨ∝鴨": 1 } 縺ｫ螟画鋤縺吶ｋ
                             catalog_effect = buff_data.get("effect", {})
                             if catalog_effect.get("type") == "stat_mod":
                                 stat_name = catalog_effect.get("stat")
@@ -1472,24 +1522,19 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                                     effect_data["stat_mods"][stat_name] = mod_value
                                     # print(f"[APPLY_BUFF] Converted stat_mod for {buff_name}: {stat_name}={mod_value}")
 
-                    # 笘・ｿｽ蜉: 蜍慕噪繝代ち繝ｼ繝ｳ繧・撕逧・ｮ夂ｾｩ縺九ｉ蠕励ｉ繧後ｋ蜉ｹ譫懊ョ繝ｼ繧ｿ繧偵・繝ｼ繧ｸ
-                    # (buff_id縺後↑縺上｜uff_name縺ｮ縺ｿ縺ｮ蝣ｴ蜷医ｄ縲∝虚逧・函謌舌＆繧後◆繝励Ο繝代ユ繧｣繧貞叙繧願ｾｼ繧)
                     from manager.buff_catalog import get_buff_effect
                     catalog_effect_data = get_buff_effect(buff_name)
                     if isinstance(catalog_effect_data, dict):
-                        # 譌｢蟄倥・effect_data縺ｫ繝槭・繧ｸ
                         for k, v in catalog_effect_data.items():
                             if k not in effect_data:
                                 effect_data[k] = v
                             elif k == "stat_mods" and isinstance(v, dict):
-                                # stat_mods縺ｯ繝槭・繧ｸ
                                 if "stat_mods" not in effect_data:
                                     effect_data["stat_mods"] = {}
                                 for sk, sv in v.items():
                                     if sk not in effect_data["stat_mods"]:
                                         effect_data["stat_mods"][sk] = sv
 
-                    # 笘・ｿｽ蜉: flavor繝・く繧ｹ繝医・邯呎価
                     if "flavor" in effect:
                         effect_data["flavor"] = effect["flavor"]
 
@@ -1523,6 +1568,99 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     log_snippets.append(f"[{buff_name} 付与]")
                     if delta_count != 0:
                         log_snippets.append(f"[{buff_name} スタック +{delta_count} ({before_count}->{after_count})]")
+
+            elif effect_type == "CONVERT_STACK_RESOURCE_VARIANT":
+                resource_name = (
+                    effect.get("resource_name")
+                    or effect.get("resource")
+                    or effect.get("buff_name")
+                    or ""
+                )
+                to_variant = str(effect.get("to_variant") or effect.get("variant") or "").strip()
+                if not resource_name or not to_variant:
+                    continue
+
+                try:
+                    require_count = int(
+                        effect.get("require_count_gte", effect.get("require_count", effect.get("min_count", 1)))
+                    )
+                except (TypeError, ValueError):
+                    require_count = 1
+                require_count = max(1, require_count)
+
+                mod = _utils_module()
+                resolve_name_fn = getattr(mod, "resolve_stack_resource_name", None) if mod else None
+                canonical_resource_name = str(resource_name).strip()
+                resource_key = canonical_resource_name.lower()
+                preferred_buff_id = ""
+                if ("gyoma" in resource_key) or ("凝魔" in canonical_resource_name):
+                    preferred_buff_id = "Bu-31"
+                elif ("chikuryoku" in resource_key) or ("蓄力" in canonical_resource_name):
+                    preferred_buff_id = "Bu-30"
+
+                sim_bucket = None
+                if preferred_buff_id:
+                    sim_bucket = _find_sim_buff_by_id(sim_target, preferred_buff_id)
+                if not isinstance(sim_bucket, dict):
+                    sim_bucket = _find_sim_buff(sim_target, canonical_resource_name)
+                if not isinstance(sim_bucket, dict) and callable(resolve_name_fn):
+                    try:
+                        resolved = str(resolve_name_fn(resource_name) or "").strip()
+                    except Exception:
+                        resolved = ""
+                    if resolved:
+                        sim_bucket = _find_sim_buff(sim_target, resolved)
+                if not isinstance(sim_bucket, dict):
+                    # Last-resort fallback by known stack-resource buff IDs.
+                    if preferred_buff_id:
+                        sim_bucket = _find_sim_buff_by_id(sim_target, preferred_buff_id)
+                    if not isinstance(sim_bucket, dict):
+                        fallback_rows = [
+                            _find_sim_buff_by_id(sim_target, "Bu-31"),
+                            _find_sim_buff_by_id(sim_target, "Bu-30"),
+                        ]
+                        if preferred_buff_id == "Bu-30":
+                            fallback_rows.reverse()
+                        for row in fallback_rows:
+                            if isinstance(row, dict) and _resolve_buff_count_local(row, default=0) > 0:
+                                sim_bucket = row
+                                break
+
+                current_count = _resolve_buff_count_local(sim_bucket, default=0)
+                if current_count < require_count:
+                    log_snippets.append(f"[{canonical_resource_name} 不足 {current_count}/{require_count}]")
+                    continue
+                if not isinstance(sim_bucket, dict):
+                    continue
+                canonical_resource_name = str(sim_bucket.get("name") or canonical_resource_name).strip()
+
+                if not isinstance(sim_bucket.get("data"), dict):
+                    sim_bucket["data"] = {}
+                sim_bucket["variant"] = to_variant
+                sim_bucket["data"]["variant"] = to_variant
+
+                # Avoid remove/re-apply on conversion to prevent accidental stack duplication.
+                # Persist variant directly to the live target row as well.
+                live_bucket = None
+                if preferred_buff_id:
+                    live_bucket = _find_sim_buff_by_id(target_obj, preferred_buff_id)
+                if not isinstance(live_bucket, dict):
+                    live_bucket = _find_sim_buff(target_obj, canonical_resource_name)
+                if not isinstance(live_bucket, dict) and callable(resolve_name_fn):
+                    try:
+                        resolved_live = str(resolve_name_fn(resource_name) or "").strip()
+                    except Exception:
+                        resolved_live = ""
+                    if resolved_live:
+                        live_bucket = _find_sim_buff(target_obj, resolved_live)
+                if isinstance(live_bucket, dict):
+                    if not isinstance(live_bucket.get("data"), dict):
+                        live_bucket["data"] = {}
+                    live_bucket["variant"] = to_variant
+                    live_bucket["data"]["variant"] = to_variant
+
+                log_snippets.append(f"[{canonical_resource_name} 変換: {to_variant}]")
+
             elif effect_type == "CONSUME_BUFF_COUNT_FOR_GAIN":
                 buff_name = effect.get("buff_name")
                 if not buff_name:
@@ -1536,13 +1674,25 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
                 sim_bucket = _find_sim_buff(sim_target, buff_name)
                 current_count = _resolve_buff_count_local(sim_bucket, default=0)
+                consumed_by_state = False
                 if current_count < consume_required:
-                    log_snippets.append(f"[{buff_name} 不足 {current_count}/{consume_required}]")
-                    continue
-
-                remaining = current_count - consume_required
-                _set_sim_buff_count(sim_target, buff_name, remaining)
-                _queue_remaining_buff(target_obj, sim_bucket, buff_name, remaining)
+                    state_current = _stable_get_status_value(sim_target, buff_name)
+                    try:
+                        state_current = int(state_current or 0)
+                    except Exception:
+                        state_current = 0
+                    if state_current < consume_required:
+                        log_snippets.append(f"[{buff_name}不足 {current_count}/{consume_required}]")
+                        continue
+                    remaining = state_current - consume_required
+                    _stable_set_status_value(sim_target, buff_name, remaining)
+                    changes_to_apply.append((target_obj, "APPLY_STATE", buff_name, -consume_required))
+                    current_count = state_current
+                    consumed_by_state = True
+                else:
+                    remaining = current_count - consume_required
+                    _set_sim_buff_count(sim_target, buff_name, remaining)
+                    _queue_remaining_buff(target_obj, sim_bucket, buff_name, remaining)
 
                 gains = effect.get("gains", [])
                 if isinstance(gains, dict):
@@ -1552,6 +1702,17 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     for gain in gains:
                         if not isinstance(gain, dict):
                             continue
+                        gain_target_type = str(gain.get("target", effect.get("target", "self")) or "self").strip().lower()
+                        if gain_target_type == "self":
+                            gain_target_obj = actor
+                        elif gain_target_type == "target":
+                            gain_target_obj = target if effect.get("target") == "self" and target is not None else target_obj
+                        else:
+                            gain_target_obj = target_obj
+                        sim_gain_target = get_simulated_char(gain_target_obj) if gain_target_obj else None
+                        if sim_gain_target is None:
+                            continue
+
                         gain_type = str(gain.get("type", "")).strip().upper()
                         if gain_type in {"FP", "MP", "HP"}:
                             try:
@@ -1560,12 +1721,18 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                                 gain_value = 0
                             if gain_value == 0:
                                 continue
-                            current_val = _stable_get_status_value(sim_target, gain_type)
-                            _stable_set_status_value(sim_target, gain_type, current_val + gain_value)
-                            changes_to_apply.append((target_obj, "APPLY_STATE", gain_type, gain_value))
+                            current_val = _stable_get_status_value(sim_gain_target, gain_type)
+                            _stable_set_status_value(sim_gain_target, gain_type, current_val + gain_value)
+                            changes_to_apply.append((gain_target_obj, "APPLY_STATE", gain_type, gain_value))
                             gain_count += 1
                         elif gain_type in {"BUFF", "APPLY_BUFF"}:
                             gain_buff_name = gain.get("buff_name")
+                            gain_buff_id = gain.get("buff_id")
+                            if not gain_buff_name and gain_buff_id:
+                                from manager.buff_catalog import get_buff_by_id
+                                gain_buff_data = get_buff_by_id(gain_buff_id)
+                                if gain_buff_data:
+                                    gain_buff_name = gain_buff_data.get("name")
                             if not gain_buff_name:
                                 continue
                             try:
@@ -1583,22 +1750,29 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                                 gain_data = dict(gain_data)
                             else:
                                 continue
+                            if gain_buff_id:
+                                gain_data["buff_id"] = gain_buff_id
                             gain_payload = {
                                 "lasting": gain_lasting,
                                 "delay": gain_delay,
                                 "data": gain_data,
                                 "explicit_lasting": ("lasting" in gain),
                             }
+                            if "lasting" in gain and isinstance(gain_payload.get("data"), dict):
+                                gain_payload["data"]["_explicit_lasting"] = True
                             if "count" in gain:
                                 try:
                                     gain_payload["count"] = int(gain.get("count"))
                                 except (TypeError, ValueError):
                                     pass
-                            changes_to_apply.append((target_obj, "APPLY_BUFF", gain_buff_name, gain_payload))
+                            changes_to_apply.append((gain_target_obj, "APPLY_BUFF", gain_buff_name, gain_payload))
                             gain_count += 1
 
                 log_snippets.append(f"[{buff_name} 消費]")
-                log_snippets.append(f"[{buff_name} スタック -{consume_required} ({current_count}->{remaining})]")
+                if consumed_by_state:
+                    log_snippets.append(f"[{buff_name} 状態値 -{consume_required} ({current_count}->{remaining})]")
+                else:
+                    log_snippets.append(f"[{buff_name} {consume_required}消費 ({current_count}->{remaining})]")
                 if gain_count > 0:
                     log_snippets.append(f"[効果発動 {gain_count}件]")
             elif effect_type == "CONSUME_BUFF_COUNT_FOR_POWER":
@@ -1633,14 +1807,28 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
                 sim_bucket = _find_sim_buff(sim_target, buff_name)
                 current_count = _resolve_buff_count_local(sim_bucket, default=0)
+                consumed_by_state = False
+                if current_count <= 0:
+                    state_current = _stable_get_status_value(sim_target, buff_name)
+                    try:
+                        state_current = int(state_current or 0)
+                    except Exception:
+                        state_current = 0
+                    if state_current > 0:
+                        current_count = state_current
+                        consumed_by_state = True
                 consume_amount = min(current_count, consume_max)
                 if consume_amount < min_consume:
-                    log_snippets.append(f"[{buff_name} 不足 {current_count}/{min_consume}]")
+                    log_snippets.append(f"[{buff_name}不足 {current_count}/{min_consume}]")
                     continue
 
                 remaining = current_count - consume_amount
-                _set_sim_buff_count(sim_target, buff_name, remaining)
-                _queue_remaining_buff(target_obj, sim_bucket, buff_name, remaining)
+                if consumed_by_state:
+                    _stable_set_status_value(sim_target, buff_name, remaining)
+                    changes_to_apply.append((target_obj, "APPLY_STATE", buff_name, -consume_amount))
+                else:
+                    _set_sim_buff_count(sim_target, buff_name, remaining)
+                    _queue_remaining_buff(target_obj, sim_bucket, buff_name, remaining)
 
                 power_delta = consume_amount * value_per_stack
                 if power_delta != 0:
@@ -1648,11 +1836,11 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     changes_to_apply.append((target_obj, change_type, None, power_delta))
                     bonus_label = "基礎威力" if apply_to == "base" else "最終威力"
                     log_snippets.append(f"[{buff_name} 消費]")
-                    log_snippets.append(f"[{buff_name} スタック -{consume_amount} ({current_count}->{remaining})]")
-                    log_snippets.append(f"[{bonus_label} {power_delta:+}]")
+                    log_snippets.append(f"[{buff_name} {consume_amount}消費 ({current_count}->{remaining})]")
+                    log_snippets.append(f"[{bonus_label}{power_delta:+}]")
                 else:
                     log_snippets.append(f"[{buff_name} 消費]")
-                    log_snippets.append(f"[{buff_name} スタック -{consume_amount} ({current_count}->{remaining})]")
+                    log_snippets.append(f"[{buff_name} {consume_amount}消費 ({current_count}->{remaining})]")
             elif effect_type == "GRANT_SKILL":
                 grant_skill_id = str(effect.get("skill_id", effect.get("grant_skill_id", "")) or "").strip()
                 if not grant_skill_id:
@@ -1723,13 +1911,9 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 changes_to_apply.append((target_obj, "USE_SKILL_AGAIN", "None", request_payload))
                 log_snippets.append(f"[スキル再使用 x{max_reuses}]")
             elif effect_type == "CUSTOM_EFFECT":
-                # target="self" 縺ｮ蝣ｴ蜷医・閾ｪ蛻・ｒ蟇ｾ雎｡縺ｫ縺吶ｋ縲・
-                # 驥崎ｦ・ CUSTOM_EFFECT 繧ゅす繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ迥ｶ諷九ｒ蜿ら・縺輔○繧九・
-                # 縺薙ｌ縺ｫ繧医ｊ縲∝酔荳 effects 驟榊・蜀・〒蜈郁｡後＠縺・APPLY_STATE 縺ｮ邨先棡繧呈ｭ｣縺励￥蜿肴丐縺ｧ縺阪ｋ縲・
                 custom_target_sim = sim_actor if effect.get("target") == "self" else sim_target
                 custom_changes, custom_logs = execute_custom_effect(effect, sim_actor, custom_target_sim, context=context)
 
-                # 螳滄←逕ｨ繧ｭ繝･繝ｼ縺ｫ縺ｯ螳滉ｽ灘盾辣ｧ繧堤ｩ阪・縺溘ａ縲《im蜿ら・繧・actor/target_obj 縺ｫ謌ｻ縺吶・
                 remapped_changes = []
                 for c, t, n, v in custom_changes:
                     mapped_char = c
@@ -1754,24 +1938,20 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     changes_to_apply.append((target_obj, "MODIFY_FINAL_POWER", None, mod_value))
                     log_snippets.append(f"[最終威力 {mod_value:+}]")
             elif effect_type == "DRAIN_HP":
-                 # 笘・ｿｽ蜉: 繝繝｡繝ｼ繧ｸ蜷ｸ蜿・(base_damage縺ｫ蝓ｺ縺･縺・
                  if base_damage > 0:
                      rate = float(effect.get("value", 0))
 
-                     # 笘・霑ｽ蜉: 蟇ｾ雎｡(謾ｻ謦・嶌謇・縺ｮHP繧剃ｸ企剞縺ｫ縺吶ｋ
                      calc_base = base_damage
-                     if target: # 謾ｻ謦・ｯｾ雎｡縺悟ｭ伜惠縺吶ｋ蝣ｴ蜷・
+                     if target:
                          target_current_hp = _stable_get_status_value(target, 'HP')
                          if target_current_hp < calc_base:
                              calc_base = target_current_hp
 
                      heal_val = int(calc_base * rate)
                      if heal_val > 0:
-                         # 蜊ｳ蠎ｧ縺ｫ蝗槫ｾｩ (繧ｷ繝溘Η繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ)
                          current_hp = _stable_get_status_value(sim_actor, 'HP')
                          _stable_set_status_value(sim_actor, 'HP', current_hp + heal_val)
 
-                         # 螟画峩莠育ｴ・(螳滉ｽ・
                          changes_to_apply.append((actor, "APPLY_STATE", "HP", heal_val))
                          log_snippets.append(f"[吸収 +{heal_val}]")
             elif effect_type == "SUMMON_CHARACTER":
@@ -1817,7 +1997,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     if key in effect:
                         summon_payload[key] = copy.deepcopy(effect.get(key))
 
-                # target 繧貞挨縺ｫ蜿悶ｋ螳夂ｾｩ縺ｧ縺ｯ縲∝ｺｧ讓吶′譛ｪ謖・ｮ壹↑繧・target 蠎ｧ讓吶ｒ繧ｹ繝昴・繝ｳ蝨ｰ轤ｹ縺ｫ菴ｿ縺・・
                 if (
                     isinstance(target_obj, dict)
                     and target_obj.get("id") != actor.get("id")
@@ -1834,13 +2013,12 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
     return total_bonus_damage, log_snippets, changes_to_apply
 
 def calculate_power_bonus(actor, target, power_bonus_data, context=None):
-    # (縺薙・髢｢謨ｰ縺ｯ螟画峩縺ｪ縺励√Ο繧ｸ繝・け縺昴・縺ｾ縺ｾ)
     def _get_bonus(rule, s, t):
         if not rule: return 0
         src = s if rule.get('source') != 'target' else t
         if not src: return 0
         p_name = rule.get('param')
-        val = _get_value_for_condition(src, p_name, context=context) # 笘・ｿｮ豁｣: 縺薙％繧・context蟇ｾ蠢・
+        val = _get_value_for_condition(src, p_name, context=context)
         bonus = 0
         op = str(rule.get('operation', rule.get('operator', '')) or '').strip().upper()
         if op == 'MULTIPLY':
@@ -1931,9 +2109,7 @@ def calculate_skill_preview(
     external_final_power_mod=0,
     context=None
 ):
-    """
-    繧ｹ繧ｭ繝ｫ縺ｮ螽∝鴨縲√さ繝槭Φ繝峨∬｣懈ｭ｣諠・ｱ縺ｮ繝励Ξ繝薙Η繝ｼ繝・・繧ｿ繧定ｨ育ｮ励☆繧九・
-    """
+    """Compute preview data for skill command/power before rolling."""
     def _to_int(v, default=0):
         try:
             return int(v)
@@ -1994,7 +2170,6 @@ def calculate_skill_preview(
         'notes': _pick_first(skill_data, ['特記', 'notes'], ''),
     }
 
-    # 繝ｫ繝ｼ繝ｫ繝・・繧ｿ縺ｮ閾ｪ蜍輔ヱ繝ｼ繧ｹ
     if not rule_data and skill_data:
         try:
             rule_json_str = _pick_first(skill_data, ['特記処理', '特記定義', 'rule_data_json'], '{}')
@@ -2002,7 +2177,7 @@ def calculate_skill_preview(
         except Exception:
             rule_data = {}
 
-    bonus_power = 0                 # 蠕捺擂縺ｮ螽∝鴨陬懈ｭ｣(base/default)
+    bonus_power = 0
     final_power_bonus = _to_int(external_final_power_mod) + temp_final_power_mod + origin_final_power_mod
     dice_bonus_power = origin_dice_power_mod
 
@@ -2038,13 +2213,16 @@ def calculate_skill_preview(
         selected_power_value = _to_int(power_stat_choice.get("selected_value", 0), 0)
         selected_power_param = str(power_stat_choice.get("selected_param", "") or "").strip() or None
 
-    # 迚ｩ逅・鬲疲ｳ輔せ繧ｭ繝ｫ縺ｪ繧画姶諷・ｸ企剞繧偵ョ繝輔か繝ｫ繝磯←逕ｨ
+    # 戦慄はカテゴリ依存だけにせず、スタック保持時は基本上限(3)で適用する。
+    # （カテゴリ判定は後方互換として残す）
     if senritsu_max_apply == 0:
         category = _pick_first(skill_data, ['分類', '種別', 'category'], '')
-        if category and ('戦慄' in category or '荊棘' in category):
+        current_senritsu_for_cap = _to_int(get_status_value(actor_char, '戦慄'))
+        if current_senritsu_for_cap > 0:
+            senritsu_max_apply = 3
+        elif category and ('戦慄' in category or '荊棘' in category):
             senritsu_max_apply = 3
 
-    # 繝舌ヵ逕ｱ譚･陬懈ｭ｣・・pply_to=base/dice/final 繧貞・髮｢・・
     buff_bonus_parts = calculate_buff_power_bonus_parts(
         actor_char, target_char, skill_data, context=context
     )
@@ -2052,7 +2230,6 @@ def calculate_skill_preview(
     dice_bonus_power += _to_int(buff_bonus_parts.get("dice", 0))
     final_power_bonus += _to_int(buff_bonus_parts.get("final", 0))
 
-    # 蝗ｺ譛画←諱ｵ
     wadatsumi_bonus = 0
     valvile_correction = 0
     try:
@@ -2078,7 +2255,6 @@ def calculate_skill_preview(
     skill_details['base_power_mod'] = base_power_buff_mod + _to_int(external_base_power_mod) + temp_base_power_mod + origin_base_power_mod
     skill_details['final_power_total_mod'] = final_power_bonus
 
-    # 繝繧､繧ｹ驛ｨ蛻・・隗｣譫・
     palette = _pick_first(skill_data, [key_palette, 'palette'], '')
     cmd_part = re.sub(r'【.*?】|\[.*?\]', '', palette).strip()
     cmd_part = re.sub(r'^(?:/sroll|/sr|/roll|/r)\s*', '', cmd_part, flags=re.IGNORECASE).strip()
@@ -2098,7 +2274,6 @@ def calculate_skill_preview(
 
     resolved_dice = resolve_placeholders(dice_part, actor_char)
 
-    # 陬懈ｭ｣陦ｨ遉ｺ・・I蜷代￠・・
     correction_details = []
     total_base_mod = base_power_buff_mod + _to_int(external_base_power_mod) + temp_base_power_mod + origin_base_power_mod
     if total_base_mod != 0:
@@ -2157,7 +2332,8 @@ def calculate_skill_preview(
         current_senritsu = _to_int(get_status_value(actor_char, '戦慄'))
         apply_val = min(current_senritsu, senritsu_max_apply) if current_senritsu > 0 else 0
 
-        dice_m = re.search(r'([+-]?)(\d+)d(\d+)', _pick_first(skill_data, [key_dice_power, 'dice_power'], ''))
+        # Use already-resolved dice expression so 戦慄 also applies when faces come from chat palette.
+        dice_m = re.search(r'([+-]?)(\d+)d(\d+)', processed_dice)
         if dice_m and apply_val > 0:
             orig_faces = int(dice_m.group(3))
             if orig_faces > 1:
@@ -2284,9 +2460,7 @@ def calculate_skill_preview(
 
 
 def build_power_result_snapshot(preview_data, roll_result):
-    """
-    繝励Ξ繝薙Η繝ｼ譎ゅ・蜀・ｨｳ縺ｨ繝ｭ繝ｼ繝ｫ邨先棡繧堤ｵｱ蜷医＠縲∫｢ｺ螳壼ｨ∝鴨縺ｮ蜿ら・繝・・繧ｿ繧定ｿ斐☆縲・
-    """
+    """Build a unified snapshot from preview data and roll result."""
     preview_data = preview_data if isinstance(preview_data, dict) else {}
     roll_result = roll_result if isinstance(roll_result, dict) else {}
     power_breakdown = preview_data.get("power_breakdown", {}) if isinstance(preview_data.get("power_breakdown"), dict) else {}
@@ -2404,17 +2578,7 @@ def _resolve_buff_condition_value(buff_entry):
 
 
 def compute_damage_multipliers(attacker, defender, context=None):
-    """
-    荳弱ム繝｡(outgoing) 縺ｨ陲ｫ繝繝｡(incoming) 縺ｮ蛟咲紫繧剃ｸ諡ｬ險育ｮ励☆繧九・
-    Returns:
-        {
-            "outgoing": float,
-            "incoming": float,
-            "final": float,
-            "outgoing_logs": list[str],
-            "incoming_logs": list[str],
-        }
-    """
+    """Calculate outgoing/incoming damage multipliers and their logs."""
     _ = context
     outgoing = 1.0
     incoming = 1.0
@@ -2428,10 +2592,9 @@ def compute_damage_multipliers(attacker, defender, context=None):
         condition = _resolve_buff_condition_value(buff)
         if condition and not check_condition(condition, defender, attacker, context=context):
             continue
-
-        if buff_name == "豺ｷ荵ｱ":
+        if buff_name == "??":
             incoming *= 1.5
-            incoming_logs.append("豺ｷ荵ｱ")
+            incoming_logs.append("??")
 
         incoming_value = _resolve_buff_multiplier_value(
             buff,
@@ -2468,30 +2631,15 @@ def compute_damage_multipliers(attacker, defender, context=None):
 
 
 def calculate_damage_multiplier(character):
-    """
-    繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ縺ｮ繝舌ヵ縺九ｉ繝繝｡繝ｼ繧ｸ蛟咲紫繧定ｨ育ｮ励☆繧・
-    (豺ｷ荵ｱ + damage_multiplier)
-
-    Args:
-        character (dict): 繧ｭ繝｣繝ｩ繧ｯ繧ｿ繝ｼ繝・・繧ｿ
-
-    Returns:
-        tuple: (final_multiplier, log_list)
-            - final_multiplier (float): 譛邨ら噪縺ｪ蛟咲紫
-            - log_list (list): 驕ｩ逕ｨ縺輔ｌ縺溷柑譫懊・蜷榊燕繝ｪ繧ｹ繝・
-    """
+    """Calculate incoming damage multiplier from active buffs. Returns (final_multiplier, log_list)."""
     mult = compute_damage_multipliers(None, character)
     return mult.get("incoming", 1.0), mult.get("incoming_logs", [])
 
 def process_on_death(room, char, username):
-    """
-    豁ｻ莠｡譎ゅう繝吶Φ繝・on_death)繧貞・逅・☆繧・
-    """
+    """Execute on-death effects."""
     if not char: return
     logs = []
 
-    # special_buffs (縺ｾ縺溘・繝代ャ繧ｷ繝・ 縺ｫ on_death 縺後≠繧後・螳溯｡・
-    # 繝代ャ繧ｷ繝悶・蟶ｸ譎ゅヰ繝輔→縺励※ special_buffs 縺ｫ螻暮幕縺輔ｌ縺ｦ縺・ｋ蜑肴署・医Ο繝ｼ繝繝ｼ縺ｮ莉慕ｵ・∩荳翫◎縺・↑縺｣縺ｦ縺・ｋ・・
 
     for buff in char.get('special_buffs', []):
         effect_data = get_buff_effect(buff.get('name'))
@@ -2501,11 +2649,7 @@ def process_on_death(room, char, username):
 
         on_death_effects = effect_data.get('on_death', [])
         if on_death_effects:
-            # 螳溯｡・
-            # 豁ｻ繧薙□譛ｬ莠ｺ繧・actor 縺ｨ縺励※蜉ｹ譫懷・逅・
-            # 繧ｿ繝ｼ繧ｲ繝・ヨ縺ｯ蜉ｹ譫懷ｮ夂ｾｩ蜀・・ target (ALL_ENEMIES縺ｪ縺ｩ) 縺ｫ萓晏ｭ・
 
-            # 繧ｳ繝ｳ繝・く繧ｹ繝井ｽ懈・
             from manager.room_manager import get_room_state, broadcast_log, _update_char_stat
             state = get_room_state(room)
             context = {"characters": state['characters'], "room": room}
@@ -2518,7 +2662,7 @@ def process_on_death(room, char, username):
             for (c, type, name, value) in changes:
                 if type == "APPLY_STATE":
                     current = get_status_value(c, name)
-                    _update_char_stat(room, c, name, current + value, username=f"[{char['name']}:驕ｺ險]")
+                    _update_char_stat(room, c, name, current + value, username=f"[{char['name']}:??]")
                 elif type == "APPLY_BUFF":
                     apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
                     broadcast_log(room, f"[{name}] applied to {c['name']}", "state-change")
@@ -2542,25 +2686,18 @@ def process_on_death(room, char, username):
                     else:
                         logger.warning("[on_death grant_skill failed] %s", res.get("message"))
 
-    # 騾壼ｸｸ繝ｭ繧ｰ縺ｯ蜻ｼ縺ｳ蜃ｺ縺怜・縺ｧ蜃ｦ逅・ｸ医∩
 
 def process_battle_start(room, char):
-    """
-    謌ｦ髣倡ｪ∝・譎ゅう繝吶Φ繝・battle_start_effect)繧貞・逅・☆繧・
-    蛻晄悄FP莉倅ｸ弱↑縺ｩ縺ｫ菴ｿ逕ｨ
-    """
+    """Execute battle-start effects such as initial FP grants."""
     if not char: return
 
-    # 繝代ャ繧ｷ繝・繝舌ヵ繝√ぉ繝・け
     executed = False
 
     for buff in char.get('special_buffs', []):
         buff_name = buff.get('name')
         effect_data = get_buff_effect(buff_name)
 
-        # effect_data閾ｪ菴薙′縺ｪ縺・ｴ蜷医ｄ縲｜attle_start_effect縺後↑縺・ｴ蜷医・繧ｹ繧ｭ繝・・
         if not effect_data:
-             # 笘・ｿｽ蜉: 蜍慕噪繝舌ヵ・郁ｼ晏喧繧ｹ繧ｭ繝ｫ縺ｪ縺ｩ・峨〒縲‥ata繝励Ο繝代ユ繧｣縺ｫ逶ｴ謗･螳夂ｾｩ縺悟・縺｣縺ｦ縺・ｋ蝣ｴ蜷・
              if 'data' in buff:
                  effect_data = buff['data']
              else:
@@ -2568,16 +2705,8 @@ def process_battle_start(room, char):
 
         start_effects = effect_data.get('battle_start_effect', [])
         if start_effects:
-            # 螳溯｡・(繧ｿ繧､繝溘Φ繧ｰ繝√ぉ繝・け縺ｯ荳崎ｦ√□縺後｝rocess_skill_effects縺ｮ莉墓ｧ倅ｸ翫ち繧､繝溘Φ繧ｰ謖・ｮ壹′蠢・ｦ√↑繧迂MMEDIATE遲峨〒莉｣逕ｨ)
-            # 縺薙％縺ｧ縺ｯ繧ｿ繧､繝溘Φ繧ｰ繝輔ぅ繝ｫ繧ｿ繧堤┌隕悶☆繧九°縲√ョ繝ｼ繧ｿ蛛ｴ縺ｧ謖・ｮ壹＆縺帙ｋ
-            # 譌｢蟄倬未謨ｰ蜀榊茜逕ｨ縺ｮ縺溘ａ縲√ち繧､繝溘Φ繧ｰ縺ｯ "BATTLE_START" 縺ｨ莉ｮ螳壹☆繧九′縲・
-            # process_skill_effects縺ｯ繧ｿ繧､繝溘Φ繧ｰ荳閾ｴ繧定ｦ九ｋ縺ｮ縺ｧ縲√ョ繝ｼ繧ｿ蛛ｴ縺ｫ繧・timing: BATTLE_START 縺悟ｿ・ｦ√・
-            # 縺励°縺玲焔蜈･蜉帙・謇矩俣繧堤怐縺上◆繧√√％縺薙〒縺ｯ蠑ｷ蛻ｶ逧・↓騾壹☆縺九｝rocess_skill_effects繧剃ｽｿ繧上★縺ｫ蜃ｦ逅・☆繧九・
 
-            # 邁｡譏灘ｮ溯｣・ 縺薙％縺ｧ蜃ｦ逅・Ν繝ｼ繝励ｒ蝗槭☆ (process_skill_effects縺ｯ譚｡莉ｶ遲峨′隍・尅縺ｪ縺ｮ縺ｧ蜀榊茜逕ｨ縺励◆縺・
-            # 繝・・繧ｿ蛛ｴ縺ｫ timing: BATTLE_START 繧剃ｻ倅ｸ弱＠縺ｦ貂｡縺・
 
-            # deepcopy縺励※timing豕ｨ蜈･
             import copy
             effects_to_run = copy.deepcopy(start_effects)
             for eff in effects_to_run:
