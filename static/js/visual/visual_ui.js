@@ -826,7 +826,13 @@ window.setupVisualSidebarControls = function () {
 
     function syncStageEffectCard() {
         const info = getBattleOnlyStageDisplayState();
-        const shouldShow = info.boMode && info.status === 'in_battle';
+        const roomName = String((typeof currentRoomName !== 'undefined' ? currentRoomName : runtimeGlobal.currentRoomName) || '').trim();
+        const hasStageContent = !!(
+            info.stage_field_effect_enabled ||
+            info.stage_avatar_enabled ||
+            (Array.isArray(info.rules) && info.rules.length > 0)
+        );
+        const shouldShow = !!(roomName && info.boMode && info.status === 'in_battle' && hasStageContent);
         if (!shouldShow) {
             removeStageEffectCard();
             return;
@@ -851,14 +857,14 @@ window.setupVisualSidebarControls = function () {
             <div style="display:flex; gap:8px; align-items:center;">
                 <div style="width:36px; height:36px; border-radius:8px; border:1px solid #d1d5db; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#111827; background:#fff;">${icon}</div>
                 <div style="min-width:0; flex:1;">
-                    <div style="font-size:12px; color:#6b7280;">Stage Rule</div>
+                    <div style="font-size:12px; color:#6b7280;">ステージ効果</div>
                     <div style="font-size:14px; font-weight:700; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${_escapeResolveLogHtml(info.stageName)}</div>
                 </div>
             </div>
             <div style="margin-top:8px; display:flex; justify-content:space-between; gap:8px; font-size:12px;">
-                <span style="color:${statusColor};">Effect: ${info.stage_field_effect_enabled ? 'ON' : 'OFF'}</span>
-                <span style="color:${info.stage_avatar_enabled ? '#1d4ed8' : '#6b7280'};">Avatar: ${info.stage_avatar_enabled ? 'ON' : 'OFF'}</span>
-                <span style="color:#374151;">Rules: ${info.rules.length}</span>
+                <span style="color:${statusColor};">効果: ${info.stage_field_effect_enabled ? 'ON' : 'OFF'}</span>
+                <span style="color:${info.stage_avatar_enabled ? '#1d4ed8' : '#6b7280'};">アバター: ${info.stage_avatar_enabled ? 'ON' : 'OFF'}</span>
+                <span style="color:#374151;">ルール数: ${info.rules.length}</span>
             </div>
             <div style="margin-top:8px;">
                 <button type="button" id="visual-stage-effect-detail-btn" class="bo-btn bo-btn--sm" style="width:100%;">詳細</button>

@@ -450,6 +450,8 @@
                 <div class="bo-toolbar-group">
                     <button id="bo-cat-refresh-btn" class="bo-btn bo-btn--sm bo-btn--neutral">再読み込み</button>
                     <button id="bo-cat-clear-btn" class="bo-btn bo-btn--sm bo-btn--neutral">新規入力</button>
+                    <button id="bo-cat-open-formation-hub-btn" class="bo-btn bo-btn--sm bo-btn--primary">編成プリセット管理を開く</button>
+                    <span id="bo-cat-formation-hub-summary" class="bo-subcard-note">敵:0件 / 味方:0件 / ステージ:0件</span>
                 </div>
                 <span id="bo-cat-msg" class="bo-inline-msg"></span>
             </div>
@@ -533,12 +535,6 @@
                         </select>
                     </div>
                     <div id="bo-cat-list" class="bo-list-box bo-list-box--tall"></div>
-                    <section class="bo-subcard" style="margin-top:12px;">
-                        <div class="bo-subcard-title">編成プリセット管理</div>
-                        <div id="bo-cat-formation-hub-summary" class="bo-subcard-note">敵:0件 / 味方:0件 / ステージ:0件</div>
-                        <div class="bo-subcard-note">敵編成・味方編成・ステージの編集とJSON入出力は専用画面で行います。</div>
-                        <button id="bo-cat-open-formation-hub-btn" class="bo-btn bo-btn--sm bo-btn--primary">編成プリセット管理を開く</button>
-                    </section>
                 </section>
             </div>
             <div class="bo-footer-actions">
