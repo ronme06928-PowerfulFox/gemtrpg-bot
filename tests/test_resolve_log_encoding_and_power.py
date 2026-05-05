@@ -37,7 +37,7 @@ def test_format_duel_result_lines_emits_clean_damage_labels():
     )
     assert any("内訳: [ダイス 10]" in line for line in lines)
     # Regression guard: historically mojibake labels leaked to output.
-    assert all("繧" not in line for line in lines)
+    assert all("\u7e67" not in line for line in lines)
 
 
 def test_legacy_adapter_normalizes_damage_sources_and_uses_numeric_power():

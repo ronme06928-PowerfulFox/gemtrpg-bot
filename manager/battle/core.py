@@ -330,7 +330,7 @@ def _humanize_resolve_reason(notes):
     return " / ".join([h for h in humanized if str(h).strip()])
 
 
-def _append_multiplier_logs(log_snippets, mult_info, incoming_label='髦ｲ', outgoing_label='謾ｻ'):
+def _append_multiplier_logs(log_snippets, mult_info, incoming_label='防御', outgoing_label='攻撃'):
     if not isinstance(log_snippets, list):
         return
     if not isinstance(mult_info, dict):

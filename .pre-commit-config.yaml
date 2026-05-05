@@ -6,3 +6,8 @@ repos:
         entry: python scripts/check_text_encoding.py
         language: system
         pass_filenames: false
+      - id: mojibake-guard
+        name: mojibake-guard (corrupted japanese markers)
+        entry: python scripts/check_mojibake_markers.py
+        language: system
+        pass_filenames: false

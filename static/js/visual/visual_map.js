@@ -18,11 +18,11 @@ const _battleMapDebug = (...args) => {
 const SHOW_SELECT_RESOLVE_MODE_HINT = false;
 
 const STATUS_NAME_ALIASES = {
-    '蜃ｺ陦': '出血',
-    '遐ｴ陬・': '亀裂',
-    '莠陬・': '破裂',
-    '謌ｦ諷・': '戦慄',
-    '闕頑｣・': '荊棘',
+    '\u8703\uff7a\u9666\u0080': '出血',
+    '\u9050\uff74\u966c\u30fb': '亀裂',
+    '\u83a0\u0080\u966c\u30fb': '破裂',
+    '\u8b0c\uff66\u8af7\u30fb': '戦慄',
+    '\u95d5\u9811\uff63\u30fb': '荊棘',
 };
 
 function normalizeStateName(name) {

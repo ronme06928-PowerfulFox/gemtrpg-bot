@@ -11,12 +11,12 @@ DAMAGE_LABEL_GENERIC = "ダメージ"
 
 # Read-only compatibility aliases for previously persisted mojibake labels.
 _LEGACY_DICE_ALIASES = {
-    "繝繧､繧ｹ",
-    "蟾ｮ蛻・ム繝｡繝ｼ繧ｸ",
-    "蜷郁ｨ医ム繝｡繝ｼ繧ｸ",
+    "\u7e5d\x80\u7e67\uff64\u7e67\uff79",
+    "\u87fe\uff6e\u86fb\u30fb\u30e0\u7e5d\uff61\u7e5d\uff7c\u7e67\uff78",
+    "\u8737\u90c1\uff68\u533b\u30e0\u7e5d\uff61\u7e5d\uff7c\u7e67\uff78",
 }
 _LEGACY_EFFECT_ALIASES = {
-    "繧ｭ繝ｼ繝ｯ繝ｼ繝牙柑譫懊ム繝｡繝ｼ繧ｸ",
+    "\u7e67\uff6d\u7e5d\uff7c\u7e5d\uff6f\u7e5d\uff7c\u7e5d\u7259\u67d1\u8b6b\u61ca\u30e0\u7e5d\uff61\u7e5d\uff7c\u7e67\uff78",
 }
 
 
@@ -37,7 +37,8 @@ def _resolve_skill_name(skill_id, skill_data=None):
         skill_data.get("name")
         or skill_data.get("default_name")
         or skill_data.get("skill_name")
-        or skill_data.get("繝・ヵ繧ｩ繝ｫ繝亥錐遘ｰ")
+        or skill_data.get("デフォルト名称")
+        or skill_data.get("\u7e5d\u30fb\u30f5\u7e67\uff69\u7e5d\uff6b\u7e5d\u4ea5\u9310\u9058\uff70")
         or (str(skill_id) if skill_id else "(none)")
     )
     if skill_id:
@@ -51,7 +52,7 @@ def _extract_skill_id_from_data(skill_data, fallback=None):
     if not isinstance(skill_data, dict):
         return None
 
-    direct_keys = ["id", "skill_id", "skillID", "skillId", "スキルID", "繧ｹ繧ｭ繝ｫID"]
+    direct_keys = ["id", "skill_id", "skillID", "skillId", "スキルID", "\u7e67\uff79\u7e67\uff6d\u7e5d\uff6bID"]
     for key in direct_keys:
         val = skill_data.get(key)
         if val:
@@ -242,7 +243,7 @@ def _extract_damage_parts_from_legacy_lines(lines, attacker_name, defender_name)
     for line in lines:
         if not isinstance(line, str) or "<strong>" not in line:
             continue
-        if ("内訳" not in line) and ("蜀・ｨｳ" not in line):
+        if ("内訳" not in line) and ("\u8700\u30fb\uff68\uff73" not in line):
             continue
 
         m_target = re.search(r"<strong>([^<]+)</strong>", line)
@@ -256,8 +257,8 @@ def _extract_damage_parts_from_legacy_lines(lines, attacker_name, defender_name)
 
         if "内訳:" in line:
             details_text = line.split("内訳:", 1)[1]
-        elif "蜀・ｨｳ:" in line:
-            details_text = line.split("蜀・ｨｳ:", 1)[1]
+        elif "\u8700\u30fb\uff68\uff73:" in line:
+            details_text = line.split("\u8700\u30fb\uff68\uff73:", 1)[1]
         else:
             details_text = ""
 

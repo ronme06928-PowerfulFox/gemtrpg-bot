@@ -14,12 +14,12 @@ SOURCE_EFFECT_DAMAGE = "効果ダメージ"
 SOURCE_GENERIC_DAMAGE = "ダメージ"
 
 _LEGACY_DICE_ALIASES = {
-    "繝繧､繧ｹ",
-    "繝繧､繧ｹ繝繝｡繝ｼ繧ｸ",
-    "繝繝｡繝ｼ繧ｸ",
+    "\u7e5d\x80\u7e67\uff64\u7e67\uff79",
+    "\u7e5d\x80\u7e67\uff64\u7e67\uff79\u7e5d\x80\u7e5d\uff61\u7e5d\uff7c\u7e67\uff78",
+    "\u7e5d\x80\u7e5d\uff61\u7e5d\uff7c\u7e67\uff78",
 }
 _LEGACY_EFFECT_ALIASES = {
-    "繧ｭ繝ｼ繝ｯ繝ｼ繝牙柑譫懊ム繝｡繝ｼ繧ｸ",
+    "\u7e67\uff6d\u7e5d\uff7c\u7e5d\uff6f\u7e5d\uff7c\u7e5d\u7259\u67d1\u8b6b\u61ca\u30e0\u7e5d\uff61\u7e5d\uff7c\u7e67\uff78",
 }
 
 
@@ -362,7 +362,7 @@ def to_legacy_duel_log_input(
         if match_log_line and line_str == match_log_line:
             continue
         # Rebuild damage detail lines from structured damage_report only.
-        if ("内訳:" in line_str) or ("蜀・ｨｳ:" in line_str):
+        if ("内訳:" in line_str) or ("\u8700\u30fb\uff68\uff73:" in line_str):
             continue
         if ("ダメージ" in line_str) and ("<strong>" in line_str):
             continue

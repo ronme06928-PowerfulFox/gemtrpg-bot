@@ -286,7 +286,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                         actor,
                         c_type,
                         max(0, int(current_val) - int(spend)),
-                        username="[蜀堺ｽｿ逕ｨ繧ｳ繧ｹ繝・"
+                        username="[再使用コスト]"
                     )
 
             base_id = f"{origin_slot}__EX{next_depth}"
@@ -402,7 +402,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                 outcome='no_effect',
                 notes=notes
             )
-            legacy_input['winner_message'] = "<strong> 竊・荳咲匱</strong>"
+            legacy_input['winner_message'] = "<strong> → 不発</strong>"
             log_lines = format_duel_result_lines(
                 legacy_input['actor_name_a'],
                 legacy_input['skill_display_a'],
@@ -619,13 +619,13 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                     ):
                         if _is_feint_skill(winner_skill_data):
                             hard_followup_block_reason = 'feint_blocked'
-                            winner_name = str((winner_char or {}).get('name') or '荳肴・')
-                            loser_name = str((loser_char or {}).get('name') or '荳肴・')
+                            winner_name = str((winner_char or {}).get('name') or '不明')
+                            loser_name = str((loser_char or {}).get('name') or '不明')
                             hard_followup_block_log = f"[牽制] {winner_name} の牽制により {loser_name} の強硬攻撃は不発"
                         elif _resolve_skill_role(winner_skill_data) == 'evade':
                             hard_followup_block_reason = 'hard_evaded'
-                            winner_name = str((winner_char or {}).get('name') or '荳肴・')
-                            loser_name = str((loser_char or {}).get('name') or '荳肴・')
+                            winner_name = str((winner_char or {}).get('name') or '不明')
+                            loser_name = str((loser_char or {}).get('name') or '不明')
                             hard_followup_block_log = f"[回避] {winner_name} の回避成功により {loser_name} の強硬攻撃は不発"
                         else:
                             hard_followup_plan = {

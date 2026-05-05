@@ -123,11 +123,11 @@ def _extract_step_aux_log_lines(trace_entry):
             or ("付与" in text_plain)
             or ("解除" in text_plain)
             # Backward compatibility for old persisted mojibake logs.
-            or text_plain.startswith("[迥ｶ諷犠")
-            or text_plain.startswith("[繧ｳ繧ｹ繝・")
-            or ("蜀・ｨｳ:" in text_plain)
-            or ("繝繝｡繝ｼ繧ｸ" in text_plain)
-            or ("蜉ｹ譫懊′" in text_plain)
+            or text_plain.startswith("[\u8fe5\uff76\u8af7\u72a0")
+            or text_plain.startswith("[\u7e67\uff73\u7e67\uff79\u7e5d\u30fb")
+            or ("\u8700\u30fb\uff68\uff73:" in text_plain)
+            or ("\u7e5d\x80\u7e5d\uff61\u7e5d\uff7c\u7e67\uff78" in text_plain)
+            or ("\u8709\uff79\u8b6b\u61ca\u2032" in text_plain)
         )
         if not keep_line:
             continue
@@ -147,7 +147,7 @@ def _estimate_cost_for_skill_from_snapshot(before_snapshot, skill_data):
 
     rule_data = _extract_rule_data_from_skill(skill_data)
     tags = rule_data.get("tags", skill_data.get("tags", [])) if isinstance(rule_data, dict) else skill_data.get("tags", [])
-    no_cost_tags = {"消費不要", "コスト不要", "無消費", "no_cost", "free_cost", "蜊ｳ譎ら匱蜍・"}
+    no_cost_tags = {"消費不要", "コスト不要", "無消費", "no_cost", "free_cost", "即時発動"}
     if isinstance(tags, list):
         normalized_tags = {str(tag).strip() for tag in tags}
         if normalized_tags.intersection(no_cost_tags):

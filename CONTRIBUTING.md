@@ -5,10 +5,11 @@
 To prevent repeated mojibake issues, this repository uses the following fixed rules:
 
 1. All text files must be `UTF-8` (without BOM).
-2. Text files must follow repository line-ending rules from `.gitattributes` / `.editorconfig`.
-3. When writing files in Python, always specify `encoding="utf-8"`.
-4. When writing files in PowerShell, always use `-Encoding utf8`.
-5. Do not re-save unknown external command output directly into source files without encoding confirmation.
+2. Code, UI, and tests must not contain known mojibake marker characters.
+3. Text files must follow repository line-ending rules from `.gitattributes` / `.editorconfig`.
+4. When writing files in Python, always specify `encoding="utf-8"`.
+5. When writing files in PowerShell, always use `-Encoding utf8`.
+6. Do not re-save unknown external command output directly into source files without encoding confirmation.
 
 ## Local Check
 
@@ -16,6 +17,7 @@ Run before commit:
 
 ```bash
 python scripts/check_text_encoding.py
+python scripts/check_mojibake_markers.py
 ```
 
 ## Pre-commit Hook (Recommended)
@@ -29,4 +31,4 @@ The repository includes `.pre-commit-config.yaml` and will run the encoding guar
 
 ## CI
 
-GitHub Actions also runs the same encoding guard, so violations fail in CI.
+GitHub Actions also runs the encoding and mojibake guards, so violations fail in CI.

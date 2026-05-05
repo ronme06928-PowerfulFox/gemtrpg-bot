@@ -671,8 +671,8 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
         return
 
     # ★ 追加: 出血遷延(Bu-08) は lasting ではなく count 消費型として扱う
-    # ????(Bu-08) ? count ?????????
-    # rule v2 ? lasting ?????????????? count ????????
+    # 出血遷延(Bu-08) は count 消費型として扱う
+    # rule v2 の lasting は継続ラウンドなので count とは別に扱う
     if payload.get('buff_id') == 'Bu-08':
         def _resolve_count_from_payload(row):
             if isinstance(row.get('count'), (int, str)):

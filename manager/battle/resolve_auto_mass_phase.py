@@ -64,7 +64,7 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 damage_events.append({
                     'target_id': actor_id,
                     'hp': int(before_hp - after_hp),
-                    'damage_type': '蜷郁ｨ医ム繝｡繝ｼ繧ｸ'
+                    'damage_type': '合計ダメージ'
                 })
             return damage_events
 
@@ -221,7 +221,7 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 skill_name = _resolve_skill_name(attacker_skill_id, attacker_skill_data)
                 defender_actor_ids = _enemy_actor_ids_for_team(attacker_team)
                 logger.info(
-                    "[resolve_mass] type=蠎・沺-蜷育ｮ・slot=%s 蜿ょ刈莠ｺ謨ｰ=%d attacker_power=%s defender_sum=%s outcome=%s 螽∝鴨蟾ｮ=%s",
+                    "[resolve_mass] type=広域-合算 slot=%s 参加人数=%d attacker_power=%s defender_sum=%s outcome=%s 総和差分=%s",
                     slot_id, len(participant_slots), attacker_power, defender_sum, outcome, delta
                 )
 
@@ -247,11 +247,11 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 )
 
                 if outcome == 'attacker_win':
-                    winner_message = '謾ｻ謦・・縺ｮ蜍晏茜'
+                    winner_message = '攻撃側の勝利'
                 elif outcome == 'defender_win':
-                    winner_message = '髦ｲ蠕｡蛛ｴ縺ｮ蜍晏茜'
+                    winner_message = '防御側の勝利'
                 else:
-                    winner_message = '蠑輔″蛻・￠'
+                    winner_message = '引き分け'
 
                 summary_lines = [
                     (
@@ -260,7 +260,7 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                         f"(<span class='dice-result-total'>{attacker_power}</span>) vs "
                         f"<strong>防御側合計</strong> "
                         f"(<span class='dice-result-total'>{defender_sum}</span>) | "
-                        f"<strong> 竊・{winner_message}</strong>"
+                        f"<strong> → {winner_message}</strong>"
                     ),
                     f"[mass-summation] 参加人数={len(participant_slots)} 総和差分={delta}",
                 ]
@@ -269,8 +269,8 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                     dmg_val = int(e.get('hp', 0) or 0)
                     if dmg_val > 0:
                         summary_lines.append(
-                            f"<strong>{target_name}</strong> 縺ｫ <strong>{dmg_val}</strong> 繝繝｡繝ｼ繧ｸ"
-                            f"<br><span style='font-size:0.9em; color:#888;'>蜀・ｨｳ: [蜷郁ｨ医ム繝｡繝ｼ繧ｸ {dmg_val}]</span>"
+                            f"<strong>{target_name}</strong> に <strong>{dmg_val}</strong> ダメージ"
+                            f"<br><span style='font-size:0.9em; color:#888;'>内訳: [合計ダメージ {dmg_val}]</span>"
                         )
                 _log_match_result(summary_lines)
 

@@ -89,7 +89,7 @@ def _skill_deals_damage(skill_data):
         return False
 
     no_damage_tags = {
-        '髱槭ム繝｡繝ｼ繧ｸ', '髱槭ム繝｡繝ｼ繧ｸ繧ｹ繧ｭ繝ｫ', 'no_damage', 'non_damage'
+        '非ダメージ', '非ダメージスキル', 'no_damage', 'non_damage'
     }
     tags = []
     if isinstance(skill_data.get('tags'), list):
@@ -103,14 +103,14 @@ def _skill_deals_damage(skill_data):
 
 
 def _is_hard_skill(skill_data):
-    for tag in ['蠑ｷ遑ｬ', '蠑ｷ遑ｬ繧ｹ繧ｭ繝ｫ', 'hard_skill']:
+    for tag in ['強硬', '強硬スキル', 'hard_skill']:
         if _has_skill_tag(skill_data, tag):
             return True
     return False
 
 
 def _is_feint_skill(skill_data):
-    for tag in ['迚ｽ蛻ｶ', '迚ｽ蛻ｶ繧ｹ繧ｭ繝ｫ', 'feint_skill']:
+    for tag in ['牽制', '牽制スキル', 'feint_skill']:
         if _has_skill_tag(skill_data, tag):
             return True
     return False
@@ -242,16 +242,16 @@ def _resolve_skill_role(skill_data):
     tags = _collect_skill_tags(skill_data)
     lower_tags = [str(v or '').strip().lower() for v in tags]
 
-    if category == '蝗樣∩':
+    if category == '回避':
         return 'evade'
-    if any(('蝗樣∩' in t) for t in tags):
+    if any(('回避' in t) for t in tags):
         return 'evade'
     if any(('evade' in t) for t in lower_tags):
         return 'evade'
 
-    if category == '髦ｲ蠕｡':
+    if category == '防御':
         return 'defense'
-    if any(('髦ｲ蠕｡' in t or '螳亥ｙ' in t) for t in tags):
+    if any(('防御' in t or '守備' in t) for t in tags):
         return 'defense'
     if any(('defense' in t) for t in lower_tags):
         return 'defense'

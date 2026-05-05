@@ -3,6 +3,7 @@ import pytest
 from manager import game_logic
 from manager import utils
 from manager.battle import core as battle_core
+from manager.battle import runtime_actions
 
 
 def _make_char(char_id, origin_id, team="ally", speed=10):
@@ -16,8 +17,8 @@ def _make_char(char_id, origin_id, team="ally", speed=10):
         "maxMp": 10,
         "totalSpeed": speed,
         "params": [
-            {"label": "蜃ｺ霄ｫ", "value": str(origin_id)},
-            {"label": "鬨ｾ貅ｷ・ｺ・ｦ", "value": str(speed)},
+            {"label": "出身", "value": str(origin_id)},
+            {"label": "速度値", "value": str(speed)},
         ],
         "states": [],
         "special_buffs": [],
@@ -188,6 +189,10 @@ def test_process_simple_round_end_restores_origin_bonus_buff(monkeypatch):
     monkeypatch.setattr(battle_core, "_update_char_stat", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(battle_core, "process_summon_round_end", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(battle_core, "process_granted_skill_round_end", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(runtime_actions, "broadcast_log", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(runtime_actions, "_update_char_stat", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(runtime_actions, "process_summon_round_end", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(runtime_actions, "process_granted_skill_round_end", lambda *_args, **_kwargs: [])
 
     battle_core.process_simple_round_end(state, room="room_t")
 

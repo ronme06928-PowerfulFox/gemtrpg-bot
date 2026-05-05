@@ -557,12 +557,12 @@ def _resolve_clash_by_existing_logic(
             outcome = 'defender_win'
         else:
             tie_break = 'draw'
-            if ('引き分け' in match_log) or ('蠑輔″蛻・￠' in match_log):
+            if '引き分け' in match_log:
                 outcome = 'draw'
-            elif (f"{actor_a_name} の勝利" in match_log) or (f"{actor_a_name} 縺ｮ蜍晏茜" in match_log):
+            elif f"{actor_a_name} の勝利" in match_log:
                 outcome = 'attacker_win'
                 tie_break = 'existing_rule_attacker'
-            elif (f"{actor_d_name} の勝利" in match_log) or (f"{actor_d_name} 縺ｮ蜍晏茜" in match_log):
+            elif f"{actor_d_name} の勝利" in match_log:
                 outcome = 'defender_win'
                 tie_break = 'existing_rule_defender'
             else:
@@ -892,7 +892,7 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
     try:
         base_power = int(
             skill_data.get(
-                '蝓ｺ遉主ｨ∝鴨',
+                '基礎威力',
                 skill_data.get('base_power', 0)
             ) or 0
         )
@@ -900,7 +900,7 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
         base_power = 0
     dice_part = str(
         skill_data.get(
-            '繝繧､繧ｹ螽∝鴨',
+            'ダイス威力',
             skill_data.get('dice_power', '')
         ) or ''
     ).strip()

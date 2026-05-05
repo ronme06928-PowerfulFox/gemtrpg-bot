@@ -431,7 +431,7 @@ def _get_value_for_condition(source_obj, param_name, context=None, actor=None, t
         if max_hp is None:
             return 0
         return max(0, max_hp - current_hp)
-    if normalized_param_name in {"???", "speed_value", "speedvalue", "spd_value"}:
+    if normalized_param_name in {"速度値", "speed_value", "speedvalue", "spd_value"}:
         speed_values = []
         source_id = source_obj.get("id")
         source_slot_id = source_obj.get("slot_id")
@@ -495,7 +495,7 @@ def _get_value_for_condition(source_obj, param_name, context=None, actor=None, t
             return max(speed_values)
 
         # Fallback: if speed value exists explicitly in status rows, allow it.
-        normalized_speed_name = "???"
+        normalized_speed_name = "速度値"
         params = source_obj.get("params", [])
         if isinstance(params, list):
             for row in params:
@@ -2675,9 +2675,9 @@ def compute_damage_multipliers(attacker, defender, context=None):
         condition = _resolve_buff_condition_value(buff)
         if condition and not check_condition(condition, defender, attacker, context=context):
             continue
-        if buff_name == "??":
+        if buff_name == "混乱":
             incoming *= 1.5
-            incoming_logs.append("??")
+            incoming_logs.append("混乱")
 
         incoming_value = _resolve_buff_multiplier_value(
             buff,
@@ -2745,7 +2745,7 @@ def process_on_death(room, char, username):
             for (c, type, name, value) in changes:
                 if type == "APPLY_STATE":
                     current = get_status_value(c, name)
-                    _update_char_stat(room, c, name, current + value, username=f"[{char['name']}:??]")
+                    _update_char_stat(room, c, name, current + value, username=f"[{char['name']}:死亡時]")
                 elif type == "APPLY_BUFF":
                     apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
                     broadcast_log(room, f"[{name}] applied to {c['name']}", "state-change")

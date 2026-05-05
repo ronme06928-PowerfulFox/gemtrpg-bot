@@ -274,10 +274,10 @@ def on_debug_apply_buff(data):
     buff_name = data.get('buff_name')
     if not buff_name:
         buff_name_map = {
-            'Bu-02': '豺ｷ荵ｱ',
-            'Bu-03': '豺ｷ荵ｱ(謌ｦ諷・ｮｺ蛻ｰ)',
-            'Bu-05': '蜀榊屓驕ｿ繝ｭ繝・け',
-            'Bu-06': '遐ｴ陬ょｨ∝鴨貂帛ｰ醍┌蜉ｹ'
+            'Bu-02': '混乱',
+            'Bu-03': '混乱(戦慄殺到)',
+            'Bu-05': '再回避ロック',
+            'Bu-06': '破裂威力減少無効'
         }
         buff_name = buff_name_map.get(buff_id, buff_id)
 
@@ -301,7 +301,7 @@ def on_request_update_battle_background(data):
 
     update_battle_background_logic(room, image_url, scale, offset_x, offset_y, username, attribute)
 
-# NOTE: PvE / PvP 繝｢繝ｼ繝牙・繧頑崛縺・@socketio.on('request_switch_battle_mode')
+# NOTE: PvE/PvP モード切り替え
 def on_request_switch_battle_mode(data):
     room = data.get('room')
     mode = data.get('mode') # 'pvp' or 'pve'
@@ -318,14 +318,14 @@ def on_request_switch_battle_mode(data):
     from manager.battle.common_manager import process_switch_battle_mode
     process_switch_battle_mode(room, mode, username)
 
-# NOTE: AI繧ｹ繧ｭ繝ｫ謠先｡・@socketio.on('request_ai_suggest_skill')
+# NOTE: AIスキル提案
 def on_request_ai_suggest_skill(data):
     room = data.get('room')
     char_id = data.get('charId')
 
     if not room or not char_id: return
 
-    # 隱ｰ縺ｧ繧りｦ∵ｱょ庄閭ｽ・域怙邨よ治逕ｨ縺ｯGM蛻､譁ｭ・・
+    # 誰でも要求可能。最終的な採用判断はGM側で行う。
     from manager.battle.common_manager import process_ai_suggest_skill
     suggested_skill_id = process_ai_suggest_skill(room, char_id)
 
@@ -589,9 +589,9 @@ def _validate_single_target_scope(state, source_slot_id, target_slot_id, target_
     if source_team not in ['ally', 'enemy'] or target_team not in ['ally', 'enemy']:
         return None
     if scope == 'enemy' and source_team == target_team:
-        return 'target_scope=enemy 縺ｮ縺溘ａ蜻ｳ譁ｹ繧ｹ繝ｭ繝・ヨ縺ｯ謖・ｮ壹〒縺阪∪縺帙ｓ'
+        return 'target_scope=enemy のため味方スロットは指定できません'
     if scope == 'ally' and source_team != target_team:
-        return 'target_scope=ally 縺ｮ縺溘ａ謨ｵ繧ｹ繝ｭ繝・ヨ縺ｯ謖・ｮ壹〒縺阪∪縺帙ｓ'
+        return 'target_scope=ally のため敵スロットは指定できません'
     return None
 
 
@@ -670,7 +670,7 @@ def _build_tags(skill_id, target):
         'mass_type': mass_type,
         'no_redirect': (
             'no_redirect' in skill_tags
-            or '蟇ｾ雎｡螟画峩荳榊庄' in tags_text
+            or '対象変更不可' in tags_text
             or target_scope in ['ally', 'self']
         )
     }
@@ -823,9 +823,9 @@ def _authorize_intent_slot_control(room_id, battle_id, state, slot_id, event_nam
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
 
-    # battle_only縺ｯ謫堺ｽ懊Δ繝ｼ繝峨〒讓ｩ髯舌ｒ蛻・ｊ譖ｿ縺医ｋ:
-    # - all: 蜿ょ刈閠・・蜩｡縺悟ｮ｣險謫堺ｽ懷庄閭ｽ
-    # - starter_only: 謌ｦ髣倡ｪ∝・閠・縺ｾ縺溘・GM)縺ｮ縺ｿ謫堺ｽ懷庄閭ｽ
+    # battle_only は操作モードで宣言権限を切り替える:
+    # - all: 参加者全員が宣言操作可能
+    # - starter_only: 戦闘開始者またはGMのみ操作可能
     if _is_battle_only_mode(room_id):
         if str(attribute or '').strip().upper() == 'GM':
             return True

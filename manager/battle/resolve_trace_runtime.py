@@ -76,7 +76,7 @@ def _build_trace_popup_payload(trace_entry, room_state):
         text = str(command_text or '').strip()
         if not text:
             return {'id': None, 'name': None}
-        # Full-width bracket format: 縲蝕D Name縲・
+        # Full-width bracket format: 【ID Name】
         try:
             m = re.search(r'【\s*([^\s】]+)(?:\s+([^】]+))?\s*】', text)
             if not m:
@@ -111,10 +111,10 @@ def _build_trace_popup_payload(trace_entry, room_state):
                     return val
             return ''
 
-        name = _pick('繝・ヵ繧ｩ繝ｫ繝亥錐遘ｰ', 'name', '蜷咲ｧｰ')
+        name = _pick('デフォルト名称', 'name', '名称')
         category = _pick('category', 'カテゴリ')
-        distance = _pick('霍晞屬', 'range')
-        attribute = _pick('螻樊ｧ', 'attribute')
+        distance = _pick('距離', 'range')
+        attribute = _pick('属性', 'attribute')
         effects = []
         for key in ('使用条件', '発動時効果', '特記'):
             text = _pick(key)

@@ -177,7 +177,7 @@ def test_chikuryoku_burst_guidance_disables_physical_stat_bonus():
         data={"buff_id": CHIKURYOKU_BUFF_ID, "variant": STACK_RESOURCE_VARIANT_BURST_GUIDANCE},
         count=20,
     )
-    assert get_status_value(actor, "迚ｩ逅・｣懈ｭ｣") == 0
+    assert get_status_value(actor, "物理補正") == 0
 
 
 def test_chikuryoku_burst_guidance_triggers_burst_on_hit_without_consuming_rupture():

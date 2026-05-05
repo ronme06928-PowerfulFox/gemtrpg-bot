@@ -11,7 +11,7 @@ from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_ro
 def _extract_skill_ids_from_commands(commands_text):
     if not commands_text:
         return []
-    bracket_pattern = re.compile(r"[邵ｲ逕ｳ[]\s*([A-Za-z0-9][A-Za-z0-9_-]*)[^\]邵ｲ譖ｽ*[邵ｲ譖ｾ]]")
+    bracket_pattern = re.compile(r"[【\[]\s*([A-Za-z0-9][A-Za-z0-9_-]*)[^\]】]*[】\]]")
     matches = bracket_pattern.findall(str(commands_text))
     out = []
     seen = set()
@@ -202,7 +202,7 @@ def build_skill_reference(skill_id, skill_data):
     ).strip().lower()
     attribute = str(
         (skill_data or {}).get("attribute")
-        or (skill_data or {}).get("螻樊ｧ")
+        or (skill_data or {}).get("属性")
         or ""
     ).strip().lower()
     if isinstance(rule_data, dict):
@@ -374,7 +374,7 @@ def _can_pay_cost_entries(actor, cost_entries):
             continue
         current = _coerce_int(get_status_value(actor, c_type), 0)
         if current < required:
-            return False, f"{c_type}荳崎ｶｳ (蠢・ｦ・{required}, 迴ｾ蝨ｨ:{current})"
+            return False, f"{c_type}不足 (必要:{required}, 現在:{current})"
     return True, None
 
 
@@ -433,7 +433,7 @@ def evaluate_skill_access(actor, skill_id, room_state=None, battle_state=None, s
             continue
         if not _match_rule(skill_ref, row.get("match", {})):
             continue
-        reason = str(row.get("reason", "縺薙・繧ｹ繧ｭ繝ｫ縺ｯ迴ｾ蝨ｨ菴ｿ逕ｨ縺ｧ縺阪∪縺帙ｓ")).strip()
+        reason = str(row.get("reason", "このスキルは現在使用できません")).strip()
         blocked_reasons.append(reason)
         rid = str(row.get("id", "")).strip()
         if rid:
@@ -463,7 +463,7 @@ def evaluate_skill_access(actor, skill_id, room_state=None, battle_state=None, s
     if not can_pay:
         return {
             "usable": False,
-            "blocked_reasons": [str(reason or "cost荳崎ｶｳ")],
+            "blocked_reasons": [str(reason or "cost不足")],
             "effective_cost": effective_cost,
             "matched_rule_ids": matched_rule_ids,
         }

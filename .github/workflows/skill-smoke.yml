@@ -31,6 +31,9 @@ jobs:
       - name: Run encoding guard
         run: python scripts/check_text_encoding.py
 
+      - name: Run mojibake guard
+        run: python scripts/check_mojibake_markers.py
+
       - name: Run skill catalog smoke tests
         run: pytest -q tests/test_skill_catalog_smoke.py
 

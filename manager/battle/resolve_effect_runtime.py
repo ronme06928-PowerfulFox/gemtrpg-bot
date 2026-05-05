@@ -643,7 +643,7 @@ def _snapshot_for_outcome(actor):
             states_map[n] = 0
     # Some legacy effects are stored outside states[].
     bad_states_map = {}
-    for bs in actor.get('bad_states', []) or actor.get('迥ｶ諷狗焚蟶ｸ', []) or []:
+    for bs in actor.get('bad_states', []) or actor.get('状態異常', []) or []:
         if isinstance(bs, dict):
             name = bs.get('name') or bs.get('type')
             if not name:
@@ -687,7 +687,7 @@ def _snapshot_for_outcome(actor):
     }
 
 
-def _diff_snapshot(before, after, damage_source='繝繝｡繝ｼ繧ｸ'):
+def _diff_snapshot(before, after, damage_source='ダメージ'):
     if not before or not after:
         return {'damage': [], 'statuses': [], 'flags': []}
     actor_id = after.get('id')
@@ -697,7 +697,7 @@ def _diff_snapshot(before, after, damage_source='繝繝｡繝ｼ繧ｸ'):
 
     hp_loss = int(before.get('hp', 0)) - int(after.get('hp', 0))
     if hp_loss > 0:
-        damage.append({'target_id': actor_id, 'hp': hp_loss, 'source': str(damage_source or '繝繝｡繝ｼ繧ｸ')})
+        damage.append({'target_id': actor_id, 'hp': hp_loss, 'source': str(damage_source or 'ダメージ')})
 
     state_names = set(before.get('states', {}).keys()) | set(after.get('states', {}).keys())
     for name in state_names:
@@ -788,7 +788,7 @@ def _apply_effect_changes_like_duel(
                 log_snippets.append(f"[出血維持] 1消費 (残{remaining})")
         elif effect_type == "APPLY_SKILL_DAMAGE_AGAIN":
             if base_damage > 0:
-                _update_char_stat(room, char, 'HP', int(char.get('hp', 0)) - int(base_damage), username="[霑ｽ謦ゾ", source=DamageSource.SKILL_EFFECT)
+                _update_char_stat(room, char, 'HP', int(char.get('hp', 0)) - int(base_damage), username="[追撃]", source=DamageSource.SKILL_EFFECT)
                 temp_logs = []
                 b_dmg = process_on_damage_buffs(room, char, int(base_damage), "[select_resolve_one_sided]", temp_logs)
                 log_snippets.extend(temp_logs)

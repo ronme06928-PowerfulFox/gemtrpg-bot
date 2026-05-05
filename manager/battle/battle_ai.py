@@ -13,7 +13,7 @@ logger = setup_logger(__name__)
 def _extract_skill_rule_data(skill_data):
     if not isinstance(skill_data, dict):
         return {}
-    for key in ["rule_data", "rule_json", "rule", "迚ｹ險伜・逅・"]:
+    for key in ["rule_data", "rule_json", "rule", "特記処理"]:
         raw = skill_data.get(key)
         if not raw:
             continue
@@ -127,12 +127,12 @@ def ai_select_targets(state, room_id=None):
         if enemy.get("isWideUser", False):
             for ally in allies:
                 new_arrows.append({"from_id": enemy["id"], "to_id": ally["id"], "type": "attack", "visible": True})
-            msg = f"{enemy['name']} 筐・蜈ｨ蜩｡ (蠎・沺謾ｻ謦・"
+            msg = f"{enemy['name']} → 全員 (広域攻撃)"
         else:
             target = random.choice(allies)
             new_arrows.append({"from_id": enemy["id"], "to_id": target["id"], "type": "attack", "visible": True})
             enemy["ai_current_target_id"] = target["id"]
-            msg = f"{enemy['name']} 筐・{target['name']}"
+            msg = f"{enemy['name']} → {target['name']}"
 
         if enemy.get("flags", {}).get("show_planned_skill"):
             skill_id = ai_suggest_skill(enemy)
@@ -141,13 +141,13 @@ def ai_select_targets(state, room_id=None):
                 sd = all_skill_data.get(skill_id)
                 if isinstance(sd, dict):
                     skill_name = sd.get("name", skill_id)
-                msg += f" (莠亥ｮ・ {skill_name})"
+                msg += f" (予定: {skill_name})"
         log_messages.append(msg)
 
     state["ai_target_arrows"] = new_arrows
     logger.info("[AI] Updated targets for %d enemies.", len(enemies))
     if room_id and log_messages:
-        full_msg = "<strong>[AI繧ｿ繝ｼ繧ｲ繝・ヨ遒ｺ隱江</strong><br>" + "<br>".join(log_messages)
+        full_msg = "<strong>[AIターゲット確認]</strong><br>" + "<br>".join(log_messages)
         broadcast_log(room_id, full_msg, "info")
 
 
