@@ -12,3 +12,4 @@ __pycache__/
 saved_rooms.json
 battle_state.json
 
+logs/json_rule_v2_audit.jsonl
