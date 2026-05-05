@@ -62,8 +62,15 @@ STACK_RESOURCE_BUFF_IDS = {
 STACK_RESOURCE_VARIANT_KEY = "variant"
 STACK_RESOURCE_VARIANT_NORMAL = "normal"
 STACK_RESOURCE_VARIANT_BLOOD_PLASMA = "blood_plasma"
+STACK_RESOURCE_VARIANT_BURST_GUIDANCE = "burst_guidance"
 STACK_RESOURCE_KIND_GYOMA = "gyoma"
 STACK_RESOURCE_KIND_CHIKURYOKU = "chikuryoku"
+STACK_RESOURCE_VARIANT_CHIKURYOKU_BURST_ALIASES = {
+    STACK_RESOURCE_VARIANT_BURST_GUIDANCE,
+    "explosion_guidance",
+    "induce_burst",
+    "induced_burst",
+}
 
 
 def _resolve_stack_resource_kind(resource):
@@ -178,6 +185,11 @@ def get_stack_variant_bleed_power_bonus(char_obj):
     if get_stack_resource_variant(char_obj, STACK_RESOURCE_KIND_GYOMA) != STACK_RESOURCE_VARIANT_BLOOD_PLASMA:
         return 0
     return get_stack_resource_count(char_obj, STACK_RESOURCE_KIND_GYOMA)
+
+
+def is_chikuryoku_burst_guidance_variant(variant):
+    value = str(variant or "").strip().lower()
+    return value in STACK_RESOURCE_VARIANT_CHIKURYOKU_BURST_ALIASES
 
 
 def normalize_status_name(status_name):
@@ -838,6 +850,8 @@ def _get_stack_resource_stat_bonus(buff, stat_name):
     if kind == STACK_RESOURCE_KIND_CHIKURYOKU and stat_name != normalize_status_name("物理補正"):
         return 0
     if kind == STACK_RESOURCE_KIND_GYOMA and variant == STACK_RESOURCE_VARIANT_BLOOD_PLASMA:
+        return 0
+    if kind == STACK_RESOURCE_KIND_CHIKURYOKU and is_chikuryoku_burst_guidance_variant(variant):
         return 0
 
     stack_count = _resolve_buff_count_from_row(buff, default=0)

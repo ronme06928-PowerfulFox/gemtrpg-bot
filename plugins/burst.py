@@ -1,12 +1,13 @@
-# plugins/burst.py
+﻿# plugins/burst.py
 from .base import BaseEffect
 from manager.utils import get_status_value, set_status_value
 
 from .buffs.burst_no_consume import BurstNoConsumeBuff
 
+
 class BurstEffect(BaseEffect):
     def apply(self, actor, target, params, context):
-        # context から trigger_ratio を受け取る場合と、params から受け取る場合に対応
+        # Prefer explicit per-effect override, then context fallback.
         ratio = params.get("rupture_remainder_ratio")
         if ratio is None:
             ratio = context.get("trigger_ratio", 0.0)
@@ -20,16 +21,14 @@ class BurstEffect(BaseEffect):
         damage = current_burst
         new_burst_val = int(current_burst * ratio)
         changes = []
-        logs = [f"《破裂爆発》 {damage}ダメージ！"]
+        logs = [f"【破裂爆発】{damage}ダメージ！"]
 
-        # ★追加: 破裂威力減少無効バフチェック
-        # バフがある場合は破裂値を減らさない（更新処理をスキップ）
-        if BurstNoConsumeBuff.has_burst_no_consume(target):
-            logs.append("[破裂威力減少無効] 破裂は消費されない")
+        # Optional forced non-consume mode is used by 蓄力-誘爆 auto-trigger.
+        force_no_consume = bool(params.get("no_rupture_consume") or context.get("no_rupture_consume"))
+        if force_no_consume or BurstNoConsumeBuff.has_burst_no_consume(target):
+            logs.append("[破裂非消費] 破裂は消費されない")
         else:
-            # バフがない場合のみ更新
             set_status_value(target, "破裂", new_burst_val)
-            # 実適用フェーズでも同じ最終値になるよう、SET_STATUSを返す。
             changes.append((target, "SET_STATUS", "破裂", new_burst_val))
 
         changes.append((target, "CUSTOM_DAMAGE", "破裂爆発", damage))

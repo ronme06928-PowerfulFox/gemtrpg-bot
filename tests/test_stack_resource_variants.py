@@ -2,7 +2,10 @@ from manager.game_logic import process_skill_effects
 from manager.utils import (
     GYOMA_BUFF_NAME,
     GYOMA_BUFF_ID,
+    CHIKURYOKU_BUFF_NAME,
+    CHIKURYOKU_BUFF_ID,
     STACK_RESOURCE_VARIANT_BLOOD_PLASMA,
+    STACK_RESOURCE_VARIANT_BURST_GUIDANCE,
     apply_buff,
     get_stack_resource_variant,
     get_status_value,
@@ -164,3 +167,40 @@ def test_blood_plasma_is_included_in_self_bleed_reference_param():
     # source_param 出血 = 3 + 血漿スタック12。さらに血漿の出血付与ボーナス floor(12/10)=1 を加算。
     assert get_status_value(target, "出血") == 16
 
+def test_chikuryoku_burst_guidance_disables_physical_stat_bonus():
+    actor = _build_char("actor")
+    apply_buff(
+        actor,
+        CHIKURYOKU_BUFF_NAME,
+        -1,
+        0,
+        data={"buff_id": CHIKURYOKU_BUFF_ID, "variant": STACK_RESOURCE_VARIANT_BURST_GUIDANCE},
+        count=20,
+    )
+    assert get_status_value(actor, "迚ｩ逅・｣懈ｭ｣") == 0
+
+
+def test_chikuryoku_burst_guidance_triggers_burst_on_hit_without_consuming_rupture():
+    actor = _build_char("actor")
+    target = _build_char("target", team="enemy")
+    set_status_value(target, "破裂", 7)
+    apply_buff(
+        actor,
+        CHIKURYOKU_BUFF_NAME,
+        -1,
+        0,
+        data={"buff_id": CHIKURYOKU_BUFF_ID, "variant": STACK_RESOURCE_VARIANT_BURST_GUIDANCE},
+        count=15,
+    )
+
+    _, _logs, changes = process_skill_effects([], "HIT", actor, target, context={"characters": [actor, target]})
+    _apply_changes(changes)
+
+    assert get_stack_resource_variant(actor, "chikuryoku") == STACK_RESOURCE_VARIANT_BURST_GUIDANCE
+    chikuryoku = next((b for b in actor.get("special_buffs", []) if b.get("name") == CHIKURYOKU_BUFF_NAME), None)
+    assert chikuryoku is not None
+    assert int(chikuryoku.get("count", 0)) == 5
+    assert get_status_value(target, "破裂") == 7
+
+    damage_events = [c for c in changes if c[1] == "CUSTOM_DAMAGE" and c[2] == "破裂爆発"]
+    assert [int(c[3]) for c in damage_events] == [7]

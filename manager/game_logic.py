@@ -1111,6 +1111,89 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
         _set_sim_buff_count(sim_char, buff_name, 0)
         return before, 0
 
+    def _read_stack_variant_local(buff_row):
+        if not isinstance(buff_row, dict):
+            return ""
+        value = str(buff_row.get("variant") or "").strip()
+        if value:
+            return value
+        data = buff_row.get("data")
+        if isinstance(data, dict):
+            return str(data.get("variant") or "").strip()
+        return ""
+
+    def _is_chikuryoku_burst_guidance_variant(variant):
+        mod = _utils_module()
+        fn = getattr(mod, "is_chikuryoku_burst_guidance_variant", None) if mod else None
+        if callable(fn):
+            try:
+                return bool(fn(variant))
+            except Exception:
+                pass
+        return str(variant or "").strip().lower() in {"burst_guidance", "explosion_guidance", "induce_burst", "induced_burst"}
+
+    def _apply_chikuryoku_burst_guidance_on_hit():
+        if timing_to_check != "HIT":
+            return
+        if not isinstance(actor, dict) or not isinstance(target, dict):
+            return
+        actor_team = str(actor.get("type") or "").strip().lower()
+        target_team = str(target.get("type") or "").strip().lower()
+        if not actor_team or not target_team or actor_team == target_team:
+            return
+
+        sim_actor = get_simulated_char(actor)
+        sim_target = original_sim_target if isinstance(original_sim_target, dict) else get_simulated_char(target)
+        if not isinstance(sim_actor, dict) or not isinstance(sim_target, dict):
+            return
+
+        rupture = _stable_get_status_value(sim_target, "破裂")
+        try:
+            rupture = int(rupture or 0)
+        except Exception:
+            rupture = 0
+        if rupture < 1:
+            return
+
+        sim_bucket = _find_sim_buff_by_id(sim_actor, "Bu-30")
+        if not isinstance(sim_bucket, dict):
+            sim_bucket = _find_sim_buff(sim_actor, "蓄力")
+        if not isinstance(sim_bucket, dict):
+            return
+
+        variant = _read_stack_variant_local(sim_bucket)
+        if not _is_chikuryoku_burst_guidance_variant(variant):
+            return
+
+        current_count = _resolve_buff_count_local(sim_bucket, default=0)
+        if current_count < 10:
+            return
+        remaining = current_count - 10
+
+        bucket_name = str(sim_bucket.get("name") or "蓄力")
+        _set_sim_buff_count(sim_actor, bucket_name, remaining)
+        _queue_remaining_buff(actor, sim_bucket, bucket_name, remaining)
+
+        burst_effect = {
+            "value": "破裂爆発",
+            "rupture_remainder_ratio": 1.0,
+            "no_rupture_consume": True,
+        }
+        custom_changes, custom_logs = execute_custom_effect(burst_effect, sim_actor, sim_target, context=context)
+        remapped_changes = []
+        for c, t, n, v in custom_changes:
+            mapped_char = c
+            if c is sim_actor:
+                mapped_char = actor
+            elif c is sim_target:
+                mapped_char = target
+            remapped_changes.append((mapped_char, t, n, v))
+        changes_to_apply.extend(remapped_changes)
+        log_snippets.append(f"[蓄力-誘爆 10消費 ({current_count}->{remaining})]")
+        log_snippets.extend(custom_logs)
+
+    _apply_chikuryoku_burst_guidance_on_hit()
+
     for effect in effects_array:
         if effect.get("timing") != timing_to_check: continue
 

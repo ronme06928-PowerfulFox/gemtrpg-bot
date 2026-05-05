@@ -1377,5 +1377,41 @@
     "icon": "",
     "sort_order": null,
     "is_enabled": true
+  },
+  "W-80": {
+    "term_id": "W-80",
+    "display_name": "蓄力-誘爆",
+    "category": "バフ",
+    "short": "",
+    "long": "特殊蓄力の一種。これを持つキャラクターが相手陣営キャラクターに攻撃的中時にこれを10消費し、的中したスキル対象に破裂爆発を起こす。この破裂爆発は対象の破裂を消費しない。この効果は対象に破裂が存在する場合にのみ適用される。",
+    "flavor": "",
+    "links": [
+      "W-74",
+      "W-76",
+      "W-02",
+      "W-03",
+      "W-20"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
+  },
+  "W-81": {
+    "term_id": "W-81",
+    "display_name": "爆破誘導",
+    "category": "効果",
+    "short": "",
+    "long": "効果対象が持つ蓄力を「蓄力-誘爆」に変換する。",
+    "flavor": "",
+    "links": [
+      "W-74",
+      "W-76",
+      "W-80"
+    ],
+    "synonyms": [],
+    "icon": "",
+    "sort_order": null,
+    "is_enabled": true
   }
 }

@@ -1048,6 +1048,16 @@
           require_count_gte:1
         });
       }
+      if(body.includes("爆破誘導") || body.includes("W-81")){
+        add({
+          timing:t.timing,
+          type:"CONVERT_STACK_RESOURCE_VARIANT",
+          target:"self",
+          buff_name:"蓄力",
+          to_variant:"burst_guidance",
+          require_count_gte:1
+        });
+      }
       if(out.length && !/を付与|を得る|ダメージ|減少|回復|解除|再使用/.test(body)) return out;
 
       m=body.match(/(対象|相手)の([出血破裂亀裂戦慄荊棘・、，,\/\sと及び]+)の合計\s*(\d+)\s*につき\s*(\d+)\s*[、,，]\s*(自分|自身|対象|相手)の?(FP|MP|HP)\s*を?\s*回復/);

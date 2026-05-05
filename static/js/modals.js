@@ -396,7 +396,10 @@ function renderCharacterCard(char) {
             const buffCatalogId = (
                 String(rawBuffCatalogId || '').trim() === 'Bu-31'
                 && stackVariant === 'blood_plasma'
-            ) ? 'Bu-48' : rawBuffCatalogId;
+            ) ? 'Bu-48' : (
+                String(rawBuffCatalogId || '').trim() === 'Bu-30'
+                && ['burst_guidance', 'explosion_guidance', 'induce_burst', 'induced_burst'].includes(stackVariant)
+            ) ? 'Bu-49' : rawBuffCatalogId;
             let descriptionText = b.description;
             let flavorText = b.flavor;
             const explicitDisplayName = String(
@@ -407,6 +410,10 @@ function renderCharacterCard(char) {
             const isBloodPlasmaView = String(buffCatalogId || '').trim() === 'Bu-48';
             if (isBloodPlasmaView) {
                 nameDisplay = '凝魔-血漿';
+            }
+            const isBurstGuidanceView = String(buffCatalogId || '').trim() === 'Bu-49';
+            if (isBurstGuidanceView) {
+                nameDisplay = '蓄力-誘爆';
             }
 
             // バフ図鑑が引けるならそちらを正として使う

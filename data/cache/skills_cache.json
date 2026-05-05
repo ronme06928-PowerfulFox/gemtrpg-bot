@@ -1115,7 +1115,7 @@
     "基礎威力": "7",
     "ダイス威力": "+1d4",
     "使用時効果": "([[W-19|使用時]]):FPを2消費",
-    "特記": "対象に[[W-02|破裂]]があるなら[[W-50|基礎威力]]+1",
+    "特記": "対象に[[W-02|破裂]]があるなら[[W-50|基礎威力]]+1。",
     "発動時効果": "([[W-20|的中時]]):[[W-02|破裂]]7を付与。対象の[[W-02|破裂]]が8以上なら、[[W-02|破裂]]5を付与。",
     "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb02\",\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"FIXED_IF_EXISTS\",\"value\":1}],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":7},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":5,\"condition\":{\"source\":\"target\",\"param\":\"破裂\",\"operator\":\"GTE\",\"value\":8}}]}",
     "tags": [
@@ -1334,6 +1334,24 @@
     "特記": "自分の[[W-74|蓄力]]3につきこのスキルの最終威力+1。(最大で7)",
     "発動時効果": "([[W-20|的中時]]):対象の[[W-02|破裂]]と[[W-00|出血]]の合計値3につき1、[[W-74|蓄力]]を得る。（最大で7）",
     "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb14\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":2}],\"power_bonus\":[{\"operation\":\"PER_N_BONUS\",\"source\":\"self\",\"param\":\"蓄力_count\",\"apply_to\":\"final\",\"value\":1,\"per_N\":3,\"max_bonus\":7}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF_PER_N\",\"target\":\"self\",\"source\":\"target\",\"source_param\":\"状態異常スタック合計:破裂,出血\",\"buff_id\":\"Bu-30\",\"value\":1,\"per_N\":3,\"max_count\":7}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "Pb-15": {
+    "スキルID": "Pb-15",
+    "チャットパレット": "6+1d8+1d{物理補正} 【Pb-15 コンバージョン】",
+    "デフォルト名称": "コンバージョン",
+    "分類": "物理",
+    "距離": "遠隔",
+    "属性": "打撃",
+    "取得コスト": "2",
+    "基礎威力": "6",
+    "ダイス威力": "+1d8",
+    "使用時効果": "([[W-19|使用時]]):FPを3消費。",
+    "特記": "対象に[[W-02|破裂]]があるならこのスキルの[[W-50|基礎威力]]+2。",
+    "発動時効果": "([[W-19|使用時]]):[[W-81|爆破誘導]]。([[W-21|マッチ勝利時]]):[[W-02|破裂]]6を付与。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb15\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":3}],\"power_bonus\":[{\"operation\":\"FIXED_IF_EXISTS\",\"source\":\"target\",\"param\":\"破裂\",\"value\":2,\"threshold\":1}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"CONVERT_STACK_RESOURCE_VARIANT\",\"target\":\"self\",\"buff_name\":\"蓄力\",\"to_variant\":\"burst_guidance\",\"require_count_gte\":1},{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":6}]}",
     "tags": [
       "攻撃"
     ]
