@@ -1018,10 +1018,58 @@ class DeclarePanel {
     _resolveCommandText(calc) {
         if (!calc) return '';
         const raw = calc.final_command || calc.command || '';
-        return this._stripTags(String(raw || ''))
+        const normalized = this._stripTags(String(raw || ''))
             .replace(/【.*?】|\[.*?\]/g, '')
             .replace(/^(?:\/sroll|\/sr|\/roll|\/r)\s*/i, '')
             .trim();
+        return this._normalizeCommandDisplayBaseBonus(normalized, calc);
+    }
+
+    _normalizeCommandDisplayBaseBonus(commandText, calc) {
+        const expression = String(commandText || '').replace(/\s+/g, '');
+        if (!expression) return '';
+        const pb = (calc?.power_breakdown && typeof calc.power_breakdown === 'object')
+            ? calc.power_breakdown
+            : {};
+        const correctionDetails = Array.isArray(calc?.correction_details) ? calc.correction_details : [];
+        const baseBonus = correctionDetails.reduce((sum, detail) => {
+            const source = String(detail?.source || '').trim();
+            if (source !== '基礎威力補正') return sum;
+            return sum + Number(detail?.value || 0);
+        }, 0);
+        const totalFlatBonus = Number(pb.total_flat_bonus || 0);
+        if (!Number.isFinite(baseBonus) || baseBonus === 0 || !Number.isFinite(totalFlatBonus) || totalFlatBonus === 0) {
+            return commandText;
+        }
+
+        const terms = expression.match(/[+-]?[^+-]+/g) || [];
+        if (terms.length === 0) return commandText;
+        const firstNumericIdx = terms.findIndex((term) => /^[+-]?\d+$/.test(String(term || '')));
+        if (firstNumericIdx < 0) return commandText;
+
+        let flatTermIdx = -1;
+        for (let i = terms.length - 1; i >= 0; i -= 1) {
+            if (i === firstNumericIdx) continue;
+            const term = String(terms[i] || '');
+            if (!/^[+-]?\d+$/.test(term)) continue;
+            if (Number(term) === totalFlatBonus) {
+                flatTermIdx = i;
+                break;
+            }
+        }
+        if (flatTermIdx < 0) return commandText;
+
+        const firstNumeric = Number(terms[firstNumericIdx] || 0);
+        terms[firstNumericIdx] = String(firstNumeric + baseBonus);
+        terms.splice(flatTermIdx, 1);
+
+        const remainFlat = totalFlatBonus - baseBonus;
+        if (remainFlat !== 0) {
+            terms.push(remainFlat > 0 ? `+${remainFlat}` : String(remainFlat));
+        }
+
+        const rebuilt = terms.join('').replace(/^\+/, '');
+        return rebuilt || commandText;
     }
 
     _resolvePowerAdjustRows(calc) {
@@ -1032,18 +1080,23 @@ class DeclarePanel {
             ? calc.power_breakdown
             : {};
         const ruleBaseMod = Number(pb.rule_power_bonus || 0);
-        const baseMod = Number(calc?.skill_details?.base_power_mod || 0) + ruleBaseMod;
-        if (baseMod !== 0) rows.push(`[基礎威力 ${baseMod > 0 ? '+' : ''}${baseMod}]`);
+        let baseMod = Number(calc?.skill_details?.base_power_mod || 0) + ruleBaseMod;
 
         const correctionDetails = Array.isArray(calc?.correction_details) ? calc.correction_details : [];
         correctionDetails.forEach((detail) => {
             const source = String(detail?.source || '補正');
             if (source === '威力補正') return;
+            if (source === '基礎威力') return;
             const value = Number(detail?.value || 0);
+            if (source === '基礎威力補正') {
+                if (value !== 0) baseMod += value;
+                return;
+            }
             if (value !== 0) {
                 rows.push(`[${source} ${value > 0 ? '+' : ''}${value}]`);
             }
         });
+        if (baseMod !== 0) rows.unshift(`[基礎威力 ${baseMod > 0 ? '+' : ''}${baseMod}]`);
 
         const senritsuPenalty = Number(calc?.senritsu_dice_reduction || 0);
         if (senritsuPenalty > 0) {

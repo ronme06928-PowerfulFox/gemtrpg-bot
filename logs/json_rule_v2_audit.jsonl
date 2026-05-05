@@ -13489,3 +13489,967 @@
 {"ts": "2026-05-04T17:54:41.742135+00:00", "event": "extract_skill_rule_data_error", "skill_id": "S-COND-01", "source_key": "rule_data", "strict": true, "source_path": "skill[S-COND-01].rule_data", "error": "skill[S-COND-01].rule_data.effects[0].condition.param: status stack sum param must enumerate state names (e.g. 状態異常スタック合計:出血,破裂,亀裂)"}
 {"ts": "2026-05-04T17:54:41.743641+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[S-COND-02].rule_data", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
 {"ts": "2026-05-04T17:54:41.743641+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "S-COND-02", "source_key": "rule_data", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.506960+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.508986+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.512056+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.513562+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.516699+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.517854+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.520876+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.523395+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.528543+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.530558+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.536184+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.539483+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.542968+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.544536+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.546587+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.547811+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.550871+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.551954+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.553460+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.554755+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.558924+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.559937+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.565941+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.566963+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.569088+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.570090+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.572126+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.572126+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.574647+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.575664+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.577719+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.578784+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.580827+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.581849+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.584427+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.585441+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.588508+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.589528+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.592592+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.595646+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.599807+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.601851+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:17.604383+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:17.606484+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.399095+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.400186+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.402242+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.404768+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.406864+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.408917+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.411986+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.411986+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.414542+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.415544+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.417616+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.418630+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.420681+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.420681+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.423735+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.423735+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.425778+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.426794+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.428826+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.429841+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.430862+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.431875+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.433382+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.434401+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.436765+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.437796+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.438811+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.439823+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.441868+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.443377+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.445409+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.446411+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.449422+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.450424+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.451428+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.452434+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.454811+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.455815+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.456818+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:19.457832+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:19.460878+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 1}
+{"ts": "2026-05-04T17:58:19.461889+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:20.499782+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:20.504688+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:20.512097+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:20.516891+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.626029+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.627042+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.629210+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.631235+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.633252+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.635760+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.636780+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.638831+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.639901+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.641928+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.644459+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.645472+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.647549+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.648589+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.650597+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.652631+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.654837+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.656846+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.664676+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.665691+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.668770+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.669793+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.672080+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.672080+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:22.673599+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:22.674658+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.660063+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.662610+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.666681+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.670595+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.672609+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.676122+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.678643+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.681152+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.682155+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.686751+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.693528+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.699817+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.705026+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.709129+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.710227+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.711239+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.713780+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.717889+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.722019+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.726988+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.731331+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.735171+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.751759+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.755796+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.765313+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.768591+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.771834+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.776523+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:23.780352+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:23.784203+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.578787+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.579791+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.581820+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.583340+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.584379+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.585443+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.588559+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.591583+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.594127+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.595155+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.598223+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.599244+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.600265+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.601286+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.602806+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.606143+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.608191+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.610219+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.611321+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.613327+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.614754+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.616757+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.617791+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.618794+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.620842+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.621853+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.624376+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.626408+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.628422+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.630452+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.631455+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.633458+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.633976+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.636039+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.638286+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.639289+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.642298+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.643298+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.645414+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.646419+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.647422+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.648424+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.651464+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.653470+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.654528+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.655532+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.656535+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.657538+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.659544+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.660547+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:24.662577+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:24.663568+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.396317+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.398374+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.401614+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.402617+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.403650+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.404662+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.407299+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.409320+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.410807+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.413330+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.414369+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.415641+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.417687+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.418701+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.420755+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.421762+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.424293+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.425319+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.430455+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.431460+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.438539+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.439545+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.441560+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.443562+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.445093+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.447116+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.449342+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.450345+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.452390+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.453390+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.459718+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.460738+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.463277+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.464299+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.468376+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.469388+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.480639+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.482679+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.483670+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.485204+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.520705+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.525439+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.530485+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.532863+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.538614+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.546768+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.550157+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.551158+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.554522+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.555524+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.558536+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.559538+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.561543+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.562546+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.563547+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.564609+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.566719+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.567723+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.569736+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.570742+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.573259+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.574292+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.576308+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.577322+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.578345+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.579350+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.581408+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.583670+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.586214+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.587234+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.588255+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.589280+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.592349+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.593853+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.628689+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.629753+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.639489+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.640502+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.643360+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.645463+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.647473+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.648487+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.650504+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.651515+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.652520+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.653520+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.661766+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.664364+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:25.671448+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:25.672483+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:48.261720+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:48.264265+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:48.265268+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:48.266464+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:48.267470+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:48.269858+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:48.271179+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:48.273693+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:48.275738+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:48.278002+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:48.280063+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:48.282100+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:48.284760+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:48.287833+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:48.289885+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:48.290901+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:48.293414+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:48.294438+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:48.295454+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:48.296462+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:48.297461+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:58:48.298783+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:50.413353+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:50.416757+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:50.419249+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:50.420253+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:50.421267+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:50.422271+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:50.423271+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:50.424477+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:50.425512+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:50.426551+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:50.427598+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:50.429660+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:50.431019+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:50.432033+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:50.433554+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:50.434626+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:50.436634+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:50.437673+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:50.438681+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:50.439684+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:50.441713+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:50.443726+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.234647+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.235929+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.237994+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.239049+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.241100+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.242111+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.243616+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.245747+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.246750+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.247803+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.248802+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.249802+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.251209+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.252261+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.253767+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.254787+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.255795+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.256798+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.257822+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.258867+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.258867+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.259927+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.260952+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.261967+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.263474+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.264485+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.264485+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.265560+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.266598+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.267603+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.268607+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.269617+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.270620+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.271622+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.272630+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.273629+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.274859+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.275862+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:51.276868+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:51.276868+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:52.075363+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:52.077408+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:52.079683+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:52.080734+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:52.560549+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:52.561594+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:52.564462+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:52.565550+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.142279+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.144811+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.145816+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.147816+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.148816+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.151260+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.152259+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.153767+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.155792+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.157795+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.159337+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.160438+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.161674+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.163733+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.164824+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.165824+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.167847+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.168971+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.169971+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.170971+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.171970+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.173476+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.179534+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.180534+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.181534+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.182930+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.184226+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.184829+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.185985+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.187113+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.188244+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.188843+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.190062+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.191101+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.191670+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.192789+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.193908+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.194425+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.195472+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.196530+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.197574+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.198581+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.199606+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.200610+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.201622+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.202634+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.203634+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.203634+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.205126+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.206133+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:56.207136+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:56.208139+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.496672+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.498711+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.501721+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.501721+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.507344+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.510421+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.516738+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.519250+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.523321+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.524362+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.528559+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.529573+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.532618+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.533609+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.536219+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.537249+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.541373+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.543431+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.546677+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.547679+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.550728+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.551741+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.561325+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.562328+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.565409+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.566412+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.570449+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.571452+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.574517+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.575519+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.577527+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.578531+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.581549+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.582570+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.585112+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.586133+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.591261+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.601917+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.617282+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.619258+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.630415+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.635766+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.643432+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.648524+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.653636+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.660025+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.662040+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.663548+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.680610+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.682695+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:58:59.694788+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:58:59.696802+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.803403+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.809751+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.811769+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.814294+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.816573+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.818589+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.823225+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.825268+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.828305+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.829346+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.830358+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.831362+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.833361+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.833880+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.834902+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.835921+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.836940+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.837940+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.839170+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.840198+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.841232+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.842251+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.847876+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.848905+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.849926+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.850955+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.851976+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.853490+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.854514+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.856551+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.858609+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.859670+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.861720+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.863231+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.865445+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.866452+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.868598+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.869602+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.870606+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.871618+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.872639+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.874156+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.876283+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.878298+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.879304+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.880309+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.881313+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.882325+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.883317+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.884343+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:04.885384+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:04.886404+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.503448+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.504867+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.506876+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.507910+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.508933+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.509935+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.511000+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.511000+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.512006+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.513518+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.516750+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.520928+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.523477+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.527596+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.530653+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.531653+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.533192+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.534260+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.538476+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.539986+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.541015+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.542046+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.543565+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.545637+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.546642+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.547655+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.548686+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.549698+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.551741+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.551741+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.553247+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.554295+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.555298+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.556300+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.557303+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.558312+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.559707+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.560710+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.561736+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.563241+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.564277+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.565281+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.566321+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.567323+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.569329+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.570332+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.570332+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.571344+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.572354+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.573354+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:05.574480+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:05.575485+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.414518+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.415531+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.417565+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.420594+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.421620+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.422632+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.424760+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.426818+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.427833+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.428980+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.429983+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.431992+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.433498+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.434603+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.435615+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.436638+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.438644+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.440079+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.444130+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.445153+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.462348+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.470885+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.474436+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.477448+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.478470+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.481840+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.481840+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.483345+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.485388+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.488411+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.492432+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.494457+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.498571+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.500582+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.503624+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.504865+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.519695+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.520707+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.521712+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.523219+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.550164+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.551185+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.555388+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.556388+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.566571+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.567583+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.568587+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.570598+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.571605+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.572611+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.574635+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.577670+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.579681+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.580687+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.581690+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.583692+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.584735+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.586744+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.587747+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.589785+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.590799+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.591819+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.593324+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.594336+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.594336+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.596381+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.597386+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.598390+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.599395+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.600397+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.601402+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.602415+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.603415+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.605660+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.659398+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.661409+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.667465+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.670547+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.675681+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.676684+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.677699+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.678735+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.680784+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.681907+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.683422+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.684459+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.690557+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.692603+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:06.700008+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 1, "cost_count": 0}
+{"ts": "2026-05-04T17:59:06.701020+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:18.001070+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:18.002182+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:18.005874+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:18.006898+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:18.008179+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:18.009444+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:18.011455+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:18.012469+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:18.013470+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:18.014983+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:18.016372+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:18.017372+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:18.018611+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:18.019628+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:18.020634+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:18.021643+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:18.023261+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:18.024276+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:18.025279+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:18.026279+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:18.027392+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:18.028452+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.294555+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.298819+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.299831+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.300854+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.301876+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.303386+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.304400+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.306412+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.307459+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.308743+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.309751+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.310758+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.312777+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.313768+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.314796+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.315820+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.316826+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.317845+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.318881+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.319884+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.320890+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.321898+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.324421+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.325446+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.326449+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.327456+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.328961+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.330019+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.331032+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.332046+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.333555+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.334565+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.335567+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.336578+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.338728+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.339730+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.341761+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.343807+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:19.346226+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:19.348235+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:20.197918+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:20.198930+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:20.203684+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:20.214697+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:20.706390+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:20.707393+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:20.712533+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:20.714051+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.490738+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.491889+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.498961+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.499971+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.503522+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.504536+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.507538+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.509538+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.512029+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.513536+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.516793+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.517810+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.521008+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.522012+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.524531+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.525530+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.527741+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.528741+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.531154+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.532185+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.535119+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.535119+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.543735+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.544255+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.547349+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.548355+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.550368+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.551382+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.552440+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.553440+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.553440+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.554542+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.555545+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.555545+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.556588+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.556588+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.556588+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.557591+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.557591+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.558596+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.559599+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.559599+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.560867+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.560867+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.562058+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.562058+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.562058+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.562058+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.563571+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.563571+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:23.564859+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:23.564859+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.365810+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.367863+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.371082+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.372146+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.379005+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.381038+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.384596+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.385602+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.388632+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.389659+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.393737+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.394260+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.398380+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.400453+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.403999+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.405013+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.409490+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.410531+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.415099+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.417140+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.423698+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.425759+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.428840+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.430847+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.435374+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.436376+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.439462+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.440467+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.444578+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.446606+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.449625+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.450637+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.456229+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.457232+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.460246+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.460246+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.462299+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.462299+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.463813+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.464877+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.468996+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.470008+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.472013+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.473518+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.477816+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.478850+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.481868+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.485426+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.489737+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.492773+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:27.493781+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:27.497999+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.331364+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.332369+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.335493+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.336506+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.340538+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.341542+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.347658+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.349701+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.354282+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.357337+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.362450+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.363449+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.364991+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.366011+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.367023+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.369059+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.371092+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.372139+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.385690+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.389830+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.413461+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.415539+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.416561+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.419662+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.425315+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.427357+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.430378+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.432417+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.433938+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.434960+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.439085+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.440112+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.444660+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.445651+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.448703+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.450785+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.467048+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.468213+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.471267+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.472302+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.488607+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.489618+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.494166+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.496207+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.504493+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.506542+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.509619+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.510632+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.511635+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.514727+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.516760+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.517771+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.518782+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.521851+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.525417+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.527460+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.530598+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.532631+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.534783+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.536796+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.537798+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.538803+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.541881+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.544435+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.548986+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.552064+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.556690+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.558742+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.561849+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.563354+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.566401+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.567414+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.569429+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.570431+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.607700+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.610761+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.614319+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.615332+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.621440+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.623489+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.624889+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.625905+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.629018+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.631034+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.634612+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.635631+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.644331+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.645841+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:28.650928+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 0, "cost_count": 0}
+{"ts": "2026-05-04T17:59:28.651931+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:45.297356+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 1}
+{"ts": "2026-05-04T17:59:45.299626+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:45.301782+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 1}
+{"ts": "2026-05-04T17:59:45.302781+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:45.304288+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 1}
+{"ts": "2026-05-04T17:59:45.306746+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:45.308257+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 1}
+{"ts": "2026-05-04T17:59:45.312754+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:45.314787+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 1}
+{"ts": "2026-05-04T17:59:45.317940+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:45.319945+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 1}
+{"ts": "2026-05-04T17:59:45.321944+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:45.324473+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 1}
+{"ts": "2026-05-04T17:59:45.327924+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:45.330365+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 1}
+{"ts": "2026-05-04T17:59:45.331799+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:45.333712+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 1}
+{"ts": "2026-05-04T17:59:45.334777+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:45.336788+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 1}
+{"ts": "2026-05-04T17:59:45.337889+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
+{"ts": "2026-05-04T17:59:45.340210+00:00", "event": "normalize_skill_rule_object_ok", "source_path": "skill[?].embedded_json", "strict": true, "schema": "skill_json_rule_v2", "effects_count": 2, "cost_count": 1}
+{"ts": "2026-05-04T17:59:45.342289+00:00", "event": "extract_skill_rule_data_ok", "skill_id": "", "source_key": "embedded_json", "strict": true, "schema": "skill_json_rule_v2"}
