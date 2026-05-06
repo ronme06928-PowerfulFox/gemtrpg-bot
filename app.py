@@ -43,6 +43,7 @@ from manager.json_rule_audit import append_audit
 import events.socket_main
 import events.socket_char
 import events.socket_battle_only
+import events.socket_room_presets
 import events.battle # Refactored battle events
 import events.socket_wide_calculate
 

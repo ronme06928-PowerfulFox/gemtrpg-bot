@@ -563,6 +563,7 @@ window.setupVisualSidebarControls = function () {
 
     const saveBtn = document.getElementById('visual-save-btn');
     const presetBtn = document.getElementById('visual-preset-btn');
+    const roomPresetBtn = document.getElementById('visual-room-preset-btn');
     const boBtn = document.getElementById('visual-bo-btn');
     const resetBtn = document.getElementById('visual-reset-btn');
     const statusMsg = document.getElementById('visual-status-msg');
@@ -915,6 +916,14 @@ window.setupVisualSidebarControls = function () {
             presetBtn.style.display = 'inline-block';
             presetBtn.onclick = () => { if (typeof openPresetManagerModal === 'function') openPresetManagerModal(); };
         }
+        if (roomPresetBtn) {
+            roomPresetBtn.style.display = 'inline-block';
+            roomPresetBtn.onclick = () => {
+                if (typeof openRoomPresetApplyModal === 'function') {
+                    openRoomPresetApplyModal();
+                }
+            };
+        }
         if (boBtn) {
             boBtn.style.display = isBattleOnlyMode ? 'inline-block' : 'none';
             boBtn.textContent = '戦闘専用編成';
@@ -923,6 +932,7 @@ window.setupVisualSidebarControls = function () {
     } else {
         if (saveBtn) saveBtn.style.display = 'none';
         if (presetBtn) presetBtn.style.display = 'none';
+        if (roomPresetBtn) roomPresetBtn.style.display = 'none';
         if (boBtn) {
             boBtn.style.display = isBattleOnlyMode ? 'inline-block' : 'none';
             boBtn.textContent = 'かんたん戦闘突入';

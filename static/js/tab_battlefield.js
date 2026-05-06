@@ -1313,6 +1313,7 @@ function setupBattlefieldTab() {
     const saveLoadMsg = document.getElementById('save-load-message');
     const leaveBtn = document.getElementById('leave-room-btn');
     const presetBtn = document.getElementById('preset-manager-btn');
+    const roomPresetBtn = document.getElementById('room-preset-apply-btn');
     const battleOnlyBtn = document.getElementById('battle-only-control-btn');
 
     if (saveBtn && !saveBtn.dataset.listenerAttached) {
@@ -1338,6 +1339,16 @@ function setupBattlefieldTab() {
         presetBtn.dataset.listenerAttached = 'true';
         presetBtn.addEventListener('click', () => {
             if (typeof openPresetManagerModal === 'function') openPresetManagerModal();
+        });
+    }
+    if (roomPresetBtn && !roomPresetBtn.dataset.listenerAttached) {
+        roomPresetBtn.dataset.listenerAttached = 'true';
+        roomPresetBtn.addEventListener('click', () => {
+            if (typeof openRoomPresetApplyModal === 'function') {
+                openRoomPresetApplyModal();
+            } else {
+                alert('通常ルーム用プリセットモーダルを読み込めませんでした。');
+            }
         });
     }
     if (battleOnlyBtn && !battleOnlyBtn.dataset.listenerAttached) {
