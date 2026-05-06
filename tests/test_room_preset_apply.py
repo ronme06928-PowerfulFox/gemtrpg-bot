@@ -64,7 +64,15 @@ def _store():
                 "background": {"background_image": "https://example.test/cave.png", "background_scale": 1.2},
                 "field_effect_profile": {
                     "version": 1,
-                    "rules": [{"rule_id": "fog", "type": "SPEED_ROLL_MOD", "scope": "ALL", "value": -1}],
+                    "rules": [{
+                        "rule_id": "fog",
+                        "display_name": "濃霧",
+                        "description": "視界を遮る霧",
+                        "flavor_text": "洞窟に冷たい霧が満ちる。",
+                        "type": "SPEED_ROLL_MOD",
+                        "scope": "ALL",
+                        "value": -1,
+                    }],
                 },
                 "stage_avatar": {"enabled": True, "name": "Cave Spirit", "description": "watcher", "icon": "cave"},
             }
@@ -196,6 +204,9 @@ def test_apply_stage_preset_respects_checkbox_options_without_enemy_replacement(
     assert state["map_data"]["backgroundImage"] == "https://example.test/cave.png"
     assert state["field_effects"][0]["field_id"] == "fog"
     assert state["field_effects"][0]["source_id"] == "stage_1"
+    assert state["stage_field_effect_profile"]["rules"][0]["display_name"] == "濃霧"
+    assert state["stage_field_effect_profile"]["rules"][0]["description"] == "視界を遮る霧"
+    assert state["stage_field_effect_profile"]["rules"][0]["flavor_text"] == "洞窟に冷たい霧が満ちる。"
     assert state["stage_avatar_profile"]["name"] == "Cave Spirit"
     assert summary["applied"] == {
         "enemy_formation": False,

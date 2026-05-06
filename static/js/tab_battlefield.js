@@ -1353,12 +1353,16 @@ function setupBattlefieldTab() {
     if (presetBtn && !presetBtn.dataset.listenerAttached) {
         presetBtn.dataset.listenerAttached = 'true';
         presetBtn.addEventListener('click', () => {
+            const isBattleOnly = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
+            if (isBattleOnly) return;
             if (typeof openPresetManagerModal === 'function') openPresetManagerModal();
         });
     }
     if (roomPresetBtn && !roomPresetBtn.dataset.listenerAttached) {
         roomPresetBtn.dataset.listenerAttached = 'true';
         roomPresetBtn.addEventListener('click', () => {
+            const isBattleOnly = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
+            if (isBattleOnly) return;
             if (typeof openRoomPresetApplyModal === 'function') {
                 openRoomPresetApplyModal();
             } else {
@@ -1405,8 +1409,14 @@ function setupBattlefieldTab() {
     }
     if (battleOnlyBtn) {
         const isBattleOnly = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
+        if (presetBtn) {
+            presetBtn.style.display = isBattleOnly ? 'none' : 'inline-block';
+            presetBtn.textContent = '敵一覧保存';
+            presetBtn.title = isBattleOnly ? '' : '現在の敵一覧を保存/読込する旧式の補助機能です';
+        }
         battleOnlyBtn.style.display = isBattleOnly ? 'inline-block' : 'none';
         battleOnlyBtn.textContent = '戦闘専用編成';
+        if (roomPresetBtn) roomPresetBtn.style.display = isBattleOnly ? 'none' : 'inline-block';
     }
 
     // 3. Socketリスナー登録

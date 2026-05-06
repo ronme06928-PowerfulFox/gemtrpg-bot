@@ -47,7 +47,11 @@
         overlay.innerHTML = `
 <div class="modal-content bo-modal bo-modal--enemy-formation">
   <h3 class="bo-modal-title">ステージプリセット管理</h3>
-  <div class="bo-modal-lead">敵編成・味方編成・ステージ効果をまとめて管理します。</div>
+  <div class="bo-modal-lead">敵編成・味方編成・ステージ効果をまとめて管理します。通常ルームでは敵編成・フィールド効果・ステージアバターを選択して適用できます。</div>
+  <div class="bo-guidance-box">
+    <strong>保存前に確認する構成</strong>
+    <span>敵編成は必須です。味方編成は戦闘専用ルーム用、フィールド効果とステージアバターは通常プリセット画面でも個別に適用対象を選べます。</span>
+  </div>
   <div class="bo-toolbar bo-toolbar--between"><div class="bo-toolbar-group">
     <button id="bo-sp-refresh-btn" class="bo-btn bo-btn--sm bo-btn--neutral">再読み込み</button>
     <button id="bo-sp-clear-btn" class="bo-btn bo-btn--sm bo-btn--neutral">新規作成</button>
@@ -66,6 +70,7 @@
         <label class="bo-field"><span class="bo-field-label">敵編成</span><select id="bo-sp-enemy" class="bo-select"></select></label>
         <label class="bo-field"><span class="bo-field-label">味方編成（任意）</span><select id="bo-sp-ally" class="bo-select"></select></label>
       </div>
+      <div id="bo-sp-summary" class="bo-preview-box"></div>
       <div class="bo-field-grid bo-field-grid--4">
         <label class="bo-field"><span class="bo-field-label">必要味方人数</span><input id="bo-sp-required" class="bo-input" type="number" min="0" value="0" /></label>
         <label class="bo-field"><span class="bo-field-label">公開範囲</span><select id="bo-sp-visibility" class="bo-select"><option value="public">全体公開</option><option value="gm">GMのみ</option></select></label>
@@ -113,6 +118,7 @@
             concept: $('#bo-sp-concept'), desc: $('#bo-sp-description'), rules: $('#bo-sp-rules-list'),
             avatarEnabled: $('#bo-sp-avatar-enabled'), avatarIcon: $('#bo-sp-avatar-icon'), avatarName: $('#bo-sp-avatar-name'), avatarDesc: $('#bo-sp-avatar-description'),
             effectJson: $('#bo-sp-field-effects-json'), avatarJson: $('#bo-sp-stage-avatar-json'), list: $('#bo-sp-list'), file: $('#bo-sp-import-file'),
+            summary: $('#bo-sp-summary'),
         };
         const listeners = [];
         const on = (e, f) => { s.on(e, f); listeners.push([e, f]); };
@@ -120,6 +126,8 @@
         const profile = () => ({ version: 1, rules: Array.from(el.rules.querySelectorAll('.bo-sp-rule-row')).map((row, idx) => {
             const out = { type: row.querySelector('.bo-sp-rule-type').value, scope: row.querySelector('.bo-sp-rule-scope').value, priority: i(row.querySelector('.bo-sp-rule-priority').value, 0), value: i(row.querySelector('.bo-sp-rule-value').value, 0), rule_id: row.querySelector('.bo-sp-rule-id').value.trim() || `rule_${idx + 1}` };
             const displayName = row.querySelector('.bo-sp-rule-display-name').value.trim(); if (displayName) out.display_name = displayName;
+            const description = row.querySelector('.bo-sp-rule-description')?.value.trim() || ''; if (description) out.description = description;
+            const flavor = row.querySelector('.bo-sp-rule-flavor-text')?.value.trim() || ''; if (flavor) out.flavor_text = flavor;
             const stateName = row.querySelector('.bo-sp-rule-state-name').value.trim(); if (stateName) out.state_name = stateName;
             const trigger = row.querySelector('.bo-sp-rule-trigger-state').value.trim(); if (trigger) out.trigger_state_name = trigger;
             const cp = row.querySelector('.bo-sp-rule-cond-param').value.trim(), cv = row.querySelector('.bo-sp-rule-cond-value').value.trim();
@@ -127,7 +135,38 @@
             return out;
         }) });
         const avatar = () => ({ enabled: el.avatarEnabled.value !== 'false', name: el.avatarName.value.trim(), description: el.avatarDesc.value.trim(), icon: el.avatarIcon.value.trim() });
-        const syncJson = () => { refreshRuleSummary(); ensureEmptyRuleState(); el.effectJson.value = JSON.stringify(profile(), null, 2); el.avatarJson.value = JSON.stringify(avatar(), null, 2); };
+        const countMembers = (rec) => {
+            if (!rec || typeof rec !== 'object') return 0;
+            if (Array.isArray(rec.members)) return rec.members.length;
+            if (Array.isArray(rec.enemies)) return rec.enemies.length;
+            if (Array.isArray(rec.allies)) return rec.allies.length;
+            return 0;
+        };
+        const formationLabel = (map, id, emptyText) => {
+            const key = String(id || '').trim();
+            if (!key) return emptyText;
+            const rec = map && typeof map === 'object' ? map[key] : null;
+            const name = rec && typeof rec === 'object' ? String(rec.name || key) : key;
+            const count = countMembers(rec);
+            return count ? `${name}（${count}体）` : name;
+        };
+        const renderSummary = () => {
+            const effectCount = el.rules.querySelectorAll('.bo-sp-rule-row').length;
+            const av = avatar();
+            const avatarText = av.enabled ? (av.name || av.icon || '有効') : '無効';
+            const enemyMissing = !String(el.enemy.value || '').trim();
+            el.summary.innerHTML = `
+                <div class="bo-preview-box__title">このステージの構成プレビュー</div>
+                <div class="bo-preview-grid">
+                    <div><strong>敵編成</strong><span class="${enemyMissing ? 'bo-text-danger' : ''}">${h(formationLabel(state.enemy_formations, el.enemy.value, '未選択（必須）'))}</span></div>
+                    <div><strong>味方編成</strong><span>${h(formationLabel(state.ally_formations, el.ally.value, 'なし'))}</span></div>
+                    <div><strong>フィールド効果</strong><span>${effectCount}件</span></div>
+                    <div><strong>ステージアバター</strong><span>${h(avatarText)}</span></div>
+                </div>
+                <div class="bo-preview-note">${enemyMissing ? '保存するには敵編成を選択してください。' : '通常プリセット画面では敵編成・フィールド効果・ステージアバターを個別に選択適用できます。'}</div>
+            `;
+        };
+        const syncJson = () => { refreshRuleSummary(); ensureEmptyRuleState(); el.effectJson.value = JSON.stringify(profile(), null, 2); el.avatarJson.value = JSON.stringify(avatar(), null, 2); renderSummary(); };
         const setAvatar = (a) => { const v = (a && typeof a === 'object') ? a : {}; el.avatarEnabled.value = v.enabled === false ? 'false' : 'true'; el.avatarName.value = String(v.name || ''); el.avatarDesc.value = String(v.description || ''); el.avatarIcon.value = String(v.icon || ''); };
         const ensureEmptyRuleState = () => { if (!el.rules.querySelector('.bo-sp-rule-row')) el.rules.innerHTML = '<div class="bo-empty" style="padding:8px;border:1px dashed #dbe4f0;border-radius:8px;color:#6b7280;">現在、効果ルールはありません。「効果ルールを追加」を押して作成してください。</div>'; };
         const refreshRuleSummary = () => Array.from(el.rules.querySelectorAll('.bo-sp-rule-row')).forEach((row, idx) => {
@@ -142,7 +181,7 @@
             if (!el.rules.querySelector('.bo-sp-rule-row')) el.rules.innerHTML = '';
             const type = String(r.type || 'SPEED_ROLL_MOD').toUpperCase(), scope = String(r.scope || 'ALL').toUpperCase(), cond = (r.condition && typeof r.condition === 'object') ? r.condition : {};
             const d = document.createElement('details'); d.className = 'bo-sp-rule-row'; if (open) d.open = true; d.style.cssText = 'border:1px solid #dbe4f0;border-radius:8px;background:#f8fbff;';
-            d.innerHTML = `<summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #dbe4f0;"><strong class="bo-sp-rule-summary-text">効果ルール</strong><span style="font-size:11px;color:#6b7280;">クリックで開閉</span></summary><div style="padding:8px;"><div style="display:flex;justify-content:flex-end;margin-bottom:6px;"><button type="button" class="bo-btn bo-btn--xs bo-btn--danger bo-sp-rule-remove">削除</button></div><div class="bo-field-grid bo-field-grid--4"><label class="bo-field"><span class="bo-field-label">種類</span><select class="bo-select bo-sp-rule-type">${RULE_TYPES.map((x) => `<option value="${h(x.value)}"${x.value === type ? ' selected' : ''}>${h(x.label)}</option>`).join('')}</select></label><label class="bo-field"><span class="bo-field-label">対象</span><select class="bo-select bo-sp-rule-scope">${SCOPES.map((x) => `<option value="${h(x.value)}"${x.value === scope ? ' selected' : ''}>${h(x.label)}</option>`).join('')}</select></label><label class="bo-field"><span class="bo-field-label">値</span><input class="bo-input bo-sp-rule-value" value="${h(r.value ?? '')}" /></label><label class="bo-field"><span class="bo-field-label">優先度</span><input class="bo-input bo-sp-rule-priority" type="number" value="${h(i(r.priority, 0))}" /></label></div><div class="bo-field-grid bo-field-grid--4"><label class="bo-field"><span class="bo-field-label">ルール表示名（任意）</span><input class="bo-input bo-sp-rule-display-name" value="${h(r.display_name || r.name || '')}" /></label><label class="bo-field"><span class="bo-field-label">ルールID（任意）</span><input class="bo-input bo-sp-rule-id" value="${h(r.rule_id || '')}" /></label><label class="bo-field"><span class="bo-field-label">付与する状態</span><input class="bo-input bo-sp-rule-state-name" value="${h(r.state_name || '')}" /></label><label class="bo-field"><span class="bo-field-label">トリガー状態名</span><input class="bo-input bo-sp-rule-trigger-state" value="${h(r.trigger_state_name || '')}" /></label></div><div class="bo-field-grid bo-field-grid--2"><label class="bo-field"><span class="bo-field-label">条件パラメータ</span><input class="bo-input bo-sp-rule-cond-param" value="${h(cond.param || '')}" /></label><label class="bo-field"><span class="bo-field-label">条件演算子</span><select class="bo-select bo-sp-rule-cond-op">${OPS.map((x) => `<option value="${h(x.value)}"${x.value === String(cond.operator || 'GTE').toUpperCase() ? ' selected' : ''}>${h(x.label)}</option>`).join('')}</select></label></div><div class="bo-field-grid bo-field-grid--2"><label class="bo-field"><span class="bo-field-label">条件値</span><input class="bo-input bo-sp-rule-cond-value" value="${h(cond.value ?? '')}" /></label></div></div>`;
+            d.innerHTML = `<summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #dbe4f0;"><strong class="bo-sp-rule-summary-text">効果ルール</strong><span style="font-size:11px;color:#6b7280;">クリックで開閉</span></summary><div style="padding:8px;"><div style="display:flex;justify-content:flex-end;margin-bottom:6px;"><button type="button" class="bo-btn bo-btn--xs bo-btn--danger bo-sp-rule-remove">削除</button></div><div class="bo-field-grid bo-field-grid--4"><label class="bo-field"><span class="bo-field-label">種類</span><select class="bo-select bo-sp-rule-type">${RULE_TYPES.map((x) => `<option value="${h(x.value)}"${x.value === type ? ' selected' : ''}>${h(x.label)}</option>`).join('')}</select></label><label class="bo-field"><span class="bo-field-label">対象</span><select class="bo-select bo-sp-rule-scope">${SCOPES.map((x) => `<option value="${h(x.value)}"${x.value === scope ? ' selected' : ''}>${h(x.label)}</option>`).join('')}</select></label><label class="bo-field"><span class="bo-field-label">値</span><input class="bo-input bo-sp-rule-value" value="${h(r.value ?? '')}" /></label><label class="bo-field"><span class="bo-field-label">優先度</span><input class="bo-input bo-sp-rule-priority" type="number" value="${h(i(r.priority, 0))}" /></label></div><div class="bo-field-grid bo-field-grid--4"><label class="bo-field"><span class="bo-field-label">ルール表示名（任意）</span><input class="bo-input bo-sp-rule-display-name" value="${h(r.display_name || r.name || '')}" /></label><label class="bo-field"><span class="bo-field-label">ルールID（任意）</span><input class="bo-input bo-sp-rule-id" value="${h(r.rule_id || '')}" /></label><label class="bo-field"><span class="bo-field-label">付与する状態</span><input class="bo-input bo-sp-rule-state-name" value="${h(r.state_name || '')}" /></label><label class="bo-field"><span class="bo-field-label">トリガー状態名</span><input class="bo-input bo-sp-rule-trigger-state" value="${h(r.trigger_state_name || '')}" /></label></div><div class="bo-field-grid bo-field-grid--2"><label class="bo-field"><span class="bo-field-label">説明文（任意）</span><input class="bo-input bo-sp-rule-description" value="${h(r.description || '')}" placeholder="効果の説明を入力" /></label><label class="bo-field"><span class="bo-field-label">フレーバーテキスト（任意）</span><input class="bo-input bo-sp-rule-flavor-text" value="${h(r.flavor_text || r.flavor || '')}" placeholder="演出・雰囲気の文章を入力" /></label></div><div class="bo-field-grid bo-field-grid--2"><label class="bo-field"><span class="bo-field-label">条件パラメータ</span><input class="bo-input bo-sp-rule-cond-param" value="${h(cond.param || '')}" /></label><label class="bo-field"><span class="bo-field-label">条件演算子</span><select class="bo-select bo-sp-rule-cond-op">${OPS.map((x) => `<option value="${h(x.value)}"${x.value === String(cond.operator || 'GTE').toUpperCase() ? ' selected' : ''}>${h(x.label)}</option>`).join('')}</select></label></div><div class="bo-field-grid bo-field-grid--2"><label class="bo-field"><span class="bo-field-label">条件値</span><input class="bo-input bo-sp-rule-cond-value" value="${h(cond.value ?? '')}" /></label></div></div>`;
             d.querySelector('.bo-sp-rule-remove').addEventListener('click', () => { d.remove(); syncJson(); });
             d.querySelectorAll('input,select').forEach((n) => { n.addEventListener('input', syncJson); n.addEventListener('change', syncJson); });
             el.rules.appendChild(d); syncJson();
@@ -162,10 +201,15 @@
         };
         const clearForm = () => loadToForm({}, null);
         const renderFormationOptions = () => {
+            const selectedEnemy = el.enemy.value;
+            const selectedAlly = el.ally.value;
             const enemyIds = (state.sorted_enemy_formation_ids.length ? state.sorted_enemy_formation_ids.slice() : Object.keys(state.enemy_formations || {}).sort());
             el.enemy.innerHTML = ['<option value="">- 敵編成を選択 -</option>'].concat(enemyIds.map((id) => `<option value="${h(id)}">${h(state.enemy_formations[id]?.name || id)} [${h(id)}]</option>`)).join('');
+            el.enemy.value = selectedEnemy;
             const allyIds = (state.sorted_ally_formation_ids.length ? state.sorted_ally_formation_ids.slice() : Object.keys(state.ally_formations || {}).sort());
             el.ally.innerHTML = ['<option value="">- 味方編成なし -</option>'].concat(allyIds.map((id) => `<option value="${h(id)}">${h(state.ally_formations[id]?.name || id)} [${h(id)}]</option>`)).join('');
+            el.ally.value = selectedAlly;
+            renderSummary();
         };
         const renderList = () => {
             const ids = (state.sorted_stage_preset_ids.length ? state.sorted_stage_preset_ids.slice() : Object.keys(state.stage_presets || {}).sort()).sort((a, b) => {
@@ -183,6 +227,7 @@
         const requestAll = () => { s.emit('request_bo_catalog_list', {}); s.emit('request_bo_stage_preset_list', {}); };
 
         $('#bo-sp-add-rule-btn').addEventListener('click', () => addRuleRow({}, true));
+        [el.enemy, el.ally, el.name, el.required, el.visibility, el.sort, el.tags, el.concept].forEach((n) => { n.addEventListener('input', renderSummary); n.addEventListener('change', renderSummary); });
         [el.avatarEnabled, el.avatarIcon, el.avatarName, el.avatarDesc].forEach((n) => { n.addEventListener('input', syncJson); n.addEventListener('change', syncJson); });
         el.effectJson.addEventListener('change', () => { try { const p = JSON.parse(el.effectJson.value || '{}'); setRules(Array.isArray(p.rules) ? p.rules : []); msg('フィールド効果JSONをフォームへ反映しました。', 'green'); } catch (e) { msg(`JSON解析に失敗しました: ${e.message}`, 'red'); } });
         el.avatarJson.addEventListener('change', () => { try { setAvatar(JSON.parse(el.avatarJson.value || '{}')); syncJson(); msg('ステージアバターJSONをフォームへ反映しました。', 'green'); } catch (e) { msg(`JSON解析に失敗しました: ${e.message}`, 'red'); } });

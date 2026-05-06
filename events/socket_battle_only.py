@@ -553,6 +553,30 @@ def _normalize_stage_field_effect_profile(raw):
             rule['condition'] = copy.deepcopy(row.get('condition'))
         if 'state_name' in row:
             rule['state_name'] = str(row.get('state_name') or '').strip()
+        if 'display_name' in row:
+            display_name = str(row.get('display_name') or '').strip()
+            if display_name:
+                rule['display_name'] = display_name
+        if 'name' in row:
+            name = str(row.get('name') or '').strip()
+            if name:
+                rule['name'] = name
+        if 'description' in row:
+            description = str(row.get('description') or '').strip()
+            if description:
+                rule['description'] = description
+        if 'flavor_text' in row:
+            flavor_text = str(row.get('flavor_text') or '').strip()
+            if flavor_text:
+                rule['flavor_text'] = flavor_text
+        if 'flavor' in row:
+            flavor = str(row.get('flavor') or '').strip()
+            if flavor:
+                rule['flavor'] = flavor
+        if 'trigger_state_name' in row:
+            trigger_state_name = str(row.get('trigger_state_name') or '').strip()
+            if trigger_state_name:
+                rule['trigger_state_name'] = trigger_state_name
         if 'rule_id' in row:
             rid = str(row.get('rule_id') or '').strip()
             if rid:

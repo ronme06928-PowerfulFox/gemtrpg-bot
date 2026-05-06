@@ -1682,11 +1682,30 @@
         "単体戦闘"
       ],
       "sort_key": 0,
+      "field_effect_profile": {
+        "version": 1,
+        "rules": [
+          {
+            "type": "SPEED_ROLL_MOD",
+            "scope": "ALLY",
+            "priority": 0,
+            "value": -1,
+            "display_name": "冷たい空気",
+            "rule_id": "rule_1"
+          }
+        ]
+      },
+      "stage_avatar": {
+        "enabled": false,
+        "name": "",
+        "description": "",
+        "icon": ""
+      },
       "created_at": 1776439390967,
-      "updated_at": 1776582063625,
+      "updated_at": 1778088689638,
       "created_by": "ろんめ",
-      "updated_by": "ろんめ"
+      "updated_by": "^^"
     }
   },
-  "updated_at": 1776582063628
+  "updated_at": 1778088689641
 }

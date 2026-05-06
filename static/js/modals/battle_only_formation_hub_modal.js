@@ -73,6 +73,10 @@
             <div class="bo-modal-lead">
                 敵編成・味方編成・ステージの編集画面をここから開きます。全体JSONのダウンロードもこの画面に集約しています。
             </div>
+            <div class="bo-guidance-box">
+                <strong>通常ルームでも使う前提の項目</strong>
+                <span>敵キャラ・敵編成・ステージプリセットは通常プリセット画面からも利用できます。味方編成は戦闘専用ルームの参加者割り当て用として扱います。</span>
+            </div>
             <div class="bo-toolbar bo-toolbar--between">
                 <div class="bo-toolbar-group">
                     <button id="bo-fh-refresh-btn" class="bo-btn bo-btn--sm bo-btn--neutral">再読み込み</button>
@@ -80,25 +84,43 @@
                 <span id="bo-fh-msg" class="bo-inline-msg"></span>
             </div>
             <section class="bo-card">
-                <div class="bo-subcard">
-                    <div class="bo-subcard-title">敵編成プリセット</div>
-                    <div id="bo-fh-enemy-count" class="bo-subcard-note">登録数: 0件</div>
+                <div class="bo-subcard bo-choice-card">
+                    <div class="bo-choice-card__head">
+                        <div>
+                            <div class="bo-subcard-title">敵編成プリセット</div>
+                            <div class="bo-subcard-note">通常ルーム開放対象。適用時は敵キャラを全置換する構成として使います。</div>
+                        </div>
+                        <span class="bo-scope-badge">通常利用可</span>
+                    </div>
+                    <div id="bo-fh-enemy-count" class="bo-count-pill">登録数: 0件</div>
                     <div class="bo-toolbar-group">
                         <button id="bo-fh-open-enemy-btn" class="bo-btn bo-btn--sm bo-btn--primary">敵編成プリセット編集を開く</button>
                         <button id="bo-fh-export-enemy-btn" class="bo-btn bo-btn--sm bo-btn--neutral">敵編成JSONをダウンロード</button>
                     </div>
                 </div>
-                <div class="bo-subcard">
-                    <div class="bo-subcard-title">味方編成プリセット</div>
-                    <div id="bo-fh-ally-count" class="bo-subcard-note">登録数: 0件</div>
+                <div class="bo-subcard bo-choice-card">
+                    <div class="bo-choice-card__head">
+                        <div>
+                            <div class="bo-subcard-title">味方編成プリセット</div>
+                            <div class="bo-subcard-note">戦闘専用ルームの味方参加枠を定義します。通常プリセット画面には出しません。</div>
+                        </div>
+                        <span class="bo-scope-badge bo-scope-badge--local">戦闘専用</span>
+                    </div>
+                    <div id="bo-fh-ally-count" class="bo-count-pill">登録数: 0件</div>
                     <div class="bo-toolbar-group">
                         <button id="bo-fh-open-ally-btn" class="bo-btn bo-btn--sm bo-btn--primary">味方編成プリセット編集を開く</button>
                         <button id="bo-fh-export-ally-btn" class="bo-btn bo-btn--sm bo-btn--neutral">味方編成JSONをダウンロード</button>
                     </div>
                 </div>
-                <div class="bo-subcard">
-                    <div class="bo-subcard-title">ステージプリセット</div>
-                    <div id="bo-fh-stage-count" class="bo-subcard-note">登録数: 0件</div>
+                <div class="bo-subcard bo-choice-card">
+                    <div class="bo-choice-card__head">
+                        <div>
+                            <div class="bo-subcard-title">ステージプリセット</div>
+                            <div class="bo-subcard-note">通常ルーム開放対象。敵編成・背景・フィールド効果・ステージアバターを選択適用できます。</div>
+                        </div>
+                        <span class="bo-scope-badge">通常利用可</span>
+                    </div>
+                    <div id="bo-fh-stage-count" class="bo-count-pill">登録数: 0件</div>
                     <div class="bo-toolbar-group">
                         <button id="bo-fh-open-stage-btn" class="bo-btn bo-btn--sm bo-btn--primary">ステージプリセット編集を開く</button>
                         <button id="bo-fh-export-stage-btn" class="bo-btn bo-btn--sm bo-btn--neutral">ステージJSONをダウンロード</button>

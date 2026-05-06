@@ -260,6 +260,39 @@
                         border-radius: 10px;
                         background: rgba(255, 255, 255, 0.78);
                     }
+                    .room-preset-check.is-disabled {
+                        opacity: 0.58;
+                        background: rgba(236, 240, 237, 0.74);
+                    }
+                    .room-preset-summary {
+                        margin: 10px 0 12px;
+                        padding: 12px;
+                        border-radius: 12px;
+                        border: 1px solid rgba(217, 119, 50, 0.22);
+                        background: rgba(255, 248, 236, 0.9);
+                        color: #5d4734;
+                        font-size: 0.86rem;
+                        line-height: 1.55;
+                    }
+                    .room-preset-summary strong {
+                        color: #173f36;
+                    }
+                    .room-preset-actions {
+                        display: flex;
+                        gap: 10px;
+                        align-items: center;
+                        flex-wrap: wrap;
+                        margin-top: 12px;
+                    }
+                    .room-preset-secondary {
+                        border: 1px solid rgba(45, 86, 76, 0.22);
+                        border-radius: 10px;
+                        padding: 10px 14px;
+                        cursor: pointer;
+                        font-weight: 700;
+                        background: rgba(255, 255, 255, 0.82);
+                        color: #173f36;
+                    }
                     .room-preset-status {
                         min-height: 1.4em;
                         color: #536963;
@@ -363,6 +396,23 @@
         const countFormationMembers = (rec) => asArray(rec && rec.members)
             .reduce((sum, row) => sum + Math.max(0, Number(row && row.count) || 0), 0);
 
+        const currentEnemyCount = () => asArray(global.battleState && global.battleState.characters)
+            .filter((char) => String(char && (char.side || char.type || '')).toLowerCase() === 'enemy')
+            .length;
+
+        const stageApplyLabels = (apply, rec) => {
+            const labels = [];
+            if (apply.enemy_formation) labels.push(`敵編成: ${h(rec.enemy_formation_id || '未設定')}（全置換）`);
+            if (apply.background) labels.push('背景');
+            if (apply.field_effects) labels.push('フィールド効果');
+            if (apply.stage_avatar) labels.push('ステージアバター');
+            return labels;
+        };
+
+        const renderAppliedActions = () => {
+            panelEl.querySelector('#room-preset-close-after-apply')?.addEventListener('click', closeModal);
+        };
+
         const renderList = () => {
             const ids = getIds();
             const current = selectedId();
@@ -436,10 +486,19 @@
             }
             if (state.activeTab === 'formation') {
                 const rec = state.catalog.enemy_formations[id] || {};
+                const existingEnemies = currentEnemyCount();
+                const incomingEnemies = countFormationMembers(rec);
                 panelEl.innerHTML = `
                     <strong>${h(rec.name || id)}</strong>
-                    <div class="room-preset-card-meta">敵 ${countFormationMembers(rec)}体。既存の敵キャラを全置換します。</div>
-                    <button id="room-preset-apply-btn" class="room-preset-apply" type="button" style="margin-top:12px;" ${state.catalog.can_manage ? '' : 'disabled'}>敵編成を全置換適用</button>
+                    <div class="room-preset-card-meta">敵 ${incomingEnemies}体。既存の敵キャラを全置換します。味方キャラは残ります。</div>
+                    <div class="room-preset-summary">
+                        <strong>適用プレビュー</strong><br>
+                        現在の敵: ${existingEnemies}体 → 適用後の敵: ${incomingEnemies}体<br>
+                        変更内容: 敵だけ全置換、味方・ユーザー情報は維持
+                    </div>
+                    <div class="room-preset-actions">
+                        <button id="room-preset-apply-btn" class="room-preset-apply" type="button" ${state.catalog.can_manage ? '' : 'disabled'}>敵編成を全置換適用</button>
+                    </div>
                 `;
                 panelEl.querySelector('#room-preset-apply-btn')?.addEventListener('click', async () => {
                     const ok = await askConfirm('既存の敵キャラを全置換して敵編成を適用します。実行しますか？', {
@@ -453,20 +512,45 @@
                 return;
             }
             const rec = state.catalog.stage_presets[id] || {};
+            const stageEnemyCount = countFormationMembers(state.catalog.enemy_formations[rec.enemy_formation_id] || {});
+            const hasEnemyFormation = !!String(rec.enemy_formation_id || '').trim();
             const hasBackground = !!(rec.background || rec.background_profile || rec.battle_background || rec.battle_map_data || rec.background_image || rec.backgroundImage);
             const fieldCount = asArray(rec?.field_effect_profile?.rules).length;
             const hasAvatar = !!(rec.stage_avatar && objectKeys(rec.stage_avatar).length);
             panelEl.innerHTML = `
                 <strong>${h(rec.name || id)}</strong>
                 <div class="room-preset-card-meta">必要な項目だけチェックして通常ルームへ反映します。</div>
+                <div class="room-preset-summary" id="room-stage-apply-summary"></div>
                 <div class="room-preset-options">
-                    <label class="room-preset-check"><input id="room-stage-apply-enemy" type="checkbox" checked> 敵編成を適用（全置換）</label>
-                    <label class="room-preset-check"><input id="room-stage-apply-bg" type="checkbox" ${hasBackground ? 'checked' : ''}> 背景を適用${hasBackground ? '' : '（情報なし）'}</label>
-                    <label class="room-preset-check"><input id="room-stage-apply-field" type="checkbox" ${fieldCount ? 'checked' : ''}> フィールド効果を適用（${fieldCount}件）</label>
-                    <label class="room-preset-check"><input id="room-stage-apply-avatar" type="checkbox" ${hasAvatar ? 'checked' : ''}> ステージアバターを適用${hasAvatar ? '' : '（情報なし）'}</label>
+                    <label class="room-preset-check${hasEnemyFormation ? '' : ' is-disabled'}"><input id="room-stage-apply-enemy" type="checkbox" ${hasEnemyFormation ? 'checked' : 'disabled'}> 敵編成を適用（全置換${stageEnemyCount ? ` / ${stageEnemyCount}体` : ''}）</label>
+                    <label class="room-preset-check${hasBackground ? '' : ' is-disabled'}"><input id="room-stage-apply-bg" type="checkbox" ${hasBackground ? 'checked' : 'disabled'}> 背景を適用${hasBackground ? '' : '（情報なし）'}</label>
+                    <label class="room-preset-check${fieldCount ? '' : ' is-disabled'}"><input id="room-stage-apply-field" type="checkbox" ${fieldCount ? 'checked' : 'disabled'}> フィールド効果を適用（${fieldCount}件）</label>
+                    <label class="room-preset-check${hasAvatar ? '' : ' is-disabled'}"><input id="room-stage-apply-avatar" type="checkbox" ${hasAvatar ? 'checked' : 'disabled'}> ステージアバターを適用${hasAvatar ? '' : '（情報なし）'}</label>
                 </div>
-                <button id="room-preset-apply-btn" class="room-preset-apply" type="button" ${state.catalog.can_manage ? '' : 'disabled'}>ステージを適用</button>
+                <div class="room-preset-actions">
+                    <button id="room-preset-apply-btn" class="room-preset-apply" type="button" ${state.catalog.can_manage ? '' : 'disabled'}>ステージを適用</button>
+                </div>
             `;
+            const updateStageSummary = () => {
+                const apply = {
+                    enemy_formation: !!panelEl.querySelector('#room-stage-apply-enemy')?.checked,
+                    background: !!panelEl.querySelector('#room-stage-apply-bg')?.checked,
+                    field_effects: !!panelEl.querySelector('#room-stage-apply-field')?.checked,
+                    stage_avatar: !!panelEl.querySelector('#room-stage-apply-avatar')?.checked,
+                };
+                const labels = stageApplyLabels(apply, rec);
+                const summaryEl = panelEl.querySelector('#room-stage-apply-summary');
+                if (!summaryEl) return;
+                summaryEl.innerHTML = `
+                    <strong>適用プレビュー</strong><br>
+                    ${labels.length ? `反映項目: ${labels.join(' / ')}` : '反映項目が選択されていません。'}<br>
+                    ${apply.enemy_formation ? `現在の敵: ${currentEnemyCount()}体 → 適用後の敵: ${stageEnemyCount}体。味方キャラは残ります。` : '敵編成を外す場合、既存の敵キャラは変更されません。'}
+                `;
+            };
+            panelEl.querySelectorAll('.room-preset-check input').forEach((input) => {
+                input.addEventListener('change', updateStageSummary);
+            });
+            updateStageSummary();
             panelEl.querySelector('#room-preset-apply-btn')?.addEventListener('click', async () => {
                 const apply = {
                     enemy_formation: !!panelEl.querySelector('#room-stage-apply-enemy')?.checked,
@@ -538,6 +622,16 @@
             const message = `適用しました。${count ? `追加敵: ${count}体` : ''}`;
             state.catalogRefreshStatus = { message, color: '#26734d' };
             setStatus(message, '#26734d');
+            const existingActions = panelEl.querySelector('#room-preset-after-actions');
+            if (!existingActions) {
+                panelEl.insertAdjacentHTML('beforeend', `
+                    <div id="room-preset-after-actions" class="room-preset-actions">
+                        <button id="room-preset-close-after-apply" class="room-preset-secondary" type="button">閉じる</button>
+                        <span class="room-preset-card-meta">続けて別のプリセットも適用できます。</span>
+                    </div>
+                `);
+                renderAppliedActions();
+            }
             requestCatalog({ quiet: true });
         });
 

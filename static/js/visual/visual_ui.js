@@ -581,6 +581,9 @@ window.setupVisualSidebarControls = function () {
 
     // 追加ボタンを表示できるよう、ルーム操作エリアのレイアウトを拡張
     const actionContainer = document.getElementById('visual-room-actions');
+    if (roomPresetBtn) {
+        roomPresetBtn.style.display = isBattleOnlyMode ? 'none' : 'inline-flex';
+    }
     if (actionContainer && !document.getElementById('visual-pve-btn')) {
         // 2カラム固定から折り返し可能なflexレイアウトに変更
         actionContainer.style.display = 'flex';
@@ -738,7 +741,7 @@ window.setupVisualSidebarControls = function () {
         runtimeGlobal.openStageFieldEffectDetailModal = function (payload) {
             const data = (payload && typeof payload === 'object') ? payload : {};
             const stageId = String(data.stage_id || '').trim();
-            const stageName = String(data.stage_name || '').trim() || stageId || 'Stage';
+            const stageName = String(data.stage_name || '').trim() || stageId || 'ステージ';
             const profile = (data.stage_field_effect_profile && typeof data.stage_field_effect_profile === 'object')
                 ? data.stage_field_effect_profile
                 : {};
@@ -754,46 +757,52 @@ window.setupVisualSidebarControls = function () {
             backdrop.className = 'modal-backdrop';
             const modal = document.createElement('div');
             modal.className = 'modal-content';
-            modal.style.cssText = 'max-width:760px; width:94vw; max-height:80vh; overflow:auto; padding:18px;';
+            modal.style.cssText = 'max-width:920px; width:96vw; max-height:86vh; overflow:auto; padding:22px;';
             modal.innerHTML = `
                 <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
                     <div>
-                        <div style="font-size:18px; font-weight:700; color:#111827;">Stage Field Effects</div>
+                        <div style="font-size:18px; font-weight:700; color:#111827;">ステージ効果詳細</div>
                         <div style="font-size:12px; color:#4b5563; margin-top:3px;">${_escapeResolveLogHtml(stageName)}${stageId ? ` (ID: ${_escapeResolveLogHtml(stageId)})` : ''}</div>
                     </div>
-                    <button type="button" id="stage-field-effect-modal-close" class="bo-btn bo-btn--sm">Close</button>
+                    <button type="button" id="stage-field-effect-modal-close" class="bo-btn bo-btn--sm">閉じる</button>
                 </div>
                 <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; font-size:12px;">
-                    <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:${effectEnabled ? '#ecfdf5' : '#f9fafb'}; color:${effectEnabled ? '#166534' : '#6b7280'};">Stage Effect: ${effectEnabled ? 'Enabled' : 'Disabled'}</span>
-                    <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:${avatarEnabled ? '#eff6ff' : '#f9fafb'}; color:${avatarEnabled ? '#1d4ed8' : '#6b7280'};">Stage Avatar: ${avatarEnabled ? 'Enabled' : 'Disabled'}</span>
-                    <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:#fff; color:#374151;">Rules: ${rules.length}</span>
+                    <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:${effectEnabled ? '#ecfdf5' : '#f9fafb'}; color:${effectEnabled ? '#166534' : '#6b7280'};">ステージ効果: ${effectEnabled ? 'ON' : 'OFF'}</span>
+                    <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:${avatarEnabled ? '#eff6ff' : '#f9fafb'}; color:${avatarEnabled ? '#1d4ed8' : '#6b7280'};">ステージアバター: ${avatarEnabled ? 'ON' : 'OFF'}</span>
+                    <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:#fff; color:#374151;">ルール数: ${rules.length}</span>
                 </div>
                 <div style="margin-top:14px; border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#f8fafc;">
-                    <div style="font-size:12px; color:#6b7280;">Stage Avatar (Display-only)</div>
+                    <div style="font-size:12px; color:#6b7280;">ステージアバター（表示用）</div>
                     <div style="margin-top:6px; display:flex; gap:10px; align-items:flex-start;">
                         <div style="min-width:54px; height:54px; border-radius:10px; border:1px solid #d1d5db; display:flex; align-items:center; justify-content:center; font-weight:700; background:#fff; color:#1f2937;">
-                            ${_escapeResolveLogHtml(avatar.icon || 'STAGE')}
+                            ${_escapeResolveLogHtml(avatar.icon || '場')}
                         </div>
                         <div style="min-width:0;">
                             <div style="font-size:15px; font-weight:700; color:#111827;">${_escapeResolveLogHtml(avatar.name || stageName)}</div>
-                            <div style="font-size:13px; color:#374151; margin-top:4px;">${_escapeResolveLogHtml(avatar.description || 'No description.')}</div>
+                            <div style="font-size:13px; color:#374151; margin-top:4px;">${_escapeResolveLogHtml(avatar.description || '説明はありません。')}</div>
                         </div>
                     </div>
                 </div>
                 <div style="margin-top:14px; border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#fff;">
-                    <div style="font-size:14px; font-weight:700; color:#111827;">Rules</div>
+                    <div style="font-size:14px; font-weight:700; color:#111827;">効果ルール</div>
                     ${rules.length
-                        ? `<ul style="margin:8px 0 0 0; padding-left:18px;">${rules.map((row, idx) => {
+                        ? `<ul style="margin:10px 0 0 0; padding-left:0; list-style:none;">${rules.map((row, idx) => {
                             const rid = String(row.rule_id || '').trim() || `rule_${idx + 1}`;
                             const type = String(row.type || '').trim() || 'UNKNOWN';
                             const scope = String(row.scope || 'ALL').trim().toUpperCase() || 'ALL';
                             const value = (row.value === undefined || row.value === null) ? '-' : String(row.value);
                             const stateName = String(row.state_name || '').trim();
-                            const cond = (row.condition && typeof row.condition === 'object') ? ` / cond: ${_escapeResolveLogHtml(JSON.stringify(row.condition))}` : '';
-                            const statePart = stateName ? ` / state: ${_escapeResolveLogHtml(stateName)}` : '';
-                            return `<li style="margin-bottom:6px;"><code>${_escapeResolveLogHtml(rid)}</code> <strong>${_escapeResolveLogHtml(type)}</strong> / scope:${_escapeResolveLogHtml(scope)} / value:${_escapeResolveLogHtml(value)}${statePart}${cond}</li>`;
+                            const displayName = String(row.display_name || row.name || '').trim();
+                            const title = displayName || rid || type || `効果ルール ${idx + 1}`;
+                            const description = String(row.description || '').trim();
+                            const flavor = String(row.flavor_text || row.flavor || '').trim();
+                            const cond = (row.condition && typeof row.condition === 'object') ? ` / 条件: ${_escapeResolveLogHtml(JSON.stringify(row.condition))}` : '';
+                            const statePart = stateName ? ` / 状態: ${_escapeResolveLogHtml(stateName)}` : '';
+                            const descriptionHtml = description ? `<div style="margin-top:6px; color:#374151;">${_escapeResolveLogHtml(description)}</div>` : '';
+                            const flavorHtml = flavor ? `<div style="margin-top:8px; padding:8px 10px; border-left:3px solid #93c5fd; background:#eff6ff; color:#1e3a8a; font-style:italic;">${_escapeResolveLogHtml(flavor)}</div>` : '';
+                            return `<li style="margin-bottom:10px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb;"><div style="font-weight:700; color:#111827;">${_escapeResolveLogHtml(title)}</div><div style="margin-top:4px; font-size:12px; color:#4b5563;">ID:${_escapeResolveLogHtml(rid)} / 種類:${_escapeResolveLogHtml(type)} / 対象:${_escapeResolveLogHtml(scope)} / 値:${_escapeResolveLogHtml(value)}${statePart}${cond}</div>${descriptionHtml}${flavorHtml}</li>`;
                         }).join('')}</ul>`
-                        : '<div style="margin-top:8px; color:#6b7280;">No stage rules configured.</div>'
+                        : '<div style="margin-top:8px; color:#6b7280;">ステージ効果ルールは設定されていません。</div>'
                     }
                 </div>
             `;
@@ -849,9 +858,11 @@ window.setupVisualSidebarControls = function () {
         }
         const exists = document.getElementById(stageEffectCardId);
         const card = exists || document.createElement('div');
+        const sidebar = document.getElementById('visual-sidebar');
+        const sidebarWidth = Math.max(0, Math.round(sidebar?.getBoundingClientRect?.().width || 350));
         card.id = stageEffectCardId;
         card.style.position = 'fixed';
-        card.style.right = '12px';
+        card.style.right = `${sidebarWidth + 16}px`;
         card.style.top = '72px';
         card.style.zIndex = '860';
         card.style.minWidth = '220px';
@@ -861,7 +872,7 @@ window.setupVisualSidebarControls = function () {
         card.style.borderRadius = '10px';
         card.style.boxShadow = '0 10px 24px rgba(0,0,0,0.18)';
         card.style.padding = '10px';
-        const icon = _escapeResolveLogHtml(String(info.stage_avatar_profile.icon || 'STAGE'));
+        const icon = _escapeResolveLogHtml(String(info.stage_avatar_profile.icon || '場'));
         const statusColor = info.stage_field_effect_enabled ? '#166534' : '#6b7280';
         card.innerHTML = `
             <div style="display:flex; gap:8px; align-items:center;">
@@ -922,12 +933,18 @@ window.setupVisualSidebarControls = function () {
             };
         }
         if (presetBtn) {
-            presetBtn.style.display = 'inline-block';
-            presetBtn.onclick = () => { if (typeof openPresetManagerModal === 'function') openPresetManagerModal(); };
+            presetBtn.style.display = isBattleOnlyMode ? 'none' : 'inline-block';
+            presetBtn.textContent = '敵一覧保存';
+            presetBtn.title = isBattleOnlyMode ? '' : '現在の敵一覧を保存/読込する旧式の補助機能です';
+            presetBtn.onclick = () => {
+                if (isBattleOnlyMode) return;
+                if (typeof openPresetManagerModal === 'function') openPresetManagerModal();
+            };
         }
         if (roomPresetBtn) {
-            roomPresetBtn.style.display = 'inline-block';
+            roomPresetBtn.style.display = isBattleOnlyMode ? 'none' : 'inline-block';
             roomPresetBtn.onclick = () => {
+                if (isBattleOnlyMode) return;
                 if (typeof openRoomPresetApplyModal === 'function') {
                     openRoomPresetApplyModal();
                 }

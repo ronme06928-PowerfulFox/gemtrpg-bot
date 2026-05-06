@@ -415,11 +415,13 @@ function openBehaviorFlowEditorModal(char, options = {}) {
 
     const content = document.createElement('div');
     content.className = 'modal-content';
-    content.style.maxWidth = '1280px';
-    content.style.width = '98vw';
+    content.style.boxSizing = 'border-box';
+    content.style.maxWidth = 'min(1280px, calc(100vw - 32px))';
+    content.style.width = 'calc(100vw - 32px)';
     content.style.maxHeight = '94vh';
     content.style.height = '94vh';
-    content.style.overflow = 'auto';
+    content.style.overflowY = 'auto';
+    content.style.overflowX = 'hidden';
     content.style.padding = '16px';
     content.style.border = '1px solid #cfe1f1';
     content.style.background = '#f7fbff';
@@ -433,6 +435,82 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         </div>
         <div style="font-size:0.9em; color:#35556d; margin-bottom:10px;">${subtitleText}</div>
         ${contextHtml}
+        <style>
+            .behavior-editor-main-grid {
+                display: grid;
+                grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.05fr);
+                gap: 10px;
+                min-width: 0;
+            }
+            .behavior-editor-panel {
+                min-width: 0;
+                background: #fff;
+                border: 1px solid #cfe1f1;
+                border-radius: 8px;
+                padding: 8px;
+            }
+            .behavior-step-row {
+                display: grid;
+                grid-template-columns: 34px minmax(0, 1fr) auto;
+                gap: 6px;
+                margin-bottom: 6px;
+                min-width: 0;
+            }
+            .behavior-action-row {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(112px, 136px) auto;
+                gap: 4px;
+                min-width: 0;
+            }
+            .behavior-action-row select,
+            .behavior-condition-row select,
+            .behavior-condition-row input {
+                min-width: 0;
+            }
+            .behavior-transition-head {
+                display: grid;
+                grid-template-columns: 70px minmax(0, 1fr) auto auto;
+                gap: 6px;
+                align-items: end;
+                margin-bottom: 5px;
+            }
+            .behavior-condition-row {
+                display: grid;
+                grid-template-columns: minmax(78px, 0.8fr) minmax(90px, 1fr) minmax(90px, 1fr) minmax(80px, 0.85fr) minmax(74px, 0.8fr) auto;
+                gap: 6px;
+                align-items: end;
+                margin-bottom: 6px;
+                padding: 6px;
+                border: 1px solid #e2edf7;
+                border-radius: 6px;
+                background: #fafdff;
+                min-width: 0;
+            }
+            @media (max-width: 1180px) {
+                .behavior-editor-main-grid {
+                    grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+                }
+                .behavior-action-row {
+                    grid-template-columns: minmax(0, 1fr) minmax(104px, 122px) auto;
+                }
+                .behavior-condition-row {
+                    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+                }
+            }
+            @media (max-width: 900px) {
+                .behavior-editor-main-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+            @media (max-width: 760px) {
+                .behavior-step-row,
+                .behavior-action-row,
+                .behavior-transition-head,
+                .behavior-condition-row {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
             <label style="display:flex; align-items:center; gap:6px; background:#fff; border:1px solid #cfe1f1; padding:6px 10px; border-radius:6px;">
                 <input type="checkbox" id="behavior-enabled">
@@ -462,8 +540,8 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 <div>・<strong>未保存確認</strong>: 変更後に閉じると確認ダイアログが表示されます。</div>
             </div>
         </details>
-        <div style="display:grid; grid-template-columns: 1.15fr 1fr; gap:10px;">
-            <div style="background:#fff; border:1px solid #cfe1f1; border-radius:8px; padding:8px;">
+        <div class="behavior-editor-main-grid">
+            <div class="behavior-editor-panel">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                     <div style="font-weight:bold; color:#1e4766;">フローチャート表示</div>
                     <div style="display:flex; gap:6px;">
@@ -474,7 +552,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 <div id="behavior-flow-connect-hint" style="font-size:0.8em; color:#5f7a8f; margin-bottom:5px;">ノードをドラッグで移動。接続開始後に接続先ノードをクリック。</div>
                 <div id="behavior-flow-preview"></div>
             </div>
-            <div style="background:#fff; border:1px solid #cfe1f1; border-radius:8px; padding:8px;">
+            <div class="behavior-editor-panel">
                 <div style="font-weight:bold; color:#1e4766; margin-bottom:6px;">編集</div>
                 <div id="behavior-loop-tabs" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;"></div>
                 <div id="behavior-loop-editor"></div>
@@ -571,7 +649,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             return;
         }
         ensureNodeLayout();
-        const boardW = Math.max(520, Math.min(860, (previewEl?.clientWidth || 640) - 12));
+        const boardW = Math.max(360, Math.min(720, (previewEl?.clientWidth || 560) - 12));
         const boardH = Math.max(300, (Math.ceil(ids.length / 2) * 130) + 90);
 
         const board = document.createElement('div');
@@ -606,7 +684,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         defs.appendChild(marker);
         svg.appendChild(defs);
 
-        const nodeW = 170;
+        const nodeW = Math.min(170, Math.max(138, Math.floor((boardW - 72) / 2)));
         const nodeH = 78;
         ids.forEach((fromId) => {
             const from = nodeLayout[fromId];
@@ -771,10 +849,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         } else {
             steps.forEach((step, idx) => {
                 const row = document.createElement('div');
-                row.style.display = 'grid';
-                row.style.gridTemplateColumns = '42px 1fr auto';
-                row.style.gap = '6px';
-                row.style.marginBottom = '6px';
+                row.className = 'behavior-step-row';
                 row.innerHTML = `<div style="font-size:0.82em; color:#3f637b; align-self:start; padding-top:4px;">S${idx + 1}</div>`;
 
                 const actionsWrap = document.createElement('div');
@@ -791,9 +866,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                         (Array.isArray(step.targets) ? step.targets[actionIdx] : null)
                     );
                     const actionRow = document.createElement('div');
-                    actionRow.style.display = 'grid';
-                    actionRow.style.gridTemplateColumns = '1fr 160px auto';
-                    actionRow.style.gap = '4px';
+                    actionRow.className = 'behavior-action-row';
 
                     const select = document.createElement('select');
                     select.dataset.stepAction = `${idx}:${actionIdx}`;
@@ -860,6 +933,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
 
                 const nextWrap = document.createElement('div');
                 nextWrap.style.display = 'flex';
+                nextWrap.style.flexWrap = 'wrap';
                 nextWrap.style.alignItems = 'center';
                 nextWrap.style.gap = '6px';
                 nextWrap.style.marginTop = '4px';
@@ -958,7 +1032,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                         const presets = getBehaviorConditionParamPresets(cond.source);
                         const hasPreset = presets.some((row) => row.value === param);
                         return `
-                            <div style="display:grid; grid-template-columns: 120px 150px 170px 140px 1fr auto; gap:6px; align-items:end; margin-bottom:6px; padding:6px; border:1px solid #e2edf7; border-radius:6px; background:#fafdff;">
+                            <div class="behavior-condition-row">
                                 <label style="font-size:0.8em;">判定元
                                     <select data-tr-cond-source="${tIdx}:${cIdx}" style="width:100%;">
                                         ${buildSourceOptions(cond.source)}
@@ -991,7 +1065,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 box.style.padding = '6px';
                 box.style.marginBottom = '6px';
                 box.innerHTML = `
-                    <div style="display:grid; grid-template-columns: 78px 1fr auto auto; gap:6px; align-items:end; margin-bottom:5px;">
+                    <div class="behavior-transition-head">
                         <label style="font-size:0.8em;">優先度<input data-tr-priority="${tIdx}" type="number" value="${Number(tr.priority || 0)}" style="width:100%;"></label>
                         <label style="font-size:0.8em;">遷移先ループ<select data-tr-to="${tIdx}" style="width:100%;">${toLoopOptions}</select></label>
                         <label style="display:flex; align-items:center; gap:4px; font-size:0.8em;"><input data-tr-reset="${tIdx}" type="checkbox" ${tr.reset_step_index !== false ? 'checked' : ''}>先頭手順へ戻す</label>

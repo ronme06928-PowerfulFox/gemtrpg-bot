@@ -205,6 +205,7 @@
             <div class="bo-subcard-note" style="margin:0 0 8px 0;">編成の変更は自動で反映されます。必要な場合のみ「手動反映（任意）」を使ってください。</div>
             <div id="bo-draft-guide" class="bo-guide"></div>
             <div id="bo-draft-validation" class="bo-validation" style="display:none;"></div>
+            <div id="bo-stage-area" class="bo-card" style="margin-bottom:12px;"></div>
             <div class="bo-layout bo-layout--draft">
                 <div id="bo-ally-area" class="bo-card"></div>
                 <div id="bo-enemy-area" class="bo-card"></div>
@@ -222,6 +223,7 @@
         const summaryEl = panel.querySelector('#bo-draft-summary');
         const guideEl = panel.querySelector('#bo-draft-guide');
         const validationEl = panel.querySelector('#bo-draft-validation');
+        const stageArea = panel.querySelector('#bo-stage-area');
         const allyArea = panel.querySelector('#bo-ally-area');
         const enemyArea = panel.querySelector('#bo-enemy-area');
         const recordArea = panel.querySelector('#bo-record-area');
@@ -233,6 +235,8 @@
             sorted_ids: [],
             enemy_formations: {},
             sorted_enemy_formation_ids: [],
+            stage_presets: {},
+            sorted_stage_preset_ids: [],
             records: [],
             active_record_id: null,
             can_manage: true,
@@ -301,6 +305,34 @@
                 ? model.sorted_enemy_formation_ids
                 : Object.keys(model.enemy_formations || {}).sort();
             return ids;
+        }
+
+        function stagePresetIds() {
+            return Array.isArray(model.sorted_stage_preset_ids) && model.sorted_stage_preset_ids.length
+                ? model.sorted_stage_preset_ids.slice()
+                : Object.keys(model.stage_presets || {}).sort();
+        }
+
+        function getSelectedStageId() {
+            return String((model.battle_only && model.battle_only.selected_stage_id) || '').trim();
+        }
+
+        function getStageRecord(stageId) {
+            const id = String(stageId || '').trim();
+            if (!id) return null;
+            return (model.stage_presets && typeof model.stage_presets === 'object') ? (model.stage_presets[id] || null) : null;
+        }
+
+        function stageRuleCount(stage) {
+            const profile = stage && typeof stage.field_effect_profile === 'object' ? stage.field_effect_profile : {};
+            return Array.isArray(profile.rules) ? profile.rules.length : 0;
+        }
+
+        function stageOptionLabel(id) {
+            const rec = getStageRecord(id) || {};
+            const name = String(rec.name || id);
+            const required = Math.max(0, safeInt(rec.required_ally_count, 0));
+            return `${name} [${id}] / 必要味方:${required}`;
         }
 
         function buildPresetOptions(ids, selectedId, placeholder) {
@@ -464,6 +496,69 @@
                 </ul>
             `;
             return issues;
+        }
+
+        function renderStageArea() {
+            ensureEntries();
+            const bo = model.battle_only || {};
+            const ids = stagePresetIds();
+            const selectedId = getSelectedStageId();
+            const selectedStage = getStageRecord(selectedId);
+            const selectedName = selectedStage ? String(selectedStage.name || selectedId) : '';
+            const ruleCount = selectedStage ? stageRuleCount(selectedStage) : 0;
+            const avatar = selectedStage && selectedStage.stage_avatar && typeof selectedStage.stage_avatar === 'object'
+                ? selectedStage.stage_avatar
+                : {};
+            const avatarText = avatar.enabled === false ? 'OFF' : (avatar.name || avatar.icon || 'ON');
+            const options = ids.map((id) => `<option value="${escapeHtml(id)}" ${id === selectedId ? 'selected' : ''}>${escapeHtml(stageOptionLabel(id))}</option>`).join('');
+            stageArea.innerHTML = `
+                <div class="bo-section-head">
+                    <div>
+                        <div class="bo-section-title">ステージ選択</div>
+                        <div class="bo-subcard-note">ここでステージを選ぶと、敵編成・味方編成・必要人数・ステージ効果を編成へ反映します。そのまま上部の「戦闘突入」で開始できます。</div>
+                    </div>
+                    <div class="bo-toolbar-group">
+                        <button id="bo-stage-refresh-btn" class="bo-btn bo-btn--xs bo-btn--neutral">再読み込み</button>
+                        <button id="bo-stage-apply-btn" class="bo-btn bo-btn--xs bo-btn--primary">ステージ反映</button>
+                    </div>
+                </div>
+                <div class="bo-field-grid bo-field-grid--2">
+                    <label class="bo-field">
+                        <span class="bo-field-label">ステージプリセット</span>
+                        <select id="bo-stage-select" class="bo-select">
+                            <option value="">（ステージを選択）</option>
+                            ${options}
+                        </select>
+                    </label>
+                    <div class="bo-preview-box" style="margin:0;">
+                        <div class="bo-preview-box__title">${selectedStage ? escapeHtml(selectedName) : 'ステージ未選択'}</div>
+                        <div class="bo-preview-grid">
+                            <div><strong>敵編成</strong><span>${escapeHtml(String((selectedStage && selectedStage.enemy_formation_id) || bo.enemy_formation_id || '未選択'))}</span></div>
+                            <div><strong>必要味方</strong><span>${Math.max(0, safeInt((selectedStage && selectedStage.required_ally_count) || bo.required_ally_count, 0))}人</span></div>
+                            <div><strong>効果ルール</strong><span>${ruleCount}件</span></div>
+                            <div><strong>アバター</strong><span>${escapeHtml(String(avatarText))}</span></div>
+                        </div>
+                    </div>
+                </div>
+                ${selectedStage ? `<div class="bo-subcard-note">${escapeHtml(selectedStage.description || selectedStage.concept || '')}</div>` : '<div class="bo-empty-cell">ステージを選択すると、選択内容の概要がここに表示されます。</div>'}
+            `;
+
+            const selectEl = stageArea.querySelector('#bo-stage-select');
+            const applySelection = () => {
+                const stageId = String(selectEl?.value || '').trim();
+                if (!stageId) {
+                    setMsg('ステージを選択してください。', '#b45309');
+                    return false;
+                }
+                socketRef.emit('request_bo_select_stage_preset', { room: roomName, stage_id: stageId });
+                setMsg('ステージ反映を送信しました。', '#444');
+                return true;
+            };
+            selectEl?.addEventListener('change', applySelection);
+            stageArea.querySelector('#bo-stage-apply-btn')?.addEventListener('click', applySelection);
+            stageArea.querySelector('#bo-stage-refresh-btn')?.addEventListener('click', requestDraftState);
+            const applyBtn = stageArea.querySelector('#bo-stage-apply-btn');
+            if (applyBtn) applyBtn.disabled = !ids.length;
         }
 
         function renderAllyArea() {
@@ -877,6 +972,7 @@
             const intentControlMode = String(allyArea.querySelector('#bo-intent-control-mode')?.value || (bo.options && bo.options.intent_control_mode) || 'all').trim().toLowerCase();
             const requiredAllyCount = Math.max(0, safeInt(allyArea.querySelector('#bo-required-ally-count')?.value, bo.required_ally_count || 0));
             const selectedFormationId = String(enemyArea.querySelector('#bo-enemy-formation-select')?.value || bo.enemy_formation_id || '').trim();
+            const selectedStageId = String(stageArea.querySelector('#bo-stage-select')?.value || bo.selected_stage_id || '').trim();
             const allyRows = [];
             if (allyMode !== 'room_existing') {
                 allyArea.querySelectorAll('tbody tr[data-idx]').forEach((tr) => {
@@ -910,6 +1006,7 @@
             if (!bo.options || typeof bo.options !== 'object') bo.options = {};
             bo.options.intent_control_mode = (intentControlMode === 'starter_only') ? 'starter_only' : 'all';
             bo.enemy_formation_id = selectedFormationId || null;
+            bo.selected_stage_id = selectedStageId || null;
             bo.ally_entries = allyRows;
             bo.enemy_entries = enemyRows;
             model.battle_only = bo;
@@ -918,6 +1015,7 @@
                 intent_control_mode: bo.options.intent_control_mode,
                 required_ally_count: requiredAllyCount,
                 enemy_formation_id: selectedFormationId || null,
+                selected_stage_id: selectedStageId || null,
                 ally_entries: allyRows,
                 enemy_entries: enemyRows,
             };
@@ -1002,6 +1100,9 @@
             [allyArea.querySelector('#bo-ally-mode'),
              allyArea.querySelector('#bo-required-ally-count'),
              allyArea.querySelector('#bo-ally-mode-apply-btn'),
+             stageArea.querySelector('#bo-stage-select'),
+             stageArea.querySelector('#bo-stage-apply-btn'),
+             stageArea.querySelector('#bo-stage-refresh-btn'),
              enemyArea.querySelector('#bo-enemy-formation-select'),
              enemyArea.querySelector('#bo-enemy-formation-apply-btn')].forEach((el) => {
                 if (!el) return;
@@ -1013,6 +1114,7 @@
             renderSummary();
             renderGuide();
             const issues = renderValidation();
+            renderStageArea();
             renderAllyArea();
             renderEnemyArea();
             renderRecords();
@@ -1137,6 +1239,10 @@
             model.sorted_enemy_formation_ids = Array.isArray(data && data.sorted_enemy_formation_ids)
                 ? data.sorted_enemy_formation_ids
                 : Object.keys(model.enemy_formations).sort();
+            model.stage_presets = (data && typeof data.stage_presets === 'object') ? data.stage_presets : {};
+            model.sorted_stage_preset_ids = Array.isArray(data && data.sorted_stage_preset_ids)
+                ? data.sorted_stage_preset_ids
+                : Object.keys(model.stage_presets).sort();
             model.records = Array.isArray(data && data.records) ? data.records : (Array.isArray(model.battle_only.records) ? model.battle_only.records : []);
             model.active_record_id = data ? (data.active_record_id || null) : null;
             model.can_manage = !!(data && data.can_manage);
@@ -1193,6 +1299,19 @@
             render();
             setMsg('敵編成プリセットを適用しました。', 'green');
         });
+        onSocket('bo_stage_preset_selected', (data) => {
+            if (data && typeof data.battle_only === 'object') {
+                model.battle_only = data.battle_only;
+            }
+            const stage = (data && data.stage_preset && typeof data.stage_preset === 'object') ? data.stage_preset : null;
+            const stageId = String((data && data.stage_id) || (stage && stage.id) || '').trim();
+            if (stage && stageId) {
+                model.stage_presets[stageId] = stage;
+            }
+            render();
+            setMsg('ステージプリセットを編成へ反映しました。', 'green');
+            requestRecordState();
+        });
         onSocket('bo_ally_mode_updated', (data) => {
             if (data && typeof data.battle_only === 'object') {
                 model.battle_only = data.battle_only;
@@ -1215,7 +1334,7 @@
             setMsg(`戦績を出力しました（${safeInt(data && data.record_count, 0)}件）`, 'green');
         });
 
-        ['bo_draft_error', 'bo_catalog_error', 'bo_preset_error', 'bo_enemy_formation_error'].forEach((eventName) => {
+        ['bo_draft_error', 'bo_catalog_error', 'bo_preset_error', 'bo_enemy_formation_error', 'bo_stage_preset_error'].forEach((eventName) => {
             onSocket(eventName, (data) => {
                 const msg = (data && data.message) ? String(data.message) : '操作に失敗しました。';
                 setMsg(msg, 'red');

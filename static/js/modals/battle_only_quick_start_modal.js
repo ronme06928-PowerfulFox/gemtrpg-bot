@@ -60,7 +60,7 @@
         global.openStageFieldEffectDetailModal = function openStageFieldEffectDetailModal(payload) {
             const data = (payload && typeof payload === 'object') ? payload : {};
             const stageId = String(data.stage_id || '').trim();
-            const stageName = String(data.stage_name || '').trim() || stageId || 'Stage';
+            const stageName = String(data.stage_name || '').trim() || stageId || 'ステージ';
             const rules = normalizeRuleRows(data.stage_field_effect_profile);
             const avatar = normalizeAvatarProfile(data.stage_avatar_profile);
             const effectEnabled = !!data.stage_field_effect_enabled;
@@ -74,45 +74,51 @@
             backdrop.className = 'modal-backdrop';
             const modal = document.createElement('div');
             modal.className = 'modal-content';
-            modal.style.cssText = 'max-width:760px; width:94vw; max-height:80vh; overflow:auto; padding:18px;';
+            modal.style.cssText = 'max-width:920px; width:96vw; max-height:86vh; overflow:auto; padding:22px;';
 
             const avatarTitle = avatar.name || stageName;
-            const avatarDesc = avatar.description || 'No description.';
-            const avatarIcon = avatar.icon || 'STAGE';
+            const avatarDesc = avatar.description || '説明はありません。';
+            const avatarIcon = avatar.icon || '場';
             const rulesHtml = rules.length
-                ? `<ul style="margin:8px 0 0 0; padding-left:18px;">${rules.map((row, idx) => {
+                ? `<ul style="margin:10px 0 0 0; padding-left:0; list-style:none;">${rules.map((row, idx) => {
                     const type = String(row.type || '').trim() || 'UNKNOWN';
                     const scope = String(row.scope || 'ALL').trim().toUpperCase() || 'ALL';
                     const value = (row.value === undefined || row.value === null) ? '-' : String(row.value);
                     const stateName = String(row.state_name || '').trim();
                     const rid = String(row.rule_id || '').trim() || `rule_${idx + 1}`;
-                    const cond = (row.condition && typeof row.condition === 'object') ? ` / cond: ${escapeHtml(JSON.stringify(row.condition))}` : '';
-                    const statePart = stateName ? ` / state: ${escapeHtml(stateName)}` : '';
-                    return `<li style="margin-bottom:6px;"><code>${escapeHtml(rid)}</code> <strong>${escapeHtml(type)}</strong> / scope:${escapeHtml(scope)} / value:${escapeHtml(value)}${statePart}${cond}</li>`;
+                    const displayName = String(row.display_name || row.name || '').trim();
+                    const title = displayName || rid || type || `効果ルール ${idx + 1}`;
+                    const description = String(row.description || '').trim();
+                    const flavor = String(row.flavor_text || row.flavor || '').trim();
+                    const cond = (row.condition && typeof row.condition === 'object') ? ` / 条件: ${escapeHtml(JSON.stringify(row.condition))}` : '';
+                    const statePart = stateName ? ` / 状態: ${escapeHtml(stateName)}` : '';
+                    const descriptionHtml = description ? `<div style="margin-top:6px; color:#374151;">${escapeHtml(description)}</div>` : '';
+                    const flavorHtml = flavor ? `<div style="margin-top:8px; padding:8px 10px; border-left:3px solid #93c5fd; background:#eff6ff; color:#1e3a8a; font-style:italic;">${escapeHtml(flavor)}</div>` : '';
+                    return `<li style="margin-bottom:10px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb;"><div style="font-weight:700; color:#111827;">${escapeHtml(title)}</div><div style="margin-top:4px; font-size:12px; color:#4b5563;">ID:${escapeHtml(rid)} / 種類:${escapeHtml(type)} / 対象:${escapeHtml(scope)} / 値:${escapeHtml(value)}${statePart}${cond}</div>${descriptionHtml}${flavorHtml}</li>`;
                 }).join('')}</ul>`
-                : '<div style="margin-top:8px; color:#6b7280;">No stage rules configured.</div>';
+                : '<div style="margin-top:8px; color:#6b7280;">ステージ効果ルールは設定されていません。</div>';
 
             modal.innerHTML = `
                 <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
                     <div>
-                        <div style="font-size:18px; font-weight:700; color:#111827;">Stage Field Effects</div>
+                        <div style="font-size:18px; font-weight:700; color:#111827;">ステージ効果詳細</div>
                         <div style="font-size:12px; color:#4b5563; margin-top:3px;">${escapeHtml(stageName)}${stageId ? ` (ID: ${escapeHtml(stageId)})` : ''}</div>
                     </div>
-                    <button type="button" id="stage-field-effect-modal-close" class="bo-btn bo-btn--sm">Close</button>
+                    <button type="button" id="stage-field-effect-modal-close" class="bo-btn bo-btn--sm">閉じる</button>
                 </div>
                 <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; font-size:12px;">
                     <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:${effectEnabled ? '#ecfdf5' : '#f9fafb'}; color:${effectEnabled ? '#166534' : '#6b7280'};">
-                        Stage Effect: ${effectEnabled ? 'Enabled' : 'Disabled'}
+                        ステージ効果: ${effectEnabled ? 'ON' : 'OFF'}
                     </span>
                     <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:${avatarEnabled ? '#eff6ff' : '#f9fafb'}; color:${avatarEnabled ? '#1d4ed8' : '#6b7280'};">
-                        Stage Avatar: ${avatarEnabled ? 'Enabled' : 'Disabled'}
+                        ステージアバター: ${avatarEnabled ? 'ON' : 'OFF'}
                     </span>
                     <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:#fff; color:#374151;">
-                        Rules: ${rules.length}
+                        ルール数: ${rules.length}
                     </span>
                 </div>
                 <div style="margin-top:14px; border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#f8fafc;">
-                    <div style="font-size:12px; color:#6b7280;">Stage Avatar (Display-only)</div>
+                    <div style="font-size:12px; color:#6b7280;">ステージアバター（表示用）</div>
                     <div style="margin-top:6px; display:flex; gap:10px; align-items:flex-start;">
                         <div style="min-width:54px; height:54px; border-radius:10px; border:1px solid #d1d5db; display:flex; align-items:center; justify-content:center; font-weight:700; background:#fff; color:#1f2937;">
                             ${escapeHtml(avatarIcon)}
@@ -124,7 +130,7 @@
                     </div>
                 </div>
                 <div style="margin-top:14px; border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#fff;">
-                    <div style="font-size:14px; font-weight:700; color:#111827;">Rules</div>
+                    <div style="font-size:14px; font-weight:700; color:#111827;">効果ルール</div>
                     ${rulesHtml}
                 </div>
             `;
@@ -251,11 +257,11 @@
                     <div style="margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
                         <label style="display:flex; align-items:center; gap:6px;">
                             <input id="bo-quick-stage-effect-enabled" type="checkbox" />
-                            <span>Stage Field Effect Enabled</span>
+                            <span>ステージ効果を有効化</span>
                         </label>
                         <label style="display:flex; align-items:center; gap:6px;">
                             <input id="bo-quick-stage-avatar-enabled" type="checkbox" />
-                            <span>Stage Avatar Enabled</span>
+                            <span>ステージアバターを有効化</span>
                         </label>
                         <button id="bo-quick-stage-detail" class="bo-btn bo-btn--sm">効果詳細を見る</button>
                     </div>

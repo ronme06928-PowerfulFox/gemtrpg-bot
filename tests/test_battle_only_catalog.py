@@ -1005,6 +1005,9 @@ def test_bo_stage_field_effect_profile_roundtrip_and_start(monkeypatch):
                     "rules": [
                         {
                             "rule_id": "r_speed_1",
+                            "display_name": "霧の鈍足",
+                            "description": "速度を下げる霧",
+                            "flavor_text": "白い霧が足を絡め取る。",
                             "type": "SPEED_ROLL_MOD",
                             "scope": "ALL",
                             "value": -1,
@@ -1030,6 +1033,9 @@ def test_bo_stage_field_effect_profile_roundtrip_and_start(monkeypatch):
     stage_id = str(rec.get("id") or "")
     assert stage_id
     assert rec.get("field_effect_profile", {}).get("rules", [{}])[0].get("type") == "SPEED_ROLL_MOD"
+    assert rec.get("field_effect_profile", {}).get("rules", [{}])[0].get("display_name") == "霧の鈍足"
+    assert rec.get("field_effect_profile", {}).get("rules", [{}])[0].get("description") == "速度を下げる霧"
+    assert rec.get("field_effect_profile", {}).get("rules", [{}])[0].get("flavor_text") == "白い霧が足を絡め取る。"
     assert rec.get("stage_avatar", {}).get("name") == "Avatar"
 
     state["battle_only"]["ally_entries"] = [{"preset_id": "ally_1", "user_id": "u_1"}]
@@ -1038,6 +1044,9 @@ def test_bo_stage_field_effect_profile_roundtrip_and_start(monkeypatch):
     bo = state.get("battle_only", {})
     assert bo.get("selected_stage_id") == stage_id
     assert bo.get("stage_field_effect_profile", {}).get("rules", [{}])[0].get("rule_id") == "r_speed_1"
+    assert bo.get("stage_field_effect_profile", {}).get("rules", [{}])[0].get("display_name") == "霧の鈍足"
+    assert bo.get("stage_field_effect_profile", {}).get("rules", [{}])[0].get("description") == "速度を下げる霧"
+    assert bo.get("stage_field_effect_profile", {}).get("rules", [{}])[0].get("flavor_text") == "白い霧が足を絡め取る。"
     assert bo.get("stage_avatar_profile", {}).get("name") == "Avatar"
     bo["ally_entries"] = [{"preset_id": "ally_1", "user_id": "u_1"}]
 

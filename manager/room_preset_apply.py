@@ -781,7 +781,7 @@ def normalize_stage_field_effect_profile(raw):
             "scope": str(row.get("scope", "ALL") or "ALL").strip().upper(),
             "priority": _safe_int(row.get("priority", 0), 0),
         }
-        for key in ("value", "condition", "state_name", "rule_id"):
+        for key in ("value", "condition", "state_name", "rule_id", "display_name", "name", "description", "flavor_text", "flavor", "trigger_state_name"):
             if key in row:
                 rule[key] = copy.deepcopy(row.get(key))
         constraints = row.get("skill_constraints")
