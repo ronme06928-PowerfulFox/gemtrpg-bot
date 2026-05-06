@@ -1691,6 +1691,8 @@
             "priority": 0,
             "value": -1,
             "display_name": "冷たい空気",
+            "description": "味方キャラクターの速度値を-1する。",
+            "flavor_text": "凍えるような空気の粒は、相対する者の手足を悴ませる……。",
             "rule_id": "rule_1"
           }
         ]
@@ -1702,10 +1704,10 @@
         "icon": ""
       },
       "created_at": 1776439390967,
-      "updated_at": 1778088689638,
+      "updated_at": 1778091258593,
       "created_by": "ろんめ",
       "updated_by": "^^"
     }
   },
-  "updated_at": 1778088689641
+  "updated_at": 1778091258596
 }
