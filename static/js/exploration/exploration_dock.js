@@ -113,8 +113,11 @@ if (!window.ExplorationDock) {
 
         // 7. 戦闘へ戻るボタン (GMのみ) - 一番下へ配置
         if (userAttr === 'GM') {
-            const backBtn = createDockIcon('⚔️', '戦闘パートへ戻る', () => {
-                if (confirm('戦闘パートに戻りますか？')) {
+            const backBtn = createDockIcon('⚔️', '戦闘パートへ戻る', async () => {
+                if (await window.showAppConfirm('戦闘パートに戻りますか？', {
+                    title: '戦闘パートへ戻る',
+                    confirmText: '戻る',
+                })) {
                     socket.emit('request_change_mode', {
                         room: currentRoomName,
                         mode: 'battle'

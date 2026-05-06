@@ -1380,9 +1380,12 @@ function openBehaviorFlowEditorModal(char) {
     const editorEl = content.querySelector('#behavior-loop-editor');
 
     clearDirty();
-    const closeModal = (force = false) => {
+    const closeModal = async (force = false) => {
         if (!force && isDirty) {
-            const ok = confirm('未保存の変更があります。保存せずに閉じますか？');
+            const ok = await window.showAppConfirm('未保存の変更があります。保存せずに閉じますか？', {
+                title: '未保存の変更',
+                confirmText: '閉じる',
+            });
             if (!ok) return;
         }
         overlay.remove();
@@ -1930,12 +1933,15 @@ function openBehaviorFlowEditorModal(char) {
             markDirty();
             renderPreview();
         });
-        editorEl.querySelector('#behavior-loop-delete-btn')?.addEventListener('click', () => {
+        editorEl.querySelector('#behavior-loop-delete-btn')?.addEventListener('click', async () => {
             if (loopIds().length <= 1) {
                 alert('最低1つのループは必要です。');
                 return;
             }
-            if (!confirm(`ループ「${selectedLoopId}」を削除しますか？`)) return;
+            if (!await window.showAppConfirm(`ループ「${selectedLoopId}」を削除しますか？`, {
+                title: 'ループ削除',
+                confirmText: '削除',
+            })) return;
             const removed = selectedLoopId;
             delete draft.loops[removed];
             delete nodeLayout[removed];
@@ -2251,8 +2257,11 @@ function openBehaviorFlowEditorModal(char) {
         markDirty();
         renderAll();
     });
-    resetProfileBtn?.addEventListener('click', () => {
-        const ok = confirm('このキャラの行動チャートを初期化します。よろしいですか？');
+    resetProfileBtn?.addEventListener('click', async () => {
+        const ok = await window.showAppConfirm('このキャラの行動チャートを初期化します。よろしいですか？', {
+            title: '行動チャート初期化',
+            confirmText: '初期化',
+        });
         if (!ok) return;
         draft.enabled = false;
         draft.initial_loop_id = 'loop_1';
@@ -2422,12 +2431,15 @@ function createSettingsContextMenu(triggerEl, char) {
 
     // Transfer
     const transferBtn = menu.querySelector('#ctx-transfer-btn');
-    transferBtn.addEventListener('click', () => {
+    transferBtn.addEventListener('click', async () => {
         const select = menu.querySelector('#ctx-transfer-select');
         const newOwnerId = select.value;
         const newOwnerName = select.options[select.selectedIndex].text;
         if (!newOwnerId) return;
-        if (confirm(`所有権を「${newOwnerName}」に譲渡しますか？`)) {
+        if (await window.showAppConfirm(`所有権を「${newOwnerName}」に譲渡しますか？`, {
+            title: '所有権譲渡',
+            confirmText: '譲渡',
+        })) {
             socket.emit('request_transfer_character_ownership', {
                 room: currentRoomName, character_id: char.id, new_owner_id: newOwnerId, new_owner_name: newOwnerName
             });
@@ -2473,8 +2485,11 @@ function createSettingsContextMenu(triggerEl, char) {
 
     // Return
     const returnBtn = menu.querySelector('#ctx-return-btn');
-    returnBtn.addEventListener('click', () => {
-        if (confirm('未配置に戻しますか？')) {
+    returnBtn.addEventListener('click', async () => {
+        if (await window.showAppConfirm('未配置に戻しますか？', {
+            title: '未配置に戻す',
+            confirmText: '戻す',
+        })) {
             socket.emit('request_move_character', { room: currentRoomName, character_id: char.id, x: -1, y: -1 });
             closeGameModal('char-modal-backdrop'); // Helper or manually remove
             const modal = document.getElementById('char-modal-backdrop');
@@ -2485,8 +2500,11 @@ function createSettingsContextMenu(triggerEl, char) {
 
     // Delete
     const delBtn = menu.querySelector('#ctx-delete-btn');
-    delBtn.addEventListener('click', () => {
-        if (confirm('完全に削除しますか？')) {
+    delBtn.addEventListener('click', async () => {
+        if (await window.showAppConfirm('完全に削除しますか？', {
+            title: 'キャラクター削除',
+            confirmText: '削除',
+        })) {
             socket.emit('request_delete_character', { room: currentRoomName, charId: char.id });
             const modal = document.getElementById('char-modal-backdrop');
             if (modal) modal.remove();
@@ -2838,8 +2856,11 @@ function openPresetManagerModal() {
             loadBtn.style.marginRight = '5px';
             loadBtn.style.fontSize = '0.85em';
             loadBtn.style.padding = '4px 10px';
-            loadBtn.onclick = () => {
-                if (confirm(`現在の敵を消去し、プリセット「${name}」を展開しますか？`)) {
+            loadBtn.onclick = async () => {
+                if (await window.showAppConfirm(`現在の敵を消去し、プリセット「${name}」を展開しますか？`, {
+                    title: 'プリセット読込',
+                    confirmText: '読込',
+                })) {
                     socket.emit('request_load_preset', { room: currentRoomName, name: name });
                     closeFunc();
                 }
@@ -2852,8 +2873,11 @@ function openPresetManagerModal() {
             delBtn.style.backgroundColor = '#dc3545';
             delBtn.style.color = 'white';
             delBtn.style.border = 'none';
-            delBtn.onclick = () => {
-                if (confirm(`プリセット「${name}」を削除しますか？`)) {
+            delBtn.onclick = async () => {
+                if (await window.showAppConfirm(`プリセット「${name}」を削除しますか？`, {
+                    title: 'プリセット削除',
+                    confirmText: '削除',
+                })) {
                     socket.emit('request_delete_preset', { room: currentRoomName, name: name });
                     li.remove();
                 }
@@ -2891,9 +2915,12 @@ function openPresetManagerModal() {
     });
 
     socket.off('preset_save_error');
-    socket.on('preset_save_error', (data) => {
+    socket.on('preset_save_error', async (data) => {
         if (data.error === 'duplicate') {
-            if (confirm(data.message)) {
+            if (await window.showAppConfirm(data.message, {
+                title: 'プリセット上書き',
+                confirmText: '上書き',
+            })) {
                 socket.emit('request_save_preset', {
                     room: currentRoomName,
                     name: saveNameInput.value,
@@ -2934,9 +2961,12 @@ function openPresetManagerModal() {
     });
 
     socket.off('preset_import_error');
-    socket.on('preset_import_error', (data) => {
+    socket.on('preset_import_error', async (data) => {
         if (data?.error === 'duplicate') {
-            if (confirm(data.message || '同名プリセットがあります。上書きしますか？')) {
+            if (await window.showAppConfirm(data.message || '同名プリセットがあります。上書きしますか？', {
+                title: 'プリセット上書き',
+                confirmText: '上書き',
+            })) {
                 socket.emit('request_import_preset_json', {
                     room: currentRoomName,
                     json: transferArea?.value || '',
@@ -3047,7 +3077,7 @@ function openResetTypeModal(callback) {
     });
 
     // ステータスリセット実行
-    document.getElementById('reset-status-exec-btn').onclick = () => {
+    document.getElementById('reset-status-exec-btn').onclick = async () => {
         const options = {
             hp: document.getElementById('reset-opt-hp').checked,
             mp: document.getElementById('reset-opt-mp').checked,
@@ -3058,23 +3088,32 @@ function openResetTypeModal(callback) {
             timeline: true // ステータスリセット時にタイムラインもクリア
         };
 
-        if (confirm('選択した内容でステータスをリセットしますか？')) {
+        if (await window.showAppConfirm('選択した内容でステータスをリセットしますか？', {
+            title: 'ステータスリセット',
+            confirmText: 'リセット',
+        })) {
             callback('status', options);
             closeFunc();
         }
     };
 
     // ログのみリセット実行
-    document.getElementById('reset-logs-exec-btn').onclick = () => {
-        if (confirm('ログだけを削除しますか？')) {
+    document.getElementById('reset-logs-exec-btn').onclick = async () => {
+        if (await window.showAppConfirm('ログだけを削除しますか？', {
+            title: 'ログ削除',
+            confirmText: '削除',
+        })) {
             callback('logs', null);
             closeFunc();
         }
     };
 
     // 完全リセット実行
-    document.getElementById('reset-full-exec-btn').onclick = () => {
-        if (confirm('本当にキャラクターを全員削除し、戦闘を初期化しますか？\nこの操作は取り消せません。')) {
+    document.getElementById('reset-full-exec-btn').onclick = async () => {
+        if (await window.showAppConfirm('本当にキャラクターを全員削除し、戦闘を初期化しますか？\nこの操作は取り消せません。', {
+            title: '完全リセット',
+            confirmText: '完全リセット',
+        })) {
             callback('full', null); // オプションなし=デフォルト
             closeFunc();
         }

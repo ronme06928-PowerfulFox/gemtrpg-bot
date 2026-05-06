@@ -451,13 +451,16 @@
             socketRef.emit('request_bo_ally_formation_save', { payload, overwrite: true });
             setMsg('味方編成の保存を送信しました。', '#444');
         });
-        panel.querySelector('#bo-af-delete-btn')?.addEventListener('click', () => {
+        panel.querySelector('#bo-af-delete-btn')?.addEventListener('click', async () => {
             const id = String(idInput.value || '').trim();
             if (!id) {
                 setMsg('削除するには味方編成IDが必要です。一覧から読込してください。', 'red');
                 return;
             }
-            if (!confirm(`味方編成 ${id} を削除しますか？`)) return;
+            if (!await window.showAppConfirm(`味方編成 ${id} を削除しますか？`, {
+                title: '味方編成削除',
+                confirmText: '削除',
+            })) return;
             socketRef.emit('request_bo_ally_formation_delete', { id });
             setMsg('味方編成の削除を送信しました。', '#444');
         });

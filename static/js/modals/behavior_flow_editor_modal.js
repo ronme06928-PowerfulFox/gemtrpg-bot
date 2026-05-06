@@ -501,9 +501,12 @@ function openBehaviorFlowEditorModal(char, options = {}) {
     const editorEl = content.querySelector('#behavior-loop-editor');
 
     clearDirty();
-    const closeModal = (force = false) => {
+    const closeModal = async (force = false) => {
         if (!force && isDirty) {
-            const ok = confirm('未保存の変更があります。保存せずに閉じますか？');
+            const ok = await window.showAppConfirm('未保存の変更があります。保存せずに閉じますか？', {
+                title: '未保存の変更',
+                confirmText: '閉じる',
+            });
             if (!ok) return;
         }
         overlay.remove();
@@ -1051,12 +1054,15 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             markDirty();
             renderPreview();
         });
-        editorEl.querySelector('#behavior-loop-delete-btn')?.addEventListener('click', () => {
+        editorEl.querySelector('#behavior-loop-delete-btn')?.addEventListener('click', async () => {
             if (loopIds().length <= 1) {
                 alert('最低1つのループは必要です。');
                 return;
             }
-            if (!confirm(`ループ「${selectedLoopId}」を削除しますか？`)) return;
+            if (!await window.showAppConfirm(`ループ「${selectedLoopId}」を削除しますか？`, {
+                title: 'ループ削除',
+                confirmText: '削除',
+            })) return;
             const removed = selectedLoopId;
             delete draft.loops[removed];
             delete nodeLayout[removed];
@@ -1372,8 +1378,11 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         markDirty();
         renderAll();
     });
-    resetProfileBtn?.addEventListener('click', () => {
-        const ok = confirm('このキャラの行動チャートを初期化します。よろしいですか？');
+    resetProfileBtn?.addEventListener('click', async () => {
+        const ok = await window.showAppConfirm('このキャラの行動チャートを初期化します。よろしいですか？', {
+            title: '行動チャート初期化',
+            confirmText: '初期化',
+        });
         if (!ok) return;
         draft.enabled = false;
         draft.initial_loop_id = 'loop_1';

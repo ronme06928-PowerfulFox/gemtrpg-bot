@@ -130,7 +130,10 @@ async function showUserDetails(userId, userName) {
 // ▲▲▲ 追加ここまで ▲▲▲
 
 async function deleteUser(userId) {
-    if(!confirm('このユーザーを削除しますか？\n所有していたルームやキャラの所有権は「空」になります。')) return;
+    if (!await window.showAppConfirm('このユーザーを削除しますか？\n所有していたルームやキャラの所有権は「空」になります。', {
+        title: 'ユーザー削除',
+        confirmText: '削除',
+    })) return;
 
     try {
         await fetchWithSession('/api/admin/delete_user', {
@@ -144,11 +147,19 @@ async function deleteUser(userId) {
     }
 }
 
-function openTransferModal(fromId, fromName) {
-    const toId = prompt(`「${fromName}」の全所有権(ルーム・キャラ)を移動します。\n\n移動先のユーザーID(UUID)を入力してください:`);
+async function openTransferModal(fromId, fromName) {
+    const toId = await window.showAppPrompt(`「${fromName}」の全所有権(ルーム・キャラ)を移動します。\n\n移動先のユーザーID(UUID)を入力してください:`, {
+        title: '所有権移動',
+        placeholder: '移動先ユーザーID(UUID)',
+        confirmText: '次へ',
+        required: true,
+    });
     if (!toId) return;
 
-    if(!confirm(`本当に ${fromName} の全データを ID:${toId} に譲渡しますか？\nこの操作は取り消せません。`)) return;
+    if (!await window.showAppConfirm(`本当に ${fromName} の全データを ID:${toId} に譲渡しますか？\nこの操作は取り消せません。`, {
+        title: '所有権移動の確認',
+        confirmText: '譲渡',
+    })) return;
 
     fetchWithSession('/api/admin/transfer', {
         method: 'POST',

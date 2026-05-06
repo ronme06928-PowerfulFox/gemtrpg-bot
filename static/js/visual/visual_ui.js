@@ -484,14 +484,20 @@ window.setupVisualSidebarControls = function () {
     if (isGM && !isBattleOnlyForRoundControls) {
         if (startRBtn) {
             startRBtn.style.display = 'inline-block';
-            startRBtn.onclick = () => {
-                if (confirm("次ラウンドを開始しますか？")) socket.emit('request_new_round', { room: currentRoomName });
+            startRBtn.onclick = async () => {
+                if (await window.showAppConfirm("次ラウンドを開始しますか？", {
+                    title: '次ラウンド開始',
+                    confirmText: '開始',
+                })) socket.emit('request_new_round', { room: currentRoomName });
             };
         }
         if (endRBtn) {
             endRBtn.style.display = 'inline-block';
-            endRBtn.onclick = () => {
-                if (confirm("ラウンドを終了しますか？")) socket.emit('request_end_round', { room: currentRoomName });
+            endRBtn.onclick = async () => {
+                if (await window.showAppConfirm("ラウンドを終了しますか？", {
+                    title: 'ラウンド終了',
+                    confirmText: '終了',
+                })) socket.emit('request_end_round', { room: currentRoomName });
             };
         }
     } else {
@@ -606,12 +612,15 @@ window.setupVisualSidebarControls = function () {
             // battleState更新を拾って表示を同期するため、簡易的に定期更新する
 
             pveBtn.style.cssText = "padding: 5px; font-size: 0.8em; cursor: pointer; border: none; border-radius: 3px; background: #6c757d; color: white; flex: 1; min-width: 60px;";
-            pveBtn.onclick = () => {
+            pveBtn.onclick = async () => {
                 const boMode = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
                 if (boMode) return;
                 const currentMode = (battleState && battleState.battle_mode) ? battleState.battle_mode : 'pvp';
                 const nextMode = (currentMode === 'pve') ? 'pvp' : 'pve';
-                if (confirm(`戦闘モードを変更しますか？\n${currentMode.toUpperCase()} -> ${nextMode.toUpperCase()}`)) {
+                if (await window.showAppConfirm(`戦闘モードを変更しますか？\n${currentMode.toUpperCase()} -> ${nextMode.toUpperCase()}`, {
+                    title: '戦闘モード変更',
+                    confirmText: '変更',
+                })) {
                     socket.emit('request_switch_battle_mode', { room: currentRoomName, mode: nextMode });
                     // Optimistic update
                     pveBtn.textContent = (nextMode === 'pve') ? '戦闘モード: PvE' : '戦闘モード: PvP';
@@ -942,10 +951,13 @@ window.setupVisualSidebarControls = function () {
     if (resetBtn) {
         if (canUseResetInRoom) {
             resetBtn.style.display = 'inline-block';
-            resetBtn.onclick = () => {
+            resetBtn.onclick = async () => {
                 if (typeof openResetTypeModal === 'function') {
                     openResetTypeModal((type, options) => { socket.emit('request_reset_battle', { room: currentRoomName, mode: type, options: options }); });
-                } else if (confirm("戦闘をリセットしますか？")) {
+                } else if (await window.showAppConfirm("戦闘をリセットしますか？", {
+                    title: '戦闘リセット',
+                    confirmText: 'リセット',
+                })) {
                     socket.emit('request_reset_battle', { room: currentRoomName, mode: 'full' });
                 }
             };

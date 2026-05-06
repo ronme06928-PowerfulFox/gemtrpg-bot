@@ -172,8 +172,11 @@ function updateActionDock() {
             expBtn.textContent = '🗺️';
             expBtn.title = '探索パートへ切替';
             expBtn.style.background = '#27ae60'; // Green
-            expBtn.onclick = () => {
-                if (confirm('探索パートへ切り替えますか？')) {
+            expBtn.onclick = async () => {
+                if (await window.showAppConfirm('探索パートへ切り替えますか？', {
+                    title: '探索パートへ切替',
+                    confirmText: '切り替え',
+                })) {
                     socket.emit('request_change_mode', { room: currentRoomName, mode: 'exploration' });
                 }
             };
@@ -1714,8 +1717,11 @@ function renderStagingOverlayList(container) {
         deleteBtn.style.borderRadius = '4px';
         deleteBtn.style.cursor = 'pointer';
         deleteBtn.style.fontWeight = 'bold';
-        deleteBtn.onclick = () => {
-            if (confirm(`「${char.name}」を削除しますか？`)) {
+        deleteBtn.onclick = async () => {
+            if (await window.showAppConfirm(`「${char.name}」を削除しますか？`, {
+                title: 'キャラクター削除',
+                confirmText: '削除',
+            })) {
                 socket.emit('request_delete_character', {
                     room: currentRoomName,
                     charId: char.id

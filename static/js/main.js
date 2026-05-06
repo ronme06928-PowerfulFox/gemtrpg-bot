@@ -13,6 +13,153 @@ let entryRequestInFlight = false;
 let currentUserId = null; // ★追加: ユーザーID (UUID)
 const receivedLogIds = new Set();
 
+function escapeDialogText(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+function openAppDialog({ title = '確認', message = '', mode = 'confirm', defaultValue = '', placeholder = '', confirmText = 'OK', cancelText = 'キャンセル', required = false } = {}) {
+    return new Promise((resolve) => {
+        document.getElementById('app-dialog-backdrop')?.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'app-dialog-backdrop';
+        overlay.className = 'modal-backdrop';
+        overlay.innerHTML = `
+            <div class="modal-content app-dialog-modal" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
+                <style>
+                    .app-dialog-modal {
+                        width: min(420px, calc(100vw - 28px));
+                        padding: 22px;
+                        border-radius: 16px;
+                        border: 1px solid rgba(30, 45, 54, 0.18);
+                        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
+                    }
+                    .app-dialog-title {
+                        margin: 0 0 10px;
+                        font-size: 1.18rem;
+                        color: #173f36;
+                    }
+                    .app-dialog-message {
+                        white-space: pre-wrap;
+                        line-height: 1.65;
+                        color: #34443f;
+                    }
+                    .app-dialog-input {
+                        width: 100%;
+                        box-sizing: border-box;
+                        margin-top: 14px;
+                        padding: 10px 12px;
+                        border: 1px solid #b8c9c2;
+                        border-radius: 10px;
+                        font-size: 1rem;
+                    }
+                    .app-dialog-error {
+                        min-height: 1.2em;
+                        margin-top: 8px;
+                        color: #b42318;
+                        font-size: 0.9rem;
+                    }
+                    .app-dialog-actions {
+                        display: flex;
+                        justify-content: flex-end;
+                        gap: 10px;
+                        margin-top: 18px;
+                    }
+                    .app-dialog-actions button {
+                        border: none;
+                        border-radius: 999px;
+                        padding: 9px 18px;
+                        cursor: pointer;
+                        font-weight: 700;
+                    }
+                    .app-dialog-cancel {
+                        background: #e6ece9;
+                        color: #25352f;
+                    }
+                    .app-dialog-confirm {
+                        background: #d97732;
+                        color: white;
+                    }
+                </style>
+                <h3 id="app-dialog-title" class="app-dialog-title">${escapeDialogText(title)}</h3>
+                <div class="app-dialog-message">${escapeDialogText(message)}</div>
+                ${mode === 'prompt' ? `<input id="app-dialog-input" class="app-dialog-input" value="${escapeDialogText(defaultValue)}" placeholder="${escapeDialogText(placeholder)}">` : ''}
+                <div id="app-dialog-error" class="app-dialog-error"></div>
+                <div class="app-dialog-actions">
+                    <button id="app-dialog-cancel" class="app-dialog-cancel" type="button">${escapeDialogText(cancelText)}</button>
+                    <button id="app-dialog-confirm" class="app-dialog-confirm" type="button">${escapeDialogText(confirmText)}</button>
+                </div>
+            </div>
+        `;
+
+        const input = overlay.querySelector('#app-dialog-input');
+        const error = overlay.querySelector('#app-dialog-error');
+        const cancelValue = mode === 'prompt' ? null : false;
+        const cleanup = (value) => {
+            document.removeEventListener('keydown', onKeyDown);
+            overlay.remove();
+            resolve(value);
+        };
+        const submit = () => {
+            if (mode === 'prompt') {
+                const value = String(input?.value || '').trim();
+                if (required && !value) {
+                    if (error) error.textContent = '入力してください。';
+                    input?.focus();
+                    return;
+                }
+                cleanup(value || null);
+                return;
+            }
+            cleanup(true);
+        };
+        function onKeyDown(event) {
+            if (event.key === 'Escape') cleanup(cancelValue);
+            if (event.key === 'Enter' && (mode !== 'prompt' || document.activeElement === input)) submit();
+        }
+
+        overlay.querySelector('#app-dialog-cancel')?.addEventListener('click', () => cleanup(cancelValue));
+        overlay.querySelector('#app-dialog-confirm')?.addEventListener('click', submit);
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) cleanup(cancelValue);
+        });
+        document.addEventListener('keydown', onKeyDown);
+        document.body.appendChild(overlay);
+        setTimeout(() => (input || overlay.querySelector('#app-dialog-confirm'))?.focus(), 0);
+    });
+}
+
+function showAppConfirm(message, options = {}) {
+    return openAppDialog({
+        title: options.title || '確認',
+        message,
+        mode: 'confirm',
+        confirmText: options.confirmText || '実行',
+        cancelText: options.cancelText || 'キャンセル',
+    });
+}
+
+function showAppPrompt(message, options = {}) {
+    return openAppDialog({
+        title: options.title || '入力',
+        message,
+        mode: 'prompt',
+        defaultValue: options.defaultValue || '',
+        placeholder: options.placeholder || '',
+        confirmText: options.confirmText || '作成',
+        cancelText: options.cancelText || 'キャンセル',
+        required: !!options.required,
+    });
+}
+
+window.showAppConfirm = showAppConfirm;
+window.showAppPrompt = showAppPrompt;
+
 function getLogDedupeKey(logData) {
     if (!logData || typeof logData !== 'object') return '';
     const hasId = (logData.log_id !== undefined && logData.log_id !== null);
@@ -314,9 +461,15 @@ async function createBattleOnlyRoom() {
 
 async function createRoomByMode(playMode) {
     const isBattleOnly = playMode === 'battle_only';
-    const roomName = prompt(isBattleOnly
+    const roomName = await showAppPrompt(isBattleOnly
         ? '戦闘専用ルーム名を入力してください'
-        : 'ルーム名を入力してください'
+        : 'ルーム名を入力してください',
+        {
+            title: isBattleOnly ? '戦闘専用ルーム作成' : '通常ルーム作成',
+            placeholder: isBattleOnly ? '戦闘専用ルーム名' : 'ルーム名',
+            confirmText: '作成',
+            required: true,
+        }
     );
     if (!roomName || roomName.trim() === '') {
         alert('ルーム名は必須です。');
@@ -349,7 +502,11 @@ async function createRoomByMode(playMode) {
 }
 
 async function deleteRoom(roomName) {
-    if (!confirm(`本当にルーム「${roomName}」を削除しますか？\nこの操作は取り消せません。`)) {
+    const ok = await showAppConfirm(`本当にルーム「${roomName}」を削除しますか？\nこの操作は取り消せません。`, {
+        title: 'ルーム削除',
+        confirmText: '削除',
+    });
+    if (!ok) {
         return;
     }
     try {
@@ -706,12 +863,15 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const homeBtn = document.getElementById('home-portal-btn');
     if (homeBtn) {
-        homeBtn.addEventListener('click', () => {
-            if (confirm('ルーム一覧に戻りますか？\n（保存していない変更は失われます）')) {
-                if (socket) socket.emit('leave_room', { room: currentRoomName });
-                currentRoomName = null;
-                showRoomPortal();
-            }
+        homeBtn.addEventListener('click', async () => {
+            const ok = await showAppConfirm('ルーム一覧に戻りますか？\n（保存していない変更は失われます）', {
+                title: 'ルーム一覧へ戻る',
+                confirmText: '戻る',
+            });
+            if (!ok) return;
+            if (socket) socket.emit('leave_room', { room: currentRoomName });
+            currentRoomName = null;
+            showRoomPortal();
         });
     }
     const settingsBtn = document.getElementById('user-settings-btn');

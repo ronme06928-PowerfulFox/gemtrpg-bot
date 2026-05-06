@@ -274,9 +274,12 @@
                 forceEndBtn.title = 'GM権限でマッチを強制終了します';
                 forceEndBtn.style.cssText = 'background-color:#dc3545; color:white; border:1px solid #bd2130;';
 
-                forceEndBtn.onclick = function (e) {
+                forceEndBtn.onclick = async function (e) {
                     e.stopPropagation();
-                    if (confirm('【GM権限】マッチを強制終了しますか？\n現在行われているマッチ、または意図せず開いているマッチ画面を閉じます。\nこの操作は元に戻せません。')) {
+                    if (await window.showAppConfirm('【GM権限】マッチを強制終了しますか？\n現在行われているマッチ、または意図せず開いているマッチ画面を閉じます。\nこの操作は元に戻せません。', {
+                        title: 'マッチ強制終了',
+                        confirmText: '強制終了',
+                    })) {
                         if (socket) socket.emit('request_force_end_match', { room: currentRoomName });
                     }
                 };

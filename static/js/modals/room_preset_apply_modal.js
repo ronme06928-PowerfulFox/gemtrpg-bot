@@ -12,15 +12,30 @@
     const objectKeys = (value) => (value && typeof value === 'object') ? Object.keys(value) : [];
 
     function socketRef() {
+        if (typeof socket !== 'undefined' && socket) return socket;
         return global.socket || null;
     }
 
     function roomRef() {
+        if (typeof currentRoomName !== 'undefined' && currentRoomName) {
+            return String(currentRoomName).trim();
+        }
         return String(global.currentRoomName || '').trim();
     }
 
     function isGmUser() {
+        if (typeof currentUserAttribute !== 'undefined' && currentUserAttribute) {
+            return String(currentUserAttribute).trim().toUpperCase() === 'GM';
+        }
         return String(global.currentUserAttribute || '').trim().toUpperCase() === 'GM';
+    }
+
+    async function askConfirm(message, options = {}) {
+        if (typeof global.showAppConfirm === 'function') {
+            return await global.showAppConfirm(message, options);
+        }
+        console.warn('[RoomPresetApply] showAppConfirm is not available; confirmation was cancelled.', message);
+        return false;
     }
 
     function openRoomPresetApplyModal() {
@@ -54,6 +69,7 @@
                 enemyFormationId: '',
                 stageId: '',
             },
+            catalogRefreshStatus: null,
         };
 
         const overlay = document.createElement('div');
@@ -425,8 +441,12 @@
                     <div class="room-preset-card-meta">敵 ${countFormationMembers(rec)}体。既存の敵キャラを全置換します。</div>
                     <button id="room-preset-apply-btn" class="room-preset-apply" type="button" style="margin-top:12px;" ${state.catalog.can_manage ? '' : 'disabled'}>敵編成を全置換適用</button>
                 `;
-                panelEl.querySelector('#room-preset-apply-btn')?.addEventListener('click', () => {
-                    if (!confirm('既存の敵キャラを全置換して敵編成を適用します。実行しますか？')) return;
+                panelEl.querySelector('#room-preset-apply-btn')?.addEventListener('click', async () => {
+                    const ok = await askConfirm('既存の敵キャラを全置換して敵編成を適用します。実行しますか？', {
+                        title: '敵編成の全置換',
+                        confirmText: '全置換する',
+                    });
+                    if (!ok) return;
                     setStatus('敵編成を適用中...', '#536963');
                     s.emit('request_room_apply_enemy_formation', { room, formation_id: id, mode: 'replace' });
                 });
@@ -447,7 +467,7 @@
                 </div>
                 <button id="room-preset-apply-btn" class="room-preset-apply" type="button" ${state.catalog.can_manage ? '' : 'disabled'}>ステージを適用</button>
             `;
-            panelEl.querySelector('#room-preset-apply-btn')?.addEventListener('click', () => {
+            panelEl.querySelector('#room-preset-apply-btn')?.addEventListener('click', async () => {
                 const apply = {
                     enemy_formation: !!panelEl.querySelector('#room-stage-apply-enemy')?.checked,
                     background: !!panelEl.querySelector('#room-stage-apply-bg')?.checked,
@@ -458,7 +478,13 @@
                     setStatus('適用する項目を1つ以上選択してください。', '#b42318');
                     return;
                 }
-                if (apply.enemy_formation && !confirm('ステージの敵編成を適用すると、既存の敵キャラは全置換されます。実行しますか？')) return;
+                if (apply.enemy_formation) {
+                    const ok = await askConfirm('ステージの敵編成を適用すると、既存の敵キャラは全置換されます。実行しますか？', {
+                        title: 'ステージ敵編成の全置換',
+                        confirmText: '全置換する',
+                    });
+                    if (!ok) return;
+                }
                 setStatus('ステージプリセットを適用中...', '#536963');
                 s.emit('request_room_apply_stage_preset', { room, stage_id: id, apply, enemy_apply_mode: 'replace' });
             });
@@ -480,8 +506,10 @@
             }
         };
 
-        const requestCatalog = () => {
-            setStatus('プリセット一覧を読み込み中...', '#536963');
+        const requestCatalog = (options = {}) => {
+            if (!options.quiet) {
+                setStatus('プリセット一覧を読み込み中...', '#536963');
+            }
             s.emit('request_room_preset_catalog', { room });
         };
 
@@ -496,15 +524,21 @@
             if (!state.selected.stageId) state.selected.stageId = asArray(state.catalog.sorted_stage_preset_ids)[0] || '';
             if (!state.selected.enemyFormationId) state.selected.enemyFormationId = asArray(state.catalog.sorted_enemy_formation_ids)[0] || '';
             if (!state.selected.enemyPresetId) state.selected.enemyPresetId = asArray(state.catalog.sorted_enemy_preset_ids)[0] || '';
-            setStatus('一覧を更新しました。', '#26734d');
             render();
+            if (state.catalogRefreshStatus) {
+                setStatus(state.catalogRefreshStatus.message, state.catalogRefreshStatus.color);
+                state.catalogRefreshStatus = null;
+            } else {
+                setStatus('一覧を更新しました。', '#26734d');
+            }
         });
 
         on('room_preset_applied', (payload) => {
-            const kind = String(payload?.kind || '');
             const count = Number(payload?.added_enemy_count || payload?.enemy_formation?.added_enemy_count || 0);
-            setStatus(`適用しました。${count ? `追加敵: ${count}体` : ''}`, '#26734d');
-            requestCatalog();
+            const message = `適用しました。${count ? `追加敵: ${count}体` : ''}`;
+            state.catalogRefreshStatus = { message, color: '#26734d' };
+            setStatus(message, '#26734d');
+            requestCatalog({ quiet: true });
         });
 
         on('room_preset_error', (payload) => {

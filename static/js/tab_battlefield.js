@@ -766,7 +766,7 @@ function setupActionColumn(prefix) {
             };
         });
 
-        executeWideBtn.onclick = () => {
+        executeWideBtn.onclick = async () => {
             const actorCmd = document.getElementById('hidden-command-attacker').value;
             if (!actorCmd) {
                 alert('先に攻撃側の「威力計算」を行い、コマンドを確定させてください。');
@@ -786,7 +786,10 @@ function setupActionColumn(prefix) {
                 });
             });
 
-            if (confirm(`${mode === 'individual' ? '個別' : '合算'}マッチを実行しますか？`)) {
+            if (await window.showAppConfirm(`${mode === 'individual' ? '個別' : '合算'}マッチを実行しますか？`, {
+                title: '広域マッチ実行',
+                confirmText: '実行',
+            })) {
                 socket.emit('request_wide_match', {
                     room: currentRoomName,
                     actorId: actorId,
@@ -919,8 +922,11 @@ function openCharSettingsModal(charId) {
         overlay.remove();
     };
 
-    document.getElementById('delete-char-btn').onclick = () => {
-        if (confirm(`本当に ${char.name} を削除しますか？`)) {
+    document.getElementById('delete-char-btn').onclick = async () => {
+        if (await window.showAppConfirm(`本当に ${char.name} を削除しますか？`, {
+            title: 'キャラクター削除',
+            confirmText: '削除',
+        })) {
             socket.emit('request_delete_character', {
                 room: currentRoomName,
                 charId: char.id
@@ -1241,22 +1247,28 @@ function setupBattlefieldTab() {
 
         if (roundEndBtn && !roundEndBtn.dataset.listenerAttached) {
             roundEndBtn.dataset.listenerAttached = 'true';
-            roundEndBtn.addEventListener('click', () => {
+            roundEndBtn.addEventListener('click', async () => {
                 const unacted = battleState.characters.filter(c => !c.hasActed);
                 if (unacted.length > 0) {
                     const names = unacted.map(c => c.name).join(', ');
                     alert(`まだ行動していないキャラクターがいます: \n${names}\n\nラウンドを終了できません。`);
                     return;
                 }
-                if (confirm('「ラウンド終了時」の処理（出血ダメージなど）を実行しますか？')) {
+                if (await window.showAppConfirm('「ラウンド終了時」の処理（出血ダメージなど）を実行しますか？', {
+                    title: 'ラウンド終了処理',
+                    confirmText: '実行',
+                })) {
                     socket.emit('request_end_round', { room: currentRoomName });
                 }
             });
         }
         if (roundStartBtn && !roundStartBtn.dataset.listenerAttached) {
             roundStartBtn.dataset.listenerAttached = 'true';
-            roundStartBtn.addEventListener('click', () => {
-                if (confirm('「次ラウンド開始」の処理（速度ロールなど）を実行しますか？')) {
+            roundStartBtn.addEventListener('click', async () => {
+                if (await window.showAppConfirm('「次ラウンド開始」の処理（速度ロールなど）を実行しますか？', {
+                    title: '次ラウンド開始',
+                    confirmText: '実行',
+                })) {
                     socket.emit('request_new_round', { room: currentRoomName });
                 }
             });
@@ -1283,8 +1295,11 @@ function setupBattlefieldTab() {
         }
         if (gmResetBtn && !gmResetBtn.dataset.listenerAttached) {
             gmResetBtn.dataset.listenerAttached = 'true';
-            gmResetBtn.addEventListener('click', () => {
-                if (confirm('GM専用: 強制リセットしますか？')) {
+            gmResetBtn.addEventListener('click', async () => {
+                if (await window.showAppConfirm('GM専用: 強制リセットしますか？', {
+                    title: '強制リセット',
+                    confirmText: 'リセット',
+                })) {
                     const prefixes = ['attacker', 'defender'];
                     prefixes.forEach(prefix => {
                         const actorEl = document.getElementById(`actor-${prefix}`);
@@ -1363,22 +1378,27 @@ function setupBattlefieldTab() {
     }
     if (leaveBtn && !leaveBtn.dataset.listenerAttached) {
         leaveBtn.dataset.listenerAttached = 'true';
-        leaveBtn.addEventListener('click', () => {
-            if (confirm('ルーム一覧に戻りますか？')) {
-                if (socket) socket.emit('leave_room', { room: currentRoomName });
-                currentRoomName = null;
-                showRoomPortal();
-            }
+        leaveBtn.addEventListener('click', async () => {
+            if (!await window.showAppConfirm('ルーム一覧に戻りますか？', {
+                title: 'ルーム一覧へ戻る',
+                confirmText: '戻る',
+            })) return;
+            if (socket) socket.emit('leave_room', { room: currentRoomName });
+            currentRoomName = null;
+            showRoomPortal();
         });
     }
     if (resetBtn && !resetBtn.dataset.listenerAttached) {
         resetBtn.dataset.listenerAttached = 'true';
-        resetBtn.addEventListener('click', () => {
+        resetBtn.addEventListener('click', async () => {
             if (typeof openResetTypeModal === 'function') {
                 openResetTypeModal((resetType, options) => {
                     socket.emit('request_reset_battle', { room: currentRoomName, mode: resetType, options: options });
                 });
-            } else if (confirm('本当にリセットしますか？')) {
+            } else if (await window.showAppConfirm('本当にリセットしますか？', {
+                title: '戦闘リセット',
+                confirmText: 'リセット',
+            })) {
                 socket.emit('request_reset_battle', { room: currentRoomName, mode: 'full' });
             }
         });

@@ -242,7 +242,7 @@ window.openVisualWideMatchModal = function (attackerId) {
         executeBtn.disabled = false;
     };
 
-    executeBtn.onclick = () => {
+    executeBtn.onclick = async () => {
         if (!window.visualWideState.isDeclared) {
             return alert("攻撃側の宣言が完了していません");
         }
@@ -262,7 +262,10 @@ window.openVisualWideMatchModal = function (attackerId) {
             return alert("攻撃側の計算結果が不正です。再計算してください。");
         }
 
-        if (confirm(`【${currentMode === 'combined' ? '合算' : '個別'}】広域攻撃を実行しますか？`)) {
+        if (await window.showAppConfirm(`【${currentMode === 'combined' ? '合算' : '個別'}】広域攻撃を実行しますか？`, {
+            title: '広域攻撃実行',
+            confirmText: '実行',
+        })) {
             socket.emit('request_wide_match', {
                 room: currentRoomName,
                 actorId: attackerId,

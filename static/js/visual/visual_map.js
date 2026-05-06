@@ -217,7 +217,7 @@ window.renderVisualMap = function () {
             btn.title = '戦闘背景設定';
             btn.className = 'map-control-btn';
             btn.style.marginLeft = '5px';
-            btn.onclick = () => {
+            btn.onclick = async () => {
                 if (typeof openImagePicker === 'function') {
                     openImagePicker((selectedImage) => {
                         socket.emit('request_update_battle_background', {
@@ -229,7 +229,12 @@ window.renderVisualMap = function () {
                         });
                     }, 'background');
                 } else {
-                    const url = prompt("背景画像のURLを入力してください:", battleState.battle_map_data?.background_image || "");
+                    const url = await window.showAppPrompt("背景画像のURLを入力してください:", {
+                        title: '戦闘背景設定',
+                        defaultValue: battleState.battle_map_data?.background_image || "",
+                        placeholder: 'https://...',
+                        confirmText: '適用',
+                    });
                     if (url) {
                         socket.emit('request_update_battle_background', {
                             room: currentRoomName,
@@ -1485,7 +1490,7 @@ window.createMapToken = function (char) {
         showCharacterDetail(char.id);
     });
 
-    token.addEventListener('click', (e) => {
+    token.addEventListener('click', async (e) => {
         e.stopPropagation();
         _battleMapLog(`[Click] Token clicked: ${char.name} (${char.id})`);
 
@@ -1553,7 +1558,10 @@ window.createMapToken = function (char) {
                 return;
             }
 
-            if (confirm(`【攻撃確認】\n「${attackerName}」が「${char.name}」に攻撃を仕掛けますか？`)) {
+            if (await window.showAppConfirm(`【攻撃確認】\n「${attackerName}」が「${char.name}」に攻撃を仕掛けますか？`, {
+                title: '攻撃確認',
+                confirmText: '攻撃する',
+            })) {
                 openDuelModal(attackerId, char.id);
             }
             exitAttackTargetingMode();
@@ -1720,8 +1728,11 @@ window.toggleCharSettingsMenu = function (charId, btnElement) {
     const withdrawBtn = document.createElement('button');
     withdrawBtn.textContent = '未配置に戻す';
     styleMenuButton(withdrawBtn);
-    withdrawBtn.onclick = () => {
-        if (confirm('このキャラクターを未配置状態に戻しますか？')) {
+    withdrawBtn.onclick = async () => {
+        if (await window.showAppConfirm('このキャラクターを未配置状態に戻しますか？', {
+            title: '未配置に戻す',
+            confirmText: '戻す',
+        })) {
             withdrawCharacter(charId);
             menu.remove();
             const backdrop = document.getElementById('char-detail-modal-backdrop');
@@ -1734,8 +1745,11 @@ window.toggleCharSettingsMenu = function (charId, btnElement) {
     deleteBtn.textContent = 'キャラクターを削除';
     styleMenuButton(deleteBtn);
     deleteBtn.style.color = '#dc3545';
-    deleteBtn.onclick = () => {
-        if (confirm(`本当に「${char.name}」を削除しますか？`)) {
+    deleteBtn.onclick = async () => {
+        if (await window.showAppConfirm(`本当に「${char.name}」を削除しますか？`, {
+            title: 'キャラクター削除',
+            confirmText: '削除',
+        })) {
             socket.emit('request_delete_character', { room: currentRoomName, charId: charId });
             menu.remove();
             const backdrop = document.getElementById('char-detail-modal-backdrop');
@@ -1888,8 +1902,11 @@ window.openTransferOwnershipModal = function (charId, mode) {
                     <span style="font-size:0.85em; color:#666;">${user.attribute || '不明'}</span>
                 `;
 
-                userItem.onclick = () => {
-                    if (confirm(`「${char.name}」の所有権を「${userName}」に譲渡しますか？`)) {
+                userItem.onclick = async () => {
+                    if (await window.showAppConfirm(`「${char.name}」の所有権を「${userName}」に譲渡しますか？`, {
+                        title: '所有権譲渡',
+                        confirmText: '譲渡',
+                    })) {
                         socket.emit('request_transfer_character_ownership', {
                             room: currentRoomName,
                             character_id: charId,
@@ -1914,4 +1931,3 @@ window.toggleBuffDesc = function (elementId) {
 }
 
 _battleMapLog('[visual_map] Loaded.');
-

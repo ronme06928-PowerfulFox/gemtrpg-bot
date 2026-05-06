@@ -197,7 +197,16 @@
         });
         $('#bo-sp-export-current-btn').addEventListener('click', () => { const rec = formToPayload(); rec.id = rec.id || null; rec.name = rec.name || '(未保存ステージ)'; if (!rec.enemy_formation_id) return msg('敵編成が未設定のため書き出せません。', 'red'); download(`bo_stage_preset_${rec.id || 'new'}.json`, JSON.stringify({ kind: 'bo_stage_preset', version: 1, exported_at: new Date().toISOString(), record: rec }, null, 2)); msg('ステージJSONをダウンロードしました。', 'green'); });
         $('#bo-sp-save-btn').addEventListener('click', () => { const payload = formToPayload(); if (!payload.name) return msg('ステージ名は必須です。', 'red'); if (!payload.enemy_formation_id) return msg('敵編成は必須です。', 'red'); s.emit('request_bo_stage_preset_save', { payload, overwrite: true }); msg('保存を実行しました。', '#444'); });
-        $('#bo-sp-delete-btn').addEventListener('click', () => { const id = String(el.id.value || '').trim(); if (!id) return msg('削除するにはステージIDが必要です。', 'red'); if (!confirm(`ステージ ${id} を削除しますか？`)) return; s.emit('request_bo_stage_preset_delete', { id }); msg('削除を実行しました。', '#444'); });
+        $('#bo-sp-delete-btn').addEventListener('click', async () => {
+            const id = String(el.id.value || '').trim();
+            if (!id) return msg('削除するにはステージIDが必要です。', 'red');
+            if (!await global.showAppConfirm(`ステージ ${id} を削除しますか？`, {
+                title: 'ステージ削除',
+                confirmText: '削除',
+            })) return;
+            s.emit('request_bo_stage_preset_delete', { id });
+            msg('削除を実行しました。', '#444');
+        });
         $('#bo-sp-export-btn').addEventListener('click', () => s.emit('request_bo_export_stage_presets_json', {}));
 
         on('receive_bo_catalog_list', (d) => {

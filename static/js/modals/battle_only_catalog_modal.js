@@ -1111,13 +1111,16 @@
             setMsg('保存を送信しました。', '#444');
         });
 
-        panel.querySelector('#bo-cat-delete-btn')?.addEventListener('click', () => {
+        panel.querySelector('#bo-cat-delete-btn')?.addEventListener('click', async () => {
             const id = String(idInput.value || '').trim();
             if (!id) {
                 setMsg('削除するにはIDが必要です。一覧から読込してください。', 'red');
                 return;
             }
-            if (!confirm(`プリセット ${id} を削除しますか？`)) return;
+            if (!await window.showAppConfirm(`プリセット ${id} を削除しますか？`, {
+                title: 'プリセット削除',
+                confirmText: '削除',
+            })) return;
             socketRef.emit('request_bo_preset_delete', { id });
             setMsg('削除を送信しました。', '#444');
         });
@@ -1165,13 +1168,16 @@
             socketRef.emit('request_bo_enemy_formation_save', { payload, overwrite: true });
             setMsg('敵編成の保存を送信しました。', '#444');
         });
-        panel.querySelector('#bo-form-delete-btn')?.addEventListener('click', () => {
+        panel.querySelector('#bo-form-delete-btn')?.addEventListener('click', async () => {
             const id = String(formIdInput?.value || '').trim();
             if (!id) {
                 setMsg('削除するには敵編成IDが必要です。一覧から読込してください。', 'red');
                 return;
             }
-            if (!confirm(`敵編成 ${id} を削除しますか？`)) return;
+            if (!await window.showAppConfirm(`敵編成 ${id} を削除しますか？`, {
+                title: '敵編成削除',
+                confirmText: '削除',
+            })) return;
             socketRef.emit('request_bo_enemy_formation_delete', { id });
             setMsg('敵編成の削除を送信しました。', '#444');
         });
