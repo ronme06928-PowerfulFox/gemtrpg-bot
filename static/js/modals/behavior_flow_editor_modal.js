@@ -436,11 +436,21 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         <div style="font-size:0.9em; color:#35556d; margin-bottom:10px;">${subtitleText}</div>
         ${contextHtml}
         <style>
-            .behavior-editor-main-grid {
-                display: grid;
-                grid-template-columns: minmax(320px, 0.62fr) minmax(460px, 1.38fr);
-                gap: 10px;
-                min-width: 0;
+            .behavior-view-tab {
+                padding: 6px 16px;
+                border: 1px solid #cfe1f1;
+                border-radius: 6px 6px 0 0;
+                background: #eaf3fb;
+                color: #35556d;
+                cursor: pointer;
+                font-size: 0.9em;
+                white-space: nowrap;
+            }
+            .behavior-view-tab--active {
+                background: #fff;
+                border-bottom-color: #fff;
+                color: #1e4766;
+                font-weight: bold;
             }
             .behavior-editor-panel {
                 min-width: 0;
@@ -544,19 +554,11 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 margin-top: 4px;
             }
             @media (max-width: 1180px) {
-                .behavior-editor-main-grid {
-                    grid-template-columns: 1fr;
-                }
                 .behavior-action-row {
                     grid-template-columns: minmax(0, 1fr) minmax(104px, 122px) auto;
                 }
                 .behavior-condition-row {
                     grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
-                }
-            }
-            @media (max-width: 900px) {
-                .behavior-editor-main-grid {
-                    grid-template-columns: 1fr;
                 }
             }
             @media (max-width: 760px) {
@@ -613,24 +615,24 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 <div>・<strong>未保存確認</strong>: 変更後に閉じると確認ダイアログが表示されます。</div>
             </div>
         </details>
-        <div class="behavior-editor-main-grid">
-            <div class="behavior-editor-panel">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                    <div style="font-weight:bold; color:#1e4766;">フローチャート表示</div>
-                    <div style="display:flex; gap:6px;">
-                        <button id="behavior-connect-start-btn" style="padding:4px 8px; border:none; background:#2f7fbf; color:#fff; border-radius:5px; cursor:pointer; font-size:0.82em;">接続開始</button>
-                        <button id="behavior-connect-cancel-btn" style="padding:4px 8px; border:1px solid #b9cddd; background:#fff; color:#2f4858; border-radius:5px; cursor:pointer; font-size:0.82em;">接続解除</button>
-                    </div>
+        <div id="behavior-view-tabs" style="display:flex; gap:0; margin-bottom:0; border-bottom:1px solid #cfe1f1;">
+            <button id="behavior-tab-chart" class="behavior-view-tab behavior-view-tab--active">フローチャート</button>
+            <button id="behavior-tab-edit" class="behavior-view-tab">編集</button>
+        </div>
+        <div id="behavior-panel-chart" class="behavior-editor-panel" style="border-radius:0 8px 8px 8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <div style="font-weight:bold; color:#1e4766;">フローチャート表示</div>
+                <div style="display:flex; gap:6px;">
+                    <button id="behavior-connect-start-btn" style="padding:4px 8px; border:none; background:#2f7fbf; color:#fff; border-radius:5px; cursor:pointer; font-size:0.82em;">接続開始</button>
+                    <button id="behavior-connect-cancel-btn" style="padding:4px 8px; border:1px solid #b9cddd; background:#fff; color:#2f4858; border-radius:5px; cursor:pointer; font-size:0.82em;">接続解除</button>
                 </div>
-                <div id="behavior-flow-connect-hint" style="font-size:0.8em; color:#5f7a8f; margin-bottom:5px;">ノードをドラッグで移動。接続開始後に接続先ノードをクリック。</div>
-                <div id="behavior-flow-preview"></div>
             </div>
-            <div class="behavior-editor-panel">
-                <div style="font-weight:bold; color:#1e4766; margin-bottom:6px;">編集</div>
-                <div class="behavior-editor-compact-note">右側が狭い場合は、仕様ガイドを閉じたまま編集してください。各行は画面幅に応じて自動で折り返します。</div>
-                <div id="behavior-loop-tabs" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;"></div>
-                <div id="behavior-loop-editor"></div>
-            </div>
+            <div id="behavior-flow-connect-hint" style="font-size:0.8em; color:#5f7a8f; margin-bottom:5px;">ノードをドラッグで移動。接続開始後に接続先ノードをクリック。</div>
+            <div id="behavior-flow-preview"></div>
+        </div>
+        <div id="behavior-panel-edit" class="behavior-editor-panel" style="display:none; border-radius:0 8px 8px 8px;">
+            <div id="behavior-loop-tabs" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;"></div>
+            <div id="behavior-loop-editor"></div>
         </div>
         <div class="behavior-editor-footer">
             <button id="behavior-cancel-btn" style="padding:8px 12px; background:#fff; border:1px solid #b9cddd; border-radius:6px; cursor:pointer;">キャンセル</button>
@@ -651,6 +653,27 @@ function openBehaviorFlowEditorModal(char, options = {}) {
     const connectCancelBtn = content.querySelector('#behavior-connect-cancel-btn');
     const connectHintEl = content.querySelector('#behavior-flow-connect-hint');
     const editorEl = content.querySelector('#behavior-loop-editor');
+    const panelChart = content.querySelector('#behavior-panel-chart');
+    const panelEdit = content.querySelector('#behavior-panel-edit');
+    const tabChart = content.querySelector('#behavior-tab-chart');
+    const tabEdit = content.querySelector('#behavior-tab-edit');
+
+    function switchViewTab(tab) {
+        if (tab === 'chart') {
+            panelChart.style.display = '';
+            panelEdit.style.display = 'none';
+            tabChart.classList.add('behavior-view-tab--active');
+            tabEdit.classList.remove('behavior-view-tab--active');
+            renderPreview();
+        } else {
+            panelChart.style.display = 'none';
+            panelEdit.style.display = '';
+            tabChart.classList.remove('behavior-view-tab--active');
+            tabEdit.classList.add('behavior-view-tab--active');
+        }
+    }
+    tabChart.addEventListener('click', () => switchViewTab('chart'));
+    tabEdit.addEventListener('click', () => switchViewTab('edit'));
 
     clearDirty();
     const closeModal = async (force = false) => {
@@ -723,7 +746,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             return;
         }
         ensureNodeLayout();
-        const boardW = Math.max(360, Math.min(720, (previewEl?.clientWidth || 560) - 12));
+        const boardW = Math.max(360, (previewEl?.clientWidth || 900) - 12);
         const boardH = Math.max(300, (Math.ceil(ids.length / 2) * 130) + 90);
 
         const board = document.createElement('div');
