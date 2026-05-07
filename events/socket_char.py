@@ -550,6 +550,107 @@ def handle_gm_apply_buff(data):
     save_specific_room_state(room)
 
 
+@socketio.on('request_gm_apply_state')
+def handle_gm_apply_state(data):
+    room = data.get('room')
+    target_id = data.get('target_id')
+    state_name = str(data.get('state_name') or '').strip()
+    amount = _safe_int(data.get('amount', 0), 0)
+    rounds = _safe_int(data.get('rounds', 0), 0)
+
+    if not room or not target_id or not state_name or amount == 0:
+        append_audit(
+            "gm_apply_state_rejected",
+            reason="missing_required_parameters",
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+            state_name=state_name,
+            amount=amount,
+        )
+        emit('gm_buff_error', {'message': 'Missing required parameters.'}, to=request.sid)
+        return
+
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    attribute = user_info.get("attribute", "Player")
+    if attribute != 'GM':
+        append_audit(
+            "gm_apply_state_rejected",
+            reason="permission_denied",
+            username=str(username or ""),
+            attribute=str(attribute or ""),
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+            state_name=state_name,
+        )
+        emit('gm_buff_error', {'message': 'GM permission required.'}, to=request.sid)
+        return
+
+    state = get_room_state(room)
+    target_char = next((c for c in state["characters"] if c.get('id') == target_id), None)
+    if not target_char:
+        append_audit(
+            "gm_apply_state_rejected",
+            reason="target_not_found",
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+            state_name=state_name,
+        )
+        emit('gm_buff_error', {'message': 'Target character not found.'}, to=request.sid)
+        return
+
+    if state_name == '亀裂' and rounds > 0:
+        apply_buff(
+            target_char,
+            f"亀裂_R{rounds}",
+            rounds,
+            0,
+            data={
+                "buff_id": "Bu-Fissure",
+                "original_rounds": rounds,
+                "count": amount,
+            },
+            count=amount,
+        )
+        append_audit(
+            "gm_apply_state_ok",
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+            state_name=state_name,
+            amount=int(amount),
+            rounds=int(rounds),
+            mode="fissure_round_buff",
+            username=str(username or ""),
+        )
+        broadcast_log(
+            room,
+            f"GM {username}: {target_char.get('name', '???')} に {state_name} {amount} を付与 "
+            f"(継続={rounds}R)",
+            'info'
+        )
+    else:
+        current_val = int(get_status_value(target_char, state_name) or 0)
+        _update_char_stat(room, target_char, state_name, current_val + amount, username=f"GM:{username}")
+        append_audit(
+            "gm_apply_state_ok",
+            room=str(room or ""),
+            target_id=str(target_id or ""),
+            state_name=state_name,
+            amount=int(amount),
+            rounds=int(rounds),
+            mode="direct_state",
+            username=str(username or ""),
+        )
+        broadcast_log(
+            room,
+            f"GM {username}: {target_char.get('name', '???')} に {state_name} {amount} を付与",
+            'info'
+        )
+
+    broadcast_state_update(room)
+    save_specific_room_state(room)
+
+
 @socketio.on('request_gm_remove_buff')
 def handle_gm_remove_buff(data):
     room = data.get('room')

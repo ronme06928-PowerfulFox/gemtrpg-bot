@@ -934,6 +934,39 @@ function openQuickEditModal() {
             letter-spacing: 0.04em;
             text-transform: uppercase;
         }
+        .qe-gm-toggle {
+            grid-column: 1 / -1;
+            margin-top: 10px;
+        }
+        .qe-gm-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 12px;
+            border: 1px solid #d7e2ec;
+            border-radius: 8px;
+            background: #f8fbff;
+            color: #31465a;
+            cursor: pointer;
+            font-size: 0.82em;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            list-style: none;
+        }
+        .qe-gm-summary::-webkit-details-marker {
+            display: none;
+        }
+        .qe-gm-summary::after {
+            content: '＋';
+            font-size: 1.15em;
+            line-height: 1;
+            color: #58728c;
+        }
+        .qe-gm-toggle[open] .qe-gm-summary::after {
+            content: '−';
+        }
         .qe-gm-help {
             display: grid;
             grid-template-columns: 1.25fr 0.8fr 0.8fr 0.8fr auto;
@@ -959,6 +992,9 @@ function openQuickEditModal() {
         .qe-gm-row.items {
             grid-template-columns: 1.6fr 0.9fr auto;
             margin-bottom: 4px;
+        }
+        .qe-gm-row.state {
+            grid-template-columns: 1.2fr 0.9fr 0.9fr auto;
         }
         .qe-gm-row select,
         .qe-gm-row input {
@@ -986,6 +1022,62 @@ function openQuickEditModal() {
             margin-top: 2px;
             font-size: 0.8em;
             color: #5a7189;
+        }
+        .qe-gm-section-title {
+            margin: 10px 0 6px;
+            font-size: 0.76em;
+            font-weight: 700;
+            color: #50677f;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+        .qe-gm-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .qe-gm-field label {
+            font-size: 0.74em;
+            color: #60768d;
+            font-weight: 700;
+        }
+        .qe-gm-preview {
+            margin: 0 0 8px;
+            padding: 10px 12px;
+            border: 1px solid #d7e2ec;
+            border-radius: 6px;
+            background: #fff;
+        }
+        .qe-gm-preview.is-empty {
+            color: #7b8ea3;
+        }
+        .qe-gm-preview-head {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .qe-gm-preview-name {
+            font-weight: 700;
+            color: #1f3b5a;
+        }
+        .qe-gm-preview-id {
+            display: inline-flex;
+            align-items: center;
+            padding: 1px 7px;
+            border-radius: 999px;
+            background: #edf4fb;
+            color: #35597a;
+            font-size: 0.76em;
+            font-weight: 700;
+        }
+        .qe-gm-preview-meta,
+        .qe-gm-preview-desc {
+            font-size: 0.82em;
+            line-height: 1.45;
+            color: #51687f;
+            white-space: pre-wrap;
         }
 
         /* Scrollbar styling */
@@ -1028,6 +1120,145 @@ function openQuickEditModal() {
 
     const listContainer = document.getElementById('quick-edit-list');
     renderQuickEditList(listContainer);
+    ensureQuickEditItemData().then(() => {
+        const latestList = document.getElementById('quick-edit-list');
+        if (latestList) renderQuickEditList(latestList);
+    });
+}
+
+function getQuickEditBuffCatalog() {
+    const catalog = (typeof window !== 'undefined' && window.buffCatalogData && typeof window.buffCatalogData === 'object')
+        ? window.buffCatalogData
+        : {};
+
+    return Object.values(catalog)
+        .filter((entry) => entry && typeof entry === 'object' && String(entry.id || '').trim())
+        .sort((a, b) => {
+            const idCompare = String(a.id || '').localeCompare(String(b.id || ''));
+            if (idCompare !== 0) return idCompare;
+            return String(a.display_name || a.name || '').localeCompare(String(b.display_name || b.name || ''));
+        });
+}
+
+function getQuickEditBuffEntry(buffId) {
+    const normalized = String(buffId || '').trim();
+    if (!normalized) return null;
+    const catalog = (typeof window !== 'undefined' && window.buffCatalogData && typeof window.buffCatalogData === 'object')
+        ? window.buffCatalogData
+        : {};
+    return catalog[normalized] || null;
+}
+
+function formatQuickEditSignedValue(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return String(value || '');
+    return num > 0 ? `+${num}` : String(num);
+}
+
+function describeQuickEditBuffEffect(entry) {
+    if (!entry || typeof entry !== 'object') return '効果情報なし';
+    const effect = entry.effect;
+    if (!effect || typeof effect !== 'object') return '効果情報なし';
+
+    const parts = [];
+    if (effect.type === 'plugin') {
+        if (effect.name) parts.push(`plugin:${effect.name}`);
+        if (effect.category) parts.push(effect.category);
+    }
+    if (effect.type === 'stat_mod') {
+        parts.push(`${effect.stat || 'parameter'} ${formatQuickEditSignedValue(effect.value)}`);
+    }
+    if (effect.stat && effect.value !== undefined && effect.type !== 'stat_mod') {
+        parts.push(`${effect.stat} ${formatQuickEditSignedValue(effect.value)}`);
+    }
+    if (effect.damage_multiplier !== undefined) parts.push(`被ダメ倍率 ${effect.damage_multiplier}`);
+    if (effect.incoming_damage_multiplier !== undefined) parts.push(`被ダメ補正 ${effect.incoming_damage_multiplier}`);
+    if (effect.outgoing_damage_multiplier !== undefined) parts.push(`与ダメ補正 ${effect.outgoing_damage_multiplier}`);
+
+    if (!parts.length) {
+        const keys = Object.keys(effect);
+        if (!keys.length) return '効果情報なし';
+        parts.push(keys.join(', '));
+    }
+    return parts.join(' / ');
+}
+
+function describeQuickEditBuffTiming(lasting, delay, count) {
+    const parts = [];
+    if (Number.isFinite(lasting)) parts.push(lasting < 0 ? '継続: 永続/特殊' : `継続: ${lasting}R`);
+    if (Number.isFinite(delay)) parts.push(delay <= 0 ? '発動: 即時' : `発動: ${delay}R後`);
+    if (Number.isFinite(count) && count !== 0) parts.push(`スタック: ${count}`);
+    return parts.join(' / ');
+}
+
+function formatQuickEditActiveBuffLabel(buff) {
+    const entryData = (buff && buff.data && typeof buff.data === 'object') ? buff.data : {};
+    const buffId = String((buff && buff.buff_id) || entryData.buff_id || '').trim();
+    const name = String((buff && (buff.display_name || buff.name)) || '').trim() || buffId || '名称未設定';
+    const lasting = Number.parseInt(buff && (buff.lasting ?? buff.round ?? buff.duration), 10);
+    const delay = Number.parseInt(buff && buff.delay, 10);
+    const count = Number.parseInt((buff && buff.count) ?? entryData.count, 10);
+    const timing = describeQuickEditBuffTiming(lasting, delay, count);
+    return timing ? `${name} [${buffId}] (${timing})` : `${name} [${buffId}]`;
+}
+
+async function ensureQuickEditItemData() {
+    if (typeof window === 'undefined') return {};
+    if (window.quickEditItemData && typeof window.quickEditItemData === 'object') {
+        return window.quickEditItemData;
+    }
+    if (window.quickEditItemDataPromise) {
+        return window.quickEditItemDataPromise;
+    }
+
+    window.quickEditItemDataPromise = fetch('/api/get_item_data')
+        .then((res) => res.ok ? res.json() : {})
+        .then((data) => {
+            window.quickEditItemData = (data && typeof data === 'object') ? data : {};
+            return window.quickEditItemData;
+        })
+        .catch(() => {
+            window.quickEditItemData = {};
+            return window.quickEditItemData;
+        })
+        .finally(() => {
+            window.quickEditItemDataPromise = null;
+        });
+
+    return window.quickEditItemDataPromise;
+}
+
+function getQuickEditItemCatalog() {
+    const catalog = (typeof window !== 'undefined' && window.quickEditItemData && typeof window.quickEditItemData === 'object')
+        ? window.quickEditItemData
+        : {};
+
+    return Object.values(catalog)
+        .filter((entry) => entry && typeof entry === 'object' && String(entry.id || '').trim())
+        .sort((a, b) => {
+            const idCompare = String(a.id || '').localeCompare(String(b.id || ''));
+            if (idCompare !== 0) return idCompare;
+            return String(a.name || a.id).localeCompare(String(b.name || b.id));
+        });
+}
+
+function getQuickEditItemEntry(itemId) {
+    const normalized = String(itemId || '').trim();
+    if (!normalized) return null;
+    const catalog = (typeof window !== 'undefined' && window.quickEditItemData && typeof window.quickEditItemData === 'object')
+        ? window.quickEditItemData
+        : {};
+    return catalog[normalized] || null;
+}
+
+function getQuickEditStateCatalog() {
+    return [
+        { id: '出血', name: '出血', description: 'スタック値をそのまま加算します。' },
+        { id: '破裂', name: '破裂', description: 'スタック値をそのまま加算します。' },
+        { id: '亀裂', name: '亀裂', description: '通常はスタック加算。継続Rを指定すると亀裂ラウンド管理として付与します。' },
+        { id: '戦慄', name: '戦慄', description: 'スタック値をそのまま加算します。' },
+        { id: '荊棘', name: '荊棘', description: 'スタック値をそのまま加算します。' },
+    ];
 }
 
 function renderQuickEditList(container) {
@@ -1183,65 +1414,140 @@ function renderQuickEditList(container) {
         row.appendChild(btnDiv);
 
         if (isGMView) {
+            const gmToggle = document.createElement('details');
+            gmToggle.className = 'qe-gm-toggle';
+
+            const gmSummary = document.createElement('summary');
+            gmSummary.className = 'qe-gm-summary';
+            gmSummary.textContent = 'GM Buff / Item Control';
+            gmToggle.appendChild(gmSummary);
+
             const gmPanel = document.createElement('div');
             gmPanel.className = 'qe-gm-panel';
 
-            const gmTitle = document.createElement('div');
-            gmTitle.className = 'qe-gm-title';
-            gmTitle.textContent = 'GM Buff / Item Control';
-            gmPanel.appendChild(gmTitle);
+            const createField = (labelText, control) => {
+                const field = document.createElement('div');
+                field.className = 'qe-gm-field';
+                const label = document.createElement('label');
+                label.textContent = labelText;
+                field.appendChild(label);
+                field.appendChild(control);
+                return field;
+            };
 
-            const applyHelp = document.createElement('div');
-            applyHelp.className = 'qe-gm-help';
+            const renderPreview = (target, options) => {
+                const { title, buffId, description, meta } = options || {};
+                if (!buffId) {
+                    target.classList.add('is-empty');
+                    target.innerHTML = '選択したバフの名称と効果がここに表示されます。';
+                    return;
+                }
+                target.classList.remove('is-empty');
+                target.innerHTML = `
+                    <div class="qe-gm-preview-head">
+                        <span class="qe-gm-preview-name">${title || buffId}</span>
+                        <span class="qe-gm-preview-id">${buffId}</span>
+                    </div>
+                    ${meta ? `<div class="qe-gm-preview-meta">${meta}</div>` : ''}
+                    <div class="qe-gm-preview-desc">${description || '効果情報なし'}</div>
+                `;
+            };
 
-            const helpBuff = document.createElement('span');
-            helpBuff.textContent = 'buff_id: Bu-xx を指定（必須）';
-            const helpLasting = document.createElement('span');
-            helpLasting.textContent = 'lasting: 効果が続くR数';
-            const helpDelay = document.createElement('span');
-            helpDelay.textContent = 'delay: 発動までの待機R数';
-            const helpCount = document.createElement('span');
-            helpCount.textContent = 'count: 回数/スタック(任意)';
-            const helpBtnPad = document.createElement('span');
-            helpBtnPad.className = 'qe-gm-help-empty';
-            helpBtnPad.textContent = '-';
-
-            applyHelp.appendChild(helpBuff);
-            applyHelp.appendChild(helpLasting);
-            applyHelp.appendChild(helpDelay);
-            applyHelp.appendChild(helpCount);
-            applyHelp.appendChild(helpBtnPad);
-            gmPanel.appendChild(applyHelp);
+            const applySectionTitle = document.createElement('div');
+            applySectionTitle.className = 'qe-gm-section-title';
+            applySectionTitle.textContent = '付与';
+            gmPanel.appendChild(applySectionTitle);
 
             const applyRow = document.createElement('div');
             applyRow.className = 'qe-gm-row';
-            const applyBuffInput = document.createElement('input');
-            applyBuffInput.type = 'text';
-            applyBuffInput.placeholder = 'buff_id (Bu-xx)';
-            applyBuffInput.title = 'Bu-xx 形式のバフIDを入力';
+            const applyBuffSelect = document.createElement('select');
+            const applyDefault = document.createElement('option');
+            applyDefault.value = '';
+            applyDefault.textContent = '付与するバフを選択';
+            applyBuffSelect.appendChild(applyDefault);
+            getQuickEditBuffCatalog().forEach((entry) => {
+                const option = document.createElement('option');
+                option.value = entry.id;
+                option.textContent = `${entry.id} - ${String(entry.display_name || entry.name || entry.id).trim()}`;
+                applyBuffSelect.appendChild(option);
+            });
             const applyLastingInput = document.createElement('input');
             applyLastingInput.type = 'number';
             applyLastingInput.value = '1';
-            applyLastingInput.placeholder = 'lasting';
-            applyLastingInput.title = '効果が続くラウンド数';
+            applyLastingInput.placeholder = '継続R';
             const applyDelayInput = document.createElement('input');
             applyDelayInput.type = 'number';
             applyDelayInput.value = '0';
-            applyDelayInput.placeholder = 'delay';
-            applyDelayInput.title = '効果が有効になるまでの待機ラウンド数';
+            applyDelayInput.placeholder = 'ディレイ';
             const applyCountInput = document.createElement('input');
             applyCountInput.type = 'number';
-            applyCountInput.placeholder = 'count(optional)';
-            applyCountInput.title = '回数/スタック系バフに使う任意値';
+            applyCountInput.placeholder = 'スタック';
+            const applyValueInput = document.createElement('input');
+            applyValueInput.type = 'number';
+            applyValueInput.placeholder = 'Value(任意)';
             const applyBtn = document.createElement('button');
             applyBtn.className = 'qe-gm-btn';
-            applyBtn.textContent = 'バフ付与';
-            applyRow.appendChild(applyBuffInput);
-            applyRow.appendChild(applyLastingInput);
-            applyRow.appendChild(applyDelayInput);
-            applyRow.appendChild(applyCountInput);
-            applyRow.appendChild(applyBtn);
+            applyBtn.textContent = '付与';
+            applyRow.appendChild(createField('バフ', applyBuffSelect));
+            applyRow.appendChild(createField('継続R', applyLastingInput));
+            applyRow.appendChild(createField('ディレイ', applyDelayInput));
+            applyRow.appendChild(createField('スタック', applyCountInput));
             gmPanel.appendChild(applyRow);
+
+            const applyExtraRow = document.createElement('div');
+            applyExtraRow.className = 'qe-gm-row items';
+            applyExtraRow.appendChild(createField('Value', applyValueInput));
+            const applyExtraSpacer = document.createElement('div');
+            applyExtraRow.appendChild(applyExtraSpacer);
+            applyExtraRow.appendChild(applyBtn);
+            gmPanel.appendChild(applyExtraRow);
+
+            const applyPreview = document.createElement('div');
+            applyPreview.className = 'qe-gm-preview is-empty';
+            gmPanel.appendChild(applyPreview);
+
+            const stateSectionTitle = document.createElement('div');
+            stateSectionTitle.className = 'qe-gm-section-title';
+            stateSectionTitle.textContent = '状態異常付与';
+            gmPanel.appendChild(stateSectionTitle);
+
+            const stateRow = document.createElement('div');
+            stateRow.className = 'qe-gm-row state';
+            const stateSelect = document.createElement('select');
+            const stateDefault = document.createElement('option');
+            stateDefault.value = '';
+            stateDefault.textContent = '付与する状態異常を選択';
+            stateSelect.appendChild(stateDefault);
+            getQuickEditStateCatalog().forEach((entry) => {
+                const option = document.createElement('option');
+                option.value = entry.id;
+                option.textContent = entry.name;
+                stateSelect.appendChild(option);
+            });
+            const stateAmountInput = document.createElement('input');
+            stateAmountInput.type = 'number';
+            stateAmountInput.value = '1';
+            stateAmountInput.placeholder = 'スタック';
+            const stateRoundsInput = document.createElement('input');
+            stateRoundsInput.type = 'number';
+            stateRoundsInput.placeholder = '亀裂のみ継続R';
+            const stateBtn = document.createElement('button');
+            stateBtn.className = 'qe-gm-btn';
+            stateBtn.textContent = '付与';
+            stateRow.appendChild(createField('状態異常', stateSelect));
+            stateRow.appendChild(createField('スタック', stateAmountInput));
+            stateRow.appendChild(createField('継続R', stateRoundsInput));
+            stateRow.appendChild(stateBtn);
+            gmPanel.appendChild(stateRow);
+
+            const statePreview = document.createElement('div');
+            statePreview.className = 'qe-gm-preview is-empty';
+            gmPanel.appendChild(statePreview);
+
+            const removeSectionTitle = document.createElement('div');
+            removeSectionTitle.className = 'qe-gm-section-title';
+            removeSectionTitle.textContent = '解除';
+            gmPanel.appendChild(removeSectionTitle);
 
             const removeRow = document.createElement('div');
             removeRow.className = 'qe-gm-row';
@@ -1254,19 +1560,9 @@ function renderQuickEditList(container) {
                 ? char.special_buffs.filter((b) => b && typeof b === 'object')
                 : [];
             buffEntries.forEach((buff, idx) => {
-                const entryData = (buff.data && typeof buff.data === 'object') ? buff.data : {};
-                const entryId = buff.buff_id || entryData.buff_id || '';
-                const delayVal = Number.parseInt(buff.delay, 10) || 0;
-                const isSpeedMod = (entryId === 'Bu-11' || entryId === 'Bu-12');
-                let speedState = '';
-                if (isSpeedMod) {
-                    speedState = delayVal > 0 ? ` [予約中:${delayVal}R]` : ' [適用中]';
-                }
                 const option = document.createElement('option');
                 option.value = String(idx);
-                option.textContent = entryId
-                    ? `${buff.name || '(no name)'} [${entryId}]${speedState}`
-                    : `${buff.name || '(no name)'}${speedState}`;
+                option.textContent = formatQuickEditActiveBuffLabel(buff);
                 removeSelect.appendChild(option);
             });
             const removeSpacer1 = document.createElement('input');
@@ -1280,19 +1576,40 @@ function renderQuickEditList(container) {
             removeSpacer3.style.visibility = 'hidden';
             const removeBtn = document.createElement('button');
             removeBtn.className = 'qe-gm-btn';
-            removeBtn.textContent = 'バフ解除';
-            removeRow.appendChild(removeSelect);
+            removeBtn.textContent = '解除';
+            if (buffEntries.length === 0) {
+                removeSelect.disabled = true;
+                removeBtn.disabled = true;
+            }
+            removeRow.appendChild(createField('付与中のバフ', removeSelect));
             removeRow.appendChild(removeSpacer1);
             removeRow.appendChild(removeSpacer2);
             removeRow.appendChild(removeSpacer3);
             removeRow.appendChild(removeBtn);
             gmPanel.appendChild(removeRow);
 
+            const removePreview = document.createElement('div');
+            removePreview.className = 'qe-gm-preview is-empty';
+            gmPanel.appendChild(removePreview);
+
+            const itemSectionTitle = document.createElement('div');
+            itemSectionTitle.className = 'qe-gm-section-title';
+            itemSectionTitle.textContent = 'アイテム増減';
+            gmPanel.appendChild(itemSectionTitle);
+
             const itemRow = document.createElement('div');
             itemRow.className = 'qe-gm-row items';
-            const itemIdInput = document.createElement('input');
-            itemIdInput.type = 'text';
-            itemIdInput.placeholder = 'item_id';
+            const itemSelect = document.createElement('select');
+            const itemDefault = document.createElement('option');
+            itemDefault.value = '';
+            itemDefault.textContent = '増減するアイテムを選択';
+            itemSelect.appendChild(itemDefault);
+            getQuickEditItemCatalog().forEach((entry) => {
+                const option = document.createElement('option');
+                option.value = entry.id;
+                option.textContent = `${entry.id} - ${String(entry.name || entry.id).trim()}`;
+                itemSelect.appendChild(option);
+            });
             const itemDeltaInput = document.createElement('input');
             itemDeltaInput.type = 'number';
             itemDeltaInput.value = '1';
@@ -1300,10 +1617,14 @@ function renderQuickEditList(container) {
             const itemBtn = document.createElement('button');
             itemBtn.className = 'qe-gm-btn';
             itemBtn.textContent = 'アイテム増減';
-            itemRow.appendChild(itemIdInput);
-            itemRow.appendChild(itemDeltaInput);
+            itemRow.appendChild(createField('アイテム', itemSelect));
+            itemRow.appendChild(createField('増減数', itemDeltaInput));
             itemRow.appendChild(itemBtn);
             gmPanel.appendChild(itemRow);
+
+            const itemPreview = document.createElement('div');
+            itemPreview.className = 'qe-gm-preview is-empty';
+            gmPanel.appendChild(itemPreview);
 
             const note = document.createElement('div');
             note.className = 'qe-gm-note';
@@ -1311,6 +1632,141 @@ function renderQuickEditList(container) {
             gmPanel.appendChild(note);
 
             const getSocket = () => window.socket || (typeof socket !== 'undefined' ? socket : null);
+            let applyValuesAutoFilled = true;
+
+            const syncApplyPreview = () => {
+                const buffId = String(applyBuffSelect.value || '').trim();
+                const entry = getQuickEditBuffEntry(buffId);
+                if (!entry) {
+                    renderPreview(applyPreview, null);
+                    return;
+                }
+                const defaultDuration = Number.parseInt(entry.default_duration, 10);
+                const timingText = describeQuickEditBuffTiming(
+                    Number.parseInt(applyLastingInput.value, 10),
+                    Number.parseInt(applyDelayInput.value, 10),
+                    Number.parseInt(applyCountInput.value, 10)
+                );
+                const metaParts = [];
+                if (Number.isFinite(defaultDuration)) {
+                    metaParts.push(defaultDuration < 0 ? '既定継続: 永続/特殊' : `既定継続: ${defaultDuration}R`);
+                }
+                const effectSummary = describeQuickEditBuffEffect(entry);
+                if (timingText) metaParts.push(`今回の設定: ${timingText}`);
+                if (effectSummary) metaParts.push(`要約: ${effectSummary}`);
+                renderPreview(applyPreview, {
+                    title: String(entry.display_name || entry.name || entry.id).trim(),
+                    buffId: entry.id,
+                    description: String(entry.description || '').trim(),
+                    meta: metaParts.join(' / ')
+                });
+            };
+
+            const syncRemovePreview = () => {
+                const idx = Number.parseInt(removeSelect.value, 10);
+                if (!Number.isFinite(idx) || idx < 0 || idx >= buffEntries.length) {
+                    renderPreview(removePreview, null);
+                    return;
+                }
+                const buff = buffEntries[idx];
+                const entryData = (buff.data && typeof buff.data === 'object') ? buff.data : {};
+                const buffId = String(buff.buff_id || entryData.buff_id || '').trim();
+                const catalogEntry = getQuickEditBuffEntry(buffId);
+                const title = String(
+                    buff.display_name
+                    || buff.name
+                    || (catalogEntry && (catalogEntry.display_name || catalogEntry.name))
+                    || buffId
+                ).trim();
+                renderPreview(removePreview, {
+                    title,
+                    buffId,
+                    description: String((catalogEntry && catalogEntry.description) || buff.description || '').trim(),
+                    meta: describeQuickEditBuffTiming(
+                        Number.parseInt(buff.lasting ?? buff.round ?? buff.duration, 10),
+                        Number.parseInt(buff.delay, 10),
+                        Number.parseInt(buff.count ?? entryData.count, 10)
+                    ) || '解除対象'
+                });
+            };
+
+            const syncItemPreview = () => {
+                const itemId = String(itemSelect.value || '').trim();
+                const entry = getQuickEditItemEntry(itemId);
+                if (!entry) {
+                    renderPreview(itemPreview, null);
+                    return;
+                }
+                const inventory = (char && char.inventory && typeof char.inventory === 'object') ? char.inventory : {};
+                const owned = Number.parseInt(inventory[itemId], 10);
+                const deltaVal = Number.parseInt(itemDeltaInput.value, 10);
+                const metaParts = [];
+                if (Number.isFinite(owned)) metaParts.push(`所持数: ${owned}`);
+                if (Number.isFinite(deltaVal) && deltaVal !== 0) metaParts.push(`今回の増減: ${deltaVal > 0 ? '+' : ''}${deltaVal}`);
+                if (entry.usable === false) metaParts.push('使用不可アイテム');
+                renderPreview(itemPreview, {
+                    title: String(entry.name || entry.id).trim(),
+                    buffId: entry.id,
+                    description: String(entry.description || '').trim(),
+                    meta: metaParts.join(' / ')
+                });
+            };
+
+            const syncStatePreview = () => {
+                const stateId = String(stateSelect.value || '').trim();
+                const entry = getQuickEditStateCatalog().find((row) => row.id === stateId);
+                if (!entry) {
+                    renderPreview(statePreview, null);
+                    return;
+                }
+                const stateRow = Array.isArray(char.states)
+                    ? char.states.find((row) => row && row.name === stateId)
+                    : null;
+                const currentVal = Number.parseInt(stateRow ? stateRow.value : 0, 10);
+                const amountVal = Number.parseInt(stateAmountInput.value, 10);
+                const roundsVal = Number.parseInt(stateRoundsInput.value, 10);
+                const metaParts = [];
+                if (Number.isFinite(currentVal)) metaParts.push(`現在値: ${currentVal}`);
+                if (Number.isFinite(amountVal) && amountVal !== 0) metaParts.push(`今回の付与: +${amountVal}`);
+                if (stateId === '亀裂') {
+                    metaParts.push(Number.isFinite(roundsVal) && roundsVal > 0 ? `継続: ${roundsVal}R` : '継続: 未指定(通常加算)');
+                }
+                renderPreview(statePreview, {
+                    title: entry.name,
+                    buffId: entry.id,
+                    description: entry.description,
+                    meta: metaParts.join(' / ')
+                });
+            };
+
+            applyBuffSelect.addEventListener('change', () => {
+                const selected = getQuickEditBuffEntry(applyBuffSelect.value);
+                if (selected && applyValuesAutoFilled) {
+                    const defaultDuration = Number.parseInt(selected.default_duration, 10);
+                    applyLastingInput.value = Number.isFinite(defaultDuration) ? String(defaultDuration) : '1';
+                    applyDelayInput.value = '0';
+                    applyCountInput.value = '';
+                }
+                syncApplyPreview();
+            });
+            [applyLastingInput, applyDelayInput, applyCountInput].forEach((input) => {
+                input.addEventListener('input', () => {
+                    applyValuesAutoFilled = false;
+                    syncApplyPreview();
+                });
+            });
+            applyValueInput.addEventListener('input', syncApplyPreview);
+            removeSelect.addEventListener('change', syncRemovePreview);
+            itemSelect.addEventListener('change', syncItemPreview);
+            itemDeltaInput.addEventListener('input', syncItemPreview);
+            stateSelect.addEventListener('change', syncStatePreview);
+            stateAmountInput.addEventListener('input', syncStatePreview);
+            stateRoundsInput.addEventListener('input', syncStatePreview);
+
+            syncApplyPreview();
+            syncRemovePreview();
+            syncItemPreview();
+            syncStatePreview();
 
             applyBtn.onclick = () => {
                 const socketToUse = getSocket();
@@ -1318,13 +1774,9 @@ function renderQuickEditList(container) {
                     alert('Socket not found');
                     return;
                 }
-                const rawBuff = String(applyBuffInput.value || '').trim();
+                const rawBuff = String(applyBuffSelect.value || '').trim();
                 if (!rawBuff) {
-                    alert('buff_id を入力してください');
-                    return;
-                }
-                if (!/^Bu-/i.test(rawBuff)) {
-                    alert('buff_id は Bu-xx 形式で入力してください');
+                    alert('付与するバフを選択してください');
                     return;
                 }
                 const lastingVal = parseInt(applyLastingInput.value, 10);
@@ -1336,15 +1788,50 @@ function renderQuickEditList(container) {
                     lasting: Number.isFinite(lastingVal) ? lastingVal : 1,
                     delay: Number.isFinite(delayVal) ? delayVal : 0,
                 };
-
                 const countRaw = String(applyCountInput.value || '').trim();
                 if (countRaw !== '') {
                     const countVal = parseInt(countRaw, 10);
                     if (Number.isFinite(countVal)) payload.count = countVal;
                 }
-
+                const valueRaw = String(applyValueInput.value || '').trim();
+                if (valueRaw !== '') {
+                    const valueVal = parseInt(valueRaw, 10);
+                    if (Number.isFinite(valueVal)) {
+                        payload.data = Object.assign({}, payload.data || {}, { value: valueVal });
+                    }
+                }
                 socketToUse.emit('request_gm_apply_buff', payload);
                 note.textContent = `送信: バフ付与 (${rawBuff})`;
+            };
+
+            stateBtn.onclick = () => {
+                const socketToUse = getSocket();
+                if (!socketToUse) {
+                    alert('Socket not found');
+                    return;
+                }
+                const stateName = String(stateSelect.value || '').trim();
+                const amountVal = parseInt(stateAmountInput.value, 10);
+                const roundsVal = parseInt(stateRoundsInput.value, 10);
+                if (!stateName) {
+                    alert('付与する状態異常を選択してください');
+                    return;
+                }
+                if (!Number.isFinite(amountVal) || amountVal <= 0) {
+                    alert('スタックは 1 以上の整数で指定してください');
+                    return;
+                }
+                const payload = {
+                    room: currentRoomName,
+                    target_id: char.id,
+                    state_name: stateName,
+                    amount: amountVal,
+                };
+                if (stateName === '亀裂' && Number.isFinite(roundsVal) && roundsVal > 0) {
+                    payload.rounds = roundsVal;
+                }
+                socketToUse.emit('request_gm_apply_state', payload);
+                note.textContent = `送信: 状態異常付与 (${stateName}, ${amountVal}${payload.rounds ? `, ${payload.rounds}R` : ''})`;
             };
 
             removeBtn.onclick = () => {
@@ -1380,10 +1867,10 @@ function renderQuickEditList(container) {
                     alert('Socket not found');
                     return;
                 }
-                const itemId = String(itemIdInput.value || '').trim();
+                const itemId = String(itemSelect.value || '').trim();
                 const deltaVal = parseInt(itemDeltaInput.value, 10);
                 if (!itemId) {
-                    alert('item_id を入力してください');
+                    alert('増減するアイテムを選択してください');
                     return;
                 }
                 if (!Number.isFinite(deltaVal) || deltaVal === 0) {
@@ -1399,7 +1886,8 @@ function renderQuickEditList(container) {
                 note.textContent = `送信: アイテム増減 (${itemId}, ${deltaVal})`;
             };
 
-            row.appendChild(gmPanel);
+            gmToggle.appendChild(gmPanel);
+            row.appendChild(gmToggle);
         }
 
         container.appendChild(row);
