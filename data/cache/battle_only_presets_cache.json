@@ -1558,7 +1558,7 @@
                         "source": "self",
                         "param": "HP",
                         "operator": "LTE",
-                        "value": 50
+                        "value": 125
                       }
                     ]
                   }
@@ -1633,9 +1633,9 @@
         }
       ],
       "created_at": 1776437900590,
-      "updated_at": 1776437900590,
+      "updated_at": 1778130711637,
       "created_by": "ろんめ",
-      "updated_by": "ろんめ"
+      "updated_by": "^^"
     }
   },
   "ally_formations": {
@@ -1704,10 +1704,10 @@
         "icon": ""
       },
       "created_at": 1776439390967,
-      "updated_at": 1778126813488,
+      "updated_at": 1778130723480,
       "created_by": "ろんめ",
       "updated_by": "^^"
     }
   },
-  "updated_at": 1778126813491
+  "updated_at": 1778130723483
 }
