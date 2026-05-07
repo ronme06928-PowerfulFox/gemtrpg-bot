@@ -1078,6 +1078,126 @@ def test_bo_stage_field_effect_profile_roundtrip_and_start(monkeypatch):
     assert state.get("stage_avatar_profile", {}).get("name") == "Avatar"
 
 
+def test_bo_stage_preset_resave_keeps_effect_metadata_and_avatar_disabled(monkeypatch):
+    state = _base_state()
+    store = {
+        "character_presets": {
+            "ally_1": {
+                "id": "ally_1",
+                "name": "AllyA",
+                "visibility": "public",
+                "allow_ally": True,
+                "allow_enemy": False,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+            "enemy_1": {
+                "id": "enemy_1",
+                "name": "EnemyA",
+                "visibility": "public",
+                "allow_ally": False,
+                "allow_enemy": True,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+        },
+        "enemy_formations": {
+            "ef_1": {
+                "id": "ef_1",
+                "name": "EnemyFormation",
+                "visibility": "public",
+                "recommended_ally_count": 1,
+                "members": [{"preset_id": "enemy_1", "count": 1, "behavior_profile_override": {}}],
+            }
+        },
+        "ally_formations": {},
+        "stage_presets": {
+            "stage_meta": {
+                "id": "stage_meta",
+                "name": "Original Stage",
+                "visibility": "public",
+                "enemy_formation_id": "ef_1",
+                "required_ally_count": 1,
+                "field_effect_profile": {
+                    "version": 1,
+                    "rules": [
+                        {
+                            "rule_id": "cold_air",
+                            "display_name": "Cold Air",
+                            "description": "All actors lose speed.",
+                            "flavor_text": "A pale mist coils around every ankle.",
+                            "type": "SPEED_ROLL_MOD",
+                            "scope": "ALL",
+                            "value": -1,
+                        }
+                    ],
+                },
+                "stage_avatar": {
+                    "enabled": False,
+                    "name": "Hidden Avatar",
+                    "description": "This avatar is display-only when enabled.",
+                    "icon": "ST",
+                },
+            }
+        },
+    }
+    emits = _patch_common(monkeypatch, state, store)
+
+    socket_battle_only.handle_bo_stage_preset_save(
+        {
+            "payload": {
+                "id": "stage_meta",
+                "name": "Renamed Stage",
+                "visibility": "public",
+                "enemy_formation_id": "ef_1",
+                "required_ally_count": 1,
+            },
+            "overwrite": True,
+        }
+    )
+
+    saved = _find_event(emits, "bo_stage_preset_saved")
+    assert saved
+    rec = saved[-1][1].get("record", {})
+    rule = rec.get("field_effect_profile", {}).get("rules", [{}])[0]
+    assert rec.get("name") == "Renamed Stage"
+    assert rule.get("rule_id") == "cold_air"
+    assert rule.get("display_name") == "Cold Air"
+    assert rule.get("description") == "All actors lose speed."
+    assert rule.get("flavor_text") == "A pale mist coils around every ankle."
+    assert rec.get("stage_avatar", {}).get("enabled") is False
+    assert rec.get("stage_avatar", {}).get("name") == "Hidden Avatar"
+
+    emits.clear()
+    socket_battle_only.handle_bo_catalog_list({})
+    catalog = _find_event(emits, "receive_bo_catalog_list")
+    assert catalog
+    catalog_rec = catalog[-1][1].get("stage_presets", {}).get("stage_meta", {})
+    catalog_rule = catalog_rec.get("field_effect_profile", {}).get("rules", [{}])[0]
+    assert catalog_rule.get("display_name") == "Cold Air"
+    assert catalog_rule.get("description") == "All actors lose speed."
+    assert catalog_rule.get("flavor_text") == "A pale mist coils around every ankle."
+    assert catalog_rec.get("stage_avatar", {}).get("enabled") is False
+
+    emits.clear()
+    socket_battle_only.handle_bo_select_stage_preset({"room": "room_t", "stage_id": "stage_meta"})
+    bo = state.get("battle_only", {})
+    selected_rule = bo.get("stage_field_effect_profile", {}).get("rules", [{}])[0]
+    assert selected_rule.get("display_name") == "Cold Air"
+    assert selected_rule.get("description") == "All actors lose speed."
+    assert selected_rule.get("flavor_text") == "A pale mist coils around every ankle."
+    assert bo.get("stage_avatar_profile", {}).get("enabled") is False
+    assert bo.get("stage_avatar_enabled") is False
+
+    bo["ally_entries"] = [{"preset_id": "ally_1", "user_id": "u_1"}]
+    emits.clear()
+    socket_battle_only.handle_bo_start_battle({"room": "room_t"})
+    runtime_rule = state.get("field_effects", [{}])[0].get("rule", {})
+    assert runtime_rule.get("display_name") == "Cold Air"
+    assert runtime_rule.get("description") == "All actors lose speed."
+    assert runtime_rule.get("flavor_text") == "A pale mist coils around every ankle."
+    assert state.get("stage_avatar_profile", {}).get("enabled") is False
+    assert state.get("stage_avatar_enabled") is False
+
+
 def test_bo_stage_field_effect_toggle_disables_injection(monkeypatch):
     state = _base_state()
     state["battle_only"]["stage_field_effect_profile"] = {
