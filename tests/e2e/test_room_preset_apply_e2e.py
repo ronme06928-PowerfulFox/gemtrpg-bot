@@ -83,19 +83,45 @@ def test_normal_room_preset_apply_flow_e2e():
         assert driver.find_element(By.ID, "room-stage-apply-field")
         assert driver.find_element(By.ID, "room-stage-apply-avatar")
 
-        click_text("敵キャラ")
-        wait.until(EC.element_to_be_clickable((By.ID, "room-preset-apply-btn"))).click()
-        wait.until(EC.text_to_be_present_in_element((By.ID, "room-preset-status"), "適用しました"))
-
-        click_text("敵編成")
         wait.until(EC.element_to_be_clickable((By.ID, "room-preset-apply-btn"))).click()
         wait.until(EC.visibility_of_element_located((By.ID, "app-dialog-backdrop")))
         click_css("#app-dialog-confirm")
         wait.until(EC.text_to_be_present_in_element((By.ID, "room-preset-status"), "適用しました"))
 
         body_text = driver.find_element(By.TAG_NAME, "body").text
-        assert "[Preset] enemy formation applied" in body_text
-        assert "追加敵:" in body_text
+        assert "[Preset] stage preset applied" in body_text
+
+        click_css("#room-preset-close")
+
+        # Return to the room list and create a battle-only room.
+        click_text("🏠")
+        wait.until(EC.visibility_of_element_located((By.ID, "app-dialog-backdrop")))
+        click_css("#app-dialog-confirm")
+        wait.until(EC.element_to_be_clickable((By.XPATH, "//*[normalize-space()='戦闘専用ルーム作成']")))
+        click_text("戦闘専用ルーム作成")
+        bo_room_name = f"BattleOnlyE2E-{int(time.time())}"
+        wait.until(EC.visibility_of_element_located((By.ID, "app-dialog-input"))).send_keys(bo_room_name)
+        click_css("#app-dialog-confirm")
+        wait.until(EC.text_to_be_present_in_element((By.ID, "current-room-name"), bo_room_name))
+
+        click_css("#visual-bo-btn")
+        wait.until(EC.visibility_of_element_located((By.ID, "bo-draft-backdrop")))
+
+        stage_select = Select(wait.until(EC.visibility_of_element_located((By.ID, "bo-stage-select"))))
+        stage_value = next((opt.get_attribute("value") for opt in stage_select.options if opt.get_attribute("value")), "")
+        assert stage_value, "No stage preset option was available for battle-only E2E."
+        stage_select.select_by_value(stage_value)
+        wait.until(EC.element_to_be_clickable((By.ID, "bo-draft-start-btn")))
+        wait.until(lambda _driver: driver.find_element(By.ID, "bo-draft-start-btn").is_enabled())
+
+        click_css("#bo-draft-start-btn")
+        wait.until(EC.visibility_of_element_located((By.ID, "visual-stage-effect-card")))
+        wait.until(EC.text_to_be_present_in_element((By.ID, "visual-stage-effect-card"), "効果: ON"))
+        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#visual-stage-effect-card button"))).click()
+        wait.until(EC.visibility_of_element_located((By.ID, "stage-field-effect-modal-backdrop")))
+
+        detail_text = driver.find_element(By.ID, "stage-field-effect-modal-backdrop").text
+        assert "ステージ効果詳細" in detail_text
+        assert "効果ルール" in detail_text
     finally:
         driver.quit()
-
