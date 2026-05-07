@@ -416,7 +416,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
     const content = document.createElement('div');
     content.className = 'modal-content';
     content.style.boxSizing = 'border-box';
-    content.style.maxWidth = 'min(1280px, calc(100vw - 32px))';
+    content.style.maxWidth = 'min(1560px, calc(100vw - 32px))';
     content.style.width = 'calc(100vw - 32px)';
     content.style.maxHeight = '94vh';
     content.style.height = '94vh';
@@ -430,7 +430,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             <h3 style="margin:0; color:#1e4766;">${titleText}</h3>
             <div style="display:flex; align-items:center; gap:8px;">
                 <span id="behavior-dirty-indicator" style="font-size:0.8em; color:#5a758b;">保存状態: 保存済み</span>
-                <button id="behavior-flow-close-x" style="border:none; background:#dbe9f5; color:#1e4766; padding:6px 10px; border-radius:6px; cursor:pointer;">閉じる</button>
+                    <button id="behavior-flow-close-x" style="border:none; background:#dbe9f5; color:#1e4766; padding:6px 10px; border-radius:6px; cursor:pointer; min-width:64px; white-space:nowrap;">閉じる</button>
             </div>
         </div>
         <div style="font-size:0.9em; color:#35556d; margin-bottom:10px;">${subtitleText}</div>
@@ -438,7 +438,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         <style>
             .behavior-editor-main-grid {
                 display: grid;
-                grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.05fr);
+                grid-template-columns: minmax(340px, 0.72fr) minmax(0, 1.28fr);
                 gap: 10px;
                 min-width: 0;
             }
@@ -448,6 +448,36 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 border: 1px solid #cfe1f1;
                 border-radius: 8px;
                 padding: 8px;
+                overflow: hidden;
+            }
+            #behavior-loop-editor,
+            #behavior-loop-editor * {
+                box-sizing: border-box;
+            }
+            #behavior-loop-editor input,
+            #behavior-loop-editor select {
+                max-width: 100%;
+            }
+            .behavior-editor-toolbar {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                align-items: center;
+                margin-bottom: 10px;
+            }
+            .behavior-editor-toolbar-actions {
+                margin-left: auto;
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+            .behavior-editor-toolbar-actions input {
+                min-width: 180px;
+            }
+            .behavior-editor-toolbar-actions button {
+                min-width: 64px;
+                white-space: nowrap;
             }
             .behavior-step-row {
                 display: grid;
@@ -488,7 +518,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             }
             @media (max-width: 1180px) {
                 .behavior-editor-main-grid {
-                    grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+                    grid-template-columns: 1fr;
                 }
                 .behavior-action-row {
                     grid-template-columns: minmax(0, 1fr) minmax(104px, 122px) auto;
@@ -503,6 +533,22 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 }
             }
             @media (max-width: 760px) {
+                .behavior-editor-toolbar {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                }
+                .behavior-editor-toolbar-actions {
+                    margin-left: 0;
+                    width: 100%;
+                    justify-content: stretch;
+                }
+                .behavior-editor-toolbar-actions input {
+                    flex: 1 1 150px;
+                    min-width: 0;
+                }
+                .behavior-editor-toolbar-actions button {
+                    flex: 1 1 72px;
+                }
                 .behavior-step-row,
                 .behavior-action-row,
                 .behavior-transition-head,
@@ -511,7 +557,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 }
             }
         </style>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+        <div class="behavior-editor-toolbar">
             <label style="display:flex; align-items:center; gap:6px; background:#fff; border:1px solid #cfe1f1; padding:6px 10px; border-radius:6px;">
                 <input type="checkbox" id="behavior-enabled">
                 <span>有効化</span>
@@ -520,8 +566,8 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 <span>初期ループ</span>
                 <select id="behavior-initial-loop" style="padding:4px;"></select>
             </label>
-            <div style="margin-left:auto; display:flex; gap:6px;">
-                <input id="behavior-new-loop-id" placeholder="新規ループ名" style="padding:6px; min-width:180px;">
+            <div class="behavior-editor-toolbar-actions">
+                <input id="behavior-new-loop-id" placeholder="新規ループ名" style="padding:6px;">
                 <button id="behavior-add-loop-btn" style="padding:6px 10px; border:none; background:#2f7fbf; color:#fff; border-radius:6px; cursor:pointer;">追加</button>
                 <button id="behavior-reset-profile-btn" style="padding:6px 10px; border:none; background:#c23b3b; color:#fff; border-radius:6px; cursor:pointer;">チャート初期化</button>
             </div>

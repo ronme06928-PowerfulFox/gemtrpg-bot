@@ -1685,8 +1685,10 @@ def handle_bo_select_stage_preset(data):
     if bo['required_ally_count'] <= 0:
         bo['required_ally_count'] = max(0, _safe_int(enemy_rec.get('recommended_ally_count'), 0))
     bo['stage_field_effect_profile'] = _normalize_stage_field_effect_profile(stage.get('field_effect_profile'))
-    bo['stage_avatar_profile'] = _normalize_stage_avatar(stage.get('stage_avatar'))
+    stage_avatar_profile = _normalize_stage_avatar(stage.get('stage_avatar'))
+    bo['stage_avatar_profile'] = stage_avatar_profile
     bo['stage_field_effect_enabled'] = bool(bo.get('stage_field_effect_enabled', True))
+    bo['stage_avatar_enabled'] = bool(stage_avatar_profile.get('enabled', True))
     bo['ally_mode'] = 'preset'
     bo['status'] = 'draft'
     state['play_mode'] = 'battle_only'
@@ -2101,8 +2103,10 @@ def handle_bo_start_battle(data):
     stage_profile = _normalize_stage_field_effect_profile(bo.get('stage_field_effect_profile'))
     stage_avatar_profile = _normalize_stage_avatar(bo.get('stage_avatar_profile'))
     stage_effect_enabled = bool(bo.get('stage_field_effect_enabled', True))
+    stage_avatar_enabled = bool(bo.get('stage_avatar_enabled', True))
     state['stage_field_effect_profile'] = copy.deepcopy(stage_profile)
     state['stage_avatar_profile'] = copy.deepcopy(stage_avatar_profile)
+    state['stage_avatar_enabled'] = stage_avatar_enabled
     state['field_effects'] = []
     if stage_effect_enabled:
         state['field_effects'] = [
@@ -2140,7 +2144,7 @@ def handle_bo_start_battle(data):
             "selected_stage_id": bo.get('selected_stage_id'),
             "stage_field_effect_enabled": stage_effect_enabled,
             "stage_field_effect_profile": copy.deepcopy(stage_profile),
-            "stage_avatar_enabled": bool(bo.get('stage_avatar_enabled', True)),
+            "stage_avatar_enabled": stage_avatar_enabled,
             "stage_avatar_profile": copy.deepcopy(stage_avatar_profile),
             "ally_mode": ally_mode,
             "ally_formation_id": bo.get('ally_formation_id'),

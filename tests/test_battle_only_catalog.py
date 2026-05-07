@@ -534,6 +534,14 @@ def test_bo_enemy_formation_save_and_select(monkeypatch):
     state = _base_state()
     store = {
         "character_presets": {
+            "ally_1": {
+                "id": "ally_1",
+                "name": "AllyA",
+                "visibility": "public",
+                "allow_ally": True,
+                "allow_enemy": False,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
             "enemy_1": {
                 "id": "enemy_1",
                 "name": "敵A",
@@ -586,6 +594,14 @@ def test_bo_select_enemy_formation_overwrites_required_ally_count(monkeypatch):
     state["battle_only"]["required_ally_count"] = 5
     store = {
         "character_presets": {
+            "ally_1": {
+                "id": "ally_1",
+                "name": "AllyA",
+                "visibility": "public",
+                "allow_ally": True,
+                "allow_enemy": False,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
             "enemy_1": {
                 "id": "enemy_1",
                 "name": "敵A",
@@ -1105,13 +1121,98 @@ def test_bo_stage_field_effect_toggle_disables_injection(monkeypatch):
 
 def test_bo_stage_avatar_toggle_updates_state(monkeypatch):
     state = _base_state()
-    store = {"character_presets": {}}
+    state["battle_only"]["stage_avatar_profile"] = {"enabled": True, "name": "Avatar", "description": "desc", "icon": "icon"}
+    state["battle_only"]["stage_avatar_enabled"] = True
+    state["battle_only"]["ally_entries"] = [{"preset_id": "ally_1", "user_id": "u_1"}]
+    state["battle_only"]["enemy_entries"] = [{"preset_id": "enemy_1", "count": 1}]
+    store = {
+        "character_presets": {
+            "ally_1": {
+                "id": "ally_1",
+                "name": "AllyA",
+                "visibility": "public",
+                "allow_ally": True,
+                "allow_enemy": False,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+            "enemy_1": {
+                "id": "enemy_1",
+                "name": "EnemyA",
+                "visibility": "public",
+                "allow_ally": False,
+                "allow_enemy": True,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+        }
+    }
     emits = _patch_common(monkeypatch, state, store)
 
     socket_battle_only.handle_bo_set_stage_avatar_enabled({"room": "room_t", "enabled": False})
     assert state["battle_only"]["stage_avatar_enabled"] is False
     updated = _find_event(emits, "bo_stage_avatar_updated")
     assert updated
+
+    emits.clear()
+    socket_battle_only.handle_bo_start_battle({"room": "room_t"})
+    assert state["stage_avatar_enabled"] is False
+    assert state["stage_avatar_profile"]["name"] == "Avatar"
+
+
+def test_bo_stage_selection_uses_stage_avatar_enabled_default(monkeypatch):
+    state = _base_state()
+    store = {
+        "character_presets": {
+            "ally_1": {
+                "id": "ally_1",
+                "name": "AllyA",
+                "visibility": "public",
+                "allow_ally": True,
+                "allow_enemy": False,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+            "enemy_1": {
+                "id": "enemy_1",
+                "name": "EnemyA",
+                "visibility": "public",
+                "allow_ally": False,
+                "allow_enemy": True,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+        },
+        "enemy_formations": {
+            "ef_1": {
+                "id": "ef_1",
+                "name": "EnemyFormation",
+                "visibility": "public",
+                "recommended_ally_count": 0,
+                "members": [{"preset_id": "enemy_1", "count": 1, "behavior_profile_override": {}}],
+            }
+        },
+        "ally_formations": {},
+        "stage_presets": {
+            "stage_no_avatar": {
+                "id": "stage_no_avatar",
+                "name": "No Avatar Stage",
+                "visibility": "public",
+                "enemy_formation_id": "ef_1",
+                "required_ally_count": 0,
+                "field_effect_profile": {"version": 1, "rules": []},
+                "stage_avatar": {"enabled": False, "name": "Hidden Avatar", "description": "hidden", "icon": "hide"},
+            }
+        },
+    }
+    emits = _patch_common(monkeypatch, state, store)
+
+    socket_battle_only.handle_bo_select_stage_preset({"room": "room_t", "stage_id": "stage_no_avatar"})
+    bo = state["battle_only"]
+    assert bo["stage_avatar_profile"]["name"] == "Hidden Avatar"
+    assert bo["stage_avatar_enabled"] is False
+    bo["ally_entries"] = [{"preset_id": "ally_1", "user_id": "u_1"}]
+
+    emits.clear()
+    socket_battle_only.handle_bo_start_battle({"room": "room_t"})
+    assert state["stage_avatar_profile"]["name"] == "Hidden Avatar"
+    assert state["stage_avatar_enabled"] is False
 
 
 def test_bo_export_three_presets_json_filters_visibility_for_player(monkeypatch):

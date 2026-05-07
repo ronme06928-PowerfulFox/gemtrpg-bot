@@ -971,6 +971,7 @@ def apply_stage_preset_to_room_state(
     if options["stage_avatar"]:
         avatar = normalize_stage_avatar(stage.get("stage_avatar"))
         state["stage_avatar_profile"] = copy.deepcopy(avatar)
+        state["stage_avatar_enabled"] = bool(avatar.get("enabled", True))
         summary["stage_avatar"] = copy.deepcopy(avatar)
         summary["applied"]["stage_avatar"] = True
 

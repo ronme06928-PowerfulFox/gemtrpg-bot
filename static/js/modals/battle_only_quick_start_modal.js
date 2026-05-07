@@ -117,7 +117,7 @@
                         ルール数: ${rules.length}
                     </span>
                 </div>
-                <div style="margin-top:14px; border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#f8fafc;">
+                <div style="display:${avatarEnabled ? 'block' : 'none'}; margin-top:14px; border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#f8fafc;">
                     <div style="font-size:12px; color:#6b7280;">ステージアバター（表示用）</div>
                     <div style="margin-top:6px; display:flex; gap:10px; align-items:flex-start;">
                         <div style="min-width:54px; height:54px; border-radius:10px; border:1px solid #d1d5db; display:flex; align-items:center; justify-content:center; font-weight:700; background:#fff; color:#1f2937;">
@@ -424,7 +424,7 @@
                 stage_id: selectedId,
                 stage_name: String(stage.name || selectedId || '').trim(),
                 stage_field_effect_enabled: !!bo.stage_field_effect_enabled,
-                stage_avatar_enabled: !!bo.stage_avatar_enabled,
+                stage_avatar_enabled: bo.stage_avatar_enabled !== false,
                 stage_field_effect_profile: stageProfile,
                 stage_avatar_profile: avatarProfile,
             });
@@ -566,7 +566,7 @@
         function renderStageAvatarEnabled() {
             if (!stageAvatarEnabledEl) return;
             const bo = model.battle_only || {};
-            stageAvatarEnabledEl.checked = !!bo.stage_avatar_enabled;
+            stageAvatarEnabledEl.checked = bo.stage_avatar_enabled !== false;
             stageAvatarEnabledEl.disabled = !model.can_manage;
         }
 
@@ -742,7 +742,7 @@
         });
         stageAvatarEnabledEl?.addEventListener('change', () => {
             const enabled = applyStageAvatarEnabled();
-            setMsg(enabled ? 'Stage avatar enabled.' : 'Stage avatar disabled.', '#444');
+            setMsg(enabled ? 'ステージアバターを有効化しました。' : 'ステージアバターを無効化しました。', '#444');
         });
         stageDetailBtn?.addEventListener('click', () => {
             openStageFieldEffectDetailFromCurrent();

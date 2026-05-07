@@ -771,7 +771,7 @@ window.setupVisualSidebarControls = function () {
                     <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:${avatarEnabled ? '#eff6ff' : '#f9fafb'}; color:${avatarEnabled ? '#1d4ed8' : '#6b7280'};">ステージアバター: ${avatarEnabled ? 'ON' : 'OFF'}</span>
                     <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:#fff; color:#374151;">ルール数: ${rules.length}</span>
                 </div>
-                <div style="margin-top:14px; border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#f8fafc;">
+                <div style="display:${avatarEnabled ? 'block' : 'none'}; margin-top:14px; border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#f8fafc;">
                     <div style="font-size:12px; color:#6b7280;">ステージアバター（表示用）</div>
                     <div style="margin-top:6px; display:flex; gap:10px; align-items:flex-start;">
                         <div style="min-width:54px; height:54px; border-radius:10px; border:1px solid #d1d5db; display:flex; align-items:center; justify-content:center; font-weight:700; background:#fff; color:#1f2937;">
@@ -827,8 +827,11 @@ window.setupVisualSidebarControls = function () {
         const avatarProfile = (bo.stage_avatar_profile && typeof bo.stage_avatar_profile === 'object')
             ? bo.stage_avatar_profile
             : ((bs.stage_avatar_profile && typeof bs.stage_avatar_profile === 'object') ? bs.stage_avatar_profile : {});
+        const stageAvatarEnabled = Object.prototype.hasOwnProperty.call(bo, 'stage_avatar_enabled')
+            ? !!bo.stage_avatar_enabled
+            : (Object.prototype.hasOwnProperty.call(bs, 'stage_avatar_enabled') ? !!bs.stage_avatar_enabled : avatarProfile.enabled !== false);
         const stageId = String(bo.selected_stage_id || '').trim();
-        const stageName = String(avatarProfile.name || stageId || '').trim() || 'Stage';
+        const stageName = String(avatarProfile.name || stageId || '').trim() || 'ステージ';
         const rules = Array.isArray(stageProfile.rules) ? stageProfile.rules.filter((row) => row && typeof row === 'object') : [];
         return {
             boMode,
@@ -837,7 +840,7 @@ window.setupVisualSidebarControls = function () {
             stageName,
             rules,
             stage_field_effect_enabled: !!bo.stage_field_effect_enabled,
-            stage_avatar_enabled: !!bo.stage_avatar_enabled,
+            stage_avatar_enabled: stageAvatarEnabled,
             stage_field_effect_profile: stageProfile,
             stage_avatar_profile: avatarProfile,
         };
@@ -846,11 +849,12 @@ window.setupVisualSidebarControls = function () {
     function syncStageEffectCard() {
         const info = getBattleOnlyStageDisplayState();
         const roomName = String((typeof currentRoomName !== 'undefined' ? currentRoomName : runtimeGlobal.currentRoomName) || '').trim();
-        const hasStageContent = !!(
-            info.stage_field_effect_enabled ||
-            info.stage_avatar_enabled ||
-            (Array.isArray(info.rules) && info.rules.length > 0)
+        const hasRules = Array.isArray(info.rules) && info.rules.length > 0;
+        const hasAvatarContent = !!(
+            info.stage_avatar_enabled &&
+            (info.stageId || info.stage_avatar_profile.name || info.stage_avatar_profile.description || info.stage_avatar_profile.icon)
         );
+        const hasStageContent = !!((info.stage_field_effect_enabled && hasRules) || hasAvatarContent);
         const shouldShow = !!(roomName && info.boMode && info.status === 'in_battle' && hasStageContent);
         if (!shouldShow) {
             removeStageEffectCard();
@@ -860,29 +864,36 @@ window.setupVisualSidebarControls = function () {
         const card = exists || document.createElement('div');
         const sidebar = document.getElementById('visual-sidebar');
         const sidebarWidth = Math.max(0, Math.round(sidebar?.getBoundingClientRect?.().width || 350));
+        const viewportWidth = Math.max(0, Math.round(window.innerWidth || document.documentElement?.clientWidth || 0));
+        const compactCard = viewportWidth > 0 && viewportWidth < (sidebarWidth + 360);
+        const cardWidth = compactCard
+            ? Math.max(180, Math.min(260, viewportWidth - 96))
+            : 260;
         card.id = stageEffectCardId;
         card.style.position = 'fixed';
-        card.style.right = `${sidebarWidth + 16}px`;
-        card.style.top = '72px';
+        card.style.left = compactCard ? '84px' : 'auto';
+        card.style.right = compactCard ? 'auto' : `${sidebarWidth + 16}px`;
+        card.style.top = compactCard ? '84px' : '72px';
         card.style.zIndex = '860';
-        card.style.minWidth = '220px';
-        card.style.maxWidth = '320px';
+        card.style.width = `${cardWidth}px`;
+        card.style.minWidth = '0';
+        card.style.maxWidth = compactCard ? 'calc(100vw - 96px)' : '320px';
         card.style.background = 'rgba(255,255,255,0.96)';
         card.style.border = '1px solid rgba(17,24,39,0.16)';
         card.style.borderRadius = '10px';
         card.style.boxShadow = '0 10px 24px rgba(0,0,0,0.18)';
         card.style.padding = '10px';
-        const icon = _escapeResolveLogHtml(String(info.stage_avatar_profile.icon || '場'));
+        const icon = _escapeResolveLogHtml(String(info.stage_avatar_enabled ? (info.stage_avatar_profile.icon || '場') : '場'));
         const statusColor = info.stage_field_effect_enabled ? '#166534' : '#6b7280';
         card.innerHTML = `
             <div style="display:flex; gap:8px; align-items:center;">
-                <div style="width:36px; height:36px; border-radius:8px; border:1px solid #d1d5db; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#111827; background:#fff;">${icon}</div>
+                <div style="width:36px; min-width:36px; height:36px; border-radius:8px; border:1px solid #d1d5db; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#111827; background:#fff;">${icon}</div>
                 <div style="min-width:0; flex:1;">
                     <div style="font-size:12px; color:#6b7280;">ステージ効果</div>
                     <div style="font-size:14px; font-weight:700; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${_escapeResolveLogHtml(info.stageName)}</div>
                 </div>
             </div>
-            <div style="margin-top:8px; display:flex; justify-content:space-between; gap:8px; font-size:12px;">
+            <div style="margin-top:8px; display:flex; justify-content:space-between; gap:6px; font-size:12px; flex-wrap:wrap;">
                 <span style="color:${statusColor};">効果: ${info.stage_field_effect_enabled ? 'ON' : 'OFF'}</span>
                 <span style="color:${info.stage_avatar_enabled ? '#1d4ed8' : '#6b7280'};">アバター: ${info.stage_avatar_enabled ? 'ON' : 'OFF'}</span>
                 <span style="color:#374151;">ルール数: ${info.rules.length}</span>

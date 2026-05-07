@@ -208,6 +208,7 @@ def test_apply_stage_preset_respects_checkbox_options_without_enemy_replacement(
     assert state["stage_field_effect_profile"]["rules"][0]["description"] == "視界を遮る霧"
     assert state["stage_field_effect_profile"]["rules"][0]["flavor_text"] == "洞窟に冷たい霧が満ちる。"
     assert state["stage_avatar_profile"]["name"] == "Cave Spirit"
+    assert state["stage_avatar_enabled"] is True
     assert summary["applied"] == {
         "enemy_formation": False,
         "background": True,
@@ -238,6 +239,31 @@ def test_apply_stage_preset_can_apply_enemy_formation_with_default_replace():
     assert "old_enemy" not in [c["id"] for c in enemies]
     assert summary["applied"]["enemy_formation"] is True
     assert summary["enemy_formation"]["formation_id"] == "form_1"
+
+
+def test_apply_stage_preset_preserves_disabled_stage_avatar_flag():
+    state = _state()
+    store = _store()
+    store["stage_presets"]["stage_1"]["stage_avatar"]["enabled"] = False
+
+    summary = room_preset_apply.apply_stage_preset_to_room_state(
+        state,
+        "stage_1",
+        apply_options={
+            "enemy_formation": False,
+            "background": False,
+            "field_effects": False,
+            "stage_avatar": True,
+        },
+        user_info=_gm(),
+        store=store,
+        room="room_t",
+    )
+
+    assert state["stage_avatar_profile"]["name"] == "Cave Spirit"
+    assert state["stage_avatar_profile"]["enabled"] is False
+    assert state["stage_avatar_enabled"] is False
+    assert summary["stage_avatar"]["enabled"] is False
 
 
 def test_enemy_formation_append_mode_is_reserved_for_future_option():

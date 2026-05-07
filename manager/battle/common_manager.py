@@ -43,6 +43,21 @@ def _safe_emit(event_name, payload, **kwargs):
             return
 
 
+def _clear_stage_runtime_state(state):
+    if not isinstance(state, dict):
+        return
+    state['field_effects'] = []
+    state['stage_field_effect_profile'] = {}
+    state['stage_avatar_profile'] = {}
+    state['stage_avatar_enabled'] = False
+    bo = state.get('battle_only')
+    if isinstance(bo, dict):
+        bo['status'] = 'draft'
+        bo['active_record_id'] = None
+        bo['pending_auto_reset'] = False
+        bo['pending_auto_reset_round'] = None
+
+
 get_room_state = getattr(room_manager, "get_room_state", lambda *_args, **_kwargs: None)
 save_specific_room_state = getattr(room_manager, "save_specific_room_state", lambda *_args, **_kwargs: None)
 broadcast_log = getattr(room_manager, "broadcast_log", lambda *_args, **_kwargs: None)
@@ -591,6 +606,8 @@ def reset_battle_logic(room, mode, username, reset_options=None):
 
 
     state['ai_target_arrows'] = []
+    if mode in ('full', 'status'):
+        _clear_stage_runtime_state(state)
 
     if mode == 'full':
         state['characters'] = []

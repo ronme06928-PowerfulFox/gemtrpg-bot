@@ -1699,15 +1699,15 @@
       },
       "stage_avatar": {
         "enabled": false,
-        "name": "",
-        "description": "",
+        "name": "テスト",
+        "description": "なし",
         "icon": ""
       },
       "created_at": 1776439390967,
-      "updated_at": 1778091258593,
+      "updated_at": 1778126813488,
       "created_by": "ろんめ",
       "updated_by": "^^"
     }
   },
-  "updated_at": 1778091258596
+  "updated_at": 1778126813491
 }
