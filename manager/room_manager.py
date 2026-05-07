@@ -62,6 +62,25 @@ def _ensure_battle_only_defaults(state):
     if not isinstance(battle_only.get('records'), list):
         battle_only['records'] = []
 
+    if 'stage_field_effect_enabled' not in battle_only:
+        battle_only['stage_field_effect_enabled'] = True
+    if 'stage_avatar_enabled' not in battle_only:
+        battle_only['stage_avatar_enabled'] = True
+    if not isinstance(battle_only.get('stage_field_effect_profile'), dict):
+        battle_only['stage_field_effect_profile'] = {}
+    if not isinstance(battle_only.get('stage_avatar_profile'), dict):
+        battle_only['stage_avatar_profile'] = {}
+
+    # Top-level stage fields are runtime-only. If a battle-only room is restored
+    # outside an active battle, remove stale runtime data so cards/effects do not
+    # resurrect after reset, reconnect, or page reload.
+    if play_mode == 'battle_only' and battle_only['status'] != 'in_battle':
+        state['field_effects'] = []
+        state['stage_field_effect_profile'] = {}
+        state['stage_field_effect_enabled'] = False
+        state['stage_avatar_profile'] = {}
+        state['stage_avatar_enabled'] = False
+
 
 def _normalize_log_text(text):
     return str(text or "")

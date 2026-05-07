@@ -48,6 +48,7 @@ def _clear_stage_runtime_state(state):
         return
     state['field_effects'] = []
     state['stage_field_effect_profile'] = {}
+    state['stage_field_effect_enabled'] = False
     state['stage_avatar_profile'] = {}
     state['stage_avatar_enabled'] = False
     bo = state.get('battle_only')

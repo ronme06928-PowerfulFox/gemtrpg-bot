@@ -328,6 +328,30 @@
             return Array.isArray(profile.rules) ? profile.rules.length : 0;
         }
 
+        function stageHasBackground(stage) {
+            const bg = stage && stage.background && typeof stage.background === 'object' ? stage.background : {};
+            return !!(bg.background_image || bg.backgroundImage || bg.image || bg.url);
+        }
+
+        function stageAvatarLabel(stage) {
+            const avatar = stage && stage.stage_avatar && typeof stage.stage_avatar === 'object'
+                ? stage.stage_avatar
+                : {};
+            if (avatar.enabled === false) return 'OFF';
+            return (avatar.name || avatar.icon || avatar.description) ? 'ON' : '未設定';
+        }
+
+        function infoPill(label, value, tone = 'neutral') {
+            const colors = {
+                neutral: ['#f9fafb', '#d1d5db', '#374151'],
+                blue: ['#eff6ff', '#bfdbfe', '#1d4ed8'],
+                green: ['#ecfdf5', '#bbf7d0', '#166534'],
+                amber: ['#fffbeb', '#fde68a', '#92400e'],
+            };
+            const c = colors[tone] || colors.neutral;
+            return `<span style="display:inline-flex; gap:4px; align-items:center; padding:3px 7px; border-radius:999px; border:1px solid ${c[1]}; background:${c[0]}; color:${c[2]}; font-size:11px;"><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</span>`;
+        }
+
         function stageOptionLabel(id) {
             const rec = getStageRecord(id) || {};
             const name = String(rec.name || id);
@@ -506,10 +530,13 @@
             const selectedStage = getStageRecord(selectedId);
             const selectedName = selectedStage ? String(selectedStage.name || selectedId) : '';
             const ruleCount = selectedStage ? stageRuleCount(selectedStage) : 0;
+            const enemyFormationId = String((selectedStage && selectedStage.enemy_formation_id) || bo.enemy_formation_id || '').trim() || '未選択';
+            const allyFormationId = String((selectedStage && selectedStage.ally_formation_id) || bo.ally_formation_id || '').trim() || '未設定';
+            const backgroundText = selectedStage ? (stageHasBackground(selectedStage) ? 'あり' : 'なし') : '未選択';
             const avatar = selectedStage && selectedStage.stage_avatar && typeof selectedStage.stage_avatar === 'object'
                 ? selectedStage.stage_avatar
                 : {};
-            const avatarText = avatar.enabled === false ? 'OFF' : (avatar.name || avatar.icon || 'ON');
+            const avatarText = selectedStage ? stageAvatarLabel(selectedStage) : (avatar.enabled === false ? 'OFF' : (avatar.name || avatar.icon || '未選択'));
             const options = ids.map((id) => `<option value="${escapeHtml(id)}" ${id === selectedId ? 'selected' : ''}>${escapeHtml(stageOptionLabel(id))}</option>`).join('');
             stageArea.innerHTML = `
                 <div class="bo-section-head">
@@ -533,10 +560,15 @@
                     <div class="bo-preview-box" style="margin:0;">
                         <div class="bo-preview-box__title">${selectedStage ? escapeHtml(selectedName) : 'ステージ未選択'}</div>
                         <div class="bo-preview-grid">
-                            <div><strong>敵編成</strong><span>${escapeHtml(String((selectedStage && selectedStage.enemy_formation_id) || bo.enemy_formation_id || '未選択'))}</span></div>
+                            <div><strong>敵編成</strong><span>${escapeHtml(enemyFormationId)}</span></div>
+                            <div><strong>味方編成</strong><span>${escapeHtml(allyFormationId)}</span></div>
                             <div><strong>必要味方</strong><span>${Math.max(0, safeInt((selectedStage && selectedStage.required_ally_count) || bo.required_ally_count, 0))}人</span></div>
-                            <div><strong>効果ルール</strong><span>${ruleCount}件</span></div>
-                            <div><strong>アバター</strong><span>${escapeHtml(String(avatarText))}</span></div>
+                            <div><strong>背景</strong><span>${escapeHtml(backgroundText)}</span></div>
+                        </div>
+                        <div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:8px;">
+                            ${infoPill('ステージ効果', `${bo.stage_field_effect_enabled === false ? 'OFF' : 'ON'} / ${ruleCount}件`, bo.stage_field_effect_enabled === false || ruleCount <= 0 ? 'neutral' : 'green')}
+                            ${infoPill('アバター', `${bo.stage_avatar_enabled === false ? 'OFF' : 'ON'} / ${avatarText}`, bo.stage_avatar_enabled === false || avatarText !== 'ON' ? 'neutral' : 'blue')}
+                            ${infoPill('背景', backgroundText, backgroundText === 'あり' ? 'blue' : 'neutral')}
                         </div>
                     </div>
                 </div>

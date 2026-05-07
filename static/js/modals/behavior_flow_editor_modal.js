@@ -438,7 +438,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         <style>
             .behavior-editor-main-grid {
                 display: grid;
-                grid-template-columns: minmax(340px, 0.72fr) minmax(0, 1.28fr);
+                grid-template-columns: minmax(320px, 0.62fr) minmax(460px, 1.38fr);
                 gap: 10px;
                 min-width: 0;
             }
@@ -516,6 +516,33 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 background: #fafdff;
                 min-width: 0;
             }
+            .behavior-editor-guide {
+                margin-bottom: 10px;
+                background: #fff;
+                border: 1px solid #cfe1f1;
+                border-radius: 8px;
+                padding: 8px;
+            }
+            .behavior-editor-guide[open] {
+                box-shadow: 0 4px 12px rgba(45, 86, 118, 0.08);
+            }
+            .behavior-editor-footer {
+                position: sticky;
+                bottom: -16px;
+                display: flex;
+                justify-content: flex-end;
+                gap: 8px;
+                margin: 12px -16px -16px;
+                padding: 10px 16px;
+                background: rgba(247, 251, 255, 0.96);
+                border-top: 1px solid #cfe1f1;
+                z-index: 3;
+            }
+            .behavior-editor-compact-note {
+                font-size: 0.78em;
+                color: #5f7a8f;
+                margin-top: 4px;
+            }
             @media (max-width: 1180px) {
                 .behavior-editor-main-grid {
                     grid-template-columns: 1fr;
@@ -572,7 +599,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 <button id="behavior-reset-profile-btn" style="padding:6px 10px; border:none; background:#c23b3b; color:#fff; border-radius:6px; cursor:pointer;">チャート初期化</button>
             </div>
         </div>
-        <details style="margin-bottom:10px; background:#fff; border:1px solid #cfe1f1; border-radius:8px; padding:8px;" open>
+        <details class="behavior-editor-guide">
             <summary style="cursor:pointer; font-weight:bold; color:#2a516c;">仕様ガイド（条件分岐・スキル使用）</summary>
                 <div style="font-size:0.83em; color:#37596f; margin-top:6px; line-height:1.55;">
                     <div>・<strong>手順</strong>: 1ラウンドごとに現在の手順を参照して行動します（ラウンド終了時に次の手順へ進行）。</div>
@@ -600,11 +627,12 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             </div>
             <div class="behavior-editor-panel">
                 <div style="font-weight:bold; color:#1e4766; margin-bottom:6px;">編集</div>
+                <div class="behavior-editor-compact-note">右側が狭い場合は、仕様ガイドを閉じたまま編集してください。各行は画面幅に応じて自動で折り返します。</div>
                 <div id="behavior-loop-tabs" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;"></div>
                 <div id="behavior-loop-editor"></div>
             </div>
         </div>
-        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
+        <div class="behavior-editor-footer">
             <button id="behavior-cancel-btn" style="padding:8px 12px; background:#fff; border:1px solid #b9cddd; border-radius:6px; cursor:pointer;">キャンセル</button>
             <button id="behavior-save-btn" style="padding:8px 12px; background:#2f7fbf; border:none; color:#fff; border-radius:6px; cursor:pointer;">${String(cfg.saveLabel || '保存')}</button>
         </div>

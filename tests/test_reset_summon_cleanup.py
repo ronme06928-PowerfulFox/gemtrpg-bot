@@ -90,6 +90,7 @@ def test_status_reset_clears_stage_runtime_effects(monkeypatch):
         "characters": [],
         "field_effects": [{"field_id": "fog", "source_type": "stage_preset"}],
         "stage_field_effect_profile": {"version": 1, "rules": [{"rule_id": "fog", "type": "SPEED_ROLL_MOD"}]},
+        "stage_field_effect_enabled": True,
         "stage_avatar_profile": {"enabled": True, "name": "Stage Avatar", "icon": "S"},
         "stage_avatar_enabled": True,
         "battle_state": {"resolve": {}},
@@ -119,6 +120,7 @@ def test_status_reset_clears_stage_runtime_effects(monkeypatch):
 
     assert state["field_effects"] == []
     assert state["stage_field_effect_profile"] == {}
+    assert state["stage_field_effect_enabled"] is False
     assert state["stage_avatar_profile"] == {}
     assert state["stage_avatar_enabled"] is False
 
@@ -132,6 +134,7 @@ def test_full_reset_hides_battle_only_stage_effect_card_state(monkeypatch):
         "characters": [{"id": "c1", "type": "ally"}],
         "field_effects": [{"field_id": "fog", "source_type": "stage_preset"}],
         "stage_field_effect_profile": {"version": 1, "rules": [{"rule_id": "fog", "type": "SPEED_ROLL_MOD"}]},
+        "stage_field_effect_enabled": True,
         "stage_avatar_profile": {"enabled": True, "name": "Stage Avatar", "icon": "S"},
         "stage_avatar_enabled": True,
         "battle_only": {
@@ -158,6 +161,7 @@ def test_full_reset_hides_battle_only_stage_effect_card_state(monkeypatch):
 
     assert state["field_effects"] == []
     assert state["stage_field_effect_profile"] == {}
+    assert state["stage_field_effect_enabled"] is False
     assert state["stage_avatar_profile"] == {}
     assert state["stage_avatar_enabled"] is False
     assert state["battle_only"]["status"] == "draft"

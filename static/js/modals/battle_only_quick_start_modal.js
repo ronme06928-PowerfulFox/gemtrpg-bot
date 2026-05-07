@@ -356,6 +356,35 @@
             return Math.max(0, safeInt(rec.required_ally_count, safeInt((model.battle_only || {}).required_ally_count, 0)));
         }
 
+        function getStageRuleCount(stage) {
+            const profile = stage && stage.field_effect_profile && typeof stage.field_effect_profile === 'object'
+                ? stage.field_effect_profile
+                : {};
+            return Array.isArray(profile.rules) ? profile.rules.filter((row) => row && typeof row === 'object').length : 0;
+        }
+
+        function hasStageBackground(stage) {
+            const bg = stage && stage.background && typeof stage.background === 'object' ? stage.background : {};
+            return !!(bg.background_image || bg.backgroundImage || bg.image || bg.url);
+        }
+
+        function getStageAvatarLabel(stage) {
+            const avatar = stage && stage.stage_avatar && typeof stage.stage_avatar === 'object' ? stage.stage_avatar : {};
+            if (avatar.enabled === false) return 'OFF';
+            return (avatar.name || avatar.icon || avatar.description) ? 'ON' : '未設定';
+        }
+
+        function renderInfoPill(label, value, tone = 'neutral') {
+            const colors = {
+                neutral: ['#f9fafb', '#d1d5db', '#374151'],
+                blue: ['#eff6ff', '#bfdbfe', '#1d4ed8'],
+                green: ['#ecfdf5', '#bbf7d0', '#166534'],
+                amber: ['#fffbeb', '#fde68a', '#92400e'],
+            };
+            const c = colors[tone] || colors.neutral;
+            return `<span style="display:inline-flex; gap:4px; align-items:center; padding:3px 7px; border-radius:999px; border:1px solid ${c[1]}; background:${c[0]}; color:${c[2]}; font-size:11px;"><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</span>`;
+        }
+
         function applyStageSelection(stageId) {
             const id = String(stageId || '').trim();
             if (!id) {
@@ -477,6 +506,11 @@
                 const rec = model.stage_presets[id] || {};
                 const selected = (id === selectedId);
                 const required = getStageRequiredAllyCount(rec);
+                const enemyFormationId = String(rec.enemy_formation_id || '').trim() || '未設定';
+                const rules = getStageRuleCount(rec);
+                const background = hasStageBackground(rec) ? 'あり' : 'なし';
+                const avatar = getStageAvatarLabel(rec);
+                const concept = String(rec.concept || rec.description || '').trim() || '概要未設定';
                 return `
                     <button type="button" class="bo-stage-pick-btn" data-stage-id="${escapeHtml(id)}" style="
                         text-align:left;
@@ -487,8 +521,15 @@
                         cursor:pointer;
                         min-height:110px;">
                         <div style="font-size:15px; font-weight:700; color:#111827;">${escapeHtml(rec.name || id)}</div>
-                        <div style="font-size:12px; color:#374151; margin-top:2px;">ID: ${escapeHtml(id)} / 必要味方: ${required}</div>
-                        <div style="font-size:12px; color:#6b7280; margin-top:5px;">${escapeHtml(rec.concept || 'コンセプト未設定')}</div>
+                        <div style="font-size:12px; color:#374151; margin-top:2px;">ID: ${escapeHtml(id)}</div>
+                        <div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">
+                            ${renderInfoPill('敵編成', enemyFormationId, enemyFormationId === '未設定' ? 'amber' : 'blue')}
+                            ${renderInfoPill('必要味方', `${required}人`, required > 0 ? 'green' : 'neutral')}
+                            ${renderInfoPill('背景', background, background === 'あり' ? 'blue' : 'neutral')}
+                            ${renderInfoPill('効果', `${rules}件`, rules > 0 ? 'green' : 'neutral')}
+                            ${renderInfoPill('アバター', avatar, avatar === 'ON' ? 'blue' : 'neutral')}
+                        </div>
+                        <div style="font-size:12px; color:#6b7280; margin-top:7px; line-height:1.45;">${escapeHtml(concept)}</div>
                     </button>
                 `;
             }).join('');
@@ -512,13 +553,40 @@
             const enemyCount = safeInt((model.validation || {}).enemy_entry_count, 0);
             const allyMode = String(bo.ally_mode || 'preset').trim().toLowerCase();
             const modeLabel = allyMode === 'room_existing' ? '現在ルーム利用' : 'ステージ味方編成';
+            const enemyFormationId = String((stage && stage.enemy_formation_id) || bo.enemy_formation_id || '').trim() || '未設定';
+            const allyFormationId = String((stage && stage.ally_formation_id) || bo.ally_formation_id || '').trim() || '未設定';
+            const ruleCount = stage ? getStageRuleCount(stage) : 0;
+            const background = stage ? (hasStageBackground(stage) ? 'あり' : 'なし') : '未選択';
+            const effectEnabled = !!bo.stage_field_effect_enabled;
+            const avatarEnabled = bo.stage_avatar_enabled !== false;
+            const avatarLabel = stage ? getStageAvatarLabel(stage) : '未選択';
             summaryEl.innerHTML = `
-                <div><strong>状態:</strong> ${escapeHtml(status)} / <strong>味方モード:</strong> ${escapeHtml(modeLabel)} / <strong>現在ルーム味方数:</strong> ${roomAllies} / <strong>敵数:</strong> ${enemyCount}</div>
-                <div style="margin-top:4px;">
-                    <strong>選択ステージ:</strong> ${escapeHtml((stage && (stage.name || selectedId)) || '未選択')}
-                    ${stage ? `<span style="color:#4b5563;">（必要味方: ${getStageRequiredAllyCount(stage)}）</span>` : ''}
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px;">
+                    <div style="border:1px solid #dbe4f0; border-radius:10px; padding:9px 10px; background:#fff;">
+                        <div style="font-size:11px; color:#6b7280;">現在の状態</div>
+                        <div style="font-weight:700; color:#111827;">${escapeHtml(status)}</div>
+                        <div style="font-size:12px; color:#4b5563; margin-top:3px;">味方: ${roomAllies} / 敵: ${enemyCount}</div>
+                    </div>
+                    <div style="border:1px solid #dbe4f0; border-radius:10px; padding:9px 10px; background:#fff;">
+                        <div style="font-size:11px; color:#6b7280;">選択ステージ</div>
+                        <div style="font-weight:700; color:#111827;">${escapeHtml((stage && (stage.name || selectedId)) || '未選択')}</div>
+                        <div style="font-size:12px; color:#4b5563; margin-top:3px;">必要味方: ${stage ? getStageRequiredAllyCount(stage) : '-'}人</div>
+                    </div>
+                    <div style="border:1px solid #dbe4f0; border-radius:10px; padding:9px 10px; background:#fff;">
+                        <div style="font-size:11px; color:#6b7280;">編成反映</div>
+                        <div style="font-weight:700; color:#111827;">敵編成: ${escapeHtml(enemyFormationId)}</div>
+                        <div style="font-size:12px; color:#4b5563; margin-top:3px;">味方: ${escapeHtml(modeLabel)}${allyMode === 'preset' ? ` / ${escapeHtml(allyFormationId)}` : ''}</div>
+                    </div>
+                    <div style="border:1px solid #dbe4f0; border-radius:10px; padding:9px 10px; background:#fff;">
+                        <div style="font-size:11px; color:#6b7280;">ステージ要素</div>
+                        <div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:4px;">
+                            ${renderInfoPill('背景', background, background === 'あり' ? 'blue' : 'neutral')}
+                            ${renderInfoPill('効果', `${effectEnabled ? 'ON' : 'OFF'} / ${ruleCount}件`, effectEnabled && ruleCount > 0 ? 'green' : 'neutral')}
+                            ${renderInfoPill('アバター', `${avatarEnabled ? 'ON' : 'OFF'} / ${avatarLabel}`, avatarEnabled && avatarLabel === 'ON' ? 'blue' : 'neutral')}
+                        </div>
+                    </div>
                 </div>
-                ${stage ? `<div style="margin-top:4px; color:#4b5563;">${escapeHtml(stage.description || stage.concept || '')}</div>` : ''}
+                ${stage ? `<div style="margin-top:8px; color:#4b5563; line-height:1.45;">${escapeHtml(stage.description || stage.concept || '')}</div>` : ''}
             `;
         }
 

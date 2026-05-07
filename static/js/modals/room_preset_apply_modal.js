@@ -239,6 +239,27 @@
                         font-size: 0.75rem;
                         white-space: nowrap;
                     }
+                    .room-preset-pill-row {
+                        display: flex;
+                        gap: 5px;
+                        flex-wrap: wrap;
+                        margin-top: 8px;
+                    }
+                    .room-preset-mini-pill {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 4px;
+                        border-radius: 999px;
+                        border: 1px solid rgba(45, 86, 76, 0.14);
+                        background: rgba(255, 255, 255, 0.72);
+                        color: #35534d;
+                        padding: 3px 7px;
+                        font-size: 0.72rem;
+                        line-height: 1.1;
+                    }
+                    .room-preset-mini-pill strong {
+                        color: #173f36;
+                    }
                     .room-preset-panel {
                         margin-top: 14px;
                         padding: 14px;
@@ -396,6 +417,26 @@
         const countFormationMembers = (rec) => asArray(rec && rec.members)
             .reduce((sum, row) => sum + Math.max(0, Number(row && row.count) || 0), 0);
 
+        const stageRuleCount = (rec) => asArray(rec?.field_effect_profile?.rules).length;
+
+        const stageHasBackground = (rec) => !!(
+            rec?.background ||
+            rec?.background_profile ||
+            rec?.battle_background ||
+            rec?.battle_map_data ||
+            rec?.background_image ||
+            rec?.backgroundImage
+        );
+
+        const stageAvatarLabel = (rec) => {
+            const avatar = rec && rec.stage_avatar && typeof rec.stage_avatar === 'object' ? rec.stage_avatar : {};
+            if (!objectKeys(avatar).length) return '未設定';
+            if (avatar.enabled === false) return 'OFF';
+            return (avatar.name || avatar.icon || avatar.description) ? 'ON' : '未設定';
+        };
+
+        const miniPill = (label, value) => `<span class="room-preset-mini-pill"><strong>${h(label)}</strong>${h(value)}</span>`;
+
         const currentEnemyCount = () => asArray(global.battleState && global.battleState.characters)
             .filter((char) => String(char && (char.side || char.type || '')).toLowerCase() === 'enemy')
             .length;
@@ -434,10 +475,18 @@
                     meta = `ID: ${h(id)} / 推奨味方: ${h(rec.recommended_ally_count || 0)} / 公開: ${h(rec.visibility || 'public')}`;
                 } else {
                     rec = state.catalog.stage_presets[id] || {};
-                    const ruleCount = asArray(rec?.field_effect_profile?.rules).length;
+                    const ruleCount = stageRuleCount(rec);
                     pill = `効果 ${ruleCount}`;
                     meta = `ID: ${h(id)} / 敵編成: ${h(rec.enemy_formation_id || '-')} / 表示順: ${h(rec.sort_key || 0)}`;
                 }
+                const extraPills = state.activeTab === 'stage'
+                    ? `<div class="room-preset-pill-row">
+                        ${miniPill('敵編成', rec.enemy_formation_id || '未設定')}
+                        ${miniPill('背景', stageHasBackground(rec) ? 'あり' : 'なし')}
+                        ${miniPill('効果', `${stageRuleCount(rec)}件`)}
+                        ${miniPill('アバター', stageAvatarLabel(rec))}
+                    </div>`
+                    : '';
                 return `
                     <div class="room-preset-card${current === id ? ' is-selected' : ''}" data-id="${h(id)}">
                         <div class="room-preset-card-title">
@@ -445,6 +494,7 @@
                             <span class="room-preset-pill">${h(pill)}</span>
                         </div>
                         <div class="room-preset-card-meta">${meta}</div>
+                        ${extraPills}
                         ${rec.description ? `<div class="room-preset-card-meta">${h(rec.description)}</div>` : ''}
                     </div>
                 `;
@@ -514,12 +564,18 @@
             const rec = state.catalog.stage_presets[id] || {};
             const stageEnemyCount = countFormationMembers(state.catalog.enemy_formations[rec.enemy_formation_id] || {});
             const hasEnemyFormation = !!String(rec.enemy_formation_id || '').trim();
-            const hasBackground = !!(rec.background || rec.background_profile || rec.battle_background || rec.battle_map_data || rec.background_image || rec.backgroundImage);
-            const fieldCount = asArray(rec?.field_effect_profile?.rules).length;
+            const hasBackground = stageHasBackground(rec);
+            const fieldCount = stageRuleCount(rec);
             const hasAvatar = !!(rec.stage_avatar && objectKeys(rec.stage_avatar).length);
             panelEl.innerHTML = `
                 <strong>${h(rec.name || id)}</strong>
                 <div class="room-preset-card-meta">必要な項目だけチェックして通常ルームへ反映します。</div>
+                <div class="room-preset-pill-row">
+                    ${miniPill('敵編成', rec.enemy_formation_id || '未設定')}
+                    ${miniPill('背景', hasBackground ? 'あり' : 'なし')}
+                    ${miniPill('効果', `${fieldCount}件`)}
+                    ${miniPill('アバター', stageAvatarLabel(rec))}
+                </div>
                 <div class="room-preset-summary" id="room-stage-apply-summary"></div>
                 <div class="room-preset-options">
                     <label class="room-preset-check${hasEnemyFormation ? '' : ' is-disabled'}"><input id="room-stage-apply-enemy" type="checkbox" ${hasEnemyFormation ? 'checked' : 'disabled'}> 敵編成を適用（全置換${stageEnemyCount ? ` / ${stageEnemyCount}体` : ''}）</label>
