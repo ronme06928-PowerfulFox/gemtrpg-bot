@@ -50,6 +50,14 @@
 - JSON定義・自然言語生成運用: `implemented/20`
 - デプロイ運用: `implemented/21`
 
+## 6. 計画策定プロセス
+
+新機能・UI刷新など実装前に方針決定が必要な場面では、一問一答形式の議論で方針を固める方法を採用している。
+
+詳細: [`planning_process.md`](planning_process.md)
+
+---
+
 ## 5. 今回の整理（2026-05-05）
 実装済みのため `planned` から削除:
 - `09_Status_Stack_Total_Effects_Plan.md`
