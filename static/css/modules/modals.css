@@ -410,6 +410,12 @@
     gap: 5px;
 }
 
+.detail-buff-accordion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
 .detail-buff-item {
     background: #fff3cd;
     border: 1px solid #ffeeba;

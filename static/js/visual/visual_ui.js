@@ -600,9 +600,7 @@ window.setupVisualSidebarControls = function () {
             const updateBtnText = () => {
                 const boMode = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
                 const mode = boMode ? 'pve' : ((battleState && battleState.battle_mode) ? battleState.battle_mode : 'pvp');
-                pveBtn.textContent = boMode
-                    ? '戦闘モード: PvE（固定）'
-                    : ((mode === 'pve') ? '戦闘モード: PvE' : '戦闘モード: PvP');
+                pveBtn.textContent = (mode === 'pve') ? '戦闘モード: PvE' : '戦闘モード: PvP';
                 pveBtn.style.background = (mode === 'pve') ? '#28a745' : '#6c757d'; // Green for PvE, Gray for PvP
                 pveBtn.style.color = 'white';
                 pveBtn.disabled = boMode;

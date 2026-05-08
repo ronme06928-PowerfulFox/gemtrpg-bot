@@ -501,17 +501,17 @@ function renderCharacterCard(char) {
             }
 
             specialBuffsHtml += `
-                <details class="detail-buff-item" style="border: 1px solid #dee2e6; border-radius: 4px; margin-bottom: 5px; overflow: hidden; background: #fff;">
-                    <summary style="background: #e9ecef; padding: 8px 10px; cursor: pointer; font-weight: bold; font-size: 0.95em; display: flex; align-items: center; justify-content: space-between; outline: none;">
-                        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 5px;">
-                            <span>${nameDisplay}</span>
-                            ${durationHtml}
+                <details class="buff-accordion">
+                    <summary class="buff-summary">
+                        <div class="buff-summary-body">
+                            <span class="buff-name">${nameDisplay}</span>
+                            ${durationHtml ? `<div class="buff-meta">${durationHtml}</div>` : ''}
                         </div>
-                        <span style="font-size: 0.8em; color: #666;">▼</span>
+                        <span class="buff-arrow">▼</span>
                     </summary>
-                    <div style="padding: 10px; background: #fff; border-top: 1px solid #dee2e6;">
-                        <div class="buff-desc-row" style="font-weight: bold; color: #212529; font-size: 0.9em; margin-bottom: 5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;">${markupToHtml(descriptionText)}</div>
-                        ${flavorText ? `<div class="buff-flavor-row" style="color: #6c757d; font-size: 0.85em; font-style: italic; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; border-top: 1px dashed #eee; margin-top: 5px; padding-top: 5px;">${markupToHtml(flavorText)}</div>` : ''}
+                    <div class="buff-body">
+                        <div class="buff-desc-row">${markupToHtml(descriptionText)}</div>
+                        ${flavorText ? `<div class="buff-flavor-row">${markupToHtml(flavorText)}</div>` : ''}
                     </div>
                 </details>
             `;
@@ -621,10 +621,8 @@ function renderCharacterCard(char) {
     const inlineStyle = `
         <style>
             .char-detail-modal-content {
-                width: 650px;
-                max-width: 90vw;
+                width: min(780px, 92vw);
                 box-sizing: border-box;
-                /* Prevent horizontal scroll/expansion */
                 overflow-x: hidden;
             }
             .char-skills-grid {
@@ -688,41 +686,127 @@ function renderCharacterCard(char) {
                 color: #222;
             }
 
-            /* Buff Item Styles */
-            .detail-buff-item {
-                border-bottom: 1px solid #f0f0f0;
-                padding: 8px 5px;
+            /* Section titles */
+            .detail-section-title {
+                margin: 0 0 10px 0;
+                font-size: 0.78em;
+                font-weight: 700;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: #555;
+                padding-left: 8px;
+                border-left: 3px solid var(--accent-gold, #c8a84b);
+                line-height: 1.6;
             }
-            .detail-buff-item:last-child {
-                border-bottom: none;
-            }
-            /* Reset Details marker for custom arrow if needed, but default is fine for now */
-            details > summary {
-                list-style: none;
-            }
-            details > summary::-webkit-details-marker {
-                display: none;
-            }
+            /* Stat boxes */
             .detail-stat-box {
                 flex: 1;
                 text-align: center;
-                padding: 10px;
+                padding: 12px 10px 10px;
                 background: #fff;
-                border: 1px solid #eee;
-                border-radius: 4px;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                border: 1px solid #e8e8e8;
+                border-top: 3px solid #e8e8e8;
+                border-radius: 6px;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
             }
+            .detail-stat-box.hp-box { border-top-color: var(--color-hp, #28a745); }
+            .detail-stat-box.mp-box { border-top-color: var(--color-mp, #4a90d9); }
+            .detail-stat-box.fp-box { border-top-color: var(--color-fp, #e0b84a); }
             .detail-stat-label {
                 display: block;
-                font-size: 0.8em;
-                color: #666;
-                font-weight: bold;
+                font-size: 0.72em;
+                color: #888;
+                font-weight: 700;
                 text-transform: uppercase;
-                margin-bottom: 4px;
+                letter-spacing: 0.08em;
+                margin-bottom: 6px;
             }
             .detail-stat-val {
-                font-size: 1.3em;
-                font-weight: bold;
+                font-size: 1.5em;
+                font-weight: 800;
+                line-height: 1;
+            }
+            .detail-stat-max {
+                font-size: 0.6em;
+                color: #aaa;
+                font-weight: 400;
+            }
+            /* Buff accordion - stable layout */
+            details > summary { list-style: none; }
+            details > summary::-webkit-details-marker { display: none; }
+            .buff-accordion {
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                margin-bottom: 6px;
+                overflow: hidden;
+            }
+            .buff-summary {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 8px;
+                padding: 9px 12px;
+                background: #f1f5f9;
+                cursor: pointer;
+                outline: none;
+                user-select: none;
+            }
+            .buff-accordion[open] > .buff-summary {
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .buff-summary-body {
+                flex: 1;
+                min-width: 0;
+            }
+            .buff-name {
+                display: block;
+                font-weight: 700;
+                font-size: 0.95em;
+                color: #1e293b;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                line-height: 1.4;
+            }
+            .buff-meta {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+                margin-top: 4px;
+                align-items: center;
+            }
+            .buff-arrow {
+                flex-shrink: 0;
+                font-size: 0.7em;
+                color: #94a3b8;
+                transition: transform 0.2s ease;
+                padding-top: 4px;
+            }
+            .buff-accordion[open] .buff-arrow {
+                transform: rotate(180deg);
+            }
+            .buff-body {
+                padding: 10px 12px;
+                background: #fff;
+            }
+            .buff-desc-row {
+                font-weight: 600;
+                color: #334155;
+                font-size: 0.9em;
+                line-height: 1.5;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }
+            .buff-flavor-row {
+                color: #64748b;
+                font-size: 0.85em;
+                font-style: italic;
+                line-height: 1.4;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                border-top: 1px dashed #e2e8f0;
+                margin-top: 6px;
+                padding-top: 6px;
             }
         </style>
     `;
@@ -730,8 +814,8 @@ function renderCharacterCard(char) {
     return `
         ${inlineStyle}
         <div class="char-detail-modal-content" data-char-id="${charIdAttr}" style="padding:10px; width:650px; max-width:90vw;">
-            <div class="detail-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h2 style="margin:0; font-size:1.5em; border-left:5px solid ${char.color}; padding-left:10px;">${char.name}</h2>
+            <div class="detail-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid #eee;">
+                <h2 style="margin:0; font-size:1.6em; font-weight:800; border-left:5px solid ${char.color}; padding-left:12px; letter-spacing:-0.01em; line-height:1.3;">${char.name}</h2>
                 <div style="display:flex; gap:15px; align-items:center;">
                     <button class="modal-settings-btn" id="modal-settings-trigger" style="background:none; border:none; font-size:1.5em; cursor:pointer; color:#555;" title="設定">⚙</button>
                     <button class="modal-close-btn" style="background:none; border:none; font-size:2em; cursor:pointer; color:#888; line-height:1;">&times;</button>
@@ -743,17 +827,17 @@ function renderCharacterCard(char) {
             </div>
 
             <div class="detail-stat-grid" style="display:flex; gap:10px; margin-bottom:20px;">
-                <div class="detail-stat-box">
+                <div class="detail-stat-box hp-box">
                     <span class="detail-stat-label">HP</span>
-                    <span class="detail-stat-val" style="color:#28a745;">${char.hp} <span style="font-size:0.7em; color:#999;">/ ${char.maxHp}</span></span>
+                    <span class="detail-stat-val" style="color:var(--color-hp, #28a745);">${char.hp} <span class="detail-stat-max">/ ${char.maxHp}</span></span>
                 </div>
-                <div class="detail-stat-box">
+                <div class="detail-stat-box mp-box">
                     <span class="detail-stat-label">MP</span>
-                    <span class="detail-stat-val" style="color:#007bff;">${char.mp} <span style="font-size:0.7em; color:#999;">/ ${char.maxMp}</span></span>
+                    <span class="detail-stat-val" style="color:var(--color-mp, #4a90d9);">${char.mp} <span class="detail-stat-max">/ ${char.maxMp}</span></span>
                 </div>
-                <div class="detail-stat-box">
+                <div class="detail-stat-box fp-box">
                     <span class="detail-stat-label">FP</span>
-                    <span class="detail-stat-val" style="color:#ffc107;">${fpVal}</span>
+                    <span class="detail-stat-val" style="color:var(--color-fp, #e0b84a);">${fpVal}</span>
                 </div>
             </div>
 
@@ -762,13 +846,13 @@ function renderCharacterCard(char) {
             </div>
 
             <div class="detail-section" style="margin-bottom:20px;">
-                <h4 style="margin:0 0 8px 0; color:#333; font-size:1em; border-bottom:2px solid #eee; padding-bottom:4px;">状態異常</h4>
+                <h4 class="detail-section-title">状態異常</h4>
                 <div class="detail-buff-list">${statesHtml}</div>
             </div>
 
-            <div class="detail-section">
-                <h4 style="margin:0 0 8px 0; color:#333; font-size:1em; border-bottom:2px solid #eee; padding-bottom:4px;">特殊効果 / バフ</h4>
-                <div class="detail-buff-list" style="background:#fff;">${specialBuffsHtml}</div>
+            <div class="detail-section" style="margin-bottom:20px;">
+                <h4 class="detail-section-title">特殊効果 / バフ</h4>
+                <div class="detail-buff-accordion-list">${specialBuffsHtml}</div>
             </div>
 
             <div class="detail-section" style="margin-bottom:20px;">
@@ -795,8 +879,8 @@ function openCharacterModal(charId) {
     modalBackdrop.className = 'modal-backdrop';
     const modalContent = document.createElement('div');
     modalContent.className = 'modal-content';
-    // Prevent horizontal scroll on body
     modalContent.style.overflowX = 'hidden';
+    modalContent.style.scrollbarGutter = 'stable';
 
     // Call the single unified renderer
     modalContent.innerHTML = renderCharacterCard(char);
