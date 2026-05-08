@@ -168,10 +168,9 @@ function updateActionDock() {
         if (!expBtn) {
             expBtn = document.createElement('div');
             expBtn.id = 'dock-to-exploration-btn';
-            expBtn.className = 'dock-icon';
+            expBtn.className = 'dock-icon dock-icon--exploration';
             expBtn.textContent = '🗺️';
             expBtn.title = '探索パートへ切替';
-            expBtn.style.background = '#27ae60'; // Green
             expBtn.onclick = async () => {
                 if (await window.showAppConfirm('探索パートへ切り替えますか？', {
                     title: '探索パートへ切替',
@@ -329,7 +328,7 @@ function openImmediateSkillModal() {
         });
 
         if (myChars.length === 0) {
-            body.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">あなたのキャラクターがいません</div>';
+            body.innerHTML = '<div class="qe-empty-notice">あなたのキャラクターがいません</div>';
         } else {
             myChars.forEach(char => {
                 const row = createImmediateCharRow(char);
@@ -791,315 +790,22 @@ function openQuickEditModal() {
     backdrop.id = 'quick-edit-modal-backdrop';
     backdrop.className = 'modal-backdrop';
     backdrop.style.display = 'flex';
-    backdrop.style.alignItems = 'flex-start'; // 上寄せにする
-    backdrop.style.paddingTop = '50px';
 
     const modalContent = document.createElement('div');
-    modalContent.className = 'modal-content';
-    modalContent.style.width = '700px';
-    modalContent.style.maxHeight = '85vh';
-    modalContent.style.display = 'flex';
-    modalContent.style.flexDirection = 'column';
-    modalContent.style.borderRadius = '12px';
-    modalContent.style.border = 'none';
-    modalContent.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
-    modalContent.style.background = '#f4f6f9'; // 少しグレーがかった背景
-
-    // カスタムスタイル定義
-    const style = document.createElement('style');
-    style.textContent = `
-        .qe-card {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 12px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            display: grid;
-            grid-template-columns: 60px 1fr 280px 80px; /* Icon, Name, Stats, Button */
-            align-items: center;
-            gap: 15px;
-            border-left: 5px solid #ccc;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .qe-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .qe-card.ally { border-left-color: #3498db; }
-        .qe-card.enemy { border-left-color: #e74c3c; }
-
-        .qe-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid #eee;
-            background: #ddd;
-        }
-        .qe-name-area {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        .qe-name {
-            font-weight: bold;
-            font-size: 1.1em;
-            color: #333;
-            margin-bottom: 4px;
-        }
-        .qe-sub {
-            font-size: 0.85em;
-            color: #777;
-        }
-
-        .qe-stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
-        }
-        .qe-stat-box {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .qe-label {
-            font-size: 0.75em;
-            font-weight: bold;
-            margin-bottom: 2px;
-            text-transform: uppercase;
-        }
-        .qe-input {
-            width: 100%;
-            padding: 6px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 1.1em;
-            transition: border-color 0.2s;
-        }
-        .qe-input:focus {
-            border-color: #3498db;
-            outline: none;
-            background: #f0f8ff;
-        }
-
-        /* Stat Specific Colors */
-        .stat-hp .qe-label { color: #27ae60; }
-        .stat-hp .qe-input { color: #27ae60; }
-
-        .stat-mp .qe-label { color: #2980b9; }
-        .stat-mp .qe-input { color: #2980b9; }
-
-        .stat-fp .qe-label { color: #d35400; }
-        .stat-fp .qe-input { color: #d35400; }
-
-        .qe-update-btn {
-            background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
-            border: 1px solid #ced4da;
-            border-radius: 6px;
-            padding: 8px 0;
-            cursor: pointer;
-            font-weight: bold;
-            color: #555;
-            transition: all 0.2s;
-        }
-        .qe-update-btn:hover {
-            background: #e2e6ea;
-            border-color: #adb5bd;
-            color: #333;
-        }
-        .qe-update-btn:active {
-            transform: scale(0.98);
-        }
-        .qe-update-btn.success {
-            background: #d4edda;
-            border-color: #c3e6cb;
-            color: #155724;
-        }
-
-        .qe-gm-panel {
-            grid-column: 1 / -1;
-            margin-top: 10px;
-            padding: 12px;
-            border: 1px solid #d7e2ec;
-            border-radius: 8px;
-            background: #f8fbff;
-        }
-        .qe-gm-title {
-            font-size: 0.82em;
-            font-weight: 700;
-            color: #31465a;
-            margin-bottom: 8px;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-        }
-        .qe-gm-toggle {
-            grid-column: 1 / -1;
-            margin-top: 10px;
-        }
-        .qe-gm-summary {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            padding: 8px 12px;
-            border: 1px solid #d7e2ec;
-            border-radius: 8px;
-            background: #f8fbff;
-            color: #31465a;
-            cursor: pointer;
-            font-size: 0.82em;
-            font-weight: 700;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            list-style: none;
-        }
-        .qe-gm-summary::-webkit-details-marker {
-            display: none;
-        }
-        .qe-gm-summary::after {
-            content: '＋';
-            font-size: 1.15em;
-            line-height: 1;
-            color: #58728c;
-        }
-        .qe-gm-toggle[open] .qe-gm-summary::after {
-            content: '−';
-        }
-        .qe-gm-help {
-            display: grid;
-            grid-template-columns: 1.25fr 0.8fr 0.8fr 0.8fr auto;
-            gap: 8px;
-            align-items: start;
-            margin: 2px 0 6px;
-        }
-        .qe-gm-help span {
-            font-size: 0.74em;
-            color: #60768d;
-            line-height: 1.3;
-        }
-        .qe-gm-help .qe-gm-help-empty {
-            visibility: hidden;
-        }
-        .qe-gm-row {
-            display: grid;
-            grid-template-columns: 1.25fr 0.8fr 0.8fr 0.8fr auto;
-            gap: 8px;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        .qe-gm-row.items {
-            grid-template-columns: 1.6fr 0.9fr auto;
-            margin-bottom: 4px;
-        }
-        .qe-gm-row.state {
-            grid-template-columns: 1.2fr 0.9fr 0.9fr auto;
-        }
-        .qe-gm-row select,
-        .qe-gm-row input {
-            width: 100%;
-            padding: 6px 8px;
-            border: 1px solid #c8d4df;
-            border-radius: 6px;
-            background: #fff;
-            font-size: 0.92em;
-        }
-        .qe-gm-btn {
-            border: 1px solid #b7c8d8;
-            background: #fff;
-            color: #1f3b5a;
-            border-radius: 6px;
-            padding: 6px 10px;
-            font-weight: 700;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        .qe-gm-btn:hover {
-            background: #edf4fb;
-        }
-        .qe-gm-note {
-            margin-top: 2px;
-            font-size: 0.8em;
-            color: #5a7189;
-        }
-        .qe-gm-section-title {
-            margin: 10px 0 6px;
-            font-size: 0.76em;
-            font-weight: 700;
-            color: #50677f;
-            letter-spacing: 0.03em;
-            text-transform: uppercase;
-        }
-        .qe-gm-field {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .qe-gm-field label {
-            font-size: 0.74em;
-            color: #60768d;
-            font-weight: 700;
-        }
-        .qe-gm-preview {
-            margin: 0 0 8px;
-            padding: 10px 12px;
-            border: 1px solid #d7e2ec;
-            border-radius: 6px;
-            background: #fff;
-        }
-        .qe-gm-preview.is-empty {
-            color: #7b8ea3;
-        }
-        .qe-gm-preview-head {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            align-items: center;
-            margin-bottom: 4px;
-        }
-        .qe-gm-preview-name {
-            font-weight: 700;
-            color: #1f3b5a;
-        }
-        .qe-gm-preview-id {
-            display: inline-flex;
-            align-items: center;
-            padding: 1px 7px;
-            border-radius: 999px;
-            background: #edf4fb;
-            color: #35597a;
-            font-size: 0.76em;
-            font-weight: 700;
-        }
-        .qe-gm-preview-meta,
-        .qe-gm-preview-desc {
-            font-size: 0.82em;
-            line-height: 1.45;
-            color: #51687f;
-            white-space: pre-wrap;
-        }
-
-        /* Scrollbar styling */
-        .modal-body::-webkit-scrollbar { width: 8px; }
-        .modal-body::-webkit-scrollbar-track { background: transparent; }
-        .modal-body::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 4px; }
-        .modal-body::-webkit-scrollbar-thumb:hover { background: #a0aec0; }
-    `;
-    modalContent.appendChild(style);
+    modalContent.className = 'modal-content qe-modal-content';
 
     modalContent.innerHTML += `
-        <div class="modal-header" style="background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: white; padding: 15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius: 12px 12px 0 0;">
-            <div style="display:flex; align-items:center;">
-                <span style="font-size: 1.5em; margin-right: 10px;">📝</span>
+        <div class="modal-header qe-modal-header">
+            <div class="qe-modal-header-left">
+                <span class="qe-modal-icon">📝</span>
                 <div>
-                    <h3 style="margin:0; font-size: 1.25em;">簡易ステータス編集</h3>
-                    <div style="font-size: 0.8em; opacity: 0.9; font-weight: normal;">Combat Status Quick Editor</div>
+                    <h3 class="qe-modal-title">簡易ステータス編集</h3>
+                    <div class="qe-modal-subtitle">Combat Status Quick Editor</div>
                 </div>
             </div>
-            <button class="window-control-btn close-btn" style="border:none; background:rgba(255,255,255,0.2); color:white; width: 32px; height: 32px; border-radius: 50%; font-size:1.2em; cursor:pointer; display:flex; align-items:center; justify-content:center; transition: background 0.2s;">×</button>
+            <button class="window-control-btn close-btn qe-close-btn">×</button>
         </div>
-        <div class="modal-body" style="overflow-y:auto; flex:1; padding: 20px; background: #f4f6f9;">
+        <div class="modal-body qe-modal-body">
             <div id="quick-edit-list"></div>
         </div>
     `;
@@ -1113,10 +819,6 @@ function openQuickEditModal() {
         if (e.target === backdrop) closeFunc();
     });
 
-    // Close button hover effect
-    const closeBtn = modalContent.querySelector('.close-btn');
-    closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255,255,255,0.4)';
-    closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255,255,255,0.2)';
 
     const listContainer = document.getElementById('quick-edit-list');
     renderQuickEditList(listContainer);
@@ -1306,12 +1008,8 @@ function renderQuickEditList(container) {
         } else {
             const initial = document.createElement('div');
             initial.className = 'qe-icon';
-            initial.style.display = 'flex';
-            initial.style.alignItems = 'center';
-            initial.style.justifyContent = 'center';
+            initial.classList.add('qe-icon-placeholder');
             initial.style.background = char.color || '#ccc';
-            initial.style.color = 'white';
-            initial.style.fontWeight = 'bold';
             initial.textContent = char.name.charAt(0);
             iconDiv.appendChild(initial);
         }
@@ -1359,7 +1057,6 @@ function renderQuickEditList(container) {
         const btn = document.createElement('button');
         btn.innerHTML = '更新';
         btn.className = 'qe-update-btn';
-        btn.style.width = '100%';
 
         btn.onclick = () => {
             const newHp = parseInt(hpGrp.input.value, 10);
@@ -1486,7 +1183,7 @@ function renderQuickEditList(container) {
             applyValueInput.type = 'number';
             applyValueInput.placeholder = 'Value(任意)';
             const applyBtn = document.createElement('button');
-            applyBtn.className = 'qe-gm-btn';
+            applyBtn.className = 'btn-primary';
             applyBtn.textContent = '付与';
             applyRow.appendChild(createField('バフ', applyBuffSelect));
             applyRow.appendChild(createField('継続R', applyLastingInput));
@@ -1532,7 +1229,7 @@ function renderQuickEditList(container) {
             stateRoundsInput.type = 'number';
             stateRoundsInput.placeholder = '亀裂のみ継続R';
             const stateBtn = document.createElement('button');
-            stateBtn.className = 'qe-gm-btn';
+            stateBtn.className = 'btn-secondary';
             stateBtn.textContent = '付与';
             stateRow.appendChild(createField('状態異常', stateSelect));
             stateRow.appendChild(createField('スタック', stateAmountInput));
@@ -1575,7 +1272,7 @@ function renderQuickEditList(container) {
             removeSpacer3.disabled = true;
             removeSpacer3.style.visibility = 'hidden';
             const removeBtn = document.createElement('button');
-            removeBtn.className = 'qe-gm-btn';
+            removeBtn.className = 'btn-danger';
             removeBtn.textContent = '解除';
             if (buffEntries.length === 0) {
                 removeSelect.disabled = true;
@@ -1615,7 +1312,7 @@ function renderQuickEditList(container) {
             itemDeltaInput.value = '1';
             itemDeltaInput.placeholder = 'delta (+/-)';
             const itemBtn = document.createElement('button');
-            itemBtn.className = 'qe-gm-btn';
+            itemBtn.className = 'btn-ghost';
             itemBtn.textContent = 'アイテム増減';
             itemRow.appendChild(createField('アイテム', itemSelect));
             itemRow.appendChild(createField('増減数', itemDeltaInput));

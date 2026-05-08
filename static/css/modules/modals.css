@@ -15,6 +15,7 @@
 .modal-content {
     background: white;
     border-radius: 8px;
+    border-top: 4px solid var(--accent-gold);
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     max-width: 90%;
     max-height: 90%;
@@ -64,7 +65,7 @@
 
 .char-modal-settings .delete-char-btn {
     margin-left: auto;
-    background: #dc3545;
+    background: var(--color-danger);
     color: white;
     border: none;
     padding: 5px 10px;
@@ -223,12 +224,12 @@
 }
 
 #modal-load-ally-btn {
-    background-color: #007bff;
+    background-color: var(--color-mp);
     color: white;
 }
 
 #modal-load-enemy-btn {
-    background-color: #dc3545;
+    background-color: var(--color-danger);
     color: white;
 }
 
@@ -893,47 +894,51 @@
 }
 
 .bo-btn--primary {
-    border-color: #0369a1;
-    background: #0369a1;
+    border-color: var(--accent-indigo);
+    background: var(--accent-indigo);
     color: #fff;
 }
 
 .bo-btn--primary:hover {
-    border-color: #075985;
-    background: #075985;
+    border-color: var(--accent-indigo);
+    background: var(--accent-indigo);
+    filter: brightness(1.15);
 }
 
 .bo-btn--success {
-    border-color: #15803d;
-    background: #16a34a;
+    border-color: var(--accent-indigo);
+    background: var(--accent-indigo);
     color: #fff;
 }
 
 .bo-btn--success:hover {
-    border-color: #166534;
-    background: #15803d;
+    border-color: var(--accent-indigo);
+    background: var(--accent-indigo);
+    filter: brightness(1.15);
 }
 
 .bo-btn--danger {
-    border-color: #b91c1c;
-    background: #dc2626;
+    border-color: var(--color-danger);
+    background: var(--color-danger);
     color: #fff;
 }
 
 .bo-btn--danger:hover {
-    border-color: #991b1b;
-    background: #b91c1c;
+    border-color: var(--color-danger);
+    background: var(--color-danger);
+    filter: brightness(0.9);
 }
 
 .bo-btn--accent {
-    border-color: #0284c7;
-    background: #0ea5e9;
-    color: #fff;
+    border-color: var(--accent-cyan);
+    background: var(--accent-cyan);
+    color: #1a1a1a;
 }
 
 .bo-btn--accent:hover {
-    border-color: #0369a1;
-    background: #0284c7;
+    border-color: var(--accent-cyan);
+    background: var(--accent-cyan);
+    filter: brightness(1.1);
 }
 
 .bo-preview-box {
@@ -1182,6 +1187,34 @@
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+}
+
+.bo-member-card {
+    margin: 8px 0;
+    padding: 10px;
+}
+
+.bo-list-main--clickable {
+    cursor: pointer;
+}
+
+.bo-actions-end {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.bo-panel--participant {
+    max-width: 760px;
+    width: 94vw;
+    padding: 18px;
+    text-align: left;
+}
+
+.bo-sp-rule-card {
+    border: 1px solid #dbe4f0;
+    border-radius: 8px;
+    background: #f8fbff;
 }
 
 .bo-preset-detail-modal {

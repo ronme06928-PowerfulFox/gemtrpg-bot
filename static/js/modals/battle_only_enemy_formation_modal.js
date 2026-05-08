@@ -318,7 +318,7 @@
         function renderFormationMembers() {
             ensureFormationMembers();
             const rows = state.formation_members.map((row, idx) => `
-                <div class="bo-subcard" data-idx="${idx}" style="margin:8px 0; padding:10px;">
+                <div class="bo-subcard bo-member-card" data-idx="${idx}">
                     <div class="bo-field-grid bo-field-grid--2">
                         <label class="bo-field"><span class="bo-field-label">敵プリセット</span>
                             <select class="bo-ef-member-preset bo-select">

@@ -265,7 +265,7 @@
         function renderMembers() {
             ensureMembers();
             const rows = state.formation_members.map((row, idx) => `
-                <div class="bo-subcard" data-idx="${idx}" style="margin:8px 0; padding:10px;">
+                <div class="bo-subcard bo-member-card" data-idx="${idx}">
                     <div class="bo-field-grid bo-field-grid--2">
                         <label class="bo-field"><span class="bo-field-label">味方プリセット</span>
                             <select class="bo-af-member-preset bo-select">${buildAllyPresetOptions(row && row.preset_id)}</select>
@@ -277,7 +277,7 @@
                     <label class="bo-field"><span class="bo-field-label">割当ユーザーID（任意）</span>
                         <input class="bo-af-member-user bo-input" value="${escapeHtml((row && row.user_id) || '')}" />
                     </label>
-                    <div style="display:flex; justify-content:flex-end;">
+                    <div class="bo-actions-end">
                         <button class="bo-af-member-del bo-btn bo-btn--xs bo-btn--neutral">削除</button>
                     </div>
                 </div>
@@ -349,7 +349,7 @@
                 const selected = (state.selected_formation_id === id);
                 return `
                     <div class="bo-list-row${selected ? ' is-selected' : ''}" data-id="${escapeHtml(id)}">
-                        <div class="bo-list-main" style="cursor:pointer;">
+                        <div class="bo-list-main bo-list-main--clickable">
                             <div class="bo-list-title">${escapeHtml(rec.name || id)}</div>
                             <div class="bo-list-meta">ID: ${escapeHtml(id)} / ${escapeHtml(vis)} / 推奨: ${Math.max(0, safeInt(rec.recommended_ally_count, 0))} / メンバー: ${Array.isArray(rec.members) ? rec.members.length : 0}</div>
                         </div>

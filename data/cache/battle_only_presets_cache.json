@@ -1466,9 +1466,9 @@
         }
       ],
       "created_at": 1776267674361,
-      "updated_at": 1776268938065,
+      "updated_at": 1778255968417,
       "created_by": "ろんめ",
-      "updated_by": "ろんめ"
+      "updated_by": "^^"
     },
     "ENEMY_2": {
       "id": "ENEMY_2",
@@ -1709,5 +1709,5 @@
       "updated_by": "^^"
     }
   },
-  "updated_at": 1778130723483
+  "updated_at": 1778255968419
 }

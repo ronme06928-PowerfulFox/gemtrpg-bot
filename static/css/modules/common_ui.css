@@ -1,10 +1,98 @@
+/* === Design Tokens === */
+:root {
+    /* 背景 */
+    --bg-dark:       #222222;
+    --bg-dark-mid:   #2e2e3a;
+    --bg-light:      #f8f9fa;
+    --bg-modal:      #ffffff;
+
+    /* アクセント: Gold=物理・主要操作 / Cyan=魔法・情報 / Indigo=モーダル主要ボタン */
+    --accent-gold:   #c8a84b;
+    --accent-cyan:   #26c6da;
+    --accent-indigo: #4f46e5;
+
+    /* 機能色 */
+    --color-hp:      #28a745;
+    --color-mp:      #4a90d9;
+    --color-fp:      #e0b84a;
+    --color-danger:  #dc3545;
+    --color-neutral: #6c757d;
+
+    /* テキスト */
+    --text-on-dark:  #e8e8e8;
+    --text-on-light: #333333;
+
+    /* 角丸 */
+    --radius-btn:    6px;
+    --radius-card:   8px;
+    --radius-badge:  12px;
+}
+
+/* === ボタン種別 === */
+.btn-primary {
+    background-color: var(--accent-gold);
+    color: #1a1a1a;
+    border: none;
+    border-radius: var(--radius-btn);
+    padding: 6px 14px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.btn-primary:hover { filter: brightness(1.1); }
+
+.btn-secondary {
+    background-color: var(--accent-cyan);
+    color: #1a1a1a;
+    border: none;
+    border-radius: var(--radius-btn);
+    padding: 6px 14px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.btn-secondary:hover { filter: brightness(1.1); }
+
+.btn-ghost {
+    background-color: transparent;
+    color: var(--text-on-light);
+    border: 1px solid var(--color-neutral);
+    border-radius: var(--radius-btn);
+    padding: 6px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.btn-ghost:hover { background-color: rgba(0, 0, 0, 0.05); }
+
+.btn-danger {
+    background-color: var(--color-danger);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-btn);
+    padding: 6px 14px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.btn-danger:hover { filter: brightness(1.1); }
+
+button:disabled,
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-ghost:disabled,
+.btn-danger:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: none;
+}
+
 /* === 共通UIコンポーネント === */
 
 /* --- スキル詳細表示 --- */
 .skill-detail-display {
     margin-top: 10px;
     padding: 8px;
-    background: #f8f9fa;
+    background: var(--bg-light);
     border: 1px solid #dee2e6;
     border-radius: 4px;
     font-size: 0.85em;
@@ -31,15 +119,15 @@
 }
 
 .badge-category {
-    background-color: #17a2b8;
+    background-color: var(--accent-cyan);
 }
 
 .badge-distance {
-    background-color: #6c757d;
+    background-color: var(--color-neutral);
 }
 
 .badge-attribute {
-    background-color: #ffc107;
+    background-color: var(--color-fp);
     color: #333;
 }
 
@@ -56,7 +144,7 @@
 .skill-desc-text {
     margin-left: 5px;
     white-space: pre-wrap;
-    color: #333;
+    color: var(--text-on-light);
 }
 
 /* --- バー (HP/MP etc) --- */
@@ -76,15 +164,15 @@
 }
 
 .hp-fill {
-    background-color: #28a745;
+    background-color: var(--color-hp);
 }
 
 .mp-fill {
-    background-color: #007bff;
+    background-color: var(--color-mp);
 }
 
 .fp-fill {
-    background-color: #ffc107;
+    background-color: var(--color-fp);
 }
 
 /* --- ステータスアイコン --- */
@@ -117,9 +205,9 @@
 }
 
 .arrow-up {
-    color: #28a745;
+    color: var(--color-hp);
 }
 
 .arrow-down {
-    color: #dc3545;
+    color: var(--color-danger);
 }

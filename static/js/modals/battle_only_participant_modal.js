@@ -55,20 +55,16 @@
         overlay.className = 'modal-backdrop';
 
         const panel = document.createElement('div');
-        panel.className = 'modal-content';
-        panel.style.maxWidth = '760px';
-        panel.style.width = '94vw';
-        panel.style.padding = '18px';
-        panel.style.textAlign = 'left';
+        panel.className = 'modal-content bo-panel--participant';
 
         panel.innerHTML = `
             <h3 style="margin-top:0;">戦闘専用モード状況（プレイヤー）</h3>
             <div id="bo-player-summary" style="margin-bottom:10px; font-size:0.92em;"></div>
-            <div id="bo-player-assign" style="margin-bottom:12px; border:1px solid #ddd; border-radius:6px; padding:10px;"></div>
-            <div id="bo-player-chars" style="border:1px solid #ddd; border-radius:6px; padding:10px;"></div>
-            <div style="text-align:right; margin-top:12px;">
-                <button id="bo-player-refresh-btn" style="padding:8px 12px; margin-right:6px;">更新</button>
-                <button id="bo-player-close-btn" style="padding:8px 14px;">閉じる</button>
+            <div id="bo-player-assign" class="bo-card bo-member-card"></div>
+            <div id="bo-player-chars" class="bo-card"></div>
+            <div class="bo-actions-end" style="margin-top:12px;">
+                <button id="bo-player-refresh-btn" class="bo-btn bo-btn--sm bo-btn--neutral">更新</button>
+                <button id="bo-player-close-btn" class="bo-btn bo-btn--sm bo-btn--neutral">閉じる</button>
             </div>
         `;
 
