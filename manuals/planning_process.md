@@ -112,6 +112,6 @@
 
 ---
 
-## 参考: このプロセスを使って策定した計画書
+## 参考: このプロセスを使って策定し、実装完了後に移管した文書
 
-- [`manuals/planned/24_Quick_Edit_and_UI_Consistency_Plan.md`](planned/24_Quick_Edit_and_UI_Consistency_Plan.md) — UI統一計画（2026-05-07〜08）
+- [`manuals/implemented/24_Quick_Edit_and_UI_Consistency_Summary.md`](implemented/24_Quick_Edit_and_UI_Consistency_Summary.md) — 簡易ステータス編集改善 / 戦闘系UI統一の実装結果要約
