@@ -1,3 +1,21 @@
+<!-- 旧: 11_Advanced_Skill_Extensions_Spec / 19_Fallback_Struggle_Spec / 22_Special_Stack_Resource_Variants_Spec を統合 (2026-05-09) -->
+
+# スキルロジック実装リファレンス Part 2: 拡張機能
+
+**最終更新日**: 2026-05-09
+**系統**: B — 戦闘・スキル仕様
+**統合元**: 11_Advanced_Skill_Extensions_Spec / 19_Fallback_Struggle_Spec / 22_Special_Stack_Resource_Variants_Spec
+
+---
+
+## 本書の構成
+
+- Part 1: → B01_Skill_Logic_Core.md（effect処理基本・条件・亀裂）
+- Part 2（本書）: 拡張機能 — スキル付与/召喚/自滅/フォールバック/スタックVariant
+- 戦闘進行: → B03_SelectResolve_Spec.md
+
+---
+
 **最終更新日**: 2026-02-23
 **対象バージョン**: Current
 **対象機能**: `GRANT_SKILL` / 召喚（次ラウンド行動開始） / 自滅タグ / 死亡時効果の設計指針
@@ -248,7 +266,7 @@
 - HPが0以下になった時に `process_on_death` が呼ばれる
 - `special_buffs` / パッシブの `on_death` を `process_skill_effects(..., timing='IMMEDIATE')` で処理できる
 
-このため「死亡時効果を持つ“スキル”」は、実質的に次の2方式で実現可能。
+このため「死亡時効果を持つ"スキル"」は、実質的に次の2方式で実現可能。
 
 ### 5.2 方式A（推奨）: スキルで死亡時バフを付与する
 
@@ -303,5 +321,247 @@
 
 ---
 
-本書は実装着手前の設計合意用ドキュメントです。実装後は `03_Integrated_Data_Definitions.md` / `07_Skill_Logic_Reference.md` へ仕様統合してください。
+本書は実装着手前の設計合意用ドキュメントです。実装後は `C01_JSON_Definition_Master.md` / `B01_Skill_Logic_Core.md` へ仕様統合してください。
 
+---
+
+## フォールバックスキル: SYS-STRUGGLE / どうにかもがく（統合）
+
+**最終更新日**: 2026-04-24  
+**対象バージョン**: Current  
+**対象機能**: `SYS-STRUGGLE / どうにかもがく`
+
+---
+
+## 1. この仕様の目的（SYS-STRUGGLE）
+
+`SYS-STRUGGLE` は、通常の使用可能スキルが 1 つもない状況で「行動不能にならない」ための最終手段スキルです。  
+このスキルは直接攻撃を行うためではなく、解決フェーズ中に自動防御の準備を行うために使います。
+
+---
+
+## 2. スキルの基本情報（SYS-STRUGGLE）
+
+- スキルID: `SYS-STRUGGLE`
+- スキル名: `どうにかもがく`
+- 分類: `防御`
+- 対象: `自分`
+- 基礎威力: `0`
+- ダイス威力: `0`
+
+説明文:
+
+- 特記: 物理補正もしくは魔法補正のうち、より高い方の値をこのスキルの威力として扱う。
+- 発動時効果: (ラウンド終了時):物理補正を参照したなら、FPを1得る。魔法補正を参照したなら、MPを1得る。
+
+---
+
+## 3. 出現条件（SYS-STRUGGLE）
+
+`SYS-STRUGGLE` は次の条件を満たすときだけ使用可能です。
+
+- 通常スキルの使用可能候補が 0 件
+
+通常スキルが 1 件でも使える場合は候補に出ません。  
+この判定は UI だけでなく、`battle_intent_commit` と `battle_intent_change_skill` でもサーバー側で再検証します。
+
+---
+
+## 4. 威力の決まり方（SYS-STRUGGLE）
+
+`どうにかもがく` の威力は、ダイスではなく補正値の比較で決まります。
+
+- 威力 = `max(物理補正, 魔法補正)`
+- 同値なら `物理補正` を優先
+
+例:
+
+1. `物理補正=4`, `魔法補正=7` の場合: 威力は `7`（魔法補正参照）
+2. `物理補正=6`, `魔法補正=6` の場合: 威力は `6`（物理補正参照）
+
+---
+
+## 5. 自動防御の流れ（SYS-STRUGGLE）
+
+### 5.1 宣言時
+
+`どうにかもがく` を宣言すると、その解決フェーズ中のみ有効な自動防御チャージを 1 つ獲得します。
+
+### 5.2 発動時
+
+チャージを持つキャラクターが一方攻撃を受けたとき、チャージを 1 つ消費して自動防御を発動します。  
+解決は通常の `attack vs defense` マッチとして扱います。
+
+### 5.3 複数回宣言した場合
+
+同じ解決フェーズ中に複数回 `どうにかもがく` を使用していれば、使用回数分だけチャージを持てます。  
+一方攻撃を受けるたびに 1 つずつ消費されます。
+
+### 5.4 持ち越し
+
+未使用チャージは次の解決フェーズに持ち越しません。
+
+---
+
+## 6. ラウンド終了時の回復（SYS-STRUGGLE）
+
+回復は「自動防御が実際に発動し、威力参照まで行われた回数」に対して発生します。
+
+- 物理補正を参照した防御 1 回ごとに `FP +1`
+- 魔法補正を参照した防御 1 回ごとに `MP +1`
+
+複数回自動防御が発動した場合は、その回数分だけ回復します。
+
+---
+
+## 7. ログ表示の方針（SYS-STRUGGLE）
+
+自動防御専用の特別ログは追加しません。  
+通常のマッチと同じ表示ルールで、解決フェーズと結果ログに出力します。
+
+---
+
+## 8. 処理順の要点（SYS-STRUGGLE）
+
+処理順の意図をまとめると次の通りです。
+
+1. 使用可能スキル判定で通常候補が 0 件なら `SYS-STRUGGLE` を許可
+2. `SYS-STRUGGLE` 宣言時に自動防御チャージを獲得
+3. 一方攻撃を受けた時にチャージを消費して `clash` として解決
+4. 解決時にどの補正を参照したかを保持
+5. ラウンド終了時に保持情報を見て `FP` または `MP` を回復
+6. 解決フェーズ終了時に未使用チャージを破棄
+
+---
+
+## 9. 実装ファイル（SYS-STRUGGLE）
+
+- システムスキル定義: `manager/battle/system_skills.py`
+- 使用可能判定: `manager/battle/skill_access.py`
+- プレビュー/威力計算: `manager/game_logic.py`
+- 宣言検証: `events/battle/common_routes.py`
+- 単体解決/自動防御消費: `manager/battle/resolve_auto_single_phase.py`
+- ラウンド終了時回復: `manager/battle/common_manager.py`
+- 宣言UI: `static/js/battle/components/DeclarePanel.js`
+
+---
+
+## 10. 検証済みテスト（SYS-STRUGGLE）
+
+- `tests/test_sys_struggle.py`
+- `tests/test_target_scope_aliases.py`
+- `tests/test_skill_catalog_smoke.py`
+- `tests/test_select_resolve_smoke.py`
+
+---
+
+## 特殊スタックリソースVariant仕様（統合）
+
+最終更新: 2026-05-05
+
+## 1. 目的（スタックVariant）
+
+本書は、`凝魔` / `蓄力` の「特殊化（variant化）」仕様を、実装ベースで一元化する。
+
+- 対象コード:
+  - `manager/utils.py`
+  - `manager/game_logic.py`
+  - `plugins/burst.py`
+  - `static/js/modals.js`
+- 対象テスト:
+  - `tests/test_stack_resource_variants.py`
+  - `tests/test_rupture_burst_consumption.py`
+
+## 2. 共通モデル（特殊凝魔・特殊蓄力）
+
+`凝魔` / `蓄力` は、いずれも「スタック資源 + variant」の共通モデルで扱う。
+
+- 資源本体:
+  - `凝魔`: `Bu-31`
+  - `蓄力`: `Bu-30`
+- variantキー:
+  - `variant`（buff row直下 or `data.variant`）
+- 変換エフェクト:
+  - `CONVERT_STACK_RESOURCE_VARIANT`
+- 基本ルール:
+  1. variant変換はスタック数を保持する
+  2. 変換対象スタックが不足（通常 `require_count_gte=1`）なら不発
+  3. 一度variant化した後も、加算/消費後にvariantは保持される
+
+## 3. 特殊凝魔（凝魔-血漿）
+
+### 3.1 variant名
+
+- `blood_plasma`
+
+### 3.2 変換
+
+- `CONVERT_STACK_RESOURCE_VARIANT` で `to_variant: "blood_plasma"` を指定
+
+### 3.3 効果差し替え
+
+- 通常凝魔の基礎効果（魔法補正への10刻み加算）を無効化
+- 代替で以下を有効化:
+  - 自分以外へ出血付与時: `floor(凝魔スタック / 10)` を加算
+  - 自分の出血参照値: `凝魔スタック` を加算
+
+## 4. 特殊蓄力（蓄力-誘爆）
+
+### 4.1 variant名
+
+- 正式: `burst_guidance`
+- 互換alias:
+  - `explosion_guidance`
+  - `induce_burst`
+  - `induced_burst`
+
+### 4.2 変換（爆破誘導）
+
+- `CONVERT_STACK_RESOURCE_VARIANT` で `to_variant: "burst_guidance"` を指定
+
+### 4.3 効果差し替え
+
+- 通常蓄力の基礎効果（物理補正への10刻み加算）を無効化
+- 代替で以下を有効化（HIT時の自動誘爆）:
+  1. 攻撃者と対象が敵対陣営
+  2. 対象の破裂が `1` 以上
+  3. 攻撃者の蓄力variantが `burst_guidance` 系
+  4. 攻撃者の蓄力スタックが `10` 以上
+  5. 条件を満たしたら蓄力を `10` 消費して `破裂爆発` を発動
+  6. この誘爆由来の破裂爆発は `no_rupture_consume=True` で実行し、対象の破裂を消費しない
+
+### 4.4 1ヒット解釈
+
+- 実装上は `HIT` タイミング解決単位で判定
+- 範囲攻撃は対象ごとに `HIT` 解決するため、対象ごとに個別判定される
+
+## 5. UI表示仕様（スタックVariant）
+
+- `Bu-31 + blood_plasma` は表示上 `Bu-48`（凝魔-血漿）として扱う
+- `Bu-30 + burst_guidance系` は表示上 `Bu-49`（蓄力-誘爆）として扱う
+- 対象実装: `static/js/modals.js`
+
+## 6. JSONビルダー運用（スタックVariant）
+
+自然言語からの変換では、以下の解釈を使う。
+
+- `血漿転化`:
+  - `CONVERT_STACK_RESOURCE_VARIANT`
+  - `buff_name: "凝魔"`
+  - `to_variant: "blood_plasma"`
+- `爆破誘導`:
+  - `CONVERT_STACK_RESOURCE_VARIANT`
+  - `buff_name: "蓄力"`
+  - `to_variant: "burst_guidance"`
+
+## 7. 実装上の注意点（スタックVariant）
+
+1. variantを使う設計では、既存の通常スタック基礎補正と二重適用しないこと
+2. variant情報は `APPLY_BUFF` の再適用時に消さないこと（`data.variant` 維持）
+3. 破裂爆発の共通実装（`plugins/burst.py`）を使い、特殊蓄力だけ別実装に分岐させないこと
+
+## 8. 現時点の未確定事項（拡張検討）
+
+1. `蓄力-誘爆` の1ターン発動上限を設けるか
+2. 連続再使用（`USE_SKILL_AGAIN`）時の誘爆回数制御を行うか
+3. 将来的な「特殊蓄力variant」追加時に aliasポリシーをどう統一するか

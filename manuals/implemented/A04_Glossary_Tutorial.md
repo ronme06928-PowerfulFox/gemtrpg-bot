@@ -1,3 +1,4 @@
+<!-- 旧: 10_Glossary_User_Tutorial.md を A 系列へ移管 (2026-05-09) -->
 # 用語図鑑（Glossary）機能 チュートリアル
 
 **最終更新日**: 2026-02-21  
@@ -123,5 +124,5 @@
 
 ## 5. 関連資料
 
-- 仕様定義: `manuals/implemented/03_Integrated_Data_Definitions.md`
-- データ定義: `manuals/implemented/03_Integrated_Data_Definitions.md`
+- 仕様定義: `manuals/implemented/C01_JSON_Definition_Master.md`
+- データ定義: `manuals/implemented/C01_JSON_Definition_Master.md`

@@ -5,7 +5,7 @@
 ---
 
 あなたはTypstドキュメント作成者です。  
-`manuals/implemented/15_JSON_Definition_Master.md` を唯一の仕様ソースとして、  
+`manuals/implemented/C01_JSON_Definition_Master.md` を唯一の仕様ソースとして、  
 「スキル定義・バフ定義JSONの統合マニュアル」を **Typst 1ファイル** で生成してください。
 
 ## 出力要件
@@ -53,5 +53,5 @@
 
 補助入力として必要なら次も参照可:
 
-- `manuals/implemented/16_Manual_Update_Protocol_and_Feature_Roadmap.md`
+- `manuals/implemented/F01_Operations_Manual.md`（Part2: マニュアル更新プロトコル）
 

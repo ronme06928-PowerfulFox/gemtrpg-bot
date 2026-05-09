@@ -1,3 +1,4 @@
+<!-- 旧: 02_Integrated_GM_Creator_Manual.md を A 系列へ移管 (2026-05-09) -->
 # ジェムリアTRPGダイスボット 統合マニュアル (GM・管理者編)
 
 **最終更新日**: 2026-04-08
@@ -57,17 +58,17 @@ GM権限でログインすると、プレイヤー画面にはない管理用コ
 ## 2. データ定義の概要
 
 本ツールはJSONベースのデータ定義により拡張可能です。
-以下のカテゴリに関する詳細仕様は、別冊の **`03_Integrated_Data_Definitions.md` (統合データ定義マニュアル)** を参照してください。
+以下のカテゴリに関する詳細仕様は、別冊の **`C01_JSON_Definition_Master.md` (統合JSON定義マニュアル)** を参照してください。
 
 * **スキル定義**: 特記処理 (Special Effects) の記述仕様
 * **バフ定義**: `buff_id` 基準の静的/テンプレート定義、プラグイン定義
 * **アイテム定義**: `items_cache.json` の構造
 * **輝化・出身定義**: パッシブスキルおよび出身による自動効果
-* **用語図鑑定義**: 図鑑シート列と埋め込み記法（`manuals/implemented/03_Integrated_Data_Definitions.md`）
+* **用語図鑑定義**: 図鑑シート列と埋め込み記法（`manuals/implemented/C01_JSON_Definition_Master.md`）
 * **外部画像**: Cloudinary連携の設定方法
 
 補助チュートリアル:
-* **利用者向け用語図鑑ガイド**: `manuals/implemented/10_Glossary_User_Tutorial.md`
+* **利用者向け用語図鑑ガイド**: `manuals/implemented/A04_Glossary_Tutorial.md`
 
 ### 2.1 JSON定義ビルダー（CharaCreator）追補: 震盪テンプレ
 

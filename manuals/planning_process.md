@@ -114,4 +114,4 @@
 
 ## 参考: このプロセスを使って策定し、実装完了後に移管した文書
 
-- [`manuals/implemented/24_Quick_Edit_and_UI_Consistency_Summary.md`](implemented/24_Quick_Edit_and_UI_Consistency_Summary.md) — 簡易ステータス編集改善 / 戦闘系UI統一の実装結果要約
+- [`manuals/implemented/E02_UI_Component_Specs.md`](implemented/E02_UI_Component_Specs.md) — UIコンポーネント仕様書（簡易ステータス編集改善 / 戦闘系UI統一の実装結果を含む）

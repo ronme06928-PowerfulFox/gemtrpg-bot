@@ -1,3 +1,4 @@
+<!-- 旧: 09_SelectResolve_Spec.md を B 系列へ移管 (2026-05-09) -->
 # 09 Select/Resolve 確定仕様書 v1.2
 
 **最終更新日**: 2026-03-28
@@ -86,7 +87,7 @@ RoundStart は次の順序で処理する。
 - その結果、相互指定が崩れた引き寄せ側は `one-sided` へ移行し得る。
 - 追加固定ルール（2026-03-28）: `target_scope=same_team`（互換: `ally`、同陣営指定/味方指定）スキルは宣言時に `no_redirect` 相当として扱う。
 
-## 8. Resolve（処理順：Mass最優先→Singleはtimeline、clashは相互指定のみ、one-sidedの対象は“選択時の対象スロットのactor”、1スロット複数絡みはclash1組のみ、コストは実行時、対象消失＝未配置なら不発）
+## 8. Resolve（処理順：Mass最優先→Singleはtimeline、clashは相互指定のみ、one-sidedの対象は"選択時の対象スロットのactor"、1スロット複数絡みはclash1組のみ、コストは実行時、対象消失＝未配置なら不発）
 処理順:
 - Mass を最優先で解決する。
 - Mass 同士は initiative 降順、同速は追加ロール順。
@@ -175,7 +176,7 @@ Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSE
 - 該当なしは `one-sided`。
 - `mass` スロット自身の通常コストは Resolve 開始時に1回だけ先払いする（`cost_consumed_at_resolve_start=true` で二重消費防止）。
 
-### 10.2 mass_summation：攻撃側威力A、参加は“Sをtargetしているスロットのみ”、1キャラ1スロット（initiative最大）、D=合計、A vs D
+### 10.2 mass_summation：攻撃側威力A、参加は"Sをtargetしているスロットのみ"、1キャラ1スロット（initiative最大）、D=合計、A vs D
 - 攻撃側スロット S の威力を A とする。
 - 防御参加は「S を target にしているスロットのみ」。
 - 防御側は1キャラ1スロットのみ参加可能（initiative 最大を採用）。
@@ -365,7 +366,7 @@ battle_error:
 ---
 
 ## 13. 参照リンク（タイミング実行時期）
-- 効果タイミングの実行時期一覧は `manuals/implemented/03_Integrated_Data_Definitions.md` の
+- 効果タイミングの実行時期一覧は `manuals/implemented/C01_JSON_Definition_Master.md` の
   「付録: 効果タイミング実行時期一覧（実装準拠 / 2026-02）」を参照。
 - 解決フェーズ特有の運用（`RESOLVE_START` 以降）は本書の「9.1」「付録A」を参照。
 

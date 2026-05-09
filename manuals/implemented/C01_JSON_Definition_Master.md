@@ -1,7 +1,17 @@
-# 20. JSON定義マニュアル（Phase3 strict v2 正本）
+<!-- 旧: 20 / 17_Phase3_Strict_Errata / 15 / 03 を統合。20 が正本。(2026-05-09) -->
 
-最終更新: 2026-05-05  
-対象: 実装済み（Current）
+# JSON定義マニュアル（正本・統合版）
+
+**最終更新日**: 2026-05-09
+**系統**: C — データ定義（JSON）
+**統合元**: 20_JSON_Definition_Strict_v2 / 17_Phase3_Strict_Errata / 15_JSON_Definition_Master / 03_Integrated_Data_Definitions
+**優先順位**: 本書 > 旧20 = 旧17 > 旧15 > 旧03
+
+---
+
+## 本書の位置づけ
+
+本書は旧 20（strict v2 正本）を中心に、旧 17（Phase3 差分補正）・旧 15（運用マスター）・旧 03（データ定義ガイド）を統合した JSON 定義の唯一正本です。矛盾がある場合は新しい記述（旧20・旧17）を優先します。
 
 ---
 
@@ -135,8 +145,8 @@
 ---
 
 ## 8. 参照優先順位
-1. 本書（20）
-2. `implemented/17_Phase3_Strict_Errata.md`
+1. 本書
+2. 実装コード（validator / runtime）
 
 ---
 
@@ -207,4 +217,69 @@
 - `random_target_scope`: `enemy`（既定）/ `ally` / `any`
 - Resolve 開始直前に生存・配置済みスロットからランダム選択し `single_slot` に確定する。
 - 候補なし時は `none` にフォールバックする。
-3. `implemented/15_JSON_Definition_Master.md`
+
+---
+
+## Phase3 Strict 補正事項（旧17統合）
+
+### Phase3で有効なルール
+1. `APPLY_BUFF` は `buff_id` 必須。  
+2. `REMOVE_BUFF` は `buff_id` 必須。  
+3. `buff_name` 単独指定はエラー。  
+4. 動的命名バフ（例: `Power_Atk5`）による効果決定は行わない。  
+5. 効果強度は `buff_id + data.value` で扱う。
+
+### 既存資料で読み替える箇所
+- `buff_id/buff_name` と書かれている箇所は `buff_id` のみ有効。
+- `REMOVE_BUFF needs buff_name` と書かれている箇所は `buff_id` 必須へ読み替え。
+- 動的パターン表（`_Atk{N}` 等）は履歴情報としてのみ扱い、現行運用には使わない。
+
+---
+
+## 運用ガイド補足（旧15・旧03統合）
+
+### よく使うeffect一覧（旧15より）
+- `APPLY_STATE`
+- `APPLY_BUFF`
+- `APPLY_BUFF_PER_N`
+- `REMOVE_BUFF`
+- `DAMAGE_BONUS`
+- `CUSTOM_EFFECT`
+- `GRANT_SKILL`
+- `SUMMON_CHARACTER`
+
+### テンプレート（貼り付け用）
+
+**スキル特記2行版**  
+1行目: 管理ラベル  
+2行目:
+```json
+{"schema":"skill_json_rule_v2","id":"SKILL_TEMPLATE","power_bonus":[],"cost":[],"effects":[]}
+```
+
+**カテゴリ封印例**
+```json
+{"schema":"skill_json_rule_v2","id":"SKILL_CC_MAGIC_BLOCK","effects":[{"timing":"PRE_MATCH","type":"APPLY_BUFF","target":"target","buff_id":"Bu-XX","lasting":2,"data":{"skill_constraints":[{"id":"cc_magic_block","mode":"block","priority":100,"match":{"category":"魔法"},"reason":"魔法封印"}]}}]}
+```
+
+### バフ定義（buff_catalog）補足（旧03より）
+- バフは `buff_id` で識別する。
+- 判定ロジックは `buff_id` 基準。
+- 表示は `display_name` 優先。
+- `Bu-32`〜`Bu-47` はサーバ実装で固定解釈。
+
+### GM運用ルール（旧03より）
+- GMバフ付与: `buff_id` 必須
+- GMバフ解除: `buff_id` 必須
+- `buff_name` ベース運用は行わない
+
+### フィールド効果 match 記法例（旧03より）
+```json
+{"id":"field_fp_block","mode":"block","priority":100,"match":{"cost_types":["FP"]},"reason":"FP消費技封印"}
+```
+
+### 禁止記法（Phase3）
+- `buff_name` だけでバフ付与/解除する記法
+- 動的命名バフ（`Power_Atk5` 等）依存
+- `schema` 未指定の特記JSON
+- 旧「動的命名バフ」（例: `Power_Atk5`）は運用終了。新規データ作成時は必ずセクション2のテンプレートを使用する。

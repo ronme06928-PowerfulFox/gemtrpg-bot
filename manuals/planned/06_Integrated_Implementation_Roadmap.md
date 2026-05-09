@@ -2,7 +2,7 @@
 
 **更新日**: 2026-05-09  
 **対象**: `manuals/planned/03_*`, `manuals/planned/05_*`  
-**補足**: planned/04 由来の UI/演出改善は `manuals/planned/04_TRPG_Session_Improvement_Feasibility_Plan.md`, `manuals/implemented/09_SelectResolve_Spec.md`, `manuals/implemented/06_Visual_Battle_Architecture.md` へ統合済みであり、本書の対象外とする。
+**補足**: planned/04 由来の UI/演出改善は `manuals/planned/04_TRPG_Session_Improvement_Feasibility_Plan.md`, `manuals/implemented/B03_SelectResolve_Spec.md`, `manuals/implemented/E01_Visual_Battle_Architecture.md` へ統合済みであり、本書の対象外とする。
 
 ---
 
@@ -44,9 +44,9 @@
 **目的**: 実装前に仕様の正本をそろえる。
 
 - 更新先
-  - `manuals/implemented/03_Integrated_Data_Definitions.md`
-  - `manuals/implemented/08_Skill_Logic_Reference.md`
-  - `manuals/implemented/09_SelectResolve_Spec.md`
+  - `manuals/implemented/C01_JSON_Definition_Master.md`
+  - `manuals/implemented/B01_Skill_Logic_Core.md`
+  - `manuals/implemented/B03_SelectResolve_Spec.md`
 - そろえる項目
   - `state_receive_bonus`
   - `condition.source=battle,param=round`
@@ -137,12 +137,12 @@
 **目的**: Manual15 の更新プロトコルに従って、確定仕様を正本へ戻し、図鑑系はユーザー更新フローへ接続する。
 
 - 更新先
-  - `manuals/implemented/03_Integrated_Data_Definitions.md`
-  - `manuals/implemented/08_Skill_Logic_Reference.md`
-  - `manuals/implemented/09_SelectResolve_Spec.md`
-  - 必要に応じて `manuals/implemented/01_Integrated_Player_Manual.md`
-  - 必要に応じて `manuals/implemented/02_Integrated_GM_Creator_Manual.md`
-  - 必要に応じて `manuals/implemented/04_Character_Build_Guide.md`
+  - `manuals/implemented/C01_JSON_Definition_Master.md`
+  - `manuals/implemented/B01_Skill_Logic_Core.md`
+  - `manuals/implemented/B03_SelectResolve_Spec.md`
+  - 必要に応じて `manuals/implemented/A01_Player_Manual.md`
+  - 必要に応じて `manuals/implemented/A02_GM_Creator_Manual.md`
+  - 必要に応じて `manuals/implemented/A03_Character_Build_Guide.md`
 - ユーザー向け更新案内
   - Glossary シート
   - Buff Catalog シート
@@ -183,7 +183,7 @@
 
 - Manual14 由来の UI/演出改善は、本書から除外した。
 - 実施結果の要約は `manuals/planned/04_TRPG_Session_Improvement_Feasibility_Plan.md`
-- Select/Resolve の恒常仕様は `manuals/implemented/09_SelectResolve_Spec.md`
-- Visual Battle 側の構造整理は `manuals/implemented/06_Visual_Battle_Architecture.md`
+- Select/Resolve の恒常仕様は `manuals/implemented/B03_SelectResolve_Spec.md`
+- Visual Battle 側の構造整理は `manuals/implemented/E01_Visual_Battle_Architecture.md`
 
 今後、UI関係の追記は 17 ではなく上記3冊へ直接反映する。

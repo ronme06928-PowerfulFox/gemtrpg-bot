@@ -366,7 +366,7 @@
 
 ## 4.5 経過ターンを発動条件にしたスキル ✅ 実装済み (2026-05-09)
 
-> 詳細仕様は `manuals/implemented/08_Skill_Logic_Reference.md` セクション 12.1 を参照。  
+> 詳細仕様は `manuals/implemented/B01_Skill_Logic_Core.md` セクション 12.1 を参照。  
 > 計画書 `planned/14_Elapsed_Turn_Condition_Plan.md` は削除済み。
 
 ### 実現可能性
@@ -425,7 +425,7 @@
 
 ## 4.6 ランダムターゲット技（敵味方含む）✅ 実装済み (2026-05-09)
 
-> 詳細仕様は `manuals/implemented/08_Skill_Logic_Reference.md` セクション 12.3 を参照。  
+> 詳細仕様は `manuals/implemented/B01_Skill_Logic_Core.md` セクション 12.3 を参照。  
 > 計画書 `planned/15_Random_Target_Skill_Plan.md` は削除済み。
 
 ### 実現可能性
@@ -492,7 +492,7 @@
 
 ## 4.7 同一効果を複数回発動する JSON 定義 ✅ 実装済み (2026-05-09)
 
-> 詳細仕様は `manuals/implemented/08_Skill_Logic_Reference.md` セクション 12.2 を参照。
+> 詳細仕様は `manuals/implemented/B01_Skill_Logic_Core.md` セクション 12.2 を参照。
 
 ### 実現可能性
 

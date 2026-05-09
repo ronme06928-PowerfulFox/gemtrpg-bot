@@ -14,8 +14,8 @@
 
 移設先:
 
-- `manuals/implemented/14_GM_Buff_Item_Operations_Spec.md`
-- `manuals/implemented/02_Integrated_GM_Creator_Manual.md`（運用導線）
+- `manuals/implemented/F01_Operations_Manual.md`（Part1: GMバフ・アイテム操作）
+- `manuals/implemented/A02_GM_Creator_Manual.md`（運用導線）
 
 ## 2. 現時点の残課題
 
