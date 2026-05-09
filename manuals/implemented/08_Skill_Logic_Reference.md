@@ -1,6 +1,6 @@
 # スキルロジック実装リファレンス（実装準拠）
 
-**最終更新日**: 2026-05-05  
+**最終更新日**: 2026-05-09  
 **対象実装**: `manager/game_logic.py` / `manager/battle/core.py` / `events/battle/common_routes.py`
 
 ---
@@ -285,3 +285,120 @@
 - `apply_count = floor(source_value / per_N) * value` で付与スタック数を算出する。
 - `max_count` があれば `apply_count` に上限をかける。
 - 実付与時は通常 `APPLY_BUFF` と同じスタック加算経路へ流し込み、ログは「付与」と「スタック増分」を分離して出力する。
+
+---
+
+## 12. 2026-05 追補: バトル条件 / 繰り返しエフェクト / ランダム単体ターゲット
+
+### 12.1 `condition.source=battle`（ラウンド数条件）
+
+`check_condition` の `source` に `battle` を指定すると、バトルの進行状態（現在ラウンド数）を参照できる。
+
+**対応 `param`**:
+
+| param | 意味 |
+|---|---|
+| `round` | 現在のラウンド数（整数）|
+
+**解決順序**:
+1. `context["round"]`
+2. `context["current_round"]`
+3. `context["battle_state"]["round"]`
+4. 取得不能時は `0` を返す（条件 `false` になりやすい設計）
+
+**JSON 例**:
+```json
+{
+  "condition": {
+    "source": "battle",
+    "param": "round",
+    "operator": "GTE",
+    "value": 3
+  }
+}
+```
+→ 3ラウンド以降のみ発動。`EQUALS` で「ちょうど N ラウンド目のみ」も可。
+
+**ポイント**:
+- `source=battle` はキャラクター状態（self/target）と独立しているため、`source_obj` は空オブジェクト `{}` として渡される。
+- condition の `source=battle` は `power_bonus_rules` の `condition` にも使用可能。
+
+---
+
+### 12.2 `effects[].repeat_count`（エフェクト繰り返し）
+
+`effects[]` の各エントリに `repeat_count` を付与すると、そのエフェクトを **N 回分展開**してから処理する。  
+実装上は `process_skill_effects()` の冒頭で `_expand_repeated_effects()` がリストを展開し、以降は通常のエフェクトループが処理する。
+
+**フィールド仕様**:
+
+| フィールド | 型 | 既定値 | 説明 |
+|---|---|---|---|
+| `repeat_count` | 正の整数 | `1` | このエフェクトを何回繰り返すか |
+
+**動作ルール**:
+- 1回ごとに通常の `condition` 判定を行う（条件を満たさなければ1回でもスキップ）
+- 1回ごとに通常の `target` 解決を行う（`target_select=RANDOM` は毎回再抽選）
+- 省略 / `1` の場合は従来と同等の動作
+
+**JSON 例（出血+2 を 3 回）**:
+```json
+{
+  "timing": "HIT",
+  "type": "APPLY_STATE",
+  "target": "target",
+  "state_name": "出血",
+  "value": 2,
+  "repeat_count": 3
+}
+```
+→ 対象に出血+2 が 3 回適用される（合計 +6 相当）。
+
+**JSON 例（ランダム対象に毎回別の対象で 3 回）**:
+```json
+{
+  "timing": "HIT",
+  "type": "APPLY_STATE",
+  "target_select": "RANDOM",
+  "target_filter": "ENEMY",
+  "target_count": 1,
+  "state_name": "出血",
+  "value": 1,
+  "repeat_count": 3
+}
+```
+→ 毎回 ENEMY からランダムに 1 体を選んで出血+1 を 3 回与える（対象は毎回変わりうる）。
+
+---
+
+### 12.3 `target.type=random_single`（ランダム単体ターゲット）
+
+> **注意**: これはスキルのエフェクト内 `target` ではなく、**バトルインテント**（誰を狙うか宣言）レベルの設定です。  
+> 主に NPC / PvE 自動バトルで「毎ラウンドランダムな敵を狙わせる」用途に使います。
+
+**インテント形式**:
+```json
+{
+  "target": {
+    "type": "random_single",
+    "random_target_scope": "enemy"
+  }
+}
+```
+
+**`random_target_scope` の値**:
+
+| 値 | 対象 |
+|---|---|
+| `enemy`（既定） | 攻撃側と反対チームの生存・配置済みスロット |
+| `ally` | 攻撃側と同チームの生存・配置済みスロット（自スロット除く） |
+| `any` | チーム問わず生存・配置済みスロット（自スロット除く） |
+
+**動作タイミング**:
+- `resolve_random_intents(state, battle_state, intents)` が `_build_resolve_queues()` 直前に呼ばれ、`random_single` を `single_slot` に書き換える。
+- 候補が存在しない場合（全滅など）は自動で `type: none`（対象なし）にフォールバック。
+
+**実装ファイル**:
+- `events/battle/common_routes.py` — `_default_target()` / `_validate_and_normalize_target()`
+- `manager/battle/resolve_queue_helpers.py` — `resolve_random_intents()`
+- `manager/battle/resolve_auto_runtime.py` / `resolve_auto_mass_phase.py` — 呼び出し箇所

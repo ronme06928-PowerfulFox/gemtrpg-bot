@@ -336,7 +336,7 @@
     const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","APPLY_BUFF_PER_N","MULTIPLY_STATE","APPLY_BUFF","CONSUME_BUFF_COUNT_FOR_GAIN","CONSUME_BUFF_COUNT_FOR_POWER","CONVERT_STACK_RESOURCE_VARIANT","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER"];
     const TARGETS = ["","self","target","ALL_ENEMIES","ALL_ALLIES","ALL_OTHER_ALLIES","ALL","NEXT_ALLY"];
     const POWER_OPS = ["FIXED","FIXED_IF_EXISTS","PER_N_BONUS","MULTIPLY"];
-    const COND_SOURCES = ["self","target","skill","target_skill","relation"];
+    const COND_SOURCES = ["self","target","skill","target_skill","relation","battle"];
     const COND_OPS = ["GTE","LTE","GT","LT","EQUALS","CONTAINS"];
     const COND_OP_MEANINGS = {
       GTE: "以上（>=）",
@@ -347,19 +347,22 @@
       CONTAINS: "含む（配列/tags向け）"
     };
     const RELATION_PARAMS = ["same_team","target_is_ally","target_is_enemy"];
+    const BATTLE_PARAMS = ["round"];
     const COND_SOURCE_MEANINGS = {
       self: "自分（actor）の状態値を参照します。例: HP / MP / FP / 速度値。",
       target: "対象（target）の状態値を参照します。例: targetの破裂や出血。",
       skill: "発動者側スキル（actor_skill）の情報を参照します。主に param=tags + CONTAINS。",
       target_skill: "対象側スキル（target_skill）の情報を参照します。主に相手スキルの tags 判定に使います。対抗相手のスキル情報が無い場面では条件は false になります。",
-      relation: "actor と target の陣営関係を 0/1 で参照します。param は same_team / target_is_ally / target_is_enemy を使います。"
+      relation: "actor と target の陣営関係を 0/1 で参照します。param は same_team / target_is_ally / target_is_enemy を使います。",
+      battle: "バトルの状態（ラウンド数など）を参照します。param=round でその時点のラウンド数を取得できます。"
     };
     const COND_SOURCE_PARAM_HINTS = {
       self: "推奨param: HP / MP / FP / 速度値 / 各種状態名 / 凝魔_count / 蓄力_count / buff_count:凝魔 / 状態異常スタック合計:出血,破裂,亀裂,戦慄,荊棘（列挙必須）",
       target: "推奨param: HP / MP / FP / 速度値 / 破裂 / 出血 / 亀裂 / 凝魔_count / 蓄力_count / 状態異常スタック合計:出血,破裂,亀裂（列挙必須）",
       skill: "推奨param: tags（operator=CONTAINS 推奨）",
       target_skill: "推奨param: tags（operator=CONTAINS 推奨）",
-      relation: "推奨param: same_team / target_is_ally / target_is_enemy（EQUALS 0/1）"
+      relation: "推奨param: same_team / target_is_ally / target_is_enemy（EQUALS 0/1）",
+      battle: "推奨param: round（現在ラウンド数。例: operator=GTE, value=3 → 3ラウンド以降に発動）"
     };
     const TIMING_MEANINGS = {
       PRE_MATCH: "判定前の事前処理。威力補正・付与準備向け。",
@@ -421,6 +424,10 @@
     ];
     const HELP_ROWS = [["schema","現行は skill_json_rule_v2 固定で必須"],["id","任意だが推奨。未入力でも実行可能"],["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","的中時/勝利時/敗北時"],["condition.source: target_skill","対象側が宣言したスキル情報（主に tags）を参照。相手スキル情報が無い場面では条件false"],["condition.source: relation","actor-targetの関係を参照。paramは same_team / target_is_ally / target_is_enemy（0/1判定）"],["condition.param: 蓄力_count","対象の特殊バフcountを参照"],["condition.param: buff_count:凝魔","buff_count接頭辞でも特殊バフcountを参照"],["type: APPLY_BUFF","現行は buff_id 指定で付与"],["type: REMOVE_BUFF","現行は buff_id 指定で解除"],["APPLY_BUFF(Bu-11/Bu-12)","加速/減速は lasting=1, delay=1（次ラウンド有効）を推奨"],["APPLY_BUFF.count","スタック系バフの付与回数（凝魔/蓄力など）"],["type: CONSUME_BUFF_COUNT_FOR_GAIN","指定スタックを消費し、FP/MP/HPやバフ付与を行う"],["type: CONSUME_BUFF_COUNT_FOR_POWER","指定スタックを消費し、基礎/最終威力を増減"],["state_receive_bonus","受け手側の状態付与補正（例: 震盪で受ける破裂付与量+N）"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","旧式の動的バフ命名（新規は非推奨）"]];
     HELP_ROWS.push(["condition.param: 状態異常スタック合計:出血,破裂,...","状態異常スタック合算。省略形（状態名なし）は不可。"]);
+    HELP_ROWS.push(["condition.source: battle, param: round","現在のラウンド数を参照。例: source=battle, param=round, operator=GTE, value=3 → 3ラウンド以降のみ発動"]);
+    HELP_ROWS.push(["effects[].repeat_count","同じエフェクトをN回繰り返す（省略=1）。例: repeat_count=3 で出血+2を3回 → 合計+6相当。ランダム抽選がある場合は毎回抽選される"]);
+    HELP_ROWS.push(["target.type: random_single（インテント）","バトルインテントレベルの設定。スキルJSON外（NPC行動定義等）でランダムターゲット指定。random_target_scope: enemy/ally/any"]);
+    HELP_ROWS.push(["effects[].target_select: RANDOM","エフェクトレベルのランダム対象選択（既存機能）。target_filter: ENEMY/ALLY/ALL, target_count: N"]);
     const DYNAMIC_BUFF_PATTERNS = [
       { suffix: "_ActN",   meaning: "行動回数 +N",               effect: "stat_mods.行動回数",                       example: "迅速_Act2",         regex: /^(.*)_Act(\d+)$/ },
       { suffix: "_AtkN",   meaning: "攻撃タグ時の最終威力 +N",   effect: "power_bonus(FIXED, apply_to=final)",     example: "猛攻_Atk5",         regex: /^(.*)_Atk(\d+)$/ },
@@ -1756,6 +1763,9 @@
         if(src==="relation" && param && !RELATION_PARAMS.includes(param)){
           extra=` / 注意: relation では param=${RELATION_PARAMS.join(" / ")} のみ有効`;
         }
+        if(src==="battle" && param && !BATTLE_PARAMS.includes(param)){
+          extra=` / 注意: battle では param=${BATTLE_PARAMS.join(" / ")} のみ有効`;
+        }
         paramHelp.textContent=`paramガイド: ${COND_SOURCE_PARAM_HINTS[src]||"状態値/配列タグのキー名を指定"}${extra}`;
       };
       if(opSel) opSel.addEventListener("change",sync);
@@ -1797,6 +1807,9 @@
       if(raw._cond_enabled && !raw.condition) warns.push("conditionをONにしていますが、source/param/operator/valueが未入力です");
       if(raw.condition?.source==="relation" && !RELATION_PARAMS.includes(String(raw.condition?.param||""))){
         warns.push(`relation の param は ${RELATION_PARAMS.join(" / ")} を使用してください`);
+      }
+      if(raw.condition?.source==="battle" && !BATTLE_PARAMS.includes(String(raw.condition?.param||""))){
+        warns.push(`battle の param は ${BATTLE_PARAMS.join(" / ")} を使用してください`);
       }
       if(op==="PER_N_BONUS" && raw.per_N!==undefined && raw.per_N<=0) warns.push("per_N は 1以上を推奨");
       if(op==="MULTIPLY" && raw.value_per_param===undefined) warns.push("value_per_param が必要です");
@@ -1918,8 +1931,10 @@
         }
         e[k]=_nlCleanLine(v);
       });
-      [["value",".efValue"],["per_N",".efPerN"],["lasting",".efLasting"],["delay",".efDelay"]].forEach(([k,sel])=>{
-        const n=toNum(row.querySelector(sel).value);
+      [["value",".efValue"],["per_N",".efPerN"],["lasting",".efLasting"],["delay",".efDelay"],["repeat_count",".efRepeatCount"]].forEach(([k,sel])=>{
+        const el=row.querySelector(sel);
+        if(!el) return;
+        const n=toNum(el.value);
         if(n!==undefined)e[k]=n;
       });
       const displayNameRaw=row.querySelector(".efDisplayName")?.value;
@@ -1951,6 +1966,8 @@
         if(e.lasting===undefined) e.lasting = 1;
         if(e.delay===undefined) e.delay = 1;
       }
+      // repeat_count=1 はデフォルトなので省略（JSONをすっきりさせる）
+      if(e.repeat_count !== undefined && e.repeat_count <= 1) delete e.repeat_count;
       return e;
     }
 
@@ -1967,6 +1984,9 @@
       if(raw._cond_enabled && !raw.condition) warns.push("conditionをONにしていますが、source/param/operator/valueが未入力です");
       if(raw.condition?.source==="relation" && !RELATION_PARAMS.includes(String(raw.condition?.param||""))){
         warns.push(`relation の param は ${RELATION_PARAMS.join(" / ")} を使用してください`);
+      }
+      if(raw.condition?.source==="battle" && !BATTLE_PARAMS.includes(String(raw.condition?.param||""))){
+        warns.push(`battle の param は ${BATTLE_PARAMS.join(" / ")} を使用してください`);
       }
       if(raw._extra_error) warns.push("extra_json が不正JSONです");
       if(_isSpeedModBuffRow(raw)){
@@ -2001,7 +2021,7 @@
       const warns=validateEffectRaw(raw);
       row.querySelector(".efWarn").innerHTML=warns.length?warns.map(w=>`<div>・${esc(w)}</div>`).join(""):"";
 
-      const fieldKeys=["state_name","source","source_param","per_N","value","buff_id","buff_name","skill_id","lasting","delay","summon_template_id","display_name"];
+      const fieldKeys=["state_name","source","source_param","per_N","value","buff_id","buff_name","skill_id","lasting","delay","summon_template_id","display_name","repeat_count"];
       const unusedSet=new Set((spec.unused||[]).filter(k=>fieldKeys.includes(k)));
       const beginner=isBeginnerMode();
       const expanded=(row.dataset.expanded==="1") || !beginner;
@@ -2039,7 +2059,7 @@
 
     function addEffectRow(seed={},opt={}){
       const row=document.createElement("div");row.className="row";row.dataset.expanded="0";effectSeq++;
-      row.innerHTML=`<div class="grid3"><div><label>timing</label><select class="timingSel">${TIMINGS.map(x=>`<option value="${x}" ${x===(seed.timing||"HIT")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>type</label><select class="typeSel">${TYPES.map(x=>`<option value="${x}" ${x===(seed.type||"APPLY_STATE")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>target</label><select class="targetSel">${TARGETS.map(x=>`<option value="${x}" ${x===(seed.target||"target")?"selected":""}>${x||"(未指定)"}</option>`).join("")}</select></div></div><div class="grid4" style="margin-top:8px;"><div class="efField" data-ekey="state_name"><label>state_name</label><input class="efState" list="stateNameList" value="${esc(seed.state_name||"")}"/></div><div class="efField" data-ekey="source"><label>source</label><select class="efSource"><option value="" ${(seed.source||"")===""?"selected":""}>(未指定)</option><option value="self" ${(seed.source||"")==="self"?"selected":""}>self</option><option value="target" ${(seed.source||"")==="target"?"selected":""}>target</option></select></div><div class="efField" data-ekey="source_param"><label>source_param</label><input class="efSourceParam" list="stateNameList" value="${esc(seed.source_param||"")}"/></div><div class="efField" data-ekey="per_N"><label>per_N</label><input class="efPerN" type="number" step="1" value="${esc(seed.per_N??"")}"/></div><div class="efField" data-ekey="value"><label class="efValueLabel">value</label><input class="efValue" type="number" step="any" value="${esc(seed.value??"")}"/></div><div class="efField" data-ekey="buff_id"><label>buff_id</label><input class="efBuffId" list="buffIdList" value="${esc(seed.buff_id||"")}"/></div><div class="efField" data-ekey="buff_name"><label>buff_name</label><input class="efBuffName" list="buffNameList" value="${esc(seed.buff_name||"")}"/></div><div class="efField" data-ekey="display_name"><label>display_name</label><input class="efDisplayName" value="${esc(seed.display_name||"")}" placeholder="表示名（data.display_name）"/></div><div class="efField" data-ekey="skill_id"><label>skill_id</label><input class="efSkillId" list="skillIdList" value="${esc(seed.skill_id||"")}"/></div><div class="efField" data-ekey="lasting"><label>lasting</label><input class="efLasting" type="number" value="${esc(seed.lasting??"")}"/></div><div class="efField" data-ekey="delay"><label>delay</label><input class="efDelay" type="number" value="${esc(seed.delay??"")}"/></div><div class="efField" data-ekey="summon_template_id"><label>summon_template_id</label><input class="efSummonId" list="summonIdList" value="${esc(seed.summon_template_id||"")}"/></div></div><div class="toolbar"><label class="efCondToggleWrap"><input type="checkbox" class="efCondEnable" ${seed.condition?"checked":""}/> conditionを使う</label><button class="btn btn-ghost efExpandBtn" type="button">詳細項目を表示</button><button class="btn btn-danger" type="button">削除</button></div><div class="efCond"></div><div class="efExtraWrap"><label>extra_json（任意）</label><input class="efExtra mono" placeholder='{"rounds":3}' /></div><div class="field-hidden-note efFoldNote">初心者モード: Type必須中心で表示中（「詳細項目を表示」で全入力）</div><div class="small efMeta"></div><div class="small ok efTypeMeaning"></div><div class="small guide-line efValueGuide"></div><div class="small guide-line efTimingGuide"></div><div class="warn efWarn"></div>`;
+      row.innerHTML=`<div class="grid3"><div><label>timing</label><select class="timingSel">${TIMINGS.map(x=>`<option value="${x}" ${x===(seed.timing||"HIT")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>type</label><select class="typeSel">${TYPES.map(x=>`<option value="${x}" ${x===(seed.type||"APPLY_STATE")?"selected":""}>${x}</option>`).join("")}</select></div><div><label>target</label><select class="targetSel">${TARGETS.map(x=>`<option value="${x}" ${x===(seed.target||"target")?"selected":""}>${x||"(未指定)"}</option>`).join("")}</select></div></div><div class="grid4" style="margin-top:8px;"><div class="efField" data-ekey="state_name"><label>state_name</label><input class="efState" list="stateNameList" value="${esc(seed.state_name||"")}"/></div><div class="efField" data-ekey="source"><label>source</label><select class="efSource"><option value="" ${(seed.source||"")===""?"selected":""}>(未指定)</option><option value="self" ${(seed.source||"")==="self"?"selected":""}>self</option><option value="target" ${(seed.source||"")==="target"?"selected":""}>target</option></select></div><div class="efField" data-ekey="source_param"><label>source_param</label><input class="efSourceParam" list="stateNameList" value="${esc(seed.source_param||"")}"/></div><div class="efField" data-ekey="per_N"><label>per_N</label><input class="efPerN" type="number" step="1" value="${esc(seed.per_N??"")}"/></div><div class="efField" data-ekey="value"><label class="efValueLabel">value</label><input class="efValue" type="number" step="any" value="${esc(seed.value??"")}"/></div><div class="efField" data-ekey="buff_id"><label>buff_id</label><input class="efBuffId" list="buffIdList" value="${esc(seed.buff_id||"")}"/></div><div class="efField" data-ekey="buff_name"><label>buff_name</label><input class="efBuffName" list="buffNameList" value="${esc(seed.buff_name||"")}"/></div><div class="efField" data-ekey="display_name"><label>display_name</label><input class="efDisplayName" value="${esc(seed.display_name||"")}" placeholder="表示名（data.display_name）"/></div><div class="efField" data-ekey="skill_id"><label>skill_id</label><input class="efSkillId" list="skillIdList" value="${esc(seed.skill_id||"")}"/></div><div class="efField" data-ekey="lasting"><label>lasting</label><input class="efLasting" type="number" value="${esc(seed.lasting??"")}"/></div><div class="efField" data-ekey="delay"><label>delay</label><input class="efDelay" type="number" value="${esc(seed.delay??"")}"/></div><div class="efField" data-ekey="summon_template_id"><label>summon_template_id</label><input class="efSummonId" list="summonIdList" value="${esc(seed.summon_template_id||"")}"/></div><div class="efField" data-ekey="repeat_count"><label title="このエフェクトを同じターゲットに繰り返し適用する回数（省略=1）">repeat_count</label><input class="efRepeatCount" type="number" step="1" min="1" placeholder="1（省略可）" value="${esc(seed.repeat_count??"")}"/></div></div><div class="toolbar"><label class="efCondToggleWrap"><input type="checkbox" class="efCondEnable" ${seed.condition?"checked":""}/> conditionを使う</label><button class="btn btn-ghost efExpandBtn" type="button">詳細項目を表示</button><button class="btn btn-danger" type="button">削除</button></div><div class="efCond"></div><div class="efExtraWrap"><label>extra_json（任意）</label><input class="efExtra mono" placeholder='{"rounds":3}' /></div><div class="field-hidden-note efFoldNote">初心者モード: Type必須中心で表示中（「詳細項目を表示」で全入力）</div><div class="small efMeta"></div><div class="small ok efTypeMeaning"></div><div class="small guide-line efValueGuide"></div><div class="small guide-line efTimingGuide"></div><div class="warn efWarn"></div>`;
       if(seed._extra_json!==undefined){
         const exRaw = typeof seed._extra_json === "string" ? seed._extra_json : JSON.stringify(seed._extra_json);
         row.querySelector(".efExtra").value = exRaw;

@@ -122,6 +122,7 @@ from manager.battle.runtime_actions import (
 
 from manager.battle.resolve_queue_helpers import (
     _build_resolve_queues,
+    resolve_random_intents,
     _enemy_actor_ids_for_team,
     _estimate_mass_trace_steps,
     _intent_single_target_slot,

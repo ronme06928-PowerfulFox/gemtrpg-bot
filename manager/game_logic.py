@@ -354,6 +354,22 @@ def _resolve_buff_count_for_condition(source_obj, buff_name):
 
 
 def _get_value_for_condition(source_obj, param_name, context=None, actor=None, target=None, source_type=None):
+    if source_type == "battle":
+        # バトル状態から値を取得する (現在対応: round)
+        ctx = context if isinstance(context, dict) else {}
+        param = str(param_name or "").strip()
+        if param == "round":
+            # context 直下の round → battle_state.round の順で探す
+            round_val = ctx.get('round') or ctx.get('current_round')
+            if round_val is None:
+                bs = ctx.get('battle_state')
+                if isinstance(bs, dict):
+                    round_val = bs.get('round')
+            try:
+                return int(round_val) if round_val is not None else 0
+            except (TypeError, ValueError):
+                return 0
+        return None
     if source_type == "relation":
         actor_team = _canonical_team((actor or {}).get("type"))
         target_team = _canonical_team((target or {}).get("type"))
@@ -544,6 +560,7 @@ def check_condition(condition_obj, actor, target, target_skill_data=None, actor_
     elif source_str == "target_skill": source_obj = target_skill_data
     elif source_str == "skill" or source_str == "actor_skill": source_obj = actor_skill_data
     elif source_str == "relation": source_obj = {}
+    elif source_str == "battle": source_obj = {}
 
     current_value = _get_value_for_condition(
         source_obj,
@@ -1193,6 +1210,21 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
         log_snippets.extend(custom_logs)
 
     _apply_chikuryoku_burst_guidance_on_hit()
+
+    # repeat_count > 1 のエフェクトを展開（例: repeat_count=3 なら同じエフェクトを3回分リストに入れる）
+    def _expand_repeated_effects(effects):
+        expanded = []
+        for eff in (effects or []):
+            try:
+                rc = int(eff.get('repeat_count', 1) or 1)
+            except (TypeError, ValueError):
+                rc = 1
+            rc = max(1, rc)
+            for _ in range(rc):
+                expanded.append(eff)
+        return expanded
+
+    effects_array = _expand_repeated_effects(effects_array)
 
     for effect in effects_array:
         if effect.get("timing") != timing_to_check: continue

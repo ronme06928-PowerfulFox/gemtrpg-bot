@@ -346,11 +346,12 @@ def _default_intent_tags(existing=None):
 def _default_target(target):
     if isinstance(target, dict):
         target_type = target.get('type', 'none')
-        if target_type not in ['single_slot', 'mass_individual', 'mass_summation', 'none']:
+        if target_type not in ['single_slot', 'mass_individual', 'mass_summation', 'none', 'random_single']:
             target_type = 'none'
         return {
             'type': target_type,
-            'slot_id': target.get('slot_id')
+            'slot_id': target.get('slot_id'),
+            'random_target_scope': target.get('random_target_scope', 'enemy'),
         }
     return {'type': 'none', 'slot_id': None}
 
@@ -383,6 +384,13 @@ def _validate_and_normalize_target(target, state, allow_none=True):
 
     if target_type in ['mass_individual', 'mass_summation']:
         return {'type': target_type, 'slot_id': None}, None
+
+    if target_type == 'random_single':
+        # ターゲットはまだ決定されていない。resolve時に resolve_random_intents() で確定される
+        scope = str(normalized.get('random_target_scope') or 'enemy').strip()
+        if scope not in ('enemy', 'ally', 'any'):
+            scope = 'enemy'
+        return {'type': 'random_single', 'slot_id': None, 'random_target_scope': scope}, None
 
     return None, 'invalid target.type'
 

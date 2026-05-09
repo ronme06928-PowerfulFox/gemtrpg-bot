@@ -137,4 +137,74 @@
 ## 8. 参照優先順位
 1. 本書（20）
 2. `implemented/17_Phase3_Strict_Errata.md`
+
+---
+
+## 9. Phase 2B 追加仕様（2026-05-09 実装確定）
+
+### 9.1 `condition.source=battle`
+
+ラウンド数を条件にするとき、`source` に `battle` を指定する。
+
+```json
+{
+  "effects": [
+    {
+      "timing": "HIT",
+      "type": "DAMAGE_BONUS",
+      "target": "target",
+      "value": 5,
+      "condition": {
+        "source": "battle",
+        "param": "round",
+        "operator": "GTE",
+        "value": 3
+      }
+    }
+  ]
+}
+```
+
+- 現在対応している `param` は `round` のみ。
+- `power_bonus_rules` の `condition` にも同様に使用可能。
+
+### 9.2 `effects[].repeat_count`
+
+同一エフェクトを N 回繰り返す。省略時は `1`（従来と同等）。
+
+```json
+{
+  "effects": [
+    {
+      "timing": "HIT",
+      "type": "APPLY_STATE",
+      "target": "target",
+      "state_name": "出血",
+      "value": 2,
+      "repeat_count": 3
+    }
+  ]
+}
+```
+
+- `condition` がある場合、1 回ごとに条件を再評価する。
+- `target_select=RANDOM` がある場合、1 回ごとに対象を再抽選する。
+- 省略 / `1` は出力不要（JSONビルダーも自動省略）。
+
+### 9.3 `target.type=random_single`（インテントレベル）
+
+> スキル `effects[]` の `target` フィールドではなく、バトルインテント設定（NPC/AI向け）。
+
+```json
+{
+  "target": {
+    "type": "random_single",
+    "random_target_scope": "enemy"
+  }
+}
+```
+
+- `random_target_scope`: `enemy`（既定）/ `ally` / `any`
+- Resolve 開始直前に生存・配置済みスロットからランダム選択し `single_slot` に確定する。
+- 候補なし時は `none` にフォールバックする。
 3. `implemented/15_JSON_Definition_Master.md`

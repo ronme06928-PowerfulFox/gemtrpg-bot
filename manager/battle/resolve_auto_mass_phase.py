@@ -435,6 +435,7 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
             _consume_resolve_slot(battle_state, slot_id)
 
         battle_state['phase'] = 'resolve_single'
+        resolve_random_intents(state, battle_state, intents)
         _build_resolve_queues(battle_state, intents_override=intents)
         phase_payload = {
             'room_id': room,

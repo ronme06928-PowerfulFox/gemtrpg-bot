@@ -168,6 +168,7 @@ def run_select_resolve_auto(room, battle_id):
         resolve_intents = battle_state.get('intents', {})
     battle_state['__resolve_intents_override'] = resolve_intents
 
+    resolve_random_intents(state, battle_state, resolve_intents)
     _build_resolve_queues(battle_state, intents_override=resolve_intents)
     resolve_ctx = battle_state.setdefault('resolve', {})
     mass_steps_est = _estimate_mass_trace_steps(state, battle_state, resolve_intents)

@@ -1,3 +1,5 @@
+import random as _random_module
+
 from extensions import all_skill_data
 from manager.battle.timeline_helpers import _is_actor_placed
 from manager.battle.skill_rules import _is_non_clashable_ally_support_pair
@@ -8,6 +10,73 @@ def _safe_int(value, default=0):
         return int(value)
     except Exception:
         return default
+
+def resolve_random_intents(state, battle_state, intents):
+    """
+    target.type == 'random_single' のインテントに対して、ランダムにターゲットスロットを選び
+    type を 'single_slot' に書き換える。_build_resolve_queues の直前に呼ぶこと。
+
+    - random_target_scope == 'enemy'  : 攻撃側と反対チームの生存済み配置スロットから選ぶ
+    - random_target_scope == 'ally'   : 攻撃側と同チームの生存済み配置スロットから選ぶ
+    - random_target_scope == 'any'    : チーム不問で生存済み配置スロットから選ぶ（自スロット除く）
+    """
+    if not isinstance(intents, dict):
+        return
+    slots = battle_state.get('slots', {}) if isinstance(battle_state, dict) else {}
+    characters = state.get('characters', []) if isinstance(state, dict) else []
+
+    # actor_id → character オブジェクトの辞書を作る
+    char_by_id = {str(c.get('id')): c for c in characters if isinstance(c, dict) and c.get('id')}
+
+    for slot_id, intent in intents.items():
+        if not isinstance(intent, dict):
+            continue
+        target = intent.get('target', {}) or {}
+        if not isinstance(target, dict):
+            continue
+        if target.get('type') != 'random_single':
+            continue
+
+        scope = str(target.get('random_target_scope') or 'enemy').strip()
+        attacker_slot_data = slots.get(slot_id) or {}
+        attacker_actor_id = str(attacker_slot_data.get('actor_id') or '')
+        attacker_team = str(attacker_slot_data.get('team') or '')
+
+        # 候補スロット: 配置済み・生存中のスロット
+        candidate_slot_ids = []
+        for sid, sdata in slots.items():
+            if not isinstance(sdata, dict):
+                continue
+            if sdata.get('disabled', False):
+                continue
+            candidate_actor_id = str(sdata.get('actor_id') or '')
+            if not candidate_actor_id:
+                continue
+            # 自スロットは除外
+            if sid == slot_id:
+                continue
+            # 生存・配置チェック
+            if not _is_actor_placed(state, candidate_actor_id):
+                continue
+            candidate_team = str(sdata.get('team') or '')
+            # スコープでフィルタ
+            if scope == 'enemy':
+                if attacker_team and candidate_team == attacker_team:
+                    continue
+            elif scope == 'ally':
+                if attacker_team and candidate_team != attacker_team:
+                    continue
+            # 'any' はフィルタなし
+            candidate_slot_ids.append(sid)
+
+        if not candidate_slot_ids:
+            # 候補なし → ターゲットなしに変更
+            intent['target'] = {'type': 'none', 'slot_id': None}
+            continue
+
+        chosen_slot = _random_module.choice(candidate_slot_ids)
+        intent['target'] = {'type': 'single_slot', 'slot_id': chosen_slot}
+
 
 def _build_resolve_queues(battle_state, intents_override=None):
     timeline = battle_state.get('timeline', [])
