@@ -16,6 +16,7 @@ class VisualMap {
         this._initialized = false;
         this._lastRenderTime = 0;
         this._renderDebounceMs = 16; // ~60fps
+        this._pendingRenderTimer = null;
     }
 
     /**
@@ -58,6 +59,9 @@ class VisualMap {
         if (typeof window.updateMapTransform === 'function') {
             window.updateMapTransform();
         }
+        if (typeof window.renderArrows === 'function') {
+            window.renderArrows();
+        }
     }
 
     /**
@@ -65,8 +69,22 @@ class VisualMap {
      */
     _debouncedRender() {
         const now = Date.now();
-        if (now - this._lastRenderTime < this._renderDebounceMs) {
+        const elapsed = now - this._lastRenderTime;
+        if (elapsed < this._renderDebounceMs) {
+            if (this._pendingRenderTimer) {
+                clearTimeout(this._pendingRenderTimer);
+            }
+            const delay = Math.max(0, this._renderDebounceMs - elapsed);
+            this._pendingRenderTimer = setTimeout(() => {
+                this._pendingRenderTimer = null;
+                this._lastRenderTime = Date.now();
+                this.render();
+            }, delay);
             return;
+        }
+        if (this._pendingRenderTimer) {
+            clearTimeout(this._pendingRenderTimer);
+            this._pendingRenderTimer = null;
         }
         this._lastRenderTime = now;
         this.render();
@@ -103,6 +121,10 @@ class VisualMap {
         if (this._mapStateUnsubscribe) {
             this._mapStateUnsubscribe();
             this._mapStateUnsubscribe = null;
+        }
+        if (this._pendingRenderTimer) {
+            clearTimeout(this._pendingRenderTimer);
+            this._pendingRenderTimer = null;
         }
         this._initialized = false;
     }

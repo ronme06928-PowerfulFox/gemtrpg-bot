@@ -699,7 +699,7 @@ def execute_duel_match(room, data, username):
                          final_damage = int(final_damage * 1.5); log_snippets.append("混乱")
 
                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS)
-                    buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
+                    buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets, attacker_char=actor_d_char)
                     if buff_dmg > 0:
                         damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
 
@@ -728,7 +728,7 @@ def execute_duel_match(room, data, username):
                         final_damage = int(final_damage * 1.5); log_snippets.append("混乱")
 
                     _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS)
-                    buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
+                    buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets, attacker_char=actor_a_char)
                     if buff_dmg > 0:
                         damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
@@ -807,7 +807,7 @@ def execute_duel_match(room, data, username):
                                 if damage > 0:
                                     _update_char_stat(room, c, 'HP', c.get('hp', 0) - damage, username="[follow-up]", source=DamageSource.SKILL_EFFECT)
                                     temp_logs = []
-                                    b_dmg = process_on_damage_buffs(room, c, damage, username, temp_logs)
+                                    b_dmg = process_on_damage_buffs(room, c, damage, username, temp_logs, attacker_char=actor_a_char)
                                     log_snippets.extend(temp_logs)
                                     nonlocal custom_dmg_onesided
                                     custom_dmg_onesided += damage + b_dmg
@@ -846,7 +846,7 @@ def execute_duel_match(room, data, username):
                     final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
 
                     _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
-                    buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
+                    buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets, attacker_char=actor_a_char)
                     if buff_dmg > 0: damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
                     if damage > 0: damage_report['D'].append({'source': 'ダイスダメージ', 'value': damage})
@@ -893,7 +893,7 @@ def execute_duel_match(room, data, username):
                      )
 
                      _update_char_stat(room, actor_d_char, "HP", actor_d_char["hp"] - final_dmg_a, username=f"{username}(相殺", save=False)
-                     buff_dmg = process_on_damage_buffs(room, actor_d_char, final_dmg_a, username, log_snippets)
+                     buff_dmg = process_on_damage_buffs(room, actor_d_char, final_dmg_a, username, log_snippets, attacker_char=actor_a_char)
                      if buff_dmg > 0: damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
             dmg_d = 0
@@ -931,7 +931,7 @@ def execute_duel_match(room, data, username):
                      )
 
                      _update_char_stat(room, actor_a_char, "HP", actor_a_char["hp"] - final_dmg_d, username=f"{username}(相殺", save=False)
-                     buff_dmg = process_on_damage_buffs(room, actor_a_char, final_dmg_d, username, log_snippets)
+                     buff_dmg = process_on_damage_buffs(room, actor_a_char, final_dmg_d, username, log_snippets, attacker_char=actor_d_char)
                      if buff_dmg > 0: damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
 
         elif attacker_category == "防御" and defender_category == "防御":
@@ -966,7 +966,7 @@ def execute_duel_match(room, data, username):
                 final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
 
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
-                buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
+                buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets, attacker_char=actor_a_char)
                 if buff_dmg > 0: damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
                 winner_message = f"<strong> → {actor_name_a} の勝利</strong> (ダメージ軽減)"
@@ -1014,7 +1014,7 @@ def execute_duel_match(room, data, username):
                 )
                 final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
                 _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
-                buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
+                buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets, attacker_char=actor_a_char)
 
                 if DodgeLockBuff.has_re_evasion(actor_d_char):
                      remove_buff(actor_d_char, "再回避ロック")
@@ -1088,7 +1088,7 @@ def execute_duel_match(room, data, username):
                     final_damage = _apply_feint_half_if_needed(final_damage, skill_data_d, skill_data_a, log_snippets)
 
                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username)
-                    buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
+                    buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets, attacker_char=actor_d_char)
                     if buff_dmg > 0: damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
 
                     winner_message = f"<strong> → {actor_name_d} の勝利</strong> (カウンター)"
@@ -1199,7 +1199,7 @@ def execute_duel_match(room, data, username):
                     final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
 
                     _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, save=False)
-                    buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets)
+                    buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets, attacker_char=actor_a_char)
                     if buff_dmg > 0: damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
                     if actor_d_char and DodgeLockBuff.has_re_evasion(actor_d_char):
@@ -1286,7 +1286,7 @@ def execute_duel_match(room, data, username):
                     final_damage = _apply_feint_half_if_needed(final_damage, skill_data_d, skill_data_a, log_snippets)
 
                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, save=False)
-                    buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets)
+                    buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets, attacker_char=actor_d_char)
                     if buff_dmg > 0: damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
 
                     winner_message = f"<strong> → {actor_name_d} の勝利</strong>"

@@ -14,12 +14,46 @@ window.setupVisualSocketHandlers = function () {
 
     _battleLog('[visual_socket] Registering socket handlers...');
 
+    const hasCoreStoreListeners = () => !!(
+        window.BattleStore
+        && window.SocketClient
+        && window.SocketClient._initialized
+    );
+
     const applyBattleStore = (fnName, payload) => {
+        if (hasCoreStoreListeners()) {
+            return 'core';
+        }
         if (window.BattleStore && typeof window.BattleStore[fnName] === 'function') {
             window.BattleStore[fnName](payload);
-            return true;
+            return 'local';
         }
-        return false;
+        return '';
+    };
+
+    const renderLegacyBattleUi = (options = {}) => {
+        const {
+            map = false,
+            timeline = false,
+            slotBadges = false,
+            actionDock = false,
+        } = options;
+
+        if (map && typeof renderVisualMap === 'function') renderVisualMap();
+        if (timeline && typeof renderVisualTimeline === 'function') renderVisualTimeline();
+        if (slotBadges && typeof renderSlotBadgesForAllTokens === 'function') renderSlotBadgesForAllTokens();
+        if (actionDock && typeof updateActionDock === 'function') updateActionDock();
+    };
+
+    const clearSlotBadgesIfInactive = (phaseLike, slotsLike) => {
+        const phase = String(phaseLike || '');
+        const slotCount = Array.isArray(slotsLike)
+            ? slotsLike.length
+            : Object.keys(slotsLike || {}).length;
+        if (phase === 'select' && slotCount > 0) return;
+        if (typeof window.clearSelectResolveSlotBadges === 'function') {
+            window.clearSelectResolveSlotBadges();
+        }
     };
 
     const deferredLiveLogs = [];
@@ -547,6 +581,10 @@ window.setupVisualSocketHandlers = function () {
         if (typeof battleState === 'undefined') return;
         if (!window.BattleStore || !window.BattleStore.state) return;
         const s = window.BattleStore.state;
+        if (s.characters !== undefined) battleState.characters = s.characters;
+        if (s.active_match !== undefined) battleState.active_match = s.active_match;
+        if (s.turn_char_id !== undefined) battleState.turn_char_id = s.turn_char_id;
+        if (s.turn_entry_id !== undefined) battleState.turn_entry_id = s.turn_entry_id;
         if (s.phase !== undefined) battleState.phase = s.phase;
         if (s.round !== undefined) battleState.round = s.round;
         if (s.timeline !== undefined) battleState.timeline = s.timeline;
@@ -674,16 +712,15 @@ window.setupVisualSocketHandlers = function () {
         _battleLog(`[state_updated] timeline=${timelineLen}, chars=${charsLen}`, state);
 
         // Create a flag to track if we handled this via Store
-        let processedByStore = false;
+        const storeMode = hasCoreStoreListeners() ? 'core' : (window.BattleStore ? 'local' : '');
 
-        if (window.BattleStore) {
+        if (storeMode === 'local') {
             // Let Store handle state management and sync to global battleState
             // This allows Store guards to protect against invalid data
             window.BattleStore.setState(state);
-            processedByStore = true;
         }
 
-        if (!processedByStore && typeof battleState !== 'undefined') {
+        if (!storeMode && typeof battleState !== 'undefined') {
             battleState = state;
         }
         syncLegacyBattleStateFromStore();
@@ -699,7 +736,7 @@ window.setupVisualSocketHandlers = function () {
                 if (window.ExplorationView && typeof window.ExplorationView.render === 'function') {
                     window.ExplorationView.render(state);
                 }
-            } else {
+            } else if (!storeMode) {
                 if (mapViewport) mapViewport.style.display = 'block';
                 if (expViewport) expViewport.style.display = 'none';
                 renderVisualMap();
@@ -730,21 +767,23 @@ window.setupVisualSocketHandlers = function () {
 
             updateVisualRoundDisplay(state.round);
 
-            if (typeof renderVisualTimeline === 'function') {
+            if (!storeMode && typeof renderVisualTimeline === 'function') {
                 renderVisualTimeline();
             }
-            if (typeof renderSlotBadgesForAllTokens === 'function') {
+            if (!storeMode && typeof renderSlotBadgesForAllTokens === 'function') {
                 renderSlotBadgesForAllTokens();
             }
 
-            if (!window.actionDockInitialized && typeof initializeActionDock === 'function') {
+            if (!storeMode && !window.actionDockInitialized && typeof initializeActionDock === 'function') {
                 initializeActionDock();
                 window.actionDockInitialized = true;
-            } else if (typeof updateActionDock === 'function') {
+            } else if (!storeMode && typeof updateActionDock === 'function') {
                 try { updateActionDock(); } catch (e) { console.error(e); }
             }
 
-            renderMatchPanelFromState(state.active_match);
+            if (!storeMode) {
+                renderMatchPanelFromState(state.active_match);
+            }
         }
     });
 
@@ -755,22 +794,31 @@ window.setupVisualSocketHandlers = function () {
         deferredLiveLogIds.clear();
         pendingResolveStepFlushKeys.clear();
         lastFlushedResolveStepKey = null;
+        clearSlotBadgesIfInactive(payload?.phase, payload?.slots);
         const handled = applyBattleStore('setRoundStarted', payload || {});
-        if (handled) syncLegacyBattleStateFromStore();
-        else applyBattlePayloadToLegacy(payload || {});
-        if (typeof renderVisualMap === 'function') renderVisualMap();
-        if (typeof renderVisualTimeline === 'function') renderVisualTimeline();
-        if (typeof renderSlotBadgesForAllTokens === 'function') renderSlotBadgesForAllTokens();
-        if (typeof updateActionDock === 'function') updateActionDock();
+        if (handled) {
+            syncLegacyBattleStateFromStore();
+            if (handled !== 'core') {
+                renderLegacyBattleUi({ map: true, timeline: true, slotBadges: true, actionDock: true });
+            }
+        }
+        else {
+            applyBattlePayloadToLegacy(payload || {});
+            renderLegacyBattleUi({ map: true, timeline: true, slotBadges: true, actionDock: true });
+        }
     });
 
     socket.on('battle_state_updated', (payload) => {
         const slotsLen = payload?.slots ? Object.keys(payload.slots).length : 0;
         const intentsLen = payload?.intents ? Object.keys(payload.intents).length : 0;
         _battleLog(`[visual_socket] battle_state_updated phase=${payload?.phase} slots=${slotsLen} intents=${intentsLen}`);
+        clearSlotBadgesIfInactive(payload?.phase, payload?.slots);
         const handled = applyBattleStore('applyBattleState', payload || {});
         if (handled) syncLegacyBattleStateFromStore();
-        else applyBattlePayloadToLegacy(payload || {});
+        else {
+            applyBattlePayloadToLegacy(payload || {});
+            renderLegacyBattleUi({ map: true, timeline: true, slotBadges: true, actionDock: true });
+        }
         if (!shouldDeferResolveLogs() && !_shouldHoldDeferredQueue()) flushDeferredResolveLogs();
 
         // Observation log for select/resolve correctness checks.
@@ -782,18 +830,16 @@ window.setupVisualSocketHandlers = function () {
             `[OBS] phase=${observed?.phase || payload?.phase || 'n/a'} tl=${tlLen} slots=${Object.keys(observed?.slots || {}).length} intents=${Object.keys(observed?.intents || {}).length} active=${active || 'none'} spent=${spent}`
         );
 
-        if (typeof renderVisualMap === 'function') renderVisualMap();
-        if (typeof renderVisualTimeline === 'function') renderVisualTimeline();
-        if (typeof renderSlotBadgesForAllTokens === 'function') renderSlotBadgesForAllTokens();
-        if (typeof updateActionDock === 'function') updateActionDock();
     });
 
     socket.on('battle_resolve_ready', (payload) => {
         _battleLog('[visual_socket] battle_resolve_ready', payload);
         const handled = applyBattleStore('setResolveReady', payload || { ready: true });
         if (handled) syncLegacyBattleStateFromStore();
-        else applyBattlePayloadToLegacy({ resolve_ready: true, resolve_ready_info: payload || {} });
-        if (typeof updateActionDock === 'function') updateActionDock();
+        else {
+            applyBattlePayloadToLegacy({ resolve_ready: true, resolve_ready_info: payload || {} });
+            renderLegacyBattleUi({ actionDock: true });
+        }
     });
 
     socket.on('battle_resolve_flow_advance', (payload) => {
@@ -806,6 +852,7 @@ window.setupVisualSocketHandlers = function () {
     socket.on('battle_phase_changed', (payload) => {
         _battleLog('[visual_socket] battle_phase_changed', payload);
         const toPhase = String((payload || {}).to || '');
+        clearSlotBadgesIfInactive(toPhase, null);
         if (toPhase === 'select') {
             deferredLiveLogs.length = 0;
             deferredLiveLogIds.clear();
@@ -814,10 +861,11 @@ window.setupVisualSocketHandlers = function () {
         }
         const handled = applyBattleStore('setPhase', (payload || {}).to);
         if (handled) syncLegacyBattleStateFromStore();
-        else applyBattlePayloadToLegacy({ phase: (payload || {}).to });
+        else {
+            applyBattlePayloadToLegacy({ phase: (payload || {}).to });
+            renderLegacyBattleUi({ slotBadges: true, actionDock: true });
+        }
         if (!shouldDeferResolveLogs() && !_shouldHoldDeferredQueue()) flushDeferredResolveLogs();
-        if (typeof renderSlotBadgesForAllTokens === 'function') renderSlotBadgesForAllTokens();
-        if (typeof updateActionDock === 'function') updateActionDock();
     });
 
     socket.on('battle_resolve_trace_appended', (payload) => {
@@ -834,15 +882,18 @@ window.setupVisualSocketHandlers = function () {
     socket.on('battle_round_finished', (payload) => {
         _battleLog('[visual_socket] battle_round_finished', payload);
         _battleInfo('[OBS] round_finished payload_keys=', Object.keys(payload || {}));
+        clearSlotBadgesIfInactive('round_end', null);
         const handled = applyBattleStore('setRoundFinished', (payload || {}).round);
         if (handled) syncLegacyBattleStateFromStore();
-        else applyBattlePayloadToLegacy({ round: (payload || {}).round, phase: 'round_end' });
+        else {
+            applyBattlePayloadToLegacy({ round: (payload || {}).round, phase: 'round_end' });
+            renderLegacyBattleUi({ actionDock: true });
+        }
         if (!shouldDeferResolveLogs() && !_shouldHoldDeferredQueue()) flushDeferredResolveLogs();
         if (!shouldDeferResolveLogs()) {
             pendingResolveStepFlushKeys.clear();
             lastFlushedResolveStepKey = null;
         }
-        if (typeof updateActionDock === 'function') updateActionDock();
     });
 
     socket.on('battle_error', (payload) => {
@@ -854,7 +905,9 @@ window.setupVisualSocketHandlers = function () {
         if (window.EventBus && typeof window.EventBus.emit === 'function') {
             window.EventBus.emit('battle:error', payload || { message });
         }
-        if (typeof updateActionDock === 'function') updateActionDock();
+        if (!(window.BattleStore && typeof window.BattleStore.setBattleError === 'function')) {
+            renderLegacyBattleUi({ actionDock: true });
+        }
     });
 
     // --- Character Movement (Differential) ---

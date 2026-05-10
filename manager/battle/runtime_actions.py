@@ -194,10 +194,108 @@ def verify_skill_cost(char, skill_d):
 
     return True, None
 
-def process_on_damage_buffs(room, char, damage_val, username, log_snippets):
+def _safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _iter_reaction_entries(payload):
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, dict)]
+    if isinstance(payload, dict):
+        return [payload]
+    return []
+
+
+def _resolve_reaction_targets(target_key, owner_char, attacker_char):
+    target_name = str(target_key or 'attacker').strip().lower()
+    if target_name in {'self', 'owner'}:
+        return [owner_char] if isinstance(owner_char, dict) else []
+    if target_name in {'attacker', 'source'}:
+        return [attacker_char] if isinstance(attacker_char, dict) else []
+    return []
+
+
+def _passes_on_damage_reaction_condition(reaction_conf, damage_val):
+    if not isinstance(reaction_conf, dict):
+        return False
+    condition = reaction_conf.get('condition')
+    if not isinstance(condition, dict):
+        return True
+    damage_gte = _safe_int(condition.get('damage_gte'), None)
+    if damage_gte is not None and int(damage_val or 0) < damage_gte:
+        return False
+    return True
+
+
+def _append_on_damage_log(log_snippets, owner_name, target_name, detail):
+    if not isinstance(log_snippets, list):
+        return
+    log_snippets.append(f"[{owner_name}: on_damage {target_name} {detail}]")
+
+
+def _apply_on_damage_reaction(room, owner_char, reaction_conf, attacker_char, log_snippets):
+    if not isinstance(owner_char, dict) or not isinstance(reaction_conf, dict):
+        return
+
+    owner_name = str(owner_char.get('name') or owner_char.get('id') or 'on_damage').strip() or 'on_damage'
+    targets = _resolve_reaction_targets(reaction_conf.get('target'), owner_char, attacker_char)
+    if not targets:
+        return
+
+    damage_amount = max(0, _safe_int(reaction_conf.get('damage'), 0))
+    state_rows = _iter_reaction_entries(reaction_conf.get('apply_state'))
+    buff_rows = _iter_reaction_entries(reaction_conf.get('apply_buff'))
+
+    for reaction_target in targets:
+        if not isinstance(reaction_target, dict):
+            continue
+        target_name = str(reaction_target.get('name') or reaction_target.get('id') or 'target').strip() or 'target'
+
+        if damage_amount > 0:
+            current_hp = int(reaction_target.get('hp', 0) or 0)
+            next_hp = max(0, current_hp - damage_amount)
+            _update_char_stat(room, reaction_target, 'HP', next_hp, username=f"[{owner_name}]")
+            _append_on_damage_log(log_snippets, owner_name, target_name, f"HP-{damage_amount}")
+
+        for state_row in state_rows:
+            state_name = str(state_row.get('name') or state_row.get('stat') or '').strip()
+            state_value = _safe_int(state_row.get('value'), 0)
+            if not state_name or state_value == 0:
+                continue
+            current_value = int(get_status_value(reaction_target, state_name) or 0)
+            _update_char_stat(room, reaction_target, state_name, current_value + state_value, username=f"[{owner_name}]")
+            sign = '+' if state_value > 0 else ''
+            _append_on_damage_log(log_snippets, owner_name, target_name, f"{state_name}{sign}{state_value}")
+
+        for buff_row in buff_rows:
+            buff_name = str(buff_row.get('buff_name') or buff_row.get('name') or '').strip()
+            if not buff_name:
+                continue
+            lasting = _safe_int(buff_row.get('lasting'), 0)
+            delay = _safe_int(buff_row.get('delay'), 0)
+            payload = dict(buff_row.get('data') or {}) if isinstance(buff_row.get('data'), dict) else {}
+            if buff_row.get('buff_id') and not payload.get('buff_id'):
+                payload['buff_id'] = buff_row.get('buff_id')
+            count = buff_row.get('count')
+            apply_buff(
+                reaction_target,
+                buff_name,
+                lasting,
+                delay,
+                data=payload,
+                count=_safe_int(count, 0) if count is not None else None,
+            )
+            _append_on_damage_log(log_snippets, owner_name, target_name, f"buff {buff_name}")
+
+
+def process_on_damage_buffs(room, char, damage_val, username, log_snippets, attacker_char=None, context=None):
     """
     被ダメージ時トリガーバフの処理。
     """
+    _ = (username, context)
     total_applied_damage = 0
     if damage_val <= 0: return 0
 
@@ -211,8 +309,11 @@ def process_on_damage_buffs(room, char, damage_val, username, log_snippets):
             continue
 
         conf = effect_data.get('on_damage_state')
-        # print(f"[DEBUG] Checking buff {b.get('name')}: on_damage_state={conf}")
-        if not conf: continue
+        if not conf:
+            reaction_conf = effect_data.get('on_damage_reaction')
+            if reaction_conf and _passes_on_damage_reaction_condition(reaction_conf, damage_val):
+                _apply_on_damage_reaction(room, char, reaction_conf, attacker_char, log_snippets)
+            continue
 
         s_name = conf.get('stat')
         s_val = conf.get('value', 0)
@@ -225,6 +326,10 @@ def process_on_damage_buffs(room, char, damage_val, username, log_snippets):
             log_snippets.append(f"[{b.get('name')}→{s_name}+{s_val}]")
             if s_name == 'HP':
                 total_applied_damage += s_val
+
+        reaction_conf = effect_data.get('on_damage_reaction')
+        if reaction_conf and _passes_on_damage_reaction_condition(reaction_conf, damage_val):
+            _apply_on_damage_reaction(room, char, reaction_conf, attacker_char, log_snippets)
 
     return total_applied_damage
 

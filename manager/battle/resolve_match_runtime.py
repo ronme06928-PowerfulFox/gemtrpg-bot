@@ -61,7 +61,7 @@ def _append_multiplier_logs(_log_snippets, _mult_info, incoming_label='防', out
     return None
 
 
-def process_on_damage_buffs(_room, _target_char, _incoming_damage, _source, _log_snippets):
+def process_on_damage_buffs(_room, _target_char, _incoming_damage, _source, _log_snippets, attacker_char=None, context=None):
     return 0
 
 
@@ -192,7 +192,15 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         # synthesized resolve log render the state transition.
         curr_hp = int(defender_char.get('hp', 0) or 0)
         defender_char['hp'] = max(0, curr_hp - int(final_damage or 0))
-        on_damage_extra = int(process_on_damage_buffs(room, defender_char, final_damage, "[select_resolve_one_sided]", log_snippets))
+        on_damage_extra = int(process_on_damage_buffs(
+            room,
+            defender_char,
+            final_damage,
+            "[select_resolve_one_sided]",
+            log_snippets,
+            attacker_char=attacker_char,
+            context=context,
+        ))
     else:
         final_damage = 0
         on_damage_extra = 0
@@ -731,7 +739,15 @@ def _resolve_hard_attack_followup(
         _append_multiplier_logs(log_snippets, mult_info)
         if final_damage > 0:
             _update_char_stat(room, defender_char, 'HP', int(defender_char.get('hp', 0)) - final_damage, username="[hard_attack]")
-            on_damage_extra = int(process_on_damage_buffs(room, defender_char, final_damage, "[hard_attack]", log_snippets))
+            on_damage_extra = int(process_on_damage_buffs(
+                room,
+                defender_char,
+                final_damage,
+                "[hard_attack]",
+                log_snippets,
+                attacker_char=attacker_char,
+                context=context,
+            ))
     elif blocked_by_evade:
         log_snippets.append("[強硬攻撃] 回避されました")
     else:
@@ -922,7 +938,5 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
         slot_id, skill_id, command, total
     )
     return max(0, total)
-
-
 
 

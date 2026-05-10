@@ -53,7 +53,7 @@ def _extract_skill_id_from_data(skill_data):
     return skill_data.get("id")
 
 
-def process_on_damage_buffs(_room, _target_char, _incoming_damage, _source, _log_snippets):
+def process_on_damage_buffs(_room, _target_char, _incoming_damage, _source, _log_snippets, attacker_char=None, context=None):
     return 0
 
 
@@ -790,7 +790,14 @@ def _apply_effect_changes_like_duel(
             if base_damage > 0:
                 _update_char_stat(room, char, 'HP', int(char.get('hp', 0)) - int(base_damage), username="[追撃]", source=DamageSource.SKILL_EFFECT)
                 temp_logs = []
-                b_dmg = process_on_damage_buffs(room, char, int(base_damage), "[select_resolve_one_sided]", temp_logs)
+                b_dmg = process_on_damage_buffs(
+                    room,
+                    char,
+                    int(base_damage),
+                    "[select_resolve_one_sided]",
+                    temp_logs,
+                    attacker_char=attacker_char,
+                )
                 log_snippets.extend(temp_logs)
                 extra_primary_damage += int(base_damage) + int(b_dmg)
         elif effect_type == "USE_SKILL_AGAIN":
@@ -845,5 +852,3 @@ def _apply_effect_changes_like_duel(
             else:
                 logger.warning("[select_resolve grant_skill failed] %s", res.get("message"))
     return extra_primary_damage
-
-

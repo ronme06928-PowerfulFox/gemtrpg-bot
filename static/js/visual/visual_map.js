@@ -87,10 +87,16 @@ window.renderVisualMap = function () {
 
     updateMapTransform();
 
+    const storeState = (window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : null;
+    const legacyState = (typeof battleState !== 'undefined' && battleState) ? battleState : null;
+    const storeChars = Array.isArray(storeState?.characters) ? storeState.characters.length : 0;
+    const legacyChars = Array.isArray(legacyState?.characters) ? legacyState.characters.length : 0;
+    const renderState = (storeState && storeChars > 0) ? storeState : (legacyState || storeState);
+
     // Background Image Handling
     const mapEl = document.getElementById('game-map');
-    if (mapEl && battleState.battle_map_data) {
-        const bgData = battleState.battle_map_data;
+    if (mapEl && renderState?.battle_map_data) {
+        const bgData = renderState.battle_map_data;
         if (bgData.background_image) {
             const newBg = `url('${bgData.background_image}')`;
             if (mapEl.style.backgroundImage !== newBg.replace(/'/g, '"') && mapEl.style.backgroundImage !== newBg) {
@@ -104,11 +110,11 @@ window.renderVisualMap = function () {
         }
     }
 
-    if (typeof battleState === 'undefined' || !battleState.characters) return;
+    if (!renderState || !Array.isArray(renderState.characters)) return;
     const srStateForTurn = _getSelectResolveStateRef();
     const srPhaseForTurn = srStateForTurn?.phase || null;
     const suppressLegacyTurnHighlight = ['select', 'resolve_mass', 'resolve_single'].includes(srPhaseForTurn);
-    const currentTurnId = suppressLegacyTurnHighlight ? null : (battleState.turn_char_id || null);
+    const currentTurnId = suppressLegacyTurnHighlight ? null : (renderState.turn_char_id || null);
 
     // 1. Map existing tokens
     const existingTokens = {};
@@ -121,7 +127,7 @@ window.renderVisualMap = function () {
     // 2. Identify valid character IDs
     const validCharIds = new Set();
 
-    battleState.characters.forEach(char => {
+    renderState.characters.forEach(char => {
         if (char.x >= 0 && char.y >= 0 && char.hp > 0) {
             validCharIds.add(char.id);
 
@@ -146,7 +152,7 @@ window.renderVisualMap = function () {
                     if (!token.classList.contains('active-turn')) token.classList.add('active-turn');
 
                     // Check and Add Wide Button if missing
-                    const isWideMatchExecuting = battleState.active_match && battleState.active_match.is_active && battleState.active_match.match_type === 'wide';
+                    const isWideMatchExecuting = renderState.active_match && renderState.active_match.is_active && renderState.active_match.match_type === 'wide';
                     let wideBtn = token.querySelector('.wide-attack-trigger-btn');
 
                     if (char.isWideUser && !isWideMatchExecuting) {
@@ -231,7 +237,7 @@ window.renderVisualMap = function () {
                 } else {
                     const url = await window.showAppPrompt("背景画像のURLを入力してください:", {
                         title: '戦闘背景設定',
-                        defaultValue: battleState.battle_map_data?.background_image || "",
+                        defaultValue: renderState.battle_map_data?.background_image || "",
                         placeholder: 'https://...',
                         confirmText: '適用',
                     });
@@ -417,6 +423,12 @@ window.renderSlotBadgesForAllTokens = function () {
 
         token.appendChild(container);
     });
+};
+
+window.clearSelectResolveSlotBadges = function () {
+    const tokenLayer = document.getElementById('map-token-layer');
+    if (!tokenLayer) return;
+    tokenLayer.querySelectorAll('.slot-badge-container').forEach((el) => el.remove());
 };
 
 function _cancelSlotBadgeSingleClick() {

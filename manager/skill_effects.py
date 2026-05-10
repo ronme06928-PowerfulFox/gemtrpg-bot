@@ -71,7 +71,7 @@ def apply_skill_effects_bidirectional(
     primary_target = d_char if winner_side == 'attacker' else a_char
 
     # 内部関数: 変更内容の即時適用
-    def apply_local_changes(changes, target_char):
+    def apply_local_changes(changes, target_char, source_actor=None):
         nonlocal custom_damage_applied
         extra_dmg = 0
 
@@ -145,7 +145,14 @@ def apply_skill_effects_bidirectional(
                 if damage_val > 0:
                      _update_char_stat(room, char, 'HP', char['hp'] - damage_val, username=f"[追撃]", source=DamageSource.SKILL_EFFECT)
                      temp_logs = []
-                     buff_dmg = process_on_damage_buffs(room, char, damage_val, username, temp_logs)
+                     buff_dmg = process_on_damage_buffs(
+                         room,
+                         char,
+                         damage_val,
+                         username,
+                         temp_logs,
+                         attacker_char=source_actor,
+                     )
                      all_logs.extend(temp_logs)
                      custom_damage_applied += damage_val + buff_dmg
                      damage_events.append({'target_name': char['name'], 'target_id': char.get('id'), 'source': '追撃', 'value': damage_val + buff_dmg})
@@ -202,7 +209,7 @@ def apply_skill_effects_bidirectional(
         all_logs.extend(l)
 
         # 即時適用
-        dmg_val = apply_local_changes(final_changes, primary_target)
+        dmg_val = apply_local_changes(final_changes, primary_target, source_actor=actor)
         total_bonus_dmg += dmg_val
 
     if winner_side == 'attacker':

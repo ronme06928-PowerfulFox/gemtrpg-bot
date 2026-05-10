@@ -21,6 +21,18 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         highlightToSlotId: null
     };
 
+    function getAnchorAvailabilityDigest(slotsById) {
+        if (!(slotsById instanceof Map) || slotsById.size <= 0) return 'anchors:none';
+        const parts = [];
+        const sortedIds = Array.from(slotsById.keys()).sort((a, b) => String(a).localeCompare(String(b)));
+        for (const slotId of sortedIds) {
+            const selectorId = String(slotId).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            const hasBadge = !!document.querySelector(`.slot-badge[data-slot-id="${selectorId}"]`);
+            parts.push(`${slotId}:${hasBadge ? 'badge' : 'token'}`);
+        }
+        return parts.join('|');
+    }
+
     function getCurrentState() {
         if (window.BattleStore && window.BattleStore.state) return window.BattleStore.state;
         if (typeof window.battleState !== 'undefined') return window.battleState;
@@ -886,7 +898,11 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
         }
 
         const graphDigest = getGraphDigest(graph);
-        const renderDigest = `${phase}|${subsetHash}|${graphDigest}|${layer.clientWidth}x${layer.clientHeight}`;
+        const anchorDigest = getAnchorAvailabilityDigest(graph?.slotsById);
+        const scale = Number(window.visualScale || 1) || 1;
+        const offsetX = Number(window.visualOffsetX || 0) || 0;
+        const offsetY = Number(window.visualOffsetY || 0) || 0;
+        const renderDigest = `${phase}|${subsetHash}|${graphDigest}|${anchorDigest}|${layer.clientWidth}x${layer.clientHeight}|${scale}|${offsetX}|${offsetY}`;
         if (runtime.lastRenderDigest === renderDigest) return;
 
         drawGraph(layer, graph, state);

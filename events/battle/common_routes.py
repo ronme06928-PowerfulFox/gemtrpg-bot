@@ -1351,59 +1351,8 @@ def _emit_battle_state_updated(room_id, battle_id):
     if state:
         payload['resolve_ready'] = bool(state.get('resolve_ready', False))
         payload['resolve_ready_info'] = state.get('resolve_ready_info', {})
-        payload['slot_skill_access'] = _build_slot_skill_access(state, room_id=room_id)
     _log_battle_emit('battle_state_updated', room_id, battle_id, payload)
     socketio.emit('battle_state_updated', payload, to=room_id)
-
-
-def _build_slot_skill_access(state, room_id=None):
-    if not isinstance(state, dict):
-        return {}
-    slots = state.get("slots", {}) if isinstance(state.get("slots"), dict) else {}
-    out = {}
-    for slot_id, slot in slots.items():
-        actor = _resolve_actor_for_slot(state, slot_id, room_id=room_id)
-        if not isinstance(actor, dict):
-            continue
-        row = {}
-        for skill_id in _normalize_actor_skill_ids(actor):
-            if not skill_id:
-                continue
-            ev = evaluate_skill_access(
-                actor,
-                skill_id,
-                room_state=None,
-                battle_state=state,
-                slot_id=slot_id,
-                allow_instant=False,
-            )
-            reasons = ev.get("blocked_reasons", [])
-            row[skill_id] = {
-                "usable": bool(ev.get("usable", False)),
-                "reason": str((reasons[0] if reasons else "") or ""),
-                "blocked_reasons": list(reasons) if isinstance(reasons, list) else [],
-                "effective_cost": list(ev.get("effective_cost", []) or []),
-            }
-        out[str(slot_id)] = row
-    return out
-
-
-def _normalize_actor_skill_ids(actor):
-    if not isinstance(actor, dict):
-        return []
-    from manager.battle.skill_access import _extract_skill_ids_from_commands, _extract_granted_skill_ids
-
-    skill_ids = _extract_skill_ids_from_commands(actor.get("commands", ""))
-    skill_ids.extend(_extract_granted_skill_ids(actor))
-    out = []
-    seen = set()
-    for skill_id in skill_ids:
-        sid = str(skill_id or "").strip()
-        if not sid or sid in seen:
-            continue
-        seen.add(sid)
-        out.append(sid)
-    return out
 
 
 def _server_ts():
@@ -2108,6 +2057,5 @@ def on_battle_intent_change_target(data):
 
     _refresh_resolve_ready(room_id, state)
     _emit_battle_state_updated(room_id, battle_id)
-
 
 

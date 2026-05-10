@@ -14,7 +14,7 @@ from manager.dice_roller import roll_dice
 from manager.battle.core import (
     format_skill_display_from_command, execute_pre_match_effects,
     process_simple_round_end, proceed_next_turn,
-    calculate_opponent_skill_modifiers, process_on_hit_buffs
+    calculate_opponent_skill_modifiers, process_on_hit_buffs, process_on_damage_buffs
 )
 from manager.summons.service import apply_summon_change
 from manager.granted_skills.service import apply_grant_skill_change, consume_granted_skill_use
@@ -431,6 +431,7 @@ def execute_wide_match(room, username):
             if final_damage > 0:
                  current_hp = get_status_value(def_char, 'HP')
                  _update_char_stat(room, def_char, 'HP', current_hp - final_damage, username=f"[{attacker_skill_id}]")
+                 process_on_damage_buffs(room, def_char, final_damage, f"[{attacker_skill_id}]", log_snippets, attacker_char=attacker_char)
                  broadcast_log(room, f"{def_char['name']} に {final_damage} ダメージ {' '.join(log_snippets)}", 'damage')
             else:
                  if log_snippets:
@@ -545,6 +546,7 @@ def execute_wide_match(room, username):
                          broadcast_log(room, f"[{attacker_char['name']}] 追加ダメージ +{extra_dmg}", 'buff')
                     new_hp = max(0, current_hp - (diff + extra_dmg))
                     _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]")
+                    process_on_damage_buffs(room, def_char, diff + extra_dmg, f"[{attacker_skill_id}]", [], attacker_char=attacker_char)
                     broadcast_log(room, f"   →{def_char['name']} に {diff} ダメージ", 'damage')
 
                     if attacker_effects:
@@ -777,6 +779,7 @@ def execute_wide_match(room, username):
                 current_hp = get_status_value(def_char, 'HP')
                 new_hp = max(0, current_hp - damage)
                 _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]", save=False)
+                process_on_damage_buffs(room, def_char, damage, f"[{attacker_skill_id}]", [], attacker_char=attacker_char)
 
             elif defender_total > effective_attacker_total:
 
@@ -830,6 +833,7 @@ def execute_wide_match(room, username):
                         current_hp = get_status_value(attacker_char, 'HP')
                         new_hp = max(0, current_hp - damage)
                         _update_char_stat(room, attacker_char, 'HP', new_hp, username=f"[{def_skill_id}]", save=False)
+                        process_on_damage_buffs(room, attacker_char, damage, f"[{def_skill_id}]", [], attacker_char=def_char)
 
             else:
 
