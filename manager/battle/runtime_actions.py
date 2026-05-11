@@ -365,24 +365,29 @@ def _apply_on_damage_reaction(room, owner_char, reaction_conf, attacker_char, lo
             _apply_on_damage_state(room, owner_name, reaction_target, target_name, state_row, log_snippets)
 
         for buff_row in buff_rows:
+            buff_id = str(buff_row.get('buff_id') or '').strip()
             buff_name = str(buff_row.get('buff_name') or buff_row.get('name') or '').strip()
-            if not buff_name:
+            if not buff_id and not buff_name:
                 continue
+            display_name = buff_name or buff_id
             lasting = _safe_int(buff_row.get('lasting'), 0)
             delay = _safe_int(buff_row.get('delay'), 0)
             payload = dict(buff_row.get('data') or {}) if isinstance(buff_row.get('data'), dict) else {}
-            if buff_row.get('buff_id') and not payload.get('buff_id'):
-                payload['buff_id'] = buff_row.get('buff_id')
+            if buff_id and not payload.get('buff_id'):
+                payload['buff_id'] = buff_id
+            # count: top-level > data.count の順で取得
             count = buff_row.get('count')
+            if count is None:
+                count = payload.get('count')
             apply_buff(
                 reaction_target,
-                buff_name,
+                display_name,
                 lasting,
                 delay,
                 data=payload,
                 count=_safe_int(count, 0) if count is not None else None,
             )
-            _append_on_damage_log(room, log_snippets, _format_on_damage_buff_log(owner_name, target_name, buff_name))
+            _append_on_damage_log(room, log_snippets, _format_on_damage_buff_log(owner_name, target_name, display_name))
 
 
 def process_on_damage_buffs(room, char, damage_val, username, log_snippets, attacker_char=None, context=None):

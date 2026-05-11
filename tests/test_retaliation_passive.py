@@ -256,3 +256,97 @@ def test_on_damage_reaction_requires_attacker_target(monkeypatch):
 
     assert logs == []
     assert broadcast_messages == []
+
+
+def test_on_damage_reaction_apply_buff_id_only(monkeypatch):
+    defender = _char(
+        "CrystalScorpion",
+        buffs=[
+            {
+                "name": "CrystalTestHide",
+                "delay": 0,
+                "data": {
+                    "on_damage_reaction": {
+                        "target": "attacker",
+                        "apply_buff": [
+                            {
+                                "buff_id": "Bu-TestReaction",
+                                "lasting": 2,
+                                "delay": 0,
+                            }
+                        ],
+                    }
+                },
+            }
+        ],
+    )
+    attacker = _char("Attacker", hp=12)
+
+    monkeypatch.setattr(runtime_actions, "_update_char_stat", _fake_update)
+    broadcast_messages = _capture_broadcast_logs(monkeypatch)
+
+    logs = []
+    runtime_actions.process_on_damage_buffs(
+        "room",
+        defender,
+        5,
+        "tester",
+        logs,
+        attacker_char=attacker,
+    )
+
+    matched = [b for b in attacker.get("special_buffs", []) if b.get("buff_id") == "Bu-TestReaction"]
+    assert len(matched) == 1
+    assert matched[0]["lasting"] == 2
+
+    line = "[被弾反応] CrystalScorpionの被弾反応でAttackerにBu-TestReactionを付与。"
+    assert line in logs
+    assert line in broadcast_messages
+
+
+def test_on_damage_reaction_apply_buff_data_count(monkeypatch):
+    defender = _char(
+        "CrystalScorpion",
+        buffs=[
+            {
+                "name": "CrystalChargeHide",
+                "delay": 0,
+                "data": {
+                    "on_damage_reaction": {
+                        "target": "attacker",
+                        "apply_buff": [
+                            {
+                                "buff_id": "Bu-ChargeReaction",
+                                "buff_name": "蓄力",
+                                "lasting": 1,
+                                "delay": 0,
+                                "data": {"count": 3},
+                            }
+                        ],
+                    }
+                },
+            }
+        ],
+    )
+    attacker = _char("Attacker", hp=12)
+
+    monkeypatch.setattr(runtime_actions, "_update_char_stat", _fake_update)
+    broadcast_messages = _capture_broadcast_logs(monkeypatch)
+
+    logs = []
+    runtime_actions.process_on_damage_buffs(
+        "room",
+        defender,
+        5,
+        "tester",
+        logs,
+        attacker_char=attacker,
+    )
+
+    matched = [b for b in attacker.get("special_buffs", []) if b.get("buff_id") == "Bu-ChargeReaction"]
+    assert len(matched) == 1
+    assert matched[0].get("count") == 3
+
+    line = "[被弾反応] CrystalScorpionの被弾反応でAttackerに蓄力を付与。"
+    assert line in logs
+    assert line in broadcast_messages
