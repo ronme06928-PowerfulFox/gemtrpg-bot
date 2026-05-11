@@ -62,6 +62,15 @@ def _extract_power_with_snapshot_fallback(rolls, primary_key, fallback_keys):
     return None
 
 
+def _append_unique_line(lines, text):
+    line_str = str(text).strip()
+    if not line_str:
+        return
+    if line_str in {str(row).strip() for row in lines if row is not None}:
+        return
+    lines.append(line_str)
+
+
 def to_legacy_duel_log_input(
     outcome_payload,
     state,
@@ -309,10 +318,10 @@ def to_legacy_duel_log_input(
     extra_lines = []
     tie_break = rolls.get("tie_break")
     if tie_break:
-        extra_lines.append(f"tie_break: {tie_break}")
+        _append_unique_line(extra_lines, f"tie_break: {tie_break}")
     if notes:
         reason_text = _humanize_resolve_reason(notes)
-        extra_lines.append(f"reason: {reason_text or notes}")
+        _append_unique_line(extra_lines, f"reason: {reason_text or notes}")
 
     for dmg in applied.get("damage", []) or []:
         if not isinstance(dmg, dict):
@@ -353,6 +362,8 @@ def to_legacy_duel_log_input(
             extra_lines.append(f"[コスト] HP:{hp} MP:{mp} FP:{fp}")
 
     match_log_line = str(delegate_summary.get("match_log") or "").strip() if isinstance(delegate_summary, dict) else ""
+    retaliation_tag = "\u88ab\u5f3e\u53cd\u5fdc"
+    legacy_retaliation_fragment = "\u9672\uff6b\u8822\uff7e\u873f\uff86\uff8a\uff7f"
     for line in (delegate_legacy_lines if isinstance(delegate_legacy_lines, list) else []):
         if line is None:
             continue
@@ -370,9 +381,32 @@ def to_legacy_duel_log_input(
         if ("付与されました" in line_str) or ("解除されました" in line_str) or ("適用" in line_str) or ("解除" in line_str):
             extra_lines.append(line_str)
 
+    for line in (delegate_legacy_lines if isinstance(delegate_legacy_lines, list) else []):
+        if line is None:
+            continue
+        line_str = str(line).strip()
+        if not line_str:
+            continue
+        if "被弾反応" in line_str:
+            extra_lines.append(line_str)
+
+    for line in (delegate_legacy_lines if isinstance(delegate_legacy_lines, list) else []):
+        if line is None:
+            continue
+        line_str = str(line).strip()
+        if not line_str:
+            continue
+        if (retaliation_tag in line_str) or (legacy_retaliation_fragment in line_str):
+            extra_lines.append(line_str)
+
     for line in (delegate_summary.get("logs", []) if isinstance(delegate_summary, dict) else []):
         if line:
             extra_lines.append(str(line))
+
+    deduped_extra_lines = []
+    for line in extra_lines:
+        _append_unique_line(deduped_extra_lines, line)
+    extra_lines = deduped_extra_lines
 
     return {
         "actor_name_a": attacker_name,

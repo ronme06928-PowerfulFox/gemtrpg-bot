@@ -304,6 +304,7 @@ def _resolve_clash_by_existing_logic(
     from manager.battle import core as core_mod
     from manager import room_manager as room_manager_mod
     from manager import skill_effects as skill_effects_mod
+    from manager.battle import runtime_actions as runtime_actions_mod
 
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
@@ -422,6 +423,7 @@ def _resolve_clash_by_existing_logic(
     orig_core_blog = core_mod.broadcast_log
     orig_room_blog = room_manager_mod.broadcast_log
     orig_skill_effects_blog = getattr(skill_effects_mod, 'broadcast_log', None)
+    orig_runtime_actions_blog = getattr(runtime_actions_mod, 'broadcast_log', None)
     orig_roll_dice = getattr(duel_solver_mod, 'roll_dice', None)
     captured_roll_results = []
 
@@ -471,6 +473,8 @@ def _resolve_clash_by_existing_logic(
         room_manager_mod.broadcast_log = _capture_broadcast_log
         if callable(orig_skill_effects_blog):
             skill_effects_mod.broadcast_log = _capture_broadcast_log
+        if callable(orig_runtime_actions_blog):
+            runtime_actions_mod.broadcast_log = _capture_broadcast_log
         if callable(orig_roll_dice):
             duel_solver_mod.roll_dice = _capture_roll_dice
 
@@ -488,6 +492,8 @@ def _resolve_clash_by_existing_logic(
         room_manager_mod.broadcast_log = orig_room_blog
         if callable(orig_skill_effects_blog):
             skill_effects_mod.broadcast_log = orig_skill_effects_blog
+        if callable(orig_runtime_actions_blog):
+            runtime_actions_mod.broadcast_log = orig_runtime_actions_blog
         if callable(orig_roll_dice):
             duel_solver_mod.roll_dice = orig_roll_dice
 
@@ -633,6 +639,7 @@ def _resolve_clash_by_existing_logic(
         'cost': total_cost,
         'hit': bool(delta_a.get('damage') or delta_d.get('damage')),
         'win': outcome in ['attacker_win', 'defender_win'],
+        'logs': list(captured.get('effect_logs', []) or []),
         'rolls': {
             'power_a': power_a,
             'power_b': power_d,
@@ -938,5 +945,4 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
         slot_id, skill_id, command, total
     )
     return max(0, total)
-
 

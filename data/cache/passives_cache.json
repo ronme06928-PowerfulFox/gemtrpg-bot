@@ -63,5 +63,23 @@
         "damage": 3
       }
     }
+  },
+  "Pa-06": {
+    "id": "Pa-06",
+    "name": "断ち裂く破片",
+    "cost": 0,
+    "description": "自分がスキルでダメージを受けた時、攻撃者に出血2を与える。",
+    "flavor": "一部のシュラーカーは敢えて体組織を脆くすることにより、戦闘に有利な状況を作り出そうと試みているらしい。",
+    "effect": {
+      "on_damage_reaction": {
+        "target": "attacker",
+        "apply_state": [
+          {
+            "name": "出血",
+            "value": 2
+          }
+        ]
+      }
+    }
   }
 }

@@ -230,10 +230,111 @@ def _passes_on_damage_reaction_condition(reaction_conf, damage_val):
     return True
 
 
-def _append_on_damage_log(log_snippets, owner_name, target_name, detail):
+def _is_on_damage_reaction_suppressed(context):
+    if not isinstance(context, dict):
+        return False
+    if context.get('suppress_on_damage_reaction'):
+        return True
+    damage_source = str(context.get('damage_source') or context.get('damage_origin') or '').strip().lower()
+    return damage_source in {'on_damage_reaction', 'retaliation', 'reaction'}
+
+
+def _append_on_damage_log(room, log_snippets, message):
     if not isinstance(log_snippets, list):
+        if message and room:
+            try:
+                broadcast_log(room, str(message), 'state-change')
+            except Exception as e:
+                logger.warning("[被弾反応ログ] broadcast_log失敗 room=%s msg=%s err=%s", room, message, e)
         return
-    log_snippets.append(f"[{owner_name}: on_damage {target_name} {detail}]")
+    if not message:
+        return
+    msg = str(message)
+    log_snippets.append(msg)
+    if room:
+        try:
+            broadcast_log(room, msg, 'state-change')
+        except Exception as e:
+            logger.warning("[被弾反応ログ] broadcast_log失敗 room=%s msg=%s err=%s", room, msg, e)
+    else:
+        logger.warning("[被弾反応ログ] room=Noneのためbroadcast_log未呼び出し msg=%s", msg)
+
+
+def _format_on_damage_damage_log(owner_name, target_name, damage_amount):
+    return f"[\u88ab\u5f3e\u53cd\u5fdc] {owner_name}\u306e\u88ab\u5f3e\u53cd\u5fdc\u3067{target_name}\u306b{int(damage_amount)}\u30c0\u30e1\u30fc\u30b8\u3002"
+
+
+def _format_on_damage_state_log(owner_name, target_name, state_name, state_value, rounds=None):
+    value = int(state_value or 0)
+    if state_name == '\u4e80\u88c2' and value > 0 and int(rounds or 0) > 0:
+        return f"[\u88ab\u5f3e\u53cd\u5fdc] {owner_name}\u306e\u88ab\u5f3e\u53cd\u5fdc\u3067{target_name}\u306b{int(rounds)}\u30e9\u30a6\u30f3\u30c9\u306e\u4e80\u88c2{value}\u3092\u4ed8\u4e0e\u3002"
+    if value > 0:
+        return f"[\u88ab\u5f3e\u53cd\u5fdc] {owner_name}\u306e\u88ab\u5f3e\u53cd\u5fdc\u3067{target_name}\u306b{state_name}{value}\u3092\u4ed8\u4e0e\u3002"
+    return f"[\u88ab\u5f3e\u53cd\u5fdc] {owner_name}\u306e\u88ab\u5f3e\u53cd\u5fdc\u3067{target_name}\u306e{state_name}\u3092{abs(value)}\u5909\u5316\u3002"
+
+
+def _format_on_damage_buff_log(owner_name, target_name, buff_name):
+    return f"[\u88ab\u5f3e\u53cd\u5fdc] {owner_name}\u306e\u88ab\u5f3e\u53cd\u5fdc\u3067{target_name}\u306b{buff_name}\u3092\u4ed8\u4e0e\u3002"
+
+
+def _format_on_damage_skip_log(owner_name, target_name, reason):
+    return f"[\u88ab\u5f3e\u53cd\u5fdc] {owner_name}\u306e\u88ab\u5f3e\u53cd\u5fdc\u306f\u767a\u52d5\u3057\u305f\u304c\u3001{target_name}\u3078\u306e\u52b9\u679c\u306f\u4e0d\u767a\u3002({reason})"
+
+
+def _apply_on_damage_state(room, owner_name, reaction_target, target_name, state_row, log_snippets):
+    if not isinstance(reaction_target, dict) or not isinstance(state_row, dict):
+        return
+
+    state_name = str(state_row.get('name') or state_row.get('stat') or '').strip()
+    state_value = _safe_int(state_row.get('value'), 0)
+    if not state_name or state_value == 0:
+        return
+
+    if state_name == '\u4e80\u88c2' and state_value > 0:
+        rounds = _safe_int(state_row.get('rounds'), 0)
+        if rounds <= 0:
+            _append_on_damage_log(room, log_snippets, _format_on_damage_skip_log(owner_name, target_name, "\u4e80\u88c2\u306f\u7d99\u7d9a\u30e9\u30a6\u30f3\u30c9\u672a\u6307\u5b9a"))
+            return
+        apply_buff(
+            reaction_target,
+            f"\u4e80\u88c2_R{rounds}",
+            rounds,
+            0,
+            data={
+                "buff_id": "Bu-Fissure",
+                "source": "on_damage_reaction",
+                "count": state_value,
+                "fissure_count": state_value,
+                "original_rounds": rounds,
+            },
+        )
+        _append_on_damage_log(room, log_snippets, _format_on_damage_state_log(owner_name, target_name, state_name, state_value, rounds=rounds))
+        return
+
+    if state_name == '亀裂' and state_value > 0:
+        rounds = _safe_int(state_row.get('rounds'), 0)
+        if rounds <= 0:
+            _append_on_damage_log(room, log_snippets, _format_on_damage_skip_log(owner_name, target_name, "亀裂は継続ラウンド未指定"))
+            return
+        apply_buff(
+            reaction_target,
+            f"亀裂_R{rounds}",
+            rounds,
+            0,
+            data={
+                "buff_id": "Bu-Fissure",
+                "source": "on_damage_reaction",
+                "count": state_value,
+                "fissure_count": state_value,
+                "original_rounds": rounds,
+            },
+        )
+        _append_on_damage_log(room, log_snippets, _format_on_damage_state_log(owner_name, target_name, state_name, state_value, rounds=rounds))
+        return
+
+    current_value = int(get_status_value(reaction_target, state_name) or 0)
+    _update_char_stat(room, reaction_target, state_name, current_value + state_value, username=f"[{owner_name}]", suppress_log=True)
+    _append_on_damage_log(room, log_snippets, _format_on_damage_state_log(owner_name, target_name, state_name, state_value))
 
 
 def _apply_on_damage_reaction(room, owner_char, reaction_conf, attacker_char, log_snippets):
@@ -257,18 +358,11 @@ def _apply_on_damage_reaction(room, owner_char, reaction_conf, attacker_char, lo
         if damage_amount > 0:
             current_hp = int(reaction_target.get('hp', 0) or 0)
             next_hp = max(0, current_hp - damage_amount)
-            _update_char_stat(room, reaction_target, 'HP', next_hp, username=f"[{owner_name}]")
-            _append_on_damage_log(log_snippets, owner_name, target_name, f"HP-{damage_amount}")
+            _update_char_stat(room, reaction_target, 'HP', next_hp, username=f"[{owner_name}]", suppress_log=True)
+            _append_on_damage_log(room, log_snippets, _format_on_damage_damage_log(owner_name, target_name, damage_amount))
 
         for state_row in state_rows:
-            state_name = str(state_row.get('name') or state_row.get('stat') or '').strip()
-            state_value = _safe_int(state_row.get('value'), 0)
-            if not state_name or state_value == 0:
-                continue
-            current_value = int(get_status_value(reaction_target, state_name) or 0)
-            _update_char_stat(room, reaction_target, state_name, current_value + state_value, username=f"[{owner_name}]")
-            sign = '+' if state_value > 0 else ''
-            _append_on_damage_log(log_snippets, owner_name, target_name, f"{state_name}{sign}{state_value}")
+            _apply_on_damage_state(room, owner_name, reaction_target, target_name, state_row, log_snippets)
 
         for buff_row in buff_rows:
             buff_name = str(buff_row.get('buff_name') or buff_row.get('name') or '').strip()
@@ -288,7 +382,7 @@ def _apply_on_damage_reaction(room, owner_char, reaction_conf, attacker_char, lo
                 data=payload,
                 count=_safe_int(count, 0) if count is not None else None,
             )
-            _append_on_damage_log(log_snippets, owner_name, target_name, f"buff {buff_name}")
+            _append_on_damage_log(room, log_snippets, _format_on_damage_buff_log(owner_name, target_name, buff_name))
 
 
 def process_on_damage_buffs(room, char, damage_val, username, log_snippets, attacker_char=None, context=None):
@@ -297,7 +391,10 @@ def process_on_damage_buffs(room, char, damage_val, username, log_snippets, atta
     """
     _ = (username, context)
     total_applied_damage = 0
-    if damage_val <= 0: return 0
+    if damage_val <= 0:
+        return 0
+    if _is_on_damage_reaction_suppressed(context):
+        return 0
 
     for b in char.get('special_buffs', []):
         # このターン新規付与のバフは発動させない

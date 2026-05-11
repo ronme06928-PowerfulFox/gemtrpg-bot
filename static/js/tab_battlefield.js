@@ -133,6 +133,10 @@ function logToBattleLog(logData) {
 
     // 1. データへの保存（常に実行）
     if (battleState && battleState.logs) {
+        const prevLog = battleState.logs.length > 0 ? battleState.logs[battleState.logs.length - 1] : null;
+        if (_isDuplicateBleedLogLine(prevLog, logData)) {
+            return;
+        }
         battleState.logs.push(logData);
     } else {
         console.warn('[LOG] battleState.logs is not available, log data may be lost:', logData);
@@ -151,6 +155,7 @@ function logToBattleLog(logData) {
     if (visualLogArea) {
         if (typeof window.appendVisualLogBatch === 'function') {
             window.appendVisualLogBatch([logData]);
+            window._lastLogCount = Number(window._lastLogCount || 0) + 1;
         } else if (typeof window.appendVisualLogLine === 'function') {
             const filter = window.currentVisualLogFilter || 'all';
             window.appendVisualLogLine(visualLogArea, logData, filter);
@@ -162,6 +167,24 @@ function logToBattleLog(logData) {
 
 // ログ表示数の上限
 const MAX_LOG_ITEMS = 200;
+
+function _normalizeLogMessageForDisplay(logData) {
+    if (!logData || typeof logData !== 'object') return '';
+    return String(logData.message || '').trim();
+}
+
+function _isDuplicateBleedLogLine(prevLog, nextLog) {
+    if (!prevLog || !nextLog) return false;
+    if (String(prevLog.type || '') !== 'state-change' || String(nextLog.type || '') !== 'state-change') {
+        return false;
+    }
+    const prevMessage = _normalizeLogMessageForDisplay(prevLog);
+    const nextMessage = _normalizeLogMessageForDisplay(nextLog);
+    if (!prevMessage || prevMessage !== nextMessage) {
+        return false;
+    }
+    return prevMessage.startsWith('[\u51fa\u8840]:') && prevMessage.includes('\u51fa\u8840 (');
+}
 
 // ログ1行を生成して要素に追加するヘルパー関数
 function appendLogLineToElement(container, logData, filterType) {
@@ -228,8 +251,13 @@ function renderLogHistory(logs) {
         logArea.innerHTML = '<p class="log-line info">--- 過去ログ ---</p>';
     }
 
+    let previousRenderedLog = null;
     logs.forEach(logData => {
+        if (_isDuplicateBleedLogLine(previousRenderedLog, logData)) {
+            return;
+        }
         appendLogLineToElement(logArea, logData, currentLogFilter);
+        previousRenderedLog = logData;
     });
     logArea.scrollTop = logArea.scrollHeight;
 }

@@ -26,7 +26,7 @@ def _extract_power_pair_from_match_log(match_log):
 
 def _estimate_roll_breakdown_from_command_and_total(command_text, total_value, fallback_constant=0):
     expression = str(command_text or "").strip()
-    expression = re.sub(r"[【】\[\]]", "", expression).strip()
+    expression = re.sub(r"[縲舌曾[\]]", "", expression).strip()
     compact = expression.replace(" ", "")
 
     constant_total = 0
@@ -97,6 +97,8 @@ def _extract_step_aux_log_lines(trace_entry):
 
     aux = []
     seen = set()
+    retaliation_tag = "\u88ab\u5f3e\u53cd\u5fdc"
+    legacy_retaliation_fragment = "\u9672\uff6b\u8822\uff7e\u873f\uff86\uff8a\uff7f"
     for row in rows:
         if row is None:
             continue
@@ -112,16 +114,23 @@ def _extract_step_aux_log_lines(trace_entry):
         if is_match_headline:
             continue
 
+        has_retaliation_tag = (
+            text_plain.startswith(f"[{retaliation_tag}]")
+            or (retaliation_tag in text_plain)
+            or (legacy_retaliation_fragment in text_plain)
+        )
+
         # Keep status/cost/damage detail style lines near each trace step.
         keep_line = (
-            text_plain.startswith("[結果]")
-            or text_plain.startswith("[コスト]")
-            or text_plain.startswith("[出血]")
-            or text_plain.startswith("内訳:")
-            or ("内訳:" in text_plain)
-            or ("ダメージ" in text_plain)
-            or ("付与" in text_plain)
-            or ("解除" in text_plain)
+            text_plain.startswith("[\u7d50\u679c]")
+            or text_plain.startswith("[\u30b3\u30b9\u30c8]")
+            or text_plain.startswith("[\u51fa\u8840]")
+            or has_retaliation_tag
+            or text_plain.startswith("\u5185\u8a33:")
+            or ("\u5185\u8a33:" in text_plain)
+            or ("\u30c0\u30e1\u30fc\u30b8" in text_plain)
+            or ("\u4ed8\u4e0e" in text_plain)
+            or ("\u89e3\u9664" in text_plain)
             # Backward compatibility for old persisted mojibake logs.
             or text_plain.startswith("[\u8fe5\uff76\u8af7\u72a0")
             or text_plain.startswith("[\u7e67\uff73\u7e67\uff79\u7e5d\u30fb")
@@ -147,7 +156,14 @@ def _estimate_cost_for_skill_from_snapshot(before_snapshot, skill_data):
 
     rule_data = _extract_rule_data_from_skill(skill_data)
     tags = rule_data.get("tags", skill_data.get("tags", [])) if isinstance(rule_data, dict) else skill_data.get("tags", [])
-    no_cost_tags = {"消費不要", "コスト不要", "無消費", "no_cost", "free_cost", "即時発動"}
+    no_cost_tags = {
+        "\u8ffd\u52a0\u884c\u52d5",
+        "\u30b3\u30b9\u30c8\u4e0d\u8981",
+        "\u5373\u6642\u884c\u52d5",
+        "no_cost",
+        "free_cost",
+        "\u5373\u6642\u5ba3\u8a00",
+    }
     if isinstance(tags, list):
         normalized_tags = {str(tag).strip() for tag in tags}
         if normalized_tags.intersection(no_cost_tags):

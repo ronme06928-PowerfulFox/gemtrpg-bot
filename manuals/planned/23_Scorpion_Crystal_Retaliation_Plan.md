@@ -1,98 +1,134 @@
 # 23. Scorpion Crystal Retaliation Plan
 
-**作成日**: 2026-05-09  
-**ステータス**: Draft  
-**対象**: サソリ系敵キャラクターの「被弾時に攻撃者へ反応する結晶毒パッシブ」
+**作成日**: 2026-05-11  
+**ステータス**: Current  
+**対象**: 被弾反応パッシブ  
+**主題**: 自分がダメージを受けた時に、攻撃者へダメージ、状態異常、バフを返す仕組みの整理
 
 ---
 
 ## 1. 目的
 
-サソリモチーフの敵に対して、以下の性質を実装できる基盤を作る。
+サソリ系の敵キャラクター向けに、「被弾時に砕けた毒晶が飛び散り、攻撃者へ反撃効果を与える」パッシブを実装する。
 
-- 敵がダメージを受けたときに反応する
-- 反応先は基本的に攻撃者
-- 反応内容はまず「固定ダメージ」
-- 将来的には「状態異常付与」「バフ/デバフ付与」「条件付き発動」に拡張できる
+この仕組みは特定の敵専用ではなく、今後の敵や装備、特殊パッシブでも再利用できる共通機能として扱う。
 
-このため、単発の専用処理ではなく「被弾リアクション」用の汎用パッシブ/バフ枠を追加する方針を取る。
+目標は次の 3 系統を同じ枠組みで扱えるようにすること。
+
+- 被弾時に攻撃者へ固定ダメージを与える
+- 被弾時に攻撃者へ状態異常を付与する
+- 被弾時に攻撃者へ `Bu-XX` バフを付与する
 
 ---
 
 ## 2. 現状整理
 
-### 2.1 すでにあるもの
+### 2.1 実装済みの中心
 
 - `manager/utils.py::apply_passive_effect_buffs`
-  - パッシブ効果を `special_buffs` に展開する仕組みがある
-- `manager/buff_catalog.py`
-  - `on_damage_state` を持つバフ定義がある
-  - 例: `*_BleedReactN`, `Bu-47`
+  - 特殊パッシブの `effect` を `special_buffs` へ展開する入口
 - `manager/battle/runtime_actions.py::process_on_damage_buffs`
-  - 被弾時反応の入口がある
-- `manager/battle/core.py`
-  - Select/Resolve 系へ `process_on_damage_buffs` を注入している
-- `manager/battle/resolve_match_runtime.py`, `manager/battle/resolve_effect_runtime.py`
-  - 同名の委譲用プレースホルダがある
+  - 被弾反応の主処理
 
-### 2.2 今の不足
+### 2.2 現在サポートしている `on_damage_reaction`
 
-- `process_on_damage_buffs` は被弾者しか受け取らない
-- 現在の `on_damage_state` は「被弾者自身に状態を積む」用途のみ
-- 攻撃者へ返すダメージ、状態異常、バフ/デバフの汎用表現がない
-- どの攻撃者から受けた被弾かを安全に参照する経路が統一されていない
+現行実装では、`on_damage_reaction` で以下を扱える。
 
----
+- `target`
+- `damage`
+- `apply_state`
+- `apply_buff`
+- `condition.damage_gte`
 
-## 3. 実装方針
+呼び出し側では、被弾者が誰に攻撃されたかを渡すために次の系統が `attacker_char` を引き回している。
 
-### 3.1 段階分け
+- `manager/battle/duel_solver.py`
+- `manager/battle/wide_solver.py`
+- `manager/battle/resolve_match_runtime.py`
+- `manager/battle/resolve_effect_runtime.py`
+- `manager/skill_effects.py`
 
-#### Phase 1: 最小実装
+テストは `tests/test_retaliation_passive.py` で確認している。
 
-サソリ結晶用に、被弾時に攻撃者へ固定ダメージを返す。
+### 2.3 まだ整理不足の点
 
-- 目的: コンセプト敵を最短で成立させる
-- 対応内容:
-  - 被弾者
-  - 攻撃者
-  - 被ダメージ量
-  - ログ出力
-  - 固定反撃ダメージ
-
-#### Phase 2: 汎用化
-
-同じ入口で以下も扱えるようにする。
-
-- 攻撃者へ状態異常付与
-- 攻撃者へバフ/デバフ付与
-- 被弾者自身への副作用
-- 条件付き発動
-  - 近接のみ
-  - ダメージが 1 以上
-  - ラウンド内回数制限
-  - 結晶スタック消費時のみ
-
-Phase 1 を先に通し、その形を壊さず Phase 2 に拡張する。
+- 反応ダメージの再帰発火ルールが明文化不足
+- 「スキルで受けたダメージのみ」などの条件追加が未対応
+- ログ表示の粒度が未整理
+- `apply_buff` で `buff_id` をどこまで必須扱いにするかの運用方針が未明確
 
 ---
 
-## 4. 推奨データ設計
+## 3. 現在のデータ仕様
 
-### 4.1 新しい効果キー案
-
-既存の `on_damage_state` は残しつつ、攻撃者反応用に新キーを追加する。
+### 3.1 最小構成
 
 ```json
 {
   "on_damage_reaction": {
     "target": "attacker",
-    "damage": 2
+    "damage": 3
   }
 }
 ```
 
-Phase 2 では以下まで広げる。
+意味:
+
+- このパッシブ所持者がダメージを受けた時
+- 攻撃者に 3 ダメージを与える
+
+### 3.2 状態異常付与
+
+```json
+{
+  "on_damage_reaction": {
+    "target": "attacker",
+    "apply_state": [
+      { "name": "出血", "value": 2 }
+    ]
+  }
+}
+```
+
+`apply_state` のロールモデルは `出血` と `亀裂` を前提にする。
+
+- `出血` は `name` と `value` で付与する
+- `亀裂` は `name` と `value` に加えて `rounds` を指定する
+- `亀裂` の `rounds` は必須扱いとする
+
+亀裂の例:
+
+```json
+{
+  "on_damage_reaction": {
+    "target": "attacker",
+    "apply_state": [
+      { "name": "亀裂", "value": 1, "rounds": 2 }
+    ]
+  }
+}
+```
+
+### 3.3 バフ付与
+
+```json
+{
+  "on_damage_reaction": {
+    "target": "attacker",
+    "apply_buff": [
+      {
+        "buff_id": "Bu-47",
+        "buff_name": "被弾時出血",
+        "lasting": 2,
+        "delay": 0,
+        "data": { "value": 3 }
+      }
+    ]
+  }
+}
+```
+
+### 3.4 複合反応
 
 ```json
 {
@@ -100,223 +136,257 @@ Phase 2 では以下まで広げる。
     "target": "attacker",
     "damage": 2,
     "apply_state": [
-      { "name": "毒", "value": 2 }
+      { "name": "出血", "value": 2 },
+      { "name": "亀裂", "value": 1, "rounds": 2 }
     ],
     "apply_buff": [
-      { "buff_id": "Bu-XX", "lasting": 2, "delay": 0 }
-    ],
-    "condition": {
-      "damage_gte": 1
-    },
-    "max_triggers_per_action": 1
+      {
+        "buff_id": "Bu-32",
+        "lasting": 1,
+        "delay": 0,
+        "data": { "value": 3 }
+      }
+    ]
   }
 }
 ```
 
-### 4.2 `target` の候補
+### 3.5 条件付き
 
-- `attacker`
-- `self`
-
-必要になるまで増やさず、まずはこの 2 種で十分。
-
-### 4.3 既存キーとの住み分け
-
-- `on_damage_state`
-  - 後方互換のため維持
-  - 既存の「被弾者自身に状態を積む」処理に使う
-- `on_damage_reaction`
-  - 新設
-  - 攻撃者参照や複合効果はこちらに寄せる
-
-この分離で既存仕様を壊しにくくする。
-
----
-
-## 5. コード変更ポイント
-
-### 5.1 中心処理
-
-最優先の変更箇所:
-
-- `manager/battle/runtime_actions.py::process_on_damage_buffs`
-
-ここを、被弾者だけでなく攻撃者も受け取れる形に拡張する。
-
-現状イメージ:
-
-```python
-process_on_damage_buffs(room, target_char, incoming_damage, source, log_snippets)
+```json
+{
+  "on_damage_reaction": {
+    "target": "attacker",
+    "damage": 3,
+    "condition": {
+      "damage_gte": 1
+    }
+  }
+}
 ```
 
-変更案:
+意味:
 
-```python
-process_on_damage_buffs(
-    room,
-    target_char,
-    incoming_damage,
-    source,
-    log_snippets,
-    attacker_char=None,
-    context=None,
-)
+- 実際に 1 以上のダメージを受けた時だけ反応する
+
+---
+
+## 4. 実装方針
+
+### 4.1 主入口を一本化する
+
+被弾反応の判定と適用は `process_on_damage_buffs` に集約する。
+
+理由:
+
+- duel / wide / Select-Resolve の経路差分を減らせる
+- 将来条件を追加しても一か所で管理できる
+- 反応ダメージの再帰防止を集中管理できる
+
+### 4.2 既存の `on_damage_state` は急いで消さない
+
+旧仕様が残っている可能性があるため、当面は互換維持を優先する。
+
+整理方針:
+
+- 新規定義は `on_damage_reaction` を推奨
+- 旧形式は読み取りのみ維持
+- 将来まとめて移行する
+
+### 4.3 `apply_buff` は `buff_id` 優先
+
+推奨運用:
+
+- `buff_id` を実体参照の主キーとする
+- `buff_name` は表示補助として扱う
+- `lasting` と `delay` は明示指定を推奨
+- `data.value` は value-driven buff 用の拡張入力として通す
+
+---
+
+## 5. 今後の拡張フェーズ
+
+### Phase A. 仕様の固定
+
+やること:
+
+- `damage`
+- `apply_state`
+- `apply_buff`
+- `condition.damage_gte`
+
+この 4 つを正式仕様としてマニュアル化し、シート運用例も統一する。
+
+状態異常付与は、少なくとも次の 2 系統を固定対象とする。
+
+- `出血`: `value` 指定
+- `亀裂`: `value` と `rounds` 指定
+
+### Phase B. 再帰防止の明文化と強化
+
+やること:
+
+- 反応ダメージでさらに `on_damage_reaction` が連鎖しないようにする
+- どの経路でも同じガードが効くようにする
+
+優先度:
+
+- 高
+
+理由:
+
+- 反撃同士の無限連鎖が最も危険な不具合になりやすい
+
+### Phase C. 条件拡張
+
+候補:
+
+- `skill_only: true`
+- `once_per_hit: true`
+- `once_per_turn: true`
+- `source_tags`
+- `melee_only`
+
+優先度:
+
+- 中
+
+理由:
+
+- 設計幅は広がるが、まずは基礎反応の安定が先
+- 当面の正式対応は `condition.damage_gte` のみとし、追加条件は保留にする
+
+### Phase D. ログ改善
+
+やること:
+
+- 誰のどの被弾反応が発動したかを戦闘ログに出す
+- ダメージ、状態異常、バフ付与を見分けやすくする
+
+優先度:
+
+- 中
+
+---
+
+## 6. 推奨 JSON パターン
+
+### 6.1 毒晶反射
+
+```json
+{
+  "on_damage_reaction": {
+    "target": "attacker",
+    "damage": 3
+  }
+}
 ```
 
-### 5.2 呼び出し元
+### 6.2 出血と亀裂を返す
 
-`process_on_damage_buffs(...)` を呼んでいる箇所で、攻撃者を渡す。
+```json
+{
+  "on_damage_reaction": {
+    "target": "attacker",
+    "apply_state": [
+      { "name": "出血", "value": 2 },
+      { "name": "亀裂", "value": 1, "rounds": 2 }
+    ]
+  }
+}
+```
 
-主な対象:
+### 6.3 専用デバフを返す
 
-- `manager/battle/duel_solver.py`
-- `manager/battle/resolve_match_runtime.py`
-- `manager/battle/resolve_effect_runtime.py`
-- `manager/skill_effects.py`
-- 必要なら `manager/battle/wide_solver.py` 経由のルートも確認
+```json
+{
+  "on_damage_reaction": {
+    "target": "attacker",
+    "apply_buff": [
+      {
+        "buff_id": "Bu-58",
+        "buff_name": "毒晶侵食",
+        "lasting": 2,
+        "delay": 0,
+        "data": { "value": 2 }
+      }
+    ]
+  }
+}
+```
 
-### 5.3 委譲スタブ
+### 6.4 ダメージと亀裂を同時に返す
 
-以下のプレースホルダ関数もシグネチャを揃える。
-
-- `manager/battle/resolve_match_runtime.py::process_on_damage_buffs`
-- `manager/battle/resolve_effect_runtime.py::process_on_damage_buffs`
-
-ここを揃えないと Select/Resolve 系の委譲で引数不整合が起きる。
-
-### 5.4 パッシブ定義
-
-パッシブ JSON 側では、最初は専用パッシブを 1 本作る。
-
-例:
-
-- `Crystalline Scorpion Hide`
-- 説明: 被弾時、砕けた毒晶片が攻撃者へ飛散し固定ダメージ
-
-実際の効果量や条件は後から調整する前提でよい。
-
----
-
-## 6. 処理フロー案
-
-1. 攻撃で対象がダメージを受ける
-2. 既存どおり HP 減少を適用する
-3. `process_on_damage_buffs(...)` を呼ぶ
-4. 被弾者の `special_buffs` を走査する
-5. `on_damage_state` があれば従来どおり処理する
-6. `on_damage_reaction` があれば `target` を解決する
-7. `target=attacker` かつ攻撃者が存在する場合のみ反応適用
-8. 固定ダメージや状態異常付与を適用する
-9. ログを追加する
-10. 返却値は既存互換を意識して「追加で発生したHPダメージ量」を返す
-
----
-
-## 7. 仕様上の注意点
-
-### 7.1 反撃ダメージはカウンター攻撃ではない
-
-今回は「通常攻撃の再実行」ではなく、反応ダメージとして扱う方が安全。
-
-- 命中判定をしない
-- 再帰的に再反撃を誘発しない
-- スキル使用扱いにしない
-
-つまり「結晶片ダメージ」という独立ダメージソースとして扱う。
-
-### 7.2 無限反応の防止
-
-反応ダメージがさらに `process_on_damage_buffs` を誘発すると連鎖事故になる。
-
-対策案:
-
-- ダメージソースに `retaliation` を明示する
-- `retaliation` 由来のダメージでは `on_damage_reaction` を再発動させない
-
-最低限、Phase 1 でここは必須。
-
-### 7.3 死亡済み攻撃者
-
-被弾反応を処理する時点で攻撃者 HP が 0 以下のケースを想定する。
-
-- 反応先が戦闘不能なら適用しない
-- ログだけ残すかは実装時に統一する
-
-### 7.4 広域攻撃
-
-広域攻撃では 1 攻撃者が複数対象へ与ダメする。
-
-- 被弾者ごとに個別に反応
-- 反応先は同じ攻撃者
-
-これは今回のコンセプトと相性がよいので、特別扱いせず個別処理でよい。
+```json
+{
+  "on_damage_reaction": {
+    "target": "attacker",
+    "damage": 2,
+    "apply_state": [
+      { "name": "亀裂", "value": 1, "rounds": 2 }
+    ]
+  }
+}
+```
 
 ---
 
-## 8. テスト計画
+## 7. テスト計画
 
-### 8.1 単体テスト
+最低限必要な確認項目は次のとおり。
 
-新規または追記候補:
+- 被弾時に攻撃者へ固定ダメージが入る
+- 被弾時に攻撃者へ `出血` が入る
+- 被弾時に攻撃者へ `亀裂` が `rounds` 付きで入る
+- 被弾時に攻撃者へ `Bu-XX` が入る
+- `condition.damage_gte` が正しく効く
+- `亀裂` の `rounds` 未指定時の挙動が固定されている
+- 反応ダメージで再帰発火しない
 
-- `tests/test_phase2_value_driven_buffs.py`
-  - `on_damage_state` 既存互換を維持
-- `tests/test_passive_effect_buffs.py`
-  - パッシブ展開後に `on_damage_reaction` が保持されること
-- 新規 `tests/test_retaliation_passive.py`
-  - 被弾時に攻撃者へ固定ダメージ
-  - 攻撃者未指定時は安全に無視
-  - 反応ダメージで再帰しない
+確認先:
 
-### 8.2 統合テスト
+- `tests/test_retaliation_passive.py`
 
-- 一対一の通常攻撃で反応する
-- One-sided / Clash / Select-Resolve 委譲ルートで同じように反応する
-- 広域攻撃で複数回発動する
+必要なら将来的に以下も追加する。
 
-### 8.3 回帰確認
-
-既存の以下に影響しやすい:
-
-- `tests/test_select_resolve_smoke.py`
-- `tests/test_skill_catalog_smoke.py`
-- `tests/test_phase2_value_driven_buffs.py`
+- duel 系
+- wide 系
+- Select-Resolve 系
+- ログ文言の確認
 
 ---
 
-## 9. 実装順
+## 8. 実装タスク整理
 
-1. `on_damage_reaction` のデータ仕様を追加
-2. `process_on_damage_buffs` に `attacker_char` を追加
-3. 主要な呼び出し元へ攻撃者引き回しを入れる
-4. 反応ダメージの再帰防止を入れる
-5. サソリ用パッシブを 1 本追加
-6. 単体テスト
-7. Select/Resolve 系の回帰テスト
+1. `on_damage_reaction` の現行仕様をこのマニュアル内容に合わせて維持する
+2. 再帰防止の仕様をコードと文書の両方で明文化する
+3. `skill_only` などの追加条件が必要になった時点で JSON 仕様を拡張する
+4. シート記入例を特殊パッシブ向けに別マニュアルか一覧へ整理する
+5. ログ表示を改善してデバッグしやすくする
 
 ---
 
-## 10. サソリ敵への当て込み例
+## 9. 決定事項ログ
 
-最初の敵実装では、以下くらいが扱いやすい。
-
-- パッシブ名: `毒晶外殻`
-- 効果:
-  - 被弾時、攻撃者へ 2 ダメージ
-  - 将来拡張で `毒` や `出血` を付けられる
-
-演出上は「結晶片が砕けて飛ぶ」ログを出せるようにしておくと、敵コンセプトが伝わりやすい。
+| 日付 | 論点 | 決定 | 根拠 |
+|---|---|---|---|
+| 2026-05-11 | 被弾反応の亀裂制限 | **被弾反応の亀裂は通常の1ラウンド1回制限と共有しない** | 被弾反応専用の別枠挙動として運用したい |
+| 2026-05-11 | ログ表示方針 | **チャットログはプレイヤー向けの自然文にする** | 実戦ログで読みやすさを優先する |
+| 2026-05-11 | 条件拡張の扱い | **現時点では `damage_gte` のみ正式対応、他条件は保留** | 追加条件より基礎挙動の安定を優先する |
+| 2026-05-11 | 確認範囲 | **実装確認は自動テストまででよい** | 今回はコード回帰と仕様整合の確認を優先する |
 
 ---
 
-## 11. 結論
+## 10. 結論
 
-この機能は既存の `on_damage_state` を無理に拡張するより、
+被弾反応パッシブは、すでに `on_damage_reaction` を軸にした基礎実装へ乗っている。
 
-- 後方互換を保ちつつ
-- `process_on_damage_buffs` を攻撃者参照可能にし
-- `on_damage_reaction` を新設する
+今後はこのキーを正式仕様として整理し、
 
-のが最も安全。
+- ダメージ
+- 状態異常
+- バフ付与
 
-最初は「固定反撃ダメージ」のみで通し、その後に状態異常・バフ・デバフを同じ枠へ追加する実装が妥当。
+を同じ枠組みで扱う方針で進める。
+
+サソリの毒晶外殻のような敵は、この仕様上で自然に表現できる。

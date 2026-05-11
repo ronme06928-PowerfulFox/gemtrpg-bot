@@ -940,7 +940,7 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
         changes_to_apply.append((
             target_obj,
             "APPLY_BUFF",
-            f"亀裂R{rounds}",
+            f"亀裂_R{rounds}",
             {
                 "lasting": rounds,
                 "delay": 0,
@@ -2871,4 +2871,3 @@ def process_battle_start(room, char):
         from manager.room_manager import save_specific_room_state, broadcast_state_update
         save_specific_room_state(room)
         broadcast_state_update(room)
-

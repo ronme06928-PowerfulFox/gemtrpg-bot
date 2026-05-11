@@ -86,6 +86,13 @@ def _normalize_log_text(text):
     return str(text or "")
 
 
+def _is_bleed_state_change_log(text):
+    msg = str(text or "")
+    if not msg.startswith("["):
+        return False
+    return "\u51fa\u8840 (" in msg
+
+
 def _safe_emit(event_name, payload, **kwargs):
     emit_fn = getattr(socketio, "emit", None)
     if callable(emit_fn):
@@ -326,8 +333,14 @@ def broadcast_log(room_name, message, type='info', user=None, secret=False, save
     if '_log_seq' not in state:
         state['_log_seq'] = len(state['logs'])
 
-    state['_log_seq'] += 1
     normalized_message = _normalize_log_text(message)
+    if type == 'state-change' and _is_bleed_state_change_log(normalized_message):
+        last = state['logs'][-1] if state['logs'] else None
+        if isinstance(last, dict):
+            if str(last.get('type') or '') == 'state-change' and str(last.get('message') or '') == normalized_message:
+                return
+
+    state['_log_seq'] += 1
     log_data = {
         "log_id": state['_log_seq'],
         "timestamp": int(time.time() * 1000),
@@ -392,7 +405,7 @@ def get_users_in_room(room_name):
 
 
 
-def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_delete=False, username="System", source=None, save=True):
+def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_delete=False, username="System", source=None, save=True, suppress_log=False):
     stat_name = normalize_status_name(stat_name)
     normalize_character_labels(char)
     username = _normalize_log_text(username)
@@ -500,11 +513,11 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
                 'new_value': new_value,
                 'old_value': old_value,
                 'max_value': max_value,
-                'log_message': log_message,
+                'log_message': None if suppress_log else log_message,
                 'source': source
             }, to=room_name)
 
-    if log_message and (str(old_value) != str(new_value) or is_new or is_delete):
+    if (not suppress_log) and log_message and (str(old_value) != str(new_value) or is_new or is_delete):
         broadcast_log(room_name, _normalize_log_text(log_message), 'state-change', save=save)
 
 

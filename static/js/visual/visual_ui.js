@@ -32,6 +32,24 @@ const _isHiddenResolveTraceLog = (logData) => {
     return kind === 'fizzle' && notes === 'no_intent' && !attackerSkillId;
 };
 
+const _normalizeVisualLogMessage = (logData) => {
+    if (!logData || typeof logData !== 'object') return '';
+    return String(logData.message || '').trim();
+};
+
+const _isDuplicateVisualBleedLog = (prevLog, nextLog) => {
+    if (!prevLog || !nextLog) return false;
+    if (String(prevLog.type || '') !== 'state-change' || String(nextLog.type || '') !== 'state-change') {
+        return false;
+    }
+    const prevMessage = _normalizeVisualLogMessage(prevLog);
+    const nextMessage = _normalizeVisualLogMessage(nextLog);
+    if (!prevMessage || prevMessage !== nextMessage) {
+        return false;
+    }
+    return prevMessage.startsWith('[\u51fa\u8840]:') && prevMessage.includes('\u51fa\u8840 (');
+};
+
 const _resolveSidePowerLines = (side) => {
     const snapshot = (side && typeof side.power_snapshot === 'object') ? side.power_snapshot : {};
     const breakdown = (side && typeof side.power_breakdown === 'object') ? side.power_breakdown : {};
@@ -199,7 +217,14 @@ window.renderVisualLogHistory = function (logs) {
         return;
     }
     const filter = window.currentVisualLogFilter || 'all';
-    logs.forEach(log => appendVisualLogLine(logArea, log, filter));
+    let previousRenderedLog = null;
+    logs.forEach(log => {
+        if (_isDuplicateVisualBleedLog(previousRenderedLog, log)) {
+            return;
+        }
+        appendVisualLogLine(logArea, log, filter);
+        previousRenderedLog = log;
+    });
     window._lastLogCount = Array.isArray(logs) ? logs.length : 0;
     logArea.scrollTop = logArea.scrollHeight;
     setTimeout(() => { logArea.scrollTop = logArea.scrollHeight; }, 30);
@@ -211,7 +236,18 @@ window.appendVisualLogBatch = function (logs) {
     if (!logArea || !Array.isArray(logs) || logs.length === 0) return;
 
     const filter = window.currentVisualLogFilter || 'all';
-    logs.forEach(log => appendVisualLogLine(logArea, log, filter));
+    const existingLogs = Array.isArray(window.battleState?.logs) ? window.battleState.logs : [];
+    let previousRenderedLog = existingLogs.length > logs.length
+        ? existingLogs[existingLogs.length - logs.length - 1]
+        : null;
+    logs.forEach(log => {
+        if (_isDuplicateVisualBleedLog(previousRenderedLog, log)) {
+            previousRenderedLog = log;
+            return;
+        }
+        appendVisualLogLine(logArea, log, filter);
+        previousRenderedLog = log;
+    });
     window._lastLogCount = Number(window._lastLogCount || 0) + logs.length;
     logArea.scrollTop = logArea.scrollHeight;
 };
@@ -1139,5 +1175,4 @@ window.renderVisualTimeline = function () {
 }
 
 console.log('[visual_ui] Loaded.');
-
 
