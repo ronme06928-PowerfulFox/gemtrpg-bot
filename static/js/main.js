@@ -28,7 +28,7 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
 
         const overlay = document.createElement('div');
         overlay.id = 'app-dialog-backdrop';
-        overlay.className = 'modal-backdrop';
+        overlay.className = 'modal-backdrop app-dialog-backdrop';
         overlay.innerHTML = `
             <div class="modal-content app-dialog-modal" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
                 <style>
