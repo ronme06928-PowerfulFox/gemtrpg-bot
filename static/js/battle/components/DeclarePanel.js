@@ -962,7 +962,7 @@ class DeclarePanel {
 
             return `<div class="${cls}"
                          data-skill-id="${this._escapeHtml(id)}"
-                         title="${isDisabled ? this._escapeHtml(costCheck.message) : ''}">
+                         data-disabled-reason="${isDisabled ? this._escapeHtml(costCheck.message) : ''}">
                 <div class="skill-card-id">${this._escapeHtml(id)}</div>
                 <div class="skill-card-name">${this._escapeHtml(displayName)}</div>
                 <div class="skill-card-badges">${badgesHtml}</div>
@@ -1072,7 +1072,7 @@ class DeclarePanel {
     }
 
     /** ツールチップの HTML 内容を組み立てる */
-    _buildTooltipHtml(skillId, actor) {
+    _buildTooltipHtml(skillId, actor, disabledReason = null) {
         const all = window.allSkillData || {};
         const skillData = all[skillId] || {};
         const meta = this._readSkillMeta(skillId);
@@ -1082,26 +1082,22 @@ class DeclarePanel {
         const preview = this._buildQuickPreviewFromSkill(actor, skillId);
         const rangeText = preview?.rangeText || '-';
 
-        // コマンド：チャットパレットから【...】と用語図鑑タグを除去
-        const rawPalette = String(skillData['チャットパレット'] || '');
-        const command = this._stripGlossaryTags(rawPalette.replace(/【.*?】/g, '').trim()) || '-';
-
-        // コスト
-        const costLabel = this._formatSkillCostLabel(this._extractCosts(skillId, null)) || '—';
-
         // 発動時効果（用語図鑑タグを除去してから省略）
         const effectRaw = this._stripGlossaryTags(String(skillData['発動時効果'] || ''));
         const effect = effectRaw.length > 140
             ? effectRaw.slice(0, 140) + '…'
             : effectRaw;
 
+        // 特記（用語図鑑タグを除去）
+        const tokki = this._stripGlossaryTags(String(skillData['特記'] || ''));
+
         return `
+            ${disabledReason ? `<div class="spt-disabled-banner">⚠ ${this._escapeHtml(disabledReason)}</div>` : ''}
             <div class="spt-header">[${this._escapeHtml(skillId)}] ${this._escapeHtml(name)}</div>
             <div class="spt-body">
                 <div class="spt-row"><span class="spt-label">威力レンジ</span><span>${this._escapeHtml(rangeText)}</span></div>
-                <div class="spt-row"><span class="spt-label">コマンド</span><span class="spt-mono">${this._escapeHtml(command)}</span></div>
-                <div class="spt-row"><span class="spt-label">コスト</span><span>${this._escapeHtml(costLabel)}</span></div>
                 ${effect ? `<div class="spt-divider"></div><div class="spt-effect">${this._escapeHtml(effect)}</div>` : ''}
+                ${tokki ? `<div class="spt-divider"></div><div class="spt-tokki">${this._escapeHtml(tokki)}</div>` : ''}
             </div>
         `;
     }
@@ -1127,8 +1123,11 @@ class DeclarePanel {
     _showTooltipForCard(card, actor) {
         const skillId = card?.dataset?.skillId;
         if (!skillId) return;
+        const disabledReason = card.classList.contains('is-disabled')
+            ? (card.dataset.disabledReason || 'コスト不足')
+            : null;
         const el = this._ensureTooltipEl();
-        el.innerHTML = this._buildTooltipHtml(skillId, actor);
+        el.innerHTML = this._buildTooltipHtml(skillId, actor, disabledReason);
         el.style.display = 'block';
     }
 
