@@ -909,6 +909,141 @@
     padding-bottom: 6px;
 }
 
+/* ===== スキルピッカー（案B: インライン切替） ===== */
+
+/* ピッカー表示時のスクロール領域 */
+.declare-panel-scroll--picker {
+    flex: 1 1 auto;
+    min-height: 120px;
+    overflow-y: auto;
+    padding: 6px 2px 8px 2px;
+}
+
+/* 2カラムグリッド */
+.skill-picker-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+/* スキルカード */
+.skill-picker-card {
+    background: rgba(255, 248, 228, 0.7);
+    border: 1px solid rgba(138, 106, 63, 0.4);
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+    transition: background 0.12s, transform 0.08s, box-shadow 0.12s;
+    color: #2f2315;
+    user-select: none;
+}
+.skill-picker-card:hover {
+    background: rgba(255, 240, 200, 0.9);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.skill-picker-card.is-selected {
+    background: #1a5276;
+    border-color: #5dade2;
+    color: #fff;
+    box-shadow: 0 0 0 2px #5dade2;
+}
+.skill-picker-card.is-selected .skill-card-id,
+.skill-picker-card.is-selected .skill-card-cost {
+    color: #aed6f1;
+}
+.skill-picker-card:active {
+    transform: scale(0.97);
+}
+.skill-picker-card.is-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+/* カード内: スキルID */
+.skill-card-id {
+    font-size: 10px;
+    color: #7a5c35;
+    margin-bottom: 2px;
+    font-family: monospace;
+}
+
+/* カード内: スキル名 */
+.skill-card-name {
+    font-size: 12px;
+    font-weight: bold;
+    line-height: 1.3;
+    margin-bottom: 5px;
+    overflow-wrap: break-word;
+}
+
+/* カード内: バッジ列 */
+.skill-card-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-bottom: 5px;
+    min-height: 16px;
+}
+
+/* バッジ共通 */
+.skill-badge {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    white-space: nowrap;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+/* カード内: コスト */
+.skill-card-cost {
+    font-size: 10px;
+    color: #7a5c35;
+    text-align: right;
+}
+
+/* ピッカーが空のとき */
+.skill-picker-empty {
+    text-align: center;
+    color: #8a6a3f;
+    font-size: 13px;
+    padding: 20px 8px;
+}
+
+/* スキル行: 選択済み表示 */
+.declare-skill-row {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.declare-skill-display {
+    flex: 1;
+    font-size: 13px;
+    color: #2f2315;
+    overflow-wrap: break-word;
+}
+
+/* 再選択ボタン */
+.declare-skill-reopen-btn {
+    background: transparent;
+    border: 1px solid rgba(138, 106, 63, 0.5);
+    border-radius: 4px;
+    color: #5d4220;
+    font-size: 12px;
+    padding: 2px 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.1s;
+}
+.declare-skill-reopen-btn:hover {
+    background: rgba(138, 106, 63, 0.15);
+}
+
+/* is-minimized 時もピッカーを非表示にする */
+.declare-panel.is-minimized .declare-panel-scroll--picker {
+    display: none;
+}
+
 .declare-panel--map {
     position: absolute;
     left: 16px;

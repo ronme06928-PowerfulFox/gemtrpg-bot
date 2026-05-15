@@ -14,6 +14,7 @@ class DeclarePanel {
             ally: { minimized: false },
             enemy: { minimized: false }
         };
+        this._skillPickerOpen = false;
     }
 
     initialize() {
@@ -144,6 +145,7 @@ class DeclarePanel {
             this._lastCompareCalcKeyBySlot = {};
             leftPanel.classList.remove('is-target-picking');
             rightPanel.classList.remove('is-target-picking');
+            this._skillPickerOpen = false;
             return;
         }
         root.style.display = 'block';
@@ -195,7 +197,14 @@ class DeclarePanel {
         }
         const targetOptions = this._buildTargetOptions(state, sourceSlotId, effectiveTargetSlotId, effectiveTargetType, skillId);
         const sourceLabel = this._formatSlotLabel(state, sourceSlotId);
-        const skillOptions = this._buildSkillOptions(sourceChar, state, sourceSlotId, effectiveTargetSlotId);
+        // スキル未選択 かつ 編集可能なときピッカーを自動展開
+        if (!skillId && !isUiReadOnly) {
+            this._skillPickerOpen = true;
+        }
+        const showSkillPicker = this._skillPickerOpen && !isUiReadOnly;
+        const skillPickerHtml = showSkillPicker
+            ? this._buildSkillPickerHtml(sourceChar, state, sourceSlotId, effectiveTargetSlotId, skillId)
+            : '';
         const meta = this._resolveDisplayMeta(skillId, calc);
         const commandText = this._resolveCommandText(calc);
         const powerAdjustRows = this._resolvePowerAdjustRows(calc);
@@ -241,6 +250,9 @@ class DeclarePanel {
             skillId
         });
         const interactiveSkillDisplay = this._resolveSkillDisplayName(skillId, meta.name, sourceChar);
+        const currentSkillLabel = skillId
+            ? `[${skillId}] ${this._escapeHtml(interactiveSkillDisplay)}`
+            : '-- スキルを選択 --';
         const interactiveSummaryHtml = this._buildMinimizedSummaryHtml(interactiveSkillDisplay, interactiveRangeText);
         const interactiveHtml = `
             <div class="declare-panel-banner">
@@ -274,13 +286,17 @@ class DeclarePanel {
                     </div>
                 </div>
                 ${isTargetPicking ? `<div class="declare-panel-row"><span></span><span class="declare-help-text">対象スロットをクリックしてください</span></div>` : ''}
-                <div class="declare-panel-row">
+                <div class="declare-panel-row declare-skill-row">
                     <span>スキル</span>
-                    <select id="declare-skill-select" class="declare-skill-select" ${isUiReadOnly ? 'disabled' : ''}>
-                        ${skillOptions}
-                    </select>
+                    <span class="declare-skill-display" id="declare-skill-display">${currentSkillLabel}</span>
+                    ${(skillId && !isUiReadOnly) ? `<button id="declare-skill-reopen-btn" class="declare-skill-reopen-btn" title="スキルを選び直す">↩</button>` : ''}
                 </div>
             </div>
+            ${showSkillPicker ? `
+            <div class="declare-panel-scroll declare-panel-scroll--picker">
+                ${skillPickerHtml}
+            </div>
+            ` : `
             <div class="declare-panel-scroll">
                 <div class="declare-skill-meta">
                     <div><strong>${this._escapeHtml(interactiveSkillDisplay)}</strong></div>
@@ -298,6 +314,7 @@ class DeclarePanel {
                 ${costCheck.insufficient ? `<div class="declare-cost-warning">${costCheck.message}</div>` : ''}
                 ${calcErrorText ? `<div class="declare-cost-warning">${calcErrorText}</div>` : ''}
             </div>
+            `}
         `;
 
         const leftReadonly = this._buildReadonlyPanelHtml(
@@ -362,58 +379,26 @@ class DeclarePanel {
             };
         }
 
-        const skillSelect = interactivePanel.querySelector('#declare-skill-select');
-        if (skillSelect) {
-            skillSelect.value = skillId || '';
-            skillSelect.disabled = isUiReadOnly;
-            skillSelect.onchange = (e) => {
+        // スキルカードクリック
+        const pickerGrid = interactivePanel.querySelector('.skill-picker-grid');
+        if (pickerGrid) {
+            pickerGrid.onclick = (e) => {
                 if (isUiReadOnly) return;
-                const nextSkillId = e.target.value || '';
-                const current = store.get('declare') || {};
-                const prevTargetType = this._normalizeTargetType(current.targetType || declaredTargetType);
-                const nextTargetType = this._resolveEffectiveTargetType(nextSkillId, prevTargetType);
-                const prevTargetScope = this._inferTargetScopeFromSkill(current.skillId || '');
-                const nextTargetScope = this._inferTargetScopeFromSkill(nextSkillId);
-                let nextTargetSlotId = current.targetSlotId || null;
-                let nextLastSingleTargetSlotId = current.lastSingleTargetSlotId || null;
+                const card = e.target.closest('.skill-picker-card');
+                if (!card || card.classList.contains('is-disabled')) return;
+                const nextSkillId = card.dataset.skillId || '';
+                if (!nextSkillId) return;
+                this._onSkillCardClick(nextSkillId, declaredTargetType, sourceSlotId);
+            };
+        }
 
-                if (this._isMassTargetType(nextTargetType)) {
-                    if (!this._isMassTargetType(prevTargetType) && nextTargetSlotId) {
-                        nextLastSingleTargetSlotId = nextTargetSlotId;
-                    }
-                    nextTargetSlotId = null;
-                } else {
-                    if (this._isMassTargetType(prevTargetType)) {
-                        nextTargetSlotId = current.lastSingleTargetSlotId || null;
-                    }
-                    if (nextTargetSlotId) {
-                        nextLastSingleTargetSlotId = nextTargetSlotId;
-                    }
-                }
-                if (prevTargetScope === 'self' && nextTargetSlotId === sourceSlotId) {
-                    nextTargetSlotId = nextLastSingleTargetSlotId || null;
-                }
-                if (nextTargetScope === 'self') {
-                    nextTargetSlotId = sourceSlotId;
-                }
-
-                const nextDeclare = {
-                    ...current,
-                    skillId: nextSkillId || null,
-                    targetType: nextTargetType,
-                    targetSlotId: nextTargetSlotId,
-                    lastSingleTargetSlotId: nextLastSingleTargetSlotId,
-                    mode: (
-                        !this._isMassTargetType(nextTargetType)
-                        && !nextTargetSlotId
-                        && String(current.mode || '') === 'ready'
-                    )
-                        ? 'ready'
-                        : this._resolveDeclareMode(nextTargetType, nextTargetSlotId)
-                };
-                store.setDeclare(nextDeclare);
-                this._emitPreviewFromDeclare(store.state, nextDeclare);
-                this._requestCalc(store.state, nextDeclare, true);
+        // 「↩ 再選択」ボタン
+        const reopenBtn = interactivePanel.querySelector('#declare-skill-reopen-btn');
+        if (reopenBtn) {
+            reopenBtn.onclick = () => {
+                if (isUiReadOnly) return;
+                this._skillPickerOpen = true;
+                this._render(store.state);
             };
         }
 
@@ -907,6 +892,140 @@ class DeclarePanel {
             options.push(`<option value="${id}"${selected}>[${id}] ${displayName}${costLabel}</option>`);
         });
         return options.join('');
+    }
+
+    // -------------------------------------------------------------------------
+    // スキルピッカー（案B）
+    // -------------------------------------------------------------------------
+
+    /** S2: スキルカードグリッドの HTML を生成する */
+    _buildSkillPickerHtml(actor, state, sourceSlotId, selectedTargetSlotId, selectedSkillId) {
+        const all = window.allSkillData || {};
+        const candidates = this._extractActorSkillCandidates(actor, all);
+
+        if (candidates.length === 0) {
+            return `<div class="skill-picker-empty">習得スキルがありません</div>`;
+        }
+
+        const sourceActorId = state?.slots?.[sourceSlotId]?.actor_id || null;
+
+        const cards = candidates.slice(0, 400).map((item) => {
+            const id = item.id;
+
+            // 対象互換チェック（既存ロジック流用）
+            if (
+                selectedTargetSlotId &&
+                !this._isSkillCompatibleWithTarget(state, sourceSlotId, selectedTargetSlotId, id)
+            ) {
+                return '';
+            }
+
+            const skillData = all[id] || {};
+            const displayName = item.name || this._readSkillMeta(id).name || id;
+            const costs = this._extractCosts(id, null);
+            const costLabel = this._formatSkillCostLabel(costs);
+            const isSelected = (id === selectedSkillId);
+            const costCheck = this._evaluateCost(state, sourceActorId, id, null);
+            const isDisabled = costCheck.insufficient;
+            const badgesHtml = this._buildSkillBadgesHtml(skillData);
+
+            const cls = [
+                'skill-picker-card',
+                isSelected  ? 'is-selected'  : '',
+                isDisabled  ? 'is-disabled'   : '',
+            ].filter(Boolean).join(' ');
+
+            return `<div class="${cls}"
+                         data-skill-id="${this._escapeHtml(id)}"
+                         title="${isDisabled ? this._escapeHtml(costCheck.message) : ''}">
+                <div class="skill-card-id">${this._escapeHtml(id)}</div>
+                <div class="skill-card-name">${this._escapeHtml(displayName)}</div>
+                <div class="skill-card-badges">${badgesHtml}</div>
+                <div class="skill-card-cost">${this._escapeHtml(costLabel || '—')}</div>
+            </div>`;
+        }).filter(Boolean);
+
+        return `<div class="skill-picker-grid">${cards.join('')}</div>`;
+    }
+
+    /** S3: 属性・分類・距離バッジの HTML を生成する */
+    _buildSkillBadgesHtml(skillData) {
+        const BADGE_COLORS = {
+            '斬撃':      { bg: '#daeaf8', color: '#1a5276' },
+            '打撃':      { bg: '#fde8cc', color: '#a04000' },
+            '貫通':      { bg: '#fadbd8', color: '#922b21' },
+            '物理':      { bg: '#e8daef', color: '#6c3483' },
+            '魔法':      { bg: '#d6eaf8', color: '#1a4d7a' },
+            '補助':      { bg: '#d5f5e3', color: '#1d6a3a' },
+            '近接':      { bg: '#ebe6e0', color: '#5d4037' },
+            '遠隔':      { bg: '#d0f0f5', color: '#00695c' },
+            '広域-個別': { bg: '#efefef',  color: '#555'    },
+            '広域-合算': { bg: '#e8e8e8',  color: '#333'    },
+        };
+
+        const labels = [
+            String(skillData['属性'] || '').trim(),
+            String(skillData['分類'] || '').trim(),
+            String(skillData['距離'] || '').trim(),
+        ].filter(Boolean);
+
+        return labels.map((label) => {
+            const c = BADGE_COLORS[label] || { bg: '#e0e0e0', color: '#444' };
+            return `<span class="skill-badge" style="background:${c.bg};color:${c.color}">${this._escapeHtml(label)}</span>`;
+        }).join('');
+    }
+
+    /** S4: スキルカードクリック時の処理（旧 skillSelect.onchange から移植） */
+    _onSkillCardClick(nextSkillId, declaredTargetType, sourceSlotId) {
+        const current = store.get('declare') || {};
+        const prevTargetType = this._normalizeTargetType(current.targetType || declaredTargetType);
+        const nextTargetType = this._resolveEffectiveTargetType(nextSkillId, prevTargetType);
+        const prevTargetScope = this._inferTargetScopeFromSkill(current.skillId || '');
+        const nextTargetScope = this._inferTargetScopeFromSkill(nextSkillId);
+        let nextTargetSlotId = current.targetSlotId || null;
+        let nextLastSingleTargetSlotId = current.lastSingleTargetSlotId || null;
+
+        if (this._isMassTargetType(nextTargetType)) {
+            if (!this._isMassTargetType(prevTargetType) && nextTargetSlotId) {
+                nextLastSingleTargetSlotId = nextTargetSlotId;
+            }
+            nextTargetSlotId = null;
+        } else {
+            if (this._isMassTargetType(prevTargetType)) {
+                nextTargetSlotId = current.lastSingleTargetSlotId || null;
+            }
+            if (nextTargetSlotId) {
+                nextLastSingleTargetSlotId = nextTargetSlotId;
+            }
+        }
+        if (prevTargetScope === 'self' && nextTargetSlotId === sourceSlotId) {
+            nextTargetSlotId = nextLastSingleTargetSlotId || null;
+        }
+        if (nextTargetScope === 'self') {
+            nextTargetSlotId = sourceSlotId;
+        }
+
+        const nextDeclare = {
+            ...current,
+            skillId: nextSkillId || null,
+            targetType: nextTargetType,
+            targetSlotId: nextTargetSlotId,
+            lastSingleTargetSlotId: nextLastSingleTargetSlotId,
+            mode: (
+                !this._isMassTargetType(nextTargetType)
+                && !nextTargetSlotId
+                && String(current.mode || '') === 'ready'
+            )
+                ? 'ready'
+                : this._resolveDeclareMode(nextTargetType, nextTargetSlotId),
+        };
+
+        // ピッカーを閉じてスキル詳細に切り替え
+        this._skillPickerOpen = false;
+
+        store.setDeclare(nextDeclare);
+        this._emitPreviewFromDeclare(store.state, nextDeclare);
+        this._requestCalc(store.state, nextDeclare, true);
     }
 
     _isSkillCompatibleWithTarget(state, sourceSlotId, targetSlotId, skillId) {
