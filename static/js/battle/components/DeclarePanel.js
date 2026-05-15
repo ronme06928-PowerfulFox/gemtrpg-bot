@@ -15,6 +15,8 @@ class DeclarePanel {
             enemy: { minimized: false }
         };
         this._skillPickerOpen = false;
+        this._tooltipTimer = null;
+        this._tooltipEl = null;
     }
 
     initialize() {
@@ -146,6 +148,7 @@ class DeclarePanel {
             leftPanel.classList.remove('is-target-picking');
             rightPanel.classList.remove('is-target-picking');
             this._skillPickerOpen = false;
+            this._hideTooltip();
             return;
         }
         root.style.display = 'block';
@@ -379,7 +382,7 @@ class DeclarePanel {
             };
         }
 
-        // スキルカードクリック
+        // スキルカードクリック・ツールチップ
         const pickerGrid = interactivePanel.querySelector('.skill-picker-grid');
         if (pickerGrid) {
             pickerGrid.onclick = (e) => {
@@ -389,6 +392,28 @@ class DeclarePanel {
                 const nextSkillId = card.dataset.skillId || '';
                 if (!nextSkillId) return;
                 this._onSkillCardClick(nextSkillId, declaredTargetType, sourceSlotId);
+            };
+
+            // ホバーツールチップ
+            let _hoveredSkillId = null;
+            pickerGrid.onmouseover = (e) => {
+                const card = e.target.closest('.skill-picker-card');
+                const hoverSkillId = card?.dataset?.skillId || null;
+                if (hoverSkillId === _hoveredSkillId) return;
+                _hoveredSkillId = hoverSkillId;
+                clearTimeout(this._tooltipTimer);
+                this._hideTooltip();
+                if (!hoverSkillId) return;
+                this._tooltipTimer = setTimeout(() => {
+                    this._showTooltipForCard(card, sourceChar);
+                }, 200);
+            };
+            pickerGrid.onmouseleave = () => {
+                _hoveredSkillId = null;
+                this._hideTooltip();
+            };
+            pickerGrid.onmousemove = (e) => {
+                this._positionTooltip(e.clientX, e.clientY);
             };
         }
 
@@ -1022,10 +1047,106 @@ class DeclarePanel {
 
         // ピッカーを閉じてスキル詳細に切り替え
         this._skillPickerOpen = false;
+        this._hideTooltip();
 
         store.setDeclare(nextDeclare);
         this._emitPreviewFromDeclare(store.state, nextDeclare);
         this._requestCalc(store.state, nextDeclare, true);
+    }
+
+    // -------------------------------------------------------------------------
+    // ホバーツールチップ
+    // -------------------------------------------------------------------------
+
+    /** document.body に常駐するツールチップ要素を取得（なければ生成） */
+    _ensureTooltipEl() {
+        if (this._tooltipEl && document.body.contains(this._tooltipEl)) {
+            return this._tooltipEl;
+        }
+        const el = document.createElement('div');
+        el.className = 'skill-picker-tooltip';
+        el.style.display = 'none';
+        document.body.appendChild(el);
+        this._tooltipEl = el;
+        return el;
+    }
+
+    /** ツールチップの HTML 内容を組み立てる */
+    _buildTooltipHtml(skillId, actor) {
+        const all = window.allSkillData || {};
+        const skillData = all[skillId] || {};
+        const meta = this._readSkillMeta(skillId);
+        const name = meta.name || skillId;
+
+        // 威力レンジ（キャラクターのステータスを参照した簡易計算）
+        const preview = this._buildQuickPreviewFromSkill(actor, skillId);
+        const rangeText = preview?.rangeText || '-';
+
+        // コマンド：チャットパレットから【...】と用語図鑑タグを除去
+        const rawPalette = String(skillData['チャットパレット'] || '');
+        const command = this._stripGlossaryTags(rawPalette.replace(/【.*?】/g, '').trim()) || '-';
+
+        // コスト
+        const costLabel = this._formatSkillCostLabel(this._extractCosts(skillId, null)) || '—';
+
+        // 発動時効果（用語図鑑タグを除去してから省略）
+        const effectRaw = this._stripGlossaryTags(String(skillData['発動時効果'] || ''));
+        const effect = effectRaw.length > 140
+            ? effectRaw.slice(0, 140) + '…'
+            : effectRaw;
+
+        return `
+            <div class="spt-header">[${this._escapeHtml(skillId)}] ${this._escapeHtml(name)}</div>
+            <div class="spt-body">
+                <div class="spt-row"><span class="spt-label">威力レンジ</span><span>${this._escapeHtml(rangeText)}</span></div>
+                <div class="spt-row"><span class="spt-label">コマンド</span><span class="spt-mono">${this._escapeHtml(command)}</span></div>
+                <div class="spt-row"><span class="spt-label">コスト</span><span>${this._escapeHtml(costLabel)}</span></div>
+                ${effect ? `<div class="spt-divider"></div><div class="spt-effect">${this._escapeHtml(effect)}</div>` : ''}
+            </div>
+        `;
+    }
+
+    /** カーソル位置にツールチップを追従させる（画面端折り返し対応） */
+    _positionTooltip(clientX, clientY) {
+        const el = this._tooltipEl;
+        if (!el || el.style.display === 'none') return;
+        const margin = 14;
+        const tw = el.offsetWidth || 240;
+        const th = el.offsetHeight || 100;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        let left = clientX + margin;
+        let top  = clientY + margin;
+        if (left + tw > vw - 8) left = clientX - tw - margin;
+        if (top  + th > vh - 8) top  = clientY - th - margin;
+        el.style.left = `${Math.max(4, left)}px`;
+        el.style.top  = `${Math.max(4, top)}px`;
+    }
+
+    /** カードにカーソルが乗ったときにツールチップを表示する */
+    _showTooltipForCard(card, actor) {
+        const skillId = card?.dataset?.skillId;
+        if (!skillId) return;
+        const el = this._ensureTooltipEl();
+        el.innerHTML = this._buildTooltipHtml(skillId, actor);
+        el.style.display = 'block';
+    }
+
+    /** ツールチップを非表示にしタイマーもクリアする */
+    _hideTooltip() {
+        clearTimeout(this._tooltipTimer);
+        this._tooltipTimer = null;
+        if (this._tooltipEl) {
+            this._tooltipEl.style.display = 'none';
+        }
+    }
+
+    /**
+     * 用語図鑑リンクタグ [[ID|表示テキスト]] を表示テキストだけに置換する。
+     * パイプなしの [[ID]] 形式はIDをそのまま残す。
+     */
+    _stripGlossaryTags(text) {
+        return text.replace(/\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g, (_, id, label) => label ?? id);
     }
 
     _isSkillCompatibleWithTarget(state, sourceSlotId, targetSlotId, skillId) {
