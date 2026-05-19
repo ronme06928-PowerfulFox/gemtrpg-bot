@@ -26,5 +26,19 @@
       "target": "single",
       "buff_id": "Bu-00"
     }
+  },
+  "I-02": {
+    "id": "I-02",
+    "name": "ギルド印のポーション",
+    "description": "味方1人のHPを30回復する。",
+    "flavor": "薬草を使って作られた一般的な回復薬。飲んでもいいし、患部にかけてもよい。",
+    "consumable": true,
+    "usable": true,
+    "round_limit": -1,
+    "effect": {
+      "type": "heal",
+      "target": "single",
+      "hp": 30
+    }
   }
 }
