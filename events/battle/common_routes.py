@@ -264,6 +264,10 @@ def on_debug_apply_buff(data):
     delay = int(data.get('delay', 0))
 
     if not room or not target_id or not buff_id: return
+    user_info = get_user_info_from_sid(request.sid)
+    if str(user_info.get("attribute", "Player") or "Player").strip().upper() != 'GM':
+        emit('error', {'message': 'GM権限が必要です。'})
+        return
 
     state = get_room_state(room)
     if not state: return
@@ -2057,5 +2061,4 @@ def on_battle_intent_change_target(data):
 
     _refresh_resolve_ready(room_id, state)
     _emit_battle_state_updated(room_id, battle_id)
-
 

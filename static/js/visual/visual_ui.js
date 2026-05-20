@@ -159,19 +159,42 @@ window.appendVisualLogLine = function (container, logData, filterType) {
 
     const logLine = document.createElement('div');
     let className = `log-line ${logData.type}`;
-    let displayMessage = logData.message;
+    let displayMessage = String(logData.message || '');
+    let secretVisible = false;
 
     if (logData.secret) {
         className += ' secret-log';
         const isSender = (typeof currentUsername !== 'undefined' && logData.user === currentUsername);
         const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
-        if (isGM || isSender) displayMessage = `<span class="secret-mark">[SECRET]</span> ${logData.message}`;
-        else displayMessage = `<span class="secret-masked">（シークレットダイス）</span>`;
+        secretVisible = isGM || isSender;
+        if (!secretVisible) displayMessage = '（シークレットダイス）';
     }
 
     logLine.className = className;
-    if (logData.type === 'chat' && !logData.secret) {
-        logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
+    if (logData.type === 'chat') {
+        if (logData.secret && secretVisible) {
+            const secretMark = document.createElement('span');
+            secretMark.className = 'secret-mark';
+            secretMark.textContent = '[SECRET]';
+            logLine.appendChild(secretMark);
+            logLine.appendChild(document.createTextNode(' '));
+        } else if (logData.secret) {
+            const masked = document.createElement('span');
+            masked.className = 'secret-masked';
+            masked.textContent = displayMessage;
+            logLine.appendChild(masked);
+        }
+        if (!logData.secret || secretVisible) {
+            const user = document.createElement('span');
+            user.className = 'chat-user';
+            user.textContent = `${String(logData.user || '匿名')}:`;
+            const message = document.createElement('span');
+            message.className = 'chat-message';
+            message.textContent = String(logData.message || '');
+            logLine.appendChild(user);
+            logLine.appendChild(document.createTextNode(' '));
+            logLine.appendChild(message);
+        }
     } else if (!logData.secret && String(logData.source || '') === 'resolve_trace') {
         const detail = (logData && typeof logData.resolve_trace_detail === 'object')
             ? logData.resolve_trace_detail
@@ -197,7 +220,7 @@ window.appendVisualLogLine = function (container, logData, filterType) {
             }
         }
     } else {
-        logLine.innerHTML = displayMessage;
+        logLine.textContent = displayMessage;
     }
     logLine.style.borderBottom = "1px dotted #eee";
     logLine.style.padding = "2px 5px";
@@ -1175,4 +1198,3 @@ window.renderVisualTimeline = function () {
 }
 
 console.log('[visual_ui] Loaded.');
-

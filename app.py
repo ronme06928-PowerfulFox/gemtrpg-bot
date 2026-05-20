@@ -37,6 +37,15 @@ from manager.data_manager import (
 from manager.room_manager import get_room_state
 from manager.utils import session_required
 from manager.json_rule_audit import append_audit
+from manager.auth import (
+    GM_ATTRIBUTE,
+    PLAYER_ATTRIBUTE,
+    hash_gm_pin,
+    is_valid_gm_pin,
+    resolve_room_attribute,
+    verify_master_key,
+    verify_room_gm_key,
+)
 
 # ★ イベントハンドラ（SocketIO層）のインポート
 # これをインポートすることで、@socketio.on デコレータが登録されます
@@ -55,7 +64,15 @@ import cloudinary
 import cloudinary.uploader
 
 # ★追加インポート
-from manager.user_manager import upsert_user, get_all_users, delete_user, transfer_ownership, get_user_owned_items
+from manager.user_manager import (
+    upsert_user,
+    get_all_users,
+    delete_user,
+    transfer_ownership,
+    get_user_owned_items,
+    is_user_management_admin,
+    set_user_management_admin,
+)
 
 # === アプリ設定 ===
 load_dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
@@ -65,9 +82,47 @@ if os.path.exists(load_dotenv_path):
 
 app = Flask(__name__, static_folder=None)
 app.config['JSON_AS_ASCII'] = False
-app.config['SECRET_KEY'] = 'gem_trpg_secret_key' # SECRET_KEYを直接設定
+
+def _is_production_env():
+    return (
+        IS_RENDER
+        or str(os.environ.get('FLASK_ENV') or '').lower() == 'production'
+        or str(os.environ.get('APP_ENV') or '').lower() == 'production'
+    )
+
+
+def _get_secret_key():
+    secret_key = str(os.environ.get('SECRET_KEY') or '').strip()
+    if secret_key:
+        return secret_key
+    if _is_production_env():
+        raise RuntimeError('SECRET_KEY must be set in production.')
+    logging.warning('SECRET_KEY is not set; using development fallback.')
+    return 'dev-gem-trpg-secret-key'
+
+
+def _get_cors_origins():
+    raw = str(os.environ.get('CORS_ORIGINS') or '').strip()
+    if raw:
+        origins = [origin.strip() for origin in raw.split(',') if origin.strip()]
+        if origins:
+            return origins
+    if _is_production_env():
+        raise RuntimeError('CORS_ORIGINS must be set in production.')
+    return [
+        'http://localhost:5000',
+        'http://127.0.0.1:5000',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+    ]
+
+
+app.config['SECRET_KEY'] = _get_secret_key()
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///gemtrpg.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+cors_origins = _get_cors_origins()
 
 # ★ WhiteNoise設定: Staticファイル配信の高速化
 # Flaskを通さずに直接配信することでCPU負荷を低減
@@ -92,7 +147,7 @@ cloudinary.config(
 )
 
 # === 初期化 ===
-CORS(app, supports_credentials=True)
+CORS(app, supports_credentials=True, origins=cors_origins)
 Compress(app) # 追加: 圧縮転送の有効化 (デフォルトでGzip圧縮)
 db.init_app(app)
 
@@ -117,7 +172,7 @@ with app.app_context():
 
 async_mode = 'eventlet' if IS_RENDER else 'threading'
 # extensionsにあるsocketioをアプリと紐付け
-socketio.init_app(app, cors_allowed_origins="*", async_mode=async_mode)
+socketio.init_app(app, cors_allowed_origins=cors_origins, async_mode=async_mode)
 
 # ==========================================
 #  HTTP Routes
@@ -150,15 +205,17 @@ def serve_static_files(filename):
 
 @app.route('/api/entry', methods=['POST'])
 def entry():
-    data = request.json
-    username = data.get('username')
-    attribute = data.get('attribute')
+    data = request.get_json(silent=True) or {}
+    username = str(data.get('username') or '').strip()
 
-    if not username or not attribute:
-        return jsonify({"error": "ユーザー名と属性は必須です"}), 400
+    if not username:
+        return jsonify({"error": "ユーザー名は必須です"}), 400
 
     session['username'] = username
-    session['attribute'] = attribute
+    # Client-supplied GM attributes are not trusted.  GM is granted only by
+    # room PIN verification in /api/enter_room or /create_room.
+    if session.get('attribute') != GM_ATTRIBUTE:
+        session['attribute'] = PLAYER_ATTRIBUTE
 
     # ▼▼▼ 修正: ID発行とDB保存 ▼▼▼
     if 'user_id' not in session:
@@ -171,22 +228,61 @@ def entry():
     return jsonify({
         "message": "セッション開始",
         "username": username,
-        "attribute": attribute,
+        "attribute": session.get('attribute', PLAYER_ATTRIBUTE),
         "user_id": session['user_id']
     })
+
+@app.route('/api/enter_room', methods=['POST'])
+@session_required
+def enter_room():
+    data = request.get_json(silent=True) or {}
+    room_name = str(data.get('room_name') or '').strip()
+    role = data.get('role') or data.get('attribute') or PLAYER_ATTRIBUTE
+    gm_key = data.get('gm_pin') or data.get('gm_key') or ''
+
+    if not room_name:
+        return jsonify({"error": "Room name required"}), 400
+    if not Room.query.filter_by(name=room_name).first():
+        return jsonify({"error": "Room not found"}), 404
+
+    if str(role or '').strip().lower() in {"gm", "game_master", "gamemaster"} and is_user_management_admin(session.get('user_id')):
+        attribute = GM_ATTRIBUTE
+    else:
+        attribute = resolve_room_attribute(room_name, role, gm_key)
+    if attribute is None:
+        return jsonify({"error": "GM PINが正しくありません"}), 403
+
+    session['attribute'] = attribute
+    return jsonify({
+        "message": "Room entry accepted",
+        "room_name": room_name,
+        "attribute": attribute,
+    })
+
+@app.route('/api/leave_room_context', methods=['POST'])
+@session_required
+def leave_room_context():
+    # Room GM status is scoped to the room. Returning to the lobby must not
+    # leave the user with GM-like powers in app-wide management surfaces.
+    session['attribute'] = PLAYER_ATTRIBUTE
+    return jsonify({"message": "Room context cleared", "attribute": PLAYER_ATTRIBUTE})
 
 @app.route('/api/admin/user_details', methods=['GET'])
 @session_required
 def admin_get_user_details():
-    if session.get('attribute') != 'GM':
-        return jsonify({"error": "Forbidden"}), 403
-
     target_user_id = request.args.get('user_id')
     if not target_user_id:
         return jsonify({"error": "User ID required"}), 400
 
     data = get_user_owned_items(target_user_id)
     return jsonify(data)
+
+def _can_manage_users_with_payload(payload=None):
+    payload = payload or {}
+    if is_user_management_admin(session.get('user_id')):
+        return True
+    master_key = payload.get('master_key') or payload.get('gm_master_key') or ''
+    return verify_master_key(master_key)
 
 @app.route('/api/get_session_user', methods=['GET'])
 def get_session_user():
@@ -195,7 +291,12 @@ def get_session_user():
         attribute = session.get('attribute')
         user_id = session.get('user_id')
         logging.info(f"[SESSION CHECK] User: {username}, Attribute: {attribute}, UserID: {user_id}")
-        return jsonify({"username": username, "attribute": attribute, "user_id": user_id})
+        return jsonify({
+            "username": username,
+            "attribute": attribute,
+            "user_id": user_id,
+            "is_app_admin": is_user_management_admin(user_id),
+        })
     else:
         return jsonify({"username": None, "attribute": None, "user_id": None}), 401
 
@@ -209,7 +310,8 @@ def list_rooms():
     return jsonify({
         'rooms': rooms,
         'current_user_id': user_id,
-        'is_gm': attribute == 'GM'
+        'is_gm': attribute == 'GM',
+        'is_app_admin': is_user_management_admin(user_id),
     })
 
 @app.route('/load_room', methods=['GET'])
@@ -222,10 +324,13 @@ def load_room():
 @app.route('/create_room', methods=['POST'])
 @session_required
 def create_room():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     room_name = str(data.get('room_name') or '').strip()
+    gm_pin = str(data.get('gm_pin') or '').strip()
     if not room_name:
         return jsonify({"error": "No name"}), 400
+    if not is_valid_gm_pin(gm_pin):
+        return jsonify({"error": "GM PINは4桁の数字で入力してください"}), 400
 
     # DBに存在するかチェック
     if Room.query.filter_by(name=room_name).first():
@@ -248,26 +353,35 @@ def create_room():
 
     # ▼▼▼ 修正: Room作成時に owner_id を保存 ▼▼▼
     # save_room_to_db はデータ保存用なので、ここでは Roomモデルを直接作って owner_id を入れる
-    new_room = Room(name=room_name, data=new_state, owner_id=session.get('user_id'))
+    new_room = Room(
+        name=room_name,
+        data=new_state,
+        owner_id=session.get('user_id'),
+        gm_pin_hash=hash_gm_pin(gm_pin),
+    )
     db.session.add(new_room)
     db.session.commit()
+    session['attribute'] = GM_ATTRIBUTE
     # ▲▲▲ 修正ここまで ▲▲▲
 
     normalized_state = get_room_state(room_name)
-    return jsonify({"message": "Created", "state": normalized_state}), 201
+    return jsonify({"message": "Created", "state": normalized_state, "attribute": GM_ATTRIBUTE}), 201
 
 @app.route('/api/admin/users', methods=['GET'])
 @session_required
 def admin_get_users():
-    if session.get('attribute') != 'GM':
-        return jsonify({"error": "Forbidden"}), 403
-    return jsonify(get_all_users())
+    return jsonify({
+        "users": get_all_users(),
+        "can_manage_users": is_user_management_admin(session.get('user_id')),
+    })
 
 @app.route('/api/admin/delete_user', methods=['POST'])
 @session_required
 def admin_delete_user():
-    if session.get('attribute') != 'GM': return jsonify({"error": "Forbidden"}), 403
-    user_id = request.json.get('user_id')
+    data = request.get_json(silent=True) or {}
+    if not _can_manage_users_with_payload(data):
+        return jsonify({"error": "ユーザー管理権限またはマスターキーが必要です"}), 403
+    user_id = data.get('user_id')
     if delete_user(user_id):
         return jsonify({"message": "Deleted"})
     return jsonify({"error": "Failed"}), 500
@@ -275,27 +389,42 @@ def admin_delete_user():
 @app.route('/api/admin/transfer', methods=['POST'])
 @session_required
 def admin_transfer_user():
-    if session.get('attribute') != 'GM': return jsonify({"error": "Forbidden"}), 403
-    data = request.json
+    data = request.get_json(silent=True) or {}
+    if not _can_manage_users_with_payload(data):
+        return jsonify({"error": "ユーザー管理権限またはマスターキーが必要です"}), 403
     count = transfer_ownership(data['old_id'], data['new_id'])
     return jsonify({"message": f"Transferred {count} characters/rooms."})
+
+@app.route('/api/admin/set_user_management_admin', methods=['POST'])
+@session_required
+def admin_set_user_management_admin():
+    data = request.get_json(silent=True) or {}
+    if not verify_master_key(data.get('master_key') or ''):
+        return jsonify({"error": "マスターキーが正しくありません"}), 403
+    target_user_id = data.get('user_id')
+    enabled = bool(data.get('enabled'))
+    if not target_user_id:
+        return jsonify({"error": "User ID required"}), 400
+    if not set_user_management_admin(target_user_id, enabled):
+        return jsonify({"error": "User not found"}), 404
+    return jsonify({"message": "Updated", "user_id": target_user_id, "is_app_admin": enabled})
 
 @app.route('/delete_room', methods=['POST'])
 @session_required
 def delete_room():
     """ルーム削除 - オーナーまたはGMのみ許可"""
-    room_name = request.json.get('room_name')
-    user_id = session.get('user_id')
-    attribute = session.get('attribute')
+    data = request.get_json(silent=True) or {}
+    room_name = data.get('room_name')
+    gm_key = data.get('gm_pin') or data.get('gm_key') or ''
 
     # ルームのオーナーを取得
     room = Room.query.filter_by(name=room_name).first()
     if not room:
         return jsonify({"error": "Room not found"}), 404
 
-    # 権限チェック: オーナーまたはGMのみ削除可能
-    if room.owner_id != user_id and attribute != 'GM':
-        return jsonify({"error": "Permission denied"}), 403
+    # ルーム削除はロビー操作のため、セッション属性ではなくGM PIN/マスターキーで確認する。
+    if not verify_room_gm_key(room, gm_key):
+        return jsonify({"error": "GM PINまたはマスターキーが正しくありません"}), 403
 
     if delete_room_from_db(room_name):
         if room_name in active_room_states:

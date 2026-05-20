@@ -7,6 +7,8 @@ from extensions import socketio, user_sids
 from manager.room_manager import (
     get_room_state, broadcast_log, broadcast_user_list, emit_select_resolve_events
 )
+from manager.auth import PLAYER_ATTRIBUTE, resolve_room_attribute
+from manager.user_manager import is_user_management_admin
 
 # --- 5.2. SocketIO イベントハンドラ ---
 @socketio.on('connect')
@@ -34,9 +36,20 @@ def handle_disconnect():
 def handle_join_room(data):
     room = data.get('room')
     username = data.get('username')
-    attribute = data.get('attribute')
     if not room:
         return
+    requested_role = data.get('role') or data.get('attribute') or PLAYER_ATTRIBUTE
+    gm_key = data.get('gm_pin') or data.get('gm_key') or ''
+    if str(requested_role or '').strip().lower() in {"gm", "game_master", "gamemaster"} and is_user_management_admin(session.get('user_id')):
+        attribute = 'GM'
+    else:
+        attribute = resolve_room_attribute(room, requested_role, gm_key)
+    if attribute is None:
+        emit('join_room_error', {'error': 'GM PINが正しくありません'}, to=request.sid)
+        return
+    session['attribute'] = attribute
+    if username:
+        session['username'] = username
 
     prev_info = user_sids.get(request.sid)
     prev_room = (prev_info or {}).get('room')
@@ -103,12 +116,11 @@ def handle_update_user_info(data):
         return
 
     new_username = data.get('username')
-    new_attribute = data.get('attribute')
-    if not new_username or not new_attribute:
+    if not new_username:
         return
+    new_attribute = session.get('attribute', PLAYER_ATTRIBUTE)
 
     session['username'] = new_username
-    session['attribute'] = new_attribute
 
     old_username = "Unknown"
     room_name = None

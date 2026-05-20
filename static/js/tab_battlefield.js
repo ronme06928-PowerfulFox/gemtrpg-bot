@@ -186,6 +186,14 @@ function _isDuplicateBleedLogLine(prevLog, nextLog) {
     return prevMessage.startsWith('[\u51fa\u8840]:') && prevMessage.includes('\u51fa\u8840 (');
 }
 
+function _appendTextSpan(parent, className, text) {
+    const span = document.createElement('span');
+    span.className = className;
+    span.textContent = text;
+    parent.appendChild(span);
+    return span;
+}
+
 // ログ1行を生成して要素に追加するヘルパー関数
 function appendLogLineToElement(container, logData, filterType) {
     const isChat = logData.type === 'chat';
@@ -198,26 +206,33 @@ function appendLogLineToElement(container, logData, filterType) {
     let className = `log-line ${logData.type}`;
 
     // シークレットダイスの処理
-    let displayMessage = logData.message;
+    let displayMessage = String(logData.message || '');
+    let secretVisible = false;
     if (logData.secret) {
         className += ' secret-log';
         const isSender = (logData.user === currentUsername);
         const isGM = (currentUserAttribute === 'GM');
+        secretVisible = isGM || isSender;
 
-        if (isGM || isSender) {
-            displayMessage = `<span class="secret-mark">[SECRET]</span> ${logData.message}`;
-        } else {
-            displayMessage = `<span class="secret-masked">（シークレットダイスが振られました）</span>`;
-        }
+        if (!secretVisible) displayMessage = '（シークレットダイスが振られました）';
     }
 
     logLine.className = className;
 
-    // チャットの場合の装飾
-    if (logData.type === 'chat' && !logData.secret) {
-        logLine.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
+    if (logData.type === 'chat') {
+        if (logData.secret && secretVisible) {
+            _appendTextSpan(logLine, 'secret-mark', '[SECRET]');
+            logLine.appendChild(document.createTextNode(' '));
+        } else if (logData.secret) {
+            _appendTextSpan(logLine, 'secret-masked', displayMessage);
+        }
+        if (!logData.secret || secretVisible) {
+            _appendTextSpan(logLine, 'chat-user', `${String(logData.user || '匿名')}:`);
+            logLine.appendChild(document.createTextNode(' '));
+            _appendTextSpan(logLine, 'chat-message', String(logData.message || ''));
+        }
     } else {
-        logLine.innerHTML = displayMessage;
+        logLine.textContent = displayMessage;
     }
 
     logLine.style.borderBottom = "1px dotted #eee";
@@ -1662,23 +1677,31 @@ function openLogHistoryModal() {
         battleState.logs.forEach(logData => {
             const div = document.createElement('div');
             let className = `log-line ${logData.type}`;
-            let displayMessage = logData.message;
+            let displayMessage = String(logData.message || '');
+            let secretVisible = false;
 
             if (logData.secret) {
                 className += ' secret-log';
                 const isSender = (logData.user === currentUsername);
                 const isGM = (currentUserAttribute === 'GM');
-                if (isGM || isSender) {
-                    displayMessage = `<span class="secret-mark">[SECRET]</span> ${logData.message}`;
-                } else {
-                    displayMessage = `<span class="secret-masked">（シークレットダイス）</span>`;
-                }
+                secretVisible = isGM || isSender;
+                if (!secretVisible) displayMessage = '（シークレットダイス）';
             }
             div.className = className;
-            if (logData.type === 'chat' && !logData.secret) {
-                div.innerHTML = `<span class="chat-user">${logData.user}:</span> <span class="chat-message">${logData.message}</span>`;
+            if (logData.type === 'chat') {
+                if (logData.secret && secretVisible) {
+                    _appendTextSpan(div, 'secret-mark', '[SECRET]');
+                    div.appendChild(document.createTextNode(' '));
+                } else if (logData.secret) {
+                    _appendTextSpan(div, 'secret-masked', displayMessage);
+                }
+                if (!logData.secret || secretVisible) {
+                    _appendTextSpan(div, 'chat-user', `${String(logData.user || '匿名')}:`);
+                    div.appendChild(document.createTextNode(' '));
+                    _appendTextSpan(div, 'chat-message', String(logData.message || ''));
+                }
             } else {
-                div.innerHTML = displayMessage;
+                div.textContent = displayMessage;
             }
             div.style.borderBottom = "1px dotted #eee";
             div.style.padding = "2px 5px";

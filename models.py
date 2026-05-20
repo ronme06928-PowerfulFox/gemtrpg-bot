@@ -11,6 +11,7 @@ class User(db.Model):
     id = db.Column(db.String(36), primary_key=True)  # UUID
     name = db.Column(db.String(100), nullable=False)
     last_login = db.Column(db.DateTime, default=datetime.utcnow)
+    is_app_admin = db.Column(db.Boolean, default=False, nullable=False)
 
 class Room(db.Model):
     """ルーム情報を保存するテーブル"""
@@ -22,7 +23,8 @@ class Room(db.Model):
     # ★追加: ルーム作成者のIDを記録
     owner_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=True)
 
-    data = db.Column(db.JSON, default={})
+    gm_pin_hash = db.Column(db.String(255), nullable=True)
+    data = db.Column(db.JSON, default=dict)
 
     def __repr__(self):
         return f'<Room {self.name}>'

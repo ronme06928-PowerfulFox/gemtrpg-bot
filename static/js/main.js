@@ -11,6 +11,7 @@ let currentRoomUserList = [];
 let socketInitInFlight = false;
 let entryRequestInFlight = false;
 let currentUserId = null; // ★追加: ユーザーID (UUID)
+let currentUserIsAppAdmin = false;
 const receivedLogIds = new Set();
 
 function escapeDialogText(value) {
@@ -236,7 +237,6 @@ function showEntryPortal() {
         entryBtn.addEventListener('click', async () => {
             if (entryRequestInFlight) return;
             const username = document.getElementById('entry-username').value.trim();
-            const attribute = document.getElementById('entry-attribute').value;
             if (!username) {
                 entryMsg.textContent = '「あなたの名前」を入力してください。';
                 entryMsg.className = 'auth-message error';
@@ -248,7 +248,7 @@ function showEntryPortal() {
                 const response = await fetchWithSession('/api/entry', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, attribute })
+                    body: JSON.stringify({ username })
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || '入室に失敗しました');
@@ -256,9 +256,11 @@ function showEntryPortal() {
                 currentUsername = data.username;
                 currentUserAttribute = data.attribute;
                 currentUserId = data.user_id; // ★追加: IDを保存
+                currentUserIsAppAdmin = !!data.is_app_admin;
                 window.currentUsername = currentUsername;
                 window.currentUserAttribute = currentUserAttribute;
                 window.currentUserId = currentUserId;
+                window.currentUserIsAppAdmin = currentUserIsAppAdmin;
                 initializeSocketIO();
             } catch (error) {
                 entryMsg.textContent = error.message;
@@ -284,10 +286,28 @@ async function showRoomPortal() {
     roomPortal.innerHTML = '<h2>ルーム一覧を読み込み中...</h2>';
 
     try {
+        const shouldClearRoomRole = !!currentRoomName || currentUserAttribute === 'GM';
+        if (shouldClearRoomRole) {
+            await fetchWithSession('/api/leave_room_context', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            currentUserAttribute = 'Player';
+            window.currentUserAttribute = currentUserAttribute;
+            currentRoomName = null;
+        }
+    } catch (error) {
+        console.warn('Failed to clear room context:', error);
+    }
+
+    try {
         const response = await fetchWithSession('/list_rooms');
         if (!response.ok) throw new Error('サーバーからルーム一覧を取得できませんでした。');
         const data = await response.json();
         // data: { rooms: [{name, owner_id, play_mode, battle_only_stage_id}, ...], current_user_id, is_gm }
+        currentUserIsAppAdmin = !!data.is_app_admin;
+        window.currentUserIsAppAdmin = currentUserIsAppAdmin;
         renderRoomPortal(data.rooms, data.current_user_id, data.is_gm);
     } catch (error) {
         console.error('Error fetching room list:', error);
@@ -298,10 +318,7 @@ async function showRoomPortal() {
 }
 
 function renderRoomPortal(rooms, currentUserId, isGm) {
-    // ★追加: GMの場合のみボタンを表示
-    const gmButton = (currentUserAttribute === 'GM')
-        ? `<button id="manage-users-btn" class="portal-settings-button" style="margin-left:10px; background:#e0e0ff;">👥 ユーザー管理</button>`
-        : '';
+    const manageUsersButton = `<button id="manage-users-btn" class="portal-settings-button" style="margin-left:10px; background:#e0e0ff;">👥 ユーザー管理</button>`;
 
     roomPortal.innerHTML = `
         <div class="portal-user-band">
@@ -312,7 +329,7 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
                 <button id="portal-user-settings-btn" class="portal-settings-button" title="ユーザー情報変更">
                     ⚙️ ユーザー設定
                 </button>
-                ${gmButton}
+                ${manageUsersButton}
             </div>
         </div>
         <div class="room-portal-header">
@@ -405,11 +422,7 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
                     ? '<span class="room-mode-badge battle-only">戦闘専用</span>'
                     : '<span class="room-mode-badge normal">通常</span>';
 
-                // 削除ボタン: オーナーまたはGMのみ表示
-                const canDelete = (ownerId === currentUserId) || isGm;
-                const deleteBtn = canDelete
-                    ? '<button class="room-delete-btn">削除</button>'
-                    : '';
+                const deleteBtn = '<button class="room-delete-btn">削除</button>';
 
                 li.innerHTML = `
                     <div class="room-list-main">
@@ -476,7 +489,18 @@ async function createRoomByMode(playMode) {
         return;
     }
 
-    const payload = { room_name: roomName.trim() };
+    const gmPin = await showAppPrompt('GM PINとして使う4桁の数字を入力してください。', {
+        title: 'GM PIN設定',
+        placeholder: '例: 1234',
+        confirmText: '作成',
+        required: true,
+    });
+    if (!/^\d{4}$/.test(String(gmPin || '').trim())) {
+        alert('GM PINは4桁の数字で入力してください。');
+        return;
+    }
+
+    const payload = { room_name: roomName.trim(), gm_pin: String(gmPin).trim() };
     if (isBattleOnly) {
         payload.play_mode = 'battle_only';
     }
@@ -489,7 +513,9 @@ async function createRoomByMode(playMode) {
         });
         const result = await response.json();
         if (response.status === 201) {
-            joinRoom(payload.room_name, result.state);
+            currentUserAttribute = result.attribute || 'GM';
+            window.currentUserAttribute = currentUserAttribute;
+            joinRoom(payload.room_name, result.state, { role: 'GM', gmPin: payload.gm_pin });
         } else if (response.status === 409) {
             alert(`エラー: ルーム名「${payload.room_name}」は既に使用されています。`);
         } else {
@@ -509,11 +535,21 @@ async function deleteRoom(roomName) {
     if (!ok) {
         return;
     }
+    const gmPin = await showAppPrompt('このルームのGM PIN、または8桁のマスターキーを入力してください。', {
+        title: '削除認証',
+        placeholder: '4桁PIN / 8桁マスターキー',
+        confirmText: '削除',
+        required: true,
+    });
+    if (!/^\d{4}$|^\d{8}$/.test(String(gmPin || '').trim())) {
+        alert('GM PINは4桁、マスターキーは8桁の数字で入力してください。');
+        return;
+    }
     try {
         const response = await fetchWithSession('/delete_room', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ room_name: roomName })
+            body: JSON.stringify({ room_name: roomName, gm_pin: String(gmPin).trim() })
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || '不明なエラー');
@@ -525,13 +561,52 @@ async function deleteRoom(roomName) {
     }
 }
 
-async function joinRoom(roomName, initialState = null) {
+async function joinRoom(roomName, initialState = null, entryOptions = null) {
     // Reset DOM initialization flag so dock re-initializes on room change
     // NOTE: Do NOT reset visualBattleSocketHandlersRegistered - socket handlers must only be registered once
     window.actionDockInitialized = false;
     // Debug log removed for production
 
     try {
+        let roomEntry = entryOptions;
+        if (!roomEntry) {
+            const asGm = await showAppConfirm('GMとして入室しますか？', {
+                title: '入室種別',
+                confirmText: 'GM',
+                cancelText: 'プレイヤー',
+            });
+            roomEntry = { role: asGm ? 'GM' : 'Player', gmPin: '' };
+            if (asGm && !currentUserIsAppAdmin) {
+                const gmPin = await showAppPrompt('GM PIN、または8桁のマスターキーを入力してください。', {
+                    title: 'GM認証',
+                    placeholder: '4桁PIN / 8桁マスターキー',
+                    confirmText: '入室',
+                    required: true,
+                });
+                if (!/^\d{4}$|^\d{8}$/.test(String(gmPin || '').trim())) {
+                    alert('GM PINは4桁、マスターキーは8桁の数字で入力してください。');
+                    return;
+                }
+                roomEntry.gmPin = String(gmPin).trim();
+            }
+        }
+
+        const entryResponse = await fetchWithSession('/api/enter_room', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room_name: roomName,
+                role: roomEntry.role || 'Player',
+                gm_pin: roomEntry.gmPin || '',
+            })
+        });
+        const entryResult = await entryResponse.json();
+        if (!entryResponse.ok) {
+            throw new Error(entryResult.error || '入室認証に失敗しました');
+        }
+        currentUserAttribute = entryResult.attribute || 'Player';
+        window.currentUserAttribute = currentUserAttribute;
+
         if (!initialState) {
             const response = await fetchWithSession(`/load_room?name=${encodeURIComponent(roomName)}`);
             if (!response.ok) {
@@ -545,7 +620,8 @@ async function joinRoom(roomName, initialState = null) {
         socket.emit('join_room', {
             room: currentRoomName,
             username: currentUsername,
-            attribute: currentUserAttribute
+            role: roomEntry.role || currentUserAttribute,
+            gm_pin: roomEntry.gmPin || ''
         });
         entryPortal.style.display = 'none';
         roomPortal.style.display = 'none';
@@ -787,9 +863,11 @@ async function checkSessionStatus() {
             currentUsername = data.username;
             currentUserAttribute = data.attribute;
             currentUserId = data.user_id; // ★追加: IDを保存
+            currentUserIsAppAdmin = !!data.is_app_admin;
             window.currentUsername = currentUsername;
             window.currentUserAttribute = currentUserAttribute;
             window.currentUserId = currentUserId;
+            window.currentUserIsAppAdmin = currentUserIsAppAdmin;
 
             initializeSocketIO();
         }

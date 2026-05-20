@@ -21,8 +21,25 @@ def get_all_users():
     return [{
         "id": u.id,
         "name": u.name,
-        "last_login": u.last_login.strftime('%Y-%m-%d %H:%M:%S')
+        "last_login": u.last_login.strftime('%Y-%m-%d %H:%M:%S'),
+        "is_app_admin": bool(getattr(u, "is_app_admin", False)),
     } for u in users]
+
+def is_user_management_admin(user_id):
+    """ユーザー管理のアプリ管理権限を持つか返す。ルームGM権限とは分離する。"""
+    if not user_id:
+        return False
+    user = User.query.get(user_id)
+    return bool(user and getattr(user, "is_app_admin", False))
+
+def set_user_management_admin(user_id, enabled):
+    """指定ユーザーにユーザー管理権限を付与/解除する。"""
+    user = User.query.get(user_id)
+    if not user:
+        return False
+    user.is_app_admin = bool(enabled)
+    db.session.commit()
+    return True
 
 def delete_user(user_id):
     """ユーザーを削除する（所有権はNoneになる）"""

@@ -10,6 +10,38 @@ def run_auto_migration(app):
     with app.app_context():
         try:
             inspector = inspect(db.engine)
+            is_postgres = 'postgres' in str(db.engine.url)
+
+            if inspector.has_table('users'):
+                user_columns = [c['name'] for c in inspector.get_columns('users')]
+                if 'is_app_admin' not in user_columns:
+                    logging.info("Run Auto Migration: Adding 'is_app_admin' column to users")
+                    try:
+                        if is_postgres:
+                            db.session.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_app_admin BOOLEAN DEFAULT FALSE NOT NULL"))
+                        else:
+                            db.session.execute(text("ALTER TABLE users ADD COLUMN is_app_admin BOOLEAN DEFAULT 0 NOT NULL"))
+                        db.session.commit()
+                        logging.info("Auto Migration Completed: 'is_app_admin' column added.")
+                    except Exception as e:
+                        db.session.rollback()
+                        logging.error(f"Migration Query Failed: {e}")
+
+            if inspector.has_table('rooms'):
+                room_columns = [c['name'] for c in inspector.get_columns('rooms')]
+                if 'gm_pin_hash' not in room_columns:
+                    logging.info("Run Auto Migration: Adding 'gm_pin_hash' column to rooms")
+                    try:
+                        if is_postgres:
+                            db.session.execute(text("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS gm_pin_hash VARCHAR(255)"))
+                        else:
+                            db.session.execute(text("ALTER TABLE rooms ADD COLUMN gm_pin_hash VARCHAR(255)"))
+                        db.session.commit()
+                        logging.info("Auto Migration Completed: 'gm_pin_hash' column added.")
+                    except Exception as e:
+                        db.session.rollback()
+                        logging.error(f"Migration Query Failed: {e}")
+
             # image_registryテーブルが存在するか確認
             if not inspector.has_table('image_registry'):
                 return
@@ -18,9 +50,6 @@ def run_auto_migration(app):
 
             if 'visibility' not in columns:
                 logging.info("Run Auto Migration: Adding 'visibility' column to image_registry")
-
-                # PostgreSQLかどうか判定（念のため）
-                is_postgres = 'postgres' in str(db.engine.url)
 
                 try:
                     if is_postgres:

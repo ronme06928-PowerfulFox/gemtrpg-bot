@@ -16,26 +16,25 @@ function normalizeModalStateName(name) {
     return _MODAL_STATE_NAME_ALIASES[key] || key;
 }
 
+function escapeUserSettingsText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+    }[ch]));
+}
+
 function openUserSettingsModal(allowAttributeChange = false) {
     const oldName = currentUsername;
     const oldAttr = currentUserAttribute;
-    let attributeHtml = '';
-    if (allowAttributeChange) {
-        attributeHtml = `
-            <label for="modal-attribute">あなたの属性:</label>
-            <select id="modal-attribute">
-                <option value="Player" ${oldAttr === 'Player' ? 'selected' : ''}>プレイヤー (Player)</option>
-                <option value="GM" ${oldAttr === 'GM' ? 'selected' : ''}>ゲームマスター (GM)</option>
-            </select>
-        `;
-    } else {
-        attributeHtml = `
-            <label>あなたの属性:</label>
-            <input type="text" value="${oldAttr}" readonly disabled
-                   style="background: #eee; color: #777; cursor: not-allowed;"
-                   title="属性の変更はルームポータルに戻って行ってください">
-        `;
-    }
+    let attributeHtml = `
+        <label>あなたの属性:</label>
+        <input type="text" value="${escapeUserSettingsText(oldAttr)}" readonly disabled
+               style="background: #eee; color: #777; cursor: not-allowed;"
+               title="GM/プレイヤーの切り替えはルーム入室時に行ってください">
+    `;
     const modalHtml = `
         <div class="modal-backdrop" id="user-settings-modal-backdrop">
             <div class="modal-content" style="width: 400px; padding: 25px;">
@@ -43,7 +42,7 @@ function openUserSettingsModal(allowAttributeChange = false) {
                 <h2>ユーザー情報変更</h2>
                 <div class="auth-form">
                     <label for="modal-username">あなたの名前:</label>
-                    <input type="text" id="modal-username" value="${oldName}">
+                    <input type="text" id="modal-username" value="${escapeUserSettingsText(oldName)}">
                     ${attributeHtml}
                     <button id="modal-user-update-btn">更新</button>
                     <div id="modal-user-message" class="auth-message"></div>
@@ -67,12 +66,6 @@ function openUserSettingsModal(allowAttributeChange = false) {
 
     updateBtn.addEventListener('click', async () => {
         const newName = document.getElementById('modal-username').value.trim();
-        let newAttr;
-        if (allowAttributeChange) {
-            newAttr = document.getElementById('modal-attribute').value;
-        } else {
-            newAttr = currentUserAttribute;
-        }
         if (!newName) {
             msgEl.textContent = '名前は必須です。';
             msgEl.className = 'auth-message error';
@@ -82,13 +75,12 @@ function openUserSettingsModal(allowAttributeChange = false) {
             const response = await fetchWithSession('/api/entry', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: newName, attribute: newAttr })
+                body: JSON.stringify({ username: newName })
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
             socket.emit('request_update_user_info', {
-                username: newName,
-                attribute: newAttr
+                username: newName
             });
             msgEl.textContent = '更新しました。';
             msgEl.className = 'auth-message success';

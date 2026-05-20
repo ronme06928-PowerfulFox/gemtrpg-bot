@@ -36,11 +36,13 @@ web: gunicorn -c gunicorn_config.py app:app
 #### 必須の環境変数
 - `DATABASE_URL`: PostgreSQLの接続URL（自動設定される）
 - `SECRET_KEY`: Flask用のシークレットキー
+- `CORS_ORIGINS`: 許可するOriginをカンマ区切りで指定する（例: `https://example.onrender.com`）
 - `GOOGLE_CREDENTIALS_JSON`: Google Sheets APIの認証情報（JSON文字列）
 
 #### オプションの環境変数
 - `PORT`: ポート番号（デフォルト: 10000、Renderが自動設定）
 - `RENDER`: Render環境であることを示すフラグ（自動設定される）
+- `GM_MASTER_KEY`: 全ルームにGMとして入室できる8桁数字のマスターキー。未設定の場合、マスターキー機能は無効。
 
 ### デプロイ
 1. 修正したファイルをGitにコミット：

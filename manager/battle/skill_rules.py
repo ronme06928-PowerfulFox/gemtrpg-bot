@@ -138,13 +138,15 @@ def _collect_skill_tags(skill_data):
 def _resolve_skill_category(skill_data):
     if not isinstance(skill_data, dict):
         return ''
-    for key in ('category',):
+    # Existing rule JSON is primarily Japanese.  Prefer Japanese aliases when
+    # mixed keys are present so old definitions keep their intended meaning.
+    for key in ('分類', 'カテゴリ', 'category', 'type'):
         value = skill_data.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
     rule_data = _extract_rule_data_from_skill(skill_data)
     if isinstance(rule_data, dict):
-        for key in ('category',):
+        for key in ('分類', 'カテゴリ', 'category', 'type'):
             value = rule_data.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
@@ -159,12 +161,12 @@ def _normalize_target_scope(raw_value, default='enemy'):
         return 'self'
     if text in [
         'enemy', 'enemies', 'foe', 'opponent', 'opponents',
-        'opposing_team',
+        'opposing_team', '敵', '敵指定', '敵陣営指定',
     ]:
         return 'enemy'
     if text in [
         'ally', 'allies', 'friend', 'friends',
-        'same_team',
+        'same_team', '味方', '味方指定', '同陣営指定',
     ]:
         return 'ally'
     if text in ['any', 'all', 'both', 'all_targets']:
@@ -192,9 +194,9 @@ def _infer_target_scope_from_skill_data(skill_data):
 
     normalized_tags = {str(v or '').strip().lower() for v in _collect_skill_tags(skill_data)}
     self_tags = {'self_target', 'target_self', '自分対象', '自身対象', '自己対象'}
-    ally_tags = {'ally_target', 'target_ally'}
+    ally_tags = {'ally_target', 'target_ally', '味方指定', '同陣営指定'}
     any_tags = {'any_target', 'target_any'}
-    enemy_tags = {'enemy_target', 'target_enemy'}
+    enemy_tags = {'enemy_target', 'target_enemy', '敵指定', '敵陣営指定'}
     if any(tag.lower() in normalized_tags for tag in any_tags):
         return 'any'
     if any(tag.lower() in normalized_tags for tag in self_tags):
@@ -240,18 +242,20 @@ def _is_non_clashable_ally_support_pair(slots, slot_a, slot_b, skill_data_a=None
 def _resolve_skill_role(skill_data):
     category = _resolve_skill_category(skill_data)
     tags = _collect_skill_tags(skill_data)
+    category_text = str(category or '').strip()
+    category_lower = category_text.lower()
     lower_tags = [str(v or '').strip().lower() for v in tags]
 
-    if category == '回避':
+    if category_text == '回避' or category_lower in {'evade', 'evasion', 'dodge'}:
         return 'evade'
     if any(('回避' in t) for t in tags):
         return 'evade'
     if any(('evade' in t) for t in lower_tags):
         return 'evade'
 
-    if category == '防御':
+    if category_text == '防御' or category_lower in {'defense', 'defence', 'guard', 'block'}:
         return 'defense'
-    if any(('防御' in t or '守備' in t) for t in tags):
+    if any(('防御' in t or '守備' in t or 'ガード' in t) for t in tags):
         return 'defense'
     if any(('defense' in t) for t in lower_tags):
         return 'defense'
@@ -331,5 +335,4 @@ def _estimate_immediate_self_fp_gain(skill_data):
 
 def _skill_has_direct_fp_gain(skill_data):
     return _estimate_immediate_self_fp_gain(skill_data) > 0
-
 
