@@ -45,6 +45,7 @@ function openUserSettingsModal(allowAttributeChange = false) {
                     <input type="text" id="modal-username" value="${escapeUserSettingsText(oldName)}">
                     ${attributeHtml}
                     <button id="modal-user-update-btn">更新</button>
+                    <button id="modal-recovery-regenerate-btn" type="button">復旧コード再発行</button>
                     <div id="modal-user-message" class="auth-message"></div>
                 </div>
             </div>
@@ -54,6 +55,7 @@ function openUserSettingsModal(allowAttributeChange = false) {
 
     const backdrop = document.getElementById('user-settings-modal-backdrop');
     const updateBtn = document.getElementById('modal-user-update-btn');
+    const recoveryBtn = document.getElementById('modal-recovery-regenerate-btn');
     const msgEl = document.getElementById('modal-user-message');
 
     const closeModal = () => {
@@ -87,6 +89,36 @@ function openUserSettingsModal(allowAttributeChange = false) {
             setTimeout(closeModal, 1000);
         } catch (error) {
             msgEl.textContent = `更新失敗: ${error.message}`;
+            msgEl.className = 'auth-message error';
+        }
+    });
+
+    recoveryBtn?.addEventListener('click', async () => {
+        const ok = await window.showAppConfirm('復旧コードを再発行します。古い復旧コードは使えなくなります。', {
+            title: '復旧コード再発行',
+            confirmText: '再発行',
+        });
+        if (!ok) return;
+
+        try {
+            const response = await fetchWithSession('/api/regenerate_recovery_code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || '再発行に失敗しました');
+            if (typeof saveRecoveryTokenFromResponse === 'function') {
+                saveRecoveryTokenFromResponse(data);
+            }
+            await window.showAppConfirm(`新しい復旧コードを控えてください。\n\n${data.recovery_code}\n\nこのコードは再表示できません。`, {
+                title: '復旧コード',
+                confirmText: '控えました',
+            });
+            msgEl.textContent = '復旧コードを再発行しました。';
+            msgEl.className = 'auth-message success';
+        } catch (error) {
+            msgEl.textContent = `再発行失敗: ${error.message}`;
             msgEl.className = 'auth-message error';
         }
     });

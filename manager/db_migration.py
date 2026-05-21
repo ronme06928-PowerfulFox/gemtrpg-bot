@@ -27,6 +27,26 @@ def run_auto_migration(app):
                         db.session.rollback()
                         logging.error(f"Migration Query Failed: {e}")
 
+                user_column_specs = {
+                    'recovery_code_hash': 'VARCHAR(255)',
+                    'recovery_token_hash': 'VARCHAR(64)',
+                    'recovery_code_issued_at': 'TIMESTAMP',
+                }
+                for column_name, column_type in user_column_specs.items():
+                    if column_name in user_columns:
+                        continue
+                    logging.info(f"Run Auto Migration: Adding '{column_name}' column to users")
+                    try:
+                        if is_postgres:
+                            db.session.execute(text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {column_name} {column_type}"))
+                        else:
+                            db.session.execute(text(f"ALTER TABLE users ADD COLUMN {column_name} {column_type}"))
+                        db.session.commit()
+                        logging.info(f"Auto Migration Completed: '{column_name}' column added.")
+                    except Exception as e:
+                        db.session.rollback()
+                        logging.error(f"Migration Query Failed: {e}")
+
             if inspector.has_table('rooms'):
                 room_columns = [c['name'] for c in inspector.get_columns('rooms')]
                 if 'gm_pin_hash' not in room_columns:

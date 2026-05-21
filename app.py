@@ -71,6 +71,9 @@ from manager.user_manager import (
     transfer_ownership,
     get_user_owned_items,
     is_user_management_admin,
+    recover_user_by_local_token,
+    recover_user_by_name_and_code,
+    regenerate_user_recovery_code,
     set_user_management_admin,
 )
 
@@ -221,15 +224,78 @@ def entry():
     if 'user_id' not in session:
         session['user_id'] = str(uuid.uuid4())
 
-    # ユーザー情報をDBに記録
-    upsert_user(session['user_id'], username)
+    # ユーザー情報をDBに記録。新規/未発行ユーザーには復旧コードを一度だけ返す。
+    user_result = upsert_user(session['user_id'], username, issue_recovery=True) or {}
     # ▲▲▲ 修正ここまで ▲▲▲
 
     return jsonify({
         "message": "セッション開始",
         "username": username,
         "attribute": session.get('attribute', PLAYER_ATTRIBUTE),
-        "user_id": session['user_id']
+        "user_id": session['user_id'],
+        "is_app_admin": is_user_management_admin(session['user_id']),
+        "recovery_code": user_result.get("recovery_code"),
+        "recovery_token": user_result.get("recovery_token"),
+    })
+
+@app.route('/api/recover_user', methods=['POST'])
+def recover_user():
+    data = request.get_json(silent=True) or {}
+    username = str(data.get('username') or '').strip()
+    recovery_code = str(data.get('recovery_code') or '').strip()
+    result = recover_user_by_name_and_code(username, recovery_code)
+    if not result:
+        return jsonify({"error": "名前または復旧コードが正しくありません"}), 403
+
+    user = result["user"]
+    session['user_id'] = user.id
+    session['username'] = user.name
+    session['attribute'] = PLAYER_ATTRIBUTE
+
+    return jsonify({
+        "message": "ユーザーを復旧しました",
+        "username": user.name,
+        "attribute": PLAYER_ATTRIBUTE,
+        "user_id": user.id,
+        "is_app_admin": is_user_management_admin(user.id),
+        "recovery_token": result.get("recovery_token"),
+    })
+
+@app.route('/api/recover_from_local_token', methods=['POST'])
+def recover_from_local_token():
+    data = request.get_json(silent=True) or {}
+    user = recover_user_by_local_token(
+        str(data.get('user_id') or '').strip(),
+        str(data.get('recovery_token') or '').strip(),
+    )
+    if not user:
+        return jsonify({"error": "保存済み復旧トークンが無効です"}), 403
+
+    session['user_id'] = user.id
+    session['username'] = user.name
+    session['attribute'] = PLAYER_ATTRIBUTE
+
+    return jsonify({
+        "message": "保存済み復旧トークンで復帰しました",
+        "username": user.name,
+        "attribute": PLAYER_ATTRIBUTE,
+        "user_id": user.id,
+        "is_app_admin": is_user_management_admin(user.id),
+    })
+
+@app.route('/api/regenerate_recovery_code', methods=['POST'])
+@session_required
+def regenerate_recovery_code():
+    result = regenerate_user_recovery_code(session.get('user_id'))
+    if not result:
+        return jsonify({"error": "ユーザーが見つかりません"}), 404
+    user = result["user"]
+    return jsonify({
+        "message": "復旧コードを再発行しました",
+        "username": user.name,
+        "user_id": user.id,
+        "recovery_code": result.get("recovery_code"),
+        "recovery_token": result.get("recovery_token"),
     })
 
 @app.route('/api/enter_room', methods=['POST'])
@@ -290,12 +356,15 @@ def get_session_user():
         username = session.get('username')
         attribute = session.get('attribute')
         user_id = session.get('user_id')
+        user_result = upsert_user(user_id, username, issue_recovery=True) or {}
         logging.info(f"[SESSION CHECK] User: {username}, Attribute: {attribute}, UserID: {user_id}")
         return jsonify({
             "username": username,
             "attribute": attribute,
             "user_id": user_id,
             "is_app_admin": is_user_management_admin(user_id),
+            "recovery_code": user_result.get("recovery_code"),
+            "recovery_token": user_result.get("recovery_token"),
         })
     else:
         return jsonify({"username": None, "attribute": None, "user_id": None}), 401

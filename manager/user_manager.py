@@ -2,18 +2,113 @@
 from extensions import db, active_room_states
 from models import User, Room
 from datetime import datetime
+import hashlib
+import secrets
+from werkzeug.security import check_password_hash, generate_password_hash
 
-def upsert_user(user_id, name):
+
+RECOVERY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def generate_recovery_code():
+    """ユーザーが控える復旧コードを生成する。UUIDはユーザーに扱わせない。"""
+    part1 = ''.join(secrets.choice(RECOVERY_CODE_ALPHABET) for _ in range(4))
+    part2 = ''.join(secrets.choice(RECOVERY_CODE_ALPHABET) for _ in range(4))
+    return f"GEM-{part1}-{part2}"
+
+
+def generate_recovery_token():
+    """ブラウザ保存用の長い復旧トークンを生成する。"""
+    return secrets.token_urlsafe(32)
+
+
+def _hash_recovery_token(token):
+    return hashlib.sha256(str(token or "").encode("utf-8")).hexdigest()
+
+
+def _normalize_recovery_code(code):
+    return str(code or "").strip().upper()
+
+
+def upsert_user(user_id, name, *, issue_recovery=False):
     """ログイン時にユーザー情報を保存・更新する"""
-    if not user_id: return
+    if not user_id:
+        return None
     user = User.query.get(user_id)
+    recovery_code = None
+    recovery_token = None
     if not user:
         user = User(id=user_id, name=name)
         db.session.add(user)
     else:
         user.name = name # 名前が変わっていれば更新
         user.last_login = datetime.utcnow()
+
+    if issue_recovery and not getattr(user, "recovery_code_hash", None):
+        recovery_code = generate_recovery_code()
+        user.recovery_code_hash = generate_password_hash(_normalize_recovery_code(recovery_code))
+        user.recovery_code_issued_at = datetime.utcnow()
+
+    if issue_recovery:
+        recovery_token = generate_recovery_token()
+        user.recovery_token_hash = _hash_recovery_token(recovery_token)
+
     db.session.commit()
+    return {
+        "user": user,
+        "recovery_code": recovery_code,
+        "recovery_token": recovery_token,
+    }
+
+
+def regenerate_user_recovery_code(user_id):
+    """ログイン中ユーザー用に復旧コードを再発行する。古いコードは無効になる。"""
+    user = User.query.get(user_id)
+    if not user:
+        return None
+    recovery_code = generate_recovery_code()
+    recovery_token = generate_recovery_token()
+    user.recovery_code_hash = generate_password_hash(_normalize_recovery_code(recovery_code))
+    user.recovery_token_hash = _hash_recovery_token(recovery_token)
+    user.recovery_code_issued_at = datetime.utcnow()
+    db.session.commit()
+    return {
+        "user": user,
+        "recovery_code": recovery_code,
+        "recovery_token": recovery_token,
+    }
+
+
+def recover_user_by_name_and_code(name, recovery_code):
+    """名前と復旧コードでユーザーを復帰する。UUIDは入力させない。"""
+    username = str(name or "").strip()
+    code = _normalize_recovery_code(recovery_code)
+    if not username or not code:
+        return None
+    users = User.query.filter_by(name=username).all()
+    for user in users:
+        code_hash = getattr(user, "recovery_code_hash", None)
+        if code_hash and check_password_hash(code_hash, code):
+            user.last_login = datetime.utcnow()
+            recovery_token = generate_recovery_token()
+            user.recovery_token_hash = _hash_recovery_token(recovery_token)
+            db.session.commit()
+            return {"user": user, "recovery_token": recovery_token}
+    return None
+
+
+def recover_user_by_local_token(user_id, recovery_token):
+    """localStorageに保存した内部トークンでセッションを復帰する。"""
+    if not user_id or not recovery_token:
+        return None
+    user = User.query.get(user_id)
+    if not user or not getattr(user, "recovery_token_hash", None):
+        return None
+    if not secrets.compare_digest(user.recovery_token_hash, _hash_recovery_token(recovery_token)):
+        return None
+    user.last_login = datetime.utcnow()
+    db.session.commit()
+    return user
 
 def get_all_users():
     """全ユーザーのリストを返す（最終ログイン降順）"""

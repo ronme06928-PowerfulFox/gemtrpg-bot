@@ -12,6 +12,9 @@ class User(db.Model):
     name = db.Column(db.String(100), nullable=False)
     last_login = db.Column(db.DateTime, default=datetime.utcnow)
     is_app_admin = db.Column(db.Boolean, default=False, nullable=False)
+    recovery_code_hash = db.Column(db.String(255), nullable=True)
+    recovery_token_hash = db.Column(db.String(64), nullable=True)
+    recovery_code_issued_at = db.Column(db.DateTime, nullable=True)
 
 class Room(db.Model):
     """ルーム情報を保存するテーブル"""

@@ -13,6 +13,40 @@ let entryRequestInFlight = false;
 let currentUserId = null; // ★追加: ユーザーID (UUID)
 let currentUserIsAppAdmin = false;
 const receivedLogIds = new Set();
+const RECOVERY_STORAGE_KEY = 'gem_dicebot_recovery_v1';
+
+function applySessionUserData(data) {
+    currentUsername = data.username;
+    currentUserAttribute = data.attribute;
+    currentUserId = data.user_id;
+    currentUserIsAppAdmin = !!data.is_app_admin;
+    window.currentUsername = currentUsername;
+    window.currentUserAttribute = currentUserAttribute;
+    window.currentUserId = currentUserId;
+    window.currentUserIsAppAdmin = currentUserIsAppAdmin;
+}
+
+function saveRecoveryTokenFromResponse(data) {
+    if (!data || !data.user_id || !data.recovery_token) return;
+    try {
+        localStorage.setItem(RECOVERY_STORAGE_KEY, JSON.stringify({
+            user_id: data.user_id,
+            recovery_token: data.recovery_token,
+        }));
+    } catch (_e) {}
+}
+
+function clearSavedRecoveryToken() {
+    try { localStorage.removeItem(RECOVERY_STORAGE_KEY); } catch (_e) {}
+}
+
+async function showRecoveryCodeOnce(code) {
+    if (!code) return;
+    await showAppConfirm(`この復旧コードを控えてください。\n\n${code}\n\nブラウザを変えた時やセッションが切れた時に、同じユーザーへ戻るために使います。再表示はできません。`, {
+        title: '復旧コード',
+        confirmText: '控えました',
+    });
+}
 
 function escapeDialogText(value) {
     return String(value ?? '')
@@ -230,6 +264,7 @@ function showEntryPortal() {
     entryPortal.style.display = 'block';
 
     const entryBtn = document.getElementById('entry-btn');
+    const recoverBtn = document.getElementById('recover-user-btn');
     const entryMsg = document.getElementById('entry-message');
 
     if (!entryBtn.dataset.listenerAttached) {
@@ -253,14 +288,9 @@ function showEntryPortal() {
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || '入室に失敗しました');
 
-                currentUsername = data.username;
-                currentUserAttribute = data.attribute;
-                currentUserId = data.user_id; // ★追加: IDを保存
-                currentUserIsAppAdmin = !!data.is_app_admin;
-                window.currentUsername = currentUsername;
-                window.currentUserAttribute = currentUserAttribute;
-                window.currentUserId = currentUserId;
-                window.currentUserIsAppAdmin = currentUserIsAppAdmin;
+                applySessionUserData(data);
+                saveRecoveryTokenFromResponse(data);
+                await showRecoveryCodeOnce(data.recovery_code);
                 initializeSocketIO();
             } catch (error) {
                 entryMsg.textContent = error.message;
@@ -268,6 +298,50 @@ function showEntryPortal() {
             } finally {
                 entryRequestInFlight = false;
                 entryBtn.disabled = false;
+            }
+        });
+    }
+
+    if (recoverBtn && !recoverBtn.dataset.listenerAttached) {
+        recoverBtn.dataset.listenerAttached = 'true';
+        recoverBtn.addEventListener('click', async () => {
+            if (entryRequestInFlight) return;
+            const username = document.getElementById('entry-username').value.trim();
+            if (!username) {
+                entryMsg.textContent = '復旧するユーザー名を入力してください。';
+                entryMsg.className = 'auth-message error';
+                return;
+            }
+            const recoveryCode = await showAppPrompt('復旧コードを入力してください。', {
+                title: 'ユーザー復旧',
+                placeholder: 'GEM-XXXX-XXXX',
+                confirmText: '復旧',
+                required: true,
+            });
+            if (!recoveryCode) return;
+
+            try {
+                entryRequestInFlight = true;
+                entryBtn.disabled = true;
+                recoverBtn.disabled = true;
+                const response = await fetch(API_BASE_URL + '/api/recover_user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, recovery_code: recoveryCode })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || '復旧に失敗しました');
+                applySessionUserData(data);
+                saveRecoveryTokenFromResponse(data);
+                initializeSocketIO();
+            } catch (error) {
+                entryMsg.textContent = error.message;
+                entryMsg.className = 'auth-message error';
+            } finally {
+                entryRequestInFlight = false;
+                entryBtn.disabled = false;
+                recoverBtn.disabled = false;
             }
         });
     }
@@ -784,6 +858,35 @@ function initializeSocketIO() {
     });
 }
 
+async function attemptLocalTokenRecovery() {
+    let saved = null;
+    try {
+        saved = JSON.parse(localStorage.getItem(RECOVERY_STORAGE_KEY) || 'null');
+    } catch (_e) {
+        saved = null;
+    }
+    if (!saved || !saved.user_id || !saved.recovery_token) return false;
+
+    try {
+        const response = await fetch(API_BASE_URL + '/api/recover_from_local_token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(saved)
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            clearSavedRecoveryToken();
+            return false;
+        }
+        applySessionUserData(data);
+        initializeSocketIO();
+        return true;
+    } catch (_e) {
+        return false;
+    }
+}
+
 // --- 6. タブ切り替え機能 ---
 tabButtons.forEach(button => {
     button.addEventListener('click', () => {
@@ -860,20 +963,17 @@ async function checkSessionStatus() {
         const response = await fetchWithSession('/api/get_session_user');
         if (response.ok) {
             const data = await response.json();
-            currentUsername = data.username;
-            currentUserAttribute = data.attribute;
-            currentUserId = data.user_id; // ★追加: IDを保存
-            currentUserIsAppAdmin = !!data.is_app_admin;
-            window.currentUsername = currentUsername;
-            window.currentUserAttribute = currentUserAttribute;
-            window.currentUserId = currentUserId;
-            window.currentUserIsAppAdmin = currentUserIsAppAdmin;
-
+            applySessionUserData(data);
+            saveRecoveryTokenFromResponse(data);
+            await showRecoveryCodeOnce(data.recovery_code);
             initializeSocketIO();
         }
     } catch (error) {
         console.error('Failed to check session status:', error.message);
-        if (error.message !== '認証が必要です。') {
+        if (error.message === '認証が必要です。') {
+            const recovered = await attemptLocalTokenRecovery();
+            if (!recovered) showEntryPortal();
+        } else {
             entryPortal.innerHTML = `<h2 style="color: red;">サーバー接続エラー</h2><p>${error.message}</p><p>app.py を起動してください。</p>`;
             entryPortal.style.display = 'block';
         }
