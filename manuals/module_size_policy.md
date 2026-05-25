@@ -15,6 +15,4 @@
   - fixed ceilings for current legacy modules until they are split further
 
 ## Current Legacy Ceilings
-- `manager/battle/core.py`: `4370`
-- `manager/game_logic.py`: `2873`
-- `manager/utils.py`: `1503`
+- None.
