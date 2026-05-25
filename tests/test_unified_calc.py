@@ -75,6 +75,7 @@ sys.modules['manager.utils'] = mock_utils
 mock_buff_catalog = types.ModuleType('manager.buff_catalog')
 def mock_get_buff_effect(buff_name): return None
 mock_buff_catalog.get_buff_effect = mock_get_buff_effect
+mock_buff_catalog.resolve_runtime_buff_effect = lambda *_args, **_kwargs: None
 sys.modules['manager.buff_catalog'] = mock_buff_catalog
 
 # --- Mock plugins ---

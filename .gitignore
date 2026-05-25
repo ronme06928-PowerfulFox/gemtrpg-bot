@@ -1,5 +1,6 @@
 # 秘密情報・設定
 .env
+.claude/
 gemtrpgdicebot-*.json
 
 # データベース・キャッシュ

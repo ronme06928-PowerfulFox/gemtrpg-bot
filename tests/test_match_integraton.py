@@ -7,8 +7,12 @@ from unittest.mock import MagicMock, patch
 
 _PATCHED_MODULE_KEYS = [
     'flask',
+    'flask.globals',
+    'flask_sqlalchemy',
     'flask_socketio',
     'extensions',
+    'models',
+    'manager.user_manager',
     'manager.room_manager',
     'manager.utils',
     'manager.buff_catalog',
@@ -150,10 +154,15 @@ mock_utils.remove_buff = MagicMock()
 mock_utils.calculate_buff_power_bonus = lambda *args: 0
 mock_utils.calculate_damage_multiplier = lambda c: (1.0, [])
 mock_utils.get_effective_origin_id = lambda c: 0
+mock_utils.apply_passive_effect_buffs = lambda *_args, **_kwargs: None
+mock_utils.get_stack_resource_count = lambda *_args, **_kwargs: 0
+mock_utils.apply_origin_bonus_buffs = lambda *_args, **_kwargs: None
+mock_utils.get_round_end_origin_recoveries = lambda *_args, **_kwargs: {}
 sys.modules['manager.utils'] = mock_utils
 
 mock_buff_catalog = types.ModuleType('manager.buff_catalog')
 mock_buff_catalog.get_buff_effect = lambda n: None
+mock_buff_catalog.resolve_runtime_buff_effect = lambda *_args, **_kwargs: None
 sys.modules['manager.buff_catalog'] = mock_buff_catalog
 
 mock_plugins = types.ModuleType('plugins')

@@ -30,14 +30,11 @@ def mock_get_status_value(char, param):
     if param == 'ダイス威力': return 0
     return 0
 
-# Patch utils
-game_logic.get_status_value = mock_get_status_value
-game_logic.get_buff_stat_mod = MagicMock(return_value=0)
-game_logic.resolve_placeholders = lambda x, y: x # No placeholders
-
-
 @pytest.fixture(autouse=True)
 def _restore_game_logic_patches():
+    game_logic.get_status_value = mock_get_status_value
+    game_logic.get_buff_stat_mod = MagicMock(return_value=0)
+    game_logic.resolve_placeholders = lambda x, y: x
     yield
     game_logic.get_status_value = _ORIG_GET_STATUS_VALUE
     game_logic.get_buff_stat_mod = _ORIG_GET_BUFF_STAT_MOD

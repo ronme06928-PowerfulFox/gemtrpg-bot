@@ -53,12 +53,17 @@ def _load_skill_effects(skill_id):
 
 
 def _find_buff_count_by_id(char_obj, buff_id):
+    id_aliases = {
+        "Bu-Gyoma": {"Bu-Gyoma", "Bu-31"},
+        "Bu-Chikuryoku": {"Bu-Chikuryoku", "Bu-30"},
+    }
+    target_ids = id_aliases.get(buff_id, {buff_id})
     for buff in char_obj.get("special_buffs", []):
         if not isinstance(buff, dict):
             continue
         data = buff.get("data") if isinstance(buff.get("data"), dict) else {}
         row_buff_id = buff.get("buff_id") or data.get("buff_id")
-        if row_buff_id != buff_id:
+        if row_buff_id not in target_ids:
             continue
         if buff.get("count") is not None:
             return int(buff.get("count"))
