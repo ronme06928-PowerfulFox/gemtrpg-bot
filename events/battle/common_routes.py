@@ -31,13 +31,17 @@ from manager.battle.common_manager import (
 )
 from plugins.buffs.confusion import ConfusionBuff
 from plugins.buffs.immobilize import ImmobilizeBuff
-
+from events.battle import intent_targets as _intent_targets
+from events.battle import phase_flow as _phase_flow
+from events.battle import pve_intents as _pve_intents
+from events.battle.intent_targets import (
+    _default_intent_tags,
+    _validate_and_normalize_target,
+)
 
 from manager.utils import apply_buff, get_status_value, set_status_value # For debug
-
 logger = setup_logger(__name__)
 ensure_system_skills_registered()
-
 
 def _is_battle_only_mode(room):
     state = get_room_state(room)
@@ -339,317 +343,51 @@ def on_request_ai_suggest_skill(data):
     })
 
 
-def _default_intent_tags(existing=None):
-    tags = dict(existing or {})
-    tags.setdefault('instant', False)
-    tags.setdefault('mass_type', None)
-    tags.setdefault('no_redirect', False)
-    return tags
 
-
-def _default_target(target):
-    if isinstance(target, dict):
-        target_type = target.get('type', 'none')
-        if target_type not in ['single_slot', 'mass_individual', 'mass_summation', 'none', 'random_single']:
-            target_type = 'none'
-        return {
-            'type': target_type,
-            'slot_id': target.get('slot_id'),
-            'random_target_scope': target.get('random_target_scope', 'enemy'),
-        }
-    return {'type': 'none', 'slot_id': None}
-
-
-def _normalize_target_slot_id(value):
-    if value is None:
-        return None
-    if isinstance(value, str):
-        text = value.strip()
-        return text if text else None
-    return str(value)
-
-
-def _validate_and_normalize_target(target, state, allow_none=True):
-    normalized = _default_target(target)
-    target_type = normalized.get('type')
-    slot_id = _normalize_target_slot_id(normalized.get('slot_id'))
-
-    if target_type == 'none':
-        if not allow_none:
-            return None, 'target.type none is not allowed here'
-        return {'type': 'none', 'slot_id': None}, None
-
-    if target_type == 'single_slot':
-        if not slot_id:
-            return None, 'single_slot target requires slot_id'
-        if slot_id not in (state.get('slots', {}) or {}):
-            return None, 'target.slot_id is unknown'
-        return {'type': 'single_slot', 'slot_id': slot_id}, None
-
-    if target_type in ['mass_individual', 'mass_summation']:
-        return {'type': target_type, 'slot_id': None}, None
-
-    if target_type == 'random_single':
-        # ターゲットはまだ決定されていない。resolve時に resolve_random_intents() で確定される
-        scope = str(normalized.get('random_target_scope') or 'enemy').strip()
-        if scope not in ('enemy', 'ally', 'any'):
-            scope = 'enemy'
-        return {'type': 'random_single', 'slot_id': None, 'random_target_scope': scope}, None
-
-    return None, 'invalid target.type'
-
-
-def _extract_skill_tags(skill_id):
-    if not skill_id:
-        return []
-    skill_data = all_skill_data.get(skill_id, {})
-    tags = list(skill_data.get('tags', []))
-    rule_data = _extract_skill_rule_data(skill_data)
-    for t in rule_data.get('tags', []) if isinstance(rule_data, dict) else []:
-        if t not in tags:
-            tags.append(t)
-    return tags
+def _sync_intent_target_context():
+    _intent_targets.all_skill_data = all_skill_data
+    _intent_targets._extract_rule_data_from_skill_v2 = _extract_rule_data_from_skill_v2
 
 
 def _extract_skill_rule_data(skill_data):
-    return _extract_rule_data_from_skill_v2(skill_data, raise_on_error=False)
+    _sync_intent_target_context()
+    return _intent_targets._extract_skill_rule_data(skill_data)
 
 
-def _coerce_mass_type(raw_value):
-    text = str(raw_value or '').strip().lower()
-    if not text:
-        return None
-    if text in ['mass_summation', 'summation', 'sum']:
-        return 'mass_summation'
-    if text in ['mass_individual', 'individual']:
-        return 'mass_individual'
-    return None
-
-
-def _infer_mass_type_from_text(text):
-    merged = str(text or '').lower()
-    if not merged:
-        return None
-
-    if (
-        'mass_summation' in merged
-        or 'summation' in merged
-        or 'sum' in merged
-        or '合算' in merged
-        or '総和' in merged
-    ):
-        return 'mass_summation'
-
-    if (
-        'mass_individual' in merged
-        or 'individual' in merged
-        or '個別' in merged
-        or '単体' in merged
-    ):
-        return 'mass_individual'
-
-    if '広域' in merged:
-        return 'mass_individual'
-    return None
+def _extract_skill_tags(skill_id):
+    _sync_intent_target_context()
+    return _intent_targets._extract_skill_tags(skill_id)
 
 
 def _infer_mass_type_from_skill(skill_id):
-    if not skill_id:
-        return None
-    skill_data = all_skill_data.get(skill_id, {})
-    if not isinstance(skill_data, dict):
-        return None
-
-    rule_data = _extract_skill_rule_data(skill_data)
-
-    direct_candidates = [
-        skill_data.get('mass_type'),
-        skill_data.get('target_type'),
-        skill_data.get('targeting'),
-        skill_data.get('targetType'),
-        rule_data.get('mass_type') if isinstance(rule_data, dict) else None,
-        rule_data.get('target_type') if isinstance(rule_data, dict) else None,
-        rule_data.get('targeting') if isinstance(rule_data, dict) else None,
-        rule_data.get('targetType') if isinstance(rule_data, dict) else None,
-    ]
-    for raw in direct_candidates:
-        coerced = _coerce_mass_type(raw)
-        if coerced:
-            return coerced
-
-    merged_parts = []
-    merged_parts.extend(_extract_skill_tags(skill_id))
-    if isinstance(rule_data, dict):
-        rule_tags = rule_data.get('tags', [])
-        if isinstance(rule_tags, list):
-            merged_parts.extend(rule_tags)
-
-    for key in [
-        'category',
-        'distance',
-        '分類',
-        'カテゴリ',
-        '射程',
-        '距離',
-        '対象',
-        'target_scope',
-        'target',
-        'target_type',
-        'targeting',
-        'mass_type',
-    ]:
-        if isinstance(skill_data.get(key), str):
-            merged_parts.append(skill_data.get(key))
-        if isinstance(rule_data, dict) and isinstance(rule_data.get(key), str):
-            merged_parts.append(rule_data.get(key))
-
-    merged = ' '.join(str(v or '').lower() for v in merged_parts)
-    return _infer_mass_type_from_text(merged)
-
-
-def _normalize_target_scope(raw_value, default='enemy'):
-    text = str(raw_value or '').strip().lower()
-    if text in ['', 'default', 'auto']:
-        return str(default or 'enemy')
-    if text in ['self', 'self_only', 'caster', '自分', '自分対象', '自身', '自己対象']:
-        return 'self'
-    if text in [
-        'enemy', 'enemies', 'foe', 'opponent', 'opponents',
-        '敵', '敵側', 'opposing_team', '相手チーム', '相手チーム対象', '相手チーム指定'
-    ]:
-        return 'enemy'
-    if text in [
-        'ally', 'allies', 'friend', 'friends',
-        '味方', '味方全員', '同じチーム', '同じチーム対象', '同じチーム指定', 'same_team'
-    ]:
-        return 'ally'
-    if text in ['any', 'all', 'both', '全体', 'all_targets']:
-        return 'any'
-    return str(default or 'enemy')
+    _sync_intent_target_context()
+    return _intent_targets._infer_mass_type_from_skill(skill_id)
 
 
 def _infer_target_scope_from_skill(skill_id):
-    if not skill_id:
-        return 'enemy'
-    skill_data = all_skill_data.get(skill_id, {})
-    if not isinstance(skill_data, dict):
-        return 'enemy'
-    rule_data = _extract_skill_rule_data(skill_data)
-    candidates = [
-        skill_data.get('target_scope'),
-        skill_data.get('targetScope'),
-        skill_data.get('target_team'),
-        skill_data.get('targetTeam'),
-        rule_data.get('target_scope') if isinstance(rule_data, dict) else None,
-        rule_data.get('targetScope') if isinstance(rule_data, dict) else None,
-        rule_data.get('target_team') if isinstance(rule_data, dict) else None,
-        rule_data.get('targetTeam') if isinstance(rule_data, dict) else None,
-    ]
-    for raw in candidates:
-        if raw not in [None, '']:
-            return _normalize_target_scope(raw, default='enemy')
-
-    tags = []
-    for raw_tag in _extract_skill_tags(skill_id):
-        text = str(raw_tag or '').strip()
-        if text:
-            tags.append(text)
-    normalized = {str(v).strip().lower() for v in tags}
-    self_tags = {'self_target', 'target_self', '自分対象', '自身対象', '自己対象'}
-    ally_tags = {'ally_target', 'target_ally', '味方対象', '味方指定', '同じチーム対象', '同じチーム指定', '同陣営対象', '同陣営指定'}
-    any_tags = {'any_target', 'target_any', '全体対象', '対象自由'}
-    enemy_tags = {'enemy_target', 'target_enemy', '敵対象', '相手チーム対象', '相手チーム指定'}
-    if any(str(t).lower() in normalized for t in any_tags):
-        return 'any'
-    if any(str(t).lower() in normalized for t in self_tags):
-        return 'self'
-    if any(str(t).lower() in normalized for t in ally_tags):
-        return 'ally'
-    if any(str(t).lower() in normalized for t in enemy_tags):
-        return 'enemy'
-    return 'enemy'
-
-
-def _resolve_slot_team(state, slot_id):
-    if not isinstance(state, dict) or not slot_id:
-        return None
-    slots = state.get('slots', {}) or {}
-    slot = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
-    team = str(slot.get('team', '') or '').strip().lower()
-    if team in ['ally', 'enemy']:
-        return team
-
-    actor_id = slot.get('actor_id')
-    chars = state.get('characters', []) if isinstance(state.get('characters'), list) else []
-    actor = next((c for c in chars if str(c.get('id')) == str(actor_id)), None)
-    actor_team = str((actor or {}).get('type', '') or '').strip().lower()
-    if actor_team in ['ally', 'enemy']:
-        return actor_team
-    return None
-
-
-def _validate_single_target_scope(state, source_slot_id, target_slot_id, target_scope):
-    scope = _normalize_target_scope(target_scope, default='enemy')
-    if scope == 'any':
-        return None
-    if scope == 'self':
-        if str(source_slot_id or '') != str(target_slot_id or ''):
-            return 'target_scope=self のため自分スロットのみ指定できます'
-        return None
-    source_team = _resolve_slot_team(state, source_slot_id)
-    target_team = _resolve_slot_team(state, target_slot_id)
-    if source_team not in ['ally', 'enemy'] or target_team not in ['ally', 'enemy']:
-        return None
-    if scope == 'enemy' and source_team == target_team:
-        return 'target_scope=enemy のため味方スロットは指定できません'
-    if scope == 'ally' and source_team != target_team:
-        return 'target_scope=ally のため敵スロットは指定できません'
-    return None
+    _sync_intent_target_context()
+    return _intent_targets._infer_target_scope_from_skill(skill_id)
 
 
 def _normalize_target_by_skill(skill_id, target, state=None, source_slot_id=None, allow_none=True):
-    normalized = _default_target(target)
-    inferred_mass = _infer_mass_type_from_skill(skill_id)
-    if inferred_mass in ['mass_individual', 'mass_summation']:
-        return {'type': inferred_mass, 'slot_id': None}, None
-
-    target_scope = _infer_target_scope_from_skill(skill_id)
-    if target_scope == 'self':
-        if not source_slot_id:
-            return None, 'self target requires source slot'
-        return {'type': 'single_slot', 'slot_id': source_slot_id}, None
-
-    if normalized.get('type') in ['mass_individual', 'mass_summation']:
-        return None, 'this skill does not support mass target'
-    if normalized.get('type') == 'none':
-        if allow_none:
-            return {'type': 'none', 'slot_id': None}, None
-        return None, 'target.type none is not allowed here'
-    if normalized.get('type') == 'single_slot':
-        slot_id = _normalize_target_slot_id(normalized.get('slot_id'))
-        if not slot_id:
-            return None, 'single_slot target requires slot_id'
-        if state and source_slot_id:
-            target_scope = _infer_target_scope_from_skill(skill_id)
-            scope_error = _validate_single_target_scope(state, source_slot_id, slot_id, target_scope)
-            if scope_error:
-                return None, scope_error
-        return {'type': 'single_slot', 'slot_id': slot_id}, None
-    return None, 'invalid target.type'
+    _sync_intent_target_context()
+    return _intent_targets._normalize_target_by_skill(
+        skill_id,
+        target,
+        state=state,
+        source_slot_id=source_slot_id,
+        allow_none=allow_none,
+    )
 
 
 def _normalize_target_by_skill_compat(skill_id, target, state=None, source_slot_id=None, allow_none=True):
-    """
-    Backward-compat for tests/patches that monkeypatch _normalize_target_by_skill
-    with older signatures.
-    """
     try:
         return _normalize_target_by_skill(
             skill_id,
             target,
             state=state,
             source_slot_id=source_slot_id,
-            allow_none=allow_none
+            allow_none=allow_none,
         )
     except TypeError as e:
         msg = str(e)
@@ -662,67 +400,18 @@ def _normalize_target_by_skill_compat(skill_id, target, state=None, source_slot_
 
 
 def _build_tags(skill_id, target):
-    skill_tags = _extract_skill_tags(skill_id)
-    target_type = (target or {}).get('type')
-    target_scope = _infer_target_scope_from_skill(skill_id)
-    inferred_mass = _infer_mass_type_from_skill(skill_id)
-    if inferred_mass in ['mass_individual', 'mass_summation']:
-        mass_type = inferred_mass
-    elif target_type in ['mass_individual', 'mass_summation']:
-        mass_type = target_type
-    else:
-        mass_type = None
-    tags_text = ' '.join(str(t or '').lower() for t in skill_tags)
-    return {
-        'instant': (
-            'instant' in skill_tags
-            or '即時' in tags_text
-            or '即時発動' in tags_text
-        ),
-        'mass_type': mass_type,
-        'no_redirect': (
-            'no_redirect' in skill_tags
-            or '対象変更不可' in tags_text
-            or target_scope in ['ally', 'self']
-        )
-    }
+    _sync_intent_target_context()
+    return _intent_targets._build_tags(skill_id, target)
 
 
 def _resolve_actor_for_slot(state, slot_id, room_id=None):
-    if not isinstance(state, dict) or not slot_id:
-        return None
-    slot = (state.get('slots', {}) or {}).get(slot_id)
-    if not isinstance(slot, dict):
-        return None
-    actor_id = slot.get('actor_id')
-    if not actor_id:
-        return None
-    chars = state.get('characters', []) if isinstance(state.get('characters'), list) else []
-    actor = next((c for c in chars if str(c.get('id')) == str(actor_id)), None)
-    if actor:
-        return actor
-
-    fallback_room_id = room_id
-    if not fallback_room_id:
-        fallback_room_id = str(state.get('room_id') or state.get('room') or '').strip()
-    if not fallback_room_id:
-        return None
-    room_state = get_room_state(fallback_room_id) or {}
-    room_chars = room_state.get('characters', []) if isinstance(room_state.get('characters'), list) else []
-    return next((c for c in room_chars if str(c.get('id')) == str(actor_id)), None)
+    return _intent_targets._resolve_actor_for_slot(
+        state, slot_id, room_id=room_id, get_room_state_fn=get_room_state
+    )
 
 def _extract_skill_cost_entries(skill_data):
-    if not isinstance(skill_data, dict):
-        return []
-    direct = skill_data.get('cost')
-    if isinstance(direct, list):
-        return direct
-
-    rule_data = _extract_skill_rule_data(skill_data)
-    if isinstance(rule_data, dict) and isinstance(rule_data.get('cost'), list):
-        return rule_data.get('cost', [])
-    return []
-
+    _sync_intent_target_context()
+    return _intent_targets._extract_skill_cost_entries(skill_data)
 
 def _consume_mass_costs_on_resolve_start(room_id, state, required_slots):
     room_state = get_room_state(room_id) or {}
@@ -887,131 +576,50 @@ def _authorize_intent_slot_control(room_id, battle_id, state, slot_id, event_nam
 
 
 def _is_actor_actionable(room_id, actor_id):
-    room_state = get_room_state(room_id)
-    if not room_state:
-        return False
-    actor = next((c for c in room_state.get('characters', []) if c.get('id') == actor_id), None)
-    if not actor:
-        return False
-    if actor.get('hp', 0) <= 0:
-        return False
-    if actor.get('is_escaped', False):
-        return False
-    try:
-        x_val = float(actor.get('x', -1))
-    except (TypeError, ValueError):
-        x_val = -1
-    if x_val < 0:
-        return False
-    if ConfusionBuff.is_incapacitated(actor):
-        return False
-    can_act, _ = ImmobilizeBuff.can_act(actor, {})
-    if not can_act:
-        return False
-    return True
+    return _pve_intents._is_actor_actionable(
+        room_id,
+        actor_id,
+        get_room_state_fn=get_room_state,
+        confusion_buff_cls=ConfusionBuff,
+        immobilize_buff_cls=ImmobilizeBuff,
+    )
 
 
 def _canonical_team(raw_value):
-    text = str(raw_value or '').strip().lower()
-    if text in ['ally', 'player', 'friend', 'friends']:
-        return 'ally'
-    if text in ['enemy', 'foe', 'opponent', 'boss', 'npc']:
-        return 'enemy'
-    return None
+    return _pve_intents._canonical_team(raw_value)
 
 
 def _is_actor_targetable(room_id, actor_id):
-    room_state = get_room_state(room_id)
-    if not room_state:
-        return False
-    actor = next((c for c in room_state.get('characters', []) if c.get('id') == actor_id), None)
-    if not actor:
-        return False
-    if actor.get('hp', 0) <= 0:
-        return False
-    if actor.get('is_escaped', False):
-        return False
-    try:
-        x_val = float(actor.get('x', -1))
-    except (TypeError, ValueError):
-        x_val = -1
-    return x_val >= 0
+    return _pve_intents._is_actor_targetable(room_id, actor_id, get_room_state_fn=get_room_state)
 
 
 def _is_valid_single_target_slot_for_pve_enemy(room_id, state, source_slot_id, target_slot_id):
-    slots = state.get('slots', {}) or {}
-    source_slot = slots.get(source_slot_id, {}) if isinstance(slots, dict) else {}
-    target_slot = slots.get(target_slot_id, {}) if isinstance(slots, dict) else {}
-    if not isinstance(source_slot, dict) or not isinstance(target_slot, dict):
-        return False
-    if bool(target_slot.get('disabled', False)):
-        return False
-
-    source_team = _canonical_team(source_slot.get('team'))
-    target_team = _canonical_team(target_slot.get('team'))
-    if source_team and target_team and source_team == target_team:
-        return False
-    if target_team and target_team != 'ally':
-        return False
-
-    target_actor_id = target_slot.get('actor_id')
-    if not target_actor_id:
-        return False
-    if not _is_actor_targetable(room_id, target_actor_id):
-        return False
-    return True
+    return _pve_intents._is_valid_single_target_slot_for_pve_enemy(
+        room_id,
+        state,
+        source_slot_id,
+        target_slot_id,
+        get_room_state_fn=get_room_state,
+    )
 
 
 def _pick_default_pve_enemy_target_slot(room_id, state, source_slot_id, preferred_slot_id=None):
-    slots = state.get('slots', {}) or {}
-    if not isinstance(slots, dict):
-        return None
-
-    if preferred_slot_id and _is_valid_single_target_slot_for_pve_enemy(
-        room_id, state, source_slot_id, preferred_slot_id
-    ):
-        return preferred_slot_id
-
-    candidates = []
-    for slot_id, slot in slots.items():
-        if not _is_valid_single_target_slot_for_pve_enemy(room_id, state, source_slot_id, slot_id):
-            continue
-        candidates.append((int(slot.get('initiative', 0) or 0), str(slot_id)))
-
-    if not candidates:
-        return None
-    candidates.sort(key=lambda row: (-row[0], row[1]))
-    return candidates[0][1]
+    return _pve_intents._pick_default_pve_enemy_target_slot(
+        room_id,
+        state,
+        source_slot_id,
+        preferred_slot_id=preferred_slot_id,
+        get_room_state_fn=get_room_state,
+    )
 
 
 def _is_pve_enemy_auto_target_slot(room_id, state, slot_id):
-    room_state = get_room_state(room_id) or {}
-    if room_state.get('battle_mode', 'pvp') != 'pve':
-        return False
-
-    slots = state.get('slots', {}) or {}
-    slot = slots.get(slot_id, {}) if isinstance(slots, dict) else {}
-    if not isinstance(slot, dict):
-        return False
-
-    slot_team = _canonical_team(slot.get('team'))
-    if slot_team and slot_team != 'enemy':
-        return False
-
-    actor_id = slot.get('actor_id')
-    if not actor_id:
-        return False
-
-    actor = next((c for c in room_state.get('characters', []) if c.get('id') == actor_id), None)
-    if not actor:
-        return False
-
-    actor_team = _canonical_team(actor.get('type'))
-    if actor_team and actor_team != 'enemy':
-        return False
-
-    flags = actor.get('flags', {}) if isinstance(actor.get('flags'), dict) else {}
-    return bool(flags.get('auto_target_select', True))
+    return _pve_intents._is_pve_enemy_auto_target_slot(
+        room_id,
+        state,
+        slot_id,
+        get_room_state_fn=get_room_state,
+    )
 
 
 def _apply_pve_enemy_intent_defaults(
@@ -1023,137 +631,53 @@ def _apply_pve_enemy_intent_defaults(
     requested_skill_id=None,
     requested_target=None
 ):
-    """
-    Keep PvE enemy slot target stable:
-    - If client sends target none, restore previous/default ally target.
-    - If user explicitly sets single_slot target, respect it.
-    - If auto_skill_select is on and skill is empty, suggest from AI pool.
-    """
-    if not _is_pve_enemy_auto_target_slot(room_id, state, slot_id):
-        return intent
-    if not isinstance(intent, dict):
-        return intent
-
-    prev = intent_before if isinstance(intent_before, dict) else {}
-    req_target = requested_target if isinstance(requested_target, dict) else {}
-    explicit_target_slot = None
-    if req_target.get('type') == 'single_slot':
-        explicit_target_slot = _normalize_target_slot_id(req_target.get('slot_id'))
-
-    target = intent.get('target', {}) if isinstance(intent.get('target'), dict) else {}
-    curr_target_slot = _normalize_target_slot_id(target.get('slot_id')) if target.get('type') == 'single_slot' else None
-    prev_target = (prev.get('target') or {}) if isinstance(prev.get('target'), dict) else {}
-    prev_target_slot = _normalize_target_slot_id(prev_target.get('slot_id')) if prev_target.get('type') == 'single_slot' else None
-
-    if explicit_target_slot:
-        intent['target'] = {'type': 'single_slot', 'slot_id': explicit_target_slot}
-    else:
-        chosen_target = None
-        if curr_target_slot and _is_valid_single_target_slot_for_pve_enemy(room_id, state, slot_id, curr_target_slot):
-            chosen_target = curr_target_slot
-        if not chosen_target and prev_target_slot and _is_valid_single_target_slot_for_pve_enemy(
-            room_id, state, slot_id, prev_target_slot
-        ):
-            chosen_target = prev_target_slot
-        if not chosen_target:
-            chosen_target = _pick_default_pve_enemy_target_slot(
-                room_id,
-                state,
-                slot_id,
-                preferred_slot_id=prev_target_slot,
-            )
-        if chosen_target:
-            intent['target'] = {'type': 'single_slot', 'slot_id': chosen_target}
-
-    room_state = get_room_state(room_id) or {}
-    slots = state.get('slots', {}) or {}
-    actor_id = (slots.get(slot_id) or {}).get('actor_id') if isinstance(slots, dict) else None
-    actor = next((c for c in room_state.get('characters', []) if c.get('id') == actor_id), None)
-    flags = actor.get('flags', {}) if isinstance(actor, dict) and isinstance(actor.get('flags'), dict) else {}
-    auto_skill_select = bool(
-        flags.get('auto_skill_select', False)
-        or flags.get('show_planned_skill', False)
-    )
-    explicit_skill = requested_skill_id not in [None, '']
-
-    if auto_skill_select and not explicit_skill and not intent.get('skill_id'):
+    def _ai_suggest_skill(actor):
         from manager.battle.battle_ai import ai_suggest_skill
-        suggested = ai_suggest_skill(actor)
-        if suggested:
-            intent['skill_id'] = suggested
+        return ai_suggest_skill(actor)
 
-    normalized_target, target_error = _normalize_target_by_skill_compat(
-        intent.get('skill_id'),
-        intent.get('target'),
-        state=state,
-        source_slot_id=slot_id,
-        allow_none=True
+    return _pve_intents._apply_pve_enemy_intent_defaults(
+        room_id,
+        state,
+        slot_id,
+        intent,
+        intent_before=intent_before,
+        requested_skill_id=requested_skill_id,
+        requested_target=requested_target,
+        get_room_state_fn=get_room_state,
+        normalize_target_by_skill_compat_fn=_normalize_target_by_skill_compat,
+        default_intent_tags_fn=_default_intent_tags,
+        build_tags_fn=_build_tags,
+        ai_suggest_skill_fn=_ai_suggest_skill,
     )
-    if not target_error:
-        intent['target'] = normalized_target
-    intent['tags'] = _default_intent_tags(_build_tags(intent.get('skill_id'), intent.get('target')))
-    return intent
 
 
 def _required_slots(room_id, state):
-    required = set()
-    room_state = get_room_state(room_id) or {}
-    is_pve_mode = str(room_state.get('battle_mode', 'pvp') or 'pvp').strip().lower() == 'pve'
-    for slot_id, slot in state.get('slots', {}).items():
-        if slot.get('disabled', False):
-            continue
-        actor_id = slot.get('actor_id')
-        if not _is_actor_actionable(room_id, actor_id):
-            continue
-
-        intent = state.get('intents', {}).get(slot_id, {})
-        is_committed_instant = bool(intent.get('committed') and intent.get('tags', {}).get('instant'))
-        if is_committed_instant:
-            continue
-        if is_pve_mode and _resolve_slot_team(state, slot_id) == 'enemy':
-            skill_id = str(intent.get('skill_id', '') or '').strip()
-            if not skill_id:
-                continue
-        required.add(slot_id)
-    return required
+    return _pve_intents._required_slots(
+        room_id,
+        state,
+        get_room_state_fn=get_room_state,
+        is_actor_actionable_fn=_is_actor_actionable,
+    )
 
 
 def _count_committed_required(required_slots, state):
-    intents = state.get('intents', {})
-    committed = 0
-    for slot_id in required_slots:
-        if intents.get(slot_id, {}).get('committed', False):
-            committed += 1
-    return committed
+    return _phase_flow._count_committed_required(required_slots, state)
 
 
 def _commit_progress(room_id, state):
-    required = _required_slots(room_id, state)
-    committed_count = _count_committed_required(required, state)
-    waiting_slots = sorted([
-        slot_id for slot_id in required
-        if not state.get('intents', {}).get(slot_id, {}).get('committed', False)
-    ])
-    return required, committed_count, waiting_slots
+    return _phase_flow._commit_progress(room_id, state, required_slots_fn=_required_slots)
 
 
 def _emit_battle_resolve_ready(room_id, battle_id, state, required_count, committed_count, waiting_slots):
-    payload = {
-        'room_id': room_id,
-        'battle_id': battle_id,
-        'round': state.get('round', 0),
-        'phase': state.get('phase', 'select'),
-        'ready': True,
-        'required_count': required_count,
-        'committed_count': committed_count,
-        'waiting_slots': waiting_slots
-    }
-    logger.info(
-        "[FLOW] resolve_ready room=%s battle=%s required=%d committed=%d waiting=%s",
-        room_id, battle_id, required_count, committed_count, waiting_slots[:8]
+    return _phase_flow._emit_battle_resolve_ready(
+        room_id,
+        battle_id,
+        state,
+        required_count,
+        committed_count,
+        waiting_slots,
+        ctx=_phase_flow_context(),
     )
-    _log_battle_emit('battle_resolve_ready', room_id, battle_id, payload)
-    socketio.emit('battle_resolve_ready', payload, to=room_id)
 
 
 def _resolve_room_for_battle_start(data):
@@ -1188,139 +712,50 @@ def _resolve_battle_id_for_room(room_id, data):
     return f"battle_{room_id}"
 
 
-def _start_select_resolve_if_ready(room_id, battle_id, source_event):
-    state = get_or_create_select_resolve_state(room_id, battle_id=battle_id)
-    if not state:
-        emit('battle_error', {'message': 'room state not found'}, to=request.sid)
-        return
-
-    phase = state.get('phase')
-    if not _is_select_phase(state):
-        emit('battle_error', {'message': f'{source_event} is only allowed in select phase', 'phase': phase}, to=request.sid)
-        return
-
-    required = _required_slots(room_id, state)
-    committed_count = _count_committed_required(required, state)
-    waiting_slots = sorted([
-        slot_id for slot_id in required
-        if not state.get('intents', {}).get(slot_id, {}).get('committed', False)
-    ])
-
-    logger.info(
-        "[FLOW] %s_check room=%s battle=%s required=%d committed=%d waiting=%s",
-        source_event, room_id, battle_id, len(required), committed_count, waiting_slots[:8]
-    )
-
-    if len(required) == 0:
-        logger.warning(
-            "[FLOW] %s_abort room=%s battle=%s reason=no_required_slots",
-            source_event, room_id, battle_id
-        )
-        emit('battle_error', {
-            'message': 'no required slots to resolve',
-            'required_count': 0,
-            'committed_count': committed_count
-        }, to=request.sid)
-        _emit_battle_state_updated(room_id, battle_id)
-        return
-
-    if committed_count != len(required):
-        emit('battle_error', {
-            'message': 'not all required slots are committed',
-            'required_count': len(required),
-            'committed_count': committed_count,
-            'missing_count': max(0, len(required) - committed_count),
-            'waiting_slots': waiting_slots
-        }, to=request.sid)
-        _emit_battle_state_updated(room_id, battle_id)
-        return
-
-    consumed_rows = _consume_mass_costs_on_resolve_start(room_id, state, required)
-    for row in consumed_rows:
-        logger.info(
-            "[FLOW] resolve_start_cost room=%s battle=%s slot=%s actor=%s skill=%s spent=%s",
-            room_id,
-            battle_id,
-            row.get('slot_id'),
-            row.get('actor_id'),
-            row.get('skill_id'),
-            row.get('spent')
-        )
-    if consumed_rows:
-        broadcast_state_update(room_id)
-
-    # Freeze intents at the exact moment GM starts resolve.
-    # Resolve must not read mutable select-phase intents directly.
-    state['resolve_snapshot_intents'] = copy.deepcopy(state.get('intents', {}))
-    state['resolve_snapshot_at'] = _server_ts_ms()
-
-    state['resolve_ready'] = False
-    state['resolve_ready_info'] = {}
-    state['phase'] = 'resolve_mass'
-    state.setdefault('resolve', {})
-    state['resolve']['mass_queue'] = state['resolve'].get('mass_queue', [])
-    state['resolve']['single_queue'] = state['resolve'].get('single_queue', [])
-    state['resolve']['resolved_slots'] = state['resolve'].get('resolved_slots', [])
-    state['resolve']['trace'] = state['resolve'].get('trace', [])
-
-    payload = {
-        'room_id': room_id,
-        'battle_id': battle_id,
-        'round': state.get('round', 0),
-        'from': 'select',
-        'to': 'resolve_mass'
+def _phase_flow_context():
+    return {
+        'broadcast_state_update': broadcast_state_update,
+        'consume_mass_costs_on_resolve_start': _consume_mass_costs_on_resolve_start,
+        'emit': emit,
+        'emit_battle_state_updated': _emit_battle_state_updated,
+        'emit_select_resolve_events': emit_select_resolve_events,
+        'get_or_create_select_resolve_state': get_or_create_select_resolve_state,
+        'is_select_phase': _is_select_phase,
+        'log_battle_emit': _log_battle_emit,
+        'logger': logger,
+        'refresh_resolve_ready': _refresh_resolve_ready,
+        'request_sid': request.sid,
+        'required_slots': _required_slots,
+        'run_select_resolve_auto': run_select_resolve_auto,
+        'server_ts_ms': _server_ts_ms,
+        'socketio': socketio,
     }
-    logger.info("[FLOW] %s_start room=%s battle=%s", source_event, room_id, battle_id)
-    _log_battle_emit('battle_phase_changed', room_id, battle_id, payload)
-    socketio.emit('battle_phase_changed', payload, to=room_id)
 
-    # Keep new battle_* state synchronized through the same room pathway.
-    emit_select_resolve_events(room_id, include_round_started=False)
-    run_select_resolve_auto(room_id, battle_id)
+
+def _start_select_resolve_if_ready(room_id, battle_id, source_event):
+    return _phase_flow._start_select_resolve_if_ready(
+        room_id,
+        battle_id,
+        source_event,
+        ctx=_phase_flow_context(),
+    )
 
 
 def _refresh_resolve_ready(room_id, state):
-    required, committed_count, waiting_slots = _commit_progress(room_id, state)
-    ready = committed_count == len(required)
-    state['resolve_ready'] = ready
-    state['resolve_ready_info'] = {
-        'required_count': len(required),
-        'committed_count': committed_count,
-        'waiting_slots': waiting_slots
-    }
-    return ready, required, committed_count, waiting_slots
+    return _phase_flow._refresh_resolve_ready(
+        room_id,
+        state,
+        required_slots_fn=_required_slots,
+    )
 
 
 def _maybe_advance_phase_to_resolve_mass(room_id, battle_id, state):
-    if not _is_select_phase(state):
-        return
-    was_ready = bool(state.get('resolve_ready', False))
-    ready, required, committed_count, waiting_slots = _refresh_resolve_ready(room_id, state)
-    logger.info(
-        "[FLOW] commit_progress room=%s battle=%s required=%d committed=%d waiting=%s",
-        room_id, battle_id, len(required), committed_count, waiting_slots[:8]
+    return _phase_flow._maybe_advance_phase_to_resolve_mass(
+        room_id,
+        battle_id,
+        state,
+        ctx=_phase_flow_context(),
     )
-    if len(required) == 0:
-        state['resolve_ready'] = False
-        state['resolve_ready_info'] = {
-            'required_count': 0,
-            'committed_count': committed_count,
-            'waiting_slots': waiting_slots
-        }
-        return
-    if not ready:
-        return
-
-    _emit_battle_state_updated(room_id, battle_id)
-    if not was_ready:
-        _emit_battle_resolve_ready(
-            room_id,
-            battle_id,
-            state,
-            required_count=len(required),
-            committed_count=committed_count,
-            waiting_slots=waiting_slots
-        )
 
 
 def _apply_intent_identity(intent, state, slot_id):

@@ -6,8 +6,6 @@ MAX_LINES = 1500
 # Temporary legacy ceilings: large files can exist for now, but must not grow.
 LEGACY_FILE_CEILINGS = {
     "manager/battle/core.py": 4370,
-    "events/socket_battle_only.py": 2334,
-    "events/battle/common_routes.py": 2064,
     "manager/game_logic.py": 2873,
     "manager/utils.py": 1503,
 }

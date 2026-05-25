@@ -9,6 +9,18 @@ const _escapeResolveLogHtml = (value) => String(value ?? '')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+const _appendRichVisualSystemLogMessage = (parent, text) => {
+    const template = document.createElement('template');
+    template.innerHTML = String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+        .replace(/&lt;(\/?)strong&gt;/gi, '<$1strong>')
+        .replace(/&lt;(\/?)b&gt;/gi, '<$1b>');
+    parent.appendChild(template.content.cloneNode(true));
+};
+
 const _toResolveNum = (value, fallback = 0) => {
     const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
@@ -220,7 +232,7 @@ window.appendVisualLogLine = function (container, logData, filterType) {
             }
         }
     } else {
-        logLine.textContent = displayMessage;
+        _appendRichVisualSystemLogMessage(logLine, displayMessage);
     }
     logLine.style.borderBottom = "1px dotted #eee";
     logLine.style.padding = "2px 5px";

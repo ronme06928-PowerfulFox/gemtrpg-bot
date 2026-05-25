@@ -16,7 +16,5 @@
 
 ## Current Legacy Ceilings
 - `manager/battle/core.py`: `4370`
-- `events/socket_battle_only.py`: `2334`
-- `events/battle/common_routes.py`: `2064`
 - `manager/game_logic.py`: `2873`
 - `manager/utils.py`: `1503`

@@ -194,6 +194,18 @@ function _appendTextSpan(parent, className, text) {
     return span;
 }
 
+function _appendRichSystemLogMessage(parent, text) {
+    const template = document.createElement('template');
+    template.innerHTML = String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+        .replace(/&lt;(\/?)strong&gt;/gi, '<$1strong>')
+        .replace(/&lt;(\/?)b&gt;/gi, '<$1b>');
+    parent.appendChild(template.content.cloneNode(true));
+}
+
 // ログ1行を生成して要素に追加するヘルパー関数
 function appendLogLineToElement(container, logData, filterType) {
     const isChat = logData.type === 'chat';
@@ -232,7 +244,7 @@ function appendLogLineToElement(container, logData, filterType) {
             _appendTextSpan(logLine, 'chat-message', String(logData.message || ''));
         }
     } else {
-        logLine.textContent = displayMessage;
+        _appendRichSystemLogMessage(logLine, displayMessage);
     }
 
     logLine.style.borderBottom = "1px dotted #eee";
