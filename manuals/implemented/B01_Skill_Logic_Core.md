@@ -19,7 +19,7 @@
 # スキルロジック実装リファレンス（実装準拠）
 
 **最終更新日**: 2026-05-09  
-**対象実装**: `manager/game_logic.py` / `manager/battle/core.py` / `events/battle/common_routes.py`
+**対象実装**: `manager/game_logic.py` / `manager/battle/` / `events/battle/common_routes.py`
 
 ---
 
@@ -427,7 +427,7 @@
 
 **文書種別**: 実装仕様（implemented）  
 **ステータス**: 実装済み  
-**対象コード**: `manager/game_logic.py`, `manager/utils.py`, `manager/battle/common_manager.py`, `manager/battle/core.py`, `plugins/fissure.py`
+**対象コード**: `manager/game_logic.py`, `manager/battle/condition_eval.py`, `manager/battle/buff_power.py`, `manager/battle/skill_effect_helpers.py`, `manager/utils.py`, `manager/battle/common_manager.py`, `manager/battle/core.py`, `plugins/fissure.py`
 
 ---
 

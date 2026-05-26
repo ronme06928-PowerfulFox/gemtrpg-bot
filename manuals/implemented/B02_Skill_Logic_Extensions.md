@@ -139,6 +139,7 @@
 
 - 効果生成: `manager/game_logic.py::process_skill_effects`
   - `GRANT_SKILL` と `ALL_OTHER_ALLIES` を解釈
+  - 補助処理は `manager/battle/skill_effect_helpers.py` に分離
 - 効果反映:
   - `manager/battle/core.py`（Select/Resolve）
   - `manager/battle/duel_solver.py`（通常マッチ/即時）
@@ -438,7 +439,7 @@
 
 - システムスキル定義: `manager/battle/system_skills.py`
 - 使用可能判定: `manager/battle/skill_access.py`
-- プレビュー/威力計算: `manager/game_logic.py`
+- プレビュー/威力計算: `manager/game_logic.py` 互換入口、実体は `manager/battle/power_preview.py` / `manager/battle/buff_power.py`
 - 宣言検証: `events/battle/common_routes.py`
 - 単体解決/自動防御消費: `manager/battle/resolve_auto_single_phase.py`
 - ラウンド終了時回復: `manager/battle/common_manager.py`
@@ -466,6 +467,9 @@
 - 対象コード:
   - `manager/utils.py`
   - `manager/game_logic.py`
+  - `manager/battle/dice_command.py`
+  - `manager/battle/condition_eval.py`
+  - `manager/battle/skill_effect_helpers.py`
   - `plugins/burst.py`
   - `static/js/modals.js`
 - 対象テスト:

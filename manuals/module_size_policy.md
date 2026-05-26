@@ -16,3 +16,8 @@
 
 ## Current Legacy Ceilings
 - None.
+
+## Recent Split Modules
+- `events/battle/common_routes.py` and `events/socket_battle_only.py` were split under `events/battle/` and `events/battle_only/`.
+- `manager/game_logic.py` and `manager/utils.py` were split under `manager/battle/`.
+- New code should be added to the focused split modules unless there is a clear compatibility reason to keep a thin wrapper in the legacy entry module.

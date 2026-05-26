@@ -69,6 +69,13 @@
 - **`character_moved`**: キャラクター移動の差分更新。トークンのCSS `top`/`left` を直接操作し、アニメーションさせます。
 - **`new_log`**: チャットおよびシステムログの受信。`main.js` 経由で `logToBattleLog` が呼ばれ、ビジュアルログエリアに追記されます。
 
+### 4.3 ログ描画ポリシー
+
+- ユーザーチャットは完全にテキストとして描画し、HTMLタグを実行しない。
+- システムログのみ、アプリが生成した既存ログ互換のために `<br>`, `<strong>`, `<b>` を限定的に復元する。
+- 解決ログなどサーバー側で `html.escape` 済みの本文は、`&gt;`, `&lt;`, `&amp;`, `&quot;`, `&#39;` を一段だけ復元してから描画する。
+- 通常ログは `static/js/tab_battlefield.js`、Visualログは `static/js/visual/visual_ui.js` で同じ方針に揃える。
+
 ---
 
 ## 5. PvEモードとAIロジック (PvE Mode)
