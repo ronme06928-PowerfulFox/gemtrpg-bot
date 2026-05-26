@@ -200,6 +200,12 @@ function _appendRichSystemLogMessage(parent, text) {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
+        .replace(/&amp;gt;/g, '&gt;')
+        .replace(/&amp;lt;/g, '&lt;')
+        .replace(/&amp;amp;/g, '&amp;')
+        .replace(/&amp;quot;/g, '&quot;')
+        .replace(/&amp;#39;/g, '&#39;')
+        .replace(/&amp;#x27;/gi, '&#x27;')
         .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
         .replace(/&lt;(\/?)strong&gt;/gi, '<$1strong>')
         .replace(/&lt;(\/?)b&gt;/gi, '<$1b>');
