@@ -69,17 +69,8 @@ def get_images(user_id: Optional[str] = None, query: Optional[str] = None, image
 
     # GM画像フィルタリング
     if not is_gm:
-        # GMでない場合、visibility='gm'の画像を除外 (ただし自分の画像は見れるべき？現状仕様ではアップロードした本人は見れる)
-        # uploader=user_id の条件は既に上でついているが、user_idがNoneの場合（全員取得）はpublicのみにする
-        if user_id:
-            # 自分アップロード以外で gm 限定のものを除外
-            images_query = images_query.filter(
-                (ImageRegistry.visibility == 'public') |
-                (ImageRegistry.uploader == user_id)
-            )
-        else:
-            # ログインユーザー指定なし（ありえないが）ならpublicのみ
-             images_query = images_query.filter(ImageRegistry.visibility == 'public')
+        # GM専用画像は、アップロード者本人であっても非GM状態では表示しない。
+        images_query = images_query.filter(ImageRegistry.visibility == 'public')
 
     # 新しい順にソート
     images_query = images_query.order_by(ImageRegistry.created_at.desc())

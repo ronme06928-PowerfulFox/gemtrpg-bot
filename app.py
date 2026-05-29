@@ -653,12 +653,16 @@ def upload_image():
         if upload_type == 'background':
             db_image_type = 'background'
 
+        requested_visibility = str(request.form.get('visibility') or 'public').strip().lower()
+        image_visibility = 'gm' if requested_visibility == 'gm' and session.get('attribute') == 'GM' else 'public'
+
         registered_image = register_image(
             url=secure_url,
             public_id=public_id,
             name=image_name,
             uploader=user_id,
-            image_type=db_image_type
+            image_type=db_image_type,
+            visibility=image_visibility
         )
 
         logging.info(f"[ImageRegistry] Registered image: {registered_image['id']}")
@@ -687,10 +691,11 @@ def get_images_api():
     from manager.image_manager import get_images
 
     user_id = session.get('username')
+    is_gm = (session.get('attribute') == 'GM')
     query = request.args.get('q')
     image_type = request.args.get('type')
 
-    images = get_images(user_id=user_id, query=query, image_type=image_type)
+    images = get_images(user_id=user_id, query=query, image_type=image_type, is_gm=is_gm)
     return jsonify(images)
 
 
