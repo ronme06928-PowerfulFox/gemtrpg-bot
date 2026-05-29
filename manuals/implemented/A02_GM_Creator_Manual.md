@@ -96,7 +96,7 @@ GM権限でルームに入ると、プレイヤー画面にはない管理用コ
 * **アイテム定義**: `items_cache.json` の構造
 * **輝化・出身定義**: パッシブスキルおよび出身による自動効果
 * **用語図鑑定義**: 図鑑シート列と埋め込み記法（`manuals/implemented/C01_JSON_Definition_Master.md`）
-* **外部画像**: Cloudinary連携の設定方法
+* **外部画像**: Cloudinary連携の設定方法。アップロード可能形式、サイズ上限、Render環境変数、確認手順は `manuals/implemented/F01_Operations_Manual.md` の「Part 1-C: 画像アップロード運用」を参照してください。
 
 補助チュートリアル:
 * **利用者向け用語図鑑ガイド**: `manuals/implemented/A04_Glossary_Tutorial.md`

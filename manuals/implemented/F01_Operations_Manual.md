@@ -204,6 +204,72 @@ Renderでは、以下を環境変数として設定する。
 
 ---
 
+# Part 1-C: 画像アップロード運用
+
+**最終更新日**: 2026-05-30  
+**対象**: 画像ピッカー、`/api/upload_image`、Cloudinary連携、画像レジストリ
+
+## 1. 基本方針
+
+画像アップロードは、サーバー側で検証したうえでCloudinaryへ送信する。クライアント側の `accept="image/*"` は補助扱いであり、許可判定の正本にはしない。
+
+Cloudinaryへ送信する前に、次をすべて満たす必要がある。
+
+| 項目 | 許可内容 |
+|---|---|
+| サイズ | 10MB以下 |
+| 拡張子 | `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp` |
+| MIMEタイプ | `image/png`, `image/jpeg`, `image/gif`, `image/webp` |
+| ファイル内容 | 先頭シグネチャがMIMEタイプと一致すること |
+
+SVGは許可しない。ブラウザ上で能動的コンテンツを含みうるため、通常の立ち絵・背景画像用途ではPNG/JPEG/GIF/WebPへ変換してから使う。
+
+## 2. 利用手順
+
+1. 画像ピッカーを開く。
+2. 「新規アップロード」から画像ファイルを選択する。
+3. 必要に応じて画像名を設定する。
+4. アップロードを実行する。
+5. 成功後、画像一覧に登録された画像を選択する。
+
+背景画像として使う場合も、同じ検証を通過した画像だけが登録される。
+
+## 3. エラー時の確認
+
+アップロードに失敗した場合は、次の順番で確認する。
+
+1. ファイルサイズが10MBを超えていないか。
+2. 拡張子が `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp` のいずれかか。
+3. ファイルの実体と拡張子が一致しているか。
+4. SVG、PDF、テキスト、拡張子だけ画像に変えたファイルを送っていないか。
+5. Cloudinary環境変数が本番環境で正しく設定されているか。
+
+サーバー側検証で拒否された場合はHTTP 400を返し、Cloudinaryへは送信しない。Cloudinary側または通信で失敗した場合は、Cloudinary送信後のエラーとして扱う。
+
+## 4. 実装上の確認箇所
+
+- アップロード入口: `app.py` の `/api/upload_image`
+- 検証ロジック: `manager/image_upload_validation.py`
+- 登録処理: `manager/image_manager.py` の `register_image`
+- DBモデル: `models.py` の `ImageRegistry`
+- 回帰テスト: `tests/test_image_upload_validation.py`
+
+機能改修時は、最低限 `pytest -q tests/test_image_upload_validation.py` を実行する。アップロード仕様を変える場合は、許可拡張子、MIMEタイプ、サイズ上限、シグネチャ検証のテストも同時に更新する。
+
+## 5. Render / 本番運用
+
+Renderでは、画像アップロード機能の利用にCloudinaryの環境変数が必要になる。
+
+| 環境変数 | 内容 |
+|---|---|
+| `CLOUDINARY_CLOUD_NAME` | Cloudinaryのクラウド名 |
+| `CLOUDINARY_API_KEY` | Cloudinary APIキー |
+| `CLOUDINARY_API_SECRET` | Cloudinary APIシークレット |
+
+これらが未設定の場合、画像検証を通過してもCloudinary送信で失敗する。公開環境で画像アップロードを使う場合は、デプロイ前にRenderのEnvironmentで3項目を確認する。
+
+---
+
 # Part 2: マニュアル更新プロトコルと機能改善ロードマップ
 
 最終更新: 2026-04-05

@@ -125,6 +125,7 @@ def _get_cors_origins():
 app.config['SECRET_KEY'] = _get_secret_key()
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///gemtrpg.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 cors_origins = _get_cors_origins()
 
 # ★ WhiteNoise設定: Staticファイル配信の高速化
@@ -611,6 +612,12 @@ def upload_image():
 
     # オプション: 画像名とタイプを取得
     image_name = request.form.get('name', file.filename)
+    from manager.image_upload_validation import validate_image_upload
+    validation = validate_image_upload(file)
+    if not validation.ok:
+        return jsonify({'error': validation.error}), 400
+    file.stream.seek(0)
+
     upload_type = request.form.get('type', 'character') # 'character' or 'background'
 
     cloudinary_folder = "gemtrpg/characters"

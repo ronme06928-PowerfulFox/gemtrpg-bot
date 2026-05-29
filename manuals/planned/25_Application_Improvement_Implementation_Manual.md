@@ -429,10 +429,13 @@ import時または起動時にDB作成、マイグレーション、初期デー
 
 #### IMP-25-P2-SEC-001: 画像アップロードの検証強化
 
+**実装状況**: 実装済み（2026-05-30）
+
 **対象**
 
 - `app.py`
-- `manager/image_manager.py`
+- `manager/image_upload_validation.py`
+- `tests/test_image_upload_validation.py`
 
 **現状**
 
@@ -443,7 +446,9 @@ import時または起動時にDB作成、マイグレーション、初期デー
 - `MAX_CONTENT_LENGTH` を設定する。
 - 許可拡張子とMIMEタイプを限定する。
 - Cloudinary送信前にファイル種別を検証する。
-- エラー時のレスポンスを統一する。
+- ファイルシグネチャを確認し、拡張子/MIMEと内容が一致しない画像を拒否する。
+- PNG/JPEG/GIF/WebPのみ許可し、SVGなどの能動的コンテンツになりやすい形式は許可しない。
+- エラー時はCloudinary送信前に400で拒否する。
 
 **受け入れ条件**
 
