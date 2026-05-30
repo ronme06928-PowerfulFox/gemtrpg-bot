@@ -375,7 +375,10 @@ def update_all_data():
 if __name__ == '__main__':
     print("--- スキルデータの手動アップデートを開始 ---")
     # DBを扱うため、Flaskアプリコンテキストを作成して実行
-    from app import app
+    os.environ.setdefault("GEMTRPG_DISABLE_DEFAULT_APP", "1")
+    from app import create_app
+    app = create_app(run_startup=False, register_sockets=False)
+
     with app.app_context():
         if fetch_and_save_sheets_data():
             print("--- 正常に終了しました ---")

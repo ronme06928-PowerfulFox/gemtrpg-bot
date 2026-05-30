@@ -5,12 +5,17 @@ import time
 # プロジェクトルートをパスに追加
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import app
+os.environ.setdefault("GEMTRPG_DISABLE_DEFAULT_APP", "1")
+
+from app import create_app
 from extensions import db
 from models import ImageRegistry
 import cloudinary
 import cloudinary.uploader
 import uuid
+
+
+app = create_app(run_startup=False, register_sockets=False)
 
 def register_defaults():
     """static/images/characters 内の画像をデフォルト画像として登録する"""

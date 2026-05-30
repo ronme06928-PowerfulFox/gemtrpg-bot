@@ -4,8 +4,14 @@ import os
 # Add parent directory to path to import app and extensions
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import app, db
+os.environ.setdefault("GEMTRPG_DISABLE_DEFAULT_APP", "1")
+
+from app import create_app
+from extensions import db
 from sqlalchemy import text
+
+
+app = create_app(run_startup=False, register_sockets=False)
 
 def migrate():
     with app.app_context():

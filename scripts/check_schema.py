@@ -7,9 +7,15 @@ import sqlite3
 # Let's try to find the db file first or use app context.
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+os.environ.setdefault("GEMTRPG_DISABLE_DEFAULT_APP", "1")
+
 from extensions import db
-from app import app
+from app import create_app
 from sqlalchemy import text
+
+
+app = create_app(run_startup=False, register_sockets=False)
 
 def check_schema():
     with app.app_context():
