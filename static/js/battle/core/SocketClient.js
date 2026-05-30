@@ -4,9 +4,8 @@
  * サーバーからのイベントを受信し、BattleStoreを更新します。
  * また、クライアントからサーバーへのアクション送信APIを提供します。
  *
- * 注意: 後方互換性のため、既存の socket.on ハンドラと共存します。
- * Phase 2では「state_updated」のみを新システムで処理し、
- * 他のイベントは既存コードが処理します。
+ * 注意: 後方互換性のため、旧UIモジュール向けの購読APIも提供します。
+ * 新規のSocket購読は SocketClient.on/off 経由に寄せます。
  */
 
 import { store } from './BattleStore.js';
@@ -47,6 +46,41 @@ class SocketClient {
         return true;
     }
 
+    // ---------------------------------------------------------------------
+    // Socket lifecycle helpers
+    // ---------------------------------------------------------------------
+
+    _ensureSocket() {
+        if (this.socket) return true;
+        return this.initialize();
+    }
+
+    _getRoomName() {
+        return store.get('room_name') || window.currentRoomName || null;
+    }
+
+    _normalizeIntentTarget(target) {
+        return {
+            type: (target && target.type) ? target.type : 'none',
+            slot_id: (target && Object.prototype.hasOwnProperty.call(target, 'slot_id')) ? target.slot_id : null
+        };
+    }
+
+    _bindCore(eventName, handler) {
+        if (!this.socket || !eventName || typeof handler !== 'function') return false;
+        this.socket.on(eventName, handler);
+        return true;
+    }
+
+    _emit(eventName, payload = {}, warning = '') {
+        if (!this._ensureSocket()) {
+            if (warning) console.warn(warning);
+            return false;
+        }
+        this.socket.emit(eventName, payload);
+        return true;
+    }
+
     /**
      * コアイベントリスナーの設定
      *
@@ -59,7 +93,7 @@ class SocketClient {
 
         // state_updated: サーバーからの状態更新
         // 注意: このハンドラは既存のものと「追加で」動作する
-        this.socket.on('state_updated', (data) => {
+        this._bindCore('state_updated', (data) => {
             // state_updated -> Store を更新
 
             // Store を更新（window.battleState も自動同期される）
@@ -70,7 +104,7 @@ class SocketClient {
         });
 
         // char_stat_updated: キャラクター個別のステータス更新 (Phase 1 Performance Opt)
-        this.socket.on('char_stat_updated', (data) => {
+        this._bindCore('char_stat_updated', (data) => {
             // Storeのキャラデータを部分更新
             // 注意: Store全体のリロードではない
             // eventBusで通知し、UIコンポーネントがDOMを直接書き換える
@@ -80,7 +114,7 @@ class SocketClient {
 
 
         // room_joined: ルーム参加完了時
-        this.socket.on('room_joined', (data) => {
+        this._bindCore('room_joined', (data) => {
             // room_joined -> Store 初期化
             store.setState({ room_name: data.room });
 
@@ -90,42 +124,42 @@ class SocketClient {
             }
         });
 
-        this.socket.on('battle_round_started', (payload) => {
+        this._bindCore('battle_round_started', (payload) => {
             store.setRoundStarted(payload || {});
             eventBus.emit('battle:round:started', payload || {});
         });
 
-        this.socket.on('battle_state_updated', (payload) => {
+        this._bindCore('battle_state_updated', (payload) => {
             store.applyBattleState(payload || {});
             eventBus.emit('battle:state:updated', payload || {});
         });
 
-        this.socket.on('battle_resolve_ready', (payload) => {
+        this._bindCore('battle_resolve_ready', (payload) => {
             store.setResolveReady(payload || { ready: true });
             eventBus.emit('battle:resolve:ready', payload || {});
         });
 
-        this.socket.on('battle_phase_changed', (payload) => {
+        this._bindCore('battle_phase_changed', (payload) => {
             store.setPhase((payload || {}).to);
             eventBus.emit('battle:phase:changed', payload || {});
         });
 
-        this.socket.on('battle_resolve_trace_appended', (payload) => {
+        this._bindCore('battle_resolve_trace_appended', (payload) => {
             const trace = (payload && payload.trace) || [];
             store.appendResolveTrace(trace);
             eventBus.emit('battle:resolve:trace:appended', payload || {});
         });
 
-        this.socket.on('battle_resolve_flow_advance', (payload) => {
+        this._bindCore('battle_resolve_flow_advance', (payload) => {
             eventBus.emit('battle:resolve:flow:advance', payload || {});
         });
 
-        this.socket.on('battle_round_finished', (payload) => {
+        this._bindCore('battle_round_finished', (payload) => {
             store.setRoundFinished((payload || {}).round);
             eventBus.emit('battle:round:finished', payload || {});
         });
 
-        this.socket.on('battle_error', (payload) => {
+        this._bindCore('battle_error', (payload) => {
             const message = (payload && payload.message) ? String(payload.message) : 'Battle error';
             store.setBattleError(message);
             console.warn('[battle_error]', message, payload || {});
@@ -133,9 +167,13 @@ class SocketClient {
         });
     }
 
+    // ---------------------------------------------------------------------
+    // Compatibility subscription API for legacy UI modules
+    // ---------------------------------------------------------------------
+
     on(eventName, handler, options = {}) {
         if (!eventName || typeof handler !== 'function') return false;
-        if (!this.socket && !this.initialize()) return false;
+        if (!this._ensureSocket()) return false;
         if (!this.socket) return false;
         if (options.replace && typeof this.socket.off === 'function') {
             this.socket.off(eventName);
@@ -146,12 +184,16 @@ class SocketClient {
 
     off(eventName, handler) {
         if (!eventName) return false;
-        if (!this.socket && !this.initialize()) return false;
+        if (!this._ensureSocket()) return false;
         if (!this.socket || typeof this.socket.off !== 'function') return false;
         if (typeof handler === 'function') this.socket.off(eventName, handler);
         else this.socket.off(eventName);
         return true;
     }
+
+    // ---------------------------------------------------------------------
+    // Outbound command API
+    // ---------------------------------------------------------------------
 
     /**
      * トークン移動リクエスト
@@ -160,9 +202,8 @@ class SocketClient {
      * @param {number} y - Y座標
      */
     moveToken(charId, x, y) {
-        if (!this.socket) return;
-        const roomName = store.get('room_name') || window.currentRoomName;
-        this.socket.emit('request_move_token', {
+        const roomName = this._getRoomName();
+        this._emit('request_move_token', {
             room: roomName,
             charId: charId,
             x: x,
@@ -175,9 +216,8 @@ class SocketClient {
      * @param {Object} params - 宣言パラメータ
      */
     declareSkill(params) {
-        if (!this.socket) return;
-        const roomName = store.get('room_name') || window.currentRoomName;
-        this.socket.emit('request_skill_declaration', {
+        const roomName = this._getRoomName();
+        this._emit('request_skill_declaration', {
             room: roomName,
             ...params
         });
@@ -190,9 +230,8 @@ class SocketClient {
      * @param {boolean} isOneSided - 一方的攻撃かどうか
      */
     startMatch(attackerId, defenderId, isOneSided = false) {
-        if (!this.socket) return;
-        const roomName = store.get('room_name') || window.currentRoomName;
-        this.socket.emit('start_match', {
+        const roomName = this._getRoomName();
+        this._emit('start_match', {
             room: roomName,
             attacker_id: attackerId,
             defender_id: defenderId,
@@ -201,15 +240,12 @@ class SocketClient {
     }
 
     sendIntentPreview(roomId, battleId, slotId, skillId, target) {
-        if (!this.socket) {
+        if (!this._ensureSocket()) {
             console.warn(`[emit] battle_intent_preview skip: socket missing slot=${slotId} room=${roomId} battle=${battleId}`);
             return;
         }
         const connected = !!this.socket.connected;
-        const normalizedTarget = {
-            type: (target && target.type) ? target.type : 'none',
-            slot_id: (target && Object.prototype.hasOwnProperty.call(target, 'slot_id')) ? target.slot_id : null
-        };
+        const normalizedTarget = this._normalizeIntentTarget(target);
         const targetSlot = normalizedTarget.slot_id ?? null;
         _battleLog(`[emit] battle_intent_preview connected=${connected} room=${roomId} battle=${battleId} slot=${slotId} skill=${skillId ?? 'null'} target_slot=${targetSlot}`);
         this.socket.emit('battle_intent_preview', {
@@ -222,15 +258,12 @@ class SocketClient {
     }
 
     sendIntentCommit(roomId, battleId, slotId, skillId, target) {
-        if (!this.socket) {
+        if (!this._ensureSocket()) {
             console.warn(`[emit] battle_intent_commit skip: socket missing slot=${slotId} room=${roomId} battle=${battleId}`);
             return;
         }
         const connected = !!this.socket.connected;
-        const normalizedTarget = {
-            type: (target && target.type) ? target.type : 'none',
-            slot_id: (target && Object.prototype.hasOwnProperty.call(target, 'slot_id')) ? target.slot_id : null
-        };
+        const normalizedTarget = this._normalizeIntentTarget(target);
         const targetSlot = normalizedTarget.slot_id ?? null;
         _battleLog(`[emit] battle_intent_commit connected=${connected} room=${roomId} battle=${battleId} slot=${slotId} skill=${skillId ?? 'null'} target_slot=${targetSlot}`);
         this.socket.emit('battle_intent_commit', {
@@ -244,8 +277,7 @@ class SocketClient {
     }
 
     sendIntentUncommit(roomId, battleId, slotId) {
-        if (!this.socket) return;
-        this.socket.emit('battle_intent_uncommit', {
+        this._emit('battle_intent_uncommit', {
             room_id: roomId,
             battle_id: battleId,
             slot_id: slotId
@@ -253,7 +285,7 @@ class SocketClient {
     }
 
     sendResolveConfirm(roomId, battleId) {
-        if (!this.socket) {
+        if (!this._ensureSocket()) {
             console.warn(`[emit] battle_resolve_confirm skip: socket missing room=${roomId} battle=${battleId}`);
             return;
         }
@@ -266,37 +298,27 @@ class SocketClient {
     }
 
     sendResolveStart(roomName) {
-        if (!this.socket) {
-            console.warn('[SocketClient] battle_resolve_start skip: socket missing');
-            return;
-        }
         const payload = roomName ? { room: roomName } : {};
         _battleInfo('[SocketClient] battle_resolve_start', payload);
-        this.socket.emit('battle_resolve_start', payload);
+        this._emit('battle_resolve_start', payload, '[SocketClient] battle_resolve_start skip: socket missing');
     }
 
     sendResolveFlowAdvance(payload) {
-        if (!this.socket) {
-            console.warn('[SocketClient] battle_resolve_flow_advance_request skip: socket missing');
-            return false;
-        }
         const body = (payload && typeof payload === 'object') ? payload : {};
-        this.socket.emit('battle_resolve_flow_advance_request', body);
-        return true;
+        return this._emit(
+            'battle_resolve_flow_advance_request',
+            body,
+            '[SocketClient] battle_resolve_flow_advance_request skip: socket missing'
+        );
     }
 
     sendRoundEnd(roomName) {
-        if (!this.socket) {
-            console.warn('[SocketClient] request_end_round skip: socket missing');
-            return false;
-        }
-        const room = roomName || store.get('room_name') || window.currentRoomName || null;
+        const room = roomName || this._getRoomName();
         if (!room) {
             console.warn('[SocketClient] request_end_round skip: room missing');
             return false;
         }
-        this.socket.emit('request_end_round', { room });
-        return true;
+        return this._emit('request_end_round', { room }, '[SocketClient] request_end_round skip: socket missing');
     }
 }
 
