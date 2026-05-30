@@ -21,7 +21,7 @@ import argparse
 
 IS_RENDER = 'RENDER' in os.environ
 
-from flask import Flask, jsonify, request, send_from_directory, session
+from flask import Flask, current_app, jsonify, request, send_from_directory, session
 from flask_cors import CORS
 from flask_compress import Compress # 追加: 圧縮転送用ライブラリ
 from whitenoise import WhiteNoise # 追加: 静的ファイル配信高速化
@@ -47,18 +47,6 @@ from manager.auth import (
     verify_room_gm_key,
 )
 
-# ★ イベントハンドラ（SocketIO層）のインポート
-# これをインポートすることで、@socketio.on デコレータが登録されます
-import events.socket_main
-import events.socket_char
-import events.socket_battle_only
-import events.socket_room_presets
-import events.battle # Refactored battle events
-import events.socket_wide_calculate
-
-import events.socket_items  # ★Phase 4: アイテムシステム
-import events.socket_exploration # ★Phase XX: 探索モード
-
 import uuid
 import cloudinary
 import cloudinary.uploader
@@ -83,8 +71,8 @@ if os.path.exists(load_dotenv_path):
     from dotenv import load_dotenv
     load_dotenv(load_dotenv_path)
 
-app = Flask(__name__, static_folder=None)
-app.config['JSON_AS_ASCII'] = False
+STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
+_SOCKET_HANDLERS_REGISTERED = False
 
 def _is_production_env():
     return (
@@ -122,72 +110,104 @@ def _get_cors_origins():
     ]
 
 
-app.config['SECRET_KEY'] = _get_secret_key()
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///gemtrpg.db')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
-cors_origins = _get_cors_origins()
+def configure_app(flask_app, config=None):
+    global STATIC_DIR
+    flask_app.config['JSON_AS_ASCII'] = False
+    flask_app.config['SECRET_KEY'] = _get_secret_key()
+    flask_app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///gemtrpg.db')
+    flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    flask_app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
+    flask_app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+        'pool_size': 10,
+        'max_overflow': 20
+    }
+    if config:
+        flask_app.config.update(config)
+    STATIC_DIR = os.path.join(flask_app.root_path, 'static')
+    return flask_app
 
-# ★ WhiteNoise設定: Staticファイル配信の高速化
-# Flaskを通さずに直接配信することでCPU負荷を低減
-app.wsgi_app = WhiteNoise(app.wsgi_app, root=os.path.join(app.root_path, 'static'), prefix='static/')
 
-# データベース接続プールの設定（PostgreSQL SSL接続切断対策）
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,  # 接続前に健全性チェック
-    'pool_recycle': 300,    # 5分ごとに接続を再利用
-    'pool_size': 10,        # 接続プールサイズ
-    'max_overflow': 20      # プールがフルの時の追加接続数
-}
+def init_extensions(flask_app, cors_origins=None):
+    cors_origins = cors_origins or _get_cors_origins()
+    flask_app.wsgi_app = WhiteNoise(flask_app.wsgi_app, root=STATIC_DIR, prefix='static/')
+    cloudinary.config(
+        cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+        api_key=os.environ.get('CLOUDINARY_API_KEY'),
+        api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+    )
+    CORS(flask_app, supports_credentials=True, origins=cors_origins)
+    Compress(flask_app)
+    db.init_app(flask_app)
+    async_mode = 'eventlet' if IS_RENDER else 'threading'
+    socketio.init_app(flask_app, cors_allowed_origins=cors_origins, async_mode=async_mode)
+    return flask_app
 
-# 静的ファイルのパス
-STATIC_DIR = os.path.join(app.root_path, 'static')
 
-# === Cloudinary設定 ===
-cloudinary.config(
-    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.environ.get('CLOUDINARY_API_KEY'),
-    api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-)
+def run_startup_tasks(flask_app):
+    print("--- Checking Database Schema (Global) ---")
+    from manager.db_migration import run_auto_migration
+    run_auto_migration(flask_app)
+    print()
 
-# === 初期化 ===
-CORS(app, supports_credentials=True, origins=cors_origins)
-Compress(app) # 追加: 圧縮転送の有効化 (デフォルトでGzip圧縮)
-db.init_app(app)
+    with flask_app.app_context():
+        db.create_all()
 
-# ★ DB初期化とマイグレーション
-# ★ DBスキーマ自動修正 (Renderデプロイ対策 - Global execution for Gunicorn)
-# アプリケーション初期化時に実行
-print("--- Checking Database Schema (Global) ---")
-from manager.db_migration import run_auto_migration
-run_auto_migration(app)
-print()
+        from plugins.buffs.registry import buff_registry
+        buff_registry.auto_discover()
 
-# ★ 起動時のデータ読み込み
-with app.app_context():
-    db.create_all()  # テーブル作成 (既存の場合はスキップ)
+        init_app_data()
+        read_saved_rooms_with_owners()
 
-    # バフプラグインの自動検出（ここでも呼んでおく）
-    from plugins.buffs.registry import buff_registry
-    buff_registry.auto_discover()
 
-    init_app_data()
-    read_saved_rooms_with_owners()
+def register_socket_handlers():
+    global _SOCKET_HANDLERS_REGISTERED
+    if _SOCKET_HANDLERS_REGISTERED:
+        return
 
-async_mode = 'eventlet' if IS_RENDER else 'threading'
-# extensionsにあるsocketioをアプリと紐付け
-socketio.init_app(app, cors_allowed_origins=cors_origins, async_mode=async_mode)
+    import events.socket_main
+    import events.socket_char
+    import events.socket_battle_only
+    import events.socket_room_presets
+    import events.battle
+    import events.socket_wide_calculate
+    import events.socket_items
+    import events.socket_exploration
+
+    _SOCKET_HANDLERS_REGISTERED = True
+
+
+def create_app(config=None, run_startup=True, register_sockets=True, register_routes=True):
+    flask_app = Flask(__name__, static_folder=None)
+    configure_app(flask_app, config=config)
+    cors_origins = _get_cors_origins()
+    init_extensions(flask_app, cors_origins=cors_origins)
+    if register_routes:
+        register_http_routes(flask_app)
+    if run_startup:
+        run_startup_tasks(flask_app)
+    if register_sockets:
+        register_socket_handlers()
+    return flask_app
+
+
+def _should_run_startup_on_import():
+    return os.environ.get('GEMTRPG_SKIP_IMPORT_STARTUP') != '1'
+
+
+def _should_create_default_app():
+    return os.environ.get('GEMTRPG_DISABLE_DEFAULT_APP') != '1'
 
 # ==========================================
 #  HTTP Routes
 # ==========================================
 
-@app.route('/')
 def serve_index():
     print(f"[INFO] Accessing Root! Serving from: {STATIC_DIR}")
     return send_from_directory(STATIC_DIR, 'index.html')
 
-@app.after_request
+
 def add_header(response):
     """
     静的ファイル(画像, CSS, JS)に強力なキャッシュヘッダーを付与する
@@ -198,16 +218,53 @@ def add_header(response):
         response.headers['Cache-Control'] = 'public, max-age=31536000'
     return response
 
-@app.route('/mobile')
+
 def serve_mobile_index():
     print(f"[INFO] Accessing Mobile Root! Serving from: {STATIC_DIR}/mobile")
     return send_from_directory(os.path.join(STATIC_DIR, 'mobile'), 'index.html')
 
-@app.route('/<path:filename>')
+
 def serve_static_files(filename):
     return send_from_directory(STATIC_DIR, filename)
 
-@app.route('/api/entry', methods=['POST'])
+
+def register_http_routes(flask_app):
+    flask_app.add_url_rule('/', 'serve_index', serve_index)
+    flask_app.after_request(add_header)
+    flask_app.add_url_rule('/mobile', 'serve_mobile_index', serve_mobile_index)
+    flask_app.add_url_rule('/<path:filename>', 'serve_static_files', serve_static_files)
+    flask_app.add_url_rule('/get_skill', 'get_skill', get_skill)
+    flask_app.add_url_rule('/api/get_skill_metadata', 'get_skill_metadata', get_skill_metadata, methods=['GET'])
+    flask_app.add_url_rule('/api/get_skill_data', 'get_skill_data', get_skill_data, methods=['GET'])
+    flask_app.add_url_rule('/api/get_item_data', 'get_item_data', get_item_data, methods=['GET'])
+    flask_app.add_url_rule('/api/get_radiance_data', 'get_radiance_data', get_radiance_data, methods=['GET'])
+    flask_app.add_url_rule('/api/get_passive_data', 'get_passive_data', get_passive_data, methods=['GET'])
+    flask_app.add_url_rule('/api/get_buff_data', 'get_buff_data', get_buff_data, methods=['GET'])
+    flask_app.add_url_rule('/api/get_glossary_data', 'get_glossary_data', get_glossary_data, methods=['GET'])
+    flask_app.add_url_rule('/api/upload_image', 'upload_image', upload_image, methods=['POST'])
+    flask_app.add_url_rule('/api/images', 'get_images_api', get_images_api, methods=['GET'])
+    flask_app.add_url_rule('/api/images/<image_id>', 'delete_image_api', delete_image_api, methods=['DELETE'])
+    flask_app.add_url_rule('/api/local_images', 'get_local_images', get_local_images, methods=['GET'])
+    flask_app.add_url_rule('/api/entry', 'entry', entry, methods=['POST'])
+    flask_app.add_url_rule('/api/recover_user', 'recover_user', recover_user, methods=['POST'])
+    flask_app.add_url_rule('/api/recover_from_local_token', 'recover_from_local_token', recover_from_local_token, methods=['POST'])
+    flask_app.add_url_rule('/api/regenerate_recovery_code', 'regenerate_recovery_code', regenerate_recovery_code, methods=['POST'])
+    flask_app.add_url_rule('/api/enter_room', 'enter_room', enter_room, methods=['POST'])
+    flask_app.add_url_rule('/api/leave_room_context', 'leave_room_context', leave_room_context, methods=['POST'])
+    flask_app.add_url_rule('/api/get_session_user', 'get_session_user', get_session_user, methods=['GET'])
+    flask_app.add_url_rule('/list_rooms', 'list_rooms', list_rooms, methods=['GET'])
+    flask_app.add_url_rule('/load_room', 'load_room', load_room, methods=['GET'])
+    flask_app.add_url_rule('/create_room', 'create_room', create_room, methods=['POST'])
+    flask_app.add_url_rule('/delete_room', 'delete_room', delete_room, methods=['POST'])
+    flask_app.add_url_rule('/save_room', 'save_room_route', save_room_route, methods=['POST'])
+    flask_app.add_url_rule('/api/get_room_users', 'get_room_users', get_room_users, methods=['GET'])
+    flask_app.add_url_rule('/api/admin/user_details', 'admin_get_user_details', admin_get_user_details, methods=['GET'])
+    flask_app.add_url_rule('/api/admin/users', 'admin_get_users', admin_get_users, methods=['GET'])
+    flask_app.add_url_rule('/api/admin/delete_user', 'admin_delete_user', admin_delete_user, methods=['POST'])
+    flask_app.add_url_rule('/api/admin/transfer', 'admin_transfer_user', admin_transfer_user, methods=['POST'])
+    flask_app.add_url_rule('/api/admin/set_user_management_admin', 'admin_set_user_management_admin', admin_set_user_management_admin, methods=['POST'])
+    flask_app.add_url_rule('/api/json_nl_builder_audit', 'json_nl_builder_audit', json_nl_builder_audit, methods=['POST'])
+
 def entry():
     data = request.get_json(silent=True) or {}
     username = str(data.get('username') or '').strip()
@@ -239,7 +296,6 @@ def entry():
         "recovery_token": user_result.get("recovery_token"),
     })
 
-@app.route('/api/recover_user', methods=['POST'])
 def recover_user():
     data = request.get_json(silent=True) or {}
     username = str(data.get('username') or '').strip()
@@ -262,7 +318,6 @@ def recover_user():
         "recovery_token": result.get("recovery_token"),
     })
 
-@app.route('/api/recover_from_local_token', methods=['POST'])
 def recover_from_local_token():
     data = request.get_json(silent=True) or {}
     user = recover_user_by_local_token(
@@ -284,7 +339,6 @@ def recover_from_local_token():
         "is_app_admin": is_user_management_admin(user.id),
     })
 
-@app.route('/api/regenerate_recovery_code', methods=['POST'])
 @session_required
 def regenerate_recovery_code():
     result = regenerate_user_recovery_code(session.get('user_id'))
@@ -299,7 +353,6 @@ def regenerate_recovery_code():
         "recovery_token": result.get("recovery_token"),
     })
 
-@app.route('/api/enter_room', methods=['POST'])
 @session_required
 def enter_room():
     data = request.get_json(silent=True) or {}
@@ -326,7 +379,6 @@ def enter_room():
         "attribute": attribute,
     })
 
-@app.route('/api/leave_room_context', methods=['POST'])
 @session_required
 def leave_room_context():
     # Room GM status is scoped to the room. Returning to the lobby must not
@@ -334,7 +386,6 @@ def leave_room_context():
     session['attribute'] = PLAYER_ATTRIBUTE
     return jsonify({"message": "Room context cleared", "attribute": PLAYER_ATTRIBUTE})
 
-@app.route('/api/admin/user_details', methods=['GET'])
 @session_required
 def admin_get_user_details():
     target_user_id = request.args.get('user_id')
@@ -351,7 +402,6 @@ def _can_manage_users_with_payload(payload=None):
     master_key = payload.get('master_key') or payload.get('gm_master_key') or ''
     return verify_master_key(master_key)
 
-@app.route('/api/get_session_user', methods=['GET'])
 def get_session_user():
     if 'username' in session:
         username = session.get('username')
@@ -370,7 +420,6 @@ def get_session_user():
     else:
         return jsonify({"username": None, "attribute": None, "user_id": None}), 401
 
-@app.route('/list_rooms', methods=['GET'])
 @session_required
 def list_rooms():
     """ルーム一覧とオーナー情報を返す"""
@@ -384,14 +433,12 @@ def list_rooms():
         'is_app_admin': is_user_management_admin(user_id),
     })
 
-@app.route('/load_room', methods=['GET'])
 @session_required
 def load_room():
     room_name = request.args.get('name')
     state = get_room_state(room_name)
     return jsonify(state)
 
-@app.route('/create_room', methods=['POST'])
 @session_required
 def create_room():
     data = request.get_json(silent=True) or {}
@@ -437,7 +484,6 @@ def create_room():
     normalized_state = get_room_state(room_name)
     return jsonify({"message": "Created", "state": normalized_state, "attribute": GM_ATTRIBUTE}), 201
 
-@app.route('/api/admin/users', methods=['GET'])
 @session_required
 def admin_get_users():
     return jsonify({
@@ -445,7 +491,6 @@ def admin_get_users():
         "can_manage_users": is_user_management_admin(session.get('user_id')),
     })
 
-@app.route('/api/admin/delete_user', methods=['POST'])
 @session_required
 def admin_delete_user():
     data = request.get_json(silent=True) or {}
@@ -456,7 +501,6 @@ def admin_delete_user():
         return jsonify({"message": "Deleted"})
     return jsonify({"error": "Failed"}), 500
 
-@app.route('/api/admin/transfer', methods=['POST'])
 @session_required
 def admin_transfer_user():
     data = request.get_json(silent=True) or {}
@@ -465,7 +509,6 @@ def admin_transfer_user():
     count = transfer_ownership(data['old_id'], data['new_id'])
     return jsonify({"message": f"Transferred {count} characters/rooms."})
 
-@app.route('/api/admin/set_user_management_admin', methods=['POST'])
 @session_required
 def admin_set_user_management_admin():
     data = request.get_json(silent=True) or {}
@@ -479,7 +522,6 @@ def admin_set_user_management_admin():
         return jsonify({"error": "User not found"}), 404
     return jsonify({"message": "Updated", "user_id": target_user_id, "is_app_admin": enabled})
 
-@app.route('/delete_room', methods=['POST'])
 @session_required
 def delete_room():
     """ルーム削除 - オーナーまたはGMのみ許可"""
@@ -502,7 +544,6 @@ def delete_room():
         return jsonify({"message": "Deleted"})
     return jsonify({"error": "Delete failed"}), 500
 
-@app.route('/save_room', methods=['POST'])
 @session_required
 def save_room_route():
     data = request.json
@@ -512,12 +553,10 @@ def save_room_route():
     save_room_to_db(room_name, state)
     return jsonify({"message": "Saved"})
 
-@app.route('/get_skill')
 def get_skill():
     skill_id = request.args.get('id')
     return jsonify(all_skill_data.get(skill_id, {}))
 
-@app.route('/api/get_skill_metadata', methods=['GET'])
 def get_skill_metadata():
     metadata = {}
     for sid, data in all_skill_data.items():
@@ -528,12 +567,10 @@ def get_skill_metadata():
         }
     return jsonify(metadata)
 
-@app.route('/api/get_skill_data', methods=['GET'])
 def get_skill_data():
     """フロントエンドにスキルマスターデータを提供するAPI"""
     return jsonify(all_skill_data)
 
-@app.route('/api/get_item_data', methods=['GET'])
 def get_item_data():
     """フロントエンドにアイテムマスターデータを提供するAPI"""
     from manager.items.loader import item_loader
@@ -543,28 +580,24 @@ def get_item_data():
 # ★ バフプラグインシステム
 from plugins.buffs.registry import buff_registry
 
-@app.route('/api/get_radiance_data', methods=['GET'])
 def get_radiance_data():
     """フロントエンドに輝化スキルマスターデータを提供するAPI"""
     from manager.radiance.loader import radiance_loader
     radiance_skills = radiance_loader.load_skills()
     return jsonify(radiance_skills)
 
-@app.route('/api/get_passive_data', methods=['GET'])
 def get_passive_data():
     """フロントエンドに特殊パッシブマスターデータを提供するAPI"""
     from manager.passives.loader import passive_loader
     passives = passive_loader.load_passives()
     return jsonify(passives)
 
-@app.route('/api/get_buff_data', methods=['GET'])
 def get_buff_data():
     """フロントエンドにバフ図鑑データを提供するAPI"""
     from manager.buffs.loader import buff_catalog_loader
     buffs = buff_catalog_loader.load_buffs()
     return jsonify(buffs)
 
-@app.route('/api/get_glossary_data', methods=['GET'])
 def get_glossary_data():
     """フロントエンドに用語辞書データを提供するAPI"""
     if not all_glossary_data:
@@ -572,7 +605,6 @@ def get_glossary_data():
         glossary_catalog_loader.load_terms()
     return jsonify(all_glossary_data)
 
-@app.route('/api/json_nl_builder_audit', methods=['POST'])
 def json_nl_builder_audit():
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload, dict):
@@ -596,7 +628,6 @@ def json_nl_builder_audit():
     return jsonify({"ok": True})
 
 
-@app.route('/api/upload_image', methods=['POST'])
 @session_required
 def upload_image():
     """
@@ -679,7 +710,6 @@ def upload_image():
         return jsonify({'error': 'アップロードに失敗しました'}), 500
 
 
-@app.route('/api/images', methods=['GET'])
 @session_required
 def get_images_api():
     """
@@ -699,7 +729,6 @@ def get_images_api():
     return jsonify(images)
 
 
-@app.route('/api/images/<image_id>', methods=['DELETE'])
 @session_required
 def delete_image_api(image_id):
     """
@@ -731,7 +760,6 @@ def delete_image_api(image_id):
     return jsonify({'success': True})
 
 
-@app.route('/api/get_room_users', methods=['GET'])
 @session_required
 def get_room_users():
     """指定されたルームに参加しているユーザーの一覧を取得"""
@@ -753,7 +781,6 @@ def get_room_users():
     return jsonify(room_users)
 
 
-@app.route('/api/local_images', methods=['GET'])
 def get_local_images():
     """
     ローカル（static/images/characters|backgrounds）にある画像一覧を取得するAPI
@@ -765,8 +792,8 @@ def get_local_images():
         subdir = 'backgrounds' if image_type == 'background' else 'characters'
 
         # 画像ディレクトリのパス
-        # static_folderがNoneの場合もあるので、app.root_path基点で作成
-        img_dir = os.path.join(app.root_path, 'static', 'images', subdir)
+        # static_folderがNoneの場合もあるので、current_app.root_path基点で作成
+        img_dir = os.path.join(current_app.root_path, 'static', 'images', subdir)
 
         if not os.path.exists(img_dir):
             return jsonify([])
@@ -791,6 +818,8 @@ def get_local_images():
         logging.error(f"[LocalImages] Error: {e}")
         return jsonify([])
 
+
+app = create_app(run_startup=_should_run_startup_on_import()) if _should_create_default_app() else None
 
 
 
@@ -820,6 +849,7 @@ if __name__ == '__main__':
 
     # ★ バフプラグイン自動検出
     print("--- Initializing Buff Plugins ---")
+    from plugins.buffs.registry import buff_registry
     buff_registry.auto_discover()
     print()
 
