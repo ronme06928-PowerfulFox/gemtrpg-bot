@@ -741,6 +741,18 @@ function initializeSocketIO() {
     socket = io(API_BASE_URL, { withCredentials: true });
     window.socket = socket; // ★追加: グローバルに公開（SocketClient用）
 
+    const registerAppSocketHandler = (eventName, handler) => {
+        if (
+            window.SocketClient
+            && typeof window.SocketClient.on === 'function'
+            && window.SocketClient.on(eventName, handler)
+        ) {
+            return true;
+        }
+        socket.on(eventName, handler);
+        return true;
+    };
+
     socket.on('connect', () => {
         socketInitInFlight = false;
         if (window.SocketClient && typeof window.SocketClient.initialize === 'function') {
@@ -755,7 +767,7 @@ function initializeSocketIO() {
         location.reload();
     });
     // match_error is handled in tab_visual_battle.js
-    socket.on('state_updated', (newState) => {
+    registerAppSocketHandler('state_updated', (newState) => {
 
         battleState = newState;
         rememberLogIdsFromState(newState);
@@ -810,7 +822,7 @@ function initializeSocketIO() {
             updateActionDock();
         }
     });
-    socket.on('new_log', (logData) => {
+    registerAppSocketHandler('new_log', (logData) => {
         // Play SE before log-id dedupe. state_updated/new_log ordering can differ.
         const phaseNow = String(
             (window.BattleStore && window.BattleStore.state && window.BattleStore.state.phase)
@@ -838,7 +850,7 @@ function initializeSocketIO() {
         }
         logToBattleLog(logData);
     });
-    socket.on('user_info_updated', (data) => {
+    registerAppSocketHandler('user_info_updated', (data) => {
 
         currentUsername = data.username;
         currentUserAttribute = data.attribute;
@@ -849,7 +861,7 @@ function initializeSocketIO() {
             try { setupVisualSidebarControls(); } catch (_e) { }
         }
     });
-    socket.on('user_list_updated', (userList) => {
+    registerAppSocketHandler('user_list_updated', (userList) => {
 
         currentRoomUserList = userList;
         if (document.getElementById('user-list-modal-backdrop')) {

@@ -50,7 +50,7 @@ class SocketClient {
     /**
      * コアイベントリスナーの設定
      *
-     * 重要: 既存の tab_visual_battle.js にも socket.on('state_updated') があるため、
+     * 重要: 既存UIにも state_updated 購読があるため、
      * ここでは Store を更新するのみで、描画は行わない。
      * 描画は既存コードが引き続き担当する（Phase 3以降で移行予定）。
      */
@@ -131,6 +131,26 @@ class SocketClient {
             console.warn('[battle_error]', message, payload || {});
             eventBus.emit('battle:error', payload || { message });
         });
+    }
+
+    on(eventName, handler, options = {}) {
+        if (!eventName || typeof handler !== 'function') return false;
+        if (!this.socket && !this.initialize()) return false;
+        if (!this.socket) return false;
+        if (options.replace && typeof this.socket.off === 'function') {
+            this.socket.off(eventName);
+        }
+        this.socket.on(eventName, handler);
+        return true;
+    }
+
+    off(eventName, handler) {
+        if (!eventName) return false;
+        if (!this.socket && !this.initialize()) return false;
+        if (!this.socket || typeof this.socket.off !== 'function') return false;
+        if (typeof handler === 'function') this.socket.off(eventName, handler);
+        else this.socket.off(eventName);
+        return true;
     }
 
     /**

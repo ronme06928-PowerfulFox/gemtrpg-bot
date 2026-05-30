@@ -1482,12 +1482,27 @@ function setupBattlefieldTab() {
 
     // 3. Socketリスナー登録
     if (typeof socket !== 'undefined') {
+        const registerBattlefieldSocketHandler = (eventName, handler, options = {}) => {
+            if (
+                window.SocketClient
+                && typeof window.SocketClient.on === 'function'
+                && window.SocketClient.on(eventName, handler, options)
+            ) {
+                return true;
+            }
+            if (options.replace && typeof socket.off === 'function') {
+                socket.off(eventName);
+            }
+            socket.on(eventName, handler);
+            return true;
+        };
+
         // A. 【状態更新リスナー】(初回のみ登録)
         if (!window.battleSocketHandlersRegistered) {
 
             window.battleSocketHandlersRegistered = true;
 
-            socket.on('state_updated', (state) => {
+            registerBattlefieldSocketHandler('state_updated', (state) => {
                 // A. テキストバトルフィールドが表示中なら更新
                 if (document.getElementById('battlefield-grid')) {
                     if (typeof renderTimeline === 'function') renderTimeline();
@@ -1510,10 +1525,7 @@ function setupBattlefieldTab() {
 
         // B. 【スキル結果リスナー】 (★修正: タブ切り替えで消されるため、毎回強制的に再登録する)
         // まず既存のリスナー（ビジュアルタブ用など）を削除して重複・競合を防止
-        socket.off('skill_declaration_result');
-
-
-        socket.on('skill_declaration_result', (data) => {
+        registerBattlefieldSocketHandler('skill_declaration_result', (data) => {
             // 1. ビジュアル側の処理 (prefixが visual_*)
             // テキストタブにいてもビジュアル用データが飛んでくる可能性に備えて残すが、
             // 基本的にはテキストタブ用の処理をここで行う
@@ -1648,7 +1660,7 @@ function setupBattlefieldTab() {
                     actorEl.dispatchEvent(new Event('change'));
                 }
             }
-        });
+        }, { replace: true });
     }
 }
 

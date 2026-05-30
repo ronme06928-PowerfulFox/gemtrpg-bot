@@ -18,6 +18,30 @@
         return global.socket || null;
     }
 
+    function subscribeSocketEvent(socketRef, eventName, handler) {
+        if (!eventName || typeof handler !== 'function') return () => {};
+        if (
+            global.SocketClient
+            && typeof global.SocketClient.on === 'function'
+            && global.SocketClient.on(eventName, handler)
+        ) {
+            return () => {
+                if (global.SocketClient && typeof global.SocketClient.off === 'function') {
+                    global.SocketClient.off(eventName, handler);
+                }
+            };
+        }
+        if (socketRef && typeof socketRef.on === 'function') {
+            socketRef.on(eventName, handler);
+            return () => {
+                if (socketRef && typeof socketRef.off === 'function') {
+                    socketRef.off(eventName, handler);
+                }
+            };
+        }
+        return () => {};
+    }
+
     function getCurrentState() {
         if (typeof battleState !== 'undefined' && battleState) return battleState;
         return global.battleState || {};
@@ -157,18 +181,16 @@
         }
 
         const socketRef = getSocketRef();
-        let stateListener = null;
-        let draftListener = null;
+        let unsubscribeState = null;
+        let unsubscribeDraft = null;
         if (socketRef && typeof socketRef.on === 'function') {
-            stateListener = () => render();
-            socketRef.on('state_updated', stateListener);
-            draftListener = (data) => {
+            unsubscribeState = subscribeSocketEvent(socketRef, 'state_updated', () => render());
+            unsubscribeDraft = subscribeSocketEvent(socketRef, 'bo_draft_state', (data) => {
                 const presets = (data && typeof data.presets === 'object') ? data.presets : {};
                 Object.keys(presetModel).forEach((key) => delete presetModel[key]);
                 Object.assign(presetModel, presets);
                 render();
-            };
-            socketRef.on('bo_draft_state', draftListener);
+            });
             const roomName = getRoomNameRef();
             if (roomName) {
                 socketRef.emit('request_bo_draft_state', { room: roomName });
@@ -176,12 +198,8 @@
         }
 
         function closeModal() {
-            if (socketRef && stateListener && typeof socketRef.off === 'function') {
-                socketRef.off('state_updated', stateListener);
-            }
-            if (socketRef && draftListener && typeof socketRef.off === 'function') {
-                socketRef.off('bo_draft_state', draftListener);
-            }
+            if (typeof unsubscribeState === 'function') unsubscribeState();
+            if (typeof unsubscribeDraft === 'function') unsubscribeDraft();
             overlay.remove();
         }
 

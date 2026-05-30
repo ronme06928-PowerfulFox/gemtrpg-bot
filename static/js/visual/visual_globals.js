@@ -31,7 +31,6 @@ window._matchPanelAutoExpanded = false;
 
 // Socket Handler Flags
 window._socketHandlersActuallyRegistered = false;
-window._visualBattleTurnListenerRegistered = false;
 window._charStatUpdatedListenerRegistered = false;
 
 // Optimization Flags

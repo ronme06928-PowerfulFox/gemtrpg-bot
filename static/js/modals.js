@@ -3009,21 +3009,31 @@ function openPresetManagerModal() {
         });
     };
 
-    socket.off('receive_preset_list');
-    socket.on('receive_preset_list', (data) => {
+    const registerPresetSocketHandler = (eventName, handler) => {
+        if (
+            window.SocketClient
+            && typeof window.SocketClient.on === 'function'
+            && window.SocketClient.on(eventName, handler, { replace: true })
+        ) {
+            return true;
+        }
+        socket.off(eventName);
+        socket.on(eventName, handler);
+        return true;
+    };
+
+    registerPresetSocketHandler('receive_preset_list', (data) => {
         renderList(data.presets);
     });
 
-    socket.off('preset_saved');
-    socket.on('preset_saved', (data) => {
+    registerPresetSocketHandler('preset_saved', (data) => {
         msgArea.textContent = `「${data.name}」を保存しました`;
         msgArea.style.color = 'green';
         saveNameInput.value = '';
         socket.emit('request_get_presets', { room: currentRoomName });
     });
 
-    socket.off('preset_save_error');
-    socket.on('preset_save_error', async (data) => {
+    registerPresetSocketHandler('preset_save_error', async (data) => {
         if (data.error === 'duplicate') {
             if (await window.showAppConfirm(data.message, {
                 title: 'プリセット上書き',
@@ -3041,35 +3051,30 @@ function openPresetManagerModal() {
         }
     });
 
-    socket.off('preset_error');
-    socket.on('preset_error', (data) => {
+    registerPresetSocketHandler('preset_error', (data) => {
         msgArea.textContent = data?.message || 'プリセット操作でエラーが発生しました';
         msgArea.style.color = 'red';
     });
 
-    socket.off('preset_json_exported');
-    socket.on('preset_json_exported', (data) => {
+    registerPresetSocketHandler('preset_json_exported', (data) => {
         const raw = data?.json || JSON.stringify(data?.payload || {}, null, 2);
         if (transferArea) transferArea.value = raw;
         msgArea.textContent = `「${data?.name || 'preset'}」をJSON出力しました`;
         msgArea.style.color = 'green';
     });
 
-    socket.off('preset_export_error');
-    socket.on('preset_export_error', (data) => {
+    registerPresetSocketHandler('preset_export_error', (data) => {
         msgArea.textContent = data?.message || 'JSON出力に失敗しました';
         msgArea.style.color = 'red';
     });
 
-    socket.off('preset_imported');
-    socket.on('preset_imported', (data) => {
+    registerPresetSocketHandler('preset_imported', (data) => {
         msgArea.textContent = `JSONを「${data?.name || ''}」として取り込みました`;
         msgArea.style.color = 'green';
         socket.emit('request_get_presets', { room: currentRoomName });
     });
 
-    socket.off('preset_import_error');
-    socket.on('preset_import_error', async (data) => {
+    registerPresetSocketHandler('preset_import_error', async (data) => {
         if (data?.error === 'duplicate') {
             if (await window.showAppConfirm(data.message || '同名プリセットがあります。上書きしますか？', {
                 title: 'プリセット上書き',

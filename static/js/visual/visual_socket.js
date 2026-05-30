@@ -31,6 +31,21 @@ window.setupVisualSocketHandlers = function () {
         return '';
     };
 
+    const registerSocketHandler = (eventName, handler, options = {}) => {
+        if (
+            window.SocketClient
+            && typeof window.SocketClient.on === 'function'
+            && window.SocketClient.on(eventName, handler, options)
+        ) {
+            return true;
+        }
+        if (options.replace && typeof socket.off === 'function') {
+            socket.off(eventName);
+        }
+        socket.on(eventName, handler);
+        return true;
+    };
+
     const renderLegacyBattleUi = (options = {}) => {
         const {
             map = false,
@@ -704,12 +719,17 @@ window.setupVisualSocketHandlers = function () {
     }
 
     // --- State Update ---
-    socket.on('state_updated', (state) => {
+    registerSocketHandler('state_updated', (state) => {
         installBattleLogDeferHook();
         // Debug: Log incoming state details
         const timelineLen = state.timeline ? state.timeline.length : 'undefined';
         const charsLen = state.characters ? state.characters.length : 'undefined';
         _battleLog(`[state_updated] timeline=${timelineLen}, chars=${charsLen}`, state);
+        if (window.lastTurnCharId !== state.turn_char_id) {
+            _battleLog(`[TurnChange] ${window.lastTurnCharId} -> ${state.turn_char_id}. Resetting match flag.`);
+            window.lastTurnCharId = state.turn_char_id;
+            // window.matchActionInitiated = false; // Removed in Phase 2
+        }
 
         // Create a flag to track if we handled this via Store
         const storeMode = hasCoreStoreListeners() ? 'core' : (window.BattleStore ? 'local' : '');
@@ -788,7 +808,7 @@ window.setupVisualSocketHandlers = function () {
     });
 
     // --- Select/Resolve New Flow Events ---
-    socket.on('battle_round_started', (payload) => {
+    registerSocketHandler('battle_round_started', (payload) => {
         _battleLog('[visual_socket] battle_round_started', payload);
         deferredLiveLogs.length = 0;
         deferredLiveLogIds.clear();
@@ -808,7 +828,7 @@ window.setupVisualSocketHandlers = function () {
         }
     });
 
-    socket.on('battle_state_updated', (payload) => {
+    registerSocketHandler('battle_state_updated', (payload) => {
         const slotsLen = payload?.slots ? Object.keys(payload.slots).length : 0;
         const intentsLen = payload?.intents ? Object.keys(payload.intents).length : 0;
         _battleLog(`[visual_socket] battle_state_updated phase=${payload?.phase} slots=${slotsLen} intents=${intentsLen}`);
@@ -832,7 +852,7 @@ window.setupVisualSocketHandlers = function () {
 
     });
 
-    socket.on('battle_resolve_ready', (payload) => {
+    registerSocketHandler('battle_resolve_ready', (payload) => {
         _battleLog('[visual_socket] battle_resolve_ready', payload);
         const handled = applyBattleStore('setResolveReady', payload || { ready: true });
         if (handled) syncLegacyBattleStateFromStore();
@@ -842,14 +862,14 @@ window.setupVisualSocketHandlers = function () {
         }
     });
 
-    socket.on('battle_resolve_flow_advance', (payload) => {
+    registerSocketHandler('battle_resolve_flow_advance', (payload) => {
         const idx = Number(payload?.expected_step_index);
         const key = (Number.isFinite(idx) && idx >= 0) ? `raw:${idx}` : '';
         const emitted = key ? flushDeferredResolveByStepKey({ key }) : 0;
         _battleLog(`[visual_socket] battle_resolve_flow_advance step=${Number.isFinite(idx) ? idx : 'n/a'} flushed=${emitted}`);
     });
 
-    socket.on('battle_phase_changed', (payload) => {
+    registerSocketHandler('battle_phase_changed', (payload) => {
         _battleLog('[visual_socket] battle_phase_changed', payload);
         const toPhase = String((payload || {}).to || '');
         clearSlotBadgesIfInactive(toPhase, null);
@@ -868,7 +888,7 @@ window.setupVisualSocketHandlers = function () {
         if (!shouldDeferResolveLogs() && !_shouldHoldDeferredQueue()) flushDeferredResolveLogs();
     });
 
-    socket.on('battle_resolve_trace_appended', (payload) => {
+    registerSocketHandler('battle_resolve_trace_appended', (payload) => {
         _battleLog('[trace_recv] keys=', Object.keys(payload || {}));
         _battleLog('[trace_recv] sample=', payload?.lines?.[0] ?? payload?.text ?? payload?.message ?? payload?.kind ?? null);
 
@@ -879,7 +899,7 @@ window.setupVisualSocketHandlers = function () {
         else applyBattlePayloadToLegacy({ trace });
     });
 
-    socket.on('battle_round_finished', (payload) => {
+    registerSocketHandler('battle_round_finished', (payload) => {
         _battleLog('[visual_socket] battle_round_finished', payload);
         _battleInfo('[OBS] round_finished payload_keys=', Object.keys(payload || {}));
         clearSlotBadgesIfInactive('round_end', null);
@@ -896,7 +916,7 @@ window.setupVisualSocketHandlers = function () {
         }
     });
 
-    socket.on('battle_error', (payload) => {
+    registerSocketHandler('battle_error', (payload) => {
         const message = payload?.message || 'Battle error';
         console.warn('[visual_socket] battle_error', payload);
         if (!applyBattleStore('setBattleError', message) && typeof battleState !== 'undefined') {
@@ -911,7 +931,7 @@ window.setupVisualSocketHandlers = function () {
     });
 
     // --- Character Movement (Differential) ---
-    socket.on('character_moved', (data) => {
+    registerSocketHandler('character_moved', (data) => {
         const charId = data.character_id;
         const serverTS = data.last_move_ts || 0;
 
@@ -940,11 +960,11 @@ window.setupVisualSocketHandlers = function () {
     });
 
     // --- Wide Match Modals ---
-    socket.on('open_wide_declaration_modal', () => {
+    registerSocketHandler('open_wide_declaration_modal', () => {
         openVisualWideDeclarationModal();
     });
 
-    socket.on('close_wide_declaration_modal', () => {
+    registerSocketHandler('close_wide_declaration_modal', () => {
         const el = document.getElementById('visual-wide-decl-modal');
         if (el) el.remove();
     });
@@ -958,16 +978,16 @@ window.setupVisualSocketHandlers = function () {
     }
 
     // --- Match Modal Events ---
-    socket.on('match_modal_opened', (data) => {
+    registerSocketHandler('match_modal_opened', (data) => {
         if (data.match_type === 'duel') {
             openDuelModal(data.attacker_id, data.defender_id, false, false);
         }
     });
-    socket.on('match_error', (data) => {
+    registerSocketHandler('match_error', (data) => {
         alert(data.error || '\u30de\u30c3\u30c1\u3092\u958b\u59cb\u3067\u304d\u307e\u305b\u3093\u3002');
     });
 
-    socket.on('match_modal_closed', () => {
+    registerSocketHandler('match_modal_closed', () => {
         if (typeof window.resetWideMatchState === 'function') {
             window.resetWideMatchState();
         }
@@ -975,8 +995,7 @@ window.setupVisualSocketHandlers = function () {
     });
 
     // --- Skill Declaration Results ---
-    socket.off('skill_declaration_result');
-    socket.on('skill_declaration_result', (data) => {
+    registerSocketHandler('skill_declaration_result', (data) => {
         if (!data.prefix) return;
 
         if (String(data.prefix).startsWith('declare_panel_')) {
@@ -1086,10 +1105,10 @@ window.setupVisualSocketHandlers = function () {
             _battleLog(`[skill_declaration_result] ${side} side, charId: ${charId}, canControl: ${canControl}`);
             updateDuelUI(side, { ...data, enableButton: canControl });
         }
-    });
+    }, { replace: true });
 
     // --- AI Suggestion Result ---
-    socket.on('ai_skill_suggested', (data) => {
+    registerSocketHandler('ai_skill_suggested', (data) => {
         if (!data || !data.charId || !data.skillId) return;
 
         const match = battleState.active_match;
@@ -1131,19 +1150,6 @@ window.setupVisualSocketHandlers = function () {
             }
         }
     });
-
-    // --- Turn Change Listener (Reset Flags) ---
-    if (!window._visualBattleTurnListenerRegistered) {
-        window._visualBattleTurnListenerRegistered = true;
-        socket.on('state_updated', (newState) => {
-            if (!newState) return;
-            if (window.lastTurnCharId !== newState.turn_char_id) {
-                _battleLog(`[TurnChange] ${window.lastTurnCharId} -> ${newState.turn_char_id}. Resetting match flag.`);
-                window.lastTurnCharId = newState.turn_char_id;
-                // window.matchActionInitiated = false; // Removed in Phase 2
-            }
-        });
-    }
 
     _battleLog('[visual_socket] Socket handlers registered.');
 

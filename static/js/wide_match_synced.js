@@ -77,9 +77,20 @@
         // これらのリスナーは初期化時に一度だけ登録されるべきですが、
         // wide_match_synced.js は通常読み込みっぱなしなのでここで登録します。
         // 二重登録防止のため、フラグチェックをするか、既に登録済みならoffしてからonします。
+        var registerWideMatchSocketHandler = function (eventName, handler) {
+            if (
+                window.SocketClient
+                && typeof window.SocketClient.on === 'function'
+                && window.SocketClient.on(eventName, handler, { replace: true })
+            ) {
+                return true;
+            }
+            socket.off(eventName);
+            socket.on(eventName, handler);
+            return true;
+        };
 
-        socket.off('wide_defender_updated');
-        socket.on('wide_defender_updated', function (data) {
+        registerWideMatchSocketHandler('wide_defender_updated', function (data) {
             // console.log("⚡ wide_defender_updated received:", data);
             var defId = data.defender_id;
 
@@ -135,8 +146,7 @@
             }
         });
 
-        socket.off('wide_attacker_updated');
-        socket.on('wide_attacker_updated', function (data) {
+        registerWideMatchSocketHandler('wide_attacker_updated', function (data) {
             // console.log("⚡ wide_attacker_updated received:", data);
 
             // 1. Update UI
