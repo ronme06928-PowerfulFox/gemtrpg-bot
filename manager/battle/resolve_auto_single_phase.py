@@ -135,16 +135,97 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                 return f"{origin_label}-{suffix}"
             return suffix
 
+        def _normalize_stack_reuse_cost(raw):
+            if isinstance(raw, dict):
+                raw = [raw]
+            normalized = []
+            if not isinstance(raw, list):
+                return normalized
+            for entry in raw:
+                if not isinstance(entry, dict):
+                    continue
+                buff_name = str(entry.get('buff_name', entry.get('resource', entry.get('name', ''))) or '').strip()
+                c_val = _safe_int(entry.get('value', entry.get('count', entry.get('consume_required', 0))), 0)
+                if not buff_name or c_val <= 0:
+                    continue
+                normalized.append({'buff_name': buff_name, 'value': c_val})
+            return normalized
+
+        def _consume_stack_reuse_cost(actor, stack_cost):
+            if not isinstance(actor, dict):
+                return False
+            costs = _normalize_stack_reuse_cost(stack_cost)
+            if not costs:
+                return True
+            buffs = actor.get('special_buffs', [])
+            if not isinstance(buffs, list):
+                return False
+
+            plans = []
+            for c in costs:
+                target_name = str(c.get('buff_name') or '').strip()
+                try:
+                    wanted = _utils_mod.normalize_buff_name(target_name)
+                except Exception:
+                    wanted = target_name
+                remaining_need = _safe_int(c.get('value', 0), 0)
+                buckets = []
+                for buff in buffs:
+                    if not isinstance(buff, dict):
+                        continue
+                    try:
+                        buff_name = _utils_mod.normalize_buff_name(buff.get('name'))
+                    except Exception:
+                        buff_name = str(buff.get('name') or '').strip()
+                    row_id = str(buff.get('buff_id') or (buff.get('data') or {}).get('buff_id') or '').strip()
+                    if buff_name != wanted and row_id != target_name:
+                        continue
+                    if _safe_int(buff.get('delay'), 0) > 0:
+                        continue
+                    count = _safe_int(buff.get('count', (buff.get('data') or {}).get('count', 0)), 0)
+                    if count <= 0:
+                        continue
+                    take = min(count, remaining_need)
+                    buckets.append((buff, count, take))
+                    remaining_need -= take
+                    if remaining_need <= 0:
+                        break
+                if remaining_need > 0:
+                    return False
+                plans.append((wanted, buckets))
+
+            empty_names = set()
+            for wanted, buckets in plans:
+                empty_names.add(wanted)
+                for buff, count, take in buckets:
+                    new_count = max(0, int(count) - int(take))
+                    buff['count'] = new_count
+                    if isinstance(buff.get('data'), dict):
+                        buff['data']['count'] = new_count
+            actor['special_buffs'] = [
+                b for b in buffs
+                if not (
+                    isinstance(b, dict)
+                    and _safe_int(b.get('count', (b.get('data') or {}).get('count', 0)), 0) <= 0
+                    and (
+                        (str(b.get('name') or '').strip() in empty_names)
+                        or (_utils_mod.normalize_buff_name(b.get('name')) in empty_names)
+                    )
+                )
+            ]
+            return True
+
         def _collect_reuse_policy(delegate_summary):
             if not isinstance(delegate_summary, dict):
-                return {'enabled': False, 'max_reuses': 0, 'consume_cost': False, 'reuse_cost': []}
+                return {'enabled': False, 'max_reuses': 0, 'consume_cost': False, 'reuse_cost': [], 'stack_reuse_cost': []}
             requests = delegate_summary.get('reuse_requests', [])
             if not isinstance(requests, list):
-                return {'enabled': False, 'max_reuses': 0, 'consume_cost': False, 'reuse_cost': []}
+                return {'enabled': False, 'max_reuses': 0, 'consume_cost': False, 'reuse_cost': [], 'stack_reuse_cost': []}
 
             max_reuses = 0
             consume_cost = False
             reuse_cost = []
+            stack_reuse_cost = []
             for req in requests:
                 if not isinstance(req, dict):
                     continue
@@ -164,14 +245,19 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                         normalized.append({'type': c_type, 'value': c_val})
                     if normalized:
                         reuse_cost = normalized
+                if (not stack_reuse_cost) and req.get('stack_reuse_cost') is not None:
+                    normalized_stack = _normalize_stack_reuse_cost(req.get('stack_reuse_cost'))
+                    if normalized_stack:
+                        stack_reuse_cost = normalized_stack
 
             if max_reuses <= 0:
-                return {'enabled': False, 'max_reuses': 0, 'consume_cost': consume_cost, 'reuse_cost': reuse_cost}
+                return {'enabled': False, 'max_reuses': 0, 'consume_cost': consume_cost, 'reuse_cost': reuse_cost, 'stack_reuse_cost': stack_reuse_cost}
             return {
                 'enabled': True,
                 'max_reuses': min(int(max_reuses), int(MAX_USE_SKILL_AGAIN_CHAIN_HARD_CAP)),
                 'consume_cost': bool(consume_cost),
                 'reuse_cost': reuse_cost,
+                'stack_reuse_cost': stack_reuse_cost,
             }
 
         def _extract_reuse_requests_from_changes(changes):
@@ -208,6 +294,9 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                         req['reuse_cost'] = normalized
                 if isinstance(target_obj, dict) and target_obj.get('id'):
                     req['target_id'] = target_obj.get('id')
+                stack_reuse_cost = _normalize_stack_reuse_cost(value.get('stack_reuse_cost', []))
+                if stack_reuse_cost:
+                    req['stack_reuse_cost'] = stack_reuse_cost
                 requests.append(req)
             return requests
 
@@ -288,6 +377,19 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                         max(0, int(current_val) - int(spend)),
                         username="[再使用コスト]"
                     )
+
+            stack_reuse_cost = _normalize_stack_reuse_cost(policy.get('stack_reuse_cost', []))
+            if stack_reuse_cost:
+                actor_id = intent_obj.get('actor_id') or base_slot.get('actor_id')
+                actor = characters_by_id.get(actor_id) if actor_id else None
+                if not _consume_stack_reuse_cost(actor, stack_reuse_cost):
+                    logger.info(
+                        "[reuse_schedule_skip] slot=%s actor=%s reason=insufficient_stack_reuse_cost required=%s",
+                        current_slot_id,
+                        actor_id,
+                        stack_reuse_cost
+                    )
+                    return None
 
             base_id = f"{origin_slot}__EX{next_depth}"
             next_slot_id = base_id
@@ -1234,5 +1336,3 @@ def _try_auto_advance_battle_only_round(room, state):
     if not refreshed.get('is_round_ended', False):
         return
     process_round_start(room, actor)
-
-

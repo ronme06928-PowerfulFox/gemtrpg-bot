@@ -514,6 +514,7 @@
       { id: "ef_win_shindou", label: "勝利時: targetに減速2スタック(3R)", desc: "WINでtargetへBu-12を付与。extra_jsonに data.count=2 を設定。", seed: { timing: "WIN", type: "APPLY_BUFF", target: "target", buff_id: "Bu-12", lasting: 3, delay: 0, _extra_json: { data: { count: 2 } } } },
       { id: "ef_consume_gyoma_gain", label: "使用時: 凝魔3消費でMP+5", desc: "CONSUME_BUFF_COUNT_FOR_GAIN。extra_json に consume_required/gains を設定。", seed: { timing: "PRE_MATCH", type: "CONSUME_BUFF_COUNT_FOR_GAIN", target: "self", buff_name: "凝魔", _extra_json: { consume_required: 3, gains: [{ type: "MP", value: 5 }] } } },
       { id: "ef_consume_gyoma_power", label: "使用時: 凝魔最大5消費で最終威力+", desc: "CONSUME_BUFF_COUNT_FOR_POWER。extra_json に consume_max/value_per_stack/apply_to/min_consume を設定。", seed: { timing: "PRE_MATCH", type: "CONSUME_BUFF_COUNT_FOR_POWER", target: "self", buff_name: "凝魔", _extra_json: { consume_max: 5, value_per_stack: 1, apply_to: "final", min_consume: 1 } } },
+      { id: "ef_reuse_gyoma_cost", label: "的中時: 凝魔8消費で再使用", desc: "USE_SKILL_AGAIN。extra_json に stack_reuse_cost を設定。", seed: { timing: "HIT", type: "USE_SKILL_AGAIN", target: "self", _extra_json: { max_reuses: 1, consume_cost: false, stack_reuse_cost: { buff_name: "凝魔", value: 8 } } } },
       { id: "ef_pre_power", label: "マッチ前: 最終威力 +2", desc: "MODIFY_FINAL_POWERは PRE_MATCH/BEFORE_POWER_ROLL 推奨。", seed: { timing: "PRE_MATCH", type: "MODIFY_FINAL_POWER", target: "self", value: 2 } },
       { id: "ef_pern_rupture", label: "判定前: 出血3ごとに破裂+1", desc: "APPLY_STATE_PER_Nの典型。source/source_param/per_Nが必須。", seed: { timing: "BEFORE_POWER_ROLL", type: "APPLY_STATE_PER_N", target: "target", source: "target", source_param: "出血", per_N: 3, state_name: "破裂", value: 1 } },
       { id: "ef_damage_bonus", label: "的中時: ダメージ固定 +5", desc: "DAMAGE_BONUS の単純加算例。", seed: { timing: "HIT", type: "DAMAGE_BONUS", target: "target", value: 5 } }
@@ -627,9 +628,9 @@
       USE_SKILL_AGAIN: {
         meaning: "同スキルの再使用を許可します。",
         value_kind: "none",
-        value_help: "通常未使用。回数制御は extra_json",
+        value_help: "通常未使用。回数制御や再使用コストは extra_json",
         required: [],
-        optional: ["target", "condition", "extra_json(max_reuses,consume_cost,reuse_cost)"],
+        optional: ["target", "condition", "extra_json(max_reuses,consume_cost,reuse_cost,stack_reuse_cost)"],
         unused: ["source", "source_param", "per_N", "state_name", "buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id", "value"]
       },
       CUSTOM_EFFECT: {
@@ -997,6 +998,7 @@
       if(/^\d+\s*ラウンド継続$/.test(String(rawLine||"").trim())) return [];
       if(/^\(最大(?:で)?\s*\d+\)?$/.test(String(rawLine||"").trim())) return [];
       if(/この効果で付与されたスキルは\d+回まで使用可能/.test(String(rawLine||""))) return [];
+      if(/(蓄力|凝魔).*不足.*効果は発生しない/.test(_nlCleanLine(rawLine))) return [];
       const t=_nlExtractTiming(rawLine);
       if(t.error){
         if(allowImplicitTiming && String(t.error).includes("timing語彙が見つかりません")){
@@ -1160,15 +1162,37 @@
         add({ timing:t.timing, type:"APPLY_STATE_PER_N", target:"target", source:"self", source_param:m[2], per_N:Number(m[3]), state_name:m[6], value:Number(m[4]), rounds:Number(m[5]) });
       }
 
+      let matchedConsumeApplyState = false;
+      m=body.match(/(蓄力|凝魔)\s*(\d+)\s*を消費し[、,，]?\s*(?:(対象|相手|自分|自身)に?)?\s*(\d+)\s*ラウンド(?:の)?\s*(出血|破裂|亀裂|戦慄|荊棘)\s*(-?\d+)\s*を付与/);
+      if(m){
+        const applyTargetWord = m[3] || "";
+        const applyTarget = (applyTargetWord==="自分" || applyTargetWord==="自身") ? "self" : "target";
+        add({
+          timing:t.timing,
+          type:"CONSUME_BUFF_COUNT_FOR_GAIN",
+          target:"self",
+          buff_name:m[1],
+          consume_required:Math.max(1, Number(m[2])),
+          gains:[{
+            type:"APPLY_STATE",
+            target:applyTarget,
+            state_name:m[5],
+            value:Number(m[6]),
+            rounds:Math.max(1, Number(m[4]))
+          }]
+        });
+        matchedConsumeApplyState = true;
+      }
+
       m=body.match(/(\d+)\s*ラウンド.*?(出血|破裂|亀裂|戦慄|荊棘)\s*(-?\d+)\s*を付与/);
       let matchedRoundStateApply = false;
-      if(m){
+      if(m && !matchedConsumeApplyState){
         matchedRoundStateApply = true;
         add({ timing: t.timing, type: "APPLY_STATE", target: defaultApplyTarget, state_name: m[2], value: Number(m[3]), rounds: Number(m[1]) });
       }
 
       m=body.match(/(出血|破裂|亀裂|戦慄|荊棘|FP|MP|HP)\s*(-?\d+)\s*を付与/);
-      if(m && !matchedRoundStateApply){
+      if(m && !matchedRoundStateApply && !matchedConsumeApplyState){
         add({ timing: t.timing, type: "APPLY_STATE", target: defaultApplyTarget, state_name: m[1], value: Number(m[2]) });
       }
       m=body.match(/(出血|破裂|亀裂|戦慄|荊棘|FP|MP|HP)\s*(-?\d+)\s*を与える/);
@@ -1262,6 +1286,22 @@
       if(m){
         add({ timing: t.timing, type: "REMOVE_BUFF", target, buff_id: m[1] });
       }
+      let matchedConditionalStackBuffGain = false;
+      m=body.match(/(?:対象|相手)(?:に|の)?(出血|破裂|亀裂|戦慄|荊棘)(?:が\s*(\d+)\s*以上|がある)なら.*?(蓄力|凝魔)\s*(\d+)\s*を(付与|得る|獲得)/);
+      if(m){
+        const bId=_nlResolveBuffIdByName(m[3]);
+        if(bId){
+          add({
+            timing:t.timing,
+            type:"APPLY_BUFF",
+            target:(m[5]==="得る" || m[5]==="獲得" || /自分|自身/.test(body)) ? "self" : "target",
+            buff_id:bId,
+            data:{ count:Number(m[4]) },
+            condition:{ source:"target", param:m[1], operator:"GTE", value:Number(m[2]||1) }
+          });
+          matchedConditionalStackBuffGain = true;
+        }
+      }
       m=body.match(/\[\[[^\]]*?(加速|減速|挑発|行動不能|震盪|蓄力|凝魔|出血遷延)[^\]]*?\]\]\s*を?\s*(\d+)?\s*(付与|得る)/);
       if(!m){
         m=body.match(/(加速|減速|挑発|行動不能|震盪|蓄力|凝魔|出血遷延)\s*(\d+)?\s*を(付与|得る)/);
@@ -1276,7 +1316,7 @@
           m = null;
         }
       }
-      if(m && !matchedConsumeApplyBuff){
+      if(m && !matchedConsumeApplyBuff && !matchedConditionalStackBuffGain){
         const bId=_nlResolveBuffIdByName(m[1]);
         if(bId){
           const action = m[3];
@@ -1482,9 +1522,11 @@
       if(body.includes("再使用")){
         const max=(body.match(/(\d+)回まで/)||[])[1];
         const fp=(body.match(/FPを(\d+)消費/)||[])[1];
+        const stack=(body.match(/(凝魔|蓄力)(\d+)を消費/) || body.match(/(凝魔|蓄力)を(\d+)消費/));
         const row={ timing: t.timing, type: "USE_SKILL_AGAIN", target:"self", consume_cost:false };
         if(max) row.max_reuses=Number(max);
         if(fp) row.reuse_cost=[{ type:"FP", value:Number(fp) }];
+        if(stack) row.stack_reuse_cost={ buff_name:stack[1], value:Number(stack[2]) };
         add(row);
       }
       m=body.match(/(自分|自身)のFPが(\d+)以上なら.*?出血氾濫/);
@@ -1996,6 +2038,16 @@
       if(raw.type==="APPLY_STATE_PER_N" && raw.per_N!==undefined && raw.per_N<=0) warns.push("per_N は1以上を推奨");
       if(raw.type==="APPLY_BUFF" && raw.buff_name && !raw.buff_id) warns.push("APPLY_BUFF は buff_id 指定へ移行してください");
       if(raw.type==="REMOVE_BUFF" && raw.buff_name && !raw.buff_id) warns.push("REMOVE_BUFF は buff_id 指定へ移行してください");
+      if(raw.type==="USE_SKILL_AGAIN" && raw.stack_reuse_cost!==undefined){
+        const costs=Array.isArray(raw.stack_reuse_cost)?raw.stack_reuse_cost:[raw.stack_reuse_cost];
+        costs.forEach((c, idx)=>{
+          if(!c || typeof c!=="object") warns.push(`stack_reuse_cost ${idx+1}: オブジェクトで指定してください`);
+          else {
+            if(!c.buff_name) warns.push(`stack_reuse_cost ${idx+1}: buff_name が必要です`);
+            if(!(Number(c.value)>0)) warns.push(`stack_reuse_cost ${idx+1}: value は1以上が必要です`);
+          }
+        });
+      }
       if(spec.value_kind==="none" && raw.value!==undefined) warns.push("このTypeでは通常 value は使いません");
       if(spec.value_kind==="multiplier" && raw.value!==undefined && raw.value<=0) warns.push("倍率valueは 0 より大きい値を推奨");
       if((raw.type==="MODIFY_BASE_POWER" || raw.type==="MODIFY_FINAL_POWER") && !["PRE_MATCH","BEFORE_POWER_ROLL"].includes(raw.timing||"")) warns.push("MODIFY_* は PRE_MATCH / BEFORE_POWER_ROLL で使うのを推奨");

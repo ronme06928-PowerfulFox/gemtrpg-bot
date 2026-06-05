@@ -1117,6 +1117,56 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                             _stable_set_status_value(sim_gain_target, gain_type, current_val + gain_value)
                             changes_to_apply.append((gain_target_obj, "APPLY_STATE", gain_type, gain_value))
                             gain_count += 1
+                        elif gain_type in {"STATE", "APPLY_STATE"}:
+                            gain_state_name = str(gain.get("state_name", gain.get("name", "")) or "").strip()
+                            if not gain_state_name:
+                                continue
+                            try:
+                                gain_value = int(gain.get("value", 0))
+                            except (TypeError, ValueError):
+                                gain_value = 0
+                            if gain_value == 0:
+                                continue
+                            try:
+                                gain_rounds = int(gain.get("rounds", 0))
+                            except (TypeError, ValueError):
+                                gain_rounds = 0
+                            if gain_state_name == "亀裂" and gain_value > 0:
+                                if not gain_target_obj:
+                                    continue
+                                if gain_rounds > 0:
+                                    changes_to_apply.append((
+                                        gain_target_obj,
+                                        "APPLY_BUFF",
+                                        f"亀裂_R{gain_rounds}",
+                                        {
+                                            "lasting": gain_rounds,
+                                            "delay": 0,
+                                            "count": gain_value,
+                                            "data": {
+                                                "buff_id": "Bu-Fissure",
+                                                "original_rounds": gain_rounds,
+                                                "fissure_count": gain_value,
+                                            },
+                                        },
+                                    ))
+                                    _stable_set_status_value(
+                                        sim_gain_target,
+                                        gain_state_name,
+                                        _stable_get_status_value(sim_gain_target, gain_state_name) + gain_value,
+                                    )
+                                    gain_count += 1
+                                else:
+                                    changes_to_apply.append((gain_target_obj, "APPLY_STATE", gain_state_name, gain_value))
+                                    gain_count += 1
+                            else:
+                                _stable_set_status_value(
+                                    sim_gain_target,
+                                    gain_state_name,
+                                    _stable_get_status_value(sim_gain_target, gain_state_name) + gain_value,
+                                )
+                                changes_to_apply.append((gain_target_obj, "APPLY_STATE", gain_state_name, gain_value))
+                                gain_count += 1
                         elif gain_type in {"BUFF", "APPLY_BUFF"}:
                             gain_buff_name = gain.get("buff_name")
                             gain_buff_id = gain.get("buff_id")
@@ -1300,6 +1350,26 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 }
                 if reuse_cost:
                     request_payload["reuse_cost"] = reuse_cost
+                raw_stack_reuse_cost = effect.get("stack_reuse_cost", effect.get("stack_reuse_costs", []))
+                if isinstance(raw_stack_reuse_cost, dict):
+                    raw_stack_reuse_cost = [raw_stack_reuse_cost]
+                stack_reuse_cost = []
+                if isinstance(raw_stack_reuse_cost, list):
+                    for entry in raw_stack_reuse_cost:
+                        if not isinstance(entry, dict):
+                            continue
+                        buff_name = str(entry.get("buff_name", entry.get("resource", entry.get("name", ""))) or "").strip()
+                        if not buff_name:
+                            continue
+                        try:
+                            c_val = int(entry.get("value", entry.get("count", entry.get("consume_required", 0))))
+                        except (TypeError, ValueError):
+                            c_val = 0
+                        if c_val <= 0:
+                            continue
+                        stack_reuse_cost.append({"buff_name": buff_name, "value": c_val})
+                if stack_reuse_cost:
+                    request_payload["stack_reuse_cost"] = stack_reuse_cost
                 changes_to_apply.append((target_obj, "USE_SKILL_AGAIN", "None", request_payload))
                 log_snippets.append(f"[スキル再使用 x{max_reuses}]")
             elif effect_type == "CUSTOM_EFFECT":

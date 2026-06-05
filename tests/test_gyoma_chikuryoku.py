@@ -114,6 +114,67 @@ def test_consume_buff_count_for_gain_success_and_insufficient():
     assert any("凝魔不足" in line for line in logs_fail)
 
 
+def test_use_skill_again_carries_stack_reuse_cost():
+    char = _build_char()
+    effects = [
+        {
+            "timing": "HIT",
+            "type": "USE_SKILL_AGAIN",
+            "max_reuses": 1,
+            "consume_cost": False,
+            "stack_reuse_cost": {"buff_name": "凝魔", "value": 8},
+        }
+    ]
+
+    _, logs, changes = process_skill_effects(effects, "HIT", char, char, context={"characters": [char]})
+
+    reuse_changes = [c for c in changes if c[1] == "USE_SKILL_AGAIN"]
+    assert len(reuse_changes) == 1
+    payload = reuse_changes[0][3]
+    assert payload["max_reuses"] == 1
+    assert payload["stack_reuse_cost"] == [{"buff_name": "凝魔", "value": 8}]
+    assert any("スキル再使用 x1" in line for line in logs)
+
+
+def test_consume_buff_count_for_gain_can_apply_timed_fissure_state():
+    char = _build_char()
+    target = _build_char()
+    target["id"] = "target-1"
+    apply_buff(char, "凝魔", -1, 0, data={"buff_id": "Bu-Gyoma"}, count=8)
+
+    effects = [
+        {
+            "timing": "HIT",
+            "type": "CONSUME_BUFF_COUNT_FOR_GAIN",
+            "target": "self",
+            "buff_name": "凝魔",
+            "consume_required": 8,
+            "gains": [
+                {
+                    "type": "APPLY_STATE",
+                    "target": "target",
+                    "state_name": "亀裂",
+                    "value": 2,
+                    "rounds": 6,
+                }
+            ],
+        }
+    ]
+
+    _, logs, changes = process_skill_effects(effects, "HIT", char, target, context={"characters": [char, target]})
+    for change in changes:
+        change_type = change[1]
+        if change_type == "APPLY_BUFF" and change[0] is target:
+            _apply_changes(target, [change])
+        elif change[0] is char:
+            _apply_changes(char, [change])
+
+    assert get_status_value(target, "亀裂") == 2
+    assert any(b.get("buff_id") == "Bu-Fissure" and b.get("count") == 2 for b in target["special_buffs"])
+    assert not [b for b in char["special_buffs"] if b.get("name") == "凝魔"]
+    assert any("凝魔 8消費" in line for line in logs)
+
+
 def test_consume_buff_count_for_power_uses_up_to_max_and_adds_final_power():
     char = _build_char()
     apply_buff(char, "凝魔", -1, 0, data={"buff_id": "Bu-Gyoma"}, count=7)

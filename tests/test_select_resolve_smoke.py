@@ -1562,6 +1562,98 @@ def test_case23_use_skill_again_reuse_cost_blocks_next_reuse_when_insufficient(m
     assert int((fp_state or {}).get("value", 0)) == 0
 
 
+def test_case23b_use_skill_again_stack_reuse_cost_consumes_gyoma(monkeypatch):
+    _, battle_core = _mods()
+    state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])
+    attacker = next(c for c in state["characters"] if c["id"] == "A1")
+    attacker["special_buffs"] = [
+        {"name": "凝魔", "buff_id": "Bu-31", "count": 8, "lasting": -1, "delay": 0, "data": {"count": 8}}
+    ]
+    _add_slot(state, "A_slot", "A1", "ally", 10, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 9, 0)
+    _set_intent(state, "A_slot", "A1", "atk_reuse", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "def_skill", "single_slot", "A_slot")
+    state["battle_state"]["phase"] = "resolve_single"
+
+    _patch_room_and_socket(monkeypatch, state)
+
+    old_atk = battle_core.all_skill_data.get("atk_reuse")
+    old_def = battle_core.all_skill_data.get("def_skill")
+    battle_core.all_skill_data["atk_reuse"] = {
+        "base_power": 5,
+        "dice_power": "1d1",
+        "rule_data": {
+            "effects": [
+                {
+                    "timing": "HIT",
+                    "type": "USE_SKILL_AGAIN",
+                    "max_reuses": 2,
+                    "stack_reuse_cost": {"buff_name": "凝魔", "value": 8},
+                }
+            ]
+        },
+    }
+    battle_core.all_skill_data["def_skill"] = {
+        "base_power": 4,
+        "dice_power": "1d1",
+        "rule_data": {"effects": []},
+    }
+
+    def _stub_clash(**_kwargs):
+        return {
+            "ok": True,
+            "outcome": "attacker_win",
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "rolls": {"power_a": 12, "power_b": 8, "tie_break": None},
+            },
+        }
+
+    def _stub_one_sided(**_kwargs):
+        return {
+            "ok": True,
+            "summary": {
+                "damage": [],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "logs": [],
+                "reuse_requests": [
+                    {
+                        "max_reuses": 2,
+                        "consume_cost": False,
+                        "stack_reuse_cost": [{"buff_name": "凝魔", "value": 8}],
+                    }
+                ],
+                "rolls": {"total_damage": 0},
+            },
+        }
+
+    monkeypatch.setattr(battle_core, "_resolve_clash_by_existing_logic", _stub_clash)
+    monkeypatch.setattr(battle_core, "_resolve_one_sided_by_existing_logic", _stub_one_sided)
+    try:
+        battle_core.run_select_resolve_auto("room_t", "battle_test")
+    finally:
+        if old_atk is None:
+            battle_core.all_skill_data.pop("atk_reuse", None)
+        else:
+            battle_core.all_skill_data["atk_reuse"] = old_atk
+        if old_def is None:
+            battle_core.all_skill_data.pop("def_skill", None)
+        else:
+            battle_core.all_skill_data["def_skill"] = old_def
+
+    trace = [t for t in state["battle_state"]["resolve"]["trace"] if t.get("kind") in {"clash", "one_sided"}]
+    assert len(trace) == 2
+    assert trace[0].get("kind") == "clash"
+    assert trace[1].get("kind") == "one_sided"
+    assert str(trace[1].get("attacker_slot", "")).startswith("A_slot__EX1")
+    assert not attacker.get("special_buffs")
+
+
 def test_case24_step_total_does_not_carry_over_when_trace_reset(monkeypatch):
     _, battle_core = _mods()
     state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])

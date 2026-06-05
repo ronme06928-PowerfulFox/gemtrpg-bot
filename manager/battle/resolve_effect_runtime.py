@@ -824,6 +824,21 @@ def _apply_effect_changes_like_duel(
             }
             if reuse_cost:
                 req['reuse_cost'] = reuse_cost
+            raw_stack_reuse_cost = payload.get('stack_reuse_cost', [])
+            if isinstance(raw_stack_reuse_cost, dict):
+                raw_stack_reuse_cost = [raw_stack_reuse_cost]
+            stack_reuse_cost = []
+            if isinstance(raw_stack_reuse_cost, list):
+                for entry in raw_stack_reuse_cost:
+                    if not isinstance(entry, dict):
+                        continue
+                    buff_name = str(entry.get('buff_name', entry.get('resource', entry.get('name', ''))) or '').strip()
+                    c_val = _safe_int(entry.get('value', entry.get('count', entry.get('consume_required', 0))), 0)
+                    if not buff_name or c_val <= 0:
+                        continue
+                    stack_reuse_cost.append({'buff_name': buff_name, 'value': c_val})
+            if stack_reuse_cost:
+                req['stack_reuse_cost'] = stack_reuse_cost
             if isinstance(char, dict) and char.get('id'):
                 req['target_id'] = char.get('id')
             if isinstance(reuse_requests, list):

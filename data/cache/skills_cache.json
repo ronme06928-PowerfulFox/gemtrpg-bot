@@ -2345,5 +2345,77 @@
     "tags": [
       "攻撃"
     ]
+  },
+  "Mp-11": {
+    "スキルID": "Mp-11",
+    "チャットパレット": "5+1d4+1d{魔法補正} 【Mp-11 鋭い針】",
+    "デフォルト名称": "鋭い針",
+    "分類": "魔法",
+    "距離": "遠隔",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "5",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):自分は[[W-75|凝魔]]3を得る。対象に[[W-04|亀裂]]があるなら、さらに[[W-75|凝魔]]1を得る。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"MP\",\"value\":2}],\"power_bonus\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-31\",\"data\":{\"count\":3}},{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-31\",\"condition\":{\"source\":\"target\",\"param\":\"亀裂\",\"operator\":\"GTE\",\"value\":1},\"data\":{\"count\":1}}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "Mp-12": {
+    "スキルID": "Mp-12",
+    "チャットパレット": "4+1d6+1d{魔法補正} 【Mp-12 傷口に沿わせて】",
+    "デフォルト名称": "傷口に沿わせて",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "4",
+    "ダイス威力": "+1d6",
+    "使用時効果": "([[W-19|使用時]]):MPを2消費。FPを1消費。",
+    "特記": "",
+    "発動時効果": "([[W-21|マッチ勝利時]]):自分は[[W-75|凝魔]]4を得る。([[W-20|的中時]]):対象の[[W-04|亀裂]]が3以上なら、自分は[[W-75|凝魔]]2を得る。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"MP\",\"value\":2},{\"type\":\"FP\",\"value\":1}],\"power_bonus\":[],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-31\",\"data\":{\"count\":4}},{\"timing\":\"HIT\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-31\",\"condition\":{\"source\":\"target\",\"param\":\"亀裂\",\"operator\":\"GTE\",\"value\":3},\"data\":{\"count\":2}}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "Mp-13": {
+    "スキルID": "Mp-13",
+    "チャットパレット": "6+1d4+1d{魔法補正} 【Mp-13 芯まで割れろ】",
+    "デフォルト名称": "芯まで割れろ",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "1",
+    "基礎威力": "6",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを3消費。FPを1消費。",
+    "特記": "",
+    "発動時効果": "([[W-20|的中時]]):自分の[[W-75|凝魔]]8を消費し、対象に6[[W-16|ラウンド]]の[[W-04|亀裂]]2を付与。[[W-75|凝魔]]が不足している場合、この効果は発生しない。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"MP\",\"value\":3},{\"type\":\"FP\",\"value\":1}],\"power_bonus\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CONSUME_BUFF_COUNT_FOR_GAIN\",\"target\":\"self\",\"buff_name\":\"凝魔\",\"consume_required\":8,\"gains\":[{\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":2,\"rounds\":6}]}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "Mp-14": {
+    "スキルID": "Mp-14",
+    "チャットパレット": "9+1d4+1d{魔法補正} 【Mp-14 よく味わえ】",
+    "デフォルト名称": "よく味わえ",
+    "分類": "魔法",
+    "距離": "近接",
+    "属性": "貫通",
+    "取得コスト": "2",
+    "基礎威力": "9",
+    "ダイス威力": "+1d4",
+    "使用時効果": "([[W-19|使用時]]):MPを4消費。FPを1消費。",
+    "特記": "対象に[[W-04|亀裂]]があるなら、このスキルの[[W-50|基礎威力]]+1。",
+    "発動時効果": "([[W-20|的中時]]):自分の[[W-75|凝魔]]8を消費し、このスキルを[[W-58|再使用]](この効果による[[W-58|再使用]]は1回まで)。[[W-75|凝魔]]が不足している場合、この効果は発生しない。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"MP\",\"value\":4},{\"type\":\"FP\",\"value\":1}],\"power_bonus\":[{\"operation\":\"FIXED_IF_EXISTS\",\"source\":\"target\",\"param\":\"亀裂\",\"value\":1,\"threshold\":1}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"USE_SKILL_AGAIN\",\"target\":\"self\",\"consume_cost\":false,\"max_reuses\":1,\"stack_reuse_cost\":{\"buff_name\":\"凝魔\",\"value\":8}}]}",
+    "tags": [
+      "攻撃"
+    ]
   }
 }
