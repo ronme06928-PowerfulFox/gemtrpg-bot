@@ -1,9 +1,12 @@
 # manager/room_manager.py
+import atexit
 import copy
 import time
 
+from flask import current_app
+
 from extensions import socketio, active_room_states, user_sids
-from manager.data_manager import read_saved_rooms, save_room_to_db
+from manager.data_manager import read_saved_room, save_room_to_db
 from manager.utils import (
     set_status_value, get_status_value, apply_buff, remove_buff,
     normalize_status_name, normalize_character_labels,
@@ -189,9 +192,9 @@ def get_room_state(room_name):
     if room_name in active_room_states:
         state = active_room_states[room_name]
     else:
-        all_rooms = read_saved_rooms()
-        if room_name in all_rooms:
-            state = all_rooms[room_name]
+        room_data = read_saved_room(room_name)
+        if isinstance(room_data, dict):
+            state = room_data
             if 'logs' not in state:
                 state['logs'] = []
             if '_log_seq' not in state:
@@ -299,14 +302,111 @@ def get_room_state(room_name):
         normalize_character_labels(char)
     return state
 
-def save_specific_room_state(room_name):
-    state = active_room_states.get(room_name)
-    if not state: return False
-    if save_room_to_db(room_name, state):
-        return True
-    else:
-        logger.error(f"[ERROR] Auto-save failed: {room_name}")
+# === ▼▼▼ DB保存のデバウンス（ライトビハインド） ▼▼▼ ===
+# アクション毎にルーム全状態をDBへ同期コミットすると、eventlet単一ワーカー上で
+# 書込のたびに他リクエストが待たされる。短い間隔で発生する保存要求をまとめ、
+# 1回のコミットに集約する。in-memoryの active_room_states が常に真実なので、
+# 永続化が数秒遅れても読み取り(get_room_state)の整合性は保たれる。
+_SAVE_DEBOUNCE_SECONDS = 2.0
+_dirty_rooms = set()
+_flush_scheduled = False
+_app_ref = None
+
+
+def _resolve_app():
+    """DB操作に使うFlaskアプリを返す。確保できなければNone。"""
+    if _app_ref is not None:
+        return _app_ref
+    try:
+        return current_app._get_current_object()
+    except RuntimeError:
+        return None
+
+
+def _flush_dirty_rooms_once():
+    """現在ダーティなルームをまとめてDBへ書き込む（要app_context）。"""
+    rooms = list(_dirty_rooms)
+    _dirty_rooms.difference_update(rooms)
+    for room_name in rooms:
+        state = active_room_states.get(room_name)
+        if state is None:
+            continue
+        if not save_room_to_db(room_name, state):
+            # 失敗分は次回フラッシュへ持ち越す
+            _dirty_rooms.add(room_name)
+            logger.error(f"[ERROR] Auto-save failed: {room_name}")
+
+
+def _flush_within_context():
+    """app_contextを確保してフラッシュする。確保できなければスキップ。"""
+    app = _resolve_app()
+    if app is None:
+        # アプリコンテキストが無い環境（テスト/シャットダウン後など）では
+        # 永続化できないため安全にスキップする。本番のソケット/HTTP処理は
+        # 常にコンテキスト内で save を呼ぶため _app_ref は捕捉済み。
         return False
+    with app.app_context():
+        _flush_dirty_rooms_once()
+    return True
+
+
+def _flush_worker():
+    global _flush_scheduled
+    try:
+        socketio.sleep(_SAVE_DEBOUNCE_SECONDS)
+        _flush_within_context()
+    except Exception as e:
+        logger.error(f"[ERROR] debounced flush worker failed: {e}")
+    finally:
+        _flush_scheduled = False
+    # フラッシュ中(yield中)に積まれた新たな保存要求があれば再スケジュール
+    if _dirty_rooms:
+        _schedule_flush()
+
+
+def _schedule_flush():
+    global _flush_scheduled
+    if _flush_scheduled:
+        return
+    _flush_scheduled = True
+    try:
+        socketio.start_background_task(_flush_worker)
+    except Exception as e:
+        # バックグラウンド起動に失敗した場合は同期保存にフォールバック
+        _flush_scheduled = False
+        logger.error(f"[ERROR] could not schedule flush, saving inline: {e}")
+        _flush_within_context()
+
+
+def flush_pending_saves():
+    """保留中の保存を即時に同期フラッシュする（シャットダウン時等）。"""
+    if not _dirty_rooms:
+        return
+    try:
+        _flush_within_context()
+    except Exception:
+        # シャットダウン中はロギングのストリームが閉じている場合があるため握り潰す
+        pass
+
+
+atexit.register(flush_pending_saves)
+
+
+def save_specific_room_state(room_name):
+    """ルーム状態の永続化を要求する（デバウンスして後でまとめて保存）。"""
+    global _app_ref
+    state = active_room_states.get(room_name)
+    if not state:
+        return False
+    if _app_ref is None:
+        try:
+            _app_ref = current_app._get_current_object()
+        except RuntimeError:
+            _app_ref = None
+    _dirty_rooms.add(room_name)
+    _schedule_flush()
+    return True
+# === ▲▲▲ DB保存のデバウンスここまで ▲▲▲ ===
 
 def broadcast_state_update(room_name):
     state = get_room_state(room_name)
