@@ -21,7 +21,7 @@ import argparse
 
 IS_RENDER = 'RENDER' in os.environ
 
-from flask import Flask, current_app, jsonify, request, send_from_directory, session
+from flask import Flask, current_app, g, jsonify, request, send_from_directory, session
 from flask_cors import CORS
 from flask_compress import Compress # 追加: 圧縮転送用ライブラリ
 from whitenoise import WhiteNoise # 追加: 静的ファイル配信高速化
@@ -264,6 +264,42 @@ def add_header(response):
     return response
 
 
+# === パフォーマンス計測（実測用） ===
+# 環境変数で制御:
+#   PERF_LOG=1        … 全リクエストの所要時間を [PERF] 行で出力（詳細計測モード）
+#   SLOW_REQUEST_MS   … この閾値(ms)以上のリクエストは PERF_LOG 無しでも警告（既定 500）
+# Render の Logs を "[PERF]" で絞り込めば、遅いエンドポイントが一覧できる。
+import time as _time
+
+PERF_LOG = os.environ.get('PERF_LOG') == '1'
+try:
+    SLOW_REQUEST_MS = float(os.environ.get('SLOW_REQUEST_MS', '500'))
+except (TypeError, ValueError):
+    SLOW_REQUEST_MS = 500.0
+
+
+def _perf_before():
+    g._perf_start = _time.perf_counter()
+
+
+def _perf_after(response):
+    start = getattr(g, '_perf_start', None)
+    if start is None:
+        return response
+    dur_ms = (_time.perf_counter() - start) * 1000.0
+    if PERF_LOG or dur_ms >= SLOW_REQUEST_MS:
+        try:
+            size = response.calculate_content_length()
+        except Exception:
+            size = None
+        logging.info(
+            "[PERF] %s %s -> %s %.0fms %sB",
+            request.method, request.path, response.status_code,
+            dur_ms, size if size is not None else '?',
+        )
+    return response
+
+
 def serve_mobile_index():
     print(f"[INFO] Accessing Mobile Root! Serving from: {STATIC_DIR}/mobile")
     return send_from_directory(os.path.join(STATIC_DIR, 'mobile'), 'index.html')
@@ -276,6 +312,10 @@ def serve_static_files(filename):
 def register_http_routes(flask_app):
     flask_app.add_url_rule('/', 'serve_index', serve_index)
     flask_app.add_url_rule('/healthz', 'healthz', healthz)
+    # perf計測: after_request は登録の逆順で実行されるため、_perf_after を先に
+    # 登録して add_header の後（=最終レスポンス確定後）に計測させる。
+    flask_app.before_request(_perf_before)
+    flask_app.after_request(_perf_after)
     flask_app.after_request(add_header)
     flask_app.add_url_rule('/mobile', 'serve_mobile_index', serve_mobile_index)
     flask_app.add_url_rule('/<path:filename>', 'serve_static_files', serve_static_files)

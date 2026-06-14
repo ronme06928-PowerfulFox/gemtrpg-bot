@@ -1,9 +1,14 @@
 # manager/data_manager.py
 import gspread
 import json
+import logging
 import os
 import sys
+import time
 from dotenv import load_dotenv
+
+# パフォーマンス計測（PERF_LOG=1 のときのみ DB 書込時間を出力）
+_PERF_LOG = os.environ.get('PERF_LOG') == '1'
 
 # ★ extensions から db と all_skill_data をインポートするように変更
 from extensions import db, all_skill_data
@@ -274,6 +279,7 @@ def save_room_to_db(room_name, room_state, update_only=False):
     デバウンス自動保存が削除直後のルームを gm_pin_hash 等を欠落させたまま
     復活させる事故を防ぐために使う。
     """
+    _t0 = time.perf_counter() if _PERF_LOG else None
     try:
         room = Room.query.filter_by(name=room_name).first()
         if room:
@@ -288,6 +294,8 @@ def save_room_to_db(room_name, room_state, update_only=False):
             db.session.add(new_room)
 
         db.session.commit()
+        if _t0 is not None:
+            logging.info("[PERF] save_room_to_db %s %.0fms", room_name, (time.perf_counter() - _t0) * 1000.0)
         return True
     except Exception as e:
         db.session.rollback()

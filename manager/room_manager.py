@@ -1,9 +1,14 @@
 # manager/room_manager.py
 import atexit
 import copy
+import json
+import os
 import time
 
 from flask import current_app
+
+# パフォーマンス計測（PERF_LOG=1 のときのみ state_updated のペイロードサイズを出力）
+_PERF_LOG = os.environ.get('PERF_LOG') == '1'
 
 from extensions import socketio, active_room_states, user_sids
 from manager.data_manager import read_saved_room, save_room_to_db
@@ -426,6 +431,16 @@ def broadcast_state_update(room_name):
             for char in state['characters']:
                 if char['id'] in owners:
                     char['owner_id'] = owners[char['id']]
+
+        if _PERF_LOG:
+            try:
+                size = len(json.dumps(state, ensure_ascii=False, default=str))
+                logger.info(
+                    "[PERF] state_updated room=%s size=%dB logs=%d chars=%d",
+                    room_name, size, len(state.get('logs', [])), len(state.get('characters', [])),
+                )
+            except Exception:
+                pass
 
         _safe_emit('state_updated', state, to=room_name)
 
