@@ -584,9 +584,13 @@ def delete_room():
     if not verify_room_gm_key(room, gm_key):
         return jsonify({"error": "GM PINまたはマスターキーが正しくありません"}), 403
 
+    # DB削除の前に保留中の自動保存を破棄しメモリからも除去する。
+    # 削除後にデバウンスのフラッシュが走ってルームを復活させる事故を防ぐ。
+    from manager.room_manager import discard_pending_save
+    discard_pending_save(room_name)
+    active_room_states.pop(room_name, None)
+
     if delete_room_from_db(room_name):
-        if room_name in active_room_states:
-            del active_room_states[room_name]
         return jsonify({"message": "Deleted"})
     return jsonify({"error": "Delete failed"}), 500
 

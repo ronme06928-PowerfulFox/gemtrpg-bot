@@ -267,8 +267,13 @@ def read_saved_rooms_with_owners():
             pass
         return []
 
-def save_room_to_db(room_name, room_state):
-    """特定のルームをDBに保存（新規作成 or 更新）"""
+def save_room_to_db(room_name, room_state, update_only=False):
+    """特定のルームをDBに保存（新規作成 or 更新）。
+
+    update_only=True のときは既存ルームの更新のみ行い、存在しなければ作成しない。
+    デバウンス自動保存が削除直後のルームを gm_pin_hash 等を欠落させたまま
+    復活させる事故を防ぐために使う。
+    """
     try:
         room = Room.query.filter_by(name=room_name).first()
         if room:
@@ -276,6 +281,8 @@ def save_room_to_db(room_name, room_state):
             # ★ Explicitly mark as modified for JSON field changes
             from sqlalchemy.orm.attributes import flag_modified
             flag_modified(room, "data")
+        elif update_only:
+            return False
         else:
             new_room = Room(name=room_name, data=room_state)
             db.session.add(new_room)

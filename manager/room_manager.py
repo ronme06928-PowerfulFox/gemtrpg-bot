@@ -323,6 +323,14 @@ def _resolve_app():
         return None
 
 
+def discard_pending_save(room_name):
+    """保留中の保存要求を破棄する（ルーム削除時など）。
+
+    削除後にフラッシュが走って save_room_to_db でルームを復活させるのを防ぐ。
+    """
+    _dirty_rooms.discard(room_name)
+
+
 def _flush_dirty_rooms_once():
     """現在ダーティなルームをまとめてDBへ書き込む（要app_context）。"""
     rooms = list(_dirty_rooms)
@@ -330,11 +338,13 @@ def _flush_dirty_rooms_once():
     for room_name in rooms:
         state = active_room_states.get(room_name)
         if state is None:
+            # 削除済み等。復活させない。
             continue
-        if not save_room_to_db(room_name, state):
-            # 失敗分は次回フラッシュへ持ち越す
-            _dirty_rooms.add(room_name)
-            logger.error(f"[ERROR] Auto-save failed: {room_name}")
+        # update_only=True: 存在しないルームは作らない（削除直後の復活防止）。
+        # 失敗時に再登録すると存在しないルームで無限ループするため再登録しない
+        # （次のユーザー操作で再度ダーティになるので取りこぼしは実害が小さい）。
+        if not save_room_to_db(room_name, state, update_only=True):
+            logger.error(f"[ERROR] Auto-save skipped/failed: {room_name}")
 
 
 def _flush_within_context():
