@@ -3,6 +3,9 @@
 .claude/
 gemtrpgdicebot-*.json
 
+# Node (フロントエンドビルド) — 成果物 static/dist は意図的にコミットする
+node_modules/
+
 # データベース・キャッシュ
 *.db
 instance/

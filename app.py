@@ -243,8 +243,13 @@ def add_header(response):
     静的ファイル(画像, CSS, JS)に強力なキャッシュヘッダーを付与する
     (WhiteNoiseが処理しきれない場合や、動的生成コンテンツへのキャッシュ適用のため)
     """
-    if request.path.startswith('/static/') or request.path.startswith('/images/'):
-        # Cache for 1 year
+    if (
+        request.path.startswith('/static/')
+        or request.path.startswith('/images/')
+        or request.path.startswith('/dist/')
+    ):
+        # Cache for 1 year. /dist のバンドルは ?v=<contenthash> でバスティングされるため
+        # 内容変更時はURLが変わる → 1年immutableキャッシュにして再検証を不要にする。
         response.headers['Cache-Control'] = 'public, max-age=31536000'
     elif (
         request.method == 'GET'
