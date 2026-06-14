@@ -216,6 +216,28 @@ def serve_index():
     return send_from_directory(STATIC_DIR, 'index.html')
 
 
+def healthz():
+    """
+    死活監視/スピンダウン防止用の軽量エンドポイント。
+    DBや外部APIに触れず即応するため、外部pingサービス(UptimeRobot等)から
+    短間隔で叩いてもインスタンスへの負荷はほぼ無い。
+    """
+    return 'ok', 200, {'Content-Type': 'text/plain; charset=utf-8'}
+
+
+# マスターデータ系API（スキル・アイテム等）。`--update` 実行時にしか内容が
+# 変わらないため、ブラウザキャッシュ + ETag条件付きリクエストで再取得を抑制する。
+MASTER_DATA_CACHE_PATHS = frozenset({
+    '/api/get_skill_data',
+    '/api/get_skill_metadata',
+    '/api/get_item_data',
+    '/api/get_radiance_data',
+    '/api/get_passive_data',
+    '/api/get_buff_data',
+    '/api/get_glossary_data',
+})
+
+
 def add_header(response):
     """
     静的ファイル(画像, CSS, JS)に強力なキャッシュヘッダーを付与する
@@ -224,6 +246,16 @@ def add_header(response):
     if request.path.startswith('/static/') or request.path.startswith('/images/'):
         # Cache for 1 year
         response.headers['Cache-Control'] = 'public, max-age=31536000'
+    elif (
+        request.method == 'GET'
+        and response.status_code == 200
+        and request.path in MASTER_DATA_CACHE_PATHS
+    ):
+        # 短期キャッシュ + ETagで条件付き再検証。max-age内は再取得なし、
+        # 期限切れ後も内容が同じなら304(本文なし)で済むため転送・パースを削減。
+        response.headers['Cache-Control'] = 'public, max-age=300'
+        response.add_etag()
+        return response.make_conditional(request)
     return response
 
 
@@ -238,6 +270,7 @@ def serve_static_files(filename):
 
 def register_http_routes(flask_app):
     flask_app.add_url_rule('/', 'serve_index', serve_index)
+    flask_app.add_url_rule('/healthz', 'healthz', healthz)
     flask_app.after_request(add_header)
     flask_app.add_url_rule('/mobile', 'serve_mobile_index', serve_mobile_index)
     flask_app.add_url_rule('/<path:filename>', 'serve_static_files', serve_static_files)

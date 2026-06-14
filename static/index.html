@@ -8,7 +8,7 @@
     <link rel="icon" type="image/svg+xml" href="images/favicon-gem.svg">
     <link rel="shortcut icon" href="images/favicon-gem.svg">
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 
 <body>
@@ -73,43 +73,43 @@
 
     </div>
 
-    <!-- JavaScriptファイルの読み込み（依存関係順） -->
-    <script src="js/buff_data.js"></script>
-    <script src="js/common/glossary_ui.js"></script>
-    <script src="js/sound_fx.js?v=20260407_2"></script>
-    <script src="js/legacy_globals.js?v=20260111"></script>
-    <script src="js/action_dock.js"></script>
-    <script src="js/exploration/exploration_view.js"></script>
-    <script src="js/exploration/exploration_dock.js"></script>
+    <!-- JavaScriptファイルの読み込み（依存関係順 / defer で順序維持のまま非同期DL） -->
+    <script defer src="js/buff_data.js"></script>
+    <script defer src="js/common/glossary_ui.js"></script>
+    <script defer src="js/sound_fx.js?v=20260407_2"></script>
+    <script defer src="js/legacy_globals.js?v=20260111"></script>
+    <script defer src="js/action_dock.js"></script>
+    <script defer src="js/exploration/exploration_view.js"></script>
+    <script defer src="js/exploration/exploration_dock.js"></script>
     <!-- Visual Battle Modules (Added 2026-02-10) -->
-    <script src="js/visual/visual_globals.js"></script>
-    <script src="js/visual/visual_arrows.js"></script>
-    <script src="js/visual/visual_map.js"></script>
-    <script src="js/visual/visual_controls.js"></script>
-    <script src="js/visual/visual_ui.js"></script>
-    <script src="js/visual/visual_panel.js"></script>
-    <script src="js/visual/visual_wide.js"></script>
-    <script src="js/visual/visual_socket.js"></script>
-    <script src="js/visual/visual_main.js?v=20260223_1"></script>
-    <script src="js/tab_visual_battle.js"></script>
-    <script src="js/wide_match_synced.js?v=20260111"></script>
-    <script src="js/tab_battlefield.js"></script>
-    <script src="js/tab_skill_search.js"></script>
-    <script src="js/modals.js"></script>
-    <script src="js/modals/behavior_flow_editor_modal.js"></script>
-    <script src="js/modals/battle_only_catalog_modal.js"></script>
-    <script src="js/modals/battle_only_formation_hub_modal.js"></script>
-    <script src="js/modals/battle_only_enemy_formation_modal.js"></script>
-    <script src="js/modals/battle_only_ally_formation_modal.js"></script>
-    <script src="js/modals/battle_only_stage_preset_modal.js"></script>
-    <script src="js/modals/battle_only_draft_modal.js"></script>
-    <script src="js/modals/battle_only_quick_start_modal.js"></script>
-    <script src="js/modals/battle_only_participant_modal.js"></script>
-    <script src="js/modals/room_preset_apply_modal.js"></script>
-    <script src="js/image_picker.js"></script>
-    <script src="js/item_modal.js"></script>
-    <script src="js/user_management.js"></script>
-    <script src="js/main.js"></script>
+    <script defer src="js/visual/visual_globals.js"></script>
+    <script defer src="js/visual/visual_arrows.js"></script>
+    <script defer src="js/visual/visual_map.js"></script>
+    <script defer src="js/visual/visual_controls.js"></script>
+    <script defer src="js/visual/visual_ui.js"></script>
+    <script defer src="js/visual/visual_panel.js"></script>
+    <script defer src="js/visual/visual_wide.js"></script>
+    <script defer src="js/visual/visual_socket.js"></script>
+    <script defer src="js/visual/visual_main.js?v=20260223_1"></script>
+    <script defer src="js/tab_visual_battle.js"></script>
+    <script defer src="js/wide_match_synced.js?v=20260111"></script>
+    <script defer src="js/tab_battlefield.js"></script>
+    <script defer src="js/tab_skill_search.js"></script>
+    <script defer src="js/modals.js"></script>
+    <script defer src="js/modals/behavior_flow_editor_modal.js"></script>
+    <script defer src="js/modals/battle_only_catalog_modal.js"></script>
+    <script defer src="js/modals/battle_only_formation_hub_modal.js"></script>
+    <script defer src="js/modals/battle_only_enemy_formation_modal.js"></script>
+    <script defer src="js/modals/battle_only_ally_formation_modal.js"></script>
+    <script defer src="js/modals/battle_only_stage_preset_modal.js"></script>
+    <script defer src="js/modals/battle_only_draft_modal.js"></script>
+    <script defer src="js/modals/battle_only_quick_start_modal.js"></script>
+    <script defer src="js/modals/battle_only_participant_modal.js"></script>
+    <script defer src="js/modals/room_preset_apply_modal.js"></script>
+    <script defer src="js/image_picker.js"></script>
+    <script defer src="js/item_modal.js"></script>
+    <script defer src="js/user_management.js"></script>
+    <script defer src="js/main.js"></script>
     <script type="module" src="js/battle/index.js?v=20260223_1"></script>
 </body>
 
