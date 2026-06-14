@@ -110,11 +110,18 @@ def _get_cors_origins():
     ]
 
 
+def _get_database_uri():
+    # Local runs must never use DATABASE_URL.  DATABASE_URL belongs to Render.
+    if not IS_RENDER:
+        return 'sqlite:///gemtrpg.db'
+    return os.environ.get('DATABASE_URL', 'sqlite:///gemtrpg.db')
+
+
 def configure_app(flask_app, config=None):
     global STATIC_DIR
     flask_app.config['JSON_AS_ASCII'] = False
     flask_app.config['SECRET_KEY'] = _get_secret_key()
-    flask_app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///gemtrpg.db')
+    flask_app.config['SQLALCHEMY_DATABASE_URI'] = _get_database_uri()
     flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     flask_app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
     flask_app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
@@ -146,18 +153,19 @@ def init_extensions(flask_app, cors_origins=None):
 
 
 def run_startup_tasks(flask_app):
-    print("--- Checking Database Schema (Global) ---")
-    from manager.db_migration import run_auto_migration
-    run_auto_migration(flask_app)
-    print()
-
     with flask_app.app_context():
+        if IS_RENDER:
+            print("--- Checking Render Database Schema ---")
+            from manager.db_migration import run_auto_migration
+            run_auto_migration(flask_app)
+            print()
+
         db.create_all()
 
         from plugins.buffs.registry import buff_registry
         buff_registry.auto_discover()
 
-        init_app_data()
+        init_app_data(create_db_tables=False)
         read_saved_rooms_with_owners()
 
 

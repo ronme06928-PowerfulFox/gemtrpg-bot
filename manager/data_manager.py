@@ -387,10 +387,11 @@ if __name__ == '__main__':
             sys.exit(1)
 
 # データベースとキャッシュの初期化を行う関数
-def init_app_data():
+def init_app_data(create_db_tables=True):
         # 1. DBテーブル作成
-        db.create_all()
-        print("[OK] Database tables checked/created.")
+        if create_db_tables:
+            db.create_all()
+            print("[OK] Database tables checked/created.")
 
         # 2. スキルデータの読み込み
         # global all_skill_data  <- 不要なので削除（all_skill_data自体を書き換えないため）
