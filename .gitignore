@@ -14,3 +14,9 @@ saved_rooms.json
 battle_state.json
 
 logs/json_rule_v2_audit.jsonl
+
+# Tailscale/Render local launch secrets and runtime data
+GemDiceBot_Launch/config/*.local
+GemDiceBot_Launch/config/*.local.*
+GemDiceBot_Launch/config/*.env
+GemDiceBot_Launch/runtime/
