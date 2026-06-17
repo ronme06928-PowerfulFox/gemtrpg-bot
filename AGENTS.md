@@ -12,14 +12,14 @@
 
 ## フロントエンド JS は必ずビルドする（最重要）
 
-`static/index.html` は個別の JS ではなく **バンドル成果物**のみを読み込む:
-`static/dist/app.bundle.js`（クラシックスクリプト連結）と `static/dist/battle.bundle.js`（`battle/index.js` の ES モジュールツリー）。
+`static/index.html` は個別の JS/CSS ではなく **バンドル成果物**のみを読み込む:
+`static/dist/app.bundle.js`（クラシックスクリプト連結）, `static/dist/battle.bundle.js`（`battle/index.js` の ES モジュールツリー）, `static/dist/app.bundle.css`（`styles.css` の `@import` を全インライン化）。
 
 **ルール:**
-1. JS の編集対象は **必ず `static/js/` のソース**。`static/dist/` の成果物は直接編集しない（ビルドで上書きされる）。
-2. `static/js/*` を編集したら **`npm run build` を実行**してから起動・確認・コミットする。実行しないとブラウザに反映されず、リポジトリ上でソースと成果物が不整合になる。
+1. JS/CSS の編集対象は **必ず `static/js/` と `static/css/`（および `static/styles.css`）のソース**。`static/dist/` の成果物は直接編集しない（ビルドで上書きされる）。
+2. `static/js/*` や `static/css/*`・`styles.css` を編集したら **`npm run build` を実行**してから起動・確認・コミットする。実行しないとブラウザに反映されず、リポジトリ上でソースと成果物が不整合になる。
 3. ビルド成果物 `static/dist/*`（`.map` 含む）は **リポジトリにコミットする**（Render に Node が無いため）。`node_modules/` は `.gitignore` 済み。
-4. `index.html` に **新しいクラシック JS を追加**する場合は、`scripts/build_frontend.mjs` の `CLASSIC_SCRIPTS` 配列にも **同じ順序**で追加する（ここがバンドル順の単一の正）。
+4. `index.html` に **新しいクラシック JS を追加**する場合は、`scripts/build_frontend.mjs` の `CLASSIC_SCRIPTS` 配列にも **同じ順序**で追加する（ここがバンドル順の単一の正）。CSS の新モジュールは従来どおり `static/styles.css` に `@import` を追加すればよい（ビルドが自動でインライン化する）。
 5. 連結バンドルはグローバルスコープ共有方式を保つため **識別子の mangling は無効**（空白/構文圧縮のみ）。グローバル名（`window.X` や トップレベル関数）に依存するコードは安全。
 6. `static/mobile/` は別エントリで現状バンドル対象外。
 
