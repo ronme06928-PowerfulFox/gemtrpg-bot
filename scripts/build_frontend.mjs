@@ -139,19 +139,40 @@ async function buildBattleBundle() {
   return hash;
 }
 
-async function updateIndexHtmlVersions(appHash, battleHash) {
+async function buildCssBundle() {
+  // styles.css の @import 群を esbuild がインライン化 + minify する。
+  // モジュールCSSに url() は無いため、パス解決の問題は起きない。
+  const outCss = path.join(DIST, 'app.bundle.css');
+  await build({
+    entryPoints: [path.join(STATIC, 'styles.css')],
+    bundle: true,
+    minify: true,
+    loader: { '.css': 'css' },
+    legalComments: 'none',
+    sourcemap: true,
+    outfile: outCss,
+  });
+  const code = await readFile(outCss, 'utf8');
+  const hash = shortHash(code);
+  console.log(`[build] app.bundle.css  (${(code.length / 1024).toFixed(1)} KB, v=${hash})`);
+  return hash;
+}
+
+async function updateIndexHtmlVersions(appHash, battleHash, cssHash) {
   let html = await readFile(INDEX_HTML, 'utf8');
   html = html.replace(/dist\/app\.bundle\.js\?v=[^"']*/g, `dist/app.bundle.js?v=${appHash}`);
   html = html.replace(/dist\/battle\.bundle\.js\?v=[^"']*/g, `dist/battle.bundle.js?v=${battleHash}`);
+  html = html.replace(/dist\/app\.bundle\.css\?v=[^"']*/g, `dist/app.bundle.css?v=${cssHash}`);
   await writeFile(INDEX_HTML, html, 'utf8');
-  console.log(`[build] index.html updated (app v=${appHash}, battle v=${battleHash})`);
+  console.log(`[build] index.html updated (app v=${appHash}, battle v=${battleHash}, css v=${cssHash})`);
 }
 
 async function main() {
   await mkdir(DIST, { recursive: true });
   const appHash = await buildClassicBundle();
   const battleHash = await buildBattleBundle();
-  await updateIndexHtmlVersions(appHash, battleHash);
+  const cssHash = await buildCssBundle();
+  await updateIndexHtmlVersions(appHash, battleHash, cssHash);
   console.log('[build] done.');
 }
 
