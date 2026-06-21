@@ -340,8 +340,16 @@ Room
 - [x] 管理ユーザー一覧・詳細をapp admin限定（`_require_app_admin`、403）。
 - [x] 認証境界テスト `tests/test_phase0_auth_boundary.py`（全合格、回帰なし）。
 - [ ] `auth_version` の本格適用は専用列の追加が必要なため、スキーマ拡張（Phase 1）と同時に行う。Q26-015の決定（未保持sessionは即時失効）を適用する。
-- [ ] `manager/room_access.py` 暫定ヘルパー（`owner_id`ベース）+ `/save_room` 認可 + Socket認証 + 拒否テストは PR-26-01 第2弾として続行（`/save_room` はデスクトップの `tab_battlefield.js`・`visual_ui.js` が実使用中のため、全面拒否ではなく所有権ベース認可で守る）。
 - [ ] migration fail-fast化は、Renderプロダクションのバックアップへのdry-run確認後に実施する。
+
+実装進捗（2026-06-22・PR-26-01 第2弾）:
+
+- [x] `manager/room_access.py` 暫定ヘルパーを新設（`owner_id`／`user_sids`在室／キャラ所有による判定。Phase 5でmembership正本へ無改変差し替え予定。`resolve_room_role`/`user_can_access_room`/`is_sid_in_room`/`is_user_in_room` を公開）。
+- [x] `/save_room` を所有権ベース認可に（owner か在室参加者のみ。非参加者は403）。デスクトップの `tab_battlefield.js`・`visual_ui.js` は在室中のみ呼ぶため非破壊。mobileは `/save_room` 未使用。
+- [x] Socket `connect` を未認証拒否、`join_room` を認証必須化＋payloadのusername/role不信頼（sessionから採る）。
+- [x] `request_chat`／`request_log`／`request_select_resolve_sync` に SID-room 紐付け検証を追加し、別ルームへの覗き見・書き込みを遮断。チャット/ログ投稿者名はサーバー側の在室情報から確定。
+- [x] テスト追加 `tests/test_room_access.py`／`test_room_access_http.py`／`test_room_access_socket.py`（全合格、回帰なし）。
+- [ ] **`/load_room` のハード制限は保留**：mobile(`static/mobile/js/portal.js`) が `/api/enter_room` を経ずに `/load_room` を直接叩くため、ここを締めるとmobileが壊れる。Q26-012（mobileを同時対応するか `/mobile` を一時停止するか）の決定後に、`user_can_access_room` で gate する。残りのSocketイベント（battle/char/items/exploration）の全面棚卸しはPhase 5で実施。
 
 別件（Phase 0と無関係・既存の赤）: `tests/test_python_module_size_guard.py` が `manager/game_logic.py` の1500行超過で失敗中。本計画の変更前から赤であり、分割またはLEGACY_FILE_CEILINGS登録で別途解消する。
 
