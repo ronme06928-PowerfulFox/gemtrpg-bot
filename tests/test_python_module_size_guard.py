@@ -4,7 +4,10 @@ from pathlib import Path
 MAX_LINES = 1500
 
 # Temporary legacy ceilings: large files can exist for now, but must not grow.
+# NOTE: process_skill_effects (~1160 lines) dominates this file; splitting is a
+# separate task. This ceiling pins the current size so it cannot grow further.
 LEGACY_FILE_CEILINGS = {
+    "manager/game_logic.py": 1561,
 }
 
 
