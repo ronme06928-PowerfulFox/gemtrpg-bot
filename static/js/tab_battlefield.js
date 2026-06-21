@@ -208,7 +208,12 @@ function _appendRichSystemLogMessage(parent, text) {
         .replace(/&amp;#x27;/gi, '&#x27;')
         .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
         .replace(/&lt;(\/?)strong&gt;/gi, '<$1strong>')
-        .replace(/&lt;(\/?)b&gt;/gi, '<$1b>');
+        .replace(/&lt;(\/?)b&gt;/gi, '<$1b>')
+        // request_log is client-controlled, so only restore the exact numeric dice-result markup.
+        .replace(
+            /&lt;span\s+class=(?:"|'|&quot;|&#39;|&#x27;)dice-result-total(?:"|'|&quot;|&#39;|&#x27;)&gt;(-?\d+|-)&lt;\/span&gt;/gi,
+            '<span class="dice-result-total">$1</span>'
+        );
     parent.appendChild(template.content.cloneNode(true));
 }
 
@@ -1731,7 +1736,7 @@ function openLogHistoryModal() {
                     _appendTextSpan(div, 'chat-message', String(logData.message || ''));
                 }
             } else {
-                div.textContent = displayMessage;
+                _appendRichSystemLogMessage(div, displayMessage);
             }
             div.style.borderBottom = "1px dotted #eee";
             div.style.padding = "2px 5px";
