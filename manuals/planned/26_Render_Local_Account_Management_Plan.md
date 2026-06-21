@@ -349,7 +349,9 @@ Room
 - [x] Socket `connect` を未認証拒否、`join_room` を認証必須化＋payloadのusername/role不信頼（sessionから採る）。
 - [x] `request_chat`／`request_log`／`request_select_resolve_sync` に SID-room 紐付け検証を追加し、別ルームへの覗き見・書き込みを遮断。チャット/ログ投稿者名はサーバー側の在室情報から確定。
 - [x] テスト追加 `tests/test_room_access.py`／`test_room_access_http.py`／`test_room_access_socket.py`（全合格、回帰なし）。
-- [ ] **`/load_room` のハード制限は保留**：mobile(`static/mobile/js/portal.js`) が `/api/enter_room` を経ずに `/load_room` を直接叩くため、ここを締めるとmobileが壊れる。Q26-012（mobileを同時対応するか `/mobile` を一時停止するか）の決定後に、`user_can_access_room` で gate する。残りのSocketイベント（battle/char/items/exploration）の全面棚卸しはPhase 5で実施。
+- [x] **`/load_room` を参加者ゲートに**（2026-06-22・Q26-012決定後）：`enter_room` 成功を `session['entered_rooms']` に記録し、`/load_room` は入室済みか owner/参加者のみ200、非参加者は403。PC版は `enter_room → load_room` の順で呼ぶため非破壊。
+- [x] **`/mobile` 停止**（モバイル版開発停止の方針）：`/mobile` とモバイルアセットの直接読み出しを404で停止（`serve_mobile_index`／`serve_static_files`）。`tests/test_mobile_suspended.py`。
+- [ ] 残りのSocketイベント（battle/char/items/exploration）の全面棚卸しはPhase 5で実施。
 
 別件（Phase 0と無関係・既存の赤）: `tests/test_python_module_size_guard.py` が `manager/game_logic.py` の1500行超過で失敗中。本計画の変更前から赤であり、分割またはLEGACY_FILE_CEILINGS登録で別途解消する。
 
@@ -619,6 +621,7 @@ Room
 | 2026-06-21 | コード突合 | 3.2の現状診断は実コードと全件一致を確認。トークン再発行停止をPhase 0へ前倒し、認可ヘルパーは暫定(owner_id)→membership差し替えの二段構え、Phase↔PR対応を明記 | 既存ユーザーの移行アンカー(端末token)が再発行で陳腐化し続けており、停止しないとPhase 2が成立しないため |
 | 2026-06-21 | Q26-015 | 共通デコレータ導入時、auth_version未保持の既存sessionは**即時失効**させ再ログインを要求する（導入デプロイ時の全ログアウトを許容） | 移行期の判定を単純化し、失効不能sessionを残さないため |
 | 2026-06-21 | Q26-014 | フロント/API/Socketは**同一オリジン**（Flask+WhiteNoiseが単一Web Serviceで全配信、JSは相対パス/`io(origin)`で接続）。`SameSite=Lax`+Cookie認証でSocket connectを成立させる | コードで実証（app.py・main.js・Procfile）。別オリジン用の代替認証は不要 |
+| 2026-06-22 | Q26-012 | **モバイル版は開発を一時停止し、PC Web版中心で開発する（アプリ全体の方針）。`/mobile` 導線は404で停止** | mobileの同時安全化が負担になり、PC版に集中するため。これにより `/load_room` を参加者ゲート化できる |
 
 ---
 
@@ -639,7 +642,7 @@ Room
 | Q26-009 | listed/closedの表示差 | closedはカード表示するが新規参加不可 | 公開ロビーDTO/UI |
 | Q26-010 | 参加コードの閲覧者 | ownerのみ実値閲覧/再発行、gmは募集状態編集まで | ルーム情報UI |
 | Q26-011 | app adminの緊急ルーム操作 | 明示的な一時昇格+監査を要求 | master key、管理API |
-| Q26-012 | `static/mobile/` の扱い | 同時対応できなければ `/mobile` を一時停止 | Phase 2以降の公開 |
+| Q26-012 | `static/mobile/` の扱い | **【確定 2026-06-22】モバイル版は開発を一時停止し、PC Web版中心で開発する。`/mobile` 導線は停止** | Phase 2以降の公開 / `/load_room` ゲート |
 | Q26-013 | 画像所有者のUUID移行 | 新規アップロードからUUID化し、旧画像は段階backfill | 名前変更・削除の整合性 |
 | Q26-014 | Renderのフロント/API・Socketのオリジン構成 | **【確定 2026-06-21・コードで実証】同一オリジン**。`SameSite=Lax`+Cookie認証を採用 | Phase 0のCookie設定、Socket connect認証(8.3) |
 | Q26-015 | 共通デコレータ導入時の既存session(auth_version未保持)の扱い | **【確定 2026-06-21】即時失効させ再ログイン要求（導入時の全ログアウトを許容）** | Phase 0のauth_version検証 |
