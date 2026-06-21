@@ -1080,7 +1080,15 @@ def get_buff_stat_mod_details(char_obj, stat_name):
 def session_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'username' not in session:
+        # 認証主体の正本は session['user_id'] とDB上の User。
+        # username の存在だけでは、削除済みユーザーや陳腐化したセッションを
+        # 検知できないため、毎回 User の実在を確認する。
+        user_id = session.get('user_id')
+        if 'username' not in session or not user_id:
+            return jsonify({"error": "認証が必要です。"}), 401
+        from models import User
+        if User.query.get(user_id) is None:
+            session.clear()
             return jsonify({"error": "認証が必要です。"}), 401
         return f(*args, **kwargs)
     return decorated_function

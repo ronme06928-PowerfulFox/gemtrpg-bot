@@ -35,9 +35,13 @@ def test_new_user_gets_one_time_recovery_code_and_token(recovery_app):
         assert user.recovery_code_hash
         assert user.recovery_token_hash
 
+        # コード・トークンともに「一度だけ」発行する。再ログイン確認のたびに
+        # 再発行すると、クライアント保存済みトークンが陳腐化し移行アンカーが壊れる。
+        token_hash_before = user.recovery_token_hash
         second = upsert_user("user-1", "Alice", issue_recovery=True)
         assert second["recovery_code"] is None
-        assert second["recovery_token"]
+        assert second["recovery_token"] is None
+        assert User.query.get("user-1").recovery_token_hash == token_hash_before
 
 
 def test_recover_user_by_name_and_code_restores_existing_user(recovery_app):

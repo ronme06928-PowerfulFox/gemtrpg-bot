@@ -28,7 +28,7 @@ from whitenoise import WhiteNoise # 追加: 静的ファイル配信高速化
 
 # ★ 拡張機能（共有インスタンス）のインポート
 from extensions import db, socketio, active_room_states, all_skill_data, all_glossary_data
-from models import Room
+from models import Room, User
 
 # ★ マネージャー（ロジック層）からのインポート
 from manager.data_manager import (
@@ -114,13 +114,31 @@ def _get_database_uri():
     # Local runs must never use DATABASE_URL.  DATABASE_URL belongs to Render.
     if not IS_RENDER:
         return 'sqlite:///gemtrpg.db'
-    return os.environ.get('DATABASE_URL', 'sqlite:///gemtrpg.db')
+    # Render must fail closed: a missing or non-PostgreSQL DATABASE_URL would
+    # silently boot a separate empty SQLite DB and look like data loss, instead
+    # of honoring the local/Render separation guarantee.
+    url = str(os.environ.get('DATABASE_URL') or '').strip()
+    if not url:
+        raise RuntimeError(
+            'DATABASE_URL must be set on Render. Refusing to fall back to SQLite.'
+        )
+    if not url.startswith(('postgres://', 'postgresql://', 'postgresql+')):
+        raise RuntimeError(
+            'DATABASE_URL on Render must point to PostgreSQL. '
+            f'Refusing to start with: {url.split("://", 1)[0]}://...'
+        )
+    return url
 
 
 def configure_app(flask_app, config=None):
     global STATIC_DIR
     flask_app.config['JSON_AS_ASCII'] = False
     flask_app.config['SECRET_KEY'] = _get_secret_key()
+    # Session cookie hardening (同一オリジン構成のため SameSite=Lax で十分。
+    # 公開環境では Secure を強制し、平文HTTP越しにCookieを送らせない)。
+    flask_app.config['SESSION_COOKIE_HTTPONLY'] = True
+    flask_app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    flask_app.config['SESSION_COOKIE_SECURE'] = _is_production_env()
     flask_app.config['SQLALCHEMY_DATABASE_URI'] = _get_database_uri()
     flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     flask_app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
@@ -472,8 +490,17 @@ def leave_room_context():
     session['attribute'] = PLAYER_ATTRIBUTE
     return jsonify({"message": "Room context cleared", "attribute": PLAYER_ATTRIBUTE})
 
+def _require_app_admin():
+    """app admin でなければ 403 を返す。app adminでなければ None 以外を返す。"""
+    if not is_user_management_admin(session.get('user_id')):
+        return jsonify({"error": "アプリ管理者権限が必要です"}), 403
+    return None
+
 @session_required
 def admin_get_user_details():
+    denied = _require_app_admin()
+    if denied:
+        return denied
     target_user_id = request.args.get('user_id')
     if not target_user_id:
         return jsonify({"error": "User ID required"}), 400
@@ -489,22 +516,29 @@ def _can_manage_users_with_payload(payload=None):
     return verify_master_key(master_key)
 
 def get_session_user():
-    if 'username' in session:
-        username = session.get('username')
-        attribute = session.get('attribute')
-        user_id = session.get('user_id')
-        user_result = upsert_user(user_id, username, issue_recovery=True) or {}
-        logging.info(f"[SESSION CHECK] User: {username}, Attribute: {attribute}, UserID: {user_id}")
-        return jsonify({
-            "username": username,
-            "attribute": attribute,
-            "user_id": user_id,
-            "is_app_admin": is_user_management_admin(user_id),
-            "recovery_code": user_result.get("recovery_code"),
-            "recovery_token": user_result.get("recovery_token"),
-        })
-    else:
+    username = session.get('username')
+    user_id = session.get('user_id')
+    if not username or not user_id:
         return jsonify({"username": None, "attribute": None, "user_id": None}), 401
+
+    # 削除済みユーザーのセッションでここに来た場合、upsert_user に渡すと
+    # ユーザーを復活させてしまう。先に実在を確認し、無ければ失効させる。
+    if User.query.get(user_id) is None:
+        session.clear()
+        return jsonify({"username": None, "attribute": None, "user_id": None}), 401
+
+    attribute = session.get('attribute')
+    # トークン未発行の既存ユーザーには一度だけ発行する（再発行はしない）。
+    user_result = upsert_user(user_id, username, issue_recovery=True) or {}
+    logging.info(f"[SESSION CHECK] User: {username}, Attribute: {attribute}, UserID: {user_id}")
+    return jsonify({
+        "username": username,
+        "attribute": attribute,
+        "user_id": user_id,
+        "is_app_admin": is_user_management_admin(user_id),
+        "recovery_code": user_result.get("recovery_code"),
+        "recovery_token": user_result.get("recovery_token"),
+    })
 
 @session_required
 def list_rooms():
@@ -572,9 +606,12 @@ def create_room():
 
 @session_required
 def admin_get_users():
+    denied = _require_app_admin()
+    if denied:
+        return denied
     return jsonify({
         "users": get_all_users(),
-        "can_manage_users": is_user_management_admin(session.get('user_id')),
+        "can_manage_users": True,
     })
 
 @session_required
