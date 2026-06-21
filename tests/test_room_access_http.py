@@ -93,3 +93,32 @@ def test_save_room_requires_room_name(client):
     _login(client, "owner-1", "owner")
     resp = client.post("/save_room", json={"state": {}})
     assert resp.status_code == 400
+
+
+# --- /load_room の参加者ゲート ---
+
+def test_load_room_forbidden_for_non_participant(client):
+    _login(client, "stranger", "stranger")
+    resp = client.get("/load_room?name=R1")
+    assert resp.status_code == 403
+
+
+def test_load_room_allowed_for_owner(client):
+    _login(client, "owner-1", "owner")
+    resp = client.get("/load_room?name=R1")
+    assert resp.status_code == 200
+
+
+def test_load_room_allowed_after_enter_room(client):
+    _login(client, "player-1", "player")
+    # enter_room 経由で入室を記録すれば load_room できる。
+    entered = client.post("/api/enter_room", json={"room_name": "R1", "role": "Player"})
+    assert entered.status_code == 200
+    resp = client.get("/load_room?name=R1")
+    assert resp.status_code == 200
+
+
+def test_load_room_requires_name(client):
+    _login(client, "owner-1", "owner")
+    resp = client.get("/load_room")
+    assert resp.status_code == 400

@@ -318,12 +318,29 @@ def _perf_after(response):
     return response
 
 
+# モバイル版は開発停止中（PC Web版中心の方針）。公開導線として /mobile を
+# 明示的に停止し、安全化されていない旧導線が裏口として残らないようにする。
+MOBILE_SUSPENDED_HTML = (
+    '<!doctype html><html lang="ja"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    '<title>モバイル版は停止中です</title></head>'
+    '<body style="font-family:sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem;line-height:1.7">'
+    '<h1>モバイル版は現在停止中です</h1>'
+    '<p>モバイル版は開発を一時停止しています。PC（Web）版をご利用ください。</p>'
+    '<p><a href="/">PC版を開く</a></p>'
+    '</body></html>'
+)
+
+
 def serve_mobile_index():
-    print(f"[INFO] Accessing Mobile Root! Serving from: {STATIC_DIR}/mobile")
-    return send_from_directory(os.path.join(STATIC_DIR, 'mobile'), 'index.html')
+    return MOBILE_SUSPENDED_HTML, 404, {'Content-Type': 'text/html; charset=utf-8'}
 
 
 def serve_static_files(filename):
+    # モバイル版アセットの直接読み出しも停止する（/mobile 停止の裏口を塞ぐ）。
+    normalized = str(filename or '').lstrip('/')
+    if normalized == 'mobile' or normalized.startswith('mobile/'):
+        return MOBILE_SUSPENDED_HTML, 404, {'Content-Type': 'text/html; charset=utf-8'}
     return send_from_directory(STATIC_DIR, filename)
 
 
@@ -477,6 +494,11 @@ def enter_room():
         return jsonify({"error": "GM PINが正しくありません"}), 403
 
     session['attribute'] = attribute
+    # 入室成功を session に記録する。/load_room はこの記録（または owner/参加者）
+    # でアクセス可否を判定し、任意ルーム名の直接読み出しを防ぐ。
+    entered = set(session.get('entered_rooms') or [])
+    entered.add(room_name)
+    session['entered_rooms'] = list(entered)
     return jsonify({
         "message": "Room entry accepted",
         "room_name": room_name,
@@ -556,6 +578,14 @@ def list_rooms():
 @session_required
 def load_room():
     room_name = request.args.get('name')
+    if not room_name:
+        return jsonify({"error": "Room name required"}), 400
+    # 参加者向けルーム状態は、入室済み（enter_room）か owner/参加者のみ返す。
+    # mobile は開発停止につき考慮不要（/mobile は停止済み）。
+    from manager.room_access import user_can_access_room
+    entered = session.get('entered_rooms') or []
+    if room_name not in entered and not user_can_access_room(session.get('user_id'), room_name):
+        return jsonify({"error": "このルームにアクセスする権限がありません"}), 403
     state = get_room_state(room_name)
     return jsonify(state)
 
