@@ -9,14 +9,18 @@ from manager.room_manager import (
 )
 from manager.auth import PLAYER_ATTRIBUTE, resolve_room_attribute
 from manager.user_manager import is_user_management_admin
+from manager.room_access import is_sid_in_room
 
 # --- 5.2. SocketIO イベントハンドラ ---
 @socketio.on('connect')
 def handle_connect():
-    if 'username' in session:
-        print(f"[OK] Authenticated client connected: {session['username']} (SID: {request.sid})")
-    else:
-        print(f"⚠️ Anonymous client connected: {request.sid}. Waiting for entry.")
+    # connect では有効な認証 session を要求する。未認証接続は拒否する
+    # （False を返すと接続が確立されない）。
+    if 'username' not in session or not session.get('user_id'):
+        print(f"⚠️ Rejecting unauthenticated socket connection: {request.sid}")
+        return False
+    print(f"[OK] Authenticated client connected: {session['username']} (SID: {request.sid})")
+    return None
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -35,9 +39,14 @@ def handle_disconnect():
 @socketio.on('join_room')
 def handle_join_room(data):
     room = data.get('room')
-    username = data.get('username')
     if not room:
         return
+    # 認証主体は session。未認証の join は拒否する。
+    if 'username' not in session or not session.get('user_id'):
+        emit('join_room_error', {'error': '認証が必要です'}, to=request.sid)
+        return
+    # 表示名は payload ではなく session のユーザー情報から採る（なりすまし防止）。
+    username = session.get('username')
     requested_role = data.get('role') or data.get('attribute') or PLAYER_ATTRIBUTE
     gm_key = data.get('gm_pin') or data.get('gm_key') or ''
     if str(requested_role or '').strip().lower() in {"gm", "game_master", "gamemaster"} and is_user_management_admin(session.get('user_id')):
@@ -48,8 +57,6 @@ def handle_join_room(data):
         emit('join_room_error', {'error': 'GM PINが正しくありません'}, to=request.sid)
         return
     session['attribute'] = attribute
-    if username:
-        session['username'] = username
 
     prev_info = user_sids.get(request.sid)
     prev_room = (prev_info or {}).get('room')
@@ -103,6 +110,9 @@ def handle_request_select_resolve_sync(data):
     room = data.get('room')
     if not room:
         return
+    # 当該 SID が参加済みのルームのみ同期を許可する（別ルームの覗き見防止）。
+    if not is_sid_in_room(request.sid, room):
+        return
 
     # Re-send latest select/resolve snapshot to the requesting client only.
     emit_select_resolve_events(room, to_sid=request.sid, include_round_started=True)
@@ -144,16 +154,25 @@ def handle_update_user_info(data):
 def handle_log(data):
     room = data.get('room')
     if not room: return
-    # secret, user 引数を渡す
-    broadcast_log(room, data['message'], data['type'], user=data.get('user'), secret=data.get('secret', False))
+    # 当該 SID が参加済みのルームのみ書き込みを許可する。
+    if not is_sid_in_room(request.sid, room):
+        return
+    # 投稿者名はサーバー側の在室情報から確定する（payload の user は信頼しない）。
+    server_user = (user_sids.get(request.sid) or {}).get('username') or data.get('user')
+    broadcast_log(room, data['message'], data['type'], user=server_user, secret=data.get('secret', False))
 
 @socketio.on('request_chat')
 def handle_chat(data):
     room = data.get('room')
     if not room: return
+    # 当該 SID が参加済みのルームのみ投稿を許可する。
+    if not is_sid_in_room(request.sid, room):
+        return
     import re
     from manager.dice_roller import roll_dice
 
+    # 投稿者名はサーバー側の在室情報から確定する（payload の user は信頼しない）。
+    server_user = (user_sids.get(request.sid) or {}).get('username') or '名無し'
     msg = data.get('message', '')
     secret = data.get('secret', False)
 
@@ -173,9 +192,9 @@ def handle_chat(data):
         res = roll_dice(msg)
         # フォーマット例: "2d6+1 -> (3+4)+1 = 8"
         text = f"{msg} → {res['details']} = {res['total']}"
-        broadcast_log(room, text, 'chat', user=data.get('user', '名無し'), secret=secret)
+        broadcast_log(room, text, 'chat', user=server_user, secret=secret)
     else:
         # 通常チャット (コマンドだけだったり、ダイス式がない場合も含む)
         # "sroll" と打っただけの場合は空になる可能性があるのでチェック
         if msg.strip():
-            broadcast_log(room, msg, 'chat', user=data.get('user', '名無し'), secret=secret)
+            broadcast_log(room, msg, 'chat', user=server_user, secret=secret)

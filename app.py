@@ -673,9 +673,16 @@ def delete_room():
 
 @session_required
 def save_room_route():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     room_name = data.get('room_name')
     state = data.get('state')
+    if not room_name:
+        return jsonify({"error": "Room name required"}), 400
+    # ルーム全状態の上書きは、当該ルームの owner か在室参加者に限定する。
+    # （無認可の任意ルーム上書きを塞ぐ。判定は共通の room_access へ集約）
+    from manager.room_access import user_can_access_room
+    if not user_can_access_room(session.get('user_id'), room_name):
+        return jsonify({"error": "このルームを更新する権限がありません"}), 403
     active_room_states[room_name] = state
     save_room_to_db(room_name, state)
     return jsonify({"message": "Saved"})
