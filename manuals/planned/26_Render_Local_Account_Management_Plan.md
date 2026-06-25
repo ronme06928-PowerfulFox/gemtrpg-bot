@@ -434,6 +434,16 @@ SELECT count(*) AS row_count FROM room_members;
 - UIはロビーまたはユーザー設定に置き、確認ダイアログを必須にする。
 - ルーム内ヘッダーへ常設しない。
 
+実装進捗（2026-06-22・PR-26-04）:
+
+- [x] `manager/device_token.py`：TrustedDeviceToken の発行/照合/失効/全失効（selector+secret、secretはハッシュ保存、既定30日=Q26-005、last_used_at更新）。`tests/test_device_token.py`。
+- [x] `POST /api/logout` mode=session|device|all：
+  - session=Flask session破棄のみ（端末トークン保持）
+  - device=現端末トークン失効＋旧 `recovery_token_hash` 無効化
+  - all=全端末トークン失効＋`auth_version`増加（全セッション失効）
+  - `tests/test_logout_tokens.py`（device/all失効・別セッション失効を検証）。
+- [ ] **クライアント移行（localStorage selector+secret・通常ログアウト後の自動復旧抑止・確認ダイアログ・配置）はPhase 7**。現状は旧 `recovery_token_hash` 方式も併存し、device/allログアウトで無効化される。
+
 ### Phase 4: 管理者ワンタイムコードとパスワード再設定
 
 目的: パスワードを忘れた利用者を、平文パスワード共有なしで復旧する。
