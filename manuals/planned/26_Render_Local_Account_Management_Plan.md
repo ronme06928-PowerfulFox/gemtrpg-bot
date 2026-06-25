@@ -379,8 +379,10 @@ Room
 - [x] 新テーブル `TrustedDeviceToken`／`OneTimeLoginCode` を追加（FKは `ondelete=CASCADE`／`SET NULL`）。
 - [x] `manager/db_migration.py` を idempotent に拡張（旧スキーマへ列追加・再実行安全・unique index は IF NOT EXISTS）。
 - [x] expand とマイグレーション冪等性のテスト `tests/test_phase1_schema_expand.py`（旧スキーマ→列追加→2回実行・新テーブル利用・旧コード互換）。
-- [ ] **`RoomMembership` と backfill は保留**：本番Neonに手動作成された `room_members`（コード外・スキーマ不明）が存在し、名称衝突や既存列(NOT NULL等)のリスクがあるため、**本番スキーマ確認後**に実装する。下記SQLで列定義・制約・行数を確認する。
-- [ ] owner/player membership の backfill と dry-run（owner不在・重複表示名・所有者不明）は membership テーブル確定後に実装する。
+- [x] **`RoomMember`（既存 `room_members` 採用）**（2026-06-22・本番スキーマ確認後）：本番列(id/room_id/user_id/role/joined_at/granted_by_user_id)をコードに取り込み、`updated_at`/`revoked_at` を追加。有効membership(revoked_at IS NULL)の (room_id,user_id) 部分一意インデックスを張る。`db_migration` を冪等拡張。`tests/test_room_membership.py`。
+- [x] **owner/player backfill と dry-run**（`manager/membership_backfill.py`／`scripts/backfill_memberships.py`）：owner_id とキャラ所有者(UUID)から冪等にmembership作成、既存行はスキップ。dry-runで owner不在・重複表示名・所有者不明キャラ・作成見込みを集計。`tests/test_membership_backfill.py`。
+  - 運用: 本番では `python scripts/backfill_memberships.py`（dry-run）で集計確認 → `--apply` で実行。起動時自動実行はしない。
+  - 注: ローカル `gemtrpg.db` の旧データはキャラ `owner_id` が表示名（非UUID）のため dry-run で「所有者不明」に分類される。本番でも同様の旧データはbackfill対象外として記録される。
 
 本番 `room_members` 確認用SQL（Neon SQLコンソール / Render shell で実行）:
 
@@ -647,6 +649,7 @@ SELECT count(*) AS row_count FROM room_members;
 | 2026-06-21 | Q26-015 | 共通デコレータ導入時、auth_version未保持の既存sessionは**即時失効**させ再ログインを要求する（導入デプロイ時の全ログアウトを許容） | 移行期の判定を単純化し、失効不能sessionを残さないため |
 | 2026-06-21 | Q26-014 | フロント/API/Socketは**同一オリジン**（Flask+WhiteNoiseが単一Web Serviceで全配信、JSは相対パス/`io(origin)`で接続）。`SameSite=Lax`+Cookie認証でSocket connectを成立させる | コードで実証（app.py・main.js・Procfile）。別オリジン用の代替認証は不要 |
 | 2026-06-22 | Q26-012 | **モバイル版は開発を一時停止し、PC Web版中心で開発する（アプリ全体の方針）。`/mobile` 導線は404で停止** | mobileの同時安全化が負担になり、PC版に集中するため。これにより `/load_room` を参加者ゲート化できる |
+| 2026-06-22 | membership方針 | **本番Neonの既存 `room_members` を会員名簿の正本として採用**（新テーブルを作らない）。列: id/room_id/user_id/role/joined_at/granted_by_user_id + 追加 updated_at/revoked_at | 本番スキーマ確認の結果、計画の RoomMembership とほぼ一致するクリーンな構造で、コードに取り込めばスキーマの正をコード側へ寄せられるため（[[project_room_members_external_table]] の助言どおり） |
 
 ---
 
