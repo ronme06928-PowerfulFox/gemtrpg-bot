@@ -389,6 +389,10 @@ def register_http_routes(flask_app):
     flask_app.add_url_rule('/create_room', 'create_room', create_room, methods=['POST'])
     flask_app.add_url_rule('/delete_room', 'delete_room', delete_room, methods=['POST'])
     flask_app.add_url_rule('/save_room', 'save_room_route', save_room_route, methods=['POST'])
+    flask_app.add_url_rule('/api/room/grant_gm', 'room_grant_gm', room_grant_gm, methods=['POST'])
+    flask_app.add_url_rule('/api/room/revoke_gm', 'room_revoke_gm', room_revoke_gm, methods=['POST'])
+    flask_app.add_url_rule('/api/room/remove_member', 'room_remove_member', room_remove_member, methods=['POST'])
+    flask_app.add_url_rule('/api/room/transfer_owner', 'room_transfer_owner', room_transfer_owner, methods=['POST'])
     flask_app.add_url_rule('/api/get_room_users', 'get_room_users', get_room_users, methods=['GET'])
     flask_app.add_url_rule('/api/admin/user_details', 'admin_get_user_details', admin_get_user_details, methods=['GET'])
     flask_app.add_url_rule('/api/admin/users', 'admin_get_users', admin_get_users, methods=['GET'])
@@ -1021,6 +1025,105 @@ def save_room_route():
     active_room_states[room_name] = state
     save_room_to_db(room_name, state)
     return jsonify({"message": "Saved"})
+
+
+# ---- ルームメンバー管理（owner専用）----
+
+def _require_room_owner(room_name):
+    from manager.room_access import has_room_role, OWNER
+    if not has_room_role(session.get('user_id'), room_name, {OWNER}):
+        return jsonify({"error": "オーナー権限が必要です"}), 403
+    return None
+
+
+def _sync_room_member_session(room_name, target_user_id):
+    """role変更を既存Socket(user_sids)へ反映する（再ログイン不要。best-effort）。"""
+    from manager.room_access import resolve_room_role, GM_ROLES
+    from extensions import user_sids
+    role = resolve_room_role(target_user_id, room_name)
+    attribute = GM_ATTRIBUTE if role in GM_ROLES else PLAYER_ATTRIBUTE
+    for info in user_sids.values():
+        if info.get('user_id') == target_user_id and info.get('room') == room_name:
+            info['attribute'] = attribute
+    try:
+        from manager.room_manager import broadcast_user_list
+        broadcast_user_list(room_name)
+    except Exception:
+        pass
+
+
+def _room_member_request():
+    data = request.get_json(silent=True) or {}
+    room_name = str(data.get('room_name') or '').strip()
+    target_user_id = str(data.get('user_id') or '').strip()
+    return room_name, target_user_id
+
+
+@session_required
+def room_grant_gm():
+    from manager.room_access import set_room_role, GM
+    room_name, target_user_id = _room_member_request()
+    if not room_name or not target_user_id:
+        return jsonify({"error": "room_name と user_id が必要です"}), 400
+    denied = _require_room_owner(room_name)
+    if denied:
+        return denied
+    if User.query.get(target_user_id) is None:
+        return jsonify({"error": "User not found"}), 404
+    set_room_role(room_name, target_user_id, GM, granted_by=session.get('user_id'))
+    _sync_room_member_session(room_name, target_user_id)
+    return jsonify({"message": "GMを付与しました", "user_id": target_user_id, "role": GM})
+
+
+@session_required
+def room_revoke_gm():
+    from manager.room_access import set_room_role, PLAYER
+    room_name, target_user_id = _room_member_request()
+    if not room_name or not target_user_id:
+        return jsonify({"error": "room_name と user_id が必要です"}), 400
+    denied = _require_room_owner(room_name)
+    if denied:
+        return denied
+    set_room_role(room_name, target_user_id, PLAYER, granted_by=session.get('user_id'))
+    _sync_room_member_session(room_name, target_user_id)
+    return jsonify({"message": "GMを解除しました", "user_id": target_user_id, "role": PLAYER})
+
+
+@session_required
+def room_remove_member():
+    from manager.room_access import revoke_membership
+    room_name, target_user_id = _room_member_request()
+    if not room_name or not target_user_id:
+        return jsonify({"error": "room_name と user_id が必要です"}), 400
+    denied = _require_room_owner(room_name)
+    if denied:
+        return denied
+    try:
+        ok = revoke_membership(room_name, target_user_id)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if not ok:
+        return jsonify({"error": "メンバーが見つかりません"}), 404
+    _sync_room_member_session(room_name, target_user_id)
+    return jsonify({"message": "メンバーを除名しました", "user_id": target_user_id})
+
+
+@session_required
+def room_transfer_owner():
+    from manager.room_access import transfer_owner
+    room_name, target_user_id = _room_member_request()
+    if not room_name or not target_user_id:
+        return jsonify({"error": "room_name と user_id が必要です"}), 400
+    denied = _require_room_owner(room_name)
+    if denied:
+        return denied
+    if User.query.get(target_user_id) is None:
+        return jsonify({"error": "User not found"}), 404
+    if not transfer_owner(room_name, target_user_id, acting_user_id=session.get('user_id')):
+        return jsonify({"error": "Room not found"}), 404
+    _sync_room_member_session(room_name, target_user_id)
+    _sync_room_member_session(room_name, session.get('user_id'))
+    return jsonify({"message": "オーナーを移譲しました", "user_id": target_user_id})
 
 def get_skill():
     skill_id = request.args.get('id')
