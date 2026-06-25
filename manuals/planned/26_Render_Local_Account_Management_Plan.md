@@ -497,7 +497,8 @@ SELECT count(*) AS row_count FROM room_members;
 - GM相当(owner/gm)必須: `request_gm_*`（apply_buff/remove_buff/apply_state/grant_item/adjust_item）、`request_new_round`/`request_end_round`/`request_reset_battle`/`request_force_end_match`/`request_add_debug_character`、`request_*_preset_*`／`request_bo_*`（戦闘設定・プリセット系）、背景/立ち絵/トークン更新系。現状はサーバー側 attribute(=membership派生) で `!= 'GM'` 判定済み。
 - キャラ所有者 or GM: `declare_skill`/`request_use_item`/`request_move_*`/`request_delete_character` 等は `is_authorized_for_character` で判定済み。
 
-- [ ] **残（cutover・実機スモークと同時に実施）**: 上記 GM系イベントの判定を、派生 attribute から `sid_has_room_role` の**毎回membership再解決**へ全面切替する。挙動を変える最大の箇所のため、ローカル起動スモーク（entry→入室→GM操作→保存）で確認しながら行う。PR-26-07 のcutover手順に対応。
+- [x] **GM判定をmembership再解決へ全面cutover**（2026-06-22・PR-26-07）：`get_user_info_from_sid` を単一チョークポイントとし、`attribute` を毎回 `get_membership_role` から再解決して上書き。30箇所の個別書換をせず、全socketイベントのGM判定が membership 正本になった。membership無し時はキャッシュ保持で降格しない（GM PIN直後等の安全策）。role変更は再接続なしで次イベントへ反映。`tests/test_gm_authz_cutover.py`。
+  - 実機スモーク合格: owner=`request_new_round` 許可 / player=拒否、API非経由のmembership変更が次イベントで反映。
 
 ### Phase 6: 参加コードと安全な公開ロビー
 
