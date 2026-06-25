@@ -574,6 +574,8 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
                 joinHtml = '<button class="room-join-btn" data-action="enter" disabled style="opacity:.5; cursor:not-allowed;">参加不可</button>';
             }
             const deleteBtn = (role === 'owner') ? '<button class="room-delete-btn">削除</button>' : '';
+            const canManage = (role === 'owner' || role === 'gm');
+            const settingsBtn = canManage ? '<button class="room-settings-btn">⚙️設定</button>' : '';
 
             li.innerHTML = `
                 <div class="room-list-main">
@@ -583,6 +585,7 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
                 </div>
                 <div class="room-list-buttons">
                     ${joinHtml}
+                    ${settingsBtn}
                     ${deleteBtn}
                 </div>
             `;
@@ -621,7 +624,108 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
         if (target.classList.contains('room-delete-btn')) {
             deleteRoom(roomName);
         }
+        if (target.classList.contains('room-settings-btn')) {
+            const info = rooms.find(r => r.name === roomName);
+            if (info) openRoomSettingsModal(info);
+        }
     });
+}
+
+// ルーム情報・参加コード管理モーダル（owner: 全項目, gm: 募集状態のみ）
+function openRoomSettingsModal(info) {
+    const isOwner = info.your_role === 'owner';
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    document.getElementById('room-settings-modal-backdrop')?.remove();
+    const backdrop = document.createElement('div');
+    backdrop.id = 'room-settings-modal-backdrop';
+    backdrop.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:9999;';
+
+    const visOptions = ['hidden', 'listed', 'closed'].map(v => {
+        const label = { hidden: '非公開(hidden)', listed: '公開(listed)', closed: '締切(closed)' }[v];
+        const sel = (info.visibility || 'hidden') === v ? ' selected' : '';
+        return `<option value="${v}"${sel}>${label}</option>`;
+    }).join('');
+
+    backdrop.innerHTML = `
+        <div style="background:#fff; border-radius:10px; padding:20px; width:min(460px,92vw); max-height:88vh; overflow:auto; box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 12px;">ルーム情報: ${esc(info.name)}</h3>
+            <label style="display:block; font-weight:bold; margin:8px 0 2px;">説明</label>
+            <textarea id="rs-description" rows="3" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${esc(info.description)}</textarea>
+            <label style="display:block; font-weight:bold; margin:10px 0 2px;">募集状態</label>
+            <input id="rs-recruitment" type="text" maxlength="20" style="width:100%; box-sizing:border-box;" value="${esc(info.recruitment_status)}" placeholder="例: 募集中 / 締切">
+            <label style="display:block; font-weight:bold; margin:10px 0 2px;">公開設定 ${isOwner ? '' : '(オーナーのみ変更可)'}</label>
+            <select id="rs-visibility" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${visOptions}</select>
+            ${isOwner ? `
+            <div style="margin-top:14px; padding-top:12px; border-top:1px solid #eee;">
+                <div style="font-weight:bold; margin-bottom:6px;">参加コード <span style="font-weight:normal; color:#888;">(${info.requires_code ? '設定済み' : '未設定'})</span></div>
+                <button id="rs-set-code" type="button" style="margin-right:6px;">設定 / 再発行</button>
+                <button id="rs-clear-code" type="button" ${info.requires_code ? '' : 'disabled'}>失効</button>
+            </div>` : ''}
+            <div id="rs-message" class="auth-message" style="margin-top:10px;"></div>
+            <div style="margin-top:14px; text-align:right;">
+                <button id="rs-cancel" type="button" style="margin-right:6px;">閉じる</button>
+                <button id="rs-save" type="button">保存</button>
+            </div>
+        </div>`;
+    document.body.appendChild(backdrop);
+
+    const msg = backdrop.querySelector('#rs-message');
+    const setMsg = (t, ok) => { msg.textContent = t || ''; msg.className = 'auth-message' + (t ? (ok ? ' success' : ' error') : ''); };
+    const close = () => backdrop.remove();
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+    backdrop.querySelector('#rs-cancel').addEventListener('click', close);
+
+    backdrop.querySelector('#rs-save').addEventListener('click', async () => {
+        const payload = { room_name: info.name };
+        payload.recruitment_status = backdrop.querySelector('#rs-recruitment').value.trim();
+        if (isOwner) {
+            payload.description = backdrop.querySelector('#rs-description').value.trim();
+            payload.lobby_visibility = backdrop.querySelector('#rs-visibility').value;
+        }
+        try {
+            const r = await fetchWithSession('/api/room/update_settings', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+            });
+            const d = await r.json();
+            if (!r.ok) { setMsg(d.error || '更新に失敗しました'); return; }
+            setMsg('保存しました', true);
+            setTimeout(() => { close(); showRoomPortal(); }, 600);
+        } catch (e) { setMsg(e.message); }
+    });
+
+    if (isOwner) {
+        backdrop.querySelector('#rs-set-code').addEventListener('click', async () => {
+            const pin = await showAppPrompt('参加コードを入力してください（空欄なら自動生成）。', {
+                title: '参加コード設定', placeholder: '4〜32文字 / 空欄で自動', confirmText: '設定',
+            });
+            if (pin === null) return; // キャンセル
+            const body = { room_name: info.name };
+            if (pin && pin.trim()) body.join_code = pin.trim();
+            try {
+                const r = await fetchWithSession('/api/room/set_join_code', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+                });
+                const d = await r.json();
+                if (!r.ok) { setMsg(d.error || 'コード設定に失敗しました'); return; }
+                info.requires_code = true;
+                await showAppConfirm(`参加コードを設定しました。\n\n${d.join_code}\n\nこのコードを参加者へ共有してください。`, { title: '参加コード', confirmText: 'OK' });
+                setMsg('参加コードを設定しました', true);
+            } catch (e) { setMsg(e.message); }
+        });
+        backdrop.querySelector('#rs-clear-code').addEventListener('click', async () => {
+            try {
+                const r = await fetchWithSession('/api/room/clear_join_code', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room_name: info.name }),
+                });
+                const d = await r.json();
+                if (!r.ok) { setMsg(d.error || '失効に失敗しました'); return; }
+                info.requires_code = false;
+                backdrop.querySelector('#rs-clear-code').disabled = true;
+                setMsg('参加コードを失効しました', true);
+            } catch (e) { setMsg(e.message); }
+        });
+    }
 }
 
 // 非メンバーが参加コードで参加 → membership作成 → 入室
