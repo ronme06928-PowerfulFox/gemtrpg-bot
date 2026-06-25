@@ -48,8 +48,12 @@ from manager.auth import (
 )
 
 import uuid
+from datetime import datetime
 import cloudinary
 import cloudinary.uploader
+
+from manager import account_auth
+from manager.auth_rate_limit import password_login_limiter
 
 # ★追加インポート
 from manager.user_manager import (
@@ -367,6 +371,10 @@ def register_http_routes(flask_app):
     flask_app.add_url_rule('/api/images/<image_id>', 'delete_image_api', delete_image_api, methods=['DELETE'])
     flask_app.add_url_rule('/api/local_images', 'get_local_images', get_local_images, methods=['GET'])
     flask_app.add_url_rule('/api/entry', 'entry', entry, methods=['POST'])
+    flask_app.add_url_rule('/api/register', 'register_account', register_account, methods=['POST'])
+    flask_app.add_url_rule('/api/login', 'login_account', login_account, methods=['POST'])
+    flask_app.add_url_rule('/api/set_password', 'set_account_password', set_account_password, methods=['POST'])
+    flask_app.add_url_rule('/api/change_display_name', 'change_display_name', change_display_name, methods=['POST'])
     flask_app.add_url_rule('/api/recover_user', 'recover_user', recover_user, methods=['POST'])
     flask_app.add_url_rule('/api/recover_from_local_token', 'recover_from_local_token', recover_from_local_token, methods=['POST'])
     flask_app.add_url_rule('/api/regenerate_recovery_code', 'regenerate_recovery_code', regenerate_recovery_code, methods=['POST'])
@@ -386,9 +394,35 @@ def register_http_routes(flask_app):
     flask_app.add_url_rule('/api/admin/set_user_management_admin', 'admin_set_user_management_admin', admin_set_user_management_admin, methods=['POST'])
     flask_app.add_url_rule('/api/json_nl_builder_audit', 'json_nl_builder_audit', json_nl_builder_audit, methods=['POST'])
 
+# ログイン失敗時のタイミング差を縮めるためのダミーハッシュ（存在判別を防ぐ）。
+_DUMMY_PASSWORD_HASH = account_auth.hash_password("timing-dummy-password")
+
+
+def _set_authenticated_session(user, *, attribute=PLAYER_ATTRIBUTE, clear=True):
+    """ログイン成立時のセッションを統一して張る。
+
+    session.clear() で古いルーム権限を持ち越さず、auth_version を必ず載せる
+    （session_required の auth_version 検証と整合させる）。
+    """
+    if clear:
+        session.clear()
+    session['user_id'] = user.id
+    session['username'] = user.name
+    session['auth_version'] = user.auth_version or 1
+    session['attribute'] = attribute
+
+
+def _name_only_login_disabled():
+    """名前だけログイン(/api/entry)を無効化するか（cutover用フラグ、既定off）。"""
+    return str(os.environ.get('ACCOUNT_DISABLE_NAME_ONLY_LOGIN') or '').strip() == '1'
+
+
 def entry():
     data = request.get_json(silent=True) or {}
     username = str(data.get('username') or '').strip()
+
+    if _name_only_login_disabled():
+        return jsonify({"error": "ログインIDとパスワードでログインしてください"}), 403
 
     if not username:
         return jsonify({"error": "ユーザー名は必須です"}), 400
@@ -406,6 +440,10 @@ def entry():
     # ユーザー情報をDBに記録。新規/未発行ユーザーには復旧コードを一度だけ返す。
     user_result = upsert_user(session['user_id'], username, issue_recovery=True) or {}
     # ▲▲▲ 修正ここまで ▲▲▲
+
+    # auth_version をセッションへ載せる（session_required の検証と整合）。
+    user_obj = user_result.get("user")
+    session['auth_version'] = (getattr(user_obj, 'auth_version', None) or 1)
 
     return jsonify({
         "message": "セッション開始",
@@ -426,9 +464,7 @@ def recover_user():
         return jsonify({"error": "名前または復旧コードが正しくありません"}), 403
 
     user = result["user"]
-    session['user_id'] = user.id
-    session['username'] = user.name
-    session['attribute'] = PLAYER_ATTRIBUTE
+    _set_authenticated_session(user)
 
     return jsonify({
         "message": "ユーザーを復旧しました",
@@ -448,9 +484,7 @@ def recover_from_local_token():
     if not user:
         return jsonify({"error": "保存済み復旧トークンが無効です"}), 403
 
-    session['user_id'] = user.id
-    session['username'] = user.name
-    session['attribute'] = PLAYER_ATTRIBUTE
+    _set_authenticated_session(user)
 
     return jsonify({
         "message": "保存済み復旧トークンで復帰しました",
@@ -459,6 +493,126 @@ def recover_from_local_token():
         "user_id": user.id,
         "is_app_admin": is_user_management_admin(user.id),
     })
+
+def _account_profile(user):
+    return {
+        "username": user.name,
+        "user_id": user.id,
+        "attribute": PLAYER_ATTRIBUTE,
+        "is_app_admin": is_user_management_admin(user.id),
+    }
+
+
+def register_account():
+    """新規アカウント登録（login_name + password）。"""
+    data = request.get_json(silent=True) or {}
+    login_name = str(data.get('login_name') or '').strip()
+    password = data.get('password')
+    display_name = str(data.get('display_name') or '').strip() or login_name
+
+    normalized = account_auth.normalize_login_name(login_name)
+    if not normalized:
+        return jsonify({"error": "ログインIDを入力してください"}), 400
+    if account_auth.is_login_name_taken(normalized):
+        return jsonify({"error": "このログインIDは既に使われています"}), 409
+    try:
+        account_auth.validate_password(password)
+    except account_auth.PasswordPolicyError as e:
+        return jsonify({"error": str(e)}), 400
+
+    user = User(id=str(uuid.uuid4()), name=display_name)
+    db.session.add(user)
+    db.session.flush()
+    account_auth.set_login_name(user, login_name, commit=False)
+    account_auth.set_password(user, password, commit=False)
+    user.last_login = datetime.utcnow()
+    db.session.commit()
+
+    _set_authenticated_session(user)
+    return jsonify({"message": "アカウントを作成しました", **_account_profile(user)}), 201
+
+
+def login_account():
+    """login_name + password でログインする。"""
+    data = request.get_json(silent=True) or {}
+    login_name = str(data.get('login_name') or '').strip()
+    password = data.get('password')
+    normalized = account_auth.normalize_login_name(login_name)
+    limiter_key = normalized or 'unknown'
+
+    if not password_login_limiter.is_allowed(limiter_key):
+        return jsonify({"error": "試行回数が多すぎます。しばらくしてからお試しください"}), 429
+
+    generic = "ログインIDまたはパスワードが正しくありません"
+    user = account_auth.find_user_by_login_name(login_name) if normalized else None
+
+    # 存在判別の時間差を縮める: 未登録/未設定でもダミー照合を行う。
+    if user is None or not getattr(user, 'password_hash', None):
+        account_auth.verify_password(_DUMMY_PASSWORD_HASH, password or '')
+        password_login_limiter.record_failure(limiter_key)
+        return jsonify({"error": generic}), 401
+
+    if not account_auth.verify_user_password(user, password):
+        password_login_limiter.record_failure(limiter_key)
+        return jsonify({"error": generic}), 401
+
+    password_login_limiter.reset(limiter_key)
+    user.last_login = datetime.utcnow()
+    db.session.commit()
+    _set_authenticated_session(user)
+    return jsonify({"message": "ログインしました", **_account_profile(user)})
+
+
+@session_required
+def set_account_password():
+    """認証済みユーザーのパスワード設定（既存ユーザーの初回移行を含む）。
+
+    既存ユーザーは /api/recover_user or /api/recover_from_local_token で本人確認し
+    セッションを得た後、この API で login_name + password を設定する。
+    """
+    data = request.get_json(silent=True) or {}
+    login_name = str(data.get('login_name') or '').strip()
+    password = data.get('password')
+
+    user = User.query.get(session.get('user_id'))
+    if user is None:
+        return jsonify({"error": "認証が必要です"}), 401
+
+    try:
+        account_auth.validate_password(password)
+    except account_auth.PasswordPolicyError as e:
+        return jsonify({"error": str(e)}), 400
+
+    if login_name:
+        try:
+            account_auth.set_login_name(user, login_name, commit=False)
+        except account_auth.LoginNameError as e:
+            return jsonify({"error": str(e)}), 409
+    elif not user.login_name_normalized:
+        return jsonify({"error": "ログインIDを設定してください"}), 400
+
+    account_auth.set_password(user, password, commit=False)
+    db.session.commit()
+    # auth_version は据え置き（初回設定）。セッションへ現値を反映。
+    session['auth_version'] = user.auth_version
+    return jsonify({"message": "パスワードを設定しました", **_account_profile(user)})
+
+
+@session_required
+def change_display_name():
+    """表示名(User.name)を変更する。ログイン/認可とは独立。"""
+    data = request.get_json(silent=True) or {}
+    new_name = str(data.get('display_name') or '').strip()
+    if not new_name:
+        return jsonify({"error": "表示名を入力してください"}), 400
+    user = User.query.get(session.get('user_id'))
+    if user is None:
+        return jsonify({"error": "認証が必要です"}), 401
+    user.name = new_name
+    db.session.commit()
+    session['username'] = new_name
+    return jsonify({"message": "表示名を変更しました", "username": new_name, "user_id": user.id})
+
 
 @session_required
 def regenerate_recovery_code():
@@ -545,7 +699,12 @@ def get_session_user():
 
     # 削除済みユーザーのセッションでここに来た場合、upsert_user に渡すと
     # ユーザーを復活させてしまう。先に実在を確認し、無ければ失効させる。
-    if User.query.get(user_id) is None:
+    _user = User.query.get(user_id)
+    if _user is None:
+        session.clear()
+        return jsonify({"username": None, "attribute": None, "user_id": None}), 401
+    # auth_version 不一致のセッションは失効させる（Q26-015）。
+    if session.get('auth_version') != _user.auth_version:
         session.clear()
         return jsonify({"username": None, "attribute": None, "user_id": None}), 401
 

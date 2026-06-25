@@ -58,6 +58,7 @@ def _login(client, user_id, username):
         sess["user_id"] = user_id
         sess["username"] = username
         sess["attribute"] = "Player"
+        sess["auth_version"] = 1
 
 
 def _save(client):

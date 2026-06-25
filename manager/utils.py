@@ -1083,11 +1083,16 @@ def session_required(f):
         # 認証主体の正本は session['user_id'] とDB上の User。
         # username の存在だけでは、削除済みユーザーや陳腐化したセッションを
         # 検知できないため、毎回 User の実在を確認する。
+        # 認証主体の正本は session['user_id'] と DB上の User。username の存在だけ
+        # では削除済みユーザー・陳腐化したセッションを検知できない。さらに
+        # auth_version 不一致/未保持のセッションは失効させる（Q26-015。パスワード
+        # 再設定や全端末ログアウトで auth_version を増やすとサーバー側で無効化できる）。
         user_id = session.get('user_id')
         if 'username' not in session or not user_id:
             return jsonify({"error": "認証が必要です。"}), 401
         from models import User
-        if User.query.get(user_id) is None:
+        user = User.query.get(user_id)
+        if user is None or session.get('auth_version') != user.auth_version:
             session.clear()
             return jsonify({"error": "認証が必要です。"}), 401
         return f(*args, **kwargs)

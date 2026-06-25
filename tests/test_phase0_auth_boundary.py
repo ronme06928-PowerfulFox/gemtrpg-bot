@@ -49,11 +49,12 @@ def _seed_user(user_id, name, is_admin=False):
     return user
 
 
-def _login(client, user_id, username, attribute="Player"):
+def _login(client, user_id, username, attribute="Player", auth_version=1):
     with client.session_transaction() as sess:
         sess["user_id"] = user_id
         sess["username"] = username
         sess["attribute"] = attribute
+        sess["auth_version"] = auth_version
 
 
 # --- Cookie ハードニング ---
