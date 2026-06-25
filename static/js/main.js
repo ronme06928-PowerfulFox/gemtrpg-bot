@@ -258,92 +258,127 @@ async function fetchWithSession(url, options = {}) {
 }
 
 // --- 3. エントリー/ポータル機能 ---
+// 通常ログイン(login_name+password)を主導線とし、新規登録・復旧を補助導線へ分ける。
 function showEntryPortal() {
     roomPortal.style.display = 'none';
     mainAppContainer.style.display = 'none';
     entryPortal.style.display = 'block';
 
-    const entryBtn = document.getElementById('entry-btn');
-    const recoverBtn = document.getElementById('recover-user-btn');
     const entryMsg = document.getElementById('entry-message');
+    const setMsg = (text, ok) => {
+        entryMsg.textContent = text || '';
+        entryMsg.className = 'auth-message' + (text ? (ok ? ' success' : ' error') : '');
+    };
 
-    if (!entryBtn.dataset.listenerAttached) {
-        entryBtn.dataset.listenerAttached = 'true';
-        entryBtn.addEventListener('click', async () => {
-            if (entryRequestInFlight) return;
-            const username = document.getElementById('entry-username').value.trim();
-            if (!username) {
-                entryMsg.textContent = '「あなたの名前」を入力してください。';
-                entryMsg.className = 'auth-message error';
-                return;
-            }
-            try {
-                entryRequestInFlight = true;
-                entryBtn.disabled = true;
-                const response = await fetchWithSession('/api/entry', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username })
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || '入室に失敗しました');
+    const portal = document.getElementById('entry-portal');
+    if (portal.dataset.listenerAttached) {
+        setMsg('');
+        return;
+    }
+    portal.dataset.listenerAttached = 'true';
 
-                applySessionUserData(data);
-                saveRecoveryTokenFromResponse(data);
-                await showRecoveryCodeOnce(data.recovery_code);
-                initializeSocketIO();
-            } catch (error) {
-                entryMsg.textContent = error.message;
-                entryMsg.className = 'auth-message error';
-            } finally {
-                entryRequestInFlight = false;
-                entryBtn.disabled = false;
-            }
+    const panes = { login: 'auth-pane-login', register: 'auth-pane-register', recover: 'auth-pane-recover' };
+    const tabs = { login: 'auth-tab-login', register: 'auth-tab-register', recover: 'auth-tab-recover' };
+    function showTab(name) {
+        for (const k in panes) {
+            const pane = document.getElementById(panes[k]);
+            const tab = document.getElementById(tabs[k]);
+            if (pane) pane.style.display = (k === name ? 'block' : 'none');
+            if (tab) tab.classList.toggle('active', k === name);
+        }
+        setMsg('');
+    }
+    document.getElementById('auth-tab-login').addEventListener('click', () => showTab('login'));
+    document.getElementById('auth-tab-register').addEventListener('click', () => showTab('register'));
+    document.getElementById('auth-tab-recover').addEventListener('click', () => showTab('recover'));
+    showTab('login');
+
+    async function postJson(url, body) {
+        const r = await fetch(API_BASE_URL + url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(body),
         });
+        let d = {};
+        try { d = await r.json(); } catch (_e) { d = {}; }
+        return { ok: r.ok, status: r.status, data: d };
+    }
+    function onSuccess(data) {
+        applySessionUserData(data);
+        saveRecoveryTokenFromResponse(data);
+        initializeSocketIO();
+    }
+    async function withLock(fn) {
+        if (entryRequestInFlight) return;
+        try { entryRequestInFlight = true; await fn(); }
+        catch (e) { setMsg(e.message || String(e)); }
+        finally { entryRequestInFlight = false; }
     }
 
-    if (recoverBtn && !recoverBtn.dataset.listenerAttached) {
-        recoverBtn.dataset.listenerAttached = 'true';
-        recoverBtn.addEventListener('click', async () => {
-            if (entryRequestInFlight) return;
-            const username = document.getElementById('entry-username').value.trim();
-            if (!username) {
-                entryMsg.textContent = '復旧するユーザー名を入力してください。';
-                entryMsg.className = 'auth-message error';
-                return;
-            }
-            const recoveryCode = await showAppPrompt('復旧コードを入力してください。', {
-                title: 'ユーザー復旧',
-                placeholder: 'GEM-XXXX-XXXX',
-                confirmText: '復旧',
-                required: true,
-            });
-            if (!recoveryCode) return;
+    // ログイン
+    document.getElementById('login-btn').addEventListener('click', () => withLock(async () => {
+        const login_name = document.getElementById('login-name').value.trim();
+        const password = document.getElementById('login-password').value;
+        if (!login_name || !password) { setMsg('ログインIDとパスワードを入力してください'); return; }
+        const { ok, data } = await postJson('/api/login', { login_name, password });
+        if (!ok) throw new Error(data.error || 'ログインに失敗しました');
+        onSuccess(data);
+    }));
 
-            try {
-                entryRequestInFlight = true;
-                entryBtn.disabled = true;
-                recoverBtn.disabled = true;
-                const response = await fetch(API_BASE_URL + '/api/recover_user', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ username, recovery_code: recoveryCode })
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || '復旧に失敗しました');
-                applySessionUserData(data);
-                saveRecoveryTokenFromResponse(data);
-                initializeSocketIO();
-            } catch (error) {
-                entryMsg.textContent = error.message;
-                entryMsg.className = 'auth-message error';
-            } finally {
-                entryRequestInFlight = false;
-                entryBtn.disabled = false;
-                recoverBtn.disabled = false;
-            }
+    // 新規登録
+    document.getElementById('register-btn').addEventListener('click', () => withLock(async () => {
+        const login_name = document.getElementById('register-name').value.trim();
+        const display_name = document.getElementById('register-display').value.trim();
+        const password = document.getElementById('register-password').value;
+        if (!login_name || !password) { setMsg('ログインIDとパスワードを入力してください'); return; }
+        const { ok, data } = await postJson('/api/register', { login_name, display_name, password });
+        if (!ok) throw new Error(data.error || '登録に失敗しました');
+        onSuccess(data);
+    }));
+
+    // 復旧コードでログイン → 任意でログインID/パスワード設定
+    document.getElementById('recover-code-btn').addEventListener('click', () => withLock(async () => {
+        const username = document.getElementById('recover-name').value.trim();
+        if (!username) { setMsg('名前を入力してください'); return; }
+        const recovery_code = await showAppPrompt('復旧コードを入力してください。', {
+            title: 'ユーザー復旧', placeholder: 'GEM-XXXX-XXXX', confirmText: '復旧', required: true,
         });
+        if (!recovery_code) return;
+        const { ok, data } = await postJson('/api/recover_user', { username, recovery_code });
+        if (!ok) throw new Error(data.error || '復旧に失敗しました');
+        onSuccess(data);
+        await _offerPasswordSetup();
+    }));
+
+    // 管理者発行ワンタイムコードで再設定
+    document.getElementById('redeem-code-btn').addEventListener('click', () => withLock(async () => {
+        const login_name = await showAppPrompt('ログインIDを入力してください。', { title: 'ワンタイムコード再設定', required: true });
+        if (!login_name) return;
+        const code = await showAppPrompt('管理者発行のコードを入力してください。', { title: 'ワンタイムコード', required: true });
+        if (!code) return;
+        const { ok, data } = await postJson('/api/redeem_login_code', { login_name, code });
+        if (!ok) throw new Error(data.error || 'コードが正しくありません');
+        const res = await _setPasswordFlow(login_name);
+        if (res && res.ok) onSuccess(res.data);
+    }));
+
+    async function _offerPasswordSetup() {
+        const yes = await showAppConfirm('ログインID・パスワードを設定すると、次回からログインで入れます。設定しますか？', {
+            title: 'パスワード設定', confirmText: '設定する', cancelText: 'あとで',
+        });
+        if (!yes) return;
+        await _setPasswordFlow();
+    }
+    async function _setPasswordFlow(prefillLogin) {
+        const login_name = prefillLogin || await showAppPrompt('ログインIDを設定してください。', { title: 'ログインID', required: true });
+        if (!login_name) return { ok: false };
+        const password = await showAppPrompt('新しいパスワード（10文字以上）を入力してください。', { title: 'パスワード設定', required: true });
+        if (!password) return { ok: false };
+        const { ok, data } = await postJson('/api/set_password', { login_name, password });
+        if (!ok) { setMsg(data.error || 'パスワード設定に失敗しました'); return { ok: false }; }
+        setMsg('パスワードを設定しました', true);
+        return { ok: true, data };
     }
 }
 
@@ -404,6 +439,9 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
                     ⚙️ ユーザー設定
                 </button>
                 ${manageUsersButton}
+                <button id="portal-logout-btn" class="portal-settings-button" style="margin-left:10px; background:#ffe0e0;" title="ログアウト">
+                    🚪 ログアウト
+                </button>
             </div>
         </div>
         <div class="room-portal-header">
@@ -437,6 +475,28 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
 
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => openUserSettingsModal(true));
+    }
+
+    const logoutBtn = document.getElementById('portal-logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            const yes = await showAppConfirm('この端末からログアウトします。よろしいですか？', {
+                title: 'ログアウト', confirmText: 'ログアウト', cancelText: 'キャンセル',
+            });
+            if (!yes) return;
+            try {
+                // device モード: 端末トークンを失効し、自動復旧を止める。
+                await fetch(API_BASE_URL + '/api/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ mode: 'device' }),
+                });
+            } catch (_e) { /* 失効はベストエフォート */ }
+            clearSavedRecoveryToken();
+            try { if (socket && socket.connected) socket.disconnect(); } catch (_e) {}
+            showEntryPortal();
+        });
     }
     if (boPresetPortalBtn) {
         boPresetPortalBtn.addEventListener('click', () => {
