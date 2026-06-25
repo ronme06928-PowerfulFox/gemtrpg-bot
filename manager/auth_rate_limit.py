@@ -49,3 +49,5 @@ class RateLimiter:
 password_login_limiter = RateLimiter(max_attempts=10, window_seconds=300)
 # ワンタイムコード入力: 15分窓で5回まで（Q26-007 の方向性に合わせた初期値）。
 one_time_code_limiter = RateLimiter(max_attempts=5, window_seconds=900)
+# 参加コード入力: 10分窓で10回まで（総当たり対策の初期値）。
+join_code_limiter = RateLimiter(max_attempts=10, window_seconds=600)

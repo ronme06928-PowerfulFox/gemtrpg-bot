@@ -20,6 +20,11 @@ PLAYER = "player"
 # GM相当（GM専用操作が可能）の role 集合。
 GM_ROLES = frozenset({OWNER, GM})
 
+# ロビー可視性。
+VIS_HIDDEN = "hidden"
+VIS_LISTED = "listed"
+VIS_CLOSED = "closed"
+
 
 def _get_room(room_name):
     if not room_name:
@@ -196,6 +201,61 @@ def revoke_membership(room_name, target_user_id, *, commit=True):
     if commit:
         db.session.commit()
     return True
+
+
+def _lobby_role(user_id, room):
+    """ロビー一覧用の軽量 role 解決（room state を読まない）。"""
+    if user_id:
+        m = RoomMember.query.filter_by(room_id=room.id, user_id=user_id, revoked_at=None).first()
+        if m:
+            return m.role
+        if room.owner_id == user_id:
+            return OWNER  # 移行期: membership未整備の owner
+    return None
+
+
+def build_lobby_cards(user_id):
+    """未参加者にも安全なロビーカード一覧を返す。
+
+    内部識別子（owner_id, join_code, ログ, キャラ, 画像URL 等）は含めない。
+    hidden は非メンバーへ出さない。closed はカード表示するが新規参加不可。
+    """
+    cards = []
+    for room in Room.query.order_by(Room.name).all():
+        role = _lobby_role(user_id, room)
+        is_member = role is not None
+        vis = room.lobby_visibility or VIS_HIDDEN
+        if vis == VIS_HIDDEN and not is_member:
+            continue
+        play_mode = "normal"
+        if isinstance(room.data, dict):
+            pm = str(room.data.get("play_mode") or "normal").strip().lower()
+            play_mode = pm if pm in ("normal", "battle_only") else "normal"
+        joinable = (not is_member) and (vis == VIS_LISTED)
+        cards.append({
+            "name": room.name,
+            "play_mode": play_mode,
+            "visibility": vis,
+            "recruitment_status": room.recruitment_status,
+            "description": room.description,
+            "your_role": role,
+            "is_member": is_member,
+            "requires_code": bool(room.join_code_hash),
+            "joinable": joinable,
+        })
+    return cards
+
+
+def join_room_as_player(room_name, user_id, *, commit=True):
+    """player membership を作成して参加させる（既に member ならそのまま）。"""
+    room = _get_room(room_name)
+    if room is None:
+        return None
+    existing = get_membership_role(user_id, room_name)
+    if existing:
+        return existing
+    ensure_membership(room.id, user_id, PLAYER, commit=commit)
+    return PLAYER
 
 
 def transfer_owner(room_name, new_owner_id, *, acting_user_id=None, commit=True):
