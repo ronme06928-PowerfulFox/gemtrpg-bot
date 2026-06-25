@@ -52,8 +52,8 @@ from datetime import datetime
 import cloudinary
 import cloudinary.uploader
 
-from manager import account_auth, device_token
-from manager.auth_rate_limit import password_login_limiter
+from manager import account_auth, device_token, one_time_code
+from manager.auth_rate_limit import password_login_limiter, one_time_code_limiter
 
 # ★追加インポート
 from manager.user_manager import (
@@ -376,6 +376,8 @@ def register_http_routes(flask_app):
     flask_app.add_url_rule('/api/set_password', 'set_account_password', set_account_password, methods=['POST'])
     flask_app.add_url_rule('/api/change_display_name', 'change_display_name', change_display_name, methods=['POST'])
     flask_app.add_url_rule('/api/logout', 'logout_account', logout_account, methods=['POST'])
+    flask_app.add_url_rule('/api/admin/issue_login_code', 'admin_issue_login_code', admin_issue_login_code, methods=['POST'])
+    flask_app.add_url_rule('/api/redeem_login_code', 'redeem_login_code', redeem_login_code, methods=['POST'])
     flask_app.add_url_rule('/api/recover_user', 'recover_user', recover_user, methods=['POST'])
     flask_app.add_url_rule('/api/recover_from_local_token', 'recover_from_local_token', recover_from_local_token, methods=['POST'])
     flask_app.add_url_rule('/api/regenerate_recovery_code', 'regenerate_recovery_code', regenerate_recovery_code, methods=['POST'])
@@ -416,6 +418,27 @@ def _set_authenticated_session(user, *, attribute=PLAYER_ATTRIBUTE, clear=True):
 def _name_only_login_disabled():
     """名前だけログイン(/api/entry)を無効化するか（cutover用フラグ、既定off）。"""
     return str(os.environ.get('ACCOUNT_DISABLE_NAME_ONLY_LOGIN') or '').strip() == '1'
+
+
+# パスワード設定専用grant（ワンタイムコード認証後の短命許可）。
+# 通常sessionとは別物で、ルーム・管理APIには入れない（session_required を通らない）。
+PW_RESET_GRANT_TTL_SECONDS = 600  # コード確認後、パスワード設定までの猶予
+
+
+def _set_pw_reset_grant(user_id):
+    session.clear()
+    session['pw_reset_user_id'] = user_id
+    session['pw_reset_expires'] = _time.time() + PW_RESET_GRANT_TTL_SECONDS
+
+
+def _valid_pw_reset_grant():
+    uid = session.get('pw_reset_user_id')
+    exp = session.get('pw_reset_expires')
+    if not uid or not exp:
+        return None
+    if _time.time() > exp:
+        return None
+    return uid
 
 
 def entry():
@@ -564,19 +587,33 @@ def login_account():
     return jsonify({"message": "ログインしました", **_account_profile(user)})
 
 
-@session_required
 def set_account_password():
-    """認証済みユーザーのパスワード設定（既存ユーザーの初回移行を含む）。
+    """パスワード設定。次の2経路を受け付ける。
 
-    既存ユーザーは /api/recover_user or /api/recover_from_local_token で本人確認し
-    セッションを得た後、この API で login_name + password を設定する。
+    1) 通常の認証済みセッション（既存ユーザーの初回移行: recover 後に設定）。
+    2) パスワード設定専用grant（管理者ワンタイムコード認証後）。grant 経路では
+       設定完了時に auth_version 増加＋全端末トークン失効を行い、通常sessionへ昇格する。
     """
     data = request.get_json(silent=True) or {}
     login_name = str(data.get('login_name') or '').strip()
     password = data.get('password')
 
-    user = User.query.get(session.get('user_id'))
+    reset_user_id = _valid_pw_reset_grant()
+    if reset_user_id:
+        user = User.query.get(reset_user_id)
+        is_reset = True
+    else:
+        uid = session.get('user_id')
+        if 'username' not in session or not uid:
+            return jsonify({"error": "認証が必要です"}), 401
+        user = User.query.get(uid)
+        if user is None or session.get('auth_version') != user.auth_version:
+            session.clear()
+            return jsonify({"error": "認証が必要です"}), 401
+        is_reset = False
+
     if user is None:
+        session.clear()
         return jsonify({"error": "認証が必要です"}), 401
 
     try:
@@ -592,10 +629,15 @@ def set_account_password():
     elif not user.login_name_normalized:
         return jsonify({"error": "ログインIDを設定してください"}), 400
 
-    account_auth.set_password(user, password, commit=False)
-    db.session.commit()
-    # auth_version は据え置き（初回設定）。セッションへ現値を反映。
-    session['auth_version'] = user.auth_version
+    account_auth.set_password(user, password, bump_auth_version=is_reset, commit=False)
+    if is_reset:
+        # 再設定: 全端末トークン失効＋全セッション失効。このセッションは昇格する。
+        device_token.revoke_all_device_tokens(user.id, commit=False)
+        db.session.commit()
+        _set_authenticated_session(user)
+    else:
+        db.session.commit()
+        session['auth_version'] = user.auth_version
     return jsonify({"message": "パスワードを設定しました", **_account_profile(user)})
 
 
@@ -656,6 +698,62 @@ def logout_account():
         account_auth.bump_auth_version(user)  # commit を含む
     session.clear()
     return jsonify({"message": "全端末からログアウトしました", "mode": mode})
+
+
+@session_required
+def admin_issue_login_code():
+    """app admin が対象ユーザーへワンタイム・パスワード再設定コードを発行する。"""
+    denied = _require_app_admin()
+    if denied:
+        return denied
+    data = request.get_json(silent=True) or {}
+    target_user_id = str(data.get('user_id') or '').strip()
+    if not target_user_id:
+        return jsonify({"error": "User ID required"}), 400
+    target = User.query.get(target_user_id)
+    if target is None:
+        return jsonify({"error": "User not found"}), 404
+
+    code = one_time_code.issue_login_code(target_user_id, session.get('user_id'))
+    # 監査: 発行者・対象・時刻を記録する（コード値は記録しない）。
+    logging.info(f"[AUDIT] one-time login code issued by={session.get('user_id')} target={target_user_id}")
+    return jsonify({
+        "message": "ワンタイムコードを発行しました",
+        "code": code,  # 発行直後の一度だけ表示する
+        "user_id": target_user_id,
+        "username": target.name,
+        "expires_in_minutes": one_time_code.DEFAULT_TTL_MINUTES,
+    })
+
+
+def redeem_login_code():
+    """ワンタイムコードを使用し、パスワード設定専用grantを発行する。"""
+    data = request.get_json(silent=True) or {}
+    login_name = str(data.get('login_name') or '').strip()
+    code = str(data.get('code') or '').strip()
+    limiter_key = account_auth.normalize_login_name(login_name) or 'unknown'
+
+    if not one_time_code_limiter.is_allowed(limiter_key):
+        return jsonify({"error": "試行回数が多すぎます。しばらくしてからお試しください"}), 429
+
+    generic = "ログインIDまたはコードが正しくありません"
+    user = account_auth.find_user_by_login_name(login_name) if login_name else None
+    if user is None:
+        one_time_code_limiter.record_failure(limiter_key)
+        return jsonify({"error": generic}), 401
+
+    consumed = one_time_code.verify_and_consume(user.id, code)
+    if consumed is None:
+        one_time_code_limiter.record_failure(limiter_key)
+        return jsonify({"error": generic}), 401
+
+    one_time_code_limiter.reset(limiter_key)
+    _set_pw_reset_grant(user.id)
+    logging.info(f"[AUDIT] one-time login code redeemed target={user.id}")
+    return jsonify({
+        "message": "コードを確認しました。新しいパスワードを設定してください",
+        "require_password_set": True,
+    })
 
 
 @session_required
