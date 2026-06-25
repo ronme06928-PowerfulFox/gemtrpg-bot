@@ -90,6 +90,43 @@ def run_auto_migration(app):
                         db.session.rollback()
                         logging.error(f"Migration Query Failed: {e}")
 
+            # room_members（本番Neonに既存・コード外だった会員名簿）を採用する。
+            # 既存列(id/room_id/user_id/role/joined_at/granted_by_user_id)へ
+            # manual 6.4 の updated_at / revoked_at を追加し、有効membershipの
+            # 一意インデックスを張る。新規環境では create_all が全体を作る。
+            if inspector.has_table('room_members'):
+                rm_columns = [c['name'] for c in inspector.get_columns('room_members')]
+                rm_column_specs = {
+                    'updated_at': 'TIMESTAMP',
+                    'revoked_at': 'TIMESTAMP',
+                }
+                for column_name, column_type in rm_column_specs.items():
+                    if column_name in rm_columns:
+                        continue
+                    logging.info(f"Run Auto Migration: Adding '{column_name}' column to room_members")
+                    try:
+                        if is_postgres:
+                            db.session.execute(text(f"ALTER TABLE room_members ADD COLUMN IF NOT EXISTS {column_name} {column_type}"))
+                        else:
+                            db.session.execute(text(f"ALTER TABLE room_members ADD COLUMN {column_name} {column_type}"))
+                        db.session.commit()
+                        logging.info(f"Auto Migration Completed: '{column_name}' column added.")
+                    except Exception as e:
+                        db.session.rollback()
+                        logging.error(f"Migration Query Failed: {e}")
+
+                # 有効membership(revoked_at IS NULL)について (room_id, user_id) を一意に。
+                # 既存重複があると作成に失敗するため try で握り、backfill側でdedupする。
+                try:
+                    db.session.execute(text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_room_members_active "
+                        "ON room_members (room_id, user_id) WHERE revoked_at IS NULL"
+                    ))
+                    db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    logging.error(f"Migration Query Failed (room_members active index): {e}")
+
             # image_registryテーブルが存在するか確認
             if not inspector.has_table('image_registry'):
                 return

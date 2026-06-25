@@ -93,6 +93,38 @@ class OneTimeLoginCode(db.Model):
         return f'<OneTimeLoginCode user={self.user_id} used={self.used_at is not None}>'
 
 
+class RoomMember(db.Model):
+    """ルーム会員（owner/gm/player）。
+
+    本番Neonに手動作成済みの `room_members` を採用し、スキーマの正をコード側へ
+    寄せる。既存列（id/room_id/user_id/role/joined_at/granted_by_user_id）を踏襲し、
+    manual 6.4 の `updated_at`／`revoked_at` を追加する。
+    有効membership（revoked_at IS NULL）について (room_id, user_id) を一意にする。
+    """
+    __tablename__ = 'room_members'
+
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.Integer, db.ForeignKey('rooms.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    role = db.Column(db.String(20), default='player', nullable=False)  # owner | gm | player
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=True)
+    granted_by_user_id = db.Column(db.String(36), nullable=True)  # 既存prod列を踏襲（付与者）
+    # --- 追加（manual 6.4） ---
+    updated_at = db.Column(db.DateTime, nullable=True)
+    revoked_at = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (
+        db.Index(
+            'uq_room_members_active', 'room_id', 'user_id', unique=True,
+            sqlite_where=db.text('revoked_at IS NULL'),
+            postgresql_where=db.text('revoked_at IS NULL'),
+        ),
+    )
+
+    def __repr__(self):
+        return f'<RoomMember room={self.room_id} user={self.user_id} role={self.role}>'
+
+
 class ImageRegistry(db.Model):
     """画像レジストリテーブル - Cloudinaryにアップロードされた画像のメタデータを管理"""
     __tablename__ = 'image_registry'
