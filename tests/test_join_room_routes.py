@@ -140,6 +140,23 @@ def test_set_join_code_owner_only(client):
     assert r.status_code == 200 and r.get_json()["join_code"]
 
 
+def test_owner_sets_custom_pin_via_route(client):
+    _login(client, "owner")
+    r = client.post("/api/room/set_join_code", json={"room_name": "R1", "join_code": "4827"})
+    assert r.status_code == 200
+    assert r.get_json()["join_code"] == "4827"
+    # そのPINで非メンバーが参加できる。
+    _login(client, "player1")
+    j = client.post("/api/join_room_by_code", json={"room_name": "R1", "join_code": "4827"})
+    assert j.status_code == 200
+
+
+def test_set_join_code_invalid_pin_rejected(client):
+    _login(client, "owner")
+    r = client.post("/api/room/set_join_code", json={"room_name": "R1", "join_code": "12"})
+    assert r.status_code == 400
+
+
 # --- ルーム設定 ---
 
 def test_update_settings_owner_sets_visibility(client):

@@ -77,6 +77,27 @@ def test_join_code_is_hashed(app_ctx):
     assert Room.query.filter_by(name="R1").first().join_code_hash != code
 
 
+def test_owner_can_set_custom_pin(app_ctx):
+    _room("R1")
+    code = join_code.set_join_code("R1", "1234")
+    assert code == "1234"
+    assert join_code.verify_join_code("R1", "1234") is True
+
+
+def test_custom_code_case_insensitive(app_ctx):
+    _room("R1")
+    join_code.set_join_code("R1", "AbCd")
+    assert join_code.verify_join_code("R1", "abcd") is True
+    assert join_code.verify_join_code("R1", "ABCD") is True
+
+
+@pytest.mark.parametrize("bad", ["", "ab", "12 34", "x" * 33])
+def test_invalid_custom_code_rejected(app_ctx, bad):
+    _room("R1")
+    with pytest.raises(join_code.JoinCodeError):
+        join_code.set_join_code("R1", bad)
+
+
 # --- ロビーDTO ---
 
 def test_lobby_hides_hidden_for_non_member(app_ctx):

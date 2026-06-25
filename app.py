@@ -1187,18 +1187,27 @@ def join_room_by_code():
 
 @session_required
 def room_set_join_code():
-    """参加コードを発行/再発行する（owner専用、実値は一度だけ返す）。"""
+    """参加コードを設定する（owner専用）。
+
+    payload に join_code があればオーナー指定値（4桁PIN等）を使う。無ければ自動生成。
+    """
     from manager import join_code
-    room_name, _ = _room_member_request()
+    data = request.get_json(silent=True) or {}
+    room_name = str(data.get('room_name') or '').strip()
+    requested = data.get('join_code')
     if not room_name:
         return jsonify({"error": "room_name が必要です"}), 400
     denied = _require_room_owner(room_name)
     if denied:
         return denied
-    code = join_code.set_join_code(room_name)
+    try:
+        # 空文字の指定は「自動生成」扱いにせず誤入力として弾く。未指定(None)のみ自動生成。
+        code = join_code.set_join_code(room_name, requested if requested is not None else None)
+    except join_code.JoinCodeError as e:
+        return jsonify({"error": str(e)}), 400
     if code is None:
         return jsonify({"error": "Room not found"}), 404
-    return jsonify({"message": "参加コードを発行しました", "join_code": code, "room_name": room_name})
+    return jsonify({"message": "参加コードを設定しました", "join_code": code, "room_name": room_name})
 
 
 @session_required
