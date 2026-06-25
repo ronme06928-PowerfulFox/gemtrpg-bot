@@ -544,38 +544,59 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
         let count = 0;
         const normalizedFilter = filter.toLowerCase();
 
+        const ROLE_LABEL = { owner: 'オーナー', gm: 'GM', player: '参加者' };
         rooms.forEach(roomInfo => {
             const name = String(roomInfo.name || '');
-            const ownerId = roomInfo.owner_id;
-            if (name.toLowerCase().includes(normalizedFilter)) {
-                const li = document.createElement('li');
-                li.className = 'room-list-item';
+            if (!name.toLowerCase().includes(normalizedFilter)) return;
 
-                const isBattleOnly = String(roomInfo.play_mode || 'normal').toLowerCase() === 'battle_only';
-                const modeBadge = isBattleOnly
-                    ? '<span class="room-mode-badge battle-only">戦闘専用</span>'
-                    : '<span class="room-mode-badge normal">通常</span>';
+            const li = document.createElement('li');
+            li.className = 'room-list-item';
 
-                const deleteBtn = '<button class="room-delete-btn">削除</button>';
+            const isBattleOnly = String(roomInfo.play_mode || 'normal').toLowerCase() === 'battle_only';
+            const modeBadge = isBattleOnly
+                ? '<span class="room-mode-badge battle-only">戦闘専用</span>'
+                : '<span class="room-mode-badge normal">通常</span>';
 
-                li.innerHTML = `
-                    <div class="room-list-main">
-                        <span class="room-list-name">${escapeRoomText(name)}</span>
-                        <div class="room-list-meta">${modeBadge}</div>
-                    </div>
-                    <div class="room-list-buttons">
-                        <button class="room-join-btn">参加</button>
-                        ${deleteBtn}
-                    </div>
-                `;
-                const joinBtn = li.querySelector('.room-join-btn');
-                if (joinBtn) joinBtn.dataset.roomName = name;
-                const deleteBtnEl = li.querySelector('.room-delete-btn');
-                if (deleteBtnEl) deleteBtnEl.dataset.roomName = name;
+            const role = roomInfo.your_role;
+            const isMember = !!roomInfo.is_member;
+            const roleBadge = role ? `<span class="room-role-badge">${ROLE_LABEL[role] || role}</span>` : '';
+            const recruitBadge = roomInfo.recruitment_status
+                ? `<span class="room-recruit-badge">${escapeRoomText(roomInfo.recruitment_status)}</span>` : '';
+            const descHtml = roomInfo.description
+                ? `<div class="room-list-desc">${escapeRoomText(roomInfo.description)}</div>` : '';
 
-                roomList.appendChild(li);
-                count++;
+            let joinHtml;
+            if (isMember) {
+                joinHtml = '<button class="room-join-btn" data-action="enter">入室</button>';
+            } else if (roomInfo.joinable) {
+                joinHtml = '<button class="room-join-btn" data-action="join">参加</button>';
+            } else {
+                joinHtml = '<button class="room-join-btn" data-action="enter" disabled style="opacity:.5; cursor:not-allowed;">参加不可</button>';
             }
+            const deleteBtn = (role === 'owner') ? '<button class="room-delete-btn">削除</button>' : '';
+
+            li.innerHTML = `
+                <div class="room-list-main">
+                    <span class="room-list-name">${escapeRoomText(name)}</span>
+                    <div class="room-list-meta">${modeBadge}${roleBadge}${recruitBadge}</div>
+                    ${descHtml}
+                </div>
+                <div class="room-list-buttons">
+                    ${joinHtml}
+                    ${deleteBtn}
+                </div>
+            `;
+            const joinBtn = li.querySelector('.room-join-btn');
+            if (joinBtn) {
+                joinBtn.dataset.roomName = name;
+                joinBtn.dataset.requiresCode = roomInfo.requires_code ? '1' : '0';
+                joinBtn.dataset.role = role || '';
+            }
+            const deleteBtnEl = li.querySelector('.room-delete-btn');
+            if (deleteBtnEl) deleteBtnEl.dataset.roomName = name;
+
+            roomList.appendChild(li);
+            count++;
         });
         emptyMsg.style.display = (count === 0) ? 'block' : 'none';
     }
@@ -590,12 +611,43 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
         const target = e.target;
         const roomName = target.dataset.roomName;
         if (target.classList.contains('room-join-btn')) {
-            joinRoom(roomName);
+            if (target.disabled) return;
+            if (target.dataset.action === 'join') {
+                joinRoomWithCode(roomName, target.dataset.requiresCode === '1');
+            } else {
+                joinRoom(roomName, null, null, target.dataset.role || null);
+            }
         }
         if (target.classList.contains('room-delete-btn')) {
             deleteRoom(roomName);
         }
     });
+}
+
+// 非メンバーが参加コードで参加 → membership作成 → 入室
+async function joinRoomWithCode(roomName, requiresCode) {
+    let join_code = '';
+    if (requiresCode) {
+        join_code = await showAppPrompt('参加コードを入力してください。', {
+            title: 'ルームに参加', placeholder: '参加コード', confirmText: '参加', required: true,
+        });
+        if (!join_code) return;
+    }
+    try {
+        const response = await fetchWithSession('/api/join_room_by_code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_name: roomName, join_code }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            alert(data.error || 'ルーム参加に失敗しました');
+            return;
+        }
+        joinRoom(roomName, null, null, data.role || 'player');
+    } catch (error) {
+        alert(error.message);
+    }
 }
 
 async function createNewRoom() {
@@ -695,7 +747,7 @@ async function deleteRoom(roomName) {
     }
 }
 
-async function joinRoom(roomName, initialState = null, entryOptions = null) {
+async function joinRoom(roomName, initialState = null, entryOptions = null, knownRole = null) {
     // Reset DOM initialization flag so dock re-initializes on room change
     // NOTE: Do NOT reset visualBattleSocketHandlersRegistered - socket handlers must only be registered once
     window.actionDockInitialized = false;
@@ -703,6 +755,10 @@ async function joinRoom(roomName, initialState = null, entryOptions = null) {
 
     try {
         let roomEntry = entryOptions;
+        if (!roomEntry && (knownRole === 'owner' || knownRole === 'gm')) {
+            // 既に owner/gm メンバーなら、入室種別を尋ねずそのまま入る（権限はmembership由来）。
+            roomEntry = { role: 'GM', gmPin: '' };
+        }
         if (!roomEntry) {
             const asGm = await showAppConfirm('GMとして入室しますか？', {
                 title: '入室種別',
