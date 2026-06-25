@@ -18,7 +18,7 @@ def test_create_app_without_startup_registers_http_routes():
 
     routes = {rule.rule for rule in test_app.url_map.iter_rules()}
 
-    assert len(test_app.url_map._rules) == 39
+    assert len(test_app.url_map._rules) == 40
     assert "/" in routes
     assert "/healthz" in routes
     assert "/api/get_session_user" in routes
@@ -29,3 +29,5 @@ def test_create_app_without_startup_registers_http_routes():
     assert "/api/login" in routes
     assert "/api/set_password" in routes
     assert "/api/change_display_name" in routes
+    # Phase 3: ログアウト
+    assert "/api/logout" in routes

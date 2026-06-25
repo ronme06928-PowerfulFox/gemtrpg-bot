@@ -52,7 +52,7 @@ from datetime import datetime
 import cloudinary
 import cloudinary.uploader
 
-from manager import account_auth
+from manager import account_auth, device_token
 from manager.auth_rate_limit import password_login_limiter
 
 # ★追加インポート
@@ -375,6 +375,7 @@ def register_http_routes(flask_app):
     flask_app.add_url_rule('/api/login', 'login_account', login_account, methods=['POST'])
     flask_app.add_url_rule('/api/set_password', 'set_account_password', set_account_password, methods=['POST'])
     flask_app.add_url_rule('/api/change_display_name', 'change_display_name', change_display_name, methods=['POST'])
+    flask_app.add_url_rule('/api/logout', 'logout_account', logout_account, methods=['POST'])
     flask_app.add_url_rule('/api/recover_user', 'recover_user', recover_user, methods=['POST'])
     flask_app.add_url_rule('/api/recover_from_local_token', 'recover_from_local_token', recover_from_local_token, methods=['POST'])
     flask_app.add_url_rule('/api/regenerate_recovery_code', 'regenerate_recovery_code', regenerate_recovery_code, methods=['POST'])
@@ -612,6 +613,49 @@ def change_display_name():
     db.session.commit()
     session['username'] = new_name
     return jsonify({"message": "表示名を変更しました", "username": new_name, "user_id": user.id})
+
+
+def logout_account():
+    """ログアウト。mode: session(通常) | device(完全) | all(全端末)。
+
+    - session: Flask session を破棄するだけ。端末トークンは保持する
+      （自動復旧の停止はクライアント側の明示操作まで＝Phase 7）。
+    - device: session 破棄 + 現端末トークンを失効。payload に selector があれば
+      該当 TrustedDeviceToken を失効。併せて旧 recovery_token_hash も無効化し、
+      レガシー自動復旧を止める。
+    - all: session 破棄 + auth_version 増加（全セッション失効）+ 全端末トークン
+      失効（TrustedDeviceToken 全件 + recovery_token_hash クリア）。
+    """
+    data = request.get_json(silent=True) or {}
+    mode = str(data.get('mode') or 'session').strip().lower()
+    if mode not in ('session', 'device', 'all'):
+        return jsonify({"error": "不正なログアウト種別です"}), 400
+
+    user_id = session.get('user_id')
+    selector = str(data.get('selector') or '').strip()
+
+    if mode == 'session':
+        session.clear()
+        return jsonify({"message": "ログアウトしました", "mode": mode})
+
+    user = User.query.get(user_id) if user_id else None
+
+    if mode == 'device':
+        if selector:
+            device_token.revoke_device_token(selector)
+        if user is not None and getattr(user, 'recovery_token_hash', None):
+            user.recovery_token_hash = None
+            db.session.commit()
+        session.clear()
+        return jsonify({"message": "この端末からログアウトしました", "mode": mode})
+
+    # mode == 'all'
+    if user is not None:
+        device_token.revoke_all_device_tokens(user.id)
+        user.recovery_token_hash = None
+        account_auth.bump_auth_version(user)  # commit を含む
+    session.clear()
+    return jsonify({"message": "全端末からログアウトしました", "mode": mode})
 
 
 @session_required
