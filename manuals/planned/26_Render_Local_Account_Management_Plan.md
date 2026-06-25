@@ -373,6 +373,31 @@ Room
 - 途中失敗時にどのrevisionまで適用されたか判定できる。
 - 旧コードでも新スキーマ上で起動できる。
 
+実装進捗（2026-06-22・PR-26-02 第1弾）:
+
+- [x] User拡張（`login_name_normalized`(unique index)／`password_hash`／`password_changed_at`／`auth_version` default 1）、Room拡張（`description`／`lobby_visibility` default hidden／`recruitment_status`／`join_code_hash`／`join_code_rotated_at`）を `models.py` に追加。
+- [x] 新テーブル `TrustedDeviceToken`／`OneTimeLoginCode` を追加（FKは `ondelete=CASCADE`／`SET NULL`）。
+- [x] `manager/db_migration.py` を idempotent に拡張（旧スキーマへ列追加・再実行安全・unique index は IF NOT EXISTS）。
+- [x] expand とマイグレーション冪等性のテスト `tests/test_phase1_schema_expand.py`（旧スキーマ→列追加→2回実行・新テーブル利用・旧コード互換）。
+- [ ] **`RoomMembership` と backfill は保留**：本番Neonに手動作成された `room_members`（コード外・スキーマ不明）が存在し、名称衝突や既存列(NOT NULL等)のリスクがあるため、**本番スキーマ確認後**に実装する。下記SQLで列定義・制約・行数を確認する。
+- [ ] owner/player membership の backfill と dry-run（owner不在・重複表示名・所有者不明）は membership テーブル確定後に実装する。
+
+本番 `room_members` 確認用SQL（Neon SQLコンソール / Render shell で実行）:
+
+```sql
+-- 列定義
+SELECT column_name, data_type, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_name = 'room_members' ORDER BY ordinal_position;
+-- 制約（PK/FK/UNIQUE）
+SELECT tc.constraint_type, tc.constraint_name, kcu.column_name
+FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+WHERE tc.table_name = 'room_members' ORDER BY tc.constraint_type, kcu.column_name;
+-- 行数
+SELECT count(*) AS row_count FROM room_members;
+```
+
 ### Phase 2: パスワード設定・通常ログイン
 
 目的: 名前だけのセッション開始から、本人確認できるアカウント認証へ移行する。
