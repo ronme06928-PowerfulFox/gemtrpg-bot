@@ -480,6 +480,25 @@ SELECT count(*) AS row_count FROM room_members;
 - app adminの自動GM化を廃止する。
 - 既存GM PINは移行期間のmembership取得手段に限定し、期限後に廃止する。
 
+実装進捗（2026-06-22・PR-26-06/07）:
+
+- [x] Room作成者へowner membership（`create_room` 同一トランザクション）。
+- [x] owner専用メンバー管理API（grant_gm/revoke_gm/transfer_owner/remove_member）。`tests/test_room_member_routes.py`。
+- [x] `room_access` の判定根拠を **RoomMember 正本**へ差し替え（インターフェース不変、membership無しのみ移行期フォールバック）。`tests/test_room_membership_authz.py`。
+- [x] **app adminの自動GM化を廃止**（`join_room`）。
+- [x] GM PIN は GM membership の取得手段に（`join_room` で gm membership を付与）。
+- [x] **権限の正本を membership に**。`session['attribute']`／`user_sids[].attribute` は正本ではなく、**join時にmembershipから導出・role変更時に同期されるサーバー側の派生キャッシュ**とする（クライアントから偽装不可）。
+
+設計判断（attribute の扱い）: socketイベントは引き続きサーバー側 `user_sids[].attribute` を読むが、その値は membership から導出・同期される。これにより worker=1/eventlet で毎イベントDB再解決のコストを避けつつ、正本は membership に一本化する。`room_access.sid_has_room_role(sid, room, GM_ROLES)` を用意済みで、毎回DB再解決が必要なイベントは個別に切替できる。
+
+全Socketイベント棚卸し（94イベント、`grep '@socketio.on(' events/`）:
+
+- 参加者（在室）必須: チャット/ログ/同期系（`request_chat`/`request_log`/`request_select_resolve_sync` は SID-room 検証済み=Phase 0第2弾）。
+- GM相当(owner/gm)必須: `request_gm_*`（apply_buff/remove_buff/apply_state/grant_item/adjust_item）、`request_new_round`/`request_end_round`/`request_reset_battle`/`request_force_end_match`/`request_add_debug_character`、`request_*_preset_*`／`request_bo_*`（戦闘設定・プリセット系）、背景/立ち絵/トークン更新系。現状はサーバー側 attribute(=membership派生) で `!= 'GM'` 判定済み。
+- キャラ所有者 or GM: `declare_skill`/`request_use_item`/`request_move_*`/`request_delete_character` 等は `is_authorized_for_character` で判定済み。
+
+- [ ] **残（cutover・実機スモークと同時に実施）**: 上記 GM系イベントの判定を、派生 attribute から `sid_has_room_role` の**毎回membership再解決**へ全面切替する。挙動を変える最大の箇所のため、ローカル起動スモーク（entry→入室→GM操作→保存）で確認しながら行う。PR-26-07 のcutover手順に対応。
+
 ### Phase 6: 参加コードと安全な公開ロビー
 
 目的: 未参加者に内部状態を出さず、コード成功後だけmembershipを作る。
