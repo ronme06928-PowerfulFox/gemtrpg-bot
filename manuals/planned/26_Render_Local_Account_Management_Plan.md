@@ -520,6 +520,7 @@ SELECT count(*) AS row_count FROM room_members;
 - [x] `/api/join_room_by_code`：コード照合（レート制限）成功時のみ player membership 作成（同一トランザクション）。closed/hidden拒否、既メンバーはコード不要で再入室。
 - [x] `/api/room/set_join_code`・`clear_join_code`：owner専用（実値は発行時のみ表示=Q26-010）。`/api/room/update_settings`：owner=可視性/説明/募集、gm=募集のみ（Q26-010）。
 - [x] **`enter_room` を membership 必須化**（`resolve_room_role`）。Phase 0 の `entered_rooms` ループホールを封鎖。非メンバーは参加コード必須。owner_idフォールバックで既存ルームownerはロックアウトしない。
+- [x] **参加コードはオーナー指定可（4桁PIN〜）**：`set_join_code(room_name, code)` でオーナーが決めた値を設定（4-32文字・空白不可、未指定なら自動生成）。GM PINとは別の秘密値のまま。総当たりは `join_code_limiter`(10分10回)で律速。`/api/room/set_join_code` が `join_code` を受理。
 - [x] テスト：`tests/test_join_code_lobby.py`／`tests/test_join_room_routes.py`。
 - [ ] ロビー/参加/ルーム情報のUIはPhase 7。`/list_rooms` のDTO形が変わったため、Phase 7 で UI 消費側を更新する。
 
@@ -548,6 +549,11 @@ SELECT count(*) AS row_count FROM room_members;
 - 未使用の `/save_room` を削除する。
 - mobile版を更新できていない場合は、公開導線と `/mobile` を明示的に停止する。
 - 公開前の認証・認可・情報漏えいチェックリストを実施する。
+
+実装進捗（2026-06-26）:
+
+- [x] **cleanup先行実施**: app.py のHTTPハンドラを `routes/`（account/room/admin の Blueprint）へ分割し app.py を1571→655行に減量（size guard の app.py LEGACY上限を解除）。**純粋なリファクタで全エンドポイント・ルート数50・全テスト不変（回帰なし）**。
+- [ ] **contract本体は未実施（Phase 7のブラウザE2E確認後に実施）**: 名前だけ `/api/entry` 停止（`ACCOUNT_DISABLE_NAME_ONLY_LOGIN=1`）、再利用可能な復旧コード/旧token列の停止、GM PIN互換の段階廃止、`/save_room` の扱い確定、公開前チェックリスト。**旧導線を消すのは新UIの動作確認後**にする（戻り道を残す）。
 
 ---
 
