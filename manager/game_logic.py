@@ -589,11 +589,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
                 if not sim_target:
                     continue
-                if 'flags' not in sim_target:
-                    sim_target['flags'] = {}
-                if sim_target['flags'].get('fissure_received_this_round', False):
-                    log_snippets.append("[亀裂付与失敗: 同一ラウンド内で既に亀裂付与済み]")
-                    continue
 
                 bonus, buffs_to_remove = calculate_state_apply_bonus(sim_actor, sim_target, "亀裂", context=context)
                 final_value = value + max(0, int(bonus or 0))
@@ -612,8 +607,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     rounds=rounds,
                     source=effect.get("source", "skill"),
                 )
-                sim_target['flags']['fissure_received_this_round'] = True
-                changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
                 log_snippets.append(f"[亀裂 {final_value} ({rounds}R)]")
                 continue
 
@@ -621,13 +614,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                 stat_name = effect.get("state_name") or effect.get("name")
                 value = int(effect.get("value", 0))
                 fissure_rounds = _parse_positive_rounds(effect.get("rounds"))
-
-                if stat_name == "亀裂" and value > 0 and sim_target:
-                    if 'flags' not in sim_target:
-                        sim_target['flags'] = {}
-                    if sim_target['flags'].get('fissure_received_this_round', False):
-                        log_snippets.append("[亀裂付与失敗: 同一ラウンド内で既に亀裂付与済み]")
-                        continue
 
                 if value > 0:
                     if sim_actor:
@@ -661,10 +647,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                             rounds=fissure_rounds,
                             source=effect.get("source", "skill"),
                         )
-                        if 'flags' not in sim_target:
-                            sim_target['flags'] = {}
-                        sim_target['flags']['fissure_received_this_round'] = True
-                        changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
                         log_snippets.append(f"[亀裂 {value} ({fissure_rounds}R)]")
                         continue
 
@@ -672,13 +654,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                     _stable_set_status_value(sim_target, stat_name, current_val + value)
 
                     changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, value))
-
-                    if stat_name == "亀裂" and value > 0:
-                        if 'flags' not in sim_target:
-                            sim_target['flags'] = {}
-                        sim_target['flags']['fissure_received_this_round'] = True
-                        changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
-
 
             elif effect_type == "APPLY_STATE_PER_N":
                 source_type = effect.get("source", "self")
@@ -714,13 +689,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
                 stat_name = effect.get("state_name")
                 if stat_name and calculated_value > 0:
-                    if stat_name == "亀裂" and sim_target:
-                        if 'flags' not in sim_target:
-                            sim_target['flags'] = {}
-                        if sim_target['flags'].get('fissure_received_this_round', False):
-                            log_snippets.append("[亀裂付与失敗: 同一ラウンド内で既に亀裂付与済み]")
-                            continue
-
                     if sim_actor:
                         source_bonus, source_buffs_to_remove = calculate_state_apply_bonus(
                             sim_actor, sim_target, stat_name, context=context
@@ -751,10 +719,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
                             rounds=fissure_rounds,
                             source=effect.get("source", "skill"),
                         )
-                        if 'flags' not in sim_target:
-                            sim_target['flags'] = {}
-                        sim_target['flags']['fissure_received_this_round'] = True
-                        changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
                         log_snippets.append(f"[亀裂 {calculated_value} ({source_param}{source_param_value}/{fissure_rounds}R)]")
                         continue
 
@@ -763,13 +727,6 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
 
                     changes_to_apply.append((target_obj, "APPLY_STATE", stat_name, calculated_value))
                     log_snippets.append(f"[{stat_name} +{calculated_value} ({source_param}={source_param_value})]")
-
-                    if stat_name == "亀裂":
-                        if 'flags' not in sim_target:
-                            sim_target['flags'] = {}
-                        sim_target['flags']['fissure_received_this_round'] = True
-                        changes_to_apply.append((target_obj, "SET_FLAG", "fissure_received_this_round", True))
-
 
             elif effect_type == "MULTIPLY_STATE":
                 stat_name = effect.get("state_name")

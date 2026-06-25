@@ -400,7 +400,8 @@ def execute_wide_match(room, username):
 
 
 
-            total_damage = damage
+            kiretsu = get_status_value(def_char, "亀裂")
+            total_damage = damage + kiretsu
             log_snippets = []
 
 
@@ -541,12 +542,14 @@ def execute_wide_match(room, username):
                     def_char = dr['char']
                     results.append({'defender': def_char['name'], 'result': 'win', 'damage': diff})
                     current_hp = get_status_value(def_char, 'HP')
-                    extra_dmg = process_on_hit_buffs(attacker_char, def_char, diff, [])
+                    kiretsu = get_status_value(def_char, "亀裂")
+                    damage_with_fissure = diff + kiretsu
+                    extra_dmg = process_on_hit_buffs(attacker_char, def_char, damage_with_fissure, [])
                     if extra_dmg > 0:
                          broadcast_log(room, f"[{attacker_char['name']}] 追加ダメージ +{extra_dmg}", 'buff')
-                    new_hp = max(0, current_hp - (diff + extra_dmg))
+                    new_hp = max(0, current_hp - (damage_with_fissure + extra_dmg))
                     _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]")
-                    process_on_damage_buffs(room, def_char, diff + extra_dmg, f"[{attacker_skill_id}]", [], attacker_char=attacker_char)
+                    process_on_damage_buffs(room, def_char, damage_with_fissure + extra_dmg, f"[{attacker_skill_id}]", [], attacker_char=attacker_char)
                     broadcast_log(room, f"   →{def_char['name']} に {diff} ダメージ", 'damage')
 
                     if attacker_effects:
@@ -765,6 +768,9 @@ def execute_wide_match(room, username):
                         broadcast_log(room, f"   [result] attacker hit: {damage} damage", "match-result", save=False)
 
                 results.append({'defender': def_char['name'], 'result': 'win', 'damage': damage})
+
+                kiretsu = get_status_value(def_char, "亀裂")
+                damage += kiretsu
 
                 if attacker_effects:
                     dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'characters': state['characters']})

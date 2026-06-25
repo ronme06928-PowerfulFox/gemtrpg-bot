@@ -33,7 +33,7 @@ def test_apply_state_with_rounds_routes_to_fissure_buff(sample_actor, sample_tar
     assert int(payload.get("lasting", 0)) == 3
     assert payload.get("data", {}).get("buff_id") == "Bu-Fissure"
     assert int(payload.get("data", {}).get("count", 0)) == 1
-    assert len(fissure_flag) == 1
+    assert len(fissure_flag) == 0
 
 
 def test_apply_state_with_rounds_uses_crackonce_bonus_and_consumes(sample_actor, sample_target):

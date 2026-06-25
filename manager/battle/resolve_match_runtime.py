@@ -148,6 +148,11 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     base_damage = int(roll_result.get('total', 0))
     power_snapshot = build_power_result_snapshot(preview, roll_result)
 
+    try:
+        kiretsu = int(get_status_value(defender_char, '亀裂'))
+    except Exception:
+        kiretsu = 0
+
     bd_un, log_un, chg_un = process_skill_effects(
         effects_array_a, "UNOPPOSED", attacker_char, defender_char, defender_skill_data, context=context
     )
@@ -161,11 +166,6 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     extra_hit_from_changes = _apply_effect_changes_like_duel(
         room, state, chg_hit, attacker_char, defender_char, base_damage, log_snippets, reuse_requests=reuse_requests
     )
-
-    try:
-        kiretsu = int(get_status_value(defender_char, '亀裂'))
-    except Exception:
-        kiretsu = 0
 
     bonus_damage = int(bd_un) + int(bd_hit)
     extra_skill_damage = int(extra_un) + int(extra_hit_from_changes)
@@ -694,6 +694,10 @@ def _resolve_hard_attack_followup(
     base_damage = int(((preview_a or {}).get('power_breakdown', {}) or {}).get('final_base_power', 0) or 0)
     if base_damage < 0:
         base_damage = 0
+    try:
+        kiretsu = int(get_status_value(defender_char, '亀裂'))
+    except Exception:
+        kiretsu = 0
 
     defense_power = None
     blocked_by_evade = False
@@ -740,7 +744,7 @@ def _resolve_hard_attack_followup(
     final_damage = 0
     on_damage_extra = 0
     if not blocked_by_evade and _skill_deals_damage(attacker_skill_data):
-        raw_damage = int(base_damage) + int(bd_lose) + int(bd_hit) + int(extra_lose) + int(extra_hit)
+        raw_damage = int(base_damage) + int(kiretsu) + int(bd_lose) + int(bd_hit) + int(extra_lose) + int(extra_hit)
         mult_info = compute_damage_multipliers(attacker_char, defender_char, context=context)
         final_damage = int(raw_damage * float(mult_info.get('final', 1.0) or 1.0))
         _append_multiplier_logs(log_snippets, mult_info)
@@ -778,6 +782,7 @@ def _resolve_hard_attack_followup(
         'reuse_requests': reuse_requests,
         'rolls': {
             'base_damage': base_damage,
+            'kiretsu': kiretsu,
             'defense_power': defense_power,
             'blocked_by_evade': blocked_by_evade,
             'final_damage': final_damage,
@@ -945,4 +950,3 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
         slot_id, skill_id, command, total
     )
     return max(0, total)
-

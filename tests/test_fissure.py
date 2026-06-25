@@ -26,17 +26,16 @@ class TestFissureApplication:
             effects, "HIT", sample_actor, sample_target
         )
 
-        # Assert: 亀裂の付与とフラグ設定が含まれている
+        # Assert: 亀裂の付与が含まれている
         state_changes = [c for c in changes if c[1] == "APPLY_STATE" and c[2] == "亀裂"]
         flag_changes = [c for c in changes if c[1] == "SET_FLAG" and c[2] == "fissure_received_this_round"]
 
         assert len(state_changes) == 1, "亀裂の APPLY_STATE が1つあるべき"
         assert state_changes[0][3] == 5, "亀裂の付与値は5"
-        assert len(flag_changes) == 1, "フラグ SET_FLAG が1つあるべき"
-        assert flag_changes[0][3] is True, "フラグ値は True"
+        assert len(flag_changes) == 0, "亀裂付与制限フラグは設定しない"
 
-    def test_fissure_second_application_blocked(self, sample_actor, sample_target):
-        """同一ラウンド中の2回目の亀裂付与はブロックされる"""
+    def test_fissure_second_application_succeeds(self, sample_actor, sample_target):
+        """同一ラウンド中の2回目の亀裂付与も成功する"""
         # Arrange: ターゲットに既に今ラウンド亀裂が付与されているフラグを設定
         sample_target['flags'] = {'fissure_received_this_round': True}
         set_status_value(sample_target, '亀裂', 5)  # 既に5の亀裂がある
@@ -54,12 +53,11 @@ class TestFissureApplication:
             effects, "HIT", sample_actor, sample_target
         )
 
-        # Assert: 亀裂の付与がない（スキップされた）
+        # Assert: 亀裂の付与が発生する
         state_changes = [c for c in changes if c[1] == "APPLY_STATE" and c[2] == "亀裂"]
-        assert len(state_changes) == 0, "亀裂の APPLY_STATE は発生しないべき"
-
-        # ログに失敗メッセージが含まれる
-        assert any("付与失敗" in log for log in logs), "付与失敗のログがあるべき"
+        assert len(state_changes) == 1, "亀裂の APPLY_STATE が発生するべき"
+        assert state_changes[0][3] == 3
+        assert not any("付与失敗" in log for log in logs), "付与失敗のログは出さない"
 
     def test_fissure_negative_value_not_blocked(self, sample_actor, sample_target):
         """亀裂の減少（負の値）は制限されない"""
@@ -112,8 +110,8 @@ class TestFissureApplication:
 class TestMultipleEffects:
     """複数効果のテスト"""
 
-    def test_fissure_blocked_but_other_effects_applied(self, sample_actor, sample_target):
-        """亀裂がブロックされても他の効果は適用される（案A）"""
+    def test_fissure_and_other_effects_applied(self, sample_actor, sample_target):
+        """亀裂と他の効果は同時に適用される"""
         # Arrange
         sample_target['flags'] = {'fissure_received_this_round': True}
 
@@ -148,6 +146,6 @@ class TestMultipleEffects:
         fissure_changes = [c for c in changes if c[1] == "APPLY_STATE" and c[2] == "亀裂"]
         bleed_changes = [c for c in changes if c[1] == "APPLY_STATE" and c[2] == "出血"]
 
-        assert len(fissure_changes) == 0, "亀裂はブロックされる"
+        assert len(fissure_changes) == 1, "亀裂は適用される"
         assert len(bleed_changes) == 1, "出血は適用される"
         assert bonus_dmg == 10, "ダメージボーナスも適用される"
