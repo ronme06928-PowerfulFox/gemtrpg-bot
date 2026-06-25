@@ -11,9 +11,6 @@ LEGACY_FILE_CEILINGS = {
     # utils.py は既存の巨大モジュール。Phase 2 で session_required へ
     # auth_version 検証を追加し 1500 を超過。分割は別タスク。これ以上増やさない。
     "manager/utils.py": 1503,
-    # app.py はルート登録＋薄いハンドラ。Phase 2-6 でアカウント/ルーム認可
-    # の薄いハンドラ追加により超過。Blueprint等への分割は別タスク（Phase 8）。
-    "app.py": 1571,
 }
 
 
