@@ -513,6 +513,16 @@ SELECT count(*) AS row_count FROM room_members;
 - 既存memberはコード再入力なしで再入室できる。
 - ルーム一覧から `owner_id` 等の内部識別子を除外する。
 
+実装進捗（2026-06-22・PR-26-08）:
+
+- [x] `manager/join_code.py`：参加コードの発行/再発行/失効/照合（ハッシュ保存・GM PINとは別の秘密値）。`join_code_limiter`。
+- [x] `build_lobby_cards`：未参加者に安全なカード（hidden除外/closedは表示のみ参加不可/内部識別子・ログ・キャラ・画像URL・owner_id・コードを含めない）。`/list_rooms` をこのDTOへ。
+- [x] `/api/join_room_by_code`：コード照合（レート制限）成功時のみ player membership 作成（同一トランザクション）。closed/hidden拒否、既メンバーはコード不要で再入室。
+- [x] `/api/room/set_join_code`・`clear_join_code`：owner専用（実値は発行時のみ表示=Q26-010）。`/api/room/update_settings`：owner=可視性/説明/募集、gm=募集のみ（Q26-010）。
+- [x] **`enter_room` を membership 必須化**（`resolve_room_role`）。Phase 0 の `entered_rooms` ループホールを封鎖。非メンバーは参加コード必須。owner_idフォールバックで既存ルームownerはロックアウトしない。
+- [x] テスト：`tests/test_join_code_lobby.py`／`tests/test_join_room_routes.py`。
+- [ ] ロビー/参加/ルーム情報のUIはPhase 7。`/list_rooms` のDTO形が変わったため、Phase 7 で UI 消費側を更新する。
+
 ### Phase 7: ログイン・ユーザー設定・ルーム情報UI
 
 目的: 安全化済みAPIを、迷わない導線で利用できるようにする。
