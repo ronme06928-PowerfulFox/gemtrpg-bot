@@ -413,6 +413,15 @@ SELECT count(*) AS row_count FROM room_members;
 - 既存復旧コードまたは有効な端末tokenから初回パスワード設定へ進める。
 - Renderで名前だけのログインを無効化する。
 
+実装進捗（2026-06-22・PR-26-03）:
+
+- [x] ロジック層 `manager/account_auth.py`（login_name正規化 NFKC+casefold・一意、パスワードポリシー10-128・trim/正規化しない・werkzeugハッシュ、`set_password`/`auth_version`増加）＋ `manager/auth_rate_limit.py`（in-memory、password/コード別上限）。`tests/test_account_auth.py`。
+- [x] 新規API: `POST /api/register`（login_name+password）、`/api/login`（レート制限＋汎用エラー＋ダミー照合で存在判別防止）、`/api/set_password`（recover後セッションで既存ユーザー初回移行）、`/api/change_display_name`（表示名分離）。`tests/test_account_auth_routes.py`。
+- [x] **auth_version 本格適用（Q26-015 / Phase 0残）**：セッションへ `auth_version` を載せ、`session_required`／`get_session_user` で不一致・未保持を失効。entry/recover も auth_version を載せる。`bump_auth_version` で全端末失効が可能に。
+- [x] `/api/entry` に名前だけログイン無効化フラグ `ACCOUNT_DISABLE_NAME_ONLY_LOGIN`（既定off）を追加。cutover時にON。
+- [ ] **Renderで名前だけログイン無効化の実施**と**UI連携**はPhase 7（ログイン画面）で行う。それまで `/api/entry` は従来どおり動作（旧導線維持）。
+- 注: auth_version 適用により、デプロイ時に既存ログイン中セッション（auth_version未保持）は一度失効する（Q26-015の決定どおり）。クライアントは保存済み端末トークンで自動再認証される。
+
 ### Phase 3: ログアウトと信頼済み端末
 
 目的: session失効と端末token失効の意味を明確にする。
