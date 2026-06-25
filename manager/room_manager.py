@@ -500,7 +500,21 @@ def broadcast_user_list(room_name):
     _safe_emit('user_list_updated', user_list, to=room_name)
 
 def get_user_info_from_sid(sid):
-    return user_sids.get(sid, {"username": "System", "attribute": "System"})
+    info = user_sids.get(sid)
+    if not info:
+        return {"username": "System", "attribute": "System"}
+    # Phase 5 cutover: 権限の正本は membership。GM相当(attribute='GM')かどうかを
+    # 毎回 membership から再解決して上書きする（キャッシュのドリフトを防ぐ）。
+    # membership が無い場合（移行期・GM PIN直後の作成失敗等）はキャッシュ値を保つ
+    # ＝降格しない。これが全socketイベントのGM判定の単一チョークポイント。
+    from manager.room_access import get_membership_role, GM_ROLES
+    room = info.get('room')
+    uid = info.get('user_id')
+    if room and uid:
+        role = get_membership_role(uid, room)
+        if role is not None:
+            info['attribute'] = 'GM' if role in GM_ROLES else 'Player'
+    return info
 
 def is_authorized_for_character(room_name, char_id, username, attribute):
     """Return whether a user can control a character in the given room."""
