@@ -7,9 +7,8 @@ from extensions import socketio, user_sids
 from manager.room_manager import (
     get_room_state, broadcast_log, broadcast_user_list, emit_select_resolve_events
 )
-from manager.auth import PLAYER_ATTRIBUTE, resolve_room_attribute
-from manager.user_manager import is_user_management_admin
-from manager.room_access import is_sid_in_room
+from manager.auth import GM_ATTRIBUTE, PLAYER_ATTRIBUTE, resolve_room_attribute
+from manager.room_access import is_sid_in_room, ensure_join_membership_by_name, get_membership_role, GM_ROLES
 
 # --- 5.2. SocketIO イベントハンドラ ---
 @socketio.on('connect')
@@ -47,16 +46,26 @@ def handle_join_room(data):
         return
     # 表示名は payload ではなく session のユーザー情報から採る（なりすまし防止）。
     username = session.get('username')
+    user_id = session.get('user_id')
     requested_role = data.get('role') or data.get('attribute') or PLAYER_ATTRIBUTE
     gm_key = data.get('gm_pin') or data.get('gm_key') or ''
-    if str(requested_role or '').strip().lower() in {"gm", "game_master", "gamemaster"} and is_user_management_admin(session.get('user_id')):
-        attribute = 'GM'
+
+    # 権限の正本は membership。owner/gm なら GM 相当（app admin の自動GM化は廃止）。
+    if get_membership_role(user_id, room) in GM_ROLES:
+        attribute = GM_ATTRIBUTE
     else:
+        # 移行期: GM PIN を GM membership 取得手段として使う。
         attribute = resolve_room_attribute(room, requested_role, gm_key)
     if attribute is None:
         emit('join_room_error', {'error': 'GM PINが正しくありません'}, to=request.sid)
         return
     session['attribute'] = attribute
+
+    # 入室で membership を整える（GM PIN で GM になった場合は gm membership を付与）。
+    try:
+        ensure_join_membership_by_name(room, user_id, attribute == GM_ATTRIBUTE)
+    except Exception:
+        pass
 
     prev_info = user_sids.get(request.sid)
     prev_room = (prev_info or {}).get('room')

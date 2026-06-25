@@ -928,6 +928,10 @@ def create_room():
         gm_pin_hash=hash_gm_pin(gm_pin),
     )
     db.session.add(new_room)
+    db.session.flush()  # new_room.id を確定させ、同一トランザクションで owner membership を作る
+    from manager.room_access import ensure_membership, OWNER
+    ensure_membership(new_room.id, session.get('user_id'), OWNER,
+                      granted_by=session.get('user_id'), commit=False)
     db.session.commit()
     session['attribute'] = GM_ATTRIBUTE
     # ▲▲▲ 修正ここまで ▲▲▲
