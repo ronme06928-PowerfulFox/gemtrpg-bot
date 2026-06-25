@@ -457,6 +457,15 @@ SELECT count(*) AS row_count FROM room_members;
 - パスワード設定完了時に全端末tokenを失効し、`auth_version` を増加させる。
 - 発行者、対象、発行・使用・失効時刻を監査する。コード値は監査しない。
 
+実装進捗（2026-06-22・PR-26-05）:
+
+- [x] `manager/one_time_code.py`：発行（10文字/15分/旧コード失効=Q26-007）・照合consume（一回使用）・失敗上限5で失効・全失効。コードはハッシュ保存、実値は発行時のみ返す。
+- [x] `POST /api/admin/issue_login_code`（app admin限定・監査ログ。コード値はログに出さない）。
+- [x] `POST /api/redeem_login_code`：コード使用→**パスワード設定専用grant**発行（レート制限・汎用エラー）。grantは `session_required` を通らずルーム/管理APIに入れない。
+- [x] `set_account_password` を grant 対応に拡張：grant経路では設定完了時に `auth_version` 増加＋全端末トークン失効→通常sessionへ昇格。
+- [x] 監査はモデル列（created_by_user_id/created_at/used_at/revoked_at）＋ログで担保。`tests/test_one_time_login_code.py`（フルリセットフロー含む）。
+- [ ] 管理者UI（発行ボタン・コード一度表示）とユーザー向け再設定画面はPhase 7。
+
 ### Phase 5: ルームmembershipとサーバー認可の全面適用
 
 目的: owner/gm/playerを永続化し、全ルーム操作へ同じ認可規則を適用する。
