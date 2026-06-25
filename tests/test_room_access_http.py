@@ -111,9 +111,12 @@ def test_load_room_allowed_for_owner(client):
 
 
 def test_load_room_allowed_after_enter_room(client):
+    # Phase 6 以降、enter_room は membership 必須。player-1 を参加させてから。
+    from manager import room_access as ra
+    from models import Room
+    ra.ensure_membership(Room.query.filter_by(name="R1").first().id, "player-1", ra.PLAYER)
     _login(client, "player-1", "player")
-    # enter_room 経由で入室を記録すれば load_room できる。
-    entered = client.post("/api/enter_room", json={"room_name": "R1", "role": "Player"})
+    entered = client.post("/api/enter_room", json={"room_name": "R1"})
     assert entered.status_code == 200
     resp = client.get("/load_room?name=R1")
     assert resp.status_code == 200

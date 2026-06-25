@@ -393,6 +393,10 @@ def register_http_routes(flask_app):
     flask_app.add_url_rule('/api/room/revoke_gm', 'room_revoke_gm', room_revoke_gm, methods=['POST'])
     flask_app.add_url_rule('/api/room/remove_member', 'room_remove_member', room_remove_member, methods=['POST'])
     flask_app.add_url_rule('/api/room/transfer_owner', 'room_transfer_owner', room_transfer_owner, methods=['POST'])
+    flask_app.add_url_rule('/api/join_room_by_code', 'join_room_by_code', join_room_by_code, methods=['POST'])
+    flask_app.add_url_rule('/api/room/set_join_code', 'room_set_join_code', room_set_join_code, methods=['POST'])
+    flask_app.add_url_rule('/api/room/clear_join_code', 'room_clear_join_code', room_clear_join_code, methods=['POST'])
+    flask_app.add_url_rule('/api/room/update_settings', 'room_update_settings', room_update_settings, methods=['POST'])
     flask_app.add_url_rule('/api/get_room_users', 'get_room_users', get_room_users, methods=['GET'])
     flask_app.add_url_rule('/api/admin/user_details', 'admin_get_user_details', admin_get_user_details, methods=['GET'])
     flask_app.add_url_rule('/api/admin/users', 'admin_get_users', admin_get_users, methods=['GET'])
@@ -778,24 +782,40 @@ def regenerate_recovery_code():
 def enter_room():
     data = request.get_json(silent=True) or {}
     room_name = str(data.get('room_name') or '').strip()
-    role = data.get('role') or data.get('attribute') or PLAYER_ATTRIBUTE
     gm_key = data.get('gm_pin') or data.get('gm_key') or ''
+    user_id = session.get('user_id')
 
     if not room_name:
         return jsonify({"error": "Room name required"}), 400
     if not Room.query.filter_by(name=room_name).first():
         return jsonify({"error": "Room not found"}), 404
 
-    if str(role or '').strip().lower() in {"gm", "game_master", "gamemaster"} and is_user_management_admin(session.get('user_id')):
-        attribute = GM_ATTRIBUTE
-    else:
-        attribute = resolve_room_attribute(room_name, role, gm_key)
-    if attribute is None:
-        return jsonify({"error": "GM PINが正しくありません"}), 403
+    from manager.room_access import (
+        resolve_room_role, ensure_join_membership_by_name, GM_ROLES,
+    )
+
+    # resolve_room_role は membership 正本＋移行期フォールバック(owner_id/在室/
+    # キャラ所有)。既存ルームの owner がロックアウトされないようにする。
+    role = resolve_room_role(user_id, room_name)
+    if role is None:
+        # 非メンバーは原則入室不可（参加コードで参加してから）。ただし移行期は
+        # 正しい GM PIN を gm membership の取得手段として認める。
+        if gm_key and resolve_room_attribute(room_name, 'GM', gm_key) == GM_ATTRIBUTE:
+            ensure_join_membership_by_name(room_name, user_id, True)
+            role = 'gm'
+        else:
+            return jsonify({"error": "このルームに参加していません。参加コードで参加してください"}), 403
+
+    attribute = GM_ATTRIBUTE if role in GM_ROLES else PLAYER_ATTRIBUTE
+    # player メンバーが GM PIN を入力した場合は GM へ昇格（移行期の取得手段）。
+    if attribute != GM_ATTRIBUTE and gm_key:
+        if resolve_room_attribute(room_name, 'GM', gm_key) == GM_ATTRIBUTE:
+            ensure_join_membership_by_name(room_name, user_id, True)
+            attribute = GM_ATTRIBUTE
 
     session['attribute'] = attribute
-    # 入室成功を session に記録する。/load_room はこの記録（または owner/参加者）
-    # でアクセス可否を判定し、任意ルーム名の直接読み出しを防ぐ。
+    # 入室済みを session に記録（/load_room の判定に使う）。membership がある
+    # 場合のみここに到達するため、entered_rooms は安全な参加者シグナルになる。
     entered = set(session.get('entered_rooms') or [])
     entered.add(room_name)
     session['entered_rooms'] = list(entered)
@@ -869,14 +889,12 @@ def get_session_user():
 
 @session_required
 def list_rooms():
-    """ルーム一覧とオーナー情報を返す"""
-    rooms = read_saved_rooms_with_owners()
+    """安全な公開ロビーDTOを返す（未参加者に内部識別子を出さない）。"""
+    from manager.room_access import build_lobby_cards
     user_id = session.get('user_id')
-    attribute = session.get('attribute')
     return jsonify({
-        'rooms': rooms,
+        'rooms': build_lobby_cards(user_id),
         'current_user_id': user_id,
-        'is_gm': attribute == 'GM',
         'is_app_admin': is_user_management_admin(user_id),
     })
 
@@ -1124,6 +1142,121 @@ def room_transfer_owner():
     _sync_room_member_session(room_name, target_user_id)
     _sync_room_member_session(room_name, session.get('user_id'))
     return jsonify({"message": "オーナーを移譲しました", "user_id": target_user_id})
+
+
+# ---- 参加コード・ロビー（Phase 6）----
+
+@session_required
+def join_room_by_code():
+    """参加コードでルームに参加する（成功時のみ player membership を作成）。"""
+    from manager import join_code
+    from manager.room_access import (
+        get_membership_role, join_room_as_player, VIS_LISTED,
+    )
+    from manager.auth_rate_limit import join_code_limiter
+    data = request.get_json(silent=True) or {}
+    room_name = str(data.get('room_name') or '').strip()
+    code = str(data.get('join_code') or data.get('code') or '').strip()
+    user_id = session.get('user_id')
+
+    room = Room.query.filter_by(name=room_name).first()
+    if room is None:
+        return jsonify({"error": "Room not found"}), 404
+
+    # 既メンバーはコード不要で再入室できる。
+    existing = get_membership_role(user_id, room_name)
+    if existing:
+        return jsonify({"message": "既に参加済みです", "role": existing, "room_name": room_name})
+
+    if (room.lobby_visibility or 'hidden') != VIS_LISTED:
+        return jsonify({"error": "このルームは新規参加を受け付けていません"}), 403
+
+    if join_code.has_join_code(room_name):
+        key = f"{room_name}:{user_id}"
+        if not join_code_limiter.is_allowed(key):
+            return jsonify({"error": "試行回数が多すぎます。しばらくしてからお試しください"}), 429
+        if not join_code.verify_join_code(room_name, code):
+            join_code_limiter.record_failure(key)
+            return jsonify({"error": "参加コードが正しくありません"}), 403
+        join_code_limiter.reset(key)
+    # listed でコード未設定なら公開参加を許可する。
+
+    role = join_room_as_player(room_name, user_id)
+    return jsonify({"message": "ルームに参加しました", "role": role, "room_name": room_name})
+
+
+@session_required
+def room_set_join_code():
+    """参加コードを発行/再発行する（owner専用、実値は一度だけ返す）。"""
+    from manager import join_code
+    room_name, _ = _room_member_request()
+    if not room_name:
+        return jsonify({"error": "room_name が必要です"}), 400
+    denied = _require_room_owner(room_name)
+    if denied:
+        return denied
+    code = join_code.set_join_code(room_name)
+    if code is None:
+        return jsonify({"error": "Room not found"}), 404
+    return jsonify({"message": "参加コードを発行しました", "join_code": code, "room_name": room_name})
+
+
+@session_required
+def room_clear_join_code():
+    """参加コードを失効する（owner専用）。"""
+    from manager import join_code
+    room_name, _ = _room_member_request()
+    if not room_name:
+        return jsonify({"error": "room_name が必要です"}), 400
+    denied = _require_room_owner(room_name)
+    if denied:
+        return denied
+    if not join_code.clear_join_code(room_name):
+        return jsonify({"error": "Room not found"}), 404
+    return jsonify({"message": "参加コードを失効しました", "room_name": room_name})
+
+
+@session_required
+def room_update_settings():
+    """ルーム設定を更新する。owner: visibility/recruitment/description、gm: recruitment のみ。"""
+    from manager.room_access import has_room_role, OWNER, GM_ROLES, VIS_HIDDEN, VIS_LISTED, VIS_CLOSED
+    data = request.get_json(silent=True) or {}
+    room_name = str(data.get('room_name') or '').strip()
+    if not room_name:
+        return jsonify({"error": "room_name が必要です"}), 400
+    room = Room.query.filter_by(name=room_name).first()
+    if room is None:
+        return jsonify({"error": "Room not found"}), 404
+
+    user_id = session.get('user_id')
+    is_owner = has_room_role(user_id, room_name, {OWNER})
+    is_gm = has_room_role(user_id, room_name, GM_ROLES)
+    if not is_gm:
+        return jsonify({"error": "GM権限が必要です"}), 403
+
+    # gm は募集状態のみ編集可。owner はそれに加え可視性・説明を編集可。
+    if 'recruitment_status' in data:
+        room.recruitment_status = (str(data.get('recruitment_status') or '').strip() or None)
+    if is_owner:
+        if 'description' in data:
+            room.description = (str(data.get('description') or '').strip() or None)
+        if 'lobby_visibility' in data:
+            vis = str(data.get('lobby_visibility') or '').strip().lower()
+            if vis not in (VIS_HIDDEN, VIS_LISTED, VIS_CLOSED):
+                return jsonify({"error": "不正な可視性です"}), 400
+            room.lobby_visibility = vis
+    elif ('description' in data) or ('lobby_visibility' in data):
+        return jsonify({"error": "可視性・説明の変更はオーナーのみです"}), 403
+
+    db.session.commit()
+    return jsonify({
+        "message": "ルーム設定を更新しました",
+        "room_name": room_name,
+        "lobby_visibility": room.lobby_visibility,
+        "recruitment_status": room.recruitment_status,
+        "description": room.description,
+    })
+
 
 def get_skill():
     skill_id = request.args.get('id')
