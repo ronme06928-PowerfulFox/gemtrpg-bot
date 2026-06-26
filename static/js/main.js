@@ -1197,8 +1197,10 @@ async function checkSessionStatus() {
             const data = await response.json();
             applySessionUserData(data);
             saveRecoveryTokenFromResponse(data);
-            await showRecoveryCodeOnce(data.recovery_code);
+            // socket初期化(=ロビー遷移)を復旧コードモーダルでブロックしない。
+            // 復旧コードは初回発行時のみ返るため、表示は非同期・非ブロッキングで行う。
             initializeSocketIO();
+            showRecoveryCodeOnce(data.recovery_code);
         }
     } catch (error) {
         console.error('Failed to check session status:', error.message);

@@ -123,6 +123,24 @@ def test_set_password_for_existing_user(client):
     assert r2.status_code == 200
 
 
+def test_password_change_requires_current_password(client):
+    # 既にパスワードを持つユーザーの変更は、現在のパスワード再確認が必須。
+    _create_user("changer", "oldpassword1")
+    _login_session(client, "changer-id", "changer")
+
+    # 現パスワード無し → 403
+    r0 = client.post("/api/set_password", json={"password": "newpassword1"})
+    assert r0.status_code == 403
+    # 現パスワード誤り → 403
+    r1 = client.post("/api/set_password", json={"current_password": "wrongwrong9", "password": "newpassword1"})
+    assert r1.status_code == 403
+    # 正しい現パスワード → 200、新パスワードでログイン可・旧は不可
+    r2 = client.post("/api/set_password", json={"current_password": "oldpassword1", "password": "newpassword1"})
+    assert r2.status_code == 200
+    assert client.post("/api/login", json={"login_name": "changer", "password": "newpassword1"}).status_code == 200
+    assert client.post("/api/login", json={"login_name": "changer", "password": "oldpassword1"}).status_code == 401
+
+
 # --- change_display_name ---
 
 def test_change_display_name(client):

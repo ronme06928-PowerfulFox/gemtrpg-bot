@@ -263,6 +263,12 @@ def set_account_password():
     except account_auth.PasswordPolicyError as e:
         return jsonify({"error": str(e)}), 400
 
+    # 通常セッションでの変更時、既にパスワードがあれば現在のパスワード再確認を要求。
+    # （初回移行=password_hashなし、reset grant 経路では不要）
+    if not is_reset and getattr(user, 'password_hash', None):
+        if not account_auth.verify_user_password(user, data.get('current_password')):
+            return jsonify({"error": "現在のパスワードが正しくありません"}), 403
+
     if login_name:
         try:
             account_auth.set_login_name(user, login_name, commit=False)
