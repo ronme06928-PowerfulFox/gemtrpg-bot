@@ -601,6 +601,8 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
             }
             const deleteBtnEl = li.querySelector('.room-delete-btn');
             if (deleteBtnEl) deleteBtnEl.dataset.roomName = name;
+            const settingsBtnEl = li.querySelector('.room-settings-btn');
+            if (settingsBtnEl) settingsBtnEl.dataset.roomName = name;
 
             roomList.appendChild(li);
             count++;
