@@ -542,8 +542,10 @@ SELECT count(*) AS row_count FROM room_members;
 - [x] **第1弾 認証UI**: entry-portal をタブUI（ログイン/新規登録/復旧）に刷新。`/api/login`・`/api/register`・`/api/recover_user`・`/api/redeem_login_code`・`/api/set_password` へ配線。復旧後はパスワード設定を誘導。ロビーにログアウトボタン（`/api/logout` device＋端末トークン削除）。
 - [x] **第2弾 ロビー/参加**: `/list_rooms` 安全DTO対応（your_role/is_member/joinable/requires_code/recruitment/description 表示・owner_id非表示）。非メンバーは「参加」→`/api/join_room_by_code`（要コードならPIN入力）→入室。owner のみ削除ボタン。`npm run build`＋dist コミット済み。
 - [x] **ブラウザE2E＋実クライアント検証**: ログイン画面描画OK、register/login/get_session_user 200/201、create_room→owner membership、/list_rooms 安全DTO（owner_id非漏洩・your_role=owner）、ロビーカード描画（役割バッジ・入室/削除）。実クライアント(python-socketio)で **login→socket接続(認証)→join_room→state_updated OK**。（注: Claude Previewのプロキシは Socket.IO 不通のため socket依存フローはプレビュー上では確認不可。実クライアントで実証済み）
-- [ ] **第3弾 ルーム情報UI（未）**: 説明・募集状態・種別の表示/編集、参加コード管理（owner: PIN設定/再発行/`set_join_code`・`clear_join_code`、gm: 募集編集/`update_settings`）。
-- [ ] **第4弾 ユーザー設定UI（未）**: 表示名変更を `/api/entry` から `/api/change_display_name` へ。パスワード変更は専用モーダルで現在のパスワード再確認。session再開時に毎回復旧コードモーダルを出さない調整。
+- [x] **第3弾 ルーム情報UI**: ロビーのowner/gmカードに「⚙️設定」追加。`openRoomSettingsModal` で説明・募集状態・公開設定の表示/編集（owner=全項目、gm=募集のみ）、参加コード設定/再発行（PIN指定可）/失効。`update_settings`・`set_join_code`・`clear_join_code` 配線。プレビュー検証OK。
+- [x] **第4弾 ユーザー設定UI**: 表示名変更を `/api/change_display_name` へ。パスワード変更モーダル（現パスワード→新パスワード）。`set_account_password` に現パスワード再確認を必須化（誤り/無しは403）。session再開時の復旧コードモーダルを非ブロッキング化（初回発行時のみ）。プレビュー検証OK（現パス誤り403/正200、新パスログイン可・旧不可）。
+
+**Phase 7 完了。** UI連携のブラウザE2E・実クライアントSocket確認まで実施済み。次はPhase 8 contract（旧導線撤去）→ 運用マニュアル → main合流。
 
 ### Phase 8: 旧方式contractと公開前監査
 
