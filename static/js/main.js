@@ -637,8 +637,47 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
     });
 }
 
+// ルーム内ヘッダー⚙️: まず「ユーザー設定 / ルーム設定」の2択を出す。
+// ルーム設定は GM 相当（owner/gm = currentUserAttribute==='GM'）のみ表示。
+function openInRoomSettingsChooser() {
+    document.getElementById('settings-chooser-backdrop')?.remove();
+    const isGm = currentUserAttribute === 'GM';
+    const backdrop = document.createElement('div');
+    backdrop.id = 'settings-chooser-backdrop';
+    backdrop.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:9999;';
+    backdrop.innerHTML = `
+        <div style="background:#fff; border-radius:10px; padding:20px; width:min(320px,92vw); box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 14px;">設定</h3>
+            <button id="chooser-user" class="portal-settings-button" style="display:block; width:100%; margin-bottom:10px;">⚙️ ユーザー設定</button>
+            ${isGm ? '<button id="chooser-room" class="portal-settings-button" style="display:block; width:100%; margin-bottom:10px; background:#e0e0ff;">🏠 ルーム設定</button>' : ''}
+            <button id="chooser-cancel" class="portal-settings-button" style="display:block; width:100%; background:#eee; color:#333;">閉じる</button>
+        </div>`;
+    document.body.appendChild(backdrop);
+    const close = () => backdrop.remove();
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+    backdrop.querySelector('#chooser-cancel').addEventListener('click', close);
+    backdrop.querySelector('#chooser-user').addEventListener('click', () => { close(); openUserSettingsModal(false); });
+    const roomBtn = backdrop.querySelector('#chooser-room');
+    if (roomBtn) roomBtn.addEventListener('click', async () => { close(); await openCurrentRoomSettings(); });
+}
+
+// 現在入室中のルームのルーム設定モーダルを開く（ロビーへは戻らない）。
+async function openCurrentRoomSettings() {
+    if (!currentRoomName) { alert('ルーム情報を取得できませんでした。'); return; }
+    try {
+        const response = await fetchWithSession('/list_rooms');
+        const data = await response.json();
+        const info = (data.rooms || []).find(r => r.name === currentRoomName);
+        if (!info) { alert('ルーム情報が見つかりませんでした。'); return; }
+        openRoomSettingsModal(info, { refreshLobby: false });
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
 // ルーム情報・参加コード管理モーダル（owner: 全項目, gm: 募集状態のみ）
-function openRoomSettingsModal(info) {
+// opts.refreshLobby=false のときは保存後にロビーへ遷移しない（ルーム内から開いた場合）。
+function openRoomSettingsModal(info, opts = {}) {
     const isOwner = info.your_role === 'owner';
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -696,7 +735,10 @@ function openRoomSettingsModal(info) {
             const d = await r.json();
             if (!r.ok) { setMsg(d.error || '更新に失敗しました'); return; }
             setMsg('保存しました', true);
-            setTimeout(() => { close(); showRoomPortal(); }, 600);
+            setTimeout(() => {
+                close();
+                if (opts.refreshLobby !== false) showRoomPortal();
+            }, 600);
         } catch (e) { setMsg(e.message); }
     });
 
@@ -1294,7 +1336,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     const settingsBtn = document.getElementById('user-settings-btn');
     if (settingsBtn) {
-        settingsBtn.addEventListener('click', () => openUserSettingsModal(false));
+        settingsBtn.addEventListener('click', () => openInRoomSettingsChooser());
     }
     const userListBtn = document.getElementById('user-list-btn');
     if (userListBtn) {
