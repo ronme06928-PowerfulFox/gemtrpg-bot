@@ -23,3 +23,6 @@ GemDiceBot_Launch/config/*.local
 GemDiceBot_Launch/config/*.local.*
 GemDiceBot_Launch/config/*.env
 GemDiceBot_Launch/runtime/
+
+# Typst compiled output (regenerate with `typst compile`)
+manuals/typst/build/

@@ -44,7 +44,8 @@ function openUserSettingsModal(allowAttributeChange = false) {
                     <label for="modal-username">あなたの名前:</label>
                     <input type="text" id="modal-username" value="${escapeUserSettingsText(oldName)}">
                     ${attributeHtml}
-                    <button id="modal-user-update-btn">更新</button>
+                    <button id="modal-user-update-btn">表示名を更新</button>
+                    <button id="modal-password-change-btn" type="button">パスワード変更</button>
                     <button id="modal-recovery-regenerate-btn" type="button">復旧コード再発行</button>
                     <div id="modal-user-message" class="auth-message"></div>
                 </div>
@@ -74,21 +75,49 @@ function openUserSettingsModal(allowAttributeChange = false) {
             return;
         }
         try {
-            const response = await fetchWithSession('/api/entry', {
+            // 表示名変更は専用APIへ（/api/entry は使わない）。
+            const response = await fetchWithSession('/api/change_display_name', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: newName })
+                body: JSON.stringify({ display_name: newName })
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
-            socket.emit('request_update_user_info', {
-                username: newName
-            });
-            msgEl.textContent = '更新しました。';
+            if (typeof currentUsername !== 'undefined') { currentUsername = newName; window.currentUsername = newName; }
+            if (typeof socket !== 'undefined' && socket) {
+                socket.emit('request_update_user_info', { username: newName });
+            }
+            msgEl.textContent = '表示名を更新しました。';
             msgEl.className = 'auth-message success';
             setTimeout(closeModal, 1000);
         } catch (error) {
             msgEl.textContent = `更新失敗: ${error.message}`;
+            msgEl.className = 'auth-message error';
+        }
+    });
+
+    const passwordBtn = document.getElementById('modal-password-change-btn');
+    passwordBtn?.addEventListener('click', async () => {
+        const current = await window.showAppPrompt('現在のパスワードを入力してください。', {
+            title: 'パスワード変更', confirmText: '次へ', required: true,
+        });
+        if (!current) return;
+        const next = await window.showAppPrompt('新しいパスワード（10〜128文字）を入力してください。', {
+            title: 'パスワード変更', confirmText: '変更する', required: true,
+        });
+        if (!next) return;
+        try {
+            const response = await fetchWithSession('/api/set_password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ current_password: current, password: next })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || '変更に失敗しました');
+            msgEl.textContent = 'パスワードを変更しました。';
+            msgEl.className = 'auth-message success';
+        } catch (error) {
+            msgEl.textContent = `変更失敗: ${error.message}`;
             msgEl.className = 'auth-message error';
         }
     });

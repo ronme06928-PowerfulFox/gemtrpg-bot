@@ -2,9 +2,11 @@
 
 最終更新: 2026-05-09
 
-このディレクトリは以下の2系統で管理します。
+このディレクトリは以下の系統で管理します。
 - `implemented/`: 実装済み仕様の正本
 - `planned/`: 未実装・検討中の計画
+- `operations/`: 運用・デプロイ手順書（例: `account_system_deploy_runbook.md`）
+- `typst/`: 上記MD文書のTypst（PDF）版。共有テーマ `typst/lib/theme.typ`。詳細は `typst/README.md`
 
 ---
 

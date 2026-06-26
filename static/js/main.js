@@ -258,92 +258,127 @@ async function fetchWithSession(url, options = {}) {
 }
 
 // --- 3. エントリー/ポータル機能 ---
+// 通常ログイン(login_name+password)を主導線とし、新規登録・復旧を補助導線へ分ける。
 function showEntryPortal() {
     roomPortal.style.display = 'none';
     mainAppContainer.style.display = 'none';
     entryPortal.style.display = 'block';
 
-    const entryBtn = document.getElementById('entry-btn');
-    const recoverBtn = document.getElementById('recover-user-btn');
     const entryMsg = document.getElementById('entry-message');
+    const setMsg = (text, ok) => {
+        entryMsg.textContent = text || '';
+        entryMsg.className = 'auth-message' + (text ? (ok ? ' success' : ' error') : '');
+    };
 
-    if (!entryBtn.dataset.listenerAttached) {
-        entryBtn.dataset.listenerAttached = 'true';
-        entryBtn.addEventListener('click', async () => {
-            if (entryRequestInFlight) return;
-            const username = document.getElementById('entry-username').value.trim();
-            if (!username) {
-                entryMsg.textContent = '「あなたの名前」を入力してください。';
-                entryMsg.className = 'auth-message error';
-                return;
-            }
-            try {
-                entryRequestInFlight = true;
-                entryBtn.disabled = true;
-                const response = await fetchWithSession('/api/entry', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username })
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || '入室に失敗しました');
+    const portal = document.getElementById('entry-portal');
+    if (portal.dataset.listenerAttached) {
+        setMsg('');
+        return;
+    }
+    portal.dataset.listenerAttached = 'true';
 
-                applySessionUserData(data);
-                saveRecoveryTokenFromResponse(data);
-                await showRecoveryCodeOnce(data.recovery_code);
-                initializeSocketIO();
-            } catch (error) {
-                entryMsg.textContent = error.message;
-                entryMsg.className = 'auth-message error';
-            } finally {
-                entryRequestInFlight = false;
-                entryBtn.disabled = false;
-            }
+    const panes = { login: 'auth-pane-login', register: 'auth-pane-register', recover: 'auth-pane-recover' };
+    const tabs = { login: 'auth-tab-login', register: 'auth-tab-register', recover: 'auth-tab-recover' };
+    function showTab(name) {
+        for (const k in panes) {
+            const pane = document.getElementById(panes[k]);
+            const tab = document.getElementById(tabs[k]);
+            if (pane) pane.style.display = (k === name ? 'block' : 'none');
+            if (tab) tab.classList.toggle('active', k === name);
+        }
+        setMsg('');
+    }
+    document.getElementById('auth-tab-login').addEventListener('click', () => showTab('login'));
+    document.getElementById('auth-tab-register').addEventListener('click', () => showTab('register'));
+    document.getElementById('auth-tab-recover').addEventListener('click', () => showTab('recover'));
+    showTab('login');
+
+    async function postJson(url, body) {
+        const r = await fetch(API_BASE_URL + url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(body),
         });
+        let d = {};
+        try { d = await r.json(); } catch (_e) { d = {}; }
+        return { ok: r.ok, status: r.status, data: d };
+    }
+    function onSuccess(data) {
+        applySessionUserData(data);
+        saveRecoveryTokenFromResponse(data);
+        initializeSocketIO();
+    }
+    async function withLock(fn) {
+        if (entryRequestInFlight) return;
+        try { entryRequestInFlight = true; await fn(); }
+        catch (e) { setMsg(e.message || String(e)); }
+        finally { entryRequestInFlight = false; }
     }
 
-    if (recoverBtn && !recoverBtn.dataset.listenerAttached) {
-        recoverBtn.dataset.listenerAttached = 'true';
-        recoverBtn.addEventListener('click', async () => {
-            if (entryRequestInFlight) return;
-            const username = document.getElementById('entry-username').value.trim();
-            if (!username) {
-                entryMsg.textContent = '復旧するユーザー名を入力してください。';
-                entryMsg.className = 'auth-message error';
-                return;
-            }
-            const recoveryCode = await showAppPrompt('復旧コードを入力してください。', {
-                title: 'ユーザー復旧',
-                placeholder: 'GEM-XXXX-XXXX',
-                confirmText: '復旧',
-                required: true,
-            });
-            if (!recoveryCode) return;
+    // ログイン
+    document.getElementById('login-btn').addEventListener('click', () => withLock(async () => {
+        const login_name = document.getElementById('login-name').value.trim();
+        const password = document.getElementById('login-password').value;
+        if (!login_name || !password) { setMsg('ログインIDとパスワードを入力してください'); return; }
+        const { ok, data } = await postJson('/api/login', { login_name, password });
+        if (!ok) throw new Error(data.error || 'ログインに失敗しました');
+        onSuccess(data);
+    }));
 
-            try {
-                entryRequestInFlight = true;
-                entryBtn.disabled = true;
-                recoverBtn.disabled = true;
-                const response = await fetch(API_BASE_URL + '/api/recover_user', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ username, recovery_code: recoveryCode })
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || '復旧に失敗しました');
-                applySessionUserData(data);
-                saveRecoveryTokenFromResponse(data);
-                initializeSocketIO();
-            } catch (error) {
-                entryMsg.textContent = error.message;
-                entryMsg.className = 'auth-message error';
-            } finally {
-                entryRequestInFlight = false;
-                entryBtn.disabled = false;
-                recoverBtn.disabled = false;
-            }
+    // 新規登録
+    document.getElementById('register-btn').addEventListener('click', () => withLock(async () => {
+        const login_name = document.getElementById('register-name').value.trim();
+        const display_name = document.getElementById('register-display').value.trim();
+        const password = document.getElementById('register-password').value;
+        if (!login_name || !password) { setMsg('ログインIDとパスワードを入力してください'); return; }
+        const { ok, data } = await postJson('/api/register', { login_name, display_name, password });
+        if (!ok) throw new Error(data.error || '登録に失敗しました');
+        onSuccess(data);
+    }));
+
+    // 復旧コードでログイン → 任意でログインID/パスワード設定
+    document.getElementById('recover-code-btn').addEventListener('click', () => withLock(async () => {
+        const username = document.getElementById('recover-name').value.trim();
+        if (!username) { setMsg('名前を入力してください'); return; }
+        const recovery_code = await showAppPrompt('復旧コードを入力してください。', {
+            title: 'ユーザー復旧', placeholder: 'GEM-XXXX-XXXX', confirmText: '復旧', required: true,
         });
+        if (!recovery_code) return;
+        const { ok, data } = await postJson('/api/recover_user', { username, recovery_code });
+        if (!ok) throw new Error(data.error || '復旧に失敗しました');
+        onSuccess(data);
+        await _offerPasswordSetup();
+    }));
+
+    // 管理者発行ワンタイムコードで再設定
+    document.getElementById('redeem-code-btn').addEventListener('click', () => withLock(async () => {
+        const login_name = await showAppPrompt('ログインIDを入力してください。', { title: 'ワンタイムコード再設定', required: true });
+        if (!login_name) return;
+        const code = await showAppPrompt('管理者発行のコードを入力してください。', { title: 'ワンタイムコード', required: true });
+        if (!code) return;
+        const { ok, data } = await postJson('/api/redeem_login_code', { login_name, code });
+        if (!ok) throw new Error(data.error || 'コードが正しくありません');
+        const res = await _setPasswordFlow(login_name);
+        if (res && res.ok) onSuccess(res.data);
+    }));
+
+    async function _offerPasswordSetup() {
+        const yes = await showAppConfirm('ログインID・パスワードを設定すると、次回からログインで入れます。設定しますか？', {
+            title: 'パスワード設定', confirmText: '設定する', cancelText: 'あとで',
+        });
+        if (!yes) return;
+        await _setPasswordFlow();
+    }
+    async function _setPasswordFlow(prefillLogin) {
+        const login_name = prefillLogin || await showAppPrompt('ログインIDを設定してください。', { title: 'ログインID', required: true });
+        if (!login_name) return { ok: false };
+        const password = await showAppPrompt('新しいパスワード（10文字以上）を入力してください。', { title: 'パスワード設定', required: true });
+        if (!password) return { ok: false };
+        const { ok, data } = await postJson('/api/set_password', { login_name, password });
+        if (!ok) { setMsg(data.error || 'パスワード設定に失敗しました'); return { ok: false }; }
+        setMsg('パスワードを設定しました', true);
+        return { ok: true, data };
     }
 }
 
@@ -404,6 +439,9 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
                     ⚙️ ユーザー設定
                 </button>
                 ${manageUsersButton}
+                <button id="portal-logout-btn" class="portal-settings-button" style="margin-left:10px; background:#ffe0e0;" title="ログアウト">
+                    🚪 ログアウト
+                </button>
             </div>
         </div>
         <div class="room-portal-header">
@@ -437,6 +475,28 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
 
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => openUserSettingsModal(true));
+    }
+
+    const logoutBtn = document.getElementById('portal-logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            const yes = await showAppConfirm('この端末からログアウトします。よろしいですか？', {
+                title: 'ログアウト', confirmText: 'ログアウト', cancelText: 'キャンセル',
+            });
+            if (!yes) return;
+            try {
+                // device モード: 端末トークンを失効し、自動復旧を止める。
+                await fetch(API_BASE_URL + '/api/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ mode: 'device' }),
+                });
+            } catch (_e) { /* 失効はベストエフォート */ }
+            clearSavedRecoveryToken();
+            try { if (socket && socket.connected) socket.disconnect(); } catch (_e) {}
+            showEntryPortal();
+        });
     }
     if (boPresetPortalBtn) {
         boPresetPortalBtn.addEventListener('click', () => {
@@ -484,38 +544,62 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
         let count = 0;
         const normalizedFilter = filter.toLowerCase();
 
+        const ROLE_LABEL = { owner: 'オーナー', gm: 'GM', player: '参加者' };
         rooms.forEach(roomInfo => {
             const name = String(roomInfo.name || '');
-            const ownerId = roomInfo.owner_id;
-            if (name.toLowerCase().includes(normalizedFilter)) {
-                const li = document.createElement('li');
-                li.className = 'room-list-item';
+            if (!name.toLowerCase().includes(normalizedFilter)) return;
 
-                const isBattleOnly = String(roomInfo.play_mode || 'normal').toLowerCase() === 'battle_only';
-                const modeBadge = isBattleOnly
-                    ? '<span class="room-mode-badge battle-only">戦闘専用</span>'
-                    : '<span class="room-mode-badge normal">通常</span>';
+            const li = document.createElement('li');
+            li.className = 'room-list-item';
 
-                const deleteBtn = '<button class="room-delete-btn">削除</button>';
+            const isBattleOnly = String(roomInfo.play_mode || 'normal').toLowerCase() === 'battle_only';
+            const modeBadge = isBattleOnly
+                ? '<span class="room-mode-badge battle-only">戦闘専用</span>'
+                : '<span class="room-mode-badge normal">通常</span>';
 
-                li.innerHTML = `
-                    <div class="room-list-main">
-                        <span class="room-list-name">${escapeRoomText(name)}</span>
-                        <div class="room-list-meta">${modeBadge}</div>
-                    </div>
-                    <div class="room-list-buttons">
-                        <button class="room-join-btn">参加</button>
-                        ${deleteBtn}
-                    </div>
-                `;
-                const joinBtn = li.querySelector('.room-join-btn');
-                if (joinBtn) joinBtn.dataset.roomName = name;
-                const deleteBtnEl = li.querySelector('.room-delete-btn');
-                if (deleteBtnEl) deleteBtnEl.dataset.roomName = name;
+            const role = roomInfo.your_role;
+            const isMember = !!roomInfo.is_member;
+            const roleBadge = role ? `<span class="room-role-badge">${ROLE_LABEL[role] || role}</span>` : '';
+            const recruitBadge = roomInfo.recruitment_status
+                ? `<span class="room-recruit-badge">${escapeRoomText(roomInfo.recruitment_status)}</span>` : '';
+            const descHtml = roomInfo.description
+                ? `<div class="room-list-desc">${escapeRoomText(roomInfo.description)}</div>` : '';
 
-                roomList.appendChild(li);
-                count++;
+            let joinHtml;
+            if (isMember) {
+                joinHtml = '<button class="room-join-btn" data-action="enter">入室</button>';
+            } else if (roomInfo.joinable) {
+                joinHtml = '<button class="room-join-btn" data-action="join">参加</button>';
+            } else {
+                joinHtml = '<button class="room-join-btn" data-action="enter" disabled style="opacity:.5; cursor:not-allowed;">参加不可</button>';
             }
+            const deleteBtn = (role === 'owner') ? '<button class="room-delete-btn">削除</button>' : '';
+            const canManage = (role === 'owner' || role === 'gm');
+            const settingsBtn = canManage ? '<button class="room-settings-btn">⚙️設定</button>' : '';
+
+            li.innerHTML = `
+                <div class="room-list-main">
+                    <span class="room-list-name">${escapeRoomText(name)}</span>
+                    <div class="room-list-meta">${modeBadge}${roleBadge}${recruitBadge}</div>
+                    ${descHtml}
+                </div>
+                <div class="room-list-buttons">
+                    ${joinHtml}
+                    ${settingsBtn}
+                    ${deleteBtn}
+                </div>
+            `;
+            const joinBtn = li.querySelector('.room-join-btn');
+            if (joinBtn) {
+                joinBtn.dataset.roomName = name;
+                joinBtn.dataset.requiresCode = roomInfo.requires_code ? '1' : '0';
+                joinBtn.dataset.role = role || '';
+            }
+            const deleteBtnEl = li.querySelector('.room-delete-btn');
+            if (deleteBtnEl) deleteBtnEl.dataset.roomName = name;
+
+            roomList.appendChild(li);
+            count++;
         });
         emptyMsg.style.display = (count === 0) ? 'block' : 'none';
     }
@@ -530,12 +614,144 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
         const target = e.target;
         const roomName = target.dataset.roomName;
         if (target.classList.contains('room-join-btn')) {
-            joinRoom(roomName);
+            if (target.disabled) return;
+            if (target.dataset.action === 'join') {
+                joinRoomWithCode(roomName, target.dataset.requiresCode === '1');
+            } else {
+                joinRoom(roomName, null, null, target.dataset.role || null);
+            }
         }
         if (target.classList.contains('room-delete-btn')) {
             deleteRoom(roomName);
         }
+        if (target.classList.contains('room-settings-btn')) {
+            const info = rooms.find(r => r.name === roomName);
+            if (info) openRoomSettingsModal(info);
+        }
     });
+}
+
+// ルーム情報・参加コード管理モーダル（owner: 全項目, gm: 募集状態のみ）
+function openRoomSettingsModal(info) {
+    const isOwner = info.your_role === 'owner';
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    document.getElementById('room-settings-modal-backdrop')?.remove();
+    const backdrop = document.createElement('div');
+    backdrop.id = 'room-settings-modal-backdrop';
+    backdrop.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:9999;';
+
+    const visOptions = ['hidden', 'listed', 'closed'].map(v => {
+        const label = { hidden: '非公開(hidden)', listed: '公開(listed)', closed: '締切(closed)' }[v];
+        const sel = (info.visibility || 'hidden') === v ? ' selected' : '';
+        return `<option value="${v}"${sel}>${label}</option>`;
+    }).join('');
+
+    backdrop.innerHTML = `
+        <div style="background:#fff; border-radius:10px; padding:20px; width:min(460px,92vw); max-height:88vh; overflow:auto; box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 12px;">ルーム情報: ${esc(info.name)}</h3>
+            <label style="display:block; font-weight:bold; margin:8px 0 2px;">説明</label>
+            <textarea id="rs-description" rows="3" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${esc(info.description)}</textarea>
+            <label style="display:block; font-weight:bold; margin:10px 0 2px;">募集状態</label>
+            <input id="rs-recruitment" type="text" maxlength="20" style="width:100%; box-sizing:border-box;" value="${esc(info.recruitment_status)}" placeholder="例: 募集中 / 締切">
+            <label style="display:block; font-weight:bold; margin:10px 0 2px;">公開設定 ${isOwner ? '' : '(オーナーのみ変更可)'}</label>
+            <select id="rs-visibility" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${visOptions}</select>
+            ${isOwner ? `
+            <div style="margin-top:14px; padding-top:12px; border-top:1px solid #eee;">
+                <div style="font-weight:bold; margin-bottom:6px;">参加コード <span style="font-weight:normal; color:#888;">(${info.requires_code ? '設定済み' : '未設定'})</span></div>
+                <button id="rs-set-code" type="button" style="margin-right:6px;">設定 / 再発行</button>
+                <button id="rs-clear-code" type="button" ${info.requires_code ? '' : 'disabled'}>失効</button>
+            </div>` : ''}
+            <div id="rs-message" class="auth-message" style="margin-top:10px;"></div>
+            <div style="margin-top:14px; text-align:right;">
+                <button id="rs-cancel" type="button" style="margin-right:6px;">閉じる</button>
+                <button id="rs-save" type="button">保存</button>
+            </div>
+        </div>`;
+    document.body.appendChild(backdrop);
+
+    const msg = backdrop.querySelector('#rs-message');
+    const setMsg = (t, ok) => { msg.textContent = t || ''; msg.className = 'auth-message' + (t ? (ok ? ' success' : ' error') : ''); };
+    const close = () => backdrop.remove();
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+    backdrop.querySelector('#rs-cancel').addEventListener('click', close);
+
+    backdrop.querySelector('#rs-save').addEventListener('click', async () => {
+        const payload = { room_name: info.name };
+        payload.recruitment_status = backdrop.querySelector('#rs-recruitment').value.trim();
+        if (isOwner) {
+            payload.description = backdrop.querySelector('#rs-description').value.trim();
+            payload.lobby_visibility = backdrop.querySelector('#rs-visibility').value;
+        }
+        try {
+            const r = await fetchWithSession('/api/room/update_settings', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+            });
+            const d = await r.json();
+            if (!r.ok) { setMsg(d.error || '更新に失敗しました'); return; }
+            setMsg('保存しました', true);
+            setTimeout(() => { close(); showRoomPortal(); }, 600);
+        } catch (e) { setMsg(e.message); }
+    });
+
+    if (isOwner) {
+        backdrop.querySelector('#rs-set-code').addEventListener('click', async () => {
+            const pin = await showAppPrompt('参加コードを入力してください（空欄なら自動生成）。', {
+                title: '参加コード設定', placeholder: '4〜32文字 / 空欄で自動', confirmText: '設定',
+            });
+            if (pin === null) return; // キャンセル
+            const body = { room_name: info.name };
+            if (pin && pin.trim()) body.join_code = pin.trim();
+            try {
+                const r = await fetchWithSession('/api/room/set_join_code', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+                });
+                const d = await r.json();
+                if (!r.ok) { setMsg(d.error || 'コード設定に失敗しました'); return; }
+                info.requires_code = true;
+                await showAppConfirm(`参加コードを設定しました。\n\n${d.join_code}\n\nこのコードを参加者へ共有してください。`, { title: '参加コード', confirmText: 'OK' });
+                setMsg('参加コードを設定しました', true);
+            } catch (e) { setMsg(e.message); }
+        });
+        backdrop.querySelector('#rs-clear-code').addEventListener('click', async () => {
+            try {
+                const r = await fetchWithSession('/api/room/clear_join_code', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room_name: info.name }),
+                });
+                const d = await r.json();
+                if (!r.ok) { setMsg(d.error || '失効に失敗しました'); return; }
+                info.requires_code = false;
+                backdrop.querySelector('#rs-clear-code').disabled = true;
+                setMsg('参加コードを失効しました', true);
+            } catch (e) { setMsg(e.message); }
+        });
+    }
+}
+
+// 非メンバーが参加コードで参加 → membership作成 → 入室
+async function joinRoomWithCode(roomName, requiresCode) {
+    let join_code = '';
+    if (requiresCode) {
+        join_code = await showAppPrompt('参加コードを入力してください。', {
+            title: 'ルームに参加', placeholder: '参加コード', confirmText: '参加', required: true,
+        });
+        if (!join_code) return;
+    }
+    try {
+        const response = await fetchWithSession('/api/join_room_by_code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_name: roomName, join_code }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            alert(data.error || 'ルーム参加に失敗しました');
+            return;
+        }
+        joinRoom(roomName, null, null, data.role || 'player');
+    } catch (error) {
+        alert(error.message);
+    }
 }
 
 async function createNewRoom() {
@@ -635,7 +851,7 @@ async function deleteRoom(roomName) {
     }
 }
 
-async function joinRoom(roomName, initialState = null, entryOptions = null) {
+async function joinRoom(roomName, initialState = null, entryOptions = null, knownRole = null) {
     // Reset DOM initialization flag so dock re-initializes on room change
     // NOTE: Do NOT reset visualBattleSocketHandlersRegistered - socket handlers must only be registered once
     window.actionDockInitialized = false;
@@ -643,6 +859,10 @@ async function joinRoom(roomName, initialState = null, entryOptions = null) {
 
     try {
         let roomEntry = entryOptions;
+        if (!roomEntry && (knownRole === 'owner' || knownRole === 'gm')) {
+            // 既に owner/gm メンバーなら、入室種別を尋ねずそのまま入る（権限はmembership由来）。
+            roomEntry = { role: 'GM', gmPin: '' };
+        }
         if (!roomEntry) {
             const asGm = await showAppConfirm('GMとして入室しますか？', {
                 title: '入室種別',
@@ -977,8 +1197,10 @@ async function checkSessionStatus() {
             const data = await response.json();
             applySessionUserData(data);
             saveRecoveryTokenFromResponse(data);
-            await showRecoveryCodeOnce(data.recovery_code);
+            // socket初期化(=ロビー遷移)を復旧コードモーダルでブロックしない。
+            // 復旧コードは初回発行時のみ返るため、表示は非同期・非ブロッキングで行う。
             initializeSocketIO();
+            showRecoveryCodeOnce(data.recovery_code);
         }
     } catch (error) {
         console.error('Failed to check session status:', error.message);

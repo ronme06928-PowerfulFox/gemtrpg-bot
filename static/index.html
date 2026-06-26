@@ -7,7 +7,7 @@
     <title>ジェムリアTRPGダイスボット</title>
     <link rel="icon" type="image/svg+xml" href="images/favicon-gem.svg">
     <link rel="shortcut icon" href="images/favicon-gem.svg">
-    <link rel="stylesheet" href="dist/app.bundle.css?v=d49d552879c0">
+    <link rel="stylesheet" href="dist/app.bundle.css?v=e0614a7e7d3f">
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 
@@ -18,12 +18,42 @@
             <h2>ジェムリアTRPG<br>ダイスボット</h2>
         </div>
         <div class="auth-form">
-            <p style="text-align: center; margin-top: 0;">セッションに参加する名前を入力してください。</p>
-            <label for="entry-username">あなたの名前:</label>
-            <input type="text" id="entry-username" placeholder="プレイヤー名またはGM名">
+            <div class="auth-tabs" style="display:flex; gap:4px; margin-bottom:14px;">
+                <button id="auth-tab-login" class="auth-tab" type="button">ログイン</button>
+                <button id="auth-tab-register" class="auth-tab" type="button">新規登録</button>
+                <button id="auth-tab-recover" class="auth-tab" type="button">復旧</button>
+            </div>
 
-            <button id="entry-btn">ルームポータルへ進む</button>
-            <button id="recover-user-btn" type="button">復旧コードでログイン</button>
+            <!-- ログイン（主導線） -->
+            <div id="auth-pane-login" class="auth-pane">
+                <label for="login-name">ログインID</label>
+                <input type="text" id="login-name" placeholder="ログインID" autocomplete="username">
+                <label for="login-password">パスワード</label>
+                <input type="password" id="login-password" placeholder="パスワード" autocomplete="current-password">
+                <button id="login-btn" type="button">ログイン</button>
+            </div>
+
+            <!-- 新規登録 -->
+            <div id="auth-pane-register" class="auth-pane" style="display:none;">
+                <label for="register-name">ログインID</label>
+                <input type="text" id="register-name" placeholder="半角英数字など" autocomplete="username">
+                <label for="register-display">表示名</label>
+                <input type="text" id="register-display" placeholder="ゲーム内の表示名">
+                <label for="register-password">パスワード（10文字以上）</label>
+                <input type="password" id="register-password" placeholder="10〜128文字" autocomplete="new-password">
+                <button id="register-btn" type="button">アカウント作成</button>
+            </div>
+
+            <!-- 復旧（既存ユーザー移行/パスワード忘れ） -->
+            <div id="auth-pane-recover" class="auth-pane" style="display:none;">
+                <p style="margin-top:0; font-size:0.9em; color:#666;">復旧コード（GEM-XXXX-XXXX）でログインし、ログインID・パスワードを設定できます。</p>
+                <label for="recover-name">名前</label>
+                <input type="text" id="recover-name" placeholder="登録時の名前">
+                <button id="recover-code-btn" type="button">復旧コードでログイン</button>
+                <p style="margin:12px 0 4px; font-size:0.9em; color:#666;">管理者発行のワンタイムコードをお持ちの方：</p>
+                <button id="redeem-code-btn" type="button">ワンタイムコードで再設定</button>
+            </div>
+
             <div id="entry-message" class="auth-message"></div>
         </div>
     </div>
@@ -76,7 +106,7 @@
     <!-- JavaScript: esbuild でバンドル済み (ソースは static/js/、ビルドは `npm run build`) -->
     <!-- app.bundle.js = クラシックスクリプト連結 / battle.bundle.js = battle/index.js のモジュールツリー -->
     <!-- ?v= はビルド時にコンテンツハッシュへ自動置換される -->
-    <script defer src="dist/app.bundle.js?v=27cf69c84d6e"></script>
+    <script defer src="dist/app.bundle.js?v=99bc2bc59c4a"></script>
     <script type="module" src="dist/battle.bundle.js?v=e38203bf11d8"></script>
 </body>
 

@@ -49,7 +49,11 @@ def upsert_user(user_id, name, *, issue_recovery=False):
         user.recovery_code_hash = generate_password_hash(_normalize_recovery_code(recovery_code))
         user.recovery_code_issued_at = datetime.utcnow()
 
-    if issue_recovery:
+    # 端末トークンは「未発行のユーザーへ一度だけ」発行する。
+    # 以前はログイン確認(get_session_user)や再入場(entry)のたびに再発行しており、
+    # クライアントに保存済みのトークンが毎回陳腐化していた。これを止めることで、
+    # 既存ユーザーの保存済みトークンが安定して照合でき、移行アンカーとして使える。
+    if issue_recovery and not getattr(user, "recovery_token_hash", None):
         recovery_token = generate_recovery_token()
         user.recovery_token_hash = _hash_recovery_token(recovery_token)
 

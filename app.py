@@ -27,43 +27,15 @@ from flask_compress import Compress # 追加: 圧縮転送用ライブラリ
 from whitenoise import WhiteNoise # 追加: 静的ファイル配信高速化
 
 # ★ 拡張機能（共有インスタンス）のインポート
-from extensions import db, socketio, active_room_states, all_skill_data, all_glossary_data
-from models import Room
+from extensions import db, socketio, all_skill_data, all_glossary_data
 
 # ★ マネージャー（ロジック層）からのインポート
-from manager.data_manager import (
-    init_app_data, read_saved_rooms, read_saved_rooms_with_owners, save_room_to_db, delete_room_from_db
-)
-from manager.room_manager import get_room_state
+from manager.data_manager import init_app_data, read_saved_rooms_with_owners
 from manager.utils import session_required
 from manager.json_rule_audit import append_audit
-from manager.auth import (
-    GM_ATTRIBUTE,
-    PLAYER_ATTRIBUTE,
-    hash_gm_pin,
-    is_valid_gm_pin,
-    resolve_room_attribute,
-    verify_master_key,
-    verify_room_gm_key,
-)
 
-import uuid
 import cloudinary
 import cloudinary.uploader
-
-# ★追加インポート
-from manager.user_manager import (
-    upsert_user,
-    get_all_users,
-    delete_user,
-    transfer_ownership,
-    get_user_owned_items,
-    is_user_management_admin,
-    recover_user_by_local_token,
-    recover_user_by_name_and_code,
-    regenerate_user_recovery_code,
-    set_user_management_admin,
-)
 
 # === アプリ設定 ===
 load_dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
@@ -114,13 +86,31 @@ def _get_database_uri():
     # Local runs must never use DATABASE_URL.  DATABASE_URL belongs to Render.
     if not IS_RENDER:
         return 'sqlite:///gemtrpg.db'
-    return os.environ.get('DATABASE_URL', 'sqlite:///gemtrpg.db')
+    # Render must fail closed: a missing or non-PostgreSQL DATABASE_URL would
+    # silently boot a separate empty SQLite DB and look like data loss, instead
+    # of honoring the local/Render separation guarantee.
+    url = str(os.environ.get('DATABASE_URL') or '').strip()
+    if not url:
+        raise RuntimeError(
+            'DATABASE_URL must be set on Render. Refusing to fall back to SQLite.'
+        )
+    if not url.startswith(('postgres://', 'postgresql://', 'postgresql+')):
+        raise RuntimeError(
+            'DATABASE_URL on Render must point to PostgreSQL. '
+            f'Refusing to start with: {url.split("://", 1)[0]}://...'
+        )
+    return url
 
 
 def configure_app(flask_app, config=None):
     global STATIC_DIR
     flask_app.config['JSON_AS_ASCII'] = False
     flask_app.config['SECRET_KEY'] = _get_secret_key()
+    # Session cookie hardening (同一オリジン構成のため SameSite=Lax で十分。
+    # 公開環境では Secure を強制し、平文HTTP越しにCookieを送らせない)。
+    flask_app.config['SESSION_COOKIE_HTTPONLY'] = True
+    flask_app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    flask_app.config['SESSION_COOKIE_SECURE'] = _is_production_env()
     flask_app.config['SQLALCHEMY_DATABASE_URI'] = _get_database_uri()
     flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     flask_app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
@@ -300,16 +290,39 @@ def _perf_after(response):
     return response
 
 
+# モバイル版は開発停止中（PC Web版中心の方針）。公開導線として /mobile を
+# 明示的に停止し、安全化されていない旧導線が裏口として残らないようにする。
+MOBILE_SUSPENDED_HTML = (
+    '<!doctype html><html lang="ja"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    '<title>モバイル版は停止中です</title></head>'
+    '<body style="font-family:sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem;line-height:1.7">'
+    '<h1>モバイル版は現在停止中です</h1>'
+    '<p>モバイル版は開発を一時停止しています。PC（Web）版をご利用ください。</p>'
+    '<p><a href="/">PC版を開く</a></p>'
+    '</body></html>'
+)
+
+
 def serve_mobile_index():
-    print(f"[INFO] Accessing Mobile Root! Serving from: {STATIC_DIR}/mobile")
-    return send_from_directory(os.path.join(STATIC_DIR, 'mobile'), 'index.html')
+    return MOBILE_SUSPENDED_HTML, 404, {'Content-Type': 'text/html; charset=utf-8'}
 
 
 def serve_static_files(filename):
+    # モバイル版アセットの直接読み出しも停止する（/mobile 停止の裏口を塞ぐ）。
+    normalized = str(filename or '').lstrip('/')
+    if normalized == 'mobile' or normalized.startswith('mobile/'):
+        return MOBILE_SUSPENDED_HTML, 404, {'Content-Type': 'text/html; charset=utf-8'}
     return send_from_directory(STATIC_DIR, filename)
 
 
 def register_http_routes(flask_app):
+    # account / room / admin 系のハンドラは routes/ パッケージの Blueprint に
+    # 分割している（app.py は薄い入出力変換に留める方針）。
+    from routes.account import account_bp
+    from routes.room import room_bp
+    from routes.admin import admin_bp
+
     flask_app.add_url_rule('/', 'serve_index', serve_index)
     flask_app.add_url_rule('/healthz', 'healthz', healthz)
     # perf計測: after_request は登録の逆順で実行されるため、_perf_after を先に
@@ -331,317 +344,12 @@ def register_http_routes(flask_app):
     flask_app.add_url_rule('/api/images', 'get_images_api', get_images_api, methods=['GET'])
     flask_app.add_url_rule('/api/images/<image_id>', 'delete_image_api', delete_image_api, methods=['DELETE'])
     flask_app.add_url_rule('/api/local_images', 'get_local_images', get_local_images, methods=['GET'])
-    flask_app.add_url_rule('/api/entry', 'entry', entry, methods=['POST'])
-    flask_app.add_url_rule('/api/recover_user', 'recover_user', recover_user, methods=['POST'])
-    flask_app.add_url_rule('/api/recover_from_local_token', 'recover_from_local_token', recover_from_local_token, methods=['POST'])
-    flask_app.add_url_rule('/api/regenerate_recovery_code', 'regenerate_recovery_code', regenerate_recovery_code, methods=['POST'])
-    flask_app.add_url_rule('/api/enter_room', 'enter_room', enter_room, methods=['POST'])
-    flask_app.add_url_rule('/api/leave_room_context', 'leave_room_context', leave_room_context, methods=['POST'])
-    flask_app.add_url_rule('/api/get_session_user', 'get_session_user', get_session_user, methods=['GET'])
-    flask_app.add_url_rule('/list_rooms', 'list_rooms', list_rooms, methods=['GET'])
-    flask_app.add_url_rule('/load_room', 'load_room', load_room, methods=['GET'])
-    flask_app.add_url_rule('/create_room', 'create_room', create_room, methods=['POST'])
-    flask_app.add_url_rule('/delete_room', 'delete_room', delete_room, methods=['POST'])
-    flask_app.add_url_rule('/save_room', 'save_room_route', save_room_route, methods=['POST'])
-    flask_app.add_url_rule('/api/get_room_users', 'get_room_users', get_room_users, methods=['GET'])
-    flask_app.add_url_rule('/api/admin/user_details', 'admin_get_user_details', admin_get_user_details, methods=['GET'])
-    flask_app.add_url_rule('/api/admin/users', 'admin_get_users', admin_get_users, methods=['GET'])
-    flask_app.add_url_rule('/api/admin/delete_user', 'admin_delete_user', admin_delete_user, methods=['POST'])
-    flask_app.add_url_rule('/api/admin/transfer', 'admin_transfer_user', admin_transfer_user, methods=['POST'])
-    flask_app.add_url_rule('/api/admin/set_user_management_admin', 'admin_set_user_management_admin', admin_set_user_management_admin, methods=['POST'])
     flask_app.add_url_rule('/api/json_nl_builder_audit', 'json_nl_builder_audit', json_nl_builder_audit, methods=['POST'])
 
-def entry():
-    data = request.get_json(silent=True) or {}
-    username = str(data.get('username') or '').strip()
+    flask_app.register_blueprint(account_bp)
+    flask_app.register_blueprint(room_bp)
+    flask_app.register_blueprint(admin_bp)
 
-    if not username:
-        return jsonify({"error": "ユーザー名は必須です"}), 400
-
-    session['username'] = username
-    # Client-supplied GM attributes are not trusted.  GM is granted only by
-    # room PIN verification in /api/enter_room or /create_room.
-    if session.get('attribute') != GM_ATTRIBUTE:
-        session['attribute'] = PLAYER_ATTRIBUTE
-
-    # ▼▼▼ 修正: ID発行とDB保存 ▼▼▼
-    if 'user_id' not in session:
-        session['user_id'] = str(uuid.uuid4())
-
-    # ユーザー情報をDBに記録。新規/未発行ユーザーには復旧コードを一度だけ返す。
-    user_result = upsert_user(session['user_id'], username, issue_recovery=True) or {}
-    # ▲▲▲ 修正ここまで ▲▲▲
-
-    return jsonify({
-        "message": "セッション開始",
-        "username": username,
-        "attribute": session.get('attribute', PLAYER_ATTRIBUTE),
-        "user_id": session['user_id'],
-        "is_app_admin": is_user_management_admin(session['user_id']),
-        "recovery_code": user_result.get("recovery_code"),
-        "recovery_token": user_result.get("recovery_token"),
-    })
-
-def recover_user():
-    data = request.get_json(silent=True) or {}
-    username = str(data.get('username') or '').strip()
-    recovery_code = str(data.get('recovery_code') or '').strip()
-    result = recover_user_by_name_and_code(username, recovery_code)
-    if not result:
-        return jsonify({"error": "名前または復旧コードが正しくありません"}), 403
-
-    user = result["user"]
-    session['user_id'] = user.id
-    session['username'] = user.name
-    session['attribute'] = PLAYER_ATTRIBUTE
-
-    return jsonify({
-        "message": "ユーザーを復旧しました",
-        "username": user.name,
-        "attribute": PLAYER_ATTRIBUTE,
-        "user_id": user.id,
-        "is_app_admin": is_user_management_admin(user.id),
-        "recovery_token": result.get("recovery_token"),
-    })
-
-def recover_from_local_token():
-    data = request.get_json(silent=True) or {}
-    user = recover_user_by_local_token(
-        str(data.get('user_id') or '').strip(),
-        str(data.get('recovery_token') or '').strip(),
-    )
-    if not user:
-        return jsonify({"error": "保存済み復旧トークンが無効です"}), 403
-
-    session['user_id'] = user.id
-    session['username'] = user.name
-    session['attribute'] = PLAYER_ATTRIBUTE
-
-    return jsonify({
-        "message": "保存済み復旧トークンで復帰しました",
-        "username": user.name,
-        "attribute": PLAYER_ATTRIBUTE,
-        "user_id": user.id,
-        "is_app_admin": is_user_management_admin(user.id),
-    })
-
-@session_required
-def regenerate_recovery_code():
-    result = regenerate_user_recovery_code(session.get('user_id'))
-    if not result:
-        return jsonify({"error": "ユーザーが見つかりません"}), 404
-    user = result["user"]
-    return jsonify({
-        "message": "復旧コードを再発行しました",
-        "username": user.name,
-        "user_id": user.id,
-        "recovery_code": result.get("recovery_code"),
-        "recovery_token": result.get("recovery_token"),
-    })
-
-@session_required
-def enter_room():
-    data = request.get_json(silent=True) or {}
-    room_name = str(data.get('room_name') or '').strip()
-    role = data.get('role') or data.get('attribute') or PLAYER_ATTRIBUTE
-    gm_key = data.get('gm_pin') or data.get('gm_key') or ''
-
-    if not room_name:
-        return jsonify({"error": "Room name required"}), 400
-    if not Room.query.filter_by(name=room_name).first():
-        return jsonify({"error": "Room not found"}), 404
-
-    if str(role or '').strip().lower() in {"gm", "game_master", "gamemaster"} and is_user_management_admin(session.get('user_id')):
-        attribute = GM_ATTRIBUTE
-    else:
-        attribute = resolve_room_attribute(room_name, role, gm_key)
-    if attribute is None:
-        return jsonify({"error": "GM PINが正しくありません"}), 403
-
-    session['attribute'] = attribute
-    return jsonify({
-        "message": "Room entry accepted",
-        "room_name": room_name,
-        "attribute": attribute,
-    })
-
-@session_required
-def leave_room_context():
-    # Room GM status is scoped to the room. Returning to the lobby must not
-    # leave the user with GM-like powers in app-wide management surfaces.
-    session['attribute'] = PLAYER_ATTRIBUTE
-    return jsonify({"message": "Room context cleared", "attribute": PLAYER_ATTRIBUTE})
-
-@session_required
-def admin_get_user_details():
-    target_user_id = request.args.get('user_id')
-    if not target_user_id:
-        return jsonify({"error": "User ID required"}), 400
-
-    data = get_user_owned_items(target_user_id)
-    return jsonify(data)
-
-def _can_manage_users_with_payload(payload=None):
-    payload = payload or {}
-    if is_user_management_admin(session.get('user_id')):
-        return True
-    master_key = payload.get('master_key') or payload.get('gm_master_key') or ''
-    return verify_master_key(master_key)
-
-def get_session_user():
-    if 'username' in session:
-        username = session.get('username')
-        attribute = session.get('attribute')
-        user_id = session.get('user_id')
-        user_result = upsert_user(user_id, username, issue_recovery=True) or {}
-        logging.info(f"[SESSION CHECK] User: {username}, Attribute: {attribute}, UserID: {user_id}")
-        return jsonify({
-            "username": username,
-            "attribute": attribute,
-            "user_id": user_id,
-            "is_app_admin": is_user_management_admin(user_id),
-            "recovery_code": user_result.get("recovery_code"),
-            "recovery_token": user_result.get("recovery_token"),
-        })
-    else:
-        return jsonify({"username": None, "attribute": None, "user_id": None}), 401
-
-@session_required
-def list_rooms():
-    """ルーム一覧とオーナー情報を返す"""
-    rooms = read_saved_rooms_with_owners()
-    user_id = session.get('user_id')
-    attribute = session.get('attribute')
-    return jsonify({
-        'rooms': rooms,
-        'current_user_id': user_id,
-        'is_gm': attribute == 'GM',
-        'is_app_admin': is_user_management_admin(user_id),
-    })
-
-@session_required
-def load_room():
-    room_name = request.args.get('name')
-    state = get_room_state(room_name)
-    return jsonify(state)
-
-@session_required
-def create_room():
-    data = request.get_json(silent=True) or {}
-    room_name = str(data.get('room_name') or '').strip()
-    gm_pin = str(data.get('gm_pin') or '').strip()
-    if not room_name:
-        return jsonify({"error": "No name"}), 400
-    if not is_valid_gm_pin(gm_pin):
-        return jsonify({"error": "GM PINは4桁の数字で入力してください"}), 400
-
-    # DBに存在するかチェック
-    if Room.query.filter_by(name=room_name).first():
-        return jsonify({"error": "Room exists"}), 409
-
-    play_mode = str(data.get('play_mode') or 'normal').strip().lower()
-    if play_mode not in ('normal', 'battle_only'):
-        play_mode = 'normal'
-
-    new_state = {
-        "characters": [],
-        "timeline": [],
-        "round": 0,
-        "logs": [],
-        "play_mode": play_mode,
-    }
-    if play_mode == 'battle_only':
-        new_state["battle_only"] = {"status": "lobby", "ally_entries": [], "enemy_entries": []}
-    active_room_states[room_name] = new_state
-
-    # ▼▼▼ 修正: Room作成時に owner_id を保存 ▼▼▼
-    # save_room_to_db はデータ保存用なので、ここでは Roomモデルを直接作って owner_id を入れる
-    new_room = Room(
-        name=room_name,
-        data=new_state,
-        owner_id=session.get('user_id'),
-        gm_pin_hash=hash_gm_pin(gm_pin),
-    )
-    db.session.add(new_room)
-    db.session.commit()
-    session['attribute'] = GM_ATTRIBUTE
-    # ▲▲▲ 修正ここまで ▲▲▲
-
-    normalized_state = get_room_state(room_name)
-    return jsonify({"message": "Created", "state": normalized_state, "attribute": GM_ATTRIBUTE}), 201
-
-@session_required
-def admin_get_users():
-    return jsonify({
-        "users": get_all_users(),
-        "can_manage_users": is_user_management_admin(session.get('user_id')),
-    })
-
-@session_required
-def admin_delete_user():
-    data = request.get_json(silent=True) or {}
-    if not _can_manage_users_with_payload(data):
-        return jsonify({"error": "ユーザー管理権限またはマスターキーが必要です"}), 403
-    user_id = data.get('user_id')
-    if delete_user(user_id):
-        return jsonify({"message": "Deleted"})
-    return jsonify({"error": "Failed"}), 500
-
-@session_required
-def admin_transfer_user():
-    data = request.get_json(silent=True) or {}
-    if not _can_manage_users_with_payload(data):
-        return jsonify({"error": "ユーザー管理権限またはマスターキーが必要です"}), 403
-    count = transfer_ownership(data['old_id'], data['new_id'])
-    return jsonify({"message": f"Transferred {count} characters/rooms."})
-
-@session_required
-def admin_set_user_management_admin():
-    data = request.get_json(silent=True) or {}
-    if not verify_master_key(data.get('master_key') or ''):
-        return jsonify({"error": "マスターキーが正しくありません"}), 403
-    target_user_id = data.get('user_id')
-    enabled = bool(data.get('enabled'))
-    if not target_user_id:
-        return jsonify({"error": "User ID required"}), 400
-    if not set_user_management_admin(target_user_id, enabled):
-        return jsonify({"error": "User not found"}), 404
-    return jsonify({"message": "Updated", "user_id": target_user_id, "is_app_admin": enabled})
-
-@session_required
-def delete_room():
-    """ルーム削除 - オーナーまたはGMのみ許可"""
-    data = request.get_json(silent=True) or {}
-    room_name = data.get('room_name')
-    gm_key = data.get('gm_pin') or data.get('gm_key') or ''
-
-    # ルームのオーナーを取得
-    room = Room.query.filter_by(name=room_name).first()
-    if not room:
-        return jsonify({"error": "Room not found"}), 404
-
-    # ルーム削除はロビー操作のため、セッション属性ではなくGM PIN/マスターキーで確認する。
-    if not verify_room_gm_key(room, gm_key):
-        return jsonify({"error": "GM PINまたはマスターキーが正しくありません"}), 403
-
-    # DB削除の前に保留中の自動保存を破棄しメモリからも除去する。
-    # 削除後にデバウンスのフラッシュが走ってルームを復活させる事故を防ぐ。
-    from manager.room_manager import discard_pending_save
-    discard_pending_save(room_name)
-    active_room_states.pop(room_name, None)
-
-    if delete_room_from_db(room_name):
-        return jsonify({"message": "Deleted"})
-    return jsonify({"error": "Delete failed"}), 500
-
-@session_required
-def save_room_route():
-    data = request.json
-    room_name = data.get('room_name')
-    state = data.get('state')
-    active_room_states[room_name] = state
-    save_room_to_db(room_name, state)
-    return jsonify({"message": "Saved"})
 
 def get_skill():
     skill_id = request.args.get('id')
