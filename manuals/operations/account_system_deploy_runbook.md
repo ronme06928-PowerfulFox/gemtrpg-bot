@@ -6,17 +6,24 @@
 **Typst版（PDF用）**: `manuals/typst/operations_runbook.typ`
 
 マニュアル26（Phase 0〜7）で実装したアカウント認証・ルーム権限・公開ロビーを、
-本番（Render）へ安全に投入し、既存ユーザーを移行するための手順書。
+本番（Render）へ投入するための手順書。
+
+> **方針（2026-06-26 決定）**: 本番運用はまだ行っておらず、既存ユーザーは全員テスト用。
+> よって**移行はせず、本番・ローカルのアカウントとルームを一度まっさらに初期化し、
+> 新規登録から始める**。これにより移行期間・後方互換・backfill が不要になり、最短で
+> 新システムへ切り替えられる。
 
 ---
 
-## 0. 大原則
+## 0. 大原則（クリーンスタート方式）
 
-1. **後方互換のまま投入する**。名前だけログインのバックエンド（`/api/entry`）は当面残す
-   （UIには出さないが、緊急の安全網）。旧経路の撤去（contract）は**移行が一巡した後**に別デプロイで行う。
-2. **`main` への push = Render 自動デプロイ = 本番反映**。push前に必ずバックアップとチェックリストを通す。
-3. **migration は起動時に自動・冪等**。**backfill は手動**（自動実行しない）。
-4. デプロイ時に **全セッションが一度失効**する（`auth_version`）。ユーザーは再ログインが必要。
+1. **アカウント・ルームを全消去してから新システムを開始する**。既存データは全てテスト用なので保持しない。
+   消去対象は users / rooms / room_members / trusted_device_tokens / one_time_login_codes。
+   **画像・マスターデータ・用語辞典は保持**する。
+2. 移行が無いため、**名前だけログイン（`/api/entry`）は最初から無効化**してよい（`ACCOUNT_DISABLE_NAME_ONLY_LOGIN=1`）。
+3. **`main` への push = Render 自動デプロイ = 本番反映**。push前にバックアップ（保険）とチェックリストを通す。
+4. **migration は起動時に自動・冪等**。空DBから始めるため **backfill は不要**（実行しても0件）。
+5. 全消去後は **サーバーを再起動**してメモリ上の `active_room_states` も初期化する。
 
 ---
 
@@ -37,38 +44,46 @@
 | `DATABASE_URL` | 必須 | PostgreSQL。未設定/非PGは起動失敗 |
 | `CORS_ORIGINS` | 必須 | 公開ドメイン（例: `https://example.onrender.com`） |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | 必須 | 画像 |
-| `GM_MASTER_KEY` | 任意 | 緊急管理用8桁。日常GM認証には使わない |
-| `ACCOUNT_DISABLE_NAME_ONLY_LOGIN` | 任意 | `1` で名前だけ `/api/entry` を無効化。**Phase 8 contract まで未設定**（=有効のまま） |
+| `GM_MASTER_KEY` | 任意 | 緊急管理用8桁。最初の app admin 付与にも使う |
+| `ACCOUNT_DISABLE_NAME_ONLY_LOGIN` | 推奨 | `1` で名前だけ `/api/entry` を無効化。クリーンスタートでは**最初から `1`** |
 
 ---
 
-## 3. デプロイ手順（初回・新システム投入）
+## 3. デプロイ手順（クリーンスタート）
 
-1. **DBバックアップ**: Render PostgreSQL の手動バックアップを取得する。
+1. **バックアップ（保険）**: Render PostgreSQL の手動バックアップを取得する（テストデータだが念のため）。
 2. **ビルド確認**: フロント変更を含む場合、`npm run build` 済みで `static/dist/*` がコミットされていること。
-3. **push**: `main` へ push → Render 自動デプロイ。起動時に `run_auto_migration` が新列・新テーブルを冪等追加する（既存 `room_members` には `updated_at`/`revoked_at` を追加）。
-4. **起動確認**: `/healthz` が 200。ログに migration の致命的エラーが無いこと（必須migration失敗時は起動失敗＝fail-fast）。
-5. **backfill（dry-run → apply）**: Render shell で実行。
+3. **環境変数**: `ACCOUNT_DISABLE_NAME_ONLY_LOGIN=1` を設定（名前だけログインを最初から無効化）。
+4. **push**: `main` へ push → Render 自動デプロイ。起動時に `run_auto_migration` が新列・新テーブルを冪等追加する（既存 `room_members` には `updated_at`/`revoked_at` を追加）。
+5. **アカウント・ルームを全消去**: Render shell で実行（**本番・ローカル両方**で実施）。
 
    ```bash
-   python scripts/backfill_memberships.py            # dry-run（集計のみ）
-   python scripts/backfill_memberships.py --apply    # 実行
+   python scripts/reset_accounts_rooms.py          # dry-run（件数確認）
+   python scripts/reset_accounts_rooms.py --yes    # 全消去
    ```
 
-   dry-run で owner不在ルーム・重複表示名・所有者不明キャラ・作成見込みを確認してから apply する。冪等なので再実行可。
-6. **動作確認（本番スモーク）**: 第5章チェックリスト。
+   消去対象は users/rooms/room_members/trusted_device_tokens/one_time_login_codes。画像・マスターデータ・用語辞典は保持。
+6. **サーバー再起動**: メモリ上の `active_room_states` を初期化する（Render は Manual Deploy / Restart）。
+7. **起動確認**: `/healthz` が 200。migration の致命的エラーが無いこと（失敗時は fail-fast で起動失敗）。
+8. **動作確認（本番スモーク）**: 第5章チェックリスト。
+
+> backfill（`scripts/backfill_memberships.py`）は**クリーンスタートでは不要**（空DBで0件）。既存ルームを引き継ぐ運用に切り替えた場合のみ使う。
 
 ---
 
-## 4. 既存ユーザーの移行
+## 4. まっさら初期化と最初の管理者
 
-デプロイ直後、UIのトップは **ログイン（ID＋パスワード）** に刷新され、**名前だけ入力のUIは無い**。既存ユーザー（無パスワード）の移行経路は次の3つ。
+全消去後、UIのトップは **ログイン（ID＋パスワード）**。全員が新規登録から始める。
 
-1. **端末トークンで自動復帰**: ブラウザに保存済みの端末トークンがある利用者は、ページを開くと自動ログインされる。その後「⚙️ユーザー設定 → パスワード変更/設定」でログインID・パスワードを設定する。
-2. **復旧コード**: 自動復帰できない場合、ログイン画面の「復旧」タブで名前＋復旧コード（`GEM-XXXX-XXXX`）を入力 → ログイン → ログインID・パスワード設定を案内。
-3. **管理者ワンタイムコード**: 上記どちらも不可なユーザーは、app admin が管理画面でワンタイムコードを発行（実値は発行時のみ表示）。利用者は「復旧」タブの「ワンタイムコードで再設定」から再設定する。
+1. **新規登録**: 「新規登録」タブでログインID・表示名・パスワードを作成 → そのままログイン状態になる。
+2. **最初の app admin を作る**: 管理者にしたいユーザーで登録後、`GM_MASTER_KEY`（8桁）を使って
+   `/api/admin/set_user_management_admin`（`{user_id, enabled:true, master_key}`）で自分に管理権限を付与する。
+   以後はその管理者がユーザー管理・ワンタイムコード発行を行える。
+3. **ルーム作成**: ログイン後、ロビーから新規ルーム作成（作成者が owner membership を持つ）。
+   参加コードを設定して他ユーザーへ共有 → 参加者は「参加」からコード入力で参加。
 
-> **注意**: `ACCOUNT_DISABLE_NAME_ONLY_LOGIN=1` を**移行前に設定しない**こと。設定すると名前だけログインのバックアップ経路も塞がる。
+> 移行（端末トークン自動復帰・復旧コード・管理者ワンタイムコード）の経路は実装済みだが、
+> クリーンスタートでは使わない。将来「既存データを引き継ぐ」運用に変える場合の手段として残置。
 
 ---
 
@@ -95,16 +110,16 @@
 
 ---
 
-## 7. Phase 8 contract（移行が一巡した後・別デプロイ）
+## 7. Phase 8 contract（クリーンスタートでは大半が不要）
 
-移行期間を経て既存ユーザーの大半がパスワード化したら、旧経路を閉じる。
+クリーンスタートでは移行経路を「使わない」ため、Phase 8 の大半は初回投入時点で実質達成済み。
 
-1. `ACCOUNT_DISABLE_NAME_ONLY_LOGIN=1` を設定（名前だけ `/api/entry` を停止）。
-2. 再利用可能な復旧コード／旧トークン列・旧 GM PIN 経路を段階的に停止・削除。
-3. `session['attribute']` 依存を検索し、認可用途が0件であることを確認（権限の正本は membership）。
-4. 未使用 API（`/save_room` 等）の扱いを確定。
-5. contract migration は別デプロイ・直前バックアップ必須。
-6. 公開前の認証・認可・情報漏えいチェックリストを再実施。
+- **済**: 名前だけログインは最初から無効（`ACCOUNT_DISABLE_NAME_ONLY_LOGIN=1`）。旧データは全消去済み。
+- **任意（コード整理）**: 名前だけ `/api/entry`・移行用の復旧/ワンタイム経路を**将来使わないと確定したら**、関連コード・列を削除してよい（別デプロイ・直前バックアップ）。当面は残置でも害は無い（UI導線なし・フラグ無効）。
+- **継続確認**: `session['attribute']` を権限の正本に使っていないこと（正本は membership）。`/save_room` 等の未使用APIの扱い。
+- **公開前チェックリスト**（第5章）を本番投入時に実施。
+
+> GM PIN はクリーンスタート後も「ルーム作成時のGM認証」「co-GMへのGM付与手段」として継続利用する（移行専用ではない）。
 
 ---
 
@@ -114,8 +129,9 @@
 |---|---|
 | ローカル開発起動 | `python app.py` |
 | マスターデータ更新 | `python app.py --update` |
-| membership dry-run | `python scripts/backfill_memberships.py` |
-| membership 実行 | `python scripts/backfill_memberships.py --apply` |
+| **アカウント・ルーム全消去（dry-run）** | `python scripts/reset_accounts_rooms.py` |
+| **アカウント・ルーム全消去（実行）** | `python scripts/reset_accounts_rooms.py --yes` |
+| membership backfill（通常は不要） | `python scripts/backfill_memberships.py [--apply]` |
 | フロントビルド | `npm run build` |
 | テスト | `pytest -q` |
 | 文字コード/化け確認 | `python scripts/check_text_encoding.py` / `python scripts/check_mojibake_markers.py` |

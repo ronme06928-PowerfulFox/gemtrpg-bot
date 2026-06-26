@@ -724,6 +724,7 @@ SELECT count(*) AS row_count FROM room_members;
 | 2026-06-21 | Q26-014 | フロント/API/Socketは**同一オリジン**（Flask+WhiteNoiseが単一Web Serviceで全配信、JSは相対パス/`io(origin)`で接続）。`SameSite=Lax`+Cookie認証でSocket connectを成立させる | コードで実証（app.py・main.js・Procfile）。別オリジン用の代替認証は不要 |
 | 2026-06-22 | Q26-012 | **モバイル版は開発を一時停止し、PC Web版中心で開発する（アプリ全体の方針）。`/mobile` 導線は404で停止** | mobileの同時安全化が負担になり、PC版に集中するため。これにより `/load_room` を参加者ゲート化できる |
 | 2026-06-22 | membership方針 | **本番Neonの既存 `room_members` を会員名簿の正本として採用**（新テーブルを作らない）。列: id/room_id/user_id/role/joined_at/granted_by_user_id + 追加 updated_at/revoked_at | 本番スキーマ確認の結果、計画の RoomMembership とほぼ一致するクリーンな構造で、コードに取り込めばスキーマの正をコード側へ寄せられるため（[[project_room_members_external_table]] の助言どおり） |
+| 2026-06-26 | 投入方式 | **クリーンスタート方式を採用**。本番運用が未開始（既存ユーザーは全員テスト）のため、移行はせず本番・ローカルのアカウント/ルームを全消去（`scripts/reset_accounts_rooms.py`）し新規登録から開始。`ACCOUNT_DISABLE_NAME_ONLY_LOGIN=1` を最初から設定、backfill不要 | 移行期間・後方互換の負担を避け最短で新システムへ。手順は `manuals/operations/account_system_deploy_runbook.md` |
 | 2026-06-22 | 実機スモーク | Phase 0-5 をローカル起動して実機確認、**全項目合格**。entry/register/login/logout・auth_version失効・create_room→owner membership・load_room参加者ゲート(非メンバー403)・owner専用grant_gm(非owner403)・Socket認証あり接続&join_room成功&**認証なし接続拒否** を確認 | auth_version・membership・Socket認可は稼働中アプリ挙動を変えるため、main合流前の起動スモークが必要だった。結果は良好 |
 
 ---
