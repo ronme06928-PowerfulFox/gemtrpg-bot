@@ -427,7 +427,11 @@ async function showRoomPortal() {
 }
 
 function renderRoomPortal(rooms, currentUserId, isGm) {
-    const manageUsersButton = `<button id="manage-users-btn" class="portal-settings-button" style="margin-left:10px; background:#e0e0ff;">👥 ユーザー管理</button>`;
+    // ユーザー管理は app admin 限定（/api/admin/users が 403 になるため、
+    // 非管理者にはボタン自体を出さない）。
+    const manageUsersButton = currentUserIsAppAdmin
+        ? `<button id="manage-users-btn" class="portal-settings-button" style="margin-left:10px; background:#e0e0ff;">👥 ユーザー管理</button>`
+        : '';
 
     roomPortal.innerHTML = `
         <div class="portal-user-band">
