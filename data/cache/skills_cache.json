@@ -1039,7 +1039,7 @@
     "分類": "物理",
     "距離": "近接",
     "属性": "斬撃",
-    "取得コスト": "1",
+    "取得コスト": "2",
     "基礎威力": "9",
     "ダイス威力": "+1d2",
     "使用時効果": "([[W-19|使用時]]):FPを2消費",
@@ -1151,9 +1151,9 @@
     "基礎威力": "9",
     "ダイス威力": "+1d5",
     "使用時効果": "([[W-19|使用時]]):FPを3消費",
-    "特記": "対象の[[W-02|破裂]]3につき[[W-50|基礎威力]]+1(最大で3)",
+    "特記": "対象の[[W-02|破裂]]5につき[[W-50|基礎威力]]+1(最大で3)",
     "発動時効果": "([[W-20|的中時]]):相手の[[W-02|破裂]]が10以上なら、[[W-03|破裂爆発]]。",
-    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb04\",\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":3,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"FP\",\"value\":3}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\",\"condition\":{\"source\":\"target\",\"param\":\"破裂\",\"operator\":\"GTE\",\"value\":10}}]}",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb04\",\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":5,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"FP\",\"value\":3}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\",\"condition\":{\"source\":\"target\",\"param\":\"破裂\",\"operator\":\"GTE\",\"value\":10}}]}",
     "tags": [
       "攻撃"
     ]
@@ -1169,9 +1169,9 @@
     "基礎威力": "11",
     "ダイス威力": "+1d5",
     "使用時効果": "([[W-19|使用時]]):FPを4消費",
-    "特記": "対象の[[W-02|破裂]]3につき[[W-50|基礎威力]]+1(最大で3)",
+    "特記": "対象の[[W-02|破裂]]5につき[[W-50|基礎威力]]+1(最大で3)",
     "発動時効果": "([[W-20|的中時]]):[[W-03|破裂爆発]]。この[[W-03|破裂爆発]]は対象の[[W-02|破裂]]威力を半分にする。[[W-03|破裂爆発]]。",
-    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb05\",\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":3,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"FP\",\"value\":4}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\",\"rupture_remainder_ratio\":0.5},{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\"}]}",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb05\",\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":5,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"FP\",\"value\":4}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\",\"rupture_remainder_ratio\":0.5},{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\"}]}",
     "tags": [
       "攻撃"
     ]
@@ -1314,8 +1314,8 @@
     "ダイス威力": "+1d8",
     "使用時効果": "([[W-19|使用時]]):FPを1消費。",
     "特記": "([[W-19|使用時]]):[[W-74|蓄力]]2を消費し、このスキルの基礎威力+3。",
-    "発動時効果": "([[W-20|的中時]]):[[W-02|破裂]]5を付与。([[W-20|的中時]]):[[W-00|出血]]6を付与。",
-    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb13\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":1}],\"power_bonus\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":5},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":6},{\"timing\":\"PRE_MATCH\",\"type\":\"MODIFY_BASE_POWER\",\"target\":\"self\",\"value\":3,\"condition\":{\"source\":\"self\",\"param\":\"蓄力_count\",\"operator\":\"GTE\",\"value\":2}},{\"timing\":\"PRE_MATCH\",\"type\":\"CONSUME_BUFF_COUNT_FOR_GAIN\",\"target\":\"self\",\"buff_name\":\"蓄力\",\"consume_required\":2,\"gains\":[]}]}",
+    "発動時効果": "([[W-20|的中時]]):[[W-02|破裂]]4を付与。([[W-20|的中時]]):[[W-00|出血]]3を付与。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pb13\",\"target_scope\":\"opposing_team\",\"cost\":[{\"type\":\"FP\",\"value\":1}],\"power_bonus\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":4},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"出血\",\"value\":3},{\"timing\":\"PRE_MATCH\",\"type\":\"MODIFY_BASE_POWER\",\"target\":\"self\",\"value\":3,\"condition\":{\"source\":\"self\",\"param\":\"蓄力_count\",\"operator\":\"GTE\",\"value\":2}},{\"timing\":\"PRE_MATCH\",\"type\":\"CONSUME_BUFF_COUNT_FOR_GAIN\",\"target\":\"self\",\"buff_name\":\"蓄力\",\"consume_required\":2,\"gains\":[]}]}",
     "tags": [
       "攻撃"
     ]
@@ -1422,8 +1422,8 @@
     "ダイス威力": "+1d3",
     "使用時効果": "([[W-19|使用時]]):FPを2消費",
     "特記": "",
-    "発動時効果": "([[W-19|使用時]]):次にこのキャラクターが付与する[[W-04|亀裂]]の値+1",
-    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pp03\",\n\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-41\",\"lasting\":999,\"count\":1,\"data\":{\"value\":1,\"display_name\":\"突き崩す（亀裂付与量アップ単発）\"}}]}",
+    "発動時効果": "([[W-19|使用時]]):次にこのキャラクターが付与する[[W-04|亀裂]]の値+2",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Pp03\",\n\"power_bonus\":[],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"self\",\"buff_id\":\"Bu-41\",\"lasting\":999,\"count\":1,\"data\":{\"value\":2,\"display_name\":\"突き崩す（亀裂付与量アップ単発）\"}}]}",
     "tags": [
       "攻撃"
     ]
@@ -1543,7 +1543,7 @@
     "分類": "物理",
     "距離": "近接",
     "属性": "貫通",
-    "取得コスト": "2",
+    "取得コスト": "1",
     "基礎威力": "9",
     "ダイス威力": "+1d5",
     "使用時効果": "([[W-19|使用時]]):FPを3消費",
@@ -1597,7 +1597,7 @@
     "分類": "物理",
     "距離": "近接",
     "属性": "貫通",
-    "取得コスト": "2",
+    "取得コスト": "1",
     "基礎威力": "4",
     "ダイス威力": "+1d6",
     "使用時効果": "([[W-19|使用時]]):FPを2消費。",
@@ -1979,9 +1979,9 @@
     "基礎威力": "11",
     "ダイス威力": "+1d5",
     "使用時効果": "([[W-19|使用時]]):MPを3消費。FPを2消費。",
-    "特記": "対象の[[W-02|破裂]]3につき、このスキルの[[W-50|基礎威力]]+1(最大で3)",
+    "特記": "対象の[[W-02|破裂]]5につき、このスキルの[[W-50|基礎威力]]+1(最大で3)",
     "発動時効果": "([[W-20|的中時]]):[[W-03|破裂爆発]]。",
-    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Mb04\",\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":3,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"MP\",\"value\":3},{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\"}]}",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Mb04\",\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":5,\"value\":1,\"max_bonus\":3}],\"cost\":[{\"type\":\"MP\",\"value\":3},{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"value\":\"破裂爆発\"}]}",
     "tags": [
       "攻撃"
     ]
@@ -1997,9 +1997,9 @@
     "基礎威力": "10",
     "ダイス威力": "+1d4",
     "使用時効果": "([[W-19|使用時]]):MPを3消費。FPを2消費。",
-    "特記": "対象の[[W-02|破裂]]2につき、このスキルの[[W-50|基礎威力]]+1(最大で2)",
+    "特記": "対象の[[W-02|破裂]]4につき、このスキルの[[W-50|基礎威力]]+1(最大で2)",
     "発動時効果": "([[W-21|マッチ勝利時]]):[[W-02|破裂]]8を付与。([[W-20|的中時]]):[[W-02|破裂]]6を付与。",
-    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Mb05\",\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":2,\"value\":1,\"max_bonus\":2}],\"cost\":[{\"type\":\"MP\",\"value\":3},{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":8},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":6}]}",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Mb05\",\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":4,\"value\":1,\"max_bonus\":2}],\"cost\":[{\"type\":\"MP\",\"value\":3},{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"WIN\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":8},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":6}]}",
     "tags": [
       "攻撃"
     ]
@@ -2017,7 +2017,7 @@
     "使用時効果": "([[W-19|使用時]]):MPを2消費。FPを1消費。",
     "特記": "",
     "発動時効果": "([[W-19|使用時]]):対象に次の[[W-16|ラウンド]]の間[[W-13|挑発]]を付与し、対象が受けるダメージを20%上げる。",
-    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Mb06\",\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":2}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-01\",\"lasting\":1,\"delay\":1},{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-43\",\"lasting\":1,\"delay\":1,\"data\":{\"value\":20,\"display_name\":\"アイツを狙え！\"}}]}",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Mb06\",\"power_bonus\":[],\"cost\":[{\"type\":\"MP\",\"value\":2},{\"type\":\"FP\",\"value\":1}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-01\",\"lasting\":1,\"delay\":1},{\"timing\":\"PRE_MATCH\",\"type\":\"APPLY_BUFF\",\"target\":\"target\",\"buff_id\":\"Bu-43\",\"lasting\":1,\"delay\":1,\"data\":{\"value\":20,\"display_name\":\"アイツを狙え！\"}}]}",
     "tags": [
       "攻撃"
     ]
@@ -2142,7 +2142,7 @@
     "ダイス威力": "+1d4",
     "使用時効果": "([[W-19|使用時]]):FPを2消費。",
     "特記": "対象の[[W-02|破裂]]4につき、このスキルの[[W-50|基礎威力]]+1(最大で3)",
-    "発動時効果": "([[W-19|使用時]]):自分の[[W-75|凝魔]]を可能な限り消費し(最大で5)、消費した値だけこのスキルの最終威力を上昇させる。([[W-20|的中時]]):[[W-02|破裂]]4を付与。",
+    "発動時効果": "([[W-19|使用時]]):自分の[[W-75|凝魔]]を可能な限り消費し(最大で5)、消費した値だけこのスキルの最終威力を上昇させる。([[W-20|的中時]]):[[W-02|破裂]]6を付与。",
     "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_Mb13\",\"power_bonus\":[{\"source\":\"target\",\"param\":\"破裂\",\"operation\":\"PER_N_BONUS\",\"per_N\":4,\"value\":1,\"max_bonus\":3,\"apply_to\":\"base\"}],\"cost\":[{\"type\":\"FP\",\"value\":2}],\"effects\":[{\"timing\":\"PRE_MATCH\",\"type\":\"CONSUME_BUFF_COUNT_FOR_POWER\",\"target\":\"self\",\"buff_name\":\"凝魔\",\"consume_max\":5,\"value_per_stack\":1,\"apply_to\":\"final\",\"min_consume\":1},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":4}]}\n",
     "tags": [
       "攻撃"
@@ -2299,7 +2299,7 @@
     "分類": "魔法",
     "距離": "遠隔",
     "属性": "貫通",
-    "取得コスト": "3",
+    "取得コスト": "2",
     "基礎威力": "13",
     "ダイス威力": "+1d5",
     "使用時効果": "([[W-19|使用時]]):MPを6消費。FPを4消費。",
