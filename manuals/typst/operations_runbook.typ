@@ -53,24 +53,36 @@
 
 = デプロイ手順（クリーンスタート）
 
+#warn-box(title: "本番の全消去は Neon で直接")[
+  Render の Shell は有料プランのみ。本番DBの全消去は *Neon の SQL Editor* で直接行う。
+  ローカル(SQLite)の全消去は #kbd("scripts/reset_accounts_rooms.py --yes")。
+]
+
 #steps[
-  + *バックアップ（保険）*: Render PostgreSQL の手動バックアップ（テストデータだが念のため）。
+  + *バックアップ（保険）*: Neon でブランチ/バックアップ（テストデータだが念のため）。
   + *ビルド確認*: フロント変更を含む場合 #kbd("npm run build") 済みで #kbd("static/dist/*") がコミット済み。
   + *環境変数*: #kbd("ACCOUNT_DISABLE_NAME_ONLY_LOGIN=1") を設定。
-  + *push*: #kbd("main") へ push → Render 自動デプロイ。起動時に `run_auto_migration` が冪等追加。
-  + *アカウント・ルーム全消去*: Render shell で実行（本番・ローカル両方）。
-  + *サーバー再起動*: #kbd("active_room_states") を初期化。
+  + *push（デプロイ）*: #kbd("main") へ push → Render 自動デプロイ。起動時に `run_auto_migration` が冪等追加。*新テーブルはこの初回起動で作成*されるので全消去はデプロイ後。
+  + 誰も接続していないことを確認。
+  + *本番DBを全消去*: Neon SQL Editor で TRUNCATE（下記）。
+  + *Render を Manual Restart*: #kbd("active_room_states") を空DBから読み直す（TRUNCATE後に必ず再起動。無料で可）。
   + *起動確認*: #kbd("/healthz") 200、migration致命エラー無し（失敗時 fail-fast）。
   + *動作確認*: 下記チェックリスト。
 ]
 
-#ex-box(title: "全消去コマンド")[
-  ```bash
-  python scripts/reset_accounts_rooms.py          # dry-run（件数確認）
-  python scripts/reset_accounts_rooms.py --yes    # 全消去
+#ex-box(title: "本番(Neon) 全消去 SQL")[
+  ```sql
+  TRUNCATE TABLE
+    room_members, trusted_device_tokens, one_time_login_codes, rooms, users
+  RESTART IDENTITY CASCADE;
   ```
-  消去対象は users/rooms/room_members/trusted_device_tokens/one_time_login_codes。
-  画像・マスターデータ・用語辞典は保持。backfill はクリーンスタートでは不要（空DBで0件）。
+  `image_registry`（画像メタ）は対象外＝保持。
+]
+
+#warn-box[
+  手順「全消去」と「再起動」の間に誰かが操作すると、デバウンス保存でルームが復活し得る。
+  誰も触っていない状態で連続して行う。ローカルは #kbd("python scripts/reset_accounts_rooms.py --yes")
+  （非Render環境ではローカルSQLiteのみ消去し、本番Neonには影響しない）。backfill はクリーンスタートでは不要。
 ]
 
 = まっさら初期化と最初の管理者
@@ -126,8 +138,8 @@
   table.header([*目的*], [*コマンド*]),
   [ローカル開発起動], [`python app.py`],
   [マスターデータ更新], [`python app.py --update`],
-  [アカウント・ルーム全消去(dry-run)], [`python scripts/reset_accounts_rooms.py`],
-  [アカウント・ルーム全消去(実行)], [`python scripts/reset_accounts_rooms.py --yes`],
+  [ローカル全消去(dry-run/実行)], [`python scripts/reset_accounts_rooms.py [--yes]`],
+  [本番(Neon)全消去], [Neon SQL Editor で `TRUNCATE ... RESTART IDENTITY CASCADE;` → Render再起動],
   [membership backfill(通常不要)], [`python scripts/backfill_memberships.py [--apply]`],
   [フロントビルド], [`npm run build`],
   [テスト], [`pytest -q`],
