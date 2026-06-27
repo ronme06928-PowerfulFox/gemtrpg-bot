@@ -563,7 +563,10 @@ SELECT count(*) AS row_count FROM room_members;
 実装進捗（2026-06-26）:
 
 - [x] **cleanup先行実施**: app.py のHTTPハンドラを `routes/`（account/room/admin の Blueprint）へ分割し app.py を1571→655行に減量（size guard の app.py LEGACY上限を解除）。**純粋なリファクタで全エンドポイント・ルート数50・全テスト不変（回帰なし）**。
-- [ ] **contract本体は未実施（Phase 7のブラウザE2E確認後に実施）**: 名前だけ `/api/entry` 停止（`ACCOUNT_DISABLE_NAME_ONLY_LOGIN=1`）、再利用可能な復旧コード/旧token列の停止、GM PIN互換の段階廃止、`/save_room` の扱い確定、公開前チェックリスト。**旧導線を消すのは新UIの動作確認後**にする（戻り道を残す）。
+- [x] **`ACCOUNT_DISABLE_NAME_ONLY_LOGIN=1` を Render に設定済み**（2026-06-27）。名前だけ `/api/entry` は本番で無効。
+- [ ] 旧 `recovery_token_hash` コード削除（任意・残置でも害なし）
+- [ ] `/save_room` の物理削除（任意・Phase 0 で参加者ゲート済み）
+- [x] **公開前チェックリスト（`manuals/operations/account_system_deploy_runbook.md` 第5章）ローカルで全10項目確認済み**（2026-06-28）
 
 ---
 
