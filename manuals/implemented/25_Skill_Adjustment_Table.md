@@ -1,8 +1,10 @@
 # スキル調整案表
 
+**種別**: implemented（2026-06-28 スプレッドシート反映済み）
+
 2026-06-26時点の `data/cache/skills_cache.json` を対象に、敵専用スキル `E-*` を除外して確認した調整案表。
 
-基準文書は [24_Skill_Balance_Cost_Guideline_Draft.md](./24_Skill_Balance_Cost_Guideline_Draft.md) を参照する。
+基準文書は [24_Skill_Balance_Cost_Guideline.md](./24_Skill_Balance_Cost_Guideline.md) を参照する。
 
 ## 1. 確認範囲
 
