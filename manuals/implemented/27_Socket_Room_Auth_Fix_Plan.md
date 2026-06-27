@@ -1,8 +1,8 @@
 # 27 ルーム内Socketイベント認証水準引き上げ計画
 
 **作成日**: 2026-06-27  
-**種別**: planned  
-**状態**: 実装完了（実機スモーク確認・moved to implemented 待ち）  
+**種別**: implemented  
+**状態**: 実装完了・実機スモーク確認済み（2026-06-28）  
 **前提計画**: [26_Render_Local_Account_Management_Plan.md](26_Render_Local_Account_Management_Plan.md) Phase 5 残項「残りのSocketイベント（battle/char/items/exploration）の全面棚卸し」
 
 ---
@@ -254,8 +254,8 @@ tests/
 - [x] Phase D: アイテム使用（`socket_items.py`）2026-06-28
 - [x] Phase E: テスト追加・全件通過（`tests/test_socket_room_auth.py` 8件）2026-06-28
 - [x] `pytest -q` 通過（568 passed）2026-06-28
-- [ ] 実機スモーク確認（探索モード切替・戦闘ターン進行・キャラ追加）
-- [ ] `manuals/implemented/` へ移管
+- [x] 実機スモーク確認（探索モード切替・戦闘ターン進行・キャラ追加）2026-06-28
+- [x] `manuals/implemented/` へ移管 2026-06-28
 
 ---
 
