@@ -22,6 +22,7 @@ def _patch_common(monkeypatch, state, user_info):
     monkeypatch.setattr(socket_char, "broadcast_log", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(socket_char, "broadcast_state_update", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(socket_char, "get_user_info_from_sid", lambda _sid: user_info)
+    monkeypatch.setattr(socket_char, "is_sid_in_room", lambda _sid, _room: True)
     monkeypatch.setattr(
         socket_char.socketio,
         "emit",

@@ -6,6 +6,7 @@ from flask import request
 from flask_socketio import emit, rooms
 from extensions import socketio, all_skill_data
 from manager.logs import setup_logger
+from manager.room_access import is_sid_in_room
 from manager.room_manager import (
     get_user_info_from_sid, get_room_state, broadcast_log, broadcast_state_update,
     is_authorized_for_character,
@@ -42,6 +43,13 @@ from events.battle.intent_targets import (
 from manager.utils import apply_buff, get_status_value, set_status_value # For debug
 logger = setup_logger(__name__)
 ensure_system_skills_registered()
+
+def _require_in_room(room):
+    if not is_sid_in_room(request.sid, room):
+        emit('error', {'message': 'Not in this room'}, to=request.sid)
+        return False
+    return True
+
 
 def _is_battle_only_mode(room):
     state = get_room_state(room)
@@ -105,12 +113,14 @@ def _log_battle_emit(event_name, room_id, battle_id, payload):
 def on_request_next_turn(data):
     room = data.get('room')
     if not room: return
+    if not _require_in_room(room): return
     proceed_next_turn(room)
 
 @socketio.on('request_new_round')
 def on_request_new_round(data):
     room = data.get('room')
     if not room: return
+    if not _require_in_room(room): return
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
@@ -125,6 +135,7 @@ def on_request_new_round(data):
 def on_request_declare_wide_skill_users(data):
     room = data.get('room')
     if not room: return
+    if not _require_in_room(room): return
     wide_user_ids = data.get('wideUserIds', [])
 
     # Needs process_wide_declarations in common_manager.py
@@ -134,6 +145,7 @@ def on_request_declare_wide_skill_users(data):
 def on_request_wide_modal_confirm(data):
     room = data.get('room')
     if not room: return
+    if not _require_in_room(room): return
     wide_ids = data.get('wideUserIds', [])
 
     user_info = get_user_info_from_sid(request.sid)
@@ -149,6 +161,7 @@ def on_request_wide_modal_confirm(data):
 def on_request_end_round(data):
     room = data.get('room')
     if not room: return
+    if not _require_in_room(room): return
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
@@ -195,6 +208,7 @@ def on_request_end_round(data):
 def on_request_reset_battle(data):
     room = data.get('room')
     if not room: return
+    if not _require_in_room(room): return
     mode = data.get('mode', 'full')
     options = data.get('options') # get dictionary or None
     user_info = get_user_info_from_sid(request.sid)
@@ -212,6 +226,7 @@ def on_request_reset_battle(data):
 def on_request_force_end_match(data):
     room = data.get('room')
     if not room: return
+    if not _require_in_room(room): return
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
@@ -228,6 +243,8 @@ def on_request_move_token(data):
     x = data.get('x')
     y = data.get('y')
 
+    if not room: return
+    if not _require_in_room(room): return
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
@@ -238,6 +255,7 @@ def on_request_move_token(data):
 def on_open_match_modal(data):
     room = data.get('room')
     if not room: return
+    if not _require_in_room(room): return
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     open_match_modal_logic(room, data, username)
@@ -246,12 +264,14 @@ def on_open_match_modal(data):
 def on_close_match_modal(data):
     room = data.get('room')
     if not room: return
+    if not _require_in_room(room): return
     close_match_modal_logic(room)
 
 @socketio.on('sync_match_data')
 def on_sync_match_data(data):
     room = data.get('room')
     if not room: return
+    if not _require_in_room(room): return
     side = data.get('side')
     match_data = data.get('data')
     user_info = get_user_info_from_sid(request.sid)
@@ -268,6 +288,7 @@ def on_debug_apply_buff(data):
     delay = int(data.get('delay', 0))
 
     if not room or not target_id or not buff_id: return
+    if not _require_in_room(room): return
     user_info = get_user_info_from_sid(request.sid)
     if str(user_info.get("attribute", "Player") or "Player").strip().upper() != 'GM':
         emit('error', {'message': 'GM権限が必要です。'})
@@ -302,6 +323,7 @@ def on_request_update_battle_background(data):
     offset_y = data.get('offsetY')
 
     if not room: return
+    if not _require_in_room(room): return
 
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
@@ -772,6 +794,10 @@ def _ensure_battle_payload(data, require_slot=False):
 
     if not room_id or not battle_id:
         emit('battle_error', {'message': 'room_id and battle_id are required'}, to=request.sid)
+        return None
+
+    if not is_sid_in_room(request.sid, room_id):
+        emit('battle_error', {'message': 'Not in this room'}, to=request.sid)
         return None
 
     if require_slot and not slot_id:
@@ -1263,6 +1289,9 @@ def on_battle_resolve_start(data):
     if not room_id:
         emit('battle_error', {'message': 'room is required'}, to=request.sid)
         return
+    if not is_sid_in_room(request.sid, room_id):
+        emit('battle_error', {'message': 'Not in this room'}, to=request.sid)
+        return
     battle_id = _resolve_battle_id_for_room(room_id, data)
 
     logger.info(
@@ -1278,6 +1307,9 @@ def on_battle_resolve_flow_advance_request(data):
     room_id = data.get('room_id') or data.get('room') or data.get('room_name')
     if not room_id:
         emit('battle_error', {'message': 'room is required'}, to=request.sid)
+        return
+    if not is_sid_in_room(request.sid, room_id):
+        emit('battle_error', {'message': 'Not in this room'}, to=request.sid)
         return
 
     user_info = get_user_info_from_sid(request.sid) or {}

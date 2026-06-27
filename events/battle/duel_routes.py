@@ -6,6 +6,7 @@ from manager.room_manager import (
     is_authorized_for_character,
 )
 from manager.battle.duel_solver import execute_duel_match, update_duel_declaration, handle_skill_declaration
+from manager.room_access import is_sid_in_room
 
 
 def _resolve_username(default="System"):
@@ -87,6 +88,10 @@ def _is_declare_panel_preview_only(data):
 def on_request_match(data):
     room = data.get('room')
     if not room: return
+    _sid = _resolve_sid()
+    if _sid and not is_sid_in_room(_sid, room):
+        socketio.emit('error', {'message': 'Not in this room'}, to=_sid)
+        return
     username = _resolve_username()
     execute_duel_match(room, data, username)
 
@@ -95,6 +100,10 @@ def on_declare_skill(data):
     room = data.get('room')
     if not room: return
     sid, user_info = _resolve_user_info()
+    if not is_sid_in_room(sid, room):
+        if sid:
+            socketio.emit('error', {'message': 'Not in this room'}, to=sid)
+        return
     actor_id = _resolve_actor_id(room, data)
     if not _is_actor_control_allowed(room, actor_id, sid, user_info):
         if sid:
@@ -112,6 +121,10 @@ def on_request_skill_declaration(data):
     room = data.get('room')
     if not room: return
     sid, user_info = _resolve_user_info()
+    if not is_sid_in_room(sid, room):
+        if sid:
+            socketio.emit('error', {'message': 'Not in this room'}, to=sid)
+        return
     actor_id = _resolve_actor_id(room, data)
     allow_preview_only = _is_declare_panel_preview_only(data)
     if (not allow_preview_only) and (not _is_actor_control_allowed(room, actor_id, sid, user_info)):

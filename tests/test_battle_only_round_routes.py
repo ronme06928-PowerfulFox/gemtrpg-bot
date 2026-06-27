@@ -8,6 +8,7 @@ def test_end_round_allows_player_and_auto_starts_in_battle_only(monkeypatch):
     calls = {"end": [], "start": []}
 
     monkeypatch.setattr(common_routes, "request", SimpleNamespace(sid="sid_test"))
+    monkeypatch.setattr(common_routes, "is_sid_in_room", lambda _sid, _room: True)
     monkeypatch.setattr(
         common_routes,
         "get_user_info_from_sid",
@@ -36,6 +37,7 @@ def test_end_round_keeps_denied_for_player_in_normal_mode(monkeypatch):
     calls = {"end": [], "start": []}
 
     monkeypatch.setattr(common_routes, "request", SimpleNamespace(sid="sid_test"))
+    monkeypatch.setattr(common_routes, "is_sid_in_room", lambda _sid, _room: True)
     monkeypatch.setattr(
         common_routes,
         "get_user_info_from_sid",
@@ -56,6 +58,7 @@ def test_end_round_does_not_auto_start_if_end_round_rejected(monkeypatch):
     calls = {"end": [], "start": []}
 
     monkeypatch.setattr(common_routes, "request", SimpleNamespace(sid="sid_test"))
+    monkeypatch.setattr(common_routes, "is_sid_in_room", lambda _sid, _room: True)
     monkeypatch.setattr(
         common_routes,
         "get_user_info_from_sid",
@@ -76,6 +79,7 @@ def test_reset_battle_allows_player_in_battle_only(monkeypatch):
     calls = []
 
     monkeypatch.setattr(common_routes, "request", SimpleNamespace(sid="sid_test"))
+    monkeypatch.setattr(common_routes, "is_sid_in_room", lambda _sid, _room: True)
     monkeypatch.setattr(
         common_routes,
         "get_user_info_from_sid",
@@ -98,6 +102,7 @@ def test_reset_battle_denies_player_in_normal(monkeypatch):
     calls = []
 
     monkeypatch.setattr(common_routes, "request", SimpleNamespace(sid="sid_test"))
+    monkeypatch.setattr(common_routes, "is_sid_in_room", lambda _sid, _room: True)
     monkeypatch.setattr(
         common_routes,
         "get_user_info_from_sid",
@@ -176,6 +181,7 @@ def test_end_round_in_battle_only_resets_when_pending_auto_reset(monkeypatch):
     calls = {"end": [], "start": [], "reset": [], "log": []}
 
     monkeypatch.setattr(common_routes, "request", SimpleNamespace(sid="sid_test"))
+    monkeypatch.setattr(common_routes, "is_sid_in_room", lambda _sid, _room: True)
     monkeypatch.setattr(
         common_routes,
         "get_user_info_from_sid",
@@ -213,6 +219,7 @@ def test_end_round_in_battle_only_does_not_auto_start_when_status_is_draft(monke
     calls = {"end": [], "start": []}
 
     monkeypatch.setattr(common_routes, "request", SimpleNamespace(sid="sid_test"))
+    monkeypatch.setattr(common_routes, "is_sid_in_room", lambda _sid, _room: True)
     monkeypatch.setattr(
         common_routes,
         "get_user_info_from_sid",

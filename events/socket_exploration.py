@@ -2,6 +2,7 @@ from flask import request
 from flask_socketio import emit
 from extensions import socketio
 from manager.room_manager import get_room_state, save_specific_room_state, broadcast_state_update, broadcast_log
+from manager.room_access import is_sid_in_room, sid_has_room_role, GM_ROLES
 import logging
 import random
 
@@ -12,20 +13,14 @@ logger = logging.getLogger(__name__)
 
 @socketio.on('request_change_mode')
 def handle_change_mode(data):
-    """
-    モード切替 (Battle <-> Exploration)
-    GMのみ実行可能
-    """
     room_name = data.get('room')
-    new_mode = data.get('mode') # 'battle' or 'exploration'
+    new_mode = data.get('mode')  # 'battle' or 'exploration'
 
     if not room_name or not new_mode:
         return
-
-    # 権限チェック (簡易: attributeがGMであるか)
-    # 本来は session から取得するが、ここではクライアントからの申告を検証する必要がある
-    # しかし既存コードに合わせて、まずは動作優先で実装
-    # TODO: sessionチェックの強化
+    if not sid_has_room_role(request.sid, room_name, GM_ROLES):
+        emit('error', {'message': 'GM only'}, to=request.sid)
+        return
 
     state = get_room_state(room_name)
     if not state:
@@ -45,11 +40,14 @@ def handle_change_mode(data):
 
 @socketio.on('request_update_exploration_bg')
 def handle_update_exploration_bg(data):
-    """
-    探索パートの背景画像更新
-    """
     room_name = data.get('room')
     image_url = data.get('image_url')
+
+    if not room_name:
+        return
+    if not sid_has_room_role(request.sid, room_name, GM_ROLES):
+        emit('error', {'message': 'GM only'}, to=request.sid)
+        return
 
     state = get_room_state(room_name)
     if not state: return
@@ -66,16 +64,18 @@ def handle_update_exploration_bg(data):
 
 @socketio.on('request_update_tachie_location')
 def handle_update_tachie_location(data):
-    """
-    立ち絵の位置更新
-    """
     room_name = data.get('room')
     char_id = data.get('char_id')
-    x = data.get('x') # % or px
-    y = data.get('y')
+    x = data.get('x')
     y = data.get('y')
     scale = data.get('scale', 1.0)
-    ts = data.get('ts') # Timestamp for sync logic
+    ts = data.get('ts')
+
+    if not room_name:
+        return
+    if not is_sid_in_room(request.sid, room_name):
+        emit('error', {'message': 'Not in this room'}, to=request.sid)
+        return
 
     state = get_room_state(room_name)
     if not state: return
@@ -111,16 +111,18 @@ def handle_update_tachie_location(data):
 
 @socketio.on('request_exploration_roll')
 def handle_exploration_roll(data):
-    """
-    探索技能ロール (Nd6 >= 難易度)
-    最も高い技能レベルを加算
-    """
     room_name = data.get('room')
     char_id = data.get('char_id')
-    skill_name = data.get('skill_name') # 五感, 隠密 etc
+    skill_name = data.get('skill_name')
     skill_level = int(data.get('skill_level', 0))
-    dice_count = int(data.get('dice_count', 2)) # デフォルト2d6
-    difficulty = int(data.get('difficulty', 0)) # 目標値
+    dice_count = int(data.get('dice_count', 2))
+    difficulty = int(data.get('difficulty', 0))
+
+    if not room_name:
+        return
+    if not is_sid_in_room(request.sid, room_name):
+        emit('error', {'message': 'Not in this room'}, to=request.sid)
+        return
 
     state = get_room_state(room_name)
     char = next((c for c in state['characters'] if c['id'] == char_id), None)

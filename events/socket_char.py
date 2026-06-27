@@ -20,6 +20,14 @@ from manager.utils import (
     apply_passive_effect_buffs
 )
 from manager.json_rule_audit import append_audit
+from manager.room_access import is_sid_in_room
+
+
+def _require_in_room(room):
+    if not is_sid_in_room(request.sid, room):
+        emit('error', {'message': 'Not in this room'}, to=request.sid)
+        return False
+    return True
 
 
 def _safe_int(value, default=0):
@@ -33,6 +41,8 @@ def handle_add_character(data):
     room = data.get('room')
     char_data = data.get('charData')
     if not room or not char_data:
+        return
+    if not _require_in_room(room):
         return
     state = get_room_state(room)
     baseName = char_data.get('name', '名前不明')
@@ -161,6 +171,8 @@ def handle_move_character(data):
 
     if not room or not char_id:
         return
+    if not _require_in_room(room):
+        return
 
     # 座標のバリデーション（簡易）
     if x is None or y is None:
@@ -221,6 +233,8 @@ def handle_add_debug_character(data):
     room = data.get('room')
     char_type = data.get('type', 'ally') # デフォルトは味方
     if not room: return
+    if not _require_in_room(room):
+        return
 
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
@@ -304,6 +318,8 @@ def handle_delete_character(data):
     char_id = data.get('charId')
     if not room or not char_id:
         return
+    if not _require_in_room(room):
+        return
 
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
@@ -345,6 +361,8 @@ def handle_transfer_character_ownership(data):
     new_owner_name = data.get('new_owner_name')
 
     if not room or not char_id or not new_owner_id or not new_owner_name:
+        return
+    if not _require_in_room(room):
         return
 
     user_info = get_user_info_from_sid(request.sid)
@@ -389,6 +407,8 @@ def handle_update_token_scale(data):
 
     if not room or not char_id:
         return
+    if not _require_in_room(room):
+        return
 
     state = get_room_state(room)
     char = next((c for c in state["characters"] if c.get('id') == char_id), None)
@@ -408,6 +428,8 @@ def handle_state_update(data):
     room = data.get('room')
     char_id = data.get('charId')
     if not room or not char_id:
+        return
+    if not _require_in_room(room):
         return
 
     user_info = get_user_info_from_sid(request.sid)
@@ -465,6 +487,8 @@ def handle_gm_apply_buff(data):
             has_buff_id=bool(raw_buff_id),
         )
         emit('gm_buff_error', {'message': 'Missing required parameters.'}, to=request.sid)
+        return
+    if not _require_in_room(room):
         return
 
     user_info = get_user_info_from_sid(request.sid)
@@ -569,6 +593,8 @@ def handle_gm_apply_state(data):
         )
         emit('gm_buff_error', {'message': 'Missing required parameters.'}, to=request.sid)
         return
+    if not _require_in_room(room):
+        return
 
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
@@ -666,6 +692,8 @@ def handle_gm_remove_buff(data):
             has_buff_id=bool(raw_buff_id),
         )
         emit('gm_buff_error', {'message': 'Missing required parameters.'}, to=request.sid)
+        return
+    if not _require_in_room(room):
         return
 
     user_info = get_user_info_from_sid(request.sid)
@@ -857,6 +885,8 @@ def handle_save_preset(data):
     overwrite = data.get('overwrite', False) # 上書き許可フラグ
 
     if not room or not preset_name: return
+    if not _require_in_room(room):
+        return
 
     allowed, _ = _require_preset_gm()
     if not allowed:
@@ -893,6 +923,8 @@ def handle_load_preset(data):
     preset_name = data.get('name')
 
     if not room or not preset_name: return
+    if not _require_in_room(room):
+        return
 
     allowed, user_info = _require_preset_gm()
     if not allowed:
@@ -943,6 +975,8 @@ def handle_delete_preset(data):
     preset_name = data.get('name')
 
     if not room or not preset_name: return
+    if not _require_in_room(room):
+        return
 
     allowed, _ = _require_preset_gm()
     if not allowed:
@@ -962,6 +996,8 @@ def handle_get_presets(data):
     """ルームに保存されているプリセット名のリストを返す"""
     room = data.get('room')
     if not room: return
+    if not _require_in_room(room):
+        return
 
     allowed, _ = _require_preset_gm()
     if not allowed:
@@ -981,6 +1017,8 @@ def handle_export_preset_json(data):
     room = data.get('room')
     preset_name = data.get('name')
     if not room or not preset_name:
+        return
+    if not _require_in_room(room):
         return
 
     allowed, _ = _require_preset_gm()
@@ -1017,6 +1055,8 @@ def handle_export_preset_json(data):
 def handle_import_preset_json(data):
     room = data.get('room')
     if not room:
+        return
+    if not _require_in_room(room):
         return
 
     allowed, _ = _require_preset_gm()

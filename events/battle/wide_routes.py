@@ -9,6 +9,7 @@ from manager.battle.wide_solver import (
     execute_wide_match, setup_wide_match_declaration,
     update_defender_declaration, update_attacker_declaration
 )
+from manager.room_access import is_sid_in_room
 
 
 def _resolve_sid():
@@ -45,6 +46,9 @@ def _is_actor_control_allowed(room, actor_id, sid, user_info):
 def on_open_wide_match_modal(data):
     room = data.get('room')
     if not room: return
+    if not is_sid_in_room(request.sid, room):
+        socketio.emit('error', {'message': 'Not in this room'}, to=request.sid)
+        return
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     setup_wide_match_declaration(room, data, username)
@@ -54,6 +58,10 @@ def on_wide_declare_skill(data):
     room = data.get('room')
     if not room: return
     sid, user_info = _resolve_user_info()
+    if not is_sid_in_room(sid, room):
+        if sid:
+            socketio.emit('error', {'message': 'Not in this room'}, to=sid)
+        return
     actor_id = data.get('defender_id')
     if not _is_actor_control_allowed(room, actor_id, sid, user_info):
         if sid:
@@ -70,6 +78,10 @@ def on_wide_attacker_declare(data):
     room = data.get('room')
     if not room: return
     sid, user_info = _resolve_user_info()
+    if not is_sid_in_room(sid, room):
+        if sid:
+            socketio.emit('error', {'message': 'Not in this room'}, to=sid)
+        return
     actor_id = data.get('attacker_id')
     if not actor_id:
         state = get_room_state(room) or {}
@@ -89,6 +101,9 @@ def on_wide_attacker_declare(data):
 def on_execute_synced_wide_match(data):
     room = data.get('room')
     if not room: return
+    if not is_sid_in_room(request.sid, room):
+        socketio.emit('error', {'message': 'Not in this room'}, to=request.sid)
+        return
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     execute_wide_match(room, username)

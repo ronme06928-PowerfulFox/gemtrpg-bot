@@ -13,6 +13,7 @@ from manager.room_manager import (
 )
 from manager.items.usage_manager import item_usage_manager
 from manager.items.loader import item_loader
+from manager.room_access import is_sid_in_room
 
 
 def _safe_int(value, default=0):
@@ -39,6 +40,9 @@ def handle_use_item(data):
 
     if not room or not user_id or not item_id:
         emit('item_use_error', {'message': '必要なパラメータが不足しています'})
+        return
+    if not is_sid_in_room(request.sid, room):
+        emit('item_use_error', {'message': 'Not in this room'})
         return
 
     # ルーム状態を取得
@@ -115,6 +119,9 @@ def handle_gm_grant_item(data):
     if not room or not target_id or not item_id:
         emit('item_grant_error', {'message': '必要なパラメータが不足しています'})
         return
+    if not is_sid_in_room(request.sid, room):
+        emit('item_grant_error', {'message': 'Not in this room'})
+        return
 
     # GM権限チェック
     user_info = get_user_info_from_sid(request.sid)
@@ -161,6 +168,9 @@ def handle_gm_adjust_item(data):
         return
     if delta == 0:
         emit('item_adjust_error', {'message': 'delta must not be zero.'})
+        return
+    if not is_sid_in_room(request.sid, room):
+        emit('item_adjust_error', {'message': 'Not in this room'})
         return
 
     user_info = get_user_info_from_sid(request.sid)

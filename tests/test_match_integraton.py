@@ -86,6 +86,7 @@ mock_socketio_obj.on.side_effect = mock_on_decorator
 
 mock_extensions.socketio = mock_socketio_obj
 mock_extensions.db = MagicMock()
+mock_extensions.user_sids = {}
 
 # Mock Skill Data
 mock_skill_data = {
@@ -230,6 +231,7 @@ class TestMatchIntegration(unittest.TestCase):
         ds._update_char_stat = mock_update_char_stat
         ds.all_skill_data = mock_skill_data
         dr.get_user_info_from_sid = mock_get_user_info
+        dr.is_sid_in_room = lambda sid, room: True
         dr.update_duel_declaration = ds.update_duel_declaration
         dr.execute_duel_match = ds.execute_duel_match
 

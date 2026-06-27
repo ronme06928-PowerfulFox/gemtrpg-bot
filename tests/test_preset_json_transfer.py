@@ -28,6 +28,7 @@ def _patch_common(monkeypatch, state):
         "get_user_info_from_sid",
         lambda _sid: {"username": "gm", "attribute": "GM"},
     )
+    monkeypatch.setattr(socket_char, "is_sid_in_room", lambda _sid, _room: True)
     monkeypatch.setattr(
         socket_char.socketio,
         "emit",
