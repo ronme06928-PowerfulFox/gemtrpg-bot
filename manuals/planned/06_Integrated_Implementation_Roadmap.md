@@ -89,15 +89,18 @@
 ## Phase 2: 新スキル仕様の実装
 **目的**: Manual13 / 15 の中核ロジックを実装する。
 
-### 2-A 震盪（未実装）
+### 2-A 震盪 ✅ 完了 (2026-06-28 確認)
 
-- 主な変更先
-  - `manager/game_logic.py`
-  - スキル/バフ定義データ
+- 変更ファイル
+  - `manager/game_logic.py` — `calculate_state_receive_bonus()` 実装、`APPLY_STATE` / `APPLY_STATE_PER_N` へ受け手側補正を統合
+  - `manager/battle/buff_power.py` — `calculate_state_receive_bonus()` コアロジック（`consume` 消費処理含む）
+  - `data/cache/buff_catalog_cache.json` — `Bu-29`（震盪）定義（`state_receive_bonus` ルール付き）
 - 実装内容
-  - `calculate_state_receive_bonus(...)`
+  - `calculate_state_receive_bonus(...)` — 受け手側バフから破裂等の補正値を計算
   - `APPLY_STATE` / `APPLY_STATE_PER_N` への受け手側補正統合
   - `consume=true` の消費処理
+  - Bu-29 再付与時の count 加算・lasting 維持ルール
+- テスト: `tests/test_shindou_state_receive_bonus.py` — 11件全パス確認済み
 
 ### 2-B ラウンド条件・ランダム対象・繰り返し ✅ 完了 (2026-05-09)
 
@@ -127,7 +130,7 @@
 
 **完了条件**
 
-- 震盪が仕様どおりに加算・消費される（2-A）
+- 震盪が仕様どおりに加算・消費される（2-A ✅）
 - round/random_single/repeat_count が Select/Resolve で一貫して動作する（2-B ✅）
 - 既存スキルの挙動を壊さない
 
