@@ -34,6 +34,8 @@
 | `E02_UI_Component_Specs.md` | UIコンポーネント仕様書（モーダル・プリセット・ステータス編集） |
 | **F — 運用** | |
 | `F01_Operations_Manual.md` | 運用マニュアル（GMバフ操作・マニュアル更新プロトコル・デプロイ手順） |
+| **その他（番号付き計画書）** | |
+| `26_Render_Local_Account_Management_Plan.md` | アカウント認証・ルーム権限・公開ロビー 設計・実装記録（Phase 0〜8 完了） |
 
 ---
 

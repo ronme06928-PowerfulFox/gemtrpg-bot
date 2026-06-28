@@ -2,7 +2,7 @@
 
 **版**: 2026-06-26
 **対象**: Render 本番デプロイ担当
-**関連計画**: [`manuals/planned/26_Render_Local_Account_Management_Plan.md`](../planned/26_Render_Local_Account_Management_Plan.md)
+**関連計画**: [`manuals/implemented/26_Render_Local_Account_Management_Plan.md`](../implemented/26_Render_Local_Account_Management_Plan.md)
 **Typst版（PDF用）**: `manuals/typst/operations_runbook.typ`
 
 マニュアル26（Phase 0〜7）で実装したアカウント認証・ルーム権限・公開ロビーを、

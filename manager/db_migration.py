@@ -4,8 +4,10 @@ from extensions import db
 
 def run_auto_migration(app):
     """
-    アプリケーション起動時に実行する簡易マイグレーション
-    不足しているカラムがあれば自動追加する
+    アプリケーション起動時に実行する簡易マイグレーション。
+    不足しているカラムがあれば自動追加する。
+    列追加の失敗は起動を中断する（fail-fast）。
+    一意インデックスの失敗のみ非致命的（既存重複があっても起動継続）。
     """
     with app.app_context():
         try:
@@ -26,6 +28,7 @@ def run_auto_migration(app):
                     except Exception as e:
                         db.session.rollback()
                         logging.error(f"Migration Query Failed: {e}")
+                        raise
 
                 user_column_specs = {
                     'recovery_code_hash': 'VARCHAR(255)',
@@ -51,9 +54,11 @@ def run_auto_migration(app):
                     except Exception as e:
                         db.session.rollback()
                         logging.error(f"Migration Query Failed: {e}")
+                        raise
 
                 # login_name_normalized の一意制約は unique index で担保する
                 # （nullable のため複数 NULL は許容される / postgres・sqlite とも IF NOT EXISTS 可）。
+                # 既存重複があると作成に失敗するため非致命的とし、backfill側でdedupする。
                 try:
                     db.session.execute(text(
                         "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_login_name_normalized "
@@ -89,6 +94,7 @@ def run_auto_migration(app):
                     except Exception as e:
                         db.session.rollback()
                         logging.error(f"Migration Query Failed: {e}")
+                        raise
 
             # room_members（本番Neonに既存・コード外だった会員名簿）を採用する。
             # 既存列(id/room_id/user_id/role/joined_at/granted_by_user_id)へ
@@ -114,9 +120,10 @@ def run_auto_migration(app):
                     except Exception as e:
                         db.session.rollback()
                         logging.error(f"Migration Query Failed: {e}")
+                        raise
 
                 # 有効membership(revoked_at IS NULL)について (room_id, user_id) を一意に。
-                # 既存重複があると作成に失敗するため try で握り、backfill側でdedupする。
+                # 既存重複があると作成に失敗するため非致命的とし、backfill側でdedupする。
                 try:
                     db.session.execute(text(
                         "CREATE UNIQUE INDEX IF NOT EXISTS uq_room_members_active "
@@ -148,8 +155,10 @@ def run_auto_migration(app):
                 except Exception as e:
                     db.session.rollback()
                     logging.error(f"Migration Query Failed: {e}")
+                    raise
             else:
                 logging.info("DB Schema Check: 'visibility' column exists.")
 
         except Exception as e:
-            logging.error(f"Auto Migration Failed: {e}")
+            logging.critical(f"Auto Migration Failed — 起動を中止します: {e}")
+            raise RuntimeError(f"DB migration failed, aborting startup: {e}") from e
