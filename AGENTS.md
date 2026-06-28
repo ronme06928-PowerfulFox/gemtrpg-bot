@@ -77,3 +77,9 @@ python app.py --update  # スキル/アイテム等マスターデータを Goog
 - ルーム状態の真実は **メモリ上の `active_room_states`**。DB はその永続化。
 - `save_specific_room_state` は **デバウンス**（約2秒）して書き込みを集約する。即時の DB 反映を前提にしたコードを書かないこと（読み取りはメモリ優先なので整合する）。
 - worker=1 / eventlet のため、重い同期処理はイベントループ全体をブロックする点に注意。
+
+## ドキュメント（manuals/）
+
+- `manuals/implemented/` の仕様書は **A〜F 系統のファイルで管理**する（詳細は `manuals/README.md`）。
+- 実装済み内容を追記するときは既存の系統ファイルへ節を追加する。`implemented/` に番号付きファイルを新規作成しない。
+- `manuals/planned/` は未実装の計画のみ。実装完了後は計画書を削除し内容を系統ファイルへ統合する。
