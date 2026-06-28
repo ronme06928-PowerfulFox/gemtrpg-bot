@@ -283,3 +283,53 @@
 - 動的命名バフ（`Power_Atk5` 等）依存
 - `schema` 未指定の特記JSON
 - 旧「動的命名バフ」（例: `Power_Atk5`）は運用終了。新規データ作成時は必ずセクション2のテンプレートを使用する。
+
+---
+
+## 10. 2026-06 追補: SYS-STRUGGLE / state_receive_bonus（Phase 1 / 2-A）
+
+### 10.1 SYS-STRUGGLE（システムフォールバックスキル）
+
+`SYS-STRUGGLE` はキャラの全スキルが封印された場合のフォールバック専用スキル。
+通常のスキルカタログ（skills_cache.json）には含まれず、`manager/battle/system_skills.py` に定義される。
+
+- スキル JSON には記載しない（GM・プレイヤーが明示的に取得するスキルではない）
+- `list_usable_skill_ids(allow_fallback=True)` が候補ゼロ時のみ返す
+- 封印効果（`skill_constraints`）の対象外
+
+### 10.2 バフ定義の `state_receive_bonus`（受け手側状態異常補正）
+
+buff_catalog の `effect` に `state_receive_bonus` リストを定義すると、
+このバフを持つキャラが状態異常を受ける際に補正が加算される。
+
+```json
+{
+  "id": "Bu-29",
+  "name": "震盪",
+  "effect": {
+    "state_receive_bonus": [
+      {
+        "stat": "破裂",
+        "operation": "FIXED",
+        "value": 1,
+        "consume": false
+      }
+    ]
+  },
+  "default_duration": 3
+}
+```
+
+**フィールド仕様**:
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `stat` | string | 対象の状態異常名（例: `"破裂"`, `"出血"`） |
+| `operation` | string | `"FIXED"`（加算値）のみ現行実装 |
+| `value` | number | 補正量（正値のみ有効。負値付与には補正しない） |
+| `consume` | bool | `true` にすると、発動後にバフを消費（1回限り） |
+
+**注意**:
+- `APPLY_STATE` / `APPLY_STATE_PER_N` の正値付与時のみ適用（負値削減には不適用）
+- 付与側 `state_bonus` と受け手側 `state_receive_bonus` は合算される
+- `Bu-29`（震盪）の再付与は `count` 加算・`lasting` 維持の専用挙動（B01 §5.4 参照）

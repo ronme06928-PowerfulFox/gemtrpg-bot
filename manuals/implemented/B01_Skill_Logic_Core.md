@@ -424,6 +424,60 @@
 
 ---
 
+## 13. 2026-06 追補: スキル使用可否基盤（Phase 1）
+
+### 13.1 evaluate_skill_access / list_usable_skill_ids
+
+スキルの使用可否は `manager/battle/skill_access.py` が一元管理する。
+
+| 関数 | 概要 |
+|---|---|
+| `evaluate_skill_access(actor, skill_id, ...)` | 単スキルの可否・有効コスト・ブロック理由を返す |
+| `list_regular_usable_skill_ids(actor, ...)` | 使用可能スキル ID リストを返す（フォールバックなし） |
+| `list_usable_skill_ids(actor, allow_fallback=True, ...)` | 候補ゼロ時は `["SYS-STRUGGLE"]` を返す |
+| `get_effective_skill_cost(actor, skill_id, ...)` | `skill_constraints` 適用後の最終コストを返す |
+| `collect_skill_constraints(actor, battle_state)` | actor バフ・フィールド効果から制約を集約する |
+
+**戻り値の形式（`evaluate_skill_access`）**:
+```python
+{
+    "usable": bool,
+    "blocked_reasons": ["封印中（魔法）"],  # 空リストなら通過
+    "effective_cost": [{"type": "FP", "value": 4}],
+    "matched_rule_ids": ["cc_magic_block"]
+}
+```
+
+### 13.2 SYS-STRUGGLE フォールバック
+
+- ID: `SYS-STRUGGLE`、名前: `どうにかもがく`
+- 定義: `manager/battle/system_skills.py`
+- 用途: キャラの全スキルが封印された場合に限り、`list_usable_skill_ids(allow_fallback=True)` が返す
+- `evaluate_skill_access` では常に `usable=True`（フォールバックを封印しない）
+
+### 13.3 commit 時の再検証
+
+`battle_intent_commit` イベントハンドラ（`events/battle/common_routes.py`）で
+`evaluate_skill_access()` を呼び、`usable=False` なら即エラー返却。
+計算済み `effective_cost` を `intent['effective_cost']` に保存し、解決時に `_apply_cost()` が優先使用する。
+
+### 13.4 フロント連携（usable_skill_ids）
+
+`battle_state_updated` ペイロードに `usable_skill_ids: { slot_id: [skill_id, ...] }` を同梱。
+BattleStore が `usableSkillIds` として保持し、DeclarePanel のスキルピッカー・ドロップダウンが
+リスト外スキルを `is-sealed`（封印表示）でマークする。サーバー側の判定が正本であり、
+フロント表示はあくまで UX 補助。
+
+**実装ファイル**:
+- `manager/battle/skill_access.py` — コア判定ロジック全体
+- `manager/battle/system_skills.py` — SYS-STRUGGLE 定義
+- `manager/battle/select_resolve_state.py` — `_build_usable_skill_ids()` でペイロード生成
+- `events/battle/common_routes.py` — commit 時再検証
+- `static/js/battle/core/BattleStore.js` — `usableSkillIds` ストア管理
+- `static/js/battle/components/DeclarePanel.js` — `is-sealed` 表示
+
+---
+
 ## 亀裂ラウンド管理仕様（統合）
 
 **文書種別**: 実装仕様（implemented）  
