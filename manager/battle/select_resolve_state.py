@@ -9,6 +9,7 @@ from manager.battle.pve_intent_planner import (
     _apply_pve_auto_enemy_intents,
     _broadcast_pve_round_start_preview_log,
 )
+from manager.battle.skill_access import list_regular_usable_skill_ids
 
 
 logger = setup_logger(__name__)
@@ -207,10 +208,35 @@ def get_or_create_select_resolve_state(room, battle_id=None, round_value=None, r
         rebuild_slots=rebuild_slots
     )
 
+def _build_usable_skill_ids(room_state, battle_state):
+    slots = battle_state.get('slots', {})
+    if not isinstance(slots, dict) or not room_state:
+        return {}
+    char_by_id = {c.get('id'): c for c in room_state.get('characters', []) if isinstance(c, dict) and c.get('id')}
+    result = {}
+    for slot_id, slot_info in slots.items():
+        if not isinstance(slot_info, dict):
+            continue
+        actor = char_by_id.get(slot_info.get('actor_id'))
+        if not actor:
+            continue
+        try:
+            result[slot_id] = list_regular_usable_skill_ids(
+                actor,
+                allow_instant=False,
+                battle_state=battle_state,
+                room_state=room_state,
+            )
+        except Exception:
+            pass
+    return result
+
+
 def build_select_resolve_state_payload(room, battle_id=None):
     battle_state = get_or_create_select_resolve_state(room, battle_id=battle_id)
     if not battle_state:
         return None
+    room_state = get_room_state(room)
     return {
         'room_id': room,
         'battle_id': battle_state.get('battle_id'),
@@ -222,7 +248,8 @@ def build_select_resolve_state_payload(room, battle_id=None):
         'intents': battle_state.get('intents', {}),
         'redirects': battle_state.get('redirects', []),
         'resolve_ready': bool(battle_state.get('resolve_ready', False)),
-        'resolve_ready_info': battle_state.get('resolve_ready_info', {})
+        'resolve_ready_info': battle_state.get('resolve_ready_info', {}),
+        'usable_skill_ids': _build_usable_skill_ids(room_state, battle_state),
     }
 
 def process_select_resolve_round_start(room, battle_id, round_value):

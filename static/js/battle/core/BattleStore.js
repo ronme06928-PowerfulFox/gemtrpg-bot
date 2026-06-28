@@ -42,6 +42,7 @@ class BattleStore {
             selectedSlotId: null,
             targetSelectMode: false,
             battleError: null,
+            usableSkillIds: {},
             compareCalcBySlot: {},
             declare: {
                 sourceSlotId: null,
@@ -264,7 +265,8 @@ class BattleStore {
             resolveView,
             resolveReady: payload.resolve_ready !== undefined ? !!payload.resolve_ready : this._state.resolveReady,
             resolveReadyInfo: payload.resolve_ready_info !== undefined ? (payload.resolve_ready_info || null) : this._state.resolveReadyInfo,
-            battleError: payload.battle_error || null
+            battleError: payload.battle_error || null,
+            usableSkillIds: payload.usable_skill_ids !== undefined ? (payload.usable_skill_ids || {}) : this._state.usableSkillIds
         };
         if (roundChanged) {
             this._resolveStepSeen.clear();

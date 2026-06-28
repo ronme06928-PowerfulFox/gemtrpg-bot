@@ -914,7 +914,10 @@ class DeclarePanel {
             const displayName = item.name || meta.name || id;
             const costLabel = this._formatSkillCostLabel(this._extractCosts(id, null));
             const selected = (id === selectedSkillId) ? ' selected' : '';
-            options.push(`<option value="${id}"${selected}>[${id}] ${displayName}${costLabel}</option>`);
+            const serverUsable = state?.usableSkillIds?.[sourceSlotId];
+            const isSealed = Array.isArray(serverUsable) && !serverUsable.includes(id);
+            const sealedLabel = isSealed ? ' [封印中]' : '';
+            options.push(`<option value="${id}"${selected}${isSealed ? ' disabled' : ''}>[${id}] ${displayName}${costLabel}${sealedLabel}</option>`);
         });
         return options.join('');
     }
@@ -951,18 +954,22 @@ class DeclarePanel {
             const costLabel = this._formatSkillCostLabel(costs);
             const isSelected = (id === selectedSkillId);
             const costCheck = this._evaluateCost(state, sourceActorId, id, null);
-            const isDisabled = costCheck.insufficient;
+            const serverUsable = state?.usableSkillIds?.[sourceSlotId];
+            const isServerBlocked = Array.isArray(serverUsable) && !serverUsable.includes(id);
+            const isDisabled = costCheck.insufficient || isServerBlocked;
+            const disabledReason = isServerBlocked ? '封印中' : (costCheck.insufficient ? costCheck.message : '');
             const badgesHtml = this._buildSkillBadgesHtml(skillData);
 
             const cls = [
                 'skill-picker-card',
-                isSelected  ? 'is-selected'  : '',
-                isDisabled  ? 'is-disabled'   : '',
+                isSelected      ? 'is-selected'  : '',
+                isDisabled      ? 'is-disabled'   : '',
+                isServerBlocked ? 'is-sealed'     : '',
             ].filter(Boolean).join(' ');
 
             return `<div class="${cls}"
                          data-skill-id="${this._escapeHtml(id)}"
-                         data-disabled-reason="${isDisabled ? this._escapeHtml(costCheck.message) : ''}">
+                         data-disabled-reason="${this._escapeHtml(disabledReason)}">
                 <div class="skill-card-id">${this._escapeHtml(id)}</div>
                 <div class="skill-card-name">${this._escapeHtml(displayName)}</div>
                 <div class="skill-card-badges">${badgesHtml}</div>

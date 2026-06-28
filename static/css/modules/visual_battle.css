@@ -959,6 +959,24 @@
     cursor: not-allowed;
 }
 
+.skill-picker-card.is-sealed {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: repeating-linear-gradient(
+        135deg,
+        transparent,
+        transparent 4px,
+        rgba(80, 0, 0, 0.08) 4px,
+        rgba(80, 0, 0, 0.08) 8px
+    );
+    border-color: #c0392b;
+}
+
+.skill-picker-card.is-sealed .skill-card-name::after {
+    content: ' 🔒';
+    font-size: 11px;
+}
+
 /* カード内: スキルID */
 .skill-card-id {
     font-size: 11px;
