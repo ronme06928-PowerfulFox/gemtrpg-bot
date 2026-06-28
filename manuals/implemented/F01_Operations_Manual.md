@@ -2,9 +2,9 @@
 
 # 運用マニュアル
 
-**最終更新日**: 2026-05-20
+**最終更新日**: 2026-06-28
 **系統**: F — 運用
-**統合元**: 14_GM_Buff_Item_Operations_Spec / 16_Manual_Update_Protocol / 21_Render_Deploy_Operations
+**統合元**: 14_GM_Buff_Item_Operations_Spec / 16_Manual_Update_Protocol / 21_Render_Deploy_Operations / 26_Account_Auth_Plan
 
 ---
 
@@ -14,6 +14,8 @@
 2. マニュアル更新プロトコルと機能改善ロードマップ（旧16）
 3. Renderデプロイ運用手順（旧21）
 4. GM PIN / アプリ管理者権限運用
+5. Socketイベント在室認証パターン（旧Plan 27）
+6. **アカウント認証・ルーム権限システム仕様（旧Plan 26）**
 
 ---
 
@@ -147,27 +149,25 @@
 
 # Part 1-B: GM PIN / アプリ管理者権限運用
 
-**最終更新日**: 2026-05-20  
+**最終更新日**: 2026-06-28  
 **対象**: ルームGM認証、マスターキー、ユーザー管理権限、Render環境変数
 
 ## 1. 権限の分離
 
-本アプリでは、以下の2種類の権限を分離して扱う。
-
 | 権限 | 範囲 | 主な用途 |
 |---|---|---|
-| ルームGM権限 | 入室中の特定ルーム | 戦闘進行、代理操作、GM専用Socket/API |
-| アプリ管理者権限 | アプリ全体 | ユーザー削除、所有権譲渡、管理者付与/解除 |
+| ルームロール（owner/gm/player） | 入室中の特定ルーム | 戦闘進行、代理操作、GM専用Socket/API |
+| アプリ管理者権限（`is_app_admin`） | アプリ全体 | ユーザー削除、所有権譲渡、ワンタイムコード発行 |
 
-ルームGMとして入室しても、アプリ管理者権限は得られない。ロビーへ戻るとルームGM状態は解除される。
+ルームロールはDB上のメンバーシップ（`room_members` テーブル）が正本。ロビーへ戻るとルームGM状態は解除される。アプリ管理者がルームへ入室しても自動GM昇格しない。
 
 ## 2. ルームGM PIN
 
 - ルーム作成時、4桁数字のGM PINを必須入力する。
 - GM PINは平文保存せず、ハッシュとして `rooms.gm_pin_hash` に保存する。
 - プレイヤーとして入室する場合、PIN入力は不要。
-- GMとして入室する場合、通常は4桁GM PINまたは8桁マスターキーを入力する。
-- アプリ管理者権限を持つユーザーは、PIN入力なしで任意ルームへGM入室できる。
+- GMとして入室する場合（または gm membership 取得のため）、4桁GM PINまたは8桁マスターキーを入力する。
+- GM PINは参加コードとは別の秘密値であり、用途を混用しない。
 
 ## 3. マスターキー
 
@@ -175,32 +175,35 @@
 
 用途:
 
-- 任意ルームへのGM入室
+- 任意ルームへのGM入室（GM PIN代替）
+- 最初のアプリ管理者を `/api/admin/set_user_management_admin` で付与する（初回セットアップ）
 - ルーム削除
-- ユーザー管理での削除/所有権譲渡
-- 特定ユーザーへのアプリ管理者権限の付与/解除
+- アプリ管理者権限の付与/解除
 
 未設定、または8桁数字以外の場合、マスターキー機能は無効として扱う。
 
 ## 4. ユーザー管理
 
-- ユーザー管理画面の一覧/詳細は、ログイン済みユーザーなら閲覧できる。
-- 削除/所有権譲渡は、アプリ管理者または操作時にマスターキーを入力した場合だけ実行できる。
-- 管理者権限の付与/解除は、必ずマスターキー入力を必要とする。
+- ユーザー管理画面の一覧/詳細は **アプリ管理者のみ** 閲覧できる。
+- 削除/所有権譲渡はアプリ管理者のみ実行できる。
+- パスワードリセット用ワンタイムコード発行はアプリ管理者のみ実行できる（`POST /api/admin/issue_login_code`）。
 - 管理者権限は `users.is_app_admin` に保存され、半永続的に保持される。
-- ルームGM権限はユーザー管理操作の根拠にしない。
+- ルームGMロールはユーザー管理操作の根拠にしない。
 
 ## 5. Render環境変数
 
 Renderでは、以下を環境変数として設定する。
 
-| 変数 | 必須 | 内容 |
+| 変数 | 要否 | 内容 |
 |---|---|---|
 | `SECRET_KEY` | 必須 | Flaskセッション署名用。GMマスターキーとは別。 |
+| `DATABASE_URL` | 必須 | PostgreSQL URL。未設定/非PGは起動失敗（fail-fast）。 |
 | `CORS_ORIGINS` | 必須 | 許可Origin。例: `https://gemtrpg-diceapp.onrender.com` |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | 必須 | 画像アップロード |
 | `GM_MASTER_KEY` | 任意 | 8桁数字のマスターキー。未設定ならマスターキー無効。 |
+| `ACCOUNT_DISABLE_NAME_ONLY_LOGIN` | 推奨 | `1` で名前だけログイン（旧 `/api/entry`）を無効化。本番では必ず `1`。 |
 
-`CORS_ORIGINS` はOriginだけを指定し、末尾スラッシュは付けない。
+`CORS_ORIGINS` はOriginだけを指定し、末尾スラッシュは付けない。フロントとAPI/Socketは同一オリジンで配信（Flask+WhiteNoise）。`SameSite=Lax` + Cookie認証でSocket connectが成立する。
 
 ---
 
@@ -551,3 +554,119 @@ if user_info.get('attribute') != 'GM':
 | スキル定義キー優先順位 | `分類` > `カテゴリ` > `category` > `type`（既存 JSON の意味を保つため。B01 §10 / C01 §9 参照）。 |
 | e2e テスト分離 | 通常 pytest はネットワーク依存 e2e を走らせない。`RUN_E2E=1` など明示時のみ実行。 |
 | `app.py` 段階移行方針 | 一括リライトではなく、起動処理関数化 → HTTP ルート登録分離 → Socket 登録明示化 → テスト用 factory → 本番入口切替の順で段階移行する。 |
+
+---
+
+# Part 6: アカウント認証・ルーム権限 システム仕様（Plan 26 より統合・2026-06-28）
+
+## 1. 設計不変条件
+
+実装方式を選んでも変更しない原則。
+
+1. 認証済みユーザーの正本は `session['user_id']` とDB上の `User`。
+2. `username`（表示名）は認証・所有権・認可のキーにしない。
+3. ルーム内権限の正本は `room_members` テーブルのmembership。Flask sessionの `attribute` を正本にしない。
+4. Socket接続時に認証し、各イベントではSIDが対象ルームへ参加済みかを共通ヘルパーで検証する。
+5. owner/gm/playerの変更・剥奪は、再ログインを待たず既存Socketへ反映する。
+6. 未参加者向けロビーカードと参加者向けルーム状態は別DTO・別認可経路にする。
+7. 短い秘密値は、値のハッシュ、期限、試行上限、失効日時をセットで管理する。
+8. 認証失敗レスポンスでは、アカウントの存在有無を判別できる文言を返さない。
+9. パスワード、コード、トークン、マスターキーをログ・監査payload・Socket broadcastへ出さない。
+10. 既存データ移行はexpand → backfill → cutover → contractの順に行い、単一デプロイで破壊的変更しない。
+
+## 2. データモデル概要
+
+### User 拡張列
+
+| 列 | 型 | 用途 |
+|---|---|---|
+| `login_name_normalized` | VARCHAR(100) unique | ログイン識別子（NFKC+casefold正規化）。表示名とは別。 |
+| `password_hash` | VARCHAR(255) | werkzeugハッシュ。新規アカウントのみ必須。 |
+| `auth_version` | INTEGER default 1 | パスワード再設定/全端末ログアウトで増加。sessionに同値を持たせ不一致で失効。 |
+| `is_app_admin` | BOOLEAN | アプリ全体の管理者フラグ。ルームロールとは別。 |
+
+### TrustedDeviceToken（端末トークン）
+
+- `selector`（公開側識別子）+ `token_hash`（secret部分のハッシュ）の2列構成。
+- localStorageには `selector + secret` を保存。DBにはsecret平文を保存しない。
+- 通常ログアウトは行を失効させず自動復旧を停止。完全ログアウトは行を失効しlocalStorage削除。全端末ログアウトは全行失効＋`auth_version` 増加。
+
+### OneTimeLoginCode（ワンタイムコード）
+
+- app adminがユーザー単位で発行（`POST /api/admin/issue_login_code`）。
+- ハッシュ保存。コード実値は発行時の一度だけ返す。
+- 10文字・15分有効・5回失敗で失効。使用したコードはその場で失効（一回使用）。
+- 使用後はパスワード設定専用grantへ交換し、設定完了後に通常sessionへ昇格する。
+
+### RoomMember
+
+- `(room_id, user_id)` の有効membership（`revoked_at IS NULL`）は一意。
+- `role`: `owner` | `gm` | `player`。
+- ルーム作成と owner membership 作成は同一トランザクション。
+- 最後の owner 削除は禁止（先に owner 移譲を要求）。
+
+### Room 拡張列
+
+| 列 | 型 | 用途 |
+|---|---|---|
+| `lobby_visibility` | VARCHAR(20) | `hidden` / `listed` / `closed` |
+| `join_code_hash` | VARCHAR(255) | 参加コードのハッシュ。GM PINとは別の秘密値。 |
+| `description` | TEXT | ロビーカードに表示するルーム説明 |
+| `recruitment_status` | VARCHAR(20) | 募集状態（owner/gmが編集可） |
+
+## 3. 認証・セッション仕様
+
+### Cookie設定
+
+| 設定 | 値 |
+|---|---|
+| `SESSION_COOKIE_HTTPONLY` | True（全環境） |
+| `SESSION_COOKIE_SAMESITE` | `Lax`（全環境） |
+| `SESSION_COOKIE_SECURE` | True（Render本番のみ） |
+
+sessionには `user_id`、`auth_version`、必要最小限の状態だけを置く。ログイン直前に `session.clear()` して古いルーム権限を持ち越さない。
+
+### パスワード
+
+- `werkzeug.security` でハッシュ化・照合。
+- 最小10文字・最大128文字。trim/Unicode正規化しない（入力文字列をそのまま照合）。
+- login_nameはNFKC+casefoldで正規化した別列に保存し、SQLiteとPostgreSQLのcollation差に依存しない。
+- 連続失敗にはインメモリレート制限あり（worker=1のため再起動でリセット）。
+
+### ログアウト（`POST /api/logout`）
+
+| mode | Flask session | 現端末token | `auth_version` |
+|---|---|---|---|
+| `session` | clear | 保持 | 変化なし |
+| `device` | clear | 失効 | 変化なし |
+| `all` | clear | 全件失効 | 増加（他sessionも失効） |
+
+## 4. HTTP認可境界
+
+| API | 必要権限 |
+|---|---|
+| `/api/get_session_user` | 認証済み |
+| `/api/admin/users` / `/api/admin/user_details` | app admin のみ |
+| `/list_rooms` | 認証済み（非memberには安全なロビーカードのみ） |
+| `/load_room` | 有効membership（`room_members`）または入室済みsession |
+| `/save_room` | 有効membership（owner/在室参加者）。全状態上書きは将来廃止予定 |
+| ルーム設定更新 | owner=全項目 / gm=募集状態のみ |
+| ルーム削除 | owner のみ |
+
+未参加者向けロビーカードに `owner_id`・参加者一覧・ログ・キャラクター・画像URL・参加コードを含めない。
+
+## 5. Socket.IO認可境界
+
+- `connect` では有効な認証sessionを要求する。
+- `join_room` はpayloadの username/role を無視し、sessionの `user_id` とDB membershipから役割を解決する。
+- 各イベントで `is_sid_in_room(request.sid, room)` で在室を検証する（`manager/room_access.py`）。
+- GM判定は `get_user_info_from_sid` を単一チョークポイントとし、`attribute` を毎回 membership から再解決する。
+- role剥奪時は次のイベントから即時反映（再接続不要）。
+- HTTPとSocketで別々の権限ロジックを複製せず `manager/room_access.py` に集約する。
+
+## 6. 環境分離方針
+
+- ローカル環境: `DATABASE_URL` を無視し `sqlite:///gemtrpg.db` を使用。
+- Render本番: `DATABASE_URL` 未設定または非PostgreSQLなら **起動失敗（fail-fast）**。
+- ローカルとRenderのユーザー・ルーム・権限・画像レジストリは共有しない。
+- DBマイグレーション（`manager/db_migration.py`）は冪等設計。列追加失敗時は `RuntimeError` を raise して起動を中断する。
