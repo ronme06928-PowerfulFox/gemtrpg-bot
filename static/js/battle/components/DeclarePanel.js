@@ -897,31 +897,6 @@ class DeclarePanel {
         return false;
     }
 
-    _buildSkillOptions(actor, state = null, sourceSlotId = null, selectedTargetSlotId = null) {
-        const all = window.allSkillData || {};
-        const candidates = this._extractActorSkillCandidates(actor, all);
-        const selectedSkillId = (store.get('declare') || {}).skillId || '';
-        const options = ['<option value="">-- スキル --</option>'];
-        candidates.slice(0, 400).forEach((item) => {
-            const id = item.id;
-            if (
-                selectedTargetSlotId
-                && !this._isSkillCompatibleWithTarget(state, sourceSlotId, selectedTargetSlotId, id)
-            ) {
-                return;
-            }
-            const meta = this._readSkillMeta(id);
-            const displayName = item.name || meta.name || id;
-            const costLabel = this._formatSkillCostLabel(this._extractCosts(id, null));
-            const selected = (id === selectedSkillId) ? ' selected' : '';
-            const serverUsable = state?.usableSkillIds?.[sourceSlotId];
-            const isSealed = Array.isArray(serverUsable) && !serverUsable.includes(id);
-            const sealedLabel = isSealed ? ' [封印中]' : '';
-            options.push(`<option value="${id}"${selected}${isSealed ? ' disabled' : ''}>[${id}] ${displayName}${costLabel}${sealedLabel}</option>`);
-        });
-        return options.join('');
-    }
-
     // -------------------------------------------------------------------------
     // スキルピッカー（案B）
     // -------------------------------------------------------------------------

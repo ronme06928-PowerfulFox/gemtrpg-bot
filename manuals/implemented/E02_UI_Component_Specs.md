@@ -1,10 +1,10 @@
-<!-- 旧: 12 / 23 / 24 を統合 (2026-05-09) -->
+<!-- 旧: 12 / 23 / 24 を統合 (2026-05-09); 23_SkillPicker_UI_Redesign 追加 (2026-06-28) -->
 
 # UIコンポーネント仕様書
 
-**最終更新日**: 2026-05-09
+**最終更新日**: 2026-06-28
 **系統**: E — UI / フロントエンド
-**統合元**: 12_Character_Modal_Spec / 23_Preset_Stage_UI_Operation_Update / 24_Quick_Edit_and_UI_Consistency_Summary
+**統合元**: 12_Character_Modal_Spec / 23_Preset_Stage_UI_Operation_Update / 24_Quick_Edit_and_UI_Consistency_Summary / 23_SkillPicker_UI_Redesign_Plan
 
 ---
 
@@ -13,6 +13,7 @@
 1. キャラクター詳細モーダル仕様（旧12）
 2. プリセット・ステージUI操作仕様（旧23）
 3. 簡易ステータス編集・UI統一 実装サマリ（旧24）
+4. スキルピッカーUI 仕様（旧 planned/23_SkillPicker_UI_Redesign_Plan）
 
 ---
 
@@ -225,3 +226,105 @@
 - `manuals/planning_process.md`
 
 `planned/24_Quick_Edit_and_UI_Consistency_Plan.md` は完了に伴い削除した。
+
+---
+
+# Part 4: スキルピッカーUI 仕様
+
+**実装完了日**: 2026-06-28
+**対象**: 宣言パネル（`DeclarePanel.js`）のスキル選択UI
+**採用方針**: 案B（縦・インライン切替）
+
+## 1. 概要
+
+宣言パネル下半分（`.declare-panel-scroll` 領域）を、スキルの選択状態に応じて
+**スキルピッカーグリッド ↔ スキル詳細** にインライン切替する方式。
+
+### 変更前後
+
+| 変更前 | 変更後 |
+|---|---|
+| `<select>` による縦一列プルダウン | 2カラムのカードグリッド |
+| スキル名・コストのみ表示 | ID・名前・属性バッジ・コストをカードで表示 |
+| 属性情報なし | 属性（斬撃/打撃 等）・分類・距離をバッジ表示 |
+
+## 2. UI状態遷移
+
+```
+パネル起動（スキル未選択）
+    ↓
+[下半分 = スキルピッカーグリッド]  ← _skillPickerOpen === true
+    ↓ カードをクリック
+[下半分 = スキル詳細]             ← _skillPickerOpen === false
+    - スキル行に「↩ 再選択」ボタン表示
+    ↓ ↩ ボタンをクリック
+[スキルピッカーグリッドに戻る]
+```
+
+### 表示ルール
+
+| 条件 | 下半分の表示 |
+|---|---|
+| `skillId` が空 かつ `!isUiReadOnly` | スキルピッカーグリッド（自動展開） |
+| `skillId` あり かつ `_skillPickerOpen === false` | スキル詳細（`.declare-skill-meta`） |
+| `isUiReadOnly === true` | スキル詳細（固定） |
+
+## 3. スキルカード仕様
+
+```
+┌──────────────────────────┐
+│ Pb-01                    │  ← スキルID（小・薄色・monospace）
+│ 叩き打ち                 │  ← スキル名（太字）
+│ [打撃] [物理] [近接]     │  ← 属性バッジ
+│                   FP:1   │  ← コスト（右寄せ）
+└──────────────────────────┘
+```
+
+### カード状態
+
+| 状態 | クラス | 見た目 |
+|---|---|---|
+| 通常 | — | ベージュ系背景 |
+| ホバー | `:hover` | 少し明るく + shadow |
+| 選択中 | `.is-selected` | 濃紺ハイライト・白文字 |
+| コスト不足 | `.is-disabled` | 半透明（opacity:0.45）・クリック不可 |
+| クリック瞬間 | `:active` | scale(0.97) |
+
+### 属性バッジ カラー定義
+
+| バッジ | 背景 | 文字 |
+|---|---|---|
+| 斬撃 | `#daeaf8` | `#1a5276` |
+| 打撃 | `#fde8cc` | `#a04000` |
+| 貫通 | `#fadbd8` | `#922b21` |
+| 物理 | `#e8daef` | `#6c3483` |
+| 魔法 | `#d6eaf8` | `#1a4d7a` |
+| 補助 | `#d5f5e3` | `#1d6a3a` |
+| 近接 | `#ebe6e0` | `#5d4037` |
+| 遠隔 | `#d0f0f5` | `#00695c` |
+| 広域-個別 | `#efefef` | `#555` |
+| 広域-合算 | `#e8e8e8` | `#333` |
+
+## 4. 実装ファイル
+
+| ファイル | 追加・変更内容 |
+|---|---|
+| `static/js/battle/components/DeclarePanel.js` | `_skillPickerOpen` フラグ、`_buildSkillPickerHtml()`、`_buildSkillBadgesHtml()`、`_onSkillCardClick()`、ホバーツールチップ関連メソッド群 |
+| `static/css/modules/visual_battle.css` | `.skill-picker-grid`、`.skill-picker-card`（各状態）、`.skill-badge`、`.declare-skill-display`、`.declare-skill-reopen-btn`、`.skill-picker-empty` |
+
+### 削除済みコード
+
+- `DeclarePanel.js` の `_buildSkillOptions()` メソッド（旧 `<select>` 用）
+- テンプレート内の `<select id="declare-skill-select">` 要素
+
+## 5. Phase実装状況
+
+| Phase | 内容 | 状態 |
+|---|---|---|
+| Phase 1 | カードグリッド基本実装（クリック選択・バッジ表示） | ✅ 完了 |
+| Phase 2 | ホバーツールチップ（威力レンジ・コマンド・発動時効果） | ✅ 完了 |
+| Phase 3 | コスト不足カードのツールチップ詳細（現状 `title` 属性のみ） | 未実装 |
+| Phase 4 | 案A（横スライド）オプション化 | 未実装 |
+| Phase 5 | テキスト検索フィルター | 未実装 |
+
+`planned/23_SkillPicker_UI_Redesign_Plan.md` は完了に伴い削除した。
