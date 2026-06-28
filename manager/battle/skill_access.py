@@ -194,10 +194,12 @@ def build_skill_reference(skill_id, skill_data):
     tags = _extract_skill_tags(skill_data if isinstance(skill_data, dict) else {})
     category = str(
         (skill_data or {}).get("category")
+        or (skill_data or {}).get("分類")
         or ""
     ).strip().lower()
     distance = str(
         (skill_data or {}).get("distance")
+        or (skill_data or {}).get("距離")
         or ""
     ).strip().lower()
     attribute = str(

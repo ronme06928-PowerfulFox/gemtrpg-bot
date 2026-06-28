@@ -1109,11 +1109,19 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                 )
                 delegate_ok = bool((delegated or {}).get('ok', False))
                 delegate_summary = delegated.get('summary', {}) if delegate_ok else {}
+                # effective_cost を intent から skill dict に埋め込む。
+                # field_effects 由来の add_cost は _apply_cost 内の
+                # get_effective_skill_cost(battle_state なし) では拾えないため、
+                # commit 時に評価済みの値を直接渡してコスト消費を正確にする。
+                _skill_for_outcome = dict(skill_data) if isinstance(skill_data, dict) else {}
+                _intent_effective_cost = intent_a.get('effective_cost') if isinstance(intent_a, dict) else None
+                if isinstance(_intent_effective_cost, list) and _intent_effective_cost:
+                    _skill_for_outcome['effective_cost'] = _intent_effective_cost
                 outcome_payload = {
                     'attacker_id': attacker_actor_id,
                     'target_id': target_actor_id,
                     'skill_id': skill_id,
-                    'skill': skill_data,
+                    'skill': _skill_for_outcome,
                     'apply_cost': bool(intent_a.get('apply_cost_on_execute', True)),
                     'cost_policy': COST_CONSUME_POLICY,
                     'delegate_applied': delegate_ok,

@@ -1,0 +1,83 @@
+{
+  "_comment": "検証用: フィールド効果由来の制約スニペット集",
+  "_usage_battle_state": "battle_state.field_effects 配列に追加して evaluate_skill_access(battle_state=...) で確認する",
+  "_usage_profile": "battle_state.field_effects を空にし、stage_field_effect_profile.rules に追加する（プロファイル経由）",
+  "_usage_room": "room_state.field_effects に追加して evaluate_skill_access(room_state=...) で確認する（戦闘外）",
+
+  "field_effects_style": [
+    {
+      "_label": "直置きスタイル: field_effects[i].skill_constraints に制約を置く",
+      "scope": "all",
+      "skill_constraints": [
+        {
+          "id": "test-field-block-01",
+          "mode": "block",
+          "match": { "category": "物理" },
+          "reason": "【フィールド検証】物理スキル封印",
+          "priority": 100
+        }
+      ]
+    },
+    {
+      "_label": "スコープ限定: enemies のみに適用",
+      "scope": "enemy",
+      "skill_constraints": [
+        {
+          "id": "test-field-block-02",
+          "mode": "block",
+          "match": { "cost_types": ["FP"] },
+          "reason": "【フィールド検証】敵のFPスキル封印",
+          "priority": 100
+        }
+      ]
+    },
+    {
+      "_label": "add_cost フィールド版",
+      "scope": "all",
+      "skill_constraints": [
+        {
+          "id": "test-field-addcost-01",
+          "mode": "add_cost",
+          "match": { "category": "魔法" },
+          "add_cost": [{ "type": "MP", "value": 2 }],
+          "priority": 100
+        }
+      ]
+    }
+  ],
+
+  "stage_field_effect_profile_style": {
+    "_comment": "battle_state.field_effects が空のときにフォールバックされる経路",
+    "rules": [
+      {
+        "mode": "block",
+        "match": { "category": "補助" },
+        "reason": "【プロファイル検証】補助スキル封印",
+        "priority": 100
+      }
+    ]
+  },
+
+  "except_source_style": [
+    {
+      "_label": "except_source: 発生源スロット以外に適用",
+      "scope": "except_source",
+      "source_slot_id": "slot-enemy-0",
+      "skill_constraints": [
+        {
+          "id": "test-field-except-01",
+          "mode": "block",
+          "match": {},
+          "reason": "【検証】発生源以外封印",
+          "priority": 100
+        }
+      ]
+    }
+  ],
+
+  "_priority_note": [
+    "field_effects と stage_field_effect_profile.rules は排他: field_effects が非空なら profile は無視される。",
+    "collect_skill_constraints の収集順: flags → special_buffs → field_effects。",
+    "同一 id が複数ソースをまたいで重複すると JsonRuleV2Error → usable=False（エラー文字列が reason に入る）。"
+  ]
+}

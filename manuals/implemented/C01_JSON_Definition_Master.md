@@ -116,19 +116,124 @@
 
 ---
 
-## 6. フィールド制約（skill_constraints）
+## 6. スキル制約（skill_constraints）
+
+スキルの使用可否・実効コストを制御する制約ルール。`evaluate_skill_access`（`manager/battle/skill_access.py`）が評価する。
+
+### 6.1 制約ルールの共通フォーマット
+
 ```json
 {
-  "id": "rule_x",
+  "id": "rule_fp_block",
   "mode": "block",
   "priority": 100,
-  "match": {},
-  "reason": "..."
+  "match": { "cost_types": ["FP"] },
+  "reason": "FP消費技封印"
 }
 ```
 
-- `mode=block`: 使用禁止
-- `mode=add_cost`: コスト追加
+```json
+{
+  "id": "rule_fp_plus1",
+  "mode": "add_cost",
+  "priority": 50,
+  "match": { "cost_types": ["FP"] },
+  "add_cost": [{ "type": "FP", "value": 1 }],
+  "reason": "要求FP+1"
+}
+```
+
+### 6.2 フィールド一覧
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `id` | string | ルール識別子（ログ/デバッグ用）。同一 id が複数ソース間で重複すると `JsonRuleV2Error` → `usable=False` |
+| `mode` | string | `block`（使用禁止）または `add_cost`（コスト加算） |
+| `priority` | int | 評価優先度（小さいほど先。通常 `block=100`, `add_cost=50`） |
+| `match` | object | 対象スキルの絞り込み条件（空 `{}` で全スキルに命中） |
+| `add_cost` | array | `mode=add_cost` 時に加算するコスト配列 |
+| `reason` | string | 使用不可理由の表示文言 |
+
+**`match` キー一覧**:
+
+| キー | 型 | 説明 |
+|---|---|---|
+| `cost_types` | string[] | コスト種別一致（`"FP"` / `"MP"`） |
+| `category` | string | 分類一致（`"魔法"` / `"物理"` / `"補助"` など） |
+| `distance` | string | 距離一致（`"近接"` / `"遠隔"` / `"広域-個別"` / `"広域-合算"`） |
+| `attribute` | string | 属性一致（`"火"` など） |
+| `skill_id` | string | 特定スキルID一致 |
+| `tags` | string[] | タグ一致 |
+| `cost_min`, `cost_max` | int | 総コスト範囲条件 |
+
+> **注意**: `match` のカテゴリ/距離はスキル本体の `分類`/`距離` キー（日本語キー）を優先参照し、英語キー `category`/`distance` にフォールバックする（B01 §13.5 参照）。
+
+### 6.3 供給元ごとの保持位置
+
+| 供給元 | 保持場所 |
+|---|---|
+| キャラ個別フラグ由来 | `actor.flags.skill_constraints[]` |
+| バフ/デバフ由来 | `actor.special_buffs[].data.skill_constraints[]` |
+| フィールド効果（直置き） | `battle_state.field_effects[].skill_constraints[]` |
+| フィールドプロファイル経由 | `battle_state.stage_field_effect_profile.rules[]` |
+| 戦闘外ルーム由来 | `room_state.field_effects[].skill_constraints[]` |
+
+`field_effects` が非空なら `stage_field_effect_profile.rules` は無視される（排他）。
+
+フィールド効果には `scope` で適用対象を絞れる: `"all"` / `"ally"` / `"enemy"` / `"except_source"`。
+
+### 6.4 評価優先順位
+
+1. `collect_skill_constraints` が flags → special_buffs → field_effects の順で制約を収集
+2. `block` が1件でも命中 → 即 `usable=False`（`add_cost` 評価はスキップ、ただし `effective_cost` は計算される）
+3. `add_cost` 命中分を累積し `effective_cost` を生成
+4. `effective_cost` でリソース不足判定を実施
+
+### 6.5 スキル特記処理JSONテンプレート（`特記処理` 列）
+
+以下は `APPLY_BUFF` で `skill_constraints` を付与するパターン。`lasting` で有効ラウンド数を指定する。
+
+**FP消費技封印（2R）**
+```json
+{"target_scope":"enemy","effects":[{"timing":"PRE_MATCH","type":"APPLY_BUFF","target":"target","buff_name":"CC_FP_BLOCK_2R","lasting":2,"data":{"skill_constraints":[{"id":"cc_fp_block","mode":"block","priority":100,"match":{"cost_types":["FP"]},"reason":"FP消費技封印"}]}}]}
+```
+
+**魔法分類封印（2R）**
+```json
+{"target_scope":"enemy","effects":[{"timing":"PRE_MATCH","type":"APPLY_BUFF","target":"target","buff_name":"CC_CATEGORY_MAGIC_BLOCK_2R","lasting":2,"data":{"skill_constraints":[{"id":"cc_category_magic_block","mode":"block","priority":100,"match":{"category":"魔法"},"reason":"魔法分類封印"}]}}]}
+```
+
+**物理分類封印（2R）**
+```json
+{"target_scope":"enemy","effects":[{"timing":"PRE_MATCH","type":"APPLY_BUFF","target":"target","buff_name":"CC_CATEGORY_PHYSICAL_BLOCK_2R","lasting":2,"data":{"skill_constraints":[{"id":"cc_category_physical_block","mode":"block","priority":100,"match":{"category":"物理"},"reason":"物理分類封印"}]}}]}
+```
+
+**補助分類封印（2R）**
+```json
+{"target_scope":"enemy","effects":[{"timing":"PRE_MATCH","type":"APPLY_BUFF","target":"target","buff_name":"CC_CATEGORY_SUPPORT_BLOCK_2R","lasting":2,"data":{"skill_constraints":[{"id":"cc_category_support_block","mode":"block","priority":100,"match":{"category":"補助"},"reason":"補助分類封印"}]}}]}
+```
+
+**近接封印（2R）**
+```json
+{"target_scope":"enemy","effects":[{"timing":"PRE_MATCH","type":"APPLY_BUFF","target":"target","buff_name":"CC_DISTANCE_MELEE_BLOCK_2R","lasting":2,"data":{"skill_constraints":[{"id":"cc_distance_melee_block","mode":"block","priority":100,"match":{"distance":"近接"},"reason":"近接封印"}]}}]}
+```
+
+**FPコスト+1（2R）**
+```json
+{"target_scope":"enemy","effects":[{"timing":"PRE_MATCH","type":"APPLY_BUFF","target":"target","buff_name":"CC_FP_PLUS1_2R","lasting":2,"data":{"skill_constraints":[{"id":"cc_fp_plus1","mode":"add_cost","priority":50,"match":{"cost_types":["FP"]},"add_cost":[{"type":"FP","value":1}],"reason":"FP消費+1"}]}}]}
+```
+
+**複合（魔法封印 + FP+1、2R）**
+```json
+{"target_scope":"enemy","effects":[{"timing":"PRE_MATCH","type":"APPLY_BUFF","target":"target","buff_name":"CC_MAGIC_BLOCK_AND_FP_PLUS1_2R","lasting":2,"data":{"skill_constraints":[{"id":"cc_magic_block","mode":"block","priority":100,"match":{"category":"魔法"},"reason":"魔法分類封印"},{"id":"cc_fp_plus1_combo","mode":"add_cost","priority":50,"match":{"cost_types":["FP"]},"add_cost":[{"type":"FP","value":1}],"reason":"FP消費+1"}]}}]}
+```
+
+**全封印（フォールバック確認用、1R）**
+```json
+{"target_scope":"enemy","effects":[{"timing":"PRE_MATCH","type":"APPLY_BUFF","target":"target","buff_name":"CC_ALL_BLOCK_1R","lasting":1,"data":{"skill_constraints":[{"id":"cc_all_block","mode":"block","priority":100,"match":{},"reason":"全スキル封印"}]}}]}
+```
+
+全封印時は `SYS-STRUGGLE`（どうにかもがく）のみが使用可能になる（B01 §13.2 参照）。
 
 ---
 

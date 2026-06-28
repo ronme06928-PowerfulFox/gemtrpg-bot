@@ -1,0 +1,50 @@
+{
+  "_comment": "検証用: カテゴリ封印（block）スニペット集",
+  "_usage": "actor の flags.skill_constraints または special_buffs[].data.skill_constraints に貼り付けて evaluate_skill_access を呼ぶ",
+
+  "block_physical": [
+    {
+      "id": "test-block-phys-01",
+      "mode": "block",
+      "match": { "category": "物理" },
+      "reason": "【検証】物理スキル封印中",
+      "priority": 100
+    }
+  ],
+
+  "block_magic": [
+    {
+      "id": "test-block-magic-01",
+      "mode": "block",
+      "match": { "category": "魔法" },
+      "reason": "【検証】魔法スキル封印中",
+      "priority": 100
+    }
+  ],
+
+  "block_support": [
+    {
+      "id": "test-block-supp-01",
+      "mode": "block",
+      "match": { "category": "補助" },
+      "reason": "【検証】補助スキル封印中",
+      "priority": 100
+    }
+  ],
+
+  "block_fp_cost": [
+    {
+      "id": "test-block-fp-01",
+      "mode": "block",
+      "match": { "cost_types": ["FP"] },
+      "reason": "【検証】FP消費スキル封印中",
+      "priority": 100
+    }
+  ],
+
+  "_note": [
+    "match.category の値は skills_cache.json の '分類' フィールドと照合される（小文字正規化済み）。",
+    "例: '分類':'物理' → match.category:'物理' でヒット。",
+    "複数カテゴリを同時封印する場合は id を変えて複数エントリを並べる。"
+  ]
+}

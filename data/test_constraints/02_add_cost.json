@@ -1,0 +1,51 @@
+{
+  "_comment": "検証用: コスト増加（add_cost）スニペット集",
+  "_usage": "actor の special_buffs[].data.skill_constraints に貼り付けて evaluate_skill_access → effective_cost を確認する",
+
+  "add_fp_to_fp_skills": [
+    {
+      "id": "test-addcost-fp-01",
+      "mode": "add_cost",
+      "match": { "cost_types": ["FP"] },
+      "add_cost": [{ "type": "FP", "value": 2 }],
+      "priority": 100
+    }
+  ],
+
+  "add_mp_to_mp_skills": [
+    {
+      "id": "test-addcost-mp-01",
+      "mode": "add_cost",
+      "match": { "cost_types": ["MP"] },
+      "add_cost": [{ "type": "MP", "value": 3 }],
+      "priority": 100
+    }
+  ],
+
+  "add_fp_to_physical_skills": [
+    {
+      "id": "test-addcost-phys-fp-01",
+      "mode": "add_cost",
+      "match": { "category": "物理" },
+      "add_cost": [{ "type": "FP", "value": 1 }],
+      "priority": 100
+    }
+  ],
+
+  "add_cost_all_skills": [
+    {
+      "id": "test-addcost-all-01",
+      "mode": "add_cost",
+      "match": {},
+      "add_cost": [{ "type": "FP", "value": 1 }],
+      "priority": 100
+    }
+  ],
+
+  "_note": [
+    "effective_cost は基本コスト + add_cost の合算（同種別は単純和）。",
+    "コスト不足判定は合算後の値で行われる。",
+    "actor.states の FP は get_status_value で読まれる（states[{name:FP}].value）。",
+    "actor の MP は actor.mp フィールドで読まれる（states には入らない）。"
+  ]
+}
