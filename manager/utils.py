@@ -536,6 +536,13 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
         set_status_value(char_obj, '亀裂', current_fissure + add_amount)
         return
 
+    # 荊棘重絡 (Bu-50): スタック数を states["荊棘重絡"] に直接加算（消費コードと整合）
+    if payload.get('buff_id') == 'Bu-50':
+        add_amount = max(1, _safe_int(count, 1)) if count is not None else 1
+        current = get_status_value(char_obj, '荊棘重絡')
+        set_status_value(char_obj, '荊棘重絡', current + add_amount)
+        return
+
     # ★ 追加: 加速(Bu-11)・減速(Bu-12) の特殊処理
     # これらは永続(lasting=-1)であり、スタック加算される
     if payload.get('buff_id') in ['Bu-11', 'Bu-12']:

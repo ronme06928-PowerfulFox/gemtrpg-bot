@@ -509,5 +509,14 @@
     "flavor": "",
     "effect": {},
     "default_duration": -1
+  },
+  "Bu-50": {
+    "id": "Bu-50",
+    "name": "荊棘重絡",
+    "display_name": "荊棘重絡",
+    "description": "自分が荊棘によるダメージ効果を受けるとき、荊棘を消失させる代わりにこれの回数を１減らす。",
+    "flavor": "",
+    "effect": {},
+    "default_duration": -1
   }
 }

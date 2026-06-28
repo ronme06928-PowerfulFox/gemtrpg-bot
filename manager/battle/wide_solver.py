@@ -1,5 +1,6 @@
 import re
 import json
+from manager.constants import DamageSource, THORNS_DAMAGE_CATS
 from extensions import all_skill_data, socketio
 from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_log,
@@ -626,15 +627,22 @@ def execute_wide_match(room, username):
                 execute_pre_match_effects(room, def_char, attacker_char, def_skill_data, attacker_skill_data)
 
 
-            thorn_val = get_status_value(def_char, "荊棘")
-            if thorn_val > 0 and def_skill_data:
-                 tags = def_skill_data.get('tags', [])
-                 cat = str(def_skill_data.get("分類") or def_skill_data.get("attribute") or "")
-                 if cat == '防御' or '防御' in tags or '守備' in tags:
-                      bp = int(def_skill_data.get('基礎威力', 0))
-                      bp += def_char.get('_base_power_bonus', 0)
-                      if bp > 0:
-                          _update_char_stat(room, def_char, "荊棘", max(0, thorn_val - bp), username=f"[{def_skill_id}:荊棘削減]", save=False)
+            att_cat = str((attacker_skill_data or {}).get("分類") or (attacker_skill_data or {}).get("attribute") or "")
+            def_cat = str((def_skill_data or {}).get("分類") or (def_skill_data or {}).get("attribute") or "")
+            for (actor, cat) in [(attacker_char, att_cat), (def_char, def_cat)]:
+                if not actor:
+                    continue
+                thorn_val = get_status_value(actor, "荊棘")
+                if thorn_val <= 0:
+                    continue
+                if cat in THORNS_DAMAGE_CATS:
+                    _update_char_stat(room, actor, "HP", actor["hp"] - thorn_val,
+                                      username="[荊棘自傷]", source=DamageSource.THORNS, save=False)
+                entangle_val = get_status_value(actor, "荊棘重絡")
+                if entangle_val > 0:
+                    _update_char_stat(room, actor, "荊棘重絡", entangle_val - 1, username="[荊棘重絡消費]", save=False)
+                else:
+                    _update_char_stat(room, actor, "荊棘", 0, username="[荊棘消滅]", save=False)
 
             using_precalc = False
             def_command = def_data.get('command', '2d6')

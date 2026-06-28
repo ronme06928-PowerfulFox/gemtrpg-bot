@@ -425,11 +425,6 @@ def _process_full_round_end_impl(room, username):
                 broadcast_log(room, f"[出血遷延] {char.get('name', '')} consumed 1 stack (remaining {remaining})", "state-change")
 
 
-        thorns_value = get_status_value(char, "荊棘")
-        if thorns_value > 0:
-            _update_char_stat(room, char, "荊棘", thorns_value - 1, username="[荊棘減少]")
-
-
         if "special_buffs" in char:
             active_buffs = []
             buffs_to_remove = []

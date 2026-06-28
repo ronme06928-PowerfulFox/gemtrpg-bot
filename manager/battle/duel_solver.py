@@ -8,7 +8,7 @@ from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_log,
     broadcast_state_update, _update_char_stat
 )
-from manager.constants import DamageSource
+from manager.constants import DamageSource, THORNS_DAMAGE_CATS
 from manager.game_logic import (
     get_status_value, compute_damage_multipliers,
     remove_buff, apply_buff, process_skill_effects
@@ -651,22 +651,20 @@ def execute_duel_match(room, data, username):
         attacker_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
         defender_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
 
-        for (actor, cat, skill) in [(actor_a_char, attacker_category, skill_data_a), (actor_d_char, defender_category, skill_data_d)]:
-            if actor:
-                val = get_status_value(actor, "荊棘")
-                if val > 0:
-                    if cat in ["物琁", "魔況"]:
-                        _update_char_stat(room, actor, "HP", actor['hp'] - val, username="[荊棘自傷]", source=DamageSource.THORNS)
-                    elif cat == "防御" and skill:
-                        try:
-                            bp = int(skill.get('基礎威力', 0))
-                            bp += actor.get('_base_power_bonus', 0)
-
-                            skill_id_for_log = skill_id_d if actor == actor_d_char else skill_id_a
-                            _update_char_stat(room, actor, "荊棘", max(0, val - bp), username=f"[{format_skill_name_for_log(skill_id_for_log, skill, actor)}]")
-                            actor.pop('_base_power_bonus', None)
-                            actor.pop('_final_power_bonus', None)
-                        except ValueError: pass
+        for (actor, cat) in [(actor_a_char, attacker_category), (actor_d_char, defender_category)]:
+            if not actor:
+                continue
+            thorn_val = get_status_value(actor, "荊棘")
+            if thorn_val <= 0:
+                continue
+            if cat in THORNS_DAMAGE_CATS:
+                _update_char_stat(room, actor, "HP", actor["hp"] - thorn_val,
+                                  username="[荊棘自傷]", source=DamageSource.THORNS)
+            entangle_val = get_status_value(actor, "荊棘重絡")
+            if entangle_val > 0:
+                _update_char_stat(room, actor, "荊棘重絡", entangle_val - 1, username="[荊棘重絡消費]")
+            else:
+                _update_char_stat(room, actor, "荊棘", 0, username="[荊棘消滅]")
 
         damage_report = {'A': [], 'D': []}
 
