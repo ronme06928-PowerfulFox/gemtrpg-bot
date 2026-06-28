@@ -1,5 +1,6 @@
 # plugins/standard.py
 import importlib
+import math
 import sys
 
 from .base import BaseEffect
@@ -98,27 +99,55 @@ class FearSurgeEffect(BaseEffect):
 
         return changes, logs
 
+def _char_side(char):
+    raw = char.get('type') or char.get('team') or char.get('side') or char.get('faction') or ''
+    text = str(raw).strip().lower()
+    if text in {'ally', 'player', 'friend', 'friends'}:
+        return 'ally'
+    if text in {'enemy', 'foe', 'opponent', 'boss', 'npc'}:
+        return 'enemy'
+    return None
+
+
 class ThornsScatterEffect(BaseEffect):
     def apply(self, actor, target, params, context):
-        val = _get_status_value(target, "荊棘")
-        if val <= 0: return [], []
+        thorn_val = _get_status_value(target, "荊棘")
+        if thorn_val <= 0:
+            return [], []
+
+        entangle_val = _get_status_value(target, "荊棘重絡")
         _set_status_value(target, "荊棘", 0)
+        _set_status_value(target, "荊棘重絡", 0)
 
-        changes = []
-        logs = [f"《荊棘飛散》 荊棘{val}を拡散！(荊棘全消費)"]
-
-        # コンテキストからキャラ一覧を取得して全員（自分以外）に配布
+        enemies = []
         if context and "characters" in context:
-            all_chars = context["characters"]
-            for char in all_chars:
-                # 自身の除外
-                if char.get("id") == target.get("id"): continue
-                # 生存・配置チェック
-                if char.get("hp", 0) <= 0: continue
-                if char.get("x") is None: continue
+            target_side = _char_side(target)
+            for char in context["characters"]:
+                if char.get("hp", 0) <= 0:
+                    continue
+                if char.get("x") is None:
+                    continue
+                if target_side is not None and _char_side(char) != target_side:
+                    continue
+                enemies.append(char)
 
-                changes.append((char, "APPLY_STATE", "荊棘", val))
-                logs.append(f" -> {char['name']} に 荊棘{val} を付与")
+        changes = [
+            (target, "SET_STATUS", "荊棘", 0),
+            (target, "SET_STATUS", "荊棘重絡", 0),
+        ]
+
+        if not enemies:
+            logs = [f"《荊棘飛散》 荊棘{thorn_val}・荊棘重絡{entangle_val}を全消費 — 対象なし"]
+            return changes, logs
+
+        total = thorn_val * entangle_val if entangle_val > 0 else thorn_val
+        dmg_per = math.ceil(total / len(enemies))
+        formula = f"{thorn_val}×{entangle_val}" if entangle_val > 0 else str(thorn_val)
+
+        logs = [f"《荊棘飛散》 {formula}={total}÷{len(enemies)}人 → 各{dmg_per}ダメージ (荊棘・荊棘重絡全消費)"]
+        for char in enemies:
+            changes.append((char, "CUSTOM_DAMAGE", "荊棘飛散", dmg_per))
+            logs.append(f" -> {char.get('name', '?')} に {dmg_per}ダメージ")
 
         return changes, logs
 
