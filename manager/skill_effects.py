@@ -59,6 +59,18 @@ def apply_skill_effects_bidirectional(
     custom_damage_applied = 0
     damage_events = []
     all_logs = []
+    delegate_result_timings_applied = bool(
+        isinstance(state, dict)
+        and state.get('__select_resolve_delegate__', False)
+        and state.get('__sr_delegate_result_timings_applied__', False)
+    )
+    if delegate_result_timings_applied:
+        pre_bonus_map = state.get('__sr_delegate_pre_damage_bonus') or {}
+        if isinstance(pre_bonus_map, dict):
+            try:
+                total_bonus_dmg += int(pre_bonus_map.get(winner_side, 0) or 0)
+            except Exception:
+                pass
 
     # Context構築 (もし渡されていなければ作成)
     if context is None:
@@ -215,17 +227,21 @@ def apply_skill_effects_bidirectional(
     if winner_side == 'attacker':
         # WIN -> HIT の順（勝利ボーナスをHITに乗せるため）
         logger.debug(f"[Attacker Wins] Processing attacker WIN effects")
-        run_proc_and_apply(effects_a, "WIN", a_char, d_char, d_skill)
+        if not delegate_result_timings_applied:
+            run_proc_and_apply(effects_a, "WIN", a_char, d_char, d_skill)
         logger.debug(f"[Attacker Wins] Processing attacker HIT effects")
         run_proc_and_apply(effects_a, "HIT", a_char, d_char, d_skill)
         logger.debug(f"[Attacker Wins] Processing defender LOSE effects")
-        run_proc_and_apply(effects_d, "LOSE", d_char, a_char, a_skill)
+        if not delegate_result_timings_applied:
+            run_proc_and_apply(effects_d, "LOSE", d_char, a_char, a_skill)
     else:
         logger.debug(f"[Defender Wins] Processing attacker LOSE effects")
-        run_proc_and_apply(effects_a, "LOSE", a_char, d_char, d_skill)
+        if not delegate_result_timings_applied:
+            run_proc_and_apply(effects_a, "LOSE", a_char, d_char, d_skill)
         # 防御側も WIN ->HIT に統一
         logger.debug(f"[Defender Wins] Processing defender WIN effects")
-        run_proc_and_apply(effects_d, "WIN", d_char, a_char, a_skill)
+        if not delegate_result_timings_applied:
+            run_proc_and_apply(effects_d, "WIN", d_char, a_char, a_skill)
         logger.debug(f"[Defender Wins] Processing defender HIT effects")
         run_proc_and_apply(effects_d, "HIT", d_char, a_char, a_skill)
 

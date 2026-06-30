@@ -151,13 +151,13 @@ RoundStart は次の順序で処理する。
 - 条件成立時、`one-sided` は `clash` へ昇格し得る。
 
 ## 9.1 解決タイミングフック（2026-02 追加）
-Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSED/END_MATCH/END_ROUND`）に加えて以下を扱う。
+Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSED/END_MATCH/END_ROUND`）に加えて以下を扱う。`END_MATCH` は名称を維持し、マッチ結果確定直後、`WIN` / `LOSE` とスキルダメージ判定の前に実行する共通タイミングとして扱う。
 
 - `RESOLVE_START`: 戦闘開始時（解決フェーズ開始直後、ネタバレ防止制御の起点）
 - `BEFORE_POWER_ROLL`: 威力レンジ表示後、実威力ロール直前
-- `AFTER_DAMAGE_APPLY`: ダメージ反映直後
+- `AFTER_DAMAGE_APPLY`: ダメージ反映直後。`base_damage` には実際にHPへ反映したダメージ量を渡す。
 - `RESOLVE_STEP_END`: 1マッチ/1一方攻撃の表示完了時
-- `RESOLVE_END`: 戦闘終了時（解決フェーズ全処理完了時。まとめログ出力、ラウンド終了遷移）
+- `RESOLVE_END`: 解決フェーズ終了時（解決フェーズ全処理完了時。まとめログ出力、ラウンド終了遷移）
 
 ## 9.2 USE_SKILL_AGAIN（再使用チェーン）
 - `effects[].type = USE_SKILL_AGAIN` は「同スキルを同対象スロットへ再実行」要求として解決層で扱う。
@@ -377,7 +377,9 @@ battle_error:
 ### A-1. 解決タイミングの運用確定
 - `RESOLVE_START` は解決演出開始直後に実行し、事前ネタバレとなるダメージ/状態変化ログは出力しない。
 - `BEFORE_POWER_ROLL` は威力レンジ表示（`min~max`）の後、実威力ロール前に実行する。
-- `AFTER_DAMAGE_APPLY` はHP反映直後に実行する。
+- `END_MATCH` はマッチ結果確定直後に攻防双方へ実行し、その後に勝者側 `WIN`、敗者側 `LOSE` を実行する。
+- `END_MATCH` / `WIN` / `LOSE` は荊棘処理およびスキルダメージ判定より前に実行する。
+- `AFTER_DAMAGE_APPLY` はHP反映直後に実行し、`base_damage` には実際に反映したダメージ量を渡す。
 - `RESOLVE_STEP_END` は1処理（1マッチ/1一方攻撃/1広域解決）表示完了時に実行する。
 - `RESOLVE_END` は全処理表示完了後に実行し、まとめログ送信と `round_end` 遷移を行う。
 

@@ -650,6 +650,108 @@ def execute_duel_match(room, data, username):
         defender_tags = skill_data_d.get("tags", []) if skill_data_d else []
         attacker_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
         defender_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
+        damage_report = {'A': [], 'D': []}
+
+        def _report_key_for_char(char):
+            if actor_a_char and isinstance(char, dict) and char.get('id') == actor_a_char.get('id'):
+                return 'A'
+            if actor_d_char and isinstance(char, dict) and char.get('id') == actor_d_char.get('id'):
+                return 'D'
+            return None
+
+        def _apply_select_resolve_result_changes(changes, primary_target=None, source_actor=None):
+            extra_primary_damage = 0
+            for (char, effect_type, name, value) in changes:
+                if not isinstance(char, dict):
+                    continue
+                if effect_type == "APPLY_STATE":
+                    if name == 'HP':
+                        base_curr = int(char.get('hp', 0) or 0)
+                    elif name == 'MP':
+                        base_curr = int(char.get('mp', 0) or 0)
+                    else:
+                        state_obj = next((s for s in char.get('states', []) if s.get('name') == name), None)
+                        try:
+                            base_curr = int((state_obj or {}).get('value', 0) or 0)
+                        except Exception:
+                            base_curr = 0
+                    _update_char_stat(room, char, name, base_curr + int(value or 0), username=f"[{name}]", save=False)
+                elif effect_type == "SET_STATUS":
+                    _update_char_stat(room, char, name, int(value or 0), username=f"[{name}]", save=False)
+                elif effect_type == "APPLY_BUFF":
+                    apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
+                elif effect_type == "REMOVE_BUFF":
+                    remove_buff(char, name)
+                elif effect_type == "CUSTOM_DAMAGE":
+                    amount = int(value or 0)
+                    target_key = _report_key_for_char(char)
+                    if target_key:
+                        damage_report[target_key].append({'source': name, 'value': amount})
+                    if primary_target and char.get('id') == primary_target.get('id'):
+                        extra_primary_damage += amount
+                    else:
+                        curr_hp = int(char.get('hp', 0) or 0)
+                        _update_char_stat(room, char, 'HP', max(0, curr_hp - amount), username=f"[{name}]", source=DamageSource.SKILL_EFFECT, save=False)
+                elif effect_type == "CONSUME_BLEED_MAINTENANCE":
+                    consume_bleed_maintenance_stack(char, amount=int(value or 1))
+                elif effect_type == "SET_FLAG":
+                    char.setdefault('flags', {})[name] = value
+                elif effect_type == "SUMMON_CHARACTER":
+                    res = apply_summon_change(room, state, char, value)
+                    if res.get("ok"):
+                        broadcast_log(room, res.get("message", "Summon applied"), "state-change", save=False)
+                    else:
+                        logger.warning("[select_resolve result timing summon failed] %s", res.get("message"))
+                elif effect_type == "GRANT_SKILL":
+                    grant_payload = dict(value) if isinstance(value, dict) else {}
+                    grant_payload.setdefault("skill_id", name)
+                    res = apply_grant_skill_change(room, state, source_actor, char, grant_payload)
+                    if res.get("ok"):
+                        broadcast_log(room, res.get("message", "Grant skill applied"), "state-change", save=False)
+                    else:
+                        logger.warning("[select_resolve result timing grant_skill failed] %s", res.get("message"))
+            return extra_primary_damage
+
+        def _run_select_resolve_result_timing(timing, actor, target, effects, target_skill, primary_target=None, base_damage=0):
+            if not actor or not isinstance(effects, list):
+                return 0
+            ctx = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room}
+            bonus, logs, changes = process_skill_effects(effects, timing, actor, target, target_skill, context=ctx, base_damage=base_damage)
+            if logs:
+                log_snippets.extend(logs)
+            return int(bonus or 0) + int(_apply_select_resolve_result_changes(changes, primary_target=primary_target, source_actor=actor) or 0)
+
+        if delegate_mode and actor_a_char and actor_d_char:
+            pre_bonus = {'attacker': 0, 'defender': 0}
+            state['__sr_delegate_pre_damage_bonus'] = pre_bonus
+            total_a = result_a.get('total', 0)
+            total_d = result_d.get('total', 0)
+            base_a, _ = _compute_match_damage_from_rolls(total_a, total_d, skill_data_d)
+            base_d, _ = _compute_match_damage_from_rolls(total_d, total_a, skill_data_a)
+            if total_a > total_d:
+                pre_bonus['attacker'] += _run_select_resolve_result_timing(
+                    "END_MATCH", actor_a_char, actor_d_char, effects_array_a, skill_data_d,
+                    primary_target=actor_d_char, base_damage=base_a,
+                )
+                _run_select_resolve_result_timing("END_MATCH", actor_d_char, actor_a_char, effects_array_d, skill_data_a, base_damage=base_a)
+                pre_bonus['attacker'] += _run_select_resolve_result_timing(
+                    "WIN", actor_a_char, actor_d_char, effects_array_a, skill_data_d,
+                    primary_target=actor_d_char, base_damage=base_a + pre_bonus['attacker'],
+                )
+                _run_select_resolve_result_timing("LOSE", actor_d_char, actor_a_char, effects_array_d, skill_data_a, base_damage=base_a + pre_bonus['attacker'])
+                state['__sr_delegate_result_timings_applied__'] = True
+            elif total_d > total_a:
+                _run_select_resolve_result_timing("END_MATCH", actor_a_char, actor_d_char, effects_array_a, skill_data_d, base_damage=base_d)
+                pre_bonus['defender'] += _run_select_resolve_result_timing(
+                    "END_MATCH", actor_d_char, actor_a_char, effects_array_d, skill_data_a,
+                    primary_target=actor_a_char, base_damage=base_d,
+                )
+                pre_bonus['defender'] += _run_select_resolve_result_timing(
+                    "WIN", actor_d_char, actor_a_char, effects_array_d, skill_data_a,
+                    primary_target=actor_a_char, base_damage=base_d + pre_bonus['defender'],
+                )
+                _run_select_resolve_result_timing("LOSE", actor_a_char, actor_d_char, effects_array_a, skill_data_d, base_damage=base_d + pre_bonus['defender'])
+                state['__sr_delegate_result_timings_applied__'] = True
 
         for (actor, cat) in [(actor_a_char, attacker_category), (actor_d_char, defender_category)]:
             if not actor:
@@ -665,8 +767,6 @@ def execute_duel_match(room, data, username):
                 _update_char_stat(room, actor, "荊棘重絡", entangle_val - 1, username="[荊棘重絡消費]")
             else:
                 _update_char_stat(room, actor, "荊棘", 0, username="[荊棘消滅]")
-
-        damage_report = {'A': [], 'D': []}
 
         if "free_cost" in attacker_tags or "free_cost" in defender_tags:
             winner_message = "<strong>Skill effects only</strong>"
@@ -1395,4 +1495,3 @@ def execute_duel_match(room, data, username):
     save_specific_room_state(room)
     broadcast_state_update(room)
     _safe_emit('match_modal_closed', {}, to=room)
-

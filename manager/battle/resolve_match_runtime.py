@@ -14,8 +14,9 @@ from manager.room_manager import (
     _update_char_stat as _default_update_char_stat,
     get_room_state as _default_get_room_state,
 )
+from manager.constants import DamageSource, THORNS_DAMAGE_CATS
 from manager.logs import setup_logger
-from manager.battle.skill_rules import _extract_rule_data_from_skill, _skill_deals_damage
+from manager.battle.skill_rules import _extract_rule_data_from_skill, _skill_deals_damage, _resolve_skill_category
 from manager.battle.duel_log_utils import _extract_skill_id_from_data
 from manager.battle.resolve_snapshot_utils import (
     _extract_power_pair_from_match_log,
@@ -78,6 +79,78 @@ def _safe_int(value, default=0):
         return int(value)
     except Exception:
         return default
+
+
+def _apply_match_timing(
+    room,
+    state,
+    characters_by_id,
+    timing,
+    actor_char,
+    target_char,
+    skill_data,
+    target_skill_data=None,
+    base_damage=0,
+    emit_source='select_resolve_match_timing',
+    log_snippets=None,
+):
+    if not isinstance(actor_char, dict) or not isinstance(skill_data, dict):
+        return {'bonus_damage': 0, 'extra_primary_damage': 0, 'logs': []}
+    res = _trigger_skill_timing_effects(
+        room=room,
+        state=state,
+        characters_by_id=characters_by_id,
+        timing=timing,
+        actor_char=actor_char,
+        target_char=target_char,
+        skill_data=skill_data,
+        target_skill_data=target_skill_data,
+        base_damage=base_damage,
+        emit_source=emit_source,
+    )
+    if isinstance(log_snippets, list) and isinstance(res, dict) and res.get('logs'):
+        log_snippets.extend(res.get('logs') or [])
+    return res if isinstance(res, dict) else {'bonus_damage': 0, 'extra_primary_damage': 0, 'logs': []}
+
+
+def _timing_primary_damage(res):
+    if not isinstance(res, dict):
+        return 0
+    return _safe_int(res.get('bonus_damage'), 0) + _safe_int(res.get('extra_primary_damage'), 0)
+
+
+def _apply_thorns_after_match_result(room, actor_char, skill_data, log_snippets=None):
+    if not isinstance(actor_char, dict):
+        return 0
+    thorn_val = int(get_status_value(actor_char, "荊棘") or 0)
+    if thorn_val <= 0:
+        return 0
+
+    category = _resolve_skill_category(skill_data)
+    if category in THORNS_DAMAGE_CATS:
+        current_hp = int(actor_char.get('hp', 0) or 0)
+        _update_char_stat(
+            room,
+            actor_char,
+            "HP",
+            max(0, current_hp - thorn_val),
+            username="[荊棘自傷]",
+            source=DamageSource.THORNS,
+        )
+        if isinstance(log_snippets, list):
+            log_snippets.append(f"[荊棘 {thorn_val}]")
+
+    entangle_val = int(get_status_value(actor_char, "荊棘重絡") or 0)
+    if entangle_val > 0:
+        _update_char_stat(room, actor_char, "荊棘重絡", entangle_val - 1, username="[荊棘重絡消費]")
+        if isinstance(log_snippets, list):
+            log_snippets.append("[荊棘重絡 消費]")
+    else:
+        _update_char_stat(room, actor_char, "荊棘", 0, username="[荊棘消滅]")
+        if isinstance(log_snippets, list):
+            log_snippets.append("[荊棘 消滅]")
+    return thorn_val
+
 
 def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_char, attacker_skill_data, defender_skill_data):
     """
@@ -148,6 +221,31 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     base_damage = int(roll_result.get('total', 0))
     power_snapshot = build_power_result_snapshot(preview, roll_result)
 
+    pre_damage_bonus = 0
+    for timing, actor, target, skill, target_skill, source in [
+        ('END_MATCH', attacker_char, defender_char, attacker_skill_data, defender_skill_data, 'one_sided_end_match'),
+        ('END_MATCH', defender_char, attacker_char, defender_skill_data, attacker_skill_data, 'one_sided_end_match'),
+        ('WIN', attacker_char, defender_char, attacker_skill_data, defender_skill_data, 'one_sided_win'),
+        ('LOSE', defender_char, attacker_char, defender_skill_data, attacker_skill_data, 'one_sided_lose'),
+    ]:
+        res = _apply_match_timing(
+            room=room,
+            state=state,
+            characters_by_id=characters_by_id,
+            timing=timing,
+            actor_char=actor,
+            target_char=target,
+            skill_data=skill,
+            target_skill_data=target_skill,
+            base_damage=base_damage + pre_damage_bonus,
+            emit_source=source,
+            log_snippets=log_snippets,
+        )
+        if actor is attacker_char:
+            pre_damage_bonus += _timing_primary_damage(res)
+
+    _apply_thorns_after_match_result(room, attacker_char, attacker_skill_data, log_snippets)
+
     try:
         kiretsu = int(get_status_value(defender_char, '亀裂'))
     except Exception:
@@ -167,7 +265,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         room, state, chg_hit, attacker_char, defender_char, base_damage, log_snippets, reuse_requests=reuse_requests
     )
 
-    bonus_damage = int(bd_un) + int(bd_hit)
+    bonus_damage = int(pre_damage_bonus) + int(bd_un) + int(bd_hit)
     extra_skill_damage = int(extra_un) + int(extra_hit_from_changes)
     log_snippets.extend(log_un or [])
     log_snippets.extend(log_hit or [])
@@ -412,6 +510,10 @@ def _resolve_clash_by_existing_logic(
     old_last_exec = state.get('last_executed_match_id')
     had_sr_delegate_flag = '__select_resolve_delegate__' in state
     old_sr_delegate_flag = state.get('__select_resolve_delegate__')
+    had_sr_result_flag = '__sr_delegate_result_timings_applied__' in state
+    old_sr_result_flag = state.get('__sr_delegate_result_timings_applied__')
+    had_sr_pre_bonus = '__sr_delegate_pre_damage_bonus' in state
+    old_sr_pre_bonus = state.get('__sr_delegate_pre_damage_bonus')
     old_has_acted_a = attacker_char.get('hasActed')
     old_has_acted_d = defender_char.get('hasActed')
 
@@ -512,8 +614,19 @@ def _resolve_clash_by_existing_logic(
             state['__select_resolve_delegate__'] = old_sr_delegate_flag
         else:
             state.pop('__select_resolve_delegate__', None)
+        if had_sr_result_flag:
+            state['__sr_delegate_result_timings_applied__'] = old_sr_result_flag
+        else:
+            state.pop('__sr_delegate_result_timings_applied__', None)
+        if had_sr_pre_bonus:
+            state['__sr_delegate_pre_damage_bonus'] = old_sr_pre_bonus
+        else:
+            state.pop('__sr_delegate_pre_damage_bonus', None)
         attacker_char['hasActed'] = old_has_acted_a
         defender_char['hasActed'] = old_has_acted_d
+
+    damage_to_attacker = max(0, _safe_int((before_a or {}).get('hp'), 0) - _safe_int(attacker_char.get('hp'), 0))
+    damage_to_defender = max(0, _safe_int((before_d or {}).get('hp'), 0) - _safe_int(defender_char.get('hp'), 0))
 
     _trigger_skill_timing_effects(
         room=room,
@@ -524,7 +637,7 @@ def _resolve_clash_by_existing_logic(
         target_char=defender_char,
         skill_data=attacker_skill_data,
         target_skill_data=defender_skill_data,
-        base_damage=0,
+        base_damage=damage_to_defender,
         emit_source='after_damage_apply'
     )
     _trigger_skill_timing_effects(
@@ -536,7 +649,7 @@ def _resolve_clash_by_existing_logic(
         target_char=attacker_char,
         skill_data=defender_skill_data,
         target_skill_data=attacker_skill_data,
-        base_damage=0,
+        base_damage=damage_to_attacker,
         emit_source='after_damage_apply'
     )
 
