@@ -65,7 +65,7 @@ flowchart TD
 | `RESOLVE_END` | 解決フェーズ終了時 | 全ステップ完了後の後処理 |
 | `END_ROUND` | ラウンド終了時 | ラウンド終了効果、継続ダメージ、持続更新 |
 
-`THORNS` と `SKILL_DAMAGE_CALC` は JSON timing として公開するか、内部処理名に留めるか未決定。少なくともマニュアル上の順序名としては明記する。
+`THORNS` と `SKILL_DAMAGE_CALC` は JSON timing としては公開せず、内部処理名に留める。`THORNS` は荊棘のシステム処理、`SKILL_DAMAGE_CALC` は亀裂などを参照する内部境界名として扱う。
 
 ---
 
@@ -150,7 +150,7 @@ flowchart TD
 ### Phase 1: 仕様固定
 
 1. `END_MATCH` の定義を「勝敗確定直後」に固定する。
-2. `THORNS` と `SKILL_DAMAGE_CALC` を公開 timing にするか内部処理名に留めるか決める。
+2. `THORNS` と `SKILL_DAMAGE_CALC` は内部処理名として固定する。
 3. `WIN` と `LOSE` の順序を固定する。現在案は `WIN` -> `LOSE`。
 4. 同時勝敗や引き分け時の `WIN` / `LOSE` 発火有無を決める。
 
@@ -194,14 +194,12 @@ flowchart TD
   - 現行キャッシュの `END_MATCH` 棚卸しを実施。`data/cache/*.json` には対象なし。
   - 実装済みマニュアル `B01` / `B03` / `C01` へタイミング定義を反映。
   - `RESOLVE_STEP_END` / `RESOLVE_END` の既存テストを確認済み（`tests/test_select_resolve_smoke.py::test_case17_select_resolve_phase_timings_are_invoked`）。
+  - `THORNS` / `SKILL_DAMAGE_CALC` は公開 JSON timing にせず、内部順序名として扱う方針を確定。
 - 残タスク:
   - 広域合算（`mass_summation`）で `END_MATCH` / `WIN` / `LOSE` の対象単位を決める。
   - `mass_summation` の集団合算差分ダメージに、亀裂・荊棘・`AFTER_DAMAGE_APPLY` をどこまで単一マッチ標準順へ寄せるか決める。
-  - `THORNS` / `SKILL_DAMAGE_CALC` を公開 JSON timing にするか、内部順序名のままにするか決める。
   - 引き分け・同時攻撃・相互命中の正式扱いを決める。
 
-- `THORNS` を JSON timing として公開するか。
-- `SKILL_DAMAGE_CALC` を JSON timing として公開するか。
 - 引き分け時に `END_MATCH` だけを発火するか、専用の `DRAW` timing を追加するか。
 - 同時攻撃や相互命中のようなケースで `WIN` / `LOSE` をどう扱うか。
 - 既存 `UNOPPOSED` を Select/Resolve 正式タイムラインでどの位置に残すか。
