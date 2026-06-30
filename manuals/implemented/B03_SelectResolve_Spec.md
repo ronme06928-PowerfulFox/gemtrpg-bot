@@ -99,6 +99,7 @@ RoundStart は次の順序で処理する。
 - `one-sided` の対象は「選択時に指定した対象スロットの actor」とする。
 - 追加固定ルール（2026-03-28）: 同一陣営どうしの相互指定で、どちらかが `target_scope=same_team`（互換: `ally`）なら `clash` を作らず `one-sided` として扱う。
 - 追加固定ルール（2026-02-27）: 同一陣営ペアには再回避差し込み（evade insert）を行わない。
+- Select/Resolve では `同時攻撃` / `相互命中` を独立 outcome としては扱わない。相互指定は `clash` として解決し、結果は `attacker_win` / `defender_win` / `draw` のいずれかに正規化する。両者にダメージを発生させたいスキルは、勝敗 outcome ではなく `HIT` / `AFTER_DAMAGE_APPLY` / `CUSTOM_DAMAGE` などの効果で表現する。
 
 複数絡み制約:
 - 1スロットに複数の対戦候補がある場合、`clash` は1組のみ成立（優先者のみ）。
