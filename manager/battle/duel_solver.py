@@ -752,6 +752,10 @@ def execute_duel_match(room, data, username):
                 )
                 _run_select_resolve_result_timing("LOSE", actor_a_char, actor_d_char, effects_array_a, skill_data_d, base_damage=base_d + pre_bonus['defender'])
                 state['__sr_delegate_result_timings_applied__'] = True
+            else:
+                _run_select_resolve_result_timing("END_MATCH", actor_a_char, actor_d_char, effects_array_a, skill_data_d, base_damage=0)
+                _run_select_resolve_result_timing("END_MATCH", actor_d_char, actor_a_char, effects_array_d, skill_data_a, base_damage=0)
+                state['__sr_delegate_result_timings_applied__'] = True
 
         for (actor, cat) in [(actor_a_char, attacker_category), (actor_d_char, defender_category)]:
             if not actor:
@@ -1229,9 +1233,10 @@ def execute_duel_match(room, data, username):
                                 logger.warning("[draw end_match grant_skill failed] %s", res.get("message"))
                     return l
 
-                log_a = local_end_match(effects_array_a, actor_a_char, actor_d_char, skill_data_d)
-                log_d = local_end_match(effects_array_d, actor_d_char, actor_a_char, skill_data_a)
-                log_snippets.extend(log_a + log_d)
+                if not state.get('__sr_delegate_result_timings_applied__'):
+                    log_a = local_end_match(effects_array_a, actor_a_char, actor_d_char, skill_data_d)
+                    log_d = local_end_match(effects_array_d, actor_d_char, actor_a_char, skill_data_a)
+                    log_snippets.extend(log_a + log_d)
                 if log_snippets: winner_message += f" ({' '.join(log_snippets)})"
                 damage_message = "(相殺)"
 
@@ -1443,9 +1448,10 @@ def execute_duel_match(room, data, username):
                             logger.warning("[draw grant_skill failed] %s", res.get("message"))
                 return l
 
-            log_a = run_end_match(effects_array_a, actor_a_char, actor_d_char, skill_data_d)
-            log_d = run_end_match(effects_array_d, actor_d_char, actor_a_char, skill_data_a)
-            log_snippets.extend(log_a + log_d)
+            if not state.get('__sr_delegate_result_timings_applied__'):
+                log_a = run_end_match(effects_array_a, actor_a_char, actor_d_char, skill_data_d)
+                log_d = run_end_match(effects_array_d, actor_d_char, actor_a_char, skill_data_a)
+                log_snippets.extend(log_a + log_d)
             if log_snippets: winner_message += f" ({' '.join(log_snippets)})"
 
     except Exception as e:

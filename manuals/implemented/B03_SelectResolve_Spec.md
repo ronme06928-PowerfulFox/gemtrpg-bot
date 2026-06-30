@@ -380,6 +380,7 @@ battle_error:
 - `RESOLVE_START` は解決演出開始直後に実行し、事前ネタバレとなるダメージ/状態変化ログは出力しない。
 - `BEFORE_POWER_ROLL` は威力レンジ表示（`min~max`）の後、実威力ロール前に実行する。
 - `END_MATCH` はマッチ結果確定直後に攻防双方へ実行し、その後に勝者側 `WIN`、敗者側 `LOSE` を実行する。
+- 引き分けでは攻防双方の `END_MATCH` のみを実行し、`WIN` / `LOSE` は実行しない。
 - `END_MATCH` / `WIN` / `LOSE` は荊棘処理およびスキルダメージ判定より前に実行する。
 - `AFTER_DAMAGE_APPLY` はHP反映直後に実行し、`base_damage` には実際に反映したダメージ量を渡す。
 - `RESOLVE_STEP_END` は1処理（1マッチ/1一方攻撃/1広域解決）表示完了時に実行する。

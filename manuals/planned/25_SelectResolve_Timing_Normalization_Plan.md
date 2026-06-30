@@ -152,7 +152,7 @@ flowchart TD
 1. `END_MATCH` の定義を「勝敗確定直後」に固定する。
 2. `THORNS` と `SKILL_DAMAGE_CALC` は内部処理名として固定する。
 3. `WIN` と `LOSE` の順序を固定する。現在案は `WIN` -> `LOSE`。
-4. 同時勝敗や引き分け時の `WIN` / `LOSE` 発火有無を決める。
+4. 引き分け時は攻防双方の `END_MATCH` のみを発火し、`WIN` / `LOSE` は発火しない。
 
 ### Phase 2: Select/Resolve ランタイム整理
 
@@ -195,12 +195,12 @@ flowchart TD
   - 実装済みマニュアル `B01` / `B03` / `C01` へタイミング定義を反映。
   - `RESOLVE_STEP_END` / `RESOLVE_END` の既存テストを確認済み（`tests/test_select_resolve_smoke.py::test_case17_select_resolve_phase_timings_are_invoked`）。
   - `THORNS` / `SKILL_DAMAGE_CALC` は公開 JSON timing にせず、内部順序名として扱う方針を確定。
+  - 引き分け時は攻防双方の `END_MATCH` のみを発火し、`WIN` / `LOSE` は発火しない方針を実装。
 - 残タスク:
   - 広域合算（`mass_summation`）で `END_MATCH` / `WIN` / `LOSE` の対象単位を決める。
   - `mass_summation` の集団合算差分ダメージに、亀裂・荊棘・`AFTER_DAMAGE_APPLY` をどこまで単一マッチ標準順へ寄せるか決める。
-  - 引き分け・同時攻撃・相互命中の正式扱いを決める。
+  - 同時攻撃・相互命中の正式扱いを決める。
 
-- 引き分け時に `END_MATCH` だけを発火するか、専用の `DRAW` timing を追加するか。
 - 同時攻撃や相互命中のようなケースで `WIN` / `LOSE` をどう扱うか。
 - 既存 `UNOPPOSED` を Select/Resolve 正式タイムラインでどの位置に残すか。
 - `BEFORE_POWER_ROLL` と `PRE_MATCH` の使い分けをスキル作者向けにどこまで厳密化するか。

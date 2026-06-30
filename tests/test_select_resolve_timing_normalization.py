@@ -347,6 +347,46 @@ def test_clash_defender_win_result_timing_order_is_end_match_win_lose(monkeypatc
     ]
 
 
+def test_clash_draw_end_match_runs_before_thorns_without_win_lose(monkeypatch):
+    attacker = _make_char("A1", "ally")
+    defender = _make_char("B1", "enemy")
+    attacker["states"] = [
+        {"name": "FP", "value": 0},
+        {"name": "亀裂", "value": 0},
+        {"name": "荊棘", "value": 4},
+        {"name": "荊棘重絡", "value": 0},
+    ]
+    attacker_skill = _clash_skill(
+        "ATK",
+        [
+            {"timing": "END_MATCH", "type": "APPLY_STATE", "target": "self", "state_name": "荊棘重絡", "value": 1},
+            {"timing": "WIN", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 99},
+            {"timing": "LOSE", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 99},
+        ],
+    )
+    defender_skill = _clash_skill("DEF", [])
+    duel_solver_mod = _patch_deterministic_clash(monkeypatch, attacker_total=10, defender_total=10)
+    state = {"characters": [attacker, defender], "timeline": []}
+    monkeypatch.setattr(duel_solver_mod, "all_skill_data", {"ATK": attacker_skill, "DEF": defender_skill})
+    monkeypatch.setattr(duel_solver_mod, "get_room_state", lambda _room: state)
+
+    result = battle_core._resolve_clash_by_existing_logic(
+        room="room_t",
+        state=state,
+        attacker_char=attacker,
+        defender_char=defender,
+        attacker_skill_data=attacker_skill,
+        defender_skill_data=defender_skill,
+    )
+
+    assert result["ok"] is True
+    assert result["outcome"] == "draw"
+    assert attacker["hp"] == 96
+    assert _state_value(attacker, "荊棘") == 4
+    assert _state_value(attacker, "荊棘重絡") == 0
+    assert _state_value(attacker, "FP") == 0
+
+
 def test_clash_hit_entangle_does_not_protect_current_thorns(monkeypatch):
     attacker = _make_char("A1", "ally")
     defender = _make_char("B1", "enemy")
