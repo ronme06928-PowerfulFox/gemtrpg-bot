@@ -153,6 +153,8 @@ RoundStart は次の順序で処理する。
 ## 9.1 解決タイミングフック（2026-02 追加）
 Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSED/END_MATCH/END_ROUND`）に加えて以下を扱う。`END_MATCH` は名称を維持し、マッチ結果確定直後、`WIN` / `LOSE` とスキルダメージ判定の前に実行する共通タイミングとして扱う。
 
+この結果タイミング標準順は `one_sided` / `clash` / `mass_individual` のように単一の攻防マッチへ分解できる処理に適用する。`mass_summation` は複数防御側の合算結果を1つの差分ダメージとして扱うため、`WIN` / `LOSE` の対象単位を別途定義するまで集団合算固有処理として扱う。
+
 - `RESOLVE_START`: 戦闘開始時（解決フェーズ開始直後、ネタバレ防止制御の起点）
 - `BEFORE_POWER_ROLL`: 威力レンジ表示後、実威力ロール直前
 - `AFTER_DAMAGE_APPLY`: ダメージ反映直後。`base_damage` には実際にHPへ反映したダメージ量を渡す。
