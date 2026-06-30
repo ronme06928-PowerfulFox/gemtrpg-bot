@@ -187,18 +187,18 @@ flowchart TD
 ## 9. 未決事項
 
 - 実装済み（2026-06-30）:
-  - one-sided / clash / mass_individual の `END_MATCH` / `WIN` / `LOSE` をスキルダメージ判定より前に移動。
-  - one-sided / clash / mass_individual の荊棘処理を `END_MATCH` / `WIN` / `LOSE` 後、スキルダメージ判定前に統一。
+  - one-sided / clash / mass_individual / mass_summation の `END_MATCH` / `WIN` / `LOSE` をスキルダメージ判定より前に移動。
+  - one-sided / clash / mass_individual / mass_summation の荊棘処理を `END_MATCH` / `WIN` / `LOSE` 後、スキルダメージ判定前に統一。
   - `AFTER_DAMAGE_APPLY` の `base_damage` に実 HP 反映ダメージを渡すよう整理。
   - 亀裂と荊棘重絡の代表ケースを `tests/test_select_resolve_timing_normalization.py` に追加。
+  - `mass_summation` では攻撃側スキルを1回、参加防御側スキルを参加者ごとに評価する方針を実装。
+  - `mass_summation` の差分ダメージへ亀裂を反映し、`AFTER_DAMAGE_APPLY` へ実 HP 反映ダメージを渡すよう整理。
   - 現行キャッシュの `END_MATCH` 棚卸しを実施。`data/cache/*.json` には対象なし。
   - 実装済みマニュアル `B01` / `B03` / `C01` へタイミング定義を反映。
   - `RESOLVE_STEP_END` / `RESOLVE_END` の既存テストを確認済み（`tests/test_select_resolve_smoke.py::test_case17_select_resolve_phase_timings_are_invoked`）。
   - `THORNS` / `SKILL_DAMAGE_CALC` は公開 JSON timing にせず、内部順序名として扱う方針を確定。
   - 引き分け時は攻防双方の `END_MATCH` のみを発火し、`WIN` / `LOSE` は発火しない方針を実装。
 - 残タスク:
-  - 広域合算（`mass_summation`）で `END_MATCH` / `WIN` / `LOSE` の対象単位を決める。
-  - `mass_summation` の集団合算差分ダメージに、亀裂・荊棘・`AFTER_DAMAGE_APPLY` をどこまで単一マッチ標準順へ寄せるか決める。
   - 同時攻撃・相互命中の正式扱いを決める。
 
 - 同時攻撃や相互命中のようなケースで `WIN` / `LOSE` をどう扱うか。

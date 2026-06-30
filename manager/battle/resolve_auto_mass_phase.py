@@ -1,3 +1,7 @@
+from manager.constants import DamageSource, THORNS_DAMAGE_CATS
+from manager.battle.skill_rules import _resolve_skill_category
+
+
 def _sync_from_core():
     from manager.battle import core as core_mod
     g = globals()
@@ -55,8 +59,15 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 defender_char = characters_by_id.get(actor_id)
                 if not isinstance(defender_char, dict):
                     continue
+                try:
+                    fissure = int(get_status_value(defender_char, '亀裂') or 0)
+                except Exception:
+                    fissure = 0
+                total_damage = max(0, delta_int + fissure)
+                if total_damage <= 0:
+                    continue
                 before_hp = int(defender_char.get('hp', 0))
-                after_hp = max(0, before_hp - delta_int)
+                after_hp = max(0, before_hp - total_damage)
                 if after_hp == before_hp:
                     continue
                 defender_char['hp'] = after_hp
@@ -64,9 +75,59 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 damage_events.append({
                     'target_id': actor_id,
                     'hp': int(before_hp - after_hp),
-                    'damage_type': '合計ダメージ'
+                    'damage_type': '合計ダメージ',
+                    'base_delta': delta_int,
+                    'fissure': fissure,
                 })
             return damage_events
+
+        def _mass_target_char(actor_ids):
+            for actor_id in actor_ids or []:
+                char = characters_by_id.get(actor_id)
+                if isinstance(char, dict):
+                    return char
+            return None
+
+        def _trigger_mass_summation_timing(timing, actor_char, target_char, skill_data, target_skill_data=None, base_damage=0):
+            if not isinstance(actor_char, dict) or not isinstance(skill_data, dict):
+                return
+            _trigger_skill_timing_effects(
+                room=room,
+                state=state,
+                characters_by_id=characters_by_id,
+                timing=timing,
+                actor_char=actor_char,
+                target_char=target_char,
+                skill_data=skill_data,
+                target_skill_data=target_skill_data,
+                base_damage=int(base_damage or 0),
+                emit_source='mass_summation_timing'
+            )
+
+        def _apply_mass_summation_thorns(actor_char, skill_data):
+            if not isinstance(actor_char, dict):
+                return
+            thorn_val = int(get_status_value(actor_char, "荊棘") or 0)
+            if thorn_val <= 0:
+                return
+
+            category = _resolve_skill_category(skill_data)
+            if category in THORNS_DAMAGE_CATS:
+                current_hp = int(actor_char.get('hp', 0) or 0)
+                _update_char_stat(
+                    room,
+                    actor_char,
+                    "HP",
+                    max(0, current_hp - thorn_val),
+                    username="[荊棘自傷]",
+                    source=DamageSource.THORNS,
+                )
+
+            entangle_val = int(get_status_value(actor_char, "荊棘重絡") or 0)
+            if entangle_val > 0:
+                _update_char_stat(room, actor_char, "荊棘重絡", entangle_val - 1, username="[荊棘重絡消費]")
+            else:
+                _update_char_stat(room, actor_char, "荊棘", 0, username="[荊棘消滅]")
 
         # Resolve every mass slot first, then hand over to single-phase resolution.
         for slot_id in battle_state['resolve'].get('mass_queue', []):
@@ -208,43 +269,165 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
 
                 attacker_power = _roll_power_for_slot(battle_state, slot_id)
                 defender_powers = {}
+                participant_entries = []
                 for p_slot in participant_slots:
                     participant_actor_id = slots.get(p_slot, {}).get('actor_id')
                     participant_char = characters_by_id.get(participant_actor_id)
                     participant_skill_id = (intents.get(p_slot, {}) or {}).get('skill_id')
+                    participant_skill_data = all_skill_data.get(participant_skill_id, {}) if participant_skill_id else {}
                     _record_used_skill_for_actor(participant_char, participant_skill_id)
                     defender_powers[p_slot] = _roll_power_for_slot(battle_state, p_slot)
+                    if isinstance(participant_char, dict):
+                        participant_entries.append({
+                            'slot_id': p_slot,
+                            'actor_id': participant_actor_id,
+                            'char': participant_char,
+                            'skill_id': participant_skill_id,
+                            'skill_data': participant_skill_data,
+                        })
                 defender_sum = sum(defender_powers.values())
                 outcome = _compare_outcome(attacker_power, defender_sum)
                 delta = abs(int(attacker_power) - int(defender_sum))
                 attacker_name = _resolve_actor_name(characters_by_id, attacker_actor_id)
                 skill_name = _resolve_skill_name(attacker_skill_id, attacker_skill_data)
                 defender_actor_ids = _enemy_actor_ids_for_team(attacker_team)
+                primary_defender_char = _mass_target_char(defender_actor_ids)
+                primary_participant = participant_entries[0] if participant_entries else None
+                primary_participant_char = primary_participant.get('char') if isinstance(primary_participant, dict) else None
+                primary_participant_skill = primary_participant.get('skill_data') if isinstance(primary_participant, dict) else None
                 logger.info(
                     "[resolve_mass] type=広域-合算 slot=%s 参加人数=%d attacker_power=%s defender_sum=%s outcome=%s 総和差分=%s",
                     slot_id, len(participant_slots), attacker_power, defender_sum, outcome, delta
                 )
+
+                if outcome == 'attacker_win':
+                    _trigger_mass_summation_timing(
+                        'END_MATCH',
+                        attacker_char,
+                        primary_defender_char,
+                        attacker_skill_data,
+                        target_skill_data=primary_participant_skill,
+                        base_damage=delta,
+                    )
+                    for entry in participant_entries:
+                        _trigger_mass_summation_timing(
+                            'END_MATCH',
+                            entry.get('char'),
+                            attacker_char,
+                            entry.get('skill_data'),
+                            target_skill_data=attacker_skill_data,
+                            base_damage=delta,
+                        )
+                    _trigger_mass_summation_timing(
+                        'WIN',
+                        attacker_char,
+                        primary_defender_char,
+                        attacker_skill_data,
+                        target_skill_data=primary_participant_skill,
+                        base_damage=delta,
+                    )
+                    for entry in participant_entries:
+                        _trigger_mass_summation_timing(
+                            'LOSE',
+                            entry.get('char'),
+                            attacker_char,
+                            entry.get('skill_data'),
+                            target_skill_data=attacker_skill_data,
+                            base_damage=delta,
+                        )
+                elif outcome == 'defender_win':
+                    _trigger_mass_summation_timing(
+                        'END_MATCH',
+                        attacker_char,
+                        primary_participant_char,
+                        attacker_skill_data,
+                        target_skill_data=primary_participant_skill,
+                        base_damage=delta,
+                    )
+                    for entry in participant_entries:
+                        _trigger_mass_summation_timing(
+                            'END_MATCH',
+                            entry.get('char'),
+                            attacker_char,
+                            entry.get('skill_data'),
+                            target_skill_data=attacker_skill_data,
+                            base_damage=delta,
+                        )
+                    for entry in participant_entries:
+                        _trigger_mass_summation_timing(
+                            'WIN',
+                            entry.get('char'),
+                            attacker_char,
+                            entry.get('skill_data'),
+                            target_skill_data=attacker_skill_data,
+                            base_damage=delta,
+                        )
+                    _trigger_mass_summation_timing(
+                        'LOSE',
+                        attacker_char,
+                        primary_participant_char,
+                        attacker_skill_data,
+                        target_skill_data=primary_participant_skill,
+                        base_damage=delta,
+                    )
+                else:
+                    _trigger_mass_summation_timing(
+                        'END_MATCH',
+                        attacker_char,
+                        primary_participant_char,
+                        attacker_skill_data,
+                        target_skill_data=primary_participant_skill,
+                        base_damage=0,
+                    )
+                    for entry in participant_entries:
+                        _trigger_mass_summation_timing(
+                            'END_MATCH',
+                            entry.get('char'),
+                            attacker_char,
+                            entry.get('skill_data'),
+                            target_skill_data=attacker_skill_data,
+                            base_damage=0,
+                        )
+
+                _apply_mass_summation_thorns(attacker_char, attacker_skill_data)
+                for entry in participant_entries:
+                    _apply_mass_summation_thorns(entry.get('char'), entry.get('skill_data'))
 
                 damage_events = []
                 if outcome == 'attacker_win' and delta > 0:
                     damage_events = _apply_mass_summation_delta_damage(defender_actor_ids, delta)
                 elif outcome == 'defender_win' and delta > 0:
                     damage_events = _apply_mass_summation_delta_damage([attacker_actor_id], delta)
-                target_for_timing = None
-                if damage_events:
-                    target_for_timing = characters_by_id.get(damage_events[0].get('target_id'))
-                _trigger_skill_timing_effects(
-                    room=room,
-                    state=state,
-                    characters_by_id=characters_by_id,
-                    timing='AFTER_DAMAGE_APPLY',
-                    actor_char=attacker_char,
-                    target_char=target_for_timing,
-                    skill_data=attacker_skill_data,
-                    target_skill_data=None,
-                    base_damage=int(delta or 0),
-                    emit_source='after_damage_apply'
-                )
+                if outcome == 'attacker_win':
+                    for evt in damage_events:
+                        target_for_timing = characters_by_id.get(evt.get('target_id'))
+                        _trigger_skill_timing_effects(
+                            room=room,
+                            state=state,
+                            characters_by_id=characters_by_id,
+                            timing='AFTER_DAMAGE_APPLY',
+                            actor_char=attacker_char,
+                            target_char=target_for_timing,
+                            skill_data=attacker_skill_data,
+                            target_skill_data=primary_participant_skill,
+                            base_damage=int(evt.get('hp') or 0),
+                            emit_source='after_damage_apply'
+                        )
+                elif outcome == 'defender_win':
+                    actual_damage = int((damage_events[0] if damage_events else {}).get('hp') or 0)
+                    for entry in participant_entries:
+                        _trigger_skill_timing_effects(
+                            room=room,
+                            state=state,
+                            characters_by_id=characters_by_id,
+                            timing='AFTER_DAMAGE_APPLY',
+                            actor_char=entry.get('char'),
+                            target_char=attacker_char,
+                            skill_data=entry.get('skill_data'),
+                            target_skill_data=attacker_skill_data,
+                            base_damage=actual_damage,
+                            emit_source='after_damage_apply'
+                        )
 
                 if outcome == 'attacker_win':
                     winner_message = '攻撃側の勝利'
@@ -450,5 +633,3 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
         if payload:
             _log_battle_emit('battle_state_updated', room, battle_id, payload)
             socketio.emit('battle_state_updated', payload, to=room)
-
-

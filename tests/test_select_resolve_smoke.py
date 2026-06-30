@@ -906,6 +906,109 @@ def test_case15_mass_summation_defender_win_deals_delta_to_attacker(monkeypatch)
     assert trace[0]["outcome"] == "defender_win"
 
 
+def test_case15b_mass_summation_end_match_fissure_affects_primary_target(monkeypatch):
+    _, battle_core = _mods()
+    actors = [_make_actor("A1", "ally"), _make_actor("B1", "enemy"), _make_actor("B2", "enemy")]
+    state = _base_state(actors)
+    _add_slot(state, "S", "A1", "ally", 10, 0)
+    _add_slot(state, "B1", "B1", "enemy", 7, 0)
+    _add_slot(state, "B2", "B2", "enemy", 6, 0)
+    _set_intent(state, "S", "A1", "m_sum", "mass_summation", None, mass_type="mass_summation")
+    _set_intent(state, "B1", "B1", "d1", "single_slot", "S")
+    _set_intent(state, "B2", "B2", "d2", "single_slot", "S")
+    state["battle_state"]["phase"] = "resolve_mass"
+
+    _patch_room_and_socket(monkeypatch, state)
+    monkeypatch.setattr(battle_core, "_update_char_stat", _stub_update_char_stat)
+    monkeypatch.setattr(
+        battle_core,
+        "_roll_power_for_slot",
+        lambda _bs, sid: {"S": 30, "B1": 10, "B2": 15}.get(sid, 0),
+    )
+    old_catalog = dict(battle_core.all_skill_data)
+    battle_core.all_skill_data["m_sum"] = {
+        "id": "m_sum",
+        "category": "物理",
+        "rule_data": {
+            "effects": [
+                {"timing": "END_MATCH", "type": "APPLY_STATE", "target": "target", "state_name": "亀裂", "value": 3},
+            ]
+        },
+    }
+    battle_core.all_skill_data["d1"] = {"id": "d1", "category": "防御", "rule_data": {"effects": []}}
+    battle_core.all_skill_data["d2"] = {"id": "d2", "category": "防御", "rule_data": {"effects": []}}
+
+    try:
+        battle_core.run_select_resolve_auto("room_t", "battle_test")
+    finally:
+        battle_core.all_skill_data.clear()
+        battle_core.all_skill_data.update(old_catalog)
+
+    chars = {c["id"]: c for c in state["characters"]}
+    assert chars["A1"]["hp"] == 100
+    assert chars["B1"]["hp"] == 92
+    assert chars["B2"]["hp"] == 95
+    assert _state_value(chars["B1"], "亀裂") == 3
+
+    trace = [t for t in state["battle_state"]["resolve"]["trace"] if t["kind"] == "mass_summation"]
+    assert trace
+    damage_events = trace[0]["damage_events"]
+    assert {e["target_id"]: e["hp"] for e in damage_events} == {"B1": 8, "B2": 5}
+
+
+def test_case15c_mass_summation_defender_win_fires_participant_win_and_attacker_lose(monkeypatch):
+    _, battle_core = _mods()
+    actors = [_make_actor("A1", "ally"), _make_actor("B1", "enemy"), _make_actor("B2", "enemy")]
+    state = _base_state(actors)
+    _add_slot(state, "S", "A1", "ally", 10, 0)
+    _add_slot(state, "B1", "B1", "enemy", 7, 0)
+    _add_slot(state, "B2", "B2", "enemy", 6, 0)
+    _set_intent(state, "S", "A1", "m_sum", "mass_summation", None, mass_type="mass_summation")
+    _set_intent(state, "B1", "B1", "d1", "single_slot", "S")
+    _set_intent(state, "B2", "B2", "d2", "single_slot", "S")
+    state["battle_state"]["phase"] = "resolve_mass"
+
+    _patch_room_and_socket(monkeypatch, state)
+    monkeypatch.setattr(battle_core, "_update_char_stat", _stub_update_char_stat)
+    monkeypatch.setattr(
+        battle_core,
+        "_roll_power_for_slot",
+        lambda _bs, sid: {"S": 12, "B1": 10, "B2": 15}.get(sid, 0),
+    )
+    old_catalog = dict(battle_core.all_skill_data)
+    battle_core.all_skill_data["m_sum"] = {
+        "id": "m_sum",
+        "category": "物理",
+        "rule_data": {
+            "effects": [
+                {"timing": "LOSE", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 5},
+            ]
+        },
+    }
+    for sid in ["d1", "d2"]:
+        battle_core.all_skill_data[sid] = {
+            "id": sid,
+            "category": "防御",
+            "rule_data": {
+                "effects": [
+                    {"timing": "WIN", "type": "APPLY_STATE", "target": "self", "state_name": "FP", "value": 1},
+                ]
+            },
+        }
+
+    try:
+        battle_core.run_select_resolve_auto("room_t", "battle_test")
+    finally:
+        battle_core.all_skill_data.clear()
+        battle_core.all_skill_data.update(old_catalog)
+
+    chars = {c["id"]: c for c in state["characters"]}
+    assert chars["A1"]["hp"] == 87
+    assert _state_value(chars["A1"], "FP") == 5
+    assert _state_value(chars["B1"], "FP") == 1
+    assert _state_value(chars["B2"], "FP") == 1
+
+
 def test_case16_infer_mass_summation_from_japanese_distance_key():
     battle_routes = _load_battle_common_routes_module()
     battle_routes.all_skill_data.clear()

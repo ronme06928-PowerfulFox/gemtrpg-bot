@@ -33,7 +33,6 @@ from manager.logs import setup_logger
 logger = setup_logger(__name__)
 
 _room_save_specific_room_state = save_specific_room_state
-
 def save_specific_room_state(room_name):
     try:
         return _room_save_specific_room_state(room_name)
@@ -47,7 +46,6 @@ def _safe_emit(event_name, payload, **kwargs):
         try:
             emit_fn(event_name, payload, **kwargs)
         except Exception:
-
             return
 
 get_effective_origin_id = getattr(_utils_mod, 'get_effective_origin_id', lambda *_args, **_kwargs: 0)
@@ -56,7 +54,6 @@ compute_origin_skill_modifiers = getattr(_utils_mod, 'compute_origin_skill_modif
 apply_dice_power_bonus_to_command = getattr(_utils_mod, 'apply_dice_power_bonus_to_command', lambda command, *_args, **_kwargs: command)
 
 execution_lock = Lock()
-
 def _extract_skill_tags(skill_data):
     if not isinstance(skill_data, dict):
         return []

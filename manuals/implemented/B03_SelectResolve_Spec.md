@@ -153,7 +153,7 @@ RoundStart は次の順序で処理する。
 ## 9.1 解決タイミングフック（2026-02 追加）
 Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSED/END_MATCH/END_ROUND`）に加えて以下を扱う。`END_MATCH` は名称を維持し、マッチ結果確定直後、`WIN` / `LOSE` とスキルダメージ判定の前に実行する共通タイミングとして扱う。
 
-この結果タイミング標準順は `one_sided` / `clash` / `mass_individual` のように単一の攻防マッチへ分解できる処理に適用する。`mass_summation` は複数防御側の合算結果を1つの差分ダメージとして扱うため、`WIN` / `LOSE` の対象単位を別途定義するまで集団合算固有処理として扱う。
+この結果タイミング標準順は `one_sided` / `clash` / `mass_individual` に適用する。`mass_summation` は複数防御側の合算結果を1つの差分ダメージとして扱うが、攻撃側スキルは1回、参加防御側スキルは参加者ごとに1回として `END_MATCH` / `WIN` / `LOSE` を評価する。
 
 - `RESOLVE_START`: 戦闘開始時（解決フェーズ開始直後、ネタバレ防止制御の起点）
 - `BEFORE_POWER_ROLL`: 威力レンジ表示後、実威力ロール直前
@@ -185,6 +185,12 @@ Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSE
 - 防御値 D は参加スロットの合計値（`D = sum`）。
 - 解決は `A vs D`。
 - ダメージは `delta = |A-D|`。`attacker_win` なら敵陣営全員へ `delta`、`defender_win` なら攻撃者へ `delta`、`draw` は0。
+- 結果タイミングは `END_MATCH` → `WIN` → `LOSE` → 荊棘処理 → 亀裂参照 → HP反映 → `AFTER_DAMAGE_APPLY` の順で扱う。
+- `attacker_win` では攻撃側スキルの `WIN` を1回、参加防御側スキルの `LOSE` を参加者ごとに実行する。
+- `defender_win` では参加防御側スキルの `WIN` を参加者ごとに、攻撃側スキルの `LOSE` を1回実行する。
+- `draw` では攻撃側と参加防御側の `END_MATCH` のみを実行し、`WIN` / `LOSE` は実行しない。
+- `attacker_win` 時の攻撃側 `END_MATCH` / `WIN` / `AFTER_DAMAGE_APPLY` は代表対象（実ダメージ対象の先頭）に対して実行する。参加防御側の効果は攻撃者を対象に実行する。
+- 亀裂は `delta` に加算する。`END_MATCH` / `WIN` / `LOSE` で代表対象または攻撃者へ付与された亀裂は、同じ `mass_summation` の差分ダメージに反映される。
 
 ### 10.3 mass種別の推論（後方互換）
 - `mass_type` 未指定でも、スキルの `tags` / `distance` / `距離` / `target_type` などから自動推論する。
