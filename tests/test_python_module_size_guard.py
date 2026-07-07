@@ -4,10 +4,8 @@ from pathlib import Path
 MAX_LINES = 1500
 
 # Temporary legacy ceilings: large files can exist for now, but must not grow.
-# NOTE: process_skill_effects (~1160 lines) dominates this file; splitting is a
-# separate task. This ceiling pins the current size so it cannot grow further.
+# game_logic.py は計画書29の分割（effect_handlers/）で 1500 行制限内に戻したため削除済み。
 LEGACY_FILE_CEILINGS = {
-    "manager/game_logic.py": 1561,
     # utils.py は既存の巨大モジュール。Bu-50 荊棘重絡ハンドラ追加で 1510 に。分割は別タスク。
     "manager/utils.py": 1510,
     # common_routes.py は Plan 27 Phase C の room 認証追加で超過。分割は別タスク。
