@@ -12,11 +12,11 @@ from manager.room_access import is_sid_in_room, ensure_join_membership_by_name, 
 
 # --- 5.2. SocketIO イベントハンドラ ---
 @socketio.on('connect')
-def handle_connect():
+def handle_connect(auth=None):
     # connect では有効な認証 session を要求する。未認証接続は拒否する
     # （False を返すと接続が確立されない）。
     if 'username' not in session or not session.get('user_id'):
-        print(f"⚠️ Rejecting unauthenticated socket connection: {request.sid}")
+        print(f"[Rejected] Unauthenticated socket connection: {request.sid}")
         return False
     print(f"[OK] Authenticated client connected: {session['username']} (SID: {request.sid})")
     return None
@@ -131,7 +131,7 @@ def handle_request_select_resolve_sync(data):
 def handle_update_user_info(data):
     sid = request.sid
     if 'username' not in session:
-        print(f"⚠️ Unknown SID (or unauthenticated session) tried to update user info: {sid}")
+        print(f"[Rejected] Unknown SID (or unauthenticated session) tried to update user info: {sid}")
         return
 
     new_username = data.get('username')
