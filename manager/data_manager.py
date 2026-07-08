@@ -341,6 +341,26 @@ def update_all_data():
         print(f"❌ スキルデータ更新エラー: {e}\n")
         success = False
 
+    # 1.5. スキルデータ lint（計画書31 Phase 4: fail-closed）
+    # 特記処理(JSON rule v2)のスキーマ・参照整合エラーがあれば --update 全体を失敗させる。
+    # スキル取得自体が失敗している場合はここでの検査に意味がないためスキップする。
+    if success:
+        print("【lint】スキルカタログの整合性を検査中...")
+        try:
+            from scripts.skill_catalog_tool import lint_catalog, load_skills
+            lint_errors = lint_catalog(load_skills())
+            if lint_errors:
+                print(f"❌ スキルカタログ lint で {len(lint_errors)} 件のエラーが見つかりました:")
+                for err in lint_errors:
+                    print(f"   [{err['skill_id']}] {err['path']}: {err['error']}")
+                print("   Google Sheets 側のスキル定義を修正し、再度 --update を実行してください。\n")
+                success = False
+            else:
+                print("✅ スキルカタログ lint: エラーなし\n")
+        except Exception as e:
+            print(f"❌ スキルカタログ lint 実行エラー: {e}\n")
+            success = False
+
     # 2. アイテムデータ更新
     print("【2/7】アイテムデータを更新中...")
     try:
