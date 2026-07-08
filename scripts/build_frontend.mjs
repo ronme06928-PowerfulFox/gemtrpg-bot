@@ -33,6 +33,8 @@ const INDEX_HTML = path.join(STATIC, 'index.html');
 const CLASSIC_SCRIPTS = [
   'js/buff_data.js',
   'js/common/glossary_ui.js',
+  'js/common/log_core.js',
+  'js/common/char_json.js',
   'js/sound_fx.js',
   'js/legacy_globals.js',
   'js/action_dock.js',
@@ -49,7 +51,6 @@ const CLASSIC_SCRIPTS = [
   'js/visual/visual_main.js',
   'js/tab_visual_battle.js',
   'js/wide_match_synced.js',
-  'js/tab_battlefield.js',
   'js/tab_skill_search.js',
   'js/modals.js',
   'js/modals/behavior_flow_editor_modal.js',

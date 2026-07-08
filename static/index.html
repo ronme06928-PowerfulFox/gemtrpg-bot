@@ -93,11 +93,6 @@
             </div>
         </header>
 
-        <div class="tab-container" style="display:none;"> <!-- タブは非表示だが構造は維持 -->
-            <button class="tab-button" data-tab="tab-battlefield">テキストバトルフィールド</button>
-            <button class="tab-button" data-tab="visual">ビジュアルバトルフィールド</button>
-        </div>
-
         <div id="main-content">
         </div>
 
@@ -106,7 +101,7 @@
     <!-- JavaScript: esbuild でバンドル済み (ソースは static/js/、ビルドは `npm run build`) -->
     <!-- app.bundle.js = クラシックスクリプト連結 / battle.bundle.js = battle/index.js のモジュールツリー -->
     <!-- ?v= はビルド時にコンテンツハッシュへ自動置換される -->
-    <script defer src="dist/app.bundle.js?v=ecce07e6b6c2"></script>
+    <script defer src="dist/app.bundle.js?v=77de26d13827"></script>
     <script type="module" src="dist/battle.bundle.js?v=495547d5c00a"></script>
 </body>
 

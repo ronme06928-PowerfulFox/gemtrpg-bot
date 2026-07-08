@@ -1066,25 +1066,6 @@ function initializeSocketIO() {
             if (expViewport) expViewport.style.display = 'none';
         }
 
-        // バトルフィールドタブが開いている場合のみ再描画
-        if (document.getElementById('battlefield-grid')) {
-            renderTokenList();
-
-            // Battle Mode Only Logic
-            if (mode === 'battle') {
-                // === ▼▼▼ 修正点 (フェーズ4c) ▼▼▼ ===
-                // (ドロップダウンのキャラクターリストを更新するために、この呼び出しは必須)
-                // (★ window.xxx を使って、グローバル関数を安全に参照する)
-                if (window.setupActionColumn) {
-                    window.attackerCol = setupActionColumn('attacker');
-                    window.defenderCol = setupActionColumn('defender');
-                }
-                // === ▲▲▲ 修正ここまで ▲▲▲ ===
-
-                renderTimeline();
-            }
-        }
-
         // Trigger Dock Update
         if (typeof updateActionDock === 'function') {
             updateActionDock();
@@ -1180,9 +1161,8 @@ async function loadTabContent(tabId) {
     let partialHtmlFile = '';
 
     // HTMLの data-tab 属性と一致させる
-    if (tabId === 'tab-battlefield') {
-        partialHtmlFile = '3_battlefield.html';
-    } else if (tabId === 'visual') {
+    // 旧テキスト戦闘タブ（tab-battlefield / 3_battlefield.html）は計画書32で廃止済み。
+    if (tabId === 'visual') {
         partialHtmlFile = '4_visual_battle.html';
         // Flag reset is done AFTER innerHTML is set (see below)
     } else {
@@ -1211,11 +1191,7 @@ async function loadTabContent(tabId) {
         }
 
         // === 各タブの初期化処理 ===
-        if (tabId === 'tab-battlefield') {
-            setupBattlefieldTab();
-            renderTokenList();
-            renderTimeline();
-        } else if (tabId === 'visual' || tabId === 'tab-visual') {
+        if (tabId === 'visual' || tabId === 'tab-visual') {
             // Reset DOM initialization flag AFTER HTML is loaded (DOM elements are now new)
             window.actionDockInitialized = false;
             // Debug log removed for production

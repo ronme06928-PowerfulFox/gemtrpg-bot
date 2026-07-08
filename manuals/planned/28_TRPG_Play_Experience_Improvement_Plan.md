@@ -48,7 +48,7 @@
 | 増援機能 | `planned/16_Reinforcement_Feature_Separate_Plan.md` |
 | キャラ駒の枠画像デザイン | `planned/24_TokenFrame_Image_Design_Plan.md` |
 | アイテム在庫不足の回帰テスト・GM操作ログ見える化 | `planned/04_TRPG_Session_Improvement_Feasibility_Plan.md` 残課題 |
-| 戦闘UI一本化（G16の死にコード削除を含む） | `planned/32_Battle_UI_Unification_Plan.md`（本書 Phase 5 の JS 死にコード分は32へ移管。ルート直下の残骸ファイル整理のみ本書に残る） |
+| 戦闘UI一本化（G16のJS死にコード削除分） | **実装完了・削除済み**（旧計画32。正本は `E01_Visual_Battle_Architecture.md` 追補）。本書 Phase 5 にはルート直下の残骸ファイル整理のみ残る |
 
 ※ 旧 `planned/03_New_Skill_Ideas_Feasibility_Plan.md`（行動阻害系・わるあがき・共通判定層）は2026-07-07の棚卸しで中核の実装完了を確認し削除。仕様は `B01_Skill_Logic_Core.md` §13 / `B02_Skill_Logic_Extensions.md`（SYS-STRUGGLE） / `C01_JSON_Definition_Master.md` §6・§10 が正本。
 

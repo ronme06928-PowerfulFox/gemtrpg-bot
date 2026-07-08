@@ -1,6 +1,6 @@
 # 00 残タスク一覧（planned/ ダイジェスト）
 
-**作成日**: 2026-07-07（最終更新: 2026-07-08 — 計画30/31/32/33/34を追加。31・33は実装完了・削除済み。未計画項目ゼロ）
+**作成日**: 2026-07-07（最終更新: 2026-07-08 — 計画30/31/32/33/34を追加。31・32・33は実装完了・削除済み。未計画項目ゼロ）
 **位置づけ**: `manuals/planned/` 配下の各計画書に散っている未完了タスクを1本にまとめた索引。
 使用量が厳しい時などに、個別ファイルを開かずここだけ見て次の一手を判断するためのもの。
 **このファイルは要約であり正本ではない。** 実装時は必ず該当する個別計画書（04/12/13/16/24/28）を読むこと。
@@ -44,7 +44,7 @@
 | 24 | キャラ駒の枠画像デザイン | 未着手（画像待ち） | 設計確定済み。PNG画像の用意が最初のボトルネック |
 | 30 | バランス検証シミュレータ | 中 | 実エンジンで低/中/高ロールの撃破ターンを自動検証。§7の一問一答が未実施 |
 | 31 | ~~スキルデータlint・相場自動集計~~ | — | **実装完了・計画書削除済み**。正本は `C01_JSON_Definition_Master.md` §12 |
-| 32 | 戦闘UI一本化（旧テキスト戦闘の廃止） | 中 | 移設2群（ログ入口/キャラJSON読込）が要注意。§7未実施。28のG16死にコード分を吸収 |
+| 32 | ~~戦闘UI一本化（旧テキスト戦闘の廃止）~~ | — | **実装完了・計画書削除済み**。正本は `E01_Visual_Battle_Architecture.md` 追補 |
 | 33 | ~~`manager/utils.py` 分割~~ | — | **実装完了・計画書削除済み**。正本は `B01_Skill_Logic_Core.md` 追補 |
 | 34 | `events/battle/common_routes.py` 分割 | 低〜中 | リダイレクト系(約180行)をphase_flow型で抽出。intentハンドラ本体は隔離ロードテスト契約により移動不可 |
 
@@ -114,13 +114,20 @@ UI・戦闘中投入処理・マイグレーション・E2Eは明示的に未実
 実装中に手動集計の見落とし2件（取得0帯の欠落／状態異常表へのFP・MP・HP混入）と、
 WIN timingのAPPLY_STATEを誤検知していたstate_value判定の設計欠陥を発見・修正した。
 
-### 32_Battle_UI_Unification_Plan.md（戦闘UI一本化）
+### ~~32_Battle_UI_Unification_Plan.md~~ → 実装完了・削除済み（正本: `E01_Visual_Battle_Architecture.md` 追補）
 
-旧テキスト戦闘（3_battlefield.html＋tab_battlefield.js）を廃止。**ビジュアル画面が
-旧ファイルに依存するのは2群のみ**（ログ入口 `logToBattleLog`＝visual_socketがwrapするので
-ロード順注意／キャラJSON読込 `parseCharacterJsonToCharacterData`）。これを移設すれば
-残りは削除可能。死にファイル3点＋no-opイベント（request_wide_match）の掃除も含む。
-`tab_skill_search.js` の去就は28 P2-3の決定に従う。
+旧テキスト戦闘（3_battlefield.html＋tab_battlefield.js）を廃止。共有2群（ログ入口
+`logToBattleLog`／キャラJSON読込`parseCharacterJsonToCharacterData`）を
+`static/js/common/log_core.js`・`char_json.js`へ移設し、旧タブ本体・死にファイル3点
+（wide_match_functions.js/wide_match_dock.js/DomUtils_backup.js）・no-opイベント
+（`request_wide_match`とその唯一の呼び出し元`openVisualWideMatchModal`）を削除。
+バンドルサイズ818.1KB→766.9KB（約51KB削減）。
+
+Phase 4実装時に当初の想定を修正: `declare_skill`サーバハンドラは`tests/test_match_integraton.py`
+が直接呼び出す実テストが存在すると判明し、「テスト無修正で全通過」を優先して**削除しなかった**
+（フロント視点では死にコードだが、サーバー単体としては検証済みの契約）。
+`request_declare_wide_skill_users`はテスト・呼び出し元ともにゼロを確認し決定どおり削除。
+`tab_skill_search.js`は28の議論に委ね現状維持。全643テスト無修正で通過、preview実機確認済み。
 
 ### ~~33_Utils_Module_Split_Plan.md~~ → 実装完了・削除済み（正本: `B01_Skill_Logic_Core.md` 追補）
 
@@ -149,7 +156,7 @@ wide宣言ハンドラ削除分だけ楽になる。33・34完了で LEGACY_FILE
 ## 次に着手するなら
 
 1. **すぐ実装できる（設計議論不要〜最小）**: 13（気合い）、24（画像用意後）
-2. **§7の一問一答から始める**: 28（プレイ体験改善）、30（シミュレータ）、32（UI一本化）、34（common_routes分割）
+2. **§7の一問一答から始める**: 28（プレイ体験改善）、30（シミュレータ）、34（common_routes分割）
 3. **戦闘メモリ設計が要る**: 12（逆襲）
-4. **費用対効果順の私見**: 32 → 34（32の後が楽）→ 30
-5. **実施順の依存**: 32 → 34 の順が有利（wide宣言ハンドラ削除分だけ34が軽くなる）
+4. **費用対効果順の私見**: 34（32完了により軽くなった）→ 30
+5. 32は実装完了済み。34のリダイレクト系抽出対象は32で削除された分だけ相対的に軽くなっている。

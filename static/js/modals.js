@@ -208,7 +208,6 @@ function closeCharacterModal() {
     const modal = document.getElementById('char-modal-backdrop');
     if (modal) {
         modal.remove();
-        renderTokenList();
     }
 }
 

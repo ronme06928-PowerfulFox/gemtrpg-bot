@@ -25,7 +25,7 @@ from manager.battle.system_skills import ensure_system_skills_registered
 from manager.battle.common_manager import (
     process_full_round_end, reset_battle_logic, force_end_match_logic,
     move_token_logic, open_match_modal_logic, close_match_modal_logic,
-    sync_match_data_logic, process_round_start, process_wide_declarations,
+    sync_match_data_logic, process_round_start,
     process_wide_modal_confirm, update_battle_background_logic,
     get_or_create_select_resolve_state, build_select_resolve_state_payload,
     process_select_resolve_round_start
@@ -130,16 +130,6 @@ def on_request_new_round(data):
         return
 
     process_round_start(room, username)
-
-@socketio.on('request_declare_wide_skill_users')
-def on_request_declare_wide_skill_users(data):
-    room = data.get('room')
-    if not room: return
-    if not _require_in_room(room): return
-    wide_user_ids = data.get('wideUserIds', [])
-
-    # Needs process_wide_declarations in common_manager.py
-    process_wide_declarations(room, wide_user_ids)
 
 @socketio.on('request_wide_modal_confirm')
 def on_request_wide_modal_confirm(data):
