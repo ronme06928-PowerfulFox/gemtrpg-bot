@@ -1,6 +1,6 @@
 # 00 残タスク一覧（planned/ ダイジェスト）
 
-**作成日**: 2026-07-07
+**作成日**: 2026-07-07（最終更新: 2026-07-08 — 計画30/31/32/33/34を追加。31は実装完了・削除済み。未計画項目ゼロ）
 **位置づけ**: `manuals/planned/` 配下の各計画書に散っている未完了タスクを1本にまとめた索引。
 使用量が厳しい時などに、個別ファイルを開かずここだけ見て次の一手を判断するためのもの。
 **このファイルは要約であり正本ではない。** 実装時は必ず該当する個別計画書（04/12/13/16/24/28）を読むこと。
@@ -13,10 +13,9 @@
 - `manager/game_logic.py` の分割（旧計画29）は**実装完了**。`process_skill_effects` は
   `manager/battle/effect_handlers/` へ分割済み（正本: `B01_Skill_Logic_Core.md` 追補）。
 - `tests/test_python_module_size_guard.py` の `LEGACY_FILE_CEILINGS` に残る行数超過ファイルは2つ:
-  - `manager/utils.py`（1510行）
-  - `events/battle/common_routes.py`（1540行）
-  → いずれも**計画書化されていない**。着手時は game_logic 分割と同じ方式
-  （ファサード化＋機能別ハンドラ、テスト無修正で検証）を踏襲し、新規計画書を1本立てる。
+  - `manager/utils.py`（1510行）→ **計画書33** で計画済み
+  - `events/battle/common_routes.py`（1531行）→ **計画書34** で計画済み
+  → 33・34を完了すれば例外リストが空になる。
 
 ---
 
@@ -41,8 +40,11 @@
 | 13 | 気合い（次攻撃1回2.5倍） | 未着手 | 基盤はあるが専用バフ`Bu-Charge`が未実装 |
 | 16 | 増援機能 | 未着手 | データ構造のみ設計済み。UI・投入処理は全て未実装 |
 | 24 | キャラ駒の枠画像デザイン | 未着手（画像待ち） | 設計確定済み。PNG画像の用意が最初のボトルネック |
-| — | `manager/utils.py` 分割 | 未計画 | 新規計画書が必要 |
-| — | `events/battle/common_routes.py` 分割 | 未計画 | 新規計画書が必要 |
+| 30 | バランス検証シミュレータ | 中 | 実エンジンで低/中/高ロールの撃破ターンを自動検証。§7の一問一答が未実施 |
+| 31 | ~~スキルデータlint・相場自動集計~~ | — | **実装完了・計画書削除済み**。正本は `C01_JSON_Definition_Master.md` §12 |
+| 32 | 戦闘UI一本化（旧テキスト戦闘の廃止） | 中 | 移設2群（ログ入口/キャラJSON読込）が要注意。§7未実施。28のG16死にコード分を吸収 |
+| 33 | `manager/utils.py` 分割 | 低〜中 | apply_buff(約370行)を移すだけで達成。出身系はmonkeypatch依存のため触らない |
+| 34 | `events/battle/common_routes.py` 分割 | 低〜中 | リダイレクト系(約180行)をphase_flow型で抽出。intentハンドラ本体は隔離ロードテスト契約により移動不可 |
 
 ---
 
@@ -88,6 +90,51 @@ HPを減らす**全経路**（core/duel_solver/wide_solver/skill_effects/追撃/
 UI・戦闘中投入処理・マイグレーション・E2Eは明示的に未実装。
 後続フェーズ: データ構造→敵編成UI→ステージUI→ラウンド開始時投入処理→ログ/E2E の5段階。
 
+### 30_Battle_Balance_Simulator_Plan.md（バランス検証シミュレータ）
+
+実戦闘エンジン（Select/Resolve）をFlaskなしのpytestハーネスで回し、低/中/高ロール別の
+決着ラウンド・詰み・勝敗を自動集計する。ヘッドレス駆動は既存smoke testで実証済み、
+敵AIは自動化済みで**味方AIの薄いラッパと roll_dice 差し替えが主な新規実装**。
+乱数は roll_dice 系と random 直呼び（AI選択）の2系統がある点に注意。
+
+### ~~31_Skill_Data_Lint_Market_Rate_Plan.md~~ → 実装完了・削除済み（正本: `C01_JSON_Definition_Master.md` §12）
+
+`scripts/skill_catalog_tool.py` に `lint` / `build-market-rate` サブコマンドを実装。Phase 1〜4すべて完了:
+- `lint`: strict正規化＋skill_constraints参照整合（ERROR、現行133件で0件）に加え、
+  確定基準からの相場逸脱（WARN: power_stage/cost/state_value/acquire_cost/action_economy）を検出。
+- `build-market-rate`: F02の`<!-- BEGIN/END:market-rate -->`マーカー区間を自動再集計・上書き
+  （キャッシュmtime由来の日付で冪等）。
+- `manager/data_manager.py::update_all_data()` にfail-closedフック接続済み
+  （lint ERRORがあれば`--update`自体を失敗させる）。
+- `.github/workflows/skill-smoke.yml` に lint と `build-market-rate --check` を追加済み。
+- 回帰テスト4ファイル（lint/warn/market_rate/data_manager_lint_hook、計21ケース）。
+
+実装中に手動集計の見落とし2件（取得0帯の欠落／状態異常表へのFP・MP・HP混入）と、
+WIN timingのAPPLY_STATEを誤検知していたstate_value判定の設計欠陥を発見・修正した。
+
+### 32_Battle_UI_Unification_Plan.md（戦闘UI一本化）
+
+旧テキスト戦闘（3_battlefield.html＋tab_battlefield.js）を廃止。**ビジュアル画面が
+旧ファイルに依存するのは2群のみ**（ログ入口 `logToBattleLog`＝visual_socketがwrapするので
+ロード順注意／キャラJSON読込 `parseCharacterJsonToCharacterData`）。これを移設すれば
+残りは削除可能。死にファイル3点＋no-opイベント（request_wide_match）の掃除も含む。
+`tab_skill_search.js` の去就は28 P2-3の決定に従う。
+
+### 33_Utils_Module_Split_Plan.md（manager/utils.py 分割）
+
+超過はわずか11行。**`apply_buff`（405-774行、buff_id別分岐の塊）を `manager/buff_apply.py` へ
+移すだけで達成**できる。29方式のファサード再exportが使えるが、**出身系グループは
+`test_origin_bonuses.py` が utils モジュール属性を monkeypatch する契約があるため触らない**
+（触るなら関数注入設計が必要）。循環回避は「新モジュール側から utils を遅延import」が推奨。
+
+### 34_Common_Routes_Split_Plan.md（events/battle/common_routes.py 分割）
+
+1531行→目標1400前後。**intentハンドラ9本は importlib 隔離ロードテスト
+（test_intent_authorization_routes.py 等）の契約により物理移動不可**。パッケージ内で確立済みの
+phase_flow型（ctx注入＋薄いラッパを common_routes に残す）で、リダイレクト系実体（852-1031、
+約180行）を `redirect_flow.py` へ抽出するのが第1手。32（UI一本化）を先にやると
+wide宣言ハンドラ削除分だけ楽になる。33・34完了で LEGACY_FILE_CEILINGS が空になる。
+
 ### 24_TokenFrame_Image_Design_Plan.md（キャラ駒枠画像）
 
 設計確定済み（JS/CSS実装方針・座標仕様・生成AIプロンプト例まで記載済み）。
@@ -98,7 +145,8 @@ UI・戦闘中投入処理・マイグレーション・E2Eは明示的に未実
 
 ## 次に着手するなら
 
-1. **すぐ実装できる（設計議論不要）**: 13（気合い）、24（画像用意後）
-2. **§7の一問一答から始める**: 28（プレイ体験改善、優先度が最も高い一連のタスク）
+1. **すぐ実装できる（設計議論不要〜最小）**: 13（気合い）、24（画像用意後）、**31（§7決定済み・最優先で着手可能）**、33（未決定2点のみ）
+2. **§7の一問一答から始める**: 28（プレイ体験改善）、30（シミュレータ）、32（UI一本化）、34（common_routes分割）
 3. **戦闘メモリ設計が要る**: 12（逆襲）
-4. **新規計画書が必要**: utils.py / common_routes.py の分割
+4. **費用対効果順の私見**: 31（決定済み・小さく効く）→ 33（最小工数で例外1減）→ 32 → 34（32の後が楽）→ 30
+5. **実施順の依存**: 32 → 34 の順が有利（wide宣言ハンドラ削除分だけ34が軽くなる）
