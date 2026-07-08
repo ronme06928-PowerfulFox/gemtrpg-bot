@@ -1,6 +1,6 @@
 # 00 残タスク一覧（planned/ ダイジェスト）
 
-**作成日**: 2026-07-07（最終更新: 2026-07-08 — 計画30/31/32/33/34を追加。31は実装完了・削除済み。未計画項目ゼロ）
+**作成日**: 2026-07-07（最終更新: 2026-07-08 — 計画30/31/32/33/34を追加。31・33は実装完了・削除済み。未計画項目ゼロ）
 **位置づけ**: `manuals/planned/` 配下の各計画書に散っている未完了タスクを1本にまとめた索引。
 使用量が厳しい時などに、個別ファイルを開かずここだけ見て次の一手を判断するためのもの。
 **このファイルは要約であり正本ではない。** 実装時は必ず該当する個別計画書（04/12/13/16/24/28）を読むこと。
@@ -12,10 +12,12 @@
 
 - `manager/game_logic.py` の分割（旧計画29）は**実装完了**。`process_skill_effects` は
   `manager/battle/effect_handlers/` へ分割済み（正本: `B01_Skill_Logic_Core.md` 追補）。
-- `tests/test_python_module_size_guard.py` の `LEGACY_FILE_CEILINGS` に残る行数超過ファイルは2つ:
-  - `manager/utils.py`（1510行）→ **計画書33** で計画済み
+- `manager/utils.py` の分割（計画書33）も**実装完了**。`apply_buff` は
+  `manager/buff_apply.py` へ分割済み（正本: `B01_Skill_Logic_Core.md` 追補）。utils.py は
+  1510→1105行、`LEGACY_FILE_CEILINGS` から削除済み。
+- `tests/test_python_module_size_guard.py` の `LEGACY_FILE_CEILINGS` に残る行数超過ファイルは1つ:
   - `events/battle/common_routes.py`（1531行）→ **計画書34** で計画済み
-  → 33・34を完了すれば例外リストが空になる。
+  → 34を完了すれば例外リストが空になる。
 
 ---
 
@@ -43,7 +45,7 @@
 | 30 | バランス検証シミュレータ | 中 | 実エンジンで低/中/高ロールの撃破ターンを自動検証。§7の一問一答が未実施 |
 | 31 | ~~スキルデータlint・相場自動集計~~ | — | **実装完了・計画書削除済み**。正本は `C01_JSON_Definition_Master.md` §12 |
 | 32 | 戦闘UI一本化（旧テキスト戦闘の廃止） | 中 | 移設2群（ログ入口/キャラJSON読込）が要注意。§7未実施。28のG16死にコード分を吸収 |
-| 33 | `manager/utils.py` 分割 | 低〜中 | apply_buff(約370行)を移すだけで達成。出身系はmonkeypatch依存のため触らない |
+| 33 | ~~`manager/utils.py` 分割~~ | — | **実装完了・計画書削除済み**。正本は `B01_Skill_Logic_Core.md` 追補 |
 | 34 | `events/battle/common_routes.py` 分割 | 低〜中 | リダイレクト系(約180行)をphase_flow型で抽出。intentハンドラ本体は隔離ロードテスト契約により移動不可 |
 
 ---
@@ -120,12 +122,13 @@ WIN timingのAPPLY_STATEを誤検知していたstate_value判定の設計欠陥
 残りは削除可能。死にファイル3点＋no-opイベント（request_wide_match）の掃除も含む。
 `tab_skill_search.js` の去就は28 P2-3の決定に従う。
 
-### 33_Utils_Module_Split_Plan.md（manager/utils.py 分割）
+### ~~33_Utils_Module_Split_Plan.md~~ → 実装完了・削除済み（正本: `B01_Skill_Logic_Core.md` 追補）
 
-超過はわずか11行。**`apply_buff`（405-774行、buff_id別分岐の塊）を `manager/buff_apply.py` へ
-移すだけで達成**できる。29方式のファサード再exportが使えるが、**出身系グループは
-`test_origin_bonuses.py` が utils モジュール属性を monkeypatch する契約があるため触らない**
-（触るなら関数注入設計が必要）。循環回避は「新モジュール側から utils を遅延import」が推奨。
+`apply_buff`（約370行、buff_id別分岐の塊）と付随ヘルパ3つを `manager/buff_apply.py` へ移設。
+utils.pyは1510→1105行、`LEGACY_FILE_CEILINGS`から削除済み。循環回避はbuff_apply側から
+manager.utilsを遅延importする方式（既存流儀と一致）。出身系グループ（`test_origin_bonuses.py`
+がmonkeypatch依存）はスコープ外として明確に確認済み、Phase 2（スタック資源移設）も
+目的達成に不要と判断し実施しなかった。全既存テスト無修正で通過（643 passed, 2 skipped）。
 
 ### 34_Common_Routes_Split_Plan.md（events/battle/common_routes.py 分割）
 
@@ -145,8 +148,8 @@ wide宣言ハンドラ削除分だけ楽になる。33・34完了で LEGACY_FILE
 
 ## 次に着手するなら
 
-1. **すぐ実装できる（設計議論不要〜最小）**: 13（気合い）、24（画像用意後）、**31（§7決定済み・最優先で着手可能）**、33（未決定2点のみ）
+1. **すぐ実装できる（設計議論不要〜最小）**: 13（気合い）、24（画像用意後）
 2. **§7の一問一答から始める**: 28（プレイ体験改善）、30（シミュレータ）、32（UI一本化）、34（common_routes分割）
 3. **戦闘メモリ設計が要る**: 12（逆襲）
-4. **費用対効果順の私見**: 31（決定済み・小さく効く）→ 33（最小工数で例外1減）→ 32 → 34（32の後が楽）→ 30
+4. **費用対効果順の私見**: 32 → 34（32の後が楽）→ 30
 5. **実施順の依存**: 32 → 34 の順が有利（wide宣言ハンドラ削除分だけ34が軽くなる）

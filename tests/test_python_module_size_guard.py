@@ -5,10 +5,9 @@ MAX_LINES = 1500
 
 # Temporary legacy ceilings: large files can exist for now, but must not grow.
 # game_logic.py は計画書29の分割（effect_handlers/）で 1500 行制限内に戻したため削除済み。
+# utils.py は計画書33の分割（apply_buff を manager/buff_apply.py へ）で 1500 行制限内に戻したため削除済み。
 LEGACY_FILE_CEILINGS = {
-    # utils.py は既存の巨大モジュール。Bu-50 荊棘重絡ハンドラ追加で 1510 に。分割は別タスク。
-    "manager/utils.py": 1510,
-    # common_routes.py は Plan 27 Phase C の room 認証追加で超過。分割は別タスク。
+    # common_routes.py は Plan 27 Phase C の room 認証追加で超過。分割は別タスク（計画書34）。
     "events/battle/common_routes.py": 1540,
 }
 

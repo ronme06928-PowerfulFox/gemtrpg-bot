@@ -824,3 +824,37 @@ manager/battle/effect_handlers/
 - 分岐挙動の変更点は1件のみ: `APPLY_BUFF` の `'buff_data' in locals()` 参照
   （ループ前イテレーションからの変数リーク経由で別バフのカタログ情報を引き得た潜在バグ）を、
   「その effect 自身の `buff_id` 解決結果のみ使用」に固定した（`buff_effects.py` 参照）。
+
+---
+
+## 2026-07 追補: apply_buff の実装構成（manager/buff_apply.py 分割）
+
+計画書33（2026-07-08 実装完了・削除済み）により、`manager/utils.py` の `apply_buff`
+（buff_id別の特殊分岐を持つ単一関数、約370行）を `manager/buff_apply.py` へ分割した。
+**公開API・分岐挙動・ログは分割前と同一**（全既存テスト無修正で通過）。
+
+### 構成
+
+- `manager/buff_apply.py`: `apply_buff` 本体、および `apply_buff` 内でのみ使用される
+  ヘルパー3つ（`_resolve_fissure_original_rounds` / `_resolve_fissure_add_amount` /
+  `_resolve_stack_count`）を保持する。
+- `manager/utils.py`: `from manager.buff_apply import apply_buff` で re-export するのみ
+  （`from manager.utils import apply_buff` 等、既存の呼び出しは全て無改変で動く）。
+
+### 循環import回避
+
+`buff_apply.py` は `manager.utils` をトップレベル import しない
+（`utils.py` が読み込み時に `buff_apply.py` を import するため、逆方向の
+トップレベル import は循環になる）。`normalize_buff_name` / `get_status_value` /
+`set_status_value` / `_resolve_buff_count_from_row` / スタック資源関連の定数
+（`STACK_RESOURCE_BUFF_NAMES` 等）は `apply_buff` 関数内で遅延 import する。
+`_safe_int` は `manager.utils._safe_int`（複数モジュールで共有される汎用ヘルパー）へ
+委譲する薄いラッパーとして `buff_apply.py` 内に置く。
+
+### 規約・スコープ外事項
+
+- 出身国ボーナス関連（`compute_origin_skill_modifiers` / `build_origin_hit_changes` 等）は
+  **分割対象外**。`tests/test_origin_bonuses.py` が `manager.utils` モジュール属性への
+  `monkeypatch.setattr` に依存しており、別モジュールへ移すとパッチが波及せずテストが壊れる
+  （解消するには計画書29と同様の関数注入設計が必要）。将来分割する場合は別計画として起票する。
+- 新しいバフ付与の特殊分岐（buff_id別）を追加する場合は `manager/buff_apply.py` に直接追加する。
