@@ -322,6 +322,9 @@ def on_request_update_battle_background(data):
     update_battle_background_logic(room, image_url, scale, offset_x, offset_y, username, attribute)
 
 # NOTE: PvE/PvP モード切り替え
+# 既存バグ修正（計画書34調査中に発見、2026-07-08）: @socketio.on が欠落しており、
+# フロント（visual_ui.js）からの request_switch_battle_mode が常にサーバー側で無反応だった。
+@socketio.on('request_switch_battle_mode')
 def on_request_switch_battle_mode(data):
     room = data.get('room')
     mode = data.get('mode') # 'pvp' or 'pve'
@@ -339,6 +342,9 @@ def on_request_switch_battle_mode(data):
     process_switch_battle_mode(room, mode, username)
 
 # NOTE: AIスキル提案
+# 既存バグ修正（計画書34調査中に発見、2026-07-08）: @socketio.on が欠落しており、
+# フロント（visual_panel.js）からの request_ai_suggest_skill が常にサーバー側で無反応だった。
+@socketio.on('request_ai_suggest_skill')
 def on_request_ai_suggest_skill(data):
     room = data.get('room')
     char_id = data.get('charId')
