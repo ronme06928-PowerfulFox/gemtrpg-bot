@@ -493,3 +493,33 @@ battle_error:
 - 右列表示時は `.declare-panel--sidebar` を適用し、表示高さは右列上端（R開始/R終了ボタン帯）から下端までを使用する。
 - 表示幅は従来より拡張し、実装上の目安は `clamp(520px, calc(100% * 1.5), 760px)` とする。
 - 本追補は表示領域のUX改善であり、`battle_intent_preview` / `battle_intent_commit` を含む Select/Resolve のイベント仕様には変更を加えない。
+
+---
+
+## 2026-07 追補: redirect（§6・§7）の実装構成（events/battle/redirect_flow.py 分割）
+
+計画書34（2026-07-08 実装完了・削除済み）により、`events/battle/common_routes.py` にあった
+redirect（§6）・no_redirect（§7）の実体ロジックを `events/battle/redirect_flow.py` へ分割した。
+**ルール・挙動・resolve trace のログ形式は分割前と同一**（全既存テスト無修正で通過）。
+
+### 構成
+
+- `events/battle/redirect_flow.py`: `clear_redirect_state` / `append_redirect_record` /
+  `cancel_redirect_by_no_redirect` / `try_apply_redirect` / `recalculate_redirect_state` の実体。
+  `events/battle/phase_flow.py` 等と同じ「サブモジュールは common_routes を import しない・
+  依存は関数注入で受け取る」方針を踏襲する。
+- `common_routes.py` 側は `_cancel_redirect_by_no_redirect` / `_try_apply_redirect` /
+  `_recalculate_redirect_state` の3関数を**シグネチャそのまま**の薄いラッパーとして残す
+  （`ensure_intent_for_slot_fn` / `infer_target_scope_fn` / `server_ts_fn` を注入して
+  `redirect_flow` へ委譲するだけ）。`clear_redirect_state` / `append_redirect_record` は
+  redirect_flow.py 内でのみ使う内部関数のため、common_routes.py 側のラッパーは置かない。
+
+### ラッパーを残した理由（テスト契約）
+
+- `tests/test_select_resolve_smoke.py` が `common_routes._try_apply_redirect(...)` /
+  `_recalculate_redirect_state(...)` / `_cancel_redirect_by_no_redirect(...)` を
+  **直接呼び出す**ため、3関数は common_routes 側に元のシグネチャのまま存在する必要がある。
+- `tests/test_intent_authorization_routes.py`（importlib 隔離ロード）が
+  `_recalculate_redirect_state` を monkeypatch するため、当該名は common_routes の
+  モジュール属性として残す必要がある（ラッパー自体を丸ごと差し替えられれば足りるため、
+  ラッパーの中身が redirect_flow への委譲であることは monkeypatch と無矛盾）。
