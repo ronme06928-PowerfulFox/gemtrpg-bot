@@ -506,7 +506,7 @@ python scripts/skill_catalog_tool.py build-market-rate --check # 差分があれ
 ### 12.3 相場自動集計（build-market-rate）
 
 - F02内の `<!-- BEGIN:market-rate -->` 〜 `<!-- END:market-rate -->` マーカー区間を、`data/cache/skills_cache.json` からの集計で機械的に差し替える。F02の「スキルバランス調整基準（確定版）」（A群）は対象外で人手管理のまま。
-- 集計時点の日付は **`skills_cache.json` のファイル更新日時（mtime）** から取得する。データが変わらない限り再実行しても出力が変わらない（冪等）。
+- 生成本文にはファイル更新日時（mtime）など環境依存の値を含めない。GitHub Actions の checkout 後でも、キャッシュ内容が変わらない限り再実行しても出力が変わらない（冪等）。
 - キャッシュ更新（`app.py --update`）を行った際は本コマンドを再実行し、F02の相場表を最新化すること。
 
 ### 12.4 --update との連携（fail-closed、ERRORのみ）

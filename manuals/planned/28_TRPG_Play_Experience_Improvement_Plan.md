@@ -1,6 +1,7 @@
 # 28 TRPGプレイ体験改善計画（アプリ全体スキャン起点）
 
 **作成日**: 2026-07-07
+**最終更新**: 2026-07-08（現行コード再調査を反映。サーバーダイス実装済み、旧テキスト戦闘/未使用JS削除済み、モジュール分割完了を反映）
 **位置づけ**: アプリ全体（バックエンド・フロントエンド・マニュアル/既存計画）をスキャンし、「アプリとしてよりよくTRPGを遊べるようにする」観点で改善候補を整理した計画書。本書は議論前のたたき台であり、`manuals/planning_process.md` の一問一答方式で優先度・方式を確定してから実装に入る。
 
 ---
@@ -18,17 +19,19 @@
 ### 現状の強み
 - Select/Resolve フェーズ制のビジュアル戦闘、PvE敵AI（行動チャート）、戦闘専用モードのプリセットv2、探索モード、GMバフ/アイテム操作、アカウント/ルーム権限システムが実装済み（`manuals/implemented/` A〜F 系統参照）。
 - プリセット・敵編成・戦績はJSONエクスポート/インポート可能。
+- チャットダイス（`/roll` `/sroll`）は現行コードではサーバー側 `events/socket_main.py::handle_chat` から `manager/dice_roller.py::roll_dice` を呼んで処理される。旧計画の「クライアント `Math.random` による改竄可能性」は解消済みと判断する。
+- 旧テキスト戦闘（`tab_battlefield.js`）と旧wide match系の未使用JSは計画32で削除済み。現行フロントの主要確認対象は `static/js/visual/`、`static/js/battle/`、`static/4_visual_battle.html`、`scripts/build_frontend.mjs`。
 
 ### 発見した主なギャップ（根拠付き）
 | # | ギャップ | 根拠 |
 |---|---|---|
-| G1 | セッションログは最新500件で切り捨て、エクスポート導線なし | `manager/room_manager.py:481`（`state['logs'][-500:]`）、フロントも `MAX_LOG_ITEMS = 200`（`static/js/tab_battlefield.js:169`） |
-| G2 | チャットダイス（`/roll` `/sroll`）はクライアントの `Math.random` で計算 | `static/js/tab_battlefield.js:310-337` — 改竄可能でサーバー権威性がない |
+| G1 | セッションログはメモリ/DB上で最新500件に切り捨て、エクスポート導線なし。フロント表示も直近件数に制限される | `manager/room_manager.py` の `state['logs'][-500:]`、`static/js/visual/visual_globals.js` の `VISUAL_MAX_LOG_ITEMS = 100` |
+| G2 | サーバーダイスは実装済みだが、仕様書への反映と回帰テスト観点が薄い | `events/socket_main.py::handle_chat`、`manager/dice_roller.py::roll_dice` |
 | G3 | DB保存はデバウンス2秒＋失敗時リトライなし | `manager/room_manager.py:315,348-352` — クラッシュ時に直近操作が消失しうる |
 | G4 | 戦闘操作のundoが皆無（全リセット/強制終了のみ） | `events/battle/common_routes.py:207,225` |
 | G5 | イニシアチブは速度から自動算出のみ、GMの手動並べ替え不可 | `manager/battle/select_resolve_state.py:324-333` |
 | G6 | 手番・宣言待ちの通知手段がダイスSEのみ（タブ非アクティブ時に気づけない） | `static/js/sound_fx.js`、`Notification` API 未使用 |
-| G7 | キーボードショートカットがほぼ皆無（ダイアログEsc/Enter、チャットEnterのみ） | `static/js/main.js:156-159`、`static/js/tab_battlefield.js:1298-1300` |
+| G7 | キーボードショートカットが限定的（ダイアログEsc/Enter、チャットEnter中心） | `static/js/main.js`、`static/js/visual/visual_ui.js` のチャットEnter処理 |
 | G8 | ダークモード非対応（`prefers-color-scheme` 指定ゼロ） | `static/css/` 全体 |
 | G9 | スキル横断検索が死にコード化（定義のみで未呼び出し） | `static/js/tab_skill_search.js:2` |
 | G10 | ログのフリーワード検索がない（all/chat/system フィルタのみ） | ログ履歴モーダル（`static/js/` ログUI） |
@@ -37,7 +40,7 @@
 | G13 | 1ルーム＝1戦闘固定（`battle_id = f"battle_{room}"` 決め打ち） | `manager/battle/common_manager.py:556,747,1131` ほか |
 | G14 | シナリオ/キャンペーン管理・ハンドアウト機能なし | scenario/campaign 系のコードなし |
 | G15 | BGM/効果音の同期配信なし | bgm/audio 系のサーバーコードなし |
-| G16 | 死にコード・開発残骸の混在 | `static/js/wide_match_functions.js` / `wide_match_dock.js` / `battle/utils/DomUtils_backup.js`、ルート直下 `battle_state.json` / `saved_rooms.json` / `error.log`、`manager/temp_logic_draft.py` |
+| G16 | ルート直下/一部ディレクトリに開発残骸が残る | `error.log`、`test_results.txt`、`temp_animation.css`、`manager/temp_logic_draft.py` |
 
 ## 3. 既存計画との住み分け（本書で扱わないもの）
 
@@ -48,7 +51,7 @@
 | 増援機能 | `planned/16_Reinforcement_Feature_Separate_Plan.md` |
 | キャラ駒の枠画像デザイン | `planned/24_TokenFrame_Image_Design_Plan.md` |
 | アイテム在庫不足の回帰テスト・GM操作ログ見える化 | `planned/04_TRPG_Session_Improvement_Feasibility_Plan.md` 残課題 |
-| 戦闘UI一本化（G16のJS死にコード削除分） | **実装完了・削除済み**（旧計画32。正本は `E01_Visual_Battle_Architecture.md` 追補）。本書 Phase 5 にはルート直下の残骸ファイル整理のみ残る |
+| 戦闘UI一本化（旧テキスト戦闘/旧wide match系JS削除） | **実装完了・削除済み**（旧計画32。正本は `E01_Visual_Battle_Architecture.md` 追補）。本書 Phase 5 にはルート直下の残骸ファイル整理のみ残る |
 
 ※ 旧 `planned/03_New_Skill_Ideas_Feasibility_Plan.md`（行動阻害系・わるあがき・共通判定層）は2026-07-07の棚卸しで中核の実装完了を確認し削除。仕様は `B01_Skill_Logic_Core.md` §13 / `B02_Skill_Logic_Extensions.md`（SYS-STRUGGLE） / `C01_JSON_Definition_Master.md` §6・§10 が正本。
 
@@ -63,10 +66,11 @@
 - **効果**: セッション後の「ログ整形・リプレイ公開」というTRPG文化圏の基本ニーズに応える。500件切り捨て問題の実害も緩和（切り捨て前に手動保存できる）。
 - **影響範囲**: `manager/room_manager.py`（ログ取得）、`events/socket_main.py` or `routes/`（エクスポート導線）、ログ履歴モーダルJS。
 
-#### P0-2 サーバーサイドダイスロール（G2）
-- **提案**: `request_chat` の `/roll` `/sroll` をサーバー側 `manager/dice_roller.py` で振る。フロントは式の送信と結果表示に専念。表示フォーマット（`式 = (出目) = 合計`）は現行踏襲。
-- **効果**: 出目の改竄を防ぎ、ダイスボットとしての公平性を担保する。TRPGツールとして最も基本的な信頼性。
-- **影響範囲**: `events/socket_main.py`（request_chat）、`static/js/tab_battlefield.js:310-337`（ローカル計算の除去）。`sroll`（シークレット）の宛先制御はサーバー側で行うことで真に秘匿になる副次効果あり。
+#### P0-2 サーバーダイスの仕様反映・回帰テスト（G2）
+- **現状**: `/roll` `/sroll` のサーバー処理自体は実装済み。`events/socket_main.py::handle_chat` がコマンドを判定し、`manager/dice_roller.py::roll_dice` で出目を生成する。
+- **提案**: (a) `/roll` と `/sroll` のサーバー生成・秘匿送信・投稿者名サーバー確定の回帰テストを追加する。(b) 実装済み仕様を `manuals/implemented/` の該当系統へ反映し、本計画からは実装タスクとして外す。
+- **効果**: 旧クライアント計算前提への逆戻りを防ぎ、ダイスボットとしての信頼性をテストで固定する。
+- **影響範囲**: `events/socket_main.py`、`manager/dice_roller.py`、チャット/ログ系テスト、実装済み仕様書。
 
 #### P0-3 保存信頼性の強化（G3）
 - **提案**: (a) デバウンス保存失敗時の再スケジュール（1回リトライ＋失敗ログ）。(b) ラウンド終了・戦闘終了・モード切替など節目イベントでの即時フラッシュ。
@@ -117,33 +121,36 @@
 
 ### 併記 — 技術的負債の整理（プレイ体験を間接支援）（G16）
 
-- 未使用JSの削除: `static/js/wide_match_functions.js`、`static/js/wide_match_dock.js`、`static/js/battle/utils/DomUtils_backup.js`。
-- ルート直下の開発残骸の整理: `battle_state.json`、`saved_rooms.json`、`error.log`、`manager/temp_logic_draft.py`、`temp_animation.css`、`test_results.txt`。
-- `manager/game_logic.py` の巨大関数分割は計画書29として **2026-07-07 に実装完了**（`manager/battle/effect_handlers/` へ分割、B01 追補参照）。残る行数超過ファイルは `manager/utils.py` と `events/battle/common_routes.py` の2件（別計画）。
+- 旧テキスト戦闘/旧wide match系の未使用JS削除は計画32で完了済み。本書では再実施しない。
+- ルート直下/一部ディレクトリの開発残骸の整理: `error.log`、`test_results.txt`、`temp_animation.css`、`manager/temp_logic_draft.py`。
+- `manager/game_logic.py` の巨大関数分割は計画書29として **2026-07-07 に実装完了**（`manager/battle/effect_handlers/` へ分割、B01 追補参照）。
+- `manager/utils.py` 分割（計画33）と `events/battle/common_routes.py` 分割（計画34）も実装完了。`tests/test_python_module_size_guard.py` の `LEGACY_FILE_CEILINGS` は空で、モジュールサイズ例外はゼロ。
 
 ## 5. 実装段階（Phase 分割案）
 
 | Phase | 内容 | 依存 |
 |---|---|---|
-| Phase 1 | P0-2 サーバーダイス → P0-3 保存信頼性 → P0-1 ログエクスポート/検索 | なし（相互独立、この順を推奨） |
+| Phase 1 | P0-3 保存信頼性 → ログ長期保全方式の決定 → P0-1 ログエクスポート/検索 | ログ長期保全方式は §7 の一問一答で先に確定 |
+| Phase 1.5 | P0-2 サーバーダイスの回帰テスト・仕様反映 | 実装済み挙動の固定。単独PR可 |
 | Phase 2 | P1-1 通知 ＋ P2-1 ショートカット（どちらもフロント完結） | なし |
 | Phase 3 | P1-2 イニシアチブ手動調整 → P1-3 限定undo | P1-3 は §7 の方式決定が前提 |
 | Phase 4 | P2-2 ダークモード、P2-3 検索復活、P2-4 aria | なし |
-| Phase 5 | 負債整理（未使用JS削除・残骸整理） | 単独PRで随時可 |
+| Phase 5 | 負債整理（残骸ファイル整理のみ） | 単独PRで随時可。旧JS削除は実施済み |
 | （別計画） | P3 の各テーマ | 着手判断後に個別計画書を新規作成 |
 
 ## 6. 推奨PR分割
 
-1. サーバーサイドダイス（events/socket_main.py + フロント除去 + テスト）
-2. 保存リトライ＋節目フラッシュ（room_manager.py + テスト）
-3. ログエクスポートAPI＋ログ検索UI
-4. 手番通知（フロントのみ）
-5. キーボードショートカット（フロントのみ）
-6. イニシアチブ手動調整（サーバー＋Timeline UI）
-7. 限定undo（方式決定後）
-8. ダークモード（CSS変数化を先行PRに分けてもよい）
-9. スキル検索の復活 or 削除
-10. 死にコード・残骸整理
+1. 保存リトライ＋節目フラッシュ（room_manager.py + テスト）
+2. ログ長期保全方式の決定反映（必要ならDB/状態構造変更）＋ログエクスポートAPI
+3. ログ検索UI
+4. サーバーダイスの回帰テスト＋実装済み仕様書反映
+5. 手番通知（フロントのみ）
+6. キーボードショートカット（フロントのみ）
+7. イニシアチブ手動調整（サーバー＋Timeline UI）
+8. 限定undo（方式決定後）
+9. ダークモード（CSS変数化を先行PRに分けてもよい）
+10. スキル検索の復活 or 削除
+11. 残骸ファイル整理
 
 ※ 各PRで JS/CSS を触る場合は `npm run build` 必須（AGENTS.md）。
 
@@ -151,9 +158,9 @@
 
 | 論点 | 選択肢 | 備考 |
 |---|---|---|
-| ログの長期保全方式 | (1) エクスポートのみで対応（500件維持） / (2) 切り捨て前に別テーブルへアーカイブ / (3) 上限引き上げ | (2)はDBスキーマ追加・Render容量に影響。まず(1)で様子見が低リスク |
+| ログの長期保全方式 | (1) エクスポートのみで対応（500件維持） / (2) 切り捨て前に別テーブルへアーカイブ / (3) 上限引き上げ | (1)は実装が軽いが、切り捨て後の過去ログ喪失は防げない。長期保全を目的にするなら(2)または(3)を検討 |
 | undo の範囲 | (1) ステータス変更の逆操作のみ / (2) ラウンド開始時スナップショット復元も追加 | (2)は召喚・バフ・戦闘メモリの整合が難しい |
-| サーバーダイス移行時の互換 | 旧クライアント表示の互換維持が必要か | ログフォーマットを踏襲すれば互換問題は小さい見込み |
+| サーバーダイスの仕様固定 | 現行表示フォーマットと秘匿送信仕様をどの仕様書に移管するか | 実装は済み。未決なのは正本化とテスト範囲 |
 | スキル検索 | 復活 or 削除 | 復活なら図鑑UIとの統合も検討 |
 | ダークモードの実装粒度 | 全画面一括 / 主要画面から段階導入 | CSS変数化の作業量に依存 |
 | P3 テーマの着手要否 | 観戦ロール・並行戦闘・シナリオ管理・BGM・VTT拡張 | 利用実態（プレイ人数・セッション形態）を踏まえて判断 |
@@ -169,7 +176,8 @@
 
 ## 9. 受け入れ条件
 
-- **Phase 1**: `/roll` の出目がサーバー生成であること（クライアント改竄不能）。保存失敗時にリトライログが出ること。GMがログをファイル保存でき、ログ履歴モーダルで文字列検索できること。
+- **Phase 1**: 保存失敗時にリトライログが出ること。決定したログ長期保全方式に沿って、GMが必要なログを失わずファイル保存できること。ログ履歴モーダルで文字列検索できること。
+- **Phase 1.5**: `/roll` `/sroll` の出目がサーバー生成であること、`sroll` が秘匿扱いになること、投稿者名がサーバー側在室情報から確定することを回帰テストで固定し、実装済み仕様書へ反映すること。
 - **Phase 2**: タブ非アクティブ中に自分の宣言待ちになるとタイトル点滅（＋許可時は通知）が出ること。主要操作がキーボードで完結すること（入力欄フォーカス中は発火しない）。
 - **Phase 3**: GMがタイムラインの順序を変更でき、変更が全参加者に同期されること。ステータス誤操作を全リセットなしで1手戻せること。
 - **Phase 4**: ダークモード切替で主要画面のコントラストが確保されること。スキル検索の方針（復活/削除）が実装に反映されバンドルが整合すること。

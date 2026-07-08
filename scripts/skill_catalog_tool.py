@@ -24,7 +24,6 @@ import json
 import re
 import sys
 from collections import Counter
-from datetime import date, datetime
 from pathlib import Path
 from statistics import mean
 
@@ -475,7 +474,7 @@ def build_catalog_composition_section(skills):
         "「取得3以上はビルドの質を変える希少枠」という確定基準が実データでも守られている。"
         "新スキルもこの分布を崩さないこと（取得2を乱発しない）。"
     )
-    return f"### 現行カタログの構成（{{date}} 時点）\n\n{table}\n\n{prose}"
+    return f"### 現行カタログの構成\n\n{table}\n\n{prose}"
 
 
 def build_power_stats_section(skills):
@@ -644,29 +643,22 @@ def build_effect_type_notes_section(skills):
     return f"### 効果タイプ別の注意（実装済み構造の使用実績）\n\n{body}"
 
 
-def build_market_rate_markdown(skills, *, as_of):
+def build_market_rate_markdown(skills):
     total = len(skills)
     header = (
         f"*本セクションは `scripts/skill_catalog_tool.py build-market-rate` により自動生成される"
-        f"（{as_of} 時点・全{total}件、`data/cache/skills_cache.json` 集計）。"
+        f"（全{total}件、`data/cache/skills_cache.json` 集計）。"
         "手動で編集しないこと。数値基準の正本は引き続き上記「スキルバランス調整基準」（確定版）。*"
     )
     sections = [
         header,
-        build_catalog_composition_section(skills).format(date=as_of),
+        build_catalog_composition_section(skills),
         build_power_stats_section(skills),
         build_timing_section(skills),
         build_state_apply_section(skills),
         build_effect_type_notes_section(skills),
     ]
     return "\n\n".join(sections)
-
-
-def _cache_as_of_date(cache_file: Path = SKILLS_CACHE_FILE):
-    try:
-        return date.fromtimestamp(cache_file.stat().st_mtime).isoformat()
-    except OSError:
-        return datetime.now().date().isoformat()
 
 
 def _splice_market_rate_section(doc_text, new_body):
@@ -683,8 +675,7 @@ def _splice_market_rate_section(doc_text, new_body):
 
 def cmd_build_market_rate(args):
     skills = load_skills()
-    as_of = _cache_as_of_date()
-    new_body = build_market_rate_markdown(skills, as_of=as_of)
+    new_body = build_market_rate_markdown(skills)
 
     current_text = F02_PATH.read_text(encoding="utf-8")
     new_text = _splice_market_rate_section(current_text, new_body)
@@ -699,7 +690,7 @@ def cmd_build_market_rate(args):
         return 1
 
     F02_PATH.write_text(new_text, encoding="utf-8")
-    print(f"OK: F02 の相場表を更新しました（{as_of} 時点・全{len(skills)}件）。")
+    print(f"OK: F02 の相場表を更新しました（全{len(skills)}件）。")
     return 0
 
 
