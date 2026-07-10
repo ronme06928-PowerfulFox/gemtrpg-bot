@@ -232,6 +232,9 @@ def handle_add_debug_character(data):
     """ (★新規★) GM専用のデバッグキャラクターを追加する """
     room = data.get('room')
     char_type = data.get('type', 'ally') # デフォルトは味方
+    if char_type not in ('ally', 'enemy'):
+        char_type = 'ally'
+    count = max(1, min(_safe_int(data.get('count'), 1), 5))
     if not room: return
     if not _require_in_room(room):
         return
@@ -242,6 +245,7 @@ def handle_add_debug_character(data):
 
     if attribute != 'GM':
         print(f"⚠️ Security: Player {username} tried to add debug char. Denied.")
+        emit('error', {'message': 'GM権限が必要です'}, to=request.sid)
         return
 
     global all_skill_data
@@ -307,10 +311,11 @@ def handle_add_debug_character(data):
     }
 
     # 5. 既存のキャラ追加ロジックに渡す
-    handle_add_character({
-        "room": room,
-        "charData": debug_char_data
-    })
+    for _idx in range(count):
+        handle_add_character({
+            "room": room,
+            "charData": copy.deepcopy(debug_char_data)
+        })
 
 @socketio.on('request_delete_character')
 def handle_delete_character(data):
@@ -1103,4 +1108,3 @@ def handle_import_preset_json(data):
     presets[preset_name] = copy.deepcopy(normalized_payload)
     save_specific_room_state(room)
     socketio.emit('preset_imported', {"name": preset_name}, to=request.sid)
-

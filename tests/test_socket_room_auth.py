@@ -93,6 +93,42 @@ def test_add_character_allows_member(monkeypatch):
     assert len(state["characters"]) == 1
 
 
+def test_debug_character_count_is_limited_to_gm(monkeypatch):
+    state, emits = _patch_char(monkeypatch, in_room=True, attribute="GM")
+    monkeypatch.setattr(socket_char, "all_skill_data", {
+        "Ps-01": {"チャットパレット": "【Ps-01 テスト】"},
+    })
+
+    socket_char.handle_add_debug_character({"room": "room_t", "type": "enemy", "count": 3})
+
+    assert not any(e[0] == "error" for e in emits)
+    assert len(state["characters"]) == 3
+    assert all(c["type"] == "enemy" for c in state["characters"])
+
+
+def test_debug_character_rejects_non_gm(monkeypatch):
+    state, emits = _patch_char(monkeypatch, in_room=True, attribute="Player")
+    monkeypatch.setattr(socket_char, "all_skill_data", {
+        "Ps-01": {"チャットパレット": "【Ps-01 テスト】"},
+    })
+
+    socket_char.handle_add_debug_character({"room": "room_t", "type": "ally", "count": 2})
+
+    assert len(state["characters"]) == 0
+    assert any(e[0] == "error" for e in emits)
+
+
+def test_debug_character_count_is_capped(monkeypatch):
+    state, _emits = _patch_char(monkeypatch, in_room=True, attribute="GM")
+    monkeypatch.setattr(socket_char, "all_skill_data", {
+        "Ps-01": {"チャットパレット": "【Ps-01 テスト】"},
+    })
+
+    socket_char.handle_add_debug_character({"room": "room_t", "type": "ally", "count": 99})
+
+    assert len(state["characters"]) == 5
+
+
 # ---------------------------------------------------------------------------
 # Phase C: common_routes (simple handlers)
 # ---------------------------------------------------------------------------

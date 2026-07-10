@@ -2,7 +2,7 @@
 
 # UIコンポーネント仕様書
 
-**最終更新日**: 2026-06-28
+**最終更新日**: 2026-07-10
 **系統**: E — UI / フロントエンド
 **統合元**: 12_Character_Modal_Spec / 23_Preset_Stage_UI_Operation_Update / 24_Quick_Edit_and_UI_Consistency_Summary / 23_SkillPicker_UI_Redesign_Plan
 
@@ -14,6 +14,7 @@
 2. プリセット・ステージUI操作仕様（旧23）
 3. 簡易ステータス編集・UI統一 実装サマリ（旧24）
 4. スキルピッカーUI 仕様（旧 planned/23_SkillPicker_UI_Redesign_Plan）
+5. キャラクターJSON追加導線仕様（Plan 28 P1-4）
 
 ---
 
@@ -328,3 +329,47 @@
 | Phase 5 | テキスト検索フィルター | 破棄（優先度低・必要性薄） |
 
 `planned/23_SkillPicker_UI_Redesign_Plan.md` は完了に伴い削除した。
+
+---
+
+# Part 5: キャラクターJSON追加導線仕様（Plan 28 P1-4）
+
+**最終更新日**: 2026-07-10
+**対象**: `static/js/modals.js::openCharLoadModal`、`static/js/common/char_json.js`、`events/socket_char.py::handle_add_debug_character`
+
+## 1. 基本方針
+
+キャラクター追加は、追加先選択とJSON入力を分けた2段階モーダルで行う。
+
+1. 最初の画面で「味方を追加」「敵を追加」を選ぶ。
+2. 次の画面でJSONを貼り付ける、またはローカルJSONファイルを読み込む。
+3. 「追加」ボタンで既存の `loadCharacterFromJSON(type, jsonText, resultMsg)` を呼び、従来と同じ `request_add_character` 経路で追加する。
+
+通常の敵JSON追加は、現時点では非GMにも開放する。
+
+モーダルはビューポート内に収め、内容が長い場合はモーダル内部をスクロールさせる。閉じるボタンは右上に固定表示し、素の小ボタンではなく視認しやすい丸形ボタンとして扱う。
+
+## 2. ローカルJSONファイル読込
+
+- JSON入力画面に「ファイルから読み込み」ボタンを表示する。
+- 実体は非表示の `<input type="file" accept=".json,application/json">`。
+- 選択されたファイルはブラウザの `FileReader` で読み、テキストエリアへ反映する。
+- ファイルパスやファイル本体を直接サーバーへアップロードしない。
+- 追加時にサーバーへ送るのは、既存どおりJSON文字列から生成されたキャラクターデータのみ。
+
+## 3. GM専用デバッグキャラ生成
+
+- GMの場合のみ、各追加画面の下部にデバッグ生成パネルを表示する。
+- 味方追加画面ではデバッグ味方、敵追加画面ではデバッグ敵だけを生成する。
+- 追加人数はプルダウンで1〜5体から選ぶ。
+- サーバー側でもGM権限、整数、上限5体を検証する。
+- 非GMが `request_add_debug_character` を直接送っても拒否する。
+
+## 4. 検証観点
+
+- JSON貼り付けで味方/敵を追加できる。
+- ローカルJSONファイル読込後、同じ追加ボタンで味方/敵を追加できる。
+- 非GMでも通常の敵JSON追加はできる。
+- 非GMにはデバッグ生成UIが表示されない。
+- GMのデバッグ生成は選択した陣営と人数だけ生成する。
+- JS/CSS変更後は `npm run build` で `static/dist/*` を更新する。

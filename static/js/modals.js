@@ -2905,47 +2905,20 @@ function renderBeautifulCharacterCardV2(char) {
 function openCharLoadModal() {
     closeCharacterModal();
 
-    let gmButtonHtml = '';
-    if (currentUserAttribute === 'GM') {
-        gmButtonHtml = `
-            <div style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
-                <p style="font-weight:bold; margin-bottom:5px; font-size: 0.9em; color:#555;">★ GM専用: デバッグキャラ生成 (全スキル, MP/FP 1000)</p>
-                <div style="display: flex; gap: 10px;">
-                    <button id="modal-debug-ally-btn" class="room-action-btn" style="flex: 1; background-color: #007bff; font-size: 0.9em; padding: 6px;">
-                        味方として生成
-                    </button>
-                    <button id="modal-debug-enemy-btn" class="room-action-btn danger" style="flex: 1; font-size: 0.9em; padding: 6px;">
-                        敵として生成
-                    </button>
-                </div>
-            </div>
-        `;
-    }
-
     const modalHtml = `
         <div class="modal-backdrop" id="char-load-modal-backdrop">
-            <div class="modal-content">
+            <div class="modal-content char-load-modal-content">
                 <div class="char-load-modal">
-                    <button class="modal-close-btn" style="float: right;">×</button>
-                    <h2>キャラクターJSONの読み込み</h2>
-                    <p>スプレッドシートで生成したJSONを貼り付けてください。</p>
-                    <textarea id="modal-char-json-input" placeholder='{"kind":"character","data":{...}}'></textarea>
-                    <div class="char-load-buttons">
-                        <button id="modal-load-ally-btn">味方として追加</button>
-                        <button id="modal-load-enemy-btn">敵として追加</button>
-                    </div>
-                    <p id="modal-load-result-msg" style="font-weight: bold;"></p>
-
-                    ${gmButtonHtml} </div>
+                    <button class="modal-close-btn" type="button" aria-label="閉じる">×</button>
+                    <div id="char-load-modal-body"></div>
+                </div>
             </div>
         </div>
     `;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     const backdrop = document.getElementById('char-load-modal-backdrop');
-    const allyBtn = document.getElementById('modal-load-ally-btn');
-    const enemyBtn = document.getElementById('modal-load-enemy-btn');
-    const jsonInput = document.getElementById('modal-char-json-input');
-    const resultMsg = document.getElementById('modal-load-result-msg');
+    const body = document.getElementById('char-load-modal-body');
+    const isGMUser = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
 
     backdrop.querySelector('.modal-close-btn').addEventListener('click', () => backdrop.remove());
     backdrop.addEventListener('click', (e) => {
@@ -2953,45 +2926,126 @@ function openCharLoadModal() {
             backdrop.remove();
         }
     });
-    allyBtn.addEventListener('click', () => {
-        if (loadCharacterFromJSON('ally', jsonInput.value, resultMsg)) {
-            jsonInput.value = '';
-            setTimeout(() => backdrop.remove(), 1000);
-        }
-    });
-    enemyBtn.addEventListener('click', () => {
-        if (loadCharacterFromJSON('enemy', jsonInput.value, resultMsg)) {
-            jsonInput.value = '';
-            setTimeout(() => backdrop.remove(), 1000);
-        }
-    });
 
-    const debugAllyBtn = document.getElementById('modal-debug-ally-btn');
-    const debugEnemyBtn = document.getElementById('modal-debug-enemy-btn');
+    const sideLabel = (type) => (type === 'ally' ? '味方' : '敵');
+    const sideClass = (type) => (type === 'ally' ? 'ally' : 'enemy');
 
-    if (debugAllyBtn) {
-        debugAllyBtn.addEventListener('click', () => {
+    const renderChoiceStep = () => {
+        body.innerHTML = `
+            <h2>キャラクターを追加</h2>
+            <p class="char-load-lead">追加先を選んでください。次の画面でJSONの貼り付け、またはローカルJSONファイルから読み込めます。</p>
+            <div class="char-load-choice-grid">
+                <button id="char-load-choice-ally" type="button" class="char-load-choice-card ally">
+                    <span class="char-load-choice-title">味方を追加</span>
+                    <span class="char-load-choice-desc">プレイヤー側・同行NPCなどを追加します。</span>
+                </button>
+                <button id="char-load-choice-enemy" type="button" class="char-load-choice-card enemy">
+                    <span class="char-load-choice-title">敵を追加</span>
+                    <span class="char-load-choice-desc">敵、障害物、対戦相手などを追加します。</span>
+                </button>
+            </div>
+        `;
+        body.querySelector('#char-load-choice-ally')?.addEventListener('click', () => renderJsonStep('ally'));
+        body.querySelector('#char-load-choice-enemy')?.addEventListener('click', () => renderJsonStep('enemy'));
+    };
+
+    const renderJsonStep = (type) => {
+        const label = sideLabel(type);
+        const klass = sideClass(type);
+        const debugHtml = isGMUser ? `
+            <div class="char-load-debug-panel ${klass}">
+                <div>
+                    <div class="char-load-debug-title">GM専用: デバッグ${label}生成</div>
+                    <div class="char-load-debug-desc">全スキル、HP999、MP/FP1000の検証用キャラクターを生成します。</div>
+                </div>
+                <div class="char-load-debug-controls">
+                    <label for="modal-debug-count">追加人数</label>
+                    <select id="modal-debug-count">
+                        <option value="1">1体</option>
+                        <option value="2">2体</option>
+                        <option value="3">3体</option>
+                        <option value="4">4体</option>
+                        <option value="5">5体</option>
+                    </select>
+                    <button id="modal-debug-generate-btn" type="button" class="room-action-btn ${klass === 'enemy' ? 'danger' : ''}">
+                        デバッグ${label}を生成
+                    </button>
+                </div>
+            </div>
+        ` : '';
+
+        body.innerHTML = `
+            <div class="char-load-step-header">
+                <button id="char-load-back-btn" type="button" class="char-load-back-btn">← 追加先を選び直す</button>
+                <span class="char-load-side-badge ${klass}">${label}</span>
+            </div>
+            <h2>${label}キャラクターJSONの読み込み</h2>
+            <p class="char-load-lead">スプレッドシート等で生成したJSONを貼り付けるか、ローカルのJSONファイルから読み込んでください。</p>
+            <div class="char-load-file-row">
+                <button id="modal-char-json-file-btn" type="button" class="room-action-btn">ファイルから読み込み</button>
+                <span id="modal-char-json-file-name" class="char-load-file-name">ファイル未選択</span>
+                <input id="modal-char-json-file-input" type="file" accept=".json,application/json" style="display:none;">
+            </div>
+            <textarea id="modal-char-json-input" placeholder='{"kind":"character","data":{...}}'></textarea>
+            <div class="char-load-buttons">
+                <button id="modal-load-character-btn" type="button" class="${klass}">${label}として追加</button>
+            </div>
+            <p id="modal-load-result-msg" class="char-load-result-msg"></p>
+            ${debugHtml}
+        `;
+
+        const jsonInput = body.querySelector('#modal-char-json-input');
+        const resultMsg = body.querySelector('#modal-load-result-msg');
+        const fileInput = body.querySelector('#modal-char-json-file-input');
+        const fileBtn = body.querySelector('#modal-char-json-file-btn');
+        const fileName = body.querySelector('#modal-char-json-file-name');
+
+        body.querySelector('#char-load-back-btn')?.addEventListener('click', renderChoiceStep);
+        body.querySelector('#modal-load-character-btn')?.addEventListener('click', () => {
+            if (loadCharacterFromJSON(type, jsonInput.value, resultMsg)) {
+                jsonInput.value = '';
+                setTimeout(() => backdrop.remove(), 1000);
+            }
+        });
+
+        fileBtn?.addEventListener('click', () => {
+            if (!fileInput) return;
+            fileInput.value = '';
+            fileInput.click();
+        });
+
+        fileInput?.addEventListener('change', () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                jsonInput.value = String(reader.result || '');
+                fileName.textContent = file.name;
+                resultMsg.textContent = 'JSONファイルを読み込みました。内容を確認して追加してください。';
+                resultMsg.style.color = 'green';
+            };
+            reader.onerror = () => {
+                resultMsg.textContent = 'ファイルの読み込みに失敗しました。';
+                resultMsg.style.color = 'red';
+            };
+            reader.readAsText(file, 'utf-8');
+        });
+
+        body.querySelector('#modal-debug-generate-btn')?.addEventListener('click', () => {
+            const countEl = body.querySelector('#modal-debug-count');
+            const count = Number.parseInt(countEl ? countEl.value : '1', 10) || 1;
             socket.emit('request_add_debug_character', {
                 room: currentRoomName,
-                type: 'ally'
+                type,
+                count
             });
-            resultMsg.textContent = 'デバッグキャラ(味方)の生成をリクエストしました...';
-            resultMsg.style.color = 'blue';
+            resultMsg.textContent = `デバッグキャラ(${label}) ${count}体の生成をリクエストしました...`;
+            resultMsg.style.color = (type === 'ally') ? 'blue' : 'red';
             setTimeout(() => backdrop.remove(), 1000);
         });
-    }
+    };
 
-    if (debugEnemyBtn) {
-        debugEnemyBtn.addEventListener('click', () => {
-            socket.emit('request_add_debug_character', {
-                room: currentRoomName,
-                type: 'enemy'
-            });
-            resultMsg.textContent = 'デバッグキャラ(敵)の生成をリクエストしました...';
-            resultMsg.style.color = 'red';
-            setTimeout(() => backdrop.remove(), 1000);
-        });
-    }
+    renderChoiceStep();
 }
 
 function openPresetManagerModal() {
