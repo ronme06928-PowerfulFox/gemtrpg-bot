@@ -2,7 +2,7 @@
 
 - 旧スキーマの users/rooms に新列を追加できる（idempotent）。
 - auth_version の既定値 1 が既存行へ適用される。
-- 新テーブル（trusted_device_tokens / one_time_login_codes）が利用できる。
+- 新テーブル（trusted_device_tokens / one_time_login_codes / room_log_archives）が利用できる。
 - 旧コード互換（新列を意識しない User 生成）でも起動・保存できる。
 """
 import os
@@ -14,7 +14,7 @@ from sqlalchemy import text, inspect
 
 from app import create_app
 from extensions import db
-from models import User, TrustedDeviceToken, OneTimeLoginCode
+from models import User, TrustedDeviceToken, OneTimeLoginCode, Room, RoomLogArchive
 from manager.db_migration import run_auto_migration
 
 
@@ -90,15 +90,28 @@ def test_new_tables_usable(tmp_path):
     with app.app_context():
         db.create_all()
         db.session.add(User(id="u1", name="Alice"))
+        room = Room(name="R1", owner_id="u1", data={"logs": []})
+        db.session.add(room)
+        db.session.flush()
         db.session.commit()
 
         db.session.add(TrustedDeviceToken(user_id="u1", selector="sel-1", token_hash="h"))
         code = OneTimeLoginCode(user_id="u1", code_hash="ch", created_by_user_id="u1")
         db.session.add(code)
+        db.session.add(RoomLogArchive(
+            room_id=room.id,
+            room_name="R1",
+            log_id=1,
+            timestamp_ms=1000,
+            log_type="chat",
+            message="hello",
+            payload={"message": "hello"},
+        ))
         db.session.commit()
 
         assert TrustedDeviceToken.query.count() == 1
         assert OneTimeLoginCode.query.count() == 1
+        assert RoomLogArchive.query.count() == 1
         # 既定値
         assert User.query.get("u1").auth_version == 1
         assert OneTimeLoginCode.query.first().failed_attempts == 0

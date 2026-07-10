@@ -9,7 +9,7 @@ from manager.logs import setup_logger
 from manager.room_access import is_sid_in_room
 from manager.room_manager import (
     get_user_info_from_sid, get_room_state, broadcast_log, broadcast_state_update,
-    is_authorized_for_character,
+    is_authorized_for_character, flush_room_state_now,
 )
 try:
     from manager.room_manager import emit_select_resolve_events
@@ -131,6 +131,7 @@ def on_request_new_round(data):
         return
 
     process_round_start(room, username)
+    flush_room_state_now(room)
 
 @socketio.on('request_wide_modal_confirm')
 def on_request_wide_modal_confirm(data):
@@ -165,6 +166,7 @@ def on_request_end_round(data):
     before_state = get_room_state(room)
     before_round = int((before_state or {}).get('round', 0) or 0)
     end_result = process_full_round_end(room, username)
+    flush_room_state_now(room)
     if not is_battle_only:
         return
 
@@ -185,6 +187,7 @@ def on_request_end_round(data):
         try:
             reset_battle_logic(room, 'full', '戦闘専用モード(自動リセット)')
             broadcast_log(room, "[BattleOnly] 解決表示完了後にフィールドを自動リセットしました。", 'info')
+            flush_room_state_now(room)
         except Exception:
             logger.exception("[BattleOnly] auto reset after resolve completion failed room=%s", room)
         return
@@ -194,6 +197,7 @@ def on_request_end_round(data):
         return
 
     process_round_start(room, "戦闘専用モード")
+    flush_room_state_now(room)
 
 @socketio.on('request_reset_battle')
 def on_request_reset_battle(data):
@@ -212,6 +216,7 @@ def on_request_reset_battle(data):
         return
 
     reset_battle_logic(room, mode, username, options)
+    flush_room_state_now(room)
 
 @socketio.on('request_force_end_match')
 def on_request_force_end_match(data):
@@ -226,6 +231,7 @@ def on_request_force_end_match(data):
         return
 
     force_end_match_logic(room, username)
+    flush_room_state_now(room)
 
 @socketio.on('request_move_token')
 def on_request_move_token(data):
@@ -341,6 +347,7 @@ def on_request_switch_battle_mode(data):
 
     from manager.battle.common_manager import process_switch_battle_mode
     process_switch_battle_mode(room, mode, username)
+    flush_room_state_now(room)
 
 # NOTE: AIスキル提案
 # 既存バグ修正（計画書34調査中に発見、2026-07-08）: @socketio.on が欠落しており、
@@ -1377,4 +1384,3 @@ def on_battle_intent_change_target(data):
 
     _refresh_resolve_ready(room_id, state)
     _emit_battle_state_updated(room_id, battle_id)
-

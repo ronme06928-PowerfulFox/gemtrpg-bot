@@ -17,6 +17,7 @@ from manager.utils import (
     normalize_status_name, normalize_character_labels,
 )
 from models import Room
+from manager.log_archive import archive_room_logs
 from manager.game_logic import process_on_death
 from manager.logs import setup_logger
 
@@ -313,7 +314,9 @@ def get_room_state(room_name):
 # 1回のコミットに集約する。in-memoryの active_room_states が常に真実なので、
 # 永続化が数秒遅れても読み取り(get_room_state)の整合性は保たれる。
 _SAVE_DEBOUNCE_SECONDS = 2.0
+_SAVE_MAX_RETRIES = 1
 _dirty_rooms = set()
+_save_retry_counts = {}
 _flush_scheduled = False
 _app_ref = None
 
@@ -334,6 +337,15 @@ def discard_pending_save(room_name):
     削除後にフラッシュが走って save_room_to_db でルームを復活させるのを防ぐ。
     """
     _dirty_rooms.discard(room_name)
+    _save_retry_counts.pop(room_name, None)
+
+
+def _room_exists_for_save(room_name):
+    try:
+        return Room.query.filter_by(name=room_name).first() is not None
+    except Exception as exc:
+        logger.error(f"[ERROR] Auto-save room existence check failed: {room_name}: {exc}")
+        return False
 
 
 def _flush_dirty_rooms_once():
@@ -345,11 +357,26 @@ def _flush_dirty_rooms_once():
         if state is None:
             # 削除済み等。復活させない。
             continue
-        # update_only=True: 存在しないルームは作らない（削除直後の復活防止）。
-        # 失敗時に再登録すると存在しないルームで無限ループするため再登録しない
-        # （次のユーザー操作で再度ダーティになるので取りこぼしは実害が小さい）。
-        if not save_room_to_db(room_name, state, update_only=True):
-            logger.error(f"[ERROR] Auto-save skipped/failed: {room_name}")
+        if not _room_exists_for_save(room_name):
+            # 削除済み等。update_onlyでも作成はしないが、ここで明示的に止める。
+            _save_retry_counts.pop(room_name, None)
+            logger.warning(f"[WARN] Auto-save skipped because room no longer exists: {room_name}")
+            continue
+        if save_room_to_db(room_name, state, update_only=True):
+            _save_retry_counts.pop(room_name, None)
+            continue
+
+        retry_count = _save_retry_counts.get(room_name, 0)
+        if retry_count < _SAVE_MAX_RETRIES and active_room_states.get(room_name) is not None:
+            _save_retry_counts[room_name] = retry_count + 1
+            _dirty_rooms.add(room_name)
+            logger.error(
+                f"[ERROR] Auto-save failed; retry scheduled: {room_name} "
+                f"({retry_count + 1}/{_SAVE_MAX_RETRIES})"
+            )
+        else:
+            _save_retry_counts.pop(room_name, None)
+            logger.error(f"[ERROR] Auto-save failed after retries: {room_name}")
 
 
 def _flush_within_context():
@@ -407,8 +434,15 @@ def flush_pending_saves():
 atexit.register(flush_pending_saves)
 
 
-def save_specific_room_state(room_name):
-    """ルーム状態の永続化を要求する（デバウンスして後でまとめて保存）。"""
+def flush_room_state_now(room_name):
+    """指定ルームの保留保存を即時フラッシュする。"""
+    if room_name:
+        _dirty_rooms.add(room_name)
+    return _flush_within_context()
+
+
+def save_specific_room_state(room_name, immediate=False):
+    """ルーム状態の永続化を要求する（通常はデバウンスして後でまとめて保存）。"""
     global _app_ref
     state = active_room_states.get(room_name)
     if not state:
@@ -419,9 +453,32 @@ def save_specific_room_state(room_name):
         except RuntimeError:
             _app_ref = None
     _dirty_rooms.add(room_name)
+    if immediate:
+        return flush_room_state_now(room_name)
     _schedule_flush()
     return True
 # === ▲▲▲ DB保存のデバウンスここまで ▲▲▲ ===
+
+
+def trim_room_logs_with_archive(room_name, state, limit=500):
+    """古いログをアーカイブしてから、メモリ上のログを最新limit件へ絞る。"""
+    if not isinstance(state, dict):
+        return False
+    logs = state.get('logs')
+    if not isinstance(logs, list) or len(logs) <= limit:
+        return True
+    overflow_logs = logs[:-limit]
+    try:
+        archived = archive_room_logs(room_name, overflow_logs)
+    except Exception as exc:
+        archived = False
+        logger.error(f"[ERROR] Log archive failed before trim room={room_name}: {exc}")
+    if archived:
+        state['logs'] = logs[-limit:]
+        return True
+    logger.error(f"[ERROR] Log trim skipped because archive failed room={room_name}")
+    return False
+
 
 def broadcast_state_update(room_name):
     state = get_room_state(room_name)
@@ -478,8 +535,7 @@ def broadcast_log(room_name, message, type='info', user=None, secret=False, save
 
     state['logs'].append(log_data)
 
-    if len(state['logs']) > 500:
-        state['logs'] = state['logs'][-500:]
+    trim_room_logs_with_archive(room_name, state, limit=500)
 
     _safe_emit('new_log', log_data, to=room_name)
 
@@ -658,5 +714,3 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
 
     if (not suppress_log) and log_message and (str(old_value) != str(new_value) or is_new or is_delete):
         broadcast_log(room_name, _normalize_log_text(log_message), 'state-change', save=save)
-
-

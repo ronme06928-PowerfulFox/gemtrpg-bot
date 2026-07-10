@@ -7,7 +7,7 @@ join_room_by_code / room_set_join_code / room_clear_join_code /
 room_update_settings を担う。
 """
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, Response, jsonify, request, session
 
 from extensions import db, active_room_states
 from models import Room, User
@@ -209,6 +209,32 @@ def save_room_route():
     active_room_states[room_name] = state
     save_room_to_db(room_name, state)
     return jsonify({"message": "Saved"})
+
+
+@room_bp.route('/api/room/export_logs', methods=['GET'])
+@session_required
+def room_export_logs():
+    room_name = str(request.args.get('room_name') or request.args.get('room') or '').strip()
+    export_format = str(request.args.get('format') or 'json').strip().lower()
+    if not room_name:
+        return jsonify({"error": "room_name が必要です"}), 400
+    if export_format not in ('json', 'text'):
+        return jsonify({"error": "format は json または text を指定してください"}), 400
+
+    from manager.room_access import has_room_role, GM_ROLES
+    if not has_room_role(session.get('user_id'), room_name, GM_ROLES):
+        return jsonify({"error": "GM権限が必要です"}), 403
+
+    state = get_room_state(room_name)
+    if not isinstance(state, dict):
+        return jsonify({"error": "Room not found"}), 404
+
+    from manager.log_archive import build_room_log_export
+    exported = build_room_log_export(room_name, state.get('logs', []), export_format)
+    response = Response(exported['content'], content_type=exported['content_type'])
+    response.headers['Content-Disposition'] = f'attachment; filename="{exported["filename"]}"'
+    response.headers['X-Log-Count'] = str(exported.get('count', 0))
+    return response
 
 
 # ---- ルームメンバー管理（owner専用）----

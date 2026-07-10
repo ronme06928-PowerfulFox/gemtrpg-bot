@@ -37,16 +37,71 @@ function openUserSettingsModal(allowAttributeChange = false) {
     `;
     const modalHtml = `
         <div class="modal-backdrop" id="user-settings-modal-backdrop">
-            <div class="modal-content" style="width: 400px; padding: 25px;">
+            <div class="modal-content" style="width:min(520px, calc(100vw - 28px)); padding:0; overflow:hidden; border-radius:14px;">
+                <style>
+                    .user-settings-panel-header {
+                        padding: 20px 24px 16px;
+                        background: linear-gradient(180deg, #fffaf0 0%, #f2eee5 100%);
+                        border-bottom: 1px solid rgba(60, 48, 32, 0.12);
+                    }
+                    .user-settings-panel-title {
+                        margin: 0;
+                        color: #263238;
+                        font-size: 1.25rem;
+                    }
+                    .user-settings-panel-body {
+                        padding: 20px 24px 24px;
+                    }
+                    .user-settings-admin-card {
+                        margin-top: 16px;
+                        padding: 14px;
+                        border: 1px solid #d4c8b7;
+                        border-radius: 10px;
+                        background: #fffaf1;
+                    }
+                    .user-settings-admin-card h3 {
+                        margin: 0 0 6px;
+                        font-size: 1rem;
+                        color: #4f3f2c;
+                    }
+                    .user-settings-admin-card p {
+                        margin: 0 0 12px;
+                        color: #665c50;
+                        font-size: 0.9rem;
+                        line-height: 1.55;
+                    }
+                    .user-settings-admin-card button {
+                        background: #7a542e;
+                    }
+                    .user-settings-admin-card.is-admin {
+                        background: #eef8f2;
+                        border-color: #b9d9c5;
+                    }
+                    .user-settings-admin-card.is-admin h3 {
+                        color: #21533a;
+                    }
+                    .user-settings-admin-card.is-admin button {
+                        background: #6f7d72;
+                    }
+                </style>
                 <button class="modal-close-btn" style="float: right;">×</button>
-                <h2>ユーザー情報変更</h2>
-                <div class="auth-form">
+                <div class="user-settings-panel-header">
+                    <h2 class="user-settings-panel-title">ユーザー情報変更</h2>
+                </div>
+                <div class="auth-form user-settings-panel-body">
                     <label for="modal-username">あなたの名前:</label>
                     <input type="text" id="modal-username" value="${escapeUserSettingsText(oldName)}">
                     ${attributeHtml}
                     <button id="modal-user-update-btn">表示名を更新</button>
                     <button id="modal-password-change-btn" type="button">パスワード変更</button>
                     <button id="modal-recovery-regenerate-btn" type="button">復旧コード再発行</button>
+                    <div class="user-settings-admin-card ${currentUserIsAppAdmin ? 'is-admin' : ''}">
+                        <h3>ユーザー管理権限</h3>
+                        <p>${currentUserIsAppAdmin
+                            ? 'このユーザーには現在、ユーザー管理権限があります。'
+                            : '管理キーを入力すると、このユーザーにユーザー管理権限を付与できます。APIを直接操作する必要はありません。'}</p>
+                        <button id="modal-admin-grant-btn" type="button">${currentUserIsAppAdmin ? '管理権限を確認済み' : '管理キーで権限を付与'}</button>
+                    </div>
                     <div id="modal-user-message" class="auth-message"></div>
                 </div>
             </div>
@@ -57,6 +112,7 @@ function openUserSettingsModal(allowAttributeChange = false) {
     const backdrop = document.getElementById('user-settings-modal-backdrop');
     const updateBtn = document.getElementById('modal-user-update-btn');
     const recoveryBtn = document.getElementById('modal-recovery-regenerate-btn');
+    const adminGrantBtn = document.getElementById('modal-admin-grant-btn');
     const msgEl = document.getElementById('modal-user-message');
 
     const closeModal = () => {
@@ -148,6 +204,47 @@ function openUserSettingsModal(allowAttributeChange = false) {
             msgEl.className = 'auth-message success';
         } catch (error) {
             msgEl.textContent = `再発行失敗: ${error.message}`;
+            msgEl.className = 'auth-message error';
+        }
+    });
+
+    adminGrantBtn?.addEventListener('click', async () => {
+        if (currentUserIsAppAdmin) {
+            msgEl.textContent = 'このユーザーには既にユーザー管理権限があります。';
+            msgEl.className = 'auth-message success';
+            return;
+        }
+        const masterKey = await window.showAppPrompt('管理キーを入力してください。入力したキーは保存されず、この確認にだけ使用されます。', {
+            title: 'ユーザー管理権限の付与',
+            placeholder: '8桁の管理キー',
+            confirmText: '権限を付与',
+            required: true,
+        });
+        if (!/^\d{8}$/.test(String(masterKey || '').trim())) {
+            msgEl.textContent = '管理キーは8桁の数字で入力してください。';
+            msgEl.className = 'auth-message error';
+            return;
+        }
+        try {
+            const response = await fetchWithSession('/api/admin/set_user_management_admin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: currentUserId,
+                    enabled: true,
+                    master_key: String(masterKey).trim(),
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || '管理権限の付与に失敗しました');
+            currentUserIsAppAdmin = true;
+            window.currentUserIsAppAdmin = true;
+            adminGrantBtn.textContent = '管理権限を確認済み';
+            adminGrantBtn.closest('.user-settings-admin-card')?.classList.add('is-admin');
+            msgEl.textContent = 'ユーザー管理権限を付与しました。ルーム一覧では「ユーザー管理」ボタンが表示されます。';
+            msgEl.className = 'auth-message success';
+        } catch (error) {
+            msgEl.textContent = `権限付与失敗: ${error.message}`;
             msgEl.className = 'auth-message error';
         }
     });

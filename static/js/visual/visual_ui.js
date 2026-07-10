@@ -179,6 +179,7 @@ window.appendVisualLogLine = function (container, logData, filterType) {
     if (filterType === 'chat' && !isChat) return;
     if (filterType === 'system' && isChat) return;
     if (_isHiddenResolveTraceLog(logData)) return;
+    const isHistoryView = container && container.dataset && container.dataset.fullHistory === '1';
 
     const logLine = document.createElement('div');
     let className = `log-line ${logData.type}`;
@@ -194,6 +195,24 @@ window.appendVisualLogLine = function (container, logData, filterType) {
     }
 
     logLine.className = className;
+    if (isHistoryView) {
+        logLine.classList.add('visual-log-history-row');
+        const meta = document.createElement('span');
+        meta.className = 'visual-log-history-meta';
+        const typeLabel = ({
+            chat: 'CHAT',
+            info: 'INFO',
+            system: 'SYSTEM',
+            match: 'MATCH',
+            round: 'ROUND',
+            'state-change': 'STATE',
+        })[String(logData.type || '')] || String(logData.type || 'LOG').toUpperCase();
+        const time = logData.timestamp
+            ? new Date(logData.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            : '--:--:--';
+        meta.textContent = `${time} ${typeLabel}`;
+        logLine.appendChild(meta);
+    }
     if (logData.type === 'chat') {
         if (logData.secret && secretVisible) {
             const secretMark = document.createElement('span');
@@ -250,8 +269,10 @@ window.appendVisualLogLine = function (container, logData, filterType) {
     logLine.style.fontSize = "0.9em";
     container.appendChild(logLine);
 
-    while (container.children.length > VISUAL_MAX_LOG_ITEMS) {
-        container.removeChild(container.firstElementChild);
+    if (container.dataset.fullHistory !== '1') {
+        while (container.children.length > VISUAL_MAX_LOG_ITEMS) {
+            container.removeChild(container.firstElementChild);
+        }
     }
 }
 window.renderVisualLogHistory = function (logs) {
@@ -296,6 +317,311 @@ window.appendVisualLogBatch = function (logs) {
     });
     window._lastLogCount = Number(window._lastLogCount || 0) + logs.length;
     logArea.scrollTop = logArea.scrollHeight;
+};
+
+function _visualLogMatchesQuery(log, query, typeFilter) {
+    if (!log || typeof log !== 'object') return false;
+    const logType = String(log.type || '').toLowerCase();
+    if (typeFilter && typeFilter !== 'all') {
+        if (typeFilter === 'chat') {
+            if (logType !== 'chat') return false;
+        } else if (typeFilter === 'system') {
+            if (logType === 'chat') return false;
+        } else if (logType !== typeFilter) {
+            return false;
+        }
+    }
+    const needle = String(query || '').trim().toLowerCase();
+    if (!needle) return true;
+    const haystack = [
+        log.message,
+        log.type,
+        log.user,
+        log.source,
+        log.resolve_step_key,
+    ].map(v => String(v || '').toLowerCase()).join('\n');
+    return haystack.includes(needle);
+}
+
+function _downloadVisualLogFile(filename, content, contentType) {
+    const blob = new Blob([String(content || '')], { type: contentType || 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || `room_logs_${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+        a.remove();
+    }, 0);
+}
+
+async function _exportVisualRoomLogs(format) {
+    const roomName = String(typeof currentRoomName !== 'undefined' ? currentRoomName : '').trim();
+    if (!roomName) return;
+    const fmt = format === 'text' ? 'text' : 'json';
+    const url = `/api/room/export_logs?room_name=${encodeURIComponent(roomName)}&format=${encodeURIComponent(fmt)}`;
+    const response = await fetchWithSession(url);
+    if (!response.ok) {
+        let message = 'ログのエクスポートに失敗しました。';
+        try {
+            const data = await response.json();
+            if (data && data.error) message = data.error;
+        } catch (_e) { }
+        throw new Error(message);
+    }
+    const content = await response.text();
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="?([^";]+)"?/i);
+    const filename = match ? match[1] : `room_logs.${fmt === 'json' ? 'json' : 'txt'}`;
+    _downloadVisualLogFile(filename, content, response.headers.get('Content-Type') || undefined);
+}
+
+window.openVisualLogHistoryModal = function () {
+    const existing = document.getElementById('visual-log-history-modal-backdrop');
+    if (existing) existing.remove();
+
+    const logs = Array.isArray(battleState?.logs) ? battleState.logs : [];
+    const canExport = String(
+        (typeof currentUserAttribute !== 'undefined')
+            ? currentUserAttribute
+            : (typeof window !== 'undefined' ? window.currentUserAttribute : '')
+    ).trim().toUpperCase() === 'GM';
+    const backdrop = document.createElement('div');
+    backdrop.id = 'visual-log-history-modal-backdrop';
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+        <div class="modal-content visual-log-history-modal" role="dialog" aria-modal="true" aria-labelledby="visual-log-history-title">
+            <style>
+                .visual-log-history-modal {
+                    width: min(980px, calc(100vw - 28px));
+                    max-height: 88vh;
+                    padding: 0;
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                    border: 1px solid rgba(36, 48, 56, 0.16);
+                    border-radius: 14px;
+                    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+                    background: #f7f5ef;
+                }
+                .visual-log-history-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 14px;
+                    padding: 18px 20px 14px;
+                    border-bottom: 1px solid rgba(72, 58, 35, 0.12);
+                    background: linear-gradient(180deg, #fffaf0 0%, #f3efe4 100%);
+                }
+                .visual-log-history-title {
+                    margin: 0;
+                    font-size: 1.22rem;
+                    color: #2b2d2f;
+                    letter-spacing: 0;
+                }
+                .visual-log-history-subtitle {
+                    margin-top: 4px;
+                    font-size: 0.86rem;
+                    color: #6f6a60;
+                }
+                .visual-log-history-close {
+                    width: 34px;
+                    height: 34px;
+                    border: 1px solid #c7beb0;
+                    border-radius: 8px;
+                    background: #fff;
+                    color: #342f29;
+                    font-size: 1.15rem;
+                    cursor: pointer;
+                }
+                .visual-log-history-toolbar {
+                    display: grid;
+                    grid-template-columns: minmax(180px, 1fr) 150px auto;
+                    gap: 10px;
+                    align-items: center;
+                    padding: 14px 20px;
+                    border-bottom: 1px solid rgba(72, 58, 35, 0.1);
+                    background: #fbfaf6;
+                }
+                .visual-log-history-input,
+                .visual-log-history-select {
+                    box-sizing: border-box;
+                    width: 100%;
+                    height: 40px;
+                    border: 1px solid #c8c0b5;
+                    border-radius: 8px;
+                    background: #fff;
+                    color: #2f3437;
+                    padding: 0 12px;
+                    font-size: 0.95rem;
+                }
+                .visual-log-history-actions {
+                    display: flex;
+                    align-items: center;
+                    justify-content: flex-end;
+                    gap: 8px;
+                    min-width: 220px;
+                }
+                .visual-log-history-count {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 70px;
+                    height: 30px;
+                    padding: 0 10px;
+                    border-radius: 999px;
+                    background: #e8e2d5;
+                    color: #4c463d;
+                    font-size: 0.85rem;
+                    font-weight: 700;
+                }
+                .visual-log-history-export {
+                    height: 34px;
+                    border: 1px solid #a77135;
+                    border-radius: 8px;
+                    background: #b8722e;
+                    color: #fff;
+                    padding: 0 12px;
+                    cursor: pointer;
+                    font-weight: 700;
+                }
+                .visual-log-history-export.secondary {
+                    border-color: #8a8f86;
+                    background: #59665d;
+                }
+                .visual-log-history-status {
+                    min-height: 1.2em;
+                    padding: 0 20px 10px;
+                    background: #fbfaf6;
+                    color: #6b6257;
+                    font-size: 0.86rem;
+                }
+                .visual-log-history-list {
+                    margin: 0 20px 20px;
+                    min-height: 300px;
+                    max-height: 58vh;
+                    overflow: auto;
+                    border: 1px solid #d7d0c5;
+                    border-radius: 10px;
+                    background: #fffdf8;
+                    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+                }
+                .visual-log-history-list .visual-log-history-row {
+                    display: grid;
+                    grid-template-columns: 116px 1fr;
+                    align-items: start;
+                    gap: 10px;
+                    padding: 9px 12px !important;
+                    border-bottom: 1px solid #eee6da !important;
+                    font-size: 0.94rem !important;
+                    line-height: 1.55;
+                }
+                .visual-log-history-list .visual-log-history-meta {
+                    font-family: Consolas, "Courier New", monospace;
+                    font-size: 0.75rem;
+                    color: #7b7065;
+                    white-space: nowrap;
+                }
+                .visual-log-history-empty {
+                    padding: 30px 16px;
+                    color: #82786c;
+                    text-align: center;
+                }
+                @media (max-width: 720px) {
+                    .visual-log-history-toolbar {
+                        grid-template-columns: 1fr;
+                    }
+                    .visual-log-history-actions {
+                        justify-content: flex-start;
+                        min-width: 0;
+                        flex-wrap: wrap;
+                    }
+                    .visual-log-history-list .visual-log-history-row {
+                        grid-template-columns: 1fr;
+                    }
+                }
+            </style>
+            <div class="visual-log-history-header">
+                <div>
+                    <h2 id="visual-log-history-title" class="visual-log-history-title">ログ履歴</h2>
+                    <div class="visual-log-history-subtitle">現在のルームログを検索・確認します。GMは保存済みアーカイブを含めて書き出せます。</div>
+                </div>
+                <button class="visual-log-history-close modal-close-btn" type="button" aria-label="閉じる">×</button>
+            </div>
+            <div class="visual-log-history-toolbar">
+                <input id="visual-log-history-search" class="visual-log-history-input" type="search" placeholder="ログを検索">
+                <select id="visual-log-history-filter" class="visual-log-history-select">
+                    <option value="all">全て</option>
+                    <option value="chat">チャット</option>
+                    <option value="system">システム</option>
+                    <option value="match">戦闘</option>
+                    <option value="state-change">状態変更</option>
+                </select>
+                <div class="visual-log-history-actions">
+                    <span id="visual-log-history-count" class="visual-log-history-count"></span>
+                    ${canExport ? `
+                        <button id="visual-log-export-json-btn" type="button" class="visual-log-history-export">JSON保存</button>
+                        <button id="visual-log-export-text-btn" type="button" class="visual-log-history-export secondary">TXT保存</button>
+                    ` : ''}
+                </div>
+            </div>
+            <div id="visual-log-history-export-status" class="visual-log-history-status">${canExport ? 'ログエクスポートは右上の JSON保存 / TXT保存 から実行できます。' : 'ログエクスポートはGM権限のユーザーにのみ表示されます。'}</div>
+            <div id="visual-log-history-list" class="battle-log visual-log-history-list"></div>
+        </div>
+    `;
+    document.body.appendChild(backdrop);
+
+    const listEl = backdrop.querySelector('#visual-log-history-list');
+    listEl.dataset.fullHistory = '1';
+    const searchEl = backdrop.querySelector('#visual-log-history-search');
+    const filterEl = backdrop.querySelector('#visual-log-history-filter');
+    const countEl = backdrop.querySelector('#visual-log-history-count');
+    const statusEl = backdrop.querySelector('#visual-log-history-export-status');
+
+    const render = () => {
+        const query = searchEl.value || '';
+        const filter = filterEl.value || 'all';
+        const matched = logs.filter(log => _visualLogMatchesQuery(log, query, filter));
+        listEl.innerHTML = '';
+        if (!matched.length) {
+            listEl.innerHTML = '<div class="visual-log-history-empty">該当するログはありません</div>';
+        } else {
+            matched.forEach(log => appendVisualLogLine(listEl, log, 'all'));
+        }
+        countEl.textContent = `${matched.length} / ${logs.length}`;
+        listEl.scrollTop = listEl.scrollHeight;
+    };
+
+    backdrop.querySelector('.modal-close-btn')?.addEventListener('click', () => backdrop.remove());
+    backdrop.addEventListener('click', (event) => {
+        if (event.target === backdrop) backdrop.remove();
+    });
+    searchEl.addEventListener('input', render);
+    filterEl.addEventListener('change', render);
+
+    const bindExport = (id, format) => {
+        const btn = backdrop.querySelector(id);
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            statusEl.textContent = 'エクスポート中...';
+            try {
+                await _exportVisualRoomLogs(format);
+                statusEl.textContent = 'ダウンロードしました。';
+            } catch (error) {
+                statusEl.textContent = error.message || 'エクスポートに失敗しました。';
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    };
+    bindExport('#visual-log-export-json-btn', 'json');
+    bindExport('#visual-log-export-text-btn', 'text');
+
+    render();
+    searchEl.focus();
 };
 
 // --- Resolve Trace Modal Enhancement ---

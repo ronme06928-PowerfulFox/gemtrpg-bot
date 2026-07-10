@@ -1,7 +1,10 @@
 from flask import request
 from flask_socketio import emit
 from extensions import socketio
-from manager.room_manager import get_room_state, save_specific_room_state, broadcast_state_update, broadcast_log
+from manager.room_manager import (
+    get_room_state, save_specific_room_state, broadcast_state_update,
+    broadcast_log, flush_room_state_now,
+)
 from manager.room_access import is_sid_in_room, sid_has_room_role, GM_ROLES
 import logging
 import random
@@ -36,6 +39,7 @@ def handle_change_mode(data):
 
     mode_label = "探索パート" if new_mode == 'exploration' else "戦闘パート"
     broadcast_log(room_name, f"シーンを【{mode_label}】に切り替えました。", 'system')
+    flush_room_state_now(room_name)
 
 
 @socketio.on('request_update_exploration_bg')

@@ -51,6 +51,46 @@ class Room(db.Model):
         return f'<Room {self.name}>'
 
 
+class RoomLogArchive(db.Model):
+    """切り捨て前のルームログを長期保全するテーブル。"""
+    __tablename__ = 'room_log_archives'
+
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.Integer, db.ForeignKey('rooms.id', ondelete='CASCADE'), nullable=False, index=True)
+    room_name = db.Column(db.String(100), nullable=False, index=True)
+    log_id = db.Column(db.Integer, nullable=True)
+    timestamp_ms = db.Column(db.BigInteger, nullable=True)
+    log_type = db.Column(db.String(50), nullable=True)
+    user_name = db.Column(db.String(100), nullable=True)
+    secret = db.Column(db.Boolean, default=False, nullable=False)
+    message = db.Column(db.Text, nullable=True)
+    payload = db.Column(db.JSON, nullable=True)
+    archived_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    __table_args__ = (
+        db.Index('ix_room_log_archives_room_time', 'room_id', 'timestamp_ms', 'log_id'),
+    )
+
+    def to_log_dict(self):
+        payload = self.payload if isinstance(self.payload, dict) else {}
+        data = dict(payload)
+        if self.log_id is not None:
+            data['log_id'] = self.log_id
+        if self.timestamp_ms is not None:
+            data['timestamp'] = self.timestamp_ms
+        if self.message is not None:
+            data['message'] = self.message
+        if self.log_type is not None:
+            data['type'] = self.log_type
+        if self.user_name is not None:
+            data['user'] = self.user_name
+        data['secret'] = bool(self.secret)
+        return data
+
+    def __repr__(self):
+        return f'<RoomLogArchive room={self.room_name} log={self.log_id}>'
+
+
 class TrustedDeviceToken(db.Model):
     """信頼済み端末トークン（端末単位の自動ログイン）。
 

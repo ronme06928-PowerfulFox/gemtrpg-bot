@@ -8,6 +8,7 @@ from manager.logs import setup_logger
 from manager.room_manager import (
     get_room_state as _default_get_room_state,
     save_specific_room_state as _default_save_specific_room_state,
+    trim_room_logs_with_archive as _default_trim_room_logs_with_archive,
 )
 from manager.battle.trace_helpers import (
     _trace_kind_label,
@@ -25,6 +26,7 @@ socketio = _default_socketio
 all_skill_data = _default_all_skill_data
 get_room_state = _default_get_room_state
 save_specific_room_state = _default_save_specific_room_state
+trim_room_logs_with_archive = _default_trim_room_logs_with_archive
 
 
 def _apply_step_end_timing_from_trace(_room, _battle_state, _trace_entry):
@@ -337,7 +339,7 @@ def _emit_battle_trace(room, battle_id, battle_state, trace_entry):
                 logs.append(log_data)
                 socketio.emit('new_log', log_data, to=room)
                 if len(logs) > 500:
-                    room_state['logs'] = logs[-500:]
+                    trim_room_logs_with_archive(room, room_state, limit=500)
                 try:
                     save_specific_room_state(room)
                 except Exception:
@@ -431,5 +433,4 @@ def _append_trace(
             e
         )
     return entry
-
 

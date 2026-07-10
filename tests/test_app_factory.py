@@ -18,7 +18,7 @@ def test_create_app_without_startup_registers_http_routes():
 
     routes = {rule.rule for rule in test_app.url_map.iter_rules()}
 
-    assert len(test_app.url_map._rules) == 50
+    assert len(test_app.url_map._rules) == 51
     assert "/" in routes
     assert "/healthz" in routes
     assert "/api/get_session_user" in routes
@@ -40,3 +40,4 @@ def test_create_app_without_startup_registers_http_routes():
     # Phase 6: 参加コード・公開ロビー
     assert "/api/join_room_by_code" in routes
     assert "/api/room/set_join_code" in routes
+    assert "/api/room/export_logs" in routes
