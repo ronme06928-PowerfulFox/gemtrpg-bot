@@ -195,7 +195,13 @@ window.appendVisualLogLine = function (container, logData, filterType) {
     }
 
     logLine.className = className;
+    // 履歴モーダルの行は display:grid（メタ列+本文列）。本文側に複数ノード（<br>で
+    // 区切られた複数行や複数span）を直接 appendChild すると、各ノードが個別の
+    // グリッドアイテムとして自動配置され、本文が本来の1fr列ではなく極端に狭い列へ
+    // 折り返されてしまう。そのため本文は必ず1つのラッパーへまとめてから追加する。
+    const contentTarget = isHistoryView ? document.createElement('span') : logLine;
     if (isHistoryView) {
+        contentTarget.className = 'visual-log-history-message';
         logLine.classList.add('visual-log-history-row');
         const meta = document.createElement('span');
         meta.className = 'visual-log-history-meta';
@@ -212,19 +218,20 @@ window.appendVisualLogLine = function (container, logData, filterType) {
             : '--:--:--';
         meta.textContent = `${time} ${typeLabel}`;
         logLine.appendChild(meta);
+        logLine.appendChild(contentTarget);
     }
     if (logData.type === 'chat') {
         if (logData.secret && secretVisible) {
             const secretMark = document.createElement('span');
             secretMark.className = 'secret-mark';
             secretMark.textContent = '[SECRET]';
-            logLine.appendChild(secretMark);
-            logLine.appendChild(document.createTextNode(' '));
+            contentTarget.appendChild(secretMark);
+            contentTarget.appendChild(document.createTextNode(' '));
         } else if (logData.secret) {
             const masked = document.createElement('span');
             masked.className = 'secret-masked';
             masked.textContent = displayMessage;
-            logLine.appendChild(masked);
+            contentTarget.appendChild(masked);
         }
         if (!logData.secret || secretVisible) {
             const user = document.createElement('span');
@@ -233,9 +240,9 @@ window.appendVisualLogLine = function (container, logData, filterType) {
             const message = document.createElement('span');
             message.className = 'chat-message';
             message.textContent = String(logData.message || '');
-            logLine.appendChild(user);
-            logLine.appendChild(document.createTextNode(' '));
-            logLine.appendChild(message);
+            contentTarget.appendChild(user);
+            contentTarget.appendChild(document.createTextNode(' '));
+            contentTarget.appendChild(message);
         }
     } else if (!logData.secret && String(logData.source || '') === 'resolve_trace') {
         const detail = (logData && typeof logData.resolve_trace_detail === 'object')
@@ -248,8 +255,8 @@ window.appendVisualLogLine = function (container, logData, filterType) {
             ? `${attackerName} -> ${defenderName}`
             : `${attackerName} vs ${defenderName}`;
         const buttonLabel = `[${kindLabel}] ${matchupLabel} / 詳細を表示`;
-        logLine.innerHTML = `<button type="button" class="resolve-trace-log-btn">${_escapeResolveLogHtml(buttonLabel)}</button>`;
-        const btn = logLine.querySelector('.resolve-trace-log-btn');
+        contentTarget.innerHTML = `<button type="button" class="resolve-trace-log-btn">${_escapeResolveLogHtml(buttonLabel)}</button>`;
+        const btn = contentTarget.querySelector('.resolve-trace-log-btn');
         if (btn) {
             if (!detail) {
                 btn.disabled = true;
@@ -262,7 +269,7 @@ window.appendVisualLogLine = function (container, logData, filterType) {
             }
         }
     } else {
-        _appendRichVisualSystemLogMessage(logLine, displayMessage);
+        _appendRichVisualSystemLogMessage(contentTarget, displayMessage);
     }
     logLine.style.borderBottom = "1px dotted #eee";
     logLine.style.padding = "2px 5px";
@@ -517,6 +524,11 @@ window.openVisualLogHistoryModal = function () {
                     border-bottom: 1px solid #eee6da !important;
                     font-size: 0.94rem !important;
                     line-height: 1.55;
+                }
+                .visual-log-history-list .visual-log-history-message {
+                    display: block;
+                    min-width: 0;
+                    overflow-wrap: break-word;
                 }
                 .visual-log-history-list .visual-log-history-meta {
                     font-family: Consolas, "Courier New", monospace;
@@ -867,6 +879,26 @@ window.openVisualLogHistoryModal = function () {
 window.updateVisualRoundDisplay = function (round) {
     const el = document.getElementById('visual-round-counter');
     if (el) el.textContent = round || 0;
+}
+
+// --- Round Start Banner ---
+
+window.ROUND_BANNER_DURATION_MS = 1800;
+
+window.showRoundStartBanner = function (round) {
+    const banner = document.getElementById('round-start-banner');
+    if (!banner) return;
+    const textEl = banner.querySelector('.round-banner-text');
+    if (textEl) textEl.textContent = `ROUND ${round}`;
+
+    banner.classList.remove('is-active');
+    void banner.offsetWidth; // force reflow so the animation restarts on consecutive rounds
+    banner.classList.add('is-active');
+
+    if (window._roundBannerHideTimer) clearTimeout(window._roundBannerHideTimer);
+    window._roundBannerHideTimer = setTimeout(() => {
+        banner.classList.remove('is-active');
+    }, window.ROUND_BANNER_DURATION_MS);
 }
 
 // --- Sidebar Controls ---

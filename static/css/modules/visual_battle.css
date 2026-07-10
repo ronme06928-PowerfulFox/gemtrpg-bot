@@ -1634,6 +1634,61 @@
     color: #33ff33;
 }
 
+/* ラウンド開始演出バナー */
+#round-start-banner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 3000;
+    opacity: 0;
+}
+
+#round-start-banner.is-active {
+    animation: roundBannerShow 1.8s ease-out forwards;
+}
+
+#round-start-banner .round-banner-text {
+    font-size: 64px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: 4px;
+    padding: 18px 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(20, 24, 38, 0.6), rgba(20, 24, 38, 0.2));
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    text-shadow: 3px 3px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 0 24px rgba(255, 200, 60, 0.85);
+}
+
+@keyframes roundBannerShow {
+    0% {
+        opacity: 0;
+        transform: scale(0.7);
+    }
+
+    12% {
+        opacity: 1;
+        transform: scale(1.08);
+    }
+
+    20% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    78% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: scale(1.05);
+    }
+}
+
 .resolve-trace-log-btn {
     width: 100%;
     border: 1px solid rgba(90, 114, 152, 0.35);

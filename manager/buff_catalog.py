@@ -1,4 +1,5 @@
 # manager/buff_catalog.py
+import os
 import re
 
 """
@@ -397,6 +398,11 @@ def get_buff_effect(buff_name):
 
     return None
 
+# get_buff_by_id はスキル評価のホットパスから高頻度で呼ばれるため、
+# カタログJSONをメモリにキャッシュし、ファイル更新(mtime変化)時のみ再読込する。
+_buff_catalog_cache = {"mtime": None, "data": None}
+
+
 def get_buff_by_id(buff_id):
     """
     バフIDからバフ情報を取得する
@@ -409,14 +415,21 @@ def get_buff_by_id(buff_id):
     )
 
     try:
-        data = load_json_cache(
-            BUFF_CATALOG_CACHE_FILE,
-            legacy_paths=[LEGACY_BUFF_CATALOG_CACHE_FILE],
-        )
-        if not isinstance(data, dict):
-            print(f"[WARNING] get_buff_by_id: Cache file not found at {BUFF_CATALOG_CACHE_FILE}")
-            return None
-        return data.get(buff_id)
+        try:
+            mtime = os.path.getmtime(BUFF_CATALOG_CACHE_FILE)
+        except OSError:
+            mtime = None
+        if _buff_catalog_cache["data"] is None or _buff_catalog_cache["mtime"] != mtime:
+            data = load_json_cache(
+                BUFF_CATALOG_CACHE_FILE,
+                legacy_paths=[LEGACY_BUFF_CATALOG_CACHE_FILE],
+            )
+            if not isinstance(data, dict):
+                print(f"[WARNING] get_buff_by_id: Cache file not found at {BUFF_CATALOG_CACHE_FILE}")
+                return None
+            _buff_catalog_cache["mtime"] = mtime
+            _buff_catalog_cache["data"] = data
+        return _buff_catalog_cache["data"].get(buff_id)
     except Exception as e:
         print(f"[ERROR] get_buff_by_id: Failed to load cache: {e}")
         return None

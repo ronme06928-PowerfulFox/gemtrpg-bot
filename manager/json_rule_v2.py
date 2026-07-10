@@ -2,7 +2,7 @@ import copy
 import json
 import re
 
-from manager.json_rule_audit import append_audit
+from manager.json_rule_audit import append_audit, append_audit_verbose
 
 SCHEMA_SKILL_RULE_V2 = "skill_json_rule_v2"
 LEGACY_SCHEMA_ALIASES = {"gdb.rule.v2"}
@@ -261,7 +261,7 @@ def normalize_skill_rule_object(rule_obj, *, source_path="rule_data", strict=PHA
     if "tags" in out and not isinstance(out.get("tags"), list):
         tags = out.get("tags")
         out["tags"] = [str(tags)] if tags not in [None, ""] else []
-    append_audit(
+    append_audit_verbose(
         "normalize_skill_rule_object_ok",
         source_path=source_path,
         strict=bool(strict),
@@ -309,7 +309,7 @@ def extract_and_normalize_skill_rule_data(
 
     if source_raw is None:
         row = {"schema": SCHEMA_SKILL_RULE_V2, "effects": [], "cost": []}
-        append_audit(
+        append_audit_verbose(
             "extract_skill_rule_data_empty",
             skill_id=str(skill_id or ""),
             strict=bool(strict),
@@ -329,7 +329,7 @@ def extract_and_normalize_skill_rule_data(
         else:
             raise JsonRuleV2Error("rule source must be dict or JSON string", path=source_path)
         out = normalize_skill_rule_object(obj, source_path=source_path, strict=strict)
-        append_audit(
+        append_audit_verbose(
             "extract_skill_rule_data_ok",
             skill_id=str(skill_id or ""),
             source_key=str(source_key or ""),
@@ -401,7 +401,7 @@ def normalize_skill_constraints_rows(raw_rows, *, source_path="skill_constraints
             f"duplicate constraint id(s): {', '.join(sorted(dup))}",
             path=source_path,
         )
-    append_audit(
+    append_audit_verbose(
         "normalize_skill_constraints_ok",
         source_path=source_path,
         count=len(out),

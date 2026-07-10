@@ -129,6 +129,7 @@ def emit_select_resolve_events(room_name, to_sid=None, include_round_started=Fal
     Emit select/resolve snapshot events to the same namespace/room path as state_updated.
     This is additive and keeps legacy state_updated flow intact.
     """
+    _t_start = time.perf_counter()
     state = get_room_state(room_name)
     if not state:
         return
@@ -147,6 +148,7 @@ def emit_select_resolve_events(room_name, to_sid=None, include_round_started=Fal
     )
     if not battle_state:
         return
+    _t_ensure = time.perf_counter()
 
     battle_id = battle_state.get('battle_id') or battle_id
     target = to_sid if to_sid else room_name
@@ -182,7 +184,9 @@ def emit_select_resolve_events(room_name, to_sid=None, include_round_started=Fal
         _log_battle_emit('battle_round_started', room_name, battle_id, round_started_payload)
         _safe_emit('battle_round_started', round_started_payload, to=target)
 
+    _t_round_emit = time.perf_counter()
     payload = build_select_resolve_state_payload(room_name, battle_id=battle_id)
+    _t_payload = time.perf_counter()
     if not payload:
         return
 
@@ -192,6 +196,17 @@ def emit_select_resolve_events(room_name, to_sid=None, include_round_started=Fal
 
     _log_battle_emit('battle_state_updated', room_name, battle_id, payload)
     _safe_emit('battle_state_updated', payload, to=target)
+    _t_end = time.perf_counter()
+    if (_t_end - _t_start) > 0.2:
+        logger.info(
+            "[PERF] emit_select_resolve_events room=%s total=%.2fs ensure=%.2fs round_emit=%.2fs payload=%.2fs state_emit=%.2fs",
+            room_name,
+            _t_end - _t_start,
+            _t_ensure - _t_start,
+            _t_round_emit - _t_ensure,
+            _t_payload - _t_round_emit,
+            _t_end - _t_payload,
+        )
 
 
 def get_room_state(room_name):
