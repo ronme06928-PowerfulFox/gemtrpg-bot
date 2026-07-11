@@ -3,6 +3,8 @@
 **作成日**: 2026-07-08
 **位置づけ**: F02 遭遇設計ガイドの「低/中/高ロールで撃破ターンを概算する」を、実戦闘エンジンを使った pytest ハーネス／CLIで自動化する計画。敵編成を入力に、撃破ターン・詰み（膠着）・全滅有無を機械的に報告する。議論前のたたき台（§7 を一問一答で確定してから実装）。
 
+**2026-07-11 確認**: 既存の `tests/test_select_resolve_smoke.py` と `tests/test_pve_auto_intents.py` のヘッドレス実行経路を再確認し、Phase 1 実装に進める状態と判断。未決定事項は §8 の方針で固定してよい。
+
 ---
 
 ## 1. 目的
@@ -106,13 +108,33 @@
 
 ## 8. 決定事項ログ
 
-（一問一答の議論後に追記する）
-
 | 日付 | 論点 | 決定 | 根拠 |
 |---|---|---|---|
-| | | | |
+| 2026-07-11 | 配置 | まず `scripts/simulate_battle.py` と `tests/sim/` 併設で実装する | GM向けUI化は将来拡張。現時点では手動CLIとpytestハーネスを優先し、戦闘エンジン本体へ製品コードを混ぜない |
+| 2026-07-11 | `_update_char_stat` | 実 `manager.room_manager._update_char_stat` を、保存・Socket・ログ送信を無害化して流用する | HPクランプ、死亡時の未配置化、死亡時効果、状態/params更新の忠実度がスタブより高い。DB保存は `save_specific_room_state` 差し替えで止める |
+| 2026-07-11 | 味方AIの方式 | `battle_ai.ai_suggest_skill(char)` と最小ターゲットポリシーの薄いラッパをシミュレータ側に実装する | 既存plannerは敵専用。Phase 1-2ではビルド別 behavior_profile までは不要 |
+| 2026-07-11 | 中央値ロール | 期待値の四捨五入（`.5` は切り上げ）を `median` とする | 低/中/高を1本ずつ出す用途では読みやすさを優先。floor/ceil併走は必要になった時点で拡張する |
+| 2026-07-11 | 膠着判定 | `max_rounds` 到達を基本とし、将来 `stall_window` とHP減少閾値を追加できる形にする | Phase 1-2では決着ループの安全停止が最重要。HP減少率はレポート整形時に追加する |
+| 2026-07-11 | 出力形式 | CLIはコンソール表を既定、`--json` で機械可読出力を追加する | GMの手元確認とpytest利用の両方を満たす。MarkdownはPhase 4以降の任意拡張 |
+| 2026-07-11 | CI組込 | Phase 1-4は個別テストのみ、Phase 5で軽量代表ケースだけ通常 `pytest -q` に含める | 実行時間と決定論性を確認してから常時実行にする |
 
-## 9. 受け入れ条件
+## 9. 実装準備メモ（2026-07-11）
+
+Phase 1 の最小実装は、次の順で進める。
+
+1. `scripts/simulate_battle.py` に `BattleReport` と `run_battle(state, *, roll_mode="median", max_rounds=10)` を置く。
+2. `get_room_state` / `save_specific_room_state` / `socketio.emit` / `broadcast_log` を、`manager.battle.core` と `manager.battle.common_manager` の両方で差し替える。
+3. `_update_char_stat` は実実装を呼ぶ。ただし保存・emit・ログ送信は no-op に差し替え、DB/Socket へ出さない。
+4. 1ラウンドは `process_select_resolve_round_start` → 味方intent注入 → `phase="resolve_mass"` → `run_select_resolve_auto` → 全員 `hasActed=True` 補正 → `process_full_round_end` → `_bo_estimate_battle_result` の順に回す。
+5. Phase 1 テストは手書き 1vs1 または 2vs2 の固定intentで、決着・上限打ち切り・既存エンジン本体未変更を確認する。
+
+注意点:
+
+- `process_full_round_end` は未行動キャラがいると止まるため、シミュレータでは resolve 後に生存・行動可能キャラの `hasActed` を補正する。
+- `roll_dice` 差し替えは Phase 2 で追加する。Phase 1 は既存乱数または固定スキル威力スタブで完走確認に絞る。
+- `extensions.all_skill_data` には実キャッシュを投入する。テストでは必要最小のスキルだけを `all_skill_data` に差し込む。
+
+## 10. 受け入れ条件
 
 - 実プリセット（または手書き編成JSON）を入力に、低/中/高ロールの3シナリオで決着ラウンド・勝敗・残HPが再現可能に出力される。
 - 膠着編成が上限で打ち切られ「詰み」として報告される。
