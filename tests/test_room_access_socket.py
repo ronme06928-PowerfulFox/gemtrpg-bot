@@ -65,6 +65,81 @@ def test_chat_uses_server_side_username(monkeypatch):
     assert logged[0][1].get("user") == "Alice"
 
 
+def test_roll_command_is_public_server_dice_with_server_username(monkeypatch):
+    user_sids["sid-1"] = {"user_id": "u1", "room": "R1", "username": "Alice"}
+    monkeypatch.setattr(sm, "request", SimpleNamespace(sid="sid-1"))
+    logged = []
+    monkeypatch.setattr(sm, "broadcast_log", lambda *a, **k: logged.append((a, k)))
+
+    import manager.dice_roller as dice_roller
+
+    calls = []
+    monkeypatch.setattr(
+        dice_roller,
+        "roll_dice",
+        lambda cmd: calls.append(cmd) or {"details": "(4)+2", "total": 6},
+    )
+
+    sm.handle_chat({
+        "room": "R1",
+        "message": "/roll 1d6+2",
+        "user": "spoof",
+        "secret": True,
+    })
+
+    assert calls == ["1d6+2"]
+    assert logged == [(("R1", "1d6+2 → (4)+2 = 6", "chat"), {"user": "Alice", "secret": False})]
+
+
+def test_sroll_command_is_secret_server_dice(monkeypatch):
+    user_sids["sid-1"] = {"user_id": "u1", "room": "R1", "username": "Alice"}
+    monkeypatch.setattr(sm, "request", SimpleNamespace(sid="sid-1"))
+    logged = []
+    monkeypatch.setattr(sm, "broadcast_log", lambda *a, **k: logged.append((a, k)))
+
+    import manager.dice_roller as dice_roller
+
+    monkeypatch.setattr(dice_roller, "roll_dice", lambda cmd: {"details": "(3)", "total": 3})
+
+    sm.handle_chat({"room": "R1", "message": "sroll 1d6", "user": "spoof"})
+
+    assert logged == [(("R1", "1d6 → (3) = 3", "chat"), {"user": "Alice", "secret": True})]
+
+
+def test_roll_command_without_dice_is_normal_chat_or_ignored(monkeypatch):
+    user_sids["sid-1"] = {"user_id": "u1", "room": "R1", "username": "Alice"}
+    monkeypatch.setattr(sm, "request", SimpleNamespace(sid="sid-1"))
+    logged = []
+    monkeypatch.setattr(sm, "broadcast_log", lambda *a, **k: logged.append((a, k)))
+
+    sm.handle_chat({"room": "R1", "message": "/roll not-a-dice"})
+    sm.handle_chat({"room": "R1", "message": "/roll"})
+
+    assert logged == [(("R1", "not-a-dice", "chat"), {"user": "Alice", "secret": False})]
+
+
+def test_roll_command_mixed_with_later_command_is_not_split(monkeypatch):
+    user_sids["sid-1"] = {"user_id": "u1", "room": "R1", "username": "Alice"}
+    monkeypatch.setattr(sm, "request", SimpleNamespace(sid="sid-1"))
+    logged = []
+    monkeypatch.setattr(sm, "broadcast_log", lambda *a, **k: logged.append((a, k)))
+
+    import manager.dice_roller as dice_roller
+
+    calls = []
+    monkeypatch.setattr(
+        dice_roller,
+        "roll_dice",
+        lambda cmd: calls.append(cmd) or {"details": "(1) /sroll (6)", "total": 7},
+    )
+
+    sm.handle_chat({"room": "R1", "message": "/roll 1d6 /sroll 1d6"})
+
+    assert calls == ["1d6 /sroll 1d6"]
+    assert len(logged) == 1
+    assert logged[0][1]["secret"] is False
+
+
 def test_log_ignored_when_sid_not_in_room(monkeypatch):
     user_sids["sid-1"] = {"user_id": "u1", "room": "R1", "username": "Alice"}
     monkeypatch.setattr(sm, "request", SimpleNamespace(sid="sid-1"))

@@ -185,16 +185,12 @@ def handle_chat(data):
     msg = data.get('message', '')
     secret = data.get('secret', False)
 
-    # コマンド判定 (sroll, /sroll, roll, /roll)
-    # 大文字小文字無視
-    lower_msg = msg.lower()
-
-    if lower_msg.startswith('sroll') or lower_msg.startswith('/sroll'):
-        secret = True
-        # "sroll " などを削除
-        msg = re.sub(r'^/?sroll\s*', '', msg, flags=re.IGNORECASE)
-    elif lower_msg.startswith('roll') or lower_msg.startswith('/roll'):
-        msg = re.sub(r'^/?roll\s*', '', msg, flags=re.IGNORECASE)
+    # コマンド判定 (sroll, /sroll, roll, /roll)。先頭の独立トークンだけをコマンドとして扱う。
+    command_match = re.match(r'^\s*/?(sroll|roll)(?:\s+|$)', msg, flags=re.IGNORECASE)
+    if command_match:
+        command = command_match.group(1).lower()
+        secret = command == 'sroll'
+        msg = msg[command_match.end():].strip()
 
     # ダイスロール判定 (XdY が含まれるか)
     if re.search(r'\d+d\d+', msg):
