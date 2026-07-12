@@ -20,6 +20,20 @@
         return fetch(url, Object.assign({ credentials: 'include' }, options || {}));
     }
 
+    function openCharaCreator(ownedId) {
+        const url = ownedId ? `/chara_creator?owned_id=${encodeURIComponent(ownedId)}` : '/chara_creator';
+        window.open(url, '_blank');
+    }
+
+    // キャラ名から決定的に色を選ぶ（アバター用）。見た目だけの要素なのでハッシュは単純でよい。
+    const AVATAR_PALETTE = ['#6366f1', '#0ea5e9', '#16a34a', '#ea580c', '#db2777', '#7c3aed', '#0d9488', '#ca8a04'];
+    function avatarColorFor(name) {
+        const str = String(name || '?');
+        let hash = 0;
+        for (let i = 0; i < str.length; i += 1) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+        return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
+    }
+
     async function openOwnedCharactersModal() {
         const existing = document.getElementById('owned-chars-backdrop');
         if (existing) existing.remove();
@@ -33,13 +47,16 @@
         panel.style.maxWidth = '640px';
 
         panel.innerHTML = `
-            <h3 style="margin-top:0;">マイキャラクター</h3>
-            <div id="owned-chars-list" style="max-height:320px; overflow-y:auto; margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 style="margin:0;">🧑‍🎨 マイキャラクター</h3>
+                <button id="owned-chars-new-btn" class="bo-btn bo-btn--sm bo-btn--accent">＋ 新規作成</button>
+            </div>
+            <div id="owned-chars-list" style="max-height:360px; overflow-y:auto; margin-bottom:14px;">
                 <div style="color:#666;">読み込み中...</div>
             </div>
-            <div style="border-top:1px solid #ddd; padding-top:12px;">
-                <div style="font-weight:600; margin-bottom:6px;">JSONから追加</div>
-                <textarea id="owned-chars-import-text" rows="4" style="width:100%; box-sizing:border-box;"
+            <div class="bo-subcard">
+                <div class="bo-subcard-title">📋 JSONから追加</div>
+                <textarea id="owned-chars-import-text" rows="3" style="width:100%; box-sizing:border-box; font-family:inherit;"
                     placeholder='キャラ作成ツールの出力JSON（{"kind":"character","data":{...}}）を貼り付け'></textarea>
                 <div style="margin-top:6px;">
                     <button id="owned-chars-import-btn" class="bo-btn bo-btn--sm">保存</button>
@@ -59,6 +76,8 @@
         const importBtn = panel.querySelector('#owned-chars-import-btn');
         const importMsg = panel.querySelector('#owned-chars-import-msg');
 
+        panel.querySelector('#owned-chars-new-btn')?.addEventListener('click', () => openCharaCreator());
+
         async function loadList() {
             listEl.innerHTML = '<div style="color:#666;">読み込み中...</div>';
             try {
@@ -73,24 +92,37 @@
 
         function renderList(characters) {
             if (!characters.length) {
-                listEl.innerHTML = '<div style="color:#666;">持ちキャラはまだありません。</div>';
+                listEl.innerHTML = `
+                    <div style="text-align:center; padding:28px 12px; color:#666;">
+                        <div style="font-size:2rem; margin-bottom:8px;">🗡️</div>
+                        <div style="margin-bottom:12px;">持ちキャラはまだありません。</div>
+                        <button id="owned-chars-empty-new-btn" class="bo-btn bo-btn--sm bo-btn--accent">＋ 最初のキャラクターを作成</button>
+                    </div>
+                `;
+                listEl.querySelector('#owned-chars-empty-new-btn')?.addEventListener('click', () => openCharaCreator());
                 return;
             }
             listEl.innerHTML = characters.map((c) => {
                 const updated = c.updated_at ? new Date(c.updated_at).toLocaleString() : '-';
                 const remaining = Number.isFinite(c.remaining_exp) ? c.remaining_exp : (c.exp_total ?? 0);
+                const initial = escapeHtml(String(c.name || '?').trim().charAt(0) || '?');
+                const avatarColor = avatarColorFor(c.name);
                 return `
-                    <div class="bo-card" style="margin-bottom:6px;" data-id="${escapeHtml(c.id)}">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <div style="font-weight:600;">${escapeHtml(c.name)}</div>
-                                <div style="font-size:0.8em; color:#666;">更新: ${escapeHtml(updated)} / 残り経験値: ${escapeHtml(remaining)}（累計${escapeHtml(c.exp_total ?? 0)}）</div>
+                    <div class="bo-card" style="margin-bottom:8px;" data-id="${escapeHtml(c.id)}">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                                <div style="flex:0 0 auto; width:36px; height:36px; border-radius:50%; background:${avatarColor};
+                                    color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700;">${initial}</div>
+                                <div style="min-width:0;">
+                                    <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(c.name)}</div>
+                                    <div style="font-size:0.78em; color:#666;">残り経験値 <strong>${escapeHtml(remaining)}</strong> / 累計 ${escapeHtml(c.exp_total ?? 0)} ・ 更新 ${escapeHtml(updated)}</div>
+                                </div>
                             </div>
-                            <div>
-                                <button class="bo-btn bo-btn--sm bo-btn--neutral owned-chars-growth-btn" data-id="${escapeHtml(c.id)}">成長</button>
-                                <button class="bo-btn bo-btn--sm bo-btn--neutral owned-chars-edit-btn" data-id="${escapeHtml(c.id)}">編集</button>
-                                <button class="bo-btn bo-btn--sm bo-btn--neutral owned-chars-export-btn" data-id="${escapeHtml(c.id)}">JSON出力</button>
-                                <button class="bo-btn bo-btn--sm owned-chars-delete-btn" data-id="${escapeHtml(c.id)}">削除</button>
+                            <div style="flex:0 0 auto; display:flex; gap:4px;">
+                                <button class="bo-btn bo-btn--xs bo-btn--neutral owned-chars-growth-btn" data-id="${escapeHtml(c.id)}" title="成長（スキル追加・パラメータ上昇）">🌱</button>
+                                <button class="bo-btn bo-btn--xs bo-btn--neutral owned-chars-edit-btn" data-id="${escapeHtml(c.id)}" title="キャラ作成ツールで編集">📝</button>
+                                <button class="bo-btn bo-btn--xs bo-btn--neutral owned-chars-export-btn" data-id="${escapeHtml(c.id)}" title="JSONを出力">📤</button>
+                                <button class="bo-btn bo-btn--xs owned-chars-delete-btn" data-id="${escapeHtml(c.id)}" title="削除">🗑️</button>
                             </div>
                         </div>
                         <div class="owned-chars-growth-panel" data-id="${escapeHtml(c.id)}" style="display:none; margin-top:8px; padding:8px; background:#f0fdf4; border-radius:4px; border:1px solid #bbf7d0;">
@@ -160,7 +192,7 @@
                 btn.addEventListener('click', () => {
                     const id = btn.getAttribute('data-id');
                     if (!id) return;
-                    window.open(`/chara_creator?owned_id=${encodeURIComponent(id)}`, '_blank');
+                    openCharaCreator(id);
                 });
             });
 
