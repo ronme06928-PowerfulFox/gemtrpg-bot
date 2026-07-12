@@ -35,6 +35,7 @@
 | **F — 運用** | |
 | `F01_Operations_Manual.md` | 運用マニュアル（GMバフ操作・マニュアル更新プロトコル・デプロイ手順・アカウント認証・ルーム権限システム仕様） |
 | `F02_Battle_Balance_Designer_Skill_Manual.md` | バランス設計 Skill 運用・スキルバランス確定基準・スキル/遭遇設計ガイド（GM・作成者向け） |
+| `F03_Battle_Balance_Simulator_CLI.md` | バランス検証シミュレータCLI・ヘッドレス検証ワークフロー |
 
 ---
 
