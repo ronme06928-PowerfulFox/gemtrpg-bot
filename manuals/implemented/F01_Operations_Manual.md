@@ -905,12 +905,22 @@ GET /api/room/export_logs?room_name=<room>&format=text
 
 ### `POST /api/owned_characters/<id>/growth`
 
-payload: `{add_skill_ids: [...], param_increases: {"筋力": 1, ...}}`。
+payload: `{add_skill_ids: [...], add_radiance_ids: [...], param_increases: {"筋力": 1, ...}}`。
 
 - スキル追加のコストは、追加前後の`compute_used_exp`の差分として算出する（`all_skill_data`の`チャットパレット`フィールドをそのまま`commands`へ追記するため、CharaCreatorが生成する行と同一形式になる）。
-- パラメータ上昇は house rule として1ポイントあたり経験値1消費（CharaCreator自体には無い、成長画面固有のルール）。
+- パラメータ上昇は house rule として1ポイントあたり経験値1消費（CharaCreator自体には無い、成長画面固有のルール）。現行UI（`owned_characters_modal.js`）はこの入力欄を提供していないが、API自体は互換性のため残している。
 - 消費合計が残り経験値を超える場合は400を返し、`data`・`growth_log`とも変更しない。
 - 成功時は`data.params`の対象ラベルを更新（無ければ新規追加）し、`growth_log`に`kind:'growth'`のエントリを追加する。`exp_total`自体は変更しない（消費すれば`remaining_exp`が自動的に減るだけ、という設計）。
+
+### 輝化スキルの成長（`add_radiance_ids`、通過点予算）
+
+CharaCreatorの「通過点」（`data.params`の`通過点`ラベル、CharaCreator側フィールド名`radiance-points`）を、輝化スキル習得専用の予算として扱う。経験値予算（`exp_total`/`remaining_exp`）とは完全に独立しており、互いを侵食しない。
+
+- `compute_radiance_limit(data)`: `通過点`パラメータの値をそのまま輝化予算の上限とする。
+- `compute_radiance_used(data, radiance_skills)`: `data.SPassive`配列（輝化スキルIDと特殊パッシブIDが混在する）のうち、輝化スキル辞書（`manager.radiance.loader.radiance_loader.load_skills()`、`/api/get_radiance_data`と同一データ）に存在するIDだけコスト（`cost`フィールド）を合算する。パッシブ側のIDは輝化辞書に存在しないため自然に0コスト扱いとなり、成長エンドポイントの対象から除外される（特殊パッシブの習得は現状もCharaCreator側の再編集でのみ可能）。
+- API応答に`radiance_limit`（通過点の総量）・`radiance_used`（消費済み）・`radiance_remaining`（残り）を追加する。
+- `add_radiance_ids`で指定したIDは、未知ID・既に`SPassive`にある重複IDのいずれも400エラーで拒否する（`data`・`growth_log`とも変更しない）。コスト合計が`radiance_remaining`を超える場合も同様に400で拒否する。
+- 成功時は`add_radiance_ids`を`data.SPassive`へ追記し（`commands`は変更しない）、`growth_log`のエントリに`added_radiance_ids`・`radiance_cost`を記録する。
 
 ### CharaCreator再編集時の予算連動
 
@@ -922,4 +932,4 @@ payload: `{add_skill_ids: [...], param_increases: {"筋力": 1, ...}}`。
 - `tests/test_chara_creator_route.py`: `/chara_creator`配信ルート。
 - `tests/test_add_character_owned_character.py`: 投入時の`owned_character_id`タグ付け・他人のIDの無視・投入コピーの独立性。
 - `tests/test_reflect_session_results.py`: 所有者/GMによる反映・非所有者非GMの拒否・二重反映防止・`owned_character_id`なしのスキップ・ホロウルームでのアイテム除外。
-- `tests/test_owned_character_growth.py`: `compute_exp_limit`/`compute_used_exp`の同値性（出身6/7エッジケース含む）・成長エンドポイントの予算超過拒否・複数回呼び出しでの累積・`skill_exp_budget`の算出。
+- `tests/test_owned_character_growth.py`: `compute_exp_limit`/`compute_used_exp`の同値性（出身6/7エッジケース含む）・成長エンドポイントの予算超過拒否・複数回呼び出しでの累積・`skill_exp_budget`の算出・輝化スキル成長（通過点予算内での習得成功・予算超過拒否・未知ID拒否・重複ID拒否・経験値予算との独立性・`growth_log`記録）。

@@ -20,11 +20,17 @@ FAKE_SKILLS = {
     "Ms-01": {"取得コスト": "3", "チャットパレット": "2d6 【Ms-01 魔法斬撃】"},
 }
 
+FAKE_RADIANCE_SKILLS = {
+    "R-01": {"id": "R-01", "name": "輝化スキルその1", "cost": 2, "description": "テスト効果"},
+    "R-02": {"id": "R-02", "name": "輝化スキルその2", "cost": 5, "description": "テスト効果2"},
+}
+
 
 @pytest.fixture(autouse=True)
 def patch_skill_data(monkeypatch):
     monkeypatch.setattr(extensions, "all_skill_data", FAKE_SKILLS)
     monkeypatch.setattr(oc, "all_skill_data", FAKE_SKILLS)
+    monkeypatch.setattr(oc.radiance_loader, "load_skills", lambda force_refresh=False: FAKE_RADIANCE_SKILLS)
     yield
 
 
@@ -262,6 +268,109 @@ def test_skill_exp_budget_excludes_param_spend_but_not_skill_spend(client, app_c
     assert body2["remaining_exp"] == 6  # 10 - 1(skill) - 3(param)
     # パラメータ成長の消費分だけが skill_exp_budget から差し引かれる。
     assert body2["skill_exp_budget"] == 7  # 10 - 3(param only)
+
+
+# ---------------------------------------------------------------------------
+# 輝化スキル成長（通過点予算）
+# ---------------------------------------------------------------------------
+
+def _make_owned_character_with_radiance(radiance_points=5, existing_spassive=None):
+    return OwnedCharacter(
+        id="owned_1",
+        user_id="owner",
+        name="輝化成長テストキャラ",
+        data={
+            "name": "輝化成長テストキャラ",
+            "commands": "",
+            "params": [{"label": "通過点", "value": str(radiance_points)}],
+            "SPassive": existing_spassive or [],
+        },
+        exp_total=0,
+        growth_log=[],
+    )
+
+
+def test_growth_adds_radiance_skill_within_budget(client, app_ctx):
+    with app_ctx.app_context():
+        db.session.add(_make_owned_character_with_radiance(radiance_points=5))
+        db.session.commit()
+
+    _login(client, "owner")
+    resp = client.post("/api/owned_characters/owned_1/growth", json={"add_radiance_ids": ["R-01"]})
+    assert resp.status_code == 200
+    body = resp.get_json()["character"]
+    assert body["data"]["SPassive"] == ["R-01"]
+    assert body["radiance_limit"] == 5
+    assert body["radiance_used"] == 2
+    assert body["radiance_remaining"] == 3
+
+
+def test_growth_rejects_radiance_skill_over_budget(client, app_ctx):
+    with app_ctx.app_context():
+        db.session.add(_make_owned_character_with_radiance(radiance_points=3))
+        db.session.commit()
+
+    _login(client, "owner")
+    resp = client.post("/api/owned_characters/owned_1/growth", json={"add_radiance_ids": ["R-02"]})  # cost 5 > 3
+    assert resp.status_code == 400
+    assert "通過点が不足" in resp.get_json()["error"]
+
+    with app_ctx.app_context():
+        owned = OwnedCharacter.query.get("owned_1")
+        assert owned.data["SPassive"] == []
+        assert owned.growth_log == []
+
+
+def test_growth_rejects_unknown_radiance_id(client, app_ctx):
+    with app_ctx.app_context():
+        db.session.add(_make_owned_character_with_radiance(radiance_points=10))
+        db.session.commit()
+
+    _login(client, "owner")
+    resp = client.post("/api/owned_characters/owned_1/growth", json={"add_radiance_ids": ["NOPE-1"]})
+    assert resp.status_code == 400
+    assert "未知の輝化スキルID" in resp.get_json()["error"]
+
+
+def test_growth_rejects_duplicate_radiance_id(client, app_ctx):
+    with app_ctx.app_context():
+        db.session.add(_make_owned_character_with_radiance(radiance_points=10, existing_spassive=["R-01"]))
+        db.session.commit()
+
+    _login(client, "owner")
+    resp = client.post("/api/owned_characters/owned_1/growth", json={"add_radiance_ids": ["R-01"]})
+    assert resp.status_code == 400
+    assert "既に習得済み" in resp.get_json()["error"]
+
+
+def test_growth_radiance_does_not_consume_exp_budget(client, app_ctx):
+    """通過点は経験値(exp_total)とは独立した予算であること。"""
+    with app_ctx.app_context():
+        char = _make_owned_character_with_radiance(radiance_points=5)
+        char.exp_total = 0
+        db.session.add(char)
+        db.session.commit()
+
+    _login(client, "owner")
+    resp = client.post("/api/owned_characters/owned_1/growth", json={"add_radiance_ids": ["R-01"]})
+    assert resp.status_code == 200
+    body = resp.get_json()["character"]
+    assert body["remaining_exp"] == 0  # exp予算は無傷
+    assert body["radiance_remaining"] == 3
+
+
+def test_growth_records_radiance_in_growth_log(client, app_ctx):
+    with app_ctx.app_context():
+        db.session.add(_make_owned_character_with_radiance(radiance_points=5))
+        db.session.commit()
+
+    _login(client, "owner")
+    client.post("/api/owned_characters/owned_1/growth", json={"add_radiance_ids": ["R-01"]})
+
+    with app_ctx.app_context():
+        owned = OwnedCharacter.query.get("owned_1")
+        assert owned.growth_log[0]["added_radiance_ids"] == ["R-01"]
+        assert owned.growth_log[0]["radiance_cost"] == 2
 
 
 def test_creation_seeds_exp_total_from_params(client, app_ctx):

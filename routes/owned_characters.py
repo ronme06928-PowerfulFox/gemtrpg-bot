@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, session
 
 from extensions import db, all_skill_data
+from manager.radiance.loader import radiance_loader
 from models import OwnedCharacter
 from manager.utils import session_required
 
@@ -26,6 +27,7 @@ _SKILL_ID_RE = re.compile(r'【([A-Za-z0-9\-]+)\s+.*?】')
 # CharaCreatorの魔法カテゴリ判定（Ms/Mb/Mp シート由来のIDプレフィックス）。
 _MAGIC_ID_PREFIXES = ('Ms', 'Mb', 'Mp')
 _SKILL_COST_FIELD = '取得コスト'
+_RADIANCE_COST_FIELD = 'cost'
 
 
 def _get_param_value(data, label, default=0):
@@ -111,6 +113,34 @@ def compute_total_used_exp(character):
     return compute_used_exp(character.data or {}) + compute_param_growth_spent(character.growth_log or [])
 
 
+def compute_radiance_limit(data):
+    """CharaCreator側の「通過点」（radiance-points）を輝化スキルの予算上限として扱う。"""
+    return _get_param_value(data, '通過点', 0)
+
+
+def _radiance_cost(skill_id, radiance_skills):
+    skill = radiance_skills.get(skill_id)
+    if not skill:
+        return 0
+    try:
+        return int(skill.get(_RADIANCE_COST_FIELD, 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def compute_radiance_used(data, radiance_skills):
+    """`SPassive`配列のうち輝化スキルデータに存在するIDのコスト合計。
+
+    `SPassive`には輝化スキルと特殊パッシブのIDが混在するが、パッシブ側のIDは
+    輝化スキル辞書に存在しないため、ここでは自然に0コスト扱いとなり除外される。
+    """
+    total = 0
+    for skill_id in (data.get('SPassive') or []):
+        if isinstance(skill_id, str):
+            total += _radiance_cost(skill_id, radiance_skills)
+    return total
+
+
 def _character_to_dict_with_exp(character):
     payload = character.to_dict()
     param_spent = compute_param_growth_spent(character.growth_log or [])
@@ -123,6 +153,13 @@ def _character_to_dict_with_exp(character):
     # 消費した分だけを exp_total から差し引いた値を渡す（残り経験値そのものではない。
     # 残り経験値を渡すと既存スキルのコストを二重に差し引いてしまう）。
     payload['skill_exp_budget'] = int(character.exp_total or 0) - param_spent
+
+    radiance_skills = radiance_loader.load_skills()
+    radiance_limit = compute_radiance_limit(character.data or {})
+    radiance_used = compute_radiance_used(character.data or {}, radiance_skills)
+    payload['radiance_limit'] = radiance_limit
+    payload['radiance_used'] = radiance_used
+    payload['radiance_remaining'] = radiance_limit - radiance_used
     return payload
 
 
@@ -259,6 +296,8 @@ def grow_owned_character(character_id):
     payload = request.get_json(silent=True) or {}
     add_skill_ids = payload.get('add_skill_ids')
     add_skill_ids = [str(s).strip() for s in add_skill_ids if str(s).strip()] if isinstance(add_skill_ids, list) else []
+    add_radiance_ids = payload.get('add_radiance_ids')
+    add_radiance_ids = [str(s).strip() for s in add_radiance_ids if str(s).strip()] if isinstance(add_radiance_ids, list) else []
     param_increases_raw = payload.get('param_increases') if isinstance(payload.get('param_increases'), dict) else {}
     param_increases = {}
     for label, delta in param_increases_raw.items():
@@ -269,7 +308,7 @@ def grow_owned_character(character_id):
         if delta_int > 0:
             param_increases[str(label)] = delta_int
 
-    if not add_skill_ids and not param_increases:
+    if not add_skill_ids and not add_radiance_ids and not param_increases:
         return jsonify({"error": "追加するスキルまたはパラメータ上昇を指定してください。"}), 400
 
     data = dict(character.data or {})
@@ -279,6 +318,16 @@ def grow_owned_character(character_id):
     unknown_skill_ids = [sid for sid in add_skill_ids if sid not in all_skill_data]
     if unknown_skill_ids:
         return jsonify({"error": f"未知のスキルIDです: {', '.join(unknown_skill_ids)}"}), 400
+
+    radiance_skills = radiance_loader.load_skills()
+    unknown_radiance_ids = [sid for sid in add_radiance_ids if sid not in radiance_skills]
+    if unknown_radiance_ids:
+        return jsonify({"error": f"未知の輝化スキルIDです: {', '.join(unknown_radiance_ids)}"}), 400
+
+    existing_spassive = [s for s in (data.get('SPassive') or []) if isinstance(s, str)]
+    duplicate_radiance_ids = [sid for sid in add_radiance_ids if sid in existing_spassive]
+    if duplicate_radiance_ids:
+        return jsonify({"error": f"既に習得済みの輝化スキルです: {', '.join(duplicate_radiance_ids)}"}), 400
 
     new_commands_lines = [str(data.get('commands') or '')]
     for skill_id in add_skill_ids:
@@ -300,7 +349,17 @@ def grow_owned_character(character_id):
             "required_exp": total_cost,
         }), 400
 
+    radiance_cost = sum(_radiance_cost(sid, radiance_skills) for sid in add_radiance_ids)
+    radiance_remaining = compute_radiance_limit(data) - compute_radiance_used(data, radiance_skills)
+    if radiance_cost > radiance_remaining:
+        return jsonify({
+            "error": f"通過点が不足しています（必要: {radiance_cost} / 残り: {radiance_remaining}）。",
+            "radiance_remaining": radiance_remaining,
+            "required_radiance": radiance_cost,
+        }), 400
+
     data['commands'] = new_commands
+    data['SPassive'] = existing_spassive + add_radiance_ids
     # `data`はcharacter.dataの浅いコピーのため、paramsの各要素(dict)は元のオブジェクトと
     # 共有されたままになる。ここでインプレース変更すると「変更前」スナップショットまで
     # 一緒に書き換わってしまい、SQLAlchemyの変更検知が「差分なし」と誤判定してUPDATEを
@@ -329,8 +388,10 @@ def grow_owned_character(character_id):
         'date': datetime.now(timezone.utc).isoformat(),
         'kind': 'growth',
         'added_skill_ids': add_skill_ids,
+        'added_radiance_ids': add_radiance_ids,
         'param_increases': param_increases,
         'cost': total_cost,
+        'radiance_cost': radiance_cost,
     })
     character.growth_log = growth_log
 

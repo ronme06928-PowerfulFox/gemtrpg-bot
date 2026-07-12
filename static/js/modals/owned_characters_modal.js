@@ -25,8 +25,49 @@
         window.open(url, '_blank');
     }
 
+    // 通常スキル/輝化スキルのマスターデータ。ロビー読み込み時に main.js がグローバルへ
+    // 格納する（window.allSkillData/window.radianceSkillData）が、未取得のタイミングで
+    // モーダルを開いた場合に備えて自前でも一度だけ取得する。
+    let _skillDataPromise = null;
+    function ensureSkillData() {
+        if (global.allSkillData && Object.keys(global.allSkillData).length > 0) {
+            return Promise.resolve(global.allSkillData);
+        }
+        if (!_skillDataPromise) {
+            _skillDataPromise = fetchJson('/api/get_skill_data')
+                .then((r) => r.json())
+                .then((data) => { global.allSkillData = data || {}; return global.allSkillData; })
+                .catch(() => { global.allSkillData = global.allSkillData || {}; return global.allSkillData; });
+        }
+        return _skillDataPromise;
+    }
+
+    let _radianceDataPromise = null;
+    function ensureRadianceData() {
+        if (global.radianceSkillData && Object.keys(global.radianceSkillData).length > 0) {
+            return Promise.resolve(global.radianceSkillData);
+        }
+        if (!_radianceDataPromise) {
+            _radianceDataPromise = fetchJson('/api/get_radiance_data')
+                .then((r) => r.json())
+                .then((data) => { global.radianceSkillData = data || {}; return global.radianceSkillData; })
+                .catch(() => { global.radianceSkillData = global.radianceSkillData || {}; return global.radianceSkillData; });
+        }
+        return _radianceDataPromise;
+    }
+
+    // 戦闘スキルのIDプレフィックス（CharaCreatorのシートタブ区分と同じ並び）からカテゴリを判定する。
+    const _SKILL_CATEGORY_ORDER = ['B', 'C', 'D', 'E', 'Ps', 'Pb', 'Pp', 'Ms', 'Mb', 'Mp'];
+    function skillCategoryOf(skillId) {
+        const m = /^([A-Za-z]+)-/.exec(String(skillId || ''));
+        return m ? m[1] : '他';
+    }
+
     // キャラ名から決定的に色を選ぶ（アバター用）。見た目だけの要素なのでハッシュは単純でよい。
-    const AVATAR_PALETTE = ['#6366f1', '#0ea5e9', '#16a34a', '#ea580c', '#db2777', '#7c3aed', '#0d9488', '#ca8a04'];
+    const AVATAR_PALETTE = [
+        '#6366f1', '#0ea5e9', '#16a34a', '#ea580c', '#db2777',
+        '#7c3aed', '#0d9488', '#ca8a04', '#e11d48', '#2563eb',
+    ];
     function avatarColorFor(name) {
         const str = String(name || '?');
         let hash = 0;
@@ -43,28 +84,41 @@
         overlay.className = 'modal-backdrop';
 
         const panel = document.createElement('div');
-        panel.className = 'modal-content';
-        panel.style.maxWidth = '640px';
+        panel.className = 'modal-content owned-chars-modal-content';
 
         panel.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h3 style="margin:0;">🧑‍🎨 マイキャラクター</h3>
-                <button id="owned-chars-new-btn" class="bo-btn bo-btn--sm bo-btn--accent">＋ 新規作成</button>
-            </div>
-            <div id="owned-chars-list" style="max-height:360px; overflow-y:auto; margin-bottom:14px;">
-                <div style="color:#666;">読み込み中...</div>
-            </div>
-            <div class="bo-subcard">
-                <div class="bo-subcard-title">📋 JSONから追加</div>
-                <textarea id="owned-chars-import-text" rows="3" style="width:100%; box-sizing:border-box; font-family:inherit;"
-                    placeholder='キャラ作成ツールの出力JSON（{"kind":"character","data":{...}}）を貼り付け'></textarea>
-                <div style="margin-top:6px;">
-                    <button id="owned-chars-import-btn" class="bo-btn bo-btn--sm">保存</button>
-                    <span id="owned-chars-import-msg" style="margin-left:8px; font-size:0.85em;"></span>
+            <div class="owned-chars-modal">
+                <div class="owned-chars-banner">
+                    <div>
+                        <h3>🧑‍🎨 マイキャラクター</h3>
+                        <div class="owned-chars-banner-sub">保存・成長・ルームへの投入をここから行えます</div>
+                    </div>
+                    <button id="owned-chars-new-btn" class="bo-btn bo-btn--sm bo-btn--accent">＋ 新規作成</button>
                 </div>
-            </div>
-            <div class="bo-actions-end" style="margin-top:14px;">
-                <button id="owned-chars-close-btn" class="bo-btn bo-btn--sm bo-btn--neutral">閉じる</button>
+                <div class="owned-chars-body">
+                    <div class="owned-chars-layout">
+                        <div id="owned-chars-list" class="owned-chars-list">
+                            <div style="color:#666;">読み込み中...</div>
+                        </div>
+                        <div class="owned-chars-sidebar">
+                            <div class="owned-chars-section owned-chars-section--import">
+                                <div class="owned-chars-section-title">📋 JSONから追加</div>
+                                <textarea id="owned-chars-import-text" rows="5" style="width:100%; box-sizing:border-box; font-family:inherit;"
+                                    placeholder='キャラ作成ツールの出力JSON（{"kind":"character","data":{...}}）を貼り付け'></textarea>
+                                <div style="margin-top:8px;">
+                                    <button id="owned-chars-import-btn" class="bo-btn bo-btn--sm">保存</button>
+                                </div>
+                                <div id="owned-chars-import-msg" style="margin-top:6px; font-size:0.85em;"></div>
+                            </div>
+                            <div class="owned-chars-section owned-chars-section--tips">
+                                💡 「編集」からキャラ作成ツールを開くと、残り経験値がツール側の上限表示に自動で反映されます。ルームへはキャラ追加ウィザードの「持ちキャラから選ぶ」で投入できます。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bo-actions-end" style="margin:16px 26px 0;">
+                    <button id="owned-chars-close-btn" class="bo-btn bo-btn--sm bo-btn--neutral">閉じる</button>
+                </div>
             </div>
         `;
 
@@ -93,9 +147,9 @@
         function renderList(characters) {
             if (!characters.length) {
                 listEl.innerHTML = `
-                    <div style="text-align:center; padding:28px 12px; color:#666;">
-                        <div style="font-size:2rem; margin-bottom:8px;">🗡️</div>
-                        <div style="margin-bottom:12px;">持ちキャラはまだありません。</div>
+                    <div class="owned-chars-empty">
+                        <div style="font-size:2.4rem; margin-bottom:8px;">🗡️</div>
+                        <div style="margin-bottom:14px;">持ちキャラはまだありません。</div>
                         <button id="owned-chars-empty-new-btn" class="bo-btn bo-btn--sm bo-btn--accent">＋ 最初のキャラクターを作成</button>
                     </div>
                 `;
@@ -105,32 +159,50 @@
             listEl.innerHTML = characters.map((c) => {
                 const updated = c.updated_at ? new Date(c.updated_at).toLocaleString() : '-';
                 const remaining = Number.isFinite(c.remaining_exp) ? c.remaining_exp : (c.exp_total ?? 0);
+                const radianceRemaining = Number.isFinite(c.radiance_remaining) ? c.radiance_remaining : 0;
                 const initial = escapeHtml(String(c.name || '?').trim().charAt(0) || '?');
                 const avatarColor = avatarColorFor(c.name);
                 return `
-                    <div class="bo-card" style="margin-bottom:8px;" data-id="${escapeHtml(c.id)}">
+                    <div class="owned-chars-card" style="border-left-color:${avatarColor};" data-id="${escapeHtml(c.id)}">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
                             <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-                                <div style="flex:0 0 auto; width:36px; height:36px; border-radius:50%; background:${avatarColor};
-                                    color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700;">${initial}</div>
+                                <div class="owned-chars-avatar" style="background:${avatarColor};">${initial}</div>
                                 <div style="min-width:0;">
-                                    <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(c.name)}</div>
-                                    <div style="font-size:0.78em; color:#666;">残り経験値 <strong>${escapeHtml(remaining)}</strong> / 累計 ${escapeHtml(c.exp_total ?? 0)} ・ 更新 ${escapeHtml(updated)}</div>
+                                    <div style="font-weight:700; font-size:1.02rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(c.name)}</div>
+                                    <div style="font-size:0.8em; color:#666;">残り経験値 <strong style="color:#166534;">${escapeHtml(remaining)}</strong> ・ 残り通過点 <strong style="color:#7c3aed;">${escapeHtml(radianceRemaining)}</strong> ・ 更新 ${escapeHtml(updated)}</div>
                                 </div>
                             </div>
-                            <div style="flex:0 0 auto; display:flex; gap:4px;">
-                                <button class="bo-btn bo-btn--xs bo-btn--neutral owned-chars-growth-btn" data-id="${escapeHtml(c.id)}" title="成長（スキル追加・パラメータ上昇）">🌱</button>
-                                <button class="bo-btn bo-btn--xs bo-btn--neutral owned-chars-edit-btn" data-id="${escapeHtml(c.id)}" title="キャラ作成ツールで編集">📝</button>
-                                <button class="bo-btn bo-btn--xs bo-btn--neutral owned-chars-export-btn" data-id="${escapeHtml(c.id)}" title="JSONを出力">📤</button>
-                                <button class="bo-btn bo-btn--xs owned-chars-delete-btn" data-id="${escapeHtml(c.id)}" title="削除">🗑️</button>
+                            <div style="flex:0 0 auto; display:flex; gap:6px;">
+                                <button class="owned-chars-icon-btn owned-chars-icon-btn--growth owned-chars-growth-btn" data-id="${escapeHtml(c.id)}" title="成長（輝化スキル・戦闘スキルの習得）">🌱</button>
+                                <button class="owned-chars-icon-btn owned-chars-icon-btn--edit owned-chars-edit-btn" data-id="${escapeHtml(c.id)}" title="キャラ作成ツールで編集">📝</button>
+                                <button class="owned-chars-icon-btn owned-chars-icon-btn--export owned-chars-export-btn" data-id="${escapeHtml(c.id)}" title="JSONを出力">📤</button>
+                                <button class="owned-chars-icon-btn owned-chars-icon-btn--delete owned-chars-delete-btn" data-id="${escapeHtml(c.id)}" title="削除">🗑️</button>
                             </div>
                         </div>
-                        <div class="owned-chars-growth-panel" data-id="${escapeHtml(c.id)}" style="display:none; margin-top:8px; padding:8px; background:#f0fdf4; border-radius:4px; border:1px solid #bbf7d0;">
-                            <div style="font-size:0.8em; color:#166534; margin-bottom:4px;">残り経験値: <span class="owned-chars-growth-remaining">${escapeHtml(remaining)}</span></div>
-                            <label style="display:block; font-size:0.8em; color:#166534; margin-bottom:2px;">追加するスキルID（カンマ区切り）</label>
-                            <input type="text" class="owned-chars-growth-skills" placeholder="例: B-05, Ps-03" style="width:100%; box-sizing:border-box; padding:4px; border:1px solid #bbf7d0; border-radius:4px; margin-bottom:6px;">
-                            <label style="display:block; font-size:0.8em; color:#166534; margin-bottom:2px;">パラメータ上昇（例: 筋力:1, 生命力:1）</label>
-                            <input type="text" class="owned-chars-growth-params" placeholder="ラベル:上昇量, ..." style="width:100%; box-sizing:border-box; padding:4px; border:1px solid #bbf7d0; border-radius:4px; margin-bottom:6px;">
+                        <div class="owned-chars-growth-panel" data-id="${escapeHtml(c.id)}" data-remaining-exp="${remaining}" data-remaining-radiance="${radianceRemaining}" style="display:none; margin-top:10px; padding:12px; background:#f0fdf4; border-radius:8px; border:1px solid #bbf7d0;">
+                            <div style="font-size:0.8em; color:#166534; margin-bottom:8px;">
+                                通過点・シナリオ経験を使って、輝化スキルや新たな戦闘スキルを習得できます。
+                            </div>
+                            <div style="display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
+                                <select class="owned-chars-growth-type" style="padding:4px;">
+                                    <option value="normal">⚔️ 戦闘スキル</option>
+                                    <option value="radiance">✨ 輝化スキル</option>
+                                </select>
+                                <select class="owned-chars-growth-category" style="padding:4px;"></select>
+                                <select class="owned-chars-growth-skill-select" style="flex:1; min-width:160px; padding:4px;">
+                                    <option value="">-- スキルを選択 --</option>
+                                </select>
+                                <button type="button" class="bo-btn bo-btn--xs owned-chars-growth-add-pending-btn">＋ 予定に追加</button>
+                            </div>
+                            <div class="owned-chars-growth-preview" style="background:#fff; border:1px solid #d1fae5; border-radius:6px; padding:8px; margin-bottom:8px; font-size:0.82em; line-height:1.6; color:#333;">
+                                スキルを選択すると、ここに効果とコストが表示されます。
+                            </div>
+                            <div class="owned-chars-growth-pending" style="margin-bottom:8px; font-size:0.82em;">
+                                <span style="color:#666;">習得予定のスキルはまだありません。</span>
+                            </div>
+                            <div class="owned-chars-growth-budget" style="font-size:0.82em; color:#166534; margin-bottom:8px;">
+                                消費予定 経験値: 0 / 残り ${remaining} ・ 消費予定 通過点: 0 / 残り ${radianceRemaining}
+                            </div>
                             <button class="bo-btn bo-btn--sm owned-chars-growth-apply-btn" data-id="${escapeHtml(c.id)}">成長を適用</button>
                             <span class="owned-chars-growth-msg" style="margin-left:8px; font-size:0.85em;"></span>
                         </div>
@@ -142,28 +214,165 @@
                 btn.addEventListener('click', () => {
                     const id = btn.getAttribute('data-id');
                     const panelEl = listEl.querySelector(`.owned-chars-growth-panel[data-id="${CSS.escape(id)}"]`);
-                    if (panelEl) panelEl.style.display = (panelEl.style.display === 'none') ? 'block' : 'none';
+                    if (!panelEl) return;
+                    const willOpen = panelEl.style.display === 'none';
+                    panelEl.style.display = willOpen ? 'block' : 'none';
+                    if (willOpen && !panelEl.dataset.initialized) {
+                        panelEl.dataset.initialized = '1';
+                        initGrowthPicker(panelEl);
+                    }
                 });
             });
+
+            // 成長パネル: 種別/カテゴリ変更でスキルselectを再構築する。
+            function populateSkillSelect(panelEl) {
+                const type = panelEl.querySelector('.owned-chars-growth-type').value;
+                const categorySelect = panelEl.querySelector('.owned-chars-growth-category');
+                const skillSelect = panelEl.querySelector('.owned-chars-growth-skill-select');
+                const pending = panelEl._pending || { skills: [], radiance: [] };
+
+                if (type === 'radiance') {
+                    categorySelect.style.display = 'none';
+                    const radianceData = global.radianceSkillData || {};
+                    const entries = Object.values(radianceData).filter((s) => s && s.id);
+                    entries.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+                    skillSelect.innerHTML = '<option value="">-- スキルを選択 --</option>' + entries
+                        .filter((s) => !pending.radiance.includes(s.id))
+                        .map((s) => `<option value="${escapeHtml(s.id)}">[${escapeHtml(s.id)}] ${escapeHtml(s.name)}（コスト:${escapeHtml(s.cost ?? 0)}）</option>`)
+                        .join('');
+                } else {
+                    categorySelect.style.display = '';
+                    const skillData = global.allSkillData || {};
+                    const currentCategory = categorySelect.value || 'ALL';
+                    const entries = Object.entries(skillData).map(([id, s]) => ({ id, ...s }));
+                    if (!categorySelect.dataset.built) {
+                        categorySelect.dataset.built = '1';
+                        const present = new Set(entries.map((s) => skillCategoryOf(s.id)));
+                        const categories = _SKILL_CATEGORY_ORDER.filter((cat) => present.has(cat))
+                            .concat(Array.from(present).filter((cat) => !_SKILL_CATEGORY_ORDER.includes(cat)).sort());
+                        categorySelect.innerHTML = '<option value="ALL">全カテゴリ</option>' + categories
+                            .map((cat) => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join('');
+                    }
+                    const filtered = entries.filter((s) => currentCategory === 'ALL' || skillCategoryOf(s.id) === currentCategory);
+                    filtered.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+                    skillSelect.innerHTML = '<option value="">-- スキルを選択 --</option>' + filtered
+                        .filter((s) => !pending.skills.includes(s.id))
+                        .map((s) => `<option value="${escapeHtml(s.id)}">[${escapeHtml(s.id)}] ${escapeHtml(s['デフォルト名称'] || '')}（コスト:${escapeHtml(s['取得コスト'] ?? 0)}）</option>`)
+                        .join('');
+                }
+                renderPreview(panelEl);
+            }
+
+            function renderPreview(panelEl) {
+                const type = panelEl.querySelector('.owned-chars-growth-type').value;
+                const skillId = panelEl.querySelector('.owned-chars-growth-skill-select').value;
+                const previewEl = panelEl.querySelector('.owned-chars-growth-preview');
+                if (!skillId) {
+                    previewEl.innerHTML = 'スキルを選択すると、ここに効果とコストが表示されます。';
+                    return;
+                }
+                if (type === 'radiance') {
+                    const s = (global.radianceSkillData || {})[skillId];
+                    if (!s) { previewEl.innerHTML = ''; return; }
+                    previewEl.innerHTML = `
+                        <div style="font-weight:700; margin-bottom:4px;">✨ ${escapeHtml(s.name)}（ID: ${escapeHtml(s.id)}）</div>
+                        <div>コスト（通過点）: ${escapeHtml(s.cost ?? 0)}</div>
+                        <div>効果: ${escapeHtml(s.description || '(記載なし)')}</div>
+                        ${s.flavor ? `<div style="color:#666; font-style:italic;">${escapeHtml(s.flavor)}</div>` : ''}
+                    `;
+                } else {
+                    const s = (global.allSkillData || {})[skillId];
+                    if (!s) { previewEl.innerHTML = ''; return; }
+                    previewEl.innerHTML = `
+                        <div style="font-weight:700; margin-bottom:4px;">⚔️ ${escapeHtml(s['デフォルト名称'] || skillId)}（ID: ${escapeHtml(skillId)}）</div>
+                        <div>分類/距離/属性: ${escapeHtml(s['分類'] || '-')} / ${escapeHtml(s['距離'] || '-')} / ${escapeHtml(s['属性'] || '-')}</div>
+                        <div>コスト（経験値）: ${escapeHtml(s['取得コスト'] ?? 0)}</div>
+                        ${s['使用時効果'] ? `<div>使用時効果: ${escapeHtml(s['使用時効果'])}</div>` : ''}
+                        ${s['特記'] ? `<div>特記: ${escapeHtml(s['特記'])}</div>` : ''}
+                        ${s['発動時効果'] ? `<div>発動時効果: ${escapeHtml(s['発動時効果'])}</div>` : ''}
+                    `;
+                }
+            }
+
+            function renderPending(panelEl) {
+                const pending = panelEl._pending || { skills: [], radiance: [] };
+                const pendingEl = panelEl.querySelector('.owned-chars-growth-pending');
+                const budgetEl = panelEl.querySelector('.owned-chars-growth-budget');
+                const remainingExp = parseInt(panelEl.getAttribute('data-remaining-exp'), 10) || 0;
+                const remainingRadiance = parseInt(panelEl.getAttribute('data-remaining-radiance'), 10) || 0;
+
+                const skillData = global.allSkillData || {};
+                const radianceData = global.radianceSkillData || {};
+
+                const skillCost = pending.skills.reduce((sum, id) => sum + (parseInt((skillData[id] || {})['取得コスト'], 10) || 0), 0);
+                const radianceCost = pending.radiance.reduce((sum, id) => sum + (parseInt((radianceData[id] || {}).cost, 10) || 0), 0);
+
+                const chips = [];
+                pending.skills.forEach((id) => {
+                    const name = (skillData[id] || {})['デフォルト名称'] || id;
+                    chips.push(`<span class="owned-chars-growth-chip" data-kind="skill" data-id="${escapeHtml(id)}" style="display:inline-flex; align-items:center; gap:4px; background:#dbeafe; color:#1e40af; border-radius:12px; padding:3px 8px; margin:2px; font-size:0.85em;">⚔️ ${escapeHtml(name)}<button type="button" data-kind="skill" data-id="${escapeHtml(id)}" class="owned-chars-growth-chip-remove" style="border:none; background:none; cursor:pointer; color:inherit; font-weight:700;">×</button></span>`);
+                });
+                pending.radiance.forEach((id) => {
+                    const name = (radianceData[id] || {}).name || id;
+                    chips.push(`<span class="owned-chars-growth-chip" data-kind="radiance" data-id="${escapeHtml(id)}" style="display:inline-flex; align-items:center; gap:4px; background:#ede9fe; color:#5b21b6; border-radius:12px; padding:3px 8px; margin:2px; font-size:0.85em;">✨ ${escapeHtml(name)}<button type="button" data-kind="radiance" data-id="${escapeHtml(id)}" class="owned-chars-growth-chip-remove" style="border:none; background:none; cursor:pointer; color:inherit; font-weight:700;">×</button></span>`);
+                });
+
+                pendingEl.innerHTML = chips.length
+                    ? chips.join('')
+                    : '<span style="color:#666;">習得予定のスキルはまだありません。</span>';
+
+                pendingEl.querySelectorAll('.owned-chars-growth-chip-remove').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        const kind = btn.getAttribute('data-kind');
+                        const id = btn.getAttribute('data-id');
+                        if (kind === 'skill') {
+                            panelEl._pending.skills = panelEl._pending.skills.filter((x) => x !== id);
+                        } else {
+                            panelEl._pending.radiance = panelEl._pending.radiance.filter((x) => x !== id);
+                        }
+                        populateSkillSelect(panelEl);
+                        renderPending(panelEl);
+                    });
+                });
+
+                const expColor = skillCost > remainingExp ? '#b91c1c' : '#166534';
+                const radianceColor = radianceCost > remainingRadiance ? '#b91c1c' : '#166534';
+                budgetEl.innerHTML = `消費予定 経験値: <strong style="color:${expColor};">${skillCost}</strong> / 残り ${remainingExp} ・ 消費予定 通過点: <strong style="color:${radianceColor};">${radianceCost}</strong> / 残り ${remainingRadiance}`;
+            }
+
+            async function initGrowthPicker(panelEl) {
+                panelEl._pending = { skills: [], radiance: [] };
+                await Promise.all([ensureSkillData(), ensureRadianceData()]);
+                populateSkillSelect(panelEl);
+                renderPending(panelEl);
+
+                panelEl.querySelector('.owned-chars-growth-type').addEventListener('change', () => populateSkillSelect(panelEl));
+                panelEl.querySelector('.owned-chars-growth-category').addEventListener('change', () => populateSkillSelect(panelEl));
+                panelEl.querySelector('.owned-chars-growth-skill-select').addEventListener('change', () => renderPreview(panelEl));
+                panelEl.querySelector('.owned-chars-growth-add-pending-btn').addEventListener('click', () => {
+                    const type = panelEl.querySelector('.owned-chars-growth-type').value;
+                    const skillSelect = panelEl.querySelector('.owned-chars-growth-skill-select');
+                    const skillId = skillSelect.value;
+                    if (!skillId) return;
+                    if (type === 'radiance') {
+                        panelEl._pending.radiance.push(skillId);
+                    } else {
+                        panelEl._pending.skills.push(skillId);
+                    }
+                    populateSkillSelect(panelEl);
+                    renderPending(panelEl);
+                });
+            }
 
             listEl.querySelectorAll('.owned-chars-growth-apply-btn').forEach((btn) => {
                 btn.addEventListener('click', async () => {
                     const id = btn.getAttribute('data-id');
                     const panelEl = listEl.querySelector(`.owned-chars-growth-panel[data-id="${CSS.escape(id)}"]`);
-                    const skillsInput = panelEl.querySelector('.owned-chars-growth-skills');
-                    const paramsInput = panelEl.querySelector('.owned-chars-growth-params');
                     const msgEl = panelEl.querySelector('.owned-chars-growth-msg');
+                    const pending = panelEl._pending || { skills: [], radiance: [] };
 
-                    const addSkillIds = (skillsInput.value || '').split(',').map((s) => s.trim()).filter(Boolean);
-                    const paramIncreases = {};
-                    (paramsInput.value || '').split(',').forEach((entry) => {
-                        const [label, rawDelta] = entry.split(':').map((s) => (s || '').trim());
-                        const delta = parseInt(rawDelta, 10) || 0;
-                        if (label && delta > 0) paramIncreases[label] = delta;
-                    });
-
-                    if (!addSkillIds.length && !Object.keys(paramIncreases).length) {
-                        msgEl.textContent = 'スキルIDかパラメータ上昇のどちらかを入力してください。';
+                    if (!pending.skills.length && !pending.radiance.length) {
+                        msgEl.textContent = '習得するスキルを1つ以上選んで「＋ 予定に追加」してください。';
                         msgEl.style.color = '#b91c1c';
                         return;
                     }
@@ -172,14 +381,12 @@
                         const resp = await fetchJson(`/api/owned_characters/${encodeURIComponent(id)}/growth`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ add_skill_ids: addSkillIds, param_increases: paramIncreases }),
+                            body: JSON.stringify({ add_skill_ids: pending.skills, add_radiance_ids: pending.radiance }),
                         });
                         const body = await resp.json().catch(() => ({}));
                         if (!resp.ok) throw new Error(body.error || '成長に失敗しました。');
                         msgEl.textContent = '成長を適用しました。';
                         msgEl.style.color = '#15803d';
-                        skillsInput.value = '';
-                        paramsInput.value = '';
                         await loadList();
                     } catch (err) {
                         msgEl.textContent = err.message || String(err);
