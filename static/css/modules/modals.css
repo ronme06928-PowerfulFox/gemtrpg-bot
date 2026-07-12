@@ -341,12 +341,69 @@
 }
 
 .char-load-file-name {
+    flex: 1;
     min-width: 0;
     color: #60717b;
     font-size: 0.9rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* .room-action-btn の既定 width:100% はこのモーダルの横並びレイアウトと相性が悪く、
+   隣接する select/span を潰して見えなくしてしまう（実機で確認済みの不具合）ため上書きする。 */
+.char-load-file-row .room-action-btn,
+.char-load-owned-row .room-action-btn {
+    width: auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 8px 14px;
+}
+
+.char-load-divider {
+    display: flex;
+    align-items: center;
+    color: #9aa5ab;
+    font-size: 0.8rem;
+    margin: 4px 0 16px;
+}
+
+.char-load-divider::before,
+.char-load-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #e0e5e8;
+}
+
+.char-load-divider span {
+    padding: 0 10px;
+    white-space: nowrap;
+}
+
+.char-load-owned-section {
+    margin-bottom: 4px;
+}
+
+.char-load-owned-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #5d6670;
+    margin-bottom: 6px;
+}
+
+.char-load-owned-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.char-load-owned-row select {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
 }
 
 #modal-char-json-input {

@@ -3032,21 +3032,27 @@ function openCharLoadModal() {
             <h2>${label}キャラクターJSONの読み込み</h2>
             <p class="char-load-lead">スプレッドシート等で生成したJSONを貼り付けるか、ローカルのJSONファイルから読み込んでください。</p>
             <div class="char-load-file-row">
-                <button id="modal-char-json-file-btn" type="button" class="room-action-btn">ファイルから読み込み</button>
+                <button id="modal-char-json-file-btn" type="button" class="room-action-btn char-load-file-btn">ファイルから読み込み</button>
                 <span id="modal-char-json-file-name" class="char-load-file-name">ファイル未選択</span>
                 <input id="modal-char-json-file-input" type="file" accept=".json,application/json" style="display:none;">
-            </div>
-            <div class="char-load-owned-row" style="display:flex; gap:8px; align-items:center; margin:10px 0;">
-                <select id="modal-owned-char-select" style="flex:1; min-width:0;">
-                    <option value="">持ちキャラを読み込み中...</option>
-                </select>
-                <button id="modal-owned-char-add-btn" type="button" class="room-action-btn">このキャラを${label}として追加</button>
             </div>
             <textarea id="modal-char-json-input" placeholder='{"kind":"character","data":{...}}'></textarea>
             <div class="char-load-buttons">
                 <button id="modal-load-character-btn" type="button" class="${klass}">${label}として追加</button>
             </div>
             <p id="modal-load-result-msg" class="char-load-result-msg"></p>
+
+            <div class="char-load-divider"><span>または</span></div>
+
+            <div class="char-load-owned-section">
+                <div class="char-load-owned-label">📋 保存済みの持ちキャラから選ぶ</div>
+                <div class="char-load-owned-row">
+                    <select id="modal-owned-char-select">
+                        <option value="">持ちキャラを読み込み中...</option>
+                    </select>
+                    <button id="modal-owned-char-add-btn" type="button" class="room-action-btn char-load-owned-btn">追加</button>
+                </div>
+            </div>
             ${debugHtml}
         `;
 
@@ -3080,7 +3086,7 @@ function openCharLoadModal() {
                     ownedAddBtn.disabled = true;
                     return;
                 }
-                ownedSelect.innerHTML = ownedCharactersCache
+                ownedSelect.innerHTML = '<option value="">-- 持ちキャラを選択 --</option>' + ownedCharactersCache
                     .map((c) => `<option value="${c.id}">${c.name}</option>`)
                     .join('');
             } catch (err) {

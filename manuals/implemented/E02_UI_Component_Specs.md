@@ -401,11 +401,13 @@
 
 ## 3. キャラ追加ウィザードの「持ちキャラから選ぶ」タブ
 
-E02 Part 5の2段階ウィザード（味方/敵選択→JSON入力画面）に、既存のJSON貼り付け欄と並べて「持ちキャラから選ぶ」欄を追加する。
+E02 Part 5の2段階ウィザード（味方/敵選択→JSON入力画面）に、既存のJSON貼り付け欄とは`.char-load-divider`（「または」の区切り線）で明確に区切った「📋 保存済みの持ちキャラから選ぶ」セクションを追加する（2026-07-13改修: 当初はJSON貼り付け欄の直前に区切りなく配置していたため、①どちらのボタンがどちらの入力に対応するか分かりにくい、②`<select>`が横並びレイアウトの中で潰れて見えなくなる、という2つのUI不具合があった。後述の回帰防止のため経緯を残す）。
 
-- 画面表示時に`GET /api/owned_characters`を取得し`<select>`へ列挙する。
-- 選択して「このキャラを◯◯として追加」を押すと、選択したキャラの`data`を`{kind:"character", data:...}`へ包んで`loadCharacterFromJSON(type, jsonString, resultMsg, {ownedCharacterId: character.id})`を呼ぶ。
+- 画面表示時に`GET /api/owned_characters`を取得し`<select>`へ列挙する。**先頭に空の`-- 持ちキャラを選択 --`プレースホルダーオプションを必ず入れる**（実際にあった不具合: プレースホルダーが無いと`<select>`はブラウザ既定で1件目の持ちキャラが初期選択された状態になり、JSON欄を空のまま隣の「追加」ボタンを押しただけで意図せず1件目の持ちキャラがルームへ投入されてしまっていた）。
+- 「追加」ボタン押下時、`ownedSelect.value`が空文字列（＝プレースホルダーのまま）の場合は「持ちキャラを選択してください。」を表示して処理を中断する。
+- 選択して「追加」を押すと、選択したキャラの`data`を`{kind:"character", data:...}`へ包んで`loadCharacterFromJSON(type, jsonString, resultMsg, {ownedCharacterId: character.id})`を呼ぶ。
 - `loadCharacterFromJSON`は`options.ownedCharacterId`が渡された場合、`request_add_character`のpayloadへ`ownedCharacterId`を追加する（サーバー側の検証はF01 Part 9-4参照）。
+- CSS上の注意: `.room-action-btn`は既定で`width:100%`のため、`.char-load-file-row`/`.char-load-owned-row`のような横並びレイアウトの中でボタンが幅を取り合い、隣接する`<select>`やファイル名表示を潰してしまう。`static/css/modules/modals.css`でこの2つの行のスコープに限り`.room-action-btn`を`width:auto; flex:0 0 auto; white-space:nowrap;`へ上書きしている。
 
 ## 4. キャラ詳細モーダルの「成果を反映」パネル
 
