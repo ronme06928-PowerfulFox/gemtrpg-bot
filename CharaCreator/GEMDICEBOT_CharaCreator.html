@@ -665,7 +665,7 @@
         <div class="card">
             <h3>データ入出力</h3>
             <textarea id="json-output" readonly style="height:150px;"></textarea>
-            <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
+            <div style="display:flex; gap:10px; margin-top:10px; align-items:center; flex-wrap:wrap;">
                 <button class="btn-success" onclick="copyToClipboard()">📋 コピー</button>
                 <button class="btn-primary" onclick="downloadFile()">💾 保存 (.json)</button>
                 <button class="btn-primary" onclick="exportCharacterSheetImage()">🖼 画像出力 (.png)</button>
@@ -674,6 +674,8 @@
                     <button class="btn-secondary" onclick="document.getElementById('file-input').click()">📂 読込
                         (.json)</button>
                 </div>
+                <button id="account-save-btn" class="btn-success" onclick="saveToAccount()">☁️ アカウントに保存</button>
+                <span id="account-save-msg" style="font-size:0.85rem;"></span>
             </div>
         </div>
     </div>
@@ -1076,6 +1078,11 @@
             loadGlossaryCatalog();
             loadRadianceSkills();
             loadItems();
+
+            const ownedId = new URLSearchParams(window.location.search).get('owned_id');
+            if (ownedId) {
+                loadOwnedCharacterFromAccount(ownedId);
+            }
         };
 
         function reloadAllData() {
@@ -1839,13 +1846,13 @@
             a.click();
         }
 
-        document.getElementById('file-input').addEventListener('change', function (e) {
-            if (!e.target.files[0]) return;
-            const r = new FileReader();
-            r.onload = function (evt) {
-                try {
-                    const j = JSON.parse(evt.target.result);
-                    if (j.data) {
+        // ルーム貼付/ファイル読込/アカウント読込のいずれからも呼べる共通のフォーム復元処理。
+        // 元は file-input の change ハンドラ内に直書きされていたロジックをそのまま関数化しただけで、
+        // 復元ロジック自体（下記 if(j.data){...} の中身）は無変更。
+        function applyCharacterJsonToForm(j, options) {
+            options = options || {};
+            try {
+                if (j.data) {
                         const d = j.data;
                         document.getElementById('char-name').value = d.name || "";
                         document.getElementById('char-commands').value = d.commands || "";
@@ -2014,13 +2021,82 @@
                             renderPassives();
                             updateRadianceCost();
                         }
-                        alert("データを読み込みました");
+                        if (!options.silent) alert(options.message || "データを読み込みました");
                         calculateStats();
-                    }
+                }
+            } catch (err) { alert("読込エラー: " + err); console.error(err); }
+        }
+
+        document.getElementById('file-input').addEventListener('change', function (e) {
+            if (!e.target.files[0]) return;
+            const r = new FileReader();
+            r.onload = function (evt) {
+                try {
+                    const j = JSON.parse(evt.target.result);
+                    applyCharacterJsonToForm(j);
                 } catch (err) { alert("読込エラー: " + err); console.error(err); }
             };
             r.readAsText(e.target.files[0]);
         });
+
+        // ===== アカウント（持ちキャラ）連携（計画36 Phase 2） =====
+        let CURRENT_OWNED_CHARACTER_ID = null;
+
+        async function loadOwnedCharacterFromAccount(ownedId) {
+            const msg = document.getElementById('account-save-msg');
+            try {
+                const resp = await fetch(`/api/owned_characters/${encodeURIComponent(ownedId)}`, { credentials: 'include' });
+                if (!resp.ok) {
+                    if (msg) { msg.textContent = '持ちキャラの読み込みに失敗しました。'; msg.style.color = '#b91c1c'; }
+                    return;
+                }
+                const body = await resp.json();
+                const character = body.character;
+                CURRENT_OWNED_CHARACTER_ID = character.id;
+                applyCharacterJsonToForm({ data: character.data }, { silent: true });
+                updateJSON();
+                if (msg) {
+                    msg.textContent = `「${character.name}」を読み込みました（保存すると上書きされます）`;
+                    msg.style.color = '#555';
+                }
+            } catch (err) {
+                if (msg) { msg.textContent = '持ちキャラの読み込みでエラーが発生しました: ' + err.message; msg.style.color = '#b91c1c'; }
+            }
+        }
+
+        async function saveToAccount() {
+            updateJSON();
+            let payload;
+            try {
+                payload = JSON.parse(document.getElementById('json-output').value);
+            } catch (err) {
+                alert('キャラクターデータの生成に失敗しました: ' + err.message);
+                return;
+            }
+            const msg = document.getElementById('account-save-msg');
+            const isUpdate = !!CURRENT_OWNED_CHARACTER_ID;
+            const url = isUpdate
+                ? `/api/owned_characters/${encodeURIComponent(CURRENT_OWNED_CHARACTER_ID)}`
+                : '/api/owned_characters';
+            try {
+                const resp = await fetch(url, {
+                    method: isUpdate ? 'PUT' : 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const body = await resp.json().catch(() => ({}));
+                if (!resp.ok) throw new Error(body.error || '保存に失敗しました。');
+                CURRENT_OWNED_CHARACTER_ID = body.character.id;
+                if (msg) {
+                    msg.textContent = isUpdate ? '上書き保存しました。' : 'アカウントに保存しました。';
+                    msg.style.color = '#15803d';
+                }
+            } catch (err) {
+                if (msg) { msg.textContent = err.message; msg.style.color = '#b91c1c'; }
+                else alert(err.message);
+            }
+        }
 
         function restoreFromCommands(commandsText) {
             SELECTED_SKILLS = [];

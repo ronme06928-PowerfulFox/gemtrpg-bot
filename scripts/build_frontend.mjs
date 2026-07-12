@@ -63,6 +63,7 @@ const CLASSIC_SCRIPTS = [
   'js/modals/battle_only_quick_start_modal.js',
   'js/modals/battle_only_participant_modal.js',
   'js/modals/room_preset_apply_modal.js',
+  'js/modals/owned_characters_modal.js',
   'js/image_picker.js',
   'js/item_modal.js',
   'js/user_management.js',

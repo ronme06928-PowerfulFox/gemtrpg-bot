@@ -44,6 +44,8 @@ if os.path.exists(load_dotenv_path):
     load_dotenv(load_dotenv_path)
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
+# 計画36: キャラ作成ツール（単体HTML）。static/ 配下ではなくリポジトリ直下にあるため専用に配信する。
+CHARA_CREATOR_DIR = os.path.join(os.path.dirname(__file__), 'CharaCreator')
 _SOCKET_HANDLERS_REGISTERED = False
 
 def _is_production_env():
@@ -308,6 +310,15 @@ def serve_mobile_index():
     return MOBILE_SUSPENDED_HTML, 404, {'Content-Type': 'text/html; charset=utf-8'}
 
 
+def serve_chara_creator():
+    """計画36: キャラ作成ツール（CharaCreator/GEMDICEBOT_CharaCreator.html）を配信する。
+
+    最小統合方針のため既存HTMLはそのまま配信し、アカウント保存/持ちキャラ読込の
+    追加分のみをファイル側に埋め込んでいる（ここではルーティングのみ担う）。
+    """
+    return send_from_directory(CHARA_CREATOR_DIR, 'GEMDICEBOT_CharaCreator.html')
+
+
 def serve_static_files(filename):
     # モバイル版アセットの直接読み出しも停止する（/mobile 停止の裏口を塞ぐ）。
     normalized = str(filename or '').lstrip('/')
@@ -322,6 +333,7 @@ def register_http_routes(flask_app):
     from routes.account import account_bp
     from routes.room import room_bp
     from routes.admin import admin_bp
+    from routes.owned_characters import owned_characters_bp
 
     flask_app.add_url_rule('/', 'serve_index', serve_index)
     flask_app.add_url_rule('/healthz', 'healthz', healthz)
@@ -331,6 +343,7 @@ def register_http_routes(flask_app):
     flask_app.after_request(_perf_after)
     flask_app.after_request(add_header)
     flask_app.add_url_rule('/mobile', 'serve_mobile_index', serve_mobile_index)
+    flask_app.add_url_rule('/chara_creator', 'serve_chara_creator', serve_chara_creator)
     flask_app.add_url_rule('/<path:filename>', 'serve_static_files', serve_static_files)
     flask_app.add_url_rule('/get_skill', 'get_skill', get_skill)
     flask_app.add_url_rule('/api/get_skill_metadata', 'get_skill_metadata', get_skill_metadata, methods=['GET'])
@@ -349,6 +362,7 @@ def register_http_routes(flask_app):
     flask_app.register_blueprint(account_bp)
     flask_app.register_blueprint(room_bp)
     flask_app.register_blueprint(admin_bp)
+    flask_app.register_blueprint(owned_characters_bp)
 
 
 def get_skill():

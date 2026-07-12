@@ -466,6 +466,9 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
         <button id="open-bo-preset-portal-btn" class="portal-floating-bo-btn">
             戦闘専用設定
         </button>
+        <button id="open-owned-chars-btn" class="portal-floating-owned-chars-btn">
+            マイキャラクター
+        </button>
     `;
 
     const roomList = document.getElementById('room-list');
@@ -476,6 +479,13 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
     const emptyMsg = document.getElementById('room-list-empty');
     const settingsBtn = document.getElementById('portal-user-settings-btn');
     const boPresetPortalBtn = document.getElementById('open-bo-preset-portal-btn');
+    const ownedCharsBtn = document.getElementById('open-owned-chars-btn');
+
+    if (ownedCharsBtn) {
+        ownedCharsBtn.addEventListener('click', () => {
+            if (typeof openOwnedCharactersModal === 'function') openOwnedCharactersModal();
+        });
+    }
 
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => openUserSettingsModal(true));

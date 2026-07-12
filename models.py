@@ -165,6 +165,41 @@ class RoomMember(db.Model):
         return f'<RoomMember room={self.room_id} user={self.user_id} role={self.role}>'
 
 
+class OwnedCharacter(db.Model):
+    """アカウントに紐づく持ちキャラ（計画36）。
+
+    ルーム従属の `Room.data['characters']` とは別に、ユーザーが自分の
+    キャラクターシートを永続保存し、複数ルーム・ホロウへ使い回せるようにする。
+    `data` は CharaCreator 出力の `data` 部をそのまま格納し、スキーマの細分化はしない。
+    """
+    __tablename__ = 'owned_characters'
+
+    id = db.Column(db.String(36), primary_key=True)  # UUID
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    name = db.Column(db.String(255), nullable=False)
+    data = db.Column(db.JSON, nullable=False)
+    exp_total = db.Column(db.Integer, default=0, nullable=False)
+    growth_log = db.Column(db.JSON, default=list)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'name': self.name,
+            'data': self.data,
+            'exp_total': self.exp_total,
+            'growth_log': self.growth_log or [],
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __repr__(self):
+        return f'<OwnedCharacter {self.id} user={self.user_id} name={self.name}>'
+
+
 class ImageRegistry(db.Model):
     """画像レジストリテーブル - Cloudinaryにアップロードされた画像のメタデータを管理"""
     __tablename__ = 'image_registry'
