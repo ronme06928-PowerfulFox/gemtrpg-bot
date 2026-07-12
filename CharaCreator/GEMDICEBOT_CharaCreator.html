@@ -2054,9 +2054,25 @@
                 const character = body.character;
                 CURRENT_OWNED_CHARACTER_ID = character.id;
                 applyCharacterJsonToForm({ data: character.data }, { silent: true });
+
+                // 計画36 Phase 5: expLimit を exp_total 連動へ再計算する。
+                // CharaCreatorの上限表示(costMax)は「現在選択中のスキル」も含めた累計消費で
+                // 判定するため、ここへ入れるのは残り経験値ではなく`skill_exp_budget`
+                // （exp_totalからパラメータ成長で消費済みの分だけを引いた、スキル用の予算）。
+                // 残り経験値をそのまま入れると、既に反映済みのスキルコストを二重に
+                // 差し引いてしまう。作成時点の「経験」「シナリオ経験」の内訳はこの単一の
+                // 予算へ統合し、シナリオ経験は0にまとめる。
+                const skillExpBudget = Number.isFinite(character.skill_exp_budget) ? character.skill_exp_budget : 0;
+                const remainingExp = Number.isFinite(character.remaining_exp) ? character.remaining_exp : 0;
+                const expInput = document.getElementById('p-exp');
+                const scenarioExpInput = document.getElementById('p-exp-scenario');
+                if (expInput) expInput.value = skillExpBudget;
+                if (scenarioExpInput) scenarioExpInput.value = 0;
+                calculateStats();
                 updateJSON();
+
                 if (msg) {
-                    msg.textContent = `「${character.name}」を読み込みました（保存すると上書きされます）`;
+                    msg.textContent = `「${character.name}」を読み込みました（残り経験値: ${remainingExp}。保存すると上書きされます）`;
                     msg.style.color = '#555';
                 }
             } catch (err) {

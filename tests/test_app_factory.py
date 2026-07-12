@@ -18,7 +18,7 @@ def test_create_app_without_startup_registers_http_routes():
 
     routes = {rule.rule for rule in test_app.url_map.iter_rules()}
 
-    assert len(test_app.url_map._rules) == 57
+    assert len(test_app.url_map._rules) == 58
     assert "/" in routes
     assert "/healthz" in routes
     assert "/api/get_session_user" in routes
@@ -46,3 +46,5 @@ def test_create_app_without_startup_registers_http_routes():
     assert "/api/owned_characters/<character_id>" in routes
     # 計画36 Phase 2: キャラ作成ツール配信
     assert "/chara_creator" in routes
+    # 計画36 Phase 5: 軽量成長画面
+    assert "/api/owned_characters/<character_id>/growth" in routes

@@ -78,20 +78,83 @@
             }
             listEl.innerHTML = characters.map((c) => {
                 const updated = c.updated_at ? new Date(c.updated_at).toLocaleString() : '-';
+                const remaining = Number.isFinite(c.remaining_exp) ? c.remaining_exp : (c.exp_total ?? 0);
                 return `
-                    <div class="bo-card" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;" data-id="${escapeHtml(c.id)}">
-                        <div>
-                            <div style="font-weight:600;">${escapeHtml(c.name)}</div>
-                            <div style="font-size:0.8em; color:#666;">更新: ${escapeHtml(updated)} / 経験値: ${escapeHtml(c.exp_total ?? 0)}</div>
+                    <div class="bo-card" style="margin-bottom:6px;" data-id="${escapeHtml(c.id)}">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-weight:600;">${escapeHtml(c.name)}</div>
+                                <div style="font-size:0.8em; color:#666;">更新: ${escapeHtml(updated)} / 残り経験値: ${escapeHtml(remaining)}（累計${escapeHtml(c.exp_total ?? 0)}）</div>
+                            </div>
+                            <div>
+                                <button class="bo-btn bo-btn--sm bo-btn--neutral owned-chars-growth-btn" data-id="${escapeHtml(c.id)}">成長</button>
+                                <button class="bo-btn bo-btn--sm bo-btn--neutral owned-chars-edit-btn" data-id="${escapeHtml(c.id)}">編集</button>
+                                <button class="bo-btn bo-btn--sm bo-btn--neutral owned-chars-export-btn" data-id="${escapeHtml(c.id)}">JSON出力</button>
+                                <button class="bo-btn bo-btn--sm owned-chars-delete-btn" data-id="${escapeHtml(c.id)}">削除</button>
+                            </div>
                         </div>
-                        <div>
-                            <button class="bo-btn bo-btn--sm bo-btn--neutral owned-chars-edit-btn" data-id="${escapeHtml(c.id)}">編集</button>
-                            <button class="bo-btn bo-btn--sm bo-btn--neutral owned-chars-export-btn" data-id="${escapeHtml(c.id)}">JSON出力</button>
-                            <button class="bo-btn bo-btn--sm owned-chars-delete-btn" data-id="${escapeHtml(c.id)}">削除</button>
+                        <div class="owned-chars-growth-panel" data-id="${escapeHtml(c.id)}" style="display:none; margin-top:8px; padding:8px; background:#f0fdf4; border-radius:4px; border:1px solid #bbf7d0;">
+                            <div style="font-size:0.8em; color:#166534; margin-bottom:4px;">残り経験値: <span class="owned-chars-growth-remaining">${escapeHtml(remaining)}</span></div>
+                            <label style="display:block; font-size:0.8em; color:#166534; margin-bottom:2px;">追加するスキルID（カンマ区切り）</label>
+                            <input type="text" class="owned-chars-growth-skills" placeholder="例: B-05, Ps-03" style="width:100%; box-sizing:border-box; padding:4px; border:1px solid #bbf7d0; border-radius:4px; margin-bottom:6px;">
+                            <label style="display:block; font-size:0.8em; color:#166534; margin-bottom:2px;">パラメータ上昇（例: 筋力:1, 生命力:1）</label>
+                            <input type="text" class="owned-chars-growth-params" placeholder="ラベル:上昇量, ..." style="width:100%; box-sizing:border-box; padding:4px; border:1px solid #bbf7d0; border-radius:4px; margin-bottom:6px;">
+                            <button class="bo-btn bo-btn--sm owned-chars-growth-apply-btn" data-id="${escapeHtml(c.id)}">成長を適用</button>
+                            <span class="owned-chars-growth-msg" style="margin-left:8px; font-size:0.85em;"></span>
                         </div>
                     </div>
                 `;
             }).join('');
+
+            listEl.querySelectorAll('.owned-chars-growth-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const id = btn.getAttribute('data-id');
+                    const panelEl = listEl.querySelector(`.owned-chars-growth-panel[data-id="${CSS.escape(id)}"]`);
+                    if (panelEl) panelEl.style.display = (panelEl.style.display === 'none') ? 'block' : 'none';
+                });
+            });
+
+            listEl.querySelectorAll('.owned-chars-growth-apply-btn').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.getAttribute('data-id');
+                    const panelEl = listEl.querySelector(`.owned-chars-growth-panel[data-id="${CSS.escape(id)}"]`);
+                    const skillsInput = panelEl.querySelector('.owned-chars-growth-skills');
+                    const paramsInput = panelEl.querySelector('.owned-chars-growth-params');
+                    const msgEl = panelEl.querySelector('.owned-chars-growth-msg');
+
+                    const addSkillIds = (skillsInput.value || '').split(',').map((s) => s.trim()).filter(Boolean);
+                    const paramIncreases = {};
+                    (paramsInput.value || '').split(',').forEach((entry) => {
+                        const [label, rawDelta] = entry.split(':').map((s) => (s || '').trim());
+                        const delta = parseInt(rawDelta, 10) || 0;
+                        if (label && delta > 0) paramIncreases[label] = delta;
+                    });
+
+                    if (!addSkillIds.length && !Object.keys(paramIncreases).length) {
+                        msgEl.textContent = 'スキルIDかパラメータ上昇のどちらかを入力してください。';
+                        msgEl.style.color = '#b91c1c';
+                        return;
+                    }
+
+                    try {
+                        const resp = await fetchJson(`/api/owned_characters/${encodeURIComponent(id)}/growth`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ add_skill_ids: addSkillIds, param_increases: paramIncreases }),
+                        });
+                        const body = await resp.json().catch(() => ({}));
+                        if (!resp.ok) throw new Error(body.error || '成長に失敗しました。');
+                        msgEl.textContent = '成長を適用しました。';
+                        msgEl.style.color = '#15803d';
+                        skillsInput.value = '';
+                        paramsInput.value = '';
+                        await loadList();
+                    } catch (err) {
+                        msgEl.textContent = err.message || String(err);
+                        msgEl.style.color = '#b91c1c';
+                    }
+                });
+            });
 
             listEl.querySelectorAll('.owned-chars-edit-btn').forEach((btn) => {
                 btn.addEventListener('click', () => {

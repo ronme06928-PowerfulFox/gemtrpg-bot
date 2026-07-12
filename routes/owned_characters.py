@@ -1,16 +1,17 @@
 """アカウント紐づけの持ちキャラ（計画36）CRUD ハンドラ。
 
 list_owned_characters / get_owned_character / create_owned_character /
-update_owned_character / delete_owned_character を担う。
+update_owned_character / delete_owned_character / grow_owned_character を担う。
 持ちキャラは所有者本人のみ参照・変更できる。
 """
 
+import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request, session
 
-from extensions import db
+from extensions import db, all_skill_data
 from models import OwnedCharacter
 from manager.utils import session_required
 
@@ -18,6 +19,111 @@ owned_characters_bp = Blueprint('owned_characters', __name__)
 
 # 1アカウントあたりの保存上限（DB肥大化の抑制。運用を見て緩める前提の初期値）。
 OWNED_CHARACTER_LIMIT = 20
+
+# commandsの1行から「【スキルID 表示名】」のIDだけを抜き出す。
+# CharaCreatorのrestoreFromCommands()と同じ正規表現（挙動を合わせるため）。
+_SKILL_ID_RE = re.compile(r'【([A-Za-z0-9\-]+)\s+.*?】')
+# CharaCreatorの魔法カテゴリ判定（Ms/Mb/Mp シート由来のIDプレフィックス）。
+_MAGIC_ID_PREFIXES = ('Ms', 'Mb', 'Mp')
+_SKILL_COST_FIELD = '取得コスト'
+
+
+def _get_param_value(data, label, default=0):
+    for p in (data.get('params') or []):
+        if isinstance(p, dict) and p.get('label') == label:
+            try:
+                return int(p.get('value'))
+            except (TypeError, ValueError):
+                return default
+    return default
+
+
+def _get_origin_id(data):
+    return _get_param_value(data, '出身', 0)
+
+
+def compute_exp_limit(data):
+    """CharaCreator側 calculateStats() の `expLimit` 算出をそのまま移植したもの。
+
+    経験＋シナリオ経験を基本とし、出身7（ラグラゼシス/非都市部）のみ+1される。
+    """
+    base_exp = _get_param_value(data, '経験', 0)
+    scenario_exp = _get_param_value(data, 'シナリオ経験', 0)
+    limit = base_exp + scenario_exp
+    if _get_origin_id(data) == 7:
+        limit += 1
+    return limit
+
+
+def _skill_cost(skill_id):
+    skill = all_skill_data.get(skill_id)
+    if not skill:
+        return 0
+    try:
+        return int(skill.get(_SKILL_COST_FIELD, 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def compute_used_exp(data):
+    """CharaCreator側 calculateStats() の `normalCostUsed` 算出をそのまま移植したもの。
+
+    commandsに含まれるスキルIDのコスト合計。出身6（ラグラゼシス/都市部）のみ、
+    魔法カテゴリ（Ms/Mb/Mp）スキルの先頭コスト1点分がボーナス扱いで割引かれる。
+    """
+    magic_bonus_limit = 1 if _get_origin_id(data) == 6 else 0
+    magic_bonus_used = 0
+    normal_cost_used = 0
+    for skill_id in _SKILL_ID_RE.findall(data.get('commands') or ''):
+        cost = _skill_cost(skill_id)
+        is_magic = skill_id.startswith(_MAGIC_ID_PREFIXES)
+        if is_magic and magic_bonus_used < magic_bonus_limit:
+            consume_bonus = min(cost, magic_bonus_limit - magic_bonus_used)
+            magic_bonus_used += consume_bonus
+            normal_cost_used += (cost - consume_bonus)
+        else:
+            normal_cost_used += cost
+    return normal_cost_used
+
+
+def compute_param_growth_spent(growth_log):
+    """成長画面のパラメータ上昇に使った経験値の累計（growth_logから逆算）。
+
+    スキルのコストは`commands`から`compute_used_exp`で逆算できるが、パラメータ
+    上昇はcommandsに現れないため、growth_logの'growth'種別エントリに記録した
+    `param_increases`の合計を別途積み上げて使用済み扱いにする。
+    """
+    total = 0
+    for entry in (growth_log or []):
+        if not isinstance(entry, dict) or entry.get('kind') != 'growth':
+            continue
+        increases = entry.get('param_increases')
+        if isinstance(increases, dict):
+            for v in increases.values():
+                try:
+                    total += int(v)
+                except (TypeError, ValueError):
+                    continue
+    return total
+
+
+def compute_total_used_exp(character):
+    return compute_used_exp(character.data or {}) + compute_param_growth_spent(character.growth_log or [])
+
+
+def _character_to_dict_with_exp(character):
+    payload = character.to_dict()
+    param_spent = compute_param_growth_spent(character.growth_log or [])
+    skill_used_exp = compute_used_exp(character.data or {})
+    used_exp = skill_used_exp + param_spent
+    payload['used_exp'] = used_exp
+    payload['remaining_exp'] = int(character.exp_total or 0) - used_exp
+    # CharaCreator再編集時の「経験」欄に入れるべき予算。CharaCreator自身は現在選択中の
+    # スキルコスト(skill_used_exp)を含めて上限判定するため、パラメータ成長で既に
+    # 消費した分だけを exp_total から差し引いた値を渡す（残り経験値そのものではない。
+    # 残り経験値を渡すと既存スキルのコストを二重に差し引いてしまう）。
+    payload['skill_exp_budget'] = int(character.exp_total or 0) - param_spent
+    return payload
 
 
 def _extract_character_payload(payload):
@@ -57,7 +163,7 @@ def list_owned_characters():
         .order_by(OwnedCharacter.updated_at.desc())
         .all()
     )
-    return jsonify({"characters": [c.to_dict() for c in characters]})
+    return jsonify({"characters": [_character_to_dict_with_exp(c) for c in characters]})
 
 
 @owned_characters_bp.route('/api/owned_characters/<character_id>', methods=['GET'])
@@ -67,7 +173,7 @@ def get_owned_character(character_id):
     character = _get_owned_character_or_404(character_id, user_id)
     if not character:
         return jsonify({"error": "指定された持ちキャラが見つかりません。"}), 404
-    return jsonify({"character": character.to_dict()})
+    return jsonify({"character": _character_to_dict_with_exp(character)})
 
 
 @owned_characters_bp.route('/api/owned_characters', methods=['POST'])
@@ -91,12 +197,15 @@ def create_owned_character():
         user_id=user_id,
         name=str(data.get('name') or '').strip(),
         data=data,
-        exp_total=0,
+        # 作成時点の経験＋シナリオ経験を初期予算として蓄積経験値の起点にする。
+        # 以後の成長（成果反映・成長画面）はここに加算され、使用済み分はdataから
+        # 毎回逆算するため exp_total 自体は据え置く（決定 → 計画36 §9）。
+        exp_total=compute_exp_limit(data),
         growth_log=[],
     )
     db.session.add(character)
     db.session.commit()
-    return jsonify({"character": character.to_dict()}), 201
+    return jsonify({"character": _character_to_dict_with_exp(character)}), 201
 
 
 @owned_characters_bp.route('/api/owned_characters/<character_id>', methods=['PUT'])
@@ -116,7 +225,7 @@ def update_owned_character(character_id):
     character.name = str(data.get('name') or '').strip()
     character.updated_at = datetime.utcnow()
     db.session.commit()
-    return jsonify({"character": character.to_dict()})
+    return jsonify({"character": _character_to_dict_with_exp(character)})
 
 
 @owned_characters_bp.route('/api/owned_characters/<character_id>', methods=['DELETE'])
@@ -130,3 +239,100 @@ def delete_owned_character(character_id):
     character.deleted_at = datetime.utcnow()
     db.session.commit()
     return jsonify({"message": "削除しました。"})
+
+
+@owned_characters_bp.route('/api/owned_characters/<character_id>/growth', methods=['POST'])
+@session_required
+def grow_owned_character(character_id):
+    """計画36 Phase 5: 軽量成長画面からのスキル追加・パラメータ上昇。
+
+    残り経験値（exp_total − 使用済み経験値）の範囲でのみ許可する。
+    使用済み経験値は毎回 `data` から逆算するため、`exp_total` 自体は更新しない
+    （消費すれば自動的に remaining_exp が減るだけ、という決定 → 計画36 §9）。
+    パラメータ上昇は house rule として 1ポットあたり経験値1消費とする。
+    """
+    user_id = session.get('user_id')
+    character = _get_owned_character_or_404(character_id, user_id)
+    if not character:
+        return jsonify({"error": "指定された持ちキャラが見つかりません。"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    add_skill_ids = payload.get('add_skill_ids')
+    add_skill_ids = [str(s).strip() for s in add_skill_ids if str(s).strip()] if isinstance(add_skill_ids, list) else []
+    param_increases_raw = payload.get('param_increases') if isinstance(payload.get('param_increases'), dict) else {}
+    param_increases = {}
+    for label, delta in param_increases_raw.items():
+        try:
+            delta_int = int(delta)
+        except (TypeError, ValueError):
+            continue
+        if delta_int > 0:
+            param_increases[str(label)] = delta_int
+
+    if not add_skill_ids and not param_increases:
+        return jsonify({"error": "追加するスキルまたはパラメータ上昇を指定してください。"}), 400
+
+    data = dict(character.data or {})
+    old_skill_used_exp = compute_used_exp(data)
+    old_used_exp = old_skill_used_exp + compute_param_growth_spent(character.growth_log or [])
+
+    unknown_skill_ids = [sid for sid in add_skill_ids if sid not in all_skill_data]
+    if unknown_skill_ids:
+        return jsonify({"error": f"未知のスキルIDです: {', '.join(unknown_skill_ids)}"}), 400
+
+    new_commands_lines = [str(data.get('commands') or '')]
+    for skill_id in add_skill_ids:
+        skill = all_skill_data.get(skill_id) or {}
+        palette = str(skill.get('チャットパレット') or f"0+0 【{skill_id}】").strip()
+        new_commands_lines.append(palette)
+    new_commands = "\n".join(line for line in new_commands_lines if line)
+
+    new_skill_used_exp = compute_used_exp({**data, 'commands': new_commands})
+    skill_cost = new_skill_used_exp - old_skill_used_exp
+    param_cost = sum(param_increases.values())
+    total_cost = skill_cost + param_cost
+
+    remaining_exp = int(character.exp_total or 0) - old_used_exp
+    if total_cost > remaining_exp:
+        return jsonify({
+            "error": f"経験値が不足しています（必要: {total_cost} / 残り: {remaining_exp}）。",
+            "remaining_exp": remaining_exp,
+            "required_exp": total_cost,
+        }), 400
+
+    data['commands'] = new_commands
+    # `data`はcharacter.dataの浅いコピーのため、paramsの各要素(dict)は元のオブジェクトと
+    # 共有されたままになる。ここでインプレース変更すると「変更前」スナップショットまで
+    # 一緒に書き換わってしまい、SQLAlchemyの変更検知が「差分なし」と誤判定してUPDATEを
+    # 発行しなくなる（コミット後に値が元に戻る）。paramsの要素は必ずコピーしてから変更する。
+    params = [dict(p) if isinstance(p, dict) else p for p in (data.get('params') or [])]
+    for label, delta in param_increases.items():
+        found = False
+        for p in params:
+            if isinstance(p, dict) and p.get('label') == label:
+                try:
+                    p['value'] = str(int(p.get('value') or 0) + delta)
+                except (TypeError, ValueError):
+                    p['value'] = str(delta)
+                found = True
+                break
+        if not found:
+            params.append({'label': label, 'value': str(delta)})
+    data['params'] = params
+
+    character.data = data
+    character.name = str(data.get('name') or character.name).strip()
+    character.updated_at = datetime.utcnow()
+
+    growth_log = list(character.growth_log or [])
+    growth_log.append({
+        'date': datetime.now(timezone.utc).isoformat(),
+        'kind': 'growth',
+        'added_skill_ids': add_skill_ids,
+        'param_increases': param_increases,
+        'cost': total_cost,
+    })
+    character.growth_log = growth_log
+
+    db.session.commit()
+    return jsonify({"character": _character_to_dict_with_exp(character)})

@@ -2641,6 +2641,21 @@ function createSettingsContextMenu(triggerEl, char) {
             </div>
             ` : ''}
 
+            ${char.owned_character_id ? `
+            <div style="margin-bottom:15px; padding: 8px; background: #f0fdf4; border-radius: 4px; border:1px solid #bbf7d0;">
+                <div style="font-size: 0.85em; font-weight:bold; color:#166534; margin-bottom:6px;">持ちキャラへ成果を反映</div>
+                ${(char.flags && char.flags.results_reflected) ? `
+                <div style="font-size:0.85em; color:#166534;">このセッションの成果は反映済みです。</div>
+                ` : `
+                <label style="display:block; font-size:0.8em; color:#166534; margin-bottom:2px;">獲得経験値</label>
+                <input type="number" id="ctx-reflect-exp" class="settings-input" value="0" min="0" style="width:100%; padding:4px; border:1px solid #bbf7d0; border-radius:4px; margin-bottom:6px;">
+                <label style="display:block; font-size:0.8em; color:#166534; margin-bottom:2px;">獲得アイテム（例: item-heal:2, item-key:1）</label>
+                <input type="text" id="ctx-reflect-items" class="settings-input" placeholder="item_id:個数, ..." style="width:100%; padding:4px; border:1px solid #bbf7d0; border-radius:4px; margin-bottom:8px; box-sizing:border-box;">
+                <button id="ctx-reflect-btn" style="width:100%; padding:6px 8px; background:#16a34a; color:#fff; border:none; border-radius:4px; cursor:pointer;">成果を反映</button>
+                `}
+            </div>
+            ` : ''}
+
             <hr style="border:0; border-top:1px solid #e9ecef; margin:10px 0 15px 0;">
             <button id="ctx-delete-btn" style="width:100%; background:#dc3545; color:white; border:none; padding:10px; border-radius:4px; font-weight:bold; cursor: pointer; transition: background 0.2s;">削除</button>
         </div>
@@ -2730,6 +2745,41 @@ function createSettingsContextMenu(triggerEl, char) {
             closeMenu();
         }
     });
+
+    // 計画36 Phase 4: 持ちキャラへの成果反映
+    const reflectBtn = menu.querySelector('#ctx-reflect-btn');
+    if (reflectBtn) {
+        reflectBtn.addEventListener('click', () => {
+            const expInput = menu.querySelector('#ctx-reflect-exp');
+            const itemsInput = menu.querySelector('#ctx-reflect-items');
+            const expGain = Math.max(0, parseInt(expInput?.value, 10) || 0);
+            const items = {};
+            (itemsInput?.value || '').split(',').forEach((entry) => {
+                const [rawId, rawQty] = entry.split(':').map((s) => (s || '').trim());
+                const qty = parseInt(rawQty, 10) || 0;
+                if (rawId && qty > 0) items[rawId] = qty;
+            });
+            if (typeof socket.once === 'function') {
+                socket.once('reflect_session_results_result', (result) => {
+                    if (!result || !result.skipped) return;
+                    // 成功時は既にサーバー側のbroadcast_logで通知済みなので、スキップ時のみここで案内する。
+                    const reasonMsg = {
+                        not_owned_character: 'このキャラは持ちキャラ由来ではないため反映できません。',
+                        already_reflected: 'このセッションの成果は既に反映済みです。',
+                        char_not_found: 'キャラクターが見つかりませんでした。',
+                        owned_character_not_found: '持ちキャラが見つかりませんでした。',
+                    }[result.reason] || '成果を反映できませんでした。';
+                    if (typeof logToBattleLog === 'function') {
+                        logToBattleLog({ type: 'info', message: reasonMsg, timestamp: Date.now() });
+                    }
+                });
+            }
+            socket.emit('request_reflect_session_results', {
+                room: currentRoomName, char_id: char.id, exp_gain: expGain, items
+            });
+            closeMenu();
+        });
+    }
 
     // Delete
     const delBtn = menu.querySelector('#ctx-delete-btn');

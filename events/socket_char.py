@@ -187,6 +187,120 @@ def handle_add_character(data):
     broadcast_state_update(room)
     save_specific_room_state(room)
 
+
+@socketio.on('request_reflect_session_results')
+def handle_reflect_session_results(data):
+    """計画36 Phase 4: セッション成果（経験値・アイテム）を持ちキャラへ書き戻す。
+
+    - 対象はこのルーム内キャラが `owned_character_id` を持つ場合のみ
+      （JSON貼り付け由来の従来キャラはスキップ）。
+    - 実行権限はキャラ所有者本人（`owner_id` が session の user_id と一致）
+      または GM。
+    - 1キャラにつき1回のみ反映する（`flags.results_reflected` で冪等性を担保）。
+    - ホロウ（`state.get('play_mode') == 'hollow'`）由来のセッションでは
+      アイテムは反映対象外（計画35「ホロウ内で完結の原則」）。経験値のみ反映する。
+    """
+    room = data.get('room')
+    char_id = data.get('char_id')
+    if not room or not char_id:
+        emit('error', {'message': 'room, char_id は必須です'}, to=request.sid)
+        return
+    if not _require_in_room(room):
+        return
+
+    state = get_room_state(room)
+    char = next((c for c in state.get('characters', []) if c.get('id') == char_id), None)
+    if not char:
+        emit('reflect_session_results_result', {
+            'char_id': char_id, 'skipped': True, 'reason': 'char_not_found',
+        }, to=request.sid)
+        return
+
+    owned_character_id = char.get('owned_character_id')
+    if not owned_character_id:
+        emit('reflect_session_results_result', {
+            'char_id': char_id, 'skipped': True, 'reason': 'not_owned_character',
+        }, to=request.sid)
+        return
+
+    flags = char.get('flags') if isinstance(char.get('flags'), dict) else {}
+    if flags.get('results_reflected'):
+        emit('reflect_session_results_result', {
+            'char_id': char_id, 'skipped': True, 'reason': 'already_reflected',
+        }, to=request.sid)
+        return
+
+    user_info = get_user_info_from_sid(request.sid)
+    attribute = user_info.get('attribute')
+    session_user_id = session.get('user_id')
+    is_owner = bool(session_user_id) and str(char.get('owner_id') or '') == str(session_user_id)
+    is_gm = attribute == 'GM'
+    if not (is_owner or is_gm):
+        emit('error', {'message': 'この操作を行う権限がありません。'}, to=request.sid)
+        return
+
+    from extensions import db
+    from models import OwnedCharacter
+    owned = OwnedCharacter.query.filter_by(id=owned_character_id, deleted_at=None).first()
+    if not owned:
+        emit('reflect_session_results_result', {
+            'char_id': char_id, 'skipped': True, 'reason': 'owned_character_not_found',
+        }, to=request.sid)
+        return
+
+    exp_gain = _safe_int(data.get('exp_gain'), 0)
+    if exp_gain < 0:
+        exp_gain = 0
+
+    is_hollow = str(state.get('play_mode') or '').strip().lower() == 'hollow'
+    raw_items = data.get('items') if isinstance(data.get('items'), dict) else {}
+    items_gain = {} if is_hollow else {
+        str(item_id): _safe_int(qty, 0)
+        for item_id, qty in raw_items.items()
+        if _safe_int(qty, 0) > 0
+    }
+
+    owned.exp_total = int(owned.exp_total or 0) + exp_gain
+
+    if items_gain:
+        owned_data = dict(owned.data or {})
+        inventory = dict(owned_data.get('inventory') or {})
+        for item_id, qty in items_gain.items():
+            inventory[item_id] = int(inventory.get(item_id, 0)) + qty
+        owned_data['inventory'] = inventory
+        owned.data = owned_data
+
+    growth_log = list(owned.growth_log or [])
+    growth_log.append({
+        'date': datetime.now(timezone.utc).isoformat(),
+        'kind': 'reflect_session_results',
+        'room': room,
+        'char_id': char_id,
+        'exp_gain': exp_gain,
+        'items_gain': items_gain,
+    })
+    owned.growth_log = growth_log
+
+    db.session.commit()
+
+    char.setdefault('flags', {})
+    char['flags']['results_reflected'] = True
+    save_specific_room_state(room)
+
+    broadcast_log(
+        room,
+        f"{char.get('name', char_id)} の成果を持ちキャラへ反映しました（経験値+{exp_gain}）。",
+        'info',
+    )
+    emit('reflect_session_results_result', {
+        'char_id': char_id,
+        'skipped': False,
+        'exp_gain': exp_gain,
+        'items_gain': items_gain,
+        'exp_total': owned.exp_total,
+    }, to=request.sid)
+
+
 @socketio.on('request_move_character')
 def handle_move_character(data):
     room = data.get('room')
