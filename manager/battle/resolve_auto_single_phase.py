@@ -75,6 +75,9 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                     )
                     if (
                         q_slot_id not in contested_losers
+                        and isinstance(q_intent_b, dict)
+                        and q_intent_b.get('committed', False)
+                        and q_def_skill_id
                         and
                         q_intent_b.get('target', {}).get('type') == 'single_slot'
                         and q_intent_b.get('target', {}).get('slot_id') == q_slot_id
@@ -614,6 +617,9 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
             same_team_pair = _is_same_team_slot_pair(slots, slot_id, target_slot)
             is_clash = (
                 not attacker_is_contested_loser
+                and isinstance(intent_b, dict)
+                and intent_b.get('committed', False)
+                and defender_skill_id_for_pair
                 and
                 intent_b.get('target', {}).get('type') == 'single_slot'
                 and intent_b.get('target', {}).get('slot_id') == slot_id

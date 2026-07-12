@@ -86,6 +86,22 @@ def test_list_usable_skill_ids_falls_back_to_sys_struggle(monkeypatch):
     assert usable == [SYS_STRUGGLE_ID]
 
 
+def test_list_regular_usable_skill_ids_extracts_japanese_bracket_commands(monkeypatch):
+    actor = _char(fp=3, commands="4+1d2 【P-01 Basic Slash】\n[P-02 Thrust]")
+    monkeypatch.setattr(
+        skill_access,
+        "all_skill_data",
+        {
+            "P-01": {"id": "P-01", "rule_data": {"schema": "skill_json_rule_v2", "cost": [{"type": "FP", "value": 1}]}},
+            "P-02": {"id": "P-02", "rule_data": {"schema": "skill_json_rule_v2", "cost": [{"type": "FP", "value": 1}]}},
+        },
+    )
+
+    usable = skill_access.list_regular_usable_skill_ids(actor)
+
+    assert usable == ["P-01", "P-02"]
+
+
 # ---------------------------------------------------------------------------
 # field_effects 経由の block
 # ---------------------------------------------------------------------------

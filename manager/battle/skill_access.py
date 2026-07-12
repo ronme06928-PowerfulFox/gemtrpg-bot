@@ -11,16 +11,19 @@ from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_ro
 def _extract_skill_ids_from_commands(commands_text):
     if not commands_text:
         return []
-    bracket_pattern = re.compile(r"[【\[]\s*([A-Za-z0-9][A-Za-z0-9_-]*)[^\]】]*[】\]]")
-    matches = bracket_pattern.findall(str(commands_text))
     out = []
     seen = set()
-    for skill_id in matches:
-        sid = str(skill_id or "").strip()
-        if not sid or sid in seen:
-            continue
-        seen.add(sid)
-        out.append(sid)
+    patterns = [
+        re.compile(r"(?:【|\[)\s*([A-Za-z0-9][A-Za-z0-9_-]*)(?=[\s\]】])"),
+        re.compile(r"[【\[]\s*([A-Za-z0-9][A-Za-z0-9_-]*)[^\]】]*[】\]]"),
+    ]
+    for pattern in patterns:
+        for skill_id in pattern.findall(str(commands_text)):
+            sid = str(skill_id or "").strip()
+            if not sid or sid in seen:
+                continue
+            seen.add(sid)
+            out.append(sid)
     return out
 
 

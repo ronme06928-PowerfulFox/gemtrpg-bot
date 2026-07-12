@@ -82,6 +82,29 @@ def _commit_ally_attack(state, battle_state):
     }
 
 
+def _commit_ally_attack_against_uncommitted_enemy_target(state, battle_state):
+    ally_slot = _slot_for_actor(battle_state, "A1")
+    enemy_slot = _slot_for_actor(battle_state, "E1")
+    battle_state.setdefault("intents", {})[enemy_slot] = {
+        "slot_id": enemy_slot,
+        "actor_id": "E1",
+        "skill_id": None,
+        "target": {"type": "single_slot", "slot_id": ally_slot},
+        "tags": {"instant": False, "mass_type": None, "no_redirect": False},
+        "committed": False,
+        "committed_at": None,
+    }
+    battle_state["intents"][ally_slot] = {
+        "slot_id": ally_slot,
+        "actor_id": "A1",
+        "skill_id": "SIM_ATK",
+        "target": {"type": "single_slot", "slot_id": enemy_slot},
+        "tags": {"instant": False, "mass_type": None, "no_redirect": False},
+        "committed": True,
+        "committed_at": 1,
+    }
+
+
 def _preset_record(preset_id, name, side):
     data = _make_char(f"{preset_id}_template", side, hp=20)
     data["name"] = name
@@ -325,6 +348,50 @@ def test_run_battle_can_use_auto_ally_intents(monkeypatch):
     assert report.result == "ally_win"
     assert report.rounds == 1
     assert report.stalled is False
+
+
+def test_uncommitted_reciprocal_target_does_not_force_clash(monkeypatch):
+    from manager.battle import core as battle_core
+
+    monkeypatch.setitem(
+        battle_core.all_skill_data,
+        "SIM_ATK",
+        {"base_power": 1, "dice_power": "1d1", "rule_data": {"effects": []}},
+    )
+
+    def _stub_clash(**_kwargs):
+        raise AssertionError("uncommitted reciprocal target should not form clash")
+
+    def _stub_one_sided(**kwargs):
+        defender = kwargs["defender_char"]
+        defender["hp"] = 0
+        defender["x"] = -1
+        defender["y"] = -1
+        return {
+            "ok": True,
+            "summary": {
+                "damage": [{"target_id": defender.get("id"), "amount": 20, "before": 20, "after": 0}],
+                "statuses": [],
+                "flags": [],
+                "cost": {"mp": 0, "hp": 0, "fp": 0},
+                "logs": [],
+                "rolls": {"total_damage": 20},
+            },
+        }
+
+    monkeypatch.setattr(battle_core, "_resolve_clash_by_existing_logic", _stub_clash)
+    monkeypatch.setattr(battle_core, "_resolve_one_sided_by_existing_logic", _stub_one_sided)
+
+    report = run_battle(
+        _base_state(),
+        max_rounds=3,
+        roll_mode="median",
+        intent_provider=_commit_ally_attack_against_uncommitted_enemy_target,
+    )
+
+    assert report.result == "ally_win"
+    assert report.rounds == 1
+    assert report.rounds_detail[0].hp_delta == 20
 
 
 def test_build_room_state_from_presets_uses_stage_formations_and_positions():

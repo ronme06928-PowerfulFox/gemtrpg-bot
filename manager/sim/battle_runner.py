@@ -12,6 +12,7 @@ from manager.battle import duel_solver
 from manager.battle import resolve_auto_runtime
 from manager.battle import wide_solver
 from manager.battle.battle_ai import ai_suggest_skill
+from manager.battle.system_skills import ensure_system_skills_registered
 from manager.sim.reporting import (
     BattleReport,
     battle_summary_from_characters,
@@ -22,6 +23,7 @@ from manager.sim.reporting import (
     stall_reason,
     total_hp_for_progress,
 )
+from extensions import all_skill_data
 import manager.room_manager as room_manager
 
 
@@ -247,6 +249,19 @@ def _noop(*_args, **_kwargs):
     return None
 
 
+def _ensure_skill_catalog_loaded_for_auto_intents() -> None:
+    ensure_system_skills_registered()
+    if any(str(skill_id) != "SYS-STRUGGLE" for skill_id in all_skill_data.keys()):
+        return
+    try:
+        from manager.data_manager import load_skills_from_cache
+
+        load_skills_from_cache()
+    except Exception:
+        return
+    ensure_system_skills_registered()
+
+
 def _silent_update_char_stat(room, char, stat_name, new_value, *args, **kwargs):
     kwargs["save"] = False
     kwargs["suppress_log"] = True
@@ -333,6 +348,8 @@ def run_battle(
         raise ValueError("ally_target_policy must be one of: first_alive_enemy, lowest_hp_enemy")
 
     state = copy.deepcopy(room_state) if copy_state else room_state
+    if auto_ally_intents:
+        _ensure_skill_catalog_loaded_for_auto_intents()
     battle_id = _current_battle_id(state)
     result = resolve_auto_runtime._bo_estimate_battle_result(state)
     rounds = safe_int(state.get("round"), 0)

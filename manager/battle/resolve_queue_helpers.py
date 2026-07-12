@@ -197,7 +197,14 @@ def _compute_single_contention(intents, single_queue):
         if not claims:
             continue
         target_intent = intents.get(target_slot, {}) if isinstance(intents, dict) else {}
-        reciprocal_slot = _intent_single_target_slot(target_intent)
+        if (
+            isinstance(target_intent, dict)
+            and target_intent.get('committed', False)
+            and target_intent.get('skill_id')
+        ):
+            reciprocal_slot = _intent_single_target_slot(target_intent)
+        else:
+            reciprocal_slot = None
         preferred_claims = [claim for claim in claims if claim[0] == reciprocal_slot]
         candidate_claims = preferred_claims if preferred_claims else claims
         winner = max(candidate_claims, key=lambda row: (row[1], row[2], str(row[0])))
@@ -260,6 +267,8 @@ def _estimate_single_trace_steps(state, battle_state, intents):
         is_clash = (
             not attacker_is_contested_loser
             and isinstance(intent_b, dict)
+            and intent_b.get('committed', False)
+            and defender_skill_id
             and intent_b.get('target', {}).get('type') == 'single_slot'
             and intent_b.get('target', {}).get('slot_id') == slot_id
             and target_slot not in processed
