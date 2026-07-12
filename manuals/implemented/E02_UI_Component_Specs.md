@@ -372,4 +372,57 @@
 - 非GMでも通常の敵JSON追加はできる。
 - 非GMにはデバッグ生成UIが表示されない。
 - GMのデバッグ生成は選択した陣営と人数だけ生成する。
+
+# Part 6: マイキャラクター・成長画面 UI仕様（Plan 36 より統合・2026-07-12）
+
+**対象**: `static/js/modals/owned_characters_modal.js`、`static/js/modals.js`（`createSettingsContextMenu`拡張）、`static/js/common/char_json.js`（`loadCharacterFromJSON`拡張）、`CharaCreator/GEMDICEBOT_CharaCreator.html`
+
+## 1. マイキャラクター画面
+
+- ロビー画面（`static/js/main.js::renderRoomPortal`）の左下に常設の「マイキャラクター」ボタンを配置する（既存の右下「戦闘専用設定」ボタンと対称の位置。CSSは`static/css/modules/portal.css::.portal-floating-owned-chars-btn`）。
+- モーダル本体（`openOwnedCharactersModal`）は以下を提供する:
+  - 一覧表示: 名前・更新日時・「残り経験値（累計exp_total）」。
+  - 各行のアクション: 「成長」（後述の軽量成長パネルを展開）、「編集」（`/chara_creator?owned_id=<id>`を新規タブで開く）、「JSON出力」（`{kind:"character", data:...}`形式でダウンロード）、「削除」（確認ダイアログ後に論理削除）。
+  - 下部に「JSONから追加」欄（テキストエリア＋保存ボタン）。CharaCreator以外で作ったJSONの取り込みや、旧運用からの移行に使う。
+
+## 2. 軽量成長パネル（インライン展開）
+
+各キャラ行の「成長」ボタンで、行の下に成長パネルをトグル表示する。
+
+- 残り経験値の表示。
+- 「追加するスキルID（カンマ区切り）」テキスト入力。
+- 「パラメータ上昇（例: 筋力:1, 生命力:1）」テキスト入力。
+- 「成長を適用」ボタン → `POST /api/owned_characters/<id>/growth`（F01 Part 9-5参照）。成功後は一覧を再取得して表示を更新する。
+
+## 3. キャラ追加ウィザードの「持ちキャラから選ぶ」タブ
+
+E02 Part 5の2段階ウィザード（味方/敵選択→JSON入力画面）に、既存のJSON貼り付け欄と並べて「持ちキャラから選ぶ」欄を追加する。
+
+- 画面表示時に`GET /api/owned_characters`を取得し`<select>`へ列挙する。
+- 選択して「このキャラを◯◯として追加」を押すと、選択したキャラの`data`を`{kind:"character", data:...}`へ包んで`loadCharacterFromJSON(type, jsonString, resultMsg, {ownedCharacterId: character.id})`を呼ぶ。
+- `loadCharacterFromJSON`は`options.ownedCharacterId`が渡された場合、`request_add_character`のpayloadへ`ownedCharacterId`を追加する（サーバー側の検証はF01 Part 9-4参照）。
+
+## 4. キャラ詳細モーダルの「成果を反映」パネル
+
+`createSettingsContextMenu`（キャラ詳細モーダルの⚙️設定メニュー）に、`char.owned_character_id`が存在する場合のみ表示するセクションを追加する。
+
+- 「獲得経験値」数値入力、「獲得アイテム（`item_id:個数`形式、カンマ区切り）」テキスト入力、「成果を反映」ボタン。
+- 反映済み（`char.flags.results_reflected === true`）の場合はボタンの代わりに「反映済みです」メッセージを表示する。
+- ボタン押下で`request_reflect_session_results`を送信する。応答（`reflect_session_results_result`）が`skipped:true`の場合のみ、`logToBattleLog`で理由を通知する（成功時はサーバー側の`broadcast_log`で全員に共有済みのため、二重通知を避ける）。
+
+## 5. CharaCreator側の追加要素（最小統合）
+
+既存のUI（コピー・保存(.json)・画像出力・ローカル読込ボタン）は変更しない。以下のみを追加する。
+
+- 「☁️ アカウントに保存」ボタン: `updateJSON()`の出力を`POST`（新規）または`PUT`（`CURRENT_OWNED_CHARACTER_ID`がある場合は上書き）で送信する。
+- `?owned_id=<id>`クエリでの起動時、自動的に`GET`で読み込みフォーム復元し、経験欄をF01 Part 9-5の`skill_exp_budget`で上書きする。
+- 既存の「📂 読込 (.json)」機能のフォーム復元ロジックは`applyCharacterJsonToForm(json, options)`として関数化済み（挙動は無変更）。アカウント読込・ファイル読込の両方から共通で呼ばれる。
+
+## 6. 検証観点
+
+- ロビーからマイキャラクターを開き、一覧・JSONインポート・削除ができる。
+- 成長パネルでスキルID/パラメータ上昇を入力し、残り経験値の範囲内で成功、超過で拒否される。
+- キャラ追加ウィザードで持ちキャラを選んで投入でき、投入後もJSON貼り付け導線は変更なく動く。
+- キャラ詳細の設定メニューは、持ち込みキャラのみ「成果を反映」セクションが出る。
+- CharaCreatorの既存ボタン（コピー・ダウンロード・画像出力・ローカル読込）は従来どおり動作する。
 - JS/CSS変更後は `npm run build` で `static/dist/*` を更新する。

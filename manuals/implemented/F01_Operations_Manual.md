@@ -835,3 +835,91 @@ GET /api/room/export_logs?room_name=<room>&format=text
   - `/sroll` はサーバーで `roll_dice()` を呼び、秘匿ログとして記録する。
   - ダイス式なし/不正な式は通常チャットまたは無視として扱う。
   - 複数コマンド混在時に分割実行しない。
+
+# Part 9: アカウント紐づけキャラクター管理仕様（Plan 36 より統合・2026-07-12）
+
+## 1. 目的
+
+キャラクターは従来 `Room.data['characters']` にのみ存在しルームに従属していた（ルームをまたいだ再利用は手動JSON持ち回りのみ）。
+本機能は、アカウント（`User`）に紐づく「持ちキャラ」を独立して保存・管理し、複数ルームへの投入とシナリオ後の成長を可能にする。
+キャラ作成ツール（`CharaCreator/GEMDICEBOT_CharaCreator.html`）は最小統合方針（既存UIをそのまま配信し、保存/読込ボタンのみ追加）で本体へ組み込む。
+
+## 2. データモデル
+
+`models.py::OwnedCharacter`（`owned_characters`テーブル）:
+
+| カラム | 内容 |
+|---|---|
+| `id` | UUID文字列主キー（`owned_<uuid4().hex>`） |
+| `user_id` | 所有者（`users.id` FK） |
+| `name` | 表示用。`data.name`のコピー |
+| `data` | キャラJSON本体（CharaCreator出力の`data`部をそのまま格納。スキーマの細分化はしない） |
+| `exp_total` | 蓄積経験値。**キャラ作成時点の経験＋シナリオ経験（＋出身7ボーナス）で初期化**され、以後は成果反映（Part 9-4）でのみ加算される |
+| `growth_log` | 成長履歴 `[{date, kind, ...}, ...]`。`kind`は`reflect_session_results`（成果反映）または`growth`（成長画面） |
+| `created_at` / `updated_at` / `deleted_at` | 論理削除（`RoomMember`と同じ流儀） |
+
+`Room.data`と同じJSON列パターンを踏襲する。**重要な実装上の注意**: JSON列の内容を部分更新する場合、`dict(character.data)`のような浅いコピーでは`params`等のネスト辞書要素が元オブジェクトと共有されたままになる。これを場で書き換えてから再代入すると、SQLAlchemyの変更検知が「コミット前後で差分なし」と誤判定し、UPDATE文が発行されないままコミット後に値が元へ戻る。ネストした辞書・リストの要素は必ずコピーしてから変更すること（`routes/owned_characters.py::grow_owned_character`参照）。
+
+## 3. CRUD API（`routes/owned_characters.py`）
+
+すべて `session_required`（要ログイン）。所有者本人のみ参照・変更できる（`user_id`一致・`deleted_at IS NULL`で絞り込み、他人のキャラは404）。
+
+| メソッド | パス | 内容 |
+|---|---|---|
+| GET | `/api/owned_characters` | 自分の持ちキャラ一覧。各要素に`used_exp`/`remaining_exp`/`skill_exp_budget`を付与（後述） |
+| GET | `/api/owned_characters/<id>` | 単体取得 |
+| POST | `/api/owned_characters` | 新規保存。1アカウントあたり20体のソフト上限（`OWNED_CHARACTER_LIMIT`） |
+| PUT | `/api/owned_characters/<id>` | 上書き保存（CharaCreatorからの再編集）。`exp_total`は変更しない |
+| DELETE | `/api/owned_characters/<id>` | 論理削除 |
+| POST | `/api/owned_characters/<id>/growth` | 軽量成長画面からのスキル追加・パラメータ上昇（Part 9-5） |
+
+## 4. ルーム投入とセッション成果の反映
+
+### 投入（Phase 3）
+
+- クライアントは`GET /api/owned_characters`で取得した`data`を`{kind:"character", data:{...}}`へ包み、既存の`parseCharacterJsonToCharacterData`でルーム用キャラへ正規化した上で、`request_add_character`に**`ownedCharacterId`を追加**して送信する（`static/js/common/char_json.js::loadCharacterFromJSON`のoptions引数）。
+- サーバー側（`events/socket_char.py::handle_add_character` → `_resolve_owned_character_tag`）は、session の `user_id` と `OwnedCharacter.user_id` が一致する場合のみ `char_data['owned_character_id']` をスタンプする。不一致・存在しないIDは**静かに無視**（キャラ追加自体は成功させ、タグだけ付けない）。これにより、他人の持ちキャラへ成果を誤って書き戻す事故を防ぐ。
+- 投入はコピーであり、ルーム内キャラを書き換えても持ちキャラ本体（DB上の`OwnedCharacter.data`）には一切影響しない。
+
+### 成果反映（Phase 4）: `request_reflect_session_results`
+
+`events/socket_char.py::handle_reflect_session_results`。payload: `{room, char_id, exp_gain, items: {item_id: qty, ...}}`。
+
+- **対象**: ルーム内キャラに`owned_character_id`があるもののみ（JSON貼り付け由来の従来キャラはスキップ、`reflect_session_results_result`イベントで`skipped:true, reason:'not_owned_character'`を返す）。
+- **実行権限**: キャラ所有者本人（`char.owner_id == session.user_id`）または GM。それ以外は`error`イベントで拒否。
+- **冪等性**: `char['flags']['results_reflected']`が既に立っている場合はスキップ（`reason:'already_reflected'`）。1キャラ・1回のみ反映する。
+- **ホロウ除外**: `state.get('play_mode') == 'hollow'`の場合、アイテムは反映対象外とし経験値のみ反映する（計画35「ホロウ内で完結の原則」。ホロウ側の`play_mode='hollow'`実装前でも、この判定は`state.play_mode`未設定時は通常ルーム扱いになるため副作用なく先行実装できている）。
+- 成功時は`owned.exp_total`に`exp_gain`を加算し、`items`（ホロウでない場合のみ）を`owned.data['inventory']`へマージ、`owned.growth_log`に`kind:'reflect_session_results'`のエントリを追加してコミットする。
+
+## 5. 軽量成長画面とコスト計算（Phase 5）
+
+### CharaCreatorのコスト計算式のPython移植
+
+`routes/owned_characters.py`に、CharaCreator（`GEMDICEBOT_CharaCreator.html::calculateStats()`）の予算計算をそのまま移植した関数群を持つ。
+
+- `compute_exp_limit(data)`: `経験`＋`シナリオ経験`パラメータの合計（出身7＝ラグラゼシス非都市部のみ+1）。**キャラ作成時の`exp_total`初期値**として使う。
+- `compute_used_exp(data)`: `data.commands`から`【スキルID 表示名】`パターンでスキルIDを抽出し（正規表現はCharaCreatorの`restoreFromCommands()`と同一）、スキルマスター（`extensions.all_skill_data`）の`取得コスト`フィールドを合算する。出身6（ラグラゼシス都市部）のみ、魔法カテゴリ（IDが`Ms`/`Mb`/`Mp`で始まる）スキルの先頭コスト1点分を割引く。
+- `compute_param_growth_spent(growth_log)`: 成長画面でのパラメータ上昇に使った経験値の累計。パラメータ上昇は`commands`に現れないため、`growth_log`の`kind=='growth'`エントリの`param_increases`を合算して求める。
+- `used_exp`（API応答）= `compute_used_exp(data)` + `compute_param_growth_spent(growth_log)`。`remaining_exp` = `exp_total - used_exp`。
+- `skill_exp_budget`（API応答）= `exp_total - compute_param_growth_spent(growth_log)`。CharaCreator側の`costMax`（経験欄）に渡すべき値であり、**`remaining_exp`をそのまま渡してはいけない**（CharaCreator自身が「現在選択中のスキル」のコストを含めて上限判定するため、`remaining_exp`を渡すと既存スキルのコストを二重に差し引いてしまう）。
+
+### `POST /api/owned_characters/<id>/growth`
+
+payload: `{add_skill_ids: [...], param_increases: {"筋力": 1, ...}}`。
+
+- スキル追加のコストは、追加前後の`compute_used_exp`の差分として算出する（`all_skill_data`の`チャットパレット`フィールドをそのまま`commands`へ追記するため、CharaCreatorが生成する行と同一形式になる）。
+- パラメータ上昇は house rule として1ポイントあたり経験値1消費（CharaCreator自体には無い、成長画面固有のルール）。
+- 消費合計が残り経験値を超える場合は400を返し、`data`・`growth_log`とも変更しない。
+- 成功時は`data.params`の対象ラベルを更新（無ければ新規追加）し、`growth_log`に`kind:'growth'`のエントリを追加する。`exp_total`自体は変更しない（消費すれば`remaining_exp`が自動的に減るだけ、という設計）。
+
+### CharaCreator再編集時の予算連動
+
+`?owned_id=<id>`付きで`/chara_creator`を開くと、`loadOwnedCharacterFromAccount()`が`GET /api/owned_characters/<id>`を取得し、フォームへ復元した上で`p-exp`欄を`skill_exp_budget`で上書きする（`p-exp-scenario`は0）。これにより、CharaCreator上の「上限」表示が持ちキャラの実際の残り予算と一致した状態で再編集できる。
+
+## 6. 回帰テスト
+
+- `tests/test_owned_characters_api.py`: CRUD・所有者以外からの隔離・論理削除・保存上限。
+- `tests/test_chara_creator_route.py`: `/chara_creator`配信ルート。
+- `tests/test_add_character_owned_character.py`: 投入時の`owned_character_id`タグ付け・他人のIDの無視・投入コピーの独立性。
+- `tests/test_reflect_session_results.py`: 所有者/GMによる反映・非所有者非GMの拒否・二重反映防止・`owned_character_id`なしのスキップ・ホロウルームでのアイテム除外。
+- `tests/test_owned_character_growth.py`: `compute_exp_limit`/`compute_used_exp`の同値性（出身6/7エッジケース含む）・成長エンドポイントの予算超過拒否・複数回呼び出しでの累積・`skill_exp_budget`の算出。
