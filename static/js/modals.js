@@ -2986,6 +2986,12 @@ function openCharLoadModal() {
                 <span id="modal-char-json-file-name" class="char-load-file-name">ファイル未選択</span>
                 <input id="modal-char-json-file-input" type="file" accept=".json,application/json" style="display:none;">
             </div>
+            <div class="char-load-owned-row" style="display:flex; gap:8px; align-items:center; margin:10px 0;">
+                <select id="modal-owned-char-select" style="flex:1; min-width:0;">
+                    <option value="">持ちキャラを読み込み中...</option>
+                </select>
+                <button id="modal-owned-char-add-btn" type="button" class="room-action-btn">このキャラを${label}として追加</button>
+            </div>
             <textarea id="modal-char-json-input" placeholder='{"kind":"character","data":{...}}'></textarea>
             <div class="char-load-buttons">
                 <button id="modal-load-character-btn" type="button" class="${klass}">${label}として追加</button>
@@ -3004,6 +3010,45 @@ function openCharLoadModal() {
         body.querySelector('#modal-load-character-btn')?.addEventListener('click', () => {
             if (loadCharacterFromJSON(type, jsonInput.value, resultMsg)) {
                 jsonInput.value = '';
+                setTimeout(() => backdrop.remove(), 1000);
+            }
+        });
+
+        // 計画36 Phase 3: 持ちキャラから選んで投入するタブ。
+        const ownedSelect = body.querySelector('#modal-owned-char-select');
+        const ownedAddBtn = body.querySelector('#modal-owned-char-add-btn');
+        let ownedCharactersCache = [];
+        (async () => {
+            try {
+                const fetcher = (typeof fetchWithSession === 'function') ? fetchWithSession : fetch;
+                const resp = await fetcher('/api/owned_characters');
+                if (!resp.ok) throw new Error('取得に失敗しました');
+                const body2 = await resp.json();
+                ownedCharactersCache = Array.isArray(body2.characters) ? body2.characters : [];
+                if (!ownedCharactersCache.length) {
+                    ownedSelect.innerHTML = '<option value="">持ちキャラはまだありません</option>';
+                    ownedAddBtn.disabled = true;
+                    return;
+                }
+                ownedSelect.innerHTML = ownedCharactersCache
+                    .map((c) => `<option value="${c.id}">${c.name}</option>`)
+                    .join('');
+            } catch (err) {
+                ownedSelect.innerHTML = '<option value="">読み込みに失敗しました</option>';
+                ownedAddBtn.disabled = true;
+            }
+        })();
+
+        ownedAddBtn?.addEventListener('click', () => {
+            const id = ownedSelect.value;
+            const character = ownedCharactersCache.find((c) => c.id === id);
+            if (!character) {
+                resultMsg.textContent = '持ちキャラを選択してください。';
+                resultMsg.style.color = 'red';
+                return;
+            }
+            const jsonString = JSON.stringify({ kind: 'character', data: character.data });
+            if (loadCharacterFromJSON(type, jsonString, resultMsg, { ownedCharacterId: character.id })) {
                 setTimeout(() => backdrop.remove(), 1000);
             }
         });

@@ -36,6 +36,28 @@ def _safe_int(value, default=0):
     except (TypeError, ValueError):
         return default
 
+def _resolve_owned_character_tag(data):
+    """計画36 Phase 3: `ownedCharacterId` の所有権をサーバ側で確認する。
+
+    投入自体（charDataの正規化）はクライアント側の既存パーサに任せたまま、
+    「このルーム内キャラがどの持ちキャラのコピーか」という対応付けだけを
+    サーバが検証する。所有者不一致・存在しないIDの場合は静かに無視し
+    （タグを付けないだけで追加自体は成功させる）、他人の持ちキャラへ
+    誤って成果を書き戻す事故を防ぐ。
+    """
+    owned_character_id = data.get('ownedCharacterId')
+    if not owned_character_id:
+        return None
+    from models import OwnedCharacter
+    user_id = session.get('user_id')
+    if not user_id:
+        return None
+    owned = OwnedCharacter.query.filter_by(
+        id=owned_character_id, user_id=user_id, deleted_at=None
+    ).first()
+    return owned.id if owned else None
+
+
 @socketio.on('request_add_character')
 def handle_add_character(data):
     room = data.get('room')
@@ -44,6 +66,10 @@ def handle_add_character(data):
         return
     if not _require_in_room(room):
         return
+    owned_character_id = _resolve_owned_character_tag(data)
+    if owned_character_id:
+        char_data = copy.deepcopy(char_data)
+        char_data['owned_character_id'] = owned_character_id
     state = get_room_state(room)
     baseName = char_data.get('name', '名前不明')
     type = char_data.get('type', 'enemy')

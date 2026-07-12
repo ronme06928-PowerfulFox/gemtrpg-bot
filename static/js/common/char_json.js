@@ -89,17 +89,21 @@ if (typeof window !== 'undefined') {
     window.parseCharacterJsonToCharacterData = parseCharacterJsonToCharacterData;
 }
 
-function loadCharacterFromJSON(type, jsonString, resultElement) {
+function loadCharacterFromJSON(type, jsonString, resultElement, options = {}) {
     const parsed = parseCharacterJsonToCharacterData(type, jsonString, { gmOnly: (currentUserAttribute === 'GM') });
     if (!parsed.ok) {
         resultElement.textContent = parsed.message;
         resultElement.style.color = 'red';
         return false;
     }
-    socket.emit('request_add_character', {
+    const payload = {
         room: currentRoomName,
         charData: parsed.charData
-    });
+    };
+    if (options.ownedCharacterId) {
+        payload.ownedCharacterId = options.ownedCharacterId;
+    }
+    socket.emit('request_add_character', payload);
     resultElement.textContent = `読込成功: ${parsed.charData.name} を ${type === 'ally' ? '味方' : '敵'}として追加リクエスト`;
     resultElement.style.color = 'green';
     return true;
