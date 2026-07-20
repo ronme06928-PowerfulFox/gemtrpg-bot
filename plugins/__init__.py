@@ -2,6 +2,7 @@
 from .burst import BurstEffect
 from .fissure import FissureEffect
 from .standard import BleedOverflowEffect, FearSurgeEffect, ThornsScatterEffect, SimpleEffect
+from .max_hp_damage import DEAL_TARGET_MAX_HP_DAMAGE, TargetMaxHpDamageEffect
 
 # 効果名とクラスの対応表
 EFFECT_REGISTRY = {
@@ -18,7 +19,8 @@ EFFECT_REGISTRY = {
 
     # 単純効果
     "APPLY_SKILL_DAMAGE_AGAIN": SimpleEffect("APPLY_SKILL_DAMAGE_AGAIN", "[追加攻撃！]"),
-    "END_ROUND_IMMEDIATELY": SimpleEffect("END_ROUND_IMMEDIATELY", "", target_is_actor=True)
+    "END_ROUND_IMMEDIATELY": SimpleEffect("END_ROUND_IMMEDIATELY", "", target_is_actor=True),
+    DEAL_TARGET_MAX_HP_DAMAGE: TargetMaxHpDamageEffect(),
 }
 
 def get_effect_handler(effect_name):

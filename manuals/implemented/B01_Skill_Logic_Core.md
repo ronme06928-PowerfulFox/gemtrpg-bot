@@ -858,3 +858,27 @@ manager/battle/effect_handlers/
   `monkeypatch.setattr` に依存しており、別モジュールへ移すとパッチが波及せずテストが壊れる
   （解消するには計画書29と同様の関数注入設計が必要）。将来分割する場合は別計画として起票する。
 - 新しいバフ付与の特殊分岐（buff_id別）を追加する場合は `manager/buff_apply.py` に直接追加する。
+
+---
+
+## 2026-07 追補: 文字列condition・最大HPダメージ・死亡原因
+
+### conditionの型別評価
+
+- `name`はランタイム表示名、`baseName`は連番付与前の基礎名を返す。
+- `tag_ids`は`disabled_tag_ids`を除いた有効タグだけを返す。
+- `EQUALS`は両辺が数値なら数値一致、それ以外のスカラー値なら文字列完全一致。
+- `CONTAINS`は文字列では部分一致、list / tuple / setでは要素の完全一致。
+- 数値比較演算子へ非数値を渡した場合はfalse。
+
+### `DEAL_TARGET_MAX_HP_DAMAGE`
+
+`plugins/max_hp_damage.py`に登録された汎用`CUSTOM_EFFECT`。対象の`maxHp`と同値の`CUSTOM_DAMAGE`を生成し、Resolve層で通常ダメージの倍率・軽減・主ダメージ合算を経由せず即時適用する。対象不在、`maxHp`不明、0以下では変更を生成しない。
+
+### 死亡原因コンテキスト
+
+HP更新時に任意の`damage_context`を渡せる。保持項目は`actor`、`skill_data`または`skill_id`、`damage_type`。通常マッチ、一方攻撃、広域攻撃、CUSTOM_DAMAGE、追撃、HPコストから死亡処理へ引き継ぐ。
+
+死亡時効果では死亡キャラクターを`actor`、死亡原因キャラクターを`target`、死亡原因スキルを`target_skill`としてconditionと対象選択に利用できる。発生元不明時は`target`がないため、発生元依存条件は成立しない。
+
+死亡処理は`old_hp > 0`かつ`new_hp <= 0`の遷移でだけ発火する。HP0への追加ダメージでは再発せず、蘇生後に再度正数から0へ遷移した場合は再発する。

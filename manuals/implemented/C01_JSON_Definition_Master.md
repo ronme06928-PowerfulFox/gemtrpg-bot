@@ -533,7 +533,7 @@ python scripts/skill_catalog_tool.py build-market-rate --check # 差分があれ
 - 両フィールドは`string[]`。欠損・配列以外は空配列として扱う。
 - 前後空白と空文字を除去し、最初の出現順を保って完全一致の重複を除去する。
 - `disabled_tag_ids`は`tag_ids`の部分集合へ正規化する。
-- 有効タグ取得ヘルパーは`tag_ids - disabled_tag_ids`を返す。conditionとPvE対象選択への接続は計画37 PR 2・PR 4で実装する。
+- 有効タグ取得ヘルパーは`tag_ids - disabled_tag_ids`を返す。conditionは有効タグだけを参照する。PvE対象選択への接続は計画37 PR 4で実装する。
 - GMが作成するscenarioキャラクターの自由タグは1件25文字以内、改行不可、個数上限なし。
 - プレイヤーキャラクターの送信JSONにある任意タグと無効化指定は信用しない。出身、ボーナス国、取得済み輝化スキルからサーバー側で再構築する。
 - 出身とボーナス国はそれぞれ`出身:国名`を生成する。同じ国なら重複を1件へまとめる。
@@ -543,3 +543,36 @@ python scripts/skill_catalog_tool.py build-market-rate --check # 差分があれ
 正規化・派生処理の正本は`manager/character_tags.py`。持ちキャラ作成・更新、ルーム投入、戦闘専用プリセット、ルームプリセット、召喚で同じデータ契約を維持する。プレイヤーキャラクターの保存・投入時には、取得済み輝化スキルのコスト合計が通過点を超えていないこともサーバー側で検証する。
 
 関連テストは`tests/test_character_tags.py`、`tests/test_owned_characters_api.py`、`tests/test_add_character_owned_character.py`、`tests/test_room_preset_apply.py`。
+
+---
+
+## 14. 文字列conditionと最大HPダメージ（2026-07-20実装）
+
+キャラクターを参照するconditionでは、`param`に`name`、`baseName`、`tag_ids`を指定できる。
+
+- `EQUALS`: 両辺が数値として解釈できる場合は数値一致。それ以外のスカラー値は文字列の完全一致。
+- `CONTAINS`: 参照値が文字列なら部分一致、配列なら要素の完全一致。
+- `tag_ids`: `disabled_tag_ids`を除いた有効タグ配列を参照する。
+- 未知param、対象不在、型に合わない演算はfalseとする。
+
+```json
+{
+  "source": "target",
+  "param": "tag_ids",
+  "operator": "CONTAINS",
+  "value": "種別:瓦礫"
+}
+```
+
+`CUSTOM_EFFECT`の`DEAL_TARGET_MAX_HP_DAMAGE`は、対象の`maxHp`と同じ値のダメージを即時に与える。与ダメージ倍率、被ダメージ倍率、軽減を適用しない。対象不在、`maxHp`不明、0以下では不発となる。
+
+```json
+{
+  "timing": "HIT",
+  "type": "CUSTOM_EFFECT",
+  "target": "target",
+  "value": "DEAL_TARGET_MAX_HP_DAMAGE"
+}
+```
+
+この効果は通常のconditionと組み合わせられる。HPが既に0の対象へ適用しても死亡時効果は再発しない。

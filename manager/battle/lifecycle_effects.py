@@ -1,7 +1,7 @@
 import copy
 
 
-def process_on_death(room, char, username, ctx):
+def process_on_death(room, char, username, ctx, death_context=None):
     """Execute on-death effects."""
     if not char: return
     logs = []
@@ -18,9 +18,29 @@ def process_on_death(room, char, username, ctx):
 
             from manager.room_manager import get_room_state, broadcast_log, _update_char_stat
             state = get_room_state(room)
-            context = {"characters": state['characters'], "room": room}
+            cause = death_context if isinstance(death_context, dict) else {}
+            cause_actor = cause.get("actor") if isinstance(cause.get("actor"), dict) else None
+            cause_skill_data = (
+                cause.get("skill_data")
+                if isinstance(cause.get("skill_data"), dict)
+                else None
+            )
+            if cause_skill_data is None and cause.get("skill_id"):
+                cause_skill_data = {"id": str(cause.get("skill_id"))}
+            context = {
+                "characters": state['characters'],
+                "room": room,
+                "death_context": cause,
+            }
 
-            _, l, changes = ctx['process_skill_effects'](on_death_effects, "IMMEDIATE", char, None, None, context=context)
+            _, l, changes = ctx['process_skill_effects'](
+                on_death_effects,
+                "IMMEDIATE",
+                char,
+                cause_actor,
+                cause_skill_data,
+                context=context,
+            )
 
             if l:
                 broadcast_log(room, f"[{char['name']} on_death] " + " ".join(l), "state-change")
@@ -28,7 +48,36 @@ def process_on_death(room, char, username, ctx):
             for (c, type, name, value) in changes:
                 if type == "APPLY_STATE":
                     current = ctx['get_status_value'](c, name)
-                    _update_char_stat(room, c, name, current + value, username=f"[{char['name']}:死亡時]")
+                    from manager.battle.damage_context import build_damage_context
+
+                    _update_char_stat(
+                        room,
+                        c,
+                        name,
+                        current + value,
+                        username=f"[{char['name']}:死亡時]",
+                        damage_context=build_damage_context(
+                            actor=char,
+                            skill_id=buff.get("name"),
+                            damage_type="on_death",
+                        ),
+                    )
+                elif type == "CUSTOM_DAMAGE":
+                    from manager.battle.damage_context import build_damage_context
+
+                    current = ctx['get_status_value'](c, "HP")
+                    _update_char_stat(
+                        room,
+                        c,
+                        "HP",
+                        max(0, current - int(value or 0)),
+                        username=f"[{char['name']}:死亡時:{name}]",
+                        damage_context=build_damage_context(
+                            actor=char,
+                            skill_id=buff.get("name"),
+                            damage_type="on_death",
+                        ),
+                    )
                 elif type == "APPLY_BUFF":
                     ctx['apply_buff'](c, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
                     broadcast_log(room, f"[{name}] applied to {c['name']}", "state-change")

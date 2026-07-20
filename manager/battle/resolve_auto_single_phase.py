@@ -794,7 +794,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                     'delegate_applied': clash_ok,
                     'delegate_summary': clash_summary if clash_ok else {}
                 }
-                clash_applied = _apply_outcome_to_state(clash_outcome_payload, characters_by_id)
+                clash_applied = _apply_outcome_to_state(clash_outcome_payload, characters_by_id, room=room)
                 if clash_ok:
                     _emit_stat_updates_from_applied(
                         room,
@@ -944,7 +944,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                         'delegate_applied': hard_ok,
                         'delegate_summary': hard_summary if hard_ok else {},
                     }
-                    hard_applied = _apply_outcome_to_state(hard_payload, characters_by_id)
+                    hard_applied = _apply_outcome_to_state(hard_payload, characters_by_id, room=room)
                     if hard_ok:
                         _emit_stat_updates_from_applied(
                             room,
@@ -1045,7 +1045,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                         'delegate_applied': clash_ok,
                         'delegate_summary': clash_summary if clash_ok else {}
                     }
-                    clash_applied = _apply_outcome_to_state(clash_outcome_payload, characters_by_id)
+                    clash_applied = _apply_outcome_to_state(clash_outcome_payload, characters_by_id, room=room)
                     if clash_ok:
                         _emit_stat_updates_from_applied(
                             room,
@@ -1133,7 +1133,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                     'delegate_applied': delegate_ok,
                     'delegate_summary': delegate_summary if delegate_ok else {}
                 }
-                applied = _apply_outcome_to_state(outcome_payload, characters_by_id)
+                applied = _apply_outcome_to_state(outcome_payload, characters_by_id, room=room)
                 attacker_name = _resolve_actor_name(characters_by_id, attacker_actor_id)
                 defender_name = _resolve_actor_name(characters_by_id, target_actor_id)
                 attacker_skill_name = _resolve_skill_name(skill_id, skill_data)

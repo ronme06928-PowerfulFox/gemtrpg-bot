@@ -8,6 +8,7 @@ from manager.room_manager import (
     get_room_state as _default_get_room_state,
     broadcast_log as _default_broadcast_log,
     _update_char_stat as _default_update_char_stat,
+    _handle_character_death_transition,
 )
 from manager.summons.service import apply_summon_change as _default_apply_summon_change
 from manager.granted_skills.service import (
@@ -26,6 +27,7 @@ from manager.battle.skill_rules import (
     _extract_skill_cost_entries,
 )
 from manager.battle.skill_access import get_effective_skill_cost
+from manager.battle.damage_context import build_damage_context
 
 logger = setup_logger(__name__)
 all_skill_data = _default_all_skill_data
@@ -67,7 +69,7 @@ def _safe_int(value, default=0):
     except Exception:
         return default
 
-def _apply_cost(attacker, skill, policy):
+def _apply_cost(attacker, skill, policy, room=None):
     consumed = {'mp': 0, 'hp': 0, 'fp': 0}
     if not isinstance(attacker, dict):
         return consumed
@@ -124,6 +126,19 @@ def _apply_cost(attacker, skill, policy):
         if c_norm == 'HP':
             attacker['hp'] = new_val
             consumed['hp'] += spent
+            if room:
+                _handle_character_death_transition(
+                    room,
+                    attacker,
+                    curr,
+                    new_val,
+                    username="[skill-cost]",
+                    damage_context=build_damage_context(
+                        actor=attacker,
+                        skill_data=skill,
+                        damage_type="skill_cost",
+                    ),
+                )
         elif c_norm == 'MP':
             attacker['mp'] = new_val
             consumed['mp'] += spent
@@ -138,7 +153,7 @@ def _apply_cost(attacker, skill, policy):
     return consumed
 
 
-def _apply_damage(defender, amount, damage_type=None):
+def _apply_damage(defender, amount, damage_type=None, room=None, damage_context=None):
     if not isinstance(defender, dict):
         return {'target_id': None, 'hp': 0, 'damage_type': damage_type}
     try:
@@ -151,6 +166,15 @@ def _apply_damage(defender, amount, damage_type=None):
     before = int(defender.get('hp', 0))
     after = max(0, before - dmg)
     defender['hp'] = after
+    if room:
+        _handle_character_death_transition(
+            room,
+            defender,
+            before,
+            after,
+            username="[select_resolve]",
+            damage_context=damage_context,
+        )
     return {
         'target_id': defender.get('id'),
         'hp': before - after,
@@ -198,7 +222,7 @@ def _record_used_skill_for_actor(actor, skill_id):
     used.append(sid)
 
 
-def _apply_outcome_to_state(outcome, characters_by_id):
+def _apply_outcome_to_state(outcome, characters_by_id, room=None):
     applied = {'cost': {'mp': 0, 'hp': 0, 'fp': 0}, 'damage': [], 'statuses': [], 'flags': [], 'log_lines': []}
     if not isinstance(outcome, dict):
         return applied
@@ -207,8 +231,14 @@ def _apply_outcome_to_state(outcome, characters_by_id):
 
     attacker_id = outcome.get('attacker_id')
     attacker = characters_by_id.get(attacker_id) if attacker_id else None
+    skill_data = outcome.get('skill') if isinstance(outcome.get('skill'), dict) else None
     if outcome.get('apply_cost', False):
-        applied['cost'] = _apply_cost(attacker, outcome.get('skill', {}) or {}, outcome.get('cost_policy', COST_CONSUME_POLICY))
+        applied['cost'] = _apply_cost(
+            attacker,
+            outcome.get('skill', {}) or {},
+            outcome.get('cost_policy', COST_CONSUME_POLICY),
+            room=room,
+        )
 
     if outcome.get('delegate_applied', False):
         delegate = outcome.get('delegate_summary', {})
@@ -226,7 +256,18 @@ def _apply_outcome_to_state(outcome, characters_by_id):
             continue
         target_id = dmg.get('target_id') or outcome.get('target_id')
         defender = characters_by_id.get(target_id) if target_id else None
-        applied['damage'].append(_apply_damage(defender, dmg.get('amount', 0), dmg.get('damage_type')))
+        damage_type = dmg.get('damage_type')
+        applied['damage'].append(_apply_damage(
+            defender,
+            dmg.get('amount', 0),
+            damage_type,
+            room=room,
+            damage_context=build_damage_context(
+                actor=attacker,
+                skill_data=skill_data,
+                damage_type=damage_type,
+            ),
+        ))
 
     for status in outcome.get('statuses', []) if isinstance(outcome.get('statuses', []), list) else [outcome.get('statuses', {})]:
         if not isinstance(status, dict):
@@ -302,6 +343,7 @@ def _run_skill_timing_effects(
         'timeline': (state.get('timeline', []) if isinstance(state, dict) else []),
         'characters': (state.get('characters', []) if isinstance(state, dict) else []),
         'room': room,
+        'actor_skill_data': skill_data,
     }
     try:
         bonus_damage, logs, changes = process_skill_effects(
@@ -311,7 +353,7 @@ def _run_skill_timing_effects(
             target_char,
             target_skill_data,
             context=context,
-            base_damage=base_damage
+            base_damage=base_damage,
         )
     except Exception as e:
         logger.warning(
@@ -333,7 +375,8 @@ def _run_skill_timing_effects(
             actor_char,
             target_char,
             int(base_damage or 0),
-            result['logs']
+            result['logs'],
+            attacker_skill_data=skill_data,
         ) or 0
     )
 
@@ -748,7 +791,8 @@ def _apply_effect_changes_like_duel(
     defender_char,
     base_damage,
     log_snippets,
-    reuse_requests=None
+    reuse_requests=None,
+    attacker_skill_data=None,
 ):
     extra_primary_damage = 0
     for (char, effect_type, name, value) in changes:
@@ -777,18 +821,57 @@ def _apply_effect_changes_like_duel(
             remove_buff(char, name)
             log_snippets.append(f"[{name}] が {char.get('name', char.get('id', ''))} から解除されました。")
         elif effect_type == "CUSTOM_DAMAGE":
-            if defender_char and char.get('id') == defender_char.get('id'):
+            if name == "DEAL_TARGET_MAX_HP_DAMAGE":
+                curr_hp = int(get_status_value(char, 'HP'))
+                _update_char_stat(
+                    room,
+                    char,
+                    'HP',
+                    max(0, curr_hp - int(value)),
+                    username=f"[{name}]",
+                    source=DamageSource.SKILL_EFFECT,
+                    damage_context=build_damage_context(
+                        actor=attacker_char,
+                        skill_data=attacker_skill_data,
+                        damage_type=DamageSource.SKILL_EFFECT,
+                    ),
+                )
+            elif defender_char and char.get('id') == defender_char.get('id'):
                 extra_primary_damage += int(value)
             else:
                 curr_hp = int(get_status_value(char, 'HP'))
-                _update_char_stat(room, char, 'HP', max(0, curr_hp - int(value)), username=f"[{name}]", source=DamageSource.SKILL_EFFECT)
+                _update_char_stat(
+                    room,
+                    char,
+                    'HP',
+                    max(0, curr_hp - int(value)),
+                    username=f"[{name}]",
+                    source=DamageSource.SKILL_EFFECT,
+                    damage_context=build_damage_context(
+                        actor=attacker_char,
+                        skill_data=attacker_skill_data,
+                        damage_type=DamageSource.SKILL_EFFECT,
+                    ),
+                )
         elif effect_type == "CONSUME_BLEED_MAINTENANCE":
             consumed, remaining = consume_bleed_maintenance_stack(char, amount=int(value or 1))
             if consumed > 0:
                 log_snippets.append(f"[出血維持] 1消費 (残{remaining})")
         elif effect_type == "APPLY_SKILL_DAMAGE_AGAIN":
             if base_damage > 0:
-                _update_char_stat(room, char, 'HP', int(char.get('hp', 0)) - int(base_damage), username="[追撃]", source=DamageSource.SKILL_EFFECT)
+                _update_char_stat(
+                    room,
+                    char,
+                    'HP',
+                    int(char.get('hp', 0)) - int(base_damage),
+                    username="[追撃]",
+                    source=DamageSource.SKILL_EFFECT,
+                    damage_context=build_damage_context(
+                        actor=attacker_char,
+                        skill_data=attacker_skill_data,
+                        damage_type=DamageSource.SKILL_EFFECT,
+                    ),
+                )
                 temp_logs = []
                 b_dmg = process_on_damage_buffs(
                     room,

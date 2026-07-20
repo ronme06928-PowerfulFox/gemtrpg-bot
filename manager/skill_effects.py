@@ -7,6 +7,7 @@ from manager.game_logic import process_skill_effects, get_status_value, apply_bu
 from manager.room_manager import _update_char_stat, broadcast_log
 from manager.battle.core import process_on_damage_buffs
 from manager.constants import DamageSource
+from manager.battle.damage_context import build_damage_context
 from manager.summons.service import apply_summon_change
 from manager.granted_skills.service import apply_grant_skill_change
 from manager.bleed_logic import consume_bleed_maintenance_stack
@@ -83,7 +84,7 @@ def apply_skill_effects_bidirectional(
     primary_target = d_char if winner_side == 'attacker' else a_char
 
     # 内部関数: 変更内容の即時適用
-    def apply_local_changes(changes, target_char, source_actor=None):
+    def apply_local_changes(changes, target_char, source_actor=None, source_skill=None):
         nonlocal custom_damage_applied
         extra_dmg = 0
 
@@ -132,7 +133,19 @@ def apply_skill_effects_bidirectional(
                 else:
                     damage_source = DamageSource.SKILL_EFFECT
 
-                _update_char_stat(room, char, 'HP', char['hp'] - value, username=f"[{name}]", source=damage_source)
+                _update_char_stat(
+                    room,
+                    char,
+                    'HP',
+                    char['hp'] - value,
+                    username=f"[{name}]",
+                    source=damage_source,
+                    damage_context=build_damage_context(
+                        actor=source_actor,
+                        skill_data=source_skill,
+                        damage_type=damage_source,
+                    ),
+                )
                 damage_events.append({'target_name': char['name'], 'target_id': char.get('id'), 'source': name, 'value': value})
 
                 # ★修正: 対象が本来のダメージ対象(敗者)の場合のみ合計に加算
@@ -155,7 +168,19 @@ def apply_skill_effects_bidirectional(
                 # Legacy duel/wide path fallback: treat as extra same-damage hit.
                 # Select/Resolve flow has dedicated re-use handling in battle/core.py.
                 if damage_val > 0:
-                     _update_char_stat(room, char, 'HP', char['hp'] - damage_val, username=f"[追撃]", source=DamageSource.SKILL_EFFECT)
+                     _update_char_stat(
+                         room,
+                         char,
+                         'HP',
+                         char['hp'] - damage_val,
+                         username=f"[追撃]",
+                         source=DamageSource.SKILL_EFFECT,
+                         damage_context=build_damage_context(
+                             actor=source_actor,
+                             skill_data=source_skill,
+                             damage_type=DamageSource.SKILL_EFFECT,
+                         ),
+                     )
                      temp_logs = []
                      buff_dmg = process_on_damage_buffs(
                          room,
@@ -197,13 +222,23 @@ def apply_skill_effects_bidirectional(
         return extra_dmg
 
     # 内部関数: 処理実行と適用
-    def run_proc_and_apply(effs, timing, actor, target, skill):
+    def run_proc_and_apply(effs, timing, actor, target, actor_skill, target_skill):
         nonlocal total_bonus_dmg
 
         # contextをprocess_skill_effectsに渡す
         # ★修正: base_damage に現在の合計値(damage_val + total_bonus_dmg)を渡す
         current_base_damage = damage_val + total_bonus_dmg
-        d, l, c = process_skill_effects(effs, timing, actor, target, skill, context=context, base_damage=current_base_damage)
+        effect_context = dict(context or {})
+        effect_context['actor_skill_data'] = actor_skill
+        d, l, c = process_skill_effects(
+            effs,
+            timing,
+            actor,
+            target,
+            target_skill,
+            context=effect_context,
+            base_damage=current_base_damage,
+        )
 
         # 重複防止: 攻撃者の自己バフ抑制フラグがONの場合、ターゲットが攻撃者自身である変更を除外
         final_changes = []
@@ -221,28 +256,33 @@ def apply_skill_effects_bidirectional(
         all_logs.extend(l)
 
         # 即時適用
-        dmg_val = apply_local_changes(final_changes, primary_target, source_actor=actor)
+        dmg_val = apply_local_changes(
+            final_changes,
+            primary_target,
+            source_actor=actor,
+            source_skill=actor_skill,
+        )
         total_bonus_dmg += dmg_val
 
     if winner_side == 'attacker':
         # WIN -> HIT の順（勝利ボーナスをHITに乗せるため）
         logger.debug(f"[Attacker Wins] Processing attacker WIN effects")
         if not delegate_result_timings_applied:
-            run_proc_and_apply(effects_a, "WIN", a_char, d_char, d_skill)
+            run_proc_and_apply(effects_a, "WIN", a_char, d_char, a_skill, d_skill)
         logger.debug(f"[Attacker Wins] Processing attacker HIT effects")
-        run_proc_and_apply(effects_a, "HIT", a_char, d_char, d_skill)
+        run_proc_and_apply(effects_a, "HIT", a_char, d_char, a_skill, d_skill)
         logger.debug(f"[Attacker Wins] Processing defender LOSE effects")
         if not delegate_result_timings_applied:
-            run_proc_and_apply(effects_d, "LOSE", d_char, a_char, a_skill)
+            run_proc_and_apply(effects_d, "LOSE", d_char, a_char, d_skill, a_skill)
     else:
         logger.debug(f"[Defender Wins] Processing attacker LOSE effects")
         if not delegate_result_timings_applied:
-            run_proc_and_apply(effects_a, "LOSE", a_char, d_char, d_skill)
+            run_proc_and_apply(effects_a, "LOSE", a_char, d_char, a_skill, d_skill)
         # 防御側も WIN ->HIT に統一
         logger.debug(f"[Defender Wins] Processing defender WIN effects")
         if not delegate_result_timings_applied:
-            run_proc_and_apply(effects_d, "WIN", d_char, a_char, a_skill)
+            run_proc_and_apply(effects_d, "WIN", d_char, a_char, d_skill, a_skill)
         logger.debug(f"[Defender Wins] Processing defender HIT effects")
-        run_proc_and_apply(effects_d, "HIT", d_char, a_char, a_skill)
+        run_proc_and_apply(effects_d, "HIT", d_char, a_char, d_skill, a_skill)
 
     return total_bonus_dmg, all_logs, custom_damage_applied, damage_events

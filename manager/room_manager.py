@@ -19,6 +19,7 @@ from manager.utils import (
 from models import Room
 from manager.log_archive import archive_room_logs
 from manager.game_logic import process_on_death
+from manager.battle.damage_context import with_damage_type
 from manager.logs import setup_logger
 
 try:
@@ -615,7 +616,47 @@ def get_users_in_room(room_name):
 
 
 
-def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_delete=False, username="System", source=None, save=True, suppress_log=False):
+def _handle_character_death_transition(
+    room_name,
+    char,
+    old_hp,
+    new_hp,
+    username="System",
+    damage_context=None,
+):
+    try:
+        was_alive = int(old_hp) > 0
+        is_dead = int(new_hp) <= 0
+    except (TypeError, ValueError):
+        return False
+    if not (was_alive and is_dead):
+        return False
+
+    try:
+        process_on_death(
+            room_name,
+            char,
+            username,
+            death_context=damage_context,
+        )
+    except Exception as e:
+        logger.error(f"[ERROR] process_on_death failed: {e}")
+    return True
+
+
+def _update_char_stat(
+    room_name,
+    char,
+    stat_name,
+    new_value,
+    is_new=False,
+    is_delete=False,
+    username="System",
+    source=None,
+    save=True,
+    suppress_log=False,
+    damage_context=None,
+):
     stat_name = normalize_status_name(stat_name)
     normalize_character_labels(char)
     username = _normalize_log_text(username)
@@ -638,10 +679,14 @@ def _update_char_stat(room_name, char, stat_name, new_value, is_new=False, is_de
         if char['hp'] <= 0:
             char['x'] = -1; char['y'] = -1
             log_message += " [戦闘不能/未配置へ移動]"
-            try:
-                process_on_death(room_name, char, username)
-            except Exception as e:
-                logger.error(f"[ERROR] process_on_death failed: {e}")
+            _handle_character_death_transition(
+                room_name,
+                char,
+                old_value,
+                char['hp'],
+                username=username,
+                damage_context=with_damage_type(damage_context, source),
+            )
     elif stat_name == 'MP':
         old_value = char['mp']
         try:

@@ -1,5 +1,8 @@
 import re
 import sys
+from decimal import Decimal, InvalidOperation
+
+from manager.character_tags import get_effective_tag_ids
 
 
 def _utils_module():
@@ -131,6 +134,25 @@ def _safe_int_for_condition(value, default=0):
         return default
 
 
+def _number_for_condition(value):
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float, Decimal)):
+        try:
+            return Decimal(str(value))
+        except InvalidOperation:
+            return None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return Decimal(text)
+        except InvalidOperation:
+            return None
+    return None
+
+
 def _resolve_buff_count_for_condition(source_obj, buff_name):
     if not isinstance(source_obj, dict):
         return 0
@@ -202,6 +224,12 @@ def _get_value_for_condition(source_obj, param_name, context=None, actor=None, t
         if normalized_param_name.endswith("_count") and len(normalized_param_name) > len("_count"):
             buff_name = normalized_param_name[:-len("_count")]
             return _resolve_buff_count_for_condition(source_obj, buff_name)
+
+    if normalized_param_name in {"name", "baseName"}:
+        return source_obj.get(normalized_param_name)
+
+    if normalized_param_name == "tag_ids":
+        return get_effective_tag_ids(source_obj)
 
     if normalized_param_name == "tags":
         return source_obj.get("tags", [])
@@ -383,15 +411,27 @@ def check_condition(condition_obj, actor, target, target_skill_data=None, actor_
     )
     if current_value is None: return False
 
-    try:
-        if op == "CONTAINS": return check_value in current_value
-        current_value = int(current_value)
-        check_value = int(check_value)
-        if op == "GTE": return current_value >= check_value
-        elif op == "LTE": return current_value <= check_value
-        elif op == "GT": return current_value > check_value
-        elif op == "LT": return current_value < check_value
-        elif op == "EQUALS": return current_value == check_value
-    except Exception:
+    if op == "CONTAINS":
+        if isinstance(current_value, str):
+            return str(check_value) in current_value
+        if isinstance(current_value, (list, tuple, set)):
+            return check_value in current_value
         return False
+
+    current_number = _number_for_condition(current_value)
+    check_number = _number_for_condition(check_value)
+
+    if op == "EQUALS":
+        if current_number is not None and check_number is not None:
+            return current_number == check_number
+        if isinstance(current_value, (list, tuple, set, dict)):
+            return False
+        return str(current_value) == str(check_value)
+
+    if current_number is None or check_number is None:
+        return False
+    if op == "GTE": return current_number >= check_number
+    elif op == "LTE": return current_number <= check_number
+    elif op == "GT": return current_number > check_number
+    elif op == "LT": return current_number < check_number
     return False

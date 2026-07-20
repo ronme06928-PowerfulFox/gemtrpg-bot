@@ -9,6 +9,7 @@ from manager.room_manager import (
     broadcast_state_update, _update_char_stat
 )
 from manager.constants import DamageSource, THORNS_DAMAGE_CATS
+from manager.battle.damage_context import build_damage_context
 from manager.game_logic import (
     get_status_value, compute_damage_multipliers,
     remove_buff, apply_buff, process_skill_effects
@@ -648,14 +649,13 @@ def execute_duel_match(room, data, username):
         attacker_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
         defender_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
         damage_report = {'A': [], 'D': []}
-
+        _damage_context_for = lambda source_actor, damage_type=DamageSource.SKILL_EFFECT: build_damage_context(actor=source_actor, skill_data=skill_data_a if source_actor is actor_a_char else (skill_data_d if source_actor is actor_d_char else None), damage_type=damage_type)
         def _report_key_for_char(char):
             if actor_a_char and isinstance(char, dict) and char.get('id') == actor_a_char.get('id'):
                 return 'A'
             if actor_d_char and isinstance(char, dict) and char.get('id') == actor_d_char.get('id'):
                 return 'D'
             return None
-
         def _apply_select_resolve_result_changes(changes, primary_target=None, source_actor=None):
             extra_primary_damage = 0
             for (char, effect_type, name, value) in changes:
@@ -684,11 +684,13 @@ def execute_duel_match(room, data, username):
                     target_key = _report_key_for_char(char)
                     if target_key:
                         damage_report[target_key].append({'source': name, 'value': amount})
-                    if primary_target and char.get('id') == primary_target.get('id'):
+                    if name == "DEAL_TARGET_MAX_HP_DAMAGE":
+                        _update_char_stat(room, char, 'HP', max(0, int(char.get('hp', 0) or 0) - amount), username=f"[{name}]", source=DamageSource.SKILL_EFFECT, save=False, damage_context=_damage_context_for(source_actor))
+                    elif primary_target and char.get('id') == primary_target.get('id'):
                         extra_primary_damage += amount
                     else:
                         curr_hp = int(char.get('hp', 0) or 0)
-                        _update_char_stat(room, char, 'HP', max(0, curr_hp - amount), username=f"[{name}]", source=DamageSource.SKILL_EFFECT, save=False)
+                        _update_char_stat(room, char, 'HP', max(0, curr_hp - amount), username=f"[{name}]", source=DamageSource.SKILL_EFFECT, save=False, damage_context=_damage_context_for(source_actor))
                 elif effect_type == "CONSUME_BLEED_MAINTENANCE":
                     consume_bleed_maintenance_stack(char, amount=int(value or 1))
                 elif effect_type == "SET_FLAG":
@@ -708,16 +710,15 @@ def execute_duel_match(room, data, username):
                     else:
                         logger.warning("[select_resolve result timing grant_skill failed] %s", res.get("message"))
             return extra_primary_damage
-
         def _run_select_resolve_result_timing(timing, actor, target, effects, target_skill, primary_target=None, base_damage=0):
             if not actor or not isinstance(effects, list):
                 return 0
-            ctx = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room}
+            source_skill = skill_data_a if actor is actor_a_char else skill_data_d
+            ctx = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room, 'actor_skill_data': source_skill}
             bonus, logs, changes = process_skill_effects(effects, timing, actor, target, target_skill, context=ctx, base_damage=base_damage)
             if logs:
                 log_snippets.extend(logs)
             return int(bonus or 0) + int(_apply_select_resolve_result_changes(changes, primary_target=primary_target, source_actor=actor) or 0)
-
         if delegate_mode and actor_a_char and actor_d_char:
             pre_bonus = {'attacker': 0, 'defender': 0}
             state['__sr_delegate_pre_damage_bonus'] = pre_bonus
@@ -762,13 +763,13 @@ def execute_duel_match(room, data, username):
                 continue
             if cat in THORNS_DAMAGE_CATS:
                 _update_char_stat(room, actor, "HP", actor["hp"] - thorn_val,
-                                  username="[荊棘自傷]", source=DamageSource.THORNS)
+                                  username="[荊棘自傷]", source=DamageSource.THORNS,
+                                  damage_context=_damage_context_for(actor, DamageSource.THORNS))
             entangle_val = get_status_value(actor, "荊棘重絡")
             if entangle_val > 0:
                 _update_char_stat(room, actor, "荊棘重絡", entangle_val - 1, username="[荊棘重絡消費]")
             else:
                 _update_char_stat(room, actor, "荊棘", 0, username="[荊棘消滅]")
-
         if "free_cost" in attacker_tags or "free_cost" in defender_tags:
             winner_message = "<strong>Skill effects only</strong>"
             damage_message = "(no direct damage)"
@@ -787,21 +788,17 @@ def execute_duel_match(room, data, username):
                         damage_report['A'].append({'source': 'fissure', 'value': kiretsu})
                     if damage > 0:
                         damage_report['A'].append({'source': 'dice', 'value': damage})
-
                     log_snippets.extend(logs)
                     extra_hit_dmg = process_on_hit_buffs(actor_d_char, actor_a_char, damage + kiretsu + bonus_damage, log_snippets)
                     if extra_hit_dmg > 0:
                         damage_report['A'].append({'source': 'on_hit', 'value': extra_hit_dmg})
-
                     final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
                     if any(b.get('name') == "混乱" for b in actor_a_char.get('special_buffs', [])):
                          final_damage = int(final_damage * 1.5); log_snippets.append("混乱")
-
-                    _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS)
+                    _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS, damage_context=_damage_context_for(actor_d_char, DamageSource.MATCH_LOSS))
                     buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets, attacker_char=actor_d_char)
                     if buff_dmg > 0:
                         damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
-
                     winner_message = f"<strong>{actor_name_d} wins (opponent incapacitated)</strong>"
 
             elif is_incap_d:
@@ -826,7 +823,7 @@ def execute_duel_match(room, data, username):
                     if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
                         final_damage = int(final_damage * 1.5); log_snippets.append("混乱")
 
-                    _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS)
+                    _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS, damage_context=_damage_context_for(actor_a_char, DamageSource.MATCH_LOSS))
                     buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets, attacker_char=actor_a_char)
                     if buff_dmg > 0:
                         damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
@@ -843,7 +840,8 @@ def execute_duel_match(room, data, username):
                     kiretsu = get_status_value(actor_d_char, "亀裂")
 
                     logger.debug(f"[UNOPPOSED] Calling process_skill_effects for UNOPPOSED trigger")
-                    bd_un, log_un, chg_un = process_skill_effects(effects_array_a, "UNOPPOSED", actor_a_char, actor_d_char, skill_data_d, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
+                    effect_context = {'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room, 'actor_skill_data': skill_data_a}
+                    bd_un, log_un, chg_un = process_skill_effects(effects_array_a, "UNOPPOSED", actor_a_char, actor_d_char, skill_data_d, context=effect_context)
 
                     custom_dmg_onesided = 0
                     def local_apply(clist, primary_target=None):
@@ -884,11 +882,13 @@ def execute_duel_match(room, data, username):
                                     logger.warning("[unopposed grant_skill failed] %s", res.get("message"))
                             elif t == "CUSTOM_DAMAGE":
 
-                                if primary_target and c.get('id') == primary_target.get('id'):
+                                if n == "DEAL_TARGET_MAX_HP_DAMAGE":
+                                    _update_char_stat(room, c, 'HP', max(0, get_status_value(c, 'HP') - v), username=f"[{n}]", source=DamageSource.SKILL_EFFECT, damage_context=_damage_context_for(actor_a_char))
+                                elif primary_target and c.get('id') == primary_target.get('id'):
                                     ex += v
                                 else:
                                     curr = get_status_value(c, 'HP')
-                                    _update_char_stat(room, c, 'HP', max(0, curr - v), username=f"[{n}]", source=DamageSource.SKILL_EFFECT)
+                                    _update_char_stat(room, c, 'HP', max(0, curr - v), username=f"[{n}]", source=DamageSource.SKILL_EFFECT, damage_context=_damage_context_for(actor_a_char))
 
                                 target_key = 'A' if actor_a_char and c.get('id') == actor_a_char.get('id') else ('D' if actor_d_char and c.get('id') == actor_d_char.get('id') else None)
                                 if target_key:
@@ -904,7 +904,7 @@ def execute_duel_match(room, data, username):
                                     continue
 
                                 if damage > 0:
-                                    _update_char_stat(room, c, 'HP', c.get('hp', 0) - damage, username="[follow-up]", source=DamageSource.SKILL_EFFECT)
+                                    _update_char_stat(room, c, 'HP', c.get('hp', 0) - damage, username="[follow-up]", source=DamageSource.SKILL_EFFECT, damage_context=_damage_context_for(actor_a_char))
                                     temp_logs = []
                                     b_dmg = process_on_damage_buffs(room, c, damage, username, temp_logs, attacker_char=actor_a_char)
                                     log_snippets.extend(temp_logs)
@@ -924,7 +924,7 @@ def execute_duel_match(room, data, username):
                     if bd_un > 0: damage_report['D'].append({'source': '威力補正(Pre)', 'value': bd_un})
 
                     logger.debug(f"[HIT] Calling process_skill_effects for HIT trigger")
-                    bd_hit, log_hit, chg_hit = process_skill_effects(effects_array_a, "HIT", actor_a_char, actor_d_char, skill_data_d, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
+                    bd_hit, log_hit, chg_hit = process_skill_effects(effects_array_a, "HIT", actor_a_char, actor_d_char, skill_data_d, context=effect_context)
                     logger.debug(f"[HIT] Applying changes from HIT: {len(chg_hit)} changes")
                     extra_skill_damage = local_apply(chg_hit, primary_target=actor_d_char)
                     if bd_hit > 0: damage_report['D'].append({'source': '威力補正(Hit)', 'value': bd_hit})
@@ -944,7 +944,7 @@ def execute_duel_match(room, data, username):
                     )
                     final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
 
-                    _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
+                    _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, source=DamageSource.ONE_SIDED, damage_context=_damage_context_for(actor_a_char, DamageSource.ONE_SIDED))
                     buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets, attacker_char=actor_a_char)
                     if buff_dmg > 0: damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
@@ -991,7 +991,7 @@ def execute_duel_match(room, data, username):
                          incoming_label='防',
                      )
 
-                     _update_char_stat(room, actor_d_char, "HP", actor_d_char["hp"] - final_dmg_a, username=f"{username}(相殺", save=False)
+                     _update_char_stat(room, actor_d_char, "HP", actor_d_char["hp"] - final_dmg_a, username=f"{username}(相殺", source=DamageSource.MATCH_LOSS, save=False, damage_context=_damage_context_for(actor_a_char, DamageSource.MATCH_LOSS))
                      buff_dmg = process_on_damage_buffs(room, actor_d_char, final_dmg_a, username, log_snippets, attacker_char=actor_a_char)
                      if buff_dmg > 0: damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
@@ -1029,7 +1029,7 @@ def execute_duel_match(room, data, username):
                          incoming_label='攻',
                      )
 
-                     _update_char_stat(room, actor_a_char, "HP", actor_a_char["hp"] - final_dmg_d, username=f"{username}(相殺", save=False)
+                     _update_char_stat(room, actor_a_char, "HP", actor_a_char["hp"] - final_dmg_d, username=f"{username}(相殺", source=DamageSource.MATCH_LOSS, save=False, damage_context=_damage_context_for(actor_d_char, DamageSource.MATCH_LOSS))
                      buff_dmg = process_on_damage_buffs(room, actor_a_char, final_dmg_d, username, log_snippets, attacker_char=actor_d_char)
                      if buff_dmg > 0: damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
 
@@ -1064,7 +1064,7 @@ def execute_duel_match(room, data, username):
                 )
                 final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
 
-                _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
+                _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS, damage_context=_damage_context_for(actor_a_char, DamageSource.MATCH_LOSS))
                 buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets, attacker_char=actor_a_char)
                 if buff_dmg > 0: damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
@@ -1089,7 +1089,7 @@ def execute_duel_match(room, data, username):
                      diff = result_d['total'] - result_a['total']
                      if diff > 0:
                          curr_hp = get_status_value(actor_a_char, 'HP')
-                         _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反封ムメージ]")
+                         _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反封ムメージ]", source=DamageSource.SKILL_EFFECT, damage_context=_damage_context_for(actor_d_char))
                          damage_report['A'].append({'source': '反封ギァン・バルチ', 'value': diff})
                          broadcast_log(room, f"[鏡面反射] reflected {diff} damage.", "info")
 
@@ -1112,7 +1112,7 @@ def execute_duel_match(room, data, username):
                     incoming_label='防',
                 )
                 final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
-                _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username)
+                _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS, damage_context=_damage_context_for(actor_a_char, DamageSource.MATCH_LOSS))
                 buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets, attacker_char=actor_a_char)
 
                 if DodgeLockBuff.has_re_evasion(actor_d_char):
@@ -1186,7 +1186,7 @@ def execute_duel_match(room, data, username):
                     )
                     final_damage = _apply_feint_half_if_needed(final_damage, skill_data_d, skill_data_a, log_snippets)
 
-                    _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username)
+                    _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS, damage_context=_damage_context_for(actor_d_char, DamageSource.MATCH_LOSS))
                     buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets, attacker_char=actor_d_char)
                     if buff_dmg > 0: damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
 
@@ -1198,7 +1198,7 @@ def execute_duel_match(room, data, username):
                     d, l, c = process_skill_effects(effs, "END_MATCH", actor, target, skill)
                     for (char, type, name, value) in c:
                         if type == "APPLY_STATE":
-                            _update_char_stat(room, char, name, get_status_value(char, name)+value, username=f"[{name}]", save=False)
+                            _update_char_stat(room, char, name, get_status_value(char, name) + value, username=f"[{name}]", save=False, damage_context=_damage_context_for(actor))
                             if name == 'HP' and value < 0:
                                 t_key = 'A' if actor_a_char and char['id'] == actor_a_char['id'] else ('D' if actor_d_char and char['id'] == actor_d_char['id'] else None)
                                 if t_key: damage_report[t_key].append({'source': 'END_MATCH', 'value': -value})
@@ -1207,7 +1207,7 @@ def execute_duel_match(room, data, username):
                         elif type == "CUSTOM_DAMAGE":
                             t_key = 'A' if actor_a_char and char['id'] == actor_a_char['id'] else ('D' if actor_d_char and char['id'] == actor_d_char['id'] else None)
                             if t_key: damage_report[t_key].append({'source': name, 'value': value})
-                            _update_char_stat(room, char, 'HP', max(0, get_status_value(char, 'HP') - value), username=f"[{name}]", save=False)
+                            _update_char_stat(room, char, 'HP', max(0, get_status_value(char, 'HP') - value), username=f"[{name}]", source=DamageSource.SKILL_EFFECT, save=False, damage_context=_damage_context_for(actor))
                         elif type == "CONSUME_BLEED_MAINTENANCE":
                             consume_bleed_maintenance_stack(char, amount=int(value or 1))
                         elif type == "SET_FLAG":
@@ -1298,7 +1298,7 @@ def execute_duel_match(room, data, username):
                     )
                     final_damage = _apply_feint_half_if_needed(final_damage, skill_data_a, skill_data_d, log_snippets)
 
-                    _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, save=False)
+                    _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS, save=False, damage_context=_damage_context_for(actor_a_char, DamageSource.MATCH_LOSS))
                     buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets, attacker_char=actor_a_char)
                     if buff_dmg > 0: damage_report['D'].append({'source': 'on_damage', 'value': buff_dmg})
 
@@ -1385,7 +1385,7 @@ def execute_duel_match(room, data, username):
                     )
                     final_damage = _apply_feint_half_if_needed(final_damage, skill_data_d, skill_data_a, log_snippets)
 
-                    _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, save=False)
+                    _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS, save=False, damage_context=_damage_context_for(actor_d_char, DamageSource.MATCH_LOSS))
                     buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets, attacker_char=actor_d_char)
                     if buff_dmg > 0: damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
 
@@ -1404,7 +1404,7 @@ def execute_duel_match(room, data, username):
                          diff = result_d['total'] - result_a['total']
                          if diff > 0:
                              curr_hp = get_status_value(actor_a_char, 'HP')
-                             _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反封ムメージ]", save=False)
+                             _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反封ムメージ]", source=DamageSource.SKILL_EFFECT, save=False, damage_context=_damage_context_for(actor_d_char))
                              broadcast_log(room, f"[鏡面反射] reflected {diff} damage.", "info", save=False)
         else:
             winner_message = "<strong> → 不発</strong> (ダメージなし)"
@@ -1413,7 +1413,7 @@ def execute_duel_match(room, data, username):
                 d, l, c = process_skill_effects(effs, "END_MATCH", actor, target, skill)
                 for (char, type, name, value) in c:
                     if type == "APPLY_STATE":
-                        _update_char_stat(room, char, name, get_status_value(char, name)+value, username=f"[{name}]", save=False)
+                        _update_char_stat(room, char, name, get_status_value(char, name) + value, username=f"[{name}]", save=False, damage_context=_damage_context_for(actor))
                         if name == 'HP' and value < 0:
                             t_key = 'A' if actor_a_char and char['id'] == actor_a_char['id'] else ('D' if actor_d_char and char['id'] == actor_d_char['id'] else None)
                             if t_key: damage_report[t_key].append({'source': 'END_MATCH', 'value': -value})
@@ -1422,7 +1422,7 @@ def execute_duel_match(room, data, username):
                     elif type == "CUSTOM_DAMAGE":
                         t_key = 'A' if actor_a_char and char['id'] == actor_a_char['id'] else ('D' if actor_d_char and char['id'] == actor_d_char['id'] else None)
                         if t_key: damage_report[t_key].append({'source': name, 'value': value})
-                        _update_char_stat(room, char, 'HP', max(0, get_status_value(char, 'HP') - value), username=f"[{name}]", save=False)
+                        _update_char_stat(room, char, 'HP', max(0, get_status_value(char, 'HP') - value), username=f"[{name}]", source=DamageSource.SKILL_EFFECT, save=False, damage_context=_damage_context_for(actor))
                     elif type == "CONSUME_BLEED_MAINTENANCE":
                         consume_bleed_maintenance_stack(char, amount=int(value or 1))
                     elif type == "SET_FLAG":

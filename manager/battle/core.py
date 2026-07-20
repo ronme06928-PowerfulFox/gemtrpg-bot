@@ -410,14 +410,20 @@ def _append_trace(
         rolls=rolls,
         extra_fields=extra_fields,
     )
-def _apply_cost(attacker, skill, policy):
+def _apply_cost(attacker, skill, policy, room=None):
     _sync_resolve_effect_runtime_deps()
-    return _resolve_effect_runtime_mod._apply_cost(attacker, skill, policy)
+    return _resolve_effect_runtime_mod._apply_cost(attacker, skill, policy, room=room)
 
 
-def _apply_damage(defender, amount, damage_type=None):
+def _apply_damage(defender, amount, damage_type=None, room=None, damage_context=None):
     _sync_resolve_effect_runtime_deps()
-    return _resolve_effect_runtime_mod._apply_damage(defender, amount, damage_type=damage_type)
+    return _resolve_effect_runtime_mod._apply_damage(
+        defender,
+        amount,
+        damage_type=damage_type,
+        room=room,
+        damage_context=damage_context,
+    )
 
 
 def _apply_status(defender, status_payload):
@@ -430,9 +436,13 @@ def _record_used_skill_for_actor(actor, skill_id):
     return _resolve_effect_runtime_mod._record_used_skill_for_actor(actor, skill_id)
 
 
-def _apply_outcome_to_state(outcome, characters_by_id):
+def _apply_outcome_to_state(outcome, characters_by_id, room=None):
     _sync_resolve_effect_runtime_deps()
-    return _resolve_effect_runtime_mod._apply_outcome_to_state(outcome, characters_by_id)
+    return _resolve_effect_runtime_mod._apply_outcome_to_state(
+        outcome,
+        characters_by_id,
+        room=room,
+    )
 
 
 def _snapshot_characters_for_timing(state):
@@ -570,7 +580,8 @@ def _apply_effect_changes_like_duel(
     defender_char,
     base_damage,
     log_snippets,
-    reuse_requests=None
+    reuse_requests=None,
+    attacker_skill_data=None,
 ):
     _sync_resolve_effect_runtime_deps()
     return _resolve_effect_runtime_mod._apply_effect_changes_like_duel(
@@ -582,6 +593,7 @@ def _apply_effect_changes_like_duel(
         base_damage,
         log_snippets,
         reuse_requests=reuse_requests,
+        attacker_skill_data=attacker_skill_data,
     )
 def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_char, attacker_skill_data, defender_skill_data):
     _sync_resolve_match_runtime_deps()

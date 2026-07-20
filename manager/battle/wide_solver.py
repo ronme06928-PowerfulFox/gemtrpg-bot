@@ -1,6 +1,7 @@
 import re
 import json
 from manager.constants import DamageSource, THORNS_DAMAGE_CATS
+from manager.battle.damage_context import build_damage_context
 from extensions import all_skill_data, socketio
 from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_log,
@@ -353,11 +354,38 @@ def execute_wide_match(room, username):
             elif type == "MODIFY_FINAL_POWER":
                 char["_final_power_bonus"] = int(char.get("_final_power_bonus", 0) or 0) + int(value or 0)
             elif type == "CUSTOM_DAMAGE":
-                if primary_target and char.get("id") == primary_target.get("id"):
+                if name == "DEAL_TARGET_MAX_HP_DAMAGE":
+                    curr = get_status_value(char, "HP")
+                    _update_char_stat(
+                        room,
+                        char,
+                        "HP",
+                        max(0, curr - value),
+                        username=f"[{name}]",
+                        source=DamageSource.SKILL_EFFECT,
+                        damage_context=build_damage_context(
+                            actor=attacker_char,
+                            skill_data=attacker_skill_data,
+                            damage_type=DamageSource.SKILL_EFFECT,
+                        ),
+                    )
+                elif primary_target and char.get("id") == primary_target.get("id"):
                     extra += value
                 else:
                     curr = get_status_value(char, "HP")
-                    _update_char_stat(room, char, "HP", max(0, curr - value), username=f"[{name}]", source=DamageSource.SKILL_EFFECT)
+                    _update_char_stat(
+                        room,
+                        char,
+                        "HP",
+                        max(0, curr - value),
+                        username=f"[{name}]",
+                        source=DamageSource.SKILL_EFFECT,
+                        damage_context=build_damage_context(
+                            actor=attacker_char,
+                            skill_data=attacker_skill_data,
+                            damage_type=DamageSource.SKILL_EFFECT,
+                        ),
+                    )
             elif type == "APPLY_STATE_TO_ALL_OTHERS":
                 orig_target_id = char.get("id")
                 orig_target_type = char.get("type")
@@ -406,13 +434,33 @@ def execute_wide_match(room, username):
             log_snippets = []
 
 
-            unop_bonus, unop_logs, unop_changes = process_skill_effects(attacker_effects, "UNOPPOSED", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
+            effect_context = {
+                'timeline': state.get('timeline', []),
+                'characters': state['characters'],
+                'room': room,
+                'actor_skill_data': attacker_skill_data,
+            }
+            unop_bonus, unop_logs, unop_changes = process_skill_effects(
+                attacker_effects,
+                "UNOPPOSED",
+                attacker_char,
+                def_char,
+                None,
+                context=effect_context,
+            )
             log_snippets.extend(unop_logs)
             apply_local_changes(unop_changes, def_char)
             total_damage += unop_bonus
 
 
-            hit_bonus, hit_logs, hit_changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
+            hit_bonus, hit_logs, hit_changes = process_skill_effects(
+                attacker_effects,
+                "HIT",
+                attacker_char,
+                def_char,
+                None,
+                context=effect_context,
+            )
             log_snippets.extend(hit_logs)
             apply_local_changes(hit_changes, def_char)
             total_damage += hit_bonus
@@ -432,7 +480,7 @@ def execute_wide_match(room, username):
 
             if final_damage > 0:
                  current_hp = get_status_value(def_char, 'HP')
-                 _update_char_stat(room, def_char, 'HP', current_hp - final_damage, username=f"[{attacker_skill_id}]")
+                 _update_char_stat(room, def_char, 'HP', current_hp - final_damage, username=f"[{attacker_skill_id}]", source=DamageSource.SKILL_EFFECT, damage_context=build_damage_context(actor=attacker_char, skill_data=attacker_skill_data, damage_type=DamageSource.SKILL_EFFECT))
                  process_on_damage_buffs(room, def_char, final_damage, f"[{attacker_skill_id}]", log_snippets, attacker_char=attacker_char)
                  broadcast_log(room, f"{def_char['name']} に {final_damage} ダメージ {' '.join(log_snippets)}", 'damage')
             else:
@@ -549,19 +597,31 @@ def execute_wide_match(room, username):
                     if extra_dmg > 0:
                          broadcast_log(room, f"[{attacker_char['name']}] 追加ダメージ +{extra_dmg}", 'buff')
                     new_hp = max(0, current_hp - (damage_with_fissure + extra_dmg))
-                    _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]")
+                    _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]", source=DamageSource.SKILL_EFFECT, damage_context=build_damage_context(actor=attacker_char, skill_data=attacker_skill_data, damage_type=DamageSource.SKILL_EFFECT))
                     process_on_damage_buffs(room, def_char, damage_with_fissure + extra_dmg, f"[{attacker_skill_id}]", [], attacker_char=attacker_char)
                     broadcast_log(room, f"   →{def_char['name']} に {diff} ダメージ", 'damage')
 
                     if attacker_effects:
-                        dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
+                        dmg_bonus, logs, changes = process_skill_effects(
+                            attacker_effects,
+                            "HIT",
+                            attacker_char,
+                            def_char,
+                            None,
+                            context={
+                                'timeline': state.get('timeline', []),
+                                'characters': state['characters'],
+                                'room': room,
+                                'actor_skill_data': attacker_skill_data,
+                            },
+                        )
                         for log_msg in logs:
                             broadcast_log(room, log_msg, 'skill-effect')
                         diff_bonus = apply_local_changes(changes, def_char)
                         if diff_bonus > 0:
                             current_hp = get_status_value(def_char, 'HP')
                             new_hp = max(0, current_hp - diff_bonus)
-                            _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}追加]")
+                            _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}追加]", source=DamageSource.SKILL_EFFECT, damage_context=build_damage_context(actor=attacker_char, skill_data=attacker_skill_data, damage_type=DamageSource.SKILL_EFFECT))
                             broadcast_log(room, f"   →{def_char['name']} に追加 {diff_bonus} ダメージ", 'damage')
 
         elif total_defender_roll > attacker_total:
@@ -570,7 +630,20 @@ def execute_wide_match(room, username):
 
             current_hp = get_status_value(attacker_char, 'HP')
             new_hp = max(0, current_hp - diff)
-            _update_char_stat(room, attacker_char, 'HP', new_hp, username="[防御側勝利]", save=False)
+            primary_defender = defender_rolls[0] if defender_rolls else {}
+            _update_char_stat(
+                room,
+                attacker_char,
+                'HP',
+                new_hp,
+                username="[防御側勝利]",
+                save=False,
+                damage_context=build_damage_context(
+                    actor=primary_defender.get('char'),
+                    skill_data=all_skill_data.get(primary_defender.get('skill_id')),
+                    damage_type=DamageSource.MATCH_LOSS,
+                ),
+            )
             broadcast_log(room, f"   →{attacker_char['name']} に {diff} ダメージ", 'damage', save=False)
             for dr in defender_rolls:
                 results.append({'defender': dr['char']['name'], 'result': 'lose', 'damage': diff})
@@ -597,7 +670,18 @@ def execute_wide_match(room, username):
             if reflector:
                 if diff > 0:
                      curr_hp = get_status_value(attacker_char, 'HP')
-                     _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[反射ダメージ]", save=False)
+                     _update_char_stat(
+                         room,
+                         attacker_char,
+                         'HP',
+                         curr_hp - diff,
+                         username="[反射ダメージ]",
+                         save=False,
+                         damage_context=build_damage_context(
+                             actor=reflector,
+                             damage_type=DamageSource.SKILL_EFFECT,
+                         ),
+                     )
                      broadcast_log(room, f"[鏡面反射] {reflector['name']} reflected {diff} damage.", "info", save=False)
 
         else:
@@ -636,8 +720,19 @@ def execute_wide_match(room, username):
                 if thorn_val <= 0:
                     continue
                 if cat in THORNS_DAMAGE_CATS:
-                    _update_char_stat(room, actor, "HP", actor["hp"] - thorn_val,
-                                      username="[荊棘自傷]", source=DamageSource.THORNS, save=False)
+                    _update_char_stat(
+                        room,
+                        actor,
+                        "HP",
+                        actor["hp"] - thorn_val,
+                        username="[荊棘自傷]",
+                        source=DamageSource.THORNS,
+                        save=False,
+                        damage_context=build_damage_context(
+                            actor=actor,
+                            damage_type=DamageSource.THORNS,
+                        ),
+                    )
                 entangle_val = get_status_value(actor, "荊棘重絡")
                 if entangle_val > 0:
                     _update_char_stat(room, actor, "荊棘重絡", entangle_val - 1, username="[荊棘重絡消費]", save=False)
@@ -781,7 +876,18 @@ def execute_wide_match(room, username):
                 damage += kiretsu
 
                 if attacker_effects:
-                    dmg_bonus, logs, changes = process_skill_effects(attacker_effects, "HIT", attacker_char, def_char, None, context={'characters': state['characters']})
+                    dmg_bonus, logs, changes = process_skill_effects(
+                        attacker_effects,
+                        "HIT",
+                        attacker_char,
+                        def_char,
+                        None,
+                        context={
+                            'characters': state['characters'],
+                            'room': room,
+                            'actor_skill_data': attacker_skill_data,
+                        },
+                    )
                     for log_msg in logs:
                         broadcast_log(room, log_msg, 'skill-effect')
                     damage += apply_local_changes(changes, def_char)
@@ -792,7 +898,7 @@ def execute_wide_match(room, username):
 
                 current_hp = get_status_value(def_char, 'HP')
                 new_hp = max(0, current_hp - damage)
-                _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]", save=False)
+                _update_char_stat(room, def_char, 'HP', new_hp, username=f"[{attacker_skill_id}]", source=DamageSource.SKILL_EFFECT, save=False, damage_context=build_damage_context(actor=attacker_char, skill_data=attacker_skill_data, damage_type=DamageSource.SKILL_EFFECT))
                 process_on_damage_buffs(room, def_char, damage, f"[{attacker_skill_id}]", [], attacker_char=attacker_char)
 
             elif defender_total > effective_attacker_total:
@@ -819,7 +925,19 @@ def execute_wide_match(room, username):
                          diff = defender_total - effective_attacker_total
                          if diff > 0:
                              curr_hp = get_status_value(attacker_char, 'HP')
-                             _update_char_stat(room, attacker_char, 'HP', curr_hp - diff, username="[反射ダメージ]", save=False)
+                             _update_char_stat(
+                                 room,
+                                 attacker_char,
+                                 'HP',
+                                 curr_hp - diff,
+                                 username="[反射ダメージ]",
+                                 save=False,
+                                 damage_context=build_damage_context(
+                                     actor=def_char,
+                                     skill_data=def_skill_data,
+                                     damage_type=DamageSource.SKILL_EFFECT,
+                                 ),
+                             )
                              broadcast_log(room, f"[鏡面反射] {def_char['name']} reflected {diff} damage.", "info", save=False)
                 else:
 
@@ -846,7 +964,7 @@ def execute_wide_match(room, username):
 
                         current_hp = get_status_value(attacker_char, 'HP')
                         new_hp = max(0, current_hp - damage)
-                        _update_char_stat(room, attacker_char, 'HP', new_hp, username=f"[{def_skill_id}]", save=False)
+                        _update_char_stat(room, attacker_char, 'HP', new_hp, username=f"[{def_skill_id}]", source=DamageSource.SKILL_EFFECT, save=False, damage_context=build_damage_context(actor=def_char, skill_data=def_skill_data, damage_type=DamageSource.SKILL_EFFECT))
                         process_on_damage_buffs(room, attacker_char, damage, f"[{def_skill_id}]", [], attacker_char=def_char)
 
             else:
@@ -950,6 +1068,3 @@ def execute_wide_match(room, username):
 
     if round_end_requested:
         process_simple_round_end(state, room)
-
-
-

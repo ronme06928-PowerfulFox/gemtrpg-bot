@@ -312,7 +312,18 @@ def execute_custom_effect(effect, actor, target, context=None):
         logger.error(f"Plugin Error ({effect_name}): {e}")
         return [], []
 
-def process_skill_effects(effects_array, timing_to_check, actor, target, target_skill_data=None, context=None, base_damage=0):
+def process_skill_effects(
+    effects_array,
+    timing_to_check,
+    actor,
+    target,
+    target_skill_data=None,
+    context=None,
+    base_damage=0,
+    actor_skill_data=None,
+):
+    if actor_skill_data is None and isinstance(context, dict):
+        actor_skill_data = context.get("actor_skill_data")
     session = EffectSession(
         actor=actor,
         target=target,
@@ -508,7 +519,14 @@ def process_skill_effects(effects_array, timing_to_check, actor, target, target_
             sim_actor = get_simulated_char(actor)
             sim_target = get_simulated_char(target_obj)
 
-            if not check_condition(effect.get("condition"), sim_actor, sim_target, target_skill_data, context=context):
+            if not check_condition(
+                effect.get("condition"),
+                sim_actor,
+                sim_target,
+                target_skill_data,
+                actor_skill_data,
+                context=context,
+            ):
                 continue
 
             handler = EFFECT_HANDLERS.get(effect_type)
@@ -602,12 +620,13 @@ def _lifecycle_effect_context():
     }
 
 
-def process_on_death(room, char, username):
+def process_on_death(room, char, username, death_context=None):
     return _lifecycle_effects.process_on_death(
         room,
         char,
         username,
         _lifecycle_effect_context(),
+        death_context=death_context,
     )
 
 
@@ -617,4 +636,3 @@ def process_battle_start(room, char):
         char,
         _lifecycle_effect_context(),
     )
-

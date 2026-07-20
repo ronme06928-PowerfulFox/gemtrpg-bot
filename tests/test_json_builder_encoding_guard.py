@@ -14,4 +14,6 @@ def test_json_builder_html_utf8_and_key_labels_are_intact():
     assert "自然言語入力（3列）" in text
     assert "if(body.includes(\"血漿転化\"))" in text
     assert "if(body.includes(\"爆破誘導\") || body.includes(\"W-81\"))" in text
-
+    assert "(?:特徴|タグ)" in text
+    assert 'param:"tag_ids", operator:"CONTAINS", value:tagName' in text
+    assert 'value:"DEAL_TARGET_MAX_HP_DAMAGE"' in text

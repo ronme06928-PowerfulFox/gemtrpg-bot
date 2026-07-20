@@ -168,7 +168,7 @@
             <div>・`apply_to`: 未指定は `base` として扱う。</div>
             <div>・`max_bonus` / `min_bonus`: 計算後の補正値を上限・下限で丸める。</div>
             <div>・`condition` は `source/param/operator/value` の4項目が揃って初めて有効。</div>
-            <div>・`CONTAINS` は tags など配列判定向け。数値判定は `GTE/LTE/GT/LT/EQUALS` を使う。</div>
+            <div>・`CONTAINS` は文字列の部分一致、配列の要素完全一致。数値比較は `GTE/LTE/GT/LT` を使う。</div>
           </div>
         </details>
       </div>
@@ -344,7 +344,7 @@
       GT: "より大きい（>）",
       LT: "より小さい（<）",
       EQUALS: "等しい（==）",
-      CONTAINS: "含む（配列/tags向け）"
+      CONTAINS: "含む（文字列は部分一致、配列は要素一致）"
     };
     const RELATION_PARAMS = ["same_team","target_is_ally","target_is_enemy"];
     const BATTLE_PARAMS = ["round"];
@@ -357,8 +357,8 @@
       battle: "バトルの状態（ラウンド数など）を参照します。param=round でその時点のラウンド数を取得できます。"
     };
     const COND_SOURCE_PARAM_HINTS = {
-      self: "推奨param: HP / MP / FP / 速度値 / 各種状態名 / 凝魔_count / 蓄力_count / buff_count:凝魔 / 状態異常スタック合計:出血,破裂,亀裂,戦慄,荊棘（列挙必須）",
-      target: "推奨param: HP / MP / FP / 速度値 / 破裂 / 出血 / 亀裂 / 凝魔_count / 蓄力_count / 状態異常スタック合計:出血,破裂,亀裂（列挙必須）",
+      self: "推奨param: name / baseName / tag_ids / HP / MP / FP / 速度値 / 各種状態名 / 凝魔_count / 蓄力_count / buff_count:凝魔 / 状態異常スタック合計:出血,破裂,亀裂,戦慄,荊棘（列挙必須）",
+      target: "推奨param: name / baseName / tag_ids / HP / MP / FP / 速度値 / 破裂 / 出血 / 亀裂 / 凝魔_count / 蓄力_count / 状態異常スタック合計:出血,破裂,亀裂（列挙必須）",
       skill: "推奨param: tags（operator=CONTAINS 推奨）",
       target_skill: "推奨param: tags（operator=CONTAINS 推奨）",
       relation: "推奨param: same_team / target_is_ally / target_is_enemy（EQUALS 0/1）",
@@ -420,11 +420,18 @@
         value: "END_ROUND_IMMEDIATELY",
         summary: "ラウンドを即時終了する要求を発行する。",
         keys: "(追加キーなし)"
+      },
+      {
+        value: "DEAL_TARGET_MAX_HP_DAMAGE",
+        summary: "targetへ最大HPと同値の補正無視ダメージを与える。対象不在・最大HP0以下では不発。",
+        keys: "conditionとの併用を推奨"
       }
     ];
     const HELP_ROWS = [["schema","現行は skill_json_rule_v2 固定で必須"],["id","任意だが推奨。未入力でも実行可能"],["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","的中時/勝利時/敗北時"],["condition.source: target_skill","対象側が宣言したスキル情報（主に tags）を参照。相手スキル情報が無い場面では条件false"],["condition.source: relation","actor-targetの関係を参照。paramは same_team / target_is_ally / target_is_enemy（0/1判定）"],["condition.param: 蓄力_count","対象の特殊バフcountを参照"],["condition.param: buff_count:凝魔","buff_count接頭辞でも特殊バフcountを参照"],["type: APPLY_BUFF","現行は buff_id 指定で付与"],["type: REMOVE_BUFF","現行は buff_id 指定で解除"],["APPLY_BUFF(Bu-11/Bu-12)","加速/減速は lasting=1, delay=1（次ラウンド有効）を推奨"],["APPLY_BUFF.count","スタック系バフの付与回数（凝魔/蓄力など）"],["type: CONSUME_BUFF_COUNT_FOR_GAIN","指定スタックを消費し、FP/MP/HPやバフ付与を行う"],["type: CONSUME_BUFF_COUNT_FOR_POWER","指定スタックを消費し、基礎/最終威力を増減"],["state_receive_bonus","受け手側の状態付与補正（例: 震盪で受ける破裂付与量+N）"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","旧式の動的バフ命名（新規は非推奨）"]];
     HELP_ROWS.push(["condition.param: 状態異常スタック合計:出血,破裂,...","状態異常スタック合算。省略形（状態名なし）は不可。"]);
     HELP_ROWS.push(["condition.source: battle, param: round","現在のラウンド数を参照。例: source=battle, param=round, operator=GTE, value=3 → 3ラウンド以降のみ発動"]);
+    HELP_ROWS.push(["condition.param: name / baseName / tag_ids","名前はEQUALS/CONTAINS、tag_idsはCONTAINSで要素完全一致。disabled_tag_idsは判定から除外"]);
+    HELP_ROWS.push(["CUSTOM_EFFECT: DEAL_TARGET_MAX_HP_DAMAGE","対象へmaxHpと同値の倍率・軽減を無視するダメージ。例: 対象の特徴に「瓦礫」があるなら、その最大HPと同じ値のダメージを与える"]);
     HELP_ROWS.push(["effects[].repeat_count","同じエフェクトをN回繰り返す（省略=1）。例: repeat_count=3 で出血+2を3回 → 合計+6相当。ランダム抽選がある場合は毎回抽選される"]);
     HELP_ROWS.push(["target.type: random_single（インテント）","バトルインテントレベルの設定。スキルJSON外（NPC行動定義等）でランダムターゲット指定。random_target_scope: enemy/ally/any"]);
     HELP_ROWS.push(["effects[].target_select: RANDOM","エフェクトレベルのランダム対象選択（既存機能）。target_filter: ENEMY/ALLY/ALL, target_count: N"]);
@@ -1054,6 +1061,19 @@
       if(body.includes("戦慄殺到")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: "target", value: "戦慄殺到" });
       if(body.includes("荊棘飛散")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: "target", value: "荊棘飛散" });
       if(body.includes("ラウンド終了")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: "self", value: "END_ROUND_IMMEDIATELY" });
+      m=body.match(/(?:対象|相手)の(?:特徴|タグ)に\s*[「『"“]?([^」』"”]+?)[」』"”]?\s*(?:がある|が含まれる|を持つ|を持っている)なら.*?(?:その|対象の|相手の)?最大HPと(?:同じ値|同値)のダメージ/);
+      if(m){
+        const tagName=String(m[1]||"").trim();
+        if(tagName){
+          add({
+            timing:t.timing,
+            type:"CUSTOM_EFFECT",
+            target:"target",
+            value:"DEAL_TARGET_MAX_HP_DAMAGE",
+            condition:{ source:"target", param:"tag_ids", operator:"CONTAINS", value:tagName }
+          });
+        }
+      }
       if(body.includes("血漿転化")){
         add({
           timing:t.timing,
@@ -2436,7 +2456,7 @@
     }
 
     function initRef(){
-      const states=sanitizeStateRefs(REF.state_refs);
+      const states=[...new Set(["name","baseName","tag_ids",...sanitizeStateRefs(REF.state_refs)])];
       const buffIds=(REF.buff_refs||[]).map(x=>x.id).filter(Boolean);
       const buffNames=(REF.buff_refs||[]).map(x=>x.name).filter(Boolean);
       const skillIds=(REF.skill_refs||[]).map(x=>x.id).filter(Boolean);

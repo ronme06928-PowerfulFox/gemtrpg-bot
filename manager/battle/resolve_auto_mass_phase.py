@@ -1,5 +1,7 @@
 from manager.constants import DamageSource, THORNS_DAMAGE_CATS
+from manager.battle.damage_context import build_damage_context
 from manager.battle.skill_rules import _resolve_skill_category
+from manager.room_manager import _handle_character_death_transition
 
 
 def _sync_from_core():
@@ -49,7 +51,12 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 'source': source
             }, to=room)
 
-        def _apply_mass_summation_delta_damage(target_actor_ids, delta_value):
+        def _apply_mass_summation_delta_damage(
+            target_actor_ids,
+            delta_value,
+            source_actor=None,
+            source_skill=None,
+        ):
             damage_events = []
             delta_int = int(max(0, delta_value))
             if delta_int <= 0:
@@ -71,6 +78,18 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 if after_hp == before_hp:
                     continue
                 defender_char['hp'] = after_hp
+                _handle_character_death_transition(
+                    room,
+                    defender_char,
+                    before_hp,
+                    after_hp,
+                    username="[mass-summation]",
+                    damage_context=build_damage_context(
+                        actor=source_actor,
+                        skill_data=source_skill,
+                        damage_type="mass-summation",
+                    ),
+                )
                 _emit_hp_diff(defender_char, before_hp, after_hp, source='mass-summation')
                 damage_events.append({
                     'target_id': actor_id,
@@ -121,6 +140,11 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                     max(0, current_hp - thorn_val),
                     username="[荊棘自傷]",
                     source=DamageSource.THORNS,
+                    damage_context=build_damage_context(
+                        actor=actor_char,
+                        skill_data=skill_data,
+                        damage_type=DamageSource.THORNS,
+                    ),
                 )
 
             entangle_val = int(get_status_value(actor_char, "荊棘重絡") or 0)
@@ -395,9 +419,19 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
 
                 damage_events = []
                 if outcome == 'attacker_win' and delta > 0:
-                    damage_events = _apply_mass_summation_delta_damage(defender_actor_ids, delta)
+                    damage_events = _apply_mass_summation_delta_damage(
+                        defender_actor_ids,
+                        delta,
+                        source_actor=attacker_char,
+                        source_skill=attacker_skill_data,
+                    )
                 elif outcome == 'defender_win' and delta > 0:
-                    damage_events = _apply_mass_summation_delta_damage([attacker_actor_id], delta)
+                    damage_events = _apply_mass_summation_delta_damage(
+                        [attacker_actor_id],
+                        delta,
+                        source_actor=primary_participant_char,
+                        source_skill=primary_participant_skill,
+                    )
                 if outcome == 'attacker_win':
                     for evt in damage_events:
                         target_for_timing = characters_by_id.get(evt.get('target_id'))

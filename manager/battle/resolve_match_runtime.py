@@ -12,6 +12,7 @@ from manager.game_logic import (
 )
 from manager.room_manager import (
     _update_char_stat as _default_update_char_stat,
+    _handle_character_death_transition,
     get_room_state as _default_get_room_state,
 )
 from manager.constants import DamageSource, THORNS_DAMAGE_CATS
@@ -23,6 +24,7 @@ from manager.battle.resolve_snapshot_utils import (
     _build_clash_power_snapshot,
     _estimate_cost_for_skill_from_snapshot,
 )
+from manager.battle.damage_context import build_damage_context
 
 logger = setup_logger(__name__)
 all_skill_data = _default_all_skill_data
@@ -170,7 +172,13 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
 
-    context = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room}
+    context = {
+        'timeline': state.get('timeline', []),
+        'characters': state.get('characters', []),
+        'room': room,
+    }
+    effect_context = dict(context)
+    effect_context['actor_skill_data'] = attacker_skill_data
     characters_by_id = {
         c.get('id'): c for c in state.get('characters', [])
         if isinstance(c, dict) and c.get('id')
@@ -252,17 +260,43 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         kiretsu = 0
 
     bd_un, log_un, chg_un = process_skill_effects(
-        effects_array_a, "UNOPPOSED", attacker_char, defender_char, defender_skill_data, context=context
+        effects_array_a,
+        "UNOPPOSED",
+        attacker_char,
+        defender_char,
+        defender_skill_data,
+        context=effect_context,
     )
     extra_un = _apply_effect_changes_like_duel(
-        room, state, chg_un, attacker_char, defender_char, base_damage, log_snippets, reuse_requests=reuse_requests
+        room,
+        state,
+        chg_un,
+        attacker_char,
+        defender_char,
+        base_damage,
+        log_snippets,
+        reuse_requests=reuse_requests,
+        attacker_skill_data=attacker_skill_data,
     )
 
     bd_hit, log_hit, chg_hit = process_skill_effects(
-        effects_array_a, "HIT", attacker_char, defender_char, defender_skill_data, context=context
+        effects_array_a,
+        "HIT",
+        attacker_char,
+        defender_char,
+        defender_skill_data,
+        context=effect_context,
     )
     extra_hit_from_changes = _apply_effect_changes_like_duel(
-        room, state, chg_hit, attacker_char, defender_char, base_damage, log_snippets, reuse_requests=reuse_requests
+        room,
+        state,
+        chg_hit,
+        attacker_char,
+        defender_char,
+        base_damage,
+        log_snippets,
+        reuse_requests=reuse_requests,
+        attacker_skill_data=attacker_skill_data,
     )
 
     bonus_damage = int(pre_damage_bonus) + int(bd_un) + int(bd_hit)
@@ -290,6 +324,18 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         # synthesized resolve log render the state transition.
         curr_hp = int(defender_char.get('hp', 0) or 0)
         defender_char['hp'] = max(0, curr_hp - int(final_damage or 0))
+        _handle_character_death_transition(
+            room,
+            defender_char,
+            curr_hp,
+            defender_char['hp'],
+            username="[select_resolve_one_sided]",
+            damage_context=build_damage_context(
+                actor=attacker_char,
+                skill_data=attacker_skill_data,
+                damage_type=DamageSource.ONE_SIDED,
+            ),
+        )
         on_damage_extra = int(process_on_damage_buffs(
             room,
             defender_char,
@@ -407,7 +453,11 @@ def _resolve_clash_by_existing_logic(
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
 
-    context = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room}
+    context = {
+        'timeline': state.get('timeline', []),
+        'characters': state.get('characters', []),
+        'room': room,
+    }
     characters_by_id = {
         c.get('id'): c for c in state.get('characters', [])
         if isinstance(c, dict) and c.get('id')
@@ -800,6 +850,8 @@ def _resolve_hard_attack_followup(
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
     context = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room}
+    effect_context = dict(context)
+    effect_context['actor_skill_data'] = attacker_skill_data
     attacker_rule = _extract_rule_data_from_skill(attacker_skill_data)
     effects_array_a = attacker_rule.get('effects', []) if isinstance(attacker_rule, dict) else []
 
@@ -832,11 +884,19 @@ def _resolve_hard_attack_followup(
         attacker_char,
         defender_char,
         defender_skill_data,
-        context=context,
+        context=effect_context,
         base_damage=base_damage,
     )
     extra_lose = _apply_effect_changes_like_duel(
-        room, state, chg_lose, attacker_char, defender_char, base_damage, log_snippets, reuse_requests=reuse_requests
+        room,
+        state,
+        chg_lose,
+        attacker_char,
+        defender_char,
+        base_damage,
+        log_snippets,
+        reuse_requests=reuse_requests,
+        attacker_skill_data=attacker_skill_data,
     )
 
     bd_hit, log_hit, chg_hit = process_skill_effects(
@@ -845,11 +905,19 @@ def _resolve_hard_attack_followup(
         attacker_char,
         defender_char,
         defender_skill_data,
-        context=context,
+        context=effect_context,
         base_damage=base_damage,
     )
     extra_hit = _apply_effect_changes_like_duel(
-        room, state, chg_hit, attacker_char, defender_char, base_damage, log_snippets, reuse_requests=reuse_requests
+        room,
+        state,
+        chg_hit,
+        attacker_char,
+        defender_char,
+        base_damage,
+        log_snippets,
+        reuse_requests=reuse_requests,
+        attacker_skill_data=attacker_skill_data,
     )
     log_snippets.extend(log_lose or [])
     log_snippets.extend(log_hit or [])
@@ -862,7 +930,19 @@ def _resolve_hard_attack_followup(
         final_damage = int(raw_damage * float(mult_info.get('final', 1.0) or 1.0))
         _append_multiplier_logs(log_snippets, mult_info)
         if final_damage > 0:
-            _update_char_stat(room, defender_char, 'HP', int(defender_char.get('hp', 0)) - final_damage, username="[hard_attack]")
+            _update_char_stat(
+                room,
+                defender_char,
+                'HP',
+                int(defender_char.get('hp', 0)) - final_damage,
+                username="[hard_attack]",
+                source=DamageSource.SKILL_EFFECT,
+                damage_context=build_damage_context(
+                    actor=attacker_char,
+                    skill_data=attacker_skill_data,
+                    damage_type=DamageSource.SKILL_EFFECT,
+                ),
+            )
             on_damage_extra = int(process_on_damage_buffs(
                 room,
                 defender_char,
