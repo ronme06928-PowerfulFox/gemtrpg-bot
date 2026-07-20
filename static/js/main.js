@@ -573,22 +573,26 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
 
             const role = roomInfo.your_role;
             const isMember = !!roomInfo.is_member;
-            const roleBadge = role ? `<span class="room-role-badge">${ROLE_LABEL[role] || role}</span>` : '';
+            // 個別カードのDTOが古くても、全体管理者には管理操作を表示する。
+            const adminAccess = currentUserIsAppAdmin || !!roomInfo.admin_access;
+            const roleBadge = adminAccess
+                ? '<span class="room-role-badge">管理者</span>'
+                : (role ? `<span class="room-role-badge">${ROLE_LABEL[role] || role}</span>` : '');
             const recruitBadge = roomInfo.recruitment_status
                 ? `<span class="room-recruit-badge">${escapeRoomText(roomInfo.recruitment_status)}</span>` : '';
             const descHtml = roomInfo.description
                 ? `<div class="room-list-desc">${escapeRoomText(roomInfo.description)}</div>` : '';
 
             let joinHtml;
-            if (isMember) {
+            if (adminAccess || isMember) {
                 joinHtml = '<button class="room-join-btn" data-action="enter">入室</button>';
             } else if (roomInfo.joinable) {
                 joinHtml = '<button class="room-join-btn" data-action="join">参加</button>';
             } else {
                 joinHtml = '<button class="room-join-btn" data-action="enter" disabled style="opacity:.5; cursor:not-allowed;">参加不可</button>';
             }
-            const deleteBtn = (role === 'owner') ? '<button class="room-delete-btn">削除</button>' : '';
-            const canManage = (role === 'owner' || role === 'gm');
+            const deleteBtn = (adminAccess || role === 'owner') ? '<button class="room-delete-btn">削除</button>' : '';
+            const canManage = adminAccess || role === 'owner' || role === 'gm';
             const settingsBtn = canManage ? '<button class="room-settings-btn">⚙️設定</button>' : '';
 
             li.innerHTML = `
@@ -607,7 +611,7 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
             if (joinBtn) {
                 joinBtn.dataset.roomName = name;
                 joinBtn.dataset.requiresCode = roomInfo.requires_code ? '1' : '0';
-                joinBtn.dataset.role = role || '';
+                joinBtn.dataset.role = adminAccess ? 'admin' : (role || '');
             }
             const deleteBtnEl = li.querySelector('.room-delete-btn');
             if (deleteBtnEl) deleteBtnEl.dataset.roomName = name;
@@ -688,7 +692,7 @@ async function openCurrentRoomSettings() {
 // ルーム情報・参加コード管理モーダル（owner: 全項目, gm: 募集状態のみ）
 // opts.refreshLobby=false のときは保存後にロビーへ遷移しない（ルーム内から開いた場合）。
 function openRoomSettingsModal(info, opts = {}) {
-    const isOwner = info.your_role === 'owner';
+    const isOwner = currentUserIsAppAdmin || !!info.admin_access || info.your_role === 'owner';
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     document.getElementById('room-settings-modal-backdrop')?.remove();
@@ -709,7 +713,7 @@ function openRoomSettingsModal(info, opts = {}) {
             <textarea id="rs-description" rows="3" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${esc(info.description)}</textarea>
             <label style="display:block; font-weight:bold; margin:10px 0 2px;">募集状態</label>
             <input id="rs-recruitment" type="text" maxlength="20" style="width:100%; box-sizing:border-box;" value="${esc(info.recruitment_status)}" placeholder="例: 募集中 / 締切">
-            <label style="display:block; font-weight:bold; margin:10px 0 2px;">公開設定 ${isOwner ? '' : '(オーナーのみ変更可)'}</label>
+            <label style="display:block; font-weight:bold; margin:10px 0 2px;">公開設定 ${isOwner ? '' : '(オーナー・管理者のみ変更可)'}</label>
             <select id="rs-visibility" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${visOptions}</select>
             ${isOwner ? `
             <div style="margin-top:14px; padding-top:12px; border-top:1px solid #eee;">
@@ -883,15 +887,18 @@ async function deleteRoom(roomName) {
     if (!ok) {
         return;
     }
-    const gmPin = await showAppPrompt('このルームのGM PIN、または8桁のマスターキーを入力してください。', {
-        title: '削除認証',
-        placeholder: '4桁PIN / 8桁マスターキー',
-        confirmText: '削除',
-        required: true,
-    });
-    if (!/^\d{4}$|^\d{8}$/.test(String(gmPin || '').trim())) {
-        alert('GM PINは4桁、マスターキーは8桁の数字で入力してください。');
-        return;
+    let gmPin = '';
+    if (!currentUserIsAppAdmin) {
+        gmPin = await showAppPrompt('このルームのGM PIN、または8桁のマスターキーを入力してください。', {
+            title: '削除認証',
+            placeholder: '4桁PIN / 8桁マスターキー',
+            confirmText: '削除',
+            required: true,
+        });
+        if (!/^\d{4}$|^\d{8}$/.test(String(gmPin || '').trim())) {
+            alert('GM PINは4桁、マスターキーは8桁の数字で入力してください。');
+            return;
+        }
     }
     try {
         const response = await fetchWithSession('/delete_room', {
@@ -917,8 +924,8 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
 
     try {
         let roomEntry = entryOptions;
-        if (!roomEntry && (knownRole === 'owner' || knownRole === 'gm')) {
-            // 既に owner/gm メンバーなら、入室種別を尋ねずそのまま入る（権限はmembership由来）。
+        if (!roomEntry && (knownRole === 'owner' || knownRole === 'gm' || knownRole === 'admin')) {
+            // owner/gmメンバーまたはアプリ管理者は、入室種別を尋ねずGMとして入る。
             roomEntry = { role: 'GM', gmPin: '' };
         }
         if (!roomEntry) {

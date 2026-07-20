@@ -44,17 +44,19 @@ function normalizeBehaviorProfileForEditor(rawProfile) {
                     if (action && typeof action === 'object') {
                         const id = String(action.skill_id || action.skill || action.id || '').trim();
                         actions.push(coerceBehaviorStepSkillId(id));
-                        inlineTargets.push(coerceBehaviorStepTargetPolicy(action.target_policy || action.target || action.target_selector));
+                        inlineTargets.push(normalizeBehaviorTargetCandidates(
+                            action.target_candidates || action.target_policy || action.target || action.target_selector
+                        ));
                         return;
                     }
                     const txt = String(action ?? '').trim();
                     actions.push(coerceBehaviorStepSkillId(txt));
-                    inlineTargets.push(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT);
+                    inlineTargets.push(normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT));
                 });
 
                 const rawTargets = Array.isArray(stepObj.targets) ? stepObj.targets : [];
                 const baseTargets = rawTargets.length ? rawTargets : inlineTargets;
-                const targets = actions.map((_, idx) => coerceBehaviorStepTargetPolicy(baseTargets[idx]));
+                const targets = actions.map((_, idx) => normalizeBehaviorTargetCandidates(baseTargets[idx]));
                 const nextLoopIdRaw = String(stepObj.next_loop_id || stepObj.after_step_to_loop_id || '').trim();
                 const nextResetRaw = (stepObj.next_reset_step_index !== undefined)
                     ? stepObj.next_reset_step_index
@@ -108,7 +110,7 @@ function normalizeBehaviorProfileForEditor(rawProfile) {
             repeat: true,
             steps: [{
                 actions: [null],
-                targets: [BEHAVIOR_STEP_TARGET_POLICY_DEFAULT],
+                targets: [normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)],
                 next_loop_id: null,
                 next_reset_step_index: true
             }],
@@ -248,6 +250,19 @@ const BEHAVIOR_STEP_TARGET_POLICY_KNOWN_VALUES = [
     ...BEHAVIOR_STEP_TARGET_POLICIES.map((row) => row.value),
     'target_self',
 ];
+const BEHAVIOR_TARGET_TEAM_DEFAULT = 'opposing_team';
+const BEHAVIOR_TARGET_TEAMS = [
+    { value: 'opposing_team', label: '敵陣営' },
+    { value: 'same_team', label: '同陣営' },
+    { value: 'any', label: '全員' },
+    { value: 'self', label: '自身' }
+];
+const BEHAVIOR_TARGET_SELECTION_DEFAULT = 'random';
+const BEHAVIOR_TARGET_SELECTIONS = [
+    { value: 'random', label: 'ランダム' },
+    { value: 'fastest', label: '最速' },
+    { value: 'slowest', label: '最遅' }
+];
 
 function coerceBehaviorStepTargetPolicy(rawValue) {
     const text = String(rawValue || '').trim().toLowerCase();
@@ -266,6 +281,82 @@ function coerceBehaviorStepTargetPolicy(rawValue) {
     const normalized = aliasMap[text] || text;
     if (BEHAVIOR_STEP_TARGET_POLICY_KNOWN_VALUES.includes(normalized)) return normalized;
     return BEHAVIOR_STEP_TARGET_POLICY_DEFAULT;
+}
+
+function behaviorTargetCandidateFromPolicy(rawValue) {
+    const policy = coerceBehaviorStepTargetPolicy(rawValue);
+    if (policy === 'target_self') {
+        return { team: 'self', required_tag_ids: [], selection: 'random' };
+    }
+    const ally = policy.startsWith('target_ally_');
+    const selection = policy.replace(ally ? 'target_ally_' : 'target_enemy_', '');
+    return {
+        team: ally ? 'same_team' : 'opposing_team',
+        required_tag_ids: [],
+        selection: BEHAVIOR_TARGET_SELECTIONS.some((row) => row.value === selection)
+            ? selection
+            : BEHAVIOR_TARGET_SELECTION_DEFAULT
+    };
+}
+
+function normalizeBehaviorTargetTagIds(rawValue) {
+    const values = Array.isArray(rawValue)
+        ? rawValue
+        : String(rawValue || '').split(/[,、\n]/);
+    const seen = new Set();
+    const result = [];
+    values.forEach((rawTag) => {
+        const tag = String(rawTag || '').trim();
+        if (!tag || seen.has(tag)) return;
+        seen.add(tag);
+        result.push(tag);
+    });
+    return result;
+}
+
+function normalizeBehaviorTargetCandidate(rawCandidate) {
+    if (typeof rawCandidate === 'string') {
+        return behaviorTargetCandidateFromPolicy(rawCandidate);
+    }
+    const source = (rawCandidate && typeof rawCandidate === 'object') ? rawCandidate : {};
+    const teamAliases = {
+        enemy: 'opposing_team',
+        enemy_team: 'opposing_team',
+        opponent: 'opposing_team',
+        ally: 'same_team',
+        ally_team: 'same_team',
+        all: 'any',
+        both: 'any'
+    };
+    const rawTeam = String(source.team || source.target_team || BEHAVIOR_TARGET_TEAM_DEFAULT).trim().toLowerCase();
+    const aliasedTeam = teamAliases[rawTeam] || rawTeam;
+    const team = BEHAVIOR_TARGET_TEAMS.some((row) => row.value === aliasedTeam)
+        ? aliasedTeam
+        : BEHAVIOR_TARGET_TEAM_DEFAULT;
+    const rawSelection = String(source.selection || source.method || BEHAVIOR_TARGET_SELECTION_DEFAULT).trim().toLowerCase();
+    const selection = BEHAVIOR_TARGET_SELECTIONS.some((row) => row.value === rawSelection)
+        ? rawSelection
+        : BEHAVIOR_TARGET_SELECTION_DEFAULT;
+    return {
+        team,
+        required_tag_ids: normalizeBehaviorTargetTagIds(source.required_tag_ids || source.required_tags || []),
+        selection
+    };
+}
+
+function normalizeBehaviorTargetCandidates(rawTarget) {
+    let rawCandidates;
+    if (rawTarget && typeof rawTarget === 'object' && !Array.isArray(rawTarget) && Array.isArray(rawTarget.candidates)) {
+        rawCandidates = rawTarget.candidates;
+    } else if (Array.isArray(rawTarget)) {
+        rawCandidates = rawTarget;
+    } else if (rawTarget === undefined || rawTarget === null || rawTarget === '') {
+        rawCandidates = [BEHAVIOR_STEP_TARGET_POLICY_DEFAULT];
+    } else {
+        rawCandidates = [rawTarget];
+    }
+    const candidates = rawCandidates.map(normalizeBehaviorTargetCandidate);
+    return candidates.length ? candidates : [behaviorTargetCandidateFromPolicy(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)];
 }
 
 const BEHAVIOR_CONDITION_SOURCES = [
@@ -375,7 +466,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 repeat: true,
                 steps: [{
                     actions: [null],
-                    targets: [BEHAVIOR_STEP_TARGET_POLICY_DEFAULT],
+                    targets: [normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)],
                     next_loop_id: null,
                     next_reset_step_index: true
                 }],
@@ -416,8 +507,8 @@ function openBehaviorFlowEditorModal(char, options = {}) {
     const content = document.createElement('div');
     content.className = 'modal-content';
     content.style.boxSizing = 'border-box';
-    content.style.maxWidth = 'min(1560px, calc(100vw - 32px))';
-    content.style.width = 'calc(100vw - 32px)';
+    content.style.maxWidth = '1240px';
+    content.style.width = 'min(1240px, calc(100vw - 24px))';
     content.style.maxHeight = '94vh';
     content.style.height = '94vh';
     content.style.overflowY = 'auto';
@@ -491,21 +582,108 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             }
             .behavior-step-row {
                 display: grid;
-                grid-template-columns: 34px minmax(0, 1fr) auto;
+                grid-template-columns: minmax(88px, max-content) minmax(0, 1fr) auto;
                 gap: 6px;
+                align-items: start;
                 margin-bottom: 6px;
                 min-width: 0;
+                max-width: 1040px;
+            }
+            .behavior-step-label {
+                align-self: start;
+                padding-top: 4px;
+                color: #3f637b;
+                font-size: 0.82em;
+                white-space: nowrap;
+            }
+            .behavior-actions-wrap {
+                display: grid;
+                gap: 6px;
+                min-width: 0;
+                max-width: 940px;
             }
             .behavior-action-row {
                 display: grid;
-                grid-template-columns: minmax(0, 1fr) minmax(112px, 136px) auto;
-                gap: 4px;
+                grid-template-columns: minmax(240px, 620px) 30px;
+                gap: 6px;
                 min-width: 0;
+                width: min(100%, 900px);
+                padding: 6px;
+                border: 1px solid #e2edf7;
+                border-radius: 6px;
+                background: #fafdff;
             }
             .behavior-action-row select,
+            .behavior-action-row input,
             .behavior-condition-row select,
             .behavior-condition-row input {
                 min-width: 0;
+            }
+            .behavior-action-row > [data-step-action-del] {
+                align-self: start;
+                width: 30px;
+                height: 30px;
+                padding: 0;
+            }
+            .behavior-step-delete-button {
+                align-self: start;
+                width: 34px;
+                height: 34px;
+                min-width: 34px;
+                padding: 0;
+                border: 1px solid #b92f2f;
+                border-radius: 5px;
+                background: #c83b3b;
+                color: #fff;
+                cursor: pointer;
+                font-size: 1rem;
+                line-height: 1;
+            }
+            .behavior-target-candidates {
+                grid-column: 1 / -1;
+                display: grid;
+                gap: 4px;
+                min-width: 0;
+            }
+            .behavior-target-candidate-row {
+                display: grid;
+                grid-template-columns: 26px minmax(120px, 160px) minmax(180px, 300px) minmax(120px, 160px) repeat(3, 30px);
+                gap: 4px;
+                align-items: center;
+                min-width: 0;
+                width: fit-content;
+                max-width: 100%;
+            }
+            .behavior-target-candidate-index {
+                color: #5f7a8f;
+                font-size: 0.78em;
+                text-align: center;
+            }
+            .behavior-target-icon-button {
+                width: 30px;
+                height: 30px;
+                padding: 0;
+                border: 1px solid #c5d8e7;
+                border-radius: 5px;
+                background: #fff;
+                color: #31566f;
+                cursor: pointer;
+            }
+            .behavior-target-icon-button:disabled {
+                cursor: default;
+                opacity: 0.4;
+            }
+            .behavior-target-add-button {
+                grid-column: 1 / -1;
+                width: 30px;
+                height: 30px;
+                padding: 0;
+                border: 1px solid #8fb6d3;
+                border-radius: 5px;
+                background: #eef7fd;
+                color: #235b82;
+                cursor: pointer;
+                font-size: 1.05em;
             }
             .behavior-transition-head {
                 display: grid;
@@ -555,7 +733,11 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             }
             @media (max-width: 1180px) {
                 .behavior-action-row {
-                    grid-template-columns: minmax(0, 1fr) minmax(104px, 122px) auto;
+                    grid-template-columns: minmax(0, 1fr) auto;
+                }
+                .behavior-target-candidate-row {
+                    grid-template-columns: 26px minmax(100px, 0.8fr) minmax(140px, 1.3fr) minmax(100px, 0.8fr) repeat(3, 30px);
+                    width: 100%;
                 }
                 .behavior-condition-row {
                     grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
@@ -579,10 +761,24 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                     flex: 1 1 72px;
                 }
                 .behavior-step-row,
-                .behavior-action-row,
                 .behavior-transition-head,
                 .behavior-condition-row {
                     grid-template-columns: 1fr;
+                }
+                .behavior-step-row {
+                    grid-template-columns: minmax(88px, max-content) minmax(0, 1fr) 34px;
+                }
+                .behavior-action-row {
+                    grid-template-columns: minmax(0, 1fr) 30px;
+                    width: 100%;
+                }
+                .behavior-target-candidate-row {
+                    grid-template-columns: 26px minmax(0, 1fr) repeat(3, 30px);
+                }
+                .behavior-target-candidate-row select,
+                .behavior-target-candidate-row input {
+                    grid-column: 2 / -1;
+                    width: 100%;
                 }
             }
         </style>
@@ -607,7 +803,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                     <div>・<strong>手順</strong>: 1ラウンドごとに現在の手順を参照して行動します（ラウンド終了時に次の手順へ進行）。</div>
                 <div>・<strong>手順内スキル</strong>: スロット数より多い場合はランダム抽選、少ない場合は最後のスキルを繰り返します。</div>
                 <div>・<strong>ランダム予約</strong>: 「使用可能スキルからランダム」を選ぶと、その手順で使用可能な所持スキルから都度ランダムに選びます。</div>
-                <div>・<strong>対象選択</strong>: 行ごとに「相手陣営/同陣営（従来: 敵/味方）」「最速/最遅/ランダム」を指定できます。</div>
+                <div>・<strong>対象選択</strong>: 行ごとに対象候補を優先順で設定し、候補ごとに陣営・必須タグ・選択方法を指定できます。</div>
                 <div>・<strong>手順遷移</strong>: 手順ごとに「スキル使用後にループ遷移」を有効化すると、次ラウンドから指定ループへ進みます。</div>
                 <div>・<strong>同陣営対象の指定</strong>: 新規定義は <code>target_scope: "same_team"</code> を推奨。互換として <code>同陣営対象</code> / <code>同陣営指定</code> / <code>味方対象</code> / <code>味方指定</code> / <code>ally_target</code> / <code>target_ally</code> を受理します。</div>
                 <div>・<strong>条件遷移</strong>: 優先度が高い順に判定し、最初に成立した遷移だけ適用します。</div>
@@ -830,7 +1026,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                     <strong style="font-size:0.84em; color:#214a67;">${id}</strong>
                     <button data-connect-from="${id}" style="padding:1px 5px; border:none; background:#2f7fbf; color:#fff; border-radius:4px; cursor:pointer; font-size:0.75em;">→</button>
                 </div>
-                <div style="font-size:0.75em; color:#55748c; margin-bottom:3px;">手順:${actionsCount} / 遷移:${trCount}</div>
+                <div style="font-size:0.75em; color:#55748c; margin-bottom:3px;">ラウンド:${actionsCount} / 遷移:${trCount}</div>
                 <div style="font-size:0.73em; color:#6b879b;">${loop.repeat ? 'ループ' : '停止'} ${initialTag ? `/ ${initialTag}` : ''} ${connectTag ? `/ ${connectTag}` : ''}</div>
             `;
 
@@ -924,10 +1120,10 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             </div>
             <div style="border:1px solid #dbeaf6; border-radius:7px; padding:8px; margin-bottom:8px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                    <div style="font-weight:bold; color:#2f566f; font-size:0.88em;">手順</div>
+                    <div style="font-weight:bold; color:#2f566f; font-size:0.88em;">ラウンド設定</div>
                     <button id="behavior-step-add-btn" style="padding:4px 8px; border:none; background:#2f7fbf; color:#fff; border-radius:5px; cursor:pointer;">追加</button>
                 </div>
-                <div style="font-size:0.77em; color:#5b7890; margin-bottom:5px;">※所持スキルと対象選択（相手陣営/同陣営）を行ごとに設定します。</div>
+                <div style="font-size:0.77em; color:#5b7890; margin-bottom:5px;">※所持スキルと対象候補を行ごとに設定します。</div>
                 <div id="behavior-step-list"></div>
             </div>
             <div style="border:1px solid #dbeaf6; border-radius:7px; padding:8px;">
@@ -942,16 +1138,15 @@ function openBehaviorFlowEditorModal(char, options = {}) {
 
         const stepListEl = editorEl.querySelector('#behavior-step-list');
         if (!steps.length) {
-            stepListEl.innerHTML = '<div style="font-size:0.84em; color:#7b94a6;">stepなし</div>';
+            stepListEl.innerHTML = '<div style="font-size:0.84em; color:#7b94a6;">ラウンドなし</div>';
         } else {
             steps.forEach((step, idx) => {
                 const row = document.createElement('div');
                 row.className = 'behavior-step-row';
-                row.innerHTML = `<div style="font-size:0.82em; color:#3f637b; align-self:start; padding-top:4px;">S${idx + 1}</div>`;
+                row.innerHTML = `<div class="behavior-step-label">ラウンド${idx + 1}</div>`;
 
                 const actionsWrap = document.createElement('div');
-                actionsWrap.style.display = 'grid';
-                actionsWrap.style.gap = '4px';
+                actionsWrap.className = 'behavior-actions-wrap';
                 const actionItems = (Array.isArray(step.actions) && step.actions.length) ? step.actions : [null];
                 const knownLoopIds = loopIds();
                 const stepNextLoopRaw = String((step && step.next_loop_id) || '').trim();
@@ -959,7 +1154,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 const stepNextDefault = knownLoopIds.find((id) => id !== selectedLoopId) || selectedLoopId || '';
                 const stepNextLoopId = stepNextLoopRaw || stepNextDefault;
                 actionItems.forEach((actionSkillId, actionIdx) => {
-                    const actionTargetPolicy = coerceBehaviorStepTargetPolicy(
+                    const actionTargetCandidates = normalizeBehaviorTargetCandidates(
                         (Array.isArray(step.targets) ? step.targets[actionIdx] : null)
                     );
                     const actionRow = document.createElement('div');
@@ -978,22 +1173,10 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                         select.appendChild(opt);
                     });
 
-                    const targetSelect = document.createElement('select');
-                    targetSelect.dataset.stepTarget = `${idx}:${actionIdx}`;
-                    targetSelect.style.width = '100%';
-                    targetSelect.style.padding = '4px';
-                    BEHAVIOR_STEP_TARGET_POLICIES.forEach((row) => {
-                        const opt = document.createElement('option');
-                        opt.value = row.value;
-                        opt.textContent = row.label;
-                        if (row.value === actionTargetPolicy) opt.selected = true;
-                        targetSelect.appendChild(opt);
-                    });
-
                     const delActionBtn = document.createElement('button');
                     delActionBtn.type = 'button';
                     delActionBtn.dataset.stepActionDel = `${idx}:${actionIdx}`;
-                    delActionBtn.textContent = 'x';
+                    delActionBtn.textContent = '×';
                     delActionBtn.style.padding = '3px 6px';
                     delActionBtn.style.border = 'none';
                     delActionBtn.style.background = '#c23b3b';
@@ -1001,10 +1184,97 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                     delActionBtn.style.borderRadius = '4px';
                     delActionBtn.style.cursor = 'pointer';
                     delActionBtn.title = 'このスキル指定を削除';
+                    delActionBtn.setAttribute('aria-label', 'このスキル指定を削除');
 
                     actionRow.appendChild(select);
-                    actionRow.appendChild(targetSelect);
                     actionRow.appendChild(delActionBtn);
+
+                    const candidatesWrap = document.createElement('div');
+                    candidatesWrap.className = 'behavior-target-candidates';
+                    actionTargetCandidates.forEach((candidate, candidateIdx) => {
+                        const candidateRow = document.createElement('div');
+                        candidateRow.className = 'behavior-target-candidate-row';
+
+                        const priority = document.createElement('span');
+                        priority.className = 'behavior-target-candidate-index';
+                        priority.textContent = String(candidateIdx + 1);
+                        priority.title = '対象候補の優先順位';
+
+                        const teamSelect = document.createElement('select');
+                        teamSelect.dataset.targetTeam = `${idx}:${actionIdx}:${candidateIdx}`;
+                        teamSelect.title = '対象陣営';
+                        BEHAVIOR_TARGET_TEAMS.forEach((optionRow) => {
+                            const option = document.createElement('option');
+                            option.value = optionRow.value;
+                            option.textContent = optionRow.label;
+                            if (optionRow.value === candidate.team) option.selected = true;
+                            teamSelect.appendChild(option);
+                        });
+
+                        const tagsInput = document.createElement('input');
+                        tagsInput.type = 'text';
+                        tagsInput.dataset.targetTags = `${idx}:${actionIdx}:${candidateIdx}`;
+                        tagsInput.value = normalizeBehaviorTargetTagIds(candidate.required_tag_ids).join(', ');
+                        tagsInput.placeholder = '対象の特徴（タグ）';
+                        tagsInput.title = '対象に必要な特徴（タグ）。複数指定はカンマで区切ります';
+
+                        const selectionSelect = document.createElement('select');
+                        selectionSelect.dataset.targetSelection = `${idx}:${actionIdx}:${candidateIdx}`;
+                        selectionSelect.title = '候補内の選択方法';
+                        BEHAVIOR_TARGET_SELECTIONS.forEach((optionRow) => {
+                            const option = document.createElement('option');
+                            option.value = optionRow.value;
+                            option.textContent = optionRow.label;
+                            if (optionRow.value === candidate.selection) option.selected = true;
+                            selectionSelect.appendChild(option);
+                        });
+
+                        const upButton = document.createElement('button');
+                        upButton.type = 'button';
+                        upButton.className = 'behavior-target-icon-button';
+                        upButton.dataset.targetMove = `${idx}:${actionIdx}:${candidateIdx}:-1`;
+                        upButton.textContent = '↑';
+                        upButton.title = '優先順位を上げる';
+                        upButton.setAttribute('aria-label', '対象候補の優先順位を上げる');
+                        upButton.disabled = candidateIdx === 0;
+
+                        const downButton = document.createElement('button');
+                        downButton.type = 'button';
+                        downButton.className = 'behavior-target-icon-button';
+                        downButton.dataset.targetMove = `${idx}:${actionIdx}:${candidateIdx}:1`;
+                        downButton.textContent = '↓';
+                        downButton.title = '優先順位を下げる';
+                        downButton.setAttribute('aria-label', '対象候補の優先順位を下げる');
+                        downButton.disabled = candidateIdx === actionTargetCandidates.length - 1;
+
+                        const deleteButton = document.createElement('button');
+                        deleteButton.type = 'button';
+                        deleteButton.className = 'behavior-target-icon-button';
+                        deleteButton.dataset.targetDelete = `${idx}:${actionIdx}:${candidateIdx}`;
+                        deleteButton.textContent = '×';
+                        deleteButton.title = '対象候補を削除';
+                        deleteButton.setAttribute('aria-label', '対象候補を削除');
+                        deleteButton.disabled = actionTargetCandidates.length <= 1;
+
+                        candidateRow.appendChild(priority);
+                        candidateRow.appendChild(teamSelect);
+                        candidateRow.appendChild(tagsInput);
+                        candidateRow.appendChild(selectionSelect);
+                        candidateRow.appendChild(upButton);
+                        candidateRow.appendChild(downButton);
+                        candidateRow.appendChild(deleteButton);
+                        candidatesWrap.appendChild(candidateRow);
+                    });
+
+                    const addCandidateButton = document.createElement('button');
+                    addCandidateButton.type = 'button';
+                    addCandidateButton.className = 'behavior-target-add-button';
+                    addCandidateButton.dataset.targetAdd = `${idx}:${actionIdx}`;
+                    addCandidateButton.textContent = '+';
+                    addCandidateButton.title = '次の対象候補を追加';
+                    addCandidateButton.setAttribute('aria-label', '次の対象候補を追加');
+                    candidatesWrap.appendChild(addCandidateButton);
+                    actionRow.appendChild(candidatesWrap);
                     actionsWrap.appendChild(actionRow);
                 });
                 if (!ownedSkills.length) {
@@ -1018,7 +1288,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 const actionAddBtn = document.createElement('button');
                 actionAddBtn.type = 'button';
                 actionAddBtn.dataset.stepActionAdd = `${idx}`;
-                actionAddBtn.textContent = 'スキル指定追加';
+                actionAddBtn.textContent = '＋ スキル';
                 actionAddBtn.style.padding = '3px 8px';
                 actionAddBtn.style.border = 'none';
                 actionAddBtn.style.background = '#5f9ec9';
@@ -1074,13 +1344,10 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 const delStepBtn = document.createElement('button');
                 delStepBtn.type = 'button';
                 delStepBtn.dataset.stepDel = String(idx);
-                delStepBtn.textContent = '削除';
-                delStepBtn.style.padding = '4px 8px';
-                delStepBtn.style.border = 'none';
-                delStepBtn.style.background = '#c23b3b';
-                delStepBtn.style.color = '#fff';
-                delStepBtn.style.borderRadius = '5px';
-                delStepBtn.style.cursor = 'pointer';
+                delStepBtn.className = 'behavior-step-delete-button';
+                delStepBtn.textContent = '×';
+                delStepBtn.title = `ラウンド ${idx + 1}を削除`;
+                delStepBtn.setAttribute('aria-label', `ラウンド ${idx + 1}を削除`);
                 row.appendChild(delStepBtn);
                 stepListEl.appendChild(row);
             });
@@ -1091,11 +1358,26 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             const actions = (Array.isArray(stepObj.actions) && stepObj.actions.length) ? stepObj.actions : [null];
             const targets = Array.isArray(stepObj.targets) ? stepObj.targets.slice(0, actions.length) : [];
             while (targets.length < actions.length) {
-                targets.push(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT);
+                targets.push(normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT));
             }
-            stepObj.targets = targets.map((row) => coerceBehaviorStepTargetPolicy(row));
+            stepObj.targets = targets.map((row) => normalizeBehaviorTargetCandidates(row));
             stepObj.actions = actions;
             return stepObj.targets;
+        };
+
+        const readTargetCandidateRef = (rawSpec) => {
+            const [stepIdxRaw, actionIdxRaw, candidateIdxRaw] = String(rawSpec || '').split(':');
+            const stepIdx = parseInt(stepIdxRaw, 10);
+            const actionIdx = parseInt(actionIdxRaw, 10);
+            const candidateIdx = parseInt(candidateIdxRaw, 10);
+            const targetStep = loop.steps[stepIdx];
+            if (!targetStep) return null;
+            const targets = ensureStepTargetList(targetStep);
+            const candidates = normalizeBehaviorTargetCandidates(targets[actionIdx]);
+            targets[actionIdx] = candidates;
+            targetStep.targets = targets;
+            if (!candidates[candidateIdx]) return null;
+            return { targetStep, targets, candidates, candidate: candidates[candidateIdx], candidateIdx };
         };
 
         const trListEl = editorEl.querySelector('#behavior-tr-list');
@@ -1165,7 +1447,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                     <div class="behavior-transition-head">
                         <label style="font-size:0.8em;">優先度<input data-tr-priority="${tIdx}" type="number" value="${Number(tr.priority || 0)}" style="width:100%;"></label>
                         <label style="font-size:0.8em;">遷移先ループ<select data-tr-to="${tIdx}" style="width:100%;">${toLoopOptions}</select></label>
-                        <label style="display:flex; align-items:center; gap:4px; font-size:0.8em;"><input data-tr-reset="${tIdx}" type="checkbox" ${tr.reset_step_index !== false ? 'checked' : ''}>先頭手順へ戻す</label>
+                        <label style="display:flex; align-items:center; gap:4px; font-size:0.8em;"><input data-tr-reset="${tIdx}" type="checkbox" ${tr.reset_step_index !== false ? 'checked' : ''}>ラウンド1へ戻す</label>
                         <button data-tr-del="${tIdx}" style="padding:4px 7px; border:none; background:#c23b3b; color:#fff; border-radius:5px; cursor:pointer;">削除</button>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
@@ -1261,7 +1543,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         editorEl.querySelector('#behavior-step-add-btn')?.addEventListener('click', () => {
             loop.steps.push({
                 actions: [null],
-                targets: [BEHAVIOR_STEP_TARGET_POLICY_DEFAULT],
+                targets: [normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)],
                 next_loop_id: null,
                 next_reset_step_index: true
             });
@@ -1283,18 +1565,72 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 renderPreview();
             });
         });
-        editorEl.querySelectorAll('[data-step-target]').forEach((select) => {
+        editorEl.querySelectorAll('[data-target-team]').forEach((select) => {
             select.addEventListener('change', (e) => {
-                const [stepIdxRaw, actionIdxRaw] = String(e.target.dataset.stepTarget || '').split(':');
+                const ref = readTargetCandidateRef(e.target.dataset.targetTeam);
+                if (!ref) return;
+                ref.candidate.team = normalizeBehaviorTargetCandidate({ team: e.target.value }).team;
+                markDirty();
+                renderPreview();
+            });
+        });
+        editorEl.querySelectorAll('[data-target-tags]').forEach((input) => {
+            input.addEventListener('input', (e) => {
+                const ref = readTargetCandidateRef(e.target.dataset.targetTags);
+                if (!ref) return;
+                ref.candidate.required_tag_ids = normalizeBehaviorTargetTagIds(e.target.value);
+                markDirty();
+                renderPreview();
+            });
+        });
+        editorEl.querySelectorAll('[data-target-selection]').forEach((select) => {
+            select.addEventListener('change', (e) => {
+                const ref = readTargetCandidateRef(e.target.dataset.targetSelection);
+                if (!ref) return;
+                ref.candidate.selection = normalizeBehaviorTargetCandidate({ selection: e.target.value }).selection;
+                markDirty();
+                renderPreview();
+            });
+        });
+        editorEl.querySelectorAll('[data-target-add]').forEach((button) => {
+            button.addEventListener('click', (e) => {
+                const [stepIdxRaw, actionIdxRaw] = String(e.currentTarget.dataset.targetAdd || '').split(':');
                 const stepIdx = parseInt(stepIdxRaw, 10);
                 const actionIdx = parseInt(actionIdxRaw, 10);
                 const targetStep = loop.steps[stepIdx];
                 if (!targetStep) return;
                 const targets = ensureStepTargetList(targetStep);
-                targets[actionIdx] = coerceBehaviorStepTargetPolicy(e.target.value);
+                const candidates = normalizeBehaviorTargetCandidates(targets[actionIdx]);
+                candidates.push(normalizeBehaviorTargetCandidate({}));
+                targets[actionIdx] = candidates;
                 targetStep.targets = targets;
                 markDirty();
-                renderPreview();
+                renderAll();
+            });
+        });
+        editorEl.querySelectorAll('[data-target-delete]').forEach((button) => {
+            button.addEventListener('click', (e) => {
+                const ref = readTargetCandidateRef(e.currentTarget.dataset.targetDelete);
+                if (!ref || ref.candidates.length <= 1) return;
+                ref.candidates.splice(ref.candidateIdx, 1);
+                markDirty();
+                renderAll();
+            });
+        });
+        editorEl.querySelectorAll('[data-target-move]').forEach((button) => {
+            button.addEventListener('click', (e) => {
+                const [stepIdxRaw, actionIdxRaw, candidateIdxRaw, deltaRaw] = String(
+                    e.currentTarget.dataset.targetMove || ''
+                ).split(':');
+                const ref = readTargetCandidateRef(`${stepIdxRaw}:${actionIdxRaw}:${candidateIdxRaw}`);
+                const delta = parseInt(deltaRaw, 10);
+                if (!ref || !Number.isInteger(delta)) return;
+                const nextIdx = ref.candidateIdx + delta;
+                if (nextIdx < 0 || nextIdx >= ref.candidates.length) return;
+                const [moved] = ref.candidates.splice(ref.candidateIdx, 1);
+                ref.candidates.splice(nextIdx, 0, moved);
+                markDirty();
+                renderAll();
             });
         });
         editorEl.querySelectorAll('[data-step-next-enabled]').forEach((el) => {
@@ -1350,11 +1686,14 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 const targetStep = loop.steps[stepIdx];
                 if (!targetStep) return;
                 const actions = Array.isArray(targetStep.actions) ? targetStep.actions : [null];
+                const targets = Array.isArray(targetStep.targets) ? targetStep.targets.slice() : [];
                 actions.splice(actionIdx, 1);
-                targetStep.actions = actions.length ? actions : [null];
-                const targets = ensureStepTargetList(targetStep);
                 targets.splice(actionIdx, 1);
-                targetStep.targets = (actions.length ? targets.slice(0, actions.length) : [BEHAVIOR_STEP_TARGET_POLICY_DEFAULT]);
+                targetStep.actions = actions.length ? actions : [null];
+                targetStep.targets = actions.length
+                    ? targets.slice(0, actions.length).map(normalizeBehaviorTargetCandidates)
+                    : [normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)];
+                ensureStepTargetList(targetStep);
                 markDirty();
                 renderAll();
             });
@@ -1536,7 +1875,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             repeat: true,
             steps: [{
                 actions: [null],
-                targets: [BEHAVIOR_STEP_TARGET_POLICY_DEFAULT],
+                targets: [normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)],
                 next_loop_id: null,
                 next_reset_step_index: true
             }],
@@ -1562,7 +1901,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 repeat: true,
                 steps: [{
                     actions: [null],
-                    targets: [BEHAVIOR_STEP_TARGET_POLICY_DEFAULT],
+                    targets: [normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)],
                     next_loop_id: null,
                     next_reset_step_index: true
                 }],

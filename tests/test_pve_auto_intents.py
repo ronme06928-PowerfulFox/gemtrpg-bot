@@ -1,7 +1,15 @@
 from manager.battle import common_manager as battle_common
 
 
-def _make_char(char_id, team, flags=None, speed=6, action_count=1):
+def _make_char(
+    char_id,
+    team,
+    flags=None,
+    speed=6,
+    action_count=1,
+    tag_ids=None,
+    disabled_tag_ids=None,
+):
     return {
         "id": char_id,
         "name": char_id,
@@ -21,6 +29,8 @@ def _make_char(char_id, team, flags=None, speed=6, action_count=1):
         "special_buffs": [],
         "flags": dict(flags or {}),
         "commands": "",
+        "tag_ids": list(tag_ids or []),
+        "disabled_tag_ids": list(disabled_tag_ids or []),
     }
 
 
@@ -593,3 +603,282 @@ def test_select_resolve_round_start_behavior_profile_blocks_ally_target_without_
     intent = state["battle_state"]["intents"].get(enemy_slot_id, {})
     assert intent.get("target", {}).get("type") == "single_slot"
     assert intent.get("target", {}).get("slot_id") == ally_slot_id
+
+
+def test_behavior_profile_ordered_candidates_prefer_tagged_same_team(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "initial_loop_id": "phase_1",
+        "loops": {
+            "phase_1": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["S-BHV"],
+                    "targets": [[
+                        {
+                            "team": "same_team",
+                            "required_tag_ids": ["瓦礫", "機械"],
+                            "selection": "fastest",
+                        },
+                        {
+                            "team": "opposing_team",
+                            "required_tag_ids": [],
+                            "selection": "random",
+                        },
+                    ]],
+                }],
+            },
+        },
+    }
+    ally = _make_char("A1", "ally")
+    enemy_main = _make_char(
+        "E1",
+        "enemy",
+        flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+        speed=12,
+    )
+    tagged_enemy = _make_char(
+        "E2",
+        "enemy",
+        flags={"auto_target_select": False},
+        speed=30,
+        tag_ids=["瓦礫", "機械"],
+    )
+    state = _base_state(mode="pve", enemy_flags={})
+    state["characters"] = [ally, enemy_main, tagged_enemy]
+
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    monkeypatch.setattr(battle_common, "ai_suggest_skill", lambda _char: "S-AI")
+    monkeypatch.setattr(
+        battle_common,
+        "all_skill_data",
+        {"S-BHV": {"name": "BehaviorSkill", "target_scope": "any"}},
+    )
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    enemy_slot_id = _slot_id_for_actor(state, "E1")
+    tagged_slot_id = _slot_id_for_actor(state, "E2")
+    intent = state["battle_state"]["intents"].get(enemy_slot_id, {})
+    assert intent.get("skill_id") == "S-BHV"
+    assert intent.get("target", {}).get("slot_id") == tagged_slot_id
+
+
+def test_behavior_profile_ordered_candidates_skip_disabled_tag_and_fallback(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "initial_loop_id": "phase_1",
+        "loops": {
+            "phase_1": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["S-BHV"],
+                    "targets": [[
+                        {
+                            "team": "same_team",
+                            "required_tag_ids": ["瓦礫"],
+                            "selection": "random",
+                        },
+                        {
+                            "team": "opposing_team",
+                            "required_tag_ids": [],
+                            "selection": "random",
+                        },
+                    ]],
+                }],
+            },
+        },
+    }
+    ally = _make_char("A1", "ally")
+    enemy_main = _make_char(
+        "E1",
+        "enemy",
+        flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+    disabled_rubble = _make_char(
+        "E2",
+        "enemy",
+        flags={"auto_target_select": False},
+        tag_ids=["瓦礫"],
+        disabled_tag_ids=["瓦礫"],
+    )
+    state = _base_state(mode="pve", enemy_flags={})
+    state["characters"] = [ally, enemy_main, disabled_rubble]
+
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    monkeypatch.setattr(battle_common, "ai_suggest_skill", lambda _char: "S-AI")
+    monkeypatch.setattr(
+        battle_common,
+        "all_skill_data",
+        {"S-BHV": {"name": "BehaviorSkill", "target_scope": "any"}},
+    )
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    enemy_slot_id = _slot_id_for_actor(state, "E1")
+    ally_slot_id = _slot_id_for_actor(state, "A1")
+    intent = state["battle_state"]["intents"].get(enemy_slot_id, {})
+    assert intent.get("skill_id") == "S-BHV"
+    assert intent.get("target", {}).get("slot_id") == ally_slot_id
+
+
+def test_behavior_profile_empty_ordered_candidates_fizzle_without_skill_substitution(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "initial_loop_id": "phase_1",
+        "loops": {
+            "phase_1": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["S-BHV"],
+                    "targets": [[{
+                        "team": "same_team",
+                        "required_tag_ids": ["存在しないタグ"],
+                        "selection": "random",
+                    }]],
+                }],
+            },
+        },
+    }
+    state = _base_state(
+        mode="pve",
+        enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    monkeypatch.setattr(battle_common, "ai_suggest_skill", lambda _char: "S-AI")
+    monkeypatch.setattr(
+        battle_common,
+        "all_skill_data",
+        {"S-BHV": {"name": "BehaviorSkill", "target_scope": "any"}},
+    )
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    enemy_slot_id = _slot_id_for_actor(state, "E1")
+    intent = state["battle_state"]["intents"].get(enemy_slot_id, {})
+    assert intent.get("skill_id") == "S-BHV"
+    assert intent.get("committed") is True
+    assert intent.get("target") == {"type": "single_slot", "slot_id": None}
+    assert state.get("ai_target_arrows") == []
+
+
+def test_behavior_profile_same_team_candidate_excludes_all_actor_slots(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "initial_loop_id": "phase_1",
+        "loops": {
+            "phase_1": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["S-BHV", "S-BHV"],
+                    "targets": [
+                        [{"team": "same_team", "required_tag_ids": [], "selection": "random"}],
+                        [{"team": "same_team", "required_tag_ids": [], "selection": "random"}],
+                    ],
+                }],
+            },
+        },
+    }
+    state = _base_state(mode="pve", enemy_flags={})
+    state["characters"] = [
+        _make_char("A1", "ally"),
+        _make_char(
+            "E1",
+            "enemy",
+            flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+            action_count=2,
+        ),
+    ]
+
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    monkeypatch.setattr(battle_common, "ai_suggest_skill", lambda _char: "S-AI")
+    monkeypatch.setattr(
+        battle_common,
+        "all_skill_data",
+        {"S-BHV": {"name": "BehaviorSkill", "target_scope": "same_team"}},
+    )
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    enemy_intents = [
+        intent
+        for intent in state["battle_state"]["intents"].values()
+        if intent.get("actor_id") == "E1"
+    ]
+    assert len(enemy_intents) == 2
+    assert all(intent.get("target", {}).get("slot_id") is None for intent in enemy_intents)
+
+
+def test_behavior_profile_self_candidate_can_target_current_actor_slot(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "initial_loop_id": "phase_1",
+        "loops": {
+            "phase_1": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["S-BHV"],
+                    "targets": [[{
+                        "team": "self",
+                        "required_tag_ids": [],
+                        "selection": "random",
+                    }]],
+                }],
+            },
+        },
+    }
+    state = _base_state(
+        mode="pve",
+        enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    monkeypatch.setattr(battle_common, "ai_suggest_skill", lambda _char: "S-AI")
+    monkeypatch.setattr(
+        battle_common,
+        "all_skill_data",
+        {"S-BHV": {"name": "BehaviorSkill", "target_scope": "self"}},
+    )
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    enemy_slot_id = _slot_id_for_actor(state, "E1")
+    intent = state["battle_state"]["intents"].get(enemy_slot_id, {})
+    assert intent.get("skill_id") == "S-BHV"
+    assert intent.get("target", {}).get("slot_id") == enemy_slot_id

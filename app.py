@@ -19,6 +19,8 @@ if 'RENDER' in os.environ:
 import sys
 import argparse
 
+from sqlalchemy import event, text
+
 IS_RENDER = 'RENDER' in os.environ
 
 from flask import Flask, current_app, g, jsonify, request, send_from_directory, session
@@ -146,6 +148,7 @@ def init_extensions(flask_app, cors_origins=None):
 
 def run_startup_tasks(flask_app):
     with flask_app.app_context():
+        _configure_local_sqlite(flask_app)
         if IS_RENDER:
             print("--- Checking Render Database Schema ---")
             from manager.db_migration import run_auto_migration
@@ -159,6 +162,35 @@ def run_startup_tasks(flask_app):
 
         init_app_data(create_db_tables=False)
         read_saved_rooms_with_owners()
+
+
+def _configure_local_sqlite(flask_app):
+    """Configure the local SQLite database for concurrent web/socket access."""
+    uri = str(flask_app.config.get('SQLALCHEMY_DATABASE_URI') or '')
+    if not uri.startswith('sqlite:'):
+        return
+
+    engine = db.engine
+
+    @event.listens_for(engine, 'connect')
+    def _set_sqlite_busy_timeout(dbapi_connection, _connection_record):
+        cursor = dbapi_connection.cursor()
+        try:
+            # Bound lock waits so a stale local process does not make startup
+            # or shutdown appear frozen for SQLite's default five seconds.
+            cursor.execute('PRAGMA busy_timeout = 3000')
+        finally:
+            cursor.close()
+
+    # WAL permits a reader and the application's single writer to coexist.
+    # It is persisted by SQLite, so this only needs to run at startup.
+    if uri != 'sqlite:///:memory:':
+        try:
+            db.session.execute(text('PRAGMA journal_mode = WAL'))
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            logging.warning('Could not enable SQLite WAL mode: %s', exc)
 
 
 def register_socket_handlers():

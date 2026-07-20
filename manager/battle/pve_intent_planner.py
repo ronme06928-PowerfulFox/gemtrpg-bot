@@ -14,7 +14,9 @@ from manager.battle.enemy_behavior import (
     advance_step_pointer,
     choose_action_plans_for_slot_count,
     BEHAVIOR_TARGET_POLICY_DEFAULT,
+    normalize_target_candidates,
 )
+from manager.character_tags import get_effective_tag_ids
 
 
 logger = setup_logger(__name__)
@@ -480,6 +482,7 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
 
     def _pick_target_slot_by_policy(policy, attacker_slot_id, attacker_team):
         policy_text = str(policy or BEHAVIOR_TARGET_POLICY_DEFAULT).strip().lower() or BEHAVIOR_TARGET_POLICY_DEFAULT
+        attacker_actor_id = (slots.get(attacker_slot_id, {}) or {}).get('actor_id')
         if attacker_team == 'ally':
             enemy_team = 'enemy'
         elif attacker_team == 'enemy':
@@ -489,7 +492,10 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
 
         enemy_candidates = list(actionable_slots_by_team.get(enemy_team, [])) if enemy_team else []
         ally_candidates = list(actionable_slots_by_team.get(attacker_team, [])) if attacker_team else []
-        ally_non_self = [sid for sid in ally_candidates if sid != attacker_slot_id]
+        ally_non_self = [
+            sid for sid in ally_candidates
+            if (slots.get(sid, {}) or {}).get('actor_id') != attacker_actor_id
+        ]
 
         if policy_text == 'target_self':
             if attacker_slot_id in ally_candidates:
@@ -502,31 +508,102 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
             sorted_ids = _sort_target_slots(enemy_candidates, fastest=False)
             return sorted_ids[0] if sorted_ids else None
         if policy_text == 'target_ally_fastest':
-            sorted_ids = _sort_target_slots(ally_non_self or ally_candidates, fastest=True)
+            sorted_ids = _sort_target_slots(ally_non_self, fastest=True)
             return sorted_ids[0] if sorted_ids else None
         if policy_text == 'target_ally_slowest':
-            sorted_ids = _sort_target_slots(ally_non_self or ally_candidates, fastest=False)
+            sorted_ids = _sort_target_slots(ally_non_self, fastest=False)
             return sorted_ids[0] if sorted_ids else None
         if policy_text == 'target_ally_random':
-            pool = [sid for sid in (ally_non_self or ally_candidates) if sid]
+            pool = [sid for sid in ally_non_self if sid]
             return random.choice(pool) if pool else None
 
 
         pool = [sid for sid in enemy_candidates if sid]
         if pool:
             return random.choice(pool)
-        fallback = [sid for sid in ally_candidates if sid and sid != attacker_slot_id]
+        fallback = [
+            sid for sid in ally_candidates
+            if sid and (slots.get(sid, {}) or {}).get('actor_id') != attacker_actor_id
+        ]
         if fallback:
             return random.choice(fallback)
-        return attacker_slot_id if attacker_slot_id in ally_candidates else None
+        return None
 
-    def _is_target_scope_allowed(attacker_team, target_team, target_scope):
+    def _is_target_scope_allowed(
+        attacker_team,
+        target_team,
+        target_scope,
+        attacker_actor_id=None,
+        target_actor_id=None,
+    ):
         scope = _normalize_target_scope(target_scope, default='enemy')
         if scope == 'any':
             return True
+        if scope == 'self':
+            return bool(attacker_actor_id and attacker_actor_id == target_actor_id)
         if scope == 'ally':
             return attacker_team == target_team
         return attacker_team != target_team
+
+    def _pick_target_slot_by_candidates(
+        raw_candidates,
+        attacker_slot_id,
+        attacker_team,
+        target_scope,
+    ):
+        candidates = normalize_target_candidates(raw_candidates)
+        attacker_slot = slots.get(attacker_slot_id, {}) if isinstance(slots, dict) else {}
+        attacker_actor_id = attacker_slot.get('actor_id')
+
+        for candidate in candidates:
+            team_mode = str(candidate.get('team') or 'opposing_team').strip().lower()
+            if team_mode == 'self':
+                base_pool = [attacker_slot_id]
+            elif team_mode == 'same_team':
+                base_pool = list(actionable_slots_by_team.get(attacker_team, []))
+            elif team_mode == 'any':
+                base_pool = (
+                    list(actionable_slots_by_team.get('ally', []))
+                    + list(actionable_slots_by_team.get('enemy', []))
+                )
+            else:
+                opposing_team = 'enemy' if attacker_team == 'ally' else 'ally'
+                base_pool = list(actionable_slots_by_team.get(opposing_team, []))
+
+            required_tag_ids = set(candidate.get('required_tag_ids') or [])
+            filtered = []
+            for sid in base_pool:
+                slot_obj = slots.get(sid, {}) if isinstance(slots, dict) else {}
+                if not _slot_is_actionable(slot_obj):
+                    continue
+                target_actor_id = slot_obj.get('actor_id')
+                if team_mode != 'self' and target_actor_id == attacker_actor_id:
+                    continue
+                target_team = _slot_team(slot_obj)
+                if not _is_target_scope_allowed(
+                    attacker_team,
+                    target_team,
+                    target_scope,
+                    attacker_actor_id=attacker_actor_id,
+                    target_actor_id=target_actor_id,
+                ):
+                    continue
+                target_char = char_by_id.get(target_actor_id, {})
+                if not required_tag_ids.issubset(set(get_effective_tag_ids(target_char))):
+                    continue
+                filtered.append(str(sid))
+
+            if not filtered:
+                continue
+            selection = str(candidate.get('selection') or 'random').strip().lower()
+            if selection == 'fastest':
+                sorted_ids = _sort_target_slots(filtered, fastest=True)
+                return sorted_ids[0] if sorted_ids else None
+            if selection == 'slowest':
+                sorted_ids = _sort_target_slots(filtered, fastest=False)
+                return sorted_ids[0] if sorted_ids else None
+            return random.choice(filtered)
+        return None
 
     for actor_id, actor_slot_ids in grouped_enemy_slots.items():
         actor = char_by_id.get(actor_id, {})
@@ -544,6 +621,8 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
         planned_action_plans = [{
             'skill_id': None,
             'target_policy': BEHAVIOR_TARGET_POLICY_DEFAULT,
+            'target_candidates': normalize_target_candidates(BEHAVIOR_TARGET_POLICY_DEFAULT),
+            'target_is_legacy': True,
         } for _ in actor_slot_ids]
         runtime_entry = behavior_runtime.get(actor_id) if isinstance(behavior_runtime.get(actor_id), dict) else {}
 
@@ -579,19 +658,53 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
 
             target_policy = str((planned or {}).get('target_policy') or BEHAVIOR_TARGET_POLICY_DEFAULT).strip().lower()
             target_scope = _infer_target_scope_from_skill(suggested_skill_id)
-            target_slot_id = _pick_target_slot_by_policy(target_policy, enemy_slot_id, attacker_team)
+            target_is_legacy = bool((planned or {}).get('target_is_legacy', True))
+            if target_is_legacy:
+                target_slot_id = _pick_target_slot_by_policy(target_policy, enemy_slot_id, attacker_team)
+            else:
+                target_slot_id = _pick_target_slot_by_candidates(
+                    (planned or {}).get('target_candidates', []),
+                    enemy_slot_id,
+                    attacker_team,
+                    target_scope,
+                )
             target_slot = slots.get(target_slot_id, {}) if isinstance(slots, dict) else {}
             target_team = _slot_team(target_slot) if target_slot_id else None
-            if (not target_slot_id) or (target_team and not _is_target_scope_allowed(attacker_team, target_team, target_scope)):
+            target_actor_id = target_slot.get('actor_id') if target_slot_id else None
+            attacker_actor_id = slot.get('actor_id')
+            legacy_target_invalid = target_is_legacy and (
+                (not target_slot_id)
+                or (
+                    target_team
+                    and not _is_target_scope_allowed(
+                        attacker_team,
+                        target_team,
+                        target_scope,
+                        attacker_actor_id=attacker_actor_id,
+                        target_actor_id=target_actor_id,
+                    )
+                )
+            )
+            if legacy_target_invalid:
                 fallback_pool = []
                 for sid in actionable_slots_by_team.get('ally', []) + actionable_slots_by_team.get('enemy', []):
-                    if sid == enemy_slot_id:
-                        continue
                     slot_obj = slots.get(sid, {}) if isinstance(slots, dict) else {}
+                    candidate_actor_id = slot_obj.get('actor_id')
+                    if target_scope == 'self':
+                        if candidate_actor_id != attacker_actor_id or sid != enemy_slot_id:
+                            continue
+                    elif candidate_actor_id == attacker_actor_id:
+                        continue
                     slot_team = _slot_team(slot_obj)
                     if not slot_team:
                         continue
-                    if _is_target_scope_allowed(attacker_team, slot_team, target_scope):
+                    if _is_target_scope_allowed(
+                        attacker_team,
+                        slot_team,
+                        target_scope,
+                        attacker_actor_id=attacker_actor_id,
+                        target_actor_id=candidate_actor_id,
+                    ):
                         fallback_pool.append(sid)
                 if fallback_pool:
                     target_slot_id = random.choice(fallback_pool)

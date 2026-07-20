@@ -7,6 +7,7 @@ from manager.battle.enemy_behavior import (
     advance_step_pointer,
     choose_actions_for_slot_count,
     choose_action_plans_for_slot_count,
+    normalize_target_candidates,
 )
 
 
@@ -179,3 +180,71 @@ def test_choose_action_plans_for_slot_count_random_when_overflow(monkeypatch):
     picked = choose_action_plans_for_slot_count(source, 2)
     assert [row["skill_id"] for row in picked] == ["S-C", "S-A"]
     assert [row["target_policy"] for row in picked] == ["target_ally_random", "target_enemy_random"]
+
+
+def test_normalize_behavior_profile_preserves_legacy_and_normalizes_ordered_candidates():
+    profile = normalize_behavior_profile({
+        "enabled": True,
+        "loops": {
+            "loop_1": {
+                "steps": [{
+                    "actions": ["S-OLD", "S-NEW"],
+                    "targets": [
+                        "target_enemy_fastest",
+                        [
+                            {
+                                "team": "same_team",
+                                "required_tag_ids": [" 瓦礫 ", "瓦礫", "機械"],
+                                "selection": "slowest",
+                            },
+                            {
+                                "team": "opposing_team",
+                                "required_tag_ids": [],
+                                "selection": "random",
+                            },
+                        ],
+                    ],
+                }],
+            },
+        },
+    })
+
+    targets = profile["loops"]["loop_1"]["steps"][0]["targets"]
+    assert targets[0] == "target_enemy_fastest"
+    assert targets[1] == [
+        {
+            "team": "same_team",
+            "required_tag_ids": ["瓦礫", "機械"],
+            "selection": "slowest",
+        },
+        {
+            "team": "opposing_team",
+            "required_tag_ids": [],
+            "selection": "random",
+        },
+    ]
+
+    picked = pick_step_actions(profile, {"active_loop_id": "loop_1", "step_index": 0})
+    assert picked["plans"][0]["target_is_legacy"] is True
+    assert picked["plans"][1]["target_is_legacy"] is False
+    assert picked["plans"][1]["target_candidates"] == targets[1]
+
+
+def test_normalize_target_candidates_accepts_wrapper_and_policy_aliases():
+    assert normalize_target_candidates({
+        "candidates": [
+            {"team": "ally", "required_tags": ["機械"], "method": "fastest"},
+            "target_enemy_slowest",
+        ]
+    }) == [
+        {
+            "team": "same_team",
+            "required_tag_ids": ["機械"],
+            "selection": "fastest",
+        },
+        {
+            "team": "opposing_team",
+            "required_tag_ids": [],
+            "selection": "slowest",
+        },
+    ]

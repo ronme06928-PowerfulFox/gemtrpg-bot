@@ -26,6 +26,24 @@ BEHAVIOR_TARGET_POLICY_ALIASES = {
     "ally_lowest_speed": "target_ally_slowest",
     "self": "target_self",
 }
+BEHAVIOR_TARGET_TEAM_DEFAULT = "opposing_team"
+BEHAVIOR_TARGET_TEAMS = {
+    "opposing_team",
+    "same_team",
+    "any",
+    "self",
+}
+BEHAVIOR_TARGET_TEAM_ALIASES = {
+    "enemy": "opposing_team",
+    "enemy_team": "opposing_team",
+    "opponent": "opposing_team",
+    "ally": "same_team",
+    "ally_team": "same_team",
+    "all": "any",
+    "both": "any",
+}
+BEHAVIOR_TARGET_SELECTION_DEFAULT = "random"
+BEHAVIOR_TARGET_SELECTIONS = {"random", "fastest", "slowest"}
 
 
 def _safe_int(value, default=0):
@@ -159,12 +177,100 @@ def _coerce_target_policy(raw_policy):
     return BEHAVIOR_TARGET_POLICY_DEFAULT
 
 
+def _coerce_required_tag_ids(raw_values):
+    if not isinstance(raw_values, (list, tuple)):
+        return []
+    result = []
+    seen = set()
+    for raw_value in raw_values:
+        value = str(raw_value or "").strip()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
+
+
+def _target_candidate_from_policy(raw_policy):
+    policy = _coerce_target_policy(raw_policy)
+    if policy == "target_self":
+        team = "self"
+        selection = "random"
+    elif policy.startswith("target_ally_"):
+        team = "same_team"
+        selection = policy.removeprefix("target_ally_")
+    else:
+        team = "opposing_team"
+        selection = policy.removeprefix("target_enemy_")
+    if selection not in BEHAVIOR_TARGET_SELECTIONS:
+        selection = BEHAVIOR_TARGET_SELECTION_DEFAULT
+    return {
+        "team": team,
+        "required_tag_ids": [],
+        "selection": selection,
+    }
+
+
+def _coerce_target_candidate(raw_candidate):
+    if isinstance(raw_candidate, str):
+        return _target_candidate_from_policy(raw_candidate)
+    if not isinstance(raw_candidate, dict):
+        return None
+
+    team_raw = raw_candidate.get("team", raw_candidate.get("target_team"))
+    team = str(team_raw or BEHAVIOR_TARGET_TEAM_DEFAULT).strip().lower()
+    team = BEHAVIOR_TARGET_TEAM_ALIASES.get(team, team)
+    if team not in BEHAVIOR_TARGET_TEAMS:
+        team = BEHAVIOR_TARGET_TEAM_DEFAULT
+
+    selection_raw = raw_candidate.get("selection", raw_candidate.get("method"))
+    selection = str(selection_raw or BEHAVIOR_TARGET_SELECTION_DEFAULT).strip().lower()
+    if selection not in BEHAVIOR_TARGET_SELECTIONS:
+        selection = BEHAVIOR_TARGET_SELECTION_DEFAULT
+
+    required_tag_ids = raw_candidate.get(
+        "required_tag_ids",
+        raw_candidate.get("required_tags", []),
+    )
+    return {
+        "team": team,
+        "required_tag_ids": _coerce_required_tag_ids(required_tag_ids),
+        "selection": selection,
+    }
+
+
+def normalize_target_candidates(raw_target):
+    """Return normalized ordered target candidates for one planned action."""
+    if isinstance(raw_target, dict) and isinstance(raw_target.get("candidates"), list):
+        raw_candidates = raw_target.get("candidates")
+    elif isinstance(raw_target, list):
+        raw_candidates = raw_target
+    elif raw_target is None:
+        raw_candidates = []
+    else:
+        raw_candidates = [raw_target]
+
+    result = []
+    for raw_candidate in raw_candidates:
+        candidate = _coerce_target_candidate(raw_candidate)
+        if candidate is not None:
+            result.append(candidate)
+    return result
+
+
+def _coerce_target_spec(raw_target):
+    if isinstance(raw_target, str):
+        return _coerce_target_policy(raw_target)
+    candidates = normalize_target_candidates(raw_target)
+    return candidates if candidates else BEHAVIOR_TARGET_POLICY_DEFAULT
+
+
 def _coerce_targets(raw_targets):
     if isinstance(raw_targets, list):
-        return [_coerce_target_policy(item) for item in raw_targets]
+        return [_coerce_target_spec(item) for item in raw_targets]
     if raw_targets is None:
         return []
-    return [_coerce_target_policy(raw_targets)]
+    return [_coerce_target_spec(raw_targets)]
 
 
 def _coerce_step_actions_and_targets(raw_actions, raw_targets):
@@ -175,10 +281,13 @@ def _coerce_step_actions_and_targets(raw_actions, raw_targets):
         for item in raw_actions:
             if isinstance(item, dict):
                 skill_raw = item.get("skill_id", item.get("skill", item.get("id")))
-                target_raw = item.get("target_policy", item.get("target", item.get("target_selector")))
+                target_raw = item.get(
+                    "target_candidates",
+                    item.get("target_policy", item.get("target", item.get("target_selector"))),
+                )
                 skill_txt = str(skill_raw or "").strip()
                 actions.append(skill_txt if skill_txt else None)
-                inline_targets.append(_coerce_target_policy(target_raw))
+                inline_targets.append(_coerce_target_spec(target_raw))
             elif item is None:
                 actions.append(None)
                 inline_targets.append(BEHAVIOR_TARGET_POLICY_DEFAULT)
@@ -198,7 +307,7 @@ def _coerce_step_actions_and_targets(raw_actions, raw_targets):
     targets = []
     for idx in range(len(actions)):
         if idx < len(base_targets):
-            targets.append(_coerce_target_policy(base_targets[idx]))
+            targets.append(_coerce_target_spec(base_targets[idx]))
         else:
             targets.append(BEHAVIOR_TARGET_POLICY_DEFAULT)
     return actions, targets
@@ -363,9 +472,17 @@ def pick_step_actions(profile, runtime_entry):
         }
     plans = []
     for i, skill_id in enumerate(actions):
+        target_spec = targets[i] if i < len(targets) else BEHAVIOR_TARGET_POLICY_DEFAULT
+        is_legacy_target = isinstance(target_spec, str)
         plans.append({
             "skill_id": skill_id,
-            "target_policy": targets[i] if i < len(targets) else BEHAVIOR_TARGET_POLICY_DEFAULT,
+            "target_policy": (
+                _coerce_target_policy(target_spec)
+                if is_legacy_target
+                else BEHAVIOR_TARGET_POLICY_DEFAULT
+            ),
+            "target_candidates": normalize_target_candidates(target_spec),
+            "target_is_legacy": is_legacy_target,
         })
     return {
         "actions": actions,
@@ -413,7 +530,12 @@ def advance_step_pointer(profile, runtime_entry, step_transition=None):
 
 
 def choose_actions_for_slot_count(actions, slot_count):
-    action_plans = [{"skill_id": action, "target_policy": BEHAVIOR_TARGET_POLICY_DEFAULT} for action in actions or []]
+    action_plans = [{
+        "skill_id": action,
+        "target_policy": BEHAVIOR_TARGET_POLICY_DEFAULT,
+        "target_candidates": normalize_target_candidates(BEHAVIOR_TARGET_POLICY_DEFAULT),
+        "target_is_legacy": True,
+    } for action in actions or []]
     picked = choose_action_plans_for_slot_count(action_plans, slot_count)
     return [row.get("skill_id") for row in picked]
 
@@ -428,19 +550,31 @@ def choose_action_plans_for_slot_count(action_plans, slot_count):
         if isinstance(row, dict):
             skill_raw = row.get("skill_id", row.get("skill", row.get("id")))
             policy_raw = row.get("target_policy", row.get("target"))
+            candidates_raw = row.get("target_candidates")
+            is_legacy_target = bool(row.get("target_is_legacy", candidates_raw is None))
         else:
             skill_raw = row
             policy_raw = None
+            candidates_raw = None
+            is_legacy_target = True
         skill_txt = str(skill_raw or "").strip() if skill_raw is not None else ""
+        target_policy = _coerce_target_policy(policy_raw)
+        target_candidates = normalize_target_candidates(
+            target_policy if candidates_raw is None else candidates_raw
+        )
         normalized.append({
             "skill_id": (skill_txt if skill_txt else None),
-            "target_policy": _coerce_target_policy(policy_raw),
+            "target_policy": target_policy,
+            "target_candidates": target_candidates,
+            "target_is_legacy": is_legacy_target,
         })
 
     if not normalized:
         return [{
             "skill_id": None,
             "target_policy": BEHAVIOR_TARGET_POLICY_DEFAULT,
+            "target_candidates": normalize_target_candidates(BEHAVIOR_TARGET_POLICY_DEFAULT),
+            "target_is_legacy": True,
         } for _ in range(count)]
 
     if len(normalized) > count:
@@ -456,6 +590,8 @@ def choose_action_plans_for_slot_count(action_plans, slot_count):
             out.append({
                 "skill_id": None,
                 "target_policy": BEHAVIOR_TARGET_POLICY_DEFAULT,
+                "target_candidates": normalize_target_candidates(BEHAVIOR_TARGET_POLICY_DEFAULT),
+                "target_is_legacy": True,
             })
     return out
 

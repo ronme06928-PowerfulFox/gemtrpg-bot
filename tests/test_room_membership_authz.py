@@ -25,8 +25,8 @@ def app_ctx(tmp_path):
     )
     with app.app_context():
         db.create_all()
-        for uid in ("owner", "gm1", "player1", "stranger"):
-            db.session.add(User(id=uid, name=uid))
+        for uid in ("owner", "gm1", "player1", "stranger", "admin"):
+            db.session.add(User(id=uid, name=uid, is_app_admin=(uid == "admin")))
         db.session.add(Room(name="R1", owner_id="owner", data={"characters": []}))
         db.session.commit()
         yield app
@@ -74,6 +74,20 @@ def test_has_room_role_and_sid(app_ctx):
     assert ra.sid_has_room_role("sid-gm", "R2", ra.GM_ROLES) is False
 
 
+def test_app_admin_is_virtual_owner_without_membership(app_ctx):
+    assert ra.get_membership_role("admin", "R1") is None
+    assert ra.resolve_room_role("admin", "R1", app_admin=True) == ra.OWNER
+    assert ra.has_room_role("admin", "R1", {ra.OWNER}, app_admin=True) is True
+    assert ra.user_can_access_room("admin", "R1", app_admin=True) is True
+    user_sids["sid-admin"] = {
+        "user_id": "admin",
+        "room": "R1",
+        "username": "Admin",
+        "is_app_admin": True,
+    }
+    assert ra.sid_has_room_role("sid-admin", "R1", {ra.OWNER}) is True
+
+
 # --- 管理操作 ---
 
 def test_set_and_revoke_role(app_ctx):
@@ -111,6 +125,12 @@ def test_ensure_join_membership_does_not_downgrade_owner(app_ctx):
     ra.ensure_membership(rid, "owner", ra.OWNER)
     # owner が普通に join しても owner のまま。
     ra.ensure_join_membership(rid, "owner", is_gm=False)
+    assert ra.get_membership_role("owner", "R1") == ra.OWNER
+
+
+def test_ensure_join_membership_by_name_restores_missing_owner_membership(app_ctx):
+    assert ra.get_membership_role("owner", "R1") is None
+    ra.ensure_join_membership_by_name("R1", "owner", is_gm=True)
     assert ra.get_membership_role("owner", "R1") == ra.OWNER
 
 

@@ -86,12 +86,17 @@ def get_membership_role(user_id, room_name):
     return m.role if m else None
 
 
-def resolve_room_role(user_id, room_name):
+def resolve_room_role(user_id, room_name, *, app_admin=False):
     """ルーム role を返す（owner / gm / player / None）。
 
-    正本は RoomMember。membership が無い場合のみ移行期の暫定判定へフォール
-    バックする（owner_id 一致→owner、在室/キャラ所有→player）。
+    アプリ管理者は全ルームで仮想 owner として扱うが、RoomMember や
+    Room.owner_id は変更しない。それ以外は RoomMember を正本とし、membership
+    が無い場合のみ移行期の暫定判定へフォールバックする。
     """
+    if not user_id or _get_room(room_name) is None:
+        return None
+    if app_admin:
+        return OWNER
     role = get_membership_role(user_id, room_name)
     if role:
         return role
@@ -103,9 +108,9 @@ def resolve_room_role(user_id, room_name):
     return None
 
 
-def has_room_role(user_id, room_name, allowed_roles):
+def has_room_role(user_id, room_name, allowed_roles, *, app_admin=False):
     """user_id の role が allowed_roles に含まれるか。"""
-    return resolve_room_role(user_id, room_name) in allowed_roles
+    return resolve_room_role(user_id, room_name, app_admin=app_admin) in allowed_roles
 
 
 def sid_has_room_role(sid, room_name, allowed_roles):
@@ -113,12 +118,16 @@ def sid_has_room_role(sid, room_name, allowed_roles):
     info = user_sids.get(sid) or {}
     if info.get("room") != room_name:
         return False
-    return resolve_room_role(info.get("user_id"), room_name) in allowed_roles
+    return resolve_room_role(
+        info.get("user_id"),
+        room_name,
+        app_admin=bool(info.get("is_app_admin")),
+    ) in allowed_roles
 
 
-def user_can_access_room(user_id, room_name):
+def user_can_access_room(user_id, room_name, *, app_admin=False):
     """参加者向けルーム状態の読み書きを許可してよいか。"""
-    return resolve_room_role(user_id, room_name) is not None
+    return resolve_room_role(user_id, room_name, app_admin=app_admin) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +180,8 @@ def ensure_join_membership_by_name(room_name, user_id, is_gm, *, commit=True):
     room = _get_room(room_name)
     if room is None:
         return None
+    if room.owner_id == user_id:
+        return ensure_membership(room.id, user_id, OWNER, commit=commit)
     return ensure_join_membership(room.id, user_id, is_gm, commit=commit)
 
 
@@ -220,18 +231,20 @@ def build_lobby_cards(user_id):
     内部識別子（owner_id, join_code, ログ, キャラ, 画像URL 等）は含めない。
     hidden は非メンバーへ出さない。closed はカード表示するが新規参加不可。
     """
+    from manager.user_manager import is_user_management_admin
+    admin_access = is_user_management_admin(user_id)
     cards = []
     for room in Room.query.order_by(Room.name).all():
         role = _lobby_role(user_id, room)
         is_member = role is not None
         vis = room.lobby_visibility or VIS_HIDDEN
-        if vis == VIS_HIDDEN and not is_member:
+        if vis == VIS_HIDDEN and not is_member and not admin_access:
             continue
         play_mode = "normal"
         if isinstance(room.data, dict):
             pm = str(room.data.get("play_mode") or "normal").strip().lower()
             play_mode = pm if pm in ("normal", "battle_only") else "normal"
-        joinable = (not is_member) and (vis == VIS_LISTED)
+        joinable = (not is_member) and (admin_access or vis == VIS_LISTED)
         cards.append({
             "name": room.name,
             "play_mode": play_mode,
@@ -242,6 +255,7 @@ def build_lobby_cards(user_id):
             "is_member": is_member,
             "requires_code": bool(room.join_code_hash),
             "joinable": joinable,
+            "admin_access": admin_access,
         })
     return cards
 

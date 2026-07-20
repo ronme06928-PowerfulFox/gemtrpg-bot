@@ -25,8 +25,8 @@ def app_ctx(tmp_path):
     )
     with app.app_context():
         db.create_all()
-        for uid in ("owner", "player1", "player2", "stranger"):
-            db.session.add(User(id=uid, name=uid))
+        for uid in ("owner", "player1", "player2", "stranger", "admin"):
+            db.session.add(User(id=uid, name=uid, is_app_admin=(uid == "admin")))
         room = Room(name="R1", owner_id="owner", data={"characters": []})
         db.session.add(room)
         db.session.flush()
@@ -101,3 +101,35 @@ def test_non_member_cannot_manage(client):
     _login(client, "stranger")
     r = client.post("/api/room/grant_gm", json={"room_name": "R1", "user_id": "player1"})
     assert r.status_code == 403
+
+
+def test_app_admin_can_manage_members_and_transfer_owner(client):
+    _login(client, "admin")
+
+    granted = client.post(
+        "/api/room/grant_gm",
+        json={"room_name": "R1", "user_id": "player1"},
+    )
+    assert granted.status_code == 200
+    assert ra.get_membership_role("player1", "R1") == ra.GM
+
+    revoked = client.post(
+        "/api/room/revoke_gm",
+        json={"room_name": "R1", "user_id": "player1"},
+    )
+    assert revoked.status_code == 200
+    assert ra.get_membership_role("player1", "R1") == ra.PLAYER
+
+    removed = client.post(
+        "/api/room/remove_member",
+        json={"room_name": "R1", "user_id": "player2"},
+    )
+    assert removed.status_code == 200
+    assert ra.get_membership_role("player2", "R1") is None
+
+    transferred = client.post(
+        "/api/room/transfer_owner",
+        json={"room_name": "R1", "user_id": "player1"},
+    )
+    assert transferred.status_code == 200
+    assert Room.query.filter_by(name="R1").first().owner_id == "player1"

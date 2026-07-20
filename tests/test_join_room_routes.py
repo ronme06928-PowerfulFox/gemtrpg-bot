@@ -26,8 +26,8 @@ def app_ctx(tmp_path):
     )
     with app.app_context():
         db.create_all()
-        for uid in ("owner", "gm1", "player1", "stranger"):
-            db.session.add(User(id=uid, name=uid))
+        for uid in ("owner", "gm1", "player1", "stranger", "admin"):
+            db.session.add(User(id=uid, name=uid, is_app_admin=(uid == "admin")))
         room = Room(name="R1", owner_id="owner", data={"characters": [], "play_mode": "normal"},
                     lobby_visibility="listed")
         db.session.add(room)
@@ -71,6 +71,19 @@ def test_list_rooms_is_safe_dto(client):
     assert card["your_role"] is None
 
 
+def test_app_admin_sees_hidden_room_and_gets_direct_access(client):
+    room = Room.query.filter_by(name="R1").first()
+    room.lobby_visibility = "hidden"
+    db.session.commit()
+
+    _login(client, "admin")
+    data = client.get("/list_rooms").get_json()
+    card = [c for c in data["rooms"] if c["name"] == "R1"][0]
+    assert card["admin_access"] is True
+    assert card["joinable"] is True
+    assert card["your_role"] is None
+
+
 # --- join_room_by_code ---
 
 def test_join_with_correct_code(client):
@@ -96,6 +109,19 @@ def test_join_closed_room_rejected(client, app_ctx):
     _login(client, "player1")
     r = client.post("/api/join_room_by_code", json={"room_name": "R1", "join_code": "whatever"})
     assert r.status_code == 403
+
+
+def test_app_admin_joins_closed_room_without_code_or_membership(client):
+    room = Room.query.filter_by(name="R1").first()
+    room.lobby_visibility = "closed"
+    db.session.commit()
+    join_code.set_join_code("R1", "4827")
+
+    _login(client, "admin")
+    r = client.post("/api/join_room_by_code", json={"room_name": "R1"})
+    assert r.status_code == 200
+    assert r.get_json()["role"] == ra.OWNER
+    assert ra.get_membership_role("admin", "R1") is None
 
 
 def test_existing_member_rejoins_without_code(client):
@@ -130,6 +156,19 @@ def test_enter_room_member_ok(client):
     assert r.get_json()["attribute"] == "GM"  # owner は GM 相当
 
 
+def test_enter_room_app_admin_without_membership(client):
+    _login(client, "admin")
+    # A stale session hint must not downgrade database-backed admin rights.
+    with client.session_transaction() as s:
+        s["is_app_admin"] = False
+    listed = client.get("/list_rooms")
+    assert listed.get_json()["is_app_admin"] is True
+    r = client.post("/api/enter_room", json={"room_name": "R1"})
+    assert r.status_code == 200
+    assert r.get_json()["attribute"] == "GM"
+    assert ra.get_membership_role("admin", "R1") is None
+
+
 # --- 参加コード管理（owner専用）---
 
 def test_set_join_code_owner_only(client):
@@ -157,6 +196,15 @@ def test_set_join_code_invalid_pin_rejected(client):
     assert r.status_code == 400
 
 
+def test_app_admin_can_manage_join_code(client):
+    _login(client, "admin")
+    r = client.post("/api/room/set_join_code", json={"room_name": "R1", "join_code": "8642"})
+    assert r.status_code == 200
+    assert r.get_json()["join_code"] == "8642"
+    cleared = client.post("/api/room/clear_join_code", json={"room_name": "R1"})
+    assert cleared.status_code == 200
+
+
 # --- ルーム設定 ---
 
 def test_update_settings_owner_sets_visibility(client):
@@ -180,3 +228,25 @@ def test_update_settings_non_member_forbidden(client):
     _login(client, "stranger")
     r = client.post("/api/room/update_settings", json={"room_name": "R1", "recruitment_status": "x"})
     assert r.status_code == 403
+
+
+def test_app_admin_updates_owner_only_settings(client):
+    _login(client, "admin")
+    r = client.post("/api/room/update_settings", json={
+        "room_name": "R1",
+        "description": "管理者更新",
+        "lobby_visibility": "hidden",
+        "recruitment_status": "確認中",
+    })
+    assert r.status_code == 200
+    room = Room.query.filter_by(name="R1").first()
+    assert room.description == "管理者更新"
+    assert room.lobby_visibility == "hidden"
+    assert room.recruitment_status == "確認中"
+
+
+def test_app_admin_deletes_room_without_gm_pin(client):
+    _login(client, "admin")
+    r = client.post("/delete_room", json={"room_name": "R1"})
+    assert r.status_code == 200
+    assert Room.query.filter_by(name="R1").first() is None

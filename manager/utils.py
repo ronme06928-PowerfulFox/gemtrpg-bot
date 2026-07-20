@@ -2,6 +2,7 @@ import copy
 import re
 from functools import wraps
 from flask import jsonify, session
+from extensions import db
 from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
@@ -692,11 +693,15 @@ def session_required(f):
         user_id = session.get('user_id')
         if 'username' not in session or not user_id:
             return jsonify({"error": "認証が必要です。"}), 401
+        from flask import g
         from models import User
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if user is None or session.get('auth_version') != user.auth_version:
             session.clear()
             return jsonify({"error": "認証が必要です。"}), 401
+        # Every authorization check in this request uses this database-backed
+        # account, never a role value carried in the client session.
+        g.authenticated_user = user
         return f(*args, **kwargs)
     return decorated_function
 

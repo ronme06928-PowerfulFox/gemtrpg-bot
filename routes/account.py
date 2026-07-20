@@ -46,6 +46,7 @@ def _set_authenticated_session(user, *, attribute=PLAYER_ATTRIBUTE, clear=True):
     session['username'] = user.name
     session['auth_version'] = user.auth_version or 1
     session['attribute'] = attribute
+    session['is_app_admin'] = is_user_management_admin(user.id)
 
 
 def _name_only_login_disabled():
@@ -102,6 +103,7 @@ def entry():
     # auth_version をセッションへ載せる（session_required の検証と整合）。
     user_obj = user_result.get("user")
     session['auth_version'] = (getattr(user_obj, 'auth_version', None) or 1)
+    session['is_app_admin'] = is_user_management_admin(session['user_id'])
 
     return jsonify({
         "message": "セッション開始",
@@ -445,12 +447,14 @@ def get_session_user():
     attribute = session.get('attribute')
     # トークン未発行の既存ユーザーには一度だけ発行する（再発行はしない）。
     user_result = upsert_user(user_id, username, issue_recovery=True) or {}
+    app_admin = is_user_management_admin(user_id)
+    session['is_app_admin'] = app_admin
     logging.info(f"[SESSION CHECK] User: {username}, Attribute: {attribute}, UserID: {user_id}")
     return jsonify({
         "username": username,
         "attribute": attribute,
         "user_id": user_id,
-        "is_app_admin": is_user_management_admin(user_id),
+        "is_app_admin": app_admin,
         "recovery_code": user_result.get("recovery_code"),
         "recovery_token": user_result.get("recovery_token"),
     })

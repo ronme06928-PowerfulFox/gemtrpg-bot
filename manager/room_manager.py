@@ -3,6 +3,7 @@ import atexit
 import copy
 import json
 import os
+import threading
 import time
 
 from flask import current_app
@@ -334,6 +335,8 @@ _SAVE_MAX_RETRIES = 1
 _dirty_rooms = set()
 _save_retry_counts = {}
 _flush_scheduled = False
+_shutdown_in_progress = False
+_flush_lock = threading.Lock()
 _app_ref = None
 
 
@@ -364,7 +367,7 @@ def _room_exists_for_save(room_name):
         return False
 
 
-def _flush_dirty_rooms_once():
+def _flush_dirty_rooms_locked():
     """現在ダーティなルームをまとめてDBへ書き込む（要app_context）。"""
     rooms = list(_dirty_rooms)
     _dirty_rooms.difference_update(rooms)
@@ -395,6 +398,12 @@ def _flush_dirty_rooms_once():
             logger.error(f"[ERROR] Auto-save failed after retries: {room_name}")
 
 
+def _flush_dirty_rooms_once():
+    """Serialize database flushes across the debounce worker and shutdown."""
+    with _flush_lock:
+        _flush_dirty_rooms_locked()
+
+
 def _flush_within_context():
     """app_contextを確保してフラッシュする。確保できなければスキップ。"""
     app = _resolve_app()
@@ -418,13 +427,13 @@ def _flush_worker():
     finally:
         _flush_scheduled = False
     # フラッシュ中(yield中)に積まれた新たな保存要求があれば再スケジュール
-    if _dirty_rooms:
+    if _dirty_rooms and not _shutdown_in_progress:
         _schedule_flush()
 
 
 def _schedule_flush():
     global _flush_scheduled
-    if _flush_scheduled:
+    if _shutdown_in_progress or _flush_scheduled:
         return
     _flush_scheduled = True
     try:
@@ -438,6 +447,8 @@ def _schedule_flush():
 
 def flush_pending_saves():
     """保留中の保存を即時に同期フラッシュする（シャットダウン時等）。"""
+    global _shutdown_in_progress
+    _shutdown_in_progress = True
     if not _dirty_rooms:
         return
     try:
@@ -575,14 +586,20 @@ def get_user_info_from_sid(sid):
     info = user_sids.get(sid)
     if not info:
         return {"username": "System", "attribute": "System"}
-    # Phase 5 cutover: 権限の正本は membership。GM相当(attribute='GM')かどうかを
-    # 毎回 membership から再解決して上書きする（キャッシュのドリフトを防ぐ）。
-    # membership が無い場合（移行期・GM PIN直後の作成失敗等）はキャッシュ値を保つ
-    # ＝降格しない。これが全socketイベントのGM判定の単一チョークポイント。
+    # 管理者はSocket接続時の検証済みフラグ、通常ユーザーはmembershipから再解決する。
+    # roleを解決できない場合は、移行期のGM PIN直後などを考慮してキャッシュ値を保つ。
+    from flask import has_app_context
     from manager.room_access import get_membership_role, GM_ROLES
+    from manager.user_manager import is_user_management_admin
     room = info.get('room')
     uid = info.get('user_id')
-    if room and uid:
+    # Socket.IO retains a connect-time session snapshot. Refresh this value
+    # from the account record before each privileged lobby/catalog operation.
+    if has_app_context():
+        info['is_app_admin'] = is_user_management_admin(uid)
+    if info['is_app_admin']:
+        info['attribute'] = 'GM'
+    elif room and uid:
         role = get_membership_role(uid, room)
         if role is not None:
             info['attribute'] = 'GM' if role in GM_ROLES else 'Player'

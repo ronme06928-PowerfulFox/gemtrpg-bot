@@ -34,6 +34,7 @@ def enter_room():
     room_name = str(data.get('room_name') or '').strip()
     gm_key = data.get('gm_pin') or data.get('gm_key') or ''
     user_id = session.get('user_id')
+    app_admin = is_user_management_admin(user_id)
 
     if not room_name:
         return jsonify({"error": "Room name required"}), 400
@@ -46,7 +47,7 @@ def enter_room():
 
     # resolve_room_role は membership 正本＋移行期フォールバック(owner_id/在室/
     # キャラ所有)。既存ルームの owner がロックアウトされないようにする。
-    role = resolve_room_role(user_id, room_name)
+    role = resolve_room_role(user_id, room_name, app_admin=app_admin)
     if role is None:
         # 非メンバーは原則入室不可（参加コードで参加してから）。ただし移行期は
         # 正しい GM PIN を gm membership の取得手段として認める。
@@ -91,10 +92,12 @@ def list_rooms():
     """安全な公開ロビーDTOを返す（未参加者に内部識別子を出さない）。"""
     from manager.room_access import build_lobby_cards
     user_id = session.get('user_id')
+    app_admin = is_user_management_admin(user_id)
+    session['is_app_admin'] = app_admin
     return jsonify({
         'rooms': build_lobby_cards(user_id),
         'current_user_id': user_id,
-        'is_app_admin': is_user_management_admin(user_id),
+        'is_app_admin': app_admin,
     })
 
 
@@ -108,7 +111,12 @@ def load_room():
     # mobile は開発停止につき考慮不要（/mobile は停止済み）。
     from manager.room_access import user_can_access_room
     entered = session.get('entered_rooms') or []
-    if room_name not in entered and not user_can_access_room(session.get('user_id'), room_name):
+    user_id = session.get('user_id')
+    if room_name not in entered and not user_can_access_room(
+        user_id,
+        room_name,
+        app_admin=is_user_management_admin(user_id),
+    ):
         return jsonify({"error": "このルームにアクセスする権限がありません"}), 403
     state = get_room_state(room_name)
     return jsonify(state)
@@ -178,8 +186,9 @@ def delete_room():
     if not room:
         return jsonify({"error": "Room not found"}), 404
 
-    # ルーム削除はロビー操作のため、セッション属性ではなくGM PIN/マスターキーで確認する。
-    if not verify_room_gm_key(room, gm_key):
+    # アプリ管理者は全ルームを管理できる。通常ユーザーは従来どおり
+    # GM PIN/マスターキーでロビー操作を認証する。
+    if not is_user_management_admin(session.get('user_id')) and not verify_room_gm_key(room, gm_key):
         return jsonify({"error": "GM PINまたはマスターキーが正しくありません"}), 403
 
     # DB削除の前に保留中の自動保存を破棄しメモリからも除去する。
@@ -204,7 +213,12 @@ def save_room_route():
     # ルーム全状態の上書きは、当該ルームの owner か在室参加者に限定する。
     # （無認可の任意ルーム上書きを塞ぐ。判定は共通の room_access へ集約）
     from manager.room_access import user_can_access_room
-    if not user_can_access_room(session.get('user_id'), room_name):
+    user_id = session.get('user_id')
+    if not user_can_access_room(
+        user_id,
+        room_name,
+        app_admin=is_user_management_admin(user_id),
+    ):
         return jsonify({"error": "このルームを更新する権限がありません"}), 403
     active_room_states[room_name] = state
     save_room_to_db(room_name, state)
@@ -222,7 +236,13 @@ def room_export_logs():
         return jsonify({"error": "format は json または text を指定してください"}), 400
 
     from manager.room_access import has_room_role, GM_ROLES
-    if not has_room_role(session.get('user_id'), room_name, GM_ROLES):
+    user_id = session.get('user_id')
+    if not has_room_role(
+        user_id,
+        room_name,
+        GM_ROLES,
+        app_admin=is_user_management_admin(user_id),
+    ):
         return jsonify({"error": "GM権限が必要です"}), 403
 
     state = get_room_state(room_name)
@@ -241,7 +261,13 @@ def room_export_logs():
 
 def _require_room_owner(room_name):
     from manager.room_access import has_room_role, OWNER
-    if not has_room_role(session.get('user_id'), room_name, {OWNER}):
+    user_id = session.get('user_id')
+    if not has_room_role(
+        user_id,
+        room_name,
+        {OWNER},
+        app_admin=is_user_management_admin(user_id),
+    ):
         return jsonify({"error": "オーナー権限が必要です"}), 403
     return None
 
@@ -251,10 +277,13 @@ def _sync_room_member_session(room_name, target_user_id):
     from manager.room_access import resolve_room_role, GM_ROLES
     from extensions import user_sids
     role = resolve_room_role(target_user_id, room_name)
-    attribute = GM_ATTRIBUTE if role in GM_ROLES else PLAYER_ATTRIBUTE
     for info in user_sids.values():
         if info.get('user_id') == target_user_id and info.get('room') == room_name:
-            info['attribute'] = attribute
+            info['attribute'] = (
+                GM_ATTRIBUTE
+                if info.get('is_app_admin') or role in GM_ROLES
+                else PLAYER_ATTRIBUTE
+            )
     try:
         from manager.room_manager import broadcast_user_list
         broadcast_user_list(room_name)
@@ -360,6 +389,16 @@ def join_room_by_code():
     if room is None:
         return jsonify({"error": "Room not found"}), 404
 
+    # アプリ管理者は公開状態・参加コード・membershipに関係なく入室できる。
+    # 実際のowner/memberデータは変更せず、権限解決時だけ仮想ownerとして扱う。
+    if is_user_management_admin(user_id):
+        return jsonify({
+            "message": "管理者権限でルームへ参加します",
+            "role": "owner",
+            "room_name": room_name,
+            "admin_access": True,
+        })
+
     # 既メンバーはコード不要で再入室できる。
     existing = get_membership_role(user_id, room_name)
     if existing:
@@ -438,8 +477,9 @@ def room_update_settings():
         return jsonify({"error": "Room not found"}), 404
 
     user_id = session.get('user_id')
-    is_owner = has_room_role(user_id, room_name, {OWNER})
-    is_gm = has_room_role(user_id, room_name, GM_ROLES)
+    app_admin = is_user_management_admin(user_id)
+    is_owner = has_room_role(user_id, room_name, {OWNER}, app_admin=app_admin)
+    is_gm = has_room_role(user_id, room_name, GM_ROLES, app_admin=app_admin)
     if not is_gm:
         return jsonify({"error": "GM権限が必要です"}), 403
 

@@ -8,7 +8,8 @@ from manager.room_manager import (
     get_room_state, broadcast_log, broadcast_user_list, emit_select_resolve_events
 )
 from manager.auth import GM_ATTRIBUTE, PLAYER_ATTRIBUTE, resolve_room_attribute
-from manager.room_access import is_sid_in_room, ensure_join_membership_by_name, get_membership_role, GM_ROLES
+from manager.room_access import is_sid_in_room, ensure_join_membership_by_name, resolve_room_role, GM_ROLES
+from manager.user_manager import is_user_management_admin
 
 # --- 5.2. SocketIO イベントハンドラ ---
 @socketio.on('connect')
@@ -18,6 +19,16 @@ def handle_connect(auth=None):
     if 'username' not in session or not session.get('user_id'):
         print(f"[Rejected] Unauthenticated socket connection: {request.sid}")
         return False
+    user_id = session.get('user_id')
+    app_admin = is_user_management_admin(user_id)
+    # Keep authenticated socket metadata while the user is in the lobby.
+    user_sids[request.sid] = {
+        "username": session['username'],
+        "attribute": GM_ATTRIBUTE if app_admin else session.get('attribute', PLAYER_ATTRIBUTE),
+        "room": None,
+        "user_id": user_id,
+        "is_app_admin": app_admin,
+    }
     print(f"[OK] Authenticated client connected: {session['username']} (SID: {request.sid})")
     return None
 
@@ -28,6 +39,8 @@ def handle_disconnect():
 
     if user_info:
         room = user_info.get('room')
+        if not room:
+            return
         username = user_info.get('username', '不明なユーザー')
         try:
             broadcast_log(room, f"{username} がルームから切断しました。", 'info')
@@ -50,8 +63,9 @@ def handle_join_room(data):
     requested_role = data.get('role') or data.get('attribute') or PLAYER_ATTRIBUTE
     gm_key = data.get('gm_pin') or data.get('gm_key') or ''
 
-    # 権限の正本は membership。owner/gm なら GM 相当（app admin の自動GM化は廃止）。
-    if get_membership_role(user_id, room) in GM_ROLES:
+    # membershipとアプリ管理者権限を共通境界で解決する。管理者は仮想owner。
+    app_admin = is_user_management_admin(user_id)
+    if resolve_room_role(user_id, room, app_admin=app_admin) in GM_ROLES:
         attribute = GM_ATTRIBUTE
     else:
         # 移行期: GM PIN を GM membership 取得手段として使う。
@@ -62,10 +76,11 @@ def handle_join_room(data):
     session['attribute'] = attribute
 
     # 入室で membership を整える（GM PIN で GM になった場合は gm membership を付与）。
-    try:
-        ensure_join_membership_by_name(room, user_id, attribute == GM_ATTRIBUTE)
-    except Exception:
-        pass
+    if not app_admin:
+        try:
+            ensure_join_membership_by_name(room, user_id, attribute == GM_ATTRIBUTE)
+        except Exception:
+            pass
 
     prev_info = user_sids.get(request.sid)
     prev_room = (prev_info or {}).get('room')
@@ -76,7 +91,8 @@ def handle_join_room(data):
             "username": username,
             "attribute": attribute,
             "room": room,
-            "user_id": session.get('user_id')
+            "user_id": session.get('user_id'),
+            "is_app_admin": app_admin,
         }
         state = get_room_state(room)
         emit('state_updated', state, to=request.sid)
@@ -95,7 +111,8 @@ def handle_join_room(data):
         "username": username,
         "attribute": attribute,
         "room": room,
-        "user_id": session.get('user_id')
+        "user_id": session.get('user_id'),
+        "is_app_admin": app_admin,
     }
 
     print(f"User {username} [{attribute}] (SID: {request.sid}) joined room: {room}")

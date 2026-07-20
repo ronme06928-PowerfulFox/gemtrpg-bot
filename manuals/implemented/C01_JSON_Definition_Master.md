@@ -533,7 +533,7 @@ python scripts/skill_catalog_tool.py build-market-rate --check # 差分があれ
 - 両フィールドは`string[]`。欠損・配列以外は空配列として扱う。
 - 前後空白と空文字を除去し、最初の出現順を保って完全一致の重複を除去する。
 - `disabled_tag_ids`は`tag_ids`の部分集合へ正規化する。
-- 有効タグ取得ヘルパーは`tag_ids - disabled_tag_ids`を返す。conditionは有効タグだけを参照する。PvE対象選択への接続は計画37 PR 4で実装する。
+- 有効タグ取得ヘルパーは`tag_ids - disabled_tag_ids`を返す。conditionとPvE行動チャートの`required_tag_ids`は有効タグだけを参照する。
 - GMが作成するscenarioキャラクターの自由タグは1件25文字以内、改行不可、個数上限なし。
 - プレイヤーキャラクターの送信JSONにある任意タグと無効化指定は信用しない。出身、ボーナス国、取得済み輝化スキルからサーバー側で再構築する。
 - 出身とボーナス国はそれぞれ`出身:国名`を生成する。同じ国なら重複を1件へまとめる。

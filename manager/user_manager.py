@@ -128,7 +128,21 @@ def is_user_management_admin(user_id):
     """ユーザー管理のアプリ管理権限を持つか返す。ルームGM権限とは分離する。"""
     if not user_id:
         return False
-    user = User.query.get(user_id)
+    try:
+        # HTTP routes authenticated by session_required already loaded the
+        # account from the database. Reuse that authoritative object rather
+        # than trusting a value stored inside the browser session.
+        from flask import g, has_request_context
+        if has_request_context():
+            authenticated_user = getattr(g, 'authenticated_user', None)
+            if authenticated_user is not None and str(authenticated_user.id) == str(user_id):
+                return bool(getattr(authenticated_user, 'is_app_admin', False))
+    except RuntimeError:
+        pass
+    # Socket handlers do not pass through session_required. Resolve the
+    # account from the database for every authorization decision so a socket
+    # opened before an admin grant cannot retain obsolete privileges.
+    user = db.session.get(User, user_id)
     return bool(user and getattr(user, "is_app_admin", False))
 
 def set_user_management_admin(user_id, enabled):
