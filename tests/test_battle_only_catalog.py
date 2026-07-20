@@ -133,6 +133,12 @@ def test_bo_preset_save_and_delete_by_gm(monkeypatch):
     state = _base_state()
     store = {'presets': {}}
     emits = _patch_common(monkeypatch, state, store)
+    scenario_json = json.loads(json.dumps(SAMPLE_CHAR_JSON, ensure_ascii=False))
+    scenario_json['data'].update({
+        'characterType': 'scenario',
+        'tag_ids': [' 種別:瓦礫 ', '機械', '種別:瓦礫'],
+        'disabled_tag_ids': ['機械', '未知'],
+    })
 
     socket_battle_only.handle_bo_preset_save(
         {
@@ -141,7 +147,7 @@ def test_bo_preset_save_and_delete_by_gm(monkeypatch):
                 'visibility': 'gm',
                 'allow_ally': True,
                 'allow_enemy': True,
-                'character_json': SAMPLE_CHAR_JSON,
+                'character_json': scenario_json,
             }
         }
     )
@@ -153,6 +159,8 @@ def test_bo_preset_save_and_delete_by_gm(monkeypatch):
     assert rec_id
     assert rec.get('visibility') == 'gm'
     assert rec.get('character_json', {}).get('kind') == 'character'
+    assert rec['character_json']['data']['tag_ids'] == ['種別:瓦礫', '機械']
+    assert rec['character_json']['data']['disabled_tag_ids'] == ['機械']
     assert rec_id in store['presets']
 
     emits.clear()

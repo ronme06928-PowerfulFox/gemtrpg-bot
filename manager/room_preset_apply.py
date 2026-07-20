@@ -6,6 +6,7 @@ import random
 import time
 
 from manager.battle_only_presets import load_store as load_bo_preset_store
+from manager.character_tags import normalize_character_tag_state
 from manager.game_logic import process_battle_start
 from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_rows
 from manager.utils import apply_passive_effect_buffs, normalize_character_labels
@@ -288,6 +289,7 @@ def build_runtime_enemy_from_preset(rec, serial_no, owner_name=None, owner_id=No
         char["SPassive"] = []
     if not isinstance(char.get("radiance_skills"), list):
         char["radiance_skills"] = []
+    normalize_character_tag_state(char)
 
     fallback_states = char.get("states")
     char["states"] = _states_from_status_rows(

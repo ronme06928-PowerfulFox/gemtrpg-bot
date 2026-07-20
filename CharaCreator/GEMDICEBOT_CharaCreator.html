@@ -362,6 +362,70 @@
             background-color: #fff5f5 !important;
             color: #8b0000;
         }
+
+        .character-tag-section {
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid #ddd;
+        }
+
+        .character-tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 30px;
+            margin-top: 8px;
+        }
+
+        .character-tag-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 100%;
+            padding: 5px 8px;
+            border: 1px solid #c7d2e0;
+            border-radius: 4px;
+            background: #f5f7fa;
+        }
+
+        .character-tag-name {
+            overflow-wrap: anywhere;
+        }
+
+        .character-tag-name.is-disabled {
+            color: #b42318;
+            text-decoration: line-through;
+        }
+
+        .character-tag-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin: 0;
+            font-size: 0.8rem;
+            font-weight: normal;
+            white-space: nowrap;
+        }
+
+        .character-tag-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .character-tag-controls input {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .character-tag-remove {
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            border-radius: 4px;
+            font-size: 1rem;
+            line-height: 1;
+        }
     </style>
 </head>
 
@@ -415,6 +479,15 @@
                         <option value="0">0: なし</option>
                         <!-- Options will be populated by JS -->
                     </select>
+                </div>
+            </div>
+            <div class="character-tag-section">
+                <label>キャラクタータグ</label>
+                <div id="character-tag-list" class="character-tag-list"></div>
+                <div id="scenario-tag-controls" class="character-tag-controls" style="display:none;">
+                    <input type="text" id="character-tag-input" placeholder="例: 種別:瓦礫"
+                        onkeydown="handleCharacterTagKeydown(event)">
+                    <button type="button" class="btn-secondary" onclick="addCharacterTag()">追加</button>
                 </div>
             </div>
         </div>
@@ -710,6 +783,8 @@
         let SELECTED_PASSIVES = [];
         let ALL_ITEMS = [];
         let SELECTED_ITEMS = {};
+        let CUSTOM_TAG_IDS = [];
+        let DISABLED_TAG_IDS = [];
         let GLOSSARY_NAME_MAP = {};
         let GLOSSARY_TERM_MAP = {};
         let GLOSSARY_TOOLTIP_ACTIVE_TERM = null;
@@ -736,6 +811,26 @@
             { id: 17, name: "17: エムリダ" }
         ];
 
+        const ORIGIN_TAG_NAMES = {
+            1: "ヨキューク・ツォー",
+            2: "アーク・ジェムリア",
+            3: "ラティウム",
+            4: "アヌッサ・ホロウ",
+            5: "マホロバ",
+            6: "ラグラゼシス(都市部)",
+            7: "ラグラゼシス(非都市部)",
+            8: "ギァン・バルフ",
+            9: "綿津見",
+            10: "シンシア",
+            11: "グラン・リテラール・ブラン",
+            12: "オーセクト",
+            13: "ヴァルヴァイレ",
+            14: "フローディアス",
+            15: "アル・カルメイル",
+            16: "アルトマギア",
+            17: "エムリダ"
+        };
+
         function escapeHtml(value) {
             return String(value ?? '')
                 .replace(/&/g, '&amp;')
@@ -743,6 +838,145 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
+        }
+
+        function normalizeCharacterTagIds(values) {
+            if (!Array.isArray(values)) return [];
+            const seen = new Set();
+            return values.map(value => String(value).trim()).filter(value => {
+                if (!value || seen.has(value)) return false;
+                seen.add(value);
+                return true;
+            });
+        }
+
+        function parseGrantedTagIds(rawValue) {
+            if (Array.isArray(rawValue)) return normalizeCharacterTagIds(rawValue);
+            const text = String(rawValue || '').trim();
+            if (!text) return [];
+            if (text.startsWith('[')) {
+                try {
+                    const parsed = JSON.parse(text);
+                    if (Array.isArray(parsed)) return normalizeCharacterTagIds(parsed);
+                } catch (error) {
+                    // 区切り文字形式として続行する。
+                }
+            }
+            return normalizeCharacterTagIds(text.replace(/\r?\n/g, ',').replace(/、/g, ',').split(','));
+        }
+
+        function getDerivedPlayerTagIds() {
+            const tags = [];
+            ['char-origin', 'char-hometown'].forEach(id => {
+                const countryName = ORIGIN_TAG_NAMES[parseInt(document.getElementById(id).value, 10)];
+                if (countryName) tags.push(`出身:${countryName}`);
+            });
+            SELECTED_RADIANCE.forEach(skill => {
+                tags.push(...normalizeCharacterTagIds(skill.granted_tag_ids));
+            });
+            return normalizeCharacterTagIds(tags);
+        }
+
+        function getCharacterTagState() {
+            const isScenario = document.getElementById('char-type').value === 'scenario';
+            const tagIds = isScenario
+                ? normalizeCharacterTagIds(CUSTOM_TAG_IDS)
+                : getDerivedPlayerTagIds();
+            const known = new Set(tagIds);
+            const disabledTagIds = isScenario
+                ? normalizeCharacterTagIds(DISABLED_TAG_IDS).filter(tagId => known.has(tagId))
+                : [];
+            return { tagIds, disabledTagIds };
+        }
+
+        function renderCharacterTags() {
+            const container = document.getElementById('character-tag-list');
+            const controls = document.getElementById('scenario-tag-controls');
+            if (!container || !controls) return;
+
+            const isScenario = document.getElementById('char-type').value === 'scenario';
+            const { tagIds, disabledTagIds } = getCharacterTagState();
+            const disabled = new Set(disabledTagIds);
+            controls.style.display = isScenario ? 'flex' : 'none';
+            container.innerHTML = '';
+
+            if (tagIds.length === 0) {
+                const empty = document.createElement('span');
+                empty.style.color = '#888';
+                empty.style.fontSize = '0.85rem';
+                empty.textContent = 'タグなし';
+                container.appendChild(empty);
+                return;
+            }
+
+            tagIds.forEach(tagId => {
+                const row = document.createElement('div');
+                row.className = 'character-tag-row';
+                const name = document.createElement('span');
+                name.className = `character-tag-name${disabled.has(tagId) ? ' is-disabled' : ''}`;
+                name.textContent = tagId;
+                row.appendChild(name);
+
+                if (isScenario) {
+                    const toggleLabel = document.createElement('label');
+                    toggleLabel.className = 'character-tag-toggle';
+                    const toggle = document.createElement('input');
+                    toggle.type = 'checkbox';
+                    toggle.checked = !disabled.has(tagId);
+                    toggle.setAttribute('aria-label', `${tagId}を有効にする`);
+                    toggle.addEventListener('change', () => setCharacterTagEnabled(tagId, toggle.checked));
+                    toggleLabel.appendChild(toggle);
+                    toggleLabel.appendChild(document.createTextNode('有効'));
+                    row.appendChild(toggleLabel);
+
+                    const removeButton = document.createElement('button');
+                    removeButton.type = 'button';
+                    removeButton.className = 'btn-danger character-tag-remove';
+                    removeButton.textContent = '×';
+                    removeButton.title = 'タグを削除';
+                    removeButton.setAttribute('aria-label', `${tagId}を削除`);
+                    removeButton.addEventListener('click', () => removeCharacterTag(tagId));
+                    row.appendChild(removeButton);
+                }
+                container.appendChild(row);
+            });
+        }
+
+        function addCharacterTag() {
+            const input = document.getElementById('character-tag-input');
+            const tagId = String(input.value || '').trim();
+            if (!tagId) return;
+            if (/\r|\n/.test(tagId)) {
+                alert('タグ名に改行は使用できません。');
+                return;
+            }
+            if ([...tagId].length > 25) {
+                alert('タグ名は25文字以内で入力してください。');
+                return;
+            }
+            CUSTOM_TAG_IDS = normalizeCharacterTagIds([...CUSTOM_TAG_IDS, tagId]);
+            input.value = '';
+            updateJSON();
+            input.focus();
+        }
+
+        function removeCharacterTag(tagId) {
+            CUSTOM_TAG_IDS = CUSTOM_TAG_IDS.filter(value => value !== tagId);
+            DISABLED_TAG_IDS = DISABLED_TAG_IDS.filter(value => value !== tagId);
+            updateJSON();
+        }
+
+        function setCharacterTagEnabled(tagId, enabled) {
+            DISABLED_TAG_IDS = enabled
+                ? DISABLED_TAG_IDS.filter(value => value !== tagId)
+                : normalizeCharacterTagIds([...DISABLED_TAG_IDS, tagId]);
+            updateJSON();
+        }
+
+        function handleCharacterTagKeydown(event) {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            addCharacterTag();
         }
 
         function normalizeHeaderName(value) {
@@ -1471,6 +1705,7 @@
         function updateJSON() {
             const params = [];
             const addP = (l, id) => params.push({ label: l, value: String(document.getElementById(id).value) });
+            const { tagIds, disabledTagIds } = getCharacterTagState();
 
             // 基本ステータス
             addP("筋力", "p-str"); addP("生命力", "p-vit"); addP("体格", "p-phy"); addP("精神力", "p-mnt"); addP("速度", "p-spd");
@@ -1518,10 +1753,13 @@
                     commands: document.getElementById('char-commands').value,
                     params: params,
                     SPassive: [...SELECTED_RADIANCE.map(s => s.id), ...SELECTED_PASSIVES.map(s => s.id)],
-                    inventory: SELECTED_ITEMS
+                    inventory: SELECTED_ITEMS,
+                    tag_ids: tagIds,
+                    disabled_tag_ids: disabledTagIds
                 }
             };
             document.getElementById('json-output').value = JSON.stringify(data, null, 0);
+            renderCharacterTags();
         }
 
         function copyToClipboard() { document.getElementById('json-output').select(); document.execCommand('copy'); alert("コピーしました"); }
@@ -1854,6 +2092,10 @@
             try {
                 if (j.data) {
                         const d = j.data;
+                        CUSTOM_TAG_IDS = normalizeCharacterTagIds(d.tag_ids);
+                        const knownTagIds = new Set(CUSTOM_TAG_IDS);
+                        DISABLED_TAG_IDS = normalizeCharacterTagIds(d.disabled_tag_ids)
+                            .filter(tagId => knownTagIds.has(tagId));
                         document.getElementById('char-name').value = d.name || "";
                         document.getElementById('char-commands').value = d.commands || "";
 
@@ -2231,6 +2473,10 @@
         window.handleRadianceResponse = function (response) {
             ALL_RADIANCE_SKILLS = [];
             if (response.table && response.table.rows) {
+                const headers = Array.isArray(response.table.cols)
+                    ? response.table.cols.map(col => normalizeHeaderName((col && (col.label || col.id)) || ''))
+                    : [];
+                const grantedTagIndex = findHeaderIndex(headers, ['付与タグ', 'granted_tag_ids']);
                 for (let r = 0; r < response.table.rows.length; r++) {
                     const row = response.table.rows[r].c;
                     if (!row) continue;
@@ -2243,7 +2489,8 @@
                         name: getCol(1),
                         cost: parseInt(getCol(2)) || 0,
                         description: getCol(3),
-                        flavor: getCol(4)
+                        flavor: getCol(4),
+                        granted_tag_ids: parseGrantedTagIds(getCol(grantedTagIndex >= 0 ? grantedTagIndex : 7))
                     });
                 }
             }
@@ -2258,6 +2505,7 @@
             });
 
             document.getElementById('radiance-loading-status').textContent = `完了 (${ALL_RADIANCE_SKILLS.length}件)`;
+            updateJSON();
         };
 
         function addRadianceSkill() {

@@ -516,3 +516,30 @@ python scripts/skill_catalog_tool.py build-market-rate --check # 差分があれ
 ### 12.5 関連テスト
 
 `tests/test_skill_catalog_tool_lint.py`・`tests/test_skill_catalog_tool_warn.py`・`tests/test_skill_catalog_tool_cli.py`・`tests/test_skill_catalog_tool_market_rate.py`・`tests/test_data_manager_lint_hook.py`。`test_skill_catalog_tool_cli.py` は「`lint` のデフォルト実行はWARNを計算しない／`--warn` 指定時のみ計算する／WARNの有無にかかわらずexit codeは0のまま」という運用方針そのものを回帰検証する。`test_f02_market_rate_section_is_up_to_date` は、通常の `pytest -q` 実行だけでF02の相場表とキャッシュ実データの乖離（陳腐化）を検出する。
+
+---
+
+## 13. キャラクタータグ（2026-07-20実装）
+
+キャラクターの固定分類は、キャラクターJSON直下の`tag_ids`へ保存する。一時的に無効化されたタグは削除せず、`disabled_tag_ids`にも格納する。
+
+```json
+{
+  "tag_ids": ["出身:シンシア", "種別:瓦礫"],
+  "disabled_tag_ids": ["種別:瓦礫"]
+}
+```
+
+- 両フィールドは`string[]`。欠損・配列以外は空配列として扱う。
+- 前後空白と空文字を除去し、最初の出現順を保って完全一致の重複を除去する。
+- `disabled_tag_ids`は`tag_ids`の部分集合へ正規化する。
+- 有効タグ取得ヘルパーは`tag_ids - disabled_tag_ids`を返す。conditionとPvE対象選択への接続は計画37 PR 2・PR 4で実装する。
+- GMが作成するscenarioキャラクターの自由タグは1件25文字以内、改行不可、個数上限なし。
+- プレイヤーキャラクターの送信JSONにある任意タグと無効化指定は信用しない。出身、ボーナス国、取得済み輝化スキルからサーバー側で再構築する。
+- 出身とボーナス国はそれぞれ`出身:国名`を生成する。同じ国なら重複を1件へまとめる。
+- 輝化スキルシートの任意列「付与タグ」は、JSON配列またはカンマ・読点・改行区切りで記述でき、キャッシュではトップレベルの`granted_tag_ids`へ正規化する。
+- 独立したタグマスターシートは使用しない。
+
+正規化・派生処理の正本は`manager/character_tags.py`。持ちキャラ作成・更新、ルーム投入、戦闘専用プリセット、ルームプリセット、召喚で同じデータ契約を維持する。プレイヤーキャラクターの保存・投入時には、取得済み輝化スキルのコスト合計が通過点を超えていないこともサーバー側で検証する。
+
+関連テストは`tests/test_character_tags.py`、`tests/test_owned_characters_api.py`、`tests/test_add_character_owned_character.py`、`tests/test_room_preset_apply.py`。

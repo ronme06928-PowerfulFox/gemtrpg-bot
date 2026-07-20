@@ -3,6 +3,7 @@ import csv
 import json
 from io import StringIO
 from manager.logs import setup_logger
+from manager.character_tags import normalize_tag_ids
 from manager.cache_paths import (
     RADIANCE_CACHE_FILE,
     LEGACY_RADIANCE_CACHE_FILE,
@@ -14,6 +15,30 @@ logger = setup_logger(__name__)
 
 # CSV公開URL
 RADIANCE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkulkkIx6AQEHBKJiAqnjyzEQX5itUVV3SDwi40sLmXeiVQbXvg0RmMS3-XLSwNo2YHsF3WybyHjMu/pub?gid=0&single=true&output=csv'
+
+
+def parse_granted_tag_ids(raw_value):
+    """Parse the optional 付与タグ cell as JSON or a delimited list."""
+    if isinstance(raw_value, list):
+        return normalize_tag_ids(raw_value)
+
+    text = str(raw_value or '').strip()
+    if not text:
+        return []
+
+    if text.startswith('['):
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, list):
+            return normalize_tag_ids(parsed)
+
+    return normalize_tag_ids(
+        text.replace('\r', '\n').replace('、', ',').replace('\n', ',').split(',')
+    )
+
+
 class RadianceSkillLoader:
     """輝化スキルのCSV URL読み込み"""
 
@@ -57,7 +82,8 @@ class RadianceSkillLoader:
                         "description": row.get("スキル効果", ""),
                         "flavor": row.get("フレーバーテキスト", ""),
                         "effect": effect,
-                        "duration": duration  # ★ 追加
+                        "duration": duration,  # ★ 追加
+                        "granted_tag_ids": parse_granted_tag_ids(row.get("付与タグ", "")),
                     }
                 except (json.JSONDecodeError, ValueError) as e:
                     logger.warning(f"スキル {skill_id} のパースに失敗: {e}")

@@ -18,6 +18,15 @@ function parseCharacterJsonToCharacterData(type, jsonString, options = {}) {
             return Number.isFinite(n) ? n : fallback;
         };
         const clone = (obj) => JSON.parse(JSON.stringify(obj));
+        const normalizeStringList = (values) => {
+            if (!Array.isArray(values)) return [];
+            const seen = new Set();
+            return values.map((value) => String(value).trim()).filter((value) => {
+                if (!value || seen.has(value)) return false;
+                seen.add(value);
+                return true;
+            });
+        };
 
         const rawStatuses = Array.isArray(data.status) ? clone(data.status) : [];
         const normalizedStatuses = rawStatuses.map((row) => {
@@ -76,6 +85,10 @@ function parseCharacterJsonToCharacterData(type, jsonString, options = {}) {
         charData.inventory = (data.inventory && typeof data.inventory === 'object') ? clone(data.inventory) : {};
         if (!Array.isArray(charData.hidden_skills)) charData.hidden_skills = [];
         if (!Array.isArray(charData.radiance_skills)) charData.radiance_skills = [];
+        charData.tag_ids = normalizeStringList(data.tag_ids);
+        const knownTagIds = new Set(charData.tag_ids);
+        charData.disabled_tag_ids = normalizeStringList(data.disabled_tag_ids)
+            .filter((tagId) => knownTagIds.has(tagId));
         if (!Array.isArray(charData.special_buffs)) charData.special_buffs = [];
         if (!charData.flags || typeof charData.flags !== 'object') charData.flags = {};
 

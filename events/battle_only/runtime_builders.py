@@ -3,6 +3,8 @@ import copy
 import random
 import time
 
+from manager.character_tags import normalize_character_tag_state
+
 
 def _safe_int(value, default=0):
     try:
@@ -131,6 +133,7 @@ def _build_runtime_character_from_preset(rec, char_type, serial_no):
         char['SPassive'] = []
     if not isinstance(char.get('radiance_skills'), list):
         char['radiance_skills'] = []
+    normalize_character_tag_state(char)
 
     fallback_states = char.get('states')
     char['states'] = _states_from_status_rows(status_rows, fallback_states if isinstance(fallback_states, list) else [])

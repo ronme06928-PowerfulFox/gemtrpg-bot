@@ -325,26 +325,6 @@ function renderCharacterCard(char) {
     const coreStats = ['筋力', '生命力', '体格', '精神力', '速度', '直感', '経験', '物理補正', '魔法補正'];
     const explorationStats = ['五感', '採取', '本能', '鑑定', '対話', '尋問', '諜報', '窃取', '隠密', '運動', '制作', '回避'];
 
-    const ORIGIN_NAMES = {
-        1: "ヨキューク・ツォー",
-        2: "アーク・ジェムリア",
-        3: "ラティウム",
-        4: "アヌッサ・ホロウ",
-        5: "マホロバ",
-        6: "ラグラゼシス(都市部)",
-        7: "ラグラゼシス(非都市部)",
-        8: "ギァン・バルフ",
-        9: "綿津見",
-        10: "シンシア",
-        11: "グラン・リテラール・ブラン",
-        12: "オーセクト",
-        13: "ヴァルヴァイレ",
-        14: "フローディアス",
-        15: "アル・カルメイル",
-        16: "アルトマギア",
-        17: "エムリダ"
-    };
-
     // Normalize params to array of objects
     let charParams = [];
     if (Array.isArray(char.params)) {
@@ -390,33 +370,6 @@ function renderCharacterCard(char) {
         <div class="params-container params-exploration" style="display:${displayExploration};">
             ${renderParamsGrid(explorationStats)}
         </div>
-        ${(() => {
-            const originParam = charParams.find(p => p.label === '出身');
-            const bonusParam = charParams.find(p => p.label === 'ボーナス');
-            let originText = "不明";
-            let bonusText = "";
-
-            if (originParam) {
-                const originId = parseInt(originParam.value, 10);
-                if (originId === 0) return ''; // 出身なしの場合は表示しない、または「出身なし」と表示するか？ここでは表示しないか、シンプルにする
-                originText = ORIGIN_NAMES[originId] || "その他/不明";
-
-                if ([1, 2, 12].includes(originId) && bonusParam) {
-                    const bonusId = parseInt(bonusParam.value, 10);
-                    if (bonusId > 0 && ORIGIN_NAMES[bonusId]) {
-                        // ヨキューク、アーク・ジェムリア、オーセクトの場合はボーナス国を表示
-                        bonusText = ` <span style="color:#666; font-weight:normal;">(ボーナス: ${ORIGIN_NAMES[bonusId]})</span>`;
-                    }
-                }
-                return `
-                <div style="margin-top: 8px; font-size: 0.9em; color: #555; background: #f9f9f9; padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd; display: flex; align-items: center;">
-                    <span style="font-weight: bold; margin-right: 6px; color: #333;">出身:</span>
-                    <span style="font-weight: bold; color: #222;">${originText}</span>
-                    ${bonusText}
-                </div>`;
-            }
-            return '';
-        })()}
     `;
 
     // ... (rest of renderCharacterCard) ...
@@ -472,6 +425,27 @@ function renderCharacterCard(char) {
             .replace(/{{\s*duration\s*}}/gi, duration);
     };
     const charIdAttr = escapeDetailHtml((char && char.id != null) ? char.id : '');
+    const normalizeDetailTagIds = (values) => {
+        if (!Array.isArray(values)) return [];
+        const seen = new Set();
+        return values.map((value) => String(value).trim()).filter((value) => {
+            if (!value || seen.has(value)) return false;
+            seen.add(value);
+            return true;
+        });
+    };
+    const detailTagIds = normalizeDetailTagIds(char.tag_ids);
+    const knownDetailTagIds = new Set(detailTagIds);
+    const disabledDetailTagIds = new Set(
+        normalizeDetailTagIds(char.disabled_tag_ids).filter((tagId) => knownDetailTagIds.has(tagId))
+    );
+    const characterTagsHtml = detailTagIds.length > 0
+        ? `<div class="character-detail-tags">${detailTagIds.map((tagId) => {
+            const disabledClass = disabledDetailTagIds.has(tagId) ? ' is-disabled' : '';
+            const title = disabledDetailTagIds.has(tagId) ? ' title="無効化中"' : '';
+            return `<span class="character-detail-tag${disabledClass}"${title}>${escapeDetailHtml(tagId)}</span>`;
+        }).join('')}</div>`
+        : '';
 
     // --- States (Stack) ---
     let statesHtml = '';
@@ -964,7 +938,10 @@ function renderCharacterCard(char) {
         ${inlineStyle}
         <div class="char-detail-modal-content" data-char-id="${charIdAttr}" style="padding:10px; width:650px; max-width:90vw;">
             <div class="detail-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid #eee;">
-                <h2 style="margin:0; font-size:1.6em; font-weight:800; border-left:5px solid ${char.color}; padding-left:12px; letter-spacing:-0.01em; line-height:1.3;">${char.name}</h2>
+                <div class="character-detail-identity">
+                    <h2 style="margin:0; font-size:1.6em; font-weight:800; border-left:5px solid ${char.color}; padding-left:12px; letter-spacing:0; line-height:1.3;">${char.name}</h2>
+                    ${characterTagsHtml}
+                </div>
                 <div style="display:flex; gap:15px; align-items:center;">
                     <button class="modal-settings-btn" id="modal-settings-trigger" style="background:none; border:none; font-size:1.5em; cursor:pointer; color:#555;" title="設定">⚙</button>
                     <button class="modal-close-btn" style="background:none; border:none; font-size:2em; cursor:pointer; color:#888; line-height:1;">&times;</button>

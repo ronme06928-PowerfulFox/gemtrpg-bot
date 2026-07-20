@@ -6,6 +6,7 @@ import re
 import time
 
 from extensions import all_skill_data
+from manager.character_tags import normalize_character_tag_state
 from manager.logs import setup_logger
 from manager.summons.loader import get_summon_template
 from manager.utils import apply_passive_effect_buffs
@@ -256,6 +257,10 @@ def apply_summon_change(room, state, summoner, payload):
     hidden_skills = copy.deepcopy(payload.get("hidden_skills", template.get("hidden_skills", [])))
     s_passive = copy.deepcopy(payload.get("SPassive", template.get("SPassive", [])))
     radiance_skills = copy.deepcopy(payload.get("radiance_skills", template.get("radiance_skills", [])))
+    tag_ids = copy.deepcopy(payload.get("tag_ids", template.get("tag_ids", [])))
+    disabled_tag_ids = copy.deepcopy(
+        payload.get("disabled_tag_ids", template.get("disabled_tag_ids", []))
+    )
 
     hp = _safe_int(payload.get("hp", template.get("hp", template.get("maxHp", 1))), 1)
     max_hp = max(1, _safe_int(payload.get("maxHp", template.get("maxHp", hp)), hp))
@@ -284,6 +289,8 @@ def apply_summon_change(room, state, summoner, payload):
         "hidden_skills": hidden_skills,
         "SPassive": s_passive,
         "radiance_skills": radiance_skills,
+        "tag_ids": tag_ids,
+        "disabled_tag_ids": disabled_tag_ids,
         "speedRoll": 0,
         "hasActed": False,
         "owner": owner_name,
@@ -307,6 +314,7 @@ def apply_summon_change(room, state, summoner, payload):
     if "initial_data" not in new_char:
         new_char["initial_data"] = _build_initial_data_from_params(new_char.get("params", []))
 
+    normalize_character_tag_state(new_char)
     new_char = _apply_radiance_if_needed(new_char)
 
     new_char["initial_state"] = {

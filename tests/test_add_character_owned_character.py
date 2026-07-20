@@ -56,7 +56,7 @@ def _make_emit_capture():
     return emits, lambda event, payload=None, to=None: emits.append((event, payload or {}, to))
 
 
-def _patch_char(monkeypatch, state, user_id):
+def _patch_char(monkeypatch, state, user_id, attribute="Player"):
     emits, capture = _make_emit_capture()
     monkeypatch.setattr(socket_char, "request", SimpleNamespace(sid="sid_t"))
     monkeypatch.setattr(socket_char, "is_sid_in_room", lambda _sid, _room: True)
@@ -65,7 +65,7 @@ def _patch_char(monkeypatch, state, user_id):
     monkeypatch.setattr(socket_char, "broadcast_state_update", lambda *_a, **_kw: None)
     monkeypatch.setattr(socket_char, "broadcast_log", lambda *_a, **_kw: None)
     monkeypatch.setattr(socket_char, "get_user_info_from_sid",
-                         lambda _sid: {"username": "tester", "attribute": "Player"})
+                         lambda _sid: {"username": "tester", "attribute": attribute})
     monkeypatch.setattr(socket_char, "session", {"user_id": user_id})
     monkeypatch.setattr(socket_char, "emit", capture)
     monkeypatch.setattr(socket_char.socketio, "emit",
@@ -150,3 +150,58 @@ def test_investing_copy_does_not_mutate_owned_character_data(app_ctx, monkeypatc
         db.session.expire_all()
         owned_after = OwnedCharacter.query.get("owned_1")
         assert owned_after.data["status"][0]["value"] == 20
+
+
+def test_player_room_entry_rebuilds_tags_from_trusted_fields(app_ctx, monkeypatch):
+    with app_ctx.app_context():
+        monkeypatch.setattr(
+            socket_char.radiance_loader,
+            "load_skills",
+            lambda force_refresh=False: {
+                "S-TAG": {"id": "S-TAG", "cost": 1, "granted_tag_ids": ["特性:機械知識"]}
+            },
+        )
+        state = _base_state()
+        _patch_char(monkeypatch, state, user_id="owner")
+
+        socket_char.handle_add_character({
+            "room": "room_t",
+            "charData": {
+                "name": "投入テストキャラ",
+                "type": "ally",
+                "characterType": "player",
+                "params": [
+                    {"label": "出身", "value": "10"},
+                    {"label": "通過点", "value": "1"},
+                ],
+                "SPassive": ["S-TAG"],
+                "tag_ids": ["種別:瓦礫"],
+                "disabled_tag_ids": ["種別:瓦礫"],
+            },
+        })
+
+        char = state["characters"][0]
+        assert char["tag_ids"] == ["出身:シンシア", "特性:機械知識"]
+        assert char["disabled_tag_ids"] == []
+
+
+def test_gm_scenario_room_entry_preserves_free_tag_state(app_ctx, monkeypatch):
+    with app_ctx.app_context():
+        state = _base_state()
+        _patch_char(monkeypatch, state, user_id="owner", attribute="GM")
+
+        socket_char.handle_add_character({
+            "room": "room_t",
+            "charData": {
+                "name": "瓦礫",
+                "type": "enemy",
+                "characterType": "scenario",
+                "isNPC": True,
+                "tag_ids": ["種別:瓦礫", "機械"],
+                "disabled_tag_ids": ["機械"],
+            },
+        })
+
+        char = state["characters"][0]
+        assert char["tag_ids"] == ["種別:瓦礫", "機械"]
+        assert char["disabled_tag_ids"] == ["機械"]

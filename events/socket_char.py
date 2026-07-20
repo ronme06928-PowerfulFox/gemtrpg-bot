@@ -21,6 +21,14 @@ from manager.utils import (
 )
 from manager.json_rule_audit import append_audit
 from manager.room_access import is_sid_in_room
+from manager.character_tags import (
+    CharacterTagValidationError,
+    apply_character_tag_policy,
+    is_scenario_character,
+    normalize_character_tag_state,
+    validate_player_radiance_budget,
+)
+from manager.radiance.loader import radiance_loader
 
 
 def _require_in_room(room):
@@ -66,10 +74,27 @@ def handle_add_character(data):
         return
     if not _require_in_room(room):
         return
+    char_data = copy.deepcopy(char_data)
     owned_character_id = _resolve_owned_character_tag(data)
     if owned_character_id:
-        char_data = copy.deepcopy(char_data)
         char_data['owned_character_id'] = owned_character_id
+    user_info = get_user_info_from_sid(request.sid)
+    allow_gm_tags = (
+        str(user_info.get("attribute", "")).strip().upper() == "GM"
+        and is_scenario_character(char_data)
+    )
+    radiance_skills = radiance_loader.load_skills()
+    try:
+        if not allow_gm_tags:
+            validate_player_radiance_budget(char_data, radiance_skills)
+        apply_character_tag_policy(
+            char_data,
+            allow_gm_tags=allow_gm_tags,
+            radiance_catalog=radiance_skills,
+        )
+    except CharacterTagValidationError as exc:
+        emit('error', {'message': str(exc)}, to=request.sid)
+        return
     state = get_room_state(room)
     baseName = char_data.get('name', '名前不明')
     type = char_data.get('type', 'enemy')
@@ -95,7 +120,6 @@ def handle_add_character(data):
     char_data['baseName'] = baseName
     char_data['name'] = displayName
 
-    user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
 
     # === ▼▼▼ 追加: 所有者情報の記録 ▼▼▼
@@ -953,6 +977,7 @@ def _normalize_enemy_for_preset(enemy):
         normalized['flags'] = flags
     if 'behavior_profile' in flags:
         flags['behavior_profile'] = _normalize_behavior_profile_safe(flags.get('behavior_profile'))
+    normalize_character_tag_state(normalized)
     return normalized
 
 

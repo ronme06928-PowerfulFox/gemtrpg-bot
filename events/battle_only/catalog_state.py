@@ -4,7 +4,13 @@ import json
 import random
 import time
 
+from manager.character_tags import (
+    apply_character_tag_policy,
+    is_scenario_character,
+    validate_player_radiance_budget,
+)
 from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_rows
+from manager.radiance.loader import radiance_loader
 
 
 def _safe_int(value, default=0):
@@ -61,8 +67,20 @@ def _normalize_preset_record(payload, user_info, existing=None):
     if not isinstance(character_json, dict):
         raise ValueError('character_json が不正です。')
 
-    # 保存時は無変換で保持する（要求仕様）。
     character_json_raw = copy.deepcopy(character_json)
+    character_data = (
+        character_json_raw.get('data')
+        if isinstance(character_json_raw.get('data'), dict)
+        else character_json_raw
+    )
+    radiance_skills = radiance_loader.load_skills()
+    if not is_scenario_character(character_data):
+        validate_player_radiance_budget(character_data, radiance_skills)
+    apply_character_tag_policy(
+        character_data,
+        allow_gm_tags=True,
+        radiance_catalog=radiance_skills,
+    )
 
     try:
         created_at = int(current.get('created_at', now_ms) or now_ms)

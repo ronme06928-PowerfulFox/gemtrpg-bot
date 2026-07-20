@@ -5,6 +5,7 @@ update_owned_character / delete_owned_character / grow_owned_character を担う
 持ちキャラは所有者本人のみ参照・変更できる。
 """
 
+import copy
 import re
 import uuid
 from datetime import datetime, timezone
@@ -12,6 +13,13 @@ from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, session
 
 from extensions import db, all_skill_data
+from manager.character_tags import (
+    CharacterTagValidationError,
+    apply_character_tag_policy,
+    is_scenario_character,
+    normalize_character_tag_state,
+    validate_player_radiance_budget,
+)
 from manager.radiance.loader import radiance_loader
 from models import OwnedCharacter
 from manager.utils import session_required
@@ -141,8 +149,42 @@ def compute_radiance_used(data, radiance_skills):
     return total
 
 
+def _session_can_author_gm_tags(data):
+    return session.get('attribute') == 'GM' and is_scenario_character(data)
+
+
+def _prepare_character_data(data):
+    """Copy, validate, and normalize character data before persistence."""
+    prepared = copy.deepcopy(data)
+    radiance_skills = radiance_loader.load_skills()
+    allow_gm_tags = _session_can_author_gm_tags(prepared)
+
+    try:
+        if not allow_gm_tags:
+            validate_player_radiance_budget(prepared, radiance_skills)
+        apply_character_tag_policy(
+            prepared,
+            allow_gm_tags=allow_gm_tags,
+            radiance_catalog=radiance_skills,
+        )
+    except CharacterTagValidationError as exc:
+        return None, str(exc)
+    return prepared, None
+
+
 def _character_to_dict_with_exp(character):
     payload = character.to_dict()
+    prepared_data = copy.deepcopy(character.data or {})
+    radiance_skills = radiance_loader.load_skills()
+    if is_scenario_character(prepared_data):
+        normalize_character_tag_state(prepared_data)
+    else:
+        apply_character_tag_policy(
+            prepared_data,
+            allow_gm_tags=False,
+            radiance_catalog=radiance_skills,
+        )
+    payload['data'] = prepared_data
     param_spent = compute_param_growth_spent(character.growth_log or [])
     skill_used_exp = compute_used_exp(character.data or {})
     used_exp = skill_used_exp + param_spent
@@ -154,7 +196,6 @@ def _character_to_dict_with_exp(character):
     # 残り経験値を渡すと既存スキルのコストを二重に差し引いてしまう）。
     payload['skill_exp_budget'] = int(character.exp_total or 0) - param_spent
 
-    radiance_skills = radiance_loader.load_skills()
     radiance_limit = compute_radiance_limit(character.data or {})
     radiance_used = compute_radiance_used(character.data or {}, radiance_skills)
     payload['radiance_limit'] = radiance_limit
@@ -228,6 +269,9 @@ def create_owned_character():
     data, error = _extract_character_payload(payload)
     if error:
         return jsonify({"error": error}), 400
+    data, error = _prepare_character_data(data)
+    if error:
+        return jsonify({"error": error}), 400
 
     character = OwnedCharacter(
         id=f"owned_{uuid.uuid4().hex}",
@@ -255,6 +299,9 @@ def update_owned_character(character_id):
 
     payload = request.get_json(silent=True) or {}
     data, error = _extract_character_payload(payload)
+    if error:
+        return jsonify({"error": error}), 400
+    data, error = _prepare_character_data(data)
     if error:
         return jsonify({"error": error}), 400
 
@@ -378,6 +425,15 @@ def grow_owned_character(character_id):
         if not found:
             params.append({'label': label, 'value': str(delta)})
     data['params'] = params
+
+    if is_scenario_character(data):
+        normalize_character_tag_state(data)
+    else:
+        apply_character_tag_policy(
+            data,
+            allow_gm_tags=False,
+            radiance_catalog=radiance_skills,
+        )
 
     character.data = data
     character.name = str(data.get('name') or character.name).strip()

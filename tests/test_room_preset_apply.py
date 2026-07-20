@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 
 from manager import room_preset_apply
@@ -277,3 +279,16 @@ def test_enemy_formation_append_mode_is_reserved_for_future_option():
         )
 
     assert exc.value.code == "unsupported_mode"
+
+
+def test_runtime_enemy_preserves_normalized_tag_state():
+    record = copy.deepcopy(_store()["character_presets"]["enemy_1"])
+    record["character_json"]["data"].update({
+        "tag_ids": [" 種別:瓦礫 ", "機械", "種別:瓦礫"],
+        "disabled_tag_ids": ["機械", "未知"],
+    })
+
+    enemy = room_preset_apply.build_runtime_enemy_from_preset(record, 1)
+
+    assert enemy["tag_ids"] == ["種別:瓦礫", "機械"]
+    assert enemy["disabled_tag_ids"] == ["機械"]

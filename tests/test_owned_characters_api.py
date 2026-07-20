@@ -8,6 +8,7 @@ import pytest
 from app import create_app
 from extensions import db
 from models import User, OwnedCharacter
+import routes.owned_characters as owned_routes
 from routes.owned_characters import OWNED_CHARACTER_LIMIT
 
 
@@ -107,6 +108,103 @@ def test_update_owned_character(client):
     resp = client.get("/api/owned_characters")
     characters = resp.get_json()["characters"]
     assert characters[0]["name"] == "改名後"
+
+
+def test_player_create_rebuilds_tags_and_discards_disabled_tags(client, monkeypatch):
+    monkeypatch.setattr(
+        owned_routes.radiance_loader,
+        "load_skills",
+        lambda force_refresh=False: {
+            "S-TAG": {"id": "S-TAG", "cost": 1, "granted_tag_ids": ["特性:機械知識"]}
+        },
+    )
+    _login(client, "owner")
+    payload = _sample_payload()
+    payload["data"].update({
+        "characterType": "player",
+        "params": [
+            {"label": "出身", "value": "1"},
+            {"label": "ボーナス", "value": "2"},
+            {"label": "通過点", "value": "1"},
+        ],
+        "SPassive": ["S-TAG"],
+        "tag_ids": ["種別:瓦礫"],
+        "disabled_tag_ids": ["種別:瓦礫"],
+    })
+
+    resp = client.post("/api/owned_characters", json=payload)
+
+    assert resp.status_code == 201
+    data = resp.get_json()["character"]["data"]
+    assert data["tag_ids"] == [
+        "出身:ヨキューク・ツォー",
+        "出身:アーク・ジェムリア",
+        "特性:機械知識",
+    ]
+    assert data["disabled_tag_ids"] == []
+
+
+def test_player_create_rejects_radiance_overspend(client, monkeypatch):
+    monkeypatch.setattr(
+        owned_routes.radiance_loader,
+        "load_skills",
+        lambda force_refresh=False: {"S-TAG": {"id": "S-TAG", "cost": 2}},
+    )
+    _login(client, "owner")
+    payload = _sample_payload()
+    payload["data"].update({
+        "params": [{"label": "通過点", "value": "1"}],
+        "SPassive": ["S-TAG"],
+    })
+
+    resp = client.post("/api/owned_characters", json=payload)
+
+    assert resp.status_code == 400
+    assert "通過点が不足" in resp.get_json()["error"]
+
+
+def test_gm_scenario_create_preserves_free_and_disabled_tags(client):
+    _login(client, "owner")
+    with client.session_transaction() as session_data:
+        session_data["attribute"] = "GM"
+    payload = _sample_payload()
+    payload["data"].update({
+        "characterType": "scenario",
+        "isNPC": True,
+        "tag_ids": [" 種別:瓦礫 ", "機械"],
+        "disabled_tag_ids": ["機械", "未知"],
+    })
+
+    resp = client.post("/api/owned_characters", json=payload)
+
+    assert resp.status_code == 201
+    character = resp.get_json()["character"]
+    data = character["data"]
+    assert data["tag_ids"] == ["種別:瓦礫", "機械"]
+    assert data["disabled_tag_ids"] == ["機械"]
+
+    with client.session_transaction() as session_data:
+        session_data["attribute"] = "Player"
+    fetched = client.get(f"/api/owned_characters/{character['id']}").get_json()["character"]["data"]
+    assert fetched["tag_ids"] == ["種別:瓦礫", "機械"]
+    assert fetched["disabled_tag_ids"] == ["機械"]
+
+
+def test_gm_scenario_create_rejects_tag_over_25_characters(client):
+    _login(client, "owner")
+    with client.session_transaction() as session_data:
+        session_data["attribute"] = "GM"
+    payload = _sample_payload()
+    payload["data"].update({
+        "characterType": "scenario",
+        "isNPC": True,
+        "tag_ids": ["あ" * 26],
+    })
+
+    resp = client.post("/api/owned_characters", json=payload)
+
+    assert resp.status_code == 400
+    assert "25文字以内" in resp.get_json()["error"]
 
 
 def test_delete_owned_character_is_soft_delete(client, app_ctx):
