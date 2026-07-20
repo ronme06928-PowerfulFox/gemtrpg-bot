@@ -36,3 +36,10 @@ def test_lint_exit_code_is_unaffected_by_warnings(capsys):
     # --warn を付けても、ERROR がなければ exit code は 0 のまま
     # （相場逸脱は運用のブロッカーにしない、という方針の直接的な検証）。
     assert main(["lint", "--warn"]) == 0
+
+
+def test_market_rate_command_prints_report_without_modifying_f02(capsys):
+    assert main(["build-market-rate"]) == 0
+    out = capsys.readouterr().out
+    assert "オンデマンド生成" in out
+    assert "現行カタログの構成" in out

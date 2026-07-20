@@ -42,6 +42,3 @@ jobs:
 
       - name: Run skill catalog lint (schema/reference errors only, no market-rate warnings)
         run: python scripts/skill_catalog_tool.py lint
-
-      - name: Check F02 market-rate section is up to date (計画書31)
-        run: python scripts/skill_catalog_tool.py build-market-rate --check

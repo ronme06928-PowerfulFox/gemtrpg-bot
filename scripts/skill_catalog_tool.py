@@ -1,5 +1,5 @@
 """
-スキルカタログ lint / 相場自動集計ツール
+スキルカタログ lint / 相場レポート生成ツール
 --------------------------------------
 計画書 manuals/planned/31_Skill_Data_Lint_Market_Rate_Plan.md に基づく統合CLI。
 
@@ -10,14 +10,13 @@
                       データが壊れていなければ相場の多少の逸脱は運用上気にしない方針のため、
                       日常運用（--update・CI）には組み込んでいない。任意で確認したい時だけ
                       `--warn` を付けて実行する（exit code には影響しない、あくまで参考情報）。
-    build-market-rate F02 相場表の自動再集計
+    build-market-rate 現在のキャッシュから相場レポートを標準出力する（任意確認用）
 
 実行:
     python scripts/skill_catalog_tool.py lint
     python scripts/skill_catalog_tool.py lint --warn      # 相場逸脱WARNも見る場合
     python scripts/skill_catalog_tool.py lint --json
     python scripts/skill_catalog_tool.py build-market-rate
-    python scripts/skill_catalog_tool.py build-market-rate --check
 """
 import argparse
 import json
@@ -356,12 +355,8 @@ def cmd_lint(args):
 
 
 # ---------------------------------------------------------------------------
-# build-market-rate（計画書31 Phase 2）
+# build-market-rate（オンデマンド相場レポート）
 # ---------------------------------------------------------------------------
-
-F02_PATH = REPO_ROOT / "manuals" / "implemented" / "F02_Battle_Balance_Designer_Skill_Manual.md"
-MARKET_RATE_BEGIN = "<!-- BEGIN:market-rate -->"
-MARKET_RATE_END = "<!-- END:market-rate -->"
 
 _PREFIX_RE = re.compile(r"^([A-Za-z]+)")
 _DICE_AVG_RE = re.compile(r"\+1d(\d+)")
@@ -646,9 +641,10 @@ def build_effect_type_notes_section(skills):
 def build_market_rate_markdown(skills):
     total = len(skills)
     header = (
-        f"*本セクションは `scripts/skill_catalog_tool.py build-market-rate` により自動生成される"
+        f"*本レポートは `scripts/skill_catalog_tool.py build-market-rate` によりオンデマンド生成された"
         f"（全{total}件、`data/cache/skills_cache.json` 集計）。"
-        "手動で編集しないこと。数値基準の正本は引き続き上記「スキルバランス調整基準」（確定版）。*"
+        "数値基準の正本は `manuals/implemented/F02_Battle_Balance_Designer_Skill_Manual.md` の"
+        "「スキルバランス調整基準」（確定版）。*"
     )
     sections = [
         header,
@@ -661,36 +657,9 @@ def build_market_rate_markdown(skills):
     return "\n\n".join(sections)
 
 
-def _splice_market_rate_section(doc_text, new_body):
-    begin_idx = doc_text.find(MARKET_RATE_BEGIN)
-    end_idx = doc_text.find(MARKET_RATE_END)
-    if begin_idx == -1 or end_idx == -1 or end_idx < begin_idx:
-        raise RuntimeError(
-            f"{MARKET_RATE_BEGIN} / {MARKET_RATE_END} マーカーが {F02_PATH} に見つかりません。"
-        )
-    before = doc_text[: begin_idx + len(MARKET_RATE_BEGIN)]
-    after = doc_text[end_idx:]
-    return f"{before}\n\n{new_body}\n\n{after}"
-
-
 def cmd_build_market_rate(args):
     skills = load_skills()
-    new_body = build_market_rate_markdown(skills)
-
-    current_text = F02_PATH.read_text(encoding="utf-8")
-    new_text = _splice_market_rate_section(current_text, new_body)
-
-    if new_text == current_text:
-        print("F02 の相場表は最新です（差分なし）。")
-        return 0
-
-    if args.check:
-        print("NG: F02 の相場表がキャッシュの実データと乖離しています。", file=sys.stderr)
-        print("再生成するには `python scripts/skill_catalog_tool.py build-market-rate` を実行してください。", file=sys.stderr)
-        return 1
-
-    F02_PATH.write_text(new_text, encoding="utf-8")
-    print(f"OK: F02 の相場表を更新しました（全{len(skills)}件）。")
+    print(build_market_rate_markdown(skills))
     return 0
 
 
@@ -706,8 +675,7 @@ def main(argv=None):
     )
     p_lint.set_defaults(func=cmd_lint)
 
-    p_market = sub.add_parser("build-market-rate", help="F02 相場表の自動再集計")
-    p_market.add_argument("--check", action="store_true", help="差分があれば失敗させる（CI向け）")
+    p_market = sub.add_parser("build-market-rate", help="現在のキャッシュから相場レポートを表示する")
     p_market.set_defaults(func=cmd_build_market_rate)
 
     args = parser.parse_args(argv)

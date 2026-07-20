@@ -1,32 +1,16 @@
 from scripts.skill_catalog_tool import (
-    F02_PATH,
-    MARKET_RATE_BEGIN,
-    MARKET_RATE_END,
     build_market_rate_markdown,
     load_skills,
 )
 
 
-def test_f02_market_rate_section_is_up_to_date():
-    """計画書31 Phase2: F02 のB群相場表はキャッシュ実データと常に一致していること。
-
-    `python scripts/skill_catalog_tool.py build-market-rate` の実行漏れをCIで検出する。
-    """
+def test_market_rate_report_is_generated_from_current_cache():
+    """相場レポートはF02を同期対象にせず、現在のキャッシュからオンデマンド生成する。"""
     skills = load_skills()
-    current_text = F02_PATH.read_text(encoding="utf-8")
-
-    begin_idx = current_text.find(MARKET_RATE_BEGIN)
-    end_idx = current_text.find(MARKET_RATE_END)
-    assert begin_idx != -1 and end_idx != -1, "F02 に market-rate マーカーが見つからない"
-
-    current_body = current_text[begin_idx + len(MARKET_RATE_BEGIN):end_idx].strip()
-
-    expected_body = build_market_rate_markdown(skills).strip()
-
-    assert current_body == expected_body, (
-        "F02 の相場表が古い可能性があります。"
-        " `python scripts/skill_catalog_tool.py build-market-rate` を実行してください。"
-    )
+    body = build_market_rate_markdown(skills)
+    assert f"全{len(skills)}件" in body
+    assert "オンデマンド生成" in body
+    assert "F02_Battle_Balance_Designer_Skill_Manual.md" in body
 
 
 def test_state_apply_table_excludes_resource_stats():
