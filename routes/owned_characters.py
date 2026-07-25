@@ -22,7 +22,11 @@ from manager.character_tags import (
 )
 from manager.radiance.loader import radiance_loader
 from models import OwnedCharacter
-from manager.utils import session_required
+from manager.utils import (
+    normalize_character_labels,
+    normalize_status_name,
+    session_required,
+)
 
 owned_characters_bp = Blueprint('owned_characters', __name__)
 
@@ -156,6 +160,7 @@ def _session_can_author_gm_tags(data):
 def _prepare_character_data(data):
     """Copy, validate, and normalize character data before persistence."""
     prepared = copy.deepcopy(data)
+    normalize_character_labels(prepared)
     radiance_skills = radiance_loader.load_skills()
     allow_gm_tags = _session_can_author_gm_tags(prepared)
 
@@ -353,7 +358,8 @@ def grow_owned_character(character_id):
         except (TypeError, ValueError):
             continue
         if delta_int > 0:
-            param_increases[str(label)] = delta_int
+            # 旧称（例: 速度）で送られても保存済みラベルと突き合わせられるよう正規化する。
+            param_increases[normalize_status_name(label)] = delta_int
 
     if not add_skill_ids and not add_radiance_ids and not param_increases:
         return jsonify({"error": "追加するスキルまたはパラメータ上昇を指定してください。"}), 400
@@ -411,7 +417,12 @@ def grow_owned_character(character_id):
     # 共有されたままになる。ここでインプレース変更すると「変更前」スナップショットまで
     # 一緒に書き換わってしまい、SQLAlchemyの変更検知が「差分なし」と誤判定してUPDATEを
     # 発行しなくなる（コミット後に値が元に戻る）。paramsの要素は必ずコピーしてから変更する。
+    # 保存済みデータには旧称ラベル（例: 速度）が残るため、突き合わせ前に正規化して
+    # 同じパラメータが二重に生えるのを防ぐ。
     params = [dict(p) if isinstance(p, dict) else p for p in (data.get('params') or [])]
+    for p in params:
+        if isinstance(p, dict) and 'label' in p:
+            p['label'] = normalize_status_name(p.get('label'))
     for label, delta in param_increases.items():
         found = False
         for p in params:

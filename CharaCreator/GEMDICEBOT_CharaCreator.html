@@ -503,7 +503,7 @@
                 </div>
                 <div class="param-box"><label>精神力</label><input type="number" id="p-mnt" class="calc-trigger" value="6">
                 </div>
-                <div class="param-box"><label>速度</label><input type="number" id="p-spd" class="calc-trigger" value="6">
+                <div class="param-box"><label>敏捷</label><input type="number" id="p-spd" class="calc-trigger" value="6">
                 </div>
                 <div class="param-box"><label>直感</label><input type="number" id="p-int" class="calc-trigger" value="5">
                 </div>
@@ -1708,7 +1708,7 @@
             const { tagIds, disabledTagIds } = getCharacterTagState();
 
             // 基本ステータス
-            addP("筋力", "p-str"); addP("生命力", "p-vit"); addP("体格", "p-phy"); addP("精神力", "p-mnt"); addP("速度", "p-spd");
+            addP("筋力", "p-str"); addP("生命力", "p-vit"); addP("体格", "p-phy"); addP("精神力", "p-mnt"); addP("敏捷", "p-spd");
             addP("直感", "p-int"); addP("経験", "p-exp"); addP("シナリオ経験", "p-exp-scenario");
             addP("物理補正", "p-phys-mod"); addP("魔法補正", "p-mag-mod"); addP("速度補正", "p-spd-mod");
             addP("通過点", "radiance-points");
@@ -1827,7 +1827,7 @@
                 { label: '生命力', value: String(getInt('p-vit')) },
                 { label: '体格', value: String(getInt('p-phy')) },
                 { label: '精神力', value: String(getInt('p-mnt')) },
-                { label: '速度', value: String(getInt('p-spd')) },
+                { label: '敏捷', value: String(getInt('p-spd')) },
                 { label: '直感', value: String(getInt('p-int')) },
                 { label: '経験', value: String(getInt('p-exp')) },
                 { label: 'シナリオ経験', value: String(getInt('p-exp-scenario')) }
@@ -2134,7 +2134,8 @@
 
                         if (d.params) {
                             const map = {
-                                "筋力": "p-str", "生命力": "p-vit", "体格": "p-phy", "精神力": "p-mnt", "速度": "p-spd",
+                                "筋力": "p-str", "生命力": "p-vit", "体格": "p-phy", "精神力": "p-mnt",
+                                "敏捷": "p-spd", "速度": "p-spd",
                                 "直感": "p-int", "経験": "p-exp", "シナリオ経験": "p-exp-scenario",
                                 "五感": "s-senses", "採取": "s-gather", "本能": "s-instinct", "鑑定": "s-appraise",
                                 "対話": "s-dialogue", "尋問": "s-interrogate", "諜報": "s-intel", "窃取": "s-theft",

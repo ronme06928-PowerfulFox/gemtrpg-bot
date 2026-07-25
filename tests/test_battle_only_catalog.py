@@ -15,7 +15,7 @@ SAMPLE_CHAR_JSON = {
             {"label": "出血", "value": 0, "max": 0},
         ],
         "commands": "1d6 【テスト】",
-        "params": [{"label": "速度", "value": "5"}],
+        "params": [{"label": "敏捷", "value": "5"}],
     },
 }
 

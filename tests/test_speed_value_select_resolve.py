@@ -1,4 +1,9 @@
-from manager.utils import apply_buff, get_status_value
+from manager.utils import (
+    apply_buff,
+    get_status_value,
+    normalize_character_labels,
+    normalize_status_name,
+)
 from manager.game_logic import check_condition
 from manager.battle import common_manager as battle_common
 
@@ -7,13 +12,45 @@ def test_get_status_value_separates_speed_and_speed_value():
     char = {
         "id": "A1",
         "hp": 100,
-        "params": [{"label": "速度", "value": 10}],
+        "params": [{"label": "敏捷", "value": 10}],
         "states": [],
         "totalSpeed": 17,
     }
 
-    assert get_status_value(char, "速度") == 10
+    assert get_status_value(char, "敏捷") == 10
     assert get_status_value(char, "速度値") == 17
+
+
+def test_normalize_status_name_maps_legacy_speed_to_agility():
+    assert normalize_status_name("速度") == "敏捷"
+    # 「速度値」「速度補正」は別概念なので巻き込まれてはならない。
+    assert normalize_status_name("速度値") == "速度値"
+    assert normalize_status_name("速度補正") == "速度補正"
+
+
+def test_get_status_value_accepts_legacy_speed_label_and_query():
+    """保存済みデータの「速度」ラベルが改名後も読めること。"""
+    legacy_char = {
+        "id": "L1",
+        "hp": 100,
+        "params": [{"label": "速度", "value": 9}],
+        "states": [],
+        "totalSpeed": 13,
+    }
+
+    # 旧ラベルのまま、新旧どちらの名前で引いても同じ値になる。
+    assert get_status_value(legacy_char, "敏捷") == 9
+    assert get_status_value(legacy_char, "速度") == 9
+    # 速度値は依然として独立した概念。
+    assert get_status_value(legacy_char, "速度値") == 13
+
+
+def test_normalize_character_labels_rewrites_legacy_speed_label():
+    legacy_char = {"params": [{"label": "速度", "value": 7}], "states": []}
+
+    normalize_character_labels(legacy_char)
+
+    assert [p["label"] for p in legacy_char["params"]] == ["敏捷"]
 
 
 def test_select_resolve_round_start_uses_speed_modifier(monkeypatch):
@@ -26,7 +63,7 @@ def test_select_resolve_round_start_uses_speed_modifier(monkeypatch):
         "y": 1,
         "is_escaped": False,
         "params": [
-            {"label": "速度", "value": 12},
+            {"label": "敏捷", "value": 12},
             {"label": "行動回数", "value": 1},
         ],
         "states": [],
@@ -117,7 +154,7 @@ def test_select_resolve_round_start_uses_speed_modifier(monkeypatch):
 
 
 def test_speed_value_condition_reads_battle_state_slots():
-    actor = {"id": "A1", "params": [{"label": "速度", "value": 5}], "states": []}
+    actor = {"id": "A1", "params": [{"label": "敏捷", "value": 5}], "states": []}
     context = {
         "room_state": {
             "battle_state": {
@@ -138,8 +175,8 @@ def test_speed_value_condition_reads_battle_state_slots():
 
 
 def test_speed_value_condition_prefers_timeline_for_target():
-    actor = {"id": "D1", "params": [{"label": "速度", "value": 6}], "states": []}
-    target = {"id": "A1", "params": [{"label": "速度", "value": 9}], "states": []}
+    actor = {"id": "D1", "params": [{"label": "敏捷", "value": 6}], "states": []}
+    target = {"id": "A1", "params": [{"label": "敏捷", "value": 9}], "states": []}
     context = {
         "timeline": [
             {"id": "S_A1", "char_id": "A1", "speed": 9},
@@ -151,8 +188,8 @@ def test_speed_value_condition_prefers_timeline_for_target():
 
 
 def test_speed_value_condition_does_not_fire_when_speed_unresolved():
-    actor = {"id": "D1", "params": [{"label": "速度", "value": 6}], "states": []}
-    target = {"id": "A1", "params": [{"label": "速度", "value": 9}], "states": []}
+    actor = {"id": "D1", "params": [{"label": "敏捷", "value": 6}], "states": []}
+    target = {"id": "A1", "params": [{"label": "敏捷", "value": 9}], "states": []}
     cond = {"source": "target", "param": "速度値", "operator": "LTE", "value": 4}
     assert check_condition(cond, actor, target, context={}) is False
 

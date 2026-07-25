@@ -1005,14 +1005,9 @@ def _process_round_start_impl(room, username):
 
         speed_val = 0
         try:
-            speed_val = int(get_status_value(char, "速度"))
+            speed_val = int(get_status_value(char, "敏捷"))
         except Exception:
             speed_val = 0
-        if speed_val <= 0:
-            try:
-                speed_val = int(get_status_value(char, '速度'))
-            except Exception:
-                speed_val = 0
 
 
         from plugins.buffs.speed_mod import SpeedModBuff
@@ -1024,7 +1019,7 @@ def _process_round_start_impl(room, username):
 
         if speed_modifier != 0:
             mod_text = f"+{speed_modifier}" if speed_modifier > 0 else str(speed_modifier)
-            broadcast_log(room, f"{char['name']} の速度補正: {mod_text} (基礎速度に加算)", 'info')
+            broadcast_log(room, f"{char['name']} の速度補正: {mod_text} (基礎敏捷に加算)", 'info')
         if stage_speed_modifier != 0:
             mod_text = f"+{stage_speed_modifier}" if stage_speed_modifier > 0 else str(stage_speed_modifier)
             broadcast_log(room, f"{char['name']} のステージ速度補正: {mod_text} (source=stage)", 'info')

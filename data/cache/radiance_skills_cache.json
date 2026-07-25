@@ -10,7 +10,8 @@
       "stat": "MP",
       "value": 1
     },
-    "duration": -1
+    "duration": -1,
+    "granted_tag_ids": []
   },
   "S-01": {
     "id": "S-01",
@@ -23,7 +24,8 @@
       "stat": "HP",
       "value": 5
     },
-    "duration": -1
+    "duration": -1,
+    "granted_tag_ids": []
   },
   "S-02": {
     "id": "S-02",
@@ -41,7 +43,8 @@
         }
       ]
     },
-    "duration": -1
+    "duration": -1,
+    "granted_tag_ids": []
   },
   "S-03": {
     "id": "S-03",
@@ -54,7 +57,8 @@
       "stat": "MP",
       "value": 2
     },
-    "duration": -1
+    "duration": -1,
+    "granted_tag_ids": []
   },
   "S-04": {
     "id": "S-04",
@@ -67,7 +71,8 @@
       "stat": "HP",
       "value": 10
     },
-    "duration": -1
+    "duration": -1,
+    "granted_tag_ids": []
   },
   "S-05": {
     "id": "S-05",
@@ -85,7 +90,8 @@
         }
       ]
     },
-    "duration": -1
+    "duration": -1,
+    "granted_tag_ids": []
   },
   "S-06": {
     "id": "S-06",
@@ -98,7 +104,8 @@
       "stat": "MP",
       "value": 5
     },
-    "duration": -1
+    "duration": -1,
+    "granted_tag_ids": []
   },
   "S-07": {
     "id": "S-07",
@@ -111,7 +118,8 @@
       "stat": "HP",
       "value": 25
     },
-    "duration": -1
+    "duration": -1,
+    "granted_tag_ids": []
   },
   "S-08": {
     "id": "S-08",
@@ -129,6 +137,7 @@
         }
       ]
     },
-    "duration": -1
+    "duration": -1,
+    "granted_tag_ids": []
   }
 }

@@ -43,7 +43,15 @@ ORIGIN_BONUS_BUFFS.update({
     ORIGIN_EMRIDA: {"buff_id": "Bu-27", "name": "盛夏と共鳴る高揚"},
 })
 
-STATUS_NAME_ALIASES = {}
+SPEED_STAT_NAME = "敏捷"
+
+# 「速度」はパラメータ名として「速度値」（ラウンド毎のロール結果）と紛らわしかったため
+# 「敏捷」へ改名した。保存済みキャラ（Room.data / OwnedCharacter.data の JSON）には
+# 旧ラベルが残るので、ここで正規化して後方互換を取る。
+# 完全一致のみのため「速度補正」「速度値」は影響を受けない（どちらも据え置き）。
+STATUS_NAME_ALIASES = {
+    "速度": SPEED_STAT_NAME,
+}
 
 BUFF_NAME_ALIASES = {}
 
@@ -265,8 +273,8 @@ def get_status_value(char_obj, status_name):
     if status_name == 'HP': return int(char_obj.get('hp', 0))
     if status_name == 'MP': return int(char_obj.get('mp', 0))
 
-    # 速度と速度値は別概念:
-    # - 速度   : パラメータ値
+    # 敏捷と速度値は別概念:
+    # - 敏捷   : パラメータ値（旧称「速度」。STATUS_NAME_ALIASES で吸収）
     # - 速度値 : ロール後の値
     if status_name == '速度値':
         total_speed = char_obj.get('totalSpeed')

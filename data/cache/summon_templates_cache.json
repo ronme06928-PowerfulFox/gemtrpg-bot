@@ -20,7 +20,7 @@
     "allow_duplicate_same_team": true,
     "params": [
       {
-        "label": "速度",
+        "label": "敏捷",
         "value": "2"
       },
       {
@@ -54,7 +54,7 @@
     "allow_duplicate_same_team": true,
     "params": [
       {
-        "label": "速度",
+        "label": "敏捷",
         "value": "6"
       },
       {

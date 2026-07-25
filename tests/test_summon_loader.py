@@ -37,7 +37,7 @@ def test_fetch_summon_templates_from_csv_parses_duration_and_params(monkeypatch)
     assert t0["hidden_skills"] == ["HS-01"]
     assert t0["inventory"] == {"I-01": 2, "I-02": 1}
     param_map = {p["label"]: int(p["value"]) for p in t0["params"]}
-    assert param_map["速度"] == 8
+    assert param_map["敏捷"] == 8
     assert param_map["物理補正"] == 1
     assert param_map["魔法補正"] == 0
 

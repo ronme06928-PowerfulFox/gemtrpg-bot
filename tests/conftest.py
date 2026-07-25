@@ -66,7 +66,7 @@ def sample_actor():
         'params': [
             {'label': '物理補正', 'value': 10},
             {'label': '魔法補正', 'value': 8},
-            {'label': '速度', 'value': 12}
+            {'label': '敏捷', 'value': 12}
         ],
         'states': [
             {'name': 'FP', 'value': 3},
@@ -95,7 +95,7 @@ def sample_target():
         'params': [
             {'label': '物理補正', 'value': 5},
             {'label': '魔法補正', 'value': 12},
-            {'label': '速度', 'value': 8}
+            {'label': '敏捷', 'value': 8}
         ],
         'states': [
             {'name': 'FP', 'value': 2},

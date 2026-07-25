@@ -61,6 +61,57 @@ def test_evaluate_transitions_moves_loop_when_condition_matches():
     assert int(next_runtime["step_index"]) == 0
 
 
+def _speed_condition_profile(param_name):
+    return {
+        "enabled": True,
+        "initial_loop_id": "phase_1",
+        "loops": {
+            "phase_1": {
+                "repeat": True,
+                "steps": [{"actions": ["S-A"]}],
+                "transitions": [
+                    {
+                        "priority": 10,
+                        "when_all": [
+                            {"source": "self", "param": param_name, "operator": "GTE", "value": 8}
+                        ],
+                        "to_loop_id": "phase_2",
+                        "reset_step_index": True,
+                    }
+                ],
+            },
+            "phase_2": {"repeat": True, "steps": [{"actions": ["S-Z"]}], "transitions": []},
+        },
+    }
+
+
+def _fires_on_agility_param(condition_param, stored_label):
+    prof = normalize_behavior_profile(_speed_condition_profile(condition_param))
+    runtime = initialize_behavior_runtime_entry(
+        prof, runtime_entry={"active_loop_id": "phase_1", "step_index": 0}, round_value=1
+    )
+    actor = {
+        "id": "E1",
+        "type": "enemy",
+        "hp": 100,
+        "states": [],
+        "params": [{"label": stored_label, "value": 9}],
+    }
+    result = evaluate_transitions(
+        prof, runtime, actor_char=actor, state={"round": 1}, battle_state={"round": 1}
+    )
+    return result["runtime"]["active_loop_id"] == "phase_2"
+
+
+def test_behavior_condition_matches_agility_param_across_legacy_names():
+    """行動チャートの条件キーと params のラベルが新旧どちらでも噛み合うこと。"""
+    # 新旧の組み合わせ4通りすべてで条件が成立する。
+    assert _fires_on_agility_param("敏捷", "敏捷") is True
+    assert _fires_on_agility_param("速度", "敏捷") is True
+    assert _fires_on_agility_param("敏捷", "速度") is True
+    assert _fires_on_agility_param("速度", "速度") is True
+
+
 def test_pick_and_advance_step_pointer_repeat():
     prof = normalize_behavior_profile(_profile())
     runtime = initialize_behavior_runtime_entry(prof, runtime_entry={"active_loop_id": "phase_1", "step_index": 0})

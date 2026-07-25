@@ -98,7 +98,7 @@ def setup_wide_match_declaration(room, data, username):
 
 
     def get_speed_stat(char):
-        curr = get_status_value(char, '速度')
+        curr = get_status_value(char, '敏捷')
         return curr
 
 

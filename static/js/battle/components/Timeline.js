@@ -186,7 +186,7 @@ class Timeline {
      * @param {string} entryId - エントリID
      * @param {string} currentTurnEntryId - 現在のターンのエントリID
      * @param {boolean} acted - 行動済みフラグ
-     * @param {number} speed - 速度
+     * @param {number} speed - 速度値（ラウンド開始時のロール結果）
      * @returns {HTMLElement}
      */
     _createTimelineItem(char, entryId, currentTurnEntryId, currentTurnCharId, acted, speed) {

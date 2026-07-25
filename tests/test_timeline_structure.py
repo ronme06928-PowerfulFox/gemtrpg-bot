@@ -7,8 +7,8 @@ def test_structure():
     # Mocking data
     state = {
         'characters': [
-            {'id': 'char1', 'name': 'Hero', 'x': 1, 'y': 1, 'hp': 100, 'params': [{'label': '速度', 'value': 10}], 'states': []},
-            {'id': 'char2', 'name': 'Boss', 'x': 2, 'y': 2, 'hp': 1000, 'params': [{'label': '速度', 'value': 5}], 'states': [{'name': '行動回数', 'value': 2}]}
+            {'id': 'char1', 'name': 'Hero', 'x': 1, 'y': 1, 'hp': 100, 'params': [{'label': '敏捷', 'value': 10}], 'states': []},
+            {'id': 'char2', 'name': 'Boss', 'x': 2, 'y': 2, 'hp': 1000, 'params': [{'label': '敏捷', 'value': 5}], 'states': [{'name': '行動回数', 'value': 2}]}
         ],
         'timeline': []
     }
@@ -20,7 +20,7 @@ def test_structure():
              for s in char.get('states', []):
                  if s['name'] == name: return int(s['value'])
              return 1
-         if name == '速度':
+         if name == '敏捷':
              return 10
          return 0
 
@@ -31,7 +31,7 @@ def test_structure():
         action_count = get_status_value(char, '行動回数')
         action_count = max(1, action_count)
 
-        speed_param = get_status_value(char, '速度')
+        speed_param = get_status_value(char, '敏捷')
         initiative = speed_param // 6
 
         for i in range(action_count):

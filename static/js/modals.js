@@ -322,7 +322,7 @@ function renderCharacterCard(char) {
     const fpVal = fpState ? fpState.value : 0;
 
     // --- Params ---
-    const coreStats = ['筋力', '生命力', '体格', '精神力', '速度', '直感', '経験', '物理補正', '魔法補正'];
+    const coreStats = ['筋力', '生命力', '体格', '精神力', '敏捷', '直感', '経験', '物理補正', '魔法補正'];
     const explorationStats = ['五感', '採取', '本能', '鑑定', '対話', '尋問', '諜報', '窃取', '隠密', '運動', '制作', '回避'];
 
     // Normalize params to array of objects
@@ -333,10 +333,15 @@ function renderCharacterCard(char) {
         charParams = Object.entries(char.params).map(([k, v]) => ({ label: k, value: v }));
     }
 
+    // 旧ラベル -> 正規ラベル。サーバ側 STATUS_NAME_ALIASES と揃える。
+    // 正規化を通らない経路のデータが来ても 0 表示にならないようにする。
+    const statusNameAliases = { '速度': '敏捷' };
+    const canonicalLabel = (label) => statusNameAliases[label] || label;
+
     // Helper to generate grid HTML
     const renderParamsGrid = (labels) => {
         const items = labels.map(stat => {
-            const p = charParams.find(cp => cp.label === stat);
+            const p = charParams.find(cp => canonicalLabel(cp.label) === stat);
             const val = p ? p.value : 0;
             return `
                 <div class="char-param-item">

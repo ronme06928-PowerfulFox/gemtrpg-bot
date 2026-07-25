@@ -1,5 +1,7 @@
 import copy
+import importlib
 import random
+import sys
 
 BEHAVIOR_TARGET_POLICY_DEFAULT = "target_enemy_random"
 BEHAVIOR_TARGET_POLICIES = {
@@ -78,10 +80,34 @@ def _to_bool(value, default=False):
     return bool(value)
 
 
+def _normalize_status_name(status_name):
+    """manager.utils の別名解決を遅延参照で借りる（循環 import 回避）。"""
+    text = str(status_name or "").strip()
+    if not text:
+        return ""
+    mod = sys.modules.get("manager.utils")
+    if mod is None:
+        try:
+            mod = importlib.import_module("manager.utils")
+        except Exception:
+            mod = None
+    fn = getattr(mod, "normalize_status_name", None) if mod else None
+    if callable(fn):
+        try:
+            normalized = fn(text)
+            if normalized:
+                return str(normalized).strip()
+        except Exception:
+            pass
+    return text
+
+
 def _read_actor_status(actor_char, param_name):
     if not isinstance(actor_char, dict):
         return 0
-    key = str(param_name or "")
+    # 行動チャートの条件キーは利用者が手で書くため、旧称（例: 速度）が残り得る。
+    # 保存済みキャラの params/states 側にも旧称が残るので、両側を正規化して突き合わせる。
+    key = _normalize_status_name(param_name)
     if key in {"HP", "hp"}:
         return _safe_int(actor_char.get("hp", 0), 0)
     if key in {"MP", "mp"}:
@@ -89,13 +115,25 @@ def _read_actor_status(actor_char, param_name):
 
     states = actor_char.get("states", [])
     if isinstance(states, list):
-        hit = next((s for s in states if isinstance(s, dict) and s.get("name") == key), None)
+        hit = next(
+            (
+                s for s in states
+                if isinstance(s, dict) and _normalize_status_name(s.get("name")) == key
+            ),
+            None,
+        )
         if isinstance(hit, dict):
             return _safe_int(hit.get("value", 0), 0)
 
     params = actor_char.get("params", [])
     if isinstance(params, list):
-        hit = next((p for p in params if isinstance(p, dict) and p.get("label") == key), None)
+        hit = next(
+            (
+                p for p in params
+                if isinstance(p, dict) and _normalize_status_name(p.get("label")) == key
+            ),
+            None,
+        )
         if isinstance(hit, dict):
             return _safe_int(hit.get("value", 0), 0)
     return _safe_int(actor_char.get(key, 0), 0)

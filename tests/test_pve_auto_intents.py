@@ -22,7 +22,7 @@ def _make_char(
         "y": 1,
         "is_escaped": False,
         "params": [
-            {"label": "速度", "value": int(speed)},
+            {"label": "敏捷", "value": int(speed)},
             {"label": "行動回数", "value": int(action_count)},
         ],
         "states": [],

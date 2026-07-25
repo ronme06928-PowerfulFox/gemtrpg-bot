@@ -15,6 +15,7 @@ from manager.cache_paths import (
     save_json_cache,
 )
 from manager.logs import setup_logger
+from manager.utils import normalize_status_name
 
 logger = setup_logger(__name__)
 
@@ -88,7 +89,8 @@ def _merge_param_list(base_params, override_params):
         for row in src:
             if not isinstance(row, dict):
                 continue
-            label = str(row.get("label", "")).strip()
+            # 特記JSON 側に旧称（例: 速度）が残っていても override と衝突させないよう正規化する。
+            label = normalize_status_name(row.get("label", ""))
             if not label:
                 continue
             if label in seen:
@@ -158,11 +160,12 @@ def _build_row_template(row: dict):
     max_mp = max(0, _safe_int(_pick(row, "最大MP", "max_mp", "maxMp"), _safe_int(extra.get("maxMp", mp), mp)))
     mp = min(max_mp, max(0, mp))
 
-    speed = _safe_int(_pick(row, "速度", "speed"), 0)
+    # 列見出しは「敏捷」へ移行中。旧「速度」のシートも読めるよう両方受け付ける。
+    speed = _safe_int(_pick(row, "敏捷", "速度", "speed"), 0)
     phys_mod = _safe_int(_pick(row, "物理補正", "physical_modifier"), 0)
     magic_mod = _safe_int(_pick(row, "魔法補正", "magic_modifier"), 0)
     override_params = [
-        {"label": "速度", "value": str(speed)},
+        {"label": "敏捷", "value": str(speed)},
         {"label": "物理補正", "value": str(phys_mod)},
         {"label": "魔法補正", "value": str(magic_mod)},
     ]

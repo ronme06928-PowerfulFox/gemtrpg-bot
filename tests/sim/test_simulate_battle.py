@@ -25,7 +25,7 @@ def _make_char(char_id, team, hp=20):
         "states": [],
         "special_buffs": [],
         "params": [
-            {"label": "速度", "value": 6},
+            {"label": "敏捷", "value": 6},
             {"label": "行動回数", "value": 1},
         ],
     }

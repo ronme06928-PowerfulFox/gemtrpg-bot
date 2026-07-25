@@ -439,7 +439,7 @@ def handle_add_debug_character(data):
         {"label": "生命力", "value": "10"},
         {"label": "体格", "value": "10"},
         {"label": "精神力", "value": "10"},
-        {"label": "速度", "value": "10"},
+        {"label": "敏捷", "value": "10"},
         {"label": "直感", "value": "10"},
         {"label": "経験", "value": "0"},
         {"label": "物理補正", "value": "5"},

@@ -198,7 +198,7 @@ def _build_char(char_id, name, team, x):
         "y": 0,
         "is_escaped": False,
         "params": [
-            {"label": "速度", "value": 10},
+            {"label": "敏捷", "value": 10},
             {"label": "物理補正", "value": 3},
             {"label": "魔法補正", "value": 3},
         ],
