@@ -518,5 +518,39 @@
     "flavor": "",
     "effect": {},
     "default_duration": -1
+  },
+  "Bu-51": {
+    "id": "Bu-51",
+    "name": "鉄の恩恵",
+    "display_name": "鉄の恩恵",
+    "description": "このラウンドの間スキルの最終威力を+2する。",
+    "flavor": "",
+    "effect": {
+      "power_bonus": [
+        {
+          "operation": "FIXED",
+          "value": 2,
+          "apply_to": "final"
+        }
+      ]
+    },
+    "default_duration": 2
+  },
+  "Bu-52": {
+    "id": "Bu-52",
+    "name": "鉄の剛力",
+    "display_name": "鉄の剛力",
+    "description": "このラウンドの間スキルの最終威力を+1する。",
+    "flavor": "",
+    "effect": {
+      "power_bonus": [
+        {
+          "operation": "FIXED",
+          "value": 1,
+          "apply_to": "final"
+        }
+      ]
+    },
+    "default_duration": 3
   }
 }

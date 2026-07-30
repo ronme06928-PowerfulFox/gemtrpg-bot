@@ -1003,6 +1003,15 @@ window.JSON_BUILDER_REFERENCE = {
       "name": "マフィアの下っ端",
       "summon_duration_mode": "permanent",
       "summon_duration": 0
+    },
+    {
+      "id": "U-02",
+      "name": "鉄交じりの瓦礫",
+      "summon_duration_mode": "permanent",
+      "summon_duration": 0,
+      "tag_ids": [
+        "瓦礫"
+      ]
     }
   ],
   "state_refs": [

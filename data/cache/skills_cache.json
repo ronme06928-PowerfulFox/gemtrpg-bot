@@ -663,7 +663,7 @@
     "使用時効果": "",
     "特記": "([[W-65|強硬スキル]])",
     "発動時効果": "([[W-21|マッチ勝利時]]):対象の[[W-02|破裂]]が6以上なら[[W-03|破裂爆発]]。",
-    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"tags\":[\"強硬\"],\"target_scope\":\"opposing_team\",\"power_bonus\":[],\"effects\":[{\"timing\":\"WIN\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"target\",\"value\":\"破裂爆発\",\"condition\":{\"source\":\"target\",\"param\":\"破裂\",\"operator\":\"GTE\",\"value\":6}}]}",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_E23\",\"tags\":[\"強硬\"],\"target_scope\":\"opposing_team\",\"power_bonus\":[],\"effects\":[{\"timing\":\"WIN\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"target\",\"value\":\"破裂爆発\",\"condition\":{\"source\":\"target\",\"param\":\"破裂\",\"operator\":\"GTE\",\"value\":6}}]}",
     "tags": [
       "攻撃",
       "強硬"
@@ -811,7 +811,7 @@
     "使用時効果": "",
     "特記": "",
     "発動時効果": "([[W-20|的中時]]):[[W-02|破裂]]3を付与。",
-    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"target_scope\":\"opposing_team\",\"power_bonus\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":3}]}",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_E31\",\"target_scope\":\"opposing_team\",\"power_bonus\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":3}]}",
     "tags": [
       "攻撃"
     ]
@@ -830,6 +830,60 @@
     "特記": "",
     "発動時効果": "([[W-20|的中時]]):対象の特徴に「瓦礫」があるなら、その最大HPと同じ値のダメージを与える。",
     "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_E32\",\"target_scope\":\"any\",\"power_bonus\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"target\",\"value\":\"DEAL_TARGET_MAX_HP_DAMAGE\",\"condition\":{\"source\":\"target\",\"param\":\"tag_ids\",\"operator\":\"CONTAINS\",\"value\":\"瓦礫\"}}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "E-33": {
+    "スキルID": "E-33",
+    "チャットパレット": "8+1d8+1d{物理補正} 【E-33 鉄根刺突】",
+    "デフォルト名称": "鉄根刺突",
+    "分類": "物理",
+    "距離": "広域-個別",
+    "属性": "貫通",
+    "取得コスト": "0",
+    "基礎威力": "8",
+    "ダイス威力": "+1d8",
+    "使用時効果": "",
+    "特記": "([[W-27|戦闘開始時]]):フィールドに存在する全ての「鉄交じりの瓦礫」のHPを0にする。その後、存在していた「鉄交じりの瓦礫」が1体につき1、このラウンドで自身が使うスキルの[[W-52|最終威力]]をアップする。",
+    "発動時効果": "([[W-20|的中時]]):[[W-02|破裂]]10を付与。3[[W-16|ラウンド]]の[[W-04|亀裂]]3を付与。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_E33\",\"target_scope\":\"opposing_team\",\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"RESOLVE_START\",\"type\":\"APPLY_BUFF_FROM_CHARACTER_COUNT\",\"target\":\"self\",\"buff_name\":\"瓦礫吸収\",\"lasting\":1,\"delay\":0,\"value_per_character\":1,\"apply_to\":\"final\",\"character_filter\":{\"team\":\"same_team\",\"required_tag_ids\":[\"瓦礫\"],\"alive\":true,\"placed\":true}},{\"timing\":\"RESOLVE_START\",\"type\":\"CUSTOM_EFFECT\",\"target\":\"FILTERED_CHARACTERS\",\"value\":\"DEAL_TARGET_MAX_HP_DAMAGE\",\"character_filter\":{\"team\":\"same_team\",\"required_tag_ids\":[\"瓦礫\"],\"alive\":true,\"placed\":true}},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"破裂\",\"value\":10},{\"timing\":\"HIT\",\"type\":\"APPLY_STATE\",\"target\":\"target\",\"state_name\":\"亀裂\",\"value\":3,\"rounds\":3}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "E-34": {
+    "スキルID": "E-34",
+    "チャットパレット": "3+1d8+1d{物理補正} 【E-34 暴れ回る】",
+    "デフォルト名称": "暴れ回る",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "3",
+    "ダイス威力": "+1d8",
+    "使用時効果": "",
+    "特記": "この攻撃はランダムな相手陣営キャラクターを対象に発動する。",
+    "発動時効果": "([[W-19|使用時]]):次の[[W-25|ラウンド開始時]]、「鉄交じりの瓦礫」２体を[[W-61|召喚]]する。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_E34\",\"target_scope\":\"opposing_team\",\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"RESOLVE_START\",\"type\":\"SCHEDULE_EFFECT\",\"target\":\"self\",\"round_offset\":1,\"repeat_count\":2,\"effect\":{\"type\":\"SUMMON_CHARACTER\",\"summon_template_id\":\"U-02\"}}]}",
+    "tags": [
+      "攻撃"
+    ]
+  },
+  "E-35": {
+    "スキルID": "E-35",
+    "チャットパレット": "4+1d1+1d{物理補正} 【E-35 瓦礫を狙う】",
+    "デフォルト名称": "瓦礫を狙う",
+    "分類": "物理",
+    "距離": "近接",
+    "属性": "打撃",
+    "取得コスト": "0",
+    "基礎威力": "4",
+    "ダイス威力": "+1d1",
+    "使用時効果": "",
+    "特記": "このスキルは、特徴に「瓦礫」を持つキャラクターを対象として発動する。",
+    "発動時効果": "([[W-20|的中時]]):対象の特徴に「瓦礫」があるなら、20ダメージを与える。",
+    "特記処理": "{\"schema\":\"skill_json_rule_v2\",\"id\":\"SKILL_E35\",\"target_scope\":\"any\",\"power_bonus\":[],\"cost\":[],\"effects\":[{\"timing\":\"HIT\",\"type\":\"DAMAGE_BONUS\",\"target\":\"target\",\"value\":20,\"condition\":{\"source\":\"target\",\"param\":\"tag_ids\",\"operator\":\"CONTAINS\",\"value\":\"瓦礫\"}}]}",
     "tags": [
       "攻撃"
     ]

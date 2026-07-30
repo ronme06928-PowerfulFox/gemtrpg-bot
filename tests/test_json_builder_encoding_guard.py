@@ -17,3 +17,7 @@ def test_json_builder_html_utf8_and_key_labels_are_intact():
     assert "(?:特徴|タグ)" in text
     assert 'param:"tag_ids", operator:"CONTAINS", value:tagName' in text
     assert 'value:"DEAL_TARGET_MAX_HP_DAMAGE"' in text
+    assert 'type:"SCHEDULE_EFFECT"' in text
+    assert 'type:"APPLY_BUFF_FROM_CHARACTER_COUNT"' in text
+    assert 'summon_template_id:"U-00"' not in text
+    assert "_nlResolveSummonTemplate" in text

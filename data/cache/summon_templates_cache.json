@@ -31,7 +31,11 @@
         "label": "魔法補正",
         "value": "0"
       }
-    ]
+    ],
+    "tag_ids": [],
+    "disabled_tag_ids": [],
+    "special_buffs": [],
+    "flags": {}
   },
   "U-01": {
     "baseName": "U-01",
@@ -65,6 +69,48 @@
         "label": "魔法補正",
         "value": "2"
       }
-    ]
+    ],
+    "tag_ids": [],
+    "disabled_tag_ids": [],
+    "special_buffs": [],
+    "flags": {}
+  },
+  "U-02": {
+    "tag_ids": [
+      "瓦礫"
+    ],
+    "baseName": "U-02",
+    "name": "鉄交じりの瓦礫",
+    "hp": 30,
+    "maxHp": 30,
+    "mp": 0,
+    "maxMp": 0,
+    "initial_skill_ids": [],
+    "SPassive": [
+      "Pa-07"
+    ],
+    "radiance_skills": [],
+    "hidden_skills": [],
+    "inventory": {},
+    "summon_duration_mode": "permanent",
+    "summon_duration": 0,
+    "allow_duplicate_same_team": true,
+    "params": [
+      {
+        "label": "敏捷",
+        "value": "0"
+      },
+      {
+        "label": "物理補正",
+        "value": "0"
+      },
+      {
+        "label": "魔法補正",
+        "value": "0"
+      }
+    ],
+    "disabled_tag_ids": [],
+    "special_buffs": [],
+    "flags": {}
   }
 }

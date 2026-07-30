@@ -333,8 +333,8 @@
       skillById: new Map(),
     };
     const TIMINGS = ["PRE_MATCH","BEFORE_POWER_ROLL","WIN","LOSE","HIT","UNOPPOSED","AFTER_DAMAGE_APPLY","RESOLVE_START","RESOLVE_STEP_END","RESOLVE_END","END_MATCH","END_ROUND","IMMEDIATE","BATTLE_START"];
-    const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","APPLY_BUFF_PER_N","MULTIPLY_STATE","APPLY_BUFF","CONSUME_BUFF_COUNT_FOR_GAIN","CONSUME_BUFF_COUNT_FOR_POWER","CONVERT_STACK_RESOURCE_VARIANT","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER"];
-    const TARGETS = ["","self","target","ALL_ENEMIES","ALL_ALLIES","ALL_OTHER_ALLIES","ALL","NEXT_ALLY"];
+    const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","APPLY_BUFF_PER_N","MULTIPLY_STATE","APPLY_BUFF","APPLY_BUFF_FROM_CHARACTER_COUNT","CONSUME_BUFF_COUNT_FOR_GAIN","CONSUME_BUFF_COUNT_FOR_POWER","CONVERT_STACK_RESOURCE_VARIANT","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER","SCHEDULE_EFFECT"];
+    const TARGETS = ["","self","target","ALL_ENEMIES","ALL_ALLIES","ALL_OTHER_ALLIES","ALL","FILTERED_CHARACTERS","KILLER","KILLER_TEAM","NEXT_ALLY"];
     const POWER_OPS = ["FIXED","FIXED_IF_EXISTS","PER_N_BONUS","MULTIPLY"];
     const COND_SOURCES = ["self","target","skill","target_skill","relation","battle"];
     const COND_OPS = ["GTE","LTE","GT","LT","EQUALS","CONTAINS"];
@@ -432,6 +432,8 @@
     HELP_ROWS.push(["condition.source: battle, param: round","現在のラウンド数を参照。例: source=battle, param=round, operator=GTE, value=3 → 3ラウンド以降のみ発動"]);
     HELP_ROWS.push(["condition.param: name / baseName / tag_ids","名前はEQUALS/CONTAINS、tag_idsはCONTAINSで要素完全一致。disabled_tag_idsは判定から除外"]);
     HELP_ROWS.push(["CUSTOM_EFFECT: DEAL_TARGET_MAX_HP_DAMAGE","対象へmaxHpと同値の倍率・軽減を無視するダメージ。例: 対象の特徴に「瓦礫」があるなら、その最大HPと同じ値のダメージを与える"]);
+    HELP_ROWS.push(["type: SCHEDULE_EFFECT","RESOLVE_STARTでeffectを予約し、round_offset後のラウンド開始時に実行。effect/repeat_countはextra_jsonへ指定"]);
+    HELP_ROWS.push(["type: APPLY_BUFF_FROM_CHARACTER_COUNT","character_filterに一致するフィールド上の人数×value_per_characterを最終威力バフへ変換"]);
     HELP_ROWS.push(["effects[].repeat_count","同じエフェクトをN回繰り返す（省略=1）。例: repeat_count=3 で出血+2を3回 → 合計+6相当。ランダム抽選がある場合は毎回抽選される"]);
     HELP_ROWS.push(["target.type: random_single（インテント）","バトルインテントレベルの設定。スキルJSON外（NPC行動定義等）でランダムターゲット指定。random_target_scope: enemy/ally/any"]);
     HELP_ROWS.push(["effects[].target_select: RANDOM","エフェクトレベルのランダム対象選択（既存機能）。target_filter: ENEMY/ALLY/ALL, target_count: N"]);
@@ -679,6 +681,22 @@
         required: ["summon_template_id"],
         optional: ["target", "condition", "extra_json(summon_duration_mode,summon_duration)"],
         unused: ["source", "source_param", "per_N", "state_name", "buff_id", "buff_name", "skill_id", "lasting", "delay", "value"]
+      },
+      SCHEDULE_EFFECT: {
+        meaning: "nested effectを指定ラウンド後のラウンド開始時に予約実行します。",
+        value_kind: "none",
+        value_help: "通常未使用。effect / round_offset / repeat_countはextra_jsonで指定",
+        required: [],
+        optional: ["target", "extra_json(effect,round_offset,repeat_count,schedule_key)"],
+        unused: ["source", "source_param", "per_N", "state_name", "buff_id", "buff_name", "skill_id", "lasting", "delay", "summon_template_id", "value"]
+      },
+      APPLY_BUFF_FROM_CHARACTER_COUNT: {
+        meaning: "character_filterに一致する人数から可変値の最終威力バフを生成します。",
+        value_kind: "none",
+        value_help: "通常未使用。character_filter / value_per_characterはextra_jsonで指定",
+        required: ["buff_name"],
+        optional: ["target", "buff_id", "lasting", "delay", "extra_json(character_filter,value_per_character,apply_to)"],
+        unused: ["source", "source_param", "per_N", "state_name", "skill_id", "summon_template_id", "value"]
       }
     };
     const TAG_HINTS = ["攻撃","守備","広域","即時発動","マッチ不可","ラウンド終了","ally_target","no_damage","non_damage","同陣営指定"];
@@ -698,6 +716,7 @@
       { key: "マッチ勝利時", timing: "WIN" },
       { key: "マッチ敗北時", timing: "LOSE" },
       { key: "戦闘開始時", timing: "BATTLE_START" },
+      { key: "解決フェーズ開始時", timing: "RESOLVE_START" },
       { key: "即時発動", timing: "IMMEDIATE" },
       { key: "一方攻撃時", timing: "UNOPPOSED" }
     ];
@@ -989,6 +1008,28 @@
       };
       return String(fallback[name]||"");
     }
+    function _nlResolveSummonTemplate(rawName, errors, columnName, rawLine){
+      const name=String(rawName||"").replace(/[「」"']/g,"").trim();
+      if(!name){
+        _nlPushError(errors,columnName,rawLine,"召喚テンプレート名またはIDが必要です。");
+        return null;
+      }
+      const refs=Array.isArray(REF.summon_refs)?REF.summon_refs:[];
+      const matches=refs.filter((row)=>{
+        const id=String(row?.id||"").trim();
+        const displayName=String(row?.name||"").trim();
+        return id===name || displayName===name;
+      });
+      if(matches.length===0){
+        _nlPushError(errors,columnName,rawLine,`召喚テンプレート「${name}」は登録されていません。`);
+        return null;
+      }
+      if(matches.length>1){
+        _nlPushError(errors,columnName,rawLine,`召喚テンプレート「${name}」が複数一致しました。IDで指定してください。`);
+        return null;
+      }
+      return matches[0];
+    }
     function _nlExtractStackSumStateNames(rawText){
       const src=String(rawText||"");
       const rows=[...src.matchAll(/(出血|破裂|亀裂|戦慄|荊棘)/g)].map((m)=>String(m[1]||""));
@@ -1056,6 +1097,89 @@
           ruptureBurst.condition={ source:"target", param:"破裂", operator:"GTE", value:Number(ruptureThreshold[1]) };
         }
         add(ruptureBurst);
+      }
+
+      m=body.match(/対象の(?:特徴|タグ)に[「"]([^」"]+)[」"]があるなら[、,，]?\s*(\d+)\s*ダメージを与える/);
+      if(m){
+        add({
+          timing:t.timing,
+          type:"DAMAGE_BONUS",
+          target:"target",
+          value:Number(m[2]),
+          condition:{ source:"target", param:"tag_ids", operator:"CONTAINS", value:m[1] }
+        });
+        return out;
+      }
+
+      m=body.match(/次のラウンド開始時[、,，]?\s*[「"]([^」"]+)[」"]\s*(\d+)\s*体を召喚する/);
+      if(m){
+        const summon=_nlResolveSummonTemplate(m[1],errors,columnName,rawLine);
+        if(!summon) return null;
+        add({
+          timing:"RESOLVE_START",
+          type:"SCHEDULE_EFFECT",
+          target:"self",
+          round_offset:1,
+          repeat_count:Number(m[2]),
+          effect:{ type:"SUMMON_CHARACTER", summon_template_id:String(summon.id) }
+        });
+        return out;
+      }
+
+      m=body.match(/フィールドに存在する全ての[「"]([^」"]+)[」"]のHPを0にする/);
+      if(m){
+        const summon=_nlResolveSummonTemplate(m[1],errors,columnName,rawLine);
+        if(!summon) return null;
+        const tagIds=Array.isArray(summon.tag_ids)
+          ? summon.tag_ids.map((tag)=>String(tag||"").trim()).filter(Boolean)
+          : [];
+        if(!tagIds.length){
+          _nlPushError(errors,columnName,rawLine,`召喚テンプレート「${m[1]}」にtag_idsがありません。`);
+          return null;
+        }
+        add({
+          timing:"RESOLVE_START",
+          type:"CUSTOM_EFFECT",
+          target:"FILTERED_CHARACTERS",
+          value:"DEAL_TARGET_MAX_HP_DAMAGE",
+          character_filter:{
+            team:"same_team",
+            required_tag_ids:tagIds,
+            alive:true,
+            placed:true
+          }
+        });
+        return out;
+      }
+
+      m=body.match(/存在していた[「"]([^」"]+)[」"]が1体につき\s*(\d+)[、,，]?\s*このラウンドで(?:自分|自身)が使うスキルの最終威力をアップする/);
+      if(m){
+        const summon=_nlResolveSummonTemplate(m[1],errors,columnName,rawLine);
+        if(!summon) return null;
+        const tagIds=Array.isArray(summon.tag_ids)
+          ? summon.tag_ids.map((tag)=>String(tag||"").trim()).filter(Boolean)
+          : [];
+        if(!tagIds.length){
+          _nlPushError(errors,columnName,rawLine,`召喚テンプレート「${m[1]}」にtag_idsがありません。`);
+          return null;
+        }
+        add({
+          timing:"RESOLVE_START",
+          type:"APPLY_BUFF_FROM_CHARACTER_COUNT",
+          target:"self",
+          buff_name:`${String(summon.name||summon.id)}吸収`,
+          lasting:1,
+          delay:0,
+          value_per_character:Number(m[2]),
+          apply_to:"final",
+          character_filter:{
+            team:"same_team",
+            required_tag_ids:tagIds,
+            alive:true,
+            placed:true
+          }
+        });
+        return out;
       }
       if(body.includes("出血氾濫")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target, value: "出血氾濫" });
       if(body.includes("戦慄殺到")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: "target", value: "戦慄殺到" });
@@ -1452,8 +1576,20 @@
         const buffId=(m[1]==="攻撃") ? (val>=0?"Bu-32":"Bu-34") : (val>=0?"Bu-33":"Bu-35");
         add({ timing:t.timing, type:"APPLY_BUFF", target:body.includes("対象")?"target":"self", buff_id:buffId, data:{ value:Math.abs(val) }, lasting:1, delay:0 });
       }
-      if(/召喚する/.test(body)){
-        add({ timing:t.timing, type:"SUMMON_CHARACTER", target:"self", summon_template_id:"U-00" });
+      m=body.match(/[「"]([^」"]+)[」"]\s*(\d+)?\s*体?を召喚する/);
+      if(m){
+        const summon=_nlResolveSummonTemplate(m[1],errors,columnName,rawLine);
+        if(!summon) return null;
+        add({
+          timing:t.timing,
+          type:"SUMMON_CHARACTER",
+          target:"self",
+          summon_template_id:String(summon.id),
+          repeat_count:Number(m[2]||1)
+        });
+      }else if(/召喚する/.test(body)){
+        _nlPushError(errors,columnName,rawLine,"召喚テンプレート名と個数を明記してください。");
+        return null;
       }
       m=body.match(/味方全体.*?([A-Z]-\d+).*?伝授.*?(\d+)回まで/);
       if(m){
@@ -1763,7 +1899,7 @@
       return { power_bonus: pb, effects, tags: Array.from(tags) };
     }
     function _nlEffectToSeed(effect){
-      const known=["timing","type","target","state_name","source","source_param","per_N","value","buff_id","buff_name","skill_id","lasting","delay","summon_template_id","condition"];
+      const known=["timing","type","target","state_name","source","source_param","per_N","value","buff_id","buff_name","skill_id","lasting","delay","summon_template_id","repeat_count","condition"];
       const seed={};
       const extra={};
       Object.entries(effect||{}).forEach(([k,v])=>{
@@ -2297,6 +2433,13 @@
 
       (noteParsed.power_bonus||[]).forEach(pb=>addPowerBonusRow(pb));
       const mergedEffects=[...triggerEffects, ...(noteParsed.effects||[])];
+      if(mergedEffects.some((effect)=>
+        effect?.type==="DAMAGE_BONUS"
+        && effect?.condition?.source==="target"
+        && effect?.condition?.param==="tag_ids"
+      )){
+        document.getElementById("targetScope").value="any";
+      }
       mergedEffects.forEach(ef=>addEffectRow(_nlEffectToSeed(ef)));
       if(mergedEffects.length===0) addEffectRow();
 

@@ -81,5 +81,45 @@
         ]
       }
     }
+  },
+  "Pa-07": {
+    "id": "Pa-07",
+    "name": "魔力の籠った鉄塊",
+    "cost": 0,
+    "description": "このキャラクターは行動せず、スロットを持たない。これのHPがスキルによって０になったとき、そのスキルを使用したキャラクターの陣営によって異なる効果を発揮する。\n\n味方：味方陣営全員のスキル威力+2。2ラウンド継続。\n相手：「アイアンルート」のスキル威力+1。3ラウンド継続。",
+    "flavor": "地下遺跡でしばしば観察される魔力を含んだ鉄鉱石。明確な因果関係は未だハッキリと証明されていないが、こういった魔力の豊富な鉱物資源がある場所にシュラーカーが多く現れることが経験的に知られている。",
+    "effect": {
+      "action_slot_mode": "none",
+      "on_death": [
+        {
+          "timing": "IMMEDIATE",
+          "type": "APPLY_BUFF",
+          "target": "KILLER_TEAM",
+          "buff_id": "Bu-51",
+          "lasting": 2,
+          "delay": 1,
+          "condition": {
+            "source": "death_context",
+            "param": "killer_team",
+            "operator": "EQUALS",
+            "value": "ally"
+          }
+        },
+        {
+          "timing": "IMMEDIATE",
+          "type": "APPLY_BUFF",
+          "target": "KILLER",
+          "buff_id": "Bu-52",
+          "lasting": 3,
+          "delay": 1,
+          "condition": {
+            "source": "death_context",
+            "param": "killer_team",
+            "operator": "EQUALS",
+            "value": "enemy"
+          }
+        }
+      ]
+    }
   }
 }
