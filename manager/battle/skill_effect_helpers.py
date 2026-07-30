@@ -220,6 +220,12 @@ def is_chikuryoku_burst_guidance_variant(variant):
 def expand_repeated_effects(effects):
     expanded = []
     for eff in (effects or []):
+        # SCHEDULE_EFFECT.repeat_count belongs to the nested effect executed at
+        # the future RoundStart. Expanding the scheduler itself would create
+        # duplicate reservations before its idempotency key is persisted.
+        if str((eff or {}).get("type") or "").strip().upper() == "SCHEDULE_EFFECT":
+            expanded.append(eff)
+            continue
         try:
             repeat_count = int(eff.get('repeat_count', 1) or 1)
         except (TypeError, ValueError):

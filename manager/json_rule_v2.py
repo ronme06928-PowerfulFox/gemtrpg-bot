@@ -202,6 +202,65 @@ def _normalize_effect_rows(
                 row["buff_id"] = buff_id
             row["buff_name"] = buff_name
 
+        if effect_type == "SCHEDULE_EFFECT":
+            nested_effect = row.get("effect")
+            if not isinstance(nested_effect, dict):
+                raise JsonRuleV2Error(
+                    "SCHEDULE_EFFECT requires effect object",
+                    path=f"{e_path}.effect",
+                )
+            nested_type = str(nested_effect.get("type", "") or "").strip().upper()
+            if not nested_type:
+                raise JsonRuleV2Error(
+                    "scheduled effect.type is required",
+                    path=f"{e_path}.effect.type",
+                )
+            nested_effect["type"] = nested_type
+            round_offset = _coerce_int(row.get("round_offset", 1), 0)
+            repeat_count = _coerce_int(row.get("repeat_count", 1), 0)
+            if round_offset <= 0:
+                raise JsonRuleV2Error(
+                    "SCHEDULE_EFFECT round_offset must be positive",
+                    path=f"{e_path}.round_offset",
+                )
+            if repeat_count <= 0:
+                raise JsonRuleV2Error(
+                    "SCHEDULE_EFFECT repeat_count must be positive",
+                    path=f"{e_path}.repeat_count",
+                )
+            row["round_offset"] = round_offset
+            row["repeat_count"] = repeat_count
+
+        if effect_type == "APPLY_BUFF_FROM_CHARACTER_COUNT":
+            buff_id = str(row.get("buff_id", "") or "").strip()
+            buff_name = str(row.get("buff_name", "") or "").strip()
+            if not buff_id and not buff_name:
+                raise JsonRuleV2Error(
+                    "APPLY_BUFF_FROM_CHARACTER_COUNT needs buff_id or buff_name",
+                    path=e_path,
+                )
+            if not isinstance(row.get("character_filter"), dict):
+                raise JsonRuleV2Error(
+                    "APPLY_BUFF_FROM_CHARACTER_COUNT requires character_filter object",
+                    path=f"{e_path}.character_filter",
+                )
+            value_per_character = _coerce_int(row.get("value_per_character", 1), 0)
+            if value_per_character == 0:
+                raise JsonRuleV2Error(
+                    "value_per_character must be a non-zero integer",
+                    path=f"{e_path}.value_per_character",
+                )
+            row["value_per_character"] = value_per_character
+
+        if row.get("target") == "FILTERED_CHARACTERS" and not isinstance(
+            row.get("character_filter"),
+            dict,
+        ):
+            raise JsonRuleV2Error(
+                "FILTERED_CHARACTERS requires character_filter object",
+                path=f"{e_path}.character_filter",
+            )
+
         out.append(row)
     return out
 
@@ -407,4 +466,3 @@ def normalize_skill_constraints_rows(raw_rows, *, source_path="skill_constraints
         count=len(out),
     )
     return out
-

@@ -137,8 +137,75 @@ def handle_summon_character(effect, target_obj, sim_target, session):
     session.log_snippets.append(f"[召喚 {summon_template_id}]")
 
 
+def handle_schedule_effect(effect, target_obj, sim_target, session):
+    context = session.context if isinstance(session.context, dict) else {}
+    nested_effect = effect.get("effect")
+    if not isinstance(nested_effect, dict):
+        return
+    try:
+        round_offset = max(1, int(effect.get("round_offset", 1) or 1))
+    except (TypeError, ValueError):
+        round_offset = 1
+    try:
+        repeat_count = max(1, int(effect.get("repeat_count", 1) or 1))
+    except (TypeError, ValueError):
+        repeat_count = 1
+
+    room_state = context.get("room_state")
+    battle_state = context.get("battle_state")
+    current_round = context.get("round")
+    if current_round is None and isinstance(battle_state, dict):
+        current_round = battle_state.get("round")
+    if current_round is None and isinstance(room_state, dict):
+        current_round = room_state.get("round")
+    try:
+        current_round = int(current_round or 0)
+    except (TypeError, ValueError):
+        current_round = 0
+    if current_round <= 0:
+        return
+
+    source_skill = context.get("actor_skill_data")
+    source_skill_id = None
+    if isinstance(source_skill, dict):
+        for key in ("id", "skill_id", "スキルID", "ID"):
+            if source_skill.get(key):
+                source_skill_id = source_skill.get(key)
+                break
+    source_skill_id = str(source_skill_id or effect.get("source_skill_id") or "").strip()
+    source_slot_id = str(context.get("source_slot_id") or "").strip()
+    nested_type = str(nested_effect.get("type") or "").strip().upper()
+    nested_id = str(
+        nested_effect.get("summon_template_id")
+        or nested_effect.get("buff_id")
+        or nested_effect.get("value")
+        or nested_type
+    )
+    schedule_key = str(effect.get("schedule_key") or nested_id).strip()
+    unique_key = (
+        f"{source_slot_id or session.actor.get('id')}:{source_skill_id}:"
+        f"{current_round}:{nested_type}:{schedule_key}"
+    )
+    payload = {
+        "unique_key": unique_key,
+        "source_actor_id": session.actor.get("id"),
+        "source_skill_id": source_skill_id,
+        "source_slot_id": source_slot_id,
+        "execute_round": current_round + round_offset,
+        "repeat_count": repeat_count,
+        "effect": copy.deepcopy(nested_effect),
+    }
+    session.changes_to_apply.append(
+        (session.actor, "SCHEDULE_EFFECT", source_skill_id, payload)
+    )
+    session.log_snippets.append(
+        f"[予約 {nested_type} Round {payload['execute_round']} x{repeat_count}]"
+    )
+
+
 HANDLERS = {
     "GRANT_SKILL": handle_grant_skill,
     "USE_SKILL_AGAIN": handle_use_skill_again,
     "SUMMON_CHARACTER": handle_summon_character,
+    "SCHEDULE_EFFECT": handle_schedule_effect,
 }

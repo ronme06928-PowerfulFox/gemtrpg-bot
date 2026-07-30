@@ -16,6 +16,8 @@ from manager.logs import setup_logger
 from manager.summons.service import apply_summon_change, process_summon_round_end
 from manager.granted_skills.service import process_granted_skill_round_end, apply_grant_skill_change
 from manager.battle.system_skills import pop_pending_selected_power_recoveries
+from manager.battle.action_slot_mode import is_action_slot_disabled
+from manager.battle.scheduled_effects import execute_scheduled_effects
 
 logger = setup_logger(__name__)
 
@@ -79,7 +81,10 @@ def _is_select_resolve_active(state):
     if phase not in ['select', 'resolve_mass', 'resolve_single']:
         return False
     slots = battle_state.get('slots', {})
-    return isinstance(slots, dict) and len(slots) > 0
+    return (
+        isinstance(slots, dict)
+        and any(not (slot or {}).get('target_only', False) for slot in slots.values())
+    )
 
 
 from manager.game_logic import (
@@ -344,6 +349,7 @@ def _process_full_round_end_impl(room, username):
             and not is_escaped
             and not is_incapacitated
             and not is_action_locked_summon
+            and not is_action_slot_disabled(c)
         )
 
         if should_act and not c.get('hasActed', False):
@@ -956,6 +962,7 @@ def _process_round_start_impl(room, username):
 
     state['round'] = state.get('round', 0) + 1
     state['is_round_ended'] = False
+    execute_scheduled_effects(state, state['round'], room=room)
 
     broadcast_log(room, f"--- {username} が Round {state['round']} を開始しました ---", 'round')
 
@@ -989,6 +996,9 @@ def _process_round_start_impl(room, username):
         if x_val < 0:
              logger.debug(f"[Timeline] Skip {char.get('name')} (Unplaced x={x_val})")
              continue
+        if is_action_slot_disabled(char):
+            logger.debug("[Timeline] Skip %s (action_slot_mode=none)", char.get('name'))
+            continue
         can_act_from_round = int(char.get('can_act_from_round', 0) or 0)
         if bool(char.get('is_summoned', False)) and can_act_from_round > int(state.get('round', 0)):
             logger.debug(
@@ -1349,8 +1359,6 @@ def process_ai_suggest_skill(room, char_id):
     if not char: return None
 
     return ai_suggest_skill(char)
-
-
 
 
 

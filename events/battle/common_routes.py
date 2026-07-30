@@ -533,6 +533,18 @@ def _authorize_intent_slot_control(room_id, battle_id, state, slot_id, event_nam
         emit('battle_error', {'message': 'unknown slot_id', 'slot_id': slot_id}, to=request.sid)
         return False
 
+    if slot.get('target_only', False):
+        logger.warning(
+            "[FLOW] %s_denied room=%s battle=%s slot=%s reason=target_only_slot",
+            event_name, room_id, battle_id, slot_id
+        )
+        emit(
+            'battle_error',
+            {'message': 'target-only slot cannot declare an intent', 'slot_id': slot_id},
+            to=request.sid
+        )
+        return False
+
     actor_id = slot.get('actor_id')
     if not actor_id:
         logger.warning(

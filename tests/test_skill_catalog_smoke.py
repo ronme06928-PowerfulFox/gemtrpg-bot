@@ -27,6 +27,7 @@ SUPPORTED_EFFECT_TYPES = {
     "APPLY_BUFF_PER_N",
     "MULTIPLY_STATE",
     "APPLY_BUFF",
+    "APPLY_BUFF_FROM_CHARACTER_COUNT",
     "CONSUME_BUFF_COUNT_FOR_GAIN",
     "CONSUME_BUFF_COUNT_FOR_POWER",
     "CONVERT_STACK_RESOURCE_VARIANT",
@@ -41,6 +42,7 @@ SUPPORTED_EFFECT_TYPES = {
     "MODIFY_FINAL_POWER",
     "DRAIN_HP",
     "SUMMON_CHARACTER",
+    "SCHEDULE_EFFECT",
 }
 
 SUPPORTED_EFFECT_TIMINGS = {
@@ -68,6 +70,9 @@ SUPPORTED_TARGETS = {
     "ALL_OTHER_ALLIES",
     "ALL",
     "NEXT_ALLY",
+    "FILTERED_CHARACTERS",
+    "KILLER",
+    "KILLER_TEAM",
 }
 
 SUPPORTED_CONDITION_SOURCES = {
@@ -77,6 +82,8 @@ SUPPORTED_CONDITION_SOURCES = {
     "skill",
     "actor_skill",
     "relation",
+    "battle",
+    "death_context",
 }
 
 SUPPORTED_CONDITION_OPERATORS = {
@@ -113,6 +120,8 @@ SIGNAL_EXPECTED_TYPES = {
     "MODIFY_FINAL_POWER",
     "DRAIN_HP",
     "SUMMON_CHARACTER",
+    "SCHEDULE_EFFECT",
+    "APPLY_BUFF_FROM_CHARACTER_COUNT",
 }
 
 
@@ -397,6 +406,13 @@ def _prime_effect_for_signal(effect, actor, target):
                 {"name": buff_name, "count": seed_count, "delay": 0, "lasting": -1}
             )
 
+    character_filter = effect.get("character_filter")
+    if isinstance(character_filter, dict):
+        required = list(character_filter.get("required_tag_ids", []) or [])
+        team_mode = str(character_filter.get("team", "any")).strip().lower()
+        seed_char = target if team_mode == "opposing_team" else actor
+        seed_char["tag_ids"] = required
+
 
 def _effect_emits_expected_signal(effect, bonus_damage, logs, changes):
     effect_type = str(effect.get("type", "")).strip()
@@ -610,6 +626,35 @@ def test_skill_rules_json_and_effect_shape_lint():
                     field_errors.append(f"{skill_id}[{idx}]: SUMMON_CHARACTER needs summon_template_id")
                 elif template_id not in known_summon_template_ids:
                     field_errors.append(f"{skill_id}[{idx}]: unknown summon_template_id '{template_id}'")
+            elif effect_type == "SCHEDULE_EFFECT":
+                nested = effect.get("effect")
+                if not isinstance(nested, dict):
+                    field_errors.append(f"{skill_id}[{idx}]: SCHEDULE_EFFECT needs effect object")
+                else:
+                    nested_type = str(nested.get("type", "")).strip()
+                    if nested_type == "SUMMON_CHARACTER":
+                        template_id = str(nested.get("summon_template_id", "")).strip()
+                        if not template_id:
+                            field_errors.append(
+                                f"{skill_id}[{idx}]: scheduled SUMMON_CHARACTER needs summon_template_id"
+                            )
+                        elif template_id not in known_summon_template_ids:
+                            field_errors.append(
+                                f"{skill_id}[{idx}]: unknown scheduled summon_template_id '{template_id}'"
+                            )
+                if not _can_int(effect.get("round_offset", 1)) or int(effect.get("round_offset", 1)) <= 0:
+                    field_errors.append(f"{skill_id}[{idx}]: SCHEDULE_EFFECT round_offset must be positive int")
+                if not _can_int(effect.get("repeat_count", 1)) or int(effect.get("repeat_count", 1)) <= 0:
+                    field_errors.append(f"{skill_id}[{idx}]: SCHEDULE_EFFECT repeat_count must be positive int")
+            elif effect_type == "APPLY_BUFF_FROM_CHARACTER_COUNT":
+                if not str(effect.get("buff_id") or effect.get("buff_name") or "").strip():
+                    field_errors.append(
+                        f"{skill_id}[{idx}]: APPLY_BUFF_FROM_CHARACTER_COUNT needs buff_id or buff_name"
+                    )
+                if not isinstance(effect.get("character_filter"), dict):
+                    field_errors.append(
+                        f"{skill_id}[{idx}]: APPLY_BUFF_FROM_CHARACTER_COUNT needs character_filter"
+                    )
 
     failures = []
     if json_errors:
@@ -658,6 +703,7 @@ def test_skill_effects_smoke_all_timings(monkeypatch):
             target = _build_char("target_a", "SmokeTarget", "enemy", 2)
 
             room_state = {
+                "round": 1,
                 "characters": [actor, ally, target],
                 "timeline": [actor["id"], ally["id"], target["id"]],
                 "battle_state": {
@@ -678,6 +724,9 @@ def test_skill_effects_smoke_all_timings(monkeypatch):
                     {"char_id": target["id"], "speed": 8},
                 ],
                 "battle_state": room_state["battle_state"],
+                "room_state": room_state,
+                "round": 1,
+                "source_slot_id": "slot_a",
             }
 
             try:
@@ -725,6 +774,7 @@ def test_unconditional_effects_emit_signal():
             _prime_effect_for_signal(effect, actor, target)
 
             room_state = {
+                "round": 1,
                 "characters": [actor, ally, target],
                 "timeline": [actor["id"], ally["id"], target["id"]],
                 "battle_state": {
@@ -744,6 +794,9 @@ def test_unconditional_effects_emit_signal():
                     {"char_id": target["id"], "speed": 8},
                 ],
                 "battle_state": room_state["battle_state"],
+                "room_state": room_state,
+                "round": 1,
+                "source_slot_id": "slot_a",
             }
 
             try:

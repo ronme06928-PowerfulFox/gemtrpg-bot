@@ -1,6 +1,8 @@
 # manager/battle/effect_handlers/buff_effects.py
 # バフ系 effect ハンドラ（計画書29 Phase 3 で game_logic.process_skill_effects から移設）。
 # ロジック・ログ文字列・changes_to_apply の形式は移設前と同一。
+import copy
+
 from manager.battle import skill_effect_helpers as helpers
 from manager.logs import setup_logger
 
@@ -196,6 +198,44 @@ def handle_apply_buff(effect, target_obj, sim_target, session):
             log_snippets.append(f"[{buff_name} スタック +{delta_count} ({before_count}->{after_count})]")
 
 
+def handle_apply_buff_from_character_count(effect, target_obj, sim_target, session):
+    from manager.battle.field_character_effects import count_filtered_characters
+
+    context = session.context if isinstance(session.context, dict) else {}
+    count = count_filtered_characters(
+        session.actor,
+        context.get("characters"),
+        effect.get("character_filter"),
+    )
+    try:
+        value_per_character = int(effect.get("value_per_character", 1) or 1)
+    except (TypeError, ValueError):
+        value_per_character = 1
+    value = count * value_per_character
+    if count <= 0 or value == 0:
+        return
+
+    dynamic_effect = copy.deepcopy(effect)
+    dynamic_effect["type"] = "APPLY_BUFF"
+    dynamic_effect.setdefault("target", "self")
+    dynamic_effect.setdefault("lasting", 1)
+    dynamic_effect.setdefault("delay", 0)
+    data = dynamic_effect.get("data")
+    data = copy.deepcopy(data) if isinstance(data, dict) else {}
+    data["power_bonus"] = [
+        {
+            "operation": "FIXED",
+            "value": value,
+            "apply_to": str(effect.get("apply_to") or "final"),
+        }
+    ]
+    data["character_count"] = count
+    data["value_per_character"] = value_per_character
+    dynamic_effect["data"] = data
+    handle_apply_buff(dynamic_effect, target_obj, sim_target, session)
+    session.log_snippets.append(f"[フィールド集計 {count}体 x{value_per_character}]")
+
+
 def handle_remove_buff(effect, target_obj, sim_target, session):
     buff_name = effect.get("buff_name")
     if buff_name:
@@ -209,5 +249,6 @@ def handle_remove_buff(effect, target_obj, sim_target, session):
 HANDLERS = {
     "APPLY_BUFF_PER_N": handle_apply_buff_per_n,
     "APPLY_BUFF": handle_apply_buff,
+    "APPLY_BUFF_FROM_CHARACTER_COUNT": handle_apply_buff_from_character_count,
     "REMOVE_BUFF": handle_remove_buff,
 }

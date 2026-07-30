@@ -419,7 +419,7 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
         actor = char_by_id.get(actor_id, {})
         return _canonical_team(actor.get('type'))
 
-    def _slot_is_actionable(slot):
+    def _slot_is_targetable(slot):
         if not isinstance(slot, dict):
             return False
         if bool(slot.get('disabled', False)):
@@ -427,18 +427,18 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
         actor = char_by_id.get(slot.get('actor_id'))
         return _is_pve_actionable_character(actor)
 
-    actionable_slots_by_team = {'ally': [], 'enemy': []}
-    ally_target_slots = []
+    def _slot_is_actionable(slot):
+        return _slot_is_targetable(slot) and not bool(slot.get('target_only', False))
+
+    targetable_slots_by_team = {'ally': [], 'enemy': []}
     enemy_slots = []
     for slot_id, slot in slots.items():
-        if not _slot_is_actionable(slot):
+        if not _slot_is_targetable(slot):
             continue
         team = _slot_team(slot)
-        if team in actionable_slots_by_team:
-            actionable_slots_by_team[team].append(str(slot_id))
-        if team == 'ally':
-            ally_target_slots.append(str(slot_id))
-        elif team == 'enemy':
+        if team in targetable_slots_by_team:
+            targetable_slots_by_team[team].append(str(slot_id))
+        if team == 'enemy' and _slot_is_actionable(slot):
             actor = char_by_id.get(slot.get('actor_id'), {})
             flags = actor.get('flags', {}) if isinstance(actor.get('flags'), dict) else {}
             if flags.get('auto_target_select', True):
@@ -468,7 +468,7 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
         ids = []
         for sid in slot_ids or []:
             slot = slots.get(sid, {}) if isinstance(slots, dict) else {}
-            if _slot_is_actionable(slot):
+            if _slot_is_targetable(slot):
                 ids.append(str(sid))
         ids.sort(
             key=lambda sid: (
@@ -490,8 +490,8 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
         else:
             enemy_team = None
 
-        enemy_candidates = list(actionable_slots_by_team.get(enemy_team, [])) if enemy_team else []
-        ally_candidates = list(actionable_slots_by_team.get(attacker_team, [])) if attacker_team else []
+        enemy_candidates = list(targetable_slots_by_team.get(enemy_team, [])) if enemy_team else []
+        ally_candidates = list(targetable_slots_by_team.get(attacker_team, [])) if attacker_team else []
         ally_non_self = [
             sid for sid in ally_candidates
             if (slots.get(sid, {}) or {}).get('actor_id') != attacker_actor_id
@@ -560,21 +560,21 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
             if team_mode == 'self':
                 base_pool = [attacker_slot_id]
             elif team_mode == 'same_team':
-                base_pool = list(actionable_slots_by_team.get(attacker_team, []))
+                base_pool = list(targetable_slots_by_team.get(attacker_team, []))
             elif team_mode == 'any':
                 base_pool = (
-                    list(actionable_slots_by_team.get('ally', []))
-                    + list(actionable_slots_by_team.get('enemy', []))
+                    list(targetable_slots_by_team.get('ally', []))
+                    + list(targetable_slots_by_team.get('enemy', []))
                 )
             else:
                 opposing_team = 'enemy' if attacker_team == 'ally' else 'ally'
-                base_pool = list(actionable_slots_by_team.get(opposing_team, []))
+                base_pool = list(targetable_slots_by_team.get(opposing_team, []))
 
             required_tag_ids = set(candidate.get('required_tag_ids') or [])
             filtered = []
             for sid in base_pool:
                 slot_obj = slots.get(sid, {}) if isinstance(slots, dict) else {}
-                if not _slot_is_actionable(slot_obj):
+                if not _slot_is_targetable(slot_obj):
                     continue
                 target_actor_id = slot_obj.get('actor_id')
                 if team_mode != 'self' and target_actor_id == attacker_actor_id:
@@ -687,7 +687,7 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
             )
             if legacy_target_invalid:
                 fallback_pool = []
-                for sid in actionable_slots_by_team.get('ally', []) + actionable_slots_by_team.get('enemy', []):
+                for sid in targetable_slots_by_team.get('ally', []) + targetable_slots_by_team.get('enemy', []):
                     slot_obj = slots.get(sid, {}) if isinstance(slots, dict) else {}
                     candidate_actor_id = slot_obj.get('actor_id')
                     if target_scope == 'self':

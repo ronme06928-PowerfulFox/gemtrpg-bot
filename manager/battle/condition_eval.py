@@ -186,6 +186,21 @@ def _resolve_buff_count_for_condition(source_obj, buff_name):
 
 
 def _get_value_for_condition(source_obj, param_name, context=None, actor=None, target=None, source_type=None, get_status_value_fn=None):
+    if source_type == "death_context":
+        ctx = context if isinstance(context, dict) else {}
+        cause = ctx.get("death_context")
+        if not isinstance(cause, dict):
+            return None
+        if str(param_name or "").strip() == "killer_team":
+            skill_data = cause.get("skill_data")
+            has_skill = bool(cause.get("skill_id"))
+            if isinstance(skill_data, dict):
+                has_skill = has_skill or bool(skill_data.get("id"))
+            killer = cause.get("actor")
+            if not has_skill or not isinstance(killer, dict):
+                return None
+            return _canonical_team(killer.get("type"))
+        return cause.get(param_name)
     if source_type == "battle":
         # バトル状態から値を取得する (現在対応: round)
         ctx = context if isinstance(context, dict) else {}
@@ -399,6 +414,8 @@ def check_condition(condition_obj, actor, target, target_skill_data=None, actor_
     elif source_str == "skill" or source_str == "actor_skill": source_obj = actor_skill_data
     elif source_str == "relation": source_obj = {}
     elif source_str == "battle": source_obj = {}
+    elif source_str == "death_context":
+        source_obj = (context or {}).get("death_context") if isinstance(context, dict) else None
 
     current_value = _get_value_for_condition(
         source_obj,

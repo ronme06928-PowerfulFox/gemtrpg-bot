@@ -48,6 +48,68 @@ def _split_csv_list(value: str):
     return [part.strip() for part in normalized.split(",") if part.strip()]
 
 
+def _dedupe_strings(values):
+    result = []
+    seen = set()
+    for value in values or []:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
+
+
+def _normalize_string_list(value, template_id: str, field_name: str):
+    if value is None or value == "":
+        return []
+    if isinstance(value, str):
+        return _dedupe_strings(_split_csv_list(value))
+    if isinstance(value, (list, tuple, set)):
+        invalid_count = sum(1 for item in value if not isinstance(item, (str, int, float)))
+        if invalid_count:
+            logger.warning(
+                "summon template %s: %s contains %s unsupported item(s)",
+                template_id,
+                field_name,
+                invalid_count,
+            )
+        return _dedupe_strings(
+            item for item in value if isinstance(item, (str, int, float))
+        )
+    logger.warning(
+        "summon template %s: %s must be a string or list, got %s",
+        template_id,
+        field_name,
+        type(value).__name__,
+    )
+    return []
+
+
+def _normalize_dict_list(value, template_id: str, field_name: str):
+    if value is None or value == "":
+        return []
+    if not isinstance(value, list):
+        logger.warning(
+            "summon template %s: %s must be a list, got %s",
+            template_id,
+            field_name,
+            type(value).__name__,
+        )
+        return []
+    result = []
+    for item in value:
+        if isinstance(item, dict):
+            result.append(deepcopy(item))
+            continue
+        logger.warning(
+            "summon template %s: %s contains a non-object item",
+            template_id,
+            field_name,
+        )
+    return result
+
+
 def _parse_inventory(raw_value: str):
     raw = str(raw_value or "").strip()
     if not raw:
@@ -179,7 +241,13 @@ def _build_row_template(row: dict):
     template["mp"] = mp
     template["maxMp"] = max_mp
     template["initial_skill_ids"] = _split_csv_list(_pick(row, "戦闘スキル", "initial_skill_ids"))
-    template["SPassive"] = _split_csv_list(_pick(row, "パッシブスキル", "SPassive"))
+    extra_passives = _normalize_string_list(extra.get("SPassive"), template_id, "SPassive")
+    column_passives = _normalize_string_list(
+        _pick(row, "パッシブスキル", "SPassive"),
+        template_id,
+        "SPassive column",
+    )
+    template["SPassive"] = _dedupe_strings(extra_passives + column_passives)
     template["radiance_skills"] = _split_csv_list(_pick(row, "輝化スキル", "radiance_skills"))
     template["hidden_skills"] = _split_csv_list(_pick(row, "秘匿スキル", "hidden_skills"))
     template["inventory"] = _parse_inventory(_pick(row, "所持アイテム", "inventory"))
@@ -187,6 +255,28 @@ def _build_row_template(row: dict):
     template["summon_duration"] = duration
     template["allow_duplicate_same_team"] = bool(allow_duplicate)
     template["params"] = params
+    template["tag_ids"] = _normalize_string_list(extra.get("tag_ids"), template_id, "tag_ids")
+    template["disabled_tag_ids"] = _normalize_string_list(
+        extra.get("disabled_tag_ids"),
+        template_id,
+        "disabled_tag_ids",
+    )
+    template["special_buffs"] = _normalize_dict_list(
+        extra.get("special_buffs"),
+        template_id,
+        "special_buffs",
+    )
+    flags = extra.get("flags", {})
+    if flags is None:
+        flags = {}
+    if not isinstance(flags, dict):
+        logger.warning(
+            "summon template %s: flags must be an object, got %s",
+            template_id,
+            type(flags).__name__,
+        )
+        flags = {}
+    template["flags"] = deepcopy(flags)
     return template_id, template
 
 

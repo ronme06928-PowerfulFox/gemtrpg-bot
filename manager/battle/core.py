@@ -463,7 +463,8 @@ def _run_skill_timing_effects(
     skill_data,
     timing,
     target_skill_data=None,
-    base_damage=0
+    base_damage=0,
+    source_slot_id=None,
 ):
     _sync_resolve_effect_runtime_deps()
     return _resolve_effect_runtime_mod._run_skill_timing_effects(
@@ -475,6 +476,7 @@ def _run_skill_timing_effects(
         timing,
         target_skill_data=target_skill_data,
         base_damage=base_damage,
+        source_slot_id=source_slot_id,
     )
 
 
@@ -488,7 +490,8 @@ def _trigger_skill_timing_effects(
     skill_data,
     target_skill_data=None,
     base_damage=0,
-    emit_source='select_resolve_timing'
+    emit_source='select_resolve_timing',
+    source_slot_id=None,
 ):
     _sync_resolve_effect_runtime_deps()
     return _resolve_effect_runtime_mod._trigger_skill_timing_effects(
@@ -502,6 +505,7 @@ def _trigger_skill_timing_effects(
         target_skill_data=target_skill_data,
         base_damage=base_damage,
         emit_source=emit_source,
+        source_slot_id=source_slot_id,
     )
 
 

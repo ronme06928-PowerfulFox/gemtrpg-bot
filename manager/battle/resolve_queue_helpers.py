@@ -91,7 +91,10 @@ def _build_resolve_queues(battle_state, intents_override=None):
                 seen_slots.add(slot_id)
 
     # Fallback for stale/missing timeline entries: append remaining slots by initiative desc.
-    remaining_slots = [sid for sid in slots.keys() if sid not in seen_slots]
+    remaining_slots = [
+        sid for sid, slot in slots.items()
+        if sid not in seen_slots and not (slot or {}).get('target_only', False)
+    ]
     remaining_slots.sort(
         key=lambda sid: (
             -int((slots.get(sid) or {}).get('initiative', 0)),
@@ -103,7 +106,7 @@ def _build_resolve_queues(battle_state, intents_override=None):
     mass_slots = []
     for slot_id in ordered_slots:
         slot = slots.get(slot_id) or {}
-        if slot.get('disabled', False):
+        if slot.get('disabled', False) or slot.get('target_only', False):
             continue
         intent = intents.get(slot_id, {})
         tags = intent.get('tags', {})
@@ -114,7 +117,7 @@ def _build_resolve_queues(battle_state, intents_override=None):
     single_slots = []
     for slot_id in ordered_slots:
         slot = slots.get(slot_id) or {}
-        if slot.get('disabled', False):
+        if slot.get('disabled', False) or slot.get('target_only', False):
             continue
         intent = intents.get(slot_id, {})
         tags = intent.get('tags', {})

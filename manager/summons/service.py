@@ -261,6 +261,10 @@ def apply_summon_change(room, state, summoner, payload):
     disabled_tag_ids = copy.deepcopy(
         payload.get("disabled_tag_ids", template.get("disabled_tag_ids", []))
     )
+    flags = copy.deepcopy(payload.get("flags", template.get("flags", {})))
+    if not isinstance(flags, dict):
+        flags = {}
+    flags.setdefault("immediate_action_used", False)
 
     hp = _safe_int(payload.get("hp", template.get("hp", template.get("maxHp", 1))), 1)
     max_hp = max(1, _safe_int(payload.get("maxHp", template.get("maxHp", hp)), hp))
@@ -295,7 +299,7 @@ def apply_summon_change(room, state, summoner, payload):
         "hasActed": False,
         "owner": owner_name,
         "owner_id": owner_id,
-        "flags": {"immediate_action_used": False},
+        "flags": flags,
         "is_summoned": True,
         "summoned_round": current_round,
         "can_act_from_round": current_round + 1,

@@ -1,4 +1,5 @@
 from events.battle.intent_targets import _normalize_target_slot_id, _resolve_slot_team
+from manager.battle.action_slot_mode import is_action_slot_disabled
 
 
 def _canonical_team(raw_value):
@@ -20,6 +21,8 @@ def _is_actor_actionable(room_id, actor_id, *, get_room_state_fn, confusion_buff
     if actor.get('hp', 0) <= 0:
         return False
     if actor.get('is_escaped', False):
+        return False
+    if is_action_slot_disabled(actor):
         return False
     try:
         x_val = float(actor.get('x', -1))
@@ -219,7 +222,7 @@ def _required_slots(room_id, state, *, get_room_state_fn, is_actor_actionable_fn
     room_state = get_room_state_fn(room_id) or {}
     is_pve_mode = str(room_state.get('battle_mode', 'pvp') or 'pvp').strip().lower() == 'pve'
     for slot_id, slot in state.get('slots', {}).items():
-        if slot.get('disabled', False):
+        if slot.get('disabled', False) or slot.get('target_only', False):
             continue
         actor_id = slot.get('actor_id')
         if not is_actor_actionable_fn(room_id, actor_id):

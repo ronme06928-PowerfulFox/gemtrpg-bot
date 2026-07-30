@@ -10,6 +10,11 @@ from manager.battle.pve_intent_planner import (
     _broadcast_pve_round_start_preview_log,
 )
 from manager.battle.skill_access import list_regular_usable_skill_ids
+from manager.battle.action_slot_mode import (
+    build_target_only_slot,
+    is_action_slot_disabled,
+)
+from manager.battle.scheduled_effects import execute_scheduled_effects
 
 
 logger = setup_logger(__name__)
@@ -51,6 +56,12 @@ def _build_select_resolve_slots_from_timeline(room_state):
             'is_alive': bool(char.get('hp', 0) > 0)
         }
 
+    round_value = room_state.get('round', 0)
+    for char in characters:
+        anchor = build_target_only_slot(char, round_value)
+        if anchor:
+            slots[anchor['slot_id']] = anchor
+
     return slots
 
 def _build_select_resolve_timeline_from_room(room_state, slots):
@@ -69,21 +80,24 @@ def _build_select_resolve_timeline_from_room(room_state, slots):
                 if not isinstance(entry, dict):
                     continue
                 slot_id = entry.get('id')
-                if slot_id in slot_ids:
+                if slot_id in slot_ids and not (slots.get(slot_id) or {}).get('target_only', False):
                     ordered.append(slot_id)
         elif isinstance(first, str):
             for slot_id in room_timeline:
-                if slot_id in slot_ids:
+                if slot_id in slot_ids and not (slots.get(slot_id) or {}).get('target_only', False):
                     ordered.append(slot_id)
 
     if not ordered:
         return sorted(
-            slots.keys(),
+            [sid for sid, slot in slots.items() if not (slot or {}).get('target_only', False)],
             key=lambda sid: (-int(slots.get(sid, {}).get('initiative', 0)), str(sid))
         )
 
     seen = set(ordered)
-    missing = [sid for sid in slots.keys() if sid not in seen]
+    missing = [
+        sid for sid, slot in slots.items()
+        if sid not in seen and not (slot or {}).get('target_only', False)
+    ]
     if missing:
         missing.sort(key=lambda sid: (-int(slots.get(sid, {}).get('initiative', 0)), str(sid)))
         ordered.extend(missing)
@@ -217,6 +231,8 @@ def _build_usable_skill_ids(room_state, battle_state):
     for slot_id, slot_info in slots.items():
         if not isinstance(slot_info, dict):
             continue
+        if slot_info.get('target_only', False):
+            continue
         actor = char_by_id.get(slot_info.get('actor_id'))
         if not actor:
             continue
@@ -258,6 +274,8 @@ def process_select_resolve_round_start(room, battle_id, round_value):
         return None
     clear_newly_applied_flags(state)
     clear_round_limited_flags(state)
+    state['round'] = round_value
+    execute_scheduled_effects(state, round_value, room=room)
 
     def _roll_1d6():
         result = roll_dice("1d6")
@@ -289,6 +307,8 @@ def process_select_resolve_round_start(room, battle_id, round_value):
             continue
 
         if hp <= 0 or escaped or x_val < 0:
+            continue
+        if is_action_slot_disabled(char):
             continue
         can_act_from_round = int(char.get('can_act_from_round', 0) or 0)
         if bool(char.get('is_summoned', False)) and can_act_from_round > int(round_value):
@@ -412,6 +432,11 @@ def process_select_resolve_round_start(room, battle_id, round_value):
         if isinstance(legacy_entry, dict):
             legacy_timeline_sorted.append(legacy_entry)
 
+    for char in characters:
+        anchor = build_target_only_slot(char, round_value)
+        if anchor:
+            slots_dict[anchor['slot_id']] = anchor
+
     battle_state['round'] = round_value
     battle_state['phase'] = 'select'
     battle_state['slots'] = slots_dict
@@ -457,4 +482,3 @@ def process_select_resolve_round_start(room, battle_id, round_value):
         'timeline': timeline,
         'tiebreak': tiebreak_payload
     }
-

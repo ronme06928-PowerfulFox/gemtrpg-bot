@@ -28,6 +28,7 @@ from manager.battle.skill_rules import (
 )
 from manager.battle.skill_access import get_effective_skill_cost
 from manager.battle.damage_context import build_damage_context
+from manager.battle.scheduled_effects import apply_schedule_change
 
 logger = setup_logger(__name__)
 all_skill_data = _default_all_skill_data
@@ -317,7 +318,8 @@ def _run_skill_timing_effects(
     skill_data,
     timing,
     target_skill_data=None,
-    base_damage=0
+    base_damage=0,
+    source_slot_id=None,
 ):
     result = {
         'bonus_damage': 0,
@@ -344,6 +346,10 @@ def _run_skill_timing_effects(
         'characters': (state.get('characters', []) if isinstance(state, dict) else []),
         'room': room,
         'actor_skill_data': skill_data,
+        'room_state': state,
+        'battle_state': state.get('battle_state') if isinstance(state, dict) else None,
+        'source_slot_id': source_slot_id,
+        'round': state.get('round', 0) if isinstance(state, dict) else 0,
     }
     try:
         bonus_damage, logs, changes = process_skill_effects(
@@ -402,7 +408,8 @@ def _trigger_skill_timing_effects(
     skill_data,
     target_skill_data=None,
     base_damage=0,
-    emit_source='select_resolve_timing'
+    emit_source='select_resolve_timing',
+    source_slot_id=None,
 ):
     res = _run_skill_timing_effects(
         room=room,
@@ -412,7 +419,8 @@ def _trigger_skill_timing_effects(
         skill_data=skill_data,
         timing=timing,
         target_skill_data=target_skill_data,
-        base_damage=base_damage
+        base_damage=base_damage,
+        source_slot_id=source_slot_id,
     )
     if res.get('damage') or res.get('statuses'):
         _emit_stat_updates_from_applied(
@@ -513,7 +521,8 @@ def _apply_phase_timing_for_committed_intents(
             skill_data=skill_data,
             target_skill_data=target_skill_data,
             base_damage=0,
-            emit_source=f"resolve_{str(timing).lower()}"
+            emit_source=f"resolve_{str(timing).lower()}",
+            source_slot_id=slot_id,
         )
         marks[mark_key] = True
         applied_count += 1
@@ -940,6 +949,11 @@ def _apply_effect_changes_like_duel(
                 broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
             else:
                 logger.warning("[select_resolve summon failed] %s", res.get("message"))
+        elif effect_type == "SCHEDULE_EFFECT":
+            if apply_schedule_change(state, attacker_char, value):
+                log_snippets.append(
+                    f"[予約登録 Round {int((value or {}).get('execute_round', 0) or 0)}]"
+                )
         elif effect_type == "GRANT_SKILL":
             grant_payload = dict(value) if isinstance(value, dict) else {}
             if "skill_id" not in grant_payload:

@@ -73,6 +73,7 @@ def test_apply_summon_change_uses_template_skills_and_passives(monkeypatch):
         "SPassive": ["PA-01"],
         "tag_ids": [" 種別:瓦礫 ", "機械", "種別:瓦礫"],
         "disabled_tag_ids": ["機械", "未知"],
+        "flags": {"action_slot_mode": "none"},
         "summon_duration_mode": "duration_rounds",
         "summon_duration": 2,
     }
@@ -120,6 +121,8 @@ def test_apply_summon_change_uses_template_skills_and_passives(monkeypatch):
     assert new_char["SPassive"] == ["PA-01"]
     assert new_char["tag_ids"] == ["種別:瓦礫", "機械"]
     assert new_char["disabled_tag_ids"] == ["機械"]
+    assert new_char["flags"]["action_slot_mode"] == "none"
+    assert new_char["flags"]["immediate_action_used"] is False
     assert "T-SUM-01" in new_char["commands"]
     assert room_state["character_owners"][new_char["id"]] == "alice"
 

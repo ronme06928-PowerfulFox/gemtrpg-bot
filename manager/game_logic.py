@@ -36,6 +36,19 @@ def _effect_registry():
     return registry if isinstance(registry, dict) else {}
 
 
+def _is_placed_living_character(character):
+    if not isinstance(character, dict):
+        return False
+    try:
+        return (
+            int(character.get("hp", 0) or 0) > 0
+            and float(character.get("x", -1)) >= 0
+            and not bool(character.get("is_escaped", False))
+        )
+    except (TypeError, ValueError):
+        return False
+
+
 def _fallback_get_status_value(char_obj, status_name):
     if not isinstance(char_obj, dict):
         return 0
@@ -485,6 +498,33 @@ def process_skill_effects(
                 ]
             elif t_str == "ALL" and context and "characters" in context:
                  targets_list = [c for c in context["characters"] if c.get('hp', 0) > 0]
+            elif t_str == "FILTERED_CHARACTERS" and isinstance(context, dict):
+                from manager.battle.field_character_effects import select_filtered_characters
+
+                targets_list = select_filtered_characters(
+                    actor,
+                    context.get("characters"),
+                    effect.get("character_filter"),
+                )
+            elif t_str in {"KILLER", "KILLER_TEAM"} and isinstance(context, dict):
+                cause = context.get("death_context")
+                cause = cause if isinstance(cause, dict) else {}
+                killer = cause.get("actor")
+                skill_data = cause.get("skill_data")
+                has_skill = bool(cause.get("skill_id"))
+                if isinstance(skill_data, dict):
+                    has_skill = has_skill or bool(skill_data.get("id"))
+                if has_skill and isinstance(killer, dict):
+                    if t_str == "KILLER":
+                        targets_list = [killer]
+                    elif isinstance(context.get("characters"), list):
+                        killer_team = str(killer.get("type") or "").strip().lower()
+                        targets_list = [
+                            c for c in context["characters"]
+                            if isinstance(c, dict)
+                            and str(c.get("type") or "").strip().lower() == killer_team
+                            and _is_placed_living_character(c)
+                        ]
             # 笘・眠讖溯・: NEXT_ALLY
             elif t_str == "NEXT_ALLY" and context and "characters" in context and context.get("room"):
                 from manager.room_manager import get_room_state

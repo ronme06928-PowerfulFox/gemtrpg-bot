@@ -182,6 +182,8 @@ def recalculate_redirect_state(
     ordered_slot_ids = sorted([sid for sid in slots.keys()], key=_redirect_sort_key)
 
     for slot_id in ordered_slot_ids:
+        if (slots.get(slot_id) or {}).get('target_only', False):
+            continue
         intent = ensure_intent_for_slot_fn(state, slot_id)
         if not intent.get('committed', False):
             continue
