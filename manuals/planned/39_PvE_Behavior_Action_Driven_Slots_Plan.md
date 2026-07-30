@@ -3,7 +3,7 @@
 **作成日**: 2026-07-28  
 **状態**: 未実装  
 **ユースケース**: シナリオNo.2『瓦礫で鋳るは魔の鋼』のボススキル「鉄塊を捥ぎり喰う」  
-**関連計画**: [38_Scenario_No2_Task_Hub.md](38_Scenario_No2_Task_Hub.md)
+**関連計画**: [38_Scenario_No2_Task_Hub.md](38_Scenario_No2_Task_Hub.md) / [40_Summon_Battle_Object_And_Scenario_Skill_Effects_Plan.md](40_Summon_Battle_Object_And_Scenario_Skill_Effects_Plan.md)
 
 ---
 
@@ -104,6 +104,7 @@ RoundStart、PvE intent再生成、再接続が同じラウンドに繰り返さ
 
 ## 7. シナリオNo.2への適用
 
+- 鉄交じりの瓦礫を非行動かつ対象可能なキャラクターとして扱う基盤と、瓦礫を生成・破壊するスキル効果は計画40で実装する。
 - 1R・2R相当のstepは通常技1件を設定し、1スロットを生成する。
 - 3R相当のstepは通常技と「鉄塊を捥ぎり喰う」の2件を設定し、2スロットを生成する。
 - 3stepのループにより、3R・6R・9R……だけ吸収スロットが通常行動へ追加される。
@@ -145,4 +146,3 @@ RoundStart、PvE intent再生成、再接続が同じラウンドに繰り返さ
 - 瓦礫がなければPCへフォールバックせず、吸収スロットだけをキャンセルする。
 - 既存チャート、非チャート敵、プレイヤー、PvPの行動数は変更されない。
 - 実装後、汎用仕様とUI仕様を`manuals/implemented/`の既存正本へ統合し、本書を削除する。
-

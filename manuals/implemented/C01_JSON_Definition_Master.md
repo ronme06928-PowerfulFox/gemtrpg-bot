@@ -2,7 +2,7 @@
 
 # JSON定義マニュアル（正本・統合版）
 
-**最終更新日**: 2026-07-08
+**最終更新日**: 2026-07-31
 **系統**: C — データ定義（JSON）
 **統合元**: 20_JSON_Definition_Strict_v2 / 17_Phase3_Strict_Errata / 15_JSON_Definition_Master / 03_Integrated_Data_Definitions
 **優先順位**: 本書 > 旧20 = 旧17 > 旧15 > 旧03
@@ -576,3 +576,246 @@ python scripts/skill_catalog_tool.py build-market-rate         # 現在の相場
 ```
 
 この効果は通常のconditionと組み合わせられる。HPが既に0の対象へ適用しても死亡時効果は再発しない。
+
+---
+
+## 15. 召喚戦闘オブジェクトとフィールド集計（2026-07-31実装）
+
+### 15.1 召喚テンプレートの特記JSON
+
+召喚テンプレートの`特記JSON`では、次のキーを正式に使用できる。
+
+```json
+{
+  "tag_ids": ["瓦礫"],
+  "disabled_tag_ids": [],
+  "SPassive": ["Pa-07"],
+  "special_buffs": [],
+  "flags": {}
+}
+```
+
+文字列配列は空文字を除いて順序を保ったまま重複を除く。`SPassive`は特記JSONを先、専用の「パッシブスキル」列を後として結合する。専用列が空でも特記JSON側を消さない。不正な型はテンプレートIDとキー名を警告し、安全な空値へ変換する。
+
+### 15.2 非行動設定
+
+特殊パッシブの効果本体へ次を指定すると、通常行動スロットを生成しない。
+
+```json
+{"action_slot_mode":"none"}
+```
+
+対象選択用の内部アンカーは別途生成されるため、HPを持つ攻撃対象としては残る。
+
+### 15.3 死亡原因の参照
+
+`on_death`では次を使用できる。
+
+- condition: `source="death_context"`, `param="killer_team"`。スキルによる死亡原因キャラクターの陣営を`ally`または`enemy`で返す。
+- target: `KILLER`。スキルでHPを0にしたキャラクター。
+- target: `KILLER_TEAM`。`KILLER`と同陣営で、配置済み・生存中・未離脱の全キャラクター。
+
+死亡原因またはスキルIDがない場合は対象なし・条件falseとなる。
+
+### 15.4 `SCHEDULE_EFFECT`
+
+`RESOLVE_START`で予約し、指定ラウンド後のラウンド開始時にnested effectを実行する。
+
+```json
+{
+  "timing": "RESOLVE_START",
+  "type": "SCHEDULE_EFFECT",
+  "target": "self",
+  "round_offset": 1,
+  "repeat_count": 2,
+  "effect": {
+    "type": "SUMMON_CHARACTER",
+    "summon_template_id": "U-02"
+  }
+}
+```
+
+予約は発生元スロット・スキル・ラウンド・nested effectから作る一意キーで重複を防止する。発生元が実行予定ラウンドまでに戦闘不能になっても、成立済みの予約は実行する。現時点のnested effect実装は`SUMMON_CHARACTER`。
+
+### 15.5 フィールドキャラクターフィルター
+
+`target="FILTERED_CHARACTERS"`または`APPLY_BUFF_FROM_CHARACTER_COUNT`では、次の`character_filter`を使う。
+
+```json
+{
+  "team": "same_team",
+  "required_tag_ids": ["瓦礫"],
+  "excluded_tag_ids": [],
+  "alive": true,
+  "placed": true
+}
+```
+
+`team`は`same_team`、`opposing_team`、`any`に対応する。タグは`disabled_tag_ids`を除いた有効タグで完全一致判定する。
+
+`APPLY_BUFF_FROM_CHARACTER_COUNT`は一致数×`value_per_character`を、指定バフの`data.power_bonus`（既定`apply_to="final"`）へ設定する。
+
+```json
+{
+  "timing": "RESOLVE_START",
+  "type": "APPLY_BUFF_FROM_CHARACTER_COUNT",
+  "target": "self",
+  "buff_name": "瓦礫吸収",
+  "lasting": 1,
+  "delay": 0,
+  "value_per_character": 1,
+  "apply_to": "final",
+  "character_filter": {
+    "team": "same_team",
+    "required_tag_ids": ["瓦礫"],
+    "alive": true,
+    "placed": true
+  }
+}
+```
+
+---
+
+## 16. シナリオNo.2用JSON完成例と読み方（2026-07-31）
+
+この節は、シナリオNo.2『瓦礫で鋳るは魔の鋼』で追加したデータを、スプレッドシートへ貼り付けられる完成形で示す。
+JSONを読むときは、原則として次の順番で確認する。
+
+1. JSON全体が何の定義かを、入力先のシートと`schema`で確認する。
+2. スキルJSONでは、誰を選べるかを`target_scope`で確認する。
+3. `effects`を先頭から読み、各効果の発動時期を`timing`で確認する。
+4. 各効果の処理を`type`、処理対象を`target`で確認する。
+5. `condition`や`character_filter`があれば、処理対象をさらに絞り込む。
+6. `value`、`lasting`、`delay`、`repeat_count`などの数値を最後に確認する。
+
+### 16.1 同じ「タグ」に見えるキーの区別
+
+| 記法 | 意味 |
+|---|---|
+| `tags` | スキル自体の分類・挙動を表す文字列配列 |
+| `tag_ids` | キャラクターが持つ固定分類。例: `瓦礫` |
+| `disabled_tag_ids` | 一時的に無効化されているキャラクタータグ |
+| `required_tag_ids` | フィルター対象に要求するキャラクタータグ |
+| `excluded_tag_ids` | フィルター対象から除外するキャラクタータグ |
+
+`tag_ids`を条件から読むときは、`disabled_tag_ids`に含まれる値を除いた有効タグだけを使う。
+
+### 16.2 `Pa-07 魔力の籠った鉄塊`
+
+入力先は特殊パッシブシートの「効果JSON」セル。
+
+```json
+{"action_slot_mode":"none","on_death":[{"timing":"IMMEDIATE","type":"APPLY_BUFF","target":"KILLER_TEAM","buff_id":"Bu-51","lasting":2,"delay":1,"condition":{"source":"death_context","param":"killer_team","operator":"EQUALS","value":"ally"}},{"timing":"IMMEDIATE","type":"APPLY_BUFF","target":"KILLER","buff_id":"Bu-52","lasting":3,"delay":1,"condition":{"source":"death_context","param":"killer_team","operator":"EQUALS","value":"enemy"}}]}
+```
+
+上から順に、次のように読む。
+
+- `action_slot_mode:"none"`: このパッシブを持つキャラクターは通常行動スロットを生成しない。攻撃対象としては残る。
+- `on_death`: HPが0になったときに評価する効果の配列。
+- 1件目の`condition`: スキルによる破壊者が味方陣営ならtrue。
+- 1件目の`target:"KILLER_TEAM"`: 破壊者と同陣営の配置済み・生存中・未離脱キャラクター全員。
+- 1件目の`APPLY_BUFF`: `Bu-51`を2ラウンド、1ラウンド遅延で付与する。
+- 2件目の`condition`: スキルによる破壊者が敵陣営ならtrue。
+- 2件目の`target:"KILLER"`: 破壊したキャラクター本人。
+- 2件目の`APPLY_BUFF`: `Bu-52`を3ラウンド、1ラウンド遅延で付与する。
+
+`delay:1`により、どちらのバフも付与された次のラウンドから有効になる。死亡原因にスキルIDがない場合、この分岐は発動しない。
+
+### 16.3 `U-02 鉄交じりの瓦礫`
+
+召喚テンプレートシートでは、専用列と特記JSONを分けて入力する。
+
+| 入力列 | 値 |
+|---|---|
+| パッシブスキル | `Pa-07` |
+| 特記JSON | `{"tag_ids":["瓦礫"]}` |
+
+特記JSONだけへまとめる場合は、次の形式も使用できる。
+
+```json
+{"tag_ids":["瓦礫"],"SPassive":["Pa-07"]}
+```
+
+専用の「パッシブスキル」列と`SPassive`の両方に同じIDがあっても、ロード時に完全一致の重複を除去する。
+
+### 16.4 `Bu-51 鉄の恩恵`と`Bu-52 鉄の剛力`
+
+`Bu-51`の効果JSON:
+
+```json
+{"power_bonus":[{"operation":"FIXED","value":2,"apply_to":"final"}]}
+```
+
+標準持続時間は`2`。
+
+`Bu-52`の効果JSON:
+
+```json
+{"power_bonus":[{"operation":"FIXED","value":1,"apply_to":"final"}]}
+```
+
+標準持続時間は`3`。
+
+`operation:"FIXED"`は固定値加算、`apply_to:"final"`は最終威力への適用を表す。`Pa-07`から付与する場合は、パッシブ側の`lasting`がその付与の継続時間となり、バフ側の標準持続時間は直接付与時の既定値として残る。
+
+### 16.5 `E-33 鉄根刺突`
+
+入力先はスキルシートの「特記JSON」または「特記処理」セル。
+
+```json
+{"schema":"skill_json_rule_v2","id":"SKILL_E33","target_scope":"opposing_team","power_bonus":[],"cost":[],"effects":[{"timing":"RESOLVE_START","type":"APPLY_BUFF_FROM_CHARACTER_COUNT","target":"self","buff_name":"瓦礫吸収","lasting":1,"delay":0,"value_per_character":1,"apply_to":"final","character_filter":{"team":"same_team","required_tag_ids":["瓦礫"],"alive":true,"placed":true}},{"timing":"RESOLVE_START","type":"CUSTOM_EFFECT","target":"FILTERED_CHARACTERS","value":"DEAL_TARGET_MAX_HP_DAMAGE","character_filter":{"team":"same_team","required_tag_ids":["瓦礫"],"alive":true,"placed":true}},{"timing":"HIT","type":"APPLY_STATE","target":"target","state_name":"破裂","value":10},{"timing":"HIT","type":"APPLY_STATE","target":"target","state_name":"亀裂","value":3,"rounds":3}]}
+```
+
+`effects`は次の4件。
+
+1. `RESOLVE_START`で、使用者と同陣営にいる生存・配置済みの`瓦礫`を数え、1体につき最終威力を+1する一時バフを使用者へ付与する。
+2. 同じ条件に一致する全キャラクターへ最大HPと同値のダメージを与え、瓦礫を一括破壊する。
+3. スキルが対象へ的中したとき、《破裂》10を付与する。
+4. スキルが対象へ的中したとき、《亀裂》3を3ラウンド付与する。
+
+ここでの`buff_name`は、バフ図鑑をID参照して付与する通常の`APPLY_BUFF`とは異なる。`APPLY_BUFF_FROM_CHARACTER_COUNT`が、その場で可変値の一時バフを作るための表示名である。
+
+### 16.6 `E-34 暴れ回る`
+
+```json
+{"schema":"skill_json_rule_v2","id":"SKILL_E34","target_scope":"opposing_team","power_bonus":[],"cost":[],"effects":[{"timing":"RESOLVE_START","type":"SCHEDULE_EFFECT","target":"self","round_offset":1,"repeat_count":2,"effect":{"type":"SUMMON_CHARACTER","summon_template_id":"U-02"}}]}
+```
+
+- `SCHEDULE_EFFECT`: 内側の`effect`を将来ラウンドへ予約する。
+- `round_offset:1`: 使用した次のラウンド開始時に実行する。
+- `repeat_count:2`: 内側の召喚効果を2回実行する。
+- `summon_template_id:"U-02"`: `鉄交じりの瓦礫`を召喚する。
+
+同じ予約の再処理では召喚数を増やさない。使用者が次ラウンドまでに戦闘不能になっても、成立済みの予約は実行する。
+
+### 16.7 `E-35 瓦礫を狙う`
+
+```json
+{"schema":"skill_json_rule_v2","id":"SKILL_E35","target_scope":"any","power_bonus":[],"cost":[],"effects":[{"timing":"HIT","type":"DAMAGE_BONUS","target":"target","value":20,"condition":{"source":"target","param":"tag_ids","operator":"CONTAINS","value":"瓦礫"}}]}
+```
+
+- `target_scope:"any"`: 味方・敵のどちらも対象に選べる。
+- `timing:"HIT"`: 対象への的中時に評価する。
+- `type:"DAMAGE_BONUS"`: 通常ダメージへ追加ダメージを加える。
+- `condition.source:"target"`: 条件の参照元は攻撃対象。
+- `param:"tag_ids"`と`operator:"CONTAINS"`: 対象の有効タグ配列に指定値が含まれるかを判定する。
+- `value:"瓦礫"`: 要求するタグ。
+- effect直下の`value:20`: 条件成立時の追加ダメージ。
+
+対象が`瓦礫`タグを持たない場合、通常部分だけを解決し、追加20ダメージは発生しない。
+
+### 16.8 入力後の確認
+
+スプレッドシート更新後は、次を実行する。
+
+```bash
+python app.py --update
+python scripts/skill_catalog_tool.py lint
+```
+
+その後、キャッシュで次を確認する。
+
+- `data/cache/passives_cache.json`: `Pa-07.effect`
+- `data/cache/summon_templates_cache.json`: `U-02.tag_ids`と`U-02.SPassive`
+- `data/cache/buff_catalog_cache.json`: `Bu-51`と`Bu-52`
+- `data/cache/skills_cache.json`: `E-33`、`E-34`、`E-35`

@@ -569,3 +569,17 @@
 1. `蓄力-誘爆` の1ターン発動上限を設けるか
 2. 連続再使用（`USE_SKILL_AGAIN`）時の誘爆回数制御を行うか
 3. 将来的な「特殊蓄力variant」追加時に aliasポリシーをどう統一するか
+
+---
+
+## 9. 予約effectと召喚テンプレート拡張（2026-07-31）
+
+- 召喚テンプレートは`tag_ids`、`disabled_tag_ids`、`SPassive`、`special_buffs`、`flags`を保持する。
+- `SPassive`は特記JSONと専用列を順序結合し、重複を除く。
+- テンプレートの`flags`は召喚キャラクターへ引き継ぎ、`immediate_action_used`の既定値だけ補完する。
+- `SCHEDULE_EFFECT`は次ラウンド以降のラウンド開始時にnested effectを実行する予約を作る。
+- 予約には実行済みキーを保存し、RoundStart再実行、再接続、保存復元による二重実行を防ぐ。
+- 予約成立後は召喚元の生死にかかわらず実行する。
+- 現在予約実行できるnested effectは`SUMMON_CHARACTER`。
+
+実装: `manager/battle/scheduled_effects.py`、`manager/battle/effect_handlers/action_effects.py`。

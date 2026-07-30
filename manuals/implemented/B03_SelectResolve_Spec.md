@@ -523,3 +523,19 @@ redirect（§6）・no_redirect（§7）の実体ロジックを `events/battle/
   `_recalculate_redirect_state` を monkeypatch するため、当該名は common_routes の
   モジュール属性として残す必要がある（ラッパー自体を丸ごと差し替えられれば足りるため、
   ラッパーの中身が redirect_flow への委譲であることは monkeypatch と無矛盾）。
+
+---
+
+## 2026-07 追補: 非行動・対象可能な戦闘オブジェクト
+
+特殊パッシブ等から`action_slot_mode:none`が有効になった配置済み・生存中キャラクターは、通常行動スロットを生成しない。代わりに`battle_state.slots`へ`target_only:true`の対象専用アンカーを1件生成する。
+
+- 対象専用アンカーは単体スキルの`target.slot_id`として選択できる。
+- `timeline`、宣言待ち、Resolveキュー、コスト消費、PvE行動元、redirect行動元へは含めない。
+- 対象専用アンカーへの攻撃は、防御intentを持たない一方攻撃として解決する。
+- 死亡、未配置、離脱後は次回のスロット再構築で除去する。
+- 召喚ラウンドの行動ロック中でも、非行動オブジェクトの対象専用アンカーは生成する。
+
+内部的には対象参照用スロットを持つが、ルール表示上は「行動せず、スロットを持たない」と扱う。
+
+実装: `manager/battle/action_slot_mode.py`、`manager/battle/select_resolve_state.py`。
