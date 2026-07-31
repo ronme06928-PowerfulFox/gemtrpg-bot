@@ -49,11 +49,13 @@ Behavior Profileへ`slot_generation_mode`を追加する。
       "steps": [
         {
           "actions": ["BOSS_NORMAL"],
-          "targets": ["target_enemy_random"]
+          "targets": ["target_enemy_random"],
+          "on_no_target": ["cancel"]
         },
         {
           "actions": ["BOSS_NORMAL"],
-          "targets": ["target_enemy_random"]
+          "targets": ["target_enemy_random"],
+          "on_no_target": ["cancel"]
         },
         {
           "actions": ["BOSS_NORMAL", "BOSS_ABSORB_RUBBLE"],
@@ -116,17 +118,132 @@ Behavior Profileには対象キャラクターIDを固定保存せず、`team`�
 
 `on_no_target`は、チャート作成時に対象IDが登録されていないことではなく、RoundStartの候補評価結果が0件だった場合の処理を表す。
 
+### 5.2 ラウンド行動計画と対象不在キャンセルの状態契約
+
+確定したラウンド行動計画は、`battle_state.behavior_round_plan`へ次の形式で保存する。
+
+```json
+{
+  "round": 3,
+  "actors": {
+    "enemy_iron_root": {
+      "slot_generation_mode": "step_actions",
+      "loop_id": "main",
+      "step_index": 2,
+      "plans": [
+        {
+          "skill_id": "BOSS_NORMAL",
+          "target_candidates": [],
+          "on_no_target": "cancel"
+        },
+        {
+          "skill_id": "BOSS_ABSORB_RUBBLE",
+          "target_candidates": [
+            {
+              "team": "same_team",
+              "required_tag_ids": ["瓦礫"],
+              "selection": "random"
+            }
+          ],
+          "on_no_target": "cancel"
+        }
+      ]
+    }
+  }
+}
+```
+
+- `round`が現在ラウンドと一致する間は同じスナップショットを再利用する。
+- 同じRoundStartの再実行、再接続、PvE intent再生成では、stepを再評価・再進行しない。
+- 次ラウンド開始時に新しいスナップショットへ置き換える。
+- `plans`は空文字のスキルを除去した後の順序を保持し、生成スロットと1対1で対応する。
+- `character_action_count`では従来処理を維持し、このスナップショットをスロット数の決定には使わない。
+
+対象候補が0件で`on_no_target: cancel`となった行動は、監査・画面表示用のintentを次の状態で残す。
+
+- `skill_id`は予定していたスキルIDを保持する。
+- `target.slot_id`は`null`とする。
+- `committed: true`としてSelectの完了を妨げない。
+- `cancelled: true`、`cancel_reason: "no_target"`を設定する。
+- 対応スロットは`disabled: true`、`status: "cancelled"`、`cancelled_without_use: true`とする。
+- ラウンド開始時の`resolve.cancelled_slots`を空に初期化してから、対象不在スロットを登録する。
+- 対象不在をラウンド開始ログと行動予告へ表示し、Resolveでは実行キューへ入れない。
+
+この状態ではコスト、使用回数、`RESOLVE_START`、使用時、`PRE_MATCH`、`HIT`、`RESOLVE_END`、死亡時連動を一切発生させない。
+
 ## 6. 適用範囲と互換性
 
 - `step_actions`を使うのは、Behavior Profileが有効で、有効loopとstepを解決できたPvE敵だけとする。
 - プレイヤー、PvP、Behavior Profile無効の敵、チャートが破損して解決不能な敵は、従来どおり`行動回数`からスロットを生成する。
 - 既存Behavior Profileはフィールド欠損により従来方式を維持する。
 - UIで既存チャートを開いただけでは方式を変更しない。
-- GMが明示的に新方式へ切り替えた場合だけ`slot_generation_mode: step_actions`を保存する。
+- 既存チャートは、GMが明示的に新方式へ切り替えた場合だけ`slot_generation_mode: step_actions`を保存する。
+- Behavior Profile自体が存在しない、または空オブジェクトだけの状態からUIで新規作成したチャートは、保存時に`slot_generation_mode: step_actions`を明示する。
 - 方式は敵キャラクターごとのBehavior Profile単位で選択し、同じ戦闘内で従来方式の敵と新方式の敵を併用できる。
 - 新方式では行動数が遭遇難度へ直結するため、各stepに表示する「このラウンドの行動数」を`actions`件数から明示する。
 
-## 7. シナリオNo.2への適用
+## 7. 行動チャート編集画面のUI仕様
+
+### 7.1 Profile全体設定
+
+行動チャート編集画面の上部で、既存の「有効化」「初期ループ」と同じProfile全体設定として「スロット生成方式」を表示する。
+
+選択欄は、違いを読んでから選べるよう、説明付きラジオボタンとする。
+
+- **チャートのスキル数から生成（推奨）**
+  - 保存値は`step_actions`。
+  - 「各ラウンドに設定したスキル1件につき1スロット生成し、キャラクターの『行動回数』は使用しない」と表示する。
+- **キャラクターの行動回数から生成（互換）**
+  - 保存値は`character_action_count`。
+  - 「行動回数ぶんスロットを生成し、チャートのスキルを割り当てる従来方式」と表示する。
+
+Behavior Profileが存在しない、または空オブジェクトだけの場合は新規チャートと判定し、`step_actions`を初期選択する。既存Profileに`slot_generation_mode`がない場合は`character_action_count`を選択表示し、画面を開いただけではdirty状態にしない。
+
+方式変更はラジオボタンを選んだ時点では保存せず、画面下部の「保存」で確定する。戦闘中に変更した場合は、現在ラウンドのスナップショットを変更せず、次のRoundStartから反映する旨を設定欄へ表示する。
+
+狭い画面では、2つの選択肢を上下に並べる。ラベル全体をクリック可能にし、キーボード操作と選択状態の読み上げに対応する。
+
+### 7.2 stepごとの行動数表示
+
+`step_actions`選択中は、各「ラウンド設定」の見出しへ`行動数: N`を表示する。`N`は空文字・未指定を除く`actions`件数から常時計算し、スキル行の追加・削除・変更と同時に更新する。
+
+- スキル1件は1スロットとして数える。
+- 空のスキル行は行動数へ含めない。
+- 行動数0は有効な設定とし、「このラウンドは行動しません」と注意表示する。保存エラーにはしない。
+- フローチャート表示の各ノードにも、各stepの行動数を表示する。
+
+`character_action_count`選択中は、`行動数`と誤認させず、`登録スキル: N件`と表示する。あわせて「実際の行動数はキャラクターの『行動回数』で決まる」と表示する。
+
+### 7.3 対象不在時の表示
+
+初期実装で正式対応する`on_no_target`は`cancel`だけとする。選択肢が1つしかないためプルダウンは追加せず、各スキル行へ「対象不在時: この行動をキャンセル」と固定表示する。
+
+保存時は、空のスキルを除去した後の`actions`と同じ件数・順序になるよう、`on_no_target: ["cancel", ...]`を自動生成する。既存の`targets`も同じ添字関係を維持する。
+
+仕様ガイドへ次を追記する。
+
+- 対象はキャラクターIDの固定指定ではなく、RoundStart時点の戦場から陣営・必須タグ・選択方法で検索される。
+- 次ラウンド開始時の遅延召喚は、そのラウンドの候補へ含まれる。
+- 対象確定後に対象が消滅しても、別対象へ自動変更しない。
+- 対象候補がなければ、そのスキル行だけがキャンセルされる。
+
+現行ガイドの「スロット数より多い場合はランダム抽選、少ない場合は最後のスキルを繰り返す」は従来方式だけの説明とし、選択中の方式に応じて説明を切り替える。
+
+### 7.4 共通エディターと各導線
+
+通常モードと戦闘専用モードは、`static/js/modals/behavior_flow_editor_modal.js`の共通エディターへ同じUIを実装する。
+
+次の新規Profile生成・保存導線でも、`slot_generation_mode`と`on_no_target`を欠落させない。
+
+- 通常キャラクターの行動チャート編集
+- 戦闘専用モードの敵カタログ
+- 敵編成
+- 戦闘準備画面
+- プリセットの保存・読込・搬出入
+
+JSONテキストエリアから既存チャートを直接入力した場合も、サーバー側正規化と同じ欠損時互換規則を適用する。
+
+## 8. シナリオNo.2への適用
 
 - 鉄交じりの瓦礫を非行動かつ対象可能なキャラクターとして扱う基盤と、瓦礫を生成・破壊するスキル効果は計画40で実装する。
 - 1R・2R相当のstepは通常技1件を設定し、1スロットを生成する。
@@ -135,21 +252,35 @@ Behavior Profileには対象キャラクターIDを固定保存せず、`team`�
 - 有効な瓦礫がなければ吸収スロットだけをキャンセルし、同じstepの通常技は予定どおり使用する。
 - PCは吸収スロットへ通常どおり割り込み、マッチできる。
 
-## 8. 実装候補
+## 9. 実装候補
 
 - `manager/battle/enemy_behavior.py`: モード正規化、ラウンド行動計画の確定
 - `manager/battle/select_resolve_state.py`: step行動数によるRoundStartスロット生成
 - `manager/battle/pve_intent_planner.py`: スナップショット済み行動計画の1対1割り当て、対象不在キャンセル
 - `events/battle/pve_intents.py`: commit待ち判定とSocket通知
-- `static/js/modals/behavior_flow_editor_modal.js`: エディター上部にProfile全体のスロット生成方式を選ぶ欄を追加し、各stepの行動数表示と対象不在設定も追加する
+- `static/js/modals/behavior_flow_editor_modal.js`: §7のProfile全体設定、step行動数、対象不在表示、方式別ガイドを共通エディターへ追加する
+- `static/js/modals/battle_only_catalog_modal.js`、`battle_only_enemy_formation_modal.js`、`battle_only_draft_modal.js`: 新規Profile初期値とJSON入出力を共通契約へ合わせる
 - `static/js/battle/components/DeclarePanel.js`、`ResolveFlowPanel.js`: キャンセル表示
 - `manuals/implemented/D01_Play_Mode_Specs.md`、`E02_UI_Component_Specs.md`: 実装完了後の正本
 
 通常方式とチャート駆動方式でスロットの必須フィールド、initiative計算、同速処理が分岐しないよう、既存スロット生成を共通ヘルパー化する。
 
-## 9. テスト
+### 9.1 実装順序
+
+1. `requirements-dev.txt`を導入したテスト可能なPython環境を用意し、既存のBehavior Profile、非行動対象、遅延召喚テストを基準として実行する。
+2. `enemy_behavior.py`へ`slot_generation_mode`、`on_no_target`、ラウンド行動計画の正規化を追加し、欠損時互換テストを先に作る。
+3. RoundStartで遅延効果実行後にBehavior Profileを1回だけ評価し、`behavior_round_plan`を保存する。
+4. 共通スロット生成ヘルパーを作り、`step_actions`と従来方式の双方から利用する。0スロット、複数スロット、同速処理を検証する。
+5. 保存済み行動計画からintentと対象を1対1で確定し、対象不在キャンセル、未知スキル、使用不能スキルを処理する。
+6. Select完了判定、Resolveキュー、再接続、ラウンド再実行でスナップショットとキャンセル状態が重複しないことを検証する。
+7. 共通行動チャートエディターと戦闘専用モード各導線へ§7のUIを実装する。
+8. Timeline、Declare、Resolve表示、ログ、方式別ガイドを整合させ、実際の画面で確認する。
+9. 関連テスト、全体テスト、`npm run build`、文字コード検査を通し、実装済み仕様を既存正本へ統合する。
+
+## 10. テスト
 
 - [ ] `slot_generation_mode`欠損の既存Behavior Profileが従来どおり`行動回数`を使う。
+- [ ] Profileが存在しない、または空オブジェクトだけの新規チャートは、UI保存時に`step_actions`を明示する。
 - [ ] `step_actions`では`actions`1件から1スロット、2件から2スロットを生成する。
 - [ ] `actions`数がキャラクターの`行動回数`より多くても切り捨てやランダム抽出をしない。
 - [ ] `actions`数がキャラクターの`行動回数`より少なくても余分なスロットを生成しない。
@@ -163,13 +294,20 @@ Behavior Profileには対象キャラクターIDを固定保存せず、`team`�
 - [ ] RoundStart再実行、intent再生成、再接続でもスロットとstepが重複しない。
 - [ ] Behavior Runtimeのstepが生成スロット数に関係なく1ラウンドに1回だけ進む。
 - [ ] プリセットJSONの搬出入と保存・復元で`slot_generation_mode`と`on_no_target`が維持される。
-- [ ] UIに各stepの行動数と現在のスロット生成方式が表示される。
+- [ ] 既存チャートを開いただけではdirty状態にならず、欠損モードは互換方式として表示される。
+- [ ] UIで現在のスロット生成方式を確認・変更でき、保存後のJSONへ反映される。
+- [ ] `step_actions`では空のスキルを除いた行動数が各stepとフローチャートへ表示され、0件では非行動の注意が出る。
+- [ ] `character_action_count`では登録スキル件数と、実際の行動数がキャラクター依存である旨が表示される。
+- [ ] 各スキル行に対象不在キャンセルが固定表示され、保存時に`actions`と同じ順序・件数の`on_no_target`が生成される。
+- [ ] 通常モード、敵カタログ、敵編成、戦闘準備、プリセット搬出入の各導線で新フィールドが維持される。
 
-## 10. 受け入れ条件
+## 11. 受け入れ条件
 
 - 新方式の敵は、チャートの当該stepへ設定したスキル数と同数のスロットを生成する。
 - GMはキャラクターの`行動回数`とチャートのスキル数を同期管理する必要がない。
 - 行動チャート編集画面で、Profile全体のスロット生成方式を確認・変更できる。
+- 新方式では各stepとフローチャートに表示された行動数が、実際に生成されるスロット数と一致する。
+- 対象不在時の処理が各スキル行に表示され、キャンセル済み行動がSelect進行、コスト、使用回数、スキル効果へ影響しない。
 - シナリオNo.2では3R・6R・9Rに通常技と吸収技の2スロット、それ以外は通常技の1スロットを生成する。
 - 瓦礫がなければPCへフォールバックせず、吸収スロットだけをキャンセルする。
 - 次ラウンド開始時に召喚された瓦礫は対象候補となり、対象確定後に破壊された瓦礫は別の瓦礫へ自動変更されない。
