@@ -1,4 +1,5 @@
 from manager.battle import common_manager as battle_common
+from manager.battle import pve_intent_planner
 
 
 def _make_char(
@@ -71,6 +72,30 @@ def _slot_id_for_actor(state, actor_id):
         if str(slot.get("actor_id")) == str(actor_id):
             return slot_id
     return None
+
+
+def _slot_ids_for_actor(state, actor_id):
+    rows = []
+    for slot_id, slot in (state.get("battle_state", {}).get("slots", {}) or {}).items():
+        if str(slot.get("actor_id")) != str(actor_id):
+            continue
+        if slot.get("target_only", False):
+            continue
+        rows.append((
+            int(slot.get("index_in_actor", 0) or 0),
+            slot_id,
+        ))
+    rows.sort()
+    return [slot_id for _, slot_id in rows]
+
+
+def _patch_step_skill_catalog(monkeypatch, catalog):
+    monkeypatch.setattr(battle_common, "all_skill_data", catalog)
+    monkeypatch.setattr(
+        battle_common,
+        "list_usable_skill_ids",
+        lambda _char, allow_instant=False: list(catalog),
+    )
 
 
 def test_select_resolve_round_start_pve_auto_commits_enemy_when_auto_skill_enabled(monkeypatch):
@@ -397,6 +422,401 @@ def test_select_resolve_round_start_behavior_profile_fallbacks_to_ai(monkeypatch
     intent = state["battle_state"]["intents"].get(enemy_slot_id, {})
     assert intent.get("skill_id") == "S-AI"
     assert intent.get("committed") is True
+
+
+def test_step_actions_generates_one_slot_per_nonempty_action(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "slot_generation_mode": "step_actions",
+        "initial_loop_id": "main",
+        "loops": {
+            "main": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["S-ONE", "", "S-TWO"],
+                    "targets": ["target_enemy_random", "target_enemy_random", "target_enemy_random"],
+                }],
+                "transitions": [],
+            },
+        },
+    }
+    state = _base_state(
+        mode="pve",
+        enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+    state["characters"][1]["params"][1]["value"] = 1
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    _patch_step_skill_catalog(
+        monkeypatch,
+        {"S-ONE": {"name": "One"}, "S-TWO": {"name": "Two"}},
+    )
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    enemy_slots = _slot_ids_for_actor(state, "E1")
+    assert len(enemy_slots) == 2
+    assert [
+        state["battle_state"]["intents"][slot_id]["skill_id"]
+        for slot_id in enemy_slots
+    ] == ["S-ONE", "S-TWO"]
+
+
+def test_step_actions_ignores_character_action_count_and_allows_zero_slots(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "slot_generation_mode": "step_actions",
+        "initial_loop_id": "main",
+        "loops": {
+            "main": {
+                "repeat": True,
+                "steps": [
+                    {"actions": []},
+                    {"actions": ["S-NEXT"]},
+                ],
+                "transitions": [],
+            },
+        },
+    }
+    state = _base_state(
+        mode="pve",
+        enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+    state["characters"][1]["params"][1]["value"] = 3
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    _patch_step_skill_catalog(monkeypatch, {"S-NEXT": {"name": "Next"}})
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+    assert _slot_ids_for_actor(state, "E1") == []
+    runtime = state["battle_state"]["behavior_runtime"]["E1"]
+    assert runtime["step_index"] == 1
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=2,
+    )
+    assert len(_slot_ids_for_actor(state, "E1")) == 1
+
+
+def test_step_actions_reuses_same_round_snapshot_without_advancing_twice(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "slot_generation_mode": "step_actions",
+        "initial_loop_id": "main",
+        "loops": {
+            "main": {
+                "repeat": True,
+                "steps": [
+                    {"actions": ["S-ONE"]},
+                    {"actions": ["S-TWO"]},
+                    {"actions": ["S-THREE"]},
+                ],
+                "transitions": [],
+            },
+        },
+    }
+    state = _base_state(
+        mode="pve",
+        enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    _patch_step_skill_catalog(
+        monkeypatch,
+        {
+            "S-ONE": {"name": "One"},
+            "S-TWO": {"name": "Two"},
+            "S-THREE": {"name": "Three"},
+        },
+    )
+
+    for _ in range(2):
+        battle_common.process_select_resolve_round_start(
+            room="room_t",
+            battle_id="battle_room_t",
+            round_value=1,
+        )
+
+    runtime = state["battle_state"]["behavior_runtime"]["E1"]
+    assert runtime["step_index"] == 1
+    enemy_slot = _slot_ids_for_actor(state, "E1")[0]
+    assert state["battle_state"]["intents"][enemy_slot]["skill_id"] == "S-ONE"
+
+
+def test_step_actions_reuses_resolved_random_skill_and_target_in_same_round(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "slot_generation_mode": "step_actions",
+        "initial_loop_id": "main",
+        "loops": {
+            "main": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["__RANDOM_USABLE__"],
+                    "targets": ["target_enemy_random"],
+                }],
+                "transitions": [],
+            },
+        },
+    }
+    state = _base_state(
+        mode="pve",
+        enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+    state["characters"].append(_make_char("A2", "ally"))
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    _patch_step_skill_catalog(
+        monkeypatch,
+        {"S-ONE": {"name": "One"}, "S-TWO": {"name": "Two"}},
+    )
+    monkeypatch.setattr(pve_intent_planner.random, "choice", lambda rows: rows[0])
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+    enemy_slot = _slot_ids_for_actor(state, "E1")[0]
+    first_intent = dict(state["battle_state"]["intents"][enemy_slot])
+    first_target = dict(first_intent["target"])
+
+    monkeypatch.setattr(pve_intent_planner.random, "choice", lambda rows: rows[-1])
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+    enemy_slot = _slot_ids_for_actor(state, "E1")[0]
+    second_intent = state["battle_state"]["intents"][enemy_slot]
+
+    assert first_intent["skill_id"] == "S-ONE"
+    assert second_intent["skill_id"] == "S-ONE"
+    assert second_intent["target"] == first_target
+
+
+def test_step_actions_targets_non_action_rubble_anchor(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "slot_generation_mode": "step_actions",
+        "initial_loop_id": "main",
+        "loops": {
+            "main": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["S-RUBBLE"],
+                    "targets": [[{
+                        "team": "same_team",
+                        "required_tag_ids": ["瓦礫"],
+                        "selection": "random",
+                    }]],
+                }],
+                "transitions": [],
+            },
+        },
+    }
+    state = _base_state(
+        mode="pve",
+        enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+    rubble = _make_char(
+        "R1",
+        "enemy",
+        flags={"action_slot_mode": "none", "auto_target_select": False},
+        tag_ids=["瓦礫"],
+    )
+    state["characters"].append(rubble)
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    _patch_step_skill_catalog(
+        monkeypatch,
+        {"S-RUBBLE": {"name": "Rubble", "target_scope": "any"}},
+    )
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    enemy_slot = _slot_ids_for_actor(state, "E1")[0]
+    target_slot = state["battle_state"]["intents"][enemy_slot]["target"]["slot_id"]
+    assert target_slot == "R1:r1:target"
+    assert state["battle_state"]["slots"][target_slot]["target_only"] is True
+
+
+def test_step_actions_no_target_marks_only_that_slot_cancelled(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "slot_generation_mode": "step_actions",
+        "initial_loop_id": "main",
+        "loops": {
+            "main": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["S-NORMAL", "S-RUBBLE"],
+                    "targets": [
+                        "target_enemy_random",
+                        [{
+                            "team": "same_team",
+                            "required_tag_ids": ["瓦礫"],
+                            "selection": "random",
+                        }],
+                    ],
+                    "on_no_target": ["cancel", "cancel"],
+                }],
+                "transitions": [],
+            },
+        },
+    }
+    state = _base_state(
+        mode="pve",
+        enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    _patch_step_skill_catalog(
+        monkeypatch,
+        {
+            "S-NORMAL": {"name": "Normal"},
+            "S-RUBBLE": {"name": "Rubble", "target_scope": "any"},
+        },
+    )
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    first_slot, second_slot = _slot_ids_for_actor(state, "E1")
+    assert state["battle_state"]["slots"][first_slot]["disabled"] is False
+    assert state["battle_state"]["intents"][first_slot]["cancelled"] is False
+
+    cancelled_slot = state["battle_state"]["slots"][second_slot]
+    cancelled_intent = state["battle_state"]["intents"][second_slot]
+    assert cancelled_slot["disabled"] is True
+    assert cancelled_slot["status"] == "cancelled"
+    assert cancelled_slot["cancelled_without_use"] is True
+    assert cancelled_intent["skill_id"] == "S-RUBBLE"
+    assert cancelled_intent["committed"] is True
+    assert cancelled_intent["cancelled"] is True
+    assert cancelled_intent["cancel_reason"] == "no_target"
+    assert cancelled_intent["target"]["slot_id"] is None
+    assert state["battle_state"]["resolve"]["cancelled_slots"] == [second_slot]
+
+
+def test_step_actions_unknown_skill_cancels_without_ai_fallback(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "slot_generation_mode": "step_actions",
+        "initial_loop_id": "main",
+        "loops": {
+            "main": {
+                "repeat": True,
+                "steps": [{"actions": ["UNKNOWN_SKILL"]}],
+                "transitions": [],
+            },
+        },
+    }
+    state = _base_state(
+        mode="pve",
+        enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    monkeypatch.setattr(
+        battle_common,
+        "ai_suggest_skill",
+        lambda _char: (_ for _ in ()).throw(AssertionError("AI fallback must not run")),
+    )
+    monkeypatch.setattr(battle_common, "all_skill_data", {})
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    enemy_slot = _slot_ids_for_actor(state, "E1")[0]
+    intent = state["battle_state"]["intents"][enemy_slot]
+    assert intent["skill_id"] == "UNKNOWN_SKILL"
+    assert intent["cancelled"] is True
+    assert intent["cancel_reason"] == "skill_unavailable"
+
+
+def test_step_actions_known_but_unusable_skill_is_cancelled(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "slot_generation_mode": "step_actions",
+        "initial_loop_id": "main",
+        "loops": {
+            "main": {
+                "repeat": True,
+                "steps": [{"actions": ["S-SEALED"]}],
+                "transitions": [],
+            },
+        },
+    }
+    state = _base_state(
+        mode="pve",
+        enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    monkeypatch.setattr(
+        battle_common,
+        "ai_suggest_skill",
+        lambda _char: (_ for _ in ()).throw(AssertionError("AI fallback must not run")),
+    )
+    monkeypatch.setattr(
+        battle_common,
+        "all_skill_data",
+        {"S-SEALED": {"name": "Sealed"}},
+    )
+    monkeypatch.setattr(
+        battle_common,
+        "list_usable_skill_ids",
+        lambda _char, allow_instant=False: [],
+    )
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    enemy_slot = _slot_ids_for_actor(state, "E1")[0]
+    intent = state["battle_state"]["intents"][enemy_slot]
+    assert intent["skill_id"] == "S-SEALED"
+    assert intent["cancelled"] is True
+    assert intent["cancel_reason"] == "skill_unavailable"
 
 
 def test_select_resolve_round_start_behavior_profile_random_usable_token(monkeypatch):

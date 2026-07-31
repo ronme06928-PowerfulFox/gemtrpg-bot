@@ -48,6 +48,32 @@ def test_normalize_behavior_profile_min_shape():
     assert normalized["version"] == 1
     assert normalized["initial_loop_id"] == "L1"
     assert normalized["loops"]["L1"]["steps"][0]["actions"] == ["S1"]
+    assert normalized["slot_generation_mode"] == "character_action_count"
+    assert normalized["loops"]["L1"]["steps"][0]["on_no_target"] == ["cancel"]
+
+
+def test_normalize_behavior_profile_preserves_step_action_mode_and_aligns_no_target():
+    normalized = normalize_behavior_profile({
+        "enabled": True,
+        "slot_generation_mode": "step_actions",
+        "loops": {
+            "L1": {
+                "steps": [{
+                    "actions": ["S1", "S2"],
+                    "on_no_target": ["cancel", "unknown"],
+                }],
+            },
+        },
+    })
+
+    assert normalized["slot_generation_mode"] == "step_actions"
+    step = normalized["loops"]["L1"]["steps"][0]
+    assert step["on_no_target"] == ["cancel", "cancel"]
+    picked = pick_step_actions(
+        normalized,
+        {"active_loop_id": "L1", "step_index": 0},
+    )
+    assert [row["on_no_target"] for row in picked["plans"]] == ["cancel", "cancel"]
 
 
 def test_evaluate_transitions_moves_loop_when_condition_matches():

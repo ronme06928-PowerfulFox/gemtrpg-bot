@@ -2558,7 +2558,13 @@ function createSettingsContextMenu(triggerEl, char) {
         && typeof char.flags.behavior_profile === 'object'
     )
         ? char.flags.behavior_profile
-        : { enabled: false, version: 1, initial_loop_id: null, loops: {} };
+        : {
+            enabled: false,
+            version: 1,
+            slot_generation_mode: 'step_actions',
+            initial_loop_id: null,
+            loops: {}
+        };
 
     // 譲渡先リスト
     let ownerOptions = '';
@@ -2809,7 +2815,12 @@ function createSettingsContextMenu(triggerEl, char) {
             const currentFlags = (targetChar.flags && typeof targetChar.flags === 'object') ? targetChar.flags : {};
             const currentProfile = (currentFlags.behavior_profile && typeof currentFlags.behavior_profile === 'object')
                 ? currentFlags.behavior_profile
-                : { version: 1, initial_loop_id: null, loops: {} };
+                : {
+                    version: 1,
+                    slot_generation_mode: 'step_actions',
+                    initial_loop_id: null,
+                    loops: {}
+                };
             const nextProfile = Object.assign({}, currentProfile, { enabled: !!e.target.checked });
             const newFlags = Object.assign({}, currentFlags, { behavior_profile: nextProfile });
             targetChar.flags = newFlags;

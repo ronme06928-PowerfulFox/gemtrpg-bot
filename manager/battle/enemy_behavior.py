@@ -46,6 +46,13 @@ BEHAVIOR_TARGET_TEAM_ALIASES = {
 }
 BEHAVIOR_TARGET_SELECTION_DEFAULT = "random"
 BEHAVIOR_TARGET_SELECTIONS = {"random", "fastest", "slowest"}
+BEHAVIOR_SLOT_GENERATION_CHARACTER_ACTION_COUNT = "character_action_count"
+BEHAVIOR_SLOT_GENERATION_STEP_ACTIONS = "step_actions"
+BEHAVIOR_SLOT_GENERATION_MODES = {
+    BEHAVIOR_SLOT_GENERATION_CHARACTER_ACTION_COUNT,
+    BEHAVIOR_SLOT_GENERATION_STEP_ACTIONS,
+}
+BEHAVIOR_ON_NO_TARGET_CANCEL = "cancel"
 
 
 def _safe_int(value, default=0):
@@ -311,6 +318,31 @@ def _coerce_targets(raw_targets):
     return [_coerce_target_spec(raw_targets)]
 
 
+def _coerce_on_no_target(raw_values, action_count):
+    if isinstance(raw_values, list):
+        values = list(raw_values)
+    elif raw_values is None:
+        values = []
+    else:
+        values = [raw_values]
+
+    result = []
+    for idx in range(max(0, _safe_int(action_count, 0))):
+        raw_value = values[idx] if idx < len(values) else BEHAVIOR_ON_NO_TARGET_CANCEL
+        value = str(raw_value or "").strip().lower()
+        result.append(
+            value if value == BEHAVIOR_ON_NO_TARGET_CANCEL else BEHAVIOR_ON_NO_TARGET_CANCEL
+        )
+    return result
+
+
+def normalize_slot_generation_mode(raw_value):
+    value = str(raw_value or "").strip().lower()
+    if value in BEHAVIOR_SLOT_GENERATION_MODES:
+        return value
+    return BEHAVIOR_SLOT_GENERATION_CHARACTER_ACTION_COUNT
+
+
 def _coerce_step_actions_and_targets(raw_actions, raw_targets):
     actions = []
     inline_targets = []
@@ -371,6 +403,10 @@ def normalize_behavior_profile(raw_profile):
                         step_obj.get("actions", []),
                         step_obj.get("targets", []),
                     )
+                    on_no_target = _coerce_on_no_target(
+                        step_obj.get("on_no_target"),
+                        len(actions),
+                    )
                     next_loop_id = str(
                         step_obj.get("next_loop_id", step_obj.get("after_step_to_loop_id", "")) or ""
                     ).strip() or None
@@ -381,6 +417,7 @@ def normalize_behavior_profile(raw_profile):
                     steps_out.append({
                         "actions": actions,
                         "targets": targets,
+                        "on_no_target": on_no_target,
                         "next_loop_id": next_loop_id,
                         "next_reset_step_index": next_reset_step_index,
                     })
@@ -413,6 +450,9 @@ def normalize_behavior_profile(raw_profile):
     normalized = {
         "enabled": _to_bool(profile.get("enabled", False), False),
         "version": 1,
+        "slot_generation_mode": normalize_slot_generation_mode(
+            profile.get("slot_generation_mode")
+        ),
         "initial_loop_id": str(profile.get("initial_loop_id", "") or "").strip() or None,
         "loops": loops,
     }
@@ -485,7 +525,13 @@ def pick_step_actions(profile, runtime_entry):
     loop = loops.get(loop_id, {})
     steps = loop.get("steps", []) if isinstance(loop, dict) else []
     if not steps:
-        return {"actions": [], "targets": [], "plans": [], "runtime": runtime}
+        return {
+            "actions": [],
+            "targets": [],
+            "on_no_target": [],
+            "plans": [],
+            "runtime": runtime,
+        }
 
     idx = _safe_int(runtime.get("step_index", 0), 0)
     if idx < 0:
@@ -501,6 +547,7 @@ def pick_step_actions(profile, runtime_entry):
         step.get("actions", []),
         step.get("targets", []),
     )
+    on_no_target = _coerce_on_no_target(step.get("on_no_target"), len(actions))
     step_transition = None
     next_loop_id = str(step.get("next_loop_id", "") or "").strip()
     if next_loop_id and next_loop_id in loops:
@@ -521,10 +568,16 @@ def pick_step_actions(profile, runtime_entry):
             ),
             "target_candidates": normalize_target_candidates(target_spec),
             "target_is_legacy": is_legacy_target,
+            "on_no_target": (
+                on_no_target[i]
+                if i < len(on_no_target)
+                else BEHAVIOR_ON_NO_TARGET_CANCEL
+            ),
         })
     return {
         "actions": actions,
         "targets": targets,
+        "on_no_target": on_no_target,
         "plans": plans,
         "runtime": runtime,
         "step_transition": step_transition,
@@ -590,11 +643,13 @@ def choose_action_plans_for_slot_count(action_plans, slot_count):
             policy_raw = row.get("target_policy", row.get("target"))
             candidates_raw = row.get("target_candidates")
             is_legacy_target = bool(row.get("target_is_legacy", candidates_raw is None))
+            on_no_target_raw = row.get("on_no_target")
         else:
             skill_raw = row
             policy_raw = None
             candidates_raw = None
             is_legacy_target = True
+            on_no_target_raw = None
         skill_txt = str(skill_raw or "").strip() if skill_raw is not None else ""
         target_policy = _coerce_target_policy(policy_raw)
         target_candidates = normalize_target_candidates(
@@ -605,6 +660,11 @@ def choose_action_plans_for_slot_count(action_plans, slot_count):
             "target_policy": target_policy,
             "target_candidates": target_candidates,
             "target_is_legacy": is_legacy_target,
+            "on_no_target": (
+                str(on_no_target_raw or "").strip().lower()
+                if str(on_no_target_raw or "").strip().lower() == BEHAVIOR_ON_NO_TARGET_CANCEL
+                else BEHAVIOR_ON_NO_TARGET_CANCEL
+            ),
         })
 
     if not normalized:
@@ -613,6 +673,7 @@ def choose_action_plans_for_slot_count(action_plans, slot_count):
             "target_policy": BEHAVIOR_TARGET_POLICY_DEFAULT,
             "target_candidates": normalize_target_candidates(BEHAVIOR_TARGET_POLICY_DEFAULT),
             "target_is_legacy": True,
+            "on_no_target": BEHAVIOR_ON_NO_TARGET_CANCEL,
         } for _ in range(count)]
 
     if len(normalized) > count:
@@ -630,6 +691,7 @@ def choose_action_plans_for_slot_count(action_plans, slot_count):
                 "target_policy": BEHAVIOR_TARGET_POLICY_DEFAULT,
                 "target_candidates": normalize_target_candidates(BEHAVIOR_TARGET_POLICY_DEFAULT),
                 "target_is_legacy": True,
+                "on_no_target": BEHAVIOR_ON_NO_TARGET_CANCEL,
             })
     return out
 

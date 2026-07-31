@@ -145,7 +145,15 @@ class Timeline {
 
     _createSlotTimelineItem(slot, char, intent, selectedSlotId, state) {
         const item = document.createElement('div');
-        item.className = `timeline-item slot-item ${(slot.team || 'NPC')}`;
+        const isCancelled = (
+            slot?.status === 'cancelled'
+            || slot?.cancelled_without_use === true
+            || intent?.cancelled === true
+        );
+        const cancelLabel = intent?.cancel_reason === 'skill_unavailable'
+            ? '使用不能'
+            : '対象不在';
+        item.className = `timeline-item slot-item ${(slot.team || 'NPC')}${isCancelled ? ' is-cancelled' : ''}`;
         Object.assign(item.style, {
             display: 'flex',
             justifyContent: 'space-between',
@@ -163,11 +171,17 @@ class Timeline {
             item.style.background = '#e8f4ff';
             item.style.border = '1px solid #66a3ff';
         }
+        if (isCancelled) {
+            item.style.opacity = '0.62';
+            item.style.background = '#f2f2f2';
+            item.style.textDecoration = 'line-through';
+            item.title = `${cancelLabel}のため行動をキャンセル`;
+        }
 
         const actorName = char?.name || slot.actor_id || 'unknown';
         item.innerHTML = `
-            <span class="slot-main">${actorName}</span>
-            <span class="slot-meta" style="font-size:0.82em; color:#666;">SPD:${slot.initiative}</span>
+            <span class="slot-main">${actorName}${isCancelled ? '（キャンセル）' : ''}</span>
+            <span class="slot-meta" style="font-size:0.82em; color:#666;">${isCancelled ? cancelLabel : `SPD:${slot.initiative}`}</span>
         `;
 
         item.addEventListener('click', () => {

@@ -41,6 +41,7 @@
         return {
             enabled: true,
             version: 1,
+            slot_generation_mode: 'step_actions',
             initial_loop_id: 'loop_1',
             loops: {
                 loop_1: {
@@ -49,6 +50,7 @@
                         {
                             actions: ['__RANDOM_USABLE__'],
                             targets: ['target_enemy_random'],
+                            on_no_target: ['cancel'],
                             next_loop_id: null,
                             next_reset_step_index: true,
                         }

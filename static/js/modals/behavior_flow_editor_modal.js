@@ -26,6 +26,13 @@ function escapeBehaviorEditorHtml(value) {
 
 function normalizeBehaviorProfileForEditor(rawProfile) {
     const profile = (rawProfile && typeof rawProfile === 'object') ? rawProfile : {};
+    const hasExistingProfile = Object.keys(profile).length > 0;
+    const requestedMode = String(profile.slot_generation_mode || '').trim().toLowerCase();
+    const slotGenerationMode = (requestedMode === 'step_actions')
+        ? 'step_actions'
+        : ((requestedMode === 'character_action_count' || hasExistingProfile)
+            ? 'character_action_count'
+            : 'step_actions');
     const loopsRaw = (profile.loops && typeof profile.loops === 'object') ? profile.loops : {};
     const loops = {};
 
@@ -57,6 +64,7 @@ function normalizeBehaviorProfileForEditor(rawProfile) {
                 const rawTargets = Array.isArray(stepObj.targets) ? stepObj.targets : [];
                 const baseTargets = rawTargets.length ? rawTargets : inlineTargets;
                 const targets = actions.map((_, idx) => normalizeBehaviorTargetCandidates(baseTargets[idx]));
+                const onNoTarget = actions.map(() => 'cancel');
                 const nextLoopIdRaw = String(stepObj.next_loop_id || stepObj.after_step_to_loop_id || '').trim();
                 const nextResetRaw = (stepObj.next_reset_step_index !== undefined)
                     ? stepObj.next_reset_step_index
@@ -65,6 +73,7 @@ function normalizeBehaviorProfileForEditor(rawProfile) {
                 return {
                     actions,
                     targets,
+                    on_no_target: onNoTarget,
                     next_loop_id: nextLoopIdRaw || null,
                     next_reset_step_index: nextResetStepIndex
                 };
@@ -111,6 +120,7 @@ function normalizeBehaviorProfileForEditor(rawProfile) {
             steps: [{
                 actions: [null],
                 targets: [normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)],
+                on_no_target: ['cancel'],
                 next_loop_id: null,
                 next_reset_step_index: true
             }],
@@ -141,9 +151,36 @@ function normalizeBehaviorProfileForEditor(rawProfile) {
     return {
         enabled: !!profile.enabled,
         version: 1,
+        slot_generation_mode: slotGenerationMode,
         initial_loop_id: initialLoopId,
         loops
     };
+}
+
+function buildBehaviorProfileForSave(rawProfile) {
+    const normalized = normalizeBehaviorProfileForEditor(rawProfile);
+    Object.values(normalized.loops || {}).forEach((loop) => {
+        if (!loop || !Array.isArray(loop.steps)) return;
+        loop.steps = loop.steps.map((step) => {
+            const source = (step && typeof step === 'object') ? step : {};
+            const actions = Array.isArray(source.actions) ? source.actions : [];
+            const targets = Array.isArray(source.targets) ? source.targets : [];
+            const compactActions = [];
+            const compactTargets = [];
+            actions.forEach((action, idx) => {
+                const skillId = coerceBehaviorStepSkillId(action);
+                if (!skillId) return;
+                compactActions.push(skillId);
+                compactTargets.push(normalizeBehaviorTargetCandidates(targets[idx]));
+            });
+            return Object.assign({}, source, {
+                actions: compactActions,
+                targets: compactTargets,
+                on_no_target: compactActions.map(() => 'cancel'),
+            });
+        });
+    });
+    return normalized;
 }
 
 function getCharacterOwnedSkillsForBehaviorEditor(char) {
@@ -467,6 +504,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 steps: [{
                     actions: [null],
                     targets: [normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)],
+                    on_no_target: ['cancel'],
                     next_loop_id: null,
                     next_reset_step_index: true
                 }],
@@ -579,6 +617,63 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             .behavior-editor-toolbar-actions button {
                 min-width: 64px;
                 white-space: nowrap;
+            }
+            .behavior-slot-mode {
+                margin-bottom: 10px;
+                padding: 9px;
+                border: 1px solid #cfe1f1;
+                border-radius: 8px;
+                background: #fff;
+            }
+            .behavior-slot-mode-options {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+                margin-top: 6px;
+            }
+            .behavior-slot-mode-option {
+                display: grid;
+                grid-template-columns: auto minmax(0, 1fr);
+                gap: 7px;
+                align-items: start;
+                padding: 8px;
+                border: 1px solid #d6e6f2;
+                border-radius: 7px;
+                cursor: pointer;
+                background: #fafdff;
+            }
+            .behavior-slot-mode-option:has(input:checked) {
+                border-color: #2f7fbf;
+                background: #eef7ff;
+                box-shadow: 0 0 0 1px rgba(47, 127, 191, 0.12);
+            }
+            .behavior-slot-mode-description {
+                display: block;
+                margin-top: 2px;
+                color: #58758a;
+                font-size: 0.78em;
+                line-height: 1.4;
+            }
+            .behavior-step-count {
+                display: block;
+                margin-top: 3px;
+                color: #2f7fbf;
+                font-weight: bold;
+                font-size: 0.92em;
+            }
+            .behavior-step-zero-warning {
+                width: fit-content;
+                padding: 4px 7px;
+                border: 1px solid #e7c877;
+                border-radius: 5px;
+                background: #fff8df;
+                color: #795c10;
+                font-size: 0.78em;
+            }
+            .behavior-no-target-note {
+                grid-column: 1 / -1;
+                color: #5f7383;
+                font-size: 0.76em;
             }
             .behavior-step-row {
                 display: grid;
@@ -748,6 +843,9 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                     display: grid;
                     grid-template-columns: 1fr;
                 }
+                .behavior-slot-mode-options {
+                    grid-template-columns: 1fr;
+                }
                 .behavior-editor-toolbar-actions {
                     margin-left: 0;
                     width: 100%;
@@ -797,13 +895,35 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 <button id="behavior-reset-profile-btn" style="padding:6px 10px; border:none; background:#c23b3b; color:#fff; border-radius:6px; cursor:pointer;">チャート初期化</button>
             </div>
         </div>
+        <fieldset class="behavior-slot-mode">
+            <legend style="font-weight:bold; color:#2a516c; padding:0 4px;">スロット生成方式</legend>
+            <div class="behavior-slot-mode-options">
+                <label class="behavior-slot-mode-option">
+                    <input type="radio" name="behavior-slot-generation-mode" value="step_actions">
+                    <span>
+                        <strong>チャートのスキル数から生成（推奨）</strong>
+                        <span class="behavior-slot-mode-description">各ラウンドのスキル1件につき1スロット生成します。「行動回数」は使用しません。</span>
+                    </span>
+                </label>
+                <label class="behavior-slot-mode-option">
+                    <input type="radio" name="behavior-slot-generation-mode" value="character_action_count">
+                    <span>
+                        <strong>キャラクターの行動回数から生成（互換）</strong>
+                        <span class="behavior-slot-mode-description">「行動回数」ぶんスロットを生成し、チャートのスキルを割り当てる従来方式です。</span>
+                    </span>
+                </label>
+            </div>
+            <div class="behavior-editor-compact-note">戦闘中の変更は、現在ラウンドではなく次のラウンド開始時から反映されます。</div>
+        </fieldset>
         <details class="behavior-editor-guide">
             <summary style="cursor:pointer; font-weight:bold; color:#2a516c;">仕様ガイド（条件分岐・スキル使用）</summary>
                 <div style="font-size:0.83em; color:#37596f; margin-top:6px; line-height:1.55;">
                     <div>・<strong>手順</strong>: 1ラウンドごとに現在の手順を参照して行動します（ラウンド終了時に次の手順へ進行）。</div>
-                <div>・<strong>手順内スキル</strong>: スロット数より多い場合はランダム抽選、少ない場合は最後のスキルを繰り返します。</div>
+                <div id="behavior-slot-mode-guide"></div>
                 <div>・<strong>ランダム予約</strong>: 「使用可能スキルからランダム」を選ぶと、その手順で使用可能な所持スキルから都度ランダムに選びます。</div>
                 <div>・<strong>対象選択</strong>: 行ごとに対象候補を優先順で設定し、候補ごとに陣営・必須タグ・選択方法を指定できます。</div>
+                <div>・<strong>動的な対象</strong>: 対象はラウンド開始時の戦場から検索します。次ラウンド開始時の召喚物は候補に含まれ、確定後に消滅しても別対象へ変更しません。</div>
+                <div>・<strong>対象不在</strong>: 候補がなければ、そのスキル行だけをキャンセルします。</div>
                 <div>・<strong>手順遷移</strong>: 手順ごとに「スキル使用後にループ遷移」を有効化すると、次ラウンドから指定ループへ進みます。</div>
                 <div>・<strong>同陣営対象の指定</strong>: 新規定義は <code>target_scope: "same_team"</code> を推奨。互換として <code>同陣営対象</code> / <code>同陣営指定</code> / <code>味方対象</code> / <code>味方指定</code> / <code>ally_target</code> / <code>target_ally</code> を受理します。</div>
                 <div>・<strong>条件遷移</strong>: 優先度が高い順に判定し、最初に成立した遷移だけ適用します。</div>
@@ -840,6 +960,10 @@ function openBehaviorFlowEditorModal(char, options = {}) {
 
     const enabledEl = content.querySelector('#behavior-enabled');
     const initialEl = content.querySelector('#behavior-initial-loop');
+    const slotModeEls = Array.from(content.querySelectorAll(
+        'input[name="behavior-slot-generation-mode"]'
+    ));
+    const slotModeGuideEl = content.querySelector('#behavior-slot-mode-guide');
     const addLoopBtn = content.querySelector('#behavior-add-loop-btn');
     const resetProfileBtn = content.querySelector('#behavior-reset-profile-btn');
     const newLoopInput = content.querySelector('#behavior-new-loop-id');
@@ -1017,8 +1141,16 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             node.style.boxShadow = '0 2px 6px rgba(0,0,0,0.08)';
             node.dataset.loopId = id;
 
-            const actionsCount = (Array.isArray(loop.steps) ? loop.steps.length : 0);
+            const steps = Array.isArray(loop.steps) ? loop.steps : [];
+            const stepCounts = steps.map((step) => (
+                Array.isArray(step?.actions)
+                    ? step.actions.filter((skillId) => !!coerceBehaviorStepSkillId(skillId)).length
+                    : 0
+            ));
             const trCount = (Array.isArray(loop.transitions) ? loop.transitions.length : 0);
+            const countLabel = draft.slot_generation_mode === 'step_actions'
+                ? `行動数:${stepCounts.join('/') || '0'}`
+                : `登録数:${stepCounts.join('/') || '0'}`;
             const initialTag = (id === draft.initial_loop_id) ? '初期' : '';
             const connectTag = (connectFromLoopId === id) ? '接続元' : '';
             node.innerHTML = `
@@ -1026,7 +1158,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                     <strong style="font-size:0.84em; color:#214a67;">${id}</strong>
                     <button data-connect-from="${id}" style="padding:1px 5px; border:none; background:#2f7fbf; color:#fff; border-radius:4px; cursor:pointer; font-size:0.75em;">→</button>
                 </div>
-                <div style="font-size:0.75em; color:#55748c; margin-bottom:3px;">ラウンド:${actionsCount} / 遷移:${trCount}</div>
+                <div style="font-size:0.75em; color:#55748c; margin-bottom:3px;">ラウンド:${steps.length} / ${countLabel} / 遷移:${trCount}</div>
                 <div style="font-size:0.73em; color:#6b879b;">${loop.repeat ? 'ループ' : '停止'} ${initialTag ? `/ ${initialTag}` : ''} ${connectTag ? `/ ${connectTag}` : ''}</div>
             `;
 
@@ -1143,7 +1275,18 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             steps.forEach((step, idx) => {
                 const row = document.createElement('div');
                 row.className = 'behavior-step-row';
-                row.innerHTML = `<div class="behavior-step-label">ラウンド${idx + 1}</div>`;
+                const configuredActionCount = Array.isArray(step.actions)
+                    ? step.actions.filter((skillId) => !!coerceBehaviorStepSkillId(skillId)).length
+                    : 0;
+                const countText = draft.slot_generation_mode === 'step_actions'
+                    ? `行動数: ${configuredActionCount}`
+                    : `登録スキル: ${configuredActionCount}件`;
+                row.innerHTML = `
+                    <div class="behavior-step-label">
+                        ラウンド${idx + 1}
+                        <span class="behavior-step-count">${countText}</span>
+                    </div>
+                `;
 
                 const actionsWrap = document.createElement('div');
                 actionsWrap.className = 'behavior-actions-wrap';
@@ -1275,6 +1418,10 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                     addCandidateButton.setAttribute('aria-label', '次の対象候補を追加');
                     candidatesWrap.appendChild(addCandidateButton);
                     actionRow.appendChild(candidatesWrap);
+                    const noTargetNote = document.createElement('div');
+                    noTargetNote.className = 'behavior-no-target-note';
+                    noTargetNote.textContent = '対象不在時: この行動をキャンセル';
+                    actionRow.appendChild(noTargetNote);
                     actionsWrap.appendChild(actionRow);
                 });
                 if (!ownedSkills.length) {
@@ -1283,6 +1430,17 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                     msg.style.color = '#a35c33';
                     msg.textContent = '所持スキルを取得できません。char.commands を確認してください。';
                     actionsWrap.appendChild(msg);
+                }
+                if (draft.slot_generation_mode === 'step_actions' && configuredActionCount === 0) {
+                    const warning = document.createElement('div');
+                    warning.className = 'behavior-step-zero-warning';
+                    warning.textContent = 'このラウンドは行動しません';
+                    actionsWrap.appendChild(warning);
+                } else if (draft.slot_generation_mode === 'character_action_count') {
+                    const legacyCountNote = document.createElement('div');
+                    legacyCountNote.className = 'behavior-editor-compact-note';
+                    legacyCountNote.textContent = '実際の行動数はキャラクターの「行動回数」で決まります。';
+                    actionsWrap.appendChild(legacyCountNote);
                 }
 
                 const actionAddBtn = document.createElement('button');
@@ -1544,6 +1702,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             loop.steps.push({
                 actions: [null],
                 targets: [normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)],
+                on_no_target: ['cancel'],
                 next_loop_id: null,
                 next_reset_step_index: true
             });
@@ -1848,6 +2007,14 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         ensureSelection();
         ensureNodeLayout();
         enabledEl.checked = !!draft.enabled;
+        slotModeEls.forEach((el) => {
+            el.checked = (el.value === draft.slot_generation_mode);
+        });
+        if (slotModeGuideEl) {
+            slotModeGuideEl.textContent = (draft.slot_generation_mode === 'step_actions')
+                ? '各ステップの登録スキル数が、そのラウンドの行動スロット数になります。空欄は数えません。'
+                : 'キャラクターの「行動回数」でスロットを作り、登録スキルを順に割り当てます。';
+        }
         renderInitialLoopOptions();
         renderLoopTabs();
         renderPreview();
@@ -1864,6 +2031,14 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         markDirty();
         renderPreview();
     });
+    slotModeEls.forEach((el) => {
+        el.addEventListener('change', (e) => {
+            if (!e.target.checked) return;
+            draft.slot_generation_mode = String(e.target.value || 'step_actions');
+            markDirty();
+            renderAll();
+        });
+    });
     initialEl.addEventListener('change', (e) => {
         draft.initial_loop_id = String(e.target.value || '').trim() || draft.initial_loop_id;
         markDirty();
@@ -1876,6 +2051,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             steps: [{
                 actions: [null],
                 targets: [normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)],
+                on_no_target: ['cancel'],
                 next_loop_id: null,
                 next_reset_step_index: true
             }],
@@ -1895,6 +2071,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         });
         if (!ok) return;
         draft.enabled = false;
+        draft.slot_generation_mode = 'step_actions';
         draft.initial_loop_id = 'loop_1';
         draft.loops = {
             loop_1: {
@@ -1902,6 +2079,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 steps: [{
                     actions: [null],
                     targets: [normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)],
+                    on_no_target: ['cancel'],
                     next_loop_id: null,
                     next_reset_step_index: true
                 }],
@@ -1933,7 +2111,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
     });
 
     content.querySelector('#behavior-save-btn')?.addEventListener('click', () => {
-        const normalized = normalizeBehaviorProfileForEditor(draft);
+        const normalized = buildBehaviorProfileForSave(draft);
         if (onSave) {
             try {
                 const handled = onSave(normalized, { char: workingChar, ownedSkills });

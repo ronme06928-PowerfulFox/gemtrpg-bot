@@ -169,9 +169,11 @@ PvEモードかつ、`type: 'enemy'` の手番、あるいは常時表示の設�
 - 保存先: `character.flags.behavior_profile`
 - 主キー:
   - `enabled` (bool)
+  - `slot_generation_mode` (`step_actions` / `character_action_count`)
   - `initial_loop_id` (string)
   - `loops[loop_id].steps[].actions` (slot順のスキルID配列)
   - `loops[loop_id].steps[].targets` (`actions`と同じ添字に対応する対象指定配列)
+  - `loops[loop_id].steps[].on_no_target` (`actions`と同じ添字に対応する対象不在処理。現在は`cancel`のみ)
   - `loops[loop_id].steps[].next_loop_id` (任意: 当該step実行後に遷移するループID)
   - `loops[loop_id].steps[].next_reset_step_index` (任意: `next_loop_id` 遷移時に先頭stepへ戻すか。既定 `true`)
   - `loops[loop_id].transitions[]` (`priority`, `when_all`, `to_loop_id`, `reset_step_index`)
@@ -246,6 +248,16 @@ PvEモードかつ、`type: 'enemy'` の手番、あるいは常時表示の設�
 - `tests/test_preset_permissions.py`
 - `tests/test_preset_json_transfer.py`
 - `tests/test_pve_auto_intents.py`
+
+### 6.10 チャート駆動スロット生成
+
+- `slot_generation_mode: step_actions`では、RoundStartで確定したstepの空でない`actions`1件につき、行動スロットを1個生成する。キャラクターの`行動回数`は参照せず、`actions: []`は0スロットとして扱う。
+- `slot_generation_mode: character_action_count`では、従来どおりキャラクターの`行動回数`からスロット数を決める。フィールド欠損・未知値はこの互換方式へ正規化する。
+- チャート駆動方式の確定結果は`battle_state.behavior_round_plan`へラウンド単位で保存する。同じラウンドのRoundStart再実行やintent再生成ではスナップショットを再利用し、stepを重複して進めない。
+- `actions[i]`、`targets[i]`、`on_no_target[i]`は同じ行動へ対応する。対象候補はRoundStart時点の戦場から検索し、`action_slot_mode: none`の対象可能キャラクターは`target_only`スロットを介して候補に含める。
+- `on_no_target: cancel`で候補がない場合、そのスロットだけを`status: cancelled`かつ`disabled: true`として確定する。intentには予定スキルID、`cancelled: true`、`cancel_reason: no_target`を残すが、Resolveキューには入れず、コスト・使用回数・スキル効果を発生させない。
+- チャート駆動方式で未知または使用不能なスキルを指定した場合も、`cancel_reason: skill_unavailable`として同様にキャンセルし、AI提案へ置換しない。互換方式では従来のフォールバックを維持する。
+- ラウンド開始時に出現済みの召喚物は候補になる。同ラウンドのSelect完了後またはResolve中に出現した対象を、そのラウンドの確定済みintentへ遡って追加しない。
 
 ---
 

@@ -14,8 +14,11 @@ from manager.battle.enemy_behavior import (
     advance_step_pointer,
     choose_action_plans_for_slot_count,
     BEHAVIOR_TARGET_POLICY_DEFAULT,
+    BEHAVIOR_SLOT_GENERATION_STEP_ACTIONS,
+    BEHAVIOR_ON_NO_TARGET_CANCEL,
     normalize_target_candidates,
 )
+from manager.battle.action_slot_mode import is_action_slot_disabled
 from manager.character_tags import get_effective_tag_ids
 
 
@@ -305,7 +308,7 @@ def _is_random_usable_skill_token(skill_id):
         return True
     return raw.lower() in BEHAVIOR_RANDOM_USABLE_SKILL_ALIASES
 
-def _resolve_behavior_chart_skill_id(actor, planned_skill_id):
+def _resolve_behavior_chart_skill_id(actor, planned_skill_id, require_usable=False):
     raw = str(planned_skill_id or '').strip()
     if not raw:
         return None
@@ -315,6 +318,10 @@ def _resolve_behavior_chart_skill_id(actor, planned_skill_id):
             return None
         return random.choice(usable_ids)
     if raw in all_skill_data:
+        if require_usable:
+            usable_ids = list_usable_skill_ids(actor, allow_instant=False)
+            if raw not in usable_ids:
+                return None
         return raw
     return None
 
@@ -388,6 +395,107 @@ def _read_behavior_profile_from_actor(actor):
     profile = normalize_behavior_profile(flags.get('behavior_profile'))
     flags['behavior_profile'] = profile
     return profile
+
+
+def prepare_pve_behavior_round_plan(state, battle_state, round_value):
+    """Freeze step-driven enemy actions once per round before slots are built."""
+    if not isinstance(state, dict) or not isinstance(battle_state, dict):
+        return {"round": int(round_value or 0), "actors": {}}
+
+    try:
+        normalized_round = int(round_value or 0)
+    except (TypeError, ValueError):
+        normalized_round = 0
+
+    existing = battle_state.get("behavior_round_plan")
+    if (
+        isinstance(existing, dict)
+        and int(existing.get("round", -1) or -1) == normalized_round
+        and isinstance(existing.get("actors"), dict)
+    ):
+        return existing
+
+    snapshot = {"round": normalized_round, "actors": {}}
+    if state.get("battle_mode", "pvp") != "pve":
+        battle_state["behavior_round_plan"] = snapshot
+        return snapshot
+
+    behavior_runtime = battle_state.get("behavior_runtime")
+    if not isinstance(behavior_runtime, dict):
+        behavior_runtime = {}
+
+    for actor in state.get("characters", []) or []:
+        if not isinstance(actor, dict) or not actor.get("id"):
+            continue
+        if _canonical_team(actor.get("type")) != "enemy":
+            continue
+        if not _is_pve_actionable_character(actor):
+            continue
+        if is_action_slot_disabled(actor) or _is_summon_action_locked(actor, normalized_round):
+            continue
+
+        profile = _read_behavior_profile_from_actor(actor)
+        if (
+            not profile.get("enabled", False)
+            or not profile.get("loops")
+            or profile.get("slot_generation_mode") != BEHAVIOR_SLOT_GENERATION_STEP_ACTIONS
+        ):
+            continue
+
+        actor_id = str(actor.get("id"))
+        runtime_entry = behavior_runtime.get(actor_id)
+        if not isinstance(runtime_entry, dict):
+            runtime_entry = {}
+        runtime_entry = initialize_behavior_runtime_entry(
+            profile,
+            runtime_entry=runtime_entry,
+            round_value=normalized_round,
+        )
+        transition_result = evaluate_transitions(
+            profile,
+            runtime_entry,
+            actor_char=actor,
+            state=state,
+            battle_state=battle_state,
+        )
+        runtime_entry = transition_result.get("runtime", runtime_entry)
+        picked = pick_step_actions(profile, runtime_entry)
+        runtime_entry = picked.get("runtime", runtime_entry)
+
+        plans = []
+        for raw_plan in picked.get("plans", []) or []:
+            if not isinstance(raw_plan, dict):
+                continue
+            skill_id = str(raw_plan.get("skill_id") or "").strip()
+            if not skill_id:
+                continue
+            plan = dict(raw_plan)
+            plan["skill_id"] = skill_id
+            plan["on_no_target"] = BEHAVIOR_ON_NO_TARGET_CANCEL
+            plans.append(plan)
+
+        snapshot["actors"][actor_id] = {
+            "slot_generation_mode": BEHAVIOR_SLOT_GENERATION_STEP_ACTIONS,
+            "loop_id": runtime_entry.get("active_loop_id"),
+            "step_index": int(runtime_entry.get("step_index", 0) or 0),
+            "plans": plans,
+        }
+
+        runtime_entry["last_skill_ids"] = [
+            str(plan.get("skill_id")) for plan in plans if plan.get("skill_id")
+        ]
+        runtime_entry["last_round"] = normalized_round
+        runtime_entry = advance_step_pointer(
+            profile,
+            runtime_entry,
+            step_transition=picked.get("step_transition"),
+        )
+        behavior_runtime[actor_id] = runtime_entry
+
+    battle_state["behavior_runtime"] = behavior_runtime
+    battle_state["behavior_round_plan"] = snapshot
+    return snapshot
+
 
 def _apply_pve_auto_enemy_intents(state, battle_state, room):
     """
@@ -463,6 +571,12 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
     committed_slots = 0
     preview_rows = []
     round_value = int(battle_state.get('round', state.get('round', 0)) or 0)
+    behavior_round_plan = battle_state.get('behavior_round_plan', {})
+    if not isinstance(behavior_round_plan, dict):
+        behavior_round_plan = {}
+    round_plan_actors = behavior_round_plan.get('actors', {})
+    if not isinstance(round_plan_actors, dict):
+        round_plan_actors = {}
 
     def _sort_target_slots(slot_ids, fastest=True):
         ids = []
@@ -618,15 +732,26 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
 
         behavior_profile = _read_behavior_profile_from_actor(actor)
         use_behavior_chart = bool(behavior_profile.get('enabled', False) and behavior_profile.get('loops'))
+        actor_round_plan = round_plan_actors.get(actor_id, {})
+        use_step_actions = bool(
+            isinstance(actor_round_plan, dict)
+            and actor_round_plan.get('slot_generation_mode') == BEHAVIOR_SLOT_GENERATION_STEP_ACTIONS
+        )
         planned_action_plans = [{
             'skill_id': None,
             'target_policy': BEHAVIOR_TARGET_POLICY_DEFAULT,
             'target_candidates': normalize_target_candidates(BEHAVIOR_TARGET_POLICY_DEFAULT),
             'target_is_legacy': True,
+            'on_no_target': BEHAVIOR_ON_NO_TARGET_CANCEL,
         } for _ in actor_slot_ids]
         runtime_entry = behavior_runtime.get(actor_id) if isinstance(behavior_runtime.get(actor_id), dict) else {}
 
-        if use_behavior_chart:
+        if use_step_actions:
+            planned_action_plans = [
+                plan for plan in actor_round_plan.get('plans', [])
+                if isinstance(plan, dict)
+            ]
+        elif use_behavior_chart:
             runtime_entry = initialize_behavior_runtime_entry(
                 behavior_profile,
                 runtime_entry=runtime_entry,
@@ -652,14 +777,33 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
             slot = slots.get(enemy_slot_id, {}) if isinstance(slots, dict) else {}
             attacker_team = _slot_team(slot)
             planned = planned_action_plans[idx] if idx < len(planned_action_plans) else {}
-            suggested_skill_id = _resolve_behavior_chart_skill_id(actor, (planned or {}).get('skill_id'))
-            if (not suggested_skill_id) and auto_skill_select:
+            planned_skill_id = str((planned or {}).get('skill_id') or '').strip() or None
+            if use_step_actions and (planned or {}).get('skill_resolution_finalized', False):
+                suggested_skill_id = (planned or {}).get('resolved_skill_id')
+            else:
+                suggested_skill_id = _resolve_behavior_chart_skill_id(
+                    actor,
+                    planned_skill_id,
+                    require_usable=use_step_actions,
+                )
+                if use_step_actions:
+                    planned['resolved_skill_id'] = suggested_skill_id
+                    planned['skill_resolution_finalized'] = True
+            if (not suggested_skill_id) and auto_skill_select and not use_step_actions:
                 suggested_skill_id = ai_suggest_skill(actor)
+            cancel_reason = None
+            if use_step_actions and not suggested_skill_id:
+                cancel_reason = 'skill_unavailable'
 
             target_policy = str((planned or {}).get('target_policy') or BEHAVIOR_TARGET_POLICY_DEFAULT).strip().lower()
             target_scope = _infer_target_scope_from_skill(suggested_skill_id)
             target_is_legacy = bool((planned or {}).get('target_is_legacy', True))
-            if target_is_legacy:
+            target_resolution_finalized = bool(
+                use_step_actions and (planned or {}).get('target_resolution_finalized', False)
+            )
+            if target_resolution_finalized:
+                target_slot_id = (planned or {}).get('resolved_target_slot_id')
+            elif target_is_legacy:
                 target_slot_id = _pick_target_slot_by_policy(target_policy, enemy_slot_id, attacker_team)
             else:
                 target_slot_id = _pick_target_slot_by_candidates(
@@ -672,7 +816,7 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
             target_team = _slot_team(target_slot) if target_slot_id else None
             target_actor_id = target_slot.get('actor_id') if target_slot_id else None
             attacker_actor_id = slot.get('actor_id')
-            legacy_target_invalid = target_is_legacy and (
+            legacy_target_invalid = target_is_legacy and not target_resolution_finalized and (
                 (not target_slot_id)
                 or (
                     target_team
@@ -712,6 +856,9 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
                 else:
                     target_slot_id = None
                     target_slot = {}
+            if use_step_actions and not target_resolution_finalized:
+                planned['resolved_target_slot_id'] = target_slot_id
+                planned['target_resolution_finalized'] = True
             target_actor_id = target_slot.get('actor_id')
 
             target_type = 'single_slot'
@@ -721,26 +868,60 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
                 target_type = inferred_mass
                 target_payload = {'type': inferred_mass, 'slot_id': None}
 
-            committed = bool(suggested_skill_id)
+            if (
+                use_step_actions
+                and target_type == 'single_slot'
+                and not target_slot_id
+                and (planned or {}).get('on_no_target') == BEHAVIOR_ON_NO_TARGET_CANCEL
+                and not cancel_reason
+            ):
+                cancel_reason = 'no_target'
+
+            effective_skill_id = suggested_skill_id or (planned_skill_id if use_step_actions else None)
+            cancelled = bool(use_step_actions and cancel_reason)
+            if cancelled:
+                target_payload = {'type': 'single_slot', 'slot_id': None}
+                slot['disabled'] = True
+                slot['status'] = 'cancelled'
+                slot['cancelled_without_use'] = True
+                cancelled_slots = battle_state.setdefault('resolve', {}).get('cancelled_slots', [])
+                if not isinstance(cancelled_slots, list):
+                    cancelled_slots = []
+                if enemy_slot_id not in cancelled_slots:
+                    cancelled_slots.append(enemy_slot_id)
+                battle_state['resolve']['cancelled_slots'] = cancelled_slots
+                logger.warning(
+                    "[pve_behavior_cancel] room=%s actor=%s slot=%s skill=%s reason=%s",
+                    room,
+                    actor_id,
+                    enemy_slot_id,
+                    effective_skill_id,
+                    cancel_reason,
+                )
+
+            committed = bool(effective_skill_id) or cancelled
             if committed:
                 seq += 1
                 committed_slots += 1
-                committed_skill_ids.append(str(suggested_skill_id))
+                if effective_skill_id:
+                    committed_skill_ids.append(str(effective_skill_id))
 
             intents[enemy_slot_id] = {
                 'slot_id': enemy_slot_id,
                 'actor_id': actor_id,
-                'skill_id': suggested_skill_id,
+                'skill_id': effective_skill_id,
                 'target': target_payload,
-                'tags': _build_pve_intent_tags(suggested_skill_id, target_type=target_type),
+                'tags': _build_pve_intent_tags(effective_skill_id, target_type=target_type),
                 'committed': committed,
                 'committed_at': (now_ms + idx) if committed else None,
                 'committed_by': 'AI:PVE' if committed else None,
                 'intent_rev': seq if committed else int(intents.get(enemy_slot_id, {}).get('intent_rev', 0) or 0),
+                'cancelled': cancelled,
+                'cancel_reason': cancel_reason,
             }
             applied_slots += 1
 
-            if target_actor_id:
+            if target_actor_id and not cancelled:
                 arrows.append({
                     'from_id': actor_id,
                     'to_id': target_actor_id,
@@ -749,17 +930,22 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
                 })
 
             from_label = _format_slot_actor_label(slot, actor)
-            if target_type in ['mass_individual', 'mass_summation']:
+            if cancel_reason == 'no_target':
+                target_label = '対象不在（キャンセル）'
+            elif cancel_reason:
+                target_label = '使用不能（キャンセル）'
+            elif target_type in ['mass_individual', 'mass_summation']:
                 target_label = '味方全体'
             else:
                 target_label = _format_slot_actor_label(target_slot, char_by_id.get(target_actor_id, {})) if target_slot_id else '対象なし'
             preview_rows.append({
                 'from_label': from_label,
                 'target_label': target_label,
-                'skill_id': suggested_skill_id,
+                'skill_id': effective_skill_id,
+                'cancel_reason': cancel_reason,
             })
 
-        if use_behavior_chart:
+        if use_behavior_chart and not use_step_actions:
             runtime_entry['last_skill_ids'] = committed_skill_ids
             runtime_entry['last_round'] = round_value
             runtime_entry = advance_step_pointer(
@@ -768,7 +954,7 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
                 step_transition=picked.get('step_transition') if isinstance(picked, dict) else None,
             )
             behavior_runtime[actor_id] = runtime_entry
-        else:
+        elif not use_behavior_chart:
             behavior_runtime.pop(actor_id, None)
 
     battle_state['intents'] = intents

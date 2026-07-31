@@ -8,6 +8,7 @@ import manager.utils as _utils_mod
 from manager.battle.pve_intent_planner import (
     _apply_pve_auto_enemy_intents,
     _broadcast_pve_round_start_preview_log,
+    prepare_pve_behavior_round_plan,
 )
 from manager.battle.skill_access import list_regular_usable_skill_ids
 from manager.battle.action_slot_mode import (
@@ -123,6 +124,7 @@ def ensure_battle_state_vNext(room_state, battle_id=None, round_value=None, rebu
     battle_state['resolve_snapshot_intents'] = battle_state.get('resolve_snapshot_intents', {})
     battle_state['resolve_snapshot_at'] = battle_state.get('resolve_snapshot_at')
     battle_state['behavior_runtime'] = battle_state.get('behavior_runtime', {})
+    battle_state['behavior_round_plan'] = battle_state.get('behavior_round_plan', {})
     battle_state['redirects'] = battle_state.get('redirects', [])
     battle_state['resolve_ready'] = bool(battle_state.get('resolve_ready', False))
     battle_state['resolve_ready_info'] = battle_state.get('resolve_ready_info', {})
@@ -165,9 +167,9 @@ def ensure_battle_state_vNext(room_state, battle_id=None, round_value=None, rebu
         }
     if isinstance(battle_state.get('behavior_runtime'), dict):
         actor_ids = {
-            str((slot or {}).get('actor_id'))
-            for slot in (slots.values() if isinstance(slots, dict) else [])
-            if isinstance(slot, dict) and slot.get('actor_id')
+            str(char.get('id'))
+            for char in room_state.get('characters', [])
+            if isinstance(char, dict) and char.get('id')
         }
         battle_state['behavior_runtime'] = {
             str(actor_id): runtime
@@ -294,6 +296,14 @@ def process_select_resolve_round_start(room, battle_id, round_value):
         return None
 
     characters = state.get('characters', [])
+    behavior_round_plan = prepare_pve_behavior_round_plan(
+        state,
+        battle_state,
+        round_value,
+    )
+    round_plan_actors = behavior_round_plan.get('actors', {})
+    if not isinstance(round_plan_actors, dict):
+        round_plan_actors = {}
     slot_entries = []
     legacy_timeline_entries = []
     from plugins.buffs.speed_mod import SpeedModBuff
@@ -318,18 +328,26 @@ def process_select_resolve_round_start(room, battle_id, round_value):
         if not actor_id:
             continue
 
-        try:
-            action_count = int(get_status_value(char, "行動回数"))
-        except Exception:
-            action_count = 0
-        if action_count <= 0:
+        actor_round_plan = round_plan_actors.get(str(actor_id))
+        if isinstance(actor_round_plan, dict):
+            plans = actor_round_plan.get('plans', [])
+            action_count = len(plans) if isinstance(plans, list) else 0
+        else:
             try:
-                action_count = int(get_status_value(char, '行動回数'))
+                action_count = int(get_status_value(char, "行動回数"))
             except Exception:
-                action_count = 1
-        action_count = max(1, action_count)
+                action_count = 0
+            if action_count <= 0:
+                try:
+                    action_count = int(get_status_value(char, '行動回数'))
+                except Exception:
+                    action_count = 1
+            action_count = max(1, action_count)
 
         char['totalSpeed'] = None
+        char['hasActed'] = False
+        if action_count <= 0:
+            continue
 
         try:
             speed_val = int(get_status_value(char, "敏捷"))
@@ -374,8 +392,6 @@ def process_select_resolve_round_start(room, battle_id, round_value):
             if i == 0:
                 char['speedRoll'] = roll
                 char['totalSpeed'] = initiative
-
-        char['hasActed'] = False
 
     grouped_by_init = {}
     for entry in slot_entries:
@@ -452,6 +468,7 @@ def process_select_resolve_round_start(room, battle_id, round_value):
     battle_state['resolve']['single_queue'] = []
     battle_state['resolve']['resolved_slots'] = []
     battle_state['resolve']['trace'] = []
+    battle_state['resolve']['cancelled_slots'] = []
     pve_auto_result = _apply_pve_auto_enemy_intents(state, battle_state, room)
     _broadcast_pve_round_start_preview_log(
         state,
