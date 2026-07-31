@@ -43,13 +43,16 @@ def app_ctx(tmp_path):
 
 @pytest.fixture(autouse=True)
 def clear_runtime_state():
+    original_shutdown_state = room_manager._shutdown_in_progress
     active_room_states.clear()
     room_manager._dirty_rooms.clear()
     room_manager._save_retry_counts.clear()
+    room_manager._shutdown_in_progress = False
     yield
     active_room_states.clear()
     room_manager._dirty_rooms.clear()
     room_manager._save_retry_counts.clear()
+    room_manager._shutdown_in_progress = original_shutdown_state
 
 
 def _login(client, user_id, username):
@@ -149,3 +152,41 @@ def test_debounced_save_does_not_recreate_deleted_room(app_ctx, monkeypatch):
 
     assert calls == []
     assert "Missing" not in room_manager._dirty_rooms
+
+
+def test_shutdown_flush_logs_room_progress(app_ctx, monkeypatch):
+    active_room_states["R1"] = {"logs": []}
+    room_manager._dirty_rooms.add("R1")
+    messages = []
+
+    monkeypatch.setattr(
+        room_manager,
+        "_shutdown_log",
+        lambda _level, message, *args: messages.append(message % args),
+    )
+    monkeypatch.setattr(room_manager, "save_room_to_db", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(room_manager, "_app_ref", app_ctx)
+
+    room_manager.flush_pending_saves()
+
+    assert room_manager._dirty_rooms == set()
+    assert messages[0] == "[SHUTDOWN] Server stopping; 1 room save(s) pending."
+    assert any("[SHUTDOWN] (1/1) Saving room: R1" == message for message in messages)
+    assert any("[SHUTDOWN] (1/1) Saved room: R1" in message for message in messages)
+    assert any("[SHUTDOWN] Room save flush finished" in message for message in messages)
+
+
+def test_shutdown_logs_immediate_exit_when_nothing_is_pending(monkeypatch):
+    messages = []
+    monkeypatch.setattr(
+        room_manager,
+        "_shutdown_log",
+        lambda _level, message, *args: messages.append(message % args),
+    )
+
+    room_manager.flush_pending_saves(log_when_empty=True)
+
+    assert messages == [
+        "[SHUTDOWN] Server stopping; no room saves pending.",
+        "[SHUTDOWN] Shutdown work finished; exiting.",
+    ]

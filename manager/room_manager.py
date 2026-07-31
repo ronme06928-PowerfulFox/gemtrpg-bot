@@ -3,6 +3,7 @@ import atexit
 import copy
 import json
 import os
+import sys
 import threading
 import time
 
@@ -30,6 +31,23 @@ except Exception:
         return 0
 
 logger = setup_logger(__name__)
+
+
+def _shutdown_log(level, message, *args):
+    """Write shutdown progress even after regular logging handlers start closing."""
+    stream = getattr(sys, "__stdout__", None) or getattr(sys, "stdout", None)
+    if stream is None or getattr(stream, "closed", False):
+        return
+    rendered = message % args if args else message
+    try:
+        print(
+            f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{level}] {rendered}",
+            file=stream,
+            flush=True,
+        )
+    except (OSError, ValueError):
+        # Interpreter teardown may close stdout between the checks above.
+        return
 
 
 def _default_battle_only_state():
@@ -367,22 +385,51 @@ def _room_exists_for_save(room_name):
         return False
 
 
-def _flush_dirty_rooms_locked():
+def _flush_dirty_rooms_locked(log_shutdown_progress=False):
     """現在ダーティなルームをまとめてDBへ書き込む（要app_context）。"""
-    rooms = list(_dirty_rooms)
+    rooms = sorted(_dirty_rooms) if log_shutdown_progress else list(_dirty_rooms)
     _dirty_rooms.difference_update(rooms)
-    for room_name in rooms:
+    total = len(rooms)
+    for index, room_name in enumerate(rooms, start=1):
+        started_at = time.perf_counter()
+        if log_shutdown_progress:
+            _shutdown_log("INFO", "[SHUTDOWN] (%d/%d) Saving room: %s", index, total, room_name)
         state = active_room_states.get(room_name)
         if state is None:
             # 削除済み等。復活させない。
+            if log_shutdown_progress:
+                _shutdown_log(
+                    "INFO",
+                    "[SHUTDOWN] (%d/%d) Skipped removed room: %s",
+                    index,
+                    total,
+                    room_name,
+                )
             continue
         if not _room_exists_for_save(room_name):
             # 削除済み等。update_onlyでも作成はしないが、ここで明示的に止める。
             _save_retry_counts.pop(room_name, None)
             logger.warning(f"[WARN] Auto-save skipped because room no longer exists: {room_name}")
+            if log_shutdown_progress:
+                _shutdown_log(
+                    "INFO",
+                    "[SHUTDOWN] (%d/%d) Skipped missing room: %s",
+                    index,
+                    total,
+                    room_name,
+                )
             continue
         if save_room_to_db(room_name, state, update_only=True):
             _save_retry_counts.pop(room_name, None)
+            if log_shutdown_progress:
+                _shutdown_log(
+                    "INFO",
+                    "[SHUTDOWN] (%d/%d) Saved room: %s (%.0fms)",
+                    index,
+                    total,
+                    room_name,
+                    (time.perf_counter() - started_at) * 1000.0,
+                )
             continue
 
         retry_count = _save_retry_counts.get(room_name, 0)
@@ -396,15 +443,24 @@ def _flush_dirty_rooms_locked():
         else:
             _save_retry_counts.pop(room_name, None)
             logger.error(f"[ERROR] Auto-save failed after retries: {room_name}")
+        if log_shutdown_progress:
+            _shutdown_log(
+                "ERROR",
+                "[SHUTDOWN] (%d/%d) Failed to save room: %s (%.0fms)",
+                index,
+                total,
+                room_name,
+                (time.perf_counter() - started_at) * 1000.0,
+            )
 
 
-def _flush_dirty_rooms_once():
+def _flush_dirty_rooms_once(log_shutdown_progress=False):
     """Serialize database flushes across the debounce worker and shutdown."""
     with _flush_lock:
-        _flush_dirty_rooms_locked()
+        _flush_dirty_rooms_locked(log_shutdown_progress=log_shutdown_progress)
 
 
-def _flush_within_context():
+def _flush_within_context(log_shutdown_progress=False):
     """app_contextを確保してフラッシュする。確保できなければスキップ。"""
     app = _resolve_app()
     if app is None:
@@ -413,7 +469,7 @@ def _flush_within_context():
         # 常にコンテキスト内で save を呼ぶため _app_ref は捕捉済み。
         return False
     with app.app_context():
-        _flush_dirty_rooms_once()
+        _flush_dirty_rooms_once(log_shutdown_progress=log_shutdown_progress)
     return True
 
 
@@ -445,17 +501,40 @@ def _schedule_flush():
         _flush_within_context()
 
 
-def flush_pending_saves():
+def flush_pending_saves(log_when_empty=False):
     """保留中の保存を即時に同期フラッシュする（シャットダウン時等）。"""
     global _shutdown_in_progress
     _shutdown_in_progress = True
-    if not _dirty_rooms:
+    started_at = time.perf_counter()
+    pending_count = len(_dirty_rooms)
+    save_in_progress = _flush_lock.locked()
+    if pending_count == 0 and not save_in_progress:
+        if log_when_empty:
+            _shutdown_log("INFO", "[SHUTDOWN] Server stopping; no room saves pending.")
+            _shutdown_log("INFO", "[SHUTDOWN] Shutdown work finished; exiting.")
         return
+    _shutdown_log("INFO", "[SHUTDOWN] Server stopping; %d room save(s) pending.", pending_count)
+    if save_in_progress:
+        _shutdown_log("INFO", "[SHUTDOWN] Waiting for an in-progress room save to finish.")
     try:
-        _flush_within_context()
-    except Exception:
-        # シャットダウン中はロギングのストリームが閉じている場合があるため握り潰す
-        pass
+        if not _flush_within_context(log_shutdown_progress=True):
+            _shutdown_log(
+                "ERROR",
+                "[SHUTDOWN] Room saves could not run because the app context is unavailable.",
+            )
+    except Exception as exc:
+        _shutdown_log("ERROR", "[SHUTDOWN] Unexpected error while saving rooms: %s", exc)
+    elapsed_ms = (time.perf_counter() - started_at) * 1000.0
+    if _dirty_rooms:
+        _shutdown_log(
+            "ERROR",
+            "[SHUTDOWN] Save flush finished with %d room(s) still pending after %.0fms: %s",
+            len(_dirty_rooms),
+            elapsed_ms,
+            ", ".join(sorted(_dirty_rooms)),
+        )
+    else:
+        _shutdown_log("INFO", "[SHUTDOWN] Room save flush finished in %.0fms; exiting.", elapsed_ms)
 
 
 atexit.register(flush_pending_saves)
