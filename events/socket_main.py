@@ -5,7 +5,8 @@ from flask_socketio import join_room, leave_room, emit
 # 拡張機能とマネージャーからのインポート
 from extensions import socketio, user_sids
 from manager.room_manager import (
-    get_room_state, broadcast_log, broadcast_user_list, emit_select_resolve_events
+    get_room_state, broadcast_log, broadcast_user_list, build_participant_state,
+    emit_select_resolve_events
 )
 from manager.auth import GM_ATTRIBUTE, PLAYER_ATTRIBUTE, resolve_room_attribute
 from manager.room_access import is_sid_in_room, ensure_join_membership_by_name, resolve_room_role, GM_ROLES
@@ -95,7 +96,7 @@ def handle_join_room(data):
             "is_app_admin": app_admin,
         }
         state = get_room_state(room)
-        emit('state_updated', state, to=request.sid)
+        emit('state_updated', build_participant_state(state), to=request.sid)
         emit_select_resolve_events(room, to_sid=request.sid, include_round_started=True)
         broadcast_user_list(room)
         return
@@ -120,7 +121,7 @@ def handle_join_room(data):
     # ★ 修正: まず状態を送信してDOMを初期化させる
     state = get_room_state(room)
     print(f"[JOIN] Sending state_updated to {username} with {len(state.get('logs', []))} logs")
-    emit('state_updated', state, to=request.sid)
+    emit('state_updated', build_participant_state(state), to=request.sid)
     emit_select_resolve_events(room, to_sid=request.sid, include_round_started=True)
 
     # ★ その後、入室ログを全員に送信

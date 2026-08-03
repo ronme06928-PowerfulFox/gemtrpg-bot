@@ -13,6 +13,7 @@ from manager.user_manager import (
     transfer_ownership,
     get_user_owned_items,
     is_user_management_admin,
+    OwnedPresetAssetsError,
     set_user_management_admin,
 )
 from manager.utils import session_required
@@ -62,8 +63,14 @@ def admin_delete_user():
     if not _can_manage_users_with_payload(data):
         return jsonify({"error": "ユーザー管理権限またはマスターキーが必要です"}), 403
     user_id = data.get('user_id')
-    if delete_user(user_id):
-        return jsonify({"message": "Deleted"})
+    try:
+        if delete_user(user_id):
+            return jsonify({"message": "Deleted"})
+    except OwnedPresetAssetsError as exc:
+        return jsonify({
+            "error": "所有するプリセット資産が残っています。先に所有権を移譲してください。",
+            "preset_assets": exc.counts,
+        }), 409
     return jsonify({"error": "Failed"}), 500
 
 
@@ -73,8 +80,11 @@ def admin_transfer_user():
     data = request.get_json(silent=True) or {}
     if not _can_manage_users_with_payload(data):
         return jsonify({"error": "ユーザー管理権限またはマスターキーが必要です"}), 403
-    count = transfer_ownership(data['old_id'], data['new_id'])
-    return jsonify({"message": f"Transferred {count} characters/rooms."})
+    try:
+        result = transfer_ownership(data.get('old_id'), data.get('new_id'))
+        return jsonify({"message": "Transferred.", "result": result})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
 
 @admin_bp.route('/api/admin/set_user_management_admin', methods=['POST'])

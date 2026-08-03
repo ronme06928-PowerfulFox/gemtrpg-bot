@@ -22,6 +22,7 @@ def test_bo_defaults_normalize_invalid_values():
     assert isinstance(state["battle_only"]["enemy_entries"], list)
     assert isinstance(state["battle_only"]["records"], list)
     assert "active_record_id" in state["battle_only"]
+    assert state["battle_only"]["preset_bookmarks"] == []
 
 
 def test_bo_defaults_clear_stale_runtime_stage_state_when_not_in_battle():

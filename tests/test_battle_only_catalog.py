@@ -676,7 +676,7 @@ def test_bo_start_battle_room_existing_mode_uses_placed_allies(monkeypatch):
         monkeypatch,
         state,
         store,
-        user_info={"username": "alice", "attribute": "Player", "user_id": "u_1"},
+        user_info={"username": "gm", "attribute": "GM", "user_id": "u_gm"},
     )
 
     socket_battle_only.handle_bo_start_battle({"room": "room_t", "anchor": {"x": 12.0, "y": 8.0}})
@@ -847,7 +847,7 @@ def test_bo_validate_entry_ready_in_room_existing_mode(monkeypatch):
         monkeypatch,
         state,
         store,
-        user_info={"username": "alice", "attribute": "Player", "user_id": "u_1"},
+        user_info={"username": "gm", "attribute": "GM", "user_id": "u_gm"},
     )
 
     socket_battle_only.handle_bo_validate_entry({"room": "room_t"})
@@ -881,7 +881,7 @@ def test_bo_validate_entry_reports_missing_enemy_and_count_mismatch(monkeypatch)
         monkeypatch,
         state,
         store,
-        user_info={"username": "alice", "attribute": "Player", "user_id": "u_1"},
+        user_info={"username": "gm", "attribute": "GM", "user_id": "u_gm"},
     )
 
     socket_battle_only.handle_bo_validate_entry({"room": "room_t"})
@@ -1122,6 +1122,12 @@ def test_bo_stage_preset_resave_keeps_effect_metadata_and_avatar_disabled(monkey
                 "id": "stage_meta",
                 "name": "Original Stage",
                 "visibility": "public",
+                "access_control": {
+                    "owner_user_id": "u_gm",
+                    "editor_user_ids": [],
+                    "viewer_mode": "public",
+                    "viewer_user_ids": [],
+                },
                 "enemy_formation_id": "ef_1",
                 "required_ally_count": 1,
                 "field_effect_profile": {

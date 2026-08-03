@@ -20,17 +20,129 @@ def _now_ms():
 
 def _default_store():
     return {
-        "version": 2,
+        "version": 3,
         "character_presets": {},
         "enemy_formations": {},
         "ally_formations": {},
         "stage_presets": {},
+        "catalog_collections": {},
         "updated_at": _now_ms(),
     }
 
 
 def _coerce_dict(raw_value):
     return raw_value if isinstance(raw_value, dict) else {}
+
+
+def _dedupe_strings(raw_value, *, exclude=None):
+    excluded = {str(value).strip() for value in (exclude or []) if str(value).strip()}
+    result = []
+    seen = set(excluded)
+    for value in raw_value if isinstance(raw_value, list) else []:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
+
+
+def normalize_access_control(raw_value, *, legacy_visibility="public", owner_user_id=None):
+    src = raw_value if isinstance(raw_value, dict) else {}
+    owner = str(src.get("owner_user_id") or owner_user_id or "").strip() or None
+    mode = str(src.get("viewer_mode") or legacy_visibility or "public").strip().lower()
+    if mode == "private":
+        mode = "gm"
+    if mode not in {"public", "gm", "restricted"}:
+        mode = "public"
+    editors = _dedupe_strings(src.get("editor_user_ids"), exclude=[owner])
+    viewers = _dedupe_strings(src.get("viewer_user_ids"), exclude=[owner, *editors])
+    return {
+        "owner_user_id": owner,
+        "editor_user_ids": editors,
+        "viewer_mode": mode,
+        "viewer_user_ids": viewers,
+    }
+
+
+def normalize_catalog_meta(raw_value):
+    src = raw_value if isinstance(raw_value, dict) else {}
+    collection_id = str(src.get("collection_id") or "").strip() or None
+    section_id = str(src.get("section_id") or "").strip() or None
+    try:
+        sort_order = int(src.get("sort_order", 2147483647))
+    except (TypeError, ValueError):
+        sort_order = 2147483647
+    try:
+        last_used_at = int(src.get("last_used_at", 0) or 0)
+    except (TypeError, ValueError):
+        last_used_at = 0
+    return {
+        "collection_id": collection_id,
+        "section_id": section_id,
+        "sort_order": sort_order,
+        "labels": _dedupe_strings(src.get("labels")),
+        "archived": bool(src.get("archived", False)),
+        "last_used_at": max(0, last_used_at),
+    }
+
+
+def normalize_collection_record(raw_value, *, fallback_id=""):
+    src = raw_value if isinstance(raw_value, dict) else {}
+    rec = copy.deepcopy(src)
+    rec_id = str(src.get("id") or fallback_id or "").strip()
+    if not rec_id:
+        return None
+    sections = []
+    seen_sections = set()
+    for row in src.get("sections") if isinstance(src.get("sections"), list) else []:
+        if not isinstance(row, dict):
+            continue
+        section_id = str(row.get("id") or "").strip()
+        if not section_id or section_id in seen_sections:
+            continue
+        seen_sections.add(section_id)
+        try:
+            order = int(row.get("sort_order", 2147483647))
+        except (TypeError, ValueError):
+            order = 2147483647
+        sections.append({
+            "id": section_id,
+            "name": str(row.get("name") or section_id).strip() or section_id,
+            "sort_order": order,
+        })
+    sections.sort(key=lambda row: (row["sort_order"], row["name"].lower(), row["id"]))
+    try:
+        sort_order = int(src.get("sort_order", 2147483647))
+    except (TypeError, ValueError):
+        sort_order = 2147483647
+    access_control = normalize_access_control(
+        src.get("access_control"),
+        legacy_visibility=src.get("visibility", "public"),
+    )
+    rec.update({
+        "id": rec_id,
+        "name": str(src.get("name") or rec_id).strip() or rec_id,
+        "description": str(src.get("description") or "").strip(),
+        "sort_order": sort_order,
+        "archived": bool(src.get("archived", False)),
+        "sections": sections,
+        "access_control": access_control,
+        "visibility": access_control["viewer_mode"],
+    })
+    return rec
+
+
+def _normalize_record_envelope(rec):
+    visibility = str(rec.get("visibility") or "public").strip().lower()
+    access_control = normalize_access_control(
+        rec.get("access_control"),
+        legacy_visibility=visibility,
+    )
+    rec["access_control"] = access_control
+    rec["visibility"] = access_control["viewer_mode"]
+    rec["catalog_meta"] = normalize_catalog_meta(rec.get("catalog_meta"))
+    return rec
 
 
 def _normalize_character_presets(src):
@@ -50,7 +162,7 @@ def _normalize_character_presets(src):
         if not rec_id:
             continue
         rec["id"] = rec_id
-        out[rec_id] = rec
+        out[rec_id] = _normalize_record_envelope(rec)
     return out
 
 
@@ -71,7 +183,7 @@ def _normalize_enemy_formations(src):
         members = rec.get("members")
         if not isinstance(members, list):
             rec["members"] = []
-        out[rec_id] = rec
+        out[rec_id] = _normalize_record_envelope(rec)
     return out
 
 
@@ -92,7 +204,7 @@ def _normalize_ally_formations(src):
         members = rec.get("members")
         if not isinstance(members, list):
             rec["members"] = []
-        out[rec_id] = rec
+        out[rec_id] = _normalize_record_envelope(rec)
     return out
 
 
@@ -123,7 +235,19 @@ def _normalize_stage_presets(src):
             rec["tags"] = []
         else:
             rec["tags"] = [str(x).strip() for x in tags if str(x).strip()]
-        out[rec_id] = rec
+        out[rec_id] = _normalize_record_envelope(rec)
+    return out
+
+
+def _normalize_catalog_collections(src):
+    raw = src.get("catalog_collections")
+    if not isinstance(raw, dict):
+        return {}
+    out = {}
+    for key, value in raw.items():
+        rec = normalize_collection_record(value, fallback_id=key)
+        if rec:
+            out[rec["id"]] = rec
     return out
 
 
@@ -134,6 +258,7 @@ def _normalize_store(raw):
     store["enemy_formations"] = _normalize_enemy_formations(src)
     store["ally_formations"] = _normalize_ally_formations(src)
     store["stage_presets"] = _normalize_stage_presets(src)
+    store["catalog_collections"] = _normalize_catalog_collections(src)
     try:
         store["updated_at"] = int(src.get("updated_at", _now_ms()) or _now_ms())
     except Exception:

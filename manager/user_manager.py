@@ -1,13 +1,27 @@
 # manager/user_manager.py
+import copy
+
 from extensions import db, active_room_states
 from models import User, Room
 from datetime import datetime
 import hashlib
 import secrets
 from werkzeug.security import check_password_hash, generate_password_hash
+from manager.battle_only_catalog_access import (
+    owned_asset_counts,
+    scrub_user_from_acl,
+    transfer_user_assets,
+)
+from manager.battle_only_presets import load_store, mutate_store, save_store
 
 
 RECOVERY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+class OwnedPresetAssetsError(RuntimeError):
+    def __init__(self, counts):
+        super().__init__("owned preset assets remain")
+        self.counts = counts
 
 
 def generate_recovery_code():
@@ -158,13 +172,23 @@ def delete_user(user_id):
     """ユーザーを削除する（所有権はNoneになる）"""
     user = User.query.get(user_id)
     if user:
+        preset_counts = owned_asset_counts(load_store(), user_id)
+        if preset_counts.get("total", 0) > 0:
+            raise OwnedPresetAssetsError(preset_counts)
+        preset_snapshot = load_store()
+        mutate_store(lambda store: scrub_user_from_acl(store, user_id))
         # ルームの所有権を解除
         rooms = Room.query.filter_by(owner_id=user_id).all()
         for r in rooms:
             r.owner_id = None
         
         db.session.delete(user)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            save_store(preset_snapshot)
+            raise
         return True
     return False
 
@@ -194,7 +218,8 @@ def get_user_owned_items(user_id):
     
     return {
         "rooms": room_list,
-        "characters": char_list
+        "characters": char_list,
+        "preset_assets": owned_asset_counts(load_store(), user_id),
     }
 
 def transfer_ownership(old_id, new_id):
@@ -202,6 +227,19 @@ def transfer_ownership(old_id, new_id):
     指定したユーザー(old_id)の全所有権(ルーム・キャラ)を
     別のユーザー(new_id)に譲渡する
     """
+    if not old_id or not new_id or str(old_id) == str(new_id):
+        raise ValueError("transfer source and target must be different users")
+    if not User.query.get(new_id):
+        raise ValueError("transfer target user not found")
+
+    preset_snapshot = load_store()
+    preset_result = {}
+    def _transfer_presets(store):
+        preset_result.update(transfer_user_assets(store, old_id, new_id))
+        scrub_user_from_acl(store, old_id)
+
+    mutate_store(_transfer_presets)
+
     # 1. ルームの所有権移動
     rooms = Room.query.filter_by(owner_id=old_id).all()
     for r in rooms:
@@ -210,6 +248,7 @@ def transfer_ownership(old_id, new_id):
     # 2. キャラクターの所有権移動 (全ルームのJSONデータを走査)
     all_rooms = Room.query.all()
     updated_count = 0
+    active_state_snapshots = {}
     
     for r in all_rooms:
         # メモリ上で稼働中ならそちらを優先、なければDBデータ
@@ -220,6 +259,8 @@ def transfer_ownership(old_id, new_id):
         if 'characters' in state:
             for char in state['characters']:
                 if char.get('owner_id') == old_id:
+                    if r.name in active_room_states and r.name not in active_state_snapshots:
+                        active_state_snapshots[r.name] = copy.deepcopy(active_room_states[r.name])
                     char['owner_id'] = new_id
                     # 表示用オーナー名も更新したいが、新名称が不明な場合もあるためIDのみ更新
                     # (必要なら new_name を引数に追加して char['owner'] も更新可)
@@ -232,5 +273,15 @@ def transfer_ownership(old_id, new_id):
             if r.name in active_room_states:
                 active_room_states[r.name] = state
                 
-    db.session.commit()
-    return updated_count
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        save_store(preset_snapshot)
+        for room_name, snapshot in active_state_snapshots.items():
+            active_room_states[room_name] = snapshot
+        raise
+    return {
+        "characters": updated_count,
+        "preset_assets": preset_result,
+    }

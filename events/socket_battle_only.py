@@ -10,7 +10,15 @@ from flask import request
 from extensions import socketio, user_sids
 from manager.battle_only_presets import load_store as load_bo_preset_store
 from manager.battle_only_presets import mutate_store as mutate_bo_preset_store
+from manager.battle_only_catalog_access import (
+    capabilities as _catalog_capabilities,
+    reference_blockers,
+    touch_last_used_for_battle,
+    validate_parent_references,
+    validate_deploy_references,
+)
 from manager.game_logic import process_battle_start
+from manager.room_access import GM_ROLES
 from manager.room_manager import (
     broadcast_log,
     broadcast_state_update,
@@ -50,6 +58,12 @@ from events.battle_only.catalog_state import (
     _store_stage_presets,
     _validate_battle_only_entry,
 )
+from events.battle_only import catalog_access_context as _catalog_access_context
+from events.battle_only.catalog_access_context import (
+    check_expected_updated_at as _check_expected_updated_at,
+    owner_names_for_store as _owner_names_for_store,
+    visible_map as _visible_map,
+)
 from events.battle_only.runtime_builders import (
     _apply_enemy_behavior_override,
     _bo_assign_auto_positions,
@@ -65,6 +79,11 @@ def _safe_int(value, default=0):
         return default
 
 
+def _catalog_request_context(data):
+    _catalog_access_context.request = request
+    _catalog_access_context.get_user_info_from_sid = get_user_info_from_sid
+    _catalog_access_context.user_sids = user_sids
+    return _catalog_access_context.catalog_request_context(data)
 def _now_ms():
     return int(time.time() * 1000)
 
@@ -106,6 +125,42 @@ def _require_gm(event_name='bo_catalog_error'):
 
 def _is_gm(user_info):
     return str((user_info or {}).get('attribute', '')).strip().upper() == 'GM'
+
+
+def _require_catalog_create(context, event_name):
+    if context.get('user_id') and (
+        context.get('is_app_admin')
+        or context.get('room_role') in GM_ROLES
+        or _is_gm(context.get('user_info'))
+    ):
+        return True
+    _emit_error(
+        'permission_denied',
+        'プリセットの新規作成には対象ルームのowner・gm権限が必要です。',
+        event_name=event_name,
+    )
+    return False
+
+
+def _require_record_capability(context, record, capability, event_name):
+    caps = _catalog_capabilities(
+        record,
+        user_id=context.get('user_id'),
+        is_app_admin=context.get('is_app_admin'),
+        room_role=context.get('room_role'),
+    )
+    if caps.get(capability):
+        return True, caps
+    _emit_error('permission_denied', 'このプリセットを操作する権限がありません。', event_name=event_name)
+    return False, caps
+
+
+def _require_room_gm_context(data, event_name='bo_draft_error'):
+    context = _catalog_request_context(data)
+    if context.get('room') and context.get('room_role') in GM_ROLES:
+        return True, context
+    _emit_error('permission_denied', '対象ルームのowner・gm権限が必要です。', event_name=event_name)
+    return False, context
 
 
 def _require_room_participant(room, event_name='bo_draft_error'):
@@ -170,16 +225,17 @@ def _normalize_ally_entries(entries, presets, validate_user_ids=False, room=None
 
 @socketio.on('request_bo_catalog_list')
 def handle_bo_catalog_list(_data):
-    user_info = get_user_info_from_sid(request.sid)
+    context = _catalog_request_context(_data)
+    if context.get('admin_global') and not context.get('is_app_admin'):
+        _emit_error('permission_denied', '全プリセット管理はアプリ管理者専用です。')
+        return
     store = load_bo_preset_store()
-    all_presets = _store_character_presets(store, create=False)
-    all_formations = _store_enemy_formations(store, create=False)
-    all_ally_formations = _store_ally_formations(store, create=False)
-    all_stage_presets = _store_stage_presets(store, create=False)
-    visible = _filter_visible_presets(all_presets, user_info)
-    visible_formations = _filter_visible_rows_by_visibility(all_formations, user_info)
-    visible_ally_formations = _filter_visible_rows_by_visibility(all_ally_formations, user_info)
-    visible_stage_presets = _filter_visible_rows_by_visibility(all_stage_presets, user_info)
+    owner_names = _owner_names_for_store(store)
+    visible = _visible_map(store, 'character', context, owner_names=owner_names)
+    visible_formations = _visible_map(store, 'enemy_formation', context, owner_names=owner_names)
+    visible_ally_formations = _visible_map(store, 'ally_formation', context, owner_names=owner_names)
+    visible_stage_presets = _visible_map(store, 'stage', context, owner_names=owner_names)
+    visible_collections = _visible_map(store, 'collection', context, owner_names=owner_names)
     payload = {
         "presets": visible,
         "sorted_ids": _sort_preset_ids(visible),
@@ -189,29 +245,53 @@ def handle_bo_catalog_list(_data):
         "sorted_ally_formation_ids": _sort_named_ids(visible_ally_formations),
         "stage_presets": visible_stage_presets,
         "sorted_stage_preset_ids": _sort_stage_ids(visible_stage_presets),
-        "can_manage": _is_gm(user_info),
+        "catalog_collections": visible_collections,
+        "sorted_collection_ids": _sort_named_ids(visible_collections),
+        "can_manage": bool(
+            context.get('is_app_admin')
+            or context.get('room_role') in GM_ROLES
+            or _is_gm(context.get('user_info'))
+        ),
+        "admin_global": bool(context.get('admin_global') and context.get('is_app_admin')),
+        "room_role": context.get('room_role'),
     }
     socketio.emit('receive_bo_catalog_list', payload, to=request.sid)
 
 
 @socketio.on('request_bo_preset_save')
 def handle_bo_preset_save(data):
-    allowed, user_info = _require_gm(event_name='bo_preset_error')
-    if not allowed:
-        return
-
     src = data if isinstance(data, dict) else {}
     payload = src.get('payload') if isinstance(src.get('payload'), dict) else src
     overwrite = bool(src.get('overwrite', False))
+    context = _catalog_request_context(src)
+    user_info = context['user_info']
+    incoming_id = str((payload or {}).get('id', '')).strip()
+    current = (_store_character_presets(load_bo_preset_store(), create=False).get(incoming_id) if incoming_id else None)
+    if current is None:
+        if not _require_catalog_create(context, 'bo_preset_error'):
+            return
+        allow_acl = True
+    else:
+        allowed, caps = _require_record_capability(context, current, 'can_edit', 'bo_preset_error')
+        if not allowed:
+            return
+        if not _check_expected_updated_at(src, current):
+            _emit_error('conflict', '他の利用者が先に更新しました。再読み込みしてください。', event_name='bo_preset_error')
+            return
+        allow_acl = bool(caps.get('can_manage_acl'))
 
     try:
-        incoming_id = str((payload or {}).get('id', '')).strip()
         existing_holder = {}
 
         def _mutator(store):
             presets = _store_character_presets(store, create=True)
             current = presets.get(incoming_id) if incoming_id else None
-            normalized = _normalize_preset_record(payload, user_info, existing=current)
+            normalized = _normalize_preset_record(
+                payload,
+                user_info,
+                existing=current,
+                allow_acl=allow_acl,
+            )
             rec_id = normalized['id']
             if rec_id in presets and not overwrite and not incoming_id:
                 raise RuntimeError('duplicate_id')
@@ -237,9 +317,7 @@ def handle_bo_preset_save(data):
 
 @socketio.on('request_bo_preset_delete')
 def handle_bo_preset_delete(data):
-    allowed, _ = _require_gm(event_name='bo_preset_error')
-    if not allowed:
-        return
+    context = _catalog_request_context(data)
     rec_id = str((data or {}).get('id', '')).strip()
     if not rec_id:
         _emit_error('invalid_request', 'id は必須です。', event_name='bo_preset_error')
@@ -252,14 +330,31 @@ def handle_bo_preset_delete(data):
             presets = _store_character_presets(store, create=True)
             if rec_id not in presets:
                 raise RuntimeError('not_found')
+            caps = _catalog_capabilities(
+                presets[rec_id],
+                user_id=context.get('user_id'),
+                is_app_admin=context.get('is_app_admin'),
+                room_role=context.get('room_role'),
+            )
+            if not caps.get('can_delete'):
+                raise RuntimeError('permission_denied')
+            blockers = reference_blockers(store, 'character', rec_id)
+            if blockers:
+                raise RuntimeError(json.dumps({'code': 'referenced', 'blockers': blockers}, ensure_ascii=False))
             del presets[rec_id]
             deleted['ok'] = True
 
         mutate_bo_preset_store(_mutator)
         socketio.emit('bo_preset_deleted', {"id": rec_id}, to=request.sid)
     except RuntimeError as ex:
-        if str(ex) == 'not_found':
+        code = str(ex)
+        if code == 'not_found':
             _emit_error('not_found', 'プリセットが見つかりません。', event_name='bo_preset_error', extra={"id": rec_id})
+        elif code == 'permission_denied':
+            _emit_error('permission_denied', 'このプリセットを削除する権限がありません。', event_name='bo_preset_error')
+        elif code.startswith('{'):
+            detail = json.loads(code)
+            _emit_error('referenced', '編成から参照されているため削除できません。', event_name='bo_preset_error', extra={"references": detail.get('blockers', [])})
         else:
             _emit_error('delete_failed', 'プリセット削除に失敗しました。', event_name='bo_preset_error')
     except Exception:
@@ -268,16 +363,15 @@ def handle_bo_preset_delete(data):
 
 @socketio.on('request_bo_enemy_formation_list')
 def handle_bo_enemy_formation_list(_data):
-    user_info = get_user_info_from_sid(request.sid)
+    context = _catalog_request_context(_data)
     store = load_bo_preset_store()
-    formations = _store_enemy_formations(store, create=False)
-    visible = _filter_visible_rows_by_visibility(formations, user_info)
+    visible = _visible_map(store, 'enemy_formation', context, owner_names=_owner_names_for_store(store))
     socketio.emit(
         'bo_enemy_formation_list',
         {
             "enemy_formations": visible,
             "sorted_enemy_formation_ids": _sort_named_ids(visible),
-            "can_manage": _is_gm(user_info),
+            "can_manage": bool(context.get('is_app_admin') or context.get('room_role') in GM_ROLES or _is_gm(context.get('user_info'))),
         },
         to=request.sid
     )
@@ -285,27 +379,47 @@ def handle_bo_enemy_formation_list(_data):
 
 @socketio.on('request_bo_enemy_formation_save')
 def handle_bo_enemy_formation_save(data):
-    allowed, user_info = _require_gm(event_name='bo_enemy_formation_error')
-    if not allowed:
-        return
     src = data if isinstance(data, dict) else {}
     payload = src.get('payload') if isinstance(src.get('payload'), dict) else src
     overwrite = bool(src.get('overwrite', False))
+    context = _catalog_request_context(src)
+    user_info = context['user_info']
+    incoming_id = str((payload or {}).get('id', '')).strip()
+    current = (_store_enemy_formations(load_bo_preset_store(), create=False).get(incoming_id) if incoming_id else None)
+    if current is None:
+        if not _require_catalog_create(context, 'bo_enemy_formation_error'):
+            return
+        allow_acl = True
+    else:
+        allowed, caps = _require_record_capability(context, current, 'can_edit', 'bo_enemy_formation_error')
+        if not allowed:
+            return
+        if not _check_expected_updated_at(src, current):
+            _emit_error('conflict', '他の利用者が先に更新しました。再読み込みしてください。', event_name='bo_enemy_formation_error')
+            return
+        allow_acl = bool(caps.get('can_manage_acl'))
 
     try:
-        incoming_id = str((payload or {}).get('id', '')).strip()
         existing_holder = {}
 
         def _mutator(store):
             presets = _store_character_presets(store, create=False)
             formations = _store_enemy_formations(store, create=True)
             current = formations.get(incoming_id) if incoming_id else None
-            normalized = _normalize_enemy_formation_record(payload, user_info, presets, existing=current)
+            normalized = _normalize_enemy_formation_record(
+                payload,
+                user_info,
+                presets,
+                existing=current,
+                allow_acl=allow_acl,
+            )
             rec_id = normalized['id']
             if rec_id in formations and not overwrite and not incoming_id:
                 raise RuntimeError('duplicate_id')
             if not str(normalized.get('name', '')).strip():
                 raise RuntimeError('name_required')
+            if not validate_parent_references(store, 'enemy_formation', normalized):
+                raise ValueError('敵編成の公開範囲では参照先キャラクターを利用できません。')
             formations[rec_id] = normalized
             existing_holder['record'] = normalized
 
@@ -328,9 +442,7 @@ def handle_bo_enemy_formation_save(data):
 
 @socketio.on('request_bo_enemy_formation_delete')
 def handle_bo_enemy_formation_delete(data):
-    allowed, _ = _require_gm(event_name='bo_enemy_formation_error')
-    if not allowed:
-        return
+    context = _catalog_request_context(data)
     rec_id = str((data or {}).get('id', '')).strip()
     if not rec_id:
         _emit_error('invalid_request', 'id は必須です。', event_name='bo_enemy_formation_error')
@@ -340,13 +452,30 @@ def handle_bo_enemy_formation_delete(data):
             formations = _store_enemy_formations(store, create=True)
             if rec_id not in formations:
                 raise RuntimeError('not_found')
+            caps = _catalog_capabilities(
+                formations[rec_id],
+                user_id=context.get('user_id'),
+                is_app_admin=context.get('is_app_admin'),
+                room_role=context.get('room_role'),
+            )
+            if not caps.get('can_delete'):
+                raise RuntimeError('permission_denied')
+            blockers = reference_blockers(store, 'enemy_formation', rec_id)
+            if blockers:
+                raise RuntimeError(json.dumps({'code': 'referenced', 'blockers': blockers}, ensure_ascii=False))
             del formations[rec_id]
 
         mutate_bo_preset_store(_mutator)
         socketio.emit('bo_enemy_formation_deleted', {"id": rec_id}, to=request.sid)
     except RuntimeError as ex:
-        if str(ex) == 'not_found':
+        code = str(ex)
+        if code == 'not_found':
             _emit_error('not_found', '敵編成が見つかりません。', event_name='bo_enemy_formation_error', extra={"id": rec_id})
+        elif code == 'permission_denied':
+            _emit_error('permission_denied', 'この敵編成を削除する権限がありません。', event_name='bo_enemy_formation_error')
+        elif code.startswith('{'):
+            detail = json.loads(code)
+            _emit_error('referenced', 'ステージから参照されているため削除できません。', event_name='bo_enemy_formation_error', extra={"references": detail.get('blockers', [])})
         else:
             _emit_error('delete_failed', '敵編成の削除に失敗しました。', event_name='bo_enemy_formation_error')
     except Exception:
@@ -400,16 +529,15 @@ def handle_bo_select_enemy_formation(data):
 
 @socketio.on('request_bo_ally_formation_list')
 def handle_bo_ally_formation_list(_data):
-    user_info = get_user_info_from_sid(request.sid)
+    context = _catalog_request_context(_data)
     store = load_bo_preset_store()
-    formations = _store_ally_formations(store, create=False)
-    visible = _filter_visible_rows_by_visibility(formations, user_info)
+    visible = _visible_map(store, 'ally_formation', context, owner_names=_owner_names_for_store(store))
     socketio.emit(
         'bo_ally_formation_list',
         {
             "ally_formations": visible,
             "sorted_ally_formation_ids": _sort_named_ids(visible),
-            "can_manage": _is_gm(user_info),
+            "can_manage": bool(context.get('is_app_admin') or context.get('room_role') in GM_ROLES or _is_gm(context.get('user_info'))),
         },
         to=request.sid
     )
@@ -417,27 +545,47 @@ def handle_bo_ally_formation_list(_data):
 
 @socketio.on('request_bo_ally_formation_save')
 def handle_bo_ally_formation_save(data):
-    allowed, user_info = _require_gm(event_name='bo_ally_formation_error')
-    if not allowed:
-        return
     src = data if isinstance(data, dict) else {}
     payload = src.get('payload') if isinstance(src.get('payload'), dict) else src
     overwrite = bool(src.get('overwrite', False))
+    context = _catalog_request_context(src)
+    user_info = context['user_info']
+    incoming_id = str((payload or {}).get('id', '')).strip()
+    current = (_store_ally_formations(load_bo_preset_store(), create=False).get(incoming_id) if incoming_id else None)
+    if current is None:
+        if not _require_catalog_create(context, 'bo_ally_formation_error'):
+            return
+        allow_acl = True
+    else:
+        allowed, caps = _require_record_capability(context, current, 'can_edit', 'bo_ally_formation_error')
+        if not allowed:
+            return
+        if not _check_expected_updated_at(src, current):
+            _emit_error('conflict', '他の利用者が先に更新しました。再読み込みしてください。', event_name='bo_ally_formation_error')
+            return
+        allow_acl = bool(caps.get('can_manage_acl'))
 
     try:
-        incoming_id = str((payload or {}).get('id', '')).strip()
         existing_holder = {}
 
         def _mutator(store):
             presets = _store_character_presets(store, create=False)
             formations = _store_ally_formations(store, create=True)
             current = formations.get(incoming_id) if incoming_id else None
-            normalized = _normalize_ally_formation_record(payload, user_info, presets, existing=current)
+            normalized = _normalize_ally_formation_record(
+                payload,
+                user_info,
+                presets,
+                existing=current,
+                allow_acl=allow_acl,
+            )
             rec_id = normalized['id']
             if rec_id in formations and not overwrite and not incoming_id:
                 raise RuntimeError('duplicate_id')
             if not str(normalized.get('name', '')).strip():
                 raise RuntimeError('name_required')
+            if not validate_parent_references(store, 'ally_formation', normalized):
+                raise ValueError('味方編成の公開範囲では参照先キャラクターを利用できません。')
             formations[rec_id] = normalized
             existing_holder['record'] = normalized
 
@@ -460,9 +608,7 @@ def handle_bo_ally_formation_save(data):
 
 @socketio.on('request_bo_ally_formation_delete')
 def handle_bo_ally_formation_delete(data):
-    allowed, _ = _require_gm(event_name='bo_ally_formation_error')
-    if not allowed:
-        return
+    context = _catalog_request_context(data)
     rec_id = str((data or {}).get('id', '')).strip()
     if not rec_id:
         _emit_error('invalid_request', 'id は必須です。', event_name='bo_ally_formation_error')
@@ -472,13 +618,30 @@ def handle_bo_ally_formation_delete(data):
             formations = _store_ally_formations(store, create=True)
             if rec_id not in formations:
                 raise RuntimeError('not_found')
+            caps = _catalog_capabilities(
+                formations[rec_id],
+                user_id=context.get('user_id'),
+                is_app_admin=context.get('is_app_admin'),
+                room_role=context.get('room_role'),
+            )
+            if not caps.get('can_delete'):
+                raise RuntimeError('permission_denied')
+            blockers = reference_blockers(store, 'ally_formation', rec_id)
+            if blockers:
+                raise RuntimeError(json.dumps({'code': 'referenced', 'blockers': blockers}, ensure_ascii=False))
             del formations[rec_id]
 
         mutate_bo_preset_store(_mutator)
         socketio.emit('bo_ally_formation_deleted', {"id": rec_id}, to=request.sid)
     except RuntimeError as ex:
-        if str(ex) == 'not_found':
+        code = str(ex)
+        if code == 'not_found':
             _emit_error('not_found', '味方編成が見つかりません。', event_name='bo_ally_formation_error', extra={"id": rec_id})
+        elif code == 'permission_denied':
+            _emit_error('permission_denied', 'この味方編成を削除する権限がありません。', event_name='bo_ally_formation_error')
+        elif code.startswith('{'):
+            detail = json.loads(code)
+            _emit_error('referenced', 'ステージから参照されているため削除できません。', event_name='bo_ally_formation_error', extra={"references": detail.get('blockers', [])})
         else:
             _emit_error('delete_failed', '味方編成の削除に失敗しました。', event_name='bo_ally_formation_error')
     except Exception:
@@ -532,16 +695,15 @@ def handle_bo_select_ally_formation(data):
 
 @socketio.on('request_bo_stage_preset_list')
 def handle_bo_stage_preset_list(_data):
-    user_info = get_user_info_from_sid(request.sid)
+    context = _catalog_request_context(_data)
     store = load_bo_preset_store()
-    stages = _store_stage_presets(store, create=False)
-    visible = _filter_visible_rows_by_visibility(stages, user_info)
+    visible = _visible_map(store, 'stage', context, owner_names=_owner_names_for_store(store))
     socketio.emit(
         'bo_stage_preset_list',
         {
             "stage_presets": visible,
             "sorted_stage_preset_ids": _sort_stage_ids(visible),
-            "can_manage": _is_gm(user_info),
+            "can_manage": bool(context.get('is_app_admin') or context.get('room_role') in GM_ROLES or _is_gm(context.get('user_info'))),
         },
         to=request.sid
     )
@@ -549,15 +711,27 @@ def handle_bo_stage_preset_list(_data):
 
 @socketio.on('request_bo_stage_preset_save')
 def handle_bo_stage_preset_save(data):
-    allowed, user_info = _require_gm(event_name='bo_stage_preset_error')
-    if not allowed:
-        return
     src = data if isinstance(data, dict) else {}
     payload = src.get('payload') if isinstance(src.get('payload'), dict) else src
     overwrite = bool(src.get('overwrite', False))
+    context = _catalog_request_context(src)
+    user_info = context['user_info']
+    incoming_id = str((payload or {}).get('id', '')).strip()
+    current = (_store_stage_presets(load_bo_preset_store(), create=False).get(incoming_id) if incoming_id else None)
+    if current is None:
+        if not _require_catalog_create(context, 'bo_stage_preset_error'):
+            return
+        allow_acl = True
+    else:
+        allowed, caps = _require_record_capability(context, current, 'can_edit', 'bo_stage_preset_error')
+        if not allowed:
+            return
+        if not _check_expected_updated_at(src, current):
+            _emit_error('conflict', '他の利用者が先に更新しました。再読み込みしてください。', event_name='bo_stage_preset_error')
+            return
+        allow_acl = bool(caps.get('can_manage_acl'))
 
     try:
-        incoming_id = str((payload or {}).get('id', '')).strip()
         existing_holder = {}
 
         def _mutator(store):
@@ -571,12 +745,15 @@ def handle_bo_stage_preset_save(data):
                 enemy_formations=enemy_formations,
                 ally_formations=ally_formations,
                 existing=current,
+                allow_acl=allow_acl,
             )
             rec_id = normalized['id']
             if rec_id in stages and not overwrite and not incoming_id:
                 raise RuntimeError('duplicate_id')
             if not str(normalized.get('name', '')).strip():
                 raise RuntimeError('name_required')
+            if not validate_parent_references(store, 'stage', normalized):
+                raise ValueError('ステージの公開範囲では参照先編成を利用できません。')
             stages[rec_id] = normalized
             existing_holder['record'] = normalized
 
@@ -599,9 +776,7 @@ def handle_bo_stage_preset_save(data):
 
 @socketio.on('request_bo_stage_preset_delete')
 def handle_bo_stage_preset_delete(data):
-    allowed, _ = _require_gm(event_name='bo_stage_preset_error')
-    if not allowed:
-        return
+    context = _catalog_request_context(data)
     rec_id = str((data or {}).get('id', '')).strip()
     if not rec_id:
         _emit_error('invalid_request', 'id は必須です。', event_name='bo_stage_preset_error')
@@ -611,13 +786,24 @@ def handle_bo_stage_preset_delete(data):
             stages = _store_stage_presets(store, create=True)
             if rec_id not in stages:
                 raise RuntimeError('not_found')
+            caps = _catalog_capabilities(
+                stages[rec_id],
+                user_id=context.get('user_id'),
+                is_app_admin=context.get('is_app_admin'),
+                room_role=context.get('room_role'),
+            )
+            if not caps.get('can_delete'):
+                raise RuntimeError('permission_denied')
             del stages[rec_id]
 
         mutate_bo_preset_store(_mutator)
         socketio.emit('bo_stage_preset_deleted', {"id": rec_id}, to=request.sid)
     except RuntimeError as ex:
-        if str(ex) == 'not_found':
+        code = str(ex)
+        if code == 'not_found':
             _emit_error('not_found', 'ステージが見つかりません。', event_name='bo_stage_preset_error', extra={"id": rec_id})
+        elif code == 'permission_denied':
+            _emit_error('permission_denied', 'このステージを削除する権限がありません。', event_name='bo_stage_preset_error')
         else:
             _emit_error('delete_failed', 'ステージの削除に失敗しました。', event_name='bo_stage_preset_error')
     except Exception:
@@ -633,6 +819,10 @@ def handle_bo_select_stage_preset(data):
     allowed, user_info = _require_room_participant(room, event_name='bo_draft_error')
     if not allowed:
         return
+    context = _catalog_request_context(data)
+    if context.get('room_role') not in GM_ROLES:
+        _emit_error('permission_denied', 'ステージ配置にはルームowner・gm権限が必要です。', event_name='bo_draft_error')
+        return
     stage_id = str((data or {}).get('stage_id', '')).strip()
     if not stage_id:
         _emit_error('invalid_request', 'stage_id は必須です。', event_name='bo_draft_error')
@@ -642,9 +832,13 @@ def handle_bo_select_stage_preset(data):
     stages = _store_stage_presets(store, create=False)
     enemy_formations = _store_enemy_formations(store, create=False)
     ally_formations = _store_ally_formations(store, create=False)
-    visible_stages = _filter_visible_rows_by_visibility(stages, user_info)
-    stage = visible_stages.get(stage_id)
-    if not isinstance(stage, dict):
+    stage = stages.get(stage_id)
+    if not isinstance(stage, dict) or not _catalog_capabilities(
+        stage,
+        user_id=context.get('user_id'),
+        is_app_admin=context.get('is_app_admin'),
+        room_role=context.get('room_role'),
+    ).get('can_deploy'):
         _emit_error('not_found', 'ステージが見つかりません。', event_name='bo_draft_error', extra={"id": stage_id})
         return
 
@@ -653,7 +847,12 @@ def handle_bo_select_stage_preset(data):
     if not isinstance(enemy_rec, dict):
         _emit_error('invalid_stage', f'ステージが参照する敵編成が見つかりません: {enemy_formation_id}', event_name='bo_draft_error')
         return
-    if _normalize_visibility(enemy_rec.get('visibility', 'public')) != 'public' and not _is_gm(user_info):
+    if not _catalog_capabilities(
+        enemy_rec,
+        user_id=context.get('user_id'),
+        is_app_admin=context.get('is_app_admin'),
+        room_role=context.get('room_role'),
+    ).get('can_use'):
         _emit_error('permission_denied', 'このステージの敵編成にはアクセスできません。', event_name='bo_draft_error')
         return
 
@@ -664,7 +863,12 @@ def handle_bo_select_stage_preset(data):
         if not isinstance(ally_rec, dict):
             _emit_error('invalid_stage', f'ステージが参照する味方編成が見つかりません: {ally_formation_id}', event_name='bo_draft_error')
             return
-        if _normalize_visibility(ally_rec.get('visibility', 'public')) != 'public' and not _is_gm(user_info):
+        if not _catalog_capabilities(
+            ally_rec,
+            user_id=context.get('user_id'),
+            is_app_admin=context.get('is_app_admin'),
+            room_role=context.get('room_role'),
+        ).get('can_use'):
             _emit_error('permission_denied', 'このステージの味方編成にはアクセスできません。', event_name='bo_draft_error')
             return
 
@@ -706,7 +910,7 @@ def handle_bo_set_ally_mode(data):
     if not room:
         _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
         return
-    allowed, _ = _require_room_participant(room, event_name='bo_draft_error')
+    allowed, _ = _require_room_gm_context(data)
     if not allowed:
         return
     mode = str((data or {}).get('ally_mode', '')).strip().lower()
@@ -733,7 +937,7 @@ def handle_bo_set_stage_field_effect_enabled(data):
     if not room:
         _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
         return
-    allowed, _ = _require_gm(event_name='bo_draft_error')
+    allowed, _ = _require_room_gm_context(data)
     if not allowed:
         return
 
@@ -754,7 +958,7 @@ def handle_bo_set_stage_avatar_enabled(data):
     if not room:
         _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
         return
-    allowed, _ = _require_gm(event_name='bo_draft_error')
+    allowed, _ = _require_room_gm_context(data)
     if not allowed:
         return
 
@@ -775,7 +979,7 @@ def handle_bo_set_control_mode(data):
     if not room:
         _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
         return
-    allowed, _ = _require_gm(event_name='bo_draft_error')
+    allowed, _ = _require_room_gm_context(data)
     if not allowed:
         return
 
@@ -801,7 +1005,7 @@ def handle_bo_validate_entry(data):
     if not room:
         _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
         return
-    allowed, _ = _require_room_participant(room, event_name='bo_draft_error')
+    allowed, _ = _require_room_gm_context(data)
     if not allowed:
         return
 
@@ -809,6 +1013,16 @@ def handle_bo_validate_entry(data):
     bo = _ensure_bo_state(state)
     store = load_bo_preset_store()
     presets = _store_character_presets(store, create=False)
+    context = _catalog_request_context(data)
+    if not validate_deploy_references(
+        store,
+        bo,
+        user_id=context.get('user_id'),
+        is_app_admin=context.get('is_app_admin'),
+        room_role=context.get('room_role'),
+    ):
+        _emit_error('permission_denied', '利用できない参照があるため戦闘へ配置できません。', event_name='bo_draft_error')
+        return
     validation = _validate_battle_only_entry(state, bo, presets)
     payload = {
         **validation,
@@ -827,18 +1041,19 @@ def handle_bo_draft_state(data):
     state = get_room_state(room)
     bo = _ensure_bo_state(state)
     users = _room_users(room)
-    user_info = get_user_info_from_sid(request.sid)
+    context = _catalog_request_context(data)
+    user_info = context.get('user_info') or {}
     store = load_bo_preset_store()
-    all_presets = _store_character_presets(store, create=False)
-    all_formations = _store_enemy_formations(store, create=False)
-    all_ally_formations = _store_ally_formations(store, create=False)
-    all_stage_presets = _store_stage_presets(store, create=False)
-    visible = _filter_visible_presets(all_presets, user_info)
-    visible_formations = _filter_visible_rows_by_visibility(all_formations, user_info)
-    visible_ally_formations = _filter_visible_rows_by_visibility(all_ally_formations, user_info)
-    visible_stage_presets = _filter_visible_rows_by_visibility(all_stage_presets, user_info)
+    owner_names = _owner_names_for_store(store)
+    visible = _visible_map(store, 'character', context, owner_names=owner_names)
+    visible_formations = _visible_map(store, 'enemy_formation', context, owner_names=owner_names)
+    visible_ally_formations = _visible_map(store, 'ally_formation', context, owner_names=owner_names)
+    visible_stage_presets = _visible_map(store, 'stage', context, owner_names=owner_names)
+    bo_payload = copy.deepcopy(bo)
+    if context.get('room_role') not in GM_ROLES:
+        bo_payload.pop('preset_bookmarks', None)
     payload = {
-        "battle_only": copy.deepcopy(bo),
+        "battle_only": bo_payload,
         "users": users,
         "presets": visible,
         "sorted_ids": _sort_preset_ids(visible),
@@ -850,7 +1065,7 @@ def handle_bo_draft_state(data):
         "sorted_stage_preset_ids": _sort_stage_ids(visible_stage_presets),
         "records": copy.deepcopy(_get_records(bo)),
         "active_record_id": str(bo.get('active_record_id', '')).strip() or None,
-        "can_manage": _is_gm(user_info),
+        "can_manage": context.get('room_role') in GM_ROLES,
     }
     socketio.emit('bo_draft_state', payload, to=request.sid)
 
@@ -861,7 +1076,7 @@ def handle_bo_draft_update(data):
     if not room:
         _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
         return
-    allowed, _ = _require_gm(event_name='bo_draft_error')
+    allowed, _ = _require_room_gm_context(data)
     if not allowed:
         return
 
@@ -927,11 +1142,23 @@ def handle_bo_start_battle(data):
     allowed, user_info = _require_room_participant(room, event_name='bo_draft_error')
     if not allowed:
         return
+    manager_allowed, context = _require_room_gm_context(data)
+    if not manager_allowed:
+        return
 
     state = get_room_state(room)
     bo = _ensure_bo_state(state)
     store = load_bo_preset_store()
     presets = _store_character_presets(store, create=False)
+    if not validate_deploy_references(
+        store,
+        bo,
+        user_id=context.get('user_id'),
+        is_app_admin=context.get('is_app_admin'),
+        room_role=context.get('room_role'),
+    ):
+        _emit_error('permission_denied', '利用できない参照があるため戦闘へ配置できません。', event_name='bo_draft_error')
+        return
 
     ally_mode = str(bo.get('ally_mode', 'preset') or 'preset').strip().lower()
     if ally_mode not in ('preset', 'room_existing'):
@@ -974,6 +1201,20 @@ def handle_bo_start_battle(data):
                 event_name='bo_draft_error'
             )
             return
+
+    # 実行用コピーを作れることを先に検証し、途中までルーム状態を消さない。
+    try:
+        serial_probe = 1
+        for row in ally_entries:
+            _build_runtime_character_from_preset(presets[row['preset_id']], 'ally', serial_probe)
+            serial_probe += 1
+        for row in enemy_entries:
+            for _ in range(max(0, _safe_int(row.get('count'), 0))):
+                _build_runtime_character_from_preset(presets[row['preset_id']], 'enemy', serial_probe)
+                serial_probe += 1
+    except (KeyError, ValueError) as ex:
+        _emit_error('invalid_preset', f'実行用キャラクターを構築できません: {ex}', event_name='bo_draft_error')
+        return
 
     _finalize_active_record(bo, forced_result='aborted', reason='restarted')
 
@@ -1155,6 +1396,11 @@ def handle_bo_start_battle(data):
     records.append(record)
     bo['active_record_id'] = record_id
 
+    def _touch_used(store_to_update):
+        touch_last_used_for_battle(store_to_update, bo, _now_ms())
+
+    mutate_bo_preset_store(_touch_used)
+
     save_specific_room_state(room)
     broadcast_state_update(room)
     if stage_effect_enabled:
@@ -1203,7 +1449,7 @@ def handle_bo_record_mark_result(data):
     if not room:
         _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
         return
-    allowed, _ = _require_gm(event_name='bo_draft_error')
+    allowed, _ = _require_room_gm_context(data)
     if not allowed:
         return
 
@@ -1245,84 +1491,10 @@ def handle_bo_record_mark_result(data):
     )
 
 
-def _emit_bo_store_export(event_name, filename_prefix, rows, sorted_ids):
-    content = json.dumps(
-        {
-            "version": 1,
-            "exported_at": _now_iso(),
-            "count": len(rows) if isinstance(rows, dict) else 0,
-            "sorted_ids": sorted_ids if isinstance(sorted_ids, list) else [],
-            "items": rows if isinstance(rows, dict) else {},
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
-    filename = f"{filename_prefix}_{int(time.time())}.json"
-    socketio.emit(event_name, {"filename": filename, "content": content}, to=request.sid)
-
-
-@socketio.on('request_bo_export_enemy_formations_json')
-def handle_bo_export_enemy_formations_json(_data):
-    user_info = get_user_info_from_sid(request.sid)
-    store = load_bo_preset_store()
-    rows = _filter_visible_rows_by_visibility(_store_enemy_formations(store, create=False), user_info)
-    _emit_bo_store_export('bo_export_enemy_formations_json', 'bo_enemy_formations', rows, _sort_named_ids(rows))
-
-
-@socketio.on('request_bo_export_ally_formations_json')
-def handle_bo_export_ally_formations_json(_data):
-    user_info = get_user_info_from_sid(request.sid)
-    store = load_bo_preset_store()
-    rows = _filter_visible_rows_by_visibility(_store_ally_formations(store, create=False), user_info)
-    _emit_bo_store_export('bo_export_ally_formations_json', 'bo_ally_formations', rows, _sort_named_ids(rows))
-
-
-@socketio.on('request_bo_export_stage_presets_json')
-def handle_bo_export_stage_presets_json(_data):
-    user_info = get_user_info_from_sid(request.sid)
-    store = load_bo_preset_store()
-    rows = _filter_visible_rows_by_visibility(_store_stage_presets(store, create=False), user_info)
-    _emit_bo_store_export('bo_export_stage_presets_json', 'bo_stage_presets', rows, _sort_stage_ids(rows))
-
-
-@socketio.on('request_bo_record_export')
-def handle_bo_record_export(data):
-    room = str((data or {}).get('room', '')).strip()
-    if not room:
-        _emit_error('missing_room', 'room は必須です。', event_name='bo_draft_error')
-        return
-    allowed, _ = _require_room_participant(room, event_name='bo_draft_error')
-    if not allowed:
-        return
-
-    state = get_room_state(room)
-    bo = _ensure_bo_state(state)
-    records = copy.deepcopy(_get_records(bo))
-    payload = {
-        "room": str(room),
-        "play_mode": str(state.get('play_mode', 'normal')),
-        "exported_at": _now_iso(),
-        "battle_only": {
-            "status": bo.get('status'),
-            "active_record_id": bo.get('active_record_id'),
-            "selected_stage_id": bo.get('selected_stage_id'),
-            "ally_formation_id": bo.get('ally_formation_id'),
-            "enemy_formation_id": bo.get('enemy_formation_id'),
-            "required_ally_count": bo.get('required_ally_count'),
-            "ally_entries": copy.deepcopy(bo.get('ally_entries', [])),
-            "enemy_entries": copy.deepcopy(bo.get('enemy_entries', [])),
-        },
-        "records": records,
-    }
-    filename_room = str(room).strip().replace(' ', '_')
-    filename = f"battle_only_records_{filename_room}_{int(time.time())}.json"
-    content = json.dumps(payload, ensure_ascii=False, indent=2)
-    socketio.emit(
-        'bo_record_export',
-        {
-            "filename": filename,
-            "content": content,
-            "record_count": len(records),
-        },
-        to=request.sid
-    )
+# 分類・ACL・複製・ルーム別ブックマークの追加イベントを登録する。
+from events.battle_only import catalog_v3_routes as _catalog_v3_routes  # noqa: E402,F401
+from events.battle_only import export_routes as _export_routes  # noqa: E402,F401
+handle_bo_export_enemy_formations_json = _export_routes.handle_bo_export_enemy_formations_json
+handle_bo_export_ally_formations_json = _export_routes.handle_bo_export_ally_formations_json
+handle_bo_export_stage_presets_json = _export_routes.handle_bo_export_stage_presets_json
+handle_bo_record_export = _export_routes.handle_bo_record_export

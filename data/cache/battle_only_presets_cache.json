@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "character_presets": {
     "TEST_1": {
       "id": "TEST_1",
@@ -143,7 +143,21 @@
       "created_at": 1776176590848,
       "updated_at": 1776176590848,
       "created_by": "RONME",
-      "updated_by": "RONME"
+      "updated_by": "RONME",
+      "access_control": {
+        "owner_user_id": null,
+        "editor_user_ids": [],
+        "viewer_mode": "public",
+        "viewer_user_ids": []
+      },
+      "catalog_meta": {
+        "collection_id": null,
+        "section_id": null,
+        "sort_order": 2147483647,
+        "labels": [],
+        "archived": false,
+        "last_used_at": 0
+      }
     },
     "TEST_2": {
       "id": "TEST_2",
@@ -287,7 +301,21 @@
       "created_at": 1776176635675,
       "updated_at": 1776176635675,
       "created_by": "RONME",
-      "updated_by": "RONME"
+      "updated_by": "RONME",
+      "access_control": {
+        "owner_user_id": null,
+        "editor_user_ids": [],
+        "viewer_mode": "public",
+        "viewer_user_ids": []
+      },
+      "catalog_meta": {
+        "collection_id": null,
+        "section_id": null,
+        "sort_order": 2147483647,
+        "labels": [],
+        "archived": false,
+        "last_used_at": 0
+      }
     },
     "TEST_4": {
       "id": "TEST_4",
@@ -604,7 +632,21 @@
       "created_at": 1776438826521,
       "updated_at": 1776438826521,
       "created_by": "ろんめ",
-      "updated_by": "ろんめ"
+      "updated_by": "ろんめ",
+      "access_control": {
+        "owner_user_id": null,
+        "editor_user_ids": [],
+        "viewer_mode": "public",
+        "viewer_user_ids": []
+      },
+      "catalog_meta": {
+        "collection_id": null,
+        "section_id": null,
+        "sort_order": 2147483647,
+        "labels": [],
+        "archived": false,
+        "last_used_at": 0
+      }
     },
     "TEST_5": {
       "id": "TEST_5",
@@ -899,7 +941,21 @@
       "created_at": 1776438879636,
       "updated_at": 1776438879636,
       "created_by": "ろんめ",
-      "updated_by": "ろんめ"
+      "updated_by": "ろんめ",
+      "access_control": {
+        "owner_user_id": null,
+        "editor_user_ids": [],
+        "viewer_mode": "public",
+        "viewer_user_ids": []
+      },
+      "catalog_meta": {
+        "collection_id": null,
+        "section_id": null,
+        "sort_order": 2147483647,
+        "labels": [],
+        "archived": false,
+        "last_used_at": 0
+      }
     },
     "TEST_6": {
       "id": "TEST_6",
@@ -1214,7 +1270,21 @@
       "created_at": 1776438915207,
       "updated_at": 1776438915207,
       "created_by": "ろんめ",
-      "updated_by": "ろんめ"
+      "updated_by": "ろんめ",
+      "access_control": {
+        "owner_user_id": null,
+        "editor_user_ids": [],
+        "viewer_mode": "public",
+        "viewer_user_ids": []
+      },
+      "catalog_meta": {
+        "collection_id": null,
+        "section_id": null,
+        "sort_order": 2147483647,
+        "labels": [],
+        "archived": false,
+        "last_used_at": 0
+      }
     },
     "TEST_3": {
       "id": "TEST_3",
@@ -1377,7 +1447,21 @@
       "created_at": 1776440468647,
       "updated_at": 1776440468647,
       "created_by": "ろんめ",
-      "updated_by": "ろんめ"
+      "updated_by": "ろんめ",
+      "access_control": {
+        "owner_user_id": null,
+        "editor_user_ids": [],
+        "viewer_mode": "public",
+        "viewer_user_ids": []
+      },
+      "catalog_meta": {
+        "collection_id": null,
+        "section_id": null,
+        "sort_order": 2147483647,
+        "labels": [],
+        "archived": false,
+        "last_used_at": 0
+      }
     }
   },
   "enemy_formations": {
@@ -1468,7 +1552,21 @@
       "created_at": 1776267674361,
       "updated_at": 1778255968417,
       "created_by": "ろんめ",
-      "updated_by": "^^"
+      "updated_by": "^^",
+      "access_control": {
+        "owner_user_id": null,
+        "editor_user_ids": [],
+        "viewer_mode": "public",
+        "viewer_user_ids": []
+      },
+      "catalog_meta": {
+        "collection_id": null,
+        "section_id": null,
+        "sort_order": 2147483647,
+        "labels": [],
+        "archived": false,
+        "last_used_at": 0
+      }
     },
     "ENEMY_2": {
       "id": "ENEMY_2",
@@ -1635,7 +1733,21 @@
       "created_at": 1776437900590,
       "updated_at": 1778130711637,
       "created_by": "ろんめ",
-      "updated_by": "^^"
+      "updated_by": "^^",
+      "access_control": {
+        "owner_user_id": null,
+        "editor_user_ids": [],
+        "viewer_mode": "public",
+        "viewer_user_ids": []
+      },
+      "catalog_meta": {
+        "collection_id": null,
+        "section_id": null,
+        "sort_order": 2147483647,
+        "labels": [],
+        "archived": false,
+        "last_used_at": 0
+      }
     }
   },
   "ally_formations": {
@@ -1664,7 +1776,21 @@
       "created_at": 1776439211296,
       "updated_at": 1776439211296,
       "created_by": "ろんめ",
-      "updated_by": "ろんめ"
+      "updated_by": "ろんめ",
+      "access_control": {
+        "owner_user_id": null,
+        "editor_user_ids": [],
+        "viewer_mode": "public",
+        "viewer_user_ids": []
+      },
+      "catalog_meta": {
+        "collection_id": null,
+        "section_id": null,
+        "sort_order": 2147483647,
+        "labels": [],
+        "archived": false,
+        "last_used_at": 0
+      }
     }
   },
   "stage_presets": {
@@ -1706,8 +1832,42 @@
       "created_at": 1776439390967,
       "updated_at": 1778130723480,
       "created_by": "ろんめ",
-      "updated_by": "^^"
+      "updated_by": "^^",
+      "access_control": {
+        "owner_user_id": null,
+        "editor_user_ids": [],
+        "viewer_mode": "public",
+        "viewer_user_ids": []
+      },
+      "catalog_meta": {
+        "collection_id": null,
+        "section_id": null,
+        "sort_order": 2147483647,
+        "labels": [],
+        "archived": false,
+        "last_used_at": 0
+      }
     }
   },
-  "updated_at": 1778255968419
+  "catalog_collections": {
+    "scenario_02": {
+      "id": "scenario_02",
+      "name": "シナリオ02_瓦礫で鋳るは魔の鋼",
+      "description": "シナリオ『瓦礫で鋳るは魔の鋼』にて登場する敵キャラクターの編成をまとめたコレクション。",
+      "sort_order": 10,
+      "archived": false,
+      "sections": [],
+      "access_control": {
+        "owner_user_id": "d0741b36-27ce-4614-a35d-a2fff7e9f3af",
+        "editor_user_ids": [],
+        "viewer_mode": "restricted",
+        "viewer_user_ids": []
+      },
+      "updated_at": 1785740753024,
+      "created_at": 1785740753024,
+      "created_by": "RONME",
+      "visibility": "restricted"
+    }
+  },
+  "updated_at": 1785740753027
 }

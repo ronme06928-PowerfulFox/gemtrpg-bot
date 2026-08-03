@@ -11,6 +11,8 @@ from manager.character_tags import (
 )
 from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_rows
 from manager.radiance.loader import radiance_loader
+from manager.battle_only_catalog_access import normalize_record_security
+from manager.battle_only_presets import normalize_access_control
 
 
 def _safe_int(value, default=0):
@@ -36,6 +38,8 @@ def _normalize_visibility(raw):
     text = str(raw or '').strip().lower()
     if text in ('gm', 'private'):
         return 'gm'
+    if text == 'restricted':
+        return 'restricted'
     return 'public'
 
 def _normalize_optional_id(raw):
@@ -48,7 +52,30 @@ def _normalize_optional_id(raw):
         return None
     return text
 
-def _normalize_preset_record(payload, user_info, existing=None):
+def _merge_record_envelope(result, src, current, user_info, *, allow_acl=False):
+    merged = copy.deepcopy(current if isinstance(current, dict) else {})
+    for key, value in (src if isinstance(src, dict) else {}).items():
+        if key not in {'id', 'created_at', 'created_by', 'updated_at', 'updated_by'}:
+            merged[key] = copy.deepcopy(value)
+    merged.update(result)
+    if allow_acl:
+        current_acl = current.get('access_control') if isinstance(current, dict) else None
+        acl = normalize_access_control(
+            current_acl,
+            legacy_visibility=src.get('visibility', (current or {}).get('visibility', 'public')),
+            owner_user_id=str((user_info or {}).get('user_id', '')).strip() or None,
+        )
+        acl['viewer_mode'] = _normalize_visibility(src.get('visibility', acl['viewer_mode']))
+        merged['access_control'] = acl
+    return normalize_record_security(
+        merged,
+        creator_user_id=str((user_info or {}).get('user_id', '')).strip() or None,
+        existing=current,
+        allow_acl=allow_acl,
+    )
+
+
+def _normalize_preset_record(payload, user_info, existing=None, *, allow_acl=False):
     src = payload if isinstance(payload, dict) else {}
     current = existing if isinstance(existing, dict) else {}
     now_ms = _now_ms()
@@ -90,7 +117,7 @@ def _normalize_preset_record(payload, user_info, existing=None):
     creator = str(current.get('created_by', '')).strip() or str((user_info or {}).get('username', '')).strip() or 'GM'
     updater = str((user_info or {}).get('username', '')).strip() or creator
 
-    return {
+    result = {
         "id": rec_id,
         "name": name,
         "visibility": visibility,
@@ -102,6 +129,7 @@ def _normalize_preset_record(payload, user_info, existing=None):
         "created_by": creator,
         "updated_by": updater,
     }
+    return _merge_record_envelope(result, src, current, user_info, allow_acl=allow_acl)
 
 def _sort_preset_ids(presets):
     if not isinstance(presets, dict):
@@ -195,7 +223,7 @@ def _filter_visible_rows_by_visibility(all_rows, user_info):
         result[str(rec_id)] = copy.deepcopy(rec)
     return result
 
-def _normalize_enemy_formation_record(payload, user_info, presets, existing=None):
+def _normalize_enemy_formation_record(payload, user_info, presets, existing=None, *, allow_acl=False):
     src = payload if isinstance(payload, dict) else {}
     current = existing if isinstance(existing, dict) else {}
     now_ms = _now_ms()
@@ -240,7 +268,7 @@ def _normalize_enemy_formation_record(payload, user_info, presets, existing=None
     creator = str(current.get('created_by', '')).strip() or str((user_info or {}).get('username', '')).strip() or 'GM'
     updater = str((user_info or {}).get('username', '')).strip() or creator
 
-    return {
+    result = {
         "id": rec_id,
         "name": name,
         "visibility": visibility,
@@ -251,8 +279,9 @@ def _normalize_enemy_formation_record(payload, user_info, presets, existing=None
         "created_by": creator,
         "updated_by": updater,
     }
+    return _merge_record_envelope(result, src, current, user_info, allow_acl=allow_acl)
 
-def _normalize_ally_formation_record(payload, user_info, presets, existing=None):
+def _normalize_ally_formation_record(payload, user_info, presets, existing=None, *, allow_acl=False):
     src = payload if isinstance(payload, dict) else {}
     current = existing if isinstance(existing, dict) else {}
     now_ms = _now_ms()
@@ -295,7 +324,7 @@ def _normalize_ally_formation_record(payload, user_info, presets, existing=None)
     creator = str(current.get('created_by', '')).strip() or str((user_info or {}).get('username', '')).strip() or 'GM'
     updater = str((user_info or {}).get('username', '')).strip() or creator
 
-    return {
+    result = {
         "id": rec_id,
         "name": name,
         "visibility": visibility,
@@ -306,8 +335,17 @@ def _normalize_ally_formation_record(payload, user_info, presets, existing=None)
         "created_by": creator,
         "updated_by": updater,
     }
+    return _merge_record_envelope(result, src, current, user_info, allow_acl=allow_acl)
 
-def _normalize_stage_preset_record(payload, user_info, enemy_formations, ally_formations, existing=None):
+def _normalize_stage_preset_record(
+    payload,
+    user_info,
+    enemy_formations,
+    ally_formations,
+    existing=None,
+    *,
+    allow_acl=False,
+):
     src = payload if isinstance(payload, dict) else {}
     current = existing if isinstance(existing, dict) else {}
     now_ms = _now_ms()
@@ -357,7 +395,7 @@ def _normalize_stage_preset_record(payload, user_info, enemy_formations, ally_fo
     creator = str(current.get('created_by', '')).strip() or str((user_info or {}).get('username', '')).strip() or 'GM'
     updater = str((user_info or {}).get('username', '')).strip() or creator
 
-    return {
+    result = {
         "id": rec_id,
         "name": name,
         "visibility": visibility,
@@ -375,6 +413,7 @@ def _normalize_stage_preset_record(payload, user_info, enemy_formations, ally_fo
         "created_by": creator,
         "updated_by": updater,
     }
+    return _merge_record_envelope(result, src, current, user_info, allow_acl=allow_acl)
 
 def _ensure_bo_state(state):
     if not isinstance(state, dict):
@@ -402,6 +441,7 @@ def _ensure_bo_state(state):
         "active_record_id": None,
         "pending_auto_reset": False,
         "pending_auto_reset_round": None,
+        "preset_bookmarks": [],
         "options": {
             "force_pve": True,
             "show_enemy_target_arrows": True,
@@ -417,6 +457,8 @@ def _ensure_bo_state(state):
         bo['enemy_entries'] = []
     if not isinstance(bo.get('records'), list):
         bo['records'] = []
+    if not isinstance(bo.get('preset_bookmarks'), list):
+        bo['preset_bookmarks'] = []
     if not isinstance(bo.get('options'), dict):
         bo['options'] = {
             "force_pve": True,
