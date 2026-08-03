@@ -413,6 +413,7 @@ const BEHAVIOR_CONDITION_OPERATORS = [
 const BEHAVIOR_CONDITION_PARAM_PRESETS = {
     self: [
         { value: 'HP', label: 'HP' },
+        { value: 'HP割合', label: 'HP割合（%）' },
         { value: 'MP', label: 'MP' },
         { value: 'FP', label: 'FP' },
         { value: '出血', label: '出血' },
@@ -426,6 +427,12 @@ const BEHAVIOR_CONDITION_PARAM_PRESETS = {
         { value: 'phase', label: 'フェーズ' }
     ]
 };
+
+function isBehaviorHpPercentParam(source, param) {
+    if (String(source || '').trim().toLowerCase() !== 'self') return false;
+    const normalized = String(param || '').trim().toLowerCase();
+    return ['hp割合', 'hp比率', 'hp_percent', 'hp_ratio'].includes(normalized);
+}
 
 function normalizeBehaviorConditionRow(raw) {
     const cond = (raw && typeof raw === 'object') ? raw : {};
@@ -1568,6 +1575,10 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                         const param = String(cond.param || '').trim();
                         const presets = getBehaviorConditionParamPresets(cond.source);
                         const hasPreset = presets.some((row) => row.value === param);
+                        const isHpPercent = isBehaviorHpPercentParam(cond.source, param);
+                        const valueAttributes = isHpPercent
+                            ? 'type="number" min="0" max="100" step="0.1" inputmode="decimal"'
+                            : 'type="text"';
                         return `
                             <div class="behavior-condition-row">
                                 <label style="font-size:0.8em;">判定元
@@ -1588,8 +1599,8 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                                         ${buildOperatorOptions(cond.operator)}
                                     </select>
                                 </label>
-                                <label style="font-size:0.8em;">値
-                                    <input data-tr-cond-value="${tIdx}:${cIdx}" value="${String(cond.value ?? '')}" placeholder="例: 50" style="width:100%;">
+                                <label style="font-size:0.8em;">${isHpPercent ? '割合（%）' : '値'}
+                                    <input data-tr-cond-value="${tIdx}:${cIdx}" ${valueAttributes} value="${escapeBehaviorEditorHtml(String(cond.value ?? ''))}" placeholder="${isHpPercent ? '0～100' : '例: 50'}" style="width:100%;">
                                 </label>
                                 <button data-tr-cond-del="${tIdx}:${cIdx}" style="padding:4px 7px; border:none; background:#c23b3b; color:#fff; border-radius:5px; cursor:pointer;">削除</button>
                             </div>

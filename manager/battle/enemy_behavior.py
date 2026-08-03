@@ -53,6 +53,12 @@ BEHAVIOR_SLOT_GENERATION_MODES = {
     BEHAVIOR_SLOT_GENERATION_STEP_ACTIONS,
 }
 BEHAVIOR_ON_NO_TARGET_CANCEL = "cancel"
+BEHAVIOR_HP_PERCENT_PARAMS = {
+    "hp割合",
+    "hp比率",
+    "hp_percent",
+    "hp_ratio",
+}
 
 
 def _safe_int(value, default=0):
@@ -115,6 +121,21 @@ def _read_actor_status(actor_char, param_name):
     # 行動チャートの条件キーは利用者が手で書くため、旧称（例: 速度）が残り得る。
     # 保存済みキャラの params/states 側にも旧称が残るので、両側を正規化して突き合わせる。
     key = _normalize_status_name(param_name)
+    if key.casefold() in BEHAVIOR_HP_PERCENT_PARAMS:
+        current_hp = _safe_float(actor_char.get("hp"), 0.0)
+        max_hp = None
+        for field_name in ("maxHp", "max_hp", "hp_max"):
+            candidate = actor_char.get(field_name)
+            try:
+                parsed = float(candidate)
+            except (TypeError, ValueError):
+                continue
+            if parsed > 0:
+                max_hp = parsed
+                break
+        if max_hp is None:
+            return None
+        return max(0.0, min(100.0, current_hp / max_hp * 100.0))
     if key in {"HP", "hp"}:
         return _safe_int(actor_char.get("hp", 0), 0)
     if key in {"MP", "mp"}:
@@ -169,6 +190,9 @@ def _evaluate_simple_condition(condition, actor_char=None, state=None, battle_st
         else:
             current = (battle_state or {}).get(param, (state or {}).get(param))
     else:
+        return False
+
+    if current is None:
         return False
 
     if op == "CONTAINS":

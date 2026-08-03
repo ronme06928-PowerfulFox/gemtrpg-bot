@@ -611,7 +611,7 @@
         }
 
         function refreshAll() {
-            socketRef.emit('request_bo_catalog_list', {});
+            socketRef.emit('request_bo_catalog_list', { room: roomName || null, admin_global: !!options.adminGlobal });
         }
 
         panel.querySelector('#bo-ef-refresh-btn')?.addEventListener('click', refreshAll);
@@ -718,6 +718,10 @@
             state.can_manage = !!(data && data.can_manage);
             renderFormationList();
             renderFormationMembers();
+            if (options.initialId && state.enemy_formations[String(options.initialId)]) {
+                loadFormationToEditor(String(options.initialId));
+                options.initialId = null;
+            }
             setEditorEnabled(state.can_manage);
             setMsg('敵編成一覧を更新しました。', 'green');
         });
@@ -783,6 +787,7 @@
             if (global.__boEnemyFormationModalCleanup === closeModal) {
                 global.__boEnemyFormationModalCleanup = null;
             }
+            if (typeof options.onClose === 'function') options.onClose();
         }
         global.__boEnemyFormationModalCleanup = closeModal;
         panel.querySelector('#bo-ef-close-btn')?.addEventListener('click', closeModal);

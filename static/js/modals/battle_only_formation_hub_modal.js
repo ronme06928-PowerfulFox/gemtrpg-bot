@@ -177,7 +177,7 @@
         }
 
         function requestCatalog() {
-            socketRef.emit('request_bo_catalog_list', {});
+            socketRef.emit('request_bo_catalog_list', { room: roomName || null, admin_global: !!options.adminGlobal });
         }
 
         panel.querySelector('#bo-fh-refresh-btn')?.addEventListener('click', requestCatalog);
@@ -227,15 +227,15 @@
         });
 
         panel.querySelector('#bo-fh-export-enemy-btn')?.addEventListener('click', () => {
-            socketRef.emit('request_bo_export_enemy_formations_json', {});
+            socketRef.emit('request_bo_export_enemy_formations_json', { room: roomName || null, admin_global: !!options.adminGlobal });
             setMsg('敵編成JSONの出力を要求しました。', '#444');
         });
         panel.querySelector('#bo-fh-export-ally-btn')?.addEventListener('click', () => {
-            socketRef.emit('request_bo_export_ally_formations_json', {});
+            socketRef.emit('request_bo_export_ally_formations_json', { room: roomName || null, admin_global: !!options.adminGlobal });
             setMsg('味方編成JSONの出力を要求しました。', '#444');
         });
         panel.querySelector('#bo-fh-export-stage-btn')?.addEventListener('click', () => {
-            socketRef.emit('request_bo_export_stage_presets_json', {});
+            socketRef.emit('request_bo_export_stage_presets_json', { room: roomName || null, admin_global: !!options.adminGlobal });
             setMsg('ステージJSONの出力を要求しました。', '#444');
         });
 

@@ -432,6 +432,9 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
     const manageUsersButton = currentUserIsAppAdmin
         ? `<button id="manage-users-btn" class="portal-settings-button" style="margin-left:10px; background:#e0e0ff;">👥 ユーザー管理</button>`
         : '';
+    const allPresetsButton = currentUserIsAppAdmin
+        ? `<button id="open-bo-preset-portal-btn" class="portal-floating-bo-btn">全プリセット管理</button>`
+        : '';
 
     roomPortal.innerHTML = `
         <div class="portal-user-band">
@@ -463,9 +466,7 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
             <ul id="room-list" class="room-list"></ul>
             <p id="room-list-empty" style="display: none;">該当するルームはありません。</p>
         </div>
-        <button id="open-bo-preset-portal-btn" class="portal-floating-bo-btn">
-            戦闘専用設定
-        </button>
+        ${allPresetsButton}
         <button id="open-owned-chars-btn" class="portal-floating-owned-chars-btn">
             マイキャラクター
         </button>
@@ -514,8 +515,8 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
     }
     if (boPresetPortalBtn) {
         boPresetPortalBtn.addEventListener('click', () => {
-            if (typeof openBattleOnlyCatalogModal === 'function') {
-                openBattleOnlyCatalogModal({ room: null, fromLobby: true });
+            if (typeof openBattleOnlyWorkspaceModal === 'function') {
+                openBattleOnlyWorkspaceModal({ room: null, adminGlobal: true });
             } else {
                 alert('戦闘専用設定画面を読み込めませんでした。');
             }

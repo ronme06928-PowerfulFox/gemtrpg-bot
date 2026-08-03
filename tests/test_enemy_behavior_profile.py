@@ -87,6 +87,58 @@ def test_evaluate_transitions_moves_loop_when_condition_matches():
     assert int(next_runtime["step_index"]) == 0
 
 
+def _hp_percent_profile(operator="LTE", value=40):
+    profile = _profile()
+    profile["loops"]["phase_1"]["transitions"][0]["when_all"] = [
+        {"source": "self", "param": "HP割合", "operator": operator, "value": value}
+    ]
+    return normalize_behavior_profile(profile)
+
+
+def test_behavior_transition_can_compare_current_hp_percentage():
+    actor = {"id": "E1", "type": "enemy", "hp": 40, "maxHp": 100, "states": [], "params": []}
+    runtime = {"active_loop_id": "phase_1", "step_index": 0}
+
+    at_boundary = evaluate_transitions(
+        _hp_percent_profile("LTE", 40), runtime, actor_char=actor, battle_state={"round": 1}
+    )
+    below_boundary = evaluate_transitions(
+        _hp_percent_profile("LT", 40), runtime, actor_char=actor, battle_state={"round": 1}
+    )
+
+    assert at_boundary["runtime"]["active_loop_id"] == "phase_2"
+    assert below_boundary["runtime"]["active_loop_id"] == "phase_1"
+
+
+def test_behavior_hp_percentage_condition_requires_positive_max_hp():
+    profile = _hp_percent_profile("LTE", 40)
+    runtime = {"active_loop_id": "phase_1", "step_index": 0}
+
+    for actor in (
+        {"hp": 0},
+        {"hp": 0, "maxHp": 0},
+        {"hp": 0, "maxHp": "invalid"},
+    ):
+        result = evaluate_transitions(
+            profile, runtime, actor_char=actor, battle_state={"round": 1}
+        )
+        assert result["runtime"]["active_loop_id"] == "phase_1"
+
+
+def test_behavior_hp_percentage_condition_accepts_legacy_alias():
+    actor = {"hp": 25, "max_hp": 100}
+    runtime = {"active_loop_id": "phase_1", "step_index": 0}
+    profile = _profile()
+    profile["loops"]["phase_1"]["transitions"][0]["when_all"] = [
+        {"source": "self", "param": "hp_percent", "operator": "LTE", "value": 25}
+    ]
+
+    result = evaluate_transitions(
+        normalize_behavior_profile(profile), runtime, actor_char=actor, battle_state={"round": 1}
+    )
+    assert result["runtime"]["active_loop_id"] == "phase_2"
+
+
 def _speed_condition_profile(param_name):
     return {
         "enabled": True,

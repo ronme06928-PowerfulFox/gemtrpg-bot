@@ -376,7 +376,7 @@
         }
 
         function requestList() {
-            socketRef.emit('request_bo_ally_formation_list', {});
+            socketRef.emit('request_bo_ally_formation_list', { room: roomName || null, admin_global: !!options.adminGlobal });
         }
 
         panel.querySelector('#bo-af-refresh-btn')?.addEventListener('click', requestList);
@@ -473,6 +473,10 @@
             state.can_manage = !!(data && data.can_manage);
             renderList();
             if (!state.selected_formation_id) renderMembers();
+            if (options.initialId && state.ally_formations[String(options.initialId)]) {
+                loadFormationToEditor(String(options.initialId));
+                options.initialId = null;
+            }
         });
         onSocket('bo_ally_formation_saved', (data) => {
             const rec = data && data.record;
@@ -527,6 +531,7 @@
             if (global.__boAllyFormationModalCleanup === closeModal) {
                 global.__boAllyFormationModalCleanup = null;
             }
+            if (typeof options.onClose === 'function') options.onClose();
         }
 
         panel.querySelector('#bo-af-close-btn')?.addEventListener('click', closeModal);

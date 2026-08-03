@@ -1209,8 +1209,8 @@
             requestRecordState();
         });
         panel.querySelector('#bo-draft-open-catalog-btn')?.addEventListener('click', () => {
-            if (typeof global.openBattleOnlyCatalogModal === 'function') {
-                global.openBattleOnlyCatalogModal({ room: roomName });
+            if (typeof global.openBattleOnlyWorkspaceModal === 'function') {
+                global.openBattleOnlyWorkspaceModal({ room: roomName });
             } else {
                 setMsg('プリセット編集モーダルを読み込めませんでした。', 'red');
             }

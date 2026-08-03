@@ -1026,7 +1026,7 @@
         }
 
         function refreshCatalog() {
-            socketRef.emit('request_bo_catalog_list', {});
+            socketRef.emit('request_bo_catalog_list', { room: roomName || null, admin_global: !!options.adminGlobal });
         }
 
         function updateRoomCharOptions() {
@@ -1210,6 +1210,10 @@
             renderFormationMembers();
             setEditorEnabled(state.can_manage);
             setMsg('プリセット一覧を更新しました。', 'green');
+            if (options.initialId && state.presets[String(options.initialId)]) {
+                loadRecordToEditor(String(options.initialId));
+                options.initialId = null;
+            }
         });
 
         onSocket('bo_preset_saved', (data) => {
@@ -1324,6 +1328,7 @@
             if (global.__boCatalogModalCleanup === closeModal) {
                 global.__boCatalogModalCleanup = null;
             }
+            if (typeof options.onClose === 'function') options.onClose();
         }
         global.__boCatalogModalCleanup = closeModal;
         panel.querySelector('#bo-cat-close-btn')?.addEventListener('click', closeModal);

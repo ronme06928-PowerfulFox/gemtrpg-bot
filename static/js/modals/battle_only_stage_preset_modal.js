@@ -224,7 +224,7 @@
             el.list.querySelectorAll('.bo-sp-download-btn').forEach((n) => n.addEventListener('click', () => { const id = n.getAttribute('data-id') || ''; if (!id) return; const payload = { kind: 'bo_stage_preset', version: 1, exported_at: new Date().toISOString(), record: state.stage_presets[id] }; download(`bo_stage_preset_${id}.json`, JSON.stringify(payload, null, 2)); msg('ステージJSONをダウンロードしました。', 'green'); }));
         };
         const download = (name, content) => { const b = new Blob([String(content || '')], { type: 'application/json;charset=utf-8' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 0); };
-        const requestAll = () => { s.emit('request_bo_catalog_list', {}); s.emit('request_bo_stage_preset_list', {}); };
+        const requestAll = () => { const ctx = { room: roomRef() || null, admin_global: !!options.adminGlobal }; s.emit('request_bo_catalog_list', ctx); s.emit('request_bo_stage_preset_list', ctx); };
 
         $('#bo-sp-add-rule-btn').addEventListener('click', () => addRuleRow({}, true));
         [el.enemy, el.ally, el.name, el.required, el.visibility, el.sort, el.tags, el.concept].forEach((n) => { n.addEventListener('input', renderSummary); n.addEventListener('change', renderSummary); });
@@ -252,7 +252,10 @@
             s.emit('request_bo_stage_preset_delete', { id });
             msg('削除を実行しました。', '#444');
         });
-        $('#bo-sp-export-btn').addEventListener('click', () => s.emit('request_bo_export_stage_presets_json', {}));
+        $('#bo-sp-export-btn').addEventListener('click', () => s.emit('request_bo_export_stage_presets_json', {
+            room: options.room || roomRef() || null,
+            admin_global: !!options.adminGlobal,
+        }));
 
         on('receive_bo_catalog_list', (d) => {
             state.enemy_formations = (d && typeof d.enemy_formations === 'object') ? d.enemy_formations : {};
@@ -262,7 +265,7 @@
             if (d && typeof d.stage_presets === 'object') { state.stage_presets = d.stage_presets; state.sorted_stage_preset_ids = Array.isArray(d.sorted_stage_preset_ids) ? d.sorted_stage_preset_ids : Object.keys(state.stage_presets).sort(); }
             state.can_manage = !!d?.can_manage; renderFormationOptions(); renderList();
         });
-        on('bo_stage_preset_list', (d) => { state.stage_presets = (d && typeof d.stage_presets === 'object') ? d.stage_presets : {}; state.sorted_stage_preset_ids = Array.isArray(d?.sorted_stage_preset_ids) ? d.sorted_stage_preset_ids : Object.keys(state.stage_presets).sort(); state.can_manage = !!d?.can_manage; renderList(); });
+        on('bo_stage_preset_list', (d) => { state.stage_presets = (d && typeof d.stage_presets === 'object') ? d.stage_presets : {}; state.sorted_stage_preset_ids = Array.isArray(d?.sorted_stage_preset_ids) ? d.sorted_stage_preset_ids : Object.keys(state.stage_presets).sort(); state.can_manage = !!d?.can_manage; renderList(); if (options.initialId && state.stage_presets[String(options.initialId)]) { loadToForm(state.stage_presets[String(options.initialId)], String(options.initialId)); options.initialId = null; } });
         on('bo_stage_preset_saved', (d) => { const rec = d?.record; const id = String(rec?.id || d?.id || '').trim(); if (id && rec && typeof rec === 'object') { state.stage_presets[id] = rec; if (!state.sorted_stage_preset_ids.includes(id)) state.sorted_stage_preset_ids.push(id); loadToForm(rec, id); } renderList(); msg('ステージを保存しました。', 'green'); });
         on('bo_stage_preset_deleted', (d) => { const id = String(d?.id || '').trim(); if (id) delete state.stage_presets[id]; state.sorted_stage_preset_ids = state.sorted_stage_preset_ids.filter((x) => x !== id); if (state.selected_stage_id === id) clearForm(); renderList(); msg('ステージを削除しました。', 'green'); });
         on('bo_export_stage_presets_json', (d) => { download(String(d?.filename || `bo_stage_presets_${Date.now()}.json`), String(d?.content || '{}')); msg('ステージJSONをダウンロードしました。', 'green'); });
@@ -272,7 +275,7 @@
             [el.id, el.name, el.enemy, el.ally, el.required, el.visibility, el.sort, el.tags, el.concept, el.desc, $('#bo-sp-add-rule-btn'), el.avatarEnabled, el.avatarIcon, el.avatarName, el.avatarDesc, el.effectJson, el.avatarJson, $('#bo-sp-save-btn'), $('#bo-sp-delete-btn')].forEach((n) => { if (n) n.disabled = !enabled; });
             if (!enabled) msg('この画面は閲覧専用です。保存・削除はGMのみ可能です。', '#6b7280');
         };
-        const closeModal = () => { while (listeners.length) { const [e, f] = listeners.pop(); s.off(e, f); } overlay.remove(); if (global.__boStagePresetModalCleanup === closeModal) global.__boStagePresetModalCleanup = null; };
+        const closeModal = () => { while (listeners.length) { const [e, f] = listeners.pop(); s.off(e, f); } overlay.remove(); if (global.__boStagePresetModalCleanup === closeModal) global.__boStagePresetModalCleanup = null; if (typeof options.onClose === 'function') options.onClose(); };
         $('#bo-sp-close-btn').addEventListener('click', closeModal);
         overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
