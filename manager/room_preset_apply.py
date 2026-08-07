@@ -238,11 +238,25 @@ def _states_from_status_rows(status_rows, fallback_states):
     return states
 
 
-def build_runtime_enemy_from_preset(rec, serial_no, owner_name=None, owner_id=None):
+def build_runtime_character_from_preset(
+    rec,
+    serial_no,
+    *,
+    side="enemy",
+    owner_name=None,
+    owner_id=None,
+):
     if not isinstance(rec, dict):
         raise RoomPresetError("invalid_preset", "preset record is invalid")
-    if not bool(rec.get("allow_enemy", True)):
-        raise RoomPresetError("permission_denied", f"preset cannot be used as enemy: {rec.get('id')}")
+    normalized_side = str(side or "enemy").strip().lower()
+    if normalized_side not in ("ally", "enemy"):
+        raise RoomPresetError("invalid_side", f"unsupported character side: {side}")
+    allow_key = "allow_ally" if normalized_side == "ally" else "allow_enemy"
+    if not bool(rec.get(allow_key, True)):
+        raise RoomPresetError(
+            "permission_denied",
+            f"preset cannot be used as {normalized_side}: {rec.get('id')}",
+        )
 
     data = _extract_char_data_from_raw(rec.get("character_json"))
     if not isinstance(data, dict):
@@ -250,7 +264,7 @@ def build_runtime_enemy_from_preset(rec, serial_no, owner_name=None, owner_id=No
 
     char = copy.deepcopy(data)
     char["id"] = f"char_room_preset_{_now_ms()}_{random.randint(1000, 9999)}_{int(serial_no)}"
-    _force_character_side(char, "enemy")
+    _force_character_side(char, normalized_side)
 
     base_name = str(char.get("name", "")).strip() or str(rec.get("name", "")).strip() or "Enemy"
     char["name"] = base_name
@@ -331,6 +345,17 @@ def build_runtime_enemy_from_preset(rec, serial_no, owner_name=None, owner_id=No
     }
     normalize_character_labels(char)
     return char
+
+
+def build_runtime_enemy_from_preset(rec, serial_no, owner_name=None, owner_id=None):
+    """既存の通常ルーム敵配置API向け互換ラッパー。"""
+    return build_runtime_character_from_preset(
+        rec,
+        serial_no,
+        side="enemy",
+        owner_name=owner_name,
+        owner_id=owner_id,
+    )
 
 
 def _force_character_side(char, side):

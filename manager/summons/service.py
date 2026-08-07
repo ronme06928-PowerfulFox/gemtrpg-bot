@@ -205,7 +205,7 @@ def _apply_radiance_if_needed(char_obj):
         return char_obj
 
 
-def apply_summon_change(room, state, summoner, payload):
+def apply_summon_change(room, state, summoner, payload, *, run_battle_start=True):
     """
     SUMMON_CHARACTER change を適用する。
     Returns:
@@ -333,12 +333,13 @@ def apply_summon_change(room, state, summoner, payload):
     if isinstance(owners, dict):
         owners[new_char_id] = owner_name
 
-    try:
-        from manager.game_logic import process_battle_start
+    if run_battle_start:
+        try:
+            from manager.game_logic import process_battle_start
 
-        process_battle_start(room, new_char)
-    except Exception as e:
-        logger.warning("summon process_battle_start failed: %s", e)
+            process_battle_start(room, new_char)
+        except Exception as e:
+            logger.warning("summon process_battle_start failed: %s", e)
 
     return {
         "ok": True,

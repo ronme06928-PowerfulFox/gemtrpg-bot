@@ -202,6 +202,7 @@ def register_socket_handlers():
     import events.socket_char
     import events.socket_battle_only
     import events.socket_room_presets
+    import events.socket_preset_deployment
     import events.battle
     import events.socket_wide_calculate
     import events.socket_items
