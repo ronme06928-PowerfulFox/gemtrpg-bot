@@ -1979,7 +1979,7 @@
 
 .bo-workspace__body {
   display: grid;
-  grid-template-columns: minmax(210px, 0.75fr) minmax(330px, 1.2fr) minmax(360px, 1.35fr);
+  grid-template-columns: minmax(240px, 280px) minmax(400px, 1fr) minmax(360px, 480px);
   min-height: 0;
   flex: 1;
 }
@@ -2077,7 +2077,13 @@
 }
 
 .bo-workspace__nav-list > button,
+.bo-workspace__collection-row > button:first-child,
+.bo-workspace__section-tree > button,
 .bo-workspace__bookmark > button:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
   padding: 7px 8px;
   overflow: hidden;
@@ -2090,9 +2096,71 @@
 }
 
 .bo-workspace__nav-list > button:hover,
-.bo-workspace__nav-list > button.is-active {
+.bo-workspace__nav-list > button.is-active,
+.bo-workspace__collection-row > button:first-child:hover,
+.bo-workspace__collection-row > button:first-child.is-active,
+.bo-workspace__section-tree > button:hover,
+.bo-workspace__section-tree > button.is-active {
   border-color: #9dbaf0;
   background: #edf4ff;
+}
+
+.bo-workspace__collection-search {
+  margin-top: 0 !important;
+}
+
+.bo-workspace__collection {
+  display: grid;
+  gap: 3px;
+}
+
+.bo-workspace__collection-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px 32px;
+  align-items: center;
+  gap: 3px;
+}
+
+.bo-workspace__collection-row > button:first-child {
+  min-width: 0;
+}
+
+.bo-workspace__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #445268;
+  cursor: pointer;
+}
+
+.bo-workspace__icon-btn:hover {
+  border-color: #9dbaf0;
+  background: #edf4ff;
+}
+
+.bo-workspace__section-tree {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 3px 14px;
+  padding-left: 8px;
+  border-left: 2px solid #d8e4f7;
+}
+
+.bo-workspace__count {
+  flex: 0 0 auto;
+  min-width: 1.55rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #e8edf5;
+  color: #526071;
+  font-size: 0.72rem;
+  text-align: center;
 }
 
 .bo-workspace__bookmark {
@@ -2120,6 +2188,8 @@
 
 .bo-workspace__record-list {
   display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
   flex: 1 1 auto;
   min-height: 0;
   gap: 7px;

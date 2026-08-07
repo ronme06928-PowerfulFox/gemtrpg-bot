@@ -59,6 +59,7 @@ const CLASSIC_SCRIPTS = [
   'js/modals/battle_only_enemy_formation_modal.js',
   'js/modals/battle_only_ally_formation_modal.js',
   'js/modals/battle_only_stage_preset_modal.js',
+  'js/modals/preset_deployment_browser.js',
   'js/modals/battle_only_draft_modal.js',
   'js/modals/battle_only_quick_start_modal.js',
   'js/modals/battle_only_workspace_modal.js',

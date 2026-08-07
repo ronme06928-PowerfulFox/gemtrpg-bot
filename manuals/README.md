@@ -8,6 +8,12 @@
 - `operations/`: 運用・デプロイ手順書（例: `account_system_deploy_runbook.md`）
 - `typst/`: 上記MD文書のTypst（PDF）版。共有テーマ `typst/lib/theme.typ`。詳細は `typst/README.md`
 
+ルート直下の継続更新文書:
+
+- `planning_process.md`: 計画策定と一問一答の進め方
+- `module_size_policy.md`: Pythonモジュール行数制限の運用
+- `ui_design_decision_log.md`: 実装済み画面のデザイン判断・再利用候補・例外を蓄積する覚書
+
 ---
 
 ## 1. ファイル体系（implemented/）
@@ -56,6 +62,7 @@
 ### UI・フロントエンド
 1. `E01_Visual_Battle_Architecture.md`
 2. `E02_UI_Component_Specs.md`
+3. `ui_design_decision_log.md`（実装済み画面のデザイン覚書。正式仕様はE01/E02を正とする）
 
 ---
 

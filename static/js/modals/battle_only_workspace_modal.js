@@ -68,23 +68,23 @@
     panel.className = 'modal-content bo-workspace';
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'true');
-    panel.setAttribute('aria-label', '戦闘専用プリセット管理');
+    panel.setAttribute('aria-label', 'プリセット管理');
     panel.innerHTML = `
       <header class="bo-workspace__header">
         <div>
-          <h2>戦闘専用プリセット管理</h2>
+          <h2>プリセット管理</h2>
           <p>${adminGlobal ? 'アプリ管理者用・全ユーザー資産' : `対象ルーム: ${h(room || '未選択')}`}</p>
         </div>
         <div class="bo-workspace__header-actions">
           <span id="bo-ws-status" role="status">読込中</span>
+          ${room && !adminGlobal ? '<button id="bo-ws-open-deployment" class="bo-btn bo-btn--primary" type="button">ルームへ配置</button>' : ''}
           <button id="bo-ws-close" class="bo-btn" type="button">閉じる</button>
         </div>
       </header>
       <nav class="bo-workspace__tabs" role="tablist" aria-label="管理対象">
-        <button data-tab="character" role="tab" aria-selected="true">キャラクター素材</button>
+        <button data-tab="character" role="tab" aria-selected="true">キャラクター</button>
         <button data-tab="formations" role="tab" aria-selected="false">編成</button>
         <button data-tab="stage" role="tab" aria-selected="false">ステージ</button>
-        <button data-tab="prep" role="tab" aria-selected="false" ${room ? '' : 'disabled'}>戦闘準備</button>
       </nav>
       <div class="bo-workspace__body">
         <aside class="bo-workspace__sidebar">
@@ -93,10 +93,9 @@
             <button id="bo-ws-refresh" class="bo-btn bo-btn--sm" type="button">再読込</button>
           </div>
           <h3>コレクション</h3>
+          <label class="bo-workspace__collection-search">絞り込み<input id="bo-ws-collection-search" type="search" placeholder="コレクション名"></label>
           <div id="bo-ws-collections" class="bo-workspace__nav-list"></div>
-          <button id="bo-ws-new-collection" class="bo-btn bo-btn--sm" type="button">＋ コレクション</button>
-          <button id="bo-ws-edit-collection" class="bo-btn bo-btn--sm" type="button" disabled>選択中を編集</button>
-          <button id="bo-ws-bookmark-collection" class="bo-btn bo-btn--sm" type="button" hidden>☆ コレクションを登録</button>
+          <button id="bo-ws-new-collection" class="bo-btn bo-btn--sm" type="button">＋ 新規</button>
           <section id="bo-ws-bookmark-section" ${room ? '' : 'hidden'}>
             <h3>このルームのブックマーク</h3>
             <div id="bo-ws-bookmarks" class="bo-workspace__nav-list"></div>
@@ -127,6 +126,7 @@
       collectionFilter: '',
       sectionFilter: '',
       search: '',
+      collectionSearch: '',
       showArchived: false,
       dirty: false,
       canManage: false,
@@ -222,32 +222,62 @@
     }
 
     function renderCollections() {
-      const rows = Object.values(state.collections).sort((a, b) => (
+      const collectionQuery = state.collectionSearch.trim().toLowerCase();
+      const rows = Object.values(state.collections).filter((record) => {
+        if (!collectionQuery) return true;
+        return [record.id, record.name, record.description].join(' ').toLowerCase().includes(collectionQuery);
+      }).sort((a, b) => (
         safeInt(a.sort_order, 2147483647) - safeInt(b.sort_order, 2147483647)
         || String(a.name || a.id).localeCompare(String(b.name || b.id), 'ja')
       ));
+      const allRecords = Object.values(state.records).flatMap((records) => Object.values(records));
+      const countRecords = (collectionId, sectionId = null) => allRecords.filter((record) => {
+        const meta = record.catalog_meta || {};
+        if (collectionId === '__unclassified__') return !meta.collection_id;
+        if (collectionId && meta.collection_id !== collectionId) return false;
+        return !sectionId || meta.section_id === sectionId;
+      }).length;
       $('#bo-ws-collections').innerHTML = `
-        <button data-collection="" class="${state.collectionFilter === '' ? 'is-active' : ''}">すべて</button>
-        <button data-collection="__unclassified__" class="${state.collectionFilter === '__unclassified__' ? 'is-active' : ''}">未分類</button>
-        ${rows.map((record) => `<button data-collection="${h(record.id)}" class="${state.collectionFilter === record.id ? 'is-active' : ''}">${h(record.name || record.id)}</button>`).join('')}
+        <button data-collection="" class="${state.collectionFilter === '' ? 'is-active' : ''}"><span>すべて</span><span class="bo-workspace__count">${allRecords.length}</span></button>
+        <button data-collection="__unclassified__" class="${state.collectionFilter === '__unclassified__' ? 'is-active' : ''}"><span>未分類</span><span class="bo-workspace__count">${countRecords('__unclassified__')}</span></button>
+        ${rows.map((record) => {
+          const bookmarked = state.bookmarks.some((row) => row.target_type === 'collection' && row.target_id === record.id);
+          const active = state.collectionFilter === record.id;
+          const sections = Array.isArray(record.sections) ? record.sections : [];
+          const displayName = String(record.name || record.id);
+          return `<div class="bo-workspace__collection ${active ? 'is-active' : ''}">
+            <div class="bo-workspace__collection-row">
+              <button data-collection="${h(record.id)}" class="${active && !state.sectionFilter ? 'is-active' : ''}" title="${h(displayName)}" aria-label="${h(displayName)}"><span>${h(displayName)}</span><span class="bo-workspace__count">${countRecords(record.id)}</span></button>
+              ${room ? `<button data-collection-bookmark="${h(record.id)}" class="bo-workspace__icon-btn" aria-label="${bookmarked ? 'コレクションのブックマークを解除' : 'コレクションをブックマーク'}" title="${bookmarked ? '登録済み' : 'ブックマーク'}">${bookmarked ? '★' : '☆'}</button>` : ''}
+              ${(record.capabilities || {}).can_edit ? `<button data-collection-edit="${h(record.id)}" class="bo-workspace__icon-btn" aria-label="コレクションを編集" title="編集">…</button>` : ''}
+            </div>
+            ${active && sections.length ? `<div class="bo-workspace__section-tree">${sections.map((section) => {
+              const sectionName = String(section.name || section.id);
+              return `<button data-collection="${h(record.id)}" data-section="${h(section.id)}" class="${state.sectionFilter === section.id ? 'is-active' : ''}" title="${h(sectionName)}" aria-label="${h(sectionName)}"><span>${h(sectionName)}</span><span class="bo-workspace__count">${countRecords(record.id, section.id)}</span></button>`;
+            }).join('')}</div>` : ''}
+          </div>`;
+        }).join('')}
       `;
       $('#bo-ws-collections').querySelectorAll('[data-collection]').forEach((button) => {
         button.addEventListener('click', async () => {
           if (!await guardDirty(state)) return;
           state.dirty = false;
           state.collectionFilter = String(button.dataset.collection || '');
-          state.sectionFilter = '';
+          state.sectionFilter = String(button.dataset.section || '');
           state.selectedId = null;
           renderAll();
         });
       });
-      const selectedCollection = currentCollection();
-      const editButton = $('#bo-ws-edit-collection');
-      editButton.disabled = !selectedCollection || !(selectedCollection.capabilities || {}).can_edit;
-      const bookmarkButton = $('#bo-ws-bookmark-collection');
-      const collectionBookmarked = !!selectedCollection && state.bookmarks.some((row) => row.target_type === 'collection' && row.target_id === selectedCollection.id);
-      bookmarkButton.hidden = !room || !selectedCollection;
-      bookmarkButton.textContent = collectionBookmarked ? '★ 登録済み' : '☆ コレクションを登録';
+      $('#bo-ws-collections').querySelectorAll('[data-collection-edit]').forEach((button) => button.addEventListener('click', () => {
+        const collection = state.collections[button.dataset.collectionEdit];
+        if (collection) editCollection(collection);
+      }));
+      $('#bo-ws-collections').querySelectorAll('[data-collection-bookmark]').forEach((button) => button.addEventListener('click', () => {
+        const collectionId = button.dataset.collectionBookmark;
+        const bookmark = state.bookmarks.find((row) => row.target_type === 'collection' && row.target_id === collectionId);
+        if (bookmark) socketIo.emit('request_bo_bookmark_delete', { room, id: bookmark.id });
+        else socketIo.emit('request_bo_bookmark_save', { room, target_type: 'collection', target_id: collectionId });
+      }));
       renderSectionFilter();
     }
 
@@ -280,7 +310,7 @@
           state.selectedId = null;
         } else {
           state.tab = bookmark.target_type === 'character' ? 'character'
-            : bookmark.target_type === 'stage' ? 'prep' : 'formations';
+            : bookmark.target_type === 'stage' ? 'stage' : 'formations';
           state.selectedType = bookmark.target_type;
           state.selectedId = bookmark.target_id;
           state.collectionFilter = bookmark.collection_id || '';
@@ -439,7 +469,6 @@
           ${caps.can_manage_acl ? '<button id="bo-ws-export-full" class="bo-btn">完全バックアップ</button>' : ''}
           <button id="bo-ws-delete-record" class="bo-btn bo-btn--danger" ${caps.can_delete ? '' : 'disabled'}>削除</button>
           ${room ? `<button id="bo-ws-bookmark" class="bo-btn">${bookmarked ? '★ 登録済み' : '☆ ブックマーク'}</button>` : ''}
-          ${state.tab === 'prep' ? '<button id="bo-ws-deploy" class="bo-btn bo-btn--primary">このステージを準備</button>' : ''}
         </div>
         <section class="bo-workspace__card">
           <h4>分類</h4>
@@ -508,10 +537,6 @@
           socketIo.emit('request_bo_bookmark_save', { room, target_type: state.selectedType, target_id: state.selectedId });
         }
       });
-      $('#bo-ws-deploy')?.addEventListener('click', () => {
-        socketIo.emit('request_bo_select_stage_preset', { room, stage_id: state.selectedId });
-        setStatus('戦闘準備へ反映中');
-      });
       $('#bo-ws-save-meta')?.addEventListener('click', () => {
         const payload = {
           room: room || null,
@@ -553,7 +578,7 @@
         button.classList.toggle('is-active', active);
         button.setAttribute('aria-selected', String(active));
       });
-      $('#bo-ws-new-record').textContent = state.tab === 'formations' ? '＋ 敵編成' : state.tab === 'prep' ? 'ステージ編集' : '＋ 新規作成';
+      $('#bo-ws-new-record').textContent = state.tab === 'formations' ? '＋ 敵編成' : '＋ 新規作成';
       $('#bo-ws-new-ally-formation').hidden = state.tab !== 'formations';
     }
 
@@ -640,24 +665,14 @@
       renderAll();
     }));
     $('#bo-ws-search').addEventListener('input', (event) => { state.search = event.target.value; renderList(); });
+    $('#bo-ws-collection-search').addEventListener('input', (event) => { state.collectionSearch = event.target.value; renderCollections(); });
     $('#bo-ws-section-filter').addEventListener('change', (event) => { state.sectionFilter = event.target.value; renderList(); });
     $('#bo-ws-archived').addEventListener('change', (event) => { state.showArchived = event.target.checked; renderList(); });
     $('#bo-ws-refresh').addEventListener('click', requestCatalog);
     $('#bo-ws-new-collection').addEventListener('click', () => editCollection());
-    $('#bo-ws-edit-collection').addEventListener('click', () => {
-      const collection = currentCollection();
-      if (collection) editCollection(collection);
-    });
-    $('#bo-ws-bookmark-collection').addEventListener('click', () => {
-      const collection = currentCollection();
-      if (!collection) return;
-      const bookmark = state.bookmarks.find((row) => row.target_type === 'collection' && row.target_id === collection.id);
-      if (bookmark) socketIo.emit('request_bo_bookmark_delete', { room, id: bookmark.id });
-      else socketIo.emit('request_bo_bookmark_save', { room, target_type: 'collection', target_id: collection.id });
-    });
     $('#bo-ws-new-record').addEventListener('click', () => {
       if (state.tab === 'formations') openLegacyEditor('enemy_formation');
-      else if (state.tab === 'stage' || state.tab === 'prep') openLegacyEditor('stage');
+      else if (state.tab === 'stage') openLegacyEditor('stage');
       else openLegacyEditor('character');
     });
     $('#bo-ws-new-ally-formation').addEventListener('click', () => openLegacyEditor('ally_formation'));
@@ -689,7 +704,6 @@
     }));
     on('bo_record_duplicated', (data) => { setStatus('複製しました', 'success'); state.selectedType = data.record_type; state.selectedId = data.id; requestCatalog(); });
     on('bo_record_export_v3', (data) => download(data.filename, data.content));
-    on('bo_stage_preset_selected', () => setStatus('戦闘準備へ反映しました', 'success'));
     ['bo_catalog_error', 'bo_preset_error', 'bo_enemy_formation_error', 'bo_ally_formation_error', 'bo_stage_preset_error', 'bo_record_metadata_error', 'bo_collection_error', 'bo_record_duplicate_error', 'bo_record_export_v3_error', 'bo_bookmark_error', 'bo_draft_error'].forEach((eventName) => on(eventName, (data) => {
       setStatus((data && (data.message || data.error)) || '操作に失敗しました', 'error');
     }));
@@ -702,6 +716,20 @@
       overlay.remove();
       if (global.__boWorkspaceCleanup === close) global.__boWorkspaceCleanup = null;
     }
+    $('#bo-ws-open-deployment')?.addEventListener('click', async () => {
+      if (!await guardDirty(state)) return;
+      if (typeof global.openPresetDeploymentBrowser !== 'function') {
+        setStatus('配置画面を読み込めませんでした', 'error');
+        return;
+      }
+      const returnTab = state.tab;
+      close();
+      global.openPresetDeploymentBrowser({
+        room,
+        targetMode: 'battle_only',
+        onClose: () => global.openBattleOnlyWorkspaceModal({ room, adminGlobal, tab: returnTab }),
+      });
+    });
     $('#bo-ws-close').addEventListener('click', async () => { if (await guardDirty(state)) close(); });
     overlay.addEventListener('click', async (event) => { if (event.target === overlay && await guardDirty(state)) close(); });
     global.__boWorkspaceCleanup = close;

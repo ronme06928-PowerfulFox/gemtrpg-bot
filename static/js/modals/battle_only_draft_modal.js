@@ -184,6 +184,7 @@
             <div class="bo-toolbar bo-toolbar--wrap">
                 <div class="bo-toolbar-group">
                     <button id="bo-draft-refresh-btn" class="bo-btn bo-btn--sm bo-btn--neutral">再読み込み</button>
+                    <button id="bo-draft-open-deployment-btn" class="bo-btn bo-btn--sm bo-btn--primary">プリセット配置</button>
                     <button id="bo-draft-open-catalog-btn" class="bo-btn bo-btn--sm bo-btn--neutral">キャラクタープリセット編集</button>
                 </div>
                 <div class="bo-toolbar-group">
@@ -1207,6 +1208,18 @@
         panel.querySelector('#bo-draft-refresh-btn')?.addEventListener('click', () => {
             requestDraftState();
             requestRecordState();
+        });
+        panel.querySelector('#bo-draft-open-deployment-btn')?.addEventListener('click', () => {
+            if (typeof global.openPresetDeploymentBrowser !== 'function') {
+                setMsg('プリセット配置画面を読み込めませんでした。', 'red');
+                return;
+            }
+            closeModal();
+            global.openPresetDeploymentBrowser({
+                room: roomName,
+                targetMode: 'battle_only',
+                onClose: () => global.openBattleOnlyDraftModal(),
+            });
         });
         panel.querySelector('#bo-draft-open-catalog-btn')?.addEventListener('click', () => {
             if (typeof global.openBattleOnlyWorkspaceModal === 'function') {
