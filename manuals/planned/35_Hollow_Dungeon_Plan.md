@@ -67,7 +67,7 @@
 | 状態の永続化 | ルーム状態のデバウンス保存 | `extensions.py::active_room_states`、`manager/room_manager.py` |
 | UI追加 | IIFEモーダル雛形＋バンドルビルド | `static/js/modals/battle_only_*.js`、`scripts/build_frontend.mjs` |
 | 増援（ウェーブ） | 計画16のデータ構造案（未実装） | `16_Reinforcement_Feature_Separate_Plan.md` |
-| バランス検証 | シミュレータ構想（部分実装） | `30_Battle_Balance_Simulator_Plan.md` |
+| バランス検証 | ヘッドレス戦闘シミュレータ実装済み | `../implemented/F03_Battle_Balance_Simulator_CLI.md` |
 | ルーム作成・参加コード・membership | 既存のルーム作成/参加フロー（`RoomMember`・join code） | `routes/room.py`、`manager/room_access.py::build_lobby_cards`、`tests/test_join_code_lobby.py` |
 | 戦闘UIコンポーネント | 既存の戦闘画面を構成するESモジュール群（ダンジョン画面へ埋め込んで再利用） | `static/js/battle/index.js`、`components/`（ActionDock, DeclarePanel, MatchPanel, Timeline, VisualMap 等） |
 
@@ -158,7 +158,7 @@
 - スケーリングは `_build_runtime_character_from_preset` で実体化した後に適用する:
   - HP/MP: `×(1 + k_hp × (floor - 1))`
   - 攻撃系パラメータ・スキル基礎値の補正: 直接の数値改変ではなく、**敵専用の階層バフ**（`stat_mod` 等の既存バフプラグイン）を `special_buffs` に積む方式を第一候補とする（スキルJSONを書き換えないため安全）。
-  - 係数 `k_*` はマスターデータ側に置き、計画30のシミュレータで検証して調整する。
+  - 係数 `k_*` はマスターデータ側に置き、実装済みのバランス検証シミュレータで検証して調整する。
 - **精鋭（エリート）はバフ積みを基本としつつ、階層が進むと「精鋭セット」自体が別データに切り替わる**方式にする。
   - `hollow_enemies` に「精鋭セット」単位（複数の敵IDをまとめた組、例: 「牙狼2体+大牙狼1体」）を定義し、各セットに**適用階範囲**（例: 21〜29F）を持たせる。精鋭イベントが抽選された階では、その階を含む範囲を持つ精鋭セットの中から抽選する。
   - 数階層ごと（Tier内のサブ帯域単位を想定。具体的な間隔は§10）にセットが切り替わることで、「同じ精鋭にバフが乗って強くなる」だけでなく「見た目・構成が変わる」体験を作る。
@@ -517,7 +517,7 @@
 
 ### Phase 6: バランス調整
 
-- 計画30のシミュレータハーネスにホロウの階層生成を接続し、Tierごとの決着ラウンド・全滅率を集計。
+- 実装済みのシミュレータハーネスにホロウの階層生成を接続し、Tierごとの決着ラウンド・全滅率を集計。
 - スケーリング係数・ドロップ重みの初期値を確定し、Sheets側マスターに反映。
 - T3〜T5・ボスデータの拡充（Sheets上のデータ作業。コード変更なしで追加できることの確認を兼ねる）。
 
