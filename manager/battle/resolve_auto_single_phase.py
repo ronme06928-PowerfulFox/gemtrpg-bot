@@ -19,6 +19,7 @@ from manager.battle.system_skills import (
 
 def run_single_phase(room, battle_id, state, battle_state, resolve_intents, characters_by_id):
     _sync_from_core()
+    from manager.battle.action_slot_mode import get_action_unavailable_reason
     from manager.battle.common_manager import (
         build_select_resolve_state_payload,
         select_evade_insert_slot,
@@ -557,6 +558,17 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
             attacker_actor_id = slots.get(slot_id, {}).get('actor_id')
             if not attacker_actor_id or not _is_actor_placed(state, attacker_actor_id):
                 _emit_fizzle_with_log(slot_id, 'attacker_unplaced', target_actor_id=attacker_actor_id)
+                _mark_processed(slot_id, cancelled_without_use=True)
+                queue_index += 1
+                continue
+
+            inactive_reason = get_action_unavailable_reason(characters_by_id.get(attacker_actor_id))
+            if inactive_reason:
+                _emit_fizzle_with_log(
+                    slot_id,
+                    f'attacker_{inactive_reason}',
+                    target_actor_id=attacker_actor_id,
+                )
                 _mark_processed(slot_id, cancelled_without_use=True)
                 queue_index += 1
                 continue

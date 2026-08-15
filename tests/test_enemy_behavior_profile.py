@@ -76,6 +76,19 @@ def test_normalize_behavior_profile_preserves_step_action_mode_and_aligns_no_tar
     assert [row["on_no_target"] for row in picked["plans"]] == ["cancel", "cancel"]
 
 
+def test_pick_step_actions_preserves_explicit_no_action_token():
+    normalized = normalize_behavior_profile({
+        "enabled": True,
+        "slot_generation_mode": "step_actions",
+        "loops": {"L1": {"steps": [{"actions": ["S1", "__NO_ACTION__", "S2"]}]}},
+    })
+
+    picked = pick_step_actions(normalized, {"active_loop_id": "L1", "step_index": 0})
+
+    assert [row["action_type"] for row in picked["plans"]] == ["skill", "no_action", "skill"]
+    assert picked["plans"][1]["skill_id"] is None
+
+
 def test_evaluate_transitions_moves_loop_when_condition_matches():
     prof = normalize_behavior_profile(_profile())
     runtime = initialize_behavior_runtime_entry(prof, runtime_entry={"active_loop_id": "phase_1", "step_index": 1}, round_value=2)

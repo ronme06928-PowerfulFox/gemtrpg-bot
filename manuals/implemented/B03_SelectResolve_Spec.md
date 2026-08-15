@@ -539,3 +539,11 @@ redirect（§6）・no_redirect（§7）の実体ロジックを `events/battle/
 内部的には対象参照用スロットを持つが、ルール表示上は「行動せず、スロットを持たない」と扱う。
 
 実装: `manager/battle/action_slot_mode.py`、`manager/battle/select_resolve_state.py`。
+
+### 非行動アンカーの共通表現（2026-08-16追補）
+
+恒久非行動オブジェクトと行動チャート上の待機は、`target_only:true`、`source_disabled:true`、`status:inactive`、`initiative:null`を持つ非行動アンカーで表す。`inactive_reason`は`non_action_object`または`behavior_no_action`とする。宣言元、宣言待ち、Resolveキュー、タイムラインには含めず、攻撃対象には指定できる。
+
+混乱・行動不能は通常スロット自体を消さず、配信ペイロード上で`source_disabled:true`と理由を付与する。Select中は該当スロットの既存intentを解除し、preview/commitをサーバーでも拒否する。Resolve中に混乱した場合は、すでに解決済みの行動へ遡及せず、未解決スロットだけを`attacker_confusion`としてスキップする。通常キャラクターが本当に使用可能スキルを持たない場合の`SYS-STRUGGLE`は従来どおり維持する。
+
+実装: `events/battle/pve_intents.py`、`events/battle/common_routes.py`、`manager/battle/resolve_auto_mass_phase.py`、`manager/battle/resolve_auto_single_phase.py`。

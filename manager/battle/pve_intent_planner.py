@@ -466,10 +466,19 @@ def prepare_pve_behavior_round_plan(state, battle_state, round_value):
         for raw_plan in picked.get("plans", []) or []:
             if not isinstance(raw_plan, dict):
                 continue
+            action_type = str(raw_plan.get("action_type") or "skill").strip().lower()
+            if action_type == "no_action":
+                plan = dict(raw_plan)
+                plan["action_type"] = "no_action"
+                plan["skill_id"] = None
+                plan["on_no_target"] = BEHAVIOR_ON_NO_TARGET_CANCEL
+                plans.append(plan)
+                continue
             skill_id = str(raw_plan.get("skill_id") or "").strip()
             if not skill_id:
                 continue
             plan = dict(raw_plan)
+            plan["action_type"] = "skill"
             plan["skill_id"] = skill_id
             plan["on_no_target"] = BEHAVIOR_ON_NO_TARGET_CANCEL
             plans.append(plan)
@@ -776,7 +785,14 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
         for idx, enemy_slot_id in enumerate(actor_slot_ids):
             slot = slots.get(enemy_slot_id, {}) if isinstance(slots, dict) else {}
             attacker_team = _slot_team(slot)
-            planned = planned_action_plans[idx] if idx < len(planned_action_plans) else {}
+            plan_index = slot.get('behavior_plan_index', idx)
+            try:
+                plan_index = int(plan_index)
+            except (TypeError, ValueError):
+                plan_index = idx
+            planned = planned_action_plans[plan_index] if plan_index < len(planned_action_plans) else {}
+            if str((planned or {}).get('action_type') or 'skill').strip().lower() == 'no_action':
+                continue
             planned_skill_id = str((planned or {}).get('skill_id') or '').strip() or None
             if use_step_actions and (planned or {}).get('skill_resolution_finalized', False):
                 suggested_skill_id = (planned or {}).get('resolved_skill_id')

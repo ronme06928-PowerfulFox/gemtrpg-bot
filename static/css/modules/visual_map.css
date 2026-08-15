@@ -212,6 +212,28 @@
     box-shadow: 0 0 0 3px rgba(45, 142, 74, 0.25), 0 5px 12px rgba(25, 96, 49, 0.4);
 }
 
+.slot-badge.is-inactive {
+    border-color: #61656c;
+    background:
+        linear-gradient(135deg, transparent 42%, rgba(42, 45, 50, 0.78) 44%, rgba(42, 45, 50, 0.78) 49%, transparent 51%),
+        linear-gradient(45deg, transparent 53%, rgba(78, 82, 89, 0.72) 55%, rgba(78, 82, 89, 0.72) 59%, transparent 61%),
+        radial-gradient(circle at 32% 28%, #eef0f2 0%, #aeb2b8 72%, #7d8188 100%);
+    color: #25282c;
+    cursor: default;
+}
+
+.slot-badge.is-inactive.is-confused {
+    border-color: #665276;
+    background:
+        linear-gradient(135deg, transparent 42%, rgba(57, 42, 68, 0.82) 44%, rgba(57, 42, 68, 0.82) 49%, transparent 51%),
+        linear-gradient(45deg, transparent 53%, rgba(81, 61, 96, 0.74) 55%, rgba(81, 61, 96, 0.74) 59%, transparent 61%),
+        radial-gradient(circle at 32% 28%, #eee9f2 0%, #aaa0b2 72%, #776c80 100%);
+}
+
+.slot-badge.is-inactive.is-target-candidate {
+    cursor: crosshair;
+}
+
 @keyframes slot-target-candidate-pulse {
     from {
         transform: translateY(0) scale(1);

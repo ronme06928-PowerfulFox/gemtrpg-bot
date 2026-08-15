@@ -135,7 +135,7 @@ class DeclarePanel {
             : { hasDiff: true, diffSummary: '' };
         const hasDeclareDiff = !!declareDiff?.hasDiff;
         const isTargetPicking = !!(sourceSlotId && !isMassTarget && !effectiveTargetSlotId);
-        const shouldShowPanel = !!sourceSlotId;
+        const shouldShowPanel = !!sourceSlotId && canEditSource;
         const closeBtnTitle = hasDeclareDiff ? '閉じる（未確定の変更は破棄）' : '閉じる';
 
         if (phase !== 'select' || !shouldShowPanel) {
@@ -869,11 +869,21 @@ class DeclarePanel {
 
     _canEditSourceSlot(state, sourceSlotId) {
         if (!state || !sourceSlotId) return false;
+        const sourceSlot = state?.slots?.[sourceSlotId] || null;
+        if (!sourceSlot) return false;
+        if (
+            sourceSlot.target_only
+            || sourceSlot.source_disabled
+            || sourceSlot.disabled
+            || ['inactive', 'cancelled'].includes(String(sourceSlot.status || '').toLowerCase())
+        ) {
+            return false;
+        }
         if (typeof window !== 'undefined' && String(window.currentUserAttribute || '') === 'GM') {
             return true;
         }
 
-        const sourceActorId = state?.slots?.[sourceSlotId]?.actor_id || null;
+        const sourceActorId = sourceSlot.actor_id || null;
         if (!sourceActorId) return false;
 
         if (typeof window !== 'undefined' && typeof window.canControlCharacter === 'function') {
@@ -1865,7 +1875,6 @@ export const declarePanel = new DeclarePanel();
 if (typeof window !== 'undefined') {
     window.DeclarePanelComponent = declarePanel;
 }
-
 
 
 

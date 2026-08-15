@@ -53,6 +53,7 @@ BEHAVIOR_SLOT_GENERATION_MODES = {
     BEHAVIOR_SLOT_GENERATION_STEP_ACTIONS,
 }
 BEHAVIOR_ON_NO_TARGET_CANCEL = "cancel"
+BEHAVIOR_NO_ACTION_TOKEN = "__NO_ACTION__"
 BEHAVIOR_HP_PERCENT_PARAMS = {
     "hp割合",
     "hp比率",
@@ -581,10 +582,12 @@ def pick_step_actions(profile, runtime_entry):
         }
     plans = []
     for i, skill_id in enumerate(actions):
+        is_no_action = str(skill_id or "").strip().upper() == BEHAVIOR_NO_ACTION_TOKEN
         target_spec = targets[i] if i < len(targets) else BEHAVIOR_TARGET_POLICY_DEFAULT
         is_legacy_target = isinstance(target_spec, str)
         plans.append({
-            "skill_id": skill_id,
+            "action_type": "no_action" if is_no_action else "skill",
+            "skill_id": None if is_no_action else skill_id,
             "target_policy": (
                 _coerce_target_policy(target_spec)
                 if is_legacy_target

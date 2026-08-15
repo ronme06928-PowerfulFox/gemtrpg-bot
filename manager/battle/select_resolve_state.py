@@ -1,3 +1,4 @@
+import copy
 import time
 
 from manager.dice_roller import roll_dice
@@ -12,7 +13,10 @@ from manager.battle.pve_intent_planner import (
 )
 from manager.battle.skill_access import list_regular_usable_skill_ids
 from manager.battle.action_slot_mode import (
+    INACTIVE_REASON_BEHAVIOR_NO_ACTION,
+    build_non_action_anchor,
     build_target_only_slot,
+    get_action_unavailable_reason,
     is_action_slot_disabled,
 )
 from manager.battle.scheduled_effects import execute_scheduled_effects
@@ -233,10 +237,10 @@ def _build_usable_skill_ids(room_state, battle_state):
     for slot_id, slot_info in slots.items():
         if not isinstance(slot_info, dict):
             continue
-        if slot_info.get('target_only', False):
+        if slot_info.get('target_only', False) or slot_info.get('source_disabled', False):
             continue
         actor = char_by_id.get(slot_info.get('actor_id'))
-        if not actor:
+        if not actor or get_action_unavailable_reason(actor):
             continue
         try:
             result[slot_id] = list_regular_usable_skill_ids(
@@ -255,6 +259,20 @@ def build_select_resolve_state_payload(room, battle_id=None):
     if not battle_state:
         return None
     room_state = get_room_state(room)
+    slots = copy.deepcopy(battle_state.get('slots', {}))
+    characters_by_id = {
+        str(char.get('id')): char
+        for char in (room_state or {}).get('characters', [])
+        if isinstance(char, dict) and char.get('id') is not None
+    }
+    for slot in slots.values():
+        if not isinstance(slot, dict) or slot.get('target_only', False):
+            continue
+        actor = characters_by_id.get(str(slot.get('actor_id')))
+        reason = get_action_unavailable_reason(actor)
+        if reason:
+            slot['source_disabled'] = True
+            slot['inactive_reason'] = reason
     return {
         'room_id': room,
         'battle_id': battle_state.get('battle_id'),
@@ -262,7 +280,7 @@ def build_select_resolve_state_payload(room, battle_id=None):
         'phase': battle_state.get('phase', 'select'),
         'timeline': battle_state.get('timeline', []),
         'tiebreak': battle_state.get('tiebreak', []),
-        'slots': battle_state.get('slots', {}),
+        'slots': slots,
         'intents': battle_state.get('intents', {}),
         'redirects': battle_state.get('redirects', []),
         'resolve_ready': bool(battle_state.get('resolve_ready', False)),
@@ -305,6 +323,7 @@ def process_select_resolve_round_start(room, battle_id, round_value):
     if not isinstance(round_plan_actors, dict):
         round_plan_actors = {}
     slot_entries = []
+    non_action_anchors = []
     legacy_timeline_entries = []
     from plugins.buffs.speed_mod import SpeedModBuff
 
@@ -347,6 +366,16 @@ def process_select_resolve_round_start(room, battle_id, round_value):
         char['totalSpeed'] = None
         char['hasActed'] = False
         if action_count <= 0:
+            if isinstance(actor_round_plan, dict):
+                anchor = build_non_action_anchor(
+                    char,
+                    round_value,
+                    reason=INACTIVE_REASON_BEHAVIOR_NO_ACTION,
+                    slot_suffix='idle',
+                    index_in_actor=0,
+                )
+                if anchor:
+                    non_action_anchors.append(anchor)
             continue
 
         try:
@@ -361,6 +390,19 @@ def process_select_resolve_round_start(room, battle_id, round_value):
             broadcast_log(room, f"{char.get('name', actor_id)} の速度補正: {mod_text} (基礎敏捷に加算)", 'info')
 
         for i in range(action_count):
+            plan = plans[i] if isinstance(actor_round_plan, dict) and i < len(plans) else {}
+            if str((plan or {}).get('action_type') or 'skill').strip().lower() == 'no_action':
+                anchor = build_non_action_anchor(
+                    char,
+                    round_value,
+                    reason=INACTIVE_REASON_BEHAVIOR_NO_ACTION,
+                    slot_suffix=f'wait{i}',
+                    index_in_actor=i,
+                    behavior_plan_index=i,
+                )
+                if anchor:
+                    non_action_anchors.append(anchor)
+                continue
             slot_id = f"{actor_id}:r{round_value}:s{i}"
             roll = _roll_1d6()
             initiative = max(1, base_initiative + roll)
@@ -378,6 +420,7 @@ def process_select_resolve_round_start(room, battle_id, round_value):
                 'locked_target': False,
                 'status': 'ready',
                 'is_alive': True,
+                'behavior_plan_index': i if isinstance(actor_round_plan, dict) else None,
                 '_tie_roll': None
             })
             legacy_timeline_entries.append({
@@ -443,6 +486,8 @@ def process_select_resolve_round_start(room, battle_id, round_value):
             'status': slot['status'],
             'is_alive': slot['is_alive']
         }
+        if slot.get('behavior_plan_index') is not None:
+            slots_dict[slot_id]['behavior_plan_index'] = slot['behavior_plan_index']
         timeline.append(slot_id)
         legacy_entry = legacy_by_slot_id.get(slot_id)
         if isinstance(legacy_entry, dict):
@@ -452,6 +497,8 @@ def process_select_resolve_round_start(room, battle_id, round_value):
         anchor = build_target_only_slot(char, round_value)
         if anchor:
             slots_dict[anchor['slot_id']] = anchor
+    for anchor in non_action_anchors:
+        slots_dict[anchor['slot_id']] = anchor
 
     battle_state['round'] = round_value
     battle_state['phase'] = 'select'

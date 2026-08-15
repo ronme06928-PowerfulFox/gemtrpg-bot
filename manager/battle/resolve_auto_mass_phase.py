@@ -17,6 +17,7 @@ def _sync_from_core():
 def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, characters_by_id):
     _sync_from_core()
     from manager.battle.common_manager import build_select_resolve_state_payload
+    from manager.battle.action_slot_mode import get_action_unavailable_reason
 
     if battle_state.get('phase') == 'resolve_mass':
         intents = resolve_intents
@@ -175,6 +176,23 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                     slot_id,
                     notes='attacker_unplaced',
                     extra_fields={'lines': ['reason: attacker_unplaced'], 'log_lines': ['reason: attacker_unplaced']},
+                )
+                _consume_resolve_slot(battle_state, slot_id)
+                continue
+
+            inactive_reason = get_action_unavailable_reason(attacker_char)
+            if inactive_reason:
+                _append_trace(
+                    room,
+                    battle_id,
+                    battle_state,
+                    'fizzle',
+                    slot_id,
+                    notes=f'attacker_{inactive_reason}',
+                    extra_fields={
+                        'lines': [f'reason: attacker_{inactive_reason}'],
+                        'log_lines': [f'reason: attacker_{inactive_reason}'],
+                    },
                 )
                 _consume_resolve_slot(battle_state, slot_id)
                 continue

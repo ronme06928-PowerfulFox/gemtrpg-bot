@@ -615,6 +615,17 @@ Socketと既存ロジックへ渡す互換スナップショットの主要キ�
 - 実装: `manager/preset_deployment.py`、`events/socket_preset_deployment.py`、`manager/room_preset_apply.py`、`events/socket_battle_only.py`
 - テスト: `tests/test_preset_deployment.py`、`tests/test_preset_deployment_socket.py`
 
+## 行動チャートの「行動しない」（2026-08-16）
+
+`slot_generation_mode:step_actions`の各`actions`要素には、通常のスキルIDと予約値`__NO_ACTION__`を混在できる。編集UIでは`（行動しない）`として選択し、この要素の対象条件は無効化する。
+
+- `__NO_ACTION__`の位置には通常行動スロットを生成せず、`behavior_no_action`の非行動アンカーを生成する。
+- 同じステップ内の前後のスキルは、元の配列位置を`behavior_plan_index`として保持するため、スキルと対象条件がずれない。
+- `actions:[]`も行動数0のまま扱うが、フィールド上のキャラクターを攻撃対象に残すため非行動アンカーを1件生成する。
+- 非行動アンカーはPvE自動intent作成へ渡さず、対象としてのみ利用する。
+
+途中参戦キャラクターへ行動チャートを初期化する仕組みは、この仕様には含めない。
+
 # Part 6: プリセット資産のDB永続化と環境分離（2026-08-15）
 
 ## 1. 正本とトランザクション

@@ -1298,6 +1298,7 @@ function getLatestCharacterForBehaviorEditor(charOrId) {
 }
 
 const BEHAVIOR_STEP_ACTION_RANDOM_USABLE = '__RANDOM_USABLE__';
+const BEHAVIOR_STEP_ACTION_NO_ACTION = '__NO_ACTION__';
 
 function coerceBehaviorStepSkillId(rawValue) {
     if (rawValue === null || rawValue === undefined) return null;
@@ -1313,6 +1314,9 @@ function coerceBehaviorStepSkillId(rawValue) {
         'random',
     ].includes(lower)) {
         return BEHAVIOR_STEP_ACTION_RANDOM_USABLE;
+    }
+    if (lower === '__no_action__' || lower === 'no_action') {
+        return BEHAVIOR_STEP_ACTION_NO_ACTION;
     }
     return text;
 }
@@ -1455,6 +1459,7 @@ function openBehaviorFlowEditorModal(char) {
         const options = [
             { id: '', name: '(未指定)' },
             { id: BEHAVIOR_STEP_ACTION_RANDOM_USABLE, name: '(使用可能スキルからランダム)' },
+            { id: BEHAVIOR_STEP_ACTION_NO_ACTION, name: '(行動しない)' },
             ...ownedSkills
         ];
         const selected = String(coerceBehaviorStepSkillId(selectedSkillId) || '').trim();
@@ -1913,6 +1918,9 @@ function openBehaviorFlowEditorModal(char) {
                         if (row.value === actionTargetPolicy) opt.selected = true;
                         targetSelect.appendChild(opt);
                     });
+                    const isNoAction = coerceBehaviorStepSkillId(actionSkillId) === BEHAVIOR_STEP_ACTION_NO_ACTION;
+                    targetSelect.disabled = isNoAction;
+                    targetSelect.title = isNoAction ? '「行動しない」では対象を指定しません。' : '';
 
                     const delActionBtn = document.createElement('button');
                     delActionBtn.type = 'button';
@@ -2203,7 +2211,7 @@ function openBehaviorFlowEditorModal(char) {
                 targetStep.actions = actions;
                 ensureStepTargetList(targetStep);
                 markDirty();
-                renderPreview();
+                renderAll();
             });
         });
         editorEl.querySelectorAll('[data-step-target]').forEach((select) => {

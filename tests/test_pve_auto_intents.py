@@ -468,7 +468,7 @@ def test_step_actions_generates_one_slot_per_nonempty_action(monkeypatch):
     ] == ["S-ONE", "S-TWO"]
 
 
-def test_step_actions_ignores_character_action_count_and_allows_zero_slots(monkeypatch):
+def test_step_actions_ignores_character_action_count_and_creates_zero_action_anchor(monkeypatch):
     behavior_profile = {
         "enabled": True,
         "slot_generation_mode": "step_actions",
@@ -501,6 +501,10 @@ def test_step_actions_ignores_character_action_count_and_allows_zero_slots(monke
         round_value=1,
     )
     assert _slot_ids_for_actor(state, "E1") == []
+    idle_slot = state["battle_state"]["slots"]["E1:r1:idle"]
+    assert idle_slot["target_only"] is True
+    assert idle_slot["inactive_reason"] == "behavior_no_action"
+    assert "E1:r1:idle" not in state["battle_state"]["timeline"]
     runtime = state["battle_state"]["behavior_runtime"]["E1"]
     assert runtime["step_index"] == 1
 
@@ -510,6 +514,50 @@ def test_step_actions_ignores_character_action_count_and_allows_zero_slots(monke
         round_value=2,
     )
     assert len(_slot_ids_for_actor(state, "E1")) == 1
+
+
+def test_step_actions_no_action_keeps_plan_alignment(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "slot_generation_mode": "step_actions",
+        "initial_loop_id": "main",
+        "loops": {
+            "main": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["S-ONE", "__NO_ACTION__", "S-TWO"],
+                    "targets": ["target_enemy_random"] * 3,
+                }],
+                "transitions": [],
+            },
+        },
+    }
+    state = _base_state(
+        mode="pve",
+        enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+    monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(battle_common, "roll_dice", lambda _cmd: {"total": 1})
+    _patch_step_skill_catalog(
+        monkeypatch,
+        {"S-ONE": {"name": "One"}, "S-TWO": {"name": "Two"}},
+    )
+
+    battle_common.process_select_resolve_round_start(
+        room="room_t",
+        battle_id="battle_room_t",
+        round_value=1,
+    )
+
+    actor_slots = _slot_ids_for_actor(state, "E1")
+    assert actor_slots == ["E1:r1:s0", "E1:r1:s2"]
+    wait_slot = state["battle_state"]["slots"]["E1:r1:wait1"]
+    assert wait_slot["target_only"] is True
+    assert wait_slot["behavior_plan_index"] == 1
+    assert state["battle_state"]["intents"]["E1:r1:s0"]["skill_id"] == "S-ONE"
+    assert state["battle_state"]["intents"]["E1:r1:s2"]["skill_id"] == "S-TWO"
 
 
 def test_step_actions_reuses_same_round_snapshot_without_advancing_twice(monkeypatch):

@@ -369,7 +369,10 @@ window.renderSlotBadgesForAllTokens = function () {
             const intent = (slotId && intents) ? (intents[slotId] || {}) : {};
             const committed = !!intent?.committed;
             const lockedTarget = !!slot?.locked_target || !!intent?.locked_target;
-            const initiative = Number(slot?.initiative ?? 0);
+            const sourceDisabled = !!(slot?.target_only || slot?.source_disabled || slot?.disabled || ['inactive', 'cancelled'].includes(String(slot?.status || '').toLowerCase()));
+            const initiative = slot?.initiative === null || slot?.initiative === undefined
+                ? null
+                : Number(slot.initiative);
 
             const badge = document.createElement('div');
             const isSelected = selectedSlotId && String(selectedSlotId) === String(slotId);
@@ -385,14 +388,18 @@ window.renderSlotBadgesForAllTokens = function () {
                 && !slot?.disabled
             );
 
-            badge.className = `slot-badge${committed ? ' is-committed' : ''}${lockedTarget ? ' is-locked' : ''}${isSelected ? ' is-selected' : ''}${isSource ? ' is-source' : ''}${isTargetCandidate ? ' is-target-candidate' : ''}${isCurrentTarget ? ' is-target-selected' : ''}`;
+            const inactiveReason = String(slot?.inactive_reason || '');
+            const inactiveClass = sourceDisabled
+                ? (inactiveReason === 'confusion' ? ' is-inactive is-confused' : ' is-inactive')
+                : '';
+            badge.className = `slot-badge${committed ? ' is-committed' : ''}${lockedTarget ? ' is-locked' : ''}${isSelected ? ' is-selected' : ''}${isSource ? ' is-source' : ''}${isTargetCandidate ? ' is-target-candidate' : ''}${isCurrentTarget ? ' is-target-selected' : ''}${inactiveClass}`;
             badge.title = _buildSlotBadgeTitle(slotId, initiative, stateRef);
             if (slotId) badge.dataset.slotId = String(slotId);
             if (actorId) badge.dataset.actorId = String(actorId);
 
             const num = document.createElement('span');
             num.className = 'slot-badge-num';
-            num.textContent = String(initiative);
+            num.textContent = initiative === null ? '—' : String(initiative);
             badge.appendChild(num);
 
             badge.addEventListener('click', (e) => {
@@ -559,7 +566,16 @@ function _buildSlotBadgeTitle(slotId, initiative, stateRef) {
     const index = Number(slot?.index_in_actor ?? 0) + 1;
     const actor = (stateRef?.characters || []).find((c) => String(c.id) === String(actorId));
     const actorName = actor?.name || 'actor';
-    const base = `${actorName} #${index} / SPD:${initiative}`;
+    const reasonLabels = {
+        non_action_object: '行動しないキャラクター',
+        behavior_no_action: '行動チャート：行動しない',
+        confusion: '混乱により行動不能',
+        immobilized: '行動不能',
+    };
+    const inactiveReason = String(slot?.inactive_reason || '');
+    const base = slot?.target_only || slot?.source_disabled
+        ? `${actorName} / ${reasonLabels[inactiveReason] || '行動不能'}（攻撃対象には指定可能）`
+        : `${actorName} #${index} / SPD:${initiative}`;
     const intent = stateRef?.intents?.[slotId] || null;
     if (!intent?.committed) return base;
 
@@ -824,6 +840,13 @@ function _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId, targ
 function _handleDeclareSlotDoubleClick(clickedSlotId, clickedActorId) {
     const stateRef = _getSelectResolveStateRef();
     if ((stateRef.phase || 'select') !== 'select') return;
+    const clickedSlot = stateRef?.slots?.[clickedSlotId] || null;
+    if (clickedSlot && (clickedSlot.target_only || clickedSlot.source_disabled || clickedSlot.disabled || ['inactive', 'cancelled'].includes(String(clickedSlot.status || '').toLowerCase()))) {
+        if (clickedActorId && typeof showCharacterDetail === 'function') {
+            showCharacterDetail(clickedActorId);
+        }
+        return;
+    }
 
     const clickedIntent = (stateRef.intents || {})[clickedSlotId] || null;
     let sourceSlotId = clickedSlotId;
@@ -890,6 +913,24 @@ function _handleDeclareSlotClick(clickedSlotId, clickedActorId) {
         && String(sourceActorId) !== String(effectiveClickedActorId)
     );
     const isAllowedTargetByScope = _isTargetTeamAllowedByScope(sourceTeam, clickedTeam, targetScope);
+    const clickedSlot = stateRef?.slots?.[clickedSlotId] || null;
+    const clickedSourceDisabled = !!(
+        clickedSlot
+        && (clickedSlot.target_only || clickedSlot.source_disabled || clickedSlot.disabled || ['inactive', 'cancelled'].includes(String(clickedSlot.status || '').toLowerCase()))
+    );
+
+    if (clickedSourceDisabled) {
+        if (isTargetChoosing && isDifferentActorClick && isAllowedTargetByScope) {
+            targetSlotId = clickedSlotId;
+            lastSingleTargetSlotId = clickedSlotId;
+            mode = 'ready';
+            if (window.BattleStore && typeof window.BattleStore.setDeclare === 'function') {
+                window.BattleStore.setDeclare({ sourceSlotId, targetSlotId, targetType, lastSingleTargetSlotId, skillId, mode });
+            }
+            _emitDeclarePreview(stateRef, sourceSlotId, skillId, targetSlotId, targetType);
+        }
+        return;
+    }
 
     // In mass mode, keep click UX but suppress target changes on enemy slot click.
     if (isMassMode && sourceSlotId && isDifferentActorClick) {

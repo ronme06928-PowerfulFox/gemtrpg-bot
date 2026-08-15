@@ -226,6 +226,9 @@ def _required_slots(room_id, state, *, get_room_state_fn, is_actor_actionable_fn
             continue
         actor_id = slot.get('actor_id')
         if not is_actor_actionable_fn(room_id, actor_id):
+            intents = state.setdefault('intents', {})
+            if isinstance(intents, dict):
+                intents.pop(slot_id, None)
             continue
 
         intent = state.get('intents', {}).get(slot_id, {})

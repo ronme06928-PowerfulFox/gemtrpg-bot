@@ -20,6 +20,7 @@ except Exception:
         return None
 from manager.battle.core import proceed_next_turn, run_select_resolve_auto
 from manager.battle.skill_access import evaluate_skill_access
+from manager.battle.action_slot_mode import get_action_unavailable_reason
 from manager.battle.skill_rules import _extract_rule_data_from_skill as _extract_rule_data_from_skill_v2
 from manager.battle.system_skills import ensure_system_skills_registered
 from manager.battle.common_manager import (
@@ -533,7 +534,12 @@ def _authorize_intent_slot_control(room_id, battle_id, state, slot_id, event_nam
         emit('battle_error', {'message': 'unknown slot_id', 'slot_id': slot_id}, to=request.sid)
         return False
 
-    if slot.get('target_only', False):
+    is_static_non_source = bool(slot.get('target_only', False) or slot.get('source_disabled', False))
+    is_runtime_inactive = bool(
+        slot.get('disabled', False)
+        or str(slot.get('status') or '').strip().lower() in {'inactive', 'cancelled'}
+    )
+    if is_static_non_source or (event_name != 'battle_intent_uncommit' and is_runtime_inactive):
         logger.warning(
             "[FLOW] %s_denied room=%s battle=%s slot=%s reason=target_only_slot",
             event_name, room_id, battle_id, slot_id
@@ -554,6 +560,27 @@ def _authorize_intent_slot_control(room_id, battle_id, state, slot_id, event_nam
         emit(
             'battle_error',
             {'message': 'slot actor is missing', 'slot_id': slot_id},
+            to=request.sid
+        )
+        return False
+
+    room_state = get_room_state(room_id) or {}
+    actor = next(
+        (
+            char for char in room_state.get('characters', [])
+            if isinstance(char, dict) and str(char.get('id')) == str(actor_id)
+        ),
+        None,
+    )
+    inactive_reason = get_action_unavailable_reason(actor) if actor else None
+    if event_name != 'battle_intent_uncommit' and inactive_reason:
+        logger.warning(
+            "[FLOW] %s_denied room=%s battle=%s slot=%s reason=actor_%s",
+            event_name, room_id, battle_id, slot_id, inactive_reason
+        )
+        emit(
+            'battle_error',
+            {'message': 'inactive actor cannot declare an intent', 'slot_id': slot_id},
             to=request.sid
         )
         return False

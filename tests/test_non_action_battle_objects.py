@@ -3,6 +3,7 @@ from manager.battle import resolve_queue_helpers
 from manager.battle import select_resolve_state
 from manager.battle.action_slot_mode import (
     build_target_only_slot,
+    get_action_unavailable_reason,
     get_action_slot_mode,
 )
 from manager.game_logic import process_skill_effects
@@ -35,7 +36,17 @@ def test_action_slot_mode_is_read_from_passive_effect_data():
     rubble = _character("rubble", "ally", passive_data={"action_slot_mode": "none"})
 
     assert get_action_slot_mode(rubble) == "none"
-    assert build_target_only_slot(rubble, 1)["target_only"] is True
+    anchor = build_target_only_slot(rubble, 1)
+    assert anchor["target_only"] is True
+    assert anchor["source_disabled"] is True
+    assert anchor["initiative"] is None
+
+
+def test_confusion_is_reported_as_action_unavailable_without_losing_targetability():
+    actor = _character("actor", "ally")
+    actor["special_buffs"].append({"buff_id": "Bu-02", "lasting": 1, "delay": 0})
+
+    assert get_action_unavailable_reason(actor) == "confusion"
 
 
 def test_round_start_creates_target_anchor_without_action_slot(monkeypatch):

@@ -504,6 +504,40 @@ def test_case5b_single_attacker_dead_mid_resolve_becomes_fizzle(monkeypatch):
     )
 
 
+def test_single_attacker_confused_before_its_resolution_is_skipped(monkeypatch):
+    _, battle_core = _mods()
+    attacker = _make_actor("A1", "ally")
+    defender = _make_actor("B1", "enemy")
+    attacker.setdefault("special_buffs", []).append({
+        "buff_id": "Bu-02",
+        "lasting": 1,
+        "delay": 0,
+    })
+    state = _base_state([attacker, defender])
+    _add_slot(state, "A_slot", "A1", "ally", 9, 0)
+    _add_slot(state, "B_slot", "B1", "enemy", 5, 0)
+    _set_intent(state, "A_slot", "A1", "atk", "single_slot", "B_slot")
+    _set_intent(state, "B_slot", "B1", "idle", "none", None, committed=False)
+    state["battle_state"]["phase"] = "resolve_single"
+
+    _patch_room_and_socket(monkeypatch, state)
+    monkeypatch.setattr(
+        battle_core,
+        "_resolve_one_sided_by_existing_logic",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("confused actor must not resolve")),
+    )
+
+    battle_core.run_select_resolve_auto("room_t", "battle_test")
+
+    trace = state["battle_state"]["resolve"]["trace"]
+    assert any(
+        row["kind"] == "fizzle"
+        and row.get("attacker_slot") == "A_slot"
+        and row.get("notes") == "attacker_confusion"
+        for row in trace
+    )
+
+
 def test_case6_evade_insert_promotes_one_sided_to_clash(monkeypatch):
     battle_common, battle_core = _mods()
     state = _base_state([_make_actor("A1", "ally"), _make_actor("B1", "enemy")])
