@@ -587,3 +587,12 @@ E02 Part 5の2段階ウィザード（味方/敵選択→JSON入力画面）に�
 - JS: `static/js/modals/preset_deployment_browser.js`、`room_preset_apply_modal.js`、`battle_only_draft_modal.js`、`battle_only_workspace_modal.js`
 - CSS: `static/css/modules/preset_deployment.css`、`static/css/modules/modals.css`
 - バンドル: `scripts/build_frontend.mjs`の`CLASSIC_SCRIPTS`へ共通ブラウザーを呼び出し側より前に登録する。
+
+# Part 12: プリセット移送UI（2026-08-15）
+
+- 管理ワークスペースのヘッダーに「移送JSON取込」を置き、ファイル選択、dry-run相当の内容確認、衝突処理選択、DB登録を同じ詳細ペイン内で進める。子モーダルは重ねない。
+- コレクション編集には「移送JSON出力」を置く。出力件数を完了表示し、依存する編成・キャラクターも1ファイルへまとめる。
+- 取込確認は新規件数、衝突件数、所有者、資産ごとの処理、不足参照を表示する。参照エラーがある間は登録ボタンを無効にする。
+- 管理者画面では取込後の所有者IDを任意指定できる。通常利用者は自分が所有者になる。
+- Import中にタブ、コレクション、ブックマーク、一覧項目へ移動した場合はImport表示を終了し、通常の詳細表示へ戻る。
+- ファイルはクライアントとサーバーの両方で5MB上限を検証する。

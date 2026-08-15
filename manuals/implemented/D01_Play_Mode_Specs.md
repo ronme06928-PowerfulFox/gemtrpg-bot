@@ -298,8 +298,9 @@ PvEモードかつ、`type: 'enemy'` の手番、あるいは常時表示の設�
 
 ## 2. データモデル（実装）
 
-プリセット保存は `data/cache/battle_only_presets_cache.json` を使用する。  
-主要キー:
+プリセットの正本は環境ごとのDBである。ローカルはSQLite、本番はPostgreSQLを使用し、`PresetResource`と`PresetResourceAcl`へレコード単位で保存する。`data/cache/battle_only_presets_cache.json`は通常実行時には読み書きせず、旧データ救済元としてだけ残す。
+
+Socketと既存ロジックへ渡す互換スナップショットの主要キー:
 
 - `character_presets`
 - `enemy_formations`
@@ -549,7 +550,7 @@ PvEモードかつ、`type: 'enemy'` の手番、あるいは常時表示の設�
 ## 1. 永続データと分類
 
 - 戦闘専用プリセットストアは`version: 3`とし、`character_presets`、`enemy_formations`、`ally_formations`、`stage_presets`、`catalog_collections`を保持する。
-- version 2と旧`presets`形式は読込時に正規化する。既存レコードは所有者不在のレガシー資産として維持し、通常ユーザーへ自動帰属させない。
+- version 2と旧`presets`形式は明示的な旧JSON変換時に正規化する。DB起動時に旧ファイルを自動取込みせず、取込先で所有者を確認してから登録する。
 - 各プリセットは`catalog_meta`でコレクション、安定した区分ID、ラベル、表示順、アーカイブ、最終使用時刻を管理する。分類変更は戦闘用`character_json.tag_ids`へ混入させない。
 - アーカイブは論理削除ではなく通常一覧からの非表示であり、表示フィルターを有効にすれば再表示・解除できる。
 - 永続プリセットはユーザー所有のグローバル資産だけとする。ルームにはプリセット本体を保存せず、事前準備用の弱いブックマークだけを保存する。
@@ -613,3 +614,27 @@ PvEモードかつ、`type: 'enemy'` の手番、あるいは常時表示の設�
 
 - 実装: `manager/preset_deployment.py`、`events/socket_preset_deployment.py`、`manager/room_preset_apply.py`、`events/socket_battle_only.py`
 - テスト: `tests/test_preset_deployment.py`、`tests/test_preset_deployment_socket.py`
+
+# Part 6: プリセット資産のDB永続化と環境分離（2026-08-15）
+
+## 1. 正本とトランザクション
+
+- キャラクター、敵編成、味方編成、ステージ、コレクションは`preset_resources`、編集者・閲覧者は`preset_resource_acl`を正本とする。
+- `resource_type + stable_id`を一意とし、型固有内容はJSON、検索・分類・権限・競合に必要な値は列へ保存する。
+- ローカルSQLiteと本番PostgreSQLは同じモデルを使うため、ローカル制作物がデプロイだけで本番へ混入することはない。本番資産もリポジトリ内JSONの更新では上書きされない。
+- ユーザー削除時のACL除去と、所有権移譲時の全プリセット更新はユーザー・ルーム更新と同じDBトランザクションで確定する。
+- DB障害時に旧JSONへ自動フォールバックしない。二つの正本を作らず、操作を失敗として通知する。
+
+## 2. revisionと互換スナップショット
+
+- DB行は`revision`を持ち、内容、ACL、分類の変更で増加する。`last_used_at`だけの更新では増加しない。
+- 編集画面は読込時の`revision`を保存要求へ付ける。サーバーは保存直前に再確認し、不一致なら競合として再読込を求める。
+- 既存のSocket・配置・参照検証はversion 3互換スナップショットを介して維持する。通常更新はDB上の差分だけを確定し、Git追跡JSONを書き換えない。
+
+## 3. 環境間移送
+
+- コレクション編集の「移送JSON出力」は、そのコレクション所属資産に加え、編成・ステージが参照するキャラクターと編成を依存関係として同梱する。
+- 移送JSONはACL、内部ユーザーID、実行時日時を含めない。取込先では新規資産を取込実行者所有・限定公開として登録する。
+- stable IDが衝突した資産は、権限に応じて「既存を更新」「別コピー」「除外」を確認画面で選ぶ。別コピーでは編成・ステージ内の参照IDも同時に置換する。
+- 取込確認は不足参照と利用不能参照を検査する。確認後に既存資産のrevisionが変わった場合は、部分確定せず取込全体を競合として拒否する。
+- 一度の移送は5MB・1000資産までとする。自動同期は行わず、ローカルから本番へ移す場合は利用者が明示的に出力・取込する。

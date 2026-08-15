@@ -49,10 +49,10 @@ python scripts/simulate_battle.py --ally-formation-id ALLY_1 --enemy-formation-i
 python scripts/simulate_battle.py --ally-preset-id TEST_4 --enemy-preset-id TEST_2 --roll-mode median
 ```
 
-任意のキャッシュファイルを使う場合:
+オプションを省略した場合はローカルアプリDBを読みます。任意の明示Export JSONを使う場合:
 
 ```bash
-python scripts/simulate_battle.py --preset-store data/cache/battle_only_presets_cache.json --list-stages
+python scripts/simulate_battle.py --preset-store preset_export.json --list-stages
 ```
 
 ## ID 一覧の確認
@@ -144,4 +144,3 @@ python scripts/simulate_battle.py --stage-id TESTSTAGE_1 --roll-mode random --ru
 - 味方自動 intent は簡易実装です。回復、支援、範囲、ビルド別 behavior まで完全に最適化するものではありません。
 - プリセット由来の表示名がキャッシュ側の文字コード状態に依存して崩れる場合があります。その場合でも ID と戦闘処理は確認できます。
 - `--runs 1` の JSON は単一レポート形式、`--runs 2` 以上の JSON は aggregate と runs を持つ集計形式になります。
-

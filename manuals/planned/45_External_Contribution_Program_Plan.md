@@ -5,7 +5,7 @@
 **状態**: 論点確定済み・未着手
 **対象**: アプリ開発に関わらない協力者が、シナリオ用コンテンツを制作してセッションへ持ち込めるようにする仕組みと文書
 **関連仕様**: [`../implemented/D01_Play_Mode_Specs.md`](../implemented/D01_Play_Mode_Specs.md) Part 1・Part 3・Part 4 / [`../implemented/E02_UI_Component_Specs.md`](../implemented/E02_UI_Component_Specs.md) Part 7・Part 10 / [`../implemented/A02_GM_Creator_Manual.md`](../implemented/A02_GM_Creator_Manual.md) / [`../implemented/F02_Battle_Balance_Designer_Skill_Manual.md`](../implemented/F02_Battle_Balance_Designer_Skill_Manual.md)
-**関連計画**: [`41_JSON_Syntax_Encyclopedia_Reorganization_Plan.md`](41_JSON_Syntax_Encyclopedia_Reorganization_Plan.md)（Tier B の前提） / [`46_Manual_Restructuring_Plan.md`](46_Manual_Restructuring_Plan.md)（読者別の文書体系）
+**関連計画**: [`41_JSON_Syntax_Encyclopedia_Reorganization_Plan.md`](41_JSON_Syntax_Encyclopedia_Reorganization_Plan.md)（Tier B の前提） / [`46_Manual_Restructuring_Plan.md`](46_Manual_Restructuring_Plan.md)（読者別の文書体系） / [`../implemented/D01_Play_Mode_Specs.md`](../implemented/D01_Play_Mode_Specs.md) Part 6（実装済みの本番共同制作永続化基盤）
 
 ---
 
@@ -19,7 +19,7 @@ Discordサーバーの数人程度の協力者が、リポジトリもスプレ�
 
 1. マスターデータの正本は Google Sheets のまま維持する。外部から直接書き込む経路は作らない。
 2. 寄稿物を**アプリ内で完結する Tier A** と、**マスターデータである Tier B** に二分する。本計画の実装対象は Tier A のみとする。
-3. Tier A の制作・検証・受け渡しに必要な機能はすべて実装済みである。本計画で追加するのは**文書と運用ルールのみ**とし、アプリのコード変更を含めない。
+3. Tier A の制作・検証・受け渡しに必要なUI、戦闘機能、DB永続化は実装済みである。本計画で追加するのは**文書と運用ルールのみ**とし、アプリのコード変更を含めない。
 4. 協力者は本番アプリに各自のアカウントを作り、**自分がownerのルーム**で制作と実機確認を行う。ローカル環境の構築を要求しない。
 5. 既存の権限・ACL・検証機構を流用し、寄稿者向けの新しい共有経路や新しい検証経路を作らない。
 
@@ -54,6 +54,8 @@ Discordサーバーの数人程度の協力者が、リポジトリもスプレ�
 - 全ユーザー向けのコンテンツ公開マーケット
 
 ## 4. 制作から反映までのフロー
+
+プリセットのDB永続化と環境分離は実装済みであり、次のフローで本番制作を開始できる。シナリオ単位の受け渡しにはコレクションの移送JSONを使用する。
 
 ```text
 協力者                                        管理者（リポジトリ所有者）
