@@ -955,7 +955,8 @@ window.setupVisualSocketHandlers = function () {
 
         if (window._localCharPositions && window._localCharPositions[charId]) {
             const localMove = window._localCharPositions[charId];
-            if (serverTS <= localMove.ts) return;
+            if (serverTS < localMove.ts) return;
+            delete window._localCharPositions[charId];
         }
 
         const token = document.querySelector(`.map-token[data-id="${charId}"]`);
@@ -965,6 +966,9 @@ window.setupVisualSocketHandlers = function () {
             const top = data.y * GRID_SIZE + TOKEN_OFFSET;
             token.style.left = `${left}px`;
             token.style.top = `${top}px`;
+        }
+        if (typeof window.renderArrows === 'function') {
+            window.renderArrows();
         }
     });
 
@@ -1167,6 +1171,5 @@ window.setupVisualSocketHandlers = function () {
         window.initWideMatchSocketListeners();
     }
 }
-
 
 

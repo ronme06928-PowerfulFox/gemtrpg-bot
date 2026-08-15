@@ -941,13 +941,17 @@
                         ],
                         saveLabel: 'この敵に反映',
                         onSave: (normalizedProfile) => {
+                            const activeProfile = (normalizedProfile && typeof normalizedProfile === 'object')
+                                ? JSON.parse(JSON.stringify(normalizedProfile))
+                                : {};
+                            if (activeProfile.loops && typeof activeProfile.loops === 'object' && Object.keys(activeProfile.loops).length > 0) {
+                                activeProfile.enabled = true;
+                            }
                             if (rowIndex >= 0 && Array.isArray(bo.enemy_entries) && bo.enemy_entries[rowIndex]) {
-                                bo.enemy_entries[rowIndex].behavior_profile_override = (normalizedProfile && typeof normalizedProfile === 'object')
-                                    ? normalizedProfile
-                                    : {};
+                                bo.enemy_entries[rowIndex].behavior_profile_override = activeProfile;
                             }
                             if (area) {
-                                area.value = JSON.stringify(normalizedProfile || {}, null, 2);
+                                area.value = JSON.stringify(activeProfile, null, 2);
                             }
                             setMsg('行動チャート上書きを反映しました。', 'green');
                             render();
@@ -1006,8 +1010,13 @@
             const allyMode = String(allyArea.querySelector('#bo-ally-mode')?.value || bo.ally_mode || 'preset').trim().toLowerCase();
             const intentControlMode = String(allyArea.querySelector('#bo-intent-control-mode')?.value || (bo.options && bo.options.intent_control_mode) || 'all').trim().toLowerCase();
             const requiredAllyCount = Math.max(0, safeInt(allyArea.querySelector('#bo-required-ally-count')?.value, bo.required_ally_count || 0));
-            const selectedFormationId = String(enemyArea.querySelector('#bo-enemy-formation-select')?.value || bo.enemy_formation_id || '').trim();
-            const selectedStageId = String(stageArea.querySelector('#bo-stage-select')?.value || bo.selected_stage_id || '').trim();
+            const formationSelect = enemyArea.querySelector('#bo-enemy-formation-select');
+            const stageSelect = stageArea.querySelector('#bo-stage-select');
+            const selectedFormationId = String(formationSelect ? formationSelect.value : (bo.enemy_formation_id || '')).trim();
+            const selectedStageId = String(stageSelect ? stageSelect.value : (bo.selected_stage_id || '')).trim();
+            const selectedAllyFormationId = selectedStageId
+                ? String(bo.ally_formation_id || '').trim()
+                : '';
             const allyRows = [];
             if (allyMode !== 'room_existing') {
                 allyArea.querySelectorAll('tbody tr[data-idx]').forEach((tr) => {
@@ -1042,6 +1051,7 @@
             bo.options.intent_control_mode = (intentControlMode === 'starter_only') ? 'starter_only' : 'all';
             bo.enemy_formation_id = selectedFormationId || null;
             bo.selected_stage_id = selectedStageId || null;
+            bo.ally_formation_id = selectedAllyFormationId || null;
             bo.ally_entries = allyRows;
             bo.enemy_entries = enemyRows;
             model.battle_only = bo;
@@ -1050,6 +1060,7 @@
                 intent_control_mode: bo.options.intent_control_mode,
                 required_ally_count: requiredAllyCount,
                 enemy_formation_id: selectedFormationId || null,
+                ally_formation_id: selectedAllyFormationId || null,
                 selected_stage_id: selectedStageId || null,
                 ally_entries: allyRows,
                 enemy_entries: enemyRows,
@@ -1173,6 +1184,7 @@
 
         function sendDraftUpdate(options = {}) {
             const silent = !!(options && options.silent);
+            const shouldEmit = !(options && options.emit === false);
             let payload = null;
             try {
                 payload = collectConfigFromInputs();
@@ -1188,11 +1200,13 @@
                 }
                 return false;
             }
-            socketRef.emit('request_bo_draft_update', { room: roomName, payload });
-            if (!silent) {
+            if (shouldEmit) {
+                socketRef.emit('request_bo_draft_update', { room: roomName, payload });
+            }
+            if (!silent && shouldEmit) {
                 setMsg('編成反映を送信しました。', '#444');
             }
-            return true;
+            return payload;
         }
 
         function markResult(result) {
@@ -1236,15 +1250,17 @@
                 setMsg('未設定項目を修正してください。', 'red');
                 return;
             }
+            let draftPayload = null;
             if (model.can_manage) {
-                const ok = sendDraftUpdate();
-                if (!ok) return;
+                draftPayload = sendDraftUpdate({ emit: false });
+                if (!draftPayload) return;
             }
             const modeRaw = String(allyArea.querySelector('#bo-intent-control-mode')?.value || (model.battle_only?.options && model.battle_only.options.intent_control_mode) || 'all').trim().toLowerCase();
             socketRef.emit('request_bo_start_battle', {
                 room: roomName,
                 anchor: collectBattleMapCenterAnchor(),
                 intent_control_mode: (modeRaw === 'starter_only') ? 'starter_only' : 'all',
+                draft_payload: draftPayload,
             });
             setMsg('戦闘突入を送信しました。', '#444');
         });

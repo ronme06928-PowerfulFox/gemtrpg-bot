@@ -166,6 +166,15 @@ def on_request_end_round(data):
 
     before_state = get_room_state(room)
     before_round = int((before_state or {}).get('round', 0) or 0)
+    expected_round = data.get('expected_round')
+    if expected_round is not None:
+        try:
+            expected_round = int(expected_round)
+        except (TypeError, ValueError):
+            return
+        if expected_round != before_round:
+            # 複数クライアントから遅れて届いた完了通知で、次ラウンドまで終了させない。
+            return
     end_result = process_full_round_end(room, username)
     flush_room_state_now(room)
     if not is_battle_only:
@@ -247,7 +256,7 @@ def on_request_move_token(data):
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
 
-    move_token_logic(room, char_id, x, y, username, attribute)
+    move_token_logic(room, char_id, x, y, username, attribute, move_ts=data.get('ts'))
 
 @socketio.on('open_match_modal')
 def on_open_match_modal(data):

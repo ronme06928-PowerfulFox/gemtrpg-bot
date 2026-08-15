@@ -358,6 +358,9 @@ class ResolveFlowPanel {
         if (phase !== 'round_end') return false;
         const roundKey = this._roundStateKey(stateNow);
         if (!roundKey) return false;
+        // 戦闘専用モードは解決表示の完了を契機に、次ラウンド開始要求まで自動で進める。
+        // 途中参加・再描画で resolve フェーズの状態通知を取りこぼしても round_end で停止させない。
+        if (this._isBattleOnlyMode(stateNow)) return true;
         // Prevent false completion on reconnect/round-start transient round_end snapshots.
         return this._roundSawResolvePhase || this._introShownRounds.has(roundKey) || this._presentedStepCount > 0;
     }
@@ -377,7 +380,7 @@ class ResolveFlowPanel {
         eventBus.emit('battle:resolve:flow:completed', payload);
         if (this._canDriveResolveFlow(stateNow)) {
             const roomName = payload.room_id || stateNow?.room_name || null;
-            socketClient.sendRoundEnd(roomName);
+            socketClient.sendRoundEnd(roomName, payload.round);
         }
     }
 

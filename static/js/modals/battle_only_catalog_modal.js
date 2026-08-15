@@ -875,13 +875,17 @@
                         ],
                         saveLabel: 'この敵に反映',
                         onSave: (normalizedProfile) => {
+                            const activeProfile = (normalizedProfile && typeof normalizedProfile === 'object')
+                                ? clone(normalizedProfile)
+                                : {};
+                            if (activeProfile.loops && typeof activeProfile.loops === 'object' && Object.keys(activeProfile.loops).length > 0) {
+                                activeProfile.enabled = true;
+                            }
                             if (rowIndex >= 0 && Array.isArray(state.formation_members) && state.formation_members[rowIndex]) {
-                                state.formation_members[rowIndex].behavior_profile_override = (normalizedProfile && typeof normalizedProfile === 'object')
-                                    ? normalizedProfile
-                                    : {};
+                                state.formation_members[rowIndex].behavior_profile_override = activeProfile;
                             }
                             if (area) {
-                                area.value = JSON.stringify(normalizedProfile || {}, null, 2);
+                                area.value = JSON.stringify(activeProfile, null, 2);
                             }
                             setMsg('行動チャート上書きを反映しました。', 'green');
                             renderFormationMembers();

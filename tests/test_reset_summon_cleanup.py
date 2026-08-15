@@ -140,6 +140,7 @@ def test_full_reset_hides_battle_only_stage_effect_card_state(monkeypatch):
         "battle_only": {
             "status": "in_battle",
             "active_record_id": "bor_1",
+            "records": [{"id": "bor_1", "status": "in_battle", "result": None}],
             "pending_auto_reset": True,
             "pending_auto_reset_round": 3,
             "selected_stage_id": "stage_1",
@@ -167,3 +168,8 @@ def test_full_reset_hides_battle_only_stage_effect_card_state(monkeypatch):
     assert state["battle_only"]["status"] == "draft"
     assert state["battle_only"]["active_record_id"] is None
     assert state["battle_only"]["pending_auto_reset"] is False
+    record = state["battle_only"]["records"][0]
+    assert record["status"] == "finished"
+    assert record["result"] == "aborted"
+    assert record["ended_at"]
+    assert record["end_reason"] == "full_reset_by:tester"

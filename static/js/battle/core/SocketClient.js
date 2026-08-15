@@ -312,13 +312,18 @@ class SocketClient {
         );
     }
 
-    sendRoundEnd(roomName) {
+    sendRoundEnd(roomName, expectedRound = null) {
         const room = roomName || this._getRoomName();
         if (!room) {
             console.warn('[SocketClient] request_end_round skip: room missing');
             return false;
         }
-        return this._emit('request_end_round', { room }, '[SocketClient] request_end_round skip: socket missing');
+        const payload = { room };
+        const normalizedRound = Number(expectedRound);
+        if (Number.isInteger(normalizedRound) && normalizedRound >= 0) {
+            payload.expected_round = normalizedRound;
+        }
+        return this._emit('request_end_round', payload, '[SocketClient] request_end_round skip: socket missing');
     }
 }
 

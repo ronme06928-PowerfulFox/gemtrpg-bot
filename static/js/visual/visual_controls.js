@@ -129,6 +129,7 @@ window.setupBattleTokenDrag = function () {
         if (!target) return;
         if (e.target.closest('button')) return;
         if (e.target.closest('.token-badges')) return;
+        if (e.target.closest('.slot-badge-container')) return;
 
         e.preventDefault();
         dragTarget = target;
@@ -152,11 +153,6 @@ window.setupBattleTokenDrag = function () {
         startY = e.clientY;
         initialLeft = parseFloat(target.style.left || 0);
         initialTop = parseFloat(target.style.top || 0);
-
-        target.style.zIndex = 1000;
-        target.style.cursor = 'grabbing';
-        target.classList.add('dragging');
-        target.style.transition = 'none';
     });
 
     window.addEventListener('mousemove', (e) => {
@@ -169,7 +165,13 @@ window.setupBattleTokenDrag = function () {
 
         if (!hasMovedSignificantDistance && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
             hasMovedSignificantDistance = true;
+            dragTarget.style.zIndex = 1000;
+            dragTarget.style.cursor = 'grabbing';
+            dragTarget.classList.add('dragging');
+            dragTarget.style.transition = 'none';
         }
+
+        if (!hasMovedSignificantDistance) return;
 
         dragTarget.style.left = `${initialLeft + dx}px`;
         dragTarget.style.top = `${initialTop + dy}px`;
@@ -178,6 +180,13 @@ window.setupBattleTokenDrag = function () {
     window.addEventListener('mouseup', (e) => {
         if (!isDragging || !dragTarget) return;
         isDragging = false;
+
+        if (!hasMovedSignificantDistance) {
+            dragTarget = null;
+            dragCharId = null;
+            return;
+        }
+
         dragTarget.style.cursor = 'grab';
         dragTarget.classList.remove('dragging');
 
@@ -215,6 +224,9 @@ window.setupBattleTokenDrag = function () {
         if (char) {
             char.x = finalX;
             char.y = finalY;
+        }
+        if (typeof window.renderArrows === 'function') {
+            window.renderArrows();
         }
 
         if (typeof socket !== 'undefined' && currentRoomName) {

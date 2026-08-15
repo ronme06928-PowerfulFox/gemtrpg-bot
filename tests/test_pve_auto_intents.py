@@ -468,6 +468,51 @@ def test_step_actions_generates_one_slot_per_nonempty_action(monkeypatch):
     ] == ["S-ONE", "S-TWO"]
 
 
+def test_normal_round_start_uses_step_action_count(monkeypatch):
+    behavior_profile = {
+        "enabled": True,
+        "slot_generation_mode": "step_actions",
+        "initial_loop_id": "main",
+        "loops": {
+            "main": {
+                "repeat": True,
+                "steps": [{
+                    "actions": ["E-31", "E-31", "E-34"],
+                    "targets": ["target_enemy_random", "target_enemy_random", "target_enemy_random"],
+                }],
+                "transitions": [],
+            },
+        },
+    }
+    state = _base_state(
+        mode="pve",
+        enemy_flags={"auto_skill_select": True, "behavior_profile": behavior_profile},
+    )
+    monkeypatch.setattr(battle_common, "get_room_state", lambda _room: state)
+    monkeypatch.setattr(battle_common, "save_specific_room_state", lambda _room: True)
+    monkeypatch.setattr(battle_common, "broadcast_log", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(battle_common, "broadcast_state_update", lambda _room: None)
+    monkeypatch.setattr(battle_common, "emit_select_resolve_events", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(battle_common.random, "randint", lambda _a, _b: 1)
+    _patch_step_skill_catalog(
+        monkeypatch,
+        {"E-31": {"name": "鉄根掌"}, "E-34": {"name": "暴れ回る"}},
+    )
+
+    assert battle_common.process_round_start("room_t", "GM") is True
+
+    enemy_slots = [
+        slot for slot in state["battle_state"]["slots"].values()
+        if slot.get("actor_id") == "E1" and not slot.get("target_only", False)
+    ]
+    assert len(enemy_slots) == 3
+    enemy_slots.sort(key=lambda slot: int(slot.get("behavior_plan_index", -1)))
+    assert [
+        state["battle_state"]["intents"][slot["slot_id"]]["skill_id"]
+        for slot in enemy_slots
+    ] == ["E-31", "E-31", "E-34"]
+
+
 def test_step_actions_ignores_character_action_count_and_creates_zero_action_anchor(monkeypatch):
     behavior_profile = {
         "enabled": True,

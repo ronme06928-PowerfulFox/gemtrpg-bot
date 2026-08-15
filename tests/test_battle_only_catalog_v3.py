@@ -9,6 +9,7 @@ from manager.battle_only_catalog_access import (
     reference_blockers,
     reference_scope_covers,
     sanitize_record_for_user,
+    inspect_deploy_references,
     touch_last_used_for_battle,
     transfer_user_assets,
     validate_parent_references,
@@ -141,6 +142,53 @@ def test_reference_validation_and_delete_blockers_cover_full_chain():
     assert validate_parent_references(store, "stage", store["stage_presets"]["stage"])
     assert reference_blockers(store, "character", "char")[0]["id"] == "formation"
     assert reference_blockers(store, "enemy_formation", "formation")[0]["id"] == "stage"
+
+
+def test_deploy_reference_inspection_reports_missing_record_details():
+    store = {
+        "character_presets": {"char": _record("char")},
+        "enemy_formations": {},
+        "ally_formations": {},
+        "stage_presets": {},
+        "catalog_collections": {},
+    }
+    result = inspect_deploy_references(
+        store,
+        {
+            "selected_stage_id": "missing_stage",
+            "enemy_entries": [{"preset_id": "missing_enemy"}],
+        },
+        user_id="owner",
+        room_role="gm",
+    )
+
+    assert result["valid"] is False
+    assert {(row["record_type"], row["record_id"], row["reason"]) for row in result["failures"]} == {
+        ("stage", "missing_stage", "missing"),
+        ("character", "missing_enemy", "missing"),
+    }
+    assert all("存在しません" in row["message"] for row in result["failures"])
+
+
+def test_deploy_reference_inspection_ignores_optional_none_values():
+    result = inspect_deploy_references(
+        {
+            "character_presets": {"enemy": _record("enemy")},
+            "enemy_formations": {},
+            "ally_formations": {},
+            "stage_presets": {},
+        },
+        {
+            "selected_stage_id": "None",
+            "enemy_formation_id": None,
+            "ally_formation_id": "null",
+            "enemy_entries": [{"preset_id": "enemy"}],
+        },
+        user_id="owner",
+        room_role="gm",
+    )
+
+    assert result == {"valid": True, "failures": []}
 
 
 def test_collection_removal_unclassifies_records_without_deleting_them():

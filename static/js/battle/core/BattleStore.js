@@ -165,6 +165,7 @@ class BattleStore {
         this._state = {
             ...this._state,
             room_id: payload.room_id || this._state.room_id,
+            play_mode: payload.play_mode || this._state.play_mode,
             battle_id: payload.battle_id || this._state.battle_id,
             room_name: payload.room_id || this._state.room_name,
             round: payload.round ?? this._state.round,

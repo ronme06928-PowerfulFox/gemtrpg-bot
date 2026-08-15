@@ -61,6 +61,20 @@ def _base_state(characters):
     }
 
 
+def test_select_resolve_payload_includes_room_play_mode(monkeypatch):
+    battle_common, _battle_core = _mods()
+    state = _base_state([])
+    state["play_mode"] = "battle_only"
+    monkeypatch.setattr(battle_common, "get_room_state", lambda _room: state)
+
+    payload = battle_common.build_select_resolve_state_payload(
+        "room_test",
+        battle_id="battle_test",
+    )
+
+    assert payload["play_mode"] == "battle_only"
+
+
 def _add_slot(state, slot_id, actor_id, team, initiative, index_in_actor=0):
     bs = state["battle_state"]
     bs["slots"][slot_id] = {

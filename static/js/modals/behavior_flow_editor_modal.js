@@ -1732,7 +1732,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 targetStep.actions = actions;
                 ensureStepTargetList(targetStep);
                 markDirty();
-                renderPreview();
+                renderAll();
             });
         });
         editorEl.querySelectorAll('[data-target-team]').forEach((select) => {

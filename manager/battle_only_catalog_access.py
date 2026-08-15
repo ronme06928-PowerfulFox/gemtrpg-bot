@@ -19,6 +19,22 @@ RECORD_MAP_KEYS = {
 }
 
 ROOM_GM_ROLES = frozenset({"owner", "gm"})
+REFERENCE_TYPE_LABELS = {
+    "stage": "ステージ",
+    "enemy_formation": "敵編成",
+    "ally_formation": "味方編成",
+    "character": "キャラクター",
+}
+REFERENCE_REASON_LABELS = {
+    "missing": "現在のプリセットDBに存在しません",
+    "permission_denied": "現在のユーザー権限では利用できません",
+    "invalid_child_reference": "内部に不足または公開範囲不整合の参照があります",
+}
+
+
+def _optional_reference_id(value):
+    text = str(value or "").strip()
+    return "" if text.lower() in {"none", "null"} else text
 
 
 def record_map(store, record_type, *, create=False):
@@ -361,8 +377,8 @@ def scrub_user_from_acl(store, user_id):
     return removed
 
 
-def validate_deploy_references(store, battle_only, *, user_id=None, is_app_admin=False, room_role=None):
-    """戦闘投入で利用する全グローバル参照を現在権限で検査する。"""
+def inspect_deploy_references(store, battle_only, *, user_id=None, is_app_admin=False, room_role=None):
+    """戦闘投入で利用する参照を検査し、失敗した参照と理由を返す。"""
     bo = battle_only if isinstance(battle_only, dict) else {}
     refs = []
     for record_type, key in (
@@ -370,35 +386,82 @@ def validate_deploy_references(store, battle_only, *, user_id=None, is_app_admin
         ("enemy_formation", "enemy_formation_id"),
         ("ally_formation", "ally_formation_id"),
     ):
-        record_id = str(bo.get(key) or "").strip()
+        record_id = _optional_reference_id(bo.get(key))
         if record_id:
             refs.append((record_type, record_id))
     for key in ("ally_entries", "enemy_entries"):
         for row in bo.get(key) if isinstance(bo.get(key), list) else []:
             if isinstance(row, dict) and str(row.get("preset_id") or "").strip():
                 refs.append(("character", str(row.get("preset_id")).strip()))
+    failures = []
+    seen = set()
     for record_type, record_id in refs:
+        ref_key = (record_type, record_id)
+        if ref_key in seen:
+            continue
+        seen.add(ref_key)
         record = get_record(store, record_type, record_id)
+        if not isinstance(record, dict):
+            failures.append({
+                "record_type": record_type,
+                "record_id": record_id,
+                "reason": "missing",
+            })
+            continue
         caps = capabilities(
             record,
             user_id=user_id,
             is_app_admin=is_app_admin,
             room_role=room_role,
-        ) if isinstance(record, dict) else {}
+        )
         if not caps.get("can_use"):
-            return False
+            failures.append({
+                "record_type": record_type,
+                "record_id": record_id,
+                "reason": "permission_denied",
+            })
+            continue
         if record_type in {"enemy_formation", "ally_formation", "stage"} and not validate_parent_references(store, record_type, record):
-            return False
-    return True
+            failures.append({
+                "record_type": record_type,
+                "record_id": record_id,
+                "reason": "invalid_child_reference",
+            })
+    return {
+        "valid": len(failures) == 0,
+        "failures": [
+            {
+                **failure,
+                "message": (
+                    f"{REFERENCE_TYPE_LABELS.get(failure['record_type'], failure['record_type'])} "
+                    f"{failure['record_id']}: "
+                    f"{REFERENCE_REASON_LABELS.get(failure['reason'], failure['reason'])}"
+                ),
+            }
+            for failure in failures
+        ],
+    }
+
+
+def validate_deploy_references(store, battle_only, *, user_id=None, is_app_admin=False, room_role=None):
+    """戦闘投入で利用する全グローバル参照を現在権限で検査する。"""
+    result = inspect_deploy_references(
+        store,
+        battle_only,
+        user_id=user_id,
+        is_app_admin=is_app_admin,
+        room_role=room_role,
+    )
+    return bool(result.get("valid", False))
 
 
 def touch_last_used_for_battle(store, battle_only, timestamp_ms):
     bo = battle_only if isinstance(battle_only, dict) else {}
     touched = 0
     refs = {
-        ("stage", str(bo.get("selected_stage_id") or "").strip()),
-        ("enemy_formation", str(bo.get("enemy_formation_id") or "").strip()),
-        ("ally_formation", str(bo.get("ally_formation_id") or "").strip()),
+        ("stage", _optional_reference_id(bo.get("selected_stage_id"))),
+        ("enemy_formation", _optional_reference_id(bo.get("enemy_formation_id"))),
+        ("ally_formation", _optional_reference_id(bo.get("ally_formation_id"))),
     }
     for key in ("ally_entries", "enemy_entries"):
         for row in bo.get(key) if isinstance(bo.get(key), list) else []:

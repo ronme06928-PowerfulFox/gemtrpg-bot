@@ -10,7 +10,7 @@ from manager.battle_only_catalog_access import (
     reference_blockers,
     touch_last_used_for_battle,
     validate_parent_references,
-    validate_deploy_references,
+    inspect_deploy_references,
 )
 from manager.game_logic import process_battle_start
 from manager.room_access import GM_ROLES
@@ -24,6 +24,7 @@ from manager.room_manager import (
 )
 from manager.utils import apply_passive_effect_buffs
 from events.battle_only.catalog_state import (
+    _apply_start_draft_payload,
     _ally_entries_from_formation_record,
     _count_room_allies,
     _enemy_entries_from_formation_record,
@@ -64,6 +65,8 @@ from events.battle_only.runtime_builders import (
     _bo_assign_auto_positions,
     _build_runtime_character_from_preset,
     _force_character_side,
+    _reset_runtime_battle_state,
+    _start_battle_only_round,
 )
 def _safe_int(value, default=0):
     try:
@@ -75,24 +78,9 @@ def _catalog_request_context(data):
     _catalog_access_context.get_user_info_from_sid = get_user_info_from_sid
     _catalog_access_context.user_sids = user_sids
     return _catalog_access_context.catalog_request_context(data)
-def _now_ms():
-    return int(time.time() * 1000)
-
-
-def _now_iso():
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _new_id(prefix):
-    return f"{prefix}_{_now_ms()}_{random.randint(1000, 9999)}"
-
-
-def _start_battle_only_round(room, user_info):
-    from manager.battle.common_manager import process_round_start
-    starter = str((user_info or {}).get('username', '')).strip() or '戦闘専用モード'
-    process_round_start(room, starter)
-
-
+def _now_ms(): return int(time.time() * 1000)
+def _now_iso(): return datetime.now(timezone.utc).isoformat()
+def _new_id(prefix): return f"{prefix}_{_now_ms()}_{random.randint(1000, 9999)}"
 def _emit_error(error_code, message, event_name='bo_catalog_error', extra=None):
     payload = {
         "error": str(error_code or "unknown_error"),
@@ -1010,17 +998,20 @@ def handle_bo_validate_entry(data):
 
     state = get_room_state(room)
     bo = _ensure_bo_state(state)
+    save_specific_room_state(room)
     store = load_bo_preset_store()
     presets = _store_character_presets(store, create=False)
     context = _catalog_request_context(data)
-    if not validate_deploy_references(
+    reference_check = inspect_deploy_references(
         store,
         bo,
         user_id=context.get('user_id'),
         is_app_admin=context.get('is_app_admin'),
         room_role=context.get('room_role'),
-    ):
-        _emit_error('permission_denied', '利用できない参照があるため戦闘へ配置できません。', event_name='bo_draft_error')
+    )
+    if not reference_check.get('valid', False):
+        refs = ' / '.join(str(row.get('message') or row.get('record_id') or '') for row in reference_check.get('failures', []))
+        _emit_error('unavailable_reference', f'利用できない参照があります: {refs}', event_name='bo_draft_error', extra={"references": reference_check.get('failures', [])})
         return
     validation = _validate_battle_only_entry(state, bo, presets)
     payload = {
@@ -1039,6 +1030,7 @@ def handle_bo_draft_state(data):
 
     state = get_room_state(room)
     bo = _ensure_bo_state(state)
+    save_specific_room_state(room)
     users = _room_users(room)
     context = _catalog_request_context(data)
     user_info = context.get('user_info') or {}
@@ -1097,9 +1089,9 @@ def handle_bo_draft_update(data):
         _emit_error('invalid_payload', 'ally_mode が不正です。', event_name='bo_draft_error')
         return
     required_ally_count = max(0, _safe_int(payload.get('required_ally_count', bo.get('required_ally_count', 0)), 0))
-    enemy_formation_id = str(payload.get('enemy_formation_id', bo.get('enemy_formation_id', '') or '')).strip() or None
-    ally_formation_id = str(payload.get('ally_formation_id', bo.get('ally_formation_id', '') or '')).strip() or None
-    selected_stage_id = str(payload.get('selected_stage_id', bo.get('selected_stage_id', '') or '')).strip() or None
+    enemy_formation_id = _normalize_optional_id(payload.get('enemy_formation_id', bo.get('enemy_formation_id')))
+    ally_formation_id = _normalize_optional_id(payload.get('ally_formation_id', bo.get('ally_formation_id')))
+    selected_stage_id = _normalize_optional_id(payload.get('selected_stage_id', bo.get('selected_stage_id')))
     intent_control_mode = str(
         payload.get(
             'intent_control_mode',
@@ -1149,14 +1141,25 @@ def handle_bo_start_battle(data):
     bo = _ensure_bo_state(state)
     store = load_bo_preset_store()
     presets = _store_character_presets(store, create=False)
-    if not validate_deploy_references(
+    # 開始要求に同梱された画面上の最新編成を、このイベント内で確定させる。
+    draft_payload = (data or {}).get('draft_payload')
+    if isinstance(draft_payload, dict):
+        try:
+            _apply_start_draft_payload(bo, draft_payload, presets, room)
+        except ValueError as ex:
+            _emit_error('invalid_payload', str(ex), event_name='bo_draft_error')
+            return
+
+    reference_check = inspect_deploy_references(
         store,
         bo,
         user_id=context.get('user_id'),
         is_app_admin=context.get('is_app_admin'),
         room_role=context.get('room_role'),
-    ):
-        _emit_error('permission_denied', '利用できない参照があるため戦闘へ配置できません。', event_name='bo_draft_error')
+    )
+    if not reference_check.get('valid', False):
+        refs = ' / '.join(str(row.get('message') or row.get('record_id') or '') for row in reference_check.get('failures', []))
+        _emit_error('unavailable_reference', f'利用できない参照があります: {refs}', event_name='bo_draft_error', extra={"references": reference_check.get('failures', [])})
         return
 
     ally_mode = str(bo.get('ally_mode', 'preset') or 'preset').strip().lower()
@@ -1217,12 +1220,7 @@ def handle_bo_start_battle(data):
 
     _finalize_active_record(bo, forced_result='aborted', reason='restarted')
 
-    state['characters'] = []
-    state['timeline'] = []
-    state['round'] = 0
-    state['character_owners'] = {}
-    state['battle_mode'] = 'pve'
-    state['ai_target_arrows'] = []
+    _reset_runtime_battle_state(state)
 
     serial = 1
     built_ally_rows = []
@@ -1332,7 +1330,7 @@ def handle_bo_start_battle(data):
     bo['pending_auto_reset'] = False
     bo['pending_auto_reset_round'] = None
     bo['ally_mode'] = ally_mode
-    bo['selected_stage_id'] = str(bo.get('selected_stage_id', '')).strip() or None
+    bo['selected_stage_id'] = _normalize_optional_id(bo.get('selected_stage_id'))
     bo['required_ally_count'] = required_ally_count
     stage_profile = _normalize_stage_field_effect_profile(bo.get('stage_field_effect_profile'))
     stage_avatar_profile = _normalize_stage_avatar(bo.get('stage_avatar_profile'))
@@ -1370,6 +1368,8 @@ def handle_bo_start_battle(data):
     record_id = _new_id('bor')
     record = {
         "id": record_id,
+        "room_id": room,
+        "battle_id": f"battle_{room}",
         "status": "in_battle",
         "result": None,
         "started_at": _now_iso(),
@@ -1420,6 +1420,7 @@ def handle_bo_start_battle(data):
             "ally_count": record.get('ally_count'),
             "enemy_count": record.get('enemy_count'),
             "record_id": record_id,
+            "battle_id": record.get('battle_id'),
         },
         to=request.sid
     )

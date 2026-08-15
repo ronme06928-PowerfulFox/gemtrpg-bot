@@ -60,6 +60,8 @@ def _build_select_resolve_slots_from_timeline(room_state):
             'status': 'ready' if char.get('hp', 0) > 0 else 'down',
             'is_alive': bool(char.get('hp', 0) > 0)
         }
+        if entry.get('behavior_plan_index') is not None:
+            slots[slot_id]['behavior_plan_index'] = entry.get('behavior_plan_index')
 
     round_value = room_state.get('round', 0)
     for char in characters:
@@ -275,6 +277,7 @@ def build_select_resolve_state_payload(room, battle_id=None):
             slot['inactive_reason'] = reason
     return {
         'room_id': room,
+        'play_mode': (room_state or {}).get('play_mode', 'normal'),
         'battle_id': battle_state.get('battle_id'),
         'round': battle_state.get('round', 0),
         'phase': battle_state.get('phase', 'select'),

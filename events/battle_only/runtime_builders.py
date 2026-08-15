@@ -213,6 +213,26 @@ def _force_character_side(char, side):
     char['is_enemy'] = (normalized_side == 'enemy')
     char['color'] = '#007bff' if normalized_side == 'ally' else '#dc3545'
 
+
+def _reset_runtime_battle_state(state):
+    if not isinstance(state, dict):
+        return
+    state['characters'] = []
+    state['timeline'] = []
+    state['round'] = 0
+    # 新しい戦闘へ、前戦闘の同一ラウンド番号の行動計画を持ち越さない。
+    state.pop('battle_state', None)
+    state['character_owners'] = {}
+    state['battle_mode'] = 'pve'
+    state['ai_target_arrows'] = []
+
+
+def _start_battle_only_round(room, user_info):
+    from manager.battle.common_manager import process_round_start
+
+    starter = str((user_info or {}).get('username', '')).strip() or '戦闘専用モード'
+    process_round_start(room, starter)
+
 def _bo_get_map_size(state):
     map_data = state.get('map_data') if isinstance(state, dict) else {}
     width = _safe_int((map_data or {}).get('width'), 20)

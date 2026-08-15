@@ -13,6 +13,7 @@ from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_ro
 from manager.radiance.loader import radiance_loader
 from manager.battle_only_catalog_access import normalize_record_security
 from manager.battle_only_presets import normalize_access_control
+from manager.battle_only_record_state import finalize_in_progress_records, repair_orphaned_records
 
 
 def _safe_int(value, default=0):
@@ -251,10 +252,16 @@ def _normalize_enemy_formation_record(payload, user_info, presets, existing=None
         behavior_override = row.get('behavior_profile_override')
         if not isinstance(behavior_override, dict):
             behavior_override = {}
+        else:
+            behavior_override = copy.deepcopy(behavior_override)
+            loops = behavior_override.get('loops')
+            if isinstance(loops, dict) and loops:
+                # 敵編成へ明示的に設定した行動チャートは、保存時点から実行対象とする。
+                behavior_override['enabled'] = True
         members.append({
             "preset_id": preset_id,
             "count": count,
-            "behavior_profile_override": copy.deepcopy(behavior_override),
+            "behavior_profile_override": behavior_override,
         })
 
     if not members:
@@ -489,6 +496,7 @@ def _ensure_bo_state(state):
     bo['status'] = str(bo.get('status', 'lobby') or 'lobby').strip().lower() or 'lobby'
     if bo['status'] not in ('lobby', 'draft', 'in_battle'):
         bo['status'] = 'lobby'
+    repair_orphaned_records(bo)
     return bo
 
 def _normalize_stage_field_effect_profile(raw):
@@ -633,12 +641,58 @@ def _normalize_enemy_entries(entries, presets):
         behavior_profile_override = row.get('behavior_profile_override')
         if not isinstance(behavior_profile_override, dict):
             behavior_profile_override = {}
+        else:
+            behavior_profile_override = copy.deepcopy(behavior_profile_override)
+            loops = behavior_profile_override.get('loops')
+            if isinstance(loops, dict) and loops:
+                behavior_profile_override['enabled'] = True
         normalized.append({
             "preset_id": preset_id,
             "count": count,
-            "behavior_profile_override": copy.deepcopy(behavior_profile_override),
+            "behavior_profile_override": behavior_profile_override,
         })
     return normalized
+
+
+def _apply_start_draft_payload(bo, draft_payload, presets, room):
+    """Apply the latest draft snapshot atomically before battle construction."""
+    if not isinstance(bo, dict) or not isinstance(draft_payload, dict):
+        return
+
+    ally_entries = _normalize_ally_entries(
+        draft_payload.get('ally_entries'),
+        presets,
+        validate_user_ids=False,
+        room=room,
+    )
+    enemy_entries = _normalize_enemy_entries(
+        draft_payload.get('enemy_entries'),
+        presets,
+    )
+    ally_mode = str(
+        draft_payload.get('ally_mode', bo.get('ally_mode', 'preset'))
+    ).strip().lower() or 'preset'
+    if ally_mode not in ('preset', 'room_existing'):
+        raise ValueError('ally_mode が不正です。')
+
+    options = bo.get('options') if isinstance(bo.get('options'), dict) else {}
+    intent_mode = str(
+        draft_payload.get('intent_control_mode', options.get('intent_control_mode', 'all'))
+    ).strip().lower() or 'all'
+    if intent_mode not in ('all', 'starter_only'):
+        raise ValueError('intent_control_mode が不正です。')
+
+    bo['ally_mode'] = ally_mode
+    bo['required_ally_count'] = max(0, _safe_int(
+        draft_payload.get('required_ally_count', bo.get('required_ally_count', 0)),
+        0,
+    ))
+    for key in ('enemy_formation_id', 'ally_formation_id', 'selected_stage_id'):
+        bo[key] = _normalize_optional_id(draft_payload.get(key, bo.get(key)))
+    bo['ally_entries'] = ally_entries
+    bo['enemy_entries'] = enemy_entries
+    bo['options'] = options
+    options['intent_control_mode'] = intent_mode
 
 def _get_records(bo):
     if not isinstance(bo, dict):
@@ -684,20 +738,20 @@ def _estimate_battle_result(state):
     return 'in_progress'
 
 def _finalize_active_record(bo, forced_result='aborted', reason=None):
-    rec, _ = _find_record(bo)
-    if not isinstance(rec, dict):
-        return None
-    if str(rec.get('status', '')).strip().lower() != 'in_battle':
-        bo['active_record_id'] = None
-        return None
-    rec['status'] = 'finished'
-    rec['result'] = str(forced_result or 'aborted').strip().lower() or 'aborted'
-    rec['ended_at'] = _now_iso()
-    if reason:
-        rec['end_reason'] = str(reason)
-    bo['active_record_id'] = None
-    bo['status'] = 'draft'
-    return rec
+    active_id = str((bo or {}).get('active_record_id', '')).strip()
+    finished = finalize_in_progress_records(
+        bo,
+        result=forced_result,
+        reason=reason,
+    )
+    if active_id:
+        active = next(
+            (rec for rec in finished if str(rec.get('id', '')).strip() == active_id),
+            None,
+        )
+        if active is not None:
+            return active
+    return finished[0] if finished else None
 
 def _count_room_allies(state):
     if not isinstance(state, dict):
@@ -768,10 +822,15 @@ def _enemy_entries_from_formation_record(record):
         behavior_profile_override = row.get('behavior_profile_override')
         if not isinstance(behavior_profile_override, dict):
             behavior_profile_override = {}
+        else:
+            behavior_profile_override = copy.deepcopy(behavior_profile_override)
+            loops = behavior_profile_override.get('loops')
+            if isinstance(loops, dict) and loops:
+                behavior_profile_override['enabled'] = True
         out.append({
             "preset_id": preset_id,
             "count": count,
-            "behavior_profile_override": copy.deepcopy(behavior_profile_override),
+            "behavior_profile_override": behavior_profile_override,
         })
     return out
 

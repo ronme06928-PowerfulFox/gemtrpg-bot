@@ -16,8 +16,13 @@ from manager.logs import setup_logger
 from manager.summons.service import apply_summon_change, process_summon_round_end
 from manager.granted_skills.service import process_granted_skill_round_end, apply_grant_skill_change
 from manager.battle.system_skills import pop_pending_selected_power_recoveries
-from manager.battle.action_slot_mode import is_action_slot_disabled
+from manager.battle.action_slot_mode import (
+    INACTIVE_REASON_BEHAVIOR_NO_ACTION,
+    build_non_action_anchor,
+    is_action_slot_disabled,
+)
 from manager.battle.scheduled_effects import execute_scheduled_effects
+from manager.battle_only_record_state import finalize_in_progress_records
 
 logger = setup_logger(__name__)
 
@@ -45,7 +50,7 @@ def _safe_emit(event_name, payload, **kwargs):
             return
 
 
-def _clear_stage_runtime_state(state):
+def _clear_stage_runtime_state(state, *, reset_reason=None):
     if not isinstance(state, dict):
         return
     state['field_effects'] = []
@@ -55,10 +60,11 @@ def _clear_stage_runtime_state(state):
     state['stage_avatar_enabled'] = False
     bo = state.get('battle_only')
     if isinstance(bo, dict):
-        bo['status'] = 'draft'
-        bo['active_record_id'] = None
-        bo['pending_auto_reset'] = False
-        bo['pending_auto_reset_round'] = None
+        finalize_in_progress_records(
+            bo,
+            result='aborted',
+            reason=reset_reason or 'battle_reset',
+        )
 
 
 get_room_state = getattr(room_manager, "get_room_state", lambda *_args, **_kwargs: None)
@@ -142,6 +148,7 @@ from manager.battle.pve_intent_planner import (
     _broadcast_pve_round_start_preview_log as _broadcast_pve_round_start_preview_log_impl,
     _group_enemy_slots_by_actor,
     _read_behavior_profile_from_actor,
+    prepare_pve_behavior_round_plan,
     _apply_pve_auto_enemy_intents as _apply_pve_auto_enemy_intents_impl,
 )
 import manager.battle.select_resolve_state as _select_resolve_state_mod
@@ -609,7 +616,10 @@ def reset_battle_logic(room, mode, username, reset_options=None):
 
     state['ai_target_arrows'] = []
     if mode in ('full', 'status'):
-        _clear_stage_runtime_state(state)
+        _clear_stage_runtime_state(
+            state,
+            reset_reason=f'{mode}_reset_by:{username}',
+        )
 
     if mode == 'full':
         state['characters'] = []
@@ -796,7 +806,7 @@ def force_end_match_logic(room, username):
 
     broadcast_log(room, f"[Force End] GM {username} force-ended the current match.", "match-end")
 
-def move_token_logic(room, char_id, x, y, username, attribute):
+def move_token_logic(room, char_id, x, y, username, attribute, move_ts=None):
     state = get_room_state(room)
     if not state: return
 
@@ -809,11 +819,40 @@ def move_token_logic(room, char_id, x, y, username, attribute):
         emit('move_denied', {'message': '権限がありません。'})
         return
 
-    target_char["x"] = float(x)
-    target_char["y"] = float(y)
+    try:
+        next_x = float(x)
+        next_y = float(y)
+    except (TypeError, ValueError):
+        return
+
+    try:
+        next_ts = float(move_ts) if move_ts is not None else float(int(time.time() * 1000))
+    except (TypeError, ValueError):
+        next_ts = float(int(time.time() * 1000))
+    current_ts = float(target_char.get('last_move_ts', 0) or 0)
+    if next_ts < current_ts:
+        return
+
+    old_x = target_char.get('x', -1)
+    old_y = target_char.get('y', -1)
+    try:
+        was_placed = float(old_x) >= 0 and float(old_y) >= 0
+    except (TypeError, ValueError):
+        was_placed = False
+    target_char["x"] = next_x
+    target_char["y"] = next_y
+    target_char['last_move_ts'] = next_ts
 
     save_specific_room_state(room)
-    broadcast_state_update(room)
+    if not was_placed or next_x < 0 or next_y < 0:
+        broadcast_state_update(room)
+        return
+    _safe_emit('character_moved', {
+        'character_id': char_id,
+        'x': next_x,
+        'y': next_y,
+        'last_move_ts': next_ts,
+    }, to=room)
 
 def open_match_modal_logic(room, data, username):
     state = get_room_state(room)
@@ -966,8 +1005,23 @@ def _process_round_start_impl(room, username):
 
     broadcast_log(room, f"--- {username} が Round {state['round']} を開始しました ---", 'round')
 
+    planning_battle_state = ensure_battle_state_vNext(
+        state,
+        battle_id=f"battle_{room}",
+        round_value=state.get('round', 0),
+        rebuild_slots=False,
+    )
+    behavior_round_plan = prepare_pve_behavior_round_plan(
+        state,
+        planning_battle_state,
+        state.get('round', 0),
+    ) if planning_battle_state else {}
+    round_plan_actors = behavior_round_plan.get('actors', {}) if isinstance(behavior_round_plan, dict) else {}
+    if not isinstance(round_plan_actors, dict):
+        round_plan_actors = {}
 
     timeline_unsorted = []
+    behavior_non_action_anchors = []
     import uuid
 
 
@@ -1035,20 +1089,41 @@ def _process_round_start_impl(room, username):
             broadcast_log(room, f"{char['name']} のステージ速度補正: {mod_text} (source=stage)", 'info')
 
 
-        try:
-             action_count = int(get_status_value(char, "行動回数"))
-        except Exception:
-             action_count = 0
-        if action_count <= 0:
+        actor_round_plan = round_plan_actors.get(str(char.get('id')))
+        if isinstance(actor_round_plan, dict):
+            action_plans = actor_round_plan.get('plans', [])
+            if not isinstance(action_plans, list):
+                action_plans = []
+            action_count = len(action_plans)
+        else:
+            action_plans = []
             try:
-                action_count = int(get_status_value(char, '行動回数'))
+                 action_count = int(get_status_value(char, "行動回数"))
             except Exception:
-                action_count = 1
-        action_count = max(1, action_count)
+                 action_count = 0
+            if action_count <= 0:
+                try:
+                    action_count = int(get_status_value(char, '行動回数'))
+                except Exception:
+                    action_count = 1
+            action_count = max(1, action_count)
 
         logger.debug(f"[SPEED ROLL] {char['name']}: speed={speed_val} (init={initiative}), count={action_count}")
 
         for i in range(action_count):
+            plan = action_plans[i] if i < len(action_plans) else {}
+            if str((plan or {}).get('action_type') or 'skill').strip().lower() == 'no_action':
+                anchor = build_non_action_anchor(
+                    char,
+                    state.get('round', 0),
+                    reason=INACTIVE_REASON_BEHAVIOR_NO_ACTION,
+                    slot_suffix=f'wait{i}',
+                    index_in_actor=i,
+                    behavior_plan_index=i,
+                )
+                if anchor:
+                    behavior_non_action_anchors.append(anchor)
+                continue
             roll = random.randint(1, 6)
             total_speed = initiative + roll
 
@@ -1063,7 +1138,8 @@ def _process_round_start_impl(room, username):
                 'stat_speed': initiative,
                 'roll': roll,
                 'acted': False,
-                'is_extra': (i > 0)
+                'is_extra': (i > 0),
+                'behavior_plan_index': i if isinstance(actor_round_plan, dict) else None,
             })
 
 
@@ -1138,6 +1214,10 @@ def _process_round_start_impl(room, username):
         rebuild_slots=True
     )
     if battle_state:
+        for anchor in behavior_non_action_anchors:
+            anchor_id = str(anchor.get('slot_id') or '').strip()
+            if anchor_id:
+                battle_state['slots'][anchor_id] = anchor
         battle_state['phase'] = 'select'
         battle_state['intents'] = {}
         battle_state['redirects'] = []
@@ -1359,10 +1439,6 @@ def process_ai_suggest_skill(room, char_id):
     if not char: return None
 
     return ai_suggest_skill(char)
-
-
-
-
 
 
 

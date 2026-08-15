@@ -267,6 +267,39 @@ def test_bo_draft_update_and_start_battle(monkeypatch):
     assert started[-1][1].get('enemy_count') == 2
 
 
+def test_bo_start_battle_closes_orphaned_in_progress_record(monkeypatch):
+    state = _base_state()
+    state['battle_only'].update({
+        'status': 'draft',
+        'active_record_id': None,
+        'records': [{'id': 'orphan', 'status': 'in_battle', 'result': None}],
+        'ally_entries': [{'preset_id': 'ally_1', 'user_id': 'u_1'}],
+        'enemy_entries': [{'preset_id': 'enemy_1', 'count': 1}],
+    })
+    store = {
+        'presets': {
+            'ally_1': {
+                'id': 'ally_1', 'name': 'Ally', 'visibility': 'public',
+                'allow_ally': True, 'allow_enemy': False, 'character_json': SAMPLE_CHAR_JSON,
+            },
+            'enemy_1': {
+                'id': 'enemy_1', 'name': 'Enemy', 'visibility': 'public',
+                'allow_ally': False, 'allow_enemy': True, 'character_json': SAMPLE_CHAR_JSON,
+            },
+        },
+    }
+    _patch_common(monkeypatch, state, store)
+
+    socket_battle_only.handle_bo_start_battle({'room': 'room_t'})
+
+    orphan = next(rec for rec in state['battle_only']['records'] if rec.get('id') == 'orphan')
+    assert orphan['status'] == 'finished'
+    assert orphan['result'] == 'aborted'
+    assert orphan['end_reason'] == 'orphaned_state_recovery'
+    assert state['battle_only']['active_record_id'] != 'orphan'
+    assert state['battle_only']['status'] == 'in_battle'
+
+
 def test_bo_record_mark_result_and_export(monkeypatch):
     state = _base_state()
     state['battle_only'] = {
@@ -573,7 +606,18 @@ def test_bo_enemy_formation_save_and_select(monkeypatch):
                     {
                         "preset_id": "enemy_1",
                         "count": 2,
-                        "behavior_profile_override": {"enabled": False},
+                        "behavior_profile_override": {
+                            "enabled": False,
+                            "slot_generation_mode": "step_actions",
+                            "initial_loop_id": "loop_1",
+                            "loops": {
+                                "loop_1": {
+                                    "repeat": True,
+                                    "steps": [{"actions": ["S1", "S2", "S3"]}],
+                                    "transitions": [],
+                                }
+                            },
+                        },
                     }
                 ],
             }
@@ -584,6 +628,10 @@ def test_bo_enemy_formation_save_and_select(monkeypatch):
     formation_id = saved[-1][1].get('id')
     assert formation_id
     assert formation_id in store['enemy_formations']
+    saved_override = store['enemy_formations'][formation_id]['members'][0]['behavior_profile_override']
+    assert saved_override['enabled'] is True
+    assert saved_override['slot_generation_mode'] == 'step_actions'
+    assert saved_override['loops']['loop_1']['steps'][0]['actions'] == ['S1', 'S2', 'S3']
 
     emits.clear()
     socket_battle_only.handle_bo_select_enemy_formation({"room": "room_t", "formation_id": formation_id})
@@ -594,6 +642,7 @@ def test_bo_enemy_formation_save_and_select(monkeypatch):
     assert bo.get("required_ally_count") == 2
     assert isinstance(bo.get("enemy_entries"), list)
     assert bo["enemy_entries"][0]["preset_id"] == "enemy_1"
+    assert bo["enemy_entries"][0]["behavior_profile_override"]["enabled"] is True
     assert bo["enemy_entries"][0]["count"] == 2
 
 
@@ -679,10 +728,24 @@ def test_bo_start_battle_room_existing_mode_uses_placed_allies(monkeypatch):
         user_info={"username": "gm", "attribute": "GM", "user_id": "u_gm"},
     )
 
-    socket_battle_only.handle_bo_start_battle({"room": "room_t", "anchor": {"x": 12.0, "y": 8.0}})
+    socket_battle_only.handle_bo_start_battle({
+        "room": "room_t",
+        "anchor": {"x": 12.0, "y": 8.0},
+        "draft_payload": {
+            "ally_mode": "room_existing",
+            "required_ally_count": 1,
+            "selected_stage_id": None,
+            "enemy_formation_id": None,
+            "ally_formation_id": None,
+            "ally_entries": [],
+            "enemy_entries": [{"preset_id": "enemy_1", "count": 1}],
+        },
+    })
 
     assert state.get("battle_mode") == "pve"
     assert state.get("battle_only", {}).get("status") == "in_battle"
+    assert state["battle_only"]["selected_stage_id"] is None
+    assert state["battle_only"]["ally_formation_id"] is None
     chars = state.get("characters", [])
     allies = [c for c in chars if c.get("type") == "ally"]
     enemies = [c for c in chars if c.get("type") == "enemy"]
@@ -746,6 +809,78 @@ def test_bo_start_battle_applies_enemy_behavior_profile_override(monkeypatch):
     behavior = flags.get("behavior_profile")
     assert isinstance(behavior, dict)
     assert behavior.get("enabled") is True
+
+
+def test_bo_start_battle_uses_inline_draft_before_stale_room_state(monkeypatch):
+    state = _base_state()
+    state["battle_state"] = {
+        "round": 1,
+        "behavior_round_plan": {
+            "round": 1,
+            "actors": {"old_enemy": {"plans": [{"skill_id": "OLD"}]}},
+        },
+    }
+    state["battle_only"]["ally_entries"] = [{"preset_id": "ally_1", "user_id": "u_1"}]
+    state["battle_only"]["enemy_entries"] = [{
+        "preset_id": "enemy_1",
+        "count": 1,
+        "behavior_profile_override": {},
+    }]
+    store = {
+        "character_presets": {
+            "ally_1": {
+                "id": "ally_1",
+                "name": "味方A",
+                "visibility": "public",
+                "allow_ally": True,
+                "allow_enemy": False,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+            "enemy_1": {
+                "id": "enemy_1",
+                "name": "敵A",
+                "visibility": "public",
+                "allow_ally": False,
+                "allow_enemy": True,
+                "character_json": SAMPLE_CHAR_JSON,
+            },
+        }
+    }
+    _patch_common(monkeypatch, state, store)
+    profile = {
+        "enabled": False,
+        "slot_generation_mode": "step_actions",
+        "initial_loop_id": "loop_1",
+        "loops": {
+            "loop_1": {
+                "repeat": True,
+                "steps": [{"actions": ["E-31", "E-31", "E-34"]}],
+                "transitions": [],
+            }
+        },
+    }
+
+    socket_battle_only.handle_bo_start_battle({
+        "room": "room_t",
+        "draft_payload": {
+            "ally_mode": "preset",
+            "required_ally_count": 1,
+            "ally_entries": [{"preset_id": "ally_1", "user_id": "u_1"}],
+            "enemy_entries": [{
+                "preset_id": "enemy_1",
+                "count": 1,
+                "behavior_profile_override": profile,
+            }],
+        },
+    })
+
+    enemies = [c for c in state.get("characters", []) if c.get("type") == "enemy"]
+    assert len(enemies) == 1
+    assert "battle_state" not in state
+    behavior = enemies[0]["flags"]["behavior_profile"]
+    assert behavior["enabled"] is True
+    assert behavior["slot_generation_mode"] == "step_actions"
+    assert behavior["loops"]["loop_1"]["steps"][0]["actions"] == ["E-31", "E-31", "E-34"]
 
 
 def test_bo_start_battle_from_enemy_formation_applies_behavior_profile_override(monkeypatch):
