@@ -77,6 +77,8 @@
         </div>
         <div class="bo-workspace__header-actions">
           <span id="bo-ws-status" role="status">読込中</span>
+          <button id="bo-ws-import-package" class="bo-btn" type="button">移送JSON取込</button>
+          <input id="bo-ws-import-file" type="file" accept="application/json,.json" hidden>
           ${room && !adminGlobal ? '<button id="bo-ws-open-deployment" class="bo-btn bo-btn--primary" type="button">ルームへ配置</button>' : ''}
           <button id="bo-ws-close" class="bo-btn" type="button">閉じる</button>
         </div>
@@ -137,6 +139,7 @@
       records: {
         character: {}, enemy_formation: {}, ally_formation: {}, stage: {},
       },
+      importDraft: null,
     };
     const listeners = [];
     const $ = (selector) => panel.querySelector(selector);
@@ -262,6 +265,7 @@
         button.addEventListener('click', async () => {
           if (!await guardDirty(state)) return;
           state.dirty = false;
+          state.importDraft = null;
           state.collectionFilter = String(button.dataset.collection || '');
           state.sectionFilter = String(button.dataset.section || '');
           state.selectedId = null;
@@ -269,6 +273,7 @@
         });
       });
       $('#bo-ws-collections').querySelectorAll('[data-collection-edit]').forEach((button) => button.addEventListener('click', () => {
+        state.importDraft = null;
         const collection = state.collections[button.dataset.collectionEdit];
         if (collection) editCollection(collection);
       }));
@@ -305,6 +310,7 @@
       el.querySelectorAll('[data-bookmark-open]').forEach((button) => button.addEventListener('click', () => {
         const bookmark = state.bookmarks.find((row) => row.id === button.dataset.bookmarkOpen);
         if (!bookmark || !bookmark.available) return;
+        state.importDraft = null;
         if (bookmark.target_type === 'collection') {
           state.collectionFilter = bookmark.target_id;
           state.selectedId = null;
@@ -333,6 +339,7 @@
       listEl.querySelectorAll('[data-record-id]').forEach((button) => button.addEventListener('click', async () => {
         if (!await guardDirty(state)) return;
         state.dirty = false;
+        state.importDraft = null;
         state.selectedType = button.dataset.recordType;
         state.selectedId = button.dataset.recordId;
         renderList();
@@ -448,6 +455,7 @@
     }
 
     function renderDetail() {
+      if (state.importDraft) return;
       const record = selectedRecord();
       if (!record) {
         detailEl.innerHTML = '<div class="bo-empty">一覧から対象を選択してください。</div>';
@@ -543,6 +551,7 @@
           record_type: state.selectedType,
           id: state.selectedId,
           expected_updated_at: record.updated_at,
+          expected_revision: record.revision,
           catalog_meta: {
             collection_id: $('#bo-ws-meta-collection').value || null,
             section_id: $('#bo-ws-meta-section').value || null,
@@ -590,6 +599,83 @@
       renderDetail();
     }
 
+    function renderImportSource() {
+      const draft = state.importDraft;
+      if (!draft) return;
+      detailEl.innerHTML = `
+        <div class="bo-workspace__detail-sticky"><div><h3>移送JSONを取り込む</h3><code>${h(draft.fileName)}</code></div></div>
+        <section class="bo-workspace__card">
+          <p>ファイルをDBへ登録する前に、追加・更新・衝突・不足参照を検査します。この確認ではデータを変更しません。</p>
+          <p class="bo-workspace__help">${Math.ceil(draft.content.length / 1024)} KB</p>
+          ${adminGlobal ? '<label>登録後の所有者ID（空欄なら自分）<input id="bo-ws-import-owner" placeholder="内部ユーザーID"></label>' : ''}
+          <div class="bo-workspace__actions">
+            <button id="bo-ws-import-preview" class="bo-btn bo-btn--primary" type="button">内容を確認</button>
+            <button id="bo-ws-import-cancel" class="bo-btn" type="button">キャンセル</button>
+          </div>
+        </section>
+      `;
+      $('#bo-ws-import-preview').addEventListener('click', () => {
+        draft.ownerUserId = String($('#bo-ws-import-owner')?.value || '').trim();
+        socketIo.emit('request_bo_preset_package_preview', {
+          room: room || null,
+          admin_global: adminGlobal,
+          owner_user_id: draft.ownerUserId || undefined,
+          content: draft.content,
+        });
+        setStatus('移送JSONを検査中');
+      });
+      $('#bo-ws-import-cancel').addEventListener('click', () => {
+        state.importDraft = null;
+        renderDetail();
+      });
+    }
+
+    function renderImportPreview(preview) {
+      const draft = state.importDraft;
+      if (!draft) return;
+      const errors = Array.isArray(preview.errors) ? preview.errors : [];
+      const items = Array.isArray(preview.items) ? preview.items : [];
+      const actionLabel = { create: '新規登録', update: '既存を更新', copy: '別コピー', skip: '除外' };
+      detailEl.innerHTML = `
+        <div class="bo-workspace__detail-sticky"><div><h3>${h(preview.name || draft.fileName)}</h3><code>${h(preview.package_id || '')}</code></div></div>
+        <section class="bo-workspace__card">
+          <p>所有者: ${h((preview.owner && preview.owner.name) || '')}</p>
+          <p>新規 ${safeInt(preview.counts && preview.counts.new)}件／衝突 ${safeInt(preview.counts && preview.counts.conflict)}件</p>
+          ${errors.length ? `<div class="bo-workspace__transfer-errors"><strong>解決が必要な問題</strong>${errors.map((row) => `<p>${h(row.code || 'error')}: ${h(row.resource || '')} ${h(row.reference || '')}</p>`).join('')}</div>` : ''}
+        </section>
+        <section class="bo-workspace__transfer-list">
+          ${items.map((item) => `<label class="bo-workspace__transfer-row">
+            <span><strong>${h(item.name)}</strong><small>${h(item.key)}</small></span>
+            <select data-import-key="${h(item.key)}" ${item.allowed_actions.length === 1 ? 'disabled' : ''}>
+              ${item.allowed_actions.map((action) => `<option value="${h(action)}" ${action === item.default_action ? 'selected' : ''}>${h(actionLabel[action] || action)}</option>`).join('')}
+            </select>
+          </label>`).join('')}
+        </section>
+        <div class="bo-workspace__actions">
+          <button id="bo-ws-import-confirm" class="bo-btn bo-btn--primary" type="button" ${preview.can_import ? '' : 'disabled'}>DBへ登録</button>
+          <button id="bo-ws-import-back" class="bo-btn" type="button">戻る</button>
+        </div>
+      `;
+      $('#bo-ws-import-confirm')?.addEventListener('click', () => {
+        const actions = {};
+        const expectedRevisions = {};
+        detailEl.querySelectorAll('[data-import-key]').forEach((select) => { actions[select.dataset.importKey] = select.value; });
+        items.forEach((item) => {
+          if (item.existing_revision !== null && item.existing_revision !== undefined) expectedRevisions[item.key] = item.existing_revision;
+        });
+        socketIo.emit('request_bo_preset_package_import', {
+          room: room || null,
+          admin_global: adminGlobal,
+          owner_user_id: draft.ownerUserId || undefined,
+          content: draft.content,
+          actions,
+          expected_revisions: expectedRevisions,
+        });
+        setStatus('移送JSONを登録中');
+      });
+      $('#bo-ws-import-back')?.addEventListener('click', renderImportSource);
+    }
+
     function editCollection(record = null) {
       const rec = record || { sections: [], access_control: { viewer_mode: 'restricted' } };
       state.selectedType = 'collection';
@@ -612,7 +698,7 @@
           <label>編集者へ追加<input id="bo-ws-col-editors-extra" placeholder="内部ユーザーID, 内部ユーザーID"></label>
           <label>閲覧者へ追加<input id="bo-ws-col-viewers-extra" placeholder="内部ユーザーID, 内部ユーザーID"></label>
         </details>
-        <div class="bo-workspace__actions"><button id="bo-ws-col-save" class="bo-btn bo-btn--primary">保存</button>${rec.id ? '<button id="bo-ws-col-delete" class="bo-btn bo-btn--danger">削除</button>' : ''}</div>
+        <div class="bo-workspace__actions"><button id="bo-ws-col-save" class="bo-btn bo-btn--primary">保存</button>${rec.id ? '<button id="bo-ws-col-export-package" class="bo-btn">移送JSON出力</button><button id="bo-ws-col-delete" class="bo-btn bo-btn--danger">削除</button>' : ''}</div>
       `;
       $('#bo-ws-col-mode').value = (rec.access_control || {}).viewer_mode || rec.visibility || 'restricted';
       detailEl.querySelectorAll('input,textarea,select').forEach((input) => input.addEventListener('input', () => { state.dirty = true; }));
@@ -625,6 +711,7 @@
           room: room || null,
           admin_global: adminGlobal,
           expected_updated_at: rec.updated_at,
+          expected_revision: rec.revision,
           payload: {
             id: $('#bo-ws-col-id').value.trim() || undefined,
             name: $('#bo-ws-col-name').value.trim(),
@@ -654,11 +741,20 @@
           : global.confirm('コレクションを削除しますか？');
         if (ok) socketIo.emit('request_bo_collection_delete', { room: room || null, id: rec.id });
       });
+      $('#bo-ws-col-export-package')?.addEventListener('click', () => {
+        socketIo.emit('request_bo_collection_package_export', {
+          room: room || null,
+          admin_global: adminGlobal,
+          collection_id: rec.id,
+        });
+        setStatus('移送JSONを作成中');
+      });
     }
 
     panel.querySelectorAll('[data-tab]').forEach((button) => button.addEventListener('click', async () => {
       if (button.disabled || !await guardDirty(state)) return;
       state.dirty = false;
+      state.importDraft = null;
       state.tab = button.dataset.tab;
       state.selectedId = null;
       state.selectedType = null;
@@ -669,13 +765,32 @@
     $('#bo-ws-section-filter').addEventListener('change', (event) => { state.sectionFilter = event.target.value; renderList(); });
     $('#bo-ws-archived').addEventListener('change', (event) => { state.showArchived = event.target.checked; renderList(); });
     $('#bo-ws-refresh').addEventListener('click', requestCatalog);
-    $('#bo-ws-new-collection').addEventListener('click', () => editCollection());
+    $('#bo-ws-new-collection').addEventListener('click', () => { state.importDraft = null; editCollection(); });
     $('#bo-ws-new-record').addEventListener('click', () => {
       if (state.tab === 'formations') openLegacyEditor('enemy_formation');
       else if (state.tab === 'stage') openLegacyEditor('stage');
       else openLegacyEditor('character');
     });
     $('#bo-ws-new-ally-formation').addEventListener('click', () => openLegacyEditor('ally_formation'));
+    $('#bo-ws-import-package').addEventListener('click', () => $('#bo-ws-import-file').click());
+    $('#bo-ws-import-file').addEventListener('change', async (event) => {
+      const file = event.target.files && event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        setStatus('移送JSONは5MB以下にしてください', 'error');
+        return;
+      }
+      try {
+        state.importDraft = { fileName: file.name, content: await file.text(), ownerUserId: '' };
+        state.selectedType = null;
+        state.selectedId = null;
+        renderImportSource();
+        setStatus('移送JSONを選択しました');
+      } catch (_error) {
+        setStatus('ファイルを読み取れませんでした', 'error');
+      }
+    });
 
     on('receive_bo_catalog_list', (data) => {
       state.records.character = clone(data.presets || {});
@@ -704,7 +819,23 @@
     }));
     on('bo_record_duplicated', (data) => { setStatus('複製しました', 'success'); state.selectedType = data.record_type; state.selectedId = data.id; requestCatalog(); });
     on('bo_record_export_v3', (data) => download(data.filename, data.content));
-    ['bo_catalog_error', 'bo_preset_error', 'bo_enemy_formation_error', 'bo_ally_formation_error', 'bo_stage_preset_error', 'bo_record_metadata_error', 'bo_collection_error', 'bo_record_duplicate_error', 'bo_record_export_v3_error', 'bo_bookmark_error', 'bo_draft_error'].forEach((eventName) => on(eventName, (data) => {
+    on('bo_collection_package_exported', (data) => {
+      download(data.filename, data.content);
+      setStatus(`${safeInt(data.resource_count)}件を移送JSONへ出力しました`, 'success');
+    });
+    on('bo_preset_package_preview', (data) => {
+      setStatus(data.can_import ? '内容を確認してください' : '参照エラーがあります', data.can_import ? 'success' : 'error');
+      renderImportPreview(data);
+    });
+    on('bo_preset_package_imported', (data) => {
+      const total = ['created', 'updated', 'copied'].reduce((sum, key) => sum + (Array.isArray(data[key]) ? data[key].length : 0), 0);
+      state.importDraft = null;
+      state.selectedType = null;
+      state.selectedId = null;
+      setStatus(`${total}件をDBへ登録しました`, 'success');
+      requestCatalog();
+    });
+    ['bo_catalog_error', 'bo_preset_error', 'bo_enemy_formation_error', 'bo_ally_formation_error', 'bo_stage_preset_error', 'bo_record_metadata_error', 'bo_collection_error', 'bo_record_duplicate_error', 'bo_record_export_v3_error', 'bo_bookmark_error', 'bo_draft_error', 'bo_preset_package_error'].forEach((eventName) => on(eventName, (data) => {
       setStatus((data && (data.message || data.error)) || '操作に失敗しました', 'error');
     }));
 

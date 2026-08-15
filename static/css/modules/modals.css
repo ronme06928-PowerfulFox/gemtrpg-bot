@@ -2057,6 +2057,59 @@
   line-height: 1.5;
 }
 
+.bo-workspace__transfer-errors {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #f1aeb5;
+  border-radius: 8px;
+  background: #fff3f4;
+  color: #842029;
+}
+
+.bo-workspace__transfer-errors p {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.bo-workspace__transfer-list {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0;
+}
+
+.bo-workspace__transfer-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 155px);
+  align-items: center;
+  gap: 10px !important;
+  margin: 0 !important;
+  padding: 9px 10px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.bo-workspace__transfer-row span {
+  min-width: 0;
+}
+
+.bo-workspace__transfer-row strong,
+.bo-workspace__transfer-row small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bo-workspace__transfer-row small {
+  margin-top: 3px;
+  color: #657184;
+}
+
+.bo-workspace__transfer-row select {
+  margin: 0;
+}
+
 .bo-workspace__archive-help {
   display: inline-flex;
   align-items: center;

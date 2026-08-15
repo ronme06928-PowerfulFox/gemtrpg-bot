@@ -1109,7 +1109,12 @@
                 allow_enemy: !!enemyCheck.checked,
                 character_json: parsed.parsed,
             };
-            socketRef.emit('request_bo_preset_save', { payload, overwrite: true });
+            const existing = payload.id ? state.presets[payload.id] : null;
+            socketRef.emit('request_bo_preset_save', {
+                payload,
+                overwrite: true,
+                expected_revision: existing?.revision,
+            });
             setMsg('保存を送信しました。', '#444');
         });
 
@@ -1167,7 +1172,12 @@
                 recommended_ally_count: Math.max(0, safeInt(formRecommendedInput?.value, 0)),
                 members,
             };
-            socketRef.emit('request_bo_enemy_formation_save', { payload, overwrite: true });
+            const existing = payload.id ? state.enemy_formations[payload.id] : null;
+            socketRef.emit('request_bo_enemy_formation_save', {
+                payload,
+                overwrite: true,
+                expected_revision: existing?.revision,
+            });
             setMsg('敵編成の保存を送信しました。', '#444');
         });
         panel.querySelector('#bo-form-delete-btn')?.addEventListener('click', async () => {

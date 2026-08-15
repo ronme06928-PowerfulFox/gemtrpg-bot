@@ -448,7 +448,12 @@
                 setMsg('味方編成メンバーを1件以上設定してください。', 'red');
                 return;
             }
-            socketRef.emit('request_bo_ally_formation_save', { payload, overwrite: true });
+            const existing = payload.id ? state.ally_formations[payload.id] : null;
+            socketRef.emit('request_bo_ally_formation_save', {
+                payload,
+                overwrite: true,
+                expected_revision: existing?.revision,
+            });
             setMsg('味方編成の保存を送信しました。', '#444');
         });
         panel.querySelector('#bo-af-delete-btn')?.addEventListener('click', async () => {

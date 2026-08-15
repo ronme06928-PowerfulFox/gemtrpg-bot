@@ -691,7 +691,12 @@
                 recommended_ally_count: Math.max(0, safeInt(recommendedInput?.value, 0)),
                 members,
             };
-            socketRef.emit('request_bo_enemy_formation_save', { payload, overwrite: true });
+            const existing = payload.id ? state.enemy_formations[payload.id] : null;
+            socketRef.emit('request_bo_enemy_formation_save', {
+                payload,
+                overwrite: true,
+                expected_revision: existing?.revision,
+            });
             setMsg('敵編成の保存を送信しました。', '#444');
         });
         panel.querySelector('#bo-ef-delete-btn')?.addEventListener('click', async () => {
