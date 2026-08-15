@@ -279,7 +279,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--input", help="Path to a room_state JSON file.")
     parser.add_argument(
         "--preset-store",
-        help="Optional path to a battle_only_presets cache JSON. Defaults to the app cache.",
+        help="Optional preset export JSON path. Without this option, presets are read from the local app DB.",
     )
     parser.add_argument(
         "--ally-preset-id",

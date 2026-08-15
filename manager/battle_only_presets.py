@@ -1,17 +1,11 @@
 import copy
-import threading
 import time
 
 from manager.cache_paths import (
     BATTLE_ONLY_PRESETS_CACHE_FILE,
     LEGACY_BATTLE_ONLY_PRESETS_CACHE_FILE,
     load_json_cache,
-    save_json_cache,
 )
-
-
-_STORE_LOCK = threading.Lock()
-_STORE_CACHE = None
 
 
 def _now_ms():
@@ -222,8 +216,8 @@ def _normalize_stage_presets(src):
         if not rec_id:
             continue
         rec["id"] = rec_id
-        rec["enemy_formation_id"] = str(rec.get("enemy_formation_id", "")).strip() or None
-        rec["ally_formation_id"] = str(rec.get("ally_formation_id", "")).strip() or None
+        rec["enemy_formation_id"] = str(rec.get("enemy_formation_id") or "").strip() or None
+        rec["ally_formation_id"] = str(rec.get("ally_formation_id") or "").strip() or None
         try:
             rec["required_ally_count"] = int(rec.get("required_ally_count", 0) or 0)
         except Exception:
@@ -266,39 +260,31 @@ def _normalize_store(raw):
     return store
 
 
-def _ensure_loaded_unlocked():
-    global _STORE_CACHE
-    if _STORE_CACHE is not None:
-        return
+def load_store():
+    """DBを正本としてversion 3互換ストアを構築する。"""
+    from manager.preset_repository import load_store_from_db
+
+    return load_store_from_db()
+
+
+def save_store(new_store, *, commit=True):
+    """完全復元・管理処理向けにDB内容をストア全体で置換する。"""
+    from manager.preset_repository import replace_store_in_db
+
+    return replace_store_in_db(new_store, _normalize_store, commit=commit)
+
+
+def mutate_store(mutator, *, commit=True):
+    """互換ストアへ変更を適用し、差分だけをDBへ永続化する。"""
+    from manager.preset_repository import mutate_store_in_db
+
+    return mutate_store_in_db(mutator, _normalize_store, commit=commit)
+
+
+def load_legacy_store():
+    """旧JSONを読み取るだけの復旧用入口。通常実行時には使用しない。"""
     loaded = load_json_cache(
         BATTLE_ONLY_PRESETS_CACHE_FILE,
         legacy_paths=[LEGACY_BATTLE_ONLY_PRESETS_CACHE_FILE],
     )
-    _STORE_CACHE = _normalize_store(loaded) if loaded else _default_store()
-
-
-def load_store():
-    with _STORE_LOCK:
-        _ensure_loaded_unlocked()
-        return copy.deepcopy(_STORE_CACHE)
-
-
-def save_store(new_store):
-    with _STORE_LOCK:
-        global _STORE_CACHE
-        _STORE_CACHE = _normalize_store(new_store)
-        _STORE_CACHE["updated_at"] = _now_ms()
-        save_json_cache(BATTLE_ONLY_PRESETS_CACHE_FILE, _STORE_CACHE)
-        return copy.deepcopy(_STORE_CACHE)
-
-
-def mutate_store(mutator):
-    with _STORE_LOCK:
-        global _STORE_CACHE
-        _ensure_loaded_unlocked()
-        working = copy.deepcopy(_STORE_CACHE)
-        mutator(working)
-        _STORE_CACHE = _normalize_store(working)
-        _STORE_CACHE["updated_at"] = _now_ms()
-        save_json_cache(BATTLE_ONLY_PRESETS_CACHE_FILE, _STORE_CACHE)
-        return copy.deepcopy(_STORE_CACHE)
+    return _normalize_store(loaded) if loaded else _default_store()

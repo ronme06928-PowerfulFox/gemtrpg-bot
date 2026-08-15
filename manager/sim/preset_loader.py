@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -48,7 +49,21 @@ def empty_room_state_for_presets() -> dict:
 
 def load_preset_store_from_path(path: str | None) -> dict:
     if not path:
-        return load_bo_preset_store()
+        from flask import has_app_context
+
+        if has_app_context():
+            return load_bo_preset_store()
+        os.environ.setdefault("GEMTRPG_DISABLE_DEFAULT_APP", "1")
+        os.environ.setdefault("GEMTRPG_SKIP_IMPORT_STARTUP", "1")
+        from app import create_app
+
+        app = create_app(
+            run_startup=False,
+            register_sockets=False,
+            register_routes=False,
+        )
+        with app.app_context():
+            return load_bo_preset_store()
     with Path(path).open("r", encoding="utf-8") as fh:
         payload = json.load(fh)
     if not isinstance(payload, dict):
@@ -172,4 +187,3 @@ def build_room_state_from_presets(
     state["character_owners"] = {str(char.get("id")): "simulator" for char in state["characters"] if char.get("id")}
     _bo_assign_auto_positions(allies, enemies, state, anchor=anchor)
     return state
-

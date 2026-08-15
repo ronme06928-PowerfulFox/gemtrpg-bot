@@ -12,7 +12,7 @@ from manager.battle_only_catalog_access import (
     scrub_user_from_acl,
     transfer_user_assets,
 )
-from manager.battle_only_presets import load_store, mutate_store, save_store
+from manager.battle_only_presets import load_store, mutate_store
 
 
 RECOVERY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -175,8 +175,7 @@ def delete_user(user_id):
         preset_counts = owned_asset_counts(load_store(), user_id)
         if preset_counts.get("total", 0) > 0:
             raise OwnedPresetAssetsError(preset_counts)
-        preset_snapshot = load_store()
-        mutate_store(lambda store: scrub_user_from_acl(store, user_id))
+        mutate_store(lambda store: scrub_user_from_acl(store, user_id), commit=False)
         # ルームの所有権を解除
         rooms = Room.query.filter_by(owner_id=user_id).all()
         for r in rooms:
@@ -187,7 +186,6 @@ def delete_user(user_id):
             db.session.commit()
         except Exception:
             db.session.rollback()
-            save_store(preset_snapshot)
             raise
         return True
     return False
@@ -232,13 +230,12 @@ def transfer_ownership(old_id, new_id):
     if not User.query.get(new_id):
         raise ValueError("transfer target user not found")
 
-    preset_snapshot = load_store()
     preset_result = {}
     def _transfer_presets(store):
         preset_result.update(transfer_user_assets(store, old_id, new_id))
         scrub_user_from_acl(store, old_id)
 
-    mutate_store(_transfer_presets)
+    mutate_store(_transfer_presets, commit=False)
 
     # 1. ルームの所有権移動
     rooms = Room.query.filter_by(owner_id=old_id).all()
@@ -277,7 +274,6 @@ def transfer_ownership(old_id, new_id):
         db.session.commit()
     except Exception:
         db.session.rollback()
-        save_store(preset_snapshot)
         for room_name, snapshot in active_state_snapshots.items():
             active_room_states[room_name] = snapshot
         raise

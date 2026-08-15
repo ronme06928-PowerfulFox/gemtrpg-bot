@@ -74,9 +74,13 @@ def visible_map(store, record_type, context, *, owner_names=None):
 
 
 def check_expected_updated_at(src, current):
-    if not isinstance(src, dict) or "expected_updated_at" not in src:
+    if not isinstance(src, dict):
         return True
     try:
+        if "expected_revision" in src:
+            return int(src.get("expected_revision")) == int((current or {}).get("revision", 0))
+        if "expected_updated_at" not in src:
+            return True
         return int(src.get("expected_updated_at")) == int((current or {}).get("updated_at", 0))
     except (TypeError, ValueError):
         return False

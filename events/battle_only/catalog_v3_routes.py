@@ -25,7 +25,10 @@ from manager.battle_only_presets import (
 from manager.room_access import GM_ROLES
 from manager.room_manager import get_room_state, save_specific_room_state
 from models import User
-from events.battle_only.catalog_access_context import catalog_request_context
+from events.battle_only.catalog_access_context import (
+    catalog_request_context,
+    check_expected_updated_at,
+)
 
 
 TYPE_PREFIXES = {
@@ -114,8 +117,7 @@ def handle_bo_collection_save(data):
         if not caps.get("can_edit"):
             _emit_error("bo_collection_error", "permission_denied", "このコレクションを編集できません。")
             return
-        expected = src.get("expected_updated_at")
-        if expected is not None and _safe_int(expected) != _safe_int(current.get("updated_at")):
+        if not check_expected_updated_at(src, current):
             _emit_error("bo_collection_error", "conflict", "他の利用者が先に更新しました。")
             return
         allow_acl = caps.get("can_manage_acl", False)
@@ -125,6 +127,8 @@ def handle_bo_collection_save(data):
         def _mutator(store):
             rows = record_map(store, "collection", create=True)
             existing = rows.get(incoming_id) if incoming_id else None
+            if existing is not None and not check_expected_updated_at(src, existing):
+                raise RuntimeError("conflict")
             work = copy.deepcopy(existing or {})
             work.update(copy.deepcopy(payload))
             work["id"] = incoming_id or _new_id("collection")
@@ -171,6 +175,11 @@ def handle_bo_collection_save(data):
 
         mutate_store(_mutator)
         socketio.emit("bo_collection_saved", {"record": saved, "id": saved.get("id")}, to=request.sid)
+    except RuntimeError as exc:
+        if str(exc) == "conflict":
+            _emit_error("bo_collection_error", "conflict", "他の利用者が先に更新しました。再読み込みしてください。")
+        else:
+            _emit_error("bo_collection_error", "save_failed", str(exc))
     except (TypeError, ValueError) as exc:
         _emit_error("bo_collection_error", "invalid_payload", str(exc))
 
@@ -218,7 +227,7 @@ def handle_bo_record_metadata_save(data):
     if not caps.get("can_edit"):
         _emit_error("bo_record_metadata_error", "permission_denied", "このレコードを編集できません。")
         return
-    if "expected_updated_at" in src and _safe_int(src.get("expected_updated_at")) != _safe_int(current.get("updated_at")):
+    if not check_expected_updated_at(src, current):
         _emit_error("bo_record_metadata_error", "conflict", "他の利用者が先に更新しました。")
         return
 
@@ -229,6 +238,8 @@ def handle_bo_record_metadata_save(data):
             record = rows.get(record_id)
             if not isinstance(record, dict):
                 raise RuntimeError("not_found")
+            if not check_expected_updated_at(src, record):
+                raise RuntimeError("conflict")
             record["catalog_meta"] = _validate_collection_meta(store, context, src.get("catalog_meta"))
             if "access_control" in src:
                 if not caps.get("can_manage_acl"):
@@ -259,7 +270,9 @@ def handle_bo_record_metadata_save(data):
             to=request.sid,
         )
     except RuntimeError as exc:
-        _emit_error("bo_record_metadata_error", str(exc), "メタデータを保存できません。")
+        code = str(exc)
+        message = "他の利用者が先に更新しました。再読み込みしてください。" if code == "conflict" else "メタデータを保存できません。"
+        _emit_error("bo_record_metadata_error", code, message)
     except (TypeError, ValueError) as exc:
         _emit_error("bo_record_metadata_error", "invalid_payload", str(exc))
 

@@ -230,3 +230,86 @@ class ImageRegistry(db.Model):
 
     def __repr__(self):
         return f'<ImageRegistry {self.name}>'
+
+
+class PresetResource(db.Model):
+    """環境ごとに永続化する戦闘用プリセット資産。"""
+
+    __tablename__ = 'preset_resources'
+
+    id = db.Column(db.Integer, primary_key=True)
+    resource_type = db.Column(db.String(32), nullable=False)
+    stable_id = db.Column(db.String(128), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    owner_user_id = db.Column(
+        db.String(36),
+        db.ForeignKey('users.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
+    viewer_mode = db.Column(db.String(20), default='restricted', nullable=False)
+    payload = db.Column(db.JSON, default=dict, nullable=False)
+    collection_id = db.Column(db.String(128), nullable=True, index=True)
+    section_id = db.Column(db.String(128), nullable=True)
+    labels = db.Column(db.JSON, default=list, nullable=False)
+    sort_order = db.Column(db.Integer, default=2147483647, nullable=False)
+    archived = db.Column(db.Boolean, default=False, nullable=False, index=True)
+    last_used_at = db.Column(db.BigInteger, default=0, nullable=False)
+    revision = db.Column(db.Integer, default=1, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'resource_type',
+            'stable_id',
+            name='uq_preset_resources_type_stable_id',
+        ),
+        db.Index(
+            'ix_preset_resources_catalog',
+            'resource_type',
+            'collection_id',
+            'section_id',
+            'sort_order',
+        ),
+    )
+
+    def __repr__(self):
+        return f'<PresetResource {self.resource_type}:{self.stable_id}>'
+
+
+class PresetResourceAcl(db.Model):
+    """プリセット資産へ個別に付与する編集者・閲覧者権限。"""
+
+    __tablename__ = 'preset_resource_acl'
+
+    id = db.Column(db.Integer, primary_key=True)
+    resource_id = db.Column(
+        db.Integer,
+        db.ForeignKey('preset_resources.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    user_id = db.Column(
+        db.String(36),
+        db.ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    role = db.Column(db.String(16), nullable=False)  # editor | viewer
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'resource_id',
+            'user_id',
+            name='uq_preset_resource_acl_resource_user',
+        ),
+        db.CheckConstraint(
+            "role IN ('editor', 'viewer')",
+            name='ck_preset_resource_acl_role',
+        ),
+    )
+
+    def __repr__(self):
+        return f'<PresetResourceAcl resource={self.resource_id} user={self.user_id} role={self.role}>'

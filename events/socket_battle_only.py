@@ -1,12 +1,7 @@
 # events/socket_battle_only.py
-import copy
-import json
-import random
-import time
+import copy, json, random, time
 from datetime import datetime, timezone
-
 from flask import request
-
 from extensions import socketio, user_sids
 from manager.battle_only_presets import load_store as load_bo_preset_store
 from manager.battle_only_presets import mutate_store as mutate_bo_preset_store
@@ -70,15 +65,11 @@ from events.battle_only.runtime_builders import (
     _build_runtime_character_from_preset,
     _force_character_side,
 )
-
-
 def _safe_int(value, default=0):
     try:
         return int(value)
     except (TypeError, ValueError):
         return default
-
-
 def _catalog_request_context(data):
     _catalog_access_context.request = request
     _catalog_access_context.get_user_info_from_sid = get_user_info_from_sid
@@ -286,6 +277,7 @@ def handle_bo_preset_save(data):
         def _mutator(store):
             presets = _store_character_presets(store, create=True)
             current = presets.get(incoming_id) if incoming_id else None
+            if current is not None and not _check_expected_updated_at(src, current): raise RuntimeError('conflict')
             normalized = _normalize_preset_record(
                 payload,
                 user_info,
@@ -309,6 +301,7 @@ def handle_bo_preset_save(data):
             _emit_error('duplicate', '同じIDのプリセットが既に存在します。', event_name='bo_preset_error')
         elif code == 'name_required':
             _emit_error('invalid_payload', 'プリセット名は必須です。', event_name='bo_preset_error')
+        elif code == 'conflict': _emit_error('conflict', '他の利用者が先に更新しました。再読み込みしてください。', event_name='bo_preset_error')
         else:
             _emit_error('save_failed', 'プリセットの保存に失敗しました。', event_name='bo_preset_error')
     except Exception as ex:
@@ -406,6 +399,7 @@ def handle_bo_enemy_formation_save(data):
             presets = _store_character_presets(store, create=False)
             formations = _store_enemy_formations(store, create=True)
             current = formations.get(incoming_id) if incoming_id else None
+            if current is not None and not _check_expected_updated_at(src, current): raise RuntimeError('conflict')
             normalized = _normalize_enemy_formation_record(
                 payload,
                 user_info,
@@ -432,6 +426,7 @@ def handle_bo_enemy_formation_save(data):
             _emit_error('duplicate', '同じIDの敵編成が既に存在します。', event_name='bo_enemy_formation_error')
         elif code == 'name_required':
             _emit_error('invalid_payload', '敵編成名は必須です。', event_name='bo_enemy_formation_error')
+        elif code == 'conflict': _emit_error('conflict', '他の利用者が先に更新しました。再読み込みしてください。', event_name='bo_enemy_formation_error')
         else:
             _emit_error('save_failed', '敵編成の保存に失敗しました。', event_name='bo_enemy_formation_error')
     except ValueError as ex:
@@ -572,6 +567,7 @@ def handle_bo_ally_formation_save(data):
             presets = _store_character_presets(store, create=False)
             formations = _store_ally_formations(store, create=True)
             current = formations.get(incoming_id) if incoming_id else None
+            if current is not None and not _check_expected_updated_at(src, current): raise RuntimeError('conflict')
             normalized = _normalize_ally_formation_record(
                 payload,
                 user_info,
@@ -598,6 +594,7 @@ def handle_bo_ally_formation_save(data):
             _emit_error('duplicate', '同じIDの味方編成が既に存在します。', event_name='bo_ally_formation_error')
         elif code == 'name_required':
             _emit_error('invalid_payload', '味方編成名は必須です。', event_name='bo_ally_formation_error')
+        elif code == 'conflict': _emit_error('conflict', '他の利用者が先に更新しました。再読み込みしてください。', event_name='bo_ally_formation_error')
         else:
             _emit_error('save_failed', '味方編成の保存に失敗しました。', event_name='bo_ally_formation_error')
     except ValueError as ex:
@@ -739,6 +736,7 @@ def handle_bo_stage_preset_save(data):
             ally_formations = _store_ally_formations(store, create=False)
             stages = _store_stage_presets(store, create=True)
             current = stages.get(incoming_id) if incoming_id else None
+            if current is not None and not _check_expected_updated_at(src, current): raise RuntimeError('conflict')
             normalized = _normalize_stage_preset_record(
                 payload,
                 user_info,
@@ -766,6 +764,7 @@ def handle_bo_stage_preset_save(data):
             _emit_error('duplicate', '同じIDのステージが既に存在します。', event_name='bo_stage_preset_error')
         elif code == 'name_required':
             _emit_error('invalid_payload', 'ステージ名は必須です。', event_name='bo_stage_preset_error')
+        elif code == 'conflict': _emit_error('conflict', '他の利用者が先に更新しました。再読み込みしてください。', event_name='bo_stage_preset_error')
         else:
             _emit_error('save_failed', 'ステージの保存に失敗しました。', event_name='bo_stage_preset_error')
     except ValueError as ex:
@@ -1491,9 +1490,9 @@ def handle_bo_record_mark_result(data):
     )
 
 
-# 分類・ACL・複製・ルーム別ブックマークの追加イベントを登録する。
 from events.battle_only import catalog_v3_routes as _catalog_v3_routes  # noqa: E402,F401
 from events.battle_only import export_routes as _export_routes  # noqa: E402,F401
+from events.battle_only import transfer_routes as _transfer_routes  # noqa: E402,F401
 handle_bo_export_enemy_formations_json = _export_routes.handle_bo_export_enemy_formations_json
 handle_bo_export_ally_formations_json = _export_routes.handle_bo_export_ally_formations_json
 handle_bo_export_stage_presets_json = _export_routes.handle_bo_export_stage_presets_json
