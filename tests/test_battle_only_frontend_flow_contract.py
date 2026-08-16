@@ -27,6 +27,14 @@ def test_shared_resolve_cursor_replaces_local_auto_round_end_request():
     assert "sendResolveFlowClaim(payload)" in client
 
 
+def test_first_resolve_match_resets_clock_after_battle_start_intro():
+    source = (ROOT / "static/js/battle/components/ResolveFlowPanel.js").read_text(encoding="utf-8")
+    assert "_playNextStep({ forceLocalClock = false } = {})" in source
+    assert "this._resetNextMatchClock = true;" in source
+    assert "const useSharedClock = !resetVisibleClock" in source
+    assert "this._playNextStep({ forceLocalClock: true });" in source
+
+
 def test_battle_start_request_carries_latest_draft_snapshot():
     source = (ROOT / "static/js/modals/battle_only_draft_modal.js").read_text(encoding="utf-8")
     assert "draftPayload = sendDraftUpdate({ emit: false })" in source

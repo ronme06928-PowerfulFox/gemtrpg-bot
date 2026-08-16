@@ -34,6 +34,7 @@ class ResolveFlowPanel {
         this._completionEmittedRounds = new Set();
         this._roundSawResolvePhase = false;
         this._powerRevealSePlayedKeys = new Set();
+        this._resetNextMatchClock = false;
     }
 
     initialize() {
@@ -79,6 +80,7 @@ class ResolveFlowPanel {
         this._completionEmittedRounds.clear();
         this._roundSawResolvePhase = false;
         this._powerRevealSePlayedKeys.clear();
+        this._resetNextMatchClock = false;
         this._initialized = false;
         const panel = document.getElementById(this._panelId);
         if (panel) panel.remove();
@@ -679,6 +681,7 @@ class ResolveFlowPanel {
             this._pendingSyncedAdvanceCount = 0;
             this._roundSawResolvePhase = false;
             this._powerRevealSePlayedKeys.clear();
+            this._resetNextMatchClock = false;
         }
 
         if (!isBattle) {
@@ -698,6 +701,7 @@ class ResolveFlowPanel {
             this._pendingSyncedAdvanceCount = 0;
             this._roundSawResolvePhase = false;
             this._powerRevealSePlayedKeys.clear();
+            this._resetNextMatchClock = false;
             this._removePanel();
             return;
         }
@@ -731,6 +735,7 @@ class ResolveFlowPanel {
             this._clearAdvanceRequestPending();
             this._pendingSyncedAdvanceCount = 0;
             this._powerRevealSePlayedKeys.clear();
+            this._resetNextMatchClock = false;
         }
 
         const inResolve = this._isResolvePhase(phase);
@@ -778,7 +783,7 @@ class ResolveFlowPanel {
         this._clearAdvanceRequestPending();
     }
 
-    _playNextStep() {
+    _playNextStep({ forceLocalClock = false } = {}) {
         this._stopPlayback();
         this._waitingForAdvance = false;
         this._clearAdvanceRequestPending();
@@ -797,7 +802,10 @@ class ResolveFlowPanel {
             return;
         }
         this._activeStep = this._playQueue.shift();
+        const resetVisibleClock = !this._isIntroStep(this._activeStep)
+            && (forceLocalClock || this._resetNextMatchClock);
         if (this._activeStep && !this._isIntroStep(this._activeStep)) {
+            this._resetNextMatchClock = false;
             this._presentedStepCount += 1;
             this._activeStep.presentedIndex = this._presentedStepCount;
         }
@@ -806,7 +814,7 @@ class ResolveFlowPanel {
         const sharedStepIndex = this._toNumber(presentation.current_step_index, -1);
         const activeRawIndex = this._toNumber(this._activeStep?.rawStepIndex, -2);
         const sharedStartedAt = this._toNumber(presentation.step_started_at, 0);
-        const useSharedClock = sharedStartedAt > 0 && sharedStepIndex === activeRawIndex;
+        const useSharedClock = !resetVisibleClock && sharedStartedAt > 0 && sharedStepIndex === activeRawIndex;
         this._stepStartedAt = useSharedClock ? sharedStartedAt : Date.now();
         this._renderStep(store.state || {});
 
@@ -826,7 +834,9 @@ class ResolveFlowPanel {
             if (this._isIntroStep(this._activeStep)) {
                 this._stopPlayback();
                 this._activeStep = null;
-                this._playNextStep();
+                // The shared cursor starts before the local BATTLE START intro.
+                // The first visible match must start its gauge when it appears.
+                this._playNextStep({ forceLocalClock: true });
                 return;
             }
             this._clearTimers();
@@ -1415,6 +1425,7 @@ class ResolveFlowPanel {
         if (!roundKey) return;
         if (this._introShownRounds.has(roundKey)) return;
         this._introShownRounds.add(roundKey);
+        this._resetNextMatchClock = true;
         this._playQueue.push({
             kind: 'battle_start',
             outcome: 'no_effect',
