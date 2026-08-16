@@ -247,10 +247,14 @@ class BattleStore {
 
         const hasTraceSnapshot = payload.trace_is_snapshot === true && Array.isArray(payload.trace);
         const traceSnapshot = hasTraceSnapshot
-            ? Array.from(new Map(payload.trace.map((entry, idx) => {
-                const rawIndex = entry?.step_index ?? entry?.step ?? idx;
-                return [`step:${rawIndex}`, entry];
-            })).values())
+            ? payload.trace.filter((entry, idx, allEntries) => {
+                if (entry?.step_index === undefined || entry?.step_index === null) return true;
+                return allEntries.findIndex((candidate) => (
+                    candidate?.step_index !== undefined
+                    && candidate?.step_index !== null
+                    && Number(candidate.step_index) === Number(entry.step_index)
+                )) === idx;
+            })
             : null;
         const baseResolveTrace = traceSnapshot || (roundChanged ? [] : (this._state.resolveTrace || []));
         if (hasTraceSnapshot) {

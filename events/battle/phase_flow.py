@@ -102,12 +102,14 @@ def _start_select_resolve_if_ready(room_id, battle_id, source_event, *, ctx):
 
     state['resolve_snapshot_intents'] = copy.deepcopy(state.get('intents', {}))
     state['resolve_snapshot_at'] = ctx['server_ts_ms']()
+    # Select-time redirect history belongs to `redirects`, never to the
+    # presentation trace. Clear legacy contamination before Resolve starts.
+    state.setdefault('resolve', {})['trace'] = []
     ctx['start_resolve_presentation'](room_id, state)
 
     state['resolve_ready'] = False
     state['resolve_ready_info'] = {}
     state['phase'] = 'resolve_mass'
-    state.setdefault('resolve', {})
     state['resolve']['mass_queue'] = state['resolve'].get('mass_queue', [])
     state['resolve']['single_queue'] = state['resolve'].get('single_queue', [])
     state['resolve']['resolved_slots'] = state['resolve'].get('resolved_slots', [])

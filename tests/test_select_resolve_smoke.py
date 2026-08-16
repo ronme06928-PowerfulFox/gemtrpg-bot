@@ -242,6 +242,7 @@ def test_case2_redirect_overwrite_by_latest_declaration():
     assert state["battle_state"]["intents"]["B"]["target"]["slot_id"] == "C"
     assert state["battle_state"]["slots"]["B"]["locked_target"] is True
     assert state["battle_state"]["slots"]["B"]["locked_by_intent_rev"] == 2
+    assert state["battle_state"]["resolve"]["trace"] == []
 
 
 def test_case2b_recalculate_redirect_prefers_latest_commit():
@@ -294,6 +295,52 @@ def test_case2b_recalculate_redirect_prefers_latest_commit():
     intents["A"]["committed_at"] = 300
     battle_routes._recalculate_redirect_state("room_t", "battle_test", bs)
     assert bs["intents"]["B"]["target"]["slot_id"] == "A"
+
+
+def test_redirect_recalculation_ignores_target_only_anchor_with_no_initiative():
+    battle_routes = _load_battle_common_routes_module()
+    state = _base_state([])
+    bs = state["battle_state"]
+    bs["slots"]["A"] = {
+        "slot_id": "A",
+        "actor_id": "A1",
+        "initiative": 10,
+        "locked_target": False,
+    }
+    bs["slots"]["rubble"] = {
+        "slot_id": "rubble",
+        "actor_id": "rubble-1",
+        "initiative": None,
+        "disabled": False,
+        "source_disabled": True,
+        "target_only": True,
+        "status": "inactive",
+        "locked_target": False,
+    }
+    bs["intents"]["A"] = {
+        "slot_id": "A",
+        "actor_id": "A1",
+        "skill_id": "atk_a",
+        "target": {"type": "single_slot", "slot_id": "rubble"},
+        "tags": {"instant": False, "mass_type": None, "no_redirect": False},
+        "committed": True,
+        "committed_at": 100,
+        "intent_rev": 1,
+    }
+    bs["intents"]["rubble"] = {
+        "slot_id": "rubble",
+        "actor_id": "rubble-1",
+        "skill_id": None,
+        "target": {"type": "none", "slot_id": None},
+        "tags": {},
+        "committed": False,
+    }
+
+    battle_routes._recalculate_redirect_state("room_t", "battle_test", bs)
+
+    assert bs["intents"]["A"]["target"]["slot_id"] == "rubble"
+    assert "rubble" not in bs["intents"]
+    assert bs["redirects"] == []
 
 
 def test_case3_no_redirect_unlocks_target():
@@ -2090,6 +2137,9 @@ def test_case28_attack_vs_attack_winner_gets_fp_plus_one(monkeypatch):
     monkeypatch.setattr(battle_core, "_resolve_clash_by_existing_logic", _stub_clash)
     battle_core.run_select_resolve_auto("room_t", "battle_test")
 
+    clash_trace = next(t for t in state["battle_state"]["resolve"]["trace"] if t.get("kind") == "clash")
+    assert clash_trace["rolls"]["power_a"] == 9
+    assert clash_trace["rolls"]["power_b"] == 6
     assert _state_value(attacker, "FP") == 1
     assert _state_value(defender, "FP") == 0
 

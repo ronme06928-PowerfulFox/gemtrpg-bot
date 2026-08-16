@@ -589,6 +589,9 @@ class ResolveFlowPanel {
     _shouldHideStep(step) {
         if (!step || typeof step !== 'object') return false;
         const kind = String(step.kind || '');
+        if (kind === 'redirect' || kind === 'redirect_cancelled_by_no_redirect' || kind === 'evade_insert') {
+            return true;
+        }
         const notes = String(step.notes || '');
         if (kind !== 'fizzle' || notes !== 'no_intent') return false;
         return !step.attackerSkillId;
@@ -606,7 +609,6 @@ class ResolveFlowPanel {
         trace.forEach((raw, idx) => {
             const step = this._normalizeTraceEntry(raw, idx, state);
             if (Number.isFinite(step.rawStepIndex) && step.rawStepIndex < sharedStepIndex) return;
-            if (String(step.kind) === 'evade_insert') return;
             if (this._shouldHideStep(step)) return;
             const key = this._traceKey(step);
             if (!key || this._traceSeen.has(key)) return;

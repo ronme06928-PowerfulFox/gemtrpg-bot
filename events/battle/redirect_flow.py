@@ -26,19 +26,24 @@ def clear_redirect_state(state):
 def append_redirect_record(state, record):
     state.setdefault('redirects', [])
     state['redirects'].append(record)
-    trace = state.get('resolve', {}).get('trace', [])
-    trace.append({
-        'step': len(trace) + 1,
-        'kind': record.get('kind', 'redirect'),
-        'attacker_slot': record.get('by_slot'),
-        'defender_slot': record.get('from_slot'),
-        'target_actor_id': None,
-        'rolls': {},
-        'outcome': 'no_effect',
-        'cost': {'mp': 0, 'hp': 0},
-        'notes': None
-    })
-    state['resolve']['trace'] = trace
+
+
+def _redirect_capable_slot(slot):
+    if not isinstance(slot, dict):
+        return False
+    status = str(slot.get('status') or '').strip().lower()
+    if (
+        slot.get('disabled', False)
+        or slot.get('target_only', False)
+        or slot.get('source_disabled', False)
+        or status in {'inactive', 'cancelled'}
+    ):
+        return False
+    try:
+        int(slot.get('initiative', 0))
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def cancel_redirect_by_no_redirect(
@@ -84,6 +89,8 @@ def try_apply_redirect(
     *, ensure_intent_for_slot_fn, infer_target_scope_fn, server_ts_fn,
 ):
     slot_a_data = state.get('slots', {}).get(slot_a, {})
+    if not _redirect_capable_slot(slot_a_data):
+        return
     intent_a = ensure_intent_for_slot_fn(state, slot_a)
     target = intent_a.get('target', {})
 
@@ -95,8 +102,12 @@ def try_apply_redirect(
     if slot_b == slot_a:
         return
 
-    intent_b = ensure_intent_for_slot_fn(state, slot_b)
     slot_b_data = state['slots'][slot_b]
+    # Target-only anchors (for example rubble) can be attacked but cannot
+    # declare an action, so they can never redirect their target back to A.
+    if not _redirect_capable_slot(slot_b_data):
+        return
+    intent_b = ensure_intent_for_slot_fn(state, slot_b)
     scope_a = infer_target_scope_fn(intent_a.get('skill_id'))
     scope_b = infer_target_scope_fn(intent_b.get('skill_id'))
     # Ally-target skills are excluded from redirect in this route.
@@ -182,7 +193,13 @@ def recalculate_redirect_state(
     ordered_slot_ids = sorted([sid for sid in slots.keys()], key=_redirect_sort_key)
 
     for slot_id in ordered_slot_ids:
-        if (slots.get(slot_id) or {}).get('target_only', False):
+        slot = slots.get(slot_id) or {}
+        if slot.get('target_only', False) or slot.get('source_disabled', False):
+            # Older redirect recalculation could create an empty intent for a
+            # target-only anchor before failing on its null initiative.
+            intents.pop(slot_id, None)
+            continue
+        if not _redirect_capable_slot(slot):
             continue
         intent = ensure_intent_for_slot_fn(state, slot_id)
         if not intent.get('committed', False):

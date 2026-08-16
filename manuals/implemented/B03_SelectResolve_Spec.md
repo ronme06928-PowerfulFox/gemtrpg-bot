@@ -555,6 +555,8 @@ Resolveの計算結果と演出位置は分離して管理する。計算結果�
 
 `battle_state_updated`は`trace_is_snapshot:true`と当該ラウンドの全`trace`を返す。クライアントは`step_index`で重複排除し、`presentation.current_step_index`より前の演出を自動再生せず現在位置へ合流する。完了ラウンドのtraceは次ラウンド開始まで保持し、過去結果は戦闘ログからも確認できる。
 
+Select中の引き寄せ履歴は`battle_state.redirects`にのみ記録し、Resolve結果の`trace`へ混入させない。presentationの`step_total`とカーソルは、`redirect`、`redirect_cancelled_by_no_redirect`、`evade_insert`、スキルを持たない`no_intent`不発などの内部行を除く表示対象traceだけを数える。`current_step_index`は配列位置ではなく表示対象traceのraw `step_index`であり、内部行を挟む場合は次の表示対象indexへ進む。
+
 `presentation`は次を保持する。
 
 - `round`、`status`（`idle|playing|completed`）

@@ -140,7 +140,14 @@ class ActionDock {
 
         const slots = state.slots || {};
         const intents = state.intents || {};
-        const required = Object.keys(slots).filter((slotId) => !slots[slotId]?.disabled);
+        const required = Object.keys(slots).filter((slotId) => {
+            const slot = slots[slotId] || {};
+            const status = String(slot.status || '').toLowerCase();
+            return !slot.disabled
+                && !slot.target_only
+                && !slot.source_disabled
+                && !['inactive', 'cancelled'].includes(status);
+        });
         if (required.length === 0) return false;
         return required.every((slotId) => !!intents[slotId]?.committed);
     }

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from events.battle import pve_intents
 from manager.battle import resolve_queue_helpers
 from manager.battle import select_resolve_state
@@ -90,6 +92,17 @@ def test_round_start_creates_target_anchor_without_action_slot(monkeypatch):
         is_actor_actionable_fn=lambda _room, _actor: True,
     )
     assert required == {action_slots[0]["slot_id"]}
+
+
+def test_action_dock_ready_fallback_excludes_non_action_anchors():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "static/js/battle/components/ActionDock.js").read_text(encoding="utf-8")
+    fallback = source.split("_isResolveReadyForConfirm(state) {", 1)[1]
+    fallback = fallback.split("_detectIsGM(state) {", 1)[0]
+
+    assert "!slot.target_only" in fallback
+    assert "!slot.source_disabled" in fallback
+    assert "!['inactive', 'cancelled'].includes(status)" in fallback
 
 
 def test_pve_default_target_can_select_target_only_anchor():

@@ -79,6 +79,31 @@ def test_presentation_lifecycle_advances_and_completes_once():
     assert changed is False
 
 
+def test_presentation_skips_internal_trace_entries_and_uses_raw_indexes():
+    state = _battle_state(trace_count=0)
+    state['resolve']['trace'] = [
+        {'kind': 'redirect'},
+        {'step_index': 1, 'kind': 'clash'},
+        {'step_index': 2, 'kind': 'evade_insert'},
+        {'step_index': 3, 'kind': 'fizzle', 'notes': 'no_intent'},
+        {'step_index': 4, 'kind': 'one_sided'},
+    ]
+    presentation = start_resolve_presentation(state, 'controller', 'Alice')
+
+    finalize_resolve_presentation(state)
+    assert presentation['step_total'] == 2
+    assert presentation['current_step_index'] == 1
+
+    presentation, changed = advance_resolve_presentation(state)
+    assert changed is True
+    assert presentation['current_step_index'] == 4
+    assert presentation['status'] == 'playing'
+
+    presentation, changed = advance_resolve_presentation(state)
+    assert changed is True
+    assert presentation['status'] == 'completed'
+
+
 def test_advance_rejects_non_controller_and_returns_latest_state():
     state = _battle_state()
     start_resolve_presentation(state, 'controller', 'Alice')
@@ -98,6 +123,34 @@ def test_advance_rejects_non_controller_and_returns_latest_state():
     assert saved == []
     assert completed == []
     assert not any(args and args[0] == 'battle_resolve_flow_advance' for args, _kwargs in emitted)
+
+
+def test_advance_request_accepts_current_visible_raw_index_and_skips_internal_steps():
+    state = _battle_state(trace_count=0)
+    state['resolve']['trace'] = [
+        {'step_index': 0, 'kind': 'evade_insert'},
+        {'step_index': 1, 'kind': 'clash'},
+        {'step_index': 2, 'kind': 'redirect'},
+        {'step_index': 3, 'kind': 'one_sided'},
+    ]
+    start_resolve_presentation(state, 'controller', 'Alice')
+    finalize_resolve_presentation(state)
+    ctx, emitted, _presentation_emits, saved, completed = _route_context(state)
+
+    resolve_presentation_routes.handle_advance({
+        'room_id': 'R1',
+        'battle_id': 'battle_r1',
+        'round': 3,
+        'expected_step_index': 1,
+        'expected_revision': 1,
+    }, ctx)
+
+    presentation = ensure_resolve_presentation(state)
+    assert presentation['current_step_index'] == 3
+    assert presentation['revision'] == 2
+    assert saved == ['R1']
+    assert completed == []
+    assert any(args and args[0] == 'battle_resolve_flow_advance' for args, _kwargs in emitted)
 
 
 def test_duplicate_revision_only_advances_once():
