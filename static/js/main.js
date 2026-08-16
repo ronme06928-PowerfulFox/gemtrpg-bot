@@ -426,6 +426,33 @@ async function showRoomPortal() {
     }
 }
 
+async function leaveCurrentSocketRoom() {
+    const roomName = currentRoomName;
+    if (!roomName || !socket || !socket.connected) {
+        return Promise.resolve({ ok: true, room: roomName || null, already_left: true });
+    }
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+        const result = await new Promise((resolve) => {
+            let settled = false;
+            const finish = (ack) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timeoutId);
+                resolve(ack || { ok: true, room: roomName });
+            };
+            const timeoutId = setTimeout(() => {
+                finish({ ok: false, room: roomName, timeout: true, attempt });
+            }, 2000);
+            socket.emit('leave_room', { room: roomName }, finish);
+        });
+        if (result?.ok) return result;
+        if (!socket.connected) {
+            return { ok: true, room: roomName, disconnected: true };
+        }
+    }
+    return { ok: false, room: roomName, timeout: true };
+}
+
 function renderRoomPortal(rooms, currentUserId, isGm) {
     // ユーザー管理は app admin 限定（/api/admin/users が 403 になるため、
     // 非管理者にはボタン自体を出さない）。
@@ -1323,9 +1350,16 @@ window.addEventListener('DOMContentLoaded', () => {
                 confirmText: '戻る',
             });
             if (!ok) return;
-            if (socket) socket.emit('leave_room', { room: currentRoomName });
-            currentRoomName = null;
+            homeBtn.disabled = true;
+            const leaveResult = await leaveCurrentSocketRoom();
+            if (!leaveResult?.ok) {
+                console.warn('Socket room leave acknowledgement timed out.', leaveResult);
+                alert('ルームからの退出を確認できませんでした。接続を確認して、もう一度お試しください。');
+                homeBtn.disabled = false;
+                return;
+            }
             showRoomPortal();
+            homeBtn.disabled = false;
         });
     }
     const settingsBtn = document.getElementById('user-settings-btn');

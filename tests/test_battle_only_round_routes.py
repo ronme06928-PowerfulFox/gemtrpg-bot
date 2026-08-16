@@ -95,6 +95,34 @@ def test_end_round_ignores_stale_battle_only_completion(monkeypatch):
     assert calls["start"] == []
 
 
+def test_end_round_ignores_local_completion_while_shared_resolve_is_playing(monkeypatch):
+    state = {
+        "play_mode": "battle_only",
+        "round": 2,
+        "is_round_ended": False,
+        "battle_state": {
+            "resolve": {
+                "presentation": {"round": 2, "status": "playing"},
+            },
+        },
+    }
+    calls = {"end": [], "start": []}
+    monkeypatch.setattr(common_routes, "request", SimpleNamespace(sid="sid_test"))
+    monkeypatch.setattr(common_routes, "is_sid_in_room", lambda _sid, _room: True)
+    monkeypatch.setattr(
+        common_routes,
+        "get_user_info_from_sid",
+        lambda _sid: {"username": "player", "attribute": "Player"},
+    )
+    monkeypatch.setattr(common_routes, "get_room_state", lambda _room: state)
+    monkeypatch.setattr(common_routes, "process_full_round_end", lambda *_args: calls["end"].append(True))
+    monkeypatch.setattr(common_routes, "process_round_start", lambda *_args: calls["start"].append(True))
+
+    common_routes.on_request_end_round({"room": "room_t", "expected_round": 2})
+
+    assert calls == {"end": [], "start": []}
+
+
 def test_reset_battle_allows_player_in_battle_only(monkeypatch):
     state = {"play_mode": "battle_only"}
     calls = []

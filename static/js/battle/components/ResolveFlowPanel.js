@@ -284,7 +284,20 @@ class ResolveFlowPanel {
     }
 
     _canDriveResolveFlow(state) {
-        return this._detectIsGM(state) || this._isBattleOnlyMode(state);
+        const presentation = state?.resolvePresentation || null;
+        const controllerUserId = presentation?.controller_user_id || null;
+        const currentUserId = (typeof window !== 'undefined') ? window.currentUserId : null;
+        if (controllerUserId) {
+            return !!currentUserId && String(currentUserId) === String(controllerUserId);
+        }
+        return this._detectIsGM(state);
+    }
+
+    _canClaimResolveFlow(state) {
+        const presentation = state?.resolvePresentation || {};
+        if (this._canDriveResolveFlow(state)) return false;
+        if (this._detectIsGM(state)) return true;
+        return this._isBattleOnlyMode(state) && presentation.controller_present === false;
     }
 
     _stepDuration(step) {
@@ -335,7 +348,8 @@ class ResolveFlowPanel {
             room_id: roomId || null,
             battle_id: state?.battle_id || null,
             round: this._toNumber(state?.round, 0),
-            expected_step_index: stepIndex
+            expected_step_index: stepIndex,
+            expected_revision: this._toNumber(state?.resolvePresentation?.revision, 0)
         };
     }
 
@@ -349,6 +363,9 @@ class ResolveFlowPanel {
         const payloadRound = (data.round !== undefined && data.round !== null) ? this._toNumber(data.round, NaN) : NaN;
         const stateRound = this._toNumber(state?.round, NaN);
         if (Number.isFinite(payloadRound) && Number.isFinite(stateRound) && payloadRound !== stateRound) return false;
+        const payloadStep = this._toNumber(data.expected_step_index, NaN);
+        const activeStep = this._toNumber(this._activeStep?.rawStepIndex, NaN);
+        if (Number.isFinite(payloadStep) && Number.isFinite(activeStep) && payloadStep !== activeStep) return false;
         return true;
     }
 
@@ -358,8 +375,8 @@ class ResolveFlowPanel {
         if (phase !== 'round_end') return false;
         const roundKey = this._roundStateKey(stateNow);
         if (!roundKey) return false;
-        // 戦闘専用モードは解決表示の完了を契機に、次ラウンド開始要求まで自動で進める。
-        // 途中参加・再描画で resolve フェーズの状態通知を取りこぼしても round_end で停止させない。
+        // 戦闘専用モードでもラウンド遷移はサーバー共有カーソルの完了処理が行う。
+        // ここはローカル表示の完了通知を重複させないための判定だけを担う。
         if (this._isBattleOnlyMode(stateNow)) return true;
         // Prevent false completion on reconnect/round-start transient round_end snapshots.
         return this._roundSawResolvePhase || this._introShownRounds.has(roundKey) || this._presentedStepCount > 0;
@@ -378,10 +395,6 @@ class ResolveFlowPanel {
             round_key: roundKey
         };
         eventBus.emit('battle:resolve:flow:completed', payload);
-        if (this._canDriveResolveFlow(stateNow)) {
-            const roomName = payload.room_id || stateNow?.room_name || null;
-            socketClient.sendRoundEnd(roomName, payload.round);
-        }
     }
 
     _emitResolveFlowStepFinished(step, state) {
@@ -586,8 +599,13 @@ class ResolveFlowPanel {
         if (trace.length === 0) return;
 
         let appended = false;
+        const sharedStepIndex = this._toNumber(
+            state?.resolvePresentation?.current_step_index,
+            0
+        );
         trace.forEach((raw, idx) => {
             const step = this._normalizeTraceEntry(raw, idx, state);
+            if (Number.isFinite(step.rawStepIndex) && step.rawStepIndex < sharedStepIndex) return;
             if (String(step.kind) === 'evade_insert') return;
             if (this._shouldHideStep(step)) return;
             const key = this._traceKey(step);
@@ -782,7 +800,12 @@ class ResolveFlowPanel {
             this._activeStep.presentedIndex = this._presentedStepCount;
         }
         this._renderedStepKey = null;
-        this._stepStartedAt = Date.now();
+        const presentation = store?.state?.resolvePresentation || {};
+        const sharedStepIndex = this._toNumber(presentation.current_step_index, -1);
+        const activeRawIndex = this._toNumber(this._activeStep?.rawStepIndex, -2);
+        const sharedStartedAt = this._toNumber(presentation.step_started_at, 0);
+        const useSharedClock = sharedStartedAt > 0 && sharedStepIndex === activeRawIndex;
+        this._stepStartedAt = useSharedClock ? sharedStartedAt : Date.now();
         this._renderStep(store.state || {});
 
         if (!this._isIntroStep(this._activeStep)) {
@@ -794,6 +817,8 @@ class ResolveFlowPanel {
 
         const durationMs = this._stepDuration(this._activeStep);
 
+        const elapsedMs = Math.max(0, Date.now() - this._stepStartedAt);
+        const remainingMs = Math.max(0, durationMs - elapsedMs);
         this._stepTimer = setTimeout(() => {
             if (!this._activeStep) return;
             if (this._isIntroStep(this._activeStep)) {
@@ -811,7 +836,7 @@ class ResolveFlowPanel {
                 this._pendingSyncedAdvanceCount -= 1;
                 this._advanceToNextBySync();
             }
-        }, durationMs);
+        }, remainingMs);
     }
 
     _advanceToNextBySync() {
@@ -833,12 +858,10 @@ class ResolveFlowPanel {
         if (this._advanceRequestPending) return;
         const payload = this._buildAdvanceRequestPayload(state);
         if (!payload.room_id) {
-            this._advanceToNextBySync();
             return;
         }
         const sent = socketClient.sendResolveFlowAdvance(payload);
         if (!sent) {
-            this._advanceToNextBySync();
             return;
         }
         this._markAdvanceRequestPending();
@@ -853,6 +876,18 @@ class ResolveFlowPanel {
             return;
         }
         this._scheduleAutoAdvanceIfNeeded(store.state || {});
+    }
+
+    _onClaimRequested(evt) {
+        if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
+        if (evt && typeof evt.stopPropagation === 'function') evt.stopPropagation();
+        const state = store.state || {};
+        if (!this._canClaimResolveFlow(state)) return;
+        socketClient.sendResolveFlowClaim({
+            room_id: this._resolveActiveRoomId(state),
+            battle_id: state?.battle_id || null,
+            round: this._toNumber(state?.round, 0)
+        });
     }
 
     _onSyncedAdvanceSignal(payload) {
@@ -1516,6 +1551,8 @@ class ResolveFlowPanel {
         const stateNow = store.state || state || {};
         const isGM = this._detectIsGM(stateNow);
         const canDrive = this._canDriveResolveFlow(stateNow);
+        const canClaim = this._canClaimResolveFlow(stateNow);
+        const controllerName = stateNow?.resolvePresentation?.controller_username || '進行役';
         const panel = this._ensurePanel(host);
         panel.className = `resolve-flow-panel kind-${kindClass} reveal-${revealStage}${this._waitingForAdvance ? ' awaiting-advance' : ''}${canDrive ? ' can-drive' : ''}${isGM ? ' gm-user' : ''}`;
         if (this._renderedStepKey !== stepBodyKey) {
@@ -1551,6 +1588,7 @@ class ResolveFlowPanel {
                     ${notes}
                     <div class="resolve-flow-advance">
                         <button type="button" class="resolve-flow-next-btn">\u6b21\u306e\u30de\u30c3\u30c1\u3078</button>
+                        <button type="button" class="resolve-flow-claim-btn">進行役を引き継ぐ</button>
                         <label class="resolve-flow-auto-label">
                             <input type="checkbox" class="resolve-flow-auto-checkbox">
                             \u8868\u793a\u5f8c2\u79d2\u3067\u81ea\u52d5\u9032\u884c
@@ -1586,6 +1624,14 @@ class ResolveFlowPanel {
             autoChk.checked = !!this._autoAdvanceEnabled;
             autoChk.disabled = !canDrive;
         }
+        const claimBtn = panel.querySelector('.resolve-flow-claim-btn');
+        if (claimBtn) {
+            if (!claimBtn.dataset.bound) {
+                claimBtn.dataset.bound = '1';
+                claimBtn.addEventListener('click', (evt) => this._onClaimRequested(evt));
+            }
+            claimBtn.style.display = canClaim ? '' : 'none';
+        }
         const waitingNode = panel.querySelector('.resolve-flow-waiting');
         if (waitingNode) {
             waitingNode.textContent = this._waitingForAdvance
@@ -1595,7 +1641,7 @@ class ResolveFlowPanel {
                         : this._autoAdvanceEnabled
                         ? '\u8868\u793a\u5b8c\u4e86: 2\u79d2\u5f8c\u306b\u81ea\u52d5\u9032\u884c'
                         : '\u8868\u793a\u5b8c\u4e86: \u30dc\u30bf\u30f3\u3067\u6b21\u3078\u9032\u884c')
-                    : 'GM\u304c\u9032\u884c\u3059\u308b\u307e\u3067\u5f85\u6a5f\u4e2d')
+                    : `${controllerName}が進行するまで待機中`)
                 : '';
         }
         this._scheduleAutoAdvanceIfNeeded(stateNow);

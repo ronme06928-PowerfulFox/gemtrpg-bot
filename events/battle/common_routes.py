@@ -6,10 +6,10 @@ from flask import request
 from flask_socketio import emit, rooms
 from extensions import socketio, all_skill_data
 from manager.logs import setup_logger
-from manager.room_access import is_sid_in_room
+from manager.room_access import is_sid_in_room, is_user_in_room
 from manager.room_manager import (
     get_user_info_from_sid, get_room_state, broadcast_log, broadcast_state_update,
-    is_authorized_for_character, flush_room_state_now,
+    is_authorized_for_character, flush_room_state_now, save_specific_room_state,
 )
 try:
     from manager.room_manager import emit_select_resolve_events
@@ -21,6 +21,13 @@ except Exception:
 from manager.battle.core import proceed_next_turn, run_select_resolve_auto
 from manager.battle.skill_access import evaluate_skill_access
 from manager.battle.action_slot_mode import get_action_unavailable_reason
+from manager.battle.resolve_presentation import (
+    advance_resolve_presentation,
+    claim_resolve_presentation,
+    ensure_resolve_presentation,
+    finalize_resolve_presentation,
+    start_resolve_presentation,
+)
 from manager.battle.skill_rules import _extract_rule_data_from_skill as _extract_rule_data_from_skill_v2
 from manager.battle.system_skills import ensure_system_skills_registered
 from manager.battle.common_manager import (
@@ -37,6 +44,7 @@ from events.battle import intent_targets as _intent_targets
 from events.battle import phase_flow as _phase_flow
 from events.battle import pve_intents as _pve_intents
 from events.battle import redirect_flow as _redirect_flow
+from events.battle import resolve_presentation_routes as _resolve_presentation_routes
 from events.battle.intent_targets import (
     _default_intent_tags,
     _validate_and_normalize_target,
@@ -59,6 +67,82 @@ def _is_battle_only_mode(room):
         return False
     play_mode = str(state.get('play_mode') or 'normal').strip().lower()
     return play_mode == 'battle_only'
+
+
+def _start_resolve_presentation_for_request(room_id, battle_state):
+    user_info = get_user_info_from_sid(request.sid) or {}
+    controller_user_id = user_info.get('user_id')
+    controller_username = user_info.get('username')
+    room_state = get_room_state(room_id) or {}
+    if _is_battle_only_mode(room_id):
+        bo = room_state.get('battle_only') if isinstance(room_state.get('battle_only'), dict) else {}
+        controller_user_id = bo.get('controller_user_id') or controller_user_id
+        controller_username = bo.get('controller_username') or controller_username
+    return start_resolve_presentation(
+        battle_state,
+        controller_user_id=controller_user_id,
+        controller_username=controller_username,
+    )
+
+
+def _emit_resolve_presentation(room_id, battle_id, battle_state, *, to=None):
+    presentation = copy.deepcopy(ensure_resolve_presentation(battle_state) or {})
+    controller_user_id = presentation.get('controller_user_id')
+    presentation['controller_present'] = bool(
+        controller_user_id and is_user_in_room(controller_user_id, room_id)
+    )
+    payload = {
+        'room_id': room_id,
+        'battle_id': battle_id,
+        'round': battle_state.get('round', 0),
+        'presentation': presentation,
+    }
+    socketio.emit('battle_resolve_presentation_updated', payload, to=to or room_id)
+    return payload
+
+
+def _complete_round_after_resolve(room, username, expected_round):
+    before_state = get_room_state(room)
+    before_round = int((before_state or {}).get('round', 0) or 0)
+    if int(expected_round) != before_round:
+        return False
+
+    end_result = process_full_round_end(room, username)
+    flush_room_state_now(room)
+    if not _is_battle_only_mode(room):
+        return bool(end_result)
+
+    state = get_room_state(room)
+    if not isinstance(state, dict):
+        return False
+    ended = bool(state.get('is_round_ended', False)) if end_result is None else bool(end_result)
+    if not ended or int(state.get('round', 0) or 0) != before_round:
+        return False
+    if not state.get('is_round_ended', False):
+        return False
+
+    bo = state.get('battle_only') if isinstance(state.get('battle_only'), dict) else {}
+    if bool(bo.get('pending_auto_reset', False)):
+        bo['pending_auto_reset'] = False
+        bo['pending_auto_reset_round'] = None
+        reset_battle_logic(room, 'full', '戦闘専用モード(自動リセット)')
+        broadcast_log(room, "[BattleOnly] 解決表示完了後にフィールドを自動リセットしました。", 'info')
+        flush_room_state_now(room)
+        return True
+
+    bo_status = str(bo.get('status', '') or '').strip().lower()
+    if bo_status and bo_status != 'in_battle':
+        return True
+    process_round_start(room, "戦闘専用モード")
+    flush_room_state_now(room)
+    return True
+
+
+def _complete_empty_resolve(room_id, battle_state):
+    user_info = get_user_info_from_sid(request.sid) or {}
+    username = user_info.get('username', 'System')
+    expected_round = int(battle_state.get('round', 0) or 0)
+    _complete_round_after_resolve(room_id, username, expected_round)
 
 
 def _get_battle_only_intent_control_policy(room):
@@ -166,6 +250,17 @@ def on_request_end_round(data):
 
     before_state = get_room_state(room)
     before_round = int((before_state or {}).get('round', 0) or 0)
+    if is_battle_only:
+        battle_state = (before_state or {}).get('battle_state')
+        presentation = (
+            ((battle_state or {}).get('resolve') or {}).get('presentation')
+            if isinstance(battle_state, dict)
+            else None
+        )
+        if isinstance(presentation, dict) and presentation.get('status') == 'playing':
+            # Battle-only progression is committed by the shared server cursor.
+            # Legacy/local completion notifications must not skip the remaining display.
+            return
     expected_round = data.get('expected_round')
     if expected_round is not None:
         try:
@@ -175,39 +270,10 @@ def on_request_end_round(data):
         if expected_round != before_round:
             # 複数クライアントから遅れて届いた完了通知で、次ラウンドまで終了させない。
             return
-    end_result = process_full_round_end(room, username)
-    flush_room_state_now(room)
-    if not is_battle_only:
-        return
-
-    state = get_room_state(room)
-    if not isinstance(state, dict):
-        return
-    ended = bool(state.get('is_round_ended', False)) if end_result is None else bool(end_result)
-    if not ended:
-        return
-    if int(state.get('round', 0) or 0) != before_round:
-        return
-    if not state.get('is_round_ended', False):
-        return
-    bo = state.get('battle_only') if isinstance(state.get('battle_only'), dict) else {}
-    if bool(bo.get('pending_auto_reset', False)):
-        bo['pending_auto_reset'] = False
-        bo['pending_auto_reset_round'] = None
-        try:
-            reset_battle_logic(room, 'full', '戦闘専用モード(自動リセット)')
-            broadcast_log(room, "[BattleOnly] 解決表示完了後にフィールドを自動リセットしました。", 'info')
-            flush_room_state_now(room)
-        except Exception:
-            logger.exception("[BattleOnly] auto reset after resolve completion failed room=%s", room)
-        return
-
-    bo_status = str(bo.get('status', '') or '').strip().lower()
-    if bo_status and bo_status != 'in_battle':
-        return
-
-    process_round_start(room, "戦闘専用モード")
-    flush_room_state_now(room)
+    try:
+        _complete_round_after_resolve(room, username, before_round)
+    except Exception:
+        logger.exception("round completion failed room=%s", room)
 
 @socketio.on('request_reset_battle')
 def on_request_reset_battle(data):
@@ -803,6 +869,10 @@ def _phase_flow_context():
         'run_select_resolve_auto': run_select_resolve_auto,
         'server_ts_ms': _server_ts_ms,
         'socketio': socketio,
+        'start_resolve_presentation': _start_resolve_presentation_for_request,
+        'finalize_resolve_presentation': finalize_resolve_presentation,
+        'save_specific_room_state': save_specific_room_state,
+        'complete_empty_resolve': _complete_empty_resolve,
     }
 
 
@@ -1197,6 +1267,10 @@ def on_battle_resolve_start(data):
         emit('battle_error', {'message': 'Not in this room'}, to=request.sid)
         return
     battle_id = _resolve_battle_id_for_room(room_id, data)
+    user_info = get_user_info_from_sid(request.sid) or {}
+    if str(user_info.get('attribute') or '').strip().upper() != 'GM' and not _is_battle_only_mode(room_id):
+        emit('battle_error', {'message': 'battle_resolve_start is GM only'}, to=request.sid)
+        return
 
     logger.info(
         "[FLOW] resolve_start_request sid=%s room=%s battle=%s",
@@ -1207,44 +1281,12 @@ def on_battle_resolve_start(data):
 
 @socketio.on('battle_resolve_flow_advance_request')
 def on_battle_resolve_flow_advance_request(data):
-    data = data or {}
-    room_id = data.get('room_id') or data.get('room') or data.get('room_name')
-    if not room_id:
-        emit('battle_error', {'message': 'room is required'}, to=request.sid)
-        return
-    if not is_sid_in_room(request.sid, room_id):
-        emit('battle_error', {'message': 'Not in this room'}, to=request.sid)
-        return
+    _resolve_presentation_routes.handle_advance(data, globals())
 
-    user_info = get_user_info_from_sid(request.sid) or {}
-    username = user_info.get("username", "System")
-    attribute = user_info.get("attribute", "Player")
-    is_battle_only = _is_battle_only_mode(room_id)
-    if attribute != 'GM' and not is_battle_only:
-        logger.info(
-            "[FLOW] resolve_flow_advance_denied room=%s user=%s attr=%s battle_only=%s",
-            room_id, username, attribute, is_battle_only
-        )
-        emit('battle_error', {'message': 'battle_resolve_flow_advance_request is GM only'}, to=request.sid)
-        return
 
-    payload = {
-        'room_id': room_id,
-        'battle_id': data.get('battle_id'),
-        'round': data.get('round'),
-        'expected_step_index': data.get('expected_step_index'),
-        'requested_by': username,
-        'server_ts': int(time.time())
-    }
-    logger.info(
-        "[FLOW] resolve_flow_advance room=%s battle=%s round=%s step=%s by=%s",
-        payload.get('room_id'),
-        payload.get('battle_id'),
-        payload.get('round'),
-        payload.get('expected_step_index'),
-        username
-    )
-    socketio.emit('battle_resolve_flow_advance', payload, to=room_id)
+@socketio.on('battle_resolve_flow_claim_request')
+def on_battle_resolve_flow_claim_request(data):
+    _resolve_presentation_routes.handle_claim(data, globals())
 
 
 @socketio.on('battle_intent_uncommit')

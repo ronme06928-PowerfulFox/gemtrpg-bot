@@ -73,6 +73,9 @@ def test_select_resolve_payload_includes_room_play_mode(monkeypatch):
     )
 
     assert payload["play_mode"] == "battle_only"
+    assert payload["trace_is_snapshot"] is True
+    assert payload["trace"] == []
+    assert payload["presentation"]["round"] == 1
 
 
 def _add_slot(state, slot_id, actor_id, team, initiative, index_in_actor=0):

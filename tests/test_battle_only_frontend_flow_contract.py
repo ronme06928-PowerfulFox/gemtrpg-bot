@@ -18,11 +18,13 @@ def test_battle_only_round_end_can_complete_without_resolve_phase_snapshot():
     assert source.index(marker) < source.index(reconnect_guard)
 
 
-def test_auto_round_end_request_carries_the_completed_round_number():
+def test_shared_resolve_cursor_replaces_local_auto_round_end_request():
     panel = (ROOT / "static/js/battle/components/ResolveFlowPanel.js").read_text(encoding="utf-8")
     client = (ROOT / "static/js/battle/core/SocketClient.js").read_text(encoding="utf-8")
-    assert "socketClient.sendRoundEnd(roomName, payload.round)" in panel
-    assert "payload.expected_round = normalizedRound" in client
+    assert "socketClient.sendRoundEnd(roomName, payload.round)" not in panel
+    assert "socketClient.sendResolveFlowAdvance(payload)" in panel
+    assert "expected_revision:" in panel
+    assert "sendResolveFlowClaim(payload)" in client
 
 
 def test_battle_start_request_carries_latest_draft_snapshot():

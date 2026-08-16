@@ -46,8 +46,33 @@ def handle_disconnect():
         try:
             broadcast_log(room, f"{username} がルームから切断しました。", 'info')
             broadcast_user_list(room)
+            emit_select_resolve_events(room, include_round_started=False)
         except Exception:
             pass
+
+
+@socketio.on('leave_room')
+def handle_leave_room(_data=None):
+    """Leave the active Socket.IO room without revoking room membership."""
+    sid = request.sid
+    user_info = user_sids.get(sid)
+    if not user_info:
+        return {'ok': True, 'room': None, 'already_left': True}
+
+    room = user_info.get('room')
+    if not room:
+        return {'ok': True, 'room': None, 'already_left': True}
+
+    username = user_info.get('username', '不明なユーザー')
+    leave_room(room)
+    user_info['room'] = None
+    if not user_info.get('is_app_admin', False):
+        user_info['attribute'] = PLAYER_ATTRIBUTE
+
+    broadcast_log(room, f"{username} が退室しました。", 'system')
+    broadcast_user_list(room)
+    emit_select_resolve_events(room, include_round_started=False)
+    return {'ok': True, 'room': room, 'already_left': False}
 
 @socketio.on('join_room')
 def handle_join_room(data):

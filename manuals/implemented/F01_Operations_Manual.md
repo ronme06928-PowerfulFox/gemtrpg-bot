@@ -2,7 +2,7 @@
 
 # 運用マニュアル
 
-**最終更新日**: 2026-07-11
+**最終更新日**: 2026-08-16
 **系統**: F — 運用
 **統合元**: 14_GM_Buff_Item_Operations_Spec / 16_Manual_Update_Protocol / 21_Render_Deploy_Operations / 26_Account_Auth_Plan
 
@@ -988,3 +988,15 @@ python scripts/export_legacy_preset_package.py --source data/cache/battle_only_p
 - 本番DBはホスティング環境のDBバックアップを正とします。
 - シナリオ単位の持ち運び・副次バックアップにはコレクションの移送JSONを使用します。
 - レコード単位の「完全バックアップ」はACLを含む管理用出力として維持します。環境間の通常取込にはACLを含まない移送JSONを使ってください。
+
+# Part 13: ルームの一時退出・再入室（2026-08-16）
+
+画面の「ルーム一覧へ戻る」は、ルームmembershipからの脱退ではなくSocket上の一時退出である。退出後も`RoomMember`は維持されるため、同じアカウントで戻る際に参加コードを再入力する必要はない。参加コードが再び必要になるのは、membershipを明示的に脱退・削除された場合だけである。
+
+一時退出時はクライアント指定のroom名を信用せず、サーバーが`user_sids[request.sid].room`から実際の退出先を決める。Socket.IO roomから外し、SIDの`room`を`None`へ変更し、非管理者の一時GM属性をPlayerへ戻してからackを返す。SID自体はロビー接続のため保持する。二重送信は成功として冪等に処理する。
+
+クライアントは`leave_room`のackを受けてからロビーへ遷移する。応答がない場合は最大3回再送し、接続中のまま退出確認を得られなければ画面遷移を中止する。回線自体が切れた場合は`disconnect`処理が在室情報を除去し、再接続したSIDはロビー状態から始まる。
+
+退出・切断後のSIDは旧room向けイベントを受信できず、戦闘イベントも`is_sid_in_room`境界で拒否される。進行役が退出した場合はResolve presentationを再配信し、残った参加者へ進行役不在を通知する。
+
+再入室時は通常の`join_room`認証後、現在のルーム状態、戦闘状態、当該ラウンドのResolve trace snapshot、共有presentationを受け取る。再入室そのものは戦闘計算、演出進行、ラウンド終了、次ラウンド開始を発生させない。

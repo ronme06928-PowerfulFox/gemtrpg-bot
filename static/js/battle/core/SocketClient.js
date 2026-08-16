@@ -154,6 +154,11 @@ class SocketClient {
             eventBus.emit('battle:resolve:flow:advance', payload || {});
         });
 
+        this._bindCore('battle_resolve_presentation_updated', (payload) => {
+            store.setResolvePresentation(payload || {});
+            eventBus.emit('battle:resolve:presentation:updated', payload || {});
+        });
+
         this._bindCore('battle_round_finished', (payload) => {
             store.setRoundFinished((payload || {}).round);
             eventBus.emit('battle:round:finished', payload || {});
@@ -309,6 +314,15 @@ class SocketClient {
             'battle_resolve_flow_advance_request',
             body,
             '[SocketClient] battle_resolve_flow_advance_request skip: socket missing'
+        );
+    }
+
+    sendResolveFlowClaim(payload) {
+        const body = (payload && typeof payload === 'object') ? payload : {};
+        return this._emit(
+            'battle_resolve_flow_claim_request',
+            body,
+            '[SocketClient] battle_resolve_flow_claim_request skip: socket missing'
         );
     }
 

@@ -94,6 +94,57 @@ def test_app_admin_joins_socket_as_gm_without_membership_write(monkeypatch):
     assert membership_writes == []
 
 
+def test_leave_room_clears_socket_presence_without_removing_sid(monkeypatch):
+    user_sids["sid-leave"] = {
+        "username": "Alice",
+        "attribute": "GM",
+        "room": "R1",
+        "user_id": "u1",
+        "is_app_admin": False,
+    }
+    monkeypatch.setattr(sm, "request", SimpleNamespace(sid="sid-leave"))
+    left = []
+    logs = []
+    lists = []
+    syncs = []
+    monkeypatch.setattr(sm, "leave_room", lambda room: left.append(room))
+    monkeypatch.setattr(sm, "broadcast_log", lambda *args, **kwargs: logs.append((args, kwargs)))
+    monkeypatch.setattr(sm, "broadcast_user_list", lambda room: lists.append(room))
+    monkeypatch.setattr(
+        sm,
+        "emit_select_resolve_events",
+        lambda room, **kwargs: syncs.append((room, kwargs)),
+    )
+
+    result = sm.handle_leave_room({"room": "spoofed-room"})
+
+    assert result == {"ok": True, "room": "R1", "already_left": False}
+    assert left == ["R1"]
+    assert user_sids["sid-leave"]["room"] is None
+    assert user_sids["sid-leave"]["attribute"] == "Player"
+    assert logs and logs[0][0][0] == "R1"
+    assert lists == ["R1"]
+    assert syncs == [("R1", {"include_round_started": False})]
+
+
+def test_leave_room_is_idempotent(monkeypatch):
+    user_sids["sid-lobby"] = {
+        "username": "Alice",
+        "attribute": "Player",
+        "room": None,
+        "user_id": "u1",
+        "is_app_admin": False,
+    }
+    monkeypatch.setattr(sm, "request", SimpleNamespace(sid="sid-lobby"))
+    left = []
+    monkeypatch.setattr(sm, "leave_room", lambda room: left.append(room))
+
+    result = sm.handle_leave_room({"room": "R1"})
+
+    assert result == {"ok": True, "room": None, "already_left": True}
+    assert left == []
+
+
 def test_chat_ignored_when_sid_not_in_room(monkeypatch):
     # sid-1 は R1 に在室。
     user_sids["sid-1"] = {"user_id": "u1", "room": "R1", "username": "Alice"}

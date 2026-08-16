@@ -37,6 +37,7 @@ class BattleStore {
             },
             resolveReady: false,
             resolveReadyInfo: null,
+            resolvePresentation: null,
             room_id: null,
             battle_id: null,
             selectedSlotId: null,
@@ -180,6 +181,7 @@ class BattleStore {
             resolveView: this._createResolveView('idle', payload.phase || this._state.phase),
             resolveReady: false,
             resolveReadyInfo: null,
+            resolvePresentation: payload.presentation || null,
             selectedSlotId: null,
             targetSelectMode: false,
             battleError: null,
@@ -243,7 +245,21 @@ class BattleStore {
             };
         }
 
-        const baseResolveTrace = roundChanged ? [] : (this._state.resolveTrace || []);
+        const hasTraceSnapshot = payload.trace_is_snapshot === true && Array.isArray(payload.trace);
+        const traceSnapshot = hasTraceSnapshot
+            ? Array.from(new Map(payload.trace.map((entry, idx) => {
+                const rawIndex = entry?.step_index ?? entry?.step ?? idx;
+                return [`step:${rawIndex}`, entry];
+            })).values())
+            : null;
+        const baseResolveTrace = traceSnapshot || (roundChanged ? [] : (this._state.resolveTrace || []));
+        if (hasTraceSnapshot) {
+            this._resolveStepSeen.clear();
+            resolveView = this._createResolveView(
+                this._isResolvePhase(phase) ? 'running' : (phase === 'round_end' ? 'finished' : 'idle'),
+                phase
+            );
+        }
 
         this._state = {
             ...this._state,
@@ -266,13 +282,21 @@ class BattleStore {
             resolveView,
             resolveReady: payload.resolve_ready !== undefined ? !!payload.resolve_ready : this._state.resolveReady,
             resolveReadyInfo: payload.resolve_ready_info !== undefined ? (payload.resolve_ready_info || null) : this._state.resolveReadyInfo,
+            resolvePresentation: payload.presentation !== undefined
+                ? (payload.presentation || null)
+                : this._state.resolvePresentation,
             battleError: payload.battle_error || null,
             usableSkillIds: payload.usable_skill_ids !== undefined ? (payload.usable_skill_ids || {}) : this._state.usableSkillIds
         };
         if (roundChanged) {
             this._resolveStepSeen.clear();
         }
-        if (Array.isArray(payload.trace) && payload.trace.length > 0) {
+        if (hasTraceSnapshot && traceSnapshot.length > 0) {
+            this._state = {
+                ...this._state,
+                resolveView: this._appendResolveViewSteps(this._state.resolveView, traceSnapshot)
+            };
+        } else if (Array.isArray(payload.trace) && payload.trace.length > 0) {
             this._state = {
                 ...this._state,
                 resolveTrace: [...baseResolveTrace, ...payload.trace],
@@ -382,6 +406,23 @@ class BattleStore {
         this._syncToLegacy();
         this._notify();
         this._debugLogSelectResolveSummary('battle_resolve_ready');
+    }
+
+    setResolvePresentation(payload) {
+        const data = payload || {};
+        const presentation = data.presentation || data;
+        if (data.room_id && this._state.room_id && String(data.room_id) !== String(this._state.room_id)) return;
+        if (data.battle_id && this._state.battle_id && String(data.battle_id) !== String(this._state.battle_id)) return;
+        if (data.round !== undefined && Number(data.round) !== Number(this._state.round)) return;
+        const currentRevision = Number(this._state.resolvePresentation?.revision ?? -1);
+        const incomingRevision = Number(presentation?.revision ?? -1);
+        if (Number.isFinite(currentRevision) && Number.isFinite(incomingRevision) && incomingRevision < currentRevision) return;
+        this._state = {
+            ...this._state,
+            resolvePresentation: presentation || null
+        };
+        this._syncToLegacy();
+        this._notify();
     }
 
     clearBattleError() {

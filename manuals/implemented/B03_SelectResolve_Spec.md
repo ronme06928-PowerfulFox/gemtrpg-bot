@@ -1,7 +1,7 @@
 <!-- 旧: 09_SelectResolve_Spec.md を B 系列へ移管 (2026-05-09) -->
 # 09 Select/Resolve 確定仕様書 v1.2
 
-**最終更新日**: 2026-03-28
+**最終更新日**: 2026-08-16
 **文書バージョン**: v1.6
 **対象実装**: `events/battle/common_routes.py` / `manager/battle/common_manager.py` / `manager/battle/core.py`
 **版注記**: 本更新で v1.6 相当の仕様差分（`same_team/opposing_team` 記法と同陣営指定タグの固定ルール）を反映
@@ -69,7 +69,8 @@ RoundStart は次の順序で処理する。
 - `battle_intent_preview` / `battle_intent_commit` / `battle_intent_uncommit` は、対象 `slot_id` が存在しない場合 `battle_error: unknown slot_id` を返し、状態を変更しない。
 - 各 intent イベントは「そのスロットの actor を操作可能なユーザー」だけが実行できる。権限不足時は `battle_error: <event> permission denied` を返し、状態を変更しない。
 - `GM` は全キャラクターのスロットを代理操作可能。
-- `battle_resolve_confirm` と `battle_resolve_flow_advance_request` は `GM` 専用。
+- `battle_resolve_confirm` は `GM` 専用。通常ルームの `battle_resolve_start` も `GM` 専用。
+- `battle_resolve_flow_advance_request` は、後述する共有 Resolve presentation の進行役だけが実行できる。
 
 ## 6. redirect（自動、init(A)>init(B)でB.target=A、競合は最大initiativeが最終勝者・後から再上書き、同速不可、マッチできなくなった側はone-sided）
 - A が単体で B（相手スロット）を target にして commit したとき、`initiative(A) > initiative(B)` なら `B.target = A` に自動変更する。
@@ -547,3 +548,24 @@ redirect（§6）・no_redirect（§7）の実体ロジックを `events/battle/
 混乱・行動不能は通常スロット自体を消さず、配信ペイロード上で`source_disabled:true`と理由を付与する。Select中は該当スロットの既存intentを解除し、preview/commitをサーバーでも拒否する。Resolve中に混乱した場合は、すでに解決済みの行動へ遡及せず、未解決スロットだけを`attacker_confusion`としてスキップする。通常キャラクターが本当に使用可能スキルを持たない場合の`SYS-STRUGGLE`は従来どおり維持する。
 
 実装: `events/battle/pve_intents.py`、`events/battle/common_routes.py`、`manager/battle/resolve_auto_mass_phase.py`、`manager/battle/resolve_auto_single_phase.py`。
+
+## 2026-08 追補: Resolve履歴snapshotと共有presentation
+
+Resolveの計算結果と演出位置は分離して管理する。計算結果の正本は`battle_state.resolve.trace`、卓全体の現在表示位置の正本は`battle_state.resolve.presentation`である。再入室・再読込は保存済み結果を復元するだけで、戦闘計算を再実行しない。
+
+`battle_state_updated`は`trace_is_snapshot:true`と当該ラウンドの全`trace`を返す。クライアントは`step_index`で重複排除し、`presentation.current_step_index`より前の演出を自動再生せず現在位置へ合流する。完了ラウンドのtraceは次ラウンド開始まで保持し、過去結果は戦闘ログからも確認できる。
+
+`presentation`は次を保持する。
+
+- `round`、`status`（`idle|playing|completed`）
+- `current_step_index`、`step_total`、単調増加する`revision`
+- `controller_user_id`、`controller_username`、`controller_present`
+- 現在ステップのサーバー時刻`step_started_at`
+
+`battle_resolve_flow_advance_request`は`room_id`、`battle_id`、`round`、`expected_step_index`、`expected_revision`を必要とする。在室中の進行役から届き、すべてが現在値と一致した要求だけを一度受理する。遅延・重複・非進行役の要求は状態を変更せず、要求元へ最新presentationを返す。受理時はroom全体へpresentationと`battle_resolve_flow_advance`を配信するため、通常ルームを含め全員の表示位置は同じになる。
+
+宣言操作権と演出進行権は別権限である。通常ルームはResolveを開始したGM、戦闘専用ルームは原則として戦闘開始者が進行役となる。通常ルームの別GMは`battle_resolve_flow_claim_request`で明示的に引き継げる。一般参加者による引継ぎは、戦闘専用ルームで現在の進行役がSocket在室していない場合だけ許可する。
+
+最後のステップを進めるとサーバーが`completed`を確定し、ラウンド終了処理を一度だけ実行する。クライアントのローカル再生完了をラウンド終了の根拠にしない。traceが0件の場合はResolve計算直後に同じ完了処理へ進む。
+
+実装: `manager/battle/resolve_presentation.py`、`events/battle/resolve_presentation_routes.py`、`events/battle/phase_flow.py`、`static/js/battle/components/ResolveFlowPanel.js`。

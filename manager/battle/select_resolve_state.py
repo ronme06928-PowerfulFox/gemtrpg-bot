@@ -140,6 +140,8 @@ def ensure_battle_state_vNext(room_state, battle_id=None, round_value=None, rebu
     battle_state['resolve']['resolved_slots'] = battle_state['resolve'].get('resolved_slots', [])
     battle_state['resolve']['trace'] = battle_state['resolve'].get('trace', [])
     battle_state['resolve']['auto_defense_charges'] = battle_state['resolve'].get('auto_defense_charges', {})
+    from manager.battle.resolve_presentation import ensure_resolve_presentation
+    ensure_resolve_presentation(battle_state)
 
     if rebuild_slots or not battle_state['slots']:
         battle_state['slots'] = _build_select_resolve_slots_from_timeline(room_state)
@@ -275,6 +277,13 @@ def build_select_resolve_state_payload(room, battle_id=None):
         if reason:
             slot['source_disabled'] = True
             slot['inactive_reason'] = reason
+    presentation = copy.deepcopy(battle_state.get('resolve', {}).get('presentation', {}))
+    if isinstance(presentation, dict):
+        from manager.room_access import is_user_in_room
+        controller_user_id = presentation.get('controller_user_id')
+        presentation['controller_present'] = bool(
+            controller_user_id and is_user_in_room(controller_user_id, room)
+        )
     return {
         'room_id': room,
         'play_mode': (room_state or {}).get('play_mode', 'normal'),
@@ -288,6 +297,9 @@ def build_select_resolve_state_payload(room, battle_id=None):
         'redirects': battle_state.get('redirects', []),
         'resolve_ready': bool(battle_state.get('resolve_ready', False)),
         'resolve_ready_info': battle_state.get('resolve_ready_info', {}),
+        'trace': copy.deepcopy(battle_state.get('resolve', {}).get('trace', [])),
+        'trace_is_snapshot': True,
+        'presentation': presentation,
         'usable_skill_ids': _build_usable_skill_ids(room_state, battle_state),
     }
 

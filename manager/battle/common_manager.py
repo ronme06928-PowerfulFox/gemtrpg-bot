@@ -581,7 +581,8 @@ def _process_full_round_end_impl(room, username):
         battle_state['resolve']['mass_queue'] = []
         battle_state['resolve']['single_queue'] = []
         battle_state['resolve']['resolved_slots'] = []
-        battle_state['resolve']['trace'] = []
+        # Keep the completed round trace available for reconnect/snapshot restore.
+        # The next round initialization clears it.
 
     broadcast_state_update(room)
     save_specific_room_state(room)
@@ -1439,7 +1440,6 @@ def process_ai_suggest_skill(room, char_id):
     if not char: return None
 
     return ai_suggest_skill(char)
-
 
 
 

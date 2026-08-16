@@ -102,6 +102,7 @@ def _start_select_resolve_if_ready(room_id, battle_id, source_event, *, ctx):
 
     state['resolve_snapshot_intents'] = copy.deepcopy(state.get('intents', {}))
     state['resolve_snapshot_at'] = ctx['server_ts_ms']()
+    ctx['start_resolve_presentation'](room_id, state)
 
     state['resolve_ready'] = False
     state['resolve_ready_info'] = {}
@@ -125,6 +126,11 @@ def _start_select_resolve_if_ready(room_id, battle_id, source_event, *, ctx):
 
     ctx['emit_select_resolve_events'](room_id, include_round_started=False)
     ctx['run_select_resolve_auto'](room_id, battle_id)
+    presentation = ctx['finalize_resolve_presentation'](state)
+    ctx['save_specific_room_state'](room_id)
+    ctx['emit_select_resolve_events'](room_id, include_round_started=False)
+    if isinstance(presentation, dict) and presentation.get('status') == 'completed':
+        ctx['complete_empty_resolve'](room_id, state)
 
 
 def _refresh_resolve_ready(room_id, state, *, required_slots_fn):
