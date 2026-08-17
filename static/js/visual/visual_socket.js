@@ -1172,4 +1172,3 @@ window.setupVisualSocketHandlers = function () {
     }
 }
 
-

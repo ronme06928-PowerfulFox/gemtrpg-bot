@@ -741,6 +741,22 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 font-size: 1rem;
                 line-height: 1;
             }
+            .behavior-step-controls {
+                display: grid;
+                justify-items: center;
+                gap: 4px;
+            }
+            .behavior-step-insert-button {
+                min-height: 30px;
+                padding: 3px 7px;
+                border: 1px solid #2f7fbf;
+                border-radius: 5px;
+                background: #fff;
+                color: #2f7fbf;
+                cursor: pointer;
+                font-size: 0.76em;
+                white-space: nowrap;
+            }
             .behavior-target-candidates {
                 grid-column: 1 / -1;
                 display: grid;
@@ -871,7 +887,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                     grid-template-columns: 1fr;
                 }
                 .behavior-step-row {
-                    grid-template-columns: minmax(88px, max-content) minmax(0, 1fr) 34px;
+                    grid-template-columns: minmax(88px, max-content) minmax(0, 1fr) max-content;
                 }
                 .behavior-action-row {
                     grid-template-columns: minmax(0, 1fr) 30px;
@@ -1260,7 +1276,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             <div style="border:1px solid #dbeaf6; border-radius:7px; padding:8px; margin-bottom:8px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                     <div style="font-weight:bold; color:#2f566f; font-size:0.88em;">ラウンド設定</div>
-                    <button id="behavior-step-add-btn" style="padding:4px 8px; border:none; background:#2f7fbf; color:#fff; border-radius:5px; cursor:pointer;">追加</button>
+                    <button id="behavior-step-add-btn" style="padding:4px 8px; border:none; background:#2f7fbf; color:#fff; border-radius:5px; cursor:pointer;">末尾に追加</button>
                 </div>
                 <div style="font-size:0.77em; color:#5b7890; margin-bottom:5px;">※所持スキルと対象候補を行ごとに設定します。</div>
                 <div id="behavior-step-list"></div>
@@ -1506,6 +1522,18 @@ function openBehaviorFlowEditorModal(char, options = {}) {
 
                 row.appendChild(actionsWrap);
 
+                const stepControls = document.createElement('div');
+                stepControls.className = 'behavior-step-controls';
+
+                const insertStepBtn = document.createElement('button');
+                insertStepBtn.type = 'button';
+                insertStepBtn.dataset.stepInsertBefore = String(idx);
+                insertStepBtn.className = 'behavior-step-insert-button';
+                insertStepBtn.textContent = '＋挿入';
+                insertStepBtn.title = `ラウンド ${idx + 1}の前に新しいラウンドを挿入`;
+                insertStepBtn.setAttribute('aria-label', `ラウンド ${idx + 1}の前に新しいラウンドを挿入`);
+                stepControls.appendChild(insertStepBtn);
+
                 const delStepBtn = document.createElement('button');
                 delStepBtn.type = 'button';
                 delStepBtn.dataset.stepDel = String(idx);
@@ -1513,7 +1541,8 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 delStepBtn.textContent = '×';
                 delStepBtn.title = `ラウンド ${idx + 1}を削除`;
                 delStepBtn.setAttribute('aria-label', `ラウンド ${idx + 1}を削除`);
-                row.appendChild(delStepBtn);
+                stepControls.appendChild(delStepBtn);
+                row.appendChild(stepControls);
                 stepListEl.appendChild(row);
             });
         }
@@ -1719,6 +1748,21 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             });
             markDirty();
             renderAll();
+        });
+        editorEl.querySelectorAll('[data-step-insert-before]').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.currentTarget.dataset.stepInsertBefore, 10);
+                if (!Number.isInteger(idx) || idx < 0 || idx > loop.steps.length) return;
+                loop.steps.splice(idx, 0, {
+                    actions: [null],
+                    targets: [normalizeBehaviorTargetCandidates(BEHAVIOR_STEP_TARGET_POLICY_DEFAULT)],
+                    on_no_target: ['cancel'],
+                    next_loop_id: null,
+                    next_reset_step_index: true
+                });
+                markDirty();
+                renderAll();
+            });
         });
         editorEl.querySelectorAll('[data-step-action]').forEach((select) => {
             select.addEventListener('change', (e) => {
