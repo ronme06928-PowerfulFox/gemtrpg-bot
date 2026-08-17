@@ -6,6 +6,7 @@ class ResolveFlowPanel {
     constructor() {
         this._unsubscribe = null;
         this._unsubscribeAdvanceEvent = null;
+        this._unsubscribeStartRequestedEvent = null;
         this._panelId = 'resolve-flow-panel';
         this._initialized = false;
         this._traceSeen = new Set();
@@ -35,6 +36,8 @@ class ResolveFlowPanel {
         this._roundSawResolvePhase = false;
         this._powerRevealSePlayedKeys = new Set();
         this._resetNextMatchClock = false;
+        this._waitingForFirstTrace = false;
+        this._resolveStartPending = false;
     }
 
     initialize() {
@@ -45,6 +48,9 @@ class ResolveFlowPanel {
         this._unsubscribe = store.subscribe((state) => this._onStateUpdated(state || {}));
         this._unsubscribeAdvanceEvent = eventBus.on('battle:resolve:flow:advance', (payload) => {
             this._onSyncedAdvanceSignal(payload || {});
+        });
+        this._unsubscribeStartRequestedEvent = eventBus.on('battle:resolve:start:requested', (payload) => {
+            this._onResolveStartRequested(payload || {});
         });
         this._initialized = true;
         this._onStateUpdated(store.state || {});
@@ -60,6 +66,10 @@ class ResolveFlowPanel {
         if (this._unsubscribeAdvanceEvent) {
             this._unsubscribeAdvanceEvent();
             this._unsubscribeAdvanceEvent = null;
+        }
+        if (this._unsubscribeStartRequestedEvent) {
+            this._unsubscribeStartRequestedEvent();
+            this._unsubscribeStartRequestedEvent = null;
         }
         this._stopPlayback();
         this._traceSeen.clear();
@@ -81,6 +91,8 @@ class ResolveFlowPanel {
         this._roundSawResolvePhase = false;
         this._powerRevealSePlayedKeys.clear();
         this._resetNextMatchClock = false;
+        this._waitingForFirstTrace = false;
+        this._resolveStartPending = false;
         this._initialized = false;
         const panel = document.getElementById(this._panelId);
         if (panel) panel.remove();
@@ -240,6 +252,37 @@ class ResolveFlowPanel {
 
     _isPlaybackPhase(phase) {
         return this._isResolvePhase(phase) || phase === 'round_end';
+    }
+
+    _isResolvePresentationActive(phase) {
+        return this._isResolvePhase(phase)
+            || (phase === 'select' && this._resolveStartPending);
+    }
+
+    _onResolveStartRequested(payload) {
+        const state = store.state || {};
+        if (String(state.phase || '') !== 'select') return;
+        const requestedRound = this._toNumber(payload?.round, this._toNumber(state.round, 0));
+        if (requestedRound !== this._toNumber(state.round, 0)) return;
+        this._resolveStartPending = true;
+        const roundKey = this._roundStateKey(state);
+        this._enqueueBattleStartIntro(roundKey);
+        if (!this._activeStep && this._playQueue.length > 0) {
+            this._playNextStep({ forceLocalClock: true });
+        } else if (this._activeStep) {
+            this._renderStep(state);
+        }
+    }
+
+    _cancelPendingResolveStart() {
+        if (!this._resolveStartPending) return;
+        this._resolveStartPending = false;
+        this._stopPlayback();
+        this._playQueue = [];
+        this._activeStep = null;
+        this._waitingForFirstTrace = false;
+        this._introShownRounds.delete(this._roundKey);
+        this._removePanel();
     }
 
     _toNumber(value, fallback = 0) {
@@ -682,6 +725,8 @@ class ResolveFlowPanel {
             this._roundSawResolvePhase = false;
             this._powerRevealSePlayedKeys.clear();
             this._resetNextMatchClock = false;
+            this._waitingForFirstTrace = false;
+            this._resolveStartPending = false;
         }
 
         if (!isBattle) {
@@ -702,7 +747,17 @@ class ResolveFlowPanel {
             this._roundSawResolvePhase = false;
             this._powerRevealSePlayedKeys.clear();
             this._resetNextMatchClock = false;
+            this._waitingForFirstTrace = false;
+            this._resolveStartPending = false;
             this._removePanel();
+            return;
+        }
+
+        const inResolve = this._isResolvePhase(phase);
+        if (inResolve) {
+            this._resolveStartPending = false;
+        } else if (this._resolveStartPending && phase === 'select' && state?.battleError) {
+            this._cancelPendingResolveStart();
             return;
         }
 
@@ -721,7 +776,7 @@ class ResolveFlowPanel {
 
         // Defensive reset: when returning to select with an empty resolve trace,
         // stale denominator/index state must not survive within the same round.
-        if (phase === 'select' && traceLen === 0) {
+        if (phase === 'select' && traceLen === 0 && !this._resolveStartPending) {
             this._traceSeen.clear();
             this._displayIndexByKey.clear();
             this._displayIndexCursor = 0;
@@ -736,16 +791,33 @@ class ResolveFlowPanel {
             this._pendingSyncedAdvanceCount = 0;
             this._powerRevealSePlayedKeys.clear();
             this._resetNextMatchClock = false;
+            this._waitingForFirstTrace = false;
         }
 
-        const inResolve = this._isResolvePhase(phase);
-        const canPlayback = this._isPlaybackPhase(phase);
+        const canPlayback = this._isPlaybackPhase(phase)
+            || this._isResolvePresentationActive(phase);
         if (inResolve) this._roundSawResolvePhase = true;
-        if (inResolve && !this._introShownRounds.has(roundKey)) {
+        if (this._isResolvePresentationActive(phase) && !this._introShownRounds.has(roundKey)) {
             this._enqueueBattleStartIntro(roundKey);
         }
         if (canPlayback || this._activeStep || this._playQueue.length > 0) {
             this._ingestTrace(state);
+        }
+
+        if (this._waitingForFirstTrace && this._playQueue.length > 0 && canPlayback) {
+            this._waitingForFirstTrace = false;
+            this._activeStep = null;
+            this._renderedStepKey = null;
+            this._playNextStep({ forceLocalClock: true });
+            return;
+        }
+        if (this._waitingForFirstTrace && phase === 'round_end' && this._playQueue.length === 0) {
+            this._waitingForFirstTrace = false;
+            this._activeStep = null;
+            this._renderedStepKey = null;
+            this._emitResolveFlowCompleted(state);
+            this._removePanel();
+            return;
         }
 
         if (!this._activeStep && this._playQueue.length > 0 && canPlayback && !this._waitingForAdvance) {
@@ -796,14 +868,16 @@ class ResolveFlowPanel {
             if (phase === 'round_end') {
                 this._emitResolveFlowCompleted(store.state || {});
                 this._removePanel();
-            } else if (!this._isResolvePhase(phase) || shouldHideIntroResidue) {
+            } else if (!this._isResolvePresentationActive(phase) || shouldHideIntroResidue) {
                 this._removePanel();
             }
             return;
         }
         this._activeStep = this._playQueue.shift();
-        const resetVisibleClock = !this._isIntroStep(this._activeStep)
-            && (forceLocalClock || this._resetNextMatchClock);
+        const isIntroStep = this._isIntroStep(this._activeStep);
+        const isFirstPresentedMatch = !isIntroStep && this._presentedStepCount === 0;
+        const resetVisibleClock = !isIntroStep
+            && (isFirstPresentedMatch || forceLocalClock || this._resetNextMatchClock);
         if (this._activeStep && !this._isIntroStep(this._activeStep)) {
             this._resetNextMatchClock = false;
             this._presentedStepCount += 1;
@@ -832,7 +906,15 @@ class ResolveFlowPanel {
         this._stepTimer = setTimeout(() => {
             if (!this._activeStep) return;
             if (this._isIntroStep(this._activeStep)) {
+                const phase = String(store?.state?.phase || '');
+                if (this._playQueue.length === 0 && this._isResolvePresentationActive(phase)) {
+                    this._clearTimers();
+                    this._waitingForFirstTrace = true;
+                    this._renderStep(store.state || {});
+                    return;
+                }
                 this._stopPlayback();
+                this._waitingForFirstTrace = false;
                 this._activeStep = null;
                 // The shared cursor starts before the local BATTLE START intro.
                 // The first visible match must start its gauge when it appears.
@@ -1471,6 +1553,10 @@ class ResolveFlowPanel {
                     </div>
                 `;
                 this._renderedStepKey = stepKey;
+            }
+            const introSub = panelIntro.querySelector('.resolve-flow-intro-sub');
+            if (introSub) {
+                introSub.textContent = this._waitingForFirstTrace ? 'RESOLVING...' : 'BATTLE START';
             }
             return;
         }

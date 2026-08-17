@@ -31,8 +31,28 @@ def test_first_resolve_match_resets_clock_after_battle_start_intro():
     source = (ROOT / "static/js/battle/components/ResolveFlowPanel.js").read_text(encoding="utf-8")
     assert "_playNextStep({ forceLocalClock = false } = {})" in source
     assert "this._resetNextMatchClock = true;" in source
+    assert "const isFirstPresentedMatch = !isIntroStep && this._presentedStepCount === 0;" in source
     assert "const useSharedClock = !resetVisibleClock" in source
     assert "this._playNextStep({ forceLocalClock: true });" in source
+
+
+def test_resolve_intro_stays_visible_until_first_trace_arrives():
+    source = (ROOT / "static/js/battle/components/ResolveFlowPanel.js").read_text(encoding="utf-8")
+    assert "this._waitingForFirstTrace = true;" in source
+    assert "this._waitingForFirstTrace && this._playQueue.length > 0 && canPlayback" in source
+    assert "this._waitingForFirstTrace && phase === 'round_end' && this._playQueue.length === 0" in source
+    assert "this._waitingForFirstTrace ? 'RESOLVING...' : 'BATTLE START'" in source
+
+
+def test_resolve_popup_opens_on_request_and_stays_active_until_server_phase_arrives():
+    panel = (ROOT / "static/js/battle/components/ResolveFlowPanel.js").read_text(encoding="utf-8")
+    dock = (ROOT / "static/js/battle/components/ActionDock.js").read_text(encoding="utf-8")
+    client = (ROOT / "static/js/battle/core/SocketClient.js").read_text(encoding="utf-8")
+    assert "eventBus.emit('battle:resolve:start:requested'" in dock
+    assert "this._unsubscribeStartRequestedEvent = eventBus.on('battle:resolve:start:requested'" in panel
+    assert "(phase === 'select' && this._resolveStartPending)" in panel
+    assert "this._isResolvePresentationActive(phase)" in panel
+    assert "return this._emit('battle_resolve_start'" in client
 
 
 def test_battle_start_request_carries_latest_draft_snapshot():

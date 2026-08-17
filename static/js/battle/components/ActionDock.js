@@ -1,4 +1,5 @@
 import { store } from '../core/BattleStore.js';
+import { eventBus } from '../core/EventBus.js';
 import { socketClient } from '../core/SocketClient.js';
 
 const _battleVerbose = () => (typeof window !== 'undefined' && !!window.BATTLE_DEBUG_VERBOSE);
@@ -11,6 +12,7 @@ class ActionDock {
         this._unsubscribe = null;
         this._dockPanelId = 'select-resolve-dock-panel';
         this._initialized = false;
+        this._resolveStartPending = false;
     }
 
     initialize() {
@@ -51,6 +53,9 @@ class ActionDock {
     }
 
     _onStateChange(state) {
+        if (state?.phase !== 'select' || state?.battleError) {
+            this._resolveStartPending = false;
+        }
         if (typeof window.updateActionDock === 'function') {
             try {
                 window.updateActionDock();
@@ -101,7 +106,7 @@ class ActionDock {
             dock.appendChild(panel);
         }
 
-        const resolveReady = this._isResolveReadyForConfirm(state);
+        const resolveReady = this._isResolveReadyForConfirm(state) && !this._resolveStartPending;
         panel.innerHTML = `
             <button
                 id="sr-resolve-confirm-btn"
@@ -123,7 +128,15 @@ class ActionDock {
                 store.get('room_name') ||
                 store.get('room_id') ||
                 (typeof window !== 'undefined' ? window.currentRoomName : null);
-            socketClient.sendResolveStart(roomName || null);
+            const sent = socketClient.sendResolveStart(roomName || null);
+            if (!sent) return;
+            this._resolveStartPending = true;
+            eventBus.emit('battle:resolve:start:requested', {
+                room_id: store.get('room_id') || roomName || null,
+                battle_id: store.get('battle_id') || null,
+                round: Number(store.get('round') || 0)
+            });
+            this._renderSelectResolvePanel(store.state || {});
         });
     }
 

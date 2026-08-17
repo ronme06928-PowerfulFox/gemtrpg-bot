@@ -305,7 +305,7 @@ class SocketClient {
     sendResolveStart(roomName) {
         const payload = roomName ? { room: roomName } : {};
         _battleInfo('[SocketClient] battle_resolve_start', payload);
-        this._emit('battle_resolve_start', payload, '[SocketClient] battle_resolve_start skip: socket missing');
+        return this._emit('battle_resolve_start', payload, '[SocketClient] battle_resolve_start skip: socket missing');
     }
 
     sendResolveFlowAdvance(payload) {
