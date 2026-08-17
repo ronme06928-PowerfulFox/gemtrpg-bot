@@ -23,6 +23,7 @@ from manager.game_logic import (
 from manager.granted_skills.service import apply_grant_skill_change
 from manager.room_preset_apply import (
     apply_stage_background_to_state,
+    assign_runtime_character_number,
     build_runtime_character_from_preset,
     normalize_stage_avatar,
     normalize_stage_field_effect_profile,
@@ -618,6 +619,7 @@ def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_user
                     flags = char.setdefault("flags", {})
                     flags["behavior_profile"] = copy.deepcopy(row["behavior_profile_override"])
                 apply_passive_effect_buffs(char)
+                assign_runtime_character_number(char, candidate["characters"])
                 candidate["characters"].append(char)
                 candidate["character_owners"][char["id"]] = owner_name
                 new_chars.append(char)
@@ -636,6 +638,7 @@ def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_user
             )
             serial += 1
             apply_passive_effect_buffs(char)
+            assign_runtime_character_number(char, candidate["characters"])
             candidate["characters"].append(char)
             candidate["character_owners"][char["id"]] = owner_name
             new_chars.append(char)

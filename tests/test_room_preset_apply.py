@@ -150,7 +150,7 @@ def test_apply_enemy_formation_replaces_existing_enemies_and_keeps_allies():
     enemies = [c for c in state["characters"] if c.get("type") == "enemy"]
     assert [c["id"] for c in allies] == ["ally_1"]
     assert len(enemies) == 2
-    assert all(c["name"] == "Goblin" for c in enemies)
+    assert [c["name"] for c in enemies] == ["Goblin [敵 1]", "Goblin [敵 2]"]
     assert all(c["x"] >= 0 and c["y"] >= 0 for c in enemies)
     assert "old_enemy" not in state["character_owners"]
     assert state["timeline"] == []
@@ -292,3 +292,16 @@ def test_runtime_enemy_preserves_normalized_tag_state():
 
     assert enemy["tag_ids"] == ["種別:瓦礫", "機械"]
     assert enemy["disabled_tag_ids"] == ["機械"]
+
+
+def test_runtime_enemy_uses_base_name_instead_of_saved_display_suffix():
+    record = copy.deepcopy(_store()["character_presets"]["enemy_1"])
+    record["character_json"]["data"].update({
+        "name": "Goblin [敵 1]",
+        "baseName": "Goblin",
+    })
+
+    enemy = room_preset_apply.build_runtime_enemy_from_preset(record, 1)
+
+    assert enemy["name"] == "Goblin"
+    assert enemy["baseName"] == "Goblin"

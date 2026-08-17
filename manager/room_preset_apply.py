@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import random
+import re
 import time
 
 from manager.battle_only_presets import load_store as load_bo_preset_store
@@ -20,6 +21,8 @@ REQUIRED_STATE_NAMES = [
     "\u6226\u6144",
     "\u834a\u68d8",
 ]
+
+_CHARACTER_NUMBER_SUFFIX_RE = re.compile(r"\s*\[(味方|敵)\s*(\d+)\]\s*$")
 
 
 class RoomPresetError(ValueError):
@@ -266,7 +269,13 @@ def build_runtime_character_from_preset(
     char["id"] = f"char_room_preset_{_now_ms()}_{random.randint(1000, 9999)}_{int(serial_no)}"
     _force_character_side(char, normalized_side)
 
-    base_name = str(char.get("name", "")).strip() or str(rec.get("name", "")).strip() or "Enemy"
+    base_name = (
+        str(char.get("baseName", "")).strip()
+        or str(char.get("name", "")).strip()
+        or str(rec.get("name", "")).strip()
+        or "Enemy"
+    )
+    base_name = _CHARACTER_NUMBER_SUFFIX_RE.sub("", base_name).strip() or "Enemy"
     char["name"] = base_name
     char["baseName"] = base_name
     char["owner"] = str(owner_name or "GM")
@@ -344,6 +353,32 @@ def build_runtime_character_from_preset(
         "maxMp": int(char.get("maxMp", 0)),
     }
     normalize_character_labels(char)
+    return char
+
+
+def assign_runtime_character_number(char, existing_characters):
+    """Assign the first unused side-local display number to a runtime character."""
+    if not isinstance(char, dict):
+        return char
+    side = str(char.get("type") or char.get("team") or "enemy").strip().lower()
+    side_label = "味方" if side == "ally" else "敵"
+    used_numbers = set()
+    for existing in existing_characters if isinstance(existing_characters, list) else []:
+        if not isinstance(existing, dict):
+            continue
+        match = _CHARACTER_NUMBER_SUFFIX_RE.search(str(existing.get("name", "")))
+        if match and match.group(1) == side_label:
+            used_numbers.add(int(match.group(2)))
+    suffix_num = 1
+    while suffix_num in used_numbers:
+        suffix_num += 1
+    base_name = (
+        str(char.get("baseName", "")).strip()
+        or _CHARACTER_NUMBER_SUFFIX_RE.sub("", str(char.get("name", ""))).strip()
+        or "Enemy"
+    )
+    char["baseName"] = base_name
+    char["name"] = f"{base_name} [{side_label} {suffix_num}]"
     return char
 
 
@@ -657,6 +692,7 @@ def _add_enemies(state, entries, presets, user_info=None, room=None, anchor=None
             enemy = build_runtime_enemy_from_preset(rec, serial, owner_name=owner_name, owner_id=owner_id)
             serial += 1
             _apply_enemy_behavior_override(enemy, behavior_override)
+            assign_runtime_character_number(enemy, state["characters"])
             new_enemies.append(enemy)
             state["characters"].append(enemy)
             state["character_owners"][enemy["id"]] = owner_name

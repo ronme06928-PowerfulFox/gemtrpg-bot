@@ -155,6 +155,32 @@ def test_normal_stage_and_single_character_apply_atomically():
     assert state["stage_avatar_profile"]["name"] == "案内役"
 
 
+def test_normal_deployment_assigns_unique_enemy_numbers_to_batch():
+    state = _normal_state()
+    store = _store()
+    store["character_presets"]["c_enemy"]["character_json"]["data"].update({
+        "name": "敵素材 [敵 1]",
+        "baseName": "敵素材",
+    })
+
+    apply_deployment(
+        state,
+        {
+            "target_mode": "normal",
+            "characters": [{"record_id": "c_enemy", "side": "enemy", "count": 3}],
+        },
+        store,
+        **_context(),
+    )
+
+    added = [char for char in state["characters"] if char["id"] not in {"old_a", "old_e"}]
+    assert [char["name"] for char in added] == [
+        "敵素材 [敵 1]",
+        "敵素材 [敵 2]",
+        "敵素材 [敵 3]",
+    ]
+
+
 def test_preview_does_not_mutate_room_state():
     state = _normal_state()
     before = copy.deepcopy(state)
