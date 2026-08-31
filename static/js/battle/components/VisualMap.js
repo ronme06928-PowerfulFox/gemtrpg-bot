@@ -5,8 +5,7 @@
  * Store を購読し、状態変更時に renderVisualMap() を自動呼び出しします。
  */
 
-import { store } from '../core/BattleStore.js';
-import { eventBus } from '../core/EventBus.js';
+import { boardPresentationCoordinator } from '../core/BoardPresentationCoordinator.js';
 import { mapState } from './MapState.js';
 
 class VisualMap {
@@ -27,8 +26,8 @@ class VisualMap {
             return true;
         }
 
-        // BattleStore を購読（キャラクター位置変更時）
-        this._unsubscribe = store.subscribe((state) => {
+        // 演出中に固定される盤面用スナップショットを購読する。
+        this._unsubscribe = boardPresentationCoordinator.subscribe((state) => {
             this._onStateChange(state);
         });
 

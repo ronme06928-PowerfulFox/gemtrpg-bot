@@ -894,10 +894,12 @@ window.showRoundStartBanner = function (round) {
     banner.classList.remove('is-active');
     void banner.offsetWidth; // force reflow so the animation restarts on consecutive rounds
     banner.classList.add('is-active');
+    if (window.EventBus) window.EventBus.emit('battle:round:banner:started', { round });
 
     if (window._roundBannerHideTimer) clearTimeout(window._roundBannerHideTimer);
     window._roundBannerHideTimer = setTimeout(() => {
         banner.classList.remove('is-active');
+        if (window.EventBus) window.EventBus.emit('battle:round:banner:finished', { round });
     }, window.ROUND_BANNER_DURATION_MS);
 }
 

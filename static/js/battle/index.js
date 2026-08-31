@@ -15,6 +15,7 @@ import './utils/DomUtils.js';
 import { store } from './core/BattleStore.js';
 import { eventBus } from './core/EventBus.js';
 import { socketClient } from './core/SocketClient.js';
+import { boardPresentationCoordinator } from './core/BoardPresentationCoordinator.js';
 
 // --- Phase 3: UI Components ---
 import { timeline } from './components/Timeline.js?v=20260204_2';
@@ -43,6 +44,7 @@ function initializeBattleSystem() {
             if (window.battleState) {
                 store.initialize(window.battleState);
             }
+            boardPresentationCoordinator.initialize();
 
             // Phase 3: Initialize UI Components
             // Timeline: Check if container exists before initializing to avoid errors on non-visual tabs

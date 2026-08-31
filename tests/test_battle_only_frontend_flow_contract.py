@@ -124,3 +124,46 @@ def test_existing_token_move_uses_differential_arrow_refresh():
     moved_handler = moved_handler.split("// --- Wide Match Modals ---", 1)[0]
     assert "delete window._localCharPositions[charId]" in moved_handler
     assert "window.renderArrows()" in moved_handler
+
+
+def test_board_presentation_holds_intermediate_state_until_transition_ends():
+    node_script = r"""
+import { BoardPresentationCoordinator } from './static/js/battle/core/BoardPresentationCoordinator.js';
+import { eventBus } from './static/js/battle/core/EventBus.js';
+
+const source = {
+  state: { phase: 'select', round: 1, characters: [{ id: 'a', x: 1, y: 1, hp: 10 }], slots: {}, intents: {} },
+  subscribe(listener) { this.listener = listener; return () => { this.listener = null; }; },
+  update(state) { this.state = state; this.listener(state); }
+};
+const coordinator = new BoardPresentationCoordinator({ battleStore: source, events: eventBus });
+const published = [];
+coordinator.subscribe((state) => published.push(state));
+coordinator.initialize();
+
+coordinator.freeze('resolve-opening');
+source.update({ ...source.state, resolveTrace: [{ kind: 'battle_start' }] });
+if (published.length !== 0 || coordinator.state.resolveTrace) {
+  throw new Error('trace-only state should not repaint the board');
+}
+source.update({ ...source.state, phase: 'resolve_single', characters: [{ id: 'a', x: 2, y: 1, hp: 8 }] });
+if (published.length !== 0 || coordinator.state.phase !== 'select') {
+  throw new Error('locked transition repainted the board');
+}
+coordinator.release('resolve-opening');
+if (published.length !== 1 || coordinator.state.phase !== 'resolve_single' || coordinator.state.characters[0].x !== 2) {
+  throw new Error('latest board state was not published exactly once after release');
+}
+"""
+    subprocess.run(
+        ["node", "--input-type=module", "-e", node_script],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    map_source = (ROOT / "static/js/visual/visual_map.js").read_text(encoding="utf-8")
+    socket_source = (ROOT / "static/js/visual/visual_socket.js").read_text(encoding="utf-8")
+    assert "window.BoardPresentationCoordinator" in map_source
+    assert "if (!hasCoreStoreListeners()) clearSlotBadgesIfInactive" in socket_source

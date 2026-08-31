@@ -823,7 +823,7 @@ window.setupVisualSocketHandlers = function () {
             window.showRoundStartBanner(round);
         }
 
-        clearSlotBadgesIfInactive(payload?.phase, payload?.slots);
+        if (!hasCoreStoreListeners()) clearSlotBadgesIfInactive(payload?.phase, payload?.slots);
         const handled = applyBattleStore('setRoundStarted', payload || {});
         if (handled) {
             syncLegacyBattleStateFromStore();
@@ -841,7 +841,7 @@ window.setupVisualSocketHandlers = function () {
         const slotsLen = payload?.slots ? Object.keys(payload.slots).length : 0;
         const intentsLen = payload?.intents ? Object.keys(payload.intents).length : 0;
         _battleLog(`[visual_socket] battle_state_updated phase=${payload?.phase} slots=${slotsLen} intents=${intentsLen}`);
-        clearSlotBadgesIfInactive(payload?.phase, payload?.slots);
+        if (!hasCoreStoreListeners()) clearSlotBadgesIfInactive(payload?.phase, payload?.slots);
         const handled = applyBattleStore('applyBattleState', payload || {});
         if (handled) syncLegacyBattleStateFromStore();
         else {
@@ -881,7 +881,7 @@ window.setupVisualSocketHandlers = function () {
     registerSocketHandler('battle_phase_changed', (payload) => {
         _battleLog('[visual_socket] battle_phase_changed', payload);
         const toPhase = String((payload || {}).to || '');
-        clearSlotBadgesIfInactive(toPhase, null);
+        if (!hasCoreStoreListeners()) clearSlotBadgesIfInactive(toPhase, null);
         if (toPhase === 'select') {
             deferredLiveLogs.length = 0;
             deferredLiveLogIds.clear();
@@ -911,7 +911,7 @@ window.setupVisualSocketHandlers = function () {
     registerSocketHandler('battle_round_finished', (payload) => {
         _battleLog('[visual_socket] battle_round_finished', payload);
         _battleInfo('[OBS] round_finished payload_keys=', Object.keys(payload || {}));
-        clearSlotBadgesIfInactive('round_end', null);
+        if (!hasCoreStoreListeners()) clearSlotBadgesIfInactive('round_end', null);
         const handled = applyBattleStore('setRoundFinished', (payload || {}).round);
         if (handled) syncLegacyBattleStateFromStore();
         else {
@@ -1171,4 +1171,3 @@ window.setupVisualSocketHandlers = function () {
         window.initWideMatchSocketListeners();
     }
 }
-

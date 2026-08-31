@@ -87,7 +87,10 @@ window.renderVisualMap = function () {
 
     updateMapTransform();
 
-    const storeState = (window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : null;
+    const presentationState = (window.BoardPresentationCoordinator && window.BoardPresentationCoordinator.state)
+        ? window.BoardPresentationCoordinator.state
+        : null;
+    const storeState = presentationState || ((window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : null);
     const legacyState = (typeof battleState !== 'undefined' && battleState) ? battleState : null;
     const storeChars = Array.isArray(storeState?.characters) ? storeState.characters.length : 0;
     const legacyChars = Array.isArray(legacyState?.characters) ? legacyState.characters.length : 0;
@@ -268,7 +271,10 @@ window.renderSlotBadgesForAllTokens = function () {
     const tokenLayer = document.getElementById('map-token-layer');
     if (!tokenLayer) return;
 
-    const storeState = (window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : null;
+    const presentationState = (window.BoardPresentationCoordinator && window.BoardPresentationCoordinator.state)
+        ? window.BoardPresentationCoordinator.state
+        : null;
+    const storeState = presentationState || ((window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : null);
     const legacyState = window.battleState || {};
     const storeChars = Array.isArray(storeState?.characters) ? storeState.characters.length : 0;
     const storeSlots = storeState?.slots
@@ -458,6 +464,9 @@ function _scheduleSlotBadgeSingleClick(handler) {
 }
 
 function _getSelectResolveStateRef() {
+    if (window.BoardPresentationCoordinator && window.BoardPresentationCoordinator.state) {
+        return window.BoardPresentationCoordinator.state;
+    }
     if (window.BattleStore && window.BattleStore.state) {
         return window.BattleStore.state;
     }

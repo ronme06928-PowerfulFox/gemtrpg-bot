@@ -125,6 +125,7 @@ class SocketClient {
         });
 
         this._bindCore('battle_round_started', (payload) => {
+            eventBus.emit('battle:round:will-start', payload || {});
             store.setRoundStarted(payload || {});
             eventBus.emit('battle:round:started', payload || {});
         });
@@ -140,6 +141,7 @@ class SocketClient {
         });
 
         this._bindCore('battle_phase_changed', (payload) => {
+            eventBus.emit('battle:phase:will-change', payload || {});
             store.setPhase((payload || {}).to);
             eventBus.emit('battle:phase:changed', payload || {});
         });

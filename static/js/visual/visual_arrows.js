@@ -34,6 +34,9 @@ window.VISUAL_SHOW_ARROWS = (typeof window.VISUAL_SHOW_ARROWS !== 'undefined')
     }
 
     function getCurrentState() {
+        if (window.BoardPresentationCoordinator && window.BoardPresentationCoordinator.state) {
+            return window.BoardPresentationCoordinator.state;
+        }
         if (window.BattleStore && window.BattleStore.state) return window.BattleStore.state;
         if (typeof window.battleState !== 'undefined') return window.battleState;
         return null;
