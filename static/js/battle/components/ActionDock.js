@@ -128,6 +128,9 @@ class ActionDock {
                 store.get('room_name') ||
                 store.get('room_id') ||
                 (typeof window !== 'undefined' ? window.currentRoomName : null);
+            // battleError is a persistent Store field. A previous, unrelated error
+            // must not be mistaken for a rejection of this new resolve request.
+            store.clearBattleError();
             const sent = socketClient.sendResolveStart(roomName || null);
             if (!sent) return;
             this._resolveStartPending = true;

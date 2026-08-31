@@ -83,7 +83,12 @@ def test_app_admin_joins_socket_as_gm_without_membership_write(monkeypatch):
     )
     monkeypatch.setattr(sm, "join_room", lambda room: None)
     monkeypatch.setattr(sm, "get_room_state", lambda room: {"characters": []})
-    monkeypatch.setattr(sm, "emit_select_resolve_events", lambda *args, **kwargs: None)
+    syncs = []
+    monkeypatch.setattr(
+        sm,
+        "emit_select_resolve_events",
+        lambda *args, **kwargs: syncs.append((args, kwargs)),
+    )
     monkeypatch.setattr(sm, "broadcast_user_list", lambda room: None)
     monkeypatch.setattr(sm, "broadcast_log", lambda *args, **kwargs: None)
 
@@ -92,6 +97,7 @@ def test_app_admin_joins_socket_as_gm_without_membership_write(monkeypatch):
     assert user_sids["sid-admin"]["attribute"] == "GM"
     assert user_sids["sid-admin"]["is_app_admin"] is True
     assert membership_writes == []
+    assert syncs == [(('R1',), {'to_sid': 'sid-admin', 'include_round_started': False})]
 
 
 def test_leave_room_clears_socket_presence_without_removing_sid(monkeypatch):

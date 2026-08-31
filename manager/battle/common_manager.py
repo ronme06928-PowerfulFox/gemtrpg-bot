@@ -22,6 +22,7 @@ from manager.battle.action_slot_mode import (
     is_action_slot_disabled,
 )
 from manager.battle.scheduled_effects import execute_scheduled_effects
+from manager.battle.resolve_presentation import reset_resolve_presentation
 from manager.battle_only_record_state import finalize_in_progress_records
 
 logger = setup_logger(__name__)
@@ -1228,6 +1229,7 @@ def _process_round_start_impl(room, username):
         battle_state['resolve']['single_queue'] = []
         battle_state['resolve']['resolved_slots'] = []
         battle_state['resolve']['trace'] = []
+        reset_resolve_presentation(battle_state)
         pve_auto_result = _apply_pve_auto_enemy_intents(state, battle_state, room)
         _broadcast_pve_round_start_preview_log(
             state,
@@ -1236,12 +1238,18 @@ def _process_round_start_impl(room, username):
             round_value=battle_state.get('round')
         )
 
+    if battle_state:
+        # Emit the actual transition once, with a complete battle snapshot.
+        # Reconnect/sync paths only emit battle_state_updated and must never
+        # masquerade as a new round transition.
+        emit_select_resolve_events(
+            room,
+            include_round_started=True,
+            include_state_updated=False,
+        )
 
     broadcast_state_update(room)
     save_specific_room_state(room)
-
-    if battle_state:
-        emit_select_resolve_events(room, include_round_started=True)
 
 
     if _is_select_resolve_active(state):
@@ -1440,8 +1448,6 @@ def process_ai_suggest_skill(room, char_id):
     if not char: return None
 
     return ai_suggest_skill(char)
-
-
 
 
 

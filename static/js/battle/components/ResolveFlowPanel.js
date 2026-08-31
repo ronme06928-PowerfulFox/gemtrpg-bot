@@ -7,6 +7,7 @@ class ResolveFlowPanel {
         this._unsubscribe = null;
         this._unsubscribeAdvanceEvent = null;
         this._unsubscribeStartRequestedEvent = null;
+        this._unsubscribeBattleErrorEvent = null;
         this._panelId = 'resolve-flow-panel';
         this._initialized = false;
         this._traceSeen = new Set();
@@ -38,6 +39,7 @@ class ResolveFlowPanel {
         this._resetNextMatchClock = false;
         this._waitingForFirstTrace = false;
         this._resolveStartPending = false;
+        this._resolveOpeningRoundKey = null;
     }
 
     initialize() {
@@ -51,6 +53,9 @@ class ResolveFlowPanel {
         });
         this._unsubscribeStartRequestedEvent = eventBus.on('battle:resolve:start:requested', (payload) => {
             this._onResolveStartRequested(payload || {});
+        });
+        this._unsubscribeBattleErrorEvent = eventBus.on('battle:error', (payload) => {
+            this._onResolveStartError(payload || {});
         });
         this._initialized = true;
         this._onStateUpdated(store.state || {});
@@ -70,6 +75,10 @@ class ResolveFlowPanel {
         if (this._unsubscribeStartRequestedEvent) {
             this._unsubscribeStartRequestedEvent();
             this._unsubscribeStartRequestedEvent = null;
+        }
+        if (this._unsubscribeBattleErrorEvent) {
+            this._unsubscribeBattleErrorEvent();
+            this._unsubscribeBattleErrorEvent = null;
         }
         this._stopPlayback();
         this._traceSeen.clear();
@@ -93,6 +102,7 @@ class ResolveFlowPanel {
         this._resetNextMatchClock = false;
         this._waitingForFirstTrace = false;
         this._resolveStartPending = false;
+        this._resolveOpeningRoundKey = null;
         this._initialized = false;
         const panel = document.getElementById(this._panelId);
         if (panel) panel.remove();
@@ -259,6 +269,25 @@ class ResolveFlowPanel {
             || (phase === 'select' && this._resolveStartPending);
     }
 
+    _isResolvePresentationCompleted(state) {
+        return String(state?.resolvePresentation?.status || '') === 'completed';
+    }
+
+    _shouldWaitForFirstTrace(state) {
+        const phase = String(state?.phase || '');
+        if (
+            this._resolveOpeningRoundKey
+            && this._resolveOpeningRoundKey === this._roundStateKey(state)
+            && !this._isResolvePresentationCompleted(state)
+        ) {
+            return true;
+        }
+        if (this._isResolvePresentationActive(phase)) return true;
+        // battle_round_finished arrives before the finalized presentation
+        // snapshot. Keep the intro visible during that transient round_end.
+        return phase === 'round_end' && !this._isResolvePresentationCompleted(state);
+    }
+
     _onResolveStartRequested(payload) {
         const state = store.state || {};
         if (String(state.phase || '') !== 'select') return;
@@ -266,6 +295,7 @@ class ResolveFlowPanel {
         if (requestedRound !== this._toNumber(state.round, 0)) return;
         this._resolveStartPending = true;
         const roundKey = this._roundStateKey(state);
+        this._resolveOpeningRoundKey = roundKey;
         this._enqueueBattleStartIntro(roundKey);
         if (!this._activeStep && this._playQueue.length > 0) {
             this._playNextStep({ forceLocalClock: true });
@@ -281,8 +311,16 @@ class ResolveFlowPanel {
         this._playQueue = [];
         this._activeStep = null;
         this._waitingForFirstTrace = false;
+        this._resolveOpeningRoundKey = null;
         this._introShownRounds.delete(this._roundKey);
         this._removePanel();
+    }
+
+    _onResolveStartError() {
+        // SocketClient emits this event for a newly received battle_error.
+        // Do not infer request failure from the persistent Store field because it
+        // may contain an error raised before the current resolve-start request.
+        this._cancelPendingResolveStart();
     }
 
     _toNumber(value, fallback = 0) {
@@ -643,6 +681,10 @@ class ResolveFlowPanel {
     }
 
     _ingestTrace(state) {
+        // A completed shared presentation is history, not resumable playback.
+        // Rejoin snapshots retain the trace for logs/debugging, but must not
+        // reopen the last result with a button the server can no longer accept.
+        if (this._isResolvePresentationCompleted(state)) return;
         const trace = Array.isArray(state?.resolveTrace) ? state.resolveTrace : [];
         if (trace.length === 0) return;
 
@@ -727,6 +769,7 @@ class ResolveFlowPanel {
             this._resetNextMatchClock = false;
             this._waitingForFirstTrace = false;
             this._resolveStartPending = false;
+            this._resolveOpeningRoundKey = null;
         }
 
         if (!isBattle) {
@@ -749,6 +792,7 @@ class ResolveFlowPanel {
             this._resetNextMatchClock = false;
             this._waitingForFirstTrace = false;
             this._resolveStartPending = false;
+            this._resolveOpeningRoundKey = null;
             this._removePanel();
             return;
         }
@@ -756,8 +800,22 @@ class ResolveFlowPanel {
         const inResolve = this._isResolvePhase(phase);
         if (inResolve) {
             this._resolveStartPending = false;
-        } else if (this._resolveStartPending && phase === 'select' && state?.battleError) {
-            this._cancelPendingResolveStart();
+        }
+
+        if (phase === 'round_end' && this._isResolvePresentationCompleted(state)) {
+            const hadLocalPlayback = this._roundSawResolvePhase
+                || this._presentedStepCount > 0
+                || !!this._activeStep
+                || this._playQueue.length > 0;
+            this._stopPlayback();
+            this._playQueue = [];
+            this._activeStep = null;
+            this._renderedStepKey = null;
+            this._waitingForAdvance = false;
+            this._waitingForFirstTrace = false;
+            this._resolveOpeningRoundKey = null;
+            if (hadLocalPlayback) this._emitResolveFlowCompleted(state);
+            this._removePanel();
             return;
         }
 
@@ -770,13 +828,15 @@ class ResolveFlowPanel {
             this._activeStep = null;
             this._renderedStepKey = null;
             this._waitingForAdvance = false;
+            this._resolveOpeningRoundKey = null;
             this._removePanel();
             return;
         }
 
         // Defensive reset: when returning to select with an empty resolve trace,
         // stale denominator/index state must not survive within the same round.
-        if (phase === 'select' && traceLen === 0 && !this._resolveStartPending) {
+        const isOpeningThisRound = this._resolveOpeningRoundKey === roundKey;
+        if (phase === 'select' && traceLen === 0 && !this._resolveStartPending && !isOpeningThisRound) {
             this._traceSeen.clear();
             this._displayIndexByKey.clear();
             this._displayIndexCursor = 0;
@@ -795,9 +855,11 @@ class ResolveFlowPanel {
         }
 
         const canPlayback = this._isPlaybackPhase(phase)
-            || this._isResolvePresentationActive(phase);
+            || this._isResolvePresentationActive(phase)
+            || isOpeningThisRound;
         if (inResolve) this._roundSawResolvePhase = true;
         if (this._isResolvePresentationActive(phase) && !this._introShownRounds.has(roundKey)) {
+            this._resolveOpeningRoundKey = roundKey;
             this._enqueueBattleStartIntro(roundKey);
         }
         if (canPlayback || this._activeStep || this._playQueue.length > 0) {
@@ -806,12 +868,18 @@ class ResolveFlowPanel {
 
         if (this._waitingForFirstTrace && this._playQueue.length > 0 && canPlayback) {
             this._waitingForFirstTrace = false;
+            this._resolveOpeningRoundKey = null;
             this._activeStep = null;
             this._renderedStepKey = null;
             this._playNextStep({ forceLocalClock: true });
             return;
         }
-        if (this._waitingForFirstTrace && phase === 'round_end' && this._playQueue.length === 0) {
+        if (
+            this._waitingForFirstTrace
+            && phase === 'round_end'
+            && this._playQueue.length === 0
+            && this._isResolvePresentationCompleted(state)
+        ) {
             this._waitingForFirstTrace = false;
             this._activeStep = null;
             this._renderedStepKey = null;
@@ -826,7 +894,7 @@ class ResolveFlowPanel {
         }
 
         if (!this._activeStep && this._playQueue.length === 0) {
-            if (phase === 'round_end') {
+            if (phase === 'round_end' && this._isResolvePresentationCompleted(state)) {
                 this._emitResolveFlowCompleted(state);
                 this._removePanel();
             } else if (!canPlayback) {
@@ -860,13 +928,19 @@ class ResolveFlowPanel {
         this._waitingForAdvance = false;
         this._clearAdvanceRequestPending();
         if (this._playQueue.length === 0) {
+            const stateNow = store?.state || {};
+            if (this._isIntroStep(this._activeStep) && this._shouldWaitForFirstTrace(stateNow)) {
+                this._waitingForFirstTrace = true;
+                this._renderStep(stateNow);
+                return;
+            }
             const lastRenderedKey = this._renderedStepKey;
             this._activeStep = null;
             this._renderedStepKey = null;
-            const phase = String(store?.state?.phase || '');
+            const phase = String(stateNow?.phase || '');
             const shouldHideIntroResidue = String(lastRenderedKey || '').includes('battle_start');
-            if (phase === 'round_end') {
-                this._emitResolveFlowCompleted(store.state || {});
+            if (phase === 'round_end' && this._isResolvePresentationCompleted(stateNow)) {
+                this._emitResolveFlowCompleted(stateNow);
                 this._removePanel();
             } else if (!this._isResolvePresentationActive(phase) || shouldHideIntroResidue) {
                 this._removePanel();
@@ -875,6 +949,7 @@ class ResolveFlowPanel {
         }
         this._activeStep = this._playQueue.shift();
         const isIntroStep = this._isIntroStep(this._activeStep);
+        if (!isIntroStep) this._resolveOpeningRoundKey = null;
         const isFirstPresentedMatch = !isIntroStep && this._presentedStepCount === 0;
         const resetVisibleClock = !isIntroStep
             && (isFirstPresentedMatch || forceLocalClock || this._resetNextMatchClock);
@@ -906,11 +981,11 @@ class ResolveFlowPanel {
         this._stepTimer = setTimeout(() => {
             if (!this._activeStep) return;
             if (this._isIntroStep(this._activeStep)) {
-                const phase = String(store?.state?.phase || '');
-                if (this._playQueue.length === 0 && this._isResolvePresentationActive(phase)) {
+                const stateNow = store?.state || {};
+                if (this._playQueue.length === 0 && this._shouldWaitForFirstTrace(stateNow)) {
                     this._clearTimers();
                     this._waitingForFirstTrace = true;
-                    this._renderStep(store.state || {});
+                    this._renderStep(stateNow);
                     return;
                 }
                 this._stopPlayback();
@@ -1483,12 +1558,28 @@ class ResolveFlowPanel {
 
     _ensurePanel(host) {
         let panel = document.getElementById(this._panelId);
-        if (panel) return panel;
-        panel = document.createElement('div');
-        panel.id = this._panelId;
-        panel.className = 'resolve-flow-panel';
-        host.appendChild(panel);
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = this._panelId;
+            panel.className = 'resolve-flow-panel';
+            panel.innerHTML = `
+                <div class="resolve-flow-overlay"></div>
+                <div class="resolve-flow-content"></div>
+            `;
+            host.appendChild(panel);
+        }
+        if (!panel.querySelector('.resolve-flow-content')) {
+            panel.innerHTML = `
+                <div class="resolve-flow-overlay"></div>
+                <div class="resolve-flow-content"></div>
+            `;
+            this._renderedStepKey = null;
+        }
         return panel;
+    }
+
+    _panelContent(panel) {
+        return panel?.querySelector('.resolve-flow-content') || null;
     }
 
     _isIntroStep(step) {
@@ -1543,10 +1634,11 @@ class ResolveFlowPanel {
 
         if (this._isIntroStep(step)) {
             const panelIntro = this._ensurePanel(host);
+            const contentIntro = this._panelContent(panelIntro);
+            if (!contentIntro) return;
             panelIntro.className = 'resolve-flow-panel intro stage-impact';
             if (this._renderedStepKey !== stepKey) {
-                panelIntro.innerHTML = `
-                    <div class="resolve-flow-overlay"></div>
+                contentIntro.innerHTML = `
                     <div class="resolve-flow-intro-card">
                         <div class="resolve-flow-intro-main">\u6226\u95d8\u958b\u59cb</div>
                         <div class="resolve-flow-intro-sub">BATTLE START</div>
@@ -1653,10 +1745,11 @@ class ResolveFlowPanel {
         const canClaim = this._canClaimResolveFlow(stateNow);
         const controllerName = stateNow?.resolvePresentation?.controller_username || '進行役';
         const panel = this._ensurePanel(host);
+        const panelContent = this._panelContent(panel);
+        if (!panelContent) return;
         panel.className = `resolve-flow-panel kind-${kindClass} reveal-${revealStage}${this._waitingForAdvance ? ' awaiting-advance' : ''}${canDrive ? ' can-drive' : ''}${isGM ? ' gm-user' : ''}`;
         if (this._renderedStepKey !== stepBodyKey) {
-            panel.innerHTML = `
-                <div class="resolve-flow-overlay"></div>
+            panelContent.innerHTML = `
                 <div class="resolve-flow-card">
                     <div class="resolve-flow-header">
                         <span class="title">RESOLVE</span>
@@ -1755,6 +1848,7 @@ class ResolveFlowPanel {
     }
 }
 
+export { ResolveFlowPanel };
 export const resolveFlowPanel = new ResolveFlowPanel();
 
 if (typeof window !== 'undefined') {

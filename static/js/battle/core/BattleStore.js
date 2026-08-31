@@ -163,6 +163,7 @@ class BattleStore {
     }
 
     setRoundStarted(payload) {
+        const has = (key) => Object.prototype.hasOwnProperty.call(payload || {}, key);
         this._state = {
             ...this._state,
             room_id: payload.room_id || this._state.room_id,
@@ -175,13 +176,18 @@ class BattleStore {
             turn_entry_id: null,
             slots: payload.slots || {},
             timeline: payload.timeline || [],
-            intents: {},
-            redirects: [],
-            resolveTrace: [],
+            intents: has('intents') ? (payload.intents || {}) : (this._state.intents || {}),
+            redirects: has('redirects') ? (payload.redirects || []) : (this._state.redirects || []),
+            resolveTrace: has('trace') ? (payload.trace || []) : [],
             resolveView: this._createResolveView('idle', payload.phase || this._state.phase),
-            resolveReady: false,
-            resolveReadyInfo: null,
-            resolvePresentation: payload.presentation || null,
+            resolveReady: has('resolve_ready') ? !!payload.resolve_ready : false,
+            resolveReadyInfo: has('resolve_ready_info') ? (payload.resolve_ready_info || null) : null,
+            resolvePresentation: has('presentation')
+                ? (payload.presentation || null)
+                : this._state.resolvePresentation,
+            usableSkillIds: has('usable_skill_ids')
+                ? (payload.usable_skill_ids || {})
+                : this._state.usableSkillIds,
             selectedSlotId: null,
             targetSelectMode: false,
             battleError: null,

@@ -491,8 +491,17 @@ def test_normal_round_start_uses_step_action_count(monkeypatch):
     monkeypatch.setattr(battle_common, "get_room_state", lambda _room: state)
     monkeypatch.setattr(battle_common, "save_specific_room_state", lambda _room: True)
     monkeypatch.setattr(battle_common, "broadcast_log", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(battle_common, "broadcast_state_update", lambda _room: None)
-    monkeypatch.setattr(battle_common, "emit_select_resolve_events", lambda *_args, **_kwargs: None)
+    delivery_calls = []
+    monkeypatch.setattr(
+        battle_common,
+        "broadcast_state_update",
+        lambda room: delivery_calls.append(("snapshot", room, {})),
+    )
+    monkeypatch.setattr(
+        battle_common,
+        "emit_select_resolve_events",
+        lambda room, **kwargs: delivery_calls.append(("transition", room, kwargs)),
+    )
     monkeypatch.setattr(battle_common.random, "randint", lambda _a, _b: 1)
     _patch_step_skill_catalog(
         monkeypatch,
@@ -511,6 +520,16 @@ def test_normal_round_start_uses_step_action_count(monkeypatch):
         state["battle_state"]["intents"][slot["slot_id"]]["skill_id"]
         for slot in enemy_slots
     ] == ["E-31", "E-31", "E-34"]
+    assert state["battle_state"]["resolve"]["presentation"]["status"] == "idle"
+    assert state["battle_state"]["resolve"]["presentation"]["round"] == 1
+    assert delivery_calls == [
+        (
+            "transition",
+            "room_t",
+            {"include_round_started": True, "include_state_updated": False},
+        ),
+        ("snapshot", "room_t", {}),
+    ]
 
 
 def test_step_actions_ignores_character_action_count_and_creates_zero_action_anchor(monkeypatch):

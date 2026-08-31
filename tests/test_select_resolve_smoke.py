@@ -78,6 +78,53 @@ def test_select_resolve_payload_includes_room_play_mode(monkeypatch):
     assert payload["presentation"]["round"] == 1
 
 
+def test_round_started_delivery_uses_complete_snapshot_without_duplicate_state(monkeypatch):
+    from manager import room_manager
+
+    battle_common, _battle_core = _mods()
+    state = _base_state([])
+    battle_state = state["battle_state"]
+    battle_state["intents"] = {
+        "slot-a": {"slot_id": "slot-a", "skill_id": "S-1", "committed": True}
+    }
+    payload = {
+        "room_id": "room_test",
+        "battle_id": "battle_test",
+        "round": 1,
+        "phase": "select",
+        "slots": {},
+        "timeline": [],
+        "tiebreak": [],
+        "intents": battle_state["intents"],
+        "redirects": [],
+        "trace": [],
+        "trace_is_snapshot": True,
+        "presentation": {"round": 1, "status": "idle"},
+    }
+    emitted = []
+
+    monkeypatch.setattr(room_manager, "get_room_state", lambda _room: state)
+    monkeypatch.setattr(battle_common, "ensure_battle_state_vNext", lambda *_args, **_kwargs: battle_state)
+    monkeypatch.setattr(battle_common, "build_select_resolve_state_payload", lambda *_args, **_kwargs: dict(payload))
+    monkeypatch.setattr(
+        room_manager,
+        "_safe_emit",
+        lambda event, body, to=None: emitted.append((event, body, to)),
+    )
+
+    room_manager.emit_select_resolve_events(
+        "room_test",
+        include_round_started=True,
+        include_state_updated=False,
+    )
+
+    assert [event for event, _body, _to in emitted] == ["battle_round_started"]
+    transition = emitted[0][1]
+    assert transition["intents"] == battle_state["intents"]
+    assert transition["presentation"] == {"round": 1, "status": "idle"}
+    assert transition["trace_is_snapshot"] is True
+
+
 def _add_slot(state, slot_id, actor_id, team, initiative, index_in_actor=0):
     bs = state["battle_state"]
     bs["slots"][slot_id] = {

@@ -122,7 +122,7 @@ def handle_join_room(data):
         }
         state = get_room_state(room)
         emit('state_updated', build_participant_state(state), to=request.sid)
-        emit_select_resolve_events(room, to_sid=request.sid, include_round_started=True)
+        emit_select_resolve_events(room, to_sid=request.sid, include_round_started=False)
         broadcast_user_list(room)
         return
 
@@ -147,7 +147,7 @@ def handle_join_room(data):
     state = get_room_state(room)
     print(f"[JOIN] Sending state_updated to {username} with {len(state.get('logs', []))} logs")
     emit('state_updated', build_participant_state(state), to=request.sid)
-    emit_select_resolve_events(room, to_sid=request.sid, include_round_started=True)
+    emit_select_resolve_events(room, to_sid=request.sid, include_round_started=False)
 
     # ★ その後、入室ログを全員に送信
     print(f"[JOIN] Broadcasting join log for {username}")
@@ -167,7 +167,7 @@ def handle_request_select_resolve_sync(data):
         return
 
     # Re-send latest select/resolve snapshot to the requesting client only.
-    emit_select_resolve_events(room, to_sid=request.sid, include_round_started=True)
+    emit_select_resolve_events(room, to_sid=request.sid, include_round_started=False)
 
 
 @socketio.on('request_update_user_info')

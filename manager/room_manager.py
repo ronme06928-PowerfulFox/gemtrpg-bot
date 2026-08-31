@@ -147,7 +147,12 @@ def _log_battle_emit(event_name, room_id, battle_id, payload):
     )
 
 
-def emit_select_resolve_events(room_name, to_sid=None, include_round_started=False):
+def emit_select_resolve_events(
+    room_name,
+    to_sid=None,
+    include_round_started=False,
+    include_state_updated=True,
+):
     """
     Emit select/resolve snapshot events to the same namespace/room path as state_updated.
     This is additive and keeps legacy state_updated flow intact.
@@ -194,20 +199,6 @@ def emit_select_resolve_events(room_name, to_sid=None, include_round_started=Fal
         )
     battle_state['timeline'] = timeline
 
-    if include_round_started:
-        round_started_payload = {
-            'room_id': room_name,
-            'battle_id': battle_id,
-            'round': battle_state.get('round', state.get('round', 0)),
-            'phase': battle_state.get('phase', 'select'),
-            'slots': battle_state.get('slots', {}),
-            'timeline': timeline,
-            'tiebreak': battle_state.get('tiebreak', [])
-        }
-        _log_battle_emit('battle_round_started', room_name, battle_id, round_started_payload)
-        _safe_emit('battle_round_started', round_started_payload, to=target)
-
-    _t_round_emit = time.perf_counter()
     payload = build_select_resolve_state_payload(room_name, battle_id=battle_id)
     _t_payload = time.perf_counter()
     if not payload:
@@ -217,8 +208,18 @@ def emit_select_resolve_events(room_name, to_sid=None, include_round_started=Fal
     payload['timeline'] = timeline
     payload['tiebreak'] = battle_state.get('tiebreak', [])
 
-    _log_battle_emit('battle_state_updated', room_name, battle_id, payload)
-    _safe_emit('battle_state_updated', payload, to=target)
+    # A transition event must carry the same complete snapshot as the state
+    # event. Partial round-start payloads temporarily erased intents and
+    # presentation state on clients, causing arrows and overlays to flicker.
+    if include_round_started:
+        round_started_payload = copy.deepcopy(payload)
+        _log_battle_emit('battle_round_started', room_name, battle_id, round_started_payload)
+        _safe_emit('battle_round_started', round_started_payload, to=target)
+
+    _t_round_emit = time.perf_counter()
+    if include_state_updated:
+        _log_battle_emit('battle_state_updated', room_name, battle_id, payload)
+        _safe_emit('battle_state_updated', payload, to=target)
     _t_end = time.perf_counter()
     if (_t_end - _t_start) > 0.2:
         logger.info(
@@ -226,9 +227,9 @@ def emit_select_resolve_events(room_name, to_sid=None, include_round_started=Fal
             room_name,
             _t_end - _t_start,
             _t_ensure - _t_start,
-            _t_round_emit - _t_ensure,
-            _t_payload - _t_round_emit,
-            _t_end - _t_payload,
+            _t_round_emit - _t_payload,
+            _t_payload - _t_ensure,
+            _t_end - _t_round_emit,
         )
 
 

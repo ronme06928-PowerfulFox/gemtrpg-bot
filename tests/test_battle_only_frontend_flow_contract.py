@@ -1,58 +1,103 @@
+import subprocess
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_battle_store_preserves_play_mode_from_server_payload():
+def test_store_round_start_accepts_complete_snapshot_without_erasing_intents():
     source = (ROOT / "static/js/battle/core/BattleStore.js").read_text(encoding="utf-8")
     assert "play_mode: payload.play_mode || this._state.play_mode" in source
+    assert "intents: has('intents') ? (payload.intents || {})" in source
+    assert "resolvePresentation: has('presentation')" in source
+    assert "usableSkillIds: has('usable_skill_ids')" in source
 
 
-def test_battle_only_round_end_can_complete_without_resolve_phase_snapshot():
-    source = (ROOT / "static/js/battle/components/ResolveFlowPanel.js").read_text(encoding="utf-8")
-    marker = "if (this._isBattleOnlyMode(stateNow)) return true;"
-    reconnect_guard = "return this._roundSawResolvePhase ||"
-    assert marker in source
-    assert reconnect_guard in source
-    assert source.index(marker) < source.index(reconnect_guard)
-
-
-def test_shared_resolve_cursor_replaces_local_auto_round_end_request():
+def test_shared_resolve_cursor_and_completed_rejoin_contract():
     panel = (ROOT / "static/js/battle/components/ResolveFlowPanel.js").read_text(encoding="utf-8")
     client = (ROOT / "static/js/battle/core/SocketClient.js").read_text(encoding="utf-8")
+    battle_only_marker = "if (this._isBattleOnlyMode(stateNow)) return true;"
+    reconnect_guard = "return this._roundSawResolvePhase ||"
+
+    assert battle_only_marker in panel
+    assert reconnect_guard in panel
+    assert panel.index(battle_only_marker) < panel.index(reconnect_guard)
     assert "socketClient.sendRoundEnd(roomName, payload.round)" not in panel
     assert "socketClient.sendResolveFlowAdvance(payload)" in panel
     assert "expected_revision:" in panel
     assert "sendResolveFlowClaim(payload)" in client
+    assert "if (this._isResolvePresentationCompleted(state)) return;" in panel
+    assert "phase === 'round_end' && this._isResolvePresentationCompleted(state)" in panel
 
 
-def test_first_resolve_match_resets_clock_after_battle_start_intro():
-    source = (ROOT / "static/js/battle/components/ResolveFlowPanel.js").read_text(encoding="utf-8")
-    assert "_playNextStep({ forceLocalClock = false } = {})" in source
-    assert "this._resetNextMatchClock = true;" in source
-    assert "const isFirstPresentedMatch = !isIntroStep && this._presentedStepCount === 0;" in source
-    assert "const useSharedClock = !resetVisibleClock" in source
-    assert "this._playNextStep({ forceLocalClock: true });" in source
-
-
-def test_resolve_intro_stays_visible_until_first_trace_arrives():
-    source = (ROOT / "static/js/battle/components/ResolveFlowPanel.js").read_text(encoding="utf-8")
-    assert "this._waitingForFirstTrace = true;" in source
-    assert "this._waitingForFirstTrace && this._playQueue.length > 0 && canPlayback" in source
-    assert "this._waitingForFirstTrace && phase === 'round_end' && this._playQueue.length === 0" in source
-    assert "this._waitingForFirstTrace ? 'RESOLVING...' : 'BATTLE START'" in source
-
-
-def test_resolve_popup_opens_on_request_and_stays_active_until_server_phase_arrives():
+def test_resolve_popup_uses_one_shell_from_request_through_first_match():
     panel = (ROOT / "static/js/battle/components/ResolveFlowPanel.js").read_text(encoding="utf-8")
     dock = (ROOT / "static/js/battle/components/ActionDock.js").read_text(encoding="utf-8")
     client = (ROOT / "static/js/battle/core/SocketClient.js").read_text(encoding="utf-8")
+
     assert "eventBus.emit('battle:resolve:start:requested'" in dock
     assert "this._unsubscribeStartRequestedEvent = eventBus.on('battle:resolve:start:requested'" in panel
     assert "(phase === 'select' && this._resolveStartPending)" in panel
     assert "this._isResolvePresentationActive(phase)" in panel
     assert "return this._emit('battle_resolve_start'" in client
+    assert "_playNextStep({ forceLocalClock = false } = {})" in panel
+    assert "const isFirstPresentedMatch = !isIntroStep && this._presentedStepCount === 0;" in panel
+    assert "const useSharedClock = !resetVisibleClock" in panel
+    assert "this._waitingForFirstTrace && this._playQueue.length > 0 && canPlayback" in panel
+    assert "this._waitingForFirstTrace ? 'RESOLVING...' : 'BATTLE START'" in panel
+    assert '<div class="resolve-flow-content"></div>' in panel
+    assert "contentIntro.innerHTML =" in panel
+    assert "panelContent.innerHTML =" in panel
+
+    click_handler = dock.split("btn.addEventListener('click'", 1)[1]
+    clear_error = "store.clearBattleError();"
+    send_start = "socketClient.sendResolveStart(roomName || null)"
+    assert clear_error in click_handler
+    assert click_handler.index(clear_error) < click_handler.index(send_start)
+    assert "this._unsubscribeBattleErrorEvent = eventBus.on('battle:error'" in panel
+    assert "this._onResolveStartError(payload || {});" in panel
+    assert "this._resolveStartPending && phase === 'select' && state?.battleError" not in panel
+
+    node_script = r"""
+import { ResolveFlowPanel } from './static/js/battle/components/ResolveFlowPanel.js';
+
+globalThis.store = { state: {} };
+const flow = new ResolveFlowPanel();
+flow._roundKey = 'battle-1:4';
+flow._resolveOpeningRoundKey = 'battle-1:4';
+flow._resolveStartPending = false;
+flow._introShownRounds.add('battle-1:4');
+flow._activeStep = { kind: 'battle_start', stepIndex: -1 };
+let rendered = 0;
+let removed = 0;
+flow._renderStep = () => { rendered += 1; };
+flow._removePanel = () => { removed += 1; };
+
+const delayedSelectSnapshot = {
+  mode: 'battle',
+  battle_id: 'battle-1',
+  round: 4,
+  phase: 'select',
+  resolveTrace: [],
+  resolvePresentation: { status: 'playing' }
+};
+globalThis.store.state = delayedSelectSnapshot;
+flow._onStateUpdated(delayedSelectSnapshot);
+
+if (removed !== 0 || rendered !== 1 || !flow._activeStep) {
+  throw new Error('delayed select snapshot interrupted the resolve opening');
+}
+if (!flow._shouldWaitForFirstTrace(delayedSelectSnapshot)) {
+  throw new Error('resolve opening did not remain latched before the first trace');
+}
+"""
+    subprocess.run(
+        ["node", "--input-type=module", "-e", node_script],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_battle_start_request_carries_latest_draft_snapshot():

@@ -20,6 +20,7 @@ from manager.battle.action_slot_mode import (
     is_action_slot_disabled,
 )
 from manager.battle.scheduled_effects import execute_scheduled_effects
+from manager.battle.resolve_presentation import reset_resolve_presentation
 
 
 logger = setup_logger(__name__)
@@ -531,6 +532,7 @@ def process_select_resolve_round_start(room, battle_id, round_value):
     battle_state['resolve']['resolved_slots'] = []
     battle_state['resolve']['trace'] = []
     battle_state['resolve']['cancelled_slots'] = []
+    reset_resolve_presentation(battle_state)
     pve_auto_result = _apply_pve_auto_enemy_intents(state, battle_state, room)
     _broadcast_pve_round_start_preview_log(
         state,
@@ -552,12 +554,4 @@ def process_select_resolve_round_start(room, battle_id, round_value):
         len(tiebreak_payload)
     )
 
-    return {
-        'room_id': room,
-        'battle_id': battle_id,
-        'round': round_value,
-        'phase': 'select',
-        'slots': slots_dict,
-        'timeline': timeline,
-        'tiebreak': tiebreak_payload
-    }
+    return build_select_resolve_state_payload(room, battle_id=battle_id)

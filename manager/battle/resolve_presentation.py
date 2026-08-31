@@ -102,6 +102,26 @@ def start_resolve_presentation(battle_state, controller_user_id=None, controller
     return presentation
 
 
+def reset_resolve_presentation(battle_state):
+    if not isinstance(battle_state, dict):
+        return None
+    resolve_ctx = battle_state.setdefault('resolve', {})
+    previous = resolve_ctx.get('presentation')
+    previous_revision = _safe_int((previous or {}).get('revision'), 0) if isinstance(previous, dict) else 0
+    presentation = {
+        'round': _safe_int(battle_state.get('round'), 0),
+        'status': 'idle',
+        'current_step_index': 0,
+        'step_total': 0,
+        'revision': previous_revision + 1,
+        'controller_user_id': None,
+        'controller_username': None,
+        'step_started_at': None,
+    }
+    resolve_ctx['presentation'] = presentation
+    return presentation
+
+
 def finalize_resolve_presentation(battle_state):
     presentation = ensure_resolve_presentation(battle_state)
     if presentation is None:
