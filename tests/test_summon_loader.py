@@ -89,7 +89,13 @@ def test_empty_passive_column_preserves_extra_json_passives(monkeypatch):
     assert template["SPassive"] == ["Pa-07"]
 
 
-def test_invalid_extra_json_contract_fields_fall_back_to_safe_values(caplog):
+def test_invalid_extra_json_contract_fields_fall_back_to_safe_values(monkeypatch):
+    warnings = []
+    monkeypatch.setattr(
+        summon_loader.logger,
+        "warning",
+        lambda message, *args: warnings.append(message % args),
+    )
     row = {
         "template_id": "U-BAD",
         "extra_json": (
@@ -106,4 +112,4 @@ def test_invalid_extra_json_contract_fields_fall_back_to_safe_values(caplog):
     assert template["SPassive"] == []
     assert template["special_buffs"] == []
     assert template["flags"] == {}
-    assert "U-BAD" in caplog.text
+    assert any("U-BAD" in warning for warning in warnings)
