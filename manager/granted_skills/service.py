@@ -290,3 +290,16 @@ def process_granted_skill_round_end(state, room=None):
         char["commands"] = commands
     return expired
 
+
+def clear_granted_skills(char_obj):
+    """Remove all encounter-granted skills and their injected palette lines."""
+    if not isinstance(char_obj, dict):
+        return
+    commands = str(char_obj.get("commands", "") or "")
+    rows = char_obj.get("granted_skills", [])
+    if isinstance(rows, list):
+        for row in rows:
+            if isinstance(row, dict) and _parse_bool(row.get("injected", False), default=False):
+                commands = _remove_skill_command_lines(commands, row.get("skill_id"))
+    char_obj["granted_skills"] = []
+    char_obj["commands"] = commands

@@ -42,6 +42,7 @@ def _base_battle_state():
 def _patch_common(monkeypatch, routes, state, user_info, authorized, emit_calls):
     monkeypatch.setattr(routes, "request", SimpleNamespace(sid="sid-test"))
     monkeypatch.setattr(routes, "is_sid_in_room", lambda _sid, _room: True)
+    monkeypatch.setattr(routes, "get_room_state", lambda _room: {"combat_phase": "active"})
     monkeypatch.setattr(routes, "_log_battle_recv", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         routes,

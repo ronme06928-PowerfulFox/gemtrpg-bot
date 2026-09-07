@@ -288,7 +288,10 @@ def get_room_state(room_name):
                     "tachie_locations": {}
                 },
                 "battle_mode": 'pvp',
-                "ai_target_arrows": []
+                "ai_target_arrows": [],
+                "combat_phase": "ready",
+                "combat_session": None,
+                "combat_history": [],
             }
             active_room_states[room_name] = state
 
@@ -341,6 +344,12 @@ def get_room_state(room_name):
         ensure_battle_state_vNext(state, round_value=state.get('round', 0))
     except Exception as e:
         logger.error(f"battle_state ensure failed for room={room_name}: {e}")
+
+    try:
+        from manager.battle.combat_session import ensure_combat_session_defaults
+        ensure_combat_session_defaults(state)
+    except Exception as e:
+        logger.error(f"combat session ensure failed for room={room_name}: {e}")
 
     # Normalize legacy mojibake labels in-memory so clients receive canonical names.
     for char in state.get('characters', []):

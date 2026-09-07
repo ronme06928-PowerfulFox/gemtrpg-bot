@@ -24,7 +24,7 @@ from manager.battle.action_slot_mode import (
 from manager.battle.scheduled_effects import execute_scheduled_effects
 from manager.battle.resolve_presentation import reset_resolve_presentation
 from manager.battle_only_record_state import finalize_in_progress_records
-from manager.battle.combat_session import is_combat_progression_allowed
+from manager.battle.combat_session import is_combat_progression_allowed, mark_round_completed
 
 logger = setup_logger(__name__)
 
@@ -568,6 +568,7 @@ def _process_full_round_end_impl(room, username):
     state['is_round_ended'] = True
     state['turn_char_id'] = None
     state['active_match'] = None
+    mark_round_completed(state)
 
     battle_state = ensure_battle_state_vNext(
         state,
@@ -1463,7 +1464,6 @@ def process_ai_suggest_skill(room, char_id):
     if not char: return None
 
     return ai_suggest_skill(char)
-
 
 
 

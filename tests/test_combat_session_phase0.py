@@ -20,10 +20,12 @@ def test_record_combat_damage_tracks_actual_loss_and_actor_attribution():
     state = {"combat_phase": "active", "combat_session": {"participants": {}}}
 
     assert record_combat_damage(state, target, 8, 0, {"actor": actor}) is True
-    assert state["combat_session"]["participants"] == {
-        "actor-1": {"damage_dealt": 8, "damage_taken": 0},
-        "target-1": {"damage_dealt": 0, "damage_taken": 8},
-    }
+    participants = state["combat_session"]["participants"]
+    assert participants["actor-1"]["damage_dealt"] == 8
+    assert participants["actor-1"]["damage_taken"] == 0
+    assert participants["target-1"]["damage_dealt"] == 0
+    assert participants["target-1"]["damage_taken"] == 8
+    assert participants["target-1"]["summon_damage_taken"] == 0
 
 
 def test_record_combat_damage_ignores_healing_missing_session_and_unknown_actor():
@@ -33,6 +35,6 @@ def test_record_combat_damage_ignores_healing_missing_session_and_unknown_actor(
     assert record_combat_damage(state, target, 3, 5, {}) is False
     assert record_combat_damage({}, target, 5, 0, {}) is False
     assert record_combat_damage(state, target, 5, 2, {}) is True
-    assert state["combat_session"]["participants"] == {
-        "target-1": {"damage_dealt": 0, "damage_taken": 3},
-    }
+    target_row = state["combat_session"]["participants"]["target-1"]
+    assert target_row["damage_dealt"] == 0
+    assert target_row["damage_taken"] == 3
