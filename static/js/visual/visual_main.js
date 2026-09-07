@@ -29,6 +29,7 @@ window.setupVisualBattleTab = async function () {
     // 2. Setup Controls & UI
     if (typeof setupMapControls === 'function') setupMapControls();
     if (typeof setupVisualSidebarControls === 'function') setupVisualSidebarControls();
+    if (typeof setupCombatSessionUi === 'function') setupCombatSessionUi();
     if (typeof initializeTimelineToggle === 'function') initializeTimelineToggle();
 
     // 3. Register Socket Handlers
@@ -70,6 +71,9 @@ window.setupVisualBattleTab = async function () {
         }
         if (typeof renderMatchPanelFromState === 'function') {
             renderMatchPanelFromState(battleState.active_match);
+        }
+        if (typeof renderCombatSessionControls === 'function') {
+            renderCombatSessionControls(battleState);
         }
     }
 

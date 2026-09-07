@@ -744,6 +744,9 @@ window.setupVisualSocketHandlers = function () {
             battleState = state;
         }
         syncLegacyBattleStateFromStore();
+        if (typeof window.renderCombatSessionControls === 'function') {
+            window.renderCombatSessionControls(state);
+        }
 
         if (document.getElementById('visual-battle-container')) {
             const mode = state.mode || 'battle';

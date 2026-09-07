@@ -922,8 +922,10 @@ window.setupVisualSidebarControls = function () {
     };
     const isGM = resolveIsGM();
     const isBattleOnlyForRoundControls = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
+    const isCombatSessionActive = isBattleOnlyForRoundControls
+        || String((battleState && battleState.combat_phase) || 'active').toLowerCase() === 'active';
 
-    if (isGM && !isBattleOnlyForRoundControls) {
+    if (isGM && !isBattleOnlyForRoundControls && isCombatSessionActive) {
         if (startRBtn) {
             startRBtn.style.display = 'inline-block';
             startRBtn.onclick = async () => {
@@ -945,6 +947,10 @@ window.setupVisualSidebarControls = function () {
     } else {
         if (startRBtn) startRBtn.style.display = 'none';
         if (endRBtn) endRBtn.style.display = 'none';
+    }
+
+    if (typeof window.renderCombatSessionControls === 'function') {
+        window.renderCombatSessionControls(battleState);
     }
 
     const chatInput = document.getElementById('visual-chat-input');

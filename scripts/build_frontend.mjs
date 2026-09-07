@@ -45,6 +45,7 @@ const CLASSIC_SCRIPTS = [
   'js/visual/visual_map.js',
   'js/visual/visual_controls.js',
   'js/visual/visual_ui.js',
+  'js/visual/visual_combat_session.js',
   'js/visual/visual_panel.js',
   'js/visual/visual_wide.js',
   'js/visual/visual_socket.js',

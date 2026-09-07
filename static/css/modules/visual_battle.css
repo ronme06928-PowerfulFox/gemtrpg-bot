@@ -63,6 +63,70 @@
     background: #fff;
 }
 
+.combat-session-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.combat-session-status {
+    min-width: 0;
+    border-radius: 6px;
+    padding: 7px 8px;
+    border: 1px solid #9ca3af;
+    background: #f3f4f6;
+}
+
+.combat-session-status--ready {
+    border-color: #d97706;
+    background: #fffbeb;
+}
+
+.combat-session-status--active {
+    border-color: #047857;
+    background: #ecfdf5;
+}
+
+.combat-session-status__label {
+    display: block;
+    color: #1f2937;
+    font-size: 0.86em;
+    font-weight: 700;
+}
+
+.combat-session-status__description {
+    display: block;
+    margin-top: 2px;
+    color: #4b5563;
+    font-size: 0.75em;
+    line-height: 1.35;
+}
+
+.combat-session-action {
+    border: 0;
+    border-radius: 5px;
+    padding: 8px 10px;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.combat-session-action--enter {
+    background: #047857;
+}
+
+.combat-session-action--conclude {
+    background: #9f1239;
+}
+
+.combat-session-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
 #visual-next-turn-btn {
     width: 100%;
     padding: 10px;
