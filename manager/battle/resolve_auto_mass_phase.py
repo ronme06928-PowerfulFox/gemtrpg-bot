@@ -1,5 +1,6 @@
 from manager.constants import DamageSource, THORNS_DAMAGE_CATS
 from manager.battle.damage_context import build_damage_context
+from manager.battle.combat_session import record_combat_damage
 from manager.battle.skill_rules import _resolve_skill_category
 from manager.room_manager import _handle_character_death_transition
 
@@ -79,6 +80,17 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 if after_hp == before_hp:
                     continue
                 defender_char['hp'] = after_hp
+                record_combat_damage(
+                    state,
+                    defender_char,
+                    before_hp,
+                    after_hp,
+                    build_damage_context(
+                        actor=source_actor,
+                        skill_data=source_skill,
+                        damage_type="mass-summation",
+                    ),
+                )
                 _handle_character_death_transition(
                     room,
                     defender_char,

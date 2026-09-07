@@ -24,6 +24,7 @@ from manager.battle.action_slot_mode import (
 from manager.battle.scheduled_effects import execute_scheduled_effects
 from manager.battle.resolve_presentation import reset_resolve_presentation
 from manager.battle_only_record_state import finalize_in_progress_records
+from manager.battle.combat_session import is_combat_progression_allowed
 
 logger = setup_logger(__name__)
 
@@ -334,6 +335,9 @@ def process_full_round_end(room, username):
 def _process_full_round_end_impl(room, username):
     state = get_room_state(room)
     if not state:
+        return False
+    if not is_combat_progression_allowed(state):
+        logger.info("round end denied while combat is not active room=%s", room)
         return False
 
     if state.get('is_round_ended', False):
@@ -790,6 +794,8 @@ def reset_battle_logic(room, mode, username, reset_options=None):
 def force_end_match_logic(room, username):
     state = get_room_state(room)
     if not state: return
+    if not is_combat_progression_allowed(state):
+        return
 
     if not state.get('active_match') and not state.get('pending_wide_ids'):
         emit('new_log', {"message": "There is no active match to force-end.", "type": "error"})
@@ -859,6 +865,8 @@ def move_token_logic(room, char_id, x, y, username, attribute, move_ts=None):
 def open_match_modal_logic(room, data, username):
     state = get_room_state(room)
     if not state: return
+    if not is_combat_progression_allowed(state):
+        return
 
     match_type = data.get('match_type')
     attacker_id = data.get('attacker_id')
@@ -945,6 +953,8 @@ def close_match_modal_logic(room):
 def sync_match_data_logic(room, side, data, username, attribute):
     state = get_room_state(room)
     if not state: return
+    if not is_combat_progression_allowed(state):
+        return
     active_match = state.get('active_match', {})
 
     if not active_match.get('is_active') or active_match.get('match_type') != 'duel':
@@ -990,6 +1000,9 @@ def _process_round_start_impl(room, username):
     state = get_room_state(room)
     if not state:
         logger.debug(f"Room state not found for {room}")
+        return False
+    if not is_combat_progression_allowed(state):
+        logger.info("round start denied while combat is not active room=%s", room)
         return False
     clear_newly_applied_flags(state)
     clear_round_limited_flags(state)
@@ -1320,6 +1333,8 @@ def process_wide_declarations(room, wide_user_ids):
 def process_wide_modal_confirm(room, user_id, attribute, wide_ids):
     state = get_room_state(room)
     if not state: return
+    if not is_combat_progression_allowed(state):
+        return
 
 
     if _is_select_resolve_active(state):
@@ -1448,9 +1463,6 @@ def process_ai_suggest_skill(room, char_id):
     if not char: return None
 
     return ai_suggest_skill(char)
-
-
-
 
 
 

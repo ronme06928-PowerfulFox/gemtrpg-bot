@@ -28,6 +28,7 @@ from manager.battle.skill_rules import (
 )
 from manager.battle.skill_access import get_effective_skill_cost
 from manager.battle.damage_context import build_damage_context
+from manager.battle.combat_session import record_combat_damage
 from manager.battle.scheduled_effects import apply_schedule_change
 
 logger = setup_logger(__name__)
@@ -167,6 +168,8 @@ def _apply_damage(defender, amount, damage_type=None, room=None, damage_context=
     before = int(defender.get('hp', 0))
     after = max(0, before - dmg)
     defender['hp'] = after
+    if room:
+        record_combat_damage(get_room_state(room), defender, before, after, damage_context)
     if room:
         _handle_character_death_transition(
             room,

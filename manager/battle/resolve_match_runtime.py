@@ -25,6 +25,7 @@ from manager.battle.resolve_snapshot_utils import (
     _estimate_cost_for_skill_from_snapshot,
 )
 from manager.battle.damage_context import build_damage_context
+from manager.battle.combat_session import record_combat_damage
 
 logger = setup_logger(__name__)
 all_skill_data = _default_all_skill_data
@@ -324,6 +325,17 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         # synthesized resolve log render the state transition.
         curr_hp = int(defender_char.get('hp', 0) or 0)
         defender_char['hp'] = max(0, curr_hp - int(final_damage or 0))
+        record_combat_damage(
+            get_room_state(room),
+            defender_char,
+            curr_hp,
+            defender_char['hp'],
+            build_damage_context(
+                actor=attacker_char,
+                skill_data=attacker_skill_data,
+                damage_type=DamageSource.ONE_SIDED,
+            ),
+        )
         _handle_character_death_transition(
             room,
             defender_char,

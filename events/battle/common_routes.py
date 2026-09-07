@@ -30,6 +30,7 @@ from manager.battle.resolve_presentation import (
 )
 from manager.battle.skill_rules import _extract_rule_data_from_skill as _extract_rule_data_from_skill_v2
 from manager.battle.system_skills import ensure_system_skills_registered
+from manager.battle.combat_session import is_combat_progression_allowed
 from manager.battle.common_manager import (
     process_full_round_end, reset_battle_logic, force_end_match_logic,
     move_token_logic, open_match_modal_logic, close_match_modal_logic,
@@ -200,6 +201,7 @@ def on_request_next_turn(data):
     room = data.get('room')
     if not room: return
     if not _require_in_room(room): return
+    if not is_combat_progression_allowed(get_room_state(room)): return
     proceed_next_turn(room)
 
 @socketio.on('request_new_round')
@@ -223,6 +225,7 @@ def on_request_wide_modal_confirm(data):
     room = data.get('room')
     if not room: return
     if not _require_in_room(room): return
+    if not is_combat_progression_allowed(get_room_state(room)): return
     wide_ids = data.get('wideUserIds', [])
 
     user_info = get_user_info_from_sid(request.sid)
@@ -230,9 +233,6 @@ def on_request_wide_modal_confirm(data):
     attribute = user_info.get("attribute", "Player")
 
     process_wide_modal_confirm(room, username, attribute, wide_ids)
-
-
-
 
 @socketio.on('request_end_round')
 def on_request_end_round(data):
@@ -922,6 +922,10 @@ def _ensure_battle_payload(data, require_slot=False):
         emit('battle_error', {'message': 'Not in this room'}, to=request.sid)
         return None
 
+    if not is_combat_progression_allowed(get_room_state(room_id)):
+        emit('battle_error', {'message': 'combat is not active'}, to=request.sid)
+        return None
+
     if require_slot and not slot_id:
         emit('battle_error', {'message': 'slot_id is required'}, to=request.sid)
         return None
@@ -1002,7 +1006,6 @@ def _recalculate_redirect_state(room_id, battle_id, state):
     )
 
 
-@socketio.on('battle_round_request_start')
 @socketio.on('battle_round_request_start')
 def on_battle_round_request_start(data):
     data = data or {}

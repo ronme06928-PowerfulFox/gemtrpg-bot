@@ -7,6 +7,7 @@ from manager.room_manager import (
 )
 from manager.battle.duel_solver import execute_duel_match, update_duel_declaration, handle_skill_declaration
 from manager.room_access import is_sid_in_room
+from manager.battle.combat_session import is_combat_progression_allowed
 
 
 def _resolve_username(default="System"):
@@ -84,6 +85,14 @@ def _is_declare_panel_preview_only(data):
     return prefix.startswith('declare_panel_') or prefix.startswith('declare_compare_')
 
 
+def _require_combat_active(room, sid):
+    if is_combat_progression_allowed(get_room_state(room)):
+        return True
+    if sid:
+        socketio.emit('battle_error', {'message': 'combat is not active'}, to=sid)
+    return False
+
+
 @socketio.on('request_match')
 def on_request_match(data):
     room = data.get('room')
@@ -91,6 +100,8 @@ def on_request_match(data):
     _sid = _resolve_sid()
     if _sid and not is_sid_in_room(_sid, room):
         socketio.emit('error', {'message': 'Not in this room'}, to=_sid)
+        return
+    if not _require_combat_active(room, _sid):
         return
     username = _resolve_username()
     execute_duel_match(room, data, username)
@@ -103,6 +114,8 @@ def on_declare_skill(data):
     if not is_sid_in_room(sid, room):
         if sid:
             socketio.emit('error', {'message': 'Not in this room'}, to=sid)
+        return
+    if not _require_combat_active(room, sid):
         return
     actor_id = _resolve_actor_id(room, data)
     if not _is_actor_control_allowed(room, actor_id, sid, user_info):
@@ -124,6 +137,8 @@ def on_request_skill_declaration(data):
     if not is_sid_in_room(sid, room):
         if sid:
             socketio.emit('error', {'message': 'Not in this room'}, to=sid)
+        return
+    if not _require_combat_active(room, sid):
         return
     actor_id = _resolve_actor_id(room, data)
     allow_preview_only = _is_declare_panel_preview_only(data)

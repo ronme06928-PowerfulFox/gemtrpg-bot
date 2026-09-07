@@ -784,6 +784,19 @@ def _update_char_stat(
             clamped_hp = min(clamped_hp, max_hp)
         char['hp'] = clamped_hp
         new_value = char['hp']
+        try:
+            hp_decreased = clamped_hp < int(old_value)
+        except (TypeError, ValueError):
+            hp_decreased = False
+        if hp_decreased and (damage_context or source):
+            from manager.battle.combat_session import record_combat_damage
+            record_combat_damage(
+                get_room_state(room_name),
+                char,
+                old_value,
+                clamped_hp,
+                with_damage_type(damage_context, source),
+            )
         log_message = f"{username}: {char['name']}: HP ({old_value}) -> ({char['hp']})"
         if char['hp'] <= 0:
             char['x'] = -1; char['y'] = -1

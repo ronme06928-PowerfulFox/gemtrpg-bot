@@ -6,6 +6,9 @@ gemtrpgdicebot-*.json
 # Node (フロントエンドビルド) — 成果物 static/dist は意図的にコミットする
 node_modules/
 
+# ローカル Python 仮想環境
+.venv/
+
 # データベース・キャッシュ
 *.db
 instance/

@@ -10,6 +10,7 @@ from manager.battle.wide_solver import (
     update_defender_declaration, update_attacker_declaration
 )
 from manager.room_access import is_sid_in_room
+from manager.battle.combat_session import is_combat_progression_allowed
 
 
 def _resolve_sid():
@@ -42,12 +43,22 @@ def _is_actor_control_allowed(room, actor_id, sid, user_info):
     return is_authorized_for_character(room, actor_id, username, attribute)
 
 
+def _require_combat_active(room, sid):
+    if is_combat_progression_allowed(get_room_state(room)):
+        return True
+    if sid:
+        socketio.emit('battle_error', {'message': 'combat is not active'}, to=sid)
+    return False
+
+
 @socketio.on('open_wide_match_modal')
 def on_open_wide_match_modal(data):
     room = data.get('room')
     if not room: return
     if not is_sid_in_room(request.sid, room):
         socketio.emit('error', {'message': 'Not in this room'}, to=request.sid)
+        return
+    if not _require_combat_active(room, request.sid):
         return
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
@@ -61,6 +72,8 @@ def on_wide_declare_skill(data):
     if not is_sid_in_room(sid, room):
         if sid:
             socketio.emit('error', {'message': 'Not in this room'}, to=sid)
+        return
+    if not _require_combat_active(room, sid):
         return
     actor_id = data.get('defender_id')
     if not _is_actor_control_allowed(room, actor_id, sid, user_info):
@@ -81,6 +94,8 @@ def on_wide_attacker_declare(data):
     if not is_sid_in_room(sid, room):
         if sid:
             socketio.emit('error', {'message': 'Not in this room'}, to=sid)
+        return
+    if not _require_combat_active(room, sid):
         return
     actor_id = data.get('attacker_id')
     if not actor_id:
@@ -103,6 +118,8 @@ def on_execute_synced_wide_match(data):
     if not room: return
     if not is_sid_in_room(request.sid, room):
         socketio.emit('error', {'message': 'Not in this room'}, to=request.sid)
+        return
+    if not _require_combat_active(room, request.sid):
         return
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")

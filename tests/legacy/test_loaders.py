@@ -24,7 +24,7 @@ def test_radiance_loader():
         print(f"  説明: {skill_data['description']}")
         print(f"  効果: {skill_data['effect']}")
 
-    return len(skills) > 0
+    assert skills
 
 def test_item_loader():
     """アイテムローダーのテスト"""
@@ -44,7 +44,7 @@ def test_item_loader():
         print(f"  ラウンド制限: {item_data['round_limit']}")
         print(f"  効果: {item_data['effect']}")
 
-    return len(items) > 0
+    assert items
 
 def test_passive_loader():
     """特殊パッシブローダーのテスト"""
@@ -65,8 +65,8 @@ def test_passive_loader():
     else:
         print("  (データはまだ登録されていません)")
 
-    # パッシブは0件でも成功とみなす（まだデータがない場合）
-    return True
+    # パッシブは0件でも有効な空カタログとして扱う。
+    assert isinstance(passives, dict)
 
 if __name__ == "__main__":
     try:

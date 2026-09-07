@@ -1,312 +1,61 @@
-import unittest
-import sys
-import os
-import types
-import importlib
-from unittest.mock import MagicMock, patch
+import pytest
 
-_PATCHED_MODULE_KEYS = [
-    'flask',
-    'flask.globals',
-    'flask_sqlalchemy',
-    'flask_socketio',
-    'extensions',
-    'models',
-    'manager.user_manager',
-    'manager.room_manager',
-    'manager.utils',
-    'manager.buff_catalog',
-    'plugins',
-    'plugins.buffs',
-    'plugins.buffs.confusion',
-    'plugins.buffs.immobilize',
-    'plugins.buffs.dodge_lock',
-    'plugins.buffs.registry',
-    'manager.dice_roller',
-    'events.battle.duel_routes',
-    'manager.battle.duel_solver',
-    'manager.game_logic',
-]
-_ORIGINAL_MODULES = {k: sys.modules.get(k) for k in _PATCHED_MODULE_KEYS}
+import events.battle.duel_routes as duel_routes
 
 
-def _restore_patched_modules():
-    for key, original in _ORIGINAL_MODULES.items():
-        if original is None:
-            sys.modules.pop(key, None)
-        else:
-            sys.modules[key] = original
-        if '.' in key:
-            pkg_name, attr_name = key.rsplit('.', 1)
-            pkg = sys.modules.get(pkg_name)
-            if pkg is not None:
-                if key in sys.modules:
-                    setattr(pkg, attr_name, sys.modules[key])
-                elif hasattr(pkg, attr_name):
-                    delattr(pkg, attr_name)
-    for name in ('manager.utils', 'manager.room_manager', 'manager.game_logic'):
-        try:
-            importlib.import_module(name)
-        except Exception:
-            pass
-
-# ==========================================
-# 1. Mock External Dependencies (Flask, SocketIO)
-# ==========================================
-mock_flask = MagicMock()
-mock_flask_globals = MagicMock()
-mock_flask.globals = mock_flask_globals
-mock_request = MagicMock()
-mock_request.sid = 'test_sid'
-mock_flask.request = mock_request
-sys.modules['flask'] = mock_flask
-sys.modules['flask.globals'] = mock_flask_globals
-
-mock_sqlalchemy_mod = MagicMock()
-mock_sqlalchemy_mod.SQLAlchemy = MagicMock()
-sys.modules['flask_sqlalchemy'] = mock_sqlalchemy_mod
-
-mock_socketio_mod = MagicMock()
-mock_emit = MagicMock()
-mock_socketio_mod.emit = mock_emit
-sys.modules['flask_socketio'] = mock_socketio_mod
-
-# ==========================================
-# 2. Mock Application Extensions
-# ==========================================
-mock_extensions = types.ModuleType('extensions')
-mock_socketio_obj = MagicMock()
-
-# Define identity decorator for .on
-def mock_on_decorator(*args, **kwargs):
-    def decorator(f):
-        return f
-    return decorator
-mock_socketio_obj.on.side_effect = mock_on_decorator
-
-mock_extensions.socketio = mock_socketio_obj
-mock_extensions.db = MagicMock()
-mock_extensions.user_sids = {}
-
-# Mock Skill Data
-mock_skill_data = {
-    'S-01': {
-        'name': 'Test Attack',
-        'デフォルト名称': 'テスト攻撃',
-        '分類': '物理',
-        '基礎威力': '5',
-        'ダイス威力': '2d6',
-        'チャットパレット': '【S-01】 5+2d6',
-        'tags': [],
-        '特記処理': '{"effects": [{"type": "MODIFY_BASE_POWER", "value": 2}]}'
-    },
-    'S-02': {
-        'name': 'Test Defense',
-        'デフォルト名称': 'テスト防御',
-        '分類': '防御',
-        '基礎威力': '0',
-        'ダイス威力': '1d6',
-        'チャットパレット': '【S-02】 1d6',
-        'tags': []
+@pytest.fixture
+def active_duel(monkeypatch):
+    state = {
+        "combat_state": {"is_active": True},
+        "active_match": {
+            "is_active": True,
+            "match_type": "duel",
+            "attacker_id": "ActorA",
+            "defender_id": "ActorD",
+            "match_id": "test-match-uuid",
+        },
     }
-}
-mock_extensions.all_skill_data = mock_skill_data
-sys.modules['extensions'] = mock_extensions
+    declarations = []
+    executions = []
 
-# ==========================================
-# 3. Mock Managers
-# ==========================================
-# manager.room_manager
-mock_rm = types.ModuleType('manager.room_manager')
-test_room_state = {
-    'characters': [
-        {'id': 'ActorA', 'name': 'Attacker', 'status': {}, 'special_buffs': [], 'x':0, 'y':0, 'hp': 20},
-        {'id': 'ActorD', 'name': 'Defender', 'status': {}, 'special_buffs': [], 'x':1, 'y':0, 'hp': 20}
-    ],
-    'active_match': None
-}
-def mock_get_room_state(room): return test_room_state
-def mock_save_specific_room_state(room): pass
-def mock_get_user_info(sid): return {'username': 'Tester', 'attribute': 'GM'}
-def mock_update_char_stat(*args, **kwargs): pass
-def mock_is_authorized(*args, **kwargs): return True
-
-mock_rm.get_room_state = mock_get_room_state
-mock_rm.save_specific_room_state = mock_save_specific_room_state
-mock_rm.broadcast_state_update = MagicMock()
-mock_rm.broadcast_log = MagicMock()
-mock_rm.get_user_info_from_sid = mock_get_user_info
-mock_rm._update_char_stat = mock_update_char_stat
-mock_rm.is_authorized_for_character = mock_is_authorized
-mock_rm.emit_select_resolve_events = MagicMock()
-mock_rm.get_all_users = MagicMock(return_value=[]) # Needed if core uses it?
-mock_rm.get_users_in_room = MagicMock(return_value={})
-sys.modules['manager.room_manager'] = mock_rm
-
-# manager.game_logic
-mock_utils = types.ModuleType('manager.utils')
-mock_utils.get_status_value = lambda c, n: c['status'].get(n, 0)
-mock_utils.set_status_value = lambda c, n, v: c['status'].update({n: v})
-mock_utils.resolve_placeholders = lambda t, c: t
-mock_utils.get_buff_stat_mod = lambda c, n: 0
-mock_utils.get_buff_stat_mod_details = lambda c, n: []
-mock_utils.apply_buff = MagicMock()
-mock_utils.remove_buff = MagicMock()
-mock_utils.calculate_buff_power_bonus = lambda *args: 0
-mock_utils.calculate_damage_multiplier = lambda c: (1.0, [])
-mock_utils.get_effective_origin_id = lambda c: 0
-mock_utils.apply_passive_effect_buffs = lambda *_args, **_kwargs: None
-mock_utils.get_stack_resource_count = lambda *_args, **_kwargs: 0
-mock_utils.apply_origin_bonus_buffs = lambda *_args, **_kwargs: None
-mock_utils.get_round_end_origin_recoveries = lambda *_args, **_kwargs: {}
-sys.modules['manager.utils'] = mock_utils
-
-mock_buff_catalog = types.ModuleType('manager.buff_catalog')
-mock_buff_catalog.get_buff_effect = lambda n: None
-mock_buff_catalog.resolve_runtime_buff_effect = lambda *_args, **_kwargs: None
-sys.modules['manager.buff_catalog'] = mock_buff_catalog
-
-mock_plugins = types.ModuleType('plugins')
-mock_plugins.EFFECT_REGISTRY = {}
-sys.modules['plugins'] = mock_plugins
-
-mock_buffs = types.ModuleType('plugins.buffs')
-sys.modules['plugins.buffs'] = mock_buffs
-mock_plugins.buffs = mock_buffs
-
-mock_confusion = types.ModuleType('plugins.buffs.confusion')
-mock_confusion.ConfusionBuff = MagicMock()
-mock_confusion.ConfusionBuff.is_incapacitated.return_value = False
-sys.modules['plugins.buffs.confusion'] = mock_confusion
-
-mock_immobilize = types.ModuleType('plugins.buffs.immobilize')
-mock_immobilize.ImmobilizeBuff = MagicMock()
-mock_immobilize.ImmobilizeBuff.can_act.return_value = (True, None)
-sys.modules['plugins.buffs.immobilize'] = mock_immobilize
-
-mock_dodge = types.ModuleType('plugins.buffs.dodge_lock')
-mock_dodge.DodgeLockBuff = MagicMock()
-mock_dodge.DodgeLockBuff.has_re_evasion.return_value = False
-sys.modules['plugins.buffs.dodge_lock'] = mock_dodge
-
-sys.modules['plugins.buffs.dodge_lock'] = mock_dodge
-
-# Mock plugins.buffs.registry
-mock_registry_mod = types.ModuleType('plugins.buffs.registry')
-mock_registry_mod.buff_registry = MagicMock()
-sys.modules['plugins.buffs.registry'] = mock_registry_mod
-mock_buffs.registry = mock_registry_mod
+    monkeypatch.setattr(duel_routes, "get_room_state", lambda _room: state)
+    monkeypatch.setattr(duel_routes, "is_sid_in_room", lambda _sid, _room: True)
+    monkeypatch.setattr(duel_routes, "_resolve_sid", lambda: None)
+    monkeypatch.setattr(duel_routes, "_resolve_username", lambda: "Tester")
+    monkeypatch.setattr(
+        duel_routes,
+        "update_duel_declaration",
+        lambda room, data, username: declarations.append((room, data, username)),
+    )
+    monkeypatch.setattr(
+        duel_routes,
+        "execute_duel_match",
+        lambda room, data, username: executions.append((room, data, username)),
+    )
+    return declarations, executions
 
 
-mock_dice = types.ModuleType('manager.dice_roller')
-mock_dice.roll_dice = lambda cmd: {'total': 10, 'details': '10', 'text': '10'}
-sys.modules['manager.dice_roller'] = mock_dice
+def test_full_match_flow_delegates_committed_declarations_and_execution(active_duel):
+    declarations, executions = active_duel
+    room = "room1"
 
-# Add path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    duel_routes.on_declare_skill(
+        {"room": room, "skill_id": "S-01", "prefix": "attacker", "commit": True}
+    )
+    duel_routes.on_declare_skill(
+        {"room": room, "skill_id": "S-02", "prefix": "defender", "commit": True}
+    )
+    payload = {
+        "room": room,
+        "match_id": "test-match-uuid",
+        "commandA": "10",
+        "commandD": "10",
+        "actorIdA": "ActorA",
+        "actorIdD": "ActorD",
+        "skillIdA": "S-01",
+        "skillIdD": "S-02",
+    }
+    duel_routes.on_request_match(payload)
 
-# Import Real Modules for Logic
-from manager.game_logic import calculate_skill_preview, process_skill_effects
-
-# Target Modules (New Routes)
-import events.battle.duel_routes as dr
-import manager.battle.duel_solver as ds
-
-# Restore global module table after binding local test targets, so this module
-# does not leak mock sys.modules entries into other test files during collection.
-_restore_patched_modules()
-
-class TestMatchIntegration(unittest.TestCase):
-    def setUp(self):
-        mock_extensions.socketio.reset_mock()
-        mock_rm.broadcast_log.reset_mock()
-        mock_rm.broadcast_state_update.reset_mock()
-
-        # Rebind route/solver dependencies every test so this module is
-        # order-independent even when imported after real modules.
-        ds.get_room_state = mock_get_room_state
-        ds.save_specific_room_state = mock_save_specific_room_state
-        ds.broadcast_log = mock_rm.broadcast_log
-        ds.broadcast_state_update = mock_rm.broadcast_state_update
-        ds._update_char_stat = mock_update_char_stat
-        ds.all_skill_data = mock_skill_data
-        dr.get_user_info_from_sid = mock_get_user_info
-        dr.is_sid_in_room = lambda sid, room: True
-        dr.update_duel_declaration = ds.update_duel_declaration
-        dr.execute_duel_match = ds.execute_duel_match
-
-        test_room_state['active_match'] = {
-            'is_active': True,
-            'match_type': 'duel',
-            'attacker_id': 'ActorA',
-            'defender_id': 'ActorD',
-            'match_id': 'test-match-uuid',
-            'attacker_declared': False,
-            'defender_declared': False
-        }
-
-    def test_full_match_flow(self):
-        print("\n--- Testing Full Match Flow (Refactored) ---")
-        room = 'room1'
-        # 1. Attacker Declares (Commit)
-        print("1. Attacker Declares")
-        dr.on_declare_skill({
-            'room': room,
-            'skill_id': 'S-01',
-            'prefix': 'attacker',
-            'commit': True
-        })
-
-        if 'attacker_declared' not in test_room_state['active_match'] or not test_room_state['active_match']['attacker_declared']:
-            print("FAILURE: Attacker declared flag not set.")
-
-        self.assertTrue(test_room_state['active_match'].get('attacker_declared'))
-
-        # 2. Defender Declares (Commit)
-        print("2. Defender Declares")
-        dr.on_declare_skill({
-            'room': room,
-            'skill_id': 'S-02',
-            'prefix': 'defender',
-            'commit': True
-        })
-
-        self.assertTrue(test_room_state['active_match']['defender_declared'])
-
-        # 3. Manual Execution Trigger
-        # The refactoring moved to manual execution or explicit event
-        print("3. Execute Match")
-
-        # Mocking execute_duel_match is not needed if we want to test IT logic,
-        # but we mocked manager.battle.core which is used by it.
-        # We need to ensure execute_duel_match logic is reached.
-
-        # We'll spy on execute_duel_match by wrapping it?
-        # Or just checking broadcast_log call from real execution.
-
-        dr.on_request_match({
-            'room': room,
-            'match_id': 'test-match-uuid',
-            'commandA': '10',
-            'commandB': '10', # Typo in legacy test? duel_solver uses commandD
-            'commandD': '10',
-            'actorIdA': 'ActorA',
-            'actorIdD': 'ActorD',
-            'actorNameA': 'Attacker',
-            'actorNameD': 'Defender',
-            'skillIdA': 'S-01',
-            'skillIdD': 'S-02'
-        })
-
-        # Verify broadcast log
-        args_list = mock_rm.broadcast_log.call_args_list
-        match_log_found = False
-        for args in args_list:
-            if len(args[0]) >= 3 and args[0][2] == 'match':
-                match_log_found = True
-                print(f"Match Log Found: {args[0][1]}")
-
-        self.assertTrue(match_log_found, "Match result log was not broadcasted")
-
-if __name__ == '__main__':
-    unittest.main()
+    assert [item[1]["skill_id"] for item in declarations] == ["S-01", "S-02"]
+    assert executions == [(room, payload, "Tester")]
