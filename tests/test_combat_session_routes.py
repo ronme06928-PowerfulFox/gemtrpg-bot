@@ -22,10 +22,14 @@ def test_gm_can_enter_and_conclude_normal_room(monkeypatch):
 
     routes.on_request_combat_enter({"room": "room-1"})
     session_id = state["combat_session"]["id"]
+    start_events = [row for row in calls if row[0] == "emit" and row[1][0] == "combat_session_updated"]
+    assert start_events[-1][1][1]["concluded_combat"] is None
     routes.on_request_combat_conclude({"room": "room-1", "combat_session_id": session_id, "outcome": "VICTORY"})
 
     assert state["combat_phase"] == "ready"
     assert state["combat_history"][0]["outcome"] == "VICTORY"
+    conclusion_events = [row for row in calls if row[0] == "emit" and row[1][0] == "combat_session_updated"]
+    assert conclusion_events[-1][1][1]["concluded_combat"]["id"] == state["combat_history"][0]["id"]
     assert any(row[0] == "save" for row in calls)
 
 

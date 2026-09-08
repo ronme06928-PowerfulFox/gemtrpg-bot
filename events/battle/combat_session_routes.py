@@ -65,7 +65,7 @@ def _session_matches(data, state):
     return isinstance(current, dict) and expected == str(current.get("id") or "")
 
 
-def _sync(room, state):
+def _sync(room, state, *, concluded_record=None):
     socketio.emit(
         "combat_session_updated",
         {
@@ -73,6 +73,7 @@ def _sync(room, state):
             "combat_phase": state.get("combat_phase"),
             "combat_session": state.get("combat_session"),
             "combat_history": state.get("combat_history", []),
+            "concluded_combat": concluded_record,
         },
         to=room,
     )
@@ -106,7 +107,7 @@ def on_request_combat_conclude(data):
         _emit_error(_sid(), "combat conclusion is invalid")
         return
     broadcast_log(room, f"--- {username} が戦闘終結しました: {record['outcome']} ---", "round")
-    _sync(room, state)
+    _sync(room, state, concluded_record=record)
 
 
 @socketio.on("request_combat_history_delete")
