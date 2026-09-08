@@ -4,6 +4,7 @@ from extensions import all_skill_data
 from manager.battle.skill_access import list_usable_skill_ids
 from manager.logs import setup_logger
 from manager.room_manager import broadcast_log
+from manager.battle.action_slot_mode import is_character_deployed
 
 logger = setup_logger(__name__)
 
@@ -16,8 +17,8 @@ def ai_select_targets(state, room_id=None):
     state["ai_target_arrows"] = []
 
     characters = state.get("characters", [])
-    enemies = [c for c in characters if c.get("type") == "enemy" and c.get("hp", 0) > 0 and c.get("x", -1) >= 0]
-    allies = [c for c in characters if c.get("type") == "ally" and c.get("hp", 0) > 0 and c.get("x", -1) >= 0]
+    enemies = [c for c in characters if c.get("type") == "enemy" and c.get("hp", 0) > 0 and is_character_deployed(c)]
+    allies = [c for c in characters if c.get("type") == "ally" and c.get("hp", 0) > 0 and is_character_deployed(c)]
     if not allies:
         logger.info("[AI] No valid allies to target.")
         return

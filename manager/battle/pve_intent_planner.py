@@ -18,7 +18,7 @@ from manager.battle.enemy_behavior import (
     BEHAVIOR_ON_NO_TARGET_CANCEL,
     normalize_target_candidates,
 )
-from manager.battle.action_slot_mode import is_action_slot_disabled
+from manager.battle.action_slot_mode import is_action_slot_disabled, is_character_deployed
 from manager.character_tags import get_effective_tag_ids
 
 
@@ -50,11 +50,7 @@ def _is_pve_actionable_character(char):
         return False
     if bool(char.get('is_escaped', False)):
         return False
-    try:
-        x_val = float(char.get('x', -1))
-    except (TypeError, ValueError):
-        return False
-    return x_val >= 0
+    return is_character_deployed(char)
 
 def _is_summon_action_locked(char, round_value):
     if not isinstance(char, dict):

@@ -1,3 +1,6 @@
+from manager.battle.action_slot_mode import is_character_deployed
+
+
 def _consume_legacy_timeline_entries_for_slots(state, slots, processed_slots):
     if not isinstance(state, dict):
         return 0
@@ -129,15 +132,10 @@ def _is_actor_placed(state, actor_id):
     actor = next((c for c in state.get('characters', []) if c.get('id') == actor_id), None)
     if not actor:
         return False
-    try:
-        x_val = float(actor.get('x', -1))
-    except (ValueError, TypeError):
-        x_val = -1
-    if x_val < 0:
+    if not is_character_deployed(actor):
         return False
     if actor.get('hp', 0) <= 0:
         return False
     if actor.get('is_escaped', False):
         return False
     return True
-

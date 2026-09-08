@@ -1,5 +1,5 @@
 from events.battle.intent_targets import _normalize_target_slot_id, _resolve_slot_team
-from manager.battle.action_slot_mode import is_action_slot_disabled
+from manager.battle.action_slot_mode import is_action_slot_disabled, is_character_deployed
 
 
 def _canonical_team(raw_value):
@@ -24,11 +24,7 @@ def _is_actor_actionable(room_id, actor_id, *, get_room_state_fn, confusion_buff
         return False
     if is_action_slot_disabled(actor):
         return False
-    try:
-        x_val = float(actor.get('x', -1))
-    except (TypeError, ValueError):
-        x_val = -1
-    if x_val < 0:
+    if not is_character_deployed(actor):
         return False
     if confusion_buff_cls.is_incapacitated(actor):
         return False
@@ -49,11 +45,7 @@ def _is_actor_targetable(room_id, actor_id, *, get_room_state_fn):
         return False
     if actor.get('is_escaped', False):
         return False
-    try:
-        x_val = float(actor.get('x', -1))
-    except (TypeError, ValueError):
-        x_val = -1
-    return x_val >= 0
+    return is_character_deployed(actor)
 
 
 def _is_valid_single_target_slot_for_pve_enemy(room_id, state, source_slot_id, target_slot_id, *, get_room_state_fn):

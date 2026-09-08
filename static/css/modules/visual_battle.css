@@ -127,6 +127,146 @@
     opacity: 0.55;
 }
 
+.combat-session-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 5px;
+}
+
+.combat-session-history-button {
+    border: 1px solid #64748b;
+    border-radius: 5px;
+    padding: 7px 8px;
+    background: #f8fafc;
+    color: #334155;
+    cursor: pointer;
+    font-size: 0.82em;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.combat-history-modal-backdrop {
+    z-index: 11900;
+}
+
+.combat-history-confirm-backdrop {
+    /* 既存モーダル・テーマの重なり順を超えて、削除確認を必ず前面に表示する。 */
+    z-index: 2147483647 !important;
+}
+
+.combat-history-confirm {
+    width: min(420px, calc(100vw - 28px));
+    padding: 22px;
+    border-top-color: #b91c1c;
+}
+
+.combat-history-confirm h3 { margin: 0; color: #7f1d1d; }
+.combat-history-confirm p { margin: 12px 0 0; color: #334155; line-height: 1.55; }
+.combat-history-confirm__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.combat-history-confirm__actions button { border: 0; border-radius: 5px; padding: 9px 12px; cursor: pointer; font-weight: 700; }
+.combat-history-confirm__actions button:first-child { background: #e2e8f0; color: #334155; }
+.combat-history-confirm__delete { background: #b91c1c; color: #fff; }
+
+.combat-history-modal {
+    width: min(980px, 94vw);
+    max-height: min(760px, 90vh);
+    padding: 20px;
+    border-top-color: #475569;
+}
+
+.combat-history-modal__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: flex-start;
+    margin: -20px -20px 0;
+    padding: 22px 38px 18px;
+    background: #0f172a;
+}
+
+.combat-history-modal__header h2 { margin: 0; color: #f8fafc; }
+.combat-history-modal__header p { margin: 5px 0 0; color: #cbd5e1; font-size: 0.9em; }
+
+.combat-history-modal__close {
+    border: 0;
+    background: transparent;
+    color: #e2e8f0;
+    cursor: pointer;
+    font-size: 1.6em;
+    line-height: 1;
+}
+
+.combat-history-modal__close:hover,
+.combat-history-modal__close:focus-visible { color: #fff; outline: 2px solid #93c5fd; outline-offset: 2px; }
+
+.combat-history-modal__error {
+    min-height: 1.2em;
+    margin: 8px 0 0;
+    color: #b91c1c;
+    font-size: 0.86em;
+}
+
+.combat-history-modal__body {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.5fr);
+    gap: 14px;
+    margin-top: 8px;
+    min-height: 360px;
+}
+
+.combat-history-list,
+.combat-history-detail {
+    overflow: auto;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+    padding: 8px;
+}
+
+.combat-history-list { display: grid; align-content: start; gap: 6px; }
+
+.combat-history-list__item {
+    display: grid;
+    gap: 3px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 9px;
+    background: #fff;
+    color: #1e293b;
+    cursor: pointer;
+    text-align: left;
+}
+
+.combat-history-list__item.is-selected,
+.combat-history-list__item:hover { border-color: #2563eb; background: #eff6ff; }
+.combat-history-list__item strong { font-size: 0.93em; }
+.combat-history-list__item span { color: #64748b; font-size: 0.75em; }
+
+.combat-history-detail { background: #fff; }
+.combat-history-detail__heading { color: #0f172a; font-size: 1.12em; font-weight: 800; }
+.combat-history-detail__meta { display: grid; gap: 4px; margin-top: 8px; color: #475569; font-size: 0.84em; }
+.combat-history-detail h3 { margin: 16px 0 8px; color: #334155; font-size: 0.96em; }
+
+.combat-history-stats { display: grid; gap: 6px; }
+.combat-history-stat { display: grid; grid-template-columns: minmax(100px, 1fr) auto; gap: 5px 10px; align-items: center; border: 1px solid #dbe3ef; border-radius: 6px; padding: 8px; background: #f8fafc; }
+.combat-history-stat--unowned { background: #fffbeb; border-color: #fcd34d; }
+.combat-history-stat__name { color: #1e293b; font-weight: 700; }
+.combat-history-stat__value { color: #334155; font-size: 0.86em; }
+.combat-history-stat__summon { grid-column: 1 / -1; color: #64748b; font-size: 0.8em; }
+
+.combat-history-detail__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.combat-history-delete { border: 0; border-radius: 5px; padding: 8px 10px; background: #b91c1c; color: #fff; cursor: pointer; font-weight: 700; }
+.combat-history-delete--all { background: #7f1d1d; }
+.combat-history-empty { color: #64748b; padding: 12px; font-size: 0.88em; }
+
+@media (max-width: 680px) {
+    .combat-history-modal__body { grid-template-columns: 1fr; min-height: 0; }
+    .combat-history-list { max-height: 180px; }
+    .combat-history-stat { grid-template-columns: 1fr; }
+    .combat-history-detail__actions { flex-wrap: wrap; }
+}
+
 .combat-conclusion-modal-backdrop {
     z-index: 12001;
 }

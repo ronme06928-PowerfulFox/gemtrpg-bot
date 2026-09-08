@@ -43,15 +43,25 @@ def is_action_slot_disabled(character):
     return get_action_slot_mode(character) == ACTION_SLOT_MODE_NONE
 
 
+def is_character_deployed(character):
+    """Return whether a character has a valid battlefield position."""
+    if not isinstance(character, dict):
+        return False
+    try:
+        return float(character.get("x", -1)) >= 0 and float(character.get("y", -1)) >= 0
+    except (TypeError, ValueError):
+        return False
+
+
 def is_character_targetable(character):
     if not isinstance(character, dict):
         return False
     try:
         if int(character.get("hp", 0) or 0) <= 0:
             return False
-        if float(character.get("x", -1)) < 0:
-            return False
     except (TypeError, ValueError):
+        return False
+    if not is_character_deployed(character):
         return False
     return not bool(character.get("is_escaped", False))
 

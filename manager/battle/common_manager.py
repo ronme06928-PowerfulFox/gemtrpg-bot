@@ -19,6 +19,7 @@ from manager.battle.system_skills import pop_pending_selected_power_recoveries
 from manager.battle.action_slot_mode import (
     INACTIVE_REASON_BEHAVIOR_NO_ACTION,
     build_non_action_anchor,
+    is_character_deployed,
     is_action_slot_disabled,
 )
 from manager.battle.scheduled_effects import execute_scheduled_effects
@@ -352,6 +353,8 @@ def _process_full_round_end_impl(room, username):
     current_round = int(state.get('round', 0) or 0)
     not_acted_chars = []
     for c in characters_to_process:
+        if not is_character_deployed(c):
+            continue
         is_dead = c.get('hp', 0) <= 0
         is_escaped = c.get('is_escaped', False)
         is_incapacitated = ConfusionBuff.is_incapacitated(c)
@@ -653,7 +656,7 @@ def reset_battle_logic(room, mode, username, reset_options=None):
 
 
 
-            is_unplaced = char.get('x', -1) < 0
+            is_unplaced = not is_character_deployed(char)
             is_dead = char.get('hp', 0) <= 0
 
             if is_unplaced and not is_dead:
@@ -1051,7 +1054,6 @@ def _process_round_start_impl(room, username):
 
         try:
             hp = int(char.get('hp', 0))
-            x_val = float(char.get('x', -1))
             escaped = bool(char.get('is_escaped', False))
         except (ValueError, TypeError):
             logger.warning(f"[Timeline] Type mismatch for char {char.get('name', 'Unknown')}. Skipping.")
@@ -1063,8 +1065,8 @@ def _process_round_start_impl(room, username):
         if escaped:
              logger.debug(f"[Timeline] Skip {char.get('name')} (Escaped)")
              continue
-        if x_val < 0:
-             logger.debug(f"[Timeline] Skip {char.get('name')} (Unplaced x={x_val})")
+        if not is_character_deployed(char):
+             logger.debug(f"[Timeline] Skip {char.get('name')} (Unplaced)")
              continue
         if is_action_slot_disabled(char):
             logger.debug("[Timeline] Skip %s (action_slot_mode=none)", char.get('name'))
@@ -1464,7 +1466,6 @@ def process_ai_suggest_skill(room, char_id):
     if not char: return None
 
     return ai_suggest_skill(char)
-
 
 
 

@@ -75,3 +75,14 @@ def test_summons_are_aggregated_without_participant_rows():
     assert owner_row["damage_dealt"] == 5
     assert owner_row["summon_damage_dealt"] == 5
     assert owner_row["summon_damage_taken"] == 4
+
+
+def test_unplaced_characters_are_not_initial_combat_participants():
+    deployed = _character("deployed", "Deployed")
+    unplaced = _character("unplaced", "Unplaced", x=-1, y=-1)
+    state = {"combat_phase": "ready", "combat_history": [], "characters": [deployed, unplaced]}
+
+    session = start_combat_session(state, "GM")
+
+    assert session is not None
+    assert set(session["participants"]) == {"deployed"}

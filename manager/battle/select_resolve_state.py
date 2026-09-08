@@ -17,6 +17,7 @@ from manager.battle.action_slot_mode import (
     build_non_action_anchor,
     build_target_only_slot,
     get_action_unavailable_reason,
+    is_character_deployed,
     is_action_slot_disabled,
 )
 from manager.battle.scheduled_effects import execute_scheduled_effects
@@ -346,12 +347,11 @@ def process_select_resolve_round_start(room, battle_id, round_value):
     for char in characters:
         try:
             hp = int(char.get('hp', 0))
-            x_val = float(char.get('x', -1))
             escaped = bool(char.get('is_escaped', False))
         except (ValueError, TypeError):
             continue
 
-        if hp <= 0 or escaped or x_val < 0:
+        if hp <= 0 or escaped or not is_character_deployed(char):
             continue
         if is_action_slot_disabled(char):
             continue

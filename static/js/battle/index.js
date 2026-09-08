@@ -45,6 +45,11 @@ function initializeBattleSystem() {
                 store.initialize(window.battleState);
             }
             boardPresentationCoordinator.initialize();
+            // state_updated を Core Store 経由で受ける場合、盤面の再描画は
+            // VisualMap の購読が担う。初期化漏れがあると、フルリセット等で
+            // characters が空になっても画面だけ古い駒を表示し続けてしまう。
+            const visualMapInit = visualMap.initialize();
+            console.log(`VisualMap initialized: ${visualMapInit}`);
 
             // Phase 3: Initialize UI Components
             // Timeline: Check if container exists before initializing to avoid errors on non-visual tabs

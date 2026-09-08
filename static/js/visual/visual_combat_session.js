@@ -53,6 +53,218 @@
         window._combatConclusionRequestPending = false;
     }
 
+    function combatHistory(state) {
+        return Array.isArray(state && state.combat_history)
+            ? state.combat_history.filter((record) => record && typeof record === 'object')
+            : [];
+    }
+
+    function formatCombatDate(value) {
+        if (!value) return '移行済み戦闘';
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('ja-JP');
+    }
+
+    function asCombatNumber(value) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : 0;
+    }
+
+    function historyOutcomeLabel(record) {
+        const outcome = String(record && record.outcome || '').trim().toUpperCase();
+        return OUTCOMES[outcome] || { label: outcome || '結果未設定', resultLabel: outcome || '結果未設定' };
+    }
+
+    function makeHistoryText(className, text) {
+        const element = document.createElement('div');
+        element.className = className;
+        element.textContent = text;
+        return element;
+    }
+
+    function confirmCombatHistoryDeletion({ title, message, confirmText }) {
+        return new Promise((resolve) => {
+            document.getElementById('combat-history-confirm-backdrop')?.remove();
+            const backdrop = document.createElement('div');
+            backdrop.id = 'combat-history-confirm-backdrop';
+            backdrop.className = 'modal-backdrop combat-history-confirm-backdrop';
+            const dialog = document.createElement('section');
+            dialog.className = 'modal-content combat-history-confirm';
+            dialog.setAttribute('role', 'dialog');
+            dialog.setAttribute('aria-modal', 'true');
+            const heading = document.createElement('h3');
+            heading.textContent = title;
+            const body = document.createElement('p');
+            body.textContent = message;
+            const actions = document.createElement('div');
+            actions.className = 'combat-history-confirm__actions';
+            const cancel = document.createElement('button');
+            cancel.type = 'button';
+            cancel.textContent = 'キャンセル';
+            const confirm = document.createElement('button');
+            confirm.type = 'button';
+            confirm.className = 'combat-history-confirm__delete';
+            confirm.textContent = confirmText;
+            actions.append(cancel, confirm);
+            dialog.append(heading, body, actions);
+            backdrop.appendChild(dialog);
+            const close = (confirmed) => {
+                backdrop.remove();
+                resolve(confirmed);
+            };
+            cancel.addEventListener('click', () => close(false));
+            confirm.addEventListener('click', () => close(true));
+            backdrop.addEventListener('click', (event) => { if (event.target === backdrop) close(false); });
+            document.body.appendChild(backdrop);
+            confirm.focus();
+        });
+    }
+
+    window.openCombatHistoryModal = function () {
+        if (isBattleOnly(currentBattleState())) return;
+        document.getElementById('combat-history-modal-backdrop')?.remove();
+
+        const backdrop = document.createElement('div');
+        backdrop.id = 'combat-history-modal-backdrop';
+        backdrop.className = 'modal-backdrop combat-history-modal-backdrop';
+        backdrop.innerHTML = `
+            <section class="modal-content combat-history-modal" role="dialog" aria-modal="true" aria-labelledby="combat-history-title">
+                <header class="combat-history-modal__header">
+                    <div><h2 id="combat-history-title">戦闘記録</h2><p>このルームで終結した戦闘の要約です。</p></div>
+                    <button type="button" class="combat-history-modal__close" aria-label="閉じる">×</button>
+                </header>
+                <p class="combat-history-modal__error" aria-live="polite"></p>
+                <div class="combat-history-modal__body"><div class="combat-history-list" aria-label="戦闘記録一覧"></div><div class="combat-history-detail"></div></div>
+            </section>
+        `;
+        const list = backdrop.querySelector('.combat-history-list');
+        const detail = backdrop.querySelector('.combat-history-detail');
+        const error = backdrop.querySelector('.combat-history-modal__error');
+
+        const render = () => {
+            const records = combatHistory(currentBattleState()).slice().reverse();
+            const selectedId = String(window._combatHistorySelectedId || '').trim();
+            const selected = records.find((record) => String(record.id || '') === selectedId) || records[0] || null;
+            window._combatHistorySelectedId = selected ? String(selected.id || '') : '';
+            list.replaceChildren();
+            detail.replaceChildren();
+            error.textContent = window._combatHistoryError || '';
+
+            if (!records.length) {
+                list.appendChild(makeHistoryText('combat-history-empty', '戦闘記録はまだありません。'));
+                detail.appendChild(makeHistoryText('combat-history-empty', '戦闘を終結すると、ここで結果と戦績を確認できます。'));
+                return;
+            }
+
+            records.forEach((record) => {
+                const result = historyOutcomeLabel(record);
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'combat-history-list__item';
+                item.classList.toggle('is-selected', record === selected);
+                item.innerHTML = '<strong></strong><span></span>';
+                item.querySelector('strong').textContent = result.label;
+                item.querySelector('span').textContent = formatCombatDate(record.ended_at || record.started_at);
+                item.addEventListener('click', () => {
+                    window._combatHistorySelectedId = String(record.id || '');
+                    render();
+                });
+                list.appendChild(item);
+            });
+
+            const result = historyOutcomeLabel(selected);
+            const heading = document.createElement('div');
+            heading.className = 'combat-history-detail__heading';
+            heading.textContent = `${result.label} / ${result.resultLabel}`;
+            detail.appendChild(heading);
+            const meta = document.createElement('div');
+            meta.className = 'combat-history-detail__meta';
+            meta.append(
+                makeHistoryText('', `開始: ${formatCombatDate(selected.started_at)}`),
+                makeHistoryText('', `終了: ${formatCombatDate(selected.ended_at)}`),
+                makeHistoryText('', `完了ラウンド: ${asCombatNumber(selected.rounds_completed)}`),
+            );
+            detail.appendChild(meta);
+
+            const participants = selected.participants && typeof selected.participants === 'object'
+                ? Object.values(selected.participants).filter((row) => row && typeof row === 'object')
+                : [];
+            const participantsTitle = document.createElement('h3');
+            participantsTitle.textContent = '参加者別ダメージ';
+            detail.appendChild(participantsTitle);
+            if (!participants.length) {
+                detail.appendChild(makeHistoryText('combat-history-empty', '参加者のダメージ記録はありません。'));
+            } else {
+                const table = document.createElement('div');
+                table.className = 'combat-history-stats';
+                participants.forEach((row) => {
+                    const stat = document.createElement('div');
+                    stat.className = 'combat-history-stat';
+                    const name = String(row.display_name || '名称不明');
+                    stat.appendChild(makeHistoryText('combat-history-stat__name', name));
+                    stat.appendChild(makeHistoryText('combat-history-stat__value', `与 ${asCombatNumber(row.damage_dealt)} / 被 ${asCombatNumber(row.damage_taken)}`));
+                    const summonDealt = asCombatNumber(row.summon_damage_dealt);
+                    const summonTaken = asCombatNumber(row.summon_damage_taken);
+                    if (summonDealt || summonTaken) {
+                        stat.appendChild(makeHistoryText('combat-history-stat__summon', `召喚体: 与 ${summonDealt} / 被 ${summonTaken}`));
+                    }
+                    table.appendChild(stat);
+                });
+                const unowned = selected.unowned_summons && typeof selected.unowned_summons === 'object'
+                    ? selected.unowned_summons
+                    : null;
+                if (unowned && (asCombatNumber(unowned.damage_dealt) || asCombatNumber(unowned.damage_taken))) {
+                    const stat = document.createElement('div');
+                    stat.className = 'combat-history-stat combat-history-stat--unowned';
+                    stat.appendChild(makeHistoryText('combat-history-stat__name', String(unowned.display_name || 'その他の召喚体')));
+                    stat.appendChild(makeHistoryText('combat-history-stat__value', `与 ${asCombatNumber(unowned.damage_dealt)} / 被 ${asCombatNumber(unowned.damage_taken)}`));
+                    table.appendChild(stat);
+                }
+                detail.appendChild(table);
+            }
+
+            if (!isGmUser()) return;
+            const actions = document.createElement('div');
+            actions.className = 'combat-history-detail__actions';
+            const deleteOne = document.createElement('button');
+            deleteOne.type = 'button';
+            deleteOne.className = 'combat-history-delete';
+            deleteOne.textContent = 'この記録を削除';
+            deleteOne.addEventListener('click', async () => {
+                const confirmed = await confirmCombatHistoryDeletion({
+                    title: '戦闘記録を削除',
+                    message: `「${result.label}」の戦闘記録を削除します。この操作は取り消せません。`,
+                    confirmText: '削除',
+                });
+                if (confirmed) socket.emit('request_combat_history_delete', { room: currentRoomName, combat_id: selected.id });
+            });
+            const deleteAll = document.createElement('button');
+            deleteAll.type = 'button';
+            deleteAll.className = 'combat-history-delete combat-history-delete--all';
+            deleteAll.textContent = '全記録を削除';
+            deleteAll.addEventListener('click', async () => {
+                const confirmed = await confirmCombatHistoryDeletion({
+                    title: '全戦闘記録を削除',
+                    message: `戦闘記録 ${records.length} 件をすべて削除します。この操作は取り消せません。`,
+                    confirmText: '全件削除',
+                });
+                if (confirmed) socket.emit('request_combat_history_delete', { room: currentRoomName, all: true });
+            });
+            actions.append(deleteOne, deleteAll);
+            detail.appendChild(actions);
+        };
+
+        const close = () => {
+            backdrop.remove();
+            window._renderCombatHistoryModal = null;
+        };
+        backdrop.querySelector('.combat-history-modal__close').addEventListener('click', close);
+        backdrop.addEventListener('click', (event) => { if (event.target === backdrop) close(); });
+        document.body.appendChild(backdrop);
+        window._renderCombatHistoryModal = render;
+        render();
+    };
+
     window.showCombatConclusionResult = function (record) {
         const combat = record && typeof record === 'object' ? record : null;
         const combatId = String(combat && combat.id || '').trim();
@@ -174,7 +386,19 @@
             </div>
         `;
 
-        if (!isGmUser()) return;
+        const actions = document.createElement('div');
+        actions.className = 'combat-session-actions';
+        const historyButton = document.createElement('button');
+        historyButton.type = 'button';
+        historyButton.className = 'combat-session-history-button';
+        historyButton.textContent = '戦闘記録';
+        historyButton.addEventListener('click', () => window.openCombatHistoryModal());
+        actions.appendChild(historyButton);
+
+        if (!isGmUser()) {
+            root.appendChild(actions);
+            return;
+        }
 
         const action = document.createElement('button');
         action.type = 'button';
@@ -200,18 +424,21 @@
             action.disabled = true;
             socket.emit('request_combat_enter', { room: currentRoomName });
         });
-        root.appendChild(action);
+        actions.appendChild(action);
+        root.appendChild(actions);
     };
 
     window.syncCombatSessionState = function (payload) {
         const next = payload && typeof payload === 'object' ? payload : {};
         window._combatSessionUiError = '';
+        window._combatHistoryError = '';
         const targets = [];
         if (window.BattleStore && window.BattleStore.state) targets.push(window.BattleStore.state);
         if (typeof battleState !== 'undefined' && battleState && !targets.includes(battleState)) targets.push(battleState);
         targets.forEach((state) => {
             state.combat_phase = next.combat_phase;
             state.combat_session = next.combat_session || null;
+            if (Array.isArray(next.combat_history)) state.combat_history = next.combat_history;
         });
         window.renderCombatSessionControls(currentBattleState());
         if (typeof window.setupVisualSidebarControls === 'function') window.setupVisualSidebarControls();
@@ -219,6 +446,7 @@
             removeConclusionModal();
             window.showCombatConclusionResult(next.concluded_combat);
         }
+        if (typeof window._renderCombatHistoryModal === 'function') window._renderCombatHistoryModal();
     };
 
     window.setupCombatSessionUi = function () {
@@ -236,6 +464,8 @@
                 modalConfirm.textContent = '戦闘終結';
                 modalConfirm.disabled = false;
             }
+            window._combatHistoryError = message;
+            if (typeof window._renderCombatHistoryModal === 'function') window._renderCombatHistoryModal();
             window.renderCombatSessionControls(currentBattleState());
         });
         window.renderCombatSessionControls(currentBattleState());

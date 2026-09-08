@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from manager.character_tags import get_effective_tag_ids
+from manager.battle.action_slot_mode import is_character_deployed
 
 
 def _canonical_team(value):
@@ -20,10 +21,7 @@ def _is_alive(character):
 
 
 def _is_placed(character):
-    try:
-        return float(character.get("x", -1)) >= 0
-    except (TypeError, ValueError):
-        return False
+    return is_character_deployed(character)
 
 
 def select_filtered_characters(actor, characters, character_filter=None):

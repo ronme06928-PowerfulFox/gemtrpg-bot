@@ -30,6 +30,11 @@ def _is_summon(char):
     return isinstance(char, dict) and bool(char.get("is_summoned", False))
 
 
+def _is_deployed(char):
+    """Return whether a character occupies a battlefield coordinate."""
+    return _as_int((char or {}).get("x"), -1) >= 0 and _as_int((char or {}).get("y"), -1) >= 0
+
+
 def _participant(participants, char):
     char_id = str((char or {}).get("id") or "").strip()
     if not char_id:
@@ -67,7 +72,7 @@ def _find_character(state, char_id):
 def _new_session(state, username, *, legacy_migrated=False):
     participants = {}
     for char in state.get("characters", []):
-        if isinstance(char, dict) and not _is_summon(char):
+        if isinstance(char, dict) and not _is_summon(char) and _is_deployed(char):
             _participant(participants, char)
     return {
         "id": f"combat_{uuid4()}",

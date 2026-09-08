@@ -167,3 +167,13 @@ if (published.length !== 1 || coordinator.state.phase !== 'resolve_single' || co
     socket_source = (ROOT / "static/js/visual/visual_socket.js").read_text(encoding="utf-8")
     assert "window.BoardPresentationCoordinator" in map_source
     assert "if (!hasCoreStoreListeners()) clearSlotBadgesIfInactive" in socket_source
+
+
+def test_core_store_path_initializes_visual_map_subscription():
+    source = (ROOT / "static/js/battle/index.js").read_text(encoding="utf-8")
+
+    coordinator_init = "boardPresentationCoordinator.initialize();"
+    visual_map_init = "const visualMapInit = visualMap.initialize();"
+    assert coordinator_init in source
+    assert visual_map_init in source
+    assert source.index(coordinator_init) < source.index(visual_map_init)

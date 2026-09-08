@@ -1,8 +1,8 @@
 <!-- 旧: 09_SelectResolve_Spec.md を B 系列へ移管 (2026-05-09) -->
 # 09 Select/Resolve 確定仕様書 v1.2
 
-**最終更新日**: 2026-08-16
-**文書バージョン**: v1.6
+**最終更新日**: 2026-09-08
+**文書バージョン**: v1.7
 **対象実装**: `events/battle/common_routes.py` / `manager/battle/common_manager.py` / `manager/battle/core.py`
 **版注記**: 本更新で v1.6 相当の仕様差分（`same_team/opposing_team` 記法と同陣営指定タグの固定ルール）を反映
 
@@ -59,6 +59,14 @@ RoundStart は次の順序で処理する。
 - `instant` タグのスキルは `commit` 時に即時発動し、スロットを消費しない（Resolve 対象外）。
 - 目標指定は全公開矢印として可視化する。
 - `required slots` は「行動可能かつ未消費」のスロットのみ。行動不能者や `committed+instant` は Resolve 必須条件から除外する。
+
+### 5.0 通常ルームの戦闘セッション境界（2026-09-08）
+
+- 通常ルームは `combat_phase` を用い、`ready`（戦闘準備中）と `active`（戦闘中）を区別する。探索表示を切り替える既存の `mode` とは別の状態である。
+- `ready` 中は、RoundStart、ラウンド終了、宣言、Resolve、通常・広域マッチの進行要求をサーバー側で拒否する。`battle_only` は従来どおりこの制限の対象外である。
+- GMの戦闘突入で `active` となり、`combat_session` を新規作成して戦闘内一時状態を初期化する。既存保存データにこの状態がなければ、互換性のため `active` として扱う。
+- GMの戦闘終結で、結果を`VICTORY`、`DEFEAT`、`RETREAT`、`INTERRUPTED`から必須選択して `ready` に戻す。HP、MP、FP、配置、召喚体は保持し、timeline、slots、intents、resolve queue、active match、ラウンド制状態、伝授スキル、戦闘内使用フラグを消去する。
+- 行動可能者と行動対象は、HPが正で逃走しておらず、`x` と `y` の両方が0以上の盤面配置済みキャラクターに限る。片方だけ盤外または座標欠損のキャラクターは、timeline、Select/Resolve slot、PvE自動行動、AI対象選択、ラウンド終了時の未行動判定に含めない。
 
 ### 5.1 Select UI補正（対象先行）
 - 対象選択後、対象条件に合致するスキルのみ候補表示する（逆方向フィルタ）。
