@@ -41,7 +41,7 @@
 | 変数 | 要否 | 説明 |
 |---|---|---|
 | `SECRET_KEY` | 必須 | 未設定だと本番起動失敗 |
-| `DATABASE_URL` | 必須 | PostgreSQL。未設定/非PGは起動失敗 |
+| `DATABASE_URL` | 必須 | PostgreSQL。未設定/非PGは起動失敗。スキームは起動時に `postgresql+psycopg2://` へ正規化 |
 | `CORS_ORIGINS` | 必須 | 公開ドメイン（例: `https://example.onrender.com`） |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | 必須 | 画像 |
 | `GM_MASTER_KEY` | 任意 | 緊急管理用8桁。最初の app admin 付与にも使う |

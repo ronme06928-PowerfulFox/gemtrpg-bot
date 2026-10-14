@@ -103,7 +103,10 @@ def _get_database_uri():
             'DATABASE_URL on Render must point to PostgreSQL. '
             f'Refusing to start with: {url.split("://", 1)[0]}://...'
         )
-    return url
+    # requirements.txt が導入するDBドライバは psycopg2 だけ。SQLAlchemy の既定
+    # ドライバ（2.1以降の postgresql:// は psycopg v3）や接続文字列の書式で
+    # 未導入のドライバが選ばれ起動失敗しないよう、スキームを導入済みドライバ用に揃える。
+    return 'postgresql+psycopg2://' + url.split('://', 1)[1]
 
 
 def configure_app(flask_app, config=None):

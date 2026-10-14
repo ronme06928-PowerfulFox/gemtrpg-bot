@@ -3,6 +3,7 @@
 - ローカルでは DATABASE_URL を無視して SQLite を使う。
 - Render では DATABASE_URL 未設定なら起動失敗させる。
 - Render では非PostgreSQLのURLを拒否する。
+- Render ではPostgreSQLのURLを導入済みドライバ用の postgresql+psycopg2:// へ正規化する。
 """
 import os
 
@@ -41,14 +42,39 @@ def test_render_rejects_empty_database_url(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "url",
+    ("url", "expected"),
     [
-        "postgresql://user:pass@host:5432/db",
-        "postgres://user:pass@host/db",
-        "postgresql+psycopg2://user:pass@host/db",
+        ("postgresql://user:pass@host:5432/db", "postgresql+psycopg2://user:pass@host:5432/db"),
+        ("postgres://user:pass@host/db", "postgresql+psycopg2://user:pass@host/db"),
+        ("postgresql+psycopg2://user:pass@host/db", "postgresql+psycopg2://user:pass@host/db"),
+        # 未導入の psycopg v3 ドライバを指す書式
+        (
+            "postgresql+psycopg://user:pass@host/db?sslmode=require",
+            "postgresql+psycopg2://user:pass@host/db?sslmode=require",
+        ),
     ],
 )
-def test_render_accepts_postgres_url(monkeypatch, url):
+def test_render_normalizes_postgres_url_to_installed_driver(monkeypatch, url, expected):
     monkeypatch.setattr(app_module, "IS_RENDER", True)
     monkeypatch.setenv("DATABASE_URL", url)
-    assert app_module._get_database_uri() == url
+    assert app_module._get_database_uri() == expected
+
+
+def test_normalized_url_uses_installed_driver():
+    from sqlalchemy.engine import make_url
+
+    dialect = make_url("postgresql+psycopg2://user:pass@host/db").get_dialect()
+    dialect.import_dbapi()
+
+
+def test_requirements_pin_sqlalchemy_to_tested_version():
+    # 2026-10-15: SQLAlchemy 未固定のため Render の新規ビルドに 2.1.4 が入り、
+    # postgresql:// の既定ドライバが未導入の psycopg v3 になって起動失敗した。
+    from pathlib import Path
+
+    import sqlalchemy
+
+    root = Path(__file__).resolve().parents[1]
+    lines = (root / "requirements.txt").read_text(encoding="utf-8").splitlines()
+    pins = [line for line in lines if line.lower().startswith("sqlalchemy==")]
+    assert pins == [f"SQLAlchemy=={sqlalchemy.__version__}"]

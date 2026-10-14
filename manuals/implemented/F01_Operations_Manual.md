@@ -200,7 +200,7 @@ Renderでは、以下を環境変数として設定する。
 | 変数 | 要否 | 内容 |
 |---|---|---|
 | `SECRET_KEY` | 必須 | Flaskセッション署名用。GMマスターキーとは別。 |
-| `DATABASE_URL` | 必須 | PostgreSQL URL。未設定/非PGは起動失敗（fail-fast）。 |
+| `DATABASE_URL` | 必須 | PostgreSQL URL。未設定/非PGは起動失敗（fail-fast）。`postgres://`・`postgresql://`・`postgresql+<ドライバ>://` のいずれでもよく、起動時に導入済みドライバ用の `postgresql+psycopg2://` へ正規化する。 |
 | `CORS_ORIGINS` | 必須 | 許可Origin。例: `https://gemtrpg-diceapp.onrender.com` |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | 必須 | 画像アップロード |
 | `GM_MASTER_KEY` | 任意 | 8桁数字のマスターキー。未設定ならマスターキー無効。 |
@@ -671,7 +671,8 @@ sessionには `user_id`、`auth_version`、必要最小限の状態だけを置�
 ## 6. 環境分離方針
 
 - ローカル環境: `DATABASE_URL` を無視し `sqlite:///gemtrpg.db` を使用。
-- Render本番: `DATABASE_URL` 未設定または非PostgreSQLなら **起動失敗（fail-fast）**。
+- Render本番: `DATABASE_URL` 未設定または非PostgreSQLなら **起動失敗（fail-fast）**。PostgreSQLのURLはスキームを `postgresql+psycopg2://` へ正規化して使う。`requirements.txt` のDBドライバは `psycopg2-binary` のみであり、SQLAlchemy 2.1以降で `postgresql://` の既定ドライバがpsycopg（v3）に変わったことや、接続文字列の書式によって未導入のドライバが選ばれて起動失敗することを防ぐ。
+- `requirements.txt` は SQLAlchemy 本体も固定する。Renderの新規ビルドは未固定の依存を最新版で入れるため、ローカルでテストしていない版が本番に入る（2026-10-15、SQLAlchemy 2.1.4が入り起動失敗した）。依存を上げるときはローカルで全件テストしてから固定値を変える。
 - ローカルとRenderのユーザー・ルーム・権限・画像レジストリは共有しない。
 - DBマイグレーション（`manager/db_migration.py`）は冪等設計。列追加失敗時は `RuntimeError` を raise して起動を中断する。
 
