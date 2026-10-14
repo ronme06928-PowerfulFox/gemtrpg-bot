@@ -238,7 +238,8 @@ RoundStart再実行時の重複防止、step進行の一回性を実機確認済
 実行できない制約を`B03` §5.0で定めた。既存保存データに当該状態がなければ互換性のため`active`として扱う。
 戦闘記録の初期参加者は戦闘突入時点で盤面に配置済みの通常キャラクターで、召喚体は所有者へ集約する。
 回帰テストは`tests/test_combat_session_phase0.py`、`test_combat_session_phase1.py`、
-`test_combat_session_routes.py`（実行確認は未記録）。
+`test_combat_session_routes.py`の計11件。2026-10-15に`pytest -q`の全件実行で887 passed・2 skipped
+（約122秒）を確認し、この11件を含め失敗なし。計画49が触れた既存の戦闘モジュールへの影響も検出されなかった。
 
 ### 完了済み計画48（非行動スロット表示・行動チャート待機対応）
 
