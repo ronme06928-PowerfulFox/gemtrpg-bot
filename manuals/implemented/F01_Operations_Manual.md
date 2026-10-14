@@ -872,7 +872,7 @@ GET /api/room/export_logs?room_name=<room>&format=text
 | POST | `/api/owned_characters` | 新規保存。1アカウントあたり20体のソフト上限（`OWNED_CHARACTER_LIMIT`） |
 | PUT | `/api/owned_characters/<id>` | 上書き保存（CharaCreatorからの再編集）。`exp_total`は変更しない |
 | DELETE | `/api/owned_characters/<id>` | 論理削除 |
-| POST | `/api/owned_characters/<id>/growth` | 軽量成長画面からのスキル追加・パラメータ上昇（Part 9-5） |
+| POST | `/api/owned_characters/<id>/growth` | 成長画面からの戦闘・輝化スキル追加。パラメータ上昇はAPIに残る不整合（Part 9-5） |
 
 ## 4. ルーム投入とセッション成果の反映
 
@@ -900,7 +900,7 @@ GET /api/room/export_logs?room_name=<room>&format=text
 
 - `compute_exp_limit(data)`: `経験`＋`シナリオ経験`パラメータの合計（出身7＝ラグラゼシス非都市部のみ+1）。**キャラ作成時の`exp_total`初期値**として使う。
 - `compute_used_exp(data)`: `data.commands`から`【スキルID 表示名】`パターンでスキルIDを抽出し（正規表現はCharaCreatorの`restoreFromCommands()`と同一）、スキルマスター（`extensions.all_skill_data`）の`取得コスト`フィールドを合算する。出身6（ラグラゼシス都市部）のみ、魔法カテゴリ（IDが`Ms`/`Mb`/`Mp`で始まる）スキルの先頭コスト1点分を割引く。
-- `compute_param_growth_spent(growth_log)`: 成長画面でのパラメータ上昇に使った経験値の累計。パラメータ上昇は`commands`に現れないため、`growth_log`の`kind=='growth'`エントリの`param_increases`を合算して求める。
+- `compute_param_growth_spent(growth_log)`: 既存APIのパラメータ上昇に使った経験値の累計（現行成長画面に入力欄はない）。パラメータ上昇は`commands`に現れないため、`growth_log`の`kind=='growth'`エントリの`param_increases`を合算して求める。
 - `used_exp`（API応答）= `compute_used_exp(data)` + `compute_param_growth_spent(growth_log)`。`remaining_exp` = `exp_total - used_exp`。
 - `skill_exp_budget`（API応答）= `exp_total - compute_param_growth_spent(growth_log)`。CharaCreator側の`costMax`（経験欄）に渡すべき値であり、**`remaining_exp`をそのまま渡してはいけない**（CharaCreator自身が「現在選択中のスキル」のコストを含めて上限判定するため、`remaining_exp`を渡すと既存スキルのコストを二重に差し引いてしまう）。
 
@@ -909,7 +909,8 @@ GET /api/room/export_logs?room_name=<room>&format=text
 payload: `{add_skill_ids: [...], add_radiance_ids: [...], param_increases: {"筋力": 1, ...}}`。
 
 - スキル追加のコストは、追加前後の`compute_used_exp`の差分として算出する（`all_skill_data`の`チャットパレット`フィールドをそのまま`commands`へ追記するため、CharaCreatorが生成する行と同一形式になる）。
-- パラメータ上昇は house rule として1ポイントあたり経験値1消費（CharaCreator自体には無い、成長画面固有のルール）。現行UI（`owned_characters_modal.js`）はこの入力欄を提供していないが、API自体は互換性のため残している。
+- **ルール方針（2026-09-16確定）**: 筋力・生命力・体格・精神力・敏捷を経験値で直接上げる成長は採用しない。現行UI（`owned_characters_modal.js`）は戦闘スキルと輝化スキルのみを送信する。
+- **実装に残る不整合**: APIは引き続き`param_increases`を受理し、1ポイントあたり経験値1を消費する。対象ラベルの許可リスト・能力値上限・派生値再計算はない。これはルール上の許可を意味しない。拒否・廃止と既存データの扱いは別の実装修正で決める。本訂正でAPIや保存済みデータを変更していない。
 - 消費合計が残り経験値を超える場合は400を返し、`data`・`growth_log`とも変更しない。
 - 成功時は`data.params`の対象ラベルを更新（無ければ新規追加）し、`growth_log`に`kind:'growth'`のエントリを追加する。`exp_total`自体は変更しない（消費すれば`remaining_exp`が自動的に減るだけ、という設計）。
 

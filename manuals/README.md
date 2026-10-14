@@ -1,6 +1,9 @@
 # manuals フォルダ運用ガイド
 
-最終更新: 2026-06-28
+最終更新: 2026-09-14
+
+まずは[読者別入口：はじめに読むマニュアル](START_HERE.md)から、目的に合う文書を選んでください。
+ゲームルール・世界観は[卓上ルール本の案内](../typst_manual/全体マニュアル/README.md)へ。本ページは文書一覧と更新先の管理ガイドです。
 
 このディレクトリは以下の系統で管理します。
 - `implemented/`: 実装済み仕様の正本
@@ -10,9 +13,9 @@
 
 ルート直下の継続更新文書:
 
-- `planning_process.md`: 計画策定と一問一答の進め方
-- `module_size_policy.md`: Pythonモジュール行数制限の運用
-- `ui_design_decision_log.md`: 実装済み画面のデザイン判断・再利用候補・例外を蓄積する覚書
+- [planning_process.md](planning_process.md): 計画策定と一問一答の進め方
+- [module_size_policy.md](module_size_policy.md): Pythonモジュール行数制限の運用
+- [ui_design_decision_log.md](ui_design_decision_log.md): 実装済み画面のデザイン判断・再利用候補・例外を蓄積する覚書
 
 ---
 
@@ -23,46 +26,47 @@
 | ファイル | 内容 |
 |---|---|
 | **A — ユーザーガイド** | |
-| `A01_Player_Manual.md` | プレイヤー向け操作マニュアル |
-| `A02_GM_Creator_Manual.md` | GM・管理者向け運用マニュアル |
-| `A03_Character_Build_Guide.md` | キャラクタービルド作例集 |
-| `A04_Glossary_Tutorial.md` | 用語図鑑機能チュートリアル |
+| [A01_Player_Manual.md](implemented/A01_Player_Manual.md) | プレイヤー向け操作マニュアル |
+| [A02_GM_Creator_Manual.md](implemented/A02_GM_Creator_Manual.md) | GM・管理者向け運用マニュアル |
+| [A03_Character_Build_Guide.md](implemented/A03_Character_Build_Guide.md) | キャラクタービルド作例集 |
+| [A04_Glossary_Tutorial.md](implemented/A04_Glossary_Tutorial.md) | 用語図鑑機能チュートリアル |
 | **B — 戦闘・スキル仕様** | |
-| `B01_Skill_Logic_Core.md` | スキルロジック実装リファレンス Part1（effect処理・条件・亀裂） |
-| `B02_Skill_Logic_Extensions.md` | スキルロジック実装リファレンス Part2（GRANT_SKILL/召喚/フォールバック/Variant） |
-| `B03_SelectResolve_Spec.md` | Select/Resolve 確定仕様書 |
+| [B01_Skill_Logic_Core.md](implemented/B01_Skill_Logic_Core.md) | スキルロジック実装リファレンス Part1（effect処理・条件・亀裂） |
+| [B02_Skill_Logic_Extensions.md](implemented/B02_Skill_Logic_Extensions.md) | スキルロジック実装リファレンス Part2（GRANT_SKILL/召喚/フォールバック/Variant） |
+| [B03_SelectResolve_Spec.md](implemented/B03_SelectResolve_Spec.md) | Select/Resolve 確定仕様書 |
 | **C — データ定義（JSON）** | |
-| `C01_JSON_Definition_Master.md` | JSON定義マニュアル（正本・統合版） |
+| [C01_JSON_Definition_Master.md](implemented/C01_JSON_Definition_Master.md) | JSON定義マニュアル（正本・統合版） |
+| [C02_Retaliation_Passive_Sheet_Examples.md](implemented/C02_Retaliation_Passive_Sheet_Examples.md) | 被弾反応パッシブの正式仕様・シート記入例 |
 | **D — プレイモード仕様** | |
-| `D01_Play_Mode_Specs.md` | PvEモード・戦闘専用モード・ステージ効果仕様書 |
+| [D01_Play_Mode_Specs.md](implemented/D01_Play_Mode_Specs.md) | PvEモード・戦闘専用モード・ステージ効果仕様書 |
 | **E — UI / フロントエンド** | |
-| `E01_Visual_Battle_Architecture.md` | ビジュアルバトル アーキテクチャ仕様書 |
-| `E02_UI_Component_Specs.md` | UIコンポーネント仕様書（モーダル・プリセット・ステータス編集） |
+| [E01_Visual_Battle_Architecture.md](implemented/E01_Visual_Battle_Architecture.md) | ビジュアルバトル アーキテクチャ仕様書 |
+| [E02_UI_Component_Specs.md](implemented/E02_UI_Component_Specs.md) | UIコンポーネント仕様書（モーダル・プリセット・ステータス編集） |
 | **F — 運用** | |
-| `F01_Operations_Manual.md` | 運用マニュアル（GMバフ操作・マニュアル更新プロトコル・デプロイ手順・アカウント認証・ルーム権限システム仕様） |
-| `F02_Battle_Balance_Designer_Skill_Manual.md` | バランス設計 Skill 運用・スキルバランス確定基準・スキル/遭遇設計ガイド（GM・作成者向け） |
-| `F03_Battle_Balance_Simulator_CLI.md` | バランス検証シミュレータCLI・ヘッドレス検証ワークフロー |
+| [F01_Operations_Manual.md](implemented/F01_Operations_Manual.md) | 運用マニュアル（GMバフ操作・マニュアル更新プロトコル・デプロイ手順・アカウント認証・ルーム権限システム仕様） |
+| [F02_Battle_Balance_Designer_Skill_Manual.md](implemented/F02_Battle_Balance_Designer_Skill_Manual.md) | バランス設計 Skill 運用・スキルバランス確定基準・スキル/遭遇設計ガイド（GM・作成者向け） |
+| [F03_Battle_Balance_Simulator_CLI.md](implemented/F03_Battle_Balance_Simulator_CLI.md) | バランス検証シミュレータCLI・ヘッドレス検証ワークフロー |
 
 ---
 
 ## 2. まず読む順番
 
 ### JSON定義・スキル仕様
-1. `C01_JSON_Definition_Master.md`（現行正本）
-2. `B01_Skill_Logic_Core.md`（effect処理・条件判定の実装詳細）
-3. `B02_Skill_Logic_Extensions.md`（拡張機能）
+1. [C01_JSON_Definition_Master.md](implemented/C01_JSON_Definition_Master.md)（現行正本）
+2. [B01_Skill_Logic_Core.md](implemented/B01_Skill_Logic_Core.md)（effect処理・条件判定の実装詳細）
+3. [B02_Skill_Logic_Extensions.md](implemented/B02_Skill_Logic_Extensions.md)（拡張機能）
 
 ### 戦闘進行仕様
-1. `B03_SelectResolve_Spec.md`
-2. `D01_Play_Mode_Specs.md`（PvE/戦闘専用モード）
+1. [B03_SelectResolve_Spec.md](implemented/B03_SelectResolve_Spec.md)
+2. [D01_Play_Mode_Specs.md](implemented/D01_Play_Mode_Specs.md)（PvE/戦闘専用モード）
 
 ### デプロイ・運用
-1. `F01_Operations_Manual.md`
+1. [F01_Operations_Manual.md](implemented/F01_Operations_Manual.md)
 
 ### UI・フロントエンド
-1. `E01_Visual_Battle_Architecture.md`
-2. `E02_UI_Component_Specs.md`
-3. `ui_design_decision_log.md`（実装済み画面のデザイン覚書。正式仕様はE01/E02を正とする）
+1. [E01_Visual_Battle_Architecture.md](implemented/E01_Visual_Battle_Architecture.md)
+2. [E02_UI_Component_Specs.md](implemented/E02_UI_Component_Specs.md)
+3. [ui_design_decision_log.md](ui_design_decision_log.md)（実装済み画面のデザイン覚書。正式仕様はE01/E02を正とする）
 
 ---
 
@@ -126,4 +130,4 @@
 
 新機能・UI刷新など実装前に方針決定が必要な場面では、一問一答形式の議論で方針を固める方法を採用している。
 
-詳細: [`planning_process.md`](planning_process.md)
+詳細: [planning_process.md](planning_process.md)

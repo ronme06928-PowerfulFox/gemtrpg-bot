@@ -30,3 +30,7 @@ GemDiceBot_Launch/runtime/
 
 # Typst compiled output (regenerate with `typst compile`)
 manuals/typst/build/
+
+# 書籍制作の素材・スクリーンショット・表示確認画像（ローカル専用）
+/typst_manual/_local/
+/tmp/pdfs/
