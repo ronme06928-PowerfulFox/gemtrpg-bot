@@ -1,6 +1,6 @@
 # アカウント・ルーム権限システム デプロイ／移行 運用手順書
 
-**版**: 2026-06-26
+**版**: 2026-10-15
 **対象**: Render 本番デプロイ担当
 **関連仕様**: [`manuals/implemented/F01_Operations_Manual.md`](../implemented/F01_Operations_Manual.md)（Part 6: アカウント認証・ルーム権限システム仕様）
 **Typst版（PDF用）**: `manuals/typst/operations_runbook.typ`
@@ -31,6 +31,7 @@
 
 - フロントとAPI/Socketは **同一オリジン**（Flask+WhiteNoiseが単一Web Serviceで配信）。Cookieは `SameSite=Lax`+`Secure`(本番)。
 - Render は **Node を持たない**。フロントは `npm run build` 済みの `static/dist/*` を**コミットして**配信する。
+- Render は新規デプロイのたびに `requirements.txt` を入れ直す。未固定の依存は最新版が入るため、`requirements.txt` は**間接依存まで含めて全て `==` で固定**する（2026-10-15、未固定だった SQLAlchemy に 2.1.4 が入り起動失敗した）。
 - 本番DBは **PostgreSQL**（`DATABASE_URL`）。未設定/非PostgreSQLなら**起動失敗（fail-closed）**。
 - `worker=1`（eventlet）。レート制限はインメモリ（再起動でリセット）。
 
@@ -107,6 +108,18 @@
 - [ ] Socket: 認証なし接続が拒否される。
 - [ ] backfill dry-run の集計が想定どおり（owner不在ルームは fail-closed で hidden 扱い）。
 - [ ] `pytest -q` / 文字コード / 文字化け / `npm run build` 該当チェックが緑。
+
+---
+
+## 5.1 Python依存を上げるとき
+
+詳細と根拠は F01 Part 3 §7。版を上げる・依存を追加するデプロイでは次の順に進める。
+
+1. **ローカルで更新**: `python -m pip install "<パッケージ>==<版>"` → `python -m pip check` で矛盾が無いことを確認。
+2. **固定値を更新**: `requirements.txt` の直接依存を書き換え、間接依存の節を実際に入った版へ合わせる（増えた依存は追加、不要になった依存は削除）。
+3. **全件テスト**: `pytest -q`。`tests/test_requirements_lock.py` が固定値とテスト環境の不一致・固定漏れを検出する。
+4. **配布物確認**: F01 Part 3 §7 の `pip download --only-binary=:all: ...` で、固定した版に Python 3.11 / Linux 向けの配布物があることを確認。
+5. **push（デプロイ）** → `/healthz` 200 と第5章チェックリストを確認。起動失敗したら直前のデプロイへ戻す（第6章）。
 
 ---
 

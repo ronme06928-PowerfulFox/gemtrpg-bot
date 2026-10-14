@@ -2,7 +2,7 @@
 
 # 運用マニュアル
 
-**最終更新日**: 2026-08-16
+**最終更新日**: 2026-10-15
 **系統**: F — 運用
 **統合元**: 14_GM_Buff_Item_Operations_Spec / 16_Manual_Update_Protocol / 21_Render_Deploy_Operations / 26_Account_Auth_Plan
 
@@ -12,7 +12,7 @@
 
 1. GMバフ・アイテム操作仕様（旧14）
 2. マニュアル更新プロトコルと機能改善ロードマップ（旧16）
-3. Renderデプロイ運用手順（旧21）
+3. Renderデプロイ運用手順（旧21）・Python依存の固定と更新手順
 4. GM PIN / アプリ管理者権限運用
 5. Socketイベント在室認証パターン（旧Plan 27）
 6. **アカウント認証・ルーム権限システム仕様（旧Plan 26）**
@@ -438,7 +438,7 @@ Renderでは、画像アップロード機能の利用にCloudinaryの環境変�
 
 # Part 3: Renderデプロイ運用手順
 
-最終更新: 2026-05-02
+最終更新: 2026-10-15
 状態: 実装済み・本番反映済み
 
 ---
@@ -486,6 +486,34 @@ Renderでは、画像アップロード機能の利用にCloudinaryの環境変�
 1. 直前安定コミットへ戻す
 2. Render再デプロイ
 3. `/api/get_skill_data` と宣言フローを再確認
+
+---
+
+## 7. Python依存の固定と更新手順
+
+Renderは再起動では既存ビルドを使い回すが、新規デプロイのたびに `requirements.txt` を入れ直す。未固定の依存があると、ローカルでテストしていない最新版が本番に入る（2026-10-15、SQLAlchemy 2.1.4で起動失敗）。そのため `requirements.txt` には本番に必要な依存を**間接依存まで含めて全て `==` で固定**する。
+
+- `requirements.txt` は「直接依存」と「間接依存」の2節に分ける。間接依存は直接依存が要求するもの（greenlet、python-socketio、python-engineio、dnspython、bidict、simple-websocket など）。
+- 開発専用の依存（pytest 等）は `requirements-dev.txt` に置き、`requirements.txt` には混ぜない。
+- Render のビルドコマンドが `pip install -r requirements.txt` でも `render-build.sh` でも同じく効くよう、constraints ファイルは使わず `requirements.txt` 1本に書く。
+- `tests/test_requirements_lock.py` が次を検証する。
+  - 全行が `名前==版` で固定されている。
+  - 固定値がテスト環境に入っている版と一致する。
+  - 直接依存から辿れる依存（マーカーは Render と同じ Linux x86_64 / CPython 3.11 で評価）が過不足なく固定されている。
+
+依存を上げる・追加するときの手順:
+
+1. ローカル（`C:\Users\yharu\anaconda3\python.exe`、Python 3.11）で対象パッケージを更新する。例: `python -m pip install "Flask-SocketIO==X.Y.Z"`。
+2. `python -m pip check` で依存の矛盾が無いことを確認する。
+3. `requirements.txt` の直接依存を書き換え、間接依存の節を実際に入った版へ合わせる（新しく増えた依存は追加し、不要になった依存は削除する）。
+4. 全件テスト `pytest -q` を通す。`tests/test_requirements_lock.py` が固定値とテスト環境の不一致・固定漏れを検出する。
+5. 固定した版に Linux 向けの配布物があることを確認する（Render はビルド時にCコンパイルしない前提で運用する）。
+
+   ```bash
+   python -m pip download --no-deps --only-binary=:all: --python-version 3.11 --implementation cp --abi cp311 --platform manylinux_2_17_x86_64 --platform manylinux_2_28_x86_64 --platform any -d <空の作業ディレクトリ> -r requirements.txt
+   ```
+
+6. コミットして `main` へ push する（= 本番デプロイ）。反映後に `/healthz` と第3節のスモークを確認する。
 
 ---
 
@@ -672,7 +700,7 @@ sessionには `user_id`、`auth_version`、必要最小限の状態だけを置�
 
 - ローカル環境: `DATABASE_URL` を無視し `sqlite:///gemtrpg.db` を使用。
 - Render本番: `DATABASE_URL` 未設定または非PostgreSQLなら **起動失敗（fail-fast）**。PostgreSQLのURLはスキームを `postgresql+psycopg2://` へ正規化して使う。`requirements.txt` のDBドライバは `psycopg2-binary` のみであり、SQLAlchemy 2.1以降で `postgresql://` の既定ドライバがpsycopg（v3）に変わったことや、接続文字列の書式によって未導入のドライバが選ばれて起動失敗することを防ぐ。
-- `requirements.txt` は SQLAlchemy 本体も固定する。Renderの新規ビルドは未固定の依存を最新版で入れるため、ローカルでテストしていない版が本番に入る（2026-10-15、SQLAlchemy 2.1.4が入り起動失敗した）。依存を上げるときはローカルで全件テストしてから固定値を変える。
+- `requirements.txt` は間接依存まで含めて全パッケージを `==` で固定する。Renderの新規ビルドは未固定の依存を最新版で入れるため、ローカルでテストしていない版が本番に入る（2026-10-15、未固定だったSQLAlchemy本体に2.1.4が入り起動失敗した）。固定値は全件テストが通るローカル環境の版と一致させ、依存を上げるときは Part 3 §7 の手順に従う。
 - ローカルとRenderのユーザー・ルーム・権限・画像レジストリは共有しない。
 - DBマイグレーション（`manager/db_migration.py`）は冪等設計。列追加失敗時は `RuntimeError` を raise して起動を中断する。
 

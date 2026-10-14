@@ -33,6 +33,7 @@
 
 - フロントとAPI/Socketは *同一オリジン*（Flask+WhiteNoiseが単一Web Serviceで配信）。Cookieは #kbd("SameSite=Lax") + #kbd("Secure")（本番）。
 - Render は *Node を持たない*。フロントは #kbd("npm run build") 済みの #kbd("static/dist/*") をコミットして配信する。
+- Render は新規デプロイのたびに #kbd("requirements.txt") を入れ直す。#kbd("requirements.txt") は*間接依存まで含めて全て #kbd("==") で固定*する。依存を上げる手順は F01 Part 3 §7。
 - 本番DBは *PostgreSQL*（#kbd("DATABASE_URL")）。未設定/非PostgreSQLなら*起動失敗（fail-closed）*。
 - #kbd("worker=1")（eventlet）。レート制限はインメモリ（再起動でリセット）。
 

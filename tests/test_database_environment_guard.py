@@ -65,16 +65,3 @@ def test_normalized_url_uses_installed_driver():
 
     dialect = make_url("postgresql+psycopg2://user:pass@host/db").get_dialect()
     dialect.import_dbapi()
-
-
-def test_requirements_pin_sqlalchemy_to_tested_version():
-    # 2026-10-15: SQLAlchemy 未固定のため Render の新規ビルドに 2.1.4 が入り、
-    # postgresql:// の既定ドライバが未導入の psycopg v3 になって起動失敗した。
-    from pathlib import Path
-
-    import sqlalchemy
-
-    root = Path(__file__).resolve().parents[1]
-    lines = (root / "requirements.txt").read_text(encoding="utf-8").splitlines()
-    pins = [line for line in lines if line.lower().startswith("sqlalchemy==")]
-    assert pins == [f"SQLAlchemy=={sqlalchemy.__version__}"]
