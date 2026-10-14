@@ -18,6 +18,7 @@ class ResolveFlowPanel {
         this._playQueue = [];
         this._activeStep = null;
         this._roundKey = null;
+        this._roundNumber = 0;
         this._stepTimer = null;
         this._tickTimer = null;
         this._stepStartedAt = 0;
@@ -89,6 +90,7 @@ class ResolveFlowPanel {
         this._playQueue = [];
         this._activeStep = null;
         this._roundKey = null;
+        this._roundNumber = 0;
         this._renderedStepKey = null;
         this._introShownRounds.clear();
         this._waitingForAdvance = false;
@@ -751,6 +753,14 @@ class ResolveFlowPanel {
 
         if (hasRoundChanged) {
             this._roundKey = roundKey;
+            // 戦闘終結後の次の戦闘やルームリセットではラウンド番号が戻り、同じ battle_id で
+            // 前と同じ識別子のラウンドが再び始まる。前の戦闘の演出表示・完了の記録は引き継がない。
+            const roundNumber = Number(state?.round || 0);
+            if (roundNumber < this._roundNumber) {
+                this._introShownRounds.clear();
+                this._completionEmittedRounds.clear();
+            }
+            this._roundNumber = roundNumber;
             this._stopPlayback();
             this._traceSeen.clear();
             this._displayIndexByKey.clear();

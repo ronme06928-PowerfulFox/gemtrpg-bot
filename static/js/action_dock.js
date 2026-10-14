@@ -126,8 +126,7 @@ function updateActionDock() {
     // Battle Mode Logic
     const rStartBtn = document.getElementById('visual-round-start-btn');
     const rEndBtn = document.getElementById('visual-round-end-btn');
-    const isBattleOnlyMode = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
-    const canShowRoundButtons = isGMUser && !isBattleOnlyMode;
+    const canShowRoundButtons = window.canShowRoundControls(battleState, isGMUser);
     if (rStartBtn) rStartBtn.style.display = canShowRoundButtons ? 'inline-block' : 'none';
     if (rEndBtn) rEndBtn.style.display = canShowRoundButtons ? 'inline-block' : 'none';
 

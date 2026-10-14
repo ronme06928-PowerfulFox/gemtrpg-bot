@@ -921,11 +921,8 @@ window.setupVisualSidebarControls = function () {
         return attrNorm === 'GM' || roleNorm === 'GM' || (typeof user === 'string' && /\(GM\)/i.test(user));
     };
     const isGM = resolveIsGM();
-    const isBattleOnlyForRoundControls = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
-    const isCombatSessionActive = isBattleOnlyForRoundControls
-        || String((battleState && battleState.combat_phase) || 'active').toLowerCase() === 'active';
 
-    if (isGM && !isBattleOnlyForRoundControls && isCombatSessionActive) {
+    if (window.canShowRoundControls(battleState, isGM)) {
         if (startRBtn) {
             startRBtn.style.display = 'inline-block';
             startRBtn.onclick = async () => {

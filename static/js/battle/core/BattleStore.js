@@ -131,22 +131,28 @@ class BattleStore {
             return Array.isArray(incoming) ? incoming.length === 0 : Object.keys(incoming).length === 0;
         })();
 
-        if (incomingTimelineEmpty && hasOldTimeline && guardPhases.has(phase) && slotsCount > 0) {
+        const hasIncomingRound = Object.prototype.hasOwnProperty.call(newState, 'round');
+        const nextRound = hasIncomingRound ? (newState.round ?? this._state.round) : this._state.round;
+        const roundChanged = Number(nextRound) !== Number(this._state.round);
+
+        // 同じラウンド内で一時的に空の配信が届いても行動枠を消さない（ちらつき防止）。
+        if (!roundChanged && incomingTimelineEmpty && hasOldTimeline && guardPhases.has(phase) && slotsCount > 0) {
             delete newState.timeline;
             _battleDebug(`[BattleStore] guarded timeline overwrite phase=${phase} slots=${slotsCount}`);
         }
-        if (incomingSlotsEmpty && hasOldSlots && guardPhases.has(phase)) {
+        if (!roundChanged && incomingSlotsEmpty && hasOldSlots && guardPhases.has(phase)) {
             delete newState.slots;
             _battleDebug(`[BattleStore] guarded slots overwrite phase=${phase}`);
         }
 
-
-
-        const hasIncomingRound = Object.prototype.hasOwnProperty.call(newState, 'round');
-        const nextRound = hasIncomingRound ? (newState.round ?? this._state.round) : this._state.round;
-        const roundChanged = Number(nextRound) !== Number(this._state.round);
         const nextPhase = newState.phase ?? this._state.phase;
         if (roundChanged) {
+            // 前ラウンドの行動枠は新しいラウンド（戦闘終結でのRound 0を含む）では無効。
+            // 新ラウンドの行動枠はスロット情報の配信で届くため、ここでは前ラウンド分だけを捨てる。
+            for (const key of ['slots', 'intents']) {
+                if (!Object.prototype.hasOwnProperty.call(newState, key)) newState[key] = {};
+            }
+            if (!Object.prototype.hasOwnProperty.call(newState, 'timeline')) newState.timeline = [];
             this._resolveStepSeen.clear();
             if (!Object.prototype.hasOwnProperty.call(newState, 'resolveTrace')) {
                 newState.resolveTrace = [];
@@ -220,14 +226,16 @@ class BattleStore {
         const incomingSlotsCount = incomingSlots === undefined
             ? null
             : (Array.isArray(incomingSlots) ? incomingSlots.length : Object.keys(incomingSlots || {}).length);
-        const preserveSlots = guardPhases.has(phase) && oldSlotsCount > 0 && incomingSlotsCount === 0;
-        const preserveTimeline = guardPhases.has(phase)
-            && Array.isArray(oldTimeline) && oldTimeline.length > 0
-            && Array.isArray(incomingTimeline) && incomingTimeline.length === 0;
-
         const hasIncomingRound = Object.prototype.hasOwnProperty.call(payload, 'round');
         const nextRound = hasIncomingRound ? (payload.round ?? this._state.round) : this._state.round;
         const roundChanged = Number(nextRound) !== Number(this._state.round);
+
+        // 同じラウンド内で一時的に空の配信が届いても行動枠を消さない（ちらつき防止）。
+        // ラウンドが変わった配信（戦闘終結でのRound 0など）は前ラウンドの行動枠を保持しない。
+        const preserveSlots = !roundChanged && guardPhases.has(phase) && oldSlotsCount > 0 && incomingSlotsCount === 0;
+        const preserveTimeline = !roundChanged && guardPhases.has(phase)
+            && Array.isArray(oldTimeline) && oldTimeline.length > 0
+            && Array.isArray(incomingTimeline) && incomingTimeline.length === 0;
 
         let resolveView = roundChanged
             ? this._createResolveView('idle', phase)

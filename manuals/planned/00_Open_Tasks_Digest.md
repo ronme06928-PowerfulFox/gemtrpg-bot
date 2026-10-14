@@ -241,6 +241,16 @@ RoundStart再実行時の重複防止、step進行の一回性を実機確認済
 `test_combat_session_routes.py`の計11件。2026-10-15に`pytest -q`の全件実行で887 passed・2 skipped
 （約122秒）を確認し、この11件を含め失敗なし。計画49が触れた既存の戦闘モジュールへの影響も検出されなかった。
 
+2026-10-15の実機確認（ローカル、GM・プレイヤーの2アカウント）で次の4件を検出し修正した。
+①新規通常ルームが`active`で始まり、初回記録が「移行済み戦闘」になる（`create_room`が`new_room=True`を渡していなかった）。
+②準備中もR開始・R終了が表示される（`action_dock.js`が`combat_phase`を見ずに再表示していた。判定を
+`window.canShowRoundControls`へ集約）。③終結後も前の戦闘のタイムラインが画面に残る（`battle_state.round`が
+1のまま残り、`BattleStore`のちらつき防止ガードが空配信を保持していた。ラウンドが変わった配信では保持しない）。
+④同じ画面で2回目以降の戦闘のRound 1で解決演出が出ず、ラウンドが完了しない（`ResolveFlowPanel`の
+表示・完了記録が`battle_id:round`で識別され戦闘をまたいで残っていた。ラウンド番号が戻ったら破棄する）。
+回帰テストは`test_combat_session_room_create.py`と`test_combat_session_frontend.py`を追加し、全件896 passed・2 skipped。
+正本は`B03` §5.0と`E02` Part 13へ反映済み。
+
 ### 完了済み計画48（非行動スロット表示・行動チャート待機対応）
 
 `action_slot_mode:none`の瓦礫へ生成される`target_only`アンカーが速度0・`#0`の通常スロットとして表示され、

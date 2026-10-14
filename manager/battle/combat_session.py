@@ -134,7 +134,7 @@ def clear_combat_transients(state):
     state.update({"round": 0, "is_round_ended": False, "timeline": [], "turn_char_id": None, "turn_entry_id": None, "pending_wide_ids": [], "wide_modal_confirms": [], "active_match": None})
     battle_state = state.get("battle_state")
     if isinstance(battle_state, dict):
-        battle_state.update({"phase": "round_end", "slots": {}, "timeline": [], "tiebreak": [], "intents": {}, "redirects": [], "resolve_ready": False, "resolve_ready_info": {}})
+        battle_state.update({"round": 0, "phase": "round_end", "slots": {}, "timeline": [], "tiebreak": [], "intents": {}, "redirects": [], "resolve_ready": False, "resolve_ready_info": {}})
         if isinstance(battle_state.get("resolve"), dict):
             battle_state["resolve"].update({"mass_queue": [], "single_queue": [], "resolved_slots": [], "trace": []})
 

@@ -61,6 +61,23 @@ def test_start_and_conclusion_archive_record_and_clear_only_combat_state():
     assert target["hp"] == 23 and target["mp"] == 7 and target["FP"] == 4
 
 
+def test_conclusion_resets_battle_state_round_with_room_round():
+    actor = _character("actor", "Actor")
+    state = {
+        "combat_phase": "active",
+        "combat_history": [],
+        "round": 3,
+        "characters": [actor],
+        "battle_state": {"round": 3, "phase": "round_end", "slots": {"s1": {}}, "timeline": ["s1"], "resolve": {}},
+    }
+
+    assert conclude_combat_session(state, "GM", "VICTORY")
+    assert state["round"] == 0
+    assert state["battle_state"]["round"] == 0
+    assert state["battle_state"]["slots"] == {}
+    assert state["battle_state"]["timeline"] == []
+
+
 def test_summons_are_aggregated_without_participant_rows():
     owner = _character("owner", "Owner")
     summon = _character("summon", "Summon", is_summoned=True, summoner_id="owner")

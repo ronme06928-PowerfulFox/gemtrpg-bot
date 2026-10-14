@@ -1,4 +1,4 @@
-// 通常ルームの戦闘セッション表示・開始操作。終結結果の選択と演出は Phase 3-B で追加する。
+// 通常ルームの戦闘セッション表示、戦闘突入・戦闘終結の操作、結果演出、戦闘記録。
 (function () {
     function isBattleOnly(state) {
         return String((state && state.play_mode) || 'normal').trim().toLowerCase() === 'battle_only';
@@ -17,6 +17,12 @@
             ? 'ready'
             : 'active';
     }
+
+    // ラウンド開始・終了操作を出せるのは、GMが通常ルームの戦闘中にいるときだけ。
+    // 戦闘専用モードは独自の進行導線を持つため対象外。
+    window.canShowRoundControls = function (state, isGm) {
+        return !!isGm && !isBattleOnly(state) && getPhase(state) === 'active';
+    };
 
     function currentBattleState() {
         if (window.BattleStore && window.BattleStore.state) return window.BattleStore.state;

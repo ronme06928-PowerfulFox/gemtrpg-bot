@@ -20,6 +20,7 @@ from manager.auth import (
     verify_room_gm_key,
 )
 from manager.room_manager import get_room_state
+from manager.battle.combat_session import ensure_combat_session_defaults
 from manager.data_manager import save_room_to_db, delete_room_from_db
 from manager.user_manager import is_user_management_admin
 from manager.utils import session_required
@@ -150,6 +151,7 @@ def create_room():
     }
     if play_mode == 'battle_only':
         new_state["battle_only"] = {"status": "lobby", "ally_entries": [], "enemy_entries": []}
+    ensure_combat_session_defaults(new_state, new_room=True)
     active_room_states[room_name] = new_state
 
     # ▼▼▼ 修正: Room作成時に owner_id を保存 ▼▼▼
