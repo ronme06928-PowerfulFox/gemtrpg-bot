@@ -130,7 +130,7 @@ def test_investing_copy_does_not_mutate_owned_character_data(app_ctx, monkeypatc
     ルーム側キャラを書き換えても DB 上の持ちキャラ本体には影響しない。
     """
     with app_ctx.app_context():
-        owned = OwnedCharacter.query.get("owned_1")
+        owned = db.session.get(OwnedCharacter, "owned_1")
         # クライアントが GET → JSON化 → 復元する過程を模した独立コピー
         char_data = copy.deepcopy(owned.to_dict()["data"])
         char_data["type"] = "ally"
@@ -148,7 +148,7 @@ def test_investing_copy_does_not_mutate_owned_character_data(app_ctx, monkeypatc
         state["characters"][0]["status"][0]["value"] = 1
 
         db.session.expire_all()
-        owned_after = OwnedCharacter.query.get("owned_1")
+        owned_after = db.session.get(OwnedCharacter, "owned_1")
         assert owned_after.data["status"][0]["value"] == 20
 
 

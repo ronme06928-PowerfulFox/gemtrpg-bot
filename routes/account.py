@@ -244,13 +244,13 @@ def set_account_password():
 
     reset_user_id = _valid_pw_reset_grant()
     if reset_user_id:
-        user = User.query.get(reset_user_id)
+        user = db.session.get(User, reset_user_id)
         is_reset = True
     else:
         uid = session.get('user_id')
         if 'username' not in session or not uid:
             return jsonify({"error": "認証が必要です"}), 401
-        user = User.query.get(uid)
+        user = db.session.get(User, uid)
         if user is None or session.get('auth_version') != user.auth_version:
             session.clear()
             return jsonify({"error": "認証が必要です"}), 401
@@ -299,7 +299,7 @@ def change_display_name():
     new_name = str(data.get('display_name') or '').strip()
     if not new_name:
         return jsonify({"error": "表示名を入力してください"}), 400
-    user = User.query.get(session.get('user_id'))
+    user = db.session.get(User, session.get('user_id'))
     if user is None:
         return jsonify({"error": "認証が必要です"}), 401
     user.name = new_name
@@ -332,7 +332,7 @@ def logout_account():
         session.clear()
         return jsonify({"message": "ログアウトしました", "mode": mode})
 
-    user = User.query.get(user_id) if user_id else None
+    user = db.session.get(User, user_id) if user_id else None
 
     if mode == 'device':
         if selector:
@@ -363,7 +363,7 @@ def admin_issue_login_code():
     target_user_id = str(data.get('user_id') or '').strip()
     if not target_user_id:
         return jsonify({"error": "User ID required"}), 400
-    target = User.query.get(target_user_id)
+    target = db.session.get(User, target_user_id)
     if target is None:
         return jsonify({"error": "User not found"}), 404
 
@@ -435,7 +435,7 @@ def get_session_user():
 
     # 削除済みユーザーのセッションでここに来た場合、upsert_user に渡すと
     # ユーザーを復活させてしまう。先に実在を確認し、無ければ失効させる。
-    _user = User.query.get(user_id)
+    _user = db.session.get(User, user_id)
     if _user is None:
         session.clear()
         return jsonify({"username": None, "attribute": None, "user_id": None}), 401

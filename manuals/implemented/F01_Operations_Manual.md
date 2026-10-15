@@ -699,6 +699,7 @@ sessionには `user_id`、`auth_version`、必要最小限の状態だけを置�
 ## 6. 環境分離方針
 
 - ローカル環境: `DATABASE_URL` を無視し `sqlite:///gemtrpg.db` を使用。
+- ローカルSQLiteは起動時に WAL・`busy_timeout` に加えて外部キー制約（`PRAGMA foreign_keys = ON`）を有効にする。SQLiteは既定で外部キーを検査しないため、有効にしないとルームやユーザーを削除しても `ON DELETE CASCADE` が働かず、関連行が孤立する。本番PostgreSQLは常に検査する。
 - Render本番: `DATABASE_URL` 未設定または非PostgreSQLなら **起動失敗（fail-fast）**。PostgreSQLのURLはスキームを `postgresql+psycopg2://` へ正規化して使う。`requirements.txt` のDBドライバは `psycopg2-binary` のみであり、SQLAlchemy 2.1以降で `postgresql://` の既定ドライバがpsycopg（v3）に変わったことや、接続文字列の書式によって未導入のドライバが選ばれて起動失敗することを防ぐ。
 - `requirements.txt` は間接依存まで含めて全パッケージを `==` で固定する。Renderの新規ビルドは未固定の依存を最新版で入れるため、ローカルでテストしていない版が本番に入る（2026-10-15、未固定だったSQLAlchemy本体に2.1.4が入り起動失敗した）。固定値は全件テストが通るローカル環境の版と一致させ、依存を上げるときは Part 3 §7 の手順に従う。
 - ローカルとRenderのユーザー・ルーム・権限・画像レジストリは共有しない。

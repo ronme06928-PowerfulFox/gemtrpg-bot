@@ -48,7 +48,7 @@ def upsert_user(user_id, name, *, issue_recovery=False):
     """ログイン時にユーザー情報を保存・更新する"""
     if not user_id:
         return None
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     recovery_code = None
     recovery_token = None
     if not user:
@@ -81,7 +81,7 @@ def upsert_user(user_id, name, *, issue_recovery=False):
 
 def regenerate_user_recovery_code(user_id):
     """ログイン中ユーザー用に復旧コードを再発行する。古いコードは無効になる。"""
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         return None
     recovery_code = generate_recovery_code()
@@ -119,7 +119,7 @@ def recover_user_by_local_token(user_id, recovery_token):
     """localStorageに保存した内部トークンでセッションを復帰する。"""
     if not user_id or not recovery_token:
         return None
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user or not getattr(user, "recovery_token_hash", None):
         return None
     if not secrets.compare_digest(user.recovery_token_hash, _hash_recovery_token(recovery_token)):
@@ -161,7 +161,7 @@ def is_user_management_admin(user_id):
 
 def set_user_management_admin(user_id, enabled):
     """指定ユーザーにユーザー管理権限を付与/解除する。"""
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         return False
     user.is_app_admin = bool(enabled)
@@ -170,7 +170,7 @@ def set_user_management_admin(user_id, enabled):
 
 def delete_user(user_id):
     """ユーザーを削除する（所有権はNoneになる）"""
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if user:
         preset_counts = owned_asset_counts(load_store(), user_id)
         if preset_counts.get("total", 0) > 0:
@@ -227,7 +227,7 @@ def transfer_ownership(old_id, new_id):
     """
     if not old_id or not new_id or str(old_id) == str(new_id):
         raise ValueError("transfer source and target must be different users")
-    if not User.query.get(new_id):
+    if not db.session.get(User, new_id):
         raise ValueError("transfer target user not found")
 
     preset_result = {}

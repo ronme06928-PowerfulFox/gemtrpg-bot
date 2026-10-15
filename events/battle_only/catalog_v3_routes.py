@@ -7,7 +7,7 @@ import uuid
 
 from flask import request
 
-from extensions import socketio
+from extensions import db, socketio
 from manager.battle_only_catalog_access import (
     capabilities,
     clear_collection_references,
@@ -145,7 +145,7 @@ def handle_bo_collection_save(data):
                 old_owner = str(((existing or {}).get("access_control") or {}).get("owner_user_id") or "")
                 new_owner = str(requested_acl.get("owner_user_id") or "")
                 if existing and new_owner and new_owner != old_owner:
-                    if User.query.get(new_owner) is None:
+                    if db.session.get(User, new_owner) is None:
                         raise ValueError("移譲先ユーザーが存在しません。")
                     if old_owner:
                         requested_acl["editor_user_ids"] = [old_owner, *requested_acl["editor_user_ids"]]
@@ -252,7 +252,7 @@ def handle_bo_record_metadata_save(data):
                 old_owner = str((record.get("access_control") or {}).get("owner_user_id") or "")
                 new_owner = str(requested_acl.get("owner_user_id") or "")
                 if new_owner and new_owner != old_owner:
-                    if User.query.get(new_owner) is None:
+                    if db.session.get(User, new_owner) is None:
                         raise ValueError("移譲先ユーザーが存在しません。")
                     if old_owner:
                         requested_acl["editor_user_ids"] = [old_owner, *requested_acl["editor_user_ids"]]

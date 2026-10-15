@@ -27,7 +27,7 @@ def recovery_app():
 def test_new_user_gets_one_time_recovery_code_and_token(recovery_app):
     with recovery_app.app_context():
         result = upsert_user("user-1", "Alice", issue_recovery=True)
-        user = User.query.get("user-1")
+        user = db.session.get(User, "user-1")
 
         assert user is not None
         assert result["recovery_code"].startswith("GEM-")
@@ -41,7 +41,7 @@ def test_new_user_gets_one_time_recovery_code_and_token(recovery_app):
         second = upsert_user("user-1", "Alice", issue_recovery=True)
         assert second["recovery_code"] is None
         assert second["recovery_token"] is None
-        assert User.query.get("user-1").recovery_token_hash == token_hash_before
+        assert db.session.get(User, "user-1").recovery_token_hash == token_hash_before
 
 
 def test_recover_user_by_name_and_code_restores_existing_user(recovery_app):

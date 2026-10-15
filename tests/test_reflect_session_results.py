@@ -96,7 +96,7 @@ def test_reflects_exp_and_items_for_owner(app_ctx, monkeypatch):
         assert result["exp_gain"] == 5
         assert result["items_gain"] == {"item-heal": 2}
 
-        owned = OwnedCharacter.query.get("owned_1")
+        owned = db.session.get(OwnedCharacter, "owned_1")
         assert owned.exp_total == 15
         assert owned.data["inventory"]["item-heal"] == 3
         assert len(owned.growth_log) == 1
@@ -114,7 +114,7 @@ def test_gm_can_reflect_on_behalf_of_owner(app_ctx, monkeypatch):
         })
 
         assert not any(e[0] == "error" for e in emits)
-        owned = OwnedCharacter.query.get("owned_1")
+        owned = db.session.get(OwnedCharacter, "owned_1")
         assert owned.exp_total == 13
 
 
@@ -129,7 +129,7 @@ def test_non_owner_non_gm_is_rejected(app_ctx, monkeypatch):
         })
 
         assert any(e[0] == "error" for e in emits)
-        owned = OwnedCharacter.query.get("owned_1")
+        owned = db.session.get(OwnedCharacter, "owned_1")
         assert owned.exp_total == 10  # unchanged
 
 
@@ -146,7 +146,7 @@ def test_double_invocation_is_idempotent(app_ctx, monkeypatch):
             "room": "r1", "char_id": "char_1", "exp_gain": 5,
         })
 
-        owned = OwnedCharacter.query.get("owned_1")
+        owned = db.session.get(OwnedCharacter, "owned_1")
         assert owned.exp_total == 15  # only reflected once, not 20
         assert len(owned.growth_log) == 1
 
@@ -171,7 +171,7 @@ def test_character_without_owned_character_id_is_skipped(app_ctx, monkeypatch):
         assert result["skipped"] is True
         assert result["reason"] == "not_owned_character"
 
-        owned = OwnedCharacter.query.get("owned_1")
+        owned = db.session.get(OwnedCharacter, "owned_1")
         assert owned.exp_total == 10  # unchanged
 
 
@@ -190,6 +190,6 @@ def test_hollow_room_excludes_items_but_reflects_exp(app_ctx, monkeypatch):
         assert result["skipped"] is False
         assert result["items_gain"] == {}
 
-        owned = OwnedCharacter.query.get("owned_1")
+        owned = db.session.get(OwnedCharacter, "owned_1")
         assert owned.exp_total == 17
         assert owned.data["inventory"]["item-heal"] == 1  # unchanged (no items reflected)

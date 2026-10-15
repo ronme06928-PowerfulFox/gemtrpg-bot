@@ -93,14 +93,14 @@ def test_session_required_allows_existing_user(client):
 
 def test_get_session_user_does_not_resurrect_deleted_user(client, app_ctx):
     _seed_user("gone-id", "gone")
-    db.session.delete(User.query.get("gone-id"))
+    db.session.delete(db.session.get(User, "gone-id"))
     db.session.commit()
     _login(client, "gone-id", "gone")
 
     resp = client.get("/api/get_session_user")
     assert resp.status_code == 401
     # ユーザーは復活していない。
-    assert User.query.get("gone-id") is None
+    assert db.session.get(User, "gone-id") is None
 
 
 def test_get_session_user_returns_profile_for_existing_user(client):
@@ -151,13 +151,13 @@ def test_admin_user_details_allowed_for_admin(client):
 def test_recovery_token_issued_once_then_stable(app_ctx):
     first = upsert_user("tok-id", "tok", issue_recovery=True)
     assert first["recovery_token"], "初回はトークンを発行する"
-    stored_hash = User.query.get("tok-id").recovery_token_hash
+    stored_hash = db.session.get(User, "tok-id").recovery_token_hash
     assert stored_hash
 
     second = upsert_user("tok-id", "tok", issue_recovery=True)
     assert second["recovery_token"] is None, "2回目以降は再発行しない"
     # DB上のハッシュも変わらない（保存済みトークンが有効なまま）。
-    assert User.query.get("tok-id").recovery_token_hash == stored_hash
+    assert db.session.get(User, "tok-id").recovery_token_hash == stored_hash
 
 
 def test_recovery_code_issued_once(app_ctx):

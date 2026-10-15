@@ -76,14 +76,14 @@ def test_logout_device_revokes_token_and_legacy(client):
     # 端末トークンは失効。
     assert device_token.verify_device_token(issued["selector"], issued["secret"]) is None
     # レガシー recovery_token_hash も無効化。
-    assert User.query.get("u1").recovery_token_hash is None
+    assert db.session.get(User, "u1").recovery_token_hash is None
 
 
 def test_logout_all_revokes_everything_and_bumps_auth_version(client):
     u = _make_user()
     u.recovery_token_hash = "legacyhash"
     db.session.commit()
-    before_av = User.query.get("u1").auth_version
+    before_av = db.session.get(User, "u1").auth_version
     a = device_token.issue_device_token("u1")
     b = device_token.issue_device_token("u1")
     _login_session(client, "u1", "Alice", auth_version=before_av)
@@ -94,8 +94,8 @@ def test_logout_all_revokes_everything_and_bumps_auth_version(client):
     assert device_token.verify_device_token(a["selector"], a["secret"]) is None
     assert device_token.verify_device_token(b["selector"], b["secret"]) is None
     # auth_version 増加で他セッションも失効する。
-    assert User.query.get("u1").auth_version == before_av + 1
-    assert User.query.get("u1").recovery_token_hash is None
+    assert db.session.get(User, "u1").auth_version == before_av + 1
+    assert db.session.get(User, "u1").recovery_token_hash is None
 
 
 def test_logout_all_invalidates_other_sessions(client, app_ctx):

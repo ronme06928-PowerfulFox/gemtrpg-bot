@@ -48,3 +48,28 @@ def test_create_app_without_startup_registers_http_routes():
     assert "/chara_creator" in routes
     # 計画36 Phase 5: 軽量成長画面
     assert "/api/owned_characters/<character_id>/growth" in routes
+
+
+def test_json_responses_keep_japanese_without_deprecated_config(tmp_path):
+    import warnings
+
+    from flask import jsonify
+
+    from app import create_app
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', DeprecationWarning)
+        app = create_app(
+            config={
+                'TESTING': True,
+                'SQLALCHEMY_DATABASE_URI': f"sqlite:///{(tmp_path / 'json.db').as_posix()}",
+                'SQLALCHEMY_ENGINE_OPTIONS': {},
+            },
+            run_startup=False,
+            register_sockets=False,
+        )
+        with app.test_request_context():
+            body = jsonify({'name': '瓦礫'}).get_data(as_text=True)
+
+    assert '瓦礫' in body
+    assert chr(92) + 'u' not in body  # Japanese must not be emitted as unicode escape sequences

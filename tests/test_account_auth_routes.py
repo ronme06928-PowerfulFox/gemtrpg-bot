@@ -149,7 +149,7 @@ def test_change_display_name(client):
     _login_session(client, "u1", "Old")
     r = client.post("/api/change_display_name", json={"display_name": "New"})
     assert r.status_code == 200
-    assert User.query.get("u1").name == "New"
+    assert db.session.get(User, "u1").name == "New"
 
 
 # --- auth_version 失効 ---

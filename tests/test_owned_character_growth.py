@@ -156,7 +156,7 @@ def test_growth_rejects_when_over_budget(client, app_ctx):
     assert "経験値が不足" in resp.get_json()["error"]
 
     with app_ctx.app_context():
-        owned = OwnedCharacter.query.get("owned_1")
+        owned = db.session.get(OwnedCharacter, "owned_1")
         assert owned.data["commands"] == ""  # not mutated
         assert owned.growth_log == []
 
@@ -195,7 +195,7 @@ def test_growth_records_growth_log(client, app_ctx):
     client.post("/api/owned_characters/owned_1/growth", json={"add_skill_ids": ["Ps-01"]})
 
     with app_ctx.app_context():
-        owned = OwnedCharacter.query.get("owned_1")
+        owned = db.session.get(OwnedCharacter, "owned_1")
         assert len(owned.growth_log) == 1
         assert owned.growth_log[0]["kind"] == "growth"
         assert owned.growth_log[0]["added_skill_ids"] == ["Ps-01"]
@@ -239,7 +239,7 @@ def test_growth_param_spend_persists_and_accumulates_across_calls(client, app_ct
     assert resp3.status_code == 400
 
     with app_ctx.app_context():
-        owned = OwnedCharacter.query.get("owned_1")
+        owned = db.session.get(OwnedCharacter, "owned_1")
         strength_final = next(p for p in owned.data["params"] if p["label"] == "筋力")
         assert strength_final["value"] == "8"  # 拒否された3回目の影響を受けていない
         assert len(owned.growth_log) == 2  # 成功した1・2回目のみ記録
@@ -316,7 +316,7 @@ def test_growth_rejects_radiance_skill_over_budget(client, app_ctx):
     assert "通過点が不足" in resp.get_json()["error"]
 
     with app_ctx.app_context():
-        owned = OwnedCharacter.query.get("owned_1")
+        owned = db.session.get(OwnedCharacter, "owned_1")
         assert owned.data["SPassive"] == []
         assert owned.growth_log == []
 
@@ -368,7 +368,7 @@ def test_growth_records_radiance_in_growth_log(client, app_ctx):
     client.post("/api/owned_characters/owned_1/growth", json={"add_radiance_ids": ["R-01"]})
 
     with app_ctx.app_context():
-        owned = OwnedCharacter.query.get("owned_1")
+        owned = db.session.get(OwnedCharacter, "owned_1")
         assert owned.growth_log[0]["added_radiance_ids"] == ["R-01"]
         assert owned.growth_log[0]["radiance_cost"] == 2
 

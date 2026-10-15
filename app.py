@@ -111,7 +111,8 @@ def _get_database_uri():
 
 def configure_app(flask_app, config=None):
     global STATIC_DIR
-    flask_app.config['JSON_AS_ASCII'] = False
+    # 日本語をエスケープせずに返す（Flask 2.2で非推奨になった JSON_AS_ASCII の置き換え）。
+    flask_app.json.ensure_ascii = False
     flask_app.config['SECRET_KEY'] = _get_secret_key()
     # Session cookie hardening (同一オリジン構成のため SameSite=Lax で十分。
     # 公開環境では Secure を強制し、平文HTTP越しにCookieを送らせない)。
@@ -176,12 +177,15 @@ def _configure_local_sqlite(flask_app):
     engine = db.engine
 
     @event.listens_for(engine, 'connect')
-    def _set_sqlite_busy_timeout(dbapi_connection, _connection_record):
+    def _set_sqlite_connection_pragmas(dbapi_connection, _connection_record):
         cursor = dbapi_connection.cursor()
         try:
             # Bound lock waits so a stale local process does not make startup
             # or shutdown appear frozen for SQLite's default five seconds.
             cursor.execute('PRAGMA busy_timeout = 3000')
+            # SQLite does not enforce foreign keys by default, so ON DELETE
+            # CASCADE would silently leave orphan rows (PostgreSQL always does).
+            cursor.execute('PRAGMA foreign_keys = ON')
         finally:
             cursor.close()
 

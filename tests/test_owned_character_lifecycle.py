@@ -155,7 +155,7 @@ def test_full_owned_character_lifecycle(client, app_ctx, monkeypatch):
 
         # --- 3. セッション内でルーム側キャラが変化しても持ちキャラ本体は無事 ---
         room_char["status"][0]["value"] = 1  # HPが減った、を模す
-        owned_after_damage = OwnedCharacter.query.get(owned_id)
+        owned_after_damage = db.session.get(OwnedCharacter, owned_id)
         assert owned_after_damage.data["status"][0]["value"] == 20
 
         # --- 4. 成果反映（GM操作） ---
@@ -226,7 +226,7 @@ def test_full_owned_character_lifecycle(client, app_ctx, monkeypatch):
     assert client.get("/api/owned_characters").get_json()["characters"] == []
 
     with app_ctx.app_context():
-        row = OwnedCharacter.query.get(owned_id)
+        row = db.session.get(OwnedCharacter, owned_id)
         assert row is not None
         assert row.deleted_at is not None
         # 削除後も過去の growth_log は保全されている（監査目的）

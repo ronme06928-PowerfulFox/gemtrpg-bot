@@ -310,7 +310,7 @@ def room_grant_gm():
     denied = _require_room_owner(room_name)
     if denied:
         return denied
-    if User.query.get(target_user_id) is None:
+    if db.session.get(User, target_user_id) is None:
         return jsonify({"error": "User not found"}), 404
     set_room_role(room_name, target_user_id, GM, granted_by=session.get('user_id'))
     _sync_room_member_session(room_name, target_user_id)
@@ -362,7 +362,7 @@ def room_transfer_owner():
     denied = _require_room_owner(room_name)
     if denied:
         return denied
-    if User.query.get(target_user_id) is None:
+    if db.session.get(User, target_user_id) is None:
         return jsonify({"error": "User not found"}), 404
     if not transfer_owner(room_name, target_user_id, acting_user_id=session.get('user_id')):
         return jsonify({"error": "Room not found"}), 404

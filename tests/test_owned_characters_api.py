@@ -218,7 +218,7 @@ def test_delete_owned_character_is_soft_delete(client, app_ctx):
     assert resp.get_json()["characters"] == []
 
     with app_ctx.app_context():
-        row = OwnedCharacter.query.get(created["id"])
+        row = db.session.get(OwnedCharacter, created["id"])
         assert row is not None
         assert row.deleted_at is not None
 

@@ -158,7 +158,7 @@ def test_full_reset_flow(client, app_ctx):
     assert fresh.post("/api/login", json={"login_name": "targetlogin", "password": "oldpassword1"}).status_code == 401
 
     # auth_version 増加＋端末トークン失効。
-    assert User.query.get("target").auth_version == av_before + 1
+    assert db.session.get(User, "target").auth_version == av_before + 1
     assert device_token.verify_device_token(issued_dev["selector"], issued_dev["secret"]) is None
 
 

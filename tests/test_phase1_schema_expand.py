@@ -113,7 +113,7 @@ def test_new_tables_usable(tmp_path):
         assert OneTimeLoginCode.query.count() == 1
         assert RoomLogArchive.query.count() == 1
         # 既定値
-        assert User.query.get("u1").auth_version == 1
+        assert db.session.get(User, "u1").auth_version == 1
         assert OneTimeLoginCode.query.first().failed_attempts == 0
 
 
@@ -124,7 +124,7 @@ def test_old_code_style_user_creation_still_works(tmp_path):
         db.create_all()
         db.session.add(User(id="legacy", name="Legacy"))
         db.session.commit()
-        u = User.query.get("legacy")
+        u = db.session.get(User, "legacy")
         assert u.auth_version == 1
         assert u.login_name_normalized is None
         assert u.password_hash is None
