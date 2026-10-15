@@ -50,6 +50,20 @@
 
 **初回実装は方式Bが事故が少ない**（旧03の結論を踏襲）。
 
+### 2.4 流用できる既存基盤（2026-10-15追記）
+
+計画49で `manager/battle/combat_session.py::record_combat_damage(state, target_char, before_hp, after_hp, damage_context)` を実装済み。実際に減ったHPと原因キャラクター（`damage_context["actor"]`）を受け取り、次の4経路から呼ばれている。
+
+- `manager/battle/resolve_effect_runtime.py`（スキル効果のダメージ）
+- `manager/battle/resolve_match_runtime.py`（マッチ・一方攻撃）
+- `manager/battle/resolve_auto_mass_phase.py`（広域の自動解決）
+- `manager/room_manager.py`（ステータス更新経由のダメージ）
+
+§2.2の「HPを減らした全経路で記録する」は、この呼び出し点を流用すれば洗い出しの大半を省ける。ただし次の点が逆襲用の記録と異なるため、記録先は別に持つ。
+
+- 集計先は戦闘セッション単位の累計で、ラウンド単位・加害者別の記録ではない
+- 戦闘セッションがない場合（戦闘専用モードを含む）は何も記録しない
+
 ## 3. 実装時チェックポイント（旧03 §6.4/§6.5 より）
 
 - 被ダメ記録の更新漏れ: Select/Resolve・旧duel・wide・CUSTOM_EFFECT・追撃・反射のどの経路で記録され、どこが抜けるかを必ず洗う（逆襲系はここが最も壊れやすい）
