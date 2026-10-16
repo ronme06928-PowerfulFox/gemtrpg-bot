@@ -2,7 +2,7 @@
 
 ## Gitで管理するもの
 
-- 各冊子のTypst原稿、共通テーマ、原稿内で描く図、編集方針。
+- 各冊子のTypst原稿、共通テーマ、原稿内で描く図、編集方針。原稿の書き方は[書き方の手引き](WRITING_GUIDE.md)に従う。
 - 完成した本のPDF。既存の `全体マニュアル/main.pdf` はそのまま維持する。
 - レビュー用に作成した試作PDF。現在は `../output/pdf/46_battle_visual_walkthrough.pdf`。
 
