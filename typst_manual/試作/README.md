@@ -12,6 +12,12 @@ typst compile typst_manual/試作/46_戦闘図解.typ output/pdf/46_battle_visua
 
 ## 内容と出典
 
+2026-10-17：操作ガイドの代表章として、[「1ラウンドを操作する流れ」の草案](../../manuals/planned/46_Operation_First_Round_Draft.md)を `46_操作ガイド_最初のラウンド.typ` で組版し、`output/pdf/46_operation_first_round.pdf` を作成した。A4縦4ページ。基本本の1ラウンド通し例と同じ場面を、持ちキャラの追加→戦闘突入を待つ→宣言→解決を見る、の画面操作で説明する。図は実画面の写真ではなく、画面の要素を簡略化したTypstの図（2026-10-17ユーザー指示）。全ページを画像化して表示確認済み。Typstでは `~` が改行しない空白になるため、表示上の「~」は `\~` と書く。
+
+```powershell
+typst compile typst_manual/試作/46_操作ガイド_最初のラウンド.typ output/pdf/46_operation_first_round.pdf
+```
+
 2026-09-20：[防御・回避を使ったマッチの草案](../../manuals/planned/46_Defense_Evade_Draft.md)を作成。ユーザー修正後の本文と改行を `46_防御と回避.typ` に反映し、`output/pdf/46_defense_evade.pdf` を作成した。導入・対象指定、防御、回避と結果表の全3ページ。威力式と枠付き出目を共通形式で図示し、全ページを表示確認済み。図2の制作指示は公開用のキャプション「枠内の数字がダイスの出目です。」に置換した。確認画像は `../_local/previews/46_defense_evade/` にローカル保存する。
 
 ```powershell
