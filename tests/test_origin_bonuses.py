@@ -198,3 +198,44 @@ def test_process_simple_round_end_restores_origin_bonus_buff(monkeypatch):
 
     buff_ids = [b.get("buff_id") for b in actor.get("special_buffs", [])]
     assert "Bu-23" in buff_ids
+
+
+SLASH_SKILL = {"属性": "斬撃", "分類": "物理", "基礎威力": "4", "ダイス威力": "+1d2", "チャットパレット": "4+1d2 【Ps-00 基本の一太刀】"}
+BLUNT_SKILL = {"属性": "打撃", "分類": "物理", "基礎威力": "4", "ダイス威力": "+1d2", "チャットパレット": "4+1d2 【Pb-00 基本の殴打】"}
+
+
+def test_wadatsumi_adds_base_power_only_to_slash_skills():
+    wadatsumi = _make_char("W", 9)
+    other = _make_char("O", 0)
+    target = _make_char("T", 0, "enemy")
+
+    slash = utils.compute_origin_skill_modifiers(wadatsumi, target, SLASH_SKILL)
+    assert slash["base_power_bonus"] == 1
+    assert slash["final_power_bonus"] == 0
+    assert utils.compute_origin_skill_modifiers(wadatsumi, target, BLUNT_SKILL)["base_power_bonus"] == 0
+    assert utils.compute_origin_skill_modifiers(other, target, SLASH_SKILL)["base_power_bonus"] == 0
+
+
+def test_wadatsumi_slash_preview_raises_base_power_without_final_bonus():
+    wadatsumi = _make_char("W", 9)
+    other = _make_char("O", 0)
+    target = _make_char("T", 0, "enemy")
+
+    preview = game_logic.calculate_skill_preview(wadatsumi, target, SLASH_SKILL)
+    baseline = game_logic.calculate_skill_preview(other, target, SLASH_SKILL)
+    blunt = game_logic.calculate_skill_preview(wadatsumi, target, BLUNT_SKILL)
+
+    assert preview["power_breakdown"]["final_base_power"] == baseline["power_breakdown"]["final_base_power"] + 1
+    assert preview["power_breakdown"]["final_power_mod"] == baseline["power_breakdown"]["final_power_mod"]
+    assert preview["min_damage"] == baseline["min_damage"] + 1
+    assert blunt["min_damage"] == baseline["min_damage"]
+
+
+def test_legacy_solvers_do_not_add_wadatsumi_bonus_again():
+    # 旧方式のマッチ・広域は calculate_skill_preview の威力式を使うため、解決側で重ねて加えない。
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    for rel in ("manager/battle/duel_solver.py", "manager/battle/wide_solver.py", "manager/battle/power_preview.py"):
+        assert "Wadatsumi" not in (root / rel).read_text(encoding="utf-8")
+        assert "wadatsumi" not in (root / rel).read_text(encoding="utf-8")

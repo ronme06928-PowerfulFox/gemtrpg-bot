@@ -232,20 +232,13 @@ def calculate_skill_preview(
     dice_bonus_power += _to_int(buff_bonus_parts.get("dice", 0))
     final_power_bonus += _to_int(buff_bonus_parts.get("final", 0))
 
-    wadatsumi_bonus = 0
     valvile_correction = 0
-    try:
-        if get_effective_origin_id(actor_char) == 9 and skill_data.get('属性') == '水':
-            wadatsumi_bonus = 1
-    except Exception:
-        wadatsumi_bonus = 0
     try:
         if target_char and get_effective_origin_id(target_char) == 13:
             valvile_correction = -1
     except Exception:
         valvile_correction = 0
 
-    final_power_bonus += wadatsumi_bonus
     final_power_bonus += valvile_correction
 
     total_flat_bonus = bonus_power + final_power_bonus
@@ -432,7 +425,6 @@ def calculate_skill_preview(
         "buff_final_power_bonus": _to_int(buff_bonus_parts.get("final", 0)),
         "external_final_power_mod": _to_int(external_final_power_mod),
         "temp_final_power_mod": temp_final_power_mod,
-        "wadatsumi_bonus": wadatsumi_bonus,
         "valvile_correction": valvile_correction,
         "final_power_mod": final_power_bonus,
         "rule_dice_bonus_power": rule_dice_bonus,

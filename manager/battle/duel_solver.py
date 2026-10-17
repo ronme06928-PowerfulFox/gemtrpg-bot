@@ -556,10 +556,6 @@ def execute_duel_match(room, data, username):
     result_d = roll_dice(command_d)
 
     attacker_origin_id = get_effective_origin_id(actor_a_char)
-    skill_attr_a = str((skill_data_a or {}).get("属性") or (skill_data_a or {}).get("属性") or "")
-    if (not delegate_mode) and attacker_origin_id == 9 and skill_attr_a in {"slash", "斬撃"}:
-        result_a['total'] += 1
-        broadcast_log(room, f"[Wadatsumi] Slash power +1 => {result_a['total']}", "info")
 
     logs = []
 

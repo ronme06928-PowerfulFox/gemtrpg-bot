@@ -315,12 +315,7 @@ def execute_wide_match(room, username):
         )
         broadcast_log(room, f"   [senritsu penalty] -{attacker_senritsu_penalty} (total {attacker_total})", "dice")
 
-
     attacker_origin = get_effective_origin_id(attacker_char)
-    skill_attr = str((attacker_skill_data or {}).get("属性") or (attacker_skill_data or {}).get("属性") or "")
-    if attacker_origin == 9 and skill_attr in {"slash", "斬撃"}:
-        attacker_total += 1
-        broadcast_log(room, f"[Wadatsumi] Slash power +1 => {attacker_total}", "info")
 
     results = []
     attacker_effects = []

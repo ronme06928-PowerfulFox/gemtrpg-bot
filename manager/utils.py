@@ -27,6 +27,7 @@ ORIGIN_BONUS_BUFFS = {
 
 BONUS_SELECTABLE_ORIGINS = {1, 2, 12}
 
+ORIGIN_WADATSUMI = 9
 ORIGIN_FLODIAS = 14
 ORIGIN_AL_CARMEIL = 15
 ORIGIN_GRAND_LITTERAL_BLANC = 11
@@ -1065,6 +1066,10 @@ def compute_origin_skill_modifiers(actor_char, target_char, skill_data, state=No
     target_is_enemy = bool(actor_team and target_team and actor_team != target_team)
 
     modifiers['final_power_bonus'] += get_target_coloration_attack_bonus(actor_char, target_char, skill_data)
+
+    # ワダツミ「誉れ高き刃」：斬撃スキルの基礎威力+1（卓上ルール本の出身国ボーナス）。
+    if origin_id == ORIGIN_WADATSUMI and str((skill_data or {}).get('属性') or '') == '斬撃':
+        modifiers['base_power_bonus'] += 1
 
     if origin_id == ORIGIN_FLODIAS and is_evade_skill(skill_data):
         modifiers['dice_power_bonus'] += 1
