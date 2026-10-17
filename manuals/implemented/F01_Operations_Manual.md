@@ -569,7 +569,7 @@ if user_info.get('attribute') != 'GM':
 | `events/battle/common_routes.py` | ✅ |
 | `events/battle/duel_routes.py` | ✅ |
 | `events/battle/wide_routes.py` | ✅ |
-| `events/socket_char.py` | ✅ |
+| `events/socket_char.py` | ✅（`request_move_character` も §4 の所有者チェック適用済み。基準は `move_token_logic` と同じで、通常ルームは持ち主または GM のみ、戦闘専用モードは所有者チェックなし。拒否時は `move_denied` を返し状態を変えない） |
 | `events/socket_items.py` | ✅ |
 
 ---

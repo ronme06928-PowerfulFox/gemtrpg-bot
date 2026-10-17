@@ -345,49 +345,58 @@ def handle_move_character(data):
     state = get_room_state(room)
     char = next((c for c in state["characters"] if c.get('id') == char_id), None)
 
-    if char:
-        # ★ Server-Side Sync Check
-        current_ts = char.get('last_move_ts', 0)
-        # リクエストにTSが含まれていて、かつ現在のTSより古い(または同じ)場合は無視
-        # (ネットワーク遅延で順番が前後した場合の対策)
-        if ts is not None and current_ts is not None:
-             if ts < current_ts:
-                 print(f"[Sync] Ignored old move request for {char.get('name')}: Req({ts}) < Cur({current_ts})")
-                 return
+    if not char:
+        return
 
-        old_x = char.get('x', -1)
-        old_y = char.get('y', -1)
-        char['x'] = x
-        char['y'] = y
-        char['active_round'] = 0 # reset active state
+    user_info = get_user_info_from_sid(request.sid)
+    username = user_info.get("username", "System")
+    is_battle_only = str(state.get('play_mode') or 'normal').strip().lower() == 'battle_only'
+    if not is_battle_only and not is_authorized_for_character(
+        room, char_id, username, user_info.get("attribute", "Player")
+    ):
+        emit('move_denied', {'message': '権限がありません。'})
+        return
 
-        if ts:
-             char['last_move_ts'] = ts
+    # ★ Server-Side Sync Check
+    current_ts = char.get('last_move_ts', 0)
+    # リクエストにTSが含まれていて、かつ現在のTSより古い(または同じ)場合は無視
+    # (ネットワーク遅延で順番が前後した場合の対策)
+    if ts is not None and current_ts is not None:
+         if ts < current_ts:
+             print(f"[Sync] Ignored old move request for {char.get('name')}: Req({ts}) < Cur({current_ts})")
+             return
 
-        # ログ出力（必要に応じて）
-        user_info = get_user_info_from_sid(request.sid)
-        username = user_info.get("username", "System")
-        print(f"[MOVE] Room:{room}, Char:{char.get('name')} -> ({x}, {y}) by {username}")
+    old_x = char.get('x', -1)
+    old_y = char.get('y', -1)
+    char['x'] = x
+    char['y'] = y
+    char['active_round'] = 0 # reset active state
 
-        # 状態更新をブロードキャスト (Legacy Full Update)
-        # broadcast_state_update(room)
+    if ts:
+         char['last_move_ts'] = ts
 
-        if old_x < 0 or old_y < 0 or x < 0 or y < 0:
-            # ★ Placement/Dropout (Creation or Removal) -> Full Update
-            # 未配置からの配置、または盤外へのドロップ（撤退）は
-            # DOM生成・削除やリスト更新が必要なため、フルステート更新を行う
-            broadcast_state_update(room)
-        else:
-            # ★ Moving (Existing Token) -> Differential Update
-            # 部屋全体には "移動した" 事実と座標だけを送る
-            socketio.emit('character_moved', {
-                'character_id': char_id,
-                'x': x,
-                'y': y,
-                'last_move_ts': ts if ts else 0
-            }, to=room)
+    # ログ出力（必要に応じて）
+    print(f"[MOVE] Room:{room}, Char:{char.get('name')} -> ({x}, {y}) by {username}")
 
-        save_specific_room_state(room)
+    # 状態更新をブロードキャスト (Legacy Full Update)
+    # broadcast_state_update(room)
+
+    if old_x < 0 or old_y < 0 or x < 0 or y < 0:
+        # ★ Placement/Dropout (Creation or Removal) -> Full Update
+        # 未配置からの配置、または盤外へのドロップ（撤退）は
+        # DOM生成・削除やリスト更新が必要なため、フルステート更新を行う
+        broadcast_state_update(room)
+    else:
+        # ★ Moving (Existing Token) -> Differential Update
+        # 部屋全体には "移動した" 事実と座標だけを送る
+        socketio.emit('character_moved', {
+            'character_id': char_id,
+            'x': x,
+            'y': y,
+            'last_move_ts': ts if ts else 0
+        }, to=room)
+
+    save_specific_room_state(room)
 
 
 # app.py (576行目あたり、handle_delete_character の前に追加)
