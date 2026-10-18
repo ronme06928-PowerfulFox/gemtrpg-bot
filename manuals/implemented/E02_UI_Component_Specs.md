@@ -423,6 +423,7 @@ E02 Part 5の2段階ウィザード（味方/敵選択→JSON入力画面）に�
 - 「獲得経験値」数値入力、「獲得アイテム（`item_id:個数`形式、カンマ区切り）」テキスト入力、「成果を反映」ボタン。
 - 反映済み（`char.flags.results_reflected === true`）の場合はボタンの代わりに「反映済みです」メッセージを表示する。
 - ボタン押下で`request_reflect_session_results`を送信する。応答（`reflect_session_results_result`）が`skipped:true`の場合のみ、`logToBattleLog`で理由を通知する（成功時はサーバー側の`broadcast_log`で全員に共有済みのため、二重通知を避ける）。
+- 権限拒否は`reason:'forbidden'`として「この操作を行う権限がありません。」を通知する。成功後にサーバーから配信された反映済みフラグを使い、設定メニューを開き直すと反映済み表示になる。経験値0・アイテムなしでも1回の反映となる。
 
 ## 5. CharaCreator側の追加要素（最小統合）
 

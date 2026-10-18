@@ -128,7 +128,7 @@ def test_non_owner_non_gm_is_rejected(app_ctx, monkeypatch):
             "room": "r1", "char_id": "char_1", "exp_gain": 5,
         })
 
-        assert any(e[0] == "error" for e in emits)
+        assert ("reflect_session_results_result", {"char_id": "char_1", "skipped": True, "reason": "forbidden"}, "sid_t") in emits
         owned = db.session.get(OwnedCharacter, "owned_1")
         assert owned.exp_total == 10  # unchanged
 
@@ -193,3 +193,60 @@ def test_hollow_room_excludes_items_but_reflects_exp(app_ctx, monkeypatch):
         owned = db.session.get(OwnedCharacter, "owned_1")
         assert owned.exp_total == 17
         assert owned.data["inventory"]["item-heal"] == 1  # unchanged (no items reflected)
+
+
+@pytest.mark.parametrize("path", ["read", "broadcast"])
+def test_room_state_preserves_character_owner_uuid(app_ctx, monkeypatch, path):
+    from manager import room_manager
+    with app_ctx.app_context():
+        char = _room_char()
+        state = _state_with_char(char)
+        state["character_owners"] = {"char_1": "Display Name"}
+        monkeypatch.setattr(room_manager, "active_room_states", {"r1": state})
+        monkeypatch.setattr(room_manager, "_safe_emit", lambda *_a, **_kw: None)
+        monkeypatch.setattr(room_manager, "emit_select_resolve_events", lambda *_a, **_kw: None)
+        if path == "read":
+            room_manager.get_room_state("r1")
+        else:
+            room_manager.broadcast_state_update("r1")
+        assert char["owner_id"] == "owner"
+
+
+def test_owner_reflection_after_real_state_broadcast_syncs_flag(app_ctx, monkeypatch):
+    from manager import room_manager
+    with app_ctx.app_context():
+        char = _room_char()
+        state = _state_with_char(char)
+        state["character_owners"] = {"char_1": "Display Name"}
+        emits = _patch_char(monkeypatch, state, user_id="owner")
+        monkeypatch.setattr(room_manager, "active_room_states", {"r1": state})
+        updates = []
+        monkeypatch.setattr(room_manager, "_safe_emit", lambda event, payload, **_kw: updates.append((event, payload)))
+        monkeypatch.setattr(room_manager, "emit_select_resolve_events", lambda *_a, **_kw: None)
+        monkeypatch.setattr(socket_char, "get_room_state", room_manager.get_room_state)
+        monkeypatch.setattr(socket_char, "broadcast_state_update", room_manager.broadcast_state_update)
+        room_manager.broadcast_state_update("r1")
+        updates.clear()
+
+        socket_char.handle_reflect_session_results({"room": "r1", "char_id": "char_1", "exp_gain": 2})
+
+        assert db.session.get(OwnedCharacter, "owned_1").exp_total == 12
+        assert len(updates) == 1
+        assert updates[0][0] == "state_updated"
+        assert updates[0][1]["characters"][0]["flags"]["results_reflected"] is True
+        assert any(ev == "reflect_session_results_result" and not p["skipped"] for ev, p, _ in emits)
+
+
+def test_zero_result_is_success_and_consumes_one_reflection(app_ctx, monkeypatch):
+    with app_ctx.app_context():
+        char = _room_char()
+        emits = _patch_char(monkeypatch, _state_with_char(char), user_id="owner")
+        socket_char.handle_reflect_session_results({"room": "r1", "char_id": "char_1", "exp_gain": 0})
+        socket_char.handle_reflect_session_results({"room": "r1", "char_id": "char_1", "exp_gain": 2})
+        owned = db.session.get(OwnedCharacter, "owned_1")
+        assert owned.exp_total == 10
+        assert len(owned.growth_log) == 1
+        assert char["flags"]["results_reflected"] is True
+        results = [p for ev, p, _ in emits if ev == "reflect_session_results_result"]
+        assert results[0]["skipped"] is False
+        assert results[1]["reason"] == "already_reflected"

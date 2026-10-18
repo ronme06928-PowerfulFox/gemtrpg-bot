@@ -333,12 +333,6 @@ def get_room_state(room_name):
     except Exception as e:
         logger.error(f"Error fetching owner_id: {e}")
 
-    if 'character_owners' in state and 'characters' in state:
-        owners = state['character_owners']
-        for char in state['characters']:
-            if char['id'] in owners:
-                char['owner_id'] = owners[char['id']]
-
     try:
         from manager.battle.common_manager import ensure_battle_state_vNext
         ensure_battle_state_vNext(state, round_value=state.get('round', 0))
@@ -602,12 +596,6 @@ def trim_room_logs_with_archive(room_name, state, limit=500):
 def broadcast_state_update(room_name):
     state = get_room_state(room_name)
     if state:
-        if 'character_owners' in state and 'characters' in state:
-            owners = state['character_owners']
-            for char in state['characters']:
-                if char['id'] in owners:
-                    char['owner_id'] = owners[char['id']]
-
         if _PERF_LOG:
             try:
                 size = len(json.dumps(state, ensure_ascii=False, default=str))

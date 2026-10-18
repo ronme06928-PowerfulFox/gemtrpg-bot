@@ -919,10 +919,13 @@ GET /api/room/export_logs?room_name=<room>&format=text
 `events/socket_char.py::handle_reflect_session_results`。payload: `{room, char_id, exp_gain, items: {item_id: qty, ...}}`。
 
 - **対象**: ルーム内キャラに`owned_character_id`があるもののみ（JSON貼り付け由来の従来キャラはスキップ、`reflect_session_results_result`イベントで`skipped:true, reason:'not_owned_character'`を返す）。
-- **実行権限**: キャラ所有者本人（`char.owner_id == session.user_id`）または GM。それ以外は`error`イベントで拒否。
+- **実行権限**: キャラ所有者本人（`char.owner_id == session.user_id`）または GM。それ以外は`reflect_session_results_result`の`skipped:true, reason:'forbidden'`で拒否し、成果反映の画面経路で理由を通知する。
+- **所有者ID**: `char.owner_id`はユーザーUUIDを保持する。表示名を格納する`character_owners`から、読み取り・配信時に上書きしない。過去に表示名で破損保存されたIDの復元・データ移行は行わない。GMによる既存コピーの代理反映は可能。
 - **冪等性**: `char['flags']['results_reflected']`が既に立っている場合はスキップ（`reason:'already_reflected'`）。1キャラ・1回のみ反映する。
 - **ホロウ除外**: `state.get('play_mode') == 'hollow'`の場合、アイテムは反映対象外とし経験値のみ反映する（計画35「ホロウ内で完結の原則」。ホロウ側の`play_mode='hollow'`実装前でも、この判定は`state.play_mode`未設定時は通常ルーム扱いになるため副作用なく先行実装できている）。
 - 成功時は`owned.exp_total`に`exp_gain`を加算し、`items`（ホロウでない場合のみ）を`owned.data['inventory']`へマージ、`owned.growth_log`に`kind:'reflect_session_results'`のエントリを追加してコミットする。
+- 成功時は`results_reflected`を保存予約し、ルーム状態を配信して、設定メニューの反映済み表示を同期する。経験値0・アイテムなしも既存どおり成功として履歴と反映済みフラグを記録し、そのコピーの1回を消費する。
+- 検証（2026-10-18）：所有者UUIDを読み取り・配信で保持し、配信後にも本人が反映できる回帰テストを追加。関連53件・全件941 passed / 2 skipped、ビルド・文字検査を通過。ローカル通常ルームでPLブラウザの反映6→8、GMの正規Socketによる代理反映6→9、0点の成功と再反映拒否を別々の確認用コピーで確認した。各DB履歴は1件、反映済みフラグもtrue。専用に追加した3体は検証後に削除済み。アイテムとホロウは単体テストで検証し、今回の実機確認には含めない。
 
 ## 5. 軽量成長画面とコスト計算（Phase 5）
 

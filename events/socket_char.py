@@ -260,7 +260,9 @@ def handle_reflect_session_results(data):
     is_owner = bool(session_user_id) and str(char.get('owner_id') or '') == str(session_user_id)
     is_gm = attribute == 'GM'
     if not (is_owner or is_gm):
-        emit('error', {'message': 'この操作を行う権限がありません。'}, to=request.sid)
+        emit('reflect_session_results_result', {
+            'char_id': char_id, 'skipped': True, 'reason': 'forbidden',
+        }, to=request.sid)
         return
 
     from extensions import db
@@ -310,6 +312,7 @@ def handle_reflect_session_results(data):
     char.setdefault('flags', {})
     char['flags']['results_reflected'] = True
     save_specific_room_state(room)
+    broadcast_state_update(room)
 
     broadcast_log(
         room,

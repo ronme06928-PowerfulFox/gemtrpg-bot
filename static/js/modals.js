@@ -2760,6 +2760,7 @@ function createSettingsContextMenu(triggerEl, char) {
                     if (!result || !result.skipped) return;
                     // 成功時は既にサーバー側のbroadcast_logで通知済みなので、スキップ時のみここで案内する。
                     const reasonMsg = {
+                        forbidden: 'この操作を行う権限がありません。',
                         not_owned_character: 'このキャラは持ちキャラ由来ではないため反映できません。',
                         already_reflected: 'このセッションの成果は既に反映済みです。',
                         char_not_found: 'キャラクターが見つかりませんでした。',
