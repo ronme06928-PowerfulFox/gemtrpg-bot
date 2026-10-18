@@ -46,6 +46,23 @@ window.setupVisualSocketHandlers = function () {
         return true;
     };
 
+  let lastMoveDeniedAt = -Infinity;
+  registerSocketHandler('move_denied', () => {
+    const now = Date.now();
+    const repeated = now - lastMoveDeniedAt < 3000;
+    lastMoveDeniedAt = now;
+    if (repeated || document.getElementById('move-denied-toast')) return;
+
+    const toast = document.createElement('div');
+    toast.id = 'move-denied-toast';
+    toast.className = 'visual-toast info';
+    toast.textContent = 'このキャラクターを操作する権限がありません';
+    toast.setAttribute('role', 'status');
+    toast.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); max-width:calc(100vw - 32px); padding:10px 20px; background:rgba(0,0,0,0.85); color:white; border-radius:20px; z-index:30000; pointer-events:none;';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  });
+
     const renderLegacyBattleUi = (options = {}) => {
         const {
             map = false,
