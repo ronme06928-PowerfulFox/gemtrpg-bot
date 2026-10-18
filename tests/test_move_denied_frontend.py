@@ -3,11 +3,14 @@
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_move_denied_is_visible_once_and_recovers_after_quiet_period():
+@pytest.mark.parametrize("event", ["move_denied", "character_operation_denied"])
+def test_move_denied_is_visible_once_and_recovers_after_quiet_period(event):
     script = r"""
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -69,6 +72,7 @@ timers[1].callback();
 assert.equal(elements.size, 0);
 assert.equal(alerts, 0);
 """
+    script = script.replace("const reject = handlers.get('move_denied');", f"const reject = handlers.get('{event}');")
     result = subprocess.run(
         ["node", "--input-type=module", "-e", script], cwd=ROOT,
         capture_output=True, text=True, encoding="utf-8", timeout=30,

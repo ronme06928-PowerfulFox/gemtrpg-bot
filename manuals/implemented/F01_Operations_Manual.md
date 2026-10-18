@@ -558,6 +558,8 @@ if user_info.get('attribute') != 'GM':
 
 在室チェック → キャラ所有者チェック（`is_authorized_for_character`）の順。
 
+`request_delete_character` と `request_update_token_scale` も移動と同じ基準で検証する。通常ルームでは持ち主またはGMだけが実行でき、戦闘専用モードでは既存の所有者チェックなしの操作を維持する。拒否時は要求元SIDだけに `character_operation_denied`（「このキャラクターを操作する権限がありません。」）を返し、キャラクター・アクティブマッチ・保存状態を変更せず、更新を配信しない。存在しないキャラクターへの要求は何もしない。クライアントは移動拒否と同じ通知表示を使う（E01 §8.5）。未配置一覧のボタン表示は維持し、サーバーで毎回認可する。
+
 ## 5. 適用済みファイル（2026-06-28 実機スモーク確認済み）
 
 | ファイル | 適用 |
@@ -569,7 +571,7 @@ if user_info.get('attribute') != 'GM':
 | `events/battle/common_routes.py` | ✅ |
 | `events/battle/duel_routes.py` | ✅ |
 | `events/battle/wide_routes.py` | ✅ |
-| `events/socket_char.py` | ✅（`request_move_character` も §4 の所有者チェック適用済み。基準は `move_token_logic` と同じで、通常ルームは持ち主または GM のみ、戦闘専用モードは所有者チェックなし。拒否時は `move_denied` を返し状態を変えない） |
+| `events/socket_char.py` | ✅（`request_move_character`・`request_delete_character`・`request_update_token_scale` も §4 の所有者チェック適用済み。基準は `move_token_logic` と同じで、通常ルームは持ち主または GM のみ、戦闘専用モードは所有者チェックなし。拒否時は移動が `move_denied`、削除・サイズ変更が `character_operation_denied` を本人へ返し状態を変えない） |
 | `events/socket_items.py` | ✅ |
 
 ---

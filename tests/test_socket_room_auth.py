@@ -235,3 +235,77 @@ def test_move_character_battle_only_skips_owner_check(monkeypatch):
 
     assert _char_pos(state, "C_enemy") == (7, 8)
     assert not any(e[0] == "move_denied" for e in emits)
+
+
+# Deletion and token scale must use the same authorization as movement.
+@pytest.mark.parametrize("operation", ["delete", "scale"])
+@pytest.mark.parametrize("char_id", ["C_owner", "C_enemy"])
+def test_character_edit_rejects_non_owner_without_side_effects(monkeypatch, operation, char_id):
+    import copy
+    state, emits = _patch_move(monkeypatch, "other_user", "Player")
+    state["active_match"] = {"is_active": True, "attacker_id": char_id}
+    before = copy.deepcopy(state)
+    effects = []
+    monkeypatch.setattr(socket_char, "save_specific_room_state", lambda _r: effects.append("save"))
+    monkeypatch.setattr(socket_char, "broadcast_state_update", lambda _r: effects.append("update"))
+    monkeypatch.setattr(socket_char, "broadcast_log", lambda *_a: effects.append("log"))
+
+    _run_character_edit(operation, char_id)
+
+    assert state == before
+    assert effects == []
+    assert emits == [("character_operation_denied", {"message": "このキャラクターを操作する権限がありません。"}, "sid_t")]
+
+
+def _run_character_edit(operation, char_id):
+    payload = {"room": "room_t", "charId": char_id, "scale": 1.5}
+    if operation == "delete":
+        socket_char.handle_delete_character(payload)
+    else:
+        socket_char.handle_update_token_scale(payload)
+
+
+@pytest.mark.parametrize("operation", ["delete", "scale"])
+@pytest.mark.parametrize("username,attribute,char_id,mode", [
+    ("owner_user", "Player", "C_owner", "normal"),
+    ("gm_user", "GM", "C_owner", "normal"),
+    ("gm_user", "GM", "C_enemy", "normal"),
+    ("other_user", "Player", "C_enemy", "battle_only"),
+])
+def test_character_edit_allows_authorized_user(monkeypatch, operation, username, attribute, char_id, mode):
+    state, emits = _patch_move(monkeypatch, username, attribute, mode)
+    effects = []
+    monkeypatch.setattr(socket_char, "save_specific_room_state", lambda _r: effects.append("save"))
+    monkeypatch.setattr(socket_char, "broadcast_state_update", lambda _r: effects.append("update"))
+
+    _run_character_edit(operation, char_id)
+
+    char = next((c for c in state["characters"] if c["id"] == char_id), None)
+    if operation == "delete":
+        assert char is None
+    else:
+        assert char["tokenScale"] == 1.5
+    assert effects == ["update", "save"]
+    assert not any(e[0] == "error" for e in emits)
+
+
+@pytest.mark.parametrize("operation", ["delete", "scale"])
+def test_character_edit_rejects_non_member_before_loading_state(monkeypatch, operation):
+    _state, emits = _patch_char(monkeypatch, in_room=False)
+    def unexpected_state_read(_room):
+        pytest.fail("Non-member must not read room state")
+    monkeypatch.setattr(socket_char, "get_room_state", unexpected_state_read)
+    _run_character_edit(operation, "C_owner")
+    assert emits == [("error", {"message": "Not in this room"}, "sid_t")]
+
+
+@pytest.mark.parametrize("operation", ["delete", "scale"])
+def test_character_edit_missing_character_does_nothing(monkeypatch, operation):
+    state, emits = _patch_move(monkeypatch, "gm_user", "GM")
+    effects = []
+    monkeypatch.setattr(socket_char, "save_specific_room_state", lambda _r: effects.append("save"))
+    monkeypatch.setattr(socket_char, "broadcast_state_update", lambda _r: effects.append("update"))
+    _run_character_edit(operation, "missing")
+    assert len(state["characters"]) == 2
+    assert effects == []
+    assert emits == []

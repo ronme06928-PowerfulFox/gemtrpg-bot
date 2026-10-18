@@ -47,7 +47,7 @@ window.setupVisualSocketHandlers = function () {
     };
 
   let lastMoveDeniedAt = -Infinity;
-  registerSocketHandler('move_denied', () => {
+  const showCharacterOperationDenied = () => {
     const now = Date.now();
     const repeated = now - lastMoveDeniedAt < 3000;
     lastMoveDeniedAt = now;
@@ -61,7 +61,9 @@ window.setupVisualSocketHandlers = function () {
     toast.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); max-width:calc(100vw - 32px); padding:10px 20px; background:rgba(0,0,0,0.85); color:white; border-radius:20px; z-index:30000; pointer-events:none;';
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
-  });
+  };
+  registerSocketHandler('move_denied', showCharacterOperationDenied);
+  registerSocketHandler('character_operation_denied', showCharacterOperationDenied);
 
     const renderLegacyBattleUi = (options = {}) => {
         const {
