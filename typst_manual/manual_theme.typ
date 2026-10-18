@@ -38,16 +38,34 @@
   ]
 }
 
-// テンプレート本体（set/show をまとめて適用する関数）
-#let manual-conf(doc) = {
-  set page(paper: "a4", margin: (top: 22mm, bottom: 22mm, left: 20mm, right: 20mm),
-    header: context align(right, text(size: 9pt, fill: luma(20%))[#running_chapter.get()]),
-    footer: context align(center, text(size: 9pt, fill: luma(20%))[#counter(page).display()]))
-  set text(font: ("Noto Serif CJK JP", "Noto Sans CJK JP"), size: 12pt, lang: "ja")
-  set par(leading: 0.68em, justify: false, spacing: 0.6em)
-  set list(tight: false, spacing: 0.5em, indent: 1em)
-  set heading(numbering: "1.1.1", outlined: true)
-  show link: it => text(fill: rgb(0, 102, 204))[#underline(stroke: 0.6pt + rgb(0, 102, 204))[#it]]
+// 計画46・4CのC案（2026-10-18採用）。本文・図の文字は縮小しない。
+#let publication-figure(n, caption, body) = block(
+  breakable: false, above: 3mm, below: 3mm,
+)[
+  #rect(fill: rgb("f7f9fa"), stroke: 0.5pt + rgb("dce3e8"), radius: 4pt,
+    inset: (x: 0pt, y: 3mm), body)
+  #v(1mm)
+  #text(size: 9pt, fill: rgb("647080"))[図#n　#caption]
+]
+
+#let publication-conf(doc, header-label: none, footer-label: none) = {
+  set page(paper: "a4", binding: left,
+    margin: (inside: 24mm, outside: 20mm, top: 23mm, bottom: 23mm),
+    header: context text(size: 8pt, fill: rgb("647080"))[
+      #if header-label == none { running_chapter.get() } else { header-label }
+    ],
+    footer: context align(right, text(size: 8pt, fill: rgb("647080"))[
+      #if footer-label != none [#footer-label　]#counter(page).display()
+    ]))
+  set text(font: "Noto Sans JP", size: 11pt, lang: "ja", fill: rgb("253345"))
+  set par(leading: 0.65em, spacing: 1.4em)
+  set heading(numbering: none, outlined: true)
+  show heading.where(level: 1): set text(size: 23pt)
+  show heading.where(level: 2): set text(size: 14pt, fill: rgb("246589"))
+  show heading.where(level: 2): set block(above: 3.5mm, below: 1.5mm)
+  show link: it => text(fill: rgb("246589"))[#underline(stroke: 0.6pt + rgb("246589"))[#it]]
   show heading.where(level: 1): it => { running_chapter.update(it.body); it }
   doc
 }
+
+#let manual-conf = publication-conf
