@@ -3,7 +3,7 @@
 作成日: 2026-10-17
 対象: セッション操作ガイド PL編（§13.5「PL 1 キャラを用意する」「PL 3 探索・戦闘を操作する」の代表章）。
 関連: [1ラウンド通し例（基本本側）](46_Round_Walkthrough_Draft.md) / [キャラクター作成例](46_Character_Creation_Walkthrough_Draft.md) / [計画46](46_Manual_Restructuring_Plan.md)
-状態: 本文と簡略図の初稿。PDF化した試作は `typst_manual/試作/46_操作ガイド_最初のラウンド.typ`。
+状態: 本文と簡略図の初稿。PDF化した試作は `typst_manual/試作/46_操作ガイド_最初のラウンド.typ`。4Dの区切り3で操作ガイド本体（`typst_manual/操作ガイド/`）のPL3へ組み込む。
 
 ## 編集メモ（公開本文には載せない）
 

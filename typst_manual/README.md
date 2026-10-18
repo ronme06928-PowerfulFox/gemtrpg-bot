@@ -4,7 +4,7 @@
 
 - 各冊子のTypst原稿、共通テーマ、原稿内で描く図、編集方針。原稿の書き方は[書き方の手引き](WRITING_GUIDE.md)に従う。
 - 完成した本のPDF。既存の `全体マニュアル/main.pdf` はそのまま維持する。
-- レビュー用に作成した試作PDF。現在は `../output/pdf/46_battle_visual_walkthrough.pdf`。
+- レビュー用に作成した試作PDF（`../output/pdf/46_*.pdf`）。制作中の操作ガイドは `../output/pdf/46_operation_guide.pdf`。
 
 ## ローカルだけで管理するもの
 
@@ -15,6 +15,7 @@ typst_manual/
   README.md
   全体マニュアル/          原稿・完成PDF（Git管理）
   試作/                    図解などの試作原稿（Git管理）
+  操作ガイド/              セッション操作ガイドの原稿（Git管理。計画46・4Dで制作中）
   _local/                  以下はすべてローカル専用
     materials/             イラスト・背景・加工済み素材
       <冊子名>/

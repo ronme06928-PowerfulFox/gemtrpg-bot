@@ -1,8 +1,6 @@
 // manual_theme.typ — ジェムリアTRPG マニュアル共通テーマ
 // 使い方:  #import "manual_theme.typ": *   →  #show: manual-conf
 
-#let running_chapter = state("running_chapter", [ ])
-
 #let hr() = line(length: 100%, stroke: 0.8pt + luma(75%))
 
 #let box(body, title: none, kind: "rule") = {
@@ -51,8 +49,16 @@
 #let publication-conf(doc, header-label: none, footer-label: none) = {
   set page(paper: "a4", binding: left,
     margin: (inside: 24mm, outside: 20mm, top: 23mm, bottom: 23mm),
+    // 柱は、そのページで始まる章、なければ直前の章を示す。
+    // ヘッダーは本文より先に評価されるため、stateではなく見出しを検索する。
     header: context text(size: 8pt, fill: rgb("647080"))[
-      #if header-label == none { running_chapter.get() } else { header-label }
+      #if header-label != none { header-label } else {
+        let chapters = query(heading.where(level: 1))
+        let starting = chapters.filter(h => h.location().page() == here().page())
+        let started = chapters.filter(h => h.location().page() < here().page())
+        if starting.len() > 0 { starting.first().body }
+        else if started.len() > 0 { started.last().body }
+      }
     ],
     footer: context align(right, text(size: 8pt, fill: rgb("647080"))[
       #if footer-label != none [#footer-label　]#counter(page).display()
@@ -64,7 +70,6 @@
   show heading.where(level: 2): set text(size: 14pt, fill: rgb("246589"))
   show heading.where(level: 2): set block(above: 3.5mm, below: 1.5mm)
   show link: it => text(fill: rgb("246589"))[#underline(stroke: 0.6pt + rgb("246589"))[#it]]
-  show heading.where(level: 1): it => { running_chapter.update(it.body); it }
   doc
 }
 
