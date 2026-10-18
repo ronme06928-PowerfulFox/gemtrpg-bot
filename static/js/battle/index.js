@@ -28,59 +28,42 @@ import { declarePanel } from './components/DeclarePanel.js';
 import { resolveFlowPanel } from './components/ResolveFlowPanel.js?v=20260223_1';
 
 /**
- * 初期化処理
- * DOMContentLoaded後に実行し、socket.ioの準備完了を待つ
+ * DOM準備後に盤面の購読を開始する。Socketはログイン後に生成されるため待たない。
  */
 function initializeBattleSystem() {
     console.log('🚀 Battle System: Initializing...');
 
-    // SocketClient の初期化を試みる
-    // window.socket がまだ存在しない場合は、少し待ってリトライ
-    const tryInitSocket = (retryCount = 0) => {
-        if (socketClient.initialize()) {
-            console.log('✅ Battle System Phase 2: Core Modules Ready');
-
-            // 既存の battleState があれば Store に反映
-            if (window.battleState) {
-                store.initialize(window.battleState);
-            }
-            boardPresentationCoordinator.initialize();
-            // state_updated を Core Store 経由で受ける場合、盤面の再描画は
-            // VisualMap の購読が担う。初期化漏れがあると、フルリセット等で
-            // characters が空になっても画面だけ古い駒を表示し続けてしまう。
-            const visualMapInit = visualMap.initialize();
-            console.log(`VisualMap initialized: ${visualMapInit}`);
-
-            // Phase 3: Initialize UI Components
-            // Timeline: Check if container exists before initializing to avoid errors on non-visual tabs
-            const timelineContainer = document.getElementById('visual-timeline-list');
-            if (timelineContainer) {
-                const timelineInit = timeline.initialize();
-                console.log(`Timeline initialized: ${timelineInit}`);
-            } else {
-                console.log('Timeline initialization skipped (Container not found). Will be initialized by visual_main.js later.');
-            }
-
-            const actionDockInit = actionDock.initialize();
-            console.log(`ActionDock initialized: ${actionDockInit}`);
-            const declarePanelInit = declarePanel.initialize();
-            console.log(`DeclarePanel initialized: ${declarePanelInit}`);
-            const resolveFlowInit = resolveFlowPanel.initialize();
-            console.log(`ResolveFlowPanel initialized: ${resolveFlowInit}`);
-        } else if (retryCount < 20) {
-            // 100ms待ってリトライ（最大20回 = 2秒）
-            setTimeout(() => tryInitSocket(retryCount + 1), 100);
-        } else {
-            console.warn('⚠️ Battle System: Socket initialization pending. Will initialize when socket connects.');
+    const initializeComponents = () => {
+        // Socketが既にあれば登録する。未生成ならmain.jsの登録・接続処理が担う。
+        socketClient.initialize();
+        if (window.battleState) {
+            store.initialize(window.battleState);
         }
+        // Socketの有無にかかわらず購読し、遅延ログイン後の状態更新を受け取る。
+        boardPresentationCoordinator.initialize();
+        const visualMapInit = visualMap.initialize();
+        console.log(`VisualMap initialized: ${visualMapInit}`);
+
+        const timelineContainer = document.getElementById('visual-timeline-list');
+        if (timelineContainer) {
+            const timelineInit = timeline.initialize();
+            console.log(`Timeline initialized: ${timelineInit}`);
+        } else {
+            console.log('Timeline initialization skipped (Container not found). Will be initialized by visual_main.js later.');
+        }
+
+        const actionDockInit = actionDock.initialize();
+        console.log(`ActionDock initialized: ${actionDockInit}`);
+        const declarePanelInit = declarePanel.initialize();
+        console.log(`DeclarePanel initialized: ${declarePanelInit}`);
+        const resolveFlowInit = resolveFlowPanel.initialize();
+        console.log(`ResolveFlowPanel initialized: ${resolveFlowInit}`);
     };
 
-    // DOM準備完了を待ってから初期化
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => tryInitSocket());
+        document.addEventListener('DOMContentLoaded', initializeComponents, { once: true });
     } else {
-        // 既にDOMは準備完了しているが、socketは少し遅れる可能性がある
-        setTimeout(() => tryInitSocket(), 50);
+        initializeComponents();
     }
 }
 

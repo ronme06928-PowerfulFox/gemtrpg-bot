@@ -55,6 +55,10 @@
 
 ### 4.1 初期化フロー (`visual_main.js`)
 
+D11修正（2026-10-18）：`battle/index.js` はDOM準備後、Socketの有無に依存せずStore・`BoardPresentationCoordinator`・`VisualMap`の購読を初期化する。認証前のSocket待ちを打ち切った結果、盤面の状態が初期値で固定される経路をなくす。Socketの購読は既存の `main.js::initializeSocketIO` の登録・接続処理から `SocketClient.initialize()` で開始し、同一Socketへの再実行では重複登録しない。時間制限付きのポーリングは使わない。
+
+検証：旧リトライ期限を超えてからSocketを生成するNode回帰テストで、Storeには2スロットがあるのにCoordinatorは0スロットのままになることを修正前に再現。修正後は遅延ログイン・DOM前のSocket生成・モジュール読込前のSocket生成が成功し、再初期化でもSocket購読は増えない。ローカル通常ルーム・幅1265pxのPLでも、未ログイン画面で2秒以上経過後にログインし、再読込なしの入室で2スロットの表示と自分の宣言パネルの表示を確認した。関連11件と全件936 passed / 2 skipped、フロントエンドビルド・文字検査・差分検査が成功。ブラウザでの切断・再接続とモバイルは未確認。
+
 1. **DOMロード**: `setupVisualBattleTab()` が呼び出される。
 2. **コンポーネント初期化**: `TimelineComponent`, `ActionDockComponent`, `VisualMapComponent` 等の初期化関数を実行。
 3. **イベント登録**: `setupMapControls`, `setupVisualSidebarControls` でDOMイベントを設定。
