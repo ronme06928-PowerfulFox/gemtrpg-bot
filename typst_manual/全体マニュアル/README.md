@@ -44,9 +44,9 @@ typst compile "typst_manual/全体マニュアル/main.typ" "typst_manual/全体
 
 既存の`main.typ`と`main.pdf`を保持しながら、承認済みの章構成へ編集しています。章別レビュー版は全編の確認済み本文・刊行版ではありません。全編の入口は今後も`main.typ`を使用し、章のレビュー後に順次統合します。
 
-- `02_キャラクターを作る.typ`：第2章の初稿。ラティウムの作成通し例、探索技能12種、4スキルと取得予算、初期輝化、完成値を収録。他出身の全件表・戦い方の比較は後続の確認対象です。
+- `02_キャラクターを作る.typ`：第2章の初稿。ラティウムの作成通し例、探索技能12種、4スキルと取得予算、初期輝化、完成値を収録。作成に関わる他出身の補正3種類と戦い方の紹介も収録。全出身の表は第8章へ置く予定です。
 - `作成章レビュー.typ`：第2章だけを共通テーマで出力する入口。
-- [第2章レビューPDF](../../output/pdf/46_basic_character_creation.pdf)：全3ページ。出典・保持先・未確認範囲は[台帳§19](../../manuals/planned/46_Publication_Source_Inventory.md)を参照してください。
+- [第2章レビューPDF](../../output/pdf/46_basic_character_creation.pdf)：全4ページ。出典・保持先・未確認範囲は[台帳§19](../../manuals/planned/46_Publication_Source_Inventory.md)を参照してください。
 
 ```powershell
 typst compile --root typst_manual typst_manual/全体マニュアル/作成章レビュー.typ output/pdf/46_basic_character_creation.pdf
