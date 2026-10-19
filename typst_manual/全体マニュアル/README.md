@@ -51,3 +51,11 @@ typst compile "typst_manual/全体マニュアル/main.typ" "typst_manual/全体
 ```powershell
 typst compile --root typst_manual typst_manual/全体マニュアル/作成章レビュー.typ output/pdf/46_basic_character_creation.pdf
 ```
+
+- `03_探索と判定.typ`：第3章の初稿。場面進行、GM指定のダイス数、判定値と成否、会話例、秘密判定を収録。
+- `探索章レビュー.typ`：第3章だけを共通テーマで出力する入口。
+- [第3章レビューPDF](../../output/pdf/46_basic_exploration.pdf)：全2ページ。ルール・実装・未確認の区分は台帳§19.6〜19.7を参照してください。
+
+```powershell
+typst compile --root typst_manual typst_manual/全体マニュアル/探索章レビュー.typ output/pdf/46_basic_exploration.pdf
+```
