@@ -61,22 +61,22 @@
 | 24 | キャラ駒の枠画像デザイン | 保留 | 現行の着手対象外。設計確定済み・画像素材待ち |
 | 30 | ~~バランス検証シミュレータ~~ | — | **実装完了・計画書削除済み**。正本は`F03_Battle_Balance_Simulator_CLI.md` |
 | 35 | ホロウダンジョン（ハクスラ） | 保留 | 現行の着手対象外。設計ほぼ決定済み・計画36は実装完了 |
-| 36 | ~~キャラクター管理基盤（持ちキャラ）~~ | — | **実装完了・計画書削除済み**。正本は `F01_Operations_Manual.md` Part 9、`E02_UI_Component_Specs.md` Part 6、`A01`/`A02` 追補 |
+| 36 | ~~キャラクター管理基盤（持ちキャラ）~~ | — | **実装完了・計画書削除済み**。正本は `F01_Operations_Manual.md` Part 9、`E02_UI_Component_Specs.md` Part 6、`A01` §2・5 / `A02` §2.5 |
 | 37 | ~~キャラクタータグ・条件判定・PvE対象候補基盤~~ | — | **PR 1〜4実装完了・計画書削除済み**。正本は`A01`、`A02`、`C01`、`D01`、`E02` |
 | 38 | シナリオNo.2『瓦礫で鋳るは魔の鋼』制作タスク | 別チャットで進行 | 通しテストと公開準備を別フローで追跡する。本スレッドの着手順からは除外する。計画49の本番反映で通しテストの前提がそろった。敵5体・編成3つはローカルDBに作成済み、行動チャートは未設定（計画38 §8冒頭） |
 | 39 | ~~PvE行動チャート駆動スロット生成~~ | — | **実装・実機確認完了・計画書削除済み**。正本は`D01` Part 1 §6.10、`E02` Part 9 |
 | 40 | ~~召喚戦闘オブジェクト・シナリオスキル効果基盤~~ | — | **実装・実機確認完了・計画書削除済み**。正本は`B02` §9、`B03`追補、`C01` Part 15・16 |
 | 41 | スキル特記JSON記法図鑑・C01再編 | シナリオNo.2完成後に着手 | C01を唯一の正本のまま、読み方・キー図鑑・用途別レシピ・エラー診断へ再編する |
-| 42 | ~~戦闘専用プリセット管理ワークスペースUI~~ | — | **実装完了・計画書削除済み**。正本は`D01` Part 4、`E02` Part 10、`A01`/`A02`追補、`F01` Part 11 |
+| 42 | ~~戦闘専用プリセット管理ワークスペースUI~~ | — | **実装完了・計画書削除済み**。正本は`D01` Part 4、`E02` Part 10、`A01` 付録A / `A02` §4.3、`F01` Part 11 |
 | 43 | ユーザー検索・ルーム招待・通知基盤 | 主要方針整理済み・未実装 | 公開ユーザーコード、承認式ルーム招待、個人通知ログ、未読管理、ロビー通知UIを共通基盤として整備する |
 | 44 | ~~プリセット配置・管理UI再設計~~ | — | **実装完了・計画書削除済み**。正本は`D01` Part 5、`E02` Part 11、UI判断は`ui_design_decision_log.md` |
 | 45 | 外部協力者向けコンテンツ制作プログラム | 論点確定・文書執筆待ち | Tier A限定。計画47完了により永続化前提は満たした。残る実装は文書作業のみ |
 | 46 | 読者別マニュアル体系の再編 | **主作業**（着手済み） | 読者別入口・ルール本接続は完了。出版構成案（§13）の代表章を試作中。操作ガイド・GM編は戦闘突入の流れで書く |
 | — | ~~技術的負債の小タスク~~ | — | **完了**（2026-10-15）。`Query.get()`を`db.session.get()`へ置換（46箇所、`pytest.ini`で非推奨APIをエラー化）、ローカルSQLiteで外部キー制約を有効化（`F01`）、Flask非推奨の`JSON_AS_ASCII`を`app.json.ensure_ascii`へ置換。全件テストの警告1,157件→0件 |
 | — | ~~Python依存の全固定~~ | — | **完了**（`8cd7662`）。`requirements.txt`で間接依存まで固定し`tests/test_requirements_lock.py`で検査。依存更新の手順は`F01` Part 3 §7 |
-| 47 | ~~プリセット資産DB永続化・環境分離~~ | — | **実装完了・計画書削除済み**。正本は`D01` Part 6、`E02` Part 12、`F01` Part 12、`A02`追補 |
+| 47 | ~~プリセット資産DB永続化・環境分離~~ | — | **実装完了・計画書削除済み**。正本は`D01` Part 6、`E02` Part 12、`F01` Part 12、`A02` §4.4 |
 | 48 | 非行動スロット表示・行動チャート待機対応 | 実装完了 | 非行動アンカー、混乱時の宣言・解決抑止、`__NO_ACTION__`とひび割れ表示を実装。実機確認は計画38で行う |
-| 49 | ~~通常ルーム戦闘突入・戦闘終結管理~~ | — | **実装完了・計画書削除済み**。正本は`A02`追補（2026-09-08）、`B03` §5.0、`E02` Part 13 |
+| 49 | ~~通常ルーム戦闘突入・戦闘終結管理~~ | — | **実装完了・計画書削除済み**。正本は`A02` §2.2・§2.4、`B03` §5.0、`E02` Part 13 |
 | 31 | ~~スキルデータlint・相場自動集計~~ | — | **実装完了・計画書削除済み**。正本は `C01_JSON_Definition_Master.md` §12 |
 | 32 | ~~戦闘UI一本化（旧テキスト戦闘の廃止）~~ | — | **実装完了・計画書削除済み**。正本は `E01_Visual_Battle_Architecture.md` 追補 |
 | 33 | ~~`manager/utils.py` 分割~~ | — | **実装完了・計画書削除済み**。正本は `B01_Skill_Logic_Core.md` 追補 |
@@ -231,7 +231,7 @@ RoundStart再実行時の重複防止、step進行の一回性を実機確認済
 瓦礫死亡時の陣営別・非累積バフ、次ラウンド開始時の遅延召喚、フィールド上の瓦礫数に応じた強化、
 `E-33`〜`E-35`の自然言語JSON生成までコード基盤を実装済みで、確定JSONとキャッシュも反映済み。通常戦闘2・ボス戦の実機確認も完了。正本は`B02_Skill_Logic_Extensions.md` §9、`B03_SelectResolve_Spec.md`追補、`C01_JSON_Definition_Master.md` Part 15・16。
 
-### ~~49_Normal_Room_Combat_Entry_Conclusion_Plan.md~~ → 実装完了・削除済み（正本: `A02_GM_Creator_Manual.md` 追補2026-09-08、`B03_SelectResolve_Spec.md` §5.0、`E02_UI_Component_Specs.md` Part 13）
+### ~~49_Normal_Room_Combat_Entry_Conclusion_Plan.md~~ → 実装完了・削除済み（正本: `A02_GM_Creator_Manual.md` §2.2・§2.4、`B03_SelectResolve_Spec.md` §5.0、`E02_UI_Component_Specs.md` Part 13）
 
 通常ルームの戦闘画面に限り、GMが固有操作名「戦闘突入」と「戦闘終結」で戦闘セッションを区切る。探索パートの`mode`切替と戦闘専用モードは変更していない。終結時はHP・MP・FPと召喚体を維持しつつ、ラウンド制の一時状態・付与スキル・行動済み状態を初期化する。GMは`VICTORY`、`DEFEAT`、`RETREAT`、`INTERRUPTED`を選んで演出表示と記録を残し、参加キャラクター別の与ダメージ・被ダメージ累計も確認できる。
 
@@ -273,7 +273,7 @@ JSON定義の正本を増やさず、`C01_JSON_Definition_Master.md`を「はじ
 
 ### ~~42_Battle_Only_Preset_Workspace_UI_Plan.md~~ → 実装完了・削除済み
 
-正本は`D01_Play_Mode_Specs.md` Part 4、`E02_UI_Component_Specs.md` Part 10、`A01`/`A02`追補、`F01_Operations_Manual.md` Part 11へ統合した。
+正本は`D01_Play_Mode_Specs.md` Part 4、`E02_UI_Component_Specs.md` Part 10、`A01` 付録A / `A02` §4.3、`F01_Operations_Manual.md` Part 11へ統合した。
 
 ### 43_User_Invitation_Notification_Plan.md（ユーザー検索・ルーム招待・通知基盤）
 
@@ -319,7 +319,7 @@ Tier B（`X-`提案ID名前空間、Contribution Pack形式、検証CLI、計画
 各読者に必要な内容の一覧（①16項目／②12項目／③12項目）を充足状況付きで§5に整理済み。
 計画45はA・Bの直後に着手でき、C以降の再編を待たない。
 
-### ~~36_Character_Management_Plan.md~~ → 実装完了・削除済み（正本: `F01_Operations_Manual.md` Part 9、`E02_UI_Component_Specs.md` Part 6、`A01`/`A02` 追補）
+### ~~36_Character_Management_Plan.md~~ → 実装完了・削除済み（正本: `F01_Operations_Manual.md` Part 9、`E02_UI_Component_Specs.md` Part 6、`A01` §2・5 / `A02` §2.5）
 
 キャラ作成ツール（`CharaCreator/GEMDICEBOT_CharaCreator.html`）をダイスボット本体へ統合し、アカウント紐づけの
 「持ちキャラ」を作成・保存・管理できるようにする基盤機能。Phase 1〜5すべて実装完了（2026-07-12）:
