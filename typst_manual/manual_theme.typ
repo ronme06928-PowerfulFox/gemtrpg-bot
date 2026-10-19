@@ -69,6 +69,12 @@
   show heading.where(level: 1): set text(size: 23pt)
   show heading.where(level: 2): set text(size: 14pt, fill: rgb("246589"))
   show heading.where(level: 2): set block(above: 3.5mm, below: 1.5mm)
+  // 目次・しおりの見出し文字列には装飾を含めない。
+  show heading.where(level: 2): it => block(sticky: true, grid(
+    columns: (1.8mm, 1fr), column-gutter: 2.2mm, align: horizon,
+    circle(radius: 0.9mm, fill: rgb("246589"), stroke: none),
+    it.body,
+  ))
   show link: it => text(fill: rgb("246589"))[#underline(stroke: 0.6pt + rgb("246589"))[#it]]
   doc
 }
