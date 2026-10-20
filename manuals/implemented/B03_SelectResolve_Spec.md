@@ -1,7 +1,7 @@
 <!-- 旧: 09_SelectResolve_Spec.md を B 系列へ移管 (2026-05-09) -->
 # 09 Select/Resolve 確定仕様書 v1.2
 
-**最終更新日**: 2026-09-08
+**最終更新日**: 2026-10-20
 **文書バージョン**: v1.7
 **対象実装**: `events/battle/common_routes.py` / `manager/battle/common_manager.py` / `manager/battle/core.py`
 **版注記**: 本更新で v1.6 相当の仕様差分（`same_team/opposing_team` 記法と同陣営指定タグの固定ルール）を反映
@@ -56,7 +56,7 @@ RoundStart は次の順序で処理する。
 - 選択可能なのは行動可能キャラクターのみ（混乱・行動不能は除外）。
 - 対象キャラクターの全スロットに対し `skill_id` と `target` を選択する。
 - Resolve への進行は全対象スロットの `commit` 完了時のみ。
-- `instant` タグのスキルは `commit` 時に即時発動し、スロットを消費しない（Resolve 対象外）。
+- `instant` タグのスキルは `commit` 時に即時発動し、スロットを消費しない（Resolve 対象外）。基本は1キャラクターにつき1ラウンドに1回（2026-10-20ユーザー裁定、計画46 D20）。
 - 目標指定は全公開矢印として可視化する。
 - `required slots` は「行動可能かつ未消費」のスロットのみ。行動不能者や `committed+instant` は Resolve 必須条件から除外する。
 
@@ -80,10 +80,10 @@ RoundStart は次の順序で処理する。
 - `battle_resolve_confirm` は `GM` 専用。通常ルームの `battle_resolve_start` も `GM` 専用。
 - `battle_resolve_flow_advance_request` は、後述する共有 Resolve presentation の進行役だけが実行できる。
 
-## 6. redirect（自動、init(A)>init(B)でB.target=A、競合は最大initiativeが最終勝者・後から再上書き、同速不可、マッチできなくなった側はone-sided）
-- A が単体で B（相手スロット）を target にして commit したとき、`initiative(A) > initiative(B)` なら `B.target = A` に自動変更する。
-- 同一 B への redirect 競合は、最大 initiative を持つスロットが最終勝者となる。
-- 後から到着したより高 initiative の redirect は再上書き可能。
+## 6. redirect（自動、init(A)>init(B)でB.target=A、競合は条件を満たす最後の宣言が最終勝者、同速不可、マッチできなくなった側はone-sided）
+- 宣言の確定・取り消しごとに全体の redirect を再計算する。A が単体で B（相手スロット）を target にする宣言によって、`initiative(A) > initiative(B)` 等の条件を満たせば `B.target = A` に自動変更する。
+- 同一 B への redirect 競合は、各候補が `init(A)>init(B)` 等の引き寄せ条件を満たす場合、最後に宣言したスキルがマッチを取る。候補同士の最大 initiative では決めない（2026-10-20ユーザー裁定、計画46 D16）。
+- 後の宣言がBへの引き寄せ条件を満たせば再上書き可能。先の候補Aより速い必要はない。
 - 同速（`initiative(A) == initiative(B)`）では redirect 不可。
 - redirect の結果、相互指定を失ってマッチできなくなった側は `one-sided` として実行する（対象が盤面に残る限り）。
 - 例外: B が「広域スロット（`mass_individual` / `mass_summation`）」を単体 target 中なら、その target は redirect で横取りしない（広域対決の安定化）。
@@ -115,7 +115,7 @@ RoundStart は次の順序で処理する。
 - それ以外の関連解決は `one-sided` とする。
 
 実行時判定:
-- コスト消費は「通常解決では実行時」が原則（`mass` は Resolve開始時に先払い）。
+- コスト消費は「通常解決では実行時」が原則（`mass` は Resolve開始時に先払い）。コストを支払ってから使用時の効果を処理する（2026-10-20ユーザー裁定、計画46 D18）。
 - 対象消失は「理由を問わず未配置（盤面から消失）」として扱う。
 - 実行時に対象が未配置なら不発（`fizzle`）とする。
 
@@ -186,7 +186,7 @@ Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSE
 - 各対象について、その対象側が S を target にしているスロットがあれば `clash`。
 - 複数該当時は initiative 最大の1スロットのみ採用。
 - 該当なしは `one-sided`。
-- `mass` スロット自身の通常コストは Resolve 開始時に1回だけ先払いする（`cost_consumed_at_resolve_start=true` で二重消費防止）。
+- `mass` スロット自身の通常コストは Resolve 開始時に1回だけ先払いする（`cost_consumed_at_resolve_start=true` で二重消費防止）。`clash` でも二度目の支払いはしない（2026-10-20ユーザー裁定、計画46 D19）。
 
 ### 10.2 mass_summation：攻撃側威力A、参加は"Sをtargetしているスロットのみ"、1キャラ1スロット（initiative最大）、D=合計、A vs D
 - 攻撃側スロット S の威力を A とする。
