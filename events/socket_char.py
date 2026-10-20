@@ -8,7 +8,9 @@ from flask import request, session
 from flask_socketio import emit
 
 # 拡張機能とマネージャーからのインポート
-from extensions import socketio, all_skill_data
+from extensions import db, socketio, all_skill_data
+from models import User
+from manager.battle.action_slot_mode import is_character_deployed
 from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_state_update,
     broadcast_log, get_user_info_from_sid, _update_char_stat, set_character_owner,
@@ -546,9 +548,7 @@ def handle_transfer_character_ownership(data):
     room = data.get('room')
     char_id = data.get('character_id')
     new_owner_id = data.get('new_owner_id')
-    new_owner_name = data.get('new_owner_name')
-
-    if not room or not char_id or not new_owner_id or not new_owner_name:
+    if not room or not char_id or not new_owner_id:
         return
     if not _require_in_room(room):
         return
@@ -573,11 +573,25 @@ def handle_transfer_character_ownership(data):
         emit('transfer_error', {'message': '権限がありません。'}, to=request.sid)
         return
 
-    # 所有権を更新
+    new_owner = db.session.get(User, new_owner_id)
+    if new_owner is None:
+        emit('transfer_error', {'message': '譲渡先のユーザーが見つかりません。'}, to=request.sid)
+        return
+    new_owner_name = new_owner.name
+    new_owner_id = new_owner.id
+
+    # 本体と、直接呼び出した配置済み召喚体を同じ所有者へ移す。
     old_owner = char.get('owner', '不明')
-    char['owner'] = new_owner_name
-    char['owner_id'] = new_owner_id
-    state.setdefault('character_owners', {})[char_id] = new_owner_name
+    transfer_targets = [char] + [
+        summoned for summoned in state['characters']
+        if summoned.get('is_summoned') and summoned.get('summoner_id') == char_id
+        and is_character_deployed(summoned)
+    ]
+    owners = state.setdefault('character_owners', {})
+    for target in transfer_targets:
+        target['owner'] = new_owner_name
+        target['owner_id'] = new_owner_id
+        owners[target['id']] = new_owner_name
 
     print(f"Character ownership transferred: {char.get('name')} from {old_owner} to {new_owner_name}")
 
