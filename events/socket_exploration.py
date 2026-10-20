@@ -8,6 +8,7 @@ from manager.room_manager import (
 from manager.room_access import is_sid_in_room, sid_has_room_role, GM_ROLES
 import logging
 import random
+from html import escape
 
 logger = logging.getLogger(__name__)
 
@@ -141,12 +142,12 @@ def handle_exploration_roll(data):
     result_html = ""
     if difficulty > 0:
         if total_val >= difficulty:
-            result_html = '<span style="color:#1e90ff; font-weight:bold;">【SUCCESS】</span>'
+            result_html = '<strong>【SUCCESS】</strong>'
         else:
-            result_html = '<span style="color:#e53935; font-weight:bold;">【FAILURE】</span>'
+            result_html = '<strong>【FAILURE】</strong>'
 
     # ログメッセージ構築
-    log_msg = f"{char_name} の {skill_name}判定:<br>{dice_count}d6({dice_total}) + Lv{skill_level} = {total_val}"
+    log_msg = f"{escape(str(char_name))} の {escape(str(skill_name))}判定:<br>{dice_count}d6({dice_total}) + Lv{skill_level} = {total_val}"
     if difficulty > 0:
         log_msg += f" (目標:{difficulty}) -> {result_html}"
 

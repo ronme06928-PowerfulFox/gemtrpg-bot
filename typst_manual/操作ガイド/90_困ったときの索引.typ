@@ -61,7 +61,7 @@
   [解決が進まない], [#answer-page(<help-pl3>)],
   [探索判定でキャラクターを選べない], [#answer-page(<help-pl3>)],
   [探索判定のダイス数が分からない], [#answer-page(<help-pl3>)],
-  [探索判定の成否に記号や文字列が混ざる], [#answer-page(<help-pl3>)],
+  [探索判定に成否が出ない], [#answer-page(<help-pl3>)],
 )
 ]
 
