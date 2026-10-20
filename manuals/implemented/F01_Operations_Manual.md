@@ -1067,3 +1067,5 @@ python scripts/export_legacy_preset_package.py --source data/cache/battle_only_p
 ### キャラクター所有権の譲渡（2026-10-21 C2）
 
 譲渡は本人またはGMが行う。サーバーはnew_owner_idからUser.nameを取得し、画面のnew_owner_nameは信用しない。存在しないIDは状態変更せず拒否する。本体に加え、summoner_idが本体idと一致する盤面上の召喚体のowner・owner_id・character_ownersを同じ持ち主へ更新する。別の召喚者の召喚体や未配置の召喚体は変更しない。
+
+「全ユーザーから選択」は管理者APIの応答 `{users: [...]}` のusersを表示する。同じルームの一覧APIは配列を直接返すため、その配列を表示する。全ユーザーAPIの管理者権限は従来どおり必要である。

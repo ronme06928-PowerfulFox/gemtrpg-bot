@@ -1947,8 +1947,9 @@ window.openTransferOwnershipModal = function (charId, mode) {
 
     fetchWithSession(fetchUrl)
         .then(res => res.json())
-        .then(users => {
-            if (!users || users.length === 0) {
+        .then(payload => {
+            const users = mode === 'all' ? payload.users : payload;
+            if (!Array.isArray(users) || users.length === 0) {
                 userListContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">ユーザーが見つかりません。</div>';
                 return;
             }
