@@ -226,6 +226,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     preview = calculate_skill_preview(attacker_char, defender_char, attacker_skill_data, context=context)
     final_command = (preview or {}).get('final_command') or "0"
     roll_result = roll_dice(final_command)
+    _consume_fear_dice_reduction(room, attacker_char, preview)
     base_damage = int(roll_result.get('total', 0))
     power_snapshot = build_power_result_snapshot(preview, roll_result)
 
@@ -1019,6 +1020,13 @@ def _resolve_hard_attack_followup(
 
 
 
+def _consume_fear_dice_reduction(room, actor, preview):
+    reduction = int((preview or {}).get('senritsu_dice_reduction', 0) or 0)
+    if reduction > 0:
+        current = int(get_status_value(actor, "戦慄") or 0)
+        _update_char_stat(room, actor, "戦慄", max(0, current - reduction), username="[戦慄消費]")
+
+
 def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
     if not isinstance(intents_override, dict):
         intents_override = battle_state.get('__resolve_intents_override')
@@ -1113,6 +1121,7 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
                 preview = calculate_skill_preview(attacker_char, defender_char or attacker_char, skill_data, context=context)
                 final_command = (preview or {}).get('final_command') or "0"
                 total = int((roll_dice(final_command) or {}).get('total', 0) or 0)
+                _consume_fear_dice_reduction(room_name, attacker_char, preview)
                 logger.info(
                     "[roll_power_slot] slot=%s skill=%s command=%s total=%s mode=preview target_slot=%s",
                     slot_id, skill_id, final_command, total, target_slot_id
