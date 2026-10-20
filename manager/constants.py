@@ -43,5 +43,5 @@ class DamageSource:
         return display_names.get(source, source)
 
 
-THORNS_DAMAGE_CATS = {"物理", "魔法", "補助"}
+THORNS_DAMAGE_CATS = {"物理", "魔法"}
 THORNS_SAFE_CATS = {"防御", "回避"}

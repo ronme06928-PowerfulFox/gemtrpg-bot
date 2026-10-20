@@ -192,7 +192,7 @@ THORNS_DAMAGE_CATS = {"物理", "魔法"}
 THORNS_SAFE_CATS   = {"防御", "回避"}
 ```
 
-処理は通常マッチ（`duel_solver.py`）・広域戦闘（`wide_solver.py`）の両方で行われる。  
+処理は通常マッチ（`duel_solver.py`）・広域戦闘（`wide_solver.py`）・一方攻撃（`resolve_match_runtime.py`）・広域合算（`resolve_auto_mass_phase.py`）すべてで共通の `THORNS_DAMAGE_CATS` を使う。補助は自傷対象外（D23、作業B4）。
 ラウンド終了時の自動減衰は**ない**（スキル使用時消滅に一本化）。
 
 Select/Resolve では、荊棘処理はマッチ結果確定後の `END_MATCH` / `WIN` / `LOSE` の後、スキルダメージ判定用の状態参照より前に行う。したがって、`END_MATCH` / `WIN` / `LOSE` で付与された荊棘重絡は同じマッチの荊棘消滅を肩代わりできるが、`HIT` で付与された荊棘重絡はそのマッチの荊棘消滅には間に合わない。
