@@ -444,7 +444,8 @@ def _resolve_clash_by_existing_logic(
     attacker_char,
     defender_char,
     attacker_skill_data,
-    defender_skill_data
+    defender_skill_data,
+    attacker_apply_cost=True,
 ):
     """
     Delegate clash resolution to existing duel solver:
@@ -559,6 +560,7 @@ def _resolve_clash_by_existing_logic(
         'commandD': command_d,
         'skillIdA': skill_id_a,
         'skillIdD': skill_id_d,
+        'applyCostA': attacker_apply_cost,
         'senritsuPenaltyA': int((preview_a or {}).get('senritsu_dice_reduction', 0)),
         'senritsuPenaltyD': int((preview_d or {}).get('senritsu_dice_reduction', 0)),
     }
@@ -799,7 +801,7 @@ def _resolve_clash_by_existing_logic(
     if power_d is None and isinstance(snapshot_d, dict):
         power_d = _safe_int(snapshot_d.get('final_power', 0), 0)
 
-    cost_a = _estimate_cost_for_skill_from_snapshot(before_a, attacker_skill_data)
+    cost_a = _estimate_cost_for_skill_from_snapshot(before_a, attacker_skill_data) if attacker_apply_cost else {}
     cost_d = _estimate_cost_for_skill_from_snapshot(before_d, defender_skill_data)
     total_cost = {
         'mp': int(cost_a.get('mp', 0)) + int(cost_d.get('mp', 0)),

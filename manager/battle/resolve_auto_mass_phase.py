@@ -573,7 +573,8 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                             attacker_char=attacker_char,
                             defender_char=defender_char,
                             attacker_skill_data=attacker_skill_data,
-                            defender_skill_data=defender_skill_data
+                            defender_skill_data=defender_skill_data,
+                            attacker_apply_cost=not bool(intent.get('cost_consumed_at_resolve_start', False)),
                         )
                         clash_ok = bool((clash_delegated or {}).get('ok', False))
                         clash_summary = clash_delegated.get('summary', {}) if clash_ok else {}

@@ -488,7 +488,7 @@ def execute_duel_match(room, data, username):
                 try:
                     rd = rule_json_str_a if isinstance(rule_json_str_a, dict) else json.loads(str(rule_json_str_a))
                     effects_array_a = rd.get("effects", [])
-                    if "free_cost" not in skill_data_a.get("tags", []):
+                    if data.get('applyCostA', True) and "free_cost" not in skill_data_a.get("tags", []):
                         for cost in rd.get("cost", []):
                             c_val = int(cost.get("value", 0))
                             if c_val > 0:

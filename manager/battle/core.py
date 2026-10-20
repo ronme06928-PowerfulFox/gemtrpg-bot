@@ -617,7 +617,8 @@ def _resolve_clash_by_existing_logic(
     attacker_char,
     defender_char,
     attacker_skill_data,
-    defender_skill_data
+    defender_skill_data,
+    attacker_apply_cost=True,
 ):
     _sync_resolve_match_runtime_deps()
     return _resolve_match_runtime_mod._resolve_clash_by_existing_logic(
@@ -627,6 +628,7 @@ def _resolve_clash_by_existing_logic(
         defender_char,
         attacker_skill_data,
         defender_skill_data,
+        attacker_apply_cost=attacker_apply_cost,
     )
 
 
