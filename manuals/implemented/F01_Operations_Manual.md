@@ -703,9 +703,9 @@ sessionには `user_id`、`auth_version`、必要最小限の状態だけを置�
 | `/load_room` | 有効membership（`room_members`）または入室済みsession |
 | `/save_room` | 有効membership（owner/在室参加者）。全状態上書きは将来廃止予定 |
 | ルーム設定更新 | owner=全項目 / gm=募集状態のみ |
-| ルーム削除 | 現実装は認証済み＋管理者、または有効なGM PIN/マスターキー。owner membership検証の欠落は台帳D15 |
+| ルーム削除 | 認証済み＋owner membership＋有効なGM PIN/マスターキー。アプリ管理者はPIN不要（D15修正済み） |
 
-ルーム削除のロビーボタンはowner/管理者だけに表示されるが、`routes/room.py::delete_room`にはowner membershipの照合がない。画面の表示制限とサーバーの認可境界を同一視しない。修正は別作業とし、今回アプリコードは変更しない。
+ルーム削除のロビーボタンとサーバーの認可はowner/アプリ管理者に限定する。`routes/room.py::delete_room` はowner以外を正しいPINでも拒否し、DB・メモリ・保存予約を変更しない（D15、作業B7）。
 
 未参加者向けロビーカードに `owner_id`・参加者一覧・ログ・キャラクター・画像URL・参加コードを含めない。
 

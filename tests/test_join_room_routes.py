@@ -250,3 +250,30 @@ def test_app_admin_deletes_room_without_gm_pin(client):
     r = client.post("/delete_room", json={"room_name": "R1"})
     assert r.status_code == 200
     assert Room.query.filter_by(name="R1").first() is None
+
+
+@pytest.mark.parametrize("user,key,status", [
+    ("owner", "good", 200), ("owner", "wrong", 403),
+    ("gm1", "good", 403), ("player1", "good", 403),
+    ("stranger", "good", 403), ("admin", "", 200),
+])
+def test_delete_room_requires_owner_and_pin_or_app_admin(client, monkeypatch, user, key, status):
+    from extensions import active_room_states
+    from routes import room as room_routes
+    from manager import room_manager
+    state = {"characters": [{"id": "keep"}]}
+    monkeypatch.setitem(active_room_states, "R1", state)
+    discarded = []
+    monkeypatch.setattr(room_manager, "discard_pending_save", lambda name: discarded.append(name))
+    monkeypatch.setattr(room_routes, "verify_room_gm_key", lambda _room, provided: provided == "good")
+    _login(client, user)
+    response = client.post("/delete_room", json={"room_name": "R1", "gm_pin": key})
+    assert response.status_code == status
+    if status == 403:
+        assert Room.query.filter_by(name="R1").first() is not None
+        assert active_room_states["R1"] is state
+        assert discarded == []
+    else:
+        assert Room.query.filter_by(name="R1").first() is None
+        assert "R1" not in active_room_states
+        assert discarded == ["R1"]

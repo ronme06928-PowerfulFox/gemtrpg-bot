@@ -178,7 +178,7 @@ def create_room():
 @room_bp.route('/delete_room', methods=['POST'])
 @session_required
 def delete_room():
-    """ルーム削除 - オーナーまたはGMのみ許可"""
+    """ルーム削除 - オーナーとアプリ管理者のみ許可"""
     data = request.get_json(silent=True) or {}
     room_name = data.get('room_name')
     gm_key = data.get('gm_pin') or data.get('gm_key') or ''
@@ -188,8 +188,11 @@ def delete_room():
     if not room:
         return jsonify({"error": "Room not found"}), 404
 
-    # アプリ管理者は全ルームを管理できる。通常ユーザーは従来どおり
-    # GM PIN/マスターキーでロビー操作を認証する。
+    owner_error = _require_room_owner(room_name)
+    if owner_error:
+        return owner_error
+
+    # オーナーはPIN/マスターキーも必須。アプリ管理者は全ルームを管理できる。
     if not is_user_management_admin(session.get('user_id')) and not verify_room_gm_key(room, gm_key):
         return jsonify({"error": "GM PINまたはマスターキーが正しくありません"}), 403
 
