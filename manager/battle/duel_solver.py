@@ -790,8 +790,7 @@ def execute_duel_match(room, data, username):
                     if extra_hit_dmg > 0:
                         damage_report['A'].append({'source': 'on_hit', 'value': extra_hit_dmg})
                     final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
-                    if any(b.get('name') == "混乱" for b in actor_a_char.get('special_buffs', [])):
-                         final_damage = int(final_damage * 1.5); log_snippets.append("混乱")
+                    final_damage = _apply_total_damage_multiplier(actor_d_char, actor_a_char, final_damage, log_snippets)
                     _update_char_stat(room, actor_a_char, 'HP', actor_a_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS, damage_context=_damage_context_for(actor_d_char, DamageSource.MATCH_LOSS))
                     buff_dmg = process_on_damage_buffs(room, actor_a_char, final_damage, username, log_snippets, attacker_char=actor_d_char)
                     if buff_dmg > 0:
@@ -817,8 +816,7 @@ def execute_duel_match(room, data, username):
                         damage_report['D'].append({'source': 'on_hit', 'value': extra_hit_dmg})
 
                     final_damage = damage + kiretsu + bonus_damage + extra_hit_dmg
-                    if any(b.get('name') == "混乱" for b in actor_d_char.get('special_buffs', [])):
-                        final_damage = int(final_damage * 1.5); log_snippets.append("混乱")
+                    final_damage = _apply_total_damage_multiplier(actor_a_char, actor_d_char, final_damage, log_snippets)
 
                     _update_char_stat(room, actor_d_char, 'HP', actor_d_char['hp'] - final_damage, username=username, source=DamageSource.MATCH_LOSS, damage_context=_damage_context_for(actor_a_char, DamageSource.MATCH_LOSS))
                     buff_dmg = process_on_damage_buffs(room, actor_d_char, final_damage, username, log_snippets, attacker_char=actor_a_char)
