@@ -957,7 +957,7 @@ GET /api/room/export_logs?room_name=<room>&format=text
 - `compute_used_exp(data)`: `data.commands`から`【スキルID 表示名】`パターンでスキルIDを抽出し（正規表現はCharaCreatorの`restoreFromCommands()`と同一）、スキルマスター（`extensions.all_skill_data`）の`取得コスト`フィールドを合算する。出身6（ラグラゼシス都市部）のみ、魔法カテゴリ（IDが`Ms`/`Mb`/`Mp`で始まる）スキルの先頭コスト1点分を割引く。
 - `compute_param_growth_spent(growth_log)`: 既存APIのパラメータ上昇に使った経験値の累計（現行成長画面に入力欄はない）。パラメータ上昇は`commands`に現れないため、`growth_log`の`kind=='growth'`エントリの`param_increases`を合算して求める。
 - `used_exp`（API応答）= `compute_used_exp(data)` + `compute_param_growth_spent(growth_log)`。`remaining_exp` = `exp_total - used_exp`。
-- `skill_exp_budget`（API応答）= `exp_total - compute_param_growth_spent(growth_log)`。CharaCreator側の`costMax`（経験欄）に渡すべき値であり、**`remaining_exp`をそのまま渡してはいけない**（CharaCreator自身が「現在選択中のスキル」のコストを含めて上限判定するため、`remaining_exp`を渡すと既存スキルのコストを二重に差し引いてしまう）。
+- `skill_exp_budget`（API応答）= `exp_total - compute_param_growth_spent(growth_log)`。取得済みスキルのコストを含む上限であり、残り経験値ではない。現行CharaCreatorはこれを経験欄へ入れ、シナリオ経験を0にするが、これは内訳を失わせる不具合D31（計画46台帳§19.24）である。2026-10-21ユーザー確認では、経験は元の能力値のまま保持し、シナリオ経験を別枠で表示・保存する。`remaining_exp`の直接代入も、取得済みコストの二重控除になるため修正案にはしない。アプリの修正は後続。
 
 ### `POST /api/owned_characters/<id>/growth`
 

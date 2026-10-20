@@ -1,6 +1,6 @@
 # 卓上ルール本の案内
 
-最終更新: 2026-10-20
+最終更新: 2026-10-21
 
 [読者別マニュアル入口へ戻る](../../manuals/START_HERE.md)
 
@@ -85,4 +85,12 @@ typst compile --root typst_manual typst_manual/全体マニュアル/戦闘裁�
 
 ```powershell
 typst compile --root typst_manual typst_manual/全体マニュアル/特殊効果章レビュー.typ output/pdf/46_basic_status_effects.pdf
+```
+
+- `07_セッションの終わりと成長.typ`：第7章初稿。報酬・経験とシナリオ経験の別枠管理・二つの取得予算・継続使用・HP0後の判断・成果反映との分担を収録。
+- `成長章レビュー.typ`：第7章だけを共通テーマで出力する入口。
+- [第7章レビューPDF](../../output/pdf/46_basic_growth.pdf)：全4ページ・6図。項目別照合・D31・D08の選択肢・75件の関連検証は台帳§19.23〜19.26。D08は未裁定で、本文はシナリオ・GM判断としています。2026-10-21確認に合わせ、第2章の取得予算説明と操作ガイドPL 4の参照先も更新しました。旧mainへの統合は後続です。
+
+```powershell
+typst compile --root typst_manual typst_manual/全体マニュアル/成長章レビュー.typ output/pdf/46_basic_growth.pdf
 ```
