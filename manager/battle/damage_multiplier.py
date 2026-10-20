@@ -59,6 +59,8 @@ def compute_damage_multipliers(attacker, defender, context=None, check_condition
     for buff in (defender or {}).get('special_buffs', []):
         if not isinstance(buff, dict):
             continue
+        if buff.get('delay', 0) > 0:
+            continue
         buff_name = str(buff.get('name', '') or '').strip()
         condition = _resolve_buff_condition_value(buff)
         if condition and callable(check_condition_fn) and not check_condition_fn(condition, defender, attacker, context=context):
@@ -78,6 +80,8 @@ def compute_damage_multipliers(attacker, defender, context=None, check_condition
 
     for buff in (attacker or {}).get('special_buffs', []):
         if not isinstance(buff, dict):
+            continue
+        if buff.get('delay', 0) > 0:
             continue
         buff_name = str(buff.get('name', '') or '').strip()
         condition = _resolve_buff_condition_value(buff)
