@@ -26,6 +26,7 @@ def _update_stat(room, char, stat, new_value, **_kwargs):
 
 def _setup(monkeypatch, *, mass=True, participants=1):
     from manager import room_manager
+    from manager.battle import runtime_actions
     chars = [_make_actor('A1', 'ally')] + [_make_actor(f'B{i}', 'enemy') for i in range(1, participants + 2)]
     for char in chars:
         char['states'] = [{'name': 'FP', 'value': 20}]
@@ -42,6 +43,7 @@ def _setup(monkeypatch, *, mass=True, participants=1):
     _patch_room_and_socket(monkeypatch, state)
     monkeypatch.setattr(room_manager, 'get_room_state', lambda _room: state)
     monkeypatch.setattr(room_manager, 'save_specific_room_state', lambda _room: True)
+    monkeypatch.setattr(runtime_actions, 'get_room_state', lambda _room: state)
     catalog = {'COST_A': _skill('COST_A', 10, fp=2, mp=3), 'COST_B': _skill('COST_B', 15, fp=1, mp=2)}
     monkeypatch.setattr(core, 'all_skill_data', catalog)
     monkeypatch.setattr(core, '_update_char_stat', _update_stat)
@@ -86,3 +88,57 @@ def test_single_clash_still_pays_both_sides_once(monkeypatch):
     assert _state_value(a, 'FP') == 18
     assert b['mp'] == 48
     assert any(t['kind'] == 'clash' for t in state['battle_state']['resolve']['trace'])
+
+
+@pytest.mark.parametrize('kind', ['one_sided', 'clash'])
+@pytest.mark.parametrize('resource', ['FP', 'MP'])
+def test_use_effects_read_resources_after_payment(monkeypatch, kind, resource):
+    state, _routes = _setup(monkeypatch, mass=False)
+    if kind == 'one_sided':
+        state['battle_state']['intents']['B1']['skill_id'] = None
+    for skill in core.all_skill_data.values():
+        rule = skill['rule_data']
+        rule['effects'] = [
+            {
+                'timing': timing, 'type': 'APPLY_STATE_PER_N', 'target': 'self',
+                'source': 'self', 'source_param': resource, 'per_N': 1,
+                'state_name': f'seen_{timing}', 'value': 1,
+            }
+            for timing in ['PRE_MATCH', 'BEFORE_POWER_ROLL']
+        ]
+        skill['特記処理'] = json.dumps(rule)
+    state['battle_state']['phase'] = 'resolve_single'
+    core.run_select_resolve_auto('room_t', 'battle_test')
+    a, b = state['characters'][:2]
+    for timing in ['PRE_MATCH', 'BEFORE_POWER_ROLL']:
+        assert _state_value(a, f'seen_{timing}') == (18 if resource == 'FP' else 47)
+        if kind == 'clash':
+            assert _state_value(b, f'seen_{timing}') == (19 if resource == 'FP' else 48)
+    assert a['mp'] == 47
+    traces = state['battle_state']['resolve']['trace']
+    assert not any('delegate_error' in str(t) for t in traces)
+    assert sum(t.get('cost', {}).get('mp', 0) for t in traces) == (3 if kind == 'one_sided' else 5)
+
+
+@pytest.mark.parametrize('reason', ['target_missing', 'defense_evade', 'evade_evade'])
+def test_cancelled_single_skills_do_not_pay_or_run_use_effects(monkeypatch, reason):
+    state, _routes = _setup(monkeypatch, mass=False)
+    a, b = state['characters'][:2]
+    if reason == 'target_missing':
+        b['x'] = -1
+        state['battle_state']['intents']['B1']['skill_id'] = None
+    else:
+        for sid, category in [('COST_A', '防御' if reason == 'defense_evade' else '回避'), ('COST_B', '回避')]:
+            core.all_skill_data[sid]['分類'] = category
+            core.all_skill_data[sid]['tags'] = ['守備', category]
+    for skill in core.all_skill_data.values():
+        rule = skill['rule_data']
+        rule['effects'] = [{'timing': 'PRE_MATCH', 'type': 'APPLY_STATE', 'target': 'self', 'state_name': 'used_effect', 'value': 1}]
+        skill['特記処理'] = json.dumps(rule)
+    state['battle_state']['phase'] = 'resolve_single'
+    core.run_select_resolve_auto('room_t', 'battle_test')
+    for char in [a, b]:
+        assert char['mp'] == 50
+        assert _state_value(char, 'FP') == 20
+        assert _state_value(char, 'used_effect') == 0
+    assert any(t['kind'] == 'fizzle' for t in state['battle_state']['resolve']['trace'])

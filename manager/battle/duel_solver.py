@@ -23,7 +23,7 @@ from manager.battle.core import (
     execute_pre_match_effects, proceed_next_turn, format_skill_name_for_log,
     process_on_hit_buffs
 )
-from manager.battle.skill_rules import _resolve_skill_role
+from manager.battle.skill_rules import _resolve_skill_role, _extract_rule_data_from_skill
 from manager.battle.duel_log_utils import format_duel_result_lines
 from manager.summons.service import apply_summon_change
 from manager.granted_skills.service import apply_grant_skill_change, consume_granted_skill_use
@@ -401,6 +401,26 @@ def handle_skill_declaration(room, data, username):
 
     _safe_emit('skill_declaration_result', result_data, to=room)
 
+def _consume_duel_skill_cost(room, actor, skill_data):
+    """Pay once before use effects; granted-skill usage is recorded by the caller."""
+    spent = {'hp': 0, 'mp': 0, 'fp': 0}
+    if 'free_cost' in skill_data.get('tags', []):
+        return spent
+    rule_data = _extract_rule_data_from_skill(skill_data)
+    skill_id = skill_data.get('id') or skill_data.get('スキルID')
+    for cost in rule_data.get('cost', []):
+        value = int(cost.get('value', 0))
+        stat = cost.get('type')
+        if value <= 0 or not stat:
+            continue
+        current = get_status_value(actor, stat)
+        _update_char_stat(room, actor, stat, current - value,
+                          username=f"[{format_skill_name_for_log(skill_id, skill_data, actor)}]")
+        if str(stat).lower() in spent:
+            spent[str(stat).lower()] += max(0, min(current, value))
+    return spent
+
+
 def execute_duel_match(room, data, username):
     state = get_room_state(room)
     if not state: return
@@ -482,24 +502,11 @@ def execute_duel_match(room, data, username):
             skill_id_a = match_a.group(1) or match_a.group(2)
         skill_data_a = all_skill_data.get(skill_id_a)
         if skill_data_a:
+            rule_data_a = _extract_rule_data_from_skill(skill_data_a)
+            effects_array_a = rule_data_a.get('effects', [])
+            if not state.get('__select_resolve_delegate__', False):
+                _consume_duel_skill_cost(room, actor_a_char, skill_data_a)
             execute_pre_match_effects(room, actor_a_char, actor_d_char, skill_data_a, skill_data_d)
-            rule_json_str_a = (
-                skill_data_a.get("rule_data_json")
-                or skill_data_a.get("special_rule")
-                or skill_data_a.get("特記処理")
-            )
-            if rule_json_str_a:
-                try:
-                    rd = rule_json_str_a if isinstance(rule_json_str_a, dict) else json.loads(str(rule_json_str_a))
-                    effects_array_a = rd.get("effects", [])
-                    if data.get('applyCostA', True) and "free_cost" not in skill_data_a.get("tags", []):
-                        for cost in rd.get("cost", []):
-                            c_val = int(cost.get("value", 0))
-                            if c_val > 0:
-                                curr = get_status_value(actor_a_char, cost.get("type"))
-                                _update_char_stat(room, actor_a_char, cost.get("type"), curr - c_val, username=f"[{format_skill_name_for_log(skill_id_a, skill_data_a, actor_a_char)}]")
-                except Exception:
-                    pass
         if 'used_skills_this_round' not in actor_a_char: actor_a_char['used_skills_this_round'] = []
         actor_a_char['used_skills_this_round'].append(skill_id_a)
         consume_granted_skill_use(actor_a_char, skill_id_a)
@@ -509,24 +516,11 @@ def execute_duel_match(room, data, username):
             skill_id_d = match_d.group(1) or match_d.group(2)
         skill_data_d = all_skill_data.get(skill_id_d)
         if skill_data_d:
+            rule_data_d = _extract_rule_data_from_skill(skill_data_d)
+            effects_array_d = rule_data_d.get('effects', [])
+            if not state.get('__select_resolve_delegate__', False):
+                _consume_duel_skill_cost(room, actor_d_char, skill_data_d)
             execute_pre_match_effects(room, actor_d_char, actor_a_char, skill_data_d, skill_data_a)
-            rule_json_str_d = (
-                skill_data_d.get("rule_data_json")
-                or skill_data_d.get("special_rule")
-                or skill_data_d.get("特記処理")
-            )
-            if rule_json_str_d:
-                try:
-                    rd = rule_json_str_d if isinstance(rule_json_str_d, dict) else json.loads(str(rule_json_str_d))
-                    effects_array_d = rd.get("effects", [])
-                    if "free_cost" not in skill_data_d.get("tags", []):
-                        for cost in rd.get("cost", []):
-                            c_val = int(cost.get("value", 0))
-                            if c_val > 0:
-                                curr = get_status_value(actor_d_char, cost.get("type"))
-                                _update_char_stat(room, actor_d_char, cost.get("type"), curr - c_val, username=f"[{format_skill_name_for_log(skill_id_d, skill_data_d, actor_d_char)}]")
-                except Exception:
-                    pass
         if 'used_skills_this_round' not in actor_d_char: actor_d_char['used_skills_this_round'] = []
         actor_d_char['used_skills_this_round'].append(skill_id_d)
         consume_granted_skill_use(actor_d_char, skill_id_d)

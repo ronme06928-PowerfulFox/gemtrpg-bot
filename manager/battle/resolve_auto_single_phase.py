@@ -1117,6 +1117,17 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                     queue_index += 1
                     continue
 
+                # effective_cost を intent から skill dict に埋め込む。
+                # field_effects 由来の add_cost は _apply_cost 内の
+                # get_effective_skill_cost(battle_state なし) では拾えないため、
+                # commit 時に評価済みの値を直接渡してコスト消費を正確にする。
+                _skill_for_outcome = dict(skill_data) if isinstance(skill_data, dict) else {}
+                _intent_effective_cost = intent_a.get('effective_cost') if isinstance(intent_a, dict) else None
+                if isinstance(_intent_effective_cost, list) and _intent_effective_cost:
+                    _skill_for_outcome['effective_cost'] = _intent_effective_cost
+                consumed_cost = {'mp': 0, 'hp': 0, 'fp': 0}
+                if intent_a.get('apply_cost_on_execute', True):
+                    consumed_cost = _apply_cost(attacker_char, _skill_for_outcome, COST_CONSUME_POLICY, room=room)
                 delegated = _resolve_one_sided_by_existing_logic(
                     room=room,
                     state=state,
@@ -1127,25 +1138,18 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                 )
                 delegate_ok = bool((delegated or {}).get('ok', False))
                 delegate_summary = delegated.get('summary', {}) if delegate_ok else {}
-                # effective_cost を intent から skill dict に埋め込む。
-                # field_effects 由来の add_cost は _apply_cost 内の
-                # get_effective_skill_cost(battle_state なし) では拾えないため、
-                # commit 時に評価済みの値を直接渡してコスト消費を正確にする。
-                _skill_for_outcome = dict(skill_data) if isinstance(skill_data, dict) else {}
-                _intent_effective_cost = intent_a.get('effective_cost') if isinstance(intent_a, dict) else None
-                if isinstance(_intent_effective_cost, list) and _intent_effective_cost:
-                    _skill_for_outcome['effective_cost'] = _intent_effective_cost
                 outcome_payload = {
                     'attacker_id': attacker_actor_id,
                     'target_id': target_actor_id,
                     'skill_id': skill_id,
                     'skill': _skill_for_outcome,
-                    'apply_cost': bool(intent_a.get('apply_cost_on_execute', True)),
+                    'apply_cost': False,  # Paid before delegated use effects.
                     'cost_policy': COST_CONSUME_POLICY,
                     'delegate_applied': delegate_ok,
                     'delegate_summary': delegate_summary if delegate_ok else {}
                 }
                 applied = _apply_outcome_to_state(outcome_payload, characters_by_id, room=room)
+                applied['cost'] = consumed_cost
                 attacker_name = _resolve_actor_name(characters_by_id, attacker_actor_id)
                 defender_name = _resolve_actor_name(characters_by_id, target_actor_id)
                 attacker_skill_name = _resolve_skill_name(skill_id, skill_data)

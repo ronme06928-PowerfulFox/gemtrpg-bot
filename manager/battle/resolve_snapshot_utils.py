@@ -2,7 +2,6 @@ import copy
 import re
 
 from manager.game_logic import build_power_result_snapshot
-from manager.battle.skill_rules import _extract_rule_data_from_skill, _extract_skill_cost_entries
 
 
 def _safe_int(value, default=0):
@@ -145,51 +144,3 @@ def _extract_step_aux_log_lines(trace_entry):
         seen.add(text_plain)
         aux.append(text_plain)
     return aux
-
-
-def _estimate_cost_for_skill_from_snapshot(before_snapshot, skill_data):
-    cost = {"mp": 0, "hp": 0, "fp": 0}
-    if not isinstance(before_snapshot, dict):
-        return cost
-    if not isinstance(skill_data, dict):
-        return cost
-
-    rule_data = _extract_rule_data_from_skill(skill_data)
-    tags = rule_data.get("tags", skill_data.get("tags", [])) if isinstance(rule_data, dict) else skill_data.get("tags", [])
-    no_cost_tags = {
-        "\u8ffd\u52a0\u884c\u52d5",
-        "\u30b3\u30b9\u30c8\u4e0d\u8981",
-        "\u5373\u6642\u884c\u52d5",
-        "no_cost",
-        "free_cost",
-        "\u5373\u6642\u5ba3\u8a00",
-    }
-    if isinstance(tags, list):
-        normalized_tags = {str(tag).strip() for tag in tags}
-        if normalized_tags.intersection(no_cost_tags):
-            return cost
-
-    for entry in _extract_skill_cost_entries(skill_data):
-        if not isinstance(entry, dict):
-            continue
-        c_type = str(entry.get("type", "")).strip()
-        if not c_type:
-            continue
-        try:
-            c_val = int(entry.get("value", 0))
-        except (TypeError, ValueError):
-            c_val = 0
-        if c_val <= 0:
-            continue
-
-        key = c_type.upper()
-        if key == "MP":
-            current = int(before_snapshot.get("mp", 0))
-            cost["mp"] += min(current, c_val)
-        elif key == "HP":
-            current = int(before_snapshot.get("hp", 0))
-            cost["hp"] += min(current, c_val)
-        elif key == "FP":
-            current = int(before_snapshot.get("fp", 0))
-            cost["fp"] += min(current, c_val)
-    return cost

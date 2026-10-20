@@ -103,7 +103,6 @@ from manager.battle.resolve_snapshot_utils import (
     _estimate_roll_breakdown_from_command_and_total,
     _build_clash_power_snapshot,
     _extract_step_aux_log_lines,
-    _estimate_cost_for_skill_from_snapshot,
 )
 
 from manager.battle.runtime_actions import (
@@ -216,7 +215,6 @@ def _sync_resolve_match_runtime_deps():
     _resolve_match_runtime_mod._extract_skill_id_from_data = _extract_skill_id_from_data
     _resolve_match_runtime_mod._extract_power_pair_from_match_log = _extract_power_pair_from_match_log
     _resolve_match_runtime_mod._build_clash_power_snapshot = _build_clash_power_snapshot
-    _resolve_match_runtime_mod._estimate_cost_for_skill_from_snapshot = _estimate_cost_for_skill_from_snapshot
     _resolve_match_runtime_mod._record_used_skill_for_actor = _record_used_skill_for_actor
     _resolve_match_runtime_mod._snapshot_for_outcome = _snapshot_for_outcome
     _resolve_match_runtime_mod._trigger_skill_timing_effects = _trigger_skill_timing_effects

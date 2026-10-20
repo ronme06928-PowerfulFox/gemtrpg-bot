@@ -22,7 +22,6 @@ from manager.battle.duel_log_utils import _extract_skill_id_from_data
 from manager.battle.resolve_snapshot_utils import (
     _extract_power_pair_from_match_log,
     _build_clash_power_snapshot,
-    _estimate_cost_for_skill_from_snapshot,
 )
 from manager.battle.damage_context import build_damage_context
 from manager.battle.combat_session import record_combat_damage
@@ -466,6 +465,11 @@ def _resolve_clash_by_existing_logic(
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
 
+    cost_a = {'mp': 0, 'hp': 0, 'fp': 0}
+    if attacker_apply_cost:
+        cost_a = duel_solver_mod._consume_duel_skill_cost(room, attacker_char, attacker_skill_data)
+    cost_d = duel_solver_mod._consume_duel_skill_cost(room, defender_char, defender_skill_data)
+
     context = {
         'timeline': state.get('timeline', []),
         'characters': state.get('characters', []),
@@ -560,7 +564,6 @@ def _resolve_clash_by_existing_logic(
         'commandD': command_d,
         'skillIdA': skill_id_a,
         'skillIdD': skill_id_d,
-        'applyCostA': attacker_apply_cost,
         'senritsuPenaltyA': int((preview_a or {}).get('senritsu_dice_reduction', 0)),
         'senritsuPenaltyD': int((preview_d or {}).get('senritsu_dice_reduction', 0)),
     }
@@ -801,8 +804,6 @@ def _resolve_clash_by_existing_logic(
     if power_d is None and isinstance(snapshot_d, dict):
         power_d = _safe_int(snapshot_d.get('final_power', 0), 0)
 
-    cost_a = _estimate_cost_for_skill_from_snapshot(before_a, attacker_skill_data) if attacker_apply_cost else {}
-    cost_d = _estimate_cost_for_skill_from_snapshot(before_d, defender_skill_data)
     total_cost = {
         'mp': int(cost_a.get('mp', 0)) + int(cost_d.get('mp', 0)),
         'hp': int(cost_a.get('hp', 0)) + int(cost_d.get('hp', 0)),
