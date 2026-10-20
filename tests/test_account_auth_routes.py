@@ -71,6 +71,26 @@ def test_register_success(client):
     assert User.query.filter_by(login_name_normalized="dave").count() == 1
 
 
+def test_registration_returns_recovery_once_and_session_check_does_not_reissue(client):
+    from werkzeug.security import check_password_hash
+    response = client.post("/api/register", json={"login_name": "recovery-test", "password": "longenough1"})
+    assert response.status_code == 201
+    payload = response.get_json()
+    assert payload["recovery_code"].startswith("GEM-")
+    assert payload["recovery_token"]
+    user = db.session.get(User, payload["user_id"])
+    before = (user.recovery_code_hash, user.recovery_token_hash, user.recovery_code_issued_at)
+    assert check_password_hash(user.recovery_code_hash, payload["recovery_code"])
+    assert user.login_name_normalized == "recovery-test" and user.password_hash
+    for _ in range(2):
+        session_response = client.get("/api/get_session_user")
+        assert session_response.status_code == 200
+        assert session_response.get_json()["recovery_code"] is None
+        assert session_response.get_json()["recovery_token"] is None
+        db.session.refresh(user)
+        assert (user.recovery_code_hash, user.recovery_token_hash, user.recovery_code_issued_at) == before
+
+
 def test_register_duplicate_login_name(client):
     client.post("/api/register", json={"login_name": "eve", "password": "longenough1"})
     r = client.post("/api/register", json={"login_name": "EVE", "password": "longenough2"})

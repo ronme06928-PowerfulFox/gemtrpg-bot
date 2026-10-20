@@ -192,10 +192,14 @@ def register_account():
     account_auth.set_login_name(user, login_name, commit=False)
     account_auth.set_password(user, password, commit=False)
     user.last_login = datetime.utcnow()
-    db.session.commit()
+    recovery = upsert_user(user.id, user.name, issue_recovery=True)
 
     _set_authenticated_session(user)
-    return jsonify({"message": "アカウントを作成しました", **_account_profile(user)}), 201
+    return jsonify({
+        "message": "アカウントを作成しました", **_account_profile(user),
+        "recovery_code": recovery["recovery_code"],
+        "recovery_token": recovery["recovery_token"],
+    }), 201
 
 
 @account_bp.route('/api/login', methods=['POST'])

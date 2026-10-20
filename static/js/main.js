@@ -308,6 +308,7 @@ function showEntryPortal() {
         applySessionUserData(data);
         saveRecoveryTokenFromResponse(data);
         initializeSocketIO();
+        showRecoveryCodeOnce(data.recovery_code);
     }
     async function withLock(fn) {
         if (entryRequestInFlight) return;
