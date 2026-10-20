@@ -197,7 +197,7 @@ Select/Resolve では、従来タイミング（`PRE_MATCH/HIT/WIN/LOSE/UNOPPOSE
 - 防御側は1キャラ1スロットのみ参加可能（initiative 最大を採用）。
 - 防御値 D は参加スロットの合計値（`D = sum`）。
 - 解決は `A vs D`。
-- ダメージは `delta = |A-D|`。`attacker_win` なら敵陣営全員へ `delta`、`defender_win` なら攻撃者へ `delta`、`draw` は0。
+- ダメージは `delta = |A-D|`。`attacker_win` なら攻撃側から見た相手陣営全員へ `delta`、`defender_win` なら攻撃者へ `delta`、`draw` は0。
 - 結果タイミングは `END_MATCH` → `WIN` → `LOSE` → 荊棘処理 → 亀裂参照 → HP反映 → `AFTER_DAMAGE_APPLY` の順で扱う。
 - `attacker_win` では攻撃側スキルの `WIN` を1回、参加防御側スキルの `LOSE` を参加者ごとに実行する。
 - `defender_win` では参加防御側スキルの `WIN` を参加者ごとに、攻撃側スキルの `LOSE` を1回実行する。

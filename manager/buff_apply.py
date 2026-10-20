@@ -209,7 +209,7 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
         return
 
     # ★ 追加: 加速(Bu-11)・減速(Bu-12) の特殊処理
-    # これらは永続(lasting=-1)であり、スタック加算される
+    # 1ラウンド以上待機し、1ラウンド有効(lasting=1)。同じ待機期間の分をスタック加算する
     if payload.get('buff_id') in ['Bu-11', 'Bu-12']:
         if not isinstance(payload.get('data'), dict):
             payload['data'] = {}
