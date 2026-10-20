@@ -163,4 +163,4 @@ def on_request_skill_declaration(data):
             )
         return
     username = _resolve_username()
-    handle_skill_declaration(room, data, username)
+    handle_skill_declaration(room, data, username, sid=sid)

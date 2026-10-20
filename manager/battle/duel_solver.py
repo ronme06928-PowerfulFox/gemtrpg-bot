@@ -182,7 +182,7 @@ def update_duel_declaration(room, data, username):
         }, to=room)
         broadcast_state_update(room)
 
-def handle_skill_declaration(room, data, username):
+def handle_skill_declaration(room, data, username, sid=None):
     state = get_room_state(room)
     if not state: return
 
@@ -230,7 +230,7 @@ def handle_skill_declaration(room, data, username):
         if prefix and prefix.startswith('immediate'):
 
              if actor.get('flags', {}).get('immediate_action_used', False):
-                 _safe_emit('new_log', {'message': '即時発動は1キャラクターにつき1ラウンドに1回までです。', 'type': 'error'}, to=room)
+                 _safe_emit('new_log', {'message': '即時発動は1キャラクターにつき1ラウンドに1回までです。', 'type': 'error'}, to=sid or room)
                  return
 
              logger.info(f"[Immediate] Executing {skill_id} for {actor['name']}")

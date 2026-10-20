@@ -26,7 +26,7 @@ def _setup(monkeypatch):
     monkeypatch.setattr(duel_solver, 'broadcast_log', lambda *a, **k: None)
     monkeypatch.setattr(duel_solver, 'broadcast_state_update', lambda *a: snapshots.append(deepcopy(state)))
     monkeypatch.setattr(duel_solver, 'save_specific_room_state', lambda *a: None)
-    monkeypatch.setattr(duel_solver, 'socketio', SimpleNamespace(emit=lambda *a, **k: emitted.append(a)))
+    monkeypatch.setattr(duel_solver, 'socketio', SimpleNamespace(emit=lambda *a, **k: emitted.append((a, k))))
     monkeypatch.setattr(common_manager, 'get_room_state', lambda _room: state)
     monkeypatch.setattr(common_manager, 'save_specific_room_state', lambda *a: None)
     monkeypatch.setattr(common_manager, 'broadcast_log', lambda *a, **k: None)
@@ -43,7 +43,7 @@ def _use():
     duel_solver.handle_skill_declaration('room_t', {
         'actor_id': 'A1', 'target_id': 'A1', 'skill_id': 'INSTANT',
         'commit': True, 'prefix': 'immediate',
-    }, 'tester')
+    }, 'tester', sid='sid_requester')
 
 
 def test_second_immediate_in_same_round_is_rejected_without_payment(monkeypatch):
@@ -55,7 +55,10 @@ def test_second_immediate_in_same_round_is_rejected_without_payment(monkeypatch)
     assert actor['mp'] == 47
     assert _state_value(actor, 'FP') == 18
     assert state['timeline'] == []  # immediate never consumes an ordinary slot
-    assert any('1ラウンドに1回' in str(event) for event in emitted)
+    rejections = [(args, kwargs) for args, kwargs in emitted if '1ラウンドに1回' in str(args)]
+    assert rejections
+    # The rejection is shown only to the requester, not broadcast to the room.
+    assert all(kwargs.get('to') == 'sid_requester' for _args, kwargs in rejections)
 
 
 def test_new_round_allows_immediate_again_and_broadcasts_unset_flag(monkeypatch):
