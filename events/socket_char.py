@@ -577,6 +577,7 @@ def handle_transfer_character_ownership(data):
     old_owner = char.get('owner', '不明')
     char['owner'] = new_owner_name
     char['owner_id'] = new_owner_id
+    state.setdefault('character_owners', {})[char_id] = new_owner_name
 
     print(f"Character ownership transferred: {char.get('name')} from {old_owner} to {new_owner_name}")
 
