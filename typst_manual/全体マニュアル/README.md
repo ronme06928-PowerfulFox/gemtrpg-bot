@@ -94,3 +94,5 @@ typst compile --root typst_manual typst_manual/全体マニュアル/特殊効�
 ```powershell
 typst compile --root typst_manual typst_manual/全体マニュアル/成長章レビュー.typ output/pdf/46_basic_growth.pdf
 ```
+
+2026-10-21（R07レビュー反映A〜C）：D08を確定裁定の短い説明へ統一。D31を修正し、通常ルームの成果反映で通過点も記録できるようにしました。第7章4頁・6図、第5・6章と操作ガイドを再生成・画像検証済み。全件1106 passed / 2 skipped。詳細と未確認は台帳§19.27。旧mainへの統合は後続です。

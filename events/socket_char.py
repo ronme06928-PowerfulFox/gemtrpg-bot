@@ -281,6 +281,21 @@ def handle_reflect_session_results(data):
         exp_gain = 0
 
     is_hollow = str(state.get('play_mode') or '').strip().lower() == 'hollow'
+    is_normal_room = str(state.get('play_mode') or 'normal').strip().lower() == 'normal'
+    radiance_gain = 0
+    if is_normal_room:
+        raw_radiance = data.get('radiance_gain', 0)
+        try:
+            radiance_gain = int(raw_radiance)
+            if isinstance(raw_radiance, bool) or radiance_gain < 0 or (
+                isinstance(raw_radiance, float) and raw_radiance != radiance_gain
+            ):
+                raise ValueError
+        except (TypeError, ValueError, OverflowError):
+            emit('reflect_session_results_result', {
+                'char_id': char_id, 'skipped': True, 'reason': 'invalid_radiance_gain',
+            }, to=request.sid)
+            return
     raw_items = data.get('items') if isinstance(data.get('items'), dict) else {}
     items_gain = {} if is_hollow else {
         str(item_id): _safe_int(qty, 0)
@@ -290,12 +305,23 @@ def handle_reflect_session_results(data):
 
     owned.exp_total = int(owned.exp_total or 0) + exp_gain
 
-    if items_gain:
-        owned_data = dict(owned.data or {})
-        inventory = dict(owned_data.get('inventory') or {})
-        for item_id, qty in items_gain.items():
-            inventory[item_id] = int(inventory.get(item_id, 0)) + qty
-        owned_data['inventory'] = inventory
+    if items_gain or radiance_gain:
+        owned_data = copy.deepcopy(owned.data or {})
+        if items_gain:
+            inventory = dict(owned_data.get('inventory') or {})
+            for item_id, qty in items_gain.items():
+                inventory[item_id] = int(inventory.get(item_id, 0)) + qty
+            owned_data['inventory'] = inventory
+        if radiance_gain:
+            params = owned_data.get('params')
+            if not isinstance(params, list):
+                params = []
+                owned_data['params'] = params
+            points = next((p for p in params if isinstance(p, dict) and p.get('label') == '通過点'), None)
+            if points is None:
+                points = {'label': '通過点', 'value': '0'}
+                params.append(points)
+            points['value'] = str(_safe_int(points.get('value'), 0) + radiance_gain)
         owned.data = owned_data
 
     growth_log = list(owned.growth_log or [])
@@ -306,6 +332,7 @@ def handle_reflect_session_results(data):
         'char_id': char_id,
         'exp_gain': exp_gain,
         'items_gain': items_gain,
+        **({'radiance_gain': radiance_gain} if is_normal_room else {}),
     })
     owned.growth_log = growth_log
 
@@ -318,7 +345,8 @@ def handle_reflect_session_results(data):
 
     broadcast_log(
         room,
-        f"{char.get('name', char_id)} の成果を持ちキャラへ反映しました（経験値+{exp_gain}）。",
+        f"{char.get('name', char_id)} の成果を持ちキャラへ反映しました（経験値+{exp_gain}"
+        + (f"、通過点+{radiance_gain}" if is_normal_room else '') + "）。",
         'info',
     )
     emit('reflect_session_results_result', {
@@ -327,6 +355,7 @@ def handle_reflect_session_results(data):
         'exp_gain': exp_gain,
         'items_gain': items_gain,
         'exp_total': owned.exp_total,
+        **({'radiance_gain': radiance_gain} if is_normal_room else {}),
     }, to=request.sid)
 
 

@@ -2,7 +2,7 @@
 
 **作成日**: 2026-08-05
 **最終更新**: 2026-10-21
-**状態**: 段階5・R07レビュー反映中。D08は2026-10-21に確定し資料へ反映。D31修正（B）、通常ルーム成果反映への通過点追加（C）を続ける。詳細・検証は台帳§19.27。旧main／完成PDFは保持し、pushしない。
+**状態**: 段階5・R07レビュー反映の作業A〜C完了。D08裁定・D31修正・通常ルームの成果反映への通過点追加を個別コミットで記録。最終全件1106 passed / 2 skipped。第5章12頁・第6章16頁・第7章4頁・操作ガイド29頁のPDFを検証。詳細・ブラウザ確認手順は台帳§19.27。既存データの監査・移行は行わず、旧main／完成PDFを保持。pushなし。全編承認・統合、ブラウザ確認は後続。
 **対象**: 内部仕様正本の整理、公開PDFの出版構成と編集、既存文書の追補統合と分割、読者向け変更履歴
 **関連仕様**: [`../README.md`](../README.md) / `manuals/implemented/` 全文書
 **関連計画**: [`41_JSON_Syntax_Encyclopedia_Reorganization_Plan.md`](41_JSON_Syntax_Encyclopedia_Reorganization_Plan.md)（C01の再編） / [`45_External_Contribution_Program_Plan.md`](45_External_Contribution_Program_Plan.md)（外部協力者向け文書）

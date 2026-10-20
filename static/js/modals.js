@@ -2549,6 +2549,7 @@ function openBehaviorFlowEditorModal(char) {
  * 設定コンテキストメニューを作成・表示
  */
 function createSettingsContextMenu(triggerEl, char) {
+    const canReflectRadiance = String(battleState.play_mode || 'normal').trim().toLowerCase() === 'normal';
     const latestChar = getLatestCharacterForBehaviorEditor(char);
     if (latestChar && typeof latestChar === 'object') {
         char = latestChar;
@@ -2645,6 +2646,10 @@ function createSettingsContextMenu(triggerEl, char) {
                 ` : `
                 <label style="display:block; font-size:0.8em; color:#166534; margin-bottom:2px;">獲得経験値</label>
                 <input type="number" id="ctx-reflect-exp" class="settings-input" value="0" min="0" style="width:100%; padding:4px; border:1px solid #bbf7d0; border-radius:4px; margin-bottom:6px;">
+                ${canReflectRadiance ? `
+                <label style="display:block; font-size:0.8em; color:#166534; margin-bottom:2px;">獲得通過点</label>
+                <input type="number" id="ctx-reflect-radiance" class="settings-input" value="0" min="0" step="1" style="width:100%; padding:4px; border:1px solid #bbf7d0; border-radius:4px; margin-bottom:6px;">
+                ` : ''}
                 <label style="display:block; font-size:0.8em; color:#166534; margin-bottom:2px;">獲得アイテム（例: item-heal:2, item-key:1）</label>
                 <input type="text" id="ctx-reflect-items" class="settings-input" placeholder="item_id:個数, ..." style="width:100%; padding:4px; border:1px solid #bbf7d0; border-radius:4px; margin-bottom:8px; box-sizing:border-box;">
                 <button id="ctx-reflect-btn" style="width:100%; padding:6px 8px; background:#16a34a; color:#fff; border:none; border-radius:4px; cursor:pointer;">成果を反映</button>
@@ -2749,6 +2754,13 @@ function createSettingsContextMenu(triggerEl, char) {
             const expInput = menu.querySelector('#ctx-reflect-exp');
             const itemsInput = menu.querySelector('#ctx-reflect-items');
             const expGain = Math.max(0, parseInt(expInput?.value, 10) || 0);
+            const radianceGain = canReflectRadiance ? Number(menu.querySelector('#ctx-reflect-radiance')?.value || 0) : 0;
+            if (!Number.isInteger(radianceGain) || radianceGain < 0) {
+                if (typeof logToBattleLog === 'function') {
+                    logToBattleLog({ type: 'info', message: '獲得通過点は0以上の整数で入力してください。', timestamp: Date.now() });
+                }
+                return;
+            }
             const items = {};
             (itemsInput?.value || '').split(',').forEach((entry) => {
                 const [rawId, rawQty] = entry.split(':').map((s) => (s || '').trim());
@@ -2765,6 +2777,7 @@ function createSettingsContextMenu(triggerEl, char) {
                         already_reflected: 'このセッションの成果は既に反映済みです。',
                         char_not_found: 'キャラクターが見つかりませんでした。',
                         owned_character_not_found: '持ちキャラが見つかりませんでした。',
+                        invalid_radiance_gain: '獲得通過点は0以上の整数で入力してください。',
                     }[result.reason] || '成果を反映できませんでした。';
                     if (typeof logToBattleLog === 'function') {
                         logToBattleLog({ type: 'info', message: reasonMsg, timestamp: Date.now() });
@@ -2772,7 +2785,8 @@ function createSettingsContextMenu(triggerEl, char) {
                 });
             }
             socket.emit('request_reflect_session_results', {
-                room: currentRoomName, char_id: char.id, exp_gain: expGain, items
+                room: currentRoomName, char_id: char.id, exp_gain: expGain, items,
+                ...(canReflectRadiance ? { radiance_gain: radianceGain } : {})
             });
             closeMenu();
         });
