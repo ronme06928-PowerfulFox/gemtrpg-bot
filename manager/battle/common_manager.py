@@ -529,7 +529,7 @@ def _process_full_round_end_impl(room, username):
                                 )
                         broadcast_log(room, f"[{buff_name}]が[{char['name']}]から消失した。", "state-change")
                         buffs_to_remove.append(buff_name)
-                        if buff_name in ("混乱", "混乱(戦慄殺到)"):
+                        if buff.get("buff_id") == "Bu-03":
                             _update_char_stat(room, char, 'MP', int(char.get('maxMp', 0)), username="[混乱解除]")
                             broadcast_log(room, f"{char['name']} は意識を取り戻した (MP全回復)", 'state-change')
                 elif buff.get('is_permanent', False):

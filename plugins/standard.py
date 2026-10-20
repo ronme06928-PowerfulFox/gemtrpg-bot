@@ -94,7 +94,9 @@ class FearSurgeEffect(BaseEffect):
 
         current_mp = _get_status_value(target, "MP")
         if current_mp - val <= 0:
-            changes.append((target, "APPLY_BUFF", "混乱", {"lasting": 2, "delay": 0}))
+            changes.append((target, "APPLY_BUFF", "混乱(戦慄殺到)", {
+                "lasting": 2, "delay": 0, "data": {"buff_id": "Bu-03"}
+            }))
             logs.append("《戦慄殺到》 MP0により [混乱] 付与！")
 
         return changes, logs

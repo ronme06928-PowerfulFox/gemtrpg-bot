@@ -65,14 +65,12 @@ def compute_damage_multipliers(attacker, defender, context=None, check_condition
         condition = _resolve_buff_condition_value(buff)
         if condition and callable(check_condition_fn) and not check_condition_fn(condition, defender, attacker, context=context):
             continue
-        if buff_name == "混乱":
-            incoming *= 1.5
-            incoming_logs.append("混乱")
-
         incoming_value = _resolve_buff_multiplier_value(
             buff,
             keys=['incoming_damage_multiplier', 'damage_multiplier'],
         )
+        if incoming_value is None and buff_name in ("混乱", "混乱(戦慄殺到)"):
+            incoming_value = 1.5
         if incoming_value is not None and incoming_value != 1.0:
             incoming *= incoming_value
             if buff_name:
