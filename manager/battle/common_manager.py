@@ -1020,6 +1020,10 @@ def _process_round_start_impl(room, username):
 
     state['round'] = state.get('round', 0) + 1
     state['is_round_ended'] = False
+    for char in state.get('characters', []):
+        flags = char.get('flags')
+        if isinstance(flags, dict):
+            flags.pop('immediate_action_used', None)
     execute_scheduled_effects(state, state['round'], room=room)
 
     broadcast_log(room, f"--- {username} が Round {state['round']} を開始しました ---", 'round')

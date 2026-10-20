@@ -229,6 +229,10 @@ def handle_skill_declaration(room, data, username):
 
         if prefix and prefix.startswith('immediate'):
 
+             if actor.get('flags', {}).get('immediate_action_used', False):
+                 _safe_emit('new_log', {'message': '即時発動は1キャラクターにつき1ラウンドに1回までです。', 'type': 'error'}, to=room)
+                 return
+
              logger.info(f"[Immediate] Executing {skill_id} for {actor['name']}")
 
              rule_json_str = (
