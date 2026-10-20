@@ -59,3 +59,11 @@ typst compile --root typst_manual typst_manual/全体マニュアル/作成章�
 ```powershell
 typst compile --root typst_manual typst_manual/全体マニュアル/探索章レビュー.typ output/pdf/46_basic_exploration.pdf
 ```
+
+- `04_戦闘の基本.typ`：第4章初稿。1対1・各1スロットの攻撃マッチで、現在値・速度・宣言・威力・ダメージ・FP・終了を追います。
+- `戦闘基本章レビュー.typ`：第4章だけを共通テーマで出力する入口。
+- [第4章レビューPDF](../../output/pdf/46_basic_battle_basics.pdf)：全3ページ。照合範囲と残件は台帳§19.8〜19.9。参照する第5・6章は未収録です。
+
+```powershell
+typst compile --root typst_manual typst_manual/全体マニュアル/戦闘基本章レビュー.typ output/pdf/46_basic_battle_basics.pdf
+```
