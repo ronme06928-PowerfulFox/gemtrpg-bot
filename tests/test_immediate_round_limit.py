@@ -125,3 +125,97 @@ assert.ok(!row.children.find(child => child.tag === 'button').disabled);
         capture_output=True, text=True, encoding='utf-8', timeout=30,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def _use_gem():
+    duel_solver.handle_skill_declaration('room_t', {
+        'actor_id': 'A1', 'target_id': 'A1', 'skill_id': 'GEM',
+        'commit': True, 'prefix': 'immediate',
+    }, 'tester', sid='sid_requester')
+
+
+def _add_gem_skill(monkeypatch):
+    gem = _skill('GEM', 0, fp=1, mp=1)
+    gem['tags'] = ['即時発動', '宝石の加護スキル']
+    catalog = dict(duel_solver.all_skill_data)
+    catalog['GEM'] = gem
+    monkeypatch.setattr(duel_solver, 'all_skill_data', catalog)
+
+
+def test_gem_skill_is_limited_to_once_per_battle_even_in_a_new_round(monkeypatch):
+    state, actor, emitted, _snapshots = _setup(monkeypatch)
+    _add_gem_skill(monkeypatch)
+    _use_gem()
+    assert actor['used_gem_protect_this_battle'] is True
+    assert actor['mp'] == 49
+    assert common_manager.process_full_round_end('room_t', 'tester') is True
+    assert common_manager.process_round_start('room_t', 'tester') is True
+    _use_gem()
+    # The stricter once-per-battle limit still applies after the round limit resets.
+    assert actor['mp'] == 49
+    assert _state_value(actor, 'FP') == 19
+    rejections = [(args, kwargs) for args, kwargs in emitted if '1回の戦闘で1回' in str(args)]
+    assert rejections and all(kwargs.get('to') == 'sid_requester' for _args, kwargs in rejections)
+    # An ordinary instant skill is still available once in the new round.
+    _use()
+    assert actor['mp'] == 46
+
+
+def test_new_battle_allows_gem_skill_again(monkeypatch):
+    from manager.battle import combat_session
+    _state, actor, _emitted, _snapshots = _setup(monkeypatch)
+    _add_gem_skill(monkeypatch)
+    _use_gem()
+    combat_session.clear_combat_transients(_state)
+    assert actor['used_gem_protect_this_battle'] is False
+    assert common_manager.process_round_start('room_t', 'tester') is True
+    _use_gem()
+    assert actor['mp'] == 48
+
+
+def test_action_dock_hides_gem_skill_used_in_this_battle():
+    script = r"""
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+function element(tag) {
+  const classes = new Set();
+  return {
+    tag, children: [], style: {},
+    classList: { add: x => classes.add(x), remove: x => classes.delete(x), contains: x => classes.has(x) },
+    appendChild(child) { this.children.push(child); },
+  };
+}
+const icon = element('div');
+global.document = {
+  getElementById: id => id === 'dock-immediate-icon' ? icon : null,
+  createElement: element,
+};
+global.window = { allSkillData: {
+  GEM: { tags: ['即時発動', '宝石の加護スキル'] },
+  INSTANT: { tags: ['即時発動'] },
+}, canShowRoundControls: () => false };
+global.currentUsername = 'tester';
+global.currentUserId = 'u1';
+global.battleState = { mode: 'battle', characters: [] };
+vm.runInThisContext(fs.readFileSync('static/js/action_dock.js', 'utf8'));
+isCurrentUserGM = () => false;
+const gemOnly = { id: 'A1', name: 'A1', owner: 'tester', hp: 100, commands: '【GEM gem】', flags: {}, used_gem_protect_this_battle: true };
+battleState.characters = [gemOnly];
+updateActionDock();
+assert.ok(icon.classList.contains('disabled'), 'only a used gem skill remains');
+const both = { ...gemOnly, commands: '【GEM gem】【INSTANT instant】' };
+battleState.characters = [both];
+updateActionDock();
+assert.ok(icon.classList.contains('active'));
+const row = createImmediateCharRow(both);
+const select = row.children.find(child => child.tag === 'select');
+const values = select.children.map(option => option.value);
+assert.ok(values.includes('INSTANT'));
+assert.ok(!values.includes('GEM'));
+"""
+    result = subprocess.run(
+        ['node', '-e', script], cwd=Path(__file__).resolve().parents[1],
+        capture_output=True, text=True, encoding='utf-8', timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

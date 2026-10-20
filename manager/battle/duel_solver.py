@@ -232,6 +232,9 @@ def handle_skill_declaration(room, data, username, sid=None):
              if actor.get('flags', {}).get('immediate_action_used', False):
                  _safe_emit('new_log', {'message': '即時発動は1キャラクターにつき1ラウンドに1回までです。', 'type': 'error'}, to=sid or room)
                  return
+             if "宝石の加護スキル" in skill_data.get('tags', []) and actor.get('used_gem_protect_this_battle', False):
+                 _safe_emit('new_log', {'message': '宝石の加護スキルは1回の戦闘で1回までです。', 'type': 'error'}, to=sid or room)
+                 return
 
              logger.info(f"[Immediate] Executing {skill_id} for {actor['name']}")
 

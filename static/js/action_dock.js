@@ -1,14 +1,18 @@
 // === ▼▼▼ Action Dock & Immediate Skills Functions ▼▼▼ ===
 
 // 即時発動スキル判定関数
+// 宝石の加護スキルは1回の戦闘で1回まで（ラウンドごとの制限とは別に適用）。
+function isImmediateSkillAvailable(char, skillData) {
+    if (!skillData || !skillData.tags || !skillData.tags.includes('即時発動')) return false;
+    return !(skillData.tags.includes('宝石の加護スキル') && char.used_gem_protect_this_battle);
+}
+
 function hasImmediateSkill(char) {
     if (!window.allSkillData || !char.commands) return false;
     const regex = /【(.*?)\s+(.*?)】/g;
     let match;
     while ((match = regex.exec(char.commands)) !== null) {
-        const skillId = match[1];
-        const skillData = window.allSkillData[skillId];
-        if (skillData && skillData.tags && skillData.tags.includes('即時発動')) {
+        if (isImmediateSkillAvailable(char, window.allSkillData[match[1]])) {
             return true;
         }
     }
@@ -403,7 +407,7 @@ function createImmediateCharRow(char) {
             const skillId = match[1];
             const skillName = match[2];
             const skillData = window.allSkillData[skillId];
-            if (skillData && skillData.tags && skillData.tags.includes('即時発動')) {
+            if (isImmediateSkillAvailable(char, skillData)) {
                 immediateSkills.push({ id: skillId, name: skillName, data: skillData });
             }
         }

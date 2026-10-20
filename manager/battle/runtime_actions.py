@@ -176,8 +176,8 @@ def verify_skill_cost(char, skill_d):
         rule_data = _extract_rule_data_from_skill(skill_d)
         tags = rule_data.get('tags', skill_d.get('tags', [])) if isinstance(rule_data, dict) else skill_d.get('tags', [])
         if isinstance(tags, list) and ("即時発動" in tags):
-            if "星見の加護スキル" in tags and char.get('used_gem_protect_this_battle', False):
-                return False, "星見の加護スキルは1ラウンドに1回までです。"
+            if "宝石の加護スキル" in tags and char.get('used_gem_protect_this_battle', False):
+                return False, "宝石の加護スキルは1回の戦闘で1回までです。"
             return True, None
 
         for cost in (rule_data.get("cost", []) if isinstance(rule_data, dict) else []):
