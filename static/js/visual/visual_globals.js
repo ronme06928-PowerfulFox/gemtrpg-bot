@@ -2,16 +2,18 @@
 
 // Global State Variables for Visual Battle
 
-// Map Visualization
-// Map Visualization
-// Initialize from localStorage or defaults
+// Restore a complete saved view; otherwise center after the viewport is visible.
 const storedScale = localStorage.getItem('gem_visualScale');
 const storedX = localStorage.getItem('gem_visualOffsetX');
 const storedY = localStorage.getItem('gem_visualOffsetY');
 
-window.visualScale = storedScale ? parseFloat(storedScale) : 0.6; // Default to 0.6 as requested
-window.visualOffsetX = storedX ? parseFloat(storedX) : (typeof CENTER_OFFSET_X !== 'undefined' ? CENTER_OFFSET_X : -900);
-window.visualOffsetY = storedY ? parseFloat(storedY) : (typeof CENTER_OFFSET_Y !== 'undefined' ? CENTER_OFFSET_Y : -900);
+const visualStoredViewValid = [storedScale, storedX, storedY].every(
+  value => value !== null && value.trim() !== '' && Number.isFinite(Number(value))
+) && Number(storedScale) >= 0.5 && Number(storedScale) <= 3;
+window.visualScale = visualStoredViewValid ? Number(storedScale) : 0.6;
+window.visualOffsetX = visualStoredViewValid ? Number(storedX) : 0;
+window.visualOffsetY = visualStoredViewValid ? Number(storedY) : 0;
+window.visualViewNeedsCenter = !visualStoredViewValid;
 
 // Turn & Action Tracking
 window.matchActionInitiated = false;

@@ -1,5 +1,16 @@
 /* static/js/visual/visual_controls.js */
 
+window.centerVisualMapView = function () {
+  const viewport = document.getElementById('map-viewport');
+  const map = document.getElementById('game-map');
+  if (!viewport || !map || !viewport.clientWidth || !viewport.clientHeight
+      || !map.offsetWidth || !map.offsetHeight) return false;
+  visualOffsetX = (viewport.clientWidth - map.offsetWidth * visualScale) / 2;
+  visualOffsetY = (viewport.clientHeight - map.offsetHeight * visualScale) / 2;
+  window.visualViewNeedsCenter = false;
+  return true;
+};
+
 /**
  * Initializes map controls (zoom, pan, drag-and-drop)
  */
@@ -71,8 +82,7 @@ window.setupMapControls = function () {
     };
     if (rView) rView.onclick = () => {
         visualScale = 0.6; // Default 0.6
-        visualOffsetX = (typeof CENTER_OFFSET_X !== 'undefined' ? CENTER_OFFSET_X : -900);
-        visualOffsetY = (typeof CENTER_OFFSET_Y !== 'undefined' ? CENTER_OFFSET_Y : -900);
+        window.visualViewNeedsCenter = true;
         updateMapTransform();
         saveVisualSettings();
     };

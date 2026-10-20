@@ -4,6 +4,9 @@
  * Updates the CSS transform of the map container based on current scale and offset.
  */
 window.updateMapTransform = function () {
+    if (window.visualViewNeedsCenter && typeof window.centerVisualMapView === 'function') {
+        window.centerVisualMapView();
+    }
     const mapEl = document.getElementById('game-map');
     if (mapEl) mapEl.style.transform = `translate(${visualOffsetX}px, ${visualOffsetY}px) scale(${visualScale})`;
 }
