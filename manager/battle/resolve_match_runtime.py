@@ -886,6 +886,7 @@ def _resolve_hard_attack_followup(
         preview_d = calculate_skill_preview(defender_char, attacker_char, defender_skill_data, context=context)
         command_d = (preview_d or {}).get('final_command') or "0"
         roll_d = roll_dice(command_d)
+        _consume_fear_dice_reduction(room, defender_char, preview_d)
         try:
             defense_power = int(roll_d.get('total', 0) or 0)
         except Exception:
@@ -1120,6 +1121,12 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
                 }
                 preview = calculate_skill_preview(attacker_char, defender_char or attacker_char, skill_data, context=context)
                 final_command = (preview or {}).get('final_command') or "0"
+            except Exception as e:
+                logger.warning(
+                    "[roll_power_slot] preview failed slot=%s skill=%s target_slot=%s error=%s",
+                    slot_id, skill_id, target_slot_id, e
+                )
+            else:
                 total = int((roll_dice(final_command) or {}).get('total', 0) or 0)
                 _consume_fear_dice_reduction(room_name, attacker_char, preview)
                 logger.info(
@@ -1127,11 +1134,6 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
                     slot_id, skill_id, final_command, total, target_slot_id
                 )
                 return max(0, total)
-            except Exception as e:
-                logger.warning(
-                    "[roll_power_slot] preview roll failed slot=%s skill=%s target_slot=%s error=%s",
-                    slot_id, skill_id, target_slot_id, e
-                )
 
     # Fallback: static power expression from skill data.
     try:
