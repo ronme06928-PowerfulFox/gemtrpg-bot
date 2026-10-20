@@ -5,7 +5,7 @@ from tests.test_combat_session_phase1 import _character
 
 
 @pytest.mark.parametrize("transition", ["start", "conclude"])
-def test_combat_boundary_removes_summons_and_entangle_without_touching_resources(transition):
+def test_combat_boundary_handles_summons_and_entangle_without_touching_resources(transition):
     actor = _character("owner", "Owner")
     actor["states"].append({"name": "荊棘重絡", "value": 3})
     summons = [_character("summon1", "S1", is_summoned=True, summon_duration_mode="permanent"),
@@ -16,14 +16,28 @@ def test_combat_boundary_removes_summons_and_entangle_without_touching_resources
     before = {key: actor[key] for key in ("hp", "mp", "FP", "x", "y")}
     result = start_combat_session(state, "GM") if transition == "start" else conclude_combat_session(state, "GM", "VICTORY")
     assert result
-    assert [c["id"] for c in state["characters"]] == ["owner"]
-    assert state["character_owners"] == {"owner": "User"}
+    assert [c["id"] for c in state["characters"]] == (["owner", "summon1", "summon2"] if transition == "start" else ["owner"])
+    assert state["character_owners"] == ({"owner": "User", "summon1": "User", "summon2": "User"} if transition == "start" else {"owner": "User"})
     assert next(s["value"] for s in actor["states"] if s["name"] == "荊棘重絡") == 0
     assert {key: actor[key] for key in before} == before
     assert actor["special_buffs"] == actor["initial_state"]["special_buffs"]
     assert actor["granted_skills"] == []
     assert actor["commands"] == "【BASE】"
     assert state["timeline"] == [] and state["battle_state"]["slots"] == {}
+
+
+def test_summon_created_before_combat_survives_start_and_is_removed_at_conclusion():
+    owner = _character("owner", "Owner")
+    summon = _character("summon", "Summon", is_summoned=True, summoner_id="owner")
+    state = {"characters": [owner, summon], "combat_phase": "ready",
+             "character_owners": {"owner": "User", "summon": "User"}}
+    assert start_combat_session(state, "GM")
+    assert summon in state["characters"]
+    assert state["character_owners"]["summon"] == "User"
+    assert summon["special_buffs"] == summon["initial_state"]["special_buffs"]
+    assert conclude_combat_session(state, "GM", "VICTORY")
+    assert summon not in state["characters"]
+    assert "summon" not in state["character_owners"]
 
 
 def test_conclusion_archives_summon_contribution_before_removal():

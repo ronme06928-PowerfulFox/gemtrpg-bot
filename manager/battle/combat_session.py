@@ -128,8 +128,6 @@ def _clear_character_combat_state(char):
 
 
 def clear_combat_transients(state):
-    from manager.battle.pve_intent_planner import _remove_summoned_characters
-    _remove_summoned_characters(state)
     for char in state.get("characters", []):
         if isinstance(char, dict):
             _clear_character_combat_state(char)
@@ -164,6 +162,8 @@ def conclude_combat_session(state, username, outcome):
     record = copy.deepcopy(session)
     if not any(isinstance(item, dict) and item.get("id") == record.get("id") for item in state["combat_history"]):
         state["combat_history"].append(record)
+    from manager.battle.pve_intent_planner import _remove_summoned_characters
+    _remove_summoned_characters(state)
     clear_combat_transients(state)
     state["combat_session"] = None
     state["combat_phase"] = "ready"
