@@ -82,8 +82,9 @@ def test_summons_are_aggregated_without_participant_rows():
     owner = _character("owner", "Owner")
     summon = _character("summon", "Summon", is_summoned=True, summoner_id="owner")
     target = _character("target", "Target")
-    state = {"combat_phase": "ready", "combat_history": [], "characters": [owner, summon, target]}
+    state = {"combat_phase": "ready", "combat_history": [], "characters": [owner, target]}
     session = start_combat_session(state, "GM")
+    state["characters"].append(summon)
 
     assert "summon" not in session["participants"]
     record_combat_damage(state, target, 23, 18, {"actor": summon})

@@ -8,7 +8,7 @@ from uuid import uuid4
 
 
 OUTCOMES = {"VICTORY", "DEFEAT", "RETREAT", "INTERRUPTED"}
-_COMBAT_STATE_NAMES = {"出血", "亀裂", "破裂", "戦慄", "荊棘"}
+_COMBAT_STATE_NAMES = {"出血", "亀裂", "破裂", "戦慄", "荊棘", "荊棘重絡"}
 
 
 def _iso_now():
@@ -128,6 +128,8 @@ def _clear_character_combat_state(char):
 
 
 def clear_combat_transients(state):
+    from manager.battle.pve_intent_planner import _remove_summoned_characters
+    _remove_summoned_characters(state)
     for char in state.get("characters", []):
         if isinstance(char, dict):
             _clear_character_combat_state(char)

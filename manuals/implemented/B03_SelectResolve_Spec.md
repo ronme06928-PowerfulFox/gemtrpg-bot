@@ -66,7 +66,7 @@ RoundStart は次の順序で処理する。
 - 通常ルームは `combat_phase` を用い、`ready`（戦闘準備中）と `active`（戦闘中）を区別する。探索表示を切り替える既存の `mode` とは別の状態である。
 - `ready` 中は、RoundStart、ラウンド終了、宣言、Resolve、通常・広域マッチの進行要求をサーバー側で拒否する。`battle_only` は従来どおりこの制限の対象外である。
 - 新規作成した通常ルームは `ready` で始まる。GMの戦闘突入で `active` となり、`combat_session` を新規作成して戦闘内一時状態を初期化する。既存保存データにこの状態がなければ、互換性のため `active` として扱う。
-- GMの戦闘終結で、結果を`VICTORY`、`DEFEAT`、`RETREAT`、`INTERRUPTED`から必須選択して `ready` に戻す。通常キャラクターのHP、MP、FP、配置は保持し、召喚体を除去し、荊棘重絡を0にする（D25、作業B5で修正）。timeline、slots、intents、resolve queue、active match、ラウンド制状態、伝授スキル、戦闘内使用フラグを消去する。
+- GMの戦闘終結で、結果を`VICTORY`、`DEFEAT`、`RETREAT`、`INTERRUPTED`から必須選択して `ready` に戻す。通常キャラクターのHP、MP、FP、配置は保持し、召喚体を除去し、荊棘重絡を0にする（D25）。timeline、slots、intents、resolve queue、active match、ラウンド制状態、伝授スキル、戦闘内使用フラグを消去する。
 - 行動可能者と行動対象は、HPが正で逃走しておらず、`x` と `y` の両方が0以上の盤面配置済みキャラクターに限る。片方だけ盤外または座標欠損のキャラクターは、timeline、Select/Resolve slot、PvE自動行動、AI対象選択、ラウンド終了時の未行動判定に含めない。
 
 ### 5.1 Select UI補正（対象先行）
