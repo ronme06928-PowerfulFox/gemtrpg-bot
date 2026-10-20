@@ -840,6 +840,7 @@ def test_case10_mass_cost_is_consumed_once_on_resolve_start(monkeypatch):
     _set_intent(state, "B_slot", "B1", "d1", "single_slot", "A_mass")
 
     monkeypatch.setattr(battle_routes, "get_room_state", lambda _room: room_state)
+    monkeypatch.setattr(battle_routes, "_update_char_stat", _stub_update_char_stat)
     old_skill = battle_routes.all_skill_data.get("m_start")
     battle_routes.all_skill_data["m_start"] = {"cost": [{"type": "MP", "value": 4}]}
     try:

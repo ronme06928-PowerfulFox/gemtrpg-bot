@@ -10,6 +10,7 @@ from manager.room_access import is_sid_in_room, is_user_in_room
 from manager.room_manager import (
     get_user_info_from_sid, get_room_state, broadcast_log, broadcast_state_update,
     is_authorized_for_character, flush_room_state_now, save_specific_room_state,
+    _update_char_stat,
 )
 try:
     from manager.room_manager import emit_select_resolve_events
@@ -18,7 +19,7 @@ except Exception:
     # Keep routes importable in that environment.
     def emit_select_resolve_events(*args, **kwargs):
         return None
-from manager.battle.core import proceed_next_turn, run_select_resolve_auto
+from manager.battle.core import proceed_next_turn, run_select_resolve_auto, format_skill_name_for_log
 from manager.battle.skill_access import evaluate_skill_access
 from manager.battle.action_slot_mode import get_action_unavailable_reason
 from manager.battle.resolve_presentation import (
@@ -51,7 +52,7 @@ from events.battle.intent_targets import (
     _validate_and_normalize_target,
 )
 
-from manager.utils import apply_buff, get_status_value, set_status_value # For debug
+from manager.utils import apply_buff, get_status_value # For debug
 logger = setup_logger(__name__)
 ensure_system_skills_registered()
 
@@ -548,38 +549,24 @@ def _consume_mass_costs_on_resolve_start(room_id, state, required_slots):
         spent = {'hp': 0, 'mp': 0, 'fp': 0}
 
         if isinstance(actor, dict):
+            log_name = f"[{format_skill_name_for_log(skill_id, skill_data, actor)}]"
             for entry in _extract_skill_cost_entries(skill_data):
                 if not isinstance(entry, dict):
                     continue
                 c_type = str(entry.get('type', '')).strip().upper()
-                if not c_type:
-                    continue
                 try:
                     c_val = int(entry.get('value', 0))
                 except (TypeError, ValueError):
                     c_val = 0
-                if c_val <= 0:
+                if not c_type or c_val <= 0:
                     continue
-
                 curr = int(get_status_value(actor, c_type))
                 new_val = max(0, curr - c_val)
-                consumed = max(0, curr - new_val)
-                if consumed <= 0:
+                if new_val == curr:
                     continue
-
-                if c_type == 'HP':
-                    actor['hp'] = new_val
-                    spent['hp'] += consumed
-                elif c_type == 'MP':
-                    actor['mp'] = new_val
-                    spent['mp'] += consumed
-                elif c_type == 'FP':
-                    if 'fp' in actor:
-                        actor['fp'] = new_val
-                    set_status_value(actor, 'FP', new_val)
-                    spent['fp'] += consumed
-                else:
-                    set_status_value(actor, c_type, new_val)
+                _update_char_stat(room_id, actor, c_type, new_val, username=log_name)
+                if c_type.lower() in spent:
+                    spent[c_type.lower()] += curr - new_val
 
         intent['cost_consumed_at_resolve_start'] = True
         intents[slot_id] = intent

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from manager.battle import core, duel_solver
+from manager.battle.runtime_actions import format_skill_name_for_log
 from tests.test_select_resolve_smoke import (
     _add_slot, _base_state, _load_battle_common_routes_module, _make_actor,
     _patch_room_and_socket, _set_intent, _state_value, _stub_update_char_stat,
@@ -54,6 +55,7 @@ def _setup(monkeypatch, *, mass=True, participants=1):
     routes = _load_battle_common_routes_module()
     monkeypatch.setattr(routes, 'get_room_state', lambda _room: state)
     monkeypatch.setattr(routes, 'all_skill_data', catalog)
+    monkeypatch.setattr(routes, '_update_char_stat', _update_stat)
     return state, routes
 
 
@@ -142,3 +144,38 @@ def test_cancelled_single_skills_do_not_pay_or_run_use_effects(monkeypatch, reas
         assert _state_value(char, 'FP') == 20
         assert _state_value(char, 'used_effect') == 0
     assert any(t['kind'] == 'fizzle' for t in state['battle_state']['resolve']['trace'])
+
+
+def test_mass_prepayment_logs_each_cost_with_skill_name(monkeypatch):
+    state, routes = _setup(monkeypatch, participants=1)
+    calls = []
+
+    def _record(room, char, stat, new_value, username=None, **_kwargs):
+        calls.append((char['id'], stat, new_value, username))
+        _stub_update_char_stat(room, char, stat, new_value)
+
+    monkeypatch.setattr(routes, '_update_char_stat', _record)
+    bs = state['battle_state']
+    rows = routes._consume_mass_costs_on_resolve_start('room_t', bs, set(bs['slots']))
+    assert rows[0]['spent'] == {'hp': 0, 'mp': 3, 'fp': 2}
+    label = f"[{format_skill_name_for_log('COST_A', routes.all_skill_data['COST_A'], state['characters'][0])}]"
+    assert calls == [('A1', 'FP', 18, label), ('A1', 'MP', 47, label)]
+    assert routes._consume_mass_costs_on_resolve_start('room_t', bs, set(bs['slots'])) == []
+    assert len(calls) == 2
+
+
+def test_mass_prepayment_hp_cost_goes_through_stat_update(monkeypatch):
+    state, routes = _setup(monkeypatch, participants=1)
+    calls = []
+
+    def _record(room, char, stat, new_value, **_kwargs):
+        calls.append((stat, new_value))
+        _stub_update_char_stat(room, char, stat, new_value)
+
+    monkeypatch.setattr(routes, '_update_char_stat', _record)
+    routes.all_skill_data['COST_A']['rule_data']['cost'] = [{'type': 'HP', 'value': 150}]
+    routes.all_skill_data['COST_A']['特記処理'] = json.dumps(routes.all_skill_data['COST_A']['rule_data'])
+    bs = state['battle_state']
+    rows = routes._consume_mass_costs_on_resolve_start('room_t', bs, set(bs['slots']))
+    assert calls == [('HP', 0)]
+    assert rows[0]['spent'] == {'hp': 100, 'mp': 0, 'fp': 0}
