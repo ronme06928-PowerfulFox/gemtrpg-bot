@@ -957,7 +957,7 @@ GET /api/room/export_logs?room_name=<room>&format=text
 - `compute_used_exp(data)`: `data.commands`から`【スキルID 表示名】`パターンでスキルIDを抽出し（正規表現はCharaCreatorの`restoreFromCommands()`と同一）、スキルマスター（`extensions.all_skill_data`）の`取得コスト`フィールドを合算する。出身6（ラグラゼシス都市部）のみ、魔法カテゴリ（IDが`Ms`/`Mb`/`Mp`で始まる）スキルの先頭コスト1点分を割引く。
 - `compute_param_growth_spent(growth_log)`: 既存APIのパラメータ上昇に使った経験値の累計（現行成長画面に入力欄はない）。パラメータ上昇は`commands`に現れないため、`growth_log`の`kind=='growth'`エントリの`param_increases`を合算して求める。
 - `used_exp`（API応答）= `compute_used_exp(data)` + `compute_param_growth_spent(growth_log)`。`remaining_exp` = `exp_total - used_exp`。
-- `skill_exp_budget`（API応答）= `exp_total - compute_param_growth_spent(growth_log)`。取得済みスキルのコストを含む上限であり、残り経験値ではない。現行CharaCreatorはこれを経験欄へ入れ、シナリオ経験を0にするが、これは内訳を失わせる不具合D31（計画46台帳§19.24）である。2026-10-21ユーザー確認では、経験は元の能力値のまま保持し、シナリオ経験を別枠で表示・保存する。`remaining_exp`の直接代入も、取得済みコストの二重控除になるため修正案にはしない。アプリの修正は後続。
+- `skill_exp_budget`（API応答）= `exp_total - compute_param_growth_spent(growth_log)`。取得済みスキルのコストを含む上限であり、残り経験値ではない。再編集では保存済みの経験を維持し、シナリオ経験欄へ`skill_exp_budget - 経験 - 出身7の上限補正1`を入れる。能力値成長分はskill_exp_budgetで控除済みなので二重に引かない。`remaining_exp`は取得済みコストも控除するため、この復元には使わない（D31修正）。
 
 ### `POST /api/owned_characters/<id>/growth`
 
@@ -981,7 +981,7 @@ CharaCreatorの「通過点」（`data.params`の`通過点`ラベル、CharaCre
 
 ### CharaCreator再編集時の予算連動
 
-`?owned_id=<id>`付きで`/chara_creator`を開くと、`loadOwnedCharacterFromAccount()`が`GET /api/owned_characters/<id>`を取得し、フォームへ復元した上で`p-exp`欄を`skill_exp_budget`で上書きする（`p-exp-scenario`は0）。これにより、CharaCreator上の「上限」表示が持ちキャラの実際の残り予算と一致した状態で再編集できる。
+`?owned_id=<id>`付きで`/chara_creator`を開くと、`loadOwnedCharacterFromAccount()`が`GET /api/owned_characters/<id>`を取得し、元の経験と、成果反映分を含むシナリオ経験を別枠で復元する。シナリオ経験の計算結果が負なら、その負値を表示したまま読み込みメッセージで警告し、アカウント保存前にも確認を求める。黙って0へ補正しない。保存は既存のPUTでparamsだけを更新し、exp_totalは変更しない。新規作成時の上限超過確認は維持する。CharaCreatorのHTMLは`app.py::serve_chara_creator`が直接配信し、バンドルの入力ではないため、このファイルだけの変更ではnpm run buildは不要。
 
 ## 6. 回帰テスト
 

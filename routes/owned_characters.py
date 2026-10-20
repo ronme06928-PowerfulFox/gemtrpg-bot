@@ -195,10 +195,8 @@ def _character_to_dict_with_exp(character):
     used_exp = skill_used_exp + param_spent
     payload['used_exp'] = used_exp
     payload['remaining_exp'] = int(character.exp_total or 0) - used_exp
-    # CharaCreator再編集時の「経験」欄に入れるべき予算。CharaCreator自身は現在選択中の
-    # スキルコスト(skill_used_exp)を含めて上限判定するため、パラメータ成長で既に
-    # 消費した分だけを exp_total から差し引いた値を渡す（残り経験値そのものではない。
-    # 残り経験値を渡すと既存スキルのコストを二重に差し引いてしまう）。
+    # 再編集時のスキル取得上限。経験そのものは保持し、この値から経験・出身補正を
+    # 除いてシナリオ経験を復元する。取得済みスキルはフォーム側で数えるため控除しない。
     payload['skill_exp_budget'] = int(character.exp_total or 0) - param_spent
 
     radiance_limit = compute_radiance_limit(character.data or {})
