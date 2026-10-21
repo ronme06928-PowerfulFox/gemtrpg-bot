@@ -6,7 +6,7 @@
 
 症状を探し、回答のあるページを開いてください。PDFではページ番号を押すと、その章の「困ったとき」へ移動します。
 
-== 共通「始める前に」
+== 参加前の確認
 
 #block(breakable: false)[
 #table(
@@ -20,7 +20,7 @@
 )
 ]
 
-== PL 1「キャラクターを用意する」
+== 作成と配置
 
 #block(breakable: false)[
 #table(
@@ -32,7 +32,7 @@
 )
 ]
 
-== PL 2「画面を読む」
+== 画面と表示
 
 #block(breakable: false)[
 #table(
@@ -47,7 +47,7 @@
 )
 ]
 
-== PL 3「探索と戦闘を操作する」
+== 探索と戦闘の操作
 
 #block(breakable: false)[
 #table(
@@ -65,7 +65,7 @@
 )
 ]
 
-== PL 4「セッションの後」
+== 終了後の操作
 
 #block(breakable: false)[
 #table(
@@ -80,7 +80,7 @@
 )
 ]
 
-== GM 1「卓を準備する」
+== 卓の準備
 
 #block(breakable: false)[
 #table(
@@ -93,7 +93,7 @@
 )
 ]
 
-== GM 2「当日を進める」
+== 当日の進行
 
 #block(breakable: false)[
 #table(
@@ -106,7 +106,7 @@
 )
 ]
 
-== GM 3「介入と復旧」
+== 介入と復旧
 
 #block(breakable: false)[
 #table(
@@ -119,7 +119,7 @@
 )
 ]
 
-== GM 4「素材を作る」
+== 素材の制作
 
 #block(breakable: false)[
 #table(
