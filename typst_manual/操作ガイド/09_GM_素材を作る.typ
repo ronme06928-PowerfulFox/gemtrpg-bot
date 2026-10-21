@@ -1,10 +1,11 @@
 #import "parts.typ": *
+#let chapter-header = publication-header.with("gm", guide: true)
 
 #pagebreak()
 
-#chapter[GM 4　素材を作る] <guide-gm4>
-
-敵やNPC、行動チャート、プリセットを準備するための入口をまとめます。スキルや敵の強さを決めるルールは基本ルールブックを参照してください。
+#chapter("gm", "04", [GM 4　素材を作る], [
+  敵やNPC、行動チャート、プリセットを準備するための入口をまとめます。スキルや敵の強さを決めるルールは基本ルールブックを参照してください。
+], target: <guide-gm4>)
 
 == NPC・敵とタグ
 

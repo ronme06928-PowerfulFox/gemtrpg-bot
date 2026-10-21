@@ -1,8 +1,9 @@
 #import "parts.typ": *
+#let chapter-header = publication-header.with("pl", guide: true)
 
-#chapter[PL 4　セッションの後] <guide-pl4>
-
-セッションが終わったら、GMに報酬を確認し、保存した持ちキャラへ反映します。その後、ロビーでスキルを取得し、次のセッションに備えます。
+#chapter("pl", "04", [PL 4　セッションの後], [
+  セッションが終わったら、GMに報酬を確認し、保存した持ちキャラへ反映します。その後、ロビーでスキルを取得し、次のセッションに備えます。
+], target: <guide-pl4>)
 
 == 成果の反映
 

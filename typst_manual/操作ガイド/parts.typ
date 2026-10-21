@@ -1,26 +1,19 @@
 // 操作ガイドの章ファイルで共通に使う部品。
-#import "../manual_theme.typ": publication-figure
+#import "../manual_theme.typ" as theme
+#let publication-header = theme.publication-header
+#let callout = theme.guide-callout
 
 // 本文と索引の参照先は、リンクと実際のページ番号を併記する。
 #let guide-ref(target, body) = context link(target)[#body（#counter(page).at(target).first()ページ）]
 
-// 章は自然に続け、巻頭・共通編・PL編・GM編・索引の入口で改ページする。
-#let chapter(title) = {
-  if title in ([この本の使い方], [共通　始める前に], [PL 1　キャラクターを用意する], [GM 1　卓を準備する], [困ったときの索引]) { pagebreak(weak: true) }
-  heading(level: 1, title)
-}
-
-// 図の番号は本全体の通し番号にする。
-#let fig-counter = counter("guide-figure")
-#let fig(caption, body) = {
-  fig-counter.step()
-  context publication-figure(fig-counter.display(), caption, body)
-}
+// 章扉・図番号は本番の共通テーマで管理する。
+#let chapter = theme.guide-chapter
+#let fig = theme.guide-fig
 
 // 症状と確かめることの表（各章末の「困ったとき」）。
-#let trouble(..rows) = block(breakable: false)[#table(
+#let trouble(..rows) = context block(breakable: false)[#table(
   columns: (38%, 62%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + rgb("dce3e8"),
-  table.header(table.cell(fill: rgb("eef1f3"))[*症状*], table.cell(fill: rgb("eef1f3"))[*確かめること*]),
+  publication-header(theme.guide-current-mark().part, guide: true, [*症状*], [*確かめること*]),
   ..rows.pos().flatten(),
 )]
 

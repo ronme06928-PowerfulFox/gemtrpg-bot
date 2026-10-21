@@ -1,8 +1,9 @@
 #import "parts.typ": *
+#let chapter-header = publication-header.with("pl", guide: true)
 
-#chapter[PL 2　画面を読む] <guide-pl2>
-
-この章では、ルームの画面でキャラクターの状態やログを確かめる方法を説明します。図には、作例のキャラクター「ナギ」を使います。
+#chapter("pl", "02", [PL 2　画面を読む], [
+  この章では、ルームの画面でキャラクターの状態やログを確かめる方法を説明します。図には、作例のキャラクター「ナギ」を使います。
+], target: <guide-pl2>)
 
 == 戦闘画面の配置
 
@@ -91,7 +92,7 @@
 #block(breakable: false)[
 #table(
   columns: (32%, 68%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + line-c,
-  table.header(table.cell(fill: rgb("eef1f3"))[*表示*], table.cell(fill: rgb("eef1f3"))[*確かめること*]),
+  chapter-header([*表示*], [*確かめること*]),
   [状態異常の名前と数値], [その状態異常の現在の値です。],
   [残り2R／残2回], [その効果に表示されている残りラウンド数／残り回数です。効果によって表示されるものが異なります。],
   [付与されたスキル], [Skillsで黄色の「付与」表示が付きます。押すと「付与スキル」と、残りラウンドまたは残り使用回数を確認できます。],

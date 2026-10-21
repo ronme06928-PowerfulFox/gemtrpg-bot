@@ -1,8 +1,9 @@
-#import "parts.typ": chapter, guide-ref
+#import "parts.typ": *
+#let chapter-header = publication-header.with("intro", guide: true)
 
-#chapter[この本の使い方]
-
-この本では、ジェムリアTRPGのセッションで使うアプリの操作を説明します。ルールの意味や計算は、基本ルールブックを参照してください。
+#chapter("intro", "00", [この本の使い方], [
+  この本では、ジェムリアTRPGのセッションで使うアプリの操作を説明します。ルールの意味や計算は、基本ルールブックを参照してください。
+])
 
 == 読む順番
 
@@ -11,7 +12,7 @@
 #block(breakable: false)[
 #table(
   columns: (40%, 60%), inset: (x: 6pt, y: 6pt), stroke: 0.6pt + rgb("dce3e8"),
-  table.header([*やること*], [*読むところ*]),
+  chapter-header([*やること*], [*読むところ*]),
   [ログインしてルームへの参加], [#guide-ref(<guide-common>)[共通「始める前に」]],
   [キャラクターを作り、保存して配置する], [#guide-ref(<guide-pl1>)[PL 1「キャラクターを用意する」]],
   [画面・キャラクター詳細・ログを見る], [#guide-ref(<guide-pl2>)[PL 2「画面を読む」]],

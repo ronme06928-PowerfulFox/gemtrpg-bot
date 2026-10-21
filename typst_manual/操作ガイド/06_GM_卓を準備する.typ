@@ -1,8 +1,9 @@
 #import "parts.typ": *
+#let chapter-header = publication-header.with("gm", guide: true)
 
-#chapter[GM 1　卓を準備する] <guide-gm1>
-
-この章では、通常ルームを作り、参加者を招待して、キャラクターと盤面を準備します。プレイヤーが自分で行う操作は、共通編とPL編を参照してください。
+#chapter("gm", "01", [GM 1　卓を準備する], [
+  この章では、通常ルームを作り、参加者を招待して、キャラクターと盤面を準備します。プレイヤーが自分で行う操作は、共通編とPL編を参照してください。
+], target: <guide-gm1>)
 
 == ルームの作成
 
@@ -39,7 +40,7 @@
 #block(breakable: false)[
 #table(
   columns: (28%, 72%), inset: 6pt, stroke: 0.6pt + line-c,
-  table.header([*公開設定*], [*新しく参加する人からの見え方*]),
+  chapter-header([*公開設定*], [*新しく参加する人からの見え方*]),
   [非公開(hidden)], [一覧に表示されず、新規参加できません。],
   [公開(listed)], [一覧から参加できます。コードを設定していれば入力が必要です。],
   [締切(closed)], [一覧には表示されますが、新規参加できません。],
