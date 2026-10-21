@@ -1,8 +1,9 @@
 // 計画46・R09。照合・保留事項は出典・不足台帳§19.31。
 #import "../manual_theme.typ": publication-figure
-// 章別レビューではfalse。全編統合時に --input appendix-links=true を渡す。
-#let appendix-links = sys.inputs.at("appendix-links", default: "false") == "true"
-#let index-destination(target, body) = if appendix-links { link(label(target), body) } else { body }
+// 単独レビューでは文字だけを出し、参照先を収録した本では自動的にリンクにする。
+#let index-destination(target, body) = context {
+  if query(label(target)).len() == 1 { link(label(target), body) } else { body }
+}
 #let appendix-table(..cells) = table(columns: (24%, 26%, 50%), inset: (x: 6pt, y: 6pt), stroke: 0.6pt + rgb("dce3e8"), ..cells.pos())
 
 = 巻末 <rules-appendix>
