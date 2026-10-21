@@ -25,6 +25,7 @@ from manager.battle.resolve_snapshot_utils import (
     _build_clash_power_snapshot,
 )
 from manager.battle.damage_context import build_damage_context
+from manager.battle.origin_power import apply_origin_power_floor
 from manager.battle.combat_session import record_combat_damage
 
 logger = setup_logger(__name__)
@@ -226,7 +227,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
 
     preview = calculate_skill_preview(attacker_char, defender_char, attacker_skill_data, context=context)
     final_command = (preview or {}).get('final_command') or "0"
-    roll_result = roll_dice(final_command)
+    roll_result = apply_origin_power_floor(roll_dice(final_command), defender_char)
     _consume_fear_dice_reduction(room, attacker_char, preview)
     base_damage = int(roll_result.get('total', 0))
     power_snapshot = build_power_result_snapshot(preview, roll_result)
@@ -892,7 +893,7 @@ def _resolve_hard_attack_followup(
     if isinstance(defender_skill_data, dict):
         preview_d = calculate_skill_preview(defender_char, attacker_char, defender_skill_data, context=context)
         command_d = (preview_d or {}).get('final_command') or "0"
-        roll_d = roll_dice(command_d)
+        roll_d = apply_origin_power_floor(roll_dice(command_d), attacker_char)
         _consume_fear_dice_reduction(room, defender_char, preview_d)
         try:
             defense_power = int(roll_d.get('total', 0) or 0)
@@ -1134,7 +1135,7 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
                     slot_id, skill_id, target_slot_id, e
                 )
             else:
-                total = int((roll_dice(final_command) or {}).get('total', 0) or 0)
+                total = int(apply_origin_power_floor(roll_dice(final_command), defender_char).get('total', 0) or 0)
                 _consume_fear_dice_reduction(room_name, attacker_char, preview)
                 logger.info(
                     "[roll_power_slot] slot=%s skill=%s command=%s total=%s mode=preview target_slot=%s",

@@ -16,6 +16,7 @@ from manager.game_logic import (
 )
 from manager.skill_effects import apply_skill_effects_bidirectional
 from manager.dice_roller import roll_dice
+from manager.battle.origin_power import apply_origin_power_floor
 import manager.utils as _utils_mod
 
 from manager.battle.core import (
@@ -556,27 +557,9 @@ def execute_duel_match(room, data, username):
     result_a = roll_dice(command_a)
     result_d = roll_dice(command_d)
 
-    attacker_origin_id = get_effective_origin_id(actor_a_char)
-
-    logs = []
-
-    if (not delegate_mode) and attacker_origin_id == 13:
-        if result_d['total'] > 2:
-            result_d['total'] -= 1
-            logs.append(f"[ヴァルヴァイレ恩恵] 防御側の最終値 -1")
-        else:
-             logs.append(f"[ヴァルヴァイレ恩恵] 防御側の最終値 -1 (下限のため無効)")
-
-    defender_origin_id = get_effective_origin_id(actor_d_char)
-    if (not delegate_mode) and defender_origin_id == 13:
-        if result_a['total'] > 2:
-            result_a['total'] -= 1
-            logs.append(f"[ヴァルヴァイレ恩恵] 攻撃側の最終値 -1")
-        else:
-             logs.append(f"[ヴァルヴァイレ恩恵] 攻撃側の最終値 -1 (下限のため無効)")
-
-    if (not delegate_mode) and logs:
-        broadcast_log(room, ' '.join(logs), 'info')
+    # Declared commands already include the preview correction; only its floor remains.
+    result_a = apply_origin_power_floor(result_a, actor_d_char)
+    result_d = apply_origin_power_floor(result_d, actor_a_char)
 
     winner_message = ''; damage_message = ''
 

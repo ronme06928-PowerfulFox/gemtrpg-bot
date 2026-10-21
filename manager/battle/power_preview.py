@@ -394,6 +394,9 @@ def calculate_skill_preview(
         except ValueError:
             pass
 
+    if valvile_correction:
+        range_min = max(1, range_min)
+        range_max = max(1, range_max)
     skill_details['range_min'] = range_min
     skill_details['range_max'] = range_max
 

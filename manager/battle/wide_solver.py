@@ -552,16 +552,14 @@ def execute_wide_match(room, username):
 
 
         if attacker_origin == 13:
-             if total_defender_roll > 2:
-                 total_defender_roll -= 1
-                 broadcast_log(room, f"[ヴァルヴァイレ恩恵] 防御側合計 -1", 'info')
+             total_defender_roll = max(1, total_defender_roll - 1)
+             broadcast_log(room, f"[ヴァルヴァイレ恩恵] 防御側合計 -1", 'info')
 
 
         has_walwaire_defender = any(get_effective_origin_id(d) == 13 for d in valid_defenders)
         if has_walwaire_defender:
-             if attacker_total > 2:
-                 attacker_total -= 1
-                 broadcast_log(room, f"[ヴァルヴァイレ恩恵] 攻撃側合計 -1", 'info')
+             attacker_total = max(1, attacker_total - 1)
+             broadcast_log(room, f"[ヴァルヴァイレ恩恵] 攻撃側合計 -1", 'info')
 
         if any(get_target_coloration_attack_bonus(attacker_char, defender_char, attacker_skill_data) > 0 for defender_char in valid_defenders):
              attacker_total += 1
@@ -777,16 +775,14 @@ def execute_wide_match(room, username):
 
 
             if attacker_origin == 13:
-                 if defender_total > 2:
-                     defender_total -= 1
+                 defender_total = max(1, defender_total - 1)
 
 
 
 
             effective_attacker_total = attacker_total
             if get_effective_origin_id(def_char) == 13:
-                 if effective_attacker_total > 2:
-                     effective_attacker_total -= 1
+                 effective_attacker_total = max(1, effective_attacker_total - 1)
 
             effective_attacker_total += get_target_coloration_attack_bonus(attacker_char, def_char, attacker_skill_data)
 
