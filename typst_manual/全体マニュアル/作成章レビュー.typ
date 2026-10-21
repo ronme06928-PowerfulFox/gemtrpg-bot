@@ -2,5 +2,5 @@
 #import "../manual_theme.typ": publication-conf
 #set document(title: "ジェムリアTRPG 基本ルールブック・第2章レビュー版")
 #show: publication-conf.with(footer-label: "ジェムリアTRPG / 基本ルールブック・第2章レビュー版")
-#text(size: 9pt, fill: rgb("647080"))[計画46・段階5　2026-10-20作業版。このPDFには第2章だけを収録しています。本文が参照する第8章（出身国ボーナスの表）は未収録です。]
+#text(size: 9pt, fill: rgb("647080"))[計画46・段階5　2026-10-21作業版。このPDFには第2章だけを収録しています。本文が参照する巻末（出身国ボーナスの表）は未収録です。]
 #include "02_キャラクターを作る.typ"
