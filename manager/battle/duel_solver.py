@@ -651,6 +651,36 @@ def execute_duel_match(room, data, username):
             if actor_d_char and isinstance(char, dict) and char.get('id') == actor_d_char.get('id'):
                 return 'D'
             return None
+        def _apply_defensive_win(winner_side):
+            winner_is_a = winner_side == 'attacker'
+            winner = actor_a_char if winner_is_a else actor_d_char
+            loser = actor_d_char if winner_is_a else actor_a_char
+            skill = skill_data_a if winner_is_a else skill_data_d
+            loser_skill = skill_data_d if winner_is_a else skill_data_a
+            skill_id = skill_id_a if winner_is_a else skill_id_d
+            name = actor_name_a if winner_is_a else actor_name_d
+            role = _resolve_skill_role(skill)
+            if _resolve_skill_role(loser_skill) not in {'defense', 'evade'}:
+                grant_win_fp(winner)
+            _, logs, _, events = apply_skill_effects_bidirectional(
+                room, state, username, winner_side, actor_a_char, actor_d_char,
+                skill_data_a, skill_data_d, 0,
+            )
+            for event in events:
+                key = 'A' if actor_a_char and event.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and event.get('target_id') == actor_d_char.get('id') else None)
+                if key:
+                    damage_report[key].append(event)
+            log_snippets.extend(logs)
+            if role == 'evade' and winner:
+                apply_buff(winner, "再回避ロック", 1, 0, data={"skill_id": skill_id, "buff_id": "Bu-05"})
+                log_snippets.append("[再回避可能]")
+            elif role == 'defense':
+                winner_total = result_a['total'] if winner_is_a else result_d['total']
+                loser_total = result_d['total'] if winner_is_a else result_a['total']
+                _apply_origin_counter(winner, loser, skill, winner_total, loser_total)
+            success = "回避成功" if role == 'evade' else "防御成功"
+            return f"<strong> → {name} の勝利</strong> ({success})"
+
         def _apply_select_resolve_result_changes(changes, primary_target=None, source_actor=None):
             extra_primary_damage = 0
             for (char, effect_type, name, value) in changes:
@@ -1063,22 +1093,8 @@ def execute_duel_match(room, data, username):
 
                 winner_message = f"<strong> → {actor_name_a} の勝利</strong> (ダメージ軽減)"
             else:
-
-                attacker_loser_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
-                attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
-                is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
-
-                if not is_attacker_using_defense:
-                    grant_win_fp(actor_d_char)
-
-                winner_message = f"<strong> → {actor_name_d} の勝利</strong> (防御成功)"
-                _, logs, _, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d)
-                for evt in dmg_evts:
-                    t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
-                    if t_key: damage_report[t_key].append(evt)
-                log_snippets.extend(logs)
-
-                _apply_origin_counter(actor_d_char, actor_a_char, skill_data_d, result_d['total'], result_a['total'])
+                winner_message = _apply_defensive_win('defender')
+                damage_message = "(ダメージ 0)"
 
         elif "守備" in defender_tags and defender_category == "回避":
             if result_a['total'] > result_d['total']:
@@ -1110,45 +1126,13 @@ def execute_duel_match(room, data, username):
                 display_total = final_damage + custom_dmg + buff_dmg
                 damage_message += f"({actor_d_char['name']} に {damage} " + (f"+ [亀裂{kiretsu}] " if kiretsu > 0 else "") + "".join([f"{m} " for m in log_snippets]) + f"= {display_total} ダメージ)"
             else:
-
-                attacker_loser_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
-                attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
-                is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
-
-                if not is_attacker_using_defense:
-                    grant_win_fp(actor_d_char)
-
-                _, logs, _, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d)
-                for evt in dmg_evts:
-                    t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
-                    if t_key: damage_report[t_key].append(evt)
-                if actor_d_char:
-                    log_snippets.append("[再回避可能]")
-                    apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d, "buff_id": "Bu-05"})
-                log_snippets.extend(logs)
-                winner_message = f"<strong> → {actor_name_d} の勝利</strong> (回避成功)"; damage_message = "(ダメージ 0)"
-                if log_snippets: damage_message += f" ({' '.join(log_snippets)})"
+                winner_message = _apply_defensive_win('defender')
+                damage_message = "(ダメージ 0)"
 
         elif attacker_category == "回避":
-            if result_a['total'] > result_d['total']:
-
-                defender_loser_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
-                defender_loser_tags = skill_data_d.get("tags", []) if skill_data_d else []
-                is_defender_using_defense = (defender_loser_category in ["防御", "回避"] or "防御" in defender_loser_tags or "回避" in defender_loser_tags or "守備" in defender_loser_tags)
-
-                if not is_defender_using_defense:
-                    grant_win_fp(actor_a_char)
-
-                winner_message = f"<strong> → {actor_name_a} の勝利</strong> (回避成功)"
+            if result_a['total'] >= result_d['total']:
+                winner_message = _apply_defensive_win('attacker')
                 damage_message = "(ダメージ 0)"
-                if actor_a_char:
-                    log_snippets.append("[再回避可能]")
-                    apply_buff(actor_a_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_a, "buff_id": "Bu-05"})
-                _, logs, _, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
-                for evt in dmg_evts:
-                    t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
-                    if t_key: damage_report[t_key].append(evt)
-                if logs: log_snippets.extend(logs)
             elif result_d['total'] > result_a['total']:
 
                 damage = result_d['total']
@@ -1178,80 +1162,11 @@ def execute_duel_match(room, data, username):
                     if buff_dmg > 0: damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
 
                     winner_message = f"<strong> → {actor_name_d} の勝利</strong> (カウンター)"
-            else:
-                winner_message = "<strong> → 不発</strong> (ダメージなし)"
 
-                def local_end_match(effs, actor, target, skill):
-                    d, l, c = process_skill_effects(effs, "END_MATCH", actor, target, skill)
-                    for (char, type, name, value) in c:
-                        if type == "APPLY_STATE":
-                            _update_char_stat(room, char, name, get_status_value(char, name) + value, username=f"[{name}]", save=False, damage_context=_damage_context_for(actor))
-                            if name == 'HP' and value < 0:
-                                t_key = 'A' if actor_a_char and char['id'] == actor_a_char['id'] else ('D' if actor_d_char and char['id'] == actor_d_char['id'] else None)
-                                if t_key: damage_report[t_key].append({'source': 'END_MATCH', 'value': -value})
-                        elif type == "APPLY_BUFF": apply_buff(char, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
-                        elif type == "REMOVE_BUFF": remove_buff(char, name)
-                        elif type == "CUSTOM_DAMAGE":
-                            t_key = 'A' if actor_a_char and char['id'] == actor_a_char['id'] else ('D' if actor_d_char and char['id'] == actor_d_char['id'] else None)
-                            if t_key: damage_report[t_key].append({'source': name, 'value': value})
-                            _update_char_stat(room, char, 'HP', max(0, get_status_value(char, 'HP') - value), username=f"[{name}]", source=DamageSource.SKILL_EFFECT, save=False, damage_context=_damage_context_for(actor))
-                        elif type == "CONSUME_BLEED_MAINTENANCE":
-                            consume_bleed_maintenance_stack(char, amount=int(value or 1))
-                        elif type == "SET_FLAG":
-                            if 'flags' not in char: char['flags'] = {}
-                            char['flags'][name] = value
-                        elif type == "SUMMON_CHARACTER":
-                            res = apply_summon_change(room, state, char, value)
-                            if res.get("ok"):
-                                broadcast_log(room, res.get("message", "Summon applied"), "state-change", save=False)
-                            else:
-                                logger.warning("[draw end_match summon failed] %s", res.get("message"))
-                        elif type == "GRANT_SKILL":
-                            grant_payload = dict(value) if isinstance(value, dict) else {}
-                            if "skill_id" not in grant_payload:
-                                grant_payload["skill_id"] = name
-                            res = apply_grant_skill_change(room, state, actor, char, grant_payload)
-                            if res.get("ok"):
-                                broadcast_log(room, res.get("message", "Grant skill applied"), "state-change", save=False)
-                            else:
-                                logger.warning("[draw end_match grant_skill failed] %s", res.get("message"))
-                    return l
-
-                if not state.get('__sr_delegate_result_timings_applied__'):
-                    log_a = local_end_match(effects_array_a, actor_a_char, actor_d_char, skill_data_d)
-                    log_d = local_end_match(effects_array_d, actor_d_char, actor_a_char, skill_data_a)
-                    log_snippets.extend(log_a + log_d)
-                if log_snippets: winner_message += f" ({' '.join(log_snippets)})"
-                damage_message = "(相殺)"
-
-        elif result_a['total'] > result_d['total']:
-            attacker_winner_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
-            attacker_winner_tags = skill_data_a.get("tags", []) if skill_data_a else []
-
-            if attacker_winner_category == "防御" or attacker_winner_category == "回避" or "防御" in attacker_winner_tags or "回避" in attacker_winner_tags:
-
-                defender_loser_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
-                defender_loser_tags = skill_data_d.get("tags", []) if skill_data_d else []
-                is_defender_using_defense = (defender_loser_category in ["防御", "回避"] or "防御" in defender_loser_tags or "回避" in defender_loser_tags or "守備" in defender_loser_tags)
-
-                if not is_defender_using_defense:
-                    grant_win_fp(actor_a_char)
-
-                winner_message = f"<strong> → {actor_name_a} の勝利</strong> ({attacker_winner_category}成功)"
-
-                _, logs, _, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
-                for evt in dmg_evts:
-                    t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
-                    if t_key: damage_report[t_key].append(evt)
-                if logs: log_snippets.extend(logs)
-                if log_snippets: winner_message += f" ({' '.join(log_snippets)})"
-
-                _apply_origin_counter(actor_a_char, actor_d_char, skill_data_a, result_a['total'], result_d['total'])
-
-                if actor_d_char and DodgeLockBuff.has_re_evasion(actor_d_char):
-                     remove_buff(actor_d_char, "再回避ロック")
-                     log_snippets.append("[再回避失敗！ロック解除]")
-
+        elif result_a['total'] > result_d['total'] or (result_a['total'] == result_d['total'] and _resolve_skill_role(skill_data_a) in {'defense', 'evade'}):
+            if _resolve_skill_role(skill_data_a) in {'defense', 'evade'}:
+                winner_message = _apply_defensive_win('attacker')
+                damage_message = "(ダメージ 0)"
             else:
 
                 defender_loser_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
@@ -1297,50 +1212,10 @@ def execute_duel_match(room, data, username):
 
                     winner_message = f"<strong> → {actor_name_a} の勝利</strong>"
 
-        elif result_d['total'] > result_a['total']:
-            defender_winner_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
-            defender_winner_tags = skill_data_d.get("tags", []) if skill_data_d else []
-
-            if defender_winner_category == "防御" or defender_category == "防御" or "防御" in defender_winner_tags:
-
-                 attacker_loser_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
-                 attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
-                 is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
-
-                 if not is_attacker_using_defense:
-                     grant_win_fp(actor_d_char)
-
-                 winner_message = f"<strong> → {actor_name_d} の勝利</strong> (防御成功)"
-                 _, logs, _, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
-                 for evt in dmg_evts:
-                     t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
-                     if t_key: damage_report[t_key].append(evt)
-                 log_snippets.extend(logs)
-                 _apply_origin_counter(actor_d_char, actor_a_char, skill_data_d, result_d['total'], result_a['total'])
-                 if logs: winner_message += f" ({' '.join(logs)})"
-
-            elif defender_winner_category == "回避" or defender_category == "回避" or "回避" in defender_winner_tags:
-
-                 attacker_loser_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
-                 attacker_loser_tags = skill_data_a.get("tags", []) if skill_data_a else []
-                 is_attacker_using_defense = (attacker_loser_category in ["防御", "回避"] or "防御" in attacker_loser_tags or "回避" in attacker_loser_tags or "守備" in attacker_loser_tags)
-
-                 if not is_attacker_using_defense:
-                     grant_win_fp(actor_d_char)
-
-                 winner_message = f"<strong> → {actor_name_d} の勝利</strong> (回避成功)"
-
-                 _, logs, _, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, 0)
-                 for evt in dmg_evts:
-                     t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
-                     if t_key: damage_report[t_key].append(evt)
-                 log_snippets.extend(logs)
-                 if logs: winner_message += f" ({' '.join(logs)})"
-
-                 if actor_d_char:
-                    log_snippets.append("[再回避可能]")
-                    apply_buff(actor_d_char, "再回避ロック", 1, 0, data={"skill_id": skill_id_d, "buff_id": "Bu-05"})
-
+        elif result_d['total'] > result_a['total'] or (result_d['total'] == result_a['total'] and _resolve_skill_role(skill_data_d) in {'defense', 'evade'}):
+            if _resolve_skill_role(skill_data_d) in {'defense', 'evade'}:
+                winner_message = _apply_defensive_win('defender')
+                damage_message = "(ダメージ 0)"
             else:
 
                 attacker_loser_category = str((skill_data_a or {}).get("分類") or (skill_data_a or {}).get("attribute") or "")
