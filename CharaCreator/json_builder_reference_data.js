@@ -230,7 +230,7 @@ window.JSON_BUILDER_REFERENCE = {
     },
     {
       "id": "Bu-25",
-      "name": "アル・カルメイルの古血",
+      "name": "砂海を流離う行人",
       "description": "HPの最大値+20。本能と隠密の探索スキルレベル+2。",
       "effect": {},
       "default_duration": -1
