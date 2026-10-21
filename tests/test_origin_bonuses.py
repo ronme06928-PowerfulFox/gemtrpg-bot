@@ -12,6 +12,8 @@ def _make_char(char_id, origin_id, team="ally", speed=10):
         "name": char_id,
         "type": team,
         "hp": 100,
+        "x": 0,
+        "y": 0,
         "maxHp": 100,
         "mp": 10,
         "maxMp": 10,

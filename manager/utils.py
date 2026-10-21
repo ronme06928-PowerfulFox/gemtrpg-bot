@@ -875,12 +875,16 @@ def _resolve_context_characters(state=None, context=None):
 
 
 def _iter_active_characters(state=None, context=None):
+    from manager.battle.action_slot_mode import is_character_deployed
+
     for char in _resolve_context_characters(state=state, context=context):
         if not isinstance(char, dict):
             continue
         if int(char.get('hp', 0) or 0) <= 0:
             continue
         if bool(char.get('is_escaped', False)):
+            continue
+        if not is_character_deployed(char):
             continue
         yield char
 
