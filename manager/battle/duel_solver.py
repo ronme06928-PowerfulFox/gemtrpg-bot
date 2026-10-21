@@ -1084,9 +1084,9 @@ def execute_duel_match(room, data, username):
                      diff = result_d['total'] - result_a['total']
                      if diff > 0:
                          curr_hp = get_status_value(actor_a_char, 'HP')
-                         _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反封ムメージ]", source=DamageSource.SKILL_EFFECT, damage_context=_damage_context_for(actor_d_char))
-                         damage_report['A'].append({'source': '反封ギァン・バルチ', 'value': diff})
-                         broadcast_log(room, f"[鏡面反射] reflected {diff} damage.", "info")
+                         _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反撃の石]", source=DamageSource.SKILL_EFFECT, damage_context=_damage_context_for(actor_d_char))
+                         damage_report['A'].append({'source': '反撃の石', 'value': diff})
+                         broadcast_log(room, f"[反撃の石] 反撃ダメージ: {diff}", "info")
 
         elif "守備" in defender_tags and defender_category == "回避":
             if result_a['total'] > result_d['total']:
@@ -1399,8 +1399,8 @@ def execute_duel_match(room, data, username):
                          diff = result_d['total'] - result_a['total']
                          if diff > 0:
                              curr_hp = get_status_value(actor_a_char, 'HP')
-                             _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反封ムメージ]", source=DamageSource.SKILL_EFFECT, save=False, damage_context=_damage_context_for(actor_d_char))
-                             broadcast_log(room, f"[鏡面反射] reflected {diff} damage.", "info", save=False)
+                             _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反撃の石]", source=DamageSource.SKILL_EFFECT, save=False, damage_context=_damage_context_for(actor_d_char))
+                             broadcast_log(room, f"[反撃の石] 反撃ダメージ: {diff}", "info", save=False)
         else:
             winner_message = "<strong> → 不発</strong> (ダメージなし)"
 

@@ -17,7 +17,8 @@ from manager.room_manager import (
 )
 from manager.constants import DamageSource, THORNS_DAMAGE_CATS
 from manager.logs import setup_logger
-from manager.battle.skill_rules import _extract_rule_data_from_skill, _skill_deals_damage, _resolve_skill_category
+from manager.battle.skill_rules import _extract_rule_data_from_skill, _skill_deals_damage, _resolve_skill_category, _resolve_skill_role
+from manager.utils import get_effective_origin_id
 from manager.battle.duel_log_utils import _extract_skill_id_from_data
 from manager.battle.resolve_snapshot_utils import (
     _extract_power_pair_from_match_log,
@@ -776,7 +777,13 @@ def _resolve_clash_by_existing_logic(
         delta_d = _diff_snapshot(before_d, after_d, damage_source='ダメージ')
         captured['effect_logs'].append('[効果スキル] 攻撃側のHP差分を補正')
     elif outcome == 'defender_win' and not _skill_deals_damage(defender_skill_data):
-        attacker_char['hp'] = int((before_a or {}).get('hp', attacker_char.get('hp', 0)))
+        before_hp = int((before_a or {}).get('hp', attacker_char.get('hp', 0)))
+        counter_damage = 0
+        if get_effective_origin_id(defender_char) == 8 and _resolve_skill_role(defender_skill_data) == 'defense':
+            # Keep only the already-applied origin counter; restore other non-attack damage.
+            counter_damage = min(max(0, before_hp - int(attacker_char.get('hp', 0))),
+                                 max(0, int(power_d or 0) - int(power_a or 0)))
+        attacker_char['hp'] = before_hp - counter_damage
         after_a = _snapshot_for_outcome(attacker_char)
         delta_a = _diff_snapshot(before_a, after_a, damage_source='ダメージ')
         captured['effect_logs'].append('[効果スキル] 防御側のHP差分を補正')
