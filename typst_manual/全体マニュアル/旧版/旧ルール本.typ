@@ -1,3 +1,4 @@
+// 計画46で新しい基本ルールブック（../main.typ）へ再編。第二章の世界観・第四章の作例の保持先として残す
 // main_revised.typ
 // TheRay,from PerfectGemstone ルールブック（改訂反映版）
 
