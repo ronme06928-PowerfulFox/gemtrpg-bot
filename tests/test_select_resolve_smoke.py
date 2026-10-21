@@ -1151,8 +1151,9 @@ def test_case15c_mass_summation_defender_win_fires_participant_win_and_attacker_
     chars = {c["id"]: c for c in state["characters"]}
     assert chars["A1"]["hp"] == 87
     assert _state_value(chars["A1"], "FP") == 5
-    assert _state_value(chars["B1"], "FP") == 1
-    assert _state_value(chars["B2"], "FP") == 1
+    # 2026-10-22: each participant gets victory FP in addition to its WIN effect.
+    assert _state_value(chars["B1"], "FP") == 2
+    assert _state_value(chars["B2"], "FP") == 2
 
 
 def test_case16_infer_mass_summation_from_japanese_distance_key():

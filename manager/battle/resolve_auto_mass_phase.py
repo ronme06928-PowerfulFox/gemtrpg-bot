@@ -17,6 +17,7 @@ def _sync_from_core():
 
 def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, characters_by_id):
     _sync_from_core()
+    from manager.battle.duel_solver import _consume_duel_skill_cost
     from manager.battle.common_manager import build_select_resolve_state_payload
     from manager.battle.action_slot_mode import get_action_unavailable_reason
 
@@ -324,11 +325,17 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 attacker_power = _roll_power_for_slot(battle_state, slot_id)
                 defender_powers = {}
                 participant_entries = []
+                participant_cost = {'hp': 0, 'mp': 0, 'fp': 0}
                 for p_slot in participant_slots:
                     participant_actor_id = slots.get(p_slot, {}).get('actor_id')
                     participant_char = characters_by_id.get(participant_actor_id)
                     participant_skill_id = (intents.get(p_slot, {}) or {}).get('skill_id')
                     participant_skill_data = all_skill_data.get(participant_skill_id, {}) if participant_skill_id else {}
+                    participant_intent = intents.get(p_slot, {}) or {}
+                    if isinstance(participant_char, dict) and not participant_intent.get('cost_consumed_at_resolve_start', False):
+                        spent = _consume_duel_skill_cost(room, participant_char, participant_skill_data)
+                        for resource, value in spent.items():
+                            participant_cost[resource] += value
                     _record_used_skill_for_actor(participant_char, participant_skill_id)
                     defender_powers[p_slot] = _roll_power_for_slot(battle_state, p_slot)
                     if isinstance(participant_char, dict):
@@ -349,6 +356,18 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 primary_participant = participant_entries[0] if participant_entries else None
                 primary_participant_char = primary_participant.get('char') if isinstance(primary_participant, dict) else None
                 primary_participant_skill = primary_participant.get('skill_data') if isinstance(primary_participant, dict) else None
+                # The aggregate winner receives FP regardless of individual skill roles.
+                fp_winners = ([attacker_char] if outcome == 'attacker_win' else
+                              [entry['char'] for entry in participant_entries] if outcome == 'defender_win' else [])
+                fp_statuses = []
+                for winner in fp_winners:
+                    before_fp = int(get_status_value(winner, 'FP') or 0)
+                    _update_char_stat(room, winner, 'FP', before_fp + 1, username="[マッチ勝利]")
+                    fp_statuses.append({
+                        'target_id': winner.get('id'), 'name': 'FP',
+                        'before': before_fp, 'after': before_fp + 1, 'delta': 1,
+                        'source': 'match_win_fp',
+                    })
                 logger.info(
                     "[resolve_mass] type=広域-合算 slot=%s 参加人数=%d attacker_power=%s defender_sum=%s outcome=%s 総和差分=%s",
                     slot_id, len(participant_slots), attacker_power, defender_sum, outcome, delta
@@ -534,9 +553,11 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                         'delta': delta
                     },
                     outcome=outcome,
+                    cost=participant_cost,
                     target_actor_id=attacker_actor_id,
                     extra_fields={
                         'participants': participant_slots,
+                        'statuses': fp_statuses,
                         'damage_events': damage_events,
                         'lines': summary_lines,
                         'log_lines': summary_lines
