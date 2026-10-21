@@ -1,6 +1,6 @@
 # セッション操作ガイド（原稿）
 
-計画46・4D〜4Fで制作中のセッション操作ガイドの原稿。書き方は[書き方の手引き](../WRITING_GUIDE.md)、紙面は共通テーマ `../manual_theme.typ` の `publication-conf`（C案）に従う。進め方は[統合作業計画](../../manuals/planned/46_Publication_Execution_Plan.md)§11、章ごとの状態と確認事項は[出典・不足台帳](../../manuals/planned/46_Publication_Source_Inventory.md)§16〜18。
+計画46・4D〜4Fで制作中のセッション操作ガイドの原稿。書き方は[書き方の手引き](../WRITING_GUIDE.md)、紙面は共通テーマ `../manual_theme.typ` の `guide-conf`（本文・余白・段落はC案を維持）に従う。進め方は[統合作業計画](../../manuals/planned/46_Publication_Execution_Plan.md)§11、章ごとの状態と確認事項は[出典・不足台帳](../../manuals/planned/46_Publication_Source_Inventory.md)§16〜18。
 
 ```powershell
 typst compile --root typst_manual typst_manual/操作ガイド/main.typ output/pdf/46_operation_guide.pdf
@@ -16,6 +16,8 @@ typst compile --root typst_manual typst_manual/操作ガイド/main.typ output/p
 | `06_`〜`09_` | GM編 GM 1〜4 |
 | `90_困ったときの索引.typ` | 巻末の症状索引 |
 
-4F初稿のレビュー反映版は全29ページ（GM編20〜27、症状索引28〜29）。章別の確認範囲・未確認は台帳§18を参照。レビュー用のPDFは `output/pdf/46_operation_guide.pdf`、刊行版の `main.pdf` は段階6で作る。表示確認画像は `../_local/previews/46_operation_guide/` に保存する。
+4F初稿のレビュー反映版は全29ページ（GM編20〜27、症状索引28〜29）。章別の確認範囲・未確認は台帳§18を参照。レビュー用のPDFは `output/pdf/46_operation_guide.pdf`、同階層の `main.pdf` も作業版として出力しています。刊行の版情報は段階6で整えます。表示確認画像は `../_local/previews/46_operation_guide/` に保存する。
 
-ルールは[基本ルールブック](../全体マニュアル/README.md)の新しい`main.typ`・`main.pdf`（第0〜7章・巻末）を参照します。第8章は保留、詳しい世界観と旧作例は[旧ルール本](../全体マニュアル/旧版/旧ルール本.typ)に保持しています。ガイド本文の冊子名＋節名の参照は新しい本で到達できるため変更しません。
+ルールは[基本ルールブック](../全体マニュアル/README.md)の新しい`main.typ`・`main.pdf`（第0〜7章・巻末）を参照します。第8章は保留、詳しい世界観と旧作例は[旧ルール本](../全体マニュアル/旧版/旧ルール本.typ)に保持しています。ガイド本文の冊子名＋節名は、基本本の短い節名へ更新しました。
+
+2026-10-21（確定デザイン適用）：全37頁（変更前29頁）。共通編＝アクアマリン、PL編＝アイオライト、GM編＝オパール、巻頭＝琥珀、索引＝トルマリン。自動目次と章扉、紺帯・格子・線画宝石・角の図枠・章別FIG番号を適用しました。guide-refと索引のページ参照、2層しおり、全頁画像を検証し、警告0件。以前の頁数は当時の記録です。判断表・囲みの箇所・空白一覧は台帳§19.33。空白調整は次回です。
