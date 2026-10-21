@@ -1,21 +1,23 @@
 // 計画46・R09。照合・保留事項は出典・不足台帳§19.31。
-#import "../manual_theme.typ": publication-figure
+#import "../manual_theme.typ": *
+#let chapter-header = publication-header.with("A")
 // 単独レビューでは文字だけを出し、参照先を収録した本では自動的にリンクにする。
 #let index-destination(target, body) = context {
   if query(label(target)).len() == 1 { link(label(target), body) } else { body }
 }
 #let appendix-table(..cells) = table(columns: (24%, 26%, 50%), inset: (x: 6pt, y: 6pt), stroke: 0.6pt + rgb("dce3e8"), ..cells.pos())
 
-= 巻末 <rules-appendix>
+#book-chapter("A", "巻末", [巻末], [
+  作成時の補正と戦闘中の恩恵を、出身ごとに確認します。作成時の計算は第2章「出身による補正」、成長の予算は第7章「取得コストの上限」を参照してください。
+], target: <rules-appendix>)
 
 == 出身国ボーナスの表 <r09-origin>
 
-作成時の補正と戦闘中の恩恵を、出身ごとに確認します。作成時の計算は第2章「出身による補正」、成長の予算は第7章「取得コストの上限」を参照してください。
 
 他国の恩恵を選べる出身では、選んだ恩恵に従って計算します。
 
 #appendix-table(
-  table.header([*出身*], [*恩恵の名前*], [*効果*]),
+  chapter-header([*出身*], [*恩恵の名前*], [*効果*]),
   [ヨキューク・ツォー], [色とりどりの輝石], [他国の出身の恩恵を一つ選び、その恩恵に従って計算します。],
   [アーク・ジェムリア], [空を巡る叡智], [他国の出身の恩恵を一つ選び、その恩恵に従って計算します。],
   [ラティウム], [小麦色の風], [ラウンド開始時、50%の確率でFPを1得ます。],
@@ -42,7 +44,7 @@
 以下は本文の要約です。詳しい条件は、各項目に示した章と節を確認してください。
 
 #table(columns: (19%, 81%), inset: (x: 6pt, y: 4pt), stroke: 0.6pt + rgb("dce3e8"),
-  table.header([*項目*], [*確認すること／詳しい章・節*]),
+  chapter-header([*項目*], [*確認すること／詳しい章・節*]),
   [探索判定], [判定値＝GM指定の個数の6面ダイスの合計＋探索技能のレベル。 \ 第3章「技能とダイスの個数」「判定値の求め方」],
   [成功], [判定値が目標値以上なら成功。 \ 第3章「成功と失敗」],
   [1ラウンド], [開始（速度値）→選択→解決→終了。 \ 第4章「ラウンドの流れ」],
@@ -66,7 +68,7 @@
 用語を五十音順で並べ、本文で扱う章と節を示します。
 
 #table(columns: (26%, 74%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + rgb("dce3e8"),
-  table.header([*用語*], [*章番号・節の名前*]),
+  chapter-header([*用語*], [*章番号・節の名前*]),
   [あがき], index-destination("r06-struggle", [第6章「あがき」]),
   [一方攻撃], index-destination("r05-one-sided", [第5章「マッチと一方攻撃」]),
   [HP], index-destination("r04-resources", [第4章「戦闘開始時の状態」]),

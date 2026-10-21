@@ -1,22 +1,11 @@
 // Build: typst compile --root typst_manual typst_manual/全体マニュアル/main.typ typst_manual/全体マニュアル/main.pdf
-#import "../manual_theme.typ": publication-conf
+#import "../manual_theme.typ": book-conf, book-cover, publication-toc
 #set document(title: "ジェムリアTRPG 基本ルールブック・作業版")
-#show: publication-conf.with(footer-label: "ジェムリアTRPG / 基本ルールブック・作業版")
-#show heading.where(level: 1): it => { pagebreak(weak: true); it }
+#show: book-conf
 #show heading.where(level: 3): set heading(bookmarked: false)
 
-#page(header: none, footer: none)[
-  #v(60mm)
-  #text(size: 12pt, fill: rgb("647080"))[ジェムリアTRPG]
-  #v(4mm)
-  #text(size: 12pt)[The Ray, from Perfect Gemstone]
-  #v(6mm)
-  #text(size: 30pt, weight: "bold")[基本ルールブック]
-  #v(1fr)
-  #text(size: 9pt, fill: rgb("647080"))[作業版。本文は制作中で、内容は確定していません。]
-]
-
-#outline(title: "目次", depth: 2)
+#book-cover()
+#publication-toc()
 
 #include "00_この本の使い方.typ"
 #include "01_ジェムリアで遊ぶ.typ"

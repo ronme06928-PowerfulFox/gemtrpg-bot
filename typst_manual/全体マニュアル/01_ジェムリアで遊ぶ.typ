@@ -1,11 +1,9 @@
 // 計画46・R01。世界観の各文の出典とユーザー了承範囲は出典・不足台帳§19.29。
-#import "../manual_theme.typ": publication-figure
-#let intro-stage(title, body) = rect(width: 100%, inset: (x: 9pt, y: 5pt),
-  fill: white, stroke: rgb("c9d2d9"))[*#title*　#body]
-
-= 1　ジェムリアで遊ぶ <rules-introduction>
-
-正式名は*The Ray, from Perfect Gemstone*、略称は*ジェムリアTRPG*です。探索と戦闘を行き来しながら、キャラクターの選択と行動で物語を進めるテーブルトーク・ロールプレイングゲームです。
+#import "../manual_theme.typ": *
+#let chapter-header = publication-header.with("1")
+#book-chapter("1", "1", [ジェムリアで遊ぶ], [
+  正式名は*The Ray, from Perfect Gemstone*、略称は*ジェムリアTRPG*です。探索と戦闘を行き来しながら、キャラクターの選択と行動で物語を進めるテーブルトーク・ロールプレイングゲームです。
+], target: <rules-introduction>)
 
 == PLとGMの役割
 
@@ -15,7 +13,7 @@ PLは、物語の中で行動するキャラクターを作り、何をするか
 
 依頼や事件を知り、準備や情報収集をして、目的地へ向かいます。道中で出来事に対応し、ときには戦闘を行い、結末を迎えて報酬を確認します。*どの場面があり、何が起きるかはシナリオによって変わります。* 次の図は流れの一例です。
 
-#publication-figure(1, [場面の進め方は第3章、戦闘は第4章、報酬は第7章で説明します。], [
+#book-fig([場面の進め方は第3章、戦闘は第4章、報酬は第7章で説明します。], [
   #intro-stage([導入], [依頼や事件、置かれた状況を知る（第3章）])
   #align(center)[↓]
   #intro-stage([準備・情報収集], [必要な物や手掛かりをそろえる（第3章）])
@@ -33,7 +31,7 @@ PLは、物語の中で行動するキャラクターを作り、何をするか
 
 #block(breakable: false)[#table(
   columns: (25%, 75%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + rgb("dce3e8"),
-  table.header([*用語*], [*意味*]),
+  chapter-header([*用語*], [*意味*]),
   [PL], [プレイヤー。自分のキャラクターの行動を考え、宣言する参加者です。],
   [GM], [ゲームマスター。状況を示し、進行と裁定を担当する参加者です。],
   [PC], [プレイヤーキャラクター。PLが操作する、物語の中の人物です。],

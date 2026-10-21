@@ -474,8 +474,12 @@
     "1": ((1, 1),), "2": ((0, 0), (2, 2)), "3": ((0, 0), (1, 1), (2, 2)),
     "4": ((0, 0), (2, 0), (0, 2), (2, 2)), "5": ((0, 0), (2, 0), (1, 1), (0, 2), (2, 2)),
     "6": ((0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2)),
-  ).at(str(n))
-  for (x, y) in p { place(top + left, dx: 1.35mm + x * 1.1mm, dy: 1.35mm + y * 1.1mm, circle(radius: 0.55mm, fill: color)) }
+  ).at(str(n), default: none)
+  if p == none {
+    place(center + horizon, text(size: 10pt, weight: "bold", fill: color, str(n)))
+  } else {
+    for (x, y) in p { place(top + left, dx: 1.35mm + x * 1.1mm, dy: 1.35mm + y * 1.1mm, circle(radius: 0.55mm, fill: color)) }
+  }
 })
 
 // 人物の札。陣営は名前と線の色の両方で示す。
@@ -782,9 +786,8 @@
 #let neutral-card(title, body) = card(title, muted, body)
 #let reading-card = neutral-card
 #let intro-stage = neutral-card
-#let publication-header(..cells) = context {
-  let guide = query(<guide-mark>).len() > 0
-  let g = if guide { guide-part-of(guide-current-mark()) } else { book-gem-of(book-current-key()) }
+#let publication-header(key, guide: false, ..cells) = {
+  let g = if guide { guide-parts.at(key) } else { gems.at(key) }
   table.header(..cells.pos().map(c => table.cell(fill: if guide { night } else { g.main },
     text(fill: if guide { g.main.lighten(55%) } else { white }, weight: "bold", c))))
 }

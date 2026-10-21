@@ -1,11 +1,9 @@
 // 計画46・R00。項目別の出典と確認範囲は出典・不足台帳§19.29。
-#import "../manual_theme.typ": publication-figure
-#let reading-card(title, body) = rect(width: 100%, inset: 8pt,
-  fill: white, stroke: rgb("c9d2d9"))[*#title* \ #body]
-
-= 0　この本の使い方 <rules-reading>
-
-この本は、ジェムリアTRPGのルールと裁定を説明する基本ルールブックです。初めて遊ぶときは、キャラクターを作り、探索と戦闘の基本を知るところから読み進めます。遊んでいる途中では、必要な章を開いて確認してください。
+#import "../manual_theme.typ": *
+#let chapter-header = publication-header.with("0")
+#book-chapter("0", "0", [この本の使い方], [
+  この本は、ジェムリアTRPGのルールと裁定を説明する基本ルールブックです。初めて遊ぶときは、キャラクターを作り、探索と戦闘の基本を知るところから読み進めます。遊んでいる途中では、必要な章を開いて確認してください。
+], target: <rules-reading>)
 
 == 用意するもの
 
@@ -27,7 +25,7 @@
 
 役割ごとの読み始める場所を、次の図に示します。
 
-#publication-figure(1, [ルールを読む本と、操作を確認する本を行き来します。], [
+#book-fig([ルールを読む本と、操作を確認する本を行き来します。], [
   *初めて参加するPLの読む順番*
   #v(2mm)
   #grid(columns: (1fr, 8mm, 1fr, 8mm, 1fr), align: horizon,
@@ -50,7 +48,7 @@
 
 #block(breakable: false)[#table(
   columns: (10%, 37%, 53%), inset: (x: 6pt, y: 7pt), stroke: 0.6pt + rgb("dce3e8"),
-  table.header([*章番号*], [*名前*], [*何が分かるか*]),
+  chapter-header([*章番号*], [*名前*], [*何が分かるか*]),
   [0], [この本の使い方], [必要なもの、2冊の役割、読む順番],
   [1], [ジェムリアで遊ぶ], [ゲームと参加者の役割、セッションの流れ、世界観の入口],
   [2], [キャラクターを作る], [能力値、探索技能、戦闘スキルと所持品の準備],
