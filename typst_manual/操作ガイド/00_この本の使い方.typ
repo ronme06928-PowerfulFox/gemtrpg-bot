@@ -9,9 +9,10 @@
 
 初めて遊ぶときは、基本ルールブックのゲームの導入とキャラクター作成を読んでから、この本の共通編・プレイヤー編へ進みます。GMは、続くGM編で卓の準備と進行を確かめてください。戦闘の仕組みは、基本ルールブックの戦闘の作例と合わせて確かめてください。
 
-#block(breakable: false)[
+#[
+
 #table(
-  columns: (40%, 60%), inset: (x: 6pt, y: 6pt), stroke: 0.6pt + rgb("dce3e8"),
+  columns: (40%, 60%), inset: (x: 6pt, y: 3pt), stroke: 0.6pt + rgb("dce3e8"),
   chapter-header([*やること*], [*読むところ*]),
   [ログインしてルームへの参加], [#guide-ref(<guide-common>)[共通「始める前に」]],
   [キャラクターを作り、保存して配置する], [#guide-ref(<guide-pl1>)[PL 1「キャラクターを用意する」]],

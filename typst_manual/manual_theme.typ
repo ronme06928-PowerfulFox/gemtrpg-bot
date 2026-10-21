@@ -622,8 +622,8 @@
   guide-fig-counter.step()
   let mark = guide-current-mark()
   let g = guide-part-of(mark)
-  block(breakable: false, above: 4mm, below: 4mm, width: 100%, {
-    corner-frame(g.main, block(width: 100%, fill: g.light.transparentize(40%), inset: (y: 2mm), body), inset: 0mm)
+  block(breakable: false, above: 3mm, below: 3mm, width: 100%, {
+    corner-frame(g.main, block(width: 100%, fill: g.light.transparentize(40%), inset: (y: 1mm), body), inset: 0mm)
     v(2mm)
     text(size: 9pt, fill: muted)[#text(font: mono, weight: "bold", fill: g.main)[FIG #mark.code\-#context guide-fig-counter.display()]　#caption]
   })

@@ -11,8 +11,8 @@
 #let fig = theme.guide-fig
 
 // 症状と確かめることの表（各章末の「困ったとき」）。
-#let trouble(..rows) = context block(breakable: false)[#table(
-  columns: (38%, 62%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + rgb("dce3e8"),
+#let trouble(..rows) = context [#table(
+  columns: (38%, 62%), inset: (x: 6pt, y: 3pt), stroke: 0.6pt + rgb("dce3e8"),
   publication-header(theme.guide-current-mark().part, guide: true, [*症状*], [*確かめること*]),
   ..rows.pos().flatten(),
 )]

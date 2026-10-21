@@ -13,6 +13,7 @@
 
 == 効果と所持品の調整
 
+#block(breakable: false)[
 簡易編集で対象の*「GM Buff / Item Control」*を開きます。
 
 #fig[GM用の調整欄はキャラクターごとに開きます。変更する相手と入力値を確かめて送信します。][
@@ -27,8 +28,10 @@
     ]))
   ]
 ]
+]
 
-#block(breakable: false)[
+#[
+
 #table(
   columns: (25%, 75%), inset: 6pt, stroke: 0.6pt + line-c,
   chapter-header([*調整するもの*], [*操作と確認*]),
@@ -49,7 +52,8 @@
 
 == 終了とリセット
 
-#block(breakable: false)[
+#[
+
 #table(
   columns: (31%, 69%), inset: 6pt, stroke: 0.6pt + line-c,
   chapter-header([*操作*], [*使う場面と結果*]),
