@@ -1377,6 +1377,9 @@ C1〜C6の依頼範囲を完了。全件1081 passed / 2 skipped（307.61秒、�
 | D36 | 裁定済み・修正済み | 1117332。実マッチへ委譲した後のHP復元で、出身8・防御勝利・正の威力差による実際の反撃分だけ保持。他の非攻撃スキルの復元は維持。ログ・内訳を『反撃の石』へ統一。test_counter_survives_non_attack_hp_restore_only_for_positive_defense_winを5ケース追加。修正前2失敗／3成功→5成功、関連18成功 |
 | D37 | 裁定済み・修正済み | 06c0a05。既存is_character_deployedで未配置を除外。新規8ケースは修正前4失敗／4成功→8成功。既存の配置済み作例に座標を明示し、関連20成功。呼び出し元の全件調査は下記 |
 
+| D35追補 | 裁定済み・修正済み | Claude Codeレビュー（2026-10-21）：6d024f1は補正前から1未満だった威力も1へ引き上げていた。下限1は「−1でそれより下げない」意味のため、補正前1以下は変えないよう origin_power.py（valwaire_corrected_total／valwaire_floor_after_correction）・wide_solver.pyの4か所・power_previewの予測範囲を修正。test_valwaire_power_floor.pyの威力に0を追加し、修正前5失敗→全29成功 |
+| D36追補 | 裁定済み・修正済み | Claude Codeレビュー（2026-10-21）：マッチは速い側を攻撃側（A）として解決するため、ギァン・バルフがA側で防御勝利すると反撃が発生せず、復元処理でも消えていた。duel_solverの反撃を_apply_origin_counterへまとめ、A側の防御勝利・守備タグなしのD側防御勝利でも呼ぶ。resolve_match_runtimeのHP復元を_restore_hp_after_non_damage_winで両側対称にした。test_counter_applies_when_gian_balf_is_resolved_as_attacker_side（3）を追加、修正前1失敗→全8成功 |
+
 追加テスト名（D35）：test_valwaire_clash_and_preview_apply_once_with_floor（6）、test_valwaire_one_sided_power_has_same_floor（6）、test_other_final_power_debuff_is_not_given_a_floor（1）、test_legacy_match_uses_declared_preview_once_and_keeps_floor（3）、test_legacy_wide_match_uses_same_valwaire_lower_bound（6）。D37：test_emrida_and_same_speed_helper_count_only_deployed_peers（4）、test_flodias_counts_only_deployed_enemy_valwaire（4）。新規合計44件。D32のNodeランナーは製品のgetBonusOriginId・アカウント読込／保存関数を実行し、HTTP保存・成長と往復する。
 
 _iter_active_charactersの全呼び出し元をrgで調査：utils.py内のteam_has_origin、_has_same_speed_peer_with_fallback、has_same_speed_peerの3関数のみ。前2つはcompute_origin_skill_modifiersからフローディアス／エムリダの判定に使う。has_same_speed_peerには製品内の呼び出し元がない。いずれも盤面の相手を数える基準で未配置を除いてよく、他用途の列挙はなかったため、共通の列挙に配置確認を追加した。HP<=0・逃走の除外も維持。別の絞り込みや設定分岐は追加しない。
