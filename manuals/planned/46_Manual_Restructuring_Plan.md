@@ -2,7 +2,7 @@
 
 **作成日**: 2026-08-05
 **最終更新**: 2026-10-21
-**状態**: 段階5。第8章の制作を保留し、第0〜1章と巻末を先に進める（別冊化は未決定）。作業0の参照変更と第2章PDF全4頁の確認を完了。次はR00・R01の初稿。経緯は台帳§19.28。旧main／完成PDFは保持し、アプリ変更・pushなし。
+**状態**: 段階5。第8章は保留（別冊化は未決定）。作業0をe4079c9で完了。R00・R01の初稿は各2頁・1図、導入章レビュー全4頁を作成・画像確認し、レビュー待ち。世界観は旧本の要約で要照合（Discord未確認）。次は初稿レビューと巻末。経緯・出典・検証は台帳§19.28〜19.29。旧main／完成PDFは保持し、アプリ変更・pushなし。
 **対象**: 内部仕様正本の整理、公開PDFの出版構成と編集、既存文書の追補統合と分割、読者向け変更履歴
 **関連仕様**: [`../README.md`](../README.md) / `manuals/implemented/` 全文書
 **関連計画**: [`41_JSON_Syntax_Encyclopedia_Reorganization_Plan.md`](41_JSON_Syntax_Encyclopedia_Reorganization_Plan.md)（C01の再編） / [`45_External_Contribution_Program_Plan.md`](45_External_Contribution_Program_Plan.md)（外部協力者向け文書）
