@@ -1522,6 +1522,15 @@
             return 0;
         }
 
+        // 保存済みの情報収集技能の実数値から入力値（割り振り）を戻す。
+        // 負の補正で0に丸めて保存した値は、割り振り0として扱う。
+        function restoreInfoSkillAllocation(stored, infoMod) {
+            let val = stored > 0 ? stored - infoMod : 0;
+            if (val < 0) val = 0;
+            if (val > 3) val = 3; // コスト上限3
+            return val;
+        }
+
         function getOriginSkillBonus(skillId) {
             return getOriginSkillBonusByOriginId(skillId, getBonusOriginId());
         }
@@ -2169,9 +2178,7 @@
                                         let val = parseInt(p.value) || 0;
                                         // 情報収集技能の場合、実数値から補正分を引いて入力値に戻す
                                         if (infoLabels.includes(p.label)) {
-                                            val -= infoMod;
-                                            if (val < 0) val = 0;
-                                            if (val > 3) val = 3; // コスト上限3
+                                            val = restoreInfoSkillAllocation(val, infoMod);
                                         }
                                         val -= getOriginSkillBonusByOriginId(map[p.label], currentBonusOriginId);
                                         if (val < 0) val = 0;
