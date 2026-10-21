@@ -2,6 +2,7 @@ import json
 import re
 
 from manager.battle import buff_power as _buff_power
+from manager.battle.origin_power import valwaire_floor_after_correction
 
 
 def calculate_power_bonus(actor, target, power_bonus_data, context=None, get_value_for_condition_fn=None):
@@ -395,8 +396,8 @@ def calculate_skill_preview(
             pass
 
     if valvile_correction:
-        range_min = max(1, range_min)
-        range_max = max(1, range_max)
+        range_min = valwaire_floor_after_correction(range_min)
+        range_max = valwaire_floor_after_correction(range_max)
     skill_details['range_min'] = range_min
     skill_details['range_max'] = range_max
 

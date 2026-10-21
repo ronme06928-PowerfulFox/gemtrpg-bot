@@ -2,6 +2,7 @@ import re
 import json
 from manager.constants import DamageSource, THORNS_DAMAGE_CATS
 from manager.battle.damage_context import build_damage_context
+from manager.battle.origin_power import valwaire_corrected_total
 from extensions import all_skill_data, socketio
 from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_log,
@@ -552,13 +553,13 @@ def execute_wide_match(room, username):
 
 
         if attacker_origin == 13:
-             total_defender_roll = max(1, total_defender_roll - 1)
+             total_defender_roll = valwaire_corrected_total(total_defender_roll)
              broadcast_log(room, f"[ヴァルヴァイレ恩恵] 防御側合計 -1", 'info')
 
 
         has_walwaire_defender = any(get_effective_origin_id(d) == 13 for d in valid_defenders)
         if has_walwaire_defender:
-             attacker_total = max(1, attacker_total - 1)
+             attacker_total = valwaire_corrected_total(attacker_total)
              broadcast_log(room, f"[ヴァルヴァイレ恩恵] 攻撃側合計 -1", 'info')
 
         if any(get_target_coloration_attack_bonus(attacker_char, defender_char, attacker_skill_data) > 0 for defender_char in valid_defenders):
@@ -775,14 +776,14 @@ def execute_wide_match(room, username):
 
 
             if attacker_origin == 13:
-                 defender_total = max(1, defender_total - 1)
+                 defender_total = valwaire_corrected_total(defender_total)
 
 
 
 
             effective_attacker_total = attacker_total
             if get_effective_origin_id(def_char) == 13:
-                 effective_attacker_total = max(1, effective_attacker_total - 1)
+                 effective_attacker_total = valwaire_corrected_total(effective_attacker_total)
 
             effective_attacker_total += get_target_coloration_attack_bonus(attacker_char, def_char, attacker_skill_data)
 

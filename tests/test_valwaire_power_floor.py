@@ -11,7 +11,12 @@ def _skill(skill_id, power):
             "基礎威力": str(power), "ダイス威力": "0", "チャットパレット": f"{power}+0 【{skill_id} test】", "rule_data": {"effects": []}}
 
 
-@pytest.mark.parametrize("power", [5, 2, 1])
+
+def _corrected(power):
+    # 補正前2以上は−1して最低1、補正前1以下は変えない（下限で引き上げない）。
+    return power - 1 if power > 1 else power
+
+@pytest.mark.parametrize("power", [5, 2, 1, 0])
 @pytest.mark.parametrize("origin", [0, 13])
 def test_valwaire_clash_and_preview_apply_once_with_floor(monkeypatch, power, origin):
     attacker, defender = _make_char("A1", "ally"), _make_char("B1", "enemy")
@@ -22,7 +27,7 @@ def test_valwaire_clash_and_preview_apply_once_with_floor(monkeypatch, power, or
     state = {"characters": [attacker, defender], "timeline": []}
     monkeypatch.setattr(duel, "all_skill_data", {"ATT": attack, "DEF": defense})
     monkeypatch.setattr(duel, "get_room_state", lambda _: state)
-    expected = max(1, power - 1) if origin == 13 else power
+    expected = _corrected(power) if origin == 13 else power
     preview = calculate_skill_preview(attacker, defender, attack)
     assert preview["min_damage"] == preview["max_damage"] == expected
     result = core._resolve_clash_by_existing_logic("room_t", state, attacker, defender, attack, defense)
@@ -30,7 +35,7 @@ def test_valwaire_clash_and_preview_apply_once_with_floor(monkeypatch, power, or
     assert result["summary"]["rolls"]["power_snapshot_a"]["final_power"] == expected
 
 
-@pytest.mark.parametrize("power", [5, 2, 1])
+@pytest.mark.parametrize("power", [5, 2, 1, 0])
 @pytest.mark.parametrize("origin", [0, 13])
 def test_valwaire_one_sided_power_has_same_floor(monkeypatch, power, origin):
     attacker, defender = _make_char("A1", "ally"), _make_char("B1", "enemy")
@@ -40,7 +45,7 @@ def test_valwaire_one_sided_power_has_same_floor(monkeypatch, power, origin):
     monkeypatch.setattr(core, "roll_dice", roll_dice)
     result = core._resolve_one_sided_by_existing_logic("room_t", {"characters": [attacker, defender]}, attacker, defender, _skill("ATT", power), None)
     assert result["ok"]
-    expected = max(1, power - 1) if origin == 13 else power
+    expected = _corrected(power) if origin == 13 else power
     assert defender["hp"] == 100 - expected
 
 
@@ -51,7 +56,7 @@ def test_other_final_power_debuff_is_not_given_a_floor():
     assert preview["min_damage"] == -3
 
 
-@pytest.mark.parametrize("power", [5, 2, 1])
+@pytest.mark.parametrize("power", [5, 2, 1, 0])
 def test_legacy_match_uses_declared_preview_once_and_keeps_floor(monkeypatch, power):
     from manager.battle.resolve_snapshot_utils import _extract_power_pair_from_match_log
     attacker, defender = _make_char("A1", "ally"), _make_char("B1", "enemy")
@@ -71,11 +76,11 @@ def test_legacy_match_uses_declared_preview_once_and_keeps_floor(monkeypatch, po
                                       "commandA": calculate_skill_preview(attacker, defender, attack)["final_command"],
                                       "commandD": calculate_skill_preview(defender, attacker, defense)["final_command"]}, "test")
     powers = [_extract_power_pair_from_match_log(message) for message, kind in logs if kind == "match"]
-    assert powers[-1][0] == max(1, power - 1)
+    assert powers[-1][0] == _corrected(power)
 
 
 @pytest.mark.parametrize("mode", ["individual", "summation"])
-@pytest.mark.parametrize("power", [5, 2, 1])
+@pytest.mark.parametrize("power", [5, 2, 1, 0])
 def test_legacy_wide_match_uses_same_valwaire_lower_bound(monkeypatch, mode, power):
     from manager.battle import wide_solver as wide
     from tests.test_retaliation_routing import _stub_update_char_stat
@@ -97,4 +102,4 @@ def test_legacy_wide_match_uses_same_valwaire_lower_bound(monkeypatch, mode, pow
     monkeypatch.setattr(wide, "all_skill_data", {"ATT": _skill("ATT", power), "DEF": _skill("DEF", 0)})
     monkeypatch.setattr(wide, "roll_dice", roll_dice)
     wide.execute_wide_match("room_t", "test")
-    assert defender["hp"] == 100 - max(1, power - 1)
+    assert defender["hp"] == 100 - _corrected(power)
