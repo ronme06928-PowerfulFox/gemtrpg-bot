@@ -630,6 +630,21 @@ def execute_duel_match(room, data, username):
         defender_category = str((skill_data_d or {}).get("分類") or (skill_data_d or {}).get("attribute") or "")
         damage_report = {'A': [], 'D': []}
         _damage_context_for = lambda source_actor, damage_type=DamageSource.SKILL_EFFECT: build_damage_context(actor=source_actor, skill_data=skill_data_a if source_actor is actor_a_char else (skill_data_d if source_actor is actor_d_char else None), damage_type=damage_type)
+        def _apply_origin_counter(winner, loser, winner_skill, winner_total, loser_total, save=True):
+            # ギァン・バルフ「反撃の石」: 防御スキルでマッチに勝つと威力差を反撃ダメージとして与える。
+            if not winner or not loser or get_effective_origin_id(winner) != 8:
+                return
+            if _resolve_skill_role(winner_skill) != 'defense':
+                return
+            diff = int(winner_total) - int(loser_total)
+            if diff <= 0:
+                return
+            curr_hp = get_status_value(loser, 'HP')
+            _update_char_stat(room, loser, 'HP', curr_hp - diff, username="[反撃の石]", source=DamageSource.SKILL_EFFECT, save=save, damage_context=_damage_context_for(winner))
+            loser_key = _report_key_for_char(loser)
+            if loser_key:
+                damage_report[loser_key].append({'source': '反撃の石', 'value': diff})
+            broadcast_log(room, f"[反撃の石] 反撃ダメージ: {diff}", "info", save=save)
         def _report_key_for_char(char):
             if actor_a_char and isinstance(char, dict) and char.get('id') == actor_a_char.get('id'):
                 return 'A'
@@ -1063,13 +1078,7 @@ def execute_duel_match(room, data, username):
                     if t_key: damage_report[t_key].append(evt)
                 log_snippets.extend(logs)
 
-                if get_effective_origin_id(actor_d_char) == 8:
-                     diff = result_d['total'] - result_a['total']
-                     if diff > 0:
-                         curr_hp = get_status_value(actor_a_char, 'HP')
-                         _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反撃の石]", source=DamageSource.SKILL_EFFECT, damage_context=_damage_context_for(actor_d_char))
-                         damage_report['A'].append({'source': '反撃の石', 'value': diff})
-                         broadcast_log(room, f"[反撃の石] 反撃ダメージ: {diff}", "info")
+                _apply_origin_counter(actor_d_char, actor_a_char, skill_data_d, result_d['total'], result_a['total'])
 
         elif "守備" in defender_tags and defender_category == "回避":
             if result_a['total'] > result_d['total']:
@@ -1237,6 +1246,8 @@ def execute_duel_match(room, data, username):
                 if logs: log_snippets.extend(logs)
                 if log_snippets: winner_message += f" ({' '.join(log_snippets)})"
 
+                _apply_origin_counter(actor_a_char, actor_d_char, skill_data_a, result_a['total'], result_d['total'])
+
                 if actor_d_char and DodgeLockBuff.has_re_evasion(actor_d_char):
                      remove_buff(actor_d_char, "再回避ロック")
                      log_snippets.append("[再回避失敗！ロック解除]")
@@ -1305,6 +1316,7 @@ def execute_duel_match(room, data, username):
                      t_key = 'A' if actor_a_char and evt.get('target_id') == actor_a_char.get('id') else ('D' if actor_d_char and evt.get('target_id') == actor_d_char.get('id') else None)
                      if t_key: damage_report[t_key].append(evt)
                  log_snippets.extend(logs)
+                 _apply_origin_counter(actor_d_char, actor_a_char, skill_data_d, result_d['total'], result_a['total'])
                  if logs: winner_message += f" ({' '.join(logs)})"
 
             elif defender_winner_category == "回避" or defender_category == "回避" or "回避" in defender_winner_tags:
@@ -1369,21 +1381,7 @@ def execute_duel_match(room, data, username):
 
                     winner_message = f"<strong> → {actor_name_d} の勝利</strong>"
 
-                if get_effective_origin_id(actor_d_char) == 8:
-
-                     is_defense_skill = False
-                     if skill_data_d:
-                         d_cat = str(skill_data_d.get("分類") or skill_data_d.get("attribute") or "")
-                         d_tags = skill_data_d.get('tags', [])
-                         if d_cat == '防御' or '防御' in d_tags or '守備' in d_tags:
-                             is_defense_skill = True
-
-                     if is_defense_skill:
-                         diff = result_d['total'] - result_a['total']
-                         if diff > 0:
-                             curr_hp = get_status_value(actor_a_char, 'HP')
-                             _update_char_stat(room, actor_a_char, 'HP', curr_hp - diff, username="[反撃の石]", source=DamageSource.SKILL_EFFECT, save=False, damage_context=_damage_context_for(actor_d_char))
-                             broadcast_log(room, f"[反撃の石] 反撃ダメージ: {diff}", "info", save=False)
+                _apply_origin_counter(actor_d_char, actor_a_char, skill_data_d, result_d['total'], result_a['total'], save=False)
         else:
             winner_message = "<strong> → 不発</strong> (ダメージなし)"
 

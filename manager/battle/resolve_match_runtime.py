@@ -440,6 +440,16 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
 
 
 
+def _restore_hp_after_non_damage_win(winner, loser, winner_skill_data, before_loser, winner_power, loser_power):
+    """ダメージを与えないスキルで勝った場合に敗者のHPを戻す。ギァン・バルフの反撃分だけは残す。"""
+    before_hp = int((before_loser or {}).get('hp', loser.get('hp', 0)))
+    counter_damage = 0
+    if get_effective_origin_id(winner) == 8 and _resolve_skill_role(winner_skill_data) == 'defense':
+        counter_damage = min(max(0, before_hp - int(loser.get('hp', 0))),
+                             max(0, int(winner_power or 0) - int(loser_power or 0)))
+    loser['hp'] = before_hp - counter_damage
+
+
 def _resolve_clash_by_existing_logic(
     room,
     state,
@@ -773,18 +783,12 @@ def _resolve_clash_by_existing_logic(
             outcome = 'draw'
 
     if outcome == 'attacker_win' and not _skill_deals_damage(attacker_skill_data):
-        defender_char['hp'] = int((before_d or {}).get('hp', defender_char.get('hp', 0)))
+        _restore_hp_after_non_damage_win(attacker_char, defender_char, attacker_skill_data, before_d, power_a, power_d)
         after_d = _snapshot_for_outcome(defender_char)
         delta_d = _diff_snapshot(before_d, after_d, damage_source='ダメージ')
         captured['effect_logs'].append('[効果スキル] 攻撃側のHP差分を補正')
     elif outcome == 'defender_win' and not _skill_deals_damage(defender_skill_data):
-        before_hp = int((before_a or {}).get('hp', attacker_char.get('hp', 0)))
-        counter_damage = 0
-        if get_effective_origin_id(defender_char) == 8 and _resolve_skill_role(defender_skill_data) == 'defense':
-            # Keep only the already-applied origin counter; restore other non-attack damage.
-            counter_damage = min(max(0, before_hp - int(attacker_char.get('hp', 0))),
-                                 max(0, int(power_d or 0) - int(power_a or 0)))
-        attacker_char['hp'] = before_hp - counter_damage
+        _restore_hp_after_non_damage_win(defender_char, attacker_char, defender_skill_data, before_a, power_d, power_a)
         after_a = _snapshot_for_outcome(attacker_char)
         delta_a = _diff_snapshot(before_a, after_a, damage_source='ダメージ')
         captured['effect_logs'].append('[効果スキル] 防御側のHP差分を補正')
