@@ -11,25 +11,33 @@ PLは、物語の中で行動するキャラクターを作り、何をするか
 
 == セッションの流れ
 
+#block(breakable: false)[
 依頼や事件を知り、準備や情報収集をして、目的地へ向かいます。道中で出来事に対応し、ときには戦闘を行い、結末を迎えて報酬を確認します。*どの場面があり、何が起きるかはシナリオによって変わります。* 次の図は流れの一例です。
 
 #book-fig([場面の進め方は第3章、戦闘は第4章、報酬は第7章で説明します。], [
-  #intro-stage([導入], [依頼や事件、置かれた状況を知る（第3章）])
-  #align(center)[↓]
-  #intro-stage([準備・情報収集], [必要な物や手掛かりをそろえる（第3章）])
-  #align(center)[↓]
-  #intro-stage([道中], [目的地へ向かい、出来事に対応する（第3章）])
-  #align(center)[↓]
-  #intro-stage([戦闘], [行動を宣言し、相手との戦いを解決する（第4章）])
-  #align(center)[↓]
-  #intro-stage([エンディングと報酬], [結末を確かめ、報酬と成長を確認する（第7章）])
+  #let stages = (
+    ([導入], [依頼や事件、置かれた状況を知る（第3章）]),
+    ([準備・情報収集], [必要な物や手掛かりをそろえる（第3章）]),
+    ([道中], [目的地へ向かい、出来事に対応する（第3章）]),
+    ([戦闘], [行動を宣言し、相手との戦いを解決する（第4章）]),
+    ([エンディングと報酬], [結末を確かめ、報酬と成長を確認する（第7章）]),
+  )
+  #stack(spacing: 1mm, ..stages.enumerate().map(((i, stage)) => {
+    let (title, detail) = stage
+    let row = rect(width: 100%, inset: (x: 3.5mm, y: 2mm), radius: 2mm,
+      fill: white, stroke: 0.8pt + muted,
+      grid(columns: (40mm, 1fr), column-gutter: 3mm, align: horizon,
+        text(size: 11pt, weight: "bold", fill: muted, title), text(size: 10pt, detail)))
+    if i < stages.len() - 1 { stack(spacing: 1mm, row, align(center)[↓]) } else { row }
+  }))
 ])
+]
 
 == 基本用語
 
 この本で使う基本用語を、次の表にまとめます。
 
-#block(breakable: false)[#table(
+#block(breakable: true)[#table(
   columns: (25%, 75%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + rgb("dce3e8"),
   chapter-header([*用語*], [*意味*]),
   [PL], [プレイヤー。自分のキャラクターの行動を考え、宣言する参加者です。],
@@ -38,8 +46,6 @@ PLは、物語の中で行動するキャラクターを作り、何をするか
   [セッション], [導入から結末までを遊ぶ、一まとまりのプレイです。],
   [シナリオ], [セッションで扱う目的・事件・相手・舞台などをまとめたものです。],
 )]
-
-#pagebreak()
 
 == 物語の舞台
 
@@ -59,7 +65,7 @@ PLは、物語の中で行動するキャラクターを作り、何をするか
 
 今回は、街の倉庫で荷物がなくなり、その調査を頼まれたものとします。行動を伝え、返ってきた状況に応じて動く、短い会話の例です。
 
-#block(breakable: false)[#table(
+#block(breakable: true)[#table(
   columns: (14%, 86%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + rgb("dce3e8"),
   [*GM*], [「街で、倉庫の荷物を調べてほしいと頼まれました。」],
   [*PL*], [「ナギは、荷物が置かれていた棚を見に行きます。」],
