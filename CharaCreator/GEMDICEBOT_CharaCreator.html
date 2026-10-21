@@ -2306,7 +2306,7 @@
                 const expInput = document.getElementById('p-exp');
                 const scenarioExpInput = document.getElementById('p-exp-scenario');
                 const baseExp = Number(expInput.value) || 0;
-                const originBonus = (character.data.params || []).some(p => p.label === '出身' && Number(p.value) === 7) ? 1 : 0;
+                const originBonus = getBonusOriginId() === 7 ? 1 : 0;
                 const scenarioExp = skillExpBudget - baseExp - originBonus;
                 OWNED_EXPERIENCE_WARNING = scenarioExp < 0
                     ? `警告：シナリオ経験の計算結果が${scenarioExp}です。経験と成長履歴を確認してください（自動補正はしていません）。`

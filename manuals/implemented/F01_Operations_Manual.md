@@ -907,7 +907,7 @@ GET /api/room/export_logs?room_name=<room>&format=text
 | `user_id` | 所有者（`users.id` FK） |
 | `name` | 表示用。`data.name`のコピー |
 | `data` | キャラJSON本体（CharaCreator出力の`data`部をそのまま格納。スキーマの細分化はしない） |
-| `exp_total` | 蓄積経験値。**キャラ作成時点の経験＋シナリオ経験（＋出身7ボーナス）で初期化**され、以後は成果反映（Part 9-4）でのみ加算される |
+| `exp_total` | 蓄積経験値。**キャラ作成時点の経験＋シナリオ経験（＋選択した恩恵が出身7ならその補正）で初期化**され、以後は成果反映（Part 9-4）でのみ加算される |
 | `growth_log` | 成長履歴 `[{date, kind, ...}, ...]`。`kind`は`reflect_session_results`（成果反映）または`growth`（成長画面） |
 | `created_at` / `updated_at` / `deleted_at` | 論理削除（`RoomMember`と同じ流儀） |
 
@@ -954,11 +954,11 @@ GET /api/room/export_logs?room_name=<room>&format=text
 
 `routes/owned_characters.py`に、CharaCreator（`GEMDICEBOT_CharaCreator.html::calculateStats()`）の予算計算をそのまま移植した関数群を持つ。
 
-- `compute_exp_limit(data)`: `経験`＋`シナリオ経験`パラメータの合計（出身7＝ラグラゼシス非都市部のみ+1）。**キャラ作成時の`exp_total`初期値**として使う。
-- `compute_used_exp(data)`: `data.commands`から`【スキルID 表示名】`パターンでスキルIDを抽出し（正規表現はCharaCreatorの`restoreFromCommands()`と同一）、スキルマスター（`extensions.all_skill_data`）の`取得コスト`フィールドを合算する。出身6（ラグラゼシス都市部）のみ、魔法カテゴリ（IDが`Ms`/`Mb`/`Mp`で始まる）スキルの先頭コスト1点分を割引く。
+- `compute_exp_limit(data)`: `経験`＋`シナリオ経験`パラメータの合計（有効な恩恵が出身7＝ラグラゼシス非都市部なら+1）。**キャラ作成時の`exp_total`初期値**として使う。他国の恩恵を選ぶ出身1・2・12でも、保存・成長の上限／魔法スキル使用量／再編集の逆算は選択した恩恵に従う（D32、2026-10-21裁定）。
+- `compute_used_exp(data)`: `data.commands`から`【スキルID 表示名】`パターンでスキルIDを抽出し（正規表現はCharaCreatorの`restoreFromCommands()`と同一）、スキルマスター（`extensions.all_skill_data`）の`取得コスト`フィールドを合算する。有効な恩恵が出身6（ラグラゼシス都市部）の場合、魔法カテゴリ（IDが`Ms`/`Mb`/`Mp`で始まる）スキルの先頭コスト1点分を割引く。
 - `compute_param_growth_spent(growth_log)`: 既存APIのパラメータ上昇に使った経験値の累計（現行成長画面に入力欄はない）。パラメータ上昇は`commands`に現れないため、`growth_log`の`kind=='growth'`エントリの`param_increases`を合算して求める。
 - `used_exp`（API応答）= `compute_used_exp(data)` + `compute_param_growth_spent(growth_log)`。`remaining_exp` = `exp_total - used_exp`。
-- `skill_exp_budget`（API応答）= `exp_total - compute_param_growth_spent(growth_log)`。取得済みスキルのコストを含む上限であり、残り経験値ではない。再編集では保存済みの経験を維持し、シナリオ経験欄へ`skill_exp_budget - 経験 - 出身7の上限補正1`を入れる。能力値成長分はskill_exp_budgetで控除済みなので二重に引かない。`remaining_exp`は取得済みコストも控除するため、この復元には使わない（D31修正）。
+- `skill_exp_budget`（API応答）= `exp_total - compute_param_growth_spent(growth_log)`。取得済みスキルのコストを含む上限であり、残り経験値ではない。再編集では保存済みの経験を維持し、シナリオ経験欄へ`skill_exp_budget - 経験 - 選択した恩恵が出身7なら上限補正1`を入れる。能力値成長分はskill_exp_budgetで控除済みなので二重に引かない。`remaining_exp`は取得済みコストも控除するため、この復元には使わない（D31修正）。
 
 ### `POST /api/owned_characters/<id>/growth`
 

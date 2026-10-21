@@ -7,10 +7,10 @@ const start = html.indexOf('let CURRENT_OWNED_CHARACTER_ID =');
 const end = html.indexOf('function restoreFromCommands', start);
 if (start < 0 || end < start) throw new Error('Account functions not found');
 const nodes = new Map();
-for (const id of ['account-save-msg', 'json-output', 'p-exp', 'p-exp-scenario', 'char-origin']) {
+for (const id of ['account-save-msg', 'json-output', 'p-exp', 'p-exp-scenario', 'char-origin', 'char-hometown']) {
   nodes.set(id, {value: '', textContent: '', style: {}});
 }
-const fieldIds = {'経験': 'p-exp', 'シナリオ経験': 'p-exp-scenario', '出身': 'char-origin'};
+const fieldIds = {'経験': 'p-exp', 'シナリオ経験': 'p-exp-scenario', '出身': 'char-origin', 'ボーナス': 'char-hometown'};
 let data;
 const requests = [], confirmations = [];
 const context = {
@@ -39,6 +39,7 @@ const context = {
   alert(message) {throw new Error(message);},
 };
 vm.createContext(context);
+vm.runInContext(html.match(/function getBonusOriginId\(\) \{[\s\S]+?\n        \}/)[0], context);
 vm.runInContext(html.slice(start, end), context);
 (async () => {
   await context.loadOwnedCharacterFromAccount(input.character.id);

@@ -23,6 +23,7 @@ from manager.character_tags import (
 from manager.radiance.loader import radiance_loader
 from models import OwnedCharacter
 from manager.utils import (
+    get_effective_origin_id,
     normalize_character_labels,
     normalize_status_name,
     session_required,
@@ -52,10 +53,6 @@ def _get_param_value(data, label, default=0):
     return default
 
 
-def _get_origin_id(data):
-    return _get_param_value(data, '出身', 0)
-
-
 def compute_exp_limit(data):
     """CharaCreator側 calculateStats() の `expLimit` 算出をそのまま移植したもの。
 
@@ -64,7 +61,7 @@ def compute_exp_limit(data):
     base_exp = _get_param_value(data, '経験', 0)
     scenario_exp = _get_param_value(data, 'シナリオ経験', 0)
     limit = base_exp + scenario_exp
-    if _get_origin_id(data) == 7:
+    if get_effective_origin_id(data) == 7:
         limit += 1
     return limit
 
@@ -85,7 +82,7 @@ def compute_used_exp(data):
     commandsに含まれるスキルIDのコスト合計。出身6（ラグラゼシス/都市部）のみ、
     魔法カテゴリ（Ms/Mb/Mp）スキルの先頭コスト1点分がボーナス扱いで割引かれる。
     """
-    magic_bonus_limit = 1 if _get_origin_id(data) == 6 else 0
+    magic_bonus_limit = 1 if get_effective_origin_id(data) == 6 else 0
     magic_bonus_used = 0
     normal_cost_used = 0
     for skill_id in _SKILL_ID_RE.findall(data.get('commands') or ''):
