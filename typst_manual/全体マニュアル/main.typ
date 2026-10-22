@@ -17,3 +17,6 @@
 #include "06_状態異常と特殊効果.typ"
 #include "07_セッションの終わりと成長.typ"
 #include "90_巻末.typ"
+
+#import "../publication_endmatter.typ": publication-endmatter
+#publication-endmatter("book")

@@ -20,3 +20,6 @@
 #include "08_GM_介入と復旧.typ"
 #include "09_GM_素材を作る.typ"
 #include "90_困ったときの索引.typ"
+
+#import "../publication_endmatter.typ": publication-endmatter
+#publication-endmatter("guide")
