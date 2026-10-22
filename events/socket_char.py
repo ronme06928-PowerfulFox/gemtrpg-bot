@@ -10,7 +10,6 @@ from flask_socketio import emit
 # 拡張機能とマネージャーからのインポート
 from extensions import db, socketio, all_skill_data
 from models import User
-from manager.battle.action_slot_mode import is_character_deployed
 from manager.room_manager import (
     get_room_state, save_specific_room_state, broadcast_state_update,
     broadcast_log, get_user_info_from_sid, _update_char_stat, set_character_owner,
@@ -609,12 +608,11 @@ def handle_transfer_character_ownership(data):
     new_owner_name = new_owner.name
     new_owner_id = new_owner.id
 
-    # 本体と、直接呼び出した配置済み召喚体を同じ所有者へ移す。
+    # 本体と、直接呼び出した召喚体（配置の有無を問わない）を同じ所有者へ移す。
     old_owner = char.get('owner', '不明')
     transfer_targets = [char] + [
         summoned for summoned in state['characters']
         if summoned.get('is_summoned') and summoned.get('summoner_id') == char_id
-        and is_character_deployed(summoned)
     ]
     owners = state.setdefault('character_owners', {})
     for target in transfer_targets:

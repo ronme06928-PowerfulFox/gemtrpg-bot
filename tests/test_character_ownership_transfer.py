@@ -43,7 +43,7 @@ def test_transfer_moves_operation_permissions_to_new_owner(monkeypatch, app_ctx,
 @pytest.mark.parametrize("initiator", ["owner", "GM"])
 @pytest.mark.parametrize("user", ["old", "new"])
 @pytest.mark.parametrize("operation", ["move", "delete", "scale"])
-def test_transfer_uses_server_name_and_moves_only_deployed_direct_summons(monkeypatch, app_ctx, initiator, user, operation):
+def test_transfer_uses_server_name_and_moves_all_direct_summons(monkeypatch, app_ctx, initiator, user, operation):
     db.session.add(User(id="new-id", name="new"))
     db.session.commit()
     state, emitted = _patch_char(monkeypatch, True, attribute="Player")
@@ -61,9 +61,9 @@ def test_transfer_uses_server_name_and_moves_only_deployed_direct_summons(monkey
     monkeypatch.setattr(room_manager, "save_specific_room_state", lambda *_args: None)
     socket_char.handle_transfer_character_ownership({"room": "room_t", "character_id": "C",
                                                     "new_owner_id": "new-id", "new_owner_name": "forged"})
-    for char in [actor, summon]:
+    for char in [actor, summon, hidden]:
         assert (char["owner"], char["owner_id"], state["character_owners"][char["id"]]) == ("new", "new-id", "new")
-    for char in [other, hidden]:
+    for char in [other]:
         assert (char["owner"], char["owner_id"], state["character_owners"][char["id"]]) == ("old", "old-id", "old")
     identity.update(username=user, user_id=user + "-id", attribute="Player")
     if operation == "move":
