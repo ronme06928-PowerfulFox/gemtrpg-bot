@@ -14,6 +14,7 @@ window.visualScale = visualStoredViewValid ? Number(storedScale) : 0.6;
 window.visualOffsetX = visualStoredViewValid ? Number(storedX) : 0;
 window.visualOffsetY = visualStoredViewValid ? Number(storedY) : 0;
 window.visualViewNeedsCenter = !visualStoredViewValid;
+window.visualViewNeedsTokenCheck = visualStoredViewValid;
 
 // Turn & Action Tracking
 window.matchActionInitiated = false;

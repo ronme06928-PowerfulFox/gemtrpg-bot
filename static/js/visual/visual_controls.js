@@ -11,6 +11,29 @@ window.centerVisualMapView = function () {
   return true;
 };
 
+// A restored view may come from a wider screen; once, re-center on the tokens if none is visible.
+window.ensureRestoredViewShowsTokens = function (characters) {
+  if (!window.visualViewNeedsTokenCheck) return;
+  const viewport = document.getElementById('map-viewport');
+  if (!viewport || !viewport.clientWidth || !viewport.clientHeight) return;
+  const centers = (characters || [])
+    .filter(c => c.x >= 0 && c.y >= 0 && c.hp > 0)
+    .map(c => [(c.x + 0.5) * GRID_SIZE, (c.y + 0.5) * GRID_SIZE]);
+  if (!centers.length) return;
+  window.visualViewNeedsTokenCheck = false;
+  const visible = centers.some(([x, y]) => {
+    const sx = visualOffsetX + x * visualScale, sy = visualOffsetY + y * visualScale;
+    return sx >= 0 && sx <= viewport.clientWidth && sy >= 0 && sy <= viewport.clientHeight;
+  });
+  if (visible) return;
+  const mid = values => (Math.min(...values) + Math.max(...values)) / 2;
+  visualOffsetX = viewport.clientWidth / 2 - mid(centers.map(c => c[0])) * visualScale;
+  visualOffsetY = viewport.clientHeight / 2 - mid(centers.map(c => c[1])) * visualScale;
+  localStorage.setItem('gem_visualOffsetX', visualOffsetX);
+  localStorage.setItem('gem_visualOffsetY', visualOffsetY);
+  updateMapTransform();
+};
+
 /**
  * Initializes map controls (zoom, pan, drag-and-drop)
  */
