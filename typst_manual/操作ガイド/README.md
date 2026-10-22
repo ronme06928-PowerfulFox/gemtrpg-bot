@@ -1,6 +1,6 @@
-# セッション操作ガイド（原稿）
+# セッション操作ガイド
 
-計画46・4D〜4Fで制作中のセッション操作ガイドの原稿。書き方は[書き方の手引き](../WRITING_GUIDE.md)、紙面は共通テーマ `../manual_theme.typ` の `guide-conf`（本文・余白・段落はC案を維持）に従う。進め方は[統合作業計画](../../manuals/planned/46_Publication_Execution_Plan.md)§11、章ごとの状態と確認事項は[出典・不足台帳](../../manuals/planned/46_Publication_Source_Inventory.md)§16〜18。
+計画46・段階6の刊行準備を完了した、第1版・刊行前の確認版（全37頁）です。新しい2冊はジェムリアのDiscordサーバーでPDFを配布します。書き方は[書き方の手引き](../WRITING_GUIDE.md)、紙面は共通テーマ `../manual_theme.typ` の `guide-conf`（本文・余白・段落はC案を維持）に従います。章ごとの確認範囲は[出典・不足台帳](../../manuals/planned/46_Publication_Source_Inventory.md)§16〜19、刊行検査と残件は§19.37です。
 
 ```powershell
 typst compile --root typst_manual typst_manual/操作ガイド/main.typ output/pdf/46_operation_guide.pdf
@@ -16,7 +16,7 @@ typst compile --root typst_manual typst_manual/操作ガイド/main.typ output/p
 | `06_`〜`09_` | GM編 GM 1〜4 |
 | `90_困ったときの索引.typ` | 巻末の症状索引 |
 
-4F初稿のレビュー反映版は全29ページ（GM編20〜27、症状索引28〜29）。章別の確認範囲・未確認は台帳§18を参照。レビュー用のPDFは `output/pdf/46_operation_guide.pdf`、同階層の `main.pdf` も作業版として出力しています。刊行の版情報は段階6で整えます。表示確認画像は `../_local/previews/46_operation_guide/` に保存する。
+制作経緯：4F初稿のレビュー反映版は当時全29ページ（GM編20〜27、症状索引28〜29）。章別の確認範囲・未確認は台帳§18を参照。レビュー用のPDFは `output/pdf/46_operation_guide.pdf`、同階層の `main.pdf` も作業版として出力しています。刊行の版情報は共通の `publication_info.typ` で管理します。表示確認画像は `../_local/previews/46_operation_guide/` に保存する。
 
 ルールは[基本ルールブック](../全体マニュアル/README.md)の新しい`main.typ`・`main.pdf`（第0〜7章・巻末）を参照します。第8章は保留、詳しい世界観と旧作例は[旧ルール本](../全体マニュアル/旧版/旧ルール本.typ)に保持しています。ガイド本文の冊子名＋節名は、基本本の短い節名へ更新しました。
 
@@ -27,3 +27,5 @@ typst compile --root typst_manual typst_manual/操作ガイド/main.typ output/p
 2026-10-22：戦闘裁定5件を反映（D06・D17、攻撃対防御／回避の同値、合算参加側のコスト・勝利FP、個別同速候補）。基本本53頁・操作ガイド35頁を維持。2冊と章別レビュー8本は組版警告0件。全件1204 passed / 2 skipped。反映箇所・修正前の失敗・残るGM確認は[台帳§19.35](../../manuals/planned/46_Publication_Source_Inventory.md#1935-戦闘裁定5件の反映2026-10-22)。
 
 2026-10-22（読みやすさ・版CとD39）：2冊の全章に用語・式・核心の強調、例外・作例・関連参照の整理を適用。第5章の再回避／強硬攻撃の節と勝敗／不発の表を分割し、D39を反映。基本本53→53頁・操作ガイド35→36頁、全件1214 passed / 2 skipped、組版警告0件。全89頁を画像で確認。変更点・確認中の文の保持・残る余白は[台帳§19.36](../../manuals/planned/46_Publication_Source_Inventory.md#1936-版cの読みやすさとd392026-10-22)。
+
+2026-10-22（段階6）：段階6の刊行準備を完了。基本本54頁・操作ガイド37頁（第1版・刊行前の確認版）。版情報・奥付・改訂履歴・Discord配布案内を整備し、冊子内参照72か所を追加リンク化。全91頁、2層しおり、リンク、フォントと警告を検査。受け入れ条件と残件は台帳§19.37。段階7の読者通読・発行日決定・公開は未実施。第8章は保留。アプリ変更・pushなし。 新しい2冊はジェムリアのDiscordサーバーでPDFを配布します。発行日は段階7で決めます。過去の日付の頁数・状態は当時の記録です。

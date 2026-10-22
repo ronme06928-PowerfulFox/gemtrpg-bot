@@ -1,6 +1,6 @@
 // Build: typst compile --root typst_manual typst_manual/全体マニュアル/main.typ typst_manual/全体マニュアル/main.pdf
 #import "../manual_theme.typ": book-conf, book-cover, publication-toc
-#import "../publication_info.typ": publications, publication-status
+#import "../publication_info.typ": publications
 #set document(title: "ジェムリアTRPG " + publications.book.title + "・" + publications.book.edition)
 #show: book-conf
 #show heading.where(level: 3): set heading(bookmarked: false)

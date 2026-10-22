@@ -1,8 +1,8 @@
-// セッション操作ガイド（計画46・4D〜4Fで制作中）
-// Build: typst compile --root typst_manual typst_manual/操作ガイド/main.typ output/pdf/46_operation_guide.pdf
+// セッション操作ガイド（計画46・段階6、刊行前の確認版）
+// Build: typst compile --root typst_manual typst_manual/操作ガイド/main.typ typst_manual/操作ガイド/main.pdf
 #import "../manual_theme.typ": guide-conf, guide-cover, publication-toc
 
-#import "../publication_info.typ": publications, publication-status
+#import "../publication_info.typ": publications
 #set document(title: "ジェムリアTRPG " + publications.guide.title + "・" + publications.guide.edition)
 #show: guide-conf
 
