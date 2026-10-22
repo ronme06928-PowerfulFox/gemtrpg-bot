@@ -33,4 +33,6 @@ manuals/typst/build/
 
 # 書籍制作の素材・スクリーンショット・表示確認画像（ローカル専用）
 /typst_manual/_local/
+# 配布用に名前を付けたPDF（scripts/build_publications.py が作る。Discordに置くファイル）
+/output/release/
 /tmp/pdfs/

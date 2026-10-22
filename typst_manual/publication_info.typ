@@ -6,13 +6,11 @@
   book: (
     title: "基本ルールブック",
     edition: "第1版",
-    app-checked: none,
     history: ((edition: "第1版", summary: "最初の版"),),
   ),
   guide: (
     title: "セッション操作ガイド",
     edition: "第1版",
-    app-checked: "2026年10月22日",
     history: ((edition: "第1版", summary: "最初の版"),),
   ),
 )

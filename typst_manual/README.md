@@ -47,7 +47,7 @@ PDF確認ツールが `tmp/pdfs/` に出力する場合もGit対象外とする�
 
 ## 刊行情報と再生成
 
-新しい2冊の配布場所はジェムリアのDiscordサーバーです。PDFにはURLを載せません。現在は「第1版・刊行前の確認版」です。書名・版・確認日・改訂履歴は `publication_info.typ` で管理し、公開時には同ファイルの `release-date` を設定します。これだけで表紙・柱・奥付の2冊分が切り替わり、発行日が表示されます。各冊子の版は独立して更新でき、関連冊子の版も追従します。履歴は版ごとに、変更したルール・操作と節名を数行で記録します。
+新しい2冊の配布場所はジェムリアのDiscordサーバーです。PDFにはURLを載せません。現在は「第1版」（発行日2026年10月22日）です。書名・版・発行日・改訂履歴は `publication_info.typ` で管理します。`release-date` を `none` にすると「刊行前の確認版」の表示に戻ります。各冊子の版は独立して更新でき、関連冊子の版も追従します。履歴は版ごとに、変更したルール・操作と節名を数行で記録します。
 
 ### 組版環境・フォント
 
@@ -66,6 +66,12 @@ Windowsのフォントを利用可能な環境で、外部フォント4ファイ
 ```powershell
 typst compile --ignore-system-fonts --font-path typst_manual/_local/fonts --root typst_manual typst_manual/全体マニュアル/main.typ typst_manual/全体マニュアル/main.pdf
 typst compile --ignore-system-fonts --font-path typst_manual/_local/fonts --root typst_manual typst_manual/操作ガイド/main.typ typst_manual/操作ガイド/main.pdf
+```
+
+2冊の組版と、配布用のPDFの作成は、次の1行でまとめて行えます。各冊子の `main.pdf` を作り直したうえで、`output/release/` に「ジェムリアTRPG_<書名>_<版>.pdf」の名前で2冊をコピーします。Discordにはこのファイルを置きます。書名と版は `publication_info.typ` から読みます。`output/release/` はGit管理しません。
+
+```powershell
+python scripts/build_publications.py
 ```
 
 検証に使用した外部フォントのSHA-256（同名の別版を見分けるため）：
