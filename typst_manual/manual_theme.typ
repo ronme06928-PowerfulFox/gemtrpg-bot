@@ -669,7 +669,9 @@
     },
     footer: context {
       let g = guide-part-of(guide-current-mark())
-      let n = counter(page).display("001")
+      // ページ番号を3桁にそろえる（"001" の書式は前に0を足すだけで、10ページ以降が4桁になるため使わない）
+      let page-no = str(counter(page).get().first())
+      let n = "0" * calc.max(0, 3 - page-no.len()) + page-no
       set text(font: mono, size: 8.5pt, fill: g.main, weight: "bold")
       if calc.odd(here().page()) { align(right)[\[ #n \]] } else { align(left)[\[ #n \]] }
     },
