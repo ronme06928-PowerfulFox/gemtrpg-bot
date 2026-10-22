@@ -3,7 +3,7 @@
 #let chapter-header = publication-header.with("2")
 #let origin-table-reference = context {
   let body = [巻末の「出身国ボーナスの表」]
-  if query(<r09-origin>).len() == 1 { link(<r09-origin>, body) } else { body }
+  if query(<r09-origin>).len() == 1 { link(<r09-origin>, box(body)) } else { body }
 }
 #let source-table(..cells) = block(breakable: true)[#table(
   columns: (26%, 44%, 30%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + rgb("dce3e8"),
@@ -171,7 +171,7 @@ GMが新規キャラクターに通過点を与えて開始する卓では、そ
   [速度補正], formula[敏捷13÷6＝2.16…], [2],
 )
 
-各#term(target: <r04-speed>)[スロット]（1回分の行動枠）の#term(target: <r04-speed>)[速度値]は、#formula[1d6＋速度補正]に、#term(target: <r06-speed>)[加速]・#term(target: <r06-speed>)[減速]などの補正を加えて求めます。今回は速度補正2なので、出目が4で、追加の効果がなければ速度値は6です。
+各#term(target: <r04-round>)[スロット]（1回分の行動枠）の#term(target: <r04-speed>)[速度値]は、#formula[1d6＋速度補正]に、#term(target: <r06-speed>)[加速]・#term(target: <r06-speed>)[減速]などの補正を加えて求めます。今回は速度補正2なので、出目が4で、追加の効果がなければ速度値は6です。
 
 最大HP・最大MPは上限です。続きの戦闘では、前の場面でのHP・MP・FPを引き継ぎます。
 

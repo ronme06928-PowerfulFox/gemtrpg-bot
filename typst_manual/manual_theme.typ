@@ -544,7 +544,7 @@
   show heading.where(level: 1): set block(above: 0pt, below: 0pt)
   show heading.where(level: 2): it => context {
     let g = book-gem-of(book-current-key())
-    block(sticky: true, above: 5mm, below: 2mm, {
+    block(sticky: true, above: 7mm, below: 2mm, {
       grid(columns: (5mm, 1fr), column-gutter: 2.2mm, align: horizon,
         align(center, gem-shape(g.shape, 5mm, g.main)), text(size: 14pt, fill: g.main, weight: "bold", it.body))
       v(-1mm)
@@ -692,7 +692,7 @@
   show heading.where(level: 1): set block(above: 0pt, below: 0pt)
   show heading.where(level: 2): it => context {
     let g = guide-part-of(guide-current-mark())
-    block(sticky: true, above: 5mm, below: 2mm, {
+    block(sticky: true, above: 7mm, below: 2mm, {
       grid(columns: (5mm, 1fr), column-gutter: 2.2mm, align: horizon,
         align(center, gem-shape(g.shape, 5mm, g.main, wire: true)),
         text(size: 14pt, fill: g.main, weight: "bold", it.body))
@@ -806,7 +806,7 @@
 #let term(body, target: none, guide: false) = context {
   let c = if guide { guide-part-of(guide-current-mark()).main } else { book-gem-of(book-current-key()).main }
   let marked = text(weight: "bold", fill: readable(c), body)
-  if target == none or query(target).len() != 1 { marked } else { link(target, marked) }
+  if target == none or query(target).len() != 1 { marked } else { link(target, box(marked)) }
 }
 #let formula(body) = box(fill: rgb("eef1f4"), radius: 1mm, inset: (x: 1.2mm, y: 0.4mm), outset: (y: 0.6mm), text(weight: "bold", body))
 #let except(body) = block(above: 1.6mm, below: 3mm, inset: (left: 4mm), stroke: (left: 0.8pt + rgb("9aa6b2")),

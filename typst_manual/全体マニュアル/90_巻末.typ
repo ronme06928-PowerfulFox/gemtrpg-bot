@@ -3,7 +3,7 @@
 #let chapter-header = publication-header.with("A")
 // 単独レビューでは文字だけを出し、参照先を収録した本では自動的にリンクにする。
 #let index-destination(target, body) = context {
-  if query(label(target)).len() == 1 { link(label(target), body) } else { body }
+  if query(label(target)).len() == 1 { link(label(target), box(body)) } else { body }
 }
 #let appendix-table(..cells) = table(columns: (24%, 26%, 50%), inset: (x: 6pt, y: 6pt), stroke: 0.6pt + rgb("dce3e8"), ..cells.pos())
 

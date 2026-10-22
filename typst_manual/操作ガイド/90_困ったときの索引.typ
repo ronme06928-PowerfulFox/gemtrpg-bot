@@ -1,7 +1,7 @@
 #import "parts.typ": *
 #let chapter-header = publication-header.with("index", guide: true)
 
-#let answer-page(target) = context link(target)[#counter(page).at(target).first()ページ]
+#let answer-page(target) = context link(target, box[#counter(page).at(target).first()ページ])
 
 #chapter("index", "00", [困ったときの索引], [
   *症状を探し、回答のあるページを開いてください。*PDFではページ番号を押すと、その章の「困ったとき」へ移動します。

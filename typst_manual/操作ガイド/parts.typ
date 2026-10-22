@@ -4,7 +4,7 @@
 #let callout = theme.guide-callout
 
 // 本文と索引の参照先は、リンクと実際のページ番号を併記する。
-#let guide-ref(target, body) = context link(target)[#body（#counter(page).at(target).first()ページ）]
+#let guide-ref(target, body) = context link(target, box[#body（#counter(page).at(target).first()ページ）])
 
 // 章扉・図番号は本番の共通テーマで管理する。
 #let chapter = theme.guide-chapter
