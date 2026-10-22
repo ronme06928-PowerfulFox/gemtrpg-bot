@@ -84,6 +84,17 @@ function collectSpecialResourceBuffBadges(char) {
  * Main Map Rendering Function
  * Handles background updates and token rendering (differential update).
  */
+// 盤面を描く状態を選ぶ。
+// 演出中に固定された表示用の状態があればそれを使う。表示用の状態が BattleStore の最新状態と同じなら、
+// キャラクターが0人（完全リセット後など）でもそれを使い、古い battleState に戻らない。
+window.selectBoardRenderState = function (presentationState, liveStoreState, legacyState) {
+    const count = (state) => (Array.isArray(state?.characters) ? state.characters.length : -1);
+    if (count(presentationState) > 0) return presentationState;
+    if (presentationState && presentationState === liveStoreState && count(liveStoreState) >= 0) return liveStoreState;
+    if (count(liveStoreState) > 0) return liveStoreState;
+    return legacyState || presentationState || liveStoreState;
+};
+
 window.renderVisualMap = function () {
     const tokenLayer = document.getElementById('map-token-layer');
     if (!tokenLayer) return;
@@ -93,11 +104,9 @@ window.renderVisualMap = function () {
     const presentationState = (window.BoardPresentationCoordinator && window.BoardPresentationCoordinator.state)
         ? window.BoardPresentationCoordinator.state
         : null;
-    const storeState = presentationState || ((window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : null);
+    const liveStoreState = (window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : null;
     const legacyState = (typeof battleState !== 'undefined' && battleState) ? battleState : null;
-    const storeChars = Array.isArray(storeState?.characters) ? storeState.characters.length : 0;
-    const legacyChars = Array.isArray(legacyState?.characters) ? legacyState.characters.length : 0;
-    const renderState = (storeState && storeChars > 0) ? storeState : (legacyState || storeState);
+    const renderState = window.selectBoardRenderState(presentationState, liveStoreState, legacyState);
 
     // Background Image Handling
     const mapEl = document.getElementById('game-map');
@@ -283,14 +292,15 @@ window.renderSlotBadgesForAllTokens = function () {
     const storeSlots = storeState?.slots
         ? (Array.isArray(storeState.slots) ? storeState.slots.length : Object.keys(storeState.slots).length)
         : 0;
-    const legacyChars = Array.isArray(legacyState?.characters) ? legacyState.characters.length : 0;
-    const legacySlots = legacyState?.slots
-        ? (Array.isArray(legacyState.slots) ? legacyState.slots.length : Object.keys(legacyState.slots).length)
-        : 0;
 
     const preferStore = !!(storeState && (storeChars > 0 || storeSlots > 0));
     const phase = (preferStore ? storeState?.phase : legacyState?.phase) || 'select';
-    const characters = (storeChars > 0 ? storeState.characters : (legacyState.characters || []));
+    const boardState = window.selectBoardRenderState(
+        presentationState,
+        (window.BattleStore && window.BattleStore.state) ? window.BattleStore.state : null,
+        legacyState
+    );
+    const characters = Array.isArray(boardState?.characters) ? boardState.characters : [];
     const rawSlots = (storeSlots > 0 ? storeState.slots : (legacyState.slots || {}));
     const intents = (() => {
         const s = storeState?.intents || {};

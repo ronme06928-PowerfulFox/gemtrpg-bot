@@ -57,6 +57,8 @@
 
 D11修正（2026-10-18）：`battle/index.js` はDOM準備後、Socketの有無に依存せずStore・`BoardPresentationCoordinator`・`VisualMap`の購読を初期化する。認証前のSocket待ちを打ち切った結果、盤面の状態が初期値で固定される経路をなくす。Socketの購読は既存の `main.js::initializeSocketIO` の登録・接続処理から `SocketClient.initialize()` で開始し、同一Socketへの再実行では重複登録しない。時間制限付きのポーリングは使わない。
 
+完全リセット後の駒の残り（2026-10-22）：盤面を描く状態は `visual_map.js::selectBoardRenderState` で選ぶ。演出中に固定された表示用の状態にキャラクターがいればそれを使い、表示用の状態が `BattleStore` の最新状態と同じなら、キャラクターが0人でもそれを使う。以前は0人のときに `main.js` の `let battleState`（`window.battleState` とは別の、更新が遅れる変数）へ戻っていたため、完全リセットの直後にリセット前の駒が残り、ページを切り替えるまで消えなかった。スロットの札を描く `renderSlotBadgesForAllTokens` のキャラクター一覧も同じ関数で選ぶ。
+
 検証：旧リトライ期限を超えてからSocketを生成するNode回帰テストで、Storeには2スロットがあるのにCoordinatorは0スロットのままになることを修正前に再現。修正後は遅延ログイン・DOM前のSocket生成・モジュール読込前のSocket生成が成功し、再初期化でもSocket購読は増えない。ローカル通常ルーム・幅1265pxのPLでも、未ログイン画面で2秒以上経過後にログインし、再読込なしの入室で2スロットの表示と自分の宣言パネルの表示を確認した。関連11件と全件936 passed / 2 skipped、フロントエンドビルド・文字検査・差分検査が成功。ブラウザでの切断・再接続とモバイルは未確認。
 
 1. **DOMロード**: `setupVisualBattleTab()` が呼び出される。
