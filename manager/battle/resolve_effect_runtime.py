@@ -876,7 +876,7 @@ def _apply_effect_changes_like_duel(
                     char,
                     'HP',
                     int(char.get('hp', 0)) - int(base_damage),
-                    username="[追撃]",
+                    username="[追加ダメージ]",
                     source=DamageSource.SKILL_EFFECT,
                     damage_context=build_damage_context(
                         actor=attacker_char,

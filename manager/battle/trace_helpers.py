@@ -15,7 +15,7 @@ def _trace_kind_label(kind):
     if k == 'mass_individual':
         return '広域-個別'
     if k == 'hard_attack':
-        return '追撃'
+        return '強硬攻撃'
     return k or '解決'
 
 def _trace_outcome_label(outcome):

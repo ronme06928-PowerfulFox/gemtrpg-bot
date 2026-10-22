@@ -733,10 +733,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
 
                     loser_slot = clash_defender_slot if winner_is_attacker else slot_id
                     loser_intent = clash_intent if winner_is_attacker else intent_a
-                    if (
-                        _is_hard_skill(loser_skill_data)
-                        and (_is_normal_skill(winner_skill_data) or _is_feint_skill(winner_skill_data))
-                    ):
+                    if _is_hard_skill(loser_skill_data):
                         if _is_feint_skill(winner_skill_data):
                             hard_followup_block_reason = 'feint_blocked'
                             winner_name = str((winner_char or {}).get('name') or '不明')

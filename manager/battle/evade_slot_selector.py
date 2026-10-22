@@ -126,8 +126,8 @@ def select_evade_insert_slot(state, battle_state, defender_actor_id, attacker_sl
 
 def select_hard_followup_evade_slot(state, battle_state, defender_actor_id, attacker_slot):
     """
-    強硬追撃時に、防御側が使用する再回避スロットを選択する。
-      1) 強硬追撃の target を直接指定している未解決回避
+    強硬攻撃時に、防御側が使用する再回避スロットを選択する。
+      1) 強硬攻撃の target を直接指定している未解決回避
       2) 未解決の回避スロット
       3) 再回避ロックがない場合、解決済み回避の再利用
     """

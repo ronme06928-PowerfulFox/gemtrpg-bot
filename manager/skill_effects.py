@@ -173,7 +173,7 @@ def apply_skill_effects_bidirectional(
                          char,
                          'HP',
                          char['hp'] - damage_val,
-                         username=f"[追撃]",
+                         username=f"[追加ダメージ]",
                          source=DamageSource.SKILL_EFFECT,
                          damage_context=build_damage_context(
                              actor=source_actor,
@@ -192,7 +192,7 @@ def apply_skill_effects_bidirectional(
                      )
                      all_logs.extend(temp_logs)
                      custom_damage_applied += damage_val + buff_dmg
-                     damage_events.append({'target_name': char['name'], 'target_id': char.get('id'), 'source': '追撃', 'value': damage_val + buff_dmg})
+                     damage_events.append({'target_name': char['name'], 'target_id': char.get('id'), 'source': '追加ダメージ', 'value': damage_val + buff_dmg})
             elif type_ == "APPLY_STATE_TO_ALL_OTHERS":
                 orig_target_id = char.get("id")
                 orig_target_type = char.get("type")
