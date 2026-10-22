@@ -14,13 +14,13 @@
 #block(breakable: false)[
 依頼や事件を知り、準備や情報収集をして、目的地へ向かいます。道中で出来事に対応し、ときには戦闘を行い、結末を迎えて報酬を確認します。*どの場面があり、何が起きるかはシナリオによって変わります。* 次の図は流れの一例です。
 
-#book-fig([場面の進め方は第3章、戦闘は第4章、報酬は第7章で説明します。], [
+#book-fig([場面の進め方は#section-ref(<rules-exploration>, [第3章], prefix: "", named: false)、戦闘は#section-ref(<rules-battle-basics>, [第4章], prefix: "", named: false)、報酬は#section-ref(<rules-growth>, [第7章], prefix: "", named: false)で説明します。], [
   #let stages = (
-    ([導入], [依頼や事件、置かれた状況を知る（第3章）]),
-    ([準備・情報収集], [必要な物や手掛かりをそろえる（第3章）]),
-    ([道中], [目的地へ向かい、出来事に対応する（第3章）]),
-    ([戦闘], [行動を宣言し、相手との戦いを解決する（第4章）]),
-    ([エンディングと報酬], [結末を確かめ、報酬と成長を確認する（第7章）]),
+    ([導入], [依頼や事件、置かれた状況を知る（#section-ref(<rules-exploration>, [第3章], prefix: "", named: false)）]),
+    ([準備・情報収集], [必要な物や手掛かりをそろえる（#section-ref(<rules-exploration>, [第3章], prefix: "", named: false)）]),
+    ([道中], [目的地へ向かい、出来事に対応する（#section-ref(<rules-exploration>, [第3章], prefix: "", named: false)）]),
+    ([戦闘], [行動を宣言し、相手との戦いを解決する（#section-ref(<rules-battle-basics>, [第4章], prefix: "", named: false)）]),
+    ([エンディングと報酬], [結末を確かめ、報酬と成長を確認する（#section-ref(<rules-growth>, [第7章], prefix: "", named: false)）]),
   )
   #stack(spacing: 1mm, ..stages.enumerate().map(((i, stage)) => {
     let (title, detail) = stage
@@ -80,4 +80,4 @@
 )]
 ]
 
-#related([判定の説明は第3章「探索と判定」、戦闘の進め方は第4章「戦闘の基本」で扱います。])
+#related([判定の説明は#section-ref(<rules-exploration>, [第3章「探索と判定」], prefix: "第3章")、戦闘の進め方は#section-ref(<rules-battle-basics>, [第4章「戦闘の基本」], prefix: "第4章")で扱います。])

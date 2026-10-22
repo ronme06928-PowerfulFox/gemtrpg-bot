@@ -2,7 +2,7 @@
 #let chapter-header = publication-header.with("gm", guide: true)
 
 #chapter("gm", "03", [GM 3　介入と復旧], [
-  進行中の値の修正、バフ・アイテムの調整、再入室、リセットを扱います。通常の戦闘終了には、GM 2で説明した「戦闘終結」を使います。
+  進行中の値の修正、バフ・アイテムの調整、再入室、リセットを扱います。通常の戦闘終了には、#section-ref(<guide-gm2>, [GM 2], named: false)で説明した「戦闘終結」を使います。
 ], target: <guide-gm3>)
 
 == ステータスの修正

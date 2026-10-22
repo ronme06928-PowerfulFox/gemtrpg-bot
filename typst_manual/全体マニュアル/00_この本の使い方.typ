@@ -33,15 +33,15 @@
   *初めて参加するPLの読む順番*
   #v(2mm)
   #grid(columns: (1fr, 8mm, 1fr, 8mm, 1fr), align: horizon,
-    reading-card([基本ルールブック], [第1章 → 第2章]),
+    reading-card([基本ルールブック], [#section-ref(<rules-introduction>, [第1章], prefix: "", named: false) → #section-ref(<rules-creation>, [第2章], prefix: "", named: false)]),
     align(center)[→],
     reading-card([セッション操作ガイド], [共通編・PL編]),
     align(center)[→],
-    reading-card([基本ルールブック], [第3章 → 第4章]),
+    reading-card([基本ルールブック], [#section-ref(<rules-exploration>, [第3章], prefix: "", named: false) → #section-ref(<rules-battle-basics>, [第4章], prefix: "", named: false)]),
   )
   #v(3mm)
   GM → セッション操作ガイドのGM編 \
-  経験者 → 基本ルールブックの第5・6章と巻末の早見表
+  経験者 → 基本ルールブックの#section-ref(<rules-battle-rulings>, [第5章], named: false)・#section-ref(<rules-status-effects>, [第6章], named: false)と#section-ref(<r09-quick>, [巻末の早見表], named: false)
 ])
 ]
 

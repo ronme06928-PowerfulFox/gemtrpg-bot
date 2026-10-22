@@ -809,6 +809,23 @@
   let marked = text(weight: "bold", fill: readable(c), body)
   if target == none or query(target).len() != 1 { marked } else { link(target, box(marked)) }
 }
+
+// 見出し名を管理元にし、単独レビューでは元の案内を表示する。
+#let heading-text(body) = {
+  if body.has("text") { body.text }
+  else if body.has("children") { body.children.map(heading-text).join() }
+  else { "" }
+}
+#let section-ref(target, fallback, prefix: "", named: true, page: false) = context {
+  let found = query(target)
+  if found.len() != 1 { fallback } else {
+    let hd = found.first()
+    let title = heading-text(hd.body).replace(regex("^([0-9]+|PL [0-9]+|GM [0-9]+|共通)　"), "")
+    let body = if named { [#prefix「#title」] } else { fallback }
+    if page { body = [#body（#hd.location().page()ページ）] }
+    link(target, box(body))
+  }
+}
 #let formula(body) = box(fill: rgb("eef1f4"), radius: 1mm, inset: (x: 1.2mm, y: 0.4mm), outset: (y: 0.6mm), text(weight: "bold", body))
 #let except(body) = block(above: 1.6mm, below: 3mm, inset: (left: 4mm), stroke: (left: 0.8pt + rgb("9aa6b2")),
   [#text(size: 9.5pt, weight: "bold", fill: muted)[ただし]　#body])

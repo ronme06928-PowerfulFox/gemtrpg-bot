@@ -2,7 +2,7 @@
 #import "../manual_theme.typ": *
 #let chapter-header = publication-header.with("4")
 #book-chapter("4", "4", [戦闘の基本], [
-  戦闘は、ラウンドごとに行動を決めて解決します。この章では、第2章で作成したナギと敵1人が戦う例を使い、1ラウンドの開始から終了までを見ていきます。敵と出目は説明用の条件です。
+  戦闘は、ラウンドごとに行動を決めて解決します。この章では、#section-ref(<rules-creation>, [第2章], prefix: "", named: false)で作成したナギと敵1人が戦う例を使い、1ラウンドの開始から終了までを見ていきます。敵と出目は説明用の条件です。
 ], target: <rules-battle-basics>)
 
 今回は2人とも1#term(target: <r04-round>)[スロット]ずつ行動し、通常の単体攻撃「基本の一太刀」だけを使うものとします。状態異常・装備による追加効果やダメージ補正はなく、敵に出身の恩恵はありません。
@@ -24,7 +24,7 @@
 
 通常のスキルは宣言をすべて確定してから解決します。
 
-#except[確定時に処理される#term(target: <r05-instant>)[即時発動]などの例外は、第5章「戦闘の裁定」で扱います。]
+#except[確定時に処理される#term(target: <r05-instant>)[即時発動]などの例外は、#section-ref(<rules-battle-rulings>, [第5章「戦闘の裁定」], prefix: "第5章")で扱います。]
 
 == 戦闘開始時の状態 <r04-resources>
 
@@ -77,7 +77,7 @@
 
 #except[互いに向けた2つの攻撃は1つのマッチとして扱います。]
 
-#term(target: <r05-one-sided>)[一方攻撃]・#term(target: <r05-redirect>)[引き寄せ]・同速などの扱いは、第5章「戦闘の裁定」を参照してください。
+#term(target: <r05-one-sided>)[一方攻撃]・#term(target: <r05-redirect>)[引き寄せ]・同速などの扱いは、#section-ref(<rules-battle-rulings>, [第5章「戦闘の裁定」], prefix: "第5章")を参照してください。
 
 == 威力の比較 <r04-power>
 
@@ -115,7 +115,7 @@
 
 自分のキャラクターは、このマッチではダメージを受けません。攻撃同士のマッチに勝ったことでFPを1得ます。
 
-このマッチで両者の#term(target: <r04-round>)[スロット]は処理済みになります。後から#term(target: <r04-speed>)[速度値]4の順番で、敵が同じスロットを使ってもう一度攻撃することはありません。防御・回避の相手と戦う場合の計算は、第5章「戦闘の裁定」で説明します。
+このマッチで両者の#term(target: <r04-round>)[スロット]は処理済みになります。後から#term(target: <r04-speed>)[速度値]4の順番で、敵が同じスロットを使ってもう一度攻撃することはありません。防御・回避の相手と戦う場合の計算は、#section-ref(<rules-battle-rulings>, [第5章「戦闘の裁定」], prefix: "第5章")で説明します。
 
 == ラウンド終了時 <r04-round-end>
 
@@ -138,6 +138,6 @@
 
 敵はまだ倒れていません。戦闘を続ける場合は、このHP・MP・FPを引き継いで、次のラウンドを始めます。*ラウンドの終了と、戦闘そのものの終了は別*です。戦闘を終える条件はシナリオやGMの指定に従います。
 
-#term(target: <r05-cost>)[不発]・#term(target: <r05-cost>)[使用コスト]の支払い・広域や#term(target: <r05-instant>)[即時発動]の例外は、第5章「戦闘の裁定」で確認してください。状態異常などの継続する効果は、第6章「状態異常と特殊効果」で扱います。
+#term(target: <r05-cost>)[不発]・#term(target: <r05-cost>)[使用コスト]の支払い・広域や#term(target: <r05-instant>)[即時発動]の例外は、#section-ref(<rules-battle-rulings>, [第5章「戦闘の裁定」], prefix: "第5章")で確認してください。状態異常などの継続する効果は、#section-ref(<rules-status-effects>, [第6章「状態異常と特殊効果」], prefix: "第6章")で扱います。
 
 #related([アプリの操作は、セッション操作ガイドのPL 3「探索と戦闘を操作する」とGM 2「当日を進める」を参照してください。])

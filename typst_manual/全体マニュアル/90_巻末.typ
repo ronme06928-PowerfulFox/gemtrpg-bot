@@ -3,12 +3,12 @@
 #let chapter-header = publication-header.with("A")
 // 単独レビューでは文字だけを出し、参照先を収録した本では自動的にリンクにする。
 #let index-destination(target, body) = context {
-  if query(label(target)).len() == 1 { link(label(target), box(body)) } else { body }
+  section-ref(label(target), body, prefix: "第" + target.slice(2, 3) + "章")
 }
 #let appendix-table(..cells) = table(columns: (24%, 26%, 50%), inset: (x: 6pt, y: 6pt), stroke: 0.6pt + rgb("dce3e8"), ..cells.pos())
 
 #book-chapter("A", "巻末", [巻末], [
-  作成時の補正と戦闘中の恩恵を、出身ごとに確認します。作成時の計算は第2章「出身による補正」、成長の予算は第7章「取得コストの上限」を参照してください。
+  作成時の補正と戦闘中の恩恵を、出身ごとに確認します。作成時の計算は#section-ref(<r02-origin-adjustments>, [第2章「出身による補正」], prefix: "第2章")、成長の予算は#section-ref(<r07-budget>, [第7章「取得コストの上限」], prefix: "第7章")を参照してください。
 ], target: <rules-appendix>)
 
 == 出身国ボーナスの表 <r09-origin>
@@ -44,21 +44,21 @@
 
 #table(columns: (19%, 81%), inset: (x: 6pt, y: 4pt), stroke: 0.6pt + rgb("dce3e8"),
   chapter-header([*項目*], [*確認すること／詳しい章・節*]),
-  [探索判定], [#formula[判定値＝GM指定の個数の6面ダイスの合計＋探索技能のレベル]。 \ 第3章「技能とダイスの個数」「判定値の求め方」],
-  [成功], [判定値が目標値以上なら成功。 \ 第3章「成功と失敗」],
-  [1ラウンド], [開始（速度値）→選択→解決→終了。 \ 第4章「ラウンドの流れ」],
-  [速度値], [各スロットで#formula[6面ダイス1個＋速度補正]。加速・減速も適用。 \ 第4章「速度値を決める」],
-  [解決順], [広域が先、次に単体を速度値の高い順で処理。 \ 第5章「解決の順番」],
-  [コスト・効果], [使用コスト→効果→ダメージ。指定の時機に従います。 \ 第5章「コスト・効果・ダメージの順」],
-  [マッチ], [通常単体は相互指定で#term(target: <r05-match>)[マッチ]、一方向の指定で#term(target: <r05-one-sided>)[一方攻撃]。同陣営はマッチにしません。 \ 第5章「マッチの成立」],
-  [不発・コスト], [通常単体の実行前不発は未払いコストなし。広域は開始時先払い。*先払い後に不発でも返しません。* \ 第5章「不発と使用コスト」],
-  [即時発動], [1キャラクターにつき1ラウンド1回。確定時に処理。 \ 第5章「即時発動」],
-  [宝石の加護], [宝石の加護スキルは1回の戦闘で1回まで。 \ 第5章「宝石の加護スキル」],
+  [探索判定], [#formula[判定値＝GM指定の個数の6面ダイスの合計＋探索技能のレベル]。 \ #section-ref(<r03-dice>, [第3章「技能とダイスの個数」], prefix: "第3章")#section-ref(<r03-formula>, [「判定値の求め方」], prefix: "")],
+  [成功], [判定値が目標値以上なら成功。 \ #section-ref(<r03-success>, [第3章「成功と失敗」], prefix: "第3章")],
+  [1ラウンド], [開始（速度値）→選択→解決→終了。 \ #section-ref(<r04-round>, [第4章「ラウンドの流れ」], prefix: "第4章")],
+  [速度値], [各スロットで#formula[6面ダイス1個＋速度補正]。加速・減速も適用。 \ #section-ref(<r04-speed>, [第4章「速度値を決める」], prefix: "第4章")],
+  [解決順], [広域が先、次に単体を速度値の高い順で処理。 \ #section-ref(<r05-sequence>, [第5章「解決の順番」], prefix: "第5章")],
+  [コスト・効果], [使用コスト→効果→ダメージ。指定の時機に従います。 \ #section-ref(<r05-timing>, [第5章「コスト・効果・ダメージの順」], prefix: "第5章")],
+  [マッチ], [通常単体は相互指定で#term(target: <r05-match>)[マッチ]、一方向の指定で#term(target: <r05-one-sided>)[一方攻撃]。同陣営はマッチにしません。 \ #section-ref(<r05-match>, [第5章「マッチの成立」], prefix: "第5章")],
+  [不発・コスト], [通常単体の実行前不発は未払いコストなし。広域は開始時先払い。*先払い後に不発でも返しません。* \ #section-ref(<r05-cost>, [第5章「不発と使用コスト」], prefix: "第5章")],
+  [即時発動], [1キャラクターにつき1ラウンド1回。確定時に処理。 \ #section-ref(<r05-instant>, [第5章「即時発動」], prefix: "第5章")],
+  [宝石の加護], [宝石の加護スキルは1回の戦闘で1回まで。 \ #section-ref(<r05-gem>, [第5章「宝石の加護スキル」], prefix: "第5章")],
 )
 
-組合せごとのダメージと勝利FPは、第5章「ダメージと勝利FPの表」を参照してください。
+組合せごとのダメージと勝利FPは、#section-ref(<r05-fp>, [第5章「ダメージと勝利FPの表」], prefix: "第5章")を参照してください。
 
-効果の早見表は、第6章「効果の早見表」を参照してください。
+効果の早見表は、#section-ref(<r06-quick>, [第6章「効果の早見表」], prefix: "第6章")を参照してください。
 
 ]
 
@@ -109,7 +109,7 @@
   [即時発動], index-destination("r05-instant", [第5章「即時発動」]),
   [速度値], index-destination("r04-speed", [第4章「速度値を決める」]),
   [速度補正], index-destination("r02-derived-stats", [第2章「最大HP・MPと補正」]),
-  [探索判定], index-destination("r03-formula", [第3章「判定値の求め方」]),
+  [探索判定], index-destination("r03-formula", [第3章#section-ref(<r03-formula>, [「判定値の求め方」], prefix: "")]),
   [蓄力], index-destination("r06-stacks", [第6章「蓄力・凝魔」]),
   [通過点], index-destination("r07-radiance", [第7章「輝化スキルと通過点」]),
   [同速], index-destination("r05-redirect", [第5章「引き寄せと同速」]),
