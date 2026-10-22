@@ -167,33 +167,6 @@ def format_skill_display_from_command(command_str, skill_id, skill_data, charact
 
     return f"<span style='color: #d63384; font-weight: bold;'>{text}</span>"
 
-def verify_skill_cost(char, skill_d):
-    """Validate whether actor can pay skill cost."""
-    if not skill_d:
-        return True, None
-
-    try:
-        rule_data = _extract_rule_data_from_skill(skill_d)
-        tags = rule_data.get('tags', skill_d.get('tags', [])) if isinstance(rule_data, dict) else skill_d.get('tags', [])
-        if isinstance(tags, list) and ("即時発動" in tags):
-            if "宝石の加護スキル" in tags and char.get('used_gem_protect_this_battle', False):
-                return False, "宝石の加護スキルは1回の戦闘で1回までです。"
-            return True, None
-
-        for cost in (rule_data.get("cost", []) if isinstance(rule_data, dict) else []):
-            if not isinstance(cost, dict):
-                continue
-            c_type = cost.get("type")
-            c_val = int(cost.get("value", 0) or 0)
-            if c_val > 0 and c_type:
-                curr = int(get_status_value(char, c_type) or 0)
-                if curr < c_val:
-                    return False, f"{c_type}不足 (必要:{c_val}, 現在:{curr})"
-    except Exception:
-        pass
-
-    return True, None
-
 def _safe_int(value, default=0):
     try:
         return int(value)

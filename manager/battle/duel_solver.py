@@ -28,6 +28,7 @@ from manager.battle.skill_rules import _resolve_skill_role, _extract_rule_data_f
 from manager.battle.duel_log_utils import format_duel_result_lines
 from manager.summons.service import apply_summon_change
 from manager.granted_skills.service import apply_grant_skill_change, consume_granted_skill_use
+from manager.battle.skill_access import GEM_PROTECT_LIMIT_MESSAGE, is_gem_protect_skill, mark_gem_protect_used
 from manager.bleed_logic import consume_bleed_maintenance_stack
 from plugins.buffs.dodge_lock import DodgeLockBuff
 from manager.logs import setup_logger
@@ -233,8 +234,8 @@ def handle_skill_declaration(room, data, username, sid=None):
              if actor.get('flags', {}).get('immediate_action_used', False):
                  _safe_emit('new_log', {'message': '即時発動は1キャラクターにつき1ラウンドに1回までです。', 'type': 'error'}, to=sid or room)
                  return
-             if "宝石の加護スキル" in skill_data.get('tags', []) and actor.get('used_gem_protect_this_battle', False):
-                 _safe_emit('new_log', {'message': '宝石の加護スキルは1回の戦闘で1回までです。', 'type': 'error'}, to=sid or room)
+             if is_gem_protect_skill(skill_data) and actor.get('used_gem_protect_this_battle', False):
+                 _safe_emit('new_log', {'message': GEM_PROTECT_LIMIT_MESSAGE, 'type': 'error'}, to=sid or room)
                  return
 
              logger.info(f"[Immediate] Executing {skill_id} for {actor['name']}")
@@ -300,10 +301,7 @@ def handle_skill_declaration(room, data, username, sid=None):
              if 'flags' not in actor: actor['flags'] = {}
              actor['flags']['immediate_action_used'] = True
              consume_granted_skill_use(actor, skill_id)
-
-             skill_tags = skill_data.get('tags', [])
-             if "宝石の加護スキル" in skill_tags:
-                 actor['used_gem_protect_this_battle'] = True
+             mark_gem_protect_used(actor, skill_data)
 
              broadcast_log(room, f"{actor['name']} used immediate skill: {skill_data.get('name', skill_id)}", "info")
              broadcast_state_update(room)
@@ -408,6 +406,7 @@ def handle_skill_declaration(room, data, username, sid=None):
 def _consume_duel_skill_cost(room, actor, skill_data):
     """Pay once before use effects; granted-skill usage is recorded by the caller."""
     spent = {'hp': 0, 'mp': 0, 'fp': 0}
+    mark_gem_protect_used(actor, skill_data)
     if 'free_cost' in skill_data.get('tags', []):
         return spent
     rule_data = _extract_rule_data_from_skill(skill_data)

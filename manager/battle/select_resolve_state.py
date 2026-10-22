@@ -254,6 +254,7 @@ def _build_usable_skill_ids(room_state, battle_state):
                 allow_instant=False,
                 battle_state=battle_state,
                 room_state=room_state,
+                slot_id=slot_id,
             )
         except Exception:
             pass
