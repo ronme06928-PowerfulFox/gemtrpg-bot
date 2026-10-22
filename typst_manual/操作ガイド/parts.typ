@@ -39,3 +39,10 @@
 ]
 #let field(w, body) = box(width: w, stroke: 0.6pt + line-c, radius: 2pt, inset: 3pt, text(size: 8.5pt, fill: muted, body))
 #let piece(name, color) = circle(radius: 6mm, inset: 0pt, fill: color.lighten(90%), stroke: 1.2pt + color)[#align(center + horizon, text(size: 10pt, weight: "bold", fill: color, name))]
+
+// 操作ガイドは編の色で用語を示す。
+#let readable = theme.readable
+#let term(body, target: none) = theme.term(body, target: target, guide: true)
+#let formula = theme.formula
+#let except = theme.except
+#let related = theme.related

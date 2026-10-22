@@ -449,14 +449,14 @@
 }
 
 // 囲み。ポイント・例・GMへの3種類。
-#let book-callout(kind, body) = context {
+#let book-callout(kind, body, body-size: 10.5pt, breakable: false) = context {
   let g = book-gem-of(book-current-key())
   let label = (point: "ポイント", example: "例", gm: "GMへ").at(kind)
   block(width: 100%, fill: g.light, radius: (right: 2mm), inset: (left: 5mm, right: 5mm, y: 3.5mm),
-    stroke: (left: 1.3mm + g.main), above: 3mm, below: 4mm, breakable: false, {
+    stroke: (left: 1.3mm + g.main), above: 3mm, below: 4mm, breakable: breakable, {
       text(size: 9pt, weight: "bold", fill: g.main)[#gem-shape(g.shape, 3.6mm, g.main)#h(1.5mm)#label]
       v(1mm)
-      text(size: 10.5pt, body)
+      text(size: body-size, body)
     })
 }
 
@@ -629,17 +629,17 @@
   })
 }
 
-#let guide-callout(kind, body) = context {
+#let guide-callout(kind, body, body-size: 10.5pt, breakable: false) = context {
   let g = guide-part-of(guide-current-mark())
   let label = (tip: "TIP", check: "CHECK", gm: "GM").at(kind)
   let ja = (tip: "ポイント", check: "確かめること", gm: "GMの操作").at(kind)
   block(width: 100%, fill: g.light, inset: (left: 5mm, right: 5mm, y: 3.5mm),
-    stroke: (left: 1.3mm + g.main), above: 3mm, below: 4mm, breakable: false, {
+    stroke: (left: 1.3mm + g.main), above: 3mm, below: 4mm, breakable: breakable, {
       text(font: mono, size: 8.5pt, weight: "bold", fill: g.main)[\[#label\]]
       h(1.5mm)
       text(size: 9pt, weight: "bold", fill: g.main, ja)
       v(1mm)
-      text(size: 10.5pt, body)
+      text(size: body-size, body)
     })
 }
 
@@ -762,7 +762,7 @@
 #let guide-cover() = page(header: none, footer: none, background: none, margin: 0pt)[
   #place(bottom + left, rect(width: 100%, height: 95mm, fill: night))
   #place(bottom + left, rect(width: 100%, height: 95mm, fill: grid-pattern(rgb("1f86a0").transparentize(75%))))
-  #place(bottom + left, dy: -95mm, rect(width: 100%, height: 1.2mm, fill: gradient.linear(rgb("1f86a0"), rgb("4b4fb0"), rgb("a8457f")))))
+  #place(bottom + left, dy: -95mm, rect(width: 100%, height: 1.2mm, fill: gradient.linear(rgb("1f86a0"), rgb("4b4fb0"), rgb("a8457f"))))
   #logo(40mm, 150mm)
   #place(top + center, dy: 132mm, box(width: 150mm, align(center, stack(spacing: 6mm,
     text(font: mono, size: 10pt, tracking: 0.3em, fill: muted)[TRPG \/\/ SESSION OPERATION GUIDE],
@@ -791,3 +791,25 @@
   table.header(..cells.pos().map(c => table.cell(fill: if guide { night } else { g.main },
     text(fill: if guide { g.main.lighten(55%) } else { white }, weight: "bold", c))))
 }
+
+// 版C：用語・式・近接した例外・節末の関連参照。
+#let readable(c) = {
+  let lum(c) = {
+    let (r, g, b, _) = c.rgb().components().map(v => v / 100%)
+    let f(x) = if x <= 0.03928 { x / 12.92 } else { calc.pow((x + 0.055) / 1.055, 2.4) }
+    0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+  }
+  let out = c
+  while (1.05 / (lum(out) + 0.05)) < 4.5 { out = out.darken(8%) }
+  out
+}
+#let term(body, target: none, guide: false) = context {
+  let c = if guide { guide-part-of(guide-current-mark()).main } else { book-gem-of(book-current-key()).main }
+  let marked = text(weight: "bold", fill: readable(c), body)
+  if target == none or query(target).len() != 1 { marked } else { link(target, marked) }
+}
+#let formula(body) = box(fill: rgb("eef1f4"), radius: 1mm, inset: (x: 1.2mm, y: 0.4mm), outset: (y: 0.6mm), text(weight: "bold", body))
+#let except(body) = block(above: 1.6mm, below: 3mm, inset: (left: 4mm), stroke: (left: 0.8pt + rgb("9aa6b2")),
+  [#text(size: 9.5pt, weight: "bold", fill: muted)[ただし]　#body])
+#let related(..items) = block(above: 3mm, below: 4mm,
+  text(size: 9.5pt, fill: muted)[関連　#items.pos().join("　／　")])
