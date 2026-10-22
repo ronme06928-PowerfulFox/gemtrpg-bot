@@ -1,8 +1,7 @@
 // 刊行情報の単一の管理元。公開時に release-date を日付へ変更する。
 // 例: #let release-date = datetime(year: 2026, month: 10, day: 22)
-#let release-date = none
+#let release-date = datetime(year: 2026, month: 10, day: 22)
 #let publisher = "創作ゆる大地"
-#let distribution = "ジェムリアのDiscordサーバーで配布しています"
 #let publications = (
   book: (
     title: "基本ルールブック",

@@ -24,7 +24,6 @@
     #item([版], publication-status(key))
     #if publication-date != none { item([発行日], publication-date) }
     #item([発行元], publisher)
-    #item([配布], distribution)
     #if info.app-checked != none { item([確認したアプリ], info.app-checked) }
     #heading(level: 2)[関連冊子]
     #for other in ("book", "guide") {
