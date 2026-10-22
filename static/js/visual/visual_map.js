@@ -126,6 +126,7 @@ window.renderVisualMap = function () {
     }
 
     if (!renderState || !Array.isArray(renderState.characters)) return;
+    window.ensureRestoredViewShowsTokens(renderState.characters);
     const srStateForTurn = _getSelectResolveStateRef();
     const srPhaseForTurn = srStateForTurn?.phase || null;
     const suppressLegacyTurnHighlight = ['select', 'resolve_mass', 'resolve_single'].includes(srPhaseForTurn);
