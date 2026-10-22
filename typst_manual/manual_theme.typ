@@ -735,9 +735,11 @@
   }
 }
 
+// ジェムリアのロゴ（assets/gemuria_logo.png、1280×720pxの白地）。絵柄は(198,107)〜(1065,587)。
+// 切り抜かずに全体を置き、絵柄の上端が y、絵柄の中央がページの中央に来るようにずらす。width は絵柄の幅。
 #let logo(y, width) = {
-  let s = width / 878
-  place(top + center, dy: y - 107 * s, dx: -2 * s,
+  let s = width / 867
+  place(top + center, dy: y - 107 * s, dx: (640 - 631.5) * s,
     image("assets/gemuria_logo.png", width: 1280 * s))
 }
 #let serif = ("Noto Serif JP",)

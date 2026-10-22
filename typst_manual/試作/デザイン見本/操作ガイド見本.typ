@@ -8,8 +8,8 @@
 
 // ── 表紙 ──
 #let logo(y, width) = {
-  let s = width / 878
-  place(top + center, dy: y - 107 * s, dx: -2 * s, image("../../assets/gemuria_logo.png", width: 1280 * s))
+  let s = width / 867
+  place(top + center, dy: y - 107 * s, dx: (640 - 631.5) * s, image("../../assets/gemuria_logo.png", width: 1280 * s))
 }
 #page(header: none, footer: none, background: none, margin: 0pt)[
   #place(bottom + left, rect(width: 100%, height: 95mm, fill: night))
