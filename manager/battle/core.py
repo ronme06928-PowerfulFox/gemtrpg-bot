@@ -111,7 +111,6 @@ from manager.battle.runtime_actions import (
     extract_custom_skill_name,
     format_skill_name_for_log,
     format_skill_display_from_command,
-    verify_skill_cost,
     process_on_damage_buffs,
     process_on_hit_buffs,
     execute_pre_match_effects,

@@ -20,7 +20,7 @@ except Exception:
     def emit_select_resolve_events(*args, **kwargs):
         return None
 from manager.battle.core import proceed_next_turn, run_select_resolve_auto, format_skill_name_for_log
-from manager.battle.skill_access import evaluate_skill_access
+from manager.battle.skill_access import evaluate_skill_access, mark_gem_protect_used
 from manager.battle.action_slot_mode import get_action_unavailable_reason
 from manager.battle.resolve_presentation import (
     advance_resolve_presentation,
@@ -549,6 +549,7 @@ def _consume_mass_costs_on_resolve_start(room_id, state, required_slots):
         spent = {'hp': 0, 'mp': 0, 'fp': 0}
 
         if isinstance(actor, dict):
+            mark_gem_protect_used(actor, skill_data)
             log_name = f"[{format_skill_name_for_log(skill_id, skill_data, actor)}]"
             for entry in _extract_skill_cost_entries(skill_data):
                 if not isinstance(entry, dict):

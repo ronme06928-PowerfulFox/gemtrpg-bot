@@ -85,6 +85,34 @@ def _is_instant_skill(skill_data):
     return ("instant" in tags) or ("immediate" in tags) or ("instant" in tags_text)
 
 
+GEM_PROTECT_TAG = "宝石の加護スキル"
+GEM_PROTECT_LIMIT_MESSAGE = "宝石の加護スキルは1回の戦闘で1回までです。"
+
+
+def is_gem_protect_skill(skill_data):
+    return GEM_PROTECT_TAG in _extract_skill_tags(skill_data)
+
+
+def mark_gem_protect_used(char, skill_data):
+    """Call when the skill is actually used (cost is processed)."""
+    if isinstance(char, dict) and is_gem_protect_skill(skill_data):
+        char["used_gem_protect_this_battle"] = True
+
+
+def _gem_protect_committed_in_other_slot(actor, battle_state, slot_id):
+    if not isinstance(battle_state, dict):
+        return False
+    slots = battle_state.get("slots", {}) or {}
+    for other_slot_id, intent in (battle_state.get("intents", {}) or {}).items():
+        if other_slot_id == slot_id or not isinstance(intent, dict) or not intent.get("committed"):
+            continue
+        if str((slots.get(other_slot_id) or {}).get("actor_id")) != str(actor.get("id")):
+            continue
+        if is_gem_protect_skill(all_skill_data.get(intent.get("skill_id"))):
+            return True
+    return False
+
+
 def _parse_constraints_rows(raw):
     if isinstance(raw, dict):
         raw = [raw]
@@ -415,6 +443,16 @@ def evaluate_skill_access(actor, skill_id, room_state=None, battle_state=None, s
         return {
             "usable": False,
             "blocked_reasons": ["instant skill is not allowed here"],
+            "effective_cost": [],
+            "matched_rule_ids": [],
+        }
+    if is_gem_protect_skill(skill_data) and (
+        actor.get("used_gem_protect_this_battle", False)
+        or _gem_protect_committed_in_other_slot(actor, battle_state, slot_id)
+    ):
+        return {
+            "usable": False,
+            "blocked_reasons": [GEM_PROTECT_LIMIT_MESSAGE],
             "effective_cost": [],
             "matched_rule_ids": [],
         }

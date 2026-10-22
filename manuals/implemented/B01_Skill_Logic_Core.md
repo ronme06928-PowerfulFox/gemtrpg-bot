@@ -540,6 +540,8 @@ Select/Resolve では、荊棘処理はマッチ結果確定後の `END_MATCH` /
 }
 ```
 
+`宝石の加護スキル` タグのスキルは、actor の `used_gem_protect_this_battle` が立っているとき、または `battle_state` の同じ actor の別スロット（`slot_id` 以外）が宝石の加護スキルを確定済みのとき `usable=False` になる（1回の戦闘で1回まで。詳細は B03 §5）。印は使用時（コスト処理時）に `mark_gem_protect_used()` で立てる。
+
 ### 13.2 SYS-STRUGGLE フォールバック
 
 - ID: `SYS-STRUGGLE`、名前: `どうにかもがく`
