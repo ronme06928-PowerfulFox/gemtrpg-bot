@@ -813,8 +813,8 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                     )
                 attacker_name = _resolve_actor_name(characters_by_id, attacker_actor_id)
                 defender_name = _resolve_actor_name(characters_by_id, defender_actor_id)
-                attacker_skill_name = _resolve_skill_name(skill_id, skill_data)
-                defender_skill_name = _resolve_skill_name(defender_skill_id, defender_skill_data)
+                attacker_skill_name = _resolve_skill_name(skill_id, skill_data, characters_by_id.get(attacker_actor_id))
+                defender_skill_name = _resolve_skill_name(defender_skill_id, defender_skill_data, characters_by_id.get(defender_actor_id))
                 clash_rolls_norm = {
                     'power_a': clash_rolls.get('power_a'),
                     'power_b': clash_rolls.get('power_b'),
@@ -1149,7 +1149,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                 applied['cost'] = consumed_cost
                 attacker_name = _resolve_actor_name(characters_by_id, attacker_actor_id)
                 defender_name = _resolve_actor_name(characters_by_id, target_actor_id)
-                attacker_skill_name = _resolve_skill_name(skill_id, skill_data)
+                attacker_skill_name = _resolve_skill_name(skill_id, skill_data, characters_by_id.get(attacker_actor_id))
                 one_sided_rolls = delegate_summary.get('rolls', {}) if isinstance(delegate_summary, dict) else {}
                 one_sided_rolls_norm = {
                     'power_a': one_sided_rolls.get('total_damage', one_sided_rolls.get('final_damage', one_sided_rolls.get('base_damage'))),

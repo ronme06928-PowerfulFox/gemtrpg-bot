@@ -350,7 +350,7 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 outcome = _compare_outcome(attacker_power, defender_sum)
                 delta = abs(int(attacker_power) - int(defender_sum))
                 attacker_name = _resolve_actor_name(characters_by_id, attacker_actor_id)
-                skill_name = _resolve_skill_name(attacker_skill_id, attacker_skill_data)
+                skill_name = _resolve_skill_name(attacker_skill_id, attacker_skill_data, characters_by_id.get(attacker_actor_id))
                 defender_actor_ids = _enemy_actor_ids_for_team(attacker_team)
                 primary_defender_char = _mass_target_char(defender_actor_ids)
                 primary_participant = participant_entries[0] if participant_entries else None

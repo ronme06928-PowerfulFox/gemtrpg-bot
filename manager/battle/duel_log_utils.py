@@ -29,7 +29,23 @@ def _resolve_actor_name(characters_by_id, actor_id):
     return str(actor_id)
 
 
-def _resolve_skill_name(skill_id, skill_data=None):
+_COMMAND_SKILL_NAME_RE = re.compile(r"【([^\s】]+)\s+([^】]+)】")
+
+
+def _skill_name_from_commands(actor, skill_id):
+    """キャラクターのチャットパレットに書かれたスキル名（オリジナル名を含む）を返す。"""
+    if not isinstance(actor, dict) or not skill_id:
+        return ""
+    for sid, name in _COMMAND_SKILL_NAME_RE.findall(str(actor.get("commands") or "")):
+        if sid == str(skill_id) and name.strip():
+            return name.strip()
+    return ""
+
+
+def _resolve_skill_name(skill_id, skill_data=None, actor=None):
+    custom_name = _skill_name_from_commands(actor, skill_id)
+    if custom_name:
+        return f"{custom_name} ({skill_id})"
     skill_data = skill_data if isinstance(skill_data, dict) else {}
     if (not skill_data) and skill_id:
         skill_data = all_skill_data.get(skill_id, {}) if isinstance(all_skill_data, dict) else {}

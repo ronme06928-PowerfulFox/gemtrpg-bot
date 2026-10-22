@@ -604,11 +604,16 @@ class DeclarePanel {
             && nameFromMeta !== sid
         );
         const nameFromCommands = this._findSkillNameFromActorCommands(actor, sid);
-        const resolvedName = isMetaUsable ? nameFromMeta : nameFromCommands;
+        // キャラクターが付けた名前（オリジナル名）を優先し、なければスキルデータの名前を使う
+        const resolvedName = nameFromCommands || (isMetaUsable ? nameFromMeta : '');
         if (sid && resolvedName && resolvedName !== sid) return `${sid} ${resolvedName}`;
         if (sid) return sid;
         if (resolvedName) return resolvedName;
         return '-';
+    }
+
+    _skillNameForActor(actor, skillId) {
+        return this._findSkillNameFromActorCommands(actor, skillId) || this._readSkillMeta(skillId).name || skillId;
     }
 
     _findSkillNameFromActorCommands(actor, skillId) {
@@ -1067,8 +1072,7 @@ class DeclarePanel {
     _buildTooltipHtml(skillId, actor, disabledReason = null) {
         const all = window.allSkillData || {};
         const skillData = all[skillId] || {};
-        const meta = this._readSkillMeta(skillId);
-        const name = meta.name || skillId;
+        const name = this._skillNameForActor(actor, skillId);
 
         // 威力レンジ（キャラクターのステータスを参照した簡易計算）
         const preview = this._buildQuickPreviewFromSkill(actor, skillId);
