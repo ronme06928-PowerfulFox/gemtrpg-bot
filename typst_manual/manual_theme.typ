@@ -1,3 +1,4 @@
+#import "publication_info.typ": publications, publication-status
 // manual_theme.typ — ジェムリアTRPG マニュアル共通テーマ
 // 使い方:  #import "manual_theme.typ": *   →  #show: manual-conf
 
@@ -508,7 +509,7 @@
         let g = gems.at(mark.key)
         set text(size: 8pt)
         grid(columns: (1fr, auto), align: bottom,
-          text(fill: muted)[ジェムリアTRPG 基本ルールブック],
+          text(fill: muted)[#publications.book.title　#publication-status("book")],
           text(fill: g.main, weight: "bold")[#if mark.key != "A" [#mark.num　]#mark.title])
         v(-1.5mm)
         line(length: 100%, stroke: 0.5pt + g.main.lighten(40%))
@@ -660,7 +661,7 @@
         let g = guide-part-of(mark)
         set text(size: 8pt)
         grid(columns: (1fr, auto), align: bottom,
-          text(font: mono, fill: muted, tracking: 0.05em)[SESSION OPERATION GUIDE],
+          text(fill: muted)[#publications.guide.title　#publication-status("guide")],
           text(fill: g.main, weight: "bold")[#text(font: mono)[#mark.code]　#mark.title])
         v(-1.5mm)
         line(length: 100%, stroke: (paint: g.main.lighten(30%), thickness: 0.5pt, dash: "dashed"))
@@ -752,12 +753,12 @@
   #place(top + center, dy: 137mm, box(width: 110mm, trpg-mark))
   #place(top + center, dy: 180mm, box(width: 150mm, align(center, stack(spacing: 7mm,
     text(font: serif, size: 14pt, style: "italic", fill: muted)[The Ray, from Perfect Gemstone],
-    text(size: 34pt, weight: "bold", fill: ink)[基本ルールブック],
+    text(size: 34pt, weight: "bold", fill: ink)[#publications.book.title],
   ))))
   #place(bottom + center, dy: -22mm, box(width: 160mm, grid(columns: keys.len(), column-gutter: 4mm,
     ..keys.map(k => align(center + bottom, gem-shape(gems.at(k).shape, 13mm, gems.at(k).main))))))
   #place(bottom + left, rect(width: 100%, height: 5mm, fill: gradient.linear(..keys.map(k => gems.at(k).main))))
-  #place(bottom + center, dy: -10mm, text(size: 8pt, fill: muted)[作業版。本文は制作中で、内容は確定していません。])
+  #place(bottom + center, dy: -10mm, text(size: 8pt, fill: muted)[#publication-status("book")])
 ]
 #let guide-cover() = page(header: none, footer: none, background: none, margin: 0pt)[
   #place(bottom + left, rect(width: 100%, height: 95mm, fill: night))
@@ -766,7 +767,7 @@
   #logo(40mm, 150mm)
   #place(top + center, dy: 132mm, box(width: 150mm, align(center, stack(spacing: 6mm,
     text(font: mono, size: 10pt, tracking: 0.3em, fill: muted)[TRPG \/\/ SESSION OPERATION GUIDE],
-    text(size: 34pt, weight: "bold", fill: ink)[セッション操作ガイド],
+    text(size: 34pt, weight: "bold", fill: ink)[#publications.guide.title],
     text(size: 12pt, fill: muted)[共通編・PL編・GM編],
   ))))
   #place(bottom + left, dx: 30mm, dy: -45mm, stack(spacing: 4mm,
@@ -776,7 +777,7 @@
         gem-shape(g.shape, 7mm, g.main.lighten(30%), wire: true),
         text(fill: white, size: 11pt)[#text(font: mono, fill: g.main.lighten(40%))[#g.code]　#t])
     })))
-  #place(bottom + right, dx: -20mm, dy: -12mm, text(font: mono, size: 7.5pt, fill: rgb("8d9aab"))[WORKING EDITION])
+  #place(bottom + right, dx: -20mm, dy: -12mm, text(font: mono, size: 7.5pt, fill: rgb("8d9aab"))[#text(font: "Noto Sans JP", publication-status("guide"))])
 ]
 
 // 図の人物・流れを2冊で共有。固有の数値や説明は各原稿に残す。

@@ -2,7 +2,8 @@
 // Build: typst compile --root typst_manual typst_manual/操作ガイド/main.typ output/pdf/46_operation_guide.pdf
 #import "../manual_theme.typ": guide-conf, guide-cover, publication-toc
 
-#set document(title: "ジェムリアTRPG セッション操作ガイド・作業版")
+#import "../publication_info.typ": publications, publication-status
+#set document(title: "ジェムリアTRPG " + publications.guide.title + "・" + publications.guide.edition)
 #show: guide-conf
 
 #guide-cover()
