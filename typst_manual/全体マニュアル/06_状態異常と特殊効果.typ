@@ -2,7 +2,7 @@
 #import "../manual_theme.typ": *
 #let chapter-header = publication-header.with("6")
 #let quick(..cells) = block(breakable: false)[#table(
-  columns: (18%, 45%, 37%), inset: 6pt,
+  columns: (18%, 45%, 37%), inset: (x: 6pt, y: 7.5pt),
   stroke: (x, y) => (bottom: 0.5pt + rgb("dce3e8")),
   chapter-header([*効果*], [*働き*], [*減り方・消え方*]),
   ..cells.pos(),
@@ -352,6 +352,9 @@ GMによるリセットは、進行や状態を戻すための操作です。戻
 
 == 効果の早見表 <r06-quick>
 
+// 早見表は調べるときに引く場所なので、ルビを毎回振る（計画51）。
+#ruby-push("always")
+
 付与の時機は、付与するスキルの指定に従います。詳しい条件は、効果名から各節を確認してください。
 
 === 基本の状態異常
@@ -397,3 +400,5 @@ GMによるリセットは、進行や状態を戻すための操作です。戻
   fx(<r05-reuse>, [再使用]), [効果の指示で、同じ対象にもう一度解決する], [回数と支払いはスキルの指定に従う],
   fx(<r05-followup>, [再回避]), [回避に勝ったあと、自分を狙う後続の攻撃に回避を使い直せる], [ラウンド終了時、または再回避に失敗したときに外れる],
 )
+
+#ruby-pop()

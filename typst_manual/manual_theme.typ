@@ -1,4 +1,47 @@
 #import "publication_info.typ": publications, publication-status
+#import "readings.typ": readings, country-kanji
+
+// ── ルビ（計画51） ──
+// 言葉の上に小さく読みを置く。行の高さは変えない。
+#let ruby(base, reading) = box({
+  base
+  place(top + center, dy: -0.62em, text(size: 0.45em, weight: "regular", reading))
+})
+// "auto"：各章で最初に出たときだけ振る。"always"：毎回振る（節見出し・索引・早見表）。"off"：振らない。
+// 切り替えは入れ子にできるよう、積み重ねて最後の値を使う。
+#let ruby-mode = state("ruby-mode", ("auto",))
+#let ruby-push(mode) = ruby-mode.update(modes => modes + (mode,))
+#let ruby-pop() = ruby-mode.update(modes => modes.slice(0, -1))
+#let ruby-seen = state("ruby-seen", (:))
+#let country-seen = state("country-seen", (:))
+#let with-ruby-mode(mode, body) = [#ruby-push(mode)#body#ruby-pop()]
+#let ruby-pattern = readings.keys().sorted(key: k => -k.len()).join("|")
+#let country-pattern = country-kanji.keys().join("|")
+#let ruby-rules(doc) = {
+  show regex(ruby-pattern): it => context {
+    let marks = query(selector(<chapter-mark>).or(<guide-mark>).before(here()))
+    let mode = ruby-mode.get().last()
+    // 表紙・目次（章の目印より前）では振らない
+    if marks.len() == 0 or mode == "off" { return it }
+    let word = it.text
+    if mode == "always" { return ruby(it, readings.at(word)) }
+    let mark = marks.last().value
+    // 基本ルールブックは章ごと（key）、操作ガイドは編と章の番号ごと（part＋code）に数える
+    let chapter = if "key" in mark { mark.key } else { mark.part + "-" + mark.code }
+    let key = chapter + "/" + word
+    if ruby-seen.get().at(key, default: false) { return it }
+    [#ruby(it, readings.at(word))#ruby-seen.update(seen => { seen.insert(key, true); seen })]
+  }
+  show regex(country-pattern): it => context {
+    let marks = query(selector(<chapter-mark>).or(<guide-mark>).before(here()))
+    if marks.len() == 0 or ruby-mode.get().last() == "off" { return it }
+    let word = it.text
+    if country-seen.get().at(word, default: false) { return it }
+    [#ruby(country-kanji.at(word), word)#country-seen.update(seen => { seen.insert(word, true); seen })]
+  }
+  doc
+}
+
 // manual_theme.typ — ジェムリアTRPG マニュアル共通テーマ
 // 使い方:  #import "manual_theme.typ": *   →  #show: manual-conf
 
@@ -401,12 +444,12 @@
     let half = calc.ceil(items.len() / 2)
     let entry(hd) = link(hd.location(), box(width: 100%, inset: (y: 0.8mm),
       [#gem-shape(g.shape, 3.4mm, g.main, wire: wire)#h(1.6mm)#text(size: 9.5pt, hd.body)#box(width: 1fr)#text(size: 8.5pt, fill: muted, str(hd.location().page()))]))
-    block(width: 100%, fill: g.light, radius: 2mm, inset: (x: 5mm, y: 4mm), below: 7mm, {
+    with-ruby-mode("off", block(width: 100%, fill: g.light, radius: 2mm, inset: (x: 5mm, y: 4mm), below: 7mm, {
       text(size: 8.5pt, weight: "bold", fill: g.main)[この章で扱うこと]
       v(1.5mm)
       grid(columns: (1fr, 1fr), column-gutter: 8mm,
         stack(..items.slice(0, half).map(entry)), stack(..items.slice(half).map(entry)))
-    })
+    }))
   }
 }
 
@@ -547,12 +590,13 @@
     let g = book-gem-of(book-current-key())
     block(sticky: true, above: 7mm, below: 2mm, {
       grid(columns: (5mm, 1fr), column-gutter: 2.2mm, align: horizon,
-        align(center, gem-shape(g.shape, 5mm, g.main)), text(size: 14pt, fill: g.main, weight: "bold", it.body))
+        align(center, gem-shape(g.shape, 5mm, g.main)), text(size: 14pt, fill: g.main, weight: "bold", with-ruby-mode("always", it.body)))
       v(-1mm)
       line(length: 100%, stroke: 0.5pt + g.main.lighten(60%))
     })
   }
   show link: it => text(fill: rgb("246589"), it)
+  show: ruby-rules
   doc
 }
 
@@ -698,11 +742,12 @@
     block(sticky: true, above: 7mm, below: 2mm, {
       grid(columns: (5mm, 1fr), column-gutter: 2.2mm, align: horizon,
         align(center, gem-shape(g.shape, 5mm, g.main, wire: true)),
-        text(size: 14pt, fill: g.main, weight: "bold", it.body))
+        text(size: 14pt, fill: g.main, weight: "bold", with-ruby-mode("always", it.body)))
       v(-1mm)
       line(length: 100%, stroke: (paint: g.main.lighten(50%), thickness: 0.5pt, dash: "dashed"))
     })
   }
+  show: ruby-rules
   doc
 }
 

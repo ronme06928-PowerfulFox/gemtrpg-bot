@@ -2,10 +2,11 @@
 #import "../manual_theme.typ": *
 #let chapter-header = publication-header.with("A")
 // 単独レビューでは文字だけを出し、参照先を収録した本では自動的にリンクにする。
-#let index-destination(target, body) = context {
+// 索引の右の列（節の名前）にはルビを振らない。ルビは左の列（用語）だけに振る。
+#let index-destination(target, body) = with-ruby-mode("off", context {
   section-ref(label(target), body, prefix: "第" + target.slice(2, 3) + "章")
-}
-#let appendix-table(..cells) = table(columns: (24%, 26%, 50%), inset: (x: 6pt, y: 6pt), stroke: 0.6pt + rgb("dce3e8"), ..cells.pos())
+})
+#let appendix-table(..cells) = table(columns: (24%, 26%, 50%), inset: (x: 6pt, y: 7.5pt), stroke: 0.6pt + rgb("dce3e8"), ..cells.pos())
 
 #book-chapter("A", "巻末", [巻末], [
   作成時の補正と戦闘中の恩恵を、出身ごとに確認します。作成時の計算は#section-ref(<r02-origin-adjustments>, [第2章「出身による補正」], prefix: "第2章")、成長の予算は#section-ref(<r07-budget>, [第7章「取得コストの上限」], prefix: "第7章")を参照してください。
@@ -64,9 +65,12 @@
 
 == 用語索引 <r09-index>
 
+// 索引は調べるときに引く場所なので、ルビを毎回振る（計画51）。
+#ruby-push("always")
+
 用語を五十音順で並べ、本文で扱う章と節を示します。
 
-#table(columns: (26%, 74%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + rgb("dce3e8"),
+#table(columns: (26%, 74%), inset: (x: 6pt, y: 7.5pt), stroke: 0.6pt + rgb("dce3e8"),
   chapter-header([*用語*], [*章番号・節の名前*]),
   [あがき], index-destination("r06-struggle", [第6章「あがき」]),
   [一方攻撃], index-destination("r05-one-sided", [第5章「マッチと一方攻撃」]),
@@ -125,3 +129,5 @@
   [目標値], index-destination("r03-success", [第3章「成功と失敗」]),
   [ラウンド], index-destination("r04-round", [第4章「ラウンドの流れ」]),
 )
+
+#ruby-pop()
