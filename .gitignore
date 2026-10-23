@@ -36,3 +36,8 @@ manuals/typst/build/
 # 配布用に名前を付けたPDF（scripts/build_publications.py が作る。Discordに置くファイル）
 /output/release/
 /tmp/pdfs/
+
+# 説明動画のローカル確認とビルド成果物
+/typst_manual/動画/_local/
+/typst_manual/動画/**/out/
+/typst_manual/動画/**/*.ega.html

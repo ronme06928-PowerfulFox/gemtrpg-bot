@@ -22,7 +22,7 @@
 
 ## 3. egatari の確認結果（2026-10-22 時点）
 
-公式リポジトリ（github.com/egatari/egatari-studio・egatari-spec）で確認した。実際に動かしての確認はまだしていない。
+公式リポジトリ（github.com/egatari/egatari-studio・egatari-spec）で確認した。下記は当初の調査で、実機確認は§9へ記録する。
 
 - 必要なもの: Node 22 以上、Chrome または Edge（品質チェック・PDF）。動画の書き出しには ffmpeg。
 - 文字の下限: 本文 27px、図・表・SVG の文字 24px（品質チェックのエラー）。スライドは 1280×720。
@@ -214,3 +214,18 @@ HP・MP・FPは前の場面から引き継ぎます。
 - 最初の1本の HTML が品質チェックを通り、ローカルの戦闘画面と見比べて部品の差が§4.2の範囲に収まっている。
 - 台本の数値と処理が第4章の原稿と一致している。
 - 完了後、この計画書の内容を系統ファイルへ移し、計画書を削除する。
+
+## 9. 制作記録（2026-10-24）
+
+### M1 環境と部品
+
+- ユーザー指定の別ブランチ `claude/pensive-keller-e93d95`（`cfbae9d`）の計画53を正本として確認した。旧依頼の計画51は計画53に読み替える。
+- egatari-studioを `C:/Users/yharu/tools/egatari-studio` にcloneし、タグ `v0.4.5`（コミット `c73221161b9761edafa21abb56f3f589fade3b5a`）へ固定した。`npm ci` を実行した。
+- 同タグの `README.ja.md` と `docs/reference.ja.md` を確認した。
+- `npm run new` で `typst_manual/動画/_local/m1-smoke/` に確認用雛形を作成した。雛形の品質チェックはエラー0・警告0。正式な台本はまだ作らない。
+- 書き出しソースは `typst_manual/動画/parts/`、SVGは `typst_manual/動画/01_1ラウンドの流れ/figs/` とする。手順は [動画README](../../typst_manual/動画/README.md) に記載する。
+- `parts/assets.typ` からルビーの塗り・線画とダイス1〜6を `typst compile --root . --format svg --input asset=名前` で書き出した。形と色は本の共通テーマを直接呼ぶ。
+- 確認用6枚目に `{{FIG:…}}` で8点を埋め込んだ。SVGがない状態でチェックの失敗を確認し、配置後はエラー0・警告0（終了コード0）。build・sheetも成功し、PNGで光沢・線画・各ダイスの目に欠けがないことを確認した。
+- Node v24.13.1、Typst 0.15.0で確認した。M1では公式docsとの挙動の違いは見つからなかった。
+- §6の「7字/秒で約4分」は字幕の読み時間の目安。音声なしの段階の既定holdは1.2秒で、台本の字数から自動で伸びない。M2以降で `timeline.json` にholdを指定し、字幕の表示時間を確認する。
+- M1完了。M2・M3・字幕確認・実機比較は未着手。テーマ共有（`EGATARI_THEMES`）はM2で検証する。U1〜U3は仮案のまま、試作後に所見を報告する。
