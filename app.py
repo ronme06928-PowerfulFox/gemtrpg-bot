@@ -48,6 +48,12 @@ if os.path.exists(load_dotenv_path):
 STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
 # 計画36: キャラ作成ツール（単体HTML）。static/ 配下ではなくリポジトリ直下にあるため専用に配信する。
 CHARA_CREATOR_DIR = os.path.join(os.path.dirname(__file__), 'CharaCreator')
+# Discordで案内する、常に最新版を返すルールブックのURL（/manuals/<名前>）。
+# 中身は各冊子の main.pdf（Git管理）で、push すると Render のデプロイで新しい版に変わる。
+MANUAL_PDFS = {
+    'rulebook.pdf': (os.path.join(os.path.dirname(__file__), 'typst_manual', '全体マニュアル'), 'ジェムリアTRPG_基本ルールブック.pdf'),
+    'guide.pdf': (os.path.join(os.path.dirname(__file__), 'typst_manual', '操作ガイド'), 'ジェムリアTRPG_セッション操作ガイド.pdf'),
+}
 _SOCKET_HANDLERS_REGISTERED = False
 
 def _is_production_env():
@@ -359,6 +365,17 @@ def serve_chara_creator():
     return send_from_directory(CHARA_CREATOR_DIR, 'GEMDICEBOT_CharaCreator.html')
 
 
+def serve_manual_pdf(name):
+    entry = MANUAL_PDFS.get(name)
+    if entry is None:
+        return 'Not Found', 404
+    folder, download_name = entry
+    response = send_from_directory(folder, 'main.pdf', mimetype='application/pdf', download_name=download_name)
+    # URLは版が変わっても同じなので、毎回サーバーに新しい版があるか確かめさせる
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
+
+
 def serve_static_files(filename):
     # モバイル版アセットの直接読み出しも停止する（/mobile 停止の裏口を塞ぐ）。
     normalized = str(filename or '').lstrip('/')
@@ -384,6 +401,7 @@ def register_http_routes(flask_app):
     flask_app.after_request(add_header)
     flask_app.add_url_rule('/mobile', 'serve_mobile_index', serve_mobile_index)
     flask_app.add_url_rule('/chara_creator', 'serve_chara_creator', serve_chara_creator)
+    flask_app.add_url_rule('/manuals/<name>', 'serve_manual_pdf', serve_manual_pdf)
     flask_app.add_url_rule('/<path:filename>', 'serve_static_files', serve_static_files)
     flask_app.add_url_rule('/get_skill', 'get_skill', get_skill)
     flask_app.add_url_rule('/api/get_skill_metadata', 'get_skill_metadata', get_skill_metadata, methods=['GET'])
