@@ -484,12 +484,13 @@
   let mark = book-current-mark()
   let g = book-gem-of(if mark == none { none } else { mark.key })
   let num = if mark == none { "" } else { mark.num + "-" }
-  block(breakable: false, above: 3mm, below: 4mm, width: 100%, {
+  // 図の中にはルビを振らない（本文で最初に出たところに振る）
+  with-ruby-mode("off", block(breakable: false, above: 3mm, below: 4mm, width: 100%, {
     block(width: 100%, fill: rgb("f8f9fb"), stroke: (top: 1.2mm + g.main, rest: 0.5pt + rgb("dce3e8")),
       radius: (bottom: 2mm), inset: (x: 0mm, y: 4mm), body)
     v(1.2mm)
     text(size: 9pt, fill: muted)[#text(weight: "bold", fill: g.main)[図#num#context book-fig-counter.display()]　#caption]
-  })
+  }))
 }
 
 // 囲み。ポイント・例・GMへの3種類。
@@ -667,11 +668,12 @@
   guide-fig-counter.step()
   let mark = guide-current-mark()
   let g = guide-part-of(mark)
-  block(breakable: false, above: 3mm, below: 3mm, width: 100%, {
+  // 図はアプリの画面を表すので、中にはルビを振らない
+  with-ruby-mode("off", block(breakable: false, above: 3mm, below: 3mm, width: 100%, {
     corner-frame(g.main, block(width: 100%, fill: g.light.transparentize(40%), inset: (y: 1mm), body), inset: 0mm)
     v(2mm)
     text(size: 9pt, fill: muted)[#text(font: mono, weight: "bold", fill: g.main)[FIG #mark.code\-#context guide-fig-counter.display()]　#caption]
-  })
+  }))
 }
 
 #let guide-callout(kind, body, body-size: 10.5pt, breakable: false) = context {
