@@ -1,7 +1,7 @@
 // 計画46 R05。項目別照合・保留事項は出典・不足台帳§19.11〜19.12。
 #import "../manual_theme.typ": *
 #let chapter-header = publication-header.with("5")
-#let rule-table(..cells) = table(columns: (29%, 35%, 16%, 20%), inset: 5pt, stroke: 0.5pt + rgb("dce3e8"), chapter-header([*成立条件*], [*処理結果*], [*FP*], [*コスト*]), ..cells.pos())
+#let rule-table(..cells) = table(columns: (26%, 30%, 22%, 22%), stroke: 0.5pt + rgb("dce3e8"), chapter-header([*成立条件*], [*処理結果*], [*FP*], [*コスト*]), ..cells.pos())
 #let duel(skill, formula, roll, result, end) = [
   #pair(card([ナギ：#skill], blue, [#formula \ #roll]), card([敵：基本の一太刀], red, [4＋1d2＋1d6 \ 4＋#die(2, color: red)＋#die(6, color: red) ＝ 12]))
   #v(2mm)
@@ -95,7 +95,7 @@
 
 敵のスロットもこのマッチで処理済みになるので、敵の速度値4の順番で同じ攻撃を再び行うことはありません。
 
-#table(columns: (12mm, 1fr, 27mm), inset: 5pt, stroke: 0.5pt + rgb("dce3e8"), chapter-header([*順番*], [*処理*], [*敵のHP*]), [1], [味方と敵のマッチ。味方が勝ち、8ダメージ], [30 → 22], [2], [自分のキャラクターの一方攻撃。9ダメージ], [22 → 13])
+#table(columns: (12mm, 1fr, 27mm), stroke: 0.5pt + rgb("dce3e8"), chapter-header([*順番*], [*処理*], [*敵のHP*]), [1], [味方と敵のマッチ。味方が勝ち、8ダメージ], [30 → 22], [2], [自分のキャラクターの一方攻撃。9ダメージ], [22 → 13])
 
 #block(breakable: false)[
 続いて、自分のキャラクターのスロットを処理します。対象の敵はまだ盤面に残っており、自分のキャラクターの物理補正は3です。
@@ -155,7 +155,7 @@
 
 === スキルの種類とマッチの勝敗
 
-#table(columns: (36%, 38%, 26%), inset: 5pt, stroke: 0.5pt + rgb("dce3e8"), chapter-header([*使用スキル*], [*マッチの結果*], [*受けるダメージ*]),
+#table(columns: (36%, 38%, 26%), stroke: 0.5pt + rgb("dce3e8"), chapter-header([*使用スキル*], [*マッチの結果*], [*受けるダメージ*]),
 [鉄壁の防御], [勝利（13対12）], [0],
 [鉄壁の防御], [敗北（10対12）], [2],
 [基本の回避], [勝利（13対12）], [0],

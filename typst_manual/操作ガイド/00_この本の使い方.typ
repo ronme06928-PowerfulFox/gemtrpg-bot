@@ -13,7 +13,7 @@
 #[
 
 #table(
-  columns: (40%, 60%), inset: (x: 6pt, y: 3pt), stroke: 0.6pt + rgb("dce3e8"),
+  columns: (48%, 52%), stroke: 0.6pt + rgb("dce3e8"),
   chapter-header([*やること*], [*読むところ*]),
   [ログインしてルームへの参加], [#guide-ref(<guide-common>)[共通「始める前に」]],
   [キャラクターを作り、保存して配置する], [#guide-ref(<guide-pl1>)[PL 1「キャラクターを用意する」]],

@@ -98,7 +98,7 @@
 #[
 
 #table(
-  columns: (32%, 68%), inset: (x: 6pt, y: 3pt), stroke: 0.6pt + line-c,
+  columns: (32%, 68%), stroke: 0.6pt + line-c,
   chapter-header([*表示*], [*確かめること*]),
   [状態異常の名前と数値], [その状態異常の現在の値です。],
   [残り2R], [その効果に表示されている残りラウンド数です。],

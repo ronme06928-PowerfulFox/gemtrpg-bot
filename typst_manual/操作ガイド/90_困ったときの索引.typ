@@ -12,7 +12,7 @@
 #[
 
 #table(
-  columns: (73%, 27%), inset: (x: 6pt, y: 2pt), stroke: 0.6pt + line-c,
+  columns: (73%, 27%), stroke: 0.6pt + line-c,
   chapter-header([*症状*], [*回答のあるページ*]),
   [ルーム一覧に参加したいルームがない], [#answer-page(<help-common>)],
   [参加コードが通らない], [#answer-page(<help-common>)],
@@ -27,7 +27,7 @@
 #[
 
 #table(
-  columns: (73%, 27%), inset: (x: 6pt, y: 2pt), stroke: 0.6pt + line-c,
+  columns: (73%, 27%), stroke: 0.6pt + line-c,
   chapter-header([*症状*], [*回答のあるページ*]),
   [持ちキャラが一覧に出ない], [#answer-page(<help-pl1>)],
   [追加したキャラクターが盤面にいない], [#answer-page(<help-pl1>)],
@@ -40,7 +40,7 @@
 #[
 
 #table(
-  columns: (73%, 27%), inset: (x: 6pt, y: 2pt), stroke: 0.6pt + line-c,
+  columns: (73%, 27%), stroke: 0.6pt + line-c,
   chapter-header([*症状*], [*回答のあるページ*]),
   [キャラクター詳細が開かない], [#answer-page(<help-pl2>)],
   [駒が画面の外にある], [#answer-page(<help-pl2>)],
@@ -56,7 +56,7 @@
 #[
 
 #table(
-  columns: (73%, 27%), inset: (x: 6pt, y: 2pt), stroke: 0.6pt + line-c,
+  columns: (73%, 27%), stroke: 0.6pt + line-c,
   chapter-header([*症状*], [*回答のあるページ*]),
   [スロットが表示されない], [#answer-page(<help-pl3>)],
   [宣言パネルが開かない], [#answer-page(<help-pl3>)],
@@ -75,7 +75,7 @@
 #[
 
 #table(
-  columns: (73%, 27%), inset: (x: 6pt, y: 2pt), stroke: 0.6pt + line-c,
+  columns: (73%, 27%), stroke: 0.6pt + line-c,
   chapter-header([*症状*], [*回答のあるページ*]),
   [「成果を反映」が見つからない], [#answer-page(<help-pl4>)],
   [成果反映で「この操作を行う権限がありません。」と表示される], [#answer-page(<help-pl4>)],
@@ -91,7 +91,7 @@
 #[
 
 #table(
-  columns: (73%, 27%), inset: (x: 6pt, y: 2pt), stroke: 0.6pt + line-c,
+  columns: (73%, 27%), stroke: 0.6pt + line-c,
   chapter-header([*症状*], [*回答のあるページ*]),
   [参加者からルームが見えない], [#answer-page(<help-gm1>)],
   [コードを失効したのに新規参加できる], [#answer-page(<help-gm1>)],
@@ -105,7 +105,7 @@
 #[
 
 #table(
-  columns: (73%, 27%), inset: (x: 6pt, y: 2pt), stroke: 0.6pt + line-c,
+  columns: (73%, 27%), stroke: 0.6pt + line-c,
   chapter-header([*症状*], [*回答のあるページ*]),
   [R開始・R終了が表示されない], [#answer-page(<help-gm2>)],
   [⚔️の戦闘開始が押せない], [#answer-page(<help-gm2>)],
@@ -119,7 +119,7 @@
 #[
 
 #table(
-  columns: (73%, 27%), inset: (x: 6pt, y: 2pt), stroke: 0.6pt + line-c,
+  columns: (73%, 27%), stroke: 0.6pt + line-c,
   chapter-header([*症状*], [*回答のあるページ*]),
   [調整の送信後も値が変わらない], [#answer-page(<help-gm3>)],
   [アイテムを減らせない], [#answer-page(<help-gm3>)],
@@ -133,7 +133,7 @@
 #[
 
 #table(
-  columns: (73%, 27%), inset: (x: 6pt, y: 2pt), stroke: 0.6pt + line-c,
+  columns: (73%, 27%), stroke: 0.6pt + line-c,
   chapter-header([*症状*], [*回答のあるページ*]),
   [チャートの対象が選ばれない], [#answer-page(<help-gm4>)],
   [素材を配置できるが編集できない], [#answer-page(<help-gm4>)],

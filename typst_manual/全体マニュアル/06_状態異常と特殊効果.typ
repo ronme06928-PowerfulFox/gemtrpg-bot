@@ -2,8 +2,7 @@
 #import "../manual_theme.typ": *
 #let chapter-header = publication-header.with("6")
 #let quick(..cells) = block(breakable: false)[#table(
-  columns: (18%, 45%, 37%), inset: (x: 6pt, y: 7.5pt),
-  stroke: (x, y) => (bottom: 0.5pt + rgb("dce3e8")),
+  columns: (18%, 45%, 37%), stroke: (x, y) => (bottom: 0.5pt + rgb("dce3e8")),
   chapter-header([*効果*], [*働き*], [*減り方・消え方*]),
   ..cells.pos(),
 )]

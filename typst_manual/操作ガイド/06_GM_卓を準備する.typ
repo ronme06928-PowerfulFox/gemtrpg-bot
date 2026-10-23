@@ -46,7 +46,7 @@ PINで入室したプレイヤーはGMへ昇格し、退出しても元に戻り
 #[
 
 #table(
-  columns: (28%, 72%), inset: 6pt, stroke: 0.6pt + line-c,
+  columns: (28%, 72%), stroke: 0.6pt + line-c,
   chapter-header([*公開設定*], [*新しく参加する人からの見え方*]),
   [非公開(hidden)], [一覧に表示されず、新規参加できません。],
   [公開(listed)], [一覧から参加できます。コードを設定していれば入力が必要です。],

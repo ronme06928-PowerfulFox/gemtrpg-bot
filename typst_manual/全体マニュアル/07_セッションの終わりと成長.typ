@@ -2,7 +2,7 @@
 #import "../manual_theme.typ": *
 #let chapter-header = publication-header.with("7")
 #let growth-table(..cells) = block(breakable: true)[#table(
-  columns: (34%, 33%, 33%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + rgb("dce3e8"),
+  columns: (34%, 33%, 33%), stroke: 0.6pt + rgb("dce3e8"),
   ..cells.pos(),
 )]
 #book-chapter("7", "7", [セッションの終わりと成長], [

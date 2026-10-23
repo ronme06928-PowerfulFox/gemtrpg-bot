@@ -6,7 +6,7 @@
   if query(<r09-origin>).len() == 1 { link(<r09-origin>, box(body)) } else { body }
 }
 #let source-table(..cells) = block(breakable: true)[#table(
-  columns: (26%, 44%, 30%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + rgb("dce3e8"),
+  columns: (26%, 44%, 30%), stroke: 0.6pt + rgb("dce3e8"),
   ..cells.pos(),
 )]
 
@@ -90,7 +90,7 @@
 #term(target: <r02-exploration-skills>)[探索技能]は12種類あり、4種類ずつ3つの系統に分かれます。初期取得では、*直接割り振るレベルは一つの技能につき3まで、合計は直感の値まで*です。出身などによる補正は、直接割り振るレベルと区別して適用します。
 
 #block(breakable: false)[#table(
-  columns: (22%, 16%, 62%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + rgb("dce3e8"),
+  columns: (22%, 16%, 62%), stroke: 0.6pt + rgb("dce3e8"),
   chapter-header([*系統*], [*技能*], [*使う場面*]),
   table.cell(rowspan: 4)[*冒険技能*], [五感], [物音や罠などの察知],
   [採取], [素材や植物などの採集],
@@ -127,7 +127,7 @@
 通常の#term(target: <r02-combat-skills>)[戦闘スキル]は、*取得コストの合計が経験＋#term(target: <r07-budget>)[シナリオ経験]以内*になるように選びます。出身による予算の補正がある場合は、その条件も適用します。今回は経験6・シナリオ経験0で予算への補正がないため、取得コストの上限は6です。
 
 #block(breakable: true)[#table(
-  columns: (34%, 13%, 16%, 37%), inset: (x: 5pt, y: 5pt), stroke: 0.6pt + rgb("dce3e8"),
+  columns: (34%, 13%, 16%, 37%), stroke: 0.6pt + rgb("dce3e8"),
   chapter-header([*スキル*], [*取得*], [*使用コスト*], [*選んだ理由*]),
   [基本の一太刀（Ps-00）], [0], [なし], [資源なしで使える基本の攻撃],
   [横振り（Ps-01）], [1], [FP1], [FPがあるときの攻撃の選択肢],

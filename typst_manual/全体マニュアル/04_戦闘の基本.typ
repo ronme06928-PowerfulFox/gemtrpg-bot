@@ -12,7 +12,7 @@
 戦闘は、次の段階をくり返して進みます。
 
 #block(breakable: true)[#table(
-  columns: (27%, 73%), inset: 6pt, stroke: 0.6pt + rgb("dce3e8"),
+  columns: (27%, 73%), stroke: 0.6pt + rgb("dce3e8"),
   chapter-header([*段階*], [*行うこと*]),
   [ラウンド開始], [行動回数からスロットを作り、それぞれの速度値を決めます。],
   [選択フェーズ], [行動できるスロットごとに、使うスキルと対象を選んで確定します。],

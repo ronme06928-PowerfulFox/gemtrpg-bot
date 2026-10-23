@@ -3,9 +3,12 @@
 
 // ── ルビ（計画51） ──
 // 言葉の上に小さく読みを置く。行の高さは変えない。
-#let ruby(base, reading) = box({
+// 表の中では少し小さくして文字に近づけ、マスの上の余白（6.5pt）に収めて罫線に重ねない。
+#let ruby-in-table = state("ruby-in-table", false)
+#let ruby(base, reading, compact: false) = box({
   base
-  place(top + center, dy: -0.62em, text(size: 0.45em, weight: "regular", reading))
+  place(top + center, dy: if compact { -0.5em } else { -0.56em },
+    text(size: if compact { 0.38em } else { 0.45em }, weight: "regular", reading))
 })
 // "auto"：各章で最初に出たときだけ振る。"always"：毎回振る（節見出し・索引・早見表）。"off"：振らない。
 // 切り替えは入れ子にできるよう、積み重ねて最後の値を使う。
@@ -24,20 +27,21 @@
     // 表紙・目次（章の目印より前）では振らない
     if marks.len() == 0 or mode == "off" { return it }
     let word = it.text
-    if mode == "always" { return ruby(it, readings.at(word)) }
+    let compact = ruby-in-table.get()
     let mark = marks.last().value
     // 基本ルールブックは章ごと（key）、操作ガイドは編と章の番号ごと（part＋code）に数える
     let chapter = if "key" in mark { mark.key } else { mark.part + "-" + mark.code }
     let key = chapter + "/" + word
-    if ruby-seen.get().at(key, default: false) { return it }
-    [#ruby(it, readings.at(word))#ruby-seen.update(seen => { seen.insert(key, true); seen })]
+    // 節見出しで振った言葉も「振った」と数え、直後の本文で重ねて振らない
+    if mode != "always" and ruby-seen.get().at(key, default: false) { return it }
+    [#ruby(it, readings.at(word), compact: compact)#ruby-seen.update(seen => { seen.insert(key, true); seen })]
   }
   show regex(country-pattern): it => context {
     let marks = query(selector(<chapter-mark>).or(<guide-mark>).before(here()))
     if marks.len() == 0 or ruby-mode.get().last() == "off" { return it }
     let word = it.text
     if country-seen.get().at(word, default: false) { return it }
-    [#ruby(country-kanji.at(word), word)#country-seen.update(seen => { seen.insert(word, true); seen })]
+    [#ruby(country-kanji.at(word), word, compact: ruby-in-table.get())#country-seen.update(seen => { seen.insert(word, true); seen })]
   }
   doc
 }
@@ -74,7 +78,7 @@
   let cells = ()
   for pair in items { cells.push([*#pair.at(0)*]); cells.push([#pair.at(1)]) }
   block(inset: (x: 10pt, y: 8pt), radius: 6pt, stroke: 0.8pt + luma(70%), fill: luma(98%))[
-    #table(columns: (33%, 67%), inset: (x: 6pt, y: 5pt), stroke: 0.6pt + luma(82%),
+    #table(columns: (33%, 67%), stroke: 0.6pt + luma(82%),
       table.header(table.cell(fill: luma(94%))[*用語*], table.cell(fill: luma(94%))[*説明*]),
       ..cells)
   ]
@@ -108,7 +112,7 @@
       #if footer-label != none [#footer-label　]#counter(page).display()
     ]))
   set text(font: "Noto Sans JP", size: 11pt, lang: "ja", fill: rgb("253345"))
-  set par(leading: 0.65em, spacing: 1.4em)
+  set par(leading: 0.8em, spacing: 1.4em, justify: true)
   set heading(numbering: none, outlined: true)
   show heading.where(level: 1): set text(size: 23pt)
   show heading.where(level: 2): set text(size: 14pt, fill: rgb("246589"))
@@ -505,6 +509,43 @@
     })
 }
 
+// 会話の例。GM は左、PL は右に、アイコンと吹き出しで並べる。
+// icons に画像（立ち絵の顔など）を渡すと、文字のアイコンの代わりに使う。例：icons: (PL: image("..."))
+#let talk(icons: (:), ..lines) = context {
+  let g = book-gem-of(book-current-key())
+  let icon(role) = {
+    if role in icons {
+      box(width: 11mm, height: 11mm, radius: 5.5mm, clip: true, icons.at(role))
+    } else {
+      let fill = if role == "GM" { ink } else { g.main.darken(10%) }
+      box(width: 11mm, height: 11mm, circle(radius: 5.5mm, fill: fill, stroke: none,
+        align(center + horizon, text(size: 9pt, weight: "bold", fill: white, role))))
+    }
+  }
+  let speak(role, body) = {
+    let gm = role == "GM"
+    let fill = if gm { white } else { g.main.lighten(82%) }
+    let edge = if gm { rgb("c9d2d9") } else { g.main.lighten(55%) }
+    // 吹き出しのしっぽ：アイコンの側へ向けた小さな三角形
+    let tail = if gm {
+      polygon(fill: fill, stroke: (paint: edge, thickness: 0.5pt), (2.4mm, 0mm), (0mm, 1.6mm), (2.4mm, 3.2mm))
+    } else {
+      polygon(fill: fill, stroke: (paint: edge, thickness: 0.5pt), (0mm, 0mm), (2.4mm, 1.6mm), (0mm, 3.2mm))
+    }
+    let bubble = box(fill: fill, stroke: 0.5pt + edge, radius: 2.5mm, inset: (x: 3.5mm, y: 2.4mm), text(size: 10.5pt, body))
+    block(breakable: false, above: 0mm, below: 2.6mm, grid(
+      columns: if gm { (11mm, 2.2mm, 1fr, 12mm) } else { (12mm, 1fr, 2.2mm, 11mm) },
+      align: (x, y) => top + if gm { left } else { right },
+      ..if gm {
+        (icon(role), pad(top: 3.2mm, left: 0.2mm, tail), bubble, [])
+      } else {
+        ([], bubble, pad(top: 3.2mm, right: 0.2mm, tail), icon(role))
+      }
+    ))
+  }
+  block(above: 4mm, below: 1mm, { for (role, body) in lines.pos().chunks(2) { speak(role, body) } })
+}
+
 // 図の部品：資源の札とダイス。
 #let res(label, color, value) = box(fill: color.lighten(88%), stroke: 0.6pt + color, radius: 1.5mm,
   inset: (x: 1.6mm, y: 0.9mm), baseline: 22%,
@@ -538,7 +579,7 @@
 // 表の見出し行に章の色を付ける。
 #let book-table(columns, header, ..rows) = context {
   let g = book-gem-of(book-current-key())
-  table(columns: columns, inset: (x: 6pt, y: 6pt), stroke: (x, y) => (bottom: 0.5pt + rgb("dce3e8")),
+  table(columns: columns, stroke: (x, y) => (bottom: 0.5pt + rgb("dce3e8")),
     fill: (x, y) => if y == 0 { g.main } else if calc.even(y) { rgb("f8f9fb") },
     table.header(..header.map(h => text(fill: white, weight: "bold", h))),
     ..rows)
@@ -582,14 +623,18 @@
       }
     })
   set text(font: "Noto Sans JP", size: 11pt, lang: "ja", fill: ink)
-  set par(leading: 0.65em, spacing: 1.4em)
+  set par(leading: 0.8em, spacing: 1.4em, justify: true)
+  // 表の余白と罫線は全部の表でそろえる。個々の表では余白を指定しない（ルビの入る行も収まる高さ）。
+  set table(inset: (x: 6pt, top: 6.5pt, bottom: 5pt), stroke: 0.6pt + rgb("dce3e8"))
+  show table: set par(leading: 0.8em, spacing: 0.9em, justify: false)
+  show table: it => [#ruby-in-table.update(true)#it#ruby-in-table.update(false)]
   set heading(numbering: none, outlined: true)
   show heading.where(level: 3): set heading(bookmarked: false)
   show heading.where(level: 1): set text(size: 23pt)
   show heading.where(level: 1): set block(above: 0pt, below: 0pt)
   show heading.where(level: 2): it => context {
     let g = book-gem-of(book-current-key())
-    block(sticky: true, above: 7mm, below: 2mm, {
+    block(sticky: true, above: 7mm, below: 3.5mm, {
       grid(columns: (5mm, 1fr), column-gutter: 2.2mm, align: horizon,
         align(center, gem-shape(g.shape, 5mm, g.main)), text(size: 14pt, fill: g.main, weight: "bold", with-ruby-mode("always", it.body)))
       v(-1mm)
@@ -692,7 +737,7 @@
 
 #let guide-table(columns, header, ..rows) = context {
   let g = guide-part-of(guide-current-mark())
-  table(columns: columns, inset: (x: 6pt, y: 6pt), stroke: (x, y) => (bottom: 0.5pt + rgb("dce3e8")),
+  table(columns: columns, stroke: (x, y) => (bottom: 0.5pt + rgb("dce3e8")),
     fill: (x, y) => if y == 0 { night } else if calc.even(y) { rgb("f8f9fb") },
     table.header(..header.map(h => text(fill: g.main.lighten(55%), weight: "bold", h))),
     ..rows)
@@ -734,14 +779,18 @@
       }
     })
   set text(font: "Noto Sans JP", size: 11pt, lang: "ja", fill: ink)
-  set par(leading: 0.65em, spacing: 1.4em)
+  set par(leading: 0.8em, spacing: 1.4em, justify: true)
+  // 表の余白と罫線は全部の表でそろえる。個々の表では余白を指定しない（ルビの入る行も収まる高さ）。
+  set table(inset: (x: 6pt, top: 6.5pt, bottom: 5pt), stroke: 0.6pt + rgb("dce3e8"))
+  show table: set par(leading: 0.8em, spacing: 0.9em, justify: false)
+  show table: it => [#ruby-in-table.update(true)#it#ruby-in-table.update(false)]
   set heading(numbering: none, outlined: true)
   show heading.where(level: 3): set heading(bookmarked: false)
   show heading.where(level: 1): set text(size: 23pt)
   show heading.where(level: 1): set block(above: 0pt, below: 0pt)
   show heading.where(level: 2): it => context {
     let g = guide-part-of(guide-current-mark())
-    block(sticky: true, above: 7mm, below: 2mm, {
+    block(sticky: true, above: 7mm, below: 3.5mm, {
       grid(columns: (5mm, 1fr), column-gutter: 2.2mm, align: horizon,
         align(center, gem-shape(g.shape, 5mm, g.main, wire: true)),
         text(size: 14pt, fill: g.main, weight: "bold", with-ruby-mode("always", it.body)))
@@ -874,11 +923,13 @@
     let title = heading-text(hd.body).replace(regex("^([0-9]+|PL [0-9]+|GM [0-9]+|共通)　"), "")
     let body = if named { [#prefix「#title」] } else { fallback }
     if page { body = [#body（#hd.location().page()ページ）] }
-    link(target, box(body))
+    // 参照は長いので、まとまり（box）にせず行の途中で折り返せるようにする。
+    link(target, body)
   }
 }
 #let formula(body) = box(fill: rgb("eef1f4"), radius: 1mm, inset: (x: 1.2mm, y: 0.4mm), outset: (y: 0.6mm), text(weight: "bold", body))
-#let except(body) = block(above: 1.6mm, below: 3mm, inset: (left: 4mm), stroke: (left: 0.8pt + rgb("9aa6b2")),
+// 例外は、対象の規則のすぐ後ろに置く。前後の間隔は本文の段落と同じ考え方でそろえ、詰めすぎない。
+#let except(body) = block(above: 3mm, below: 4.5mm, inset: (left: 4mm, y: 1.2mm), stroke: (left: 0.8pt + rgb("9aa6b2")),
   [#text(size: 9.5pt, weight: "bold", fill: muted)[ただし]　#body])
 #let related(..items) = block(above: 3mm, below: 4mm,
   text(size: 9.5pt, fill: muted)[関連　#items.pos().join("　／　")])

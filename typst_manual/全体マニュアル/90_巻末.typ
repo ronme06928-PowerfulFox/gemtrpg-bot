@@ -6,7 +6,7 @@
 #let index-destination(target, body) = with-ruby-mode("off", context {
   section-ref(label(target), body, prefix: "第" + target.slice(2, 3) + "章")
 })
-#let appendix-table(..cells) = table(columns: (24%, 26%, 50%), inset: (x: 6pt, y: 7.5pt), stroke: 0.6pt + rgb("dce3e8"), ..cells.pos())
+#let appendix-table(..cells) = table(columns: (24%, 26%, 50%), stroke: 0.6pt + rgb("dce3e8"), ..cells.pos())
 
 #book-chapter("A", "巻末", [巻末], [
   作成時の補正と戦闘中の恩恵を、出身ごとに確認します。作成時の計算は#section-ref(<r02-origin-adjustments>, [第2章「出身による補正」], prefix: "第2章")、成長の予算は#section-ref(<r07-budget>, [第7章「取得コストの上限」], prefix: "第7章")を参照してください。
@@ -43,7 +43,7 @@
 
 以下は本文の要約です。詳しい条件は、各項目に示した章と節を確認してください。
 
-#table(columns: (19%, 81%), inset: (x: 6pt, y: 4pt), stroke: 0.6pt + rgb("dce3e8"),
+#table(columns: (19%, 81%), stroke: 0.6pt + rgb("dce3e8"),
   chapter-header([*項目*], [*確認すること／詳しい章・節*]),
   [探索判定], [#formula[判定値＝GM指定の個数の6面ダイスの合計＋探索技能のレベル]。 \ #section-ref(<r03-dice>, [第3章「技能とダイスの個数」], prefix: "第3章")#section-ref(<r03-formula>, [「判定値の求め方」], prefix: "")],
   [成功], [判定値が目標値以上なら成功。 \ #section-ref(<r03-success>, [第3章「成功と失敗」], prefix: "第3章")],
@@ -70,7 +70,7 @@
 
 用語を五十音順で並べ、本文で扱う章と節を示します。
 
-#table(columns: (26%, 74%), inset: (x: 6pt, y: 7.5pt), stroke: 0.6pt + rgb("dce3e8"),
+#table(columns: (26%, 74%), stroke: 0.6pt + rgb("dce3e8"),
   chapter-header([*用語*], [*章番号・節の名前*]),
   [あがき], index-destination("r06-struggle", [第6章「あがき」]),
   [一方攻撃], index-destination("r05-one-sided", [第5章「マッチと一方攻撃」]),
