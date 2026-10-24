@@ -14,7 +14,7 @@
 .app-piece {
   /* static/js/visual/visual_map.js: createMapToken、baseSize=132、border=4px */
   position: absolute;
-  top: 128px;
+  top: 140px;
   width: 224.4px;
   height: 224.4px;
   border: 6.8px solid;
@@ -24,12 +24,12 @@
 }
 .app-piece.ally {
   /* visual_map.js: resolveTokenStyle、ally */
-  left: 80px;
+  left: 170px;
   border-color: #007bff;
 }
 .app-piece.enemy {
   /* visual_map.js: resolveTokenStyle、enemy */
-  left: 420px;
+  left: 810px;
   border-color: #dc3545;
 }
 .app-token-body {
@@ -138,26 +138,5 @@
   white-space: nowrap;
   text-shadow: 1.7px 1.7px 3.4px black;
 }
-/* 操作ガイド03_画面を読む.typ「戦闘画面の配置」を縮約。
-   以下の見取り図の寸法は教材用。実画面の縮尺ではなく、全ラベル24pxを保つ。 */
-.app-overview {
-  position: absolute;
-  top: 12px;
-  left: 16px;
-  display: grid;
-  grid-template-columns: 88px 124px 160px;
-  grid-template-rows: 38px 38px;
-  gap: 4px;
-  padding: 5px;
-  border: 1px solid #b9c3ce;
-  border-radius: 5px;
-  background: #e7ecf0;
-  font-size: 24px;
-  line-height: 1;
-  color: #233448;
-}
-.app-overview > div { display: flex; align-items: center; justify-content: center; background: white; }
-.overview-dock { grid-row: 1 / 3; }
-.overview-board { grid-row: 1 / 3; outline: 4px solid #ad2840; outline-offset: -4px; }
-.overview-state { grid-column: 3; }
-.overview-chat { grid-column: 3; }
+
+/* トークンの位置と背景の広さは動画の演出用。上記の部品寸法は変えない。 */

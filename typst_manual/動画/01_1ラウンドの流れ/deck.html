@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>1ラウンドの流れ — M2試作</title>
+  <title>1ラウンドの流れ — 動くM2試作</title>
   <link rel="stylesheet" href="app_mock.css">
   <link rel="stylesheet" href="deck.css">
 </head>
@@ -13,16 +13,13 @@
   <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>第4章 戦闘の基本</span></div>
   <h1>1ラウンドの流れ</h1>
   <div class="body">
+    <m-round-scene scene="title" steps="2" aria-label="駒が対峙し、作例の条件を順に示す盤面">
     <div class="app-board plot" role="group" aria-label="戦闘開始前の盤面">
-      <div class="app-overview" role="group" aria-label="画面の見取り図。盤面を枠で強調">
-        <div class="overview-dock">ドック</div><div class="overview-board">盤面</div>
-        <div class="overview-state">戦闘の状態</div><div class="overview-chat">チャット</div>
-      </div>
       <div class="app-piece ally" role="group" aria-label="ナギの駒">
         <div class="app-token-body"><span class="app-initial">ナ</span>
           <div class="app-status">
-            <div class="app-stat-row"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:85.271318%"></div></div><span class="app-stat-value">110</span></div>
-            <div class="app-stat-row"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:75.000000%"></div></div><span class="app-stat-value">9</span></div>
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:85.271318%"></div></div><span class="app-stat-value">110</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:75.000000%"></div></div><span class="app-stat-value">9</span></div>
           </div>
         </div>
         <div class="app-fp" id="title-ally-fp" aria-label="ナギ FP 1">1</div>
@@ -31,38 +28,32 @@
       <div class="app-piece enemy" role="group" aria-label="敵の駒">
         <div class="app-token-body"><span class="app-initial">敵</span>
           <div class="app-status">
-            <div class="app-stat-row"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
-            <div class="app-stat-row"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
           </div>
         </div>
         <div class="app-fp" id="title-enemy-fp" aria-label="敵 FP 0">0</div>
         <div class="app-name">敵</div>
       </div>
     </div>
-    <div class="book-layer">
-      <div class="book-label">この動画の作例</div>
-      <div class="condition-card" data-step="1">
-        <p><strong>1人1スロット</strong></p>
-        <p>通常の単体攻撃<br>「基本の一太刀」</p>
-      </div>
-      <div class="condition-detail" data-step="1">状態異常・装備の追加効果・<br>ダメージ補正なし<br>敵に出身の恩恵なし</div>
-    </div>
+      <div class="scene-telop" data-telop="intro"><span>ナギと敵1人</span></div>
+      <div class="scene-telop" data-telop="slots"><strong>1人1スロット</strong></div>
+      <div class="scene-telop" data-telop="skill"><small>通常の単体攻撃</small><strong>基本の一太刀</strong></div>
+      <div class="scene-telop" data-telop="conditions"><strong>追加効果・補正なし</strong><small>敵に出身の恩恵なし</small></div>
+    </m-round-scene>
   </div>
 </section>
 <section class="slide prototype noconcl" id="s-start-state">
   <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>第4章 戦闘の基本</span></div>
   <h2>戦闘開始時の状態</h2>
   <div class="body">
+    <m-round-scene scene="resources" steps="3" aria-label="HP・MP・FPへ順に注目し、最大値と引き継ぎを示す盤面">
     <div class="app-board plot" role="group" aria-label="戦闘開始前の盤面">
-      <div class="app-overview" role="group" aria-label="画面の見取り図。盤面を枠で強調">
-        <div class="overview-dock">ドック</div><div class="overview-board">盤面</div>
-        <div class="overview-state">戦闘の状態</div><div class="overview-chat">チャット</div>
-      </div>
       <div class="app-piece ally" role="group" aria-label="ナギの駒">
         <div class="app-token-body"><span class="app-initial">ナ</span>
           <div class="app-status">
-            <div class="app-stat-row"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:85.271318%"></div></div><span class="app-stat-value">110</span></div>
-            <div class="app-stat-row"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:75.000000%"></div></div><span class="app-stat-value">9</span></div>
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:85.271318%"></div></div><span class="app-stat-value">110</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:75.000000%"></div></div><span class="app-stat-value">9</span></div>
           </div>
         </div>
         <div class="app-fp" id="nagi-fp" aria-label="ナギ FP 1">1</div>
@@ -71,28 +62,27 @@
       <div class="app-piece enemy" role="group" aria-label="敵の駒">
         <div class="app-token-body"><span class="app-initial">敵</span>
           <div class="app-status">
-            <div class="app-stat-row"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
-            <div class="app-stat-row"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
           </div>
         </div>
         <div class="app-fp" id="state-enemy-fp" aria-label="敵 FP 0">0</div>
         <div class="app-name">敵</div>
       </div>
     </div>
-    <div class="book-layer">
-      <div class="book-label">HP・MPは現在値／最大値</div>
-      <div data-step="2">
-        <div class="book-card">
-          <div class="card-name">ナギ</div>
-          <div class="resources plot"><span class="resource hp">HP <span>110／129</span></span><span class="resource mp">MP <span>9／12</span></span><span class="resource fp">FP <span>1</span></span></div>
-        </div>
-        <div class="book-card enemy">
-          <div class="card-name">敵</div>
-          <div class="resources plot"><span class="resource hp">HP <span>30／30</span></span><span class="resource mp">MP <span>6／6</span></span><span class="resource fp">FP <span>0</span></span></div>
-        </div>
+      <div class="scene-telop" data-telop="hp"><strong>HP</strong><span>バーと現在値</span></div>
+      <div class="scene-telop" data-telop="mp"><strong>MP</strong><span>バーと現在値</span></div>
+      <div class="scene-telop" data-telop="fp"><strong>FP</strong><span>駒の左上の丸</span></div>
+      <div class="scene-telop carry-telop" data-telop="carry"><span>前の場面 → 今回</span><strong>HP・MP・FP</strong><span>を引き継ぐ</span></div>
+      <div class="book-card ally plot">
+        <div class="card-name">ナギ</div>
+        <div class="resources"><span class="resource hp">HP <span>110／129</span></span><span class="resource mp">MP <span>9／12</span></span><span class="resource fp">FP <span>1</span></span></div>
       </div>
-      <div class="carry-note" data-step="3"><span>前の場面から引き継ぐ</span><span>シナリオ指定の回復などを適用</span></div>
-    </div>
+      <div class="book-card enemy plot">
+        <div class="card-name">敵</div>
+        <div class="resources"><span class="resource hp">HP <span>30／30</span></span><span class="resource mp">MP <span>6／6</span></span><span class="resource fp">FP <span>0</span></span></div>
+      </div>
+    </m-round-scene>
   </div>
   <div class="pn">3／8</div>
 </section>

@@ -5,7 +5,7 @@
 「1ラウンドの流れ」のM1（環境と部品）とM2（第1枚・第3枚の試作）が完了しました。
 正本は [計画53](../../manuals/planned/53_Explainer_Video_Plan.md) の§4（画面構成）と§6（台本）です。
 依頼での「計画51」は、番号の重複解消により「計画53」へ読み替えます。
-M2の試作を見て確認する段階です。M3の残り6枚とローカル実機比較は未着手です。
+M2はユーザーの指示を受け、盤面を主役にしたアニメーション付きの構成へ改訂しました。固定の左右分割と見取り図は外しました。M3の残り6枚とローカル実機比較は未着手です。
 
 ## 版と環境
 
@@ -31,7 +31,8 @@ npm --prefix C:/Users/yharu/tools/egatari-studio ci
 - `parts/`：共通テーマから部品を書き出すTypstソース。
 - `01_1ラウンドの流れ/figs/`：デッキ内に埋め込むSVG。
 - `01_1ラウンドの流れ/`：`deck.html`・`narration.md`・`app_mock.css`・`deck.css`・`timeline.json` と `themes/gemuria/` を置きます。
-- `scripts/verify-m2.mjs`：台本の一致、未加工ロゴ、数値・バー・字幕のブラウザ検証。
+- `scripts/verify-m2.mjs`：台本の一致、未加工ロゴ、数値・バー・字幕・動き・巻き戻しのブラウザ検証。
+- `01_1ラウンドの流れ/components/round-scene/`：盤面の動き、テロップの切り替え、本の札の登場・退場。
 - `_local/m1-smoke/`：M1の雛形と埋め込み確認用。説明動画の原稿には含めません。
 - 各デッキの `out/`：ビルドしたHTML・PDF・確認用PNG。Gitの管理対象外です。
 
@@ -119,7 +120,7 @@ Sキーでも字幕を切り替えられます。Aキーで自動再生、左右
 `?mode=video&captions=1` は、音声がない場合にその段階の字幕全文を見せます。通常モードは文のまとまりごとに送ります。
 確認用PNGは `out/sheet.png`、字幕付きは `out/captions-*.png` です。
 
-### M2の検証結果（2026-10-24）
+### M2初回試作の検証結果（2026-10-24、左右分割の旧版）
 
 - 試作は第1枚「1ラウンドの流れ」と第3枚「戦闘開始時の状態」だけです。スライドidは今後も変えません。
 - 台本は計画53§6と文字単位で一致します。見出しにidだけを追加しました。ロゴは元のPNGとSHA-256が一致します。
@@ -143,3 +144,29 @@ $env:EGATARI_THEMES = Join-Path (Get-Location) 'typst_manual/動画/01_1ラウ�
 設定は確認用プロセスだけに適用し、ユーザー環境には保存していません。
 共有は可能ですが、今回の原稿は指定どおりデッキ内 `themes/gemuria/` に置きます。
 将来の動画でもこのthemesフォルダを環境変数で参照できます。外部テーマだけを使うデッキを移動する場合は、テーマも渡すか `--portable` で含めます。
+
+## M2の構成改訂（2026-10-24）
+
+左右に同じ数値を並べる構成を改め、盤面を横幅いっぱいに置きました。色・駒の形・数値・台本は保ち、意味のある変化を動きで伝えます。
+
+- 第1枚：駒が対峙する位置へ入り、「1人1スロット」「基本の一太刀」「追加効果・補正なし」を順に表示します。
+- 第3枚：HP、MP、FPへ順に注目を移し、短いテロップを入れ替えます。最大値の説明で札を駒の近くへ出し、引き継ぎの説明で駒へ戻します。
+- 現在値は変えません。HPバーが回復するような動きは入れません。マッチの矢印、威力、ダメージやFPの数値変化は計画53§4.1に記載し、M3で実装します。
+- `m-round-scene` はegatariの段階と秒数だけで描きます。独自の時計・タイマー・CSSの繰り返しアニメーションは使いません。表紙は部品の `from` を0にし、入場した段階から動かしています。
+- `sheet.png` は最終段階だけの確認です。途中の動きは `out/motion-hp.png`・`motion-mp.png`・`motion-fp.png` とMP4で確認します。
+- 改訂版も品質チェックはエラー0・警告1です。台本の一致、数値、字幕に加え、3つの途中時刻の画面が異なること、巻き戻した同じ時刻の画素が一致すること、札の登場・退場、強調中の文字の欠けがないことを検証しました。
+
+### 動画の書き出し
+
+このPCではAnacondaのffmpeg 4.2.2がPATHで先に選ばれ、egatariの `-fps_mode` に対応していませんでした。
+ffmpeg 9.0.1をコマンドのプロセス内だけで優先します。ユーザー環境のPATHは変更しません。
+
+```powershell
+$ffmpegDir = 'C:/Users/yharu/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.1-full_build/bin'
+$env:PATH = "$ffmpegDir;$env:PATH"
+$deckDir = Join-Path (Get-Location) 'typst_manual/動画/01_1ラウンドの流れ'
+node C:/Users/yharu/tools/egatari-studio/render/render.mjs "$deckDir/out/deck.html" --out "$deckDir/out/motion" --full --fps 24 --scale 1 --captions
+```
+
+出力は `out/motion/full.mp4`（試作2枚の63秒）、各段階は `clip_0000.mp4` から `clip_0005.mp4` です。
+MP4も `out/` 内のためGitの管理対象外です。音声はまだ付けていません。
