@@ -308,6 +308,71 @@ function closeCharacterModal() {
     }
 }
 
+// 表示専用の集計。状態値を正とし、期限別データが矛盾しても状態を書き換えない。
+function buildFissureDetailView(char) {
+  const states = Array.isArray(char.states) ? char.states : [];
+  const state = states.find(s => normalizeModalStateName(s.name) === '亀裂');
+  const stateValue = Number(state ? state.value : 0);
+  const total = Number.isSafeInteger(stateValue) && stateValue >= 0 ? stateValue : 0;
+  const buckets = (Array.isArray(char.special_buffs) ? char.special_buffs : [])
+    .filter(b => b && b.buff_id === 'Bu-Fissure');
+  const groups = new Map();
+  let bucketTotal = 0;
+  let inconsistent = total !== stateValue;
+  for (const b of buckets) {
+    const count = Number(b.count);
+    const lasting = Number(b.lasting);
+    const delay = Number(b.delay ?? 0);
+    if (!Number.isSafeInteger(count) || count < 0
+      || !Number.isSafeInteger(lasting) || lasting <= 0
+      || !Number.isSafeInteger(delay) || delay < 0) {
+      inconsistent = true;
+      continue;
+    }
+    bucketTotal += count;
+    if (count === 0) continue;
+    const key = `${delay}:${lasting}`;
+    const group = groups.get(key) || {delay, lasting, count: 0};
+    group.count += count;
+    groups.set(key, group);
+  }
+  inconsistent ||= bucketTotal > total || !Number.isSafeInteger(bucketTotal);
+  const rows = [];
+  if (!inconsistent) {
+    const sorted = [...groups.values()].sort((a, b) => a.delay - b.delay || a.lasting - b.lasting);
+    sorted.forEach(g => rows.push({
+      label: g.delay > 0
+        ? `発動まで${g.delay}ラウンド / 持続${g.lasting}ラウンド`
+        : `${g.lasting}ラウンド`,
+      count: g.count,
+    }));
+    if (total > bucketTotal) rows.push({label: '期限なし', count: total - bucketTotal});
+  }
+  return {total, visible: total > 0 || buckets.length > 0, inconsistent, rows};
+}
+
+function renderFissureDetail(view) {
+  if (!view.visible) return '';
+  const breakdown = view.inconsistent
+    ? '<p class="fissure-detail-unavailable">残りラウンドの内訳を確認できません</p>'
+    : `<table class="fissure-detail-table">
+        <thead><tr><th scope="col">残りラウンド</th><th scope="col">重数</th></tr></thead>
+        <tbody>${view.rows.map(row => `<tr><td>${row.label}</td><td>${row.count}重</td></tr>`).join('')}</tbody>
+      </table>`;
+  return `<details class="buff-accordion" data-fissure-detail>
+    <summary class="buff-summary">
+      <div class="buff-summary-body fissure-detail-summary">
+        <span class="buff-name">亀裂</span><span class="fissure-detail-total">${view.total}重</span>
+      </div>
+      <span class="buff-arrow">▼</span>
+    </summary>
+    <div class="buff-body">
+      <div class="buff-desc-row">スキルで受けるダメージに、亀裂の重数を加算する。各重は、それぞれの残りラウンドが尽きると消失する。期限なしの分は、ラウンド経過では消失しない。</div>
+      ${breakdown}
+    </div>
+  </details>`;
+}
+
 /**
  * キャラクター詳細カードHTML生成 (統合版)
  *
@@ -465,7 +530,9 @@ function renderCharacterCard(char) {
     if (!statesHtml) statesHtml = '<span style="color:#999; font-size:0.9em;">なし</span>';
 
     // --- Buffs (Flavor Text Handling Fix) ---
+    const fissureView = buildFissureDetailView(char);
     let specialBuffsHtml = '';
+    let fissureRendered = false;
     const summonDurationMode = String(char.summon_duration_mode || '').toLowerCase();
     const summonRemainingRounds = parseInt(char.remaining_summon_rounds, 10);
     if (
@@ -508,6 +575,13 @@ function renderCharacterCard(char) {
 
     if (char.special_buffs && char.special_buffs.length > 0) {
         char.special_buffs.forEach((b) => {
+            if (b.buff_id === 'Bu-Fissure') {
+                if (!fissureRendered) {
+                    specialBuffsHtml += renderFissureDetail(fissureView);
+                    fissureRendered = true;
+                }
+                return;
+            }
             const buffSkillId = String(b.skill_id || '').trim();
             const buffName = normalizePassiveName(b.name);
             const duplicatedBySPassive = (
@@ -645,6 +719,8 @@ function renderCharacterCard(char) {
             `;
         });
     }
+
+    if (!fissureRendered) specialBuffsHtml += renderFissureDetail(fissureView);
 
     // --- Passives (SPassive) ---
     if (char.SPassive && Array.isArray(char.SPassive) && char.SPassive.length > 0) {
@@ -902,6 +978,44 @@ function renderCharacterCard(char) {
                 gap: 4px;
                 margin-top: 4px;
                 align-items: center;
+            }
+            .fissure-detail-summary {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+            }
+            .fissure-detail-total {
+                font-weight: 700;
+                color: #1e293b;
+                white-space: nowrap;
+            }
+            .fissure-detail-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 12px;
+                font-size: 0.9em;
+                color: #334155;
+            }
+            .fissure-detail-table th, .fissure-detail-table td {
+                padding: 6px 0;
+                border-bottom: 1px solid #e2e8f0;
+                text-align: left;
+                overflow-wrap: anywhere;
+            }
+            .fissure-detail-table th {
+                color: #64748b;
+                font-weight: 500;
+            }
+            .fissure-detail-table th:last-child, .fissure-detail-table td:last-child {
+                text-align: right;
+                padding-left: 12px;
+                white-space: nowrap;
+            }
+            .fissure-detail-unavailable {
+                margin: 12px 0 0;
+                font-size: 0.9em;
+                color: #64748b;
             }
             .buff-arrow {
                 flex-shrink: 0;
