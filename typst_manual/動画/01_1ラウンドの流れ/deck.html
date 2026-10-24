@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>1ラウンドの流れ — 動くM2試作</title>
+  <title>1ラウンドの流れ — 第4章 戦闘の基本</title>
   <link rel="stylesheet" href="app_mock.css">
   <link rel="stylesheet" href="deck.css">
+  <link rel="stylesheet" href="battle_scenes.css">
 </head>
 <body>
 <div id="stage">
@@ -42,6 +43,15 @@
       <div class="scene-telop" data-telop="conditions"><strong>追加効果・補正なし</strong><small>敵に出身の恩恵なし</small></div>
     </m-round-scene>
   </div>
+</section>
+<section class="slide prototype noconcl " id="s-round-flow">
+  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>第4章 戦闘の基本</span></div>
+  <h2>ラウンドの流れ</h2>
+  <div class="body"><m-battle-sequence scene="flow" steps="4" aria-label="ラウンドの流れの動く図">
+<div class="flow-canvas plot"><div class="flow-card"><strong>ラウンド開始</strong><span>スロットと速度値</span></div><div class="flow-card"><strong>選択フェーズ</strong><span>スキルと対象を選択</span></div><div class="flow-card"><strong>解決フェーズ</strong><span>確定したスキルを処理</span></div><div class="flow-card"><strong>ラウンド終了</strong><span>終了時の効果を処理</span></div><span class="flow-link a">→</span><span class="flow-link b">→</span><span class="flow-link c">→</span></div>
+  </m-battle-sequence></div>
+  <div class="concl flow-summary"><span>スロットは1回分の行動枠</span></div>
+  <div class="pn">2／8</div>
 </section>
 <section class="slide prototype noconcl" id="s-start-state">
   <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>第4章 戦闘の基本</span></div>
@@ -85,6 +95,164 @@
     </m-round-scene>
   </div>
   <div class="pn">3／8</div>
+</section>
+<section class="slide prototype noconcl " id="s-speed">
+  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>第4章 戦闘の基本</span></div>
+  <h2>速度値を決める</h2>
+  <div class="body"><m-battle-sequence scene="speed" steps="4" aria-label="速度値を決めるの動く図">
+    <div class="app-board plot" role="group" aria-label="戦闘開始前の盤面">
+      <div class="app-piece ally" data-hp="110" data-fp="1" role="group" aria-label="ナギの駒">
+        <div class="app-slot" data-mark="slot-ally">6</div>
+        <div class="app-token-body"><span class="app-initial">ナ</span>
+          <div class="app-status">
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:85.271318%"></div></div><span class="app-stat-value">110</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:75.000000%"></div></div><span class="app-stat-value">9</span></div>
+          </div>
+        </div>
+        <div class="app-fp" id="speed-nagi-fp" data-mark="nagi-fp" aria-label="ナギ FP 1">1</div>
+        <div class="app-name">ナギ</div>
+      </div>
+      <div class="app-piece enemy" data-hp="30" data-fp="0" role="group" aria-label="敵の駒">
+        <div class="app-slot">4</div>
+        <div class="app-token-body"><span class="app-initial">敵</span>
+          <div class="app-status">
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
+          </div>
+        </div>
+        <div class="app-fp" id="speed-state-enemy-fp" aria-label="敵 FP 0">0</div>
+        <div class="app-name">敵</div>
+      </div>
+    </div><div class="calc-card ally plot"><div class="calc-name">ナギ</div><div class="calc-formula"><span class="die-image" role="img" aria-label="ダイス4">{{FIG:die-4}}</span><span>＋速度補正2＝</span></div></div><span class="speed-fly ally">6</span><div class="calc-card enemy plot"><div class="calc-name">敵</div><div class="calc-formula"><span class="die-image" role="img" aria-label="ダイス3">{{FIG:die-3}}</span><span>＋速度補正1＝</span></div></div><span class="speed-fly enemy">4</span><div class="scene-telop sequence-telop" data-telop="speed-rule"><strong>1d6＋速度補正</strong></div><div class="scene-telop sequence-telop" data-telop="speed-slot"><strong>スロットの数字</strong><span>このラウンドの速度値</span></div><div class="scene-telop sequence-telop" data-telop="origin-fp"><strong>出身の恩恵</strong><span>今回はFP 1 → 2</span></div>
+  </m-battle-sequence></div>
+
+  <div class="pn">4／8</div>
+</section>
+<section class="slide prototype noconcl " id="s-selection">
+  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>第4章 戦闘の基本</span></div>
+  <h2>スキルと対象の選択</h2>
+  <div class="body"><m-battle-sequence scene="selection" steps="4" aria-label="スキルと対象の選択の動く図">
+    <div class="app-board plot" role="group" aria-label="戦闘開始前の盤面">
+      <div class="app-piece ally" data-hp="110" data-fp="2" role="group" aria-label="ナギの駒">
+        <div class="app-slot" data-mark="slot-ally">6</div>
+        <div class="app-token-body"><span class="app-initial">ナ</span>
+          <div class="app-status">
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:85.271318%"></div></div><span class="app-stat-value">110</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:75.000000%"></div></div><span class="app-stat-value">9</span></div>
+          </div>
+        </div>
+        <div class="app-fp" id="selection-nagi-fp" data-mark="nagi-fp" aria-label="ナギ FP 2">2</div>
+        <div class="app-name">ナギ</div>
+      </div>
+      <div class="app-piece enemy" data-hp="30" data-fp="0" role="group" aria-label="敵の駒">
+        <div class="app-slot">4</div>
+        <div class="app-token-body"><span class="app-initial">敵</span>
+          <div class="app-status">
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
+          </div>
+        </div>
+        <div class="app-fp" id="selection-state-enemy-fp" aria-label="敵 FP 0">0</div>
+        <div class="app-name">敵</div>
+      </div>
+    </div><div class="arrow-layer" data-mark="match-arrow"><svg viewBox="0 0 1200 140" role="img" aria-label="互いのスロットへ向かう宣言の矢印"><defs><marker id="selection-head" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0 0 L8 4 L0 8 Z" fill="context-stroke"/></marker><clipPath id="selection-forward-clip"><rect data-arrow-clip="forward" x="330" y="0" width="0" height="140"/></clipPath><clipPath id="selection-back-clip"><rect data-arrow-clip="back" x="330" y="0" width="560" height="140"/></clipPath></defs><path data-arrow="forward" d="M330 46 Q610 130 890 46" fill="none" stroke="#8a93a3" stroke-width="4.76" stroke-dasharray="11.9 8.5" marker-end="url(#selection-head)" clip-path="url(#selection-forward-clip)"/><path data-arrow="back" d="M890 62 Q610 160 330 62" fill="none" stroke="#8a93a3" stroke-width="4.76" stroke-dasharray="11.9 8.5" marker-end="url(#selection-head)" clip-path="url(#selection-back-clip)"/></svg></div><div class="mock-declare plot"><header><strong>宣言</strong><button type="button" tabindex="-1">宣言</button></header><div class="declare-steps"><span class="declare-chip">1 使用者</span><span class="declare-chip">2 スキル</span><span class="declare-chip">3 対象</span></div><p class="declare-help">内容を確認して「宣言」を押してください。</p><div class="skill-line">基本の一太刀</div><div>威力レンジ: 6~9</div><div>使用コスト：なし</div></div><div class="scene-telop sequence-telop" data-telop="match"><strong>マッチ成立</strong><span>2つの攻撃を1つに</span></div><div class="scene-telop sequence-telop" data-telop="confirm"><strong>全員の宣言を確定</strong><span>解決フェーズへ</span></div><div class="scene-telop sequence-telop" data-telop="order"><strong>速度値6から処理</strong><span>今回は広域なし</span></div>
+  </m-battle-sequence></div>
+
+  <div class="pn">5／8</div>
+</section>
+<section class="slide prototype noconcl " id="s-power">
+  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>第4章 戦闘の基本</span></div>
+  <h2>威力の比較</h2>
+  <div class="body"><m-battle-sequence scene="power" steps="4" aria-label="威力の比較の動く図">
+    <div class="app-board plot" role="group" aria-label="戦闘開始前の盤面">
+      <div class="app-piece ally" data-hp="110" data-fp="2" role="group" aria-label="ナギの駒">
+        <div class="app-slot" data-mark="slot-ally">6</div>
+        <div class="app-token-body"><span class="app-initial">ナ</span>
+          <div class="app-status">
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:85.271318%"></div></div><span class="app-stat-value">110</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:75.000000%"></div></div><span class="app-stat-value">9</span></div>
+          </div>
+        </div>
+        <div class="app-fp" id="power-nagi-fp" data-mark="nagi-fp" aria-label="ナギ FP 2">2</div>
+        <div class="app-name">ナギ</div>
+      </div>
+      <div class="app-piece enemy" data-hp="30" data-fp="0" role="group" aria-label="敵の駒">
+        <div class="app-slot">4</div>
+        <div class="app-token-body"><span class="app-initial">敵</span>
+          <div class="app-status">
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
+          </div>
+        </div>
+        <div class="app-fp" id="power-state-enemy-fp" aria-label="敵 FP 0">0</div>
+        <div class="app-name">敵</div>
+      </div>
+    </div><div class="mock-resolve plot"><div class="resolve-kind">RESOLVE　／　マッチ</div><div class="power-formula">4＋1d2＋1d〈物理補正〉</div><div class="resolve-sides"><div class="resolve-side ally"><div class="resolve-name">ナギ</div><div class="resolve-skill">基本の一太刀</div><div class="power-line">威力 6~9 → <span class="power-actual" data-power="ally" data-mark="power-ally">9</span></div><div class="roll-line" data-roll="ally"><span>4 ＋</span><span class="die-image" role="img" aria-label="ダイス2">{{FIG:die-2}}</span><span>＋</span><span class="die-image" role="img" aria-label="ダイス3">{{FIG:die-3}}</span><span>＝ 9</span></div></div><div>VS</div><div class="resolve-side enemy"><div class="resolve-name">敵</div><div class="resolve-skill">基本の一太刀</div><div class="power-line">威力 6~8 → <span class="power-actual" data-power="enemy" data-mark="power-enemy">6</span></div><div class="roll-line" data-roll="enemy"><span>4 ＋</span><span class="die-image" role="img" aria-label="ダイス1">{{FIG:die-1}}</span><span>＋</span><span class="die-image" role="img" aria-label="ダイス1">{{FIG:die-1}}</span><span>＝ 6</span></div></div></div><div class="resolve-headline">ナギ 勝利 (攻撃側勝利)</div></div>
+  </m-battle-sequence></div>
+
+  <div class="pn">6／8</div>
+</section>
+<section class="slide prototype noconcl " id="s-damage">
+  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>第4章 戦闘の基本</span></div>
+  <h2>ダメージとFP</h2>
+  <div class="body"><m-battle-sequence scene="damage" steps="3" aria-label="ダメージとFPの動く図">
+    <div class="app-board plot" role="group" aria-label="戦闘開始前の盤面">
+      <div class="app-piece ally" data-hp="110" data-fp="2" role="group" aria-label="ナギの駒">
+        <div class="app-slot" data-mark="slot-ally">6</div>
+        <div class="app-token-body"><span class="app-initial">ナ</span>
+          <div class="app-status">
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:85.271318%"></div></div><span class="app-stat-value">110</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:75.000000%"></div></div><span class="app-stat-value">9</span></div>
+          </div>
+        </div>
+        <div class="app-fp" id="damage-nagi-fp" data-mark="nagi-fp" aria-label="ナギ FP 2">2</div>
+        <div class="app-name">ナギ</div>
+      </div>
+      <div class="app-piece enemy" data-hp="30" data-fp="0" role="group" aria-label="敵の駒">
+        <div class="app-slot">4</div>
+        <div class="app-token-body"><span class="app-initial">敵</span>
+          <div class="app-status">
+            <div class="app-stat-row" data-stat="hp" data-mark="enemy-hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
+          </div>
+        </div>
+        <div class="app-fp" id="damage-state-enemy-fp" aria-label="敵 FP 0">0</div>
+        <div class="app-name">敵</div>
+      </div>
+    </div><div class="scene-telop sequence-telop" data-telop="damage"><strong>ダメージ <span class="damage-number">9</span></strong><span>敵のHP 30 → 21</span></div><div class="scene-telop sequence-telop" data-telop="victory-fp"><strong>マッチ勝利のFP</strong><span>2 → 3</span></div><div class="scene-telop sequence-telop" data-telop="spent"><strong>両方のスロット</strong><span>処理済み</span></div>
+  </m-battle-sequence></div>
+
+  <div class="pn">7／8</div>
+</section>
+<section class="slide prototype noconcl end-slide" id="s-round-end">
+  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>第4章 戦闘の基本</span></div>
+  <h2>ラウンド終了と次のラウンド</h2>
+  <div class="body"><m-battle-sequence scene="end" steps="4" aria-label="ラウンド終了と次のラウンドの動く図">
+    <div class="app-board plot" role="group" aria-label="戦闘開始前の盤面">
+      <div class="app-piece ally" data-hp="110" data-fp="3" role="group" aria-label="ナギの駒">
+        <div class="app-token-body"><span class="app-initial">ナ</span>
+          <div class="app-status">
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:85.271318%"></div></div><span class="app-stat-value">110</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:75.000000%"></div></div><span class="app-stat-value">9</span></div>
+          </div>
+        </div>
+        <div class="app-fp" id="end-nagi-fp" data-mark="nagi-fp" aria-label="ナギ FP 3">3</div>
+        <div class="app-name">ナギ</div>
+      </div>
+      <div class="app-piece enemy" data-hp="21" data-fp="0" role="group" aria-label="敵の駒">
+        <div class="app-token-body"><span class="app-initial">敵</span>
+          <div class="app-status">
+            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:70.000000%"></div></div><span class="app-stat-value">21</span></div>
+            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
+          </div>
+        </div>
+        <div class="app-fp" id="end-state-enemy-fp" aria-label="敵 FP 0">0</div>
+        <div class="app-name">敵</div>
+      </div>
+    </div><div class="scene-telop sequence-telop" data-telop="end-fp"><strong>スキルの終了時効果</strong><span>2人ともFP＋2</span></div><div class="scene-telop sequence-telop" data-telop="unchanged"><strong>HP・MPはそのまま</strong><span>HP 110／MP 9</span></div><div class="scene-telop sequence-telop" data-telop="next"><strong>次のラウンドへ</strong><span>HP・MP・FPを引き継ぐ</span></div><div class="fp-breakdown plot">FP　開始時1 ＋ 出身の恩恵1 ＋ 勝利1 ＋ 終了時効果2 ＝ <strong>5</strong></div>
+  </m-battle-sequence></div>
+  <div class="concl end-summary"><strong>ラウンドの終了と<br>戦闘の終了は別</strong></div><div class="related end-related"><span>基本ルールブック 第5章「戦闘の裁定」</span><span>セッション操作ガイド PL 3「探索と戦闘を操作する」</span></div>
+  <div class="pn">8／8</div>
 </section>
 </div>
 </body>

@@ -1,13 +1,14 @@
 # 説明動画の制作
 
-## 現在の段階
+## 完成した動画
 
-「1ラウンドの流れ」のM1（環境と部品）とM2（第1枚・第3枚の試作）が完了しました。
-正本は [計画53](../../manuals/planned/53_Explainer_Video_Plan.md) の§4（画面構成）と§6（台本）です。
-依頼での「計画51」は、番号の重複解消により「計画53」へ読み替えます。
-M2はユーザーの指示を受け、盤面を主役にしたアニメーション付きの構成へ改訂しました。固定の左右分割と見取り図は外しました。M3の残り6枚とローカル実機比較は未着手です。
+「1ラウンドの流れ」はM1〜M3まで完了しました。8枚・37段階、字幕付き約4分51秒、音声なしです。
+盤面を主役にし、宣言からマッチ成立、威力、HP減少、勝利FP、終了時FPへ順に動かします。
+仕様・参照元と台本の正本は [F01 Part 14](../../manuals/implemented/F01_Operations_Manual.md#explainer-videos) です。
+計画53の内容を統合し、完了した計画書は削除しました。後続の題材はまだ制作していません。
 
 ## 版と環境
+
 
 - Windows 11、Node 22以上、Typst 0.15、Microsoft Edgeを使います。
 - Pythonが必要なときは `C:/Users/yharu/anaconda3/python.exe` を使います。
@@ -28,15 +29,16 @@ npm --prefix C:/Users/yharu/tools/egatari-studio ci
 
 ## 置き場所
 
-- `parts/`：共通テーマから部品を書き出すTypstソース。
-- `01_1ラウンドの流れ/figs/`：デッキ内に埋め込むSVG。
-- `01_1ラウンドの流れ/`：`deck.html`・`narration.md`・`app_mock.css`・`deck.css`・`timeline.json` と `themes/gemuria/` を置きます。
-- `scripts/verify-m2.mjs`：台本の一致、未加工ロゴ、数値・バー・字幕・動き・巻き戻しのブラウザ検証。
-- `01_1ラウンドの流れ/components/round-scene/`：盤面の動き、テロップの切り替え、本の札の登場・退場。
-- `_local/m1-smoke/`：M1の雛形と埋め込み確認用。説明動画の原稿には含めません。
-- 各デッキの `out/`：ビルドしたHTML・PDF・確認用PNG。Gitの管理対象外です。
+- `parts/assets.typ`：本のテーマからSVGを書き出すソース。
+- `01_1ラウンドの流れ/`：deck.html、narration.md、timeline.json、deck.css、app_mock.css、battle_scenes.css。
+- 同デッキの `components/round-scene/`：表紙とHP/MP/FPの紹介。`components/battle-sequence/`：流れ図から次ラウンドまでの動き。
+- 同デッキの `figs/`：埋め込むSVG。`themes/gemuria/`：テーマと未加工のロゴ。
+- `scripts/verify-deck.mjs`：台本の一致、未加工ロゴ、数値・バー・字幕・動き・巻き戻しのブラウザ検証。
+- `_local/`：環境確認やローカル実機比較用。Git管理対象外です。
+- 同デッキの `out/`：HTML・PDF・確認用PNG・MP4。Git管理対象外です。
 
 ## 部品の書き出し
+
 
 リポジトリのルートから実行します。`manual_theme.typ` の `gem-shape` と `die` を直接呼びます。
 ルビーの色も `gems.at("4")` から取得し、輪郭やダイスの目を描き直しません。
@@ -59,50 +61,18 @@ foreach ($videoAsset in $videoAssets) {
 HTMLでは `{{FIG:ruby-fill}}` のように埋め込みます。図のコンテナに `aria-label` を付け、
 幅と高さをCSSで指定します（egatariは埋め込み時にSVGのwidth・heightを外します）。
 
-## 雛形・チェック・書き出し
+## 雛形の初回確認
 
-以下はリポジトリのルートから実行するM1の確認手順です。
-`npm run new` は空でないフォルダに書かないため、初回だけ実行します。
-確認用の台本はegatariの雛形のもので、正式な台本の代用にはしません。
+リポジトリのルートから実行します。`new` は空でないフォルダに書かないため、初回だけ使います。
 
 ```powershell
 $egatariDir = 'C:/Users/yharu/tools/egatari-studio'
 $smokeDir = Join-Path (Get-Location) 'typst_manual/動画/_local/m1-smoke'
 npm --prefix $egatariDir run new -- $smokeDir --theme default --title 'M1 環境と部品の確認'
 npm --prefix $egatariDir run check -- "$smokeDir/deck.html"
-npm --prefix $egatariDir run build -- "$smokeDir/deck.html"
-npm --prefix $egatariDir run sheet -- $smokeDir
 ```
 
-正式なデッキも、上のコマンドにデッキの絶対パスを渡します。字幕は組み立てたHTMLに `?captions=1` を付けて確認します。
-PDFが必要なら `node C:/Users/yharu/tools/egatari-studio/tools/pdf.mjs <組み立てたHTML> <出力PDF>` を使います。
-ビルドした配布物はコミットせずDiscordで配布します。pushは行いません。
-
-## 後続段階での確認
-
-- `themes/gemuria/` と未加工のロゴを配置済みです。`--base` はルビーの `#ad2840` です。
-- `EGATARI_THEMES` によるテーマ共有は動作確認済みです。配置の決定は下記のM2記録を参照してください。
-- U1：HPはアプリの緑と本の赤を保ち、どちらにも「HP」を添えました。文字で対応を追えるため、この案を維持することを提案します。
-- U2：「ナギ 勝利（攻撃側勝利）」を仮の見出しとし、M3でローカル実機と照合します。
-- U3：第2枚にアプリの層を置かない案を維持することを提案します。試作2枚では盤面の情報量が多く、4段階の流れ図には全面を使う方が読みやすいと考えます。第2枚そのものはM3で作ります。
-- 各段階の検証結果は計画53にも反映します。
-
-## M1の検証結果（2026-10-24）
-
-- Node v24.13.1、Typst 0.15.0で確認しました。
-- 雛形5枚：`npm run check` は終了コード0、エラー0・警告0です。
-- 確認用の6枚目に8点の `{{FIG:…}}` を追加し、書き出し前は `not found: ruby-fill.svg` で失敗することを確認しました。
-  書き出した8点を確認用デッキの `figs/` にコピーすると、終了コード0、エラー0・警告0になりました。
-- `npm run build` と `npm run sheet -- <確認用デッキ> --tiles --cols 3` は成功しました。
-  `out/sheet.png` と `out/sheet-tiles/06.png` で、ルビーの光沢・線画・ダイスの1〜6の目に欠けがないことを確認しました。
-- 正式な第1枚・第3枚と字幕、ローカルの戦闘画面との比較はM2以降です。
-- M1で公式docsと実際の挙動に違いは見つかりませんでした。`{{FIG:…}}` のサイズ指定と作業フォルダ内への配置はdocsどおりです。
-- TypstのSVG出力には末尾改行がないため、上の書き出し手順でLFを1つ付けます。図の内容は変更しません。
-- 音声なしの自動再生は、台本の字数から段階の長さを決めません。既定のholdは1.2秒です。
-  M2以降で字幕を読む時間を確認し、`timeline.json` のholdで調整します。字幕の既定速度7字/秒だけでは、動画全体の長さは決まりません。
-- `EGATARI_THEMES` による共有はM2で試します。M1ではテーマやロゴをまだ追加していません。
-
-## M2のビルドと確認
+## 正式デッキのビルドと確認
 
 リポジトリのルートから実行します。アプリ側の `npm run build` は実行しません。
 
@@ -111,28 +81,26 @@ $egatariDir = 'C:/Users/yharu/tools/egatari-studio'
 $deckDir = Join-Path (Get-Location) 'typst_manual/動画/01_1ラウンドの流れ'
 npm --prefix $egatariDir run check -- "$deckDir/deck.html"
 npm --prefix $egatariDir run build -- "$deckDir/deck.html"
-node typst_manual/動画/scripts/verify-m2.mjs $egatariDir
-npm --prefix $egatariDir run sheet -- $deckDir --tiles --cols 2 --width 960
+node typst_manual/動画/scripts/verify-deck.mjs $egatariDir
+npm --prefix $egatariDir run sheet -- $deckDir --tiles --cols 4 --width 640
 ```
 
-`out/deck.html` をブラウザで開き、URLの末尾に `?captions=1` を付けます。
-Sキーでも字幕を切り替えられます。Aキーで自動再生、左右キーで段階を送ります。
-`?mode=video&captions=1` は、音声がない場合にその段階の字幕全文を見せます。通常モードは文のまとまりごとに送ります。
-確認用PNGは `out/sheet.png`、字幕付きは `out/captions-*.png` です。
+`out/deck.html` をブラウザで開き、`?captions=1` を付けます。Sキーで字幕、Aキーで自動再生、左右キーで段階を送れます。
+`?mode=video&captions=1` は音声のない段階の字幕全文を見せ、通常モードは文のまとまりごとに送ります。
+品質チェックはエラー0・警告7。第2〜8枚の段階0に台本がない警告です。原文どおり段階1から字幕を出します。
+入場段階は1.2秒、台本のある段階は空白とmarkを除いた字数÷7＋1秒のholdを設定しています。
 
-### M2初回試作の検証結果（2026-10-24、左右分割の旧版）
+PDFが必要なら次で書き出します。
 
-- 試作は第1枚「1ラウンドの流れ」と第3枚「戦闘開始時の状態」だけです。スライドidは今後も変えません。
-- 台本は計画53§6と文字単位で一致します。見出しにidだけを追加しました。ロゴは元のPNGとSHA-256が一致します。
-- 数値は第4章と一致し、アプリの層は現在値だけ、本の層はHP/MPの現在値／最大値を表示しています。
-- 盤面・駒は1.7倍です。画像なしの駒の頭文字は、教材ではバーと文字の箱が重ならないよう上へ寄せました。タイムラインは描いていません。
-- 品質チェックは終了コード0、エラー0・警告1です。警告は第3枚の段階0に台本がないことです。正本が `[1]` から始まるため、入場の1.2秒は無言で表示し、台本は変更していません。
-- 台本・ロゴ・数値・バーの割合・字幕と図の重なり・字幕の欠け・ブラウザの実行エラーを `verify-m2.mjs` で検証しました。
-- 全段階の読む時間を、台本の空白とmarkを除いた文字数÷7＋2秒で設定しました。試作2枚は計63秒です。
-- `sheet` の最終段階と字幕付きPNGを目視しました。ローカル実機との比較はM3です。
-- HTMLの図は `.plot` の中に置くと図の文字サイズ下限24pxが適用されます。通常のdivだけでは本文扱いとなり27pxが必要です。公式docsの「図は24px」の具体的な適用条件として確認しました。
+```powershell
+node C:/Users/yharu/tools/egatari-studio/tools/pdf.mjs "$deckDir/out/deck.html" "$deckDir/out/deck.pdf"
+```
 
-### テーマの共有
+確認用PNGは `out/sheet.png`、各枚は `out/sheet-tiles/`、字幕付きの途中段階は `out/captions-*.png` です。
+sheetは最終段階のみです。矢印の描画や数値変化はMP4で確認します。
+
+## テーマの共有
+
 
 `_local/m2-shared-theme/` にテーマを持たない同じ原稿を置き、次の環境変数でビルドできることを確認しました。
 
@@ -145,18 +113,8 @@ $env:EGATARI_THEMES = Join-Path (Get-Location) 'typst_manual/動画/01_1ラウ�
 共有は可能ですが、今回の原稿は指定どおりデッキ内 `themes/gemuria/` に置きます。
 将来の動画でもこのthemesフォルダを環境変数で参照できます。外部テーマだけを使うデッキを移動する場合は、テーマも渡すか `--portable` で含めます。
 
-## M2の構成改訂（2026-10-24）
+## 動画の書き出し
 
-左右に同じ数値を並べる構成を改め、盤面を横幅いっぱいに置きました。色・駒の形・数値・台本は保ち、意味のある変化を動きで伝えます。
-
-- 第1枚：駒が対峙する位置へ入り、「1人1スロット」「基本の一太刀」「追加効果・補正なし」を順に表示します。
-- 第3枚：HP、MP、FPへ順に注目を移し、短いテロップを入れ替えます。最大値の説明で札を駒の近くへ出し、引き継ぎの説明で駒へ戻します。
-- 現在値は変えません。HPバーが回復するような動きは入れません。マッチの矢印、威力、ダメージやFPの数値変化は計画53§4.1に記載し、M3で実装します。
-- `m-round-scene` はegatariの段階と秒数だけで描きます。独自の時計・タイマー・CSSの繰り返しアニメーションは使いません。表紙は部品の `from` を0にし、入場した段階から動かしています。
-- `sheet.png` は最終段階だけの確認です。途中の動きは `out/motion-hp.png`・`motion-mp.png`・`motion-fp.png` とMP4で確認します。
-- 改訂版も品質チェックはエラー0・警告1です。台本の一致、数値、字幕に加え、3つの途中時刻の画面が異なること、巻き戻した同じ時刻の画素が一致すること、札の登場・退場、強調中の文字の欠けがないことを検証しました。
-
-### 動画の書き出し
 
 このPCではAnacondaのffmpeg 4.2.2がPATHで先に選ばれ、egatariの `-fps_mode` に対応していませんでした。
 ffmpeg 9.0.1をコマンドのプロセス内だけで優先します。ユーザー環境のPATHは変更しません。
@@ -168,5 +126,24 @@ $deckDir = Join-Path (Get-Location) 'typst_manual/動画/01_1ラウンドの流�
 node C:/Users/yharu/tools/egatari-studio/render/render.mjs "$deckDir/out/deck.html" --out "$deckDir/out/motion" --full --fps 24 --scale 1 --captions
 ```
 
-出力は `out/motion/full.mp4`（試作2枚の63秒）、各段階は `clip_0000.mp4` から `clip_0005.mp4` です。
-MP4も `out/` 内のためGitの管理対象外です。音声はまだ付けていません。
+出力は `out/motion/full.mp4`（約4分51秒・1280×720・24fps）、各段階は `clip_0000.mp4`〜`clip_0036.mp4` です。
+音声は付けていません。ビルドした配布物はコミットせずDiscordで配布します。pushは行いません。
+
+## 検証結果（2026-10-24）
+
+- 雛形checkとSVG8点の埋め込み確認はエラー0・警告0。正式デッキのcheckはエラー0・警告7です。
+- 台本8枚は計画53§6の原文と一致し、正本はF01へ移しました。ロゴは元PNGとSHA-256が一致します。
+- 全段階の字幕の欠け・図との重なり、数値、バー割合、マッチ成立前後、HP/FPの変化、巻き戻し、ブラウザの実行エラーをverify-deck.mjsで確認しました。
+- 動きはegatariの段階・時刻から決まり、独自タイマーを使いません。同時刻へ戻した画素が一致します。
+- ローカル127.0.0.1:5000のテスト専用アカウントとルームで、固定作例の状態を実アプリ部品へ渡して比較しました。駒、バー、FP、宣言パネルの手順・案内文、威力表示、勝敗見出しと色を照合しました。同じ出目を振った通し戦闘の検証ではありません。ルームは終了後に削除しています。
+- U1：HPの色は各層のまま、必ず「HP」を添えます。U2：実機どおり「ナギ 勝利 (攻撃側勝利)」を採用しました。U3：第2枚は盤面なしの流れ図です。
+- 図の24px下限は.plot内で適用されます。通常divは本文27px扱いです。宣言パネルだけは実機に合わせ明朝です。
+- 音声なしの既定holdは1.2秒で、台本の字数から自動算出されません。timeline.jsonで明示しています。
+- SVGのサイズ指定・作業フォルダ内配置・テーマ共有は公式docsどおりでした。v0.4.5の機能とdocsの矛盾は見つかりませんでした。
+
+コミット前は、指定のPythonで次を実行します。
+
+```powershell
+& C:/Users/yharu/anaconda3/python.exe scripts/check_text_encoding.py
+& C:/Users/yharu/anaconda3/python.exe scripts/check_mojibake_markers.py
+```
