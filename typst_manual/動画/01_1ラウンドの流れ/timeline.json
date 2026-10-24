@@ -1,0 +1,20 @@
+{
+  "s-start-state:0": {
+    "hold": 1.2
+  },
+  "s-round-title:0": {
+    "hold": 14.1
+  },
+  "s-round-title:1": {
+    "hold": 14.0
+  },
+  "s-start-state:1": {
+    "hold": 10.6
+  },
+  "s-start-state:2": {
+    "hold": 14.4
+  },
+  "s-start-state:3": {
+    "hold": 8.7
+  }
+}

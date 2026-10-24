@@ -1,0 +1,5 @@
+{
+  "name": "ジェムリア・戦闘の基本",
+  "extends": "default",
+  "logos": ["logos/gemuria_logo.png"]
+}

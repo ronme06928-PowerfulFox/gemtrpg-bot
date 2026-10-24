@@ -1,0 +1,9 @@
+:root {
+  /* manual_theme.typ: gems.at("4").main */
+  --base: #ad2840;
+  --cap-size: 27px;
+  --cap-bottom: 16px;
+  --cap-side: 48px;
+  --cap-max-lines: 3;
+  --logo-h: 44px;
+}
