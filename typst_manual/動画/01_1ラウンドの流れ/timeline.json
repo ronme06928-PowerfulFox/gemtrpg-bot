@@ -1,113 +1,224 @@
 {
   "s-round-title:0": {
-    "hold": 13.1
+    "hold": 8.6,
+    "dur": 8.6,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-round-title:1": {
-    "hold": 13.0
-  },
-  "s-round-flow:0": {
-    "hold": 1.2
+    "hold": 10.3,
+    "dur": 10.3,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-round-flow:1": {
-    "hold": 9.6
+    "hold": 6.8,
+    "dur": 6.8,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-round-flow:2": {
-    "hold": 6.7
+    "hold": 6.2,
+    "dur": 6.2,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-round-flow:3": {
-    "hold": 6.0
+    "hold": 5.5,
+    "dur": 5.5,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-round-flow:4": {
-    "hold": 6.9
+    "hold": 5.8,
+    "dur": 5.8,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-round-flow:concl": {
-    "hold": 7.1
-  },
-  "s-start-state:0": {
-    "hold": 1.2
+    "hold": 6.3,
+    "dur": 6.3,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-start-state:1": {
-    "hold": 9.6
+    "hold": 9.4,
+    "dur": 9.4,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-start-state:2": {
-    "hold": 13.4
+    "hold": 11.9,
+    "dur": 11.9,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-start-state:3": {
-    "hold": 7.7
-  },
-  "s-speed:0": {
-    "hold": 1.2
+    "hold": 4.3,
+    "dur": 4.3,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-speed:1": {
-    "hold": 12.9
+    "hold": 4.9,
+    "dur": 4.9,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-speed:2": {
-    "hold": 8.1
+    "hold": 9,
+    "dur": 9,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-speed:3": {
-    "hold": 7.7
+    "hold": 5.6,
+    "dur": 5.6,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-speed:4": {
-    "hold": 11.3
-  },
-  "s-selection:0": {
-    "hold": 1.2
+    "hold": 10.2,
+    "dur": 10.2,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-selection:1": {
-    "hold": 12.3
+    "hold": 7.5,
+    "dur": 7.5,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-selection:2": {
-    "hold": 6.7
+    "hold": 5.3,
+    "dur": 5.3,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-selection:3": {
-    "hold": 7.4
+    "hold": 4.5,
+    "dur": 4.5,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-selection:4": {
-    "hold": 9.4
-  },
-  "s-power:0": {
-    "hold": 1.2
+    "hold": 8.8,
+    "dur": 8.8,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-power:1": {
-    "hold": 12.3
+    "hold": 10,
+    "dur": 10,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-power:2": {
-    "hold": 4.4
+    "hold": 4.6,
+    "dur": 4.6,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-power:3": {
-    "hold": 6.0
+    "hold": 6,
+    "dur": 6,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-power:4": {
-    "hold": 4.7
-  },
-  "s-damage:0": {
-    "hold": 1.2
+    "hold": 4.2,
+    "dur": 4.2,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-damage:1": {
-    "hold": 10.9
+    "hold": 6.5,
+    "dur": 6.5,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-damage:2": {
-    "hold": 9.9
+    "hold": 7.6,
+    "dur": 7.6,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-damage:3": {
-    "hold": 10.4
-  },
-  "s-round-end:0": {
-    "hold": 1.2
+    "hold": 4,
+    "dur": 4,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-round-end:1": {
-    "hold": 14.9
+    "hold": 8.9,
+    "dur": 8.9,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-round-end:2": {
-    "hold": 14.6
+    "hold": 8.5,
+    "dur": 8.5,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-round-end:3": {
-    "hold": 8.9
+    "hold": 7.8,
+    "dur": 7.8,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-round-end:4": {
-    "hold": 8.3
+    "hold": 6.8,
+    "dur": 6.8,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-round-end:concl": {
-    "hold": 8.0
+    "hold": 7.8,
+    "dur": 7.8,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-round-flow:0": {
+    "hold": 1.2,
+    "dur": 1.2,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-start-state:0": {
+    "hold": 1.2,
+    "dur": 1.2,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-speed:0": {
+    "hold": 1.2,
+    "dur": 1.2,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-selection:0": {
+    "hold": 1.2,
+    "dur": 1.2,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-power:0": {
+    "hold": 1.2,
+    "dur": 1.2,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-damage:0": {
+    "hold": 1.2,
+    "dur": 1.2,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-round-end:0": {
+    "hold": 1.2,
+    "dur": 1.2,
+    "lead": 0,
+    "pad_after": 0
   }
 }

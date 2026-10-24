@@ -14,7 +14,7 @@ DECK.define('m-round-scene', class extends DECK.MotionElement {
   }
 
   duration(k) {
-    if (this.props.scene === 'title') return k === 1 ? 1.2 : 12.5;
+    if (this.props.scene === 'title') return k === 1 ? 1.2 : 8;
     return [0, 8.4, 2.4, 1.4][k] || 0;
   }
 
@@ -50,9 +50,9 @@ DECK.define('m-round-scene', class extends DECK.MotionElement {
       });
       if (k <= 1) telop('intro', 1);
       else {
-        telop('slots', envelope(0, 3));
-        telop('skill', envelope(3, 8));
-        telop('conditions', envelope(8, Infinity));
+        telop('slots', envelope(0, 2.2));
+        telop('skill', envelope(2.2, 5.5));
+        telop('conditions', envelope(5.5, Infinity));
       }
       return;
     }

@@ -1,0 +1,22 @@
+{
+  "sources": {
+    "dice": { "file": "impactWood_light_000.ogg", "peakDb": -22 },
+    "slot": { "file": "click_001.ogg", "peakDb": -24 },
+    "match": { "file": "confirmation_002.ogg", "peakDb": -19 },
+    "power": { "file": "tick_002.ogg", "peakDb": -22 },
+    "hit": { "file": "impactMetal_light_000.ogg", "peakDb": -18 },
+    "fp": { "file": "pluck_001.ogg", "peakDb": -23 }
+  },
+  "steps": {
+    "s-speed:2": [["dice", 0.7], ["dice", 1.0]],
+    "s-speed:3": [["slot", 0.5]],
+    "s-speed:4": [["fp", 1.09]],
+    "s-selection:1": [["slot", 4.5]],
+    "s-selection:2": [["slot", 0.2], ["match", 1.8]],
+    "s-power:2": [["power", 0.4]],
+    "s-power:3": [["power", 0.4]],
+    "s-damage:1": [["hit", 0.6]],
+    "s-damage:2": [["fp", 0.93]],
+    "s-round-end:1": [["fp", 0.97], ["fp", 1.46]]
+  }
+}

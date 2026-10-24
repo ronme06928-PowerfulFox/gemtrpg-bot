@@ -53,6 +53,13 @@
   font-weight: bold;
   color: #555;
 }
+.app-portrait {
+  /* 人狼型シュラーカーの全身を、HP/MPバーの上に収める。画像自体は未加工。 */
+  display: block;
+  width: 100%;
+  height: calc(100% - 78px);
+  object-fit: contain;
+}
 .app-status {
   /* visual_map.js: statusOverlayStyle（padding 5px、gap 4px） */
   position: absolute;

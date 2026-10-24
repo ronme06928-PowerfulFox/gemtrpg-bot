@@ -11,6 +11,7 @@ const deck = path.join(video, '01_1ラウンドの流れ');
 const engine = process.argv[2];
 assert.ok(engine, 'egatari-studioのフォルダを指定してください');
 const read = (file) => fs.readFileSync(file, 'utf8');
+const effectCues = JSON.parse(read(path.join(deck, 'sfx/cues.json')));
 const plan = read(path.join(root, 'manuals/implemented/F01_Operations_Manual.md'));
 const draft = plan.split('<!-- explainer53:narration:start -->')[1].split('<!-- explainer53:narration:end -->')[0].split('```markdown\n')[1].split('\n```')[0];
 const sections = (text) => [...text.matchAll(/^## (.+)\n([\s\S]*?)(?=^## |$(?![\s\S]))/gm)];
@@ -18,6 +19,8 @@ const wanted = ['1ラウンドの流れ', 'ラウンドの流れ', '戦闘開始
 const narration = read(path.join(deck, 'narration.md'));
 const actual = sections(narration);
 assert.equal(actual.length, 8, '全8枚');
+assert.ok(!narration.includes('ものとします'), '作例の前提を重ねて説明しない');
+assert.ok(!narration.includes('加速・減速'), '作例にない効果の先回りを削る');
 for (const title of wanted) {
   const source = sections(draft).find((s) => s[1] === title);
   const target = actual.find((s) => s[1].replace(/ \{#[^}]+\}$/, '') === title);
@@ -27,19 +30,61 @@ for (const title of wanted) {
 const hash = (file) => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 assert.equal(hash(path.join(root, 'typst_manual/assets/gemuria_logo.png')),
   hash(path.join(deck, 'themes/gemuria/logos/gemuria_logo.png')), 'ロゴは未加工');
+assert.equal(hash(path.join(root, 'static/images/characters/人狼型シュラーカー.png')),
+  hash(path.join(deck, 'images/wolf-shularker.png')), '敵の立ち絵は未加工');
 
 const { launch, fileUrl } = await import(pathToFileURL(path.join(engine, 'kit/browser.mjs')));
 const browser = await launch();
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  await page.addInitScript(() => {
+    const NativeAudio = window.Audio;
+    window.__effectPlayers = [];
+    window.Audio = function (...args) {
+      const player = new NativeAudio(...args);
+      window.__effectPlayers.push(player);
+      return player;
+    };
+    window.Audio.prototype = NativeAudio.prototype;
+  });
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(fileUrl(path.join(deck, 'out/deck.html')) + '?mode=video&captions=1');
   await page.waitForFunction(() => window.DECK?.ready);
   await page.evaluate(() => document.fonts.ready);
+  await page.locator('img').evaluateAll((els) => Promise.all(els.map((e) => e.decode())));
   const slides = await page.evaluate(() => DECK.slides.map((s) => s.id));
   assert.deepEqual(slides, ['s-round-title', 's-round-flow', 's-start-state', 's-speed', 's-selection', 's-power', 's-damage', 's-round-end']);
   assert.equal(await page.locator('m-round-scene').count(), 2, '盤面中心の動く部品');
+  assert.equal(await page.locator('.app-piece.enemy .app-portrait').count(), 7, '敵に人狼型シュラーカーを使う');
+  assert.equal(await page.locator('.app-piece.ally .app-portrait').count(), 0, 'ナギの立ち絵は保留');
+  const effectAudio = await page.evaluate(() => Object.values(DECK.AUDIO));
+  assert.ok(effectAudio.length >= 8, '効果音を段階へ組み込む');
+  assert.ok(effectAudio.every((a) => a.kind === 'imported' && a.src.startsWith('data:audio/')), '効果音を単一HTMLへ埋め込む');
+  const audioChecks = await page.evaluate(async () => {
+    const context = new AudioContext();
+    try {
+      return await Promise.all(Object.entries(DECK.AUDIO).map(async ([key, a]) => {
+        const buffer = await context.decodeAudioData(await (await fetch(a.src)).arrayBuffer());
+        const data = buffer.getChannelData(0);
+        const first = data.findIndex((v) => Math.abs(v) > 0.001) / buffer.sampleRate;
+        const peak = data.reduce((max, v) => Math.max(max, Math.abs(v)), 0);
+        return { key, durationDelta: Math.abs(buffer.duration - a.dur), first, peak };
+      }));
+    } finally { await context.close(); }
+  });
+  for (const a of audioChecks) {
+    assert.ok(a.durationDelta < 0.15, `効果音の段階長: ${a.key}`);
+    assert.ok(a.peak > 0.01 && a.peak < 0.2, `効果音の音量とクリップなし: ${a.key}`);
+    assert.ok(Math.abs(a.first - effectCues.steps[a.key][0][1]) < 0.15, `画面と効果音の開始が一致: ${a.key}`);
+  }
+  const timedAudio = await page.evaluate(() => DECK.timeline().filter((s) => s.audio));
+  for (const s of timedAudio) {
+    await page.evaluate(([i, k]) => DECK.seek(i, k, 0.6), [s.i, s.k]);
+    const firstCaption = await page.evaluate(() => DECK.caption());
+    await page.evaluate(([i, k]) => DECK.seek(i, k, Infinity), [s.i, s.k]);
+    assert.equal(await page.evaluate(() => DECK.caption()), firstCaption, '音付き段階の字幕は1つのまとまりに収め、動画の途中で飛ばさない');
+  }
   assert.equal(await page.locator('.book-layer, .app-overview').count(), 0, '固定の左右分割と見取り図を外す');
   const holds = JSON.parse(read(path.join(deck, 'timeline.json')));
   for (const [i, steps] of [[0, [0, 1]], [1, [0, 1, 2, 3, 4, 5]], [2, [0, 1, 2, 3]], [3, [0, 1, 2, 3, 4]], [4, [0, 1, 2, 3, 4]], [5, [0, 1, 2, 3, 4]], [6, [0, 1, 2, 3]], [7, [0, 1, 2, 3, 4, 5]]]) {
@@ -79,6 +124,7 @@ try {
   };
   const activeTelop = () => page.locator('#s-start-state [data-telop]').evaluateAll((els) => els.filter((e) => +getComputedStyle(e).opacity > 0.9).map((e) => e.dataset.telop));
   const frames = [];
+  let firstFrame;
   for (const [t, name] of [[1.1, 'hp'], [3.5, 'mp'], [6.2, 'fp']]) {
     await seek(2, 1, t);
     assert.deepEqual(await activeTelop(), [name], '説明対象を順に切り替える');
@@ -89,6 +135,7 @@ try {
     }));
     assert.equal(clipped, false, '強調の拡大でバーの文字を切らない');
     const png = await page.screenshot({ path: path.join(deck, `out/motion-${name}.png`) });
+    if (!firstFrame) firstFrame = png;
     frames.push(createHash('sha256').update(png).digest('hex'));
   }
   assert.equal(new Set(frames).size, 3, '途中時刻ごとに画面が変わる');
@@ -96,7 +143,20 @@ try {
   assert.deepEqual(await activeTelop(), ['carry']);
   assert.equal(await page.locator('#s-start-state .book-card:visible').count(), 0, '説明後の札は退場する');
   await seek(2, 1, 1.1);
-  assert.equal(createHash('sha256').update(await page.screenshot()).digest('hex'), frames[0], '巻き戻しても同じ時刻は同じ画面');
+  const replayFrame = await page.screenshot({ path: path.join(deck, 'out/replay-hp.png') });
+  const maxPixelDelta = await page.evaluate(async ([a, b]) => {
+    const pixels = async (base64) => {
+      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${base64}`)).blob());
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0);
+      return ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    };
+    const [x, y] = await Promise.all([pixels(a), pixels(b)]);
+    return x.reduce((max, value, i) => Math.max(max, Math.abs(value - y[i])), 0);
+  }, [firstFrame.toString('base64'), replayFrame.toString('base64')]);
+  // 画像入りの合成レイヤーは文字の縁に1階調の丸め差が出ることがある。
+  assert.ok(maxPixelDelta <= 1, '巻き戻した画面が全画素で1階調以内に一致');
   await seek(2, 2, 0);
   assert.equal(await page.locator('#s-start-state .book-card:visible').count(), 0, '札の登場前');
   await seek(2, 2, 2.2);
@@ -155,11 +215,15 @@ try {
   await page.evaluate(() => document.fonts.ready);
   await page.evaluate(() => DECK.seek(2, 1, Infinity));
   assert.equal(await page.evaluate(() => DECK.mode), 'talk');
-  assert.ok((await page.evaluate(() => DECK.caption()))?.startsWith('戦闘に入る前に'), '?captions=1の通常表示');
+  assert.ok((await page.evaluate(() => DECK.caption()))?.startsWith('駒の下に'), '?captions=1の通常表示');
   await page.screenshot({ path: path.join(deck, 'out/captions-talk.png') });
+  await page.evaluate(() => DECK.go(3, 2, false));
+  await page.keyboard.press('a');
+  await page.waitForFunction(() => window.__effectPlayers.some((p) => !p.paused && p.currentTime > 0.2), null, { timeout: 5000 });
+  await page.evaluate(() => DECK.autoplay(false));
   assert.deepEqual(errors, [], 'ブラウザ実行エラーなし');
   assert.deepEqual(await page.evaluate(() => DECK.componentErrors), [], '部品実行エラーなし');
-  console.log('Deck verification OK: narration, logo, values, bars, captions, motion, rewind, browser');
+  console.log('Deck verification OK: narration, portrait, audio decode/volume/sync/playback, values, captions, motion, rewind');
 } finally {
   await browser.close();
 }

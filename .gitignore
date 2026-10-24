@@ -41,3 +41,5 @@ manuals/typst/build/
 /typst_manual/動画/_local/
 /typst_manual/動画/**/out/
 /typst_manual/動画/**/*.ega.html
+/typst_manual/動画/**/audio/steps/
+/typst_manual/動画/**/audio/manifest.json
