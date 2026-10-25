@@ -1,0 +1,9 @@
+{
+  "s-selection:1": { "tail": 0.8, "effects": [{ "sound": "slot", "at": 1.0 }, { "sound": "match", "mark": "match-arrow", "offset": -0.5 }] },
+  "s-selection:2": { "tail": 0.5, "effects": [] },
+  "s-power:1": { "tail": 0.5, "effects": [] },
+  "s-power:2": { "tail": 1.2, "effects": [{ "sound": "power", "mark": "power-ally" }, { "sound": "power", "mark": "power-enemy" }] },
+  "s-damage:1": { "tail": 2.8, "effects": [{ "sound": "hit", "mark": "enemy-hp" }] },
+  "s-damage:2": { "tail": 1.6, "effects": [{ "sound": "fp", "mark": "ally-fp", "offset": 0.23 }] },
+  "s-damage:3": { "tail": 1.0, "effects": [] }
+}

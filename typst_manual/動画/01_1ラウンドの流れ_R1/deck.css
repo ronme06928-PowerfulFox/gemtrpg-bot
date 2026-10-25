@@ -1,0 +1,107 @@
+/* 色は manual_theme.typ: ally, enemy, hp, mp, fp。 */
+.prototype {
+  --book-ally: #246589;
+  --book-enemy: #a9493e;
+  --book-hp: #c0392b;
+  --book-mp: #2a6fb0;
+  --book-fp: #b7791f;
+  --focus-hp: #28a745;
+  --focus-mp: #007bff;
+  --focus-fp: #ff9800;
+  background: #fffdfb;
+}
+.chapter-label {
+  position: absolute;
+  top: 20px;
+  left: 32px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--base);
+  font-weight: bold;
+}
+.chapter-gem { display: block; width: 23px; height: 30px; }
+.chapter-gem svg { display: block; width: 100%; height: 100%; }
+.prototype h2, .prototype.cover h1 {
+  position: absolute;
+  left: 32px;
+  right: 48px;
+  top: 64px;
+  margin: 0;
+  padding: 0 0 12px;
+  border-bottom: 2px solid var(--base);
+  font-size: 42px;
+  line-height: 1.2;
+  text-align: left;
+}
+.prototype .body {
+  top: 140px;
+  left: 32px;
+  right: 48px;
+  bottom: auto;
+  height: 414px;
+  font-size: 27px;
+  line-height: 1.45;
+  text-align: left;
+}
+m-round-scene { display: block; position: relative; width: 100%; height: 414px; }
+.scene-telop {
+  position: absolute;
+  left: 420px;
+  top: 126px;
+  width: 360px;
+  padding: 18px 14px;
+  box-sizing: border-box;
+  border-top: 4px solid var(--base);
+  border-radius: 8px;
+  background: #fffdfb;
+  color: #222;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
+  text-align: center;
+  font-size: 27px;
+  opacity: 0;
+  visibility: hidden;
+}
+.scene-telop strong { display: block; font-size: 32px; line-height: 1.4; color: var(--base); }
+.scene-telop small { display: block; font-size: 27px; }
+.scene-telop span { display: block; }
+.carry-telop { top: 115px; }
+.book-card {
+  position: absolute;
+  top: 12px;
+  left: 92px;
+  width: 400px;
+  box-sizing: border-box;
+  border: 2px solid var(--book-ally);
+  border-radius: 10px;
+  background: white;
+  padding: 10px 16px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 22%);
+  opacity: 0;
+  visibility: hidden;
+  transform-origin: 50% 100%;
+}
+.book-card.enemy { left: 724px; border-color: var(--book-enemy); }
+.card-name { color: var(--book-ally); font-size: 27px; font-weight: bold; margin-bottom: 6px; }
+.book-card.enemy .card-name { color: var(--book-enemy); }
+.resources { display: flex; gap: 6px; }
+.resource {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid;
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: bold;
+}
+/* resのcolor.lighten(88%)。TypstのSVG出力で確認。 */
+.resource.hp { color: var(--book-hp); background: #f7e7e6; }
+.resource.mp { color: var(--book-mp); background: #e5eef6; }
+.resource.fp { position: absolute; top: 10px; right: 16px; color: var(--book-fp); background: #f6efe4; }
+.app-stat-row { position: relative; transform-origin: center; border-radius: 4px; }
+.prototype.cover .logos { left: auto; right: 32px; top: 14px; bottom: auto; }
+.prototype .pn { top: 22px; bottom: auto; right: 48px; font-size: 24px; }

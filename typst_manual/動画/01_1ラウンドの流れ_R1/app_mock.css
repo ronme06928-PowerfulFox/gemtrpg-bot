@@ -1,0 +1,149 @@
+/* 説明動画用。アプリのスタイルには読み込まない。
+   寸法は下記の実装値を1.7倍し、教材の配置だけを変える。
+   図の字は24px以上。14px×1.7のHP/MPラベルだけ24pxに切り上げる。 */
+.app-board {
+  position: relative;
+  height: 414px;
+  /* static/css/modules/visual_map.css: #game-map（90px格子） */
+  background: #4a4a4a;
+  background-image: linear-gradient(#555 1.7px, transparent 1.7px),
+    linear-gradient(90deg, #555 1.7px, transparent 1.7px);
+  background-size: 153px 153px;
+  border-radius: 10px;
+}
+.app-piece {
+  /* static/js/visual/visual_map.js: createMapToken、baseSize=132、border=4px */
+  position: absolute;
+  top: 140px;
+  width: 224.4px;
+  height: 224.4px;
+  border: 6.8px solid;
+  border-radius: 30.6px 30.6px 0 0;
+  box-shadow: 0 6.8px 13.6px rgb(0 0 0 / 40%);
+  box-sizing: content-box;
+}
+.app-piece.ally {
+  /* visual_map.js: resolveTokenStyle、ally */
+  left: 170px;
+  border-color: #007bff;
+}
+.app-piece.enemy {
+  /* visual_map.js: resolveTokenStyle、enemy */
+  left: 810px;
+  border-color: #dc3545;
+}
+.app-token-body {
+  /* visual_map.js: tokenBodyStyle（角丸14px、本体#eee） */
+  width: 100%;
+  height: 100%;
+  border-radius: 23.8px 23.8px 0 0;
+  overflow: hidden;
+  position: relative;
+  background: #eee;
+}
+.app-initial {
+  /* visual_map.js: 画像なしのtokenBodyContent。visual_map.css: .token-bodyの24px×3em */
+  display: flex;
+  /* 教材では文字の箱が下部バーと重ならないよう、文字の領域だけ上へ寄せる。 */
+  height: calc(100% - 78px);
+  line-height: 1;
+  align-items: center;
+  justify-content: center;
+  font-size: 122.4px;
+  font-weight: bold;
+  color: #555;
+}
+.app-portrait {
+  /* 人狼型シュラーカーの全身を、HP/MPバーの上に収める。画像自体は未加工。 */
+  display: block;
+  width: 100%;
+  height: calc(100% - 78px);
+  object-fit: contain;
+}
+.app-status {
+  /* visual_map.js: statusOverlayStyle（padding 5px、gap 4px） */
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 8.5px;
+  box-sizing: border-box;
+  background: rgb(0 0 0 / 75%);
+  display: flex;
+  flex-direction: column;
+  gap: 6.8px;
+}
+.app-stat-row {
+  /* visual_map.js: createBar（高さ14px、gap 4px） */
+  display: flex;
+  align-items: center;
+  height: 23.8px;
+  gap: 6.8px;
+}
+.app-stat-label {
+  /* createBar: 14px→24px、幅22px×1.7、#ccc */
+  width: 37.4px;
+  font-size: 24px;
+  font-weight: bold;
+  color: #ccc;
+  line-height: 1;
+}
+.app-bar {
+  /* createBar: #444、角丸3px×1.7。値の幅を引いた残りがバー */
+  flex: 1;
+  height: 100%;
+  background: #444;
+  border-radius: 5.1px;
+  overflow: hidden;
+}
+.app-bar-fill { height: 100%; }
+/* visual_map.css: .token-bar-fill.hp / .mp。割合は第4章の現在値／最大値 */
+.app-bar-fill.hp { background: #28a745; }
+.app-bar-fill.mp { background: #007bff; }
+.app-stat-value {
+  /* createBar: 値18px、min-width 30px、白字・黒い影 */
+  min-width: 51px;
+  font-size: 30.6px;
+  line-height: 1;
+  color: white;
+  text-align: right;
+  font-weight: bold;
+  text-shadow: 1.7px 1.7px 1.7px #000;
+}
+.app-fp {
+  /* visual_map.js: fpBadgeHtml（32px、top/left -12px、白枠3px、字16px） */
+  position: absolute;
+  top: -20.4px;
+  left: -20.4px;
+  width: 54.4px;
+  height: 54.4px;
+  border: 5.1px solid white;
+  border-radius: 50%;
+  background: #ff9800;
+  box-shadow: 0 3.4px 6.8px rgb(0 0 0 / 50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 27.2px;
+  color: white;
+  font-weight: bold;
+  box-sizing: content-box;
+}
+.app-name {
+  /* visual_map.js: nameLabelStyle（top=scaledSize+6、16px、padding 3px 10px） */
+  position: absolute;
+  top: 234.6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgb(0 0 0 / 70%);
+  color: white;
+  padding: 5.1px 17px;
+  border-radius: 20.4px;
+  font-size: 27.2px;
+  line-height: 1;
+  font-weight: bold;
+  white-space: nowrap;
+  text-shadow: 1.7px 1.7px 3.4px black;
+}
+
+/* トークンの位置と背景の広さは動画の演出用。上記の部品寸法は変えない。 */

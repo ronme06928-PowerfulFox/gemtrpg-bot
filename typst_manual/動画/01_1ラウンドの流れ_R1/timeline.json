@@ -1,0 +1,56 @@
+{
+  "s-selection:1": {
+    "hold": 4.92,
+    "dur": 4.92,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-selection:2": {
+    "hold": 7.18,
+    "dur": 7.18,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-power:1": {
+    "hold": 10.29,
+    "dur": 10.29,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-power:2": {
+    "hold": 5.7,
+    "dur": 5.7,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-damage:1": {
+    "hold": 12.27,
+    "dur": 12.27,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-damage:2": {
+    "hold": 6.45,
+    "dur": 6.45,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-damage:3": {
+    "hold": 3.33,
+    "dur": 3.33,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-selection:0": {
+    "dur": 0.6,
+    "hold": 0.6
+  },
+  "s-power:0": {
+    "dur": 0.6,
+    "hold": 0.6
+  },
+  "s-damage:0": {
+    "dur": 0.6,
+    "hold": 0.6
+  }
+}
