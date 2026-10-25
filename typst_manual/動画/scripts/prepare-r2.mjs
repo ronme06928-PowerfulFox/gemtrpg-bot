@@ -6,6 +6,9 @@ import { renderCredits } from '../common/credits.mjs';
 import { prepareVoice } from './prepare-voice.mjs';
 const video = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const deck = path.join(video, '01_1ラウンドの流れ');
+// アプリと同じ音を使う。素材を単体で再配布するコピーはGitへ追加しない。
+fs.mkdirSync(path.join(deck, 'sfx/imported'), { recursive: true });
+fs.copyFileSync(path.join(video, '../../static/audio/dice-roll.mp3'), path.join(deck, 'sfx/imported/dice-roll.mp3'));
 const json = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const credits = renderCredits(json(path.join(video, 'common/credits.json')), json(path.join(deck, 'credits.json')));
 const html = fs.readFileSync(path.join(deck, 'deck.html'), 'utf8');

@@ -44,3 +44,4 @@ manuals/typst/build/
 /typst_manual/動画/**/audio/steps/
 /typst_manual/動画/**/audio/manifest.json
 /typst_manual/動画/**/voice/cache/
+/typst_manual/動画/**/sfx/imported/

@@ -25,6 +25,15 @@
     "tail": 0.8,
     "effects": [
       {
+        "sound": "dice",
+        "at": 0.1
+      },
+      {
+        "sound": "dice",
+        "mark": "speed-ally",
+        "offset": 0.12
+      },
+      {
         "sound": "power",
         "mark": "speed-ally"
       },
@@ -73,6 +82,15 @@
   "s-power:2": {
     "tail": 1.2,
     "effects": [
+      {
+        "sound": "dice",
+        "at": 0.1
+      },
+      {
+        "sound": "dice",
+        "mark": "power-ally",
+        "offset": 0.12
+      },
       {
         "sound": "power",
         "mark": "power-ally"

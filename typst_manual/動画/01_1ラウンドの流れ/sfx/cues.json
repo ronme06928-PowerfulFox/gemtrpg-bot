@@ -19,6 +19,10 @@
     "fp": {
       "file": "pluck_001.ogg",
       "peakDb": -23
+    },
+    "dice": {
+      "file": "imported/dice-roll.mp3",
+      "peakDb": -22
     }
   }
 }

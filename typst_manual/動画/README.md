@@ -2,7 +2,7 @@
 
 ## 現在の動画
 
-「1ラウンドの流れ」のR2-2を制作・検証しました。本文7場面と共通クレジット1枚、27段階、タイムライン157.45秒、実MP4は157.273秒です。
+「1ラウンドの流れ」のR3修正版を制作・検証しました。本文7場面と共通クレジット1枚、27段階、タイムライン162.35秒、実MP4は162.148秒です。
 味方はR1の男冒険者（HP100・MP10・FP0）、敵は人狼型シュラーカー（HP30・MP6・FP0）。HP・MPは満タンから始めます。
 冥鳴ひまりの声を19段階に入れ、採用済みのSE＋6dBを重ねます。BGMはありません。
 
@@ -11,6 +11,7 @@
 旧M1〜M3の記録は[F01 Part 14](../../manuals/implemented/F01_Operations_Manual.md#explainer-videos)、声・SE比較は[R1](01_1ラウンドの流れ_R1/README.md)へ残しています。
 R3で通し確認の修正を終えたらF01へ改訂仕様を統合します。
 現在は全編を通して、声の間・SEの目立ち方・効果文からFP獲得への動きを確認する段階です。
+2026-10-26の修正：「基本の一太刀」を「きほんのひとたち」と読み、速度・威力の出目確定前にアプリ既存のダイス音を計4回追加しました。締めはラウンド終了時の処理後、次のラウンドが始まり戦闘が続く説明へ変更しています。
 
 ## 版と環境
 
@@ -40,6 +41,7 @@ npm --prefix C:/Users/yharu/tools/egatari-studio ci
 - 同デッキの `voice/config.json`：固定版・声・読み・話速等。`voice/events.json`：SEと必要な余韻。`timeline.json` は声の長さから再生成します。
 - `common/`：動画間で共用するクレジットの生成関数・CSS・作品名と発行元。タイトルと使用素材は各デッキの `credits.json`。
 - `scripts/prepare-r2.mjs`：共通クレジットをデッキ内へ配置し、全編の声とSEを生成します。
+- 同スクリプトはアプリの `static/audio/dice-roll.mp3` を読み取り、`sfx/imported/` へコピーします。この素材コピーはGit管理外です。出典・動画利用条件は[SEの記録](01_1ラウンドの流れ/sfx/README.md)を参照してください。
 - `scripts/prepare-voice.mjs`：R1とR2が使う音声生成処理。WAV処理は `r1-audio.mjs` を共有します。
 - `scripts/verify-r2.mjs`：全編の数値・巻き戻し・字幕・音声・ロゴ・効果枠・クレジット・自動再生をブラウザで確認します。
 - `out/`：単一HTML・PNG・MP4。`audio/`：生成WAVとmanifest。`voice/cache/`：原音WAVとVOICEVOX query。これらの生成物はGit管理外です。
@@ -102,17 +104,18 @@ $env:TMP = $videoTemp
 node --test typst_manual/動画/scripts/test-r1-audio.mjs typst_manual/動画/scripts/test-credits.mjs
 node typst_manual/動画/scripts/prepare-r2.mjs $egatariDir
 npm --prefix $egatariDir run build -- "$deckDir/deck.html" --embed-audio
+Copy-Item -LiteralPath "$deckDir/out/deck.html" -Destination "$deckDir/out/deck-r3.html"
 npm --prefix $egatariDir run check -- "$deckDir/deck.html"
 node typst_manual/動画/scripts/verify-r2.mjs $egatariDir
 npm --prefix $egatariDir run sheet -- $deckDir --tiles --cols 2 --width 640
-node "$egatariDir/render/render.mjs" "$deckDir/out/deck.html" --out "$deckDir/out/r2" --full --fps 24 --scale 1 --captions
+node "$egatariDir/render/render.mjs" "$deckDir/out/deck-r3.html" --out "$deckDir/out/r3" --full --fps 24 --scale 1 --captions
 ```
 
 - `out/deck.html`：オフライン再生する単一HTML。`?captions=1`で開き、Aキーで声付き自動再生、Sキーで字幕、左右キーで段階を送ります。
-- `out/r2/full.mp4`：1280×720・24fps、字幕焼き込み。末尾はナレーション終了後の共通クレジット5秒。
+- `out/deck-r3.html`、`out/r3/full.mp4`：修正版の単一HTMLと字幕付きMP4。1280×720・24fps。末尾はナレーション終了後の共通クレジット5秒。旧メッセージの再生キャッシュと区別できる名前にします。
 - `out/sheet.png`、`out/sheet-tiles/`：各枚の最終状態。動きと途中の効果枠はMP4、`out/effect.png`等はブラウザ検証で確認します。
 - `out/audio-report-plus6.json`：声の識別・各段階の長さ・cue・SE時刻・合成後ピーク。
-- 台本・声・設定のhashが同じ原音は再利用します。今回の再生成では原音21本すべてをキャッシュから使用できました。
+- 台本・声・設定のhashが同じ原音は再利用します。読みと締めの修正で原音4本を更新し、残り17本はキャッシュを使用しました。ダイス音の差し替えでは原音21本すべてを再利用しています。
 - 音声とモデルは区別し、配布するのは通常の `--embed-audio` HTMLとMP4です。編集用 `--portable` は配布に使いません。
 
 旧SE専用の `prepare-media.mjs`、旧作例の2部品と `verify-deck.mjs` はR2で削除しました。
@@ -132,7 +135,7 @@ $env:EGATARI_THEMES = Join-Path (Get-Location) 'typst_manual/動画/01_1ラウ�
 共有は可能ですが、今回の原稿は指定どおりデッキ内 `themes/gemuria/` に置きます。
 将来の動画でもこのthemesフォルダを環境変数で参照できます。外部テーマだけを使うデッキを移動する場合は、テーマも渡すか `--portable` で含めます。
 
-## R2で確認したこと（2026-10-26）
+## 検証結果（2026-10-26、R3修正版）
 
 - checkはエラー0・警告8。本文7枚の短い入場段階0と、無言のクレジット段階に口述原稿がない警告です。19の音声段階にはすべて声があります。
 - テスト5件通過。実ブラウザでHP100・MP10、敵HP30→21、味方FP0→1→3、敵FP0→2、両者の行動済み、巻き戻しを確認しました。
@@ -140,8 +143,9 @@ $env:EGATARI_THEMES = Join-Path (Get-Location) 'typst_manual/動画/01_1ラウ�
 - 音声段階の先頭・中間・末尾で字幕の欠けと盤面との重なりを検証し、全19本の埋め込みAACをデコードしました。自動再生で実際に再生位置が進むことも確認しました。
 - `talk`・`lecture`・`video`で表示できる共通クレジットを採用。字幕OFFでも文字が残り、0・2.5・4.99秒の画面が一致します。
 - v0.4.5では最初のスライドの段階0のアニメーション長が0になるため、表紙の読み上げを段階1から始めます。各音声段階は字幕の途中切替も含めて全長を描き、後半を静止画像で埋めません。
-- 実MP4はH.264＋AAC、1280×720・24fps・3774フレーム、157.273秒です。全編のデコード検査を通過し、最大ピークは-7.5dBFSでクリップなし。`out/r2/video-report.json`へ測定値を保存しました。段階ごとのフレーム丸めを含み、タイムラインとの差は0.177秒です。
-- 実動画から取り出した `out/r2-match-caption.png`、`out/r2-effect-caption.png`、`out/r2-credit-frame.png` で字幕と矢印・赤枠・FP・クレジットを確認しました。
+- 実MP4はH.264＋AAC、1280×720・24fps・3891フレーム、162.148秒です。全編のデコード検査を通過し、最大ピークは-7.5dBFSでクリップなし。`out/r3/video-report.json`へ測定値を保存しました。段階ごとのフレーム丸めを含み、タイムラインとの差は0.202秒です。
+- 実動画から取り出した `out/r3-ending-caption.png`、`out/r3-credit-frame.png` で締めの字幕とクレジットを確認しました。矢印・赤枠・FPは全編ブラウザ検証でも確認しています。
+- R3ではVOICEVOX queryのモーラ列で、スキル名を含む3か所の「ヒトタチ」を確認しました。アプリ既存音とデッキ内コピーのSHA-256一致、速度・威力で各2回のロールSEが結果より前に鳴る配置を検証します。Springin’ Sound Stockの出典を追加した4行のクレジットも画面内に収まります。
 - Anacondaのffmpeg 4.2.2は `-fps_mode` に非対応です。上記手順で9.0.1をプロセス内だけ優先します。AAC圧縮キャッシュのrenameが制限される場合はTEMP/TMPを上記のローカル作業領域へ置きます。
 
 コミット前に実行します。

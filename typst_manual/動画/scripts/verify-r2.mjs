@@ -9,8 +9,18 @@ const engine = process.argv[2];
 assert.ok(engine);
 const read = (p) => fs.readFileSync(path.join(deck, p), 'utf8');
 assert.equal(read('narration.md'), read('narration-r2-draft.md'), '確認済み台本');
+const audioReport = JSON.parse(read('out/audio-report-plus6.json'));
+const rolls = audioReport.segments.flatMap((s) => s.effects.filter((e) => e.sound === 'dice').map((e) => ({ ...e, key: s.key, dur: s.dur })));
+assert.equal(rolls.length, 4, '速度と威力で味方・敵のダイスを振るSEを入れる');
+for (const key of ['s-speed:2', 's-power:2']) {
+  const segment = audioReport.segments.find((s) => s.key === key);
+  const [first, second] = segment.cues;
+  const effects = rolls.filter((e) => e.key === key);
+  assert.ok(effects[0].at < first && effects[1].at > first && effects[1].at < second, 'それぞれの出目確定より前に振る音を鳴らす');
+}
 assert.ok(!/ナギ|恩恵|129/.test(read('deck.html')), '旧作例が残らない');
 const hash = (p) => createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+assert.equal(hash(path.join(deck, 'sfx/imported/dice-roll.mp3')), hash(path.join(video, '../../static/audio/dice-roll.mp3')), 'アプリと同じダイス音を使う');
 for (const [target, original] of [['gemuria_logo.png', '../assets/gemuria_logo.png'], ['ally-adventurer.png', '01_1ラウンドの流れ_R1/images/ally-adventurer.png'], ['wolf-shularker.png', '01_1ラウンドの流れ_R1/images/wolf-shularker.png']]) assert.equal(hash(path.join(deck, 'images', target)), hash(path.join(video, original)));
 const { launch, fileUrl } = await import(pathToFileURL(path.join(engine, 'kit/browser.mjs')));
 const browser = await launch();
@@ -91,7 +101,9 @@ try {
   assert.equal(timeline.at(-1).dur, 5);
   assert.equal(timeline.at(-1).audio, null);
   const credits = await page.locator('#s-credits').innerText();
-  for (const name of ['創作ゆる大地', 'VOICEVOX:冥鳴ひまり', 'Kenney']) assert.ok(credits.includes(name));
+  for (const name of ['創作ゆる大地', 'VOICEVOX:冥鳴ひまり', 'Kenney', 'Springin’ Sound Stock']) assert.ok(credits.includes(name));
+  const creditBottom = await page.locator('#s-credits .credits-list').evaluate((e) => e.getBoundingClientRect().bottom);
+  assert.ok(creditBottom <= 676, 'ダイス音の出典を追加しても画面内に収まる');
   const frames = [];
   for (const t of [0, 2.5, 4.99]) {
     await seek(7, 0, t);
