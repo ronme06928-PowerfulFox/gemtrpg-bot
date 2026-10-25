@@ -1,0 +1,16 @@
+{
+  "engineVersion": "0.26.0",
+  "speaker": "冥鳴ひまり",
+  "style": "ノーマル",
+  "speedScale": 1.0,
+  "pitchScale": 0,
+  "intonationScale": 1.0,
+  "prePhonemeLength": 0.1,
+  "postPhonemeLength": 0.12,
+  "partGap": 0.12,
+  "readings": {
+    "1d2": "いちディーに",
+    "1d3": "いちディーさん",
+    "FP": "エフピー"
+  }
+}

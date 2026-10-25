@@ -17,7 +17,6 @@
   font-weight: 800;
   box-shadow: 0 5.1px 13.6px rgb(0 0 0 / 42%);
 }
-m-battle-sequence { display: block; position: relative; width: 100%; height: 414px; }
 .prototype { --arrow-match: #ffb020; --arrow-pending: #8a93a3; }
 .app-slot.is-committed { border-color: #2b8b46; background: radial-gradient(circle at 30% 26%, #f5ffe9 0%, #cdecb5 70%, #9fcd7a 100%); }
 .app-slot.is-spent { opacity: 0.55 !important; filter: grayscale(1); }
@@ -36,7 +35,7 @@ m-battle-sequence { display: block; position: relative; width: 100%; height: 414
   border-radius: 10px;
   background: #fffdfb;
   color: #222;
-  font-size: 24px;
+  font-size: 27px;
 }
 .calc-card.enemy { left: 724px; border-color: var(--book-enemy); }
 .calc-name { font-size: 27px; font-weight: bold; }
@@ -57,7 +56,7 @@ m-battle-sequence { display: block; position: relative; width: 100%; height: 414
   border-radius: 12px;
   background: #fbeaed;
   color: #222;
-  font-size: 24px;
+  font-size: 27px;
 }
 .flow-card strong { display: block; font-size: 27px; color: var(--base); margin-bottom: 12px; }
 .flow-card:nth-of-type(1) { left: 0; }
@@ -66,7 +65,6 @@ m-battle-sequence { display: block; position: relative; width: 100%; height: 414
 .flow-card:nth-of-type(4) { left: 930px; }
 .flow-link { position: absolute; top: 136px; width: 32px; font-size: 32px; color: var(--base); text-align: center; }
 .flow-link.a { left: 274px; } .flow-link.b { left: 584px; } .flow-link.c { left: 894px; }
-.flow-summary.concl { left: 240px; right: 240px; top: 435px; height: 70px; font-size: 30px; background: white; white-space: normal; }
 .arrow-layer { position: absolute; left: 0; top: 0; width: 1200px; height: 140px; pointer-events: none; }
 .arrow-layer svg { display: block; width: 100%; height: 100%; }
 /* DeclarePanel.js/visual_battle.css: .declare-panel、.declare-flow-chip。
@@ -101,7 +99,7 @@ m-battle-sequence { display: block; position: relative; width: 100%; height: 414
   left: 100px;
   top: 12px;
   width: 1000px;
-  height: 360px;
+  height: 390px;
   padding: 12px 24px;
   box-sizing: border-box;
   border: 2px solid rgb(255 197 84 / 75%);
@@ -120,12 +118,5 @@ m-battle-sequence { display: block; position: relative; width: 100%; height: 414
 .power-actual { font-size: 40px; font-weight: bold; color: #ffd36b; }
 .resolve-side.enemy .power-actual { color: #ffb0ad; }
 .roll-line { display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 12px; font-size: 27px; }
-.resolve-headline { color: #ffe5ae; font-weight: bold; font-size: 32px; text-align: center; margin-top: 14px; }
+.resolve-headline { color: #ffe5ae; font-weight: bold; font-size: 32px; text-align: center; margin-top: 4px; }
 .damage-number { color: #a9493e; font-size: 48px; }
-.fp-breakdown { position: absolute; top: 16px; left: 100px; width: 1000px; box-sizing: border-box; padding: 16px; text-align: center; background: #fffdfb; border: 2px solid var(--book-fp); border-radius: 12px; font-size: 27px; }
-.end-summary.concl { left: 160px; right: 160px; top: 200px; height: 210px; flex-direction: column; white-space: normal; background: #fffdfb; text-align: center; }
-.end-summary strong { font-size: 32px; }
-.end-related { position: absolute; left: 160px; right: 160px; top: 440px; font-size: 24px; line-height: 1.5; font-weight: normal; color: #222; text-align: center; background: #fffdfb; border-radius: 8px; display: none; }
-.end-related span { display: block; }
-.end-slide:has(.concl.on) .end-related { display: block; }
-.end-slide:has(.concl.on) m-battle-sequence { opacity: 0; pointer-events: none; }

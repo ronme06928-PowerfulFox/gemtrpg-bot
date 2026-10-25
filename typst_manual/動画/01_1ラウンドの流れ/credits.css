@@ -1,0 +1,56 @@
+.credits-page { background: #fff; color: #222; }
+.credits-page .credits-content {
+  position: absolute;
+  top: 0;
+  left: 44px;
+  width: 1192px;
+  height: 676px;
+  margin: 0;
+  padding: 0;
+}
+.credits-logo {
+  position: absolute;
+  top: 18px;
+  left: 396px;
+  width: 400px;
+  height: 225px;
+  object-fit: contain;
+}
+.credits-project {
+  position: absolute;
+  top: 248px;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  color: #555;
+  text-align: center;
+  font-size: 27px;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+}
+.credits-page h1.credits-title {
+  position: absolute;
+  top: 302px;
+  left: 36px;
+  width: 1120px;
+  margin: 0;
+  padding: 0;
+  font-size: 46px;
+  line-height: 1.5;
+  font-weight: 700;
+  color: #222;
+  text-align: center;
+  border: 0;
+}
+.credits-rule {
+  position: absolute;
+  top: 399px;
+  left: 256px;
+  width: 680px;
+  height: 2px;
+  background: #ad2840;
+}
+.credits-list { position: absolute; top: 441px; left: 306px; width: 580px; margin: 0; }
+.credits-list > div { display: grid; grid-template-columns: 120px 1fr; column-gap: 24px; margin-bottom: 14px; }
+.credits-list dt, .credits-list dd { margin: 0; font-size: 27px; line-height: 1.5; font-weight: 400; }
+.credits-list dt { color: #666; }

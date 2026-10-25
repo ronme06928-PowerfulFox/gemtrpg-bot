@@ -54,7 +54,7 @@
   color: #555;
 }
 .app-portrait {
-  /* 人狼型シュラーカーの全身を、HP/MPバーの上に収める。画像自体は未加工。 */
+  /* 味方と人狼型シュラーカーの全身を、HP/MPバーの上に収める。画像自体は未加工。 */
   display: block;
   width: 100%;
   height: calc(100% - 78px);
@@ -97,7 +97,7 @@
   overflow: hidden;
 }
 .app-bar-fill { height: 100%; }
-/* visual_map.css: .token-bar-fill.hp / .mp。割合は第4章の現在値／最大値 */
+/* visual_map.css: .token-bar-fill.hp / .mp。割合は計画53の作例の現在値／最大値 */
 .app-bar-fill.hp { background: #28a745; }
 .app-bar-fill.mp { background: #007bff; }
 .app-stat-value {

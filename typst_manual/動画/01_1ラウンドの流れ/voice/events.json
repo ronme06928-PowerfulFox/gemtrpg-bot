@@ -1,0 +1,144 @@
+{
+  "s-round-flow:1": {
+    "tail": 0.7,
+    "effects": [
+      {
+        "sound": "slot",
+        "at": 0.5
+      }
+    ]
+  },
+  "s-round-flow:2": {
+    "tail": 0.7,
+    "effects": [
+      {
+        "sound": "slot",
+        "at": 0.2
+      }
+    ]
+  },
+  "s-speed:1": {
+    "tail": 0.6,
+    "effects": []
+  },
+  "s-speed:2": {
+    "tail": 0.8,
+    "effects": [
+      {
+        "sound": "power",
+        "mark": "speed-ally"
+      },
+      {
+        "sound": "power",
+        "mark": "speed-enemy"
+      }
+    ]
+  },
+  "s-speed:3": {
+    "tail": 1.0,
+    "effects": [
+      {
+        "sound": "slot",
+        "at": 0.8
+      }
+    ]
+  },
+  "s-selection:1": {
+    "tail": 0.8,
+    "effects": [
+      {
+        "sound": "slot",
+        "at": 1.0
+      }
+    ]
+  },
+  "s-selection:2": {
+    "tail": 1.0,
+    "effects": [
+      {
+        "sound": "match",
+        "mark": "match-arrow",
+        "offset": -0.5
+      }
+    ]
+  },
+  "s-selection:3": {
+    "tail": 0.7,
+    "effects": []
+  },
+  "s-power:1": {
+    "tail": 0.6,
+    "effects": []
+  },
+  "s-power:2": {
+    "tail": 1.2,
+    "effects": [
+      {
+        "sound": "power",
+        "mark": "power-ally"
+      },
+      {
+        "sound": "power",
+        "mark": "power-enemy"
+      }
+    ]
+  },
+  "s-damage:1": {
+    "tail": 2.8,
+    "effects": [
+      {
+        "sound": "hit",
+        "mark": "enemy-hp"
+      }
+    ]
+  },
+  "s-damage:2": {
+    "tail": 1.6,
+    "effects": [
+      {
+        "sound": "fp",
+        "mark": "ally-fp",
+        "offset": 0.23
+      }
+    ]
+  },
+  "s-damage:3": {
+    "tail": 1.0,
+    "effects": []
+  },
+  "s-round-end:1": {
+    "tail": 0.8,
+    "effects": []
+  },
+  "s-round-end:2": {
+    "tail": 2.0,
+    "effects": [
+      {
+        "sound": "fp",
+        "mark": "end-fp",
+        "offset": 0.2
+      }
+    ]
+  },
+  "s-round-end:3": {
+    "tail": 0.6,
+    "effects": []
+  },
+  "s-round-end:4": {
+    "tail": 1.2,
+    "effects": [
+      {
+        "sound": "slot",
+        "at": 0.5
+      }
+    ]
+  },
+  "s-round-title:2": {
+    "tail": 0.8,
+    "effects": []
+  },
+  "s-round-title:1": {
+    "tail": 0.7,
+    "effects": []
+  }
+}
