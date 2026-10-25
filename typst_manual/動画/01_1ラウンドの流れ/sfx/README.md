@@ -1,8 +1,8 @@
 # 全編で使う効果音
 
-KenneyのInterface Sounds 1.0とImpact Sounds 1.0の5種に、アプリで使っているSpringin’ Sound Stockのダイス音を加えています。
+KenneyのInterface Sounds 1.0とImpact Sounds 1.0の4種に、アプリで使っているSpringin’ Sound Stockのダイス音を加えています。
 
-- [Interface Sounds](https://kenney.nl/assets/interface-sounds)：click_001、confirmation_002、tick_002、pluck_001。
+- [Interface Sounds](https://kenney.nl/assets/interface-sounds)：click_001、confirmation_002、pluck_001。
 - [Impact Sounds](https://kenney.nl/assets/impact-sounds)：impactMetal_light_000。
 - Kenneyの素材は[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)。同梱のLICENSE-*.txtも参照。
 - [Springin’ Sound Stock サイコロ・ダイス](https://www.springin.org/sound-stock/subcategory/dice/)：「モノラル大きいダブルダイス3」。アプリの `static/audio/dice-roll.mp3` と同じ約1秒の音源です。
@@ -24,13 +24,12 @@ SHA-256：`949e72e5b6b932af983ae9996853c270ca3ff8b9f19718e90eb904347ff8c064`。
 | --- | --- | --- |
 | 流れ・スロット・宣言 | click_001 | -18dBFS |
 | マッチ成立 | confirmation_002 | -13dBFS |
-| ダイス結果・威力確定 | tick_002 | -16dBFS |
-| 速度・威力のダイスを振る | アプリのdice-roll.mp3 | -16dBFS |
+| 速度値・最終威力の確定 | アプリのdice-roll.mp3 | -16dBFS |
 | HP減少 | impactMetal_light_000 | -12dBFS |
 | 勝利FP・終了時FP | pluck_001 | -17dBFS |
 
 `cues.json`のsourcesに素材と基準ピーク、`voice/events.json`に音声markまたは段階先頭からの秒数を指定します。
 `prepare-r2.mjs`から共通の `prepare-voice.mjs` を使い、声を-20 LUFS目標に調整してSE＋6dBを重ねます。
-SEは17回。ダイス音は速度と威力の計算で各2回、それぞれの出目確定より前に鳴らし、確定時のtickと役割を分けます。
+SEは13回。速度値・最終威力が確定した時に、味方・敵それぞれ1回のダイス音を鳴らします。途中のロール音と確定tickは重ねません。ダイス周りの音を8回から4回へ減らしています。
 勝利FPと終了時FPは別の段階です。全波形を検査し、クリップを起こす場合は生成を止めます。
 BGMと常時の切替音は加えません。配布用HTML・MP4の最後にKenney（CC0）とSpringin’ Sound Stockを表示します。

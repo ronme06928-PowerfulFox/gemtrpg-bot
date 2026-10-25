@@ -11,12 +11,14 @@ const read = (p) => fs.readFileSync(path.join(deck, p), 'utf8');
 assert.equal(read('narration.md'), read('narration-r2-draft.md'), '確認済み台本');
 const audioReport = JSON.parse(read('out/audio-report-plus6.json'));
 const rolls = audioReport.segments.flatMap((s) => s.effects.filter((e) => e.sound === 'dice').map((e) => ({ ...e, key: s.key, dur: s.dur })));
-assert.equal(rolls.length, 4, '速度と威力で味方・敵のダイスを振るSEを入れる');
+assert.equal(rolls.length, 4, '速度と威力の4つの結果へ各1回のダイス音を入れる');
 for (const key of ['s-speed:2', 's-power:2']) {
   const segment = audioReport.segments.find((s) => s.key === key);
   const [first, second] = segment.cues;
   const effects = rolls.filter((e) => e.key === key);
-  assert.ok(effects[0].at < first && effects[1].at > first && effects[1].at < second, 'それぞれの出目確定より前に振る音を鳴らす');
+  assert.equal(effects.length, 2);
+  assert.ok(Math.abs(effects[0].at - first) < 0.001 && Math.abs(effects[1].at - second) < 0.001, 'それぞれの最終結果の確定時にだけ鳴らす');
+  assert.equal(segment.effects.length, 2, '途中のロール音や確定tickを重ねない');
 }
 assert.ok(!/ナギ|恩恵|129/.test(read('deck.html')), '旧作例が残らない');
 const hash = (p) => createHash('sha256').update(fs.readFileSync(p)).digest('hex');
