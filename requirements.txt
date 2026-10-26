@@ -22,7 +22,7 @@ whitenoise==6.11.0
 # --- 間接依存（直接依存が要求するもの。直接依存を変えたら合わせて更新する） ---
 backports.zstd==1.3.0
 bidict==0.23.1
-Brotli==1.0.9
+Brotli==1.2.1
 cachetools==4.2.2
 certifi==2026.1.4
 charset-normalizer==2.0.4
