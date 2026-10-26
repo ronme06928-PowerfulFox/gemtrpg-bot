@@ -8,7 +8,9 @@ props: []
 
 # ダイス
 
-JSONは `face`（1〜6）、`value`（補正を含む確定値）、`from/stop/to`（盤面内の中心座標）。子に `[data-die]`、6つの `[data-face="1".."6"]`、`[data-dice-number]`、`[data-dice-target]` を置く。`data-face` は本の `die-1`〜`die-6` SVGを含む。0〜1.1秒で転がり、1.1〜1.5秒は確定面、1.5〜2.4秒は値を行き先へ動かす。
+JSONは `face`（1〜6）、`value`（補正を含む確定値）、`from/stop/to`（盤面内の中心座標）。子に `[data-die]`、6つの `[data-face="1".."6"]`、`[data-dice-number]`、`[data-dice-target]` を置く。`data-face` は本の `die-1`〜`die-6` SVGを含む。0〜1.1秒で転がり、1.1〜1.5秒は確定面、1.5〜2.4秒で行き先へ動く。
+
+速度用は確定値を `to` のスロットへ移す。威力用は式の `=` の直後に `[data-dice-total]` を置くと、ダイス自体を出目の位置 `[data-dice-target]` へ運び、合計だけをtotalへ表示する。この場合の行き先はDOMの実位置から測る。式の地色にダイスが隠れないよう、描画順は式1・ダイス2とする。数値と式のHTMLは `scripts/scene-markup.mjs` が検算して生成する。
 
 使い方の断片は [demo.html](demo.html)。CSS・必要素材・確認デッキの組立は [共通README](../../README.md) を参照。部品はデッキの components/dice/index.js へコピーする。すべての表示を(k,t)から復元し、t=Infinityは段階の最終状態。独自タイマー・乱数・CSSアニメーションは使わない。
 

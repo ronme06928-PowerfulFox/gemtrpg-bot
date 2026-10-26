@@ -1,4 +1,4 @@
-// 字幕より上に置くGMの仮アイコンと案内。
+// 字幕より上に置くオパール色のGMの札と案内。
 DECK.define('m-gm-bubble', class extends DECK.MotionElement {
   static steps = 1;
   mount() { this.panel = this.querySelector('[data-gm-panel]'); }

@@ -112,9 +112,29 @@ try {
   await page.screenshot({ path: path.join(preview, 'out/effect-full.png') });
   for (const i of [1, 2]) {
     await seek(i, 1, null);
-    assert.equal(await page.locator(`#s-${i === 1 ? 'dice-slot' : 'dice-power'} [data-dice-target]`).innerText(), i === 1 ? '6' : '9');
+    assert.equal(await page.locator(`#s-${i === 1 ? 'dice-slot' : 'dice-power'} [data-dice-target]`).textContent(), i === 1 ? '6' : '3');
   }
+  assert.equal(await page.locator('#s-dice-power [data-dice-total]').textContent(), '9');
+  const equation = await page.locator('#s-dice-power m-dice').evaluate((e) => {
+    const total = e.querySelector('[data-dice-total]').getBoundingClientRect();
+    const equal = e.querySelector('[data-equals]').getBoundingClientRect();
+    const target = e.querySelector('[data-dice-target]').getBoundingClientRect();
+    const die = e.querySelector('[data-die]').getBoundingClientRect();
+    return { gap: total.left - equal.right, dx: Math.abs(target.x + target.width / 2 - die.x - die.width / 2), dy: Math.abs(target.y + target.height / 2 - die.y - die.height / 2) };
+  });
+  assert.ok(equation.gap >= 0 && equation.gap <= 20 && equation.dx < 1 && equation.dy < 1, '出目の位置にダイスが入り、=のすぐ右に合計');
+  assert.deepEqual(await page.locator('#s-phase [data-phase]').allTextContents(), ['ラウンド開始', '選択フェーズ', '解決フェーズ', 'ラウンド終了']);
+  for (const t of [0.8, 1.2, 1.8]) {
+    await seek(3, 1, t);
+    const damage = await page.locator('#s-impact [data-damage]').boundingBox();
+    const portrait = await page.locator('#s-impact .enemy .app-portrait').boundingBox();
+    assert.ok(damage.x >= portrait.x + portrait.width || damage.y + damage.height <= portrait.y, '−9が駒の絵に重ならない');
+  }
+  assert.notEqual(await page.locator('#s-impact [data-hit]').evaluate((e) => getComputedStyle(e).backgroundColor), 'rgb(255, 176, 32)');
   await seek(7, 1, null);
+  assert.equal(await page.locator('#s-gm .s1-gm-icon').innerText(), 'GM');
+  assert.equal(await page.locator('#s-gm .s1-gm-icon').evaluate((e) => getComputedStyle(e).backgroundColor), 'rgb(168, 69, 127)');
+  assert.ok(!(await page.locator('#s-gm .s1-gm-text').innerText()).includes('GM：'));
   const gm = await page.locator('[data-gm-panel]').last().boundingBox();
   const caption = await page.locator('#s-gm .caption-reserve').boundingBox();
   assert.ok(gm.y + gm.height < caption.y, 'GMは字幕帯と重ならない');

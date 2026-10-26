@@ -1,14 +1,14 @@
 ---
 name: m-phase
 series: gemuria-video
-summary: 開始・選択・解決・終了の4段階を光らせる。
+summary: ラウンド開始・選択フェーズ・解決フェーズ・ラウンド終了の現在地を光らせる。
 steps: 4
 props: []
 ---
 
 # 段階表示
 
-子の `[data-phase]` を4個、この順に置く。各段階0.8秒。k=0は開始を示す。
+子の `[data-phase]` を4個置く。文言は部品が「ラウンド開始・選択フェーズ・解決フェーズ・ラウンド終了」にそろえる。各段階0.8秒。k=0はラウンド開始を示す。
 
 使い方の断片は [demo.html](demo.html)。CSS・必要素材・確認デッキの組立は [共通README](../../README.md) を参照。部品はデッキの components/phase/index.js へコピーする。すべての表示を(k,t)から復元し、t=Infinityは段階の最終状態。独自タイマー・乱数・CSSアニメーションは使わない。
 
