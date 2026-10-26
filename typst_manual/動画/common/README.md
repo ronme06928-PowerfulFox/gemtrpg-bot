@@ -11,7 +11,7 @@
 | 一撃とHP | [impact-hp](components/impact-hp/README.md) | 1段階2.4秒。一撃の到着後にHP30→21、−9が浮かぶ。動画の説明用 |
 | FPの丸 | [fp](components/fp/README.md) | 勝利と効果の2段階。光と理由札を添えて0→1→3 |
 | 効果文の枠 | [effect-frame](components/effect-frame/README.md) | 2段階。r3-v2と同じ3.5秒のタイミング枠、次の段階の0.7秒で全文へ拡張 |
-| 背景 | [background](components/background/README.md) | 1段階0.8秒。格子から遺跡へ切替。画像ありでは格子を重ねない |
+| 背景 | [background](components/background/README.md) | 初期表示から採用した青空の遺跡を全面に表示。0.8秒で明るさを整える |
 | GMの吹き出し | [gm-bubble](components/gm-bubble/README.md) | 1段階0.6秒。円・目・口の仮アイコンと案内が盤面上部に出る |
 
 ### 組み込み方
@@ -60,9 +60,9 @@ node typst_manual/動画/scripts/verify-s1-grid.mjs $s1Engine --wsgi
 結果は `out/app-grid-before.png`、`out/app-grid-background.png`、`out/app-grid-removed.png` と `out/grid-report.json`。
 
 - 初期表示は90px格子。背景指定はCSSのグラデーションを画像URL1枚で置き換え、`contain / no-repeat / center` になる。画像の上にアプリの格子線は出ない。
-- 動画部品も画像ありでは格子を隠して中央contain表示にする。横長1184×414pxの動画盤面では画像の左右に地色が残る。アプリの2250px正方形盤面では画像上下に地色が残り、拡大率と表示範囲で見える場所が変わる。
-- アプリでは画像を外しても `backgroundSize/Repeat/Position` が残るため、初期の90px格子には戻らない。これは比較時に確認した現状。アプリは変更していない。動画部品は巻き戻し時に初期の153px格子（90px×1.7）へ戻す。
-- 石床の目地は距離のマス目ではない。立ち絵の太い輪郭・色の陰影と合わせて生成したが、背景の最終採否はS2で盤面全体の構図とともに確認する。
+- 採用後の動画部品は `object-fit:cover` で盤面を満たし、格子と左右の地色を出さない。既定の `object-position:center 65%` は空・階段・駒の足元を残す切り取り。カット側で `--battle-background-position` を指定して位置を調整できる。段階0・途中・最終・巻き戻しを通して画像を見せる。
+- アプリの2250px正方形盤面はcontain表示のままで、画像上下に地色が残る。実アプリ画面を使うカットでは、画像の範囲内に収まるよう表示倍率と撮影範囲を調整する。背景を外しても `backgroundSize/Repeat/Position` が残り初期の90px格子に戻らない点も比較時に確認した。アプリ本体は変更していない。
+- 石床の目地は距離のマス目ではない。2026-10-27、正面向き・青空の遺跡画像をユーザーが採用した。斜め通路の案や水彩調の案は採用していない。
 
 ### S1の検証結果
 

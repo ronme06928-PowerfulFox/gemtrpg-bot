@@ -46,10 +46,9 @@ m-effect-frame { --series-2: #d62828; position: absolute; top: 10px; left: 370px
 .s1-effect-name { color: var(--emph); font-size: 30px; margin-bottom: 22px; font-weight: bold; }
 [data-effect-text] { display: inline-flex; position: relative; white-space: nowrap; font-size: 27px; }
 [data-effect-frame] { position: absolute; top: -8px; left: -8px; height: calc(100% + 16px); border: 3px solid var(--series-2); border-radius: 8px; box-sizing: border-box; pointer-events: none; }
-m-background { display: block; position: absolute; inset: 0; border-radius: 10px; overflow: hidden; background: var(--muted); background-image: linear-gradient(var(--line) 1.7px, transparent 1.7px), linear-gradient(90deg, var(--line) 1.7px, transparent 1.7px); background-size: 153px 153px; }
-m-background.has-background { background-image: none; }
+m-background { display: block; position: absolute; inset: 0; border-radius: 10px; overflow: hidden; background: var(--muted); }
 [data-background-image] { position: absolute; inset: 0; background: var(--muted); }
-[data-background-image] img { width: 100%; height: 100%; object-fit: contain; display: block; }
+[data-background-image] img { width: 100%; height: 100%; object-fit: cover; object-position: var(--battle-background-position, center 65%); display: block; }
 m-gm-bubble { position: absolute; left: 24px; top: 8px; display: block; }
 [data-gm-panel] { display: flex; align-items: center; gap: 16px; width: 660px; color: var(--fg); }
 .s1-gm-icon { flex: 0 0 76px; width: 76px; height: 76px; }

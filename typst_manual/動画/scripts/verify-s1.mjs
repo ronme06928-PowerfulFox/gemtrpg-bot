@@ -26,6 +26,22 @@ try {
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   };
   const names = ['phase', 'dice-slot', 'dice-power', 'impact-hp', 'fp', 'effect', 'background', 'gm'];
+  // 採用背景は段階0・途中・最終のすべてで画像が全面を覆い、格子を露出しない。
+  for (const [k, t] of [[0, null], [1, 0], [1, 0.4], [1, null]]) {
+    await seek(6, k, t);
+    const bg = await page.locator('#s-background m-background').evaluate((el) => {
+      const image = el.querySelector('img');
+      const box = el.getBoundingClientRect();
+      const s = getComputedStyle(image);
+      const scale = Math.max(box.width / image.naturalWidth, box.height / image.naturalHeight);
+      return { fit: s.objectFit, grid: getComputedStyle(el).backgroundImage,
+        opacity: Number(getComputedStyle(el.querySelector('[data-background-image]')).opacity),
+        covers: image.naturalWidth * scale >= box.width && image.naturalHeight * scale >= box.height };
+    });
+    assert.equal(bg.fit, 'cover');
+    assert.equal(bg.grid, 'none');
+    assert.ok(bg.opacity >= 0.85 && bg.covers, '初期表示から盤面の全面を背景画像で覆う');
+  }
   // 初回の縮小画像ラスタライズを済ませてから、時刻移動の比較を始める。
   for (let i = 0; i < names.length; i++) {
     await seek(i, 1, null);

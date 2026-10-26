@@ -44,7 +44,7 @@ const cases = [
   { id: 'impact', title: '一撃 → HP（動画の説明用）', steps: 1, content: `<div class="s1-board app-board"><m-impact-hp>${json({ hp: 30, max: 30, damage: 9 })}${actor()}${actor(true, { hp: true })}<span data-hit></span><span data-damage data-readable></span></m-impact-hp></div>` },
   { id: 'fp', title: 'FPの丸：勝利と効果', steps: 2, content: `<div class="s1-board app-board">${actor(false, { animatedFp: true })}${actor(true)}</div>` },
   { id: 'effect', title: '効果文の枠：タイミング → 全体', steps: 2, content: `<div class="s1-board app-board">${actor()}${actor(true)}${effect}</div>` },
-  { id: 'background', title: '背景：格子 → 遺跡', steps: 1, content: `<div class="s1-board app-board">${boardBackground}${actor()}${actor(true)}</div>` },
+  { id: 'background', title: '背景：青空の遺跡', steps: 1, content: `<div class="s1-board app-board">${boardBackground}${actor()}${actor(true)}</div>` },
   { id: 'gm', title: 'GMの吹き出し（仮アイコン）', steps: 1, content: `<div class="s1-board app-board">${actor()}${actor(true)}${gm}</div>`, caption: '字幕の帯：下部を案内と分けて使います。' }
 ];
 const timeline = {};
