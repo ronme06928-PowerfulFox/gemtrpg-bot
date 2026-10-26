@@ -184,6 +184,12 @@ Manual14 由来の UI 改善のうち、画面構造として恒常化した内�
 - 検証（2026-10-18）：実際のSocket購読を使うNode回帰テストで、初回表示・連続抑制・消去・静穏後の再表示・固定文言・非モーダルを確認。権限と移動差分の関連23テスト、全件916 passed / 2 skipped、フロントエンドビルドが成功。ローカル通常ルームのPLで、自分の駒の配置成功と、敵の「配置」拒否時のトースト表示・自動消去をブラウザ確認した。確認幅は1265px。
 - 削除・サイズ変更への拡張検証（2026-10-18）：非所有者の他人・敵への操作、持ち主・GMの正常操作、戦闘専用モード、非在室、対象不在を検証。拒否時にアクティブマッチ・保存・更新配信が変わらず、要求元だけへ通知されることを確認した。両イベントの通知表示・連打抑制をNodeで検証し、関連38件と全件933 passed / 2 skippedが成功。再ビルド・文字検査を実施。今回の削除・サイズ変更のブラウザ実機確認は未実施。
 
+### 8.6 盤面の背景画像（2026-10-27）
+
+- `#game-map` の初期表示は `visual_map.css` が描く90px格子（`linear-gradient` 2本、`background-size: 90px 90px`）とする。
+- `battle_map_data.background_image` があるときは、`visual_map.js` の `applyBattleMapBackground` が `#game-map` のインラインに `background-image`・`background-size: contain`・`background-repeat: no-repeat`・`background-position: center` を設定する。
+- 背景がないときは、上記4つのインライン指定をすべて外す。これにより背景を外した後も CSS の90px格子に戻る（以前は `background-image` だけを外し、`contain` などが残って格子が崩れていた）。
+
 
 ---
 

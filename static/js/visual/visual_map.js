@@ -95,6 +95,25 @@ window.selectBoardRenderState = function (presentationState, liveStoreState, leg
     return legacyState || presentationState || liveStoreState;
 };
 
+// 背景なしでは全インライン指定を外し、visual_map.css の90px格子に戻す
+window.applyBattleMapBackground = function (mapEl, backgroundImage) {
+    const style = mapEl.style;
+    if (!backgroundImage) {
+        style.backgroundImage = '';
+        style.backgroundSize = '';
+        style.backgroundRepeat = '';
+        style.backgroundPosition = '';
+        return;
+    }
+    const newBg = `url('${backgroundImage}')`;
+    if (style.backgroundImage !== newBg.replace(/'/g, '"') && style.backgroundImage !== newBg) {
+        style.backgroundImage = newBg;
+    }
+    style.backgroundSize = 'contain';
+    style.backgroundRepeat = 'no-repeat';
+    style.backgroundPosition = 'center';
+};
+
 window.renderVisualMap = function () {
     const tokenLayer = document.getElementById('map-token-layer');
     if (!tokenLayer) return;
@@ -111,18 +130,7 @@ window.renderVisualMap = function () {
     // Background Image Handling
     const mapEl = document.getElementById('game-map');
     if (mapEl && renderState?.battle_map_data) {
-        const bgData = renderState.battle_map_data;
-        if (bgData.background_image) {
-            const newBg = `url('${bgData.background_image}')`;
-            if (mapEl.style.backgroundImage !== newBg.replace(/'/g, '"') && mapEl.style.backgroundImage !== newBg) {
-                mapEl.style.backgroundImage = newBg;
-            }
-            mapEl.style.backgroundSize = 'contain';
-            mapEl.style.backgroundRepeat = 'no-repeat';
-            mapEl.style.backgroundPosition = 'center';
-        } else {
-            mapEl.style.backgroundImage = '';
-        }
+        window.applyBattleMapBackground(mapEl, renderState.battle_map_data.background_image);
     }
 
     if (!renderState || !Array.isArray(renderState.characters)) return;
