@@ -2,7 +2,10 @@
 // DOM順で最後に置く。子部品はsteps=0で自律進行せず、全状態を毎フレーム再計算する。
 DECK.define('m-round-cut', class extends DECK.MotionElement {
   static shape = { schema: { type: 'object', required: ['id', 'phase', 'wordLead'], properties: { id: { type: 'string' }, phase: { type: 'integer', minimum: 1, maximum: 4 }, wordLead: { type: 'number', minimum: 0 } } } };
-  mount() { this.root = this.closest('section'); }
+  mount() {
+    this.root = this.closest('section');
+    if (this.root.id === 's-intro') document.addEventListener('deck:ready', () => DECK.captions(true), { once: true });
+  }
   duration(k) { return k ? DECK.TIMING[`${this.root.id}:${k}`]?.dur || 0 : 0; }
   render(k, t) {
     const root = this.root;

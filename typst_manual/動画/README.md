@@ -164,7 +164,7 @@ node typst_manual/動画/scripts/verify-round-boundaries.mjs deck-v2-latest.html
 npm --prefix $egatariDir run sheet -- $deckDir --tiles --cols 3 --width 426
 ```
 
-- HTMLは通信不要。Aキーで声付き自動再生、Sキーで字幕、左右で段階移動。クレジットは声の終了後5秒です。配布には通常の `--embed-audio` を使い、編集用portableは使いません。
+- HTMLは通信不要。字幕は開いたときからONで、操作バーの少し上（下端54px）に固定します。Aキーで声付き自動再生、Sキーで字幕の表示切替、左右で段階移動。クレジットは声の終了後5秒です。配布には通常の `--embed-audio` を使い、編集用portableは使いません。字幕本文は台本から埋め込み、初期表示はround-cutがdeck:ready時に有効にします。
 - 生成入力の共通部品・motion.css・背景画像はprepareが写し、Git管理から除外します。共通部品を直接直し、写しを手編集しません。12カット固有の配線だけがcomponents/round-cutにあります。
 - 原音のhashは声の識別・読み上げ文・音声設定から作ります。S2-2初版ではC02の同期用5原音とC11追加2文を生成し、20原音は再利用。今回の冒頭改訂はスロット説明だけ1原音を生成し、残り26原音を再利用しました。タイトル用チャイムはPCM合成です。
 - 初回の内訳は `out/s2-voice-first-generation.json`、通常の音声・cue・SE・ピークは `out/audio-report-plus6.json`。古い台本の流用や欠損音声の無音置換は行いません。

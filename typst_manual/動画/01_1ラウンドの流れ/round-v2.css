@@ -32,7 +32,11 @@
 m-round-cut { display: none; }
 .v2-slide m-fp [data-fp-reason] { left: -170px; top: -90px; min-width: 130px; box-sizing: border-box; }
 #deck-cap { bottom: 12px !important; font-size: 27px !important; }
+/* 操作バーの出入りで字幕を動かさず、バーの上に固定する。 */
+html:not([data-mode="video"]) #deck-cap { bottom: 54px !important; transform: none !important; transition: none !important; }
 #deck-cap .cap-line { font-size: 27px !important; line-height: 1.25 !important; }
+/* 初回表示と再表示で文字のアンチエイリアスが切り替わらないようにする。 */
+#deck-cap .cap-line { transform: translateZ(0); }
 
 .v2-slide .enemy m-fp [data-fp-reason] { left: 210px; }
 [data-first-die], [data-first-face], [data-first-face] svg { display: block; width: 60px; height: 60px; }
