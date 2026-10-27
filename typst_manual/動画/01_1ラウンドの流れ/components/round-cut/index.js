@@ -68,7 +68,7 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     }
     if (id.startsWith('power-')) {
       const ally = id === 'power-ally';
-      const time = ally ? after(1, word(1, 3)) : after(1, cue(id) - 2.4);
+      const time = ally ? after(1, word(1, 3)) : after(1);
       draw(q('m-dice'), time);
       show(q('m-dice [data-die]'), time >= 0);
       show(q('m-dice [data-first-die]'), time >= 0);
@@ -77,7 +77,7 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
       q('[data-dice-total]').style.display = time >= 2.4 ? '' : 'none';
       if (time < 2.4) { q('[data-dice-target]').textContent = ally ? '1d3' : '1d2'; q('[data-dice-target]').style.opacity = '1'; }
       if (ally) ['power-base', 'power-die', 'power-physical'].forEach((name, i) => light(name, 1, word(1, i), word(1, i + 1)));
-      show(q('.v2-compare'), time >= 2.4);
+      show(q('.v2-compare'), !ally && k === 2 && t >= cue(id));
     }
     if (id === 'damage') {
       const hpTime = after(1, cue('enemy-hp') - .8);

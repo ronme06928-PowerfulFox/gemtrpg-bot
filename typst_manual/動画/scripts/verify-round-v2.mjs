@@ -16,9 +16,10 @@ assert.equal(audio.voice.speaker, '冥鳴ひまり');
 const rolls = audio.segments.flatMap((s) => s.effects.filter((e) => e.sound === 'dice').map((e) => ({ key: s.key, at: e.at, cues: s.cues })));
 assert.equal(rolls.length, 4);
 assert.deepEqual(rolls.map((r) => r.key), ['s-speed:1', 's-speed:1', 's-power-ally:1', 's-power-enemy:1']);
-for (const [i, offset, cueIndex] of [[0, 1.32, 0], [1, 1.72, 0], [2, 1.32, 3], [3, -1.3, 0]]) {
+for (const [i, offset, cueIndex] of [[0, 1.32, 0], [1, 1.72, 0], [2, 1.32, 3]]) {
   assert.ok(Math.abs(rolls[i].at - rolls[i].cues[cueIndex] - offset) < .001, '出目停止で陣営ごとに1回');
 }
+assert.equal(rolls[3].at, 1.1, '敵の確定音も語りより前のダイス停止時');
 assert.equal(audio.segments.find((s) => s.key === 's-speed:3').effects.length, 0, '変化のないスロット紹介へ旧SEを残さない');
 const hash = (p) => createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 assert.equal(hash(path.join(deck, 'sfx/imported/dice-roll.mp3')), hash(path.join(video, '../../static/audio/dice-roll.mp3')));
@@ -38,7 +39,7 @@ try {
     window.Audio.prototype = NativeAudio.prototype;
   });
   await page.route(/^https?:/, (route) => route.abort());
-  await page.goto(fileUrl(path.join(deck, 'out/deck-v2-sync.html')) + '?mode=video&captions=1', { waitUntil: 'domcontentloaded' });
+  await page.goto(fileUrl(path.join(deck, 'out/deck.html')) + '?mode=video&captions=1', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => DECK.ready);
   console.log('Browser loaded');
   await page.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.images].map((e) => e.decode())); });
@@ -47,8 +48,8 @@ try {
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   };
   const timeline = await page.evaluate(() => DECK.timeline());
-  assert.equal(timeline.filter((s) => s.audio && s.k > 0).length, 22);
-  assert.equal(timeline.filter((s) => s.audio).length, 23);
+  assert.equal(timeline.filter((s) => s.audio && s.k > 0).length, 23);
+  assert.equal(timeline.filter((s) => s.audio).length, 24);
   assert.equal(timeline[0].dur, 2.6);
   timeline.filter((s) => s.audio && s.k > 0).forEach((s) => assert.ok(s.anim >= s.dur - .02, `字幕の後半まで描画: ${s.key}`));
   const states = [];
@@ -171,7 +172,7 @@ try {
     }
     await ctx.close(); return result;
   });
-  assert.equal(decoded.length, 23);
+  assert.equal(decoded.length, 24);
   decoded.forEach((a) => assert.ok(a.peak > .1 && a.peak < .98 && a.embedded, a.key));
   await page.evaluate(() => DECK.go(0, 0, false));
   await page.keyboard.press('a');
@@ -188,5 +189,5 @@ try {
   await page.screenshot({ path: path.join(out, 'opening.png') });
   await seek(0, 1, 0);
   assert.equal(await page.locator('.video-opening').evaluate((e) => getComputedStyle(e).visibility), 'hidden');
-  console.log(`v2 verified: ${states.length} rewind states, 22 voice + title audio, ${report.duration.toFixed(2)}s`);
+  console.log(`v2 verified: ${states.length} rewind states, 22 voice + title and dice audio, ${report.duration.toFixed(2)}s`);
 } finally { await browser.close(); }

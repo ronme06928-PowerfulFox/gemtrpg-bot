@@ -101,7 +101,7 @@ export async function prepareVoice(deck, engine, { boost = 6, credits = false } 
     assert.equal(joined.cues.length, s.bounds.length, `markの数が一致: ${key}`);
     const dur = Math.ceil((joined.samples.length / sr + event.tail) * 100) / 100;
     const mix = new Float32Array(Math.round(dur * sr));
-    mix.set(normalizeVoice(joined.samples));
+    if (joined.samples.length) mix.set(normalizeVoice(joined.samples));
     const cues = joined.cues.map((x) => +x.toFixed(4));
     const effectLog = [];
     for (const effect of event.effects) {

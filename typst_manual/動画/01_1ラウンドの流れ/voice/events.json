@@ -81,14 +81,17 @@
     "effects": []
   },
   "s-power-enemy:1": {
-    "tail": 1.2,
+    "tail": 2.6,
     "effects": [
       {
         "sound": "dice",
-        "mark": "power-enemy",
-        "offset": -1.3
+        "at": 1.1
       }
     ]
+  },
+  "s-power-enemy:2": {
+    "tail": 1.2,
+    "effects": []
   },
   "s-damage:1": {
     "tail": 2.8,

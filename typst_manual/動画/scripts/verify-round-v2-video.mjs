@@ -37,7 +37,7 @@ const cases = [
   ['s-intro:2', cue('s-intro:2', 1) + .1, cue('s-intro:2', 1) + .4],
   ['s-speed:1', cue('s-speed:1') + .42, cue('s-speed:1') + 1.62],
   ['s-power-ally:1', cue('s-power-ally:1', 3) + .42, cue('s-power-ally:1', 3) + 1.62],
-  ['s-power-enemy:1', cue('s-power-enemy:1') - 1.6, cue('s-power-enemy:1') - .4],
+  ['s-power-enemy:1', .8, 2],
   ['s-damage:1', cue('s-damage:1') - .5, cue('s-damage:1') + .7],
   ['s-damage:2', cue('s-damage:2') + .2, cue('s-damage:2') + .9],
   ['s-effect-timing:1', 3.55, 4.1], ['s-effect-fp:1', .1, .65],

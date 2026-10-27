@@ -21,7 +21,7 @@ const read = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const credits = read(path.join(deck, 'credits.json'));
 credits.credits = credits.credits.filter((x) => x.label !== '背景');
 credits.credits.push({ label: '背景', value: 'Codex画像生成（OpenAI）' });
-const counts = [2, 2, 3, 2, 1, 2, 1, 3, 1, 2, 3];
+const counts = [2, 2, 3, 2, 1, 2, 2, 3, 1, 2, 3];
 const voiceConfig = read(path.join(deck, 'voice/config.json'));
 const wordLead = voiceConfig.partGap + voiceConfig.prePhonemeLength;
 const pair = (a = {}, b = {}) => actor(false, a) + actor(true, b);
