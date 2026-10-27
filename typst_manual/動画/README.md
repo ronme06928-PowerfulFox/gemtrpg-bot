@@ -6,6 +6,8 @@
 
 確認用の単一HTMLは `out/deck-v2-sync.html`、字幕付きMP4は `out/v2-sync/full.mp4`、各カットのPNGは `out/v2-sync-review/`（いずれも01_1ラウンドの流れ/内、Git管理外）。正本は[計画54](../../manuals/planned/54_Explainer_Video_Series_Plan.md)。通し確認後までF01への統合と計画53の完了処理は行いません。
 
+直近のC07・C04の部分修正は `out/deck-v2-enemy-boundaries.html`、短い動画と比較画像は `out/v2-enemy-boundaries/` です。上記の本編MP4は直前の全編版として保存し、部分修正後の本編全体は仕上げの確認まで書き出しません。
+
 味方HP100・MP10・FP0、敵HP30・MP6・FP0から始め、使用コストなしの基本の一太刀を使います。冥鳴ひまり／VOICEVOX 0.26.0、SE＋6dB、ダイス確定音4回、共通クレジット5秒を引き継ぎます。背景は採用済みの遺跡を全面coverで表示します。
 
 R1は比較記録として変更せず、旧r3-v2のHTML・MP4も保存します。旧本編専用のround-video、deck.css、battle_scenes.cssと生成・検証経路はv2へ置き換えました。R3の原稿はローカルGitの0f96e35以前に残っています。[計画53](../../manuals/planned/53_Explainer_Video_Plan.md)と[旧絵コンテ](01_1ラウンドの流れ/storyboard-r2.md)は当時の記録です。
@@ -39,6 +41,14 @@ R1は比較記録として変更せず、旧r3-v2のHTML・MP4も保存します
 - 実MP4を最後まで読み込み、クリップがないこと、最後の5秒、すべての場面の境目の前後1秒（0.1秒ごとのコマ）を確かめます。
 - 巻き戻しと途中への移動、HTMLのオフライン再生、ルールの数値（速度・威力・HP・FP）、GMの吹き出しと操作ガイドの手順、文字の大きさ、ロゴを確かめます。
 - 結果は計画54§11と、このREADMEの検証結果の節に残します。
+
+### C07と境目の修正方針（2026-10-27）
+
+C07は段階1をダイスだけの2.6秒、段階2を従来の語りにし、式は段階1で確定させます。比較札は段階2の文末markの後に表示します。読み上げる文字と4回の確定音は維持します。C04の白さは、マッチ矢印のspotが周囲を白く覆うことが原因なので、白い覆いのないcircleへ変えます。修正場面は--onlyで生成し、境目は全11か所の前後1秒を0.1秒刻みの短い確認映像で調べます。本編全体は書き出しません。
+
+再現は通常のprepare（--voice）とbuild（--embed-audio）の後、出力HTMLを `out/deck-v2-enemy-boundaries.html` へコピーします。`verify-round-boundaries.mjs` がC07と全境目を検査し、231枚のPNGを保存します。rendererの--onlyには `s-selection:2,s-resolve:0,s-resolve:1,s-power-enemy:0,s-power-enemy:1,s-power-enemy:2`、--outには `out/v2-enemy-boundaries/render` を指定します。未選択の29段階がないという通知は部分生成のためで、全編へは連結しません。指定Pythonで `scripts/verify-round-boundaries-video.py`（この動画フォルダ内）を実行すると、選択した6クリップの入力を照合し、`revised-scenes.mp4`・`all-boundaries.mp4`・`comparison.png`・`all-boundaries.png` と実コマの照合記録を作ります。境目用MP4は0.1秒ごとの画像を10fpsで並べた確認用の無音動画です。
+
+確認結果：品質エラー0・警告13（語りなしのダイス段階が1件追加）、10テスト通過。全11境目の231コマと巻き戻し、実MP4との画素照合、C07の語り中21コマで出目・＝6・文末の比較表示を確認しました。比較画像と境目一覧も目視確認済みです。声の再生成は0、35原音すべてキャッシュを使い、確定音は合計4回のままです。修正場面の動画は約21.3秒、全境目の確認動画は23.1秒で、両方とも最後までデコードできました。
 
 ## 版と環境
 
