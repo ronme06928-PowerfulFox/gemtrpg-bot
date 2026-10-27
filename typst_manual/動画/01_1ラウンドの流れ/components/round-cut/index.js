@@ -20,6 +20,7 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     const after = (step, at = 0) => k > step ? Infinity : k < step ? -Infinity : t - at;
     const draw = (el, time, step = 1) => { if (el) el.render(time < 0 ? 0 : step, Math.max(0, time)); };
     const id = this.data.id;
+    show(q('.video-opening'), id === 'intro' && k === 0);
     const phases = q('m-phase');
     draw(phases, Infinity, id === 'resolve' && (k === 0 || t < 1.2) ? 2 : this.data.phase);
     all('[data-phase]').forEach((el) => { el.style.outline = 'none'; el.style.outlineOffset = '3px'; });

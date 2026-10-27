@@ -36,7 +36,7 @@ try {
     window.Audio.prototype = NativeAudio.prototype;
   });
   await page.route(/^https?:/, (route) => route.abort());
-  await page.goto(fileUrl(path.join(deck, 'out/deck-v2.html')) + '?mode=video&captions=1', { waitUntil: 'domcontentloaded' });
+  await page.goto(fileUrl(path.join(deck, 'out/deck-v2-opening.html')) + '?mode=video&captions=1', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => DECK.ready);
   console.log('Browser loaded');
   await page.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.images].map((e) => e.decode())); });
@@ -45,8 +45,10 @@ try {
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   };
   const timeline = await page.evaluate(() => DECK.timeline());
-  assert.equal(timeline.filter((s) => s.audio).length, 22);
-  timeline.filter((s) => s.audio).forEach((s) => assert.ok(s.anim >= s.dur - .02, `字幕の後半まで描画: ${s.key}`));
+  assert.equal(timeline.filter((s) => s.audio && s.k > 0).length, 22);
+  assert.equal(timeline.filter((s) => s.audio).length, 23);
+  assert.equal(timeline[0].dur, 2.6);
+  timeline.filter((s) => s.audio && s.k > 0).forEach((s) => assert.ok(s.anim >= s.dur - .02, `字幕の後半まで描画: ${s.key}`));
   const states = [];
   for (const s of timeline) {
     for (const t of s.k ? [0, s.dur / 2, s.dur - .01] : [0]) {
@@ -167,16 +169,21 @@ try {
     }
     await ctx.close(); return result;
   });
-  assert.equal(decoded.length, 22);
+  assert.equal(decoded.length, 23);
   decoded.forEach((a) => assert.ok(a.peak > .1 && a.peak < .98 && a.embedded, a.key));
   await seek(0, 1, 0); await page.keyboard.press('a');
   await page.waitForFunction(() => window.__players.some((a) => a.currentTime > .2), { timeout: 10000 });
-  await page.keyboard.press('a');
+  await page.evaluate(() => { DECK.autoplay(false); DECK.go(0, 0, false); });
   assert.deepEqual(errors, []);
   assert.deepEqual(await page.evaluate(() => DECK.componentErrors), []);
   const credits = timeline.find((s) => s.i === 11);
   assert.equal(credits.dur, 5);
   const report = { states, pngRewinds, decoded, rolls, contrast, timeline, duration: timeline.reduce((n, s) => n + s.dur, 0), offlinePlayback: true, errors };
   fs.writeFileSync(path.join(out, 'browser-report.json'), JSON.stringify(report, null, 2) + '\n');
-  console.log(`v2 verified: ${states.length} rewind states, 22 embedded audio segments, ${report.duration.toFixed(2)}s`);
+  await seek(0, 0, .2);
+  assert.equal(await page.locator('.video-opening').evaluate((e) => getComputedStyle(e).visibility), 'visible');
+  await page.screenshot({ path: path.join(out, 'opening.png') });
+  await seek(0, 1, 0);
+  assert.equal(await page.locator('.video-opening').evaluate((e) => getComputedStyle(e).visibility), 'hidden');
+  console.log(`v2 verified: ${states.length} rewind states, 22 voice + title audio, ${report.duration.toFixed(2)}s`);
 } finally { await browser.close(); }

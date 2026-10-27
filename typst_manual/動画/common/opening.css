@@ -1,0 +1,5 @@
+.video-opening { position: absolute; inset: 0; z-index: 10; background: #fffdfb; color: #222; text-align: center; }
+.opening-logo { position: absolute; left: 510px; top: 118px; width: 260px; height: 146px; object-fit: contain; }
+.opening-project { position: absolute; top: 289px; left: 0; right: 0; font-size: 27px; color: #555; }
+.opening-title { position: absolute; top: 357px; left: 60px; right: 60px; font-size: 64px; line-height: 1.4; font-weight: bold; }
+.opening-rule { position: absolute; top: 482px; left: 300px; right: 300px; height: 3px; background: #ad2840; }

@@ -18,8 +18,8 @@
     "pad_after": 0
   },
   "s-slots:2": {
-    "hold": 7.02,
-    "dur": 7.02,
+    "hold": 10.25,
+    "dur": 10.25,
     "lead": 0,
     "pad_after": 0
   },
@@ -132,8 +132,10 @@
     "pad_after": 0
   },
   "s-intro:0": {
-    "dur": 0.6,
-    "hold": 0.6
+    "dur": 2.6,
+    "hold": 2.6,
+    "lead": 0,
+    "pad_after": 0
   },
   "s-slots:0": {
     "dur": 0.6,

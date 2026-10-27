@@ -4,7 +4,7 @@
 
 計画54 S2-2の「1ラウンドの流れ」v2を、承認済みの12カットと共通の7部品で制作・検証しました。[絵コンテ](01_1ラウンドの流れ/storyboard-v2.md)・[追加2文の承認記録](01_1ラウンドの流れ/narration-v2-proposal.md)・[台本](01_1ラウンドの流れ/narration.md)が対応します。
 
-確認用の単一HTMLは `out/deck-v2.html`、字幕付きMP4は `out/v2/full.mp4`、各カットのPNGは `out/v2-review/`（いずれも01_1ラウンドの流れ/内、Git管理外）。正本は[計画54](../../manuals/planned/54_Explainer_Video_Series_Plan.md)。通し確認後までF01への統合と計画53の完了処理は行いません。
+確認用の単一HTMLは `out/deck-v2-opening.html`、字幕付きMP4は `out/v2-opening/full.mp4`、各カットのPNGは `out/v2-review/`（いずれも01_1ラウンドの流れ/内、Git管理外）。正本は[計画54](../../manuals/planned/54_Explainer_Video_Series_Plan.md)。通し確認後までF01への統合と計画53の完了処理は行いません。
 
 味方HP100・MP10・FP0、敵HP30・MP6・FP0から始め、使用コストなしの基本の一太刀を使います。冥鳴ひまり／VOICEVOX 0.26.0、SE＋6dB、ダイス確定音4回、共通クレジット5秒を引き継ぎます。背景は採用済みの遺跡を全面coverで表示します。
 
@@ -98,25 +98,25 @@ $videoTemp = Join-Path (Get-Location) 'typst_manual/動画/_local/media-temp'
 New-Item -ItemType Directory -Force -Path $videoTemp | Out-Null
 $env:TEMP = $videoTemp
 $env:TMP = $videoTemp
-node --test typst_manual/動画/scripts/test-r1-audio.mjs typst_manual/動画/scripts/test-credits.mjs typst_manual/動画/scripts/test-round-v2.mjs
+node --test typst_manual/動画/scripts/test-r1-audio.mjs typst_manual/動画/scripts/test-credits.mjs typst_manual/動画/scripts/test-round-v2.mjs typst_manual/動画/scripts/test-opening.mjs
 node typst_manual/動画/scripts/prepare-round-v2.mjs $egatariDir --voice
 npm --prefix $egatariDir run build -- "$deckDir/deck.html" --embed-audio
-Copy-Item -LiteralPath "$deckDir/out/deck.html" -Destination "$deckDir/out/deck-v2.html"
+Copy-Item -LiteralPath "$deckDir/out/deck.html" -Destination "$deckDir/out/deck-v2-opening.html"
 npm --prefix $egatariDir run check -- "$deckDir/deck.html"
 node typst_manual/動画/scripts/verify-round-v2.mjs $egatariDir
 npm --prefix $egatariDir run sheet -- $deckDir --tiles --cols 3 --width 426
-node "$egatariDir/render/render.mjs" "$deckDir/out/deck-v2.html" --out "$deckDir/out/v2" --full --fps 24 --scale 1 --captions
+node "$egatariDir/render/render.mjs" "$deckDir/out/deck-v2-opening.html" --out "$deckDir/out/v2-opening" --full --fps 24 --scale 1 --captions
 node typst_manual/動画/scripts/verify-round-v2-video.mjs
 ```
 
 - HTMLは通信不要。Aキーで声付き自動再生、Sキーで字幕、左右で段階移動。クレジットは声の終了後5秒です。配布には通常の `--embed-audio` を使い、編集用portableは使いません。
 - 生成入力の共通部品・motion.css・背景画像はprepareが写し、Git管理から除外します。共通部品を直接直し、写しを手編集しません。12カット固有の配線だけがcomponents/round-cutにあります。
-- 原音のhashは声の識別・読み上げ文・音声設定から作ります。今回の初回はC02の同期用5原音とC11追加2文を生成し、20原音は再利用。以後の再生成は27原音すべてキャッシュです。
+- 原音のhashは声の識別・読み上げ文・音声設定から作ります。S2-2初版ではC02の同期用5原音とC11追加2文を生成し、20原音は再利用。今回の冒頭改訂はスロット説明だけ1原音を生成し、残り26原音を再利用しました。タイトル用チャイムはPCM合成です。
 - 初回の内訳は `out/s2-voice-first-generation.json`、通常の音声・cue・SE・ピークは `out/audio-report-plus6.json`。古い台本の流用や欠損音声の無音置換は行いません。
-- `out/v2-review/browser-report.json` は途中・巻き戻し・オフライン音声・コントラストの検証記録、`out/v2/video-report.json` は実MP4の測定記録です。
+- `out/v2-review/browser-report.json` は途中・巻き戻し・オフライン音声・コントラストの検証記録、`out/v2-opening/video-report.json` は実MP4の測定記録です。
 - 静止絵コンテの221秒は見積もりでした。実際の声からタイムラインを作り、尺合わせの静止は足しません。
 
-## S2-2の検証結果（2026-10-27）
+## S2-2初版の検証結果（2026-10-27、冒頭改訂前）
 
 - 実MP4は174.398209秒（2分54.398秒）、4185フレーム、1280×720・24fps、H.264＋AAC。全編デコードを通過し、最大ピーク-7.5dBFS。末尾5秒は120フレームの共通クレジットです。
 - npm run checkはエラー0・警告12（無言の入場段階11か所とクレジットのみ）。非表示の長すぎる見出しをR-titleが検出する負例も確認しました。ユニットテスト6件、S1の65時刻の回帰検査も通過。
@@ -124,6 +124,14 @@ node typst_manual/動画/scripts/verify-round-v2-video.mjs
 - 単一HTMLの22音声を全デコードし、通信を遮断して再生を確認。外部アセット参照・個人のファイルパスはなく、ロゴ・立ち絵のPNGは元のSHA-256と一致します。
 - 今回は--onlyで3群を並列生成し、正規rendererの--fullで全34入力と最終／中間PNGを再照合して連結しました。部分生成の終了コード2は未選択クリップが未生成であるという通知で、最終timeline.out.jsonはcomplete=true。上の通常の一括手順でも再生成できます。
 - 実MP4の12か所のフレーム変化と、締め・最後のクレジットを確認。詳細はout/v2/video-report.json、画像は同フォルダのmotion-*.png・ending-caption.png・credits-end.pngです。ユーザーの通し確認を待ち、F01統合と計画53の完了処理は保留します。
+
+## 冒頭改訂（2026-10-27）
+
+スロットの語りをユーザー指定の2文へ差し替え、冒頭は2.6秒のタイトルカード＋自作3音チャイムを表示します。声は冥鳴ひまりのまま、C02[2]だけ生成し、ほか21段階の26原音はキャッシュを使いました。本文の見出しは非表示を維持します。
+
+common/opening.mjs・opening.cssが共通の題名とSEを作り、C01の段階0へ配置します。タイトル中は語りを入れず、段階1から盤面と既存の冒頭の語りに切り替えます。最初のフレームと巻き戻しで同じタイトルへ戻ります。SEの由来はsfx/README.md。
+
+確認HTMLはout/deck-v2-opening.html、MP4はout/v2-opening/full.mp4、冒頭とスロット説明だけの見本は同フォルダのopening-and-slots.mp4、タイトルPNGはopening.png。旧out/deck-v2.html・out/v2/full.mp4は比較用に保存します。声の生成記録はout/voice-opening-revision.json。
 
 ## テーマの共有
 

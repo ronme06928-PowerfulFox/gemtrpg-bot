@@ -123,3 +123,7 @@ node "$creditsEgPlugin/render/render.mjs" "$creditsPreview/out/deck.html" --out 
 ## S2-2本編での呼び出し
 
 prepare-round-v2.mjsが7部品とCSS・背景を本編の生成入力へコピーする。写しはGit管理外。カット固有のround-cutはDOM順の末尾に置き、steps=0の各共通部品を音声cueから描き直す。数値や強調を前フレームから持ち越さない。2個の威力ダイスにも対応したが、本編以外の選択肢は追加しない。
+
+## 冒頭のタイトルとSE
+
+各回の題名を読む時間と短いSEを冒頭に置く方針を2026-10-27に追加。今回の制作値は2.6秒。opening.mjsのrenderOpeningに題名を渡し、opening.cssで未加工ロゴ・題名・ルビー色の線を表示する。writeOpeningAudioは自作チャイムを最初の段階0に置く。SEは−22dBFS基準＋6dB。VOICEVOXの語りは段階1からで、タイトル中に字幕やGMは出さない。ほかの見出しは非表示を維持する。

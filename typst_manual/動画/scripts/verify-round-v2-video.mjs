@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 const video = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const deck = path.join(video, '01_1ラウンドの流れ');
-const out = path.join(deck, 'out/v2');
+const out = path.join(deck, 'out/v2-opening');
 const ff = 'C:/Users/yharu/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.1-full_build/bin';
 const run = (program, args) => {
   const r = spawnSync(path.join(ff, program + '.exe'), args, { maxBuffer: 64 * 1024 * 1024 });
@@ -53,10 +53,18 @@ for (const [key, before, after] of cases) {
 }
 const last = render.segments.at(-1);
 assert.equal(last.key, 's-credits:0'); assert.equal(last.frames, 120); assert.equal(last.clipDur, 5);
+const opening = render.segments[0];
+assert.equal(opening.key, 's-intro:0'); assert.equal(opening.frames, 62);
+const openingLevel = run('ffmpeg', ['-hide_banner', '-i', path.join(out, opening.clip), '-vn', '-af', 'volumedetect', '-f', 'null', '-']).stderr.toString('utf8');
+const openingPeakDb = +openingLevel.match(/max_volume: ([-\d.]+) dB/)[1];
+assert.ok(openingPeakDb > -22 && openingPeakDb < -10, '実MP4の冒頭チャイムが鳴り、クリップしない');
+run('ffmpeg', ['-v', 'error', '-y', '-ss', '0.5', '-i', full, '-frames:v', '1', path.join(out, 'opening.png')]);
+const previewEnd = render.segments.find((s) => s.key === 's-speed:0').clipStart;
+run('ffmpeg', ['-v', 'error', '-y', '-i', full, '-t', String(previewEnd), '-c', 'copy', path.join(out, 'opening-and-slots.mp4')]);
 // full.mp4から最後の画面を取り出す（クリップだけの検査で済ませない）。
 for (const [name, t] of [['ending-caption', last.clipStart - 1], ['credits-middle', last.clipStart + 2.5], ['credits-end', frames / 24 - .1]]) {
   run('ffmpeg', ['-v', 'error', '-y', '-ss', String(t), '-i', full, '-frames:v', '1', path.join(out, `${name}.png`)]);
 }
-const report = { probe, frames, peakDb, decode: 'full pass', motion, creditsSeconds: 5, timelineSeconds: render.segments.reduce((n, s) => n + s.dur, 0), encodedSeconds: +probe.format.duration };
+const report = { probe, frames, peakDb, openingPeakDb, decode: 'full pass', motion, creditsSeconds: 5, timelineSeconds: render.segments.reduce((n, s) => n + s.dur, 0), encodedSeconds: +probe.format.duration };
 fs.writeFileSync(path.join(out, 'video-report.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(`MP4: ${probe.format.duration}s, ${frames} frames, peak ${peakDb}dBFS, full decode passed`);
