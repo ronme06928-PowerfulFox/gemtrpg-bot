@@ -2,8 +2,8 @@
  * フロントエンドのバンドルビルド (esbuild)
  *
  * 出力:
- *   static/dist/app.bundle.js      … クラシック(グローバル共有)スクリプト35本を
- *                                     index.html の読み込み順に連結 + minify
+ *   static/dist/app.bundle.js      … クラシック(グローバル共有)スクリプトを
+ *                                     CLASSIC_SCRIPTS の順に連結 + minify
  *   static/dist/battle.bundle.js   … ESモジュール battle/index.js の import ツリーを
  *                                     bundle + minify
  *
@@ -28,8 +28,8 @@ const JS = path.join(STATIC, 'js');
 const DIST = path.join(STATIC, 'dist');
 const INDEX_HTML = path.join(STATIC, 'index.html');
 
-// === クラシックスクリプトの読み込み順（index.html と一致させること） ===
-// これがバンドル順序の単一の正。index.html を編集したらここも更新する。
+// === クラシックスクリプトの読み込み順 ===
+// これがバンドル順序の単一の正。index.html には個別の <script> を書かない。
 const CLASSIC_SCRIPTS = [
   'js/buff_data.js',
   'js/common/glossary_ui.js',

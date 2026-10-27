@@ -19,7 +19,7 @@
 
 - ジェムリアTRPG用ダイスボット。**Flask + Flask-SocketIO**（リアルタイム）。
 - 永続化は **PostgreSQL**（本番 Render）/ ローカルは SQLite。画像は **Cloudinary**、スキル等マスターデータは **Google Sheets** から取り込み JSON キャッシュ化。
-- デプロイ: **main へ push すると Render が自動デプロイ**（Render は Python 環境で **Node を持たない**）。
+- デプロイ: **main へ push すると Render が自動デプロイ**（Render は Python 環境で **Node を持たない**）。main への push は本番反映と同じなので、エージェントは commit / push をユーザーの指示があるときだけ行う。
 - バックエンド主要: `app.py`（ルート/起動）, `manager/`（ロジック層）, `events/`（Socket ハンドラ）, `models.py`。
 
 ## フロントエンド JS は必ずビルドする（最重要）
@@ -29,11 +29,11 @@
 
 **ルール:**
 1. JS/CSS の編集対象は **必ず `static/js/` と `static/css/`（および `static/styles.css`）のソース**。`static/dist/` の成果物は直接編集しない（ビルドで上書きされる）。
-2. `static/js/*` や `static/css/*`・`styles.css` を編集したら **`npm run build` を実行**してから起動・確認・コミットする。実行しないとブラウザに反映されず、リポジトリ上でソースと成果物が不整合になる。
+2. `static/js/*` や `static/css/*`・`styles.css` を編集したら **`npm run build` を実行**してから起動・確認・コミットする。実行しないとブラウザに反映されず、リポジトリ上でソースと成果物が不整合になる。ビルドは `index.html` の `?v=` も成果物のハッシュで書き換える。
 3. ビルド成果物 `static/dist/*`（`.map` 含む）は **リポジトリにコミットする**（Render に Node が無いため）。`node_modules/` は `.gitignore` 済み。
-4. `index.html` に **新しいクラシック JS を追加**する場合は、`scripts/build_frontend.mjs` の `CLASSIC_SCRIPTS` 配列にも **同じ順序**で追加する（ここがバンドル順の単一の正）。CSS の新モジュールは従来どおり `static/styles.css` に `@import` を追加すればよい（ビルドが自動でインライン化する）。
+4. **新しいクラシック JS** は `scripts/build_frontend.mjs` の `CLASSIC_SCRIPTS` 配列に依存順で追加する（ここがバンドル順の単一の正）。`index.html` に個別の `<script>` タグを書かない（バンドルと二重読み込みになり、トップレベル宣言が衝突する）。CSS の新モジュールは従来どおり `static/styles.css` に `@import` を追加すればよい（ビルドが自動でインライン化する）。
 5. 連結バンドルはグローバルスコープ共有方式を保つため **識別子の mangling は無効**（空白/構文圧縮のみ）。グローバル名（`window.X` や トップレベル関数）に依存するコードは安全。
-6. `static/mobile/` は別エントリで現状バンドル対象外。
+6. `static/mobile/` はバンドル対象外。モバイル版は開発停止中で `/mobile` とそのアセット配信も止めているため、編集依頼が来たら着手前にユーザーへ確認する。
 
 ```bash
 # JS 編集後
@@ -64,8 +64,7 @@ CI と pre-commit（`.pre-commit-config.yaml`）でも自動実行され、違�
 ## Python モジュール行数制限
 
 - 1 ファイル **1500 行以内**（`tests/test_python_module_size_guard.py` が強制）。
-- 超過時は分割する。やむを得ず一時的に許容する場合のみ同テストの `LEGACY_FILE_CEILINGS` に登録。
-  （※ `manager/game_logic.py` は既存超過。分割は別タスク扱い。）
+- 超過時は分割する。やむを得ず一時的に許容する場合のみ同テストの `LEGACY_FILE_CEILINGS` に登録（現在は空）。
 
 ## テスト
 
