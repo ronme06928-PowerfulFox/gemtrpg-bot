@@ -1292,11 +1292,9 @@ window.showFloatingText = function (token, diff, stat, source = null) {
     const currentOffset = window.floatingTextCounters[charId];
     window.floatingTextCounters[charId]++;
 
-    const floatingText = document.createElement('div');
-    floatingText.className = 'floating-damage-text';
-
     const isDamage = diff < 0;
     const absValue = Math.abs(diff);
+    const tones = [];
 
     let displayText = '';
     if (stat === 'HP') {
@@ -1311,18 +1309,17 @@ window.showFloatingText = function (token, diff, stat, source = null) {
         displayText = isDamage ? `-${absValue}` : `+${absValue}`;
     } else {
         displayText = isDamage ? `${stat} -${absValue}` : `${stat} +${absValue}`;
-        floatingText.classList.add('state-change');
+        tones.push('state-change');
     }
-    floatingText.textContent = displayText;
 
     if (!source) {
         if (stat === 'HP') {
-            floatingText.classList.add(isDamage ? 'damage' : 'heal');
+            tones.push(isDamage ? 'damage' : 'heal');
         } else if (stat === 'MP') {
-            floatingText.classList.add(isDamage ? 'mp-cost' : 'mp-heal');
+            tones.push(isDamage ? 'mp-cost' : 'mp-heal');
         }
     } else {
-        floatingText.classList.add(`src-${source}`);
+        tones.push(`src-${source}`);
     }
 
     const tokenRect = token.getBoundingClientRect();
@@ -1332,17 +1329,16 @@ window.showFloatingText = function (token, diff, stat, source = null) {
     const verticalOffset = currentOffset * 25;
     const relativeTop = tokenRect.top - viewportRect.top + mapViewport.scrollTop + (tokenRect.height / 2) - verticalOffset;
 
-    floatingText.style.left = `${relativeLeft}px`;
-    floatingText.style.top = `${relativeTop}px`;
-
-    mapViewport.appendChild(floatingText);
-
-    setTimeout(() => {
-        if (floatingText.parentNode) floatingText.parentNode.removeChild(floatingText);
-        if (window.floatingTextCounters && window.floatingTextCounters[charId] > 0) {
-            window.floatingTextCounters[charId]--;
-        }
-    }, 3000);
+    window.Fx.play('float-text', { text: displayText, tone: tones.join(' ') }, {
+        host: mapViewport,
+        left: relativeLeft,
+        top: relativeTop,
+        onDone: () => {
+            if (window.floatingTextCounters && window.floatingTextCounters[charId] > 0) {
+                window.floatingTextCounters[charId]--;
+            }
+        },
+    });
 }
 
 /**

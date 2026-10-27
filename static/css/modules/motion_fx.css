@@ -1,0 +1,133 @@
+/* 演出 Fx の止まった見た目（色・形）。動きは static/js/fx/ の render(t) が決める（計画52）。 */
+
+:root {
+  --fx-scale: 1;
+  --fx-damage: #ff4444;
+  --fx-heal: #44ff44;
+  --fx-mp-cost: #4488ff;
+  --fx-mp-heal: #00ccff;
+  --fx-state: #ff44ff;
+}
+
+.fx-root {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.fx-root.fx-root-fill {
+  inset: 0;
+  width: auto;
+  height: auto;
+}
+
+/* ダメージ・回復の数値（float-text） */
+.fx-float-text {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: calc(22px * var(--fx-scale));
+  font-weight: bold;
+  white-space: nowrap;
+  z-index: 980; /* Resolve overlay より前に出しつつ、モーダル全体は邪魔しない */
+  text-shadow:
+    -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff,
+    -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff,
+    0 0 6px rgba(0, 0, 0, 1.0), 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.fx-float-text.damage,
+.fx-float-text.src-match_loss,
+.fx-float-text.src-one_sided {
+  color: var(--fx-damage);
+}
+
+.fx-float-text.heal {
+  color: var(--fx-heal);
+}
+
+.fx-float-text.mp-cost {
+  color: var(--fx-mp-cost);
+}
+
+.fx-float-text.mp-heal {
+  color: var(--fx-mp-heal);
+}
+
+.fx-float-text.state-change {
+  color: var(--fx-state);
+  font-size: calc(14px * var(--fx-scale));
+}
+
+/* ダメージ発生源別の色分け */
+.fx-float-text.src-bleed,
+.fx-float-text.src-bleed_flood {
+  color: #cc0000;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(139, 0, 0, 0.8);
+}
+
+.fx-float-text.src-thorns {
+  color: #228b22;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 100, 0, 0.8);
+}
+
+.fx-float-text.src-rupture {
+  color: #08f500;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(255, 140, 0, 0.8);
+}
+
+.fx-float-text.src-fissure {
+  color: #8a2be2;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(138, 43, 226, 0.8);
+}
+
+/* ラウンド開始のバナー（round-banner） */
+.fx-round-banner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.fx-round-banner .round-banner-text {
+  font-size: calc(64px * var(--fx-scale));
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 4px;
+  padding: 18px 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(20, 24, 38, 0.6), rgba(20, 24, 38, 0.2));
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  text-shadow: 3px 3px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 0 24px rgba(255, 200, 60, 0.85);
+}
+
+/* アクションドックの ✨ から開く、演出の強さの3択 */
+.fx-level-menu {
+  position: fixed;
+  z-index: 5000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.fx-level-menu button {
+  min-width: 72px;
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.fx-level-menu button.active {
+  border-color: #ff9800;
+  background: #fff3e0;
+  font-weight: bold;
+}

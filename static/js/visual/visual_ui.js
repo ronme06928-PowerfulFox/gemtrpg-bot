@@ -883,24 +883,15 @@ window.updateVisualRoundDisplay = function (round) {
 
 // --- Round Start Banner ---
 
-window.ROUND_BANNER_DURATION_MS = 1800;
-
 window.showRoundStartBanner = function (round) {
-    const banner = document.getElementById('round-start-banner');
-    if (!banner) return;
-    const textEl = banner.querySelector('.round-banner-text');
-    if (textEl) textEl.textContent = `ROUND ${round}`;
-
-    banner.classList.remove('is-active');
-    void banner.offsetWidth; // force reflow so the animation restarts on consecutive rounds
-    banner.classList.add('is-active');
+    const container = document.getElementById('visual-battle-container');
     if (window.EventBus) window.EventBus.emit('battle:round:banner:started', { round });
-
-    if (window._roundBannerHideTimer) clearTimeout(window._roundBannerHideTimer);
-    window._roundBannerHideTimer = setTimeout(() => {
-        banner.classList.remove('is-active');
-        if (window.EventBus) window.EventBus.emit('battle:round:banner:finished', { round });
-    }, window.ROUND_BANNER_DURATION_MS);
+    window.Fx.play('round-banner', { text: `ROUND ${round}` }, {
+        host: container,
+        onDone: () => {
+            if (window.EventBus) window.EventBus.emit('battle:round:banner:finished', { round });
+        },
+    });
 }
 
 // --- Sidebar Controls ---

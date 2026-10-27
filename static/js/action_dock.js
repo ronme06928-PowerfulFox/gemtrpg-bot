@@ -151,6 +151,7 @@ function updateActionDock() {
             <div id="dock-arrow-toggle-icon" class="dock-icon" title="矢印表示切替">🏹</div>
             <div id="dock-glossary-icon" class="dock-icon" title="用語図鑑">📚</div>
             <div id="dock-sound-toggle-icon" class="dock-icon" title="SE切替">♪</div>
+            <div id="dock-motion-fx-icon" class="dock-icon" title="演出の強さ">✨</div>
         `;
         // Re-initialize listeners
         initializeActionDock();
@@ -1616,6 +1617,7 @@ function initializeActionDock() {
     const arrowIcon = document.getElementById('dock-arrow-toggle-icon');
     const glossaryIcon = document.getElementById('dock-glossary-icon');
     const soundToggleIcon = document.getElementById('dock-sound-toggle-icon');
+    const motionFxIcon = document.getElementById('dock-motion-fx-icon');
 
 
     // ★ 修正: 個別にチェックして設定（1つがなくても他は設定する）
@@ -1741,6 +1743,10 @@ function initializeActionDock() {
         soundToggleIcon.onclick = () => {
             toggleSoundFxFromDock(soundToggleIcon);
         };
+    }
+
+    if (motionFxIcon) {
+        window.Fx.bindLevelMenu(motionFxIcon);
     }
 
     // 初回更新
