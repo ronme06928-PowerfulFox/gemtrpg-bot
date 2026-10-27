@@ -1,23 +1,23 @@
 {
-  "s-round-title:1": {
+  "s-intro:1": {
     "hold": 2.89,
     "dur": 2.89,
     "lead": 0,
     "pad_after": 0
   },
-  "s-round-title:2": {
+  "s-intro:2": {
     "hold": 12.2,
     "dur": 12.2,
     "lead": 0,
     "pad_after": 0
   },
-  "s-round-flow:1": {
-    "hold": 7.08,
-    "dur": 7.08,
+  "s-slots:1": {
+    "hold": 6.77,
+    "dur": 6.77,
     "lead": 0,
     "pad_after": 0
   },
-  "s-round-flow:2": {
+  "s-slots:2": {
     "hold": 7.02,
     "dur": 7.02,
     "lead": 0,
@@ -53,21 +53,27 @@
     "lead": 0,
     "pad_after": 0
   },
-  "s-selection:3": {
+  "s-resolve:1": {
     "hold": 7.38,
     "dur": 7.38,
     "lead": 0,
     "pad_after": 0
   },
-  "s-power:1": {
+  "s-power-ally:1": {
     "hold": 10.39,
     "dur": 10.39,
     "lead": 0,
     "pad_after": 0
   },
-  "s-power:2": {
-    "hold": 9.06,
-    "dur": 9.06,
+  "s-power-ally:2": {
+    "hold": 5.09,
+    "dur": 5.09,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-power-enemy:1": {
+    "hold": 5.06,
+    "dur": 5.06,
     "lead": 0,
     "pad_after": 0
   },
@@ -89,35 +95,47 @@
     "lead": 0,
     "pad_after": 0
   },
-  "s-round-end:1": {
+  "s-effect-timing:1": {
     "hold": 9.08,
     "dur": 9.08,
     "lead": 0,
     "pad_after": 0
   },
-  "s-round-end:2": {
+  "s-effect-fp:1": {
     "hold": 8.29,
     "dur": 8.29,
     "lead": 0,
     "pad_after": 0
   },
-  "s-round-end:3": {
+  "s-effect-fp:2": {
     "hold": 6.18,
     "dur": 6.18,
     "lead": 0,
     "pad_after": 0
   },
-  "s-round-end:4": {
+  "s-next:1": {
     "hold": 7.88,
     "dur": 7.88,
     "lead": 0,
     "pad_after": 0
   },
-  "s-round-title:0": {
+  "s-next:2": {
+    "hold": 4.08,
+    "dur": 4.08,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-next:3": {
+    "hold": 4.59,
+    "dur": 4.59,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-intro:0": {
     "dur": 0.6,
     "hold": 0.6
   },
-  "s-round-flow:0": {
+  "s-slots:0": {
     "dur": 0.6,
     "hold": 0.6
   },
@@ -129,7 +147,15 @@
     "dur": 0.6,
     "hold": 0.6
   },
-  "s-power:0": {
+  "s-resolve:0": {
+    "dur": 0.6,
+    "hold": 0.6
+  },
+  "s-power-ally:0": {
+    "dur": 0.6,
+    "hold": 0.6
+  },
+  "s-power-enemy:0": {
     "dur": 0.6,
     "hold": 0.6
   },
@@ -137,7 +163,15 @@
     "dur": 0.6,
     "hold": 0.6
   },
-  "s-round-end:0": {
+  "s-effect-timing:0": {
+    "dur": 0.6,
+    "hold": 0.6
+  },
+  "s-effect-fp:0": {
+    "dur": 0.6,
+    "hold": 0.6
+  },
+  "s-next:0": {
     "dur": 0.6,
     "hold": 0.6
   },

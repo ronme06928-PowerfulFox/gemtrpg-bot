@@ -4,6 +4,7 @@ DECK.define('m-dice', class extends DECK.MotionElement {
   static shape = {
     schema: { type: 'object', required: ['face', 'value', 'from', 'stop', 'to'], properties: {
       face: { type: 'integer', minimum: 1, maximum: 6 },
+      firstFace: { type: 'integer', minimum: 1, maximum: 6 },
       value: { type: 'integer', minimum: 1 },
       from: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 },
       stop: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 },
@@ -17,6 +18,7 @@ DECK.define('m-dice', class extends DECK.MotionElement {
     this.number = this.querySelector('[data-dice-number]');
     this.target = this.querySelector('[data-dice-target]');
     this.total = this.querySelector('[data-dice-total]');
+    this.first = this.querySelector('[data-first-die]');
   }
   duration(k) { return k ? 2.4 : 0; }
   render(k, t) {
@@ -41,5 +43,15 @@ DECK.define('m-dice', class extends DECK.MotionElement {
     this.target.textContent = fly >= 1 ? String(this.total ? this.data.face : this.data.value) : '？';
     this.target.style.opacity = this.total && fly >= 1 ? '0' : '1';
     if (this.total) this.total.textContent = fly >= 1 ? String(this.data.value) : '？';
+    // 本編の2個の威力ダイス。式の箱は固定し、その中のSVGを動かす。
+    if (this.first) {
+      const box = this.first.parentElement.getBoundingClientRect();
+      const end = [(box.x + box.width / 2 - host.x) / scale, (box.y + box.height / 2 - host.y) / scale];
+      const px = DECK.lerp(this.data.from[0] - 70, DECK.lerp(x - 70, end[0], fly), roll) - end[0];
+      const py = DECK.lerp(this.data.from[1], DECK.lerp(y, end[1], fly), roll) - end[1] - Math.abs(Math.sin(roll * Math.PI * 3)) * 45;
+      this.first.style.transform = `translate(${px}px, ${py}px) rotate(${720 * roll}deg)`;
+      const firstFace = settled ? this.data.firstFace : (Math.floor(roll * 13 + 2) % 6) + 1;
+      this.first.querySelectorAll('[data-first-face]').forEach((el) => { el.style.display = +el.dataset.firstFace === firstFace ? 'block' : 'none'; });
+    }
   }
 });

@@ -34,7 +34,7 @@ function board(shot) {
     case 'damage': return pair({ slot: 6, fpValue: 1, spent: true }, { slot: 4, hpValue: 21, spent: true }) + '<span data-damage>−9</span><div class="v2-victory">勝利 +1</div>';
     case 'effect-timing': return pair({ slot: 6, fpValue: 1, spent: true }, { slot: 4, hpValue: 21, spent: true }) + effect.replace('<m-effect-frame>', '<m-effect-frame data-from="4" steps="1">');
     case 'effect-fp': return pair({ slot: 6, fpValue: 3, spent: true }, { slot: 4, hpValue: 21, fpValue: 2, spent: true }) + effect.replace('<m-effect-frame>', '<m-effect-frame data-from="3">');
-    case 'next': return pair({ slot: '', fpValue: 3 }, { slot: '', hpValue: 21, fpValue: 2 }) + '<div class="v2-next">次の回：FPを貯めて使う</div>';
+    case 'next': return pair({ slot: '', fpValue: 3 }, { slot: '', hpValue: 21, fpValue: 2 });
     default: throw new Error(shot.state);
   }
 }
@@ -54,7 +54,7 @@ const sections = shots.map((shot) => {
 <div class="body s1-body plot">${indicator}<div class="s1-board">${board(shot)}${bubble}</div></div>
 <div class="v2-caption">${shot.caption}</div></section>`;
 });
-fs.writeFileSync(path.join(out, 'deck.html'), `<!DOCTYPE html><html lang="ja" data-theme="gemuria"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>1ラウンドの流れ v2 絵コンテ・未承認</title><link rel="stylesheet" href="app_mock.css"><link rel="stylesheet" href="motion.css"><link rel="stylesheet" href="credits.css"><link rel="stylesheet" href="storyboard.css"></head><body><div id="stage">${sections.join('\n')}</div></body></html>\n`);
+fs.writeFileSync(path.join(out, 'deck.html'), `<!DOCTYPE html><html lang="ja" data-theme="gemuria"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>1ラウンドの流れ v2 承認済み絵コンテ</title><link rel="stylesheet" href="app_mock.css"><link rel="stylesheet" href="motion.css"><link rel="stylesheet" href="credits.css"><link rel="stylesheet" href="storyboard.css"></head><body><div id="stage">${sections.join('\n')}</div></body></html>\n`);
 const timing = {};
 for (const s of shots) for (let k = 0; k <= s.phase; k++) timing[`s-story-${s.id}:${k}`] = { dur: s.state === 'credits' ? 5 : 1, lead: 0, hold: 0, pad_after: 0 };
 fs.writeFileSync(path.join(out, 'timeline.json'), JSON.stringify(timing, null, 2) + '\n');

@@ -1,219 +1,82 @@
-<!DOCTYPE html>
-<html lang="ja" data-theme="gemuria">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>1ラウンドの流れ — ジェムリアTRPG</title>
-  <link rel="stylesheet" href="app_mock.css">
-  <link rel="stylesheet" href="deck.css">
-  <link rel="stylesheet" href="battle_scenes.css">
-  <link rel="stylesheet" href="credits.css">
-</head>
-<body>
-<div id="stage">
-<section class="slide prototype noconcl" id="s-round-title">
-  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>戦闘の基本</span></div>
-  <h2>1ラウンドの流れ</h2>
-  <div class="body"><m-round-video scene="title" steps="2" aria-label="1ラウンドの流れの動く図">
-<div class="app-board plot" role="group" aria-label="味方と敵の戦闘盤面">
-      <div class="app-piece ally" data-hp="100" data-fp="0" role="group" aria-label="味方の駒">
-        <div class="app-slot" data-mark="slot-ally"><span class="slot-value">6</span><span class="slot-state">行動済み</span></div>
-        <div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="味方の冒険者">
-          <div class="app-status">
-            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100%"></div></div><span class="app-stat-value">100</span></div>
-            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value">10</span></div>
-          </div>
-        </div>
-        <div class="app-fp" data-mark="ally-fp" aria-label="味方 FP 0">0</div>
-        <div class="app-name">味方</div>
-      </div>
-      <div class="app-piece enemy" data-hp="30" data-fp="0" role="group" aria-label="敵の駒">
-        <div class="app-slot"><span class="slot-value">4</span><span class="slot-state">行動済み</span></div>
-        <div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー">
-          <div class="app-status">
-            <div class="app-stat-row" data-stat="hp" data-mark="enemy-hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
-            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
-          </div>
-        </div>
-        <div class="app-fp" aria-label="敵 FP 0">0</div>
-        <div class="app-name">敵</div>
-      </div>
-    </div><div class="scene-telop sequence-telop" data-telop="intro"><strong>味方と敵</strong><span>1人1回の行動</span></div><div class="scene-telop sequence-telop" data-telop="conditions"><strong>基本の一太刀</strong><span>HP・MP満タン ／ FP 0</span></div><div class="conditions-note">スキル以外の追加効果なし</div>
-  </m-round-video></div>
-  <div class="pn">1／8</div>
-</section>
-<section class="slide prototype noconcl" id="s-round-flow">
-  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>戦闘の基本</span></div>
-  <h2>ラウンドの流れ</h2>
-  <div class="body"><m-round-video scene="flow" steps="2" aria-label="ラウンドの流れの動く図">
-<div class="flow-canvas plot"><div class="flow-card"><strong>ラウンド開始</strong><span>スロットと速度値</span></div><div class="flow-card"><strong>選択フェーズ</strong><span>スキルと対象</span></div><div class="flow-card"><strong>解決フェーズ</strong><span>マッチ・攻撃</span></div><div class="flow-card"><strong>ラウンド終了</strong><span>終了時の効果</span></div><span class="flow-link a">→</span><span class="flow-link b">→</span><span class="flow-link c">→</span></div><div class="slot-guide"><div class="slot-demo">6</div><strong>スロット ＝ 1回分の行動枠</strong><span>今回は1人1スロット</span></div>
-  </m-round-video></div>
-  <div class="pn">2／8</div>
-</section>
-<section class="slide prototype noconcl" id="s-speed">
-  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>戦闘の基本</span></div>
-  <h2>速度値を決める</h2>
-  <div class="body"><m-round-video scene="speed" steps="3" aria-label="速度値を決めるの動く図">
-<div class="app-board plot" role="group" aria-label="味方と敵の戦闘盤面">
-      <div class="app-piece ally" data-hp="100" data-fp="0" role="group" aria-label="味方の駒">
-        <div class="app-slot" data-mark="slot-ally"><span class="slot-value">6</span><span class="slot-state">行動済み</span></div>
-        <div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="味方の冒険者">
-          <div class="app-status">
-            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100%"></div></div><span class="app-stat-value">100</span></div>
-            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value">10</span></div>
-          </div>
-        </div>
-        <div class="app-fp" data-mark="ally-fp" aria-label="味方 FP 0">0</div>
-        <div class="app-name">味方</div>
-      </div>
-      <div class="app-piece enemy" data-hp="30" data-fp="0" role="group" aria-label="敵の駒">
-        <div class="app-slot"><span class="slot-value">4</span><span class="slot-state">行動済み</span></div>
-        <div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー">
-          <div class="app-status">
-            <div class="app-stat-row" data-stat="hp" data-mark="enemy-hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
-            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
-          </div>
-        </div>
-        <div class="app-fp" aria-label="敵 FP 0">0</div>
-        <div class="app-name">敵</div>
-      </div>
-    </div><div class="scene-telop sequence-telop" data-telop="speed-rule"><strong>6面ダイス ＋ 速度補正</strong><span>速度値を決める</span></div><div class="calc-card ally"><div class="calc-name">味方</div><div class="calc-formula"><span class="die-image" role="img" aria-label="ダイス4">{{FIG:die-4}}</span><span>＋ 2 ＝</span></div></div><div class="speed-fly ally" data-mark="speed-ally">6</div><div class="calc-card enemy"><div class="calc-name">敵</div><div class="calc-formula"><span class="die-image" role="img" aria-label="ダイス3">{{FIG:die-3}}</span><span>＋ 1 ＝</span></div></div><div class="speed-fly enemy" data-mark="speed-enemy">4</div><div class="scene-telop sequence-telop" data-telop="speed-slot"><strong>スロットの速度値</strong><span>味方 6 ／ 敵 4</span></div>
-  </m-round-video></div>
-  <div class="pn">3／8</div>
-</section>
-<section class="slide prototype noconcl" id="s-selection">
-  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>戦闘の基本</span></div>
-  <h2>スキルと対象の選択</h2>
-  <div class="body"><m-round-video scene="selection" steps="3" aria-label="スキルと対象の選択の動く図">
-
-    <div class="app-board plot" role="group" aria-label="味方と敵の戦闘盤面">
-      <div class="app-piece ally" data-hp="100" data-fp="0" role="group" aria-label="味方の駒">
-        <div class="app-slot" data-mark="slot-ally"><span class="slot-value">6</span><span class="slot-state">行動済み</span></div>
-        <div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="味方の冒険者">
-          <div class="app-status">
-            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100%"></div></div><span class="app-stat-value">100</span></div>
-            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value">10</span></div>
-          </div>
-        </div>
-        <div class="app-fp" data-mark="ally-fp" aria-label="味方 FP 0">0</div>
-        <div class="app-name">味方</div>
-      </div>
-      <div class="app-piece enemy" data-hp="30" data-fp="0" role="group" aria-label="敵の駒">
-        <div class="app-slot"><span class="slot-value">4</span><span class="slot-state">行動済み</span></div>
-        <div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー">
-          <div class="app-status">
-            <div class="app-stat-row" data-stat="hp" data-mark="enemy-hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
-            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
-          </div>
-        </div>
-        <div class="app-fp" aria-label="敵 FP 0">0</div>
-        <div class="app-name">敵</div>
-      </div>
-    </div><div class="arrow-layer" data-mark="match-arrow"><svg viewBox="0 0 1200 140" role="img" aria-label="互いのスロットへ向かう宣言の矢印"><defs><marker id="selection-head" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0 0 L8 4 L0 8 Z" fill="context-stroke"/></marker><clipPath id="selection-forward-clip"><rect data-arrow-clip="forward" x="330" y="0" width="0" height="140"/></clipPath><clipPath id="selection-back-clip"><rect data-arrow-clip="back" x="330" y="0" width="560" height="140"/></clipPath></defs><path data-arrow="forward" d="M330 46 Q610 130 890 46" fill="none" stroke="#8a93a3" stroke-width="4.76" stroke-dasharray="11.9 8.5" marker-end="url(#selection-head)" clip-path="url(#selection-forward-clip)"/><path data-arrow="back" d="M890 62 Q610 160 330 62" fill="none" stroke="#8a93a3" stroke-width="4.76" stroke-dasharray="11.9 8.5" marker-end="url(#selection-head)" clip-path="url(#selection-back-clip)"/></svg></div><div class="mock-declare plot"><header><strong>宣言</strong><button type="button" tabindex="-1">宣言</button></header><div class="declare-steps"><span class="declare-chip">1 使用者</span><span class="declare-chip">2 スキル</span><span class="declare-chip">3 対象</span></div><p class="declare-help">内容を確認して「宣言」を押してください。</p><div class="skill-line">基本の一太刀</div><div>威力レンジ: 6~9</div><div>使用コスト：なし</div></div><div class="scene-telop sequence-telop" data-telop="match"><strong>マッチ成立</strong><span>互いのスロットを指定</span></div><div class="scene-telop sequence-telop" data-telop="confirm"><strong>全員の宣言を確定</strong><span>解決フェーズへ</span></div>
-
-  </m-round-video></div>
-  <div class="pn">4／8</div>
-</section>
-<section class="slide prototype noconcl" id="s-power">
-  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>戦闘の基本</span></div>
-  <h2>威力の比較</h2>
-  <div class="body"><m-round-video scene="power" steps="2" aria-label="威力の比較の動く図">
-
-    <div class="app-board plot" role="group" aria-label="味方と敵の戦闘盤面">
-      <div class="app-piece ally" data-hp="100" data-fp="0" role="group" aria-label="味方の駒">
-        <div class="app-slot" data-mark="slot-ally"><span class="slot-value">6</span><span class="slot-state">行動済み</span></div>
-        <div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="味方の冒険者">
-          <div class="app-status">
-            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100%"></div></div><span class="app-stat-value">100</span></div>
-            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value">10</span></div>
-          </div>
-        </div>
-        <div class="app-fp" data-mark="ally-fp" aria-label="味方 FP 0">0</div>
-        <div class="app-name">味方</div>
-      </div>
-      <div class="app-piece enemy" data-hp="30" data-fp="0" role="group" aria-label="敵の駒">
-        <div class="app-slot"><span class="slot-value">4</span><span class="slot-state">行動済み</span></div>
-        <div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー">
-          <div class="app-status">
-            <div class="app-stat-row" data-stat="hp" data-mark="enemy-hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
-            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
-          </div>
-        </div>
-        <div class="app-fp" aria-label="敵 FP 0">0</div>
-        <div class="app-name">敵</div>
-      </div>
-    </div><div class="mock-resolve plot"><div class="resolve-kind">RESOLVE　／　マッチ</div><div class="power-formula">味方：基礎威力4 ＋ ダイス威力1d2 ＋ 物理補正1d3</div><div class="resolve-sides"><div class="resolve-side ally"><div class="resolve-name">味方</div><div class="resolve-skill">基本の一太刀</div><div class="power-line">威力 6~9 → <span class="power-actual" data-power="ally" data-mark="power-ally">9</span></div><div class="roll-line" data-roll="ally"><span>4 ＋</span><span class="die-image" role="img" aria-label="ダイス2">{{FIG:die-2}}</span><span>＋</span><span class="die-image" role="img" aria-label="ダイス3">{{FIG:die-3}}</span><span>＝ 9</span></div></div><div>VS</div><div class="resolve-side enemy"><div class="resolve-name">敵</div><div class="resolve-skill">基本の一太刀</div><div class="power-line">威力 6~8 → <span class="power-actual" data-power="enemy" data-mark="power-enemy">6</span></div><div class="roll-line" data-roll="enemy"><span>4 ＋</span><span class="die-image" role="img" aria-label="ダイス1">{{FIG:die-1}}</span><span>＋</span><span class="die-image" role="img" aria-label="ダイス1">{{FIG:die-1}}</span><span>＝ 6</span></div></div></div><div class="enemy-phys">敵：物理補正2 → 1d2</div><div class="resolve-headline">味方 勝利 (攻撃側勝利)</div></div>
-
-  </m-round-video></div>
-  <div class="pn">5／8</div>
-</section>
-<section class="slide prototype noconcl" id="s-damage">
-  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>戦闘の基本</span></div>
-  <h2>ダメージとFP</h2>
-  <div class="body"><m-round-video scene="damage" steps="3" aria-label="ダメージとFPの動く図">
-
-    <div class="app-board plot" role="group" aria-label="味方と敵の戦闘盤面">
-      <div class="app-piece ally" data-hp="100" data-fp="0" role="group" aria-label="味方の駒">
-        <div class="app-slot" data-mark="slot-ally"><span class="slot-value">6</span><span class="slot-state">行動済み</span></div>
-        <div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="味方の冒険者">
-          <div class="app-status">
-            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100%"></div></div><span class="app-stat-value">100</span></div>
-            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value">10</span></div>
-          </div>
-        </div>
-        <div class="app-fp" data-mark="ally-fp" aria-label="味方 FP 0">0</div>
-        <div class="app-name">味方</div>
-      </div>
-      <div class="app-piece enemy" data-hp="30" data-fp="0" role="group" aria-label="敵の駒">
-        <div class="app-slot"><span class="slot-value">4</span><span class="slot-state">行動済み</span></div>
-        <div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー">
-          <div class="app-status">
-            <div class="app-stat-row" data-stat="hp" data-mark="enemy-hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
-            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
-          </div>
-        </div>
-        <div class="app-fp" aria-label="敵 FP 0">0</div>
-        <div class="app-name">敵</div>
-      </div>
-    </div><div class="scene-telop sequence-telop" data-telop="damage"><strong>ダメージ <span class="damage-number">9</span></strong><span>敵のHP 30 → 21</span></div><div class="scene-telop sequence-telop" data-telop="victory-fp"><strong>マッチ勝利のFP</strong><span>0 → 1</span></div><div class="scene-telop sequence-telop" data-telop="spent"><strong>両方のスロット</strong><span>行動済み</span></div>
-
-  </m-round-video></div>
-  <div class="pn">6／8</div>
-</section>
-<section class="slide prototype noconcl" id="s-round-end">
-  <div class="chapter-label"><span class="chapter-gem" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>戦闘の基本</span></div>
-  <h2>ラウンド終了</h2>
-  <div class="body"><m-round-video scene="end" steps="4" aria-label="ラウンド終了の動く図">
-<div class="app-board plot" role="group" aria-label="味方と敵の戦闘盤面">
-      <div class="app-piece ally" data-hp="100" data-fp="0" role="group" aria-label="味方の駒">
-        <div class="app-slot" data-mark="slot-ally"><span class="slot-value">6</span><span class="slot-state">行動済み</span></div>
-        <div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="味方の冒険者">
-          <div class="app-status">
-            <div class="app-stat-row" data-stat="hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100%"></div></div><span class="app-stat-value">100</span></div>
-            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value">10</span></div>
-          </div>
-        </div>
-        <div class="app-fp" data-mark="end-fp" aria-label="味方 FP 0">0</div>
-        <div class="app-name">味方</div>
-      </div>
-      <div class="app-piece enemy" data-hp="30" data-fp="0" role="group" aria-label="敵の駒">
-        <div class="app-slot"><span class="slot-value">4</span><span class="slot-state">行動済み</span></div>
-        <div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー">
-          <div class="app-status">
-            <div class="app-stat-row" data-stat="hp" data-mark="enemy-hp"><span class="app-stat-label">HP</span><div class="app-bar"><div class="app-bar-fill hp" style="width:100.000000%"></div></div><span class="app-stat-value">30</span></div>
-            <div class="app-stat-row" data-stat="mp"><span class="app-stat-label">MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100.000000%"></div></div><span class="app-stat-value">6</span></div>
-          </div>
-        </div>
-        <div class="app-fp" aria-label="敵 FP 0">0</div>
-        <div class="app-name">敵</div>
-      </div>
-    </div><div class="effect-card plot"><div class="effect-name">基本の一太刀</div><div class="effect-text"><span class="effect-timing">（ラウンド終了時）</span><span>：FPを2得る。</span><div class="effect-highlight" aria-hidden="true"></div></div></div><div class="scene-telop sequence-telop" data-telop="end-fp"><strong>スキルの効果でFP＋2</strong><span>味方 1 → 3 ／ 敵 0 → 2</span></div><div class="scene-telop sequence-telop" data-telop="next"><strong>次のラウンドへ</strong><span></span></div>
-  </m-round-video></div>
-  <div class="pn">7／8</div>
-</section>
-<!-- shared-credits:start -->
-<section class="slide noconcl credits-page" id="s-credits">
-  <div class="body credits-content">
+<!DOCTYPE html><html lang="ja" data-theme="gemuria"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>1ラウンドの流れ v2</title><link rel="stylesheet" href="app_mock.css"><link rel="stylesheet" href="motion.css"><link rel="stylesheet" href="credits.css"><link rel="stylesheet" href="round-v2.css"></head><body><div id="stage"><section class="slide s1-slide v2-slide noconcl" id="s-intro" style="--battle-background-position:center 55%;--story-background-zoom:1.04"><h2>題と開始状態</h2><m-background class="v2-background" data-from="1" aria-label="遺跡の背景" steps="0"><div data-background-image><img src="images/ruins-battle.png" alt="石柱と開けた石床の遺跡"></div></m-background><div class="body s1-body plot"><m-phase aria-label="ラウンドの現在の段階" steps="0"><span data-phase="0" data-readable>ラウンド開始</span><span>→</span><span data-phase="1" data-readable>選択フェーズ</span><span>→</span><span data-phase="2" data-readable>解決フェーズ</span><span>→</span><span data-phase="3" data-readable>ラウンド終了</span></m-phase><div class="s1-board"><div class="app-piece ally"><div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="男冒険者"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>100</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>10</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>味方</div></div><div class="app-piece enemy"><div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>30</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>6</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>敵</div></div><div class="v2-premise">基本の一太刀／スキル以外の追加効果なし</div></div></div><m-round-cut aria-label="カットの動きの進行" steps="2"><script type="application/json">{"id":"intro","phase":1}</script></m-round-cut></section>
+<section class="slide s1-slide v2-slide noconcl" id="s-slots" style="--battle-background-position:center 60%;--story-background-zoom:1.06"><h2>スロットの紹介</h2><m-background class="v2-background" data-from="1" aria-label="遺跡の背景" steps="0"><div data-background-image><img src="images/ruins-battle.png" alt="石柱と開けた石床の遺跡"></div></m-background><div class="body s1-body plot"><m-phase aria-label="ラウンドの現在の段階" steps="0"><span data-phase="0" data-readable>ラウンド開始</span><span>→</span><span data-phase="1" data-readable>選択フェーズ</span><span>→</span><span data-phase="2" data-readable>解決フェーズ</span><span>→</span><span data-phase="3" data-readable>ラウンド終了</span></m-phase><div class="s1-board"><div class="app-piece ally"><div class="s1-slot v2-slot"><span></span></div><div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="男冒険者"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>100</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>10</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>味方</div></div><div class="app-piece enemy"><div class="s1-slot v2-slot"><span></span></div><div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>30</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>6</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>敵</div></div><m-gm-bubble aria-label="GMの案内" steps="0"><div data-gm-panel><div class="s1-gm-icon" aria-label="GMの札">GM</div><div class="s1-gm-text" data-readable>ラウンド開始</div></div></m-gm-bubble></div></div><m-round-cut aria-label="カットの動きの進行" steps="2"><script type="application/json">{"id":"slots","phase":1}</script></m-round-cut></section>
+<section class="slide s1-slide v2-slide noconcl" id="s-speed" style="--battle-background-position:center 60%;--story-background-zoom:1.06"><h2>速度値を決める</h2><m-background class="v2-background" data-from="1" aria-label="遺跡の背景" steps="0"><div data-background-image><img src="images/ruins-battle.png" alt="石柱と開けた石床の遺跡"></div></m-background><div class="body s1-body plot"><m-phase aria-label="ラウンドの現在の段階" steps="0"><span data-phase="0" data-readable>ラウンド開始</span><span>→</span><span data-phase="1" data-readable>選択フェーズ</span><span>→</span><span data-phase="2" data-readable>解決フェーズ</span><span>→</span><span data-phase="3" data-readable>ラウンド終了</span></m-phase><div class="s1-board"><div class="app-piece ally"><div class="s1-slot v2-slot"><span></span></div><div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="男冒険者"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>100</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>10</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>味方</div></div><div class="app-piece enemy"><div class="s1-slot v2-slot"><span></span></div><div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>30</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>6</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>敵</div></div><m-dice aria-label="ダイスから速度値へ" steps="0"><script type="application/json">{"face":4,"value":6,"from":[290,230],"stop":[500,230],"to":[290,50]}</script><div data-die><span data-face="1">{{FIG:die-1}}</span><span data-face="2">{{FIG:die-2}}</span><span data-face="3">{{FIG:die-3}}</span><span data-face="4">{{FIG:die-4}}</span><span data-face="5">{{FIG:die-5}}</span><span data-face="6">{{FIG:die-6}}</span></div><span data-dice-number data-readable></span><span class="s1-slot" style="left:252px;top:12px" data-dice-target id="speed-ally" data-mark="slot-ally" data-readable>？</span></m-dice><m-dice aria-label="ダイスから速度値へ" steps="0"><script type="application/json">{"face":3,"value":4,"from":[930,230],"stop":[700,230],"to":[930,50]}</script><div data-die><span data-face="1">{{FIG:die-1}}</span><span data-face="2">{{FIG:die-2}}</span><span data-face="3">{{FIG:die-3}}</span><span data-face="4">{{FIG:die-4}}</span><span data-face="5">{{FIG:die-5}}</span><span data-face="6">{{FIG:die-6}}</span></div><span data-dice-number data-readable></span><span class="s1-slot" style="left:892px;top:12px" data-dice-target id="speed-enemy" data-readable>？</span></m-dice><div class="v2-speed-formula"><div data-speed-row>出目<span data-speed-face>？</span>＋速度補正2＝<span data-speed-total>？</span></div><div data-speed-row>出目<span data-speed-face>？</span>＋速度補正1＝<span data-speed-total>？</span></div></div></div></div><m-round-cut aria-label="カットの動きの進行" steps="3"><script type="application/json">{"id":"speed","phase":1}</script></m-round-cut></section>
+<section class="slide s1-slide v2-slide noconcl" id="s-selection" style="--battle-background-position:center 65%;--story-background-zoom:1.08"><h2>スキルと対象の選択</h2><m-background class="v2-background" data-from="1" aria-label="遺跡の背景" steps="0"><div data-background-image><img src="images/ruins-battle.png" alt="石柱と開けた石床の遺跡"></div></m-background><div class="body s1-body plot"><m-phase aria-label="ラウンドの現在の段階" steps="0"><span data-phase="0" data-readable>ラウンド開始</span><span>→</span><span data-phase="1" data-readable>選択フェーズ</span><span>→</span><span data-phase="2" data-readable>解決フェーズ</span><span>→</span><span data-phase="3" data-readable>ラウンド終了</span></m-phase><div class="s1-board"><div class="app-piece ally"><div class="s1-slot v2-slot"><span>6</span></div><div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="男冒険者"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>100</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>10</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>味方</div></div><div class="app-piece enemy"><div class="s1-slot v2-slot"><span>4</span></div><div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>30</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>6</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>敵</div></div><svg class="v2-arrows" data-mark="match-arrow" viewBox="0 0 1184 130" aria-label="マッチ"><defs><marker id="match-head-selection" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="#ffb020"/></marker></defs><path marker-end="url(#match-head-selection)" d="M330 35 Q610 0 890 35"/><path marker-end="url(#match-head-selection)" d="M890 80 Q610 120 330 80"/></svg><div class="v2-skill ally">基本の一太刀</div><div class="v2-skill enemy">基本の一太刀</div></div></div><m-round-cut aria-label="カットの動きの進行" steps="2"><script type="application/json">{"id":"selection","phase":2}</script></m-round-cut></section>
+<section class="slide s1-slide v2-slide noconcl" id="s-resolve" style="--battle-background-position:center 65%;--story-background-zoom:1.08"><h2>速度6から解決へ</h2><m-background class="v2-background" data-from="1" aria-label="遺跡の背景" steps="0"><div data-background-image><img src="images/ruins-battle.png" alt="石柱と開けた石床の遺跡"></div></m-background><div class="body s1-body plot"><m-phase aria-label="ラウンドの現在の段階" steps="0"><span data-phase="0" data-readable>ラウンド開始</span><span>→</span><span data-phase="1" data-readable>選択フェーズ</span><span>→</span><span data-phase="2" data-readable>解決フェーズ</span><span>→</span><span data-phase="3" data-readable>ラウンド終了</span></m-phase><div class="s1-board"><div class="app-piece ally"><div class="s1-slot v2-slot"><span>6</span></div><div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="男冒険者"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>100</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>10</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>味方</div></div><div class="app-piece enemy"><div class="s1-slot v2-slot"><span>4</span></div><div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>30</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>6</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>敵</div></div><svg class="v2-arrows" viewBox="0 0 1184 130" aria-label="マッチ"><defs><marker id="match-head-resolve" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="#ffb020"/></marker></defs><path marker-end="url(#match-head-resolve)" d="M330 35 Q610 0 890 35"/><path marker-end="url(#match-head-resolve)" d="M890 80 Q610 120 330 80"/></svg><m-gm-bubble aria-label="GMの案内" steps="0"><div data-gm-panel><div class="s1-gm-icon" aria-label="GMの札">GM</div><div class="s1-gm-text" data-readable>解決開始</div></div></m-gm-bubble></div></div><m-round-cut aria-label="カットの動きの進行" steps="1"><script type="application/json">{"id":"resolve","phase":3}</script></m-round-cut></section>
+<section class="slide s1-slide v2-slide noconcl" id="s-power-ally" style="--battle-background-position:center 65%;--story-background-zoom:1.08"><h2>味方の威力</h2><m-background class="v2-background" data-from="1" aria-label="遺跡の背景" steps="0"><div data-background-image><img src="images/ruins-battle.png" alt="石柱と開けた石床の遺跡"></div></m-background><div class="body s1-body plot"><m-phase aria-label="ラウンドの現在の段階" steps="0"><span data-phase="0" data-readable>ラウンド開始</span><span>→</span><span data-phase="1" data-readable>選択フェーズ</span><span>→</span><span data-phase="2" data-readable>解決フェーズ</span><span>→</span><span data-phase="3" data-readable>ラウンド終了</span></m-phase><div class="s1-board"><div class="app-piece ally"><div class="s1-slot v2-slot"><span>6</span></div><div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="男冒険者"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>100</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>10</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>味方</div></div><div class="app-piece enemy"><div class="s1-slot v2-slot"><span>4</span></div><div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>30</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>6</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>敵</div></div><m-dice aria-label="ダイスから威力へ" steps="0"><script type="application/json">{"firstFace":2,"face":3,"value":9,"from":[290,230],"stop":[500,230],"to":[600,210]}</script><div data-die><span data-face="1">{{FIG:die-1}}</span><span data-face="2">{{FIG:die-2}}</span><span data-face="3">{{FIG:die-3}}</span><span data-face="4">{{FIG:die-4}}</span><span data-face="5">{{FIG:die-5}}</span><span data-face="6">{{FIG:die-6}}</span></div><span data-dice-number data-readable></span><div class="s1-formula" data-readable><span>4</span><span>+</span><span class="formula-face"><span data-first-die><span data-first-face="1">{{FIG:die-1}}</span><span data-first-face="2">{{FIG:die-2}}</span><span data-first-face="3">{{FIG:die-3}}</span><span data-first-face="4">{{FIG:die-4}}</span><span data-first-face="5">{{FIG:die-5}}</span><span data-first-face="6">{{FIG:die-6}}</span></span></span><span>+</span><span data-dice-target>？</span><span data-equals>=</span><span data-dice-total id="power-ally">？</span></div></m-dice><div class="v2-formula-label">味方／物理補正3（1d3）</div></div></div><m-round-cut aria-label="カットの動きの進行" steps="2"><script type="application/json">{"id":"power-ally","phase":3}</script></m-round-cut></section>
+<section class="slide s1-slide v2-slide noconcl" id="s-power-enemy" style="--battle-background-position:center 65%;--story-background-zoom:1.08"><h2>敵の威力と比較</h2><m-background class="v2-background" data-from="1" aria-label="遺跡の背景" steps="0"><div data-background-image><img src="images/ruins-battle.png" alt="石柱と開けた石床の遺跡"></div></m-background><div class="body s1-body plot"><m-phase aria-label="ラウンドの現在の段階" steps="0"><span data-phase="0" data-readable>ラウンド開始</span><span>→</span><span data-phase="1" data-readable>選択フェーズ</span><span>→</span><span data-phase="2" data-readable>解決フェーズ</span><span>→</span><span data-phase="3" data-readable>ラウンド終了</span></m-phase><div class="s1-board"><div class="app-piece ally"><div class="s1-slot v2-slot"><span>6</span></div><div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="男冒険者"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>100</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>10</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>味方</div></div><div class="app-piece enemy"><div class="s1-slot v2-slot"><span>4</span></div><div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>30</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>6</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>敵</div></div><m-dice aria-label="ダイスから威力へ" steps="0"><script type="application/json">{"firstFace":1,"face":1,"value":6,"from":[930,230],"stop":[500,230],"to":[600,210]}</script><div data-die><span data-face="1">{{FIG:die-1}}</span><span data-face="2">{{FIG:die-2}}</span><span data-face="3">{{FIG:die-3}}</span><span data-face="4">{{FIG:die-4}}</span><span data-face="5">{{FIG:die-5}}</span><span data-face="6">{{FIG:die-6}}</span></div><span data-dice-number data-readable></span><div class="s1-formula" data-readable><span>4</span><span>+</span><span class="formula-face"><span data-first-die><span data-first-face="1">{{FIG:die-1}}</span><span data-first-face="2">{{FIG:die-2}}</span><span data-first-face="3">{{FIG:die-3}}</span><span data-first-face="4">{{FIG:die-4}}</span><span data-first-face="5">{{FIG:die-5}}</span><span data-first-face="6">{{FIG:die-6}}</span></span></span><span>+</span><span data-dice-target>？</span><span data-equals>=</span><span data-dice-total id="power-enemy">？</span></div></m-dice><div class="v2-formula-label">敵／物理補正2（1d2）</div><div class="v2-compare">味方9 ＞ 敵6</div></div></div><m-round-cut aria-label="カットの動きの進行" steps="1"><script type="application/json">{"id":"power-enemy","phase":3}</script></m-round-cut></section>
+<section class="slide s1-slide v2-slide noconcl" id="s-damage" style="--battle-background-position:center 70%;--story-background-zoom:1.06"><h2>ダメージと勝利FP</h2><m-background class="v2-background" data-from="1" aria-label="遺跡の背景" steps="0"><div data-background-image><img src="images/ruins-battle.png" alt="石柱と開けた石床の遺跡"></div></m-background><div class="body s1-body plot"><m-phase aria-label="ラウンドの現在の段階" steps="0"><span data-phase="0" data-readable>ラウンド開始</span><span>→</span><span data-phase="1" data-readable>選択フェーズ</span><span>→</span><span data-phase="2" data-readable>解決フェーズ</span><span>→</span><span data-phase="3" data-readable>ラウンド終了</span></m-phase><div class="s1-board"><m-impact-hp steps="0"><script type="application/json">{"hp":30,"max":30,"damage":9}</script><div class="app-piece ally"><div class="s1-slot v2-slot"><span>6</span></div><div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="男冒険者"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>100</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>10</span></div>
+    </div></div><m-fp steps="0"><script type="application/json">{"initial":0,"gains":[{"amount":1,"reason":"勝利"},{"amount":2,"reason":"効果"}]}</script><div class="app-fp" data-fp-value data-mark="ally-fp" data-readable>0</div><span data-fp-reason data-readable></span></m-fp><div class="app-name" data-readable>味方</div></div><div class="app-piece enemy"><div class="s1-slot v2-slot"><span>4</span></div><div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp" data-hp-fill style="width:100%"></div></div><span class="app-stat-value" data-hp-value data-mark="enemy-hp" data-readable>30</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>6</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>敵</div></div><div data-hit></div><span data-damage></span></m-impact-hp></div></div><m-round-cut aria-label="カットの動きの進行" steps="3"><script type="application/json">{"id":"damage","phase":3}</script></m-round-cut></section>
+<section class="slide s1-slide v2-slide noconcl" id="s-effect-timing" style="--battle-background-position:center 65%;--story-background-zoom:1.06"><h2>効果のタイミング</h2><m-background class="v2-background" data-from="1" aria-label="遺跡の背景" steps="0"><div data-background-image><img src="images/ruins-battle.png" alt="石柱と開けた石床の遺跡"></div></m-background><div class="body s1-body plot"><m-phase aria-label="ラウンドの現在の段階" steps="0"><span data-phase="0" data-readable>ラウンド開始</span><span>→</span><span data-phase="1" data-readable>選択フェーズ</span><span>→</span><span data-phase="2" data-readable>解決フェーズ</span><span>→</span><span data-phase="3" data-readable>ラウンド終了</span></m-phase><div class="s1-board"><div class="app-piece ally"><div class="s1-slot v2-slot is-spent"><span>6</span><span class="v2-spent">行動済み</span></div><div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="男冒険者"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>100</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>10</span></div>
+    </div></div><div class="app-fp" data-readable>1</div><div class="app-name" data-readable>味方</div></div><div class="app-piece enemy"><div class="s1-slot v2-slot is-spent"><span>4</span><span class="v2-spent">行動済み</span></div><div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:70%"></div></div><span class="app-stat-value"  data-readable>21</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>6</span></div>
+    </div></div><div class="app-fp" data-readable>0</div><div class="app-name" data-readable>敵</div></div><m-effect-frame steps="0"><div class="s1-effect-name" data-readable>基本の一太刀</div><div data-effect-text data-readable><span data-effect-timing>（ラウンド終了時）</span><span>：FPを2得る。</span><span data-effect-frame></span></div></m-effect-frame></div></div><m-round-cut aria-label="カットの動きの進行" steps="1"><script type="application/json">{"id":"effect-timing","phase":4}</script></m-round-cut></section>
+<section class="slide s1-slide v2-slide noconcl" id="s-effect-fp" style="--battle-background-position:center 65%;--story-background-zoom:1.06"><h2>終了時のFP</h2><m-background class="v2-background" data-from="1" aria-label="遺跡の背景" steps="0"><div data-background-image><img src="images/ruins-battle.png" alt="石柱と開けた石床の遺跡"></div></m-background><div class="body s1-body plot"><m-phase aria-label="ラウンドの現在の段階" steps="0"><span data-phase="0" data-readable>ラウンド開始</span><span>→</span><span data-phase="1" data-readable>選択フェーズ</span><span>→</span><span data-phase="2" data-readable>解決フェーズ</span><span>→</span><span data-phase="3" data-readable>ラウンド終了</span></m-phase><div class="s1-board"><div class="app-piece ally"><div class="s1-slot v2-slot is-spent"><span>6</span><span class="v2-spent">行動済み</span></div><div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="男冒険者"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>100</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>10</span></div>
+    </div></div><m-fp steps="0"><script type="application/json">{"initial":1,"gains":[{"amount":2,"reason":"効果"}]}</script><div class="app-fp" data-fp-value data-readable>0</div><span data-fp-reason data-readable></span></m-fp><div class="app-name" data-readable>味方</div></div><div class="app-piece enemy"><div class="s1-slot v2-slot is-spent"><span>4</span><span class="v2-spent">行動済み</span></div><div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:70%"></div></div><span class="app-stat-value"  data-readable>21</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>6</span></div>
+    </div></div><m-fp steps="0"><script type="application/json">{"initial":0,"gains":[{"amount":2,"reason":"効果"}]}</script><div class="app-fp" data-fp-value data-readable>0</div><span data-fp-reason data-readable></span></m-fp><div class="app-name" data-readable>敵</div></div><m-effect-frame steps="0"><div class="s1-effect-name" data-readable>基本の一太刀</div><div data-effect-text data-mark="end-fp" data-readable><span data-effect-timing>（ラウンド終了時）</span><span>：FPを2得る。</span><span data-effect-frame></span></div></m-effect-frame></div></div><m-round-cut aria-label="カットの動きの進行" steps="2"><script type="application/json">{"id":"effect-fp","phase":4}</script></m-round-cut></section>
+<section class="slide s1-slide v2-slide noconcl" id="s-next" style="--battle-background-position:center 55%;--story-background-zoom:1.04"><h2>次ラウンドとFPの案内</h2><m-background class="v2-background" data-from="1" aria-label="遺跡の背景" steps="0"><div data-background-image><img src="images/ruins-battle.png" alt="石柱と開けた石床の遺跡"></div></m-background><div class="body s1-body plot"><m-phase aria-label="ラウンドの現在の段階" steps="0"><span data-phase="0" data-readable>ラウンド開始</span><span>→</span><span data-phase="1" data-readable>選択フェーズ</span><span>→</span><span data-phase="2" data-readable>解決フェーズ</span><span>→</span><span data-phase="3" data-readable>ラウンド終了</span></m-phase><div class="s1-board"><div class="app-piece ally"><div class="s1-slot v2-slot"><span></span></div><div class="app-token-body"><img class="app-portrait" src="images/ally-adventurer.png" alt="男冒険者"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:100%"></div></div><span class="app-stat-value"  data-readable>100</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>10</span></div>
+    </div></div><div class="app-fp" data-readable>3</div><div class="app-name" data-readable>味方</div></div><div class="app-piece enemy"><div class="s1-slot v2-slot"><span></span></div><div class="app-token-body"><img class="app-portrait" src="images/wolf-shularker.png" alt="人狼型シュラーカー"><div class="app-status">
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>HP</span><div class="app-bar"><div class="app-bar-fill hp"  style="width:70%"></div></div><span class="app-stat-value"  data-readable>21</span></div>
+    <div class="app-stat-row"><span class="app-stat-label" data-readable>MP</span><div class="app-bar"><div class="app-bar-fill mp" style="width:100%"></div></div><span class="app-stat-value" data-readable>6</span></div>
+    </div></div><div class="app-fp" data-readable>2</div><div class="app-name" data-readable>敵</div></div><m-gm-bubble aria-label="GMの案内" steps="0"><div data-gm-panel><div class="s1-gm-icon" aria-label="GMの札">GM</div><div class="s1-gm-text" data-readable>ラウンド開始</div></div></m-gm-bubble></div></div><m-round-cut aria-label="カットの動きの進行" steps="3"><script type="application/json">{"id":"next","phase":1}</script></m-round-cut></section>
+<section class="slide noconcl credits-page v2-slide v2-credits" id="s-credits">
+  <h2>クレジットと本への参照</h2><div class="body credits-content">
     <img class="credits-logo" src="images/gemuria_logo.png" alt="ジェムリアのロゴ">
     <p class="credits-project">ジェムリアTRPG</p>
     <h1 class="credits-title">1ラウンドの流れ</h1>
@@ -223,10 +86,7 @@
       <div><dt>音声</dt><dd>VOICEVOX:冥鳴ひまり</dd></div>
       <div><dt>効果音</dt><dd>Kenney（CC0）</dd></div>
       <div><dt>ダイス音</dt><dd>Springin’ Sound Stock</dd></div>
-    </dl>
+      <div><dt>背景</dt><dd>Codex画像生成（OpenAI）</dd></div>
+    </dl><div class="book-reference"><span class="book-ruby" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>基本ルールブック 第4章『戦闘の基本』</span></div>
   </div>
-</section>
-<!-- shared-credits:end -->
-</div>
-</body>
-</html>
+</section></div></body></html>

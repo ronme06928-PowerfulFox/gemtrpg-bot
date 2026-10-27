@@ -66,6 +66,7 @@ export async function prepareVoice(deck, engine, { boost = 6, credits = false } 
     assert.ok(event, `段階の設定がない: ${key}`);
     const parts = s.turns.flatMap((t) => t.ttsParts);
     const arrays = [];
+    const partLog = [];
     for (const part of parts) {
       if (!part.trim()) { arrays.push(null); continue; }
       let text = part;
@@ -73,6 +74,7 @@ export async function prepareVoice(deck, engine, { boost = 6, credits = false } 
       const settings = Object.fromEntries(['speedScale', 'pitchScale', 'intonationScale', 'prePhonemeLength', 'postPhonemeLength'].map((k) => [k, config[k]]));
       const hash = createHash('sha256').update(JSON.stringify({ identity, text, settings })).digest('hex');
       const wavFile = path.join(deck, 'voice/cache', `${hash}.wav`);
+      partLog.push({ text, hash, cached: fs.existsSync(wavFile) });
       if (fs.existsSync(wavFile)) cacheHits++;
       else {
         const query = await (await request(`/audio_query?speaker=${style.id}&text=${encodeURIComponent(text)}`, { method: 'POST' })).json();
@@ -107,7 +109,7 @@ export async function prepareVoice(deck, engine, { boost = 6, credits = false } 
     fs.writeFileSync(path.join(deck, 'audio', file), encodeWav(mix, sr));
     manifest.segments[key] = { file, dur, cues, sync: 'manual', kind: 'imported', inputHash: await inputHash(s) };
     timing[key] = { hold: dur, dur, lead: 0, pad_after: 0 };
-    report.segments.push({ key, dur, cues, effects: effectLog, peakDb: 20 * Math.log10(peak(mix)) });
+    report.segments.push({ key, dur, cues, parts: partLog, effects: effectLog, peakDb: 20 * Math.log10(peak(mix)) });
     console.log(`${key}: ${dur.toFixed(2)}s`);
   }
   for (const id of new Set(segments.map((s) => s.slideKey))) timing[`${id}:0`] ??= { dur: 0.6, hold: 0.6 };

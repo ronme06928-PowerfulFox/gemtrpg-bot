@@ -45,3 +45,14 @@ manuals/typst/build/
 /typst_manual/動画/**/audio/manifest.json
 /typst_manual/動画/**/voice/cache/
 /typst_manual/動画/**/sfx/imported/
+
+# 共通部品から生成するv2のビルド入力
+/typst_manual/動画/01_1ラウンドの流れ/components/phase/
+/typst_manual/動画/01_1ラウンドの流れ/components/dice/
+/typst_manual/動画/01_1ラウンドの流れ/components/impact-hp/
+/typst_manual/動画/01_1ラウンドの流れ/components/fp/
+/typst_manual/動画/01_1ラウンドの流れ/components/effect-frame/
+/typst_manual/動画/01_1ラウンドの流れ/components/background/
+/typst_manual/動画/01_1ラウンドの流れ/components/gm-bubble/
+/typst_manual/動画/01_1ラウンドの流れ/motion.css
+/typst_manual/動画/01_1ラウンドの流れ/images/ruins-battle.png

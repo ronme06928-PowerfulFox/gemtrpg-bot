@@ -2,20 +2,13 @@
 
 ## 現在の動画
 
-計画54のS1として、[共通の動きの7部品](common/README.md)と確認用デッキを追加しました。確認用HTML・MP4・PNGは `_local/s1-components/out/`（Git管理外）。「1ラウンドの流れ」のv2本編はS2で制作します。以下のR3とr3-v2は制作記録として残します。
+計画54 S2-2の「1ラウンドの流れ」v2を、承認済みの12カットと共通の7部品で制作します。[絵コンテ](01_1ラウンドの流れ/storyboard-v2.md)・[追加2文の承認記録](01_1ラウンドの流れ/narration-v2-proposal.md)・[台本](01_1ラウンドの流れ/narration.md)が対応します。
 
-S2-1の[12カットの絵コンテ案](01_1ラウンドの流れ/storyboard-v2.md)と[台本変更案](01_1ラウンドの流れ/narration-v2-proposal.md)を作成しました。共通部品の修正4点とオパール色のGMの札を反映済み。見出し・章の帯・ページ番号を表示せず、品質チェックはエラー0・警告0です。絵コンテ・追加文等の承認後にS2-2の本編制作へ進みます。既存の台本と音声は変更していません。
+確認用の単一HTMLは `out/deck-v2.html`、字幕付きMP4は `out/v2/full.mp4`、各カットのPNGは `out/v2-review/`（いずれも01_1ラウンドの流れ/内、Git管理外）。正本は[計画54](../../manuals/planned/54_Explainer_Video_Series_Plan.md)。通し確認後までF01への統合と計画53の完了処理は行いません。
 
-「1ラウンドの流れ」のR3修正版を制作・検証しました。本文7場面と共通クレジット1枚、27段階、タイムライン162.85秒です。実MP4の測定値は下記の検証結果を参照してください。
-味方はR1の男冒険者（HP100・MP10・FP0）、敵は人狼型シュラーカー（HP30・MP6・FP0）。HP・MPは満タンから始めます。
-冥鳴ひまりの声を19段階に入れ、採用済みのSE＋6dBを重ねます。BGMはありません。
+味方HP100・MP10・FP0、敵HP30・MP6・FP0から始め、使用コストなしの基本の一太刀を使います。冥鳴ひまり／VOICEVOX 0.26.0、SE＋6dB、ダイス確定音4回、共通クレジット5秒を引き継ぎます。背景は採用済みの遺跡を全面coverで表示します。
 
-[計画54](../../manuals/planned/54_Explainer_Video_Series_Plan.md)が共通部品と今後の制作の正本です。[計画53](../../manuals/planned/53_Explainer_Video_Plan.md)はR3までの制作記録と、引き継ぐ声・SE等の決定を保持します。
-[確認済み台本](01_1ラウンドの流れ/narration.md)と[画面との対応](01_1ラウンドの流れ/storyboard-r2.md)を使います。
-旧M1〜M3の記録は[F01 Part 14](../../manuals/implemented/F01_Operations_Manual.md#explainer-videos)、声・SE比較は[R1](01_1ラウンドの流れ_R1/README.md)へ残しています。
-計画53のF01への統合時期は計画54§9 Q7で扱います。
-R3は公開せず記録として残し、共通部品を使うv2本編の制作はS2で行います。
-2026-10-26の修正：「基本の一太刀」を「きほんのひとたち」と読み、速度値・最終威力が確定した時に、味方・敵それぞれ1回だけアプリ既存のダイス音を鳴らします。途中のロール音と確定tickをまとめ、ダイス周りの音を8回から4回へ減らしました。締めはラウンド終了時の処理後、次のラウンドが始まり戦闘が続く説明へ変更しています。
+R1は比較記録として変更せず、旧r3-v2のHTML・MP4も保存します。旧本編専用のround-video、deck.css、battle_scenes.cssと生成・検証経路はv2へ置き換えました。R3の原稿はローカルGitの0f96e35以前に残っています。[計画53](../../manuals/planned/53_Explainer_Video_Plan.md)と[旧絵コンテ](01_1ラウンドの流れ/storyboard-r2.md)は当時の記録です。
 
 ## 版と環境
 
@@ -41,13 +34,13 @@ npm --prefix C:/Users/yharu/tools/egatari-studio ci
 
 - `parts/assets.typ`：本の宝石・ダイスを書き出すTypstソース。
 - `01_1ラウンドの流れ/`：全編のHTML・台本・CSS・テーマ・画像・SVG・SE・声の設定。
-- 同デッキの `components/round-video/index.js`：全場面を(k,t)と音声cueから描く部品。独自タイマー・乱数・CSSアニメーションは使いません。
+- 同デッキの `components/round-cut/index.js`：カットごとの(k,t)と音声cueを共通部品へ配線します。独自タイマー・乱数・CSSアニメーションは使いません。
 - 同デッキの `voice/config.json`：固定版・声・読み・話速等。`voice/events.json`：SEと必要な余韻。`timeline.json` は声の長さから再生成します。
 - `common/`：動画間で共用するクレジットの生成関数・CSS・作品名と発行元。タイトルと使用素材は各デッキの `credits.json`。
-- `scripts/prepare-r2.mjs`：共通クレジットをデッキ内へ配置し、全編の声とSEを生成します。
+- `scripts/prepare-round-v2.mjs`：共通クレジットをデッキ内へ配置し、全編の声とSEを生成します。
 - 同スクリプトはアプリの `static/audio/dice-roll.mp3` を読み取り、`sfx/imported/` へコピーします。この素材コピーはGit管理外です。出典・動画利用条件は[SEの記録](01_1ラウンドの流れ/sfx/README.md)を参照してください。
-- `scripts/prepare-voice.mjs`：R1とR2が使う音声生成処理。WAV処理は `r1-audio.mjs` を共有します。
-- `scripts/verify-r2.mjs`：全編の数値・巻き戻し・字幕・音声・ロゴ・効果枠・クレジット・自動再生をブラウザで確認します。
+- `scripts/prepare-voice.mjs`：R1とv2が使う音声生成処理。WAV処理は `r1-audio.mjs` を共有します。
+- `scripts/verify-round-v2.mjs`：全編の数値・巻き戻し・字幕・音声・ロゴ・効果枠・クレジット・自動再生をブラウザで確認します。
 - `out/`：単一HTML・PNG・MP4。`audio/`：生成WAVとmanifest。`voice/cache/`：原音WAVとVOICEVOX query。これらの生成物はGit管理外です。
 - `_local/`：ローカル確認用。共通クレジット単体の見本は[専用手順](common/README.md)で再生成します。
 
@@ -86,15 +79,15 @@ npm --prefix $egatariDir run new -- $smokeDir --theme default --title 'M1 環境
 npm --prefix $egatariDir run check -- "$smokeDir/deck.html"
 ```
 
-## 全編の音声生成・ビルド・確認
+## S2-2の音声生成・ビルド・確認
 
-最初に別のPowerShellで固定版VOICEVOX ENGINEを起動します。エディターや外部サービスは使いません。
+固定版VOICEVOX ENGINEを別のPowerShellで起動します。
 
 ```powershell
 & C:/Users/yharu/tools/voicevox-engine-0.26.0/windows-cpu/run.exe --host 127.0.0.1 --port 50021 --no-use_gpu --cpu_num_threads 4 --disable_mutable_api --output_log_utf8
 ```
 
-リポジトリのルートから実行します。アプリ本体のビルドは不要です。
+リポジトリのルートから実行します。
 
 ```powershell
 $egatariDir = 'C:/Users/yharu/tools/egatari-studio'
@@ -105,25 +98,23 @@ $videoTemp = Join-Path (Get-Location) 'typst_manual/動画/_local/media-temp'
 New-Item -ItemType Directory -Force -Path $videoTemp | Out-Null
 $env:TEMP = $videoTemp
 $env:TMP = $videoTemp
-node --test typst_manual/動画/scripts/test-r1-audio.mjs typst_manual/動画/scripts/test-credits.mjs
-node typst_manual/動画/scripts/prepare-r2.mjs $egatariDir
+node --test typst_manual/動画/scripts/test-r1-audio.mjs typst_manual/動画/scripts/test-credits.mjs typst_manual/動画/scripts/test-round-v2.mjs
+node typst_manual/動画/scripts/prepare-round-v2.mjs $egatariDir --voice
 npm --prefix $egatariDir run build -- "$deckDir/deck.html" --embed-audio
-Copy-Item -LiteralPath "$deckDir/out/deck.html" -Destination "$deckDir/out/deck-r3-v2.html"
+Copy-Item -LiteralPath "$deckDir/out/deck.html" -Destination "$deckDir/out/deck-v2.html"
 npm --prefix $egatariDir run check -- "$deckDir/deck.html"
-node typst_manual/動画/scripts/verify-r2.mjs $egatariDir
-npm --prefix $egatariDir run sheet -- $deckDir --tiles --cols 2 --width 640
-node "$egatariDir/render/render.mjs" "$deckDir/out/deck-r3-v2.html" --out "$deckDir/out/r3-v2" --full --fps 24 --scale 1 --captions
+node typst_manual/動画/scripts/verify-round-v2.mjs $egatariDir
+npm --prefix $egatariDir run sheet -- $deckDir --tiles --cols 3 --width 426
+node "$egatariDir/render/render.mjs" "$deckDir/out/deck-v2.html" --out "$deckDir/out/v2" --full --fps 24 --scale 1 --captions
+node typst_manual/動画/scripts/verify-round-v2-video.mjs
 ```
 
-- `out/deck.html`：オフライン再生する単一HTML。`?captions=1`で開き、Aキーで声付き自動再生、Sキーで字幕、左右キーで段階を送ります。
-- `out/deck-r3-v2.html`、`out/r3-v2/full.mp4`：修正版の単一HTMLと字幕付きMP4。1280×720・24fps。末尾はナレーション終了後の共通クレジット5秒。旧メッセージの再生キャッシュと区別できる名前にします。
-- `out/sheet.png`、`out/sheet-tiles/`：各枚の最終状態。動きと途中の効果枠はMP4、`out/effect.png`等はブラウザ検証で確認します。
-- `out/audio-report-plus6.json`：声の識別・各段階の長さ・cue・SE時刻・合成後ピーク。
-- 台本・声・設定のhashが同じ原音は再利用します。読みと締めの修正で原音4本を更新し、残り17本はキャッシュを使用しました。ダイス音の差し替えでは原音21本すべてを再利用しています。
-- 音声とモデルは区別し、配布するのは通常の `--embed-audio` HTMLとMP4です。編集用 `--portable` は配布に使いません。
-
-旧SE専用の `prepare-media.mjs`、旧作例の2部品と `verify-deck.mjs` はR2で削除しました。
-VOICEVOX音声を消す古い生成経路は使わず、egatariのsynth.pyとも併用しません。
+- HTMLは通信不要。Aキーで声付き自動再生、Sキーで字幕、左右で段階移動。クレジットは声の終了後5秒です。配布には通常の `--embed-audio` を使い、編集用portableは使いません。
+- 生成入力の共通部品・motion.css・背景画像はprepareが写し、Git管理から除外します。共通部品を直接直し、写しを手編集しません。12カット固有の配線だけがcomponents/round-cutにあります。
+- 原音のhashは声の識別・読み上げ文・音声設定から作ります。今回の初回はC02の同期用5原音とC11追加2文を生成し、20原音は再利用。以後の再生成は27原音すべてキャッシュです。
+- 初回の内訳は `out/s2-voice-first-generation.json`、通常の音声・cue・SE・ピークは `out/audio-report-plus6.json`。古い台本の流用や欠損音声の無音置換は行いません。
+- `out/v2-review/browser-report.json` は途中・巻き戻し・オフライン音声・コントラストの検証記録、`out/v2/video-report.json` は実MP4の測定記録です。
+- 静止絵コンテの221秒は見積もりでした。実際の声からタイムラインを作り、尺合わせの静止は足しません。
 
 ## テーマの共有
 

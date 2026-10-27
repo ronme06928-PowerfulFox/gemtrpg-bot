@@ -1,0 +1,39 @@
+/* 承認済みv2。意味のある見出しは検査用に保持し、映像から隠す。 */
+.v2-slide h2, .v2-slide .pn, #bar, #jump { display: none !important; }
+.v2-slide .s1-body { top: 24px; height: 580px; }
+.v2-slide .s1-board { top: 100px; }
+.v2-slide .v2-background { inset: 0; border-radius: 0; }
+.v2-background img { transform: scale(var(--story-background-zoom, 1)); transform-origin: var(--battle-background-position, center 65%); }
+.v2-slot { left: 76px; top: -134px; }
+.v2-slot.first-slot { border-color: #007bff; box-shadow: 0 0 20px 7px #007bff; }
+.v2-slot.is-spent { background: #b8b8b8; border-color: #555; color: #222; }
+.v2-spent { position: absolute; top: 76px; left: -30px; width: 130px; text-align: center; background: #333; color: white; font-size: 24px; border-radius: 6px; padding: 4px; }
+.v2-slide m-gm-bubble { top: 420px; }
+.v2-premise { position: absolute; left: 370px; top: 410px; font-size: 24px; background: rgb(255 253 251 / 94%); padding: 8px 14px; border-radius: 8px; }
+.v2-speed-formula { position: absolute; left: 460px; top: 70px; font-size: 27px; line-height: 1.7; background: rgb(25 25 25 / 80%); color: white; padding: 8px 16px; border-radius: 8px; }
+.v2-slide svg.v2-arrows { position: absolute; inset: 0; width: 1184px; height: 130px; fill: none; stroke: #ffb020; stroke-width: 5; }
+.v2-arrows marker path { stroke: none; }
+.v2-skill { position: absolute; top: 94px; background: #fff6da; border: 2px solid #4a3a28; border-radius: 8px; padding: 4px 10px; font-size: 27px; }
+.v2-skill.ally { left: 165px; } .v2-skill.enemy { left: 805px; }
+.v2-slide .s1-formula { left: 430px; top: 150px; background: rgb(25 25 25 / 85%); padding: 8px; border-radius: 8px; }
+.v2-formula-label, .v2-compare { position: absolute; left: 440px; top: 104px; font-size: 27px; background: rgb(255 253 251 / 94%); border-radius: 8px; padding: 6px 12px; }
+.v2-compare { top: 254px; left: 460px; font-size: 34px; }
+.v2-slide m-effect-frame { left: 410px; top: -16px; }
+.v2-credits .credits-logo { top: 12px; left: 466px; width: 260px; height: 146px; }
+.v2-credits .credits-project { top: 168px; }
+.v2-credits h1.credits-title { top: 209px; font-size: 36px; }
+.v2-credits .credits-rule { top: 270px; }
+.v2-credits .credits-list { top: 300px; left: 286px; width: 660px; }
+.v2-credits .credits-list > div { margin-bottom: 5px; }
+.book-reference { position: absolute; top: 565px; left: 170px; right: 170px; display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 27px; }
+.book-ruby { display: block; flex: 0 0 32px; height: 42px; }
+.book-ruby svg { width: 32px; height: 42px; display: block; }
+
+m-round-cut { display: none; }
+.v2-slide m-fp [data-fp-reason] { left: -170px; top: -90px; min-width: 130px; box-sizing: border-box; }
+#deck-cap { bottom: 12px !important; font-size: 27px !important; }
+#deck-cap .cap-line { font-size: 27px !important; line-height: 1.25 !important; }
+
+.v2-slide .enemy m-fp [data-fp-reason] { left: 210px; }
+[data-first-die], [data-first-face], [data-first-face] svg { display: block; width: 60px; height: 60px; }
+.v2-slide m-fp [data-fp-reason] { width: 150px; min-width: 150px; white-space: nowrap; }
