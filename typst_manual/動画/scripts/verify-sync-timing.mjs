@@ -19,9 +19,9 @@ try {
   const config = JSON.parse(fs.readFileSync(path.join(deck, 'voice/config.json'), 'utf8'));
   const lead = config.partGap + config.prePhonemeLength;
   const windows = [
-    [0, 2, 'full', 0, 1], [0, 2, 'fp-zero', 1, null],
+    [0, 3, 'full', 0, 1], [0, 3, 'fp-zero', 1, null],
     [2, 1, 'speed-correction', 1, null],
-    [5, 1, 'power-base', 0, 1], [5, 1, 'power-die', 1, 2], [5, 1, 'power-physical', 2, 3]
+    [5, 2, 'power-base', 0, 1], [5, 2, 'power-die', 1, 2], [5, 2, 'power-physical', 2, 3]
   ].map(([i, k, name, start, end]) => {
     const id = ['s-intro', '', 's-speed', '', '', 's-power-ally'][i];
     const cues = manifest[`${id}:${k}`].cues;
@@ -79,12 +79,12 @@ try {
   const oldSpeech = before.render.segments.find((s) => s.key === 's-speed:2').clipStart;
   const oldCues = before.audio.segments.find((s) => s.key === 's-speed:2').cues;
   const speed = timeline.find((s) => s.key === 's-speed:1');
-  const result = timeline.find((s) => s.key === 's-speed:2');
+  const result = timeline.find((s) => s.key === 's-speed:3');
   const rollStart = speed.frameStart / 24 + manifest['s-speed:1'].cues[0] + lead;
   const readStart = result.frameStart / 24;
   const comparison = [0, 1].map((side) => ({ side: side ? '敵' : '味方',
     before: { spoken: oldSpeech + (side ? oldCues[0] + lead : config.prePhonemeLength), dieStops: oldSpeech + oldCues[side] - 1.3, slotValue: oldSpeech + oldCues[side] },
-    after: { spoken: readStart + (side ? manifest['s-speed:2'].cues[0] + lead : config.prePhonemeLength), roll: rollStart + side * .4, dieStops: rollStart + side * .4 + 1.1, slotValue: rollStart + side * .4 + 2.4 }
+    after: { spoken: readStart + (side ? manifest['s-speed:3'].cues[0] + lead : config.prePhonemeLength), roll: rollStart + side * .4, dieStops: rollStart + side * .4 + 1.1, slotValue: rollStart + side * .4 + 2.4 }
   }));
   comparison.forEach((c) => assert.ok(c.after.slotValue < c.after.spoken));
   await page.goto(fileUrl(path.join(deck, 'out/deck-v2-opening.html')) + '?mode=video&captions=1', { waitUntil: 'domcontentloaded' });

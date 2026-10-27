@@ -21,7 +21,7 @@ const read = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const credits = read(path.join(deck, 'credits.json'));
 credits.credits = credits.credits.filter((x) => x.label !== '背景');
 credits.credits.push({ label: '背景', value: 'Codex画像生成（OpenAI）' });
-const counts = [2, 2, 3, 2, 1, 2, 2, 3, 1, 2, 3];
+const counts = [3, 4, 4, 4, 2, 3, 2, 4, 2, 2, 3];
 const voiceConfig = read(path.join(deck, 'voice/config.json'));
 const wordLead = voiceConfig.partGap + voiceConfig.prePhonemeLength;
 const pair = (a = {}, b = {}) => actor(false, a) + actor(true, b);
@@ -31,8 +31,8 @@ function arrows(id) {
 const slots = (a = {}, b = {}) => pair({ slot: 6, ...a }, { slot: 4, ...b });
 function content(id) {
   switch (id) {
-    case 'intro': return pair().replaceAll('class="app-bar"', 'class="app-bar" data-spoken="full"').replaceAll('class="app-fp"', 'class="app-fp" data-spoken="fp-zero"') + '<div class="v2-premise">基本の一太刀／スキル以外の追加効果なし</div>';
-    case 'slots': return pair({ slot: '' }, { slot: '' });
+    case 'intro': return pair().replaceAll('class="app-bar"', 'class="app-bar" data-spoken="full"').replaceAll('class="app-fp"', 'class="app-fp" data-spoken="fp-zero"') + '<div class="v2-premise">基本スキル／スキル以外の追加効果なし</div>';
+    case 'slots': return pair({ slot: '' }, { slot: '' }).replace('class="s1-slot v2-slot"', 'class="s1-slot v2-slot" data-mark="slot-ally"');
     case 'speed': {
       const ally = dice().replace('data-dice-target data-readable', 'data-dice-target id="speed-ally" data-mark="slot-ally" data-readable');
       const enemy = dice().replace('"face":4,"value":6,"from":[290,230],"stop":[500,230],"to":[290,50]', '"face":3,"value":4,"from":[930,230],"stop":[700,230],"to":[930,50]').replace('left:252px', 'left:892px').replace('data-dice-target data-readable', 'data-dice-target id="speed-enemy" data-readable');

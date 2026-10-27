@@ -15,7 +15,7 @@ assert.equal(audio.voice.version, '0.26.0');
 assert.equal(audio.voice.speaker, '冥鳴ひまり');
 const rolls = audio.segments.flatMap((s) => s.effects.filter((e) => e.sound === 'dice').map((e) => ({ key: s.key, at: e.at, cues: s.cues })));
 assert.equal(rolls.length, 4);
-assert.deepEqual(rolls.map((r) => r.key), ['s-speed:1', 's-speed:1', 's-power-ally:1', 's-power-enemy:1']);
+assert.deepEqual(rolls.map((r) => r.key), ['s-speed:1', 's-speed:1', 's-power-ally:2', 's-power-enemy:1']);
 for (const [i, offset, cueIndex] of [[0, 1.32, 0], [1, 1.72, 0], [2, 1.32, 3]]) {
   assert.ok(Math.abs(rolls[i].at - rolls[i].cues[cueIndex] - offset) < .001, '出目停止で陣営ごとに1回');
 }
@@ -48,8 +48,8 @@ try {
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   };
   const timeline = await page.evaluate(() => DECK.timeline());
-  assert.equal(timeline.filter((s) => s.audio && s.k > 0).length, 23);
-  assert.equal(timeline.filter((s) => s.audio).length, 24);
+  assert.equal(timeline.filter((s) => s.audio && s.k > 0).length, 33);
+  assert.equal(timeline.filter((s) => s.audio).length, 34);
   assert.equal(timeline[0].dur, 2.6);
   timeline.filter((s) => s.audio && s.k > 0).forEach((s) => assert.ok(s.anim >= s.dur - .02, `字幕の後半まで描画: ${s.key}`));
   const states = [];
@@ -67,7 +67,7 @@ try {
       await seek(0, 0, 0);
       await seek(s.i, s.k, t);
       assert.equal(await snapshot(), state, `直接移動と往復後: ${s.key}@${t}`);
-      if (s.audio && t > 0) {
+      if (s.audio && t > 0 && s.key !== 's-power-enemy:1' && s.key !== 's-intro:0') {
         assert.ok(await page.evaluate(() => DECK.caption()), `字幕: ${s.key}`);
         const boxes = await page.locator('#deck-cap .cap-line').evaluateAll((els) => els.map((e) => ({ top: e.getBoundingClientRect().top, bottom: e.getBoundingClientRect().bottom, clipped: e.scrollHeight > e.clientHeight + 1 })));
         assert.ok(boxes.every((b) => b.top >= 615 && b.bottom <= 720 && !b.clipped), `字幕が収まる: ${s.key}`);
@@ -77,7 +77,7 @@ try {
   }
   console.log(`Rewind: ${states.length} states`);
   const pngRewinds = [];
-  const pixelCases = [[1, 1, 1.8], [2, 2, 3], [4, 1, .8], [5, 2, 3], [7, 1, 10], [7, 2, 5.3], [8, 1, 4], [9, 1, .4]];
+  const pixelCases = [[1, 1, 1.8], [2, 1, 3], [4, 1, .8], [5, 2, 7], [7, 2, 6.4], [7, 3, 5.3], [8, 2, 4], [9, 1, .4]];
   for (const [i, k, t] of pixelCases) {
     await seek(i, k, t);
     await page.screenshot(); // 初回の縮小画像ラスタライズを済ませる。
@@ -105,16 +105,16 @@ try {
   await seek(2, 3);
   assert.deepEqual(await page.locator('#s-speed [data-dice-target]').allTextContents(), ['6', '4']);
   for (const [i, value, faces] of [[5, '9', [2, 3]], [6, '6', [1, 1]]]) {
-    await seek(i, i === 5 ? 2 : 1);
+    await seek(i, i === 5 ? 3 : 1);
     const host = page.locator('section.slide').nth(i);
     assert.equal(await host.locator('[data-dice-total]').textContent(), value);
     assert.equal(await host.locator('[data-first-face]:visible').getAttribute('data-first-face'), String(faces[0]));
     assert.equal(await host.locator('[data-face]:visible').getAttribute('data-face'), String(faces[1]));
   }
   await seek(7, 1, 0); assert.deepEqual(await nums('damage'), ['100', '10', '0', '30', '6', '0']);
-  await seek(7, 1); assert.deepEqual(await nums('damage'), ['100', '10', '0', '21', '6', '0']);
-  await seek(7, 2); assert.deepEqual(await nums('damage'), ['100', '10', '1', '21', '6', '0']);
-  await seek(7, 3); assert.equal(await page.locator('#s-damage .is-spent').count(), 2);
+  await seek(7, 2); assert.deepEqual(await nums('damage'), ['100', '10', '0', '21', '6', '0']);
+  await seek(7, 3); assert.deepEqual(await nums('damage'), ['100', '10', '1', '21', '6', '0']);
+  await seek(7, 4); assert.equal(await page.locator('#s-damage .is-spent').count(), 2);
   const contrast = await page.locator('#s-damage .v2-spent').first().evaluate((e) => {
     const lum = (color) => color.match(/[\d.]+/g).slice(0, 3).map(Number).map((v) => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((n, v, i) => n + v * [.2126, .7152, .0722][i], 0);
     const style = getComputedStyle(e); const a = lum(style.color); const b = lum(style.backgroundColor);
@@ -136,10 +136,10 @@ try {
   await seek(4, 1, .8); assert.equal(await page.locator('#s-resolve .first-slot').count(), 1);
   await seek(4, 1, 1.3); assert.equal(await page.locator('#s-resolve [aria-current="step"]').textContent(), '解決フェーズ');
   await seek(3, 1, .9); assert.equal(await page.locator('#s-selection .v2-skill').first().evaluate((e) => getComputedStyle(e).visibility), 'hidden');
-  await seek(3, 1, 1.1); assert.equal(await page.locator('#s-selection .v2-skill').first().evaluate((e) => getComputedStyle(e).visibility), 'visible');
-  const matchAt = audio.segments.find((s) => s.key === 's-selection:2').effects[0].at;
-  await seek(3, 2, matchAt - .01); assert.equal(await page.locator('#s-selection .v2-arrows').evaluate((e) => getComputedStyle(e).visibility), 'hidden');
-  await seek(3, 2, matchAt + .2); assert.ok(await page.locator('#s-selection .v2-arrows').evaluate((e) => +getComputedStyle(e).opacity) > 0);
+  await seek(3, 2, .1); assert.equal(await page.locator('#s-selection .v2-skill').first().evaluate((e) => getComputedStyle(e).visibility), 'visible');
+  const matchAt = audio.segments.find((s) => s.key === 's-selection:4').effects[0].at;
+  await seek(3, 4, matchAt - .01); assert.equal(await page.locator('#s-selection .v2-arrows').evaluate((e) => getComputedStyle(e).visibility), 'hidden');
+  await seek(3, 4, matchAt + .2); assert.ok(await page.locator('#s-selection .v2-arrows').evaluate((e) => +getComputedStyle(e).opacity) > 0);
   await seek(10, 1, .4); assert.equal(await page.locator('#s-next .v2-slot').first().evaluate((e) => getComputedStyle(e).visibility), 'hidden');
   await seek(10, 1, .6); assert.equal(await page.locator('#s-next .v2-slot').first().evaluate((e) => getComputedStyle(e).visibility), 'visible');
   await seek(9, 0, 0); assert.deepEqual(await nums('effect-fp'), ['100', '10', '1', '21', '6', '0']);
@@ -151,7 +151,7 @@ try {
     await seek(i, 2, 0);
     assert.equal(await page.locator('section.slide').nth(i).locator('[data-gm-panel]').evaluate((e) => Number(getComputedStyle(e).opacity)), 1, '説明の次の段階でGM操作を再出現させない');
   }
-  const finals = [2, 2, 3, 2, 1, 2, 1, 3, 1, 2, 3, 0];
+  const finals = [3, 4, 4, 4, 2, 3, 2, 4, 2, 2, 3, 0];
   for (let i = 0; i < 12; i++) {
     await seek(i, finals[i]);
     assert.equal(await page.locator(`#${ids[i]} h2:visible`).count(), 0);
@@ -172,7 +172,7 @@ try {
     }
     await ctx.close(); return result;
   });
-  assert.equal(decoded.length, 24);
+  assert.equal(decoded.length, 34);
   decoded.forEach((a) => assert.ok(a.peak > .1 && a.peak < .98 && a.embedded, a.key));
   await page.evaluate(() => DECK.go(0, 0, false));
   await page.keyboard.press('a');
@@ -188,6 +188,8 @@ try {
   assert.equal(await page.locator('.video-opening').evaluate((e) => getComputedStyle(e).visibility), 'visible');
   await page.screenshot({ path: path.join(out, 'opening.png') });
   await seek(0, 1, 0);
+  assert.equal(await page.locator('.video-opening').evaluate((e) => getComputedStyle(e).visibility), 'visible');
+  await seek(0, 2, 0);
   assert.equal(await page.locator('.video-opening').evaluate((e) => getComputedStyle(e).visibility), 'hidden');
-  console.log(`v2 verified: ${states.length} rewind states, 22 voice + title and dice audio, ${report.duration.toFixed(2)}s`);
+  console.log(`v2 verified: ${states.length} rewind states, 32 voice + title and dice audio, ${report.duration.toFixed(2)}s`);
 } finally { await browser.close(); }

@@ -1,13 +1,19 @@
 {
   "s-intro:1": {
-    "hold": 2.89,
-    "dur": 2.89,
+    "hold": 4.67,
+    "dur": 4.67,
     "lead": 0,
     "pad_after": 0
   },
   "s-intro:2": {
-    "hold": 12.63,
-    "dur": 12.63,
+    "hold": 4.82,
+    "dur": 4.82,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-intro:3": {
+    "hold": 6.26,
+    "dur": 6.26,
     "lead": 0,
     "pad_after": 0
   },
@@ -18,56 +24,98 @@
     "pad_after": 0
   },
   "s-slots:2": {
-    "hold": 10.25,
-    "dur": 10.25,
+    "hold": 3.25,
+    "dur": 3.25,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-slots:3": {
+    "hold": 6.04,
+    "dur": 6.04,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-slots:4": {
+    "hold": 4.25,
+    "dur": 4.25,
     "lead": 0,
     "pad_after": 0
   },
   "s-speed:1": {
-    "hold": 11.05,
-    "dur": 11.05,
+    "hold": 6.24,
+    "dur": 6.24,
     "lead": 0,
     "pad_after": 0
   },
   "s-speed:2": {
-    "hold": 9.56,
-    "dur": 9.56,
+    "hold": 4.96,
+    "dur": 4.96,
     "lead": 0,
     "pad_after": 0
   },
   "s-speed:3": {
-    "hold": 5.46,
-    "dur": 5.46,
+    "hold": 4.86,
+    "dur": 4.86,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-speed:4": {
+    "hold": 3.74,
+    "dur": 3.74,
     "lead": 0,
     "pad_after": 0
   },
   "s-selection:1": {
-    "hold": 13.3,
-    "dur": 13.3,
+    "hold": 6.55,
+    "dur": 6.55,
     "lead": 0,
     "pad_after": 0
   },
   "s-selection:2": {
+    "hold": 3.46,
+    "dur": 3.46,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-selection:3": {
+    "hold": 2.06,
+    "dur": 2.06,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-selection:4": {
     "hold": 5.12,
     "dur": 5.12,
     "lead": 0,
     "pad_after": 0
   },
   "s-resolve:1": {
-    "hold": 7.38,
-    "dur": 7.38,
+    "hold": 4.83,
+    "dur": 4.83,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-resolve:2": {
+    "hold": 2.68,
+    "dur": 2.68,
     "lead": 0,
     "pad_after": 0
   },
   "s-power-ally:1": {
-    "hold": 11.03,
-    "dur": 11.03,
+    "hold": 2.5,
+    "dur": 2.5,
     "lead": 0,
     "pad_after": 0
   },
   "s-power-ally:2": {
-    "hold": 5.09,
-    "dur": 5.09,
+    "hold": 8.76,
+    "dur": 8.76,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-power-ally:3": {
+    "hold": 3.47,
+    "dur": 3.47,
     "lead": 0,
     "pad_after": 0
   },
@@ -78,38 +126,50 @@
     "pad_after": 0
   },
   "s-power-enemy:2": {
-    "hold": 5.06,
-    "dur": 5.06,
+    "hold": 3.32,
+    "dur": 3.32,
     "lead": 0,
     "pad_after": 0
   },
   "s-damage:1": {
-    "hold": 12.27,
-    "dur": 12.27,
+    "hold": 4.59,
+    "dur": 4.59,
     "lead": 0,
     "pad_after": 0
   },
   "s-damage:2": {
+    "hold": 9.04,
+    "dur": 9.04,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-damage:3": {
     "hold": 6.45,
     "dur": 6.45,
     "lead": 0,
     "pad_after": 0
   },
-  "s-damage:3": {
+  "s-damage:4": {
     "hold": 3.33,
     "dur": 3.33,
     "lead": 0,
     "pad_after": 0
   },
   "s-effect-timing:1": {
-    "hold": 9.08,
-    "dur": 9.08,
+    "hold": 2.88,
+    "dur": 2.88,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-effect-timing:2": {
+    "hold": 5.82,
+    "dur": 5.82,
     "lead": 0,
     "pad_after": 0
   },
   "s-effect-fp:1": {
-    "hold": 8.29,
-    "dur": 8.29,
+    "hold": 7.2,
+    "dur": 7.2,
     "lead": 0,
     "pad_after": 0
   },
