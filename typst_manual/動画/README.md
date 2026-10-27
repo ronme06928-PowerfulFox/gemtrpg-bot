@@ -4,9 +4,9 @@
 
 計画54 S2-2の「1ラウンドの流れ」v2を、承認済みの12カットと共通の7部品で制作・検証しました。[絵コンテ](01_1ラウンドの流れ/storyboard-v2.md)・[追加2文の承認記録](01_1ラウンドの流れ/narration-v2-proposal.md)・[台本](01_1ラウンドの流れ/narration.md)が対応します。
 
-確認用の単一HTMLは `out/deck-v2-sync.html`、字幕付きMP4は `out/v2-sync/full.mp4`、各カットのPNGは `out/v2-sync-review/`（いずれも01_1ラウンドの流れ/内、Git管理外）。正本は[計画54](../../manuals/planned/54_Explainer_Video_Series_Plan.md)。通し確認後までF01への統合と計画53の完了処理は行いません。
+最新の確認用単一HTMLは `out/deck-v2-latest.html` です（01_1ラウンドの流れ/内、Git管理外）。今後の確認はHTMLだけで行い、MP4を出すかは公開段階で決めます。正本は[計画54](../../manuals/planned/54_Explainer_Video_Series_Plan.md)。通し確認後までF01への統合と計画53の完了処理は行いません。
 
-直近のC07・C04の部分修正は `out/deck-v2-enemy-boundaries.html`、短い動画と比較画像は `out/v2-enemy-boundaries/` です。上記の本編MP4は直前の全編版として保存し、部分修正後の本編全体は仕上げの確認まで書き出しません。
+直近のC07・C04の部分修正は `out/deck-v2-enemy-boundaries.html`、当時の短い動画と比較画像は `out/v2-enemy-boundaries/` に保存しています。旧HTML・MP4も制作記録として残し、今後は確認用にMP4を書き出しません。
 
 味方HP100・MP10・FP0、敵HP30・MP6・FP0から始め、使用コストなしの基本の一太刀を使います。冥鳴ひまり／VOICEVOX 0.26.0、SE＋6dB、ダイス確定音4回、共通クレジット5秒を引き継ぎます。背景は採用済みの遺跡を全面coverで表示します。
 
@@ -22,25 +22,34 @@ R1は比較記録として変更せず、旧r3-v2のHTML・MP4も保存します
 - ルールは基本ルールブックの原稿、GMの操作は操作ガイドに従います。推測で補いません。
 - 読み上げる文は、依頼に書かれたもの以外は変えません。依頼に決定が含まれるときは、計画54§3へ1行で記録してから作業します。
 - 声は変わった段階だけを作り直し、ほかはキャッシュを使います。SE＋6dB、ダイス確定音4回、共通クレジット5秒を保ちます。
+- 軽い確認・通し確認は音声入りHTMLで行います。MP4は書き出さず、出すかは公開段階で決めます。以下の過去のMP4制作記録より、この方針を優先します。
 - アプリ本体（`static/`・`app.py`）は変更しません。pushとDiscordへの投稿はしません。F01への統合と計画53の完了処理は、ユーザーの通し確認の後に行います。
 - 段階ごとにローカルコミットします。コミット前に、指定のPythonで文字コード検査2本を通します。
 
 ### 軽い確認（ふだんの修正）
 
-- 直した場面だけを書き出します（`render.mjs` の `--only`）。本編の全編は書き出しません。
+- 最新原稿を `--embed-audio` で音声入り単一HTMLへビルドします。部分動画も本編MP4も書き出しません。
 - `npm run check` がエラー0で、`node --test` のテストが通ることを確かめます。
-- 直した場面を0.25秒ごとのコマで見て、直した点が直っていることと、前後の場面の境目に乱れがないことを確かめます。
-- 報告は数行にまとめます：直した場面だけの短い確認動画、比較画像1枚、何をどう直したか、作り直した声の段階。
+- ブラウザでHTMLの時刻を指定し、直した場面を0.25秒ごとに撮影します。直した点と前後の境目を確認し、境目の細かい確認が必要なときは0.1秒刻みで撮影します。MP4からのコマ抽出は行いません。
+- 報告は数行にまとめます：最新の音声入りHTML、比較画像1枚、何をどう直したか、作り直した声の段階。
 - 計画54§11の制作記録には、何を直したかを数行で書きます。測定値の細目は書きません。
 
 ### 仕上げの確認（公開の直前に1回）
 
 ユーザーが通し確認に入る前、または公開の直前に1回だけ行います。
 
-- 上の「S2-2の音声生成・ビルド・確認」の手順を通しで実行し、本編のMP4と音声入りHTMLを作ります。
-- 実MP4を最後まで読み込み、クリップがないこと、最後の5秒、すべての場面の境目の前後1秒（0.1秒ごとのコマ）を確かめます。
+- 「S2-2の音声生成・HTMLビルド・確認」の手順で最新の音声入りHTMLを作ります。公開用にMP4を出すかは、この段階で別途判断し、自動では書き出しません。
+- HTMLを最後まで再生し、声・字幕・SEの同期、クリップがないこと、最後の5秒を確かめます。すべての境目の前後1秒はブラウザで時刻を指定して0.1秒ごとに撮影します。
 - 巻き戻しと途中への移動、HTMLのオフライン再生、ルールの数値（速度・威力・HP・FP）、GMの吹き出しと操作ガイドの手順、文字の大きさ、ロゴを確かめます。
 - 結果は計画54§11と、このREADMEの検証結果の節に残します。
+
+### ブラウザでのコマ確認
+
+フォントと画像の読み込み完了後、egatariの `DECK.seek(i, k, t)` で場面・段階・その段階の秒数を指定します。境目の段階0では、直前の場面を最終状態で描いてから移ります。描画を2フレーム待ってPNGを撮り、別の時刻へ移動して戻っても同じ見え方になることを確認します。既存の `verify-sync-timing.mjs` と `verify-round-boundaries.mjs` がこの方法でHTMLを検査・撮影します。MP4用の検証スクリプトは今後の通常確認では実行しません。
+
+## 過去の制作記録
+
+以下のMP4生成・抽出手順は当時の記録です。今後の確認には使わず、上のHTMLによる手順を適用します。
 
 ### C07と境目の修正方針（2026-10-27）
 
@@ -49,6 +58,12 @@ C07は段階1をダイスだけの2.6秒、段階2を従来の語りにし、式
 再現は通常のprepare（--voice）とbuild（--embed-audio）の後、出力HTMLを `out/deck-v2-enemy-boundaries.html` へコピーします。`verify-round-boundaries.mjs` がC07と全境目を検査し、231枚のPNGを保存します。rendererの--onlyには `s-selection:2,s-resolve:0,s-resolve:1,s-power-enemy:0,s-power-enemy:1,s-power-enemy:2`、--outには `out/v2-enemy-boundaries/render` を指定します。未選択の29段階がないという通知は部分生成のためで、全編へは連結しません。指定Pythonで `scripts/verify-round-boundaries-video.py`（この動画フォルダ内）を実行すると、選択した6クリップの入力を照合し、`revised-scenes.mp4`・`all-boundaries.mp4`・`comparison.png`・`all-boundaries.png` と実コマの照合記録を作ります。境目用MP4は0.1秒ごとの画像を10fpsで並べた確認用の無音動画です。
 
 確認結果：品質エラー0・警告13（語りなしのダイス段階が1件追加）、10テスト通過。全11境目の231コマと巻き戻し、実MP4との画素照合、C07の語り中21コマで出目・＝6・文末の比較表示を確認しました。比較画像と境目一覧も目視確認済みです。声の再生成は0、35原音すべてキャッシュを使い、確定音は合計4回のままです。修正場面の動画は約21.3秒、全境目の確認動画は23.1秒で、両方とも最後までデコードできました。
+
+### 最新本編の書き出し（2026-10-27、軽い確認）
+
+直前の依頼で音声入りHTMLを `out/deck-v2-latest.html` へ書き出しました。前回確認したC07・C04修正版とSHA-256が一致し、24音声を埋め込み、声・SE・台本・動きの変更や声の再生成はありません。品質検査はエラー0・警告13、10テスト通過。
+
+本編MP4は3群で生成し、正規rendererが35段階の入力と最終・中間PNGを照合して連結しました。HTMLのみで確認する方針への変更後に状態を確認した時点ですでに生成済みだったため、`out/v2-latest/full.mp4` に当時の成果物として保存しています。追加のMP4確認・コマ抽出は行っていません。以後の確認ではHTMLを使い、MP4を出すかは公開段階で判断します。
 
 ## 版と環境
 
@@ -119,7 +134,7 @@ npm --prefix $egatariDir run new -- $smokeDir --theme default --title 'M1 環境
 npm --prefix $egatariDir run check -- "$smokeDir/deck.html"
 ```
 
-## S2-2の音声生成・ビルド・確認
+## S2-2の音声生成・HTMLビルド・確認
 
 固定版VOICEVOX ENGINEを別のPowerShellで起動します。
 
@@ -141,14 +156,12 @@ $env:TMP = $videoTemp
 node --test typst_manual/動画/scripts/test-r1-audio.mjs typst_manual/動画/scripts/test-credits.mjs typst_manual/動画/scripts/test-round-v2.mjs typst_manual/動画/scripts/test-opening.mjs typst_manual/動画/scripts/test-cue-effects.mjs
 node typst_manual/動画/scripts/prepare-round-v2.mjs $egatariDir --voice
 npm --prefix $egatariDir run build -- "$deckDir/deck.html" --embed-audio
-Copy-Item -LiteralPath "$deckDir/out/deck.html" -Destination "$deckDir/out/deck-v2-sync.html"
+Copy-Item -LiteralPath "$deckDir/out/deck.html" -Destination "$deckDir/out/deck-v2-latest.html"
 npm --prefix $egatariDir run check -- "$deckDir/deck.html"
 node typst_manual/動画/scripts/verify-round-v2.mjs $egatariDir
-node typst_manual/動画/scripts/verify-sync-timing.mjs
+node typst_manual/動画/scripts/verify-sync-timing.mjs deck-v2-latest.html
+node typst_manual/動画/scripts/verify-round-boundaries.mjs deck-v2-latest.html
 npm --prefix $egatariDir run sheet -- $deckDir --tiles --cols 3 --width 426
-node "$egatariDir/render/render.mjs" "$deckDir/out/deck-v2-sync.html" --out "$deckDir/out/v2-sync" --full --fps 24 --scale 1 --captions
-node typst_manual/動画/scripts/verify-round-v2-video.mjs
-& C:/Users/yharu/anaconda3/python.exe typst_manual/動画/scripts/verify-sync-video.py
 ```
 
 - HTMLは通信不要。Aキーで声付き自動再生、Sキーで字幕、左右で段階移動。クレジットは声の終了後5秒です。配布には通常の `--embed-audio` を使い、編集用portableは使いません。
