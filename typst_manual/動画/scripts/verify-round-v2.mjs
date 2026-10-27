@@ -171,14 +171,15 @@ try {
   });
   assert.equal(decoded.length, 23);
   decoded.forEach((a) => assert.ok(a.peak > .1 && a.peak < .98 && a.embedded, a.key));
-  await seek(0, 1, 0); await page.keyboard.press('a');
-  await page.waitForFunction(() => window.__players.some((a) => a.currentTime > .2), { timeout: 10000 });
+  await page.evaluate(() => DECK.go(0, 0, false));
+  await page.keyboard.press('a');
+  await page.waitForFunction(() => DECK.state().step === 1 && window.__players.some((a) => !a.paused && a.currentTime > .2), null, { timeout: 10000 });
   await page.evaluate(() => { DECK.autoplay(false); DECK.go(0, 0, false); });
   assert.deepEqual(errors, []);
   assert.deepEqual(await page.evaluate(() => DECK.componentErrors), []);
   const credits = timeline.find((s) => s.i === 11);
   assert.equal(credits.dur, 5);
-  const report = { states, pngRewinds, decoded, rolls, contrast, timeline, duration: timeline.reduce((n, s) => n + s.dur, 0), offlinePlayback: true, errors };
+  const report = { states, pngRewinds, decoded, rolls, contrast, timeline, duration: timeline.reduce((n, s) => n + s.dur, 0), offlinePlayback: true, openingAutoplay: true, errors };
   fs.writeFileSync(path.join(out, 'browser-report.json'), JSON.stringify(report, null, 2) + '\n');
   await seek(0, 0, .2);
   assert.equal(await page.locator('.video-opening').evaluate((e) => getComputedStyle(e).visibility), 'visible');

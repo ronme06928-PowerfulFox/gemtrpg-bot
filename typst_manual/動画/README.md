@@ -133,6 +133,8 @@ common/opening.mjs・opening.cssが共通の題名とSEを作り、C01の段階0
 
 確認HTMLはout/deck-v2-opening.html、MP4はout/v2-opening/full.mp4、冒頭とスロット説明だけの見本は同フォルダのopening-and-slots.mp4、タイトルPNGはopening.png。旧out/deck-v2.html・out/v2/full.mp4は比較用に保存します。声の生成記録はout/voice-opening-revision.json。
 
+改訂版の実MP4は179.648209秒・4311フレーム・1280×720/24fps。全編デコードを通過し、最大ピーク-7.5dBFS、タイトルSEの実MP4内ピーク-19dBFS、最後は5秒です。冒頭から声への自動再生・78状態の巻き戻し・23音声のオフライン再生を確認。品質エラー0・警告12、単体テスト8件通過。タイトル・新説明の字幕・末尾は実MP4から抽出して確認しました。
+
 ## テーマの共有
 
 
