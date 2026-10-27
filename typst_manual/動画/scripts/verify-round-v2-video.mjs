@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 const video = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const deck = path.join(video, '01_1ラウンドの流れ');
-const out = path.join(deck, 'out/v2-opening');
+const out = path.join(deck, 'out/v2-sync');
 const ff = 'C:/Users/yharu/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.1-full_build/bin';
 const run = (program, args) => {
   const r = spawnSync(path.join(ff, program + '.exe'), args, { maxBuffer: 64 * 1024 * 1024 });
@@ -33,19 +33,21 @@ const cases = [
   ['s-selection:1', .9, 1.1],
   ['s-selection:2', cue('s-selection:2') - .6, cue('s-selection:2') - .2],
   ['s-next:1', .4, .7],
-  ['s-speed:2', cue('s-speed:2') - 1.6, cue('s-speed:2') - .4],
-  ['s-power-ally:2', cue('s-power-ally:2') - 1.6, cue('s-power-ally:2') - .4],
+  ['s-intro:2', cue('s-intro:2') + .1, cue('s-intro:2') + .4],
+  ['s-intro:2', cue('s-intro:2', 1) + .1, cue('s-intro:2', 1) + .4],
+  ['s-speed:1', cue('s-speed:1') + .42, cue('s-speed:1') + 1.62],
+  ['s-power-ally:1', cue('s-power-ally:1', 3) + .42, cue('s-power-ally:1', 3) + 1.62],
   ['s-power-enemy:1', cue('s-power-enemy:1') - 1.6, cue('s-power-enemy:1') - .4],
   ['s-damage:1', cue('s-damage:1') - .5, cue('s-damage:1') + .7],
   ['s-damage:2', cue('s-damage:2') + .2, cue('s-damage:2') + .9],
   ['s-effect-timing:1', 3.55, 4.1], ['s-effect-fp:1', .1, .65],
 ];
 const motion = [];
-for (const [key, before, after] of cases) {
+for (const [caseIndex, [key, before, after]] of cases.entries()) {
   const s = render.segments.find((s) => s.key === key);
   const pngs = [before, after].map((t, index) => {
     const png = run('ffmpeg', ['-v', 'error', '-ss', String(t), '-i', path.join(out, s.clip), '-frames:v', '1', '-f', 'image2pipe', '-vcodec', 'png', '-']).stdout;
-    fs.writeFileSync(path.join(out, `motion-${key.replace(':', '-')}-${index}.png`), png);
+    fs.writeFileSync(path.join(out, `motion-${caseIndex}-${key.replace(':', '-')}-${index}.png`), png);
     return createHash('sha256').update(png).digest('hex');
   });
   assert.notEqual(pngs[0], pngs[1], `実動画の動き: ${key}`);
@@ -59,8 +61,11 @@ const openingLevel = run('ffmpeg', ['-hide_banner', '-i', path.join(out, opening
 const openingPeakDb = +openingLevel.match(/max_volume: ([-\d.]+) dB/)[1];
 assert.ok(openingPeakDb > -22 && openingPeakDb < -10, '実MP4の冒頭チャイムが鳴り、クリップしない');
 run('ffmpeg', ['-v', 'error', '-y', '-ss', '0.5', '-i', full, '-frames:v', '1', path.join(out, 'opening.png')]);
-const previewEnd = render.segments.find((s) => s.key === 's-speed:0').clipStart;
-run('ffmpeg', ['-v', 'error', '-y', '-i', full, '-t', String(previewEnd), '-c', 'copy', path.join(out, 'opening-and-slots.mp4')]);
+const changed = render.segments.filter((s) => [0, 2, 5].includes(s.i));
+const previewList = path.join(out, 'sync-scenes.concat.txt');
+fs.writeFileSync(previewList, changed.map((s) => `file '${path.join(out, s.clip).replaceAll('\\', '/')}'`).join('\n') + '\n');
+run('ffmpeg', ['-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', previewList, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', path.join(out, 'sync-scenes.mp4')]);
+fs.unlinkSync(previewList);
 // full.mp4から最後の画面を取り出す（クリップだけの検査で済ませない）。
 for (const [name, t] of [['ending-caption', last.clipStart - 1], ['credits-middle', last.clipStart + 2.5], ['credits-end', frames / 24 - .1]]) {
   run('ffmpeg', ['-v', 'error', '-y', '-ss', String(t), '-i', full, '-frames:v', '1', path.join(out, `${name}.png`)]);

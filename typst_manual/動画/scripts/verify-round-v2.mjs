@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 const video = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const deck = path.join(video, '01_1ラウンドの流れ');
 const engine = process.argv[2] || 'C:/Users/yharu/tools/egatari-studio';
-const out = path.join(deck, 'out/v2-review');
+const out = path.join(deck, 'out/v2-sync-review');
 fs.mkdirSync(out, { recursive: true });
 const read = (p) => JSON.parse(fs.readFileSync(path.join(deck, p), 'utf8'));
 const audio = read('out/audio-report-plus6.json');
@@ -15,8 +15,10 @@ assert.equal(audio.voice.version, '0.26.0');
 assert.equal(audio.voice.speaker, '冥鳴ひまり');
 const rolls = audio.segments.flatMap((s) => s.effects.filter((e) => e.sound === 'dice').map((e) => ({ key: s.key, at: e.at, cues: s.cues })));
 assert.equal(rolls.length, 4);
-assert.deepEqual(rolls.map((r) => r.key), ['s-speed:2', 's-speed:2', 's-power-ally:2', 's-power-enemy:1']);
-rolls.forEach((r) => assert.ok(r.cues.includes(r.at), '結果確定cueで1回'));
+assert.deepEqual(rolls.map((r) => r.key), ['s-speed:1', 's-speed:1', 's-power-ally:1', 's-power-enemy:1']);
+for (const [i, offset, cueIndex] of [[0, 1.32, 0], [1, 1.72, 0], [2, 1.32, 3], [3, -1.3, 0]]) {
+  assert.ok(Math.abs(rolls[i].at - rolls[i].cues[cueIndex] - offset) < .001, '出目停止で陣営ごとに1回');
+}
 assert.equal(audio.segments.find((s) => s.key === 's-speed:3').effects.length, 0, '変化のないスロット紹介へ旧SEを残さない');
 const hash = (p) => createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 assert.equal(hash(path.join(deck, 'sfx/imported/dice-roll.mp3')), hash(path.join(video, '../../static/audio/dice-roll.mp3')));
@@ -36,7 +38,7 @@ try {
     window.Audio.prototype = NativeAudio.prototype;
   });
   await page.route(/^https?:/, (route) => route.abort());
-  await page.goto(fileUrl(path.join(deck, 'out/deck-v2-opening.html')) + '?mode=video&captions=1', { waitUntil: 'domcontentloaded' });
+  await page.goto(fileUrl(path.join(deck, 'out/deck-v2-sync.html')) + '?mode=video&captions=1', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => DECK.ready);
   console.log('Browser loaded');
   await page.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.images].map((e) => e.decode())); });

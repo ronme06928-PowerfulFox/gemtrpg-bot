@@ -4,7 +4,7 @@
 
 計画54 S2-2の「1ラウンドの流れ」v2を、承認済みの12カットと共通の7部品で制作・検証しました。[絵コンテ](01_1ラウンドの流れ/storyboard-v2.md)・[追加2文の承認記録](01_1ラウンドの流れ/narration-v2-proposal.md)・[台本](01_1ラウンドの流れ/narration.md)が対応します。
 
-確認用の単一HTMLは `out/deck-v2-opening.html`、字幕付きMP4は `out/v2-opening/full.mp4`、各カットのPNGは `out/v2-review/`（いずれも01_1ラウンドの流れ/内、Git管理外）。正本は[計画54](../../manuals/planned/54_Explainer_Video_Series_Plan.md)。通し確認後までF01への統合と計画53の完了処理は行いません。
+確認用の単一HTMLは `out/deck-v2-sync.html`、字幕付きMP4は `out/v2-sync/full.mp4`、各カットのPNGは `out/v2-sync-review/`（いずれも01_1ラウンドの流れ/内、Git管理外）。正本は[計画54](../../manuals/planned/54_Explainer_Video_Series_Plan.md)。通し確認後までF01への統合と計画53の完了処理は行いません。
 
 味方HP100・MP10・FP0、敵HP30・MP6・FP0から始め、使用コストなしの基本の一太刀を使います。冥鳴ひまり／VOICEVOX 0.26.0、SE＋6dB、ダイス確定音4回、共通クレジット5秒を引き継ぎます。背景は採用済みの遺跡を全面coverで表示します。
 
@@ -98,22 +98,24 @@ $videoTemp = Join-Path (Get-Location) 'typst_manual/動画/_local/media-temp'
 New-Item -ItemType Directory -Force -Path $videoTemp | Out-Null
 $env:TEMP = $videoTemp
 $env:TMP = $videoTemp
-node --test typst_manual/動画/scripts/test-r1-audio.mjs typst_manual/動画/scripts/test-credits.mjs typst_manual/動画/scripts/test-round-v2.mjs typst_manual/動画/scripts/test-opening.mjs
+node --test typst_manual/動画/scripts/test-r1-audio.mjs typst_manual/動画/scripts/test-credits.mjs typst_manual/動画/scripts/test-round-v2.mjs typst_manual/動画/scripts/test-opening.mjs typst_manual/動画/scripts/test-cue-effects.mjs
 node typst_manual/動画/scripts/prepare-round-v2.mjs $egatariDir --voice
 npm --prefix $egatariDir run build -- "$deckDir/deck.html" --embed-audio
-Copy-Item -LiteralPath "$deckDir/out/deck.html" -Destination "$deckDir/out/deck-v2-opening.html"
+Copy-Item -LiteralPath "$deckDir/out/deck.html" -Destination "$deckDir/out/deck-v2-sync.html"
 npm --prefix $egatariDir run check -- "$deckDir/deck.html"
 node typst_manual/動画/scripts/verify-round-v2.mjs $egatariDir
+node typst_manual/動画/scripts/verify-sync-timing.mjs
 npm --prefix $egatariDir run sheet -- $deckDir --tiles --cols 3 --width 426
-node "$egatariDir/render/render.mjs" "$deckDir/out/deck-v2-opening.html" --out "$deckDir/out/v2-opening" --full --fps 24 --scale 1 --captions
+node "$egatariDir/render/render.mjs" "$deckDir/out/deck-v2-sync.html" --out "$deckDir/out/v2-sync" --full --fps 24 --scale 1 --captions
 node typst_manual/動画/scripts/verify-round-v2-video.mjs
+& C:/Users/yharu/anaconda3/python.exe typst_manual/動画/scripts/verify-sync-video.py
 ```
 
 - HTMLは通信不要。Aキーで声付き自動再生、Sキーで字幕、左右で段階移動。クレジットは声の終了後5秒です。配布には通常の `--embed-audio` を使い、編集用portableは使いません。
 - 生成入力の共通部品・motion.css・背景画像はprepareが写し、Git管理から除外します。共通部品を直接直し、写しを手編集しません。12カット固有の配線だけがcomponents/round-cutにあります。
 - 原音のhashは声の識別・読み上げ文・音声設定から作ります。S2-2初版ではC02の同期用5原音とC11追加2文を生成し、20原音は再利用。今回の冒頭改訂はスロット説明だけ1原音を生成し、残り26原音を再利用しました。タイトル用チャイムはPCM合成です。
 - 初回の内訳は `out/s2-voice-first-generation.json`、通常の音声・cue・SE・ピークは `out/audio-report-plus6.json`。古い台本の流用や欠損音声の無音置換は行いません。
-- `out/v2-review/browser-report.json` は途中・巻き戻し・オフライン音声・コントラストの検証記録、`out/v2-opening/video-report.json` は実MP4の測定記録です。
+- `out/v2-sync-review/browser-report.json` は途中・巻き戻し・オフライン音声・コントラストの検証記録、`out/v2-sync/video-report.json` は実MP4の測定記録です。
 - 静止絵コンテの221秒は見積もりでした。実際の声からタイムラインを作り、尺合わせの静止は足しません。
 
 ## S2-2初版の検証結果（2026-10-27、冒頭改訂前）
@@ -134,6 +136,22 @@ common/opening.mjs・opening.cssが共通の題名とSEを作り、C01の段階0
 確認HTMLはout/deck-v2-opening.html、MP4はout/v2-opening/full.mp4、冒頭とスロット説明だけの見本は同フォルダのopening-and-slots.mp4、タイトルPNGはopening.png。旧out/deck-v2.html・out/v2/full.mp4は比較用に保存します。声の生成記録はout/voice-opening-revision.json。
 
 改訂版の実MP4は179.648209秒・4311フレーム・1280×720/24fps。全編デコードを通過し、最大ピーク-7.5dBFS、タイトルSEの実MP4内ピーク-19dBFS、最後は5秒です。冒頭から声への自動再生・78状態の巻き戻し・23音声のオフライン再生を確認。品質エラー0・警告12、単体テスト8件通過。タイトル・新説明の字幕・末尾は実MP4から抽出して確認しました。
+
+## 同期と動きの改訂（2026-10-27）
+
+C01[2]・C03[1]・C06[1]へcueを追加し、読み上げる文字は変更していません。3段階の11原音だけを生成し、他19段階の24原音はキャッシュ。生成時の記録はout/voice-sync-revision.jsonです。
+
+C03は前段でダイスを振り終え、結果の文に入る前に6／4をスロットへ入れます。箱は出目が確定した行と同時に表示。確定音は転がり始めから1.1秒後の出目停止位置で両陣営各1回。C06は説明中の式4＋1d2＋1d3の各項を順に縁取り、その後ダイスを式へ入れます。等号と合計は出目が入ってから表示します。
+
+cueは前の原音の末尾なので、語の開始はpartGap 0.12秒＋prePhonemeLength 0.10秒後です。この0.22秒をJSONのwordLeadとして渡します。各部品を時刻から描き直し、強調のclassも毎回リセットします。新しい部品は追加しません。
+
+確認用HTMLはout/deck-v2-sync.html、本編はout/v2-sync/full.mp4、C01・C03・C06だけの短い動画は同フォルダのsync-scenes.mp4です。verify-sync-timing.mjsが0.25秒刻みの期待状態・位置と比較時刻をquarter-reference.jsonへ保存し、verify-sync-video.pyが実MP4の同じコマを抽出して赤い縁取り・空の箱・速度値を照合します。quarter-frames/へ全PNG、sync-comparison.pngへ代表コマ、quarter-video-report.jsonへ結果を保存します。
+
+修正前との比較には保存済みのout/deck-v2-opening.html・out/v2-opening/full.mp4とout/sync-before.jsonを使います。比較用出力を削除した場合は、改訂前のコミット8f36e8eの原稿から再生成します。初版v2とr3-v2もそのまま保存します。
+
+同期改訂版の実測は181.064875秒・4345フレーム、1280×720・24fps、最大ピーク−5.4dBFSです。全編デコード、14か所の動き、末尾120フレーム（5秒）が通過しました。短い確認動画は61.439887秒です。0.25秒刻み247状態の巻き戻しと、実MP4の247コマ・853か所の縁取り照合が通過しました。修正前の空の箱6コマを負例として検出し、修正後は0コマです。味方6の表示確認／語り開始は50.75／46.64秒から40.17／47.39秒へ、敵4は55.00／50.83秒から40.42／51.58秒へ変わりました（表示確認は抽出コマの時刻）。
+
+品質検査はエラー0・警告12、原稿一致を含む10テスト、全編78状態と途中PNG8か所の往復一致、23音声のオフライン再生・デコードを確認しました。C01[2]・C03[1]・C06[1]の11原音だけ生成し、他19段階の24原音はキャッシュを使いました。最初の生成結果はout/voice-sync-revision.jsonに保存しています。速度・威力・HP・FP・GM操作の数値と内容は維持しています。F01統合と計画53完了は通し確認まで保留します。
 
 ## テーマの共有
 

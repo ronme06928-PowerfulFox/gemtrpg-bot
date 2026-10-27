@@ -6,6 +6,14 @@ import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { encodeWav, decodeWav, joinParts, mixEffect, peak } from './r1-audio.mjs';
 
+export function effectTime(effect, bounds, cues) {
+  assert.ok(!(effect.mark && effect.cue !== undefined), 'SEの同期点はmarkかcueの一方');
+  const index = effect.mark ? bounds.findIndex((b) => b.id === effect.mark) : effect.cue;
+  if (effect.mark || index !== undefined) assert.ok(Number.isInteger(index) && index >= 0 && index < cues.length, 'SEの同期点がない');
+  const at = (index !== undefined ? cues[index] : effect.at) + (effect.offset || 0);
+  assert.ok(Number.isFinite(at) && at >= 0, 'SEの時刻が不正');
+  return at;
+}
 
 export async function prepareVoice(deck, engine, { boost = 6, credits = false } = {}) {
   assert.ok(engine, 'egatari-studioのパスが必要です');
@@ -97,10 +105,7 @@ export async function prepareVoice(deck, engine, { boost = 6, credits = false } 
     const cues = joined.cues.map((x) => +x.toFixed(4));
     const effectLog = [];
     for (const effect of event.effects) {
-      const index = effect.mark ? s.bounds.findIndex((b) => b.id === effect.mark) : -1;
-      assert.ok(!effect.mark || index >= 0, `SEのmarkがない: ${key}`);
-      const at = (effect.mark ? cues[index] : effect.at) + (effect.offset || 0);
-      assert.ok(Number.isFinite(at));
+      const at = effectTime(effect, s.bounds, cues);
       mixEffect(mix, sounds[effect.sound], Math.round(at * sr));
       effectLog.push({ sound: effect.sound, at });
     }

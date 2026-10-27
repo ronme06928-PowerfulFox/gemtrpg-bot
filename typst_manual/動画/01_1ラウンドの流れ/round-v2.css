@@ -37,3 +37,8 @@ m-round-cut { display: none; }
 .v2-slide .enemy m-fp [data-fp-reason] { left: 210px; }
 [data-first-die], [data-first-face], [data-first-face] svg { display: block; width: 60px; height: 60px; }
 .v2-slide m-fp [data-fp-reason] { width: 150px; min-width: 150px; white-space: nowrap; }
+
+[data-spoken].spoken { outline: 4px solid var(--emph); outline-offset: 4px; box-shadow: 0 0 12px var(--emph); }
+[data-spoken="speed-correction"] { display: inline-block; line-height: 1.25; }
+.s1-formula .formula-face { position: relative; }
+[data-first-label] { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 27px; }

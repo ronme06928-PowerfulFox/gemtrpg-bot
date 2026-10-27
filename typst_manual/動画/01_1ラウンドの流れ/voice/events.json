@@ -22,20 +22,22 @@
   },
   "s-speed:1": {
     "tail": 0.6,
-    "effects": []
-  },
-  "s-speed:2": {
-    "tail": 1.3,
     "effects": [
       {
         "sound": "dice",
-        "mark": "speed-ally"
+        "cue": 0,
+        "offset": 1.32
       },
       {
         "sound": "dice",
-        "mark": "speed-enemy"
+        "cue": 0,
+        "offset": 1.72
       }
     ]
+  },
+  "s-speed:2": {
+    "tail": 1.3,
+    "effects": []
   },
   "s-speed:3": {
     "tail": 1,
@@ -66,23 +68,25 @@
   },
   "s-power-ally:1": {
     "tail": 0.6,
-    "effects": []
-  },
-  "s-power-ally:2": {
-    "tail": 1.2,
     "effects": [
       {
         "sound": "dice",
-        "mark": "power-ally"
+        "cue": 3,
+        "offset": 1.32
       }
     ]
+  },
+  "s-power-ally:2": {
+    "tail": 1.2,
+    "effects": []
   },
   "s-power-enemy:1": {
     "tail": 1.2,
     "effects": [
       {
         "sound": "dice",
-        "mark": "power-enemy"
+        "mark": "power-enemy",
+        "offset": -1.3
       }
     ]
   },

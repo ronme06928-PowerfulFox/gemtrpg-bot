@@ -1,7 +1,7 @@
 // このカット専用の時刻の配線。動きそのものは共通部品へ委ねる。
 // DOM順で最後に置く。子部品はsteps=0で自律進行せず、全状態を毎フレーム再計算する。
 DECK.define('m-round-cut', class extends DECK.MotionElement {
-  static shape = { schema: { type: 'object', required: ['id', 'phase'], properties: { id: { type: 'string' }, phase: { type: 'integer', minimum: 1, maximum: 4 } } } };
+  static shape = { schema: { type: 'object', required: ['id', 'phase', 'wordLead'], properties: { id: { type: 'string' }, phase: { type: 'integer', minimum: 1, maximum: 4 }, wordLead: { type: 'number', minimum: 0 } } } };
   mount() { this.root = this.closest('section'); }
   duration(k) { return k ? DECK.TIMING[`${this.root.id}:${k}`]?.dur || 0 : 0; }
   render(k, t) {
@@ -20,6 +20,13 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     const after = (step, at = 0) => k > step ? Infinity : k < step ? -Infinity : t - at;
     const draw = (el, time, step = 1) => { if (el) el.render(time < 0 ? 0 : step, Math.max(0, time)); };
     const id = this.data.id;
+    const word = (step, index) => DECK.AUDIO[`${root.id}:${step}`].cues[index] + this.data.wordLead;
+    const light = (name, step, start, end) => all(`[data-spoken="${name}"]`).forEach((el) => el.classList.toggle('spoken', k === step && t >= start && t < end));
+    all('[data-spoken]').forEach((el) => el.classList.remove('spoken'));
+    if (id === 'intro') {
+      light('full', 2, word(2, 0), word(2, 1));
+      light('fp-zero', 2, word(2, 1), word(2, 1) + 1);
+    }
     show(q('.video-opening'), id === 'intro' && k === 0);
     const phases = q('m-phase');
     draw(phases, Infinity, id === 'resolve' && (k === 0 || t < 1.2) ? 2 : this.data.phase);
@@ -41,15 +48,16 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     });
     if (id === 'speed') {
       const ds = all('m-dice');
-      const times = [after(2, cue('speed-ally') - 2.4), after(2, cue('speed-enemy') - 2.4)];
+      const times = [after(1, word(1, 0)), after(1, word(1, 0) + .4)];
       ds.forEach((d, i) => { show(d, times[i] >= 0); draw(d, times[i]); });
       slotEls.forEach((el, i) => { show(el, times[i] < 0); el.querySelector('span').textContent = ''; });
-      show(q('.v2-speed-formula'), k >= 2);
+      show(q('.v2-speed-formula'), times[0] >= 1.1);
       all('[data-speed-row]').forEach((row, i) => {
-        show(row, times[i] >= 0);
+        row.style.display = times[i] >= 1.1 ? '' : 'none';
         row.querySelector('[data-speed-face]').textContent = times[i] >= 1.1 ? String(i ? 3 : 4) : '？';
-        row.querySelector('[data-speed-total]').textContent = times[i] >= 2.4 ? String(i ? 4 : 6) : '？';
+        row.querySelector('[data-speed-total]').textContent = times[i] >= 1.1 ? String(i ? 4 : 6) : '？';
       });
+      light('speed-correction', 1, word(1, 1), word(1, 1) + 1.2);
     }
     if (id === 'selection') {
       const arrows = q('.v2-arrows');
@@ -59,11 +67,16 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
       all('.v2-skill').forEach((el) => show(el, k > 1 || (k === 1 && t >= 1)));
     }
     if (id.startsWith('power-')) {
-      const step = id === 'power-ally' ? 2 : 1;
-      const time = after(step, cue(id) - 2.4);
+      const ally = id === 'power-ally';
+      const time = ally ? after(1, word(1, 3)) : after(1, cue(id) - 2.4);
       draw(q('m-dice'), time);
       show(q('m-dice [data-die]'), time >= 0);
       show(q('m-dice [data-first-die]'), time >= 0);
+      show(q('[data-first-label]'), time < 2.4);
+      q('[data-equals]').style.display = time >= 2.4 ? '' : 'none';
+      q('[data-dice-total]').style.display = time >= 2.4 ? '' : 'none';
+      if (time < 2.4) { q('[data-dice-target]').textContent = ally ? '1d3' : '1d2'; q('[data-dice-target]').style.opacity = '1'; }
+      if (ally) ['power-base', 'power-die', 'power-physical'].forEach((name, i) => light(name, 1, word(1, i), word(1, i + 1)));
       show(q('.v2-compare'), time >= 2.4);
     }
     if (id === 'damage') {
