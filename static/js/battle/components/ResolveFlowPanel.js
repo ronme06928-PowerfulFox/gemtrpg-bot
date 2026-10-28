@@ -1,6 +1,7 @@
 import { store } from '../core/BattleStore.js';
 import { eventBus } from '../core/EventBus.js';
 import { socketClient } from '../core/SocketClient.js';
+import { RESOLVE_STAGE_TIMING, playResolveStageFx, isDiceDamageSource } from './resolve_flow_fx.js';
 
 class ResolveFlowPanel {
     constructor() {
@@ -22,8 +23,9 @@ class ResolveFlowPanel {
         this._stepTimer = null;
         this._tickTimer = null;
         this._stepStartedAt = 0;
-        this._stepDurationMs = 4000;
-        this._revealOrder = ['names', 'skills', 'power', 'outcome'];
+        this._stepDurationMs = RESOLVE_STAGE_TIMING.reduce((sum, row) => sum + row.ms, 0);
+        this._lastStageKey = null;
+        this._unsubscribeStage = null;
         this._introDurationMs = 1600;
         this._renderedStepKey = null;
         this._introShownRounds = new Set();
@@ -49,6 +51,11 @@ class ResolveFlowPanel {
             return true;
         }
         this._unsubscribe = store.subscribe((state) => this._onStateUpdated(state || {}));
+        this._unsubscribeStage = eventBus.on('battle:resolve:flow:stage', (payload) => {
+            if (payload.stepKey === this._traceKey(this._activeStep)) {
+                playResolveStageFx(this, payload, store.state || {});
+            }
+        });
         this._unsubscribeAdvanceEvent = eventBus.on('battle:resolve:flow:advance', (payload) => {
             this._onSyncedAdvanceSignal(payload || {});
         });
@@ -65,6 +72,8 @@ class ResolveFlowPanel {
     }
 
     destroy() {
+        if (this._unsubscribeStage) this._unsubscribeStage();
+        this._unsubscribeStage = null;
         if (this._unsubscribe) {
             this._unsubscribe();
             this._unsubscribe = null;
@@ -187,15 +196,14 @@ class ResolveFlowPanel {
         };
     }
 
-    _renderPortrait(meta, variant = 'card') {
+    _renderPortrait(meta) {
         const visual = (meta && typeof meta === 'object') ? meta : {};
         const name = this._escape(visual.name || '-');
         const initials = this._escape(visual.initials || '?');
-        const variantClass = variant === 'inline' ? ' resolve-flow-portrait-inline' : '';
         if (visual.image) {
-            return `<div class="resolve-flow-portrait${variantClass}" title="${name}"><img src="${this._escape(visual.image)}" alt="${name}"></div>`;
+            return `<div class="resolve-flow-portrait resolve-flow-portrait-inline" title="${name}"><img src="${this._escape(visual.image)}" alt="${name}"></div>`;
         }
-        return `<div class="resolve-flow-portrait${variantClass} fallback" title="${name}"><span>${initials}</span></div>`;
+        return `<div class="resolve-flow-portrait resolve-flow-portrait-inline fallback" title="${name}"><span>${initials}</span></div>`;
     }
 
     _slotActorId(slotId, state) {
@@ -530,19 +538,34 @@ class ResolveFlowPanel {
     }
 
     _revealStageByElapsed(elapsedMs, durationMs) {
-        const order = Array.isArray(this._revealOrder) && this._revealOrder.length > 0
-            ? this._revealOrder
-            : ['names', 'skills', 'power', 'outcome'];
-        const perStage = Math.max(1, Math.floor(durationMs / order.length));
-        const idx = Math.floor(Math.max(0, elapsedMs) / perStage);
-        const bounded = Math.max(0, Math.min(order.length - 1, idx));
-        return order[bounded];
+        const total = this._stepDurationMs;
+        const elapsed = Math.max(0, elapsedMs) * total / Math.max(1, durationMs);
+        let end = 0;
+        for (const row of RESOLVE_STAGE_TIMING) {
+            end += row.ms;
+            if (elapsed < end) return row.stage;
+        }
+        return RESOLVE_STAGE_TIMING[RESOLVE_STAGE_TIMING.length - 1].stage;
+    }
+
+    _notifyStage(stepKey, stage, step) {
+        const key = `${stepKey}:${stage}`;
+        if (this._lastStageKey === key) return;
+        this._lastStageKey = key;
+        eventBus.emit('battle:resolve:flow:stage', { stepKey, stage, kind: step.kind, outcome: step.outcome });
+    }
+
+    _renderBackgrounds(kind, attacker, defender) {
+        return [['attacker', attacker], ['defender', kind === 'mass_summation' ? null : defender]]
+            .filter(([, meta]) => meta?.image)
+            .map(([side, meta]) => `<div class="resolve-flow-background ${side}" aria-hidden="true"><img src="${this._escape(meta.image)}" alt=""></div>`)
+            .join('');
     }
 
     _revealLabel(stage) {
         const labels = {
-            names: '\u540d\u524d',
-            skills: '\u30b9\u30ad\u30eb',
+            names: '名前・スキル',
+            attack: '攻撃',
             power: '\u5a01\u529b',
             outcome: '\u52dd\u6557'
         };
@@ -927,6 +950,7 @@ class ResolveFlowPanel {
     }
 
     _stopPlayback() {
+        this._finishFx();
         this._clearTimers();
         this._stepStartedAt = 0;
         this._clearPendingAdvanceTimer();
@@ -1083,9 +1107,17 @@ class ResolveFlowPanel {
     }
 
     _removePanel() {
+        this._finishFx();
         const panel = document.getElementById(this._panelId);
         if (panel) panel.remove();
         this._renderedStepKey = null;
+    }
+
+    _finishFx() {
+        if (typeof window !== 'undefined' && window.Fx && typeof document !== 'undefined') {
+            window.Fx.finishAll(document.getElementById(this._panelId));
+        }
+        this._lastStageKey = null;
     }
 
     _skillNameFromData(skillData) {
@@ -1277,16 +1309,7 @@ class ResolveFlowPanel {
     }
 
     _isDiceDamageSource(sourceRaw) {
-        const source = String(sourceRaw || '').trim();
-        if (!source) return false;
-        const lower = source.toLowerCase();
-        if (source.includes('ダイス')) return true;
-        if (lower.includes('dice')) return true;
-        if (lower.includes('base_damage') || lower.includes('power_roll')) return true;
-        if (lower.includes('mass_summation_delta')) return true;
-        if (source.includes('差分ダメージ')) return true;
-        if (source.includes('合計ダメージ')) return true;
-        return false;
+        return isDiceDamageSource(sourceRaw);
     }
 
     _commandForSide(step, side) {
@@ -1525,6 +1548,7 @@ class ResolveFlowPanel {
         const diceLines = summarizeByKind('dice');
         const effectLines = summarizeByKind('effect');
         return {
+            entries,
             total,
             text: total > 0 ? `${total}` : '\u30c0\u30e1\u30fc\u30b8\u306a\u3057',
             diceTotal,
@@ -1727,7 +1751,7 @@ class ResolveFlowPanel {
 
         const participants = this._summationParticipants(step, state);
         const participantsHtml = participants.map((row) => (
-            `<span class="charge-chip participant-chip">${this._renderPortrait(row.visual, 'inline')}<span class="participant-chip-text">${this._escape(row.name)} <strong>+${this._escape(row.power)}</strong></span></span>`
+            `<span class="charge-chip participant-chip">${this._renderPortrait(row.visual)}<span class="participant-chip-text">${this._escape(row.name)} <strong>+${this._escape(row.power)}</strong></span></span>`
         )).join('');
         const summationInlineHtml = isSummationKind
             ? `
@@ -1741,7 +1765,6 @@ class ResolveFlowPanel {
         const defenderSideContentHtml = isSummationKind
             ? `${summationInlineHtml}`
             : `
-                            <div class="portrait-wrap reveal-block reveal-names">${this._renderPortrait(defenderVisual)}</div>
                             <div class="name reveal-block reveal-names">${defenderName}</div>
                             <div class="skill reveal-block reveal-skills">${defenderSkillHtml}</div>
                             <div class="power reveal-block reveal-power">\u5a01\u529b <span class="range">${this._escape(powerRanges.defender)}</span> <span class="arrow">\u2192</span> <span class="actual defender">${this._escape(powers.defender)}</span></div>
@@ -1761,6 +1784,7 @@ class ResolveFlowPanel {
         if (this._renderedStepKey !== stepBodyKey) {
             panelContent.innerHTML = `
                 <div class="resolve-flow-card">
+                    ${this._renderBackgrounds(step.kind, attackerVisual, defenderVisual)}
                     <div class="resolve-flow-header">
                         <span class="title">RESOLVE</span>
                         <span class="meta">#${this._escape(stepNumLabel)}</span>
@@ -1770,7 +1794,6 @@ class ResolveFlowPanel {
                     <div class="resolve-flow-reveal-stage">${revealLabel}</div>
                     <div class="resolve-flow-versus">
                         <div class="side attacker">
-                            <div class="portrait-wrap reveal-block reveal-names">${this._renderPortrait(attackerVisual)}</div>
                             <div class="name reveal-block reveal-names">${attackerName}</div>
                             <div class="skill reveal-block reveal-skills">[${this._escape(attackerSkill.id)}] ${this._escape(attackerSkill.name)}</div>
                             <div class="power reveal-block reveal-power">\u5a01\u529b <span class="range">${this._escape(powerRanges.attacker)}</span> <span class="arrow">\u2192</span> <span class="actual attacker">${this._escape(powers.attacker)}</span></div>
@@ -1806,6 +1829,7 @@ class ResolveFlowPanel {
         }
 
         const revealNode = panel.querySelector('.resolve-flow-reveal-stage');
+        this._notifyStage(stepKey, revealStage, step);
         if (revealNode) {
             revealNode.textContent = this._revealLabel(revealStage);
         }

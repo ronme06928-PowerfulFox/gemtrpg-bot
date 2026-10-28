@@ -7,6 +7,10 @@
   --fx-mp-cost: #4488ff;
   --fx-mp-heal: #00ccff;
   --fx-state: #ff44ff;
+  --fx-number-font: 'Cinzel', Georgia, serif;
+  --fx-effect-font: 'Zen Antique', 'Yu Mincho', serif;
+  --fx-win: #ffd56b;
+  --fx-extra: #83ed91;
 }
 
 .fx-root {
@@ -15,6 +19,111 @@
   height: 0;
   pointer-events: none;
 }
+
+#resolve-flow-panel > .fx-root {
+  z-index: 4;
+}
+
+.fx-power-roll,
+.fx-resolve-damage,
+.fx-chat-dice-slot {
+  font-family: var(--fx-number-font);
+  font-weight: 900;
+  font-variant-numeric: lining-nums;
+}
+
+.fx-power-roll {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  font-size: calc(32px * var(--fx-scale));
+  color: var(--fx-win);
+  background: #1c202e;
+  border-radius: 5px;
+  text-shadow: 0 2px 3px #000;
+}
+
+.fx-clash-flash {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: calc(100px * var(--fx-scale));
+  height: calc(100px * var(--fx-scale));
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff8d9 0%, #ffd56b88 25%, transparent 68%);
+  color: #fff6d0;
+  font: 900 calc(24px * var(--fx-scale)) var(--fx-number-font);
+  text-shadow: 0 0 14px #ffe6a6;
+}
+
+.fx-clash-shade {
+  position: absolute;
+  border-radius: 18px;
+}
+
+.fx-clash-shade.winner {
+  background: linear-gradient(135deg, #ffe5a61a, #fff1b800);
+}
+
+.fx-clash-shade.loser {
+  background: #0000001a;
+}
+
+.fx-clash-shade.light,
+.fx-attack-flash.light {
+  background: none;
+  box-shadow: none;
+}
+
+.fx-clash-flash.light {
+  background: none;
+  text-shadow: none;
+}
+
+.fx-attack-flash {
+  position: absolute;
+  width: calc(180px * var(--fx-scale));
+  height: calc(5px * var(--fx-scale));
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent, #fff7ce, transparent);
+  box-shadow: 0 0 12px #ffd56b;
+}
+
+.fx-attack-flash.rich {
+  height: calc(9px * var(--fx-scale));
+  box-shadow: 0 0 24px #ffd56b;
+}
+
+.fx-resolve-damage {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.12em;
+  white-space: nowrap;
+  font-size: calc(46px * var(--fx-scale));
+  color: var(--fx-win);
+  text-shadow: -2px -2px 0 #171323, 2px 2px 0 #171323, 0 0 8px #000;
+  -webkit-text-stroke: 0.6px #332a20;
+}
+
+.fx-resolve-damage.ally { color: #ff7373; }
+.fx-resolve-damage.extra { color: var(--fx-extra); font-size: calc(30px * var(--fx-scale)); }
+.fx-damage-icon { width: 0.9em; height: 0.9em; object-fit: contain; }
+.fx-damage-minus { width: 0.38em; height: 0.1em; background: currentColor; box-shadow: 0 2px 2px #000; }
+
+.fx-chat-dice-slot {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.4em;
+  height: 2em;
+  margin-left: 0.4em;
+  vertical-align: middle;
+}
+
+.fx-chat-dice { position: absolute; inset: 0; display: grid; place-items: center; }
+.fx-chat-die { position: absolute; width: 1.8em; height: 1.8em; }
+.fx-chat-total { font-family: var(--fx-number-font); font-weight: 900; }
 
 .fx-root.fx-root-fill {
   inset: 0;

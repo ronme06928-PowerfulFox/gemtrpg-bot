@@ -67,4 +67,125 @@
       style.transform = `scale(${scale})`;
     },
   });
+  function element(root, tag, className, text) {
+    const el = root.ownerDocument.createElement(tag);
+    el.className = className;
+    if (text !== undefined) {
+      el.textContent = text;
+      el.setAttribute('data-readable', '');
+    }
+    root.appendChild(el);
+    return el;
+  }
+
+  Fx.define('power-roll', {
+    duration: 1,
+    mount(root, params) {
+      this.level = params.level;
+      this.text = String(params.text);
+      this.el = element(root, 'div', 'fx-power-roll', this.text);
+      this.el.style.width = `${params.width}px`;
+      this.el.style.height = `${params.height}px`;
+    },
+    render(t) {
+      const time = Math.max(0, Math.min(t, this.duration));
+      const roll = this.level !== 'light' && time < 0.7;
+      this.el.textContent = roll ? String((Math.floor(time * 47) * 7 + 3) % 20 + 1) : this.text;
+      this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
+      this.el.style.transform = this.level === 'light' ? 'translate(-50%, -50%)'
+        : `translate(-50%, -50%) rotateX(${roll ? time * (this.level === 'rich' ? 2200 : 1400) : 0}deg)`;
+    },
+  });
+
+  Fx.define('clash-flash', {
+    duration: 0.6,
+    mount(root, params) {
+      this.level = params.level;
+      this.el = element(root, 'div', `fx-clash-flash ${params.level}`);
+    },
+    render(t) {
+      const p = Fx.prog(t, 0, this.duration);
+      this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
+      this.el.style.transform = this.level === 'light' ? 'translate(-50%, -50%)'
+        : `translate(-50%, -50%) scale(${Fx.lerp(this.level === 'rich' ? 0.3 : 0.6, 1.8, p)}) rotate(${Fx.lerp(this.level === 'rich' ? -18 : -6, 0, p)}deg)`;
+    },
+  });
+
+  Fx.define('clash-shade', {
+    duration: 0.8,
+    mount(root, params) {
+      this.level = params.level;
+      this.el = element(root, 'div', `fx-clash-shade ${params.winner ? 'winner' : 'loser'} ${params.level}`);
+      this.el.style.width = `${params.width}px`;
+      this.el.style.height = `${params.height}px`;
+    },
+    render(t) {
+      const p = Fx.prog(t, 0, this.duration);
+      this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
+      this.el.style.transform = this.level === 'light' ? 'translate(-50%, -50%)'
+        : `translate(-50%, -50%) translateX(${Math.sin(Math.min(t, this.duration) * 35) * (1 - p) * (this.level === 'rich' ? 3 : 1)}px)`;
+    },
+  });
+
+  Fx.define('attack-flash', {
+    duration: 0.8,
+    mount(root, params) {
+      this.level = params.level;
+      this.el = element(root, 'div', `fx-attack-flash ${params.level}`);
+    },
+    render(t) {
+      this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
+      this.el.style.transform = this.level === 'light' ? 'translate(-50%, -50%)'
+        : `translate(-50%, -50%) rotate(-28deg) scaleX(${Fx.lerp(this.level === 'rich' ? 0.1 : 0.3, 1.6, Fx.prog(t, 0, this.duration))})`;
+    },
+  });
+
+  Fx.define('resolve-damage', {
+    duration: 1.6,
+    mount(root, params) {
+      this.level = params.level;
+      this.delay = Math.max(0, Math.min(0.8, Number(params.delay) || 0));
+      this.el = element(root, 'div', `fx-resolve-damage ${params.tone || 'enemy'} ${params.icon ? 'with-icon' : ''}`);
+      this.el.style.marginTop = `${24 + (Number(params.row) || 0) * 34}px`;
+      if (params.icon) {
+        const icon = element(this.el, 'img', 'fx-damage-icon');
+        icon.setAttribute('src', params.icon);
+        icon.setAttribute('alt', params.label || '');
+      }
+      element(this.el, 'span', 'fx-damage-minus');
+      element(this.el, 'span', 'fx-damage-number', String(params.amount));
+    },
+    render(t) {
+      const time = t - this.delay;
+      const length = this.duration - this.delay;
+      const p = Fx.prog(time, 0, length);
+      this.el.style.opacity = String(Fx.stillOpacity(time, length));
+      this.el.style.transform = this.level === 'light' ? 'translate(-50%, -50%)'
+        : `translate(-50%, -50%) translateY(${Fx.lerp(12, -34, p)}px) scale(${Fx.lerp(this.level === 'rich' ? 1.6 : 1.25, 1, Fx.prog(time, 0, 0.25))})`;
+    },
+  });
+
+  Fx.define('chat-dice', {
+    duration: 0.8,
+    mount(root, params) {
+      this.level = params.level;
+      this.images = params.images;
+      this.el = element(root, 'span', 'fx-chat-dice');
+      this.die = element(this.el, 'img', 'fx-chat-die');
+      this.die.setAttribute('alt', '');
+      this.total = element(this.el, 'span', 'fx-chat-total', params.text);
+    },
+    render(t) {
+      const time = Math.max(0, Math.min(t, this.duration));
+      const light = this.level === 'light';
+      const showTotal = light || time >= 0.45;
+      this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
+      this.el.style.transform = light ? 'translate(0, 0)'
+        : `translateY(${showTotal ? 0 : -Math.abs(Math.sin(time * 24)) * (this.level === 'rich' ? 7 : 3)}px)`;
+      this.die.setAttribute('src', this.images[Math.floor(time * 22) % this.images.length]);
+      this.die.style.opacity = showTotal ? '0' : '1';
+      this.die.style.transform = light || showTotal ? 'rotate(0deg)' : `rotate(${time * (this.level === 'rich' ? 1200 : 720)}deg)`;
+      this.total.style.opacity = showTotal ? '1' : '0';
+    },
+  });
 })(typeof window !== 'undefined' ? window : globalThis);

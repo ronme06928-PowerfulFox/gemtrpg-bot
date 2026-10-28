@@ -75,7 +75,9 @@
 }
 
 .dice-result-total {
-    font-weight: bold;
+    font-family: var(--fx-number-font);
+    font-weight: 900;
+    font-variant-numeric: lining-nums;
     font-size: 1.1em;
 }
 

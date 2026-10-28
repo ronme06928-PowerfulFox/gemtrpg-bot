@@ -469,6 +469,7 @@
         unlock,
         resetFailures,
         playDiceRoll,
+        isDiceLog,
         maybePlayForLog
     };
 })();

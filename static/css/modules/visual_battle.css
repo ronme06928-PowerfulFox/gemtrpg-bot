@@ -608,16 +608,11 @@
     min-height: 0;
 }
 
-#resolve-flow-panel .resolve-flow-versus .portrait-wrap {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 2px;
-}
-
 #resolve-flow-panel .resolve-flow-portrait {
-    width: clamp(68px, 5.4vw, 92px);
-    aspect-ratio: 3 / 4;
-    border-radius: 14px;
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    border-radius: 999px;
     overflow: hidden;
     border: 1px solid rgba(255, 237, 198, 0.34);
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
@@ -636,21 +631,8 @@
 
 #resolve-flow-panel .resolve-flow-portrait.fallback {
     color: #fff4dd;
-    font-size: clamp(18px, 1.5vw, 26px);
-    font-weight: 800;
-    letter-spacing: 0.06em;
-}
-
-#resolve-flow-panel .resolve-flow-portrait-inline {
-    width: 28px;
-    min-width: 28px;
-    height: 28px;
-    border-radius: 999px;
-    border-width: 1px;
-}
-
-#resolve-flow-panel .resolve-flow-portrait-inline.fallback {
     font-size: 12px;
+    font-weight: 800;
     letter-spacing: 0;
 }
 
@@ -965,19 +947,18 @@
 
 #resolve-flow-panel .reveal-block {
     opacity: 0;
-    transform: translateY(8px);
-    filter: blur(0.8px);
-    transition: opacity 200ms ease, transform 200ms ease, filter 200ms ease;
 }
 
 #resolve-flow-panel.reveal-names .reveal-names,
-#resolve-flow-panel.reveal-skills .reveal-names,
+#resolve-flow-panel.reveal-attack .reveal-names,
 #resolve-flow-panel.reveal-power .reveal-names,
 #resolve-flow-panel.reveal-outcome .reveal-names,
-#resolve-flow-panel.reveal-skills .reveal-skills,
+#resolve-flow-panel.reveal-names .reveal-skills,
+#resolve-flow-panel.reveal-attack .reveal-skills,
 #resolve-flow-panel.reveal-power .reveal-skills,
 #resolve-flow-panel.reveal-outcome .reveal-skills,
 #resolve-flow-panel.reveal-power .reveal-power,
+#resolve-flow-panel.reveal-attack .reveal-power,
 #resolve-flow-panel.reveal-outcome .reveal-power,
 #resolve-flow-panel.reveal-outcome .reveal-outcome {
     opacity: 1;
@@ -989,7 +970,7 @@
     color: #9fd8ff;
 }
 
-#resolve-flow-panel.reveal-skills .resolve-flow-reveal-stage {
+#resolve-flow-panel.reveal-attack .resolve-flow-reveal-stage {
     color: #ffd486;
 }
 
@@ -999,6 +980,47 @@
 
 #resolve-flow-panel.reveal-outcome .resolve-flow-reveal-stage {
     color: #ffdf9e;
+}
+
+#resolve-flow-panel .resolve-flow-card > :not(.resolve-flow-background) {
+  position: relative;
+  z-index: 1;
+}
+
+#resolve-flow-panel .resolve-flow-background {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+#resolve-flow-panel .resolve-flow-background.attacker {
+  left: 0;
+  mask-image: linear-gradient(to right, #000 30%, transparent 100%);
+}
+
+#resolve-flow-panel .resolve-flow-background.defender {
+  right: 0;
+  mask-image: linear-gradient(to left, #000 30%, transparent 100%);
+}
+
+#resolve-flow-panel .resolve-flow-background img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+}
+
+#resolve-flow-panel .resolve-flow-versus .power .actual {
+  font-family: var(--fx-number-font);
+  font-weight: 900;
+  font-size: 1.5em;
+}
+
+#resolve-flow-panel.kind-clash.reveal-power .actual {
+  visibility: hidden;
 }
 
 #resolve-flow-panel .resolve-flow-intro-card {
@@ -1059,11 +1081,6 @@
 
     #resolve-flow-panel .resolve-flow-versus .name {
         font-size: 20px;
-    }
-
-    #resolve-flow-panel .resolve-flow-portrait {
-        width: 74px;
-        border-radius: 12px;
     }
 
     #resolve-flow-panel .resolve-flow-portrait-inline {

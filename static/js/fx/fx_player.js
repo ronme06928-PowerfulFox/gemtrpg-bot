@@ -42,11 +42,16 @@
     requestAnimationFrame(tick);
   }
 
-  // options: host（置く要素）, left/top（host内の位置。省略すると host 全体に広げる）, onDone
+  // options: host, left/top, elapsedSeconds（同期した段階の途中から描く）, onDone
   Fx.play = function (name, params, options) {
     const opts = options || {};
     const definition = Fx.get(name);
     if (!definition || !opts.host) {
+      if (opts.onDone) opts.onDone();
+      return null;
+    }
+    const elapsed = Math.max(0, Number(opts.elapsedSeconds) || 0);
+    if (elapsed >= definition.duration) {
       if (opts.onDone) opts.onDone();
       return null;
     }
@@ -63,18 +68,65 @@
     const level = active.length >= MAX_ACTIVE ? 'light' : Fx.getLevel();
     const fx = Object.create(definition);
     fx.mount(root, Object.assign({}, params, { level }));
-    fx.render(0);
-    const item = { fx, root, level, start: performance.now() };
+    fx.render(elapsed);
+    const item = { fx, root, host: opts.host, level, start: performance.now() - elapsed * 1000 };
+    item.finish = () => {
+      const index = active.indexOf(item);
+      if (index < 0) return;
+      active.splice(index, 1);
+      clearTimeout(item.timer);
+      fx.render(Infinity);
+      if (root.parentNode) root.parentNode.removeChild(root);
+      if (opts.onDone) opts.onDone();
+    };
     active.push(item);
     requestFrame();
 
     // 終わりは描画の時計ではなくタイマーで決める（裏のタブでは描画が止まるため）。
-    setTimeout(() => {
-      active.splice(active.indexOf(item), 1);
-      if (root.parentNode) root.parentNode.removeChild(root);
-      if (opts.onDone) opts.onDone();
-    }, definition.duration * 1000);
+    item.timer = setTimeout(item.finish, (definition.duration - elapsed) * 1000);
     return item;
+  };
+
+  Fx.finishAll = function (host) {
+    active.filter((item) => item.host === host).forEach((item) => item.finish());
+  };
+
+  const liveLogs = new WeakSet();
+  Fx.markLiveLog = (log) => { if (log && typeof log === 'object') liveLogs.add(log); };
+  Fx.playChatDice = function (log, row, visible = true) {
+    if (!liveLogs.has(log)) return;
+    liveLogs.delete(log);
+    if (!visible || !window.SoundFx?.isDiceLog(log)) return;
+    const plain = String(log.message || '').replace(/<[^>]*>/g, ' ');
+    const matches = [...plain.matchAll(/(?:=|->|→)\s*([+-]?\d+(?:\.\d+)?)/g)];
+    if (!matches.length) return;
+    const text = matches[matches.length - 1][1];
+    let slot = row.querySelector('.dice-result-total');
+    if (!slot) {
+      const walker = row.ownerDocument.createTreeWalker(row, 4);
+      let node;
+      let hit;
+      while ((node = walker.nextNode())) {
+        for (const match of node.textContent.matchAll(/(?:=|->|→)\s*([+-]?\d+(?:\.\d+)?)/g)) {
+          hit = { node, start: match.index + match[0].lastIndexOf(match[1]), length: match[1].length };
+        }
+      }
+      if (!hit) return;
+      const number = hit.node.splitText(hit.start);
+      number.splitText(hit.length);
+      slot = row.ownerDocument.createElement('span');
+      number.parentNode.replaceChild(slot, number);
+    }
+    slot.classList.add('dice-result-total');
+    slot.classList.add('fx-chat-dice-slot');
+    slot.textContent = '';
+    const result = row.ownerDocument.createElement('span');
+    result.textContent = text;
+    result.style.visibility = 'hidden';
+    slot.appendChild(result);
+    Fx.play('chat-dice', {
+      text, images: Array.from({ length: 6 }, (_, i) => `/static/images/dice/die-${i + 1}.svg`),
+    }, { host: slot, onDone: () => { result.style.visibility = ''; } });
   };
 
   // アクションドックの ✨ に、3択のメニューをつなぐ。

@@ -174,7 +174,7 @@ window.openResolveTraceDetailModal = function (logData) {
     if (closeBtn) closeBtn.addEventListener('click', close);
 };
 
-window.appendVisualLogLine = function (container, logData, filterType) {
+window.appendVisualLogLine = function (container, logData, filterType, live = false) {
     const isChat = logData.type === 'chat';
     if (filterType === 'chat' && !isChat) return;
     if (filterType === 'system' && isChat) return;
@@ -275,6 +275,7 @@ window.appendVisualLogLine = function (container, logData, filterType) {
     logLine.style.padding = "2px 5px";
     logLine.style.fontSize = "0.9em";
     container.appendChild(logLine);
+    if (window.Fx) window.Fx.playChatDice(logData, logLine, live && (!logData.secret || secretVisible));
 
     if (container.dataset.fullHistory !== '1') {
         while (container.children.length > VISUAL_MAX_LOG_ITEMS) {
@@ -305,7 +306,7 @@ window.renderVisualLogHistory = function (logs) {
     setTimeout(() => { logArea.scrollTop = logArea.scrollHeight; }, 80);
 }
 
-window.appendVisualLogBatch = function (logs) {
+window.appendVisualLogBatch = function (logs, live = false) {
     const logArea = document.getElementById('visual-log-area');
     if (!logArea || !Array.isArray(logs) || logs.length === 0) return;
 
@@ -319,7 +320,7 @@ window.appendVisualLogBatch = function (logs) {
             previousRenderedLog = log;
             return;
         }
-        appendVisualLogLine(logArea, log, filter);
+        appendVisualLogLine(logArea, log, filter, live);
         previousRenderedLog = log;
     });
     window._lastLogCount = Number(window._lastLogCount || 0) + logs.length;

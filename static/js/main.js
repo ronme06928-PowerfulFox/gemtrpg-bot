@@ -1143,6 +1143,7 @@ function initializeSocketIO() {
             }
             receivedLogIds.add(key);
         }
+        if (window.Fx) window.Fx.markLiveLog(logData);
         logToBattleLog(logData);
     });
     registerAppSocketHandler('user_info_updated', (data) => {

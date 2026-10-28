@@ -17,6 +17,7 @@ function makeElement(doc, tag) {
   const el = {
     tagName: tag, ownerDocument: doc, style: {}, children: [], parentNode: null,
     className: '', textContent: '', attributes: {},
+    querySelector: () => null,
     classList: {
       add(name) { if (!el.className.split(' ').includes(name)) el.className = (el.className + ' ' + name).trim(); },
       contains(name) { return el.className.split(' ').includes(name); },
@@ -40,8 +41,16 @@ function loadShared(context) {
 }
 function snapshot(el) {
   return JSON.stringify({ style: el.style, text: el.textContent, cls: el.className,
+    attributes: el.attributes,
     children: el.children.map(snapshot) });
 }
+const EFFECT_CASES = {
+  'float-text': { text: '-9', tone: 'damage' }, 'round-banner': { text: 'ROUND 2' },
+  'power-roll': { text: '12', width: 50, height: 40 },
+  'clash-flash': {}, 'clash-shade': { winner: true, width: 250, height: 300 },
+  'attack-flash': {}, 'resolve-damage': { amount: 9, icon: '/static/images/rupture.png', delay: 0.22 },
+  'chat-dice': { text: '17', images: Array.from({length: 6}, (_, i) => `die-${i + 1}.svg`) },
+};
 """ % (SHARED_FILES,)
 
 
@@ -76,7 +85,7 @@ def test_effects_draw_the_same_look_for_the_same_time_in_any_order():
     _run_node(r"""
 const Fx = loadShared({});
 const doc = makeDocument();
-const effects = { 'float-text': { text: '-9', tone: 'damage' }, 'round-banner': { text: 'ROUND 2' } };
+const effects = EFFECT_CASES;
 for (const [name, params] of Object.entries(effects)) {
   const def = Fx.get(name);
   assert.ok(def && def.duration > 0, name);
@@ -100,7 +109,7 @@ def test_light_level_keeps_still_and_still_shows_the_information():
     _run_node(r"""
 const Fx = loadShared({});
 const doc = makeDocument();
-for (const [name, params] of [['float-text', { text: '-9', tone: 'damage' }], ['round-banner', { text: 'ROUND 2' }]]) {
+for (const [name, params] of Object.entries(EFFECT_CASES)) {
   const def = Fx.get(name);
   const root = doc.createElement('div');
   const fx = Object.create(def);
@@ -124,7 +133,7 @@ def test_levels_change_strength_but_not_length():
     _run_node(r"""
 const Fx = loadShared({});
 const doc = makeDocument();
-for (const [name, params] of [['float-text', { text: '-9', tone: 'damage' }], ['round-banner', { text: 'ROUND 2' }]]) {
+for (const [name, params] of Object.entries(EFFECT_CASES)) {
   const def = Fx.get(name);
   const look = (level, t) => {
     const root = doc.createElement('div');
@@ -166,8 +175,11 @@ function loadPlayer({ stored, reduce } = {}) {
     performance: { now: () => 0 },
     requestAnimationFrame: () => 1,
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+    clearTimeout: () => {},
     matchMedia: (query) => ({ matches: Boolean(reduce) && query.includes('reduce') }),
     localStorage: { getItem: (k) => values.get(k) ?? null, setItem: (k, v) => values.set(k, String(v)) },
+    SoundFx: { isDiceLog: (log) => ['dice', 'dice_roll'].includes(log.type)
+      || (log.type === 'chat' && /\d+d\d+/i.test(log.message) && /(?:=|->)/.test(log.message)) },
   };
   context.window = context;
   vm.createContext(context);

@@ -43,11 +43,11 @@ function logToBattleLog(logData) {
     const visualLogArea = document.getElementById('visual-log-area');
     if (visualLogArea) {
         if (typeof window.appendVisualLogBatch === 'function') {
-            window.appendVisualLogBatch([logData]);
+            window.appendVisualLogBatch([logData], true);
             window._lastLogCount = Number(window._lastLogCount || 0) + 1;
         } else if (typeof window.appendVisualLogLine === 'function') {
             const filter = window.currentVisualLogFilter || 'all';
-            window.appendVisualLogLine(visualLogArea, logData, filter);
+            window.appendVisualLogLine(visualLogArea, logData, filter, true);
             window._lastLogCount = Number(window._lastLogCount || 0) + 1;
             visualLogArea.scrollTop = visualLogArea.scrollHeight;
         }
