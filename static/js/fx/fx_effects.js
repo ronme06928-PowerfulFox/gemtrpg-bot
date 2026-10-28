@@ -131,12 +131,128 @@
     duration: 0.8,
     mount(root, params) {
       this.level = params.level;
-      this.el = element(root, 'div', `fx-attack-flash ${params.level}`);
+      this.direction = params.direction === -1 ? -1 : 1;
+      this.el = element(root, 'div', `fx-attack-flash ${params.level} ${params.tone || 'enemy'}`);
+      if (params.mode === 'draw') this.el.style.width = '80px';
     },
     render(t) {
       this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
       this.el.style.transform = this.level === 'light' ? 'translate(-50%, -50%)'
-        : `translate(-50%, -50%) rotate(-28deg) scaleX(${Fx.lerp(this.level === 'rich' ? 0.1 : 0.3, 1.6, Fx.prog(t, 0, this.duration))})`;
+        : `translate(-50%, -50%) rotate(${-28 * this.direction}deg) scaleX(${Fx.lerp(this.level === 'rich' ? 0.1 : 0.3, 1.6, Fx.prog(t, 0, this.duration))})`;
+    },
+  });
+
+  // 攻撃の着弾と数字に同じ時刻・段階の揺れを使う。外側のカードには触らない。
+  function impactShake(t, level, tier) {
+    const strength = level === 'light' ? 0 : level === 'rich'
+      ? ({ medium: 3, large: 6 }[tier] || 0) : tier === 'large' ? 2 : 0;
+    const time = Math.max(0, Math.min(t, 0.3));
+    return Math.sin(time * 75) * strength * (1 - Fx.prog(time, 0, 0.3));
+  }
+
+  function svgElement(root, tag, className, attrs = {}) {
+    const el = root.ownerDocument.createElementNS('http://www.w3.org/2000/svg', tag);
+    el.setAttribute('class', className);
+    for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+    root.appendChild(el);
+    return el;
+  }
+
+  function mountAttack(root, params, kind) {
+    this.level = params.level;
+    this.tier = params.tier || 'small';
+    this.strength = { small: 1, medium: 1.6, large: 2.3 }[this.tier];
+    this.el = element(root, 'div', `fx-attack ${kind} ${params.tone || 'enemy'} ${params.level} ${this.tier}`);
+    const draw = params.mode === 'draw';
+    this.el.style.width = `${draw ? 150 : Math.max(1, Number(params.width) || 320)}px`;
+    this.el.style.height = `${draw ? 110 : Math.max(1, Number(params.height) || 240)}px`;
+    const svg = svgElement(this.el, 'svg', 'fx-attack-svg', { viewBox: '0 0 320 240', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
+    svg.style.transform = `scaleX(${params.direction === -1 ? -1 : 1})`;
+    this.moving = svgElement(svg, 'g', 'fx-attack-moving');
+    this.impact = svgElement(svg, 'g', 'fx-attack-impact');
+    this.fragments = [];
+    if (kind === 'slash') {
+      const attrs = { d: 'M 28 206 Q 86 32 292 48', 'stroke-width': 3 * this.strength, pathLength: 1 };
+      this.trail = svgElement(this.moving, 'path', 'fx-attack-line', attrs);
+      this.trail.style.strokeDasharray = '1';
+      svgElement(this.impact, 'path', 'fx-attack-line fx-attack-white', attrs);
+    } else if (kind === 'strike') {
+      this.falling = svgElement(this.moving, 'g', 'fx-strike-falling');
+      svgElement(this.falling, 'path', 'fx-strike-tail', { d: 'M 160 105 L 156 154 L 164 154 Z' });
+      svgElement(this.falling, 'ellipse', 'fx-strike-core', { cx: 160, cy: 162, rx: 4 * this.strength, ry: 18 });
+      this.flash = svgElement(this.impact, 'ellipse', 'fx-attack-white fx-strike-flash', { cx: 160, cy: 180, rx: 12 * this.strength, ry: 8 * this.strength });
+      this.waves = Array.from({ length: this.tier === 'large' ? 2 : 1 }, () => {
+        const wave = svgElement(this.impact, 'g', 'fx-strike-wave');
+        // 先端へ向かって細くなる2本の筋。地面は viewBox の下から1/4。
+        svgElement(wave, 'path', 'fx-strike-ray', { d: `M 160 ${180 - this.strength * 2} L 8 180 L 160 ${180 + this.strength * 2} L 312 180 Z` });
+        svgElement(wave, 'ellipse', 'fx-attack-line fx-strike-ring', { cx: 160, cy: 180, rx: 150, ry: 13, 'stroke-width': this.strength });
+        return wave;
+      });
+      this.fragments = Array.from({ length: { small: 0, medium: 4, large: 8 }[this.tier] }, (_, i) =>
+        svgElement(this.impact, 'path', 'fx-strike-fragment', { d: `M -3 0 L 0 -${4 + i % 3} L 3 0 L 0 3 Z` }));
+    } else {
+      this.beam = svgElement(this.moving, 'path', 'fx-attack-line', { d: 'M 0 120 L 218 120', 'stroke-width': 2 * this.strength, pathLength: 1 });
+      this.beam.style.strokeDasharray = '1';
+      const radius = 16 * this.strength;
+      svgElement(this.impact, 'path', 'fx-attack-line fx-attack-white', { d: `M ${218 - radius} 120 L ${218 + radius} 120 M 218 ${120 - radius} L 218 ${120 + radius}`, 'stroke-width': 2 * this.strength });
+    }
+  }
+
+  function renderAttack(t, kind) {
+    const light = this.level === 'light';
+    const time = Math.max(0, Math.min(t, this.duration));
+    const after = time - 0.8;
+    this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
+    this.el.style.transform = `translate(-50%, -50%) translateX(${light ? 0 : impactShake(after, this.level, this.tier)}px)`;
+    this.moving.style.opacity = light || time >= 0.8 ? '0' : '1';
+    this.impact.style.opacity = String(light ? Fx.stillOpacity(after, 0.6)
+      : after < 0 ? 0 : 1 - Fx.prog(time, this.duration - 0.15, 0.15));
+    const p = Fx.prog(time, 0, 0.8);
+    if (kind === 'slash') {
+      this.trail.style.strokeDashoffset = String(light ? 0 : 1 - p);
+    } else if (kind === 'pierce') {
+      this.beam.style.strokeDashoffset = String(light ? 0 : 1 - p);
+    } else {
+      const fall = light ? 1 : Math.min(time / 0.8, 1) ** 2;
+      this.falling.setAttribute('transform', `translate(${-32 * (1 - fall)} ${-190 * (1 - fall)}) rotate(-10 160 180)`);
+      this.flash.style.opacity = String(light ? 0 : 1 - Fx.prog(after, 0, 0.18));
+      this.waves.forEach((wave, i) => {
+        const age = after - i * 0.1;
+        const extent = this.tier === 'small' ? 0.5 : 1;
+        const spread = light ? extent : Fx.lerp(0.03, extent, Fx.prog(age, 0, 0.42));
+        wave.setAttribute('transform', `translate(160 180) scale(${spread} ${light ? 1 : Fx.lerp(0.3, 1, Fx.prog(age, 0, 0.42))}) translate(-160 -180)`);
+        wave.style.opacity = String(light ? (i === 0 ? 1 : 0) : Fx.stillOpacity(age, 0.5));
+      });
+      this.fragments.forEach((fragment, i) => {
+        const age = light ? 0 : Fx.prog(after, 0, 0.6);
+        const sign = i % 2 ? 1 : -1;
+        const x = 160 + sign * (35 + i * 12) * age;
+        const y = 180 - (130 + i % 3 * 28) * age + 205 * age * age;
+        fragment.setAttribute('transform', `translate(${x} ${y}) rotate(${light ? 0 : sign * age * 160})`);
+        fragment.style.opacity = String(light ? 0 : 1 - Fx.prog(after, 0.35, 0.25));
+      });
+    }
+  }
+
+  for (const kind of ['slash', 'strike', 'pierce']) {
+    Fx.define(`attack-${kind}`, {
+      duration: 1.4,
+      mount(root, params) { mountAttack.call(this, root, params, kind); },
+      render(t) { renderAttack.call(this, t, kind); },
+    });
+  }
+
+  Fx.define('impact-flash', {
+    duration: 0.3,
+    mount(root, params) {
+      this.level = params.level;
+      this.el = element(root, 'div', 'fx-impact-flash');
+      this.el.style.width = `${params.width}px`;
+      this.el.style.height = `${params.height}px`;
+    },
+    render(t) {
+      this.el.style.transform = 'translate(-50%, -50%)';
+      this.el.style.opacity = String(this.level === 'rich' ? Fx.stillOpacity(t, this.duration) : 0);
     },
   });
 
@@ -144,6 +260,7 @@
     duration: 1.6,
     mount(root, params) {
       this.level = params.level;
+      this.shake = params.shake;
       this.delay = Math.max(0, Math.min(0.8, Number(params.delay) || 0));
       this.el = element(root, 'div', `fx-resolve-damage ${params.tone || 'enemy'} ${params.icon ? 'with-icon' : ''}`);
       this.el.style.marginTop = `${24 + (Number(params.row) || 0) * 34}px`;
@@ -161,7 +278,7 @@
       const p = Fx.prog(time, 0, length);
       this.el.style.opacity = String(Fx.stillOpacity(time, length));
       this.el.style.transform = this.level === 'light' ? 'translate(-50%, -50%)'
-        : `translate(-50%, -50%) translateY(${Fx.lerp(12, -34, p)}px) scale(${Fx.lerp(this.level === 'rich' ? 1.6 : 1.25, 1, Fx.prog(time, 0, 0.25))})`;
+        : `translate(-50%, -50%) translateX(${impactShake(time, this.level, this.shake)}px) translateY(${Fx.lerp(12, -34, p)}px) scale(${Fx.lerp(this.level === 'rich' ? 1.6 : 1.25, 1, Fx.prog(time, 0, 0.25))})`;
     },
   });
 

@@ -11,6 +11,9 @@
   --fx-effect-font: 'Zen Antique', 'Yu Mincho', serif;
   --fx-win: #ffd56b;
   --fx-extra: #83ed91;
+  --fx-ally: #ff7373;
+  --fx-white: #fff;
+  --fx-neutral: #e9e7df;
 }
 
 .fx-root {
@@ -81,18 +84,41 @@
 }
 
 .fx-attack-flash {
+  color: var(--fx-win);
   position: absolute;
   width: calc(180px * var(--fx-scale));
   height: calc(5px * var(--fx-scale));
   border-radius: 50%;
-  background: linear-gradient(90deg, transparent, #fff7ce, transparent);
-  box-shadow: 0 0 12px #ffd56b;
+  background: linear-gradient(90deg, transparent, currentColor, transparent);
+  box-shadow: 0 0 12px currentColor;
 }
 
 .fx-attack-flash.rich {
   height: calc(9px * var(--fx-scale));
-  box-shadow: 0 0 24px #ffd56b;
+  box-shadow: 0 0 24px currentColor;
 }
+
+.fx-attack {
+  position: absolute;
+  color: var(--fx-win);
+}
+
+.fx-attack.ally, .fx-attack-flash.ally { color: var(--fx-ally); }
+.fx-attack.neutral, .fx-attack-flash.neutral { color: var(--fx-neutral); }
+.fx-attack-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.fx-attack-line { fill: none; stroke: currentColor; stroke-linecap: round; }
+.fx-attack-impact, .fx-attack-moving { filter: drop-shadow(0 0 3px currentColor); }
+.fx-attack.medium .fx-attack-impact, .fx-attack.medium .fx-attack-moving { filter: drop-shadow(0 0 6px currentColor); }
+.fx-attack.large .fx-attack-impact, .fx-attack.large .fx-attack-moving { filter: drop-shadow(0 0 10px currentColor); }
+.fx-attack.rich .fx-attack-svg { filter: drop-shadow(0 0 4px currentColor); }
+.fx-attack-white { color: var(--fx-white); }
+.fx-strike-core, .fx-strike-tail, .fx-strike-flash, .fx-strike-ray, .fx-strike-fragment { fill: currentColor; }
+.fx-strike-core { color: var(--fx-white); }
+.fx-strike-tail { opacity: 0.55; }
+.fx-strike-ray { mask-image: linear-gradient(90deg, transparent, #000 45%, #000 55%, transparent); }
+.fx-attack.light .fx-attack-impact { filter: none; }
+.fx-attack.light .fx-attack-white { color: inherit; }
+.fx-impact-flash { position: absolute; border-radius: 18px; background: color-mix(in srgb, var(--fx-white) 14%, transparent); }
 
 .fx-resolve-damage {
   position: absolute;

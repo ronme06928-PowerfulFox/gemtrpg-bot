@@ -6,6 +6,17 @@ export const RESOLVE_STAGE_TIMING = Object.freeze([
   { stage: 'outcome', ms: 1600 },
 ]);
 
+const ATTACK_EFFECTS = Object.freeze({ 斬撃: 'attack-slash', 打撃: 'attack-strike', 貫通: 'attack-pierce' });
+export const ATTACK_TIERS = Object.freeze({ medium: 8, large: 15 });
+
+export function attackEffect(attribute) {
+  return ATTACK_EFFECTS[attribute] || 'attack-flash';
+}
+
+export function attackTier(damage) {
+  return damage >= ATTACK_TIERS.large ? 'large' : damage >= ATTACK_TIERS.medium ? 'medium' : 'small';
+}
+
 export function isDiceDamageSource(sourceRaw) {
   const source = String(sourceRaw || '').trim();
   const lower = source.toLowerCase();
@@ -50,7 +61,8 @@ export function collectDamagePopups(entries, damageRows) {
 export function playResolveStageFx(flow, payload, state) {
   const fx = window.Fx;
   const step = flow._activeStep;
-  if (!fx || !step || payload.kind !== 'clash') return;
+  if (!fx || !step || step.kind === 'fizzle') return;
+  if (!['clash', 'hard_attack', 'one_sided', 'mass_individual', 'mass_summation'].includes(step.kind)) return;
   const panel = document.getElementById(flow._panelId);
   if (!panel) return;
   let stageStart = 0;
@@ -61,7 +73,8 @@ export function playResolveStageFx(flow, payload, state) {
   const elapsedSeconds = Math.max(0, Date.now() - flow._stepStartedAt - stageStart) / 1000;
   const hostRect = panel.getBoundingClientRect();
   const playAt = (name, params, selector) => {
-    const target = panel.querySelector(selector);
+    const selectors = Array.isArray(selector) ? selector : [selector];
+    const target = selectors.map((s) => panel.querySelector(s)).find(Boolean);
     if (!target) return;
     const rect = target.getBoundingClientRect();
     fx.play(name, { ...params, width: rect.width, height: rect.height }, {
@@ -69,38 +82,80 @@ export function playResolveStageFx(flow, payload, state) {
       top: rect.top + rect.height / 2 - hostRect.top,
     });
   };
+  const summation = step.kind === 'mass_summation';
+  const oneSided = flow._isOneSidedPresentation(step);
+  const winner = oneSided ? 'attacker' : { attacker_win: 'attacker', defender_win: 'defender' }[payload.outcome];
+  const loser = winner === 'attacker' ? 'defender' : 'attacker';
+  const ids = {
+    attacker: String(flow._slotActorId(step.attackerSlotId, state) || step.attackerActorId || ''),
+    defender: String(flow._slotActorId(step.defenderSlotId, state) || step.defenderActorId || step.targetActorId || ''),
+  };
+  const entries = flow._collectDamageSummary(step, state).entries;
+  const totalFor = (side) => entries.find((entry) => entry.targetId === ids[side])?.total || 0;
+  // 合算のHP差分は残HPで切り詰められる。人数分を足さず、記録された1人あたりの差を使う。
+  const delta = Math.max(0, Number(step.rolls?.delta) || 0);
+  const tierFor = (side) => attackTier(summation ? delta : totalFor(side));
+  const toneForId = (id) => {
+    const char = flow._characterById(id, state);
+    const enemy = typeof window.resolveTokenSide === 'function'
+      ? window.resolveTokenSide(char) === 'enemy' : char?.type === 'enemy';
+    return enemy ? 'enemy' : 'ally';
+  };
+  const participantId = () => {
+    const slot = step.participants?.[0];
+    return flow._slotActorId(slot, state) || entries.find((e) => e.targetId !== ids.attacker)?.targetId;
+  };
+  const toneFor = (side) => toneForId(summation && side === 'defender' ? participantId() : ids[side]);
+  const region = (side) => summation && side === 'defender' ? '.summation-chips'
+    : [`.resolve-flow-background.${side}`, `.side.${side}`];
+  const nameFor = (side) => summation && side === 'defender' ? '.summation-chips' : `.side.${side} .name`;
+  const skillEffect = (side) => attackEffect(flow._skillById(step[`${side}SkillId`])?.['属性']);
   if (payload.stage === 'power') {
     const values = flow._resolvePowerValues(step);
-    for (const side of ['attacker', 'defender']) {
-      playAt('power-roll', { text: values[side] }, `.actual.${side}`);
+    for (const side of oneSided ? ['attacker'] : ['attacker', 'defender']) {
+      playAt('power-roll', { text: values[side] }, summation && side === 'defender'
+        ? '.summation-total strong' : `.actual.${side}`);
     }
   }
-  if (payload.stage === 'attack') playAt('attack-flash', {}, '.vs');
-  if (payload.stage !== 'outcome') return;
-  playAt('clash-flash', {}, '.vs');
-  const winner = { attacker_win: 'attacker', defender_win: 'defender' }[payload.outcome];
-  if (winner) {
-    for (const side of ['attacker', 'defender']) {
-      playAt('clash-shade', { winner: side === winner }, `.resolve-flow-background.${side}`);
+  if (payload.stage === 'attack') {
+    if (payload.outcome === 'draw' && !oneSided) {
+      for (const side of ['attacker', 'defender']) {
+        playAt(summation && side === 'defender' ? 'attack-flash' : skillEffect(side), {
+          tier: 'small', mode: 'draw', tone: 'neutral', direction: side === 'attacker' ? 1 : -1,
+        }, '.vs');
+      }
+    } else if (winner) {
+      playAt(summation && winner === 'defender' ? 'attack-flash' : skillEffect(winner), {
+        tier: tierFor(loser), direction: winner === 'attacker' ? 1 : -1, tone: toneFor(loser),
+        mode: summation && winner === 'attacker' ? 'wide' : 'hit',
+      }, region(loser));
     }
+  }
+  if (payload.stage !== 'outcome') return;
+  if ((!oneSided && !summation) || payload.outcome === 'draw') playAt('clash-flash', {}, '.vs');
+  if (winner) {
+    for (const side of oneSided || summation ? [loser] : ['attacker', 'defender']) {
+      playAt('clash-shade', { winner: side === winner }, region(side));
+    }
+    if (fx.getLevel() === 'rich' && tierFor(loser) === 'large') playAt('impact-flash', {}, '.resolve-flow-card');
+  }
+  if (summation) {
+    if (winner && delta > 0) playAt('resolve-damage', {
+      amount: delta, tone: toneFor(loser), shake: tierFor(loser),
+    }, nameFor(loser));
+    return;
   }
   const rows = [...(step.applied?.damage || []), ...(step.damageEvents || [])];
-  const popups = collectDamagePopups(flow._collectDamageSummary(step, state).entries, rows);
+  const popups = collectDamagePopups(entries, rows);
   const counts = new Map();
   for (const popup of popups) {
-    const attackerId = flow._slotActorId(step.attackerSlotId, state) || step.attackerActorId;
-    const defenderId = flow._slotActorId(step.defenderSlotId, state) || step.defenderActorId || step.targetActorId;
-    const side = popup.targetId === String(attackerId) ? 'attacker'
-      : popup.targetId === String(defenderId) ? 'defender' : null;
+    const side = popup.targetId === ids.attacker ? 'attacker' : popup.targetId === ids.defender ? 'defender' : null;
     if (!side) continue;
     const index = counts.get(popup.targetId) || 0;
     counts.set(popup.targetId, index + 1);
-    const char = flow._characterById(popup.targetId, state);
-    const enemy = typeof window.resolveTokenSide === 'function'
-      ? window.resolveTokenSide(char) === 'enemy' : char?.type === 'enemy';
     const icon = popup.status && window.STATUS_CONFIG?.[popup.status]?.icon;
     playAt('resolve-damage', {
-      amount: popup.amount, tone: popup.kind === 'effect' ? 'extra' : enemy ? 'enemy' : 'ally',
+      amount: popup.amount, tone: popup.kind === 'effect' ? 'extra' : toneFor(side), shake: tierFor(side),
       icon: icon ? `/static/images/${icon}` : null, label: popup.status,
       delay: popup.kind === 'effect' ? Math.min(0.8, Math.max(1, index) * 0.22) : 0,
       row: index,

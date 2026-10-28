@@ -126,7 +126,10 @@
     slot.appendChild(result);
     Fx.play('chat-dice', {
       text, images: Array.from({ length: 6 }, (_, i) => `/static/images/dice/die-${i + 1}.svg`),
-    }, { host: slot, onDone: () => { result.style.visibility = ''; } });
+    }, { host: slot, onDone: () => {
+      slot.classList.remove('fx-chat-dice-slot');
+      slot.textContent = text;
+    } });
   };
 
   // アクションドックの ✨ に、3択のメニューをつなぐ。

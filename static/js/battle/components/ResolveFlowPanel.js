@@ -657,6 +657,7 @@ class ResolveFlowPanel {
             stepIndex,
             stepTotal,
             kind: String(raw.kind || 'unknown'),
+            resolutionKind: raw.resolution_kind || null,
             outcome: String(raw.outcome || 'no_effect'),
             phase: String(raw.phase || ''),
             attackerSlotId,
@@ -1189,6 +1190,7 @@ class ResolveFlowPanel {
     _isOneSidedPresentation(step) {
         const kind = String(step?.kind || '');
         if (kind === 'one_sided' || kind === 'fizzle') return true;
+        if (kind === 'mass_individual') return step.resolutionKind === 'one_sided';
         if (kind === 'hard_attack') {
             const rolls = (step?.rolls && typeof step.rolls === 'object') ? step.rolls : {};
             return !Boolean(rolls.blocked_by_evade);
@@ -1468,7 +1470,7 @@ class ResolveFlowPanel {
         const kind = String(step?.kind || '');
         const rolls = step?.rolls || {};
         const baseRoll = this._toNumber(rolls.base_damage, 0);
-        if (kind === 'clash' && allDamageRows.length > 0) {
+        if ((kind === 'clash' || (kind === 'mass_individual' && step.resolutionKind === 'clash')) && allDamageRows.length > 0) {
             const outcome = String(step?.outcome || '');
             const powerA = this._toNumber(rolls.power_a, 0);
             const powerB = this._toNumber(rolls.power_b, 0);
