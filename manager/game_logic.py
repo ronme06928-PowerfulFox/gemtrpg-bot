@@ -1,6 +1,7 @@
 # manager/game_logic.py
 import copy
 import sys
+from manager.battle.effect_presentation import recording_before, record_fired_effect
 from manager.battle.effect_handlers import EFFECT_HANDLERS, EffectSession
 from manager.battle.system_skills import ensure_system_skills_registered
 from manager.battle import condition_eval as _condition_eval
@@ -438,7 +439,9 @@ def process_skill_effects(
             "rupture_remainder_ratio": 1.0,
             "no_rupture_consume": True,
         }
+        before_effect = recording_before(context, sim_target, burst_effect)
         custom_changes, custom_logs = execute_custom_effect(burst_effect, sim_actor, sim_target, context=context)
+        record_fired_effect(context, burst_effect, actor, target, before_effect, custom_changes)
         remapped_changes = []
         for c, t, n, v in custom_changes:
             mapped_char = c
@@ -571,12 +574,18 @@ def process_skill_effects(
 
             handler = EFFECT_HANDLERS.get(effect_type)
             if handler is not None:
-                handler(effect, target_obj, sim_target, session)
+                before_effect = recording_before(context, sim_target, effect)
+                changes_start = len(changes_to_apply)
+                converted_resource = handler(effect, target_obj, sim_target, session)
+                record_fired_effect(context, effect, actor, target_obj, before_effect,
+                                    changes_to_apply[changes_start:], converted_resource=converted_resource)
                 continue
 
             if effect_type == "CUSTOM_EFFECT":
                 custom_target_sim = sim_actor if effect.get("target") == "self" else sim_target
+                before_effect = recording_before(context, custom_target_sim, effect)
                 custom_changes, custom_logs = execute_custom_effect(effect, sim_actor, custom_target_sim, context=context)
+                record_fired_effect(context, effect, actor, target_obj, before_effect, custom_changes)
 
                 remapped_changes = []
                 for c, t, n, v in custom_changes:

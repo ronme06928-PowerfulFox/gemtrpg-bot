@@ -425,6 +425,7 @@ def _consume_duel_skill_cost(room, actor, skill_data):
 
 
 def execute_duel_match(room, data, username):
+    fired_effects = data.get('fired_effects')
     state = get_room_state(room)
     if not state: return
 
@@ -738,7 +739,7 @@ def execute_duel_match(room, data, username):
             if not actor or not isinstance(effects, list):
                 return 0
             source_skill = skill_data_a if actor is actor_a_char else skill_data_d
-            ctx = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room, 'actor_skill_data': source_skill}
+            ctx = {'fired_effects': fired_effects, 'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room, 'actor_skill_data': source_skill}
             bonus, logs, changes = process_skill_effects(effects, timing, actor, target, target_skill, context=ctx, base_damage=base_damage)
             if logs:
                 log_snippets.extend(logs)
@@ -862,7 +863,7 @@ def execute_duel_match(room, data, username):
                     kiretsu = get_status_value(actor_d_char, "亀裂")
 
                     logger.debug(f"[UNOPPOSED] Calling process_skill_effects for UNOPPOSED trigger")
-                    effect_context = {'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room, 'actor_skill_data': skill_data_a}
+                    effect_context = {'fired_effects': fired_effects, 'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room, 'actor_skill_data': skill_data_a}
                     bd_un, log_un, chg_un = process_skill_effects(effects_array_a, "UNOPPOSED", actor_a_char, actor_d_char, skill_data_d, context=effect_context)
 
                     custom_dmg_onesided = 0
@@ -1260,7 +1261,7 @@ def execute_duel_match(room, data, username):
             winner_message = "<strong> → 不発</strong> (ダメージなし)"
 
             def run_end_match(effs, actor, target, skill):
-                d, l, c = process_skill_effects(effs, "END_MATCH", actor, target, skill)
+                d, l, c = process_skill_effects(effs, "END_MATCH", actor, target, skill, context={"fired_effects": fired_effects})
                 for (char, type, name, value) in c:
                     if type == "APPLY_STATE":
                         _update_char_stat(room, char, name, get_status_value(char, name) + value, username=f"[{name}]", save=False, damage_context=_damage_context_for(actor))

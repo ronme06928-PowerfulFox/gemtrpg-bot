@@ -1,4 +1,5 @@
 // 解決パネルへの接続。演出の定義自体は fx_effects.js に置く。
+import { collectDamageKnockouts, collectKnockouts, planResolveOutcome } from './resolve_flow_result_fx.js';
 export const RESOLVE_STAGE_TIMING = Object.freeze([
   { stage: 'names', ms: 600 },
   { stage: 'power', ms: 1000 },
@@ -72,13 +73,13 @@ export function playResolveStageFx(flow, payload, state) {
   }
   const elapsedSeconds = Math.max(0, Date.now() - flow._stepStartedAt - stageStart) / 1000;
   const hostRect = panel.getBoundingClientRect();
-  const playAt = (name, params, selector) => {
+  const playAt = (name, params, selector, delaySeconds = 0) => {
     const selectors = Array.isArray(selector) ? selector : [selector];
     const target = selectors.map((s) => panel.querySelector(s)).find(Boolean);
     if (!target) return;
     const rect = target.getBoundingClientRect();
     fx.play(name, { ...params, width: rect.width, height: rect.height }, {
-      host: panel, elapsedSeconds, left: rect.left + rect.width / 2 - hostRect.left,
+      host: panel, elapsedSeconds, delaySeconds, left: rect.left + rect.width / 2 - hostRect.left,
       top: rect.top + rect.height / 2 - hostRect.top,
     });
   };
@@ -91,10 +92,14 @@ export function playResolveStageFx(flow, payload, state) {
     defender: String(flow._slotActorId(step.defenderSlotId, state) || step.defenderActorId || step.targetActorId || ''),
   };
   const entries = flow._collectDamageSummary(step, state).entries;
+  const koIds = collectKnockouts(step);
+  const damageKoIds = collectDamageKnockouts(step);
   const totalFor = (side) => entries.find((entry) => entry.targetId === ids[side])?.total || 0;
   // 合算のHP差分は残HPで切り詰められる。人数分を足さず、記録された1人あたりの差を使う。
   const delta = Math.max(0, Number(step.rolls?.delta) || 0);
-  const tierFor = (side) => attackTier(summation ? delta : totalFor(side));
+  const tierFor = (side) => (summation && side === 'defender'
+    ? [...damageKoIds].some((id) => id !== ids.attacker) : damageKoIds.has(ids[side]))
+    ? 'large' : attackTier(summation ? delta : totalFor(side));
   const toneForId = (id) => {
     const char = flow._characterById(id, state);
     const enemy = typeof window.resolveTokenSide === 'function'
@@ -138,6 +143,28 @@ export function playResolveStageFx(flow, payload, state) {
       playAt('clash-shade', { winner: side === winner }, region(side));
     }
     if (fx.getLevel() === 'rich' && tierFor(loser) === 'large') playAt('impact-flash', {}, '.resolve-flow-card');
+  }
+  if (koIds.size || step.applied?.fired_effects?.length || step.applied?.statuses?.some((r) => String(r.name).includes('混乱') && Number(r.before) === 0 && Number(r.after) > 0)) {
+    const rows = [...(step.applied?.damage || []), ...(step.damageEvents || [])];
+    const popups = summation ? (winner && delta > 0 ? [{ targetId: loser === 'attacker' ? ids.attacker : String(participantId()), amount: delta, kind: 'dice' }] : [])
+      : collectDamagePopups(entries, rows);
+    const windowSeconds = 1.6 + (flow._autoAdvanceDelayMs ?? 2000) / 1000;
+    for (const event of planResolveOutcome(step, popups, windowSeconds)) {
+      const side = event.targetId === ids.attacker ? 'attacker'
+        : summation || event.targetId === ids.defender ? 'defender' : null;
+      if (!side) continue;
+      const chip = summation && side === 'defender' && event.name === 'ko-shatter';
+      const icon = event.params.status && window.STATUS_CONFIG?.[event.params.status]?.icon;
+      const tone = event.params.self ? 'self' : event.params.kind === 'effect' ? 'extra' : toneForId(event.targetId);
+      const perRecipient = summation && side === 'defender' && !(event.name === 'resolve-damage' && event.params.kind === 'dice');
+      const selector = perRecipient ? [`.participant-chip[data-actor-id="${flow._escape(event.targetId)}"] .resolve-flow-portrait-inline`, '.summation-chips']
+        : event.name === 'ko-shatter' ? region(side) : nameFor(side);
+      playAt(event.name, { ...event.params, tone, shake: tierFor(side),
+        icon: icon ? `/static/images/${icon}` : null, label: event.params.status,
+        mode: chip ? 'chip' : 'hit',
+      }, selector, event.at);
+    }
+    return;
   }
   if (summation) {
     if (winner && delta > 0) playAt('resolve-damage', {

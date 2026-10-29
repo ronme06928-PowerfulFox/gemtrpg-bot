@@ -97,6 +97,7 @@ def _apply_match_timing(
     base_damage=0,
     emit_source='select_resolve_match_timing',
     log_snippets=None,
+    fired_effects=None,
 ):
     if not isinstance(actor_char, dict) or not isinstance(skill_data, dict):
         return {'bonus_damage': 0, 'extra_primary_damage': 0, 'logs': []}
@@ -111,6 +112,7 @@ def _apply_match_timing(
         target_skill_data=target_skill_data,
         base_damage=base_damage,
         emit_source=emit_source,
+        fired_effects=fired_effects,
     )
     if isinstance(log_snippets, list) and isinstance(res, dict) and res.get('logs'):
         log_snippets.extend(res.get('logs') or [])
@@ -171,6 +173,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     # Select/Resolve path must track used skills so END_ROUND effects can resolve.
     _record_used_skill_for_actor(attacker_char, _extract_skill_id_from_data(attacker_skill_data))
 
+    fired_effects = []
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
 
@@ -181,6 +184,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     }
     effect_context = dict(context)
     effect_context['actor_skill_data'] = attacker_skill_data
+    effect_context['fired_effects'] = fired_effects
     characters_by_id = {
         c.get('id'): c for c in state.get('characters', [])
         if isinstance(c, dict) and c.get('id')
@@ -205,7 +209,8 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         skill_data=attacker_skill_data,
         target_skill_data=defender_skill_data,
         base_damage=0,
-        emit_source='one_sided_pre_match'
+        emit_source='one_sided_pre_match',
+        fired_effects=fired_effects,
     )
     if pre_a.get('logs'):
         log_snippets.extend(pre_a.get('logs', []))
@@ -222,7 +227,8 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         skill_data=attacker_skill_data,
         target_skill_data=defender_skill_data,
         base_damage=0,
-        emit_source='before_power_roll'
+        emit_source='before_power_roll',
+        fired_effects=fired_effects,
     )
 
     preview = calculate_skill_preview(attacker_char, defender_char, attacker_skill_data, context=context)
@@ -251,6 +257,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
             base_damage=base_damage + pre_damage_bonus,
             emit_source=source,
             log_snippets=log_snippets,
+            fired_effects=fired_effects,
         )
         if actor is attacker_char:
             pre_damage_bonus += _timing_primary_damage(res)
@@ -375,7 +382,8 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
         skill_data=attacker_skill_data,
         target_skill_data=defender_skill_data,
         base_damage=total_damage,
-        emit_source='after_damage_apply'
+        emit_source='after_damage_apply',
+        fired_effects=fired_effects,
     )
     if isinstance(defender_skill_data, dict):
         _trigger_skill_timing_effects(
@@ -388,7 +396,8 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
             skill_data=defender_skill_data,
             target_skill_data=attacker_skill_data,
             base_damage=total_damage,
-            emit_source='after_damage_apply'
+            emit_source='after_damage_apply',
+            fired_effects=fired_effects,
         )
 
     after_a = _snapshot_for_outcome(attacker_char)
@@ -397,6 +406,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     delta_d = _diff_snapshot(before_d, after_d, damage_source='一方攻撃')
 
     summary = {
+        'fired_effects': fired_effects,
         'damage': delta_a.get('damage', []) + delta_d.get('damage', []),
         'statuses': delta_a.get('statuses', []) + delta_d.get('statuses', []),
         'flags': delta_a.get('flags', []) + delta_d.get('flags', []),
@@ -475,6 +485,7 @@ def _resolve_clash_by_existing_logic(
     from manager import skill_effects as skill_effects_mod
     from manager.battle import runtime_actions as runtime_actions_mod
 
+    fired_effects = []
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
 
@@ -506,7 +517,8 @@ def _resolve_clash_by_existing_logic(
         skill_data=attacker_skill_data,
         target_skill_data=defender_skill_data,
         base_damage=0,
-        emit_source='select_resolve_pre_match'
+        emit_source='select_resolve_pre_match',
+        fired_effects=fired_effects,
     )
     _trigger_skill_timing_effects(
         room=room,
@@ -518,7 +530,8 @@ def _resolve_clash_by_existing_logic(
         skill_data=defender_skill_data,
         target_skill_data=attacker_skill_data,
         base_damage=0,
-        emit_source='select_resolve_pre_match'
+        emit_source='select_resolve_pre_match',
+        fired_effects=fired_effects,
     )
     _trigger_skill_timing_effects(
         room=room,
@@ -530,7 +543,8 @@ def _resolve_clash_by_existing_logic(
         skill_data=attacker_skill_data,
         target_skill_data=defender_skill_data,
         base_damage=0,
-        emit_source='before_power_roll'
+        emit_source='before_power_roll',
+        fired_effects=fired_effects,
     )
     _trigger_skill_timing_effects(
         room=room,
@@ -542,7 +556,8 @@ def _resolve_clash_by_existing_logic(
         skill_data=defender_skill_data,
         target_skill_data=attacker_skill_data,
         base_damage=0,
-        emit_source='before_power_roll'
+        emit_source='before_power_roll',
+        fired_effects=fired_effects,
     )
     preview_a = calculate_skill_preview(attacker_char, defender_char, attacker_skill_data, context=context)
     preview_d = calculate_skill_preview(defender_char, attacker_char, defender_skill_data, context=context)
@@ -567,6 +582,7 @@ def _resolve_clash_by_existing_logic(
     ]
     match_id = f"select_resolve_clash_{actor_a_id}_{actor_d_id}_{_resolve_server_ts()}"
     exec_data = {
+        'fired_effects': fired_effects,
         'room': room,
         'match_id': match_id,
         'actorIdA': actor_a_id,
@@ -718,7 +734,8 @@ def _resolve_clash_by_existing_logic(
         skill_data=attacker_skill_data,
         target_skill_data=defender_skill_data,
         base_damage=damage_to_defender,
-        emit_source='after_damage_apply'
+        emit_source='after_damage_apply',
+        fired_effects=fired_effects,
     )
     _trigger_skill_timing_effects(
         room=room,
@@ -730,7 +747,8 @@ def _resolve_clash_by_existing_logic(
         skill_data=defender_skill_data,
         target_skill_data=attacker_skill_data,
         base_damage=damage_to_attacker,
-        emit_source='after_damage_apply'
+        emit_source='after_damage_apply',
+        fired_effects=fired_effects,
     )
 
     after_a = _snapshot_for_outcome(attacker_char)
@@ -824,6 +842,7 @@ def _resolve_clash_by_existing_logic(
     }
 
     summary = {
+        'fired_effects': fired_effects,
         'damage': delta_a.get('damage', []) + delta_d.get('damage', []),
         'statuses': delta_a.get('statuses', []) + delta_d.get('statuses', []),
         'flags': delta_a.get('flags', []) + delta_d.get('flags', []),
@@ -875,11 +894,13 @@ def _resolve_hard_attack_followup(
     if not isinstance(attacker_skill_data, dict):
         return {"ok": False, "reason": "missing_skill"}
 
+    fired_effects = []
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
     context = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room}
     effect_context = dict(context)
     effect_context['actor_skill_data'] = attacker_skill_data
+    effect_context['fired_effects'] = fired_effects
     attacker_rule = _extract_rule_data_from_skill(attacker_skill_data)
     effects_array_a = attacker_rule.get('effects', []) if isinstance(attacker_rule, dict) else []
 
@@ -994,6 +1015,7 @@ def _resolve_hard_attack_followup(
 
     outcome = 'attacker_win' if (not blocked_by_evade and total_damage > 0) else 'defender_win'
     summary = {
+        'fired_effects': fired_effects,
         'damage': delta_a.get('damage', []) + delta_d.get('damage', []),
         'statuses': delta_a.get('statuses', []) + delta_d.get('statuses', []),
         'flags': delta_a.get('flags', []) + delta_d.get('flags', []),
@@ -1041,6 +1063,7 @@ def _consume_fear_dice_reduction(room, actor, preview):
 
 
 def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
+    from manager.battle.effect_presentation import power_effects_collector
     if not isinstance(intents_override, dict):
         intents_override = battle_state.get('__resolve_intents_override')
     intents = intents_override if isinstance(intents_override, dict) else battle_state.get('intents', {})
@@ -1123,7 +1146,8 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
                         skill_data=skill_data,
                         target_skill_data=defender_skill_data,
                         base_damage=0,
-                        emit_source='before_power_roll'
+                        emit_source='before_power_roll',
+                        fired_effects=power_effects_collector(),
                     )
                 context = {
                     'room_state': room_state,

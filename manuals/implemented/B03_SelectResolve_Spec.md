@@ -28,6 +28,15 @@
 - `clash`: 相互指定が成立した対決解決。
 - `resolve trace`: Resolve 中の各判定結果を逐次記録するログ列。
 
+PR4の記録追加仕様（2026-10-29）：
+
+- `applied.fired_effects`: 発動順の `{term_id, name, actor_id, target_id, results: [{name, delta}]}`。名称は用語図鑑の `display_name`。HPはresultsへ入れない。対応表にない効果・名称欠損・不発は省略する。
+- `applied.statuses`: MPも他の状態と同じ `{target_id, name, before, after, delta}` で記録する。
+- `applied.damage` / 広域の `damage_events`: 各行へ `hp_after`（その行の適用後HP）を追加する。`hp_after === 0 && hp_after + hp > 0` が戦闘不能への移行。
+- `self_destructed`: この段の記録送信直後に既存の自滅処理を実行するキャラIDの一覧。判定条件を既存処理と共有し、実際の自滅の順序は変えない。
+- 広域合算の `fired_effects` は既存の `statuses` / `damage_events` と同じ階層にも置き、フロントエンドで共通形式に正規化する。
+- 一方攻撃・マッチ（duel委任含む）・強硬・広域個別・合算の解決段で収録する。`RESOLVE_STEP_END` は送信後、`RESOLVE_START` と宣言時は段外のため表示用一覧へ含めない。旧広域モーダルは任意の収集リストを受け取るが、解決trace自体がない。
+
 ## 3. フェーズと遷移（select / resolve_mass / resolve_single / round_end）
 フェーズは次の固定順で遷移する。
 

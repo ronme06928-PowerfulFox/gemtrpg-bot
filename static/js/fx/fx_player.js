@@ -42,7 +42,7 @@
     requestAnimationFrame(tick);
   }
 
-  // options: host, left/top, elapsedSeconds（同期した段階の途中から描く）, onDone
+  // options: host, left/top, elapsedSeconds（段階の経過時間）, delaySeconds, onDone
   Fx.play = function (name, params, options) {
     const opts = options || {};
     const definition = Fx.get(name);
@@ -50,7 +50,7 @@
       if (opts.onDone) opts.onDone();
       return null;
     }
-    const elapsed = Math.max(0, Number(opts.elapsedSeconds) || 0);
+    const elapsed = Math.max(0, Number(opts.elapsedSeconds) || 0) - Math.max(0, Number(opts.delaySeconds) || 0);
     if (elapsed >= definition.duration) {
       if (opts.onDone) opts.onDone();
       return null;
@@ -65,11 +65,12 @@
     }
     opts.host.appendChild(root);
 
-    const level = active.length >= MAX_ACTIVE ? 'light' : Fx.getLevel();
+    const now = performance.now();
+    const level = active.filter((item) => item.start <= now).length >= MAX_ACTIVE ? 'light' : Fx.getLevel();
     const fx = Object.create(definition);
     fx.mount(root, Object.assign({}, params, { level }));
     fx.render(elapsed);
-    const item = { fx, root, host: opts.host, level, start: performance.now() - elapsed * 1000 };
+    const item = { fx, root, host: opts.host, level, start: now - elapsed * 1000 };
     item.finish = () => {
       const index = active.indexOf(item);
       if (index < 0) return;

@@ -158,13 +158,13 @@ def _apply_cost(attacker, skill, policy, room=None):
 
 def _apply_damage(defender, amount, damage_type=None, room=None, damage_context=None):
     if not isinstance(defender, dict):
-        return {'target_id': None, 'hp': 0, 'damage_type': damage_type}
+        return {'target_id': None, 'hp': 0, 'hp_after': None, 'damage_type': damage_type}
     try:
         dmg = int(amount)
     except (TypeError, ValueError):
         dmg = 0
     if dmg <= 0:
-        return {'target_id': defender.get('id'), 'hp': 0, 'damage_type': damage_type}
+        return {'target_id': defender.get('id'), 'hp': 0, 'hp_after': int(defender.get('hp', 0)), 'damage_type': damage_type}
 
     before = int(defender.get('hp', 0))
     after = max(0, before - dmg)
@@ -183,6 +183,7 @@ def _apply_damage(defender, amount, damage_type=None, room=None, damage_context=
     return {
         'target_id': defender.get('id'),
         'hp': before - after,
+        'hp_after': after,
         'damage_type': damage_type,
     }
 
@@ -248,7 +249,7 @@ def _apply_outcome_to_state(outcome, characters_by_id, room=None):
     if outcome.get('delegate_applied', False):
         delegate = outcome.get('delegate_summary', {})
         if isinstance(delegate, dict):
-            for key in ['damage', 'statuses', 'flags']:
+            for key in ['damage', 'statuses', 'flags', 'fired_effects']:
                 if isinstance(delegate.get(key), list):
                     applied[key] = delegate.get(key, [])
             if isinstance(delegate.get('cost'), dict):
@@ -324,8 +325,10 @@ def _run_skill_timing_effects(
     target_skill_data=None,
     base_damage=0,
     source_slot_id=None,
+    fired_effects=None,
 ):
     result = {
+        'fired_effects': fired_effects if fired_effects is not None else [],
         'bonus_damage': 0,
         'extra_primary_damage': 0,
         'logs': [],
@@ -346,6 +349,7 @@ def _run_skill_timing_effects(
 
     before_map = _snapshot_characters_for_timing(state)
     context = {
+        'fired_effects': result['fired_effects'],
         'timeline': (state.get('timeline', []) if isinstance(state, dict) else []),
         'characters': (state.get('characters', []) if isinstance(state, dict) else []),
         'room': room,
@@ -414,6 +418,7 @@ def _trigger_skill_timing_effects(
     base_damage=0,
     emit_source='select_resolve_timing',
     source_slot_id=None,
+    fired_effects=None,
 ):
     res = _run_skill_timing_effects(
         room=room,
@@ -425,6 +430,7 @@ def _trigger_skill_timing_effects(
         target_skill_data=target_skill_data,
         base_damage=base_damage,
         source_slot_id=source_slot_id,
+        fired_effects=fired_effects,
     )
     if res.get('damage') or res.get('statuses'):
         _emit_stat_updates_from_applied(
@@ -753,7 +759,7 @@ def _diff_snapshot(before, after, damage_source='ダメージ'):
 
     hp_loss = int(before.get('hp', 0)) - int(after.get('hp', 0))
     if hp_loss > 0:
-        damage.append({'target_id': actor_id, 'hp': hp_loss, 'source': str(damage_source or 'ダメージ')})
+        damage.append({'target_id': actor_id, 'hp': hp_loss, 'hp_after': int(after.get('hp', 0)), 'source': str(damage_source or 'ダメージ')})
 
     state_names = set(before.get('states', {}).keys()) | set(after.get('states', {}).keys())
     for name in state_names:
@@ -761,6 +767,10 @@ def _diff_snapshot(before, after, damage_source='ダメージ'):
         a = int(after.get('states', {}).get(name, 0))
         if a != b:
             statuses.append({'target_id': actor_id, 'name': name, 'before': b, 'after': a, 'delta': a - b})
+
+    before_mp, after_mp = int(before.get('mp', 0)), int(after.get('mp', 0))
+    if before_mp != after_mp and not any(str(row['name']).upper() == 'MP' for row in statuses):
+        statuses.append({'target_id': actor_id, 'name': 'MP', 'before': before_mp, 'after': after_mp, 'delta': after_mp - before_mp})
 
     # FP can be stored via params/get_status_value without an explicit states[] row.
     # Capture that top-level diff too so delegated clash summaries don't miss an

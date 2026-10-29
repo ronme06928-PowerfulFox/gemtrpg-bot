@@ -207,7 +207,7 @@ def update_attacker_declaration(room, data):
     }, to=room)
 
 
-def execute_wide_match(room, username):
+def execute_wide_match(room, username, fired_effects=None):
     state = get_room_state(room)
     if not state: return
 
@@ -431,6 +431,7 @@ def execute_wide_match(room, username):
 
 
             effect_context = {
+                'fired_effects': fired_effects,
                 'timeline': state.get('timeline', []),
                 'characters': state['characters'],
                 'room': room,
@@ -603,6 +604,7 @@ def execute_wide_match(room, username):
                             def_char,
                             None,
                             context={
+                                'fired_effects': fired_effects,
                                 'timeline': state.get('timeline', []),
                                 'characters': state['characters'],
                                 'room': room,
@@ -875,6 +877,7 @@ def execute_wide_match(room, username):
                         def_char,
                         None,
                         context={
+                            'fired_effects': fired_effects,
                             'characters': state['characters'],
                             'room': room,
                             'actor_skill_data': attacker_skill_data,
@@ -1016,7 +1019,7 @@ def execute_wide_match(room, username):
             )
             d = raw_rule if isinstance(raw_rule, dict) else json.loads(str(raw_rule))
             effs = d.get('effects', [])
-            _, logs, changes = process_skill_effects(effs, "END_MATCH", actor, target, target_skill_d, context={'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
+            _, logs, changes = process_skill_effects(effs, "END_MATCH", actor, target, target_skill_d, context={'fired_effects': fired_effects, 'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
             for log_msg in logs:
                 broadcast_log(room, log_msg, 'skill-effect')
             apply_local_changes(changes, target)

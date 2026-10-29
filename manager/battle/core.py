@@ -3,6 +3,7 @@ import json
 import time
 import html
 import copy
+from manager.battle.effect_presentation import will_self_destruct, self_destruct_ids
 from extensions import all_skill_data
 from extensions import socketio
 from manager.dice_roller import roll_dice
@@ -344,11 +345,7 @@ def _append_multiplier_logs(log_snippets, mult_info, incoming_label='防御', ou
 
 
 def _apply_self_destruct_if_needed(room, actor_char, skill_data):
-    if not isinstance(actor_char, dict):
-        return False
-    if int(actor_char.get('hp', 0) or 0) <= 0:
-        return False
-    if not (_has_skill_tag(skill_data, "自滅") or _has_skill_tag(skill_data, "自壊")):
+    if not will_self_destruct(actor_char, skill_data):
         return False
 
     _update_char_stat(
@@ -462,6 +459,7 @@ def _run_skill_timing_effects(
     target_skill_data=None,
     base_damage=0,
     source_slot_id=None,
+    fired_effects=None,
 ):
     _sync_resolve_effect_runtime_deps()
     return _resolve_effect_runtime_mod._run_skill_timing_effects(
@@ -474,6 +472,7 @@ def _run_skill_timing_effects(
         target_skill_data=target_skill_data,
         base_damage=base_damage,
         source_slot_id=source_slot_id,
+        fired_effects=fired_effects,
     )
 
 
@@ -489,6 +488,7 @@ def _trigger_skill_timing_effects(
     base_damage=0,
     emit_source='select_resolve_timing',
     source_slot_id=None,
+    fired_effects=None,
 ):
     _sync_resolve_effect_runtime_deps()
     return _resolve_effect_runtime_mod._trigger_skill_timing_effects(
@@ -503,6 +503,7 @@ def _trigger_skill_timing_effects(
         base_damage=base_damage,
         emit_source=emit_source,
         source_slot_id=source_slot_id,
+        fired_effects=fired_effects,
     )
 
 

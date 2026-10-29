@@ -17,6 +17,8 @@ def _sync_from_core():
 
 def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, characters_by_id):
     _sync_from_core()
+    from manager.battle.resolve_effect_runtime import _snapshot_characters_for_timing, _diff_timing_snapshots
+    from manager.battle.effect_presentation import mass_effect_applied, capture_power_effects
     from manager.battle.duel_solver import _consume_duel_skill_cost
     from manager.battle.common_manager import build_select_resolve_state_payload
     from manager.battle.action_slot_mode import get_action_unavailable_reason
@@ -108,6 +110,7 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 damage_events.append({
                     'target_id': actor_id,
                     'hp': int(before_hp - after_hp),
+                    'hp_after': after_hp,
                     'damage_type': '合計ダメージ',
                     'base_delta': delta_int,
                     'fissure': fissure,
@@ -134,6 +137,7 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 skill_data=skill_data,
                 target_skill_data=target_skill_data,
                 base_damage=int(base_damage or 0),
+                fired_effects=fired_effects,
                 emit_source='mass_summation_timing'
             )
 
@@ -314,6 +318,8 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
             # summation/mass_summation uses one aggregate clash against all
             # participants that targeted this mass slot.
             if mass_type in ['summation', 'mass_summation']:
+                fired_effects = []
+                summation_before = _snapshot_characters_for_timing(state)
                 participant_slots = _gather_slots_targeting_slot_s(
                     state,
                     battle_state,
@@ -322,7 +328,8 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                     intents_override=intents
                 )
 
-                attacker_power = _roll_power_for_slot(battle_state, slot_id)
+                with capture_power_effects(fired_effects):
+                    attacker_power = _roll_power_for_slot(battle_state, slot_id)
                 defender_powers = {}
                 participant_entries = []
                 participant_cost = {'hp': 0, 'mp': 0, 'fp': 0}
@@ -337,7 +344,8 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                         for resource, value in spent.items():
                             participant_cost[resource] += value
                     _record_used_skill_for_actor(participant_char, participant_skill_id)
-                    defender_powers[p_slot] = _roll_power_for_slot(battle_state, p_slot)
+                    with capture_power_effects(fired_effects):
+                        defender_powers[p_slot] = _roll_power_for_slot(battle_state, p_slot)
                     if isinstance(participant_char, dict):
                         participant_entries.append({
                             'slot_id': p_slot,
@@ -494,6 +502,7 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                             skill_data=attacker_skill_data,
                             target_skill_data=primary_participant_skill,
                             base_damage=int(evt.get('hp') or 0),
+                            fired_effects=fired_effects,
                             emit_source='after_damage_apply'
                         )
                 elif outcome == 'defender_win':
@@ -509,6 +518,7 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                             skill_data=entry.get('skill_data'),
                             target_skill_data=attacker_skill_data,
                             base_damage=actual_damage,
+                            fired_effects=fired_effects,
                             emit_source='after_damage_apply'
                         )
 
@@ -558,6 +568,10 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                     extra_fields={
                         'participants': participant_slots,
                         'statuses': fp_statuses,
+                        'fired_effects': fired_effects,
+                        'applied': mass_effect_applied(
+                            _diff_timing_snapshots(summation_before, _snapshot_characters_for_timing(state)),
+                            damage_events, fired_effects),
                         'damage_events': damage_events,
                         'lines': summary_lines,
                         'log_lines': summary_lines

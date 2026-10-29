@@ -282,6 +282,74 @@
     },
   });
 
+  Fx.define('effect-name', {
+    duration: 1.2,
+    mount(root, params) {
+      this.level = params.level;
+      this.resultDelay = params.resultDelay ?? 0.18;
+      this.resultInterval = params.resultInterval ?? 0.1;
+      this.el = element(root, 'div', `fx-effect-name ${params.tone || 'enemy'}`);
+      this.el.style.marginTop = `${20 + (Number(params.row) || 0) * 32}px`;
+      element(this.el, 'div', 'fx-effect-title', params.text);
+      this.resultRows = (params.results || []).filter((r) => String(r.name).toUpperCase() !== 'HP').map((result) => {
+        const row = element(this.el, 'div', 'fx-effect-result');
+        element(row, 'span', 'fx-effect-label', String(result.name).replace(/^buff:/, ''));
+        if (result.delta !== null && result.delta !== undefined) {
+          if (result.delta < 0) element(row, 'span', 'fx-damage-minus');
+          element(row, 'span', 'fx-effect-number', `${result.delta > 0 ? '+' : ''}${Math.abs(result.delta)}`);
+        }
+        return row;
+      });
+    },
+    render(t) {
+      const p = Fx.prog(t, 0, this.duration);
+      this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
+      this.el.style.transform = this.level === 'light' ? 'translate(-50%, -50%)'
+        : `translate(-50%, -50%) translateY(${Fx.lerp(8, this.level === 'rich' ? -22 : -14, p)}px)`;
+      this.resultRows.forEach((row, i) => {
+        row.style.opacity = String(Fx.prog(t, this.resultDelay + i * this.resultInterval, 0.08));
+      });
+    },
+  });
+
+  Fx.define('ko-shatter', {
+    duration: 1.1,
+    mount(root, params) {
+      this.level = params.level;
+      this.el = element(root, 'div', `fx-ko ${params.mode === 'chip' ? 'chip' : ''} ${params.level}`);
+      this.el.style.width = `${params.width || 240}px`;
+      this.el.style.height = `${params.height || 240}px`;
+      this.shade = element(this.el, 'div', 'fx-ko-shade');
+      const svg = svgElement(this.el, 'svg', 'fx-ko-svg', { viewBox: '0 0 100 100', 'aria-hidden': 'true' });
+      this.face = svgElement(svg, 'path', 'fx-ko-face', { d: 'M 50 5 L 90 30 L 85 75 L 50 95 L 15 75 L 10 30 Z' });
+      this.cracks = svgElement(svg, 'path', 'fx-ko-cracks', { d: 'M 50 5 L 48 40 L 25 52 L 15 75 M 48 40 L 62 60 L 85 75 M 62 60 L 50 95 M 48 40 L 90 30', pathLength: 1 });
+      this.cracks.style.strokeDasharray = '1';
+      this.fragments = Array.from({ length: params.level === 'rich' ? 10 : 6 }, (_, i) => {
+        const a = i * Math.PI * 2 / (params.level === 'rich' ? 10 : 6);
+        const b = a + 0.48;
+        return { el: svgElement(svg, 'path', 'fx-ko-fragment', { d: `M 50 50 L ${50 + Math.cos(a) * 35} ${50 + Math.sin(a) * 35} L ${50 + Math.cos(b) * 36} ${50 + Math.sin(b) * 36} Z` }), angle: a };
+      });
+      this.label = element(this.el, 'div', 'fx-ko-label', params.mode === 'chip' ? '×' : '戦闘不能');
+    },
+    render(t) {
+      const light = this.level === 'light';
+      const p = Fx.prog(t, 0.32, 0.65);
+      this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
+      this.el.style.transform = 'translate(-50%, -50%)';
+      this.face.style.opacity = String(light ? 0.45 : 1 - Fx.prog(t, 0.32, 0.2));
+      this.cracks.style.strokeDashoffset = String(light ? 0 : 1 - Fx.prog(t, 0.12, 0.23));
+      this.cracks.style.opacity = String(light ? 1 : 1 - Fx.prog(t, 0.5, 0.3));
+      this.fragments.forEach((fragment, i) => {
+        const x = light ? 0 : Math.cos(fragment.angle) * p * (this.level === 'rich' ? 30 : 20);
+        const y = light ? 0 : Math.sin(fragment.angle) * p * 18 + p * p * 30;
+        fragment.el.setAttribute('transform', `translate(${x} ${y}) rotate(${light ? 0 : (i % 2 ? 1 : -1) * p * 55} 50 50)`);
+        fragment.el.style.opacity = String(light ? 0 : Fx.prog(t, 0.32, 0.08) * (1 - Fx.prog(t, 0.8, 0.3)));
+      });
+      this.shade.style.opacity = String(light ? 1 : Fx.prog(t, 0.6, 0.18));
+      this.label.style.opacity = String(light ? 1 : Fx.prog(t, 0.65, 0.18));
+    },
+  });
+
   Fx.define('chat-dice', {
     duration: 0.8,
     mount(root, params) {

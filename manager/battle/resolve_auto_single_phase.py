@@ -768,6 +768,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                         winner_rule = _extract_rule_data_from_skill(winner_skill_data)
                         winner_effects = winner_rule.get('effects', []) if isinstance(winner_rule, dict) else []
                         reuse_context = {
+                            'fired_effects': [],
                             'timeline': state.get('timeline', []),
                             'characters': state.get('characters', []),
                             'room': room,
@@ -784,6 +785,8 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                             base_damage=0
                         )
                         winner_reuse_requests = _extract_reuse_requests_from_changes(winner_changes)
+                        clash_summary.setdefault('fired_effects', []).extend(
+                            row for row in reuse_context['fired_effects'] if row['term_id'] == 'W-58')
                         clash_reuse_policy = _collect_reuse_policy({'reuse_requests': winner_reuse_requests})
                 if hard_followup_block_reason:
                     if clash_notes:
@@ -874,6 +877,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                         'display_label': trace_display_label,
                         'outcome_payload': clash_outcome_payload,
                         'applied': clash_applied,
+                        'self_destructed': self_destruct_ids((attacker_char, skill_data), (defender_char, defender_skill_data)),
                         'lines': clash_legacy_lines,
                         'log_lines': clash_legacy_lines
                     }
@@ -1214,6 +1218,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                         'display_label': trace_display_label,
                         'outcome_payload': outcome_payload,
                         'applied': applied,
+                        'self_destructed': self_destruct_ids((attacker_char, skill_data)),
                         'lines': one_sided_log_lines,
                         'log_lines': one_sided_log_lines
                     }

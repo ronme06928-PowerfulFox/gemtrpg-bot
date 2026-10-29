@@ -14,6 +14,9 @@
   --fx-ally: #ff7373;
   --fx-white: #fff;
   --fx-neutral: #e9e7df;
+  --fx-self: #cf95ff;
+  --fx-crystal: #bfe8ff;
+  --fx-shadow: #101322;
 }
 
 .fx-root {
@@ -150,6 +153,22 @@
 .fx-chat-dice { position: absolute; inset: 0; display: grid; place-items: center; }
 .fx-chat-die { position: absolute; width: 1.8em; height: 1.8em; }
 .fx-chat-total { font-family: var(--fx-number-font); font-weight: 900; }
+
+.fx-effect-name { position: absolute; min-width: 6em; color: var(--fx-win); text-align: center; text-shadow: 0 2px 3px var(--fx-shadow), 0 0 8px var(--fx-shadow); }
+.fx-effect-name.ally { color: var(--fx-ally); }
+.fx-effect-name.self { color: var(--fx-self); }
+.fx-effect-title { white-space: nowrap; font: 900 calc(24px * var(--fx-scale)) var(--fx-effect-font); }
+.fx-effect-result { display: flex; gap: 0.2em; align-items: center; justify-content: center; white-space: nowrap; font: calc(18px * var(--fx-scale)) var(--fx-effect-font); }
+.fx-effect-number { font: 900 1em var(--fx-number-font); }
+.fx-ko { position: absolute; color: var(--fx-crystal); }
+.fx-ko-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.fx-ko-face { fill: color-mix(in srgb, var(--fx-crystal) 20%, transparent); stroke: currentColor; stroke-width: 1; }
+.fx-ko-cracks { fill: none; stroke: var(--fx-white); stroke-width: 0.8; }
+.fx-ko-fragment { fill: color-mix(in srgb, var(--fx-crystal) 35%, transparent); stroke: var(--fx-white); stroke-width: 0.5; filter: drop-shadow(0 0 2px currentColor); }
+.fx-ko-shade { position: absolute; inset: 0; border-radius: 18px; background: color-mix(in srgb, var(--fx-shadow) 45%, transparent); }
+.fx-ko-label { position: absolute; bottom: 18%; width: 100%; text-align: center; white-space: nowrap; font: 900 calc(28px * var(--fx-scale)) var(--fx-effect-font); color: var(--fx-white); text-shadow: 0 2px 4px var(--fx-shadow); }
+.fx-ko.chip .fx-ko-label { bottom: 0; font: 900 28px var(--fx-number-font); }
+.fx-ko.light .fx-ko-fragment { filter: none; }
 
 .fx-root.fx-root-fill {
   inset: 0;

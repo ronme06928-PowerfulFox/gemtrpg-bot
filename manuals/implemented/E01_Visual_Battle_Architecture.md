@@ -251,11 +251,18 @@ Manual14 由来の UI 改善のうち、画面構造として恒常化した内�
 
 実装: `static/js/visual/visual_map.js`、`static/js/battle/components/DeclarePanel.js`、`static/css/modules/visual_map.css`。
 
-## 計画52 PR1〜PR3: 時刻から描く演出（2026-10-28）
+## 計画52 PR1〜PR4: 時刻から描く演出（2026-10-29）
 
 - `fx_core.js` の定義と計算関数、`fx_effects.js` の `mount(root, params)` / `render(t)` はアプリ状態に依存しない。動きは時刻だけで決定し、逆順の時刻と `Infinity` も描ける。`fx_player.js` が設定・時計・上限12個・終了通知を管理する。
 - `Fx.play(name, params, { host, left, top, elapsedSeconds, onDone })` は配置先と経過時間を受け取る。置き場所の `.fx-root` 自体は重なり順を作らず、子のバナー・数値が持つz-indexを生かす。解決パネル直下の `.fx-root` だけにz-index 4を付け、カードより上に描く。完了はタイマー、描画はrequestAnimationFrame。`Fx.finishAll(host)` はそのhostの全演出を最後まで描いて片付け、各onDoneを1回だけ呼ぶ。
 - `ResolveFlowPanel` はカード内容と独立した外枠にFxを置く。`battle:resolve:flow:stage` は `{ stepKey, stage, kind, outcome }` を段階の移行時だけ送る。`resolve_flow_fx.js` が位置を測り、マッチ・一方攻撃・強硬攻撃・広域攻撃の演出を接続する。終了・切替・破棄で全演出を片付ける。
-- PR3の属性別攻撃は1.4秒で、attack開始から0.8秒後に着弾しoutcomeへ継続する。属性対応とダメージ段階の境界は接続側へ集約し、定義にはtier・方向・色・描画範囲だけを渡す。広域個別は既存traceの `resolution_kind` を正規化して解決方式を選ぶ。各一撃の適用直後HPは記録されないため、KOによる段階補正はPR4へ保留する。詳細はE02 Part 14。
+- PR3の属性別攻撃は1.4秒で、attack開始から0.8秒後に着弾しoutcomeへ継続する。属性対応とダメージ段階の境界は接続側へ集約し、定義にはtier・方向・色・描画範囲だけを渡す。広域個別は既存traceの `resolution_kind` を正規化して解決方式を選ぶ。PR4ではダメージ行の `hp_after` でKOと判定した対象への攻撃だけをlargeに補正する。自滅も含むKO演出の判定とは分ける。詳細はE02 Part 14。
 - 配分の単一の正は `RESOLVE_STAGE_TIMING`（600 / 1000 / 800 / 1600ms）。遅いフレームはその段階の経過時刻から描き、終了時刻を延ばさない。`collectDamagePopups` は現行summaryの本体/効果合計を保ち、種類が残る記録だけを細分する純粋関数。
 - チャットはnew_logでWeakSetへ登録したオブジェクトを、生きた描画の呼び出しで1回だけ消費する。履歴・状態同期のbatchはlive指定を持たず、再生しない。分類は `SoundFx.isDiceLog` と共通。
+
+### PR4：効果の記録と結果演出（2026-10-29）
+
+- サーバーは効果処理の呼び出しへ段ごとの `fired_effects` リストを渡す。名称の正は用語図鑑。表示は記録を使い、ログ文や現在HPから効果名・KOを推測しない。
+- 結果段階の接続で効果・数字・KOの順序を組み、再生側が遅延も同じ時計で管理する。Fx定義は独自タイマーを持たない。切替・破棄で遅延中の演出もまとめて片付ける。
+- 純粋な表示計画は `resolve_flow_result_fx.js`、位置・所属の解決は `resolve_flow_fx.js`。結果1.6秒＋自動進行待ち2秒に、表示本体の長さも含めて収める。サーバーの収録対象外はB03の記録仕様に従う。
+- 同時数の上限12個は `start <= performance.now()` の演出だけを数え、遅延中の予約を除く。`Fx.play` で選んだ段階は途中で再評価しない。攻撃tierのlarge補正にはダメージによるKOだけを使い、KO演出には自滅も含める。

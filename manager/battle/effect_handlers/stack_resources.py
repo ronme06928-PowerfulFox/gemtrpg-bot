@@ -101,6 +101,7 @@ def handle_convert_stack_resource_variant(effect, target_obj, sim_target, sessio
         live_bucket["data"]["variant"] = to_variant
 
     session.log_snippets.append(f"[{canonical_resource_name} 変換: {to_variant}]")
+    return sim_bucket
 
 
 def handle_consume_buff_count_for_gain(effect, target_obj, sim_target, session):

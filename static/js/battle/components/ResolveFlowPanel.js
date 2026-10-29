@@ -671,7 +671,12 @@ class ResolveFlowPanel {
                 : null,
             timestamp: this._toNumber(raw.timestamp, Math.floor(Date.now() / 1000)),
             rolls,
-            applied: (raw.applied && typeof raw.applied === 'object') ? raw.applied : {},
+            applied: {
+                ...((raw.applied && typeof raw.applied === 'object') ? raw.applied : {}),
+                fired_effects: raw.applied?.fired_effects || raw.fired_effects || [],
+                statuses: raw.applied?.statuses || raw.statuses || [],
+            },
+            selfDestructed: Array.isArray(raw.self_destructed) ? raw.self_destructed : [],
             outcomePayload: payload,
             damageEvents: Array.isArray(raw.damage_events) ? raw.damage_events : [],
             participants: Array.isArray(raw.participants) ? raw.participants : [],
@@ -1580,7 +1585,7 @@ class ResolveFlowPanel {
         const raw = (rolls.defender_powers && typeof rolls.defender_powers === 'object')
             ? rolls.defender_powers
             : {};
-        return Object.entries(raw).map(([slotId, power]) => {
+        const rows = Object.entries(raw).map(([slotId, power]) => {
             const actorId = this._slotActorId(slotId, state);
             const name = this._actorNameById(actorId || slotId, state) || slotId;
             const visual = this._actorVisualMeta(actorId || slotId, state, name);
@@ -1590,6 +1595,16 @@ class ResolveFlowPanel {
                 visual
             };
         });
+        const attackerId = String(this._slotActorId(step.attackerSlotId, state) || step.attackerActorId || '');
+        const shown = new Set(rows.map((row) => row.visual.actorId));
+        for (const event of [...(step.damageEvents || []), ...(step.applied?.damage || [])]) {
+            const id = String(event.target_id || '');
+            if (!id || id === attackerId || shown.has(id)) continue;
+            shown.add(id);
+            const name = this._actorNameById(id, state) || id;
+            rows.push({ name, power: null, visual: this._actorVisualMeta(id, state, name) });
+        }
+        return rows;
     }
 
     _ensurePanel(host) {
@@ -1753,7 +1768,7 @@ class ResolveFlowPanel {
 
         const participants = this._summationParticipants(step, state);
         const participantsHtml = participants.map((row) => (
-            `<span class="charge-chip participant-chip">${this._renderPortrait(row.visual)}<span class="participant-chip-text">${this._escape(row.name)} <strong>+${this._escape(row.power)}</strong></span></span>`
+            `<span class="charge-chip participant-chip" data-actor-id="${this._escape(row.visual.actorId || '')}">${this._renderPortrait(row.visual)}<span class="participant-chip-text">${this._escape(row.name)} <strong>${row.power === null ? '対象' : `+${this._escape(row.power)}`}</strong></span></span>`
         )).join('');
         const summationInlineHtml = isSummationKind
             ? `
