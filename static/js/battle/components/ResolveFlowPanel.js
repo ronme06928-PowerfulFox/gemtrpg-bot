@@ -534,7 +534,8 @@ class ResolveFlowPanel {
         this._pendingAdvanceTimer = setTimeout(() => {
             this._pendingAdvanceTimer = null;
             this._onAdvanceRequested();
-        }, this._autoAdvanceDelayMs);
+        }, Math.max(this._autoAdvanceDelayMs,
+            this._outcomeFxDeadline?.step === this._activeStep ? this._outcomeFxDeadline.atMs - Date.now() : 0));
     }
 
     _revealStageByElapsed(elapsedMs, durationMs) {
@@ -557,8 +558,7 @@ class ResolveFlowPanel {
 
     _renderBackgrounds(kind, attacker, defender) {
         return [['attacker', attacker], ['defender', kind === 'mass_summation' ? null : defender]]
-            .filter(([, meta]) => meta?.image)
-            .map(([side, meta]) => `<div class="resolve-flow-background ${side}" aria-hidden="true"><img src="${this._escape(meta.image)}" alt=""></div>`)
+            .map(([side, meta]) => `<div class="resolve-flow-background ${side}" aria-hidden="true">${meta?.image ? `<img src="${this._escape(meta.image)}" alt="">` : ''}</div>`)
             .join('');
     }
 
@@ -1411,22 +1411,16 @@ class ResolveFlowPanel {
         return { min, max };
     }
 
-    _resolvePowerRanges(step) {
-        const kind = String(step?.kind || '');
-        const isOneSided = this._isOneSidedPresentation(step);
-        const attackerRangeFromRoll = this._resolveRangeFromRolls(step, 'attacker');
-        const defenderRangeFromRoll = this._resolveRangeFromRolls(step, 'defender');
-        const attackerCmd = this._commandForSide(step, 'attacker');
-        const defenderCmd = this._commandForSide(step, 'defender');
-        const aRange = attackerRangeFromRoll || this._diceRangeFromCommand(attackerCmd);
-        const dRange = defenderRangeFromRoll || this._diceRangeFromCommand(defenderCmd);
+    _resolvePowerBounds(step) {
+        return Object.fromEntries(['attacker', 'defender'].map(side => [side,
+            (side === 'defender' && (this._isOneSidedPresentation(step) || step.kind === 'mass_summation')) ? null
+                : this._resolveRangeFromRolls(step, side) || this._diceRangeFromCommand(this._commandForSide(step, side))
+        ]));
+    }
 
-        return {
-            attacker: aRange ? `${aRange.min}~${aRange.max}` : '-',
-            defender: isOneSided
-                ? '-'
-                : (dRange ? `${dRange.min}~${dRange.max}` : '-')
-        };
+    _resolvePowerRanges(step) {
+        return Object.fromEntries(Object.entries(this._resolvePowerBounds(step)).map(([side, range]) =>
+            [side, range ? `${range.min}~${range.max}` : '-']));
     }
 
     _collectDamageSummary(step, state) {

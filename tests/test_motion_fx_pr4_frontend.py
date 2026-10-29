@@ -7,20 +7,20 @@ def test_effect_and_ko_are_seekable_and_still_in_light():
     _run_node(r"""
 const Fx=loadShared({}),doc=makeDocument();doc.createElementNS=(_,tag)=>doc.createElement(tag);
 const transforms=el=>[el.style.transform,el.attributes.transform,...el.children.flatMap(transforms)];
-for(const name of ['effect-name','ko-shatter']) for(const level of ['light','normal','rich']) for(const mode of ['hit','chip']) {
+for(const name of ['effect-band','ko-shatter']) for(const level of ['light','normal','rich']) for(const mode of ['hit','chip']) {
   const root=doc.createElement('div'),fx=Object.create(Fx.get(name));
   assert.ok(Fx.get(name),name);
-  fx.mount(root,{level,mode,text:'戦慄殺到',results:[{name:'戦慄',delta:-5},{name:'MP',delta:-5}],width:220,height:200});
-  assert.strictEqual(fx.duration,name==='effect-name'?1.2:1.1);
+  fx.mount(root,{level,mode,lines:[{at:0,kind:'title',text:'戦慄殺到'},{at:0.5,kind:'result',text:'戦慄',delta:-5},{at:1,kind:'result',text:'MP',delta:-5}],width:220,height:200});
+  assert.strictEqual(fx.duration,name==='effect-band'?3.9:1.1);
   const times=[0,0.1,0.35,0.6,1,Infinity];
   const shots=times.map(t=>{fx.render(t);return snapshot(root);});
   for(const i of [5,1,0,4,2,3,0]) {fx.render(times[i]);assert.strictEqual(snapshot(root),shots[i]);}
   fx.render(0);assert.strictEqual(Number(fx.el.style.opacity),0);
   fx.render(Infinity);assert.strictEqual(Number(fx.el.style.opacity),0);
   if(level==='light') {fx.render(0.2);const still=transforms(root);fx.render(0.8);assert.deepStrictEqual(transforms(root),still);}
-  if(name==='effect-name') {
-    fx.render(0.1);assert.ok(Number(fx.el.style.opacity)>0);assert.strictEqual(Number(fx.resultRows[0].style.opacity),0);
-    fx.render(0.4);assert.ok(Number(fx.resultRows[0].style.opacity)>0);
+  if(name==='effect-band') {
+    fx.render(0.1);assert.ok(Number(fx.el.style.opacity)>0);assert.strictEqual(Number(fx.lines[1].el.style.opacity),0);
+    fx.render(0.7);assert.ok(Number(fx.lines[1].el.style.opacity)>0);
   }
 }
 """)
@@ -45,18 +45,19 @@ const {planResolveOutcome,collectKnockouts}=await import('./static/js/battle/com
 const step={...base,selfDestructed:['a'],applied:{damage:[{target_id:'d',hp:3,hp_after:0}],
   fired_effects:[{term_id:'W-03',name:'破裂爆発',actor_id:'a',target_id:'d',results:[{name:'HP',delta:-3},{name:'破裂',delta:-3}]}]}};
 const popups=[{targetId:'d',amount:7,kind:'dice'},{targetId:'d',amount:3,kind:'effect',status:'破裂'}];
-const events=planResolveOutcome(step,popups,3.6);
+const events=planResolveOutcome(step,popups,4.6,name=>loadShared({}).get(name).duration).events;
 const d=events.filter(e=>e.targetId==='d');
-assert.deepStrictEqual(d.map(e=>e.name),['resolve-damage','effect-name','resolve-damage','ko-shatter']);
-assert.ok(d[0].at<d[1].at && d[1].at+d[1].params.resultDelay<d[2].at);
+assert.deepStrictEqual(d.map(e=>e.name),['resolve-damage','effect-band','resolve-damage','ko-shatter']);
+assert.ok(d[0].at<d[1].at && d[1].at<d[2].at);
 assert.ok(d[3].at>=d[2].at+0.29);
-assert.ok(d[1].params.results.every(r=>r.name!=='HP'));
+assert.ok(d[1].params.lines.every(r=>r.text!=='HP'));
 assert.deepStrictEqual([...collectKnockouts(step)].sort(),['a','d']);
 assert.strictEqual(collectKnockouts({applied:{damage:[{target_id:'d',hp:5},{target_id:'a',hp:0,hp_after:0}]}}).size,0);
 step.applied.fired_effects=Array.from({length:40},(_,i)=>({term_id:'W-58',name:'再使用'+i,actor_id:'d',target_id:'d',results:[]}));
-const many=planResolveOutcome(step,popups,3.6);
-assert.strictEqual(many.filter(e=>e.name==='effect-name').length,40);
-for(const e of many) assert.ok(e.at+({'resolve-damage':1.6,'effect-name':1.2,'ko-shatter':1.1}[e.name])<=3.60001);
+const many=planResolveOutcome(step,popups,4.6,name=>loadShared({}).get(name).duration).events;
+assert.strictEqual(many.find(e=>e.name==='effect-band').params.lines.length,40);
+assert.ok(many.find(e=>e.name==='effect-band').params.duration>4.6);
+for(const e of many.filter(e=>e.name==='ko-shatter')) assert.ok(e.at+1.1<=4.60001);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 
@@ -65,12 +66,12 @@ def test_confusion_is_merged_into_fear_surge_or_presented_once_on_its_own():
     _run_node("(async()=>{"+FLOW_SETUP+r"""
 const {planResolveOutcome}=await import('./static/js/battle/components/resolve_flow_result_fx.js');
 const applied={statuses:[{target_id:'d',name:'混乱',before:0,after:1}],fired_effects:[]};
-assert.deepStrictEqual(planResolveOutcome({applied},[],3.6).map(e=>e.params.text),['混乱']);
+assert.deepStrictEqual(planResolveOutcome({applied},[],4.6,name=>loadShared({}).get(name).duration).events.flatMap(e=>e.params.lines.map(line=>line.text)),['混乱']);
 applied.fired_effects=[{term_id:'W-07',name:'戦慄殺到',actor_id:'a',target_id:'d',results:[{name:'MP',delta:-5}]}];
-const events=planResolveOutcome({applied},[],3.6);assert.strictEqual(events.length,1);
-assert.strictEqual(events[0].params.results.at(-1).name,'混乱');
+const events=planResolveOutcome({applied},[],4.6,name=>loadShared({}).get(name).duration).events;assert.strictEqual(events.length,1);
+assert.strictEqual(events[0].params.lines.at(-1).text,'混乱');
 applied.statuses[0].before=1;
-assert.strictEqual(planResolveOutcome({applied},[],3.6)[0].params.results.length,1);
+assert.strictEqual(planResolveOutcome({applied},[],4.6,name=>loadShared({}).get(name).duration).events[0].params.lines.length,2);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 
@@ -85,7 +86,7 @@ const lethal={...base,applied:{damage:[{target_id:'d',hp:2,hp_after:0,source:'di
 run(lethal,'attack');assert.strictEqual(calls[0][1].tier,'large');
 run(lethal,'outcome');
 assert.ok(names().includes('ko-shatter'));
-assert.strictEqual(calls.find(c=>c[0]==='effect-name')[1].tone,'self');
+assert.strictEqual(calls.find(c=>c[0]==='effect-band')[1].lines[0].tone,'self');
 assert.ok(calls.find(c=>c[0]==='ko-shatter')[2].delaySeconds>=0.3);
 run({...lethal,kind:'mass_summation',participants:['sd'],rolls:{delta:2},damageEvents:lethal.applied.damage,
  applied:{fired_effects:[]}},'attack');assert.strictEqual(calls[0][1].tier,'large');
@@ -126,30 +127,18 @@ Fx.finishAll(host);
 """)
 
 
-def test_summation_effects_use_each_recipient_icon_and_fall_back_only_if_missing():
+def test_summation_effects_share_the_lower_band_and_ko_keeps_icon_fallback():
     _run_node("(async()=>{"+FLOW_SETUP+r"""
-const chip=id=>`.participant-chip[data-actor-id="${id}"] .resolve-flow-portrait-inline`;
-targets.set(chip('d'),{getBoundingClientRect:()=>({left:100,top:80,width:28,height:28})});
-targets.set(chip('e'),{getBoundingClientRect:()=>({left:220,top:80,width:28,height:28})});
 const step={...base,kind:'mass_summation',participants:['sd','se'],rolls:{delta:2},applied:{damage:[],
   fired_effects:['d','e'].map(target_id=>({term_id:'W-58',name:'再使用',actor_id:'a',target_id,results:[]}))}};
 run(step,'outcome');
-const namesByRecipient=calls.filter(c=>c[0]==='effect-name');
-assert.strictEqual(namesByRecipient.length,2);
-assert.deepStrictEqual(namesByRecipient.map(c=>c[2].left),[104,224]);
-assert.strictEqual(calls.filter(c=>c[0]==='resolve-damage').length,1);
-run({...step,rolls:{delta:0}},'outcome');
-const simultaneous=calls.filter(c=>c[0]==='effect-name');
-assert.strictEqual(simultaneous[0][2].delaySeconds,simultaneous[1][2].delaySeconds);
-assert.deepStrictEqual(simultaneous.map(c=>c[2].left),[104,224]);
-targets.delete(chip('e'));run(step,'outcome');
-const fallback=calls.filter(c=>c[0]==='effect-name');
-assert.strictEqual(fallback[0][2].left,104);
-assert.ok(fallback[1][1].width>28);
-assert.ok(measured.includes('.summation-chips'));
-// KOもアイコンがなければ一覧を代替位置にする。
+const effects=calls.filter(c=>c[0]==='effect-band');
+assert.strictEqual(effects.length,1);
+assert.strictEqual(effects[0][1].lines.length,2);
+assert.ok(effects[0][1].lines[0].at<effects[0][1].lines[1].at);
 run({...step,selfDestructed:['e']},'outcome');
 assert.ok(names().includes('ko-shatter'));
+assert.ok(measured.includes('.summation-chips'));
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 

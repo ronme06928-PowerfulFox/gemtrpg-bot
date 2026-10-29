@@ -36,16 +36,21 @@ def test_gallery_samples_cover_exactly_the_registered_effects_and_variants():
   for (const tone of ['ally','enemy','extra']) assert.ok(damage.some(s => s.params.tone === tone));
   for (const shake of ['small','medium','large']) assert.ok(damage.some(s => s.params.shake === shake));
   for (const status of ['出血','破裂','亀裂','荊棘','戦慄','蓄力','凝魔']) assert.ok(damage.some(s => s.params.label === status));
-  const effects = effectSamples.filter(s => s.effect === 'effect-name');
-  for (const tone of ['ally','enemy','self']) assert.ok(effects.some(s => s.params.tone === tone));
-  assert.ok(effects.some(s => s.params.results.length > 1));
-  assert.ok(effects.some(s => s.params.text === '混乱' && s.params.results.length === 0));
+  const effects = effectSamples.filter(s => s.effect === 'effect-band');
+  for (const name of ['power-roll','chat-dice']) {
+    assert.ok(effectSamples.some(s => s.effect === name && s.params.range));
+    assert.ok(effectSamples.some(s => s.effect === name && !s.params.range));
+  }
+  assert.ok(sceneSamples.some(s => s.step.applied.fired_effects.length > 3));
+  for (const tone of ['ally','enemy','self']) assert.ok(effects.some(s => s.params.lines.some(line=>line.tone === tone)));
+  assert.ok(effects.some(s => s.params.lines.filter(line=>line.kind==='result').length > 1));
+  assert.ok(effects.some(s => s.params.lines.length===1 && s.params.lines[0].text==='混乱'));
   for (const mode of ['hit','chip']) assert.ok(effectSamples.some(s => s.effect === 'ko-shatter' && s.params.mode === mode));
 })().catch(e => { console.error(e); process.exitCode = 1; });
 """)
 
 
-def test_scene_events_use_the_production_plan_positions_tones_and_fit_3_6_seconds():
+def test_scene_events_use_the_production_plan_positions_tones_and_fit_the_derived_outcome_window():
     _run_node(r"""
 (async () => {
   global.window = { Fx: loadShared({}) };
@@ -54,7 +59,7 @@ def test_scene_events_use_the_production_plan_positions_tones_and_fit_3_6_second
   const { ResolveFlowPanel } = await import('./static/js/battle/components/ResolveFlowPanel.js');
   const { collectDamagePopups, attackTier } = await import('./static/js/battle/components/resolve_flow_fx.js');
   const { planResolveOutcome, collectKnockouts, collectDamageKnockouts } = await import('./static/js/battle/components/resolve_flow_result_fx.js');
-  assert.strictEqual(sceneSamples.length, 4);
+  assert.strictEqual(sceneSamples.length, 5);
   const panels = new Map();
   global.document = { getElementById: id => panels.get(id) };
   for (const scene of sceneSamples) {
@@ -72,16 +77,15 @@ def test_scene_events_use_the_production_plan_positions_tones_and_fit_3_6_second
     panels.set(panel.id, panel);
     const flow = new ResolveFlowPanel();
     const entries = flow._collectDamageSummary(step, state).entries;
-    const popups = step.kind === 'mass_summation'
-      ? [{targetId: state.slots[step.participants[0]].actor_id, amount:step.rolls.delta,kind:'dice'}]
-      : collectDamagePopups(entries, [...step.applied.damage, ...step.damageEvents]);
-    const plan = planResolveOutcome(step, popups, 3.6);
+    const popups = collectDamagePopups(entries, [...step.applied.damage, ...step.damageEvents]);
+    const plan = planResolveOutcome(step, popups, 4.6, name=>window.Fx.get(name).duration, id=>id==='a'?'attacker':'defender').events;
     for (const level of ['light','normal','rich']) {
-      const events = collectSceneEvents(scene, panel, level);
-      const actual = events.filter(e => ['resolve-damage','effect-name','ko-shatter'].includes(e.name));
+      const {events,beatSeconds} = collectSceneEvents(scene, panel, level);
+      assert.ok(beatSeconds>=0.25&&beatSeconds<=0.5);
+      const actual = events.filter(e => ['resolve-damage','effect-band','ko-shatter'].includes(e.name));
       assert.deepStrictEqual(actual.map(e => [e.name,e.at]), plan.map(e => [e.name,e.at]));
       for (const event of events) {
-        assert.ok(event.at >= 0 && event.at + window.Fx.get(event.name).duration <= 3.600001, scene.id);
+        assert.ok(event.at >= 0 && event.at + (event.params.duration??window.Fx.get(event.name).duration) <= 4.600001, scene.id);
         assert.ok(event.params.width > 0 && event.params.height > 0);
       }
       for (const event of actual) {
@@ -91,7 +95,7 @@ def test_scene_events_use_the_production_plan_positions_tones_and_fit_3_6_second
         if (event.params.kind === 'effect') assert.strictEqual(event.params.tone,'extra');
       }
       if (step.kind === 'mass_summation') {
-        assert.strictEqual(actual.filter(e => e.name === 'resolve-damage').length, 1);
+        assert.strictEqual(actual.filter(e => e.name === 'resolve-damage').length, 3);
         const ko = actual.find(e => e.name === 'ko-shatter');
         assert.strictEqual(ko.params.mode, 'chip');
         assert.strictEqual(ko.params.width, 32);
@@ -100,7 +104,7 @@ def test_scene_events_use_the_production_plan_positions_tones_and_fit_3_6_second
     }
     if (scene.id === 'fear-ko') {
       assert.ok(collectDamageKnockouts(step).has('d'));
-      assert.strictEqual(plan.find(e => e.name === 'effect-name').params.results.at(-1).name,'混乱');
+      assert.strictEqual(plan.find(e => e.name === 'effect-band').params.lines.at(-1).text,'混乱');
     }
     if (scene.id === 'self-destruct') {
       assert.ok(collectKnockouts(step).has('a'));
@@ -212,8 +216,8 @@ context.window=context;
 vm.createContext(context);
 for (const script of scripts) vm.runInContext(script,context);
 const cards=all.filter(node=>node.className.split(' ').includes('gallery-card'));
-assert.strictEqual(cards.length,18);
-assert.strictEqual(cards.filter(c=>c.className.includes('scene-card')).length,4);
+assert.strictEqual(cards.length,19);
+assert.strictEqual(cards.filter(c=>c.className.includes('scene-card')).length,5);
 for (const card of cards) {
   const stage=card.querySelector('.stage-host').children[0];
   assert.ok(descendants(stage).some(node=>node.className==='fx-root'));
@@ -221,6 +225,8 @@ for (const card of cards) {
   const seek=card.querySelector('.seek'), clock=card.querySelector('.clock');
   seek.value='0.2';seek.events.input();
   assert.ok(clock.value.startsWith('0.20'));
+  if(card.dataset.effect==='power-roll') assert.strictEqual(stage.querySelector('.actual.attacker').style.visibility,'hidden');
+  if(card.dataset.effect==='chat-dice') assert.strictEqual(stage.querySelector('.chat-total').style.visibility,'hidden');
   const shot=snapshot(stage);
   seek.value='0.5';seek.events.input();seek.value='0.2';seek.events.input();
   assert.strictEqual(snapshot(stage),shot);
@@ -234,6 +240,8 @@ for (const card of cards) {
   card.querySelector('.pause').events.click();now+=100;raf(now);
   assert.ok(clock.value.startsWith('0.10'));
   const end=Number(seek.max);
+  if(card.className.includes('scene-card')) {assert.ok(Number(card.dataset.beat)>=0.25);assert.ok(card.querySelector('.timing-note').textContent.includes('拍'));}
+  if(card.dataset.effect==='effect-band') assert.strictEqual(end,3.9);
   seek.value=String(end);seek.events.input();
   card.querySelector('.loop').checked=true;
   card.querySelector('.play').events.click();now+=end*1000+200;raf(now);
@@ -243,6 +251,11 @@ for (const card of cards) {
   if(select) {
     select.value=select.children.at(-1).value;select.events.change();
     assert.strictEqual(card.dataset.sample,select.value);
+    if(card.dataset.effect==='effect-band') {
+      select.value='band-heights';select.events.change();assert.strictEqual(Number(seek.max),4.6);
+      const items=card.querySelector('.event-details').children[1].children;
+      assert.ok(items.some(item=>item.textContent.includes('4.60')));
+    }
   }
 }
 for(const image of descendants(doc.body).filter(node=>node.tagName==='img')) {

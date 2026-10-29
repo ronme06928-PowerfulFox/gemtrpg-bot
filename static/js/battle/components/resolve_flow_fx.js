@@ -1,11 +1,14 @@
 // 解決パネルへの接続。演出の定義自体は fx_effects.js に置く。
-import { collectDamageKnockouts, collectKnockouts, planResolveOutcome } from './resolve_flow_result_fx.js';
+import { collectDamageKnockouts, planResolveOutcome } from './resolve_flow_result_fx.js';
 export const RESOLVE_STAGE_TIMING = Object.freeze([
   { stage: 'names', ms: 600 },
-  { stage: 'power', ms: 1000 },
-  { stage: 'attack', ms: 800 },
-  { stage: 'outcome', ms: 1600 },
+  { stage: 'power', ms: 1400 },
+  { stage: 'attack', ms: 1400 },
+  { stage: 'outcome', ms: 2600 },
 ]);
+
+export const resolveOutcomeWindow = (waitMs = 2000) =>
+  (RESOLVE_STAGE_TIMING.find(row => row.stage === 'outcome').ms + waitMs) / 1000;
 
 const ATTACK_EFFECTS = Object.freeze({ 斬撃: 'attack-slash', 打撃: 'attack-strike', 貫通: 'attack-pierce' });
 export const ATTACK_TIERS = Object.freeze({ medium: 8, large: 15 });
@@ -73,14 +76,14 @@ export function playResolveStageFx(flow, payload, state) {
   }
   const elapsedSeconds = Math.max(0, Date.now() - flow._stepStartedAt - stageStart) / 1000;
   const hostRect = panel.getBoundingClientRect();
-  const playAt = (name, params, selector, delaySeconds = 0) => {
+  const playAt = (name, params, selector, delaySeconds = 0, position = {}) => {
     const selectors = Array.isArray(selector) ? selector : [selector];
     const target = selectors.map((s) => panel.querySelector(s)).find(Boolean);
     if (!target) return;
     const rect = target.getBoundingClientRect();
     fx.play(name, { ...params, width: rect.width, height: rect.height }, {
-      host: panel, elapsedSeconds, delaySeconds, left: rect.left + rect.width / 2 - hostRect.left,
-      top: rect.top + rect.height / 2 - hostRect.top,
+      host: panel, elapsedSeconds, delaySeconds, left: rect.left + rect.width * (position.x ?? 0.5) - hostRect.left + (position.dx || 0),
+      top: rect.top + rect.height * (position.y ?? 0.5) - hostRect.top + (position.dy || 0),
     });
   };
   const summation = step.kind === 'mass_summation';
@@ -92,7 +95,6 @@ export function playResolveStageFx(flow, payload, state) {
     defender: String(flow._slotActorId(step.defenderSlotId, state) || step.defenderActorId || step.targetActorId || ''),
   };
   const entries = flow._collectDamageSummary(step, state).entries;
-  const koIds = collectKnockouts(step);
   const damageKoIds = collectDamageKnockouts(step);
   const totalFor = (side) => entries.find((entry) => entry.targetId === ids[side])?.total || 0;
   // 合算のHP差分は残HPで切り詰められる。人数分を足さず、記録された1人あたりの差を使う。
@@ -113,12 +115,12 @@ export function playResolveStageFx(flow, payload, state) {
   const toneFor = (side) => toneForId(summation && side === 'defender' ? participantId() : ids[side]);
   const region = (side) => summation && side === 'defender' ? '.summation-chips'
     : [`.resolve-flow-background.${side}`, `.side.${side}`];
-  const nameFor = (side) => summation && side === 'defender' ? '.summation-chips' : `.side.${side} .name`;
   const skillEffect = (side) => attackEffect(flow._skillById(step[`${side}SkillId`])?.['属性']);
   if (payload.stage === 'power') {
     const values = flow._resolvePowerValues(step);
+    const bounds = flow._resolvePowerBounds(step);
     for (const side of oneSided ? ['attacker'] : ['attacker', 'defender']) {
-      playAt('power-roll', { text: values[side] }, summation && side === 'defender'
+      playAt('power-roll', { text: values[side], range: bounds[side] }, summation && side === 'defender'
         ? '.summation-total strong' : `.actual.${side}`);
     }
   }
@@ -144,48 +146,34 @@ export function playResolveStageFx(flow, payload, state) {
     }
     if (fx.getLevel() === 'rich' && tierFor(loser) === 'large') playAt('impact-flash', {}, '.resolve-flow-card');
   }
-  if (koIds.size || step.applied?.fired_effects?.length || step.applied?.statuses?.some((r) => String(r.name).includes('混乱') && Number(r.before) === 0 && Number(r.after) > 0)) {
-    const rows = [...(step.applied?.damage || []), ...(step.damageEvents || [])];
-    const popups = summation ? (winner && delta > 0 ? [{ targetId: loser === 'attacker' ? ids.attacker : String(participantId()), amount: delta, kind: 'dice' }] : [])
-      : collectDamagePopups(entries, rows);
-    const windowSeconds = 1.6 + (flow._autoAdvanceDelayMs ?? 2000) / 1000;
-    for (const event of planResolveOutcome(step, popups, windowSeconds)) {
-      const side = event.targetId === ids.attacker ? 'attacker'
-        : summation || event.targetId === ids.defender ? 'defender' : null;
-      if (!side) continue;
-      const chip = summation && side === 'defender' && event.name === 'ko-shatter';
-      const icon = event.params.status && window.STATUS_CONFIG?.[event.params.status]?.icon;
-      const tone = event.params.self ? 'self' : event.params.kind === 'effect' ? 'extra' : toneForId(event.targetId);
-      const perRecipient = summation && side === 'defender' && !(event.name === 'resolve-damage' && event.params.kind === 'dice');
-      const selector = perRecipient ? [`.participant-chip[data-actor-id="${flow._escape(event.targetId)}"] .resolve-flow-portrait-inline`, '.summation-chips']
-        : event.name === 'ko-shatter' ? region(side) : nameFor(side);
-      playAt(event.name, { ...event.params, tone, shake: tierFor(side),
-        icon: icon ? `/static/images/${icon}` : null, label: event.params.status,
-        mode: chip ? 'chip' : 'hit',
-      }, selector, event.at);
-    }
-    return;
-  }
-  if (summation) {
-    if (winner && delta > 0) playAt('resolve-damage', {
-      amount: delta, tone: toneFor(loser), shake: tierFor(loser),
-    }, nameFor(loser));
-    return;
-  }
   const rows = [...(step.applied?.damage || []), ...(step.damageEvents || [])];
   const popups = collectDamagePopups(entries, rows);
-  const counts = new Map();
-  for (const popup of popups) {
-    const side = popup.targetId === ids.attacker ? 'attacker' : popup.targetId === ids.defender ? 'defender' : null;
+  const sideFor = id => id === ids.attacker ? 'attacker' : summation || id === ids.defender ? 'defender' : null;
+  const plan = planResolveOutcome(step, popups, resolveOutcomeWindow(flow._autoAdvanceDelayMs),
+    name => fx.get(name).duration, id => sideFor(id));
+  for (const event of plan.events) {
+    const side = sideFor(event.targetId);
     if (!side) continue;
-    const index = counts.get(popup.targetId) || 0;
-    counts.set(popup.targetId, index + 1);
-    const icon = popup.status && window.STATUS_CONFIG?.[popup.status]?.icon;
-    playAt('resolve-damage', {
-      amount: popup.amount, tone: popup.kind === 'effect' ? 'extra' : toneFor(side), shake: tierFor(side),
-      icon: icon ? `/static/images/${icon}` : null, label: popup.status,
-      delay: popup.kind === 'effect' ? Math.min(0.8, Math.max(1, index) * 0.22) : 0,
-      row: index,
-    }, `.side.${side} .name`);
+    const band = event.name === 'effect-band';
+    const damage = event.name === 'resolve-damage';
+    const chip = summation && side === 'defender' && !band;
+    const icon = event.params.status && window.STATUS_CONFIG?.[event.params.status]?.icon;
+    const tone = event.params.self ? 'self' : event.params.kind === 'effect' ? 'extra' : toneForId(event.targetId);
+    const selector = chip ? [`.participant-chip[data-actor-id="${flow._escape(event.targetId)}"] .resolve-flow-portrait-inline`, '.summation-chips']
+      : band ? [`.resolve-flow-background.${side}`, `.side.${side}`] : region(side);
+    const position = band ? { x: side === 'attacker' ? 0.08 : 0.92, y: 0.8 }
+      : damage ? { x: 0.5, y: chip ? 0.5 : 0.4 } : {};
+    const lines = band ? event.params.lines.map(line => ({ ...line,
+      tone: line.self ? 'self' : toneForId(line.targetId),
+      text: summation && side === 'defender' && line.kind === 'title'
+        ? `${String(flow._characterById(line.targetId, state)?.name || line.targetId).slice(0, 12)}：${line.text}` : line.text,
+    })) : undefined;
+    playAt(event.name, { ...event.params, tone, side, shake: tierFor(side),
+      ...(band ? { lines } : {}),
+      icon: icon ? `/static/images/${icon}` : null, label: event.params.status,
+      mode: chip ? 'chip' : 'hit',
+    }, selector, event.at, position);
   }
+  flow._outcomeFxDeadline = { step, atMs: flow._stepStartedAt + stageStart + plan.endSeconds * 1000 };
+  return plan;
 }

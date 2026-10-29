@@ -63,7 +63,7 @@ const targets = new Map(selectors.map((s,i) => [s,{getBoundingClientRect(){
 const panel = {querySelector:s => targets.get(s),getBoundingClientRect:() => ({left:10,top:20})};
 global.document = {getElementById:() => panel};
 let level = 'normal';
-global.window = {Fx:{getLevel:() => level,play:(...args) => calls.push(args)},
+global.window = {Fx:{get:loadShared({}).get,getLevel:() => level,play:(...args) => calls.push(args)},
   resolveTokenSide:char => char?.type === 'enemy' ? 'enemy' : 'ally'};
 flow._slotActorId = id => ({sa:'a',sd:'d',se:'e'}[id]);
 flow._characterById = id => ({id,type:id==='a'?'ally':'enemy',hp:0});
@@ -73,7 +73,7 @@ const base = {kind:'clash',outcome:'attacker_win',attackerActorId:'a',defenderAc
   applied:{damage:[{target_id:'d',hp:9,source:'dice'},{target_id:'d',hp:6,source:'rupture'}]}};
 const run = (step,stage,late=0) => {
   calls.length=0; measured.length=0; flow._activeStep=step;
-  const starts={names:0,power:600,attack:1600,outcome:2400};
+  const starts={names:0,power:600,attack:2000,outcome:3400};
   flow._stepStartedAt=Date.now()-starts[stage]-late;
   playResolveStageFx(flow,{kind:step.kind,outcome:step.outcome,stage},{});
   return calls;
@@ -212,7 +212,7 @@ for (const resolution_kind of ['clash','one_sided']) {
   run(step,'outcome'); assert.strictEqual(names().includes('clash-flash'),resolution_kind==='clash');
   assert.deepStrictEqual(calls.filter(c=>c[0]==='resolve-damage').map(c=>c[1].amount),[9,3]);
 }
-const mass={...base,kind:'mass_summation',participants:['sd','se'],
+const mass={...base,applied:{damage:[]},kind:'mass_summation',participants:['sd','se'],
   rolls:{attacker_power:25,defender_sum:10,delta:15},damageEvents:[
     {target_id:'d',hp:10,damage_type:'mass_summation_delta'},
     {target_id:'e',hp:15,damage_type:'mass_summation_delta'}]};
@@ -222,18 +222,18 @@ run(mass,'attack'); assert.deepStrictEqual(names(),['attack-slash']);
 assert.strictEqual(calls[0][1].mode,'wide'); assert.strictEqual(calls[0][1].tier,'large');
 assert.ok(measured.includes('.summation-chips'));
 run(mass,'outcome'); const damage=calls.filter(c=>c[0]==='resolve-damage');
-assert.strictEqual(damage.length,1); assert.strictEqual(damage[0][1].amount,15);
+assert.strictEqual(damage.length,2); assert.deepStrictEqual(damage.map(c=>c[1].amount),[10,15]);
 assert.ok(!names().includes('clash-flash'));
 run({...mass,outcome:'defender_win'},'attack');
 assert.deepStrictEqual(names(),['attack-flash']); assert.strictEqual(calls[0][1].direction,-1);
 assert.ok(measured.includes('.resolve-flow-background.attacker'));
-run({...mass,outcome:'defender_win'},'outcome');
+run({...mass,outcome:'defender_win',damageEvents:[{target_id:'a',hp:15,damage_type:'mass_summation_delta'}]},'outcome');
 assert.strictEqual(calls.filter(c=>c[0]==='resolve-damage').length,1);
-assert.ok(measured.includes('.side.attacker .name'));
+assert.ok(measured.includes('.resolve-flow-background.attacker'));
 run({...mass,outcome:'draw'},'attack'); assert.strictEqual(calls.length,2);
 assert.ok(calls.every(c=>c[1].mode==='draw'));
-run({...mass,outcome:'draw'},'outcome'); assert.deepStrictEqual(names(),['clash-flash']);
-run({...mass,rolls:{delta:0}},'outcome'); assert.ok(!names().includes('resolve-damage'));
+run({...mass,outcome:'draw',damageEvents:[]},'outcome'); assert.deepStrictEqual(names(),['clash-flash']);
+run({...mass,rolls:{delta:0},damageEvents:[]},'outcome'); assert.ok(!names().includes('resolve-damage'));
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 

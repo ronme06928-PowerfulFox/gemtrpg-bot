@@ -1,3 +1,5 @@
+import { resolveOutcomeWindow } from '../../static/js/battle/components/resolve_flow_fx.js';
+import { sceneSamples, effectSamples } from './samples.mjs';
 import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -12,7 +14,7 @@ const python = process.env.PYTHON || (process.platform === 'win32' && existsSync
 const icons = spawnSync(python, [path.join(root, 'scripts/fx_gallery/embed_icons.py')], { encoding: 'utf8', maxBuffer: 2 * 1024 * 1024 });
 if (icons.status !== 0) throw new Error(`状態アイコンの埋め込みに失敗（Pillowが必要）: ${icons.stderr || icons.error}`);
 const assets = JSON.parse(icons.stdout);
-for (const directory of ['characters', 'dice']) {
+for (const directory of ['characters']) {
   for (const name of (await readdir(path.join(root, 'static/images', directory))).sort()) {
     const relative = `static/images/${directory}/${name}`;
     const mime = name.endsWith('.svg') ? 'image/svg+xml' : 'image/png';
@@ -34,9 +36,9 @@ const html = `<!doctype html>
 <style>${await read('static/css/modules/motion_fx.css')}\n${await read('scripts/fx_gallery/gallery.css')}</style></head>
 <body><header><p class="eyebrow">GEMLIA / MOTION STUDIES</p><h1>演出の一覧</h1>
 <p>光、数字、結晶。時刻を動かして、ひとつずつ確かめる。</p>
-<nav><a href="#scenes">結果の場面 · 4</a><a href="#effects">演出単体 · 14</a></nav>
+<nav><a href="#scenes">結果の場面 · ${sceneSamples.length}</a><a href="#effects">演出単体 · ${new Set(effectSamples.map(sample => sample.effect)).size}</a></nav>
 <p class="guide">つまみで停止・コマのクリックで移動。段階と見本を切り替えて比較できます。</p></header>
-<main><section id="scenes"><h2>結果の場面 <small>OUTCOME / 3.6s</small></h2><div class="cards"></div></section>
+<main><section id="scenes"><h2>結果の場面 <small>OUTCOME / ${resolveOutcomeWindow().toFixed(1)}s</small></h2><div class="cards"></div></section>
 <section id="effects"><h2>演出単体 <small>EFFECT LIBRARY</small></h2><div class="cards"></div></section></main>
 <footer>本番と同じ演出定義を使用 · 仮の解決台 · Google Fonts 以外の読み込みなし</footer>
 ${script(await read('static/js/fx/fx_core.js'))}

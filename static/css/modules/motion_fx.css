@@ -49,6 +49,12 @@
   text-shadow: 0 2px 3px #000;
 }
 
+/* 別レイヤーの数字を見せている間、下地から確定値を先に見せない。 */
+.resolve-flow-panel.reveal-power .actual,
+.resolve-flow-panel.reveal-power .summation-total strong {
+  visibility: hidden;
+}
+
 .fx-clash-flash {
   position: absolute;
   display: grid;
@@ -130,6 +136,8 @@
   gap: 0.12em;
   white-space: nowrap;
   font-size: calc(46px * var(--fx-scale));
+  /* 縦に積む行の高さ（本体52px・追加36px）に字の高さをそろえる。字体の既定の行の高さは約1.65倍ある。 */
+  line-height: 1;
   color: var(--fx-win);
   text-shadow: -2px -2px 0 #171323, 2px 2px 0 #171323, 0 0 8px #000;
   -webkit-text-stroke: 0.6px #332a20;
@@ -151,14 +159,15 @@
 }
 
 .fx-chat-dice { position: absolute; inset: 0; display: grid; place-items: center; }
-.fx-chat-die { position: absolute; width: 1.8em; height: 1.8em; }
 .fx-chat-total { font-family: var(--fx-number-font); font-weight: 900; }
 
-.fx-effect-name { position: absolute; min-width: 6em; color: var(--fx-win); text-align: center; text-shadow: 0 2px 3px var(--fx-shadow), 0 0 8px var(--fx-shadow); }
-.fx-effect-name.ally { color: var(--fx-ally); }
-.fx-effect-name.self { color: var(--fx-self); }
-.fx-effect-title { white-space: nowrap; font: 900 calc(24px * var(--fx-scale)) var(--fx-effect-font); }
-.fx-effect-result { display: flex; gap: 0.2em; align-items: center; justify-content: center; white-space: nowrap; font: calc(18px * var(--fx-scale)) var(--fx-effect-font); }
+.fx-effect-band { position: absolute; width: max-content; max-width: 42vw; color: var(--fx-win); text-align: right; text-shadow: 0 2px 3px var(--fx-shadow), 0 0 8px var(--fx-shadow); }
+.fx-effect-band.attacker { text-align: left; }
+.fx-effect-band.attacker > div { left: 0; right: auto; }
+.fx-effect-band > .ally { color: var(--fx-ally); }
+.fx-effect-band > .self { color: var(--fx-self); }
+.fx-effect-title { height: 36px; line-height: 36px; box-sizing: border-box; position: absolute; right: 0; bottom: 0; padding: 0 8px; background: linear-gradient(to left, #121922e8, #12192288); white-space: nowrap; font: 900 calc(24px * var(--fx-scale))/36px var(--fx-effect-font); }
+.fx-effect-result { height: 28px; line-height: 28px; box-sizing: border-box; position: absolute; right: 0; bottom: 0; padding: 0 8px; background: #121922cc; display: flex; gap: 0.2em; align-items: center; justify-content: center; white-space: nowrap; font: calc(18px * var(--fx-scale))/28px var(--fx-effect-font); }
 .fx-effect-number { font: 900 1em var(--fx-number-font); }
 .fx-ko { position: absolute; color: var(--fx-crystal); }
 .fx-ko-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }

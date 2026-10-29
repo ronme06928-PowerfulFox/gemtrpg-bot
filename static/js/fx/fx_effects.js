@@ -78,23 +78,51 @@
     return el;
   }
 
+  // 候補と切替時刻を先に決める。描画の呼出し順は列に影響しない。
+  function mountRoll(root, params, stop, chat) {
+    this.level = params.level;
+    this.text = String(params.text);
+    this.stop = stop;
+    this.el = element(root, chat ? 'span' : 'div', chat ? 'fx-chat-dice' : 'fx-power-roll');
+    this.number = element(this.el, 'span', chat ? 'fx-chat-total' : 'fx-power-number', this.text);
+    if (!chat) {
+      this.el.style.width = `${params.width || 80}px`;
+      this.el.style.height = `${params.height || 50}px`;
+    }
+    const final = Number(params.text), radius = Math.max(1, Math.ceil(Math.abs(final) * 0.4));
+    const fallbackMin = Math.max(0, Math.floor(final - radius));
+    const range = params.range || { min: fallbackMin, max: Math.max(fallbackMin + 1, Math.ceil(final + radius)) };
+    const min = Math.ceil(range.min), max = Math.floor(range.max);
+    const excludes = Number.isInteger(final) && final >= min && final <= max;
+    const count = Number.isFinite(final) ? Math.max(0, max - min + 1 - (excludes ? 1 : 0)) : 0;
+    this.rolls = [];
+    let at = 0, previous = -1;
+    for (let i = 0; at < stop; i++) {
+      let index = count ? (Math.abs(Math.trunc(final)) * 7 + i * 11) % count : -1;
+      if (count > 1 && index === previous) index = (index + 1) % count;
+      let value = min + index;
+      if (excludes && value >= final) value++;
+      this.rolls.push({ at, text: count ? String(value) : '…' });
+      previous = index;
+      at += 0.03 + 0.07 * at / stop;
+    }
+    this.center = chat ? 'translate(0, 0)' : 'translate(-50%, -50%)';
+  }
+  function renderRoll(t) {
+    const time = Math.max(0, Math.min(t, this.duration));
+    const rolling = this.level !== 'light' && time < this.stop;
+    const current = this.rolls.filter(row => row.at <= time).at(-1);
+    this.number.textContent = rolling ? current.text : this.text;
+    this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
+    const settle = this.level === 'light' || rolling ? 1 : Fx.lerp(1.15, 1, Fx.prog(time, this.stop, 0.18));
+    this.el.style.transform = `${this.center} scale(${settle})`;
+    this.number.style.filter = this.level === 'light' || rolling ? 'brightness(1)'
+      : `brightness(${Fx.lerp(this.level === 'rich' ? 2.2 : 1.8, 1, Fx.prog(time, this.stop, 0.18))})`;
+  }
   Fx.define('power-roll', {
-    duration: 1,
-    mount(root, params) {
-      this.level = params.level;
-      this.text = String(params.text);
-      this.el = element(root, 'div', 'fx-power-roll', this.text);
-      this.el.style.width = `${params.width}px`;
-      this.el.style.height = `${params.height}px`;
-    },
-    render(t) {
-      const time = Math.max(0, Math.min(t, this.duration));
-      const roll = this.level !== 'light' && time < 0.7;
-      this.el.textContent = roll ? String((Math.floor(time * 47) * 7 + 3) % 20 + 1) : this.text;
-      this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
-      this.el.style.transform = this.level === 'light' ? 'translate(-50%, -50%)'
-        : `translate(-50%, -50%) rotateX(${roll ? time * (this.level === 'rich' ? 2200 : 1400) : 0}deg)`;
-    },
+    duration: 1.4,
+    mount(root, params) { mountRoll.call(this, root, params, 1, false); },
+    render: renderRoll,
   });
 
   Fx.define('clash-flash', {
@@ -263,7 +291,6 @@
       this.shake = params.shake;
       this.delay = Math.max(0, Math.min(0.8, Number(params.delay) || 0));
       this.el = element(root, 'div', `fx-resolve-damage ${params.tone || 'enemy'} ${params.icon ? 'with-icon' : ''}`);
-      this.el.style.marginTop = `${24 + (Number(params.row) || 0) * 34}px`;
       if (params.icon) {
         const icon = element(this.el, 'img', 'fx-damage-icon');
         icon.setAttribute('src', params.icon);
@@ -271,43 +298,64 @@
       }
       element(this.el, 'span', 'fx-damage-minus');
       element(this.el, 'span', 'fx-damage-number', String(params.amount));
+      // 列の最初の数字は10pxだけ浮き上がり、続く数字は前の数字の下から押し上げと同じ動きで入る。
+      this.enter = Number(params.stackEnter) || 10;
+      // 列の2つ目以降は、隣の数字にはみ出さないよう、出だしの拡大を控えめにする。
+      this.pop = params.stackEnter ? 1.15 : (this.level === 'rich' ? 1.6 : 1.25);
+      this.pushes = params.stackPushes || [];
     },
     render(t) {
       const time = t - this.delay;
       const length = this.duration - this.delay;
-      const p = Fx.prog(time, 0, length);
-      this.el.style.opacity = String(Fx.stillOpacity(time, length));
-      this.el.style.transform = this.level === 'light' ? 'translate(-50%, -50%)'
-        : `translate(-50%, -50%) translateX(${impactShake(time, this.level, this.shake)}px) translateY(${Fx.lerp(12, -34, p)}px) scale(${Fx.lerp(this.level === 'rich' ? 1.6 : 1.25, 1, Fx.prog(time, 0, 0.25))})`;
+      const light = this.level === 'light';
+      const move = (start) => (light ? (time >= start ? 1 : 0) : Fx.prog(time, start, 0.2));
+      const lifted = this.pushes.reduce((sum, push) => sum + push.amount * move(push.at), 0);
+      const y = (light ? 0 : this.enter * (1 - move(0))) - lifted;
+      const third = this.pushes[2];
+      const crowded = third ? 1 - Fx.prog(time, third.at, 0.15) : 1;
+      this.el.style.opacity = String(Fx.stillOpacity(time, length) * crowded);
+      this.el.style.transform = light ? `translate(-50%, -50%) translateY(${y}px)`
+        : `translate(-50%, -50%) translateX(${impactShake(time, this.level, this.shake)}px) translateY(${y}px) scale(${Fx.lerp(this.pop, 1, Fx.prog(time, 0, 0.25))})`;
     },
   });
 
-  Fx.define('effect-name', {
-    duration: 1.2,
+  Fx.EFFECT_BAND_ROW_HEIGHTS = Object.freeze({ title: 36, result: 28 });
+  Fx.define('effect-band', {
+    duration: 3.9,
     mount(root, params) {
       this.level = params.level;
-      this.resultDelay = params.resultDelay ?? 0.18;
-      this.resultInterval = params.resultInterval ?? 0.1;
-      this.el = element(root, 'div', `fx-effect-name ${params.tone || 'enemy'}`);
-      this.el.style.marginTop = `${20 + (Number(params.row) || 0) * 32}px`;
-      element(this.el, 'div', 'fx-effect-title', params.text);
-      this.resultRows = (params.results || []).filter((r) => String(r.name).toUpperCase() !== 'HP').map((result) => {
-        const row = element(this.el, 'div', 'fx-effect-result');
-        element(row, 'span', 'fx-effect-label', String(result.name).replace(/^buff:/, ''));
-        if (result.delta !== null && result.delta !== undefined) {
-          if (result.delta < 0) element(row, 'span', 'fx-damage-minus');
-          element(row, 'span', 'fx-effect-number', `${result.delta > 0 ? '+' : ''}${Math.abs(result.delta)}`);
+      this.side = params.side || 'defender';
+      this.duration = params.duration ?? this.duration;
+      this.el = element(root, 'div', `fx-effect-band ${this.side}`);
+      this.lines = (params.lines || []).map(line => {
+        const row = element(this.el, 'div', `fx-effect-${line.kind} ${line.tone || 'enemy'}`);
+        if (line.kind === 'title') row.textContent = line.text;
+        else {
+          element(row, 'span', 'fx-effect-label', String(line.text).replace(/^buff:/, ''));
+          if (line.delta !== null && line.delta !== undefined) {
+            if (line.delta < 0) element(row, 'span', 'fx-damage-minus');
+            element(row, 'span', 'fx-effect-number', `${line.delta > 0 ? '+' : ''}${Math.abs(line.delta)}`);
+          }
         }
-        return row;
+        row.setAttribute('data-readable', '');
+        return { ...line, el: row, height: Fx.EFFECT_BAND_ROW_HEIGHTS[line.kind] };
       });
     },
     render(t) {
-      const p = Fx.prog(t, 0, this.duration);
       this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
-      this.el.style.transform = this.level === 'light' ? 'translate(-50%, -50%)'
-        : `translate(-50%, -50%) translateY(${Fx.lerp(8, this.level === 'rich' ? -22 : -14, p)}px)`;
-      this.resultRows.forEach((row, i) => {
-        row.style.opacity = String(Fx.prog(t, this.resultDelay + i * this.resultInterval, 0.08));
+      this.el.style.transform = this.side === 'attacker' ? 'translate(0, -50%)' : 'translate(-100%, -50%)';
+      this.lines.forEach((line, i) => {
+        const future = this.lines.slice(i + 1);
+        const old = future.some(next => next.at <= t);
+        const drop = future[2]?.at ?? Infinity;
+        const fade = drop === Infinity ? 1 : 1 - Fx.prog(t, drop - 0.12, 0.12);
+        line.el.style.opacity = String(Fx.prog(t, line.at, 0.08) * (old ? 0.6 : 1) * fade);
+        // 新行と既存行を同じ距離で送る。移動中も矩形の境界を接したまま保つ。
+        const y = this.level === 'light' ? -(2 - i % 3) * 36
+          : (i ? line.height * (1 - Fx.prog(t, line.at, 0.22)) : 0)
+            - future.reduce((sum, next) => sum + next.height * Fx.prog(t, next.at, 0.22), 0);
+        const x = this.level === 'light' ? 0 : (this.side === 'attacker' ? -24 : 24) * (1 - Fx.prog(t, line.at, 0.18));
+        line.el.style.transform = `translate(${x}px, ${y}px)`;
       });
     },
   });
@@ -351,26 +399,8 @@
   });
 
   Fx.define('chat-dice', {
-    duration: 0.8,
-    mount(root, params) {
-      this.level = params.level;
-      this.images = params.images;
-      this.el = element(root, 'span', 'fx-chat-dice');
-      this.die = element(this.el, 'img', 'fx-chat-die');
-      this.die.setAttribute('alt', '');
-      this.total = element(this.el, 'span', 'fx-chat-total', params.text);
-    },
-    render(t) {
-      const time = Math.max(0, Math.min(t, this.duration));
-      const light = this.level === 'light';
-      const showTotal = light || time >= 0.45;
-      this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
-      this.el.style.transform = light ? 'translate(0, 0)'
-        : `translateY(${showTotal ? 0 : -Math.abs(Math.sin(time * 24)) * (this.level === 'rich' ? 7 : 3)}px)`;
-      this.die.setAttribute('src', this.images[Math.floor(time * 22) % this.images.length]);
-      this.die.style.opacity = showTotal ? '0' : '1';
-      this.die.style.transform = light || showTotal ? 'rotate(0deg)' : `rotate(${time * (this.level === 'rich' ? 1200 : 720)}deg)`;
-      this.total.style.opacity = showTotal ? '1' : '0';
-    },
+    duration: 1,
+    mount(root, params) { mountRoll.call(this, root, params, 0.6, true); },
+    render: renderRoll,
   });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -29,9 +29,9 @@ def test_weighted_stages_and_notifications_do_not_repeat_on_rerender():
 const { ResolveFlowPanel } = await import('./static/js/battle/components/ResolveFlowPanel.js');
 const { eventBus } = await import('./static/js/battle/core/EventBus.js');
 const flow = new ResolveFlowPanel();
-const cases = [[-1,'names'],[0,'names'],[599,'names'],[600,'power'],[1599,'power'],
-  [1600,'attack'],[2399,'attack'],[2400,'outcome'],[4000,'outcome'],[9000,'outcome']];
-for (const [t, stage] of cases) assert.strictEqual(flow._revealStageByElapsed(t,4000),stage);
+const cases = [[-1,'names'],[0,'names'],[599,'names'],[600,'power'],[1999,'power'],
+  [2000,'attack'],[3399,'attack'],[3400,'outcome'],[6000,'outcome'],[9000,'outcome']];
+for (const [t, stage] of cases) assert.strictEqual(flow._revealStageByElapsed(t,6000),stage);
 assert.strictEqual(flow._revealStageByElapsed(300,2000),'power');
 const seen = [];
 eventBus.on('battle:resolve:flow:stage', p => seen.push(p));
@@ -106,8 +106,9 @@ const a = {image:'/a.png'}, d = {image:'/d.png'};
 const both = flow._renderBackgrounds('clash',a,d);
 assert.ok(both.includes('/a.png') && both.includes('/d.png'));
 assert.ok(!flow._renderBackgrounds('mass_summation',a,d).includes('/d.png'));
-assert.ok(!flow._renderBackgrounds('clash',a,{}).includes('defender'));
-assert.strictEqual(flow._renderBackgrounds('clash',{},{}),'');
+assert.ok(flow._renderBackgrounds('clash',a,{}).includes('resolve-flow-background defender'));
+assert.ok(!flow._renderBackgrounds('clash',a,{}).includes('/d.png'));
+assert.ok(!flow._renderBackgrounds('clash',{},{}).includes('<img'));
 })().catch(e => {console.error(e); process.exitCode = 1;});
 """)
     panel = (ROOT / "static/js/battle/components/ResolveFlowPanel.js").read_text(encoding="utf-8")

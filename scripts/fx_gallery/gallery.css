@@ -24,6 +24,8 @@ h2 small { color: #9b9f9e; font: 11px Georgia, serif; letter-spacing: 2px; }
 .card-index { color: #c5aa70; font: 12px Georgia, serif; }
 h3 { font-size: 16px; font-weight: 500; margin: 0; overflow-wrap: anywhere; }
 .stage-host { margin: 0 12px; }
+/* 場面カードは本番の解決パネルに近い高さにする。低い台では、数字の列と効果の帯（下20%から最大3行）がぶつかる。 */
+.scene-card .stage { height: 400px; }
 .stage {
   position: relative;
   isolation: isolate;

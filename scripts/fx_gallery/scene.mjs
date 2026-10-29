@@ -15,11 +15,12 @@ export function collectSceneEvents(scene, panel, level) {
   const previousLevel = fx.getLevel;
   const previousStatus = window.STATUS_CONFIG;
   const events = [];
+  let plan;
   try {
     window.STATUS_CONFIG = STATUS_CONFIG;
     fx.getLevel = () => level;
     fx.play = (name, params, options) => events.push({ name, params, at: options.delaySeconds || 0, left: options.left, top: options.top });
-    playResolveStageFx(flow, { stage: 'outcome', outcome: scene.step.outcome }, scene.state);
+    plan = playResolveStageFx(flow, { stage: 'outcome', outcome: scene.step.outcome }, scene.state);
   } finally {
     if (previousPlay === undefined) delete fx.play;
     else fx.play = previousPlay;
@@ -27,5 +28,5 @@ export function collectSceneEvents(scene, panel, level) {
     else fx.getLevel = previousLevel;
     window.STATUS_CONFIG = previousStatus;
   }
-  return events;
+  return { events, beatSeconds: plan.beatSeconds };
 }

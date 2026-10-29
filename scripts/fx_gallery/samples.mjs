@@ -6,7 +6,8 @@ export const effectSamples = [
   sample('float-damage', 'float-text', 'HP −9', { text: '−9', tone: 'damage' }),
   sample('float-heal', 'float-text', 'HP +12', { text: '+12', tone: 'heal' }),
   sample('round', 'round-banner', 'ROUND 3', { text: 'ROUND 3' }, '.resolve-flow-card'),
-  sample('power', 'power-roll', '威力 12', { text: '12' }, '.actual.attacker'),
+  sample('power', 'power-roll', '威力 12 / 2d6+3（5〜15）', { text: '12', range: { min: 5, max: 15 } }, '.actual.attacker'),
+  sample('power-unknown', 'power-roll', '合算 23 / 幅不明', { text: '23' }, '.actual.attacker'),
   sample('clash', 'clash-flash', '打ち合い', {}, '.vs'),
   sample('shade-win', 'clash-shade', '勝った側', { winner: true }, '.resolve-flow-background.attacker'),
   sample('shade-lose', 'clash-shade', '負けた側', { winner: false }, '.resolve-flow-background.defender'),
@@ -26,15 +27,32 @@ export const effectSamples = [
     .map(([label, icon]) => sample(`damage-${icon}`, 'resolve-damage', `${label}のアイコン`, {
       amount: 5, tone: 'extra', shake: 'medium', label, icon: `/static/images/${icon}.png`,
     })),
-  ...['enemy', 'ally', 'self'].map(tone => sample(`effect-${tone}`, 'effect-name', `戦慄殺到 / ${tone}`, {
-    text: '戦慄殺到', tone, self: tone === 'self', results: [{ name: '戦慄', delta: -5 }, { name: 'MP', delta: -5 }, { name: '混乱', delta: null }],
+  ...['enemy', 'ally', 'self'].map(tone => sample(`effect-${tone}`, 'effect-band', `戦慄殺到 / ${tone}`, {
+    duration: 3.9, lines: [
+      { at: 0, kind: 'title', text: '戦慄殺到', tone },
+      { at: 0.5, kind: 'result', text: '戦慄', delta: -5, tone },
+      { at: 1, kind: 'result', text: 'MP', delta: -5, tone },
+      { at: 1.5, kind: 'result', text: '混乱', delta: null, tone },
+    ],
   })),
-  sample('confusion', 'effect-name', '混乱（結果なし）', { text: '混乱', tone: 'ally', results: [] }),
+  sample('band-heights', 'effect-band', '36pxの効果名と28pxの結果 · 連続して送る', {
+    duration: 4.6, lines: [
+      { at: 0, kind: 'title', text: '戦慄殺到', tone: 'ally' },
+      { at: 0.5, kind: 'result', text: '戦慄', delta: -5, tone: 'ally' },
+      { at: 1, kind: 'result', text: 'MP', delta: -5, tone: 'ally' },
+      { at: 1.5, kind: 'title', text: '破裂爆発', tone: 'enemy' },
+      { at: 2, kind: 'result', text: '破裂', delta: -3, tone: 'enemy' },
+      { at: 2.5, kind: 'title', text: '再使用', tone: 'self' },
+    ],
+  }),
+  sample('confusion', 'effect-band', '混乱（結果なし）', { duration: 3.9,
+    lines: [{ at: 0, kind: 'title', text: '混乱', tone: 'ally' }] }),
   sample('ko-hit', 'ko-shatter', '戦闘不能', { mode: 'hit' }, '.resolve-flow-background.defender'),
   sample('ko-chip', 'ko-shatter', '参加者の戦闘不能', { mode: 'chip' }, '.participant-chip[data-actor-id="e"] .resolve-flow-portrait-inline'),
   sample('chat', 'chat-dice', '2d6+5 → 13', {
-    text: '13', images: Array.from({ length: 6 }, (_, i) => `/static/images/dice/die-${i + 1}.svg`),
+    text: '13', range: { min: 7, max: 17 },
   }, '.chat-total'),
+  sample('chat-unknown', 'chat-dice', '合計 18 / 式不明', { text: '18' }, '.chat-total'),
 ];
 
 export const characters = [
@@ -52,6 +70,18 @@ const step = (overrides = {}) => ({
   applied: { damage: [], fired_effects: [], statuses: [] }, ...overrides,
 });
 export const sceneSamples = [
+  { id: 'many-lines', label: '効果の帯 · 4件と結果行（3行を超えたら送る）', level: 'normal', state,
+    step: step({ applied: {
+      damage: [{ target_id: 'd', hp: 9, hp_after: 21, source: 'dice' },
+        { target_id: 'd', hp: 6, hp_after: 15, source: 'rupture' },
+        { target_id: 'd', hp: 2, hp_after: 13, source: 'fissure' }], statuses: [],
+      fired_effects: [
+        { term_id: 'W-07', name: '戦慄殺到', results: [{ name: '戦慄', delta: -5 }, { name: 'MP', delta: -5 }] },
+        { term_id: 'W-03', name: '破裂爆発', results: [{ name: '破裂', delta: -3 }] },
+        { term_id: 'W-05', name: '亀裂崩壊', results: [{ name: '亀裂', delta: -1 }] },
+        { term_id: 'W-58', name: '再使用', results: [] },
+      ].map(effect => ({ ...effect, actor_id: 'a', target_id: 'd' })),
+    } }) },
   { id: 'fear-ko', label: '打ち合い · 戦慄殺到 → 混乱 → 戦闘不能', level: 'normal', state,
     step: step({ applied: {
       damage: [{ target_id: 'd', hp: 9, hp_after: 0, source: 'dice' }],

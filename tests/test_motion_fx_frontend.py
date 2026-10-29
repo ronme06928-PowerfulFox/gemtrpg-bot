@@ -49,7 +49,7 @@ const EFFECT_CASES = {
   'power-roll': { text: '12', width: 50, height: 40 },
   'clash-flash': {}, 'clash-shade': { winner: true, width: 250, height: 300 },
   'attack-flash': {}, 'resolve-damage': { amount: 9, icon: '/static/images/rupture.png', delay: 0.22 },
-  'chat-dice': { text: '17', images: Array.from({length: 6}, (_, i) => `die-${i + 1}.svg`) },
+  'chat-dice': { text: '17' },
 };
 """ % (SHARED_FILES,)
 
@@ -140,11 +140,12 @@ for (const [name, params] of Object.entries(EFFECT_CASES)) {
     const fx = Object.create(def);
     fx.mount(root, { ...params, level });
     fx.render(t);
-    return root.children[0].style.transform;
+    return snapshot(root);
   };
   // 長さは定義に1つだけで、段階で変わらない。
   assert.strictEqual(typeof def.duration, 'number');
-  assert.notStrictEqual(look('normal', 0.1), look('rich', 0.1), `${name}: rich is stronger`);
+  const t = ['power-roll','chat-dice'].includes(name) ? def.duration - 0.39 : 0.1;
+  assert.notStrictEqual(look('normal', t), look('rich', t), `${name}: rich is stronger`);
   assert.notStrictEqual(look('normal', 0.1), look('light', 0.1), `${name}: light is still`);
 }
 """)
