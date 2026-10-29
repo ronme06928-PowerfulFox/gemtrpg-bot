@@ -1,5 +1,5 @@
 import { ResolveFlowPanel } from '../../static/js/battle/components/ResolveFlowPanel.js';
-import { playResolveStageFx, RESOLVE_STAGE_TIMING } from '../../static/js/battle/components/resolve_flow_fx.js';
+import { playResolveStageFx, resolveStageTiming, resolveOutcomeWindow } from '../../static/js/battle/components/resolve_flow_fx.js';
 import { STATUS_CONFIG } from '../../static/js/battle/utils/Constants.js';
 
 // 本番の接続コードで配置・tone・tier・順序を決め、Fx.playの要求だけを採取する。
@@ -9,7 +9,7 @@ export function collectSceneEvents(scene, panel, level) {
   flow._activeStep = scene.step;
   flow._panelId = panel.id;
   flow._autoAdvanceDelayMs = 2000;
-  flow._stepStartedAt = Date.now() - RESOLVE_STAGE_TIMING.filter(row => row.stage !== 'outcome').reduce((sum, row) => sum + row.ms, 0);
+  flow._stepStartedAt = Date.now() - resolveStageTiming(scene.step).filter(row => row.stage !== 'outcome').reduce((sum, row) => sum + row.ms, 0);
   const fx = window.Fx;
   const previousPlay = fx.play;
   const previousLevel = fx.getLevel;
@@ -28,5 +28,5 @@ export function collectSceneEvents(scene, panel, level) {
     else fx.getLevel = previousLevel;
     window.STATUS_CONFIG = previousStatus;
   }
-  return { events, beatSeconds: plan.beatSeconds };
+  return { events, groupCount: plan.groupCount, stopSeconds: plan.stopSeconds, windowSeconds: resolveOutcomeWindow(scene.step) };
 }

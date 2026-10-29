@@ -1,9 +1,8 @@
-import { RESOLVE_STAGE_TIMING, resolveOutcomeWindow } from '../../static/js/battle/components/resolve_flow_fx.js';
+import { resolveStageTiming, resolveOutcomeWindow } from '../../static/js/battle/components/resolve_flow_fx.js';
 import { effectSamples, sceneSamples, characters } from './samples.mjs';
 import { collectSceneEvents } from './scene.mjs';
+import { createRealStage } from './real_panel.mjs';
 
-const outcomeSeconds = RESOLVE_STAGE_TIMING.find(row => row.stage === 'outcome').ms / 1000;
-const outcomeWindow = resolveOutcomeWindow();
 const assets = __GALLERY_ASSETS__;
 const Fx = window.Fx;
 const controllers = [];
@@ -85,15 +84,24 @@ function singleEvents(stage, sample) {
   const damage = sample.effect === 'resolve-damage';
   const anchor = band || damage ? '.resolve-flow-background.defender' : sample.anchor;
   const target = anchor === '.resolve-flow-card' ? stage : stage.querySelector(anchor);
+  if (sample.previewSize) {
+    const { width, height } = sample.previewSize;
+    stage.style.width = target.style.width = `${width}px`;
+    stage.style.height = target.style.height = `${height}px`;
+    target.style.left = target.style.top = '0';
+    target.style.right = target.style.bottom = 'auto';
+  }
   const rect = target.getBoundingClientRect();
   const host = stage.getBoundingClientRect();
   const numberAnchor = ['power-roll', 'chat-dice'].includes(sample.effect) ? target : null;
   if (numberAnchor) numberAnchor.textContent = sample.params.text;
   return [{ name: sample.effect, params: { ...sample.params, width: rect.width, height: rect.height },
-    numberAnchor, at: 0, left: rect.left + rect.width * (band ? 0.92 : 0.5) - host.left, top: rect.top + rect.height * (band ? 0.8 : damage ? 0.25 : 0.5) - host.top }];
+    numberAnchor, at: 0, left: rect.left + rect.width * (band ? 1 : damage ? 0.38 : 0.5) - host.left, top: rect.top + rect.height * (band ? 0.8 : damage ? 0.4 : 0.5) - host.top }];
 }
 function createCard(samples, scene = false) {
   let sample = samples[0];
+  const outcomeSeconds = scene ? resolveStageTiming(sample.step).find(row => row.stage === 'outcome').ms / 1000 : 0;
+  const outcomeWindow = scene ? resolveOutcomeWindow(sample.step) : 0;
   const card = el('article', `gallery-card ${scene ? 'scene-card' : 'effect-card'}`);
   card.dataset.effect = scene ? sample.id : sample.effect;
   const heading = el('div', 'card-heading');
@@ -129,6 +137,7 @@ function createCard(samples, scene = false) {
     }
     select.addEventListener('change', () => {
       sample = samples.find(item => item.id === select.value);
+      level.value = sample.level;
       rebuild();
     });
     card.append(select);
@@ -175,9 +184,13 @@ function createCard(samples, scene = false) {
   function rebuild() {
     playing = false;
     stageHost.replaceChildren();
+    stageHost.style.overflowX = sample.previewSize ? 'auto' : '';
     strip.replaceChildren();
     eventList.replaceChildren();
-    const stage = createStage(stageHost, scene ? sample : null);
+    // 場面カードは本物の解決パネルで描く。HTMLを解釈できない環境では仮の台に戻る（計画56 §4.1a）。
+    let stage = scene ? createRealStage(stageHost, embedded(sample)) : null;
+    if (!stage) { stageHost.replaceChildren(); stage = createStage(stageHost, scene ? sample : null); }
+    const real = stage.hasAttribute?.('data-gallery-resolve-panel');
     const scenePlan = scene ? collectSceneEvents(sample, stage, level.value) : null;
     const planned = scenePlan ? scenePlan.events : singleEvents(stage, sample);
     events = mountEvents(stage, planned, level.value);
@@ -185,11 +198,12 @@ function createCard(samples, scene = false) {
     duration = scene ? Math.max(outcomeWindow, end) : events[0].fx.duration;
     seek.max = String(duration);
     const overflow = scene && end > outcomeWindow + 0.000001;
-    if (scene) card.dataset.beat = String(scenePlan.beatSeconds);
+    if (scene) { card.dataset.groups = String(scenePlan.groupCount); card.dataset.stop = String(scenePlan.stopSeconds); }
     card.dataset.end = end.toFixed(3);
+    if (scene) card.dataset.window = String(outcomeWindow);
     card.dataset.level = level.value;
     card.dataset.sample = sample.id;
-    note.textContent = scene ? `┃ 枠 ${outcomeWindow.toFixed(2)}秒 · 拍 ${scenePlan.beatSeconds.toFixed(3)}秒 · 最後の演出 ${end.toFixed(2)}秒${overflow ? ' · 枠を超えています' : ' · 枠内'}`
+    note.textContent = scene ? `┃ 枠 ${outcomeWindow.toFixed(2)}秒 · まとまり ${scenePlan.groupCount}件 · 流れの停止 ${scenePlan.stopSeconds.toFixed(2)}秒 · 最後の演出 ${end.toFixed(2)}秒${overflow ? ' · 枠を超えています' : ' · 枠内'}`
       : `${duration.toFixed(2)}秒 · コマを押すとその時刻へ`;
     note.classList.toggle('overflow', overflow);
     for (const event of events) eventList.append(el('li', '', `${event.at.toFixed(2)}–${(event.at + event.fx.duration).toFixed(2)}秒 / ${event.name}`));
@@ -206,7 +220,8 @@ function createCard(samples, scene = false) {
       frame.append(view, el('span', '', `${t.toFixed(1)}s`));
       strip.append(frame);
       // 先に実寸で測り、縮小は描画後に行う。
-      const frameStage = createStage(canvas, scene ? sample : null);
+      let frameStage = real ? createRealStage(canvas, embedded(sample), stage.offsetWidth) : null;
+      if (!frameStage) { canvas.replaceChildren(); frameStage = createStage(canvas, scene ? sample : null); }
       frameStage.style.width = `${stage.offsetWidth}px`;
       const framePlan = scene ? collectSceneEvents(sample, frameStage, level.value).events : singleEvents(frameStage, sample);
       renderEvents(mountEvents(frameStage, framePlan, level.value), t);

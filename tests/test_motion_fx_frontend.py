@@ -40,9 +40,9 @@ function loadShared(context) {
   return context.Fx;
 }
 function snapshot(el) {
-  return JSON.stringify({ style: el.style, text: el.textContent, cls: el.className,
-    attributes: el.attributes,
-    children: el.children.map(snapshot) });
+  const read = node => ({ style: node.style, text: node.textContent, cls: node.className,
+    attributes: node.attributes, children: node.children.map(read) });
+  return JSON.stringify(read(el));
 }
 const EFFECT_CASES = {
   'float-text': { text: '-9', tone: 'damage' }, 'round-banner': { text: 'ROUND 2' },

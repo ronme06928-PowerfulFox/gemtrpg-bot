@@ -1,7 +1,7 @@
 import { store } from '../core/BattleStore.js';
 import { eventBus } from '../core/EventBus.js';
 import { socketClient } from '../core/SocketClient.js';
-import { RESOLVE_STAGE_TIMING, playResolveStageFx, isDiceDamageSource } from './resolve_flow_fx.js';
+import { resolveStageTiming, playResolveStageFx, isDiceDamageSource } from './resolve_flow_fx.js';
 
 class ResolveFlowPanel {
     constructor() {
@@ -23,7 +23,6 @@ class ResolveFlowPanel {
         this._stepTimer = null;
         this._tickTimer = null;
         this._stepStartedAt = 0;
-        this._stepDurationMs = RESOLVE_STAGE_TIMING.reduce((sum, row) => sum + row.ms, 0);
         this._lastStageKey = null;
         this._unsubscribeStage = null;
         this._introDurationMs = 1600;
@@ -395,7 +394,7 @@ class ResolveFlowPanel {
 
     _stepDuration(step) {
         if (this._isIntroStep(step)) return this._introDurationMs;
-        return this._stepDurationMs;
+        return resolveStageTiming(step).reduce((sum, row) => sum + row.ms, 0);
     }
 
     _clearPendingAdvanceTimer() {
@@ -538,15 +537,15 @@ class ResolveFlowPanel {
             this._outcomeFxDeadline?.step === this._activeStep ? this._outcomeFxDeadline.atMs - Date.now() : 0));
     }
 
-    _revealStageByElapsed(elapsedMs, durationMs) {
-        const total = this._stepDurationMs;
-        const elapsed = Math.max(0, elapsedMs) * total / Math.max(1, durationMs);
+    _revealStageByElapsed(elapsedMs, step) {
+        const timing = resolveStageTiming(step);
+        const elapsed = Math.max(0, elapsedMs);
         let end = 0;
-        for (const row of RESOLVE_STAGE_TIMING) {
+        for (const row of timing) {
             end += row.ms;
             if (elapsed < end) return row.stage;
         }
-        return RESOLVE_STAGE_TIMING[RESOLVE_STAGE_TIMING.length - 1].stage;
+        return timing[timing.length - 1].stage;
     }
 
     _notifyStage(stepKey, stage, step) {
@@ -1729,7 +1728,7 @@ class ResolveFlowPanel {
         const durationMs = this._stepDuration(step);
         const progressRatio = Math.max(0, Math.min(1, elapsed / durationMs));
         const progress = Math.round(progressRatio * 100);
-        const revealStage = this._revealStageByElapsed(elapsed, durationMs);
+        const revealStage = this._revealStageByElapsed(elapsed, step);
         const revealLabel = this._escape(this._revealLabel(revealStage));
         this._tryPlayPowerRevealSe(stepKey, revealStage);
 

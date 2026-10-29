@@ -1,5 +1,5 @@
 // 解決パネルへの接続。演出の定義自体は fx_effects.js に置く。
-import { collectDamageKnockouts, planResolveOutcome } from './resolve_flow_result_fx.js';
+import { collectDamageKnockouts, collectKnockouts, planResolveOutcome } from './resolve_flow_result_fx.js';
 export const RESOLVE_STAGE_TIMING = Object.freeze([
   { stage: 'names', ms: 600 },
   { stage: 'power', ms: 1400 },
@@ -7,8 +7,16 @@ export const RESOLVE_STAGE_TIMING = Object.freeze([
   { stage: 'outcome', ms: 2600 },
 ]);
 
-export const resolveOutcomeWindow = (waitMs = 2000) =>
-  (RESOLVE_STAGE_TIMING.find(row => row.stage === 'outcome').ms + waitMs) / 1000;
+export const OUTCOME_EXTENSIONS = Object.freeze({ knockout: 1500 });
+
+export function resolveStageTiming(step = {}) {
+  const extensions = [collectKnockouts(step).size ? OUTCOME_EXTENSIONS.knockout : 0];
+  const extension = Math.max(...extensions);
+  return RESOLVE_STAGE_TIMING.map(row => ({ ...row, ms: row.ms + (row.stage === 'outcome' ? extension : 0) }));
+}
+
+export const resolveOutcomeWindow = (step = {}, waitMs = 2000) =>
+  (resolveStageTiming(step).find(row => row.stage === 'outcome').ms + waitMs) / 1000;
 
 const ATTACK_EFFECTS = Object.freeze({ 斬撃: 'attack-slash', 打撃: 'attack-strike', 貫通: 'attack-pierce' });
 export const ATTACK_TIERS = Object.freeze({ medium: 8, large: 15 });
@@ -70,7 +78,7 @@ export function playResolveStageFx(flow, payload, state) {
   const panel = document.getElementById(flow._panelId);
   if (!panel) return;
   let stageStart = 0;
-  for (const row of RESOLVE_STAGE_TIMING) {
+  for (const row of resolveStageTiming(step)) {
     if (row.stage === payload.stage) break;
     stageStart += row.ms;
   }
@@ -149,8 +157,8 @@ export function playResolveStageFx(flow, payload, state) {
   const rows = [...(step.applied?.damage || []), ...(step.damageEvents || [])];
   const popups = collectDamagePopups(entries, rows);
   const sideFor = id => id === ids.attacker ? 'attacker' : summation || id === ids.defender ? 'defender' : null;
-  const plan = planResolveOutcome(step, popups, resolveOutcomeWindow(flow._autoAdvanceDelayMs),
-    name => fx.get(name).duration, id => sideFor(id));
+  const plan = planResolveOutcome(step, popups, resolveOutcomeWindow(step, flow._autoAdvanceDelayMs),
+    fx, id => sideFor(id), window.buffCatalogData || {});
   for (const event of plan.events) {
     const side = sideFor(event.targetId);
     if (!side) continue;
@@ -161,15 +169,18 @@ export function playResolveStageFx(flow, payload, state) {
     const tone = event.params.self ? 'self' : event.params.kind === 'effect' ? 'extra' : toneForId(event.targetId);
     const selector = chip ? [`.participant-chip[data-actor-id="${flow._escape(event.targetId)}"] .resolve-flow-portrait-inline`, '.summation-chips']
       : band ? [`.resolve-flow-background.${side}`, `.side.${side}`] : region(side);
-    const position = band ? { x: side === 'attacker' ? 0.08 : 0.92, y: 0.8 }
-      : damage ? { x: 0.5, y: chip ? 0.5 : 0.4 } : {};
-    const lines = band ? event.params.lines.map(line => ({ ...line,
-      tone: line.self ? 'self' : toneForId(line.targetId),
-      text: summation && side === 'defender' && line.kind === 'title'
-        ? `${String(flow._characterById(line.targetId, state)?.name || line.targetId).slice(0, 12)}：${line.text}` : line.text,
+    const position = band ? { x: side === 'attacker' ? 0 : 1, y: 0.8 }
+      : damage ? { x: chip ? 0.5 : side === 'attacker' ? 0.64 : 0.36, y: chip ? 0.5 : 0.4 } : {};
+    const groups = band ? event.params.groups.map(group => ({ ...group,
+      lines: group.lines.map((line, i) => ({ ...line,
+        tone: group.self ? 'self' : toneForId(group.targetId),
+        icon: line.status && window.STATUS_CONFIG?.[line.status]?.icon ? `/static/images/${window.STATUS_CONFIG[line.status].icon}` : null,
+        text: summation && side === 'defender' && i === 0
+          ? `${String(flow._characterById(group.targetId, state)?.name || group.targetId).slice(0, 12)}：${line.text}` : line.text,
+      })),
     })) : undefined;
     playAt(event.name, { ...event.params, tone, side, shake: tierFor(side),
-      ...(band ? { lines } : {}),
+      ...(band ? { groups } : {}),
       icon: icon ? `/static/images/${icon}` : null, label: event.params.status,
       mode: chip ? 'chip' : 'hit',
     }, selector, event.at, position);

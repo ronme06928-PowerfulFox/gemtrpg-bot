@@ -289,8 +289,11 @@
     mount(root, params) {
       this.level = params.level;
       this.shake = params.shake;
+      // 結果の段階では、出た後も枠の終わり（戦闘不能の対象は割れる時刻）まで残す長さを受け取る。
+      this.duration = params.duration ?? this.duration;
+      this.leaveAt = params.leaveAt;
       this.delay = Math.max(0, Math.min(0.8, Number(params.delay) || 0));
-      this.el = element(root, 'div', `fx-resolve-damage ${params.tone || 'enemy'} ${params.icon ? 'with-icon' : ''}`);
+      this.el = element(root, 'div', `fx-resolve-damage ${params.tone || 'enemy'} ${params.icon ? 'with-icon' : ''} ${params.mode === 'chip' ? 'chip' : ''}`);
       if (params.icon) {
         const icon = element(this.el, 'img', 'fx-damage-icon');
         icon.setAttribute('src', params.icon);
@@ -313,88 +316,320 @@
       const y = (light ? 0 : this.enter * (1 - move(0))) - lifted;
       const third = this.pushes[2];
       const crowded = third ? 1 - Fx.prog(time, third.at, 0.15) : 1;
-      this.el.style.opacity = String(Fx.stillOpacity(time, length) * crowded);
+      this.el.style.opacity = String((this.leaveAt === undefined ? Fx.stillOpacity(time, length)
+        : Fx.prog(time, 0, 0.15) * (1 - Fx.prog(time, this.leaveAt, 0.3))) * crowded);
       this.el.style.transform = light ? `translate(-50%, -50%) translateY(${y}px)`
         : `translate(-50%, -50%) translateX(${impactShake(time, this.level, this.shake)}px) translateY(${y}px) scale(${Fx.lerp(this.pop, 1, Fx.prog(time, 0, 0.25))})`;
     },
   });
 
-  Fx.EFFECT_BAND_ROW_HEIGHTS = Object.freeze({ title: 36, result: 28 });
+  function bandRow(root, entry) {
+    const el = element(root, 'div', `fx-effect-${entry.kind} ${entry.tone || 'enemy'}`);
+    el.setAttribute('data-readable', '');
+    const icon = entry.icon ? element(el, 'img', 'fx-effect-icon') : null;
+    if (icon) { icon.setAttribute('src', entry.icon); icon.setAttribute('alt', ''); }
+    const label = element(el, 'span', 'fx-effect-label', String(entry.text || '').replace(/^buff:/, ''));
+    const minus = element(el, 'span', 'fx-damage-minus'), number = element(el, 'span', 'fx-effect-number');
+    const numeric = entry.kind === 'result' && entry.delta !== null && entry.delta !== undefined;
+    minus.style.display = numeric && entry.delta < 0 ? '' : 'none';
+    number.style.display = numeric ? '' : 'none';
+    number.textContent = numeric ? `${entry.delta > 0 ? '+' : ''}${Math.abs(entry.delta)}` : '';
+    return { el, icon, label, minus, number, entry };
+  }
   Fx.define('effect-band', {
     duration: 3.9,
     mount(root, params) {
       this.level = params.level;
       this.side = params.side || 'defender';
       this.duration = params.duration ?? this.duration;
+      this.layout = Fx.layoutEffectBand(params.groups || []);
       this.el = element(root, 'div', `fx-effect-band ${this.side}`);
-      this.lines = (params.lines || []).map(line => {
-        const row = element(this.el, 'div', `fx-effect-${line.kind} ${line.tone || 'enemy'}`);
-        if (line.kind === 'title') row.textContent = line.text;
-        else {
-          element(row, 'span', 'fx-effect-label', String(line.text).replace(/^buff:/, ''));
-          if (line.delta !== null && line.delta !== undefined) {
-            if (line.delta < 0) element(row, 'span', 'fx-damage-minus');
-            element(row, 'span', 'fx-effect-number', `${line.delta > 0 ? '+' : ''}${Math.abs(line.delta)}`);
-          }
-        }
-        row.setAttribute('data-readable', '');
-        return { ...line, el: row, height: Fx.EFFECT_BAND_ROW_HEIGHTS[line.kind] };
+      this.el.style.width = `${(params.width || 240) * 0.5}px`;
+      this.el.style.maxWidth = this.el.style.width;
+      const viewport = element(this.el, 'div', 'fx-effect-viewport');
+      viewport.style.height = `${Fx.EFFECT_BAND_LAYOUT.visibleHeight}px`;
+      this.groups = this.layout.groups.map(group => {
+        const el = element(viewport, 'div', 'fx-effect-group');
+        el.style.height = `${group.height}px`;
+        let top = 0;
+        const lines = group.lines.map(entry => {
+          const row = { ...bandRow(el, entry), height: Fx.EFFECT_BAND_ROW_HEIGHTS[entry.kind] };
+          row.el.style.top = `${top}px`;
+          row.el.style.bottom = 'auto';
+          top += row.height;
+          return row;
+        });
+        return { ...group, el, lines };
       });
     },
     render(t) {
+      const light = this.level === 'light', config = Fx.EFFECT_BAND_LAYOUT;
+      const distance = light ? this.layout.stopDistance : Fx.bandDistance(t, this.layout);
       this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
       this.el.style.transform = this.side === 'attacker' ? 'translate(0, -50%)' : 'translate(-100%, -50%)';
-      this.lines.forEach((line, i) => {
-        const future = this.lines.slice(i + 1);
-        const old = future.some(next => next.at <= t);
-        const drop = future[2]?.at ?? Infinity;
-        const fade = drop === Infinity ? 1 : 1 - Fx.prog(t, drop - 0.12, 0.12);
-        line.el.style.opacity = String(Fx.prog(t, line.at, 0.08) * (old ? 0.6 : 1) * fade);
-        // 新行と既存行を同じ距離で送る。移動中も矩形の境界を接したまま保つ。
-        const y = this.level === 'light' ? -(2 - i % 3) * 36
-          : (i ? line.height * (1 - Fx.prog(t, line.at, 0.22)) : 0)
-            - future.reduce((sum, next) => sum + next.height * Fx.prog(t, next.at, 0.22), 0);
-        const x = this.level === 'light' ? 0 : (this.side === 'attacker' ? -24 : 24) * (1 - Fx.prog(t, line.at, 0.18));
-        line.el.style.transform = `translate(${x}px, ${y}px)`;
+      this.groups.forEach(group => {
+        const y = group.offset - distance;
+        const upper = Fx.clamp01((y - group.height + config.visibleHeight) / group.height);
+        const leave = group.leaveAt === undefined ? 1 : 1 - Fx.prog(t, group.leaveAt, 0.3);
+        group.el.style.opacity = String(Fx.prog(t, group.at, config.slide) * upper * leave);
+        const x = light ? 0 : (this.side === 'attacker' ? -24 : 24) * (1 - Fx.prog(t, group.at, config.slide));
+        group.el.style.transform = `translate(${x}px, ${y}px)`;
       });
     },
   });
 
+  // 番号から決まる疑似乱数（mulberry32）。種は戦闘不能になったキャラのIDから作り、同じ場面なら毎回同じ割れ方にする。
+  function glassRandom(seedText) {
+    let seed = 2166136261;
+    for (const ch of String(seedText ?? 'ko')) seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
+    return () => {
+      seed = (seed + 0x6D2B79F5) | 0;
+      let x = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // 放射と輪の折れ線を面同士で共有し、その面をそのまま破片へ使う。
+  // 本物のガラスに寄せて、放射の角度と本数をばらつかせ、輪はひびごとに半径を揺らし、間ごとに途切れさせる（計画52 §6.6-8）。
+  function glassPane(width, height, origin, options, random) {
+    const { count, fractions, gapChance } = options;
+    const [cx, cy] = origin, turn = Math.PI * 2;
+    const angle = p => (Math.atan2(p[1] - cy, p[0] - cx) + turn) % turn;
+    const ringRadius = Math.min(cx, width - cx, cy, height - cy);
+    const corners = [[width, height], [0, height], [0, 0], [width, 0]].map(point => ({ point, angle: angle(point) }));
+    const gaps = Array.from({ length: count }, () => 0.5 + random() * 1.1);
+    const gapTotal = gaps.reduce((sum, gap) => sum + gap, 0);
+    let next = random() * turn / count;
+    const rays = gaps.map(gap => {
+      const own = next % turn, step = gap / gapTotal * turn;
+      next += step;
+      const dx = Math.cos(own), dy = Math.sin(own);
+      const length = Math.min(dx > 0 ? (width - cx) / dx : dx < 0 ? -cx / dx : Infinity,
+        dy > 0 ? (height - cy) / dy : dy < 0 ? -cy / dy : Infinity);
+      const outer = [Math.max(0, Math.min(width, cx + dx * length)), Math.max(0, Math.min(height, cy + dy * length))];
+      const radii = fractions.map(fraction => fraction * ringRadius * (0.82 + random() * 0.36));
+      const points = [origin, ...radii.map(radius => {
+        const bend = own + (random() - 0.5) * Math.min(step, 0.5) * 0.18;
+        return [cx + Math.cos(bend) * radius, cy + Math.sin(bend) * radius];
+      }), outer];
+      const duration = 0.28 * (0.78 + random() * 0.22);
+      return { angle: own, points, radii, arrivals: [0, ...radii.map(radius => radius / length * duration), duration] };
+    }).sort((x, y) => x.angle - y.angle);
+    const cells = [], edges = [];
+    for (let i = 0; i < count; i++) {
+      const ray = rays[i], after = rays[(i + 1) % count];
+      // その間に残す輪。内側の輪は必ず残し、外側の輪はところどころ途切れさせる。
+      const present = fractions.map((_, j) => j === 0 || random() >= gapChance);
+      const ringPoint = fractions.map((_, j) => {
+        const first = angle(ray.points[j + 1]), last = angle(after.points[j + 1]);
+        const middle = (first + (last <= first ? last + turn : last)) / 2;
+        const radius = (ray.radii[j] + after.radii[j]) / 2 * (0.96 + random() * 0.08);
+        return [cx + Math.cos(middle) * radius, cy + Math.sin(middle) * radius];
+      });
+      const bounds = [-1, ...fractions.map((_, j) => j).filter(j => present[j]), fractions.length];
+      const endAngle = i + 1 < count ? after.angle : turn + rays[0].angle;
+      const boundary = corners.map(c => ({ ...c, angle: c.angle < ray.angle ? c.angle + turn : c.angle }))
+        .filter(c => c.angle > ray.angle && c.angle < endAngle).sort((x, y) => x.angle - y.angle).map(c => c.point);
+      for (let k = 0; k + 1 < bounds.length; k++) {
+        const inner = bounds[k], outerRing = bounds[k + 1];
+        const from = inner + 1, to = outerRing + 1;
+        const cell = ray.points.slice(from, to + 1);
+        if (outerRing === fractions.length) cell.push(...boundary);
+        else cell.push(ringPoint[outerRing]);
+        cell.push(...after.points.slice(Math.max(1, from), to + 1).reverse());
+        if (inner >= 0) cell.push(ringPoint[inner]);
+        cells.push(cell);
+      }
+      for (let j = 0; j + 1 < ray.points.length; j++) edges.push({ kind: 'radial', rayIndex: i,
+        points: [ray.points[j], ray.points[j + 1]], start: ray.arrivals[j], span: ray.arrivals[j + 1] - ray.arrivals[j] });
+      fractions.forEach((fraction, j) => {
+        if (!present[j]) return;
+        const start = Math.max(ray.arrivals[j + 1], after.arrivals[j + 1]);
+        edges.push({ kind: 'ring', rayIndex: i, ringIndex: j,
+          points: [ray.points[j + 1], ringPoint[j], after.points[j + 1]], start, span: Math.max(0.02, 0.28 - start) });
+      });
+    }
+    return { cells, rays, edges };
+  }
+  function insideGlass(point, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const a = polygon[i], b = polygon[j];
+      if ((a[1] > point[1]) !== (b[1] > point[1])
+        && point[0] < (b[0] - a[0]) * (point[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+    }
+    return inside;
+  }
+  // strokeの伸び方と同じeaseを逆算して、枝の位置を親が通る時刻を求める。
+  function glassArrival(fraction) {
+    return fraction < 0.5 ? Math.sqrt(fraction / 2) : 1 - Math.sqrt((1 - fraction) / 2);
+  }
+  function glassBranches(pane, level, chip, random) {
+    const branches = [], owners = new Map();
+    const edgeKey = (a, b) => [a.join(','), b.join(',')].sort().join('|');
+    pane.cells.forEach((cell, index) => cell.forEach((a, i) => {
+      const key = edgeKey(a, cell[(i + 1) % cell.length]);
+      if (!owners.has(key)) owners.set(key, []);
+      owners.get(key).push(index);
+    }));
+    const add = (from, direction, wanted, cells, timing, meta) => {
+      if (timing.start + timing.span > 0.4) return null;
+      for (const owner of cells) for (const length of [wanted, Math.max(3, wanted * 0.65), 3]) {
+        for (const bend of [0, 0.35, -0.35, 0.7, -0.7, 1.1, -1.1, Math.PI]) {
+          const end = [from[0] + Math.cos(direction + bend) * length, from[1] + Math.sin(direction + bend) * length];
+          if (!insideGlass(end, pane.cells[owner]) || !insideGlass(from.map((v, axis) => (v + end[axis]) / 2), pane.cells[owner])) continue;
+          const branch = { ...meta, ...timing, points: [from, end], length, owner };
+          branches.push(branch);
+          return branches.length - 1;
+        }
+      }
+      return null;
+    };
+    pane.edges.forEach((edge, parentEdge) => {
+      const lengths = edge.points.slice(1).map((b, i) => Math.hypot(b[0] - edge.points[i][0], b[1] - edge.points[i][1]));
+      const total = lengths.reduce((sum, length) => sum + length, 0);
+      let travelled = 0;
+      lengths.forEach((length, segmentIndex) => {
+        const a = edge.points[segmentIndex], b = edge.points[segmentIndex + 1], direction = Math.atan2(b[1] - a[1], b[0] - a[0]);
+        // 起点に近い区間ほど枝を多く。位置・角度・長さは疑似乱数でばらつかせる。
+        const near = edge.kind === 'radial' && segmentIndex === 0 ? 1 : 0;
+        const count = chip ? (length >= 8 && random() < 0.6 ? 1 : 0)
+          : Math.floor(random() * (level === 'rich' ? 4 : 3)) + near;
+        for (let k = 0; k < count; k++) {
+          const phase = Math.floor(random() * 4);
+          const fraction = 0.12 + random() * 0.76, from = a.map((v, axis) => Fx.lerp(v, b[axis], fraction));
+          const arrival = edge.start + edge.span * glassArrival((travelled + length * fraction) / total);
+          const turnAway = (random() < 0.5 ? -1 : 1) * (Math.PI / 9 + random() * Math.PI / 4.5);
+          const root = add(from, direction + turnAway, 3 + Math.pow(random(), 1.6) * 11,
+            owners.get(edgeKey(a, b)) || [], { arrival, start: arrival + 0.02 + random() * 0.03, span: 0.04 + random() * 0.03 },
+            { parentEdge, segmentIndex, parentBranch: null, depth: 1, width: random() < 0.5 ? 0.5 : 0.7, phase });
+          if (root === null || random() < 0.6) continue;
+          let parent = root;
+          const deepest = random() < 0.3 ? 3 : 2;
+          for (let depth = 2; depth <= deepest; depth++) {
+            const branch = branches[parent], [p, q] = branch.points;
+            const at = branch.start + branch.span * glassArrival(0.5);
+            const child = add(p.map((v, axis) => Fx.lerp(v, q[axis], 0.5)),
+              Math.atan2(q[1] - p[1], q[0] - p[0]) + (random() < 0.5 ? -1 : 1) * (0.4 + random() * 0.6),
+              Math.max(3, branch.length * (0.45 + random() * 0.3)), [branch.owner],
+              { arrival: at, start: at + 0.02, span: 0.04 },
+              { parentEdge, segmentIndex, parentBranch: parent, depth, width: depth === 2 ? 0.35 : 0.3, phase });
+            if (child === null) break;
+            parent = child;
+          }
+        }
+        travelled += length;
+      });
+    });
+    return branches;
+  }
+  function polygonArea(points) {
+    return Math.abs(points.reduce((sum, a, i) => { const b = points[(i + 1) % points.length]; return sum + a[0] * b[1] - a[1] * b[0]; }, 0)) / 2;
+  }
   Fx.define('ko-shatter', {
-    duration: 1.1,
+    duration: 3.1,
     mount(root, params) {
       this.level = params.level;
-      this.el = element(root, 'div', `fx-ko ${params.mode === 'chip' ? 'chip' : ''} ${params.level}`);
-      this.el.style.width = `${params.width || 240}px`;
-      this.el.style.height = `${params.height || 240}px`;
+      this.duration = params.duration ?? this.duration;
+      const width = this.width = params.width || 240, height = this.height = params.height || 240;
+      this.origin = [width * 0.5, height * 0.38];
+      const [cx, cy] = this.origin;
+      const chip = params.mode === 'chip', rich = params.level === 'rich';
+      this.el = element(root, 'div', `fx-ko ${chip ? 'chip' : ''} ${params.level}`);
+      this.el.style.width = `${width}px`;
+      this.el.style.height = `${height}px`;
       this.shade = element(this.el, 'div', 'fx-ko-shade');
-      const svg = svgElement(this.el, 'svg', 'fx-ko-svg', { viewBox: '0 0 100 100', 'aria-hidden': 'true' });
-      this.face = svgElement(svg, 'path', 'fx-ko-face', { d: 'M 50 5 L 90 30 L 85 75 L 50 95 L 15 75 L 10 30 Z' });
-      this.cracks = svgElement(svg, 'path', 'fx-ko-cracks', { d: 'M 50 5 L 48 40 L 25 52 L 15 75 M 48 40 L 62 60 L 85 75 M 62 60 L 50 95 M 48 40 L 90 30', pathLength: 1 });
-      this.cracks.style.strokeDasharray = '1';
-      this.fragments = Array.from({ length: params.level === 'rich' ? 10 : 6 }, (_, i) => {
-        const a = i * Math.PI * 2 / (params.level === 'rich' ? 10 : 6);
-        const b = a + 0.48;
-        return { el: svgElement(svg, 'path', 'fx-ko-fragment', { d: `M 50 50 L ${50 + Math.cos(a) * 35} ${50 + Math.sin(a) * 35} L ${50 + Math.cos(b) * 36} ${50 + Math.sin(b) * 36} Z` }), angle: a };
+      const svg = this.svg = svgElement(this.el, 'svg', 'fx-ko-svg', { viewBox: `0 0 ${width} ${height}`, preserveAspectRatio: 'xMidYMid meet', 'aria-hidden': 'true' });
+      this.face = svgElement(svg, 'rect', 'fx-ko-face', { x: 0, y: 0, width, height });
+      const random = glassRandom(params.targetId);
+      const fractions = chip ? [0.45] : [0.2, 0.45, 0.78];
+      const count = chip ? 4 + Math.floor(random() * 3) : rich ? 9 + Math.floor(random() * 3) : 8 + Math.floor(random() * 3);
+      const pane = glassPane(width, height, this.origin, { count, fractions, gapChance: chip ? 0 : rich ? 0.35 : 0.45 }, random);
+      this.radials = pane.rays;
+      this.rings = fractions;
+      const distance = p => Math.hypot(p[0] - cx, p[1] - cy) / Math.hypot(width / 2, height * 0.62);
+      this.cracks = pane.edges.map(edge => {
+        const base = (chip ? 1.2 : rich ? 2.3 : 2.0) - edge.points.reduce((sum, p) => sum + distance(p), 0) / edge.points.length * 0.9;
+        const width = Math.min(chip ? 1.2 : 2.4, Math.max(chip ? 0.7 : 1.2, base * (0.85 + random() * 0.3)));
+        const el = svgElement(svg, 'path', 'fx-ko-crack', { d: `M ${edge.points.map(p => p.join(' ')).join(' L ')}`, pathLength: 1, 'stroke-width': width });
+        el.style.strokeDasharray = '1';
+        return { ...edge, width, el };
       });
-      this.label = element(this.el, 'div', 'fx-ko-label', params.mode === 'chip' ? '×' : '戦闘不能');
+      this.branches = glassBranches(pane, this.level, chip, random);
+      const batches = new Map();
+      for (const branch of this.branches) {
+        const key = `${branch.width}:${branch.phase}`;
+        if (!batches.has(key)) batches.set(key, { width: branch.width, phase: branch.phase, items: [] });
+        batches.get(key).items.push(branch);
+      }
+      const pathFor = points => `M ${points[0].join(' ')} L ${points[1].join(' ')}`;
+      this.branchPaths = [...batches.values()].map(batch => ({ ...batch,
+        fullPath: batch.items.map(branch => pathFor(branch.points)).join(' '),
+        el: svgElement(svg, 'path', 'fx-ko-crack', { 'stroke-width': batch.width }),
+      }));
+      const star = Array.from({ length: 20 }, (_, i) => {
+        const a = i * Math.PI / 10, radius = (chip ? 0.3 : 1) * (i % 2 ? 2.5 : 8 + i % 3);
+        return [cx + Math.cos(a) * radius, cy + Math.sin(a) * radius];
+      });
+      this.star = svgElement(svg, 'polygon', 'fx-ko-star', { points: star.map(p => p.join(',')).join(' ') });
+      const maxArea = Math.max(...pane.cells.map(polygonArea));
+      this.fragments = params.level === 'light' ? [] : pane.cells.map((points, i) => {
+        const center = points.reduce((sum, p) => [sum[0] + p[0] / points.length, sum[1] + p[1] / points.length], [0, 0]);
+        const area = polygonArea(points), border = points.some(p => p[0] === 0 || p[0] === width || p[1] === 0 || p[1] === height);
+        const el = svgElement(svg, 'g', 'fx-ko-fragment');
+        const facet = svgElement(el, 'polygon', 'fx-ko-facet', { points: points.map(p => p.join(',')).join(' '), 'fill-opacity': 0.12 + (i * 7 % 6) * 0.035 });
+        const glint = svgElement(el, 'polyline', 'fx-ko-glint', { points: points.slice(0, 3).map(p => p.join(',')).join(' ') });
+        return { points, center, area, el, facet, glint, fallStart: 0.9 + (border && Math.floor(i / (fractions.length + 1)) % 3 === 0 ? 0.1 : 0), fallDuration: 0.5 + area / maxArea * 0.1 };
+      });
+      this.particles = Array.from({ length: params.level === 'light' ? 0 : chip ? rich ? 8 : 4 : rich ? 20 : 12 }, (_, i) =>
+        ({ el: svgElement(svg, 'circle', 'fx-ko-particle', { r: chip ? 0.3 : 0.6 + i % 3 * 0.3 }), angle: i * 2.399 }));
+      this.sweep = svgElement(svg, 'path', 'fx-ko-sweep', { d: `M ${-width * 0.15} ${-height * 0.1} L ${width * 0.15} ${height * 1.1}` });
+      this.flash = element(this.el, 'div', 'fx-ko-flash');
+      this.label = element(this.el, 'div', 'fx-ko-label', chip ? '×' : '戦闘不能');
+      this.label.style.fontSize = `${chip ? 28 : Math.min(48, Math.max(24, (params.width || 240) / 4.6))}px`;
     },
     render(t) {
-      const light = this.level === 'light';
-      const p = Fx.prog(t, 0.32, 0.65);
-      this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
+      const light = this.level === 'light', fade = Fx.stillOpacity(t, this.duration);
+      this.el.style.opacity = '1';
       this.el.style.transform = 'translate(-50%, -50%)';
-      this.face.style.opacity = String(light ? 0.45 : 1 - Fx.prog(t, 0.32, 0.2));
-      this.cracks.style.strokeDashoffset = String(light ? 0 : 1 - Fx.prog(t, 0.12, 0.23));
-      this.cracks.style.opacity = String(light ? 1 : 1 - Fx.prog(t, 0.5, 0.3));
-      this.fragments.forEach((fragment, i) => {
-        const x = light ? 0 : Math.cos(fragment.angle) * p * (this.level === 'rich' ? 30 : 20);
-        const y = light ? 0 : Math.sin(fragment.angle) * p * 18 + p * p * 30;
-        fragment.el.setAttribute('transform', `translate(${x} ${y}) rotate(${light ? 0 : (i % 2 ? 1 : -1) * p * 55} 50 50)`);
-        fragment.el.style.opacity = String(light ? 0 : Fx.prog(t, 0.32, 0.08) * (1 - Fx.prog(t, 0.8, 0.3)));
+      this.face.style.opacity = String(fade * (light ? 0.18 : 1 - Fx.prog(t, 0.9, 0.04)));
+      this.cracks.forEach((crack, i) => {
+        crack.el.style.strokeDashoffset = String(light ? 0 : 1 - Fx.prog(t, crack.start, crack.span));
+        crack.el.style.opacity = String(fade * (light ? 1 : (1 - Fx.prog(t, 0.9, 0.06)) * (0.92 + 0.08 * Math.pow(Math.sin(Math.max(0, Math.min(0.9, t)) * 8 - i * 0.37), 2))));
       });
-      this.shade.style.opacity = String(light ? 1 : Fx.prog(t, 0.6, 0.18));
-      this.label.style.opacity = String(light ? 1 : Fx.prog(t, 0.65, 0.18));
+      this.branchPaths.forEach(batch => {
+        const d = light || t >= 0.4 ? batch.fullPath : batch.items.map(branch => {
+          const progress = Fx.prog(t, branch.start, branch.span);
+          if (!progress) return '';
+          const [a, b] = branch.points, end = a.map((v, axis) => Fx.lerp(v, b[axis], progress));
+          return `M ${a.join(' ')} L ${end.join(' ')}`;
+        }).join(' ');
+        batch.el.setAttribute('d', d);
+        batch.el.style.opacity = String(fade * (light ? 1 : t >= 0.9 ? 0
+          : 0.92 + 0.08 * Math.pow(Math.sin(Math.max(0, Math.min(0.9, t)) * 8 - batch.phase), 2)));
+      });
+      this.star.style.opacity = String(fade * (light ? 0.45 : Fx.prog(t, 0, 0.04) * (1 - Fx.prog(t, 0.9, 0.06))));
+      this.fragments.forEach((fragment, i) => {
+        const fall = Fx.clamp01((t - fragment.fallStart) / fragment.fallDuration);
+        const x = (fragment.center[0] - this.origin[0]) * 0.2 * fall + (i % 3 - 1) * 5 * fall;
+        const y = 8 * fall + this.height * 0.95 * fall * fall;
+        const spin = (i % 2 ? -1 : 1) * (20 + i * 13 % 80) * fall;
+        fragment.el.setAttribute('transform', `translate(${x} ${y}) rotate(${spin} ${fragment.center.join(' ')})`);
+        fragment.el.style.opacity = String(fade * Fx.prog(t, 0.9, 0.025) * (1 - Fx.prog(t, fragment.fallStart + fragment.fallDuration - 0.08, 0.08)));
+        fragment.glint.style.opacity = String(Math.pow(Math.abs(Math.sin(i * 0.77 + fall * Math.PI * 3)), 6));
+      });
+      const scatter = Fx.clamp01((t - 0.9) / 0.65);
+      this.particles.forEach((particle, i) => {
+        particle.el.setAttribute('cx', this.origin[0] + Math.cos(particle.angle) * scatter * (18 + i % 5 * 5));
+        particle.el.setAttribute('cy', this.origin[1] + Math.sin(particle.angle) * scatter * 22 + scatter * scatter * 40);
+        particle.el.style.opacity = String(fade * Fx.prog(t, 0.9, 0.04) * (1 - Fx.prog(t, 1.4, 0.15)) * Math.pow(Math.abs(Math.sin(i + scatter * 12)), 4));
+      });
+      this.sweep.setAttribute('transform', `translate(${light ? 0 : Fx.lerp(-this.width * 0.3, this.width * 1.3, Fx.prog(t, 0.6, 0.2))} 0)`);
+      this.sweep.style.opacity = String(light ? 0 : fade * Fx.prog(t, 0.6, 0.03) * (1 - Fx.prog(t, 0.77, 0.03)));
+      this.flash.style.opacity = String(light || t < 0.9 || t >= 0.94 ? 0 : fade * (1 - Fx.prog(t, 0.9, 0.04)));
+      this.shade.style.opacity = String(fade * (light ? 1 : Fx.prog(t, 1.0, 0.4)));
+      this.label.style.opacity = String(fade * Fx.prog(t, 1.3, 0.08));
     },
   });
 

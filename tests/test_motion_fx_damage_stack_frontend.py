@@ -13,7 +13,7 @@ const step={kind:'one_sided',applied:{damage:[],statuses:[],fired_effects:[
   {term_id:'W-01',name:'出血氾濫',actor_id:'a',target_id:'d',results:[{name:'出血',delta:-2}]},
 ]},damageEvents:[]};
 const popups=[{targetId:'d',amount:9,kind:'dice'},{targetId:'d',amount:6,kind:'effect',status:'破裂'},{targetId:'d',amount:4,kind:'effect',status:'出血'}];
-const plan=planResolveOutcome(step,popups,4.6,name=>Fx.get(name).duration,id=>id==='a'?'attacker':'defender');
+const plan=planResolveOutcome(step,popups,4.6,Fx,id=>id==='a'?'attacker':'defender');
 const numbers=plan.events.filter(e=>e.name==='resolve-damage').sort((x,y)=>x.at-y.at);
 assert.strictEqual(numbers.length,3);
 assert.strictEqual(numbers[0].params.stackEnter,0);

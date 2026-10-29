@@ -63,7 +63,7 @@ const targets = new Map(selectors.map((s,i) => [s,{getBoundingClientRect(){
 const panel = {querySelector:s => targets.get(s),getBoundingClientRect:() => ({left:10,top:20})};
 global.document = {getElementById:() => panel};
 let level = 'normal';
-global.window = {Fx:{get:loadShared({}).get,getLevel:() => level,play:(...args) => calls.push(args)},
+global.window = {Fx:{...loadShared({}),getLevel:() => level,play:(...args) => calls.push(args)},
   resolveTokenSide:char => char?.type === 'enemy' ? 'enemy' : 'ally'};
 flow._slotActorId = id => ({sa:'a',sd:'d',se:'e'}[id]);
 flow._characterById = id => ({id,type:id==='a'?'ally':'enemy',hp:0});
