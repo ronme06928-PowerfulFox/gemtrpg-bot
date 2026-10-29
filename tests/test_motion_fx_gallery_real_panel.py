@@ -58,3 +58,15 @@ assert.ok(fx.el.className.split(' ').includes('chip'));
 const css=fs.readFileSync('static/css/modules/motion_fx.css','utf8');
 assert.ok(/\.fx-resolve-damage\.chip \{ font-size: calc\(30px \* var\(--fx-scale\)\); \}/.test(css));
 """)
+
+
+def test_mock_stage_rules_do_not_leak_into_the_real_panel():
+    # 仮の台の位置決め（.side の absolute など）が本物のパネルに効くと、名前・威力の段の高さが0になって重なる。
+    import re
+    css = (ROOT / "scripts/fx_gallery/gallery.css").read_text(encoding="utf-8")
+    for name in ["side", "name", "actual", "vs", "summation-chips", "summation-total", "participant-chip",
+                 "resolve-flow-background", "resolve-flow-portrait-inline", "chat-total", "stage-caption"]:
+        for match in re.finditer(r"(^|\})\s*([^{}]*\." + re.escape(name) + r"\b[^{}]*)\{", css, re.M):
+            for selector in match.group(2).split(","):
+                if re.search(r"\." + re.escape(name) + r"\b", selector):
+                    assert re.search(r"(^|\s)\.(stage|real-stage)(\s|>)", selector.strip()), selector.strip()

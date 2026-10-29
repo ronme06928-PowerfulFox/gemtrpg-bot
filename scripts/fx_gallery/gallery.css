@@ -38,25 +38,26 @@ h3 { font-size: 16px; font-weight: 500; margin: 0; overflow-wrap: anywhere; }
   border-radius: 7px;
   color: #f6f1e5;
 }
-.resolve-flow-background { position: absolute; top: 0; bottom: 0; width: 50%; opacity: 0.25; }
-.resolve-flow-background.attacker { left: 0; mask-image: linear-gradient(to right, #000 45%, transparent); }
-.resolve-flow-background.defender { right: 0; mask-image: linear-gradient(to left, #000 45%, transparent); }
-.resolve-flow-background > img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
-.side { position: absolute; top: 38px; width: 42%; text-align: center; }
-.side.attacker { left: 3%; }
-.side.defender { right: 3%; }
-.name { min-height: 26px; font-size: 14px; font-weight: 600; line-height: 1.5; }
-.actual { width: 54px; height: 42px; margin: 12px auto; font: 900 28px var(--fx-number-font); }
-.vs { position: absolute; top: 90px; left: 45%; width: 10%; height: 30px; text-align: center; color: #d4bb89; font: 16px Georgia, serif; }
+/* 以下は単体の演出のカードの仮の台（.stage）だけに効かせる。場面カードの本物の解決パネルには効かせない。 */
+.stage .resolve-flow-background { position: absolute; top: 0; bottom: 0; width: 50%; opacity: 0.25; }
+.stage .resolve-flow-background.attacker { left: 0; mask-image: linear-gradient(to right, #000 45%, transparent); }
+.stage .resolve-flow-background.defender { right: 0; mask-image: linear-gradient(to left, #000 45%, transparent); }
+.stage .resolve-flow-background > img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
+.stage .side { position: absolute; top: 38px; width: 42%; text-align: center; }
+.stage .side.attacker { left: 3%; }
+.stage .side.defender { right: 3%; }
+.stage .name { min-height: 26px; font-size: 14px; font-weight: 600; line-height: 1.5; }
+.stage .actual { width: 54px; height: 42px; margin: 12px auto; font: 900 28px var(--fx-number-font); }
+.stage .vs { position: absolute; top: 90px; left: 45%; width: 10%; height: 30px; text-align: center; color: #d4bb89; font: 16px Georgia, serif; }
 /* 本番の解決パネルと同じく、合算の参加者は守る側の上の方（見出しのすぐ下）に並べる。 */
-.summation-chips { position: absolute; right: 3%; top: 64px; width: 48%; height: 60px; display: flex; justify-content: space-around; gap: 4px; }
-.participant-chip { min-width: 0; flex: 1; text-align: center; }
-.participant-chip > span { font-size: 9px; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.resolve-flow-portrait-inline { margin: auto; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #b7a478; }
-.resolve-flow-portrait-inline img { width: 100%; height: 100%; object-fit: cover; object-position: center 15%; }
-.summation-total { position: absolute; top: 132px; right: 22%; font: 14px var(--fx-number-font); color: #999b98; }
-.chat-total { position: absolute; left: 16%; top: 215px; width: 50px; height: 28px; color: #88ce9a; }
-.stage-caption { position: absolute; bottom: 12px; left: 12px; color: #979d9e; font-size: 9px; letter-spacing: 1px; }
+.stage .summation-chips { position: absolute; right: 3%; top: 64px; width: 48%; height: 60px; display: flex; justify-content: space-around; gap: 4px; }
+.stage .participant-chip { min-width: 0; flex: 1; text-align: center; }
+.stage .participant-chip > span { font-size: 9px; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.stage .resolve-flow-portrait-inline { margin: auto; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #b7a478; }
+.stage .resolve-flow-portrait-inline img { width: 100%; height: 100%; object-fit: cover; object-position: center 15%; }
+.stage .summation-total { position: absolute; top: 132px; right: 22%; font: 14px var(--fx-number-font); color: #999b98; }
+.stage .chat-total { position: absolute; left: 16%; top: 215px; width: 50px; height: 28px; color: #88ce9a; }
+.stage .stage-caption { position: absolute; bottom: 12px; left: 12px; color: #979d9e; font-size: 9px; letter-spacing: 1px; }
 .stage > .fx-root { z-index: 4; }
 .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 14px 14px 8px; }
 button, select { font: inherit; font-size: 12px; color: #eee5d1; background: #252e38; border: 1px solid #53606a; border-radius: 5px; padding: 7px 10px; }
@@ -92,11 +93,13 @@ footer { color: #8e979b; font-size: 12px; border-top: 1px solid #303c45; padding
   .card-heading { padding: 14px 12px; }
   .controls { gap: 6px; padding-left: 10px; padding-right: 10px; }
   button, select { padding: 7px; }
-  .side.defender .name { font-size: 12px; }
-  .scene-card .name { font-size: 12px; }
+  .stage .side.defender .name { font-size: 12px; }
+  .scene-card .stage .name { font-size: 12px; }
   .stage { --fx-scale: 0.8; }
 }
 /* 場面カードの本物の解決パネル。本番は画面の幅（92vw）で決まる幅を、一覧の枠の幅に合わせる。ボタンは押せないようにする。 */
 .real-stage { position: relative; width: 100%; min-width: 660px; }
 .real-stage [data-gallery-resolve-panel] { pointer-events: none; }
+/* 本番は地図の上に重ねる（inset: 0）。一覧ではカードの高さで枠が決まるよう、普通の配置にする（字体の読み込みで高さが変わっても追従する）。 */
+.real-stage [data-gallery-resolve-panel].resolve-flow-panel { position: relative; inset: auto; padding: 12px 0; }
 .real-stage [data-gallery-resolve-panel] .resolve-flow-card { width: min(100%, 1180px); max-height: none; }

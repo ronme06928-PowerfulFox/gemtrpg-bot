@@ -41,9 +41,6 @@ export function createRealStage(host, scene, width = null) {
     store._state = previousState;
     viewport.id = previousId;
   }
-  const card = panel.querySelector('.resolve-flow-card');
-  if (!card) return null;
-  // パネルは本番どおり枠いっぱい（inset: 0）に広がるので、枠の高さをカードに合わせる。
-  viewport.style.height = `${Math.ceil(card.scrollHeight) + 24}px`;
-  return panel;
+  // 枠の高さはカードの高さで決まる（gallery.css で一覧の中だけ普通の配置にしている）。
+  return panel.querySelector('.resolve-flow-card') ? panel : null;
 }
