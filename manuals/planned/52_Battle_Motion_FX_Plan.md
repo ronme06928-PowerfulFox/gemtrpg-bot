@@ -1,7 +1,7 @@
 # 計画52：戦闘とセッションの小さなアニメーション演出
 
 作成日: 2026-10-23
-状態: PR1〜PR4実装済み（2026-10-29）。PR4で発動した効果・MP差分・適用後HP・自滅の記録、効果名と混乱のポップアップ、戦闘不能とKO時のlarge補正を追加した。次はPR5（宝石の加護・戦闘の終結）。実装済み仕様は `B03_SelectResolve_Spec.md`・`E01_Visual_Battle_Architecture.md`・`E02_UI_Component_Specs.md` に記載する。手描きの素材（PR6）は保留（§10）。
+状態: PR1〜PR4実装済み（2026-10-29）。PR4で発動した効果・MP差分・適用後HP・自滅の記録、効果名と混乱のポップアップ、戦闘不能とKO時のlarge補正を追加した。次はPR5（宝石の加護・戦闘の終結）。PR5の前に、演出の一覧（計画56）を作り、PR5の見た目の確認に使う。実装済み仕様は `B03_SelectResolve_Spec.md`・`E01_Visual_Battle_Architecture.md`・`E02_UI_Component_Specs.md` に記載する。手描きの素材（PR6）は保留（§10）。
 
 §3の表は着手前（2026-10-23）の調査で、PR1の後はダメージ数値が `Fx` の `float-text`、ラウンドバナーが `round-banner` になっている。
 
