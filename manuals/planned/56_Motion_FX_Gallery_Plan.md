@@ -1,7 +1,28 @@
 # 計画56：演出の一覧（ギャラリー）
 
 作成日: 2026-10-29
-状態: 論点はすべて決定済み（2026-10-29）。次は Codex 向けの指示文を作って実装する。計画52のPR5より先に実装する（§9-6）。
+状態: 実装済み（2026-10-29）。ユーザーによる一覧の確認待ち。計画書は確認後に統合方法を決めるまで残す。
+
+## 実装契約（2026-10-29）
+
+- ソースは `scripts/fx_gallery/`、生成は `npm run gallery`、出力は `/_local/fx_gallery/fx_gallery.html` の1枚。既存の esbuild を使い、アプリ本体と本番バンドルは変えない。
+- 入力は `samples.mjs` の演出パラメータと正規化済みtraceの1段分。演出名の集合は本番の定義と一致させ、段階は light / normal / rich、見本名は重複させない。
+- 場面は初期化していない `ResolveFlowPanel` の集計関数と `playResolveStageFx` を呼び、描画要求を一覧側で受ける。内部の `planResolveOutcome`・KO判定・ダメージ分類・attackTier・配置・toneの規則をそのまま使う。本物のパネルの通し再生やサーバー接続はしない。
+- 時計は一覧側だけが持ち、各演出を別々に mount して時刻から描く。逆向きの移動・段階や見本の切り替えで残像を残さず、切り替え時は mount から作り直す。場面の範囲は結果段階の開始から3.6秒で、超過は表示する。
+- 画像は既存の立ち絵4枚・状態アイコン・チャットのダイスのみ。立ち絵は元画像、状態アイコンは既存の Pillow で96px以内へ縮小したPNGをdata URI化する。生成途中の画像ファイルは残さない。Google Fonts以外の読み込みと localStorage は使わない。
+- 生成失敗はエラーとして終了し、不完全なHTMLで既存の出力を上書きしない。Artifactの公開は§5どおりClaudeが担当し、Codexでは公開しない。
+- 完了後も確認待ちとしてこの計画書を残す。`implemented/` への統合・削除はユーザーが一覧を確認してから決める。
+
+## 実装結果（2026-10-29）
+
+- `scripts/fx_gallery/build.mjs`：既存esbuildで一覧のJSをIIFEへまとめる。識別子は縮めず、本番のcore・effectsをこの順でクラシックスクリプトとして埋め込み、motion_fx.cssもそのまま取り込む。本番のビルドには加えない。
+- `scripts/fx_gallery/samples.mjs`：全14演出の見本と正規化済みtraceの4場面。`gallery.js`・`gallery.css`：18カード、再生・繰り返し・停止・時刻・段階・見本の切り替え、各コマを別々にmountする帯、3.6秒の目印・終了時刻・超過表示。
+- `scripts/fx_gallery/scene.mjs`：初期化していない本番の `ResolveFlowPanel` で記録を集計し、`playResolveStageFx` の描画要求を採取する。本番の `planResolveOutcome`・`collectKnockouts`・`collectDamageKnockouts`・`collectDamagePopups`・`attackTier` を内部で呼び、配置・tone・tierも本番の選び方を使う。呼べなかった関数はない。`fx_player.js` は取り込まない。
+- `scripts/fx_gallery/embed_icons.py`：既存Pillowで状態アイコンを96px以内へ縮小し、data URIとして標準出力に渡す。立ち絵4枚とダイス6枚は元の画像を埋め込む。新しいnpmパッケージ・外部素材の取得はない。
+- 作り方：`npm run gallery`。Pythonは `PYTHON` 環境変数、Windowsでは既存のAnaconda、ほかでは `python` を使う（Pillowが必要）。出力は `/_local/fx_gallery/fx_gallery.html` の1枚、1,129,883 bytes（約1.08MiB）。途中の画像や古いHTMLは残さない。
+- テストは `tests/test_motion_fx_gallery.py`。本番の定義と見本の集合の一致、見本の値、4場面の順序・配置・色・3.6秒内の終了、生成物の外部参照・容量・単一HTML、完成HTMLのスクリプトによる18カードの生成・時刻の往復・段階と見本の再mount・再生と停止と繰り返しを確認する。
+- 視覚確認の制約：ブラウザ操作ツールが `file://` を許可しないため、生成HTMLの直接表示は拒否された。実画面の見た目、375pxでのはみ出し、Google Fontsの表示、Artifact上での実行は未確認。Artifact公開は§5どおりCodexでは行っていない。
+- 指示文との食い違いによる仕様変更はない。計画書の保持は今回のユーザー指示をAGENTS.mdの通常の完了後統合ルールに優先する。
 
 ## 1. 目的
 

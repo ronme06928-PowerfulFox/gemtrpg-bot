@@ -28,6 +28,9 @@ GemDiceBot_Launch/config/*.local.*
 GemDiceBot_Launch/config/*.env
 GemDiceBot_Launch/runtime/
 
+# ローカルの確認用出力（演出の一覧など）
+/_local/
+
 # Typst compiled output (regenerate with `typst compile`)
 manuals/typst/build/
 
