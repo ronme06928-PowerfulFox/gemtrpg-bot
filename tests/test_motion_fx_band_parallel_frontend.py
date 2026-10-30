@@ -50,7 +50,8 @@ const Fx=loadShared({}),doc=makeDocument();
 const root=doc.createElement('div'),fx=Object.create(Fx.get('resolve-damage'));
 fx.mount(root,{level:'normal',amount:5,duration:4.2});
 assert.strictEqual(fx.duration,4.2);
-fx.render(3.5);assert.ok(Number(fx.el.style.opacity)>0.99);
+fx.render(1);assert.ok(Number(fx.el.style.opacity)>0.99);
+fx.render(3.5);assert.ok(Number(fx.el.style.opacity)<0.5);
 fx.render(Infinity);assert.strictEqual(Number(fx.el.style.opacity),0);
 const css=fs.readFileSync('static/css/modules/motion_fx.css','utf8');
 for(const kind of ['title','result']) {

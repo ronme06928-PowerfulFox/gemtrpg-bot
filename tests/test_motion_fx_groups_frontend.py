@@ -126,7 +126,7 @@ const fx=Object.create(Fx.get('effect-band'));fx.mount(doc.createElement('div'),
 const leave=band.params.groups[0].leaveAt;
 fx.render(leave);assert.ok(Number(fx.groups[0].el.style.opacity)>0.99);
 fx.render(leave+0.15);assert.ok(Number(fx.groups[0].el.style.opacity)<0.6&&Number(fx.groups[0].el.style.opacity)>0);
-fx.render(leave+0.31);assert.strictEqual(Number(fx.groups[0].el.style.opacity),0);assert.strictEqual(Number(fx.groups[1].el.style.opacity),1);
+fx.render(leave+0.31);assert.strictEqual(Number(fx.groups[0].el.style.opacity),0);assert.ok(Number(fx.groups[1].el.style.opacity)>0.5);
 assert.ok(Math.abs(band.at+band.params.duration-6.1)<1e-9);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)

@@ -29,11 +29,19 @@
     return prog(t, 0, 0.15) * (1 - prog(t, duration - 0.15, 0.15));
   }
 
+  // ダメージの数字と効果の不透明度：1秒は読ませ、残りで静かに薄れて終わりに0になる（計画52）。
+  function lingerOpacity(t, duration, hold = 1) {
+    const from = Math.max(0, Math.min(hold, duration - 0.3));
+    const x = clamp01((t - from) / (duration - from));
+    return prog(t, 0, 0.15) * (1 - x * x);
+  }
+
   Fx.clamp01 = clamp01;
   Fx.ease = ease;
   Fx.prog = prog;
   Fx.lerp = lerp;
   Fx.stillOpacity = stillOpacity;
+  Fx.lingerOpacity = lingerOpacity;
   Fx.EFFECT_BAND_ROW_HEIGHTS = Object.freeze({ title: 36, result: 28 });
   Fx.EFFECT_BAND_LAYOUT = Object.freeze({ speed: 200, deceleration: 0.4, visibleHeight: 180, slide: 0.12, gap: 8 });
   Fx.layoutEffectBand = function (groups) {

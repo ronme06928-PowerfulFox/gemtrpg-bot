@@ -316,7 +316,7 @@
       const y = (light ? 0 : this.enter * (1 - move(0))) - lifted;
       const third = this.pushes[2];
       const crowded = third ? 1 - Fx.prog(time, third.at, 0.15) : 1;
-      this.el.style.opacity = String((this.leaveAt === undefined ? Fx.stillOpacity(time, length)
+      this.el.style.opacity = String((this.leaveAt === undefined ? Fx.lingerOpacity(time, length)
         : Fx.prog(time, 0, 0.15) * (1 - Fx.prog(time, this.leaveAt, 0.3))) * crowded);
       this.el.style.transform = light ? `translate(-50%, -50%) translateY(${y}px)`
         : `translate(-50%, -50%) translateX(${impactShake(time, this.level, this.shake)}px) translateY(${y}px) scale(${Fx.lerp(this.pop, 1, Fx.prog(time, 0, 0.25))})`;
@@ -370,7 +370,8 @@
       this.groups.forEach(group => {
         const y = group.offset - distance;
         const upper = Fx.clamp01((y - group.height + config.visibleHeight) / group.height);
-        const leave = group.leaveAt === undefined ? 1 : 1 - Fx.prog(t, group.leaveAt, 0.3);
+        const leave = group.leaveAt === undefined ? Fx.lingerOpacity(t - group.at, this.duration - group.at)
+          : 1 - Fx.prog(t, group.leaveAt, 0.3);
         group.el.style.opacity = String(Fx.prog(t, group.at, config.slide) * upper * leave);
         const x = light ? 0 : (this.side === 'attacker' ? -24 : 24) * (1 - Fx.prog(t, group.at, config.slide));
         group.el.style.transform = `translate(${x}px, ${y}px)`;
