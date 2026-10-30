@@ -22,8 +22,12 @@ const Fx=loadShared({}),doc=makeDocument();
 const fx=Object.create(Fx.get('effect-band'));
 fx.mount(doc.createElement('div'),{level:'normal',width:330,groups:[{lines:[{kind:'title',text:'効果'},{kind:'result',text:'MP',delta:-5}]}]});
 assert.strictEqual(parseFloat(fx.el.style.width),330*0.5);
-assert.deepStrictEqual(fx.groups[0].lines.map(row=>row.height),[36,28]);
+assert.deepStrictEqual(fx.groups[0].lines.map(row=>row.height),[40,32]);
 const css=fs.readFileSync('static/css/modules/motion_fx.css','utf8');
+// 帯の文字は立ち絵の上でも読める大きさ・太さにする（計画52）。
+assert.ok(/\.fx-effect-title \{[^}]*font: 900 calc\(28px \* var\(--fx-scale\)\)\/40px/.test(css));
+assert.ok(/\.fx-effect-result \{[^}]*font: 700 calc\(22px \* var\(--fx-scale\)\)\/32px/.test(css));
+assert.ok(/\.fx-effect-icon \{ width: 24px; height: 24px;/.test(css));
 assert.ok(css.includes('text-overflow: ellipsis'));
 assert.ok(css.includes('.fx-effect-number')&&css.includes('flex-shrink: 0'));
 """)

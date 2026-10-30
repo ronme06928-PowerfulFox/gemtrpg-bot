@@ -144,7 +144,8 @@ for (const [name, params] of Object.entries(EFFECT_CASES)) {
   };
   // 長さは定義に1つだけで、段階で変わらない。
   assert.strictEqual(typeof def.duration, 'number');
-  const t = ['power-roll','chat-dice'].includes(name) ? def.duration - 0.39 : 0.1;
+  // 数字は遅れ（delay 0.22秒）の後、膨らむ途中で比べる。
+  const t = ['power-roll','chat-dice'].includes(name) ? def.duration - 0.39 : name === 'resolve-damage' ? 0.3 : 0.1;
   assert.notStrictEqual(look('normal', t), look('rich', t), `${name}: rich is stronger`);
   assert.notStrictEqual(look('normal', 0.1), look('light', 0.1), `${name}: light is still`);
 }

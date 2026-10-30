@@ -35,35 +35,44 @@ assert.strictEqual(overflow.events[0].params.groups.length,40);assert.ok(overflo
 """)
 
 
-def test_group_positions_are_continuous_constant_then_decelerate_without_overlap_and_seek():
+def test_lines_appear_one_by_one_and_each_rises_on_its_own_without_overlap():
     _run_node(r"""
 const Fx=loadShared({}),doc=makeDocument();
-const groups=Array.from({length:8},(_,i)=>({lines:[{kind:'title',text:'効果'+i},...(i%2?[{kind:'result',text:'MP',delta:-5}]:[])]}));
-const layout=Fx.layoutEffectBand(groups);
+const groups=Array.from({length:8},(_,i)=>({lines:[{kind:'title',text:'効果'+i},...(i%2?[{kind:'result',text:'MP',delta:-5},{kind:'result',text:'混乱',delta:null}]:[])]}));
 const css=fs.readFileSync('static/css/modules/motion_fx.css','utf8');
 assert.ok(css.includes('.fx-effect-band .ally')&&css.includes('.fx-effect-band .self'));
-assert.strictEqual(Fx.EFFECT_BAND_LAYOUT.speed,200);assert.strictEqual(Fx.EFFECT_BAND_LAYOUT.visibleHeight,180);
-assert.ok(Math.abs(layout.stopAt-layout.cruiseUntil-0.4)<1e-9);
-const h=1e-4,velocity=t=>(Fx.bandDistance(t+h,layout)-Fx.bandDistance(t-h,layout))/(2*h);
-for(const t of [0.2,0.7,1.0]) assert.ok(Math.abs(velocity(t)-200)<1e-7);
-const speeds=[0.05,0.15,0.25,0.35].map(dt=>velocity(layout.cruiseUntil+dt));
-for(let i=1;i<speeds.length;i++)assert.ok(speeds[i]<speeds[i-1]);
-assert.strictEqual(Fx.bandDistance(layout.stopAt+1,layout),Fx.bandDistance(layout.stopAt,layout));
-for(const boundary of [layout.cruiseUntil,layout.stopAt])assert.ok(Math.abs(Fx.bandDistance(boundary+h,layout)-Fx.bandDistance(boundary-h,layout))<0.05);
+assert.deepStrictEqual({...Fx.EFFECT_BAND_LAYOUT},{visibleHeight:180,slide:0.3,speed:80,margin:8,fadeZone:36});
+const layout=Fx.layoutEffectBand(groups),rows=layout.groups.flatMap(g=>g.lines);
+assert.strictEqual(rows[0].at,0);
+rows.forEach((row,j)=>{
+  assert.strictEqual(row.height,Fx.EFFECT_BAND_ROW_HEIGHTS[row.kind]);
+  if(j) assert.ok(Math.abs(row.at-rows[j-1].at-(row.height+8)/80)<1e-9,'前の行がこの行の高さ＋8px昇ってから出る');
+  assert.ok(Math.abs(row.until-(layout.lastAt-row.at))<1e-9);
+});
+layout.groups.forEach(g=>{assert.strictEqual(g.at,g.lines[0].at);assert.strictEqual(g.lastAt,g.lines.at(-1).at);});
+assert.ok(Math.abs(layout.stopAt-(layout.lastAt+0.3))<1e-9);
+const duration=layout.stopAt+1.5;
+const ty=row=>Number(row.el.style.transform.match(/, ([\d.e+-]+)px\)/)[1]);
 for(const level of ['normal','rich','light']) {
- const root=doc.createElement('div'),fx=Object.create(Fx.get('effect-band'));fx.mount(root,{groups,level,width:330,duration:6.1});
- for(let n=0;n<500;n++) {
+ const root=doc.createElement('div'),fx=Object.create(Fx.get('effect-band'));fx.mount(root,{groups,level,width:330,duration});
+ const all=fx.groups.flatMap(g=>g.lines);
+ for(let n=0;n<=Math.ceil(duration*100);n++) {
   fx.render(n/100);
-  const visible=fx.groups.filter(g=>Number(g.el.style.opacity)>0.001).map(g=>{const y=Number(g.el.style.transform.match(/, ([\d.e+-]+)px\)/)[1]);return {top:y-g.height,bottom:y};}).sort((a,b)=>a.top-b.top);
-  for(let i=1;i<visible.length;i++)assert.ok(visible[i-1].bottom<=visible[i].top+1e-8);
+  const visible=all.filter(r=>Number(r.el.style.opacity)>0.001).map(r=>({bottom:ty(r),top:ty(r)-r.height})).sort((a,b)=>a.top-b.top);
+  for(let i=1;i<visible.length;i++)assert.ok(visible[i-1].bottom<=visible[i].top+1e-6,`${level} t=${n/100}`);
+  for(const v of visible)assert.ok(v.top>-180,'見える範囲の上の端より上は描かない');
  }
- fx.render(layout.stopAt+0.1);const positions=fx.groups.map(g=>g.el.style.transform);
- fx.render(layout.stopAt+0.5);assert.deepStrictEqual(fx.groups.map(g=>g.el.style.transform),positions);
+ // 出たばかりの行は濃い（出た瞬間から消えかけない）。
+ for(const row of all){fx.render(row.at+0.3);assert.ok(Number(row.el.style.opacity)>0.99,`${level} ${row.label.textContent}`);}
+ if(level==='light') {
+  for(let j=1;j<all.length;j++){fx.render(all[j-1].at+0.01);const a=all[0].el.style.transform;fx.render((all[j-1].at+all[j].at)/2);assert.strictEqual(all[0].el.style.transform,a,'軽めは次の行が出るまで動かない');}
+ } else {
+  // 新しい行が出る瞬間の前後で、先の行の昇る速さは変わらない（押されない）。
+  for(let j=1;j<all.length;j++){const at=all[j].at,e=1e-4,y=t=>{fx.render(t);return ty(all[0]);};
+   assert.ok(Math.abs((y(at+e)-y(at))-(y(at)-y(at-e)))<1e-6);}
+ }
  const times=[0,0.2,0.67,2,4.4,Infinity],shots=times.map(t=>{fx.render(t);return snapshot(root);});
  for(const i of [5,3,0,4,1,2]){fx.render(times[i]);assert.strictEqual(snapshot(root),shots[i]);}
- if(level==='light') {fx.render(0.2);const still=fx.groups.map(g=>g.el.style.transform);fx.render(2.7);assert.deepStrictEqual(fx.groups.map(g=>g.el.style.transform),still);}
- else {fx.render(1.2);const visible=fx.groups.filter(g=>Number(g.el.style.opacity)>0.001&&g.at+0.12<=1.2);assert.ok(Number(visible[0].el.style.opacity)<Number(visible.at(-1).el.style.opacity));}
- for(const group of fx.groups) for(const row of group.lines) assert.strictEqual(row.height,Fx.EFFECT_BAND_ROW_HEIGHTS[row.entry.kind]);
 }
 """)
 
@@ -117,16 +126,18 @@ def test_mixed_target_band_hides_only_the_knocked_out_groups_from_break_time():
 (async()=>{
 const Fx=loadShared({}),doc=makeDocument();
 const {planResolveOutcome}=await import('./static/js/battle/components/resolve_flow_result_fx.js');
-const step={selfDestructed:['d'],applied:{fired_effects:['d','e'].map(target_id=>({target_id,name:'再使用',results:[]}))}};
+// 倒れる d のまとまりを最後に置き、帯の終わりまで残る中で砕ける時刻から引かれることを確かめる。
+const step={selfDestructed:['d'],applied:{fired_effects:['e','d'].map(target_id=>({target_id,name:'再使用',results:[]}))}};
 const plan=planResolveOutcome(step,[],6.1,Fx,()=> 'defender');
 const band=plan.events.find(e=>e.name==='effect-band'),ko=plan.events.find(e=>e.name==='ko-shatter');
-assert.ok(Math.abs(band.params.groups[0].leaveAt+band.at-ko.at-0.9)<1e-9);
-assert.strictEqual(band.params.groups[1].leaveAt,undefined);
+assert.ok(Math.abs(band.params.groups[1].leaveAt+band.at-ko.at-0.9)<1e-9);
+assert.strictEqual(band.params.groups[0].leaveAt,undefined);
 const fx=Object.create(Fx.get('effect-band'));fx.mount(doc.createElement('div'),{...band.params,level:'normal'});
-const leave=band.params.groups[0].leaveAt;
-fx.render(leave);assert.ok(Number(fx.groups[0].el.style.opacity)>0.99);
-fx.render(leave+0.15);assert.ok(Number(fx.groups[0].el.style.opacity)<0.6&&Number(fx.groups[0].el.style.opacity)>0);
-fx.render(leave+0.31);assert.strictEqual(Number(fx.groups[0].el.style.opacity),0);assert.ok(Number(fx.groups[1].el.style.opacity)>0.5);
+const leave=band.params.groups[1].leaveAt;
+const op=g=>Math.max(...g.lines.map(row=>Number(row.el.style.opacity)));
+fx.render(leave);const held=op(fx.groups[1]);assert.ok(held>0.5);
+fx.render(leave+0.15);assert.ok(op(fx.groups[1])<held*0.6&&op(fx.groups[1])>0);
+fx.render(leave+0.31);assert.strictEqual(op(fx.groups[1]),0);
 assert.ok(Math.abs(band.at+band.params.duration-6.1)<1e-9);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)

@@ -83,7 +83,7 @@ for(const [width,height,mode] of [[590,400,'hit'],[330,420,'hit'],[32,32,'chip']
 """)
 
 
-def test_eight_effect_scene_groups_disappear_before_crossing_the_viewport_upper_edge():
+def test_eight_effect_scene_groups_never_reach_the_viewport_upper_edge():
     _run_node(r"""
 (async()=>{
  global.window={Fx:loadShared({})};
@@ -91,10 +91,9 @@ def test_eight_effect_scene_groups_disappear_before_crossing_the_viewport_upper_
  const panel={id:'scene',getBoundingClientRect:()=>({left:0,top:0}),querySelector:()=>({getBoundingClientRect:()=>({left:0,top:0,width:330,height:400})})};global.document={getElementById:()=>panel};
  const event=collectSceneEvents(sceneSamples.find(s=>s.id==='eight-effects'),panel,'normal').events.find(e=>e.name==='effect-band');
  const doc=makeDocument(),fx=Object.create(window.Fx.get('effect-band'));fx.mount(doc.createElement('div'),{...event.params,level:'normal'});
- const y=g=>Number(g.el.style.transform.match(/, ([\d.e+-]+)px\)/)[1]);
- for(let n=0;n<400;n++) {fx.render(n/100);for(const g of fx.groups)if(y(g)-g.height<=-180)assert.strictEqual(Number(g.el.style.opacity),0);}
- fx.render(2-event.at);
- const leaked=fx.groups.filter(g=>y(g)>-180&&y(g)-g.height<=-180);
- assert.ok(leaked.length>0);assert.ok(leaked.every(g=>Number(g.el.style.opacity)===0),'以前は部分的に残ったまとまりも上端で消える');
+ const y=r=>Number(r.el.style.transform.match(/, ([\d.e+-]+)px\)/)[1]);
+ // 行は上の端の手前で薄れて消え、見えている間に見える範囲の上の端を越えない。
+ const end=Math.ceil(event.params.duration*100),rows=fx.groups.flatMap(g=>g.lines);
+ for(let n=0;n<=end;n++) {fx.render(n/100);for(const r of rows)if(Number(r.el.style.opacity)>0)assert.ok(y(r)-r.height>-180,`t=${n/100}`);}
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)

@@ -83,14 +83,16 @@ def test_scene_events_use_the_production_plan_positions_tones_and_fit_the_derive
     const flow = new ResolveFlowPanel();
     const entries = flow._collectDamageSummary(step, state).entries;
     const popups = collectDamagePopups(entries, [...step.applied.damage, ...step.damageEvents]);
-    const plan = planResolveOutcome(step, popups, resolveOutcomeWindow(step), window.Fx, id=>id==='a'?'attacker':'defender').events;
+    const planned = planResolveOutcome(step, popups, resolveOutcomeWindow(step), window.Fx, id=>id==='a'?'attacker':'defender');
+    const plan = planned.events;
     for (const level of ['light','normal','rich']) {
       const {events,groupCount,stopSeconds} = collectSceneEvents(scene, panel, level);
       assert.ok(Number.isInteger(groupCount));assert.ok(stopSeconds>=0);
       const actual = events.filter(e => ['resolve-damage','effect-band','ko-shatter'].includes(e.name));
       assert.deepStrictEqual(actual.map(e => [e.name,e.at]), plan.map(e => [e.name,e.at]));
       for (const event of events) {
-        assert.ok(event.at >= 0 && event.at + (event.params.duration??window.Fx.get(event.name).duration) <= resolveOutcomeWindow(step)+0.000001, scene.id);
+        // 効果が多くて枠に入らない場面は、本番と同じく表示が終わるまで延びる。
+        assert.ok(event.at >= 0 && event.at + (event.params.duration??window.Fx.get(event.name).duration) <= Math.max(resolveOutcomeWindow(step), planned.endSeconds)+0.000001, scene.id);
         assert.ok(event.params.width > 0 && event.params.height > 0);
       }
       for (const event of actual) {
@@ -245,7 +247,8 @@ for (const card of cards) {
   card.querySelector('.pause').events.click();now+=100;raf(now);
   assert.ok(clock.value.startsWith('0.10'));
   const end=Number(seek.max);
-  if(card.className.includes('scene-card')) {assert.strictEqual(end,Number(card.dataset.window));assert.ok([4.6,6.1].includes(end));assert.ok(Number(card.dataset.groups)>=0&&Number(card.dataset.stop)>=0);assert.ok(card.querySelector('.timing-note').textContent.includes('まとまり'));}
+  // 効果が多い場面は、表示が終わるまで枠より延びる。
+  if(card.className.includes('scene-card')) {assert.ok(end>=Number(card.dataset.window));assert.ok([4.6,6.1].includes(Number(card.dataset.window)));assert.ok(Number(card.dataset.groups)>=0&&Number(card.dataset.stop)>=0);assert.ok(card.querySelector('.timing-note').textContent.includes('まとまり'));}
   if(card.dataset.effect==='effect-band') assert.strictEqual(end,4.5);
   seek.value=String(end);seek.events.input();
   card.querySelector('.loop').checked=true;

@@ -17,9 +17,10 @@ for(const name of ['effect-band','ko-shatter']) for(const level of ['light','nor
   for(const i of [5,1,0,4,2,3,0]) {fx.render(times[i]);assert.strictEqual(snapshot(root),shots[i]);}
   fx.render(0);assert.strictEqual(Number(fx.el.style.opacity),name==='ko-shatter'?1:0);
   fx.render(Infinity);assert.strictEqual(Number(fx.el.style.opacity),name==='ko-shatter'?1:0);
-  if(level==='light') {fx.render(0.2);const still=transforms(root);fx.render(0.8);assert.deepStrictEqual(transforms(root),still);}
+  // 軽めの帯は、新しい行が出た瞬間にだけ置き直す（最後の行が出た0.5秒より後は動かない）。
+  if(level==='light') {const [a,b]=name==='effect-band'?[0.6,0.9]:[0.2,0.8];fx.render(a);const still=transforms(root);fx.render(b);assert.deepStrictEqual(transforms(root),still);}
   if(name==='effect-band') {
-    fx.render(0.2);assert.ok(Number(fx.el.style.opacity)>0);assert.ok(Number(fx.groups[0].el.style.opacity)>0);
+    fx.render(0.2);assert.ok(Number(fx.el.style.opacity)>0);assert.ok(Number(fx.groups[0].lines[0].el.style.opacity)>0);
     assert.strictEqual(fx.groups[0].lines.length,2);
   }
 }

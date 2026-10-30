@@ -48,14 +48,7 @@ export function damageBases(sample, timeline, layout) {
   return bases;
 }
 
-// 同時に入る行も固い列として押し上げる。個々の入口ではなく累積した入口を使う。
-export function damageEnterOffsets(timeline) {
-  const totals = new Map(), offsets = new Map();
-  for (const event of timeline.events.filter(row => row.name === 'resolve-damage')) {
-    const key = `${event.targetId}:${event.at}`;
-    const offset = (totals.get(key) || 0) + (event.params.stackEnter || 0);
-    totals.set(key, offset);
-    offsets.set(event, offset);
-  }
-  return offsets;
+// 数字が昇ってよい高さ：数字の枠の上の端で字が切れる手前まで。
+export function damageCeiling(layout, base, kind) {
+  return base.y - layout.damage.y - (kind === 'dice' ? 46 : 30) / 2;
 }

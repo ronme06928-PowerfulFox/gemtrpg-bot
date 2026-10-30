@@ -17,7 +17,8 @@ assert.strictEqual(band.at,0.1);
 assert.ok(Math.abs(band.at+band.params.duration-4.6)<1e-9);
 const numbers=plan.events.filter(e=>e.name==='resolve-damage').sort((x,y)=>x.at-y.at);
 assert.strictEqual(numbers[0].at,0);
-assert.ok(Math.abs(numbers[1].at-(0.1+0.05))<1e-9);
+// 追加の数字は、本体の数字が（52+36）/2+8px 昇るのを待ってから出る。
+assert.ok(Math.abs(numbers[1].at-((52+36)/2+8)/Fx.FLOAT.numberSpeed)<1e-9);
 for(const n of numbers) assert.ok(Math.abs(n.at+n.params.duration-4.6)<1e-9,'数字は枠の終わりまで残る');
 })().catch(e=>{console.error(e);process.exit(1);});
 """)
@@ -50,7 +51,7 @@ const Fx=loadShared({}),doc=makeDocument();
 const root=doc.createElement('div'),fx=Object.create(Fx.get('resolve-damage'));
 fx.mount(root,{level:'normal',amount:5,duration:4.2});
 assert.strictEqual(fx.duration,4.2);
-fx.render(1);assert.ok(Number(fx.el.style.opacity)>0.99);
+fx.render(0.8);assert.ok(Number(fx.el.style.opacity)>0.99);
 fx.render(3.5);assert.ok(Number(fx.el.style.opacity)<0.5);
 fx.render(Infinity);assert.strictEqual(Number(fx.el.style.opacity),0);
 const css=fs.readFileSync('static/css/modules/motion_fx.css','utf8');

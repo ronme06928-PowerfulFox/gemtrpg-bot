@@ -29,11 +29,26 @@
     return prog(t, 0, 0.15) * (1 - prog(t, duration - 0.15, 0.15));
   }
 
-  // ダメージの数字と効果の不透明度：1秒は読ませ、残りで静かに薄れて終わりに0になる（計画52）。
-  function lingerOpacity(t, duration, hold = 1) {
-    const from = Math.max(0, Math.min(hold, duration - 0.3));
-    const x = clamp01((t - from) / (duration - from));
-    return prog(t, 0, 0.15) * (1 - x * x);
+  // ダメージの数字と効果の浮かび方（計画52）。数字が昇る速さの上限px/秒・減速の時定数秒・
+  // 漂う速さpx/秒・濃いまま残す秒・縮み切る倍率（数字・まとまり）・出だしの倍率。
+  Fx.FLOAT = Object.freeze({ numberSpeed: 60, glide: 0.5, drift: 12, hold: 0.8, shrink: 0.82, groupShrink: 0.9, enterFrom: 0.6 });
+
+  // 昇った距離。until 秒までは一定の速さ、その後はなめらかに漂う速さへ近づく（速さが段にならない）。
+  function floatDistance(t, until, speed = Fx.FLOAT.numberSpeed) {
+    const { glide, drift } = Fx.FLOAT;
+    const run = Math.max(0, Math.min(t, until)), rest = Math.max(0, t - Math.max(0, until));
+    return speed * run + drift * rest + (speed - drift) * glide * (1 - Math.exp(-rest / glide));
+  }
+
+  // 読ませた後、表示の終わりまでの薄れの進み（0→1）。短い表示は終わりの0.3秒で進める。
+  function lingerProgress(t, duration) {
+    const from = Math.max(0, Math.min(Fx.FLOAT.hold, duration - 0.3));
+    return clamp01((t - from) / (duration - from));
+  }
+
+  // 尾を引いて薄れる：始めに目に見えて薄くなり、終わりは長くかすかに残る。
+  function lingerOpacity(t, duration) {
+    return prog(t, 0, 0.15) * Math.pow(1 - lingerProgress(t, duration), 2);
   }
 
   Fx.clamp01 = clamp01;
@@ -41,27 +56,28 @@
   Fx.prog = prog;
   Fx.lerp = lerp;
   Fx.stillOpacity = stillOpacity;
+  Fx.floatDistance = floatDistance;
+  Fx.lingerProgress = lingerProgress;
   Fx.lingerOpacity = lingerOpacity;
-  Fx.EFFECT_BAND_ROW_HEIGHTS = Object.freeze({ title: 36, result: 28 });
-  Fx.EFFECT_BAND_LAYOUT = Object.freeze({ speed: 200, deceleration: 0.4, visibleHeight: 180, slide: 0.12, gap: 8 });
+  Fx.EFFECT_BAND_ROW_HEIGHTS = Object.freeze({ title: 40, result: 32 });
+  // 効果は1行ずつばらして出す：後の行は、前の行がその行の高さ＋ゆとりだけ昇ってから帯の下の端に出る（計画52）。
+  Fx.EFFECT_BAND_LAYOUT = Object.freeze({ visibleHeight: 180, slide: 0.3, speed: 80, margin: 8, fadeZone: 36 });
   Fx.layoutEffectBand = function (groups) {
     const config = Fx.EFFECT_BAND_LAYOUT;
-    let offset = 0;
-    const placed = groups.map((group, i) => {
-      const height = group.lines.reduce((sum, row) => sum + Fx.EFFECT_BAND_ROW_HEIGHTS[row.kind], 0);
-      if (i) offset += height + config.gap;
-      return { ...group, height, offset, at: offset / config.speed };
+    let at = null;
+    const placed = groups.map(group => {
+      const lines = group.lines.map(line => {
+        const height = Fx.EFFECT_BAND_ROW_HEIGHTS[line.kind];
+        at = at === null ? 0 : at + (height + config.margin) / config.speed;
+        return { ...line, height, at };
+      });
+      return { ...group, lines, height: lines.reduce((sum, line) => sum + line.height, 0),
+        at: lines[0]?.at ?? 0, lastAt: lines.at(-1)?.at ?? 0 };
     });
-    const cruiseUntil = (placed.at(-1)?.at || 0) + config.slide;
-    return { groups: placed, cruiseUntil, stopAt: cruiseUntil + config.deceleration,
-      stopDistance: config.speed * (cruiseUntil + config.deceleration / 2) };
-  };
-  Fx.bandDistance = function (t, layout) {
-    const { speed, deceleration } = Fx.EFFECT_BAND_LAYOUT;
-    if (t >= layout.stopAt) return layout.stopDistance;
-    const cruise = Math.max(0, Math.min(t, layout.cruiseUntil));
-    const slow = Math.max(0, Math.min(t - layout.cruiseUntil, deceleration));
-    return speed * (cruise + slow - slow * slow / (2 * deceleration));
+    // 行が出続ける間は一緒に昇り、最後の行が出た時刻からそろって減速する。
+    const lastAt = at ?? 0;
+    for (const group of placed) for (const line of group.lines) line.until = lastAt - line.at;
+    return { groups: placed, lastAt, stopAt: lastAt + config.slide };
   };
   Fx.define = function (name, definition) {
     definitions[name] = definition;

@@ -168,8 +168,8 @@
 .fx-effect-band.attacker > div { left: 0; right: auto; }
 .fx-effect-band .ally { color: var(--fx-ally); }
 .fx-effect-band .self { color: var(--fx-self); }
-.fx-effect-title { width: 100%; height: 36px; line-height: 36px; box-sizing: border-box; position: absolute; right: 0; bottom: 0; padding: 0 8px; text-shadow: 0 2px 3px var(--fx-shadow), 0 0 8px var(--fx-shadow), 0 0 2px #000; white-space: nowrap; font: 900 calc(24px * var(--fx-scale))/36px var(--fx-effect-font); }
-.fx-effect-result { width: 100%; height: 28px; line-height: 28px; box-sizing: border-box; position: absolute; right: 0; bottom: 0; padding: 0 8px; text-shadow: 0 2px 3px var(--fx-shadow), 0 0 8px var(--fx-shadow), 0 0 2px #000; display: flex; gap: 0.2em; align-items: center; justify-content: flex-end; white-space: nowrap; font: calc(18px * var(--fx-scale))/28px var(--fx-effect-font); }
+.fx-effect-title { width: 100%; height: 40px; line-height: 40px; box-sizing: border-box; position: absolute; right: 0; bottom: 0; padding: 0 8px; text-shadow: 0 2px 3px var(--fx-shadow), 0 0 8px var(--fx-shadow), 0 0 2px #000; white-space: nowrap; font: 900 calc(28px * var(--fx-scale))/40px var(--fx-effect-font); }
+.fx-effect-result { width: 100%; height: 32px; line-height: 32px; box-sizing: border-box; position: absolute; right: 0; bottom: 0; padding: 0 8px; text-shadow: 0 2px 3px var(--fx-shadow), 0 0 8px var(--fx-shadow), 0 0 2px #000; display: flex; gap: 0.2em; align-items: center; justify-content: flex-end; white-space: nowrap; font: 700 calc(22px * var(--fx-scale))/32px var(--fx-effect-font); }
 .fx-effect-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fx-effect-title .fx-effect-label { display: block; }
 .fx-effect-result .fx-effect-label { flex: 0 1 auto; }
@@ -308,6 +308,6 @@
 }
 
 .fx-effect-group { position: absolute; width: 100%; bottom: 0; }
-.fx-effect-icon { width: 20px; height: 20px; flex-shrink: 0; object-fit: contain; }
+.fx-effect-icon { width: 24px; height: 24px; flex-shrink: 0; object-fit: contain; }
 
 .fx-effect-viewport { position: absolute; bottom: 0; width: 100%; overflow: hidden; }

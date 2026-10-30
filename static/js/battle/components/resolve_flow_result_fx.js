@@ -1,8 +1,9 @@
 // 記録から結果段階の表示順を決める。現在HPやログ文からは推測しない。
 const EFFECT_SOURCE_STATUS = Object.freeze({ 'W-01': '出血', 'W-03': '破裂', 'W-05': '亀裂', 'W-07': '戦慄', 'W-09': '荊棘' });
 const GRANT_STATES = new Set(['出血', '破裂', '亀裂', '戦慄', '荊棘', '荊棘重絡']);
-// 同じ対象の数字を縦に積むときの行の高さ（本体・追加）。押し上げの量はここから決める。
+// 同じ対象の数字を縦に並べるときの行の高さ（本体・追加）と、行の間のゆとり。後の数字を出す間隔はここから決める。
 export const DAMAGE_STACK_ROW_HEIGHTS = Object.freeze({ dice: 52, effect: 36 });
+export const DAMAGE_STACK_MARGIN = 8;
 
 export function collectDamageKnockouts(step) {
   const ids = new Set();
@@ -93,6 +94,7 @@ export function planResolveOutcome(step, popups, windowSeconds, fx, laneFor = id
   }));
   let stopSeconds = 0, groupCount = 0;
   for (const [lane, layout] of layouts) {
+    // 最後のまとまりは読み終えた後も読取りの時間だけ残し、尾を引いて消える。
     const end = Math.max(windowSeconds, bandStart + layout.stopAt + readTime);
     events.push({ name: 'effect-band', targetId: layout.groups[0].targetId, lane, at: bandStart,
       params: { groups: layout.groups, duration: end - bandStart } });
@@ -105,12 +107,35 @@ export function planResolveOutcome(step, popups, windowSeconds, fx, laneFor = id
     const group = layouts.get(laneFor(popup.targetId))?.groups.at(-1);
     events.push({ name: 'resolve-damage', targetId: popup.targetId, params: { ...popup }, at: bandStart + (group?.at || 0) + extraDelay });
   }
+  // 押し上げない：後の数字は、前の数字が行の高さ＋ゆとりだけ昇ってから土台に出す。
+  // 出続ける間は全員が同じ速さで昇り、最後の数字が出た時刻からそろって減速する（間が詰まらない）。
+  // 列の速さは間を空けるのに要る分だけ（上限は数字の速さ）。間隔が長いときに昇りすぎない。
+  const stacks = new Map();
+  for (const event of events.filter(e => e.name === 'resolve-damage').sort((x, y) => x.at - y.at)) {
+    if (!stacks.has(event.targetId)) stacks.set(event.targetId, []);
+    stacks.get(event.targetId).push(event);
+  }
+  const height = e => DAMAGE_STACK_ROW_HEIGHTS[e.params.kind === 'dice' ? 'dice' : 'effect'];
+  for (const stack of stacks.values()) {
+    stack.forEach((e, j) => {
+      if (j) e.at = Math.max(e.at, stack[j - 1].at + ((height(e) + height(stack[j - 1])) / 2 + DAMAGE_STACK_MARGIN) / fx.FLOAT.numberSpeed);
+    });
+    const gap = j => (height(stack[j]) + height(stack[j - 1])) / 2 + DAMAGE_STACK_MARGIN;
+    const speed = Math.min(fx.FLOAT.numberSpeed, Math.max(0, ...stack.slice(1).map((e, i) => gap(i + 1) / (e.at - stack[i].at))) || fx.FLOAT.numberSpeed);
+    stack.forEach((e, j) => {
+      e.params.until = stack.at(-1).at - e.at;
+      e.params.speed = speed;
+      e.params.stacked = j > 0;
+      // 4つ目が出たら一番古い数字を消す。
+      if (stack[j + 3]) e.params.crowdAt = stack[j + 3].at - e.at;
+    });
+  }
   const knockoutStarts = [];
   for (const targetId of koIds) {
     const dice = events.filter(e => e.name === 'resolve-damage' && e.params.kind === 'dice');
     const ownPeak = Math.max(0.9, ...dice.filter(e => e.targetId === targetId).map(e => e.at + 0.9));
     const lineTimes = events.filter(e => e.name === 'effect-band').flatMap(band =>
-      band.params.groups.filter(group => group.targetId === targetId).map(group => band.at + group.at));
+      band.params.groups.filter(group => group.targetId === targetId).map(group => band.at + group.lastAt));
     const extraTimes = events.filter(e => e.name === 'resolve-damage' && e.targetId === targetId && e.params.kind !== 'dice').map(e => e.at);
     let minimum = ownPeak + 0.1;
     let at = Math.max(minimum, ...[...lineTimes, ...extraTimes].map(time => time + 0.4));
@@ -151,20 +176,6 @@ export function planResolveOutcome(step, popups, windowSeconds, fx, laneFor = id
     }
     const ends = band.params.groups.map(group => group.leaveAt === undefined ? heldEnd : band.at + group.leaveAt + 0.3);
     band.params.duration = Math.max(...ends) - band.at;
-  }
-  // 新しい数字は前の数字の下から入り、全員が同じ量だけ押し上げられる（固い列のまま動くので重ならない）。
-  const stacks = new Map();
-  for (const event of events.filter(e => e.name === 'resolve-damage').sort((x, y) => x.at - y.at)) {
-    if (!stacks.has(event.targetId)) stacks.set(event.targetId, []);
-    stacks.get(event.targetId).push(event);
-  }
-  for (const stack of stacks.values()) {
-    const height = e => DAMAGE_STACK_ROW_HEIGHTS[e.params.kind === 'dice' ? 'dice' : 'effect'];
-    const amounts = stack.map((e, j) => (j ? (height(e) + height(stack[j - 1])) / 2 : 0));
-    stack.forEach((e, j) => {
-      e.params.stackEnter = amounts[j];
-      e.params.stackPushes = stack.slice(j + 1).map((later, k) => ({ at: later.at - e.at, amount: amounts[j + 1 + k] }));
-    });
   }
   const endSeconds = Math.max(0, ...events.map(e => e.at + (e.params.duration ?? durationFor(e.name))));
   return { events, groupCount, stopSeconds, endSeconds, statusFallbacks: [...fallbacks] };

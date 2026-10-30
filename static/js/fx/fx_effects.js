@@ -299,27 +299,33 @@
         icon.setAttribute('src', params.icon);
         icon.setAttribute('alt', params.label || '');
       }
-      element(this.el, 'span', 'fx-damage-minus');
+      // ダメージは常に減る向きなので符号を付けない（効果の帯の増減は符号を残す）。
       element(this.el, 'span', 'fx-damage-number', String(params.amount));
-      // 列の最初の数字は10pxだけ浮き上がり、続く数字は前の数字の下から押し上げと同じ動きで入る。
-      this.enter = Number(params.stackEnter) || 10;
-      // 列の2つ目以降は、隣の数字にはみ出さないよう、出だしの拡大を控えめにする。
-      this.pop = params.stackEnter ? 1.15 : (this.level === 'rich' ? 1.6 : 1.25);
-      this.pushes = params.stackPushes || [];
+      // 押し上げはしない。until 秒まで一定の速さで昇り、その後なめらかに減速する（同じ対象の数字は同時に減速する）。
+      this.until = Math.max(0, Number(params.until) || 0);
+      this.speed = Number(params.speed) || Fx.FLOAT.numberSpeed;
+      // 昇ってよい高さ（px）。帯の上端と同じく、その36px手前から薄れて消える。
+      this.ceiling = params.ceiling;
+      this.crowdAt = params.crowdAt;
+      // 列の2つ目以降は、上の数字にはみ出さないよう、出だしの膨らみを控えめにする。
+      this.pop = params.stacked ? 1.12 : (this.level === 'rich' ? 1.6 : 1.3);
     },
     render(t) {
       const time = t - this.delay;
       const length = this.duration - this.delay;
       const light = this.level === 'light';
-      const move = (start) => (light ? (time >= start ? 1 : 0) : Fx.prog(time, start, 0.2));
-      const lifted = this.pushes.reduce((sum, push) => sum + push.amount * move(push.at), 0);
-      const y = (light ? 0 : this.enter * (1 - move(0))) - lifted;
-      const third = this.pushes[2];
-      const crowded = third ? 1 - Fx.prog(time, third.at, 0.15) : 1;
+      // 軽めは動かさず、最初から最後の並びの位置に置く。
+      const y = -(light ? this.speed * this.until : Fx.floatDistance(Math.min(time, length), this.until, this.speed));
+      const crowded = (this.crowdAt === undefined ? 1 : 1 - Fx.prog(time, this.crowdAt, 0.15))
+        * (this.ceiling === undefined ? 1 : Fx.clamp01((this.ceiling + y) / 36));
+      const fading = this.leaveAt === undefined ? Fx.lingerProgress(time, length) : Fx.prog(time, this.leaveAt, 0.3);
       this.el.style.opacity = String((this.leaveAt === undefined ? Fx.lingerOpacity(time, length)
-        : Fx.prog(time, 0, 0.15) * (1 - Fx.prog(time, this.leaveAt, 0.3))) * crowded);
+        : Fx.prog(time, 0, 0.15) * (1 - fading)) * crowded);
+      // 0.3秒かけて手前へ膨らみ、0.5秒かけて落ち着き、薄れと同じ進みで縮む。
+      const swell = time < 0.3 ? Fx.lerp(Fx.FLOAT.enterFrom, this.pop, Fx.prog(time, 0, 0.3))
+        : Fx.lerp(this.pop, 1, Fx.prog(time, 0.3, 0.5));
       this.el.style.transform = light ? `translate(-50%, -50%) translateY(${y}px)`
-        : `translate(-50%, -50%) translateX(${impactShake(time, this.level, this.shake)}px) translateY(${y}px) scale(${Fx.lerp(this.pop, 1, Fx.prog(time, 0, 0.25))})`;
+        : `translate(-50%, -50%) translateX(${impactShake(time, this.level, this.shake)}px) translateY(${y}px) scale(${swell * Fx.lerp(1, Fx.FLOAT.shrink, fading)})`;
     },
   });
 
@@ -350,32 +356,35 @@
       viewport.style.height = `${Fx.EFFECT_BAND_LAYOUT.visibleHeight}px`;
       this.groups = this.layout.groups.map(group => {
         const el = element(viewport, 'div', 'fx-effect-group');
-        el.style.height = `${group.height}px`;
-        let top = 0;
-        const lines = group.lines.map(entry => {
-          const row = { ...bandRow(el, entry), height: Fx.EFFECT_BAND_ROW_HEIGHTS[entry.kind] };
-          row.el.style.top = `${top}px`;
-          row.el.style.bottom = 'auto';
-          top += row.height;
+        // 行はばらして動かすので、どの行も帯の下の端を土台にする。
+        const lines = group.lines.map(line => {
+          const row = { ...bandRow(el, line), height: line.height, at: line.at, until: line.until };
+          row.el.style.transformOrigin = this.side === 'attacker' ? 'left bottom' : 'right bottom';
           return row;
         });
         return { ...group, el, lines };
       });
+      this.rowTimes = this.groups.flatMap(group => group.lines.map(row => row.at));
     },
     render(t) {
       const light = this.level === 'light', config = Fx.EFFECT_BAND_LAYOUT;
-      const distance = light ? this.layout.stopDistance : Fx.bandDistance(t, this.layout);
       this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
       this.el.style.transform = this.side === 'attacker' ? 'translate(0, -50%)' : 'translate(-100%, -50%)';
-      this.groups.forEach(group => {
-        const y = group.offset - distance;
-        const upper = Fx.clamp01((y - group.height + config.visibleHeight) / group.height);
-        const leave = group.leaveAt === undefined ? Fx.lingerOpacity(t - group.at, this.duration - group.at)
-          : 1 - Fx.prog(t, group.leaveAt, 0.3);
-        group.el.style.opacity = String(Fx.prog(t, group.at, config.slide) * upper * leave);
-        const x = light ? 0 : (this.side === 'attacker' ? -24 : 24) * (1 - Fx.prog(t, group.at, config.slide));
-        group.el.style.transform = `translate(${x}px, ${y}px)`;
-      });
+      // 軽めは滑らかに動かさず、新しい行が出た瞬間にだけ1行分上へ置き直す。
+      const latest = Math.max(0, ...this.rowTimes.filter(at => at <= t));
+      for (const group of this.groups) {
+        const leave = group.leaveAt === undefined ? 0 : Fx.prog(t, group.leaveAt, 0.3);
+        for (const row of group.lines) {
+          const age = t - row.at, length = this.duration - row.at;
+          const rise = light ? config.speed * Math.max(0, latest - row.at)
+            : Fx.floatDistance(Math.min(age, length), row.until, config.speed);
+          const ceiling = Fx.clamp01((config.visibleHeight - row.height - rise) / config.fadeZone);
+          row.el.style.opacity = String(age < 0 ? 0 : Fx.lingerOpacity(age, length) * ceiling * (1 - leave));
+          const x = light ? 0 : (this.side === 'attacker' ? -24 : 24) * (1 - Fx.prog(age, 0, config.slide));
+          const shrink = Fx.lerp(1, Fx.FLOAT.groupShrink, Math.max(Fx.lingerProgress(age, length), leave));
+          row.el.style.transform = `translate(${x}px, ${-rise}px)${light ? '' : ` scale(${shrink})`}`;
+        }
+      }
     },
   });
 

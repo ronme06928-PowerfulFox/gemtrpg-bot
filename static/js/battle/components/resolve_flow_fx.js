@@ -89,7 +89,9 @@ export function playResolveStageFx(flow, payload, state) {
     const target = selectors.map((s) => panel.querySelector(s)).find(Boolean);
     if (!target) return;
     const rect = target.getBoundingClientRect();
-    fx.play(name, { ...params, width: rect.width, height: rect.height }, {
+    // 数字は立ち絵の背景の上の端（本体の数字の半分の高さ手前）まで昇ってよい。
+    const ceiling = name === 'resolve-damage' && params.mode !== 'chip' ? { ceiling: rect.height * (position.y ?? 0.5) - 26 } : {};
+    fx.play(name, { ...params, width: rect.width, height: rect.height, ...ceiling }, {
       host: panel, elapsedSeconds, delaySeconds, left: rect.left + rect.width * (position.x ?? 0.5) - hostRect.left + (position.dx || 0),
       top: rect.top + rect.height * (position.y ?? 0.5) - hostRect.top + (position.dy || 0),
     });

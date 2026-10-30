@@ -71,11 +71,13 @@ const damage=calls.filter(c=>c[0]==='resolve-damage');
 const rect=targets.get('.resolve-flow-background.defender').getBoundingClientRect();
 assert.strictEqual(damage[0][2].left,rect.left+rect.width*0.36-10);
 assert.strictEqual(damage[0][2].top,rect.top+rect.height*0.4-20);
-// 続く数字は同じ土台に出し、ずらしは押し上げ（stackEnter / stackPushes）で行う。
+// 続く数字は同じ土台に出し、押し上げずに前の数字が昇ってから出す（計画52）。
 assert.strictEqual(damage[1][2].left,damage[0][2].left);
 assert.strictEqual(damage[1][2].top,damage[0][2].top);
-assert.strictEqual(damage[1][1].stackEnter,(52+36)/2);
-assert.strictEqual(damage[0][1].stackPushes[0].amount,(52+36)/2);
+assert.strictEqual(damage[1][1].stacked,true);
+// 立ち絵の背景の上の端（本体の数字の半分の高さ手前）まで昇ってよい。
+assert.strictEqual(damage[0][1].ceiling,rect.height*0.4-26);
+assert.ok(damage[0][1].until>=((52+36)/2+8)/60-1e-9);
 const effect=calls.find(c=>c[0]==='effect-band');
 assert.strictEqual(effect[2].left,rect.left+rect.width-10);
 assert.strictEqual(effect[2].top,rect.top+rect.height*0.8-20);
@@ -91,14 +93,15 @@ assert.ok(effects[0][1].groups[0].at<effects[0][1].groups[1].at);
 """)
 
 
-def test_band_keeps_the_last_group_stationary_and_fades_only_at_the_end():
+def test_band_stops_flowing_in_light_and_the_whole_band_fades_only_at_the_end():
     _run_node(r"""
 const Fx=loadShared({}),doc=makeDocument();
 for(const level of ['normal','rich','light']) {
  const fx=Object.create(Fx.get('effect-band'));
  fx.mount(doc.createElement('div'),{side:'defender',level,duration:4.6,groups:Array.from({length:8},()=>({lines:[{kind:'title',text:'再使用'}]}))});
- fx.render(fx.layout.stopAt+0.1);const positions=fx.groups.map(g=>g.el.style.transform);
- fx.render(4.4);assert.deepStrictEqual(fx.groups.map(g=>g.el.style.transform),positions);assert.strictEqual(Number(fx.el.style.opacity),1);
+ const transforms=()=>fx.groups.flatMap(g=>g.lines.map(r=>r.el.style.transform));
+ fx.render(fx.layout.stopAt);const positions=transforms();
+ fx.render(4.4);if(level==='light')assert.deepStrictEqual(transforms(),positions);assert.strictEqual(Number(fx.el.style.opacity),1);
  fx.render(Infinity);assert.strictEqual(Number(fx.el.style.opacity),0);
 }
 """)

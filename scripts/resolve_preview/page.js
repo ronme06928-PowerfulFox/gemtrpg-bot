@@ -2,7 +2,7 @@ import '../../static/js/fx/fx_core.js';
 import '../../static/js/fx/fx_effects.js';
 import { createTimeline, phaseAt, phaseNames } from './timeline.mjs';
 import { el, createStage, fitNames } from './stage.mjs';
-import { getLayout, damageBases, damageEnterOffsets, sideBox } from './layout.mjs';
+import { getLayout, damageBases, damageCeiling, sideBox } from './layout.mjs';
 
 const assets = __PREVIEW_ASSETS__;
 const samples = __PREVIEW_SAMPLES__;
@@ -85,7 +85,6 @@ function anchorRect(key) {
 function mountEvents() {
   const layout = getLayout(Number(widthSelect.value));
   const bases = damageBases(sample, timeline, layout);
-  const enters = damageEnterOffsets(timeline);
   events = timeline.events.map(event => {
     const rect = anchorRect(event.anchor);
     const root = el('div', `fx-root event-${event.name}`);
@@ -123,7 +122,7 @@ function mountEvents() {
       width: band ? layout.band.width * 2 : rect.width || 100, height: rect.height || 100,
       icon: iconFor(event.params.status), label: event.params.status,
       ...(groups ? { groups } : {}),
-      ...(damage ? { stackEnter: enters.get(event) } : {}),
+      ...(damage ? { ceiling: damageCeiling(layout, bases.get(event.targetId), event.params.kind) } : {}),
     });
     return { ...event, root, fx, numberAnchor };
   });
@@ -164,7 +163,8 @@ function render(value) {
     event.fx.render(Math.max(0, Math.min(age, event.fx.duration)));
   }
   stage.clash.style.opacity = sample.step.kind === 'fizzle' ? (time >= timeline.outcomeStart ? '1' : '0')
-    : sample.step.kind === 'one_sided' ? '0.8' : (time < 2 ? '0.3' : '0');
+    // 一方攻撃の文字も、VSと同じく勝敗が始まったら引き、昇ってくる数字に場所を譲る。
+    : sample.step.kind === 'one_sided' ? String(0.8 * (1 - Fx.prog(time, timeline.outcomeStart, 0.3))) : (time < 2 ? '0.3' : '0');
   for (const button of markerButtons.children) button.classList.toggle('current', button.dataset.phase === phase);
   play.setAttribute('aria-pressed', String(playing));
   pause.setAttribute('aria-pressed', String(!playing));

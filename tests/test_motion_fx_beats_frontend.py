@@ -17,8 +17,9 @@ for(const level of ['light','normal','rich']) {
  fx.mount(root,{level,duration:4.6,groups:Array.from({length:7},(_,i)=>({lines:[{kind:'title',text:'効果'+i},{kind:'result',text:'MP',delta:-5}]}))});
  for(let i=0;i<460;i++) {
   fx.render(i/100);
-  const boxes=fx.groups.map(g=>{const bottom=Number(g.el.style.transform.match(/, ([\d.e+-]+)px\)/)[1]);return {top:bottom-g.height,bottom};});
-  for(let j=1;j<boxes.length;j++)assert.ok(boxes[j-1].bottom<=boxes[j].top+1e-8);
+  // 行はばらして出し、見えている行どうしは重ならない。
+  const visible=fx.groups.flatMap(g=>g.lines).filter(r=>Number(r.el.style.opacity)>0.001).map(r=>{const bottom=Number(r.el.style.transform.match(/, ([\d.e+-]+)px\)/)[1]);return {top:bottom-r.height,bottom};}).sort((a,b)=>a.top-b.top);
+  for(let j=1;j<visible.length;j++)assert.ok(visible[j-1].bottom<=visible[j].top+1e-6);
  }
  fx.render(4.4);assert.strictEqual(Number(fx.el.style.opacity),1);
  fx.render(Infinity);assert.strictEqual(Number(fx.el.style.opacity),0);
@@ -41,7 +42,9 @@ for(const scene of sceneSamples) {
  for(const band of plan.events.filter(e=>e.name==='effect-band')) {
   assert.strictEqual(band.at,0.1);
   const groups=band.params.groups;
-  for(let i=1;i<groups.length;i++) assert.ok(Math.abs((groups[i].at-groups[i-1].at)*200-(groups[i].height+8))<1e-8);
+  // 行はばらして出す：後の行は、前の行がこの行の高さ＋8px昇ってから出る。
+  const rows=groups.flatMap(g=>g.lines);
+  for(let i=1;i<rows.length;i++) assert.ok(Math.abs(rows[i].at-rows[i-1].at-(rows[i].height+8)/80)<1e-8);
  }
  const kos=plan.events.filter(e=>e.name==='ko-shatter');assert.strictEqual(kos.length,collectKnockouts(scene.step).size);
  for(const ko of kos) {assert.ok(ko.at>0.9&&ko.at<=plan.windowSeconds-3.1+1e-8);assert.ok(Math.abs(ko.at+ko.params.duration-plan.windowSeconds)<1e-8);}
@@ -51,7 +54,8 @@ for(const scene of sceneSamples) {
  }
  if(scene.id==='rupture') {
   const band=plan.events.find(e=>e.name==='effect-band'),extra=plan.events.find(e=>e.name==='resolve-damage'&&e.params.kind==='effect');
-  assert.ok(Math.abs(extra.at-band.at-0.05)<1e-9);
+  // 本体の数字と同じ対象なら、本体が昇るのを待ってから出る。
+  assert.ok(Math.abs(extra.at-Math.max(band.at+0.05,((52+36)/2+8)/window.Fx.FLOAT.numberSpeed))<1e-9);
  }
 }
 })().catch(e=>{console.error(e);process.exitCode=1;});

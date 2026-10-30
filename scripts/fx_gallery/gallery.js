@@ -203,7 +203,7 @@ function createCard(samples, scene = false) {
     if (scene) card.dataset.window = String(outcomeWindow);
     card.dataset.level = level.value;
     card.dataset.sample = sample.id;
-    note.textContent = scene ? `┃ 枠 ${outcomeWindow.toFixed(2)}秒 · まとまり ${scenePlan.groupCount}件 · 流れの停止 ${scenePlan.stopSeconds.toFixed(2)}秒 · 最後の演出 ${end.toFixed(2)}秒${overflow ? ' · 枠を超えています' : ' · 枠内'}`
+    note.textContent = scene ? `┃ 枠 ${outcomeWindow.toFixed(2)}秒 · まとまり ${scenePlan.groupCount}件 · 効果を読み終える ${scenePlan.stopSeconds.toFixed(2)}秒 · 最後の演出 ${end.toFixed(2)}秒${overflow ? ' · 枠を超えています' : ' · 枠内'}`
       : `${duration.toFixed(2)}秒 · コマを押すとその時刻へ`;
     note.classList.toggle('overflow', overflow);
     for (const event of events) eventList.append(el('li', '', `${event.at.toFixed(2)}–${(event.at + event.fx.duration).toFixed(2)}秒 / ${event.name}`));

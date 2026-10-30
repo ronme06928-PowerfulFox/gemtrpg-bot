@@ -35,8 +35,10 @@ def test_preview_samples_and_timeline_keep_the_production_outcome_plan():
     const fizzle = sample.step.kind === 'fizzle';
     assert.strictEqual(timeline.outcomeStart,fizzle?2:2.8);
     assert.ok(Math.abs(timeline.waitStart-(fizzle?3:2.8+timing.at(-1).ms/1000))<1e-9);
-    assert.strictEqual(timeline.duration,timeline.waitStart+(fizzle?0.5:waitSeconds));
-    assert.strictEqual(timeline.outcomeWindow,timeline.duration-timeline.outcomeStart);
+    const planned=timeline.waitStart+(fizzle?0.5:waitSeconds);
+    assert.strictEqual(timeline.outcomeWindow,planned-timeline.outcomeStart);
+    // 効果が多くて枠に入らないときは、本番と同じく勝敗の表示が終わるまで延ばす。
+    assert.ok(Math.abs(timeline.duration-Math.max(planned,timeline.outcomeStart+(timeline.plan?.endSeconds||0)))<1e-9);
     assert.strictEqual(phaseAt(timeline,0),'names');
     assert.strictEqual(phaseAt(timeline,0.6),'power');
     assert.strictEqual(phaseAt(timeline,2),fizzle?'outcome':'attack');
@@ -45,8 +47,8 @@ def test_preview_samples_and_timeline_keep_the_production_outcome_plan():
     const plan=planResolveOutcome(sample.step,timeline.popups,timeline.outcomeWindow,fx,
       id=>id===sample.step.attackerActorId?'attacker':'defender');
     const actual=timeline.events.filter(e=>['resolve-damage','effect-band','ko-shatter'].includes(e.name));
-    assert.deepStrictEqual(actual.map(e=>[e.name,e.at,e.targetId,e.params.stackPushes]),
-      plan.events.map(e=>[e.name,e.at+timeline.outcomeStart,e.targetId,e.params.stackPushes]));
+    assert.deepStrictEqual(actual.map(e=>[e.name,e.at,e.targetId,e.params.until]),
+      plan.events.map(e=>[e.name,e.at+timeline.outcomeStart,e.targetId,e.params.until]));
     for (const event of timeline.events) {
       assert.ok(event.at>=0);
       assert.ok(event.at+(event.params.duration??fx.get(event.name).duration)<=timeline.duration+1e-6, sample.id);
@@ -96,7 +98,7 @@ def test_v2_skills_are_cache_values_and_missing_data_stops_build():
 def test_v2_fixed_boxes_and_shared_damage_bases_do_not_intersect():
     _run_node(r"""
 (async()=>{
-  const { getLayout, damageBases, damageEnterOffsets, sideBox }=await import('./scripts/resolve_preview/layout.mjs');
+  const { getLayout, damageBases, damageCeiling, sideBox }=await import('./scripts/resolve_preview/layout.mjs');
   const { loadSamples }=await import('./scripts/resolve_preview/skills.mjs');
   const { createTimeline }=await import('./scripts/resolve_preview/timeline.mjs');
   const fx=loadShared({});
@@ -117,15 +119,13 @@ def test_v2_fixed_boxes_and_shared_damage_bases_do_not_intersect():
       for(const event of damageEvents) {
         const base=bases.get(event.targetId);
         assert.ok(base.x>=0&&base.y>=damage.y&&base.y<=damage.y+damage.height);
-        const totalPush=(event.params.stackPushes||[]).reduce((n,p)=>n+p.amount,0);
-        assert.ok(base.y-totalPush-26>=damage.y,sample.id);
       }
       // 実際の定義を描き、同時に入る追加数字も0.1秒ごとに交差しないことを確認する。
       for(const level of ['light','normal','rich']) {
-        const offsets=damageEnterOffsets(timeline),doc=makeDocument();
+        const doc=makeDocument();
         const rendered=damageEvents.map(event=>{
           const effect=Object.create(fx.get(event.name)),root=doc.createElement('div');
-          effect.mount(root,{...event.params,level,stackEnter:offsets.get(event)});
+          effect.mount(root,{...event.params,level,ceiling:damageCeiling(layout,bases.get(event.targetId),event.params.kind)});
           return {event,effect};
         });
         for(let time=0;time<timeline.duration;time+=0.1) {
@@ -138,7 +138,10 @@ def test_v2_fixed_boxes_and_shared_damage_bases_do_not_intersect():
             const transform=row.effect.el.style.transform;
             const y=bases.get(row.event.targetId).y+Number(transform.match(/translateY\(([^p]+)px\)/)[1]);
             const scale=Number(transform.match(/scale\(([^)]+)\)/)?.[1]||1);
-            visible.push({id:row.event.targetId,y,height:(row.event.params.kind==='dice'?46:30)*scale});
+            const height=(row.event.params.kind==='dice'?46:30)*scale;
+            // 読める濃さのうちは、昇っても数字の枠の上で切れない。
+            assert.ok(y-height/2>=damage.y-1e-6,sample.id+' '+level+' '+time);
+            visible.push({id:row.event.targetId,y,height});
           }
           for(let i=0;i<visible.length;i++)for(let j=i+1;j<visible.length;j++) {
             const a=visible[i],b=visible[j];
@@ -287,7 +290,9 @@ function run(reduced) {
       for(const value of ['0.5','1','2']) {
         wait.value=value;wait.events.input();
         if(option.value==='fizzle') {assert.ok(wait.disabled);assert.strictEqual(Number(seek.max),3.5);}
-        else {assert.ok(!wait.disabled);assert.ok(Math.abs(Number(seek.max)-(option.value==='enemy-ko'||option.value==='summation'?6.9:5.4)-Number(value))<1e-6);}
+        // 効果が多い見本は、本番と同じく勝敗の表示が終わるまで延びる。
+        else {assert.ok(!wait.disabled);const planned=(option.value==='enemy-ko'||option.value==='summation'?6.9:5.4)+Number(value);
+          assert.ok(['long-names','mass-individual','ally-win'].includes(option.value)?Number(seek.max)>=planned-1e-6:Math.abs(Number(seek.max)-planned)<1e-6,option.value);}
       }
       if(option.value==='one-sided') {
         const defender=canvas().querySelectorAll('.combatant').find(n=>n.className.includes('defender'));

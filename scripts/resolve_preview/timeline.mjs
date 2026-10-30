@@ -72,6 +72,8 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = 1) {
   if (level === 'rich' && tier === 'large') add('impact-flash', outcomeStart, 'arena', {});
   const plan = planResolveOutcome(step, popups, result.outcomeWindow, fx, sideFor);
   result.plan = plan;
+  // 本番と同じく、効果が多くて枠に入らないときは勝敗の表示が終わるまで延ばす。
+  result.duration = Math.max(result.duration, outcomeStart + plan.endSeconds);
   for (const event of plan.events) {
     const side = sideFor(event.targetId);
     const band = event.name === 'effect-band';
