@@ -6,7 +6,8 @@
   "description": "Frontend bundle build for Gemlia TRPG dice bot (esbuild).",
   "scripts": {
     "build": "node scripts/build_frontend.mjs",
-    "gallery": "node scripts/fx_gallery/build.mjs"
+    "gallery": "node scripts/fx_gallery/build.mjs",
+    "resolve-preview": "node scripts/resolve_preview/build.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.24.0"
