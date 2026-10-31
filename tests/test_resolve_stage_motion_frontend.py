@@ -199,3 +199,38 @@ def test_animation_frames_only_draw_and_are_cancelled_with_playback_timers():
  assert.strictEqual(frames.size,1);flow._clearTimers();assert.strictEqual(frames.size,0);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
+
+
+def test_next_match_clock_does_not_subtract_the_server_clock_from_the_device_clock():
+    # 計画58：サーバーの step_started_at と端末の Date.now() を直接引き算すると、
+    # 端末の時計が遅れている分だけマッチの頭が止まり、進んでいる分だけ頭が飛ぶ。
+    _run_node(r"""
+(async()=>{
+ const {ResolveFlowPanel}=await import('./static/js/battle/components/ResolveFlowPanel.js');
+ const {store}=await import('./static/js/battle/core/BattleStore.js');
+ let now=500000;const saved={now:Date.now,timeout:global.setTimeout,clear:global.clearTimeout,interval:global.setInterval,clearInterval:global.clearInterval};
+ global.setTimeout=()=>0;global.clearTimeout=()=>{};global.setInterval=()=>0;global.clearInterval=()=>{};Date.now=()=>now;
+ global.window={currentUserId:'gm'};
+ const flow=new ResolveFlowPanel();flow._renderStep=()=>{};flow._startMotionPlayback=()=>{};
+ const presentation=(index,startedAt)=>{store._state={room_id:'R',battle_id:'B',round:1,phase:'resolve_single',
+   resolvePresentation:{controller_user_id:'gm',revision:3,current_step_index:index,step_started_at:startedAt}};};
+ try {
+  // 次へ進む合図：サーバーの時計が端末より2秒進んでいても、合図を受け取った瞬間から始める。
+  presentation(0,now);flow._playQueue=[{kind:'clash',rawStepIndex:0,stepIndex:0},{kind:'clash',rawStepIndex:1,stepIndex:1}];
+  flow._playNextStep();flow._waitingForAdvance=true;
+  now+=7000;presentation(1,now+2000);
+  flow._onSyncedAdvanceSignal({room_id:'R',battle_id:'B',round:1,expected_step_index:0});
+  assert.strictEqual(flow._activeStep.rawStepIndex,1);assert.strictEqual(flow._stepStartedAt,now);
+  // サーバーの時計が遅れていても、マッチの頭を飛ばさない。
+  flow._playQueue=[{kind:'clash',rawStepIndex:2,stepIndex:2}];flow._waitingForAdvance=true;
+  now+=7000;presentation(2,now-1500);
+  flow._onSyncedAdvanceSignal({room_id:'R',battle_id:'B',round:1,expected_step_index:1});
+  assert.strictEqual(flow._stepStartedAt,now);
+  // 途中参加の合流：過去の開始時刻は使い、未来の開始時刻は端末の今に丸める。
+  flow._playQueue=[{kind:'clash',rawStepIndex:3,stepIndex:3}];presentation(3,now-1500);flow._playNextStep();
+  assert.strictEqual(flow._stepStartedAt,now-1500);
+  flow._playQueue=[{kind:'clash',rawStepIndex:4,stepIndex:4}];presentation(4,now+2000);flow._playNextStep();
+  assert.strictEqual(flow._stepStartedAt,now);
+ } finally {Date.now=saved.now;global.setTimeout=saved.timeout;global.clearTimeout=saved.clear;global.setInterval=saved.interval;global.clearInterval=saved.clearInterval;}
+})().catch(e=>{console.error(e);process.exitCode=1;});
+""")

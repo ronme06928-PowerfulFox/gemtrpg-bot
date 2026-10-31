@@ -990,7 +990,8 @@ class ResolveFlowPanel {
         const activeRawIndex = this._toNumber(this._activeStep?.rawStepIndex, -2);
         const sharedStartedAt = this._toNumber(presentation.step_started_at, 0);
         const useSharedClock = !resetVisibleClock && sharedStartedAt > 0 && sharedStepIndex === activeRawIndex;
-        this._stepStartedAt = useSharedClock ? sharedStartedAt : Date.now();
+        // step_started_at はサーバーの時計。途中参加の合流だけに使い、端末の時計より未来なら今に丸める（B03）。
+        this._stepStartedAt = useSharedClock ? Math.min(sharedStartedAt, Date.now()) : Date.now();
         this._renderStep(store.state || {});
 
         if (!this._isIntroStep(this._activeStep)) {
@@ -1042,7 +1043,8 @@ class ResolveFlowPanel {
         this._waitingForAdvance = false;
         this._activeStep = null;
         this._renderedStepKey = null;
-        this._playNextStep();
+        // 次へ進む合図を受け取った瞬間を、端末の時計での開始にする（サーバーの時刻と直接引き算しない）。
+        this._playNextStep({ forceLocalClock: true });
     }
 
     _onAdvanceRequested(evt) {

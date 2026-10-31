@@ -593,6 +593,8 @@ Select中の引き寄せ履歴は`battle_state.redirects`にのみ記録し、Re
 - `controller_user_id`、`controller_username`、`controller_present`
 - 現在ステップのサーバー時刻`step_started_at`
 
+クライアントは`step_started_at`を自分の`Date.now()`と直接引き算して開始時刻にしない（端末とサーバーの時計がずれると、マッチの頭が止まったり飛んだりするため）。`battle_resolve_flow_advance`で次へ進んだときは、合図を受け取った時刻を端末の時計での開始にする。`step_started_at`は、途中参加・再接続で進行中の手順に合流するときだけ使い、端末の時計より未来なら端末の現在時刻に丸める。最初に見せるマッチは端末の時計で始める。
+
 `battle_resolve_flow_advance_request`は`room_id`、`battle_id`、`round`、`expected_step_index`、`expected_revision`を必要とする。在室中の進行役から届き、すべてが現在値と一致した要求だけを一度受理する。遅延・重複・非進行役の要求は状態を変更せず、要求元へ最新presentationを返す。受理時はroom全体へpresentationと`battle_resolve_flow_advance`を配信するため、通常ルームを含め全員の表示位置は同じになる。
 
 宣言操作権と演出進行権は別権限である。通常ルームはResolveを開始したGM、戦闘専用ルームは原則として戦闘開始者が進行役となる。通常ルームの別GMは`battle_resolve_flow_claim_request`で明示的に引き継げる。一般参加者による引継ぎは、戦闘専用ルームで現在の進行役がSocket在室していない場合だけ許可する。
