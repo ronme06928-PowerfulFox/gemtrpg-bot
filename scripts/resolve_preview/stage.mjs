@@ -1,6 +1,6 @@
 import { kindNames } from './timeline.mjs';
 import { plainSkillText } from './skill_text.mjs';
-import { applyLayout, sideBox } from './layout.mjs';
+import { applyLayout, sideBox, participantSlots } from './layout.mjs';
 
 export function el(tag, className = '', text) {
   const node = document.createElement(tag);
@@ -70,17 +70,37 @@ export function createStage(host, sample, timeline, assets, sampleIndex, layout)
     const group = summation && side === 'defender';
     const unarmed = oneSided && side === 'defender';
     if (group) {
-      const participants = el('div', 'participants');
-      for (const slotId of sample.step.participants) {
-        const member = characters.find(c => c.id === sample.state.slots[slotId].actor_id);
+      const slots = participantSlots(layout, sample);
+      const participants = el('div', `participants${slots.items.length + (slots.more ? 1 : 0) > 3 ? ' overlapped' : ''}`);
+      Object.assign(participants.style, { left: `${layout.participants.x}px`, width: `${layout.participants.width}px` });
+      participants.style.setProperty('--slot', `${slots.step}px`);
+      participants.style.setProperty('--small-gem', `${slots.gem}px`);
+      slots.items.forEach((p, i) => {
+        const member = characters.find(c => c.id === p.id);
         const item = el('div', `participant ${member.type}`);
-        item.append(gem(sample.step.rolls.defender_powers[slotId], null, member.id, true), portrait(member, assets), el('span', 'participant-name', member.name));
+        // 重ねて並べるときは右の人ほど手前に置く。
+        Object.assign(item.style, { left: `${p.x}px`, width: `${p.width}px`, zIndex: String(i + 1) });
+        // 戦闘不能のひびは、その人の列（隣に重ならない幅）いっぱいに入れる。
+        const column = el('div', 'participant-column');
+        column.dataset.anchor = `participant:${member.id}`;
+        column.style.width = `${p.step}px`;
+        const name = el('span', 'participant-name', member.name);
+        name.title = member.name;
+        item.append(column, gem(sample.step.rolls.defender_powers[p.slot], null, member.id, true), portrait(member, assets), name);
         participants.append(item);
+      });
+      if (slots.more) {
+        const more = el('div', 'participant-more', `+${slots.more.count}`);
+        // 頭上の小さな紋章と同じ大きさの丸にして、ほかの参加者と同じ間隔の位置（1人分の幅の中央）に置く。
+        Object.assign(more.style, { left: `${slots.more.x + (slots.width - slots.gem) / 2}px`, width: `${slots.gem}px` });
+        more.title = `ほか${slots.more.count}人`;
+        participants.append(more);
       }
       node.append(participants);
     } else node.append(portrait(character, assets));
-    const name = el('div', 'character-name', group ? '防御側 · 3人' : character.name);
-    name.title = group ? '防御側 · 3人' : character.name;
+    const groupName = `防御側 · ${(sample.step.participants || []).length}人`;
+    const name = el('div', 'character-name', group ? groupName : character.name);
+    name.title = group ? groupName : character.name;
     node.append(name);
     if (!unarmed) {
       const plaque = el('div', 'skill-plaque');
@@ -123,9 +143,16 @@ export function createStage(host, sample, timeline, assets, sampleIndex, layout)
   footer.append(next, auto, progress);
   theatre.append(top, arena, summary, footer);
   const descriptions = el('div', 'skill-descriptions');
+  // 狭い画面では2段に積まず、攻撃側・防御側をタブで切り替えて1段に収める。
+  const tabs = el('div', 'description-tabs');
+  descriptions.append(tabs);
   for (const side of ['attacker', 'defender']) {
     const skill = sample.skills[side];
     if (!skill) continue;
+    const tab = el('button', `description-tab ${side}`, side === 'attacker' ? '攻撃側' : '防御側');
+    tab.type = 'button';
+    tab.addEventListener('click', () => { descriptions.dataset.active = side; });
+    tabs.append(tab);
     const description = el('section', `description ${side}`);
     description.append(el('h3', '', `${side === 'attacker' ? '攻撃側' : '防御側'} / ${skill.name}`));
     const prose = el('div', 'skill-copy');
@@ -137,6 +164,7 @@ export function createStage(host, sample, timeline, assets, sampleIndex, layout)
     description.append(prose);
     descriptions.append(description);
   }
+  descriptions.dataset.active = 'attacker';
   canvas.append(theatre, descriptions);
   host.replaceChildren(canvas);
   return { canvas, theatre, arena, sides, summary, descriptions, progressFill, phase, clash };

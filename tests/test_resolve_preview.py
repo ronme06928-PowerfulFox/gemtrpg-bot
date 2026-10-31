@@ -64,7 +64,7 @@ def test_preview_samples_and_timeline_keep_the_production_outcome_plan():
       assert.strictEqual(timeline.events.filter(e=>e.name==='power-roll').length,1);
     }
     if (sample.step.kind==='mass_summation') {
-      assert.strictEqual(timeline.events.filter(e=>e.name==='power-roll').length,5);
+      assert.strictEqual(timeline.events.filter(e=>e.name==='power-roll').length,2+sample.step.participants.length);
       assert.ok(actual.filter(e=>e.name==='resolve-damage').every(e=>e.anchor==='portrait:'+e.targetId));
     }
   }
@@ -98,7 +98,7 @@ def test_v2_skills_are_cache_values_and_missing_data_stops_build():
 def test_v2_fixed_boxes_and_shared_damage_bases_do_not_intersect():
     _run_node(r"""
 (async()=>{
-  const { getLayout, damageBases, damageCeiling, sideBox }=await import('./scripts/resolve_preview/layout.mjs');
+  const { getLayout, damageBases, damageCeiling, sideBox, participantSlots }=await import('./scripts/resolve_preview/layout.mjs');
   const { loadSamples }=await import('./scripts/resolve_preview/skills.mjs');
   const { createTimeline }=await import('./scripts/resolve_preview/timeline.mjs');
   const fx=loadShared({});
@@ -114,7 +114,9 @@ def test_v2_fixed_boxes_and_shared_damage_bases_do_not_intersect():
     for(const sample of await loadSamples()) for(const wait of [0.5,1,2]) {
       const timeline=createTimeline(sample,fx,'rich',wait);
       const bases=damageBases(sample,timeline,layout);
-      const damageEvents=timeline.events.filter(e=>e.name==='resolve-damage');
+      // 「+N」にまとめた参加者の数字は出さない。
+      const hidden=new Set(sample.step.kind==='mass_summation'?participantSlots(layout,sample).hidden:[]);
+      const damageEvents=timeline.events.filter(e=>e.name==='resolve-damage'&&!hidden.has(e.targetId));
       assert.strictEqual(bases.size,new Set(damageEvents.map(e=>e.targetId)).size);
       for(const event of damageEvents) {
         const base=bases.get(event.targetId);
@@ -262,7 +264,7 @@ function run(reduced) {
   const canvas=()=>host.children[0];
   const input=value=>{seek.value=String(value);seek.events.input();};
   assert.ok(clock.value.startsWith('4.60'));
-  assert.strictEqual(sample.children.length,9);
+  assert.strictEqual(sample.children.length,11);
   for(const option of sample.children) {
     sample.value=option.value;sample.events.change();
     assert.ok(clock.value.startsWith('0.00'));
@@ -291,7 +293,7 @@ function run(reduced) {
         wait.value=value;wait.events.input();
         if(option.value==='fizzle') {assert.ok(wait.disabled);assert.strictEqual(Number(seek.max),3.5);}
         // 効果が多い見本は、本番と同じく勝敗の表示が終わるまで延びる。
-        else {assert.ok(!wait.disabled);const planned=(option.value==='enemy-ko'||option.value==='summation'?6.9:5.4)+Number(value);
+        else {assert.ok(!wait.disabled);const planned=(option.value==='enemy-ko'||option.value.startsWith('summation')?6.9:5.4)+Number(value);
           assert.ok(['long-names','mass-individual','ally-win'].includes(option.value)?Number(seek.max)>=planned-1e-6:Math.abs(Number(seek.max)-planned)<1e-6,option.value);}
       }
       if(option.value==='one-sided') {
@@ -305,6 +307,26 @@ function run(reduced) {
         assert.strictEqual(canvas().querySelectorAll('.participant').length,3);
         assert.strictEqual(canvas().querySelectorAll('.small-gem').length,3);
       }
+      // 4〜6人は重ねて並べ、7人以上は威力の大きい5人と「+N」にまとめる。
+      if(option.value==='summation-5') {
+        assert.strictEqual(canvas().querySelectorAll('.participant').length,5);
+        assert.ok(canvas().querySelector('.participants').className.includes('overlapped'));
+        assert.strictEqual(canvas().querySelector('.participant-more'),null);
+      }
+      if(option.value==='summation-8') {
+        assert.strictEqual(canvas().querySelectorAll('.participant').length,5);
+        assert.strictEqual(canvas().querySelector('.participant-more').textContent,'+3');
+      }
+      // 参加者の戦闘不能は、その人の列いっぱいの縦長のひび。
+      if(option.value.startsWith('summation')) {
+        const column=canvas().querySelector('.column-ko');
+        assert.ok(column);assert.strictEqual(canvas().querySelector('.half-ko'),null);
+      }
+      // 狭い画面のスキルの文章は、攻撃側・防御側をタブで切り替える。
+      const descriptions=canvas().querySelector('.skill-descriptions');
+      assert.strictEqual(descriptions.dataset.active,'attacker');
+      const tabs=descriptions.querySelectorAll('.description-tab');
+      if(tabs.length>1){tabs[1].events.click();assert.strictEqual(descriptions.dataset.active,'defender');}
       if(option.value==='fizzle') assert.strictEqual(canvas().querySelectorAll('.fx-root').length,0);
       const ko=canvas().querySelector('.half-ko');
       if(option.value==='enemy-ko') {
@@ -314,7 +336,8 @@ function run(reduced) {
       }
       const targets=new Map();
       for(const root of canvas().querySelectorAll('.event-resolve-damage')) {
-        assert.ok(root.parentNode.className.includes('damage-lane'));
+        // 参加者の数字だけは、立ち絵の上に出すため数字の箱の外（舞台）に置く。
+        assert.ok(root.parentNode.className.includes(option.value.startsWith('summation')&&root.dataset.targetId!=='a'?'arena':'damage-lane'));
         const id=root.dataset.targetId;
         if(targets.has(id))assert.strictEqual(root.style.top,targets.get(id));
         else targets.set(id,root.style.top);

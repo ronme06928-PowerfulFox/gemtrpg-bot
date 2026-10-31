@@ -54,4 +54,22 @@ const hard = fromGallery('rupture', 'hard-attack', '08 · 強硬攻撃', [0, 2, 
 hard.step.kind = 'hard_attack';
 const individual = fromGallery('many-lines', 'mass-individual', '09 · 広域-個別', [1, 0, 2, 3]);
 individual.step.kind = 'mass_individual';
-export const samples = [allyWin, enemyKo, longNames, oneSided, summation, fizzle, silhouette, hard, individual];
+// 人数の多い広域-合算。立ち絵は4枚を使い回し、1人は立ち絵なしにする。
+function crowd(id, label, count, koIndex) {
+  const sample = fromGallery('summation', id, label, [2, 0, 3, 1]);
+  const extra = Array.from({ length: count - 3 }, (_, i) => ({ ...characters[i % 4], id: `p${i}`,
+    name: `${characters[i % 4].name}・${i + 2}`, image: i === 1 ? null : characters[i % 4].image }));
+  sample.state.characters.push(...extra);
+  for (const c of extra) sample.state.slots[`s${c.id}`] = { actor_id: c.id };
+  const ids = ['d', 'e', 'f', ...extra.map(c => c.id)];
+  sample.step.participants = ids.map(c => `s${c}`);
+  sample.step.rolls.defender_powers = Object.fromEntries(ids.map((c, i) => [`s${c}`, 3 + (i * 5) % 7]));
+  sample.step.rolls.defender_sum = Object.values(sample.step.rolls.defender_powers).reduce((a, b) => a + b, 0);
+  sample.step.damageEvents = ids.map((target_id, i) => ({ target_id, hp: 4 + i % 5,
+    hp_after: i === koIndex ? 0 : 10, damage_type: 'mass_summation_delta' }));
+  return sample;
+}
+skillIds['summation-5'] = skillIds['summation-8'] = skillIds.summation;
+const crowd5 = crowd('summation-5', '10 · 広域-合算 / 5人（重ねて並べる）', 5, 3);
+const crowd8 = crowd('summation-8', '11 · 広域-合算 / 8人（5人＋まとめ）', 8, 1);
+export const samples = [allyWin, enemyKo, longNames, oneSided, summation, fizzle, silhouette, hard, individual, crowd5, crowd8];

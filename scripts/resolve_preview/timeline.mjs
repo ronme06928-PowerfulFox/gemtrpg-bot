@@ -83,9 +83,12 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = 1) {
         text: summation && side === 'defender' && i === 0 ? `${character(group.targetId).name.slice(0, 12)}：${line.text}` : line.text,
       })),
     })) : undefined;
-    const anchor = band ? `band:${side}` : event.name === 'ko-shatter' && !chip ? `half:${side}` : `portrait:${event.targetId}`;
+    // 参加者の戦闘不能は、丸の小さなひびではなく、その人の列いっぱいの縦長のひびにする。
+    const column = chip && event.name === 'ko-shatter';
+    const anchor = band ? `band:${side}` : column ? `participant:${event.targetId}`
+      : event.name === 'ko-shatter' ? `half:${side}` : `portrait:${event.targetId}`;
     add(event.name, event.at + outcomeStart, anchor, {
-      ...event.params, side, shake: tier, mode: chip ? 'chip' : 'hit',
+      ...event.params, side, shake: tier, mode: chip && !column ? 'chip' : 'hit', ...(column ? { column: true } : {}),
       tone: event.params.kind === 'effect' ? 'extra' : toneFor(event.targetId),
       ...(band ? { groups } : {}),
     }, { targetId: event.targetId });

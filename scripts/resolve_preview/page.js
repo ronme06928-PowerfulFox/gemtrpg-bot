@@ -2,7 +2,7 @@ import '../../static/js/fx/fx_core.js';
 import '../../static/js/fx/fx_effects.js';
 import { createTimeline, phaseAt, phaseNames } from './timeline.mjs';
 import { el, createStage, fitNames } from './stage.mjs';
-import { getLayout, damageBases, damageCeiling, sideBox } from './layout.mjs';
+import { getLayout, damageBases, damageCeiling, sideBox, participantSlots } from './layout.mjs';
 
 const assets = __PREVIEW_ASSETS__;
 const samples = __PREVIEW_SAMPLES__;
@@ -31,6 +31,8 @@ function selectControl(label, className, options) {
 const sampleSelect = selectControl('見本', 'sample-select', samples.map(sample => [sample.id, sample.label]));
 const widthSelect = selectControl('舞台の幅', 'width-select', [['1180', '広い · 1180px'], ['660', '狭い · 660px']]);
 const levelSelect = selectControl('演出', 'level-select', [['light', '軽め'], ['normal', '通常'], ['rich', '派手']]);
+// 本番の解決パネルは「画面の高さ−108px」に収める。その中でスキルの文章の欄にどれだけ残るかを見る。
+const heightSelect = selectControl('画面の高さ', 'height-select', [['none', '制限なし'], ['1080', '1080px'], ['900', '900px'], ['768', '768px']]);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 levelSelect.value = reducedMotion.matches ? 'light' : 'normal';
 const waitLabel = el('label', 'control-field wait-field');
@@ -85,7 +87,11 @@ function anchorRect(key) {
 function mountEvents() {
   const layout = getLayout(Number(widthSelect.value));
   const bases = damageBases(sample, timeline, layout);
-  events = timeline.events.map(event => {
+  // 「+N」にまとめた参加者の威力・数字・戦闘不能は出さない（合計は大きな紋章と勝敗の帯に出る）。
+  const hidden = sample.step.kind === 'mass_summation' ? participantSlots(layout, sample).hidden : [];
+  const hiddenEvent = event => event.name !== 'effect-band'
+    && hidden.some(id => event.targetId === id || event.anchor.endsWith(`:${id}`));
+  events = timeline.events.filter(event => !hiddenEvent(event)).map(event => {
     const rect = anchorRect(event.anchor);
     const root = el('div', `fx-root event-${event.name}`);
     if (event.targetId) root.dataset.targetId = event.targetId;
@@ -95,14 +101,19 @@ function mountEvents() {
     const side = attacker ? 'attacker' : 'defender';
     let host = stage.arena;
     let x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
-    if (band || damage) {
+    if (damage && bases.get(event.targetId).own) {
+      // 参加者の数字は舞台に直接置く（数字の箱の外にある）。
+      x = bases.get(event.targetId).x;
+      y = bases.get(event.targetId).y;
+    } else if (band || damage) {
       const box = sideBox(layout, band ? layout.band : layout.damage, band ? event.params.side : side);
       host = stage.canvas.querySelector(`[data-anchor="${band ? event.anchor : `damage:${side}`}"]`);
       x = band ? (event.params.side === 'attacker' ? 0 : box.width) : bases.get(event.targetId).x - box.x;
       y = band ? box.height : bases.get(event.targetId).y - box.y;
     }
     Object.assign(root.style, { left: `${x}px`, top: `${y}px` });
-    if (event.name === 'ko-shatter' && event.params.mode !== 'chip') {
+    if (event.name === 'ko-shatter' && event.params.column) root.classList.add('column-ko');
+    else if (event.name === 'ko-shatter' && event.params.mode !== 'chip') {
       root.classList.add('half-ko');
       root.classList.add(event.params.side);
     }
@@ -150,7 +161,9 @@ function render(value) {
       const outcomeAge = time - timeline.outcomeStart;
       const pulse = !light && outcomeAge >= 0 ? Math.sin(Math.PI * Fx.clamp01(outcomeAge / 0.7)) : 0;
       const winning = timeline.winner === side;
-      item.style.transform = `translateX(${(side === 'attacker' ? -36 : 36) * (1 - slide)}px) scale(${item.classList.contains('gem') && winning ? 1 + pulse * 0.1 : 1})`;
+      // 参加者の小さな紋章は並びが詰まっているので、横に滑らせずその場で出す。
+      const travel = item.classList.contains('small-gem') ? 0 : side === 'attacker' ? -36 : 36;
+      item.style.transform = `translateX(${travel * (1 - slide)}px) scale(${item.classList.contains('gem') && winning ? 1 + pulse * 0.1 : 1})`;
       item.style.filter = item.classList.contains('gem') && time >= timeline.outcomeStart && timeline.winner
         ? `brightness(${winning ? 1 + pulse * 1.2 : 0.42})` : '';
     }
@@ -176,6 +189,15 @@ function scaleStage() {
   stageHost.style.width = `${width * ratio}px`;
   stageHost.style.height = `${stage.canvas.offsetHeight * ratio}px`;
 }
+// 画面の高さから、カードの下に残る高さを文章の欄に割り当てる。
+function fitDescriptions() {
+  const layout = getLayout(Number(widthSelect.value));
+  const limit = heightSelect.value === 'none' ? Infinity : Number(heightSelect.value) - 108;
+  const room = Math.max(0, Math.min(layout.copyHeight, limit - layout.cardHeight - 14));
+  stage.descriptions.style.height = `${room}px`;
+  stage.descriptions.style.display = room < 40 ? 'none' : '';
+  return room;
+}
 function rebuild() {
   const previousTime = time;
   timeline = createTimeline(sample, Fx, levelSelect.value, Number(wait.value));
@@ -185,6 +207,7 @@ function rebuild() {
   stage.canvas.classList.toggle('narrow', widthSelect.value === '660');
   stage.canvas.classList.toggle('fizzle', sample.step.kind === 'fizzle');
   fitNames(stage.canvas);
+  const copyRoom = fitDescriptions();
   mountEvents();
   seek.max = String(timeline.duration);
   marks.replaceChildren();
@@ -198,7 +221,9 @@ function rebuild() {
     button.addEventListener('click', () => { playing = false; render(mark.at); });
     markerButtons.append(button);
   }
-  note.textContent = `A / 札の内側に宝石　·　${timeline.outcomeStart.toFixed(1)}秒から勝敗　·　待ち ${timeline.wait.toFixed(1)}秒`;
+  const layout = getLayout(Number(widthSelect.value));
+  note.textContent = `A / 札の内側に宝石　·　${timeline.outcomeStart.toFixed(1)}秒から勝敗　·　待ち ${timeline.wait.toFixed(1)}秒`
+    + `　·　スキルの文章の欄 ${Math.round(copyRoom)}px${copyRoom < layout.copyHeight ? '（見切れ・欄の中で送る）' : ''}${copyRoom < 40 ? '（出せない）' : ''}`;
   render(previousTime);
   scaleStage();
   if (playing) startedAt = performance.now() - time * 1000;
@@ -213,7 +238,7 @@ pause.addEventListener('click', () => { playing = false; render(time); });
 restart.addEventListener('click', () => { render(0); startedAt = performance.now(); });
 seek.addEventListener('input', () => { playing = false; render(Number(seek.value)); });
 sampleSelect.addEventListener('change', () => { sample = samples.find(row => row.id === sampleSelect.value); playing = false; time = 0; rebuild(); });
-for (const select of [widthSelect, levelSelect]) select.addEventListener('change', rebuild);
+for (const select of [widthSelect, levelSelect, heightSelect]) select.addEventListener('change', rebuild);
 wait.addEventListener('input', rebuild);
 new ResizeObserver(scaleStage).observe(view);
 document.fonts?.ready.then(() => { fitNames(stage.canvas); scaleStage(); });

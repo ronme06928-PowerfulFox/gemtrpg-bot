@@ -45,7 +45,7 @@ button { cursor: pointer; padding: 9px 14px; }
 button:hover, select:hover { border-color: var(--gold-dark); }
 button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 button[aria-pressed="true"], .marker.current { color: var(--gold); border-color: var(--gold-dark); background: var(--surface-raised); }
-.preview-controls { display: grid; grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(130px, 1fr)); gap: 12px; padding-block: 18px; border-block: 1px solid var(--line); }
+.preview-controls { display: grid; grid-template-columns: minmax(240px, 2fr) repeat(4, minmax(120px, 1fr)); gap: 12px; padding-block: 18px; border-block: 1px solid var(--line); }
 .control-field { display: grid; gap: 7px; font-size: 12px; color: var(--muted); min-width: 0; }
 .control-field select { min-width: 0; width: 100%; height: 39px; padding: 6px 9px; font-size: 13px; }
 .wait-field { grid-template-columns: 1fr auto; align-items: center; }
@@ -111,16 +111,19 @@ input { accent-color: var(--gold); }
 .mock-auto { color: var(--muted); }
 .auto-progress { width: 110px; height: 2px; background: var(--line); }
 .auto-progress span { height: 100%; display: block; background: var(--gold); }
-.skill-descriptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
-.description { height: var(--copy-height); overflow: hidden; padding: 13px 17px; border-top: 1px solid var(--line); background: var(--surface); }
+.skill-descriptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 14px; margin-top: 14px; height: var(--copy-height); }
+.description { min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 13px 17px; border-top: 1px solid var(--line); background: var(--surface); }
+.description-tabs { display: none; }
 .description h3 { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin: 0 0 8px; font: 11px var(--ui-font); color: var(--gold); letter-spacing: 0.05em; }
-.skill-copy { display: -webkit-box; -webkit-line-clamp: var(--copy-lines); -webkit-box-orient: vertical; overflow: hidden; font: 13px/1.65 var(--body-font); color: var(--muted); }
-.participants { position: absolute; top: 60px; left: 20%; right: 5%; bottom: 32px; display: flex; gap: 7px; align-items: flex-end; }
-.participant { flex: 1; min-width: 0; height: 270px; position: relative; }
+.skill-copy { flex: 1; min-height: 0; overflow-y: auto; font: 13px/1.65 var(--body-font); color: var(--muted); }
+.participants { position: absolute; top: 60px; bottom: 32px; }
+.participant { position: absolute; bottom: 0; height: 270px; }
+.participant-column { position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); pointer-events: none; }
+.participant-more { position: absolute; top: calc(100% - 270px); height: var(--small-gem); display: grid; place-items: center; border: 1px solid var(--team); border-radius: 50%; background: color-mix(in srgb, var(--team) 22%, var(--stage)); color: var(--ink); font: 900 18px 'Cinzel', var(--body-font); }
 .participant .portrait { width: 100%; height: 210px; bottom: 25px; mask-image: none; }
-.participant-name { display: block; position: absolute; width: 100%; bottom: 0; text-align: center; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.small-gem { --gem-size: 56px; --gem-number: 28px; top: 0; left: calc(50% - 28px); }
-.small-gem .power-number { top: 4px; height: 35px; }
+.participant-name { display: block; position: absolute; width: var(--slot); left: calc(50% - var(--slot) / 2); bottom: 0; text-align: center; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.small-gem { --gem-size: var(--small-gem); --gem-number: calc(var(--small-gem) / 2); top: 0; left: calc(50% - var(--small-gem) / 2); }
+.small-gem .power-number { top: 2px; height: calc(var(--small-gem) * 0.66); }
 .small-gem .power-range { display: none; }
 .missing-portrait { color: var(--team); }
 .silhouette-head { position: absolute; width: 65px; height: 76px; left: calc(50% - 32px); top: 12%; background: color-mix(in srgb, var(--team) 28%, var(--stage)); border: 1px solid var(--team); border-radius: 45%; }
@@ -133,7 +136,7 @@ input { accent-color: var(--gold); }
 .arena .fx-root { z-index: 8; }
 .arena .number-event { z-index: 6; }
 .arena .number-event .fx-power-roll { font-size: var(--gem-number); background: var(--fx-power-bg); color: var(--ink); line-height: 1; }
-.small-gem .number-event { --gem-number: 28px; }
+.small-gem .number-event { --gem-number: calc(var(--small-gem) / 2); }
 .arena [hidden] { display: none !important; }
 .arena .fx-effect-band { background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--page) 70%, transparent)); }
 .arena .fx-root.event-ko-shatter { z-index: 7; }
@@ -148,6 +151,12 @@ input { accent-color: var(--gold); }
   mask-image: linear-gradient(270deg, var(--black) 0, var(--black) calc(100% - 32px), transparent 100%), linear-gradient(transparent 0, var(--black) 24px, var(--black) calc(100% - 24px), transparent 100%);
 }
 .half-ko .fx-ko { mask-composite: intersect; -webkit-mask-composite: source-in; }
+/* 広域-合算の参加者の戦闘不能：その人の列いっぱいの縦長のひび。四方の縁を溶かして四角を見せない。 */
+.column-ko .fx-ko {
+  mask-image: linear-gradient(90deg, transparent 0, var(--black) 14px, var(--black) calc(100% - 14px), transparent 100%), linear-gradient(transparent 0, var(--black) 20px, var(--black) calc(100% - 20px), transparent 100%);
+  mask-composite: intersect; -webkit-mask-composite: source-in;
+}
+.arena .fx-root.event-ko-shatter.column-ko { z-index: 7; }
 .narrow .skill-plaque { padding-inline: 17px 21px; gap: 6px; }
 .narrow .skill-plaque { padding-right: 42px; }
 .narrow .defender .skill-plaque { padding-left: 42px; padding-right: 17px; }
@@ -156,14 +165,16 @@ input { accent-color: var(--gold); }
 .narrow .power-number { top: 8px; height: 60px; }
 .narrow .power-range { bottom: 7px; }
 .narrow .result-band { font-size: 13px; padding-inline: 12px; }
-.narrow .skill-descriptions { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-.narrow .participants { left: 20%; right: 2%; gap: 3px; top: 70px; }
+.narrow .skill-descriptions { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 0; }
+.narrow .description-tabs { display: flex; gap: 4px; }
+.description-tab { font: 11px var(--ui-font); padding: 5px 12px; border-radius: 4px 4px 0 0; border-bottom: 0; color: var(--muted); }
+.narrow .skill-descriptions[data-active="attacker"] .description-tab.attacker, .narrow .skill-descriptions[data-active="defender"] .description-tab.defender { color: var(--gold); background: var(--surface); }
+.narrow .skill-descriptions[data-active="attacker"] .description.defender, .narrow .skill-descriptions[data-active="defender"] .description.attacker { display: none; }
+.narrow .participants { top: 70px; }
+.narrow .participant-more { top: calc(100% - 224px); }
 .narrow .participant { height: 224px; }
 .narrow .participant .portrait { height: 170px; }
-.narrow .small-gem { --gem-size: 50px; --gem-number: 27px; left: calc(50% - 25px); }
-.narrow .small-gem .power-number { top: 2px; height: 34px; }
 .narrow .participant-name { font-size: 9px; }
-.narrow .small-gem .number-event { --gem-number: 27px; }
 @media (max-width: 760px) {
   body { padding-block: 22px; }
   .preview-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px; }
