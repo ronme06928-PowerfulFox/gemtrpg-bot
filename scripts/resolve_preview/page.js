@@ -1,3 +1,5 @@
+import { stageMotionAt, renderStageMotion } from '../../static/js/battle/components/resolve_stage_motion.js';
+import { resolveWaitMs } from '../../static/js/battle/components/resolve_stage_timing.js';
 import '../../static/js/fx/fx_core.js';
 import '../../static/js/fx/fx_effects.js';
 import { createTimeline, phaseAt, phaseNames } from './timeline.mjs';
@@ -37,8 +39,8 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 levelSelect.value = reducedMotion.matches ? 'light' : 'normal';
 const waitLabel = el('label', 'control-field wait-field');
 const wait = el('input', 'wait-slider');
-Object.assign(wait, { type: 'range', min: '0.5', max: '2', step: '0.1', value: '1' });
-const waitValue = el('output', 'wait-value', '1.0 秒');
+Object.assign(wait, { type: 'range', min: '0.5', max: '2', step: '0.1', value: String(resolveWaitMs() / 1000) });
+const waitValue = el('output', 'wait-value');
 waitLabel.append(el('span', '', '待ち時間'), wait, waitValue);
 controls.append(waitLabel);
 main.append(controls);
@@ -145,29 +147,10 @@ function render(value) {
   const phase = phaseAt(timeline, time);
   stage.canvas.dataset.phase = phase;
   stage.phase.textContent = phaseNames[phase];
-  stage.descriptions.style.visibility = time >= 0.6 ? 'visible' : 'hidden';
+  stage.descriptions.style.visibility = time >= timeline.starts.power ? 'visible' : 'hidden';
   stage.summary.style.visibility = time >= timeline.outcomeStart ? 'visible' : 'hidden';
   stage.progressFill.style.width = `${100 * Fx.clamp01((time - timeline.waitStart) / timeline.wait)}%`;
-  const light = levelSelect.value === 'light';
-  for (const [side, node] of Object.entries(stage.sides)) {
-    const entrance = light ? 1 : Fx.prog(time, 0, 0.5);
-    node.querySelector('.character-name').style.opacity = String(light ? 1 : entrance);
-    for (const portrait of node.querySelectorAll('.portrait')) {
-      portrait.style.transform = `translateX(${(side === 'attacker' ? -30 : 30) * (1 - entrance)}px)`;
-    }
-    for (const item of node.querySelectorAll('.skill-plaque, .gem')) {
-      item.style.visibility = time >= 0.6 ? 'visible' : 'hidden';
-      const slide = light ? 1 : Fx.prog(time, 0.6, 0.3);
-      const outcomeAge = time - timeline.outcomeStart;
-      const pulse = !light && outcomeAge >= 0 ? Math.sin(Math.PI * Fx.clamp01(outcomeAge / 0.7)) : 0;
-      const winning = timeline.winner === side;
-      // 参加者の小さな紋章は並びが詰まっているので、横に滑らせずその場で出す。
-      const travel = item.classList.contains('small-gem') ? 0 : side === 'attacker' ? -36 : 36;
-      item.style.transform = `translateX(${travel * (1 - slide)}px) scale(${item.classList.contains('gem') && winning ? 1 + pulse * 0.1 : 1})`;
-      item.style.filter = item.classList.contains('gem') && time >= timeline.outcomeStart && timeline.winner
-        ? `brightness(${winning ? 1 + pulse * 1.2 : 0.42})` : '';
-    }
-  }
+  renderStageMotion(stage.canvas, stageMotionAt(sample.step, time, levelSelect.value));
   for (const event of events) {
     const age = time - event.at;
     const visible = age >= 0 && age < event.fx.duration;
@@ -175,9 +158,6 @@ function render(value) {
     if (event.numberAnchor) event.numberAnchor.style.visibility = time < event.at ? 'hidden' : visible ? 'hidden' : '';
     event.fx.render(Math.max(0, Math.min(age, event.fx.duration)));
   }
-  stage.clash.style.opacity = sample.step.kind === 'fizzle' ? (time >= timeline.outcomeStart ? '1' : '0')
-    // 一方攻撃の文字も、VSと同じく勝敗が始まったら引き、昇ってくる数字に場所を譲る。
-    : sample.step.kind === 'one_sided' ? String(0.8 * (1 - Fx.prog(time, timeline.outcomeStart, 0.3))) : (time < 2 ? '0.3' : '0');
   for (const button of markerButtons.children) button.classList.toggle('current', button.dataset.phase === phase);
   play.setAttribute('aria-pressed', String(playing));
   pause.setAttribute('aria-pressed', String(!playing));

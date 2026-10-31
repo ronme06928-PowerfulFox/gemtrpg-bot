@@ -1,24 +1,9 @@
 import { stageFxPlacement } from './resolve_stage_layout.js';
 import { currentStageLayout, stageSample } from './resolve_stage.js';
 // 解決パネルへの接続。演出の定義自体は fx_effects.js に置く。
-import { collectDamageKnockouts, collectKnockouts, planResolveOutcome } from './resolve_flow_result_fx.js';
-export const RESOLVE_STAGE_TIMING = Object.freeze([
-  { stage: 'names', ms: 600 },
-  { stage: 'power', ms: 1400 },
-  { stage: 'attack', ms: 1400 },
-  { stage: 'outcome', ms: 2600 },
-]);
-
-export const OUTCOME_EXTENSIONS = Object.freeze({ knockout: 1500 });
-
-export function resolveStageTiming(step = {}) {
-  const extensions = [collectKnockouts(step).size ? OUTCOME_EXTENSIONS.knockout : 0];
-  const extension = Math.max(...extensions);
-  return RESOLVE_STAGE_TIMING.map(row => ({ ...row, ms: row.ms + (row.stage === 'outcome' ? extension : 0) }));
-}
-
-export const resolveOutcomeWindow = (step = {}, waitMs = 2000) =>
-  (resolveStageTiming(step).find(row => row.stage === 'outcome').ms + waitMs) / 1000;
+import { collectDamageKnockouts, planResolveOutcome } from './resolve_flow_result_fx.js';
+import { resolveStageTiming, resolveOutcomeWindow } from './resolve_stage_timing.js';
+export { RESOLVE_STAGE_TIMING, OUTCOME_EXTENSIONS, resolveStageTiming, resolveOutcomeWindow } from './resolve_stage_timing.js';
 
 const ATTACK_EFFECTS = Object.freeze({ 斬撃: 'attack-slash', 打撃: 'attack-strike', 貫通: 'attack-pierce' });
 export const ATTACK_TIERS = Object.freeze({ medium: 8, large: 15 });

@@ -640,9 +640,9 @@
 #resolve-flow-panel .narrow .participant-name { font-size: var(--resolve-font-9); }
 
 #resolve-flow-panel .reveal-block { visibility: hidden; }
+/* rAFが威力段階の通知より先に描いても、ロール前の確定数字を見せない。 */
+#resolve-flow-panel.reveal-names .power-number { visibility: hidden; }
 #resolve-flow-panel.reveal-power .reveal-power, #resolve-flow-panel.reveal-attack .reveal-power, #resolve-flow-panel.reveal-outcome .reveal-power, #resolve-flow-panel.reveal-outcome .reveal-outcome { visibility: visible; }
-#resolve-flow-panel.reveal-outcome .clash-point { opacity: 0; transition: opacity .3s; }
-#resolve-flow-panel.kind-fizzle .clash-point { opacity: 1; }
 #resolve-flow-panel .progress-band { gap: 12px; position: relative; padding: 0 12px 4px; }
 #resolve-flow-panel .progress-band button { font: inherit; padding: 5px 10px; color: var(--gold); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
 #resolve-flow-panel .progress-band button:disabled { opacity: .45; cursor: default; }

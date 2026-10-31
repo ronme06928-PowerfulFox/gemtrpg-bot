@@ -96,8 +96,8 @@ const oldTimeout=global.setTimeout,oldNow=Date.now;
 let wait;global.setTimeout=(_,ms)=>{wait=ms;return 1;};
 Date.now=()=>flow._stepStartedAt+flow._stepDuration(crowded);
 try {
- flow._scheduleAutoAdvanceIfNeeded({});assert.ok(wait>2000);
- flow._pendingAdvanceTimer=null;flow._activeStep={...base};flow._scheduleAutoAdvanceIfNeeded({});assert.strictEqual(wait,2000);
+ flow._scheduleAutoAdvanceIfNeeded({});assert.ok(wait>1000);
+ flow._pendingAdvanceTimer=null;flow._activeStep={...base};flow._scheduleAutoAdvanceIfNeeded({});assert.strictEqual(wait,1000);
 } finally {global.setTimeout=oldTimeout;Date.now=oldNow;}
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)

@@ -1,4 +1,16 @@
+import { resolveWaitMs } from './resolve_stage_timing.js';
 import { applyLayout, getLayout, participantSlots, sideBox, fitStage } from './resolve_stage_layout.js';
+
+export function isOneSidedPresentation(step) {
+  const kind = String(step?.kind || '');
+  if (kind === 'one_sided' || kind === 'fizzle') return true;
+  if (kind === 'mass_individual') return step.resolutionKind === 'one_sided';
+  if (kind === 'hard_attack') {
+    const rolls = (step?.rolls && typeof step.rolls === 'object') ? step.rolls : {};
+    return !Boolean(rolls.blocked_by_evade);
+  }
+  return false;
+}
 
 export const plainSkillText = text => String(text).replace(/\[\[[^|\]]+\|([^\]]+)\]\]/g, '$1');
 const attributePaths = {
@@ -78,7 +90,7 @@ export function renderResolveStage(flow, step, state, layout) {
       <div class="top-band"><span class="resolve-title">GEMLIA / RESOLVE</span><span class="resolve-flow-kind">${e(flow._kindLabel(step.kind))}　#<span class="step-number"></span></span><span class="resolve-flow-reveal-stage phase-label"></span></div>
       <div class="arena" data-anchor="arena">${combatants}${lanes}<div class="clash-point" data-anchor="clash">${step.kind === 'fizzle' ? '不発' : oneSided ? e(flow._kindLabel(step.kind)) : 'VS'}</div></div>
       <div class="result-band reveal-block reveal-outcome"><span class="result-winner" title="${e(headline)}">${e(headline)}</span><span class="result-damage">・ 総ダメージ ${damage.total}（ダイス ${damage.diceTotal} ／ 効果 ${damage.effectTotal}）</span></div>
-      <div class="progress-band"><button type="button" class="resolve-flow-next-btn">次のマッチへ</button><button type="button" class="resolve-flow-claim-btn">進行役を引き継ぐ</button><label class="resolve-flow-auto-label"><input type="checkbox" class="resolve-flow-auto-checkbox"> 自動進行（表示後2秒）</label><div class="resolve-flow-waiting"></div><div class="resolve-flow-timer"><div class="fill"></div></div></div>
+      <div class="progress-band"><button type="button" class="resolve-flow-next-btn">次のマッチへ</button><button type="button" class="resolve-flow-claim-btn">進行役を引き継ぐ</button><label class="resolve-flow-auto-label"><input type="checkbox" class="resolve-flow-auto-checkbox"> 自動進行（表示後${resolveWaitMs(step) / 1000}秒）</label><div class="resolve-flow-waiting"></div><div class="resolve-flow-timer"><div class="fill"></div></div></div>
       <div class="resolve-stage-notes">${tiebreak ? `<div class="resolve-flow-tiebreak">${e(tiebreak)}</div>` : ''}${step.notes ? `<div class="resolve-flow-notes reveal-block reveal-outcome">${e(step.notes)}</div>` : ''}</div>
     </div>
     <div class="skill-descriptions reveal-block reveal-power" data-active="${descriptions[0]?.side || 'attacker'}"${descriptions.length ? '' : ' hidden'}><div class="description-tabs">${descriptions.map(d => `<button type="button" class="description-tab ${d.side}" data-side="${d.side}" aria-pressed="${d.side === descriptions[0].side}">${d.side === 'attacker' ? '攻撃側' : '防御側'}</button>`).join('')}</div>${descriptions.map(d => `<section class="description ${d.side}"><h3>${d.side === 'attacker' ? '攻撃側' : '防御側'} / ${e(d.name)}</h3><div class="skill-copy">${d.fields}</div></section>`).join('')}</div>

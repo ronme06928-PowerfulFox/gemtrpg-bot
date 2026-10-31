@@ -1,3 +1,5 @@
+import { stageMotionAt, renderStageMotion } from '../../static/js/battle/components/resolve_stage_motion.js';
+import { resolveStageStarts } from '../../static/js/battle/components/resolve_stage_timing.js';
 import { ResolveFlowPanel } from '../../static/js/battle/components/ResolveFlowPanel.js';
 import { resolveStageTiming } from '../../static/js/battle/components/resolve_flow_fx.js';
 import { store } from '../../static/js/battle/core/BattleStore.js';
@@ -44,4 +46,10 @@ export function createRealStage(host, scene, width = null) {
   }
   // 枠の高さはカードの高さで決まる（gallery.css で一覧の中だけ普通の配置にしている）。
   return panel.querySelector('.resolve-flow-card') ? panel : null;
+}
+
+// 場面カードの0秒は命中。時計を戻しても本番と同じ姿へ戻す。
+export function renderRealStageMotion(panel, scene, time, level) {
+  const canvas = panel?.querySelector('.resolve-stage-canvas');
+  if (canvas) renderStageMotion(canvas, stageMotionAt(scene.step, resolveStageStarts(scene.step).outcome + time, level));
 }

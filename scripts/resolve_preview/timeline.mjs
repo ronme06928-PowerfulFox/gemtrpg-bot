@@ -1,3 +1,5 @@
+import { resolveWaitMs, RESOLVE_WAIT_MS, resolveStageStarts } from '../../static/js/battle/components/resolve_stage_timing.js';
+import { isOneSidedPresentation } from '../../static/js/battle/components/resolve_stage.js';
 import { resolveStageTiming, collectDamagePopups, isDiceDamageSource,
   attackEffect, attackTier } from '../../static/js/battle/components/resolve_flow_fx.js';
 import { planResolveOutcome, collectKnockouts } from '../../static/js/battle/components/resolve_flow_result_fx.js';
@@ -20,10 +22,10 @@ export function damageEntries(step) {
   }
   return [...entries.values()];
 }
-export function createTimeline(sample, fx, level = 'normal', waitSeconds = 1) {
+export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOLVE_WAIT_MS / 1000) {
   const { step, skills } = sample;
   const summation = step.kind === 'mass_summation';
-  const oneSided = step.kind === 'one_sided';
+  const oneSided = step.kind !== 'fizzle' && isOneSidedPresentation(step);
   const sideFor = id => id === step.attackerActorId ? 'attacker' : 'defender';
   const character = id => sample.state.characters.find(c => c.id === id);
   const toneFor = id => character(id)?.type === 'enemy' ? 'enemy' : 'ally';
@@ -35,9 +37,8 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = 1) {
     defender: Number.isFinite(rolls.min_damage_b) ? { min: rolls.min_damage_b, max: rolls.max_damage_b } : undefined };
   let elapsed = 0;
   const fizzle = step.kind === 'fizzle';
-  const stages = resolveStageTiming(step).filter(row => !(fizzle && row.stage === 'attack')).map(row => ({ ...row,
-    ms: row.stage === 'attack' ? 800 : fizzle && row.stage === 'outcome' ? 1000 : row.ms,
-  }));
+  const stages = resolveStageTiming(step);
+  const starts = resolveStageStarts(step);
   const marks = stages.map(row => {
     const mark = { stage: row.stage, at: elapsed / 1000 };
     elapsed += row.ms;
@@ -48,9 +49,9 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = 1) {
   const outcomeStart = marks.find(row => row.stage === 'outcome').at;
   const entries = damageEntries(step);
   const popups = collectDamagePopups(entries, [...step.applied.damage, ...step.damageEvents]);
-  const wait = fizzle ? 0.5 : Math.round(Math.max(0.5, Math.min(2, waitSeconds)) * 10) / 10;
+  const wait = resolveWaitMs(step, Math.round(Math.max(0.5, Math.min(2, waitSeconds)) * 10) * 100) / 1000;
   const duration = waitStart + wait;
-  const result = { marks, waitStart, wait, duration, outcomeStart, outcomeWindow: duration - outcomeStart, popups, entries, powers, bounds, events: [] };
+  const result = { marks, starts, waitStart, wait, duration, outcomeStart, outcomeWindow: duration - outcomeStart, popups, entries, powers, bounds, events: [] };
   if (fizzle) return result;
   const winner = oneSided ? 'attacker' : { attacker_win: 'attacker', defender_win: 'defender' }[step.outcome];
   result.winner = winner;
@@ -60,12 +61,12 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = 1) {
   const tier = koIds.size ? 'large' : attackTier(summation ? rolls.delta : entries.find(e => e.targetId === targetId)?.total || 0);
   const add = (name, at, anchor, params, extra = {}) => result.events.push({ name, at, anchor, params, ...extra });
   for (const side of oneSided ? ['attacker'] : ['attacker', 'defender']) {
-    add('power-roll', 0.6, `power:${side}`, { text: powers[side], range: bounds[side] }, { number: true });
+    add('power-roll', starts.power, `power:${side}`, { text: powers[side], range: bounds[side] }, { number: true });
   }
   if (summation) for (const slotId of step.participants) {
-    add('power-roll', 0.6, `power:${sample.state.slots[slotId].actor_id}`, { text: rolls.defender_powers[slotId] }, { number: true });
+    add('power-roll', starts.power, `power:${sample.state.slots[slotId].actor_id}`, { text: rolls.defender_powers[slotId] }, { number: true });
   }
-  add(attackEffect(skills[winner || 'attacker'].attribute), 2, 'clash', {
+  add(attackEffect(skills[winner || 'attacker'].attribute), starts.attack, 'clash', {
     tier, direction: winner === 'defender' ? -1 : 1, tone: toneFor(targetId), mode: summation ? 'wide' : 'hit',
   });
   if (!oneSided && !summation) add('clash-flash', outcomeStart, 'clash', {});
@@ -77,11 +78,10 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = 1) {
   for (const event of plan.events) {
     const side = sideFor(event.targetId);
     const band = event.name === 'effect-band';
+    if (band && summation && side === 'defender') continue;
     const chip = summation && side === 'defender' && !band;
     const groups = band ? event.params.groups.map(group => ({ ...group,
-      lines: group.lines.map((line, i) => ({ ...line, tone: group.self ? 'self' : toneFor(group.targetId),
-        text: summation && side === 'defender' && i === 0 ? `${character(group.targetId).name.slice(0, 12)}：${line.text}` : line.text,
-      })),
+      lines: group.lines.map(line => ({ ...line, tone: group.self ? 'self' : toneFor(group.targetId) })),
     })) : undefined;
     // 参加者の戦闘不能は、丸の小さなひびではなく、その人の列いっぱいの縦長のひびにする。
     const column = chip && event.name === 'ko-shatter';

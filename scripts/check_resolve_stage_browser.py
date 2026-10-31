@@ -19,6 +19,8 @@ import {ResolveFlowPanel} from './static/js/battle/components/ResolveFlowPanel.j
 import {store} from './static/js/battle/core/BattleStore.js';
 import {playResolveStageFx,resolveStageTiming} from './static/js/battle/components/resolve_flow_fx.js';
 import {getLayout,participantSlots,stageFxPlacement} from './static/js/battle/components/resolve_stage_layout.js';
+import {resolveStageStarts} from './static/js/battle/components/resolve_stage_timing.js';
+import {stageMotionAt,renderStageMotion} from './static/js/battle/components/resolve_stage_motion.js';
 const samples=__SAMPLES__,skills=__SKILLS__;
 const flow=new ResolveFlowPanel();flow._skillById=id=>skills[id];
 let events=[];
@@ -30,13 +32,24 @@ window.Fx.play=(name,params,options)=>{
   const fx=Object.create(window.Fx.get(name));fx.mount(root,{...params,level:'normal'});fx.render(0.5);
   const item={name,params,options,root,fx};events.push(item);return item;
 };
-window.qa={samples,getLayout,participantSlots,stageFxPlacement,flow,render(id,phase='outcome'){
+window.qa={samples,getLayout,participantSlots,stageFxPlacement,flow,seekMotion(time,level){
+  const canvas=document.querySelector('.resolve-stage-canvas');
+  renderStageMotion(canvas,stageMotionAt(flow._activeStep,time,level));
+  return [...canvas.querySelectorAll('.portrait,.skill-plaque,.gem,.character-name,.clash-point')].map(el=>el.style.cssText);
+},tail(){
+  const attack=events.find(e=>e.name.startsWith('attack-'));
+  flow._stepStartedAt=Date.now()-resolveStageStarts(flow._activeStep).outcome*1000;
+  flow._renderStep(store._state);
+  const retained=attack.root.isConnected;
+  attack.fx.render(1.2);const visible=Number(attack.fx.el.style.opacity);
+  attack.fx.render(1.4);return {retained,visible,finished:Number(attack.fx.el.style.opacity),duration:attack.fx.duration};
+},render(id,phase='outcome'){
   flow._finishFx();flow._renderedStepKey=null;events=[];
   const sample=structuredClone(samples.find(s=>s.id===id));
   for(const side of ['attacker','defender']) if(sample.nameOverrides?.[side])sample.step[side+'SkillNameHint']=sample.nameOverrides[side];
   store._state=sample.state;flow._activeStep=sample.step;
-  const starts={names:0,power:600,attack:2000,outcome:3400};
-  flow._stepStartedAt=Date.now()-starts[phase]-1;
+  const starts=resolveStageStarts(sample.step);
+  flow._stepStartedAt=Date.now()-(starts[phase]??starts.outcome)*1000-1;
   flow._renderStep(sample.state);
   playResolveStageFx(flow,{stage:phase,outcome:sample.step.outcome},sample.state);
   return {events:events.map(e=>({name:e.name,left:e.options.left,top:e.options.top,width:e.params.width,height:e.params.height,ceiling:e.params.ceiling,anchor:e.options.host.dataset.anchor,classes:e.root.className})),sample};
@@ -103,7 +116,7 @@ def main():
                     assert result["copy"] == result["expected"], (sample, result)
                     assert result["narrow"] == (width <= 980)
                     assert result["plaque"] == (phase != "names"), (sample, phase, result)
-                    assert result["summary"] == (phase == "outcome")
+                    assert result["summary"] == (phase == "outcome" or (sample == "fizzle" and phase == "attack"))
                     assert not result["nan"], (sample, result)
                     assert not result["rollMisaligned"], (sample, width, phase, result)
                     assert result["defenderPlaque"] == (not result["unarmed"]), (sample, result)
@@ -121,6 +134,21 @@ def main():
                 assert page.locator('.description.defender').is_visible()
                 assert not page.locator('.description.attacker').is_visible()
         page.set_viewport_size({"width": 1440, "height": 1080})
+        page.evaluate("qa.render('ally-win','attack')")
+        tail = page.evaluate("qa.tail()")
+        assert tail["retained"] and tail["visible"] > 0 and tail["finished"] == 0 and tail["duration"] == 1.4, tail
+        page.evaluate("qa.render('ally-win','outcome')")
+        motion = page.evaluate("""() => {
+          let count=0;const reference={};const times=[0,0.25,0.6,0.75,0.9,2,2.8,3.15,4];
+          for(const level of ['light','normal','rich']){
+            const frames=times.map(t=>JSON.stringify(qa.seekMotion(t,level)));
+            reference[level]=frames;
+            for(const i of [8,0,7,1,6,2,5,3,4]){
+              if(JSON.stringify(qa.seekMotion(times[i],level))!==frames[i])throw Error('motion depends on previous frame');
+              count++;
+            }
+          }return {count,reference,times};
+        }""")
         page.evaluate("qa.render('ally-win','outcome')")
         page.screenshot(path=str(OUT / "production-last.png"))
         page.goto((ROOT / "_local/fx_gallery/fx_gallery.html").as_uri(), wait_until="domcontentloaded", timeout=60000)
@@ -133,10 +161,22 @@ def main():
             assert eight.locator('.stage-host .event-ko-shatter').count() == 3
             assert eight.locator('.stage-host .event-resolve-damage').count() == 3
             assert float(eight.get_attribute('data-end')) > float(eight.get_attribute('data-window'))
+        page.goto((ROOT / "_local/resolve_preview/resolve_preview.html").as_uri(), wait_until="domcontentloaded")
+        preview_checks = 0
+        for level, frames in motion["reference"].items():
+            page.locator('.level-select').select_option(level)
+            for i in [8, 0, 7, 1, 6, 2, 5, 3, 4]:
+                actual = page.evaluate("""time => {
+                  const seek=document.querySelector('.seek');seek.value=String(time);seek.dispatchEvent(new Event('input'));
+                  return JSON.stringify([...document.querySelectorAll('.preview-canvas .portrait,.preview-canvas .skill-plaque,.preview-canvas .gem,.preview-canvas .character-name,.preview-canvas .clash-point')].map(el=>el.style.cssText));
+                }""", motion["times"][i])
+                assert actual == frames[i], (level, motion["times"][i], actual, frames[i])
+                preview_checks += 1
         assert not errors, errors
         browser.close()
     temporary.cleanup()
-    print(json.dumps({"browser_checks": checks, "page_errors": errors}, ensure_ascii=False))
+    print(json.dumps({"browser_checks": checks, "motion_checks": motion["count"], "preview_motion_checks": preview_checks,
+                      "attack_tail": tail, "page_errors": errors}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

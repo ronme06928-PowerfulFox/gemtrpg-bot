@@ -1,7 +1,7 @@
 import { resolveStageTiming, resolveOutcomeWindow } from '../../static/js/battle/components/resolve_flow_fx.js';
 import { effectSamples, sceneSamples, characters } from './samples.mjs';
 import { collectSceneEvents } from './scene.mjs';
-import { createRealStage } from './real_panel.mjs';
+import { createRealStage, renderRealStageMotion } from './real_panel.mjs';
 
 const assets = __GALLERY_ASSETS__;
 const Fx = window.Fx;
@@ -179,12 +179,13 @@ function createCard(samples, scene = false) {
   card.append(details);
   document.querySelector(scene ? '#scenes .cards' : '#effects .cards').append(card);
 
-  let events = [], duration = 0, time = 0, playing = false, startedAt = 0;
+  let stage, events = [], duration = 0, time = 0, playing = false, startedAt = 0;
   const setTime = value => {
     time = Math.max(0, Math.min(duration, value));
     seek.value = String(time);
     clock.value = `${time.toFixed(2)} / ${duration.toFixed(2)} 秒`;
     renderEvents(events, time);
+    if (scene) renderRealStageMotion(stage, sample, time, level.value);
   };
   function rebuild() {
     playing = false;
@@ -193,7 +194,7 @@ function createCard(samples, scene = false) {
     strip.replaceChildren();
     eventList.replaceChildren();
     // 場面カードは本物の解決パネルで描く。HTMLを解釈できない環境では仮の台に戻る（計画56 §4.1a）。
-    let stage = scene ? createRealStage(stageHost, embedded(sample)) : null;
+    stage = scene ? createRealStage(stageHost, embedded(sample)) : null;
     if (!stage) { stageHost.replaceChildren(); stage = createStage(stageHost, scene ? sample : null); }
     const real = stage.hasAttribute?.('data-gallery-resolve-panel');
     const scenePlan = scene ? collectSceneEvents(sample, stage, level.value) : null;
@@ -230,6 +231,7 @@ function createCard(samples, scene = false) {
       frameStage.style.width = `${stage.offsetWidth}px`;
       const framePlan = scene ? collectSceneEvents(sample, frameStage, level.value).events : singleEvents(frameStage, sample);
       renderEvents(mountEvents(frameStage, framePlan, level.value), t);
+      if (scene) renderRealStageMotion(frameStage, sample, t, level.value);
       canvas.style.transform = `scale(${120 / stage.offsetWidth})`;
       view.style.height = `${stage.getBoundingClientRect().height * 120 / stage.offsetWidth}px`;
       frame.addEventListener('click', () => { playing = false; setTime(t); });

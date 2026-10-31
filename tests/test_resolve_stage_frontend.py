@@ -106,7 +106,7 @@ for(const width of [1180,660])for(const scene of [original,mixed]) {
  const entries=flow._collectDamageSummary(step,state).entries;
  const popups=collectDamagePopups(entries,[...(step.applied.damage||[]),...(step.damageEvents||[])]);
  const expected=planResolveOutcome(step,popups,resolveOutcomeWindow(step),window.Fx,id=>id==='a'?'attacker':'defender');
- calls.length=0;flow._activeStep=step;flow._stepStartedAt=Date.now()-3400;
+ calls.length=0;flow._activeStep=step;flow._stepStartedAt=Date.now()-2800;
  const actual=playResolveStageFx(flow,{stage:'outcome',outcome:step.outcome},state);
  assert.deepStrictEqual(actual,expected);
  assert.ok(expected.events.some(e=>e.name==='effect-band'&&e.lane==='defender'));
@@ -117,7 +117,7 @@ for(const width of [1180,660])for(const scene of [original,mixed]) {
  assert.strictEqual(played.filter(c=>c[0]==='effect-band').length,scene===mixed?1:0);
  assert.ok(played.some(c=>c[0]==='resolve-damage'&&c[1].kind==='effect'));
  assert.ok(played.some(c=>c[0]==='ko-shatter'));
- assert.strictEqual(flow._outcomeFxDeadline.atMs,flow._stepStartedAt+3400+expected.endSeconds*1000);
+ assert.strictEqual(flow._outcomeFxDeadline.atMs,flow._stepStartedAt+2800+expected.endSeconds*1000);
 }
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)

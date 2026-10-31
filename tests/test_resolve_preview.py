@@ -19,6 +19,7 @@ def test_preview_samples_and_timeline_keep_the_production_outcome_plan():
   const { createTimeline, phaseAt } = await import('./scripts/resolve_preview/timeline.mjs');
   const { planResolveOutcome, collectKnockouts } = await import('./static/js/battle/components/resolve_flow_result_fx.js');
   const { resolveStageTiming, resolveOutcomeWindow } = await import('./static/js/battle/components/resolve_flow_fx.js');
+  const { resolveStageStarts } = await import('./static/js/battle/components/resolve_stage_timing.js');
   assert.strictEqual(new Set(samples.map(s => s.id)).size, samples.length);
   for (const id of ['ally-win','enemy-ko','long-names','one-sided','summation','fizzle','silhouette']) {
     assert.ok(samples.some(s => s.id === id), id);
@@ -32,6 +33,7 @@ def test_preview_samples_and_timeline_keep_the_production_outcome_plan():
   for (const sample of samples) for (const level of ['light','normal','rich']) for (const waitSeconds of [0.5,1,2]) {
     const timeline = createTimeline(sample, fx, level, waitSeconds);
     const timing = resolveStageTiming(sample.step);
+    assert.deepStrictEqual(timeline.starts,resolveStageStarts(sample.step));
     const fizzle = sample.step.kind === 'fizzle';
     assert.strictEqual(timeline.outcomeStart,fizzle?2:2.8);
     assert.ok(Math.abs(timeline.waitStart-(fizzle?3:2.8+timing.at(-1).ms/1000))<1e-9);

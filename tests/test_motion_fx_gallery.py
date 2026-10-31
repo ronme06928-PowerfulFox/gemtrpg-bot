@@ -94,7 +94,7 @@ def test_scene_events_use_the_production_plan_positions_tones_and_fit_the_derive
       assert.deepStrictEqual(actual.map(e => [e.name,e.at]), visiblePlan.map(e => [e.name,e.at]));
       for (const event of events) {
         // 効果が多くて枠に入らない場面は、本番と同じく表示が終わるまで延びる。
-        assert.ok(event.at >= 0 && event.at + (event.params.duration??window.Fx.get(event.name).duration) <= Math.max(resolveOutcomeWindow(step), planned.endSeconds)+0.000001, scene.id);
+        assert.ok((event.name.startsWith('attack-') ? event.at === -0.8 : event.at >= 0) && event.at + (event.params.duration??window.Fx.get(event.name).duration) <= Math.max(resolveOutcomeWindow(step), planned.endSeconds)+0.000001, scene.id);
         assert.ok(event.params.width > 0 && event.params.height > 0);
       }
       for (const event of actual) {
@@ -253,7 +253,7 @@ for (const card of cards) {
   assert.ok(clock.value.startsWith('0.10'));
   const end=Number(seek.max);
   // 効果が多い場面は、表示が終わるまで枠より延びる。
-  if(card.className.includes('scene-card')) {assert.ok(end>=Number(card.dataset.window));assert.ok([4.6,6.1].includes(Number(card.dataset.window)));assert.ok(Number(card.dataset.groups)>=0&&Number(card.dataset.stop)>=0);assert.ok(card.querySelector('.timing-note').textContent.includes('まとまり'));}
+  if(card.className.includes('scene-card')) {assert.ok(end>=Number(card.dataset.window));assert.ok([3.6,5.1].includes(Number(card.dataset.window)));assert.ok(Number(card.dataset.groups)>=0&&Number(card.dataset.stop)>=0);assert.ok(card.querySelector('.timing-note').textContent.includes('まとまり'));}
   if(card.dataset.effect==='effect-band') assert.strictEqual(end,4.5);
   seek.value=String(end);seek.events.input();
   card.querySelector('.loop').checked=true;

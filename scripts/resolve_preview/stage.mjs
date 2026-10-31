@@ -1,3 +1,4 @@
+import { isOneSidedPresentation } from '../../static/js/battle/components/resolve_stage.js';
 import { kindNames } from './timeline.mjs';
 import { plainSkillText } from './skill_text.mjs';
 import { applyLayout, sideBox, participantSlots } from './layout.mjs';
@@ -60,7 +61,7 @@ export function createStage(host, sample, timeline, assets, sampleIndex, layout)
   arena.dataset.anchor = 'arena';
   const characters = sample.state.characters;
   const summation = sample.step.kind === 'mass_summation';
-  const oneSided = sample.step.kind === 'one_sided';
+  const oneSided = sample.step.kind !== 'fizzle' && isOneSidedPresentation(sample.step);
   const sides = {};
   for (const side of ['attacker', 'defender']) {
     const character = characters.find(c => c.id === sample.step[`${side}ActorId`]);
@@ -122,7 +123,7 @@ export function createStage(host, sample, timeline, assets, sampleIndex, layout)
       arena.append(lane);
     }
   }
-  const clash = el('div', 'clash-point', sample.step.kind === 'fizzle' ? '不発' : oneSided ? '一方攻撃' : 'VS');
+  const clash = el('div', 'clash-point', sample.step.kind === 'fizzle' ? '不発' : oneSided ? kindNames[sample.step.kind] : 'VS');
   clash.dataset.anchor = 'clash';
   arena.append(clash);
   const summary = el('div', 'result-band');
@@ -148,7 +149,7 @@ export function createStage(host, sample, timeline, assets, sampleIndex, layout)
   descriptions.append(tabs);
   for (const side of ['attacker', 'defender']) {
     const skill = sample.skills[side];
-    if (!skill) continue;
+    if (!skill || (oneSided && side === 'defender')) continue;
     const tab = el('button', `description-tab ${side}`, side === 'attacker' ? '攻撃側' : '防御側');
     tab.type = 'button';
     tab.addEventListener('click', () => { descriptions.dataset.active = side; });

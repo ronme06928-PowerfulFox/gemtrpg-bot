@@ -13,10 +13,10 @@ const multiple={...lethal,selfDestructed:['a','e']};
 for(const step of [base,lethal,self,multiple]) {
  const ko=step!==base;
  const timing=resolveStageTiming(step);
- assert.deepStrictEqual(timing.map(r=>r.ms),[600,1400,1400,ko?4100:2600]);
- assert.strictEqual(flow._stepDuration(step),ko?7500:6000);
- assert.strictEqual(resolveOutcomeWindow(step),ko?6.1:4.6);
- for(const [t,stage] of [[0,'names'],[600,'power'],[1999,'power'],[2000,'attack'],[3399,'attack'],[3400,'outcome'],[7000,'outcome']]) {
+ assert.deepStrictEqual(timing.map(r=>r.ms),[600,1400,800,ko?4100:2600]);
+ assert.strictEqual(flow._stepDuration(step),ko?6900:5400);
+ assert.strictEqual(resolveOutcomeWindow(step),ko?5.1:3.6);
+ for(const [t,stage] of [[0,'names'],[600,'power'],[1999,'power'],[2000,'attack'],[2799,'attack'],[2800,'outcome'],[7000,'outcome']]) {
   assert.strictEqual(flow._revealStageByElapsed(t,step),stage);
  }
 }
@@ -24,7 +24,7 @@ assert.strictEqual(resolveOutcomeWindow(lethal,500),4.6);
 run(lethal,'outcome',4000);
 for(const call of calls) assert.ok(Math.abs(call[2].elapsedSeconds-4)<0.1);
 const ko=calls.find(c=>c[0]==='ko-shatter');
-assert.ok(Math.abs(ko[2].delaySeconds+ko[1].duration-6.1)<1e-9);
+assert.ok(Math.abs(ko[2].delaySeconds+ko[1].duration-5.1)<1e-9);
 const {getLayout}=await import('./static/js/battle/components/resolve_stage_layout.js');const layout=getLayout(1180);
 assert.strictEqual(ko[1].width,layout.width/2);assert.strictEqual(ko[1].height,layout.arenaHeight);
 assert.strictEqual(ko[2].left,layout.width*0.75);
@@ -47,7 +47,7 @@ for(const scene of sceneSamples) {
  const plan=collectSceneEvents(scene,panel,'normal');
  const windowSeconds=resolveOutcomeWindow(scene.step);
  assert.strictEqual(plan.windowSeconds,windowSeconds);
- assert.strictEqual(resolveStageTiming(scene.step).reduce((n,r)=>n+r.ms,0),collectKnockouts(scene.step).size?7500:6000);
+ assert.strictEqual(resolveStageTiming(scene.step).reduce((n,r)=>n+r.ms,0),collectKnockouts(scene.step).size?6900:5400);
  const kos=plan.events.filter(e=>e.name==='ko-shatter');
  assert.strictEqual(kos.length,collectKnockouts(scene.step).size);
  for(const ko of kos) {

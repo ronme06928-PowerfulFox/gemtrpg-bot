@@ -30,7 +30,7 @@ const { ResolveFlowPanel } = await import('./static/js/battle/components/Resolve
 const { eventBus } = await import('./static/js/battle/core/EventBus.js');
 const flow = new ResolveFlowPanel();
 const cases = [[-1,'names'],[0,'names'],[599,'names'],[600,'power'],[1999,'power'],
-  [2000,'attack'],[3399,'attack'],[3400,'outcome'],[6000,'outcome'],[9000,'outcome']];
+  [2000,'attack'],[2799,'attack'],[2800,'outcome'],[6000,'outcome'],[9000,'outcome']];
 for (const [t, stage] of cases) assert.strictEqual(flow._revealStageByElapsed(t,{}),stage);
 assert.strictEqual(flow._revealStageByElapsed(300,{}),'names');
 const seen = [];

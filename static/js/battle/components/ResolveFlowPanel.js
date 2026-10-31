@@ -1,5 +1,7 @@
+import { RESOLVE_WAIT_MS, resolveWaitMs } from './resolve_stage_timing.js';
+import { stageMotionAt, renderStageMotion } from './resolve_stage_motion.js';
 import { getLayout } from './resolve_stage_layout.js';
-import { renderResolveStage, fitResolveStage } from './resolve_stage.js';
+import { renderResolveStage, fitResolveStage, isOneSidedPresentation } from './resolve_stage.js';
 import { store } from '../core/BattleStore.js';
 import { eventBus } from '../core/EventBus.js';
 import { socketClient } from '../core/SocketClient.js';
@@ -24,6 +26,7 @@ class ResolveFlowPanel {
         this._roundNumber = 0;
         this._stepTimer = null;
         this._tickTimer = null;
+        this._motionFrame = null;
         this._stepStartedAt = 0;
         this._lastStageKey = null;
         this._unsubscribeStage = null;
@@ -32,7 +35,7 @@ class ResolveFlowPanel {
         this._introShownRounds = new Set();
         this._waitingForAdvance = false;
         this._autoAdvanceEnabled = false;
-        this._autoAdvanceDelayMs = 2000;
+        this._autoAdvanceDelayMs = RESOLVE_WAIT_MS;
         this._pendingAdvanceTimer = null;
         this._advanceRequestPending = false;
         this._advanceRequestPendingTimer = null;
@@ -500,7 +503,7 @@ class ResolveFlowPanel {
         this._pendingAdvanceTimer = setTimeout(() => {
             this._pendingAdvanceTimer = null;
             this._onAdvanceRequested();
-        }, Math.max(this._autoAdvanceDelayMs,
+        }, Math.max(resolveWaitMs(this._activeStep, this._autoAdvanceDelayMs),
             this._outcomeFxDeadline?.step === this._activeStep ? this._outcomeFxDeadline.atMs - Date.now() : 0));
     }
 
@@ -905,6 +908,10 @@ class ResolveFlowPanel {
     }
 
     _clearTimers() {
+        if (this._motionFrame !== null) {
+            window.cancelAnimationFrame(this._motionFrame);
+            this._motionFrame = null;
+        }
         if (this._stepTimer) {
             clearTimeout(this._stepTimer);
             this._stepTimer = null;
@@ -921,6 +928,25 @@ class ResolveFlowPanel {
         this._stepStartedAt = 0;
         this._clearPendingAdvanceTimer();
         this._clearAdvanceRequestPending();
+    }
+
+    _drawMotion(panel = null, elapsedMs = null) {
+        if (!this._activeStep || this._isIntroStep(this._activeStep)) return;
+        const shell = panel || document.getElementById(this._panelId);
+        const elapsed = elapsedMs ?? Math.max(0, Date.now() - this._stepStartedAt);
+        renderStageMotion(shell?.querySelector('.resolve-stage-canvas'), stageMotionAt(this._activeStep, elapsed / 1000,
+            typeof window !== 'undefined' && window.Fx?.getLevel ? window.Fx.getLevel() : 'normal'));
+    }
+
+    _startMotionPlayback() {
+        if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') return;
+        const draw = () => {
+            this._motionFrame = null;
+            if (!this._activeStep || this._isIntroStep(this._activeStep)) return;
+            this._drawMotion();
+            this._motionFrame = window.requestAnimationFrame(draw);
+        };
+        this._motionFrame = window.requestAnimationFrame(draw);
     }
 
     _playNextStep({ forceLocalClock = false } = {}) {
@@ -968,6 +994,7 @@ class ResolveFlowPanel {
         this._renderStep(store.state || {});
 
         if (!this._isIntroStep(this._activeStep)) {
+            this._startMotionPlayback();
             this._tickTimer = setInterval(() => {
                 if (!this._activeStep) return;
                 this._renderStep(store.state || {});
@@ -1155,14 +1182,7 @@ class ResolveFlowPanel {
     }
 
     _isOneSidedPresentation(step) {
-        const kind = String(step?.kind || '');
-        if (kind === 'one_sided' || kind === 'fizzle') return true;
-        if (kind === 'mass_individual') return step.resolutionKind === 'one_sided';
-        if (kind === 'hard_attack') {
-            const rolls = (step?.rolls && typeof step.rolls === 'object') ? step.rolls : {};
-            return !Boolean(rolls.blocked_by_evade);
-        }
-        return false;
+        return isOneSidedPresentation(step);
     }
 
     _resolvePowerValues(step) {
@@ -1588,6 +1608,7 @@ class ResolveFlowPanel {
         const number = panel.querySelector('.step-number');
         if (number) number.textContent = stepNumLabel;
         fitResolveStage(panel, layout, viewportWidth, viewportHeight);
+        this._drawMotion(panel, elapsed);
 
         const revealNode = panel.querySelector('.resolve-flow-reveal-stage');
         this._notifyStage(stepKey, revealStage, step);
@@ -1626,7 +1647,7 @@ class ResolveFlowPanel {
                     ? (this._advanceRequestPending
                         ? '\u9032\u884c\u8981\u6c42\u9001\u4fe1\u4e2d...'
                         : this._autoAdvanceEnabled
-                        ? '\u8868\u793a\u5b8c\u4e86: 2\u79d2\u5f8c\u306b\u81ea\u52d5\u9032\u884c'
+                        ? `表示完了: ${resolveWaitMs(step, this._autoAdvanceDelayMs) / 1000}秒後に自動進行`
                         : '\u8868\u793a\u5b8c\u4e86: \u30dc\u30bf\u30f3\u3067\u6b21\u3078\u9032\u884c')
                     : `${controllerName}が進行するまで待機中`)
                 : '';

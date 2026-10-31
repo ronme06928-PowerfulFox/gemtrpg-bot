@@ -8,21 +8,26 @@ export function collectSceneEvents(scene, panel, level) {
   const flow = new ResolveFlowPanel();
   flow._activeStep = scene.step;
   flow._panelId = panel.id;
-  flow._autoAdvanceDelayMs = 2000;
   flow._stepStartedAt = Date.now() - resolveStageTiming(scene.step).filter(row => row.stage !== 'outcome').reduce((sum, row) => sum + row.ms, 0);
   const fx = window.Fx;
   const previousPlay = fx.play;
+  const previousNow = Date.now;
+  const frozen = previousNow();
   const previousLevel = fx.getLevel;
   const previousStatus = window.STATUS_CONFIG;
   const events = [];
   let plan;
   try {
+    Date.now = () => frozen;
+    flow._stepStartedAt = frozen - resolveStageTiming(scene.step).filter(row => row.stage !== 'outcome').reduce((sum, row) => sum + row.ms, 0);
     window.STATUS_CONFIG = STATUS_CONFIG;
     fx.getLevel = () => level;
-    fx.play = (name, params, options) => events.push({ name, params, at: options.delaySeconds || 0,
+    fx.play = (name, params, options) => events.push({ name, params, at: (options.delaySeconds || 0) - (options.elapsedSeconds || 0),
       host: options.host, className: options.className, left: options.left, top: options.top });
+    playResolveStageFx(flow, { stage: 'attack', outcome: scene.step.outcome }, scene.state);
     plan = playResolveStageFx(flow, { stage: 'outcome', outcome: scene.step.outcome }, scene.state);
   } finally {
+    Date.now = previousNow;
     if (previousPlay === undefined) delete fx.play;
     else fx.play = previousPlay;
     if (previousLevel === undefined) delete fx.getLevel;

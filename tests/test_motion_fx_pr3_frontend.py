@@ -69,7 +69,7 @@ const base = {kind:'clash',outcome:'attacker_win',attackerActorId:'a',defenderAc
   applied:{damage:[{target_id:'d',hp:9,source:'dice'},{target_id:'d',hp:6,source:'rupture'}]}};
 const run = (step,stage,late=0) => {
   calls.length=0; measured.length=0; flow._activeStep=step;
-  const starts={names:0,power:600,attack:2000,outcome:3400};
+  const starts={names:0,power:600,attack:2000,outcome:2800};
   flow._stepStartedAt=Date.now()-starts[stage]-late;
   playResolveStageFx(flow,{kind:step.kind,outcome:step.outcome,stage},{});
   return calls;
