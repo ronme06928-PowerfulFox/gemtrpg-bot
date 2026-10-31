@@ -39,6 +39,33 @@ def _base_battle_state():
     }
 
 
+@pytest.mark.parametrize("handler_name", ["on_battle_intent_preview", "on_battle_intent_commit"])
+@pytest.mark.parametrize("authorized", [False, True])
+def test_measured_intent_keeps_authorization_and_ephemeral_metadata(monkeypatch, handler_name, authorized):
+    routes = _load_battle_common_routes_module()
+    actual_delivery = routes._emit_battle_state_updated
+    state = _base_battle_state()
+    state_before = deepcopy(state)
+    errors, delivered = [], []
+    _patch_common(monkeypatch, routes, state, {"username": "player", "attribute": "Player"}, authorized, errors)
+    monkeypatch.setattr(routes, "_emit_battle_state_updated", actual_delivery)
+    monkeypatch.setattr(routes, "build_select_resolve_state_payload", lambda *_args, **_kwargs: {"intents": state["intents"]})
+    monkeypatch.setattr(routes.socketio, "emit", lambda event, payload, **_kwargs: delivered.append((event, payload)))
+    ack = getattr(routes, handler_name)({
+        "room_id": "room_t", "battle_id": "battle_t", "slot_id": "S1", "skill_id": "test_skill",
+        "target": {"type": "single_slot", "slot_id": "S2"}, "_intent_perf_id": "authorized-0123456789",
+    })["intent_perf"]
+    assert ack["state_emitted"] is authorized
+    if authorized:
+        assert delivered[0][1]["_intent_perf"]["id"] == ack["id"]
+        assert ack["stages_ms"]["delivery_ms"] >= 0
+    else:
+        assert not delivered
+        assert state == state_before
+        assert any(event == "battle_error" for event, *_rest in errors)
+    assert "_intent_perf" not in state and "_intent_perf_id" not in repr(state)
+
+
 def _patch_common(monkeypatch, routes, state, user_info, authorized, emit_calls):
     monkeypatch.setattr(routes, "request", SimpleNamespace(sid="sid-test"))
     monkeypatch.setattr(routes, "is_sid_in_room", lambda _sid, _room: True)

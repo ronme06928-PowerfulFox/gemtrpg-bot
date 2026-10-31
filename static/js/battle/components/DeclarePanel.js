@@ -1,5 +1,6 @@
 import { store } from '../core/BattleStore.js';
 import { socketClient } from '../core/SocketClient.js';
+import { intentPerformance } from '../core/IntentPerformance.js';
 
 class DeclarePanel {
     constructor() {
@@ -21,7 +22,7 @@ class DeclarePanel {
 
     initialize() {
         if (this._initialized) return true;
-        this._unsubscribe = store.subscribe((state) => this._render(state));
+        this._unsubscribe = store.subscribe((state) => intentPerformance.render(() => this._render(state)));
         this._render(store.state);
         this._initialized = true;
         console.log('DeclarePanel initialized');

@@ -1,6 +1,7 @@
 import copy
 import json
 import time
+from events.battle.intent_performance import measure_intent, measure_stage, tag_state_payload
 
 from flask import request
 from flask_socketio import emit, rooms
@@ -873,6 +874,7 @@ def _start_select_resolve_if_ready(room_id, battle_id, source_event):
     )
 
 
+@measure_stage("ready_ms")
 def _refresh_resolve_ready(room_id, state):
     return _phase_flow._refresh_resolve_ready(
         room_id,
@@ -921,6 +923,7 @@ def _ensure_battle_payload(data, require_slot=False):
     return room_id, battle_id, slot_id
 
 
+@measure_stage("delivery_ms")
 def _emit_battle_state_updated(room_id, battle_id):
     payload = build_select_resolve_state_payload(room_id, battle_id=battle_id)
     if payload is None:
@@ -931,7 +934,7 @@ def _emit_battle_state_updated(room_id, battle_id):
         payload['resolve_ready'] = bool(state.get('resolve_ready', False))
         payload['resolve_ready_info'] = state.get('resolve_ready_info', {})
     _log_battle_emit('battle_state_updated', room_id, battle_id, payload)
-    socketio.emit('battle_state_updated', payload, to=room_id)
+    socketio.emit('battle_state_updated', tag_state_payload(payload), to=room_id)
 
 
 def _server_ts():
@@ -985,6 +988,7 @@ def _try_apply_redirect(room_id, battle_id, state, slot_a):
     )
 
 
+@measure_stage("redirect_ms")
 def _recalculate_redirect_state(room_id, battle_id, state):
     return _redirect_flow.recalculate_redirect_state(
         room_id, battle_id, state,
@@ -1048,6 +1052,7 @@ def on_battle_round_request_start(data):
 
 
 @socketio.on('battle_intent_preview')
+@measure_intent
 def on_battle_intent_preview(data):
     data = data or {}
     _log_battle_recv('battle_intent_preview', data)
@@ -1123,6 +1128,7 @@ def on_battle_intent_preview(data):
 
 
 @socketio.on('battle_intent_commit')
+@measure_intent
 def on_battle_intent_commit(data):
     data = data or {}
     _log_battle_recv('battle_intent_commit', data)

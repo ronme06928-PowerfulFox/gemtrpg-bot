@@ -10,6 +10,7 @@
 
 import { store } from './BattleStore.js';
 import { eventBus } from './EventBus.js';
+import { intentPerformance } from './IntentPerformance.js';
 
 const _battleVerbose = () => (typeof window !== 'undefined' && !!window.BATTLE_DEBUG_VERBOSE);
 const _battleLog = (...args) => { if (_battleVerbose()) console.log(...args); };
@@ -131,8 +132,10 @@ class SocketClient {
         });
 
         this._bindCore('battle_state_updated', (payload) => {
-            store.applyBattleState(payload || {});
-            eventBus.emit('battle:state:updated', payload || {});
+            intentPerformance.receive(payload, () => {
+                store.applyBattleState(payload || {});
+                eventBus.emit('battle:state:updated', payload || {});
+            });
         });
 
         this._bindCore('battle_resolve_ready', (payload) => {
@@ -255,7 +258,7 @@ class SocketClient {
         const normalizedTarget = this._normalizeIntentTarget(target);
         const targetSlot = normalizedTarget.slot_id ?? null;
         _battleLog(`[emit] battle_intent_preview connected=${connected} room=${roomId} battle=${battleId} slot=${slotId} skill=${skillId ?? 'null'} target_slot=${targetSlot}`);
-        this.socket.emit('battle_intent_preview', {
+        intentPerformance.emit(this.socket, 'battle_intent_preview', {
             room_id: roomId,
             battle_id: battleId,
             slot_id: slotId,
@@ -273,7 +276,7 @@ class SocketClient {
         const normalizedTarget = this._normalizeIntentTarget(target);
         const targetSlot = normalizedTarget.slot_id ?? null;
         _battleLog(`[emit] battle_intent_commit connected=${connected} room=${roomId} battle=${battleId} slot=${slotId} skill=${skillId ?? 'null'} target_slot=${targetSlot}`);
-        this.socket.emit('battle_intent_commit', {
+        intentPerformance.emit(this.socket, 'battle_intent_commit', {
             room_id: roomId,
             battle_id: battleId,
             slot_id: slotId,

@@ -602,3 +602,13 @@ Select中の引き寄せ履歴は`battle_state.redirects`にのみ記録し、Re
 最後のステップを進めるとサーバーが`completed`を確定し、ラウンド終了処理を一度だけ実行する。クライアントのローカル再生完了をラウンド終了の根拠にしない。traceが0件の場合はResolve計算直後に同じ完了処理へ進む。
 
 実装: `manager/battle/resolve_presentation.py`、`events/battle/resolve_presentation_routes.py`、`events/battle/phase_flow.py`、`static/js/battle/components/ResolveFlowPanel.js`。
+
+## 宣言の任意計測
+
+`battle_intent_preview` / `battle_intent_commit` は、調査時だけ `_intent_perf_id`（英数字・ハイフン・アンダースコア、16〜64文字）を受け付ける。通常の要求は従来どおり処理し、計測用ACK・配信メタデータを追加しない。
+
+有効なIDがある要求では、処理終了時のACKに `intent_perf` として `id`・`handler_ms`・`stages_ms`・`state_emitted` を返す。redirect再計算・ready確認・状態配信構築/送信の時間を各区間で計測する。いずれもサーバーの単調時計による経過時間で、ACK自体のシリアライズ・送信時間は含まない。
+
+その要求が直接発行した `battle_state_updated` の最上位へ `_intent_perf: {id}` を付ける。要求IDだけを持つ一時メタデータで、ルーム・intent・DBには保存しない。共有ルーム内の他端末にも届くが、計測元だけが自身の要求IDに対応付ける。認可・検証・順序・revision・解決移行は変更しない。拒否時は既存エラーを維持し、ACKの `state_emitted: false` を成功した画面反映とは扱わない。内部例外はそのまま例外として扱う。
+
+手順と測れる範囲は[宣言の応答計測](../operations/intent_performance_measurement.md)を参照。
