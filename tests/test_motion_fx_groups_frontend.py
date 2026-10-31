@@ -106,17 +106,15 @@ fx.render(number.params.leaveAt+0.15);assert.ok(Number(fx.el.style.opacity)<0.6)
 """)
 
 
-def test_connection_supplies_catalog_icons_target_names_and_preserves_other_targets():
+def test_connection_supplies_catalog_icons_and_preserves_both_sides_outside_summation():
     _run_node("(async()=>{"+FLOW_SETUP+r"""
 window.buffCatalogData={'Bu-31':{id:'Bu-31',name:'魔力'}};
 window.STATUS_CONFIG={'破裂':{icon:'rupture.png'},'凝魔':{icon:'gyoma.png'}};
-flow._characterById=id=>({id,name:'対象'+id,type:'enemy'});
-const step={...base,kind:'mass_summation',participants:['sd','se'],applied:{damage:[],fired_effects:[],statuses:[{target_id:'d',name:'破裂',delta:3},{target_id:'e',name:'buff:魔力',delta:2}]}};
+const step={...base,applied:{damage:[],fired_effects:[],statuses:[{target_id:'d',name:'破裂',delta:3},{target_id:'a',name:'buff:魔力',delta:2}]}};
 run(step,'outcome');
-const band=calls.find(c=>c[0]==='effect-band');assert.strictEqual(band[1].groups.length,2);
-assert.ok(band[1].groups[0].lines[0].text.startsWith('対象d：'));
-assert.strictEqual(band[1].groups[0].lines[0].icon,'/static/images/rupture.png');
-assert.strictEqual(band[1].groups[1].lines[0].icon,'/static/images/gyoma.png');
+const bands=calls.filter(c=>c[0]==='effect-band');assert.strictEqual(bands.length,2);
+assert.strictEqual(bands.find(c=>c[1].side==='defender')[1].groups[0].lines[0].icon,'/static/images/rupture.png');
+assert.strictEqual(bands.find(c=>c[1].side==='attacker')[1].groups[0].lines[0].icon,'/static/images/gyoma.png');
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 

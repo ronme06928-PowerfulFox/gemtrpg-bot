@@ -86,10 +86,12 @@ def test_scene_events_use_the_production_plan_positions_tones_and_fit_the_derive
     const planned = planResolveOutcome(step, popups, resolveOutcomeWindow(step), window.Fx, id=>id==='a'?'attacker':'defender');
     const plan = planned.events;
     for (const level of ['light','normal','rich']) {
-      const {events,groupCount,stopSeconds} = collectSceneEvents(scene, panel, level);
+      const {events,groupCount,stopSeconds,endSeconds} = collectSceneEvents(scene, panel, level);
+      assert.strictEqual(endSeconds,planned.endSeconds);
       assert.ok(Number.isInteger(groupCount));assert.ok(stopSeconds>=0);
       const actual = events.filter(e => ['resolve-damage','effect-band','ko-shatter'].includes(e.name));
-      assert.deepStrictEqual(actual.map(e => [e.name,e.at]), plan.map(e => [e.name,e.at]));
+      const visiblePlan=plan.filter(e=>!(step.kind==='mass_summation'&&e.name==='effect-band'&&e.lane==='defender'));
+      assert.deepStrictEqual(actual.map(e => [e.name,e.at]), visiblePlan.map(e => [e.name,e.at]));
       for (const event of events) {
         // 効果が多くて枠に入らない場面は、本番と同じく表示が終わるまで延びる。
         assert.ok(event.at >= 0 && event.at + (event.params.duration??window.Fx.get(event.name).duration) <= Math.max(resolveOutcomeWindow(step), planned.endSeconds)+0.000001, scene.id);
@@ -104,9 +106,10 @@ def test_scene_events_use_the_production_plan_positions_tones_and_fit_the_derive
       if (step.kind === 'mass_summation') {
         assert.strictEqual(actual.filter(e => e.name === 'resolve-damage').length, 3 + plan.filter(e=>e.name==='resolve-damage'&&e.params.kind!=='dice').length);
         const ko = actual.find(e => e.name === 'ko-shatter');
-        assert.strictEqual(ko.params.mode, 'chip');
-        assert.strictEqual(ko.params.width, 32);
-        assert.ok(measured.some(s => s.includes('data-actor-id="e"')));
+        assert.strictEqual(ko.params.mode, 'hit');
+        assert.ok(ko.className.includes('column-ko'));
+        assert.strictEqual(ko.params.width, (442-14)/3);
+        assert.ok(measured.some(s => s.includes('data-anchor="arena"')));
       }
     }
     if (scene.id === 'fear-ko') {
@@ -166,6 +169,8 @@ const doc = makeDocument();
 const all = [];
 const originalCreate = doc.createElement;
 function matches(node, selector) {
+  const anchor = selector.match(/\[data-anchor="([^"]+)"\]/);
+  if (anchor && node.dataset.anchor !== anchor[1]) return false;
   const attr = selector.match(/\[data-actor-id="([^"]+)"\]/);
   if (attr && node.dataset.actorId !== attr[1]) return false;
   const simple = selector.replace(/\[[^\]]+\]/g,'');
@@ -227,7 +232,7 @@ assert.strictEqual(cards.length,21);
 assert.strictEqual(cards.filter(c=>c.className.includes('scene-card')).length,7);
 for (const card of cards) {
   const stage=card.querySelector('.stage-host').children[0];
-  assert.ok(descendants(stage).some(node=>node.className==='fx-root'));
+  assert.ok(descendants(stage).some(node=>node.className.split(' ').includes('fx-root')));
   assert.ok(card.querySelector('.filmstrip').children.length>=4);
   const seek=card.querySelector('.seek'), clock=card.querySelector('.clock');
   seek.value='0.2';seek.events.input();

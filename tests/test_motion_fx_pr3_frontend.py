@@ -54,13 +54,9 @@ FLOW_SETUP = r"""
 const { ResolveFlowPanel } = await import('./static/js/battle/components/ResolveFlowPanel.js');
 const { playResolveStageFx, attackEffect, attackTier } = await import('./static/js/battle/components/resolve_flow_fx.js');
 const flow = new ResolveFlowPanel(), calls = [], measured = [];
-const selectors = ['.actual.attacker','.actual.defender','.summation-total strong','.vs',
-  '.resolve-flow-background.attacker','.resolve-flow-background.defender','.side.attacker','.side.defender',
-  '.side.attacker .name','.side.defender .name','.summation-chips','.resolve-flow-card'];
-const targets = new Map(selectors.map((s,i) => [s,{getBoundingClientRect(){
-  measured.push(s); return {left:20+i*10,top:40+i*5,width:200+i,height:160+i};
-}}]));
-const panel = {querySelector:s => targets.get(s),getBoundingClientRect:() => ({left:10,top:20})};
+const selectors = ['arena','power:attacker','power:defender','damage:attacker','damage:defender','band:attacker','band:defender'];
+const targets = new Map(selectors.map(s => [`[data-anchor="${s}"]`,{style:{},parentElement:{},getBoundingClientRect(){ throw Error('舞台の演出は画面座標を測らない'); }}]));
+const panel = {querySelector(s) { measured.push(s);return targets.get(s); }};
 global.document = {getElementById:() => panel};
 let level = 'normal';
 global.window = {Fx:{...loadShared({}),getLevel:() => level,play:(...args) => calls.push(args)},
@@ -156,7 +152,7 @@ assert.strictEqual(calls[0][1].tier,'large'); // 本体＋効果
 assert.strictEqual(calls[0][1].tone,'enemy');
 assert.strictEqual(calls[0][1].direction,1);
 assert.ok(calls[0][2].elapsedSeconds>=0.1 && calls[0][2].elapsedSeconds<0.15);
-assert.ok(measured.includes('.resolve-flow-background.defender'));
+assert.ok(measured.includes('[data-anchor="arena"]'));
 run({...base,outcome:'defender_win',applied:{damage:[{target_id:'a',hp:8,source:'dice'}]}},'attack');
 assert.strictEqual(calls[0][0],'attack-strike'); assert.strictEqual(calls[0][1].direction,-1);
 assert.strictEqual(calls[0][1].tone,'ally');
@@ -175,8 +171,8 @@ assert.deepStrictEqual(calls.map(c=>[c[1].mode,c[1].tier,c[1].direction,c[1].ton
 run({...base,outcome:'draw'},'outcome');
 assert.ok(names().includes('clash-flash')); assert.ok(!names().includes('clash-shade'));
 assert.ok(!names().includes('impact-flash'));
-targets.delete('.resolve-flow-background.defender'); run(base,'attack');
-assert.strictEqual(calls.length,1); assert.ok(measured.includes('.side.defender'));
+ run(base,'attack');
+assert.strictEqual(calls.length,1); assert.ok(measured.includes('[data-anchor="arena"]'));
 run({...base,applied:{damage:[]}},'attack'); assert.strictEqual(calls[0][1].tier,'small');
 // 結果からの同期では、過ぎた攻撃の動きを再生しない。
 run(base,'outcome',250); assert.ok(!names().some(n=>n.startsWith('attack-')));
@@ -217,19 +213,19 @@ const mass={...base,applied:{damage:[]},kind:'mass_summation',participants:['sd'
     {target_id:'d',hp:10,damage_type:'mass_summation_delta'},
     {target_id:'e',hp:15,damage_type:'mass_summation_delta'}]};
 run(mass,'power'); assert.strictEqual(calls.length,2);
-assert.ok(measured.includes('.summation-total strong'));
+assert.ok(measured.includes('[data-anchor="power:defender"]'));
 run(mass,'attack'); assert.deepStrictEqual(names(),['attack-slash']);
 assert.strictEqual(calls[0][1].mode,'wide'); assert.strictEqual(calls[0][1].tier,'large');
-assert.ok(measured.includes('.summation-chips'));
+assert.ok(measured.includes('[data-anchor="arena"]'));
 run(mass,'outcome'); const damage=calls.filter(c=>c[0]==='resolve-damage');
 assert.strictEqual(damage.length,2); assert.deepStrictEqual(damage.map(c=>c[1].amount),[10,15]);
 assert.ok(!names().includes('clash-flash'));
 run({...mass,outcome:'defender_win'},'attack');
 assert.deepStrictEqual(names(),['attack-flash']); assert.strictEqual(calls[0][1].direction,-1);
-assert.ok(measured.includes('.resolve-flow-background.attacker'));
+assert.ok(measured.includes('[data-anchor="arena"]'));
 run({...mass,outcome:'defender_win',damageEvents:[{target_id:'a',hp:15,damage_type:'mass_summation_delta'}]},'outcome');
 assert.strictEqual(calls.filter(c=>c[0]==='resolve-damage').length,1);
-assert.ok(measured.includes('.resolve-flow-background.attacker'));
+assert.ok(measured.includes('[data-anchor="arena"]'));
 run({...mass,outcome:'draw'},'attack'); assert.strictEqual(calls.length,2);
 assert.ok(calls.every(c=>c[1].mode==='draw'));
 run({...mass,outcome:'draw',damageEvents:[]},'outcome'); assert.deepStrictEqual(names(),['clash-flash']);

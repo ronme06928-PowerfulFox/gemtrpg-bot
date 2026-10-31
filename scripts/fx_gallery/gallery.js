@@ -58,14 +58,19 @@ function createStage(host, scene) {
   total.append(el('strong', '', '15'));
   stage.append(total, el('div', 'chat-total', ''));
   stage.append(el('span', 'stage-caption', summation ? '広域 − 合算' : 'RESOLVE / 仮の台'));
+  for (const anchor of ['arena', 'power:attacker', 'power:defender', 'damage:attacker', 'damage:defender', 'band:attacker', 'band:defender']) {
+    const target = el('div', 'mock-anchor');
+    target.dataset.anchor = anchor;
+    stage.append(target);
+  }
   return stage;
 }
 function mountEvents(stage, events, level) {
   return events.map(event => {
-    const root = el('div', 'fx-root');
+    const root = el('div', `fx-root ${event.className || ''}`);
     root.style.left = `${event.left}px`;
     root.style.top = `${event.top}px`;
-    stage.append(root);
+    (event.host || stage).append(root);
     const fx = Object.create(Fx.get(event.name));
     fx.mount(root, { ...embedded(event.params), level });
     return { ...event, root, fx };
@@ -194,7 +199,7 @@ function createCard(samples, scene = false) {
     const scenePlan = scene ? collectSceneEvents(sample, stage, level.value) : null;
     const planned = scenePlan ? scenePlan.events : singleEvents(stage, sample);
     events = mountEvents(stage, planned, level.value);
-    const end = Math.max(...events.map(event => event.at + event.fx.duration));
+    const end = Math.max(scenePlan?.endSeconds || 0, ...events.map(event => event.at + event.fx.duration));
     duration = scene ? Math.max(outcomeWindow, end) : events[0].fx.duration;
     seek.max = String(duration);
     const overflow = scene && end > outcomeWindow + 0.000001;

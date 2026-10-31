@@ -68,27 +68,24 @@ flow._characterById=id=>({id,name:'対象'+id,type:id==='a'?'ally':'enemy'});
 const step={...base,applied:{...base.applied,fired_effects:[{term_id:'W-03',name:'破裂爆発',actor_id:'a',target_id:'d',results:[{name:'破裂',delta:-3}]}]}};
 run(step,'outcome');
 const damage=calls.filter(c=>c[0]==='resolve-damage');
-const rect=targets.get('.resolve-flow-background.defender').getBoundingClientRect();
-assert.strictEqual(damage[0][2].left,rect.left+rect.width*0.36-10);
-assert.strictEqual(damage[0][2].top,rect.top+rect.height*0.4-20);
+const {getLayout}=await import('./static/js/battle/components/resolve_stage_layout.js');const layout=getLayout(1180);
+assert.strictEqual(damage[0][2].left,layout.damage.width/2);
+assert.strictEqual(damage[0][2].top,layout.damage.height-42);
 // 続く数字は同じ土台に出し、押し上げずに前の数字が昇ってから出す（計画52）。
 assert.strictEqual(damage[1][2].left,damage[0][2].left);
 assert.strictEqual(damage[1][2].top,damage[0][2].top);
 assert.strictEqual(damage[1][1].stacked,true);
 // 立ち絵の背景の上の端（本体の数字の半分の高さ手前）まで昇ってよい。
-assert.strictEqual(damage[0][1].ceiling,rect.height*0.4-26);
+assert.strictEqual(damage[0][1].ceiling,layout.damage.height-42-23);
 assert.ok(damage[0][1].until>=((52+36)/2+8)/60-1e-9);
 const effect=calls.find(c=>c[0]==='effect-band');
-assert.strictEqual(effect[2].left,rect.left+rect.width-10);
-assert.strictEqual(effect[2].top,rect.top+rect.height*0.8-20);
+assert.strictEqual(effect[2].left,layout.band.width);
+assert.strictEqual(effect[2].top,layout.band.height);
 assert.ok(Math.abs(effect[2].delaySeconds-0.1)<1e-9);
 const mass={...step,kind:'mass_summation',participants:['sd','se'],rolls:{delta:2},applied:{damage:[],fired_effects:['d','e'].map(target_id=>({term_id:'W-58',name:'再使用',actor_id:'a',target_id,results:[]}))}};
 run(mass,'outcome');
 const effects=calls.filter(c=>c[0]==='effect-band');
-assert.strictEqual(effects.length,1);
-assert.ok(effects[0][1].groups[0].lines[0].text.startsWith('対象d：'));
-assert.ok(effects[0][1].groups[1].lines[0].text.startsWith('対象e：'));
-assert.ok(effects[0][1].groups[0].at<effects[0][1].groups[1].at);
+assert.strictEqual(effects.length,0);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 

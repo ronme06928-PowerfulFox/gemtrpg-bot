@@ -1,3 +1,5 @@
+import { getLayout } from './resolve_stage_layout.js';
+import { renderResolveStage, fitResolveStage } from './resolve_stage.js';
 import { store } from '../core/BattleStore.js';
 import { eventBus } from '../core/EventBus.js';
 import { socketClient } from '../core/SocketClient.js';
@@ -42,6 +44,7 @@ class ResolveFlowPanel {
         this._waitingForFirstTrace = false;
         this._resolveStartPending = false;
         this._resolveOpeningRoundKey = null;
+        this._onResize = () => { if (this._activeStep) this._renderStep(store.state || {}); };
     }
 
     initialize() {
@@ -65,12 +68,14 @@ class ResolveFlowPanel {
             this._onResolveStartError(payload || {});
         });
         this._initialized = true;
+        if (typeof window !== 'undefined') window.addEventListener('resize', this._onResize);
         this._onStateUpdated(store.state || {});
         console.log('ResolveFlowPanel initialized');
         return true;
     }
 
     destroy() {
+        if (typeof window !== 'undefined') window.removeEventListener('resize', this._onResize);
         if (this._unsubscribeStage) this._unsubscribeStage();
         this._unsubscribeStage = null;
         if (this._unsubscribe) {
@@ -140,16 +145,6 @@ class ResolveFlowPanel {
         return map[String(kind || '')] || String(kind || 'unknown');
     }
 
-    _outcomeLabel(outcome) {
-        const map = {
-            attacker_win: '\u653b\u6483\u5074\u52dd\u5229',
-            defender_win: '\u9632\u5fa1\u5074\u52dd\u5229',
-            draw: '\u5f15\u304d\u5206\u3051',
-            no_effect: '\u52b9\u679c\u306a\u3057'
-        };
-        return map[String(outcome || '')] || String(outcome || '');
-    }
-
     _actorNameById(actorId, state) {
         if (!actorId) return null;
         const chars = Array.isArray(state.characters) ? state.characters : [];
@@ -164,23 +159,6 @@ class ResolveFlowPanel {
         return chars.find((c) => String(c?.id || '') === String(actorId)) || null;
     }
 
-    _initials(name) {
-        const raw = String(name || '')
-            .replace(/\[[^\]]*\]/g, ' ')
-            .trim();
-        if (!raw) return '?';
-        const compact = raw.replace(/\s+/g, ' ').trim();
-        const words = compact.split(' ').filter(Boolean);
-        if (words.length >= 2 && /[A-Za-z]/.test(compact)) {
-            return `${words[0][0] || ''}${words[1][0] || ''}`.toUpperCase();
-        }
-        const plain = compact.replace(/\s+/g, '');
-        if (/^[A-Za-z0-9]+$/.test(plain)) {
-            return plain.slice(0, 2).toUpperCase();
-        }
-        return Array.from(compact).slice(0, 2).join('');
-    }
-
     _actorVisualMeta(actorId, state, fallbackName = null) {
         const char = this._characterById(actorId, state);
         const name = char?.name
@@ -190,19 +168,8 @@ class ResolveFlowPanel {
         return {
             actorId: actorId ? String(actorId) : null,
             name,
-            image: image ? String(image) : null,
-            initials: this._initials(name)
+            image: image ? String(image) : null
         };
-    }
-
-    _renderPortrait(meta) {
-        const visual = (meta && typeof meta === 'object') ? meta : {};
-        const name = this._escape(visual.name || '-');
-        const initials = this._escape(visual.initials || '?');
-        if (visual.image) {
-            return `<div class="resolve-flow-portrait resolve-flow-portrait-inline" title="${name}"><img src="${this._escape(visual.image)}" alt="${name}"></div>`;
-        }
-        return `<div class="resolve-flow-portrait resolve-flow-portrait-inline fallback" title="${name}"><span>${initials}</span></div>`;
     }
 
     _slotActorId(slotId, state) {
@@ -555,15 +522,9 @@ class ResolveFlowPanel {
         eventBus.emit('battle:resolve:flow:stage', { stepKey, stage, kind: step.kind, outcome: step.outcome });
     }
 
-    _renderBackgrounds(kind, attacker, defender) {
-        return [['attacker', attacker], ['defender', kind === 'mass_summation' ? null : defender]]
-            .map(([side, meta]) => `<div class="resolve-flow-background ${side}" aria-hidden="true">${meta?.image ? `<img src="${this._escape(meta.image)}" alt="">` : ''}</div>`)
-            .join('');
-    }
-
     _revealLabel(stage) {
         const labels = {
-            names: '名前・スキル',
+            names: '名前',
             attack: '攻撃',
             power: '\u5a01\u529b',
             outcome: '\u52dd\u6557'
@@ -1119,7 +1080,9 @@ class ResolveFlowPanel {
     }
 
     _finishFx() {
-        if (typeof window !== 'undefined' && window.Fx && typeof document !== 'undefined') {
+        if (typeof window !== 'undefined' && typeof window.Fx?.finishAll === 'function' && typeof document !== 'undefined') {
+            for (const host of this._fxHosts || []) window.Fx.finishAll(host);
+            this._fxHosts?.clear();
             window.Fx.finishAll(document.getElementById(this._panelId));
         }
         this._lastStageKey = null;
@@ -1254,64 +1217,6 @@ class ResolveFlowPanel {
 
         const snapshot = rolls.power_snapshot_b || summaryRolls.power_snapshot_b;
         return (snapshot && typeof snapshot === 'object') ? snapshot : null;
-    }
-
-    _powerBreakdownForSide(step, side) {
-        const payload = step?.outcomePayload || {};
-        const delegateSummary = (payload.delegate_summary && typeof payload.delegate_summary === 'object')
-            ? payload.delegate_summary
-            : {};
-        const summaryRolls = (delegateSummary.rolls && typeof delegateSummary.rolls === 'object')
-            ? delegateSummary.rolls
-            : {};
-        const rolls = (step?.rolls && typeof step.rolls === 'object') ? step.rolls : {};
-
-        if (side === 'attacker') {
-            const breakdown = rolls.power_breakdown_a || rolls.power_breakdown || summaryRolls.power_breakdown_a || summaryRolls.power_breakdown;
-            return (breakdown && typeof breakdown === 'object') ? breakdown : null;
-        }
-
-        const breakdown = rolls.power_breakdown_b || summaryRolls.power_breakdown_b;
-        return (breakdown && typeof breakdown === 'object') ? breakdown : null;
-    }
-
-    _formatPowerSnapshotLine(snapshot, breakdown) {
-        const toNum = (v) => {
-            const n = Number(v);
-            return Number.isFinite(n) ? n : 0;
-        };
-        const sign = (n) => (n >= 0 ? `+${n}` : `${n}`);
-
-        const snapshotData = (snapshot && typeof snapshot === 'object') ? snapshot : {};
-        const breakdownData = (breakdown && typeof breakdown === 'object') ? breakdown : {};
-        const hasData = Object.keys(snapshotData).length > 0 || Object.keys(breakdownData).length > 0;
-        if (!hasData) {
-            return {
-                line1: '',
-                line2: ''
-            };
-        }
-
-        const base = toNum(snapshotData.base_power_after_mod);
-        const dice = toNum(snapshotData.dice_power_after_roll);
-        const physical = toNum(snapshotData.physical_power);
-        const magical = toNum(snapshotData.magical_power);
-        const final = toNum(snapshotData.final_power);
-        const flatBonus = toNum(snapshotData.flat_power_bonus);
-        const attr = physical !== 0 ? physical : magical;
-        const ruleBase = toNum(breakdownData.rule_power_bonus);
-
-        const baseShown = base + ruleBase;
-        const baseMod = toNum(breakdownData.base_power_mod);
-        const diceMod = toNum(breakdownData.dice_bonus_power);
-        const finalMod = (breakdownData.final_power_mod !== undefined && breakdownData.final_power_mod !== null)
-            ? toNum(breakdownData.final_power_mod)
-            : (flatBonus - ruleBase);
-
-        return {
-            line1: `基礎${baseShown} + ダイス${dice} + 物理/魔法補正${sign(attr)} = 合計${final}`,
-            line2: `基礎威力補正${sign(baseMod)} / ダイス威力補正${sign(diceMod)} / 最終威力補正${sign(finalMod)}`
-        };
     }
 
     _isDiceDamageSource(sourceRaw) {
@@ -1531,37 +1436,19 @@ class ResolveFlowPanel {
         const total = entries.reduce((sum, row) => sum + this._toNumber(row.total, 0), 0);
         const diceTotal = entries.reduce((sum, row) => sum + this._toNumber(row.dice, 0), 0);
         const effectTotal = entries.reduce((sum, row) => sum + this._toNumber(row.effect, 0), 0);
-        const summarizeByKind = (kind) => {
-            const m = new Map();
-            entries.forEach((row) => {
-                const details = Array.isArray(row.details) ? row.details : [];
-                details.forEach((d) => {
-                    if (!d || d.kind !== kind) return;
-                    const src = String(d.source || '').trim() || (kind === 'dice' ? 'ダイスダメージ' : 'キーワード効果ダメージ');
-                    const amount = this._toNumber(d.amount, 0);
-                    if (amount <= 0) return;
-                    m.set(src, (m.get(src) || 0) + amount);
-                });
-            });
-            return Array.from(m.entries()).map(([src, n]) => `${src} ${n}`);
-        };
-        const diceLines = summarizeByKind('dice');
-        const effectLines = summarizeByKind('effect');
         return {
             entries,
             total,
             text: total > 0 ? `${total}` : '\u30c0\u30e1\u30fc\u30b8\u306a\u3057',
             diceTotal,
-            effectTotal,
-            diceText: diceLines.length > 0 ? diceLines.join(' + ') : '\u306a\u3057',
-            effectText: effectLines.length > 0 ? effectLines.join(' + ') : '\u306a\u3057'
+            effectTotal
         };
     }
 
     _outcomeHeadline(step, attackerName, defenderName) {
         const kind = String(step?.kind || '');
         if (this._isOneSidedPresentation(step)) {
-            return `${attackerName} \u306e\u4e00\u65b9\u653b\u6483`;
+            return `${attackerName} 勝利`;
         }
         const outcome = String(step?.outcome || 'no_effect');
         if (outcome === 'attacker_win') return `${attackerName} \u52dd\u5229`;
@@ -1571,33 +1458,6 @@ class ResolveFlowPanel {
         }
         if (outcome === 'draw') return '\u5f15\u304d\u5206\u3051';
         return '\u52b9\u679c\u306a\u3057';
-    }
-
-    _summationParticipants(step, state) {
-        const rolls = step?.rolls || {};
-        const raw = (rolls.defender_powers && typeof rolls.defender_powers === 'object')
-            ? rolls.defender_powers
-            : {};
-        const rows = Object.entries(raw).map(([slotId, power]) => {
-            const actorId = this._slotActorId(slotId, state);
-            const name = this._actorNameById(actorId || slotId, state) || slotId;
-            const visual = this._actorVisualMeta(actorId || slotId, state, name);
-            return {
-                name: String(name || slotId),
-                power: String(power ?? 0),
-                visual
-            };
-        });
-        const attackerId = String(this._slotActorId(step.attackerSlotId, state) || step.attackerActorId || '');
-        const shown = new Set(rows.map((row) => row.visual.actorId));
-        for (const event of [...(step.damageEvents || []), ...(step.applied?.damage || [])]) {
-            const id = String(event.target_id || '');
-            if (!id || id === attackerId || shown.has(id)) continue;
-            shown.add(id);
-            const name = this._actorNameById(id, state) || id;
-            rows.push({ name, power: null, visual: this._actorVisualMeta(id, state, name) });
-        }
-        return rows;
     }
 
     _ensurePanel(host) {
@@ -1697,90 +1557,19 @@ class ResolveFlowPanel {
             return;
         }
 
-        const isSummationKind = String(step.kind) === 'mass_summation';
-        const attackerActorId = this._slotActorId(step.attackerSlotId, state) || step.attackerActorId || null;
-        const defenderActorId = isSummationKind
-            ? null
-            : (this._slotActorId(step.defenderSlotId, state) || step.defenderActorId || step.targetActorId || null);
-        const attackerNameRaw = this._actorNameFromStep(step, state, 'attacker');
-        const defenderNameRaw = this._actorNameFromStep(step, state, 'defender');
-        const attackerName = this._escape(attackerNameRaw);
-        const defenderName = this._escape(isSummationKind ? '防御威力合計' : defenderNameRaw);
-        const attackerVisual = this._actorVisualMeta(attackerActorId, state, attackerNameRaw);
-        const defenderVisual = isSummationKind
-            ? null
-            : this._actorVisualMeta(defenderActorId, state, defenderNameRaw);
-        const attackerSkill = this._resolveSkillMeta(step, 'attacker');
-        const defenderSkill = this._resolveSkillMeta(step, 'defender');
-        const powers = this._resolvePowerValues(step);
-        const attackerPowerLines = this._formatPowerSnapshotLine(
-            this._powerSnapshotForSide(step, 'attacker'),
-            this._powerBreakdownForSide(step, 'attacker')
-        );
-        const defenderPowerLines = this._formatPowerSnapshotLine(
-            this._powerSnapshotForSide(step, 'defender'),
-            this._powerBreakdownForSide(step, 'defender')
-        );
-        const powerRanges = this._resolvePowerRanges(step);
-        const damage = this._collectDamageSummary(step, state);
-
         const elapsed = Math.max(0, Date.now() - this._stepStartedAt);
         const durationMs = this._stepDuration(step);
-        const progressRatio = Math.max(0, Math.min(1, elapsed / durationMs));
-        const progress = Math.round(progressRatio * 100);
+        const progress = Math.round(Math.max(0, Math.min(1, elapsed / durationMs)) * 100);
         const revealStage = this._revealStageByElapsed(elapsed, step);
-        const revealLabel = this._escape(this._revealLabel(revealStage));
         this._tryPlayPowerRevealSe(stepKey, revealStage);
-
-        const stepNumPresentedRaw = Number(step.presentedIndex);
-        const stepNumDisplayRaw = Number(step.displayIndex);
-        const stepNum = (Number.isFinite(stepNumPresentedRaw) && stepNumPresentedRaw > 0)
-            ? stepNumPresentedRaw
-            : ((Number.isFinite(stepNumDisplayRaw) && stepNumDisplayRaw > 0)
-                ? stepNumDisplayRaw
-                : Math.max(1, Number(step.stepIndex || 0) + 1));
-        const explicitStepLabel = (typeof step.displayLabel === 'string' && step.displayLabel.trim())
-            ? step.displayLabel.trim()
-            : null;
-        const stepNumLabel = explicitStepLabel || String(stepNum);
+        const stepNum = Number(step.presentedIndex) > 0 ? step.presentedIndex
+            : Number(step.displayIndex) > 0 ? step.displayIndex : Math.max(1, Number(step.stepIndex || 0) + 1);
+        const stepNumLabel = step.displayLabel?.trim() || String(stepNum);
         const kindClass = this._escape(String(step.kind || 'unknown'));
-        const kindLabel = this._escape(this._kindLabel(step.kind));
-        const outcomeLabel = this._escape(this._outcomeLabel(step.outcome));
-        const headline = this._escape(this._outcomeHeadline(step, attackerNameRaw, isSummationKind ? '防御側' : defenderNameRaw));
-        const isOneSided = this._isOneSidedPresentation(step);
-        const defenderSkillHtml = isOneSided
-            ? '[-] -'
-            : `[${this._escape(defenderSkill.id)}] ${this._escape(defenderSkill.name)}`;
-        const outcomeResultHtml = isOneSided ? '' : ` <span class="result">(${outcomeLabel})</span>`;
-        const tiebreakNote = this._tiebreakNoteForStep(step, state);
-        const tiebreakHtml = tiebreakNote
-            ? `<div class="resolve-flow-tiebreak">${this._escape(tiebreakNote)}</div>`
-            : '';
-        const notes = step.notes ? `<div class="resolve-flow-notes reveal-block reveal-outcome">${this._escape(String(step.notes))}</div>` : '';
-        const stepBodyKey = this._traceKey(step) || `fallback:${stepNumLabel}:${kindClass}`;
-
-        const participants = this._summationParticipants(step, state);
-        const participantsHtml = participants.map((row) => (
-            `<span class="charge-chip participant-chip" data-actor-id="${this._escape(row.visual.actorId || '')}">${this._renderPortrait(row.visual)}<span class="participant-chip-text">${this._escape(row.name)} <strong>${row.power === null ? '対象' : `+${this._escape(row.power)}`}</strong></span></span>`
-        )).join('');
-        const summationInlineHtml = isSummationKind
-            ? `
-            <div class="resolve-flow-summation-inline reveal-block reveal-power">
-                <div class="summation-label">防御威力合計チャージ</div>
-                <div class="summation-chips">${participantsHtml || '<span class="charge-chip">\u53c2\u52a0\u8005\u306a\u3057</span>'}</div>
-                <div class="summation-total">防御威力合計: <strong>${this._escape(powers.defender)}</strong></div>
-            </div>
-            `
-            : '';
-        const defenderSideContentHtml = isSummationKind
-            ? `${summationInlineHtml}`
-            : `
-                            <div class="name reveal-block reveal-names">${defenderName}</div>
-                            <div class="skill reveal-block reveal-skills">${defenderSkillHtml}</div>
-                            <div class="power reveal-block reveal-power">\u5a01\u529b <span class="range">${this._escape(powerRanges.defender)}</span> <span class="arrow">\u2192</span> <span class="actual defender">${this._escape(powers.defender)}</span></div>
-                            ${defenderPowerLines.line1 ? `<div class="power-detail reveal-block reveal-power">${this._escape(defenderPowerLines.line1)}</div>` : ''}
-                            ${defenderPowerLines.line2 ? `<div class="power-detail-sub reveal-block reveal-power">${this._escape(defenderPowerLines.line2)}</div>` : ''}
-            `;
+        const viewportWidth = typeof window !== 'undefined' ? window.innerWidth || 1180 : 1180;
+        const viewportHeight = typeof window !== 'undefined' ? window.innerHeight || 900 : 900;
+        const layout = getLayout(viewportWidth <= 980 ? 660 : 1180);
+        const stepBodyKey = `${stepKey}:${layout.width}`;
 
         const stateNow = store.state || state || {};
         const isGM = this._detectIsGM(stateNow);
@@ -1792,51 +1581,13 @@ class ResolveFlowPanel {
         if (!panelContent) return;
         panel.className = `resolve-flow-panel kind-${kindClass} reveal-${revealStage}${this._waitingForAdvance ? ' awaiting-advance' : ''}${canDrive ? ' can-drive' : ''}${isGM ? ' gm-user' : ''}`;
         if (this._renderedStepKey !== stepBodyKey) {
-            panelContent.innerHTML = `
-                <div class="resolve-flow-card">
-                    ${this._renderBackgrounds(step.kind, attackerVisual, defenderVisual)}
-                    <div class="resolve-flow-header">
-                        <span class="title">RESOLVE</span>
-                        <span class="meta">#${this._escape(stepNumLabel)}</span>
-                    </div>
-                    <div class="resolve-flow-kind">${kindLabel}</div>
-                    ${tiebreakHtml}
-                    <div class="resolve-flow-reveal-stage">${revealLabel}</div>
-                    <div class="resolve-flow-versus">
-                        <div class="side attacker">
-                            <div class="name reveal-block reveal-names">${attackerName}</div>
-                            <div class="skill reveal-block reveal-skills">[${this._escape(attackerSkill.id)}] ${this._escape(attackerSkill.name)}</div>
-                            <div class="power reveal-block reveal-power">\u5a01\u529b <span class="range">${this._escape(powerRanges.attacker)}</span> <span class="arrow">\u2192</span> <span class="actual attacker">${this._escape(powers.attacker)}</span></div>
-                            ${attackerPowerLines.line1 ? `<div class="power-detail reveal-block reveal-power">${this._escape(attackerPowerLines.line1)}</div>` : ''}
-                            ${attackerPowerLines.line2 ? `<div class="power-detail-sub reveal-block reveal-power">${this._escape(attackerPowerLines.line2)}</div>` : ''}
-                        </div>
-                        <div class="vs">VS</div>
-                        <div class="side defender${isSummationKind ? ' summation-only' : ''}">
-                            ${defenderSideContentHtml}
-                        </div>
-                    </div>
-                    <div class="resolve-flow-summary reveal-block reveal-outcome">
-                        <div class="resolve-flow-outcome">${headline}${outcomeResultHtml}</div>
-                        <div class="resolve-flow-damage">\u7dcf\u30c0\u30e1\u30fc\u30b8: <strong>${this._escape(String(damage.total))}</strong></div>
-                        <div class="resolve-flow-damage-breakdown">\u30c0\u30a4\u30b9\u7531\u6765: <strong>${this._escape(String(damage.diceTotal))}</strong> / ${this._escape(damage.diceText)} | \u52b9\u679c\u7531\u6765: <strong>${this._escape(String(damage.effectTotal))}</strong> / ${this._escape(damage.effectText)}</div>
-                    </div>
-                    ${notes}
-                    <div class="resolve-flow-advance">
-                        <button type="button" class="resolve-flow-next-btn">\u6b21\u306e\u30de\u30c3\u30c1\u3078</button>
-                        <button type="button" class="resolve-flow-claim-btn">進行役を引き継ぐ</button>
-                        <label class="resolve-flow-auto-label">
-                            <input type="checkbox" class="resolve-flow-auto-checkbox">
-                            \u8868\u793a\u5f8c2\u79d2\u3067\u81ea\u52d5\u9032\u884c
-                        </label>
-                        <div class="resolve-flow-waiting"></div>
-                    </div>
-                    <div class="resolve-flow-timer">
-                        <div class="fill" style="width:${progress}%"></div>
-                    </div>
-                </div>
-            `;
+            this._finishFx();
+            panelContent.innerHTML = renderResolveStage(this, step, state, layout);
             this._renderedStepKey = stepBodyKey;
         }
+        const number = panel.querySelector('.step-number');
+        if (number) number.textContent = stepNumLabel;
+        fitResolveStage(panel, layout, viewportWidth, viewportHeight);
 
         const revealNode = panel.querySelector('.resolve-flow-reveal-stage');
         this._notifyStage(stepKey, revealStage, step);
@@ -1898,7 +1649,3 @@ export const resolveFlowPanel = new ResolveFlowPanel();
 if (typeof window !== 'undefined') {
     window.ResolveFlowPanelComponent = resolveFlowPanel;
 }
-
-
-
-

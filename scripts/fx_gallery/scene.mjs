@@ -19,7 +19,8 @@ export function collectSceneEvents(scene, panel, level) {
   try {
     window.STATUS_CONFIG = STATUS_CONFIG;
     fx.getLevel = () => level;
-    fx.play = (name, params, options) => events.push({ name, params, at: options.delaySeconds || 0, left: options.left, top: options.top });
+    fx.play = (name, params, options) => events.push({ name, params, at: options.delaySeconds || 0,
+      host: options.host, className: options.className, left: options.left, top: options.top });
     plan = playResolveStageFx(flow, { stage: 'outcome', outcome: scene.step.outcome }, scene.state);
   } finally {
     if (previousPlay === undefined) delete fx.play;
@@ -28,5 +29,6 @@ export function collectSceneEvents(scene, panel, level) {
     else fx.getLevel = previousLevel;
     window.STATUS_CONFIG = previousStatus;
   }
-  return { events, groupCount: plan.groupCount, stopSeconds: plan.stopSeconds, windowSeconds: resolveOutcomeWindow(scene.step) };
+  return { events, groupCount: plan.groupCount, stopSeconds: plan.stopSeconds,
+    endSeconds: plan.endSeconds, windowSeconds: resolveOutcomeWindow(scene.step) };
 }

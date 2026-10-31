@@ -38,7 +38,10 @@ const panel={id:'scene',getBoundingClientRect:()=>({left:0,top:0}),querySelector
 global.document={getElementById:()=>panel};
 for(const scene of sceneSamples) {
  const plan=collectSceneEvents(scene,panel,'normal');
- assert.strictEqual(plan.groupCount,plan.events.filter(e=>e.name==='effect-band').reduce((n,b)=>n+b.params.groups.length,0));
+ if(scene.step.kind==='mass_summation') {
+  assert.ok(!plan.events.some(e=>e.name==='effect-band'&&e.params.side==='defender'));
+  if(scene.id==='eight-effects'){assert.strictEqual(plan.groupCount,8);assert.ok(plan.endSeconds>plan.windowSeconds);}
+ } else assert.strictEqual(plan.groupCount,plan.events.filter(e=>e.name==='effect-band').reduce((n,b)=>n+b.params.groups.length,0));
  for(const band of plan.events.filter(e=>e.name==='effect-band')) {
   assert.strictEqual(band.at,0.1);
   const groups=band.params.groups;
@@ -83,10 +86,9 @@ def test_mass_connection_uses_three_icons_and_one_shared_band_and_extends_overfl
     _run_node("(async()=>{"+FLOW_SETUP+r"""
 const {sceneSamples}=await import('./scripts/fx_gallery/samples.mjs');
 const mass=sceneSamples.find(s=>s.id==='summation');
-for(const [i,id] of ['d','e','f'].entries()) targets.set(`.participant-chip[data-actor-id="${id}"] .resolve-flow-portrait-inline`,{getBoundingClientRect:()=>({left:100+i*40,top:80,width:28,height:28})});
 flow._slotActorId=id=>mass.state.slots[id]?.actor_id;
 run(mass.step,'outcome');
-assert.deepStrictEqual(calls.filter(c=>c[0]==='resolve-damage').map(c=>c[2].left),[104,144,184]);
+calls.filter(c=>c[0]==='resolve-damage').forEach((c,i)=>assert.ok(Math.abs(c[2].left-([590+118+428/6,590+118+428/2+7,590+118+428*5/6+14][i]))<1e-8));
 const crowded={...base,selfDestructed:['d'],applied:{damage:base.applied.damage,fired_effects:Array.from({length:50},(_,i)=>({name:'効果'+i,target_id:'d',actor_id:'a',results:[]}))}};
 run(crowded,'outcome');assert.strictEqual(calls.filter(c=>c[0]==='effect-band').length,1);
 flow._waitingForAdvance=true;flow._autoAdvanceEnabled=true;flow._canDriveResolveFlow=()=>true;

@@ -14,6 +14,7 @@ export function createRealStage(host, scene, width = null) {
   flow._activeStep = scene.step;
   flow._autoAdvanceEnabled = false;
   flow._waitingForAdvance = false;
+  if (typeof __GALLERY_SKILLS__ !== 'undefined') flow._skillById = id => __GALLERY_SKILLS__[id];
   const viewport = document.createElement('div');
   viewport.className = 'real-stage';
   if (width) viewport.style.width = `${width}px`;

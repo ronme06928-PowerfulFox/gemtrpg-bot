@@ -78,7 +78,8 @@ for(const level of ['light','normal','rich']) {
 def test_connection_anchors_numbers_at_forty_percent_without_side_offsets():
     _run_node(r"""
 const source=fs.readFileSync('static/js/battle/components/resolve_flow_fx.js','utf8');
-assert.ok(source.includes('y: chip ? 0.5 : 0.4'));
+assert.ok(source.includes('stageFxPlacement(layout, sample'));
+assert.ok(!source.includes('getBoundingClientRect'));
 assert.ok(!/dx: \(side === 'attacker' \? -16 : 16\)/.test(source));
 assert.ok(!/dy: -28 \* index/.test(source));
 """)

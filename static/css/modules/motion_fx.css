@@ -26,10 +26,6 @@
   pointer-events: none;
 }
 
-#resolve-flow-panel > .fx-root {
-  z-index: 4;
-}
-
 .fx-power-roll,
 .fx-resolve-damage,
 .fx-chat-dice-slot {
@@ -47,12 +43,6 @@
   background: #1c202e;
   border-radius: 5px;
   text-shadow: 0 2px 3px #000;
-}
-
-/* 別レイヤーの数字を見せている間、下地から確定値を先に見せない。 */
-.resolve-flow-panel.reveal-power .actual,
-.resolve-flow-panel.reveal-power .summation-total strong {
-  visibility: hidden;
 }
 
 .fx-clash-flash {

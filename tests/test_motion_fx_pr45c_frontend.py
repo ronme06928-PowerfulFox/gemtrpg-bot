@@ -25,9 +25,9 @@ run(lethal,'outcome',4000);
 for(const call of calls) assert.ok(Math.abs(call[2].elapsedSeconds-4)<0.1);
 const ko=calls.find(c=>c[0]==='ko-shatter');
 assert.ok(Math.abs(ko[2].delaySeconds+ko[1].duration-6.1)<1e-9);
-const rect=targets.get('.resolve-flow-background.defender').getBoundingClientRect();
-assert.strictEqual(ko[1].width,rect.width);assert.strictEqual(ko[1].height,rect.height);
-assert.strictEqual(ko[2].left,rect.left+rect.width/2-10);
+const {getLayout}=await import('./static/js/battle/components/resolve_stage_layout.js');const layout=getLayout(1180);
+assert.strictEqual(ko[1].width,layout.width/2);assert.strictEqual(ko[1].height,layout.arenaHeight);
+assert.strictEqual(ko[2].left,layout.width*0.75);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 

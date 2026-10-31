@@ -83,13 +83,16 @@ for(const [width,height,mode] of [[590,400,'hit'],[330,420,'hit'],[32,32,'chip']
 """)
 
 
-def test_eight_effect_scene_groups_never_reach_the_viewport_upper_edge():
+def test_eight_attacker_effect_scene_groups_never_reach_the_viewport_upper_edge():
     _run_node(r"""
 (async()=>{
  global.window={Fx:loadShared({})};
  const {sceneSamples}=await import('./scripts/fx_gallery/samples.mjs');const {collectSceneEvents}=await import('./scripts/fx_gallery/scene.mjs');
  const panel={id:'scene',getBoundingClientRect:()=>({left:0,top:0}),querySelector:()=>({getBoundingClientRect:()=>({left:0,top:0,width:330,height:400})})};global.document={getElementById:()=>panel};
- const event=collectSceneEvents(sceneSamples.find(s=>s.id==='eight-effects'),panel,'normal').events.find(e=>e.name==='effect-band');
+ const scene=structuredClone(sceneSamples.find(s=>s.id==='eight-effects'));
+ scene.step.applied.fired_effects=scene.step.applied.fired_effects.map(row=>({...row,target_id:'a'}));
+ const event=collectSceneEvents(scene,panel,'normal').events.find(e=>e.name==='effect-band');
+ assert.strictEqual(event.params.side,'attacker');
  const doc=makeDocument(),fx=Object.create(window.Fx.get('effect-band'));fx.mount(doc.createElement('div'),{...event.params,level:'normal'});
  const y=r=>Number(r.el.style.transform.match(/, ([\d.e+-]+)px\)/)[1]);
  // 行は上の端の手前で薄れて消え、見えている間に見える範囲の上の端を越えない。

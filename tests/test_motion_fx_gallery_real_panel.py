@@ -30,7 +30,7 @@ assert.ok(out.includes('[data-gallery-resolve-panel] .resolve-flow-card, [data-g
 assert.ok(/@media \(max-width: 980px\) \{\n\[data-gallery-resolve-panel\] \.resolve-flow-card \{ width: 10px; \}\n\}/.test(out));
 const real=extractResolvePanelCss(fs.readFileSync('static/css/modules/visual_battle.css','utf8'));
 assert.ok(!real.includes('#resolve-flow-panel'));
-for(const selector of ['.resolve-flow-card','.resolve-flow-background','.resolve-flow-versus .side','.resolve-flow-summation-inline .summation-chips','.resolve-flow-summation-inline .charge-chip'])
+for(const selector of ['.theatre','.arena','.combatant','.participants','.participant-column','.skill-descriptions'])
   assert.ok(real.includes('[data-gallery-resolve-panel] '+selector),selector);
 })().catch(e=>{console.error(e);process.exit(1);});
 """)
@@ -41,7 +41,7 @@ def test_built_gallery_embeds_the_real_panel_css_and_draws_scenes_with_the_real_
                             capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert result.returncode == 0, result.stderr
     html = (ROOT / "_local/fx_gallery/fx_gallery.html").read_text(encoding="utf-8")
-    assert "[data-gallery-resolve-panel] .resolve-flow-card" in html
+    assert "[data-gallery-resolve-panel] .theatre" in html
     assert "#resolve-flow-panel" not in html
     gallery = (ROOT / "scripts/fx_gallery/gallery.js").read_text(encoding="utf-8")
     assert "createRealStage" in gallery

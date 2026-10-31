@@ -37,13 +37,13 @@ def test_horizontal_positions_separate_numbers_and_bands():
     _run_node("(async()=>{"+FLOW_SETUP+r"""
 run({...base,applied:{damage:[...base.applied.damage,{target_id:'a',hp:2,source:'thorns'}],fired_effects:[{name:'効果',actor_id:'a',target_id:'d',results:[]}]}},'outcome');
 for(const side of ['attacker','defender']) {
- const rect=targets.get('.resolve-flow-background.'+side).getBoundingClientRect();
+ const {getLayout}=await import('./static/js/battle/components/resolve_stage_layout.js');const layout=getLayout(1180);
  const number=calls.find(c=>c[0]==='resolve-damage'&&c[1].side===side);
- assert.strictEqual(number[2].left,rect.left+rect.width*(side==='attacker'?0.64:0.36)-10);
- assert.strictEqual(number[2].top,rect.top+rect.height*0.4-20);
+ assert.strictEqual(number[2].left,layout.damage.width/2);
+ assert.strictEqual(number[2].top,layout.damage.height-42);
 }
-const band=calls.find(c=>c[0]==='effect-band'),rect=targets.get('.resolve-flow-background.defender').getBoundingClientRect();
-assert.strictEqual(band[2].left,rect.left+rect.width-10);
+const band=calls.find(c=>c[0]==='effect-band');
+assert.strictEqual(band[2].left,230);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 

@@ -1,3 +1,5 @@
+import { stageFxPlacement } from './resolve_stage_layout.js';
+import { currentStageLayout, stageSample } from './resolve_stage.js';
 // 解決パネルへの接続。演出の定義自体は fx_effects.js に置く。
 import { collectDamageKnockouts, collectKnockouts, planResolveOutcome } from './resolve_flow_result_fx.js';
 export const RESOLVE_STAGE_TIMING = Object.freeze([
@@ -83,18 +85,25 @@ export function playResolveStageFx(flow, payload, state) {
     stageStart += row.ms;
   }
   const elapsedSeconds = Math.max(0, Date.now() - flow._stepStartedAt - stageStart) / 1000;
-  const hostRect = panel.getBoundingClientRect();
-  const playAt = (name, params, selector, delaySeconds = 0, position = {}) => {
-    const selectors = Array.isArray(selector) ? selector : [selector];
-    const target = selectors.map((s) => panel.querySelector(s)).find(Boolean);
-    if (!target) return;
-    const rect = target.getBoundingClientRect();
-    // 数字は立ち絵の背景の上の端（本体の数字の半分の高さ手前）まで昇ってよい。
-    const ceiling = name === 'resolve-damage' && params.mode !== 'chip' ? { ceiling: rect.height * (position.y ?? 0.5) - 26 } : {};
-    fx.play(name, { ...params, width: rect.width, height: rect.height, ...ceiling }, {
-      host: panel, elapsedSeconds, delaySeconds, left: rect.left + rect.width * (position.x ?? 0.5) - hostRect.left + (position.dx || 0),
-      top: rect.top + rect.height * (position.y ?? 0.5) - hostRect.top + (position.dy || 0),
-    });
+  const layout = currentStageLayout(panel);
+  const sample = stageSample(flow, step, state);
+  const playAt = (name, params, side = 'attacker', delaySeconds = 0, targetId = null) => {
+    const place = stageFxPlacement(layout, sample, name, side, targetId, params.kind);
+    if (!place) return;
+    const anchor = panel.querySelector(`[data-anchor="${flow._escape(place.anchor)}"]`);
+    if (!anchor) return;
+    const number = name === 'power-roll' ? anchor : null;
+    const host = number ? anchor.parentElement : anchor;
+    flow._fxHosts ||= new Set();
+    flow._fxHosts.add(host);
+    if (number) number.style.visibility = 'hidden';
+    const item = fx.play(name, { ...params, width: place.width, height: place.height,
+      ...(place.ceiling !== undefined ? { ceiling: place.ceiling } : {}),
+      mode: name === 'ko-shatter' ? 'hit' : place.chip ? 'chip' : params.mode,
+    }, { host, elapsedSeconds, delaySeconds, left: place.left, top: place.top,
+      className: `event-${name} ${place.classes || ''}`,
+      onDone: () => { if (number) number.style.visibility = ''; } });
+    if (item?.root) for (const cls of [`event-${name}`, ...(place.classes || '').split(' ').filter(Boolean)]) item.root.classList.add(cls);
   };
   const summation = step.kind === 'mass_summation';
   const oneSided = flow._isOneSidedPresentation(step);
@@ -123,15 +132,18 @@ export function playResolveStageFx(flow, payload, state) {
     return flow._slotActorId(slot, state) || entries.find((e) => e.targetId !== ids.attacker)?.targetId;
   };
   const toneFor = (side) => toneForId(summation && side === 'defender' ? participantId() : ids[side]);
-  const region = (side) => summation && side === 'defender' ? '.summation-chips'
-    : [`.resolve-flow-background.${side}`, `.side.${side}`];
   const skillEffect = (side) => attackEffect(flow._skillById(step[`${side}SkillId`])?.['属性']);
   if (payload.stage === 'power') {
     const values = flow._resolvePowerValues(step);
     const bounds = flow._resolvePowerBounds(step);
     for (const side of oneSided ? ['attacker'] : ['attacker', 'defender']) {
-      playAt('power-roll', { text: values[side], range: bounds[side] }, summation && side === 'defender'
-        ? '.summation-total strong' : `.actual.${side}`);
+      playAt('power-roll', { text: values[side], range: bounds[side] }, side);
+    }
+  }
+  if (payload.stage === 'power' && summation) {
+    for (const slot of sample.step.participants) {
+      const id = flow._slotActorId(slot, state);
+      playAt('power-roll', { text: step.rolls?.defender_powers?.[slot] ?? 0 }, 'defender', 0, id);
     }
   }
   if (payload.stage === 'attack') {
@@ -139,22 +151,22 @@ export function playResolveStageFx(flow, payload, state) {
       for (const side of ['attacker', 'defender']) {
         playAt(summation && side === 'defender' ? 'attack-flash' : skillEffect(side), {
           tier: 'small', mode: 'draw', tone: 'neutral', direction: side === 'attacker' ? 1 : -1,
-        }, '.vs');
+        }, side);
       }
     } else if (winner) {
       playAt(summation && winner === 'defender' ? 'attack-flash' : skillEffect(winner), {
         tier: tierFor(loser), direction: winner === 'attacker' ? 1 : -1, tone: toneFor(loser),
         mode: summation && winner === 'attacker' ? 'wide' : 'hit',
-      }, region(loser));
+      }, loser);
     }
   }
   if (payload.stage !== 'outcome') return;
-  if ((!oneSided && !summation) || payload.outcome === 'draw') playAt('clash-flash', {}, '.vs');
+  if ((!oneSided && !summation) || payload.outcome === 'draw') playAt('clash-flash', {});
   if (winner) {
     for (const side of oneSided || summation ? [loser] : ['attacker', 'defender']) {
-      playAt('clash-shade', { winner: side === winner }, region(side));
+      playAt('clash-shade', { winner: side === winner }, side);
     }
-    if (fx.getLevel() === 'rich' && tierFor(loser) === 'large') playAt('impact-flash', {}, '.resolve-flow-card');
+    if (fx.getLevel() === 'rich' && tierFor(loser) === 'large') playAt('impact-flash', {});
   }
   const rows = [...(step.applied?.damage || []), ...(step.damageEvents || [])];
   const popups = collectDamagePopups(entries, rows);
@@ -165,27 +177,22 @@ export function playResolveStageFx(flow, payload, state) {
     const side = sideFor(event.targetId);
     if (!side) continue;
     const band = event.name === 'effect-band';
-    const damage = event.name === 'resolve-damage';
+    // 帯の時刻は追加数字・KO・終了期限に使う。計画は変えず、参加者に重なる帯だけ描かない。
+    if (band && summation && side === 'defender') continue;
     const chip = summation && side === 'defender' && !band;
     const icon = event.params.status && window.STATUS_CONFIG?.[event.params.status]?.icon;
     const tone = event.params.self ? 'self' : event.params.kind === 'effect' ? 'extra' : toneForId(event.targetId);
-    const selector = chip ? [`.participant-chip[data-actor-id="${flow._escape(event.targetId)}"] .resolve-flow-portrait-inline`, '.summation-chips']
-      : band ? [`.resolve-flow-background.${side}`, `.side.${side}`] : region(side);
-    const position = band ? { x: side === 'attacker' ? 0 : 1, y: 0.8 }
-      : damage ? { x: chip ? 0.5 : side === 'attacker' ? 0.64 : 0.36, y: chip ? 0.5 : 0.4 } : {};
     const groups = band ? event.params.groups.map(group => ({ ...group,
-      lines: group.lines.map((line, i) => ({ ...line,
+      lines: group.lines.map(line => ({ ...line,
         tone: group.self ? 'self' : toneForId(group.targetId),
         icon: line.status && window.STATUS_CONFIG?.[line.status]?.icon ? `/static/images/${window.STATUS_CONFIG[line.status].icon}` : null,
-        text: summation && side === 'defender' && i === 0
-          ? `${String(flow._characterById(group.targetId, state)?.name || group.targetId).slice(0, 12)}：${line.text}` : line.text,
       })),
     })) : undefined;
     playAt(event.name, { ...event.params, tone, side, shake: tierFor(side),
       ...(band ? { groups } : {}),
       icon: icon ? `/static/images/${icon}` : null, label: event.params.status,
       mode: chip ? 'chip' : 'hit',
-    }, selector, event.at, position);
+    }, side, event.at, event.targetId);
   }
   flow._outcomeFxDeadline = { step, atMs: flow._stepStartedAt + stageStart + plan.endSeconds * 1000 };
   return plan;

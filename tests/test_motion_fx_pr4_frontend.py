@@ -80,8 +80,6 @@ assert.strictEqual(planResolveOutcome({applied},[],4.6,window.Fx).events[0].para
 def test_actual_connection_places_self_effects_and_chip_ko_and_promotes_lethal_attacks():
     _run_node("(async()=>{"+FLOW_SETUP+r"""
 flow._autoAdvanceDelayMs=2000;
-const chip='.participant-chip[data-actor-id="d"] .resolve-flow-portrait-inline';
-targets.set(chip,{getBoundingClientRect:()=>({left:50,top:80,width:28,height:28})});
 const lethal={...base,applied:{damage:[{target_id:'d',hp:2,hp_after:0,source:'dice'}],
   fired_effects:[{term_id:'W-58',name:'再使用',actor_id:'a',target_id:'a',results:[]}]}};
 run(lethal,'attack');assert.strictEqual(calls[0][1].tier,'large');
@@ -92,20 +90,18 @@ assert.ok(calls.find(c=>c[0]==='ko-shatter')[2].delaySeconds>=0.3);
 run({...lethal,kind:'mass_summation',participants:['sd'],rolls:{delta:2},damageEvents:lethal.applied.damage,
  applied:{fired_effects:[]}},'attack');assert.strictEqual(calls[0][1].tier,'large');
 run(flow._activeStep,'outcome');
-const ko=calls.find(c=>c[0]==='ko-shatter');assert.strictEqual(ko[1].mode,'chip');
-assert.strictEqual(ko[1].width,28);
+const ko=calls.find(c=>c[0]==='ko-shatter');assert.strictEqual(ko[1].mode,'hit');
+assert.ok(ko[2].className.includes('column-ko'));
+assert.strictEqual(ko[1].width,442);
 assert.strictEqual(calls.filter(c=>c[0]==='resolve-damage').length,1);
 const normalized=flow._normalizeTraceEntry({kind:'mass_summation',fired_effects:[{term_id:'W-58'}],
  statuses:[{name:'MP'}],self_destructed:['a']});
 assert.deepStrictEqual(normalized.applied.fired_effects,[{term_id:'W-58'}]);
 assert.deepStrictEqual(normalized.selfDestructed,['a']);
-const roster=new ResolveFlowPanel();
-const actors={a:{id:'a',name:'A'},d:{id:'d',name:'D'},e:{id:'e',name:'E'}};
-const rosterState={characters:Object.values(actors),slots:{sa:{actor_id:'a'},sd:{actor_id:'d'}}};
-const rows=roster._summationParticipants({attackerActorId:'a',rolls:{defender_powers:{sd:5}},
- damageEvents:[{target_id:'d',hp:2,hp_after:0},{target_id:'e',hp:2,hp_after:0}]},rosterState);
-assert.deepStrictEqual(rows.map(r=>r.visual.actorId),['d','e']);
-assert.strictEqual(rows[1].power,null);
+const {stageSample}=await import('./static/js/battle/components/resolve_stage.js');
+const {participantSlots,getLayout}=await import('./static/js/battle/components/resolve_stage_layout.js');
+const sample=stageSample(flow,{attackerActorId:'a',rolls:{defender_powers:{sd:5}}},{});
+assert.deepStrictEqual(participantSlots(getLayout(1180),sample).items.map(r=>r.id),['d']);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 
@@ -128,18 +124,16 @@ Fx.finishAll(host);
 """)
 
 
-def test_summation_effects_share_the_lower_band_and_ko_keeps_icon_fallback():
+def test_summation_defender_bands_are_hidden_and_ko_keeps_its_column():
     _run_node("(async()=>{"+FLOW_SETUP+r"""
 const step={...base,kind:'mass_summation',participants:['sd','se'],rolls:{delta:2},applied:{damage:[],
   fired_effects:['d','e'].map(target_id=>({term_id:'W-58',name:'再使用',actor_id:'a',target_id,results:[]}))}};
 run(step,'outcome');
 const effects=calls.filter(c=>c[0]==='effect-band');
-assert.strictEqual(effects.length,1);
-assert.strictEqual(effects[0][1].groups.length,2);
-assert.ok(effects[0][1].groups[0].at<effects[0][1].groups[1].at);
+assert.strictEqual(effects.length,0);
 run({...step,selfDestructed:['e']},'outcome');
 assert.ok(names().includes('ko-shatter'));
-assert.ok(measured.includes('.summation-chips'));
+assert.ok(measured.includes('[data-anchor="arena"]'));
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 

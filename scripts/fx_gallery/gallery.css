@@ -98,8 +98,8 @@ footer { color: #8e979b; font-size: 12px; border-top: 1px solid #303c45; padding
   .stage { --fx-scale: 0.8; }
 }
 /* 場面カードの本物の解決パネル。本番は画面の幅（92vw）で決まる幅を、一覧の枠の幅に合わせる。ボタンは押せないようにする。 */
-.real-stage { position: relative; width: 100%; min-width: 660px; }
+.real-stage { position: relative; width: 100%; min-width: 0; }
 .real-stage [data-gallery-resolve-panel] { pointer-events: none; }
 /* 本番は地図の上に重ねる（inset: 0）。一覧ではカードの高さで枠が決まるよう、普通の配置にする（字体の読み込みで高さが変わっても追従する）。 */
 .real-stage [data-gallery-resolve-panel].resolve-flow-panel { position: relative; inset: auto; padding: 12px 0; }
-.real-stage [data-gallery-resolve-panel] .resolve-flow-card { width: min(100%, 1180px); max-height: none; }
+.real-stage [data-gallery-resolve-panel] .resolve-flow-content { height: auto; }

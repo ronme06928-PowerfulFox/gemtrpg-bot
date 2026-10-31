@@ -97,23 +97,12 @@ assert.deepStrictEqual(collectDamagePopups([],[]),[]);
 """)
 
 
-def test_portrait_backgrounds_only_for_images_and_individual_sides():
-    _run_node(r"""
-(async () => {
-const { ResolveFlowPanel } = await import('./static/js/battle/components/ResolveFlowPanel.js');
-const flow = new ResolveFlowPanel();
-const a = {image:'/a.png'}, d = {image:'/d.png'};
-const both = flow._renderBackgrounds('clash',a,d);
-assert.ok(both.includes('/a.png') && both.includes('/d.png'));
-assert.ok(!flow._renderBackgrounds('mass_summation',a,d).includes('/d.png'));
-assert.ok(flow._renderBackgrounds('clash',a,{}).includes('resolve-flow-background defender'));
-assert.ok(!flow._renderBackgrounds('clash',a,{}).includes('/d.png'));
-assert.ok(!flow._renderBackgrounds('clash',{},{}).includes('<img'));
-})().catch(e => {console.error(e); process.exitCode = 1;});
-""")
-    panel = (ROOT / "static/js/battle/components/ResolveFlowPanel.js").read_text(encoding="utf-8")
-    assert "portrait-wrap" not in panel
-    assert "participant-chip" in panel
+def test_portraits_are_stage_figures_with_a_silhouette_fallback():
+    stage = (ROOT / "static/js/battle/components/resolve_stage.js").read_text(encoding="utf-8")
+    assert 'silhouette-initial' in stage
+    assert 'missing-portrait' in stage
+    assert 'participant-column' in stage
+    assert 'resolve-flow-background' not in stage
 
 
 def test_chat_dice_only_plays_once_for_a_visible_live_log():
@@ -172,8 +161,9 @@ def test_fx_root_only_creates_a_stacking_order_inside_the_resolve_panel():
     css = (ROOT / "static/css/modules/motion_fx.css").read_text(encoding="utf-8")
     root = re.search(r"(?m)^\.fx-root\s*\{([^}]*)\}", css).group(1)
     assert "z-index" not in root
-    scoped = re.search(r"#resolve-flow-panel\s*>\s*\.fx-root\s*\{([^}]*)\}", css)
-    assert scoped and "z-index: 4" in scoped.group(1)
+    panel = (ROOT / "static/css/modules/visual_battle.css").read_text(encoding="utf-8")
+    scoped = re.search(r"#resolve-flow-panel \.arena \.fx-root\s*\{([^}]*)\}", panel)
+    assert scoped and "z-index: 8" in scoped.group(1)
 
 
 def test_dice_total_style_is_shared_by_live_history_and_animated_numbers():

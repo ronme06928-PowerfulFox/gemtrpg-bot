@@ -100,7 +100,7 @@ input { accent-color: var(--gold); }
 .gem-facets { position: absolute; inset: 0; clip-path: var(--gem-cut); background: var(--team); }
 .gem-facets::before { content: ''; position: absolute; inset: 3px; clip-path: var(--gem-cut); background: conic-gradient(from 15deg at 50% 44%, var(--team-deep) 0deg 57deg, color-mix(in srgb, var(--team) 32%, var(--stage)) 57deg 110deg, var(--team-deep) 110deg 164deg, color-mix(in srgb, var(--team) 60%, var(--stage)) 164deg 220deg, var(--team-deep) 220deg 278deg, color-mix(in srgb, var(--team) 45%, var(--stage)) 278deg 330deg, var(--team-deep) 330deg); }
 .gem-facets::after { content: ''; position: absolute; inset: 19%; clip-path: var(--gem-cut); border: 1px solid color-mix(in srgb, var(--white) 40%, transparent); background: color-mix(in srgb, var(--stage) 38%, transparent); }
-.power-number { position: absolute; top: 11px; left: 10%; width: 80%; height: 70px; display: grid; place-items: center; font: 900 var(--gem-number)/1 'Cinzel', Georgia, serif; text-shadow: 0 2px 3px var(--black); }
+.power-number { position: absolute; top: var(--power-number-top); left: 10%; width: 80%; height: var(--power-number-height); display: grid; place-items: center; font: 900 var(--gem-number)/1 'Cinzel', Georgia, serif; text-shadow: 0 2px 3px var(--black); }
 .power-range { position: absolute; bottom: 8px; left: 0; width: 100%; text-align: center; font: 11px var(--ui-font); color: var(--ink); }
 .clash-point { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); color: var(--gold); font: 900 30px 'Cinzel', var(--body-font); letter-spacing: 0.1em; }
 .result-band { display: flex; justify-content: center; align-items: center; height: 42px; padding-inline: 22px; border-block: 1px solid var(--gold-dark); color: var(--gold); background: var(--page); font-size: 15px; white-space: nowrap; }
@@ -116,14 +116,14 @@ input { accent-color: var(--gold); }
 .description-tabs { display: none; }
 .description h3 { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin: 0 0 8px; font: 11px var(--ui-font); color: var(--gold); letter-spacing: 0.05em; }
 .skill-copy { flex: 1; min-height: 0; overflow-y: auto; font: 13px/1.65 var(--body-font); color: var(--muted); }
-.participants { position: absolute; top: 60px; bottom: 32px; }
-.participant { position: absolute; bottom: 0; height: 270px; }
+.participants { position: absolute; top: var(--participants-top); bottom: var(--participants-bottom); }
+.participant { position: absolute; bottom: 0; height: var(--participants-column-height); }
 .participant-column { position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); pointer-events: none; }
-.participant-more { position: absolute; top: calc(100% - 270px); height: var(--small-gem); display: grid; place-items: center; border: 1px solid var(--team); border-radius: 50%; background: color-mix(in srgb, var(--team) 22%, var(--stage)); color: var(--ink); font: 900 18px 'Cinzel', var(--body-font); }
-.participant .portrait { width: 100%; height: 210px; bottom: 25px; mask-image: none; }
+.participant-more { position: absolute; top: calc(100% - var(--participants-column-height)); height: var(--small-gem); display: grid; place-items: center; border: 1px solid var(--team); border-radius: 50%; background: color-mix(in srgb, var(--team) 22%, var(--stage)); color: var(--ink); font: 900 18px 'Cinzel', var(--body-font); }
+.participant .portrait { width: 100%; height: var(--participants-portrait-height); bottom: 25px; mask-image: none; }
 .participant-name { display: block; position: absolute; width: var(--slot); left: calc(50% - var(--slot) / 2); bottom: 0; text-align: center; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .small-gem { --gem-size: var(--small-gem); --gem-number: calc(var(--small-gem) / 2); top: 0; left: calc(50% - var(--small-gem) / 2); }
-.small-gem .power-number { top: 2px; height: calc(var(--small-gem) * 0.66); }
+.small-gem .power-number { top: var(--small-number-top); height: calc(var(--small-gem) * var(--small-number-ratio)); }
 .small-gem .power-range { display: none; }
 .missing-portrait { color: var(--team); }
 .silhouette-head { position: absolute; width: 65px; height: 76px; left: calc(50% - 32px); top: 12%; background: color-mix(in srgb, var(--team) 28%, var(--stage)); border: 1px solid var(--team); border-radius: 45%; }
@@ -162,7 +162,7 @@ input { accent-color: var(--gold); }
 .narrow .defender .skill-plaque { padding-left: 42px; padding-right: 17px; }
 .narrow .attribute-icon { width: 20px; height: 26px; }
 .narrow .skill-id { position: absolute; right: 17px; bottom: -2px; font-size: 8px; }
-.narrow .power-number { top: 8px; height: 60px; }
+.narrow .combatant > .gem .power-number { top: var(--power-number-top); height: var(--power-number-height); }
 .narrow .power-range { bottom: 7px; }
 .narrow .result-band { font-size: 13px; padding-inline: 12px; }
 .narrow .skill-descriptions { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 0; }
@@ -170,10 +170,10 @@ input { accent-color: var(--gold); }
 .description-tab { font: 11px var(--ui-font); padding: 5px 12px; border-radius: 4px 4px 0 0; border-bottom: 0; color: var(--muted); }
 .narrow .skill-descriptions[data-active="attacker"] .description-tab.attacker, .narrow .skill-descriptions[data-active="defender"] .description-tab.defender { color: var(--gold); background: var(--surface); }
 .narrow .skill-descriptions[data-active="attacker"] .description.defender, .narrow .skill-descriptions[data-active="defender"] .description.attacker { display: none; }
-.narrow .participants { top: 70px; }
-.narrow .participant-more { top: calc(100% - 224px); }
-.narrow .participant { height: 224px; }
-.narrow .participant .portrait { height: 170px; }
+.narrow .participants { top: var(--participants-top); }
+.narrow .participant-more { top: calc(100% - var(--participants-column-height)); }
+.narrow .participant { height: var(--participants-column-height); }
+.narrow .participant .portrait { height: var(--participants-portrait-height); }
 .narrow .participant-name { font-size: 9px; }
 @media (max-width: 760px) {
   body { padding-block: 22px; }

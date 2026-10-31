@@ -26,7 +26,9 @@ const result = await build({
   entryPoints: [path.join(root, 'scripts/fx_gallery/gallery.js')], bundle: true,
   format: 'iife', write: false, target: 'es2020', charset: 'utf8',
   minifyWhitespace: true, minifySyntax: true, minifyIdentifiers: false,
-  define: { __GALLERY_ASSETS__: JSON.stringify(assets) },
+  define: { __GALLERY_ASSETS__: JSON.stringify(assets),
+    __GALLERY_SKILLS__: JSON.stringify(Object.fromEntries(Object.entries(JSON.parse(await read('data/cache/skills_cache.json')))
+      .filter(([id]) => sceneSamples.some(scene => [scene.step.attackerSkillId, scene.step.defenderSkillId].includes(id))))) },
 });
 const index = await read('static/index.html');
 const fonts = index.match(/<link[^>]+href="https:\/\/fonts\.(?:googleapis|gstatic)\.com[^>]*>/g).join('\n');
