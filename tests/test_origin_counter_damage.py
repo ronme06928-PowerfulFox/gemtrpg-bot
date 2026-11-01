@@ -1,6 +1,7 @@
 import pytest
 
 from manager.battle import core
+from manager import room_manager
 from tests.test_select_resolve_timing_normalization import _make_char, _patch_deterministic_clash, _clash_skill
 
 
@@ -16,6 +17,7 @@ def test_counter_survives_non_attack_hp_restore_only_for_positive_defense_win(mo
     attack = _clash_skill("ATT", [])
     defense = {**_clash_skill("DEF", []), "分類": "防御", "category": "防御", "tags": ["守備", "防御"]}
     state = {"characters": [attacker, defender], "timeline": []}
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
     monkeypatch.setattr(duel, "all_skill_data", {"ATT": attack, "DEF": defense})
     monkeypatch.setattr(duel, "get_room_state", lambda _: state)
     real_execute = duel.execute_duel_match
@@ -39,6 +41,7 @@ def test_counter_applies_when_gian_balf_is_resolved_as_attacker_side(monkeypatch
     defense = {**_clash_skill("DEF", []), "分類": "防御", "category": "防御", "tags": ["守備", "防御"]}
     attack = _clash_skill("ATT", [])
     state = {"characters": [gian_balf, enemy], "timeline": []}
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
     monkeypatch.setattr(duel, "all_skill_data", {"ATT": attack, "DEF": defense})
     monkeypatch.setattr(duel, "get_room_state", lambda _: state)
     result = core._resolve_clash_by_existing_logic("room_t", state, gian_balf, enemy, defense, attack)

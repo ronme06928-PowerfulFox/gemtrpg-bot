@@ -287,6 +287,7 @@ def _patched_headless_runtime(room: str, state: dict, roll_mode: RollMode):
         deterministic_roll_dice = build_deterministic_roll_dice(roll_mode)
 
     try:
+        set_attr(room_manager, "active_room_states", {room: state})
         for module in (battle_core, battle_common):
             set_attr(module, "get_room_state", lambda target_room: state if target_room == room else None)
             set_attr(module, "save_specific_room_state", lambda *_args, **_kwargs: True)

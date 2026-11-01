@@ -61,3 +61,80 @@
 - セッション中のデプロイをどう扱うか、異常時の復旧判断と手順。
 
 これらは要調査・未決定であり、新しい通知サービス・定期ジョブ・有料契約をこの計画だけで設定しない。
+
+## 所有者照会のDB例外とトランザクション境界
+
+OPS-ROOM-READ-ROLLBACKは、毎回所有者を照会する未出荷のSAVEPOINT案から、キャッシュありSQL 0回・初回読込だけSAVEPOINT付き3コマンドへ作り直す。メモリ値owner_idは表示用とし、認可は既存のget_room_owner_id / RoomMemberによるDB判断を維持する。DB直接編集はルーム再読込まで表示に反映しない。
+
+### 実装・検証の契約（2026-11-01）
+
+- キャッシュ取得ではSessionの状態・DB接続可否に触れない。接続断・失敗済みSession・接続不能でもキャッシュを返す。
+- 初回は既存ConnectionのSAVEPOINTでowner_idとdataを取得する。自動flushや共有Session全体のrollbackを避け、SQL失敗・境界失敗を伝える。空状態をキャッシュしない。app contextなしの初回も例外にする。
+- 初回照会中に読み込まれたキャッシュを優先する。
+- 共通のset_cached_room_ownerで、所有者移譲・ユーザー削除・一括所有権移譲のDB commit成功後だけ既存キャッシュを同期する。transfer_owner(commit=False)では同期しない。新規ルームも作成者owner_idを持ち、commit成功後に登録する。追加配信はしない。
+- SQLite・使い捨てPostgreSQL（opt-in）で読込・SQL回数・失敗・ORM未保存変更・書込み元の同期を検証する。計測スクリプトのDB読取禁止ガードも確認する。
+
+前案の34件成功・全件1506 passed / 22 skippedは旧契約に対する結果であり、この案の検証結果とは扱わない。本番・秘密設定・実ルーム・バックアップ本体へアクセスせず、DB試験は合成データだけを使う。pool_pre_ping、他のdata_manager.read_saved_room呼出し元、認可処理は変更しない。commit/pushは行わない。
+
+本番eventlet・Neonの速度と同時操作は未検証。認可・保存は引き続きDBを必要とするため、DB停止時の全操作成功を保証しない。
+
+既存の死亡処理・出身カウンター処理の単体テストにも、app contextなしで未読込ルームを暗黙生成する前提があった。新契約に合わせ、対象キャラクターを持つ合成ルームをメモリへ用意してから処理を検証する。アプリの例外契約は緩めない。
+
+同じ前提に依存していた戦闘テストのfixtureも、実際の合成状態を読み取れるよう明示する。ヘッドレスシミュレーターは実行中だけroom_managerのキャッシュ参照を合成ルーム専用dictへ差し替え、正常終了・例外時の両方で元の参照へ戻す。実ルームのdictを変更せず、DB・配信・保存を使わない既存の隔離契約を維持する。
+
+### 新契約の検証記録
+
+資料更新後に新契約のテストを先に実行し、旧未コミット実装でSQL 0回・接続断時のキャッシュ取得・所有者同期・作成時のcommit前登録など13件が失敗することを確認した。シミュレーターの隔離キャッシュについても、追加テストの失敗を確認してから最小修正した。
+
+専用テストは **66 passed / 1 skipped**。内訳はSQLite 31件、PostgreSQL 32件、app contextと計測ガードのDBなし検証3件。skip 1件はSQLite側には適用しない実PostgreSQL停止試験。PostgreSQLは `RUN_POSTGRES_ROOM_READ_INTEGRATION=1` で使い捨てクラスタのみを起動し、最後に実際に停止した後のキャッシュ取得も成功した。キャッシュありのSQLは `before_cursor_execute` で **0回**、初回読込は **3コマンド** と確認した。
+
+所有者変更・作成・保存・認可の関連テストは106 passed / 33 skipped（計測ガードの追加前）、戦闘・シミュレーションのfixture補正後は146 passed。計測のDB読取禁止ガードは、配信処理から `_read_room_db_row` を意図的に呼び出して拒否されることも確認した。
+
+全件テストは、テスト専用sitecustomizeでdotenv読込みを無効化し、`.env` と取得済みバックアップ本体のopenを拒否して実行する。アプリ本体のdotenv設定は変更しない。既存テストのapp importや子プロセスにもガードを継承し、本番接続設定を使わない。検証用のPostgreSQLクラスタとSQLite DBは停止を確認して削除済み。
+
+### 変更ファイル
+
+- `manager/room_access.py`
+- `manager/room_manager.py`
+- `manager/sim/battle_runner.py`
+- `manager/user_manager.py`
+- `manuals/implemented/F01_Operations_Manual.md`
+- `manuals/projects/app_foundation/backlog.md`
+- `manuals/projects/app_foundation/reliability_and_operations.md`
+- `routes/room.py`
+- `scripts/benchmark_state_delivery.py`
+- `tests/sim/test_simulate_battle.py`
+- `tests/test_death_context.py`
+- `tests/test_origin_counter_damage.py`
+- `tests/test_select_resolve_smoke.py`
+- `tests/test_select_resolve_timing_normalization.py`
+- `tests/test_skill_catalog_smoke.py`
+- `tests/test_skill_target_tags.py`
+- `tests/test_valwaire_power_floor.py`
+- `tests/test_room_owner_read_recovery.py`
+
+実装と補助6ファイル、テスト9ファイル、資料3ファイル。フロントエンドソース・成果物の変更はない。
+
+### 最終確認
+
+最終版の全件 `pytest -q` は **1524 passed / 38 skipped**（295.49秒）、終了時の保存待ちは **0件**。skipはPostgreSQL opt-in 32件・SQLiteに適用しないPostgreSQL停止試験1件・従来5件で、32件は専用の実PostgreSQL検証で別途成功している。
+
+`python scripts/check_text_encoding.py` と `python scripts/check_mojibake_markers.py` はともに成功。変更ファイルは資料も含めUTF-8/BOMなし・文字化け・LF・構文・リンク先・`git diff --check`を確認した。認可・data_managerの他の読込元・フロントエンドは変更していない。
+
+最終確認後、今回の一時sitecustomizeとそのpycacheを削除し、検証用DBを残していないことを確認した。照合用の最新記録 `_local/performance/room_read_recovery_release_manifest.json` を更新して残す。既存バックアップ本体・秘密設定・本番DBへアクセスせず、commit/pushも未実施。本番eventlet・Neonでの効果と同時操作は未検証。
+
+### Claude再レビュー報告の受領
+
+ユーザー提供の再レビュー報告では、修正必須の問題なし・設計の採用を推奨との判断。レビュー担当もdotenvと既存バックアップ本体を保護して専用66 passed / 1 skipped、全件1524 passed / 38 skipped（231秒）を確認したとの報告である。この数値はレビュー担当の実行結果として記録し、Codexによる再実行結果とは区別する。
+
+低リスクの指摘は3件。Socket入室登録後の初回読込失敗とmembership例外処理はOPS-JOIN-LOAD-FAILURE、作成commit待ち中の同名読込との競合はOPS-CREATE-LOAD-RACEとして別課題にした。再現条件・対処の評価は各課題で行い、今回のコードへは追加しない。「空状態をキャッシュしない」は読込・境界・接続の失敗時とapp contextなしの初回取得に限ることをF01へ補足した。SQL成功時のルーム不存在・非dictデータでは、従来の既定状態生成を維持する。
+
+本番反映後は、通常の宣言選択・確定、アイドル後の初回入室、所有者移譲後のオーナー表示と既存権限、新規作成直後のowner_id/play_modeを確認する。DB障害中も全操作が通るとは扱わず、DBを必要とする認可・保存とメモリ取得を区別する。本番のSQL回数とRTTは別途確認する。レビュー受領時点ではcommit/push未承認・未実施だった。
+
+今回のレビュー受領後は資料3ファイルのみ補足。コード・テストは変更せず、全件テストの再実行は行わない。資料の文字コード・文字化け・行末・リンク先・差分を検査する。
+
+### 出荷範囲と承認
+
+ユーザーの「進めて」を、直前に提示したcommit・pushによる本番反映の承認として受領した。出荷対象は上記18ファイルに限定する。レビュー済みの内容は照合用manifestと全18ファイルのSHA-256が一致し、他の未コミット変更がないことを確認した。レビュー後の実装・テスト変更はなく、全件1524 passed / 38 skipped・保存待ち0件、専用66 passed / 1 skippedとClaude再レビュー結果を出荷根拠とする。
+
+今回の追記は出荷承認の記録だけで、コードの再変更はない。出荷前に文字コード・文字化け・差分・ステージ対象を再確認する。JS/CSS変更がないためフロントビルドは不要。mainへのpushはRender自動デプロイを伴う。本番のデプロイ完了・表示・応答時間はpush成功と区別し、実ルームやDBへの操作は行わず、通常操作の確認と再計測へ引き継ぐ。

@@ -7,13 +7,14 @@ import sys
 import threading
 import time
 
-from flask import current_app
+from flask import current_app, has_app_context
+from sqlalchemy import select
 
 # パフォーマンス計測（PERF_LOG=1 のときのみ state_updated のペイロードサイズを出力）
 _PERF_LOG = os.environ.get('PERF_LOG') == '1'
 
 from extensions import db, socketio, active_room_states, user_sids
-from manager.data_manager import read_saved_room, save_room_to_db
+from manager.data_manager import save_room_to_db
 from manager.utils import (
     set_status_value, get_status_value, apply_buff, remove_buff,
     normalize_status_name, normalize_character_labels,
@@ -233,11 +234,36 @@ def emit_select_resolve_events(
         )
 
 
+def _read_room_db_row(room_name):
+    connection = db.session.connection()
+    # Core SAVEPOINT avoids Session.begin_nested's unconditional flush.
+    with connection.begin_nested():
+        return connection.execute(
+            select(Room.owner_id, Room.data).where(Room.name == room_name)
+        ).first()
+
+
+def set_cached_room_owner(room_name, owner_id):
+    """Sync display metadata after commit without loading or broadcasting a room."""
+    state = active_room_states.get(room_name)
+    if state is not None:
+        state['owner_id'] = owner_id
+
+
 def get_room_state(room_name):
-    if room_name in active_room_states:
+    cached_state = active_room_states.get(room_name)
+    room_db = None
+    if cached_state is None:
+        if not has_app_context():
+            raise RuntimeError("Initial room loading requires an app context")
+        room_db = _read_room_db_row(room_name)
+    if cached_state is not None:
+        state = cached_state
+    elif room_name in active_room_states:
         state = active_room_states[room_name]
+        room_db = None  # Another operation loaded the authoritative memory state.
     else:
-        room_data = read_saved_room(room_name)
+        room_data = room_db.data if room_db is not None else None
         if isinstance(room_data, dict):
             state = room_data
             if 'logs' not in state:
@@ -326,12 +352,8 @@ def get_room_state(room_name):
     _ensure_battle_only_defaults(state)
 
 
-    try:
-        room_db = Room.query.filter_by(name=room_name).first()
-        if room_db:
-            state['owner_id'] = room_db.owner_id
-    except Exception as e:
-        logger.error(f"Error fetching owner_id: {e}")
+    if room_db is not None:
+        state['owner_id'] = room_db.owner_id
 
     try:
         from manager.battle.common_manager import ensure_battle_state_vNext

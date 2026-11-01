@@ -2,6 +2,7 @@ import json
 from types import SimpleNamespace
 
 from manager.battle import core as battle_core
+from manager import room_manager
 
 
 def _make_char(char_id, team):
@@ -78,10 +79,12 @@ def _patch_deterministic_one_sided(monkeypatch, roll_total=10):
     monkeypatch.setattr(battle_core, "_update_char_stat", _stub_update_char_stat)
 
 
-def _resolve_one_sided(attacker, defender, skill):
+def _resolve_one_sided(monkeypatch, attacker, defender, skill):
+    state = {"characters": [attacker, defender], "timeline": []}
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
     return battle_core._resolve_one_sided_by_existing_logic(
         room="room_t",
-        state={"characters": [attacker, defender], "timeline": []},
+        state=state,
         attacker_char=attacker,
         defender_char=defender,
         attacker_skill_data=skill,
@@ -161,6 +164,7 @@ def _resolve_clash(monkeypatch, attacker, defender, attacker_skill, defender_ski
         defender_skill["id"]: defender_skill,
     }
     monkeypatch.setattr(duel_solver_mod, "all_skill_data", catalog)
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
     monkeypatch.setattr(duel_solver_mod, "get_room_state", lambda _room: state)
     return battle_core._resolve_clash_by_existing_logic(
         room="room_t",
@@ -187,7 +191,7 @@ def test_one_sided_end_match_fissure_contributes_before_hit_fissure(monkeypatch)
         },
     }
 
-    result = _resolve_one_sided(attacker, defender, skill)
+    result = _resolve_one_sided(monkeypatch, attacker, defender, skill)
 
     assert result["ok"] is True
     assert result["summary"]["rolls"]["kiretsu"] == 3
@@ -210,7 +214,7 @@ def test_one_sided_win_fissure_contributes_to_same_damage(monkeypatch):
         },
     }
 
-    result = _resolve_one_sided(attacker, defender, skill)
+    result = _resolve_one_sided(monkeypatch, attacker, defender, skill)
 
     assert result["ok"] is True
     assert result["summary"]["rolls"]["kiretsu"] == 4
@@ -238,7 +242,7 @@ def test_one_sided_hit_entangle_does_not_protect_current_thorns(monkeypatch):
         },
     }
 
-    result = _resolve_one_sided(attacker, defender, skill)
+    result = _resolve_one_sided(monkeypatch, attacker, defender, skill)
 
     assert result["ok"] is True
     assert attacker["hp"] == 96
@@ -266,7 +270,7 @@ def test_one_sided_end_match_entangle_protects_current_thorns_decay(monkeypatch)
         },
     }
 
-    result = _resolve_one_sided(attacker, defender, skill)
+    result = _resolve_one_sided(monkeypatch, attacker, defender, skill)
 
     assert result["ok"] is True
     assert attacker["hp"] == 96
@@ -317,6 +321,7 @@ def test_clash_defender_win_result_timing_order_is_end_match_win_lose(monkeypatc
     duel_solver_mod = _patch_deterministic_clash(monkeypatch, attacker_total=5, defender_total=10)
     state = {"characters": [attacker, defender], "timeline": []}
     monkeypatch.setattr(duel_solver_mod, "all_skill_data", {"ATK": attacker_skill, "DEF": defender_skill})
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
     monkeypatch.setattr(duel_solver_mod, "get_room_state", lambda _room: state)
 
     seen = []
@@ -368,6 +373,7 @@ def test_clash_draw_end_match_runs_before_thorns_without_win_lose(monkeypatch):
     duel_solver_mod = _patch_deterministic_clash(monkeypatch, attacker_total=10, defender_total=10)
     state = {"characters": [attacker, defender], "timeline": []}
     monkeypatch.setattr(duel_solver_mod, "all_skill_data", {"ATK": attacker_skill, "DEF": defender_skill})
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
     monkeypatch.setattr(duel_solver_mod, "get_room_state", lambda _room: state)
 
     result = battle_core._resolve_clash_by_existing_logic(

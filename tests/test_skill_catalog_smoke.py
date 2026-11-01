@@ -306,6 +306,8 @@ def _stub_update_char_stat(_room, char, name, value, **_kwargs):
 
 
 def _patch_integration_runtime(monkeypatch, state_ref):
+    from manager.battle import runtime_actions
+    monkeypatch.setattr(runtime_actions, "get_room_state", lambda _room: state_ref["value"])
     monkeypatch.setattr(battle_core, "_update_char_stat", _stub_update_char_stat)
     monkeypatch.setattr(duel_solver, "_update_char_stat", _stub_update_char_stat)
     monkeypatch.setattr(skill_effects, "_update_char_stat", _stub_update_char_stat)

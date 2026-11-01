@@ -1,6 +1,7 @@
 import pytest
 
 from manager.battle import core
+from manager import room_manager
 from manager.game_logic import calculate_skill_preview
 from manager.dice_roller import roll_dice
 from tests.test_select_resolve_timing_normalization import _make_char, _patch_deterministic_clash, _patch_deterministic_one_sided
@@ -26,6 +27,7 @@ def test_valwaire_clash_and_preview_apply_once_with_floor(monkeypatch, power, or
     attack, defense = _skill("ATT", power), _skill("DEF", 1)
     state = {"characters": [attacker, defender], "timeline": []}
     monkeypatch.setattr(duel, "all_skill_data", {"ATT": attack, "DEF": defense})
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
     monkeypatch.setattr(duel, "get_room_state", lambda _: state)
     expected = _corrected(power) if origin == 13 else power
     preview = calculate_skill_preview(attacker, defender, attack)
@@ -43,7 +45,9 @@ def test_valwaire_one_sided_power_has_same_floor(monkeypatch, power, origin):
     _patch_deterministic_one_sided(monkeypatch)
     monkeypatch.setattr(core, "calculate_skill_preview", calculate_skill_preview)
     monkeypatch.setattr(core, "roll_dice", roll_dice)
-    result = core._resolve_one_sided_by_existing_logic("room_t", {"characters": [attacker, defender]}, attacker, defender, _skill("ATT", power), None)
+    state = {"characters": [attacker, defender]}
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
+    result = core._resolve_one_sided_by_existing_logic("room_t", state, attacker, defender, _skill("ATT", power), None)
     assert result["ok"]
     expected = _corrected(power) if origin == 13 else power
     assert defender["hp"] == 100 - expected
@@ -65,6 +69,7 @@ def test_legacy_match_uses_declared_preview_once_and_keeps_floor(monkeypatch, po
     attack, defense = _skill("ATT", power), _skill("DEF", 1)
     state = {"characters": [attacker, defender], "timeline": []}
     monkeypatch.setattr(duel, "all_skill_data", {"ATT": attack, "DEF": defense})
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
     monkeypatch.setattr(duel, "get_room_state", lambda _: state)
     logs = []
     monkeypatch.setattr(duel, "broadcast_log", lambda room, message, kind, **kw: logs.append((message, kind)))
@@ -91,6 +96,7 @@ def test_legacy_wide_match_uses_same_valwaire_lower_bound(monkeypatch, mode, pow
         "attacker_data": {"skill_id": "ATT", "final_command": str(power)},
         "defenders": [{"id": "B1", "name": "B1", "declared": True, "skill_id": "DEF", "command": "0"}],
     }}
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
     monkeypatch.setattr(wide, "get_room_state", lambda _: state)
     for name in ["save_specific_room_state", "broadcast_state_update", "broadcast_log", "_safe_emit", "execute_pre_match_effects"]:
         monkeypatch.setattr(wide, name, lambda *a, **kw: None)

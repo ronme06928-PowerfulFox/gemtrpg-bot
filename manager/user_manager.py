@@ -178,6 +178,7 @@ def delete_user(user_id):
         mutate_store(lambda store: scrub_user_from_acl(store, user_id), commit=False)
         # ルームの所有権を解除
         rooms = Room.query.filter_by(owner_id=user_id).all()
+        room_names = [r.name for r in rooms]
         for r in rooms:
             r.owner_id = None
         
@@ -187,6 +188,9 @@ def delete_user(user_id):
         except Exception:
             db.session.rollback()
             raise
+        from manager.room_manager import set_cached_room_owner
+        for room_name in room_names:
+            set_cached_room_owner(room_name, None)
         return True
     return False
 
@@ -239,6 +243,7 @@ def transfer_ownership(old_id, new_id):
 
     # 1. ルームの所有権移動
     rooms = Room.query.filter_by(owner_id=old_id).all()
+    room_names = [r.name for r in rooms]
     for r in rooms:
         r.owner_id = new_id
     
@@ -277,6 +282,9 @@ def transfer_ownership(old_id, new_id):
         for room_name, snapshot in active_state_snapshots.items():
             active_room_states[room_name] = snapshot
         raise
+    from manager.room_manager import set_cached_room_owner
+    for room_name in room_names:
+        set_cached_room_owner(room_name, new_id)
     return {
         "characters": updated_count,
         "preset_assets": preset_result,

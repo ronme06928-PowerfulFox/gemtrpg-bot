@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 from manager.battle import core as battle_core
 from manager.battle import duel_solver
+from manager import room_manager
 
 
 def _state_for_scope_check():
@@ -167,6 +168,7 @@ def test_delegate_mode_does_not_reapply_coloration_bonus_to_command(monkeypatch)
             },
         ],
     }
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
     monkeypatch.setattr(duel_solver, "get_room_state", lambda _room: state)
     monkeypatch.setattr(duel_solver, "broadcast_log", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(duel_solver, "broadcast_state_update", lambda *_args, **_kwargs: None)
@@ -330,6 +332,7 @@ def test_handle_skill_declaration_passes_preview_context(monkeypatch):
     emitted = []
     seen = {"context": None}
 
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
     monkeypatch.setattr(duel_solver, "get_room_state", lambda _room: state)
     monkeypatch.setattr(duel_solver, "socketio", SimpleNamespace(emit=lambda event, payload=None, to=None: emitted.append((event, payload, to))))
     monkeypatch.setitem(duel_solver.all_skill_data, "ATK", {"name": "Test"})

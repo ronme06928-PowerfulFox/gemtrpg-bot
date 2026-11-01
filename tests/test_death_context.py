@@ -19,6 +19,7 @@ def _character(char_id, name, team, hp=10):
 
 def test_hp_zero_transition_triggers_on_death_once_and_allows_redeath(monkeypatch):
     char = _character("rubble", "瓦礫", "enemy")
+    monkeypatch.setattr(room_manager, "active_room_states", {"room": {"characters": [char], "logs": []}})
     calls = []
     monkeypatch.setattr(room_manager, "process_on_death", lambda *args, **kwargs: calls.append((args, kwargs)))
     monkeypatch.setattr(room_manager, "_safe_emit", lambda *args, **kwargs: None)
@@ -121,6 +122,7 @@ def test_source_dependent_on_death_effect_does_not_fire_without_killer(monkeypat
 def test_normal_outcome_damage_preserves_attacker_and_skill(monkeypatch):
     attacker = _character("boss", "ボス", "enemy")
     target = _character("pc", "PC", "ally")
+    monkeypatch.setattr(room_manager, "active_room_states", {"room": {"characters": [attacker, target], "logs": []}})
     contexts = []
     monkeypatch.setattr(
         resolve_effect_runtime,

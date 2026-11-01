@@ -872,6 +872,16 @@ GET /api/room/export_logs?room_name=<room>&format=text
 
 ---
 
+## get_room_stateの所有者照会と失敗境界
+
+メモリ上の `active_room_states` がルーム状態の正である。キャッシュがある場合の `get_room_state` はDBへ一切アクセスせず、SQLは0回。DB接続断・停止・失敗済みSessionでも、メモリだけで完結する取得と正規化は継続できる。認可や保存など別途DBを必要とする操作の成功を保証するものではない。
+
+`state['owner_id']` は表示用のメモリ値であり、認可には使わない。所有者とmembershipの認可は従来どおり `manager/room_access.py` の `get_room_owner_id` / `RoomMember` がDBを正本として判断する。DBを直接編集した所有者変更は、ルームを読み直すまで表示へ反映されない。worker=1の運用でこの遅延を許容する。
+
+メモリにない初回読込だけは、既存SessionのConnectionのSAVEPOINT内でowner_idとdataを1回のSELECTで取得する。正常時はSAVEPOINT・SELECT・RELEASEの3 SQLコマンド。Session.begin_nestedは使わず、呼出し元のnew/dirty/deleted・flush済み未commit更新を自動flush・commit・全体rollbackしない。初回読込・SAVEPOINT境界・接続の失敗は例外を伝え、空状態をキャッシュしない。app contextがない初回取得も例外にする。これは読込失敗時の保証であり、SQLが成功してルームが不存在だった場合やdataがdictでない場合は、従来どおり既定の空状態をキャッシュする。照会中に他の処理が読み込んだメモリ状態は優先し、DB snapshotで上書きしない。
+
+`set_cached_room_owner(room_name, owner_id)` は既にメモリにあるルームだけを更新し、未読込ルームを作らず、追加配信もしない。所有者変更の同期はDB commit成功後だけ行う。`room_access.transfer_owner` はcommit=Trueの成功後だけ同期し、commit=Falseでは呼出し元のトランザクションを先取りしない。`user_manager.delete_user` と `transfer_ownership` も成功後に対象ルーム名と新所有者で同期する。commit失敗・rollbackでは表示用owner_idを更新しない。`routes/room.create_room` は作成者owner_idを含む状態をDB commit成功後にキャッシュへ登録する。次回の通常配信で表示に反映する。
+
 # Part 8: サーバーダイス仕様（Plan 28 Phase 1.5 より統合・2026-07-11）
 
 ## 1. 目的

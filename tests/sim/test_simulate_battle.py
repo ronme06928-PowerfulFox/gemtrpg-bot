@@ -531,3 +531,22 @@ def test_cli_can_build_room_state_from_stage_preset(tmp_path, capsys):
     assert payload["summary"]["ally"]["total_count"] == 1
     assert payload["summary"]["enemy"]["total_count"] == 2
     assert payload["rounds_detail"][0]["round"] == 1
+
+
+def test_headless_runtime_registers_only_synthetic_cache_and_restores_on_error(monkeypatch):
+    from manager import room_manager
+    from manager.sim.battle_runner import _patched_headless_runtime
+    original = {"existing-synthetic-sentinel": {"round": 99}}
+    monkeypatch.setattr(room_manager, "active_room_states", original)
+    state = {"characters": [], "logs": []}
+    for fail in (False, True):
+        try:
+            with _patched_headless_runtime("test-simulation", state, "median"):
+                assert set(room_manager.active_room_states) == {"test-simulation"}
+                assert room_manager.get_room_state("test-simulation") is state
+                if fail:
+                    raise ValueError("synthetic exit")
+        except ValueError as exc:
+            assert fail and str(exc) == "synthetic exit"
+        assert room_manager.active_room_states is original
+        assert original == {"existing-synthetic-sentinel": {"round": 99}}

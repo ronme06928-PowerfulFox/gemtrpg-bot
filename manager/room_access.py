@@ -291,4 +291,6 @@ def transfer_owner(room_name, new_owner_id, *, acting_user_id=None, commit=True)
     room.owner_id = new_owner_id
     if commit:
         db.session.commit()
+        from manager.room_manager import set_cached_room_owner
+        set_cached_room_owner(room_name, new_owner_id)
     return True

@@ -169,6 +169,7 @@ def _set_intent(
 def _patch_room_and_socket(monkeypatch, state):
     from manager import room_manager
     battle_common, battle_core = _mods()
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
     emit_calls = []
 
     def _emit(event, payload=None, to=None):
@@ -1266,6 +1267,8 @@ def test_case18_one_sided_chain_includes_pre_before_after_damage(monkeypatch):
     attacker = _make_actor("A1", "ally")
     defender = _make_actor("B1", "enemy")
     state = _base_state([attacker, defender])
+    from manager import room_manager
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
 
     skill_a = {
         "base_power": 5,
@@ -1334,6 +1337,8 @@ def test_case18b_one_sided_does_not_execute_defender_pre_match(monkeypatch):
     attacker = _make_actor("A1", "ally")
     defender = _make_actor("B1", "enemy")
     state = _base_state([attacker, defender])
+    from manager import room_manager
+    monkeypatch.setattr(room_manager, "active_room_states", {"room_t": state})
 
     seen_calls = []
     summon_calls = []

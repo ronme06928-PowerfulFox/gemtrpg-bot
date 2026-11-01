@@ -111,7 +111,7 @@ def measure_case(spec, samples, warmup):
         for module in (room_manager, common_manager, select_resolve_state):
             stack.enter_context(patch.object(module, "get_room_state", lambda _room: state))
         stack.enter_context(patch.object(room_manager, "_PERF_LOG", False))
-        stack.enter_context(patch.object(room_manager, "read_saved_room", _forbidden))
+        stack.enter_context(patch.object(room_manager, "_read_room_db_row", _forbidden))
         stack.enter_context(patch.object(room_manager, "save_specific_room_state", _forbidden))
         stack.enter_context(patch.object(room_manager.socketio, "start_background_task", _forbidden))
         stack.enter_context(patch.object(room_manager, "build_participant_state", timed("participant_build_ms", original_participant)))

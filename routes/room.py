@@ -148,11 +148,11 @@ def create_room():
         "round": 0,
         "logs": [],
         "play_mode": play_mode,
+        "owner_id": session.get('user_id'),
     }
     if play_mode == 'battle_only':
         new_state["battle_only"] = {"status": "lobby", "ally_entries": [], "enemy_entries": []}
     ensure_combat_session_defaults(new_state, new_room=True)
-    active_room_states[room_name] = new_state
 
     # ▼▼▼ 修正: Room作成時に owner_id を保存 ▼▼▼
     # save_room_to_db はデータ保存用なので、ここでは Roomモデルを直接作って owner_id を入れる
@@ -168,6 +168,7 @@ def create_room():
     ensure_membership(new_room.id, session.get('user_id'), OWNER,
                       granted_by=session.get('user_id'), commit=False)
     db.session.commit()
+    active_room_states[room_name] = new_state
     session['attribute'] = GM_ATTRIBUTE
     # ▲▲▲ 修正ここまで ▲▲▲
 
