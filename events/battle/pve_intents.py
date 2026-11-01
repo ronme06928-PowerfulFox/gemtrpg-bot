@@ -11,8 +11,7 @@ def _canonical_team(raw_value):
     return None
 
 
-def _is_actor_actionable(room_id, actor_id, *, get_room_state_fn, confusion_buff_cls, immobilize_buff_cls):
-    room_state = get_room_state_fn(room_id)
+def _is_actor_actionable(room_state, actor_id, *, confusion_buff_cls, immobilize_buff_cls):
     if not room_state:
         return False
     actor = next((c for c in room_state.get('characters', []) if c.get('id') == actor_id), None)
@@ -217,7 +216,7 @@ def _required_slots(room_id, state, *, get_room_state_fn, is_actor_actionable_fn
         if slot.get('disabled', False) or slot.get('target_only', False):
             continue
         actor_id = slot.get('actor_id')
-        if not is_actor_actionable_fn(room_id, actor_id):
+        if not is_actor_actionable_fn(room_state, actor_id):
             intents = state.setdefault('intents', {})
             if isinstance(intents, dict):
                 intents.pop(slot_id, None)

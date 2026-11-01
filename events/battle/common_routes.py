@@ -704,11 +704,10 @@ def _authorize_intent_slot_control(room_id, battle_id, state, slot_id, event_nam
     return True
 
 
-def _is_actor_actionable(room_id, actor_id):
+def _is_actor_actionable(room_state, actor_id):
     return _pve_intents._is_actor_actionable(
-        room_id,
+        room_state,
         actor_id,
-        get_room_state_fn=get_room_state,
         confusion_buff_cls=ConfusionBuff,
         immobilize_buff_cls=ImmobilizeBuff,
     )
