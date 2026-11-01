@@ -84,7 +84,8 @@ def _patch_common(monkeypatch, routes, state, user_info, authorized, emit_calls)
     monkeypatch.setattr(routes, "_emit_battle_state_updated", lambda *args, **kwargs: None)
     monkeypatch.setattr(routes, "_recalculate_redirect_state", lambda *args, **kwargs: None)
     monkeypatch.setattr(routes, "_refresh_resolve_ready", lambda *args, **kwargs: None)
-    monkeypatch.setattr(routes, "_maybe_advance_phase_to_resolve_mass", lambda *args, **kwargs: None)
+    monkeypatch.setattr(routes, "_publish_intent_commit_state", lambda room, battle_id, _state:
+                        routes._emit_battle_state_updated(room, battle_id))
     monkeypatch.setattr(routes, "get_user_info_from_sid", lambda sid: user_info)
     monkeypatch.setattr(
         routes,

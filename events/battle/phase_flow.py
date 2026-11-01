@@ -151,8 +151,9 @@ def _refresh_resolve_ready(room_id, state, *, required_slots_fn):
     return ready, required, committed_count, waiting_slots
 
 
-def _maybe_advance_phase_to_resolve_mass(room_id, battle_id, state, *, ctx):
+def _publish_intent_commit_state(room_id, battle_id, state, *, ctx):
     if not ctx['is_select_phase'](state):
+        ctx['emit_battle_state_updated'](room_id, battle_id)
         return
     was_ready = bool(state.get('resolve_ready', False))
     ready, required, committed_count, waiting_slots = ctx['refresh_resolve_ready'](room_id, state)
@@ -167,12 +168,8 @@ def _maybe_advance_phase_to_resolve_mass(room_id, battle_id, state, *, ctx):
             'committed_count': committed_count,
             'waiting_slots': waiting_slots
         }
-        return
-    if not ready:
-        return
-
     ctx['emit_battle_state_updated'](room_id, battle_id)
-    if not was_ready:
+    if required and ready and not was_ready:
         _emit_battle_resolve_ready(
             room_id,
             battle_id,

@@ -628,3 +628,13 @@ Select中の引き寄せ履歴は`battle_state.redirects`にのみ記録し、Re
 無効枠・対象専用枠の除外、行動不能actorのintent削除、確定済みinstantの除外、PvEでスキル未設定の敵枠を除外する順序を維持する。操作受付の在室・宣言操作権・スキル利用可否・対象検証は省略しない。`get_room_state` の所有者更新や通常の呼出し側も変更しない。
 
 ready判定前後の状態通知、全員確定時のready通知、保存、revision、解決開始の権限とタイミングはこの変更では扱わない。二重配信と更新順序の整理は別の変更とする。
+
+## 宣言確定後の状態配信とready通知
+
+`battle_intent_commit` は既存の認可・対象検証・スキル利用可否検証・intent更新とredirect再計算の後、必須枠とready情報を更新し、整理後の戦闘状態を1回配信する。行動不能actorのintent削除も配信前に終える。未確定枠が残る場合も、この最新のready情報と状態を1回配信する。
+
+必須枠が1つ以上あり、readyがfalseからtrueへ変わった場合だけ、状態配信の後に `battle_resolve_ready` を1回送る。既にreadyの場合は状態更新のみ。必須0枠はready=falseとして配信し、ready通知は送らない。readyは解決開始ではなく、GM等による既存の解決開始要求と認可は維持する。
+
+この処理は `_publish_intent_commit_state` に集約する。更新前のready情報を含む最初の状態通知は廃止する。preview・uncommit・解決開始前後の配信は対象外。revision・コスト・保存・DB rollback処理は変更しない。ready計算が失敗した場合は例外を伝播し、この処理から状態・readyの成功通知を出さない。intent更新を巻き戻す機構は追加しない。
+
+確定処理中に別の処理等でselect以外へ変わった場合は、ready計算を行わず最新状態を1回返す。旧経路の最初の状態通知で行っていた同期を保ち、ready通知や解決開始を追加しない。これはスレッド・eventletでのすべての並行動作を保証するものではない。

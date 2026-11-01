@@ -87,7 +87,7 @@ def main():
                     actor["commands"] = "\n".join(f"【{sid}】" for sid in skill_ids[:skills])
                 common_manager.ensure_battle_state_vNext(baseline, battle_id="synthetic", round_value=1)
                 for ready in (False, True):
-                    for mode in ("delivery", "delivery_then_commit_ready_check"):
+                    for mode in ("delivery", "commit_publication"):
                         times, last_counts = [], None
                         profile = cProfile.Profile()
                         for trial in range(4):
@@ -100,9 +100,10 @@ def main():
                             if trial == 3:
                                 profile.enable()
                             started = time.perf_counter()
-                            common_routes._emit_battle_state_updated("synthetic", "synthetic")
-                            if mode != "delivery":
-                                common_routes._maybe_advance_phase_to_resolve_mass("synthetic", "synthetic", battle)
+                            if mode == "delivery":
+                                common_routes._emit_battle_state_updated("synthetic", "synthetic")
+                            else:
+                                common_routes._publish_intent_commit_state("synthetic", "synthetic", battle)
                             elapsed = (time.perf_counter() - started) * 1000
                             if trial == 3:
                                 profile.disable()

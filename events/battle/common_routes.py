@@ -882,8 +882,8 @@ def _refresh_resolve_ready(room_id, state):
     )
 
 
-def _maybe_advance_phase_to_resolve_mass(room_id, battle_id, state):
-    return _phase_flow._maybe_advance_phase_to_resolve_mass(
+def _publish_intent_commit_state(room_id, battle_id, state):
+    return _phase_flow._publish_intent_commit_state(
         room_id,
         battle_id,
         state,
@@ -1207,8 +1207,7 @@ def on_battle_intent_commit(data):
         room_id, battle_id, slot_id, intent.get('committed'), intent.get('skill_id'), intent.get('target')
     )
 
-    _emit_battle_state_updated(room_id, battle_id)
-    _maybe_advance_phase_to_resolve_mass(room_id, battle_id, state)
+    _publish_intent_commit_state(room_id, battle_id, state)
 
 
 @socketio.on('battle_resolve_confirm')
