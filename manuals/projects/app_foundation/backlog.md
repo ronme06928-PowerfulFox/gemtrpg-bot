@@ -1,6 +1,6 @@
 # アプリ基盤の課題一覧
 
-更新日: 2026-11-01
+更新日: 2026-11-02
 
 入口・管理方針は[README](README.md)。状態の正はこの一覧とする。テーマ別計画に進捗表を複製しない。
 
@@ -17,7 +17,7 @@
 | REPO-PROJECT | 先行 | 完了 | 常設の入口・課題一覧・テーマ別計画と、既存資料からの導線を整備した | 入口・担当境界・課題が整い、リンク・文字・差分検査が成功 | [完了記録](#repo-project完了記録) |
 | REPO-INVENTORY | 先行 | 完了 | 追跡860ファイルの分類と参照経路、整理候補・保持条件を記録し、資料を検証した | 用途・参照元・保存要否・候補配置・未確認事項を記録する | [棚卸し結果](repository_inventory.md)・[完了記録](#repo-inventory完了記録) |
 | UI-COMMIT-BADGE | 高 | 完了 | ユーザーが確定後の緑色の欠落・遅延を報告。盤面digestがcommittedを含まず、確定だけの変化ではStore更新が盤面へ届かないことを合成データで再現。確定状態の変化を再描画判定に含めた。回帰4件と関連15件成功、ビルド済み。ユーザー承認で出荷対象を確定。本番のデプロイ・表示確認は未確認 | 確定・取消が内容変更なしで反映され、同一状態の再描画抑制と演出中の固定を維持する | [表示仕様](../../implemented/E01_Visual_Battle_Architecture.md#宣言の確定状態と盤面の再描画) |
-| PERF-BASELINE | 先行 | 調査中 | 改善前33件・改善後24件を比較済み。宣言以外の操作はコード経路を点検。DB照会・全員確定時の二重構築・小変更の全体配信が残る。入室・解決計算・初回復帰の本番実測は未実施 | 同じ条件で再測定でき、初回・通常・重い場面の結果がある。計画58と共用する | [横断点検](foundation_review_20261101.md) |
+| PERF-BASELINE | 先行 | 調査中 | 初回33件・評価改善後24件・配信改善後33件・所有者SQL廃止後30件を比較済み。最新は選択261.55ms・確定186.65ms（RTT中央値）。宣言以外はコード経路を点検。小変更の全体配信が残る。入室・解決計算・初回復帰の本番実測は未実施 | 同じ条件で再測定でき、初回・通常・重い場面の結果がある。計画58と共用する | [横断点検](foundation_review_20261101.md) |
 | PERF-COMMIT-PUBLISH | 高 | 完了 | 宣言確定後の状態を1回へ集約。7条件で最終状態・ready通知・正しい最終snapshotが旧版と一致。13ケース・関連107件、最終版の全件1485 passed / 5 skipped、保存待ち0件。Claudeレビュー報告で出荷可、ユーザーがcommit/pushを承認。本番デプロイ・効果は未確認 | 未確定・最終確定・既にready・必須0枠・行動不能・PvE/instant・拒否・例外を検証し、最新状態1回と必要なready通知だけが送られる | [配信契約](../../implemented/B03_SelectResolve_Spec.md#宣言確定後の状態配信とready通知) |
 | PERF-READY-QUERIES | 高 | 完了 | 確定確認内の状態取得を25→1回へ集約。実装後の隔離比較も対象区間28→4 SQL、全員確定時31→7。7条件で通知・最終状態一致、補強後の関連91件・補強前の全件1470 passed / 5 skipped、保存待ち0件。Claudeレビュー報告とユーザー承認を受け出荷範囲を確定。actor不在・取得例外も確認済み。本番デプロイ・効果は未確認 | 次の呼出しで最新状態を読み、同条件の結果・通知・最終状態が旧版と一致し、DB照会数が減る | [仕様](../../implemented/B03_SelectResolve_Spec.md#確定確認内のルーム状態参照) |
 | PERF-SKILL-RULE | 高 | 完了 | 8dcba1aをpush済み。全件1460 passed / 5 skipped、出荷対象だけの関連56件も成功。push後の実測24件は全件完了。RTT中央値は選択1039.8→417.45ms、確定1617.5→502.05ms。測定条件・稼働版の完全一致は未確認 | 利用可否・コスト・スロット固有制約を維持し、定義更新・変更非共有・拒否を検証して実測を比較する | [実測と限界](foundation_review_20261101.md#完了した速度改善と実測) |
@@ -26,9 +26,10 @@
 | OPS-READY-PHASE-RACE | 中 | 調査待ち | ready計算内のSQL待ち中にフェーズが変わる既存競合がClaudeレビューで指摘された。計算後の再確認と書込み境界を隔離再現で検討。今回の配信集約では変更しない | 解決開始との交差で古いreadyを書かず、追加通知・二重解決を起こさないことを確認する | [レビュー記録](performance_and_hosting.md) |
 | OPS-COMMIT-ERROR-NOTIFY | 中 | 候補 | ready計算例外ではintent更新がメモリに残り、成功通知・計測ACKは返らない。一時的な例外も想定し、要求者へのエラー表示・再同期・再試行を検討 | 例外を成功扱いせず、再試行でコストや処理を重複させず、状態の復帰方法が明確になる | [レビュー記録](performance_and_hosting.md) |
 | PERF-REDIRECT-CLEANUP | 中 | 調査待ち | intent削除より前のredirect再計算により、削除したintent由来のredirectが残り得る既存経路を確認。previewとcommitを含め順序を照合する | 対象・redirect・利用可否・解決結果の整合を回帰検証し、必要な再計算だけを行う | [レビュー記録](performance_and_hosting.md) |
-| OPS-ROOM-READ-ROLLBACK | 高 | 完了 | キャッシュありSQL 0回・初回のみSAVEPOINT付き3コマンドへ再設計。表示用owner_idはcommit成功後だけ同期。専用66 passed / 1 skipped、全件1524 passed / 38 skipped、保存待ち0件。実PostgreSQL停止後の取得も成功。Claude再レビュー報告で修正必須なし・採用推奨。資料の保証範囲を補足済み。ユーザーがcommit/pushを承認し出荷対象を確定 | 初回失敗・未commit保持・SQL 0回・所有者書込み元の同期を検証済み。本番eventlet/Neonの効果は未計測。本番デプロイ・実測は別途確認する | [契約・検証記録](reliability_and_operations.md#所有者照会のdb例外とトランザクション境界) |
+| OPS-ROOM-READ-ROLLBACK | 高 | 完了 | キャッシュありSQL 0回・初回のみSAVEPOINT付き3コマンドへ再設計。表示用owner_idはcommit成功後だけ同期。専用66 passed / 1 skipped、全件1524 passed / 38 skipped、保存待ち0件。実PostgreSQL停止後の取得も成功。Claude再レビュー報告で修正必須なし・採用推奨。資料の保証範囲を補足済み。ユーザーがcommit/pushを承認し出荷対象を確定 | 初回失敗・未commit保持・SQL 0回・所有者書込み元の同期を検証済み。ユーザーがデプロイ完了を報告。30件の再実測は全件完了、RTT中央値は選択475.30→261.55ms・確定490.15→186.65ms。稼働版・条件の完全一致と本番SQL回数は未確認 | [契約・検証記録](reliability_and_operations.md#所有者照会のdb例外とトランザクション境界) |
 | OPS-DB-PRE-PING | 中 | 候補 | pool_pre_pingによる古い接続の検出を別途検討する。今回の所有者照会削減には導入しない | 接続断の回復範囲と正常時の追加通信を隔離検証して採否を判断する | [運用計画](reliability_and_operations.md) |
-| OPS-JOIN-LOAD-FAILURE | 中 | 調査待ち | Claude再レビュー報告（低）: Socket入室登録後に初回読込が失敗すると状態が届かない。membership失敗の握りつぶし・rollback漏れも確認する | 初回取得と入室登録の順序・失敗時のSession処理を隔離再現し、中途半端な在室登録や成功通知を残さない | [レビュー記録](reliability_and_operations.md#claude再レビュー報告の受領) |
+| OPS-JOIN-LOAD-FAILURE | 中 | 完了 | 入室準備を在室登録より前へ移し、失敗時はrollbackと要求SIDへの汎用エラーで中止。ロビー・移動・同室再入室の情報と属性を保持。専用34件（PostgreSQL含む）・関連99件、全件1551 passed / 45 skipped、保存待ち0件。Claudeレビュー報告でも修正必須なし・採用推奨。ユーザーがcommit/pushを承認し出荷対象を確定 | DB/認可/初期payload失敗後に在室情報を変えず、同じ接続で再試行できることを検証済み。本番eventletとブラウザ確認は未実施 | [契約・検証記録](reliability_and_operations.md#socket入室準備の失敗と再試行2026-11-02) |
+| OPS-JOIN-FOLLOWUP | 中 | 候補 | 入室レビューの低リスク指摘: 将来のmessage queue下での初期snapshot順序、秘密情報を含めないスタック情報、初回同時membership作成の再試行と通常commit頻度を検討する | 現在の準備失敗時の在室保持を維持し、必要性を確認して課題を分割・隔離検証する | [レビュー結果と判断](reliability_and_operations.md#入室失敗対策のclaudeレビュー受領) |
 | OPS-CREATE-LOAD-RACE | 中 | 候補 | Claude再レビュー報告（低）: 作成commit待ち中の同名初回取得が、未確定行を不存在と見て一時的な空状態を使う可能性。今回の出荷を止める指摘ではない | eventlet相当の交差を隔離再現し、未確定作成と不存在読込の契約・対処の必要性を判断する | [レビュー記録](reliability_and_operations.md#claude再レビュー報告の受領) |
 | OPS-RECOVERY | 高 | 調査中 | 保存修正b6ca961はpush済み。初回手元バックアップと合成PostgreSQL復元の検証を完了。Linux/eventletでの終了動作、本番取得分の非本番復元、許容損失・復旧時間の判断は残る | 非本番で保存・復元を確認し、未保存範囲と復旧手順が分かる | [保存・復元手順](../../operations/persistence_recovery_runbook.md) |
 | OPS-BACKUP-MANUAL | 高 | 完了 | 合成PostgreSQLの関連28件が成功。11/1 00:48 JSTにユーザーが初回取得し、52,204 bytes・11テーブルのサイズ・SHA-256・アーカイブ読込再検査も成功 | 本番を変更せずバックアップを作成・検査でき、失敗で既存バックアップや接続情報を失わない | [手元バックアップ手順](../../operations/postgres_backup_runbook.md) |

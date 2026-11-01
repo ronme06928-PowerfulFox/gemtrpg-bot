@@ -1,9 +1,11 @@
 # events/socket_main.py
+import logging
+
 from flask import request, session
 from flask_socketio import join_room, leave_room, emit
 
 # 拡張機能とマネージャーからのインポート
-from extensions import socketio, user_sids
+from extensions import db, socketio, user_sids
 from manager.room_manager import (
     get_room_state, broadcast_log, broadcast_user_list, build_participant_state,
     emit_select_resolve_events
@@ -11,6 +13,8 @@ from manager.room_manager import (
 from manager.auth import GM_ATTRIBUTE, PLAYER_ATTRIBUTE, resolve_room_attribute
 from manager.room_access import is_sid_in_room, ensure_join_membership_by_name, resolve_room_role, GM_ROLES
 from manager.user_manager import is_user_management_admin
+
+logger = logging.getLogger(__name__)
 
 # --- 5.2. SocketIO イベントハンドラ ---
 @socketio.on('connect')
@@ -89,27 +93,37 @@ def handle_join_room(data):
     requested_role = data.get('role') or data.get('attribute') or PLAYER_ATTRIBUTE
     gm_key = data.get('gm_pin') or data.get('gm_key') or ''
 
-    # membershipとアプリ管理者権限を共通境界で解決する。管理者は仮想owner。
-    app_admin = is_user_management_admin(user_id)
-    if resolve_room_role(user_id, room, app_admin=app_admin) in GM_ROLES:
-        attribute = GM_ATTRIBUTE
-    else:
-        # 移行期: GM PIN を GM membership 取得手段として使う。
-        attribute = resolve_room_attribute(room, requested_role, gm_key)
-    if attribute is None:
-        emit('join_room_error', {'error': 'GM PINが正しくありません'}, to=request.sid)
-        return
-    session['attribute'] = attribute
+    preparation_stage = 'authorization'
+    try:
+        # Keep the previous presence until authorization and the snapshot are ready.
+        app_admin = is_user_management_admin(user_id)
+        if resolve_room_role(user_id, room, app_admin=app_admin) in GM_ROLES:
+            attribute = GM_ATTRIBUTE
+        else:
+            attribute = resolve_room_attribute(room, requested_role, gm_key)
+        if attribute is None:
+            emit('join_room_error', {'error': 'GM PINが正しくありません'}, to=request.sid)
+            return
 
-    # 入室で membership を整える（GM PIN で GM になった場合は gm membership を付与）。
-    if not app_admin:
-        try:
+        preparation_stage = 'membership'
+        if not app_admin:
             ensure_join_membership_by_name(room, user_id, attribute == GM_ATTRIBUTE)
-        except Exception:
-            pass
+        preparation_stage = 'state'
+        state = get_room_state(room)
+        preparation_stage = 'participant_payload'
+        participant_state = build_participant_state(state)
+    except Exception as exc:
+        logger.warning('Room join preparation failed at %s (%s)', preparation_stage, type(exc).__name__)
+        try:
+            db.session.rollback()
+        except Exception as rollback_exc:
+            logger.error('Room join rollback failed (%s)', type(rollback_exc).__name__)
+        emit('join_room_error', {'error': 'ルームの準備に失敗しました。時間をおいて再入室してください。'}, to=request.sid)
+        return
 
     prev_info = user_sids.get(request.sid)
     prev_room = (prev_info or {}).get('room')
+    session['attribute'] = attribute
 
     # same SID -> same room rejoin: refresh snapshot only (no duplicate join log)
     if prev_room == room:
@@ -120,8 +134,7 @@ def handle_join_room(data):
             "user_id": session.get('user_id'),
             "is_app_admin": app_admin,
         }
-        state = get_room_state(room)
-        emit('state_updated', build_participant_state(state), to=request.sid)
+        emit('state_updated', participant_state, to=request.sid)
         emit_select_resolve_events(room, to_sid=request.sid, include_round_started=False)
         broadcast_user_list(room)
         return
@@ -144,9 +157,8 @@ def handle_join_room(data):
     print(f"User {username} [{attribute}] (SID: {request.sid}) joined room: {room}")
 
     # ★ 修正: まず状態を送信してDOMを初期化させる
-    state = get_room_state(room)
     print(f"[JOIN] Sending state_updated to {username} with {len(state.get('logs', []))} logs")
-    emit('state_updated', build_participant_state(state), to=request.sid)
+    emit('state_updated', participant_state, to=request.sid)
     emit_select_resolve_events(room, to_sid=request.sid, include_round_started=False)
 
     # ★ その後、入室ログを全員に送信
