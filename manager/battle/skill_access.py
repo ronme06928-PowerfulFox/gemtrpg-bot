@@ -44,13 +44,14 @@ def _extract_granted_skill_ids(char):
     return out
 
 
-def _extract_skill_tags(skill_data):
+def _extract_skill_tags(skill_data, rule_data=None):
     tags = []
     if isinstance(skill_data, dict):
         raw_tags = skill_data.get("tags", [])
         if isinstance(raw_tags, list):
             tags.extend(raw_tags)
-    rule_data = _extract_rule_data_from_skill(skill_data)
+    if rule_data is None:
+        rule_data = _extract_rule_data_from_skill(skill_data)
     if isinstance(rule_data, dict):
         rule_tags = rule_data.get("tags", [])
         if isinstance(rule_tags, list):
@@ -77,12 +78,6 @@ def _normalize_skill_ids(char):
         seen.add(sid)
         out.append(sid)
     return out
-
-
-def _is_instant_skill(skill_data):
-    tags = _extract_skill_tags(skill_data)
-    tags_text = " ".join(tags)
-    return ("instant" in tags) or ("immediate" in tags) or ("instant" in tags_text)
 
 
 GEM_PROTECT_TAG = "宝石の加護スキル"
@@ -221,8 +216,13 @@ def _merge_cost_entries(cost_entries):
 
 def build_skill_reference(skill_id, skill_data):
     rule_data = _extract_rule_data_from_skill(skill_data, raise_on_error=True) if isinstance(skill_data, dict) else {}
-    base_cost = _normalize_cost_entries(_extract_skill_cost_entries(skill_data if isinstance(skill_data, dict) else {}))
-    tags = _extract_skill_tags(skill_data if isinstance(skill_data, dict) else {})
+    tags = _extract_skill_tags(skill_data if isinstance(skill_data, dict) else {}, rule_data)
+    return _build_skill_reference(skill_id, skill_data, rule_data, tags)
+
+
+def _build_skill_reference(skill_id, skill_data, rule_data, tags):
+    direct_cost = skill_data.get("cost") if isinstance(skill_data, dict) else None
+    base_cost = _normalize_cost_entries(direct_cost if isinstance(direct_cost, list) else rule_data.get("cost", []))
     category = str(
         (skill_data or {}).get("category")
         or (skill_data or {}).get("分類")
@@ -380,6 +380,10 @@ def get_effective_skill_cost(actor, skill_id, skill_data=None, room_state=None, 
     except JsonRuleV2Error:
         fallback_cost = _normalize_cost_entries(_extract_skill_cost_entries(skill_data if isinstance(skill_data, dict) else {}))
         return {"cost": fallback_cost, "matched_rule_ids": []}
+    return _apply_cost_constraints(skill_ref, constraints)
+
+
+def _apply_cost_constraints(skill_ref, constraints):
     effective_cost = list(skill_ref.get("cost", []))
     matched_rule_ids = []
     sorted_constraints = sorted(constraints, key=lambda row: _coerce_int(row.get("priority", 100), 100))
@@ -439,14 +443,22 @@ def evaluate_skill_access(actor, skill_id, room_state=None, battle_state=None, s
             "effective_cost": [],
             "matched_rule_ids": [],
         }
-    if (not allow_instant) and _is_instant_skill(skill_data):
+    rule_error = None
+    try:
+        rule_data = _extract_rule_data_from_skill(skill_data, raise_on_error=True)
+    except Exception as exc:
+        # Preserve early tag rejections before reporting the strict rule error.
+        rule_data, rule_error = {}, exc
+    tags = _extract_skill_tags(skill_data, rule_data)
+    is_instant = ("instant" in tags) or ("immediate" in tags) or ("instant" in " ".join(tags))
+    if (not allow_instant) and is_instant:
         return {
             "usable": False,
             "blocked_reasons": ["instant skill is not allowed here"],
             "effective_cost": [],
             "matched_rule_ids": [],
         }
-    if is_gem_protect_skill(skill_data) and (
+    if GEM_PROTECT_TAG in tags and (
         actor.get("used_gem_protect_this_battle", False)
         or _gem_protect_committed_in_other_slot(actor, battle_state, slot_id)
     ):
@@ -460,7 +472,9 @@ def evaluate_skill_access(actor, skill_id, room_state=None, battle_state=None, s
     blocked_reasons = []
     matched_rule_ids = []
     try:
-        skill_ref = build_skill_reference(sid, skill_data)
+        if rule_error is not None:
+            raise rule_error
+        skill_ref = _build_skill_reference(sid, skill_data, rule_data, tags)
         constraints = collect_skill_constraints(actor, room_state=room_state, battle_state=battle_state, slot_id=slot_id)
     except JsonRuleV2Error as exc:
         return {
@@ -482,14 +496,7 @@ def evaluate_skill_access(actor, skill_id, room_state=None, battle_state=None, s
         if rid:
             matched_rule_ids.append(rid)
 
-    cost_eval = get_effective_skill_cost(
-        actor,
-        sid,
-        skill_data=skill_data,
-        room_state=room_state,
-        battle_state=battle_state,
-        slot_id=slot_id,
-    )
+    cost_eval = _apply_cost_constraints(skill_ref, constraints)
     effective_cost = cost_eval.get("cost", [])
     matched_rule_ids.extend(cost_eval.get("matched_rule_ids", []))
     matched_rule_ids = list(dict.fromkeys([x for x in matched_rule_ids if x]))
