@@ -50,6 +50,7 @@ def test_switch_battle_mode_gm_only_updates_state(monkeypatch):
     monkeypatch.setattr(common_manager, "save_specific_room_state", lambda _room: calls["save"].append(_room))
     monkeypatch.setattr(common_manager, "broadcast_state_update", lambda _room: calls["broadcast"].append(_room))
     monkeypatch.setattr(common_manager, "broadcast_log", lambda *_a, **_k: None)
+    monkeypatch.setattr(common_routes, "flush_room_state_now", lambda _room: True)
 
     common_routes.on_request_switch_battle_mode({"room": "room_t", "mode": "pve"})
 

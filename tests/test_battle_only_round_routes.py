@@ -1,6 +1,13 @@
 from types import SimpleNamespace
 
+import pytest
+
 from events.battle import common_routes
+
+
+@pytest.fixture(autouse=True)
+def mock_immediate_room_save(monkeypatch):
+    monkeypatch.setattr(common_routes, "flush_room_state_now", lambda _room: True)
 
 
 def test_end_round_allows_player_and_auto_starts_in_battle_only(monkeypatch):

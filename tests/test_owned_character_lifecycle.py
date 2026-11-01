@@ -97,11 +97,13 @@ def _make_emit_capture():
 
 
 def _patch_socket_char(monkeypatch, state, user_id, attribute="Player"):
+    from manager import room_manager
     emits, capture = _make_emit_capture()
     monkeypatch.setattr(socket_char, "request", SimpleNamespace(sid="sid_t"))
     monkeypatch.setattr(socket_char, "is_sid_in_room", lambda _sid, _room: True)
     monkeypatch.setattr(socket_char, "get_room_state", lambda _r: state)
     monkeypatch.setattr(socket_char, "save_specific_room_state", lambda _r: None)
+    monkeypatch.setattr(room_manager, "save_specific_room_state", lambda *_a, **_kw: None)
     monkeypatch.setattr(socket_char, "broadcast_state_update", lambda *_a, **_kw: None)
     monkeypatch.setattr(socket_char, "broadcast_log", lambda *_a, **_kw: None)
     monkeypatch.setattr(socket_char, "get_user_info_from_sid",

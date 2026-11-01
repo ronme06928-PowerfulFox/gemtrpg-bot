@@ -12,7 +12,7 @@ from flask import current_app
 # パフォーマンス計測（PERF_LOG=1 のときのみ state_updated のペイロードサイズを出力）
 _PERF_LOG = os.environ.get('PERF_LOG') == '1'
 
-from extensions import socketio, active_room_states, user_sids
+from extensions import db, socketio, active_room_states, user_sids
 from manager.data_manager import read_saved_room, save_room_to_db
 from manager.utils import (
     set_status_value, get_status_value, apply_buff, remove_buff,
@@ -367,10 +367,12 @@ _app_ref = None
 
 def _resolve_app():
     """DB操作に使うFlaskアプリを返す。確保できなければNone。"""
+    global _app_ref
     if _app_ref is not None:
         return _app_ref
     try:
-        return current_app._get_current_object()
+        _app_ref = current_app._get_current_object()
+        return _app_ref
     except RuntimeError:
         return None
 
@@ -385,25 +387,30 @@ def discard_pending_save(room_name):
 
 
 def _room_exists_for_save(room_name):
+    """Return None on a query failure, distinct from a confirmed missing room."""
     try:
         return Room.query.filter_by(name=room_name).first() is not None
     except Exception as exc:
         logger.error(f"[ERROR] Auto-save room existence check failed: {room_name}: {exc}")
-        return False
+        db.session.rollback()
+        return None
 
 
 def _flush_dirty_rooms_locked(log_shutdown_progress=False):
     """現在ダーティなルームをまとめてDBへ書き込む（要app_context）。"""
-    rooms = sorted(_dirty_rooms) if log_shutdown_progress else list(_dirty_rooms)
-    _dirty_rooms.difference_update(rooms)
+    rooms = [name for name in _dirty_rooms if _save_retry_counts.get(name, 0) <= _SAVE_MAX_RETRIES]
+    if log_shutdown_progress:
+        rooms.sort()
     total = len(rooms)
     for index, room_name in enumerate(rooms, start=1):
+        _dirty_rooms.discard(room_name)
         started_at = time.perf_counter()
         if log_shutdown_progress:
             _shutdown_log("INFO", "[SHUTDOWN] (%d/%d) Saving room: %s", index, total, room_name)
         state = active_room_states.get(room_name)
         if state is None:
             # 削除済み等。復活させない。
+            _save_retry_counts.pop(room_name, None)
             if log_shutdown_progress:
                 _shutdown_log(
                     "INFO",
@@ -413,7 +420,8 @@ def _flush_dirty_rooms_locked(log_shutdown_progress=False):
                     room_name,
                 )
             continue
-        if not _room_exists_for_save(room_name):
+        room_exists = _room_exists_for_save(room_name)
+        if room_exists is False:
             # 削除済み等。update_onlyでも作成はしないが、ここで明示的に止める。
             _save_retry_counts.pop(room_name, None)
             logger.warning(f"[WARN] Auto-save skipped because room no longer exists: {room_name}")
@@ -426,7 +434,7 @@ def _flush_dirty_rooms_locked(log_shutdown_progress=False):
                     room_name,
                 )
             continue
-        if save_room_to_db(room_name, state, update_only=True):
+        if room_exists and save_room_to_db(room_name, state, update_only=True):
             _save_retry_counts.pop(room_name, None)
             if log_shutdown_progress:
                 _shutdown_log(
@@ -440,16 +448,15 @@ def _flush_dirty_rooms_locked(log_shutdown_progress=False):
             continue
 
         retry_count = _save_retry_counts.get(room_name, 0)
-        if retry_count < _SAVE_MAX_RETRIES and active_room_states.get(room_name) is not None:
-            _save_retry_counts[room_name] = retry_count + 1
-            _dirty_rooms.add(room_name)
+        _save_retry_counts[room_name] = retry_count + 1
+        _dirty_rooms.add(room_name)
+        if retry_count < _SAVE_MAX_RETRIES:
             logger.error(
                 f"[ERROR] Auto-save failed; retry scheduled: {room_name} "
                 f"({retry_count + 1}/{_SAVE_MAX_RETRIES})"
             )
         else:
-            _save_retry_counts.pop(room_name, None)
-            logger.error(f"[ERROR] Auto-save failed after retries: {room_name}")
+            logger.error(f"[ERROR] Auto-save failed after retries; still pending: {room_name}")
         if log_shutdown_progress:
             _shutdown_log(
                 "ERROR",
@@ -490,7 +497,9 @@ def _flush_worker():
     finally:
         _flush_scheduled = False
     # フラッシュ中(yield中)に積まれた新たな保存要求があれば再スケジュール
-    if _dirty_rooms and not _shutdown_in_progress:
+    if not _shutdown_in_progress and any(
+        _save_retry_counts.get(name, 0) <= _SAVE_MAX_RETRIES for name in _dirty_rooms
+    ):
         _schedule_flush()
 
 
@@ -524,11 +533,23 @@ def flush_pending_saves(log_when_empty=False):
     if save_in_progress:
         _shutdown_log("INFO", "[SHUTDOWN] Waiting for an in-progress room save to finish.")
     try:
-        if not _flush_within_context(log_shutdown_progress=True):
+        app = _resolve_app()
+        if app is None:
             _shutdown_log(
                 "ERROR",
                 "[SHUTDOWN] Room saves could not run because the app context is unavailable.",
             )
+        else:
+            with app.app_context():
+                with _flush_lock:
+                    # Shutdown grants one final bounded retry budget, including
+                    # rooms whose normal background retries were exhausted.
+                    for name in _dirty_rooms:
+                        _save_retry_counts.pop(name, None)
+                    for _attempt in range(_SAVE_MAX_RETRIES + 1):
+                        _flush_dirty_rooms_locked(log_shutdown_progress=True)
+                        if not _dirty_rooms:
+                            break
     except Exception as exc:
         _shutdown_log("ERROR", "[SHUTDOWN] Unexpected error while saving rooms: %s", exc)
     elapsed_ms = (time.perf_counter() - started_at) * 1000.0
@@ -551,7 +572,9 @@ def flush_room_state_now(room_name):
     """指定ルームの保留保存を即時フラッシュする。"""
     if room_name:
         _dirty_rooms.add(room_name)
-    return _flush_within_context()
+        _save_retry_counts.pop(room_name, None)
+    flushed = _flush_within_context()
+    return flushed and room_name not in _dirty_rooms
 
 
 def save_specific_room_state(room_name, immediate=False):
@@ -566,6 +589,7 @@ def save_specific_room_state(room_name, immediate=False):
         except RuntimeError:
             _app_ref = None
     _dirty_rooms.add(room_name)
+    _save_retry_counts.pop(room_name, None)
     if immediate:
         return flush_room_state_now(room_name)
     _schedule_flush()

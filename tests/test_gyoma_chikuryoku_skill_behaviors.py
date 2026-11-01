@@ -1,6 +1,6 @@
 import json
 
-from manager.cache_paths import LEGACY_SKILLS_CACHE_FILE, SKILLS_CACHE_FILE, load_json_cache
+from manager.cache_paths import SKILLS_CACHE_FILE, load_json_cache
 from manager.game_logic import process_skill_effects
 from manager.utils import apply_buff, get_status_value, remove_buff, set_status_value
 
@@ -46,7 +46,7 @@ def _apply_changes(changes):
 
 
 def _load_skill_effects(skill_id):
-    skills = load_json_cache(SKILLS_CACHE_FILE, legacy_paths=[LEGACY_SKILLS_CACHE_FILE])
+    skills = load_json_cache(SKILLS_CACHE_FILE)
     skill = skills[skill_id]
     rule = json.loads(skill.get("特記処理", "{}") or "{}")
     return rule.get("effects", [])

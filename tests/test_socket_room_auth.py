@@ -29,6 +29,7 @@ def _patch_exploration(monkeypatch, in_room: bool):
     monkeypatch.setattr(socket_exploration, "emit", capture)
     monkeypatch.setattr(socket_exploration, "get_room_state", lambda _r: {"mode": "exploration", "exploration": {}})
     monkeypatch.setattr(socket_exploration, "save_specific_room_state", lambda _r: None)
+    monkeypatch.setattr(socket_exploration, "flush_room_state_now", lambda _r: True)
     monkeypatch.setattr(socket_exploration, "broadcast_state_update", lambda _r: None)
     monkeypatch.setattr(socket_exploration, "broadcast_log", lambda *_a, **_kw: None)
     return emits
@@ -69,6 +70,7 @@ def _patch_char(monkeypatch, in_room: bool, attribute="GM"):
     monkeypatch.setattr(socket_char, "is_sid_in_room", lambda _sid, _room: in_room)
     monkeypatch.setattr(socket_char, "get_room_state", lambda _r: state)
     monkeypatch.setattr(socket_char, "save_specific_room_state", lambda _r: None)
+    monkeypatch.setattr(socket_char, "set_character_owner", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(socket_char, "broadcast_state_update", lambda *_a, **_kw: None)
     monkeypatch.setattr(socket_char, "broadcast_log", lambda *_a, **_kw: None)
     monkeypatch.setattr(socket_char, "get_user_info_from_sid",
@@ -146,6 +148,7 @@ def _patch_common_routes(monkeypatch, in_room: bool, attribute="GM"):
     monkeypatch.setattr(common_routes, "proceed_next_turn", lambda _r: calls.append("next_turn"))
     monkeypatch.setattr(common_routes, "process_round_start", lambda _r, _u: calls.append("round_start"))
     monkeypatch.setattr(common_routes, "process_full_round_end", lambda _r, _u: calls.append("round_end"))
+    monkeypatch.setattr(common_routes, "flush_room_state_now", lambda _r: True)
     return calls, emits
 
 

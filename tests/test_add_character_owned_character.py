@@ -18,6 +18,7 @@ from app import create_app
 from extensions import db
 from models import User, OwnedCharacter
 from events import socket_char
+from manager import room_manager
 
 
 @pytest.fixture
@@ -62,6 +63,7 @@ def _patch_char(monkeypatch, state, user_id, attribute="Player"):
     monkeypatch.setattr(socket_char, "is_sid_in_room", lambda _sid, _room: True)
     monkeypatch.setattr(socket_char, "get_room_state", lambda _r: state)
     monkeypatch.setattr(socket_char, "save_specific_room_state", lambda _r: None)
+    monkeypatch.setattr(room_manager, "save_specific_room_state", lambda *_a, **_kw: None)
     monkeypatch.setattr(socket_char, "broadcast_state_update", lambda *_a, **_kw: None)
     monkeypatch.setattr(socket_char, "broadcast_log", lambda *_a, **_kw: None)
     monkeypatch.setattr(socket_char, "get_user_info_from_sid",

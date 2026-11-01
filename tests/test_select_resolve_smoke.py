@@ -167,6 +167,7 @@ def _set_intent(
 
 
 def _patch_room_and_socket(monkeypatch, state):
+    from manager import room_manager
     battle_common, battle_core = _mods()
     emit_calls = []
 
@@ -175,6 +176,7 @@ def _patch_room_and_socket(monkeypatch, state):
 
     monkeypatch.setattr(battle_core, "get_room_state", lambda room: state)
     monkeypatch.setattr(battle_core, "save_specific_room_state", lambda room: True)
+    monkeypatch.setattr(room_manager, "save_specific_room_state", lambda *_a, **_kw: True)
     monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
     monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
     monkeypatch.setattr(battle_core, "socketio", SimpleNamespace(emit=_emit))
