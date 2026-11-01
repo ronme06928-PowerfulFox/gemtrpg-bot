@@ -1,1 +1,0 @@
-データベース更新python app.py --updateサーバー開くpython app.py
