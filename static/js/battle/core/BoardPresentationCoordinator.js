@@ -23,7 +23,7 @@ function boardDigest(state = {}) {
     });
     const intentView = Object.keys(intents).sort().map((id) => {
         const intent = intents[id] || {};
-        return [id, intent.skill_id, intent.target];
+        return [id, intent.skill_id, intent.target, !!intent.committed];
     });
     const declare = state.declare || {};
     return JSON.stringify({
