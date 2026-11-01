@@ -3,7 +3,6 @@ import time
 
 from manager.cache_paths import (
     BATTLE_ONLY_PRESETS_CACHE_FILE,
-    LEGACY_BATTLE_ONLY_PRESETS_CACHE_FILE,
     load_json_cache,
 )
 
@@ -284,7 +283,6 @@ def mutate_store(mutator, *, commit=True):
 def load_legacy_store():
     """旧JSONを読み取るだけの復旧用入口。通常実行時には使用しない。"""
     loaded = load_json_cache(
-        BATTLE_ONLY_PRESETS_CACHE_FILE,
-        legacy_paths=[LEGACY_BATTLE_ONLY_PRESETS_CACHE_FILE],
+        BATTLE_ONLY_PRESETS_CACHE_FILE
     )
     return _normalize_store(loaded) if loaded else _default_store()

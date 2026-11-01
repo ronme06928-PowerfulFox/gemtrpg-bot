@@ -8,7 +8,6 @@ import json
 import requests
 from manager.cache_paths import (
     BUFF_CATALOG_CACHE_FILE,
-    LEGACY_BUFF_CATALOG_CACHE_FILE,
     load_json_cache,
     save_json_cache,
 )
@@ -109,7 +108,7 @@ class BuffCatalogLoader:
             dict: バフデータ辞書、失敗時は空辞書
         """
         try:
-            buffs = load_json_cache(CACHE_FILE, legacy_paths=[LEGACY_BUFF_CATALOG_CACHE_FILE]) or {}
+            buffs = load_json_cache(CACHE_FILE) or {}
             print(f"[OK] キャッシュから {len(buffs)} 件のバフ図鑑データを読み込みました")
             return buffs
         except Exception as e:

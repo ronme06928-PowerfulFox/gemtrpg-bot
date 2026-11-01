@@ -10,7 +10,6 @@ import requests
 
 from manager.cache_paths import (
     SUMMON_TEMPLATES_CACHE_FILE,
-    LEGACY_SUMMON_TEMPLATES_CACHE_FILE,
     load_json_cache,
     save_json_cache,
 )
@@ -317,8 +316,7 @@ def load_summon_templates(force_refresh: bool = False):
         data = refresh_summon_templates()
     else:
         data = load_json_cache(
-            SUMMON_TEMPLATES_CACHE_FILE,
-            legacy_paths=[LEGACY_SUMMON_TEMPLATES_CACHE_FILE],
+            SUMMON_TEMPLATES_CACHE_FILE
         ) or {}
         if not data:
             data = refresh_summon_templates()

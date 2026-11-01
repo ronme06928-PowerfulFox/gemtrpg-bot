@@ -2,7 +2,7 @@
 
 # JSON定義マニュアル（正本・統合版）
 
-**最終更新日**: 2026-07-31
+**最終更新日**: 2026-10-31（カタログ検証コアとCLIの責務を分離）
 **系統**: C — データ定義（JSON）
 **統合元**: 20_JSON_Definition_Strict_v2 / 17_Phase3_Strict_Errata / 15_JSON_Definition_Master / 03_Integrated_Data_Definitions
 **優先順位**: 本書 > 旧20 = 旧17 > 旧15 > 旧03
@@ -486,7 +486,7 @@ Select/Resolve は宣言フェーズ（Select）と解決フェーズ（Resolve�
 
 ### 12.1 ツールの所在と使い方
 
-`scripts/skill_catalog_tool.py`。サブコマンド2つ。
+CLI入口は `scripts/skill_catalog_tool.py`。サブコマンド2つ。キャッシュ読込・ERROR検証の共通処理は `manager/skill_catalog_validation.py` に集約し、マスター更新とCLIが同じ関数を使う。アプリ本体はCLIモジュールをimportせず、引数処理・標準出力の設定・任意WARN・相場レポートはCLI側へ置く。
 
 ```bash
 python scripts/skill_catalog_tool.py lint                    # スキーマ検証（ERRORのみ）
@@ -510,6 +510,8 @@ python scripts/skill_catalog_tool.py build-market-rate         # 現在の相場
 - 大量追加後、F02の確定基準を見直すとき、または個別スキルを既存相場と比較したいときに任意実行する。日常CIでは実行しない。
 
 ### 12.4 --update との連携（fail-closed、ERRORのみ）
+
+更新フックが参照する `load_skills()`・`lint_catalog()` の定義元は `manager/skill_catalog_validation.py`。CLIと検証処理を分離し、更新処理は `scripts/` のモジュールへ依存しない。
 
 `manager/data_manager.py::update_all_data()` は、スキルデータ取得（Google Sheets同期）に成功した直後に `lint_catalog()`（ERROR検査のみ、`warn_catalog()` は呼ばない）を実行する。ERRORが1件でもあれば `--update` 全体を失敗（exit 1）として扱う。これにより、壊れたスキル定義がキャッシュに残ったまま気づかれない状態を防ぐ。CI（`.github/workflows/skill-smoke.yml`）も同様に `lint`（`--warn` なし）だけを必須検査とする。相場逸脱WARNと相場レポートはどちらのパイプラインにも含めず、バランス確認時の任意実行に留める。
 

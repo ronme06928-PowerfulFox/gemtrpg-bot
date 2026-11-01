@@ -56,8 +56,8 @@
 
 | 新要素 | 既存の仕組み | 所在 |
 |---|---|---|
-| 各階の戦闘 | battle_only（PvE）の編成→戦闘生成フロー | `events/socket_battle_only.py::handle_bo_start_battle`、`events/battle_only/runtime_builders.py::_build_runtime_character_from_preset` |
-| 敵の実体化・行動チャート | プリセット→実体キャラ変換＋`behavior_profile` | `runtime_builders.py`、`manager/battle/enemy_behavior.py`（ホロウ敵マスターも同じ形式に変換して流用） |
+| 各階の戦闘 | battle_only（PvE）の編成→戦闘生成フロー | `events/socket_battle_only.py::handle_bo_start_battle`、`manager/battle_only_runtime.py::_build_runtime_character_from_preset` |
+| 敵の実体化・行動チャート | プリセット→実体キャラ変換＋`behavior_profile` | `manager/battle_only_runtime.py`、`manager/battle/enemy_behavior.py`（ホロウ敵マスターも同じ形式に変換して流用） |
 | Sheets読み書きの認証 | gspread＋サービスアカウント（スキル取り込みで稼働実績あり） | `manager/data_manager.py::get_gspread_client`（`GOOGLE_CREDENTIALS_JSON` env / 鍵ファイル） |
 | 敵の自動行動 | PvE敵AI（意図生成・自動解決） | `manager/battle/pve_intent_planner.py`、`manager/battle/core.py::run_select_resolve_auto` |
 | アイテム付与 | GMアイテム付与の内部処理 | `manager/items/usage_manager.py::grant_item`、`events/socket_items.py` |

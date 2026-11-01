@@ -28,7 +28,7 @@ def test_update_all_data_fails_when_lint_finds_errors(monkeypatch):
     monkeypatch.setattr(data_manager, "fetch_and_save_sheets_data", lambda: True)
     _stub_other_steps(monkeypatch)
 
-    import scripts.skill_catalog_tool as tool
+    import manager.skill_catalog_validation as tool
     monkeypatch.setattr(tool, "load_skills", lambda: {"S-BROKEN": {}})
     monkeypatch.setattr(
         tool, "lint_catalog",
@@ -42,7 +42,7 @@ def test_update_all_data_succeeds_when_lint_is_clean(monkeypatch):
     monkeypatch.setattr(data_manager, "fetch_and_save_sheets_data", lambda: True)
     _stub_other_steps(monkeypatch)
 
-    import scripts.skill_catalog_tool as tool
+    import manager.skill_catalog_validation as tool
     monkeypatch.setattr(tool, "load_skills", lambda: {})
     monkeypatch.setattr(tool, "lint_catalog", lambda skills: [])
 
@@ -53,9 +53,28 @@ def test_update_all_data_skips_lint_when_skill_fetch_already_failed(monkeypatch)
     monkeypatch.setattr(data_manager, "fetch_and_save_sheets_data", lambda: False)
     _stub_other_steps(monkeypatch)
 
-    import scripts.skill_catalog_tool as tool
+    import manager.skill_catalog_validation as tool
     calls = []
     monkeypatch.setattr(tool, "lint_catalog", lambda skills: calls.append(1) or [])
 
     assert data_manager.update_all_data() is False
     assert calls == [], "スキル取得自体が失敗した場合は lint を実行しない"
+
+
+def test_update_all_data_validates_without_importing_cli(monkeypatch):
+    import builtins
+    import manager.skill_catalog_validation as validation
+
+    monkeypatch.setattr(data_manager, "fetch_and_save_sheets_data", lambda: True)
+    _stub_other_steps(monkeypatch)
+    monkeypatch.setattr(validation, "load_skills", lambda: {})
+    monkeypatch.setattr(validation, "lint_catalog", lambda skills: [])
+    real_import = builtins.__import__
+
+    def import_without_cli(name, *args, **kwargs):
+        if name == "scripts" or name.startswith("scripts."):
+            raise AssertionError(f"Runtime update imported a CLI module: {name}")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_without_cli)
+    assert data_manager.update_all_data() is True

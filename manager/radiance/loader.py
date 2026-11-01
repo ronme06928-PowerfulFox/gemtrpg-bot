@@ -6,7 +6,6 @@ from manager.logs import setup_logger
 from manager.character_tags import normalize_tag_ids
 from manager.cache_paths import (
     RADIANCE_CACHE_FILE,
-    LEGACY_RADIANCE_CACHE_FILE,
     load_json_cache,
     save_json_cache,
 )
@@ -115,7 +114,7 @@ class RadianceSkillLoader:
     def _load_cache(self):
         """キャッシュファイルから読み込み"""
         try:
-            return load_json_cache(RADIANCE_CACHE_FILE, legacy_paths=[LEGACY_RADIANCE_CACHE_FILE])
+            return load_json_cache(RADIANCE_CACHE_FILE)
         except Exception as e:
             logger.error(f"キャッシュ読み込みエラー: {e}")
             return None

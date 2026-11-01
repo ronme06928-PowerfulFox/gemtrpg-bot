@@ -60,7 +60,7 @@ from events.battle_only.catalog_access_context import (
     owner_names_for_store as _owner_names_for_store,
     visible_map as _visible_map,
 )
-from events.battle_only.runtime_builders import (
+from manager.battle_only_runtime import (
     _apply_enemy_behavior_override,
     _bo_assign_auto_positions,
     _build_runtime_character_from_preset,

@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from events.battle_only.runtime_builders import (
+from manager.battle_only_runtime import (
     _apply_enemy_behavior_override,
     _bo_assign_auto_positions,
     _build_runtime_character_from_preset,

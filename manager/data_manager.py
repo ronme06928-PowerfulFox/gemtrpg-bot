@@ -15,7 +15,6 @@ from extensions import db, all_skill_data
 from models import Room
 from manager.cache_paths import (
     SKILLS_CACHE_FILE,
-    LEGACY_SKILLS_CACHE_FILE,
     load_json_cache,
     save_json_cache,
 )
@@ -166,7 +165,7 @@ def fetch_and_save_sheets_data():
 
 def load_skills_from_cache():
     try:
-        data = load_json_cache(SKILL_CACHE_FILE, legacy_paths=[LEGACY_SKILLS_CACHE_FILE])
+        data = load_json_cache(SKILL_CACHE_FILE)
         if not data:
             print("Cache not found.")
             return None
@@ -347,7 +346,7 @@ def update_all_data():
     if success:
         print("【lint】スキルカタログの整合性を検査中...")
         try:
-            from scripts.skill_catalog_tool import lint_catalog, load_skills
+            from manager.skill_catalog_validation import lint_catalog, load_skills
             lint_errors = lint_catalog(load_skills())
             if lint_errors:
                 print(f"❌ スキルカタログ lint で {len(lint_errors)} 件のエラーが見つかりました:")

@@ -8,7 +8,6 @@ import requests
 
 from manager.cache_paths import (
     GLOSSARY_CACHE_FILE,
-    LEGACY_GLOSSARY_CACHE_FILE,
     load_json_cache,
     save_json_cache,
 )
@@ -129,7 +128,7 @@ class GlossaryCatalogLoader:
 
     def load_from_cache(self):
         try:
-            data = load_json_cache(CACHE_FILE, legacy_paths=[LEGACY_GLOSSARY_CACHE_FILE])
+            data = load_json_cache(CACHE_FILE)
             if not data:
                 return {}
             print(f"[OK] キャッシュから {len(data)} 件の用語辞書データを読み込みました")

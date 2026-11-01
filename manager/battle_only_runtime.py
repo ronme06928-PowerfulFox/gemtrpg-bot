@@ -1,4 +1,4 @@
-# events/battle_only/runtime_builders.py
+"""Battle-only runtime construction shared by Socket handlers and simulations."""
 import copy
 import random
 import time

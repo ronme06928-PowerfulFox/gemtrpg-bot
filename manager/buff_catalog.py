@@ -410,7 +410,6 @@ def get_buff_by_id(buff_id):
     """
     from manager.cache_paths import (
         BUFF_CATALOG_CACHE_FILE,
-        LEGACY_BUFF_CATALOG_CACHE_FILE,
         load_json_cache,
     )
 
@@ -421,8 +420,7 @@ def get_buff_by_id(buff_id):
             mtime = None
         if _buff_catalog_cache["data"] is None or _buff_catalog_cache["mtime"] != mtime:
             data = load_json_cache(
-                BUFF_CATALOG_CACHE_FILE,
-                legacy_paths=[LEGACY_BUFF_CATALOG_CACHE_FILE],
+                BUFF_CATALOG_CACHE_FILE
             )
             if not isinstance(data, dict):
                 print(f"[WARNING] get_buff_by_id: Cache file not found at {BUFF_CATALOG_CACHE_FILE}")

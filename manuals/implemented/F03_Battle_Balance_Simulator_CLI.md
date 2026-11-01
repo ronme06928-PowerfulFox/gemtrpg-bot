@@ -1,6 +1,6 @@
 # バランス検証シミュレータ CLI
 
-最終更新: 2026-07-12
+最終更新: 2026-10-31（プリセット構築処理の共通化）
 
 バランス検証シミュレータは、実際の Select/Resolve 戦闘エンジンをヘッドレスで動かし、遭遇・敵編成・スキル調整の妥当性を確認するための検証ツールです。本番の戦闘エンジン本体は変更せず、シミュレータ側で room_state、乱数、Socket、保存処理を差し替えて実行します。
 
@@ -9,6 +9,7 @@
 - `scripts/simulate_battle.py`: CLI 入口。引数解析、入力読み込み、出力整形を担当。
 - `manager/sim/battle_runner.py`: ヘッドレス戦闘実行、決定論ダイス、実行時パッチ、味方 intent 自動投入を担当。
 - `manager/sim/preset_loader.py`: battle-only プリセット、味方/敵編成、ステージから一時 room_state を生成。
+- `manager/battle_only_runtime.py`: Socket入口とシミュレータが共有するキャラクター構築・陣営・行動設定・自動配置など。プリセット構築の利用時にeventsやappをimportしない。旧 `events/battle_only/runtime_builders.py` から処理を移し、旧パスは保持しない。
 - `manager/sim/reporting.py`: レポート dataclass、HP 集計、膠着理由判定、複数試行集計、コンソール整形を担当。
 - `tests/sim/test_simulate_battle.py`: シミュレータの回帰テスト。
 

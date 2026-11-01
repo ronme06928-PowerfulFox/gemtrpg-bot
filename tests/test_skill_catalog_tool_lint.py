@@ -1,4 +1,4 @@
-from scripts.skill_catalog_tool import lint_catalog, load_skills
+from manager.skill_catalog_validation import lint_catalog, load_skills
 
 
 def test_lint_catalog_passes_on_real_skills_cache():

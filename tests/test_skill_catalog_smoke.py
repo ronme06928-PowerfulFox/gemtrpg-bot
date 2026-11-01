@@ -9,9 +9,6 @@ from manager.battle import core as battle_core
 from manager.battle import duel_solver
 from manager.cache_paths import (
     BUFF_CATALOG_CACHE_FILE,
-    LEGACY_BUFF_CATALOG_CACHE_FILE,
-    LEGACY_SKILLS_CACHE_FILE,
-    LEGACY_SUMMON_TEMPLATES_CACHE_FILE,
     SKILLS_CACHE_FILE,
     SUMMON_TEMPLATES_CACHE_FILE,
     load_json_cache,
@@ -127,8 +124,7 @@ SIGNAL_EXPECTED_TYPES = {
 
 def _load_skill_catalog():
     data = load_json_cache(
-        SKILLS_CACHE_FILE,
-        legacy_paths=[LEGACY_SKILLS_CACHE_FILE],
+        SKILLS_CACHE_FILE
     )
     assert isinstance(data, dict) and data, "Skill cache is empty or missing."
     return data
@@ -136,8 +132,7 @@ def _load_skill_catalog():
 
 def _load_buff_catalog():
     data = load_json_cache(
-        BUFF_CATALOG_CACHE_FILE,
-        legacy_paths=[LEGACY_BUFF_CATALOG_CACHE_FILE],
+        BUFF_CATALOG_CACHE_FILE
     )
     assert isinstance(data, dict), "Buff catalog cache is missing."
     return data
@@ -145,8 +140,7 @@ def _load_buff_catalog():
 
 def _load_summon_templates():
     data = load_json_cache(
-        SUMMON_TEMPLATES_CACHE_FILE,
-        legacy_paths=[LEGACY_SUMMON_TEMPLATES_CACHE_FILE],
+        SUMMON_TEMPLATES_CACHE_FILE
     )
     assert isinstance(data, dict), "Summon template cache is missing."
     return data
