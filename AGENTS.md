@@ -108,3 +108,4 @@ python app.py --update  # スキル/アイテム等マスターデータを Goog
 - `manuals/implemented/` の仕様書は **A〜F 系統のファイルで管理**する（詳細は `manuals/README.md`）。
 - 実装済み内容を追記するときは既存の系統ファイルへ節を追加する。`implemented/` に番号付きファイルを新規作成しない。
 - `manuals/planned/` は未実装の計画のみ。実装完了後は計画書を削除し内容を系統ファイルへ統合する。
+- アプリの基盤整備・安定運用は、番号付きの機能計画とは別に `manuals/projects/app_foundation/` の常設プロジェクトで管理する。入口は同フォルダの `README.md`。個別課題の完了後もプロジェクトを残し、実装済み仕様は既存のA〜F系統、運用手順は `manuals/operations/` に反映する。

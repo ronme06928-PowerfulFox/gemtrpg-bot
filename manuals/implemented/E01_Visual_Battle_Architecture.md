@@ -2,7 +2,7 @@
 
 # ビジュアルバトル アーキテクチャ仕様書
 
-**最終更新日**: 2026-10-28
+**最終更新日**: 2026-10-31（旧盤面改修記録を現行仕様へ統合）
 **系統**: E — UI / フロントエンド
 **統合元**: 06_Visual_Battle_Architecture / 07_Visual_Battle_Code_Spec
 
@@ -83,6 +83,20 @@ D11修正（2026-10-18）：`battle/index.js` はDOM準備後、Socketの有無�
 - システムログのみ、アプリが生成した既存ログ互換のために `<br>`, `<strong>`, `<b>` を限定的に復元する。
 - 解決ログなどサーバー側で `html.escape` 済みの本文は、`&gt;`, `&lt;`, `&amp;`, `&quot;`, `&#39;` を一段だけ復元してから描画する。
 - ログ受信の入口（`logToBattleLog`）は `static/js/common/log_core.js` にあり、Visualログ描画は `static/js/visual/visual_ui.js` が担う（計画書32で旧テキスト戦闘UIを廃止し一本化済み）。
+
+---
+
+### 4.4 盤面の自由移動・トークン・対象選択
+
+2026-10-31に、ルートの旧盤面改修チェックリストを現行コードへ照合して統合した。実装の所在は `static/js/visual/visual_controls.js`・`visual_map.js`、CSSは `static/css/modules/visual_map.css`、サーバー座標処理は `manager/battle/common_manager.py::move_token_logic` を参照する。
+
+- 移動は `setupBattleTokenDrag` のマウス操作で処理し、整数マスへの吸着を行わない。移動量は表示倍率で割り、XまたはYが3を超えたらドラッグを開始する。旧記録の「5px」は現行値ではない。
+- ドラッグ中は座標のtransitionを外し、終了後の次の描画フレームで戻す。ドロップ座標は小数第4位に丸め、サーバーも `float` で受け取る。ドラッグ後100msは `window._dragBlockClick` で直後のクリックを抑制する。
+- トークンは角丸の枠に画像と下部HP/MP表示を置き、名前は外側の下へ表示する。具体的な寸法・配色は上記ソースを正とする。
+- `enterAttackTargetingMode` は攻撃元を保持し、対象選択中の案内と再描画を行う。Esc・背景操作で解除できる。対象選択の配色は旧チェックリストの「金色」を仕様として固定せず、現行の描画とCSSを参照する。
+- 背景の更新は `events/battle/common_routes.py` の `request_update_battle_background` から `update_battle_background_logic` へ渡し、`battle_map_data`へ反映して状態・ログを配信する。現在の背景描画は§8.6を参照する。
+
+今回の統合はコードの読取による文書整備であり、旧チェックリストの検証済み印を新しい実機確認結果として扱わない。権限・移動拒否・保存などの契約は既存の仕様とテストを引き続き参照する。
 
 ---
 

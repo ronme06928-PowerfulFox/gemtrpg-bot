@@ -2,7 +2,7 @@
 
 # 運用マニュアル
 
-**最終更新日**: 2026-10-25（説明動画の台本・効果音・敵画像を改訂）
+**最終更新日**: 2026-10-31（旧Render設定ガイドを現行運用へ統合）
 **系統**: F — 運用
 **統合元**: 14_GM_Buff_Item_Operations_Spec / 16_Manual_Update_Protocol / 21_Render_Deploy_Operations / 26_Account_Auth_Plan
 
@@ -219,6 +219,9 @@ Renderでは、以下を環境変数として設定する。
 | `CORS_ORIGINS` | 必須 | 許可Origin。例: `https://gemtrpg-diceapp.onrender.com` |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | 必須 | 画像アップロード |
 | `GM_MASTER_KEY` | 任意 | 8桁数字のマスターキー。未設定ならマスターキー無効。 |
+| `GOOGLE_CREDENTIALS_JSON` | マスター再取得時 | GoogleサービスアカウントのJSON本文またはファイルパス。`manager/data_manager.py`が読み取る。未設定時はローカル用の既定認証ファイル名を使用。 |
+| `PORT` | 環境から指定 | Gunicornの待受ポート。未指定時は10000。 |
+| `RENDER` | 環境判定 | 存在するとRenderとしてeventlet・PostgreSQL設定を選ぶ。ローカル開発では設定しない。 |
 | `ACCOUNT_DISABLE_NAME_ONLY_LOGIN` | 推奨 | `1` で名前だけログイン（旧 `/api/entry`）を無効化。本番では必ず `1`。 |
 
 `CORS_ORIGINS` はOriginだけを指定し、末尾スラッシュは付けない。フロントとAPI/Socketは同一オリジンで配信（Flask+WhiteNoise）。`SameSite=Lax` + Cookie認証でSocket connectが成立する。
@@ -235,7 +238,8 @@ Renderでは、以下を環境変数として設定する。
 
 # Part 1-C: 画像アップロード運用
 
-**最終更新日**: 2026-05-30  
+**最終更新日**: 2026-05-30
+
 **対象**: 画像ピッカー、`/api/upload_image`、Cloudinary連携、画像レジストリ
 
 ## 1. 基本方針
@@ -459,7 +463,7 @@ Renderでは、画像アップロード機能の利用にCloudinaryの環境変�
 
 # Part 3: Renderデプロイ運用手順
 
-最終更新: 2026-10-15
+最終更新: 2026-10-31
 状態: 実装済み・本番反映済み
 
 ---
@@ -535,6 +539,43 @@ Renderは再起動では既存ビルドを使い回すが、新規デプロイ�
    ```
 
 6. コミットして `main` へ push する（= 本番デプロイ）。反映後に `/healthz` と第3節のスモークを確認する。
+
+---
+
+## 8. 起動と接続設定
+
+2026-10-31に、ルートの旧Render設定ガイドを現在のコードへ照合して統合した。設定の実装元は [app.py](../../app.py)、[gunicorn_config.py](../../gunicorn_config.py)、依存の正本は [requirements.txt](../../requirements.txt)。環境変数はPart 1-B §5、画像設定はPart 1-C §5を参照する。
+
+| 項目 | 現在の指定・役割 |
+|---|---|
+| ビルド | `render-build.sh`は `pip install -r requirements.txt` を実行。フロントエンドはローカルでビルドした `static/dist/` を配信 |
+| RenderのStart Command | `chmod +x render-start.sh; ./render-start.sh`。2026-10-31にユーザー提示の設定画面で確認 |
+| `Procfile`の入口 | `gunicorn -c gunicorn_config.py app:app`。本番と同じ既定appを使う |
+| `render-start.sh`の入口 | `gunicorn -c gunicorn_config.py app:app`。`app.py`側の既定appを使う |
+| worker | `eventlet`・1 worker。ルーム状態をメモリに持つ現構成では、単純にworker数を増やさない |
+| 時間設定 | `timeout=120`、`graceful_timeout=30`、`keepalive=5`（秒） |
+| worker再起動 | `max_requests=5000`、`max_requests_jitter=50` |
+| ログ | access/errorとも標準出力・標準エラー側へ出し、レベルはinfo |
+| DB接続プール | `pool_pre_ping=True`、`pool_recycle=300`、`pool_size=10`、`max_overflow=20` |
+
+`pool_pre_ping`は再利用前の接続確認、`pool_recycle`は古い接続の再利用を避けるための指定であり、トランザクション途中の切断や全DBエラーの解消を保証するものではない。
+
+本番Renderの実際のBuild Commandは未確認。Start Commandの確認を受け、リポジトリの入口を `app:app` に統一し、未使用の `wsgi.py` を削除した。本番設定・`render-start.sh`・`app.py`・Gunicorn設定・保存処理は変更していない。ローカルでの入口検証は、本番Linux上のGunicorn起動・終了時の保存検証を代替しない。再起動時の保存・復元は[基盤課題OPS-RECOVERY](../projects/app_foundation/backlog.md)で追う。エージェントはユーザーの指示があるときだけcommit / pushを行う。
+
+マスター等のJSONの配置（2026-10-31）: パスの正本は `manager/cache_paths.py`、保存先は `data/cache/`。スキル・アイテム・輝化・パッシブ・バフ・用語・召喚の7キャッシュと、手動エクスポート用の旧プリセットJSONを置く。旧ルート配置からの自動読込・コピーは行わない。共通の `load_json_cache(path)` は指定ファイル不在なら `None` を返し、不正JSONは例外とする。各ローダーが持つ再取得・エラー処理と明示更新時の保存は従来どおり。これらのJSONを単なる一時出力として削除しない。
+
+## 9. 障害時の確認
+
+旧保存データの保管（2026-10-31）: 現行コードから未参照の旧ルームJSON・戦闘状態JSON・ユーザーDBは、ユーザー判断により `_local/legacy_data/2026-10-31/` へ原本のまま退避した。同フォルダはGit除外の保管先であり、出力の片付けでは削除しない。旧画像JSONはGit管理対象の [data/archive/](../../data/archive/README.md) に保管する。元の場所・サイズ・SHA-256はローカル保管先の `manifest.json`、経緯は[基盤課題の決定・結果](../projects/app_foundation/backlog.md#repo-legacy-data判断事項)を参照。現行のDBやマスターの読込先として使用しない。
+
+旧設定ガイドには、eventlet mainloopの例外、worker異常終了、PostgreSQLのSSL切断についての過去の対応記録があった。現在も解消済みとは断定せず、再発時は次を確認する。
+
+1. Renderのログで、発生時刻・デプロイ・再起動・対象操作と例外を対応付ける。接続情報や認証情報を資料へ転記しない。
+2. 起動失敗は実Start Command、依存、環境変数を確認する。eventletのmonkey patchは `app.py` のRender分岐で実行する。
+3. 応答待ち・timeoutは、HTTP計測の `[PERF]`、Socket・計算・DB処理を切り分ける。状態配信の構築・標準エンコードだけを隔離比較する場合は[ローカル計測手順](../operations/state_delivery_measurement.md)を使う。これは本番の往復・描画時間ではない。秒数やworker数の増加を先に解決策としない。
+4. PostgreSQL切断はDB側の状態・接続先・接続プールと例外の発生箇所を確認する。保存失敗・復旧はPart 7と[安定運用計画](../projects/app_foundation/reliability_and_operations.md)へ進む。
+5. 入室ログの表示不良は、`events/socket_main.py` の初期状態→戦闘同期→`broadcast_log`、クライアントの `state_updated` / `new_log` の受信と描画・重複判定を追う。旧説明にある「入室ログ前に短い待機を入れる」処理は現行コードにないため、待機追加を前提にしない。
+6. `/healthz`はDB・外部APIへ触れない生存確認。応答200だけで保存・Socket・画像の正常性を確認したとは扱わない。
 
 ---
 
@@ -749,6 +790,8 @@ sessionには `user_id`、`auth_version`、必要最小限の状態だけを置�
 - 最初の保存が明示フラッシュの場合も、終了時の再試行に使うFlaskアプリを保持する。
 - 正常終了時の `flush_pending_saves()` は進行中の保存を待ち、未保存ルームを再試行枠を含めて最大2回フラッシュする。失敗が残れば未保存件数をERRORで記録する。強制終了や電源断では終了時処理が走る保証はない。
 - 未保存の保持先は稼働中のメモリであり、終了時の保存も失敗した内容は再起動で復元できない。約2秒は初回試行までの待ちであり、DB障害を含む未保存時間の上限ではない。
+
+ローカルSQLiteでの検証条件・復元範囲は[保存・復元確認手順](../operations/persistence_recovery_runbook.md)を参照。PostgreSQLのPC保管は[手元バックアップ手順](../operations/postgres_backup_runbook.md)に従う。独立CLIで読取専用のpg_dumpを取得し、Git除外先で読込検査・SHA-256を確認する。本番への復元機能は持たない。合成PostgreSQLの別DB復元と、11/1のユーザーによる初回取得・読込再検査は成功した。その取得分の実DB復元・Linux/eventlet・Renderの終了猶予は別途確認する。
 
 即時フラッシュ対象:
 

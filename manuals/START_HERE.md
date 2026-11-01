@@ -37,12 +37,15 @@ JSON・シート定義を扱う場合のみ、[C01 JSON定義](implemented/C01_J
 ## 開発者・AI：実装を調べる
 
 1. [AGENTS.md](../AGENTS.md)と[CONTRIBUTING.md](../CONTRIBUTING.md)で開発規約を確認します。
+   起動・ビルド・検査とフォルダの概要は[ルートREADME](../README.md)にまとめています。
 2. [文書一覧](README.md)から対象仕様へ進みます。戦闘進行は[B03](implemented/B03_SelectResolve_Spec.md)、効果処理は[B01](implemented/B01_Skill_Logic_Core.md)・[B02](implemented/B02_Skill_Logic_Extensions.md)、画面構成は[E01](implemented/E01_Visual_Battle_Architecture.md)です。
 3. [テスト案内](test_manuals/README.md)で関連する確認項目を選びます。新しい計画の整理は[計画策定プロセス](planning_process.md)を参照してください。
 
 ## アプリ管理者：管理・運用する
 
-アカウント・権限・保存・デプロイは[F01 運用マニュアル](implemented/F01_Operations_Manual.md)、認証機能の導入確認は[デプロイ手順書](operations/account_system_deploy_runbook.md)へ進んでください。ルームのGMとアプリ管理者は異なる権限です。
+アカウント・権限・保存・デプロイは[F01 運用マニュアル](implemented/F01_Operations_Manual.md)、認証機能の導入確認は[デプロイ手順書](operations/account_system_deploy_runbook.md)、保存・終了・バックアップ復元の検証は[保存・復元確認手順](operations/persistence_recovery_runbook.md)へ進んでください。ルームのGMとアプリ管理者は異なる権限です。
+
+性能・通信、保存と復旧、運用費用、リポジトリ構成の継続改善は、[アプリ基盤・安定運用プロジェクト](projects/app_foundation/README.md)で管理します。開発者・AIも、基盤を変更する前に課題一覧と関連計画を確認してください。
 
 ## 文書の版と再編状況
 
