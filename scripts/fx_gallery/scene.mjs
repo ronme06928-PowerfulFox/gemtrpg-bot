@@ -23,7 +23,7 @@ export function collectSceneEvents(scene, panel, level) {
     window.STATUS_CONFIG = STATUS_CONFIG;
     fx.getLevel = () => level;
     fx.play = (name, params, options) => events.push({ name, params, at: (options.delaySeconds || 0) - (options.elapsedSeconds || 0),
-      host: options.host, className: options.className, left: options.left, top: options.top });
+      rate: options.rate || 1, host: options.host, className: options.className, left: options.left, top: options.top });
     playResolveStageFx(flow, { stage: 'attack', outcome: scene.step.outcome }, scene.state);
     plan = playResolveStageFx(flow, { stage: 'outcome', outcome: scene.step.outcome }, scene.state);
   } finally {

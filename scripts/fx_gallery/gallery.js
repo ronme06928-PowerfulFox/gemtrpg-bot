@@ -78,7 +78,8 @@ function mountEvents(stage, events, level) {
 }
 function renderEvents(events, time) {
   for (const event of events) {
-    const age = time - event.at;
+    // 本番と同じ再生の速さ（威力のロール・攻撃は段階に合わせて速い）で描く。
+    const age = (time - event.at) * (event.rate || 1);
     event.root.hidden = age < 0 || age >= event.fx.duration;
     if (event.numberAnchor) event.numberAnchor.style.visibility = age < event.fx.duration ? 'hidden' : '';
     event.fx.render(Math.max(0, Math.min(age, event.fx.duration)));
@@ -200,7 +201,7 @@ function createCard(samples, scene = false) {
     const scenePlan = scene ? collectSceneEvents(sample, stage, level.value) : null;
     const planned = scenePlan ? scenePlan.events : singleEvents(stage, sample);
     events = mountEvents(stage, planned, level.value);
-    const end = Math.max(scenePlan?.endSeconds || 0, ...events.map(event => event.at + event.fx.duration));
+    const end = Math.max(scenePlan?.endSeconds || 0, ...events.map(event => event.at + event.fx.duration / (event.rate || 1)));
     duration = scene ? Math.max(outcomeWindow, end) : events[0].fx.duration;
     seek.max = String(duration);
     const overflow = scene && end > outcomeWindow + 0.000001;
@@ -212,7 +213,7 @@ function createCard(samples, scene = false) {
     note.textContent = scene ? `┃ 枠 ${outcomeWindow.toFixed(2)}秒 · まとまり ${scenePlan.groupCount}件 · 効果を読み終える ${scenePlan.stopSeconds.toFixed(2)}秒 · 最後の演出 ${end.toFixed(2)}秒${overflow ? ' · 枠を超えています' : ' · 枠内'}`
       : `${duration.toFixed(2)}秒 · コマを押すとその時刻へ`;
     note.classList.toggle('overflow', overflow);
-    for (const event of events) eventList.append(el('li', '', `${event.at.toFixed(2)}–${(event.at + event.fx.duration).toFixed(2)}秒 / ${event.name}`));
+    for (const event of events) eventList.append(el('li', '', `${event.at.toFixed(2)}–${(event.at + event.fx.duration / (event.rate || 1)).toFixed(2)}秒 / ${event.name}`));
     // 各コマは複製DOMを使わず、別の台・別の実体でmountから描く。
     const interval = duration <= 0.8 ? 0.1 : 0.2;
     const times = Array.from({ length: Math.ceil(duration / interval) + 1 }, (_, i) => Math.min(duration, Number((i * interval).toFixed(2))));

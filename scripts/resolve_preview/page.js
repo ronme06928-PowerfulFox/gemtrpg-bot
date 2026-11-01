@@ -3,6 +3,7 @@ import { resolveWaitMs } from '../../static/js/battle/components/resolve_stage_t
 import '../../static/js/fx/fx_core.js';
 import '../../static/js/fx/fx_effects.js';
 import { createTimeline, phaseAt, phaseNames } from './timeline.mjs';
+import { TEMPO_VARIANTS } from './tempo.mjs';
 import { el, createStage, fitNames } from './stage.mjs';
 import { getLayout, damageBases, damageCeiling, sideBox, participantSlots } from './layout.mjs';
 
@@ -35,6 +36,8 @@ const widthSelect = selectControl('舞台の幅', 'width-select', [['1180', '広
 const levelSelect = selectControl('演出', 'level-select', [['light', '軽め'], ['normal', '通常'], ['rich', '派手']]);
 // 本番の解決パネルは「画面の高さ−108px」に収める。その中でスキルの文章の欄にどれだけ残るかを見る。
 const heightSelect = selectControl('画面の高さ', 'height-select', [['none', '制限なし'], ['1080', '1080px'], ['900', '900px'], ['768', '768px']]);
+// 計画58 §5.2：テンポの案を切り替えて見比べる。選ぶと待ちもその案の値にする。
+const tempoSelect = selectControl('テンポ', 'tempo-select', Object.entries(TEMPO_VARIANTS).map(([key, v]) => [key, v.label]));
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 levelSelect.value = reducedMotion.matches ? 'light' : 'normal';
 const waitLabel = el('label', 'control-field wait-field');
@@ -150,9 +153,9 @@ function render(value) {
   stage.descriptions.style.visibility = time >= timeline.starts.power ? 'visible' : 'hidden';
   stage.summary.style.visibility = time >= timeline.outcomeStart ? 'visible' : 'hidden';
   stage.progressFill.style.width = `${100 * Fx.clamp01((time - timeline.waitStart) / timeline.wait)}%`;
-  renderStageMotion(stage.canvas, stageMotionAt(sample.step, time, levelSelect.value));
+  renderStageMotion(stage.canvas, stageMotionAt(sample.step, time, levelSelect.value, timeline.tempo));
   for (const event of events) {
-    const age = time - event.at;
+    const age = (time - event.at) * (event.rate || 1);
     const visible = age >= 0 && age < event.fx.duration;
     event.root.hidden = !visible;
     if (event.numberAnchor) event.numberAnchor.style.visibility = time < event.at ? 'hidden' : visible ? 'hidden' : '';
@@ -180,7 +183,7 @@ function fitDescriptions() {
 }
 function rebuild() {
   const previousTime = time;
-  timeline = createTimeline(sample, Fx, levelSelect.value, Number(wait.value));
+  timeline = createTimeline(sample, Fx, levelSelect.value, Number(wait.value), TEMPO_VARIANTS[tempoSelect.value].tempo);
   wait.disabled = sample.step.kind === 'fizzle';
   waitValue.value = `${timeline.wait.toFixed(1)} 秒${wait.disabled ? '（固定）' : ''}`;
   stage = createStage(stageHost, sample, timeline, assets, samples.indexOf(sample), getLayout(Number(widthSelect.value)));
@@ -202,7 +205,7 @@ function rebuild() {
     markerButtons.append(button);
   }
   const layout = getLayout(Number(widthSelect.value));
-  note.textContent = `A / 札の内側に宝石　·　${timeline.outcomeStart.toFixed(1)}秒から勝敗　·　待ち ${timeline.wait.toFixed(1)}秒`
+  note.textContent = `${TEMPO_VARIANTS[tempoSelect.value].label}　·　1マッチ ${timeline.duration.toFixed(2)}秒　·　${timeline.outcomeStart.toFixed(2)}秒から勝敗　·　待ち ${timeline.wait.toFixed(1)}秒`
     + `　·　スキルの文章の欄 ${Math.round(copyRoom)}px${copyRoom < layout.copyHeight ? '（見切れ・欄の中で送る）' : ''}${copyRoom < 40 ? '（出せない）' : ''}`;
   render(previousTime);
   scaleStage();
@@ -219,6 +222,7 @@ restart.addEventListener('click', () => { render(0); startedAt = performance.now
 seek.addEventListener('input', () => { playing = false; render(Number(seek.value)); });
 sampleSelect.addEventListener('change', () => { sample = samples.find(row => row.id === sampleSelect.value); playing = false; time = 0; rebuild(); });
 for (const select of [widthSelect, levelSelect, heightSelect]) select.addEventListener('change', rebuild);
+tempoSelect.addEventListener('change', () => { wait.value = String(TEMPO_VARIANTS[tempoSelect.value].wait / 1000); rebuild(); });
 wait.addEventListener('input', rebuild);
 new ResizeObserver(scaleStage).observe(view);
 document.fonts?.ready.then(() => { fitNames(stage.canvas); scaleStage(); });

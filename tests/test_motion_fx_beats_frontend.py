@@ -85,6 +85,7 @@ Fx.finishAll(host);
 def test_mass_connection_uses_three_icons_and_one_shared_band_and_extends_overflow_wait():
     _run_node("(async()=>{"+FLOW_SETUP+r"""
 const {sceneSamples}=await import('./scripts/fx_gallery/samples.mjs');
+const {RESOLVE_WAIT_MS}=await import('./static/js/battle/components/resolve_stage_timing.js');
 const mass=sceneSamples.find(s=>s.id==='summation');
 flow._slotActorId=id=>mass.state.slots[id]?.actor_id;
 run(mass.step,'outcome');
@@ -96,8 +97,8 @@ const oldTimeout=global.setTimeout,oldNow=Date.now;
 let wait;global.setTimeout=(_,ms)=>{wait=ms;return 1;};
 Date.now=()=>flow._stepStartedAt+flow._stepDuration(crowded);
 try {
- flow._scheduleAutoAdvanceIfNeeded({});assert.ok(wait>1000);
- flow._pendingAdvanceTimer=null;flow._activeStep={...base};flow._scheduleAutoAdvanceIfNeeded({});assert.strictEqual(wait,1000);
+ flow._scheduleAutoAdvanceIfNeeded({});assert.ok(wait>RESOLVE_WAIT_MS);
+ flow._pendingAdvanceTimer=null;flow._activeStep={...base};flow._scheduleAutoAdvanceIfNeeded({});assert.strictEqual(wait,RESOLVE_WAIT_MS);
 } finally {global.setTimeout=oldTimeout;Date.now=oldNow;}
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)

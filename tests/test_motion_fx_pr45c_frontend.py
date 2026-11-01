@@ -6,25 +6,31 @@ from tests.test_motion_fx_pr3_frontend import FLOW_SETUP
 def test_recorded_knockouts_extend_only_outcome_once_and_drive_all_timing():
     _run_node("(async()=>{"+FLOW_SETUP+r"""
 const {OUTCOME_EXTENSIONS,resolveStageTiming,resolveOutcomeWindow}=await import('./static/js/battle/components/resolve_flow_fx.js');
+const {RESOLVE_TEMPO:T,RESOLVE_WAIT_MS,resolveStageStarts}=await import('./static/js/battle/components/resolve_stage_timing.js');
 assert.strictEqual(OUTCOME_EXTENSIONS.knockout,1500);
 const lethal={...base,applied:{damage:[{target_id:'d',hp:2,hp_after:0,source:'dice'}]}};
 const self={...base,selfDestructed:['a']};
 const multiple={...lethal,selfDestructed:['a','e']};
 for(const step of [base,lethal,self,multiple]) {
  const ko=step!==base;
+ // 延長は決着の段階だけに一度足す。
+ const outcomeMs=T.outcome+(ko?T.knockout:0);
  const timing=resolveStageTiming(step);
- assert.deepStrictEqual(timing.map(r=>r.ms),[600,1400,800,ko?4100:2600]);
- assert.strictEqual(flow._stepDuration(step),ko?6900:5400);
- assert.strictEqual(resolveOutcomeWindow(step),ko?5.1:3.6);
- for(const [t,stage] of [[0,'names'],[600,'power'],[1999,'power'],[2000,'attack'],[2799,'attack'],[2800,'outcome'],[7000,'outcome']]) {
+ assert.deepStrictEqual(timing.map(r=>r.ms),[T.names,T.power,T.attack,outcomeMs]);
+ assert.strictEqual(flow._stepDuration(step),T.names+T.power+T.attack+outcomeMs);
+ assert.strictEqual(resolveOutcomeWindow(step),(outcomeMs+RESOLVE_WAIT_MS)/1000);
+ const s=Object.fromEntries(Object.entries(resolveStageStarts(step)).map(([k,v])=>[k,v*1000]));
+ for(const [t,stage] of [[0,'names'],[s.power,'power'],[s.attack-1,'power'],[s.attack,'attack'],[s.outcome-1,'attack'],[s.outcome,'outcome'],[s.wait+100,'outcome']]) {
   assert.strictEqual(flow._revealStageByElapsed(t,step),stage);
  }
 }
-assert.strictEqual(resolveOutcomeWindow(lethal,500),4.6);
-run(lethal,'outcome',4000);
-for(const call of calls) assert.ok(Math.abs(call[2].elapsedSeconds-4)<0.1);
+const koWindow=resolveOutcomeWindow(lethal);
+assert.strictEqual(resolveOutcomeWindow(lethal,500),(T.outcome+T.knockout+500)/1000);
+// 延長した決着の終盤に途中参加しても、KOは窓の終わりで終わる。
+run(lethal,'outcome',3500);
+for(const call of calls) assert.ok(Math.abs(call[2].elapsedSeconds-3.5)<0.1);
 const ko=calls.find(c=>c[0]==='ko-shatter');
-assert.ok(Math.abs(ko[2].delaySeconds+ko[1].duration-5.1)<1e-9);
+assert.ok(Math.abs(ko[2].delaySeconds+ko[1].duration-koWindow)<1e-9);
 const {getLayout}=await import('./static/js/battle/components/resolve_stage_layout.js');const layout=getLayout(1180);
 assert.strictEqual(ko[1].width,layout.width/2);assert.strictEqual(ko[1].height,layout.arenaHeight);
 assert.strictEqual(ko[2].left,layout.width*0.75);
@@ -39,6 +45,7 @@ global.window={Fx:loadShared({})};
 const {sceneSamples}=await import('./scripts/fx_gallery/samples.mjs');
 const {collectSceneEvents}=await import('./scripts/fx_gallery/scene.mjs');
 const {resolveStageTiming,resolveOutcomeWindow}=await import('./static/js/battle/components/resolve_flow_fx.js');
+const {RESOLVE_TEMPO:T}=await import('./static/js/battle/components/resolve_stage_timing.js');
 const {planResolveOutcome,collectKnockouts}=await import('./static/js/battle/components/resolve_flow_result_fx.js');
 const panel={id:'scene',getBoundingClientRect:()=>({left:0,top:0}),querySelector:()=>({getBoundingClientRect:()=>({left:0,top:0,width:200,height:240})})};
 global.document={getElementById:()=>panel};
@@ -47,7 +54,7 @@ for(const scene of sceneSamples) {
  const plan=collectSceneEvents(scene,panel,'normal');
  const windowSeconds=resolveOutcomeWindow(scene.step);
  assert.strictEqual(plan.windowSeconds,windowSeconds);
- assert.strictEqual(resolveStageTiming(scene.step).reduce((n,r)=>n+r.ms,0),collectKnockouts(scene.step).size?6900:5400);
+ assert.strictEqual(resolveStageTiming(scene.step).reduce((n,r)=>n+r.ms,0),T.names+T.power+T.attack+T.outcome+(collectKnockouts(scene.step).size?T.knockout:0));
  const kos=plan.events.filter(e=>e.name==='ko-shatter');
  assert.strictEqual(kos.length,collectKnockouts(scene.step).size);
  for(const ko of kos) {
@@ -57,7 +64,11 @@ for(const scene of sceneSamples) {
   const own=plan.events.filter(e=>e.name==='effect-band').flatMap(b=>b.params.groups.filter(l=>l.targetId===ko.params.targetId).map(l=>b.at+l.at));
   for(const at of own) if(scene.id!=='eight-effects') assert.ok(ko.at>at);
  }
- if(scene.id==='summation-two-ko') assert.ok(Math.abs(kos[1].at-kos[0].at-0.3)<1e-9);
+ // 二人目は0.3秒後。期限（窓の終わりから3.1秒前）を越えるなら期限まで詰める。
+ if(scene.id==='summation-two-ko') {
+  assert.ok(kos[1].at>kos[0].at);
+  assert.ok(Math.abs(kos[1].at-Math.min(kos[0].at+0.3,windowSeconds-3.1))<1e-9);
+ }
 }
 const ids=Array.from({length:12},(_,i)=>'d'+i);
 const step={kind:'mass_summation',attackerActorId:'a',selfDestructed:ids};

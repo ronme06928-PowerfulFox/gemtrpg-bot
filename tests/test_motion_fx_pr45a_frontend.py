@@ -3,13 +3,14 @@ from tests.test_motion_fx_frontend import PLAYER_SETUP, _run_node
 from tests.test_motion_fx_pr3_frontend import FLOW_SETUP
 
 
-def test_five_point_four_seconds_and_derived_outcome_window():
+def test_four_point_six_seconds_and_derived_outcome_window():
     _run_node("(async()=>{" + FLOW_SETUP + r"""
 const {RESOLVE_STAGE_TIMING,resolveOutcomeWindow}=await import('./static/js/battle/components/resolve_flow_fx.js');
-assert.deepStrictEqual(RESOLVE_STAGE_TIMING.map(r=>r.ms),[600,1400,800,2600]);
-assert.strictEqual(flow._stepDuration(base),5400);
-assert.strictEqual(resolveOutcomeWindow(base),3.6);
-assert.strictEqual(resolveOutcomeWindow(base,500),3.1);
+// 計画58で決めた段階の長さ。
+assert.deepStrictEqual(RESOLVE_STAGE_TIMING.map(r=>r.ms),[500,1200,700,2200]);
+assert.strictEqual(flow._stepDuration(base),4600);
+assert.strictEqual(resolveOutcomeWindow(base),2.8);
+assert.strictEqual(resolveOutcomeWindow(base,500),2.7);
 flow._commandForSide=(_,side)=>side==='attacker'?'2d6+3':'1d8+2';
 const bounded={...base,rolls:{...base.rolls,min_damage_a:6,max_damage_a:14}};
 assert.deepStrictEqual(flow._resolvePowerBounds(bounded),{attacker:{min:6,max:14},defender:{min:3,max:10}});

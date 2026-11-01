@@ -1,4 +1,4 @@
-import { resolveStageStarts } from './resolve_stage_timing.js';
+import { resolveStageStarts, RESOLVE_TEMPO } from './resolve_stage_timing.js';
 import { isOneSidedPresentation } from './resolve_stage.js';
 
 const clamp = x => Math.max(0, Math.min(1, x));
@@ -8,8 +8,8 @@ function progress(time, start, duration) {
   return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
 }
 
-export function stageMotionAt(step, time, level = 'normal') {
-  const starts = resolveStageStarts(step);
+export function stageMotionAt(step, time, level = 'normal', tempo = RESOLVE_TEMPO) {
+  const starts = resolveStageStarts(step, tempo);
   const light = level === 'light';
   const fizzle = step.kind === 'fizzle';
   const oneSided = !fizzle && isOneSidedPresentation(step);

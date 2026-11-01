@@ -53,6 +53,9 @@ assert.ok(shake.includes('translateX('));
 FLOW_SETUP = r"""
 const { ResolveFlowPanel } = await import('./static/js/battle/components/ResolveFlowPanel.js');
 const { playResolveStageFx, attackEffect, attackTier } = await import('./static/js/battle/components/resolve_flow_fx.js');
+// 段階の開始時刻（ms）は本番の段階表から求め、テストで複製しない。
+const flowStageStartsMs = Object.fromEntries(Object.entries(
+  (await import('./static/js/battle/components/resolve_stage_timing.js')).resolveStageStarts({})).map(([k,s]) => [k,s*1000]));
 const flow = new ResolveFlowPanel(), calls = [], measured = [];
 const selectors = ['arena','power:attacker','power:defender','damage:attacker','damage:defender','band:attacker','band:defender'];
 const targets = new Map(selectors.map(s => [`[data-anchor="${s}"]`,{style:{},parentElement:{},getBoundingClientRect(){ throw Error('舞台の演出は画面座標を測らない'); }}]));
@@ -69,8 +72,7 @@ const base = {kind:'clash',outcome:'attacker_win',attackerActorId:'a',defenderAc
   applied:{damage:[{target_id:'d',hp:9,source:'dice'},{target_id:'d',hp:6,source:'rupture'}]}};
 const run = (step,stage,late=0) => {
   calls.length=0; measured.length=0; flow._activeStep=step;
-  const starts={names:0,power:600,attack:2000,outcome:2800};
-  flow._stepStartedAt=Date.now()-starts[stage]-late;
+  flow._stepStartedAt=Date.now()-flowStageStartsMs[stage]-late;
   playResolveStageFx(flow,{kind:step.kind,outcome:step.outcome,stage},{});
   return calls;
 };

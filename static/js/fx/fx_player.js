@@ -31,7 +31,7 @@
   function tick(now) {
     frameRequested = false;
     active.forEach((item) => {
-      item.fx.render(Math.min((now - item.start) / 1000, item.fx.duration));
+      item.fx.render(Math.min((now - item.start) / 1000 * item.rate, item.fx.duration));
     });
     if (active.length) requestFrame();
   }
@@ -42,7 +42,7 @@
     requestAnimationFrame(tick);
   }
 
-  // options: host, left/top, elapsedSeconds（段階の経過時間）, delaySeconds, onDone
+  // options: host, left/top, elapsedSeconds（段階の経過時間）, delaySeconds, rate（再生の速さ。既定1）, onDone
   Fx.play = function (name, params, options) {
     const opts = options || {};
     const definition = Fx.get(name);
@@ -50,7 +50,9 @@
       if (opts.onDone) opts.onDone();
       return null;
     }
-    const elapsed = Math.max(0, Number(opts.elapsedSeconds) || 0) - Math.max(0, Number(opts.delaySeconds) || 0);
+    const rate = Number(opts.rate) > 0 ? Number(opts.rate) : 1;
+    // 定義の時刻（render(t) の t）。実時間の経過に速さを掛ける。
+    const elapsed = (Math.max(0, Number(opts.elapsedSeconds) || 0) - Math.max(0, Number(opts.delaySeconds) || 0)) * rate;
     const root = document.createElement('div');
     root.className = 'fx-root';
     if (opts.left === undefined) {
@@ -74,7 +76,7 @@
       return null;
     }
     fx.render(elapsed);
-    const item = { fx, root, host: opts.host, level, start: now - elapsed * 1000 };
+    const item = { fx, root, host: opts.host, level, rate, start: now - elapsed / rate * 1000 };
     item.finish = () => {
       const index = active.indexOf(item);
       if (index < 0) return;
@@ -88,7 +90,7 @@
     requestFrame();
 
     // 終わりは描画の時計ではなくタイマーで決める（裏のタブでは描画が止まるため）。
-    item.timer = setTimeout(item.finish, (duration - elapsed) * 1000);
+    item.timer = setTimeout(item.finish, (duration - elapsed) / rate * 1000);
     return item;
   };
 

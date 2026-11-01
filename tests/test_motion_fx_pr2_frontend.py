@@ -28,11 +28,14 @@ def test_weighted_stages_and_notifications_do_not_repeat_on_rerender():
 (async () => {
 const { ResolveFlowPanel } = await import('./static/js/battle/components/ResolveFlowPanel.js');
 const { eventBus } = await import('./static/js/battle/core/EventBus.js');
+const { resolveStageStarts } = await import('./static/js/battle/components/resolve_stage_timing.js');
 const flow = new ResolveFlowPanel();
-const cases = [[-1,'names'],[0,'names'],[599,'names'],[600,'power'],[1999,'power'],
-  [2000,'attack'],[2799,'attack'],[2800,'outcome'],[6000,'outcome'],[9000,'outcome']];
+// 段階の境界は本番の段階表から求める。
+const s = Object.fromEntries(Object.entries(resolveStageStarts({})).map(([k,v]) => [k,v*1000]));
+const cases = [[-1,'names'],[0,'names'],[s.power-1,'names'],[s.power,'power'],[s.attack-1,'power'],
+  [s.attack,'attack'],[s.outcome-1,'attack'],[s.outcome,'outcome'],[s.wait+600,'outcome'],[9000,'outcome']];
 for (const [t, stage] of cases) assert.strictEqual(flow._revealStageByElapsed(t,{}),stage);
-assert.strictEqual(flow._revealStageByElapsed(300,{}),'names');
+assert.strictEqual(flow._revealStageByElapsed(s.power/2,{}),'names');
 const seen = [];
 eventBus.on('battle:resolve:flow:stage', p => seen.push(p));
 const step = {kind:'clash',outcome:'draw'};

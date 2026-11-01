@@ -1,4 +1,4 @@
-import { resolveWaitMs, RESOLVE_WAIT_MS, resolveStageStarts } from '../../static/js/battle/components/resolve_stage_timing.js';
+import { resolveWaitMs, RESOLVE_WAIT_MS, RESOLVE_TEMPO, resolveStageStarts, fxPlaybackRate } from '../../static/js/battle/components/resolve_stage_timing.js';
 import { isOneSidedPresentation } from '../../static/js/battle/components/resolve_stage.js';
 import { resolveStageTiming, collectDamagePopups, isDiceDamageSource,
   attackEffect, attackTier } from '../../static/js/battle/components/resolve_flow_fx.js';
@@ -22,7 +22,7 @@ export function damageEntries(step) {
   }
   return [...entries.values()];
 }
-export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOLVE_WAIT_MS / 1000) {
+export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOLVE_WAIT_MS / 1000, tempo = RESOLVE_TEMPO) {
   const { step, skills } = sample;
   const summation = step.kind === 'mass_summation';
   const oneSided = step.kind !== 'fizzle' && isOneSidedPresentation(step);
@@ -37,8 +37,8 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOL
     defender: Number.isFinite(rolls.min_damage_b) ? { min: rolls.min_damage_b, max: rolls.max_damage_b } : undefined };
   let elapsed = 0;
   const fizzle = step.kind === 'fizzle';
-  const stages = resolveStageTiming(step);
-  const starts = resolveStageStarts(step);
+  const stages = resolveStageTiming(step, tempo);
+  const starts = resolveStageStarts(step, tempo);
   const marks = stages.map(row => {
     const mark = { stage: row.stage, at: elapsed / 1000 };
     elapsed += row.ms;
@@ -51,7 +51,7 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOL
   const popups = collectDamagePopups(entries, [...step.applied.damage, ...step.damageEvents]);
   const wait = resolveWaitMs(step, Math.round(Math.max(0.5, Math.min(2, waitSeconds)) * 10) * 100) / 1000;
   const duration = waitStart + wait;
-  const result = { marks, starts, waitStart, wait, duration, outcomeStart, outcomeWindow: duration - outcomeStart, popups, entries, powers, bounds, events: [] };
+  const result = { tempo, marks, starts, waitStart, wait, duration, outcomeStart, outcomeWindow: duration - outcomeStart, popups, entries, powers, bounds, events: [] };
   if (fizzle) return result;
   const winner = oneSided ? 'attacker' : { attacker_win: 'attacker', defender_win: 'defender' }[step.outcome];
   result.winner = winner;
@@ -61,14 +61,15 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOL
   const tier = koIds.size ? 'large' : attackTier(summation ? rolls.delta : entries.find(e => e.targetId === targetId)?.total || 0);
   const add = (name, at, anchor, params, extra = {}) => result.events.push({ name, at, anchor, params, ...extra });
   for (const side of oneSided ? ['attacker'] : ['attacker', 'defender']) {
-    add('power-roll', starts.power, `power:${side}`, { text: powers[side], range: bounds[side] }, { number: true });
+    // 威力のロールと攻撃は、段階の長さに合わせて再生の速さだけを変える（形は変えない）。
+    add('power-roll', starts.power, `power:${side}`, { text: powers[side], range: bounds[side] }, { number: true, rate: fxPlaybackRate('power', tempo) });
   }
   if (summation) for (const slotId of step.participants) {
-    add('power-roll', starts.power, `power:${sample.state.slots[slotId].actor_id}`, { text: rolls.defender_powers[slotId] }, { number: true });
+    add('power-roll', starts.power, `power:${sample.state.slots[slotId].actor_id}`, { text: rolls.defender_powers[slotId] }, { number: true, rate: fxPlaybackRate('power', tempo) });
   }
   add(attackEffect(skills[winner || 'attacker'].attribute), starts.attack, 'clash', {
     tier, direction: winner === 'defender' ? -1 : 1, tone: toneFor(targetId), mode: summation ? 'wide' : 'hit',
-  });
+  }, { rate: fxPlaybackRate('attack', tempo) });
   if (!oneSided && !summation) add('clash-flash', outcomeStart, 'clash', {});
   if (level === 'rich' && tier === 'large') add('impact-flash', outcomeStart, 'arena', {});
   const plan = planResolveOutcome(step, popups, result.outcomeWindow, fx, sideFor);

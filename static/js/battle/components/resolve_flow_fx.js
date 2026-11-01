@@ -2,7 +2,7 @@ import { stageFxPlacement } from './resolve_stage_layout.js';
 import { currentStageLayout, stageSample } from './resolve_stage.js';
 // 解決パネルへの接続。演出の定義自体は fx_effects.js に置く。
 import { collectDamageKnockouts, planResolveOutcome } from './resolve_flow_result_fx.js';
-import { resolveStageTiming, resolveOutcomeWindow } from './resolve_stage_timing.js';
+import { resolveStageTiming, resolveOutcomeWindow, fxPlaybackRate } from './resolve_stage_timing.js';
 export { RESOLVE_STAGE_TIMING, OUTCOME_EXTENSIONS, resolveStageTiming, resolveOutcomeWindow } from './resolve_stage_timing.js';
 
 const ATTACK_EFFECTS = Object.freeze({ 斬撃: 'attack-slash', 打撃: 'attack-strike', 貫通: 'attack-pierce' });
@@ -86,6 +86,8 @@ export function playResolveStageFx(flow, payload, state) {
       ...(place.ceiling !== undefined ? { ceiling: place.ceiling } : {}),
       mode: name === 'ko-shatter' ? 'hit' : place.chip ? 'chip' : params.mode,
     }, { host, elapsedSeconds, delaySeconds, left: place.left, top: place.top,
+      // 威力のロールと攻撃は段階の長さに合わせて速く再生する（数字・効果・戦闘不能は速さを変えない）。
+      rate: ['power', 'attack'].includes(payload.stage) ? fxPlaybackRate(payload.stage) : 1,
       className: `event-${name} ${place.classes || ''}`,
       onDone: () => { if (number) number.style.visibility = ''; } });
     if (item?.root) for (const cls of [`event-${name}`, ...(place.classes || '').split(' ').filter(Boolean)]) item.root.classList.add(cls);
