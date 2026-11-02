@@ -10,7 +10,6 @@
   --fx-number-font: 'Cinzel', Georgia, serif;
   --fx-effect-font: 'Zen Antique', 'Yu Mincho', serif;
   --fx-win: #ffd56b;
-  --fx-extra: #83ed91;
   --fx-ally: #ff7373;
   --fx-white: #fff;
   --fx-neutral: #e9e7df;
@@ -134,7 +133,8 @@
 }
 
 .fx-resolve-damage.ally { color: #ff7373; }
-.fx-resolve-damage.extra { color: var(--fx-extra); font-size: calc(30px * var(--fx-scale)); }
+/* 追加ダメージは本体と同じ受けた側の色。違いは大きさとアイコンで表す（計画58 §5.4）。 */
+.fx-resolve-damage.extra { font-size: calc(30px * var(--fx-scale)); }
 /* 広域-合算の丸アイコン（約57pxおき）の上の数字。本体の46pxでは隣の数字と重なるため小さくする。 */
 .fx-resolve-damage.chip { font-size: calc(30px * var(--fx-scale)); }
 .fx-damage-icon { width: 0.9em; height: 0.9em; object-fit: contain; }

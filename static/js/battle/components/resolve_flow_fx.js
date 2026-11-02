@@ -168,7 +168,7 @@ export function playResolveStageFx(flow, payload, state) {
     if (band && summation && side === 'defender') continue;
     const chip = summation && side === 'defender' && !band;
     const icon = event.params.status && window.STATUS_CONFIG?.[event.params.status]?.icon;
-    const tone = event.params.self ? 'self' : event.params.kind === 'effect' ? 'extra' : toneForId(event.targetId);
+    const tone = event.params.self ? 'self' : toneForId(event.targetId);
     const groups = band ? event.params.groups.map(group => ({ ...group,
       lines: group.lines.map(line => ({ ...line,
         tone: group.self ? 'self' : toneForId(group.targetId),

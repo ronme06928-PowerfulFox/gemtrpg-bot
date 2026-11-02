@@ -33,7 +33,8 @@ def test_gallery_samples_cover_exactly_the_registered_effects_and_variants():
     }
   }
   const damage = effectSamples.filter(s => s.effect === 'resolve-damage');
-  for (const tone of ['ally','enemy','extra']) assert.ok(damage.some(s => s.params.tone === tone));
+  for (const tone of ['ally','enemy']) for (const kind of ['dice','effect']) assert.ok(damage.some(s => s.params.tone === tone && (s.params.kind || 'dice') === kind));
+  assert.ok(damage.every(s => s.params.tone !== 'extra'));
   for (const shake of ['small','medium','large']) assert.ok(damage.some(s => s.params.shake === shake));
   for (const status of ['出血','破裂','亀裂','荊棘','戦慄','蓄力','凝魔']) assert.ok(damage.some(s => s.params.label === status));
   for(const [width,height] of [[590,400],[330,420]]) assert.ok(effectSamples.some(s=>s.effect==='ko-shatter'&&s.previewSize?.width===width&&s.previewSize?.height===height));
@@ -103,7 +104,8 @@ def test_scene_events_use_the_production_plan_positions_tones_and_fit_the_derive
         const planned = plan.find(e => e.name === event.name && e.at === event.at && e.params.text === event.params.text);
         assert.ok(planned);
         if (event.params.self) assert.strictEqual(event.params.tone,'self');
-        if (event.params.kind === 'effect') assert.strictEqual(event.params.tone,'extra');
+        // 追加ダメージも本体と同じく、受けた側の色（計画58 §5.4）。
+        if (event.name === 'resolve-damage' && !event.params.self) assert.ok(['enemy','ally'].includes(event.params.tone));
       }
       if (step.kind === 'mass_summation') {
         assert.strictEqual(actual.filter(e => e.name === 'resolve-damage').length, 3 + plan.filter(e=>e.name==='resolve-damage'&&e.params.kind!=='dice').length);

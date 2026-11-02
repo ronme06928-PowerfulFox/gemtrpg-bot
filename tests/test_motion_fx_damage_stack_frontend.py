@@ -1,5 +1,7 @@
 """計画52: 同じ対象のダメージの数字は押し上げず、どれも自分で昇る。後の数字は前の数字が昇ってから出し、どの時刻も重ねない。"""
-from tests.test_motion_fx_frontend import _run_node
+import re
+
+from tests.test_motion_fx_frontend import ROOT, _run_node
 
 STACK_STEP = r"""
 const effects=[['W-03','破裂爆発','破裂'],['W-01','出血氾濫','出血'],['W-05','亀裂','亀裂'],['W-09','荊棘','荊棘']];
@@ -93,4 +95,23 @@ assert.ok(block.includes('line-height: 1;'));
 assert.ok(block.includes('font-size: calc(46px * var(--fx-scale));'));
 // 本体46px・追加30pxの字の箱が、行の高さ52px・36pxに収まる。
 assert.ok(/\.fx-resolve-damage\.extra \{[^}]*font-size: calc\(30px \* var\(--fx-scale\)\)/.test(css));
+""")
+
+
+def test_extra_damage_keeps_the_side_color_and_differs_by_size():
+    """計画58 §5.4：追加ダメージは本体と同じ受けた側の色。違いは大きさとアイコン。"""
+    css = (ROOT / 'static/css/modules/motion_fx.css').read_text(encoding='utf-8')
+    assert '--fx-extra' not in css
+    extra = re.search(r'\.fx-resolve-damage\.extra \{([^}]*)\}', css).group(1)
+    assert 'color' not in extra and 'font-size' in extra
+    for path in ['static/js/battle/components/resolve_flow_fx.js', 'scripts/resolve_preview/timeline.mjs', 'scripts/fx_gallery/samples.mjs']:
+        assert "'extra'" not in (ROOT / path).read_text(encoding='utf-8'), path
+    _run_node(r"""
+const Fx=loadShared({}),doc=makeDocument();
+for(const tone of ['enemy','ally']) {
+ const fx=Object.create(Fx.get('resolve-damage'));fx.mount(doc.createElement('div'),{level:'normal',amount:5,kind:'effect',tone});
+ assert.ok(fx.el.className.split(/\s+/).includes(tone)&&fx.el.className.split(/\s+/).includes('extra'));
+}
+const main=Object.create(Fx.get('resolve-damage'));main.mount(doc.createElement('div'),{level:'normal',amount:9,tone:'ally'});
+assert.ok(!main.el.className.split(/\s+/).includes('extra'));
 """)

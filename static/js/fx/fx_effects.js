@@ -293,7 +293,7 @@
       this.duration = params.duration ?? this.duration;
       this.leaveAt = params.leaveAt;
       this.delay = Math.max(0, Math.min(0.8, Number(params.delay) || 0));
-      this.el = element(root, 'div', `fx-resolve-damage ${params.tone || 'enemy'} ${params.icon ? 'with-icon' : ''} ${params.mode === 'chip' ? 'chip' : ''}`);
+      this.el = element(root, 'div', `fx-resolve-damage ${params.tone || 'enemy'} ${params.kind === 'effect' ? 'extra' : ''} ${params.icon ? 'with-icon' : ''} ${params.mode === 'chip' ? 'chip' : ''}`);
       if (params.icon) {
         const icon = element(this.el, 'img', 'fx-damage-icon');
         icon.setAttribute('src', params.icon);

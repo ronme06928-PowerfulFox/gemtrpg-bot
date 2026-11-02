@@ -85,7 +85,7 @@ for(const [level,side] of [['normal','defender'],['rich','attacker'],['light','d
 def test_damage_numbers_carry_no_sign_while_band_results_keep_theirs():
     _run_node(r"""
 const Fx=loadShared({}),doc=makeDocument();
-for(const params of [{amount:9},{amount:6,kind:'effect',tone:'extra',icon:'/static/images/rupture.png'},{amount:3,mode:'chip'}]) {
+for(const params of [{amount:9},{amount:6,kind:'effect',tone:'ally',icon:'/static/images/rupture.png'},{amount:3,mode:'chip'}]) {
  const fx=Object.create(Fx.get('resolve-damage'));fx.mount(doc.createElement('div'),{level:'normal',...params});
  assert.deepStrictEqual(fx.el.children.map(e=>e.className).filter(c=>c!=='fx-damage-icon'),['fx-damage-number']);
 }

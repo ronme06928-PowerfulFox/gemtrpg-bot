@@ -90,7 +90,7 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOL
       : event.name === 'ko-shatter' ? `half:${side}` : `portrait:${event.targetId}`;
     add(event.name, event.at + outcomeStart, anchor, {
       ...event.params, side, shake: tier, mode: chip && !column ? 'chip' : 'hit', ...(column ? { column: true } : {}),
-      tone: event.params.kind === 'effect' ? 'extra' : toneFor(event.targetId),
+      tone: toneFor(event.targetId),
       ...(band ? { groups } : {}),
     }, { targetId: event.targetId });
   }

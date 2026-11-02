@@ -24,11 +24,15 @@ export const effectSamples = [
           : `.resolve-flow-background.${direction === 1 ? 'defender' : 'attacker'}`,
       ))))),
   sample('impact', 'impact-flash', '大の一撃（派手で表示）', {}, '.resolve-flow-card'),
-  ...['ally', 'enemy', 'extra'].flatMap(tone => ['small', 'medium', 'large'].map(shake =>
+  ...['ally', 'enemy'].flatMap(tone => ['small', 'medium', 'large'].map(shake =>
     sample(`damage-${tone}-${shake}`, 'resolve-damage', `${tone} / 揺れ ${shake}`, { amount: 15, tone, shake }))),
+  // 追加ダメージは受けた側の色のまま小さく出す（計画58 §5.4）。
+  ...['ally', 'enemy'].map(tone => sample(`damage-${tone}-effect`, 'resolve-damage', `${tone} / 追加`, {
+    amount: 5, tone, kind: 'effect', shake: 'medium', label: '出血', icon: '/static/images/bleed.png',
+  })),
   ...Object.entries({ 出血: 'bleed', 破裂: 'rupture', 亀裂: 'fissure', 荊棘: 'thorns', 戦慄: 'fear', 蓄力: 'chikuryoku', 凝魔: 'gyoma' })
     .map(([label, icon]) => sample(`damage-${icon}`, 'resolve-damage', `${label}のアイコン`, {
-      amount: 5, tone: 'extra', shake: 'medium', label, icon: `/static/images/${icon}.png`,
+      amount: 5, tone: 'enemy', kind: 'effect', shake: 'medium', label, icon: `/static/images/${icon}.png`,
     })),
   ...['enemy', 'ally', 'self'].map(tone => sample(`effect-${tone}`, 'effect-band', `戦慄殺到 / ${tone}`, {
     duration: 4.5, groups: [{ lines: [
