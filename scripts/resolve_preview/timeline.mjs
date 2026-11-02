@@ -1,8 +1,8 @@
 import { resolveWaitMs, RESOLVE_WAIT_MS, RESOLVE_TEMPO, resolveStageStarts, fxPlaybackRate } from '../../static/js/battle/components/resolve_stage_timing.js';
 import { isOneSidedPresentation } from '../../static/js/battle/components/resolve_stage.js';
 import { resolveStageTiming, collectDamagePopups, isDiceDamageSource,
-  attackEffect, attackTier } from '../../static/js/battle/components/resolve_flow_fx.js';
-import { planResolveOutcome, collectKnockouts } from '../../static/js/battle/components/resolve_flow_result_fx.js';
+  attackEffect, attackTierFor, planHitResponse } from '../../static/js/battle/components/resolve_flow_fx.js';
+import { planResolveOutcome } from '../../static/js/battle/components/resolve_flow_result_fx.js';
 
 export const kindNames = { clash: 'マッチ', one_sided: '一方攻撃', hard_attack: '強硬攻撃',
   mass_individual: '広域-個別', mass_summation: '広域-合算', fizzle: '不発' };
@@ -29,7 +29,8 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOL
   const sideFor = id => id === step.attackerActorId ? 'attacker' : 'defender';
   const character = id => sample.state.characters.find(c => c.id === id);
   const toneFor = id => character(id)?.type === 'enemy' ? 'enemy' : 'ally';
-  const ids = { attacker: step.attackerActorId, defender: step.defenderActorId };
+  const ids = { attacker: step.attackerActorId, defender: step.defenderActorId,
+    participants: (step.participants || []).map(slot => String(sample.state.slots[slot]?.actor_id || slot)) };
   const rolls = step.rolls;
   const powers = { attacker: rolls.attacker_power ?? rolls.power_a ?? rolls.base_damage,
     defender: rolls.defender_sum ?? rolls.power_b };
@@ -56,9 +57,8 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOL
   const winner = oneSided ? 'attacker' : { attacker_win: 'attacker', defender_win: 'defender' }[step.outcome];
   result.winner = winner;
   const loser = winner === 'attacker' ? 'defender' : 'attacker';
-  const koIds = collectKnockouts(step);
   const targetId = ids[loser];
-  const tier = koIds.size ? 'large' : attackTier(summation ? rolls.delta : entries.find(e => e.targetId === targetId)?.total || 0);
+  const tier = attackTierFor(step, entries, ids, loser);
   const add = (name, at, anchor, params, extra = {}) => result.events.push({ name, at, anchor, params, ...extra });
   for (const side of oneSided ? ['attacker'] : ['attacker', 'defender']) {
     // 威力のロールと攻撃は、段階の長さに合わせて再生の速さだけを変える（形は変えない）。
@@ -67,11 +67,17 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOL
   if (summation) for (const slotId of step.participants) {
     add('power-roll', starts.power, `power:${sample.state.slots[slotId].actor_id}`, { text: rolls.defender_powers[slotId] }, { number: true, rate: fxPlaybackRate('power', tempo) });
   }
-  add(attackEffect(skills[winner || 'attacker'].attribute), starts.attack, 'clash', {
-    tier, direction: winner === 'defender' ? -1 : 1, tone: toneFor(targetId), mode: summation ? 'wide' : 'hit',
+  if (!winner) {
+    for (const side of ['attacker', 'defender']) add(summation && side === 'defender' ? 'attack-flash' : attackEffect(skills[side].attribute), starts.attack, 'clash', {
+      tier: 'small', direction: side === 'attacker' ? 1 : -1, tone: 'neutral', mode: 'draw',
+    }, { rate: fxPlaybackRate('attack', tempo) });
+  } else add(summation && winner === 'defender' ? 'attack-flash' : attackEffect(skills[winner].attribute), starts.attack, 'clash', {
+    tier, direction: winner === 'defender' ? -1 : 1, tone: toneFor(targetId), mode: summation && winner === 'attacker' ? 'wide' : 'hit',
   }, { rate: fxPlaybackRate('attack', tempo) });
-  if (!oneSided && !summation) add('clash-flash', outcomeStart, 'clash', {});
-  if (level === 'rich' && tier === 'large') add('impact-flash', outcomeStart, 'arena', {});
+  if ((!oneSided && !summation) || step.outcome === 'draw') add('clash-flash', outcomeStart, 'clash', {});
+  const response = planHitResponse(step, entries, winner, ids, level);
+  for (const event of response) add(event.name, outcomeStart + event.at, 'arena', event.params);
+  if (response.length && level === 'rich' && tier === 'large') add('impact-flash', outcomeStart, 'arena', {});
   const plan = planResolveOutcome(step, popups, result.outcomeWindow, fx, sideFor);
   result.plan = plan;
   // 本番と同じく、効果が多くて枠に入らないときは勝敗の表示が終わるまで延ばす。
@@ -89,7 +95,7 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOL
     const anchor = band ? `band:${side}` : column ? `participant:${event.targetId}`
       : event.name === 'ko-shatter' ? `half:${side}` : `portrait:${event.targetId}`;
     add(event.name, event.at + outcomeStart, anchor, {
-      ...event.params, side, shake: tier, mode: chip && !column ? 'chip' : 'hit', ...(column ? { column: true } : {}),
+      ...event.params, side, mode: chip && !column ? 'chip' : 'hit', ...(column ? { column: true } : {}),
       tone: toneFor(event.targetId),
       ...(band ? { groups } : {}),
     }, { targetId: event.targetId });

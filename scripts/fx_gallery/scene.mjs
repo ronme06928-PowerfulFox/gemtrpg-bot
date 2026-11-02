@@ -22,8 +22,12 @@ export function collectSceneEvents(scene, panel, level) {
     flow._stepStartedAt = frozen - resolveStageTiming(scene.step).filter(row => row.stage !== 'outcome').reduce((sum, row) => sum + row.ms, 0);
     window.STATUS_CONFIG = STATUS_CONFIG;
     fx.getLevel = () => level;
-    fx.play = (name, params, options) => events.push({ name, params, at: (options.delaySeconds || 0) - (options.elapsedSeconds || 0),
-      rate: options.rate || 1, host: options.host, className: options.className, left: options.left, top: options.top });
+    fx.play = (name, params, options) => {
+      // DOMは見本ごとにmount時に解決する。画像埋込みへ循環参照を渡さない。
+      const { targets, cardTarget, ...values } = params;
+      events.push({ name, params: values, at: (options.delaySeconds || 0) - (options.elapsedSeconds || 0),
+        rate: options.rate || 1, host: options.host, className: options.className, left: options.left, top: options.top });
+    };
     playResolveStageFx(flow, { stage: 'attack', outcome: scene.step.outcome }, scene.state);
     plan = playResolveStageFx(flow, { stage: 'outcome', outcome: scene.step.outcome }, scene.state);
   } finally {

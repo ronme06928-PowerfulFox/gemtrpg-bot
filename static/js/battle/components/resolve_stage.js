@@ -76,7 +76,7 @@ export function renderResolveStage(flow, step, state, layout) {
     const plaque = unarmed ? '' : `<div class="skill-plaque reveal-block reveal-power"><span class="attribute-icon">${attributePaths[attribute] ? `<svg viewBox="0 0 40 40" role="img" aria-label="${e(attribute)}"><path d="${attributePaths[attribute]}"></path></svg>` : ''}</span><span class="skill-name" title="${e(meta.name)}">${e(meta.name)}</span><small class="skill-id">${e(meta.id)}</small></div>${gem(step.kind === 'fizzle' ? '—' : powers[side], group ? null : ranges[side]?.replace('~', '〜'), side)}`;
     return `<div class="combatant ${side} ${enemy ? 'enemy' : 'ally'}" data-anchor="half:${side}">${figures}<div class="character-name" title="${e(name)}">${e(name)}</div>${plaque}</div>`;
   }).join('');
-  const lanes = ['attacker', 'defender'].map(side => ['damage', 'band'].map(kind => {
+  const lanes = (summation ? `<div class="damage-lane" data-anchor="damage:participants" style="left:0;top:0;width:${layout.width}px;height:${layout.arenaHeight}px"></div>` : '') + ['attacker', 'defender'].map(side => ['damage', 'band'].map(kind => {
     const b = sideBox(layout, layout[kind], side);
     return `<div class="${kind}-lane" data-anchor="${kind}:${side}" style="left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px"></div>`;
   }).join('')).join('');

@@ -170,13 +170,63 @@
     },
   });
 
-  // 攻撃の着弾と数字に同じ時刻・段階の揺れを使う。外側のカードには触らない。
-  function impactShake(t, level, tier) {
-    const strength = level === 'light' ? 0 : level === 'rich'
-      ? ({ medium: 3, large: 6 }[tier] || 0) : tier === 'large' ? 2 : 0;
-    const time = Math.max(0, Math.min(t, 0.3));
-    return Math.sin(time * 75) * strength * (1 - Fx.prog(time, 0, 0.3));
+  // 対象DOMを持つ演出だけの復元情報。入場のtransformと紋章には触れない。
+  function rememberTargets(targets, properties) {
+    return [...new Set((targets || []).filter(Boolean))].map(el => ({ el,
+      original: Object.fromEntries(properties.map(key => [key, el.style[key] || ''])) }));
   }
+  function restoreTargets(records) {
+    for (const { el, original } of records) Object.assign(el.style, original);
+  }
+  function translated(original, x, y) {
+    if (!original || original === 'none') return `${x}px ${y}px`;
+    const [bx, by = '0px', bz] = original.split(/\s+/);
+    return `calc(${bx} + ${x}px) calc(${by} + ${y}px)${bz ? ` ${bz}` : ''}`;
+  }
+  Fx.define('hit-react', {
+    duration: 0.3,
+    mount(root, params) {
+      this.level = params.level;
+      this.direction = params.direction === -1 ? -1 : 1;
+      this.targets = rememberTargets(params.targets, ['translate', 'filter']);
+    },
+    render(t) {
+      if (this.level === 'light' || t <= 0 || t >= this.duration) { restoreTargets(this.targets); return; }
+      const strength = Fx.prog(t, 0, 0.025) * (1 - Fx.prog(t, 0.025, 0.275));
+      for (const { el, original } of this.targets) {
+        el.style.translate = translated(original.translate, this.direction * 6 * strength, 0);
+        el.style.filter = `${original.filter && original.filter !== 'none' ? original.filter + ' ' : ''}brightness(${1 + 1.8 * strength})`;
+      }
+    },
+  });
+  Fx.define('hit-shake', {
+    duration: 0.3,
+    mount(root, params) {
+      this.amplitude = params.level === 'light' ? 0
+        : ({ normal: { medium: 3, large: 4 }, rich: { medium: 4, large: 6 } }[params.level]?.[params.tier] || 0);
+      this.targets = rememberTargets(params.targets, ['translate']);
+      this.card = rememberTargets(params.level === 'rich' && params.tier === 'large' ? [params.cardTarget] : [], ['translate']);
+      this.offset = [0, 0];
+    },
+    render(t) {
+      const time = Math.max(0, Math.min(t, this.duration));
+      const phase = time * 28, index = Math.floor(phase), blend = phase - index;
+      const point = n => {
+        const bits = Math.imul(n + 17, 1597334677) ^ Math.imul(n + 37, 3812015801);
+        const angle = (bits >>> 0) / 4294967296 * Math.PI * 2;
+        return [Math.cos(angle), Math.sin(angle)];
+      };
+      const a = point(index), b = point(index + 1);
+      const envelope = Math.min(time / 0.018, 1) * (1 - time / this.duration) ** 2;
+      const unit = a.map((value, i) => Fx.lerp(value, b[i], blend) * envelope);
+      this.offset = unit.map(value => value * this.amplitude);
+      if (!this.amplitude || t <= 0 || t >= this.duration) {
+        restoreTargets(this.targets); restoreTargets(this.card); return;
+      }
+      for (const { el, original } of this.targets) el.style.translate = translated(original.translate, ...this.offset);
+      for (const { el, original } of this.card) el.style.translate = translated(original.translate, unit[0] * 4, unit[1] * 4);
+    },
+  });
 
   function svgElement(root, tag, className, attrs = {}) {
     const el = root.ownerDocument.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -196,70 +246,83 @@
     this.el.style.height = `${draw ? 110 : Math.max(1, Number(params.height) || 240)}px`;
     const svg = svgElement(this.el, 'svg', 'fx-attack-svg', { viewBox: '0 0 320 240', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
     svg.style.transform = `scaleX(${params.direction === -1 ? -1 : 1})`;
+    this.prep = svgElement(svg, 'ellipse', 'fx-attack-fill', {
+      cx: kind === 'strike' ? 140 : 40, cy: kind === 'strike' ? 24 : kind === 'slash' ? 188 : 120,
+      rx: kind === 'slash' ? 2 : 7, ry: kind === 'slash' ? 18 : 5,
+    });
     this.moving = svgElement(svg, 'g', 'fx-attack-moving');
     this.impact = svgElement(svg, 'g', 'fx-attack-impact');
-    this.fragments = [];
-    if (kind === 'slash') {
-      const attrs = { d: 'M 28 206 Q 86 32 292 48', 'stroke-width': 3 * this.strength, pathLength: 1 };
-      this.trail = svgElement(this.moving, 'path', 'fx-attack-line', attrs);
-      this.trail.style.strokeDasharray = '1';
-      svgElement(this.impact, 'path', 'fx-attack-line fx-attack-white', attrs);
-    } else if (kind === 'strike') {
-      this.falling = svgElement(this.moving, 'g', 'fx-strike-falling');
-      svgElement(this.falling, 'path', 'fx-strike-tail', { d: 'M 160 105 L 156 154 L 164 154 Z' });
-      svgElement(this.falling, 'ellipse', 'fx-strike-core', { cx: 160, cy: 162, rx: 4 * this.strength, ry: 18 });
-      this.flash = svgElement(this.impact, 'ellipse', 'fx-attack-white fx-strike-flash', { cx: 160, cy: 180, rx: 12 * this.strength, ry: 8 * this.strength });
-      this.waves = Array.from({ length: this.tier === 'large' ? 2 : 1 }, () => {
-        const wave = svgElement(this.impact, 'g', 'fx-strike-wave');
-        // 先端へ向かって細くなる2本の筋。地面は viewBox の下から1/4。
-        svgElement(wave, 'path', 'fx-strike-ray', { d: `M 160 ${180 - this.strength * 2} L 8 180 L 160 ${180 + this.strength * 2} L 312 180 Z` });
-        svgElement(wave, 'ellipse', 'fx-attack-line fx-strike-ring', { cx: 160, cy: 180, rx: 150, ry: 13, 'stroke-width': this.strength });
-        return wave;
-      });
-      this.fragments = Array.from({ length: { small: 0, medium: 4, large: 8 }[this.tier] }, (_, i) =>
-        svgElement(this.impact, 'path', 'fx-strike-fragment', { d: `M -3 0 L 0 -${4 + i % 3} L 3 0 L 0 3 Z` }));
-    } else {
-      this.beam = svgElement(this.moving, 'path', 'fx-attack-line', { d: 'M 0 120 L 218 120', 'stroke-width': 2 * this.strength, pathLength: 1 });
-      this.beam.style.strokeDasharray = '1';
-      const radius = 16 * this.strength;
-      svgElement(this.impact, 'path', 'fx-attack-line fx-attack-white', { d: `M ${218 - radius} 120 L ${218 + radius} 120 M 218 ${120 - radius} L 218 ${120 + radius}`, 'stroke-width': 2 * this.strength });
-    }
+    const body = kind === 'slash'
+      ? 'M 20 210 C 65 66 171 20 300 42 C 184 36 97 105 20 210 Z'
+      : kind === 'strike' ? 'M 153 75 Q 143 132 150 172 Q 160 192 170 172 Q 177 132 167 75 L 160 20 Z'
+        : 'M 8 115 L 222 120 L 8 125 L 62 120 Z';
+    this.body = svgElement(this.moving, 'path', 'fx-attack-fill', { d: body });
+    this.still = svgElement(this.impact, 'path', 'fx-attack-fill', { d: body });
+    this.flash = svgElement(this.impact, 'path', 'fx-attack-fill fx-attack-white', { d: kind === 'slash' ? body
+      : kind === 'strike' ? 'M 100 180 Q 125 164 160 170 Q 195 164 220 180 Q 192 195 160 188 Q 128 195 100 180 Z'
+        : 'M 218 82 L 224 113 L 258 120 L 224 127 L 218 158 L 212 127 L 178 120 L 212 113 Z' });
+    this.cut = svgElement(this.impact, 'path', 'fx-attack-line', {
+      d: kind === 'slash' ? 'M 28 206 Q 86 32 292 48' : kind === 'pierce' ? 'M 174 120 L 310 120' : 'M 12 180 L 308 180',
+      'stroke-width': this.strength,
+    });
+    this.waves = kind === 'strike' ? Array.from({ length: 2 }, () => {
+      const wave = svgElement(this.impact, 'g', 'fx-strike-wave');
+      svgElement(wave, 'path', 'fx-strike-ray', { d: `M 160 ${180 - this.strength * 2} L 8 180 L 160 ${180 + this.strength * 2} L 312 180 Z` });
+      svgElement(wave, 'ellipse', 'fx-attack-line fx-strike-ring', { cx: 160, cy: 180, rx: 150, ry: 13, 'stroke-width': this.strength });
+      return wave;
+    }) : [];
+    const count = { small: kind === 'strike' ? 0 : 2, medium: 4, large: 8 }[this.tier];
+    this.fragments = Array.from({ length: count }, (_, i) => svgElement(this.impact, 'path', 'fx-attack-fill', {
+      d: kind === 'strike' ? `M -3 0 L 0 -${4 + i % 3} L 3 0 L 0 3 Z` : 'M -8 0 L 4 -1 L 9 0 L 4 1 Z',
+    }));
   }
 
   function renderAttack(t, kind) {
     const light = this.level === 'light';
     const time = Math.max(0, Math.min(t, this.duration));
-    const after = time - 0.8;
+    const hit = time - 0.7, tail = Math.max(0, time - 0.78);
+    const start = { slash: 0.5, strike: 0.55, pierce: 0.58 }[kind];
+    const swing = light ? 1 : Fx.clamp01((time - start) / (0.7 - start));
+    const rush = swing ** 2;
+    const fade = Fx.prog(tail, 0, 0.62);
     this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
-    this.el.style.transform = `translate(-50%, -50%) translateX(${light ? 0 : impactShake(after, this.level, this.tier)}px)`;
-    this.moving.style.opacity = light || time >= 0.8 ? '0' : '1';
-    this.impact.style.opacity = String(light ? Fx.stillOpacity(after, 0.6)
-      : after < 0 ? 0 : 1 - Fx.prog(time, this.duration - 0.15, 0.15));
-    const p = Fx.prog(time, 0, 0.8);
-    if (kind === 'slash') {
-      this.trail.style.strokeDashoffset = String(light ? 0 : 1 - p);
-    } else if (kind === 'pierce') {
-      this.beam.style.strokeDashoffset = String(light ? 0 : 1 - p);
-    } else {
-      const fall = light ? 1 : Math.min(time / 0.8, 1) ** 2;
-      this.falling.setAttribute('transform', `translate(${-32 * (1 - fall)} ${-190 * (1 - fall)}) rotate(-10 160 180)`);
-      this.flash.style.opacity = String(light ? 0 : 1 - Fx.prog(after, 0, 0.18));
-      this.waves.forEach((wave, i) => {
-        const age = after - i * 0.1;
-        const extent = this.tier === 'small' ? 0.5 : 1;
-        const spread = light ? extent : Fx.lerp(0.03, extent, Fx.prog(age, 0, 0.42));
-        wave.setAttribute('transform', `translate(160 180) scale(${spread} ${light ? 1 : Fx.lerp(0.3, 1, Fx.prog(age, 0, 0.42))}) translate(-160 -180)`);
-        wave.style.opacity = String(light ? (i === 0 ? 1 : 0) : Fx.stillOpacity(age, 0.5));
-      });
-      this.fragments.forEach((fragment, i) => {
-        const age = light ? 0 : Fx.prog(after, 0, 0.6);
-        const sign = i % 2 ? 1 : -1;
-        const x = 160 + sign * (35 + i * 12) * age;
-        const y = 180 - (130 + i % 3 * 28) * age + 205 * age * age;
-        fragment.setAttribute('transform', `translate(${x} ${y}) rotate(${light ? 0 : sign * age * 160})`);
-        fragment.style.opacity = String(light ? 0 : 1 - Fx.prog(after, 0.35, 0.25));
-      });
+    this.el.style.transform = 'translate(-50%, -50%)';
+    this.prep.style.opacity = String(light || time >= start ? 0 : Fx.prog(time, 0, 0.12));
+    const charge = light ? 1 : Fx.prog(Math.min(time, start), 0, start);
+    this.prep.setAttribute('transform', kind === 'pierce'
+      ? `translate(${-12 * charge} 0) translate(40 120) scale(${1 - charge * 0.65} ${1 - charge * 0.3}) translate(-40 -120)`
+      : `translate(${kind === 'strike' ? 140 : 40} ${kind === 'strike' ? 24 : 188}) scale(${1 - charge * 0.65}) translate(${kind === 'strike' ? -140 : -40} ${kind === 'strike' ? -24 : -188})`);
+    this.moving.style.opacity = String(light || time < start ? 0 : 1 - Fx.prog(tail, 0.28, 0.34));
+    this.impact.style.opacity = String(light ? Fx.stillOpacity(hit, 0.7) : hit < 0 ? 0 : 1 - Fx.prog(time, 1.25, 0.15));
+    this.flash.style.opacity = String(light || hit < 0 ? 0 : Number(time < 0.733));
+    this.still.style.opacity = String(light && kind !== 'strike' ? 1 : 0);
+    const [cx, cy] = kind === 'strike' ? [160, 180] : kind === 'pierce' ? [218, 120] : [160, 120];
+    this.flash.setAttribute('transform', `translate(${cx} ${cy}) scale(${0.7 + this.strength * 0.3}) translate(${-cx} ${-cy})`);
+    this.cut.style.opacity = String(light ? 1 : hit < 0 ? 0 : 1 - fade);
+    // 動く形は0.7〜0.78秒に同じ姿勢を保持。閃光だけが先に消える。
+    this.body.style.clipPath = kind === 'strike' ? 'none' : `inset(0 0 0 ${light ? 0 : fade * 100}%)`;
+    const k = this.strength;
+    if (kind === 'slash') this.moving.setAttribute('transform', `translate(${light ? 0 : -85 * (1 - rush)} ${light ? 0 : 40 * (1 - rush)}) translate(160 120) scale(1 ${0.7 + k * 0.3}) translate(-160 -120)`);
+    else if (kind === 'pierce') this.moving.setAttribute('transform', `translate(${light ? 0 : tail * 70} 0) scale(${light ? 1 : rush} ${k}) translate(0 ${120 / k - 120})`);
+    else {
+      const squash = light || hit >= 0 ? 1 : 0;
+      this.moving.setAttribute('transform', `translate(${light ? 0 : -28 * (1 - rush)} ${light ? 0 : -190 * (1 - rush)}) translate(160 180) scale(${squash ? 1.9 : 0.8} ${squash ? 0.18 : 1}) translate(-160 -180)`);
     }
+    this.waves.forEach((wave, i) => {
+      const age = tail - i * 0.1;
+      const extent = this.tier === 'small' ? 0.5 : 1;
+      const spread = light ? extent : Fx.lerp(0.03, extent, Fx.prog(age, 0, 0.42));
+      wave.setAttribute('transform', `translate(160 180) scale(${spread} ${light ? 1 : Fx.lerp(0.3, 1, Fx.prog(age, 0, 0.42))}) translate(-160 -180)`);
+      wave.style.opacity = String(light ? Number(i === 0) : time < 0.78 ? 0 : Fx.stillOpacity(age, 0.6));
+    });
+    this.fragments.forEach((fragment, i) => {
+      const p = light ? 0 : Fx.clamp01(tail / 0.62), sign = i % 2 ? 1 : -1;
+      const x = kind === 'strike' ? 160 + sign * (35 + i * 12) * p : (kind === 'slash' ? 190 : 218) + (50 + i * 11) * p;
+      const y = kind === 'strike' ? 180 - (130 + i % 3 * 28) * p + 205 * p * p
+        : kind === 'slash' ? 95 - (50 + i * 9) * p + 70 * p * p : 120 + sign * (12 + i * 5) * p;
+      fragment.setAttribute('transform', `translate(${x} ${y}) rotate(${light ? 0 : sign * p * (kind === 'strike' ? 160 : 35)})`);
+      fragment.style.opacity = String(light || time < 0.78 ? 0 : 1 - Fx.prog(tail, 0.35, 0.27));
+    });
   }
 
   for (const kind of ['slash', 'strike', 'pierce']) {
@@ -288,7 +351,6 @@
     duration: 1.6,
     mount(root, params) {
       this.level = params.level;
-      this.shake = params.shake;
       // 結果の段階では、出た後も枠の終わり（戦闘不能の対象は割れる時刻）まで残す長さを受け取る。
       this.duration = params.duration ?? this.duration;
       this.leaveAt = params.leaveAt;
@@ -325,7 +387,7 @@
       const swell = time < 0.3 ? Fx.lerp(Fx.FLOAT.enterFrom, this.pop, Fx.prog(time, 0, 0.3))
         : Fx.lerp(this.pop, 1, Fx.prog(time, 0.3, 0.5));
       this.el.style.transform = light ? `translate(-50%, -50%) translateY(${y}px)`
-        : `translate(-50%, -50%) translateX(${impactShake(time, this.level, this.shake)}px) translateY(${y}px) scale(${swell * Fx.lerp(1, Fx.FLOAT.shrink, fading)})`;
+        : `translate(-50%, -50%) translateY(${y}px) scale(${swell * Fx.lerp(1, Fx.FLOAT.shrink, fading)})`;
     },
   });
 

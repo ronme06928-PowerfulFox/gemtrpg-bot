@@ -120,7 +120,7 @@ export function stageFxPlacement(layout, sample, name, side, targetId, kind) {
     const base = item ? { x: layout.width / 2 + layout.participants.x + item.x + item.width / 2,
       y: layout.participants.baseY, top: layout.participants.gemBottom + 4 }
       : { x: box.x + box.width / 2, y: box.y + box.height - 42 };
-    return { anchor: item ? 'arena' : `damage:${side}`, left: base.x - (item ? 0 : box.x),
+    return { anchor: item ? 'damage:participants' : `damage:${side}`, left: base.x - (item ? 0 : box.x),
       top: base.y - (item ? 0 : box.y), width: box.width, height: box.height,
       ceiling: damageCeiling(layout, base, kind), chip: !!item };
   }

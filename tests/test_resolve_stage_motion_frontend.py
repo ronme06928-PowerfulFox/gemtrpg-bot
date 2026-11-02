@@ -23,9 +23,9 @@ def test_timing_and_waits_cover_normal_knockout_and_fizzle():
  }
  const Fx=loadShared({});
  assert.strictEqual(Fx.get('attack-slash').duration,1.4);
- // 攻撃は段階に合わせて速めて再生し、定義の0.8秒の命中が決着の開始に当たる。
+ // 攻撃は段階に合わせて速めて再生し、定義の0.7秒の命中が決着の開始に当たる。
  const starts=timing.resolveStageStarts({}),rate=timing.fxPlaybackRate('attack');
- assert.ok(Math.abs(starts.attack+0.8/rate-starts.outcome)<1e-9);
+ assert.ok(Math.abs(starts.attack+0.7/rate-starts.outcome)<1e-9);
  assert.ok(starts.attack+Fx.get('attack-slash').duration/rate>starts.outcome);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)

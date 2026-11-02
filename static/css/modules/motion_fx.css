@@ -110,9 +110,7 @@
 .fx-attack.large .fx-attack-impact, .fx-attack.large .fx-attack-moving { filter: drop-shadow(0 0 10px currentColor); }
 .fx-attack.rich .fx-attack-svg { filter: drop-shadow(0 0 4px currentColor); }
 .fx-attack-white { color: var(--fx-white); }
-.fx-strike-core, .fx-strike-tail, .fx-strike-flash, .fx-strike-ray, .fx-strike-fragment { fill: currentColor; }
-.fx-strike-core { color: var(--fx-white); }
-.fx-strike-tail { opacity: 0.55; }
+.fx-attack-fill, .fx-strike-ray { fill: currentColor; }
 .fx-strike-ray { mask-image: linear-gradient(90deg, transparent, #000 45%, #000 55%, transparent); }
 .fx-attack.light .fx-attack-impact { filter: none; }
 .fx-attack.light .fx-attack-white { color: inherit; }

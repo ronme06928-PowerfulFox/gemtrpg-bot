@@ -39,25 +39,22 @@ h3 { font-size: 16px; font-weight: 500; margin: 0; overflow-wrap: anywhere; }
   color: #f6f1e5;
 }
 /* 以下は単体の演出のカードの仮の台（.stage）だけに効かせる。場面カードの本物の解決パネルには効かせない。 */
-.stage .resolve-flow-background { position: absolute; top: 0; bottom: 0; width: 50%; opacity: 0.25; }
-.stage .resolve-flow-background.attacker { left: 0; mask-image: linear-gradient(to right, #000 45%, transparent); }
-.stage .resolve-flow-background.defender { right: 0; mask-image: linear-gradient(to left, #000 45%, transparent); }
-.stage .resolve-flow-background > img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
-.stage .side { position: absolute; top: 38px; width: 42%; text-align: center; }
-.stage .side.attacker { left: 3%; }
-.stage .side.defender { right: 3%; }
-.stage .name { min-height: 26px; font-size: 14px; font-weight: 600; line-height: 1.5; }
-.stage .actual { width: 54px; height: 42px; margin: 12px auto; font: 900 28px var(--fx-number-font); }
-.stage .vs { position: absolute; top: 90px; left: 45%; width: 10%; height: 30px; text-align: center; color: #d4bb89; font: 16px Georgia, serif; }
-/* 本番の解決パネルと同じく、合算の参加者は守る側の上の方（見出しのすぐ下）に並べる。 */
-.stage .summation-chips { position: absolute; right: 3%; top: 64px; width: 48%; height: 60px; display: flex; justify-content: space-around; gap: 4px; }
-.stage .participant-chip { min-width: 0; flex: 1; text-align: center; }
-.stage .participant-chip > span { font-size: 9px; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.stage .resolve-flow-portrait-inline { margin: auto; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #b7a478; }
-.stage .resolve-flow-portrait-inline img { width: 100%; height: 100%; object-fit: cover; object-position: center 15%; }
-.stage .summation-total { position: absolute; top: 132px; right: 22%; font: 14px var(--fx-number-font); color: #999b98; }
+.stage .arena { position: absolute; inset: 0; }
+.stage .combatant { position: absolute; inset: 0 auto 0 0; width: 50%; }
+.stage .combatant.defender { left: 50%; }
+.stage .portrait { position: absolute; inset: 8px 0 18px; mask-image: linear-gradient(to bottom, #000 75%, transparent); }
+.stage .portrait img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+.stage .character-name { position: absolute; bottom: 12px; width: 100%; text-align: center; font-size: 12px; text-shadow: 0 1px 3px #000; }
+.stage .power-number { position: absolute; top: 18px; left: 40%; font: 900 28px var(--fx-number-font); }
+.stage .clash-point { position: absolute; top: 90px; left: 45%; width: 10%; text-align: center; color: #d4bb89; }
+.stage .participants { position: absolute; inset: 50px 2px 28px; display: flex; gap: 4px; }
+.stage .participant { position: relative; min-width: 0; flex: 1; }
+.stage .participant .portrait { inset: 0; }
+.stage .participant-name { position: absolute; bottom: 0; font-size: 9px; }
+.stage .damage-lane, .stage .band-lane { position: absolute; top: 30%; left: 25%; width: 22%; height: 60%; }
+.stage .damage-lane.defender, .stage .band-lane.defender { left: 53%; }
 .stage .chat-total { position: absolute; left: 16%; top: 215px; width: 50px; height: 28px; color: #88ce9a; }
-.stage .stage-caption { position: absolute; bottom: 12px; left: 12px; color: #979d9e; font-size: 9px; letter-spacing: 1px; }
+.stage .stage-caption { position: absolute; bottom: 2px; left: 12px; color: #979d9e; font-size: 9px; }
 .stage > .fx-root { z-index: 4; }
 .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 14px 14px 8px; }
 button, select { font: inherit; font-size: 12px; color: #eee5d1; background: #252e38; border: 1px solid #53606a; border-radius: 5px; padding: 7px 10px; }
@@ -93,8 +90,6 @@ footer { color: #8e979b; font-size: 12px; border-top: 1px solid #303c45; padding
   .card-heading { padding: 14px 12px; }
   .controls { gap: 6px; padding-left: 10px; padding-right: 10px; }
   button, select { padding: 7px; }
-  .stage .side.defender .name { font-size: 12px; }
-  .scene-card .stage .name { font-size: 12px; }
   .stage { --fx-scale: 0.8; }
 }
 /* 場面カードの本物の解決パネル。本番は画面の幅（92vw）で決まる幅を、一覧の枠の幅に合わせる。ボタンは押せないようにする。 */

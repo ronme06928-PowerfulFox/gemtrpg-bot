@@ -36,7 +36,7 @@ for (const name of ['attack-slash','attack-strike','attack-pierce','impact-flash
 for (const name of ['attack-slash','attack-strike','attack-pierce']) {
   const fx = Object.create(Fx.get(name));
   fx.mount(doc.createElement('div'),{level:'rich',tier:'large',direction:1,width:300,height:240});
-  fx.render(0.79); assert.strictEqual(Number(fx.impact.style.opacity),0);
+  fx.render(0.69); assert.strictEqual(Number(fx.impact.style.opacity),0);
   fx.render(0.85); assert.ok(Number(fx.impact.style.opacity)>0);
 }
 const flash = Object.create(Fx.get('attack-flash'));
@@ -46,7 +46,7 @@ const damage = Object.create(Fx.get('resolve-damage'));
 damage.mount(doc.createElement('div'),{level:'rich',shake:'large',amount:15});
 damage.render(0.04); const shake = damage.el.style.transform;
 damage.render(0.5); damage.render(0.04); assert.strictEqual(damage.el.style.transform,shake);
-assert.ok(shake.includes('translateX('));
+assert.ok(!shake.includes('translateX('));
 """)
 
 
@@ -57,7 +57,7 @@ const { playResolveStageFx, attackEffect, attackTier } = await import('./static/
 const flowStageStartsMs = Object.fromEntries(Object.entries(
   (await import('./static/js/battle/components/resolve_stage_timing.js')).resolveStageStarts({})).map(([k,s]) => [k,s*1000]));
 const flow = new ResolveFlowPanel(), calls = [], measured = [];
-const selectors = ['arena','power:attacker','power:defender','damage:attacker','damage:defender','band:attacker','band:defender'];
+const selectors = ['arena','power:attacker','power:defender','damage:attacker','damage:defender','damage:participants','band:attacker','band:defender'];
 const targets = new Map(selectors.map(s => [`[data-anchor="${s}"]`,{style:{},parentElement:{},getBoundingClientRect(){ throw Error('舞台の演出は画面座標を測らない'); }}]));
 const panel = {querySelector(s) { measured.push(s);return targets.get(s); }};
 global.document = {getElementById:() => panel};
@@ -88,15 +88,15 @@ for(const name of ['attack-strike','attack-pierce','attack-slash']) {
   for(const level of ['normal','rich']) {
     const fx=Object.create(Fx.get(name));
     fx.mount(doc.createElement('div'),{level,tier:'large',width:320,height:240});
-    for(const t of [0.8,0.82,1.0,1.24]) {
+    for(const t of [0.7,0.72,1.0,1.24]) {
       fx.render(t); assert.strictEqual(Number(fx.impact.style.opacity),1,`${name}/${level}/${t}`);
     }
     fx.render(1.32); assert.ok(Number(fx.impact.style.opacity)>0 && Number(fx.impact.style.opacity)<1);
     fx.render(Infinity); assert.strictEqual(Number(fx.impact.style.opacity),0);
-    fx.render(0.79); assert.strictEqual(Number(fx.impact.style.opacity),0);
+    fx.render(0.69); assert.strictEqual(Number(fx.impact.style.opacity),0);
     fx.render(0.82); assert.strictEqual(Number(fx.impact.style.opacity),1);
     if(name==='attack-strike') {
-      const brightness=[0.8,0.81,0.82,0.83,0.84,0.85].map(t=>{
+      const brightness=[0.7,0.71,0.72,0.73].map(t=>{
         fx.render(t); return Number(fx.impact.style.opacity)*Number(fx.flash.style.opacity);
       });
       assert.ok(Math.max(...brightness)>=0.9,`${level}: ${brightness}`);
@@ -115,11 +115,11 @@ for(const name of ['attack-strike','attack-pierce','attack-slash']) {
   const root=doc.createElement('div'),fx=Object.create(Fx.get(name));
   fx.mount(root,{level:'light',tier:'large',width:320,height:240});
   fx.render(0); const still=transforms(root);
-  for(const [t,opacity] of [[0.3,0],[0.6,0],[0.8,0],[1.0,1],[Infinity,0],[0.6,0]]) {
+  for(const [t,opacity] of [[0.3,0],[0.6,0],[0.7,0],[0.9,1],[Infinity,0],[0.6,0]]) {
     fx.render(t); assert.strictEqual(Number(fx.impact.style.opacity),opacity,`${name}/${t}`);
     assert.deepStrictEqual(transforms(root),still,`${name}/${t}`);
   }
-  for(const t of [0.85,1.32]) {
+  for(const t of [0.75,1.32]) {
     fx.render(t); assert.ok(Number(fx.impact.style.opacity)>0 && Number(fx.impact.style.opacity)<1);
     assert.deepStrictEqual(transforms(root),still);
   }
@@ -164,7 +164,7 @@ for (const lv of ['light','normal','rich']) for (const hp of [0,7,8,14,15]) {
   assert.strictEqual(names().includes('impact-flash'),lv==='rich' && hp>=15);
   const damage=calls.filter(c=>c[0]==='resolve-damage');
   assert.strictEqual(damage.reduce((sum,c)=>sum+c[1].amount,0),hp);
-  assert.ok(damage.every(c=>c[1].shake===attackTier(hp)));
+  assert.ok(damage.every(c=>c[1].shake===undefined));
 }
 level='rich'; run({...base,outcome:'draw'},'attack');
 assert.deepStrictEqual(names(),['attack-slash','attack-strike']);

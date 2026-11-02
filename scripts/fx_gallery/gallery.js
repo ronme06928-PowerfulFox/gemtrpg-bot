@@ -1,3 +1,4 @@
+import { bindHitTargets } from '../../static/js/battle/components/resolve_flow_fx.js';
 import { resolveStageTiming, resolveOutcomeWindow } from '../../static/js/battle/components/resolve_flow_fx.js';
 import { effectSamples, sceneSamples, characters } from './samples.mjs';
 import { collectSceneEvents } from './scene.mjs';
@@ -29,39 +30,38 @@ function createStage(host, scene) {
   const stage = el('div', 'stage resolve-flow-card');
   stage.id = `gallery-stage-${++sequence}`;
   host.append(stage);
-  const attacker = characters[0];
-  const defender = characters[1];
-  const summation = scene?.step.kind === 'mass_summation';
-  for (const [side, character] of [['attacker', attacker], ['defender', defender]]) {
-    {
-      const background = el('div', `resolve-flow-background ${side}`);
-      if (!(summation && side === 'defender')) background.append(portrait(character));
-      stage.append(background);
+  stage.classList.add('theatre');
+  const arena = el('div', 'arena');
+  stage.append(arena);
+  const summation = scene?.step?.kind === 'mass_summation' || scene?.params?.group || scene?.params?.mode === 'wide' || scene?.params?.mode === 'chip';
+  for (const [side, character] of [['attacker', characters[0]], ['defender', characters[1]]]) {
+    const combatant = el('div', `combatant ${side}`);
+    combatant.dataset.anchor = `half:${side}`;
+    const figure = el('div', 'portrait');
+    figure.dataset.anchor = `portrait:${character.id}`;
+    figure.append(portrait(character));
+    const power = el('div', `power-number ${side}`, side === 'attacker' ? '12' : '7');
+    power.dataset.anchor = `power:${side}`;
+    combatant.append(figure, el('div', 'character-name', character.name), power);
+    arena.append(combatant);
+    if (side === 'defender' && summation) {
+      combatant.removeChild(figure);
+      const participants = el('div', 'participants');
+      for (const member of characters.slice(1)) {
+        const item = el('div', 'participant'); item.dataset.actorId = member.id;
+        const image = el('div', 'portrait'); image.dataset.anchor = `portrait:${member.id}`;
+        image.append(portrait(member)); item.append(image, el('span', 'participant-name', member.name)); participants.append(item);
+      }
+      combatant.append(participants);
     }
-    const info = el('div', `side ${side}`);
-    info.append(el('div', 'name', summation && side === 'defender' ? '防御側 · 3人' : character.name));
-    info.append(el('div', `actual ${side}`, side === 'attacker' ? '12' : '7'));
-    stage.append(info);
   }
-  stage.append(el('div', 'vs', 'VS'));
-  const chips = el('div', 'summation-chips');
-  for (const character of characters.slice(1)) {
-    const chip = el('div', 'participant-chip');
-    chip.dataset.actorId = character.id;
-    const circle = el('div', 'resolve-flow-portrait-inline');
-    circle.append(portrait(character));
-    chip.append(circle, el('span', '', character.name));
-    chips.append(chip);
-  }
-  stage.append(chips);
-  const total = el('div', 'summation-total');
-  total.append(el('strong', '', '15'));
-  stage.append(total, el('div', 'chat-total', ''));
-  stage.append(el('span', 'stage-caption', summation ? '広域 − 合算' : 'RESOLVE / 仮の台'));
-  for (const anchor of ['arena', 'power:attacker', 'power:defender', 'damage:attacker', 'damage:defender', 'band:attacker', 'band:defender']) {
-    const target = el('div', 'mock-anchor');
+  arena.append(el('div', 'clash-point', 'VS'));
+  stage.append(el('div', 'chat-total', ''), el('span', 'stage-caption', 'RESOLVE / 舞台の単体見本'));
+  arena.dataset.anchor = 'arena';
+  for (const anchor of ['damage:attacker', 'damage:defender', 'damage:participants', 'band:attacker', 'band:defender']) {
+    const target = el('div', `${anchor.startsWith('damage') ? 'damage' : 'band'}-lane ${anchor.split(':')[1]}`);
     target.dataset.anchor = anchor;
-    stage.append(target);
+    arena.append(target);
   }
   return stage;
 }
@@ -72,7 +72,7 @@ function mountEvents(stage, events, level) {
     root.style.top = `${event.top}px`;
     (event.host || stage).append(root);
     const fx = Object.create(Fx.get(event.name));
-    fx.mount(root, { ...embedded(event.params), level });
+    fx.mount(root, { ...bindHitTargets(stage, event.name, embedded(event.params)), level });
     return { ...event, root, fx };
   });
 }
@@ -82,14 +82,14 @@ function renderEvents(events, time) {
     const age = (time - event.at) * (event.rate || 1);
     event.root.hidden = age < 0 || age >= event.fx.duration;
     if (event.numberAnchor) event.numberAnchor.style.visibility = age < event.fx.duration ? 'hidden' : '';
-    event.fx.render(Math.max(0, Math.min(age, event.fx.duration)));
+    event.fx.render(age < 0 ? 0 : age >= event.fx.duration ? Infinity : age);
   }
 }
 function singleEvents(stage, sample) {
   const band = sample.effect === 'effect-band';
   const damage = sample.effect === 'resolve-damage';
-  const anchor = band || damage ? '.resolve-flow-background.defender' : sample.anchor;
-  const target = anchor === '.resolve-flow-card' ? stage : stage.querySelector(anchor);
+  const anchor = band || damage ? '.combatant.defender' : sample.anchor;
+  const target = anchor === '.theatre' ? stage : stage.querySelector(anchor);
   if (sample.previewSize) {
     const { width, height } = sample.previewSize;
     stage.style.width = target.style.width = `${width}px`;
@@ -196,7 +196,7 @@ function createCard(samples, scene = false) {
     eventList.replaceChildren();
     // 場面カードは本物の解決パネルで描く。HTMLを解釈できない環境では仮の台に戻る（計画56 §4.1a）。
     stage = scene ? createRealStage(stageHost, embedded(sample)) : null;
-    if (!stage) { stageHost.replaceChildren(); stage = createStage(stageHost, scene ? sample : null); }
+    if (!stage) { stageHost.replaceChildren(); stage = createStage(stageHost, sample); }
     const real = stage.hasAttribute?.('data-gallery-resolve-panel');
     const scenePlan = scene ? collectSceneEvents(sample, stage, level.value) : null;
     const planned = scenePlan ? scenePlan.events : singleEvents(stage, sample);
@@ -228,7 +228,7 @@ function createCard(samples, scene = false) {
       strip.append(frame);
       // 先に実寸で測り、縮小は描画後に行う。
       let frameStage = real ? createRealStage(canvas, embedded(sample), stage.offsetWidth) : null;
-      if (!frameStage) { canvas.replaceChildren(); frameStage = createStage(canvas, scene ? sample : null); }
+      if (!frameStage) { canvas.replaceChildren(); frameStage = createStage(canvas, sample); }
       frameStage.style.width = `${stage.offsetWidth}px`;
       const framePlan = scene ? collectSceneEvents(sample, frameStage, level.value).events : singleEvents(frameStage, sample);
       renderEvents(mountEvents(frameStage, framePlan, level.value), t);

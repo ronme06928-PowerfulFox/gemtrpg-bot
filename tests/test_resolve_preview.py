@@ -63,9 +63,9 @@ def test_preview_samples_and_timeline_keep_the_production_outcome_plan():
       assert.strictEqual(timeline.events.length,0);
       assert.ok(Math.abs(timeline.duration-(T.names+T.power+T.fizzleOutcome+FIZZLE_WAIT_MS)/1000)<1e-9);
     } else {
-      // 定義の0.8秒の命中は、速めた再生で勝敗の開始ちょうどに当たる。
+      // 定義の0.7秒の命中は、速めた再生で勝敗の開始ちょうどに当たる。
       const attack=timeline.events.find(e=>e.name.startsWith('attack-'));
-      assert.ok(Math.abs(attack.at+0.8/attack.rate-timeline.outcomeStart)<1e-9);
+      assert.ok(Math.abs(attack.at+0.7/attack.rate-timeline.outcomeStart)<1e-9);
       assert.ok(attack.at+fx.get(attack.name).duration/attack.rate>timeline.outcomeStart);
     }
     if (sample.step.kind==='one_sided') {
@@ -347,7 +347,7 @@ function run(reduced) {
       const targets=new Map();
       for(const root of canvas().querySelectorAll('.event-resolve-damage')) {
         // 参加者の数字だけは、立ち絵の上に出すため数字の箱の外（舞台）に置く。
-        assert.ok(root.parentNode.className.includes(option.value.startsWith('summation')&&root.dataset.targetId!=='a'?'arena':'damage-lane'));
+        assert.ok(root.parentNode.className.includes('damage-lane'));
         const id=root.dataset.targetId;
         if(targets.has(id))assert.strictEqual(root.style.top,targets.get(id));
         else targets.set(id,root.style.top);

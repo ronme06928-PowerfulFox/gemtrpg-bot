@@ -16,13 +16,13 @@ def test_production_tempo_is_plan_a_with_a_short_wait():
  assert.deepStrictEqual(t.resolveStageTiming(fizzle).map(r=>r.ms),[500,1200,900]);
  assert.deepStrictEqual(t.resolveStageStarts(clash),{names:0,power:0.5,attack:1.7,outcome:2.4,wait:4.6});
  assert.strictEqual(t.resolveOutcomeWindow(clash),2.8);assert.strictEqual(t.resolveOutcomeWindow(ko),4.3);
- // 演出は設計時の長さ（威力1400ms・攻撃の命中800ms）との比で速く再生する。
- assert.deepStrictEqual({...t.FX_DESIGN_MS},{power:1400,attack:800});
- assert.strictEqual(t.fxPlaybackRate('power'),1400/1200);assert.strictEqual(t.fxPlaybackRate('attack'),800/700);
+ // 演出は設計時の長さ（威力1400ms・攻撃の命中700ms）との比で速く再生する。
+ assert.deepStrictEqual({...t.FX_DESIGN_MS},{power:1400,attack:700});
+ assert.strictEqual(t.fxPlaybackRate('power'),1400/1200);assert.strictEqual(t.fxPlaybackRate('attack'),700/700);
  // 別の段階の長さを渡せる（プレビューの比較用）。
  const quick={names:350,power:900,attack:600,outcome:1800,knockout:1200,fizzleOutcome:800};
  assert.deepStrictEqual(t.resolveStageTiming(clash,quick).map(r=>r.ms),[350,900,600,1800]);
- assert.strictEqual(t.fxPlaybackRate('attack',quick),800/600);
+ assert.strictEqual(t.fxPlaybackRate('attack',quick),700/600);
  const before=stageMotionAt(clash,1.84,'normal',quick),after=stageMotionAt(clash,1.86,'normal',quick);
  assert.strictEqual(before.sides.attacker.gemBrightness,null);assert.ok(after.sides.attacker.gemBrightness>=1);
 })().catch(e=>{console.error(e);process.exitCode=1;});
@@ -73,8 +73,8 @@ def test_preview_tempo_variants_scale_the_roll_and_attack_but_not_the_numbers():
   const roll=tl.events.find(e=>e.name==='power-roll'),attack=tl.events.find(e=>e.name.startsWith('attack-'));
   assert.ok(Math.abs(roll.rate-t.fxPlaybackRate('power',v.tempo))<1e-9);
   assert.ok(Math.abs(attack.rate-t.fxPlaybackRate('attack',v.tempo))<1e-9);
-  // 命中（攻撃の定義の0.8秒目）が勝敗の始まりと一致する。
-  assert.ok(Math.abs(attack.at+0.8/attack.rate-tl.outcomeStart)<1e-9,key);
+  // 命中（攻撃の定義の0.7秒目）が勝敗の始まりと一致する。
+  assert.ok(Math.abs(attack.at+0.7/attack.rate-tl.outcomeStart)<1e-9,key);
   assert.ok(tl.events.filter(e=>e.name==='resolve-damage').every(e=>!e.rate||e.rate===1));
  }
 })().catch(e=>{console.error(e);process.exitCode=1;});
@@ -93,7 +93,7 @@ def test_gallery_scenes_keep_the_playback_rate_of_the_attack():
  global.document={getElementById:()=>panel};
  const attack=collectSceneEvents(sceneSamples.find(s=>s.id==='rupture'),panel,'normal').events.find(e=>e.name.startsWith('attack-'));
  assert.ok(attack,'攻撃の演出がある');assert.strictEqual(attack.rate,t.fxPlaybackRate('attack'));
- assert.ok(Math.abs(attack.at+0.8/attack.rate)<1e-9,'命中が勝敗の始まり（0秒）に来る');
+ assert.ok(Math.abs(attack.at+0.7/attack.rate)<1e-9,'命中が勝敗の始まり（0秒）に来る');
  const gallery=fs.readFileSync('scripts/fx_gallery/gallery.js','utf8');
  assert.ok(gallery.includes('(time - event.at) * (event.rate || 1)'));
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -18,7 +18,7 @@ import './static/js/fx/fx_effects.js';
 import {ResolveFlowPanel} from './static/js/battle/components/ResolveFlowPanel.js';
 import {store} from './static/js/battle/core/BattleStore.js';
 import {playResolveStageFx,resolveStageTiming} from './static/js/battle/components/resolve_flow_fx.js';
-import {getLayout,participantSlots,stageFxPlacement} from './static/js/battle/components/resolve_stage_layout.js';
+import {getLayout,participantSlots,stageFxPlacement,fitStage} from './static/js/battle/components/resolve_stage_layout.js';
 import {resolveStageStarts} from './static/js/battle/components/resolve_stage_timing.js';
 import {stageMotionAt,renderStageMotion} from './static/js/battle/components/resolve_stage_motion.js';
 const samples=__SAMPLES__,skills=__SKILLS__;
@@ -32,7 +32,7 @@ window.Fx.play=(name,params,options)=>{
   const fx=Object.create(window.Fx.get(name));fx.mount(root,{...params,level:'normal'});fx.render(0.5);
   const item={name,params,options,root,fx};events.push(item);return item;
 };
-window.qa={samples,getLayout,participantSlots,stageFxPlacement,flow,seekMotion(time,level){
+window.qa={samples,getLayout,participantSlots,stageFxPlacement,fitStage,flow,seekMotion(time,level){
   const canvas=document.querySelector('.resolve-stage-canvas');
   renderStageMotion(canvas,stageMotionAt(flow._activeStep,time,level));
   return [...canvas.querySelectorAll('.portrait,.skill-plaque,.gem,.character-name,.clash-point')].map(el=>el.style.cssText);
@@ -90,15 +90,14 @@ def main():
                       const panel=document.getElementById('resolve-flow-panel'),canvas=panel.querySelector('.resolve-stage-canvas');
                       const rect=canvas.getBoundingClientRect(),host=panel.querySelector('.resolve-stage-host').getBoundingClientRect();
                       const desc=panel.querySelector('.skill-descriptions');
-                      const layout=qa.getLayout(innerWidth<=980?660:1180);
-                      const expected=Math.max(0,Math.min(layout.copyHeight,innerHeight-108-layout.cardHeight-14));
-                      const shown=expected>=40;
+                      const layout=qa.getLayout(parseFloat(canvas.style.width));
+                      const expected=qa.fitStage(layout,(panel.clientWidth||innerWidth)*0.92,innerHeight).copyHeight;
                       const visible=el=>getComputedStyle(el).visibility==='visible';
                       const step=qa.flow._activeStep;
                       const unarmed=step.kind!=='fizzle'&&qa.flow._isOneSidedPresentation(step);
                       return {width:rect.width,height:host.height,card:panel.querySelector('.theatre').getBoundingClientRect().height,
                         copy:parseFloat(desc.style.height),copyDisplay:getComputedStyle(desc).display,narrow:canvas.classList.contains('narrow'),
-                        expected:shown?expected:0,phase:panel.className,plaque:[...panel.querySelectorAll('.skill-plaque')].every(visible),
+                        expected,expectedNarrow:layout.width===660,phase:panel.className,plaque:[...panel.querySelectorAll('.skill-plaque')].every(visible),
                         summary:visible(panel.querySelector('.result-band')),nan:canvas.innerHTML.includes('NaN'),
                         unarmed,defenderPlaque:!!panel.querySelector('.combatant.defender .skill-plaque'),
                         defenderGem:!!panel.querySelector('.combatant.defender > .gem'),
@@ -114,7 +113,7 @@ def main():
                     assert result["width"] <= width + 1, (sample, result)
                     assert result["height"] <= height - 108 + 1, (sample, result)
                     assert result["copy"] == result["expected"], (sample, result)
-                    assert result["narrow"] == (width <= 980)
+                    assert result["narrow"] == result["expectedNarrow"]
                     assert result["plaque"] == (phase != "names"), (sample, phase, result)
                     assert result["summary"] == (phase == "outcome" or (sample == "fizzle" and phase == "attack"))
                     assert not result["nan"], (sample, result)

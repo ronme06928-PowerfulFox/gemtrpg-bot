@@ -59,6 +59,12 @@ export function createStage(host, sample, timeline, assets, sampleIndex, layout)
   top.append(phase);
   const arena = el('div', 'arena');
   arena.dataset.anchor = 'arena';
+  if (sample.step.kind === 'mass_summation') {
+    const lane = el('div', 'damage-lane');
+    lane.dataset.anchor = 'damage:participants';
+    Object.assign(lane.style, { left: '0px', top: '0px', width: `${layout.width}px`, height: `${layout.arenaHeight}px` });
+    arena.append(lane);
+  }
   const characters = sample.state.characters;
   const summation = sample.step.kind === 'mass_summation';
   const oneSided = sample.step.kind !== 'fizzle' && isOneSidedPresentation(sample.step);

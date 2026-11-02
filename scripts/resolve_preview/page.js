@@ -1,3 +1,4 @@
+import { bindHitTargets } from '../../static/js/battle/components/resolve_flow_fx.js';
 import { stageMotionAt, renderStageMotion } from '../../static/js/battle/components/resolve_stage_motion.js';
 import { resolveWaitMs } from '../../static/js/battle/components/resolve_stage_timing.js';
 import '../../static/js/fx/fx_core.js';
@@ -109,7 +110,7 @@ function mountEvents() {
     let host = stage.arena;
     let x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
     if (damage && bases.get(event.targetId).own) {
-      // 参加者の数字は舞台に直接置く（数字の箱の外にある）。
+      host = stage.canvas.querySelector('[data-anchor="damage:participants"]');
       x = bases.get(event.targetId).x;
       y = bases.get(event.targetId).y;
     } else if (band || damage) {
@@ -136,7 +137,7 @@ function mountEvents() {
     const groups = event.params.groups?.map(group => ({ ...group,
       lines: group.lines.map(line => ({ ...line, icon: iconFor(line.status) })),
     }));
-    fx.mount(root, { ...event.params, level: levelSelect.value,
+    fx.mount(root, { ...bindHitTargets(stage.canvas, event.name, event.params), level: levelSelect.value,
       width: band ? layout.band.width * 2 : rect.width || 100, height: rect.height || 100,
       icon: iconFor(event.params.status), label: event.params.status,
       ...(groups ? { groups } : {}),
@@ -161,7 +162,7 @@ function render(value) {
     const visible = age >= 0 && age < event.fx.duration;
     event.root.hidden = !visible;
     if (event.numberAnchor) event.numberAnchor.style.visibility = time < event.at ? 'hidden' : visible ? 'hidden' : '';
-    event.fx.render(Math.max(0, Math.min(age, event.fx.duration)));
+    event.fx.render(age < 0 ? 0 : age >= event.fx.duration ? Infinity : age);
   }
   for (const button of markerButtons.children) button.classList.toggle('current', button.dataset.phase === phase);
   play.setAttribute('aria-pressed', String(playing));

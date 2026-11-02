@@ -14,8 +14,8 @@ export const RESOLVE_TEMPO = Object.freeze({
   ...Object.fromEntries(RESOLVE_STAGE_TIMING.map(row => [row.stage, row.ms])),
   knockout: OUTCOME_EXTENSIONS.knockout, fizzleOutcome: 900,
 });
-// 威力のロール（1.4秒）と攻撃（0.8秒で命中）の定義を作ったときの段階の長さ。段階に合わせて再生を速める。
-export const FX_DESIGN_MS = Object.freeze({ power: 1400, attack: 800 });
+// 威力のロール（1.4秒）と攻撃（0.7秒で命中）の定義を作ったときの段階の長さ。段階に合わせて再生を速める。
+export const FX_DESIGN_MS = Object.freeze({ power: 1400, attack: 700 });
 export const fxPlaybackRate = (stage, tempo = RESOLVE_TEMPO) => FX_DESIGN_MS[stage] / tempo[stage];
 
 export function resolveStageTiming(step = {}, tempo = RESOLVE_TEMPO) {

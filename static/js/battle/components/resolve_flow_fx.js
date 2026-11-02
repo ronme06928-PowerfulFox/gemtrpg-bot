@@ -16,6 +16,41 @@ export function attackTier(damage) {
   return damage >= ATTACK_TIERS.large ? 'large' : damage >= ATTACK_TIERS.medium ? 'medium' : 'small';
 }
 
+export function attackTierFor(step, entries, ids, side) {
+  const group = step.kind === 'mass_summation' && side === 'defender';
+  const koIds = collectDamageKnockouts(step);
+  const knockout = group ? [...koIds].some(id => id !== ids.attacker) : koIds.has(ids[side]);
+  const damage = step.kind === 'mass_summation' ? Math.max(0, Number(step.rolls?.delta) || 0)
+    : entries.find(entry => entry.targetId === ids[side])?.total || 0;
+  return knockout ? 'large' : attackTier(damage);
+}
+
+// 本番と比較見本で同じ対象・時刻・段階を使う。ここではDOMを持たない。
+export function planHitResponse(step, entries, winner, ids, level) {
+  if (!winner || step.kind === 'fizzle' || level === 'light') return [];
+  const side = winner === 'attacker' ? 'defender' : 'attacker';
+  const group = step.kind === 'mass_summation' && side === 'defender';
+  const targetIds = entries.filter(entry => entry.total > 0 && (group
+    ? ids.participants.includes(entry.targetId) : entry.targetId === ids[side])).map(entry => entry.targetId);
+  if (!targetIds.length) return [];
+  const tier = attackTierFor(step, entries, ids, side);
+  const params = { side, group, targetIds, tier, direction: winner === 'attacker' ? 1 : -1 };
+  return [{ name: 'hit-react', at: 0, params },
+    ...(tier === 'small' ? [] : [{ name: 'hit-shake', at: 0.08, params }])];
+}
+
+// mountの時だけ対象を解決する。反応と揺れは別の要素を所有し、入場transformを保つ。
+export function bindHitTargets(scope, name, params) {
+  if (name === 'hit-react') return { ...params, targets: params.targetIds.map(id =>
+    scope.querySelector(`[data-anchor="portrait:${String(id).replace(/["\\]/g, '\\$&')}"]`)).filter(Boolean) };
+  if (name !== 'hit-shake') return params;
+  return { ...params, targets: [
+    scope.querySelector(`.combatant.${params.side}${params.group ? ' .participants' : ''}`),
+    scope.querySelector(`[data-anchor="damage:${params.group ? 'participants' : params.side}"]`),
+    ...scope.querySelectorAll?.('.fx-root.event-attack-slash, .fx-root.event-attack-strike, .fx-root.event-attack-pierce, .fx-root.event-attack-flash') || [],
+  ].filter(Boolean), cardTarget: scope.querySelector('.theatre') };
+}
+
 export function isDiceDamageSource(sourceRaw) {
   const source = String(sourceRaw || '').trim();
   const lower = source.toLowerCase();
@@ -82,11 +117,11 @@ export function playResolveStageFx(flow, payload, state) {
     flow._fxHosts ||= new Set();
     flow._fxHosts.add(host);
     if (number) number.style.visibility = 'hidden';
-    const item = fx.play(name, { ...params, width: place.width, height: place.height,
+    const item = fx.play(name, { ...bindHitTargets(panel, name, params), width: place.width, height: place.height,
       ...(place.ceiling !== undefined ? { ceiling: place.ceiling } : {}),
       mode: name === 'ko-shatter' ? 'hit' : place.chip ? 'chip' : params.mode,
     }, { host, elapsedSeconds, delaySeconds, left: place.left, top: place.top,
-      // 威力のロールと攻撃は段階の長さに合わせて速く再生する（数字・効果・戦闘不能は速さを変えない）。
+      // 威力は速め、攻撃は0.7秒で命中する等倍（数字・効果・戦闘不能は等倍）。
       rate: ['power', 'attack'].includes(payload.stage) ? fxPlaybackRate(payload.stage) : 1,
       className: `event-${name} ${place.classes || ''}`,
       onDone: () => { if (number) number.style.visibility = ''; } });
@@ -101,13 +136,8 @@ export function playResolveStageFx(flow, payload, state) {
     defender: String(flow._slotActorId(step.defenderSlotId, state) || step.defenderActorId || step.targetActorId || ''),
   };
   const entries = flow._collectDamageSummary(step, state).entries;
-  const damageKoIds = collectDamageKnockouts(step);
-  const totalFor = (side) => entries.find((entry) => entry.targetId === ids[side])?.total || 0;
-  // 合算のHP差分は残HPで切り詰められる。人数分を足さず、記録された1人あたりの差を使う。
-  const delta = Math.max(0, Number(step.rolls?.delta) || 0);
-  const tierFor = (side) => (summation && side === 'defender'
-    ? [...damageKoIds].some((id) => id !== ids.attacker) : damageKoIds.has(ids[side]))
-    ? 'large' : attackTier(summation ? delta : totalFor(side));
+  ids.participants = sample.step.participants.map(slot => String(flow._slotActorId(slot, state) || slot));
+  const tierFor = side => attackTierFor(step, entries, ids, side);
   const toneForId = (id) => {
     const char = flow._characterById(id, state);
     const enemy = typeof window.resolveTokenSide === 'function'
@@ -153,8 +183,10 @@ export function playResolveStageFx(flow, payload, state) {
     for (const side of oneSided || summation ? [loser] : ['attacker', 'defender']) {
       playAt('clash-shade', { winner: side === winner }, side);
     }
-    if (fx.getLevel() === 'rich' && tierFor(loser) === 'large') playAt('impact-flash', {});
   }
+  const response = planHitResponse(step, entries, winner, ids, fx.getLevel());
+  for (const event of response) playAt(event.name, event.params, event.params.side, event.at);
+  if (response.length && fx.getLevel() === 'rich' && tierFor(loser) === 'large') playAt('impact-flash', {});
   const rows = [...(step.applied?.damage || []), ...(step.damageEvents || [])];
   const popups = collectDamagePopups(entries, rows);
   const sideFor = id => id === ids.attacker ? 'attacker' : summation || id === ids.defender ? 'defender' : null;
@@ -175,7 +207,7 @@ export function playResolveStageFx(flow, payload, state) {
         icon: line.status && window.STATUS_CONFIG?.[line.status]?.icon ? `/static/images/${window.STATUS_CONFIG[line.status].icon}` : null,
       })),
     })) : undefined;
-    playAt(event.name, { ...event.params, tone, side, shake: tierFor(side),
+    playAt(event.name, { ...event.params, tone, side,
       ...(band ? { groups } : {}),
       icon: icon ? `/static/images/${icon}` : null, label: event.params.status,
       mode: chip ? 'chip' : 'hit',

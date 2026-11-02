@@ -35,7 +35,7 @@ def test_gallery_samples_cover_exactly_the_registered_effects_and_variants():
   const damage = effectSamples.filter(s => s.effect === 'resolve-damage');
   for (const tone of ['ally','enemy']) for (const kind of ['dice','effect']) assert.ok(damage.some(s => s.params.tone === tone && (s.params.kind || 'dice') === kind));
   assert.ok(damage.every(s => s.params.tone !== 'extra'));
-  for (const shake of ['small','medium','large']) assert.ok(damage.some(s => s.params.shake === shake));
+  assert.ok(damage.every(s => s.params.shake === undefined));
   for (const status of ['出血','破裂','亀裂','荊棘','戦慄','蓄力','凝魔']) assert.ok(damage.some(s => s.params.label === status));
   for(const [width,height] of [[590,400],[330,420]]) assert.ok(effectSamples.some(s=>s.effect==='ko-shatter'&&s.previewSize?.width===width&&s.previewSize?.height===height));
   const effects = effectSamples.filter(s => s.effect === 'effect-band');
@@ -232,7 +232,7 @@ context.window=context;
 vm.createContext(context);
 for (const script of scripts) vm.runInContext(script,context);
 const cards=all.filter(node=>node.className.split(' ').includes('gallery-card'));
-assert.strictEqual(cards.length,21);
+assert.strictEqual(cards.length,23);
 assert.strictEqual(cards.filter(c=>c.className.includes('scene-card')).length,7);
 for (const card of cards) {
   const stage=card.querySelector('.stage-host').children[0];
@@ -241,7 +241,7 @@ for (const card of cards) {
   const seek=card.querySelector('.seek'), clock=card.querySelector('.clock');
   seek.value='0.2';seek.events.input();
   assert.ok(clock.value.startsWith('0.20'));
-  if(card.dataset.effect==='power-roll') assert.strictEqual(stage.querySelector('.actual.attacker').style.visibility,'hidden');
+  if(card.dataset.effect==='power-roll') assert.strictEqual(stage.querySelector('.power-number.attacker').style.visibility,'hidden');
   if(card.dataset.effect==='chat-dice') assert.strictEqual(stage.querySelector('.chat-total').style.visibility,'hidden');
   const shot=snapshot(stage);
   seek.value='0.5';seek.events.input();seek.value='0.2';seek.events.input();
@@ -272,7 +272,7 @@ for (const card of cards) {
       for(const [id,width,height] of [['ko-wide',590,400],['ko-tall',330,420]]) {
         select.value=id;select.events.change();
         const stage=card.querySelector('.stage-host').children[0];
-        const background=stage.querySelector('.resolve-flow-background.defender');
+        const background=stage.querySelector('.combatant.defender');
         assert.strictEqual(background.style.width,width+'px');assert.strictEqual(background.style.height,height+'px');
         assert.strictEqual(stage.querySelector('.fx-ko-svg').attributes.viewBox,`0 0 ${width} ${height}`);
       }

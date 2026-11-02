@@ -156,7 +156,7 @@ def test_participant_markup_and_fx_use_the_same_slots_and_design_coordinates():
   if(n<=6)assert.ok(html.includes('data-anchor="power:d0">0</strong>'));
   for(const item of slots.items) {
    const damage=stageFxPlacement(layout,sample,'resolve-damage','defender',item.id,'dice');
-   assert.strictEqual(damage.anchor,'arena');assert.strictEqual(damage.top,layout.participants.baseY);
+   assert.strictEqual(damage.anchor,'damage:participants');assert.strictEqual(damage.top,layout.participants.baseY);
    assert.strictEqual(damage.left,layout.width/2+layout.participants.x+item.x+item.width/2);
    assert.strictEqual(damage.ceiling,damageCeiling(layout,{y:layout.participants.baseY,top:layout.participants.gemBottom+4},'dice'));
    const ko=stageFxPlacement(layout,sample,'ko-shatter','defender',item.id);

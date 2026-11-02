@@ -2,37 +2,43 @@ import { resolveOutcomeWindow } from '../../static/js/battle/components/resolve_
 
 const koDuration = resolveOutcomeWindow({ selfDestructed: ['sample'] });
 // 正規化済みtraceはPR4のテストと同じ形。見本の値はこのファイルに集約する。
-const sample = (id, effect, label, params = {}, anchor = '.side.defender .name') =>
+const sample = (id, effect, label, params = {}, anchor = '[data-anchor="damage:defender"]' ) =>
   ({ id, effect, label, params, anchor, level: 'normal' });
 
 export const effectSamples = [
   sample('float-damage', 'float-text', 'HP −9', { text: '−9', tone: 'damage' }),
   sample('float-heal', 'float-text', 'HP +12', { text: '+12', tone: 'heal' }),
-  sample('round', 'round-banner', 'ROUND 3', { text: 'ROUND 3' }, '.resolve-flow-card'),
-  sample('power', 'power-roll', '威力 12 / 2d6+3（5〜15）', { text: '12', range: { min: 5, max: 15 } }, '.actual.attacker'),
-  sample('power-unknown', 'power-roll', '合算 23 / 幅不明', { text: '23' }, '.actual.attacker'),
-  sample('clash', 'clash-flash', '打ち合い', {}, '.vs'),
-  sample('shade-win', 'clash-shade', '勝った側', { winner: true }, '.resolve-flow-background.attacker'),
-  sample('shade-lose', 'clash-shade', '負けた側', { winner: false }, '.resolve-flow-background.defender'),
+  sample('round', 'round-banner', 'ROUND 3', { text: 'ROUND 3' }, '.theatre'),
+  sample('power', 'power-roll', '威力 12 / 2d6+3（5〜15）', { text: '12', range: { min: 5, max: 15 } }, '.power-number.attacker'),
+  sample('power-unknown', 'power-roll', '合算 23 / 幅不明', { text: '23' }, '.power-number.attacker'),
+  sample('clash', 'clash-flash', '打ち合い', {}, '.clash-point'),
+  sample('shade-win', 'clash-shade', '勝った側', { winner: true }, '.combatant.attacker'),
+  sample('shade-lose', 'clash-shade', '負けた側', { winner: false }, '.combatant.defender'),
   ...['flash', 'slash', 'strike', 'pierce'].flatMap(kind =>
     ['small', 'medium', 'large'].flatMap(tier => [1, -1].flatMap(direction =>
       ['hit', 'wide', 'draw'].map(mode => sample(
         `${kind}-${tier}-${direction}-${mode}`, `attack-${kind}`,
         `${tier} / ${direction === 1 ? '左→右' : '右→左'} / ${mode}`,
         { tier, direction, mode, tone: mode === 'draw' ? 'neutral' : direction === 1 ? 'enemy' : 'ally' },
-        mode === 'draw' ? '.vs' : mode === 'wide' ? '.summation-chips'
-          : `.resolve-flow-background.${direction === 1 ? 'defender' : 'attacker'}`,
+        mode === 'draw' ? '.clash-point' : mode === 'wide' ? '.participants'
+          : `.combatant.${direction === 1 ? 'defender' : 'attacker'}`,
       ))))),
-  sample('impact', 'impact-flash', '大の一撃（派手で表示）', {}, '.resolve-flow-card'),
-  ...['ally', 'enemy'].flatMap(tone => ['small', 'medium', 'large'].map(shake =>
-    sample(`damage-${tone}-${shake}`, 'resolve-damage', `${tone} / 揺れ ${shake}`, { amount: 15, tone, shake }))),
+  sample('impact', 'impact-flash', '大の一撃（派手で表示）', {}, '.theatre'),
+  ...['ally', 'enemy'].map(tone => sample(`damage-${tone}`, 'resolve-damage', `${tone} / 本体`, { amount: 15, tone })),
+  ...[1, -1].flatMap(direction => [false, true].map(group => sample(`react-${direction}-${group}`, 'hit-react',
+    `命中の反応 / ${direction === 1 ? '左→右' : '右→左'} / ${group ? '合算' : '単体'}`,
+    { direction, side: direction === 1 ? 'defender' : 'attacker', group, targetIds: group ? ['d', 'e', 'f'] : [direction === 1 ? 'd' : 'a'] }, '.portrait'))),
+  ...['normal', 'rich'].flatMap(level => ['medium', 'large', 'small'].flatMap(tier => [false, true].map(group => ({
+    ...sample(`shake-${level}-${tier}-${group}`, 'hit-shake', `${level} / ${tier} / ${group ? '合算' : '単体'}`,
+      { side: 'defender', tier, group, targetIds: group ? ['d', 'e', 'f'] : ['d'] }, '.combatant.defender'), level,
+  })))),
   // 追加ダメージは受けた側の色のまま小さく出す（計画58 §5.4）。
   ...['ally', 'enemy'].map(tone => sample(`damage-${tone}-effect`, 'resolve-damage', `${tone} / 追加`, {
-    amount: 5, tone, kind: 'effect', shake: 'medium', label: '出血', icon: '/static/images/bleed.png',
+    amount: 5, tone, kind: 'effect', label: '出血', icon: '/static/images/bleed.png',
   })),
   ...Object.entries({ 出血: 'bleed', 破裂: 'rupture', 亀裂: 'fissure', 荊棘: 'thorns', 戦慄: 'fear', 蓄力: 'chikuryoku', 凝魔: 'gyoma' })
     .map(([label, icon]) => sample(`damage-${icon}`, 'resolve-damage', `${label}のアイコン`, {
-      amount: 5, tone: 'enemy', kind: 'effect', shake: 'medium', label, icon: `/static/images/${icon}.png`,
+      amount: 5, tone: 'enemy', kind: 'effect', label, icon: `/static/images/${icon}.png`,
     })),
   ...['enemy', 'ally', 'self'].map(tone => sample(`effect-${tone}`, 'effect-band', `戦慄殺到 / ${tone}`, {
     duration: 4.5, groups: [{ lines: [
@@ -53,19 +59,19 @@ export const effectSamples = [
   }),
   sample('confusion', 'effect-band', '混乱（結果なし）', { duration: 4.5,
     groups: [{ lines: [{ kind: 'title', text: '混乱', tone: 'ally' }] }] }),
-  sample('ko-hit', 'ko-shatter', '戦闘不能', { mode: 'hit', duration: koDuration }, '.resolve-flow-background.defender'),
+  sample('ko-hit', 'ko-shatter', '戦闘不能', { mode: 'hit', duration: koDuration }, '.combatant.defender'),
   ...['light', 'rich'].map(level => ({ ...sample(`ko-hit-${level}`, 'ko-shatter', `背景全体のガラス / ${level === 'light' ? '軽め' : '派手'}`,
-    { mode: 'hit', duration: koDuration }, '.resolve-flow-background.defender'), level })),
+    { mode: 'hit', duration: koDuration }, '.combatant.defender'), level })),
   ...[{ id: 'ko-wide', label: '横長の背景 590×400', width: 590, height: 400 },
     { id: 'ko-tall', label: '縦長の背景 330×420', width: 330, height: 420 }].map(size => ({
-      ...sample(size.id, 'ko-shatter', size.label, { mode: 'hit', duration: koDuration }, '.resolve-flow-background.defender'),
+      ...sample(size.id, 'ko-shatter', size.label, { mode: 'hit', duration: koDuration }, '.combatant.defender'),
       previewSize: { width: size.width, height: size.height },
     })),
   // 割れ方はキャラのIDを種にした疑似乱数で決まる。種を変えると割れ方が変わる（計画52 §6.6-8）。
   ...['人狼型シュラーカー', '小人型シュラーカー', '女冒険者'].map((targetId, i) =>
     sample(`ko-seed-${i + 1}`, 'ko-shatter', `割れ方の違い ${i + 1}（${targetId}）`,
-      { mode: 'hit', duration: koDuration, targetId }, '.resolve-flow-background.defender')),
-  sample('ko-chip', 'ko-shatter', '参加者の戦闘不能', { mode: 'chip', duration: koDuration }, '.participant-chip[data-actor-id="e"] .resolve-flow-portrait-inline'),
+      { mode: 'hit', duration: koDuration, targetId }, '.combatant.defender')),
+  sample('ko-chip', 'ko-shatter', '参加者の戦闘不能', { mode: 'chip', duration: koDuration }, '.participant[data-actor-id="e"] .portrait'),
   sample('chat', 'chat-dice', '2d6+5 → 13', {
     text: '13', range: { min: 7, max: 17 },
   }, '.chat-total'),
