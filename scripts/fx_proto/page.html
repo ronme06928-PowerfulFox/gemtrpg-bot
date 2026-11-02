@@ -1,0 +1,145 @@
+<meta charset="utf-8">
+<title>攻撃3属性の試作比較</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Zen+Antique&display=swap">
+<style>
+__MOTION_FX_CSS__
+:root {
+  --page: #0b0d16; --panel: #121524; --line: #2a2f45; --ink: #e8e4d8; --muted: #9aa0b4; --gold: #d9b45a;
+  --stage: #141826; --stage-glow: #232a44;
+  color-scheme: dark;
+}
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.7 'Yu Gothic UI', 'Meiryo', sans-serif; }
+main { max-width: 1240px; margin: 0 auto; padding-block: 28px 60px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; }
+.eyebrow { margin: 0; font: 700 12px 'Cinzel', serif; letter-spacing: 0.18em; color: var(--gold); }
+h1 { margin: 4px 0 6px; font: 400 28px 'Zen Antique', serif; text-wrap: balance; }
+.intro { margin: 0; color: var(--muted); max-width: 68ch; }
+.controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 12px 14px; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--line); border-radius: 8px; backdrop-filter: blur(6px); }
+.controls label { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; }
+.controls select, .controls button { font: inherit; color: var(--ink); background: #1b1f33; border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px; }
+.controls button { cursor: pointer; }
+.controls button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.seek-row { flex: 1 1 320px; display: flex; gap: 10px; align-items: center; min-width: 0; }
+.seek-row input { flex: 1; min-width: 0; accent-color: var(--gold); }
+.clock { font: 700 13px 'Cinzel', serif; color: var(--gold); min-width: 5.5em; text-align: right; }
+.phase { font-size: 12px; color: var(--muted); min-width: 4.5em; }
+.row { display: grid; gap: 8px; }
+.row[hidden] { display: none; }
+.row h2 { margin: 0; font: 400 18px 'Zen Antique', serif; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.row h2 small { font: 12px 'Yu Gothic UI', sans-serif; color: var(--muted); }
+.viewport { position: relative; width: 100%; aspect-ratio: 1180 / 420; max-width: 100%; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--stage); }
+.stage { position: absolute; left: 0; top: 0; width: 1180px; height: 420px; transform-origin: top left; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 85%, var(--stage-glow), transparent 64%), var(--stage); }
+.figure { position: absolute; bottom: 0; width: 260px; height: 360px; }
+.figure.attacker { left: 150px; } .figure.defender { left: 760px; }
+.figure .head { position: absolute; left: 50%; top: 40px; width: 92px; height: 104px; transform: translateX(-50%); border-radius: 46% 46% 42% 42%; background: linear-gradient(180deg, #3a4160, #262b42); }
+.figure .torso { position: absolute; left: 50%; top: 150px; width: 210px; height: 230px; transform: translateX(-50%); border-radius: 48% 48% 0 0; background: linear-gradient(180deg, #343b58, #1d2136); }
+.figure.defender .head, .figure.defender .torso { filter: hue-rotate(160deg) saturate(0.7); }
+.half-line { position: absolute; left: 590px; top: 0; width: 1px; height: 100%; background: linear-gradient(transparent, #ffffff14, transparent); }
+.fx-host { position: absolute; left: 885px; top: 193px; width: 0; height: 0; }
+.fx-host.mirror { left: 295px; }
+.note { margin: 0; color: var(--muted); font-size: 12px; max-width: 80ch; }
+.ticks { display: flex; gap: 6px; flex-wrap: wrap; }
+.ticks button { font-size: 12px; padding: 2px 8px; }
+</style>
+<main>
+  <header>
+    <p class="eyebrow">GEMLIA / ATTACK STUDY</p>
+    <h1>攻撃3属性の試作比較</h1>
+    <p class="intro">属性を切り替え、同じ時刻・同じ段階で本番と見本を並べます。斬撃は比較した案A・案Bを残し、打撃・貫通は本番と共通のCanvas部品の見本です。どれも 0.7 秒で命中し、0.78 秒まで止めてから余韻を描きます。遅く再生したり、目盛りで止めて見比べてください。</p>
+  </header>
+  <section class="controls" aria-label="操作">
+    <button type="button" class="play" aria-pressed="false">▶ 再生</button>
+    <button type="button" class="loop" aria-pressed="true">繰り返し</button>
+    <label>速さ <select class="speed"><option value="1">1倍</option><option value="0.5">0.5倍</option><option value="0.25" selected>0.25倍</option><option value="0.1">0.1倍</option></select></label>
+    <label>属性 <select class="attribute"><option value="slash">斬撃</option><option value="strike">打撃</option><option value="pierce">貫通</option></select></label>
+    <label>演出 <select class="level"><option value="light">軽め</option><option value="normal" selected>通常</option><option value="rich">派手</option></select></label>
+    <label>対象 <select class="mode"><option value="hit">単体</option><option value="wide">合算</option><option value="draw">引き分け</option></select></label>
+    <label>段階 <select class="tier"><option value="small">小</option><option value="medium">中</option><option value="large" selected>大</option></select></label>
+    <label>色 <select class="tone"><option value="enemy">敵へ（金）</option><option value="ally">味方へ（赤）</option><option value="neutral">中立</option></select></label>
+    <label>向き <select class="direction"><option value="1">左→右</option><option value="-1">右→左</option></select></label>
+    <div class="seek-row"><input type="range" class="seek" min="0" max="1.4" step="0.005" value="0" aria-label="時刻"><span class="phase"></span><output class="clock">0.000 s</output></div>
+    <div class="ticks" aria-label="時刻へ移る">
+      <button type="button" data-t="0.3">タメ 0.30</button><button type="button" data-t="0.6">ツメ 0.60</button><button type="button" data-t="0.68">0.68</button>
+      <button type="button" data-t="0.705">命中 0.70</button><button type="button" data-t="0.75">止め 0.75</button><button type="button" data-t="0.9">余韻 0.90</button><button type="button" data-t="1.1">1.10</button>
+    </div>
+  </section>
+  <section class="row" data-effect="attack-slash"><h2>本番<small>PR4.5e：CSSの色・加算の光・粒子。命中と止めはPR4.5bのまま</small></h2><div class="viewport"><div class="stage"></div></div></section>
+  <section class="row" data-reference="a" data-effect="proto-slash-a"><h2>案A：SVGを作り込む<small>弧に沿って振り抜く・白い芯から色へのグラデーション・ノイズでゆらぐ発光・加算合成・命中の閃光・切り口・輪・火花</small></h2><div class="viewport"><div class="stage"></div></div></section>
+  <section class="row" data-reference="b" data-effect="proto-slash-b"><h2>案B：Canvasの粒子<small>案Aの形に、速さの線・放射の光の筋・数の多い火花・漂う残り火・煙の靄を加える</small></h2><div class="viewport"><div class="stage"></div></div></section>
+  <p class="note">試作は解決パネル全体ではなく、受けた側の半分（590×420）に攻撃だけを描いています。命中の反応（光って押される）と揺れは含めていません。本番の演出と同じく、どれも時刻だけから描くので、目盛りで止めても同じ絵になります。斬撃の履歴の案A/Bは通常・単体のときだけ表示します。軽めや合算などは本番の行で確認してください。</p>
+</main>
+<script>
+__FX_SCRIPTS__
+</script>
+<script>
+(() => {
+  const Fx = window.Fx;
+  const $ = s => document.querySelector(s);
+  const rows = [...document.querySelectorAll('.row')];
+  const state = { t: 0, playing: false, last: 0 };
+  let items = [];
+  function stageMarkup() {
+    return '<div class="figure attacker"><div class="torso"></div><div class="head"></div></div>'
+      + '<div class="figure defender"><div class="torso"></div><div class="head"></div></div><div class="half-line"></div>';
+  }
+  function build() {
+    const dir = Number($('.direction').value), kind = $('.attribute').value;
+    for (const { fx } of items) fx.render(Infinity);
+    rows[0].dataset.effect = `attack-${kind}`;
+    const showHistory = $('.level').value === 'normal' && $('.mode').value === 'hit';
+    rows[1].hidden = kind !== 'slash' || !showHistory;
+    rows[2].hidden = kind === 'slash' && !showHistory;
+    rows[2].dataset.effect = `proto-${kind}-b`;
+    rows[2].querySelector('h2').textContent = kind === 'slash' ? '案B：比較した斬撃のCanvas試作' : 'Canvasの共通部品の見本（本番と同じ描き方）';
+    items = rows.filter(row => !row.hidden).map(row => {
+      const stage = row.querySelector('.stage');
+      stage.innerHTML = stageMarkup();
+      const host = document.createElement('div');
+      host.className = 'fx-host' + (dir === -1 ? ' mirror' : '');
+      stage.appendChild(host);
+      const root = document.createElement('div');
+      root.className = 'fx-root';
+      root.style.position = 'absolute';
+      host.appendChild(root);
+      const fx = Object.create(Fx.get(row.dataset.effect));
+      fx.mount(root, { level: $('.level').value, tier: $('.tier').value, tone: $('.tone').value, direction: dir, width: 495, height: 365, mode: $('.mode').value });
+      return { fx, stage, row };
+    });
+    fit(); draw();
+  }
+  function fit() { for (const { stage, row } of items) { const w = row.querySelector('.viewport').clientWidth; stage.style.transform = `scale(${w / 1180})`; } }
+  const phaseOf = t => t < ({slash:0.5,strike:0.55,pierce:0.58}[$('.attribute').value]) ? 'タメ' : t < 0.7 ? 'ツメ' : t < 0.78 ? '命中・止め' : '余韻';
+  function draw() {
+    for (const { fx } of items) fx.render(state.t);
+    $('.seek').value = String(state.t);
+    $('.clock').value = `${state.t.toFixed(3)} s`;
+    $('.phase').textContent = phaseOf(state.t);
+  }
+  function tick(now) {
+    if (!state.playing) return;
+    const dt = Math.min(0.05, (now - state.last) / 1000) * Number($('.speed').value);
+    state.last = now;
+    state.t += dt;
+    if (state.t > 1.4) { if ($('.loop').getAttribute('aria-pressed') === 'true') state.t = 0; else { state.t = 1.4; setPlaying(false); } }
+    draw();
+    requestAnimationFrame(tick);
+  }
+  function setPlaying(on) {
+    state.playing = on;
+    $('.play').textContent = on ? 'Ⅱ 一時停止' : '▶ 再生';
+    $('.play').setAttribute('aria-pressed', String(on));
+    if (on) { state.last = performance.now(); requestAnimationFrame(tick); }
+  }
+  $('.play').addEventListener('click', () => { if (state.t >= 1.4) state.t = 0; setPlaying(!state.playing); });
+  $('.loop').addEventListener('click', e => e.currentTarget.setAttribute('aria-pressed', String(e.currentTarget.getAttribute('aria-pressed') !== 'true')));
+  $('.seek').addEventListener('input', e => { setPlaying(false); state.t = Number(e.target.value); draw(); });
+  for (const b of document.querySelectorAll('.ticks button')) b.addEventListener('click', () => { setPlaying(false); state.t = Number(b.dataset.t); draw(); });
+  for (const s of ['.attribute', '.level', '.mode', '.tier', '.tone', '.direction']) $(s).addEventListener('change', build);
+  new ResizeObserver(fit).observe(document.body);
+  build();
+  state.t = 0.705; draw();
+})();
+</script>

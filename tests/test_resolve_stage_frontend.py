@@ -171,8 +171,20 @@ def test_participant_markup_and_fx_use_the_same_slots_and_design_coordinates():
    assert.deepStrictEqual([band.left,band.top,band.width],[side==='attacker'?0:layout.band.width,layout.band.height,layout.band.width*2]);
    const shade=stageFxPlacement(layout,sample,'clash-shade',side);
    assert.deepStrictEqual([shade.left,shade.width,shade.height],[width*(side==='attacker'?0.25:0.75),width/2,layout.arenaHeight]);
-   const attack=stageFxPlacement(layout,sample,'attack-slash',side);
-   assert.strictEqual(attack.left,width/2);
+   // 攻撃は受けた側の立ち絵の胸（上から45%）が命中の点。引き分けだけ舞台の中央。
+   // 打撃だけは上から70%（腰）。
+   const portraitX=layout.portraitInset+layout.portraitWidth/2,below=name=>name==='attack-strike'?0.3:0.55;
+   for(const name of ['attack-slash','attack-strike','attack-pierce','attack-flash']) {
+    const hit=stageFxPlacement(layout,sample,name,side,null,'hit');
+    assert.deepStrictEqual([hit.anchor,hit.left,hit.top,hit.width,hit.height],['arena',side==='attacker'?portraitX:width-portraitX,layout.arenaHeight-layout.portraitBottom-layout.portraitHeight*below(name),layout.portraitWidth*1.5,layout.portraitHeight]);
+    const draw=stageFxPlacement(layout,sample,name,side,null,'draw');
+    assert.deepStrictEqual([draw.left,draw.top],[width/2,layout.arenaHeight*0.48]);
+   }
+   const p=layout.participants;
+   for(const name of ['attack-slash','attack-strike']) {
+    const wide=stageFxPlacement(layout,sample,name,'defender',null,'wide');
+    assert.deepStrictEqual([wide.left,wide.top,wide.width,wide.height],[width/2+p.x+p.width/2,layout.arenaHeight-p.bottom-p.portraitBottom-p.portraitHeight*below(name),p.width,p.columnHeight]);
+   }
   }
  }
 })().catch(e=>{console.error(e);process.exitCode=1;});

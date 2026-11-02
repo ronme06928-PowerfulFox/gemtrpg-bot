@@ -7,7 +7,7 @@ import { createTimeline, phaseAt, phaseNames } from './timeline.mjs';
 import { TEMPO_VARIANTS } from './tempo.mjs';
 import { SCREENS, fitScreen } from './screen.mjs';
 import { el, createStage, fitNames } from './stage.mjs';
-import { getLayout, damageBases, damageCeiling, sideBox, participantSlots } from './layout.mjs';
+import { getLayout, damageBases, damageCeiling, sideBox, participantSlots, stageFxPlacement } from './layout.mjs';
 
 const assets = __PREVIEW_ASSETS__;
 const samples = __PREVIEW_SAMPLES__;
@@ -39,6 +39,10 @@ const levelSelect = selectControl('演出', 'level-select', [['light', '軽め']
 // 計画58 §5.3：画面の大きさを選ぶと、本番と同じ組の選び方と縮小率で舞台を実寸の大きさに描く。
 const screenSelect = selectControl('画面', 'screen-select', [['none', '制限なし'], ...SCREENS.map(screen => [screen.id, screen.label])]);
 // 計画58 §5.2：テンポの案を切り替えて見比べる。選ぶと待ちもその案の値にする。
+// 見本のスキルに無い属性も見比べられるよう、攻撃の絵だけを差し替える（判定・記録は見本のまま）。
+const attributeSelect = selectControl('攻撃の属性', 'attribute-select', [['', 'スキルのまま'], ['斬撃', '斬撃'], ['打撃', '打撃'], ['貫通', '貫通']]);
+const withAttribute = row => !attributeSelect.value ? row : { ...row, skills: Object.fromEntries(Object.entries(row.skills)
+  .map(([side, skill]) => [side, skill && { ...skill, attribute: attributeSelect.value }])) };
 const tempoSelect = selectControl('テンポ', 'tempo-select', Object.entries(TEMPO_VARIANTS).map(([key, v]) => [key, v.label]));
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 levelSelect.value = reducedMotion.matches ? 'light' : 'normal';
@@ -109,7 +113,12 @@ function mountEvents() {
     const side = attacker ? 'attacker' : 'defender';
     let host = stage.arena;
     let x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
-    if (damage && bases.get(event.targetId).own) {
+    // 攻撃は本番と同じ置き場所（受けた側の立ち絵の胸。引き分けは中央）。
+    const place = event.name.startsWith('attack-') ? stageFxPlacement(layout, sample, event.name, event.side, null, event.params.mode) : null;
+    if (place) {
+      x = place.left;
+      y = place.top;
+    } else if (damage && bases.get(event.targetId).own) {
       host = stage.canvas.querySelector('[data-anchor="damage:participants"]');
       x = bases.get(event.targetId).x;
       y = bases.get(event.targetId).y;
@@ -138,7 +147,7 @@ function mountEvents() {
       lines: group.lines.map(line => ({ ...line, icon: iconFor(line.status) })),
     }));
     fx.mount(root, { ...bindHitTargets(stage.canvas, event.name, event.params), level: levelSelect.value,
-      width: band ? layout.band.width * 2 : rect.width || 100, height: rect.height || 100,
+      width: place ? place.width : band ? layout.band.width * 2 : rect.width || 100, height: place ? place.height : rect.height || 100,
       icon: iconFor(event.params.status), label: event.params.status,
       ...(groups ? { groups } : {}),
       ...(damage ? { ceiling: damageCeiling(layout, bases.get(event.targetId), event.params.kind) } : {}),
@@ -196,7 +205,7 @@ function fitDescriptions() {
 }
 function rebuild() {
   const previousTime = time;
-  timeline = createTimeline(sample, Fx, levelSelect.value, Number(wait.value), TEMPO_VARIANTS[tempoSelect.value].tempo);
+  timeline = createTimeline(withAttribute(sample), Fx, levelSelect.value, Number(wait.value), TEMPO_VARIANTS[tempoSelect.value].tempo);
   wait.disabled = sample.step.kind === 'fizzle';
   const fit = screenFit();
   if (fit) widthSelect.value = String(fit.layout.width);
@@ -237,7 +246,7 @@ pause.addEventListener('click', () => { playing = false; render(time); });
 restart.addEventListener('click', () => { render(0); startedAt = performance.now(); });
 seek.addEventListener('input', () => { playing = false; render(Number(seek.value)); });
 sampleSelect.addEventListener('change', () => { sample = samples.find(row => row.id === sampleSelect.value); playing = false; time = 0; rebuild(); });
-for (const select of [widthSelect, levelSelect, screenSelect]) select.addEventListener('change', rebuild);
+for (const select of [widthSelect, levelSelect, screenSelect, attributeSelect]) select.addEventListener('change', rebuild);
 tempoSelect.addEventListener('change', () => { wait.value = String(TEMPO_VARIANTS[tempoSelect.value].wait / 1000); rebuild(); });
 wait.addEventListener('input', rebuild);
 new ResizeObserver(scaleStage).observe(view);

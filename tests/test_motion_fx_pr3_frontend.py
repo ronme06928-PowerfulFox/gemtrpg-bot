@@ -28,7 +28,7 @@ for (const name of ['attack-slash','attack-strike','attack-pierce','impact-flash
         fx.render(0.2); const before = transforms(root);
         fx.render(0.95); assert.deepStrictEqual(transforms(root),before);
       }
-      if (name === 'attack-strike') assert.strictEqual(fx.fragments.length,{small:0,medium:4,large:8}[tier]);
+      if (name.startsWith('attack-')) assert.ok(fx.canvas);
     }
   }
 }
@@ -36,8 +36,8 @@ for (const name of ['attack-slash','attack-strike','attack-pierce','impact-flash
 for (const name of ['attack-slash','attack-strike','attack-pierce']) {
   const fx = Object.create(Fx.get(name));
   fx.mount(doc.createElement('div'),{level:'rich',tier:'large',direction:1,width:300,height:240});
-  fx.render(0.69); assert.strictEqual(Number(fx.impact.style.opacity),0);
-  fx.render(0.85); assert.ok(Number(fx.impact.style.opacity)>0);
+  fx.render(0.7); assert.ok(fx.canvas.width>0);
+  fx.render(Infinity); assert.strictEqual(fx.canvas.width,0);
 }
 const flash = Object.create(Fx.get('attack-flash'));
 flash.mount(doc.createElement('div'),{level:'normal',direction:-1}); flash.render(0.4);
@@ -80,28 +80,16 @@ const names = () => calls.map(c=>c[0]);
 """
 
 
-def test_impact_is_immediate_in_normal_and_rich_then_only_fades_at_the_end():
+def test_canvas_impact_flash_starts_at_hit_and_buffers_clear_at_the_end():
     _run_node(r"""
 const Fx=loadShared({}),doc=makeDocument();
-doc.createElementNS=(_,tag)=>doc.createElement(tag);
-for(const name of ['attack-strike','attack-pierce','attack-slash']) {
-  for(const level of ['normal','rich']) {
-    const fx=Object.create(Fx.get(name));
-    fx.mount(doc.createElement('div'),{level,tier:'large',width:320,height:240});
-    for(const t of [0.7,0.72,1.0,1.24]) {
-      fx.render(t); assert.strictEqual(Number(fx.impact.style.opacity),1,`${name}/${level}/${t}`);
-    }
-    fx.render(1.32); assert.ok(Number(fx.impact.style.opacity)>0 && Number(fx.impact.style.opacity)<1);
-    fx.render(Infinity); assert.strictEqual(Number(fx.impact.style.opacity),0);
-    fx.render(0.69); assert.strictEqual(Number(fx.impact.style.opacity),0);
-    fx.render(0.82); assert.strictEqual(Number(fx.impact.style.opacity),1);
-    if(name==='attack-strike') {
-      const brightness=[0.7,0.71,0.72,0.73].map(t=>{
-        fx.render(t); return Number(fx.impact.style.opacity)*Number(fx.flash.style.opacity);
-      });
-      assert.ok(Math.max(...brightness)>=0.9,`${level}: ${brightness}`);
-    }
-  }
+for(const name of ['attack-strike','attack-pierce','attack-slash'])for(const level of ['normal','rich']) {
+ const fx=Object.create(Fx.get(name));fx.mount(doc.createElement('div'),{level,tier:'large',width:320,height:240});
+ const impact=()=>fx.ctx.commands.some(c=>c[0]==='set'&&c[1]==='fillStyle'&&c[2]?.kind==='Radial'&&c[2].args[0]===fx.g.hit.x&&c[2].args[5]>fx.W/2);
+ fx.render(0.69);assert.ok(!impact());
+ for(const t of [0.7,0.71,0.72]){fx.render(t);assert.ok(impact(),name+'/'+t);}
+ fx.render(1.32);assert.ok(Number(fx.el.style.opacity)>0&&Number(fx.el.style.opacity)<1);
+ fx.render(Infinity);assert.strictEqual(fx.canvas.width,0);assert.ok(!impact());
 }
 """)
 
@@ -109,20 +97,11 @@ for(const name of ['attack-strike','attack-pierce','attack-slash']) {
 def test_light_impact_waits_until_landing_and_only_changes_opacity():
     _run_node(r"""
 const Fx=loadShared({}),doc=makeDocument();
-doc.createElementNS=(_,tag)=>doc.createElement(tag);
-const transforms=el=>[el.style.transform,el.attributes.transform,...el.children.flatMap(transforms)];
 for(const name of ['attack-strike','attack-pierce','attack-slash']) {
-  const root=doc.createElement('div'),fx=Object.create(Fx.get(name));
-  fx.mount(root,{level:'light',tier:'large',width:320,height:240});
-  fx.render(0); const still=transforms(root);
-  for(const [t,opacity] of [[0.3,0],[0.6,0],[0.7,0],[0.9,1],[Infinity,0],[0.6,0]]) {
-    fx.render(t); assert.strictEqual(Number(fx.impact.style.opacity),opacity,`${name}/${t}`);
-    assert.deepStrictEqual(transforms(root),still,`${name}/${t}`);
-  }
-  for(const t of [0.75,1.32]) {
-    fx.render(t); assert.ok(Number(fx.impact.style.opacity)>0 && Number(fx.impact.style.opacity)<1);
-    assert.deepStrictEqual(transforms(root),still);
-  }
+ const fx=Object.create(Fx.get(name));fx.mount(doc.createElement('div'),{level:'light',tier:'large',width:320,height:240});
+ fx.render(0.9);const still=JSON.stringify(fx.ctx.commands),transform=fx.el.style.transform;
+ for(const t of [0.9,1.0,1.1]){fx.render(t);assert.strictEqual(JSON.stringify(fx.ctx.commands),still);assert.strictEqual(fx.el.style.transform,transform);}
+ for(const [t,opacity] of [[0.3,0],[0.6,0],[0.7,0],[0.9,1],[Infinity,0]]){fx.render(t);assert.strictEqual(Number(fx.el.style.opacity),opacity);}
 }
 """)
 
@@ -265,7 +244,7 @@ for(const name of ['attack-slash','attack-strike','attack-pierce']) {
   assert.ok(Math.abs(timers.at(-1).ms-1300)<1e-9);
   item.fx.render(0.85);
   assert.ok(host.children.includes(item.root));
-  assert.ok(Number(item.fx.impact.style.opacity)>0);
+  assert.ok(item.fx.canvas.width>0);
 }
 Fx.play('resolve-damage',{amount:15,shake:'large'},{host});
 Fx.play('impact-flash',{width:600,height:400},{host});

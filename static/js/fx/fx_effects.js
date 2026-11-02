@@ -236,95 +236,286 @@
     return el;
   }
 
+  // PR4.5e。斬撃の幾何は試作proto-slash-bと同じ弧を使う。
+  const ATTACK_HIT = 0.7, ATTACK_STOP = 0.78;
+  const ATTACK_PARTICLES = {
+    slash: { sparks: 75, debris: 0, embers: 22, rays: 11, smoke: 8 },
+    strike: { sparks: 40, debris: 24, embers: 18, rays: 10, smoke: 14 },
+    pierce: { sparks: 64, debris: 12, embers: 20, rays: 11, smoke: 6 },
+  };
+  function attackRandom(i, seed) {
+    const x = Math.sin(i * 12.9898 + seed * 78.233) * 43758.5453;
+    return x - Math.floor(x);
+  }
+  function attackGeometry(W, H, kind) {
+    const C = { x: W * 0.62, y: H * 1.25 }, R = H * 0.81;
+    const at = (a, r = R) => ({ x: C.x + Math.cos(a) * r, y: C.y + Math.sin(a) * r });
+    const a0 = -2.75, a1 = -0.85, aHit = -1.77;
+    return { C, R, a0, a1, aHit, at,
+      hit: kind === 'slash' ? at(aHit) : { x: W * (kind === 'strike' ? 0.52 : 0.68), y: H * (kind === 'strike' ? 0.76 : 0.5) },
+      tangent: kind === 'slash' ? aHit + Math.PI / 2 : 0 };
+  }
+  function attackBlade(g, time) {
+    const p = Fx.clamp01((Math.min(time, ATTACK_HIT) - 0.5) / 0.2), s = p ** 1.6;
+    const head = Fx.lerp(g.a0, g.a1, s);
+    if (time <= ATTACK_STOP) return { head, tail: Math.max(g.a0 - 0.2, head - 1.45 * Fx.clamp01(s * 1.4)), visible: time >= 0.5 };
+    const close = Fx.prog(time, ATTACK_STOP, 0.42);
+    return { head: g.a1 + 0.06 * close, tail: Fx.lerp(g.a1 - 1.45, g.a1 + 0.06, close), visible: close < 1 };
+  }
+  function attackCrescent(g, b, thick, inner = 0.32) {
+    const outer = [], inside = [];
+    for (let i = 0; i <= 48; i++) {
+      const u = i / 48, a = Fx.lerp(b.tail, b.head, u);
+      const h = thick * u ** 1.3 * (1 - u) ** 0.22 * 1.6;
+      outer.push(g.at(a, g.R + h)); inside.push(g.at(a, g.R - h * inner));
+    }
+    return [...outer, ...inside.reverse()];
+  }
+  function attackCut(g, len, width) {
+    const outer = [], inside = [], span = len / g.R;
+    for (let i = 0; i <= 32; i++) {
+      const u = i / 32, a = g.aHit + (u - 0.5) * 2 * span, h = width * Math.sin(Math.PI * u) ** 0.8;
+      outer.push(g.at(a, g.R + h)); inside.push(g.at(a, g.R - h));
+    }
+    return [...outer, ...inside.reverse()];
+  }
+  const attackAlpha = (color, alpha) => `color-mix(in srgb, ${color} ${Fx.clamp01(alpha) * 100}%, transparent)`;
+  function attackPoly(ctx, points) {
+    ctx.beginPath();
+    points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+    ctx.closePath();
+  }
+  function attackGlow(ctx, x, y, radius, colors, alpha = 1) {
+    if (!(radius > 0 && alpha > 0)) return;
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    glow.addColorStop(0, attackAlpha(colors.white, alpha));
+    glow.addColorStop(0.22, attackAlpha(colors.main, alpha * 0.7));
+    glow.addColorStop(1, attackAlpha(colors.edge, 0));
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  }
+  function attackStar(ctx, x, y, radius, color, angle = 0) {
+    ctx.fillStyle = color;
+    attackPoly(ctx, Array.from({ length: 8 }, (_, i) => {
+      const a = angle + i * Math.PI / 4, r = radius * (i % 2 ? 0.16 : i % 4 ? 0.7 : 1);
+      return { x: x + Math.cos(a) * r, y: y + Math.sin(a) * r };
+    }));
+    ctx.fill();
+  }
   function mountAttack(root, params, kind) {
     this.level = params.level;
     this.tier = params.tier || 'small';
-    this.strength = { small: 1, medium: 1.6, large: 2.3 }[this.tier];
-    this.el = element(root, 'div', `fx-attack ${kind} ${params.tone || 'enemy'} ${params.level} ${this.tier}`);
+    // 試作と同じ設計の箱で描き、渡された箱に収まる倍率で全体（太さ・速さ・光）を伸び縮みさせる。
     const draw = params.mode === 'draw';
-    this.el.style.width = `${draw ? 150 : Math.max(1, Number(params.width) || 320)}px`;
-    this.el.style.height = `${draw ? 110 : Math.max(1, Number(params.height) || 240)}px`;
-    const svg = svgElement(this.el, 'svg', 'fx-attack-svg', { viewBox: '0 0 320 240', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
-    svg.style.transform = `scaleX(${params.direction === -1 ? -1 : 1})`;
-    this.prep = svgElement(svg, 'ellipse', 'fx-attack-fill', {
-      cx: kind === 'strike' ? 140 : 40, cy: kind === 'strike' ? 24 : kind === 'slash' ? 188 : 120,
-      rx: kind === 'slash' ? 2 : 7, ry: kind === 'slash' ? 18 : 5,
-    });
-    this.moving = svgElement(svg, 'g', 'fx-attack-moving');
-    this.impact = svgElement(svg, 'g', 'fx-attack-impact');
-    const body = kind === 'slash'
-      ? 'M 20 210 C 65 66 171 20 300 42 C 184 36 97 105 20 210 Z'
-      : kind === 'strike' ? 'M 153 75 Q 143 132 150 172 Q 160 192 170 172 Q 177 132 167 75 L 160 20 Z'
-        : 'M 8 115 L 222 120 L 8 125 L 62 120 Z';
-    this.body = svgElement(this.moving, 'path', 'fx-attack-fill', { d: body });
-    this.still = svgElement(this.impact, 'path', 'fx-attack-fill', { d: body });
-    this.flash = svgElement(this.impact, 'path', 'fx-attack-fill fx-attack-white', { d: kind === 'slash' ? body
-      : kind === 'strike' ? 'M 100 180 Q 125 164 160 170 Q 195 164 220 180 Q 192 195 160 188 Q 128 195 100 180 Z'
-        : 'M 218 82 L 224 113 L 258 120 L 224 127 L 218 158 L 212 127 L 178 120 L 212 113 Z' });
-    this.cut = svgElement(this.impact, 'path', 'fx-attack-line', {
-      d: kind === 'slash' ? 'M 28 206 Q 86 32 292 48' : kind === 'pierce' ? 'M 174 120 L 310 120' : 'M 12 180 L 308 180',
-      'stroke-width': this.strength,
-    });
-    this.waves = kind === 'strike' ? Array.from({ length: 2 }, () => {
-      const wave = svgElement(this.impact, 'g', 'fx-strike-wave');
-      svgElement(wave, 'path', 'fx-strike-ray', { d: `M 160 ${180 - this.strength * 2} L 8 180 L 160 ${180 + this.strength * 2} L 312 180 Z` });
-      svgElement(wave, 'ellipse', 'fx-attack-line fx-strike-ring', { cx: 160, cy: 180, rx: 150, ry: 13, 'stroke-width': this.strength });
-      return wave;
-    }) : [];
-    const count = { small: kind === 'strike' ? 0 : 2, medium: 4, large: 8 }[this.tier];
-    this.fragments = Array.from({ length: count }, (_, i) => svgElement(this.impact, 'path', 'fx-attack-fill', {
-      d: kind === 'strike' ? `M -3 0 L 0 -${4 + i % 3} L 3 0 L 0 3 Z` : 'M -8 0 L 4 -1 L 9 0 L 4 1 Z',
-    }));
+    this.W = draw ? 150 : 320 * (params.mode === 'wide' ? 1.35 : 1);
+    this.H = draw ? 110 : 240;
+    this.scale = draw ? 1 : Math.min(Math.max(1, Number(params.width) || this.W) / this.W, Math.max(1, Number(params.height) || this.H) / this.H);
+    this.k = { small: 0.7, medium: 1, large: 1.4 }[this.tier];
+    this.start = { slash: 0.5, strike: 0.55, pierce: 0.58 }[kind];
+    this.g = attackGeometry(this.W, this.H, kind);
+    const factor = (this.level === 'light' ? 0 : { small: 0.5, medium: 0.7, large: 1 }[this.tier]) * (this.level === 'rich' ? 1.3 : 1);
+    this.counts = Object.fromEntries(Object.entries({ ...ATTACK_PARTICLES[kind], charge: 18, speed: 14 }).map(([key, n]) => [key, Math.round(n * factor)]));
+    this.el = element(root, 'div', `fx-attack ${kind} ${params.tone || 'enemy'} ${params.level} ${this.tier}`);
+    // 置き場所の点は、引き分けは箱の中心、それ以外は命中の点（向きの反転後）。
+    const direction = params.direction === -1 ? -1 : 1, s = this.scale;
+    const hitX = (direction === -1 ? this.W - this.g.hit.x : this.g.hit.x) * s;
+    Object.assign(this.el.style, { width: `${this.W * s}px`, height: `${this.H * s}px`,
+      transform: `${draw ? 'translate(-50%, -50%)' : `translate(${-hitX}px, ${-this.g.hit.y * s}px)`} scaleX(${direction})` });
+    this.canvas = element(this.el, 'canvas', 'fx-attack-canvas');
+    this.canvas.setAttribute('aria-hidden', 'true');
+    this.ctx = this.canvas.getContext('2d');
+    const view = root.ownerDocument.defaultView;
+    const style = view.getComputedStyle(this.el);
+    const tone = ['ally', 'neutral'].includes(params.tone) ? params.tone : 'enemy';
+    this.colors = { main: style.getPropertyValue({ enemy: '--fx-win', ally: '--fx-ally', neutral: '--fx-neutral' }[tone]).trim(),
+      edge: style.getPropertyValue(`--fx-attack-${tone}-edge`).trim(), white: style.getPropertyValue('--fx-white').trim(),
+      smoke: style.getPropertyValue('--fx-attack-smoke').trim() };
+    // 余白は四方に箱の半分。拡大率に加えて画素数も制限し、一覧の多数の見本でもメモリを絞る。
+    this.pad = 0.5;
+    const w = this.W * s, h = this.H * s;
+    this.dpr = Math.min(2, view.devicePixelRatio || 1, Math.sqrt(1000000 / (w * h * 4)));
+    this.pixelWidth = Math.floor(w * 2 * this.dpr);
+    this.pixelHeight = Math.floor(h * 2 * this.dpr);
+    Object.assign(this.canvas.style, { left: `${-w * this.pad}px`, top: `${-h * this.pad}px`, width: `${w * 2}px`, height: `${h * 2}px` });
+    this.canvas.width = 0; this.canvas.height = 0;
   }
-
-  function renderAttack(t, kind) {
-    const light = this.level === 'light';
-    const time = Math.max(0, Math.min(t, this.duration));
-    const hit = time - 0.7, tail = Math.max(0, time - 0.78);
-    const start = { slash: 0.5, strike: 0.55, pierce: 0.58 }[kind];
-    const swing = light ? 1 : Fx.clamp01((time - start) / (0.7 - start));
-    const rush = swing ** 2;
-    const fade = Fx.prog(tail, 0, 0.62);
-    this.el.style.opacity = String(Fx.stillOpacity(t, this.duration));
-    this.el.style.transform = 'translate(-50%, -50%)';
-    this.prep.style.opacity = String(light || time >= start ? 0 : Fx.prog(time, 0, 0.12));
-    const charge = light ? 1 : Fx.prog(Math.min(time, start), 0, start);
-    this.prep.setAttribute('transform', kind === 'pierce'
-      ? `translate(${-12 * charge} 0) translate(40 120) scale(${1 - charge * 0.65} ${1 - charge * 0.3}) translate(-40 -120)`
-      : `translate(${kind === 'strike' ? 140 : 40} ${kind === 'strike' ? 24 : 188}) scale(${1 - charge * 0.65}) translate(${kind === 'strike' ? -140 : -40} ${kind === 'strike' ? -24 : -188})`);
-    this.moving.style.opacity = String(light || time < start ? 0 : 1 - Fx.prog(tail, 0.28, 0.34));
-    this.impact.style.opacity = String(light ? Fx.stillOpacity(hit, 0.7) : hit < 0 ? 0 : 1 - Fx.prog(time, 1.25, 0.15));
-    this.flash.style.opacity = String(light || hit < 0 ? 0 : Number(time < 0.733));
-    this.still.style.opacity = String(light && kind !== 'strike' ? 1 : 0);
-    const [cx, cy] = kind === 'strike' ? [160, 180] : kind === 'pierce' ? [218, 120] : [160, 120];
-    this.flash.setAttribute('transform', `translate(${cx} ${cy}) scale(${0.7 + this.strength * 0.3}) translate(${-cx} ${-cy})`);
-    this.cut.style.opacity = String(light ? 1 : hit < 0 ? 0 : 1 - fade);
-    // 動く形は0.7〜0.78秒に同じ姿勢を保持。閃光だけが先に消える。
-    this.body.style.clipPath = kind === 'strike' ? 'none' : `inset(0 0 0 ${light ? 0 : fade * 100}%)`;
-    const k = this.strength;
-    if (kind === 'slash') this.moving.setAttribute('transform', `translate(${light ? 0 : -85 * (1 - rush)} ${light ? 0 : 40 * (1 - rush)}) translate(160 120) scale(1 ${0.7 + k * 0.3}) translate(-160 -120)`);
-    else if (kind === 'pierce') this.moving.setAttribute('transform', `translate(${light ? 0 : tail * 70} 0) scale(${light ? 1 : rush} ${k}) translate(0 ${120 / k - 120})`);
-    else {
-      const squash = light || hit >= 0 ? 1 : 0;
-      this.moving.setAttribute('transform', `translate(${light ? 0 : -28 * (1 - rush)} ${light ? 0 : -190 * (1 - rush)}) translate(160 180) scale(${squash ? 1.9 : 0.8} ${squash ? 0.18 : 1}) translate(-160 -180)`);
+  function attackShape(fx, time, kind) {
+    if (kind === 'slash') return attackBlade(fx.g, time);
+    const p = Fx.clamp01((Math.min(time, ATTACK_HIT) - fx.start) / (ATTACK_HIT - fx.start));
+    return { rush: p ** 2, squash: kind === 'strike' && time >= ATTACK_HIT,
+      retreat: Fx.prog(time, ATTACK_STOP, 0.5) };
+  }
+  function drawAttackShape(fx, time, kind) {
+    const ctx = fx.ctx, g = fx.g, k = fx.k, c = fx.colors, shape = fx.shape;
+    const { x: hx, y: hy } = g.hit;
+    const tail = Math.max(0, time - ATTACK_STOP);
+    const fade = 1 - Fx.prog(tail, 0.1, 0.42);
+    const white = time >= ATTACK_HIT && time < ATTACK_HIT + 0.033;
+    if (time < fx.start) return;
+    if (kind === 'slash') {
+      if (!shape.visible || shape.head - shape.tail < 0.01) return;
+      const thick = 13 * k;
+      for (let j = 0; j < fx.counts.speed; j++) {
+        const r = g.R + (attackRandom(j, 11) - 0.3) * 26 * k, from = Fx.lerp(shape.tail, shape.head, 0.15 + attackRandom(j, 12) * 0.3);
+        ctx.strokeStyle = c.main; ctx.globalAlpha = 0.18 * fade; ctx.lineWidth = 0.8 + attackRandom(j, 13) * 1.6;
+        ctx.beginPath(); ctx.arc(g.C.x, g.C.y, r, from, Math.max(from, shape.head - 0.02)); ctx.stroke();
+      }
+      // 幅を変えた3層の発光。全面のblurを避け、試作の白芯と色の階調を保つ。
+      for (const [width, alpha] of [[2.4, 0.1], [1.7, 0.24]]) {
+        ctx.globalAlpha = fade * alpha; ctx.fillStyle = c.main;
+        attackPoly(ctx, attackCrescent(g, shape, thick * width, 0.7)); ctx.fill();
+      }
+      const a = g.at(shape.tail), b = g.at(shape.head), gradient = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+      gradient.addColorStop(0, attackAlpha(c.edge, 0)); gradient.addColorStop(0.45, attackAlpha(c.edge, 0.73));
+      gradient.addColorStop(0.8, c.main); gradient.addColorStop(0.94, c.white); gradient.addColorStop(1, c.white);
+      ctx.globalAlpha = fade; ctx.fillStyle = gradient; attackPoly(ctx, attackCrescent(g, shape, thick)); ctx.fill();
+      ctx.fillStyle = c.white; attackPoly(ctx, attackCrescent(g, shape, thick * (white ? 1 : 0.36), white ? 0.32 : 0.1)); ctx.fill();
+    } else {
+      const rush = shape.rush, x = kind === 'strike' ? hx - 28 * (1 - rush) : hx;
+      const y = kind === 'strike' ? hy - fx.H * 0.85 * (1 - rush) : hy;
+      const length = kind === 'strike' ? fx.H * (shape.squash ? 0.055 : 0.52) : fx.W * 0.66 * rush;
+      const radius = (kind === 'strike' ? shape.squash ? 48 : 11 : 10) * k;
+      const base = kind === 'strike' ? { x: x - radius * 0.45, y: y - length } : { x: hx - length + length * shape.retreat, y };
+      const points = kind === 'strike' ? [{ x: x - radius, y }, { x: x - radius * 0.45, y: y - length }, { x, y: y - length * 1.2 }, { x: x + radius * 0.55, y: y - length }, { x: x + radius, y }, { x, y: y + radius * 0.4 }]
+        : [{ x: base.x, y: y - radius * (1 - shape.retreat) }, { x: hx + shape.retreat * fx.W * 0.2, y }, { x: base.x, y: y + radius * (1 - shape.retreat) }];
+      ctx.globalAlpha = fade;
+      attackGlow(ctx, x, y, radius * 4, c, 0.45 * fade);
+      const gradient = ctx.createLinearGradient(base.x, base.y, x, y);
+      gradient.addColorStop(0, attackAlpha(c.edge, 0)); gradient.addColorStop(0.45, c.edge); gradient.addColorStop(0.8, c.main); gradient.addColorStop(1, c.white);
+      ctx.fillStyle = gradient; attackPoly(ctx, points); ctx.fill();
+      ctx.strokeStyle = c.white; ctx.lineWidth = (white ? 4 : 1.5) * k;
+      ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(x, y); ctx.stroke();
+      for (let i = 0; i < fx.counts.speed; i++) {
+        const offset = (attackRandom(i, 17) - 0.5) * radius * 6, length = (15 + attackRandom(i, 18) * 70) * k;
+        const drift = attackRandom(i, 19) * 0.8;
+        ctx.strokeStyle = i % 3 ? c.main : c.white; ctx.globalAlpha = 0.25 * fade; ctx.lineWidth = 0.5 + attackRandom(i, 20);
+        ctx.beginPath();
+        if (kind === 'strike') { ctx.moveTo(x + offset, y - length - drift * fx.H); ctx.lineTo(x + offset, y - drift * fx.H); }
+        else { ctx.moveTo(base.x + length * drift, y + offset); ctx.lineTo(Math.min(hx, base.x + length * (1 + drift)), y + offset); }
+        ctx.stroke();
+      }
     }
-    this.waves.forEach((wave, i) => {
-      const age = tail - i * 0.1;
-      const extent = this.tier === 'small' ? 0.5 : 1;
-      const spread = light ? extent : Fx.lerp(0.03, extent, Fx.prog(age, 0, 0.42));
-      wave.setAttribute('transform', `translate(160 180) scale(${spread} ${light ? 1 : Fx.lerp(0.3, 1, Fx.prog(age, 0, 0.42))}) translate(-160 -180)`);
-      wave.style.opacity = String(light ? Number(i === 0) : time < 0.78 ? 0 : Fx.stillOpacity(age, 0.6));
-    });
-    this.fragments.forEach((fragment, i) => {
-      const p = light ? 0 : Fx.clamp01(tail / 0.62), sign = i % 2 ? 1 : -1;
-      const x = kind === 'strike' ? 160 + sign * (35 + i * 12) * p : (kind === 'slash' ? 190 : 218) + (50 + i * 11) * p;
-      const y = kind === 'strike' ? 180 - (130 + i % 3 * 28) * p + 205 * p * p
-        : kind === 'slash' ? 95 - (50 + i * 9) * p + 70 * p * p : 120 + sign * (12 + i * 5) * p;
-      fragment.setAttribute('transform', `translate(${x} ${y}) rotate(${light ? 0 : sign * p * (kind === 'strike' ? 160 : 35)})`);
-      fragment.style.opacity = String(light || time < 0.78 ? 0 : 1 - Fx.prog(tail, 0.35, 0.27));
-    });
+    ctx.globalAlpha = 1;
   }
-
+  function drawAttackImpact(fx, time, kind) {
+    const age = time - ATTACK_HIT;
+    if (age < 0) return;
+    const ctx = fx.ctx, g = fx.g, k = fx.k, c = fx.colors, { x: hx, y: hy } = g.hit;
+    const burst = Fx.clamp01(age / 0.16), flash = 1 - Fx.prog(age, 0, 0.1);
+    attackGlow(ctx, hx, hy, fx.W * (fx.level === 'rich' ? 0.9 : 0.8), c, flash);
+    if (kind === 'pierce') attackStar(ctx, hx, hy, 45 * k, attackAlpha(c.white, 1 - Fx.prog(age, 0, 0.22)));
+    if (burst < 1) for (let i = 0; i < fx.counts.rays; i++) {
+      const a = attackRandom(i, 21) * Math.PI * 2, len = (60 + attackRandom(i, 22) * 150) * k * (0.4 + burst), w = (3 + attackRandom(i, 23) * 4) * (1 - burst);
+      ctx.globalAlpha = 0.9 * (1 - burst); ctx.fillStyle = c.white;
+      attackPoly(ctx, [{ x: hx + Math.cos(a + 1.57) * w, y: hy + Math.sin(a + 1.57) * w }, { x: hx + Math.cos(a) * len, y: hy + Math.sin(a) * len }, { x: hx - Math.cos(a + 1.57) * w, y: hy - Math.sin(a + 1.57) * w }]); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if (kind === 'slash') {
+      const w = 5 * k * Fx.prog(age, 0, 0.04) * (1 - Fx.prog(age, 0.08, 0.5));
+      const len = fx.W * (0.42 + 0.08 * Fx.prog(age, 0, 0.4));
+      if (w > 0.05) {
+        for (const [scale, alpha] of [[3, 0.16], [1.7, 0.35], [1, 1]]) {
+          ctx.fillStyle = scale === 1 ? c.white : c.main; ctx.globalAlpha = alpha;
+          attackPoly(ctx, attackCut(g, len, w * scale)); ctx.fill();
+        }
+      }
+    } else if (kind === 'strike') {
+      for (let i = 0; i < 2; i++) {
+        const a = time - ATTACK_STOP - i * 0.1;
+        if (a <= 0) continue;
+        const p = Fx.prog(a, 0, 0.48), extent = fx.tier === 'small' ? 0.5 : 1;
+        ctx.globalAlpha = (1 - p) * (i ? 0.55 : 0.85); ctx.strokeStyle = i ? c.main : c.white; ctx.lineWidth = (1 - p) * 4 * k;
+        ctx.beginPath(); ctx.ellipse(hx, hy, (4 + fx.W * 0.48 * p) * extent, 2 + 22 * k * p, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+    } else {
+      const p = Fx.prog(time, ATTACK_STOP, 0.5);
+      ctx.globalAlpha = 1 - p; ctx.strokeStyle = c.main; ctx.lineWidth = 2 * k * (1 - p);
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + fx.W * 0.32 * p, hy); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function drawAttackParticles(fx, time, kind) {
+    const tau = time - ATTACK_STOP;
+    if (tau <= 0) return;
+    const ctx = fx.ctx, g = fx.g, c = fx.colors, k = fx.k, { x: hx, y: hy } = g.hit;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < fx.counts.sparks; i++) {
+      const spread = kind === 'pierce' ? 0.45 : 1.5;
+      const a = kind === 'strike' ? -Math.PI * attackRandom(i, 1) : g.tangent + (attackRandom(i, 1) - 0.5) * spread + (kind === 'slash' && attackRandom(i, 5) < 0.25 ? Math.PI : 0);
+      const speed = (260 + attackRandom(i, 2) * (kind === 'pierce' ? 650 : 560)) * k;
+      const life = 0.28 + attackRandom(i, 3) * 0.4;
+      if (tau >= life) continue;
+      const position = t => ({ x: hx + Math.cos(a) * speed * t, y: hy + Math.sin(a) * speed * t + (kind === 'pierce' ? 50 : 520) * t * t });
+      const a0 = position(Math.max(0, tau - 0.03)), b = position(tau), heat = 1 - tau / life;
+      ctx.strokeStyle = heat > 0.6 ? c.white : i % 2 ? c.main : c.edge;
+      ctx.globalAlpha = Math.min(1, heat * 1.3); ctx.lineWidth = (1 + attackRandom(i, 4) * 2.2 * k) * (0.5 + heat);
+      ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+    for (let i = 0; i < fx.counts.debris; i++) {
+      const p = Fx.clamp01(tau / (0.38 + attackRandom(i, 51) * 0.24));
+      const a = kind === 'strike' ? -Math.PI * (0.08 + attackRandom(i, 52) * 0.84) : (attackRandom(i, 52) - 0.5) * 0.45;
+      const v = (80 + attackRandom(i, 53) * 150) * k;
+      const x = hx + Math.cos(a) * v * tau, y = hy + Math.sin(a) * v * tau + (kind === 'strike' ? 620 : 40) * tau * tau;
+      const r = (kind === 'strike' ? 2.5 + attackRandom(i, 54) * 4 : 1 + attackRandom(i, 54) * 2) * k;
+      ctx.globalAlpha = 1 - p; ctx.fillStyle = i % 3 ? c.edge : c.main;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(tau * (i % 2 ? 4 : -4));
+      attackPoly(ctx, kind === 'strike' ? [{ x: -r, y: 0 }, { x: 0, y: -r }, { x: r, y: r * 0.3 }, { x: 0, y: r }] : [{ x: -r * 5, y: 0 }, { x: r * 3, y: -r }, { x: r * 4, y: 0 }, { x: r * 3, y: r }]); ctx.fill(); ctx.restore();
+    }
+    for (let i = 0; i < fx.counts.embers; i++) {
+      const life = 0.45 + attackRandom(i, 31) * 0.2, e = tau / life;
+      if (e >= 1) continue;
+      const a = g.tangent + (attackRandom(i, 32) - 0.5) * (kind === 'pierce' ? 0.5 : 2.4), v = (40 + attackRandom(i, 33) * 120) * k;
+      const x = hx + Math.cos(a) * v * tau + Math.sin(tau * 9 + i) * 6, y = hy + Math.sin(a) * v * tau - 40 * tau;
+      ctx.globalAlpha = (1 - e) * (0.6 + 0.4 * Math.sin(tau * 40 + i * 3)); ctx.fillStyle = i % 2 ? c.main : c.white;
+      ctx.beginPath(); ctx.arc(x, y, 1.4 + attackRandom(i, 34) * 1.6, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    const e = Fx.clamp01((tau - 0.06) / 0.56);
+    if (e > 0 && e < 1) for (let i = 0; i < fx.counts.smoke; i++) {
+      const a = kind === 'strike' ? Math.PI * attackRandom(i, 41) : g.tangent + (attackRandom(i, 41) - 0.5) * 2;
+      const d = (20 + attackRandom(i, 42) * 70) * k * e, x = hx + Math.cos(a) * d, y = hy + Math.sin(a) * d - 25 * e;
+      const r = (18 + attackRandom(i, 43) * 26) * k * (0.6 + e), fog = ctx.createRadialGradient(x, y, 0, x, y, r);
+      fog.addColorStop(0, attackAlpha(c.smoke, 0.32 * (1 - e))); fog.addColorStop(1, attackAlpha(c.smoke, 0));
+      ctx.fillStyle = fog; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  function renderAttack(t, kind) {
+    const time = Math.max(0, Math.min(t, this.duration)), ctx = this.ctx;
+    this.el.style.opacity = String(this.level === 'light' ? Fx.stillOpacity(time - ATTACK_HIT, 0.7) : Fx.stillOpacity(t, this.duration));
+    this.shape = attackShape(this, time, kind);
+    if (t <= 0 || t >= this.duration || this.level === 'light' && time <= ATTACK_HIT) {
+      this.canvas.width = 0; this.canvas.height = 0;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, this.pixelWidth, this.pixelHeight); return;
+    }
+    if (!this.canvas.width) { this.canvas.width = this.pixelWidth; this.canvas.height = this.pixelHeight; }
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, this.pixelWidth, this.pixelHeight);
+    // Canvasの全状態も毎コマ戻す。呼出し順・直前の煙・サイズ変更に依存させない。
+    const unit = this.dpr * this.scale;
+    ctx.setTransform(unit, 0, 0, unit, this.W * this.pad * unit, this.H * this.pad * unit);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.lineWidth = 1; ctx.lineCap = 'butt';
+    ctx.fillStyle = this.colors.main; ctx.strokeStyle = this.colors.main;
+    const g = this.g, { x: hx, y: hy } = g.hit, k = this.k;
+    if (this.level === 'light') {
+      if (kind === 'slash') { attackPoly(ctx, attackCut(g, this.W * 0.42, 3 * k)); ctx.fill(); }
+      else if (kind === 'strike') { ctx.beginPath(); ctx.ellipse(hx, hy, this.W * 0.4, 3 * k, 0, 0, Math.PI * 2); ctx.fill(); }
+      else attackStar(ctx, hx, hy, 24 * k, this.colors.main);
+      return;
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    if (time < this.start + 0.04) {
+      const charge = Fx.prog(time, 0.05, this.start - 0.05);
+      const start = kind === 'slash' ? g.at(g.a0 + 0.12) : { x: kind === 'strike' ? hx - 28 : this.W * 0.05 - 12 * charge, y: kind === 'strike' ? this.H * 0.07 : hy };
+      for (let i = 0; i < this.counts.charge; i++) {
+        const a = attackRandom(i, 9) * Math.PI * 2, d = (1 - charge) * (40 + attackRandom(i, 8) * 60) * k;
+        ctx.globalAlpha = 0.7 * charge; ctx.fillStyle = this.colors.white;
+        ctx.beginPath(); ctx.arc(start.x + Math.cos(a) * d, start.y + Math.sin(a) * d, 1.2 + attackRandom(i, 7) * 1.5, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      attackGlow(ctx, start.x, start.y, kind === 'strike' ? (30 - 20 * charge) * k : (8 + 26 * charge) * k, this.colors, charge);
+    }
+    drawAttackShape(this, time, kind); drawAttackImpact(this, time, kind); drawAttackParticles(this, time, kind);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  }
   for (const kind of ['slash', 'strike', 'pierce']) {
     Fx.define(`attack-${kind}`, {
       duration: 1.4,

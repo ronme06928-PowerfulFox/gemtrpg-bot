@@ -7,7 +7,8 @@
   "scripts": {
     "build": "node scripts/build_frontend.mjs",
     "gallery": "node scripts/fx_gallery/build.mjs",
-    "resolve-preview": "node scripts/resolve_preview/build.mjs"
+    "resolve-preview": "node scripts/resolve_preview/build.mjs",
+    "fx-proto": "node scripts/fx_proto/build.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.24.0"

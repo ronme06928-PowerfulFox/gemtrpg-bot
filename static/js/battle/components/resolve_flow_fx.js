@@ -108,7 +108,7 @@ export function playResolveStageFx(flow, payload, state) {
   const layout = currentStageLayout(panel);
   const sample = stageSample(flow, step, state);
   const playAt = (name, params, side = 'attacker', delaySeconds = 0, targetId = null) => {
-    const place = stageFxPlacement(layout, sample, name, side, targetId, params.kind);
+    const place = stageFxPlacement(layout, sample, name, side, targetId, params.kind ?? params.mode);
     if (!place) return;
     const anchor = panel.querySelector(`[data-anchor="${flow._escape(place.anchor)}"]`);
     if (!anchor) return;

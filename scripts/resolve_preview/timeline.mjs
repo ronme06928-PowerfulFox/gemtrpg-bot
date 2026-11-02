@@ -68,12 +68,12 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOL
     add('power-roll', starts.power, `power:${sample.state.slots[slotId].actor_id}`, { text: rolls.defender_powers[slotId] }, { number: true, rate: fxPlaybackRate('power', tempo) });
   }
   if (!winner) {
-    for (const side of ['attacker', 'defender']) add(summation && side === 'defender' ? 'attack-flash' : attackEffect(skills[side].attribute), starts.attack, 'clash', {
+    for (const side of ['attacker', 'defender']) add(summation && side === 'defender' ? 'attack-flash' : attackEffect(skills[side].attribute), starts.attack, 'arena', {
       tier: 'small', direction: side === 'attacker' ? 1 : -1, tone: 'neutral', mode: 'draw',
-    }, { rate: fxPlaybackRate('attack', tempo) });
-  } else add(summation && winner === 'defender' ? 'attack-flash' : attackEffect(skills[winner].attribute), starts.attack, 'clash', {
+    }, { rate: fxPlaybackRate('attack', tempo), side });
+  } else add(summation && winner === 'defender' ? 'attack-flash' : attackEffect(skills[winner].attribute), starts.attack, 'arena', {
     tier, direction: winner === 'defender' ? -1 : 1, tone: toneFor(targetId), mode: summation && winner === 'attacker' ? 'wide' : 'hit',
-  }, { rate: fxPlaybackRate('attack', tempo) });
+  }, { rate: fxPlaybackRate('attack', tempo), side: loser });
   if ((!oneSided && !summation) || step.outcome === 'draw') add('clash-flash', outcomeStart, 'clash', {});
   const response = planHitResponse(step, entries, winner, ids, level);
   for (const event of response) add(event.name, outcomeStart + event.at, 'arena', event.params);

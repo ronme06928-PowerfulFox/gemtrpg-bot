@@ -3,29 +3,6 @@ from tests.test_motion_fx_frontend import PLAYER_SETUP, _run_node
 from tests.test_motion_fx_pr3_frontend import FLOW_SETUP
 
 
-def test_filled_attacks_land_hold_and_seek():
-    _run_node(r"""
-const Fx=loadShared({}),doc=makeDocument();doc.createElementNS=(_,tag)=>doc.createElement(tag);
-for(const name of ['attack-slash','attack-strike','attack-pierce']) {
- for(const level of ['light','normal','rich']) for(const tier of ['small','medium','large']) {
-  const root=doc.createElement('div'),fx=Object.create(Fx.get(name));
-  fx.mount(root,{level,tier,direction:-1,mode:'hit',width:400,height:280});
-  const times=[0,0.3,0.499,0.579,0.699,0.7,0.72,0.75,0.78,0.9,1.2,Infinity];
-  const shots=times.map(t=>{fx.render(t);return snapshot(root);});
-  for(const i of [11,6,0,8,4,10,2,9,1,5,7,3]){fx.render(times[i]);assert.strictEqual(snapshot(root),shots[i]);assert.ok(!shots[i].includes('NaN'));}
-  fx.render(0.699);assert.strictEqual(Number(fx.impact.style.opacity),0);
-  fx.render(0.71);assert.ok(Number(fx.impact.style.opacity)>0);
-  if(level!=='light') {
-   fx.render(0.7);const hold=snapshot(fx.moving);assert.strictEqual(Number(fx.flash.style.opacity),1);
-   fx.render(0.75);assert.strictEqual(snapshot(fx.moving),hold);assert.strictEqual(Number(fx.flash.style.opacity),0);
-   assert.ok(fx.body.attributes.d);
-  }
- }
-}
-assert.ok(!fs.readFileSync('static/js/fx/fx_effects.js','utf8').includes('impactShake'));
-""")
-
-
 def test_reactions_restore_styles_and_obey_amplitude_and_light():
     _run_node(r"""
 const Fx=loadShared({}),doc=makeDocument();

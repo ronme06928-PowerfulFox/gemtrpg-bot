@@ -13,6 +13,16 @@ const fs = require('fs');
 const vm = require('vm');
 const assert = require('assert');
 
+function makeCanvasContext() {
+  let commands=[];
+  const context={get commands(){return commands;}};
+  for(const name of ['setTransform','beginPath','moveTo','lineTo','closePath','arc','ellipse','fill','stroke','fillRect','save','restore','translate','rotate','scale'])
+    context[name]=(...args)=>commands.push([name,...args]);
+  context.clearRect=(...args)=>{commands=[['clearRect',...args]];};
+  for(const kind of ['Linear','Radial'])context[`create${kind}Gradient`]=(...args)=>({kind,args,stops:[],addColorStop(at,color){this.stops.push([at,color]);}});
+  return new Proxy(context,{set(target,key,value){target[key]=value;commands.push(['set',key,value]);return true;}});
+}
+
 function makeElement(doc, tag) {
   const el = {
     tagName: tag, ownerDocument: doc, style: {}, children: [], parentNode: null,
@@ -26,11 +36,19 @@ function makeElement(doc, tag) {
     appendChild(child) { child.parentNode = el; el.children.push(child); return child; },
     removeChild(child) { el.children = el.children.filter((c) => c !== child); child.parentNode = null; return child; },
   };
+  if(tag==='canvas') {
+    const context=makeCanvasContext();
+    el.getContext=()=>context;
+  }
   return el;
 }
 function makeDocument() {
   const doc = {};
+  const tokens={'--fx-win':'#ffd56b','--fx-ally':'#ff7373','--fx-neutral':'#e9e7df','--fx-white':'#ffffff',
+    '--fx-attack-enemy-edge':'#ff9d2e','--fx-attack-ally-edge':'#ff2f55','--fx-attack-neutral-edge':'#a9b4c8','--fx-attack-smoke':'#282430'};
+  doc.defaultView={devicePixelRatio:1,getComputedStyle:()=>({getPropertyValue:key=>tokens[key]||''})};
   doc.createElement = (tag) => makeElement(doc, tag);
+  doc.createElementNS = (_,tag) => doc.createElement(tag);
   doc.body = makeElement(doc, 'body');
   return doc;
 }
@@ -41,7 +59,7 @@ function loadShared(context) {
 }
 function snapshot(el) {
   const read = node => ({ style: node.style, text: node.textContent, cls: node.className,
-    attributes: node.attributes, children: node.children.map(read) });
+    attributes: node.attributes, draw:node.tagName==='canvas'?node.getContext('2d').commands:null, children: node.children.map(read) });
   return JSON.stringify(read(el));
 }
 const EFFECT_CASES = {

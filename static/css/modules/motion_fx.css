@@ -16,6 +16,10 @@
   --fx-self: #cf95ff;
   --fx-crystal: #bfe8ff;
   --fx-shadow: #101322;
+  --fx-attack-enemy-edge: #ff9d2e;
+  --fx-attack-ally-edge: #ff2f55;
+  --fx-attack-neutral-edge: #a9b4c8;
+  --fx-attack-smoke: #282430;
 }
 
 .fx-root {
@@ -103,17 +107,7 @@
 
 .fx-attack.ally, .fx-attack-flash.ally { color: var(--fx-ally); }
 .fx-attack.neutral, .fx-attack-flash.neutral { color: var(--fx-neutral); }
-.fx-attack-svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.fx-attack-line { fill: none; stroke: currentColor; stroke-linecap: round; }
-.fx-attack-impact, .fx-attack-moving { filter: drop-shadow(0 0 3px currentColor); }
-.fx-attack.medium .fx-attack-impact, .fx-attack.medium .fx-attack-moving { filter: drop-shadow(0 0 6px currentColor); }
-.fx-attack.large .fx-attack-impact, .fx-attack.large .fx-attack-moving { filter: drop-shadow(0 0 10px currentColor); }
-.fx-attack.rich .fx-attack-svg { filter: drop-shadow(0 0 4px currentColor); }
-.fx-attack-white { color: var(--fx-white); }
-.fx-attack-fill, .fx-strike-ray { fill: currentColor; }
-.fx-strike-ray { mask-image: linear-gradient(90deg, transparent, #000 45%, #000 55%, transparent); }
-.fx-attack.light .fx-attack-impact { filter: none; }
-.fx-attack.light .fx-attack-white { color: inherit; }
+.fx-attack-canvas { position: absolute; display: block; pointer-events: none; }
 .fx-impact-flash { position: absolute; border-radius: 18px; background: color-mix(in srgb, var(--fx-white) 14%, transparent); }
 
 .fx-resolve-damage {

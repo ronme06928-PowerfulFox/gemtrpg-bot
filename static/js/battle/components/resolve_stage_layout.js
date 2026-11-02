@@ -1,7 +1,7 @@
 // A案の寸法と演出用の箱の正。CSS・DOM・配置の検査はこの同じ値を使う。
 const wide = {
   width: 1180, arenaHeight: 420, cardHeight: 546,
-  portraitHeight: 365, portraitWidth: 330, portraitInset: 34,
+  portraitHeight: 365, portraitWidth: 330, portraitInset: 34, portraitBottom: 26,
   plaqueWidth: 420, plaqueInset: 34, plaqueTop: 24, plaqueHeight: 61, plaqueFont: 27,
   gemSize: 112, gemNumber: 58, gemOffset: 32, gemTop: 6, nameSize: 21,
   powerNumberTop: 11, powerNumberHeight: 70, smallNumberTop: 2, smallNumberRatio: 0.66,
@@ -10,11 +10,11 @@ const wide = {
   band: { x: 24, y: 134, width: 230, height: 180 },
   // 広域-合算の参加者の並び（守る側の半分の中。x は半分の左端から）。数字の土台と昇ってよい上の端も持つ。
   participants: { x: 118, width: 442, gem: 56, baseY: 268, gemBottom: 174,
-    columnHeight: 270, portraitHeight: 210, top: 60, bottom: 32 },
+    columnHeight: 270, portraitHeight: 210, portraitBottom: 25, top: 60, bottom: 32 },
 };
 const narrow = {
   width: 660, arenaHeight: 374, cardHeight: 500,
-  portraitHeight: 320, portraitWidth: 220, portraitInset: 6,
+  portraitHeight: 320, portraitWidth: 220, portraitInset: 6, portraitBottom: 26,
   plaqueWidth: 244, plaqueInset: 14, plaqueTop: 24, plaqueHeight: 55, plaqueFont: 21,
   gemSize: 96, gemNumber: 50, gemOffset: 4, gemTop: 6, nameSize: 17,
   powerNumberTop: 8, powerNumberHeight: 60, smallNumberTop: 2, smallNumberRatio: 0.66,
@@ -22,7 +22,7 @@ const narrow = {
   damage: { x: 210, y: 130, width: 110, height: 204 },
   band: { x: 10, y: 128, width: 170, height: 180 },
   participants: { x: 66, width: 257, gem: 50, baseY: 248, gemBottom: 168,
-    columnHeight: 224, portraitHeight: 170, top: 70, bottom: 32 },
+    columnHeight: 224, portraitHeight: 170, portraitBottom: 25, top: 70, bottom: 32 },
 };
 export function getLayout(width) {
   const layout = { 1180: wide, 660: narrow }[width];
@@ -102,6 +102,7 @@ export function pickStageLayout(availableWidth, viewportHeight) {
 }
 
 // 演出の座標はすべて未縮小の舞台座標。画面上の矩形を測って逆算しない。
+// kindは数字の種類、攻撃ではmode（hit / wide / draw）。攻撃のleft / topは命中の点。
 export function stageFxPlacement(layout, sample, name, side, targetId, kind) {
   const half = { x: side === 'attacker' ? 0 : layout.width / 2, y: 0, width: layout.width / 2, height: layout.arenaHeight };
   const slots = sample.step.kind === 'mass_summation' ? participantSlots(layout, sample) : null;
@@ -131,6 +132,19 @@ export function stageFxPlacement(layout, sample, name, side, targetId, kind) {
     const height = layout.participants.columnHeight;
     return { anchor: 'arena', left: layout.width / 2 + layout.participants.x + item.x + item.width / 2,
       top: layout.arenaHeight - layout.participants.bottom - height / 2, width: item.step, height, classes: 'column-ko' };
+  }
+  // 受けた側の立ち絵の胸（上から45%）。地面へ広がる打撃だけ腰（70%）。
+  const below = name === 'attack-strike' ? 0.3 : 0.55;
+  if (name.startsWith('attack-') && kind === 'wide') {
+    const p = layout.participants;
+    return { anchor: 'arena', left: layout.width / 2 + p.x + p.width / 2,
+      top: layout.arenaHeight - p.bottom - p.portraitBottom - p.portraitHeight * below, width: p.width, height: p.columnHeight };
+  }
+  if (name.startsWith('attack-') && kind !== 'draw') {
+    const x = layout.portraitInset + layout.portraitWidth / 2;
+    return { anchor: 'arena', left: side === 'attacker' ? x : layout.width - x,
+      top: layout.arenaHeight - layout.portraitBottom - layout.portraitHeight * below,
+      width: layout.portraitWidth * 1.5, height: layout.portraitHeight };
   }
   if (name === 'ko-shatter' || name === 'clash-shade') return { anchor: 'arena',
     left: half.x + half.width / 2, top: half.height / 2, width: half.width, height: half.height,
