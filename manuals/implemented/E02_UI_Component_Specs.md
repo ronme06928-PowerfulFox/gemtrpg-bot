@@ -685,4 +685,4 @@ E02 Part 5の2段階ウィザード（味方/敵選択→JSON入力画面）に�
 
 - 新着の可視ダイスログだけ合計値の場所で0.6秒ロールし、確定して0.4秒見せる。履歴・再描画・権限外のシークレットには出さない。終了時はfx-chat-dice-slotを除去して数字だけへ戻す。dice-result-totalとCinzel 900・ログから継承する緑を保つ。
 - 威力ロールの範囲は記録とコマンド、チャットは式から合算する。不明なら確定値±40%（下限0、幅最低1）。確定値を除外し連続重複を避けた決定的な候補列を0.03→0.1秒へ遅くする。軽めは確定値のフェードのみ。
-- `npm run gallery` の場面は本物の_renderStepとvisual_battle.cssのパネル規則を抽出して描く。演出hostも本番と同じ舞台内の箱。`npm run resolve-preview` は同じレイアウト値を使う比較見本。`scripts/check_resolve_stage_browser.py` はPlaywrightとインストール済みChromeで種類・段階・画面サイズ・文章欄とタブを検査する。
+- `npm run gallery` の場面は本物の_renderStepとvisual_battle.cssのパネル規則を抽出して描く。演出hostも本番と同じ舞台内の箱。`npm run resolve-preview` は同じレイアウト値を使う比較見本。「テンポ」（本番・以前の値・きびきびした案）で段階の長さを、「画面」（7つの画面の大きさと実測した地図の欄の幅）で本番と同じ組の選び方・縮小率による実寸と実際の文字のpxを見比べる。プレビューの文字の値は本番の `--resolve-text-*` と同じことをテストで確かめる。`scripts/check_resolve_stage_browser.py` はPlaywrightとインストール済みChromeで種類・段階・画面サイズ・文章欄とタブを検査する。
