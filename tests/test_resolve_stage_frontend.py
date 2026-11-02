@@ -1,5 +1,5 @@
 """計画57 PR57-1: 舞台の共通座標、描画、画面への収まり。"""
-from tests.test_motion_fx_frontend import _run_node
+from tests.test_motion_fx_frontend import ROOT, _run_node
 
 
 def test_stage_layout_is_shared_with_preview_and_fits_available_height():
@@ -20,13 +20,29 @@ def test_stage_layout_is_shared_with_preview_and_fits_available_height():
   }
   const fit=prod.fitStage(l,width,768);
   assert.strictEqual(fit.copyHeight,Math.min(l.copyHeight,768-108-l.cardHeight-14));
+  // 高さが足りなくても説明は本文2行の欄を残し、その分だけ縮める。説明の無い段は0のまま。
   const tiny=prod.fitStage(l,width,400);
-  assert.strictEqual(tiny.copyHeight,0);assert.ok(tiny.scale*l.cardHeight<=292);
+  assert.strictEqual(tiny.copyHeight,l.minCopyHeight);assert.ok(tiny.scale*tiny.height<=292+1e-9);
+  assert.strictEqual(prod.fitStage({...l,copyHeight:0},width,400).copyHeight,0);
   const base={y:l.damage.y+l.damage.height-42};
   assert.strictEqual(prod.damageCeiling(l,base,'dice'),l.damage.height-42-23);
  }
+ assert.deepStrictEqual([prod.getLayout(1180).minCopyHeight,prod.getLayout(660).minCopyHeight],[100,128]);
+ // 組は地図の欄の幅と画面の高さで、縮小率が大きくなる方（同じなら1180）。
+ const pick=(map,height)=>prod.pickStageLayout(map*0.92,height).width;
+ assert.deepStrictEqual([pick(1448,945),pick(1071,730),pick(905,650),pick(644,650),pick(527,650)],[1180,660,660,660,660]);
+ for(const [map,height] of [[1448,945],[1071,730],[905,650],[644,650]]) {
+  const chosen=prod.fitStage(prod.pickStageLayout(map*0.92,height),map*0.92,height).scale;
+  for(const width of [1180,660]) assert.ok(chosen>=prod.fitStage(prod.getLayout(width),map*0.92,height).scale);
+ }
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
+
+
+def test_resolve_panel_picks_the_layout_from_the_map_width():
+    source = (ROOT / 'static/js/battle/components/ResolveFlowPanel.js').read_text(encoding='utf-8')
+    assert 'pickStageLayout(' in source
+    assert '<= 980' not in source
 
 
 def test_stage_markup_covers_kinds_missing_portraits_and_skill_text():

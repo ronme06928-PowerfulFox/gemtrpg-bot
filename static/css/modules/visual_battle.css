@@ -522,16 +522,21 @@
   --body-font: 'Zen Antique', 'Yu Mincho', serif;
   --ui-font: 'Yu Gothic UI', 'Meiryo', sans-serif;
   --plaque-shape: polygon(5% 0, 100% 0, 95% 100%, 0 100%);
-  --resolve-font-8: 8px;
-  --resolve-font-9: 9px;
-  --resolve-font-10: 10px;
-  --resolve-font-11: 11px;
-  --resolve-font-12: 12px;
-  --resolve-font-13: 13px;
-  --resolve-font-15: 15px;
-  --resolve-font-18: 18px;
-  --resolve-font-30: 30px;
-  --resolve-font-48: 48px;
+  /* 解決パネルの文字の大きさ（設計寸法のpx）。見直しはここの値だけを変える。 */
+  --resolve-text-label: 13px;
+  --resolve-text-progress: 13px;
+  --resolve-text-copy: 14px;
+  --resolve-text-result: 17px;
+  --resolve-text-result-narrow: 15px;
+  --resolve-text-participant: 13px;
+  --resolve-text-participant-narrow: 11px;
+  --resolve-text-note: 11px;
+  --resolve-text-skill-id: 10px;
+  --resolve-text-skill-id-narrow: 8px;
+  --resolve-text-more: 18px;
+  --resolve-text-chip: 18px;
+  --resolve-text-clash: 30px;
+  --resolve-text-initial: 48px;
 }
 #resolve-flow-panel .resolve-flow-overlay { position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(22,24,34,.12), rgba(6,8,14,.5)); pointer-events: none; }
 #resolve-flow-panel .resolve-flow-content { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
@@ -539,7 +544,7 @@
 #resolve-flow-panel .resolve-stage-canvas { position: absolute; left: 0; top: 0; transform-origin: top left; font-family: var(--body-font); color: var(--ink); }
 #resolve-flow-panel .resolve-stage-canvas, #resolve-flow-panel .resolve-stage-canvas * { box-sizing: border-box; }
 #resolve-flow-panel .theatre { height: var(--card-height); position: relative; outline: 1px solid var(--gold-dark); outline-offset: -1px; background: var(--stage); overflow: hidden; }
-#resolve-flow-panel .top-band { height: 35px; display: flex; align-items: center; gap: 26px; padding-inline: 24px; border-bottom: 1px solid var(--gold-dark); color: var(--gold); background: var(--page); font: var(--resolve-font-11) var(--ui-font); letter-spacing: 0.1em; }
+#resolve-flow-panel .top-band { height: 35px; display: flex; align-items: center; gap: 26px; padding-inline: 24px; border-bottom: 1px solid var(--gold-dark); color: var(--gold); background: var(--page); font: var(--resolve-text-label) var(--ui-font); letter-spacing: 0.1em; }
 #resolve-flow-panel .resolve-title { font-family: 'Cinzel', Georgia, serif; }
 #resolve-flow-panel .phase-label { margin-left: auto; color: var(--muted); }
 #resolve-flow-panel .arena { height: var(--arena-height); position: relative; isolation: isolate; overflow: hidden; background: radial-gradient(ellipse at 50% 80%, var(--stage-glow), transparent 64%); }
@@ -563,37 +568,37 @@
 #resolve-flow-panel .attribute-icon { color: color-mix(in srgb, var(--team) 65%, var(--white)); flex-shrink: 0; width: 28px; height: 32px; }
 #resolve-flow-panel .attribute-icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
 #resolve-flow-panel .skill-name { display: block; font-size: var(--plaque-font); min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#resolve-flow-panel .skill-id { font: var(--resolve-font-10) var(--ui-font); align-self: flex-start; margin-top: 7px; color: var(--muted); }
+#resolve-flow-panel .skill-id { font: var(--resolve-text-skill-id) var(--ui-font); align-self: flex-start; margin-top: 7px; color: var(--muted); }
 #resolve-flow-panel .gem { position: absolute; z-index: 5; top: var(--gem-top); right: var(--gem-offset); width: var(--gem-size); height: var(--gem-size); filter: drop-shadow(0 0 9px color-mix(in srgb, var(--team) 40%, transparent)); }
 #resolve-flow-panel .defender > .gem { right: auto; left: var(--gem-offset); }
 #resolve-flow-panel .gem-facets { position: absolute; inset: 0; clip-path: var(--gem-cut); background: var(--team); }
 #resolve-flow-panel .gem-facets::before { content: ''; position: absolute; inset: 3px; clip-path: var(--gem-cut); background: conic-gradient(from 15deg at 50% 44%, var(--team-deep) 0deg 57deg, color-mix(in srgb, var(--team) 32%, var(--stage)) 57deg 110deg, var(--team-deep) 110deg 164deg, color-mix(in srgb, var(--team) 60%, var(--stage)) 164deg 220deg, var(--team-deep) 220deg 278deg, color-mix(in srgb, var(--team) 45%, var(--stage)) 278deg 330deg, var(--team-deep) 330deg); }
 #resolve-flow-panel .gem-facets::after { content: ''; position: absolute; inset: 19%; clip-path: var(--gem-cut); border: 1px solid color-mix(in srgb, var(--white) 40%, transparent); background: color-mix(in srgb, var(--stage) 38%, transparent); }
 #resolve-flow-panel .power-number { position: absolute; top: var(--power-number-top); left: 10%; width: 80%; height: var(--power-number-height); display: grid; place-items: center; font: 900 var(--gem-number)/1 'Cinzel', Georgia, serif; text-shadow: 0 2px 3px var(--black); }
-#resolve-flow-panel .power-range { position: absolute; bottom: 8px; left: 0; width: 100%; text-align: center; font: var(--resolve-font-11) var(--ui-font); color: var(--ink); }
-#resolve-flow-panel .clash-point { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); color: var(--gold); font: 900 var(--resolve-font-30) 'Cinzel', var(--body-font); letter-spacing: 0.1em; }
-#resolve-flow-panel .result-band { display: flex; justify-content: center; align-items: center; height: 42px; padding-inline: 22px; border-block: 1px solid var(--gold-dark); color: var(--gold); background: var(--page); font-size: var(--resolve-font-15); white-space: nowrap; }
+#resolve-flow-panel .power-range { position: absolute; bottom: 8px; left: 0; width: 100%; text-align: center; font: var(--resolve-text-label) var(--ui-font); color: var(--ink); }
+#resolve-flow-panel .clash-point { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); color: var(--gold); font: 900 var(--resolve-text-clash) 'Cinzel', var(--body-font); letter-spacing: 0.1em; }
+#resolve-flow-panel .result-band { display: flex; justify-content: center; align-items: center; height: 42px; padding-inline: 22px; border-block: 1px solid var(--gold-dark); color: var(--gold); background: var(--page); font-size: var(--resolve-text-result); white-space: nowrap; }
 #resolve-flow-panel .result-winner { overflow: hidden; text-overflow: ellipsis; max-width: 49%; }
 #resolve-flow-panel .result-damage { flex-shrink: 0; }
-#resolve-flow-panel .progress-band { height: 49px; display: flex; justify-content: center; align-items: center; gap: 25px; font: var(--resolve-font-12) var(--ui-font); }
+#resolve-flow-panel .progress-band { height: 49px; display: flex; justify-content: center; align-items: center; gap: 25px; font: var(--resolve-text-progress) var(--ui-font); }
 #resolve-flow-panel .skill-descriptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 14px; margin-top: 14px; height: var(--copy-height); }
 #resolve-flow-panel .description { min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 13px 17px; border-top: 1px solid var(--line); background: var(--surface); }
 #resolve-flow-panel .description-tabs { display: none; }
-#resolve-flow-panel .description h3 { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin: 0 0 8px; font: var(--resolve-font-11) var(--ui-font); color: var(--gold); letter-spacing: 0.05em; }
-#resolve-flow-panel .skill-copy { flex: 1; min-height: 0; overflow-y: auto; font: var(--resolve-font-13)/1.65 var(--body-font); color: var(--muted); }
+#resolve-flow-panel .description h3 { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin: 0 0 8px; font: var(--resolve-text-label) var(--ui-font); color: var(--gold); letter-spacing: 0.05em; }
+#resolve-flow-panel .skill-copy { flex: 1; min-height: 0; overflow-y: auto; font: var(--resolve-text-copy)/1.65 var(--body-font); color: var(--muted); }
 #resolve-flow-panel .participants { position: absolute; top: var(--participants-top); bottom: var(--participants-bottom); }
 #resolve-flow-panel .participant { position: absolute; bottom: 0; height: var(--participants-column-height); }
 #resolve-flow-panel .participant-column { position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); pointer-events: none; }
-#resolve-flow-panel .participant-more { position: absolute; top: calc(100% - var(--participants-column-height)); height: var(--small-gem); display: grid; place-items: center; border: 1px solid var(--team); border-radius: 50%; background: color-mix(in srgb, var(--team) 22%, var(--stage)); color: var(--ink); font: 900 var(--resolve-font-18) 'Cinzel', var(--body-font); }
+#resolve-flow-panel .participant-more { position: absolute; top: calc(100% - var(--participants-column-height)); height: var(--small-gem); display: grid; place-items: center; border: 1px solid var(--team); border-radius: 50%; background: color-mix(in srgb, var(--team) 22%, var(--stage)); color: var(--ink); font: 900 var(--resolve-text-more) 'Cinzel', var(--body-font); }
 #resolve-flow-panel .participant .portrait { width: 100%; height: var(--participants-portrait-height); bottom: 25px; mask-image: none; }
-#resolve-flow-panel .participant-name { display: block; position: absolute; width: var(--slot); left: calc(50% - var(--slot) / 2); bottom: 0; text-align: center; font-size: var(--resolve-font-11); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#resolve-flow-panel .participant-name { display: block; position: absolute; width: var(--slot); left: calc(50% - var(--slot) / 2); bottom: 0; text-align: center; font-size: var(--resolve-text-participant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #resolve-flow-panel .small-gem { --gem-size: var(--small-gem); --gem-number: calc(var(--small-gem) / 2); top: 0; left: calc(50% - var(--small-gem) / 2); }
 #resolve-flow-panel .small-gem .power-number { top: var(--small-number-top); height: calc(var(--small-gem) * var(--small-number-ratio)); }
 #resolve-flow-panel .small-gem .power-range { display: none; }
 #resolve-flow-panel .missing-portrait { color: var(--team); }
 #resolve-flow-panel .silhouette-head { position: absolute; width: 65px; height: 76px; left: calc(50% - 32px); top: 12%; background: color-mix(in srgb, var(--team) 28%, var(--stage)); border: 1px solid var(--team); border-radius: 45%; }
 #resolve-flow-panel .silhouette-body { position: absolute; inset: 32% 16% 0; background: linear-gradient(var(--team-deep), var(--stage)); clip-path: polygon(33% 0, 67% 0, 90% 25%, 100% 70%, 78% 72%, 70% 45%, 80% 100%, 20% 100%, 30% 45%, 22% 72%, 0 70%, 10% 25%); }
-#resolve-flow-panel .silhouette-initial { position: absolute; left: 0; top: 41%; width: 100%; text-align: center; font-size: var(--resolve-font-48); color: var(--ink); }
+#resolve-flow-panel .silhouette-initial { position: absolute; left: 0; top: 41%; width: 100%; text-align: center; font-size: var(--resolve-text-initial); color: var(--ink); }
 #resolve-flow-panel .fizzle .gem { --team: var(--grey-gem); --team-deep: var(--surface-raised); }
 /* 定義のrender(t)は無改変。ロールの数字だけ、紋章のタイポグラフィへ合わせる。 */
 #resolve-flow-panel .arena .fx-root { z-index: 8; }
@@ -606,7 +611,7 @@
 #resolve-flow-panel .arena .fx-root.event-resolve-damage, #resolve-flow-panel .arena .fx-root.event-effect-band { z-index: 9; }
 #resolve-flow-panel .damage-lane, #resolve-flow-panel .band-lane { position: absolute; overflow: hidden; pointer-events: none; z-index: 9; }
 #resolve-flow-panel .narrow .damage-lane { --fx-scale: 0.82; }
-#resolve-flow-panel .damage-lane .fx-resolve-damage.chip { font-size: var(--resolve-font-18); }
+#resolve-flow-panel .damage-lane .fx-resolve-damage.chip { font-size: var(--resolve-text-chip); }
 #resolve-flow-panel .half-ko.attacker .fx-ko {
   mask-image: linear-gradient(90deg, var(--black) 0, var(--black) calc(100% - 32px), transparent 100%), linear-gradient(transparent 0, var(--black) 24px, var(--black) calc(100% - 24px), transparent 100%);
 }
@@ -624,20 +629,20 @@
 #resolve-flow-panel .narrow .skill-plaque { padding-right: 42px; }
 #resolve-flow-panel .narrow .defender .skill-plaque { padding-left: 42px; padding-right: 17px; }
 #resolve-flow-panel .narrow .attribute-icon { width: 20px; height: 26px; }
-#resolve-flow-panel .narrow .skill-id { position: absolute; right: 17px; bottom: -2px; font-size: var(--resolve-font-8); }
+#resolve-flow-panel .narrow .skill-id { position: absolute; right: 17px; bottom: -2px; font-size: var(--resolve-text-skill-id-narrow); }
 #resolve-flow-panel .narrow .combatant > .gem .power-number { top: var(--power-number-top); height: var(--power-number-height); }
 #resolve-flow-panel .narrow .power-range { bottom: 7px; }
-#resolve-flow-panel .narrow .result-band { font-size: var(--resolve-font-13); padding-inline: 12px; }
+#resolve-flow-panel .narrow .result-band { font-size: var(--resolve-text-result-narrow); padding-inline: 12px; }
 #resolve-flow-panel .narrow .skill-descriptions { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 0; }
 #resolve-flow-panel .narrow .description-tabs { display: flex; gap: 4px; }
-#resolve-flow-panel .description-tab { font: var(--resolve-font-11) var(--ui-font); padding: 5px 12px; border-radius: 4px 4px 0 0; border-bottom: 0; color: var(--muted); }
+#resolve-flow-panel .description-tab { font: var(--resolve-text-label) var(--ui-font); padding: 5px 12px; border-radius: 4px 4px 0 0; border-bottom: 0; color: var(--muted); }
 #resolve-flow-panel .narrow .skill-descriptions[data-active="attacker"] .description-tab.attacker, #resolve-flow-panel .narrow .skill-descriptions[data-active="defender"] .description-tab.defender { color: var(--gold); background: var(--surface); }
 #resolve-flow-panel .narrow .skill-descriptions[data-active="attacker"] .description.defender, #resolve-flow-panel .narrow .skill-descriptions[data-active="defender"] .description.attacker { display: none; }
 #resolve-flow-panel .narrow .participants { top: var(--participants-top); }
 #resolve-flow-panel .narrow .participant-more { top: calc(100% - var(--participants-column-height)); }
 #resolve-flow-panel .narrow .participant { height: var(--participants-column-height); }
 #resolve-flow-panel .narrow .participant .portrait { height: var(--participants-portrait-height); }
-#resolve-flow-panel .narrow .participant-name { font-size: var(--resolve-font-9); }
+#resolve-flow-panel .narrow .participant-name { font-size: var(--resolve-text-participant-narrow); }
 
 #resolve-flow-panel .reveal-block { visibility: hidden; }
 /* rAFが威力段階の通知より先に描いても、ロール前の確定数字を見せない。 */
@@ -650,7 +655,7 @@
 #resolve-flow-panel .resolve-flow-waiting { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 #resolve-flow-panel .resolve-flow-timer { position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: var(--line); }
 #resolve-flow-panel .resolve-flow-timer .fill { height: 100%; background: var(--gold); }
-#resolve-flow-panel .resolve-stage-notes { max-height: 60px; overflow-y: auto; padding-inline: 14px; font: var(--resolve-font-11)/1.5 var(--ui-font); color: var(--muted); }
+#resolve-flow-panel .resolve-stage-notes { max-height: 60px; overflow-y: auto; padding-inline: 14px; font: var(--resolve-text-note)/1.5 var(--ui-font); color: var(--muted); }
 #resolve-flow-panel .resolve-stage-notes:empty { display: none; }
 #resolve-flow-panel .skill-field { white-space: pre-wrap; }
 #resolve-flow-panel [hidden] { display: none !important; }

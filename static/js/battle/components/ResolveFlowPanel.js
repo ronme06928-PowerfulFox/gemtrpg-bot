@@ -1,6 +1,6 @@
 import { RESOLVE_WAIT_MS, resolveWaitMs } from './resolve_stage_timing.js';
 import { stageMotionAt, renderStageMotion } from './resolve_stage_motion.js';
-import { getLayout } from './resolve_stage_layout.js';
+import { pickStageLayout } from './resolve_stage_layout.js';
 import { renderResolveStage, fitResolveStage, isOneSidedPresentation } from './resolve_stage.js';
 import { store } from '../core/BattleStore.js';
 import { eventBus } from '../core/EventBus.js';
@@ -1590,8 +1590,6 @@ class ResolveFlowPanel {
         const kindClass = this._escape(String(step.kind || 'unknown'));
         const viewportWidth = typeof window !== 'undefined' ? window.innerWidth || 1180 : 1180;
         const viewportHeight = typeof window !== 'undefined' ? window.innerHeight || 900 : 900;
-        const layout = getLayout(viewportWidth <= 980 ? 660 : 1180);
-        const stepBodyKey = `${stepKey}:${layout.width}`;
 
         const stateNow = store.state || state || {};
         const isGM = this._detectIsGM(stateNow);
@@ -1601,6 +1599,8 @@ class ResolveFlowPanel {
         const panel = this._ensurePanel(host);
         const panelContent = this._panelContent(panel);
         if (!panelContent) return;
+        const layout = pickStageLayout((panel.clientWidth || viewportWidth) * 0.92, viewportHeight);
+        const stepBodyKey = `${stepKey}:${layout.width}`;
         panel.className = `resolve-flow-panel kind-${kindClass} reveal-${revealStage}${this._waitingForAdvance ? ' awaiting-advance' : ''}${canDrive ? ' can-drive' : ''}${isGM ? ' gm-user' : ''}`;
         if (this._renderedStepKey !== stepBodyKey) {
             this._finishFx();

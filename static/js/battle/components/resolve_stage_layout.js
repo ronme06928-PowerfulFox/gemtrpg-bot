@@ -5,7 +5,7 @@ const wide = {
   plaqueWidth: 420, plaqueInset: 34, plaqueTop: 24, plaqueHeight: 61, plaqueFont: 27,
   gemSize: 112, gemNumber: 58, gemOffset: 32, gemTop: 6, nameSize: 21,
   powerNumberTop: 11, powerNumberHeight: 70, smallNumberTop: 2, smallNumberRatio: 0.66,
-  copyHeight: 160, copyLines: 5,
+  copyHeight: 160, copyLines: 5, minCopyHeight: 100,
   damage: { x: 436, y: 132, width: 132, height: 244 },
   band: { x: 24, y: 134, width: 230, height: 180 },
   // 広域-合算の参加者の並び（守る側の半分の中。x は半分の左端から）。数字の土台と昇ってよい上の端も持つ。
@@ -18,7 +18,7 @@ const narrow = {
   plaqueWidth: 244, plaqueInset: 14, plaqueTop: 24, plaqueHeight: 55, plaqueFont: 21,
   gemSize: 96, gemNumber: 50, gemOffset: 4, gemTop: 6, nameSize: 17,
   powerNumberTop: 8, powerNumberHeight: 60, smallNumberTop: 2, smallNumberRatio: 0.66,
-  copyHeight: 145, copyLines: 4,
+  copyHeight: 145, copyLines: 4, minCopyHeight: 128,
   damage: { x: 210, y: 130, width: 110, height: 204 },
   band: { x: 10, y: 128, width: 170, height: 180 },
   participants: { x: 66, width: 257, gem: 50, baseY: 248, gemBottom: 168,
@@ -87,13 +87,18 @@ export function damageCeiling(layout, base, kind) {
   return base.y - (base.top ?? layout.damage.y) - (kind === 'dice' ? 46 : 30) / 2;
 }
 
-// 文章は設計寸法で残りを割り当てる。最後に舞台全体へ縮小率を一度だけ適用する。
+// 文章は設計寸法で残りを割り当て、足りなくても本文2行の欄（minCopyHeight）は残す。最後に舞台全体へ縮小率を一度だけ適用する。
 export function fitStage(layout, availableWidth, viewportHeight) {
   const limit = Math.max(1, viewportHeight - 108);
-  const room = Math.max(0, Math.min(layout.copyHeight, limit - layout.cardHeight - 14));
-  const copyHeight = room < 40 ? 0 : room;
+  const room = Math.min(layout.copyHeight, limit - layout.cardHeight - 14);
+  const copyHeight = Math.max(room, Math.min(layout.copyHeight, layout.minCopyHeight));
   const height = layout.cardHeight + (copyHeight ? 14 + copyHeight : 0);
   return { copyHeight, height, scale: Math.min(1, availableWidth / layout.width, limit / height) };
+}
+
+// 1180 / 660の組のうち、地図の欄に縮小率が大きく収まる方（同じなら1180）。
+export function pickStageLayout(availableWidth, viewportHeight) {
+  return fitStage(narrow, availableWidth, viewportHeight).scale > fitStage(wide, availableWidth, viewportHeight).scale ? narrow : wide;
 }
 
 // 演出の座標はすべて未縮小の舞台座標。画面上の矩形を測って逆算しない。

@@ -4,6 +4,7 @@ import '../../static/js/fx/fx_core.js';
 import '../../static/js/fx/fx_effects.js';
 import { createTimeline, phaseAt, phaseNames } from './timeline.mjs';
 import { TEMPO_VARIANTS } from './tempo.mjs';
+import { SCREENS, fitScreen } from './screen.mjs';
 import { el, createStage, fitNames } from './stage.mjs';
 import { getLayout, damageBases, damageCeiling, sideBox, participantSlots } from './layout.mjs';
 
@@ -34,8 +35,8 @@ function selectControl(label, className, options) {
 const sampleSelect = selectControl('見本', 'sample-select', samples.map(sample => [sample.id, sample.label]));
 const widthSelect = selectControl('舞台の幅', 'width-select', [['1180', '広い · 1180px'], ['660', '狭い · 660px']]);
 const levelSelect = selectControl('演出', 'level-select', [['light', '軽め'], ['normal', '通常'], ['rich', '派手']]);
-// 本番の解決パネルは「画面の高さ−108px」に収める。その中でスキルの文章の欄にどれだけ残るかを見る。
-const heightSelect = selectControl('画面の高さ', 'height-select', [['none', '制限なし'], ['1080', '1080px'], ['900', '900px'], ['768', '768px']]);
+// 計画58 §5.3：画面の大きさを選ぶと、本番と同じ組の選び方と縮小率で舞台を実寸の大きさに描く。
+const screenSelect = selectControl('画面', 'screen-select', [['none', '制限なし'], ...SCREENS.map(screen => [screen.id, screen.label])]);
 // 計画58 §5.2：テンポの案を切り替えて見比べる。選ぶと待ちもその案の値にする。
 const tempoSelect = selectControl('テンポ', 'tempo-select', Object.entries(TEMPO_VARIANTS).map(([key, v]) => [key, v.label]));
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -75,7 +76,8 @@ const stageHost = el('div', 'stage-host');
 view.append(stageHost);
 main.append(view);
 const note = el('p', 'comparison-note');
-main.append(note, el('p', 'preview-footnote', '青＝味方 / 赤＝敵　·　文章はスキルデータから表示。解決結果は演出用の見本です。カード下の進行操作は表示のみ。'));
+const sizeNote = el('p', 'size-note');
+main.append(note, sizeNote, el('p', 'preview-footnote', '青＝味方 / 赤＝敵　·　文章はスキルデータから表示。解決結果は演出用の見本です。カード下の進行操作は表示のみ。'));
 
 const statusIcons = { 出血: 'bleed', 破裂: 'rupture', 亀裂: 'fissure', 荊棘: 'thorns', 戦慄: 'fear', 蓄力: 'chikuryoku', 凝魔: 'gyoma' };
 const iconFor = status => assets[`/static/images/${statusIcons[status]}.png`] || null;
@@ -165,26 +167,39 @@ function render(value) {
   play.setAttribute('aria-pressed', String(playing));
   pause.setAttribute('aria-pressed', String(!playing));
 }
+const screenFit = () => {
+  const screen = SCREENS.find(row => row.id === screenSelect.value);
+  return screen ? { screen, ...fitScreen(screen) } : null;
+};
 function scaleStage() {
   const width = Number(widthSelect.value);
-  const ratio = Math.min(1, view.clientWidth / width);
+  const fit = screenFit();
+  const ratio = Math.min(fit ? fit.fit.scale : 1, view.clientWidth / width);
   stage.canvas.style.transform = `scale(${ratio})`;
   stageHost.style.width = `${width * ratio}px`;
   stageHost.style.height = `${stage.canvas.offsetHeight * ratio}px`;
+  if (!fit) { sizeNote.textContent = ''; return; }
+  // 実寸の文字（設計値×本番の縮小率）。表示欄が狭いと、それよりさらに縮めて描く。
+  const font = name => parseFloat(getComputedStyle(stage.canvas).getPropertyValue(`--resolve-text-${name}`)), layout = fit.layout, narrow = layout.width === 660, s = fit.fit.scale;
+  const px = value => (value * s).toFixed(1);
+  sizeNote.textContent = `${fit.screen.label}　·　地図の欄 ${fit.screen.map}px　·　組 ${layout.width}　·　縮小 ${s.toFixed(2)}　·　説明の欄 ${fit.fit.copyHeight ? `${fit.fit.copyHeight}px` : 'なし'}`
+    + `　·　実寸：上の帯 ${px(font('label'))} / 進行 ${px(font('progress'))} / 勝敗帯 ${px(font(narrow ? 'result-narrow' : 'result'))} / 本文 ${px(font('copy'))} / 名前 ${px(layout.nameSize)} / スキル名 ${px(layout.plaqueFont)} / 威力 ${px(layout.gemNumber)} px`
+    + (ratio < s - 1e-9 ? `　·　表示欄が狭いため、実寸の${Math.round(ratio / s * 100)}%で描いています` : '');
 }
-// 画面の高さから、カードの下に残る高さを文章の欄に割り当てる。
+// 画面を選んだら本番と同じ割り当て。制限なしなら設計どおりの高さ。
 function fitDescriptions() {
-  const layout = getLayout(Number(widthSelect.value));
-  const limit = heightSelect.value === 'none' ? Infinity : Number(heightSelect.value) - 108;
-  const room = Math.max(0, Math.min(layout.copyHeight, limit - layout.cardHeight - 14));
+  const fit = screenFit();
+  const room = fit ? fit.fit.copyHeight : getLayout(Number(widthSelect.value)).copyHeight;
   stage.descriptions.style.height = `${room}px`;
-  stage.descriptions.style.display = room < 40 ? 'none' : '';
   return room;
 }
 function rebuild() {
   const previousTime = time;
   timeline = createTimeline(sample, Fx, levelSelect.value, Number(wait.value), TEMPO_VARIANTS[tempoSelect.value].tempo);
   wait.disabled = sample.step.kind === 'fizzle';
+  const fit = screenFit();
+  if (fit) widthSelect.value = String(fit.layout.width);
+  widthSelect.disabled = !!fit;
   waitValue.value = `${timeline.wait.toFixed(1)} 秒${wait.disabled ? '（固定）' : ''}`;
   stage = createStage(stageHost, sample, timeline, assets, samples.indexOf(sample), getLayout(Number(widthSelect.value)));
   stage.canvas.classList.toggle('narrow', widthSelect.value === '660');
@@ -206,7 +221,7 @@ function rebuild() {
   }
   const layout = getLayout(Number(widthSelect.value));
   note.textContent = `${TEMPO_VARIANTS[tempoSelect.value].label}　·　1マッチ ${timeline.duration.toFixed(2)}秒　·　${timeline.outcomeStart.toFixed(2)}秒から勝敗　·　待ち ${timeline.wait.toFixed(1)}秒`
-    + `　·　スキルの文章の欄 ${Math.round(copyRoom)}px${copyRoom < layout.copyHeight ? '（見切れ・欄の中で送る）' : ''}${copyRoom < 40 ? '（出せない）' : ''}`;
+    + `　·　スキルの文章の欄 ${Math.round(copyRoom)}px${copyRoom < layout.copyHeight ? '（見切れ・欄の中で送る）' : ''}`;
   render(previousTime);
   scaleStage();
   if (playing) startedAt = performance.now() - time * 1000;
@@ -221,7 +236,7 @@ pause.addEventListener('click', () => { playing = false; render(time); });
 restart.addEventListener('click', () => { render(0); startedAt = performance.now(); });
 seek.addEventListener('input', () => { playing = false; render(Number(seek.value)); });
 sampleSelect.addEventListener('change', () => { sample = samples.find(row => row.id === sampleSelect.value); playing = false; time = 0; rebuild(); });
-for (const select of [widthSelect, levelSelect, heightSelect]) select.addEventListener('change', rebuild);
+for (const select of [widthSelect, levelSelect, screenSelect]) select.addEventListener('change', rebuild);
 tempoSelect.addEventListener('change', () => { wait.value = String(TEMPO_VARIANTS[tempoSelect.value].wait / 1000); rebuild(); });
 wait.addEventListener('input', rebuild);
 new ResizeObserver(scaleStage).observe(view);
