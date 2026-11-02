@@ -302,6 +302,9 @@ def handle_skill_declaration(room, data, username, sid=None):
              actor['flags']['immediate_action_used'] = True
              consume_granted_skill_use(actor, skill_id)
              mark_gem_protect_used(actor, skill_data)
+             from manager.battle.gem_blessing_presentation import queue_immediate_gem
+             display_name = format_skill_name_for_log(skill_id, skill_data, actor).partition(': ')[2]
+             queue_immediate_gem(state.setdefault('battle_state', {}), actor, skill_id, skill_data, display_name or skill_id)
 
              broadcast_log(room, f"{actor['name']} used immediate skill: {skill_data.get('name', skill_id)}", "info")
              broadcast_state_update(room)
@@ -406,7 +409,8 @@ def handle_skill_declaration(room, data, username, sid=None):
 def _consume_duel_skill_cost(room, actor, skill_data):
     """Pay once before use effects; granted-skill usage is recorded by the caller."""
     spent = {'hp': 0, 'mp': 0, 'fp': 0}
-    mark_gem_protect_used(actor, skill_data)
+    from manager.battle.gem_blessing_presentation import presentation_battle_state
+    mark_gem_protect_used(actor, skill_data, presentation_battle_state(room, get_room_state) if is_gem_protect_skill(skill_data) else None)
     if 'free_cost' in skill_data.get('tags', []):
         return spent
     rule_data = _extract_rule_data_from_skill(skill_data)

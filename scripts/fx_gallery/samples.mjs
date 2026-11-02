@@ -6,6 +6,11 @@ const sample = (id, effect, label, params = {}, anchor = '[data-anchor="damage:d
   ({ id, effect, label, params, anchor, level: 'normal' });
 
 export const effectSamples = [
+  ...['full', 'band', 'missing', 'long'].map(mode => sample(`gem-${mode}`, 'gem-blessing',
+    `宝石の加護 / ${mode}`, { mode: mode === 'band' ? 'band' : 'full', actorName: mode === 'long' ? '星々の記憶を受け継ぐ永遠なる旅人'.repeat(3) : '加護を受ける者',
+      skillName: mode === 'long' ? '夜明けまで続く宝石の永遠の祈り'.repeat(3) : '宝石に宿る祈り',
+      ...(mode === 'missing' ? {} : { image: '/static/images/characters/女冒険者.png' }) }, '.theatre')),
+  ...['victory', 'defeat'].map(outcome => sample(`conclusion-${outcome}`, 'combat-conclusion', `戦闘終結 / ${outcome}`, { outcome }, '.theatre')),
   sample('float-damage', 'float-text', 'HP −9', { text: '−9', tone: 'damage' }),
   sample('float-heal', 'float-text', 'HP +12', { text: '+12', tone: 'heal' }),
   sample('round', 'round-banner', 'ROUND 3', { text: 'ROUND 3' }, '.theatre'),

@@ -72,4 +72,12 @@ function crowd(id, label, count, koIndex) {
 skillIds['summation-5'] = skillIds['summation-8'] = skillIds.summation;
 const crowd5 = crowd('summation-5', '10 · 広域-合算 / 5人（重ねて並べる）', 5, 3);
 const crowd8 = crowd('summation-8', '11 · 広域-合算 / 8人（5人＋まとめ）', 8, 1);
-export const samples = [allyWin, enemyKo, longNames, oneSided, summation, fizzle, silhouette, hard, individual, crowd5, crowd8];
+const gem = copy(allyWin);
+gem.id = 'gem-blessing'; gem.label = '12 · 宝石の加護 / 前置き2人 → 解決中';
+gem.step.gemBlessingUsers = [{ side: 'attacker', actor_id: 'a', slot_id: 'sa' }];
+gem.preludeStep = { kind: 'gem_blessing_prelude', gemBlessings: [
+  { actor_id: 'a', skill_name: '星々の記憶を受け継ぐ永遠の宝石の祈り' },
+  { actor_id: 'd', skill_name: '消えない灯火の加護' },
+] };
+gem.state.characters[1].image = null;
+export const samples = [allyWin, enemyKo, longNames, oneSided, summation, fizzle, silhouette, hard, individual, crowd5, crowd8, gem];

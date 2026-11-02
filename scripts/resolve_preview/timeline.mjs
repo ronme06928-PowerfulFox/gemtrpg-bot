@@ -1,4 +1,4 @@
-import { resolveWaitMs, RESOLVE_WAIT_MS, RESOLVE_TEMPO, resolveStageStarts, fxPlaybackRate } from '../../static/js/battle/components/resolve_stage_timing.js';
+import { resolveWaitMs, RESOLVE_WAIT_MS, RESOLVE_TEMPO, resolveStageStarts, fxPlaybackRate, GEM_BLESSING_MS } from '../../static/js/battle/components/resolve_stage_timing.js';
 import { isOneSidedPresentation } from '../../static/js/battle/components/resolve_stage.js';
 import { resolveStageTiming, collectDamagePopups, isDiceDamageSource,
   attackEffect, attackTierFor, planHitResponse } from '../../static/js/battle/components/resolve_flow_fx.js';
@@ -6,7 +6,7 @@ import { planResolveOutcome } from '../../static/js/battle/components/resolve_fl
 
 export const kindNames = { clash: 'マッチ', one_sided: '一方攻撃', hard_attack: '強硬攻撃',
   mass_individual: '広域-個別', mass_summation: '広域-合算', fizzle: '不発' };
-export const phaseNames = { names: '名前', power: '威力', attack: '攻撃', outcome: '勝敗', wait: '待ち' };
+export const phaseNames = { prelude: '宝石の加護', names: '名前', power: '威力', attack: '攻撃', outcome: '勝敗', wait: '待ち' };
 export function phaseAt(timeline, time) {
   return timeline.marks.filter(mark => time >= mark.at).at(-1)?.stage || 'names';
 }
@@ -60,6 +60,7 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOL
   const targetId = ids[loser];
   const tier = attackTierFor(step, entries, ids, loser);
   const add = (name, at, anchor, params, extra = {}) => result.events.push({ name, at, anchor, params, ...extra });
+  for (const user of step.gemBlessingUsers || []) add('gem-blessing', 0, 'arena', { mode: 'band' }, { side: user.side, targetId: user.actor_id });
   for (const side of oneSided ? ['attacker'] : ['attacker', 'defender']) {
     // 威力のロールと攻撃は、段階の長さに合わせて再生の速さだけを変える（形は変えない）。
     add('power-roll', starts.power, `power:${side}`, { text: powers[side], range: bounds[side] }, { number: true, rate: fxPlaybackRate('power', tempo) });
@@ -99,6 +100,19 @@ export function createTimeline(sample, fx, level = 'normal', waitSeconds = RESOL
       tone: toneFor(event.targetId),
       ...(band ? { groups } : {}),
     }, { targetId: event.targetId });
+  }
+  if (sample.preludeStep) {
+    const prelude = resolveStageTiming(sample.preludeStep)[0].ms / 1000;
+    const offset = prelude + resolveWaitMs(sample.preludeStep) / 1000;
+    result.preludeEnd = offset;
+    for (const event of result.events) event.at += offset;
+    result.marks = [{ stage: 'prelude', at: 0 }, { stage: 'wait', at: prelude }, ...result.marks.map(m => ({ ...m, at: m.at + offset }))];
+    for (const key of ['duration', 'outcomeStart', 'waitStart']) result[key] += offset;
+    result.starts = Object.fromEntries(Object.entries(result.starts).map(([key, value]) => [key, value + offset]));
+    for (const [i, row] of sample.preludeStep.gemBlessings.entries()) {
+      const actor = character(row.actor_id);
+      add('gem-blessing', i * GEM_BLESSING_MS.full / 1000, 'arena', { mode: 'full', actorName: actor.name, skillName: row.skill_name, image: actor.image, team: actor.type });
+    }
   }
   return result;
 }

@@ -98,3 +98,5 @@ footer { color: #8e979b; font-size: 12px; border-top: 1px solid #303c45; padding
 /* 本番は地図の上に重ねる（inset: 0）。一覧ではカードの高さで枠が決まるよう、普通の配置にする（字体の読み込みで高さが変わっても追従する）。 */
 .real-stage [data-gallery-resolve-panel].resolve-flow-panel { position: relative; inset: auto; padding: 12px 0; }
 .real-stage [data-gallery-resolve-panel] .resolve-flow-content { height: auto; }
+.stage > .combat-conclusion-result__card { position: absolute; left: 10%; top: 28%; width: 80%; padding: 28px 0; border: 2px solid var(--fx-gem-gold); border-radius: 14px; background: var(--fx-gem-shade); text-align: center; }
+.stage .combat-conclusion-result__title { font: 900 42px 'Cinzel', serif; color: var(--fx-gem-gold); letter-spacing: .08em; }

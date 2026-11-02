@@ -282,16 +282,22 @@
         shown.add(combatId);
         window._shownCombatConclusionIds = shown;
 
-        document.getElementById('combat-conclusion-result-overlay')?.remove();
+        const previous = document.getElementById('combat-conclusion-result-overlay');
+        if (previous) { window.Fx?.finishAll(previous); previous.remove(); }
         const overlay = document.createElement('div');
         overlay.id = 'combat-conclusion-result-overlay';
         overlay.className = `combat-conclusion-result combat-conclusion-result--${outcome.toLowerCase()}`;
         overlay.innerHTML = '<div class="combat-conclusion-result__card"><div class="combat-conclusion-result__title"></div><div class="combat-conclusion-result__subtitle"></div><button type="button" class="combat-conclusion-result__close">閉じる</button></div>';
         overlay.querySelector('.combat-conclusion-result__title').textContent = OUTCOMES[outcome].label;
         overlay.querySelector('.combat-conclusion-result__subtitle').textContent = OUTCOMES[outcome].resultLabel;
-        const close = () => overlay.remove();
+        const close = () => { window.Fx?.finishAll(overlay); overlay.remove(); };
         overlay.querySelector('.combat-conclusion-result__close').addEventListener('click', close);
         document.body.appendChild(overlay);
+        if (['VICTORY', 'DEFEAT'].includes(outcome)) {
+            window.Fx?.play('combat-conclusion', { outcome: outcome.toLowerCase(),
+                cardEl: overlay.querySelector('.combat-conclusion-result__card'),
+                titleEl: overlay.querySelector('.combat-conclusion-result__title') }, { host: overlay });
+        }
         window.setTimeout(close, 4200);
     };
 

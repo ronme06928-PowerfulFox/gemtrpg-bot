@@ -16,9 +16,10 @@ const assert = require('assert');
 function makeCanvasContext() {
   let commands=[];
   const context={get commands(){return commands;}};
-  for(const name of ['setTransform','beginPath','moveTo','lineTo','closePath','arc','ellipse','fill','stroke','fillRect','save','restore','translate','rotate','scale'])
+  for(const name of ['setTransform','beginPath','moveTo','lineTo','closePath','arc','ellipse','roundRect','drawImage','fillText','fill','stroke','fillRect','save','restore','translate','rotate','scale'])
     context[name]=(...args)=>commands.push([name,...args]);
   context.clearRect=(...args)=>{commands=[['clearRect',...args]];};
+  context.drawImage=(canvas,...args)=>commands.push(['drawImage',canvas.width,canvas.height,...args]);
   for(const kind of ['Linear','Radial'])context[`create${kind}Gradient`]=(...args)=>({kind,args,stops:[],addColorStop(at,color){this.stops.push([at,color]);}});
   return new Proxy(context,{set(target,key,value){target[key]=value;commands.push(['set',key,value]);return true;}});
 }

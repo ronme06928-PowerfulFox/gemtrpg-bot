@@ -86,6 +86,7 @@ def _start_select_resolve_if_ready(room_id, battle_id, source_event, *, ctx):
         ctx['emit_battle_state_updated'](room_id, battle_id)
         return
 
+    state.setdefault('resolve', {})['pending_gem_uses'] = []
     consumed_rows = ctx['consume_mass_costs_on_resolve_start'](room_id, state, required)
     for row in consumed_rows:
         ctx['logger'].info(
@@ -105,6 +106,11 @@ def _start_select_resolve_if_ready(room_id, battle_id, source_event, *, ctx):
     # Select-time redirect history belongs to `redirects`, never to the
     # presentation trace. Clear legacy contamination before Resolve starts.
     state.setdefault('resolve', {})['trace'] = []
+    state['resolve']['step_total'] = 0
+    from manager.battle.gem_blessing_presentation import take_gem_prelude
+    prelude = take_gem_prelude(state, ctx['server_ts_ms']())
+    if prelude:
+        state['resolve']['trace'].append(prelude)
     ctx['start_resolve_presentation'](room_id, state)
 
     state['resolve_ready'] = False

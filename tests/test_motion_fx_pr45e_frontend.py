@@ -111,7 +111,7 @@ def test_preview_places_attacks_with_the_shared_stage_placement():
     source = open('scripts/resolve_preview/page.js', encoding='utf-8').read()
     timeline = open('scripts/resolve_preview/timeline.mjs', encoding='utf-8').read()
     css = open('static/css/modules/visual_battle.css', encoding='utf-8').read()
-    assert 'stageFxPlacement(layout, sample, event.name, event.side, null, event.params.mode)' in source
+    assert 'stageFxPlacement(layout, sample, event.name, event.side, event.targetId, event.params.mode)' in source
     assert "'clash', {\n      tier: 'small'" not in timeline
     assert "selectControl('攻撃の属性', 'attribute-select', [['', 'スキルのまま'], ['斬撃', '斬撃'], ['打撃', '打撃'], ['貫通', '貫通']])" in source
     assert 'createTimeline(withAttribute(sample)' in source

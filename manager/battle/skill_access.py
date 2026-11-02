@@ -88,10 +88,13 @@ def is_gem_protect_skill(skill_data):
     return GEM_PROTECT_TAG in _extract_skill_tags(skill_data)
 
 
-def mark_gem_protect_used(char, skill_data):
+def mark_gem_protect_used(char, skill_data, battle_state=None, slot_id=None):
     """Call when the skill is actually used (cost is processed)."""
     if isinstance(char, dict) and is_gem_protect_skill(skill_data):
         char["used_gem_protect_this_battle"] = True
+        if battle_state is not None:
+            from manager.battle.gem_blessing_presentation import record_resolve_gem
+            record_resolve_gem(battle_state, char, skill_data, slot_id)
 
 
 def _gem_protect_committed_in_other_slot(actor, battle_state, slot_id):

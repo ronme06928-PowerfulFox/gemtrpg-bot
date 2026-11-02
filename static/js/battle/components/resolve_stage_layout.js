@@ -108,6 +108,14 @@ export function stageFxPlacement(layout, sample, name, side, targetId, kind) {
   const slots = sample.step.kind === 'mass_summation' ? participantSlots(layout, sample) : null;
   const item = slots?.items.find(p => String(p.id) === String(targetId));
   if (side === 'defender' && slots && name !== 'effect-band' && targetId && !item) return null;
+  if (name === 'gem-blessing') {
+    const p = layout.participants;
+    return { anchor: 'arena', left: half.x, top: 0, width: half.width, height: half.height,
+      target: { x: item ? p.x + item.x + item.width / 2 : side === 'attacker'
+        ? layout.portraitInset + layout.portraitWidth / 2 : half.width - layout.portraitInset - layout.portraitWidth / 2,
+      y: item ? layout.arenaHeight - p.bottom - p.portraitBottom - p.portraitHeight * .45
+        : layout.arenaHeight - layout.portraitBottom - layout.portraitHeight * .45 } };
+  }
   if (name === 'power-roll') {
     const small = !!item;
     const size = small ? slots.gem : layout.gemSize;

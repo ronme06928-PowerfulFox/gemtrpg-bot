@@ -550,7 +550,7 @@ def _consume_mass_costs_on_resolve_start(room_id, state, required_slots):
         spent = {'hp': 0, 'mp': 0, 'fp': 0}
 
         if isinstance(actor, dict):
-            mark_gem_protect_used(actor, skill_data)
+            mark_gem_protect_used(actor, {**skill_data, 'id': skill_id}, state, slot_id)
             log_name = f"[{format_skill_name_for_log(skill_id, skill_data, actor)}]"
             for entry in _extract_skill_cost_entries(skill_data):
                 if not isinstance(entry, dict):

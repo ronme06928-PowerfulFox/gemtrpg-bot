@@ -265,7 +265,7 @@ Manual14 由来の UI 改善のうち、画面構造として恒常化した内�
 
 実装: `static/js/visual/visual_map.js`、`static/js/battle/components/DeclarePanel.js`、`static/css/modules/visual_map.css`。
 
-## 計画52 PR1〜PR4: 時刻から描く演出（2026-10-29）
+## 計画52 PR1〜PR5: 時刻から描く演出（2026-11-03）
 
 - `fx_core.js` の定義と計算関数、`fx_effects.js` の `mount(root, params)` / `render(t)` はアプリ状態に依存しない。動きは時刻だけで決定し、逆順の時刻と `Infinity` も描ける。`fx_player.js` が設定・時計・上限12個・終了通知を管理する。
 - `Fx.play(name, params, { host, left, top, elapsedSeconds, onDone })` は配置先と経過時間を受け取る。置き場所の `.fx-root` 自体は重なり順を作らず、子のバナー・数値が持つz-indexを生かす。解決パネル直下の `.fx-root` だけにz-index 4を付け、カードより上に描く。完了はタイマー、描画はrequestAnimationFrame。`Fx.finishAll(host)` はそのhostの全演出を最後まで描いて片付け、各onDoneを1回だけ呼ぶ。
@@ -273,6 +273,11 @@ Manual14 由来の UI 改善のうち、画面構造として恒常化した内�
 - 属性別攻撃はPR4.5bで描き直し、1.4秒の定義を等倍で再生、attack開始から0.7秒で命中し、止めと余韻は勝敗へ重なる。属性対応とダメージ段階の境界は接続側へ集約し、定義にはtier・方向・色・描画範囲だけを渡す。広域個別は既存traceの `resolution_kind` を正規化して解決方式を選ぶ。PR4ではダメージ行の `hp_after` でKOと判定した対象への攻撃だけをlargeに補正する。自滅も含むKO演出の判定とは分ける。詳細はE02 Part 14。
 - 配分の単一の正は `resolve_stage_timing.js` の `RESOLVE_TEMPO`（500 / 1200 / 700 / 2200ms、計画58）。遅いフレームはその段階の経過時刻から描き、終了時刻を延ばさない。`collectDamagePopups` は現行summaryの本体/効果合計を保ち、種類が残る記録だけを細分する純粋関数。
 - チャットはnew_logでWeakSetへ登録したオブジェクトを、生きた描画の呼び出しで1回だけ消費する。履歴・状態同期のbatchはlive指定を持たず、再生しない。分類は `SoundFx.isDiceLog` と共通。
+
+### PR5：加護の記録と終結カード（2026-11-03）
+
+- 即時発動の加護は `pending_gem_blessings` を戦闘開始時に前置きtraceへ移し、共有presentationで再生する。その間はマッチのDOMを作らない。解決中の実消費は `gem_blessing_users` を記録し、名前段階だけ700ms延ばす。記録はB03、見た目はE02 Part 14。
+- `gem-blessing` は試作BのCanvasと文字を使う。`combat-conclusion` は配置済みの既存カード・見出しへ重ね、敗北の個別translate・filterは閉じるまで保持する。カードの閉じる操作・自動終了・差し替えで `finishAll` を呼び、元の値へ戻す。ラウンドバナーは変更しない。
 
 ### PR4：効果の記録と結果演出（2026-10-29）
 

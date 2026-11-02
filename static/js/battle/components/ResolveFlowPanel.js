@@ -620,6 +620,8 @@ class ResolveFlowPanel {
             stepIndex,
             stepTotal,
             kind: String(raw.kind || 'unknown'),
+            gemBlessings: Array.isArray(raw.gem_blessings) ? raw.gem_blessings : [],
+            gemBlessingUsers: Array.isArray(raw.gem_blessing_users) ? raw.gem_blessing_users : [],
             resolutionKind: raw.resolution_kind || null,
             outcome: String(raw.outcome || 'no_effect'),
             phase: String(raw.phase || ''),
@@ -687,6 +689,17 @@ class ResolveFlowPanel {
             state?.resolvePresentation?.current_step_index,
             0
         );
+        const hasCurrentPrelude = trace.some((raw, index) => raw.kind === 'gem_blessing_prelude'
+            && this._toNumber(raw.step_index, index) === sharedStepIndex);
+        if (hasCurrentPrelude) {
+            this._playQueue = this._playQueue.filter(step => !this._isIntroStep(step));
+            if (this._isIntroStep(this._activeStep)) {
+                this._stopPlayback();
+                this._activeStep = null;
+                this._renderedStepKey = null;
+                this._waitingForFirstTrace = false;
+            }
+        }
         trace.forEach((raw, idx) => {
             const step = this._normalizeTraceEntry(raw, idx, state);
             if (Number.isFinite(step.rawStepIndex) && step.rawStepIndex < sharedStepIndex) return;
@@ -722,7 +735,7 @@ class ResolveFlowPanel {
     }
 
     _assignDisplayIndex(step, key = null) {
-        if (!step || this._isIntroStep(step)) return 0;
+        if (!step || this._isIntroStep(step) || step.kind === 'gem_blessing_prelude') return 0;
         const resolvedKey = key || this._traceKey(step);
         if (!resolvedKey) return 0;
         if (this._displayIndexByKey.has(resolvedKey)) {
@@ -931,7 +944,7 @@ class ResolveFlowPanel {
     }
 
     _drawMotion(panel = null, elapsedMs = null) {
-        if (!this._activeStep || this._isIntroStep(this._activeStep)) return;
+        if (!this._activeStep || this._isIntroStep(this._activeStep) || this._activeStep.kind === 'gem_blessing_prelude') return;
         const shell = panel || document.getElementById(this._panelId);
         const elapsed = elapsedMs ?? Math.max(0, Date.now() - this._stepStartedAt);
         renderStageMotion(shell?.querySelector('.resolve-stage-canvas'), stageMotionAt(this._activeStep, elapsed / 1000,
@@ -979,7 +992,7 @@ class ResolveFlowPanel {
         const isFirstPresentedMatch = !isIntroStep && this._presentedStepCount === 0;
         const resetVisibleClock = !isIntroStep
             && (isFirstPresentedMatch || forceLocalClock || this._resetNextMatchClock);
-        if (this._activeStep && !this._isIntroStep(this._activeStep)) {
+        if (this._activeStep && !this._isIntroStep(this._activeStep) && this._activeStep.kind !== 'gem_blessing_prelude') {
             this._resetNextMatchClock = false;
             this._presentedStepCount += 1;
             this._activeStep.presentedIndex = this._presentedStepCount;
@@ -989,8 +1002,8 @@ class ResolveFlowPanel {
         const sharedStepIndex = this._toNumber(presentation.current_step_index, -1);
         const activeRawIndex = this._toNumber(this._activeStep?.rawStepIndex, -2);
         const sharedStartedAt = this._toNumber(presentation.step_started_at, 0);
-        const useSharedClock = !resetVisibleClock && sharedStartedAt > 0 && sharedStepIndex === activeRawIndex;
-        // step_started_at はサーバーの時計。途中参加の合流だけに使い、端末の時計より未来なら今に丸める（B03）。
+        const useSharedClock = (!resetVisibleClock || this._activeStep.kind === 'gem_blessing_prelude') && sharedStartedAt > 0 && sharedStepIndex === activeRawIndex;
+        // 前置きと途中参加は共有時計へ合流し、端末の時計より未来なら今に丸める（B03）。
         this._stepStartedAt = useSharedClock ? Math.min(sharedStartedAt, Date.now()) : Date.now();
         this._renderStep(store.state || {});
 
@@ -1600,17 +1613,25 @@ class ResolveFlowPanel {
         const panelContent = this._panelContent(panel);
         if (!panelContent) return;
         const layout = pickStageLayout((panel.clientWidth || viewportWidth) * 0.92, viewportHeight);
+        const prelude = step.kind === 'gem_blessing_prelude';
         const stepBodyKey = `${stepKey}:${layout.width}`;
         panel.className = `resolve-flow-panel kind-${kindClass} reveal-${revealStage}${this._waitingForAdvance ? ' awaiting-advance' : ''}${canDrive ? ' can-drive' : ''}${isGM ? ' gm-user' : ''}`;
         if (this._renderedStepKey !== stepBodyKey) {
             this._finishFx();
-            panelContent.innerHTML = renderResolveStage(this, step, state, layout);
+            panelContent.innerHTML = prelude ? `<div class="resolve-gem-prelude">
+                <div class="resolve-flow-waiting"></div>
+                <button class="resolve-flow-next-btn">次へ</button>
+                <label><input type="checkbox" class="resolve-flow-auto-checkbox">自動進行</label>
+                <button class="resolve-flow-claim-btn">進行を引き継ぐ</button>
+                </div>` : renderResolveStage(this, step, state, layout);
             this._renderedStepKey = stepBodyKey;
         }
         const number = panel.querySelector('.step-number');
         if (number) number.textContent = stepNumLabel;
-        fitResolveStage(panel, layout, viewportWidth, viewportHeight);
-        this._drawMotion(panel, elapsed);
+        if (!prelude) {
+            fitResolveStage(panel, layout, viewportWidth, viewportHeight);
+            this._drawMotion(panel, elapsed);
+        }
 
         const revealNode = panel.querySelector('.resolve-flow-reveal-stage');
         this._notifyStage(stepKey, revealStage, step);

@@ -26,7 +26,7 @@ from manager.battle.skill_rules import (
     _extract_rule_data_from_skill,
     _extract_skill_cost_entries,
 )
-from manager.battle.skill_access import get_effective_skill_cost, mark_gem_protect_used
+from manager.battle.skill_access import get_effective_skill_cost, mark_gem_protect_used, is_gem_protect_skill
 from manager.battle.damage_context import build_damage_context
 from manager.battle.combat_session import record_combat_damage
 from manager.battle.scheduled_effects import apply_schedule_change
@@ -78,7 +78,8 @@ def _apply_cost(attacker, skill, policy, room=None):
     if policy != COST_CONSUME_POLICY:
         return consumed
 
-    mark_gem_protect_used(attacker, skill)
+    from manager.battle.gem_blessing_presentation import presentation_battle_state
+    mark_gem_protect_used(attacker, skill, presentation_battle_state(room, get_room_state) if is_gem_protect_skill(skill) else None)
     used_skill_id = _extract_skill_id_from_data(skill)
     if used_skill_id:
         consume_granted_skill_use(attacker, used_skill_id)

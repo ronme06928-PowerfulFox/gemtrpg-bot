@@ -173,7 +173,8 @@ def run_select_resolve_auto(room, battle_id):
     resolve_ctx = battle_state.setdefault('resolve', {})
     mass_steps_est = _estimate_mass_trace_steps(state, battle_state, resolve_intents)
     single_steps_est = _estimate_single_trace_steps(state, battle_state, resolve_intents)
-    step_total_est = int(max(0, mass_steps_est + single_steps_est))
+    prelude_steps = sum(row.get('kind') == 'gem_blessing_prelude' for row in resolve_ctx.get('trace', []))
+    step_total_est = int(max(0, mass_steps_est + single_steps_est + prelude_steps))
     trace_len = len(resolve_ctx.get('trace', []) or [])
     existing_total = _safe_int(resolve_ctx.get('step_total'), 0)
     # If trace is freshly reset, stale step_total from a previous round must not survive.

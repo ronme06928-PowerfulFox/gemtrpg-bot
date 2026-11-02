@@ -42,7 +42,7 @@ def test_resolve_popup_uses_one_shell_from_request_through_first_match():
     assert "return this._emit('battle_resolve_start'" in client
     assert "_playNextStep({ forceLocalClock = false } = {})" in panel
     assert "const isFirstPresentedMatch = !isIntroStep && this._presentedStepCount === 0;" in panel
-    assert "const useSharedClock = !resetVisibleClock" in panel
+    assert "const useSharedClock = (!resetVisibleClock || this._activeStep.kind === 'gem_blessing_prelude')" in panel
     assert "this._waitingForFirstTrace && this._playQueue.length > 0 && canPlayback" in panel
     assert "this._waitingForFirstTrace ? 'RESOLVING...' : 'BATTLE START'" in panel
     assert '<div class="resolve-flow-content"></div>' in panel

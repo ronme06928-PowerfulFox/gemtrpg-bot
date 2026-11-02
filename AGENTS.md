@@ -36,7 +36,7 @@
 6. `static/mobile/` はバンドル対象外。モバイル版は開発停止中で `/mobile` とそのアセット配信も止めているため、編集依頼が来たら着手前にユーザーへ確認する。
 7. 演出の一覧は `npm run gallery` で `/_local/fx_gallery/fx_gallery.html` を作る。本番のバンドルには入らない。
 8. 解決パネルの見比べ用HTMLは `npm run resolve-preview` で作る。本番のバンドルには入らない。
-9. 攻撃の試作の見比べ用HTMLは `npm run fx-proto` で `/_local/fx_proto/slash_proto.html` を作る。本番のバンドルには入らない。
+9. 演出の試作の見比べ用HTMLは `npm run fx-proto` で作る（攻撃は `/_local/fx_proto/slash_proto.html`、宝石の加護と戦闘の終わりは `/_local/fx_proto/pr5_proto.html`）。本番のバンドルには入らない。
 
 ```bash
 # JS 編集後

@@ -232,7 +232,7 @@ context.window=context;
 vm.createContext(context);
 for (const script of scripts) vm.runInContext(script,context);
 const cards=all.filter(node=>node.className.split(' ').includes('gallery-card'));
-assert.strictEqual(cards.length,23);
+assert.strictEqual(cards.length,25);
 assert.strictEqual(cards.filter(c=>c.className.includes('scene-card')).length,7);
 for (const card of cards) {
   const stage=card.querySelector('.stage-host').children[0];

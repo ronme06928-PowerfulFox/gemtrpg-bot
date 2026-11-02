@@ -405,6 +405,7 @@
 .combat-conclusion-result--interrupted .combat-conclusion-result__card { color: #d1d5db; }
 
 .combat-conclusion-result__title {
+    font-family: 'Cinzel', serif;
     color: inherit;
     font-size: clamp(38px, 7vw, 76px);
     font-weight: 900;

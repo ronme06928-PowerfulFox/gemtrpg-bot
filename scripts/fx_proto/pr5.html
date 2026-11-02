@@ -1,0 +1,242 @@
+<meta charset="utf-8">
+<title>宝石の加護と終結の試作</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Zen+Antique&display=swap">
+<style>
+__MOTION_FX_CSS__
+:root {
+  --page: #0b0d16; --panel: #121524; --line: #2a2f45; --ink: #e8e4d8; --muted: #9aa0b4; --gold: #d9b45a;
+  --stage: #141826; --stage-glow: #232a44;
+  color-scheme: dark;
+}
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.7 'Yu Gothic UI', 'Meiryo', sans-serif; }
+main { max-width: 1240px; margin: 0 auto; padding-block: 28px 60px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; }
+.eyebrow { margin: 0; font: 700 12px 'Cinzel', serif; letter-spacing: 0.18em; color: var(--gold); }
+h1 { margin: 4px 0 6px; font: 400 28px 'Zen Antique', serif; text-wrap: balance; }
+h2.part { margin: 18px 0 0; font: 400 22px 'Zen Antique', serif; border-top: 1px solid var(--line); padding-top: 18px; }
+.intro, .note { margin: 0; color: var(--muted); max-width: 72ch; }
+.note { font-size: 12px; }
+.controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 12px 14px; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--line); border-radius: 8px; backdrop-filter: blur(6px); }
+.controls label, .part-controls label { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; }
+select, .controls button { font: inherit; color: var(--ink); background: #1b1f33; border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px; }
+.controls button { cursor: pointer; }
+.controls button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.seek-row { flex: 1 1 320px; display: flex; gap: 10px; align-items: center; min-width: 0; }
+.seek-row input { flex: 1; min-width: 0; accent-color: var(--gold); }
+.clock { font: 700 13px 'Cinzel', serif; color: var(--gold); min-width: 5.5em; text-align: right; }
+.ticks { display: flex; gap: 6px; flex-wrap: wrap; }
+.ticks button { font-size: 12px; padding: 2px 8px; }
+.part-controls { display: flex; gap: 14px; flex-wrap: wrap; }
+.row { display: grid; gap: 8px; }
+.row h3 { margin: 0; font: 400 18px 'Zen Antique', serif; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.row h3 small { font: 12px 'Yu Gothic UI', sans-serif; color: var(--muted); }
+.viewport { position: relative; width: 100%; max-width: 100%; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--stage); }
+.viewport.screen { aspect-ratio: 1280 / 720; }
+.viewport.arena { aspect-ratio: 1180 / 420; }
+.stage { position: absolute; left: 0; top: 0; transform-origin: top left; overflow: hidden; }
+/* 戦闘画面のつもりの背景（地図のマスとコマ）。 */
+.screen .stage { width: 1280px; height: 720px; background:
+  repeating-linear-gradient(0deg, #ffffff08 0 1px, transparent 1px 64px), repeating-linear-gradient(90deg, #ffffff08 0 1px, transparent 1px 64px),
+  radial-gradient(ellipse at 40% 60%, #26304e, #101422 70%); }
+.token { position: absolute; width: 56px; height: 56px; border-radius: 50%; border: 3px solid; background: #1d2238 center / cover no-repeat; }
+.token.ally { border-color: #ff5f7d; } .token.enemy { border-color: #ffc44d; }
+/* 解決パネルの舞台のつもり（立ち絵・威力の紋章）。 */
+.arena .stage { width: 1180px; height: 420px; background: radial-gradient(ellipse at 50% 80%, var(--stage-glow), transparent 64%), var(--stage); }
+.portrait { position: absolute; bottom: 26px; width: 330px; height: 365px; }
+.portrait img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+.portrait.attacker { left: 34px; } .portrait.defender { right: 34px; }
+.gem-number { position: absolute; top: 6px; width: 112px; height: 112px; display: grid; place-items: center; font: 900 58px 'Cinzel', serif; color: #fff;
+  clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%); background: linear-gradient(160deg, #e5577d, #8c1d44); }
+.gem-number.attacker { left: 466px; } .gem-number.defender { right: 466px; background: linear-gradient(160deg, #4c7be0, #1b2f74); }
+.half-host { position: absolute; top: 0; width: 590px; height: 420px; }
+/* 宝石の加護の部品。 */
+.p5-dim { position: absolute; inset: 0; background: #03060f; }
+.p5-b-figure { position: absolute; transform: translateX(-50%); }
+/* 解決パネルの立ち絵なし（.missing-portrait の写し）。 */
+.ally { --team: #007bff; --team-deep: #102e53; } .enemy { --team: #dc3545; --team-deep: #4c1b29; }
+.portrait.missing { color: var(--team); }
+.silhouette-head { position: absolute; width: 20%; aspect-ratio: 65 / 76; left: 40%; top: 12%; background: color-mix(in srgb, var(--team) 28%, var(--stage)); border: 1px solid var(--team); border-radius: 45%; }
+.silhouette-body { position: absolute; inset: 32% 16% 0; background: linear-gradient(var(--team-deep), var(--stage)); clip-path: polygon(33% 0, 67% 0, 90% 25%, 100% 70%, 78% 72%, 70% 45%, 80% 100%, 20% 100%, 30% 45%, 22% 72%, 0 70%, 10% 25%); }
+.silhouette-initial { position: absolute; left: 0; top: 41%; width: 100%; text-align: center; font: 400 48px 'Zen Antique', serif; color: var(--ink); }
+/* 名前：濃い紺の縁取りを字の下に描き、その外に陣営の色の光。立ち絵の上でも読めるように。 */
+.p5-namecard { position: absolute; white-space: nowrap; font-family: 'Zen Antique', serif; line-height: 1; color: #fff;
+  -webkit-text-stroke: 0.16em #0a0e1c; paint-order: stroke fill; text-shadow: 0 0 16px var(--team), 0 0 6px var(--team), 0 3px 4px rgba(0, 0, 0, 0.9); }
+.p5-b-text { position: absolute; text-align: center; white-space: nowrap; line-height: 1; }
+.p5-title { font-family: 'Zen Antique', serif; background: linear-gradient(180deg, #fffaf0 10%, #ffd56a 55%, #c98a2a); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 10px rgba(255, 213, 106, 0.65)) drop-shadow(0 2px 2px rgba(0, 0, 0, 0.8)); }
+.p5-label { margin-bottom: 0.3em; font: 400 0.36em 'Zen Antique', serif; letter-spacing: 0.3em; color: #ffe9b0; text-shadow: 0 0 8px rgba(255, 213, 106, 0.7); }
+/* 字の下に敷く暗い帯（立ち絵や地図の上でも読めるように）。 */
+.p5-b-text { padding: 0.28em 1.4em; background: linear-gradient(90deg, transparent, rgba(5, 8, 18, 0.78) 16%, rgba(5, 8, 18, 0.78) 84%, transparent); }
+/* 戦闘の終わり：今のカード（visual_battle.css の写し。見出しはCinzelにそろえる）。 */
+.conclusion { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(3, 7, 18, 0.72); }
+.conclusion-card { position: relative; min-width: 620px; padding: 34px 42px 24px; border: 2px solid currentColor; border-radius: 14px;
+  background: radial-gradient(circle at center, rgba(25, 35, 61, 0.98), rgba(8, 13, 27, 0.98)); box-shadow: 0 22px 56px rgba(0, 0, 0, 0.55); text-align: center; }
+.conclusion.victory .conclusion-card { color: #facc15; } .conclusion.defeat .conclusion-card { color: #fb7185; }
+.conclusion.retreat .conclusion-card { color: #93c5fd; } .conclusion.interrupted .conclusion-card { color: #d1d5db; }
+.conclusion-title { display: inline-block; font: 900 76px 'Cinzel', serif; letter-spacing: 0.08em; text-shadow: 0 3px 14px currentColor; line-height: 1.2; }
+.conclusion-sub { margin-top: 8px; color: #e5e7eb; font-weight: 700; letter-spacing: 0.14em; }
+.conclusion-close { margin-top: 20px; border: 1px solid currentColor; border-radius: 5px; padding: 7px 16px; background: transparent; color: inherit; font: inherit; }
+.fx-layer { position: absolute; inset: 0; pointer-events: none; }
+</style>
+<main>
+  <header>
+    <p class="eyebrow">GEMLIA / PR5 STUDY</p>
+    <h1>宝石の加護と戦闘の終わりの試作</h1>
+    <p class="intro">計画52 PR5（§6.8）の試作です。宝石の加護は案B「宝石が砕けて加護が降りる」に決め、宣言の間（画面全体・1.6秒）は表記1（小さく「宝石の加護」＋大きくスキル名）と、使った人の名前を陣営の色で大きく出す形に決めました。「立ち絵」で、立ち絵が無いときの見え方を確かめられます。解決の中（使った側の半分・1.2秒）は直後にスキル名の札が出るので「宝石の加護」だけです。戦闘の終わりは控えめに決め、敗北は見出しが沈む形にしました。時刻は全部共通です。</p>
+  </header>
+  <section class="controls" aria-label="操作">
+    <button type="button" class="play" aria-pressed="false">▶ 再生</button>
+    <button type="button" class="loop" aria-pressed="true">繰り返し</button>
+    <label>速さ <select class="speed"><option value="1" selected>1倍</option><option value="0.5">0.5倍</option><option value="0.25">0.25倍</option></select></label>
+    <label>演出 <select class="level"><option value="normal" selected>通常</option><option value="rich">派手</option></select></label>
+    <div class="seek-row"><input type="range" class="seek" min="0" max="2.2" step="0.005" value="0" aria-label="時刻"><output class="clock">0.000 s</output></div>
+    <div class="ticks" aria-label="時刻へ移る">
+      <button type="button" data-t="0.2">0.20</button><button type="button" data-t="0.45">0.45</button><button type="button" data-t="0.62">0.62</button>
+      <button type="button" data-t="0.8">0.80</button><button type="button" data-t="1.1">1.10</button><button type="button" data-t="1.45">1.45</button>
+    </div>
+  </section>
+
+  <h2 class="part">1. 宝石の加護：宣言の間（画面全体のカットイン）</h2>
+  <div class="part-controls"><label>スキル名 <select class="skill"><option value="猛攻の輝き">猛攻の輝き（B-01）</option><option value="守護の輝き">守護の輝き（B-02）</option><option value="星々の祈りを束ねて砕く暁光の宝玉">長い名前（16字・名前を変えた例）</option><option value="幾千の夜を越え暁の彼方へと捧ぐ終わりなき守りの輝き">とても長い名前（24字）</option></select></label>
+    <label>立ち絵 <select class="portrait-mode"><option value="yes">あり</option><option value="no">なし</option></select></label>
+    <label>使った人 <select class="actor-name"><option value="リオ">リオ</option><option value="星詠みの旅人アルフレッド＝ヴァンシュタイン">長い名前（20字）</option></select></label></div>
+  <section class="row" data-kind="full" data-label="both"><h3>表記1（決定）：「宝石の加護」＋スキル名<small>小さく「宝石の加護」、その下に大きくスキル名。使った人の名前を陣営の色で大きく出す（立ち絵なしは胸の高さへ）</small></h3><div class="viewport screen"><div class="stage"></div></div></section>
+
+  <h2 class="part">2. 宝石の加護：解決の中（使った側の背景の上）</h2>
+  <div class="part-controls"><label>使った側 <select class="side"><option value="attacker">左（攻撃側）</option><option value="defender">右（防御側）</option></select></label></div>
+  <section class="row" data-kind="band"><h3>小さな宝石＋「宝石の加護」<small>使った人の胸の上で小さな宝石が砕け、光が胸へ降りる。スキル名は直後の札に任せる</small></h3><div class="viewport arena"><div class="stage"></div></div></section>
+
+  <h2 class="part">3. 戦闘の終わり（控えめ）</h2>
+  <div class="part-controls"><label>結果 <select class="outcome"><option value="victory">勝利</option><option value="defeat">敗北</option><option value="retreat">撤退（飾りなし）</option><option value="interrupted">中断（飾りなし）</option></select></label></div>
+  <section class="row" data-kind="conclusion"><h3>控えめ<small>勝利：字の上を光の帯が1本走り、縁が一度光り、金のきらめきが少し立ちのぼる。敗北：ひびはやめ、見出しが少し沈んで暗くなる（カードが閉じるまで保つ）</small></h3><div class="viewport screen"><div class="stage"></div></div></section>
+  <h2 class="part">4. ラウンド開始のバナー（宣言の前、1.8秒）</h2>
+  <section class="row" data-kind="banner" data-mode=""><h3>今のまま<small>本番の round-banner（ROUND 3）</small></h3><div class="viewport screen"><div class="stage"></div></div></section>
+  <section class="row" data-kind="banner" data-mode="sweep"><h3>案1：字の上を光の帯<small>落ち着いた0.36秒から、字の形だけを光が1本走る（勝利と同じ作り）</small></h3><div class="viewport screen"><div class="stage"></div></div></section>
+  <section class="row" data-kind="banner" data-mode="sparkle"><h3>案2：宝石の色の粒<small>出た瞬間に枠の縁から宝石の色の粒がはじけて漂い、四隅が光る</small></h3><div class="viewport screen"><div class="stage"></div></div></section>
+  <p class="note">カードと見出しは今のアプリの表示の写しです（見出しの字だけ計画どおりCinzelにしています）。表示は4.2秒のままで、勝利の飾りはカードが出た瞬間から1.8秒、敗北の沈みはカードが閉じるまで保ちます（試作は2.2秒で繰り返します）。撤退・中断は計画どおり飾りなしで、比べるためだけに載せています。宝石の加護の試作は判定・進行の時間に触れません。</p>
+</main>
+<script>
+__FX_SCRIPTS__
+</script>
+<script>
+(() => {
+  const Fx = window.Fx;
+  const ASSETS = __ASSETS__;
+  const $ = s => document.querySelector(s);
+  const rows = [...document.querySelectorAll('.row')];
+  const state = { t: 0, playing: false, last: 0 };
+  const LOOP = 2.2;
+  let items = [];
+  const OUTCOMES = { victory: ['VICTORY', '戦闘勝利'], defeat: ['DEFEAT', '戦闘敗北'], retreat: ['RETREAT', '戦闘撤退'], interrupted: ['INTERRUPTED', '戦闘中断'] };
+  function screenMarkup(stage) {
+    const tokens = [[360, 300, 'ally', 'ally'], [430, 410, 'ally', null], [820, 260, 'enemy', 'enemy'], [900, 380, 'enemy', null]];
+    stage.innerHTML = tokens.map(([x, y, side, img]) => `<div class="token ${side}" style="left:${x}px;top:${y}px;${img ? `background-image:url(${ASSETS[img]})` : ''}"></div>`).join('');
+  }
+  const silhouette = name => `<div class="silhouette-head"></div><div class="silhouette-body"></div><span class="silhouette-initial">${name[0]}</span>`;
+  function arenaMarkup(stage, side, hasImage) {
+    const figure = (who, img, name, team) => hasImage || who !== side
+      ? `<div class="portrait ${who}"><img src="${img}" alt=""></div>`
+      : `<div class="portrait ${who} missing ${team}">${silhouette(name)}</div>`;
+    stage.innerHTML = figure('attacker', ASSETS.ally, 'リオ', 'ally') + figure('defender', ASSETS.enemy, '人狼型シュラーカー', 'enemy')
+      + '<div class="gem-number attacker">9</div><div class="gem-number defender">4</div>';
+  }
+  function build() {
+    for (const { fx } of items) fx.render(Infinity);
+    const level = $('.level').value, side = $('.side').value, outcome = $('.outcome').value, skillName = $('.skill').value, portraitMode = $('.portrait-mode').value, hasImage = portraitMode === 'yes', actorName = $('.actor-name').value;
+    items = rows.map(row => {
+      const stage = row.querySelector('.stage'), kind = row.dataset.kind;
+      const root = document.createElement('div');
+      root.className = 'fx-layer';
+      let fx;
+      if (kind === 'full') {
+        screenMarkup(stage); stage.appendChild(root);
+        fx = Object.create(Fx.get('proto-gem-b'));
+        fx.mount(root, { mode: 'full', label: row.dataset.label, skillName, width: 1280, height: 720, level, image: hasImage ? ASSETS.ally : null, actorName, team: 'ally', target: { x: 640, y: 470 } });
+      } else if (kind === 'band') {
+        arenaMarkup(stage, side, hasImage);
+        const host = document.createElement('div');
+        host.className = 'half-host'; host.style.left = side === 'attacker' ? '0' : '590px';
+        stage.appendChild(host); host.appendChild(root);
+        // 使った人の胸（立ち絵の上から45%）。
+        const x = side === 'attacker' ? 34 + 165 : 590 - 34 - 165;
+        fx = Object.create(Fx.get('proto-gem-b'));
+        fx.mount(root, { mode: 'band', width: 590, height: 420, level, target: { x, y: 420 - 26 - 365 * 0.55 } });
+      } else if (kind === 'banner') {
+        // 今のバナーは本番の round-banner をそのまま使い、案の飾りだけを重ねる。
+        screenMarkup(stage); stage.appendChild(root);
+        root.style.setProperty('--fx-scale', '1');
+        const banner = Object.create(Fx.get('round-banner'));
+        banner.mount(root, { level, text: 'ROUND 3' });
+        banner.render(0.4);
+        const text = root.querySelector('.round-banner-text'), style = getComputedStyle(text);
+        const box = { x: text.offsetLeft, y: text.offsetTop, w: text.offsetWidth, h: text.offsetHeight };
+        // 字の形の箱は枠の内側（左右の余白52px・上下18px）。
+        const textBox = { x: box.x + 52, y: box.y + 18, w: box.w - 104, h: box.h - 36 };
+        const shine = row.dataset.mode ? Object.create(Fx.get('proto-banner-shine')) : null;
+        shine?.mount(root, { mode: row.dataset.mode, box, textBox, text: 'ROUND 3', letterSpacing: style.letterSpacing,
+          font: `${style.fontWeight} ${style.fontSize} ${style.fontFamily}` });
+        fx = { duration: 1.8, render: t => { banner.render(t); shine?.render(t); } };
+      } else {
+        screenMarkup(stage);
+        const [title, sub] = OUTCOMES[outcome];
+        const overlay = document.createElement('div');
+        overlay.className = `conclusion ${outcome}`;
+        overlay.innerHTML = `<div class="conclusion-card"><div class="conclusion-title">${title}</div><div class="conclusion-sub">${sub}</div><button type="button" class="conclusion-close">閉じる</button></div>`;
+        stage.appendChild(overlay); overlay.appendChild(root);
+        const card = overlay.querySelector('.conclusion-card'), head = overlay.querySelector('.conclusion-title');
+        fx = Object.create(Fx.get('proto-conclusion'));
+        const style = getComputedStyle(head);
+        fx.mount(root, { outcome, titleEl: head, text: title, letterSpacing: style.letterSpacing,
+          font: `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`,
+          card: { x: card.offsetLeft, y: card.offsetTop, w: card.offsetWidth, h: card.offsetHeight },
+          titleBox: { x: card.offsetLeft + head.offsetLeft, y: card.offsetTop + head.offsetTop, w: head.offsetWidth, h: head.offsetHeight } });
+        fx.overlay = overlay;
+      }
+      return { fx, stage, row };
+    });
+    fit(); draw();
+  }
+  function fit() {
+    for (const { stage, row } of items) {
+      const w = row.querySelector('.viewport').clientWidth;
+      stage.style.transform = `scale(${w / stage.offsetWidth})`;
+    }
+  }
+  function draw() {
+    for (const { fx } of items) {
+      fx.render(state.t <= 0 ? 0 : state.t >= fx.duration ? Infinity : state.t);
+      // 今のカードは0.28秒でフェードインし、4.2秒まで残る（試作では繰り返しの間ずっと出す）。
+      if (fx.overlay) fx.overlay.style.opacity = String(Fx.clamp01(state.t / 0.28));
+    }
+    $('.seek').value = String(state.t);
+    $('.clock').value = `${state.t.toFixed(3)} s`;
+  }
+  function tick(now) {
+    if (!state.playing) return;
+    state.t += Math.min(0.05, (now - state.last) / 1000) * Number($('.speed').value);
+    state.last = now;
+    if (state.t > LOOP) { if ($('.loop').getAttribute('aria-pressed') === 'true') state.t = 0.001; else { state.t = LOOP; setPlaying(false); } }
+    // 1つの見本が失敗しても再生は止めない。
+    requestAnimationFrame(tick);
+    try { draw(); } catch (error) { console.error(error); }
+  }
+  function setPlaying(on) {
+    state.playing = on;
+    $('.play').textContent = on ? 'Ⅱ 一時停止' : '▶ 再生';
+    $('.play').setAttribute('aria-pressed', String(on));
+    if (on) { state.last = performance.now(); requestAnimationFrame(tick); }
+  }
+  $('.play').addEventListener('click', () => { if (state.t >= LOOP) state.t = 0; setPlaying(!state.playing); });
+  $('.loop').addEventListener('click', e => e.currentTarget.setAttribute('aria-pressed', String(e.currentTarget.getAttribute('aria-pressed') !== 'true')));
+  $('.seek').addEventListener('input', e => { setPlaying(false); state.t = Number(e.target.value); draw(); });
+  for (const b of document.querySelectorAll('.ticks button')) b.addEventListener('click', () => { setPlaying(false); state.t = Number(b.dataset.t); draw(); });
+  for (const s of ['.level', '.side', '.outcome', '.skill', '.portrait-mode', '.actor-name']) $(s).addEventListener('change', build);
+  // 表示の大きさが決まった後（Artifactの枠の中で後から広がる場合も）に、字の箱を測り直す。
+  new ResizeObserver(build).observe(document.querySelector('main'));
+  document.fonts?.ready.then(build);
+  build();
+  setPlaying(true);
+})();
+</script>

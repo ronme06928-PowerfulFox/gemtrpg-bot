@@ -578,6 +578,16 @@ redirect（§6）・no_redirect（§7）の実体ロジックを `events/battle/
 
 実装: `events/battle/pve_intents.py`、`events/battle/common_routes.py`、`manager/battle/resolve_auto_mass_phase.py`、`manager/battle/resolve_auto_single_phase.py`。
 
+## 2026-11-03 追補：宝石の加護の表示記録（計画52 PR5）
+
+- 即時発動の消費・効果の処理が終わった後、宝石の加護タグのスキルだけ `battle_state.pending_gem_blessings` へ `{actor_id, skill_id, skill_name, round}` を積む。`skill_name` は本人のコマンドにある個人別名称を優先する。専用の即時Socket通知は作らず、従来のログ・状態同期を保つ。
+- 戦闘開始時に一覧を空にし、コピーを先頭の `resolve.trace` へ `{kind: 'gem_blessing_prelude', step_index: 0, step: 1, timestamp, gem_blessings: [...]}` として置く。空なら段を作らない。表示専用なので判定・コスト・段終了効果・マッチログは実行しない。以降のtraceは通常の連番。前置きも共有presentationの表示対象に数える。
+- 前置きは1件1600msを順番に再生してから通常の待ち600msへ入り、既存の進行役・自動進行・早送りで次へ進む。前置き中は最初のマッチの舞台を作らない。現在の前置きへの途中参加は `step_started_at` から合流し、過去の前置きを再生しない。
+- 現在段が前置きなら、ローカルの「戦闘開始」introの待ちを打ち切って合流する。introの1600msで最初の加護を飛ばさないため。加護なしのintro・ラウンド開始バナーはそのまま。前置きはマッチの表示番号へ数えない。
+- 戦闘開始の後の即時発動は次の開始で表示する。通常のラウンド更新では一覧を持ち越し、戦闘突入・終結・戦闘リセットでは捨てる。
+- 解決中の実消費時だけ `mark_gem_protect_used` から `resolve.pending_gem_uses: [{actor_id, slot_id}]` へ収録する。使用スキルに対応する解決用intentのスロットへ紐付け、広域の前払いも同じ扱いにする。該当スロットを含む実処理traceへ `gem_blessing_users: [{side: 'attacker'|'defender', actor_id, slot_id}]` として一度だけ移す。合算の参加者も個人IDを残す。札のタグや戦闘後の使用済みフラグから推測しない。
+- クライアントは `gemBlessings` / `gemBlessingUsers` に正規化する。使用者一覧があるマッチだけ名前段階を700ms延長し、同期時計・舞台・プレビューの時間表を共用する。判定・コスト・即時発動の使用可否とKOの勝敗段階の延長は変えない。
+
 ## 2026-08 追補: Resolve履歴snapshotと共有presentation
 
 Resolveの計算結果と演出位置は分離して管理する。計算結果の正本は`battle_state.resolve.trace`、卓全体の現在表示位置の正本は`battle_state.resolve.presentation`である。再入室・再読込は保存済み結果を復元するだけで、戦闘計算を再実行しない。
@@ -593,7 +603,7 @@ Select中の引き寄せ履歴は`battle_state.redirects`にのみ記録し、Re
 - `controller_user_id`、`controller_username`、`controller_present`
 - 現在ステップのサーバー時刻`step_started_at`
 
-クライアントは`step_started_at`を自分の`Date.now()`と直接引き算して開始時刻にしない（端末とサーバーの時計がずれると、マッチの頭が止まったり飛んだりするため）。`battle_resolve_flow_advance`で次へ進んだときは、合図を受け取った時刻を端末の時計での開始にする。`step_started_at`は、途中参加・再接続で進行中の手順に合流するときだけ使い、端末の時計より未来なら端末の現在時刻に丸める。最初に見せるマッチは端末の時計で始める。
+クライアントは`step_started_at`を自分の`Date.now()`と直接引き算して開始時刻にしない（端末とサーバーの時計がずれると、マッチの頭が止まったり飛んだりするため）。`battle_resolve_flow_advance`で次へ進んだときは、合図を受け取った時刻を端末の時計での開始にする。`step_started_at`は、途中参加・再接続で進行中の手順に合流するときだけ使い、端末の時計より未来なら端末の現在時刻に丸める。最初に見せるマッチは端末の時計で始める。PR5の前置きはマッチではなく、最初から共有の `step_started_at` で合流する。
 
 `battle_resolve_flow_advance_request`は`room_id`、`battle_id`、`round`、`expected_step_index`、`expected_revision`を必要とする。在室中の進行役から届き、すべてが現在値と一致した要求だけを一度受理する。遅延・重複・非進行役の要求は状態を変更せず、要求元へ最新presentationを返す。受理時はroom全体へpresentationと`battle_resolve_flow_advance`を配信するため、通常ルームを含め全員の表示位置は同じになる。
 

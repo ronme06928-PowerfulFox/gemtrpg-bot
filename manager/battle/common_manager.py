@@ -620,6 +620,9 @@ def reset_battle_logic(room, mode, username, reset_options=None):
         }
 
     log_msg = f"\n--- {username} が戦闘をリセットしました (Mode: {mode}) ---\n"
+    if isinstance(state.get('battle_state'), dict):
+        state['battle_state']['pending_gem_blessings'] = []
+        state['battle_state'].setdefault('resolve', {})['pending_gem_uses'] = []
 
     broadcast_log(room, log_msg, 'round')
 

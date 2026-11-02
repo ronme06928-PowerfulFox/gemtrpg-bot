@@ -8,6 +8,8 @@ export const RESOLVE_STAGE_TIMING = Object.freeze([
   { stage: 'outcome', ms: 2200 },
 ]);
 export const OUTCOME_EXTENSIONS = Object.freeze({ knockout: 1500 });
+export const NAMES_EXTENSIONS = Object.freeze({ gemBlessing: 700 });
+export const GEM_BLESSING_MS = Object.freeze({ full: 1600, inline: 1200 });
 export const RESOLVE_WAIT_MS = 600;
 export const FIZZLE_WAIT_MS = 500;
 export const RESOLVE_TEMPO = Object.freeze({
@@ -19,7 +21,8 @@ export const FX_DESIGN_MS = Object.freeze({ power: 1400, attack: 700 });
 export const fxPlaybackRate = (stage, tempo = RESOLVE_TEMPO) => FX_DESIGN_MS[stage] / tempo[stage];
 
 export function resolveStageTiming(step = {}, tempo = RESOLVE_TEMPO) {
-  const row = stage => ({ stage, ms: tempo[stage] });
+  if (step.kind === 'gem_blessing_prelude') return [{ stage: 'prelude', ms: (step.gemBlessings || []).length * GEM_BLESSING_MS.full }];
+  const row = stage => ({ stage, ms: tempo[stage] + (stage === 'names' && step.gemBlessingUsers?.length ? NAMES_EXTENSIONS.gemBlessing : 0) });
   if (step.kind === 'fizzle') return [row('names'), row('power'), { stage: 'outcome', ms: tempo.fizzleOutcome }];
   const extension = collectKnockouts(step).size ? tempo.knockout : 0;
   return ['names', 'power', 'attack', 'outcome'].map(row)

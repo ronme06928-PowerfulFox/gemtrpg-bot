@@ -414,6 +414,10 @@ def _append_trace(
     }
     if extra_fields:
         entry.update(extra_fields)
+    from manager.battle.gem_blessing_presentation import take_resolve_gem_users
+    gem_users = take_resolve_gem_users(battle_state, entry)
+    if gem_users:
+        entry['gem_blessing_users'] = gem_users
     if not isinstance(entry.get('lines'), list):
         if isinstance(entry.get('log_lines'), list):
             entry['lines'] = list(entry.get('log_lines'))

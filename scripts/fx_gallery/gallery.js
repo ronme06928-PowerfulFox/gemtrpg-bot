@@ -72,7 +72,8 @@ function mountEvents(stage, events, level) {
     root.style.top = `${event.top}px`;
     (event.host || stage).append(root);
     const fx = Object.create(Fx.get(event.name));
-    fx.mount(root, { ...bindHitTargets(stage, event.name, embedded(event.params)), level });
+    fx.mount(root, { ...bindHitTargets(stage, event.name, embedded(event.params)), level,
+      ...(event.name === 'combat-conclusion' ? { cardEl: stage.querySelector('.combat-conclusion-result__card'), titleEl: stage.querySelector('.combat-conclusion-result__title') } : {}) });
     return { ...event, root, fx };
   });
 }
@@ -86,6 +87,11 @@ function renderEvents(events, time) {
   }
 }
 function singleEvents(stage, sample) {
+  if (sample.effect === 'combat-conclusion') {
+    const card = el('div', 'combat-conclusion-result__card');
+    card.append(el('div', 'combat-conclusion-result__title', sample.params.outcome === 'victory' ? 'VICTORY' : 'DEFEAT'));
+    stage.replaceChildren(card);
+  }
   const band = sample.effect === 'effect-band';
   const damage = sample.effect === 'resolve-damage';
   const anchor = band || damage ? '.combatant.defender' : sample.anchor;
@@ -101,8 +107,9 @@ function singleEvents(stage, sample) {
   const host = stage.getBoundingClientRect();
   const numberAnchor = ['power-roll', 'chat-dice'].includes(sample.effect) ? target : null;
   if (numberAnchor) numberAnchor.textContent = sample.params.text;
+  const full = ['gem-blessing', 'combat-conclusion'].includes(sample.effect);
   return [{ name: sample.effect, params: { ...sample.params, width: rect.width, height: rect.height },
-    numberAnchor, at: 0, left: rect.left + rect.width * (band ? 1 : damage ? 0.38 : 0.5) - host.left, top: rect.top + rect.height * (band ? 0.8 : damage ? 0.4 : 0.5) - host.top }];
+    numberAnchor, at: 0, left: full ? 0 : rect.left + rect.width * (band ? 1 : damage ? 0.38 : 0.5) - host.left, top: full ? 0 : rect.top + rect.height * (band ? 0.8 : damage ? 0.4 : 0.5) - host.top }];
 }
 function createCard(samples, scene = false) {
   let sample = samples[0];
@@ -190,6 +197,7 @@ function createCard(samples, scene = false) {
   };
   function rebuild() {
     playing = false;
+    for (const event of events) event.fx.render(Infinity);
     stageHost.replaceChildren();
     stageHost.style.overflowX = sample.previewSize ? 'auto' : '';
     strip.replaceChildren();

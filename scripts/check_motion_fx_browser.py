@@ -25,7 +25,7 @@ def main():
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.route("https://**", lambda route: route.abort())
         page.goto((ROOT / "_local/fx_gallery/fx_gallery.html").as_uri(), wait_until="domcontentloaded")
-        assert page.locator(".gallery-card").count() == 23
+        assert page.locator(".gallery-card").count() == 25
         for effect in ["attack-slash", "attack-strike", "attack-pierce", "hit-react", "hit-shake"]:
             card = f'.effect-card[data-effect="{effect}"]'
             options = page.locator(card + " .sample option").evaluate_all("els=>els.map(el=>el.value)")

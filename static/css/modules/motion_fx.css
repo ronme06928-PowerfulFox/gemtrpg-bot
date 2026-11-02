@@ -293,3 +293,29 @@
 .fx-effect-icon { width: 24px; height: 24px; flex-shrink: 0; object-fit: contain; }
 
 .fx-effect-viewport { position: absolute; bottom: 0; width: 100%; overflow: hidden; }
+/* PR5: shared palette for the prototype-B gem and subdued conclusion. */
+:root {
+  --fx-gem-gold: #ffe08a;
+  --fx-gem-blue: #bfe8ff;
+  --fx-gem-pink: #ff9cc4;
+  --fx-gem-purple: #c4b0ff;
+  --fx-gem-green: #9ff3d0;
+  --fx-gem-deep: #3a2a8a;
+  --fx-gem-shade: #04060e;
+  --fx-gem-outline: #0a0e1c;
+  --fx-gem-ally-team: #007bff;
+  --fx-gem-enemy-team: #dc3545;
+}
+.fx-gem-dim { position: absolute; inset: 0; background: var(--fx-gem-shade); }
+.fx-gem-b-figure { position: absolute; transform: translateX(-50%); }
+.fx-gem-namecard { position: absolute; white-space: nowrap; font-family: 'Zen Antique', serif; line-height: 1; color: var(--fx-white);
+  -webkit-text-stroke: .16em var(--fx-gem-outline); paint-order: stroke fill;
+  text-shadow: 0 0 16px var(--fx-gem-ally-team), 0 0 6px var(--fx-gem-ally-team); }
+.fx-gem-namecard.enemy { text-shadow: 0 0 16px var(--fx-gem-enemy-team), 0 0 6px var(--fx-gem-enemy-team); }
+.fx-gem-light .fx-gem-namecard, .fx-gem-light .fx-gem-title { text-shadow: none; }
+.fx-gem-b-text { position: absolute; text-align: center; white-space: nowrap; line-height: 1; padding: .28em 1.4em;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--fx-gem-shade) 78%, transparent) 16%, color-mix(in srgb, var(--fx-gem-shade) 78%, transparent) 84%, transparent); }
+.fx-gem-title { font-family: 'Zen Antique', serif; color: var(--fx-gem-gold); text-shadow: 0 0 10px var(--fx-gem-gold); }
+.fx-gem-label { margin-bottom: .3em; font: 400 .36em 'Zen Antique', serif; letter-spacing: .3em; color: var(--fx-gem-gold); }
+.resolve-flow-panel.kind-gem_blessing_prelude { pointer-events: none; background: transparent; }
+.resolve-gem-prelude { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); pointer-events: auto; z-index: 2; }

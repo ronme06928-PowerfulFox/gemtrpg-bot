@@ -33,18 +33,20 @@ def test_preview_samples_and_timeline_keep_the_production_outcome_plan():
   for (const sample of samples) for (const level of ['light','normal','rich']) for (const waitSeconds of [0.5,1,2]) {
     const timeline = createTimeline(sample, fx, level, waitSeconds);
     const timing = resolveStageTiming(sample.step);
-    assert.deepStrictEqual(timeline.starts,resolveStageStarts(sample.step));
+    const offset=timeline.preludeEnd||0;
+    const localStarts=resolveStageStarts(sample.step);
+    for(const [key,value] of Object.entries(localStarts))assert.ok(Math.abs(timeline.starts[key]-value-offset)<1e-9);
     const fizzle = sample.step.kind === 'fizzle';
     // 不発は攻撃の段階を飛ばし、短い勝敗の段階で終える。
-    const outcomeStart=(T.names+T.power+(fizzle?0:T.attack))/1000;
+    const outcomeStart=localStarts.outcome+offset;
     assert.ok(Math.abs(timeline.outcomeStart-outcomeStart)<1e-9);
     assert.ok(Math.abs(timeline.waitStart-(outcomeStart+(fizzle?T.fizzleOutcome:timing.at(-1).ms)/1000))<1e-9);
     const planned=timeline.waitStart+(fizzle?FIZZLE_WAIT_MS/1000:waitSeconds);
-    assert.strictEqual(timeline.outcomeWindow,planned-timeline.outcomeStart);
+    assert.ok(Math.abs(timeline.outcomeWindow-(planned-timeline.outcomeStart))<1e-9);
     // 効果が多くて枠に入らないときは、本番と同じく勝敗の表示が終わるまで延ばす。
     assert.ok(Math.abs(timeline.duration-Math.max(planned,timeline.outcomeStart+(timeline.plan?.endSeconds||0)))<1e-9);
-    assert.strictEqual(phaseAt(timeline,0),'names');
-    assert.strictEqual(phaseAt(timeline,T.names/1000),'power');
+    assert.strictEqual(phaseAt(timeline,0),offset?'prelude':'names');
+    assert.strictEqual(phaseAt(timeline,timeline.starts.power),'power');
     assert.strictEqual(phaseAt(timeline,(outcomeStart*1000-1)/1000),fizzle?'power':'attack');
     assert.strictEqual(phaseAt(timeline,(outcomeStart*1000+1)/1000),'outcome');
     assert.strictEqual(phaseAt(timeline,timeline.outcomeStart),'outcome');
@@ -273,7 +275,7 @@ function run(reduced) {
   const canvas=()=>host.children[0];
   const input=value=>{seek.value=String(value);seek.events.input();};
   assert.ok(clock.value.startsWith('4.60'));
-  assert.strictEqual(sample.children.length,11);
+  assert.strictEqual(sample.children.length,12);
   for(const option of sample.children) {
     sample.value=option.value;sample.events.change();
     assert.ok(clock.value.startsWith('0.00'));
@@ -290,12 +292,12 @@ function run(reduced) {
           assert.strictEqual(snapshot(canvas()),shot,option.value+' seek '+t);
           assert.ok(!shot.includes('NaN')&&!shot.includes('undefinedpx'));
         }
-        input(1);
+        input(option.value==='gem-blessing'?5.1:1);
         assert.strictEqual(canvas().querySelector('.skill-descriptions').style.visibility,'visible');
         if(option.value!=='fizzle') assert.ok(canvas().querySelectorAll('.fx-root').some(n=>!n.hidden));
         input(0);
         assert.strictEqual(canvas().querySelector('.skill-descriptions').style.visibility,'hidden');
-        assert.ok(canvas().querySelectorAll('.fx-root').every(n=>n.hidden));
+        assert.ok(canvas().querySelectorAll('.fx-root').every(n=>n.hidden||n.style.visibility==='hidden'));
       }
       input(1);width.events.change();assert.ok(clock.value.startsWith('1.00'));
       for(const value of ['0.5','1','2']) {
@@ -303,8 +305,8 @@ function run(reduced) {
         // 計画58の段階表：不発は3.1秒、待ちの開始は通常4.6秒・KOは6.1秒。
         if(option.value==='fizzle') {assert.ok(wait.disabled);assert.strictEqual(Number(seek.max),3.1);}
         // 効果が多い見本は、本番と同じく勝敗の表示が終わるまで延びる。
-        else {assert.ok(!wait.disabled);const planned=(option.value==='enemy-ko'||option.value.startsWith('summation')?6.1:4.6)+Number(value);
-          assert.ok(['long-names','mass-individual','ally-win'].includes(option.value)?Number(seek.max)>=planned-1e-6:Math.abs(Number(seek.max)-planned)<1e-6,option.value);}
+        else {assert.ok(!wait.disabled);const planned=(option.value==='enemy-ko'||option.value.startsWith('summation')?6.1:option.value==='gem-blessing'?9.1:4.6)+Number(value);
+          assert.ok(['long-names','mass-individual','ally-win','gem-blessing'].includes(option.value)?Number(seek.max)>=planned-1e-6:Math.abs(Number(seek.max)-planned)<1e-6,option.value);}
       }
       if(option.value==='one-sided') {
         const defender=canvas().querySelectorAll('.combatant').find(n=>n.className.includes('defender'));
@@ -361,8 +363,9 @@ function run(reduced) {
   input(Number(seek.max));find('loop').checked=true;find('play-button').events.click();
   now+=Number(seek.max)*1000+200;raf(now);assert.ok(clock.value.startsWith('0.20'));
   resize();assert.ok(parseFloat(host.style.height)>0);
-  // 三つ目の目印（攻撃、不発なら勝敗）は1.7秒から。
-  find('marker-buttons').children[2].events.click();assert.ok(clock.value.startsWith('1.70'));
+  // 前置きを含む最後の見本でも、目印に表示された時刻へ移る。
+  const marker=find('marker-buttons').children[2];
+  marker.events.click();assert.ok(clock.value.startsWith(Number(marker.textContent.match(/([\d.]+)s/)[1]).toFixed(2)));
   for(const image of descendants(main).filter(n=>n.tagName==='img')) {
     assert.ok(String(image.src||image.attributes.src).startsWith('data:'));
   }

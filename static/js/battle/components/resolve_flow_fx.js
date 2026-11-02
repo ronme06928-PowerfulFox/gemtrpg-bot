@@ -2,7 +2,7 @@ import { stageFxPlacement } from './resolve_stage_layout.js';
 import { currentStageLayout, stageSample } from './resolve_stage.js';
 // 解決パネルへの接続。演出の定義自体は fx_effects.js に置く。
 import { collectDamageKnockouts, planResolveOutcome } from './resolve_flow_result_fx.js';
-import { resolveStageTiming, resolveOutcomeWindow, fxPlaybackRate } from './resolve_stage_timing.js';
+import { resolveStageTiming, resolveOutcomeWindow, fxPlaybackRate, GEM_BLESSING_MS } from './resolve_stage_timing.js';
 export { RESOLVE_STAGE_TIMING, OUTCOME_EXTENSIONS, resolveStageTiming, resolveOutcomeWindow } from './resolve_stage_timing.js';
 
 const ATTACK_EFFECTS = Object.freeze({ 斬撃: 'attack-slash', 打撃: 'attack-strike', 貫通: 'attack-pierce' });
@@ -95,7 +95,34 @@ export function collectDamagePopups(entries, damageRows) {
 export function playResolveStageFx(flow, payload, state) {
   const fx = window.Fx;
   const step = flow._activeStep;
-  if (!fx || !step || step.kind === 'fizzle') return;
+  if (!fx || !step) return;
+  if (step.kind === 'gem_blessing_prelude') {
+    const host = document.getElementById('visual-battle-container');
+    if (!host) return;
+    flow._fxHosts ||= new Set(); flow._fxHosts.add(host);
+    const width = host.clientWidth, height = host.clientHeight;
+    for (const [index, row] of (step.gemBlessings || []).entries()) {
+      const actor = flow._characterById(row.actor_id, state) || {};
+      const visual = flow._actorVisualMeta(row.actor_id, state);
+      fx.play('gem-blessing', { mode: 'full', width, height, actorName: actor.name || row.actor_id,
+        skillName: row.skill_name, image: visual.image, team: actor.type || 'ally' },
+      { host, elapsedSeconds: Math.max(0, Date.now() - flow._stepStartedAt) / 1000,
+        delaySeconds: index * GEM_BLESSING_MS.full / 1000 });
+    }
+    return;
+  }
+  if (payload.stage === 'names') {
+    const panel = document.getElementById(flow._panelId);
+    if (panel) for (const user of step.gemBlessingUsers || []) {
+      const place = stageFxPlacement(currentStageLayout(panel), stageSample(flow, step, state), 'gem-blessing', user.side, user.actor_id);
+      const host = panel.querySelector('[data-anchor="arena"]');
+      if (!host || !place) continue;
+      flow._fxHosts ||= new Set(); flow._fxHosts.add(host);
+      fx.play('gem-blessing', { mode: 'band', width: place.width, height: place.height, target: place.target },
+      { host, left: place.left, top: place.top, elapsedSeconds: Math.max(0, Date.now() - flow._stepStartedAt) / 1000 });
+    }
+  }
+  if (step.kind === 'fizzle') return;
   if (!['clash', 'hard_attack', 'one_sided', 'mass_individual', 'mass_summation'].includes(step.kind)) return;
   const panel = document.getElementById(flow._panelId);
   if (!panel) return;

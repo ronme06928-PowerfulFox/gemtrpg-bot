@@ -114,7 +114,9 @@ function mountEvents() {
     let host = stage.arena;
     let x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
     // 攻撃は本番と同じ置き場所（受けた側の立ち絵の胸。引き分けは中央）。
-    const place = event.name.startsWith('attack-') ? stageFxPlacement(layout, sample, event.name, event.side, null, event.params.mode) : null;
+    const gem = event.name === 'gem-blessing';
+    const fullGem = gem && event.params.mode === 'full';
+    const place = event.name.startsWith('attack-') || (gem && !fullGem) ? stageFxPlacement(layout, sample, event.name, event.side, event.targetId, event.params.mode) : null;
     if (place) {
       x = place.left;
       y = place.top;
@@ -128,6 +130,7 @@ function mountEvents() {
       x = band ? (event.params.side === 'attacker' ? 0 : box.width) : bases.get(event.targetId).x - box.x;
       y = band ? box.height : bases.get(event.targetId).y - box.y;
     }
+    if (fullGem) { host = stage.canvas; x = y = 0; }
     Object.assign(root.style, { left: `${x}px`, top: `${y}px` });
     if (event.name === 'ko-shatter' && event.params.column) root.classList.add('column-ko');
     else if (event.name === 'ko-shatter' && event.params.mode !== 'chip') {
@@ -147,7 +150,9 @@ function mountEvents() {
       lines: group.lines.map(line => ({ ...line, icon: iconFor(line.status) })),
     }));
     fx.mount(root, { ...bindHitTargets(stage.canvas, event.name, event.params), level: levelSelect.value,
-      width: place ? place.width : band ? layout.band.width * 2 : rect.width || 100, height: place ? place.height : rect.height || 100,
+      width: fullGem ? layout.width : place ? place.width : band ? layout.band.width * 2 : rect.width || 100,
+      height: fullGem ? layout.cardHeight : place ? place.height : rect.height || 100,
+      ...(gem ? { target: place?.target, image: assets[event.params.image] || event.params.image } : {}),
       icon: iconFor(event.params.status), label: event.params.status,
       ...(groups ? { groups } : {}),
       ...(damage ? { ceiling: damageCeiling(layout, bases.get(event.targetId), event.params.kind) } : {}),
@@ -160,12 +165,15 @@ function render(value) {
   seek.value = String(time);
   clock.value = `${time.toFixed(2)} / ${timeline.duration.toFixed(2)} 秒`;
   const phase = phaseAt(timeline, time);
+  const inPrelude = time < (timeline.preludeEnd || 0);
+  stage.theatre.style.visibility = inPrelude ? 'hidden' : '';
+  stage.descriptions.style.visibility = inPrelude ? 'hidden' : '';
   stage.canvas.dataset.phase = phase;
   stage.phase.textContent = phaseNames[phase];
   stage.descriptions.style.visibility = time >= timeline.starts.power ? 'visible' : 'hidden';
   stage.summary.style.visibility = time >= timeline.outcomeStart ? 'visible' : 'hidden';
   stage.progressFill.style.width = `${100 * Fx.clamp01((time - timeline.waitStart) / timeline.wait)}%`;
-  renderStageMotion(stage.canvas, stageMotionAt(sample.step, time, levelSelect.value, timeline.tempo));
+  renderStageMotion(stage.canvas, stageMotionAt(sample.step, Math.max(0, time - (timeline.preludeEnd || 0)), levelSelect.value, timeline.tempo));
   for (const event of events) {
     const age = (time - event.at) * (event.rate || 1);
     const visible = age >= 0 && age < event.fx.duration;
@@ -205,6 +213,7 @@ function fitDescriptions() {
 }
 function rebuild() {
   const previousTime = time;
+  for (const event of events) event.fx.render(Infinity);
   timeline = createTimeline(withAttribute(sample), Fx, levelSelect.value, Number(wait.value), TEMPO_VARIANTS[tempoSelect.value].tempo);
   wait.disabled = sample.step.kind === 'fizzle';
   const fit = screenFit();
