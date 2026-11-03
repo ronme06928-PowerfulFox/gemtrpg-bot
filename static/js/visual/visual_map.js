@@ -1122,7 +1122,7 @@ function updateTokenVisuals(token, char) {
         const currentImg = bodyEl.querySelector('img');
         if (char.image) {
             if (currentImg) {
-                if (!currentImg.src.includes(char.image)) {
+                if (currentImg.getAttribute('src') !== char.image) {
                     currentImg.src = char.image;
                 }
             } else {

@@ -13,10 +13,6 @@ function boardDigest(state = {}) {
     const characters = Array.isArray(state.characters) ? state.characters : [];
     const slots = state.slots && typeof state.slots === 'object' ? state.slots : {};
     const intents = state.intents && typeof state.intents === 'object' ? state.intents : {};
-    const characterView = characters.map((character) => [
-        character.id, character.x, character.y, character.hp, character.mp,
-        character.max_hp, character.max_mp, character.is_alive, character.hidden
-    ]);
     const slotView = Object.keys(slots).sort().map((id) => {
         const slot = slots[id] || {};
         return [id, slot.actor_id, slot.actor_char_id, slot.initiative, slot.index_in_actor, slot.disabled];
@@ -40,7 +36,8 @@ function boardDigest(state = {}) {
             skillId: declare.skillId,
             mode: declare.mode
         },
-        characters: characterView,
+        // 駒の表示項目が増えても、個別の比較項目の追加漏れで更新を落とさない。
+        characters,
         slots: slotView,
         intents: intentView,
         redirects: state.redirects || [],
@@ -100,15 +97,19 @@ export class BoardPresentationCoordinator {
         if (this._locks.size === 0 && this._pendingState) {
             const pending = this._pendingState;
             this._pendingState = null;
-            this._publish(pending);
+            this._onStoreChange(pending);
         }
     }
 
     _onStoreChange(state) {
         const nextDigest = boardDigest(state);
-        if (nextDigest === this._digest) return;
         if (this._locks.size > 0) {
+            // 固定前と同じ内容へ戻る更新も、途中の状態を上書きする必要がある。
             this._pendingState = state;
+            return;
+        }
+        if (nextDigest === this._digest) {
+            this._state = state;
             return;
         }
         this._publish(state, nextDigest);
