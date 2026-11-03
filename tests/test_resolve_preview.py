@@ -292,7 +292,7 @@ function run(reduced) {
           assert.strictEqual(snapshot(canvas()),shot,option.value+' seek '+t);
           assert.ok(!shot.includes('NaN')&&!shot.includes('undefinedpx'));
         }
-        input(option.value==='gem-blessing'?5.1:1);
+        input(option.value==='gem-blessing'?5.5:1);
         assert.strictEqual(canvas().querySelector('.skill-descriptions').style.visibility,'visible');
         if(option.value!=='fizzle') assert.ok(canvas().querySelectorAll('.fx-root').some(n=>!n.hidden));
         input(0);

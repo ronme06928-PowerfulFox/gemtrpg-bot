@@ -29,7 +29,7 @@ const {resolveStageTiming,resolveStageStarts}=await import('./static/js/battle/c
 const base=resolveStageTiming({}),gem={gemBlessingUsers:[{actor_id:'a',side:'attacker'}]};
 const changed=resolveStageTiming(gem);assert.equal(changed[0].ms,1200);assert.deepEqual(changed.slice(1),base.slice(1));
 assert.equal(resolveStageStarts(gem).power,1.2);
-assert.deepEqual(resolveStageTiming({kind:'gem_blessing_prelude',gemBlessings:[{},{}]}),[{stage:'prelude',ms:3200}]);
+assert.deepEqual(resolveStageTiming({kind:'gem_blessing_prelude',gemBlessings:[{},{}]}),[{stage:'prelude',ms:3600}]);
 assert.equal(resolveStageTiming({kind:'fizzle',...gem})[0].ms,1200);
 })().catch(e=>{console.error(e);process.exit(1)});
 """)
@@ -63,6 +63,44 @@ flow._ingestTrace({phase:'resolve_mass',resolvePresentation:{status:'playing',cu
 assert.equal(stopped,1);assert.equal(flow._activeStep,null);
 assert.deepEqual(flow._playQueue.map(s=>s.kind),['gem_blessing_prelude','clash']);
 assert.equal(flow._playQueue[1].displayIndex,1);
-assert.equal(flow._stepDuration(flow._playQueue[0]),1600);
+assert.equal(flow._stepDuration(flow._playQueue[0]),2000);
+})().catch(e=>{console.error(e);process.exit(1)});
+""")
+
+
+def test_prelude_fills_the_field_after_a_lead_and_starts_on_the_terminal_clock():
+    _run_node(r"""
+(async()=>{
+const hosts={'map-viewport':{clientWidth:900,clientHeight:600,id:'map-viewport'},'visual-battle-container':{clientWidth:1500,clientHeight:800}};
+global.document={getElementById:id=>hosts[id]||null};
+const calls=[];global.window={Fx:{play:(name,params,opts)=>calls.push({name,params,opts})}};
+const {playResolveStageFx}=await import('./static/js/battle/components/resolve_flow_fx.js');
+const flow={_activeStep:{kind:'gem_blessing_prelude',gemBlessings:[{actor_id:'a'},{actor_id:'b'}]},
+ _characterById:()=>({}),_actorVisualMeta:()=>({}),_stepStartedAt:Date.now()};
+playResolveStageFx(flow,{},{});
+assert.deepEqual(calls.map(c=>[c.opts.host.id,c.params.width,c.params.height,c.opts.delaySeconds]),
+ [['map-viewport',900,600,0.4],['map-viewport',900,600,2.0]]);
+const source=require('fs').readFileSync('static/js/battle/components/ResolveFlowPanel.js','utf8');
+assert(!source.includes("resetVisibleClock || this._activeStep.kind === 'gem_blessing_prelude'"));
+})().catch(e=>{console.error(e);process.exit(1)});
+""")
+
+
+def test_prelude_auto_advances_for_the_driver_without_the_checkbox():
+    _run_node(r"""
+(async()=>{
+global.window={};
+const {ResolveFlowPanel}=await import('./static/js/battle/components/ResolveFlowPanel.js');
+const timers=[];global.setTimeout=(fn,ms)=>{timers.push(ms);return timers.length;};
+for(const [kind,expected] of [['gem_blessing_prelude',1],['clash',0]]){
+  timers.length=0;
+  const flow=new ResolveFlowPanel();flow._canDriveResolveFlow=()=>true;
+  flow._activeStep={kind};flow._waitingForAdvance=true;flow._autoAdvanceEnabled=false;
+  flow._scheduleAutoAdvanceIfNeeded({});
+  assert.equal(timers.length,expected,kind);
+}
+const viewer=new ResolveFlowPanel();viewer._canDriveResolveFlow=()=>false;
+viewer._activeStep={kind:'gem_blessing_prelude'};viewer._waitingForAdvance=true;
+timers.length=0;viewer._scheduleAutoAdvanceIfNeeded({});assert.equal(timers.length,0);
 })().catch(e=>{console.error(e);process.exit(1)});
 """)

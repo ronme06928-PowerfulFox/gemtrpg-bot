@@ -96,9 +96,10 @@ export function fitStage(layout, availableWidth, viewportHeight) {
   return { copyHeight, height, scale: Math.min(1, availableWidth / layout.width, limit / height) };
 }
 
-// 1180 / 660の組のうち、地図の欄に縮小率が大きく収まる方（同じなら1180）。
+// 1180 / 660の組のうち、実際に出る札の文字（plaqueFont×縮小率）が大きい方（同じなら1180）。
 export function pickStageLayout(availableWidth, viewportHeight) {
-  return fitStage(narrow, availableWidth, viewportHeight).scale > fitStage(wide, availableWidth, viewportHeight).scale ? narrow : wide;
+  const font = layout => layout.plaqueFont * fitStage(layout, availableWidth, viewportHeight).scale;
+  return font(narrow) > font(wide) ? narrow : wide;
 }
 
 // 演出の座標はすべて未縮小の舞台座標。画面上の矩形を測って逆算しない。

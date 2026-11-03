@@ -498,7 +498,8 @@ class ResolveFlowPanel {
         if (this._pendingAdvanceTimer) return;
         if (!this._waitingForAdvance || !this._activeStep) return;
         if (this._isIntroStep(this._activeStep)) return;
-        if (!this._autoAdvanceEnabled) return;
+        // 加護の前置きは、自動進行の設定によらず進行役の端末が次へ進める。
+        if (!this._autoAdvanceEnabled && this._activeStep.kind !== 'gem_blessing_prelude') return;
         if (!this._canDriveResolveFlow(state)) return;
         this._pendingAdvanceTimer = setTimeout(() => {
             this._pendingAdvanceTimer = null;
@@ -1001,8 +1002,8 @@ class ResolveFlowPanel {
         const sharedStepIndex = this._toNumber(presentation.current_step_index, -1);
         const activeRawIndex = this._toNumber(this._activeStep?.rawStepIndex, -2);
         const sharedStartedAt = this._toNumber(presentation.step_started_at, 0);
-        const useSharedClock = (!resetVisibleClock || this._activeStep.kind === 'gem_blessing_prelude') && sharedStartedAt > 0 && sharedStepIndex === activeRawIndex;
-        // 前置きと途中参加は共有時計へ合流し、端末の時計より未来なら今に丸める（B03）。
+        const useSharedClock = !resetVisibleClock && sharedStartedAt > 0 && sharedStepIndex === activeRawIndex;
+        // 途中参加は共有時計へ合流し、端末の時計より未来なら今に丸める。最初に見せる手順（前置きを含む）は端末の時計（B03）。
         this._stepStartedAt = useSharedClock ? Math.min(sharedStartedAt, Date.now()) : Date.now();
         this._renderStep(store.state || {});
 

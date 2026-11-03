@@ -28,12 +28,14 @@ def test_stage_layout_is_shared_with_preview_and_fits_available_height():
   assert.strictEqual(prod.damageCeiling(l,base,'dice'),l.damage.height-42-23);
  }
  assert.deepStrictEqual([prod.getLayout(1180).minCopyHeight,prod.getLayout(660).minCopyHeight],[100,128]);
- // 組は地図の欄の幅と画面の高さで、縮小率が大きくなる方（同じなら1180）。
+ // 組は実際に出る札の文字（plaqueFont×縮小率）が大きい方（同じなら1180）。少し縮む1180を、縮まない660より小さく見せない。
  const pick=(map,height)=>prod.pickStageLayout(map*0.92,height).width;
- assert.deepStrictEqual([pick(1448,945),pick(1071,730),pick(905,650),pick(644,650),pick(527,650)],[1180,660,660,660,660]);
- for(const [map,height] of [[1448,945],[1071,730],[905,650],[644,650]]) {
-  const chosen=prod.fitStage(prod.pickStageLayout(map*0.92,height),map*0.92,height).scale;
-  for(const width of [1180,660]) assert.ok(chosen>=prod.fitStage(prod.getLayout(width),map*0.92,height).scale);
+ assert.deepStrictEqual([pick(1448,945),pick(1071,730),pick(905,650),pick(644,650),pick(527,650),pick(1340,717),pick(760,900)],
+  [1180,1180,1180,660,660,1180,660]);
+ const font=(l,map,height)=>l.plaqueFont*prod.fitStage(l,map*0.92,height).scale;
+ for(const [map,height] of [[1448,945],[1071,730],[905,650],[644,650],[1340,717]]) {
+  const chosen=font(prod.pickStageLayout(map*0.92,height),map,height);
+  for(const width of [1180,660]) assert.ok(chosen>=font(prod.getLayout(width),map,height));
  }
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)

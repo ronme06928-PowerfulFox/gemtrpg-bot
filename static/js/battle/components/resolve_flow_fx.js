@@ -97,7 +97,8 @@ export function playResolveStageFx(flow, payload, state) {
   const step = flow._activeStep;
   if (!fx || !step) return;
   if (step.kind === 'gem_blessing_prelude') {
-    const host = document.getElementById('visual-battle-container');
+    // フィールドの四隅に合わせて出す。
+    const host = document.getElementById('map-viewport');
     if (!host) return;
     flow._fxHosts ||= new Set(); flow._fxHosts.add(host);
     const width = host.clientWidth, height = host.clientHeight;
@@ -107,7 +108,7 @@ export function playResolveStageFx(flow, payload, state) {
       fx.play('gem-blessing', { mode: 'full', width, height, actorName: actor.name || row.actor_id,
         skillName: row.skill_name, image: visual.image, team: actor.type || 'ally' },
       { host, elapsedSeconds: Math.max(0, Date.now() - flow._stepStartedAt) / 1000,
-        delaySeconds: index * GEM_BLESSING_MS.full / 1000 });
+        delaySeconds: (GEM_BLESSING_MS.lead + index * GEM_BLESSING_MS.full) / 1000 });
     }
     return;
   }
