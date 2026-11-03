@@ -1,4 +1,4 @@
-// 計画52 PR5の試作（§6.8）：宝石の加護（案B 砕ける宝石）と戦闘の終わりの控えめな飾り。本番のバンドルには入らない。
+// 計画52 PR5の試作：宝石の加護（案B 砕ける宝石）と戦闘の終わりの控えめな飾り。本番のバンドルには入らない。
 // 本番の演出と同じく、render(t) の時刻と引数だけで描く（乱れは番号から決める）。
 (function () {
   const Fx = window.Fx;
@@ -99,7 +99,7 @@
       Object.assign(root.style, { position: 'absolute', left: '0', top: '0', width: `${this.w}px`, height: `${this.h}px`, overflow: 'hidden', pointerEvents: 'none' });
       if (full) {
         this.dim = el(root, 'div', 'p5-dim');
-        // 使った人の名前は立ち絵の有無にかかわらず陣営の色の光で大きく出す（§6.8）。
+        // 使った人の名前は立ち絵の有無にかかわらず陣営の色の光で大きく出す。
         // 立ち絵ありは立ち絵の下寄り、立ち絵なしは人の姿の代わりに胸の高さへ、より大きく出す。
         if (params.image) { this.figure = el(root, 'img', 'p5-b-figure'); this.figure.src = params.image; this.figure.alt = ''; }
         this.name = el(root, 'div', `p5-namecard ${params.team || 'ally'}`, params.actorName || '');

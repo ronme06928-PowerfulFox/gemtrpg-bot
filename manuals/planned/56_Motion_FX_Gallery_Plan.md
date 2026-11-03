@@ -55,7 +55,7 @@
 ## 3. 今の状態（2026-10-29 調査）
 
 - 演出の定義は14種類：`float-text`・`round-banner`・`power-roll`・`clash-flash`・`clash-shade`・`attack-flash`・`attack-slash`・`attack-strike`・`attack-pierce`・`impact-flash`・`resolve-damage`・`effect-band`・`ko-shatter`・`chat-dice`。このうち属性別の攻撃3つ（斬撃・打撃・貫通）は、1つのループでまとめて定義している（計画52 §6.3）。PR5で宝石の加護と戦闘の終結が増える。
-- どの定義も `render(t)` だけで描き、同じ t なら同じ見た目になる（計画52 §4.2・§4.4）。録画しなくても、好きな時刻で止めて描ける。
+- どの定義も `render(t)` だけで描き、同じ t なら同じ見た目になる（E01「演出の土台の決まり」）。録画しなくても、好きな時刻で止めて描ける。
 - 再生側の `fx_player.js` は、アプリの中で時計・同時に出す数の上限・段階（軽め・通常・派手）を受け持つ。
 - 解決パネル（`ResolveFlowPanel.js`）は `setTimeout` と `Date.now` で段階を進めるので、そのままではコマ単位で止められない。
 - 見た目の確かめ方は、今はテスト（Node の `vm` と偽の DOM で数値を読む）だけ。実際のブラウザでの見た目は、PRごとに確かめきれていない（計画52 PR3・PR4の報告）。

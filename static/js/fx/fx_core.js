@@ -1,4 +1,4 @@
-// 演出の定義と時刻の計算。アプリに依存しないので、説明動画の部品と共有できる（計画52 §4.2・§4.4）。
+// 演出の定義と時刻の計算。アプリに依存しないので、説明動画の部品と共有できる（E01「演出の土台の決まり」）。
 // prog / ease / lerp は Egatari（kit/deck.js）の DECK.prog などと同じ式にする。
 (function (global) {
   const Fx = global.Fx || (global.Fx = {});
@@ -29,7 +29,7 @@
     return prog(t, 0, 0.15) * (1 - prog(t, duration - 0.15, 0.15));
   }
 
-  // ダメージの数字と効果の浮かび方（計画52）。数字が昇る速さの上限px/秒・減速の時定数秒・
+  // ダメージの数字と効果の浮かび方（E02 Part 14「結果演出の計画」）。数字が昇る速さの上限px/秒・減速の時定数秒・
   // 漂う速さpx/秒・濃いまま残す秒・縮み切る倍率（数字・まとまり）・出だしの倍率。
   Fx.FLOAT = Object.freeze({ numberSpeed: 60, glide: 0.5, drift: 12, hold: 0.8, shrink: 0.82, groupShrink: 0.9, enterFrom: 0.6 });
 
@@ -60,7 +60,7 @@
   Fx.lingerProgress = lingerProgress;
   Fx.lingerOpacity = lingerOpacity;
   Fx.EFFECT_BAND_ROW_HEIGHTS = Object.freeze({ title: 40, result: 32 });
-  // 効果は1行ずつばらして出す：後の行は、前の行がその行の高さ＋ゆとりだけ昇ってから帯の下の端に出る（計画52）。
+  // 効果は1行ずつばらして出す：後の行は、前の行がその行の高さ＋ゆとりだけ昇ってから帯の下の端に出る（E02 Part 14）。
   Fx.EFFECT_BAND_LAYOUT = Object.freeze({ visibleHeight: 180, slide: 0.3, speed: 80, margin: 8, fadeZone: 36 });
   Fx.layoutEffectBand = function (groups) {
     const config = Fx.EFFECT_BAND_LAYOUT;

@@ -72,7 +72,7 @@ export const effectSamples = [
       ...sample(size.id, 'ko-shatter', size.label, { mode: 'hit', duration: koDuration }, '.combatant.defender'),
       previewSize: { width: size.width, height: size.height },
     })),
-  // 割れ方はキャラのIDを種にした疑似乱数で決まる。種を変えると割れ方が変わる（計画52 §6.6-8）。
+  // 割れ方はキャラのIDを種にした疑似乱数で決まる。種を変えると割れ方が変わる（E01 PR4.5c追加3）。
   ...['人狼型シュラーカー', '小人型シュラーカー', '女冒険者'].map((targetId, i) =>
     sample(`ko-seed-${i + 1}`, 'ko-shatter', `割れ方の違い ${i + 1}（${targetId}）`,
       { mode: 'hit', duration: koDuration, targetId }, '.combatant.defender')),

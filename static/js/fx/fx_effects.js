@@ -1,5 +1,5 @@
 // 各演出の定義。mount で root の中に自分の要素を作り、render(t) は t だけから見た目を決める。
-// アプリの状態・タイマー・乱数・CSSアニメーションは使わない（計画52 §4.2・§4.4）。
+// アプリの状態・タイマー・乱数・CSSアニメーションは使わない（E01「演出の土台の決まり」）。
 (function (global) {
   const Fx = global.Fx;
 
@@ -654,7 +654,7 @@
   }
 
   // 放射と輪の折れ線を面同士で共有し、その面をそのまま破片へ使う。
-  // 本物のガラスに寄せて、放射の角度と本数をばらつかせ、輪はひびごとに半径を揺らし、間ごとに途切れさせる（計画52 §6.6-8）。
+  // 本物のガラスに寄せて、放射の角度と本数をばらつかせ、輪はひびごとに半径を揺らし、間ごとに途切れさせる（E01 PR4.5c追加3）。
   function glassPane(width, height, origin, options, random) {
     const { count, fractions, gapChance } = options;
     const [cx, cy] = origin, turn = Math.PI * 2;
@@ -1021,7 +1021,7 @@
       if (full) root.style.zIndex = '1400';
       if (full) {
         this.dim = el(root, 'div', 'fx-gem-dim');
-        // 使った人の名前は立ち絵の有無にかかわらず陣営の色の光で大きく出す（§6.8）。
+        // 使った人の名前は立ち絵の有無にかかわらず陣営の色の光で大きく出す（E02 Part 14 PR5）。
         // 立ち絵ありは立ち絵の下寄り、立ち絵なしは人の姿の代わりに胸の高さへ、より大きく出す。
         if (params.image) { this.figure = el(root, 'img', 'fx-gem-b-figure'); this.figure.src = params.image; this.figure.alt = ''; }
         this.name = el(root, 'div', `fx-gem-namecard ${params.team || 'ally'}`, params.actorName || '');

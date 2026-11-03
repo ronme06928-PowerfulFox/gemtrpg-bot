@@ -37,6 +37,7 @@ PR4の記録追加仕様（2026-10-29）：
   - HITの場効果（`APPLY_STATE_ON_CONDITION`）：効果ループの前に、付けた人なし（`actor_id: null`）で記録する。
   - 被ダメージ反応（`on_damage_state` / `on_damage_reaction`）：反応ごとに持ち主と攻撃者の前後を比べ、増えた分を持ち主を付けた人として記録する。
   - 死亡時効果（`process_on_death`）：その効果ループへ記録先を渡し、倒れた人を付けた人として記録する。
+- 記録の元は `manager/game_logic.py` の `process_skill_effects` の効果ループ。戻り値は変えず、contextに明示された `fired_effects` リストへだけ足す。名前のある効果の対応は `manager/battle/effect_glossary_map.py` に置く：W-01 出血氾濫・W-03 破裂爆発（蓄力-誘爆から続けて起きるものを含む）・W-05 亀裂崩壊（`亀裂崩壊_DAMAGE` / `FISSURE_COLLAPSE`）・W-07 戦慄殺到・W-09 荊棘飛散（いずれもCUSTOM_EFFECT）、W-79 血漿転化・W-81 爆破誘導（`CONVERT_STACK_RESOURCE_VARIANT` で凝魔・蓄力を変換したとき）、W-58 再使用。自滅（W-59、戦闘不能の演出で見せる）・召喚（W-61、盤面に出る）・伝授（W-60）・震盪（W-64）と、用語図鑑に用語のない効果（追加攻撃・最大HPの割合ダメージ・ラウンドの即時終了）は記録しない。
 - `applied.statuses`: MPも他の状態と同じ `{target_id, name, before, after, delta}` で記録する。
 - `applied.damage` / 広域の `damage_events`: 各行へ `hp_after`（その行の適用後HP）を追加する。`hp_after === 0 && hp_after + hp > 0` が戦闘不能への移行。
 - `self_destructed`: この段の記録送信直後に既存の自滅処理を実行するキャラIDの一覧。判定条件を既存処理と共有し、実際の自滅の順序は変えない。

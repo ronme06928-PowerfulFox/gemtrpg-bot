@@ -1,4 +1,4 @@
-"""PR4.5c確認: ひびを番号から決まる疑似乱数で不規則にする（計画52 §6.6-8）。"""
+"""PR4.5c確認: ひびを番号から決まる疑似乱数で不規則にする（E01 PR4.5c追加3）。"""
 from tests.test_motion_fx_frontend import _run_node
 
 SETUP = r"""
