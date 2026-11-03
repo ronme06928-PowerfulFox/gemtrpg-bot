@@ -378,6 +378,9 @@ def _append_trace(
     rolls=None,
     extra_fields=None
 ):
+    from manager.battle.effect_presentation import end_step_effects
+    # 段の記録はここで閉じる。送信後の処理（RESOLVE_STEP_ENDなど）は段の外。
+    end_step_effects()
     trace = battle_state.get('resolve', {}).get('trace', [])
     step_index = len(trace)
     step_total = _safe_int(battle_state.get('resolve', {}).get('step_total'), 0)

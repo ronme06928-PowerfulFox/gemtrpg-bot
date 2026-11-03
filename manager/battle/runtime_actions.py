@@ -18,6 +18,7 @@ from manager.room_manager import (
 from manager.summons.service import apply_summon_change, process_summon_round_end
 from manager.granted_skills.service import apply_grant_skill_change, process_granted_skill_round_end
 from manager.battle.skill_rules import _extract_rule_data_from_skill
+from manager.battle.effect_presentation import snapshot_gains, record_gains
 from manager.utils import set_status_value, apply_origin_bonus_buffs, get_round_end_origin_recoveries
 
 
@@ -383,11 +384,14 @@ def process_on_damage_buffs(room, char, damage_val, username, log_snippets, atta
         if not effect_data:
             continue
 
+        # 状態を直接書き換えるので、反応ごとの前後の増分を解決の段の記録へ積む。
+        gains = snapshot_gains([char, attacker_char])
         conf = effect_data.get('on_damage_state')
         if not conf:
             reaction_conf = effect_data.get('on_damage_reaction')
             if reaction_conf and _passes_on_damage_reaction_condition(reaction_conf, damage_val):
                 _apply_on_damage_reaction(room, char, reaction_conf, attacker_char, log_snippets)
+            record_gains(char.get('id'), gains)
             continue
 
         s_name = conf.get('stat')
@@ -405,6 +409,7 @@ def process_on_damage_buffs(room, char, damage_val, username, log_snippets, atta
         reaction_conf = effect_data.get('on_damage_reaction')
         if reaction_conf and _passes_on_damage_reaction_condition(reaction_conf, damage_val):
             _apply_on_damage_reaction(room, char, reaction_conf, attacker_char, log_snippets)
+        record_gains(char.get('id'), gains)
 
     return total_applied_damage
 

@@ -20,6 +20,7 @@ from manager.logs import setup_logger
 from manager.battle.skill_rules import _extract_rule_data_from_skill, _skill_deals_damage, _resolve_skill_category, _resolve_skill_role
 from manager.utils import get_effective_origin_id
 from manager.battle.duel_log_utils import _extract_skill_id_from_data
+from manager.battle.effect_presentation import start_step_effects
 from manager.battle.resolve_snapshot_utils import (
     _extract_power_pair_from_match_log,
     _build_clash_power_snapshot,
@@ -173,7 +174,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     # Select/Resolve path must track used skills so END_ROUND effects can resolve.
     _record_used_skill_for_actor(attacker_char, _extract_skill_id_from_data(attacker_skill_data))
 
-    fired_effects = []
+    fired_effects = start_step_effects()
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
 
@@ -485,7 +486,7 @@ def _resolve_clash_by_existing_logic(
     from manager import skill_effects as skill_effects_mod
     from manager.battle import runtime_actions as runtime_actions_mod
 
-    fired_effects = []
+    fired_effects = start_step_effects()
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
 
@@ -894,7 +895,7 @@ def _resolve_hard_attack_followup(
     if not isinstance(attacker_skill_data, dict):
         return {"ok": False, "reason": "missing_skill"}
 
-    fired_effects = []
+    fired_effects = start_step_effects()
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
     context = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room}
@@ -1063,7 +1064,7 @@ def _consume_fear_dice_reduction(room, actor, preview):
 
 
 def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
-    from manager.battle.effect_presentation import power_effects_collector
+    from manager.battle.effect_presentation import step_effects_collector
     if not isinstance(intents_override, dict):
         intents_override = battle_state.get('__resolve_intents_override')
     intents = intents_override if isinstance(intents_override, dict) else battle_state.get('intents', {})
@@ -1147,7 +1148,7 @@ def _roll_power_for_slot(battle_state, slot_id, intents_override=None):
                         target_skill_data=defender_skill_data,
                         base_damage=0,
                         emit_source='before_power_roll',
-                        fired_effects=power_effects_collector(),
+                        fired_effects=step_effects_collector(),
                     )
                 context = {
                     'room_state': room_state,

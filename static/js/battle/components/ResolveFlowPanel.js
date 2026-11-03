@@ -639,7 +639,6 @@ class ResolveFlowPanel {
             applied: {
                 ...((raw.applied && typeof raw.applied === 'object') ? raw.applied : {}),
                 fired_effects: raw.applied?.fired_effects || raw.fired_effects || [],
-                statuses: raw.applied?.statuses || raw.statuses || [],
             },
             selfDestructed: Array.isArray(raw.self_destructed) ? raw.self_destructed : [],
             outcomePayload: payload,

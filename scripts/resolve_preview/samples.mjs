@@ -25,9 +25,9 @@ function fromGallery(source, id, label, order) {
   return sample;
 }
 const allyWin = fromGallery('many-lines', 'ally-win', '01 · 味方勝利 / 戦慄殺到と破裂', [0, 1, 2, 3]);
-allyWin.step.applied.fired_effects = [{ term_id: 'W-07', name: '戦慄殺到', actor_id: 'a', target_id: 'd',
-  results: [{ name: 'MP', delta: -5 }] }];
-allyWin.step.applied.statuses = [{ target_id: 'd', name: '破裂', delta: 3 }, { target_id: 'd', name: '混乱', before: 0, after: 1 }];
+allyWin.step.applied.fired_effects = [{ kind: 'grant', actor_id: 'a', target_id: 'd', name: '破裂', status: '破裂', delta: 3 }, { kind: 'effect', term_id: 'W-07', name: '戦慄殺到', actor_id: 'a', target_id: 'd',
+  results: [{ name: 'MP', delta: -5 }, { name: 'buff:混乱(戦慄殺到)', delta: 1 }] }];
+allyWin.step.applied.statuses = [];
 const enemyKo = fromGallery('fear-ko', 'enemy-ko', '02 · 敵勝利 / 味方が戦闘不能', [3, 2, 1, 0]);
 enemyKo.step.outcome = 'defender_win';
 enemyKo.step.rolls.power_a = 4;
@@ -80,4 +80,8 @@ gem.preludeStep = { kind: 'gem_blessing_prelude', gemBlessings: [
   { actor_id: 'd', skill_name: '消えない灯火の加護' },
 ] };
 gem.state.characters[1].image = null;
-export const samples = [allyWin, enemyKo, longNames, oneSided, summation, fizzle, silhouette, hard, individual, crowd5, crowd8, gem];
+const pr7 = ['grant-consume', 'grant-effect-grant', 'self-charge', 'variant-grant'].map((id, i) => {
+  skillIds[id] = skillIds['ally-win'];
+  return fromGallery(id, id, `${13 + i} · ${sceneSamples.find(s => s.id === id).label}`, [0, 1, 2, 3]);
+});
+export const samples = [allyWin, enemyKo, longNames, oneSided, summation, fizzle, silhouette, hard, individual, crowd5, crowd8, gem, ...pr7];

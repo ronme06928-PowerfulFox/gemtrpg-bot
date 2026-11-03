@@ -1,7 +1,7 @@
 # manager/game_logic.py
 import copy
 import sys
-from manager.battle.effect_presentation import recording_before, record_fired_effect
+from manager.battle.effect_presentation import recording_before, record_fired_effect, grant_recording_before, record_grants
 from manager.battle.effect_handlers import EFFECT_HANDLERS, EffectSession
 from manager.battle.system_skills import ensure_system_skills_registered
 from manager.battle import condition_eval as _condition_eval
@@ -372,7 +372,10 @@ def process_skill_effects(
         for st_name, st_value, rule_id in get_stage_state_effects(stage_state, target):
             if st_value == 0:
                 continue
-            changes_to_apply.append((target, "APPLY_STATE", st_name, st_value))
+            stage_change = (target, "APPLY_STATE", st_name, st_value)
+            changes_to_apply.append(stage_change)
+            # 場の効果は付けた人がいない。
+            record_grants(context, None, grant_recording_before(context, session), [stage_change])
             rid = f" rule={rule_id}" if rule_id else ""
             log_snippets.append(f"[StageState {st_name}{st_value:+} source=stage{rid}]")
 
@@ -575,10 +578,12 @@ def process_skill_effects(
             handler = EFFECT_HANDLERS.get(effect_type)
             if handler is not None:
                 before_effect = recording_before(context, sim_target, effect)
+                before_grants = grant_recording_before(context, session) if before_effect is None else None
                 changes_start = len(changes_to_apply)
                 converted_resource = handler(effect, target_obj, sim_target, session)
                 record_fired_effect(context, effect, actor, target_obj, before_effect,
                                     changes_to_apply[changes_start:], converted_resource=converted_resource)
+                record_grants(context, actor.get('id'), before_grants, changes_to_apply[changes_start:])
                 continue
 
             if effect_type == "CUSTOM_EFFECT":

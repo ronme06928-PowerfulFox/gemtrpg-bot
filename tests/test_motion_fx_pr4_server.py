@@ -28,7 +28,7 @@ def test_fear_surge_records_glossary_name_and_per_effect_deltas_without_hp():
     recorded = process_skill_effects(effects, "HIT", actor, target, context={"fired_effects": fired})
     assert recorded == plain
     assert len(fired) == 1
-    assert fired[0] == {"term_id": "W-07", "name": "戦慄殺到", "actor_id": "a", "target_id": "d",
+    assert fired[0] == {"kind": "effect", "term_id": "W-07", "name": "戦慄殺到", "actor_id": "a", "target_id": "d",
                         "results": [{"name": "MP", "delta": -5}, {"name": "戦慄", "delta": -5}]}
 
 
@@ -132,7 +132,9 @@ def test_real_resolution_paths_include_fired_effects_and_hp_after(monkeypatch, r
     for target in state['characters'][1:]:
         target['states'].append({'name': '戦慄', 'value': 5})
     skill = core.all_skill_data['COST_A']
-    rule = {**skill['rule_data'], 'effects': [{'timing': 'BEFORE_POWER_ROLL', 'type': 'CUSTOM_EFFECT', 'value': '戦慄殺到'}]}
+    rule = {**skill['rule_data'], 'effects': [
+        {'timing': 'BEFORE_POWER_ROLL', 'type': 'APPLY_STATE', 'state_name': '出血', 'value': 2},
+        {'timing': 'BEFORE_POWER_ROLL', 'type': 'CUSTOM_EFFECT', 'value': '戦慄殺到'}]}
     skill.update(rule_data=rule, rule_data_json=rule, 特記処理=json.dumps(rule, ensure_ascii=False))
     bs['phase'] = 'resolve_mass' if route.startswith('mass') else 'resolve_single'
     core.run_select_resolve_auto('room_t', 'battle_test')
@@ -140,7 +142,8 @@ def test_real_resolution_paths_include_fired_effects_and_hp_after(monkeypatch, r
     assert traces
     for trace in traces:
         fired = trace['applied']['fired_effects']
-        assert any(row['term_id'] == 'W-07' for row in fired), trace
+        assert any(row.get('term_id') == 'W-07' for row in fired), trace
+        assert any(row['kind'] == 'grant' and row['status'] == '出血' for row in fired), trace
         assert any(row['name'] == 'MP' for row in trace['applied']['statuses'])
         for row in trace['applied'].get('damage', []) + trace.get('damage_events', []):
             assert 'hp_after' in row
@@ -169,16 +172,17 @@ def test_custom_set_deltas_use_pre_effect_values_even_when_plugin_mutates_simula
     assert fired[0]['results'] == [{'name': '破裂', 'delta': -7}]
 
 
-def test_power_capture_is_nested_and_does_not_leak_between_resolutions():
-    from manager.battle.effect_presentation import capture_power_effects, power_effects_collector
-    a, b = [], []
-    assert power_effects_collector() is None
-    with capture_power_effects(a):
-        assert power_effects_collector() is a
-        with capture_power_effects(b):
-            assert power_effects_collector() is b
-        assert power_effects_collector() is a
-    assert power_effects_collector() is None
+def test_step_effects_scope_is_nested_and_does_not_leak_between_resolutions():
+    from manager.battle.effect_presentation import step_effects_scope, start_step_effects, step_effects_collector
+    assert step_effects_collector() is None
+    with step_effects_scope():
+        a = start_step_effects()
+        with step_effects_scope():
+            assert step_effects_collector() is None
+            b = start_step_effects()
+            assert step_effects_collector() is b
+        assert step_effects_collector() is a
+    assert step_effects_collector() is None
 
 
 def test_bleed_flood_reports_maintenance_consumption_as_a_buff_result():

@@ -218,7 +218,7 @@ export function playResolveStageFx(flow, payload, state) {
   const popups = collectDamagePopups(entries, rows);
   const sideFor = id => id === ids.attacker ? 'attacker' : summation || id === ids.defender ? 'defender' : null;
   const plan = planResolveOutcome(step, popups, resolveOutcomeWindow(step, flow._autoAdvanceDelayMs),
-    fx, id => sideFor(id), window.buffCatalogData || {});
+    fx, id => sideFor(id));
   for (const event of plan.events) {
     const side = sideFor(event.targetId);
     if (!side) continue;

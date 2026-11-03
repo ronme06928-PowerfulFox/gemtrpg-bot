@@ -1,6 +1,5 @@
 // 記録から結果段階の表示順を決める。現在HPやログ文からは推測しない。
 const EFFECT_SOURCE_STATUS = Object.freeze({ 'W-01': '出血', 'W-03': '破裂', 'W-05': '亀裂', 'W-07': '戦慄', 'W-09': '荊棘' });
-const GRANT_STATES = new Set(['出血', '破裂', '亀裂', '戦慄', '荊棘', '荊棘重絡']);
 // 同じ対象の数字を縦に並べるときの行の高さ（本体・追加）と、行の間のゆとり。後の数字を出す間隔はここから決める。
 export const DAMAGE_STACK_ROW_HEIGHTS = Object.freeze({ dice: 52, effect: 36 });
 export const DAMAGE_STACK_MARGIN = 8;
@@ -18,67 +17,34 @@ export function collectKnockouts(step) {
   return new Set([...collectDamageKnockouts(step), ...(step.selfDestructed || []).map(String)]);
 }
 
-// 名前の接頭辞は、カタログが未取得・未知の場合だけ使う。既知の別IDを基本資源と混同しない。
-function grantState(name, catalog, fallbacks) {
-  if (GRANT_STATES.has(name)) return name;
-  const raw = String(name).replace(/^buff:/, '');
-  const match = Object.entries(catalog).find(([id, row]) => id === raw || row.name === raw || row.display_name === raw);
-  if (match) return ({ 'Bu-30': '蓄力', 'Bu-31': '凝魔' })[match[0]] || null;
-  const guessed = ['凝魔', '蓄力'].find(state => raw.startsWith(state));
-  if (guessed) fallbacks.add(name);
-  return guessed || null;
-}
-
-export function planResolveOutcome(step, popups, windowSeconds, fx, laneFor = id => id, buffCatalog = {}) {
+export function planResolveOutcome(step, popups, windowSeconds, fx, laneFor = id => id) {
   const durationFor = name => fx.get(name).duration;
-  const fallbacks = new Set();
-  const effects = (step.applied?.fired_effects || []).map(effect => ({
-    ...effect, target_id: String(effect.target_id),
-    results: (effect.results || []).filter(row => String(row.name).toUpperCase() !== 'HP'
-      && !(Number(row.delta) < 0 && row.name === EFFECT_SOURCE_STATUS[effect.term_id])).map(row => ({ ...row })),
-  }));
-  const statuses = step.applied?.statuses || [];
-  const confused = new Set(statuses.filter(row => String(row.name).includes('混乱')
-    && Number(row.before) === 0 && Number(row.after) > 0).map(row => String(row.target_id)));
-  for (const targetId of confused) {
-    const fear = effects.find(effect => effect.target_id === targetId && effect.term_id === 'W-07');
-    if (fear) fear.results = [...fear.results.filter(row => !String(row.name).includes('混乱')), { name: '混乱', delta: null }];
-    else effects.push({ term_id: 'W-10', name: '混乱', target_id: targetId, results: [] });
-  }
-  const alreadyShown = new Map(), grants = new Map();
-  const key = (id, state) => `${id}:${state}`;
-  for (const effect of effects) for (const row of effect.results) {
-    const state = grantState(row.name, buffCatalog, fallbacks);
-    if (state && Number(row.delta) > 0) alreadyShown.set(key(effect.target_id, state),
-      (alreadyShown.get(key(effect.target_id, state)) || 0) + Number(row.delta));
-  }
-  for (const row of statuses) {
-    if (!(Number(row.delta) > 0)) continue;
-    const state = grantState(row.name, buffCatalog, fallbacks);
-    if (!state) continue;
-    const id = String(row.target_id);
-    if (!grants.has(id)) grants.set(id, new Map());
-    const totals = grants.get(id);
-    totals.set(state, (totals.get(state) || 0) + Number(row.delta));
-  }
   const lanes = new Map(), pending = popups.filter(popup => popup.kind !== 'dice').slice(), paired = [];
-  const addGroup = group => {
-    const lane = laneFor(group.targetId);
+  for (const record of step.applied?.fired_effects || []) {
+    const targetId = String(record.target_id), self = String(record.actor_id) === targetId;
+    const lane = laneFor(targetId);
     if (!lanes.has(lane)) lanes.set(lane, []);
-    lanes.get(lane).push(group);
-    return group;
-  };
-  for (const [targetId, states] of grants) {
-    const lines = [...states].map(([state, delta]) => ({ kind: 'result', text: state, status: state,
-      delta: delta - (alreadyShown.get(key(targetId, state)) || 0) })).filter(row => row.delta > 0);
-    if (lines.length) addGroup({ targetId, kind: 'grant', lines });
-  }
-  for (const effect of effects) {
-    const group = addGroup({ targetId: effect.target_id, kind: 'effect', self: String(effect.actor_id) === effect.target_id,
-      lines: [{ kind: 'title', text: effect.name }, ...effect.results.map(row => ({ kind: 'result', text: row.name, delta: row.delta }))] });
+    const groups = lanes.get(lane);
+    if (record.kind === 'grant') {
+      let group = groups.at(-1);
+      if (!group || group.kind !== 'grant' || group.targetId !== targetId || group.self !== self) {
+        group = { targetId, kind: 'grant', self, lines: [] };
+        groups.push(group);
+      }
+      group.lines.push({ kind: 'result', text: record.name, status: record.status, delta: record.delta });
+      continue;
+    }
+    const results = (record.results || []).filter(row => String(row.name).toUpperCase() !== 'HP'
+      && !(Number(row.delta) < 0 && row.name === EFFECT_SOURCE_STATUS[record.term_id]));
+    const confusion = record.term_id === 'W-07' && results.some(row => String(row.name).includes('混乱') && Number(row.delta) > 0);
+    const lines = results.filter(row => !(record.term_id === 'W-07' && String(row.name).includes('混乱')))
+      .map(row => ({ kind: 'result', text: row.name, delta: row.delta }));
+    if (confusion) lines.push({ kind: 'result', text: '混乱', delta: null });
+    const group = { targetId, kind: 'effect', self, lines: [{ kind: 'title', text: record.name }, ...lines] };
+    groups.push(group);
     // 戦慄は消費行の除外に使うが、追加ダメージの対応には使わない。
-    const state = effect.term_id === 'W-07' ? null : EFFECT_SOURCE_STATUS[effect.term_id];
-    const index = state ? pending.findIndex(popup => popup.targetId === effect.target_id && popup.status === state) : -1;
+    const state = record.term_id === 'W-07' ? null : EFFECT_SOURCE_STATUS[record.term_id];
+    const index = state ? pending.findIndex(popup => popup.targetId === targetId && popup.status === state) : -1;
     if (index >= 0) paired.push({ popup: pending.splice(index, 1)[0], group });
   }
   const bandStart = 0.1, readTime = 0.8, extraDelay = 0.05;
@@ -178,5 +144,5 @@ export function planResolveOutcome(step, popups, windowSeconds, fx, laneFor = id
     band.params.duration = Math.max(...ends) - band.at;
   }
   const endSeconds = Math.max(0, ...events.map(e => e.at + (e.params.duration ?? durationFor(e.name))));
-  return { events, groupCount, stopSeconds, endSeconds, statusFallbacks: [...fallbacks] };
+  return { events, groupCount, stopSeconds, endSeconds };
 }

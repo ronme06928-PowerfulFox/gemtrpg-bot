@@ -200,22 +200,24 @@ def run_select_resolve_auto(room, battle_id):
 
     # Phase handlers are split to keep responsibilities clear while
     # preserving the original call order and side effects.
-    _resolve_auto_mass_phase_mod.run_mass_phase(
-        room=room,
-        battle_id=battle_id,
-        state=state,
-        battle_state=battle_state,
-        resolve_intents=resolve_intents,
-        characters_by_id=characters_by_id,
-    )
-    _resolve_auto_single_phase_mod.run_single_phase(
-        room=room,
-        battle_id=battle_id,
-        state=state,
-        battle_state=battle_state,
-        resolve_intents=resolve_intents,
-        characters_by_id=characters_by_id,
-    )
+    from manager.battle.effect_presentation import step_effects_scope
+    with step_effects_scope():
+        _resolve_auto_mass_phase_mod.run_mass_phase(
+            room=room,
+            battle_id=battle_id,
+            state=state,
+            battle_state=battle_state,
+            resolve_intents=resolve_intents,
+            characters_by_id=characters_by_id,
+        )
+        _resolve_auto_single_phase_mod.run_single_phase(
+            room=room,
+            battle_id=battle_id,
+            state=state,
+            battle_state=battle_state,
+            resolve_intents=resolve_intents,
+            characters_by_id=characters_by_id,
+        )
     battle_state.pop('__room_state_ref__', None)
     battle_state.pop('__room_name', None)
     battle_state.pop('__resolve_intents_override', None)

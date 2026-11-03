@@ -3,34 +3,39 @@ from tests.test_motion_fx_frontend import _run_node
 from tests.test_motion_fx_pr3_frontend import FLOW_SETUP
 
 
-def test_effect_groups_filter_consumption_and_grants_use_catalog_and_subtract_results():
+def test_effect_groups_follow_records_and_ignore_status_differences():
     _run_node(r"""
 (async()=>{
 const Fx=loadShared({}),{planResolveOutcome}=await import('./static/js/battle/components/resolve_flow_result_fx.js');
-const catalog=JSON.parse(fs.readFileSync('data/cache/buff_catalog_cache.json','utf8'));
-catalog['Bu-31']={id:'Bu-31',name:'魔力資源',display_name:'別名'};
+const grant=(name,delta=3,target_id='d',actor_id='a',status=name)=>({kind:'grant',name,delta,status,target_id,actor_id});
+const effect=(term_id,name,results=[])=>({kind:'effect',term_id,name,actor_id:'a',target_id:'d',results});
 const step={applied:{fired_effects:[
- {term_id:'W-07',name:'戦慄殺到',actor_id:'a',target_id:'d',results:[{name:'戦慄',delta:-5},{name:'MP',delta:-5}]},
- {term_id:'W-03',name:'破裂爆発',actor_id:'a',target_id:'d',results:[{name:'破裂',delta:-3}]},
- {term_id:'W-58',name:'再使用',actor_id:'a',target_id:'d',results:[{name:'出血',delta:2},{name:'破裂',delta:1}]},
-],statuses:[['破裂',4],['出血',2],['MP',3],['FP',1],['HP',4],['buff:魔力資源',2],['buff:蓄力',3],['buff:凝魔-未登録',1],['buff:凝魔-血漿',5]].map(([name,delta])=>({target_id:'d',name,delta})).concat([{target_id:'d',name:'混乱',before:0,after:1,delta:1}])}};
-const untouched=JSON.stringify(step),plan=planResolveOutcome(step,[],4.6,Fx,()=> 'defender',catalog);
+ grant('破裂'),grant('出血',2),
+ effect('W-03','破裂爆発',[{name:'破裂',delta:-3},{name:'HP',delta:-3}]),
+ grant('出血',2),effect('W-07','戦慄殺到',[{name:'戦慄',delta:-5},{name:'buff:混乱(戦慄殺到)',delta:1},{name:'MP',delta:-5}]),
+ effect('W-10','混乱'),grant('蓄力-誘爆',2,'a','a','蓄力'),
+],statuses:[{target_id:'d',name:'破裂',delta:999},{target_id:'d',name:'混乱',before:0,after:1}]}};
+const untouched=JSON.stringify(step),plan=planResolveOutcome(step,[],4.6,Fx,()=> 'defender');
 assert.strictEqual(JSON.stringify(step),untouched);
-assert.ok(!('beatSeconds' in plan));
 const band=plan.events.find(e=>e.name==='effect-band'),groups=band.params.groups;
-assert.strictEqual(band.at,0.1);assert.strictEqual(groups.length,4);
-assert.strictEqual(groups[0].kind,'grant');assert.ok(groups[0].lines.every(l=>l.kind==='result'));
-assert.deepStrictEqual(groups[0].lines.map(l=>[l.text,l.delta]),[['破裂',3],['凝魔',3],['蓄力',3]]);
-assert.deepStrictEqual(groups[1].lines.map(l=>l.text),['戦慄殺到','MP','混乱']);
-assert.deepStrictEqual(groups[2].lines.map(l=>l.text),['破裂爆発']);
-assert.deepStrictEqual(groups[3].lines.map(l=>l.text),['再使用','出血','破裂']);
-assert.deepStrictEqual(plan.statusFallbacks,['buff:凝魔-未登録']);
-const hits=planResolveOutcome(step,[{targetId:'d',kind:'effect',status:'破裂',amount:3},{targetId:'d',kind:'effect',status:'戦慄',amount:2}],4.6,Fx,()=> 'defender',catalog);
-const rupture=hits.events.find(e=>e.name==='resolve-damage'&&e.params.status==='破裂');
-assert.ok(Math.abs(rupture.at-(0.1+groups[2].at+0.05))<1e-9);
-const many={applied:{fired_effects:Array.from({length:40},()=>({target_id:'d',name:'再使用',results:[]}))}};
-const overflow=planResolveOutcome(many,[],4.6,Fx,()=> 'defender');
+assert.strictEqual(band.at,0.1);assert.strictEqual(groups.length,6);
+assert.deepStrictEqual(groups.map(g=>g.kind),['grant','effect','grant','effect','effect','grant']);
+assert.deepStrictEqual(groups[0].lines.map(l=>[l.text,l.delta]),[['破裂',3],['出血',2]]);
+assert.deepStrictEqual(groups[1].lines.map(l=>l.text),['破裂爆発']);
+assert.deepStrictEqual(groups[2].lines.map(l=>[l.text,l.delta]),[['出血',2]]);
+assert.deepStrictEqual(groups[3].lines.map(l=>[l.text,l.delta]),[['戦慄殺到',undefined],['MP',-5],['混乱',null]]);
+assert.deepStrictEqual(groups[4].lines.map(l=>l.text),['混乱']);
+assert.ok(groups[5].self);assert.strictEqual(groups[5].lines[0].status,'蓄力');assert.strictEqual(groups[5].lines[0].text,'蓄力-誘爆');
+assert.strictEqual(planResolveOutcome({applied:{statuses:step.applied.statuses}},[],4.6,Fx).events.length,0);
+const hits=planResolveOutcome(step,[{targetId:'d',kind:'effect',status:'破裂',amount:3}],4.6,Fx,()=> 'defender');
+const rupture=hits.events.find(e=>e.name==='resolve-damage');
+assert.ok(Math.abs(rupture.at-(0.1+groups[1].at+0.05))<1e-9);
+const overflow=planResolveOutcome({applied:{fired_effects:Array.from({length:40},()=>effect('W-58','再使用'))}},[],4.6,Fx,()=> 'defender');
 assert.strictEqual(overflow.events[0].params.groups.length,40);assert.ok(overflow.endSeconds>4.6);
+// 同じ帯の別対象の効果も付与の続き目を切る。別の帯は独立する。
+const split={applied:{fired_effects:[grant('出血'),{...effect('W-58','再使用'),target_id:'e'},grant('破裂')]}};
+assert.strictEqual(planResolveOutcome(split,[],4.6,Fx,()=> 'defender').groupCount,3);
+assert.strictEqual(planResolveOutcome(split,[],4.6,Fx).groupCount,2);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 
@@ -106,15 +111,15 @@ fx.render(number.params.leaveAt+0.15);assert.ok(Number(fx.el.style.opacity)<0.6)
 """)
 
 
-def test_connection_supplies_catalog_icons_and_preserves_both_sides_outside_summation():
+def test_connection_supplies_recorded_status_icons_and_self_tone_on_both_sides():
     _run_node("(async()=>{"+FLOW_SETUP+r"""
-window.buffCatalogData={'Bu-31':{id:'Bu-31',name:'魔力'}};
 window.STATUS_CONFIG={'破裂':{icon:'rupture.png'},'凝魔':{icon:'gyoma.png'}};
-const step={...base,applied:{damage:[],fired_effects:[],statuses:[{target_id:'d',name:'破裂',delta:3},{target_id:'a',name:'buff:魔力',delta:2}]}};
+const step={...base,applied:{damage:[],fired_effects:[{kind:'grant',actor_id:'a',target_id:'d',name:'破裂',status:'破裂',delta:3},{kind:'grant',actor_id:'a',target_id:'a',name:'凝魔-血漿',status:'凝魔',delta:2}]}};
 run(step,'outcome');
 const bands=calls.filter(c=>c[0]==='effect-band');assert.strictEqual(bands.length,2);
 assert.strictEqual(bands.find(c=>c[1].side==='defender')[1].groups[0].lines[0].icon,'/static/images/rupture.png');
 assert.strictEqual(bands.find(c=>c[1].side==='attacker')[1].groups[0].lines[0].icon,'/static/images/gyoma.png');
+assert.strictEqual(bands.find(c=>c[1].side==='attacker')[1].groups[0].lines[0].tone,'self');
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 

@@ -786,7 +786,7 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
                         )
                         winner_reuse_requests = _extract_reuse_requests_from_changes(winner_changes)
                         clash_summary.setdefault('fired_effects', []).extend(
-                            row for row in reuse_context['fired_effects'] if row['term_id'] == 'W-58')
+                            row for row in reuse_context['fired_effects'] if row.get('term_id') == 'W-58')
                         clash_reuse_policy = _collect_reuse_policy({'reuse_requests': winner_reuse_requests})
                 if hard_followup_block_reason:
                     if clash_notes:

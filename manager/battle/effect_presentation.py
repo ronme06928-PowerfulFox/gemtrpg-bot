@@ -6,21 +6,38 @@ from contextvars import ContextVar
 from manager.battle.effect_glossary_map import effect_term, CUSTOM_EFFECT_TERMS
 from manager.battle.skill_rules import _has_skill_tag
 
-_power_effects = ContextVar('presentation_power_effects', default=None)
+_step_effects = ContextVar('presentation_step_effects', default=None)
+GRANT_STATES = {'出血', '破裂', '亀裂', '戦慄', '荊棘', '荊棘重絡', '凝魔', '蓄力'}
 
 
 @contextmanager
-def capture_power_effects(fired_effects):
-    """威力ロールの既存APIを保ち、ネスト・並行した解決で記録先を混ぜない。"""
-    token = _power_effects.set(fired_effects)
+def step_effects_scope():
+    """解決の全体を包む。範囲の外では段の記録先を持たず、並行・入れ子の解決で記録先を混ぜない。"""
+    token = _step_effects.set({'current': None})
     try:
         yield
     finally:
-        _power_effects.reset(token)
+        _step_effects.reset(token)
 
 
-def power_effects_collector():
-    return _power_effects.get()
+def start_step_effects():
+    """解決の1段の記録の一覧を作る。範囲の中なら、ループの外（威力ロール・被ダメージ反応・死亡時効果）もここへ積む。"""
+    fired_effects = []
+    box = _step_effects.get()
+    if box is not None:
+        box['current'] = fired_effects
+    return fired_effects
+
+
+def end_step_effects():
+    box = _step_effects.get()
+    if box is not None:
+        box['current'] = None
+
+
+def step_effects_collector():
+    box = _step_effects.get()
+    return box['current'] if box is not None else None
 
 
 def recording_before(context, char, effect):
@@ -75,9 +92,130 @@ def record_fired_effect(context, effect, actor, target, before, changes, convert
             else:
                 results.append({"name": name, "delta": new - old})
     context["fired_effects"].append({
-        "term_id": term[0], "name": term[1], "actor_id": actor.get("id"), "target_id": target.get("id"),
+        "kind": "effect", "term_id": term[0], "name": term[1], "actor_id": actor.get("id"), "target_id": target.get("id"),
         "results": [r for r in results if r["delta"]],
     })
+
+
+def grant_recording_before(context, session):
+    if isinstance(context, dict) and isinstance(context.get('fired_effects'), list):
+        return copy.deepcopy(session.simulated_chars)
+    return None
+
+
+def _grant_buff_status(name, payload):
+    from manager.battle.skill_effect_helpers import normalize_buff_name
+
+    buff_id = (payload.get('data') or {}).get('buff_id')
+    if buff_id == 'Bu-Fissure':
+        return '亀裂'
+    return {'Bu-31': '凝魔', 'Bu-30': '蓄力'}.get(buff_id, normalize_buff_name(name))
+
+
+def _grant_name(status, char):
+    from manager.battle.skill_effect_helpers import find_sim_buff, read_stack_variant, is_chikuryoku_burst_guidance_variant
+    from manager.buff_catalog import get_buff_by_id
+
+    variant = read_stack_variant(find_sim_buff(char, status)).lower()
+    view_id = None
+    if status == '凝魔' and variant == 'blood_plasma':
+        view_id = 'Bu-48'
+    elif status == '蓄力' and is_chikuryoku_burst_guidance_variant(variant):
+        view_id = 'Bu-49'
+    catalog = get_buff_by_id(view_id) if view_id else None
+    return (catalog.get('display_name') or catalog.get('name') or status) if catalog else status
+
+
+def _amount(char, status):
+    from manager.utils import get_status_value
+    from manager.battle.skill_effect_helpers import resolve_buff_count
+
+    stacks = 0
+    if status in {'凝魔', '蓄力'}:
+        for buff in char.get('special_buffs', []):
+            data = {**(buff.get('data') or {})}
+            data['buff_id'] = buff.get('buff_id') or data.get('buff_id')
+            if _grant_buff_status(buff.get('name'), {'data': data}) == status:
+                stacks += resolve_buff_count(buff, default=0)
+    return int(get_status_value(char, status) or 0) + stacks
+
+
+def _confused(char):
+    return any('混乱' in str(b.get('name')) for b in char.get('special_buffs', []))
+
+
+def _append_gain(fired_effects, actor_id, target_id, status, char, old, new):
+    """付与1件を積む。混乱は新しく付いたときだけW-10として積む。"""
+    if status == '混乱':
+        import extensions
+        name = str(extensions.all_glossary_data.get('W-10', {}).get('display_name') or '').strip()
+        if not old and new and name:
+            fired_effects.append(dict(kind='effect', term_id='W-10', name=name,
+                                      actor_id=actor_id, target_id=target_id, results=[]))
+    elif new - old > 0:
+        fired_effects.append(dict(kind='grant', actor_id=actor_id, target_id=target_id,
+                                  name=_grant_name(status, char), status=status, delta=new - old))
+
+
+def snapshot_gains(chars):
+    """ループの外で状態を直接書き換える処理の前に取る。段の記録先がなければNone。"""
+    if step_effects_collector() is None:
+        return None
+    return [(char, {status: _amount(char, status) for status in GRANT_STATES}, _confused(char))
+            for char in chars if isinstance(char, dict)]
+
+
+def record_gains(actor_id, snapshot):
+    """snapshot_gainsの後で増えた分を、段の記録先へ積む。"""
+    fired_effects = step_effects_collector()
+    if snapshot is None or fired_effects is None:
+        return
+    for char, amounts, confused in snapshot:
+        for status in sorted(GRANT_STATES):
+            _append_gain(fired_effects, actor_id, char.get('id'), status, char, amounts[status], _amount(char, status))
+        _append_gain(fired_effects, actor_id, char.get('id'), '混乱', char, confused, _confused(char))
+
+
+def record_grants(context, actor_id, before, changes):
+    """1ハンドラの変更列を写しへ適用する。消費のremove/reapplyは増加と数えない。"""
+    if before is None:
+        return
+    from manager.utils import get_status_value, set_status_value, apply_buff, remove_buff
+
+    shadows, removed = {}, {}
+    for char, kind, name, value in changes:
+        if not isinstance(char, dict):
+            continue
+        cid = char.get('id')
+        if cid not in shadows:
+            shadows[cid] = copy.deepcopy(before.get(cid, char))
+        shadow = shadows[cid]
+        if kind in {'APPLY_STATE', 'SET_STATUS'}:
+            status = name
+        elif kind in {'APPLY_BUFF', 'REMOVE_BUFF'}:
+            status = _grant_buff_status(name, value if isinstance(value, dict) else {})
+            if '混乱' in str(name):
+                status = '混乱'
+        else:
+            continue
+        if status not in GRANT_STATES and status != '混乱':
+            continue
+        key = (cid, status)
+        old = _confused(shadow) if status == '混乱' else _amount(shadow, status)
+        if kind in {'APPLY_STATE', 'SET_STATUS'}:
+            current = get_status_value(shadow, name)
+            set_status_value(shadow, name, int(value) if kind == 'SET_STATUS' else current + int(value))
+        elif kind == 'REMOVE_BUFF':
+            removed[key] = old
+            remove_buff(shadow, name)
+            continue
+        else:
+            apply_buff(shadow, name, value['lasting'], value['delay'], data=copy.deepcopy(value.get('data')),
+                       count=value.get('count'))
+            # 残スタックを置き直す変更列は、取り除く前の値から増えた場合だけ付与。
+            old = max(old, removed.pop(key, old))
+        new = _confused(shadow) if status == '混乱' else _amount(shadow, status)
+        _append_gain(context['fired_effects'], actor_id, cid, status, shadow, old, new)
 
 
 def will_self_destruct(actor, skill):

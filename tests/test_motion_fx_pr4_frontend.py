@@ -63,15 +63,17 @@ for(const e of many.filter(e=>e.name==='ko-shatter')) assert.ok(e.at+e.params.du
 """)
 
 
-def test_confusion_is_merged_into_fear_surge_or_presented_once_on_its_own():
+def test_confusion_uses_its_own_record_and_fear_result_without_status_inference():
     _run_node("(async()=>{"+FLOW_SETUP+r"""
 const {planResolveOutcome}=await import('./static/js/battle/components/resolve_flow_result_fx.js');
 const applied={statuses:[{target_id:'d',name:'混乱',before:0,after:1}],fired_effects:[]};
-assert.deepStrictEqual(planResolveOutcome({applied},[],4.6,window.Fx).events.flatMap(e=>e.params.groups.flatMap(g=>g.lines.map(line=>line.text))),['混乱']);
-applied.fired_effects=[{term_id:'W-07',name:'戦慄殺到',actor_id:'a',target_id:'d',results:[{name:'MP',delta:-5}]}];
-const events=planResolveOutcome({applied},[],4.6,window.Fx).events;assert.strictEqual(events.length,1);
-assert.strictEqual(events[0].params.groups[0].lines.at(-1).text,'混乱');
-applied.statuses[0].before=1;
+assert.strictEqual(planResolveOutcome({applied},[],4.6,window.Fx).events.length,0);
+applied.fired_effects=[{kind:'effect',term_id:'W-10',name:'混乱',actor_id:'a',target_id:'d',results:[]}];
+assert.deepStrictEqual(planResolveOutcome({applied},[],4.6,window.Fx).events[0].params.groups[0].lines.map(l=>l.text),['混乱']);
+applied.fired_effects=[{kind:'effect',term_id:'W-07',name:'戦慄殺到',actor_id:'a',target_id:'d',results:[{name:'MP',delta:-5},{name:'buff:混乱(戦慄殺到)',delta:1}]}];
+const lines=planResolveOutcome({applied},[],4.6,window.Fx).events[0].params.groups[0].lines;
+assert.deepStrictEqual(lines.map(l=>l.text),['戦慄殺到','MP','混乱']);assert.strictEqual(lines.at(-1).delta,null);
+applied.fired_effects[0].results.pop();
 assert.strictEqual(planResolveOutcome({applied},[],4.6,window.Fx).events[0].params.groups[0].lines.length,2);
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)

@@ -66,7 +66,7 @@ def test_scene_events_use_the_production_plan_positions_tones_and_fit_the_derive
   const { collectDamagePopups, attackTier, resolveOutcomeWindow } = await import('./static/js/battle/components/resolve_flow_fx.js');
   const { planResolveOutcome, collectKnockouts, collectDamageKnockouts } = await import('./static/js/battle/components/resolve_flow_result_fx.js');
   const { RESOLVE_TEMPO } = await import('./static/js/battle/components/resolve_stage_timing.js');
-  assert.strictEqual(sceneSamples.length, 7);
+  assert.strictEqual(sceneSamples.length, 11);
   const panels = new Map();
   global.document = { getElementById: id => panels.get(id) };
   for (const scene of sceneSamples) {
@@ -128,6 +128,26 @@ def test_scene_events_use_the_production_plan_positions_tones_and_fit_the_derive
   }
   assert.strictEqual(window.Fx.play, undefined);
 })().catch(e => { console.error(e); process.exitCode = 1; });
+""")
+
+
+def test_pr7_gallery_and_panel_samples_keep_grant_order_and_variant_icons():
+    _run_node(r"""
+(async()=>{
+const {sceneSamples}=await import('./scripts/fx_gallery/samples.mjs');
+const {samples}=await import('./scripts/resolve_preview/samples.mjs');
+const {planResolveOutcome}=await import('./static/js/battle/components/resolve_flow_result_fx.js');
+const Fx=loadShared({});
+for(const rows of [sceneSamples,samples]) {
+  const groups=id=>planResolveOutcome(rows.find(s=>s.id===id).step,[],4.6,Fx,()=> 'band').events[0].params.groups;
+  assert.deepStrictEqual(groups('grant-consume').map(g=>g.kind),['grant','effect']);
+  assert.deepStrictEqual(groups('grant-effect-grant').map(g=>g.kind),['grant','effect','grant']);
+  assert.ok(groups('self-charge')[0].self);
+  const variant=groups('variant-grant')[0].lines[0];
+  assert.strictEqual(variant.status,'蓄力');assert.strictEqual(variant.text,'蓄力-誘爆');
+  for(const scene of rows) for(const row of scene.step.applied.fired_effects) assert.ok(['grant','effect'].includes(row.kind));
+}
+})().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 
 
@@ -232,8 +252,8 @@ context.window=context;
 vm.createContext(context);
 for (const script of scripts) vm.runInContext(script,context);
 const cards=all.filter(node=>node.className.split(' ').includes('gallery-card'));
-assert.strictEqual(cards.length,25);
-assert.strictEqual(cards.filter(c=>c.className.includes('scene-card')).length,7);
+    assert.strictEqual(cards.length,29);
+    assert.strictEqual(cards.filter(c=>c.className.includes('scene-card')).length,11);
 for (const card of cards) {
   const stage=card.querySelector('.stage-host').children[0];
   assert.ok(descendants(stage).some(node=>node.className.split(' ').includes('fx-root')));

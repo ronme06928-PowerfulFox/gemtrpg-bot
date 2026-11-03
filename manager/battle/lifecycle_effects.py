@@ -27,11 +27,14 @@ def process_on_death(room, char, username, ctx, death_context=None):
             )
             if cause_skill_data is None and cause.get("skill_id"):
                 cause_skill_data = {"id": str(cause.get("skill_id"))}
+            from manager.battle.effect_presentation import step_effects_collector
             context = {
                 "characters": state['characters'],
                 "room": room,
                 "death_context": cause,
             }
+            if step_effects_collector() is not None:
+                context["fired_effects"] = step_effects_collector()
 
             _, l, changes = ctx['process_skill_effects'](
                 on_death_effects,

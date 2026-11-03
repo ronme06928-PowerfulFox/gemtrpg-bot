@@ -30,7 +30,13 @@
 
 PR4の記録追加仕様（2026-10-29）：
 
-- `applied.fired_effects`: 発動順の `{term_id, name, actor_id, target_id, results: [{name, delta}]}`。名称は用語図鑑の `display_name`。HPはresultsへ入れない。対応表にない効果・名称欠損・不発は省略する。
+- `applied.fired_effects`: 処理順の効果 `{kind: 'effect', term_id, name, actor_id, target_id, results: [{name, delta}]}` と付与 `{kind: 'grant', actor_id, target_id, name, status, delta}`（計画52 PR7）。効果名は用語図鑑の `display_name`。HPはresultsへ入れない。対応表にない効果・名称欠損・不発は省略する。
+- 付与は効果ループの変更列から、出血・破裂・亀裂・戦慄・荊棘・荊棘重絡・凝魔・蓄力の正の増分だけを記録する。名前のある効果の中の付与はその `results` に残し、付与行を重ねない。付与後すぐ消費しても付与行を残す。`status` は元の状態のアイコンキー、`name` はその時点の表示名。凝魔の `blood_plasma` はBu-48、蓄力の `burst_guidance` / `explosion_guidance` / `induce_burst` / `induced_burst` はBu-49のバフ図鑑の表示名を使う。
+- 普通の `APPLY_BUFF` で混乱が新規付与されたときはW-10（用語図鑑の名称・空のresults）を処理順に記録する。戦慄殺到による混乱はW-07のresultsに残す。状態差分から混乱を補わない。
+- ループの外の付与も同じ段の記録へ処理順に積む。段の記録先は `effect_presentation` のContextVarで、一覧を作るところ（一方攻撃・マッチ・強硬・合算）が `start_step_effects()` で新しくし、`_append_trace` が閉じる。解決の全体は `step_effects_scope()` で包み、範囲の外では記録先を持たない（ループの外の付与は記録しない）。威力ロール（`BEFORE_POWER_ROLL`）も同じ記録先へ積む。
+  - HITの場効果（`APPLY_STATE_ON_CONDITION`）：効果ループの前に、付けた人なし（`actor_id: null`）で記録する。
+  - 被ダメージ反応（`on_damage_state` / `on_damage_reaction`）：反応ごとに持ち主と攻撃者の前後を比べ、増えた分を持ち主を付けた人として記録する。
+  - 死亡時効果（`process_on_death`）：その効果ループへ記録先を渡し、倒れた人を付けた人として記録する。
 - `applied.statuses`: MPも他の状態と同じ `{target_id, name, before, after, delta}` で記録する。
 - `applied.damage` / 広域の `damage_events`: 各行へ `hp_after`（その行の適用後HP）を追加する。`hp_after === 0 && hp_after + hp > 0` が戦闘不能への移行。
 - `self_destructed`: この段の記録送信直後に既存の自滅処理を実行するキャラIDの一覧。判定条件を既存処理と共有し、実際の自滅の順序は変えない。

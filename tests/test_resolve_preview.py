@@ -275,7 +275,7 @@ function run(reduced) {
   const canvas=()=>host.children[0];
   const input=value=>{seek.value=String(value);seek.events.input();};
   assert.ok(clock.value.startsWith('4.60'));
-  assert.strictEqual(sample.children.length,12);
+  assert.strictEqual(sample.children.length,16);
   for(const option of sample.children) {
     sample.value=option.value;sample.events.change();
     assert.ok(clock.value.startsWith('0.00'));
