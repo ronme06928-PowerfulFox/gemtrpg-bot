@@ -318,7 +318,7 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
             # summation/mass_summation uses one aggregate clash against all
             # participants that targeted this mass slot.
             if mass_type in ['summation', 'mass_summation']:
-                fired_effects = start_step_effects()
+                fired_effects = start_step_effects(attacker_char)
                 summation_before = _snapshot_characters_for_timing(state)
                 participant_slots = _gather_slots_targeting_slot_s(
                     state,

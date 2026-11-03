@@ -378,9 +378,7 @@ def _append_trace(
     rolls=None,
     extra_fields=None
 ):
-    from manager.battle.effect_presentation import end_step_effects
-    # 段の記録はここで閉じる。送信後の処理（RESOLVE_STEP_ENDなど）は段の外。
-    end_step_effects()
+    from manager.battle.effect_presentation import close_step_stacks, end_step_effects
     trace = battle_state.get('resolve', {}).get('trace', [])
     step_index = len(trace)
     step_total = _safe_int(battle_state.get('resolve', {}).get('step_total'), 0)
@@ -417,6 +415,12 @@ def _append_trace(
     }
     if extra_fields:
         entry.update(extra_fields)
+    if kind != 'gem_blessing_prelude':
+        actor_ids = [attacker_actor_id] if kind == 'mass_summation' else [attacker_actor_id, defender_actor_id]
+        chars = (get_room_state(room) or {}).get('characters', []) if any(actor_ids) else []
+        entry['stacks'] = close_step_stacks(actor_ids, chars)
+    # 送信後の処理（RESOLVE_STEP_ENDなど）は段の外。
+    end_step_effects()
     from manager.battle.gem_blessing_presentation import take_resolve_gem_users
     gem_users = take_resolve_gem_users(battle_state, entry)
     if gem_users:

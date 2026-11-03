@@ -45,7 +45,7 @@ export function renderStageMotion(canvas, frame) {
     const motion = frame.sides[side];
     const name = node.querySelector('.character-name');
     if (name) name.style.opacity = String(motion.nameOpacity);
-    for (const portrait of node.querySelectorAll('.portrait')) {
+    for (const portrait of node.querySelectorAll('.portrait, .stack-row')) {
       portrait.style.transform = `translateX(${motion.portraitX}px)`;
       portrait.style.opacity = String(motion.portraitOpacity);
     }

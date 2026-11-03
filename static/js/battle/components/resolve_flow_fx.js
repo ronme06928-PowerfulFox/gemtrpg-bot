@@ -92,6 +92,18 @@ export function collectDamagePopups(entries, damageRows) {
   return result;
 }
 
+export function resolveOutcomePlan(flow, step, state) {
+  if (flow._outcomePlan?.step === step && flow._outcomePlan.wait === flow._autoAdvanceDelayMs) return flow._outcomePlan.plan;
+  const entries = flow._collectDamageSummary(step, state).entries;
+  const popups = collectDamagePopups(entries, [...(step.applied?.damage || []), ...(step.damageEvents || [])]);
+  const attacker = String(flow._slotActorId(step.attackerSlotId, state) || step.attackerActorId || '');
+  const defender = String(flow._slotActorId(step.defenderSlotId, state) || step.defenderActorId || step.targetActorId || '');
+  const plan = planResolveOutcome(step, popups, resolveOutcomeWindow(step, flow._autoAdvanceDelayMs),
+    window.Fx, id => id === attacker ? 'attacker' : step.kind === 'mass_summation' || id === defender ? 'defender' : null);
+  flow._outcomePlan = { step, wait: flow._autoAdvanceDelayMs, plan };
+  return plan;
+}
+
 export function playResolveStageFx(flow, payload, state) {
   const fx = window.Fx;
   const step = flow._activeStep;
@@ -215,11 +227,8 @@ export function playResolveStageFx(flow, payload, state) {
   const response = planHitResponse(step, entries, winner, ids, fx.getLevel());
   for (const event of response) playAt(event.name, event.params, event.params.side, event.at);
   if (response.length && fx.getLevel() === 'rich' && tierFor(loser) === 'large') playAt('impact-flash', {});
-  const rows = [...(step.applied?.damage || []), ...(step.damageEvents || [])];
-  const popups = collectDamagePopups(entries, rows);
   const sideFor = id => id === ids.attacker ? 'attacker' : summation || id === ids.defender ? 'defender' : null;
-  const plan = planResolveOutcome(step, popups, resolveOutcomeWindow(step, flow._autoAdvanceDelayMs),
-    fx, id => sideFor(id));
+  const plan = resolveOutcomePlan(flow, step, state);
   for (const event of plan.events) {
     const side = sideFor(event.targetId);
     if (!side) continue;

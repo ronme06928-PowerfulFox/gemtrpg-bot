@@ -90,6 +90,9 @@ export const characters = [
   { id: 'f', name: 'カイ', type: 'ally', image: '/static/images/characters/男冒険者.png' },
 ];
 const state = { characters, slots: Object.fromEntries(characters.map(c => [`s${c.id}`, { actor_id: c.id }])) };
+export const stackRows = entries => entries.map(([status, value, name = status]) => ({ status, value, name }));
+const attackerStacks = stackRows([['出血', 2], ['蓄力', 12]]);
+const defenderStacks = stackRows([['出血', 5], ['破裂', 4], ['亀裂', 1], ['戦慄', 6], ['凝魔', 8, '凝魔-血漿']]);
 const step = (overrides = {}) => ({
   kind: 'clash', outcome: 'attacker_win', attackerActorId: 'a', defenderActorId: 'd',
   attackerSlotId: 'sa', defenderSlotId: 'sd', attackerSkillId: 'S-01', defenderSkillId: 'S-12',
@@ -97,6 +100,7 @@ const step = (overrides = {}) => ({
   attackerSkillNameHint: '烈風の一閃', defenderSkillNameHint: '鉄壁の構え',
   rolls: { power_a: 9, power_b: 4, base_damage: 9, min_damage_a: 5, max_damage_a: 12, min_damage_b: 2, max_damage_b: 8 },
   damageEvents: [], selfDestructed: [],
+  stacks: { a: { before: attackerStacks, after: attackerStacks }, d: { before: defenderStacks, after: defenderStacks } },
   applied: { damage: [], fired_effects: [], statuses: [] }, ...overrides,
 });
 const grant = (status, delta, target_id = 'd', name = status) =>
@@ -167,3 +171,19 @@ export const sceneSamples = [
       applied: { damage: [{ target_id: 'd', hp: 2, hp_after: 28, source: 'dice' }], fired_effects: [], statuses: [] },
     }) },
 ];
+
+// 段の前後は記録として持つ。再生側で効果の増減から作らない。
+for (const scene of sceneSamples) {
+  scene.step.stacks = JSON.parse(JSON.stringify(scene.step.stacks));
+  if (scene.step.kind === 'mass_summation') delete scene.step.stacks.d;
+}
+sceneSamples.find(scene => scene.id === 'grant-effect-grant').step.stacks.d.after =
+  stackRows([['出血', 7], ['破裂', 4], ['亀裂', 1], ['戦慄', 6], ['凝魔', 8, '凝魔-血漿']]);
+sceneSamples.find(scene => scene.id === 'self-charge').step.stacks.a.after = stackRows([['出血', 2], ['蓄力', 16]]);
+sceneSamples.find(scene => scene.id === 'variant-grant').step.stacks.a.after = stackRows([['出血', 2], ['蓄力', 15, '蓄力-誘爆']]);
+sceneSamples.find(scene => scene.id === 'many-lines').step.stacks.d.after =
+  stackRows([['出血', 7], ['破裂', 4], ['戦慄', 1], ['凝魔', 8, '凝魔-血漿']]);
+sceneSamples.find(scene => scene.id === 'fear-ko').step.stacks.d.after =
+  stackRows([['出血', 5], ['破裂', 4], ['亀裂', 1], ['戦慄', 1], ['凝魔', 8, '凝魔-血漿']]);
+sceneSamples.find(scene => scene.id === 'rupture').step.stacks.d.after =
+  stackRows([['出血', 5], ['破裂', 1], ['亀裂', 1], ['戦慄', 6], ['凝魔', 8, '凝魔-血漿']]);

@@ -32,6 +32,8 @@
   --resolve-text-result-narrow: 15px;
   --resolve-text-participant: 13px;
   --resolve-text-participant-narrow: 11px;
+  --resolve-text-stack: 14px;
+  --resolve-text-stack-narrow: 13px;
 }
 * { box-sizing: border-box; }
 body {
@@ -93,7 +95,7 @@ input { accent-color: var(--gold); }
 .attacker > .portrait { left: var(--portrait-inset); mask-image: var(--portrait-fade-left); }
 .defender > .portrait { right: var(--portrait-inset); mask-image: var(--portrait-fade-right); }
 .portrait img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
-.character-name { position: absolute; z-index: 3; bottom: 4px; width: 88%; left: 6%; text-align: center; font-size: var(--name-size); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 7px var(--black); }
+.character-name { position: absolute; z-index: 3; bottom: 4px; width: 88%; left: 6%; text-align: center; line-height: 1.1; font-size: var(--name-size); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 7px var(--black); }
 .skill-plaque { position: absolute; z-index: 4; top: var(--plaque-top); left: var(--plaque-inset); width: var(--plaque-width); height: var(--plaque-height); display: flex; align-items: center; gap: 10px; padding: 0 27px 0 24px; isolation: isolate; }
 .skill-plaque::before, .skill-plaque::after { content: ''; position: absolute; inset: 0; clip-path: var(--plaque-shape); z-index: -1; }
 .skill-plaque::before { background: var(--team); }
@@ -194,3 +196,13 @@ input { accent-color: var(--gold); }
   .clock { margin-left: 0; }
   .marker { font-size: 9px; padding-inline: 2px; }
 }
+/* 計画57 §9-10：本番と同じ表示。 */
+.stack-row { position: absolute; z-index: 5; display: flex; flex-wrap: nowrap; gap: var(--stack-gap); bottom: var(--stack-bottom); width: var(--stack-width); height: var(--stack-size); pointer-events: none; }
+.stack-row.attacker { left: var(--stack-inset); }
+.stack-row.defender { right: var(--stack-inset); flex-direction: row-reverse; }
+.stack-chip, .stack-more { box-sizing: border-box; position: relative; width: var(--stack-size); height: var(--stack-size); flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--page); border: 2px solid var(--chip-border, var(--chip-color)); box-shadow: 0 2px 5px var(--black), 0 0 calc(14px * var(--pulse, 0)) calc(4px * var(--pulse, 0)) var(--chip-color); transform: scale(calc(1 + 0.15 * var(--pulse, 0))); }
+.stack-chip.variant { border-width: 3px; }
+.stack-chip img { width: 74%; height: 74%; object-fit: contain; }
+.stack-chip b { position: absolute; right: -7px; bottom: -6px; min-width: calc(var(--stack-size) * 0.5); padding: 0 3px; border-radius: 999px; background: var(--chip-color); color: var(--white); border: 1px solid var(--white); font: 700 var(--resolve-text-stack)/1.2 var(--ui-font); text-align: center; }
+.narrow .stack-chip b { font-size: var(--resolve-text-stack-narrow); }
+.stack-more { color: var(--gold); font: 700 var(--resolve-text-stack)/1 var(--ui-font); border-color: var(--gold-dark); }

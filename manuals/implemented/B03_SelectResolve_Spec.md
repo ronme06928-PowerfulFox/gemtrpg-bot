@@ -30,6 +30,8 @@
 
 PR4の記録追加仕様（2026-10-29）：
 
+- `stacks`（計画57 §9-10、2026-11-03）：各解決段に `{actor_id: {before: [{status, value, name}], after: [...]}}` を記録する。攻撃側と防御側を対象とし、広域-合算では攻撃側だけ。出血・破裂・亀裂・戦慄・荊棘・荊棘重絡・凝魔・蓄力の順で0以外を収録する。値と表示名は付与記録と同じ `_amount` / `_grant_name` を使う。開始時（`start_step_effects`）と終了時（`_append_trace`）の写しであり、判定・戻り値は変えない。不発も前後を記録し、宝石の加護の前置きには付けない。
+  - IDだけを持つ名前未設定のバフがあっても記録できる。名前が空の場合は名前から効果を検索せず、インスタンスの効果データの扱いは通常どおり。
 - `applied.fired_effects`: 処理順の効果 `{kind: 'effect', term_id, name, actor_id, target_id, results: [{name, delta}]}` と付与 `{kind: 'grant', actor_id, target_id, name, status, delta}`（計画52 PR7）。効果名は用語図鑑の `display_name`。HPはresultsへ入れない。対応表にない効果・名称欠損・不発は省略する。
 - 付与は効果ループの変更列から、出血・破裂・亀裂・戦慄・荊棘・荊棘重絡・凝魔・蓄力の正の増分だけを記録する。名前のある効果の中の付与はその `results` に残し、付与行を重ねない。付与後すぐ消費しても付与行を残す。`status` は元の状態のアイコンキー、`name` はその時点の表示名。凝魔の `blood_plasma` はBu-48、蓄力の `burst_guidance` / `explosion_guidance` / `induce_burst` / `induced_burst` はBu-49のバフ図鑑の表示名を使う。
 - 普通の `APPLY_BUFF` で混乱が新規付与されたときはW-10（用語図鑑の名称・空のresults）を処理順に記録する。戦慄殺到による混乱はW-07のresultsに残す。状態差分から混乱を補わない。

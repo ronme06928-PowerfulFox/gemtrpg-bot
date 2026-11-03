@@ -18,11 +18,13 @@ export const STATUS_CONFIG = {
 };
 
 // Global Bridge for Backward Compatibility
-window.GRID_SIZE = GRID_SIZE;
-window.FIELD_SIZE = FIELD_SIZE;
-window.MAX_FP = MAX_FP;
-window.TOKEN_OFFSET = TOKEN_OFFSET;
-window.PERCENTAGE_MAX = PERCENTAGE_MAX;
-window.CENTER_OFFSET_X = CENTER_OFFSET_X;
-window.CENTER_OFFSET_Y = CENTER_OFFSET_Y;
-window.STATUS_CONFIG = STATUS_CONFIG;
+if (typeof window !== 'undefined') {
+  window.GRID_SIZE = GRID_SIZE;
+  window.FIELD_SIZE = FIELD_SIZE;
+  window.MAX_FP = MAX_FP;
+  window.TOKEN_OFFSET = TOKEN_OFFSET;
+  window.PERCENTAGE_MAX = PERCENTAGE_MAX;
+  window.CENTER_OFFSET_X = CENTER_OFFSET_X;
+  window.CENTER_OFFSET_Y = CENTER_OFFSET_Y;
+  window.STATUS_CONFIG = STATUS_CONFIG;
+}

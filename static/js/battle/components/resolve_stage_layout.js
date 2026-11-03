@@ -8,6 +8,7 @@ const wide = {
   copyHeight: 160, copyLines: 5, minCopyHeight: 100,
   damage: { x: 436, y: 132, width: 132, height: 244 },
   band: { x: 24, y: 134, width: 230, height: 180 },
+  stackSize: 32, stackGap: 4, stackBottom: 40, stackDamageGap: 8,
   // 広域-合算の参加者の並び（守る側の半分の中。x は半分の左端から）。数字の土台と昇ってよい上の端も持つ。
   participants: { x: 118, width: 442, gem: 56, baseY: 268, gemBottom: 174,
     columnHeight: 270, portraitHeight: 210, portraitBottom: 25, top: 60, bottom: 32 },
@@ -21,6 +22,7 @@ const narrow = {
   copyHeight: 145, copyLines: 4, minCopyHeight: 128,
   damage: { x: 210, y: 130, width: 110, height: 204 },
   band: { x: 10, y: 128, width: 170, height: 180 },
+  stackSize: 26, stackGap: 4, stackBottom: 34, stackDamageGap: 8,
   participants: { x: 66, width: 257, gem: 50, baseY: 248, gemBottom: 168,
     columnHeight: 224, portraitHeight: 170, portraitBottom: 25, top: 70, bottom: 32 },
 };
@@ -30,6 +32,8 @@ export function getLayout(width) {
   return layout;
 }
 export function applyLayout(canvas, layout) {
+  canvas.style.setProperty('--stack-width', `${layout.damage.x - layout.band.x - layout.stackDamageGap}px`);
+  canvas.style.setProperty('--stack-inset', `${layout.band.x}px`);
   const unitless = new Set(['copyLines', 'smallNumberRatio']);
   for (const [name, value] of Object.entries(layout)) {
     if (typeof value !== 'number' || name === 'width') continue;

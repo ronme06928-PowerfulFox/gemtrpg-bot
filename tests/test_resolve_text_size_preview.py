@@ -6,6 +6,7 @@ from tests.test_motion_fx_frontend import ROOT, _run_node
 ROLE_SIZES = {
     'label': 13, 'progress': 13, 'copy': 14, 'result': 17, 'result-narrow': 15,
     'participant': 13, 'participant-narrow': 11,
+    'stack': 14, 'stack-narrow': 13,
 }
 
 
@@ -22,7 +23,8 @@ def test_production_text_sizes_are_role_tokens():
     for rule, token in [('.top-band', 'label'), ('.power-range', 'label'), ('.description h3', 'label'),
                         ('.description-tab', 'label'), ('.progress-band', 'progress'), ('.skill-copy', 'copy'),
                         ('.result-band', 'result'), ('.narrow .result-band', 'result-narrow'),
-                        ('.participant-name', 'participant'), ('.narrow .participant-name', 'participant-narrow')]:
+                        ('.participant-name', 'participant'), ('.narrow .participant-name', 'participant-narrow'),
+                        ('.stack-chip b', 'stack'), ('.narrow .stack-chip b', 'stack-narrow')]:
         body = re.search(r'(?m)^#resolve-flow-panel ' + re.escape(rule) + r' \{([^}]*)\}', css)
         assert body and f'var(--resolve-text-{token})' in body.group(1), rule
 

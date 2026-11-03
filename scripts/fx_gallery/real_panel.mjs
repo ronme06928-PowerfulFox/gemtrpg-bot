@@ -1,10 +1,15 @@
 import { stageMotionAt, renderStageMotion } from '../../static/js/battle/components/resolve_stage_motion.js';
+import { renderStageStacks } from '../../static/js/battle/components/resolve_stacks.js';
+import { currentStageLayout } from '../../static/js/battle/components/resolve_stage.js';
+import { resolveOutcomePlan } from '../../static/js/battle/components/resolve_flow_fx.js';
+import { STATUS_CONFIG } from '../../static/js/battle/utils/Constants.js';
 import { resolveStageStarts } from '../../static/js/battle/components/resolve_stage_timing.js';
 import { ResolveFlowPanel } from '../../static/js/battle/components/ResolveFlowPanel.js';
 import { resolveStageTiming } from '../../static/js/battle/components/resolve_flow_fx.js';
 import { store } from '../../static/js/battle/core/BattleStore.js';
 
 let sequence = 0;
+const stackPlans = new WeakMap();
 
 // 場面カードを、本番の解決パネルの描画（_renderStep）でそのまま作る（計画56 §4.1a）。
 // initialize は呼ばず、Socket・タイマー・効果音は動かさない。時計と店の状態は描く間だけ差し替えて戻す。
@@ -25,6 +30,7 @@ export function createRealStage(host, scene, width = null) {
   panel.id = flow._panelId;
   panel.className = 'resolve-flow-panel';
   panel.setAttribute('data-gallery-resolve-panel', '');
+  stackPlans.set(panel, resolveOutcomePlan(flow, scene.step, scene.state));
   viewport.append(panel);
 
   // 勝敗の段階が始まった直後で止める（表示が出そろった状態）。演出は一覧の時計で重ねる。
@@ -52,4 +58,8 @@ export function createRealStage(host, scene, width = null) {
 export function renderRealStageMotion(panel, scene, time, level) {
   const canvas = panel?.querySelector('.resolve-stage-canvas');
   if (canvas) renderStageMotion(canvas, stageMotionAt(scene.step, resolveStageStarts(scene.step).outcome + time, level));
+  if (canvas) renderStageStacks(canvas, scene.step, stackPlans.get(panel), time, currentStageLayout(panel), level,
+    resolveStageTiming(scene.step).find(row => row.stage === 'outcome').ms / 1000,
+    status => typeof __GALLERY_ASSETS__ === 'undefined' ? `/static/images/${STATUS_CONFIG[status].icon}`
+      : __GALLERY_ASSETS__[`/static/images/${STATUS_CONFIG[status].icon}`]);
 }

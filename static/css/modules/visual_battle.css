@@ -531,6 +531,8 @@
   --resolve-text-result-narrow: 15px;
   --resolve-text-participant: 13px;
   --resolve-text-participant-narrow: 11px;
+  --resolve-text-stack: 14px;
+  --resolve-text-stack-narrow: 13px;
   --resolve-text-note: 11px;
   --resolve-text-skill-id: 10px;
   --resolve-text-skill-id-narrow: 8px;
@@ -560,7 +562,7 @@
 #resolve-flow-panel .attacker > .portrait { left: var(--portrait-inset); mask-image: var(--portrait-fade-left); }
 #resolve-flow-panel .defender > .portrait { right: var(--portrait-inset); mask-image: var(--portrait-fade-right); }
 #resolve-flow-panel .portrait img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
-#resolve-flow-panel .character-name { position: absolute; z-index: 3; bottom: 4px; width: 88%; left: 6%; text-align: center; font-size: var(--name-size); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 7px var(--black); }
+#resolve-flow-panel .character-name { position: absolute; z-index: 3; bottom: 4px; width: 88%; left: 6%; text-align: center; line-height: 1.1; font-size: var(--name-size); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 7px var(--black); }
 #resolve-flow-panel .skill-plaque { position: absolute; z-index: 4; top: var(--plaque-top); left: var(--plaque-inset); width: var(--plaque-width); height: var(--plaque-height); display: flex; align-items: center; gap: 10px; padding: 0 27px 0 24px; isolation: isolate; }
 #resolve-flow-panel .skill-plaque::before, #resolve-flow-panel .skill-plaque::after { content: ''; position: absolute; inset: 0; clip-path: var(--plaque-shape); z-index: -1; }
 #resolve-flow-panel .skill-plaque::before { background: var(--team); }
@@ -1918,3 +1920,14 @@
     line-height: 1.45;
     color: #f3ddba;
 }
+
+/* 計画57 §9-10：累積状態。寸法は舞台レイアウトから渡す。 */
+#resolve-flow-panel .stack-row { position: absolute; z-index: 5; display: flex; flex-wrap: nowrap; gap: var(--stack-gap); bottom: var(--stack-bottom); width: var(--stack-width); height: var(--stack-size); pointer-events: none; }
+#resolve-flow-panel .stack-row.attacker { left: var(--stack-inset); }
+#resolve-flow-panel .stack-row.defender { right: var(--stack-inset); flex-direction: row-reverse; }
+#resolve-flow-panel .stack-chip, #resolve-flow-panel .stack-more { box-sizing: border-box; position: relative; width: var(--stack-size); height: var(--stack-size); flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--page); border: 2px solid var(--chip-border, var(--chip-color)); box-shadow: 0 2px 5px var(--black), 0 0 calc(14px * var(--pulse, 0)) calc(4px * var(--pulse, 0)) var(--chip-color); transform: scale(calc(1 + 0.15 * var(--pulse, 0))); }
+#resolve-flow-panel .stack-chip.variant { border-width: 3px; }
+#resolve-flow-panel .stack-chip img { width: 74%; height: 74%; object-fit: contain; }
+#resolve-flow-panel .stack-chip b { position: absolute; right: -7px; bottom: -6px; min-width: calc(var(--stack-size) * 0.5); padding: 0 3px; border-radius: 999px; background: var(--chip-color); color: var(--white); border: 1px solid var(--white); font: 700 var(--resolve-text-stack)/1.2 var(--ui-font); text-align: center; }
+#resolve-flow-panel .narrow .stack-chip b { font-size: var(--resolve-text-stack-narrow); }
+#resolve-flow-panel .stack-more { color: var(--gold); font: 700 var(--resolve-text-stack)/1 var(--ui-font); border-color: var(--gold-dark); }

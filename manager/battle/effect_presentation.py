@@ -7,7 +7,8 @@ from manager.battle.effect_glossary_map import effect_term, CUSTOM_EFFECT_TERMS
 from manager.battle.skill_rules import _has_skill_tag
 
 _step_effects = ContextVar('presentation_step_effects', default=None)
-GRANT_STATES = {'出血', '破裂', '亀裂', '戦慄', '荊棘', '荊棘重絡', '凝魔', '蓄力'}
+STACK_ORDER = ('出血', '破裂', '亀裂', '戦慄', '荊棘', '荊棘重絡', '凝魔', '蓄力')
+GRANT_STATES = set(STACK_ORDER)
 
 
 @contextmanager
@@ -20,12 +21,14 @@ def step_effects_scope():
         _step_effects.reset(token)
 
 
-def start_step_effects():
+def start_step_effects(*chars):
     """解決の1段の記録の一覧を作る。範囲の中なら、ループの外（威力ロール・被ダメージ反応・死亡時効果）もここへ積む。"""
     fired_effects = []
     box = _step_effects.get()
     if box is not None:
         box['current'] = fired_effects
+        box['stacks'] = {str(char['id']): (char, snapshot_stacks(char))
+                         for char in chars if isinstance(char, dict)}
     return fired_effects
 
 
@@ -33,6 +36,28 @@ def end_step_effects():
     box = _step_effects.get()
     if box is not None:
         box['current'] = None
+        box.pop('stacks', None)
+
+
+def snapshot_stacks(char):
+    return [{'status': status, 'value': value, 'name': _grant_name(status, char)}
+            for status in STACK_ORDER if (value := _amount(char, status)) != 0]
+
+
+def close_step_stacks(actor_ids, chars):
+    box = _step_effects.get()
+    started = box.get('stacks', {}) if box is not None else {}
+    current = {str(char['id']): char for char in chars if isinstance(char, dict)}
+    result = {}
+    for actor_id in actor_ids:
+        if actor_id is None:
+            continue
+        key = str(actor_id)
+        char, before = started.get(key, (current.get(key), None))
+        if char is not None:
+            after = snapshot_stacks(char)
+            result[key] = {'before': before if before is not None else copy.deepcopy(after), 'after': after}
+    return result
 
 
 def step_effects_collector():

@@ -174,7 +174,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
     # Select/Resolve path must track used skills so END_ROUND effects can resolve.
     _record_used_skill_for_actor(attacker_char, _extract_skill_id_from_data(attacker_skill_data))
 
-    fired_effects = start_step_effects()
+    fired_effects = start_step_effects(attacker_char, defender_char)
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
 
@@ -486,7 +486,7 @@ def _resolve_clash_by_existing_logic(
     from manager import skill_effects as skill_effects_mod
     from manager.battle import runtime_actions as runtime_actions_mod
 
-    fired_effects = start_step_effects()
+    fired_effects = start_step_effects(attacker_char, defender_char)
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
 
@@ -895,7 +895,7 @@ def _resolve_hard_attack_followup(
     if not isinstance(attacker_skill_data, dict):
         return {"ok": False, "reason": "missing_skill"}
 
-    fired_effects = start_step_effects()
+    fired_effects = start_step_effects(attacker_char, defender_char)
     before_a = _snapshot_for_outcome(attacker_char)
     before_d = _snapshot_for_outcome(defender_char)
     context = {'timeline': state.get('timeline', []), 'characters': state.get('characters', []), 'room': room}

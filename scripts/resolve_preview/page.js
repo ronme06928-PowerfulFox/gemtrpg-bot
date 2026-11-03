@@ -8,8 +8,11 @@ import { TEMPO_VARIANTS } from './tempo.mjs';
 import { SCREENS, fitScreen } from './screen.mjs';
 import { el, createStage, fitNames } from './stage.mjs';
 import { getLayout, damageBases, damageCeiling, sideBox, participantSlots, stageFxPlacement } from './layout.mjs';
+import { mountStacks, renderStacks } from './stacks.mjs';
+import { STATUS_CONFIG } from '../../static/js/battle/utils/Constants.js';
 
 const assets = __PREVIEW_ASSETS__;
+const iconFor = status => assets[`/static/images/${STATUS_CONFIG[status]?.icon}`] || null;
 const samples = __PREVIEW_SAMPLES__;
 const Fx = window.Fx;
 const main = document.getElementById('resolve-preview');
@@ -84,8 +87,6 @@ const note = el('p', 'comparison-note');
 const sizeNote = el('p', 'size-note');
 main.append(note, sizeNote, el('p', 'preview-footnote', '青＝味方 / 赤＝敵　·　文章はスキルデータから表示。解決結果は演出用の見本です。カード下の進行操作は表示のみ。'));
 
-const statusIcons = { 出血: 'bleed', 破裂: 'rupture', 亀裂: 'fissure', 荊棘: 'thorns', 戦慄: 'fear', 蓄力: 'chikuryoku', 凝魔: 'gyoma' };
-const iconFor = status => assets[`/static/images/${statusIcons[status]}.png`] || null;
 let sample = samples[0], timeline, stage, events = [], time = 0, playing = false, startedAt = 0;
 
 // 舞台は未縮小で測る。画面の縮小率は演出座標へ混ぜない。
@@ -181,6 +182,7 @@ function render(value) {
     if (event.numberAnchor) event.numberAnchor.style.visibility = time < event.at ? 'hidden' : visible ? 'hidden' : '';
     event.fx.render(age < 0 ? 0 : age >= event.fx.duration ? Infinity : age);
   }
+  renderStacks(stage, sample, timeline, time, getLayout(Number(widthSelect.value)), levelSelect.value, assets);
   for (const button of markerButtons.children) button.classList.toggle('current', button.dataset.phase === phase);
   play.setAttribute('aria-pressed', String(playing));
   pause.setAttribute('aria-pressed', String(!playing));
@@ -226,6 +228,7 @@ function rebuild() {
   fitNames(stage.canvas);
   const copyRoom = fitDescriptions();
   mountEvents();
+  mountStacks(stage, sample, getLayout(Number(widthSelect.value)));
   seek.max = String(timeline.duration);
   marks.replaceChildren();
   markerButtons.replaceChildren();

@@ -368,6 +368,8 @@ def resolve_runtime_buff_effect(buff_entry):
 
 def get_buff_effect(buff_name):
     """バフ名から効果定義を取得する（静的 -> スプレッドシート -> 動的 の順で検索）"""
+    if not buff_name:
+        return None
     # 1. 静的定義にあればそれを返す
     if buff_name in STATIC_BUFFS:
         return STATIC_BUFFS[buff_name]

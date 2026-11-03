@@ -31,7 +31,8 @@ export function planResolveOutcome(step, popups, windowSeconds, fx, laneFor = id
         group = { targetId, kind: 'grant', self, lines: [] };
         groups.push(group);
       }
-      group.lines.push({ kind: 'result', text: record.name, status: record.status, delta: record.delta });
+      group.lines.push({ kind: 'result', text: record.name, status: record.status, delta: record.delta,
+        stackChanges: [{ status: record.status, name: record.name, delta: record.delta }] });
       continue;
     }
     const results = (record.results || []).filter(row => String(row.name).toUpperCase() !== 'HP'
@@ -40,7 +41,8 @@ export function planResolveOutcome(step, popups, windowSeconds, fx, laneFor = id
     const lines = results.filter(row => !(record.term_id === 'W-07' && String(row.name).includes('混乱')))
       .map(row => ({ kind: 'result', text: row.name, delta: row.delta }));
     if (confusion) lines.push({ kind: 'result', text: '混乱', delta: null });
-    const group = { targetId, kind: 'effect', self, lines: [{ kind: 'title', text: record.name }, ...lines] };
+    const group = { targetId, kind: 'effect', self, lines: [{ kind: 'title', text: record.name,
+      stackChanges: (record.results || []).map(row => ({ status: row.name, name: row.name, delta: row.delta })) }, ...lines] };
     groups.push(group);
     // 戦慄は消費行の除外に使うが、追加ダメージの対応には使わない。
     const state = record.term_id === 'W-07' ? null : EFFECT_SOURCE_STATUS[record.term_id];

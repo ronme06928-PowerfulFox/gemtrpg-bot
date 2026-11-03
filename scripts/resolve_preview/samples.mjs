@@ -33,6 +33,7 @@ enemyKo.step.outcome = 'defender_win';
 enemyKo.step.rolls.power_a = 4;
 enemyKo.step.rolls.power_b = 8;
 enemyKo.step.applied = { damage: [{ target_id: 'a', hp: 12, hp_after: 0, source: 'dice' }], statuses: [], fired_effects: [] };
+enemyKo.step.stacks.d.after = copy(enemyKo.step.stacks.d.before);
 const longNames = fromGallery('many-lines', 'long-names', '03 · 長い名前 / 長いスキル文章', [1, 3, 0, 2]);
 longNames.state.characters[0].name = '夜明けを待つ蒼天の誓いを継ぎし放浪の剣士';
 longNames.state.characters[1].name = '星々の記憶と古き王国の意志を守る最後の騎士';
@@ -46,6 +47,7 @@ const fizzle = fromGallery('fear-ko', 'fizzle', '06 · 不発', [0, 2, 1, 3]);
 fizzle.step.kind = 'fizzle';
 fizzle.step.outcome = 'fizzle';
 fizzle.step.applied = { damage: [], statuses: [], fired_effects: [] };
+fizzle.step.stacks.d.after = copy(fizzle.step.stacks.d.before);
 const silhouette = fromGallery('rupture', 'silhouette', '07 · 立ち絵なし / シルエット', [2, 3, 0, 1]);
 silhouette.step.kind = 'clash';
 silhouette.state.characters[0].image = null;
@@ -85,3 +87,19 @@ const pr7 = ['grant-consume', 'grant-effect-grant', 'self-charge', 'variant-gran
   return fromGallery(id, id, `${13 + i} · ${sceneSamples.find(s => s.id === id).label}`, [0, 1, 2, 3]);
 });
 export const samples = [allyWin, enemyKo, longNames, oneSided, summation, fizzle, silhouette, hard, individual, crowd5, crowd8, gem, ...pr7];
+
+// 本番traceと同じ前後の記録。長い名前の見本は8状態・狭い組の「+N」も確かめる。
+const fullStacks = [
+  ['出血', 7], ['破裂', 5], ['亀裂', 3], ['戦慄', 4], ['荊棘', 2], ['荊棘重絡', 1],
+  ['凝魔', 15, '凝魔-血漿'], ['蓄力', 9, '蓄力-誘爆'],
+].map(([status, value, name = status]) => ({ status, value, name }));
+longNames.step.stacks.d = { before: structuredClone(fullStacks), after: structuredClone(fullStacks) };
+longNames.step.stacks.d.after = [
+  ['出血', 9], ['破裂', 5], ['亀裂', 2], ['荊棘', 2], ['荊棘重絡', 1],
+  ['凝魔', 15, '凝魔-血漿'], ['蓄力', 9, '蓄力-誘爆'],
+].map(([status, value, name = status]) => ({ status, value, name }));
+allyWin.step.stacks.d.after = [
+  { status: '出血', value: 5, name: '出血' }, { status: '破裂', value: 7, name: '破裂' },
+  { status: '亀裂', value: 1, name: '亀裂' }, { status: '戦慄', value: 1, name: '戦慄' },
+  { status: '凝魔', value: 8, name: '凝魔-血漿' },
+];

@@ -1,11 +1,12 @@
-import { RESOLVE_WAIT_MS, resolveWaitMs } from './resolve_stage_timing.js';
+import { RESOLVE_WAIT_MS, resolveWaitMs, resolveStageStarts } from './resolve_stage_timing.js';
+import { renderStageStacks } from './resolve_stacks.js';
 import { stageMotionAt, renderStageMotion } from './resolve_stage_motion.js';
 import { pickStageLayout } from './resolve_stage_layout.js';
-import { renderResolveStage, fitResolveStage, isOneSidedPresentation } from './resolve_stage.js';
+import { renderResolveStage, fitResolveStage, isOneSidedPresentation, currentStageLayout } from './resolve_stage.js';
 import { store } from '../core/BattleStore.js';
 import { eventBus } from '../core/EventBus.js';
 import { socketClient } from '../core/SocketClient.js';
-import { resolveStageTiming, playResolveStageFx, isDiceDamageSource } from './resolve_flow_fx.js';
+import { resolveStageTiming, playResolveStageFx, isDiceDamageSource, resolveOutcomePlan } from './resolve_flow_fx.js';
 
 class ResolveFlowPanel {
     constructor() {
@@ -642,6 +643,7 @@ class ResolveFlowPanel {
                 fired_effects: raw.applied?.fired_effects || raw.fired_effects || [],
             },
             selfDestructed: Array.isArray(raw.self_destructed) ? raw.self_destructed : [],
+            stacks: raw.stacks || {},
             outcomePayload: payload,
             damageEvents: Array.isArray(raw.damage_events) ? raw.damage_events : [],
             participants: Array.isArray(raw.participants) ? raw.participants : [],
@@ -947,8 +949,15 @@ class ResolveFlowPanel {
         if (!this._activeStep || this._isIntroStep(this._activeStep) || this._activeStep.kind === 'gem_blessing_prelude') return;
         const shell = panel || document.getElementById(this._panelId);
         const elapsed = elapsedMs ?? Math.max(0, Date.now() - this._stepStartedAt);
+        const level = typeof window !== 'undefined' && window.Fx?.getLevel ? window.Fx.getLevel() : 'normal';
         renderStageMotion(shell?.querySelector('.resolve-stage-canvas'), stageMotionAt(this._activeStep, elapsed / 1000,
-            typeof window !== 'undefined' && window.Fx?.getLevel ? window.Fx.getLevel() : 'normal'));
+            level));
+        if (window.Fx && shell) {
+            const step = this._activeStep, starts = resolveStageStarts(step);
+            const plan = step.kind === 'fizzle' ? null : resolveOutcomePlan(this, step, store.state);
+            renderStageStacks(shell.querySelector('.resolve-stage-canvas'), step, plan, elapsed / 1000 - starts.outcome,
+                currentStageLayout(shell), level, starts.wait - starts.outcome);
+        }
     }
 
     _startMotionPlayback() {

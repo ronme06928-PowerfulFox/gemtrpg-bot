@@ -52,6 +52,7 @@ window.qa={samples,getLayout,participantSlots,stageFxPlacement,fitStage,flow,see
   flow._stepStartedAt=Date.now()-(starts[phase]??starts.outcome)*1000-1;
   flow._renderStep(sample.state);
   playResolveStageFx(flow,{stage:phase,outcome:sample.step.outcome},sample.state);
+  for(const image of document.querySelectorAll('img[src^="/static/"]'))image.src=qa.assetRoot+image.getAttribute('src');
   return {events:events.map(e=>({name:e.name,left:e.options.left,top:e.options.top,width:e.params.width,height:e.params.height,ceiling:e.params.ceiling,anchor:e.options.host.dataset.anchor,classes:e.root.className})),sample};
 }};
 `;
@@ -67,21 +68,27 @@ await writeFile(process.argv[1],html,'utf8');
 def main():
     temporary = TemporaryDirectory(prefix="gem-resolve-stage-")
     fixture = Path(temporary.name) / "production_check.html"
-    subprocess.run(["node", "--input-type=module", "-e", BUNDLE, str(fixture)], cwd=ROOT, check=True)
+    print("Building browser fixture", flush=True)
+    subprocess.run(["node", "--input-type=module", "-e", BUNDLE, str(fixture)], cwd=ROOT, check=True,
+                   stdin=subprocess.DEVNULL, capture_output=True, timeout=60)
     OUT.mkdir(parents=True, exist_ok=True)
     checks = 0
     with sync_playwright() as pw:
+        print("Launching Chrome", flush=True)
         browser = pw.chromium.launch(channel="chrome")
         page = browser.new_page()
+        page.set_default_timeout(10000)
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.route("https://**", lambda route: route.abort())
         page.goto(fixture.as_uri(), wait_until="domcontentloaded")
         # 画像はローカルの実アセットを使う。ルート相対URLをファイルURLへ直す。
         page.evaluate("""root => {
+          qa.assetRoot=root;
           for(const sample of qa.samples)for(const c of sample.state.characters)if(c.image)c.image=root+c.image;
         }""", ROOT.as_uri())
         for width, height in [(1440, 1080), (1180, 768), (980, 900), (800, 768), (660, 600), (480, 400)]:
+            print(f"Checking {width} x {height}", flush=True)
             page.set_viewport_size({"width": width, "height": height})
             for sample in page.evaluate("qa.samples.map(s=>s.id)"):
                 for phase in ["names", "power", "attack", "outcome"]:
@@ -95,7 +102,19 @@ def main():
                       const visible=el=>getComputedStyle(el).visibility==='visible';
                       const step=qa.flow._activeStep;
                       const unarmed=step.kind!=='fizzle'&&qa.flow._isOneSidedPresentation(step);
+                      const overlap=(a,b)=>a.left<b.right-0.1&&a.right>b.left+0.1&&a.top<b.bottom-0.1&&a.bottom>b.top+0.1;
+                      const stackRows=[...canvas.querySelectorAll('.stack-row')].map(row=>{
+                        const side=row.classList.contains('attacker')?'attacker':'defender';
+                        const bounds=row.getBoundingClientRect();
+                        const name=row.parentElement.querySelector('.character-name').getBoundingClientRect();
+                        const band=canvas.querySelector(`[data-anchor="band:${side}"]`).getBoundingClientRect();
+                        const damage=canvas.querySelector(`[data-anchor="damage:${side}"]`).getBoundingClientRect();
+                        return {side,overlap:[name,band,damage].some(box=>overlap(bounds,box)),
+                          boxes:[bounds,name,band,damage].map(box=>box.toJSON()),
+                          count:row.querySelectorAll('.stack-chip').length,more:row.querySelector('.stack-more')?.textContent||null};
+                      });
                       return {width:rect.width,height:host.height,card:panel.querySelector('.theatre').getBoundingClientRect().height,
+                        stackRows,
                         copy:parseFloat(desc.style.height),copyDisplay:getComputedStyle(desc).display,narrow:canvas.classList.contains('narrow'),
                         expected,expectedNarrow:layout.width===660,phase:panel.className,plaque:[...panel.querySelectorAll('.skill-plaque')].every(visible),
                         summary:visible(panel.querySelector('.result-band')),nan:canvas.innerHTML.includes('NaN'),
@@ -117,6 +136,12 @@ def main():
                     assert result["plaque"] == (phase != "names"), (sample, phase, result)
                     assert result["summary"] == (phase == "outcome" or (sample == "fizzle" and phase == "attack"))
                     assert not result["nan"], (sample, result)
+                    assert len(result['stackRows']) == (1 if sample.startswith('summation') else 2), (sample, result)
+                    assert not any(row['overlap'] for row in result['stackRows']), (sample, result)
+                    if sample == 'long-names' and phase == 'names':
+                        defender = next(row for row in result['stackRows'] if row['side'] == 'defender')
+                        assert defender['count'] == (5 if result['narrow'] else 8), result
+                        assert defender['more'] == ('+3' if result['narrow'] else None), result
                     assert not result["rollMisaligned"], (sample, width, phase, result)
                     assert result["defenderPlaque"] == (not result["unarmed"]), (sample, result)
                     assert result["defenderGem"] == (not result["unarmed"]), (sample, result)
@@ -151,6 +176,7 @@ def main():
         page.evaluate("qa.render('ally-win','outcome')")
         page.screenshot(path=str(OUT / "production-last.png"))
         page.goto((ROOT / "_local/fx_gallery/fx_gallery.html").as_uri(), wait_until="domcontentloaded", timeout=60000)
+        assert not errors, errors
         assert page.locator('.scene-card [data-gallery-resolve-panel] .arena').count() >= 7
         assert page.locator('.scene-card .stage-host > .stage').count() == 0
         for width in [1440, 800]:
