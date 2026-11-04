@@ -218,6 +218,24 @@ node C:/Users/yharu/tools/egatari-studio-0.6.3/kit/check.mjs "$r1Dir/deck.html" 
 
 今回は静止絵コンテなので、通常の音声入りHTMLビルドは行いません。再撮影はリポジトリ直下から `node typst_manual/動画/_local/r2-storyboard/capture.mjs`、一覧化は `C:/Users/yharu/anaconda3/python.exe typst_manual/動画/_local/r2-storyboard/contact.py`。最新一覧PNGとスクリプト・測定ログを残し、個別コマは片付けます。R1のHTML・比較一覧・ログと既存v2はそのまま保持します。
 
+## R2.5 掛け合いの短い試作（2026-11-05）
+
+C07〜C11だけを2人の声で作った[試作の台本・手順](r25-dialogue/README.md)と[結果の全文](r25-dialogue/review.md)。最新は `_local/r25-dialogue/out/r25-dialogue-latest.html`。字幕初期ON、Aキーで再生／一時停止。`?subtitle=b` で字幕Bを比較できます。声の相性と口調を確認してから全編を書き直し、R3へ進みます。本編のフォルダは変更していません。
+
+場面32.01秒（一人語り26.09秒、差＋5.92秒）、クレジット込み37.01秒。本文29px、名前札27px。品質エラー0・警告6（無言の段階5、R1由来の字体未埋め込み1）。156時刻のブラウザ照合・12状態のPNG往復・音声のオフライン通し再生を確認しました。MP4は作っていません。
+
+固定版VOICEVOXを上の手順で起動してから、リポジトリ直下で実行します。
+
+```powershell
+node --test typst_manual/動画/scripts/test-r25-dialogue.mjs
+node typst_manual/動画/scripts/prepare-r25-dialogue.mjs
+node typst_manual/動画/scripts/verify-r25-dialogue.mjs
+node C:/Users/yharu/tools/egatari-studio-0.6.3/kit/check.mjs typst_manual/動画/_local/r25-dialogue/deck.html --json > typst_manual/動画/_local/r25-dialogue/logs/quality.json
+& C:/Users/yharu/anaconda3/python.exe typst_manual/動画/scripts/summarize-r25-dialogue.py
+```
+
+声の設定は `scripts/r25-dialogue-data.mjs`、原音キャッシュは試作の `voice/cache/`。音声とキャッシュ・ログ・再生成元を残し、比較用の一人語りHTMLと個別PNGは確認後に片付けます。
+
 ## 部品の書き出し
 
 
