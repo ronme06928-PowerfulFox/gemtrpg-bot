@@ -35,7 +35,7 @@ let made=0,cached=0;
 const synth=async(text,role,setting={})=>{
   const voice={...voices[role],...setting};
   const settings={speedScale:voice.speedScale,pitchScale:voice.pitchScale,intonationScale:voice.intonationScale,prePhonemeLength:.08,postPhonemeLength:.1,outputSamplingRate:24000,outputStereo:false};
-  const reading=text.replaceAll('1d3','いちディーさん');
+  const reading=text.replaceAll('1d2','いちディーに').replaceAll('1d3','いちディーさん');
   const hash=createHash('sha256').update(JSON.stringify({version:'0.26.0',voice:voice.id,reading,settings})).digest('hex');
   const file=path.join(dest,'voice/cache',hash+'.wav');
   if(fs.existsSync(file))cached++;else{
@@ -47,7 +47,7 @@ const synth=async(text,role,setting={})=>{
 };
 const narration=fs.readFileSync(path.join(src,'narration.md'),'utf8');
 const segments=parseNarration(narration),manifest={segments:{}},timing={},measures=[];
-for(let k=0;k<=11;k++){const dur=k===1?1.2:k===8?.7:k===9?2.2:0;timing[`s-dialogue:${k}`]={dur,hold:dur,lead:0,pad_after:0};}
+for(let k=0;k<=14;k++){const dur=k===1?1.2:k===11?.7:k===12?2.2:0;timing[`s-dialogue:${k}`]={dur,hold:dur,lead:0,pad_after:0};}
 timing['s-credits:0']={dur:5,hold:5,lead:0,pad_after:0};
 for(const s of segments){
   assert.equal(s.turns.length,1);const turn=s.turns[0],raw=await synth(turn.tts,turn.role);
@@ -64,15 +64,7 @@ for(const s of segments){
   measures.push({key,role:turn.role,text:turn.display,audioSeconds,dur,hash:raw.hash,peakDb:20*Math.log10(peak(samples))});
   console.log(`${key} ${turn.role}: ${dur}s`);
 }
-// 初期設定と速さ/抑揚だけを変えた短い比較素材を作る。原音キャッシュは再使用できる。
-const candidates=[];
-for(const role of ['expert','novice']){
-  const text=segments.find(s=>s.turns[0].role===role).turns[0].tts;
-  for(const setting of [{speedScale:1,intonationScale:1},{}]){
-    const sound=await synth(text,role,setting);candidates.push({role,settings:{...voices[role],...setting},hash:sound.hash,seconds:sound.samples.length/sound.rate});
-  }
-}
-const duration=Object.values(timing).reduce((n,v)=>n+v.dur,0),noviceSeconds=measures.filter(m=>m.role==='novice').reduce((n,m)=>n+m.dur,0);
+const duration=Object.values(timing).reduce((n,v)=>n+v.dur,0);
 // 本番のpower開始と同じ1回。既存素材の基準-22dBへ+6dBを適用する。
 const sePcm=run(['-i','static/audio/dice-roll.mp3','-f','s16le','-ar','24000','-ac','1','pipe:1']);
 const se=Float32Array.from({length:sePcm.length/2},(_,i)=>sePcm.readInt16LE(i*2)/32768);
@@ -80,7 +72,7 @@ assert.ok(se.length/24000<=1.2,'本番の威力段階内にSEが収まる');
 const seGain=10**(-16/20)/peak(se);const seMix=new Float32Array(28800);seMix.set(se.map(x=>x*seGain));
 fs.writeFileSync(path.join(dest,'audio/steps/power-se.wav'),encodeWav(seMix,24000));
 manifest.segments['s-dialogue:1']={file:'steps/power-se.wav',dur:1.2,cues:[],sync:'manual',kind:'imported',inputHash:await inputHash({turns:[]})};
-json('logs/voice-report.json',{version:'0.26.0',voices,measures,candidates,made,cached,dialogueSeconds:duration,soloSeconds:duration-noviceSeconds,sceneSeconds:duration-5,soloSceneSeconds:duration-noviceSeconds-5});
+json('logs/voice-report.json',{version:'0.26.0',voices,measures,made,cached,dialogueSeconds:duration,sceneSeconds:duration-5});
 if(!fs.existsSync(path.join(dest,'logs/voice-first-generation.json')))fs.copyFileSync(path.join(dest,'logs/voice-report.json'),path.join(dest,'logs/voice-first-generation.json'));
 json('audio/manifest.json',manifest);json('timeline.json',timing);fs.writeFileSync(path.join(dest,'narration.md'),narration);
 
@@ -102,16 +94,10 @@ fs.copyFileSync(path.join(src,'deck.css'),path.join(dest,'deck.css'));
 const tree=parse(fs.readFileSync(path.join(video,'_local/r1-resolve/out/r1-resolve-latest.html'),'utf8'));
 const find=node=>node.attrs?.some(a=>a.name==='class'&&a.value.split(' ').includes('r1-world'))?node:(node.childNodes||[]).map(find).find(Boolean);
 const world=serialize(find(tree));
-const html=`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>掛け合いの試作</title>${['app_mock.css','motion.css','round-v2.css','shared-images.css','panel.css','deck.css'].map(n=>`<link rel="stylesheet" href="${n}">`).join('')}</head><body><div id="stage"><section class="slide r25-slide noconcl" id="s-dialogue"><h2>威力からダメージ</h2><m-r25-panel steps="11" aria-label="本番の解決パネル"><div class="r1-world">${world}</div><div class="r25-phase"><span>ラウンド開始</span><span>選択フェーズ</span><span class="current">解決フェーズ</span><span>ラウンド終了</span></div><div class="r25-formula" hidden></div></m-r25-panel></section><section class="slide r25-credit noconcl" id="s-credits"><h2>試作のクレジット</h2><div><div class="credit-title">1ラウンドの流れ　掛け合いの試作</div>ジェムリアTRPG／創作ゆる大地<br>説明役　VOICEVOX:冥鳴ひまり<br>聞き手　VOICEVOX:春日部つむぎ<br>ダイス音　Springin’ Sound Stock<br>背景　Codex画像生成（OpenAI）<br>基本ルールブック 第4章「戦闘の基本」</div></section></div></body></html>`;
-const captionDefault='<script>(()=>{const u=new URL(location.href);if(!u.searchParams.has("captions"))u.searchParams.set("captions","1");if(!u.searchParams.has("mode"))u.searchParams.set("mode","video");history.replaceState(null,"",u.href)})();</script>';
+const html=`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>掛け合いの試作</title>${['app_mock.css','motion.css','round-v2.css','shared-images.css','panel.css','deck.css'].map(n=>`<link rel="stylesheet" href="${n}">`).join('')}</head><body><div id="stage"><section class="slide r25-slide noconcl" id="s-dialogue"><h2>威力からダメージ</h2><m-r25-panel steps="14" aria-label="本番の解決パネル"><div class="r1-world">${world}</div><div class="r25-phase"><span>ラウンド開始</span><span>選択フェーズ</span><span class="current">解決フェーズ</span><span>ラウンド終了</span></div><div class="r25-formula" hidden></div></m-r25-panel></section><section class="slide r25-credit noconcl" id="s-credits"><h2>試作のクレジット</h2><div><div class="credit-title">1ラウンドの流れ　掛け合いの試作</div>ジェムリアTRPG／創作ゆる大地<br>説明役　VOICEVOX:冥鳴ひまり<br>聞き手　VOICEVOX:春日部つむぎ<br>ダイス音　Springin’ Sound Stock<br>背景　Codex画像生成（OpenAI）<br>基本ルールブック 第4章「戦闘の基本」</div></section></div></body></html>`;
+const captionDefault='<script>(()=>{const u=new URL(location.href);if(!u.searchParams.has("captions"))u.searchParams.set("captions","1");history.replaceState(null,"",u.href)})();</script>';
 fs.writeFileSync(path.join(dest,'deck.html'),html.replace('<head>','<head>'+captionDefault));json('credits.json',{title:'1ラウンドの流れ 掛け合いの試作',credits:[{label:'説明役',value:'VOICEVOX:冥鳴ひまり'},{label:'聞き手',value:'VOICEVOX:春日部つむぎ'}]});
 const buildDeck=()=>{const p=spawnSync(process.execPath,[path.join(engine,'kit/build.mjs'),path.join(dest,'deck.html'),'--embed-audio'],{encoding:'utf8',maxBuffer:8*1024*1024});assert.equal(p.status,0,p.stderr);console.log(p.stdout.trim());};
-// 実際の一人語り版も同じ入力から組み、尺を検査できるようにする。
-const soloTiming=structuredClone(timing),soloManifest=structuredClone(manifest);
-for(const m of measures.filter(m=>m.role==='novice')){soloTiming[m.key]={dur:0,hold:0,lead:0,pad_after:0};delete soloManifest.segments[m.key];}
-const soloNarration='## 威力からダメージ {#s-dialogue}\n'+segments.filter(s=>s.turns[0].role==='expert').map(s=>`[${s.stepKey}]\nExpert: ${s.turns[0].raw}\n`).join('');
-json('timeline.json',soloTiming);json('audio/manifest.json',soloManifest);fs.writeFileSync(path.join(dest,'narration.md'),soloNarration);buildDeck();
-fs.copyFileSync(path.join(dest,'out/deck.html'),path.join(dest,'out/solo-reference.html'));
-json('timeline.json',timing);json('audio/manifest.json',manifest);fs.writeFileSync(path.join(dest,'narration.md'),narration);buildDeck();
+buildDeck();
 fs.copyFileSync(path.join(dest,'out/deck.html'),path.join(dest,'out/r25-dialogue-latest.html'));
-console.log(JSON.stringify({made,cached,duration,solo:duration-noviceSeconds}));
+console.log(JSON.stringify({made,cached,duration}));

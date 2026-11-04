@@ -25,6 +25,7 @@ m-r25-panel,.r1-world{display:block;position:absolute;inset:0;width:1280px;heigh
 .r25-formula[hidden]{display:none}
 #deck-cap{--cap-size:29px;--cap-max-lines:3;position:absolute;left:48px;right:48px;bottom:18px;padding:12px 20px;background:#111a23f5;border:2px solid #a5c9ed;border-radius:10px;text-align:left;transform:translateZ(0);font-family:'BIZ UDPGothic',sans-serif}
 #deck-cap[hidden],#deck-cap.empty{display:none!important}
+html:not([data-mode=video]) #deck-cap{bottom:90px!important}
 #deck-cap .cap-line{display:block;color:#fff!important;font-size:29px!important;line-height:1.45;max-height:none;overflow:visible;background:transparent!important;padding:0!important}
 #deck-cap[data-speaker=novice]{border-color:#f4c995}
 #deck-cap .r25-speaker{display:block;width:max-content;margin-bottom:5px;padding:1px 10px;background:#b8d5ed;color:#102238;border-radius:6px;font:27px/1.4 'BIZ UDPGothic',sans-serif}

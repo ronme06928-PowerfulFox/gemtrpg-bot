@@ -1,7 +1,7 @@
 import { createNativePanel } from './r1-resolve-native.mjs';
 import { sceneAt } from './r25-dialogue-data.mjs';
 DECK.define('m-r25-panel',class extends DECK.MotionElement {
-  static steps=11;
+  static steps=14;
   mount(){
     this.world=this.querySelector('.r1-world');this.native=createNativePanel(this.world);
     this.formula=this.querySelector('.r25-formula');this.world.querySelectorAll('[data-board="after"]').forEach(e=>e.remove());
@@ -20,7 +20,7 @@ DECK.define('m-r25-panel',class extends DECK.MotionElement {
     cap.querySelector('.r25-speaker')?.remove();
     if(cap.querySelector('.cap-line')){const e=document.createElement('span');e.className='r25-speaker';e.textContent=name;cap.prepend(e);}
   }
-  duration(k){return k===1?1.2:k===8?.7:k===9?2.2:0;}
+  duration(k){return k===1?1.2:k===11?.7:k===12?2.2:0;}
   render(k,t){
     if(!this.native)return;
     const s=sceneAt(k,t);this.world.style.transform='';this.native.render(s.time);

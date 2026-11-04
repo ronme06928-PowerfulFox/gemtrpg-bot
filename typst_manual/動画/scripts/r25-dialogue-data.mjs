@@ -3,11 +3,11 @@ export const voices = {
   novice: { name:'春日部つむぎ', id:8, style:'ノーマル', speedScale:1.08, pitchScale:0, intonationScale:1 }
 };
 const endPower = 1.7 - .000001, endOutcome = 4.6 - .000001;
-function mappedScene(k,t) {
-  if(k===0)return {time:.5+Math.min(Math.max(0,t),1.2-.000001)};
-  if(k===7)return {time:1.7+Math.min(Math.max(0,t),.7-.000001)};
-  if(k===8)return {time:2.4+Math.min(Math.max(0,t),2.2-.000001)};
-  return {time:k>=9?endOutcome:endPower,zoom:[1,2,3].includes(k)?'ally':k===4?'enemy':null,
-    formula:[2,3].includes(k)?'ally':k===4?'enemy':null};
+export function sceneAt(k,t) {
+  if(k===0)return {time:.5};
+  if(k===1)return {time:.5+Math.min(Math.max(0,t),1.2-.000001)};
+  if(k===11)return {time:1.7+Math.min(Math.max(0,t),.7-.000001)};
+  if(k===12)return {time:2.4+Math.min(Math.max(0,t),2.2-.000001)};
+  return {time:k>=13?endOutcome:endPower,zoom:k>=2&&k<=6?'ally':k===7?'enemy':null,
+    formula:k>=3&&k<=6?'ally':k===7?'enemy':null};
 }
-export function sceneAt(k,t){return k===0?{time:.5}:mappedScene(k-1,t);}
