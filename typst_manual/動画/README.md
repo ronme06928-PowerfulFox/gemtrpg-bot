@@ -124,6 +124,10 @@ npm --prefix C:/Users/yharu/tools/egatari-studio-0.6.3 ci --ignore-scripts
 
 増分は140,409 byte（約0.27%）。画像が新HTMLの約92%を占め、音声・画像・フォント・部品JSの容量は同じです。R0では容量を減らすための素材や構造の変更は行いません。
 
+画像の大半は、背景（data URIで3.81MB）と立ち絵2枚が、それぞれ11回ずつ埋め込まれていることによります。減らし方は計画54の「再開の段階」で扱います。
+
+旧版の `C:/Users/yharu/tools/egatari-studio`（v0.4.5）は、比較を終えた2026-11-04に削除しました。必要になったら、タグ `v0.4.5` から入れ直せます。`01_1ラウンドの流れ_R1/README.md` の手順にある旧版のフォルダは、R1を作った当時の記録です。
+
 比較を再実行するときは、切替前のHTMLを一時的に `out/deck-v2-before.html` として残し、新版を通常手順で `out/deck.html` へ組んでから実行します。確認が済んだら旧HTML・個別PNG・比較JSONを削除し、新HTMLを `deck-v2-latest.html` へ移して一覧PNGだけを残します。声キャッシュと再生成に必要なaudioは残します。
 
 ```powershell

@@ -29,7 +29,7 @@
 リポジトリのルートからPowerShellで実行する。外部egatariはv0.4.5固定。
 
 ```powershell
-$s1Engine = 'C:/Users/yharu/tools/egatari-studio'
+$s1Engine = 'C:/Users/yharu/tools/egatari-studio-0.6.3'
 $s1Preview = Join-Path (Get-Location) 'typst_manual/動画/_local/s1-components'
 node typst_manual/動画/scripts/prepare-s1.mjs
 npm --prefix $s1Engine run build -- "$s1Preview/deck.html"
@@ -90,7 +90,7 @@ egatariは作業フォルダ外を読み込まないため、生成時にHTML・
 リポジトリのルートからPowerShellで実行します。egatariは外部のv0.4.5を使います。
 
 ```powershell
-$creditsEgPlugin = 'C:/Users/yharu/tools/egatari-studio'
+$creditsEgPlugin = 'C:/Users/yharu/tools/egatari-studio-0.6.3'
 $creditsPreview = Join-Path (Get-Location) 'typst_manual/動画/_local/credits-preview'
 node --test typst_manual/動画/scripts/test-credits.mjs
 node typst_manual/動画/scripts/prepare-credits-preview.mjs
