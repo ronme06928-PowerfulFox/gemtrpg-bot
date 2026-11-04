@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 const deck = path.resolve('typst_manual/動画/01_1ラウンドの流れ');
-const { launch, fileUrl } = await import(pathToFileURL('C:/Users/yharu/tools/egatari-studio/kit/browser.mjs'));
+const { launch, fileUrl } = await import(pathToFileURL('C:/Users/yharu/tools/egatari-studio-0.6.3/kit/browser.mjs'));
 const browser = await launch();
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });

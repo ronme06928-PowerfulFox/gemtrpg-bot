@@ -1,6 +1,9 @@
 :root {
   /* manual_theme.typ: gems.at("4").main */
   --base: #ad2840;
+  /* v0.4.5と同じ色。v0.6.3 defaultの色変更をこのテーマには取り込まない。 */
+  --emph-hue: 27;
+  --muted: #6e6e6e;
   --cap-size: 27px;
   --cap-bottom: 16px;
   --cap-side: 48px;

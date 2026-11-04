@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 const video = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const deck = path.join(video, '01_1ラウンドの流れ');
-const engine = process.argv[2] || 'C:/Users/yharu/tools/egatari-studio';
+const engine = process.argv[2] || 'C:/Users/yharu/tools/egatari-studio-0.6.3';
 const out = path.join(deck, 'out/v2-sync-review');
 fs.mkdirSync(out, { recursive: true });
 const read = (p) => JSON.parse(fs.readFileSync(path.join(deck, p), 'utf8'));

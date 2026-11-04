@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 
 const video = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const preview = path.join(video, '_local/s1-components');
-const engine = process.argv[2] || 'C:/Users/yharu/tools/egatari-studio';
+const engine = process.argv[2] || 'C:/Users/yharu/tools/egatari-studio-0.6.3';
 const { launch, fileUrl } = await import(pathToFileURL(path.join(engine, 'kit/browser.mjs')));
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const browser = await launch({ args: ['--disable-gpu'] });

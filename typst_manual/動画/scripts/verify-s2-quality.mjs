@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const video = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const main = process.argv.includes('--main');
 const deck = path.join(video, main ? '01_1ラウンドの流れ' : '_local/s2-storyboard');
-const engine = process.argv[2] || 'C:/Users/yharu/tools/egatari-studio';
+const engine = process.argv.slice(2).find((arg) => !arg.startsWith('--')) || 'C:/Users/yharu/tools/egatari-studio-0.6.3';
 function check(src, expectedCode, name) {
   const r = spawnSync(process.execPath, [path.join(engine, 'kit/check.mjs'), src, '--json'], { encoding: 'utf8', maxBuffer: 5 * 1024 * 1024 });
   assert.ifError(r.error);
@@ -18,7 +18,12 @@ function check(src, expectedCode, name) {
 }
 const normal = check(path.join(deck, 'deck.html'), 0, 'quality-hidden-title');
 assert.equal(normal.counts.error, 0);
-assert.equal(normal.counts.warn, main ? 12 : 0); // 無言の入場段階11か所＋クレジット
+assert.equal(normal.counts.warn, main ? 22 : 0);
+if (main) {
+  const warnings = normal.results.filter((r) => r.sev === 'warn');
+  assert.equal(warnings.filter((r) => r.code === 'narrMissing').length, 13); // 入場11＋ダイス＋クレジット
+  assert.equal(warnings.filter((r) => r.code === 'textContrast').length, 9); // 既存の白字FP／オレンジ地
+}
 const negative = path.join(deck, `title-negative-${process.pid}.html`);
 assert.ok(!fs.existsSync(negative), '負例の一時原稿を上書きしない');
 try {

@@ -6,7 +6,7 @@
 
 最新の確認用単一HTMLは `out/deck-v2-latest.html` です（01_1ラウンドの流れ/内、Git管理外）。今後の確認はHTMLだけで行い、MP4を出すかは公開段階で決めます。正本は[計画54](../../manuals/planned/54_Explainer_Video_Series_Plan.md)。通し確認後までF01への統合と計画53の完了処理は行いません。
 
-`out/` には最新の確認用だけを置きます（下の「片付け」）。2026-10-27に古い出力（旧HTML・MP4・比較用のコマ）を消し、一時停止中の2026-10-28に `v2-latest/`（MP4の部品）と `narration-review/`（確認のコマ）も消しました。残しているのは `deck-v2-latest.html`、確認画像の一覧 `narration-review-overview.png`、品質チェックの結果 `narration-review-quality.txt` です。以下の節に出てくる古い出力のファイル名は当時の記録で、必要になったら該当コミットの原稿から作り直します。
+`out/` には最新の確認用だけを置きます（下の「片付け」）。R0後に残す確認出力は `deck-v2-latest.html` と `r0-comparison-overview.png` です。以下の節に出てくる古い出力のファイル名は当時の記録で、必要になったら該当コミットの原稿から作り直します。
 
 味方HP100・MP10・FP0、敵HP30・MP6・FP0から始め、使用コストなしの基本の一太刀を使います。冥鳴ひまり／VOICEVOX 0.26.0、SE＋6dB、ダイス確定音4回、共通クレジット5秒を引き継ぎます。背景は採用済みの遺跡を全面coverで表示します。
 
@@ -83,22 +83,54 @@ C07は段階1をダイスだけの2.6秒、段階2を従来の語りにし、式
 ## 版と環境
 
 
-- Windows 11、Node 22以上、Typst 0.15、Microsoft Edgeを使います。
+- Windows 11、Node 24.22.1（上流の対応範囲は ^22.23.4 / ^24.22.1 / >=26.12.1）、Typst 0.15、Microsoft Edgeを使います。
 - Pythonが必要なときは `C:/Users/yharu/anaconda3/python.exe` を使います。
-- egatari-studioはアプリのリポジトリの外に置き、タグ `v0.4.5` に固定します。
-  タグのコミットは `c73221161b9761edafa21abb56f3f589fade3b5a` です。
-- [公式README（v0.4.5）](https://github.com/egatari/egatari-studio/blob/v0.4.5/README.ja.md) と
-  [リファレンス（v0.4.5）](https://github.com/egatari/egatari-studio/blob/v0.4.5/docs/reference.ja.md) を参照します。
+- egatari-studioはアプリのリポジトリの外に置き、タグ `v0.6.3` に固定します。
+  タグのコミットは `bfb9a41b56d5998bf09db378c3eb21fef60ef42f` です。
+- [公式README（v0.6.3）](https://github.com/egatari/egatari-studio/blob/v0.6.3/README.ja.md) と
+  [リファレンス（v0.6.3）](https://github.com/egatari/egatari-studio/blob/v0.6.3/docs/reference.ja.md) を参照します。
 
 PowerShellで初回だけ実行します。
 
 ```powershell
-git clone --branch v0.4.5 --depth 1 https://github.com/egatari/egatari-studio.git C:/Users/yharu/tools/egatari-studio
-npm --prefix C:/Users/yharu/tools/egatari-studio ci
+git clone --branch v0.6.3 --depth 1 https://github.com/egatari/egatari-studio.git C:/Users/yharu/tools/egatari-studio-0.6.3
+npm --prefix C:/Users/yharu/tools/egatari-studio-0.6.3 ci --ignore-scripts
 ```
 
 `git clone` は注釈付きタグを経由してdetached HEADにします。タグのコミットを使うため、そのままにします。
 アプリ本体の `package.json`・依存関係・`static/` は変更しません。
+
+### R0の比較（2026-11-04）
+
+[CHANGELOG（0.4.6〜0.6.3）](https://github.com/egatari/egatari-studio/blob/v0.6.3/CHANGELOG.md)と[移行手順](https://github.com/egatari/egatari-studio/blob/v0.6.3/docs/migrating-0.x.ja.md)を確認しました。既存原稿は全スライドにidがあり、台本の鍵も対応するため、ids・unpackや台本の書き換えは不要です。v0.6.4のタグも存在しますが、R0の依頼で指定されたv0.6.3を使います。旧版のフォルダ `C:/Users/yharu/tools/egatari-studio` は削除せず、削除するかはユーザーの確認を待ちます。
+
+原稿・台本・部品の見た目を維持し、gemuriaのtokens.cssへ `--emph-hue: 27` と `--muted: #6e6e6e` を追加しました。継承元defaultで変わった強調色（旧oklch(0.52 0.21 27)→#BE3012）と灰色（#6e6e6e→#5C5853）を元へ戻します。盤面内の強調色#ad2840・控えめな字#4a4a4aと、GMの札#a8457fは部品側の指定を保ちます。
+
+品質チェックはエラー0・警告22。既存のnarrMissing 13件（入場11、無言のダイス1、クレジット1）に、新設されたtextContrast 9件が加わりました。対象はC01〜C07・C09・C11のFP数字（白字／オレンジ地、2.16:1）。R0では色を維持し、警告を隠さず検査の期待値を合わせます。`verify-s2-quality.mjs --main` は件数と警告の種類を検査し、非表示の長い見出しを拒否する負例も残します。
+
+声は44原音すべてキャッシュ、再生成0。SE＋6dB、ダイス確定音4回、末尾5秒を維持します。12カット・45段階・176.85秒と埋め込み音声34本も同じです。字幕の折り返しは全45段階の代表時刻、11境目の前後1秒（0.25秒刻み）、末尾5秒、mark表示中の計186組で変更0件でした（変更箇所の一覧は空）。段階表示・GM・markの実際の色も一致。動画モードではツールバーと表示用ハンドルが出ず、見出しは非表示のままです。13テスト、111状態の巻き戻しと34音声のオフライン再生・デコードも通過しました。
+
+容量はHTML内のdata URI（base64の文字を含む）を種類ごとに数え、残りのscriptを部品／プレーヤーへ分けました。その他は本文・CSS・JSON・マークアップです。
+
+| 内訳（byte） | v0.4.5 | v0.6.3 |
+| --- | ---: | ---: |
+| 音声 | 1,727,044 | 1,727,044 |
+| 画像 | 47,193,262 | 47,193,262 |
+| フォント | 1,826,698 | 1,826,698 |
+| 部品JS | 15,324 | 15,324 |
+| プレーヤー等JS | 177,584 | 306,007 |
+| その他 | 234,937 | 246,923 |
+| 合計 | 51,174,849 | 51,315,258 |
+
+増分は140,409 byte（約0.27%）。画像が新HTMLの約92%を占め、音声・画像・フォント・部品JSの容量は同じです。R0では容量を減らすための素材や構造の変更は行いません。
+
+比較を再実行するときは、切替前のHTMLを一時的に `out/deck-v2-before.html` として残し、新版を通常手順で `out/deck.html` へ組んでから実行します。確認が済んだら旧HTML・個別PNG・比較JSONを削除し、新HTMLを `deck-v2-latest.html` へ移して一覧PNGだけを残します。声キャッシュと再生成に必要なaudioは残します。
+
+```powershell
+node typst_manual/動画/scripts/verify-r0-upgrade.mjs C:/Users/yharu/tools/egatari-studio-0.6.3 deck-v2-before.html deck.html
+& C:/Users/yharu/anaconda3/python.exe typst_manual/動画/scripts/summarize-r0-upgrade.py deck-v2-before.html deck.html
+node typst_manual/動画/scripts/verify-s2-quality.mjs --main
+```
 
 ## 置き場所
 
@@ -143,7 +175,7 @@ HTMLでは `{{FIG:ruby-fill}}` のように埋め込みます。図のコンテ�
 リポジトリのルートから実行します。`new` は空でないフォルダに書かないため、初回だけ使います。
 
 ```powershell
-$egatariDir = 'C:/Users/yharu/tools/egatari-studio'
+$egatariDir = 'C:/Users/yharu/tools/egatari-studio-0.6.3'
 $smokeDir = Join-Path (Get-Location) 'typst_manual/動画/_local/m1-smoke'
 npm --prefix $egatariDir run new -- $smokeDir --theme default --title 'M1 環境と部品の確認'
 npm --prefix $egatariDir run check -- "$smokeDir/deck.html"
@@ -160,7 +192,7 @@ npm --prefix $egatariDir run check -- "$smokeDir/deck.html"
 リポジトリのルートから実行します。
 
 ```powershell
-$egatariDir = 'C:/Users/yharu/tools/egatari-studio'
+$egatariDir = 'C:/Users/yharu/tools/egatari-studio-0.6.3'
 $deckDir = Join-Path (Get-Location) 'typst_manual/動画/01_1ラウンドの流れ'
 $ffmpegDir = 'C:/Users/yharu/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.1-full_build/bin'
 $env:PATH = "$ffmpegDir;$env:PATH"
@@ -168,7 +200,7 @@ $videoTemp = Join-Path (Get-Location) 'typst_manual/動画/_local/media-temp'
 New-Item -ItemType Directory -Force -Path $videoTemp | Out-Null
 $env:TEMP = $videoTemp
 $env:TMP = $videoTemp
-node --test typst_manual/動画/scripts/test-r1-audio.mjs typst_manual/動画/scripts/test-credits.mjs typst_manual/動画/scripts/test-round-v2.mjs typst_manual/動画/scripts/test-opening.mjs typst_manual/動画/scripts/test-cue-effects.mjs
+node --test typst_manual/動画/scripts/test-r1-audio.mjs typst_manual/動画/scripts/test-credits.mjs typst_manual/動画/scripts/test-round-v2.mjs typst_manual/動画/scripts/test-opening.mjs typst_manual/動画/scripts/test-cue-effects.mjs typst_manual/動画/scripts/test-r0-theme.mjs
 node typst_manual/動画/scripts/prepare-round-v2.mjs $egatariDir --voice
 npm --prefix $egatariDir run build -- "$deckDir/deck.html" --embed-audio
 Copy-Item -LiteralPath "$deckDir/out/deck.html" -Destination "$deckDir/out/deck-v2-latest.html"

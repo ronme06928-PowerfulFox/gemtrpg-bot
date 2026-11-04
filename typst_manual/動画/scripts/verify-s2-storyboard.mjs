@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { shots } from './s2-storyboard-data.mjs';
 const video = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = path.join(video, '_local/s2-storyboard/out');
-const engine = process.argv[2] || 'C:/Users/yharu/tools/egatari-studio';
+const engine = process.argv[2] || 'C:/Users/yharu/tools/egatari-studio-0.6.3';
 const { launch, fileUrl } = await import(pathToFileURL(path.join(engine, 'kit/browser.mjs')));
 const browser = await launch();
 try {

@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const video = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = path.join(video, '_local/s1-components/out');
-const engine = process.argv[2] || 'C:/Users/yharu/tools/egatari-studio';
+const engine = process.argv[2] || 'C:/Users/yharu/tools/egatari-studio-0.6.3';
 const wsgi = process.argv.includes('--wsgi');
 let bridge;
 let pending = Promise.resolve();
