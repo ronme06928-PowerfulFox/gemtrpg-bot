@@ -210,6 +210,14 @@ node C:/Users/yharu/tools/egatari-studio-0.6.3/kit/check.mjs "$r1Dir/deck.html" 
 
 確認後は、最新HTML・比較一覧と `logs/` の測定記録だけを残します。個別PNG・比較専用HTML・写した本番ソース・生成途中のCSSやbundleは片付けます。prepareから再生成でき、アプリ本体と本編の原稿は変更しません。
 
+## R2 v3の絵コンテと台本変更案（2026-11-04）
+
+[絵コンテ案](01_1ラウンドの流れ/storyboard-v3.md)・[台本変更案](01_1ラウンドの流れ/narration-v3-proposal.md)は承認待ちです。16カット・約3分04秒の概算で、本編や声は作っていません。代表コマと威力説明(a)/(b)の比較は `_local/r2-storyboard/out/storyboard-v3-overview.png`。本物のパネルはR1の単一HTMLを読み取り、承認済みの非表示・文字拡大と、提案する寄り・説明を静止画にしています。
+
+威力の説明は、パネルのロール後に幅と式を同じ画面で説明する(b)を推奨。勝利FPの専用帯は本番パネルに出ないため、盤面帰還後にFP1を囲んで「勝利＋1」と説明します。解決部分の文の割当てと分割案、Q8の冒頭2点の採用文を決めてからR3へ進みます。字体のPNGは代替字体を含む配置見本で、配布用の埋め込みはR3以降です。
+
+今回は静止絵コンテなので、通常の音声入りHTMLビルドは行いません。再撮影はリポジトリ直下から `node typst_manual/動画/_local/r2-storyboard/capture.mjs`、一覧化は `C:/Users/yharu/anaconda3/python.exe typst_manual/動画/_local/r2-storyboard/contact.py`。最新一覧PNGとスクリプト・測定ログを残し、個別コマは片付けます。R1のHTML・比較一覧・ログと既存v2はそのまま保持します。
+
 ## 部品の書き出し
 
 
