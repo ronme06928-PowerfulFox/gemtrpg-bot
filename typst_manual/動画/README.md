@@ -191,6 +191,25 @@ node typst_manual/動画/scripts/verify-r0-upgrade.mjs C:/Users/yharu/tools/egat
 - `out/`：単一HTML・PNG・MP4。`audio/`：生成WAVとmanifest。`voice/cache/`：原音WAVとVOICEVOX query。これらの生成物はGit管理外です。
 - `_local/`：ローカル確認用。共通クレジット単体の見本は[専用手順](common/README.md)で再生成します。
 
+## R1 解決パネルの試作（2026-11-04）
+
+本編とは別の `_local/r1-resolve/` に、計画53§6の基本の一太刀どうし（威力9対6、敵HP30→21、味方FP0→1）だけを音声なしで組みます。最新は `out/r1-resolve-latest.html`、比較一覧は `out/r1-resolve-comparison.png`。[Q10の全小文字・Q11・容量・判断事項](r1-resolve-review.md)を確認してからR2へ進みます。今回R2・v3本編には入っていません。
+
+`scripts/prepare-r1-resolve.mjs` は、本番JSの依存グラフとパネルCSSを作業フォルダへ同じ内容で写し、その写しからegatari部品をbundleします。CSSの抽出は演出一覧の `extractResolvePanelCss` を再利用。`r1-resolve-native.mjs` に本番の非公開描画APIとの接続を集め、アプリ専用の時計・Socket・SE・自動進行は動かしません。画像はR0.5の共有CSS参照です。名前→威力→攻撃→勝敗の中は本番と同じ速さで、末尾の姿を1秒保持します。HTMLでは左右キーで段階を見比べ、Aキーで通し再生できます。
+
+```powershell
+node --test typst_manual/動画/scripts/test-r1-resolve.mjs
+node typst_manual/動画/scripts/prepare-r1-resolve.mjs
+node typst_manual/動画/scripts/verify-r1-resolve.mjs
+$r1Dir = Join-Path (Get-Location) 'typst_manual/動画/_local/r1-resolve'
+node C:/Users/yharu/tools/egatari-studio-0.6.3/kit/check.mjs "$r1Dir/deck.html" --json > "$r1Dir/out/quality.json"
+& C:/Users/yharu/anaconda3/python.exe typst_manual/動画/scripts/summarize-r1-resolve.py
+```
+
+検証は、段階途中・末尾・境界の63時刻と、本番ソースを直接組む参照、演出一覧の同作例3時刻を通常GPUで比較します。本番参照51時刻・一覧3時刻は全画素一致。往復は62時刻が完全一致、勝敗0.25秒の29画素に1階調の差が残り、厳密なPNG一致は未達です。Egatari標準のPNG比較と微小差の上限検査で記録します。品質はエラー0・警告7（音声なし6段階、アプリ指定フォントの未埋め込み）。小文字は品質チェックだけでは拾えないため、実測一覧も残します。本番ソースのコピーとSHA-256記録の照合、必須依存のbundleテストがQ11の検査です。
+
+確認後は、最新HTML・比較一覧と `logs/` の測定記録だけを残します。個別PNG・比較専用HTML・写した本番ソース・生成途中のCSSやbundleは片付けます。prepareから再生成でき、アプリ本体と本編の原稿は変更しません。
+
 ## 部品の書き出し
 
 
