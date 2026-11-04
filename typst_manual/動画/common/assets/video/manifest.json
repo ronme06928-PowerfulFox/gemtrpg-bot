@@ -1,0 +1,14 @@
+{
+  "backgroundQuality": 95,
+  "method": 6,
+  "sources": {
+    "ruins": "69a79b30c3dc737f6f74c49c5127c22eb229bc340f37c9befd8122f2770d7986",
+    "ally": "9522c23543d4d2a8b64a744ec654761dc85bb4c598fbb0eca236f87dea0629bf",
+    "enemy": "7ffb01eefd19273571213e009c4829b6078b0e2fb1afe0fd9a5c9b5682d46e00"
+  },
+  "outputs": {
+    "ruins": "cc7deb38a91a39a41b2f76da0b403d2d42f2a2ce5e58d4f92c5694a5901835d5",
+    "ally": "e0df06f5fedce12c6c562300521e3b22a126474bd971b9bd861797333158e9ed",
+    "enemy": "b7670810831c4bb8d54b94ba9142e2ddc54b3abc1b899cc95aa7582a2dac877b"
+  }
+}

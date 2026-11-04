@@ -59,4 +59,6 @@ manuals/typst/build/
 /typst_manual/動画/01_1ラウンドの流れ/components/gm-bubble/
 /typst_manual/動画/01_1ラウンドの流れ/motion.css
 /typst_manual/動画/01_1ラウンドの流れ/images/ruins-battle.png
+/typst_manual/動画/01_1ラウンドの流れ/images/*.webp
+/typst_manual/動画/01_1ラウンドの流れ/shared-images.css
 /typst_manual/動画/01_1ラウンドの流れ/opening.css

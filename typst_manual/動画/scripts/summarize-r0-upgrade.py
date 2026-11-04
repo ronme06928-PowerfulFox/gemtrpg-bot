@@ -30,8 +30,10 @@ def html_sizes(file):
 
 
 def main():
+    lightweight = "--r05" in sys.argv
+    names = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
     deck = Path("typst_manual/動画/01_1ラウンドの流れ/out")
-    work = deck / "r0-comparison"
+    work = deck / ("r05-comparison" if lightweight else "r0-comparison")
     report = json.loads((work / "report.json").read_text(encoding="utf-8"))
     records = report["records"]
     chosen = [next(r for r in records if r["i"] == i and r["k"] == (1 if i == 0 else max(s["k"] for s in report["timeline"] if s["i"] == i)) and r["kind"] == "step") for i in range(12)]
@@ -42,14 +44,22 @@ def main():
     font = ImageFont.truetype("C:/Windows/Fonts/meiryo.ttc", 16)
     sheet = Image.new("RGB", (1280, math.ceil(len(chosen) / 2) * 208 + 36), "#f0f0f0")
     draw = ImageDraw.Draw(sheet)
-    draw.text((12, 7), "R0: 左 v0.4.5 ／ 右 v0.6.3（色調整後）   各組は同じ場面・段階・秒数", font=font, fill="black")
+    title = "R0.5: 左 軽量化前 ／ 右 軽量化後" if lightweight else "R0: 左 v0.4.5 ／ 右 v0.6.3（色調整後）"
+    draw.text((12, 7), title + "   各組は同じ場面・段階・秒数", font=font, fill="black")
     for n, r in enumerate(chosen):
         x, y = n % 2 * 640, n // 2 * 208 + 36
         draw.text((x + 6, y), f'{r["key"]}  t={r["t"]:.2f}s  {r["kind"]}', font=font, fill="black")
         for v in range(2):
             with Image.open(work / r["states"][v]["file"]) as image:
                 sheet.paste(image.resize((320, 180)), (x + v * 320, y + 25))
-    sheet.save(deck / "r0-comparison-overview.png")
+    if lightweight:
+        with Image.open("typst_manual/動画/_local/r05-image-quality/quality-overview.png") as quality:
+            quality = quality.resize((1280, round(quality.height * 1280 / quality.width)))
+            combined = Image.new("RGB", (1280, sheet.height + quality.height), "#f0f0f0")
+            combined.paste(sheet, (0, 0))
+            combined.paste(quality, (0, sheet.height))
+            sheet = combined
+    sheet.save(deck / ("r05-comparison-overview.png" if lightweight else "r0-comparison-overview.png"))
     different = []
     for r in records:
         with Image.open(work / r["states"][0]["file"]) as a, Image.open(work / r["states"][1]["file"]) as b:
@@ -59,7 +69,8 @@ def main():
             pixels = sum(maximum.histogram()[9:])
             if pixels:
                 different.append({"key": r["key"], "t": r["t"], "kind": r["kind"], "pixelsOver8": pixels})
-    sizes = {"v0.4.5": html_sizes(deck / sys.argv[1]), "v0.6.3": html_sizes(deck / sys.argv[2])}
+    labels = ["before", "after"] if lightweight else ["v0.4.5", "v0.6.3"]
+    sizes = {label: html_sizes(deck / name) for label, name in zip(labels, names)}
     summary = {"pairs": len(records), "sizes": sizes, "wraps": report["wraps"], "pixelDifferences": different}
     (work / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=2))

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { waitForVideoImages } from './video-image-browser.mjs';
 const video = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const deck = path.join(video, '01_1ラウンドの流れ');
 const engine = process.argv[2] || 'C:/Users/yharu/tools/egatari-studio-0.6.3';
@@ -42,7 +43,7 @@ try {
   await page.goto(fileUrl(path.join(deck, 'out/deck.html')) + '?mode=video&captions=1', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => DECK.ready);
   console.log('Browser loaded');
-  await page.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.images].map((e) => e.decode())); });
+  await waitForVideoImages(page);
   const seek = async (i, k, t = null) => {
     await page.evaluate(({ i, k, t }) => DECK.seek(i, k, t === null ? Infinity : t), { i, k, t });
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -157,7 +158,7 @@ try {
     assert.equal(await page.locator(`#${ids[i]} h2:visible`).count(), 0);
     assert.ok(await page.locator(`#${ids[i]} [data-readable]`).evaluateAll((els) => els.every((e) => parseFloat(getComputedStyle(e).fontSize) >= 24)), '図の文字24px以上');
     if (i < 11) {
-      const bg = await page.locator(`#${ids[i]} m-background`).evaluate((e) => ({ box: e.getBoundingClientRect().toJSON(), grid: getComputedStyle(e).backgroundImage, fit: getComputedStyle(e.querySelector('img')).objectFit }));
+      const bg = await page.locator(`#${ids[i]} m-background`).evaluate((e) => ({ box: e.getBoundingClientRect().toJSON(), grid: getComputedStyle(e).backgroundImage, fit: getComputedStyle(e.querySelector('[data-video-image]')).backgroundSize }));
       assert.equal(bg.grid, 'none'); assert.equal(bg.fit, 'cover');
       assert.ok(bg.box.width >= 1280 && bg.box.height >= 720);
     }

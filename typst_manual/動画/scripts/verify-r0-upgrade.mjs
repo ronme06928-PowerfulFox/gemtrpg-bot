@@ -3,12 +3,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
+import { createHash } from 'node:crypto';
+import { waitForVideoImages } from './video-image-browser.mjs';
 const deck = path.resolve('typst_manual/動画/01_1ラウンドの流れ');
-const out = path.join(deck, 'out/r0-comparison');
+const lightweight = process.argv.includes('--r05');
+const out = path.join(deck, lightweight ? 'out/r05-comparison' : 'out/r0-comparison');
 fs.mkdirSync(out, { recursive: true });
 const engine = process.argv[2] || 'C:/Users/yharu/tools/egatari-studio-0.6.3';
 const marksOnly = process.argv.includes('--marks-only');
-const files = process.argv.slice(3).filter((arg) => arg !== '--marks-only');
+const files = process.argv.slice(3).filter((arg) => !arg.startsWith('--'));
 assert.equal(files.length, 2, '比較元と比較先のHTMLを指定');
 const { launch, fileUrl } = await import(pathToFileURL(path.join(engine, 'kit/browser.mjs')));
 const browser = await launch();
@@ -21,10 +24,18 @@ try {
     await page.route(/^https?:/, (r) => r.abort());
     await page.goto(fileUrl(path.join(deck, 'out', file)) + '?mode=video&captions=1');
     await page.waitForFunction(() => DECK.ready);
-    await page.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.images].map((e) => e.decode())); });
+    await waitForVideoImages(page);
     pages.push(page);
   }
   const timeline = await pages[0].evaluate(() => DECK.timeline().map(({ i, k, key, dur }) => ({ i, k, key, dur })));
+  assert.deepEqual(await pages[0].evaluate(() => DECK.AUDIO), await pages[1].evaluate(() => DECK.AUDIO), '埋め込み音声とcueを完全に維持');
+  if (lightweight) {
+    const built = fs.readFileSync(path.join(deck, 'out', files[1]), 'utf8');
+    assert.ok(Buffer.byteLength(built) < 10_000_000, '10MB未満');
+    const hashes = [...built.matchAll(/data:image\/(?:webp|png);base64,([A-Za-z0-9+/=]+)/g)].map((m) => createHash('sha256').update(Buffer.from(m[1], 'base64')).digest('hex'));
+    assert.equal(hashes.length, 4, '背景・立ち絵2枚・未加工ロゴを各1回だけ埋め込む');
+    assert.equal(new Set(hashes).size, 4, '重複画像なし');
+  }
   assert.deepEqual(await pages[1].evaluate(() => DECK.timeline().map(({ i, k, key, dur }) => ({ i, k, key, dur }))), timeline);
   const samples = timeline.map((s) => ({ ...s, t: Math.min(s.dur / 2, 2), kind: 'step' }));
   for (let i = 1; i < 12; i++) {

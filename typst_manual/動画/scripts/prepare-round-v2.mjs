@@ -2,11 +2,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
+import assert from 'node:assert/strict';
 import { shots } from './s2-storyboard-data.mjs';
 import { actor, phase, boardBackground, dice, effect, gm, json } from './scene-markup.mjs';
 import { renderCredits } from '../common/credits.mjs';
 import { prepareVoice } from './prepare-voice.mjs';
 import { renderOpening, writeOpeningAudio } from '../common/opening.mjs';
+import { shareSceneImages, sharedImageCss, videoImages } from '../common/shared-images.mjs';
 const video = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const deck = path.join(video, '01_1ラウンドの流れ');
 fs.mkdirSync(path.join(deck, 'sfx/imported'), { recursive: true });
@@ -16,7 +19,17 @@ for (const part of ['phase', 'dice', 'impact-hp', 'fp', 'effect-frame', 'backgro
   fs.cpSync(path.join(video, 'common/components', part), path.join(deck, 'components', part), { recursive: true });
 }
 for (const css of ['motion.css', 'credits.css', 'opening.css']) fs.copyFileSync(path.join(video, 'common', css), path.join(deck, css));
-fs.copyFileSync(path.join(video, 'common/assets/ruins-battle.png'), path.join(deck, 'images/ruins-battle.png'));
+const imageManifest = JSON.parse(fs.readFileSync(path.join(video, 'common/assets/video/manifest.json'), 'utf8'));
+const imageHash = (file) => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+for (const [key, image] of Object.entries(videoImages)) {
+  if (key === 'logo') continue; // 元PNGは上で未加工のままコピー済み。
+  const source = key === 'ruins' ? path.join(video, 'common/assets', image.source) : path.join(deck, 'images', image.source);
+  const compressed = path.join(video, 'common/assets/video', image.file);
+  assert.equal(imageHash(source), imageManifest.sources[key], '元画像を更新したらprepare-video-images.pyで再変換する');
+  assert.equal(imageHash(compressed), imageManifest.outputs[key], 'WebPと変換記録を一致させる');
+  fs.copyFileSync(compressed, path.join(deck, 'images', image.file));
+}
+fs.writeFileSync(path.join(deck, 'shared-images.css'), sharedImageCss(Object.fromEntries(Object.entries(videoImages).map(([key, image]) => [key, `images/${image.file}`]))));
 const read = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const credits = read(path.join(deck, 'credits.json'));
 credits.credits = credits.credits.filter((x) => x.label !== '背景');
@@ -66,7 +79,7 @@ const sections = shots.map((shot, i) => {
     .replace(/<(m-(?:background|phase|dice|impact-hp|fp|effect-frame|gm-bubble))\b([^>]*)>/g, (_, tag, attrs) => `<${tag}${attrs.replace(/\ssteps="\d+"/g, '')} steps="0">`);
   return `<section class="slide s1-slide v2-slide noconcl" id="s-${shot.id}" style="--battle-background-position:${shot.crop};--story-background-zoom:${shot.zoom}"><h2>${shot.title}</h2>${markup}${shot.id === 'intro' ? renderOpening('1ラウンドの流れ') : ''}<m-round-cut aria-label="カットの動きの進行" steps="${counts[i]}">${json({ id: shot.id, phase: shot.phase, wordLead })}</m-round-cut></section>`;
 });
-fs.writeFileSync(path.join(deck, 'deck.html'), `<!DOCTYPE html><html lang="ja" data-theme="gemuria"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>1ラウンドの流れ v2</title><link rel="stylesheet" href="app_mock.css"><link rel="stylesheet" href="motion.css"><link rel="stylesheet" href="credits.css"><link rel="stylesheet" href="round-v2.css"><link rel="stylesheet" href="opening.css"></head><body><div id="stage">${sections.join('\n')}</div></body></html>\n`);
+fs.writeFileSync(path.join(deck, 'deck.html'), `<!DOCTYPE html><html lang="ja" data-theme="gemuria"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>1ラウンドの流れ v2</title><link rel="stylesheet" href="app_mock.css"><link rel="stylesheet" href="motion.css"><link rel="stylesheet" href="credits.css"><link rel="stylesheet" href="round-v2.css"><link rel="stylesheet" href="opening.css"><link rel="stylesheet" href="shared-images.css"></head><body><div id="stage">${shareSceneImages(sections.join('\n'))}</div></body></html>\n`);
 if (process.argv.includes('--voice')) {
   await prepareVoice(deck, process.argv[2], { boost: 6, credits: true });
   writeOpeningAudio(deck);

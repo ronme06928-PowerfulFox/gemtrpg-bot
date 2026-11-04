@@ -6,7 +6,7 @@
 
 最新の確認用単一HTMLは `out/deck-v2-latest.html` です（01_1ラウンドの流れ/内、Git管理外）。今後の確認はHTMLだけで行い、MP4を出すかは公開段階で決めます。正本は[計画54](../../manuals/planned/54_Explainer_Video_Series_Plan.md)。通し確認後までF01への統合と計画53の完了処理は行いません。
 
-`out/` には最新の確認用だけを置きます（下の「片付け」）。R0後に残す確認出力は `deck-v2-latest.html` と `r0-comparison-overview.png` です。以下の節に出てくる古い出力のファイル名は当時の記録で、必要になったら該当コミットの原稿から作り直します。
+`out/` には最新の確認用だけを置きます（下の「片付け」）。R0.5後に残す確認出力は `deck-v2-latest.html` と `r05-comparison-overview.png` です。以下の節に出てくる古い出力のファイル名は当時の記録で、必要になったら該当コミットの原稿から作り直します。
 
 味方HP100・MP10・FP0、敵HP30・MP6・FP0から始め、使用コストなしの基本の一太刀を使います。冥鳴ひまり／VOICEVOX 0.26.0、SE＋6dB、ダイス確定音4回、共通クレジット5秒を引き継ぎます。背景は採用済みの遺跡を全面coverで表示します。
 
@@ -102,7 +102,7 @@ npm --prefix C:/Users/yharu/tools/egatari-studio-0.6.3 ci --ignore-scripts
 
 ### R0の比較（2026-11-04）
 
-[CHANGELOG（0.4.6〜0.6.3）](https://github.com/egatari/egatari-studio/blob/v0.6.3/CHANGELOG.md)と[移行手順](https://github.com/egatari/egatari-studio/blob/v0.6.3/docs/migrating-0.x.ja.md)を確認しました。既存原稿は全スライドにidがあり、台本の鍵も対応するため、ids・unpackや台本の書き換えは不要です。v0.6.4のタグも存在しますが、R0の依頼で指定されたv0.6.3を使います。旧版のフォルダ `C:/Users/yharu/tools/egatari-studio` は削除せず、削除するかはユーザーの確認を待ちます。
+[CHANGELOG（0.4.6〜0.6.3）](https://github.com/egatari/egatari-studio/blob/v0.6.3/CHANGELOG.md)と[移行手順](https://github.com/egatari/egatari-studio/blob/v0.6.3/docs/migrating-0.x.ja.md)を確認しました。既存原稿は全スライドにidがあり、台本の鍵も対応するため、ids・unpackや台本の書き換えは不要です。v0.6.4のタグも存在しますが、R0の依頼で指定されたv0.6.3を使います。R0では旧版を残して比較し、比較後の削除は下記に記録しています。
 
 原稿・台本・部品の見た目を維持し、gemuriaのtokens.cssへ `--emph-hue: 27` と `--muted: #6e6e6e` を追加しました。継承元defaultで変わった強調色（旧oklch(0.52 0.21 27)→#BE3012）と灰色（#6e6e6e→#5C5853）を元へ戻します。盤面内の強調色#ad2840・控えめな字#4a4a4aと、GMの札#a8457fは部品側の指定を保ちます。
 
@@ -136,6 +136,43 @@ node typst_manual/動画/scripts/verify-r0-upgrade.mjs C:/Users/yharu/tools/egat
 node typst_manual/動画/scripts/verify-s2-quality.mjs --main
 ```
 
+### R0.5の軽量化（2026-11-04）
+
+egatari v0.6.3の `inlineExternal` は、同じパスでもimg srcやCSS urlの出現ごとにdata URIへ置き換えます（`kit/core/build-core.mjs`）。背景・味方・敵のimgを11場面で作っていたため、同じ3画像が11回ずつ入っていました。v2生成時に画像を共有CSSの変数へ1回ずつ定義し、各場面から参照する形へ変更しました。冒頭とクレジットのロゴも共有し、元PNGを加工せず1回だけ埋め込みます。実HTMLの画像data URIは重複なしの4個です。再生中にURLを差し替える処理はありません。
+
+背景は元の1672×941pxのまま、WebP品質95・method 6を採用しました。PNG・可逆WebP・品質95/90/85を並べ、空・階段・石畳の細部を確認して選びました。背景は非可逆圧縮なので画素差はありますが、720pの画面で見え方を維持します。立ち絵は可逆WebP・quality 100・method 6・exact指定で、透明部分を含むRGBA画素が元PNGと完全一致することを検査しました。
+
+| 素材（byte） | 元PNG | 採用WebP |
+| --- | ---: | ---: |
+| 背景 | 2,857,390 | 577,622 |
+| 味方 | 167,353 | 134,598 |
+| 敵 | 183,096 | 138,950 |
+
+背景の候補は可逆2,026,714 byte、品質90が409,366 byte、品質85が309,544 byte。品質95を細部と容量のバランスで選びました。変換済みWebPをGitに置き、通常のprepareはコピーと元画像／変換結果のhash照合だけを行います。原稿・台本・音声・部品の動きは変更しません。
+
+| HTMLの内訳（byte、base64込み） | 軽量化前 | 軽量化後 |
+| --- | ---: | ---: |
+| 音声 | 1,727,044 | 1,727,044 |
+| 画像 | 47,193,262 | 1,207,051 |
+| フォント | 1,826,698 | 1,826,698 |
+| 部品JS | 15,324 | 15,324 |
+| プレーヤー等JS | 306,007 | 306,007 |
+| その他（本文・CSS・JSON等） | 246,923 | 249,826 |
+| 合計 | 51,315,258 | 5,331,950 |
+
+約89.6%削減、10,000,000 byte未満です。品質エラー0・警告22（語りなし13、FPのコントラスト9）を維持。16テスト、111状態の巻き戻しと途中8地点のPNG往復、34音声のオフライン再生・デコードを確認しました。声は44原音すべてキャッシュ、再生成0。変更前後の186組（代表・11境目の前後・タイトル・末尾5秒・mark表示中）で字幕の改行・色・タイムラインと埋め込み音声が一致し、画像の欠けやちらつきは見つかりませんでした。一覧の末尾に背景の画質候補もまとめています。R1へ進む前の新たな判断事項はありません。
+
+```powershell
+# 素材・変換設定を更新するときだけ実行（PillowのWebP対応が必要）
+& C:/Users/yharu/anaconda3/python.exe typst_manual/動画/scripts/prepare-video-images.py --compare
+& C:/Users/yharu/anaconda3/python.exe typst_manual/動画/scripts/prepare-video-images.py
+# 通常のprepareと--embed-audioビルド後、旧HTMLと比較する
+node typst_manual/動画/scripts/verify-r0-upgrade.mjs C:/Users/yharu/tools/egatari-studio-0.6.3 deck-r05-before.html deck.html --r05
+& C:/Users/yharu/anaconda3/python.exe typst_manual/動画/scripts/summarize-r0-upgrade.py deck-r05-before.html deck.html --r05
+```
+
+確認後は、旧HTML・個別PNG・画質候補のWebP・比較JSONと一時圧縮キャッシュを削除し、最新HTMLと `r05-comparison-overview.png` だけを残します。元PNG・採用したWebP・声キャッシュとaudioは残します。
+
 ## 置き場所
 
 - `parts/assets.typ`：本の宝石・ダイスを書き出すTypstソース。
@@ -143,6 +180,10 @@ node typst_manual/動画/scripts/verify-s2-quality.mjs --main
 - 同デッキの `components/round-cut/index.js`：カットごとの(k,t)と音声cueを共通部品へ配線します。独自タイマー・乱数・CSSアニメーションは使いません。
 - 同デッキの `voice/config.json`：固定版・声・読み・話速等。`voice/events.json`：SEと必要な余韻。`timeline.json` は声の長さから再生成します。
 - `common/`：動画間で共用するクレジットの生成関数・CSS・作品名と発行元。タイトルと使用素材は各デッキの `credits.json`。
+- `common/assets/ruins-battle.png`：未加工の背景。立ち絵の元PNGはデッキの `images/` に残します。
+- `common/assets/video/`：変換済みの背景・立ち絵WebPと、元画像／変換後のSHA-256を記録した `manifest.json`。Git管理し、通常ビルドでは変換しません。同じ変換結果を使い、ビルドにPythonを必要としないためです。素材や設定を更新したときだけ、指定Pythonで `scripts/prepare-video-images.py` を実行します。
+- `common/shared-images.mjs`：画像名と共有CSSの生成。prepareがデッキ内へWebPをコピーし、`shared-images.css` のCSS変数へURLを1回ずつ書きます。各場面は `data-video-image="ruins"` などで参照し、URLを書きません。背景はcoverと元の位置・倍率、立ち絵とロゴはcontainを保ち、画像の説明はroleとaria-labelに残します。
+- R1の解決パネルの画像も、元画像を共通素材またはデッキの `images/`、変換済みを `common/assets/video/` に置き、同じ表と共有CSSへ追加します。パネル側は `data-video-image` と寸法・配置だけを持たせ、場面ごとのimg src・CSS urlで同じ画像を繰り返し埋め込みません。アプリ本体からの取り出しはR1で扱います。
 - `scripts/prepare-round-v2.mjs`：共通クレジットをデッキ内へ配置し、全編の声とSEを生成します。
 - 同スクリプトはアプリの `static/audio/dice-roll.mp3` を読み取り、`sfx/imported/` へコピーします。この素材コピーはGit管理外です。出典・動画利用条件は[SEの記録](01_1ラウンドの流れ/sfx/README.md)を参照してください。
 - `scripts/prepare-voice.mjs`：R1とv2が使う音声生成処理。WAV処理は `r1-audio.mjs` を共有します。
@@ -204,7 +245,7 @@ $videoTemp = Join-Path (Get-Location) 'typst_manual/動画/_local/media-temp'
 New-Item -ItemType Directory -Force -Path $videoTemp | Out-Null
 $env:TEMP = $videoTemp
 $env:TMP = $videoTemp
-node --test typst_manual/動画/scripts/test-r1-audio.mjs typst_manual/動画/scripts/test-credits.mjs typst_manual/動画/scripts/test-round-v2.mjs typst_manual/動画/scripts/test-opening.mjs typst_manual/動画/scripts/test-cue-effects.mjs typst_manual/動画/scripts/test-r0-theme.mjs
+node --test typst_manual/動画/scripts/test-r1-audio.mjs typst_manual/動画/scripts/test-credits.mjs typst_manual/動画/scripts/test-round-v2.mjs typst_manual/動画/scripts/test-opening.mjs typst_manual/動画/scripts/test-cue-effects.mjs typst_manual/動画/scripts/test-r0-theme.mjs typst_manual/動画/scripts/test-shared-images.mjs
 node typst_manual/動画/scripts/prepare-round-v2.mjs $egatariDir --voice
 npm --prefix $egatariDir run build -- "$deckDir/deck.html" --embed-audio
 Copy-Item -LiteralPath "$deckDir/out/deck.html" -Destination "$deckDir/out/deck-v2-latest.html"

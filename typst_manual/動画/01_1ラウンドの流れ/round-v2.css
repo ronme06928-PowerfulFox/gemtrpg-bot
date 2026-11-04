@@ -3,7 +3,8 @@
 .v2-slide .s1-body { top: 24px; height: 580px; }
 .v2-slide .s1-board { top: 100px; }
 .v2-slide .v2-background { inset: 0; border-radius: 0; }
-.v2-background img { transform: scale(var(--story-background-zoom, 1)); transform-origin: var(--battle-background-position, center 65%); }
+.video-shared-image { background-repeat: no-repeat; background-position: center; background-size: contain; }
+.v2-background .video-shared-image { width: 100%; height: 100%; background-size: cover; background-position: var(--battle-background-position, center 65%); transform: scale(var(--story-background-zoom, 1)); transform-origin: var(--battle-background-position, center 65%); }
 .v2-slot { left: 76px; top: -134px; }
 .v2-slot.first-slot { border-color: #007bff; box-shadow: 0 0 20px 7px #007bff; }
 .v2-slot.is-spent { background: #b8b8b8; border-color: #555; color: #222; }
