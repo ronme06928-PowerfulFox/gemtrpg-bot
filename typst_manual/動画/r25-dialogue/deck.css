@@ -1,0 +1,35 @@
+.r25-slide h2,.r25-slide .pn,#bar,#jump{display:none!important}
+.r25-credit h2,.r25-credit .pn{display:none!important}
+.r25-slide{background:#0e151e!important}
+m-r25-panel,.r1-world{display:block;position:absolute;inset:0;width:1280px;height:720px;overflow:hidden}
+.r1-world{transform-origin:0 0}
+.r1-board{position:absolute;inset:0}
+.r1-board-bg{position:absolute;inset:0;background-size:cover;background-position:center 65%}
+.r1-board .s1-board{top:124px;left:48px}
+.video-shared-image{background-repeat:no-repeat;background-position:center;background-size:contain}
+[data-gallery-resolve-panel] .portrait .video-shared-image{width:100%;height:100%;background-position:center bottom}
+[data-gallery-resolve-panel]{--ui-font:'BIZ UDPGothic',sans-serif!important}
+[data-gallery-resolve-panel] .top-band,[data-gallery-resolve-panel] .progress-band,
+[data-gallery-resolve-panel] .progress-band *,[data-gallery-resolve-panel] .skill-id,
+[data-gallery-resolve-panel] .skill-descriptions,[data-gallery-resolve-panel] .skill-descriptions *{visibility:hidden!important}
+[data-gallery-resolve-panel] .character-name,[data-gallery-resolve-panel] .result-band{font-size:30px!important}
+[data-gallery-resolve-panel] .character-name{transform:translateZ(0);line-height:1.3;overflow:visible}
+/* 寄った時に切れた札や名前を出さず、宝石の合計と幅だけを読む。 */
+[data-gallery-resolve-panel].r25-zoom .skill-plaque,[data-gallery-resolve-panel].r25-zoom .character-name,
+[data-gallery-resolve-panel].r25-zoom .clash-point{visibility:hidden!important}
+.r25-phase{position:absolute;z-index:20000;top:20px;left:200px;right:200px;display:flex;justify-content:center;gap:12px;font:25px 'BIZ UDPGothic',sans-serif}
+.r25-phase span{padding:9px 16px;border-radius:9px;background:#fff8ef;color:#39332d}
+.r25-phase .current{background:#ad2840;color:white}
+.r25-formula{position:absolute;z-index:10;left:190px;top:368px;width:900px;padding:15px;border:2px solid #ad2840;border-radius:12px;background:#fff9ef;color:#262224;font:37px/1.4 'BIZ UDPGothic',sans-serif;text-align:center}
+.r25-formula b{color:#ad2840}
+.r25-formula[hidden]{display:none}
+#deck-cap{--cap-size:29px;--cap-max-lines:3;position:absolute;left:48px;right:48px;bottom:18px;padding:12px 20px;background:#111a23f5;border:2px solid #a5c9ed;border-radius:10px;text-align:left;transform:translateZ(0);font-family:'BIZ UDPGothic',sans-serif}
+#deck-cap[hidden],#deck-cap.empty{display:none!important}
+#deck-cap .cap-line{display:block;color:#fff!important;font-size:29px!important;line-height:1.45;max-height:none;overflow:visible;background:transparent!important;padding:0!important}
+#deck-cap[data-speaker=novice]{border-color:#f4c995}
+#deck-cap .r25-speaker{display:block;width:max-content;margin-bottom:5px;padding:1px 10px;background:#b8d5ed;color:#102238;border-radius:6px;font:27px/1.4 'BIZ UDPGothic',sans-serif}
+#deck-cap[data-speaker=novice] .r25-speaker{background:#f4c995;color:#302014}
+html[data-subtitle=b] #deck-cap{right:200px;left:48px}
+html[data-subtitle=b] #deck-cap[data-speaker=novice]{left:200px;right:48px}
+.r25-credit{background:#fff;color:#252529;display:grid;place-content:center;text-align:center;font:28px/1.8 'BIZ UDPGothic',sans-serif}
+.r25-credit .credit-title{font-size:36px;color:#ad2840;margin-bottom:15px}
