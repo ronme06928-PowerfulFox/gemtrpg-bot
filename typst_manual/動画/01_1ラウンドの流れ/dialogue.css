@@ -35,3 +35,6 @@ html:not([data-mode=video]) #deck-cap{bottom:90px!important}
 .v2-slide .s1-board{top:70px}
 .v2-slide m-gm-bubble{left:400px;top:320px}
 .v3-win-fp{left:420px!important;top:290px!important}
+/* 透明度が1へ戻っても立ち絵の描画レイヤーを変えない。 */
+.slide{will-change:opacity;transform:translateZ(0)}
+.app-portrait,[data-gallery-resolve-panel] .portrait .video-shared-image{will-change:transform;transform:translateZ(0)}

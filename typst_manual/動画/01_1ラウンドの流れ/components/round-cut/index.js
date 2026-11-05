@@ -1,3 +1,22 @@
+// 既存の2場面を重ねる。別タイマーや画像の写しは使わず、段階の時刻で描く。
+DECK.videoFade = (root,k,t) => {
+  if(!root.classList.contains('active'))return;
+  const duration=root.id==='s-credits'?.8:['s-names','s-return'].includes(root.id)?.5:.3;
+  const previous=root.previousElementSibling;
+  if(k>1||!previous||(k===1&&t>=duration))return;
+  const director=previous.querySelector('m-round-cut,m-resolve-panel');
+  if(director)director.render(director.steps,Infinity);
+  previous.style.visibility='visible';previous.style.opacity='1';previous.style.zIndex='1';
+  root.style.opacity=String(k===0?0:DECK.prog(t,0,duration));root.style.zIndex='2';
+};
+DECK.videoObjectFade=(root,k,t,selector,start=0,at=0,end=true)=>{
+  start=Math.max(1,start);
+  const enter=k>start?1:k<start?0:DECK.prog(t,at,.3);
+  const last=root.querySelector('m-round-cut,m-resolve-panel').steps;
+  const dur=DECK.TIMING[`${root.id}:${k}`]?.dur||0;
+  const exit=end&&k===last?1-DECK.prog(t,dur-.3,.3):1;
+  root.querySelectorAll(selector).forEach(el=>el.style.opacity=String(enter*exit));
+};
 function updateSpeaker(){
     const cap=document.querySelector('#deck-cap');if(!cap)return;
     const novice=!!cap.querySelector('.novice');cap.dataset.speaker=novice?'novice':'expert';
@@ -13,12 +32,13 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
   mount() {
     this.root = this.closest('section');
     if (this.root.id === 's-intro') {
+      DECK.T.slide=0;
       document.addEventListener('deck:ready', () => DECK.captions(true), { once: true });
       document.addEventListener('deck:captions', updateSpeaker);
       new MutationObserver(updateSpeaker).observe(document.body,{subtree:true,childList:true});
     }
   }
-  duration(k) { return k ? DECK.TIMING[`${this.root.id}:${k}`]?.dur || 0 : 0; }
+  duration(k) { return DECK.TIMING[`${this.root.id}:${k}`]?.dur || 0; }
   render(k, t) {
     const root = this.root;
     const q = (s) => root.querySelector(s);
@@ -30,15 +50,16 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     const cue = (id, fallback = 0) => {
       const phaseIndex = ['phase-start', 'phase-select', 'phase-resolve', 'phase-end'].indexOf(id);
       const index = phaseIndex >= 0 ? phaseIndex : marks.findIndex((x) => x.id === id);
-      return index < 0 ? fallback : cues[index] ?? fallback;
+      return (index < 0 ? fallback : cues[index] ?? fallback)+(DECK.TIMING[key]?.lead||0);
     };
     const after = (step, at = 0) => k > step ? Infinity : k < step ? -Infinity : t - at;
     const draw = (el, time, step = 1) => { if (el) el.render(time < 0 ? 0 : step, Math.max(0, time)); };
     const id = this.data.id;
-    const word = (step, index) => DECK.AUDIO[`${root.id}:${step}`].cues[index] + this.data.wordLead;
+    const word = (step, index) => DECK.AUDIO[`${root.id}:${step}`].cues[index] + this.data.wordLead+(DECK.TIMING[`${root.id}:${step}`]?.lead||0);
     const light = (name, step, start, end) => all(`[data-spoken="${name}"]`).forEach((el) => el.classList.toggle('spoken', k === step && t >= start && t < end));
     all('[data-spoken]').forEach((el) => el.classList.remove('spoken'));
-    show(q('.video-opening'), id === 'intro' && k <= 1);
+    show(q('.video-opening'), id === 'intro' && (k <= 1 || (k===2&&t<.8)));
+    if(q('.video-opening'))q('.video-opening').style.opacity=k===2?String(1-DECK.prog(t,0,.8)):'1';
     const phases = q('m-phase');
     draw(phases, Infinity, id === 'resolve' && (k === 0 || (k === 1 && t < 1.2)) ? 2 : this.data.phase);
     all('[data-phase]').forEach((el) => { el.style.outline = 'none'; el.style.outlineOffset = '3px'; });
@@ -50,16 +71,17 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     }
     draw(q('m-background'), Infinity);
     const gm = q('m-gm-bubble');
-    const slotStart = id === 'next' ? .5 : 0;
-    if (gm) { show(gm, k > 0 && after(id === 'slots' ? 2 : 1, slotStart) >= 0); draw(gm, after(id === 'slots' ? 2 : 1, slotStart)); }
+    const slotStart = 0;
+    const slotStep=id==='slots'?2:0;
+    if (gm) { show(gm, after(slotStep, slotStart) >= 0); draw(gm, Infinity); }
     const slotEls = all('.v2-slot');
     slotEls.forEach((el) => {
-      show(el, !['slots', 'next'].includes(id) || (k > 0 && after(id === 'slots' ? 2 : 1, slotStart) >= 0));
+      show(el, !['slots', 'next'].includes(id) || after(slotStep, slotStart) >= 0);
       el.classList.toggle('first-slot', id === 'resolve' && !!el.closest('.ally') && k === 1 && t >= .6 && t < 1.2);
     });
     if (id === 'speed') {
       const ds = all('m-dice');
-      const times = [after(1, word(1, 0)), after(1, word(1, 0) + .4)];
+      const times = k===1?[t-.3,t-.7]:k===0?[-Infinity,-Infinity]:[Infinity,Infinity];
       ds.forEach((d, i) => { show(d, times[i] >= 0); draw(d, times[i]); });
       slotEls.forEach((el, i) => { show(el, times[i] < 0); el.querySelector('span').textContent = ''; });
       show(q('.v2-speed-formula'), times[0] >= 1.1);
@@ -81,7 +103,7 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
       arrows.style.strokeWidth = matched ? '6.8' : '4.76';
       arrows.style.strokeDasharray = matched ? 'none' : '11.9 8.5';
       arrows.querySelector('marker path').setAttribute('fill', color);
-      [...arrows.querySelectorAll(':scope > path')].forEach((el, i) => show(el, i < count));
+      [...arrows.querySelectorAll(':scope > path')].forEach((el, i) => {show(el,i<count);el.style.opacity=k===2?String(DECK.prog(t,i?1.6:.4,.3)):'1';});
       all('.v2-skill').forEach((el) => show(el, k >= 2));
     }
     if (id.startsWith('power-')) {
@@ -109,10 +131,22 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
         show(label, spent);
       });
     }
-    if (id === 'effect-timing') draw(q('m-effect-frame'), after(2));
+    if (id === 'effect-timing') draw(q('m-effect-frame'), k>2?Infinity:k===2?3.5+Math.min(t,.3)*2:-Infinity);
     if (id === 'effect-fp') {
       draw(q('m-effect-frame'), k === 1 ? t : Infinity, k ? 2 : 1);
-      all('m-fp').forEach((el) => draw(el, after(1, cue('end-fp'))));
+      all('m-fp').forEach((el) => draw(el, after(1)));
     }
+    DECK.videoObjectFade(root,k,t,'.v2-slot',slotStep,0,!['resolve'].includes(id));
+    DECK.videoObjectFade(root,k,t,'m-gm-bubble',slotStep);
+    DECK.videoObjectFade(root,k,t,'.v2-skill',2);
+    DECK.videoObjectFade(root,k,t,'.v3-win-fp,m-effect-frame',0);
+    if(id==='speed'){
+      DECK.videoObjectFade(root,k,t,'.v2-speed-formula',0,1.4);
+      all('m-dice').forEach((el,i)=>{
+        const time=k===1?t-.3-i*.4:k===0?-Infinity:Infinity;
+        el.querySelector('[data-dice-target]').style.opacity=String(time>=2.4?DECK.prog(time,2.4,.3):1);
+      });
+    }
+    DECK.videoFade(root,k,t);
   }
 });

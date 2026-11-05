@@ -18,10 +18,10 @@ function check(src, expectedCode, name) {
 }
 const normal = check(path.join(deck, 'deck.html'), 0, 'quality-hidden-title');
 assert.equal(normal.counts.error, 0);
-assert.equal(normal.counts.warn, main ? 28 : 0);
+assert.equal(normal.counts.warn, main ? 29 : 0);
 if (main) {
   const warnings = normal.results.filter((r) => r.sev === 'warn');
-  assert.equal(warnings.filter((r) => r.code === 'narrMissing').length, 20); // 16カットの入場と無言の演出・最後の5秒
+  assert.equal(warnings.filter((r) => r.code === 'narrMissing').length, 21); // 入場・演出・クレジットのフェードと最後の5秒
   assert.equal(warnings.filter((r) => r.code === 'textContrast').length, 8); // 盤面の既存の白字FP／オレンジ地
 }
 const negative = path.join(deck, `title-negative-${process.pid}.html`);

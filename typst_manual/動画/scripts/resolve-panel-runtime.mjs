@@ -21,6 +21,12 @@ DECK.define('m-resolve-panel',class extends DECK.MotionElement {
     this.formula.hidden=!s.formula;
     this.formula.innerHTML=s.formula==='enemy'?'4 ＋ 1d2 ＋ 1d2<br>4 ＋ 1 ＋ 1 ＝ <b>6</b>':'4 ＋ 1d2 ＋ 1d3<br>4 ＋ 2 ＋ 3 ＝ <b>9</b>';
     this.dataset.nativeTime=s.time;this.dataset.r25Step=k;
-
+    const root=this.closest('section');
+    DECK.videoObjectFade(root,k,t,'.r25-formula',this.cutId==='power-ally'?2:1,0,this.cutId==='power-ally');
+    if(this.cutId==='power-enemy'&&k===1){
+      const dur=DECK.TIMING['s-power-enemy:1'].dur;
+      this.formula.style.opacity=String(DECK.prog(t,0,.3)*(1-DECK.prog(t,dur-.3,.3)));
+    }
+    DECK.videoFade(root,k,t);
   }
 });

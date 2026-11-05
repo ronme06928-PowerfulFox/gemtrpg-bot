@@ -6,14 +6,14 @@
     "pad_after": 0
   },
   "s-intro:1": {
-    "dur": 3.57,
-    "hold": 3.57,
-    "lead": 0,
+    "dur": 4.17,
+    "hold": 3.87,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-intro:2": {
-    "dur": 0.7,
-    "hold": 0.7,
+    "dur": 0.8,
+    "hold": 0.8,
     "lead": 0,
     "pad_after": 0
   },
@@ -24,39 +24,39 @@
     "pad_after": 0
   },
   "s-slots:1": {
-    "dur": 6.43,
+    "dur": 6.73,
     "hold": 6.43,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-slots:2": {
-    "dur": 3.14,
+    "dur": 3.44,
     "hold": 3.14,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-slots:3": {
-    "dur": 1.4,
-    "hold": 1.4,
-    "lead": 0,
+    "dur": 1.83,
+    "hold": 1.53,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-slots:4": {
-    "dur": 5.82,
+    "dur": 6.12,
     "hold": 5.82,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-slots:5": {
-    "dur": 3.58,
+    "dur": 3.88,
     "hold": 3.58,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-slots:6": {
-    "dur": 4.82,
+    "dur": 5.12,
     "hold": 4.82,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-speed:0": {
@@ -66,33 +66,33 @@
     "pad_after": 0
   },
   "s-speed:1": {
-    "dur": 11.26,
-    "hold": 11.26,
+    "dur": 14.79,
+    "hold": 14.79,
     "lead": 0,
     "pad_after": 0
   },
   "s-speed:2": {
-    "dur": 5.11,
-    "hold": 5.11,
-    "lead": 0,
+    "dur": 5.54,
+    "hold": 5.24,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-speed:3": {
-    "dur": 4.65,
+    "dur": 4.95,
     "hold": 4.65,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-speed:4": {
-    "dur": 3.71,
+    "dur": 4.01,
     "hold": 3.71,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-speed:5": {
-    "dur": 4.27,
+    "dur": 4.57,
     "hold": 4.27,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-selection:0": {
@@ -102,33 +102,33 @@
     "pad_after": 0
   },
   "s-selection:1": {
-    "dur": 6.13,
-    "hold": 6.13,
-    "lead": 0,
+    "dur": 6.56,
+    "hold": 6.26,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-selection:2": {
-    "dur": 3.38,
+    "dur": 5.38,
     "hold": 3.38,
-    "lead": 0,
+    "lead": 2,
     "pad_after": 0
   },
   "s-selection:3": {
-    "dur": 2.58,
+    "dur": 2.88,
     "hold": 2.58,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-selection:4": {
-    "dur": 2.51,
-    "hold": 2.51,
-    "lead": 0,
+    "dur": 2.94,
+    "hold": 2.64,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-selection:5": {
-    "dur": 4.49,
+    "dur": 4.79,
     "hold": 4.49,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-resolve:0": {
@@ -138,9 +138,9 @@
     "pad_after": 0
   },
   "s-resolve:1": {
-    "dur": 4.31,
+    "dur": 4.61,
     "hold": 4.31,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-names:0": {
@@ -174,33 +174,33 @@
     "pad_after": 0
   },
   "s-power-ally:1": {
-    "dur": 3.73,
+    "dur": 4.03,
     "hold": 3.73,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-power-ally:2": {
-    "dur": 3.43,
-    "hold": 3.43,
-    "lead": 0,
+    "dur": 3.86,
+    "hold": 3.56,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-power-ally:3": {
-    "dur": 4.44,
+    "dur": 4.74,
     "hold": 4.44,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-power-ally:4": {
-    "dur": 3.98,
+    "dur": 4.28,
     "hold": 3.98,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-power-ally:5": {
-    "dur": 4.6,
+    "dur": 4.9,
     "hold": 4.6,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-power-enemy:0": {
@@ -210,27 +210,27 @@
     "pad_after": 0
   },
   "s-power-enemy:1": {
-    "dur": 3.3,
+    "dur": 3.6,
     "hold": 3.3,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-power-enemy:2": {
-    "dur": 2.9,
+    "dur": 3.2,
     "hold": 2.9,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-power-enemy:3": {
-    "dur": 3.6,
-    "hold": 3.6,
-    "lead": 0,
+    "dur": 4.03,
+    "hold": 3.73,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-power-enemy:4": {
-    "dur": 5.04,
+    "dur": 5.34,
     "hold": 5.04,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-attack:0": {
@@ -258,15 +258,15 @@
     "pad_after": 0
   },
   "s-outcome:2": {
-    "dur": 2.24,
-    "hold": 2.24,
-    "lead": 0,
+    "dur": 2.67,
+    "hold": 2.37,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-outcome:3": {
-    "dur": 5.2,
+    "dur": 5.5,
     "hold": 5.2,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-return:0": {
@@ -276,21 +276,21 @@
     "pad_after": 0
   },
   "s-return:1": {
-    "dur": 6.13,
+    "dur": 6.63,
     "hold": 6.13,
-    "lead": 0,
+    "lead": 0.5,
     "pad_after": 0
   },
   "s-return:2": {
-    "dur": 4.96,
-    "hold": 4.96,
-    "lead": 0,
+    "dur": 5.39,
+    "hold": 5.09,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-return:3": {
-    "dur": 2.7,
+    "dur": 3,
     "hold": 2.7,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-effect-timing:0": {
@@ -300,21 +300,21 @@
     "pad_after": 0
   },
   "s-effect-timing:1": {
-    "dur": 2.75,
+    "dur": 3.05,
     "hold": 2.75,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-effect-timing:2": {
-    "dur": 2.91,
+    "dur": 3.21,
     "hold": 2.91,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-effect-timing:3": {
-    "dur": 7.48,
+    "dur": 7.78,
     "hold": 7.48,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-effect-fp:0": {
@@ -324,21 +324,21 @@
     "pad_after": 0
   },
   "s-effect-fp:1": {
-    "dur": 5.37,
+    "dur": 6.77,
     "hold": 5.37,
-    "lead": 0,
+    "lead": 1.4,
     "pad_after": 0
   },
   "s-effect-fp:2": {
-    "dur": 3.68,
+    "dur": 3.98,
     "hold": 3.68,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-effect-fp:3": {
-    "dur": 4.84,
+    "dur": 5.14,
     "hold": 4.84,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-next:0": {
@@ -348,32 +348,38 @@
     "pad_after": 0
   },
   "s-next:1": {
-    "dur": 6.58,
+    "dur": 6.88,
     "hold": 6.58,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-next:2": {
-    "dur": 5.96,
+    "dur": 6.26,
     "hold": 5.96,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-next:3": {
-    "dur": 3.75,
-    "hold": 3.75,
-    "lead": 0,
+    "dur": 4.18,
+    "hold": 3.88,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-next:4": {
-    "dur": 4.37,
+    "dur": 4.67,
     "hold": 4.37,
-    "lead": 0,
+    "lead": 0.3,
     "pad_after": 0
   },
   "s-credits:0": {
-    "dur": 5,
-    "hold": 5,
+    "dur": 0,
+    "hold": 0,
+    "lead": 0,
+    "pad_after": 0
+  },
+  "s-credits:1": {
+    "dur": 5.8,
+    "hold": 5.8,
     "lead": 0,
     "pad_after": 0
   }

@@ -88,7 +88,9 @@ const sections=shots.map(shot=>{
 });
 const css=['app_mock.css','motion.css','credits.css','round-v2.css','opening.css','shared-images.css','panel.css','dialogue.css','fonts.css'];
 const licenses=['Cinzel','ZenAntique'].map(n=>fs.readFileSync(path.join(video,'common/fonts',`OFL-${n}.txt`),'utf8').split(/\r?\n/).map(line=>line.trimEnd()).join('\n')).join('\n');
+const creditDirector=`<m-round-cut steps="1">${json({id:'credits',phase:1,wordLead})}</m-round-cut>`;
+const scenes=sections.join('\n').replace(/(<section[^>]*id="s-credits"[\s\S]*?)(<\/section>)/,`$1${creditDirector}$2`);
 const defaultCaptions='<script>(()=>{const u=new URL(location.href);if(!u.searchParams.has("captions"))u.searchParams.set("captions","1");history.replaceState(null,"",u.href)})();</script>';
-fs.writeFileSync(path.join(deck,'deck.html'),`<!doctype html><html lang="ja" data-theme="gemuria"><head><meta charset="utf-8"><title>1ラウンドの流れ v3</title>${defaultCaptions}${css.map(n=>`<link rel="stylesheet" href="${n}">`).join('')}<script type="text/plain" id="font-licenses">${licenses}</script></head><body><div id="stage">${shareSceneImages(sections.join('\n'))}</div></body></html>\n`);
+fs.writeFileSync(path.join(deck,'deck.html'),`<!doctype html><html lang="ja" data-theme="gemuria"><head><meta charset="utf-8"><title>1ラウンドの流れ v3</title>${defaultCaptions}${css.map(n=>`<link rel="stylesheet" href="${n}">`).join('')}<script type="text/plain" id="font-licenses">${licenses}</script></head><body><div id="stage">${shareSceneImages(scenes)}</div></body></html>\n`);
 await prepareDialogueVoice(deck,shots);
 console.log('v3: 16 cuts');

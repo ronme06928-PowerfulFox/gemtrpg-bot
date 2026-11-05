@@ -7,20 +7,6 @@
       }
     ]
   },
-  "s-speed:1": {
-    "effects": [
-      {
-        "sound": "dice",
-        "cue": 0,
-        "offset": 1.32
-      },
-      {
-        "sound": "dice",
-        "cue": 0,
-        "offset": 1.72
-      }
-    ]
-  },
   "s-selection:2": {
     "effects": [
       {

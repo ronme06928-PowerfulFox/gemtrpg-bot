@@ -43,7 +43,8 @@ export async function prepareDialogueVoice(deck,shots){
   const config=JSON.parse(fs.readFileSync(path.join(deck,'voice/config.json'),'utf8'));
   const events=JSON.parse(fs.readFileSync(path.join(deck,'voice/events.json'),'utf8'));
   const request=async(url,init)=>{const r=await fetch('http://127.0.0.1:50021'+url,{...init,signal:AbortSignal.timeout(180000)});assert.ok(r.ok,`${url}: ${r.status}`);return r;};
-  assert.equal(await(await request('/version')).json(),'0.26.0');
+  const cacheOnly=process.argv.includes('--cache-only');
+  if(!cacheOnly)assert.equal(await(await request('/version')).json(),'0.26.0');
   let made=0,cached=0;
   const synth=async(text,role,key)=>{
     const voice=voices[role];const settings={speedScale:voice.speedScale,pitchScale:voice.pitchScale,intonationScale:voice.intonationScale,prePhonemeLength:.08,postPhonemeLength:.1,outputSamplingRate:24000,outputStereo:false};
@@ -53,6 +54,7 @@ export async function prepareDialogueVoice(deck,shots){
     const hash=createHash('sha256').update(JSON.stringify({version:'0.26.0',voice:voice.id,reading,settings})).digest('hex');
     const file=path.join(deck,'voice/cache',hash+'.wav');
     if(fs.existsSync(file))cached++;else{
+      assert.ok(!cacheOnly,`声キャッシュがないため生成せず停止: ${key}`);
       const q=await(await request(`/audio_query?speaker=${voice.id}&text=${encodeURIComponent(reading)}`,{method:'POST'})).json();Object.assign(q,settings);
       const wav=Buffer.from(await(await request(`/synthesis?speaker=${voice.id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(q)})).arrayBuffer());
       decodeWav(wav);fs.writeFileSync(file,wav);json(file.replace('.wav','.json'),{role,text,voice,query:q});made++;
@@ -60,8 +62,8 @@ export async function prepareDialogueVoice(deck,shots){
     return {...decodeWav(fs.readFileSync(file)),hash,reading};
   };
   const timing={},manifest={segments:{}},measures=[];
-  for(const shot of shots)for(let k=0;k<=shot.count;k++){
-    const dur=shot.id==='credits'?5:shot.id==='intro'?(k===0?2.6:k===2?.7:0):k===1?({names:.5,'power-roll':1.2+config.pauses.cut,attack:.7+config.pauses.cut,outcome:2.2}[shot.id]||0):0;
+  for(const shot of shots)for(let k=0;k<=(shot.id==='credits'?1:shot.count);k++){
+    const dur=shot.id==='credits'?(k===0?0:5.8):shot.id==='intro'?(k===0?2.6:k===2?.8:0):k===1?({names:.5,'power-roll':1.2+config.pauses.cut,attack:.7+config.pauses.cut,outcome:2.2}[shot.id]||0):0;
     timing[`s-${shot.id}:${k}`]={dur,hold:dur,lead:0,pad_after:0};
   }
   const se=pcm(run(['-i','static/audio/dice-roll.mp3','-f','s16le','-ar','24000','-ac','1','pipe:1']));const gain=10**(-16/20)/peak(se);const dice=se.map(x=>x*gain);
@@ -79,21 +81,23 @@ export async function prepareDialogueVoice(deck,shots){
     const joined=joinParts(arrays,24000,config.partGap);assert.equal(joined.cues.length,s.bounds.length);
     const b=encodeWav(joined.samples,24000);
     const normalized=run(['-i','pipe:0','-af','loudnorm=I=-20:TP=-3:LRA=7','-ar','24000','-ac','1','-f','s16le','pipe:1'],b);
-    const samples=pcm(normalized),lead=s.slideKey==='s-names'?.5:0;
+    const samples=pcm(normalized),lead=s.slideKey==='s-names'?.5:key==='s-speed:1'?3.4:0;
     const next=segments[index+1];
     const cut=!next||s.slideKey!==next.slideKey;
     const gap=cut?config.pauses.cut:turn.role!==next.turns[0].role?config.pauses.speakerChange:config.pauses.sameSpeaker;
     // 原音にある文末0.10秒と次の文頭0.08秒も「間」に数える。
     // 題の後には既存の盤面0.7秒があるので、同じ無音を二重に足さない。
-    const tail=Math.max(0,gap-config.postPhonemeLength-config.prePhonemeLength-(s.slideKey==='s-intro'?.7:0));
+    const tail=Math.max(.3,gap-config.postPhonemeLength-config.prePhonemeLength-(s.slideKey==='s-intro'?.7:0));
     const dur=Math.ceil((samples.length/24000+tail+lead)*100)/100;
     const mix=new Float32Array(Math.round(dur*24000));mix.set(samples,Math.round(lead*24000));
     const cues=joined.cues.map(x=>+(x+lead).toFixed(4));
     const file=`steps/${s.slideKey}-${s.stepKey}.wav`;
+    if(key==='s-speed:1')for(const at of [1.4,1.8])mixEffect(mix,dice,Math.round(at*24000));
     for(const effect of events[key]?.effects||[])mixEffect(mix,sounds[effect.sound],Math.round(effectTime(effect,s.bounds,cues)*24000));
     fs.writeFileSync(path.join(deck,'audio',file),encodeWav(mix,24000));
     manifest.segments[key]={file,dur,cues,sync:'manual',kind:'imported',inputHash:await inputHash(s)};
-    timing[key]={dur,hold:dur,lead:0,pad_after:0};
+    const fadeLead=key==='s-selection:2'?2:key==='s-effect-fp:1'?1.4:['s-names:1','s-speed:1'].includes(key)?0:key==='s-return:1'?.5:.3;
+    timing[key]={dur:+(dur+fadeLead).toFixed(2),hold:dur,lead:fadeLead,pad_after:0};
     measures.push({key,role:turn.role,text:turn.display,dur,gap,tail,readings,hashes});console.log(`${key} ${dur}s`);
   }
   fs.writeFileSync(path.join(deck,'audio/steps/s-intro-0.wav'),openingSound());
