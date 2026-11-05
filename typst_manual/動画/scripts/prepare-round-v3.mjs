@@ -91,6 +91,6 @@ const licenses=['Cinzel','ZenAntique'].map(n=>fs.readFileSync(path.join(video,'c
 const creditDirector=`<m-round-cut steps="1">${json({id:'credits',phase:1,wordLead})}</m-round-cut>`;
 const scenes=sections.join('\n').replace(/(<section[^>]*id="s-credits"[\s\S]*?)(<\/section>)/,`$1${creditDirector}$2`);
 const defaultCaptions='<script>(()=>{const u=new URL(location.href);if(!u.searchParams.has("captions"))u.searchParams.set("captions","1");history.replaceState(null,"",u.href)})();</script>';
-fs.writeFileSync(path.join(deck,'deck.html'),`<!doctype html><html lang="ja" data-theme="gemuria"><head><meta charset="utf-8"><title>1ラウンドの流れ v3</title>${defaultCaptions}${css.map(n=>`<link rel="stylesheet" href="${n}">`).join('')}<script type="text/plain" id="font-licenses">${licenses}</script></head><body><div id="stage">${shareSceneImages(scenes)}</div></body></html>\n`);
-await prepareDialogueVoice(deck,shots);
+const flow=await prepareDialogueVoice(deck,shots);
+fs.writeFileSync(path.join(deck,'deck.html'),`<!doctype html><html lang="ja" data-theme="gemuria"><head><meta charset="utf-8"><title>1ラウンドの流れ v3</title>${defaultCaptions}${css.map(n=>`<link rel="stylesheet" href="${n}">`).join('')}<script type="application/json" id="video-flow">${JSON.stringify(flow)}</script><script type="text/plain" id="font-licenses">${licenses}</script></head><body><div id="stage">${shareSceneImages(scenes)}</div></body></html>\n`);
 console.log('v3: 16 cuts');

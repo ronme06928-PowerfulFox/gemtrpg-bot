@@ -1,21 +1,21 @@
-// 既存の2場面を重ねる。別タイマーや画像の写しは使わず、段階の時刻で描く。
-DECK.videoFade = (root,k,t) => {
+// ビルドと描画は、同じ一拍の予定を参照する。
+DECK.VIDEO_FLOW=JSON.parse(document.getElementById('video-flow').textContent);
+DECK.videoEvent=(root,k,name)=>DECK.VIDEO_FLOW[`${root.id}:${k}`]?.events[name]||{start:0,duration:0};
+DECK.videoFade=(root,k,t)=>{
   if(!root.classList.contains('active'))return;
-  const duration=root.id==='s-credits'?.8:['s-names','s-return'].includes(root.id)?.5:.3;
-  const previous=root.previousElementSibling;
-  if(k>1||!previous||(k===1&&t>=duration))return;
+  const event=DECK.videoEvent(root,k,'sceneFade'),previous=root.previousElementSibling;
+  if(!previous||k>1||(k===1&&(!event.duration||t>=event.start+event.duration)))return;
   const director=previous.querySelector('m-round-cut,m-resolve-panel');
   if(director)director.render(director.steps,Infinity);
   previous.style.visibility='visible';previous.style.opacity='1';previous.style.zIndex='1';
-  root.style.opacity=String(k===0?0:DECK.prog(t,0,duration));root.style.zIndex='2';
+  root.style.opacity=String(k===0?0:DECK.prog(t,event.start,event.duration));root.style.zIndex='2';
 };
-DECK.videoObjectFade=(root,k,t,selector,start=0,at=0,end=true)=>{
-  start=Math.max(1,start);
-  const enter=k>start?1:k<start?0:DECK.prog(t,at,.3);
-  const last=root.querySelector('m-round-cut,m-resolve-panel').steps;
-  const dur=DECK.TIMING[`${root.id}:${k}`]?.dur||0;
-  const exit=end&&k===last?1-DECK.prog(t,dur-.3,.3):1;
-  root.querySelectorAll(selector).forEach(el=>el.style.opacity=String(enter*exit));
+DECK.videoObjectFade=(root,k,t,selector,name,start=1,exit=true)=>{
+  const event=DECK.videoEvent(root,start,name);
+  const enter=k>start?1:k<start?0:DECK.prog(t,event.start,event.duration);
+  const ending=DECK.videoEvent(root,k,'exit');
+  const out=exit&&ending.duration?1-DECK.prog(t,ending.start,ending.duration):1;
+  root.querySelectorAll(selector).forEach(el=>el.style.opacity=String(enter*out));
 };
 function updateSpeaker(){
     const cap=document.querySelector('#deck-cap');if(!cap)return;
@@ -58,15 +58,15 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     const word = (step, index) => DECK.AUDIO[`${root.id}:${step}`].cues[index] + this.data.wordLead+(DECK.TIMING[`${root.id}:${step}`]?.lead||0);
     const light = (name, step, start, end) => all(`[data-spoken="${name}"]`).forEach((el) => el.classList.toggle('spoken', k === step && t >= start && t < end));
     all('[data-spoken]').forEach((el) => el.classList.remove('spoken'));
-    show(q('.video-opening'), id === 'intro' && (k <= 1 || (k===2&&t<.8)));
-    if(q('.video-opening'))q('.video-opening').style.opacity=k===2?String(1-DECK.prog(t,0,.8)):'1';
+    show(q('.video-opening'), id === 'intro' && (k <= 1 || (k===2&&t<DECK.videoEvent(root,k,'sceneFade').duration)));
+    if(q('.video-opening'))q('.video-opening').style.opacity=k===2?String(1-DECK.prog(t,DECK.videoEvent(root,k,'sceneFade').start,DECK.videoEvent(root,k,'sceneFade').duration)):'1';
     const phases = q('m-phase');
     draw(phases, Infinity, id === 'resolve' && (k === 0 || (k === 1 && t < 1.2)) ? 2 : this.data.phase);
     all('[data-phase]').forEach((el) => { el.style.outline = 'none'; el.style.outlineOffset = '3px'; });
     if (id === 'slots' && k === 1) {
       ['phase-start', 'phase-select', 'phase-resolve', 'phase-end'].forEach((name, i) => {
         const start = cue(name);
-        q(`[data-phase="${i}"]`).style.outline = t >= start && t < start + .65 ? '4px solid var(--emph)' : 'none';
+        q(`[data-phase="${i}"]`).style.outline = t >= start ? '4px solid var(--emph)' : 'none';
       });
     }
     draw(q('m-background'), Infinity);
@@ -77,11 +77,12 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     const slotEls = all('.v2-slot');
     slotEls.forEach((el) => {
       show(el, !['slots', 'next'].includes(id) || after(slotStep, slotStart) >= 0);
-      el.classList.toggle('first-slot', id === 'resolve' && !!el.closest('.ally') && k === 1 && t >= .6 && t < 1.2);
+      const highlight=DECK.videoEvent(root,k,'speedHighlight');
+      el.classList.toggle('first-slot', id === 'resolve' && !!el.closest('.ally') && k === 1 && t >= highlight.start && t < highlight.start+highlight.duration);
     });
     if (id === 'speed') {
       const ds = all('m-dice');
-      const times = k===1?[t-.3,t-.7]:k===0?[-Infinity,-Infinity]:[Infinity,Infinity];
+      const times = k===1?['diceAlly','diceEnemy'].map(name=>t-DECK.videoEvent(root,k,name).start):k===0?[-Infinity,-Infinity]:[Infinity,Infinity];
       ds.forEach((d, i) => { show(d, times[i] >= 0); draw(d, times[i]); });
       slotEls.forEach((el, i) => { show(el, times[i] < 0); el.querySelector('span').textContent = ''; });
       show(q('.v2-speed-formula'), times[0] >= 1.1);
@@ -90,20 +91,22 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
         row.querySelector('[data-speed-face]').textContent = times[i] >= 1.1 ? String(i ? 3 : 4) : '？';
         row.querySelector('[data-speed-total]').textContent = times[i] >= 1.1 ? String(i ? 4 : 6) : '？';
       });
-      light('speed-correction', 1, word(1, 1), word(1, 1) + 1.2);
+      light('speed-correction', 1, word(1, 1), Infinity);
     }
     if (id === 'selection') {
       const arrows = q('.v2-arrows');
       const matched = k >= 5;
       const color = matched ? '#ffb020' : '#8a93a3';
-      const count = k > 2 ? 2 : k === 2 ? (t >= 1.6 ? 2 : t >= .4 ? 1 : 0) : 0;
+      const arrowEvents=['arrowAlly','arrowEnemy'].map(name=>DECK.videoEvent(root,2,name));
+      const count=k>2?2:k===2?arrowEvents.filter(e=>t>=e.start).length:0;
       show(arrows, count > 0);
       arrows.style.opacity = matched ? '.98' : '.9';
+      if(k===5){const event=DECK.videoEvent(root,k,'match');arrows.style.opacity=String(.98*DECK.prog(t,event.start,event.duration));}
       arrows.style.stroke = color;
       arrows.style.strokeWidth = matched ? '6.8' : '4.76';
       arrows.style.strokeDasharray = matched ? 'none' : '11.9 8.5';
       arrows.querySelector('marker path').setAttribute('fill', color);
-      [...arrows.querySelectorAll(':scope > path')].forEach((el, i) => {show(el,i<count);el.style.opacity=k===2?String(DECK.prog(t,i?1.6:.4,.3)):'1';});
+      [...arrows.querySelectorAll(':scope > path')].forEach((el, i) => {show(el,i<count);el.style.opacity=k===2?String(DECK.prog(t,arrowEvents[i].start,arrowEvents[i].duration)):'1';});
       all('.v2-skill').forEach((el) => show(el, k >= 2));
     }
     if (id.startsWith('power-')) {
@@ -131,19 +134,21 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
         show(label, spent);
       });
     }
-    if (id === 'effect-timing') draw(q('m-effect-frame'), k>2?Infinity:k===2?3.5+Math.min(t,.3)*2:-Infinity);
+    if (id === 'effect-timing') draw(q('m-effect-frame'), k>2?Infinity:k===2?3.5+Math.max(0,t-DECK.videoEvent(root,k,'timingFrame').start):-Infinity);
     if (id === 'effect-fp') {
-      draw(q('m-effect-frame'), k === 1 ? t : Infinity, k ? 2 : 1);
-      all('m-fp').forEach((el) => draw(el, after(1)));
+      draw(q('m-effect-frame'), k === 1 ? Math.max(0,t-DECK.videoEvent(root,k,'effectExpand').start) : Infinity, k ? 2 : 1);
+      all('m-fp').forEach((el) => draw(el, after(1,DECK.videoEvent(root,1,'fp').start)));
     }
-    DECK.videoObjectFade(root,k,t,'.v2-slot',slotStep,0,!['resolve'].includes(id));
-    DECK.videoObjectFade(root,k,t,'m-gm-bubble',slotStep);
-    DECK.videoObjectFade(root,k,t,'.v2-skill',2);
-    DECK.videoObjectFade(root,k,t,'.v3-win-fp,m-effect-frame',0);
+    DECK.videoObjectFade(root,k,t,'.v2-slot','slots',Math.max(1,slotStep),id!=='resolve');
+    DECK.videoObjectFade(root,k,t,'m-gm-bubble','gm',Math.max(1,slotStep));
+    DECK.videoObjectFade(root,k,t,'.v2-skill','skills',2);
+    DECK.videoObjectFade(root,k,t,'.v3-win-fp','win');
+    DECK.videoObjectFade(root,k,t,'m-effect-frame','effect');
     if(id==='speed'){
-      DECK.videoObjectFade(root,k,t,'.v2-speed-formula',0,1.4);
+      DECK.videoObjectFade(root,k,t,'.v2-speed-formula','speedFormula');
       all('m-dice').forEach((el,i)=>{
-        const time=k===1?t-.3-i*.4:k===0?-Infinity:Infinity;
+        const event=DECK.videoEvent(root,1,i?'diceEnemy':'diceAlly');
+        const time=k===1?t-event.start:k===0?-Infinity:Infinity;
         el.querySelector('[data-dice-target]').style.opacity=String(time>=2.4?DECK.prog(time,2.4,.3):1);
       });
     }

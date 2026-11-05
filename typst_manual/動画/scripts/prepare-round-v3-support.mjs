@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { voices } from './round-v3-data.mjs';
+import { planBeat, motion } from './round-v3-flow.mjs';
 import { decodeWav, encodeWav, joinParts, mixEffect, peak } from './r1-audio.mjs';
 import { openingSound } from '../common/opening.mjs';
 import { effectTime } from './prepare-voice.mjs';
@@ -61,50 +62,53 @@ export async function prepareDialogueVoice(deck,shots){
     }
     return {...decodeWav(fs.readFileSync(file)),hash,reading};
   };
-  const timing={},manifest={segments:{}},measures=[];
-  for(const shot of shots)for(let k=0;k<=(shot.id==='credits'?1:shot.count);k++){
-    const dur=shot.id==='credits'?(k===0?0:5.8):shot.id==='intro'?(k===0?2.6:k===2?.8:0):k===1?({names:.5,'power-roll':1.2+config.pauses.cut,attack:.7+config.pauses.cut,outcome:2.2}[shot.id]||0):0;
-    timing[`s-${shot.id}:${k}`]={dur,hold:dur,lead:0,pad_after:0};
-  }
-  const se=pcm(run(['-i','static/audio/dice-roll.mp3','-f','s16le','-ar','24000','-ac','1','pipe:1']));const gain=10**(-16/20)/peak(se);const dice=se.map(x=>x*gain);
-  const sounds={dice};
+  const timing={},manifest={segments:{}},measures=[],flow={};
+  const sounds={};
   for(const [name,s] of Object.entries(JSON.parse(fs.readFileSync(path.join(deck,'sfx/cues.json'),'utf8')).sources)){
-    if(name==='dice')continue;
     const a=pcm(run(['-i',path.join(deck,'sfx',s.file),'-f','s16le','-ar','24000','-ac','1','pipe:1']));
     const gain=10**((s.peakDb+6)/20)/peak(a);sounds[name]=a.map((x,i)=>x*gain*Math.min(1,(a.length-1-i)/(24000*.008)));
   }
   const segments=parseNarration(fs.readFileSync(path.join(deck,'narration.md'),'utf8'));
-  for(const [index,s] of segments.entries()){
-    const key=`${s.slideKey}:${s.stepKey}`;
-    assert.equal(s.turns.length,1);const turn=s.turns[0],arrays=[],hashes=[],readings=[];
-    for(const part of turn.ttsParts){if(!part.trim()){arrays.push(null);continue;}const raw=await synth(part,turn.role,key);arrays.push(raw.samples);hashes.push(raw.hash);readings.push(raw.reading);}
-    const joined=joinParts(arrays,24000,config.partGap);assert.equal(joined.cues.length,s.bounds.length);
-    const b=encodeWav(joined.samples,24000);
-    const normalized=run(['-i','pipe:0','-af','loudnorm=I=-20:TP=-3:LRA=7','-ar','24000','-ac','1','-f','s16le','pipe:1'],b);
-    const samples=pcm(normalized),lead=s.slideKey==='s-names'?.5:key==='s-speed:1'?3.4:0;
-    const next=segments[index+1];
-    const cut=!next||s.slideKey!==next.slideKey;
-    const gap=cut?config.pauses.cut:turn.role!==next.turns[0].role?config.pauses.speakerChange:config.pauses.sameSpeaker;
-    // 原音にある文末0.10秒と次の文頭0.08秒も「間」に数える。
-    // 題の後には既存の盤面0.7秒があるので、同じ無音を二重に足さない。
-    const tail=Math.max(.3,gap-config.postPhonemeLength-config.prePhonemeLength-(s.slideKey==='s-intro'?.7:0));
-    const dur=Math.ceil((samples.length/24000+tail+lead)*100)/100;
-    const mix=new Float32Array(Math.round(dur*24000));mix.set(samples,Math.round(lead*24000));
-    const cues=joined.cues.map(x=>+(x+lead).toFixed(4));
-    const file=`steps/${s.slideKey}-${s.stepKey}.wav`;
-    if(key==='s-speed:1')for(const at of [1.4,1.8])mixEffect(mix,dice,Math.round(at*24000));
-    for(const effect of events[key]?.effects||[])mixEffect(mix,sounds[effect.sound],Math.round(effectTime(effect,s.bounds,cues)*24000));
-    fs.writeFileSync(path.join(deck,'audio',file),encodeWav(mix,24000));
-    manifest.segments[key]={file,dur,cues,sync:'manual',kind:'imported',inputHash:await inputHash(s)};
-    const fadeLead=key==='s-selection:2'?2:key==='s-effect-fp:1'?1.4:['s-names:1','s-speed:1'].includes(key)?0:key==='s-return:1'?.5:.3;
-    timing[key]={dur:+(dur+fadeLead).toFixed(2),hold:dur,lead:fadeLead,pad_after:0};
-    measures.push({key,role:turn.role,text:turn.display,dur,gap,tail,readings,hashes});console.log(`${key} ${dur}s`);
+  const byKey=new Map(segments.map(s=>[`${s.slideKey}:${s.stepKey}`,s]));
+  for(const [index,shot] of shots.entries())for(let k=0;k<=(shot.id==='credits'?1:shot.count);k++){
+    const key=`s-${shot.id}:${k}`,s=byKey.get(key),hashes=[],readings=[],arrays=[];
+    if(s){
+      assert.equal(s.turns.length,1);
+      for(const part of s.turns[0].ttsParts){
+        if(!part.trim()){arrays.push(null);continue;}
+        const raw=await synth(part,s.turns[0].role,key);arrays.push(raw.samples);hashes.push(raw.hash);readings.push(raw.reading);
+      }
+    }
+    const joined=joinParts(arrays,24000,config.partGap);
+    if(s)assert.equal(joined.cues.length,s.bounds.length);
+    const samples=s?pcm(run(['-i','pipe:0','-af','loudnorm=I=-20:TP=-3:LRA=7','-ar','24000','-ac','1','-f','s16le','pipe:1'],encodeWav(joined.samples,24000))):new Float32Array();
+    const beat=k===0&&shot.id!=='intro'?{events:{},duration:0,voiceStart:0,voiceEnd:0,marks:[]}:planBeat({
+      id:shot.id,k,last:k===shot.count||(shot.id==='intro'&&k===1),next:shots[index+1]?.id,
+      voiceSeconds:samples.length/24000,cues:joined.cues,bounds:s?.bounds||[]});
+    flow[key]=beat;timing[key]={dur:beat.duration,hold:beat.duration,lead:0,pad_after:0};
+    const seEvents=[];
+    for(const effect of events[key]?.effects||[]){
+      const name=effect.sound==='slot'?(beat.events.skills?'skills':'slots'):effect.sound==='match'?'match':effect.sound;
+      const event=beat.events[name];
+      seEvents.push({sound:effect.sound,at:event?event.start:beat.voiceStart+effectTime(effect,s?.bounds||[],joined.cues)});
+    }
+    for(const name of ['diceAlly','diceEnemy'])if(beat.events[name])seEvents.push({sound:'dice',at:beat.events[name].start+motion.dieRoll});
+    if(shot.id==='power-roll'&&beat.events.native)seEvents.push({sound:'dice',at:beat.events.native.start});
+    const hasOpening=!!beat.events.opening;
+    if(s||seEvents.length||hasOpening){
+      const mix=new Float32Array(Math.round(beat.duration*24000));
+      if(samples.length)mix.set(samples,Math.round(beat.voiceStart*24000));
+      for(const event of seEvents)mixEffect(mix,sounds[event.sound],Math.round(event.at*24000));
+      if(hasOpening)mixEffect(mix,decodeWav(openingSound()).samples,0);
+      const file=`steps/${shot.id}-${k}.wav`;
+      fs.writeFileSync(path.join(deck,'audio',file),encodeWav(mix,24000));
+      manifest.segments[key]={file,dur:beat.duration,cues:joined.cues.map(x=>+(x+beat.voiceStart).toFixed(4)),sync:'manual',kind:'imported',inputHash:await inputHash(s||{turns:[]})};
+    }
+    if(s)measures.push({key,role:s.turns[0].role,text:s.turns[0].display,readings,hashes,...beat});
+    console.log(`${key} ${beat.duration}s`);
   }
-  fs.writeFileSync(path.join(deck,'audio/steps/s-intro-0.wav'),openingSound());
-  manifest.segments['s-intro:0']={file:'steps/s-intro-0.wav',dur:2.6,cues:[],sync:'manual',kind:'imported'};
-  const power=new Float32Array(28800);power.set(dice);fs.writeFileSync(path.join(deck,'audio/steps/power-se.wav'),encodeWav(power,24000));
-  manifest.segments['s-power-roll:1']={file:'steps/power-se.wav',dur:1.2,cues:[],sync:'manual',kind:'imported',inputHash:await inputHash({turns:[]})};
-  json(path.join(deck,'audio/manifest.json'),manifest);json(path.join(deck,'timeline.json'),timing);
+  json(path.join(deck,'audio/manifest.json'),manifest);json(path.join(deck,'timeline.json'),timing);json(path.join(deck,'flow.json'),flow);
   const duration=Object.values(timing).reduce((n,v)=>n+v.dur,0);
   json(path.join(local,'voice-report.json'),{version:'0.26.0',voices,made,cached,duration,measures});console.log(JSON.stringify({made,cached,duration}));
+  return flow;
 }

@@ -10,7 +10,8 @@ DECK.define('m-resolve-panel',class extends DECK.MotionElement {
   duration(k){return DECK.TIMING[`${this.closest('section').id}:${k}`]?.dur||0;}
   render(k,t){
     if(!this.native)return;
-    const s=sceneAt(this.cutId,k,t);this.world.style.transform='';this.native.render(s.time);
+    const root=this.closest('section'),event=DECK.videoEvent(root,k,'native');
+    const s=sceneAt(this.cutId,k,event.duration?Math.max(0,t-event.start):t);this.world.style.transform='';this.native.render(s.time);
     const zoomed=!!s.zoom;this.native.panel.classList.toggle('r25-zoom',zoomed);
     if(zoomed){
       const side=s.zoom==='ally'?'attacker':'defender',box=this.native.panel.querySelector(`.combatant.${side} > .gem`).getBoundingClientRect();
@@ -21,12 +22,7 @@ DECK.define('m-resolve-panel',class extends DECK.MotionElement {
     this.formula.hidden=!s.formula;
     this.formula.innerHTML=s.formula==='enemy'?'4 ＋ 1d2 ＋ 1d2<br>4 ＋ 1 ＋ 1 ＝ <b>6</b>':'4 ＋ 1d2 ＋ 1d3<br>4 ＋ 2 ＋ 3 ＝ <b>9</b>';
     this.dataset.nativeTime=s.time;this.dataset.r25Step=k;
-    const root=this.closest('section');
-    DECK.videoObjectFade(root,k,t,'.r25-formula',this.cutId==='power-ally'?2:1,0,this.cutId==='power-ally');
-    if(this.cutId==='power-enemy'&&k===1){
-      const dur=DECK.TIMING['s-power-enemy:1'].dur;
-      this.formula.style.opacity=String(DECK.prog(t,0,.3)*(1-DECK.prog(t,dur-.3,.3)));
-    }
+    DECK.videoObjectFade(root,k,t,'.r25-formula','formula',this.cutId==='power-ally'?2:1);
     DECK.videoFade(root,k,t);
   }
 });
