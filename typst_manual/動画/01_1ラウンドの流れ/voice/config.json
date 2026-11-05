@@ -2,11 +2,11 @@
   "engineVersion": "0.26.0",
   "speaker": "冥鳴ひまり",
   "style": "ノーマル",
-  "speedScale": 1.0,
+  "speedScale": 1.1,
   "pitchScale": 0,
-  "intonationScale": 1.0,
-  "prePhonemeLength": 0.1,
-  "postPhonemeLength": 0.12,
+  "intonationScale": 1.03,
+  "prePhonemeLength": 0.08,
+  "postPhonemeLength": 0.1,
   "partGap": 0.12,
   "readings": {
     "1d2": "いちディーに",
@@ -14,6 +14,23 @@
     "FP": "エフピー",
     "基本の一太刀": "きほんのひとたち",
     "「": "",
-    "」": ""
+    "」": "",
+    "MP": "エムピー"
+  },
+  "roles": {
+    "expert": {
+      "speaker": "冥鳴ひまり",
+      "styleId": 14,
+      "speedScale": 1.1,
+      "pitchScale": 0,
+      "intonationScale": 1.03
+    },
+    "novice": {
+      "speaker": "春日部つむぎ",
+      "styleId": 8,
+      "speedScale": 1.08,
+      "pitchScale": 0,
+      "intonationScale": 1
+    }
   }
 }

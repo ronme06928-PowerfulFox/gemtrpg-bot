@@ -1,0 +1,4 @@
+@font-face{font-family:'Cinzel';font-style:normal;font-weight:900;font-display:block;src:url('fonts/Cinzel-wght.woff2') format('woff2')}
+@font-face{font-family:'Zen Antique';font-style:normal;font-weight:400;font-display:block;src:url('fonts/ZenAntique-Regular.woff2') format('woff2')}
+[data-gallery-resolve-panel] .power-number,.fx-power-roll{font-variant-numeric:lining-nums}
+.v3-win-fp{position:absolute;left:210px;top:380px;background:#fff9ef;color:#ad2840;padding:8px 16px;border:2px solid #ad2840;border-radius:8px;font:28px 'BIZ UDPGothic',sans-serif}

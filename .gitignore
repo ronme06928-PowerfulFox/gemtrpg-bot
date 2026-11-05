@@ -62,3 +62,8 @@ manuals/typst/build/
 /typst_manual/動画/01_1ラウンドの流れ/images/*.webp
 /typst_manual/動画/01_1ラウンドの流れ/shared-images.css
 /typst_manual/動画/01_1ラウンドの流れ/opening.css
+
+# 動画v3の本番描画の写しと配布フォントのコピー
+/typst_manual/動画/01_1ラウンドの流れ/components/resolve-panel/
+/typst_manual/動画/01_1ラウンドの流れ/panel.css
+/typst_manual/動画/01_1ラウンドの流れ/fonts/

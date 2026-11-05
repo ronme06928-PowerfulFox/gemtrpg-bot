@@ -1,10 +1,22 @@
+function updateSpeaker(){
+    const cap=document.querySelector('#deck-cap');if(!cap)return;
+    const novice=!!cap.querySelector('.novice');cap.dataset.speaker=novice?'novice':'expert';
+    const badge=cap.querySelector('.r25-speaker');const name=novice?'聞き手 つむぎ':'説明役 ひまり';
+    if(badge?.textContent===name)return;
+    cap.querySelector('.r25-speaker')?.remove();
+    if(cap.querySelector('.cap-line')){const e=document.createElement('span');e.className='r25-speaker';e.textContent=name;cap.prepend(e);}
+  }
 // このカット専用の時刻の配線。動きそのものは共通部品へ委ねる。
 // DOM順で最後に置く。子部品はsteps=0で自律進行せず、全状態を毎フレーム再計算する。
 DECK.define('m-round-cut', class extends DECK.MotionElement {
   static shape = { schema: { type: 'object', required: ['id', 'phase', 'wordLead'], properties: { id: { type: 'string' }, phase: { type: 'integer', minimum: 1, maximum: 4 }, wordLead: { type: 'number', minimum: 0 } } } };
   mount() {
     this.root = this.closest('section');
-    if (this.root.id === 's-intro') document.addEventListener('deck:ready', () => DECK.captions(true), { once: true });
+    if (this.root.id === 's-intro') {
+      document.addEventListener('deck:ready', () => DECK.captions(true), { once: true });
+      document.addEventListener('deck:captions', updateSpeaker);
+      new MutationObserver(updateSpeaker).observe(document.body,{subtree:true,childList:true});
+    }
   }
   duration(k) { return k ? DECK.TIMING[`${this.root.id}:${k}`]?.dur || 0 : 0; }
   render(k, t) {
@@ -26,10 +38,6 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     const word = (step, index) => DECK.AUDIO[`${root.id}:${step}`].cues[index] + this.data.wordLead;
     const light = (name, step, start, end) => all(`[data-spoken="${name}"]`).forEach((el) => el.classList.toggle('spoken', k === step && t >= start && t < end));
     all('[data-spoken]').forEach((el) => el.classList.remove('spoken'));
-    if (id === 'intro') {
-      light('full', 3, word(3, 0), word(3, 1));
-      light('fp-zero', 3, word(3, 1), word(3, 1) + 1);
-    }
     show(q('.video-opening'), id === 'intro' && k <= 1);
     const phases = q('m-phase');
     draw(phases, Infinity, id === 'resolve' && (k === 0 || (k === 1 && t < 1.2)) ? 2 : this.data.phase);
@@ -43,10 +51,10 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     draw(q('m-background'), Infinity);
     const gm = q('m-gm-bubble');
     const slotStart = id === 'next' ? .5 : 0;
-    if (gm) { show(gm, k > 0 && after(1, slotStart) >= 0); draw(gm, after(1, slotStart)); }
+    if (gm) { show(gm, k > 0 && after(id === 'slots' ? 2 : 1, slotStart) >= 0); draw(gm, after(id === 'slots' ? 2 : 1, slotStart)); }
     const slotEls = all('.v2-slot');
     slotEls.forEach((el) => {
-      show(el, !['slots', 'next'].includes(id) || (k > 0 && after(1, slotStart) >= 0));
+      show(el, !['slots', 'next'].includes(id) || (k > 0 && after(id === 'slots' ? 2 : 1, slotStart) >= 0));
       el.classList.toggle('first-slot', id === 'resolve' && !!el.closest('.ally') && k === 1 && t >= .6 && t < 1.2);
     });
     if (id === 'speed') {
@@ -65,8 +73,8 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     if (id === 'selection') {
       const arrows = q('.v2-arrows');
       const start = cue('match-arrow') - .5;
-      show(arrows, k >= 4 && t >= start);
-      arrows.style.opacity = k >= 4 ? String(DECK.prog(t, start, .4)) : '0';
+      show(arrows, (k > 3 || (k === 3 && t >= start)));
+      arrows.style.opacity = k > 3 ? '1' : k === 3 ? String(DECK.prog(t, 0, .4)) : '0';
       all('.v2-skill').forEach((el) => show(el, k >= 2));
     }
     if (id.startsWith('power-')) {
@@ -94,7 +102,7 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
         show(label, spent);
       });
     }
-    if (id === 'effect-timing') draw(q('m-effect-frame'), k >= 2 ? t : -Infinity);
+    if (id === 'effect-timing') draw(q('m-effect-frame'), after(2));
     if (id === 'effect-fp') {
       draw(q('m-effect-frame'), k === 1 ? t : Infinity, k ? 2 : 1);
       all('m-fp').forEach((el) => draw(el, after(1, cue('end-fp'))));

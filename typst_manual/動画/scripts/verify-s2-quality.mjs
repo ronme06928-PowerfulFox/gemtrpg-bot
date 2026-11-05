@@ -18,11 +18,11 @@ function check(src, expectedCode, name) {
 }
 const normal = check(path.join(deck, 'deck.html'), 0, 'quality-hidden-title');
 assert.equal(normal.counts.error, 0);
-assert.equal(normal.counts.warn, main ? 22 : 0);
+assert.equal(normal.counts.warn, main ? 28 : 0);
 if (main) {
   const warnings = normal.results.filter((r) => r.sev === 'warn');
-  assert.equal(warnings.filter((r) => r.code === 'narrMissing').length, 13); // 入場11＋ダイス＋クレジット
-  assert.equal(warnings.filter((r) => r.code === 'textContrast').length, 9); // 既存の白字FP／オレンジ地
+  assert.equal(warnings.filter((r) => r.code === 'narrMissing').length, 20); // 16カットの入場と無言の演出・最後の5秒
+  assert.equal(warnings.filter((r) => r.code === 'textContrast').length, 8); // 盤面の既存の白字FP／オレンジ地
 }
 const negative = path.join(deck, `title-negative-${process.pid}.html`);
 assert.ok(!fs.existsSync(negative), '負例の一時原稿を上書きしない');

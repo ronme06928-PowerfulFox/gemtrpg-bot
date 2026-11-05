@@ -2,15 +2,11 @@
 
 ## 現在の動画
 
-計画54 S2-2の「1ラウンドの流れ」v2を、承認済みの12カットと共通の7部品で制作・検証しました。[絵コンテ](01_1ラウンドの流れ/storyboard-v2.md)・[追加2文の承認記録](01_1ラウンドの流れ/narration-v2-proposal.md)・[台本](01_1ラウンドの流れ/narration.md)が対応します。
+計画54 R3の「1ラウンドの流れ」v3を、[確定台本](01_1ラウンドの流れ/narration-v3-dialogue.md)と[承認済みの16カット](01_1ラウンドの流れ/storyboard-v3.md)で制作しました。通し確認待ちです。最新は `01_1ラウンドの流れ/out/deck-v3-latest.html`（Git管理外）、通常の再生ボタン付き表示・字幕Aが初期ONです。188.99秒、10MB未満。指定された6枚は `_local/round-v3/` にあります。MP4・公開・pushは行いません。
 
-最新の確認用単一HTMLは `out/deck-v2-latest.html` です（01_1ラウンドの流れ/内、Git管理外）。今後の確認はHTMLだけで行い、MP4を出すかは公開段階で決めます。正本は[計画54](../../manuals/planned/54_Explainer_Video_Series_Plan.md)。通し確認後までF01への統合と計画53の完了処理は行いません。
+味方HP100・MP10・FP0／敵HP30・MP6・FP0、速度6／4、最終威力9対6、敵HP21、勝利FP1、終了時FP3／2を保ちます。本物のパネルの名前0.5秒・威力1.2秒・攻撃0.7秒・勝敗2.2秒は等倍で、説明は段階末尾に置きます。最後のクレジットは5秒です。
 
-`out/` には最新の確認用だけを置きます（下の「片付け」）。R0.5後に残す確認出力は `deck-v2-latest.html` と `r05-comparison-overview.png` です。以下の節に出てくる古い出力のファイル名は当時の記録で、必要になったら該当コミットの原稿から作り直します。
-
-味方HP100・MP10・FP0、敵HP30・MP6・FP0から始め、使用コストなしの基本の一太刀を使います。冥鳴ひまり／VOICEVOX 0.26.0、SE＋6dB、ダイス確定音4回、共通クレジット5秒を引き継ぎます。背景は採用済みの遺跡を全面coverで表示します。
-
-R1は比較記録として変更せず、旧r3-v2のHTML・MP4も保存します。旧本編専用のround-video、deck.css、battle_scenes.cssと生成・検証経路はv2へ置き換えました。R3の原稿はローカルGitの0f96e35以前に残っています。[計画53](../../manuals/planned/53_Explainer_Video_Plan.md)と[旧絵コンテ](01_1ラウンドの流れ/storyboard-r2.md)は当時の記録です。
+R2.5の声キャッシュを本編 `voice/cache/` へ移し、試作・旧v2確認出力・置き換えた台本変更案を片付けました。再生成用の原音・音声・フォント・R1の記録は残します。F01への統合と計画53の完了処理は通し確認後です。
 
 ## 修正の進め方
 
@@ -178,13 +174,13 @@ node typst_manual/動画/scripts/verify-r0-upgrade.mjs C:/Users/yharu/tools/egat
 - `parts/assets.typ`：本の宝石・ダイスを書き出すTypstソース。
 - `01_1ラウンドの流れ/`：全編のHTML・台本・CSS・テーマ・画像・SVG・SE・声の設定。
 - 同デッキの `components/round-cut/index.js`：カットごとの(k,t)と音声cueを共通部品へ配線します。独自タイマー・乱数・CSSアニメーションは使いません。
-- 同デッキの `voice/config.json`：固定版・声・読み・話速等。`voice/events.json`：SEと必要な余韻。`timeline.json` は声の長さから再生成します。
+- 同デッキの `voice/config.json`：固定版・声・読み・話速等。`voice/events.json`：SEの同期点。`timeline.json` は声の長さから再生成します。
 - `common/`：動画間で共用するクレジットの生成関数・CSS・作品名と発行元。タイトルと使用素材は各デッキの `credits.json`。
 - `common/assets/ruins-battle.png`：未加工の背景。立ち絵の元PNGはデッキの `images/` に残します。
 - `common/assets/video/`：変換済みの背景・立ち絵WebPと、元画像／変換後のSHA-256を記録した `manifest.json`。Git管理し、通常ビルドでは変換しません。同じ変換結果を使い、ビルドにPythonを必要としないためです。素材や設定を更新したときだけ、指定Pythonで `scripts/prepare-video-images.py` を実行します。
 - `common/shared-images.mjs`：画像名と共有CSSの生成。prepareがデッキ内へWebPをコピーし、`shared-images.css` のCSS変数へURLを1回ずつ書きます。各場面は `data-video-image="ruins"` などで参照し、URLを書きません。背景はcoverと元の位置・倍率、立ち絵とロゴはcontainを保ち、画像の説明はroleとaria-labelに残します。
 - R1の解決パネルの画像も、元画像を共通素材またはデッキの `images/`、変換済みを `common/assets/video/` に置き、同じ表と共有CSSへ追加します。パネル側は `data-video-image` と寸法・配置だけを持たせ、場面ごとのimg src・CSS urlで同じ画像を繰り返し埋め込みません。アプリ本体からの取り出しはR1で扱います。
-- `scripts/prepare-round-v2.mjs`：共通クレジットをデッキ内へ配置し、全編の声とSEを生成します。
+- `scripts/prepare-round-v3.mjs`：共通クレジットをデッキ内へ配置し、全編の声とSEを生成します。
 - 同スクリプトはアプリの `static/audio/dice-roll.mp3` を読み取り、`sfx/imported/` へコピーします。この素材コピーはGit管理外です。出典・動画利用条件は[SEの記録](01_1ラウンドの流れ/sfx/README.md)を参照してください。
 - `scripts/prepare-voice.mjs`：R1とv2が使う音声生成処理。WAV処理は `r1-audio.mjs` を共有します。
 - `scripts/verify-round-v2.mjs`：全編の数値・巻き戻し・字幕・音声・ロゴ・効果枠・クレジット・自動再生をブラウザで確認します。
@@ -210,31 +206,28 @@ node C:/Users/yharu/tools/egatari-studio-0.6.3/kit/check.mjs "$r1Dir/deck.html" 
 
 確認後は、最新HTML・比較一覧と `logs/` の測定記録だけを残します。個別PNG・比較専用HTML・写した本番ソース・生成途中のCSSやbundleは片付けます。prepareから再生成でき、アプリ本体と本編の原稿は変更しません。
 
-## R2 v3の絵コンテと台本変更案（2026-11-04）
+## R3 v3の通し確認用HTML（2026-11-05）
 
-[絵コンテ案](01_1ラウンドの流れ/storyboard-v3.md)・[台本変更案](01_1ラウンドの流れ/narration-v3-proposal.md)は承認待ちです。16カット・約3分04秒の概算で、本編や声は作っていません。代表コマと威力説明(a)/(b)の比較は `_local/r2-storyboard/out/storyboard-v3-overview.png`。本物のパネルはR1の単一HTMLを読み取り、承認済みの非表示・文字拡大と、提案する寄り・説明を静止画にしています。
+R2の威力説明(b)とR2.5の字幕A・声を本編へ取り込みました。試作の独立したフォルダとスクリプトは削除し、作りは `scripts/prepare-round-v3.mjs`・`prepare-round-v3-support.mjs`・`resolve-panel-runtime.mjs` に移しました。本番の依存をビルド前に `_local/round-v3/vendor/` へ写してbundleし、本編の `components/resolve-panel/` から使います。盤面は既存部品と `components/round-cut/index.js`。字幕とGMの重なりを避けて盤面を30px上げ、GMを中央へ移しました。
 
-威力の説明は、パネルのロール後に幅と式を同じ画面で説明する(b)を推奨。勝利FPの専用帯は本番パネルに出ないため、盤面帰還後にFP1を囲んで「勝利＋1」と説明します。解決部分の文の割当てと分割案、Q8の冒頭2点の採用文を決めてからR3へ進みます。字体のPNGは代替字体を含む配置見本で、配布用の埋め込みはR3以降です。
+声はVOICEVOX 0.26.0、説明役は冥鳴ひまり・ノーマル14（速さ1.1、音高0、抑揚1.03）、聞き手は春日部つむぎ・ノーマル8（速さ1.08、音高0、抑揚1.0）。前後0.08／0.10秒、24kHzモノラル、音量I=-20／TP=-3、区切り0.12秒はR2.5のままです。10の原音を再利用し、新規は41の変更部分。以降の再ビルドは51部分がキャッシュです。スロット・宣言・FPのSEはv2を引き継ぎ、威力の音はR2.5と同じ1回です。
 
-今回は静止絵コンテなので、通常の音声入りHTMLビルドは行いません。再撮影はリポジトリ直下から `node typst_manual/動画/_local/r2-storyboard/capture.mjs`、一覧化は `C:/Users/yharu/anaconda3/python.exe typst_manual/動画/_local/r2-storyboard/contact.py`。最新一覧PNGとスクリプト・測定ログを残し、個別コマは片付けます。R1のHTML・比較一覧・ログと既存v2はそのまま保持します。
+CinzelとZen AntiqueはGoogle Fontsの正本から取得し、使う文字だけWOFF2にしました。双方SIL Open Font License 1.1で、埋め込み・再配布可能です。`common/fonts/` に元字体・サブセットと著作権／OFL全文、HTMLの `font-licenses` に両方の著作権／OFL全文を残します。Yu Gothic UIは配布用CSSでBIZ UDPGothicへ置換します。Cinzelを読み込んだロール前後で9が下がらないことを目視確認しました。
 
-## R2.5 掛け合いの短い試作（2026-11-05）
-
-C07〜C11だけを2人の声で作った[試作の台本・手順](r25-dialogue/README.md)と[結果の全文](r25-dialogue/review.md)。最新は `_local/r25-dialogue/out/r25-dialogue-latest.html`。字幕初期ON、Aキーで再生／一時停止。`?subtitle=b` で字幕Bを比較できます。声の相性と口調を確認してから全編を書き直し、R3へ進みます。本編のフォルダは変更していません。
-
-場面32.01秒（一人語り26.09秒、差＋5.92秒）、クレジット込み37.01秒。本文29px、名前札27px。品質エラー0・警告6（無言の段階5、R1由来の字体未埋め込み1）。156時刻のブラウザ照合・12状態のPNG往復・音声のオフライン通し再生を確認しました。MP4は作っていません。
-
-固定版VOICEVOXを上の手順で起動してから、リポジトリ直下で実行します。
+再生成（固定版VOICEVOXを起動してから、リポジトリ直下）：
 
 ```powershell
-node --test typst_manual/動画/scripts/test-r25-dialogue.mjs
-node typst_manual/動画/scripts/prepare-r25-dialogue.mjs
-node typst_manual/動画/scripts/verify-r25-dialogue.mjs
-node C:/Users/yharu/tools/egatari-studio-0.6.3/kit/check.mjs typst_manual/動画/_local/r25-dialogue/deck.html --json > typst_manual/動画/_local/r25-dialogue/logs/quality.json
-& C:/Users/yharu/anaconda3/python.exe typst_manual/動画/scripts/summarize-r25-dialogue.py
+$egatariDir = 'C:/Users/yharu/tools/egatari-studio-0.6.3'
+$deckDir = 'typst_manual/動画/01_1ラウンドの流れ'
+node typst_manual/動画/scripts/prepare-round-v3.mjs
+& C:/Users/yharu/anaconda3/python.exe typst_manual/動画/scripts/prepare-video-fonts.py
+node "$egatariDir/kit/build.mjs" "$deckDir/deck.html" --embed-audio
+Move-Item -LiteralPath "$deckDir/out/deck.html" -Destination "$deckDir/out/deck-v3-latest.html" -Force
+node "$egatariDir/kit/check.mjs" "$deckDir/deck.html" --json
+node --test typst_manual/動画/scripts/test-*.mjs
 ```
 
-声の設定は `scripts/r25-dialogue-data.mjs`、原音キャッシュは試作の `voice/cache/`。音声とキャッシュ・ログ・再生成元を残し、比較用の一人語りHTMLと個別PNGは確認後に片付けます。
+字体の正本：[Cinzel OFL](https://github.com/google/fonts/blob/main/ofl/cinzel/OFL.txt)、[Zen Antique OFL](https://github.com/google/fonts/blob/main/ofl/zenantique/OFL.txt)。品質チェックはエラー0・警告28（無言の入場・演出20、既存盤面の白字FPのコントラスト8）、既存テスト19件が通過しました。今回の確認は品質チェック・既存テスト・指定6時点の目視だけです。巻き戻し・画素比較・MP4は行っていません。ユーザーの通し確認後に仕上げの確認を行います。
 
 ## 部品の書き出し
 

@@ -1,5 +1,5 @@
 /* 承認済みv2。意味のある見出しは検査用に保持し、映像から隠す。 */
-.v2-slide h2, .v2-slide .pn, #bar, #jump { display: none !important; }
+.v2-slide h2, .v2-slide .pn { display: none !important; }
 .v2-slide .s1-body { top: 24px; height: 580px; }
 .v2-slide .s1-board { top: 100px; }
 .v2-slide .v2-background { inset: 0; border-radius: 0; }
