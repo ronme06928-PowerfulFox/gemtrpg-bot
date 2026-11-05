@@ -72,9 +72,16 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     }
     if (id === 'selection') {
       const arrows = q('.v2-arrows');
-      const start = cue('match-arrow') - .5;
-      show(arrows, (k > 3 || (k === 3 && t >= start)));
-      arrows.style.opacity = k > 3 ? '1' : k === 3 ? String(DECK.prog(t, 0, .4)) : '0';
+      const matched = k >= 5;
+      const color = matched ? '#ffb020' : '#8a93a3';
+      const count = k > 2 ? 2 : k === 2 ? (t >= 1.6 ? 2 : t >= .4 ? 1 : 0) : 0;
+      show(arrows, count > 0);
+      arrows.style.opacity = matched ? '.98' : '.9';
+      arrows.style.stroke = color;
+      arrows.style.strokeWidth = matched ? '6.8' : '4.76';
+      arrows.style.strokeDasharray = matched ? 'none' : '11.9 8.5';
+      arrows.querySelector('marker path').setAttribute('fill', color);
+      [...arrows.querySelectorAll(':scope > path')].forEach((el, i) => show(el, i < count));
       all('.v2-skill').forEach((el) => show(el, k >= 2));
     }
     if (id.startsWith('power-')) {

@@ -45,9 +45,11 @@ export async function prepareDialogueVoice(deck,shots){
   const request=async(url,init)=>{const r=await fetch('http://127.0.0.1:50021'+url,{...init,signal:AbortSignal.timeout(180000)});assert.ok(r.ok,`${url}: ${r.status}`);return r;};
   assert.equal(await(await request('/version')).json(),'0.26.0');
   let made=0,cached=0;
-  const synth=async(text,role)=>{
+  const synth=async(text,role,key)=>{
     const voice=voices[role];const settings={speedScale:voice.speedScale,pitchScale:voice.pitchScale,intonationScale:voice.intonationScale,prePhonemeLength:.08,postPhonemeLength:.1,outputSamplingRate:24000,outputStereo:false};
-    let reading=text;for(const [display,spoken] of Object.entries(config.readings))reading=reading.replaceAll(display,spoken);
+    let reading=text;
+    for(const [display,spoken] of Object.entries(config.segmentReadings?.[key]||{}))reading=reading.replaceAll(display,spoken);
+    for(const [display,spoken] of Object.entries(config.readings))reading=reading.replaceAll(display,spoken);
     const hash=createHash('sha256').update(JSON.stringify({version:'0.26.0',voice:voice.id,reading,settings})).digest('hex');
     const file=path.join(deck,'voice/cache',hash+'.wav');
     if(fs.existsSync(file))cached++;else{
@@ -55,11 +57,11 @@ export async function prepareDialogueVoice(deck,shots){
       const wav=Buffer.from(await(await request(`/synthesis?speaker=${voice.id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(q)})).arrayBuffer());
       decodeWav(wav);fs.writeFileSync(file,wav);json(file.replace('.wav','.json'),{role,text,voice,query:q});made++;
     }
-    return {...decodeWav(fs.readFileSync(file)),hash};
+    return {...decodeWav(fs.readFileSync(file)),hash,reading};
   };
   const timing={},manifest={segments:{}},measures=[];
   for(const shot of shots)for(let k=0;k<=shot.count;k++){
-    const dur=shot.id==='credits'?5:shot.id==='intro'?(k===0?2.6:k===2?.7:0):k===1?({names:.5,'power-roll':1.2,attack:.7,outcome:2.2}[shot.id]||0):0;
+    const dur=shot.id==='credits'?5:shot.id==='intro'?(k===0?2.6:k===2?.7:0):k===1?({names:.5,'power-roll':1.2+config.pauses.cut,attack:.7+config.pauses.cut,outcome:2.2}[shot.id]||0):0;
     timing[`s-${shot.id}:${k}`]={dur,hold:dur,lead:0,pad_after:0};
   }
   const se=pcm(run(['-i','static/audio/dice-roll.mp3','-f','s16le','-ar','24000','-ac','1','pipe:1']));const gain=10**(-16/20)/peak(se);const dice=se.map(x=>x*gain);
@@ -70,22 +72,29 @@ export async function prepareDialogueVoice(deck,shots){
     const gain=10**((s.peakDb+6)/20)/peak(a);sounds[name]=a.map((x,i)=>x*gain*Math.min(1,(a.length-1-i)/(24000*.008)));
   }
   const segments=parseNarration(fs.readFileSync(path.join(deck,'narration.md'),'utf8'));
-  for(const s of segments){
-    assert.equal(s.turns.length,1);const turn=s.turns[0],arrays=[],hashes=[];
-    for(const part of turn.ttsParts){if(!part.trim()){arrays.push(null);continue;}const raw=await synth(part,turn.role);arrays.push(raw.samples);hashes.push(raw.hash);}
+  for(const [index,s] of segments.entries()){
+    const key=`${s.slideKey}:${s.stepKey}`;
+    assert.equal(s.turns.length,1);const turn=s.turns[0],arrays=[],hashes=[],readings=[];
+    for(const part of turn.ttsParts){if(!part.trim()){arrays.push(null);continue;}const raw=await synth(part,turn.role,key);arrays.push(raw.samples);hashes.push(raw.hash);readings.push(raw.reading);}
     const joined=joinParts(arrays,24000,config.partGap);assert.equal(joined.cues.length,s.bounds.length);
     const b=encodeWav(joined.samples,24000);
     const normalized=run(['-i','pipe:0','-af','loudnorm=I=-20:TP=-3:LRA=7','-ar','24000','-ac','1','-f','s16le','pipe:1'],b);
     const samples=pcm(normalized),lead=s.slideKey==='s-names'?.5:0;
-    const dur=Math.ceil((samples.length/24000+.1+lead)*100)/100;
+    const next=segments[index+1];
+    const cut=!next||s.slideKey!==next.slideKey;
+    const gap=cut?config.pauses.cut:turn.role!==next.turns[0].role?config.pauses.speakerChange:config.pauses.sameSpeaker;
+    // 原音にある文末0.10秒と次の文頭0.08秒も「間」に数える。
+    // 題の後には既存の盤面0.7秒があるので、同じ無音を二重に足さない。
+    const tail=Math.max(0,gap-config.postPhonemeLength-config.prePhonemeLength-(s.slideKey==='s-intro'?.7:0));
+    const dur=Math.ceil((samples.length/24000+tail+lead)*100)/100;
     const mix=new Float32Array(Math.round(dur*24000));mix.set(samples,Math.round(lead*24000));
     const cues=joined.cues.map(x=>+(x+lead).toFixed(4));
-    const key=`${s.slideKey}:${s.stepKey}`,file=`steps/${s.slideKey}-${s.stepKey}.wav`;
+    const file=`steps/${s.slideKey}-${s.stepKey}.wav`;
     for(const effect of events[key]?.effects||[])mixEffect(mix,sounds[effect.sound],Math.round(effectTime(effect,s.bounds,cues)*24000));
     fs.writeFileSync(path.join(deck,'audio',file),encodeWav(mix,24000));
     manifest.segments[key]={file,dur,cues,sync:'manual',kind:'imported',inputHash:await inputHash(s)};
     timing[key]={dur,hold:dur,lead:0,pad_after:0};
-    measures.push({key,role:turn.role,text:turn.display,dur,hashes});console.log(`${key} ${dur}s`);
+    measures.push({key,role:turn.role,text:turn.display,dur,gap,tail,readings,hashes});console.log(`${key} ${dur}s`);
   }
   fs.writeFileSync(path.join(deck,'audio/steps/s-intro-0.wav'),openingSound());
   manifest.segments['s-intro:0']={file:'steps/s-intro-0.wav',dur:2.6,cues:[],sync:'manual',kind:'imported'};

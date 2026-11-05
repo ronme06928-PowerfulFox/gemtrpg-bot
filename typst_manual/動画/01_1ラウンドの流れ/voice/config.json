@@ -32,5 +32,18 @@
       "pitchScale": 0,
       "intonationScale": 1
     }
+  },
+  "segmentReadings": {
+    "s-speed:1": {
+      "その値が": "そのあたいが"
+    },
+    "s-return:2": {
+      "1得られる": "いちえられる"
+    }
+  },
+  "pauses": {
+    "speakerChange": 0.6,
+    "sameSpeaker": 0.35,
+    "cut": 0.8
   }
 }

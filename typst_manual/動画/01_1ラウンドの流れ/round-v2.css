@@ -12,10 +12,13 @@
 .v2-slide m-gm-bubble { top: 420px; }
 .v2-premise { position: absolute; left: 370px; top: 410px; font-size: 24px; background: rgb(255 253 251 / 94%); padding: 8px 14px; border-radius: 8px; }
 .v2-speed-formula { position: absolute; left: 460px; top: 70px; font-size: 27px; line-height: 1.7; background: rgb(25 25 25 / 80%); color: white; padding: 8px 16px; border-radius: 8px; }
-.v2-slide svg.v2-arrows { position: absolute; inset: 0; width: 1184px; height: 130px; fill: none; stroke: #ffb020; stroke-width: 5; }
+.v2-slide svg.v2-arrows { position: absolute; inset: 0; width: 1184px; height: 130px; fill: none; stroke: #ffb020; stroke-width: 6.8; }
 .v2-arrows marker path { stroke: none; }
 .v2-skill { position: absolute; top: 94px; background: #fff6da; border: 2px solid #4a3a28; border-radius: 8px; padding: 4px 10px; font-size: 27px; }
 .v2-skill.ally { left: 165px; } .v2-skill.enemy { left: 805px; }
+#s-selection .v2-skill { top: 145px; }
+#s-selection .v2-skill.ally { left: 410px; }
+#s-selection .v2-skill.enemy { left: 605px; }
 .v2-slide .s1-formula { left: 430px; top: 150px; background: rgb(25 25 25 / 85%); padding: 8px; border-radius: 8px; }
 .v2-formula-label, .v2-compare { position: absolute; left: 440px; top: 104px; font-size: 27px; background: rgb(255 253 251 / 94%); border-radius: 8px; padding: 6px 12px; }
 .v2-compare { top: 254px; left: 460px; font-size: 34px; }

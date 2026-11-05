@@ -29,14 +29,6 @@
       }
     ]
   },
-  "s-selection:3": {
-    "effects": [
-      {
-        "sound": "match",
-        "at": 0.05
-      }
-    ]
-  },
   "s-effect-fp:1": {
     "effects": [
       {
@@ -51,6 +43,14 @@
       {
         "sound": "slot",
         "at": 0.5
+      }
+    ]
+  },
+  "s-selection:5": {
+    "effects": [
+      {
+        "sound": "match",
+        "at": 0.08
       }
     ]
   }
