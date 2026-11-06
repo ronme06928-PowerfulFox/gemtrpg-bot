@@ -36,8 +36,8 @@
     "pad_after": 0
   },
   "s-slots:3": {
-    "dur": 3.73,
-    "hold": 3.73,
+    "dur": 2.23,
+    "hold": 2.23,
     "lead": 0,
     "pad_after": 0
   },
@@ -66,8 +66,8 @@
     "pad_after": 0
   },
   "s-speed:1": {
-    "dur": 12.39,
-    "hold": 12.39,
+    "dur": 12.56,
+    "hold": 12.56,
     "lead": 0,
     "pad_after": 0
   },
@@ -78,8 +78,8 @@
     "pad_after": 0
   },
   "s-speed:3": {
-    "dur": 6.73,
-    "hold": 6.73,
+    "dur": 5.23,
+    "hold": 5.23,
     "lead": 0,
     "pad_after": 0
   },
@@ -108,20 +108,20 @@
     "pad_after": 0
   },
   "s-selection:2": {
-    "dur": 6.26,
-    "hold": 6.26,
+    "dur": 6.29,
+    "hold": 6.29,
     "lead": 0,
     "pad_after": 0
   },
   "s-selection:3": {
-    "dur": 3.65,
-    "hold": 3.65,
+    "dur": 3.62,
+    "hold": 3.62,
     "lead": 0,
     "pad_after": 0
   },
   "s-selection:4": {
-    "dur": 4.84,
-    "hold": 4.84,
+    "dur": 3.34,
+    "hold": 3.34,
     "lead": 0,
     "pad_after": 0
   },
@@ -324,8 +324,8 @@
     "pad_after": 0
   },
   "s-effect-fp:1": {
-    "dur": 7.18,
-    "hold": 7.18,
+    "dur": 7.08,
+    "hold": 7.08,
     "lead": 0,
     "pad_after": 0
   },
@@ -378,8 +378,8 @@
     "pad_after": 0
   },
   "s-credits:1": {
-    "dur": 6.8,
-    "hold": 6.8,
+    "dur": 5,
+    "hold": 5,
     "lead": 0,
     "pad_after": 0
   }

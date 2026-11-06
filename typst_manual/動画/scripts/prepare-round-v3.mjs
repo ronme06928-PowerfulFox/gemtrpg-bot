@@ -31,8 +31,6 @@ for (const [key, image] of Object.entries(videoImages)) {
 fs.writeFileSync(path.join(deck, 'shared-images.css'), sharedImageCss(Object.fromEntries(Object.entries(videoImages).map(([key, image]) => [key, `images/${image.file}`]))));
 const read = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const credits = read(path.join(deck, 'credits.json'));
-credits.credits = credits.credits.filter((x) => x.label !== '背景');
-credits.credits.push({ label: '背景', value: 'Codex画像生成（OpenAI）' });
 const shots=[
 ['intro','題と開始状態',1,2],['slots','スロット',1,6],['speed','速度値を決める',1,5],['selection','宣言',2,5],['resolve','解決へ',3,1],
 ['names','名前',3,1],['power-roll','威力のロール',3,1],['power-ally','味方の威力の説明',3,5],['power-enemy','敵と比較',3,4],['attack','攻撃',3,1],['outcome','勝敗とダメージ',3,3],
@@ -80,8 +78,7 @@ await buildResolvePanel(deck);
 const native = `<div class="r1-board s1-slide v2-slide" data-board="before"><div class="r1-board-bg video-shared-image" data-video-image="ruins" role="img" aria-label="遺跡"></div><div class="s1-board">${shareSceneImages(content('selection'))}</div></div>`;
 const sections=shots.map(shot=>{
   if(shot.id==='credits')return renderCredits(read(path.join(video,'common/credits.json')),credits)
-    .replace('credits-page"','credits-page v2-slide v2-credits"').replace('<div class="body','<h2>クレジットと本への参照</h2><div class="body')
-    .replace('</dl>','</dl><div class="book-reference"><span class="book-ruby">{{FIG:ruby-fill}}</span><span>基本ルールブック 第4章『戦闘の基本』</span></div>');
+    .replace('credits-page"','credits-page v2-slide v2-credits"').replace('<div class="body','<h2>クレジットと本への参照</h2><div class="body');
   if(['names','power-roll','power-ally','power-enemy','attack','outcome'].includes(shot.id))return `<section class="slide r25-slide noconcl" id="s-${shot.id}"><h2>${shot.title}</h2><m-resolve-panel steps="${shot.count}" aria-label="本番の解決パネル"><div class="r1-world" data-clip>${native}</div><div class="r25-phase"><span>ラウンド開始</span><span>選択フェーズ</span><span class="current">解決フェーズ</span><span>ラウンド終了</span></div><div class="r25-formula" hidden></div></m-resolve-panel></section>`;
   const bubble=['slots','resolve','next'].includes(shot.id)?gm.replace('ラウンド開始</div>',`${shot.id==='resolve'?'解決開始':'ラウンド開始'}</div>`):'';
   const markup=`${boardBackground.replace('<m-background ','<m-background class="v2-background" ')}<div class="body s1-body plot">${phase}<div class="s1-board">${content(shot.id)}${bubble}</div></div>`

@@ -65,7 +65,8 @@ export async function prepareDialogueVoice(deck,shots){
   const sounds={};
   const sources=JSON.parse(fs.readFileSync(path.join(deck,'sfx/cues.json'),'utf8')).sources;
   for(const [name,s] of Object.entries(sources)){
-    const a=pcm(run(['-i',path.join(deck,'sfx',s.file),'-f','s16le','-ar','24000','-ac','1','pipe:1']));
+    const trim=s.trimSilence?['-af','silenceremove=start_periods=1:start_duration=0:start_threshold=-45dB:start_silence=0.005:stop_periods=1:stop_duration=0.12:stop_threshold=-40dB:stop_silence=0.025']:[];
+    const a=pcm(run(['-i',path.join(deck,'sfx',s.file),...trim,'-f','s16le','-ar','24000','-ac','1','pipe:1']));
     const gain=10**((s.peakDb+6)/20)/peak(a);sounds[name]=a.map((x,i)=>x*gain*Math.min(1,(a.length-1-i)/(24000*.008)));
   }
   const segments=parseNarration(fs.readFileSync(path.join(deck,'narration.md'),'utf8'));
@@ -124,6 +125,19 @@ export async function prepareDialogueVoice(deck,shots){
     }
     if(s)measures.push({key,role:s.turns[0].role,text:s.turns[0].display,readings,hashes,...beat});
     console.log(`${key} ${beat.duration}s`);
+  }
+  // 印を次の発話へ渡し、字幕を消す長い無言区間を計算する。
+  const voiced=measures;
+  let cursor=0;
+  for(const [key,beat] of Object.entries(flow)){beat.start=cursor;cursor+=beat.duration;beat.captionStart=0;beat.captionEnd=beat.duration;}
+  for(const [i,row] of voiced.entries()){
+    const beat=flow[row.key],nextRow=voiced[i+1],nextBeat=nextRow?flow[nextRow.key]:null;
+    if(i===0)beat.captionStart=beat.voiceStart;
+    if(!nextBeat){beat.captionEnd=beat.voiceEnd;continue;}
+    const gap=nextBeat.start+nextBeat.voiceStart-(beat.start+beat.voiceEnd);
+    const shortConversation=beat.repose<1&&gap<=motion.conversation+motion.settle+.05;
+    if(gap>=1&&!shortConversation){beat.captionEnd=beat.voiceEnd;nextBeat.captionStart=nextBeat.voiceStart;}
+    nextBeat.carryMarks=(beat.marks||[]).map(m=>({...m,start:m.start-(nextBeat.start-beat.start),end:nextBeat.voiceEnd}));
   }
   json(path.join(deck,'audio/manifest.json'),manifest);json(path.join(deck,'timeline.json'),timing);json(path.join(deck,'flow.json'),flow);
   const duration=Object.values(timing).reduce((n,v)=>n+v.dur,0);

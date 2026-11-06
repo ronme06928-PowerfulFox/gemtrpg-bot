@@ -55,3 +55,17 @@ common/opening.mjsで523.251・659.255・783.991Hzの3音をPCM合成した自�
 自作3音は `scripts/prepare-video-sfx.mjs` の固定乱数による24kHzモノラルPCM合成で再生成する。ポンッは短い下降音、シュッは帯域を絞った雑音、紙は細かな強弱を付けた雑音。自作音はCC0 1.0（LICENSE-self.txt）。Kenneyは既存のLICENSE-interface.txtを添付済み。新しい外部ファイルは取得しない。題・マッチ・FP・ダイスの既存素材は維持する。
 
 段の終了計算には効果音の終端も含め、合成後の全波形の最大値が1未満であることを検査してから保存する。各段のSE一覧と最大ピークは `_local/round-v3/voice-report.json` に記録する。
+
+## 2026-11-06：効果音版の通し確認での差し替え
+
+自作soft-pop／soft-swish／paper-turnは下記へ置き換えた。公式利用規約（https://soundeffect-lab.info/agreement/）を確認し、動画での利用・加工が可能、素材そのものの再配布・Content ID登録は不可として扱う。元MP3はGit管理外のimported/へ保存し、配布HTMLには声・映像に同期した合成音だけを入れる。先頭の1回分を使い、前後の無音を除いて、従来より6dB大きくする。表記は共通クレジットの効果音行へまとめる。
+
+| 場面 | 素材・元ファイル | 出どころ | SHA-256 |
+| --- | --- | --- | --- |
+| スロット・GM | 決定ボタンを押す34（decision34.mp3） | https://soundeffect-lab.info/sound/button/ | `483d5aad210c1575e7b5d9ce8e88112460f7908ad489b4f57207723c1755d194` |
+| 矢印・パネル | パンチの素振り3（punch-real-swing3.mp3） | https://soundeffect-lab.info/sound/battle/ | `e7ec8685163ed689a181c4ade41eeb68f7fcbd6cc4e2eb13b45292cd88a0b615` |
+| 効果文の窓 | ページをめくる2（page2.mp3） | https://soundeffect-lab.info/sound/various/various2.html | `dd3fb46aecc113dcb5ccf9cd9641b1f904f552bd64c39624330d42d472b904fb` |
+
+＋6dB後のピーク：スロット−17、GM−23、矢印−19、パネル−22、紙−20dBFS。全体の最大ピークとクリップは従来と同じ全波形の検査を行う。
+
+差し替え済みの自作3素材・専用の生成スクリプトは削除する。題の自作チャイムはcommon/opening.mjsで引き続き使う。

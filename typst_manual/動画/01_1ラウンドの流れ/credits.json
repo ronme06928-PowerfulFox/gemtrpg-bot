@@ -2,20 +2,12 @@
   "title": "1ラウンドの流れ",
   "credits": [
     {
-      "label": "音声",
-      "value": "VOICEVOX:冥鳴ひまり"
+      "label": "声",
+      "value": "VOICEVOX:冥鳴ひまり／VOICEVOX:春日部つむぎ"
     },
     {
       "label": "効果音",
-      "value": "Kenney（CC0）・自作"
-    },
-    {
-      "label": "ダイス音",
-      "value": "Springin’ Sound Stock"
-    },
-    {
-      "label": "音声",
-      "value": "VOICEVOX:春日部つむぎ"
+      "value": "効果音ラボ・Kenney（CC0）・Springin’ Sound Stock・自作"
     }
   ]
 }

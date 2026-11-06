@@ -64,14 +64,14 @@ export function planBeat({id,k,last,next,previous,voiceSeconds=0,cues=[],bounds=
     const index=bounds.findIndex(b=>b.type==='mark'&&b.id==='end-fp');
     synced('fp',voiceStart+cues[index],motion.fp);
   }
-  const marks=bounds.flatMap((b,i)=>b.type==='mark'?[{id:b.id,start:voiceStart+cues[i],
-    drawn:voiceStart+cues[i]+motion.markDraw,held:voiceStart+cues[i]+motion.markDraw+motion.markHold}]:[]);
-  motionEnd=Math.max(motionEnd,...marks.map(m=>m.held));
+  const marks=bounds.flatMap((b,i)=>b.type==='mark'?[{id:b.id,effect:b.effect||'circle',start:voiceStart+cues[i],
+    drawn:voiceStart+cues[i]+motion.markDraw}]:[]);
+  // 印は次の文へ持ち越す。印の描画・保持のためにこの段を延ばさない。
   const contentEnd=Math.max(voiceEnd,motionEnd);
   const exits=(last&&!['intro','names','power-roll','power-ally','power-enemy','attack','outcome','credits','resolve'].includes(id))||
     (id==='power-ally'&&last)||(id==='power-enemy'&&first);
   if(exits){events.exit={start:contentEnd,duration:motion.fade};motionEnd=contentEnd+motion.fade;}
-  const after=id==='credits'?motion.sceneRest+motion.credits:
+  const after=id==='credits'?Math.max(0,motion.credits-motionEnd):
     id==='intro'&&k===2?motion.sceneRest:last?repose(id,next):motion.conversation;
   const duration=Math.ceil((Math.max(voiceEnd,motionEnd)+after)*100)/100;
   return {events,voiceStart,voiceEnd,motionEnd,contentEnd,marks,repose:after,duration};

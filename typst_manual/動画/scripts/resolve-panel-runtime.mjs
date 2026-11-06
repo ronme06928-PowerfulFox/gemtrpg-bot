@@ -24,5 +24,6 @@ DECK.define('m-resolve-panel',class extends DECK.MotionElement {
     this.dataset.nativeTime=s.time;this.dataset.r25Step=k;
     DECK.videoObjectFade(root,k,t,'.r25-formula','formula',this.cutId==='power-ally'?2:1);
     DECK.videoFade(root,k,t);
+    DECK.videoCaption(root,k,t);
   }
 });

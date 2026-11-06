@@ -1,56 +1,13 @@
-.credits-page { background: #fff; color: #222; }
-.credits-page .credits-content {
-  position: absolute;
-  top: 0;
-  left: 44px;
-  width: 1192px;
-  height: 676px;
-  margin: 0;
-  padding: 0;
-}
-.credits-logo {
-  position: absolute;
-  top: 18px;
-  left: 396px;
-  width: 400px;
-  height: 225px;
-  object-fit: contain;
-}
-.credits-project {
-  position: absolute;
-  top: 248px;
-  left: 0;
-  width: 100%;
-  margin: 0;
-  color: #555;
-  text-align: center;
-  font-size: 27px;
-  line-height: 1.4;
-  letter-spacing: 0.08em;
-}
-.credits-page h1.credits-title {
-  position: absolute;
-  top: 302px;
-  left: 36px;
-  width: 1120px;
-  margin: 0;
-  padding: 0;
-  font-size: 46px;
-  line-height: 1.5;
-  font-weight: 700;
-  color: #222;
-  text-align: center;
-  border: 0;
-}
-.credits-rule {
-  position: absolute;
-  top: 399px;
-  left: 256px;
-  width: 680px;
-  height: 2px;
-  background: #ad2840;
-}
-.credits-list { position: absolute; top: 441px; left: 306px; width: 580px; margin: 0; }
-.credits-list > div { display: grid; grid-template-columns: 120px 1fr; column-gap: 24px; margin-bottom: 14px; }
-.credits-list dt, .credits-list dd { margin: 0; font-size: 27px; line-height: 1.5; font-weight: 400; }
-.credits-list dt { color: #666; }
+.credits-page { background:#fff; color:#222; }
+.credits-page .credits-content { position:absolute; top:0; left:44px; margin:0; padding:0; width:1192px; height:676px; text-align:center; }
+.credits-logo { position:absolute; top:20px; left:466px; width:260px; height:146px; object-fit:contain; }
+.credits-project { position:absolute; top:174px; left:0; width:100%; margin:0; font-size:27px; line-height:1.4; color:#555; letter-spacing:.08em; }
+.credits-page h1.credits-title { position:absolute; top:217px; left:0; width:100%; margin:0; padding:0; font-size:38px; line-height:1.3; font-weight:700; text-align:center; border:0; color:#222; }
+.credits-rule { position:absolute; top:285px; left:236px; width:720px; height:2px; background:#ad2840; }
+.credits-list { position:absolute; top:301px; left:6px; width:1180px; margin:0; }
+.credits-list > div { margin:0 0 19px; }
+.credits-list dt { margin:0 0 4px; font-size:27px; line-height:1.35; font-weight:400; color:#ad2840; }
+.credits-list dd { margin:0; font-size:32px; line-height:1.4; font-weight:400; white-space:nowrap; }
+.credits-book { position:absolute; top:514px; left:6px; width:1180px; display:flex; align-items:center; justify-content:center; gap:16px; font-size:28px; line-height:1.5; }
+.credits-book-ruby,.credits-book-ruby svg { display:block; width:32px; height:44px; flex:0 0 32px; }
+.credits-publisher { position:absolute; top:590px; left:0; width:100%; margin:0; color:#666; font-size:27px; line-height:1.4; }

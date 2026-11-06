@@ -1,5 +1,20 @@
 // ビルドと描画は、同じ一拍の予定を参照する。
 DECK.VIDEO_FLOW=JSON.parse(document.getElementById('video-flow').textContent);
+DECK.videoCaption=(root,k,t)=>{
+  if(!root.classList.contains('active'))return;
+  const beat=DECK.VIDEO_FLOW[`${root.id}:${k}`];
+  const spoken=beat&&beat.voiceEnd>beat.voiceStart;
+  document.documentElement.toggleAttribute('data-caption-gap',!spoken||t<beat.captionStart||t>=beat.captionEnd);
+};
+// egatari 0.6.3の印の描画器を使い、前の印だけを次の文末まで残す。
+function installCarriedMarks(){
+  for(const [key,beat] of Object.entries(DECK.VIDEO_FLOW)){
+    const split=key.lastIndexOf(':'),root=document.getElementById(key.slice(0,split)),k=+key.slice(split+1);
+    if(!root)continue;
+    const marks=[...(beat.carryMarks||[]),...(beat.marks||[])].map((m,n)=>({id:m.id,effect:m.effect,start:m.start,end:m.end??Infinity,n}));
+    root._mk=root._mk||{};root._mk[k]={marks,end:Math.max(0,...marks.map(m=>m.start+DECK.MK.draw)),audio:true};
+  }
+}
 DECK.videoEvent=(root,k,name)=>DECK.VIDEO_FLOW[`${root.id}:${k}`]?.events[name]||{start:0,duration:0};
 DECK.videoFade=(root,k,t)=>{
   if(!root.classList.contains('active'))return;
@@ -33,6 +48,7 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     this.root = this.closest('section');
     if (this.root.id === 's-intro') {
       DECK.T.slide=0;
+      document.addEventListener('deck:ready',installCarriedMarks,{once:true});
       document.addEventListener('deck:ready', () => DECK.captions(true), { once: true });
       document.addEventListener('deck:captions', updateSpeaker);
       new MutationObserver(updateSpeaker).observe(document.body,{subtree:true,childList:true});
@@ -161,5 +177,6 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
       });
     }
     DECK.videoFade(root,k,t);
+    DECK.videoCaption(root,k,t);
   }
 });
