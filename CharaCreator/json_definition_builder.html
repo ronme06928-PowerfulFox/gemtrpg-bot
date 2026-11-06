@@ -67,6 +67,7 @@
   <div class="wrap">
     <div class="card card-left">
       <h1>JSON定義ビルダー（rule_data / v2 strict）</h1>
+      <p id="builderLoadError" class="warn" role="alert" hidden></p>
       <p>現行仕様（skill_json_rule_v2 strict）向け。schema必須・buff_id中心でJSONを生成します。</p>
 
       <div class="section">
@@ -323,9 +324,8 @@
   <datalist id="summonIdList"></datalist>
   <datalist id="tagHintList"></datalist>
 
-  <script src="./json_builder_reference_data.js"></script>
   <script>
-    const REF = window.JSON_BUILDER_REFERENCE || { buff_refs: [], skill_refs: [], summon_refs: [], state_refs: ["HP", "MP", "FP", "行動回数", "速度値"], glossary_refs: [] };
+    let REF;
     const LINK_REF_CACHE = {
       loaded: false,
       loading: null,
@@ -333,7 +333,7 @@
       skillById: new Map(),
     };
     const TIMINGS = ["PRE_MATCH","BEFORE_POWER_ROLL","WIN","LOSE","HIT","UNOPPOSED","AFTER_DAMAGE_APPLY","RESOLVE_START","RESOLVE_STEP_END","RESOLVE_END","END_MATCH","END_ROUND","IMMEDIATE","BATTLE_START"];
-    const TYPES = ["APPLY_STATE","APPLY_STATE_PER_N","APPLY_BUFF_PER_N","MULTIPLY_STATE","APPLY_BUFF","APPLY_BUFF_FROM_CHARACTER_COUNT","CONSUME_BUFF_COUNT_FOR_GAIN","CONSUME_BUFF_COUNT_FOR_POWER","CONVERT_STACK_RESOURCE_VARIANT","GRANT_SKILL","REMOVE_BUFF","DAMAGE_BONUS","MODIFY_ROLL","USE_SKILL_AGAIN","CUSTOM_EFFECT","MODIFY_BASE_POWER","MODIFY_FINAL_POWER","DRAIN_HP","SUMMON_CHARACTER","SCHEDULE_EFFECT"];
+    let TYPES;
     const TARGETS = ["","self","target","ALL_ENEMIES","ALL_ALLIES","ALL_OTHER_ALLIES","ALL","FILTERED_CHARACTERS","KILLER","KILLER_TEAM","NEXT_ALLY"];
     const POWER_OPS = ["FIXED","FIXED_IF_EXISTS","PER_N_BONUS","MULTIPLY"];
     const COND_SOURCES = ["self","target","skill","target_skill","relation","battle"];
@@ -380,53 +380,7 @@
       IMMEDIATE: "即時発動（割り込み系）。",
       BATTLE_START: "戦闘開始時に発動。"
     };
-    const CUSTOM_EFFECT_REFS = [
-      {
-        value: "破裂爆発",
-        summary: "targetの破裂値ぶんの追加ダメージを与え、破裂を比率で減衰させる。",
-        keys: "rupture_remainder_ratio"
-      },
-      {
-        value: "亀裂崩壊_DAMAGE",
-        summary: "targetの亀裂を全消費してダメージ化する（亀裂×係数）。",
-        keys: "damage_per_fissure"
-      },
-      {
-        value: "FISSURE_COLLAPSE",
-        summary: "亀裂をコスト消費して指定CUSTOM_EFFECTを連続誘発する。",
-        keys: "data.cost_per_trigger, data.triggered_effect, data.max_triggers, data.trigger_ratio"
-      },
-      {
-        value: "出血氾濫",
-        summary: "出血tickを即時実行し、ダメージ処理と出血遷延消費を行う。",
-        keys: "(追加キーなし)"
-      },
-      {
-        value: "戦慄殺到",
-        summary: "戦慄値ぶんMPを減らし、戦慄を消費。MP0以下なら混乱付与。",
-        keys: "(追加キーなし)"
-      },
-      {
-        value: "荊棘飛散",
-        summary: "targetの荊棘を全消費し、他キャラへ同値の荊棘を拡散。",
-        keys: "(追加キーなし)"
-      },
-      {
-        value: "APPLY_SKILL_DAMAGE_AGAIN",
-        summary: "追加攻撃の単純トリガーを発行する。",
-        keys: "(追加キーなし)"
-      },
-      {
-        value: "END_ROUND_IMMEDIATELY",
-        summary: "ラウンドを即時終了する要求を発行する。",
-        keys: "(追加キーなし)"
-      },
-      {
-        value: "DEAL_TARGET_MAX_HP_DAMAGE",
-        summary: "targetへ最大HPと同値の補正無視ダメージを与える。対象不在・最大HP0以下では不発。",
-        keys: "conditionとの併用を推奨"
-      }
-    ];
+    let CUSTOM_EFFECT_REFS;
     const HELP_ROWS = [["schema","現行は skill_json_rule_v2 固定で必須"],["id","任意だが推奨。未入力でも実行可能"],["target_scope: same_team","同陣営単体を対象にする"],["tag: ally_target","同陣営単体タグ（互換）"],["tag: no_damage","非ダメージ扱い"],["timing: PRE_MATCH","マッチ前処理"],["timing: HIT/WIN/LOSE","的中時/勝利時/敗北時"],["condition.source: target_skill","対象側が宣言したスキル情報（主に tags）を参照。相手スキル情報が無い場面では条件false"],["condition.source: relation","actor-targetの関係を参照。paramは same_team / target_is_ally / target_is_enemy（0/1判定）"],["condition.param: 蓄力_count","対象の特殊バフcountを参照"],["condition.param: buff_count:凝魔","buff_count接頭辞でも特殊バフcountを参照"],["type: APPLY_BUFF","現行は buff_id 指定で付与"],["type: REMOVE_BUFF","現行は buff_id 指定で解除"],["APPLY_BUFF(Bu-11/Bu-12)","加速/減速は lasting=1, delay=1（次ラウンド有効）を推奨"],["APPLY_BUFF.count","スタック系バフの付与回数（凝魔/蓄力など）"],["type: CONSUME_BUFF_COUNT_FOR_GAIN","指定スタックを消費し、FP/MP/HPやバフ付与を行う"],["type: CONSUME_BUFF_COUNT_FOR_POWER","指定スタックを消費し、基礎/最終威力を増減"],["state_receive_bonus","受け手側の状態付与補正（例: 震盪で受ける破裂付与量+N）"],["type: SUMMON_CHARACTER","summon_template_idを使って召喚"],["power_bonus: FIXED","固定加算（value）"],["power_bonus: FIXED_IF_EXISTS","paramが閾値以上で固定加算"],["power_bonus: PER_N_BONUS","Nごとに加算"],["power_bonus: MULTIPLY","param × value_per_param"],["buff_name: *_AtkN / *_DaInN","旧式の動的バフ命名（新規は非推奨）"]];
     HELP_ROWS.push(["condition.param: 状態異常スタック合計:出血,破裂,...","状態異常スタック合算。省略形（状態名なし）は不可。"]);
     HELP_ROWS.push(["condition.source: battle, param: round","現在のラウンド数を参照。例: source=battle, param=round, operator=GTE, value=3 → 3ラウンド以降のみ発動"]);
@@ -2707,7 +2661,39 @@
       });
     }
 
-    bind();renderHelp();renderPbDocs();renderEffectDocs();initQuickTemplates();initRef();_ensureLinkRefCacheLoaded();addEffectRow();checkDynamicBuffName();setBuilderTab("pbEditorSection");toggleRefPanel("panelPbCheat");generate();
+    async function initializeBuilder(){
+      try{
+        const [schemas, reference] = await Promise.all(
+          ["/api/effect_schemas", "/api/json_builder_reference"].map(async (url)=>{
+            const response = await fetch(url, { credentials: "same-origin" });
+            if(!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+            return response.json();
+          })
+        );
+        if(!schemas.effect_types || !schemas.custom_effects ||
+           !["buff_refs", "skill_refs", "summon_refs", "state_refs"].every(key=>Array.isArray(reference[key]))){
+          throw new Error("Invalid builder data");
+        }
+        REF = reference;
+        TYPES = Object.entries(schemas.effect_types)
+          .filter(([, schema])=>schema.internal === false)
+          .map(([type])=>type);
+        CUSTOM_EFFECT_REFS = Object.entries(schemas.custom_effects).map(([value, schema])=>({
+          value,
+          summary: schema.description,
+          keys: Object.keys(schema.fields).join(", ") || "(追加キーなし)"
+        }));
+      }catch(error){
+        const message = document.getElementById("builderLoadError");
+        message.textContent = "データの読み込みに失敗しました。接続を確認してページを再読み込みしてください。";
+        message.hidden = false;
+        console.error("JSON builder data load failed", error);
+        return;
+      }
+      bind();renderHelp();renderPbDocs();renderEffectDocs();initQuickTemplates();initRef();_ensureLinkRefCacheLoaded();addEffectRow();checkDynamicBuffName();setBuilderTab("pbEditorSection");toggleRefPanel("panelPbCheat");generate();
+    }
+
+    initializeBuilder();
   </script>
 </body>
 </html>

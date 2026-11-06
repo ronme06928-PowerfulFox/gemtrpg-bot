@@ -46,7 +46,7 @@ Gitの追跡パス、ルートと主要ディレクトリの用途、起動・HT
 | `manager/` | 110 | ロジック・状態・保存・外部データ・シミュレーション。直下38、battle50、その他22 | 責務ごとの整理候補。import先を同時に変更する必要あり |
 | `plugins/` | 24 | カスタム効果6、buff13、item5 | 実行時に利用。バフの動的探索もある |
 | `static/` | 124 | PC UI、画像・音、バンドル、停止中モバイル | ソース・成果物・素材を区別して保持 |
-| `CharaCreator/` | 4 | キャラ作成HTML、JSON定義ビルダーHTML・参照JS、検証用に見えるJS | キャラ作成はHTTP配信あり。ビルダー系は別途利用確認 |
+| `CharaCreator/` | 2（現行） | キャラ作成HTML、JSON定義ビルダーHTML | キャラ作成は `/chara_creator`、ビルダーは `/json_builder` からHTTP配信。計画60 Phase 1で参照JSを削除 |
 | `data/` | 13 | cache9（8 JSONと`.gitkeep`）、制約検証JSON3、`images.json` | マスターを一時キャッシュ扱いにしない。画像JSONは用途未確定 |
 | `scripts/` | 36 | 直下のPython17とビルドJS1、漢字データ1、演出一覧8、解決プレビュー9 | 本体から呼ぶものと開発専用のものを区別 |
 | `tests/` | 207 | Python203、E2E等。`legacy/`にも現行ロジックのテストあり | 名前だけで除外しない。パス変更時はfixture・ソース参照も更新 |
@@ -124,7 +124,7 @@ AST解析対象の内訳はルート5、events26、manager110、plugins24、rout
 | [static/index.html](../../../static/index.html) | 上記3バンドルとSocket.IOの外部CDNを読込 | 個別ソースは直接追加しない。ハッシュはビルドが更新 |
 | `static/css/modules/temp_skill_grid.css` | ファイル名の参照、styles.cssからの読込を未検出 | 現行UIの同名セレクタとの比較が必要な整理候補 |
 | `CharaCreator/GEMDICEBOT_CharaCreator.html` | appの `/chara_creator` から配信 | インラインJS主体の独立HTML。通常バンドルの対象外でも使用中 |
-| `CharaCreator/json_definition_builder.html` | 隣接する `json_builder_reference_data.js` を参照 | メインUIバンドルの外にある制作ツール。公開・手動利用の確認を残す |
+| `CharaCreator/json_definition_builder.html` | appの `/json_builder` から配信。効果スキーマ・参照データはAPIから取得 | メインUIバンドルの外にある制作ツール。参照データの写しは持たない |
 | `CharaCreator/_tmp_builder_check.js` | HTML・ビルド・テストからのファイル名参照を未検出 | ビルダーの現行インラインJSと完全一致しない。唯一の変更がないか比較してから判断 |
 | `scripts/fx_gallery/`・`scripts/resolve_preview/` | `npm run gallery` / `resolve-preview` で `_local/` 内のHTMLを生成 | 検査用ツールとして保持。staticのソース・画像も読んで埋め込む |
 | `static/mobile/` 10本 | 開発停止、HTTP配信停止の対象 | 今回は所在のみ分類。変更・削除は別途ユーザーへ確認する |

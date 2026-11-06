@@ -2,7 +2,7 @@
 
 # JSON定義マニュアル（正本・統合版）
 
-**最終更新日**: 2026-11-06（計画60 PR60-1：効果スキーマ配信 API）
+**最終更新日**: 2026-11-06（計画60 Phase 1：効果スキーマ・ビルダーのAPI読み込み）
 **系統**: C — データ定義（JSON）
 **統合元**: 20_JSON_Definition_Strict_v2 / 17_Phase3_Strict_Errata / 15_JSON_Definition_Master / 03_Integrated_Data_Definitions
 **優先順位**: 本書 > 旧20 = 旧17 > 旧15 > 旧03
@@ -84,6 +84,9 @@
 
 ## 5. 自然言語JSON生成（実装済み）
 対象ツール: `CharaCreator/json_definition_builder.html`
+
+アプリを起動して `/json_builder` を開く。起動時に `/api/effect_schemas` と `/api/json_builder_reference` を読み終えてから編集画面を初期化する。効果タイプは `internal=false` のもの、カスタム効果は名前別スキーマを使用する。読み込み失敗時は画面上部にエラーを表示し、初期化を止める。
+`GET /api/json_builder_reference` は認証なしで `buff_refs`・`skill_refs`・`summon_refs`・`state_refs` を返す。バフ・スキルはメモリ上の現行マスター、召喚は現行テンプレートから毎回生成する。旧参照JSと `generated_at` は使用しない。状態候補は従来の9項目をサーバーで定義する。
 
 ### 5.1 入力列
 1. 使用時効果
@@ -829,4 +832,4 @@ python scripts/skill_catalog_tool.py lint
 `required` は現行の入力契約を表す。代替キーが使える場合は説明へ併記する。このAPIは保存前検査を追加しない。
 `internal=True` は `FORCE_UNOPPOSED`・`APPLY_FISSURE_BUFFED` のみ。ほかは `False`。名前別のカスタム効果は `label`・`description`・`fields` を持つ。
 `render_effect_summary(effect)` は説明テンプレートへ値を埋め、対象を日本語化し、不足値を `?` とする。未知の効果タイプも `?` を返す。入れ子キーを読み、値を再びテンプレートとして解釈しない。
-ビルダーのAPI読み込みと保存前検査は後続PR・Phaseの対象。
+ビルダーは §5 のとおりAPIから読み込む。保存前検査は後続Phaseの対象。

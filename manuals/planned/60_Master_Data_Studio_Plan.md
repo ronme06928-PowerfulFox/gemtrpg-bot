@@ -1,7 +1,7 @@
 # 計画60：マスターデータ管理画面（スキル・バフ・用語図鑑の編集をアプリで行う）
 
 作成日: 2026-11-04
-状態: PR60-1 完了（2026-11-06）。PR60-2 以降は未着手（一括編集の手段は必要になったら決める）。[マスターデータベース・プロジェクト](../projects/master_database/README.md)の段階1。
+状態: Phase 1（PR60-1・PR60-2）完了（2026-11-06）。Phase 2 以降は未着手（一括編集の手段は必要になったら決める）。[マスターデータベース・プロジェクト](../projects/master_database/README.md)の段階1。
 
 ## 1. 目的
 
@@ -115,7 +115,7 @@ Git でメンバーに編集してもらう案は、ハードルを下げる目�
 
 ### 5.1 Phase 1 の推奨PR分割
 
-PR60-1 完了（2026-11-06）：22効果タイプ・9カスタム効果のスキーマ、説明文生成、認証なしの配信APIとテストを追加。PR60-2 は未着手。
+Phase 1 完了（2026-11-06）。PR60-1：22効果タイプ・9カスタム効果のスキーマ、説明文生成、認証なしの配信APIとテストを追加。PR60-2：`/json_builder` と参照APIを追加し、効果・参照一覧をAPI読み込みへ切り替えた。旧参照JSを削除した。
 
 | PR | 内容 | 画面の変化 |
 |---|---|---|
@@ -167,6 +167,8 @@ PR60-1 完了（2026-11-06）：22効果タイプ・9カスタム効果のスキ
     - `/api/effect_schemas` が 200 で、上の2つの辞書を返す。
 
 #### PR60-2：ビルダーを API から読む形にする
+
+完了（2026-11-06）。`/json_builder` で効果タイプ20種・カスタム効果9種・バフ候補53件を確認した。撮影は2枚のみ、画像ファイルは保存していない。APIの公開配信・現行データの反映・両APIの読み込み待ち・失敗時の初期化停止をテストした。他の手書き一覧と文章読み取り処理は変更していない。実装済み仕様は C01 §5、開き方は A02 §4.5 を参照。
 
 1. **配信**：`app.py` に `/json_builder` を足し、`CharaCreator/json_definition_builder.html` を返す（`/chara_creator` と同じ書き方）。ビルダーは今、どこからも配信されておらず、ファイルを直接開くと同じオリジンの API（`/api/get_glossary_data`・`/api/json_nl_builder_audit`）が届かない。配信すればこれも届くようになる。
 2. **参照データの API**：`GET /api/json_builder_reference` を足す。返す形は、今の `window.JSON_BUILDER_REFERENCE` と同じ `buff_refs`・`skill_refs`・`summon_refs`・`state_refs`（`generated_at` は不要）。`extensions.py` の `all_buff_data`・`all_skill_data` と、`manager/summons/loader.py` の `load_summon_templates()` から、その場で作る。`state_refs` は今の写しの9つをサーバー側の定数にする。

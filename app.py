@@ -29,7 +29,7 @@ from flask_compress import Compress # 追加: 圧縮転送用ライブラリ
 from whitenoise import WhiteNoise # 追加: 静的ファイル配信高速化
 
 # ★ 拡張機能（共有インスタンス）のインポート
-from extensions import db, socketio, all_skill_data, all_glossary_data
+from extensions import db, socketio, all_skill_data, all_buff_data, all_glossary_data
 
 # ★ マネージャー（ロジック層）からのインポート
 from manager.data_manager import init_app_data, read_saved_rooms_with_owners
@@ -376,6 +376,10 @@ def serve_manual_pdf(name):
     return response
 
 
+def serve_json_builder():
+    return send_from_directory(CHARA_CREATOR_DIR, 'json_definition_builder.html')
+
+
 def serve_static_files(filename):
     # モバイル版アセットの直接読み出しも停止する（/mobile 停止の裏口を塞ぐ）。
     normalized = str(filename or '').lstrip('/')
@@ -401,6 +405,7 @@ def register_http_routes(flask_app):
     flask_app.after_request(add_header)
     flask_app.add_url_rule('/mobile', 'serve_mobile_index', serve_mobile_index)
     flask_app.add_url_rule('/chara_creator', 'serve_chara_creator', serve_chara_creator)
+    flask_app.add_url_rule('/json_builder', 'serve_json_builder', serve_json_builder)
     flask_app.add_url_rule('/manuals/<name>', 'serve_manual_pdf', serve_manual_pdf)
     flask_app.add_url_rule('/<path:filename>', 'serve_static_files', serve_static_files)
     flask_app.add_url_rule('/get_skill', 'get_skill', get_skill)
@@ -412,6 +417,7 @@ def register_http_routes(flask_app):
     flask_app.add_url_rule('/api/get_buff_data', 'get_buff_data', get_buff_data, methods=['GET'])
     flask_app.add_url_rule('/api/get_glossary_data', 'get_glossary_data', get_glossary_data, methods=['GET'])
     flask_app.add_url_rule('/api/effect_schemas', 'get_effect_schemas', get_effect_schemas, methods=['GET'])
+    flask_app.add_url_rule('/api/json_builder_reference', 'get_json_builder_reference', get_json_builder_reference, methods=['GET'])
     flask_app.add_url_rule('/api/upload_image', 'upload_image', upload_image, methods=['POST'])
     flask_app.add_url_rule('/api/images', 'get_images_api', get_images_api, methods=['GET'])
     flask_app.add_url_rule('/api/images/<image_id>', 'delete_image_api', delete_image_api, methods=['DELETE'])
@@ -434,6 +440,37 @@ def get_effect_schemas():
     from plugins import CUSTOM_EFFECT_SCHEMAS
 
     return jsonify({"effect_types": EFFECT_SCHEMAS, "custom_effects": CUSTOM_EFFECT_SCHEMAS})
+
+
+JSON_BUILDER_STATE_REFS = (
+    "FP", "HP", "MP", "亀裂", "荊棘", "出血", "戦慄", "速度値", "破裂",
+)
+
+
+def get_json_builder_reference():
+    from manager.summons.loader import load_summon_templates
+
+    return jsonify({
+        "buff_refs": [
+            {"id": buff_id, "name": row.get("name", buff_id),
+             "description": row.get("description", ""), "effect": row.get("effect", {}),
+             "default_duration": row.get("default_duration", 1)}
+            for buff_id, row in sorted(all_buff_data.items())
+        ],
+        "skill_refs": [
+            {"id": skill_id, "name": row.get("デフォルト名称") or row.get("name") or skill_id,
+             "tags": row.get("tags", [])}
+            for skill_id, row in sorted(all_skill_data.items())
+        ],
+        "summon_refs": [
+            {"id": template_id, "name": row.get("name", template_id),
+             "summon_duration_mode": row.get("summon_duration_mode", "permanent"),
+             "summon_duration": row.get("summon_duration", 0),
+             **({"tag_ids": row["tag_ids"]} if "tag_ids" in row else {})}
+            for template_id, row in sorted(load_summon_templates().items())
+        ],
+        "state_refs": JSON_BUILDER_STATE_REFS,
+    })
 
 
 def get_skill_metadata():
