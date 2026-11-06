@@ -111,11 +111,86 @@ Git でメンバーに編集してもらう案は、ハードルを下げる目�
 
 始める時期：Phase 1 はいつでも始めてよい。Phase 2 以降は、計画46の主な作業が落ち着いてから始める（§8 論点9）。
 
-推奨PR分割と実装詳細は、着手の前に書く。
+推奨PR分割と実装詳細は、各 Phase の着手の前に書く。Phase 1 の分は §5.1・§5.2。
+
+### 5.1 Phase 1 の推奨PR分割
+
+| PR | 内容 | 画面の変化 |
+|---|---|---|
+| PR60-1 | 効果タイプのスキーマ（`EFFECT_SCHEMAS`）と `CUSTOM_EFFECT` の名前ごとのスキーマ（`CUSTOM_EFFECT_SCHEMAS`）、説明文を作る関数、`/api/effect_schemas`、テスト | なし |
+| PR60-2 | ビルダーをアプリから配信し（`/json_builder`）、効果タイプの一覧・`CUSTOM_EFFECT` の一覧・参照データを API から読む。参照データの写し `json_builder_reference_data.js` を消す | ビルダーの効果タイプと参照データが、今のデータと一致する |
+
+スキーマを使った保存前の検査（必須項目の抜け・存在しない ID）は Phase 1 に含めない。管理画面で検査の結果を見せる Phase 3 で作る。
+
+### 5.2 Phase 1 の実装詳細
+
+#### PR60-1：スキーマと配信 API
+
+1. **スキーマの置き場**：各ハンドラモジュール（`manager/battle/effect_handlers/` の `action_effects.py`・`buff_effects.py`・`power_effects.py`・`stack_resources.py`・`state_effects.py`）の `HANDLERS` の横に `SCHEMAS` を置く。`__init__.py` で `EFFECT_HANDLERS` と同じように `EFFECT_SCHEMAS` へまとめる。`CUSTOM_EFFECT` はハンドラが `game_logic` 側にあるため、`EFFECT_SCHEMAS["CUSTOM_EFFECT"]` は `__init__.py` に直接書く。
+2. **スキーマの形**（1つの効果タイプにつき1つ）：
+
+    ```python
+    SCHEMAS = {
+        "APPLY_STATE": {
+            "label": "状態を付与",              # 日本語の短い名前
+            "description": "対象に状態異常を付与する。",
+            "internal": False,                 # True は内部専用（ビルダーの一覧に出さない）
+            "fields": {
+                "state_name": {"type": "state_ref", "required": True, "label": "状態"},
+                "value": {"type": "int", "required": True, "label": "量"},
+            },
+            "summary": "{target}に{state_name}を{value}付与",
+            "example": {"timing": "HIT", "type": "APPLY_STATE", "target": "target", "state_name": "出血", "value": 3},
+        },
+    }
+    ```
+
+    - `fields` のキーは effect のキー名そのもの。`data` の中は `"data.count"` のようにドットでつなぐ。`timing`・`type`・`target`・`condition` などの全タイプ共通のキーは書かない。
+    - `type` は `int`・`number`・`string`・`bool`・`json` と、参照の型 `state_ref`・`buff_ref`・`skill_ref`・`summon_ref`・`glossary_ref` のいずれか。
+    - 各キーの名前・必須かどうか・意味は、ハンドラのコードと C01 を読んで書く。例の `state_name` は形を示すための仮のもの。実際のキー名はコードに合わせる。
+    - `internal`：今のビルダーの `TYPES`（`json_definition_builder.html` 336行目）に無い `FORCE_UNOPPOSED`・`APPLY_FISSURE_BUFFED` は `True`、ほかは `False` で始める。コードを読んで実は作成者が使うべきだと判断したものは、変えずに報告する。
+    - `summary` の `{…}` には `fields` のキーと `target` だけを使う。
+    - `example` は、そのまま effect として動く1件にする。
+3. **`CUSTOM_EFFECT_SCHEMAS`**：`plugins/__init__.py` の `EFFECT_REGISTRY` の横に、名前ごとに `label`・`description`（今のビルダーの `CUSTOM_EFFECT_REFS` の `summary` を移す）・`fields`（同じく `keys` を上の形に直す）を置く。
+4. **説明文を作る関数**：`manager/battle/effect_handlers/` に `render_effect_summary(effect: dict) -> str` を置く。`summary` の `{…}` を effect の値で埋める。`{target}` は `self`→「自分」、`target`→「対象」のような日本語にする（対応表は関数の横に置く）。値が無い所は `?` にする。使うのは Phase 3 以降だが、テストで全スキーマの `example` を通すためにここで作る。
+5. **API**：`app.py` の `/api/get_*` と同じ並びに `GET /api/effect_schemas` を足す。返す形は `{"effect_types": EFFECT_SCHEMAS, "custom_effects": CUSTOM_EFFECT_SCHEMAS}`。認証は付けない（論点3：公開したデータは全員が見られる）。
+6. **テスト**（`tests/test_effect_schemas.py`）：
+    - `EFFECT_SCHEMAS` のキーが、`EFFECT_HANDLERS` のキーに `CUSTOM_EFFECT` を足したものと一致する（ハンドラだけ、スキーマだけを足すと落ちる）。
+    - `CUSTOM_EFFECT_SCHEMAS` のキーが、`EFFECT_REGISTRY` のキーと一致する。
+    - 各スキーマに `label`・`description`・`internal`・`fields`・`summary`・`example` がある。`fields` の各 `type` が決まった値のどれか。`summary` の `{…}` が `fields` か `target` にある。`example["type"]` が自分のキーと同じ。
+    - 各 `example` が `manager/json_rule_v2.py` の strict の正規化を通る（スキルの `rule_data` の形に包んで通す）。
+    - 各 `example` を `render_effect_summary` に通すと `?` を含まない。
+    - `/api/effect_schemas` が 200 で、上の2つの辞書を返す。
+
+#### PR60-2：ビルダーを API から読む形にする
+
+1. **配信**：`app.py` に `/json_builder` を足し、`CharaCreator/json_definition_builder.html` を返す（`/chara_creator` と同じ書き方）。ビルダーは今、どこからも配信されておらず、ファイルを直接開くと同じオリジンの API（`/api/get_glossary_data`・`/api/json_nl_builder_audit`）が届かない。配信すればこれも届くようになる。
+2. **参照データの API**：`GET /api/json_builder_reference` を足す。返す形は、今の `window.JSON_BUILDER_REFERENCE` と同じ `buff_refs`・`skill_refs`・`summon_refs`・`state_refs`（`generated_at` は不要）。`extensions.py` の `all_buff_data`・`all_skill_data` と、`manager/summons/loader.py` の `load_summon_templates()` から、その場で作る。`state_refs` は今の写しの9つをサーバー側の定数にする。
+3. **ビルダーの読み込み**：
+    - `<script src="./json_builder_reference_data.js">` を消し、`CharaCreator/json_builder_reference_data.js` を削除する。
+    - 起動時に `/api/effect_schemas` と `/api/json_builder_reference` を読み終えてから、今の初期化を走らせる。
+    - `TYPES` は `effect_types` のうち `internal` が `false` のキーから作る。並び順は今の `TYPES` の順を保てるなら保つ。
+    - `CUSTOM_EFFECT_REFS` は `custom_effects` から作る（表示に使う `value`・`summary`・`keys` の形に直す）。
+    - 読み込みに失敗したら、画面の上にエラーを出して止める。古い写しへの切り戻しは作らない（後方互換を持たない方針）。
+4. **テストの直し**：`tests/test_origin_boon_name.py` は、消える `json_builder_reference_data.js` を読んでいる。`/api/json_builder_reference` の `buff_refs` を確かめる形に直す。`tests/test_json_builder_encoding_guard.py` は、残す文字列の確認がそのまま通ることを確かめる。新しく、`/json_builder` が 200 を返すことと、`/api/json_builder_reference` が今のバフ図鑑と同じ ID を返すことのテストを足す。
+5. **確認**：アプリを起動して `/json_builder` を開き、効果タイプの一覧（今の20個と同じ）、`CUSTOM_EFFECT` の一覧、バフの候補が出ることを確かめる。ビルダーは `static/` のバンドルの外なので、`npm run build` は要らない。
+
+#### 触らないもの
+
+- 戦闘の処理（ハンドラの中身、`game_logic`）の動き。ハンドラのモジュールには `SCHEMAS` を足すだけ。
+- ビルダーのほかの手書きの一覧（`TIMINGS`・`TARGETS`・`POWER_OPS`・`COND_*`）と、文章から JSON を作る読み取りの処理。
+- `CharaCreator/GEMDICEBOT_CharaCreator.html`、`static/` のフロントエンド。
+
+#### 資料の更新
+
+- PR60-1：B01（effect の処理）に「新しい効果タイプは、ハンドラ・`SCHEMAS`・テストを足す」手順を書く。C01 に `/api/effect_schemas` を書く。
+- PR60-2：C01 §5 と A02 のビルダーの開き方を `/json_builder` に直す。`manuals/projects/app_foundation/repository_inventory.md` のビルダーの行（配信されていないという記述）を直す。
+- Phase 1 を終えても計画60は残す。この §5.1・§5.2 に「完了」と結果の要約を書く。
 
 ## 6. 未決定事項
 
 - (1) **一括編集の手段**：正本は DB に決めた（§8）。表計算でしていた一括の書き換え・見比べを何で補うか。CSV の書き出し・読み込み、管理画面に軽い表計算の機能を持たせる、AI エージェントが API 経由で下書きをまとめて作る、などの候補がある。今はあまり使っていないため、必要になった段階で決める。
+- (11) **管理画面の UI**：機能（一覧・編集・下書き・承認・公開・履歴・廃止、文章と JSON の並び、プレビュー、リクエストの一覧）は決めたが、画面の形は決めていない。別のページにするか今のアプリの中のモーダルにするか、一覧と編集の並べ方、編集の入力の形（スキーマから作るフォーム・JSON の直接編集・その両方）、今の JSON ビルダーを管理画面に吸収するか別に残すか。Phase 1 は新しい画面を作らないため影響しない。Phase 2 の前に決める。
 
 ## 7. 関係
 
