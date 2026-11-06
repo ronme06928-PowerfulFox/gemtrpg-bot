@@ -63,3 +63,94 @@ HANDLERS = {
     "MODIFY_FINAL_POWER": handle_modify_final_power,
     "DRAIN_HP": handle_drain_hp,
 }
+
+
+SCHEMAS = {
+    "DAMAGE_BONUS": {
+        "label": "追加ダメージ",
+        "description": "正のvalueを追加ダメージへ加算する。0以下は不発。",
+        "internal": False,
+        "fields": {
+            "value": {"type": "int", "required": True, "label": "補正量", "description": "省略時0。"},
+        },
+        "summary": "{target}に追加ダメージ{value}",
+        "example": {
+            "timing": "HIT",
+            "type": "DAMAGE_BONUS",
+            "target": "target",
+            "value": 2,
+        },
+    },
+    "MODIFY_ROLL": {
+        "label": "ロール補正",
+        "description": "valueを追加ダメージの合計へ加算する。負数も使用可能。",
+        "internal": False,
+        "fields": {
+            "value": {"type": "int", "required": True, "label": "補正量", "description": "省略時0。"},
+        },
+        "summary": "{target}にロール補正{value}",
+        "example": {
+            "timing": "PRE_MATCH",
+            "type": "MODIFY_ROLL",
+            "target": "target",
+            "value": 2,
+        },
+    },
+    "MODIFY_BASE_POWER": {
+        "label": "基礎威力補正",
+        "description": "基礎威力にvalueを加減する要求を作る。",
+        "internal": False,
+        "fields": {
+            "value": {"type": "int", "required": True, "label": "補正量", "description": "省略時0。"},
+        },
+        "summary": "{target}に基礎威力補正{value}",
+        "example": {
+            "timing": "PRE_MATCH",
+            "type": "MODIFY_BASE_POWER",
+            "target": "target",
+            "value": 2,
+        },
+    },
+    "MODIFY_FINAL_POWER": {
+        "label": "最終威力補正",
+        "description": "最終威力にvalueを加減する要求を作る。",
+        "internal": False,
+        "fields": {
+            "value": {"type": "int", "required": True, "label": "補正量", "description": "省略時0。"},
+        },
+        "summary": "{target}に最終威力補正{value}",
+        "example": {
+            "timing": "PRE_MATCH",
+            "type": "MODIFY_FINAL_POWER",
+            "target": "target",
+            "value": 2,
+        },
+    },
+    "DRAIN_HP": {
+        "label": "HP吸収",
+        "description": "与えた基礎ダメージと対象の現在HPの小さい方にvalueを掛け、整数化した量を自分のHPへ加える。",
+        "internal": False,
+        "fields": {
+            "value": {"type": "number", "required": True, "label": "吸収率", "description": "省略時0。"},
+        },
+        "summary": "自分のHPをダメージの{value}倍回復",
+        "example": {
+            "timing": "HIT",
+            "type": "DRAIN_HP",
+            "target": "target",
+            "value": 0.5,
+        },
+    },
+    "FORCE_UNOPPOSED": {
+        "label": "一方攻撃を強制",
+        "description": "一方攻撃への変更要求を作る。",
+        "internal": True,
+        "fields": {},
+        "summary": "{target}への一方攻撃を強制",
+        "example": {
+            "timing": "PRE_MATCH",
+            "type": "FORCE_UNOPPOSED",
+            "target": "target",
+        },
+    },
+}

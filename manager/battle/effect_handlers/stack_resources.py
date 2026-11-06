@@ -351,3 +351,68 @@ HANDLERS = {
     "CONSUME_BUFF_COUNT_FOR_GAIN": handle_consume_buff_count_for_gain,
     "CONSUME_BUFF_COUNT_FOR_POWER": handle_consume_buff_count_for_power,
 }
+
+
+SCHEMAS = {
+    "CONVERT_STACK_RESOURCE_VARIANT": {
+        "label": "スタック資源を変換",
+        "description": "必要数以上のスタックを持つ資源のvariantを変更する。スタック数は消費しない。",
+        "internal": False,
+        "fields": {
+            "resource_name": {"type": "string", "required": True, "label": "資源名", "description": "resource・buff_nameでも指定可能。"},
+            "to_variant": {"type": "string", "required": True, "label": "変換先", "description": "蓄力の誘爆はburst_guidance、凝魔の血漿はblood_plasma。variantでも指定可能。"},
+            "require_count_gte": {"type": "int", "required": False, "label": "必要スタック数", "description": "省略時1、最小1。require_count・min_countでも指定可能。"},
+        },
+        "summary": "{target}の{resource_name}を{to_variant}に変換",
+        "example": {
+            "timing": "PRE_MATCH",
+            "type": "CONVERT_STACK_RESOURCE_VARIANT",
+            "target": "self",
+            "resource_name": "蓄力",
+            "to_variant": "burst_guidance",
+        },
+    },
+    "CONSUME_BUFF_COUNT_FOR_GAIN": {
+        "label": "スタックを消費して効果を得る",
+        "description": "必要数を全量消費できるときだけ消費し、gainsを実行する。バフが足りなければ同名状態値を参照する。",
+        "internal": False,
+        "fields": {
+            "buff_name": {"type": "string", "required": True, "label": "消費するバフ・状態名"},
+            "consume_required": {"type": "int", "required": True, "label": "必要消費数", "description": "正数。"},
+            "gains": {"type": "json", "required": True, "label": "獲得効果", "description": "配列または1件のオブジェクト。type=HP/MP/FP/STATE/BUFF。target・value・state_name・rounds・buff_name/buff_id・lasting・delay・data・countを指定可能。"},
+        },
+        "summary": "{target}の{buff_name}を{consume_required}消費して効果を得る",
+        "example": {
+            "timing": "PRE_MATCH",
+            "type": "CONSUME_BUFF_COUNT_FOR_GAIN",
+            "target": "self",
+            "buff_name": "蓄力",
+            "consume_required": 1,
+            "gains": [{
+                "type": "FP",
+                "value": 1,
+                "target": "self",
+            }],
+        },
+    },
+    "CONSUME_BUFF_COUNT_FOR_POWER": {
+        "label": "スタックを威力へ変換",
+        "description": "最大消費数まで消費して威力を加減する。バフが0なら同名状態値を参照する。",
+        "internal": False,
+        "fields": {
+            "buff_name": {"type": "string", "required": True, "label": "消費するバフ・状態名"},
+            "consume_max": {"type": "int", "required": True, "label": "最大消費数", "description": "正数。"},
+            "value_per_stack": {"type": "int", "required": False, "label": "1スタックあたりの威力", "description": "省略時1。0なら不発。"},
+            "min_consume": {"type": "int", "required": False, "label": "最小消費数", "description": "省略時1、最小1。"},
+            "apply_to": {"type": "string", "required": False, "label": "適用先", "description": "baseまたはfinal。省略・未知値はfinal。"},
+        },
+        "summary": "{target}の{buff_name}を最大{consume_max}消費して威力を変更",
+        "example": {
+            "timing": "PRE_MATCH",
+            "type": "CONSUME_BUFF_COUNT_FOR_POWER",
+            "target": "self",
+            "buff_name": "蓄力",
+            "consume_max": 3,
+        },
+    },
+}

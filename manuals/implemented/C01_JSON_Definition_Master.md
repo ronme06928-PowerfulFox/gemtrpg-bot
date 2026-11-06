@@ -2,7 +2,7 @@
 
 # JSON定義マニュアル（正本・統合版）
 
-**最終更新日**: 2026-10-31（カタログ検証コアとCLIの責務を分離）
+**最終更新日**: 2026-11-06（計画60 PR60-1：効果スキーマ配信 API）
 **系統**: C — データ定義（JSON）
 **統合元**: 20_JSON_Definition_Strict_v2 / 17_Phase3_Strict_Errata / 15_JSON_Definition_Master / 03_Integrated_Data_Definitions
 **優先順位**: 本書 > 旧20 = 旧17 > 旧15 > 旧03
@@ -821,3 +821,12 @@ python scripts/skill_catalog_tool.py lint
 - `data/cache/summon_templates_cache.json`: `U-02.tag_ids`と`U-02.SPassive`
 - `data/cache/buff_catalog_cache.json`: `Bu-51`と`Bu-52`
 - `data/cache/skills_cache.json`: `E-33`、`E-34`、`E-35`
+
+## 17. 効果スキーマ配信 API（計画60 PR60-1）
+
+`GET /api/effect_schemas` は認証なしで `{"effect_types": EFFECT_SCHEMAS, "custom_effects": CUSTOM_EFFECT_SCHEMAS}` を返す。DB・ルーム状態は変更しない。
+各効果タイプは `label`・`description`・`internal`・`fields`・`summary`・`example` を持つ。`fields` は共通キーを除く effect のキーを記載し、入れ子は `data.count` のように表す。型は `int`・`number`・`string`・`bool`・`json`・`state_ref`・`buff_ref`・`skill_ref`・`summon_ref`・`glossary_ref`。
+`required` は現行の入力契約を表す。代替キーが使える場合は説明へ併記する。このAPIは保存前検査を追加しない。
+`internal=True` は `FORCE_UNOPPOSED`・`APPLY_FISSURE_BUFFED` のみ。ほかは `False`。名前別のカスタム効果は `label`・`description`・`fields` を持つ。
+`render_effect_summary(effect)` は説明テンプレートへ値を埋め、対象を日本語化し、不足値を `?` とする。未知の効果タイプも `?` を返す。入れ子キーを読み、値を再びテンプレートとして解釈しない。
+ビルダーのAPI読み込みと保存前検査は後続PR・Phaseの対象。

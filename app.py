@@ -411,6 +411,7 @@ def register_http_routes(flask_app):
     flask_app.add_url_rule('/api/get_passive_data', 'get_passive_data', get_passive_data, methods=['GET'])
     flask_app.add_url_rule('/api/get_buff_data', 'get_buff_data', get_buff_data, methods=['GET'])
     flask_app.add_url_rule('/api/get_glossary_data', 'get_glossary_data', get_glossary_data, methods=['GET'])
+    flask_app.add_url_rule('/api/effect_schemas', 'get_effect_schemas', get_effect_schemas, methods=['GET'])
     flask_app.add_url_rule('/api/upload_image', 'upload_image', upload_image, methods=['POST'])
     flask_app.add_url_rule('/api/images', 'get_images_api', get_images_api, methods=['GET'])
     flask_app.add_url_rule('/api/images/<image_id>', 'delete_image_api', delete_image_api, methods=['DELETE'])
@@ -426,6 +427,14 @@ def register_http_routes(flask_app):
 def get_skill():
     skill_id = request.args.get('id')
     return jsonify(all_skill_data.get(skill_id, {}))
+
+
+def get_effect_schemas():
+    from manager.battle.effect_handlers import EFFECT_SCHEMAS
+    from plugins import CUSTOM_EFFECT_SCHEMAS
+
+    return jsonify({"effect_types": EFFECT_SCHEMAS, "custom_effects": CUSTOM_EFFECT_SCHEMAS})
+
 
 def get_skill_metadata():
     metadata = {}

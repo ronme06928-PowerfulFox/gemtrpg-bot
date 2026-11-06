@@ -2,7 +2,7 @@
 
 # スキルロジック実装リファレンス Part 1: 効果処理コア
 
-**最終更新日**: 2026-05-09
+**最終更新日**: 2026-11-06（計画60 PR60-1：効果スキーマの追加手順）
 **系統**: B — 戦闘・スキル仕様
 **統合元**: 08_Skill_Logic_Reference / 13_Fissure_Round_Management_Spec
 
@@ -914,3 +914,10 @@ visual_panel.jsのpopulateCharSkillSelectは混乱時にS-Confusionを選択肢�
 ### 強硬攻撃時の戦慄（2026-10-21 C4）
 
 強硬攻撃で防御側の威力を振り直す場合も、プレビューで実際に下げたダイス面数だけ戦慄を消費する。広域合算の威力ロールでは、プレビュー生成だけをフォールバック対象とし、ロール・消費の例外で二度目のダイスを振らない。
+
+## 効果タイプの追加手順（計画60 PR60-1）
+
+新しい効果タイプは、担当モジュールのハンドラと `HANDLERS`、その横の `SCHEMAS`、`tests/test_effect_schemas.py` のテストを揃えて追加する。
+`manager/battle/effect_handlers/__init__.py` が `EFFECT_SCHEMAS` へ集約する。`CUSTOM_EFFECT` の実行は従来どおり `game_logic` に残し、名前別の説明は `plugins.CUSTOM_EFFECT_SCHEMAS` に置く。
+スキーマは現行コードの入力キー・既定値を記述するメタデータで、戦闘処理や保存前検査には介入しない。
+全スキーマの例は strict 正規化と説明文生成を通し、ハンドラとスキーマのキー一致もテストする。

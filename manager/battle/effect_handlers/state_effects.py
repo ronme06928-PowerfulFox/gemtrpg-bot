@@ -209,3 +209,85 @@ HANDLERS = {
     "APPLY_STATE_PER_N": handle_apply_state_per_n,
     "MULTIPLY_STATE": handle_multiply_state,
 }
+
+
+SCHEMAS = {
+    "APPLY_FISSURE_BUFFED": {
+        "label": "期限付き亀裂を付与",
+        "description": "付与者の補正を加えた亀裂をラウンド制バフで付与する。受け手側補正は加えない。",
+        "internal": True,
+        "fields": {
+            "value": {"type": "int", "required": True, "label": "亀裂量", "description": "正の整数。"},
+            "rounds": {"type": "int", "required": True, "label": "継続ラウンド", "description": "正の整数。"},
+            "source": {"type": "string", "required": False, "label": "付与元", "description": "省略時skill。"},
+        },
+        "summary": "{target}に亀裂を{value}付与（{rounds}ラウンド）",
+        "example": {
+            "timing": "HIT",
+            "type": "APPLY_FISSURE_BUFFED",
+            "target": "target",
+            "value": 3,
+            "rounds": 2,
+        },
+    },
+    "APPLY_STATE": {
+        "label": "状態を付与",
+        "description": "状態値を加減する。正の付与量には付与者・受け手の補正が入る。",
+        "internal": False,
+        "fields": {
+            "state_name": {"type": "state_ref", "required": True, "label": "状態", "description": "nameでも指定可能。HP・MP・FPも使用可能。"},
+            "value": {"type": "int", "required": True, "label": "量", "description": "負数は減少。省略時0で不発。"},
+            "rounds": {"type": "int", "required": False, "label": "亀裂の継続ラウンド", "description": "亀裂の正の付与時だけ使用。正数なら期限付き。"},
+            "source": {"type": "string", "required": False, "label": "付与元", "description": "期限付き亀裂の付与元。省略時skill。"},
+        },
+        "summary": "{target}に{state_name}を{value}付与",
+        "example": {
+            "timing": "HIT",
+            "type": "APPLY_STATE",
+            "target": "target",
+            "state_name": "出血",
+            "value": 3,
+        },
+    },
+    "APPLY_STATE_PER_N": {
+        "label": "参照値ごとに状態を付与",
+        "description": "参照値をper_Nで整数除算しvalueを掛け、正の量だけ状態を付与する。上限処理後に付与補正が入る。",
+        "internal": False,
+        "fields": {
+            "source": {"type": "string", "required": False, "label": "参照元", "description": "省略時self。self以外は対象を参照。"},
+            "source_param": {"type": "string", "required": True, "label": "参照項目"},
+            "per_N": {"type": "int", "required": False, "label": "区切り", "description": "省略時1。0以下なら不発。"},
+            "value": {"type": "int", "required": False, "label": "区切りごとの量", "description": "省略時1。"},
+            "max_value": {"type": "int", "required": False, "label": "補正前の付与上限"},
+            "state_name": {"type": "state_ref", "required": True, "label": "付与する状態"},
+            "rounds": {"type": "int", "required": False, "label": "亀裂の継続ラウンド", "description": "亀裂の正の付与でのみ使用。"},
+        },
+        "summary": "{target}に{source_param}の{per_N}ごとに{state_name}を{value}付与",
+        "example": {
+            "timing": "HIT",
+            "type": "APPLY_STATE_PER_N",
+            "target": "target",
+            "source_param": "出血",
+            "per_N": 3,
+            "state_name": "破裂",
+            "value": 1,
+        },
+    },
+    "MULTIPLY_STATE": {
+        "label": "状態を乗算",
+        "description": "現在値×倍率に0.5を加えて整数化し、差分を適用する。",
+        "internal": False,
+        "fields": {
+            "state_name": {"type": "state_ref", "required": True, "label": "状態"},
+            "value": {"type": "number", "required": False, "label": "倍率", "description": "省略時1.0。"},
+        },
+        "summary": "{target}の{state_name}を{value}倍",
+        "example": {
+            "timing": "HIT",
+            "type": "MULTIPLY_STATE",
+            "target": "target",
+            "state_name": "出血",
+            "value": 2,
+        },
+    },
+}

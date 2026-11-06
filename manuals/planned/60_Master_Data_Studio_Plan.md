@@ -1,7 +1,7 @@
 # 計画60：マスターデータ管理画面（スキル・バフ・用語図鑑の編集をアプリで行う）
 
 作成日: 2026-11-04
-状態: 論点確定（一括編集の手段だけ、必要になったら決める）・未着手。[マスターデータベース・プロジェクト](../projects/master_database/README.md)の段階1。Phase 1 はいつでも始めてよい（§8 論点9）。
+状態: PR60-1 完了（2026-11-06）。PR60-2 以降は未着手（一括編集の手段は必要になったら決める）。[マスターデータベース・プロジェクト](../projects/master_database/README.md)の段階1。
 
 ## 1. 目的
 
@@ -115,6 +115,8 @@ Git でメンバーに編集してもらう案は、ハードルを下げる目�
 
 ### 5.1 Phase 1 の推奨PR分割
 
+PR60-1 完了（2026-11-06）：22効果タイプ・9カスタム効果のスキーマ、説明文生成、認証なしの配信APIとテストを追加。PR60-2 は未着手。
+
 | PR | 内容 | 画面の変化 |
 |---|---|---|
 | PR60-1 | 効果タイプのスキーマ（`EFFECT_SCHEMAS`）と `CUSTOM_EFFECT` の名前ごとのスキーマ（`CUSTOM_EFFECT_SCHEMAS`）、説明文を作る関数、`/api/effect_schemas`、テスト | なし |
@@ -125,6 +127,8 @@ Git でメンバーに編集してもらう案は、ハードルを下げる目�
 ### 5.2 Phase 1 の実装詳細
 
 #### PR60-1：スキーマと配信 API
+
+完了（2026-11-06）。以下の契約を実装。`internal` は当初の割り当てを維持し、戦闘処理・ビルダーは変更していない。実装済み仕様は B01 の追加手順と C01 §17 を参照。
 
 1. **スキーマの置き場**：各ハンドラモジュール（`manager/battle/effect_handlers/` の `action_effects.py`・`buff_effects.py`・`power_effects.py`・`stack_resources.py`・`state_effects.py`）の `HANDLERS` の横に `SCHEMAS` を置く。`__init__.py` で `EFFECT_HANDLERS` と同じように `EFFECT_SCHEMAS` へまとめる。`CUSTOM_EFFECT` はハンドラが `game_logic` 側にあるため、`EFFECT_SCHEMAS["CUSTOM_EFFECT"]` は `__init__.py` に直接書く。
 2. **スキーマの形**（1つの効果タイプにつき1つ）：
