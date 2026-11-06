@@ -92,13 +92,13 @@
         "duration": 0.3
       }
     },
-    "voiceStart": 0.7,
-    "voiceEnd": 3.42,
+    "voiceStart": 1.8,
+    "voiceEnd": 4.5200000000000005,
     "motionEnd": 0.3,
-    "contentEnd": 3.42,
+    "contentEnd": 4.5200000000000005,
     "marks": [],
     "repose": 0.6,
-    "duration": 4.02
+    "duration": 5.12
   },
   "s-slots:3": {
     "events": {},
@@ -264,6 +264,10 @@
       "slots": {
         "start": 0,
         "duration": 0.3
+      },
+      "phaseChange": {
+        "start": 0,
+        "duration": 0
       }
     },
     "voiceStart": 0.7,
@@ -281,31 +285,31 @@
         "duration": 0.3
       },
       "arrowAlly": {
-        "start": 0.3,
-        "duration": 0.3
+        "start": 3.6546666666666665,
+        "duration": 0.5
       },
       "arrowEnemy": {
-        "start": 0.6,
-        "duration": 0.3
+        "start": 5.1546666666666665,
+        "duration": 0.5
       }
     },
-    "voiceStart": 1.2999999999999998,
-    "voiceEnd": 4.254666666666667,
-    "motionEnd": 0.8999999999999999,
-    "contentEnd": 4.254666666666667,
+    "voiceStart": 0.7,
+    "voiceEnd": 3.6546666666666665,
+    "motionEnd": 5.6546666666666665,
+    "contentEnd": 5.6546666666666665,
     "marks": [],
     "repose": 0.6,
-    "duration": 4.86
+    "duration": 6.26
   },
   "s-selection:3": {
     "events": {},
-    "voiceStart": 0.4,
-    "voiceEnd": 2.5546666666666664,
+    "voiceStart": 0.8946666666666667,
+    "voiceEnd": 3.0493333333333332,
     "motionEnd": 0,
-    "contentEnd": 2.5546666666666664,
+    "contentEnd": 3.0493333333333332,
     "marks": [],
     "repose": 0.6,
-    "duration": 3.16
+    "duration": 3.65
   },
   "s-selection:4": {
     "events": {},
@@ -367,6 +371,10 @@
       "speedHighlight": {
         "start": 0.3,
         "duration": 0.6
+      },
+      "phaseChange": {
+        "start": 0.8999999999999999,
+        "duration": 0
       }
     },
     "voiceStart": 1.2999999999999998,
@@ -708,6 +716,10 @@
       "effect": {
         "start": 0,
         "duration": 0.3
+      },
+      "phaseChange": {
+        "start": 0,
+        "duration": 0
       }
     },
     "voiceStart": 0.7,
@@ -838,6 +850,10 @@
       "gm": {
         "start": 0,
         "duration": 0.3
+      },
+      "phaseChange": {
+        "start": 0,
+        "duration": 0
       }
     },
     "voiceStart": 0.7,

@@ -1,8 +1,8 @@
 {
   "sources": {
     "slot": {
-      "file": "click_001.ogg",
-      "peakDb": -24
+      "file": "soft-pop.wav",
+      "peakDb": -29
     },
     "match": {
       "file": "confirmation_002.ogg",
@@ -19,6 +19,30 @@
     "dice": {
       "file": "imported/dice-roll.mp3",
       "peakDb": -22
+    },
+    "gm": {
+      "file": "soft-pop.wav",
+      "peakDb": -35
+    },
+    "arrow": {
+      "file": "soft-swish.wav",
+      "peakDb": -31
+    },
+    "panel": {
+      "file": "soft-swish.wav",
+      "peakDb": -34
+    },
+    "skill": {
+      "file": "click_001.ogg",
+      "peakDb": -32
+    },
+    "paper": {
+      "file": "paper-turn.wav",
+      "peakDb": -32
+    },
+    "phase": {
+      "file": "click_001.ogg",
+      "peakDb": -40
     }
   }
 }

@@ -10,7 +10,6 @@ import { voices } from './round-v3-data.mjs';
 import { planBeat, motion } from './round-v3-flow.mjs';
 import { decodeWav, encodeWav, joinParts, mixEffect, peak } from './r1-audio.mjs';
 import { openingSound } from '../common/opening.mjs';
-import { effectTime } from './prepare-voice.mjs';
 import { extractResolvePanelCss, GALLERY_PANEL_SELECTOR } from '../../../scripts/fx_gallery/panel_css.mjs';
 const engine='C:/Users/yharu/tools/egatari-studio-0.6.3';
 const video=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -62,9 +61,10 @@ export async function prepareDialogueVoice(deck,shots){
     }
     return {...decodeWav(fs.readFileSync(file)),hash,reading};
   };
-  const timing={},manifest={segments:{}},measures=[],flow={};
+  const timing={},manifest={segments:{}},measures=[],flow={},audioPeaks=[];
   const sounds={};
-  for(const [name,s] of Object.entries(JSON.parse(fs.readFileSync(path.join(deck,'sfx/cues.json'),'utf8')).sources)){
+  const sources=JSON.parse(fs.readFileSync(path.join(deck,'sfx/cues.json'),'utf8')).sources;
+  for(const [name,s] of Object.entries(sources)){
     const a=pcm(run(['-i',path.join(deck,'sfx',s.file),'-f','s16le','-ar','24000','-ac','1','pipe:1']));
     const gain=10**((s.peakDb+6)/20)/peak(a);sounds[name]=a.map((x,i)=>x*gain*Math.min(1,(a.length-1-i)/(24000*.008)));
   }
@@ -83,23 +83,41 @@ export async function prepareDialogueVoice(deck,shots){
     if(s)assert.equal(joined.cues.length,s.bounds.length);
     const samples=s?pcm(run(['-i','pipe:0','-af','loudnorm=I=-20:TP=-3:LRA=7','-ar','24000','-ac','1','-f','s16le','pipe:1'],encodeWav(joined.samples,24000))):new Float32Array();
     const beat=k===0&&shot.id!=='intro'?{events:{},duration:0,voiceStart:0,voiceEnd:0,marks:[]}:planBeat({
-      id:shot.id,k,last:k===shot.count||(shot.id==='intro'&&k===1),next:shots[index+1]?.id,
+      id:shot.id,k,previous:flow[`s-${shot.id}:${k-1}`],last:k===shot.count||(shot.id==='intro'&&k===1),next:shots[index+1]?.id,
       voiceSeconds:samples.length/24000,cues:joined.cues,bounds:s?.bounds||[]});
     flow[key]=beat;timing[key]={dur:beat.duration,hold:beat.duration,lead:0,pad_after:0};
     const seEvents=[];
+    const add=(sound,event)=>{if(event)seEvents.push({sound,at:event.start});};
     for(const effect of events[key]?.effects||[]){
-      const name=effect.sound==='slot'?(beat.events.skills?'skills':'slots'):effect.sound==='match'?'match':effect.sound;
-      const event=beat.events[name];
-      seEvents.push({sound:effect.sound,at:event?event.start:beat.voiceStart+effectTime(effect,s?.bounds||[],joined.cues)});
+      assert.ok(beat.events[effect.motion],`SEの動きがない: ${key}/${effect.motion}`);
+      add(effect.sound,beat.events[effect.motion]);
     }
+    if((shot.id==='slots'&&k===2)||(shot.id==='next'&&k===1))add('slot',beat.events.slots);
+    add('gm',beat.events.gm);add('skill',beat.events.skills);
+    add('arrow',beat.events.arrowAlly);add('arrow',beat.events.arrowEnemy);
+    if(['names','return'].includes(shot.id))add('panel',beat.events.sceneFade);
+    if(shot.id==='effect-timing')add('paper',beat.events.effect);
+    add('phase',beat.events.phaseChange);
     for(const name of ['diceAlly','diceEnemy'])if(beat.events[name])seEvents.push({sound:'dice',at:beat.events[name].start+motion.dieRoll});
-    if(shot.id==='power-roll'&&beat.events.native)seEvents.push({sound:'dice',at:beat.events.native.start});
+    if(shot.id==='power-roll'&&beat.events.native)add('dice',beat.events.native);
+    // 同時に出るスロットとGMは同じポンッを二重に鳴らさない。
+    const selected=new Map();
+    for(const event of seEvents){
+      const same=`${sources[event.sound].file}:${event.at}`;
+      const old=selected.get(same);
+      if(!old||sources[event.sound].peakDb>sources[old.sound].peakDb)selected.set(same,event);
+    }
+    const soundEnd=Math.max(0,...[...selected.values()].map(e=>e.at+sounds[e.sound].length/24000));
+    if(beat.duration)beat.duration=Math.ceil((Math.max(beat.voiceEnd,beat.motionEnd,soundEnd)+beat.repose)*100)/100;
+    timing[key].dur=timing[key].hold=beat.duration;
     const hasOpening=!!beat.events.opening;
     if(s||seEvents.length||hasOpening){
       const mix=new Float32Array(Math.round(beat.duration*24000));
       if(samples.length)mix.set(samples,Math.round(beat.voiceStart*24000));
-      for(const event of seEvents)mixEffect(mix,sounds[event.sound],Math.round(event.at*24000));
+      for(const event of selected.values())mixEffect(mix,sounds[event.sound],Math.round(event.at*24000));
       if(hasOpening)mixEffect(mix,decodeWav(openingSound()).samples,0);
+      const max=peak(mix);assert.ok(max<1,`クリップ: ${key}`);
+      audioPeaks.push({key,peakDb:20*Math.log10(max),effects:[...selected.values()]});
       const file=`steps/${shot.id}-${k}.wav`;
       fs.writeFileSync(path.join(deck,'audio',file),encodeWav(mix,24000));
       manifest.segments[key]={file,dur:beat.duration,cues:joined.cues.map(x=>+(x+beat.voiceStart).toFixed(4)),sync:'manual',kind:'imported',inputHash:await inputHash(s||{turns:[]})};
@@ -109,6 +127,6 @@ export async function prepareDialogueVoice(deck,shots){
   }
   json(path.join(deck,'audio/manifest.json'),manifest);json(path.join(deck,'timeline.json'),timing);json(path.join(deck,'flow.json'),flow);
   const duration=Object.values(timing).reduce((n,v)=>n+v.dur,0);
-  json(path.join(local,'voice-report.json'),{version:'0.26.0',voices,made,cached,duration,measures});console.log(JSON.stringify({made,cached,duration}));
+  json(path.join(local,'voice-report.json'),{version:'0.26.0',voices,made,cached,duration,measures,audioPeaks,maxPeakDb:Math.max(...audioPeaks.map(r=>r.peakDb))});console.log(JSON.stringify({made,cached,duration}));
   return flow;
 }

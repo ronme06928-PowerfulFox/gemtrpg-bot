@@ -30,8 +30,8 @@
     "pad_after": 0
   },
   "s-slots:2": {
-    "dur": 4.02,
-    "hold": 4.02,
+    "dur": 5.12,
+    "hold": 5.12,
     "lead": 0,
     "pad_after": 0
   },
@@ -108,14 +108,14 @@
     "pad_after": 0
   },
   "s-selection:2": {
-    "dur": 4.86,
-    "hold": 4.86,
+    "dur": 6.26,
+    "hold": 6.26,
     "lead": 0,
     "pad_after": 0
   },
   "s-selection:3": {
-    "dur": 3.16,
-    "hold": 3.16,
+    "dur": 3.65,
+    "hold": 3.65,
     "lead": 0,
     "pad_after": 0
   },

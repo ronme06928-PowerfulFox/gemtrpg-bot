@@ -42,8 +42,10 @@ const voiceConfig = read(path.join(deck, 'voice/config.json'));
 const wordLead = voiceConfig.partGap + voiceConfig.prePhonemeLength;
 const pair = (a = {}, b = {}) => actor(false, a) + actor(true, b);
 function arrows(id) {
-  return '<svg class="v2-arrows" viewBox="0 0 1184 130" aria-label="マッチ"><defs><marker id="match-head" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="#ffb020"/></marker></defs><path marker-end="url(#match-head)" d="M330 35 Q610 0 890 35"/><path marker-end="url(#match-head)" d="M890 80 Q610 120 330 80"/></svg>'.replaceAll('match-head', `match-head-${id}`);
+  const paths=['M330 35 Q610 0 890 35','M890 80 Q610 120 330 80'];
+  return `<svg class="v2-arrows" viewBox="0 0 1184 130" aria-label="対象への矢印"><defs><marker id="match-head-${id}" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="#ffb020"/></marker></defs><g data-mark="match-arrow">${paths.map((d,i)=>`<g data-arrow="${i}"><path class="arrow-outline" d="${d}"/><path class="arrow-line" marker-end="url(#match-head-${id})" d="${d}"/></g>`).join('')}</g></svg>`;
 }
+
 const slots = (a = {}, b = {}) => pair({ slot: 6, ...a }, { slot: 4, ...b });
 function content(id) {
   switch (id) {
@@ -54,7 +56,7 @@ function content(id) {
       const enemy = dice().replace('"face":4,"value":6,"from":[290,230],"stop":[500,230],"to":[290,50]', '"face":3,"value":4,"from":[930,230],"stop":[700,230],"to":[930,50]').replace('left:252px', 'left:892px').replace('data-dice-target data-readable', 'data-dice-target id="speed-enemy" data-readable');
       return pair({ slot: '' }, { slot: '' }) + ally + enemy + '<div class="v2-speed-formula"><div data-speed-row>出目<span data-speed-face>？</span>＋<span data-spoken="speed-correction">速度補正2</span>＝<span data-speed-total>？</span></div><div data-speed-row>出目<span data-speed-face>？</span>＋<span data-spoken="speed-correction">速度補正1</span>＝<span data-speed-total>？</span></div></div>';
     }
-    case 'selection': return slots() + arrows(id).replace('class="v2-arrows"', 'class="v2-arrows" data-mark="match-arrow"') + '<div class="v2-skill ally">基本の一太刀</div><div class="v2-skill enemy">基本の一太刀</div>';
+    case 'selection': return slots() + arrows(id) + '<div class="v2-skill ally">基本の一太刀</div><div class="v2-skill enemy">基本の一太刀</div>';
     case 'resolve': return slots() + arrows(id);
     case 'power-ally': case 'power-enemy': {
       const enemy = id === 'power-enemy';

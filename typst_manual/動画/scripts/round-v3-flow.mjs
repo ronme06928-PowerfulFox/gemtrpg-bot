@@ -1,6 +1,7 @@
 // 秒数の例外でleadを埋めず、実際に見せる動きから一拍を組む。
 export const motion = { fade:.3, scene:.5, title:.8, settle:.4, sceneRest:1,
   conversation:.6, topic:1.2, markDraw:.5, markHold:1,
+  notice:1.5, arrowDraw:.5, arrowGap:1,
   die:2.4, dieRoll:1.1, dieStagger:.4, names:.5, power:1.2, attack:.7,
   outcome:2.2, speedHighlight:.6, effectFrame:.6, effectExpand:.7, fp:1.4, opening:2.6, credits:5 };
 const boardTopics=[['slots','speed','selection','resolve'],['return','effect-timing','effect-fp','next']];
@@ -9,7 +10,7 @@ export function repose(id,next){
     (id==='outcome'&&next==='return')||(id==='next'&&next==='credits'))return motion.sceneRest;
   return boardTopics.some(row=>row.indexOf(id)>=0&&row.indexOf(next)===row.indexOf(id)+1)?motion.topic:motion.conversation;
 }
-export function planBeat({id,k,last,next,voiceSeconds=0,cues=[],bounds=[]}){
+export function planBeat({id,k,last,next,previous,voiceSeconds=0,cues=[],bounds=[]}){
   const events={};let entranceEnd=0;
   const before=(name,duration)=>{events[name]={start:entranceEnd,duration};entranceEnd+=duration;};
   const together=(name,duration)=>{events[name]={start:0,duration};entranceEnd=Math.max(entranceEnd,duration);};
@@ -27,7 +28,7 @@ export function planBeat({id,k,last,next,voiceSeconds=0,cues=[],bounds=[]}){
     }
   }
   if(id==='slots'&&k===2){together('slots',motion.fade);together('gm',motion.fade);}
-  if(id==='selection'&&k===2){before('skills',motion.fade);before('arrowAlly',motion.fade);before('arrowEnemy',motion.fade);}
+  if(id==='selection'&&k===2)before('skills',motion.fade);
   if(id==='selection'&&k===5)before('match',motion.fade);
   if(id==='resolve'&&first)before('speedHighlight',motion.speedHighlight);
   if(id==='effect-timing'&&k===2)before('timingFrame',motion.effectFrame);
@@ -36,9 +37,22 @@ export function planBeat({id,k,last,next,voiceSeconds=0,cues=[],bounds=[]}){
   const nativeDuration={names:motion.names,'power-roll':motion.power,attack:motion.attack,outcome:motion.outcome}[id];
   if(first&&nativeDuration)before('native',nativeDuration);
   const settle=scene?motion.sceneRest:motion.settle;
-  const voiceStart=entranceEnd+(voiceSeconds?settle:0),voiceEnd=voiceStart+voiceSeconds;
+  let voiceStart=entranceEnd+(voiceSeconds?settle:0);
+  if(id==='slots'&&k===2)voiceStart=Math.max(voiceStart,events.slots.start+events.slots.duration+motion.notice);
+  if(id==='selection'&&k===3){
+    const arrow=previous.events.arrowEnemy;
+    const elapsed=previous.duration-(arrow.start+arrow.duration);
+    voiceStart=Math.max(voiceStart,motion.notice-elapsed);
+  }
+  const voiceEnd=voiceStart+voiceSeconds;
   let motionEnd=entranceEnd;
   const synced=(name,start,duration)=>{events[name]={start,duration};motionEnd=Math.max(motionEnd,start+duration);};
+  if(id==='selection'&&k===2){
+    synced('arrowAlly',voiceEnd,motion.arrowDraw);
+    synced('arrowEnemy',voiceEnd+motion.arrowDraw+motion.arrowGap,motion.arrowDraw);
+  }
+  if(first&&['selection','effect-timing','next'].includes(id))synced('phaseChange',0,0);
+  if(id==='resolve'&&first)synced('phaseChange',events.speedHighlight.start+events.speedHighlight.duration,0);
   if(id==='speed'&&first){
     const at=voiceStart+cues[0]+.2;
     synced('diceAlly',at,motion.die+motion.fade);

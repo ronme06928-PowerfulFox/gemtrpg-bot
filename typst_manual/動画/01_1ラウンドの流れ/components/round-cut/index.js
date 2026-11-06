@@ -61,7 +61,7 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
     show(q('.video-opening'), id === 'intro' && (k <= 1 || (k===2&&t<DECK.videoEvent(root,k,'sceneFade').duration)));
     if(q('.video-opening'))q('.video-opening').style.opacity=k===2?String(1-DECK.prog(t,DECK.videoEvent(root,k,'sceneFade').start,DECK.videoEvent(root,k,'sceneFade').duration)):'1';
     const phases = q('m-phase');
-    draw(phases, Infinity, id === 'resolve' && (k === 0 || (k === 1 && t < 1.2)) ? 2 : this.data.phase);
+    draw(phases, Infinity, id === 'resolve' && (k === 0 || (k === 1 && t < DECK.videoEvent(root,1,'phaseChange').start)) ? 2 : this.data.phase);
     all('[data-phase]').forEach((el) => { el.style.outline = 'none'; el.style.outlineOffset = '3px'; });
     if (id === 'slots' && k === 1) {
       ['phase-start', 'phase-select', 'phase-resolve', 'phase-end'].forEach((name, i) => {
@@ -103,10 +103,18 @@ DECK.define('m-round-cut', class extends DECK.MotionElement {
       arrows.style.opacity = matched ? '.98' : '.9';
       if(k===5){const event=DECK.videoEvent(root,k,'match');arrows.style.opacity=String(.98*DECK.prog(t,event.start,event.duration));}
       arrows.style.stroke = color;
-      arrows.style.strokeWidth = matched ? '6.8' : '4.76';
+      arrows.style.strokeWidth = matched ? '6.8' : '7.5';
+      arrows.classList.toggle('is-pending',!matched);
       arrows.style.strokeDasharray = matched ? 'none' : '11.9 8.5';
       arrows.querySelector('marker path').setAttribute('fill', color);
-      [...arrows.querySelectorAll(':scope > path')].forEach((el, i) => {show(el,i<count);el.style.opacity=k===2?String(DECK.prog(t,arrowEvents[i].start,arrowEvents[i].duration)):'1';});
+      [...arrows.querySelectorAll('[data-arrow]')].forEach((group,i)=>{
+        const p=k>2?1:k===2?DECK.prog(t,arrowEvents[i].start,arrowEvents[i].duration):0;
+        show(group,p>0);
+        const x=i?890:330,y=i?80:35,dx=i?-280:280,dy=i?40:-35;
+        const d=`M${x} ${y} Q${x+dx*p} ${y+dy*p} ${x+2*dx*p} ${y+2*dy*p*(1-p)}`;
+        group.querySelectorAll('path').forEach(path=>path.setAttribute('d',d));
+        group.style.opacity='1';
+      });
       all('.v2-skill').forEach((el) => show(el, k >= 2));
     }
     if (id.startsWith('power-')) {

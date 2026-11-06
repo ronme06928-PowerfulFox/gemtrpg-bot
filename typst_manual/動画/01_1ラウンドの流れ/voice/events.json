@@ -1,34 +1,9 @@
 {
-  "s-slots:2": {
-    "effects": [
-      {
-        "sound": "slot",
-        "at": 0
-      }
-    ]
-  },
-  "s-selection:2": {
-    "effects": [
-      {
-        "sound": "slot",
-        "at": 0
-      }
-    ]
-  },
   "s-effect-fp:1": {
     "effects": [
       {
         "sound": "fp",
-        "mark": "end-fp",
-        "offset": 0.2
-      }
-    ]
-  },
-  "s-next:1": {
-    "effects": [
-      {
-        "sound": "slot",
-        "at": 0.5
+        "motion": "fp"
       }
     ]
   },
@@ -36,7 +11,7 @@
     "effects": [
       {
         "sound": "match",
-        "at": 0.08
+        "motion": "match"
       }
     ]
   }
