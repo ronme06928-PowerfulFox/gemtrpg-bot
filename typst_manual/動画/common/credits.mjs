@@ -27,6 +27,7 @@ export function renderCredits(branding, video) {
 ${rows.map((r) => `      <div><dt>${text(r.label, 'label')}</dt><dd>${text(r.value, 'value')}</dd></div>`).join('\n')}
     </dl>
     ${branding.reference?`<div class="credits-book"><span class="credits-book-ruby" role="img" aria-label="ルビー">{{FIG:ruby-fill}}</span><span>${text(branding.reference,'reference')}</span></div>`:''}
+    ${video.notice?`<p class="credits-notice cite">${text(video.notice,'notice')}</p>`:''}
     <p class="credits-publisher">${text(branding.publisher,'publisher')}</p>
   </div>
 </section>`;
