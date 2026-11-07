@@ -110,3 +110,24 @@
   .cat-review-column.is-new .bo-workspace__card { display: none; }
 }
 @media (max-width: 680px) { .cat-portal-open { left: 18px; bottom: 66px; } }
+
+.cat-workspace .cat-array-field { min-width: 0; margin: 5px 0 14px; padding: 0; border: 0; color: #64748b; font-size: 11px; }
+.cat-array-field legend { padding: 0; margin-bottom: 5px; }
+.cat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.cat-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 3px 5px 3px 9px; border: 1px solid #c7d8f8; border-radius: 6px; background: #edf4ff; color: #2955a5; font-size: 12px; line-height: 1.5; }
+.cat-chip-text { min-width: 0; overflow-wrap: anywhere; }
+.cat-chip.is-warning { border-color: #edda9e; background: #fff6dc; color: #8b5b09; }
+.cat-chip-note { font-size: 10px; white-space: nowrap; }
+.cat-workspace .cat-chip-remove { flex-shrink: 0; min-width: 24px; min-height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; font-size: 16px; cursor: pointer; }
+.cat-chip-remove:hover { color: #a13b3b; background: #ffffff80; }
+.cat-chip-remove:focus-visible, .cat-link-candidates button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+.cat-array-label { display: block; font-size: 11px; color: #64748b; }
+.cat-link-candidates { max-height: 220px; overflow-y: auto; margin: 4px 0 0; padding: 4px; background: #fff; border: 1px solid #bbc8da; border-radius: 6px; box-shadow: 0 4px 12px #23334b12; }
+.cat-workspace .cat-link-candidates button { display: flex; align-items: baseline; gap: 10px; width: 100%; min-height: 34px; padding: 7px 9px; border: 0; border-radius: 4px; background: transparent; color: #334155; font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.cat-link-candidates button code { color: #66758b; flex-shrink: 0; }
+.cat-link-candidates button span { overflow-wrap: anywhere; min-width: 0; }
+.cat-link-candidates button:hover, .cat-link-candidates button[aria-selected="true"] { background: #edf4ff; color: #174ea6; }
+.cat-link-candidates p { margin: 6px; }
+.cat-alias-entry { display: flex; align-items: flex-end; gap: 8px; }
+.cat-alias-entry label { min-width: 0; flex: 1; }
+.cat-alias-entry > button { flex-shrink: 0; }

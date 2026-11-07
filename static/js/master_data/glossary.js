@@ -2,8 +2,8 @@
   const fields = [
     ['display_name', '表示名', 'text'], ['category', '分類', 'category'],
     ['short', '短い説明', 'textarea'], ['long', '長い説明', 'textarea'],
-    ['flavor', 'フレーバー', 'textarea'], ['links', '関連用語ID（JSON配列）', 'array'],
-    ['synonyms', '別名（JSON配列）', 'array'], ['sort_order', '表示順', 'number'],
+    ['flavor', 'フレーバー', 'textarea'], ['links', '関連用語', 'array'],
+    ['synonyms', '別名', 'array'], ['sort_order', '表示順', 'number'],
   ];
   const categories = ['ルール', 'タイミング', '効果', 'バフ', '状態異常', 'スキルタグ', 'デバフ'];
   const statuses = { published: '公開中', deprecated: '廃止', draft: '下書き', pending: '承認待ち', rejected: '却下' };
@@ -16,10 +16,8 @@
   }
   function parseField(key, value) {
     if (key === 'links' || key === 'synonyms') {
-      let parsed;
-      try { parsed = JSON.parse(value); } catch (_) { throw new Error('文字列のJSON配列で入力してください。例：["W-08"]'); }
-      if (!Array.isArray(parsed) || parsed.some(item => typeof item !== 'string')) throw new Error('文字列のJSON配列で入力してください。');
-      return parsed;
+      if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) throw new Error('文字列の配列にしてください。JSONタブで修正できます。');
+      return [...value];
     }
     if (key === 'sort_order') {
       if (!value.trim()) return null;
@@ -46,16 +44,49 @@
       before: before?.[key], after: after?.[key], changed: JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key]),
     }));
   }
-  function form(payload, errors = {}) {
+  function linkCandidates(entries, currentId, chosen, query = '') {
+    const needle = query.trim().toLocaleLowerCase();
+    return entries.filter(row => !row.deprecated && row.entry_id !== currentId && !chosen.includes(row.entry_id)
+      && [row.entry_id, row.payload.display_name, ...(Array.isArray(row.payload.synonyms) ? row.payload.synonyms : [])]
+        .some(value => typeof value === 'string' && value.toLocaleLowerCase().includes(needle)));
+  }
+  function addItem(values, value) {
+    const item = typeof value === 'string' ? value.trim() : '';
+    return item && !values.includes(item) ? [...values, item] : [...values];
+  }
+  function removeItem(values, index) {
+    return values.filter((_value, position) => !Number.isInteger(index) || position !== index);
+  }
+  function chips(key, values, entries = []) {
+    if (!Array.isArray(values)) return '<p class="cat-field-error">配列の型が違います。JSONタブで修正してください。</p>';
+    return values.map((value, index) => {
+      const linked = key === 'links' ? entries.find(row => row.entry_id === value) : null;
+      const label = key === 'links' ? `${value} ${linked?.payload.display_name || ''}`.trim() : String(value);
+      const status = key === 'links' ? !linked ? '未登録' : linked.deprecated ? '廃止' : '' : '';
+      return `<span class="cat-chip ${status ? 'is-warning' : ''}"><span class="cat-chip-text">${escape(label)}</span>${status ? `<span class="cat-chip-note">${status}</span>` : ''}<button type="button" class="cat-chip-remove" data-array-remove="${key}" data-index="${index}" aria-label="${escape(label)}を外す">×</button></span>`;
+    }).join('');
+  }
+  function candidateButtons(candidates, selected = -1) {
+    return candidates.length ? candidates.map((row, index) => `<button type="button" role="option" tabindex="-1" id="cat-link-option-${index}" data-link-add="${escape(row.entry_id)}" aria-selected="${index === selected}"><code>${escape(row.entry_id)}</code><span>${escape(row.payload.display_name)}</span></button>`).join('') : '<p class="cat-caption" role="status">候補がありません。</p>';
+  }
+  function arrayField(key, label, value, errors, options) {
+    const valid = Array.isArray(value);
+    const controls = key === 'links'
+      ? `<label class="cat-array-label" for="cat-link-search">関連用語を検索</label><input id="cat-link-search" type="search" role="combobox" aria-autocomplete="list" aria-controls="cat-link-candidates" aria-expanded="false" aria-describedby="cat-error-links" placeholder="ID・名前・別名で検索" value="${escape(options.linkQuery)}" ${valid ? '' : 'disabled'}><div id="cat-link-candidates" class="cat-link-candidates" role="listbox" aria-label="関連用語の候補" hidden></div>`
+      : `<div class="cat-alias-entry"><label class="cat-array-label" for="cat-synonym-input">別名を入力<input id="cat-synonym-input" type="text" placeholder="Enterで追加" aria-describedby="cat-error-synonyms" value="${escape(options.aliasInput)}" ${valid ? '' : 'disabled'}></label><button type="button" class="cat-button" data-alias-add ${valid ? '' : 'disabled'}>追加</button></div>`;
+    return `<fieldset class="cat-array-field cat-field-wide ${key === 'links' ? 'cat-link-picker' : ''}"><legend>${label}</legend><div id="cat-${key}-chips" class="cat-chips">${chips(key, value, options.entries)}</div>${controls}<span class="cat-field-error" id="cat-error-${key}">${escape(errors[`input:${key}`] || errors[key])}</span></fieldset>`;
+  }
+  function form(payload, errors = {}, options = {}) {
     return fields.map(([key, label, type]) => {
       const value = payload[key] ?? (type === 'array' ? [] : '');
+      if (type === 'array') return arrayField(key, label, value, errors, options);
       const attrs = `id="cat-field-${key}" data-field="${key}" aria-describedby="cat-error-${key}"`;
       let input;
       if (type === 'category') input = `<select ${attrs}><option value="">選択してください</option>${categories.map(category => `<option ${category === value ? 'selected' : ''}>${escape(category)}</option>`).join('')}</select>`;
-      else if (type === 'textarea' || type === 'array') input = `<textarea ${attrs} rows="${type === 'array' ? 2 : 3}">${escape(type === 'array' ? JSON.stringify(value) : value)}</textarea>`;
+      else if (type === 'textarea') input = `<textarea ${attrs} rows="3">${escape(value)}</textarea>`;
       else input = `<input ${attrs} type="${type}" ${type === 'number' ? 'step="1"' : ''} value="${escape(value)}">`;
       return `<label class="cat-field ${['textarea', 'array'].includes(type) ? 'cat-field-wide' : ''}" for="cat-field-${key}">${escape(label)}${['display_name', 'category'].includes(key) ? ' *' : ''}${input}<span class="cat-field-error" id="cat-error-${key}">${escape(errors[`input:${key}`] || errors[key])}</span></label>`;
     }).join('');
   }
-  window.CatalogGlossary = { fields, categories, statuses, escape, parseJSON, parseField, rows, filter, canManageDraft, canEdit, diff, form };
+  window.CatalogGlossary = { fields, categories, statuses, escape, parseJSON, parseField, rows, filter, canManageDraft, canEdit, diff, form, linkCandidates, addItem, removeItem, chips, candidateButtons };
 })();

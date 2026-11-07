@@ -30,13 +30,13 @@ def run_node(script):
 def test_json_and_form_round_trip_keeps_unknown_fields_for_server_validation():
     run_node(r"""
 const payload=glossary.parseJSON('{"display_name":"用語","category":"ルール","links":["W-08"],"extra":7}');
-assert.equal(glossary.parseField('links','["W-08"]')[0],'W-08');
+assert.equal(glossary.parseField('links',['W-08'])[0],'W-08');
 assert.equal(glossary.parseField('sort_order',''),null);
 assert.equal(glossary.parseField('sort_order','0'),0);
 assert.equal(glossary.parseJSON(JSON.stringify(payload)).extra,7);
 for(const text of ['{','[]','null','"text"']) assert.throws(()=>glossary.parseJSON(text));
-assert.throws(()=>glossary.parseField('links','[5]'));
-assert.throws(()=>glossary.parseField('synonyms','{}'));
+assert.throws(()=>glossary.parseField('links',[5]));
+assert.throws(()=>glossary.parseField('synonyms',{}));
 assert.throws(()=>glossary.parseField('sort_order','1.5'));
 assert.ok(glossary.form({}, {'input:links':'入力のエラー'}).includes('入力のエラー'));
 assert.equal(glossary.parseJSON('{}').display_name,undefined); // 未完成の保存は許可
@@ -84,4 +84,54 @@ response={ok:false,status:422,json:async()=>({error:'invalid',errors:{links:'存
 await assert.rejects(api.submit(5),error=>error.status===422 && error.errors.links==='存在しません');
 response={ok:false,status:409,json:async()=>({error:'conflict',errors:{base_revision:'版が違います'}})};
 await assert.rejects(api.approve(5),error=>error.errors.base_revision==='版が違います');
+""")
+
+
+
+def test_related_candidates_match_id_name_alias_and_exclude_ineligible_entries():
+    run_node(r"""
+const entries=[
+ {entry_id:'W-00',payload:{display_name:'自分',synonyms:[]}},
+ {entry_id:'W-01',payload:{display_name:'出血',synonyms:['Bleed']}},
+ {entry_id:'W-02',payload:{display_name:'破裂',synonyms:[]}},
+ {entry_id:'W-03',payload:{display_name:'廃止',synonyms:[]},deprecated:true},
+ {entry_id:'W-04',payload:{display_name:'選択済み',synonyms:[]}},
+];
+const options=query=>glossary.linkCandidates(entries,'W-00',['W-04'],query);
+assert.deepEqual(Array.from(options('').map(row=>row.entry_id)),['W-01','W-02']);
+for (const query of ['w-01','出血','bleed']) assert.equal(options(query)[0].entry_id,'W-01');
+assert.equal(options('存在しない').length,0);
+""")
+
+
+def test_array_add_remove_preserves_order_and_alias_rules():
+    run_node(r"""
+const original=['W-02'];
+let links=glossary.addItem(original,'W-01');
+links=glossary.addItem(links,'W-03');
+assert.deepEqual(Array.from(original),['W-02']);
+assert.deepEqual(Array.from(glossary.removeItem(links,1)),['W-02','W-03']);
+assert.deepEqual(Array.from(glossary.addItem(links,'W-01')),['W-02','W-01','W-03']);
+let aliases=glossary.addItem([],'  Bleed  ');
+assert.deepEqual(Array.from(glossary.addItem(aliases,' ')),['Bleed']);
+assert.deepEqual(Array.from(glossary.addItem(aliases,'Bleed')),['Bleed']);
+assert.deepEqual(Array.from(glossary.removeItem(aliases,0)),[]);
+assert.deepEqual(Array.from(glossary.removeItem(links,-1)),Array.from(links));
+""")
+
+
+def test_chips_keep_deprecated_unknown_ids_and_json_roundtrip():
+    run_node(r"""
+const entries=[{entry_id:'W-01',payload:{display_name:'出血'}},
+ {entry_id:'W-02',payload:{display_name:'旧用語'},deprecated:true}];
+const payload=glossary.parseJSON('{"links":["W-01","W-02","W-999"],"synonyms":["Bleed"]}');
+const html=glossary.form(payload,{}, {entries,currentId:'W-00'});
+for (const label of ['W-01','出血','W-02','旧用語','廃止','W-999','未登録','Bleed']) assert.ok(html.includes(label),label);
+assert.equal(html.includes('textarea id="cat-field-links"'),false);
+assert.equal(html.includes('textarea id="cat-field-synonyms"'),false);
+assert.deepEqual(Array.from(glossary.parseJSON(JSON.stringify(payload)).links),['W-01','W-02','W-999']);
+const invalid={links:'do not erase',synonyms:[]};
+assert.ok(glossary.form(invalid,{}, {entries}).includes('JSONタブ'));
+assert.equal(invalid.links,'do not erase');
+assert.equal(glossary.form({links:['<img>']}, {}, {entries}).includes('<img>'),false);
 """)

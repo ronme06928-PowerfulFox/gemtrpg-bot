@@ -23,6 +23,7 @@
     const message = overlay.querySelector('.cat-message');
     const state = { user: {}, data: { entries: [], drafts: [] }, selected: '', scene: 'browse',
       filters: { status: 'published', category: '', search: '' }, busy: false, dirty: false,
+      linkQuery: '', linkIndex: -1, linkOpen: false, aliasInput: '',
       listRequest: 0, detailRequest: 0, tab: 'form', errors: {}, payload: {}, jsonText: '' };
     const author = () => !!(state.user.is_app_admin || state.user.is_catalog_author);
     const rows = () => model.rows(state.data);
@@ -144,6 +145,7 @@
       state.payload = { ...draft.payload };
       if (!Object.keys(state.payload).length) state.payload = { display_name: '', category: '', short: '', long: '', flavor: '', links: [], synonyms: [], sort_order: null };
       state.jsonText = pretty(state.payload);
+      state.linkQuery = ''; state.linkIndex = -1; state.linkOpen = false; state.aliasInput = '';
       state.tab = 'form'; state.scene = 'edit'; state.dirty = false; state.errors = {};
       renderEditor();
     }
@@ -154,7 +156,52 @@
     function renderInput() {
       panel.querySelector('#cat-input-content').innerHTML = state.tab === 'json'
         ? `<label class="cat-field">用語のJSON<textarea id="cat-json-input" class="cat-source" spellcheck="false">${h(state.jsonText)}</textarea></label><p class="cat-caption">表示名・分類・説明などの項目を編集します。IDはここには含めません。</p>`
-        : `<div class="cat-field-grid">${model.form(state.payload, state.errors)}</div>`;
+        : `<div class="cat-field-grid">${model.form(state.payload, state.errors, { entries: state.data.entries, linkQuery: state.linkQuery, aliasInput: state.aliasInput })}</div>`;
+      if (state.tab === 'form') renderCandidates();
+    }
+    function candidates() {
+      return model.linkCandidates(state.data.entries, state.edit.target_id,
+        Array.isArray(state.payload.links) ? state.payload.links : [], state.linkQuery);
+    }
+    function renderCandidates() {
+      const input = panel.querySelector('#cat-link-search');
+      const list = panel.querySelector('#cat-link-candidates');
+      if (!input || !list) return;
+      const options = candidates();
+      if (state.linkIndex >= options.length) state.linkIndex = -1;
+      list.hidden = !state.linkOpen || input.disabled;
+      list.innerHTML = list.hidden ? '' : model.candidateButtons(options, state.linkIndex);
+      input.setAttribute('aria-expanded', String(!list.hidden));
+      if (!list.hidden && options[state.linkIndex]) input.setAttribute('aria-activedescendant', `cat-link-option-${state.linkIndex}`);
+      else input.removeAttribute('aria-activedescendant');
+    }
+    function updateArray(key, values) {
+      try {
+        const parsed = model.parseField(key, values);
+        if (pretty(parsed) !== pretty(state.payload[key])) {
+          state.payload[key] = parsed; state.dirty = true; state.jsonText = pretty(state.payload);
+        }
+        delete state.errors[`input:${key}`]; delete state.errors[key];
+        panel.querySelector(`#cat-error-${key}`).textContent = '';
+        panel.querySelector(`#cat-${key}-chips`).innerHTML = model.chips(key, parsed, state.data.entries);
+        renderCandidates(); renderPreview();
+      } catch (error) {
+        state.errors[`input:${key}`] = error.message;
+        panel.querySelector(`#cat-error-${key}`).textContent = error.message;
+      }
+    }
+    function addLink(id) {
+      if (!candidates().some(row => row.entry_id === id)) return;
+      state.linkQuery = ''; state.linkIndex = -1;
+      panel.querySelector('#cat-link-search').value = '';
+      updateArray('links', model.addItem(state.payload.links ?? [], id));
+      panel.querySelector('#cat-link-search').focus();
+    }
+    function addAlias() {
+      updateArray('synonyms', model.addItem(state.payload.synonyms ?? [], state.aliasInput));
+      state.aliasInput = '';
+      panel.querySelector('#cat-synonym-input').value = '';
+      panel.querySelector('#cat-synonym-input').focus();
     }
     function renderPreview() {
       const payload = state.payload;
@@ -238,8 +285,17 @@
     }
     overlay.addEventListener('click', event => {
       if (event.target === overlay) { close(); return; }
+      if (!event.target.closest('.cat-link-picker')) { state.linkOpen = false; renderCandidates(); }
       const control = event.target.closest('button');
       if (!control || control.disabled || state.busy) return;
+      if (control.dataset.linkAdd) { addLink(control.dataset.linkAdd); return; }
+      if (control.dataset.arrayRemove) {
+        const key = control.dataset.arrayRemove;
+        updateArray(key, model.removeItem(state.payload[key], Number(control.dataset.index)));
+        panel.querySelector(key === 'links' ? '#cat-link-search' : '#cat-synonym-input')?.focus();
+        return;
+      }
+      if (control.hasAttribute('data-alias-add')) { addAlias(); return; }
       if (control.dataset.action === 'close') { close(); return; }
       if (control.dataset.action) { run(() => onAction(control.dataset.action, control)); return; }
       if (control.dataset.status) { state.filters.status = control.dataset.status; renderBrowse(); }
@@ -254,6 +310,8 @@
     });
     overlay.addEventListener('input', event => {
       const control = event.target;
+      if (control.id === 'cat-link-search') { state.linkQuery = control.value; state.linkIndex = -1; state.linkOpen = true; renderCandidates(); return; }
+      if (control.id === 'cat-synonym-input') { state.aliasInput = control.value; return; }
       if (control.dataset.filter) { state.filters[control.dataset.filter] = control.value; renderList(); return; }
       if (control.id === 'cat-official-id') state.reviewId = control.value;
       if (control.id === 'cat-reject-reason') state.rejectReason = control.value;
@@ -273,6 +331,30 @@
           state.errors[`input:${key}`] = error.message;
           panel.querySelector(`#cat-error-${key}`).textContent = error.message;
         }
+      }
+    });
+    overlay.addEventListener('focusin', event => {
+      if (event.target.id === 'cat-link-search') { state.linkOpen = true; renderCandidates(); }
+    });
+    overlay.addEventListener('keydown', event => {
+      if (state.busy || event.isComposing || event.keyCode === 229) return;
+      if (event.target.id === 'cat-synonym-input' && event.key === 'Enter') {
+        event.preventDefault(); event.stopPropagation(); addAlias();
+      }
+      if (event.target.id !== 'cat-link-search') return;
+      const options = candidates();
+      if (['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(event.key)) {
+        event.preventDefault(); event.stopPropagation();
+        if (event.key === 'Escape') { state.linkOpen = false; renderCandidates(); return; }
+        if (event.key === 'Enter') {
+          if (state.linkOpen && options.length) addLink(options[Math.max(0, state.linkIndex)].entry_id);
+          return;
+        }
+        state.linkOpen = true;
+        if (options.length) state.linkIndex = event.key === 'ArrowDown'
+          ? (state.linkIndex + 1) % options.length : (state.linkIndex < 0 ? options.length - 1 : (state.linkIndex - 1 + options.length) % options.length);
+        renderCandidates();
+        panel.querySelector(`#cat-link-option-${state.linkIndex}`)?.scrollIntoView({ block: 'nearest' });
       }
     });
     function onKey(event) {
