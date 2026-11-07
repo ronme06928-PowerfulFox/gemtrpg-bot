@@ -8,6 +8,7 @@
     "build": "node scripts/build_frontend.mjs",
     "gallery": "node scripts/fx_gallery/build.mjs",
     "resolve-preview": "node scripts/resolve_preview/build.mjs",
+    "catalog-preview": "node scripts/catalog_preview/build.mjs",
     "fx-proto": "node scripts/fx_proto/build.mjs"
   },
   "devDependencies": {
