@@ -3,6 +3,7 @@
         initialized: false,
         eventsBound: false,
         dataLoaded: false,
+        dataVersion: 0,
         dataPromise: null,
         skillDataPromise: null,
         terms: {},
@@ -97,28 +98,42 @@
             return Promise.resolve(state.terms);
         }
 
-        state.dataPromise = fetch('/api/get_glossary_data')
+        const version = state.dataVersion;
+        const promise = fetch('/api/get_glossary_data')
             .then((res) => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 return res.json();
             })
             .then((data) => {
+                if (version !== state.dataVersion) return ensureDataLoaded();
                 state.terms = (data && typeof data === 'object') ? data : {};
                 window.glossaryData = state.terms;
                 state.dataLoaded = true;
                 return state.terms;
             })
             .catch((err) => {
+                if (version !== state.dataVersion) return ensureDataLoaded();
                 console.warn('[Glossary] data load failed:', err);
                 state.terms = {};
                 state.dataLoaded = true;
                 return state.terms;
             })
             .finally(() => {
-                state.dataPromise = null;
+                if (state.dataPromise === promise) state.dataPromise = null;
             });
 
-        return state.dataPromise;
+        state.dataPromise = promise;
+        return promise;
+    }
+
+    function onCatalogUpdated(data) {
+        if (!data || data.kind !== 'glossary') return;
+        // 読み直しが終わるまでは古い中身を出し続け、名前や説明が消えないようにする。
+        state.dataVersion += 1;
+        state.dataLoaded = false;
+        state.dataPromise = null;
+        delete window.glossaryData;
+        ensureDataLoaded();
     }
 
     function _hasSkillDataLoaded() {
@@ -447,6 +462,7 @@
     window.Glossary = {
         initOnce,
         ensureDataLoaded,
+        onCatalogUpdated,
         getTerm,
         getSkill,
         parseMarkupToHTML,

@@ -1068,6 +1068,10 @@ function initializeSocketIO() {
         return true;
     };
 
+    registerAppSocketHandler('catalog_updated', (data) => {
+        window.Glossary.onCatalogUpdated(data);
+    });
+
     socket.on('connect', () => {
         socketInitInFlight = false;
         if (window.SocketClient && typeof window.SocketClient.initialize === 'function') {

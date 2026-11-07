@@ -17,6 +17,10 @@ from .kinds import (get_kind, validate_entry_id, validate_payload, to_memory_ent
 class CatalogConflictError(ValueError):
     """公開版・下書き状態・正式IDが食い違っている。"""
 
+    def __init__(self, message, *, field="conflict"):
+        self.errors = {field: message}
+        super().__init__(message)
+
 
 def _transaction(function):
     @wraps(function)
@@ -115,7 +119,7 @@ def create_draft(kind, created_by, *, target_id=None):
 def update_draft(draft_id, payload):
     draft = _draft(draft_id)
     if draft.status == "pending":
-        raise CatalogConflictError("承認待ちの下書きは変更できません")
+        raise CatalogConflictError("承認待ちの下書きは変更できません", field="status")
     # 不完全なフォームも保存できる。項目とリンクの検査は申請時に行う。
     if not isinstance(payload, dict):
         raise CatalogValidationError({"payload": "オブジェクトが必要です"})
@@ -130,7 +134,7 @@ def update_draft(draft_id, payload):
 def submit_draft(draft_id):
     draft = _draft(draft_id)
     if draft.status == "pending":
-        raise CatalogConflictError("すでに承認待ちです")
+        raise CatalogConflictError("すでに承認待ちです", field="status")
     draft.payload = _validate(draft.kind, draft.payload, draft.target_id)
     draft.status = "pending"
     draft.updated_at = draft.submitted_at = datetime.utcnow()
@@ -148,7 +152,7 @@ def withdraw_draft(draft_id):
 def reject_draft(draft_id, reason):
     draft = _draft(draft_id)
     if draft.status != "pending":
-        raise CatalogConflictError("承認待ちではありません")
+        raise CatalogConflictError("承認待ちではありません", field="status")
     if not isinstance(reason, str) or not reason.strip():
         raise CatalogValidationError({"reason": "却下の理由が必要です"})
     draft.status, draft.reject_reason = "rejected", reason
@@ -161,12 +165,12 @@ def reject_draft(draft_id, reason):
 def approve_draft(draft_id, actor_user_id, *, entry_id=None):
     draft = _draft(draft_id)
     if draft.status != "pending":
-        raise CatalogConflictError("承認待ちではありません")
+        raise CatalogConflictError("承認待ちではありません", field="status")
     kind = draft.kind
     if draft.base_revision is None:
         validate_entry_id(kind, entry_id)
         if CatalogEntry.query.filter_by(kind=kind, entry_id=entry_id).first():
-            raise CatalogConflictError("正式IDが重複しています")
+            raise CatalogConflictError("正式IDが重複しています", field="entry_id")
         payload = _validate(kind, draft.payload, entry_id, allow_drafts=False)
         entry = CatalogEntry(kind=kind, entry_id=entry_id, payload=payload,
                              revision=1, deprecated=False)
@@ -181,7 +185,7 @@ def approve_draft(draft_id, actor_user_id, *, entry_id=None):
     else:
         entry = _entry(kind, draft.target_id)
         if entry.revision != draft.base_revision:
-            raise CatalogConflictError("下書きの元の版と公開中の版が違います")
+            raise CatalogConflictError("下書きの元の版と公開中の版が違います", field="base_revision")
         entry.payload = _validate(kind, draft.payload, entry.entry_id, allow_drafts=False)
         entry.revision += 1
     entry.updated_by, entry.updated_at = actor_user_id, datetime.utcnow()
@@ -222,3 +226,14 @@ def restore_revision(kind, entry_id, revision, actor_user_id):
     db.session.commit()
     load_kind_into_memory(kind)
     return entry
+
+
+
+def next_entry_id(kind):
+    """廃止分も含めた公開IDから採番候補を作る（予約はしない）。"""
+    import re
+    definition = get_kind(kind)
+    ids = [row.entry_id for row in CatalogEntry.query.filter_by(kind=kind).all()]
+    numbers = [int(value[len(definition["id_prefix"]):]) for value in ids
+               if re.fullmatch(definition["id_pattern"], value)]
+    return definition["id_prefix"] + f"{max(numbers, default=-1) + 1:02d}"

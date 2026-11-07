@@ -11,6 +11,7 @@ class CatalogValidationError(ValueError):
 
 KINDS = {
     "glossary": {
+        "id_prefix": "W-",
         "id_pattern": r"W-\d{2,}",
         "fields": {
             "display_name": str, "category": str, "short": str, "long": str,

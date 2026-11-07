@@ -174,7 +174,7 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 | 権限 | 範囲 | 主な用途 |
 |---|---|---|
 | ルームロール（owner/gm/player） | 入室中の特定ルーム | 戦闘進行、代理操作、GM専用Socket/API |
-| 制作者（`is_catalog_author`） | アプリ全体 | マスターデータの下書き作成用（管理APIはPR60-4予定）。承認はアプリ管理者のみ |
+| 制作者（`is_catalog_author`） | アプリ全体 | マスターデータの下書き作成・申請用。承認はアプリ管理者のみ |
 | アプリ管理者権限（`is_app_admin`） | アプリ全体 | ユーザー管理、全ルームへの入室、ルームのowner相当操作 |
 
 通常ユーザーのルームロールはDB上のメンバーシップ（`room_members`テーブル）が正本。アプリ管理者は、実際の`Room.owner_id`やmembershipを書き換えず、権限判定時だけ全ルームの仮想ownerとして扱う。非公開・募集締切ルームもロビーに表示され、参加コードやGM PINなしでGM相当として入室できる。ルーム設定、参加コード、メンバー管理、owner移譲、削除もowner相当で実行できる。ただしメンバーのGM付与/解除・除名・owner移譲はAPIのみで、現行画面から呼ぶ入口はない。playerのGM PIN入室はgm membershipへの昇格で、退出しても自動で戻らない。
@@ -209,6 +209,29 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 - 管理者権限は `users.is_app_admin` に保存され、半永続的に保持される。
 - ルームGMロールはユーザー管理操作の根拠にしない。
 - ユーザー情報変更モーダルには、8桁マスターキーを入力して自分自身へユーザー管理権限を付与する導線を表示する。キーは保存せず、`POST /api/admin/set_user_management_admin` の検証にのみ使う。
+
+## 用語管理HTTP API（計画60 PR60-4）
+
+管理用APIはすべてセッション認証が必要です。現在の種類は `glossary` のみ。権限はDBの現在の制作者・アプリ管理者の印で判定します。下書きの書き換え・申請・取り下げは、制作者である作成者かアプリ管理者に限ります。一般ユーザーには下書きの中身を返しません。管理画面はPR60-5で追加予定です。
+
+| メソッド・パス | 権限 | 入力・返却 |
+|---|---|---|
+| GET `/api/catalog/<kind>` | ログイン全員 | `{kind, entries}`。制作者・管理者には `drafts` も返す |
+| GET `/api/catalog/<kind>/<entry_id>/history` | ログイン全員 | `{history}`。版・操作・実行者・日時・中身 |
+| GET `/api/catalog/<kind>/<entry_id>/references` | ログイン全員 | `{references}`。公開用語のlinks、スキル・バフの文章の `[[W-08]]` / `[[W-08|表示名]]` を検索 |
+| POST `/api/catalog/<kind>/drafts` | 制作者・管理者 | `{target_id}` で既存の写し、`{}` で新規。既存下書きがあればそれを返す |
+| PUT `/api/catalog/drafts/<id>` | 制作者である作成者・管理者 | `{payload: {...}}`。未完成の保存も可。承認待ちは409、却下後の編集でdraftへ戻る |
+| POST `/api/catalog/drafts/<id>/submit` | 制作者である作成者・管理者 | 検査後にpendingへ |
+| DELETE `/api/catalog/drafts/<id>` | 制作者である作成者・管理者 | 取り下げて `{id, withdrawn: true}` |
+| POST `/api/catalog/drafts/<id>/approve` | 管理者 | 新規は `{entry_id}` 必須。公開版を返す |
+| POST `/api/catalog/drafts/<id>/reject` | 管理者 | `{reason}` 必須。却下後の下書きを返す |
+| POST `/api/catalog/<kind>/<entry_id>/deprecate` | 管理者 | `{deprecated: true/false}`。変更後の公開版 |
+| POST `/api/catalog/<kind>/<entry_id>/restore` | 管理者 | `{revision: 正の整数}`。復元で版を進めた公開版 |
+| GET `/api/catalog/<kind>/next_id` | 管理者 | `{entry_id}`。廃止分も含む公開IDの最大番号+1（空ならW-00） |
+
+公開版は `id, kind, entry_id, payload, revision, deprecated, updated_by, updated_by_name, updated_at`。下書きは `id, kind, target_id, payload, status, base_revision, created_by, created_by_name, reject_reason, created_at, updated_at, submitted_at`。履歴は実行者ID・名前を `actor_user_id, actor_user_name` として返します。削除済みのユーザー名はNULL、日時はUTCのISO 8601です。作成以外の下書き操作は変更後の下書きを直接返します。
+
+未認証401、権限不足403、未知の種類・ID・下書き404、版・状態・IDの競合409、入力の検査失敗422です。409・422は `{error, errors: {項目名: 理由}}` を返します。保存処理は `manager/catalog/repository.py` を呼び、成功した公開・廃止変更・復元の後だけ全接続へ `catalog_updated`（`{kind, entry_id, revision}`）を送ります。用語ではルームログを追加しません。用語図鑑は通知を受けるとすぐ公開API `/api/get_glossary_data` から読み直し、読み終わるまでは古い中身を表示し続けます。公開APIは引き続き認証不要です。
 
 ## 5. Render環境変数
 
