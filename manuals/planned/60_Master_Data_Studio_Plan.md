@@ -1,7 +1,7 @@
 # 計画60：マスターデータ管理画面（スキル・バフ・用語図鑑の編集をアプリで行う）
 
 作成日: 2026-11-04
-状態: Phase 1（PR60-1・PR60-2）完了（2026-11-06）。Phase 2 以降は未着手（一括編集の手段は必要になったら決める）。[マスターデータベース・プロジェクト](../projects/master_database/README.md)の段階1。
+状態: Phase 1（PR60-1・PR60-2）完了（2026-11-06）。管理画面の UI は試作で確定（2026-11-07）。Phase 2 は実装詳細まで記載済み・未着手（§5.4・§5.5）。一括編集の手段は必要になったら決める。[マスターデータベース・プロジェクト](../projects/master_database/README.md)の段階1。
 
 ## 1. 目的
 
@@ -118,7 +118,7 @@ Git でメンバーに編集してもらう案は、ハードルを下げる目�
 
 始める時期：Phase 1 はいつでも始めてよい。Phase 2 以降は、計画46の主な作業が落ち着いてから始める（§8 論点9）。
 
-推奨PR分割と実装詳細は、各 Phase の着手の前に書く。Phase 1 の分は §5.1・§5.2。
+推奨PR分割と実装詳細は、各 Phase の着手の前に書く。Phase 1 の分は §5.1・§5.2、Phase 2 の分は §5.4・§5.5。
 
 ### 5.1 Phase 1 の推奨PR分割
 
@@ -266,6 +266,114 @@ UI の決定（§8 UI論点1〜4）を見た目で確かめるための試作。
 #### 触らないもの
 
 - 本番のコード（`static/`・`app.py`・`manager/` など）と、ビルドの成果物（`static/dist/`）。
+
+### 5.4 Phase 2 の推奨PR分割
+
+用語図鑑（83件、すべて `W-`）だけを DB へ移し、管理画面で下書き・承認・公開・履歴・廃止を回す。権限と公開の型をここで固め、Phase 3 でバフ・スキルを同じ型に載せる。
+
+| PR | 内容 | 画面の変化 |
+|---|---|---|
+| PR60-3 | DB の3つの表、用語の保存と読み込み（起動時に DB から辞書へ、DB が空なら今のキャッシュから初回取り込み）、Sheets からの用語の取り込みを外す、制作者の印（列・ユーザー管理のボタン・ログイン時の返り値） | ユーザー管理に「制作者」の付け外しが出る。用語の中身は変わらない |
+| PR60-4 | 管理用の HTTP API（一覧・履歴・下書き・申請・承認・却下・廃止・版を戻す）、公開時の知らせ（ソケット）、用語図鑑の画面の読み直し | なし（API だけ） |
+| PR60-5 | 管理画面（ロビーの「マスターデータ」ボタン、閲覧・編集・承認）、資料の仕上げ | 管理画面で用語を作れる |
+
+PR60-3 を入れた時点で、用語の正本は DB になる。PR60-5 までの間に用語を直すときは、アプリ管理者が API を直接使うか、PR60-5 を待つ。
+
+### 5.5 Phase 2 の実装詳細
+
+#### Phase 2 で決めたこと
+
+§8 の決定を用語に当てはめるときに、次のように決めた。
+
+- **API は HTTP**：管理の操作は `routes/` の Blueprint にし、`session_required` で守る。外の AI エージェントが API で下書きを作る形（§8 論点8）にそのまま使える。プリセット管理のようなソケットにはしない。
+- **下書きは1件の公開データにつき1つ**：同じ用語に2つ目の下書きは作れない（今ある下書きを開く）。誰が直しているかが分かり、承認での食い違いが起きない。新規の下書き（`X-`）は数の制限を設けない。
+- **下書きは制作者とアプリ管理者の全員が見られる**。書き換え・申請・取り下げは作った人とアプリ管理者だけ。
+- **用語の公開ではルームのログを出さない**：用語は戦闘の処理に使わないため（§8 論点7のログは、戦闘に効くバフ・スキルを扱う Phase 3 から）。ソケットの知らせは出す。
+- **用語の項目を絞る**：今のキャッシュで1件も使っていない `icon`・`extra_json` と、廃止の印で置き換わる `is_enabled` は持たない。
+- **廃止と版を戻すのは、アプリ管理者がその場で行う**（下書きと承認を通さない）。どちらも版を1つ進め、履歴に残す。
+- **「文章から作る」のタブは Phase 3 で足す**：今のビルダーの読み取りはスキルの効果のためのもので、用語には使わない。Phase 2 の入力は「フォーム」と「JSON」。
+
+#### PR60-3：保存の土台と制作者の印
+
+1. **表**（`models.py`）。形は §3.2 のとおり。
+    - `catalog_entries`：`id`・`kind`（`'glossary'` など）・`entry_id`（`W-08` など）・`payload`（JSON）・`revision`（1から）・`deprecated`（真偽）・`updated_by`（`users.id`、消えたら NULL）・`updated_at`。`(kind, entry_id)` は一意。
+    - `catalog_drafts`：`id`・`kind`・`target_id`（公開データの ID、新規は `X-` と16進8桁）・`payload`・`status`（`draft`・`pending`・`rejected`）・`base_revision`（新規は NULL）・`created_by`（`users.id`、消えたら NULL）・`reject_reason`・`created_at`・`updated_at`・`submitted_at`。`(kind, target_id)` は一意（1件につき下書き1つ）。
+    - `catalog_history`：`id`・`kind`・`entry_id`・`revision`・`payload`・`deprecated`・`action`（`import`・`publish`・`deprecate`・`undeprecate`・`restore`）・`actor_user_id`・`draft_id`（公開のもとになった下書き、無ければ NULL）・`created_at`。`(kind, entry_id, revision)` は一意。
+    - 表は `db.create_all()` で作る。列の追加の仕組み（`manager/db_migration.py`）は使わない（新しい表のため）。
+2. **種類の定義**（`manager/catalog/kinds.py`）：種類ごとに、ID の形（用語は `^W-\d{2,}$`）・項目の定義・中身の検査・辞書の形への変換を1か所に置く。Phase 3 で種類を足すときは、ここに足す。
+    - 用語の項目：`display_name`（必須）・`category`（必須。今の7つ：ルール・タイミング・効果・バフ・状態異常・スキルタグ・デバフ）・`short`・`long`・`flavor`・`links`（用語 ID の並び）・`synonyms`（文字の並び）・`sort_order`（整数か NULL）。
+    - 検査：必須の抜け、型の違い、`links` の行き先が公開中の用語か `X-` の下書きにない、`links` に自分自身。決まった項目以外のキーはエラー。
+    - 辞書の形：今の `all_glossary_data` と同じ `{"W-08": {"term_id": "W-08", "display_name": …, "links": […], …}}`。廃止したものも辞書に残し、`"deprecated": true` を付ける（すでに書かれたリンクを壊さない。§8 論点4-補）。
+3. **保存と読み込み**（`manager/catalog/repository.py`）：
+    - `load_kind_into_memory(kind)`：`catalog_entries` から辞書を作り、`extensions` の辞書を `clear()`＋`update()` で入れ替える。
+    - `seed_kind_if_empty(kind)`：その種類の行が1つも無いとき、`data/cache/glossary_catalog_cache.json` から取り込む。各行を `revision=1` で入れ、履歴に `action='import'` を残す。
+    - 下書きの作成・書き換え・申請・取り下げ・承認・却下、廃止、版を戻すの関数。権限の判断は呼ぶ側（PR60-4 の API）で行い、ここでは中身と版だけを扱う。
+    - **承認**：下書きの `base_revision` が公開中の `revision` と違えば、食い違いのエラーにする（そのあいだに別の公開があった）。新規は承認者が正式な ID を渡す。ID の形・重複を確かめ、ほかの下書きの中身にある同じ `X-` の ID を正式な ID に書き換える。公開したら `revision` を1つ進め、履歴を残し、下書きを消し、`load_kind_into_memory` を呼ぶ。公開する中身に `X-` の ID が残っていたらエラー。
+    - **版を戻す**：指定した版の履歴の中身で公開し直す（版は戻さず、1つ進める）。
+4. **起動時の読み込み**：`manager/data_manager.py` の `init_app_data` の「用語辞書データの読み込み」を、`seed_kind_if_empty('glossary')` と `load_kind_into_memory('glossary')` に置き換える。`app.py` の `get_glossary_data` の「辞書が空なら読み込む」も同じ関数にする。
+5. **Sheets の取り込みを外す**：`python app.py --update` の手順から用語を外し、7段階を6段階にする。`manager/glossary/loader.py` の CSV の取得とキャッシュの書き込みを消す（`manager/glossary/` は空になるなら消す）。`data/cache/glossary_catalog_cache.json` は初回取り込みの元として残す。
+6. **制作者の印**：
+    - `users` に `is_catalog_author`（真偽、既定は偽）を足す。今ある表への列の追加なので、`manager/db_migration.py` の `user_column_specs` に足す。
+    - `manager/user_manager.py`：`is_catalog_author(user_id)`（アプリ管理者も真にする）と `set_catalog_author(user_id, enabled)`。`get_all_users()` の返り値に `is_catalog_author` を足す。
+    - `routes/admin.py`：`POST /api/admin/set_catalog_author`（アプリ管理者だけ）。
+    - `static/js/user_management.js`：各ユーザーの行に「制作者に指名」「制作者を外す」のボタンと「制作者」の印。
+    - `routes/account.py`：`is_app_admin` を返している所に `is_catalog_author` も足し、`static/js/main.js` で `window.currentUserIsCatalogAuthor` に入れる。
+7. **テスト**：
+    - 種類の定義：用語の検査（必須の抜け・知らない項目・存在しないリンク・自分へのリンク・`X-` のリンク）。
+    - 保存：初回取り込みで83件・履歴83件。2回目の起動では取り込まない。下書きを承認すると版が進み、辞書が入れ替わる。`base_revision` の食い違いでエラー。新規の承認で正式な ID になり、ほかの下書きの `X-` が書き換わる。廃止しても辞書に残り `deprecated` が付く。版を戻すと中身が戻り、版は進む。
+    - 制作者：アプリ管理者は制作者として扱う。`/api/admin/set_catalog_author` はアプリ管理者以外は 403。
+    - `--update` の手順に用語が無い。
+
+#### PR60-4：管理用の API と公開の知らせ
+
+1. **Blueprint**：`routes/catalog.py` に置き、`app.py` の Blueprint の登録に足す。すべて `session_required`。`<kind>` は `kinds.py` にある種類だけを受け付ける（Phase 2 は `glossary`）。
+2. **エンドポイント**：
+
+    | メソッドとパス | 誰が | 中身 |
+    |---|---|---|
+    | `GET /api/catalog/<kind>` | ログインした全員 | 公開中の一覧（ID・中身・版・廃止の印・更新者の名前・更新日時）。制作者とアプリ管理者には下書きの一覧（状態・作った人・元の版・却下の理由）も付ける |
+    | `GET /api/catalog/<kind>/<entry_id>/history` | 全員 | 履歴の一覧（版・操作・誰が・いつ・中身） |
+    | `GET /api/catalog/<kind>/<entry_id>/references` | 全員 | 使われている所。用語は、ほかの用語の `links` と、スキル・バフの文章の中の `[[W-08|…]]` の書き方 |
+    | `POST /api/catalog/<kind>/drafts` | 制作者 | 下書きを作る。`{target_id}` で公開データの写しから、`{}` なら新規（`X-`） |
+    | `PUT /api/catalog/drafts/<id>` | 作った人・アプリ管理者 | 中身を書き換える。却下された下書きは書き換えると `draft` に戻る |
+    | `POST /api/catalog/drafts/<id>/submit` | 作った人・アプリ管理者 | 検査を通れば `pending` にする。通らなければ検査の結果を返す |
+    | `DELETE /api/catalog/drafts/<id>` | 作った人・アプリ管理者 | 取り下げる（下書きを消す） |
+    | `POST /api/catalog/drafts/<id>/approve` | アプリ管理者 | 公開する。新規は `{entry_id}` で正式な ID を渡す |
+    | `POST /api/catalog/drafts/<id>/reject` | アプリ管理者 | `{reason}` を付けて `rejected` にする |
+    | `POST /api/catalog/<kind>/<entry_id>/deprecate` | アプリ管理者 | `{deprecated: true/false}` で廃止の印を付け外しする |
+    | `POST /api/catalog/<kind>/<entry_id>/restore` | アプリ管理者 | `{revision}` の版の中身で公開し直す |
+    | `GET /api/catalog/<kind>/next_id` | アプリ管理者 | 新規の承認の欄に入れる、次の正式な ID の候補（用語は `W-` の最大の番号＋1） |
+
+    - 書き込みの返り値は、変わった後の公開データか下書き。食い違い・検査のエラーは 409・422 と、どの項目がなぜかを返す。
+3. **使われている所**：`manager/catalog/references.py` に、中身の JSON から参照を探す関数を置く（§3.2：表に保存せず計算する）。Phase 3 でバフ・スキルの参照を足す。
+4. **公開の知らせ**：公開・廃止・版を戻すのたびに、全員へ `catalog_updated`（`{kind, entry_id, revision}`）を送る。`static/js/common/glossary_ui.js` は `kind` が `glossary` なら持っている用語を捨て、次に使うときに `/api/get_glossary_data` を読み直す。
+5. **テスト**：各エンドポイントの権限（ログインなし・一般・制作者・アプリ管理者）、下書きの流れ（作る→書き換え→申請→却下→書き換え→申請→承認）、1件に2つ目の下書きを作れない、検査の失敗で申請できない、公開で `catalog_updated` を送る、`/api/get_glossary_data` が公開後の中身を返す。
+
+#### PR60-5：管理画面
+
+1. **置き場**：`static/js/master_data/` にクラシックスクリプト（API の呼び出し・画面・用語のフォームなどに分ける）、`static/css/modules/master_data.css`。`scripts/build_frontend.mjs` の `CLASSIC_SCRIPTS` に足し、`styles.css` に `@import` を足し、`npm run build`。
+2. **入口**：`static/js/main.js` の `renderRoomPortal` に「マスターデータ」ボタンを全員に出す（「マイキャラクター」と同じ並び）。押すと `openMasterDataWorkspace()`。
+3. **見た目**：試作（`npm run catalog-preview`）に揃える。プリセット管理ワークスペースのクラス（`bo-workspace` など）を使い、足りない分は `cat-` で始まるクラスにする（試作の `page.css` から要る分を移す）。
+4. **場面**：
+    - 閲覧：3ペイン。左の種類は、DB にある種類だけを出す（Phase 2 は「用語」だけ）。絞り込みは分類・状態・検索。制作者とアプリ管理者には「下書き」「承認待ち」「却下」の状態も出る。右の詳細に、項目・リンク・使われている所・履歴。制作者には「編集」「新しく作る」、アプリ管理者には「廃止」「この版に戻す」のボタン。
+    - 編集：2列。左に「フォーム」「JSON」のタブ。JSON は直接書き換えられ、正しく読めればフォームへ反映し、読めなければエラーを出してフォームには戻さない（§8 UI論点3）。右に、用語図鑑のツールチップと同じ見た目のプレビュー・リンク先の名前・JSON。下に「下書きを保存」「承認を申請」「取り下げ」。検査のエラーは項目の横に出す。
+    - 承認：アプリ管理者の「承認待ち」から開く。左に公開中の版、右に下書き、変わった項目に印。新規なら正式な ID の欄（`next_id` を入れておく）。却下の理由の欄と「承認」「却下」。
+    - `catalog_updated` を受けたら、開いている一覧を読み直す。
+5. **狭い幅**：980px 以下で詳細を下に、680px 以下で縦に積む（§8 UI論点2）。
+6. **確認**：ローカルで、アプリ管理者・制作者・一般の3人で、用語を1件直して申請→承認し、別の画面の用語図鑑のツールチップが新しい中身になることを確かめる。新規の用語も1件、`X-` から正式な ID で公開する。撮影は数枚で、確認後に消す。
+
+#### 触らないもの
+
+- バフ・スキルなど用語以外の取り込み（Phase 3 以降）。
+- 今の JSON ビルダー（Phase 3 で消す）。
+- 用語図鑑の表示（`glossary_ui.js` の見た目・`action_dock.js` の一覧）。読み直しの1か所だけを直す。
+
+#### 資料の更新
+
+- PR60-3：F01（アカウントの権限）に制作者の印、A02 に制作者の指名の仕方。A04 の用語の管理の説明を「Sheets で直して `--update`」から「アプリの管理画面」へ（画面ができるまでは API のこと）。`manuals/projects/app_foundation/repository_inventory.md` の `manager/glossary/` の行。
+- PR60-4：F01 に管理用 API と権限の表。
+- PR60-5：E02 に管理画面の Part を足す。A02・A04 に画面での作り方。
+- Phase 2 を終えても計画60は残す。この §5.4・§5.5 に「完了」と結果の要約を書く。
 
 ## 6. 未決定事項
 
