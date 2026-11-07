@@ -37,6 +37,7 @@
 7. 演出の一覧は `npm run gallery` で `/_local/fx_gallery/fx_gallery.html` を作る。本番のバンドルには入らない。
 8. 解決パネルの見比べ用HTMLは `npm run resolve-preview` で作る。本番のバンドルには入らない。
 9. 演出の試作の見比べ用HTMLは `npm run fx-proto` で作る（攻撃は `/_local/fx_proto/slash_proto.html`、宝石の加護と戦闘の終わりは `/_local/fx_proto/pr5_proto.html`）。本番のバンドルには入らない。
+10. マスターデータの管理画面の見比べ用HTMLは `npm run catalog-preview` で `/_local/catalog_preview/catalog_preview.html` を作る（計画60 §5.3）。本番のバンドルには入らない。
 
 ```bash
 # JS 編集後
@@ -98,7 +99,7 @@ python app.py --update  # スキル/アイテム等マスターデータを Goog
 
 マニュアル・動画・アプリのアニメーションなどの確認で作る画像・PDF・MP4の部品・ソースの写しは、ストレージを大きく使う。作ること自体はかまわないが、作業の区切り（コミット・push、段階の完了、確認の完了）ごとに整理する。
 
-- 使い捨ての出力は、Git管理外の決まった置き場（本は `typst_manual/_local/`、動画は `typst_manual/動画/out/` と `typst_manual/動画/_local/`、演出の一覧は `/_local/fx_gallery/`、解決パネルの見本は `/_local/resolve_preview/`、攻撃の試作は `/_local/fx_proto/`）か、エージェント自身の一時フォルダに出す。
+- 使い捨ての出力は、Git管理外の決まった置き場（本は `typst_manual/_local/`、動画は `typst_manual/動画/out/` と `typst_manual/動画/_local/`、演出の一覧は `/_local/fx_gallery/`、解決パネルの見本は `/_local/resolve_preview/`、攻撃の試作は `/_local/fx_proto/`、管理画面の見本は `/_local/catalog_preview/`）か、エージェント自身の一時フォルダに出す。
 - 残すのは、組み直し・作り直しに必要なもの（`typst_manual/_local/fonts/`、動画の声キャッシュなど）と、再開の目印になる最新の1点だけ。確認が済んだ画像や古い段階の写しは消す。
 - 消す前に中身を確かめる。Gitにない唯一の成果物はリポジトリへ移してから消し、何を消して何を残したかを報告する。
 - 別の作業者（セッション）が使っている出力は、その作業者が片付ける。
