@@ -65,3 +65,22 @@ def test_normalized_url_uses_installed_driver():
 
     dialect = make_url("postgresql+psycopg2://user:pass@host/db").get_dialect()
     dialect.import_dbapi()
+
+
+def test_local_startup_runs_column_migration(monkeypatch):
+    """ローカルの既存SQLiteにも、足した列（is_catalog_author など）を入れる。"""
+    import manager.db_migration as migration
+
+    calls = []
+    flask_app = app_module.create_app(
+        config={"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite://", "SQLALCHEMY_ENGINE_OPTIONS": {}},
+        run_startup=False, register_sockets=False,
+    )
+    monkeypatch.setattr(app_module, "IS_RENDER", False)
+    monkeypatch.setattr(migration, "run_auto_migration", lambda app: calls.append(app))
+    monkeypatch.setattr(app_module, "init_app_data", lambda **kwargs: None)
+    monkeypatch.setattr(app_module, "read_saved_rooms_with_owners", lambda: None)
+
+    app_module.run_startup_tasks(flask_app)
+
+    assert calls == [flask_app]

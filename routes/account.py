@@ -21,6 +21,7 @@ from manager.auth_rate_limit import password_login_limiter, one_time_code_limite
 from manager.user_manager import (
     upsert_user,
     is_user_management_admin,
+    is_catalog_author,
     recover_user_by_local_token,
     recover_user_by_name_and_code,
     regenerate_user_recovery_code,
@@ -111,6 +112,7 @@ def entry():
         "attribute": session.get('attribute', PLAYER_ATTRIBUTE),
         "user_id": session['user_id'],
         "is_app_admin": is_user_management_admin(session['user_id']),
+        "is_catalog_author": is_catalog_author(session['user_id']),
         "recovery_code": user_result.get("recovery_code"),
         "recovery_token": user_result.get("recovery_token"),
     })
@@ -134,6 +136,7 @@ def recover_user():
         "attribute": PLAYER_ATTRIBUTE,
         "user_id": user.id,
         "is_app_admin": is_user_management_admin(user.id),
+        "is_catalog_author": is_catalog_author(user.id),
         "recovery_token": result.get("recovery_token"),
     })
 
@@ -156,6 +159,7 @@ def recover_from_local_token():
         "attribute": PLAYER_ATTRIBUTE,
         "user_id": user.id,
         "is_app_admin": is_user_management_admin(user.id),
+        "is_catalog_author": is_catalog_author(user.id),
     })
 
 
@@ -165,6 +169,7 @@ def _account_profile(user):
         "user_id": user.id,
         "attribute": PLAYER_ATTRIBUTE,
         "is_app_admin": is_user_management_admin(user.id),
+        "is_catalog_author": is_catalog_author(user.id),
     }
 
 
@@ -459,6 +464,7 @@ def get_session_user():
         "attribute": attribute,
         "user_id": user_id,
         "is_app_admin": app_admin,
+        "is_catalog_author": is_catalog_author(user_id),
         "recovery_code": user_result.get("recovery_code"),
         "recovery_token": user_result.get("recovery_token"),
     })

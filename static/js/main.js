@@ -24,6 +24,7 @@ function applySessionUserData(data) {
     window.currentUserAttribute = currentUserAttribute;
     window.currentUserId = currentUserId;
     window.currentUserIsAppAdmin = currentUserIsAppAdmin;
+    window.currentUserIsCatalogAuthor = !!data.is_catalog_author;
 }
 
 function saveRecoveryTokenFromResponse(data) {

@@ -159,11 +159,11 @@ def init_extensions(flask_app, cors_origins=None):
 def run_startup_tasks(flask_app):
     with flask_app.app_context():
         _configure_local_sqlite(flask_app)
-        if IS_RENDER:
-            print("--- Checking Render Database Schema ---")
-            from manager.db_migration import run_auto_migration
-            run_auto_migration(flask_app)
-            print()
+        # 本番の PostgreSQL もローカルの SQLite も、足りない列を起動時に足す。
+        print("--- Checking Database Schema ---")
+        from manager.db_migration import run_auto_migration
+        run_auto_migration(flask_app)
+        print()
 
         db.create_all()
 
@@ -517,8 +517,9 @@ def get_buff_data():
 def get_glossary_data():
     """フロントエンドに用語辞書データを提供するAPI"""
     if not all_glossary_data:
-        from manager.glossary.loader import glossary_catalog_loader
-        glossary_catalog_loader.load_terms()
+        from manager.catalog.repository import seed_kind_if_empty, load_kind_into_memory
+        seed_kind_if_empty('glossary')
+        load_kind_into_memory('glossary')
     return jsonify(all_glossary_data)
 
 def json_nl_builder_audit():

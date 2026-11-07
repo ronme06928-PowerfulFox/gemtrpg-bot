@@ -31,6 +31,7 @@ def run_auto_migration(app):
                         raise
 
                 user_column_specs = {
+                    'is_catalog_author': 'BOOLEAN DEFAULT FALSE NOT NULL',
                     'recovery_code_hash': 'VARCHAR(255)',
                     'recovery_token_hash': 'VARCHAR(64)',
                     'recovery_code_issued_at': 'TIMESTAMP',

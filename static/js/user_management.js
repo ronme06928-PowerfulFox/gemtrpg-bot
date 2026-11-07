@@ -68,8 +68,11 @@ function renderUserList(users) {
         const nameStyle = isMe ? 'font-weight:bold; color:#007bff;' : 'color:#0056b3;';
         const meLabel = isMe ? ' (あなた)' : '';
         const adminLabel = u.is_app_admin ? '<span style="color:#6f42c1; font-weight:bold;"> 管理者</span>' : '';
+        const authorLabel = (u.is_catalog_author || u.is_app_admin) ? '<span style="color:#28764b; font-weight:bold;"> 制作者</span>' : '';
         const toggleAdminText = u.is_app_admin ? '管理権限解除' : '管理権限付与';
+        const authorAction = u.is_app_admin ? '' : `<button class="toggle-author-btn" data-id="${escapeUserManagementText(u.id)}" data-enabled="${u.is_catalog_author ? '0' : '1'}">${u.is_catalog_author ? '制作者を外す' : '制作者に指名'}</button>`;
         const actionHtml = `
+            ${authorAction}
             <button class="transfer-btn" data-id="${escapeUserManagementText(u.id)}" data-name="${escapeUserManagementText(u.name)}">${currentUserCanManageUsers ? '権限譲渡' : '譲渡(キー)'}</button>
             <button class="toggle-admin-btn" data-id="${escapeUserManagementText(u.id)}" data-enabled="${u.is_app_admin ? '0' : '1'}">${toggleAdminText}</button>
             <button class="delete-user-btn" data-id="${escapeUserManagementText(u.id)}" style="background:#dc3545; color:white; border:none; border-radius:3px; padding:4px 8px; margin-left:5px;">${currentUserCanManageUsers ? '削除' : '削除(キー)'}</button>
@@ -78,7 +81,7 @@ function renderUserList(users) {
         tr.innerHTML = `
             <td style="padding:10px;">
                 <span class="user-name-link" data-id="${escapeUserManagementText(u.id)}" style="cursor:pointer; text-decoration:underline; ${nameStyle}">
-                    ${escapeUserManagementText(u.name)}${meLabel}${adminLabel}
+                    ${escapeUserManagementText(u.name)}${meLabel}${adminLabel}${authorLabel}
                 </span>
             </td>
             <td style="padding:10px; font-family:monospace; font-size:0.9em; color:#666;">${escapeUserManagementText(u.id)}</td>
@@ -103,6 +106,10 @@ function renderUserList(users) {
 
     container.querySelectorAll('.transfer-btn').forEach(btn => {
         btn.onclick = () => openTransferModal(btn.dataset.id, btn.dataset.name);
+    });
+
+    container.querySelectorAll('.toggle-author-btn').forEach(btn => {
+        btn.onclick = () => toggleCatalogAuthor(btn.dataset.id, btn.dataset.enabled === '1');
     });
 
     container.querySelectorAll('.toggle-admin-btn').forEach(btn => {
@@ -264,3 +271,19 @@ document.getElementById('back-to-room-portal-btn').addEventListener('click', () 
     document.getElementById('user-management-portal').style.display = 'none';
     document.getElementById('room-portal').style.display = 'block';
 });
+
+
+async function toggleCatalogAuthor(userId, enabled) {
+  try {
+    const response = await fetchWithSession('/api/admin/set_catalog_author', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user_id: userId, enabled}),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || '更新に失敗しました');
+    await loadUserList();
+  } catch (error) {
+    alert('制作者の更新失敗: ' + error.message);
+  }
+}

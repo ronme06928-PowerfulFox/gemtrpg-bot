@@ -12,6 +12,7 @@ class User(db.Model):
     name = db.Column(db.String(100), nullable=False)  # 表示名（重複可）
     last_login = db.Column(db.DateTime, default=datetime.utcnow)
     is_app_admin = db.Column(db.Boolean, default=False, nullable=False)
+    is_catalog_author = db.Column(db.Boolean, default=False, nullable=False)
     recovery_code_hash = db.Column(db.String(255), nullable=True)
     recovery_token_hash = db.Column(db.String(64), nullable=True)
     recovery_code_issued_at = db.Column(db.DateTime, nullable=True)
@@ -313,3 +314,62 @@ class PresetResourceAcl(db.Model):
 
     def __repr__(self):
         return f'<PresetResourceAcl resource={self.resource_id} user={self.user_id} role={self.role}>'
+
+
+class CatalogEntry(db.Model):
+    """公開中のマスターデータ。kindとentry_idで一意。"""
+    __tablename__ = 'catalog_entries'
+
+    id = db.Column(db.Integer, primary_key=True)
+    kind = db.Column(db.String(32), nullable=False)
+    entry_id = db.Column(db.String(128), nullable=False)
+    payload = db.Column(db.JSON, nullable=False)
+    revision = db.Column(db.Integer, default=1, nullable=False)
+    deprecated = db.Column(db.Boolean, default=False, nullable=False)
+    updated_by = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='SET NULL'))
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('kind', 'entry_id'),
+                      db.CheckConstraint('revision >= 1'))
+    __mapper_args__ = {'version_id_col': revision, 'version_id_generator': False}
+
+
+class CatalogDraft(db.Model):
+    """公開1件につき1つ、または新規X-IDの下書き。"""
+    __tablename__ = 'catalog_drafts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    kind = db.Column(db.String(32), nullable=False)
+    target_id = db.Column(db.String(128), nullable=False)
+    payload = db.Column(db.JSON, nullable=False)
+    status = db.Column(db.String(16), default='draft', nullable=False)
+    base_revision = db.Column(db.Integer)
+    created_by = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='SET NULL'))
+    reject_reason = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    submitted_at = db.Column(db.DateTime)
+
+    __table_args__ = (db.UniqueConstraint('kind', 'target_id'),
+                      db.CheckConstraint("status IN ('draft', 'pending', 'rejected')"),
+                      {"sqlite_autoincrement": True})
+
+
+class CatalogHistory(db.Model):
+    """公開の各版の写し。下書き削除後もdraft_idを保つ。"""
+    __tablename__ = 'catalog_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    kind = db.Column(db.String(32), nullable=False)
+    entry_id = db.Column(db.String(128), nullable=False)
+    revision = db.Column(db.Integer, nullable=False)
+    payload = db.Column(db.JSON, nullable=False)
+    deprecated = db.Column(db.Boolean, default=False, nullable=False)
+    action = db.Column(db.String(16), nullable=False)
+    actor_user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='SET NULL'))
+    draft_id = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('kind', 'entry_id', 'revision'),
+                      db.CheckConstraint('revision >= 1'),
+                      db.CheckConstraint("action IN ('import', 'publish', 'deprecate', 'undeprecate', 'restore')"))

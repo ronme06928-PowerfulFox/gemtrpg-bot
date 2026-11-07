@@ -15,6 +15,7 @@ from manager.user_manager import (
     is_user_management_admin,
     OwnedPresetAssetsError,
     set_user_management_admin,
+    set_catalog_author,
 )
 from manager.utils import session_required
 from routes.common import require_app_admin
@@ -100,3 +101,17 @@ def admin_set_user_management_admin():
     if not set_user_management_admin(target_user_id, enabled):
         return jsonify({"error": "User not found"}), 404
     return jsonify({"message": "Updated", "user_id": target_user_id, "is_app_admin": enabled})
+
+
+@admin_bp.route('/api/admin/set_catalog_author', methods=['POST'])
+@session_required
+def admin_set_catalog_author():
+    denied = require_app_admin()
+    if denied:
+        return denied
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('user_id'), str) or not data['user_id'] or type(data.get('enabled')) is not bool:
+        return jsonify({"error": "user_id と enabled（真偽値）が必要です"}), 400
+    if not set_catalog_author(data['user_id'], data['enabled']):
+        return jsonify({"error": "User not found"}), 404
+    return jsonify({"user_id": data['user_id'], "is_catalog_author": data['enabled']})

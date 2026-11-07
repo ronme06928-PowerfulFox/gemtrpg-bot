@@ -136,6 +136,7 @@ def get_all_users():
         "name": u.name,
         "last_login": u.last_login.strftime('%Y-%m-%d %H:%M:%S'),
         "is_app_admin": bool(getattr(u, "is_app_admin", False)),
+        "is_catalog_author": bool(u.is_catalog_author),
     } for u in users]
 
 def is_user_management_admin(user_id):
@@ -167,6 +168,23 @@ def set_user_management_admin(user_id, enabled):
     user.is_app_admin = bool(enabled)
     db.session.commit()
     return True
+
+def is_catalog_author(user_id):
+    """アプリ管理者も制作者として扱う。判定はDBの現在の値を使う。"""
+    if not user_id:
+        return False
+    user = db.session.get(User, user_id)
+    return bool(user and (user.is_app_admin or user.is_catalog_author))
+
+
+def set_catalog_author(user_id, enabled):
+    user = db.session.get(User, user_id)
+    if user is None:
+        return False
+    user.is_catalog_author = bool(enabled)
+    db.session.commit()
+    return True
+
 
 def delete_user(user_id):
     """ユーザーを削除する（所有権はNoneになる）"""

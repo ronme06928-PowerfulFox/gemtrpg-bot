@@ -174,6 +174,7 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 | 権限 | 範囲 | 主な用途 |
 |---|---|---|
 | ルームロール（owner/gm/player） | 入室中の特定ルーム | 戦闘進行、代理操作、GM専用Socket/API |
+| 制作者（`is_catalog_author`） | アプリ全体 | マスターデータの下書き作成用（管理APIはPR60-4予定）。承認はアプリ管理者のみ |
 | アプリ管理者権限（`is_app_admin`） | アプリ全体 | ユーザー管理、全ルームへの入室、ルームのowner相当操作 |
 
 通常ユーザーのルームロールはDB上のメンバーシップ（`room_members`テーブル）が正本。アプリ管理者は、実際の`Room.owner_id`やmembershipを書き換えず、権限判定時だけ全ルームの仮想ownerとして扱う。非公開・募集締切ルームもロビーに表示され、参加コードやGM PINなしでGM相当として入室できる。ルーム設定、参加コード、メンバー管理、owner移譲、削除もowner相当で実行できる。ただしメンバーのGM付与/解除・除名・owner移譲はAPIのみで、現行画面から呼ぶ入口はない。playerのGM PIN入室はgm membershipへの昇格で、退出しても自動で戻らない。
@@ -204,6 +205,7 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 - ユーザー管理画面の一覧/詳細は **アプリ管理者のみ** 閲覧できる。
 - 削除/所有権譲渡はアプリ管理者のみ実行できる。
 - パスワードリセット用ワンタイムコード発行はアプリ管理者のみ実行できる（`POST /api/admin/issue_login_code`）。
+- 制作者の印は `users.is_catalog_author`（既定false）。指名・解除はアプリ管理者だけが `POST /api/admin/set_catalog_author` の `{user_id, enabled: 真偽値}` で行う。ログイン・復帰・セッション確認の `is_catalog_author` は管理者もtrueとする。ユーザー一覧の印は保存された指名の値を返す。
 - 管理者権限は `users.is_app_admin` に保存され、半永続的に保持される。
 - ルームGMロールはユーザー管理操作の根拠にしない。
 - ユーザー情報変更モーダルには、8桁マスターキーを入力して自分自身へユーザー管理権限を付与する導線を表示する。キーは保存せず、`POST /api/admin/set_user_management_admin` の検証にのみ使う。
@@ -562,7 +564,7 @@ Renderは再起動では既存ビルドを使い回すが、新規デプロイ�
 
 本番Renderの実際のBuild Commandは未確認。Start Commandの確認を受け、リポジトリの入口を `app:app` に統一し、未使用の `wsgi.py` を削除した。本番設定・`render-start.sh`・`app.py`・Gunicorn設定・保存処理は変更していない。ローカルでの入口検証は、本番Linux上のGunicorn起動・終了時の保存検証を代替しない。再起動時の保存・復元は[基盤課題OPS-RECOVERY](../projects/app_foundation/backlog.md)で追う。エージェントはユーザーの指示があるときだけcommit / pushを行う。
 
-マスター等のJSONの配置（2026-10-31）: パスの正本は `manager/cache_paths.py`、保存先は `data/cache/`。スキル・アイテム・輝化・パッシブ・バフ・用語・召喚の7キャッシュと、手動エクスポート用の旧プリセットJSONを置く。旧ルート配置からの自動読込・コピーは行わない。共通の `load_json_cache(path)` は指定ファイル不在なら `None` を返し、不正JSONは例外とする。各ローダーが持つ再取得・エラー処理と明示更新時の保存は従来どおり。これらのJSONを単なる一時出力として削除しない。
+マスター等のJSONの配置（2026-10-31）: パスの正本は `manager/cache_paths.py`、保存先は `data/cache/`。スキル・アイテム・輝化・パッシブ・バフ・用語・召喚の7キャッシュと、手動エクスポート用の旧プリセットJSONを置く。旧ルート配置からの自動読込・コピーは行わない。共通の `load_json_cache(path)` は指定ファイル不在なら `None` を返し、不正JSONは例外とする。用語だけはPR60-3でDBを正本とし、このJSONは初回取り込み専用。その他のローダーの再取得・明示更新時の保存は従来どおり。これらのJSONを単なる一時出力として削除しない。
 
 ## 9. 障害時の確認
 
@@ -679,6 +681,7 @@ if user_info.get('attribute') != 'GM':
 | `login_name_normalized` | VARCHAR(100) unique | ログイン識別子（NFKC+casefold正規化）。表示名とは別。 |
 | `password_hash` | VARCHAR(255) | werkzeugハッシュ。新規アカウントのみ必須。 |
 | `auth_version` | INTEGER default 1 | パスワード再設定/全端末ログアウトで増加。sessionに同値を持たせ不一致で失効。 |
+| `is_catalog_author` | BOOLEAN | 制作者の指名。既定false。管理者は権限判定では常に制作者。 |
 | `is_app_admin` | BOOLEAN | アプリ全体の管理者フラグ。ルームロールとは別。 |
 
 ### TrustedDeviceToken（端末トークン）
@@ -769,7 +772,7 @@ sessionには `user_id`、`auth_version`、必要最小限の状態だけを置�
 - Render本番: `DATABASE_URL` 未設定または非PostgreSQLなら **起動失敗（fail-fast）**。PostgreSQLのURLはスキームを `postgresql+psycopg2://` へ正規化して使う。`requirements.txt` のDBドライバは `psycopg2-binary` のみであり、SQLAlchemy 2.1以降で `postgresql://` の既定ドライバがpsycopg（v3）に変わったことや、接続文字列の書式によって未導入のドライバが選ばれて起動失敗することを防ぐ。
 - `requirements.txt` は間接依存まで含めて全パッケージを `==` で固定する。Renderの新規ビルドは未固定の依存を最新版で入れるため、ローカルでテストしていない版が本番に入る（2026-10-15、未固定だったSQLAlchemy本体に2.1.4が入り起動失敗した）。固定値は全件テストが通るローカル環境の版と一致させ、依存を上げるときは Part 3 §7 の手順に従う。
 - ローカルとRenderのユーザー・ルーム・権限・画像レジストリは共有しない。
-- DBマイグレーション（`manager/db_migration.py`）は冪等設計。列追加失敗時は `RuntimeError` を raise して起動を中断する。
+- DBマイグレーション（`manager/db_migration.py`）は冪等設計で、本番（PostgreSQL）とローカル（SQLite）のどちらでも起動時に実行し、足りない列を足す。列追加失敗時は `RuntimeError` を raise して起動を中断する。
 
 ---
 

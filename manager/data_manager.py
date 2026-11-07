@@ -317,7 +317,7 @@ def delete_room_from_db(room_name):
 
 def update_all_data():
     """
-    全てのデータ（スキル、アイテム、輝化スキル、特殊パッシブ、バフ図鑑、用語辞書、召喚テンプレート）を更新
+    全てのデータ（スキル、アイテム、輝化スキル、特殊パッシブ、バフ図鑑、召喚テンプレート）を更新（用語はDBを正本とする）
 
     Returns:
         bool: 全ての更新が成功したかどうか
@@ -329,7 +329,7 @@ def update_all_data():
     success = True
 
     # 1. スキルデータ更新
-    print("【1/7】スキルデータを更新中...")
+    print("【1/6】スキルデータを更新中...")
     try:
         if fetch_and_save_sheets_data():
             print("✅ スキルデータの更新に成功しました\n")
@@ -361,7 +361,7 @@ def update_all_data():
             success = False
 
     # 2. アイテムデータ更新
-    print("【2/7】アイテムデータを更新中...")
+    print("【2/6】アイテムデータを更新中...")
     try:
         from manager.items.loader import item_loader
         items = item_loader.refresh()
@@ -375,7 +375,7 @@ def update_all_data():
         success = False
 
     # 3. 輝化スキルデータ更新
-    print("【3/7】輝化スキルデータを更新中...")
+    print("【3/6】輝化スキルデータを更新中...")
     try:
         from manager.radiance.loader import radiance_loader
         radiance_skills = radiance_loader.refresh()
@@ -389,7 +389,7 @@ def update_all_data():
         success = False
 
     # 4. 特殊パッシブデータ更新
-    print("【4/7】特殊パッシブデータを更新中...")
+    print("【4/6】特殊パッシブデータを更新中...")
     try:
         from manager.passives.loader import passive_loader
         passives = passive_loader.refresh()
@@ -403,7 +403,7 @@ def update_all_data():
         success = False
 
     # 5. バフ図鑑データ更新 ★追加
-    print("【5/7】バフ図鑑データを更新中...")
+    print("【5/6】バフ図鑑データを更新中...")
     try:
         from manager.buffs.loader import buff_catalog_loader
         buffs = buff_catalog_loader.refresh()
@@ -416,22 +416,8 @@ def update_all_data():
         print(f"❌ バフ図鑑データ更新エラー: {e}\n")
         success = False
 
-    # 6. 用語辞書データ更新
-    print("【6/7】用語辞書データを更新中...")
-    try:
-        from manager.glossary.loader import glossary_catalog_loader
-        terms = glossary_catalog_loader.refresh()
-        if terms:
-            print(f"✅ 用語辞書データの更新に成功しました ({len(terms)}件)\n")
-        else:
-            print("❌ 用語辞書データの更新に失敗しました\n")
-            success = False
-    except Exception as e:
-        print(f"❌ 用語辞書データ更新エラー: {e}\n")
-        success = False
-
-    # 7. 召喚テンプレート更新
-    print("【7/7】召喚テンプレートを更新中...")
+    # 6. 召喚テンプレート更新
+    print("【6/6】召喚テンプレートを更新中...")
     try:
         from manager.summons.loader import refresh_summon_templates
         summon_templates = refresh_summon_templates()
@@ -528,8 +514,9 @@ def init_app_data(create_db_tables=True):
 
         # 7. 用語辞書データの読み込み
         try:
-            from manager.glossary.loader import glossary_catalog_loader
-            glossary_catalog_loader.load_terms()
+            from manager.catalog.repository import seed_kind_if_empty, load_kind_into_memory
+            seed_kind_if_empty('glossary')
+            load_kind_into_memory('glossary')
             print("[OK] Glossary data initialized.")
         except Exception as e:
             print(f"[WARNING] Glossary data initialization warning: {e}")
