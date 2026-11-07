@@ -99,7 +99,7 @@
         }
 
         const version = state.dataVersion;
-        const promise = fetch('/api/get_glossary_data')
+        const promise = fetch('/api/get_glossary_data', { cache: 'no-cache' })
             .then((res) => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 return res.json();

@@ -12,9 +12,10 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const pending = [];
+const fetchOptions = [];
 const window = {};
 const context = vm.createContext({window, console,
-  fetch: () => new Promise(resolve => pending.push(resolve)),
+  fetch: (_url, options) => { fetchOptions.push(options); return new Promise(resolve => pending.push(resolve)); },
 });
 vm.runInContext(fs.readFileSync('static/js/common/glossary_ui.js','utf8'), context);
 const glossary = window.Glossary;
@@ -29,6 +30,7 @@ glossary.onCatalogUpdated({kind:'glossary'});
 assert.equal(glossary.getTerm('W-08').display_name,'初版');
 assert.equal(window.glossaryData,undefined);
 assert.equal(pending.length,1);
+assert.equal(fetchOptions.at(-1)?.cache,'no-cache');
 const stale = pending.shift();
 // 読み直しの途中で次の知らせが来たら、古い応答は捨てて最新を読む。
 glossary.onCatalogUpdated({kind:'glossary'});

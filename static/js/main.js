@@ -495,6 +495,7 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
             <ul id="room-list" class="room-list"></ul>
             <p id="room-list-empty" style="display: none;">該当するルームはありません。</p>
         </div>
+        <button id="open-master-data-btn" class="cat-portal-open">マスターデータ</button>
         ${allPresetsButton}
         <button id="open-owned-chars-btn" class="portal-floating-owned-chars-btn">
             マイキャラクター
@@ -510,6 +511,7 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
     const settingsBtn = document.getElementById('portal-user-settings-btn');
     const boPresetPortalBtn = document.getElementById('open-bo-preset-portal-btn');
     const ownedCharsBtn = document.getElementById('open-owned-chars-btn');
+    document.getElementById('open-master-data-btn').addEventListener('click', () => openMasterDataWorkspace());
 
     if (ownedCharsBtn) {
         ownedCharsBtn.addEventListener('click', () => {
@@ -1070,6 +1072,7 @@ function initializeSocketIO() {
 
     registerAppSocketHandler('catalog_updated', (data) => {
         window.Glossary.onCatalogUpdated(data);
+        window.CatalogWorkspace?.onUpdated(data);
     });
 
     socket.on('connect', () => {
