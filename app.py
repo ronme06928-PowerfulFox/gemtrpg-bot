@@ -243,7 +243,8 @@ def _should_run_startup_on_import():
 
 
 def _should_create_default_app():
-    return os.environ.get('GEMTRPG_DISABLE_DEFAULT_APP') != '1'
+    return (os.environ.get('GEMTRPG_DISABLE_DEFAULT_APP') != '1'
+            and not (__name__ == '__main__' and '--pull' in sys.argv))
 
 # ==========================================
 #  HTTP Routes
@@ -749,10 +750,27 @@ app = create_app(run_startup=_should_run_startup_on_import()) if _should_create_
 #  Main Execution
 # ==========================================
 
-if __name__ == '__main__':
+def run_cli(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--update', action='store_true', help='スキル・アイテム・輝化スキル・特殊パッシブ・バフ図鑑・用語辞書の全データを更新')
-    args = parser.parse_args()
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--update', action='store_true', help='Sheetsのスキル・アイテム・輝化スキル・特殊パッシブ・召喚テンプレートを更新')
+    modes.add_argument('--pull', action='store_true', help='本番の用語・バフ・スキルを手元へ取り込む')
+    args = parser.parse_args(argv)
+
+    if args.pull:
+        if IS_RENDER:
+            print('--pull はRender上では実行できません。', file=sys.stderr)
+            return 1
+        from manager.catalog.pull import pull_catalogs, CatalogPullError
+        local_app = create_app(run_startup=False, register_sockets=False, register_routes=False)
+        with local_app.app_context():
+            try:
+                counts = pull_catalogs()
+            except CatalogPullError as exc:
+                print(str(exc), file=sys.stderr)
+                return 1
+        print('本番からの取り込みが完了しました: ' + '、'.join(f'{kind} {count}件' for kind, count in counts.items()))
+        return 0
 
     if args.update:
         # 全データ更新モード
@@ -763,10 +781,10 @@ if __name__ == '__main__':
         with app.app_context():
             if update_all_data():
                 print("✅ 全データの更新が完了しました。")
-                sys.exit(0)
+                return 0
             else:
                 print("❌ 一部のデータ更新に失敗しました。")
-                sys.exit(1)
+                return 1
 
     # ★ バフプラグイン自動検出
     print("--- Initializing Buff Plugins ---")
@@ -787,3 +805,7 @@ if __name__ == '__main__':
     finally:
         from manager.room_manager import flush_pending_saves
         flush_pending_saves(log_when_empty=True)
+
+
+if __name__ == '__main__':
+    sys.exit(run_cli())

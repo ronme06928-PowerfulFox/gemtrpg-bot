@@ -1,556 +1,556 @@
 {
   "Bu-00": {
-    "id": "Bu-00",
-    "name": "鋭敏",
-    "display_name": "鋭敏",
+    "default_duration": 1,
     "description": "1ラウンドの間スキルの基礎威力を+1する。",
-    "flavor": "神経を研ぎ澄まし、僅かばかりの力を得る。",
+    "display_name": "鋭敏",
     "effect": {
-      "type": "stat_mod",
       "stat": "基礎威力",
+      "type": "stat_mod",
       "value": 1
     },
-    "default_duration": 1
+    "flavor": "神経を研ぎ澄まし、僅かばかりの力を得る。",
+    "id": "Bu-00",
+    "name": "鋭敏"
   },
   "Bu-01": {
-    "id": "Bu-01",
-    "name": "挑発",
-    "display_name": "挑発",
+    "default_duration": 1,
     "description": "このラウンドで全ての相手の攻撃対象を自分に固定する。",
-    "flavor": "時に、自らに課す者もいる。だが、理なき雄は蛮勇である。",
+    "display_name": "挑発",
     "effect": {
-      "type": "plugin",
+      "category": "debuff",
       "name": "provoke",
-      "category": "debuff"
+      "type": "plugin"
     },
-    "default_duration": 1
+    "flavor": "時に、自らに課す者もいる。だが、理なき雄は蛮勇である。",
+    "id": "Bu-01",
+    "name": "挑発"
   },
   "Bu-02": {
-    "id": "Bu-02",
-    "name": "混乱",
-    "display_name": "混乱",
+    "default_duration": 2,
     "description": "受けるダメージが1.5倍になり、スキルを使用できない。",
-    "flavor": "乱れた武術は、藻掻く様によく似ている。",
+    "display_name": "混乱",
     "effect": {
-      "type": "plugin",
-      "name": "confusion",
       "category": "debuff",
       "damage_multiplier": 1.5,
-      "restore_mp_on_end": false
+      "name": "confusion",
+      "restore_mp_on_end": false,
+      "type": "plugin"
     },
-    "default_duration": 2
+    "flavor": "乱れた武術は、藻掻く様によく似ている。",
+    "id": "Bu-02",
+    "name": "混乱"
   },
   "Bu-03": {
-    "id": "Bu-03",
-    "name": "混乱(戦慄殺到)",
-    "display_name": "混乱(戦慄殺到)",
+    "default_duration": 2,
     "description": "受けるダメージが1.5倍になり、スキルを使用できない。解除時MP全回復。",
-    "flavor": "足掻いた末に手にした正気は、見える景色を変えるだろう。",
+    "display_name": "混乱(戦慄殺到)",
     "effect": {
-      "type": "plugin",
-      "name": "confusion",
       "category": "debuff",
       "damage_multiplier": 1.5,
-      "restore_mp_on_end": true
+      "name": "confusion",
+      "restore_mp_on_end": true,
+      "type": "plugin"
     },
-    "default_duration": 2
+    "flavor": "足掻いた末に手にした正気は、見える景色を変えるだろう。",
+    "id": "Bu-03",
+    "name": "混乱(戦慄殺到)"
   },
   "Bu-04": {
-    "id": "Bu-04",
-    "name": "行動不能",
-    "display_name": "行動不能",
+    "default_duration": 1,
     "description": "このラウンドの間、行動できなくなる。",
-    "flavor": "身体は動かずとも、頭は働く……",
+    "display_name": "行動不能",
     "effect": {
-      "type": "plugin",
+      "category": "debuff",
       "name": "immobilize",
-      "category": "debuff"
+      "type": "plugin"
     },
-    "default_duration": 1
+    "flavor": "身体は動かずとも、頭は働く……",
+    "id": "Bu-04",
+    "name": "行動不能"
   },
   "Bu-05": {
-    "id": "Bu-05",
-    "name": "再回避ロック",
-    "display_name": "再回避ロック",
+    "default_duration": 1,
     "description": "再び回避できるが、特定のスキルしか使用できない。",
-    "flavor": "見切るべし、見切られぬべし。",
+    "display_name": "再回避ロック",
     "effect": {
-      "type": "plugin",
+      "category": "debuff",
       "name": "dodge_lock",
-      "category": "debuff"
+      "type": "plugin"
     },
-    "default_duration": 1
+    "flavor": "見切るべし、見切られぬべし。",
+    "id": "Bu-05",
+    "name": "再回避ロック"
   },
   "Bu-06": {
-    "id": "Bu-06",
-    "name": "破裂威力減少無効",
-    "display_name": "破裂威力減少無効",
+    "default_duration": 1,
     "description": "このキャラに破裂爆発を発動時、破裂の値を消費しない。",
-    "flavor": "一度ついた傷が、そうも簡単に治るものか。",
+    "display_name": "破裂威力減少無効",
     "effect": {
-      "type": "plugin",
+      "category": "debuff",
       "name": "burst_no_consume",
-      "category": "debuff"
+      "type": "plugin"
     },
-    "default_duration": 1
+    "flavor": "一度ついた傷が、そうも簡単に治るものか。",
+    "id": "Bu-06",
+    "name": "破裂威力減少無効"
   },
   "Bu-07": {
-    "id": "Bu-07",
-    "name": "時限破裂爆発",
-    "display_name": "時限破裂爆発",
+    "default_duration": 1,
     "description": "一定のラウンド後、このキャラクターに破裂爆発を発動する。",
-    "flavor": "刻一刻と、その瞬間は迫ってくる。",
+    "display_name": "時限破裂爆発",
     "effect": {
-      "type": "plugin",
+      "category": "debuff",
       "name": "timebomb_burst",
-      "category": "debuff"
+      "type": "plugin"
     },
-    "default_duration": 1
+    "flavor": "刻一刻と、その瞬間は迫ってくる。",
+    "id": "Bu-07",
+    "name": "時限破裂爆発"
   },
   "Bu-08": {
-    "id": "Bu-08",
-    "name": "出血遷延",
-    "display_name": "出血遷延",
+    "default_duration": 1,
     "description": "ラウンド終了時などの出血によるダメージ発生時、出血威力が減少しない。",
-    "flavor": "刻まれた傷が治る気配はなく、血が夥しく流れ続ける……",
+    "display_name": "出血遷延",
     "effect": {
-      "type": "plugin",
+      "category": "debuff",
       "name": "bleed_maintenance",
-      "category": "debuff"
+      "type": "plugin"
     },
-    "default_duration": 1
+    "flavor": "刻まれた傷が治る気配はなく、血が夥しく流れ続ける……",
+    "id": "Bu-08",
+    "name": "出血遷延"
   },
   "Bu-09": {
-    "id": "Bu-09",
-    "name": "爆縮",
-    "display_name": "爆縮",
+    "default_duration": -1,
     "description": "攻撃時、追加で5のダメージを与える。（1回の戦闘で8回まで）",
-    "flavor": "シンシアで作られた黒く乾いた火薬を用い、攻撃の効果を高める。かの国の商人はこれを売り、そして冗談と共に他人をこの白煙に巻くのである。",
+    "display_name": "爆縮",
     "effect": {
-      "type": "plugin",
+      "category": "buff",
       "name": "implosion",
-      "category": "buff"
+      "type": "plugin"
     },
-    "default_duration": -1
+    "flavor": "シンシアで作られた黒く乾いた火薬を用い、攻撃の効果を高める。かの国の商人はこれを売り、そして冗談と共に他人をこの白煙に巻くのである。",
+    "id": "Bu-09",
+    "name": "爆縮"
   },
   "Bu-10": {
-    "id": "Bu-10",
-    "name": "小麦色の風",
-    "display_name": "小麦色の風",
+    "default_duration": -1,
     "description": "ラウンド開始時、50%の確率でFPを1獲得する。",
-    "flavor": "よく食べ、よく働き、よく眠り、よく戦う。昼夜が移るように、花が咲き枯れるように、風が自由に巡るように。ラティウムで生きるというのは、そういうことだ。",
+    "display_name": "小麦色の風",
     "effect": {},
-    "default_duration": -1
+    "flavor": "よく食べ、よく働き、よく眠り、よく戦う。昼夜が移るように、花が咲き枯れるように、風が自由に巡るように。ラティウムで生きるというのは、そういうことだ。",
+    "id": "Bu-10",
+    "name": "小麦色の風"
   },
   "Bu-11": {
-    "id": "Bu-11",
-    "name": "加速",
-    "display_name": "加速",
+    "default_duration": -1,
     "description": "ラウンド開始時、速度補正にスタック数を加算する。",
-    "flavor": "逸る気持ち、滾る血液。なんでも早いに越したことはない。あるいは、速ければ越されることもない。",
+    "display_name": "加速",
     "effect": {
-      "type": "plugin",
+      "category": "buff",
       "name": "speed_mod",
-      "category": "buff"
+      "type": "plugin"
     },
-    "default_duration": -1
+    "flavor": "逸る気持ち、滾る血液。なんでも早いに越したことはない。あるいは、速ければ越されることもない。",
+    "id": "Bu-11",
+    "name": "加速"
   },
   "Bu-12": {
-    "id": "Bu-12",
-    "name": "減速",
-    "display_name": "減速",
+    "default_duration": -1,
     "description": "ラウンド開始時、速度補正にスタック数を減算する。",
-    "flavor": "焦る気持ち、止る足取り。追い付こうとして変に急くよりも、追い越した者たちの背をよく見るべきかもしれない。",
+    "display_name": "減速",
     "effect": {
-      "type": "plugin",
+      "category": "debuff",
       "name": "speed_mod",
-      "category": "debuff"
+      "type": "plugin"
     },
-    "default_duration": -1
+    "flavor": "焦る気持ち、止る足取り。追い付こうとして変に急くよりも、追い越した者たちの背をよく見るべきかもしれない。",
+    "id": "Bu-12",
+    "name": "減速"
   },
   "Bu-13": {
-    "id": "Bu-13",
-    "name": "大魔女の末裔",
-    "display_name": "大魔女の末裔",
+    "default_duration": -1,
     "description": "MPの上限+1。",
-    "flavor": "伝説に語られる魔女がアヌッサ・ホロウを創ったという。その才覚は年月を越え、今日の信仰の中に息づいている。",
+    "display_name": "大魔女の末裔",
     "effect": {},
-    "default_duration": -1
+    "flavor": "伝説に語られる魔女がアヌッサ・ホロウを創ったという。その才覚は年月を越え、今日の信仰の中に息づいている。",
+    "id": "Bu-13",
+    "name": "大魔女の末裔"
   },
   "Bu-14": {
-    "id": "Bu-14",
-    "name": "神樹の恩寵",
-    "display_name": "神樹の恩寵",
+    "default_duration": -1,
     "description": "ラウンド終了時、HPを3回復する。",
-    "flavor": "マホロバの人々はその樹を尊ぶ。根元に生きる遍くものに、廻る季節と豊かさを与えるその神樹を。",
+    "display_name": "神樹の恩寵",
     "effect": {},
-    "default_duration": -1
+    "flavor": "マホロバの人々はその樹を尊ぶ。根元に生きる遍くものに、廻る季節と豊かさを与えるその神樹を。",
+    "id": "Bu-14",
+    "name": "神樹の恩寵"
   },
   "Bu-15": {
-    "id": "Bu-15",
-    "name": "厄災を探究せし理性",
-    "display_name": "厄災を探究せし理性",
+    "default_duration": -1,
     "description": "魔法スキル限定の経験+1。情報系探索スキルのLvが+1。",
-    "flavor": "ラグラゼシスの都市に住まう学者は、災いと向き合う。その全てを白日の下に解き明かし、征服せしめんとするために。",
+    "display_name": "厄災を探究せし理性",
     "effect": {},
-    "default_duration": -1
+    "flavor": "ラグラゼシスの都市に住まう学者は、災いと向き合う。その全てを白日の下に解き明かし、征服せしめんとするために。",
+    "id": "Bu-15",
+    "name": "厄災を探究せし理性"
   },
   "Bu-16": {
-    "id": "Bu-16",
-    "name": "厄災と共に生きる知恵",
-    "display_name": "厄災と共に生きる知恵",
+    "default_duration": -1,
     "description": "経験+1。情報系探索スキルのLvが-1。",
-    "flavor": "ラグラゼシスの大自然に住まう人々は、災いと向き合う。迫り来る死線の断片を掴み、超克せしめんとするために。",
+    "display_name": "厄災と共に生きる知恵",
     "effect": {},
-    "default_duration": -1
+    "flavor": "ラグラゼシスの大自然に住まう人々は、災いと向き合う。迫り来る死線の断片を掴み、超克せしめんとするために。",
+    "id": "Bu-16",
+    "name": "厄災と共に生きる知恵"
   },
   "Bu-17": {
-    "id": "Bu-17",
-    "name": "反撃の石",
-    "display_name": "反撃の石",
+    "default_duration": -1,
     "description": "防御スキルを使用してマッチ勝利時、自分スキルの威力が相手スキルの威力を越えた分の値だけ相手に反撃ダメージ。",
-    "flavor": "ギァン・バルフの実力者たちは皆、こう言う。「耐え、守り、潰す。勝つために必要なのは、その意志だ」と。",
+    "display_name": "反撃の石",
     "effect": {},
-    "default_duration": -1
+    "flavor": "ギァン・バルフの実力者たちは皆、こう言う。「耐え、守り、潰す。勝つために必要なのは、その意志だ」と。",
+    "id": "Bu-17",
+    "name": "反撃の石"
   },
   "Bu-18": {
-    "id": "Bu-18",
-    "name": "誉れ高き刃",
-    "display_name": "誉れ高き刃",
+    "default_duration": -1,
     "description": "斬撃スキルの基礎威力+1。",
-    "flavor": "剣術は一日にして成らず。この刹那の一閃に、積み上げた歴史の重石が載っている。",
+    "display_name": "誉れ高き刃",
     "effect": {},
-    "default_duration": -1
+    "flavor": "剣術は一日にして成らず。この刹那の一閃に、積み上げた歴史の重石が載っている。",
+    "id": "Bu-18",
+    "name": "誉れ高き刃"
   },
   "Bu-19": {
-    "id": "Bu-19",
-    "name": "畏怖の衣",
-    "display_name": "畏怖の衣",
+    "default_duration": -1,
     "description": "マッチ相手のスキル最終威力を-１。",
-    "flavor": "血と涙で魂を濯ぎ、血肉に重ねた研鑽。重厚なる威圧となり、万敵の気勢を削がん。",
+    "display_name": "畏怖の衣",
     "effect": {},
-    "default_duration": -1
+    "flavor": "血と涙で魂を濯ぎ、血肉に重ねた研鑽。重厚なる威圧となり、万敵の気勢を削がん。",
+    "id": "Bu-19",
+    "name": "畏怖の衣"
   },
   "Bu-20": {
-    "id": "Bu-20",
-    "name": "世界を見下ろす黒鳥",
-    "display_name": "世界を見下ろす黒鳥",
+    "default_duration": -1,
     "description": "他の国の出身ボーナスを一つ選んで取得できる。",
-    "flavor": "世界を観察する黒い羽達――彼等を縛る組織、国はなくただただ自由に世界を舞う。",
+    "display_name": "世界を見下ろす黒鳥",
     "effect": {},
-    "default_duration": -1
+    "flavor": "世界を観察する黒い羽達――彼等を縛る組織、国はなくただただ自由に世界を舞う。",
+    "id": "Bu-20",
+    "name": "世界を見下ろす黒鳥"
   },
   "Bu-21": {
-    "id": "Bu-21",
-    "name": "色とりどりの輝石",
-    "display_name": "色とりどりの輝石",
+    "default_duration": -1,
     "description": "他の国の出身ボーナスを一つ選んで取得できる。",
-    "flavor": "類まれなる偶然。歩んできた道のり。魔法を生み出す宝石。それら全てが、この大陸の中心に集まっている。",
+    "display_name": "色とりどりの輝石",
     "effect": {},
-    "default_duration": -1
+    "flavor": "類まれなる偶然。歩んできた道のり。魔法を生み出す宝石。それら全てが、この大陸の中心に集まっている。",
+    "id": "Bu-21",
+    "name": "色とりどりの輝石"
   },
   "Bu-22": {
-    "id": "Bu-22",
-    "name": "空を巡る叡智",
-    "display_name": "空を巡る叡智",
+    "default_duration": -1,
     "description": "他の国の出身ボーナスを一つ選んで取得できる。",
-    "flavor": "天高くより彼らが大陸を見下ろすのは傲慢ゆえではなく、あらゆる貴き営みを見逃さぬようにするため。",
+    "display_name": "空を巡る叡智",
     "effect": {},
-    "default_duration": -1
+    "flavor": "天高くより彼らが大陸を見下ろすのは傲慢ゆえではなく、あらゆる貴き営みを見逃さぬようにするため。",
+    "id": "Bu-22",
+    "name": "空を巡る叡智"
   },
   "Bu-23": {
-    "id": "Bu-23",
-    "name": "狭霧に息づく神秘",
-    "display_name": "狭霧に息づく神秘",
+    "default_duration": -1,
     "description": "ラウンド終了時、自身のMPを1回復する。",
-    "flavor": "霧で視界が遮られるから、見えないことが見えている。真理を覆い隠す迷霧は彼らにとっての道標なのだ。",
+    "display_name": "狭霧に息づく神秘",
     "effect": {},
-    "default_duration": -1
+    "flavor": "霧で視界が遮られるから、見えないことが見えている。真理を覆い隠す迷霧は彼らにとっての道標なのだ。",
+    "id": "Bu-23",
+    "name": "狭霧に息づく神秘"
   },
   "Bu-24": {
-    "id": "Bu-24",
-    "name": "いずれ彩られる純白",
-    "display_name": "いずれ彩られる純白",
+    "default_duration": -1,
     "description": "攻撃スキル的中時、対象に色彩を付与する。2ラウンド継続。自分と同陣営のキャラクターが色彩を持つ相手陣営キャラクターを対象に攻撃スキルを使用する時、スキルの最終威力+1。",
-    "flavor": "白紙に記し描くのは欠陥を埋めるためではない。完璧な美しさが持つ余白に、ひとときの花を添えるため。",
+    "display_name": "いずれ彩られる純白",
     "effect": {},
-    "default_duration": -1
+    "flavor": "白紙に記し描くのは欠陥を埋めるためではない。完璧な美しさが持つ余白に、ひとときの花を添えるため。",
+    "id": "Bu-24",
+    "name": "いずれ彩られる純白"
   },
   "Bu-25": {
-    "id": "Bu-25",
-    "name": "砂海を流離う行人",
-    "display_name": "砂海を流離う行人",
+    "default_duration": -1,
     "description": "HPの最大値+20。本能と隠密の探索スキルレベル+2。",
-    "flavor": "逆巻く針のように巨大な砂嵐はアル・カルメイルの土地を闊歩する。人々は自然の顔色に阿り、乾き果てた大地の上で生きている。",
+    "display_name": "砂海を流離う行人",
     "effect": {},
-    "default_duration": -1
+    "flavor": "逆巻く針のように巨大な砂嵐はアル・カルメイルの土地を闊歩する。人々は自然の顔色に阿り、乾き果てた大地の上で生きている。",
+    "id": "Bu-25",
+    "name": "砂海を流離う行人"
   },
   "Bu-26": {
-    "id": "Bu-26",
-    "name": "活力の行き重なる落合",
-    "display_name": "活力の行き重なる落合",
+    "default_duration": -1,
     "description": "対話と鑑定のスキルレベル+2。戦闘中、回避スキルのダイス威力+1。相手陣営にヴァルヴァイレ出身のキャラクターが存在する時、この効果の効果量+1。",
-    "flavor": "雄大な河川の流れは、不変に見えども流転する。気付けば形は様変わり、ある日突然溢れたとしても何ら不思議ではない。",
+    "display_name": "活力の行き重なる落合",
     "effect": {},
-    "default_duration": -1
+    "flavor": "雄大な河川の流れは、不変に見えども流転する。気付けば形は様変わり、ある日突然溢れたとしても何ら不思議ではない。",
+    "id": "Bu-26",
+    "name": "活力の行き重なる落合"
   },
   "Bu-27": {
-    "id": "Bu-27",
-    "name": "盛夏と共鳴る高揚",
-    "display_name": "盛夏と共鳴る高揚",
+    "default_duration": -1,
     "description": "五感、本能、運動、回避のスキルレベルを+1する。戦闘中、このラウンドでフィールドに自分と同じ速度値のキャラクターがいるなら、自分が使用するスキルの基礎威力+1。",
-    "flavor": "燦々と輝く太陽の下！ 光を浴びて戦場を舞う！ 友も宿敵も息を合わせて、日が沈むまでさあ踊ろう！",
+    "display_name": "盛夏と共鳴る高揚",
     "effect": {},
-    "default_duration": -1
+    "flavor": "燦々と輝く太陽の下！ 光を浴びて戦場を舞う！ 友も宿敵も息を合わせて、日が沈むまでさあ踊ろう！",
+    "id": "Bu-27",
+    "name": "盛夏と共鳴る高揚"
   },
   "Bu-28": {
-    "id": "Bu-28",
-    "name": "色彩",
-    "display_name": "色彩",
+    "default_duration": 2,
     "description": "これを持つキャラクターを対象に攻撃スキルを使用する相手陣営キャラクターの、スキルの最終威力+1。",
-    "flavor": "命に書き加えたささやかな付記。",
+    "display_name": "色彩",
     "effect": {},
-    "default_duration": 2
+    "flavor": "命に書き加えたささやかな付記。",
+    "id": "Bu-28",
+    "name": "色彩"
   },
   "Bu-29": {
-    "id": "Bu-29",
-    "name": "震盪",
-    "display_name": "震盪",
+    "default_duration": 3,
     "description": "これを持つキャラクターがスキルの効果で破裂を付与される時、これのスタック数の値だけ破裂の増加量が増える。",
-    "flavor": "精神が揺れ動けば、同じ筈の痛みもその重みを増してしまう。",
+    "display_name": "震盪",
     "effect": {
       "state_receive_bonus": [
         {
-          "stat": "破裂",
+          "consume": false,
           "operation": "FIXED",
-          "value": 1,
-          "consume": false
+          "stat": "破裂",
+          "value": 1
         }
       ]
     },
-    "default_duration": 3
+    "flavor": "精神が揺れ動けば、同じ筈の痛みもその重みを増してしまう。",
+    "id": "Bu-29",
+    "name": "震盪"
   },
   "Bu-30": {
-    "id": "Bu-30",
-    "name": "蓄力",
-    "display_name": "蓄力",
+    "default_duration": -1,
     "description": "特殊なバフスタック。これを消費することで様々な効果を得る。これが10あるごとに1、所有者の物理補正が上昇する。",
-    "flavor": "財も力も、蓄えておくに越した事はない。勿論、然るべき使い方が出来れば、の話だが。",
+    "display_name": "蓄力",
     "effect": {},
-    "default_duration": -1
+    "flavor": "財も力も、蓄えておくに越した事はない。勿論、然るべき使い方が出来れば、の話だが。",
+    "id": "Bu-30",
+    "name": "蓄力"
   },
   "Bu-31": {
-    "id": "Bu-31",
-    "name": "凝魔",
-    "display_name": "凝魔",
+    "default_duration": -1,
     "description": "特殊なバフスタック。これを消費することで様々な効果を得る。これが10あるごとに1、所有者の魔法補正が上昇する。",
-    "flavor": "魔術の何たるかは、世界に散らばる宝石に凝縮されている。割ってソレを理解しようとした時点で、真理には到達できない。",
+    "display_name": "凝魔",
     "effect": {},
-    "default_duration": -1
+    "flavor": "魔術の何たるかは、世界に散らばる宝石に凝縮されている。割ってソレを理解しようとした時点で、真理には到達できない。",
+    "id": "Bu-31",
+    "name": "凝魔"
   },
   "Bu-32": {
-    "id": "Bu-32",
-    "name": "攻撃威力アップ",
-    "display_name": "攻撃威力アップ",
+    "default_duration": 1,
     "description": "このキャラクターが使用する攻撃スキルの威力を{{value}}増加する。",
-    "flavor": "",
+    "display_name": "攻撃威力アップ",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-32",
+    "name": "攻撃威力アップ"
   },
   "Bu-33": {
-    "id": "Bu-33",
-    "name": "守備威力アップ",
-    "display_name": "守備威力アップ",
+    "default_duration": 1,
     "description": "このキャラクターが使用する守備スキルの威力を{{value}}増加する。",
-    "flavor": "",
+    "display_name": "守備威力アップ",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-33",
+    "name": "守備威力アップ"
   },
   "Bu-34": {
-    "id": "Bu-34",
-    "name": "攻撃威力ダウン",
-    "display_name": "攻撃威力ダウン",
+    "default_duration": 1,
     "description": "このキャラクターが使用する攻撃スキルの威力を{{value}}減少する。",
-    "flavor": "",
+    "display_name": "攻撃威力ダウン",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-34",
+    "name": "攻撃威力ダウン"
   },
   "Bu-35": {
-    "id": "Bu-35",
-    "name": "守備威力ダウン",
-    "display_name": "守備威力ダウン",
+    "default_duration": 1,
     "description": "このキャラクターが使用する守備スキルの威力を{{value}}減少する。",
-    "flavor": "",
+    "display_name": "守備威力ダウン",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-35",
+    "name": "守備威力ダウン"
   },
   "Bu-36": {
-    "id": "Bu-36",
-    "name": "物理補正アップ",
-    "display_name": "物理補正アップ",
+    "default_duration": 1,
     "description": "このキャラクターの物理補正を{{value}}増加する。",
-    "flavor": "",
+    "display_name": "物理補正アップ",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-36",
+    "name": "物理補正アップ"
   },
   "Bu-37": {
-    "id": "Bu-37",
-    "name": "物理補正ダウン",
-    "display_name": "物理補正ダウン",
+    "default_duration": 1,
     "description": "このキャラクターの物理補正を{{value}}減少する。",
-    "flavor": "",
+    "display_name": "物理補正ダウン",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-37",
+    "name": "物理補正ダウン"
   },
   "Bu-38": {
-    "id": "Bu-38",
-    "name": "魔法補正アップ",
-    "display_name": "魔法補正アップ",
+    "default_duration": 1,
     "description": "このキャラクターの魔法補正を{{value}}増加する。",
-    "flavor": "",
+    "display_name": "魔法補正アップ",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-38",
+    "name": "魔法補正アップ"
   },
   "Bu-39": {
-    "id": "Bu-39",
-    "name": "魔法補正ダウン",
-    "display_name": "魔法補正ダウン",
+    "default_duration": 1,
     "description": "このキャラクターの魔法補正を{{value}}減少する。",
-    "flavor": "",
+    "display_name": "魔法補正ダウン",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-39",
+    "name": "魔法補正ダウン"
   },
   "Bu-40": {
-    "id": "Bu-40",
-    "name": "亀裂付与量アップ",
-    "display_name": "亀裂付与量アップ",
+    "default_duration": 1,
     "description": "このキャラクターがスキル効果で亀裂を付与する時、その付与量を{{value}}増加する。",
-    "flavor": "",
+    "display_name": "亀裂付与量アップ",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-40",
+    "name": "亀裂付与量アップ"
   },
   "Bu-41": {
-    "id": "Bu-41",
-    "name": "亀裂付与量アップ（単発）",
-    "display_name": "亀裂付与量アップ（単発）",
+    "default_duration": 1,
     "description": "このキャラクターがスキル効果で亀裂を付与する時、一度だけ付与量を{{value}}増加する。",
-    "flavor": "",
+    "display_name": "亀裂付与量アップ（単発）",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-41",
+    "name": "亀裂付与量アップ（単発）"
   },
   "Bu-42": {
-    "id": "Bu-42",
-    "name": "行動回数増加",
-    "display_name": "行動回数増加",
+    "default_duration": 1,
     "description": "このキャラクターが１つのラウンドにおいてスキルを使用できる回数を{{value}}増加する。",
-    "flavor": "",
+    "display_name": "行動回数増加",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-42",
+    "name": "行動回数増加"
   },
   "Bu-43": {
-    "id": "Bu-43",
-    "name": "被ダメージアップ",
-    "display_name": "被ダメージアップ",
+    "default_duration": 1,
     "description": "このキャラクターが受けるダメージを{{value}}%増加する。",
-    "flavor": "",
+    "display_name": "被ダメージアップ",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-43",
+    "name": "被ダメージアップ"
   },
   "Bu-44": {
-    "id": "Bu-44",
-    "name": "被ダメージダウン",
-    "display_name": "被ダメージダウン",
+    "default_duration": 1,
     "description": "このキャラクターが受けるダメージを{{value}}%減少する。",
-    "flavor": "",
+    "display_name": "被ダメージダウン",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-44",
+    "name": "被ダメージダウン"
   },
   "Bu-45": {
-    "id": "Bu-45",
-    "name": "与ダメージアップ",
-    "display_name": "与ダメージアップ",
+    "default_duration": 1,
     "description": "このキャラクターが与えるダメージを{{value}}%増加する。",
-    "flavor": "",
+    "display_name": "与ダメージアップ",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-45",
+    "name": "与ダメージアップ"
   },
   "Bu-46": {
-    "id": "Bu-46",
-    "name": "与ダメージダウン",
-    "display_name": "与ダメージダウン",
+    "default_duration": 1,
     "description": "このキャラクターが与えるダメージを{{value}}%減少する。",
-    "flavor": "",
+    "display_name": "与ダメージダウン",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-46",
+    "name": "与ダメージダウン"
   },
   "Bu-47": {
-    "id": "Bu-47",
-    "name": "被弾時出血",
-    "display_name": "被弾時出血",
+    "default_duration": 1,
     "description": "このキャラクターにスキルが的中した時、出血威力が{{value}}増加する。",
-    "flavor": "",
+    "display_name": "被弾時出血",
     "effect": {},
-    "default_duration": 1
+    "flavor": "",
+    "id": "Bu-47",
+    "name": "被弾時出血"
   },
   "Bu-48": {
-    "id": "Bu-48",
-    "name": "凝魔-血漿",
-    "display_name": "凝魔-血漿",
+    "default_duration": -1,
     "description": "特殊なバフスタック。特殊凝魔の一種。これを消費することで様々な効果を得る。これが10あるごとに1、所有者がスキル効果で自身以外に出血を付与する時、その付与値が上昇する。また、これのスタック数が自身の出血威力に加算される。",
-    "flavor": "",
+    "display_name": "凝魔-血漿",
     "effect": {},
-    "default_duration": -1
+    "flavor": "",
+    "id": "Bu-48",
+    "name": "凝魔-血漿"
   },
   "Bu-49": {
-    "id": "Bu-49",
-    "name": "蓄力-誘爆",
-    "display_name": "蓄力-誘爆",
+    "default_duration": -1,
     "description": "特殊なバフスタック。特殊蓄力の一種。これを消費することで様々な効果を得る。これを持つキャラクターが相手陣営キャラクターに攻撃的中時にこれを10消費し、的中したスキル対象に破裂爆発を起こす。この破裂爆発は対象の破裂を消費しない。この効果は対象に破裂が存在する場合にのみ適用される。",
-    "flavor": "",
+    "display_name": "蓄力-誘爆",
     "effect": {},
-    "default_duration": -1
+    "flavor": "",
+    "id": "Bu-49",
+    "name": "蓄力-誘爆"
   },
   "Bu-50": {
-    "id": "Bu-50",
-    "name": "荊棘重絡",
-    "display_name": "荊棘重絡",
+    "default_duration": -1,
     "description": "自分が荊棘によるダメージ効果を受けるとき、荊棘を消失させる代わりにこれの回数を１減らす。",
-    "flavor": "",
+    "display_name": "荊棘重絡",
     "effect": {},
-    "default_duration": -1
+    "flavor": "",
+    "id": "Bu-50",
+    "name": "荊棘重絡"
   },
   "Bu-51": {
-    "id": "Bu-51",
-    "name": "鉄の恩恵",
-    "display_name": "鉄の恩恵",
+    "default_duration": 2,
     "description": "このラウンドの間スキルの最終威力を+2する。",
-    "flavor": "",
+    "display_name": "鉄の恩恵",
     "effect": {
       "power_bonus": [
         {
+          "apply_to": "final",
           "operation": "FIXED",
-          "value": 2,
-          "apply_to": "final"
+          "value": 2
         }
       ]
     },
-    "default_duration": 2
+    "flavor": "",
+    "id": "Bu-51",
+    "name": "鉄の恩恵"
   },
   "Bu-52": {
-    "id": "Bu-52",
-    "name": "鉄の剛力",
-    "display_name": "鉄の剛力",
+    "default_duration": 3,
     "description": "このラウンドの間スキルの最終威力を+1する。",
-    "flavor": "",
+    "display_name": "鉄の剛力",
     "effect": {
       "power_bonus": [
         {
+          "apply_to": "final",
           "operation": "FIXED",
-          "value": 1,
-          "apply_to": "final"
+          "value": 1
         }
       ]
     },
-    "default_duration": 3
+    "flavor": "",
+    "id": "Bu-52",
+    "name": "鉄の剛力"
   }
 }

@@ -73,6 +73,36 @@ def load_kind_into_memory(kind):
     return memory
 
 
+def stage_pulled_catalogs(catalogs):
+    """取得済みの公開版をステージする。commit/rollbackはファイル反映側が行う。
+    変わった行だけ版を進め、履歴は取り込み（import）として残す。"""
+    from sqlalchemy import func
+
+    for kind, records in catalogs.items():
+        definition = get_kind(kind)
+        existing = {row.entry_id: row for row in CatalogEntry.query.filter_by(kind=kind).all()}
+        revisions = dict(db.session.query(CatalogHistory.entry_id, func.max(CatalogHistory.revision))
+                         .filter_by(kind=kind).group_by(CatalogHistory.entry_id).all())
+        for entry_id, entry in existing.items():
+            if entry_id not in records:
+                db.session.delete(entry)
+        for entry_id, record in records.items():
+            entry = existing.get(entry_id)
+            payload = {**deepcopy(definition["defaults"]),
+                       **{key: deepcopy(value) for key, value in record.items() if key in definition["fields"]}}
+            deprecated = record.get("deprecated", False)
+            if entry is not None and entry.payload == payload and entry.deprecated == deprecated:
+                continue
+            revision = max(revisions.get(entry_id, 0), entry.revision if entry else 0) + 1
+            if entry is None:
+                entry = CatalogEntry(kind=kind, entry_id=entry_id)
+                db.session.add(entry)
+            entry.payload, entry.revision, entry.deprecated = payload, revision, deprecated
+            entry.updated_by, entry.updated_at = None, datetime.utcnow()
+            _history(entry, "import")
+    db.session.flush()
+
+
 @_transaction
 def seed_kind_if_empty(kind):
     definition = get_kind(kind)
@@ -85,7 +115,8 @@ def seed_kind_if_empty(kind):
         validate_entry_id(kind, entry_id)
         payload = {key: value for key, value in old_payload.items() if key in definition["fields"]}
         payload = validate_payload(kind, payload, entry_id=entry_id, published_ids=set(cache))
-        entry = CatalogEntry(kind=kind, entry_id=entry_id, payload=payload, revision=1, deprecated=False)
+        entry = CatalogEntry(kind=kind, entry_id=entry_id, payload=payload, revision=1,
+                             deprecated=old_payload.get("deprecated") is True)
         db.session.add(entry)
         _history(entry, "import")
     db.session.commit()
