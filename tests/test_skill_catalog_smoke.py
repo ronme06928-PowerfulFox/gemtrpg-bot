@@ -741,7 +741,7 @@ def test_skill_effects_smoke_all_timings(monkeypatch):
     assert not failures, "Skill smoke failures:\n" + "\n".join(_sample_lines(failures, limit=20))
 
 
-def test_unconditional_effects_emit_signal():
+def test_unconditional_effects_emit_signal(buff_catalog_data):
     skill_catalog = _load_skill_catalog()
     failures = []
 

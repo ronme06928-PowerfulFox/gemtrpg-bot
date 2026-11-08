@@ -37,7 +37,7 @@ def check_fields(fields):
 
 
 @pytest.mark.parametrize("effect_type,schema", EFFECT_SCHEMAS.items())
-def test_effect_schema_contract_and_example(effect_type, schema):
+def test_effect_schema_contract_and_example(effect_type, schema, buff_catalog_data):
     assert {"label", "description", "internal", "fields", "summary", "example"} <= schema.keys()
     assert schema["label"] and schema["description"] and schema["summary"]
     assert type(schema["internal"]) is bool

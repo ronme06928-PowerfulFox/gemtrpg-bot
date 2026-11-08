@@ -1,7 +1,7 @@
 from manager.skill_catalog_validation import lint_catalog, load_skills
 
 
-def test_lint_catalog_passes_on_real_skills_cache():
+def test_lint_catalog_passes_on_real_skills_cache(buff_catalog_data):
     """計画書31 Phase1 完了条件: 現行キャッシュ全件でERROR 0件。"""
     skills = load_skills()
     assert skills, "skills_cache.json が空、またはロードに失敗している"
@@ -49,7 +49,7 @@ def test_lint_catalog_detects_unresolvable_buff_id():
     assert "buff_id" in errors[0]["error"]
 
 
-def test_lint_catalog_detects_broken_embedded_skill_constraints():
+def test_lint_catalog_detects_broken_embedded_skill_constraints(buff_catalog_data):
     skills = {
         "S-BADCONSTRAINT": {
             "特記処理": (

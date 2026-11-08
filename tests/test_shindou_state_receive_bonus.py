@@ -194,7 +194,7 @@ def test_apply_state_receive_bonus_falls_back_to_buff_id_catalog_effect(sample_a
     assert _extract_apply_state_values(changes, "破裂") == [5]
 
 
-def test_shindou_buff_catalog_has_state_receive_bonus_rule():
+def test_shindou_buff_catalog_has_state_receive_bonus_rule(buff_catalog_data):
     buff = buff_catalog.get_buff_by_id("Bu-29")
     assert isinstance(buff, dict)
 

@@ -512,9 +512,11 @@ def get_passive_data():
 
 def get_buff_data():
     """フロントエンドにバフ図鑑データを提供するAPI"""
-    from manager.buffs.loader import buff_catalog_loader
-    buffs = buff_catalog_loader.load_buffs()
-    return jsonify(buffs)
+    if not all_buff_data:
+        from manager.catalog.repository import seed_kind_if_empty, load_kind_into_memory
+        seed_kind_if_empty('buff')
+        load_kind_into_memory('buff')
+    return jsonify(all_buff_data)
 
 def get_glossary_data():
     """フロントエンドに用語辞書データを提供するAPI"""

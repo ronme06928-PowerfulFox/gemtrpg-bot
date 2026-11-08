@@ -32,8 +32,8 @@ class BuffEffect(BaseItemEffect):
             }
 
         # ★ バフ図鑑からバフ定義を取得
-        from manager.buffs.loader import buff_catalog_loader
-        buff_data = buff_catalog_loader.get_buff(buff_id)
+        from extensions import all_buff_data
+        buff_data = all_buff_data.get(buff_id)
 
         if not buff_data:
             return {

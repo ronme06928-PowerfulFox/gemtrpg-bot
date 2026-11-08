@@ -9,7 +9,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from extensions import db
 from models import CatalogEntry, CatalogDraft, CatalogHistory
-from manager.cache_paths import GLOSSARY_CACHE_FILE, load_json_cache
+from manager.cache_paths import load_json_cache
 from .kinds import (get_kind, validate_entry_id, validate_payload, to_memory_entry,
                     validate_public_payload, replace_draft_id, CatalogValidationError)
 
@@ -52,13 +52,9 @@ def _draft(draft_id):
 
 
 def _validate(kind, payload, entry_id, *, allow_drafts=True):
-    published = {row.entry_id for row in CatalogEntry.query.filter_by(kind=kind).all()}
-    drafts = {row.target_id for row in CatalogDraft.query.filter_by(kind=kind).all()
-              if row.base_revision is None} if allow_drafts else set()
     if not allow_drafts:
-        validate_public_payload(payload)
-    return validate_payload(kind, payload, entry_id=entry_id,
-                            published_ids=published, draft_ids=drafts)
+        return validate_public_payload(kind, payload, entry_id=entry_id)
+    return validate_payload(kind, payload, entry_id=entry_id)
 
 
 def _history(entry, action, actor_user_id=None, draft_id=None):
@@ -82,7 +78,7 @@ def seed_kind_if_empty(kind):
     definition = get_kind(kind)
     if CatalogEntry.query.filter_by(kind=kind).first() is not None:
         return 0
-    cache = load_json_cache(GLOSSARY_CACHE_FILE)
+    cache = load_json_cache(definition["cache_file"])
     if not isinstance(cache, dict) or not cache:
         raise CatalogValidationError({"cache": "初回取り込み用のキャッシュがありません"})
     for entry_id, old_payload in cache.items():
@@ -175,7 +171,7 @@ def approve_draft(draft_id, actor_user_id, *, entry_id=None):
         entry = CatalogEntry(kind=kind, entry_id=entry_id, payload=payload,
                              revision=1, deprecated=False)
         db.session.add(entry)
-        for other in CatalogDraft.query.filter_by(kind=kind).with_for_update().all():
+        for other in CatalogDraft.query.with_for_update().all():
             if other.id == draft.id:
                 continue
             replaced = replace_draft_id(other.payload, draft.target_id, entry_id)

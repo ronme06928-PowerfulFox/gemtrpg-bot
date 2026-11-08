@@ -5,7 +5,7 @@
 """
 
 from plugins.buffs.registry import buff_registry
-from manager.buffs.loader import buff_catalog_loader
+from manager.buff_catalog import get_buff_by_id
 
 def test_registry():
     """レジストリの基本機能テスト"""
@@ -30,7 +30,7 @@ def test_stat_mod_buff():
     print("=" * 60)
 
     # バフ図鑑からデータ取得
-    buff_data = buff_catalog_loader.get_buff('Bu-00')
+    buff_data = get_buff_by_id('Bu-00')
     if not buff_data:
         print("❌ バフ図鑑に Bu-00 が見つかりません")
         return

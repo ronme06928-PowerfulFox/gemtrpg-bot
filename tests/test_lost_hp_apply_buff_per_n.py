@@ -30,7 +30,7 @@ def _apply_changes(changes):
         )
 
 
-def test_apply_buff_per_n_uses_lost_hp_as_source_param():
+def test_apply_buff_per_n_uses_lost_hp_as_source_param(buff_catalog_data):
     actor = _build_char("actor", "ally")
     target = _build_char("target", "enemy")
     context = {"characters": [actor, target]}

@@ -19,7 +19,9 @@
     python scripts/skill_catalog_tool.py build-market-rate
 """
 import argparse
+from contextlib import redirect_stdout
 import json
+import os
 import re
 import sys
 from collections import Counter
@@ -287,7 +289,36 @@ def _print_report(errors, warnings, total, *, warn_checked):
     print("=" * 70)
 
 
+def _load_buff_catalog_for_lint():
+    from flask import has_app_context
+    from extensions import all_buff_data, db
+    from manager.catalog.repository import seed_kind_if_empty, load_kind_into_memory
+    if all_buff_data:
+        return
+    if has_app_context():
+        seed_kind_if_empty("buff")
+        load_kind_into_memory("buff")
+        return
+    # CLIはバフだけを準備する。app.pyの既定アプリや全種類の起動処理は実行しない。
+    previous = os.environ.get("GEMTRPG_DISABLE_DEFAULT_APP")
+    os.environ["GEMTRPG_DISABLE_DEFAULT_APP"] = "1"
+    try:
+        with redirect_stdout(sys.stderr):
+            from app import create_app
+            application = create_app(run_startup=False, register_sockets=False, register_routes=False)
+            with application.app_context():
+                db.create_all()
+                seed_kind_if_empty("buff")
+                load_kind_into_memory("buff")
+    finally:
+        if previous is None:
+            os.environ.pop("GEMTRPG_DISABLE_DEFAULT_APP", None)
+        else:
+            os.environ["GEMTRPG_DISABLE_DEFAULT_APP"] = previous
+
+
 def cmd_lint(args):
+    _load_buff_catalog_for_lint()
     skills = load_skills()
     errors = lint_catalog(skills)
     # 相場逸脱WARNはデータ破損とは無関係の参考情報であり、日常運用（--update・CI）には

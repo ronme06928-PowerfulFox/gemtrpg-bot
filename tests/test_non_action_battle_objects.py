@@ -131,7 +131,7 @@ def test_pve_default_target_can_select_target_only_anchor():
     assert selected == anchor["slot_id"]
 
 
-def test_death_context_targets_killer_or_living_killer_team():
+def test_death_context_targets_killer_or_living_killer_team(buff_catalog_data):
     rubble = _character("rubble", "enemy")
     rubble["hp"] = 0
     killer = _character("killer", "ally")

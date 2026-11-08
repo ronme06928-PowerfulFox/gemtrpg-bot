@@ -1,7 +1,7 @@
 """計画書31 Phase 4: update_all_data() の lint fail-closed フックのテスト。
 
 Google Sheets 取得・DB アクセスを避けるため、スキルデータ以外の更新ステップ
-（アイテム/輝化スキル/特殊パッシブ/バフ図鑑/召喚テンプレート）は
+（アイテム/輝化スキル/特殊パッシブ/召喚テンプレート）は
 それぞれのローダーの refresh をモックして成功させ、
 lint フックの成否だけが update_all_data() の戻り値を左右することを確認する。
 """
@@ -12,13 +12,11 @@ def _stub_other_steps(monkeypatch):
     from manager.items.loader import item_loader
     from manager.radiance.loader import radiance_loader
     from manager.passives.loader import passive_loader
-    from manager.buffs.loader import buff_catalog_loader
     import manager.summons.loader as summons_loader
 
     monkeypatch.setattr(item_loader, "refresh", lambda: [{"id": "dummy"}])
     monkeypatch.setattr(radiance_loader, "refresh", lambda: [{"id": "dummy"}])
     monkeypatch.setattr(passive_loader, "refresh", lambda: [{"id": "dummy"}])
-    monkeypatch.setattr(buff_catalog_loader, "refresh", lambda: [{"id": "dummy"}])
     monkeypatch.setattr(summons_loader, "refresh_summon_templates", lambda: [{"id": "dummy"}])
 
 
@@ -78,7 +76,7 @@ def test_update_all_data_validates_without_importing_cli(monkeypatch):
     assert data_manager.update_all_data() is True
 
 
-def test_update_has_six_steps_and_never_imports_glossary(monkeypatch, capsys):
+def test_update_has_five_steps_and_never_imports_db_catalogs(monkeypatch, capsys):
     import builtins
     import manager.skill_catalog_validation as validation
     _stub_other_steps(monkeypatch)
@@ -88,10 +86,10 @@ def test_update_has_six_steps_and_never_imports_glossary(monkeypatch, capsys):
     real_import = builtins.__import__
 
     def reject_glossary(name, *args, **kwargs):
-        assert not name.startswith(("manager.glossary", "manager.catalog"))
+        assert not name.startswith(("manager.glossary", "manager.catalog", "manager.buffs"))
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", reject_glossary)
     assert data_manager.update_all_data()
     output = capsys.readouterr().out
-    assert "【6/6】" in output and "用語辞書" not in output
+    assert "【5/5】" in output and "用語辞書" not in output and "バフ図鑑" not in output

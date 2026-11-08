@@ -371,6 +371,10 @@
 ```
 
 ### バフ定義（buff_catalog）補足（旧03より）
+- 正本はDBの `catalog_entries`（`kind="buff"`）。空のときだけ `data/cache/buff_catalog_cache.json` の53件を履歴とともに取り込む。Sheetsからは更新しない。修正は制作者の下書き→申請→アプリ管理者の承認を通す。管理APIは実装済みで、管理画面へのバフ追加は計画60 PR60-8で行う。
+- 公開IDは `Bu-` + 2桁以上の数字。項目は必須の内部名 `name`、`display_name`・`description`・`flavor`（文字列、既定空）、`effect`（オブジェクト、既定 `{}`）、`default_duration`（整数、既定1）。`-1` は解除まで、1以上はラウンド数。内部名はバフ間で一意で、公開後は変更できない。表示名は変更できる。
+- 検査は問題の一覧（`level, field, message`）を返す。書きかけは保存でき、申請では形・用語参照先の欠落を止め、承認では仮IDも止める。廃止用語への参照は注意だけ。`effect.type="plugin"` のバフは、そのバフIDが `plugins/buffs/` の `BUFF_IDS` に登録されている必要がある（戦闘はプラグインをバフIDで呼び、`effect.name` は使わない）。新規の仮IDの下書きは申請まで注意、承認で止める。それ以外の効果の内部構造はここでは検査しない。
+- 配信・戦闘・アイテムはDBから読み込む共有辞書 `all_buff_data` を参照する。廃止後も辞書に残り `deprecated: true` が付き、既存の戦闘で使える。静的定義と動的命名バフの処理は変更しない。
 - バフは `buff_id` で識別する。
 - 判定ロジックは `buff_id` 基準。
 - 表示は `display_name` 優先。

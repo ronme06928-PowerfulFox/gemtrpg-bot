@@ -56,7 +56,7 @@ def test_per_n_multiply_and_round_fissure_are_grants():
     *[('蓄力', 'Bu-30', variant, 'Bu-49') for variant in
       ['burst_guidance', 'explosion_guidance', 'induce_burst', 'induced_burst']],
 ])
-def test_resource_name_is_looked_up_at_each_grant_before_and_after_conversion(monkeypatch, resource, buff_id, variant, view_id):
+def test_resource_name_is_looked_up_at_each_grant_before_and_after_conversion(monkeypatch, resource, buff_id, variant, view_id, buff_catalog_data):
     from manager import buff_catalog
     original = buff_catalog.get_buff_by_id
     monkeypatch.setattr(buff_catalog, 'get_buff_by_id',

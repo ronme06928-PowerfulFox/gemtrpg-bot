@@ -1,5 +1,4 @@
 # manager/buff_catalog.py
-import os
 import re
 
 """
@@ -367,14 +366,14 @@ def resolve_runtime_buff_effect(buff_entry):
 
 
 def get_buff_effect(buff_name):
-    """バフ名から効果定義を取得する（静的 -> スプレッドシート -> 動的 の順で検索）"""
+    """バフ名から効果定義を取得する（静的 -> DBの共有辞書 -> 動的 の順で検索）"""
     if not buff_name:
         return None
     # 1. 静的定義にあればそれを返す
     if buff_name in STATIC_BUFFS:
         return STATIC_BUFFS[buff_name]
 
-    # 2. スプレッドシートから読み込んだバフ定義を確認
+    # 2. DBから読み込んだバフ定義を確認
     # extensionsからのインポートは関数内で行い循環参照を避ける
     try:
         from extensions import all_buff_data
@@ -400,36 +399,7 @@ def get_buff_effect(buff_name):
 
     return None
 
-# get_buff_by_id はスキル評価のホットパスから高頻度で呼ばれるため、
-# カタログJSONをメモリにキャッシュし、ファイル更新(mtime変化)時のみ再読込する。
-_buff_catalog_cache = {"mtime": None, "data": None}
-
-
 def get_buff_by_id(buff_id):
-    """
-    バフIDからバフ情報を取得する
-    (buff_catalog_cache.json を参照)
-    """
-    from manager.cache_paths import (
-        BUFF_CATALOG_CACHE_FILE,
-        load_json_cache,
-    )
-
-    try:
-        try:
-            mtime = os.path.getmtime(BUFF_CATALOG_CACHE_FILE)
-        except OSError:
-            mtime = None
-        if _buff_catalog_cache["data"] is None or _buff_catalog_cache["mtime"] != mtime:
-            data = load_json_cache(
-                BUFF_CATALOG_CACHE_FILE
-            )
-            if not isinstance(data, dict):
-                print(f"[WARNING] get_buff_by_id: Cache file not found at {BUFF_CATALOG_CACHE_FILE}")
-                return None
-            _buff_catalog_cache["mtime"] = mtime
-            _buff_catalog_cache["data"] = data
-        return _buff_catalog_cache["data"].get(buff_id)
-    except Exception as e:
-        print(f"[ERROR] get_buff_by_id: Failed to load cache: {e}")
-        return None
+    """公開・廃止・復元後の現在の共有辞書からバフを取得する。"""
+    from extensions import all_buff_data
+    return all_buff_data.get(buff_id)

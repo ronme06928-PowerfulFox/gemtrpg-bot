@@ -34,7 +34,7 @@ def _apply_changes(char, changes):
             )
 
 
-def test_consume_gain_apply_buff_by_buff_id_ms13_path():
+def test_consume_gain_apply_buff_by_buff_id_ms13_path(buff_catalog_data):
     actor = _build_char("actor")
     target = _build_char("target")
     apply_buff(actor, "凝魔", -1, 0, data={"buff_id": "Bu-31"}, count=10)

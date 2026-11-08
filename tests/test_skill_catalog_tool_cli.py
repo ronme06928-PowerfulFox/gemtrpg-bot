@@ -8,7 +8,7 @@ import json
 from scripts.skill_catalog_tool import main
 
 
-def test_lint_default_does_not_check_warnings(capsys):
+def test_lint_default_does_not_check_warnings(capsys, buff_catalog_data):
     exit_code = main(["lint", "--json"])
     assert exit_code == 0
     payload = json.loads(capsys.readouterr().out)
@@ -16,7 +16,7 @@ def test_lint_default_does_not_check_warnings(capsys):
     assert "warnings" not in payload
 
 
-def test_lint_warn_flag_includes_warnings(capsys):
+def test_lint_warn_flag_includes_warnings(capsys, buff_catalog_data):
     exit_code = main(["lint", "--warn", "--json"])
     assert exit_code == 0
     payload = json.loads(capsys.readouterr().out)
@@ -24,7 +24,7 @@ def test_lint_warn_flag_includes_warnings(capsys):
     assert "warnings" in payload
 
 
-def test_lint_text_output_notes_warn_is_optional(capsys):
+def test_lint_text_output_notes_warn_is_optional(capsys, buff_catalog_data):
     exit_code = main(["lint"])
     assert exit_code == 0
     out = capsys.readouterr().out
@@ -32,7 +32,7 @@ def test_lint_text_output_notes_warn_is_optional(capsys):
     assert "--warn" in out
 
 
-def test_lint_exit_code_is_unaffected_by_warnings(capsys):
+def test_lint_exit_code_is_unaffected_by_warnings(capsys, buff_catalog_data):
     # --warn を付けても、ERROR がなければ exit code は 0 のまま
     # （相場逸脱は運用のブロッカーにしない、という方針の直接的な検証）。
     assert main(["lint", "--warn"]) == 0

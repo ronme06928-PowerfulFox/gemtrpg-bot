@@ -23,7 +23,7 @@ def test_parse_status_stack_sum_param_accepts_japanese_key():
     assert parsed.get("names") == ["破裂", "出血"]
 
 
-def test_apply_buff_per_n_and_buff_count_power_bonus_flow():
+def test_apply_buff_per_n_and_buff_count_power_bonus_flow(buff_catalog_data):
     actor = _mk_char("A", "ally")
     target = _mk_char("T", "enemy")
     target["states"] = [{"name": "破裂", "value": 5}, {"name": "出血", "value": 4}]

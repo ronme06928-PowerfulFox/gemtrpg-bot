@@ -11,6 +11,20 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 @pytest.fixture
+def buff_catalog_data():
+    """起動しない戦闘単体テストでも、起動時と同じ共有辞書を用意する。"""
+    from copy import deepcopy
+    from extensions import all_buff_data
+    from manager.cache_paths import BUFF_CATALOG_CACHE_FILE, load_json_cache
+    before = deepcopy(all_buff_data)
+    all_buff_data.clear()
+    all_buff_data.update(load_json_cache(BUFF_CATALOG_CACHE_FILE))
+    yield all_buff_data
+    all_buff_data.clear()
+    all_buff_data.update(before)
+
+
+@pytest.fixture
 def sample_actor():
     """テスト用の攻撃者キャラクター"""
     return {

@@ -73,7 +73,7 @@ def _find_buff_count_by_id(char_obj, buff_id):
     return 0
 
 
-def test_mb11_hit_grants_gyoma_4():
+def test_mb11_hit_grants_gyoma_4(buff_catalog_data):
     actor = _build_char("actor")
     target = _build_char("target", team="enemy")
     effects = _load_skill_effects("Mb-11")
@@ -116,7 +116,7 @@ def test_mb13_pre_match_consumes_up_to_5_and_adds_final_power():
     assert _find_buff_count_by_id(actor, "Bu-Gyoma") == 2
 
 
-def test_ps11_pre_match_grants_chikuryoku_4():
+def test_ps11_pre_match_grants_chikuryoku_4(buff_catalog_data):
     actor = _build_char("actor")
     target = _build_char("target", team="enemy")
     effects = _load_skill_effects("Ps-11")
@@ -129,7 +129,7 @@ def test_ps11_pre_match_grants_chikuryoku_4():
     assert _find_buff_count_by_id(actor, "Bu-Chikuryoku") == 4
 
 
-def test_ps12_end_round_grants_2_and_hit_bonus_only_when_empty():
+def test_ps12_end_round_grants_2_and_hit_bonus_only_when_empty(buff_catalog_data):
     actor = _build_char("actor")
     target = _build_char("target", team="enemy")
     effects = _load_skill_effects("Ps-12")

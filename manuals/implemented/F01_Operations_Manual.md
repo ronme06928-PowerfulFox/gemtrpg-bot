@@ -210,9 +210,9 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 - ルームGMロールはユーザー管理操作の根拠にしない。
 - ユーザー情報変更モーダルには、8桁マスターキーを入力して自分自身へユーザー管理権限を付与する導線を表示する。キーは保存せず、`POST /api/admin/set_user_management_admin` の検証にのみ使う。
 
-## 用語管理HTTP API（計画60 PR60-4）
+## カタログ管理HTTP API（計画60 PR60-4・PR60-7）
 
-管理用APIはすべてセッション認証が必要です。現在の種類は `glossary` のみ。権限はDBの現在の制作者・アプリ管理者の印で判定します。下書きの書き換え・申請・取り下げは、制作者である作成者かアプリ管理者に限ります。一般ユーザーには下書きの中身を返しません。管理画面はロビーの「マスターデータ」です。操作は[E02 Part 15](E02_UI_Component_Specs.md)を参照してください。
+管理用APIはすべてセッション認証が必要です。種類は `glossary` と `buff` です。権限はDBの現在の制作者・アプリ管理者の印で判定します。下書きの書き換え・申請・取り下げは、制作者である作成者かアプリ管理者に限ります。一般ユーザーには下書きの中身を返しません。管理画面はロビーの「マスターデータ」です。操作は[E02 Part 15](E02_UI_Component_Specs.md)を参照してください。
 
 | メソッド・パス | 権限 | 入力・返却 |
 |---|---|---|
@@ -227,11 +227,21 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 | POST `/api/catalog/drafts/<id>/reject` | 管理者 | `{reason}` 必須。却下後の下書きを返す |
 | POST `/api/catalog/<kind>/<entry_id>/deprecate` | 管理者 | `{deprecated: true/false}`。変更後の公開版 |
 | POST `/api/catalog/<kind>/<entry_id>/restore` | 管理者 | `{revision: 正の整数}`。復元で版を進めた公開版 |
-| GET `/api/catalog/<kind>/next_id` | 管理者 | `{entry_id}`。廃止分も含む公開IDの最大番号+1（空ならW-00） |
+| GET `/api/catalog/<kind>/next_id` | 管理者 | `{entry_id}`。廃止分も含む公開IDの最大番号+1（空なら用語W-00、バフBu-00） |
 
-公開版は `id, kind, entry_id, payload, revision, deprecated, updated_by, updated_by_name, updated_at`。下書きは `id, kind, target_id, payload, status, base_revision, created_by, created_by_name, reject_reason, created_at, updated_at, submitted_at`。履歴は実行者ID・名前を `actor_user_id, actor_user_name` として返します。削除済みのユーザー名はNULL、日時はUTCのISO 8601です。作成以外の下書き操作は変更後の下書きを直接返します。
+公開版は `id, kind, entry_id, payload, revision, deprecated, updated_by, updated_by_name, updated_at`。下書きは `id, kind, target_id, payload, status, base_revision, created_by, created_by_name, reject_reason, created_at, updated_at, submitted_at, problems`。履歴は実行者ID・名前を `actor_user_id, actor_user_name` として返します。削除済みのユーザー名はNULL、日時はUTCのISO 8601です。作成以外の下書き操作は変更後の下書きを直接返します。
 
 未認証401、権限不足403、未知の種類・ID・下書き404、版・状態・IDの競合409、入力の検査失敗422です。409・422は `{error, errors: {項目名: 理由}}` を返します。保存処理は `manager/catalog/repository.py` を呼び、成功した公開・廃止変更・復元の後だけ全接続へ `catalog_updated`（`{kind, entry_id, revision}`）を送ります。用語ではルームログを追加しません。用語図鑑は通知を受けるとすぐ公開API `/api/get_glossary_data` から読み直し、読み終わるまでは古い中身を表示し続けます。公開APIは引き続き認証不要です。
+
+### バフのDB正本化（計画60 PR60-7）
+
+起動時は用語・バフそれぞれの公開DBが空の場合だけ種類別キャッシュから初回取り込みし、共有辞書へ読み込みます。`python app.py --update` はスキル・アイテム・輝化スキル・特殊パッシブ・召喚テンプレートの5段階です。用語とバフのSheets取得・キャッシュ更新は行いません。
+
+単独の `python scripts/skill_catalog_tool.py lint` も、バフ辞書が未準備ならDBから読み込みます。空のDBは同じ初回取り込みを行います。HTTPサーバーやほかの種類の再取得は起動せず、初期化の出力は標準エラーへ出して `--json` の標準出力を保ちます。
+
+下書きの `problems` は申請段階の検査結果 `[{level: "error"|"warning", field, message}]` です。保存は未完成でも成功します。申請は形と用語参照の欠落、承認はさらに未公開の仮IDで422となり、廃止用語の参照はwarningだけで止めません。バフの内部名は重複・公開後の変更を拒否します。参照一覧はバフについてスキル（JSON文字列の特記処理を含む）・アイテム・特殊パッシブ・輝化スキルの `buff_id` と内部名に一致する `buff_name` を検索します。プリセットは検索しません。
+
+バフの公開・廃止変更・復元も `catalog_updated` を送ります。ルームログや表示通知は追加せず、ブラウザは `/api/get_buff_data` を再検証して読み直し、成功まで以前の `window.buffCatalogData` を保ちます。バフの管理画面はPR60-8で追加します。
 
 ## 5. Render環境変数
 

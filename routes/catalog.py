@@ -6,7 +6,7 @@ from flask import Blueprint, abort, g, jsonify, request
 from extensions import db, socketio
 from models import User, CatalogEntry, CatalogDraft, CatalogHistory
 from manager.catalog import repository
-from manager.catalog.kinds import KINDS, CatalogValidationError
+from manager.catalog.kinds import KINDS, CatalogValidationError, inspect_payload
 from manager.catalog.references import find_references
 from manager.utils import session_required
 
@@ -72,7 +72,9 @@ def _entry_json(row):
 
 def _draft_json(row):
     return {"id": row.id, "kind": row.kind, "target_id": row.target_id,
-            "payload": row.payload, "status": row.status, "base_revision": row.base_revision,
+            "payload": row.payload,
+            "problems": inspect_payload(row.kind, row.payload, entry_id=row.target_id, stage="submit"),
+            "status": row.status, "base_revision": row.base_revision,
             "created_by": row.created_by, "created_by_name": _name(row.created_by),
             "reject_reason": row.reject_reason, "created_at": _time(row.created_at),
             "updated_at": _time(row.updated_at), "submitted_at": _time(row.submitted_at)}

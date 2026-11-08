@@ -4,7 +4,7 @@ from manager.cache_paths import SKILLS_CACHE_FILE, load_json_cache
 from manager.json_rule_v2 import extract_and_normalize_skill_rule_data
 
 
-def test_phase3_strict_rehearsal_all_cached_skills_are_valid_v2():
+def test_phase3_strict_rehearsal_all_cached_skills_are_valid_v2(buff_catalog_data):
     catalog = load_json_cache(SKILLS_CACHE_FILE)
     assert isinstance(catalog, dict) and catalog
 

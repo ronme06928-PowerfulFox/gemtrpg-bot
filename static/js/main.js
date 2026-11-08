@@ -1043,6 +1043,19 @@ function updateHeaderUserInfo() {
     if (attrEl) attrEl.textContent = currentUserAttribute;
 }
 
+let buffCatalogRequestVersion = 0;
+async function reloadBuffCatalogData() {
+  const version = ++buffCatalogRequestVersion;
+  try {
+    const response = await fetch('/api/get_buff_data', {cache: 'no-cache'});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (version === buffCatalogRequestVersion) window.buffCatalogData = data;
+  } catch (error) {
+    console.error('[ERROR] バフ図鑑データの読み込みに失敗:', error);
+  }
+}
+
 // --- 4. SocketIO初期化 ---
 function initializeSocketIO() {
     if (socket) {
@@ -1071,6 +1084,7 @@ function initializeSocketIO() {
     };
 
     registerAppSocketHandler('catalog_updated', (data) => {
+        if (data?.kind === 'buff') reloadBuffCatalogData();
         window.Glossary.onCatalogUpdated(data);
         window.CatalogWorkspace?.onUpdated(data);
     });
@@ -1341,16 +1355,7 @@ window.addEventListener('DOMContentLoaded', () => {
             window.allPassiveData = {};
         });
 
-    fetch('/api/get_buff_data')
-        .then(res => res.json())
-        .then(data => {
-            window.buffCatalogData = data;
-            console.log('[OK] バフ図鑑データを読み込みました:', data);
-        })
-        .catch(err => {
-            console.error('[ERROR] バフ図鑑データの読み込みに失敗:', err);
-            window.buffCatalogData = {};
-        });
+    reloadBuffCatalogData();
 
     const homeBtn = document.getElementById('home-portal-btn');
     if (homeBtn) {
