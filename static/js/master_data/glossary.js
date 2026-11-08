@@ -88,5 +88,17 @@
       return `<label class="cat-field ${['textarea', 'array'].includes(type) ? 'cat-field-wide' : ''}" for="cat-field-${key}">${escape(label)}${['display_name', 'category'].includes(key) ? ' *' : ''}${input}<span class="cat-field-error" id="cat-error-${key}">${escape(errors[`input:${key}`] || errors[key])}</span></label>`;
     }).join('');
   }
-  window.CatalogGlossary = { fields, categories, statuses, escape, parseJSON, parseField, rows, filter, canManageDraft, canEdit, diff, form, linkCandidates, addItem, removeItem, chips, candidateButtons };
+  const defaults = () => ({ display_name: '', category: '', short: '', long: '', flavor: '', links: [], synonyms: [], sort_order: null });
+  function detail(payload, { links }) {
+    const text = value => Array.isArray(value) ? value.join('、') : value ?? '—';
+    return `<dl class="cat-facts"><div><dt>分類</dt><dd>${escape(payload.category)}</dd></div><div><dt>表示順</dt><dd>${escape(text(payload.sort_order))}</dd></div><div class="cat-field-wide"><dt>別名</dt><dd>${escape(text(payload.synonyms))}</dd></div></dl>${['short', 'long', 'flavor'].map(key => `<section class="bo-workspace__card"><h4>${fields.find(field => field[0] === key)[1]}</h4><p class="cat-description">${escape(payload[key] || '—')}</p></section>`).join('')}<section class="bo-workspace__card"><h4>リンク</h4>${links(payload)}</section>`;
+  }
+  function preview(payload, { links }) {
+    return `<section class="bo-workspace__card"><h4>用語のプレビュー</h4><div class="glossary-popup cat-term-preview"><div class="glossary-popup-title">${escape(payload.display_name || '名前未入力')}</div><div class="glossary-popup-category">${escape(payload.category)}</div>${['short', 'long', 'flavor'].map(key => `<div class="glossary-popup-${key}">${escape(payload[key])}</div>`).join('')}</div></section><section class="bo-workspace__card"><h4>リンク先</h4>${links(payload)}</section>`;
+  }
+  window.CatalogGlossary = { kind: 'glossary', label: '用語', defaults, detail, preview,
+    recordMeta: payload => payload.category, recordDescription: payload => payload.short || payload.long,
+    externalLink: id => window.Glossary.parseMarkupToHTML(`[[${id}|図鑑の説明を開く]]`),
+    jsonHint: '表示名・分類・説明などの項目を編集します。IDはここには含めません。',
+    validatePayload() {}, fields, categories, statuses, escape, parseJSON, parseField, rows, filter, canManageDraft, canEdit, diff, form, linkCandidates, addItem, removeItem, chips, candidateButtons };
 })();

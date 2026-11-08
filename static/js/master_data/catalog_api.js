@@ -15,21 +15,21 @@
     }
     return data;
   }
-  const catalog = '/api/catalog/glossary';
+  const catalog = kind => `/api/catalog/${encodeURIComponent(kind)}`;
   const draft = id => `/api/catalog/drafts/${encodeURIComponent(id)}`;
   window.CatalogApi = {
     user: () => request('/api/get_session_user'),
-    list: () => request(catalog),
-    history: id => request(`${catalog}/${encodeURIComponent(id)}/history`),
-    references: id => request(`${catalog}/${encodeURIComponent(id)}/references`),
-    nextId: () => request(`${catalog}/next_id`),
-    create: target => request(`${catalog}/drafts`, 'POST', target ? { target_id: target } : {}),
+    list: kind => request(catalog(kind)),
+    history: (kind, id) => request(`${catalog(kind)}/${encodeURIComponent(id)}/history`),
+    references: (kind, id) => request(`${catalog(kind)}/${encodeURIComponent(id)}/references`),
+    nextId: kind => request(`${catalog(kind)}/next_id`),
+    create: (kind, target) => request(`${catalog(kind)}/drafts`, 'POST', target ? { target_id: target } : {}),
     save: (id, payload) => request(draft(id), 'PUT', { payload }),
     submit: id => request(`${draft(id)}/submit`, 'POST'),
     withdraw: id => request(draft(id), 'DELETE'),
     approve: (id, entryId) => request(`${draft(id)}/approve`, 'POST', entryId ? { entry_id: entryId } : {}),
     reject: (id, reason) => request(`${draft(id)}/reject`, 'POST', { reason }),
-    deprecate: (id, deprecated) => request(`${catalog}/${encodeURIComponent(id)}/deprecate`, 'POST', { deprecated }),
-    restore: (id, revision) => request(`${catalog}/${encodeURIComponent(id)}/restore`, 'POST', { revision }),
+    deprecate: (kind, id, deprecated) => request(`${catalog(kind)}/${encodeURIComponent(id)}/deprecate`, 'POST', { deprecated }),
+    restore: (kind, id, revision) => request(`${catalog(kind)}/${encodeURIComponent(id)}/restore`, 'POST', { revision }),
   };
 })();

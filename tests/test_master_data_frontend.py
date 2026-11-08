@@ -16,8 +16,8 @@ const window={};
 const context=vm.createContext({window,console,fetchWithSession:async(path,options)=>{
   calls.push([path,options]); return response;
 }});
-for(const name of ['catalog_api','glossary']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
-const api=window.CatalogApi, glossary=window.CatalogGlossary;
+for(const name of ['catalog_api','glossary','buff']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+const api=window.CatalogApi, glossary=window.CatalogGlossary, buff=window.CatalogBuff;
 """
 
 
@@ -73,7 +73,7 @@ assert.equal(glossary.escape('<img onerror="bad">').includes('<img'),false);
 
 def test_api_contract_and_field_errors_are_not_swallowed():
     run_node(r"""
-await api.list();
+await api.list('glossary');
 await api.save(5,{display_name:'保存'});
 assert.equal(calls[1][0],'/api/catalog/drafts/5');
 assert.equal(calls[1][1].method,'PUT');
@@ -134,4 +134,107 @@ const invalid={links:'do not erase',synonyms:[]};
 assert.ok(glossary.form(invalid,{}, {entries}).includes('JSONタブ'));
 assert.equal(invalid.links,'do not erase');
 assert.equal(glossary.form({links:['<img>']}, {}, {entries}).includes('<img>'),false);
+""")
+
+
+def test_buff_form_duration_effect_json_and_immutable_name():
+    run_node(r"""
+assert.equal(buff.parseField('default_duration','-1'),-1);
+assert.equal(buff.parseField('default_duration','3'),3);
+for (const value of ['0','-2','1.5','']) assert.throws(()=>buff.parseField('default_duration',value));
+assert.equal(buff.parseField('effect','{"power_bonus":[]}').power_bonus.length,0);
+for (const value of ['{','[]','null']) assert.throws(()=>buff.parseField('effect',value));
+const data={name:'内部名',display_name:'表示',effect:{},default_duration:-1};
+const form=buff.form(data,{}, {published:true,effectText:'{'});
+assert.match(form,/data-field="name"[^>]*readonly/);
+assert.match(form,/解除まで/);
+assert.match(form,/data-duration-mode/);
+assert.match(form,/cat-error-effect/);
+assert.match(form,/>\{<\/textarea>/);
+assert.throws(()=>buff.validatePayload({...data,name:'変更'}, {base_revision:1,payload:data}));
+buff.validatePayload({...data,display_name:'変更'}, {base_revision:1,payload:data});
+buff.validatePayload({name:'新規'}, {base_revision:null,payload:{}});
+const preview=buff.preview(data);
+assert.match(preview,/buff-accordion/);
+assert.match(preview,/解除まで/);
+assert.match(preview,/表示/);
+assert.equal(buff.filter(buff.rows({entries:[{entry_id:'Bu-00',payload:data}]}),{status:'published',search:'内部名'}).length,1);
+""")
+
+
+def test_catalog_api_accepts_kind_for_all_public_operations():
+    run_node(r"""
+await api.list('buff'); await api.history('buff','Bu-00'); await api.references('buff','Bu-00');
+await api.create('buff','Bu-00'); await api.nextId('buff');
+await api.deprecate('buff','Bu-00',true); await api.restore('buff','Bu-00',1);
+assert.deepEqual(calls.map(([path])=>path),['/api/catalog/buff','/api/catalog/buff/Bu-00/history',
+ '/api/catalog/buff/Bu-00/references','/api/catalog/buff/drafts','/api/catalog/buff/next_id',
+ '/api/catalog/buff/Bu-00/deprecate','/api/catalog/buff/Bu-00/restore']);
+assert.equal(JSON.parse(calls[3][1].body).target_id,'Bu-00');
+""")
+
+
+def test_problem_levels_and_safe_rendering():
+    run_node(r"""
+vm.runInContext(fs.readFileSync('static/js/master_data/workspace.js','utf8'),context);
+const render=window.CatalogWorkspace.renderProblems;
+assert.match(render([]),/問題はありません/);
+const html=render([{level:'error',field:'name',message:'<bad>'},
+ {level:'warning',field:'description',message:'廃止されています'}],buff);
+assert.match(html,/エラー/); assert.match(html,/注意/);
+assert.match(html,/内部名/); assert.match(html,/&lt;bad&gt;/);
+assert.ok(!html.includes('<bad>'));
+""")
+
+
+def test_mount_is_scoped_switches_kind_and_cancels_destroyed_requests():
+    run_node(r"""
+// 枠だけを渡す。documentの参照があれば失敗し、窓への依存を検出する。
+context.document=new Proxy({}, {get(){throw Error('mount must not access document');}});
+class Element {
+ constructor(){this.innerHTML='';this.textContent='';this.hidden=false;this.isConnected=true;this.dataset={};this.nodes=new Map();this.listeners=new Map();this.classList={add(){},remove(){},toggle(){}};}
+ querySelector(selector){if(!this.nodes.has(selector))this.nodes.set(selector,new Element());return this.nodes.get(selector);}
+ querySelectorAll(){return [];}
+ setAttribute(){} removeAttribute(){}
+ addEventListener(type,fn){this.listeners.set(type,fn);}
+ removeEventListener(type){this.listeners.delete(type);}
+ contains(){return true;}
+ html(){return this.innerHTML+[...this.nodes.values()].map(n=>n.html()).join('');}
+}
+let late;
+const kinds=[];
+window.CatalogApi={...api,user:async()=>({user_id:'author',is_catalog_author:true}),
+ list:async(kind)=>{kinds.push(kind);return {entries:[],drafts:[]};}};
+vm.runInContext(fs.readFileSync('static/js/master_data/workspace.js','utf8'),context);
+const left=new Element(),right=new Element();
+const a=window.mountCatalogWorkspace(left),b=window.mountCatalogWorkspace(right,{kind:'buff'});
+await new Promise(resolve=>setTimeout(resolve,0));
+assert.match(left.html(),/用語一覧/);assert.match(right.html(),/バフ一覧/);
+assert.match(left.html(),/data-kind="buff"/);
+const click=left.listeners.get('click');
+const control={dataset:{kind:'buff'},disabled:false,closest:selector=>selector==='button'?control:null,hasAttribute:()=>false};
+click({target:control});
+await new Promise(resolve=>setTimeout(resolve,0));
+assert.match(left.html(),/バフ一覧/);
+assert.ok(kinds.includes('glossary')&&kinds.includes('buff'));
+const before=right.html();a.destroy();a.destroy();
+window.CatalogWorkspace.onUpdated({kind:'buff'});
+await new Promise(resolve=>setTimeout(resolve,0));
+assert.equal(right.html(),before);
+window.CatalogApi.list=()=>new Promise(resolve=>late=resolve);
+const loading=b.refresh();b.destroy();const destroyed=right.html();
+late({entries:[],drafts:[]});await loading;
+assert.equal(right.html(),destroyed);
+assert.equal(right.listeners.size,0);
+window.CatalogApi.list=async()=>({entries:[],drafts:[]});
+let created;
+window.CatalogApi.create=()=>new Promise(resolve=>created=resolve);
+const third=new Element();const c=window.mountCatalogWorkspace(third,{kind:'buff'});
+await new Promise(resolve=>setTimeout(resolve,0));
+const create={dataset:{action:'new'},disabled:false,closest:selector=>selector==='button'?create:null,hasAttribute:()=>false};
+third.listeners.get('click')({target:create});
+c.destroy();const closed=third.html();
+created({id:4,target_id:'X-12345678',payload:{},status:'draft',created_by:'author'});
+await new Promise(resolve=>setTimeout(resolve,0));
+assert.equal(third.html(),closed);
 """)

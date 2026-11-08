@@ -1,7 +1,7 @@
 # 計画60：マスターデータ管理画面（スキル・バフ・用語図鑑の編集をアプリで行う）
 
 作成日: 2026-11-04
-状態: Phase 1（PR60-1・PR60-2）完了（2026-11-06）。管理画面の UI は試作で確定（2026-11-07）。Phase 2（PR60-3〜PR60-5）完了（2026-11-08、§5.4・§5.5）。Phase 2 の追補（PR60-6：関連用語と別名を選んで入れる、§5.6）も完了（2026-11-08）。Phase 3 はバフ（3a）とスキル（3b）の2段に分け、論点を決めた（2026-11-08、§8 Phase 3 論点1〜7）。3a の PR分割と実装詳細は §5.7・§5.8（PR60-7・PR60-8）。3b の分は 3a の後に書く。一括編集の手段は必要になったら決める。[マスターデータベース・プロジェクト](../projects/master_database/README.md)の段階1。
+状態: Phase 1（PR60-1・PR60-2）完了（2026-11-06）。管理画面の UI は試作で確定（2026-11-07）。Phase 2（PR60-3〜PR60-5）完了（2026-11-08、§5.4・§5.5）。Phase 2 の追補（PR60-6：関連用語と別名を選んで入れる、§5.6）も完了（2026-11-08）。Phase 3 はバフ（3a）とスキル（3b）の2段に分け、論点を決めた（2026-11-08、§8 Phase 3 論点1〜7）。3a（PR60-7・PR60-8）は完了（2026-11-08、§5.7・§5.8）。3b の分は 3a の後に書く。一括編集の手段は必要になったら決める。[マスターデータベース・プロジェクト](../projects/master_database/README.md)の段階1。
 
 ## 1. 目的
 
@@ -410,7 +410,7 @@ PR60-3完了（2026-11-07）：用語の正本をDBへ移し、保存・下書�
 | PR | 内容 | 本番での見え方 |
 |---|---|---|
 | PR60-7（完了） | バフの種類の定義、DB からの読み込み（DB が空ならキャッシュから初回取り込み）、Sheets からのバフの取り込みを外す、戦闘・アイテムの読み先を辞書にそろえる、検査の問題の一覧（API）、バフが使われている所 | バフの中身は変わらない。管理 API で `buff` を扱えるようになる |
-| PR60-8（未実装） | 管理画面に「バフ」を足す。画面を「渡された枠の中に描く」作りに分ける。問題の一覧と使われている所を画面に出す | マスターデータの左の列に「バフ」が出る |
+| PR60-8（完了） | 管理画面に「バフ」を足す。画面を「渡された枠の中に描く」作りに分ける。問題の一覧と使われている所を画面に出す | マスターデータの左の列に「バフ」が出る |
 
 ### 5.8 Phase 3a の実装詳細
 
@@ -427,7 +427,7 @@ PR60-3完了（2026-11-07）：用語の正本をDBへ移し、保存・下書�
 
 完了（2026-11-08）。バフ53件と初回履歴53件のDB取り込み、段階別の問題一覧、管理APIのbuff対応、承認・廃止・復元後の共有辞書への反映、参照箇所の検索、公開通知での読み直しを実装。Sheets更新は5段階にし、旧バフローダーを削除した。全件テストは1796 passed・45 skipped（442.67秒、タイムアウト1200秒）。ローカルの隔離DBとHTTPサーバーで、起動時の53件取り込み、公開APIと従来キャッシュの完全一致、制作者の下書き保存・申請→管理者の承認（版2）→`get_buff_by_id`と公開APIへの反映を確認した。確認用DBは削除済み。
 
-補足：プラグインの検査は、確認のあとでバフの ID で引く形へ直した（`plugins/buffs/` の `BUFF_IDS` に ID が無ければ、承認で止める。新規の `X-` の下書きは注意だけ）。戦闘プラグインは変更していない。単独のスキルlintも暗黙のファイル読み込みに依存していたため、DBからバフ辞書を準備する入口を追加し、隔離DBで138スキル・エラー0件とJSON出力を確認した。管理画面とその分割（PR60-8）は未実装。
+補足：プラグインの検査は、確認のあとでバフの ID で引く形へ直した（`plugins/buffs/` の `BUFF_IDS` に ID が無ければ、承認で止める。新規の `X-` の下書きは注意だけ）。戦闘プラグインは変更していない。単独のスキルlintも暗黙のファイル読み込みに依存していたため、DBからバフ辞書を準備する入口を追加し、隔離DBで138スキル・エラー0件とJSON出力を確認した。管理画面とその分割はPR60-7の対象外とし、PR60-8で対応した。
 
 変更ファイル（このPRの作業分）：
 - 保存・起動・配信・CLI：`app.py`、`manager/buff_catalog.py`、`manager/buffs/__init__.py`、`manager/buffs/loader.py`、`manager/catalog/kinds.py`、`manager/catalog/references.py`、`manager/catalog/repository.py`、`manager/data_manager.py`、`plugins/items/buff.py`、`routes/catalog.py`、`scripts/skill_catalog_tool.py`。
@@ -465,6 +465,18 @@ PR60-3完了（2026-11-07）：用語の正本をDBへ移し、保存・下書�
     - 今の用語のテストがそのまま通る。
 
 #### PR60-8：管理画面にバフを足す
+
+完了（2026-11-08）。`mountCatalogWorkspace(container, options)`へ枠内の描画・操作を分け、窓側は生成・終了・フォーカス制御を担当する。種類別定義にバフを追加し、種類を受け取るAPIクライアント、フォーム・JSON・プレビュー、編集と承認の問題一覧、参照元の種類・ID・名前を実装した。API・サーバー側は変更していない。全件テストは1801 passed・45 skipped（414.16秒、タイムアウト1200秒）。ビルド・文字コード・文字化け・差分検査も成功。
+
+隔離DBのローカルアプリで制作者としてBu-00の表示名・説明・持続を改訂して申請し、新規バフも作成・申請。管理者として廃止用語W-08の参照の注意を確認したうえでBu-00を承認（版2）、新規をBu-53で公開（版1）した。53件の一覧、内部名の読み取り専用、効果JSONのエラー表示・入力保持、解除までと3ラウンドの持続、参照元の表示を確認した。広い幅と680pxで編集・承認を撮影して確認し、広い承認では左右全項目の上端・高さの一致も確認。確認用DB・4枚の画像・サーバーと検証ログは確認後に削除した。UIの決定を変える必要はなかった。
+
+変更ファイル（PR60-8）：
+
+- 画面とビルド元：`scripts/build_frontend.mjs`、`static/css/modules/master_data.css`、`static/js/master_data/catalog_api.js`、`static/js/master_data/glossary.js`、`static/js/master_data/workspace.js`、`static/js/master_data/buff.js`。
+- 生成物：`static/dist/app.bundle.css`、`static/dist/app.bundle.css.map`、`static/dist/app.bundle.js`、`static/dist/app.bundle.js.map`、`static/index.html`。
+- テスト：`tests/test_master_data_frontend.py`。
+- 資料：`manuals/implemented/A04_Glossary_Tutorial.md`、`manuals/implemented/C01_JSON_Definition_Master.md`、`manuals/implemented/E02_UI_Component_Specs.md`、`manuals/implemented/F01_Operations_Manual.md`、`manuals/planned/60_Master_Data_Studio_Plan.md`。
+
 
 1. **画面の作りを分ける**（`static/js/master_data/workspace.js`）：
     - `mountCatalogWorkspace(container, options)` が、渡された枠の中に閲覧・編集・承認の場面を描き、`{ refresh, destroy }` を返す。

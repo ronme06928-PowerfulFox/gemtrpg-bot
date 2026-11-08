@@ -128,3 +128,9 @@
 
 - 仕様定義: `manuals/implemented/C01_JSON_Definition_Master.md`
 - データ定義: `manuals/implemented/C01_JSON_Definition_Master.md`
+
+## 6. 管理画面の構成（計画60 PR60-8）
+
+ロビーのマスターデータでは用語・バフを選んで編集できます。バフの内部名は公開後に変更できません。フォームの持続は解除までかラウンド数で、効果は小さなJSON欄に書きます。保存後の問題一覧を確認し、申請してアプリ管理者の承認を受けてください。廃止された用語の参照は注意で、保存や承認を止めません。
+
+描画の入口は `window.mountCatalogWorkspace(container, options)`。`options.kind`（既定glossary）で最初の種類、`options.onClose`で窓側の終了処理を渡し、戻り値の `refresh()`・`destroy()` で更新・終了します。描画・操作の対象は渡された枠の中だけです。`openMasterDataWorkspace()` はモーダルとそのフォーカス制御を担当します。種類ごとの項目・フォーム・一覧・プレビューは `static/js/master_data/glossary.js` と `buff.js`、HTTPの変換は `catalog_api.js`、共通の流れは `workspace.js` に置きます。
