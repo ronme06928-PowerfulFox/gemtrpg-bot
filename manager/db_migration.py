@@ -14,6 +14,10 @@ def run_auto_migration(app):
             inspector = inspect(db.engine)
             is_postgres = 'postgres' in str(db.engine.url)
 
+            if inspector.has_table('catalog_drafts') and 'id_prefix' not in {c['name'] for c in inspector.get_columns('catalog_drafts')}:
+                db.session.execute(text("ALTER TABLE catalog_drafts ADD COLUMN id_prefix VARCHAR(8)"))
+                db.session.commit()
+
             if inspector.has_table('users'):
                 user_columns = [c['name'] for c in inspector.get_columns('users')]
                 if 'is_app_admin' not in user_columns:

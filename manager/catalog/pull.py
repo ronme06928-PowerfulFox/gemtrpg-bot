@@ -94,7 +94,7 @@ def pull_catalogs():
             backups[kind] = _temporary_file(target, target.read_bytes(), ".backup") if target.exists() else None
             staged[kind] = _temporary_file(target, (json.dumps(records, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8"), ".download")
         db.create_all()
-        stage_pulled_catalogs({kind: records for kind, records in snapshots.items() if kind != "skill"})
+        stage_pulled_catalogs(snapshots)
         for kind, path in staged.items():
             os.replace(path, CACHE_FILES[kind])
             replaced.append(kind)
@@ -120,6 +120,5 @@ def pull_catalogs():
             if path is not None and path not in retained:
                 path.unlink(missing_ok=True)
     for kind in snapshots:
-        if kind != "skill":
-            load_kind_into_memory(kind)
+        load_kind_into_memory(kind)
     return {kind: len(records) for kind, records in snapshots.items()}

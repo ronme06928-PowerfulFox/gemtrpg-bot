@@ -9,7 +9,7 @@ import pytest
 import requests
 
 import app as app_module
-from extensions import db, all_glossary_data, all_buff_data
+from extensions import db, all_glossary_data, all_buff_data, all_skill_data
 from models import CatalogEntry, CatalogHistory, CatalogDraft
 from manager.catalog import pull
 
@@ -18,7 +18,7 @@ from manager.catalog import pull
 def local(tmp_path, monkeypatch):
     app = app_module.create_app(config={"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite://",
         "SQLALCHEMY_ENGINE_OPTIONS": {}}, run_startup=False, register_sockets=False)
-    memories = [all_glossary_data, all_buff_data]
+    memories = [all_glossary_data, all_buff_data, all_skill_data]
     before = [copy.deepcopy(data) for data in memories]
     files = {kind: tmp_path / f"{kind}.json" for kind in pull.SOURCES}
     monkeypatch.setattr(pull, "CACHE_FILES", files)
@@ -75,18 +75,21 @@ def test_pull_replaces_files_and_public_db_preserving_drafts_and_history(local, 
         assert json.loads(path.read_text(encoding="utf-8")) == data[kind]
     assert CatalogEntry.query.filter_by(kind="buff", entry_id="Bu-00").first() is None
     assert CatalogEntry.query.filter_by(kind="glossary", entry_id="W-00").one().deprecated is True
-    assert CatalogEntry.query.filter_by(kind="skill").count() == 0
+    assert CatalogEntry.query.filter_by(kind="skill").count() == 1
+    assert CatalogEntry.query.filter_by(kind="skill").one().payload["特記処理"] == {}
+    assert "SYS-STRUGGLE" in all_skill_data
+    assert all_skill_data["Ps-00"]["デフォルト名称"] == "本番スキル"
     assert CatalogEntry.query.filter_by(kind="item").one().payload == {"keep": True}
     draft = CatalogDraft.query.one()
     assert draft.payload == {"short": "書きかけ"} and draft.base_revision == 1
-    # 取り込んだ行は既存の import として履歴に残す（変わった W-00 と新しい Bu-01）。
-    assert CatalogHistory.query.filter_by(action="import").count() == 4
+    # 取り込んだ行は既存の import として履歴に残す（変わった W-00 と新しい Bu-01・Ps-00）。
+    assert CatalogHistory.query.filter_by(action="import").count() == 5
     assert CatalogEntry.query.filter_by(kind="glossary", entry_id="W-00").one().revision == 2
     assert all_glossary_data["W-00"]["display_name"] == "本番"
     assert all_buff_data["Bu-01"]["name"] == "本番バフ"
     # 中身が同じなら版も履歴も増えない。
     pull.pull_catalogs()
-    assert CatalogHistory.query.count() == 4
+    assert CatalogHistory.query.count() == 5
     assert CatalogEntry.query.filter_by(kind="glossary", entry_id="W-00").one().revision == 2
     # 消えたIDが再登場しても履歴の版と重ならない。
     data["buff"] = {"Bu-00": {"id": "Bu-00", "name": "再登場"}}
@@ -215,7 +218,10 @@ def test_skill_snapshot_drops_runtime_system_skills(local, remote):
     data["skill"].update(copy.deepcopy(SYSTEM_SKILLS))
     assert pull.pull_catalogs()["skill"] == len(expected)
     assert json.loads(files["skill"].read_text(encoding="utf-8")) == expected
-    assert CatalogEntry.query.filter_by(kind="skill").count() == 0
+    assert CatalogEntry.query.filter_by(kind="skill").count() == 1
+    assert CatalogEntry.query.filter_by(kind="skill").one().payload["特記処理"] == {}
+    assert "SYS-STRUGGLE" in all_skill_data
+    assert all_skill_data["Ps-00"]["デフォルト名称"] == "本番スキル"
 
 
 def test_seed_keeps_deprecated_mark_from_cache(local, monkeypatch, tmp_path):

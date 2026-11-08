@@ -11,6 +11,13 @@ PHASE3_REQUIRE_SCHEMA = True
 PHASE3_REQUIRE_BUFF_ID_FOR_APPLY = True
 PHASE3_REQUIRE_BUFF_ID_FOR_REMOVE = True
 
+# 管理フォームと検査が使う共通の選択肢。戦闘で使う既存の値をここに集約する。
+EFFECT_TIMINGS = ("PRE_MATCH", "BEFORE_POWER_ROLL", "WIN", "LOSE", "HIT", "UNOPPOSED",
+    "AFTER_DAMAGE_APPLY", "RESOLVE_START", "RESOLVE_STEP_END", "RESOLVE_END", "END_MATCH",
+    "END_ROUND", "IMMEDIATE", "BATTLE_START")
+EFFECT_TARGETS = ("", "self", "target", "ALL_ENEMIES", "ALL_ALLIES", "ALL_OTHER_ALLIES",
+    "ALL", "FILTERED_CHARACTERS", "KILLER", "KILLER_TEAM", "NEXT_ALLY")
+
 SKILL_RULE_SOURCE_KEYS = [
     "rule_data",
     "rule_data_json",
@@ -61,10 +68,10 @@ def _safe_json_object_loads(raw, *, path=""):
     return parsed
 
 
-def _resolve_buff_name_by_id(buff_id):
+def _resolve_buff_name_by_id(buff_id, buff_resolver=None):
     from manager.buff_catalog import get_buff_by_id
 
-    data = get_buff_by_id(str(buff_id or "").strip())
+    data = (buff_resolver or get_buff_by_id)(str(buff_id or "").strip())
     if not isinstance(data, dict):
         return ""
     return str(data.get("name", "") or "").strip()
@@ -147,6 +154,7 @@ def _normalize_effect_rows(
     path="effects",
     require_buff_id_for_apply=False,
     require_buff_id_for_remove=False,
+    buff_resolver=None,
 ):
     if effects is None:
         return []
@@ -185,7 +193,7 @@ def _normalize_effect_rows(
                     "REMOVE_BUFF requires buff_id in skill_json_rule_v2",
                     path=e_path,
                 )
-            resolved = _resolve_buff_name_by_id(buff_id) if buff_id else ""
+            resolved = _resolve_buff_name_by_id(buff_id, buff_resolver) if buff_id else ""
             if buff_id and not resolved:
                 raise JsonRuleV2Error(
                     f"cannot resolve buff_name from buff_id '{buff_id}'",
@@ -265,7 +273,7 @@ def _normalize_effect_rows(
     return out
 
 
-def normalize_skill_rule_object(rule_obj, *, source_path="rule_data", strict=PHASE3_STRICT_DEFAULT):
+def normalize_skill_rule_object(rule_obj, *, source_path="rule_data", strict=PHASE3_STRICT_DEFAULT, buff_resolver=None):
     if rule_obj is None:
         rule_obj = {}
     if not isinstance(rule_obj, dict):
@@ -301,6 +309,7 @@ def normalize_skill_rule_object(rule_obj, *, source_path="rule_data", strict=PHA
         path=f"{source_path}.effects",
         require_buff_id_for_apply=(explicit_v2 and PHASE3_REQUIRE_BUFF_ID_FOR_APPLY),
         require_buff_id_for_remove=(explicit_v2 and PHASE3_REQUIRE_BUFF_ID_FOR_REMOVE),
+        buff_resolver=buff_resolver,
     )
     power_bonus_rows = out.get("power_bonus", [])
     if isinstance(power_bonus_rows, dict):
@@ -336,6 +345,7 @@ def extract_and_normalize_skill_rule_data(
     *,
     skill_id=None,
     strict=PHASE3_STRICT_DEFAULT,
+    buff_resolver=None,
 ):
     if not isinstance(skill_data, dict):
         return {"schema": SCHEMA_SKILL_RULE_V2, "effects": [], "cost": []}
@@ -387,7 +397,7 @@ def extract_and_normalize_skill_rule_data(
             obj = _safe_json_object_loads(source_raw, path=source_path)
         else:
             raise JsonRuleV2Error("rule source must be dict or JSON string", path=source_path)
-        out = normalize_skill_rule_object(obj, source_path=source_path, strict=strict)
+        out = normalize_skill_rule_object(obj, source_path=source_path, strict=strict, buff_resolver=buff_resolver)
         append_audit_verbose(
             "extract_skill_rule_data_ok",
             skill_id=str(skill_id or ""),

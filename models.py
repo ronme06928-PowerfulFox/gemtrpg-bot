@@ -344,6 +344,7 @@ class CatalogDraft(db.Model):
     payload = db.Column(db.JSON, nullable=False)
     status = db.Column(db.String(16), default='draft', nullable=False)
     base_revision = db.Column(db.Integer)
+    id_prefix = db.Column(db.String(8))
     created_by = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='SET NULL'))
     reject_reason = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

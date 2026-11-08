@@ -1,9 +1,6 @@
 # manager/data_manager.py
-import gspread
-import json
 import logging
 import os
-import sys
 import time
 from dotenv import load_dotenv
 
@@ -16,169 +13,25 @@ from models import Room
 from manager.cache_paths import (
     SKILLS_CACHE_FILE,
     load_json_cache,
-    save_json_cache,
 )
 
 # .env ファイルをロード
 load_dotenv()
 
-# --- 設定 ---
-# 環境変数から取得。なければデフォルトのファイル名を使用
-GOOGLE_CREDENTIALS_SOURCE = os.environ.get('GOOGLE_CREDENTIALS_JSON', 'gemtrpgdicebot-ee5a4f0c50df.json')
-SPREADSHEET_NAME = 'ジェムリアTRPG_スキル一覧'
 SKILL_CACHE_FILE = SKILLS_CACHE_FILE
 
-TOC_WORKSHEET_NAME = '参照リスト'
-SHEETS_TO_SKIP = ['参照リスト', 'スキル検索']
-
-
-def get_gspread_client():
-    """環境変数またはファイルパスから認証してクライアントを返す"""
-    try:
-        # もし環境変数がJSON文字列そのものなら（Render等での運用想定）
-        if GOOGLE_CREDENTIALS_SOURCE.startswith('{'):
-            creds_dict = json.loads(GOOGLE_CREDENTIALS_SOURCE)
-            return gspread.service_account_from_dict(creds_dict)
-        else:
-            # ファイルパスとして扱う
-            return gspread.service_account(filename=GOOGLE_CREDENTIALS_SOURCE)
-    except Exception as e:
-        print(f"[ERROR] Google Auth Error: {e}")
-        return None
-
-def fetch_and_save_sheets_data():
-    print("Google Sheets への接続を開始...")
-    gc = get_gspread_client()
-    if not gc:
-        return False
-
-    try:
-        sh = gc.open(SPREADSHEET_NAME)
-        print(f"[OK] スプレッドシート '{SPREADSHEET_NAME}' への接続に成功。")
-    except Exception as e:
-        print(f"[ERROR] スプレッドシート接続エラー: {e}")
-        return False
-
-    try:
-        toc_worksheet = sh.worksheet(TOC_WORKSHEET_NAME)
-        worksheet_names = toc_worksheet.col_values(2)[2:13]
-        sheets_to_process = [
-            name for name in worksheet_names
-            if name and name not in SHEETS_TO_SKIP
-        ]
-    except Exception as e:
-        print(f"[ERROR] 目次読み込みエラー: {e}")
-        return False
-
-    # === ▼▼▼ 修正: グローバル変数を上書きせず、辞書の中身を更新する ▼▼▼
-    # global all_skill_data  <-- 不要なので削除しても良いですが、念のため残すなら以下のように操作
-    # all_skill_data = {}    <-- これがNG（参照が切れる）
-
-    # 一時的な辞書にデータを集める
-    temp_skill_data = {}
-    total_skills_processed = 0
-
-    for sheet_name in sheets_to_process:
-        try:
-            # ... (中略: データの取得ロジックはそのまま) ...
-            print(f"    ... 処理中: '{sheet_name}'")
-            worksheet = sh.worksheet(sheet_name)
-
-            try:
-                header_cell = worksheet.find("スキルID")
-            except Exception:  # ← どのようなエラーでもスキップするように変更
-                continue
-
-            if not header_cell: continue
-            header_row_index = header_cell.row
-            data_rows = worksheet.get_all_values()[header_row_index:]
-
-            for row in data_rows:
-                try:
-                    skill_id = row[0]
-                    if not skill_id: continue
-
-                    category = row[3]
-                    effect_text = row[11]
-                    tokki_json_str = row[12] if len(row) > 12 else ""
-
-                    # カテゴリベースのタグ
-                    tags_list = []
-                    if category in ["防御", "回避"]:
-                        tags_list.append("守備")
-                        tags_list.append(category)
-                    elif category in ["物理", "魔法"]:
-                        tags_list.append("攻撃")
-                    elif category == "補助":
-                        # 後方互換: テキストから[即時発動]をパース
-                        if "[即時発動]" in effect_text:
-                            tags_list.append("即時発動")
-
-                    # 特記処理JSONからタグを読み取り
-                    tokki_data = {}
-                    if tokki_json_str:
-                        try:
-                            tokki_data = json.loads(tokki_json_str)
-                            # JSONに明示的なtagsがあればマージ
-                            json_tags = tokki_data.get("tags", [])
-                            for tag in json_tags:
-                                if tag not in tags_list:
-                                    tags_list.append(tag)
-                        except json.JSONDecodeError:
-                            pass  # JSONパース失敗は無視
-
-                    # temp_skill_data に格納
-                    temp_skill_data[skill_id] = {
-                        'スキルID': skill_id,
-                        'チャットパレット': row[1],
-                        'デフォルト名称': row[2],
-                        '分類': category,
-                        '距離': row[4],
-                        '属性': row[5],
-                        '取得コスト': row[6],
-                        '基礎威力': row[7],
-                        'ダイス威力': row[8],
-                        '使用時効果': row[9],
-                        '特記': row[10],
-                        '発動時効果': effect_text,
-                        '特記処理': tokki_json_str,
-                        'tags': tags_list,
-                    }
-                    total_skills_processed += 1
-                except IndexError:
-                    continue
-        except Exception as e:
-            print(f"[ERROR] タブ '{sheet_name}' エラー: {e}")
-
-    # 最後に本物の all_skill_data を更新
-    all_skill_data.clear()
-    all_skill_data.update(temp_skill_data)
-    # === ▲▲▲ 修正ここまで ▲▲▲
-
-    try:
-        save_json_cache(SKILL_CACHE_FILE, all_skill_data)
-        print(f"[OK] {total_skills_processed} 件のスキルを保存しました。")
-        return True
-    except Exception as e:
-        print(f"[ERROR] キャッシュ保存エラー: {e}")
-        return False
 
 def load_skills_from_cache():
-    try:
-        data = load_json_cache(SKILL_CACHE_FILE)
-        if not data:
-            print("Cache not found.")
-            return None
-
-        # === ▼▼▼ 修正: 辞書の中身を更新する ▼▼▼
-        all_skill_data.clear()
-        all_skill_data.update(data)
-        # === ▲▲▲ 修正ここまで ▲▲▲
-
-        return all_skill_data
-    except Exception as e:
-        print(f"Cache load error: {e}")
+    """シミュレーター等の単独ツール用。アプリ起動ではDBを読む。"""
+    data = load_json_cache(SKILL_CACHE_FILE)
+    if not data:
         return None
+    all_skill_data.clear()
+    all_skill_data.update(data)
+    from manager.battle.system_skills import ensure_system_skills_registered
+    ensure_system_skills_registered()
+    return all_skill_data
+
 
 # === ▼▼▼ DB対応: ルームの読み書き ▼▼▼ ===
 
@@ -317,7 +170,7 @@ def delete_room_from_db(room_name):
 
 def update_all_data():
     """
-    Sheetsのデータ（スキル、アイテム、輝化スキル、特殊パッシブ、召喚テンプレート）を更新（用語・バフはDBが正本）
+    Sheetsのデータ（アイテム、輝化スキル、特殊パッシブ、召喚テンプレート）を更新（用語・バフ・スキルはDBが正本）
 
     Returns:
         bool: 全ての更新が成功したかどうか
@@ -328,40 +181,8 @@ def update_all_data():
 
     success = True
 
-    # 1. スキルデータ更新
-    print("【1/5】スキルデータを更新中...")
-    try:
-        if fetch_and_save_sheets_data():
-            print("✅ スキルデータの更新に成功しました\n")
-        else:
-            print("❌ スキルデータの更新に失敗しました\n")
-            success = False
-    except Exception as e:
-        print(f"❌ スキルデータ更新エラー: {e}\n")
-        success = False
-
-    # 1.5. スキルデータ lint（計画書31 Phase 4: fail-closed）
-    # 特記処理(JSON rule v2)のスキーマ・参照整合エラーがあれば --update 全体を失敗させる。
-    # スキル取得自体が失敗している場合はここでの検査に意味がないためスキップする。
-    if success:
-        print("【lint】スキルカタログの整合性を検査中...")
-        try:
-            from manager.skill_catalog_validation import lint_catalog, load_skills
-            lint_errors = lint_catalog(load_skills())
-            if lint_errors:
-                print(f"❌ スキルカタログ lint で {len(lint_errors)} 件のエラーが見つかりました:")
-                for err in lint_errors:
-                    print(f"   [{err['skill_id']}] {err['path']}: {err['error']}")
-                print("   Google Sheets 側のスキル定義を修正し、再度 --update を実行してください。\n")
-                success = False
-            else:
-                print("✅ スキルカタログ lint: エラーなし\n")
-        except Exception as e:
-            print(f"❌ スキルカタログ lint 実行エラー: {e}\n")
-            success = False
-
-    # 2. アイテムデータ更新
-    print("【2/5】アイテムデータを更新中...")
+    # 1. アイテムデータ更新
+    print("【1/4】アイテムデータを更新中...")
     try:
         from manager.items.loader import item_loader
         items = item_loader.refresh()
@@ -374,8 +195,8 @@ def update_all_data():
         print(f"❌ アイテムデータ更新エラー: {e}\n")
         success = False
 
-    # 3. 輝化スキルデータ更新
-    print("【3/5】輝化スキルデータを更新中...")
+    # 2. 輝化スキルデータ更新
+    print("【2/4】輝化スキルデータを更新中...")
     try:
         from manager.radiance.loader import radiance_loader
         radiance_skills = radiance_loader.refresh()
@@ -388,8 +209,8 @@ def update_all_data():
         print(f"❌ 輝化スキルデータ更新エラー: {e}\n")
         success = False
 
-    # 4. 特殊パッシブデータ更新
-    print("【4/5】特殊パッシブデータを更新中...")
+    # 3. 特殊パッシブデータ更新
+    print("【3/4】特殊パッシブデータを更新中...")
     try:
         from manager.passives.loader import passive_loader
         passives = passive_loader.refresh()
@@ -402,8 +223,8 @@ def update_all_data():
         print(f"❌ 特殊パッシブデータ更新エラー: {e}\n")
         success = False
 
-    # 5. 召喚テンプレート更新
-    print("【5/5】召喚テンプレートを更新中...")
+    # 4. 召喚テンプレート更新
+    print("【4/4】召喚テンプレートを更新中...")
     try:
         from manager.summons.loader import refresh_summon_templates
         summon_templates = refresh_summon_templates()
@@ -425,20 +246,6 @@ def update_all_data():
 
     return success
 
-if __name__ == '__main__':
-    print("--- スキルデータの手動アップデートを開始 ---")
-    # DBを扱うため、Flaskアプリコンテキストを作成して実行
-    os.environ.setdefault("GEMTRPG_DISABLE_DEFAULT_APP", "1")
-    from app import create_app
-    app = create_app(run_startup=False, register_sockets=False)
-
-    with app.app_context():
-        if fetch_and_save_sheets_data():
-            print("--- 正常に終了しました ---")
-        else:
-            print("--- エラーが発生しました ---")
-            sys.exit(1)
-
 # データベースとキャッシュの初期化を行う関数
 def init_app_data(create_db_tables=True):
         # 1. DBテーブル作成
@@ -446,25 +253,7 @@ def init_app_data(create_db_tables=True):
             db.create_all()
             print("[OK] Database tables checked/created.")
 
-        # 2. スキルデータの読み込み
-        # global all_skill_data  <- 不要なので削除（all_skill_data自体を書き換えないため）
         print("--- Initializing Data ---")
-
-        # ★修正: 直接 all_skill_data に代入せず、戻り値チェックだけ行う
-        cached_data = load_skills_from_cache()
-
-        if not cached_data:
-            print("Cache not found or empty. Fetching from Google Sheets...")
-            try:
-                # スプレッドシート読み込み
-                fetch_and_save_sheets_data()
-                # 既に fetch_and_save_sheets_data 内で all_skill_data は更新されているため再ロードは不要
-                # (load_skills_from_cache() を呼んでも良いが、必須ではない)
-                print(f"[OK] Data loaded: {len(all_skill_data)} skills.")
-            except Exception as e:
-                print(f"[ERROR] Error during initial fetch: {e}")
-        else:
-            print(f"[OK] Data loaded from cache: {len(all_skill_data)} skills.")
 
         # 3. アイテムデータの読み込み
         try:
@@ -507,6 +296,11 @@ def init_app_data(create_db_tables=True):
             print("[OK] Glossary data initialized.")
         except Exception as e:
             print(f"[WARNING] Glossary data initialization warning: {e}")
+
+        # スキルの検査に使うバフ・用語のあとで読む。
+        seed_kind_if_empty('skill')
+        load_kind_into_memory('skill')
+        print("[OK] Skill data initialized from DB.")
 
         # 8. 召喚テンプレートデータの読み込み
         try:

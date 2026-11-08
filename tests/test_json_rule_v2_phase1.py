@@ -22,7 +22,7 @@ def test_extract_rule_data_raises_on_invalid_json():
 def test_apply_buff_requires_resolvable_buff_name(monkeypatch):
     import manager.json_rule_v2 as rule_v2
 
-    monkeypatch.setattr(rule_v2, "_resolve_buff_name_by_id", lambda _buff_id: "")
+    monkeypatch.setattr(rule_v2, "_resolve_buff_name_by_id", lambda _buff_id, buff_resolver=None: "")
     with pytest.raises(JsonRuleV2Error):
         extract_and_normalize_skill_rule_data(
             {

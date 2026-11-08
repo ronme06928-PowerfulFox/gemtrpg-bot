@@ -24,6 +24,8 @@ def _text_paths(value, target_id, path=""):
 
 def find_references(kind, entry_id):
     get_kind(kind)
+    if kind == "skill":
+        return _skill_references(entry_id)
     if kind == "buff":
         return _buff_references(entry_id)
     references = []
@@ -81,6 +83,49 @@ def _buff_references(entry_id):
         for source_id, payload in sorted(records.items()):
             name = payload.get("display_name") or payload.get("デフォルト名称") or payload.get("name") or source_id
             for path in _buff_paths(payload, entry_id, entry.payload["name"]):
+                references.append({"kind": kind, "entry_id": source_id,
+                                   "display_name": name, "path": path})
+    return references
+
+
+def _skill_paths(value, entry_id, path=""):
+    if isinstance(value, str):
+        if value == entry_id:
+            yield path
+            return
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return
+        if isinstance(parsed, (dict, list)):
+            yield from _skill_paths(parsed, entry_id, path)
+    elif isinstance(value, dict):
+        for key, child in value.items():
+            yield from _skill_paths(child, entry_id, f"{path}.{key}" if path else key)
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            yield from _skill_paths(child, entry_id, f"{path}[{index}]")
+
+
+def _skill_references(entry_id):
+    from manager.items.loader import item_loader
+    from manager.passives.loader import passive_loader
+    from manager.radiance.loader import radiance_loader
+    from manager.cache_paths import (ITEMS_CACHE_FILE, PASSIVES_CACHE_FILE,
+        RADIANCE_CACHE_FILE, SKILLS_CACHE_FILE, SUMMON_TEMPLATES_CACHE_FILE, load_json_cache)
+    sources = [("skill", all_skill_data or load_json_cache(SKILLS_CACHE_FILE) or {})]
+    for kind, loader, cache in (("item", item_loader, ITEMS_CACHE_FILE),
+            ("passive", passive_loader, PASSIVES_CACHE_FILE),
+            ("radiance", radiance_loader, RADIANCE_CACHE_FILE)):
+        sources.append((kind, loader._cache if loader._cache is not None else load_json_cache(cache) or {}))
+    sources.append(("summon", load_json_cache(SUMMON_TEMPLATES_CACHE_FILE) or {}))
+    references = []
+    for kind, records in sources:
+        for source_id, payload in sorted(records.items()):
+            if kind == "skill" and source_id == entry_id:
+                continue
+            name = payload.get("デフォルト名称") or payload.get("name") or source_id
+            for path in _skill_paths(payload, entry_id):
                 references.append({"kind": kind, "entry_id": source_id,
                                    "display_name": name, "path": path})
     return references

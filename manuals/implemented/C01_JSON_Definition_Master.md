@@ -2,7 +2,7 @@
 
 # JSON定義マニュアル（正本・統合版）
 
-**最終更新日**: 2026-11-06（計画60 Phase 1：効果スキーマ・ビルダーのAPI読み込み）
+**最終更新日**: 2026-11-08（計画60 PR60-10：スキルのDB正本・検査）
 **系統**: C — データ定義（JSON）
 **統合元**: 20_JSON_Definition_Strict_v2 / 17_Phase3_Strict_Errata / 15_JSON_Definition_Master / 03_Integrated_Data_Definitions
 **優先順位**: 本書 > 旧20 = 旧17 > 旧15 > 旧03
@@ -504,9 +504,9 @@ python scripts/skill_catalog_tool.py build-market-rate         # 現在の相場
 
 ### 12.2 lint（ERROR / WARN の2段階、WARNは既定で非表示）
 
-- **ERROR（exit 1、常時検査）**: `manager/json_rule_v2.py` の `extract_and_normalize_skill_rule_data(strict=True)` と `normalize_skill_constraints_rows`（`effect.data.skill_constraints` に埋め込まれる封印/コスト増ルール、本書 §6 参照）を全スキルに適用し、JSONパース不能・schema欠落・buff_id/skill_constraints参照切れを検出する。**これはデータ破損の検出であり、`--update`・CIの両方で常に実行される。**
+- **ERROR（exit 1、常時検査）**: `manager/json_rule_v2.py` の `extract_and_normalize_skill_rule_data(strict=True)` と `normalize_skill_constraints_rows`（`effect.data.skill_constraints` に埋め込まれる封印/コスト増ルール、本書 §6 参照）を全スキルに適用し、JSONパース不能・schema欠落・buff_id/skill_constraints参照切れを検出する。**これはデータ破損の検出であり、CIで常に実行される。管理APIでは申請・承認時に同じ厳密な読み取りを使う。**
 - **WARN（exit codeに影響しない、`--warn` 指定時のみ計算・表示）**: `manuals/implemented/F02_Battle_Balance_Designer_Skill_Manual.md` の「スキルバランス調整基準（確定版）」からの相場逸脱を検出する。カテゴリは `power_stage`（期待威力が段階帯から乖離）・`cost`（使用コストが基準から乖離）・`state_value`（状態異常付与量が実勢レンジ外、HIT timingのみ判定対象）・`acquire_cost`（未承認の取得3以上）・`action_economy`（`USE_SKILL_AGAIN`/`SUMMON_CHARACTER`/`GRANT_SKILL`の未承認保有者）。
-  - **運用方針**: データが壊れていなければ相場の多少の逸脱は運用上気にしない、という判断により、WARNは`--update`・CIには組み込んでいない（`lint`のデフォルト実行では計算すらしない）。任意でスキルバランスを見直したい時だけ `python scripts/skill_catalog_tool.py lint --warn` を手動実行する。
+  - **運用方針**: データが壊れていなければ相場の多少の逸脱は運用上気にしない、という判断により、WARNはCIには組み込んでいない（`lint`のデフォルト実行では計算すらしない）。任意でスキルバランスを見直したい時だけ `python scripts/skill_catalog_tool.py lint --warn` を手動実行する。
 - 相場基準値・承認済み例外は `scripts/skill_catalog_tool.py` 内の定数（`POWER_STAGE_BASELINE`・`COST_BASELINE`・`STATE_VALUE_RANGE`・`ACQUIRE_HIGH_APPROVED`・`ACTION_ECONOMY_APPROVED`・`WARN_ALLOWLIST`）で管理する（機械判定用の設定であり、F02の確定基準セクションが引き続き人手管理の正本）。F02の確定基準を更新した場合はこれらの定数も見直すこと。
 - `power_bonus[]` や条件付き `DAMAGE_BONUS`/`MODIFY_ROLL` を持つスキルは、単純な「基礎威力+ダイス期待値」では実質威力を表せないため `power_stage` 判定の対象外とする。
 
@@ -516,11 +516,11 @@ python scripts/skill_catalog_tool.py build-market-rate         # 現在の相場
 - レポートは分析時点の参考情報であり、ファイルへの転記・同期・コミットは不要。スキル追加や`app.py --update`のたびに実行する必要もない。
 - 大量追加後、F02の確定基準を見直すとき、または個別スキルを既存相場と比較したいときに任意実行する。日常CIでは実行しない。
 
-### 12.4 --update との連携（fail-closed、ERRORのみ）
+### 12.4 管理API・CIとの関係
 
-更新フックが参照する `load_skills()`・`lint_catalog()` の定義元は `manager/skill_catalog_validation.py`。CLIと検証処理を分離し、更新処理は `scripts/` のモジュールへ依存しない。
+検証処理の定義元は `manager/skill_catalog_validation.py`。相場の注意は `manager/skill_catalog_warnings.py` に置き、CLIと管理用検査で共用する。管理APIの申請・承認では厳密な読み取りと参照検査のERRORで公開を止め、相場逸脱はWARNINGとして下書きの `problems` に返す。
 
-`manager/data_manager.py::update_all_data()` は、スキルデータ取得（Google Sheets同期）に成功した直後に `lint_catalog()`（ERROR検査のみ、`warn_catalog()` は呼ばない）を実行する。ERRORが1件でもあれば `--update` 全体を失敗（exit 1）として扱う。これにより、壊れたスキル定義がキャッシュに残ったまま気づかれない状態を防ぐ。CI（`.github/workflows/skill-smoke.yml`）も同様に `lint`（`--warn` なし）だけを必須検査とする。相場逸脱WARNと相場レポートはどちらのパイプラインにも含めず、バランス確認時の任意実行に留める。
+CI（`.github/workflows/skill-smoke.yml`）はファイルに対する `lint`（`--warn` なし）を必須検査とする。`--update` はスキルを取得せず、lintフックも実行しない。相場レポートは任意実行に留める。
 
 ### 12.5 関連テスト
 
@@ -815,10 +815,11 @@ JSONを読むときは、原則として次の順番で確認する。
 
 ### 16.8 入力後の確認
 
-スプレッドシート更新後は、次を実行する。
+特殊パッシブ・召喚テンプレートのスプレッドシート更新後は `--update`、用語・バフ・スキルの公開後は `--pull` を実行する。
 
 ```bash
 python app.py --update
+python app.py --pull
 python scripts/skill_catalog_tool.py lint
 ```
 
@@ -831,9 +832,21 @@ python scripts/skill_catalog_tool.py lint
 
 ## 17. 効果スキーマ配信 API（計画60 PR60-1）
 
-`GET /api/effect_schemas` は認証なしで `{"effect_types": EFFECT_SCHEMAS, "custom_effects": CUSTOM_EFFECT_SCHEMAS}` を返す。DB・ルーム状態は変更しない。
+`GET /api/effect_schemas` は認証なしで `{"effect_types": EFFECT_SCHEMAS, "custom_effects": CUSTOM_EFFECT_SCHEMAS, "common_fields": COMMON_EFFECT_FIELDS}` を返す。DB・ルーム状態は変更しない。
 各効果タイプは `label`・`description`・`internal`・`fields`・`summary`・`example` を持つ。`fields` は共通キーを除く effect のキーを記載し、入れ子は `data.count` のように表す。型は `int`・`number`・`string`・`bool`・`json`・`state_ref`・`buff_ref`・`skill_ref`・`summon_ref`・`glossary_ref`。
 `required` は現行の入力契約を表す。代替キーが使える場合は説明へ併記する。このAPIは保存前検査を追加しない。
 `internal=True` は `FORCE_UNOPPOSED`・`APPLY_FISSURE_BUFFED` のみ。ほかは `False`。名前別のカスタム効果は `label`・`description`・`fields` を持つ。
 `render_effect_summary(effect)` は説明テンプレートへ値を埋め、対象を日本語化し、不足値を `?` とする。未知の効果タイプも `?` を返す。入れ子キーを読み、値を再びテンプレートとして解釈しない。
 ビルダーは §5 のとおりAPIから読み込む。保存前検査は後続Phaseの対象。
+
+## スキルのDB正本・管理API（計画60 PR60-10）
+
+通常スキル138件の正本は `catalog_entries` のkind=skill。空のときだけskills_cache.jsonから初回取り込みする。SYS-のシステムスキルはDBに保存せず、辞書を更新するたびにコード定義から追加する。管理APIの権限・保存・申請・承認は用語・バフと共通。専用画面はPR60-11で追加する。
+
+保存項目は必須のデフォルト名称、チャットパレット、分類（物理・魔法・補助・防御・回避）、距離（近接・遠隔・広域-個別・広域-合算・空）、属性（打撃・斬撃・貫通・空）、取得コスト・基礎威力・ダイス威力・使用時効果・特記・発動時効果（文字列）、特記処理（オブジェクト、既定{}）。スキルIDとtagsは保存しない。配信では特記処理をJSON文字列（空の{}は空文字列）に戻し、分類・特記処理.tags・発動時効果の[即時発動]から従来と同じ順でtagsを作る。deprecatedは廃止時だけ付け、既存の配信形式を保つ。
+
+新規下書きではid_prefix（Ps・Pb・Pp・Ms・Mb・Mp・D・B・C・E）が必須。next_id?prefix=Psでそのカテゴリの次の番号を求める。承認の正式IDは選んだ接頭辞と一致させる。既存スキルの下書きは公開IDから接頭辞を決める。
+
+形と特記処理の厳密な読み取り、バフIDの参照切れは申請を止め、未公開の仮IDは承認を止める。X-のバフ下書きは申請まで参照でき、バフ承認時にスキル下書き内の仮IDも置き換える。廃止バフ・未知のbuff_name・相場逸脱・定型と異なるチャットパレットは注意だけ。定型は基礎威力＋ダイス威力＋物理/魔法補正の1d項＋【ID 名称】で、物理・魔法以外は補正項を付けない。効果の共通項目timing・targetの候補はjson_rule_v2の定義を正とし、conditionはsource・param・operator・valueで表す。効果スキーマAPIにも共通項目を返す。
+
+参照箇所は他スキル・アイテム・特殊パッシブ・輝化スキル・召喚テンプレートの値（JSON文字列内も含む）から求める。公開・廃止・復元後は共有辞書を更新し、catalog_updatedで画面側のallSkillDataを読み直す。読み終わるまで古い辞書を保ち、古い通信応答で新しい辞書を上書きしない。

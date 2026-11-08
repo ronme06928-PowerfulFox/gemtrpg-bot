@@ -35,6 +35,16 @@ EFFECT_SCHEMAS["CUSTOM_EFFECT"] = {
     "example": {"timing": "HIT", "type": "CUSTOM_EFFECT", "target": "target", "value": "破裂爆発"},
 }
 
+from manager.json_rule_v2 import EFFECT_TIMINGS, EFFECT_TARGETS
+
+COMMON_EFFECT_FIELDS = {
+    "timing": {"type": "string", "label": "タイミング", "required": False, "options": list(EFFECT_TIMINGS)},
+    "target": {"type": "string", "label": "対象", "required": False, "options": list(EFFECT_TARGETS)},
+    "condition": {"type": "json", "label": "条件", "required": False, "fields": {
+        key: {"type": "json" if key == "value" else "string", "label": label, "required": False}
+        for key, label in (("source", "参照元"), ("param", "項目"), ("operator", "比較"), ("value", "値"))}},
+}
+
 TARGET_LABELS = {
     "self": "自分",
     "target": "対象",

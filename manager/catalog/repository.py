@@ -70,6 +70,9 @@ def load_kind_into_memory(kind):
                for row in CatalogEntry.query.filter_by(kind=kind).order_by(CatalogEntry.entry_id).all()}
     memory.clear()
     memory.update(entries)
+    if kind == "skill":
+        from manager.battle.system_skills import ensure_system_skills_registered
+        ensure_system_skills_registered()
     return memory
 
 
@@ -79,7 +82,9 @@ def stage_pulled_catalogs(catalogs):
     from sqlalchemy import func
 
     for kind, records in catalogs.items():
-        definition = get_kind(kind)
+        get_kind(kind)
+        if kind == "skill":
+            records = {key: row for key, row in records.items() if not key.startswith("SYS-")}
         existing = {row.entry_id: row for row in CatalogEntry.query.filter_by(kind=kind).all()}
         revisions = dict(db.session.query(CatalogHistory.entry_id, func.max(CatalogHistory.revision))
                          .filter_by(kind=kind).group_by(CatalogHistory.entry_id).all())
@@ -88,8 +93,7 @@ def stage_pulled_catalogs(catalogs):
                 db.session.delete(entry)
         for entry_id, record in records.items():
             entry = existing.get(entry_id)
-            payload = {**deepcopy(definition["defaults"]),
-                       **{key: deepcopy(value) for key, value in record.items() if key in definition["fields"]}}
+            payload = _cache_payload(kind, record)
             deprecated = record.get("deprecated", False)
             if entry is not None and entry.payload == payload and entry.deprecated == deprecated:
                 continue
@@ -103,6 +107,14 @@ def stage_pulled_catalogs(catalogs):
     db.session.flush()
 
 
+def _cache_payload(kind, record):
+    definition = get_kind(kind)
+    if "from_cache" in definition:
+        return definition["from_cache"](record)
+    return {**deepcopy(definition["defaults"]),
+            **{key: deepcopy(value) for key, value in record.items() if key in definition["fields"]}}
+
+
 @_transaction
 def seed_kind_if_empty(kind):
     definition = get_kind(kind)
@@ -111,9 +123,11 @@ def seed_kind_if_empty(kind):
     cache = load_json_cache(definition["cache_file"])
     if not isinstance(cache, dict) or not cache:
         raise CatalogValidationError({"cache": "初回取り込み用のキャッシュがありません"})
+    if kind == "skill":
+        cache = {key: row for key, row in cache.items() if not key.startswith("SYS-")}
     for entry_id, old_payload in cache.items():
         validate_entry_id(kind, entry_id)
-        payload = {key: value for key, value in old_payload.items() if key in definition["fields"]}
+        payload = _cache_payload(kind, old_payload)
         payload = validate_payload(kind, payload, entry_id=entry_id, published_ids=set(cache))
         entry = CatalogEntry(kind=kind, entry_id=entry_id, payload=payload, revision=1,
                              deprecated=old_payload.get("deprecated") is True)
@@ -124,8 +138,11 @@ def seed_kind_if_empty(kind):
 
 
 @_transaction
-def create_draft(kind, created_by, *, target_id=None):
-    get_kind(kind)
+def create_draft(kind, created_by, *, target_id=None, id_prefix=None):
+    definition = get_kind(kind)
+    if kind == "skill":
+        id_prefix = target_id.split("-", 1)[0] if target_id else id_prefix
+        _validate_prefix(kind, id_prefix)
     if target_id is not None:
         entry = _entry(kind, target_id)
         existing = CatalogDraft.query.filter_by(kind=kind, target_id=target_id).first()
@@ -136,7 +153,7 @@ def create_draft(kind, created_by, *, target_id=None):
         target_id = "X-" + uuid.uuid4().hex[:8]
         payload, base_revision = {}, None
     draft = CatalogDraft(kind=kind, target_id=target_id, payload=payload,
-                         base_revision=base_revision, created_by=created_by)
+                         base_revision=base_revision, created_by=created_by, id_prefix=id_prefix)
     db.session.add(draft)
     db.session.commit()
     return draft
@@ -196,6 +213,8 @@ def approve_draft(draft_id, actor_user_id, *, entry_id=None):
     kind = draft.kind
     if draft.base_revision is None:
         validate_entry_id(kind, entry_id)
+        if kind == "skill" and entry_id.split("-", 1)[0] != draft.id_prefix:
+            raise CatalogValidationError({"entry_id": "下書きのカテゴリと正式IDの頭が違います"})
         if CatalogEntry.query.filter_by(kind=kind, entry_id=entry_id).first():
             raise CatalogConflictError("正式IDが重複しています", field="entry_id")
         payload = _validate(kind, draft.payload, entry_id, allow_drafts=False)
@@ -256,11 +275,21 @@ def restore_revision(kind, entry_id, revision, actor_user_id):
 
 
 
-def next_entry_id(kind):
+def _validate_prefix(kind, prefix):
+    if not isinstance(prefix, str) or prefix not in get_kind(kind).get("id_prefixes", ()):
+        raise CatalogValidationError({"id_prefix": "カテゴリの接頭辞を指定してください"})
+
+
+def next_entry_id(kind, *, prefix=None):
     """廃止分も含めた公開IDから採番候補を作る（予約はしない）。"""
     import re
     definition = get_kind(kind)
+    if kind == "skill":
+        _validate_prefix(kind, prefix)
+        id_prefix = prefix + "-"
+    else:
+        id_prefix = definition["id_prefix"]
     ids = [row.entry_id for row in CatalogEntry.query.filter_by(kind=kind).all()]
-    numbers = [int(value[len(definition["id_prefix"]):]) for value in ids
-               if re.fullmatch(definition["id_pattern"], value)]
-    return definition["id_prefix"] + f"{max(numbers, default=-1) + 1:02d}"
+    numbers = [int(value[len(id_prefix):]) for value in ids
+               if value.startswith(id_prefix) and re.fullmatch(definition["id_pattern"], value)]
+    return id_prefix + f"{max(numbers, default=-1) + 1:02d}"

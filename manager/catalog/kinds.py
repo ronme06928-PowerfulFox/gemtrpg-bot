@@ -3,6 +3,7 @@ from copy import deepcopy
 import re
 
 from manager.cache_paths import GLOSSARY_CACHE_FILE, BUFF_CATALOG_CACHE_FILE
+from .skills import SKILL_DEFINITION
 
 
 class CatalogValidationError(ValueError):
@@ -12,6 +13,7 @@ class CatalogValidationError(ValueError):
 
 
 KINDS = {
+    "skill": SKILL_DEFINITION,
     "glossary": {
         "id_prefix": "W-",
         "cache_file": GLOSSARY_CACHE_FILE,
@@ -110,6 +112,12 @@ def inspect_payload(kind, payload, *, entry_id=None, stage, published_ids=None, 
             if isinstance(payload.get(field), list) and any(not isinstance(v, str) for v in payload[field]):
                 add(field, "文字列の配列が必要です")
                 invalid.add(field)
+    for field, choices in definition.get("choices", {}).items():
+        if field in payload and field not in invalid and payload[field] not in choices:
+            add(field, "未定義の選択肢です")
+    if kind == "skill" and not invalid:
+        from .skills import inspect_skill
+        inspect_skill(payload, entry_id, stage, add)
     glossary, drafts, buffs = _reference_context()
     published = set(glossary) if published_ids is None or kind != "glossary" else set(published_ids)
     drafts = drafts if draft_ids is None or kind != "glossary" else set(draft_ids)
@@ -170,9 +178,11 @@ def validate_payload(kind, payload, *, entry_id=None, published_ids=None, draft_
 
 
 def to_memory_entry(kind, entry):
-    result = {get_kind(kind)["id_field"]: entry.entry_id, **deepcopy(entry.payload)}
+    definition = get_kind(kind)
+    result = (definition["to_memory"](entry.payload, entry.entry_id) if "to_memory" in definition
+              else {definition["id_field"]: entry.entry_id, **deepcopy(entry.payload)})
     # バフの既存配信形式を保ち、廃止したときだけ印を足す。
-    if kind != "buff" or entry.deprecated:
+    if kind == "glossary" or entry.deprecated:
         result["deprecated"] = entry.deprecated
     return result
 

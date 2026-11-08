@@ -2,7 +2,7 @@
 
 # 運用マニュアル
 
-**最終更新日**: 2026-10-31（旧Render設定ガイドを現行運用へ統合）
+**最終更新日**: 2026-11-08（計画60 PR60-10：スキルのDB読み込み）
 **系統**: F — 運用
 **統合元**: 14_GM_Buff_Item_Operations_Spec / 16_Manual_Update_Protocol / 21_Render_Deploy_Operations / 26_Account_Auth_Plan
 
@@ -210,16 +210,16 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 - ルームGMロールはユーザー管理操作の根拠にしない。
 - ユーザー情報変更モーダルには、8桁マスターキーを入力して自分自身へユーザー管理権限を付与する導線を表示する。キーは保存せず、`POST /api/admin/set_user_management_admin` の検証にのみ使う。
 
-## カタログ管理HTTP API（計画60 PR60-4・PR60-7）
+## カタログ管理HTTP API（計画60 PR60-4・PR60-7・PR60-10）
 
-管理用APIはすべてセッション認証が必要です。種類は `glossary` と `buff` です。権限はDBの現在の制作者・アプリ管理者の印で判定します。下書きの書き換え・申請・取り下げは、制作者である作成者かアプリ管理者に限ります。一般ユーザーには下書きの中身を返しません。管理画面はロビーの「マスターデータ」です。操作は[E02 Part 15](E02_UI_Component_Specs.md)を参照してください。
+管理用APIはすべてセッション認証が必要です。種類は `glossary`・`buff`・`skill` です。権限はDBの現在の制作者・アプリ管理者の印で判定します。下書きの書き換え・申請・取り下げは、制作者である作成者かアプリ管理者に限ります。一般ユーザーには下書きの中身を返しません。管理画面はロビーの「マスターデータ」です。操作は[E02 Part 15](E02_UI_Component_Specs.md)を参照してください。
 
 | メソッド・パス | 権限 | 入力・返却 |
 |---|---|---|
 | GET `/api/catalog/<kind>` | ログイン全員 | `{kind, entries}`。制作者・管理者には `drafts` も返す |
 | GET `/api/catalog/<kind>/<entry_id>/history` | ログイン全員 | `{history}`。版・操作・実行者・日時・中身 |
-| GET `/api/catalog/<kind>/<entry_id>/references` | ログイン全員 | `{references}`。公開用語のlinks、スキル・バフの文章の `[[W-08]]` / `[[W-08|表示名]]` を検索 |
-| POST `/api/catalog/<kind>/drafts` | 制作者・管理者 | `{target_id}` で既存の写し、`{}` で新規。既存下書きがあればそれを返す |
+| GET `/api/catalog/<kind>/<entry_id>/references` | ログイン全員 | `{references}`。用語のlinks・文章参照、バフのID・内部名、スキルのIDを種類ごとに検索 |
+| POST `/api/catalog/<kind>/drafts` | 制作者・管理者 | `{target_id}` で既存の写し、`{}` で新規（スキルは `{id_prefix: "Ps"}` などが必須）。既存下書きがあればそれを返す |
 | PUT `/api/catalog/drafts/<id>` | 制作者である作成者・管理者 | `{payload: {...}}`。未完成の保存も可。承認待ちは409、却下後の編集でdraftへ戻る |
 | POST `/api/catalog/drafts/<id>/submit` | 制作者である作成者・管理者 | 検査後にpendingへ |
 | DELETE `/api/catalog/drafts/<id>` | 制作者である作成者・管理者 | 取り下げて `{id, withdrawn: true}` |
@@ -227,7 +227,7 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 | POST `/api/catalog/drafts/<id>/reject` | 管理者 | `{reason}` 必須。却下後の下書きを返す |
 | POST `/api/catalog/<kind>/<entry_id>/deprecate` | 管理者 | `{deprecated: true/false}`。変更後の公開版 |
 | POST `/api/catalog/<kind>/<entry_id>/restore` | 管理者 | `{revision: 正の整数}`。復元で版を進めた公開版 |
-| GET `/api/catalog/<kind>/next_id` | 管理者 | `{entry_id}`。廃止分も含む公開IDの最大番号+1（空なら用語W-00、バフBu-00） |
+| GET `/api/catalog/<kind>/next_id` | 管理者 | `{entry_id}`。廃止分も含む公開IDの最大番号+1（空なら用語W-00、バフBu-00）。スキルは `?prefix=Ps` などが必須 |
 
 公開版は `id, kind, entry_id, payload, revision, deprecated, updated_by, updated_by_name, updated_at`。下書きは `id, kind, target_id, payload, status, base_revision, created_by, created_by_name, reject_reason, created_at, updated_at, submitted_at, problems`。履歴は実行者ID・名前を `actor_user_id, actor_user_name` として返します。削除済みのユーザー名はNULL、日時はUTCのISO 8601です。作成以外の下書き操作は変更後の下書きを直接返します。
 
@@ -237,13 +237,21 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 
 `python app.py --pull` は本番の公開APIから用語・バフ・スキルを取得し、`data/cache/glossary_catalog_cache.json`・`buff_catalog_cache.json`・`skills_cache.json`を書き換えます。既定の取得先は `https://gemtrpg-diceapp.onrender.com`。別の環境を読む場合は環境変数 `CATALOG_PULL_BASE_URL` にURLを指定します。公開APIだけを読み、認証情報や本番への書き込みは使いません。
 
-本番側のスキル・バフ・用語を直したあと、手元のシミュレーター・lint・確認スクリプトを使う前や、キャッシュをコミットする前に実行してください。`--update` は未移行のSheetsを取り込む別の操作で、同時指定できません。`--pull` 自体はcommit・push・HTTPサーバーの起動・通常起動時のSheets取得を行いません。Render上（`IS_RENDER`）では通信や書き換え前に拒否します。
+本番側のスキル・バフ・用語を直したあと、手元のシミュレーター・lint・確認スクリプトを使う前や、キャッシュをコミットする前に実行してください。`--update` は未移行のSheetsを取り込む別の操作で、同時指定できません。`--pull` 自体はcommit・push・HTTPサーバーの起動・通常起動時のSheets取得を行いません。Render上（環境変数 `RENDER` がある場合）では通信や書き換え前に拒否します。
 
-3種類すべてのHTTP応答とJSONの形を確認してから書き換えます。取得・検査で1つでも失敗すると既存ファイルとDBを保って終了コード1で終わります。通常のファイル反映・DB保存の例外もロールバックします。ファイルの復元自体が権限などで妨げられた場合は、元データの退避ファイルを残してその場所をエラーに示します。用語・バフの公開DBは取得した内容へ入れ替え、廃止の印も反映します。中身か廃止の印が変わった行だけ版を進め、`action='import'` の履歴を残します（画面では「取り込み」と表示）。同じ中身の行は版も履歴も増やしません。既存履歴と下書きは消しません。版はローカルの履歴から進めるため、既存下書きの元の版は自動で合わせず、古い下書きは承認時に競合になります。本番の版番号・履歴は公開APIの対象外です。スキルのDB取り込みはPR60-10で追加し、PR60-9ではファイルだけを更新します。公開APIに含まれるシステムスキル（`SYS-STRUGGLE` など、IDが `SYS-` で始まるもの）はコードが正本で起動時に辞書へ足されるため、ファイルには写しません。DBが空のときの初回取り込みは、キャッシュの廃止の印（`deprecated`）も読みます。
+3種類すべてのHTTP応答とJSONの形を確認してから書き換えます。取得・検査で1つでも失敗すると既存ファイルとDBを保って終了コード1で終わります。通常のファイル反映・DB保存の例外もロールバックします。ファイルの復元自体が権限などで妨げられた場合は、元データの退避ファイルを残してその場所をエラーに示します。用語・バフ・スキルの公開DBは取得した内容へ入れ替え、廃止の印も反映します。中身か廃止の印が変わった行だけ版を進め、`action='import'` の履歴を残します（画面では「取り込み」と表示）。同じ中身の行は版も履歴も増やしません。既存履歴と下書きは消しません。版はローカルの履歴から進めるため、既存下書きの元の版は自動で合わせず、古い下書きは承認時に競合になります。本番の版番号・履歴は公開APIの対象外です。スキルは特記処理のJSON文字列を保存用オブジェクトへ変換します。公開APIに含まれるシステムスキル（`SYS-STRUGGLE` など、IDが `SYS-` で始まるもの）はコードが正本で起動時に辞書へ足されるため、ファイル・DBには写しません。DBが空のときの初回取り込みは、キャッシュの廃止の印（`deprecated`）も読みます。
+
+### スキルのDB読み込み（計画60 PR60-10）
+
+起動時は用語・バフを準備したうえで、スキルDBが空ならキャッシュの通常スキル138件を取り込み、共有辞書に公開版とコード定義のSYS-スキルを読み込む。Sheetsからスキルを再取得する経路は削除する。`--update`はアイテム・輝化スキル・特殊パッシブ・召喚テンプレートの4段階で、スキルlintのフックも実行しない。単独のlint・シミュレーターなどは引き続きキャッシュを読む。
+
+`--pull`はスキルもDBの入れ替え対象にし、JSON文字列の特記処理を保存用オブジェクトへ変換する。SYS-はファイル・DBとも対象外。変わっていない行は版を進めず、既存履歴・下書きを残す。catalog_drafts.id_prefixは起動時の既存列追加処理で用意する。POST /api/catalog/skill/draftsの新規作成ではid_prefixを必須にし、GET /api/catalog/skill/next_id?prefix=Psはカテゴリ別に採番する。下書きJSONにはid_prefixとproblemsを返す。
+
+PR60-10の実装作業ではSheetsの最終取り込みを行わない。本番へ出す前の最後のSheets取得とコミットはユーザーが行う。
 
 ### バフのDB正本化（計画60 PR60-7）
 
-起動時は用語・バフそれぞれの公開DBが空の場合だけ種類別キャッシュから初回取り込みし、共有辞書へ読み込みます。`python app.py --update` はスキル・アイテム・輝化スキル・特殊パッシブ・召喚テンプレートの5段階です。用語とバフのSheets取得・キャッシュ更新は行いません。
+起動時は用語・バフ・スキルそれぞれの公開DBが空の場合だけ種類別キャッシュから初回取り込みし、共有辞書へ読み込みます。`python app.py --update` はアイテム・輝化スキル・特殊パッシブ・召喚テンプレートの4段階です。用語・バフ・スキルのSheets取得・キャッシュ更新は行いません。
 
 単独の `python scripts/skill_catalog_tool.py lint` も、バフ辞書が未準備ならDBから読み込みます。空のDBは同じ初回取り込みを行います。HTTPサーバーやほかの種類の再取得は起動せず、初期化の出力は標準エラーへ出して `--json` の標準出力を保ちます。
 
@@ -605,7 +613,7 @@ Renderは再起動では既存ビルドを使い回すが、新規デプロイ�
 
 本番Renderの実際のBuild Commandは未確認。Start Commandの確認を受け、リポジトリの入口を `app:app` に統一し、未使用の `wsgi.py` を削除した。本番設定・`render-start.sh`・`app.py`・Gunicorn設定・保存処理は変更していない。ローカルでの入口検証は、本番Linux上のGunicorn起動・終了時の保存検証を代替しない。再起動時の保存・復元は[基盤課題OPS-RECOVERY](../projects/app_foundation/backlog.md)で追う。エージェントはユーザーの指示があるときだけcommit / pushを行う。
 
-マスター等のJSONの配置（2026-10-31）: パスの正本は `manager/cache_paths.py`、保存先は `data/cache/`。スキル・アイテム・輝化・パッシブ・バフ・用語・召喚の7キャッシュと、手動エクスポート用の旧プリセットJSONを置く。旧ルート配置からの自動読込・コピーは行わない。共通の `load_json_cache(path)` は指定ファイル不在なら `None` を返し、不正JSONは例外とする。用語だけはPR60-3でDBを正本とし、このJSONは初回取り込み専用。その他のローダーの再取得・明示更新時の保存は従来どおり。これらのJSONを単なる一時出力として削除しない。
+マスター等のJSONの配置（2026-10-31）: パスの正本は `manager/cache_paths.py`、保存先は `data/cache/`。スキル・アイテム・輝化・パッシブ・バフ・用語・召喚の7キャッシュと、手動エクスポート用の旧プリセットJSONを置く。旧ルート配置からの自動読込・コピーは行わない。共通の `load_json_cache(path)` は指定ファイル不在なら `None` を返し、不正JSONは例外とする。用語・バフ・スキルはDBを正本とし、このJSONは初回取り込みと本番の公開データの写し（`--pull`）に使う。その他のローダーの再取得・明示更新時の保存は従来どおり。これらのJSONを単なる一時出力として削除しない。
 
 ## 9. 障害時の確認
 

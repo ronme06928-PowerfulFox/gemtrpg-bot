@@ -1056,6 +1056,19 @@ async function reloadBuffCatalogData() {
   }
 }
 
+let skillCatalogRequestVersion = 0;
+async function reloadSkillCatalogData() {
+  const version = ++skillCatalogRequestVersion;
+  try {
+    const response = await fetch('/api/get_skill_data', {cache: 'no-cache'});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (version === skillCatalogRequestVersion) window.allSkillData = data;
+  } catch (error) {
+    console.error('[ERROR] スキルデータの読み込みに失敗:', error);
+  }
+}
+
 // --- 4. SocketIO初期化 ---
 function initializeSocketIO() {
     if (socket) {
@@ -1085,6 +1098,7 @@ function initializeSocketIO() {
 
     registerAppSocketHandler('catalog_updated', (data) => {
         if (data?.kind === 'buff') reloadBuffCatalogData();
+        if (data?.kind === 'skill') reloadSkillCatalogData();
         window.Glossary.onCatalogUpdated(data);
         window.CatalogWorkspace?.onUpdated(data);
     });
@@ -1319,17 +1333,7 @@ window.addEventListener('DOMContentLoaded', () => {
         loadItemData();
     }
 
-    // ★追加: 全スキルデータを読み込み (フィルタリング用)
-    fetch('/api/get_skill_data')
-        .then(res => res.json())
-        .then(data => {
-            window.allSkillData = data;
-            console.log('[OK] 全スキルデータを読み込みました:', Object.keys(data).length + '件');
-        })
-        .catch(err => {
-            console.error('[ERROR] スキルデータの読み込みに失敗:', err);
-            window.allSkillData = {};
-        });
+    reloadSkillCatalogData();
 
     // ★ Phase 6: 輝化スキルデータをグローバルに読み込み
     fetch('/api/get_radiance_data')

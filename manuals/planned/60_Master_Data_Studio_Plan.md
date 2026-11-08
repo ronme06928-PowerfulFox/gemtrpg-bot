@@ -516,7 +516,7 @@ PR60-3完了（2026-11-07）：用語の正本をDBへ移し、保存・下書�
 | PR60-11 | スキル専用の画面（カテゴリの列・効果のフォーム・チャットパレットの「項目から作る」・JSON から文章のプレビュー） | マスターデータに「スキル」が出る |
 | PR60-12 | 「文章から作る」のタブ。今の JSON ビルダー（`/json_builder`）を消す | ビルダーのページがなくなり、管理画面のタブになる |
 
-PR60-9 はほかと関係なく先に出せる。PR60-10 を本番に出す前に、最後に一度 `--update` で Sheets から取り込んでコミットしておく（本番の最初の取り込みは、リポジトリのキャッシュから行うため）。
+PR60-9 はほかと関係なく先に出せる。PR60-10 を本番に出す前に、最後に一度 `--update` で Sheets から取り込んでコミットしておく（本番の最初の取り込みは、リポジトリのキャッシュから行うため）。→ 済み（2026-11-08、PR60-10 の前のコミットで `--update` を実行。スキル138件・アイテム・輝化スキル・特殊パッシブ・召喚テンプレートとも、リポジトリのキャッシュと中身は同じだった）。
 
 ### 5.10 Phase 3b の実装詳細
 
@@ -556,7 +556,7 @@ PR60-9 はほかと関係なく先に出せる。PR60-10 を本番に出す前�
 4. テスト：取ってきた中身でファイルが書き換わる、1つ失敗したら何も書き換えない、手元の DB が入れ替わり下書きは残る、Render の上では止まる（通信はモック）。
 5. 資料：F01 に `--pull` の使い方（スキル・バフ・用語を直したあと、手元の道具を使う前やコミットの前に実行する）。
 
-#### PR60-10：スキルの保存と検査
+#### PR60-10：スキルの保存と検査（完了）
 
 1. **種類の定義**に `skill` を足す。
     - ID の形 `^(Ps|Pb|Pp|Ms|Mb|Mp|D|B|C|E)-\d{2,}$`。辞書の名前 `all_skill_data`、辞書の ID の項目 `スキルID`。
@@ -575,6 +575,10 @@ PR60-9 はほかと関係なく先に出せる。PR60-10 を本番に出す前�
 7. **Sheets の取り込みを外す**：`--update` からスキルと、スキルの lint のフック（検査は申請・承認でかかるようになる）を外し、4段階（アイテム・輝化スキル・特殊パッシブ・召喚テンプレート）にする。`fetch_and_save_sheets_data` と `load_skills_from_cache` の Sheets の部分を消す。シミュレーターなど手元の道具は、今までどおり `skills_cache.json` を読む。
 8. **画面側の読み直し**：`catalog_updated` で `kind === 'skill'` のとき `/api/get_skill_data` を読み直して `window.allSkillData` を入れ替える（読み終わるまで古い中身。バフと同じ）。
 9. **テスト**：初回取り込みで138件、辞書の形が今の `skills_cache.json` と一致する（`特記処理` の文字列は同じ中身の JSON、`tags` は同じ）。カテゴリと採番、検査の各項目、`buff_id` の `X-` が承認で正式な ID に置き換わる、`--update` が4段階、全件テストがそのまま通る。
+
+実装結果（2026-11-08）：通常スキル138件をDBから配信する形にし、種類別の変換・検査・カテゴリ採番・参照箇所・共通効果項目を追加。管理APIの下書きに `id_prefix` と `problems` を返す。`--pull` もスキルDBを入れ替え、`--update` は4種類のみ。SYS-はDBへ保存せず、辞書の更新後に再登録する。ローカルHTTPで138件＋SYS-1件の配信、既存Ps-00の申請・承認、新規Ps-15の公開、SYS-保持を確認した。Sheetsの最終取り込みはこの作業では実行していない。`npm run build`・文字コード/文字化け/差分検査が成功。全件テスト（タイムアウト1200秒）は **1848 passed・45 skipped**（450.29秒）。参照値の項目名による除外を外した最終修正も対象テストで成功。
+
+変更ファイル：`app.py`、`models.py`、`routes/catalog.py`、`manager/db_migration.py`、`manager/data_manager.py`、`manager/catalog/{kinds,skills,repository,references,pull}.py`、`manager/json_rule_v2.py`、`manager/battle/effect_handlers/__init__.py`、`manager/skill_catalog_warnings.py`、`scripts/skill_catalog_tool.py`、`static/js/main.js`、`static/index.html`、`static/dist/app.bundle.js` とそのmap、`tests/test_catalog_{skill,skill_frontend,pull}.py`、`tests/test_data_manager_lint_hook.py`、`tests/test_effect_schemas.py`、`tests/test_json_rule_v2_phase1.py`、C01・F01・本計画書。
 
 #### PR60-11：スキル専用の画面
 

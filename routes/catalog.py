@@ -72,7 +72,7 @@ def _entry_json(row):
 
 def _draft_json(row):
     return {"id": row.id, "kind": row.kind, "target_id": row.target_id,
-            "payload": row.payload,
+            "payload": row.payload, "id_prefix": row.id_prefix,
             "problems": inspect_payload(row.kind, row.payload, entry_id=row.target_id, stage="submit"),
             "status": row.status, "base_revision": row.base_revision,
             "created_by": row.created_by, "created_by_name": _name(row.created_by),
@@ -118,7 +118,7 @@ def references(kind, entry_id):
 @catalog_bp.get("/api/catalog/<kind>/next_id")
 @_endpoint("admin")
 def next_id(kind):
-    return jsonify(entry_id=repository.next_entry_id(kind))
+    return jsonify(entry_id=repository.next_entry_id(kind, prefix=request.args.get("prefix")))
 
 
 @catalog_bp.post("/api/catalog/<kind>/drafts")
@@ -130,7 +130,7 @@ def create_draft(kind):
         raise CatalogValidationError({"target_id": "公開IDの文字列が必要です"})
     if target_id and CatalogEntry.query.filter_by(kind=kind, entry_id=target_id).first() is None:
         abort(404)
-    return jsonify(_draft_json(repository.create_draft(kind, g.authenticated_user.id, target_id=target_id)))
+    return jsonify(_draft_json(repository.create_draft(kind, g.authenticated_user.id, target_id=target_id, id_prefix=data.get("id_prefix"))))
 
 
 @catalog_bp.put("/api/catalog/drafts/<int:draft_id>")

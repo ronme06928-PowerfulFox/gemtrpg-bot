@@ -88,7 +88,9 @@ def test_effect_schemas_api_is_public_and_returns_both_registries():
     register_http_routes(app)
     response = app.test_client().get("/api/effect_schemas")
     assert response.status_code == 200
+    from manager.battle.effect_handlers import COMMON_EFFECT_FIELDS
     assert response.get_json() == {
         "effect_types": EFFECT_SCHEMAS,
         "custom_effects": CUSTOM_EFFECT_SCHEMAS,
+        "common_fields": COMMON_EFFECT_FIELDS,
     }

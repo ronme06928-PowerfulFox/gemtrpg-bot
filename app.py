@@ -439,10 +439,10 @@ def get_skill():
 
 
 def get_effect_schemas():
-    from manager.battle.effect_handlers import EFFECT_SCHEMAS
+    from manager.battle.effect_handlers import EFFECT_SCHEMAS, COMMON_EFFECT_FIELDS
     from plugins import CUSTOM_EFFECT_SCHEMAS
 
-    return jsonify({"effect_types": EFFECT_SCHEMAS, "custom_effects": CUSTOM_EFFECT_SCHEMAS})
+    return jsonify({"effect_types": EFFECT_SCHEMAS, "custom_effects": CUSTOM_EFFECT_SCHEMAS, "common_fields": COMMON_EFFECT_FIELDS})
 
 
 JSON_BUILDER_STATE_REFS = (
@@ -488,6 +488,11 @@ def get_skill_metadata():
 
 def get_skill_data():
     """フロントエンドにスキルマスターデータを提供するAPI"""
+    if not any(not key.startswith('SYS-') for key in all_skill_data):
+        from manager.catalog.repository import seed_kind_if_empty, load_kind_into_memory
+        for kind in ('glossary', 'buff', 'skill'):
+            seed_kind_if_empty(kind)
+            load_kind_into_memory(kind)
     return jsonify(all_skill_data)
 
 def get_item_data():
@@ -753,7 +758,7 @@ app = create_app(run_startup=_should_run_startup_on_import()) if _should_create_
 def run_cli(argv=None):
     parser = argparse.ArgumentParser()
     modes = parser.add_mutually_exclusive_group()
-    modes.add_argument('--update', action='store_true', help='Sheetsのスキル・アイテム・輝化スキル・特殊パッシブ・召喚テンプレートを更新')
+    modes.add_argument('--update', action='store_true', help='Sheetsのアイテム・輝化スキル・特殊パッシブ・召喚テンプレートを更新')
     modes.add_argument('--pull', action='store_true', help='本番の用語・バフ・スキルを手元へ取り込む')
     args = parser.parse_args(argv)
 
