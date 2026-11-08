@@ -2,7 +2,7 @@
 
 # JSON定義マニュアル（正本・統合版）
 
-**最終更新日**: 2026-11-09（計画60 PR60-11：スキル専用画面）
+**最終更新日**: 2026-11-09（計画60 PR60-12：文章から作る）
 **系統**: C — データ定義（JSON）
 **統合元**: 20_JSON_Definition_Strict_v2 / 17_Phase3_Strict_Errata / 15_JSON_Definition_Master / 03_Integrated_Data_Definitions
 **優先順位**: 本書 > 旧20 = 旧17 > 旧15 > 旧03
@@ -83,10 +83,9 @@
 ---
 
 ## 5. 自然言語JSON生成（実装済み）
-対象ツール: `CharaCreator/json_definition_builder.html`
+入力場所はマスターデータの「スキル」→編集→「文章から作る」（PR60-12）。使用時効果・発動時効果・特記の文章を旧ビルダーと同じ規則で読み、特記処理を生成する。認識しない行は列・原文・理由を表示して特記処理を維持する。成功後はフォーム・JSONで内容を確かめ、保存・申請・承認を行う。早見表は同タブの折りたたみから開き、JSONタブでコピーできる。
 
-アプリを起動して `/json_builder` を開く。起動時に `/api/effect_schemas` と `/api/json_builder_reference` を読み終えてから編集画面を初期化する。効果タイプは `internal=false` のもの、カスタム効果は名前別スキーマを使用する。読み込み失敗時は画面上部にエラーを表示し、初期化を止める。
-`GET /api/json_builder_reference` は認証なしで `buff_refs`・`skill_refs`・`summon_refs`・`state_refs` を返す。バフ・スキルはメモリ上の現行マスター、召喚は現行テンプレートから毎回生成する。旧参照JSと `generated_at` は使用しない。状態候補は従来の9項目をサーバーで定義する。
+旧ビルダーのページ・`/json_builder`・`/api/json_builder_reference`・`/api/json_nl_builder_audit` は廃止。読み取りは `static/js/master_data/skill_text.js` に移し、言い回し・優先順・失敗条件を変更しない。
 
 ### 5.1 入力列
 1. 使用時効果
@@ -100,12 +99,10 @@
 2. `中時` / `命中時` は禁止語彙（エラー）。
 3. 文区切りは `。` と改行のみ。
 4. 変換不能時は全停止。
-5. 表示は整形JSON、コピーは1行JSON。
+5. JSONタブで表示中のスキル全体を整形JSONのままコピーする。
 
-### 5.3 監査ログ
-- API: `/api/json_nl_builder_audit`
-- 失敗時: 必ず記録
-- 成功時: サンプリング記録（20%）
+### 5.3 検査と履歴
+文章の読み取り専用のHTTP監査ログは廃止した。下書きの保存・申請・承認の検査と公開履歴は管理APIの既存処理を使う。
 
 ### 5.4 発動時効果の対応文型（実装済み）
 1. `対象の出血/破裂/...の合計値3につき1、蓄力を得る（最大で7）`  
@@ -307,7 +304,7 @@
 
 - `condition` がある場合、1 回ごとに条件を再評価する。
 - `target_select=RANDOM` がある場合、1 回ごとに対象を再抽選する。
-- 省略 / `1` は出力不要（JSONビルダーも自動省略）。
+- 省略 / `1` は出力不要（文章から作るでも従来どおり自動省略）。
 
 ### 9.3 `target.type=random_single`（インテントレベル）
 
@@ -837,7 +834,7 @@ python scripts/skill_catalog_tool.py lint
 `required` は現行の入力契約を表す。代替キーが使える場合は説明へ併記する。このAPIは保存前検査を追加しない。
 `internal=True` は `FORCE_UNOPPOSED`・`APPLY_FISSURE_BUFFED` のみ。ほかは `False`。名前別のカスタム効果は `label`・`description`・`fields` を持つ。
 `render_effect_summary(effect)` は説明テンプレートへ値を埋め、対象を日本語化し、不足値を `?` とする。未知の効果タイプも `?` を返す。入れ子キーを読み、値を再びテンプレートとして解釈しない。
-ビルダーは §5 のとおりAPIから読み込む。保存前検査は後続Phaseの対象。
+スキル専用画面は効果スキーマをAPIから読み込む。文章の読み取りは §5、保存・申請・承認の検査は管理APIで行う。
 
 ## スキルのDB正本・管理API（計画60 PR60-10）
 

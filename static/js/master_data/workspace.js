@@ -80,6 +80,12 @@
       state.schemas = schemas;
       const references = {};
       for (const [key, data] of [['buff', buffs], ['glossary', glossary], ['skill', state.data]]) references[key] = models.glossary.rows(data).map(row => ({id:row.target_id,name:nameOf(row.payload)}));
+      state.textReferences = {
+        buff_refs: buffs.entries.map(row=>({id:row.entry_id,name:row.payload.name})),
+        glossary_refs: glossary.entries.map(row=>({id:row.entry_id,...row.payload})),
+        skill_refs: state.data.entries.map(row=>({id:row.entry_id,name:row.payload.デフォルト名称})),
+        summon_refs: state.textReferences?.summon_refs || [],
+      };
       model.configure(schemas, references);
     }
     async function load(fromNotice = false) {
@@ -179,16 +185,19 @@
       state.jsonText = pretty(state.payload);
       state.effectText = pretty(state.payload.effect ?? {});
       state.linkQuery = ''; state.linkIndex = -1; state.linkOpen = false; state.aliasInput = '';
+      state.textReady = false; state.textResult = null; state.textTags = Array.isArray(state.payload.特記処理?.tags) ? state.payload.特記処理.tags.join(', ') : '';
       state.tab = 'form'; state.scene = 'edit'; state.dirty = false; state.errors = {};
       renderEditor();
     }
     function renderEditor() {
-      scene.innerHTML = `<div class="cat-editor"><div class="cat-editbar">${button('← 戻る', 'back')}<strong>${h(state.edit.target_id)} ${h(nameOf(state.payload))}</strong>${badge(state.edit.status)}</div><div class="cat-edit-grid"><section class="cat-edit-input" aria-label="入力"><div class="bo-workspace__tabs cat-input-tabs" role="tablist" aria-label="入力方法">${['form', 'json'].map(tab => `<button type="button" role="tab" data-tab="${tab}" aria-selected="${state.tab === tab}" class="${state.tab === tab ? 'is-active' : ''}">${tab === 'form' ? 'フォーム' : 'JSON'}</button>`).join('')}</div><div id="cat-input-content"></div></section><aside id="cat-preview" class="cat-edit-preview" aria-label="${model.label}のプレビュー"></aside></div><footer class="cat-footer"><small>公開にはアプリ管理者の承認が必要です。</small>${button('取り下げ', 'withdraw', 'cat-danger')}${button('下書きを保存', 'save')}${button('承認を申請', 'submit', 'cat-primary')}</footer></div>`;
+      scene.innerHTML = `<div class="cat-editor"><div class="cat-editbar">${button('← 戻る', 'back')}<strong>${h(state.edit.target_id)} ${h(nameOf(state.payload))}</strong>${badge(state.edit.status)}</div><div class="cat-edit-grid"><section class="cat-edit-input" aria-label="入力"><div class="bo-workspace__tabs cat-input-tabs" role="tablist" aria-label="入力方法">${['form', 'json', ...(state.kind === 'skill' ? ['text'] : [])].map(tab => `<button type="button" role="tab" data-tab="${tab}" aria-selected="${state.tab === tab}" class="${state.tab === tab ? 'is-active' : ''}">${tab === 'form' ? 'フォーム' : tab === 'json' ? 'JSON' : '文章から作る'}</button>`).join('')}</div><div id="cat-input-content"></div></section><aside id="cat-preview" class="cat-edit-preview" aria-label="${model.label}のプレビュー"></aside></div><footer class="cat-footer"><small>公開にはアプリ管理者の承認が必要です。</small>${button('取り下げ', 'withdraw', 'cat-danger')}${button('下書きを保存', 'save')}${button('承認を申請', 'submit', 'cat-primary')}</footer></div>`;
       renderInput(); renderPreview();
     }
     function renderInput() {
-      panel.querySelector('#cat-input-content').innerHTML = state.tab === 'json'
-        ? `<label class="cat-field">${model.label}のJSON<textarea id="cat-json-input" class="cat-source" spellcheck="false">${h(state.jsonText)}</textarea></label><p class="cat-caption">${h(model.jsonHint)}</p>`
+      panel.querySelector('#cat-input-content').innerHTML = state.tab === 'text'
+        ? window.CatalogSkillText.renderForm(state.payload,state.textTags,state.textResult,state.textReferences)
+        : state.tab === 'json'
+        ? `<label class="cat-field">${model.label}のJSON<textarea id="cat-json-input" class="cat-source" spellcheck="false">${h(state.jsonText)}</textarea></label><p class="cat-caption">${h(model.jsonHint)}</p>${button('JSONをコピー', 'copy-json')}`
         : `<div class="cat-field-grid">${model.form(state.payload, state.errors, { entries: state.data.entries, linkQuery: state.linkQuery, aliasInput: state.aliasInput, published: state.edit.base_revision != null, effectText: state.effectText })}</div>`;
       if (state.tab === 'form') renderCandidates();
     }
@@ -294,6 +303,18 @@
       await load();
     }
     async function onAction(action, control) {
+      if (action === 'copy-json') {
+        await window.CatalogSkillText.copyJSON(state.jsonText,typeof navigator === 'undefined' ? undefined : navigator.clipboard);
+        notice('JSONをコピーしました。'); return;
+      }
+      if (action === 'text-build') {
+        const rule = state.payload.特記処理 || {};
+        const result = window.CatalogSkillText.createReader(state.textReferences).parse({cost:state.payload.使用時効果,
+          trigger:state.payload.発動時効果,note:state.payload.特記,tags:state.textTags,id:rule.id,target_scope:rule.target_scope});
+        state.textResult = result;
+        if (result.rule) { state.payload.特記処理 = result.rule; state.dirty = true; state.jsonText = pretty(state.payload); }
+        renderInput(); renderPreview(); return;
+      }
       if (action === 'close') return close();
       const row = state.scene === 'edit' ? { ...state.edit, isDraft: true } : selected();
       if (action === 'refresh') return load(true);
@@ -409,6 +430,16 @@
       if (control.dataset.tab) {
         try {
           if (state.tab === 'form' && Object.keys(state.errors).some(key => key.startsWith('input:'))) throw new Error('入力欄のエラーを直してから切り替えてください。');
+          if (control.dataset.tab === 'text') {
+            run(async()=>{
+              syncJSON();
+              if (!state.textReady) {
+                const refs = await request('textReferences');
+                state.textReferences = {...state.textReferences,...refs}; state.textReady = true;
+              }
+              state.tab = 'text'; renderEditor(); notice();
+            }); return;
+          }
           syncJSON(); state.tab = control.dataset.tab; renderEditor(); notice();
         }
         catch (error) { showErrors(error); }
@@ -417,6 +448,7 @@
     listen('input', event => {
       const control = event.target;
       if (state.busy) return;
+      if (control.id === 'cat-text-tags') { state.textTags = control.value; state.textResult = null; panel.querySelector('.cat-text-result').textContent = 'タグを変更しました。再度読み取ってください。'; state.dirty = true; return; }
       if (control.id === 'cat-new-prefix') { state.newPrefix = control.value; return; }
       if (control.dataset.ruleField || control.dataset.costField || control.dataset.effectPath || control.dataset.conditionMode !== undefined) { changeSkill(control); return; }
       if (control.hasAttribute('data-duration-mode')) {
@@ -439,6 +471,7 @@
         catch (error) { renderPreview(); notice(error.message, true); }
       }
       if (control.dataset.field) {
+        if (state.tab === 'text') { state.textResult = null; panel.querySelector('.cat-text-result').textContent = '文章を変更しました。再度読み取ってください。'; }
         const key = control.dataset.field; state.dirty = true;
         if (key === 'effect') state.effectText = control.value;
         if (key === 'name' && state.edit.base_revision != null) return;

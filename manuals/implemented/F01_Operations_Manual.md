@@ -2,7 +2,7 @@
 
 # 運用マニュアル
 
-**最終更新日**: 2026-11-09（計画60 PR60-11：スキル専用画面）
+**最終更新日**: 2026-11-09（計画60 PR60-12：文章から作る）
 **系統**: F — 運用
 **統合元**: 14_GM_Buff_Item_Operations_Spec / 16_Manual_Update_Protocol / 21_Render_Deploy_Operations / 26_Account_Auth_Plan
 
@@ -216,6 +216,7 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 
 | メソッド・パス | 権限 | 入力・返却 |
 |---|---|---|
+| GET `/api/catalog/skill/text_references` | ログイン全員 | `{summon_refs}`。現在の召喚のID・名前・持続・タグだけを返す（文章の名前解決用） |
 | GET `/api/catalog/<kind>` | ログイン全員 | `{kind, entries}`。制作者・管理者には `drafts` も返す |
 | GET `/api/catalog/<kind>/<entry_id>/history` | ログイン全員 | `{history}`。版・操作・実行者・日時・中身 |
 | GET `/api/catalog/<kind>/<entry_id>/references` | ログイン全員 | `{references}`。用語のlinks・文章参照、バフのID・内部名、スキルのIDを種類ごとに検索 |
@@ -542,7 +543,7 @@ Renderでは、画像アップロード機能の利用にCloudinaryの環境変�
 2. `的中時` 付与系が正常
 3. `buff_id` 付与/解除が正常
 4. 特記（条件補正）が正常
-5. 自然言語ビルダーが整形表示/1行コピーで動作
+5. スキル編集の「文章から作る」が読み取り・行エラー表示で動作し、JSONタブで表示内容をコピーできる
 
 ---
 

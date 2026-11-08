@@ -180,3 +180,14 @@ def restore(kind, entry_id):
     if type(revision) is not int or revision < 1:
         raise CatalogValidationError({"revision": "1以上の整数が必要です"})
     return _published(repository.restore_revision(kind, entry_id, revision, g.authenticated_user.id))
+
+
+@catalog_bp.get("/api/catalog/skill/text_references")
+@_endpoint()
+def skill_text_references():
+    from manager.summons.loader import load_summon_templates
+    return jsonify(summon_refs=[{"id": key, "name": row.get("name", key),
+        "summon_duration_mode": row.get("summon_duration_mode", "permanent"),
+        "summon_duration": row.get("summon_duration", 0),
+        **({"tag_ids": row["tag_ids"]} if "tag_ids" in row else {})}
+        for key, row in sorted(load_summon_templates().items())])

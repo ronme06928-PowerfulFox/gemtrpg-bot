@@ -186,3 +186,16 @@
   .cat-workspace .cat-effect-card .cat-field-grid { grid-template-columns: minmax(0,1fr); }
   .cat-category-group .bo-workspace__nav-list { display: flex; flex-wrap: wrap; }
 }
+
+.cat-text-editor { min-width: 0; }
+.cat-text-editor textarea { min-height: 80px; }
+.cat-text-help { margin-top: 18px; border: 1px solid #dce3ed; border-radius: 7px; padding: 10px; font-size: 12px; }
+.cat-text-help summary { cursor: pointer; font-weight: 700; overflow-wrap: anywhere; }
+.cat-text-help details { margin-top: 10px; }
+.cat-text-help-table { max-width: 100%; overflow: auto; }
+.cat-text-help table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.cat-text-help th, .cat-text-help td { padding: 6px; border: 1px solid #dce3ed; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.cat-text-result { margin-top: 12px; font-size: 12px; }
+.cat-text-errors { color: #a13b3b; padding-left: 20px; }
+.cat-text-errors li { margin-bottom: 12px; overflow-wrap: anywhere; }
+.cat-text-errors blockquote { margin: 4px 0; padding: 4px 8px; background: #fff0f0; border-left: 2px solid #cf8f8f; white-space: pre-wrap; }

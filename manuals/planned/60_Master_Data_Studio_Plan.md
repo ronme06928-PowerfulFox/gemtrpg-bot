@@ -599,13 +599,78 @@ PR60-9 はほかと関係なく先に出せる。PR60-10 を本番に出す前�
 
 変更ファイル：`static/js/master_data/{skill,skill_effects,workspace,catalog_api}.js`、`static/css/modules/master_data.css`、`scripts/build_frontend.mjs`、`scripts/catalog_preview/export_schemas.py`、`static/index.html`、`static/dist/app.bundle.{js,css}`と各map、`app.py`、`manager/catalog/repository.py`、`tests/test_catalog_skill_editor.py`、`tests/test_catalog_skill.py`、`tests/test_effect_schemas.py`、A02・A04・C01・E02・F01・本計画書。
 
-#### PR60-12：「文章から作る」とビルダーの削除
+#### PR60-12：「文章から作る」とビルダーの削除（完了）
 
 1. `CharaCreator/json_definition_builder.html` の決まった言い回しの読み取り（`_nl` で始まる関数群）を `static/js/master_data/skill_text.js` へ移す。バフ・召喚テンプレートの名前の引き当ては、管理画面が持っている公開データから行う。
 2. スキルの編集に「文章から作る」のタブを足す。発動時効果などの文章を読み取り、結果をフォームと JSON に入れる。読み取れなかった行はタブの中にエラーで出す。
 3. 消すもの：`CharaCreator/json_definition_builder.html`・`/json_builder`・`/api/json_builder_reference`・`/api/json_nl_builder_audit`（ビルダーだけが使っている）と、そのテスト。
-4. テスト：今のビルダーのテストのうち読み取りのものを、新しい場所に移して通す。
+4. テスト：今のビルダーのテストのうち読み取りのものを、新しい場所に移して通す。削除前の読み取り結果を固定して比較し、言い回しの追加・読み取りの改良はしない。
 5. 資料：A02・C01 のビルダーの節を、管理画面の「文章から作る」に書き換える。
+6. 補助機能の取捨選択（2026-11-09 ユーザー決定）：参照表・チートシートを「文章から作る」の折りたたみの早見表として移し、行ごとのガイドは読み取れなかった行のエラーに含める。JSONタブへコピーを足す。クイックテンプレート・レシピ・震盪雛形、初心者/上級者モード、動的バフ名の一致チェックは移さず、既存フォーム・JSON・検査に任せる。そのうえでビルダーのページと3つの専用経路を消す。
+
+実装結果（2026-11-09）：読み取り本体987行を変更せず移し、旧UIの既定値・省略規則も維持。スキル編集に文章タブ、行エラー、折りたたみの早見表、JSONコピーを追加。バフ・用語・スキルは管理画面の公開版、召喚名・持続・タグは認証付きの `GET /api/catalog/skill/text_references` から読む。旧HTMLと3つの専用経路、旧ページ/APIのテストを削除。読み取り結果の144ケースと元規則のハッシュ、タブ間の反映・失敗時保持・コピー・枠破棄のテストを追加した。ユーザー決定どおり、クイックテンプレート・レシピ・震盪雛形、モード切り替え、動的バフ名チェックは移していない。
+
+検証結果：全件テスト1857 passed・45 skipped（478.71秒、タイムアウト1200秒）。`npm run build`、文字コード・文字化け・差分検査も成功。確認用サーバーを停止し、確認用DB・撮影などの一時出力は削除した。
+
+変更ファイル：`static/js/master_data/{skill_text,skill_text_help,workspace,catalog_api}.js`、`static/css/modules/master_data.css`、`scripts/build_frontend.mjs`、`static/index.html`、`static/dist/app.bundle.{js,css}`と各map、`app.py`、`routes/catalog.py`、`tests/test_catalog_skill_text.py`、`tests/fixtures/skill_text_legacy.json`、`tests/test_catalog_api.py`、`tests/test_app_factory.py`、`tests/test_origin_boon_name.py`、A02・C01・E02・F01・本計画書・計画00/41/46・基盤プロジェクトの配置台帳2件。削除：`CharaCreator/json_definition_builder.html`、`tests/test_json_builder_api.py`、`tests/test_json_builder_encoding_guard.py`。
+
+
+##### PR60-12 確認時の既存データとの差（2026-11-09）
+
+移植前の出力を固定した144ケースは移植後もすべて一致。現在のキャッシュ138件の `effects` を生成結果と機械比較すると、JSON一致69件、差分65件、読み取り失敗4件。同義キー・数値型・既定値・空配列の差も数えた結果であり、65件すべてが戦闘の動作差という意味ではない。今回、読み取り規則とマスターは修正していない。
+
+ローカル画面ではPs-00・Ps-01・Ps-02・Ps-05・Pb-13・E-19の6件を実際に読み取った。Ps-01は同義のstatの省略、Ps-05はCUSTOM_EFFECTの対象が現在targetに対しself。他の4件のeffectsは一致。未知の行・禁止語のエラーと特記処理の保持、早見表の開閉、コピー成功も確認した。
+
+| ID | 現在のeffects→旧ビルダーと移植後の生成結果 |
+|---|---|
+| B-01・B-02 | effects[0].data.display_name 省略 / effects[0].timing "PRE_MATCH"→"IMMEDIATE" |
+| B-03・B-04 | effects[0].timing "PRE_MATCH"→"IMMEDIATE" |
+| D-00・D-01・D-05・D-06・E-00・E-01・E-02・E-15・E-22・E-24・E-30・Mb-03・Pp-01・Pp-10 | effects 件数 0→1 |
+| E-06 | effects 件数 1→2 / effects[0].buff_id 省略 / effects[0].consume_cost 追加 / effects[0].delay 省略 / effects[0].lasting 省略 / effects[0].max_reuses 追加 / effects[0].timing "END_MATCH"→"HIT" / effects[0].type "APPLY_BUFF"→"USE_SKILL_AGAIN" |
+| E-09 | effects 件数 4→3 / effects[2].data.display_name 省略 / effects[2].target "self"→"target" |
+| E-12 | effects 件数 1→2 |
+| E-16 | effects[0].data.display_name 省略 / effects[0].delay 1→2 / effects[1].data.display_name 省略 / effects[1].delay 2→1 / effects[1].timing "PRE_MATCH"→"HIT" |
+| E-20 | effects[0].data.display_name 省略 / effects[0].delay 0→1 / effects[0].lasting 3→1 / effects[0].timing "PRE_MATCH"→"HIT" |
+| E-25 | effects[0].data.display_name 省略 / effects[0].target "target"→"self" / effects[0].timing "RESOLVE_START"→"END_ROUND" |
+| E-29 | effects 件数 2→3 / effects[1].condition 省略 |
+| Mb-00・Mp-00・Ms-00 | effects[1].timing "END_ROUND"→"HIT" |
+| Mb-04・Pb-04 | effects[0].target 追加 |
+| Mb-06・Pp-12 | effects[1].data.display_name 省略 |
+| Mb-07 | effects[0].buff_id 省略 / effects[0].delay 省略 / effects[0].lasting 省略 / effects[0].timing "HIT"→"END_ROUND" / effects[0].type "APPLY_BUFF"→"CUSTOM_EFFECT" / effects[0].value 追加 |
+| Mb-08 | effects[0].condition 省略 / effects[0].value 2.0→2 |
+| Mb-10・Pb-02 | effects[1].condition 省略 |
+| Mb-11・Ps-11・Ps-14 | effects[0].count 省略 / effects[0].data.buff_id 省略 / effects[0].data.count 追加 / effects[0].delay 省略 / effects[0].lasting 省略 |
+| Mb-12 | effects[0].buff_name 省略 / effects[0].consume_required 省略 / effects[0].gains 省略 / effects[0].state_name 追加 / effects[0].type "CONSUME_BUFF_COUNT_FOR_GAIN"→"APPLY_STATE" / effects[0].value 追加 |
+| Mb-13 | effects[1].value 4→6 |
+| Mp-03 | effects[0].condition 省略 / effects[0].target "target"→"self" |
+| Mp-04 | effects 件数 1→2 / effects[0].damage_per_fissure 4→3 / effects[0].target 追加 |
+| Mp-05 | effects[0].buff_id "Bu-40"→"Bu-41" / effects[0].count 追加 / effects[0].data.display_name "そこが弱いの？"→"突き崩す（亀裂付与量アップ単発）" / effects[0].delay 省略 / effects[0].lasting 1→999 |
+| Mp-06 | effects[0].max_value 省略 |
+| Mp-09 | effects 件数 1→2 / effects[0].max_reuses 省略 / effects[0].target 追加 |
+| Ms-02 | effects[0].condition 省略 |
+| Ms-04 | effects[1].condition 省略 / effects[1].target "target"→"self" |
+| Ms-07 | effects[1].data 省略 |
+| Ms-08・Ps-05 | effects[0].target "target"→"self" |
+| Pb-05 | effects[0].target 追加 / effects[1].target 追加 |
+| Pb-06 | effects[0].flavor 省略 |
+| Pb-07 | effects 件数 2→3 / effects[0].target 追加 / effects[1].target 追加 |
+| Pb-11 | effects[0].data 省略 / effects[0].target "target"→"self" |
+| Pp-05 | effects 件数 1→2 / effects[0].target 追加 |
+| Pp-06 | effects[0].buff_id 省略 / effects[0].damage_per_fissure 追加 / effects[0].delay 省略 / effects[0].lasting 省略 / effects[0].timing "PRE_MATCH"→"HIT" / effects[0].type "APPLY_BUFF"→"CUSTOM_EFFECT" / effects[0].value 追加 / effects[1].data 省略 / effects[1].target 追加 / effects[1].value "FISSURE_COLLAPSE"→"破裂爆発" |
+| Pp-07 | effects 件数 1→2 / effects[0].max_value 省略 |
+| Ps-01・Ps-03 | effects[0].stat 省略 |
+| Ps-04 | effects 件数 2→3 / effects[1].condition 省略 / effects[1].max_reuses 省略 / effects[1].target 追加 |
+| Ps-06 | effects[1].timing "WIN"→"HIT" |
+| Ps-07 | effects[0].delay 追加 / effects[0].flavor 省略 |
+| Ps-12 | effects[0].count 省略 / effects[0].data.buff_id 省略 / effects[0].data.count 追加 / effects[0].delay 省略 / effects[0].lasting 省略 / effects[1].condition 省略 / effects[1].count 省略 / effects[1].data.buff_id 省略 / effects[1].data.count 追加 / effects[1].delay 省略 / effects[1].lasting 省略 |
+| Ps-13 | effects[1].buff_name 省略 / effects[1].consume_required 省略 / effects[1].gains 省略 / effects[1].state_name 追加 / effects[1].type "CONSUME_BUFF_COUNT_FOR_GAIN"→"APPLY_STATE" / effects[1].value 追加 |
+
+| 読み取り失敗のID | 理由 |
+|---|---|
+| E-14 | コストを解釈できません。例: FPを2消費 |
+| E-33 | 特記を解釈できません。対応文型（条件付き固定加算 / Nごと加算 / timing付き効果）で記述してください。 |
+| E-34 | 特記を解釈できません。対応文型（条件付き固定加算 / Nごと加算 / timing付き効果）で記述してください。 |
+| E-35 | 特記を解釈できません。対応文型（条件付き固定加算 / Nごと加算 / timing付き効果）で記述してください。 |
 
 #### 触らないもの
 
@@ -668,6 +733,7 @@ PR60-9 はほかと関係なく先に出せる。PR60-10 を本番に出す前�
 | 2026-11-08 | Phase 3 論点7 画面の作り | **3a で、`workspace.js` の窓を作る部分と中身を描く部分を分け、中身は渡された枠の中に描く作りにする。3b のスキル専用画面も同じ作りにする** | のちにメインメニュー（ロビーの前の画面、マスターデータ完了後に検討）を作るとき、窓の代わりにページの枠を渡すだけで1画面にできる。3a でどうせ触るので手間が少ない |
 | 2026-11-08 | Phase 3b 論点1 手元のファイルと道具 | **本番から取ってくるコマンド（`python app.py --pull`）を作る。本番の公開 API から用語・バフ・スキルを読んで `data/cache/` を書き換え、手元では DB の公開データも入れ替える。Render の上では実行できない** | 本番のサーバーのファイルはデプロイで消えるので、公開時の書き出しではリポジトリに残らない。シミュレーター・lint・確認用スクリプトはファイルを読んだまま書き直さずに済み、コミットで本番の写しも残る。今の `--update` の取ってくる先が本番に変わる形 |
 | 2026-11-08 | Phase 3b 論点2 チャットパレット | **手で書く欄のまま残し、「項目から作る」ボタンと、決まった形と違うときの注意を足す** | 138件中135件が決まった形で、残る3件（E-26・E-27・Pb-10）は補正の項がない例外。例外を残せて、名前や威力を変えたときの直し忘れにも気づける |
+| 2026-11-09 | Phase 3b PR60-12 補助機能 | **早見表・行エラー・JSONコピーだけを移す。テンプレート/レシピ/震盪雛形・モード切り替え・動的バフ名チェックは移さず、ビルダーと専用経路を削除する** | ユーザー決定。前者には代わりがなく、後者は既存のフォーム/JSON/検査で代えられる |
 
 ## 9. 受け入れ条件（暫定）
 

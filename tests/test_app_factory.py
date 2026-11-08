@@ -18,7 +18,7 @@ def test_create_app_without_startup_registers_http_routes():
 
     routes = {rule.rule for rule in test_app.url_map.iter_rules()}
 
-    assert len(test_app.url_map._rules) == 75
+    assert len(test_app.url_map._rules) == 73
     assert "/" in routes
     assert "/healthz" in routes
     assert "/manuals/<name>" in routes
@@ -29,8 +29,8 @@ def test_create_app_without_startup_registers_http_routes():
     assert "/api/catalog/drafts/<int:draft_id>/approve" in routes
     assert "/api/admin/set_catalog_author" in routes
     assert "/api/effect_schemas" in routes
-    assert "/api/json_builder_reference" in routes
-    assert "/json_builder" in routes
+    assert "/api/catalog/skill/text_references" in routes
+    assert "/json_builder" not in routes
     # Phase 2: アカウント認証ルート
     assert "/api/register" in routes
     assert "/api/login" in routes

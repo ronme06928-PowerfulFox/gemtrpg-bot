@@ -223,7 +223,7 @@ typeごとに、必要な追加キー、対応target、対応timing、処理結�
 - `manager/battle/field_character_effects.py`
 - `manager/battle/scheduled_effects.py`
 - `manager/summons/loader.py`
-- `CharaCreator/json_definition_builder.html`
+- `static/js/master_data/skill_text.js`・`skill_text_help.js`（PR60-12で旧ビルダーから移植）
 - `tests/test_skill_catalog_smoke.py`
 
 キャッシュに存在する記法は実例として参照するが、キャッシュに偶然存在しないことだけを理由に未対応とは判定しない。

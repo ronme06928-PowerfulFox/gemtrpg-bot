@@ -28,7 +28,7 @@
 | `manager/temp_logic_draft.py` | 未importの旧プレビュー草稿。補助関数のimportもなく、単独の実装として完結していない。正規の入口は `manager/game_logic.py::calculate_skill_preview`、処理本体は `manager/battle/power_preview.py` |
 | `temp_animation.css` | HTML・ビルドからの読込なし。`floatUp`の旧演出草稿で、現行は `static/js/fx/fx_effects.js` の `float-text` を使用 |
 | `static/css/modules/temp_skill_grid.css` | 全文が `static/css/modules/modals.css` に含まれる重複。`styles.css`のimport対象外で、固有のルールはない |
-| `CharaCreator/_tmp_builder_check.js` | HTML・テスト・スクリプトからの参照なし。草稿の24関数はすべて現行 `json_definition_builder.html` にある。草稿は現行DOMにない旧 `generateBtn` を参照。現行HTMLと隣接の参照データJSを保持 |
+| `CharaCreator/_tmp_builder_check.js` | HTML・テスト・スクリプトからの参照なし。草稿の24関数はすべて現行 `json_definition_builder.html` にある。草稿は現行DOMにない旧 `generateBtn` を参照。当時の現行HTMLと参照データJSを保持。その後PR60-12でビルダーを廃止し、読み取りは `static/js/master_data/skill_text.js` へ移した |
 
 Pythonの動的探索はバフプラグインのディレクトリが対象であり、今回のmanager草稿を読み込む経路は見つからなかった。ビルダーの本体はHTML内で、検査用の写しを利用する実行経路もリポジトリ内にはない。未知の外部利用を推定して互換ファイルを残すことはしない。
 

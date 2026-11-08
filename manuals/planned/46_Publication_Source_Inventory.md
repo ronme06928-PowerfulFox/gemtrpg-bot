@@ -606,7 +606,7 @@ PDFは全23ページ、PL4は19〜22ページ・簡略図3点（成果反映／�
 | A02 ルームリセット | A02 §3.3 | `modals.js::openResetTypeModal`・`common_manager.py::reset_battle_logic`。statusはround0、fullは全キャラ削除、logsはルームログ。旧配置リセット項目は削除・代わりに詳細設定を案内 | O07／実機4F |
 | A02 キャラクター管理 | A02 §1.3・§3.1・§4.2 | `modals.js`・`visual_map.js`・`socket_char.py`。代理操作、強制移動、hidden_skillsを保持。JSON直編集を行動チャートのフロー編集へ訂正 | O05/O07/O08 |
 | A02 §2 データ定義概要 | A02 §4.5 | C01へ定義参照をまとめ、図鑑A04・画像F01へ分岐 | O08／定義の重複なし |
-| A02 震盪ビルダー | A02 §4.5 | `json_definition_builder.html`のテンプレ名、cost/effectを照合。ボタン操作は未確認 | O08／実機未確認 |
+| A02 震盪ビルダー | A02 §4.5 | PR60-12で旧ページと雛形を廃止（ユーザー決定）。A02は文章から作るの操作へ更新 | 廃止・転記対象外 |
 | A02 §3 デバッグ予定 | 掲載しない | 「必要に応じて追記予定」だけの空欄で実装情報なし。内部の改善案はF01 Part 2を保持 | 公開対象外 |
 | A02 2026-02 解決追補 | A02 §2.3 | `ResolveFlowPanel.js`・`resolve_presentation_routes.py`。共有進行役、引き継ぎ、自動進行2秒へ。まとめログの断定を訂正。広域合算の計算はB03参照で保持 | O06/O07／実機4F |
 | A02 2026-02-26 敵行動 | A02 §4.2 | `modals.js`のフロー編集、`behavior_flow_editor_modal.js`・C01/D01。loops/steps/actions/transitions、対象陣営・タグAND・候補優先順・HP割合・保存後次Rを保持 | O08／実機4F |

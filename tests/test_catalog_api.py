@@ -279,3 +279,26 @@ def test_next_id_empty_and_numeric_order(api):
                         for entry_id in ("W-99", "W-100")])
     db.session.commit()
     assert admin.get("/api/catalog/glossary/next_id").json["entry_id"] == "W-101"
+
+
+def test_text_references_are_authenticated_current_and_read_only(api, monkeypatch):
+    from manager.summons import loader
+    monkeypatch.setattr(loader, "load_summon_templates", lambda: {"U-99": {
+        "name": "現在の召喚", "tag_ids": ["瓦礫"], "private_field": "配らない"}})
+    path = "/api/catalog/skill/text_references"
+    assert client(api, None).get(path).status_code == 401
+    for actor in ("reader", "author", "admin"):
+        data = client(api, actor).get(path).json
+        assert data == {"summon_refs": [{"id": "U-99", "name": "現在の召喚", "tag_ids": ["瓦礫"],
+            "summon_duration_mode": "permanent", "summon_duration": 0}]}
+    assert CatalogDraft.query.count() == 0
+
+
+def test_legacy_builder_and_its_apis_are_removed(api):
+    connection = client(api, "author")
+    for method, path in (("GET", "/json_builder"), ("GET", "/api/json_builder_reference"),
+                         ("POST", "/api/json_nl_builder_audit"),
+                         ("GET", "/chara_creator/json_definition_builder.html")):
+        assert connection.open(path, method=method).status_code in (404, 405)
+    routes = {rule.rule for rule in api.url_map.iter_rules()}
+    assert not routes & {"/json_builder", "/api/json_builder_reference", "/api/json_nl_builder_audit"}

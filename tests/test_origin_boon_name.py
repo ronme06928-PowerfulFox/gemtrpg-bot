@@ -16,5 +16,5 @@ def test_al_carmeil_boon_name_matches_runtime_reference_and_catalog(monkeypatch)
     monkeypatch.setattr(app_module, "all_buff_data", catalog, raising=False)
     app = Flask(__name__)
     app_module.register_http_routes(app)
-    reference = app.test_client().get("/api/json_builder_reference").get_json()
-    assert next(b for b in reference["buff_refs"] if b["id"] == "Bu-25")["name"] == expected
+    reference = app.test_client().get("/api/get_buff_data").get_json()
+    assert reference["Bu-25"]["name"] == expected

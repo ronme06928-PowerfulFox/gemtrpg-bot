@@ -24,6 +24,7 @@
     references: (kind, id) => request(`${catalog(kind)}/${encodeURIComponent(id)}/references`),
     nextId: (kind, prefix) => request(`${catalog(kind)}/next_id${prefix ? `?prefix=${encodeURIComponent(prefix)}` : ''}`),
     create: (kind, target, prefix) => request(`${catalog(kind)}/drafts`, 'POST', target ? { target_id: target } : prefix ? { id_prefix: prefix } : {}),
+    textReferences: () => request('/api/catalog/skill/text_references'),
     effectSchemas: () => request('/api/effect_schemas'),
     save: (id, payload) => request(draft(id), 'PUT', { payload }),
     submit: id => request(`${draft(id)}/submit`, 'POST'),

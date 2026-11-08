@@ -1,0 +1,6933 @@
+{
+  "source": "PR60-12移植前のビルダー。読み取り本体と収集処理をそのまま実行。DOM入力の初期値だけ再現。",
+  "references": {
+    "buff_refs": [
+      {
+        "id": "Bu-00",
+        "name": "鋭敏"
+      },
+      {
+        "id": "Bu-01",
+        "name": "挑発"
+      },
+      {
+        "id": "Bu-02",
+        "name": "混乱"
+      },
+      {
+        "id": "Bu-03",
+        "name": "混乱(戦慄殺到)"
+      },
+      {
+        "id": "Bu-04",
+        "name": "行動不能"
+      },
+      {
+        "id": "Bu-05",
+        "name": "再回避ロック"
+      },
+      {
+        "id": "Bu-06",
+        "name": "破裂威力減少無効"
+      },
+      {
+        "id": "Bu-07",
+        "name": "時限破裂爆発"
+      },
+      {
+        "id": "Bu-08",
+        "name": "出血遷延"
+      },
+      {
+        "id": "Bu-09",
+        "name": "爆縮"
+      },
+      {
+        "id": "Bu-10",
+        "name": "小麦色の風"
+      },
+      {
+        "id": "Bu-11",
+        "name": "加速"
+      },
+      {
+        "id": "Bu-12",
+        "name": "減速"
+      },
+      {
+        "id": "Bu-13",
+        "name": "大魔女の末裔"
+      },
+      {
+        "id": "Bu-14",
+        "name": "神樹の恩寵"
+      },
+      {
+        "id": "Bu-15",
+        "name": "厄災を探究せし理性"
+      },
+      {
+        "id": "Bu-16",
+        "name": "厄災と共に生きる知恵"
+      },
+      {
+        "id": "Bu-17",
+        "name": "反撃の石"
+      },
+      {
+        "id": "Bu-18",
+        "name": "誉れ高き刃"
+      },
+      {
+        "id": "Bu-19",
+        "name": "畏怖の衣"
+      },
+      {
+        "id": "Bu-20",
+        "name": "世界を見下ろす黒鳥"
+      },
+      {
+        "id": "Bu-21",
+        "name": "色とりどりの輝石"
+      },
+      {
+        "id": "Bu-22",
+        "name": "空を巡る叡智"
+      },
+      {
+        "id": "Bu-23",
+        "name": "狭霧に息づく神秘"
+      },
+      {
+        "id": "Bu-24",
+        "name": "いずれ彩られる純白"
+      },
+      {
+        "id": "Bu-25",
+        "name": "砂海を流離う行人"
+      },
+      {
+        "id": "Bu-26",
+        "name": "活力の行き重なる落合"
+      },
+      {
+        "id": "Bu-27",
+        "name": "盛夏と共鳴る高揚"
+      },
+      {
+        "id": "Bu-28",
+        "name": "色彩"
+      },
+      {
+        "id": "Bu-29",
+        "name": "震盪"
+      },
+      {
+        "id": "Bu-30",
+        "name": "蓄力"
+      },
+      {
+        "id": "Bu-31",
+        "name": "凝魔"
+      },
+      {
+        "id": "Bu-32",
+        "name": "攻撃威力アップ"
+      },
+      {
+        "id": "Bu-33",
+        "name": "守備威力アップ"
+      },
+      {
+        "id": "Bu-34",
+        "name": "攻撃威力ダウン"
+      },
+      {
+        "id": "Bu-35",
+        "name": "守備威力ダウン"
+      },
+      {
+        "id": "Bu-36",
+        "name": "物理補正アップ"
+      },
+      {
+        "id": "Bu-37",
+        "name": "物理補正ダウン"
+      },
+      {
+        "id": "Bu-38",
+        "name": "魔法補正アップ"
+      },
+      {
+        "id": "Bu-39",
+        "name": "魔法補正ダウン"
+      },
+      {
+        "id": "Bu-40",
+        "name": "亀裂付与量アップ"
+      },
+      {
+        "id": "Bu-41",
+        "name": "亀裂付与量アップ（単発）"
+      },
+      {
+        "id": "Bu-42",
+        "name": "行動回数増加"
+      },
+      {
+        "id": "Bu-43",
+        "name": "被ダメージアップ"
+      },
+      {
+        "id": "Bu-44",
+        "name": "被ダメージダウン"
+      },
+      {
+        "id": "Bu-45",
+        "name": "与ダメージアップ"
+      },
+      {
+        "id": "Bu-46",
+        "name": "与ダメージダウン"
+      },
+      {
+        "id": "Bu-47",
+        "name": "被弾時出血"
+      },
+      {
+        "id": "Bu-48",
+        "name": "凝魔-血漿"
+      },
+      {
+        "id": "Bu-49",
+        "name": "蓄力-誘爆"
+      },
+      {
+        "id": "Bu-50",
+        "name": "荊棘重絡"
+      },
+      {
+        "id": "Bu-51",
+        "name": "鉄の恩恵"
+      },
+      {
+        "id": "Bu-52",
+        "name": "鉄の剛力"
+      }
+    ],
+    "skill_refs": [
+      {
+        "id": "B-01",
+        "name": "猛攻の輝き"
+      },
+      {
+        "id": "B-02",
+        "name": "守護の輝き"
+      },
+      {
+        "id": "B-03",
+        "name": "敏捷の輝き"
+      },
+      {
+        "id": "B-04",
+        "name": "魔力の輝き"
+      },
+      {
+        "id": "C-00",
+        "name": "魔力回復"
+      },
+      {
+        "id": "D-00",
+        "name": "基本の防御"
+      },
+      {
+        "id": "D-01",
+        "name": "基本の回避"
+      },
+      {
+        "id": "D-02",
+        "name": "鉄壁の防御"
+      },
+      {
+        "id": "D-03",
+        "name": "千鳥足"
+      },
+      {
+        "id": "D-04",
+        "name": "見切ったよ！"
+      },
+      {
+        "id": "D-05",
+        "name": "弱っているな？"
+      },
+      {
+        "id": "D-06",
+        "name": "俺は速いぞッ！"
+      },
+      {
+        "id": "E-00",
+        "name": "殴る"
+      },
+      {
+        "id": "E-01",
+        "name": "叩く"
+      },
+      {
+        "id": "E-02",
+        "name": "突進"
+      },
+      {
+        "id": "E-03",
+        "name": "鋭い腕先"
+      },
+      {
+        "id": "E-04",
+        "name": "迫る凶爪"
+      },
+      {
+        "id": "E-05",
+        "name": "砕く剛腕"
+      },
+      {
+        "id": "E-06",
+        "name": "カスが効かねぇんだよ！"
+      },
+      {
+        "id": "E-07",
+        "name": "王配の輝剣"
+      },
+      {
+        "id": "E-08",
+        "name": "仄かな光刃"
+      },
+      {
+        "id": "E-09",
+        "name": "知識の吸収"
+      },
+      {
+        "id": "E-10",
+        "name": "怖いでしょう？"
+      },
+      {
+        "id": "E-11",
+        "name": "心に従いましょう"
+      },
+      {
+        "id": "E-12",
+        "name": "種を与えよう"
+      },
+      {
+        "id": "E-13",
+        "name": "蔓延るがよい"
+      },
+      {
+        "id": "E-14",
+        "name": "死ね"
+      },
+      {
+        "id": "E-15",
+        "name": "必殺デバッグ撃"
+      },
+      {
+        "id": "E-16",
+        "name": "ちょっとした準備"
+      },
+      {
+        "id": "E-17",
+        "name": "絡みつく"
+      },
+      {
+        "id": "E-18",
+        "name": "食い破る"
+      },
+      {
+        "id": "E-19",
+        "name": "おいで、蜘蛛よ"
+      },
+      {
+        "id": "E-20",
+        "name": "見よう見まねで"
+      },
+      {
+        "id": "E-21",
+        "name": "このように動け"
+      },
+      {
+        "id": "E-22",
+        "name": "受信：自爆指令"
+      },
+      {
+        "id": "E-23",
+        "name": "根で圧し潰す"
+      },
+      {
+        "id": "E-24",
+        "name": "落ち着くことだ"
+      },
+      {
+        "id": "E-25",
+        "name": "筋力強化"
+      },
+      {
+        "id": "E-26",
+        "name": "遅いんじゃないか？"
+      },
+      {
+        "id": "E-27",
+        "name": "凍えろッ！"
+      },
+      {
+        "id": "E-28",
+        "name": "撫で斬りにする"
+      },
+      {
+        "id": "E-29",
+        "name": "忽ち凍れ"
+      },
+      {
+        "id": "E-30",
+        "name": "これで終わりだ"
+      },
+      {
+        "id": "E-31",
+        "name": "鉄根掌"
+      },
+      {
+        "id": "E-32",
+        "name": "鉄塊を捥ぎり喰う"
+      },
+      {
+        "id": "E-33",
+        "name": "鉄根刺突"
+      },
+      {
+        "id": "E-34",
+        "name": "暴れ回る"
+      },
+      {
+        "id": "E-35",
+        "name": "瓦礫を狙う"
+      },
+      {
+        "id": "Mb-00",
+        "name": "魔力の槌"
+      },
+      {
+        "id": "Mb-01",
+        "name": "叩き伏せる"
+      },
+      {
+        "id": "Mb-02",
+        "name": "お前がぶつかるんだ！"
+      },
+      {
+        "id": "Mb-03",
+        "name": "岩が如き塊"
+      },
+      {
+        "id": "Mb-04",
+        "name": "派手に爆ぜな"
+      },
+      {
+        "id": "Mb-05",
+        "name": "頑なな気流"
+      },
+      {
+        "id": "Mb-06",
+        "name": "アイツを狙え！"
+      },
+      {
+        "id": "Mb-07",
+        "name": "憔悴せよ"
+      },
+      {
+        "id": "Mb-08",
+        "name": "膨らむ程に"
+      },
+      {
+        "id": "Mb-09",
+        "name": "脚を掬う"
+      },
+      {
+        "id": "Mb-10",
+        "name": "大地裂"
+      },
+      {
+        "id": "Mb-11",
+        "name": "魔力を溜める"
+      },
+      {
+        "id": "Mb-12",
+        "name": "流動化"
+      },
+      {
+        "id": "Mb-13",
+        "name": "岩と成す"
+      },
+      {
+        "id": "Mp-00",
+        "name": "魔力の針"
+      },
+      {
+        "id": "Mp-01",
+        "name": "飛ばし貫く"
+      },
+      {
+        "id": "Mp-02",
+        "name": "傷つける"
+      },
+      {
+        "id": "Mp-03",
+        "name": "綻びを狙って"
+      },
+      {
+        "id": "Mp-04",
+        "name": "こじ開ける"
+      },
+      {
+        "id": "Mp-05",
+        "name": "そこが弱いの？"
+      },
+      {
+        "id": "Mp-06",
+        "name": "恐れはしない"
+      },
+      {
+        "id": "Mp-07",
+        "name": "でも、やっぱり…"
+      },
+      {
+        "id": "Mp-08",
+        "name": "圧し通す"
+      },
+      {
+        "id": "Mp-09",
+        "name": "五月雨式"
+      },
+      {
+        "id": "Mp-10",
+        "name": "針小棒大"
+      },
+      {
+        "id": "Mp-11",
+        "name": "鋭い針"
+      },
+      {
+        "id": "Mp-12",
+        "name": "傷口に沿わせて"
+      },
+      {
+        "id": "Mp-13",
+        "name": "芯まで割れろ"
+      },
+      {
+        "id": "Mp-14",
+        "name": "よく味わえ"
+      },
+      {
+        "id": "Ms-00",
+        "name": "魔力の刃"
+      },
+      {
+        "id": "Ms-01",
+        "name": "飛刃"
+      },
+      {
+        "id": "Ms-02",
+        "name": "薙ぐように"
+      },
+      {
+        "id": "Ms-03",
+        "name": "軽く撫でてあげる"
+      },
+      {
+        "id": "Ms-04",
+        "name": "手足とお別れ"
+      },
+      {
+        "id": "Ms-05",
+        "name": "纏わせ、断つ"
+      },
+      {
+        "id": "Ms-06",
+        "name": "総ての色が交ざるように。"
+      },
+      {
+        "id": "Ms-07",
+        "name": "放出の呪い"
+      },
+      {
+        "id": "Ms-08",
+        "name": "命を放つ"
+      },
+      {
+        "id": "Ms-09",
+        "name": "瀉血"
+      },
+      {
+        "id": "Ms-10",
+        "name": "一心不乱"
+      },
+      {
+        "id": "Ms-11",
+        "name": "溢れる傷口"
+      },
+      {
+        "id": "Ms-12",
+        "name": "集中しながら"
+      },
+      {
+        "id": "Ms-13",
+        "name": "途絶えさせない"
+      },
+      {
+        "id": "Ms-14",
+        "name": "身に纏う"
+      },
+      {
+        "id": "Pb-00",
+        "name": "基本の殴打"
+      },
+      {
+        "id": "Pb-01",
+        "name": "叩き打ち"
+      },
+      {
+        "id": "Pb-02",
+        "name": "鳩尾殴り"
+      },
+      {
+        "id": "Pb-03",
+        "name": "ファストハンマー"
+      },
+      {
+        "id": "Pb-04",
+        "name": "回転殴撃"
+      },
+      {
+        "id": "Pb-05",
+        "name": "圧殺"
+      },
+      {
+        "id": "Pb-06",
+        "name": "俺を見ろ！"
+      },
+      {
+        "id": "Pb-07",
+        "name": "破砕"
+      },
+      {
+        "id": "Pb-08",
+        "name": "出たとこ勝負"
+      },
+      {
+        "id": "Pb-09",
+        "name": "ヒビを入れる"
+      },
+      {
+        "id": "Pb-10",
+        "name": "右肩上がり"
+      },
+      {
+        "id": "Pb-11",
+        "name": "震え上がれ"
+      },
+      {
+        "id": "Pb-12",
+        "name": "チャージ"
+      },
+      {
+        "id": "Pb-13",
+        "name": "ダッシュ"
+      },
+      {
+        "id": "Pb-14",
+        "name": "エンパワー"
+      },
+      {
+        "id": "Pb-15",
+        "name": "コンバージョン"
+      },
+      {
+        "id": "Pp-00",
+        "name": "基本の刺突"
+      },
+      {
+        "id": "Pp-01",
+        "name": "刺し込む"
+      },
+      {
+        "id": "Pp-02",
+        "name": "狙い突く"
+      },
+      {
+        "id": "Pp-03",
+        "name": "突き崩す"
+      },
+      {
+        "id": "Pp-04",
+        "name": "隙だらけだな！"
+      },
+      {
+        "id": "Pp-05",
+        "name": "一点突貫"
+      },
+      {
+        "id": "Pp-06",
+        "name": "トマトみてぇに弾けちまいなっ！"
+      },
+      {
+        "id": "Pp-07",
+        "name": "膨れて溢れる"
+      },
+      {
+        "id": "Pp-08",
+        "name": "討ち取ってこそ"
+      },
+      {
+        "id": "Pp-09",
+        "name": "待ってもらおう！"
+      },
+      {
+        "id": "Pp-10",
+        "name": "賭けは嫌いだ"
+      },
+      {
+        "id": "Pp-11",
+        "name": "貫くために"
+      },
+      {
+        "id": "Pp-12",
+        "name": "マーキング"
+      },
+      {
+        "id": "Pp-13",
+        "name": "穿孔不抜"
+      },
+      {
+        "id": "Pp-14",
+        "name": "届け！"
+      },
+      {
+        "id": "Ps-00",
+        "name": "基本の一太刀"
+      },
+      {
+        "id": "Ps-01",
+        "name": "横振り"
+      },
+      {
+        "id": "Ps-02",
+        "name": "袈裟斬り"
+      },
+      {
+        "id": "Ps-03",
+        "name": "斬り抜く"
+      },
+      {
+        "id": "Ps-04",
+        "name": "乱斬"
+      },
+      {
+        "id": "Ps-05",
+        "name": "霹靂一閃"
+      },
+      {
+        "id": "Ps-06",
+        "name": "一興、なりや"
+      },
+      {
+        "id": "Ps-07",
+        "name": "深く抉る"
+      },
+      {
+        "id": "Ps-08",
+        "name": "あぶく銭"
+      },
+      {
+        "id": "Ps-09",
+        "name": "斬らば割れよう"
+      },
+      {
+        "id": "Ps-10",
+        "name": "枷を解いて"
+      },
+      {
+        "id": "Ps-11",
+        "name": "力む"
+      },
+      {
+        "id": "Ps-12",
+        "name": "逸ったか"
+      },
+      {
+        "id": "Ps-13",
+        "name": "捩じ切ろう"
+      },
+      {
+        "id": "Ps-14",
+        "name": "乗りこなそう！"
+      }
+    ],
+    "glossary_refs": [
+      {
+        "id": "W-00",
+        "display_name": "出血"
+      },
+      {
+        "id": "W-01",
+        "display_name": "出血氾濫"
+      },
+      {
+        "id": "W-02",
+        "display_name": "破裂"
+      },
+      {
+        "id": "W-03",
+        "display_name": "破裂爆発"
+      },
+      {
+        "id": "W-04",
+        "display_name": "亀裂"
+      },
+      {
+        "id": "W-05",
+        "display_name": "亀裂崩壊"
+      },
+      {
+        "id": "W-06",
+        "display_name": "戦慄"
+      },
+      {
+        "id": "W-07",
+        "display_name": "戦慄殺到"
+      },
+      {
+        "id": "W-08",
+        "display_name": "荊棘"
+      },
+      {
+        "id": "W-09",
+        "display_name": "荊棘飛散"
+      },
+      {
+        "id": "W-10",
+        "display_name": "混乱"
+      },
+      {
+        "id": "W-11",
+        "display_name": "行動不能"
+      },
+      {
+        "id": "W-12",
+        "display_name": "出血遷延"
+      },
+      {
+        "id": "W-13",
+        "display_name": "挑発"
+      },
+      {
+        "id": "W-14",
+        "display_name": "加速"
+      },
+      {
+        "id": "W-15",
+        "display_name": "減速"
+      },
+      {
+        "id": "W-16",
+        "display_name": "ラウンド"
+      },
+      {
+        "id": "W-17",
+        "display_name": "選択フェーズ"
+      },
+      {
+        "id": "W-18",
+        "display_name": "解決フェーズ"
+      },
+      {
+        "id": "W-19",
+        "display_name": "使用時"
+      },
+      {
+        "id": "W-20",
+        "display_name": "的中時"
+      },
+      {
+        "id": "W-21",
+        "display_name": "マッチ勝利時"
+      },
+      {
+        "id": "W-22",
+        "display_name": "マッチ敗北時"
+      },
+      {
+        "id": "W-23",
+        "display_name": "一方攻撃時"
+      },
+      {
+        "id": "W-24",
+        "display_name": "マッチ終了時"
+      },
+      {
+        "id": "W-25",
+        "display_name": "ラウンド開始時"
+      },
+      {
+        "id": "W-26",
+        "display_name": "ラウンド終了時"
+      },
+      {
+        "id": "W-27",
+        "display_name": "戦闘開始時"
+      },
+      {
+        "id": "W-28",
+        "display_name": "戦闘終了時"
+      },
+      {
+        "id": "W-29",
+        "display_name": "マッチ"
+      },
+      {
+        "id": "W-30",
+        "display_name": "一方攻撃"
+      },
+      {
+        "id": "W-31",
+        "display_name": "スロット"
+      },
+      {
+        "id": "W-32",
+        "display_name": "速度値"
+      },
+      {
+        "id": "W-33",
+        "display_name": "宝石の加護"
+      },
+      {
+        "id": "W-34",
+        "display_name": "即時発動"
+      },
+      {
+        "id": "W-35",
+        "display_name": "広域"
+      },
+      {
+        "id": "W-36",
+        "display_name": "ラウンド終了"
+      },
+      {
+        "id": "W-37",
+        "display_name": "マッチ不可"
+      },
+      {
+        "id": "W-38",
+        "display_name": "攻撃"
+      },
+      {
+        "id": "W-39",
+        "display_name": "守備"
+      },
+      {
+        "id": "W-40",
+        "display_name": "物理"
+      },
+      {
+        "id": "W-41",
+        "display_name": "魔法"
+      },
+      {
+        "id": "W-42",
+        "display_name": "防御"
+      },
+      {
+        "id": "W-43",
+        "display_name": "回避"
+      },
+      {
+        "id": "W-44",
+        "display_name": "補助"
+      },
+      {
+        "id": "W-45",
+        "display_name": "広域-個別"
+      },
+      {
+        "id": "W-46",
+        "display_name": "広域-合算"
+      },
+      {
+        "id": "W-47",
+        "display_name": "輝化スキル"
+      },
+      {
+        "id": "W-48",
+        "display_name": "通過点"
+      },
+      {
+        "id": "W-49",
+        "display_name": "威力"
+      },
+      {
+        "id": "W-50",
+        "display_name": "基礎威力"
+      },
+      {
+        "id": "W-51",
+        "display_name": "ダイス威力"
+      },
+      {
+        "id": "W-52",
+        "display_name": "最終威力"
+      },
+      {
+        "id": "W-53",
+        "display_name": "物理補正"
+      },
+      {
+        "id": "W-54",
+        "display_name": "魔法補正"
+      },
+      {
+        "id": "W-55",
+        "display_name": "効果"
+      },
+      {
+        "id": "W-56",
+        "display_name": "コスト"
+      },
+      {
+        "id": "W-57",
+        "display_name": "特記"
+      },
+      {
+        "id": "W-58",
+        "display_name": "再使用"
+      },
+      {
+        "id": "W-59",
+        "display_name": "自滅"
+      },
+      {
+        "id": "W-60",
+        "display_name": "伝授"
+      },
+      {
+        "id": "W-61",
+        "display_name": "召喚"
+      },
+      {
+        "id": "W-62",
+        "display_name": "戦闘突入時"
+      },
+      {
+        "id": "W-63",
+        "display_name": "戦闘離脱時"
+      },
+      {
+        "id": "W-64",
+        "display_name": "震盪"
+      },
+      {
+        "id": "W-65",
+        "display_name": "強硬スキル"
+      },
+      {
+        "id": "W-66",
+        "display_name": "牽制スキル"
+      },
+      {
+        "id": "W-67",
+        "display_name": "非ダメージ"
+      },
+      {
+        "id": "W-68",
+        "display_name": "同陣営指定"
+      },
+      {
+        "id": "W-69",
+        "display_name": "HP"
+      },
+      {
+        "id": "W-70",
+        "display_name": "MP"
+      },
+      {
+        "id": "W-71",
+        "display_name": "FP"
+      },
+      {
+        "id": "W-72",
+        "display_name": "速度補正"
+      },
+      {
+        "id": "W-73",
+        "display_name": "行動回数"
+      },
+      {
+        "id": "W-74",
+        "display_name": "蓄力"
+      },
+      {
+        "id": "W-75",
+        "display_name": "凝魔"
+      },
+      {
+        "id": "W-76",
+        "display_name": "特殊蓄力"
+      },
+      {
+        "id": "W-77",
+        "display_name": "特殊凝魔"
+      },
+      {
+        "id": "W-78",
+        "display_name": "凝魔-血漿"
+      },
+      {
+        "id": "W-79",
+        "display_name": "血漿転化"
+      },
+      {
+        "id": "W-80",
+        "display_name": "蓄力-誘爆"
+      },
+      {
+        "id": "W-81",
+        "display_name": "爆破誘導"
+      },
+      {
+        "id": "W-82",
+        "display_name": "荊棘重絡"
+      }
+    ],
+    "summon_refs": [
+      {
+        "id": "U-00",
+        "name": "鉄の小蜘蛛",
+        "summon_duration_mode": "duration_rounds",
+        "summon_duration": 3,
+        "tag_ids": []
+      },
+      {
+        "id": "U-01",
+        "name": "マフィアの下っ端",
+        "summon_duration_mode": "permanent",
+        "summon_duration": 0,
+        "tag_ids": []
+      },
+      {
+        "id": "U-02",
+        "name": "鉄交じりの瓦礫",
+        "summon_duration_mode": "permanent",
+        "summon_duration": 0,
+        "tag_ids": [
+          "瓦礫"
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "B-01",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを5消費",
+        "trigger": "[即時発動]:このラウンドで、自分の使用する[[W-38|攻撃]]スキルの[[W-52|最終威力]]+5",
+        "note": "([[W-33|宝石の加護]])",
+        "tags": "即時発動, 宝石の加護スキル",
+        "id": "SKILL_B00",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_B00",
+          "tags": [
+            "即時発動",
+            "宝石の加護スキル"
+          ],
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 5
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "IMMEDIATE",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-32",
+              "lasting": 1,
+              "delay": 0,
+              "data": {
+                "value": 5
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "B-02",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを5消費",
+        "trigger": "[即時発動]:このラウンドで、自分の使用する[[W-39|守備]]スキルの[[W-52|最終威力]]+5",
+        "note": "([[W-33|宝石の加護]])",
+        "tags": "即時発動, 宝石の加護スキル",
+        "id": "SKILL_B01",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_B01",
+          "tags": [
+            "即時発動",
+            "宝石の加護スキル"
+          ],
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 5
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "IMMEDIATE",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-33",
+              "lasting": 1,
+              "delay": 0,
+              "data": {
+                "value": 5
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "B-03",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを5消費",
+        "trigger": "[即時発動]:FPを3獲得する",
+        "note": "([[W-33|宝石の加護]])",
+        "tags": "即時発動, 宝石の加護スキル",
+        "id": "SKILL_B02",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_B02",
+          "tags": [
+            "即時発動",
+            "宝石の加護スキル"
+          ],
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 5
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "IMMEDIATE",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "B-04",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "[即時発動]:MPを10回復する",
+        "note": "([[W-33|宝石の加護]])",
+        "tags": "即時発動, 宝石の加護スキル",
+        "id": "SKILL_B03",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_B03",
+          "tags": [
+            "即時発動",
+            "宝石の加護スキル"
+          ],
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "IMMEDIATE",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "MP",
+              "value": 10
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "C-00",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-19|使用時]]):MPを6回復する。",
+        "note": "マッチ不可・非ダメージ。このスキルは対象を選択しない。",
+        "tags": "マッチ不可, 非ダメージ, 自己対象",
+        "id": "SKILL_C00",
+        "target_scope": "self"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_C00",
+          "tags": [
+            "マッチ不可",
+            "非ダメージ",
+            "自己対象",
+            "non_damage",
+            "self_target"
+          ],
+          "target_scope": "self",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "MP",
+              "value": 6
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "D-00",
+      "input": {
+        "cost": "",
+        "trigger": "",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_D00",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_D00",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "D-01",
+      "input": {
+        "cost": "",
+        "trigger": "",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_D01",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_D01",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "D-02",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-22|マッチ敗北時]]):FPを1得る",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_D02",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_D02",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "LOSE",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "D-03",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-22|マッチ敗北時]]):自身に5ダメージ",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_D03",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_D03",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "LOSE",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "HP",
+              "value": -5
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "D-04",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-21|マッチ勝利時]]):MPを1回復",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_D04",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_D04",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "MP",
+              "value": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "D-05",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを1消費",
+        "trigger": "",
+        "note": "対象の[[W-00|出血]]が6以上なら、このスキルの[[W-50|基礎威力]]+4。",
+        "tags": "防御",
+        "id": "SKILL_D05",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_D05",
+          "tags": [
+            "防御"
+          ],
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED",
+              "value": 4,
+              "condition": {
+                "source": "target",
+                "param": "出血",
+                "operator": "GTE",
+                "value": 6
+              }
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "D-06",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "",
+        "note": "この[[W-16|ラウンド]]の自分の[[W-32|速度値]]が6より高いなら、このスキルの[[W-50|基礎威力]]+2。",
+        "tags": "回避",
+        "id": "SKILL_D06",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_D06",
+          "tags": [
+            "回避"
+          ],
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED",
+              "value": 2,
+              "condition": {
+                "source": "self",
+                "param": "速度値",
+                "operator": "GTE",
+                "value": 6
+              }
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-00",
+      "input": {
+        "cost": "",
+        "trigger": "",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E00",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E00",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-01",
+      "input": {
+        "cost": "",
+        "trigger": "",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E01",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E01",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-02",
+      "input": {
+        "cost": "",
+        "trigger": "",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E02",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E02",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-03",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):[[W-04|亀裂]]1を付与",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E03",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E03",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-04",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):[[W-00|出血]]3を付与",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E04",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E04",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-05",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):[[W-02|破裂]]3を付与",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E05",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E05",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-06",
+      "input": {
+        "cost": "",
+        "trigger": "このスキルは使用したターンの間は消滅せず、再利用する。\n[[W-24|(マッチ終了時)]]:次の[[W-16|ラウンド]]で、行動不能になる。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E06",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E06",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "USE_SKILL_AGAIN",
+              "target": "self",
+              "max_reuses": 1,
+              "consume_cost": false
+            },
+            {
+              "timing": "END_MATCH",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-04",
+              "lasting": 1,
+              "delay": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-07",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):[[W-00|出血]]6を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E07",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E07",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 6
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-08",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]) [[W-04|亀裂]]1を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E08",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E08",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-09",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):相手のMPを6減少させ、減少させた分だけ自身のMPを回復する。次の[[W-16|ラウンド]]の間、自身の[[W-54|魔法補正]]+1、対象の[[W-54|魔法補正]]-1。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E09",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E09",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "MP",
+              "value": -6
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "MP",
+              "value": 6
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-38",
+              "lasting": 1,
+              "delay": 1,
+              "data": {
+                "value": 1
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-10",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):[[W-06|戦慄]]5を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E10",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E10",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "戦慄",
+              "value": 5
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-11",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):[[W-07|戦慄殺到]]。",
+        "note": "メインターゲットの[[W-06|戦慄]]5につき[[W-50|基礎威力]]+1(最大で2)",
+        "tags": "広域",
+        "id": "SKILL_E11",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E11",
+          "tags": [
+            "広域"
+          ],
+          "target_scope": "opposing_team",
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "戦慄",
+              "value": 1,
+              "per_N": 5,
+              "max_bonus": 2
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "戦慄殺到"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-12",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):[[W-08|荊棘]]8を付与。その後、[[W-36|ラウンド終了]]。",
+        "note": "([[W-37|マッチ不可]])",
+        "tags": "広域, マッチ不可, ラウンド終了",
+        "id": "SKILL_E12",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E12",
+          "tags": [
+            "広域",
+            "マッチ不可",
+            "ラウンド終了"
+          ],
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "荊棘",
+              "value": 8
+            },
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "self",
+              "value": "END_ROUND_IMMEDIATELY"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-13",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-19|使用時]]):対象が[[W-39|守備]]スキルを使用しているとき、そのスキルの[[W-50|基礎威力]]+3。([[W-20|的中時]]):[[W-09|荊棘飛散]]。",
+        "note": "",
+        "tags": "広域",
+        "id": "SKILL_E13",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E13",
+          "tags": [
+            "広域"
+          ],
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "MODIFY_BASE_POWER",
+              "target": "target",
+              "value": 3,
+              "condition": {
+                "source": "target_skill",
+                "param": "tags",
+                "operator": "CONTAINS",
+                "value": "守備"
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "荊棘飛散"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-14",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを3消費。出血を5得る。",
+        "trigger": "([[W-20|的中時]]):[[W-00|出血]]10を付与。",
+        "note": "自身に付与された出血5につき、[[W-50|基礎威力]]+1。",
+        "tags": "広域",
+        "id": "SKILL_E14",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": null,
+        "errors": [
+          {
+            "column": "使用時効果",
+            "line": "出血を5得る",
+            "reason": "コストを解釈できません。例: FPを2消費"
+          }
+        ]
+      }
+    },
+    {
+      "name": "E-15",
+      "input": {
+        "cost": "",
+        "trigger": "",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E15",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E15",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-16",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-19|使用時]]):次の[[W-16|ラウンド]]で自分の[[W-53|物理補正]]+2。2[[W-16|ラウンド]]後に自分の[[W-53|物理補正]]-2。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E16",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E16",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-36",
+              "lasting": 1,
+              "delay": 2,
+              "data": {
+                "value": 2
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-37",
+              "lasting": 1,
+              "delay": 1,
+              "data": {
+                "value": 2
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-17",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):対象に[[W-15|減速]]1を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E17",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E17",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-12",
+              "data": {
+                "count": 1
+              },
+              "lasting": 1,
+              "delay": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-18",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):対象に3ダメージ。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E18",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E18",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "DAMAGE_BONUS",
+              "target": "target",
+              "value": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-19",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-19|使用時]]):「鉄の小蜘蛛」1体を[[W-61|召喚]]する。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E19",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E19",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "SUMMON_CHARACTER",
+              "target": "self",
+              "summon_template_id": "U-00"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-20",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):２[[W-16|ラウンド]]後まで、自身の[[W-53|物理補正]]+1。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E20",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E20",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-36",
+              "lasting": 1,
+              "delay": 1,
+              "data": {
+                "value": 1
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-21",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを4消費。",
+        "trigger": "([[W-19|使用時]]):自身を除く味方全体に「[[SKILL:E-20|E-20:見よう見まねで]]」を[[W-60|伝授]]する。この効果で付与されたスキルは2回まで使用可能。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E21",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E21",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 4
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "GRANT_SKILL",
+              "target": "ALL_OTHER_ALLIES",
+              "skill_id": "E-20",
+              "grant_mode": "usage_count",
+              "uses": 2,
+              "overwrite": true
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-22",
+      "input": {
+        "cost": "",
+        "trigger": "",
+        "note": "このスキルを使用後、[[W-59|自滅]]する。",
+        "tags": "自滅",
+        "id": "SKILL_E22",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E22",
+          "tags": [
+            "自滅"
+          ],
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-23",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-21|マッチ勝利時]]):対象の[[W-02|破裂]]が6以上なら[[W-03|破裂爆発]]。",
+        "note": "([[W-65|強硬スキル]])",
+        "tags": "強硬",
+        "id": "SKILL_E23",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E23",
+          "tags": [
+            "強硬"
+          ],
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "破裂爆発",
+              "condition": {
+                "source": "target",
+                "param": "破裂",
+                "operator": "GTE",
+                "value": 6
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-24",
+      "input": {
+        "cost": "",
+        "trigger": "",
+        "note": "([[W-66|牽制スキル]])",
+        "tags": "牽制",
+        "id": "SKILL_E24",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E24",
+          "tags": [
+            "牽制"
+          ],
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-25",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-27|戦闘開始時]]):対象に、ラウンド終了時まで攻撃スキルの威力+1の効果を与える。",
+        "note": "[[W-68|同陣営指定]]スキル。[[W-67|非ダメージ]]スキル。",
+        "tags": "非ダメージ, 同陣営指定",
+        "id": "SKILL_E25",
+        "target_scope": "same_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E25",
+          "tags": [
+            "非ダメージ",
+            "同陣営指定",
+            "non_damage"
+          ],
+          "target_scope": "same_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "END_ROUND",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-32",
+              "lasting": 1,
+              "delay": 0,
+              "data": {
+                "value": 1
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-26",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):対象の[[W-32|速度値]]が4以下なら、5ダメージ。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E26",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E26",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "DAMAGE_BONUS",
+              "target": "target",
+              "value": 5,
+              "condition": {
+                "source": "target",
+                "param": "速度値",
+                "operator": "LTE",
+                "value": 4
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-27",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):対象に次の[[W-16|ラウンド]]で[[W-15|減速]]2を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E27",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E27",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-12",
+              "lasting": 1,
+              "delay": 1,
+              "data": {
+                "count": 2
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-28",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):対象に[[W-00|出血]]8を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E28",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E28",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 8
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-29",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):対象に次の[[W-16|ラウンド]]で[[W-15|減速]]3を付与。対象に[[W-00|出血]]があるなら、さらに次の[[W-16|ラウンド]]で[[W-15|減速]]2を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E29",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E29",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-12",
+              "lasting": 1,
+              "delay": 1,
+              "data": {
+                "count": 3
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-12",
+              "lasting": 1,
+              "delay": 1,
+              "data": {
+                "count": 2
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-12",
+              "lasting": 1,
+              "delay": 1,
+              "condition": {
+                "source": "target",
+                "param": "出血",
+                "operator": "GTE",
+                "value": 1
+              },
+              "data": {
+                "count": 2
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-30",
+      "input": {
+        "cost": "",
+        "trigger": "",
+        "note": "[[W-32|速度値]]が3以下のキャラクターとマッチ進行時、このスキルの[[W-50|基礎威力]]+4。",
+        "tags": "広域",
+        "id": "SKILL_E30",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E30",
+          "tags": [
+            "広域"
+          ],
+          "target_scope": "opposing_team",
+          "power_bonus": [
+            {
+              "operation": "FIXED",
+              "value": 4,
+              "condition": {
+                "source": "target",
+                "param": "速度値",
+                "operator": "LTE",
+                "value": 3
+              }
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-31",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):[[W-02|破裂]]3を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E31",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E31",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-32",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):対象の特徴に「瓦礫」があるなら、その最大HPと同じ値のダメージを与える。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_E32",
+        "target_scope": "any"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_E32",
+          "target_scope": "any",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "DEAL_TARGET_MAX_HP_DAMAGE",
+              "condition": {
+                "source": "target",
+                "param": "tag_ids",
+                "operator": "CONTAINS",
+                "value": "瓦礫"
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "E-33",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):[[W-02|破裂]]10を付与。3[[W-16|ラウンド]]の[[W-04|亀裂]]3を付与。",
+        "note": "([[W-27|戦闘開始時]]):フィールドに存在する全ての「鉄交じりの瓦礫」のHPを0にする。その後、存在していた「鉄交じりの瓦礫」が1体につき1、このラウンドで自身が使うスキルの[[W-52|最終威力]]をアップする。",
+        "tags": "",
+        "id": "SKILL_E33",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": null,
+        "errors": [
+          {
+            "column": "特記",
+            "line": "その後、存在していた「鉄交じりの瓦礫」が1体につき1、このラウンドで自身が使うスキルの最終威力をアップする",
+            "reason": "特記を解釈できません。対応文型（条件付き固定加算 / Nごと加算 / timing付き効果）で記述してください。"
+          }
+        ]
+      }
+    },
+    {
+      "name": "E-34",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-19|使用時]]):次の[[W-25|ラウンド開始時]]、「鉄交じりの瓦礫」２体を[[W-61|召喚]]する。",
+        "note": "この攻撃はランダムな相手陣営キャラクターを対象に発動する。",
+        "tags": "",
+        "id": "SKILL_E34",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": null,
+        "errors": [
+          {
+            "column": "特記",
+            "line": "この攻撃はランダムな相手陣営キャラクターを対象に発動する",
+            "reason": "特記を解釈できません。対応文型（条件付き固定加算 / Nごと加算 / timing付き効果）で記述してください。"
+          }
+        ]
+      }
+    },
+    {
+      "name": "E-35",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):対象の特徴に「瓦礫」があるなら、20ダメージを与える。",
+        "note": "このスキルは、特徴に「瓦礫」を持つキャラクターを対象として発動する。",
+        "tags": "",
+        "id": "SKILL_E35",
+        "target_scope": "any"
+      },
+      "expected": {
+        "rule": null,
+        "errors": [
+          {
+            "column": "特記",
+            "line": "このスキルは、特徴に「瓦礫」を持つキャラクターを対象として発動する",
+            "reason": "特記を解釈できません。対応文型（条件付き固定加算 / Nごと加算 / timing付き効果）で記述してください。"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Mb-00",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-26|ラウンド終了時]]):FPを1得る。MPを1得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mb00",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb00",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "END_ROUND",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 1
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "MP",
+              "value": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-01",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。",
+        "trigger": "([[W-20|的中時]]):[[W-02|破裂]]5を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mb01",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb01",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 5
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-02",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。",
+        "trigger": "([[W-21|マッチ勝利時]]):[[W-02|破裂]]6を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mb02",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb02",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 6
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-03",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。FPを1消費。",
+        "trigger": "",
+        "note": "対象の[[W-02|破裂]]3につき、このスキルの[[W-50|基礎威力]]+1(最大で2)",
+        "tags": "",
+        "id": "SKILL_Mb03",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb03",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "破裂",
+              "value": 1,
+              "per_N": 3,
+              "max_bonus": 2
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-04",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを3消費。FPを2消費。",
+        "trigger": "([[W-20|的中時]]):[[W-03|破裂爆発]]。",
+        "note": "対象の[[W-02|破裂]]5につき、このスキルの[[W-50|基礎威力]]+1(最大で3)",
+        "tags": "",
+        "id": "SKILL_Mb04",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb04",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 3
+            },
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "破裂",
+              "value": 1,
+              "per_N": 5,
+              "max_bonus": 3
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "破裂爆発"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-05",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを3消費。FPを2消費。",
+        "trigger": "([[W-21|マッチ勝利時]]):[[W-02|破裂]]8を付与。([[W-20|的中時]]):[[W-02|破裂]]6を付与。",
+        "note": "対象の[[W-02|破裂]]4につき、このスキルの[[W-50|基礎威力]]+1(最大で2)",
+        "tags": "",
+        "id": "SKILL_Mb05",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb05",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 3
+            },
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "破裂",
+              "value": 1,
+              "per_N": 4,
+              "max_bonus": 2
+            }
+          ],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 8
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 6
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-06",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。FPを1消費。",
+        "trigger": "([[W-19|使用時]]):対象に次の[[W-16|ラウンド]]の間[[W-13|挑発]]を付与し、対象が受けるダメージを20%上げる。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mb06",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb06",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-01",
+              "lasting": 1,
+              "delay": 1
+            },
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-43",
+              "lasting": 1,
+              "delay": 1,
+              "data": {
+                "value": 20
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-07",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを1消費。FPを1消費。",
+        "trigger": "([[W-20|的中時]]):対象に、「付与から数えて3回目の[[W-16|ラウンド]]終了時に自身に[[W-03|破裂爆発]]を起こす」状態を与える。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mb07",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb07",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 1
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "END_ROUND",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "破裂爆発"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-08",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを4消費。FPを2消費。",
+        "trigger": "([[W-20|的中時]]):対象の[[W-02|破裂]]が20以下なら、対象の[[W-02|破裂]][[W-49|威力]]を2倍にする。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mb08",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb08",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 4
+            },
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "MULTIPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 2
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-09",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。FPを1消費。",
+        "trigger": "([[W-20|的中時]]):対象に次のラウンドで[[W-15|減速]]1を付与。対象に[[W-02|破裂]]3を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mb09",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb09",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-12",
+              "lasting": 1,
+              "delay": 1,
+              "data": {
+                "count": 1
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-10",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを3消費。",
+        "trigger": "([[W-20|的中時]]):対象に次のラウンドで[[W-15|減速]]2を付与。対象のこの[[W-16|ラウンド]]における[[W-32|速度値]]が4以下なら、[[W-02|破裂]]8を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mb10",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb10",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-12",
+              "lasting": 1,
+              "delay": 1,
+              "data": {
+                "count": 2
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 8
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-11",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。",
+        "trigger": "([[W-20|的中時]]):[[W-75|凝魔]]4を得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mb11",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb11",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-31",
+              "data": {
+                "count": 4
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-12",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを1消費。",
+        "trigger": "([[W-19|使用時]]):自分の[[W-75|凝魔]]を3消費し、MPを5回復する。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mb12",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb12",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "MP",
+              "value": 5
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mb-13",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費。",
+        "trigger": "([[W-19|使用時]]):自分の[[W-75|凝魔]]を可能な限り消費し(最大で5)、消費した値だけこのスキルの最終威力を上昇させる。([[W-20|的中時]]):[[W-02|破裂]]6を付与。",
+        "note": "対象の[[W-02|破裂]]4につき、このスキルの[[W-50|基礎威力]]+1(最大で3)",
+        "tags": "",
+        "id": "SKILL_Mb13",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mb13",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "破裂",
+              "value": 1,
+              "per_N": 4,
+              "max_bonus": 3
+            }
+          ],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "CONSUME_BUFF_COUNT_FOR_POWER",
+              "target": "self",
+              "buff_name": "凝魔",
+              "consume_max": 5,
+              "value_per_stack": 1,
+              "apply_to": "final",
+              "min_consume": 1
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 6
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-00",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-26|ラウンド終了時]]):FPを1得る。MPを1得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mp00",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mp00",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "END_ROUND",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 1
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "MP",
+              "value": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-01",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。",
+        "trigger": "([[W-20|的中時]]):2ラウンドの[[W-04|亀裂]]1を付与",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mp01",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mp01",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 1,
+              "rounds": 2
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-02",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。",
+        "trigger": "([[W-21|マッチ勝利時]]):5ラウンドの[[W-04|亀裂]]1を付与",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mp02",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mp02",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 1,
+              "rounds": 5
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-03",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。FPを1消費。",
+        "trigger": "([[W-20|的中時]]):自分のFPが3以上あるなら、4ラウンドの[[W-04|亀裂]]2を付与。",
+        "note": "対象の[[W-04|亀裂]]1につき、このスキルの[[W-50|基礎威力]]+1(最大で2)",
+        "tags": "",
+        "id": "SKILL_Mp03",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mp03",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "亀裂",
+              "value": 1,
+              "per_N": 1,
+              "max_bonus": 2
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "亀裂",
+              "value": 2,
+              "rounds": 4
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-04",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを4消費。FPを3消費。",
+        "trigger": "([[W-20|的中時]]):[[W-05|亀裂崩壊]]。消費した[[W-04|亀裂]]1につき4ダメージ。",
+        "note": "対象の[[W-04|亀裂]]1につき、このスキルの[[W-50|基礎威力]]+1(最大で3)",
+        "tags": "",
+        "id": "SKILL_Mp04",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mp04",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 4
+            },
+            {
+              "type": "FP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "亀裂",
+              "value": 1,
+              "per_N": 1,
+              "max_bonus": 3
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "亀裂崩壊_DAMAGE",
+              "damage_per_fissure": 3
+            },
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "亀裂崩壊_DAMAGE",
+              "damage_per_fissure": 4
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-05",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを3消費。FPを2消費。",
+        "trigger": "([[W-21|マッチ勝利時]]):この[[W-16|ラウンド]]で自分が付与する[[W-04|亀裂]]の値に+1。([[W-20|的中時]]):4ラウンドの[[W-04|亀裂]]2を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mp05",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mp05",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 3
+            },
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-41",
+              "lasting": 999,
+              "data": {
+                "display_name": "突き崩す（亀裂付与量アップ単発）",
+                "value": 1
+              },
+              "count": 1
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 2,
+              "rounds": 4
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-06",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを1消費。FPを1消費。",
+        "trigger": "([[W-20|的中時]]):自分の[[W-06|戦慄]]2につき1の3ラウンド継続する[[W-04|亀裂]]を付与。(最大で2)",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mp06",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mp06",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 1
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE_PER_N",
+              "target": "target",
+              "state_name": "亀裂",
+              "source": "self",
+              "source_param": "戦慄",
+              "value": 1,
+              "per_N": 2,
+              "rounds": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-07",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを1消費。",
+        "trigger": "([[W-20|的中時]]):自分に[[W-06|戦慄]]6を付与。",
+        "note": "自分に[[W-06|戦慄]]があるならこのスキルの[[W-50|基礎威力]]-5",
+        "tags": "",
+        "id": "SKILL_Mp07",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mp07",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "self",
+              "param": "戦慄",
+              "value": -5,
+              "threshold": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "戦慄",
+              "value": 6
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-08",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを6消費。FPを4消費。",
+        "trigger": "([[W-20|的中時]]):4ラウンドの[[W-04|亀裂]]3を付与。([[W-22|マッチ敗北時]]):5ラウンドの[[W-04|亀裂]]1を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mp08",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mp08",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 6
+            },
+            {
+              "type": "FP",
+              "value": 4
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 3,
+              "rounds": 4
+            },
+            {
+              "timing": "LOSE",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 1,
+              "rounds": 5
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-09",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを3消費。",
+        "trigger": "([[W-20|的中時]]):FPを1消費し、このスキルを[[W-58|再使用]]。(この効果による[[W-58|再使用]]は2回まで)",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mp09",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mp09",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "USE_SKILL_AGAIN",
+              "target": "self",
+              "consume_cost": false,
+              "reuse_cost": [
+                {
+                  "type": "FP",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "timing": "HIT",
+              "type": "USE_SKILL_AGAIN",
+              "target": "self",
+              "consume_cost": false,
+              "max_reuses": 2
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-10",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを1消費。FPを2消費。",
+        "trigger": "([[W-21|マッチ勝利時]]):対象に戦慄3を付与。([[W-20|的中時]]):自分はFPを1得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Mp10",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Mp10",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 1
+            },
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "戦慄",
+              "value": 3
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-11",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。",
+        "trigger": "([[W-20|的中時]]):自分は[[W-75|凝魔]]3を得る。対象に[[W-04|亀裂]]があるなら、さらに[[W-75|凝魔]]1を得る。",
+        "note": "",
+        "tags": "",
+        "id": "",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-31",
+              "data": {
+                "count": 3
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-31",
+              "condition": {
+                "source": "target",
+                "param": "亀裂",
+                "operator": "GTE",
+                "value": 1
+              },
+              "data": {
+                "count": 1
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-12",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。FPを1消費。",
+        "trigger": "([[W-21|マッチ勝利時]]):自分は[[W-75|凝魔]]4を得る。([[W-20|的中時]]):対象の[[W-04|亀裂]]が3以上なら、自分は[[W-75|凝魔]]2を得る。",
+        "note": "",
+        "tags": "",
+        "id": "",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-31",
+              "data": {
+                "count": 4
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-31",
+              "condition": {
+                "source": "target",
+                "param": "亀裂",
+                "operator": "GTE",
+                "value": 3
+              },
+              "data": {
+                "count": 2
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-13",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを3消費。FPを1消費。",
+        "trigger": "([[W-20|的中時]]):自分の[[W-75|凝魔]]8を消費し、対象に6[[W-16|ラウンド]]の[[W-04|亀裂]]2を付与。[[W-75|凝魔]]が不足している場合、この効果は発生しない。",
+        "note": "",
+        "tags": "",
+        "id": "",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 3
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CONSUME_BUFF_COUNT_FOR_GAIN",
+              "target": "self",
+              "buff_name": "凝魔",
+              "consume_required": 8,
+              "gains": [
+                {
+                  "type": "APPLY_STATE",
+                  "target": "target",
+                  "state_name": "亀裂",
+                  "value": 2,
+                  "rounds": 6
+                }
+              ]
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Mp-14",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを4消費。FPを1消費。",
+        "trigger": "([[W-20|的中時]]):自分の[[W-75|凝魔]]8を消費し、このスキルを[[W-58|再使用]](この効果による[[W-58|再使用]]は1回まで)。[[W-75|凝魔]]が不足している場合、この効果は発生しない。",
+        "note": "対象に[[W-04|亀裂]]があるなら、このスキルの[[W-50|基礎威力]]+1。",
+        "tags": "",
+        "id": "",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 4
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "target",
+              "param": "亀裂",
+              "value": 1,
+              "threshold": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "USE_SKILL_AGAIN",
+              "target": "self",
+              "consume_cost": false,
+              "max_reuses": 1,
+              "stack_reuse_cost": {
+                "buff_name": "凝魔",
+                "value": 8
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-00",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-26|ラウンド終了時]]):FPを1得る。MPを1得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ms00",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms00",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "END_ROUND",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 1
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "MP",
+              "value": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-01",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。",
+        "trigger": "([[W-20|的中時]]):[[W-00|出血]]4を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ms01",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms01",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 4
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-02",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。",
+        "trigger": "([[W-20|的中時]]):対象に[[W-00|出血]]があるなら、[[W-00|出血]]4を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ms02",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms02",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 4
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-03",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを3消費。FPを1消費。",
+        "trigger": "([[W-20|的中時]]):対象の[[W-00|出血]]が5以上なら、5ダメージを与える。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ms03",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms03",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 3
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "DAMAGE_BONUS",
+              "target": "target",
+              "value": 5,
+              "condition": {
+                "source": "target",
+                "param": "出血",
+                "operator": "GTE",
+                "value": 5
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-04",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを4消費。FPを2消費。",
+        "trigger": "([[W-20|的中時]]):[[W-00|出血]]8を付与。自分のFPが5以上なら、[[W-01|出血氾濫]]。 ",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ms04",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms04",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 4
+            },
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 8
+            },
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "self",
+              "value": "出血氾濫"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-05",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを4消費。FPを2消費。",
+        "trigger": "([[W-20|的中時]]):[[W-00|出血]]6を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ms05",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms05",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 4
+            },
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 6
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-06",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを3消費。",
+        "trigger": "([[W-20|的中時]]):対象に[[W-04|亀裂]]が5以上あるなら、10ダメージ。対象に[[W-02|破裂]]が10以上あるなら、10ダメージ。対象に[[W-00|出血]]が15以上あるなら、10ダメージ。",
+        "note": "対象の[[W-04|亀裂]]1につき[[W-50|基礎威力]]+1(最大で5)。対象の[[W-02|破裂]]2につき[[W-50|基礎威力]]+1(最大で5)。対象の[[W-00|出血]]3につき[[W-50|基礎威力]]+1(最大で5)。",
+        "tags": "",
+        "id": "SKILL_Ms06",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms06",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "亀裂",
+              "value": 1,
+              "per_N": 1,
+              "max_bonus": 5
+            },
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "破裂",
+              "value": 1,
+              "per_N": 2,
+              "max_bonus": 5
+            },
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "出血",
+              "value": 1,
+              "per_N": 3,
+              "max_bonus": 5
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "DAMAGE_BONUS",
+              "target": "target",
+              "value": 10,
+              "condition": {
+                "source": "target",
+                "param": "亀裂",
+                "operator": "GTE",
+                "value": 5
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "DAMAGE_BONUS",
+              "target": "target",
+              "value": 10,
+              "condition": {
+                "source": "target",
+                "param": "破裂",
+                "operator": "GTE",
+                "value": 10
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "DAMAGE_BONUS",
+              "target": "target",
+              "value": 10,
+              "condition": {
+                "source": "target",
+                "param": "出血",
+                "operator": "GTE",
+                "value": 15
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-07",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを5消費。FPを1消費。",
+        "trigger": "([[W-20|的中時]]):[[W-00|出血]]5を付与。対象に2[[W-16|ラウンド]]の[[W-12|出血遷延]]を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ms07",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms07",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 5
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 5
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-08"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-08",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを3消費。HPを8消費。",
+        "trigger": "([[W-20|的中時]]):[[W-01|出血氾濫]]。",
+        "note": "対象の[[W-00|出血]]2につき[[W-50|基礎威力]]+1(最大で3)",
+        "tags": "",
+        "id": "SKILL_Ms08",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms08",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 3
+            },
+            {
+              "type": "HP",
+              "value": 8
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "出血",
+              "value": 1,
+              "per_N": 2,
+              "max_bonus": 3
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "self",
+              "value": "出血氾濫"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-09",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。HPを6消費。FPを2消費。",
+        "trigger": "([[W-20|的中時]]):自分に[[W-01|出血氾濫]]。([[W-21|マッチ勝利時]]):自分の[[W-00|出血]]の二倍の値の[[W-00|出血]]を対象に付与。",
+        "note": "自分の[[W-00|出血]]2につきダイス威力-1(最小で-5)。自分に[[W-00|出血]]が2以上ないなら[[W-50|基礎威力]]-7。",
+        "tags": "",
+        "id": "SKILL_Ms09",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms09",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            },
+            {
+              "type": "HP",
+              "value": 6
+            },
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "self",
+              "param": "出血",
+              "apply_to": "dice",
+              "value": -1,
+              "per_N": 2,
+              "min_bonus": -5
+            },
+            {
+              "operation": "FIXED",
+              "value": -7,
+              "condition": {
+                "source": "self",
+                "param": "出血",
+                "operator": "LT",
+                "value": 2
+              }
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "self",
+              "value": "出血氾濫"
+            },
+            {
+              "timing": "WIN",
+              "type": "APPLY_STATE_PER_N",
+              "target": "target",
+              "state_name": "出血",
+              "source": "self",
+              "source_param": "出血",
+              "value": 2,
+              "per_N": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-10",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。HPを5消費。",
+        "trigger": "([[W-19|使用時]]):自分に[[W-00|出血]]6を付与。 ([[W-20|的中時]]):与えたダメージの値、自分のHPを回復する。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ms10",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms10",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            },
+            {
+              "type": "HP",
+              "value": 5
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "出血",
+              "value": 6
+            },
+            {
+              "timing": "HIT",
+              "type": "DRAIN_HP",
+              "target": "self",
+              "value": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-11",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを3消費。",
+        "trigger": "([[W-19|使用時]]):自分は8ダメージを受け、[[W-75|凝魔]]5を得る。([[W-20|的中時]]):[[W-00|出血]]4を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ms11",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms11",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "HP",
+              "value": -8
+            },
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-31",
+              "data": {
+                "count": 5
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 4
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-12",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを2消費。FPを1消費。",
+        "trigger": "([[W-21|マッチ勝利時]]):[[W-75|凝魔]]4を得る。([[W-20|的中時]]):[[W-75|凝魔]]2を消費し、MPを2得る。",
+        "note": "対象に[[W-00|出血]]があるならこのスキルの基礎威力+2。",
+        "tags": "",
+        "id": "SKILL_Ms12",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms12",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 2
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "target",
+              "param": "出血",
+              "value": 2,
+              "threshold": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-31",
+              "data": {
+                "count": 4
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "CONSUME_BUFF_COUNT_FOR_GAIN",
+              "target": "self",
+              "buff_name": "凝魔",
+              "consume_required": 2,
+              "gains": [
+                {
+                  "type": "MP",
+                  "value": 2
+                }
+              ]
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-13",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを4消費。",
+        "trigger": "([[W-20|的中時]]):[[W-75|凝魔]]10を消費し、対象に3[[W-16|ラウンド]]の[[W-12|出血遷延]]を付与。([[W-20|的中時]]):[[W-00|出血]]3を付与。",
+        "note": "自分の[[W-75|凝魔]]2につきこのスキルの基礎威力+1。（最大で8）",
+        "tags": "",
+        "id": "SKILL_Ms13",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms13",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 4
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "self",
+              "param": "凝魔_count",
+              "value": 1,
+              "per_N": 2,
+              "max_bonus": 8
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CONSUME_BUFF_COUNT_FOR_GAIN",
+              "target": "self",
+              "buff_name": "凝魔",
+              "consume_required": 10,
+              "gains": [
+                {
+                  "type": "APPLY_BUFF",
+                  "target": "target",
+                  "buff_id": "Bu-08",
+                  "lasting": 3
+                }
+              ]
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ms-14",
+      "input": {
+        "cost": "([[W-19|使用時]]):MPを3消費。FPを1消費。",
+        "trigger": "([[W-19|使用時]]):自分の失ったHP10につき1、[[W-75|凝魔]]を得る。([[W-26|ラウンド終了時]]):[[W-79|血漿転化]]。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ms14",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ms14",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "MP",
+              "value": 3
+            },
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_BUFF_PER_N",
+              "target": "self",
+              "source": "self",
+              "source_param": "lost_hp",
+              "buff_id": "Bu-31",
+              "value": 1,
+              "per_N": 10,
+              "max_count": 9999
+            },
+            {
+              "timing": "END_ROUND",
+              "type": "CONVERT_STACK_RESOURCE_VARIANT",
+              "target": "self",
+              "buff_name": "凝魔",
+              "to_variant": "blood_plasma",
+              "require_count_gte": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-00",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-26|ラウンド終了時]]):FPを2得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pb00",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb00",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "END_ROUND",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 2
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-01",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを1消費",
+        "trigger": "([[W-20|的中時]]):[[W-02|破裂]]5を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pb01",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb01",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 5
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-02",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-20|的中時]]):[[W-02|破裂]]7を付与。対象の[[W-02|破裂]]が8以上なら、[[W-02|破裂]]5を付与。",
+        "note": "対象に[[W-02|破裂]]があるなら[[W-50|基礎威力]]+1。",
+        "tags": "",
+        "id": "SKILL_Pb02",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb02",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "target",
+              "param": "破裂",
+              "value": 1,
+              "threshold": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 7
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 5
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-03",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-21|マッチ勝利時]]):[[W-02|破裂]]10を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pb03",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb03",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 10
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-04",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを3消費",
+        "trigger": "([[W-20|的中時]]):相手の[[W-02|破裂]]が10以上なら、[[W-03|破裂爆発]]。",
+        "note": "対象の[[W-02|破裂]]5につき[[W-50|基礎威力]]+1(最大で3)",
+        "tags": "",
+        "id": "SKILL_Pb04",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb04",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "破裂",
+              "value": 1,
+              "per_N": 5,
+              "max_bonus": 3
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "破裂爆発",
+              "condition": {
+                "source": "target",
+                "param": "破裂",
+                "operator": "GTE",
+                "value": 10
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-05",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを4消費",
+        "trigger": "([[W-20|的中時]]):[[W-03|破裂爆発]]。この[[W-03|破裂爆発]]は対象の[[W-02|破裂]]威力を半分にする。[[W-03|破裂爆発]]。",
+        "note": "対象の[[W-02|破裂]]5につき[[W-50|基礎威力]]+1(最大で3)",
+        "tags": "",
+        "id": "SKILL_Pb05",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb05",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 4
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "破裂",
+              "value": 1,
+              "per_N": 5,
+              "max_bonus": 3
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "破裂爆発",
+              "rupture_remainder_ratio": 0.5
+            },
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "破裂爆発"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-06",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-19|使用時]]):次の[[W-16|ラウンド]]で、自分に[[W-13|挑発]]を付与する。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pb06",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb06",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-01",
+              "lasting": 1,
+              "delay": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-07",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを4消費",
+        "trigger": "([[W-20|的中時]]):[[W-03|破裂爆発]]。[[W-05|亀裂崩壊]]。消費した[[W-04|亀裂]]1につき3ダメージ。",
+        "note": "対象に[[W-02|破裂]]があるなら[[W-50|基礎威力]]+3。対象に[[W-04|亀裂]]があるなら[[W-50|基礎威力]]+3。",
+        "tags": "",
+        "id": "SKILL_Pb07",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb07",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 4
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "target",
+              "param": "破裂",
+              "value": 3,
+              "threshold": 1
+            },
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "target",
+              "param": "亀裂",
+              "value": 3,
+              "threshold": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "破裂爆発"
+            },
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "亀裂崩壊_DAMAGE",
+              "damage_per_fissure": 3
+            },
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "亀裂崩壊_DAMAGE",
+              "damage_per_fissure": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-08",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20|的中時]]):[[W-02|破裂]]2を付与。",
+        "note": "対象に[[W-02|破裂]]がないなら[[W-50|基礎威力]]+2。",
+        "tags": "",
+        "id": "SKILL_Pb08",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb08",
+          "target_scope": "opposing_team",
+          "power_bonus": [
+            {
+              "operation": "FIXED",
+              "value": 2,
+              "condition": {
+                "source": "target",
+                "param": "破裂",
+                "operator": "EQUALS",
+                "value": 0
+              }
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 2
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-09",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-20|的中時]]):3ラウンドの[[W-04|亀裂]]1を付与。",
+        "note": "対象に[[W-02|破裂]]があるなら[[W-50|基礎威力]]+1。",
+        "tags": "",
+        "id": "SKILL_Pb09",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb09",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "target",
+              "param": "破裂",
+              "value": 1,
+              "threshold": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 1,
+              "rounds": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-10",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを4消費",
+        "trigger": "([[W-22|マッチ敗北時]]):FPを2得る。([[W-20|的中時]]) [[W-03|破裂爆発]]。この[[W-03|破裂爆発]]は対象の[[W-02|破裂]][[W-49|威力]]を半分にする。",
+        "note": "対象の[[W-02|破裂]][[W-49|威力]]の値だけ[[W-50|基礎威力]]を加算（最大で30）。",
+        "tags": "",
+        "id": "SKILL_Pb10",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb10",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 4
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "MULTIPLY",
+              "source": "target",
+              "param": "破裂",
+              "value_per_param": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "LOSE",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 2
+            },
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "破裂爆発",
+              "rupture_remainder_ratio": 0.5
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-11",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費。MPを3消費。",
+        "trigger": "([[W-21|マッチ勝利時]]):2スタックの[[W-64|震盪]]を付与。3ラウンド継続。([[W-20|的中時]]):破裂3を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pb11",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb11",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            },
+            {
+              "type": "MP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-29",
+              "lasting": 3,
+              "delay": 0
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-12",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費。",
+        "trigger": "([[W-19|使用時]]):[[W-74|蓄力]]5を得る。([[W-20|的中時]]):[[W-02|破裂]]2を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pb12",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb12",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-30",
+              "data": {
+                "count": 5
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 2
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-13",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを1消費。",
+        "trigger": "([[W-20|的中時]]):[[W-02|破裂]]4を付与。([[W-20|的中時]]):[[W-00|出血]]3を付与。",
+        "note": "([[W-19|使用時]]):[[W-74|蓄力]]2を消費し、このスキルの基礎威力+3。",
+        "tags": "",
+        "id": "SKILL_Pb13",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb13",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 4
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 3
+            },
+            {
+              "timing": "PRE_MATCH",
+              "type": "MODIFY_BASE_POWER",
+              "target": "self",
+              "value": 3,
+              "condition": {
+                "source": "self",
+                "param": "蓄力_count",
+                "operator": "GTE",
+                "value": 2
+              }
+            },
+            {
+              "timing": "PRE_MATCH",
+              "type": "CONSUME_BUFF_COUNT_FOR_GAIN",
+              "target": "self",
+              "buff_name": "蓄力",
+              "consume_required": 2,
+              "gains": []
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-14",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費。",
+        "trigger": "([[W-20|的中時]]):対象の[[W-02|破裂]]と[[W-00|出血]]の合計値3につき1、[[W-74|蓄力]]を得る。（最大で7）",
+        "note": "自分の[[W-74|蓄力]]3につきこのスキルの最終威力+1。(最大で7)",
+        "tags": "",
+        "id": "SKILL_Pb14",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb14",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "self",
+              "param": "蓄力_count",
+              "apply_to": "final",
+              "value": 1,
+              "per_N": 3,
+              "max_bonus": 7
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF_PER_N",
+              "target": "self",
+              "source": "target",
+              "source_param": "状態異常スタック合計:破裂,出血",
+              "buff_id": "Bu-30",
+              "value": 1,
+              "per_N": 3,
+              "max_count": 7
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pb-15",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを3消費。",
+        "trigger": "([[W-19|使用時]]):[[W-81|爆破誘導]]。([[W-21|マッチ勝利時]]):[[W-02|破裂]]6を付与。",
+        "note": "対象に[[W-02|破裂]]があるならこのスキルの[[W-50|基礎威力]]+2。",
+        "tags": "",
+        "id": "SKILL_Pb15",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pb15",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "target",
+              "param": "破裂",
+              "value": 2,
+              "threshold": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "CONVERT_STACK_RESOURCE_VARIANT",
+              "target": "self",
+              "buff_name": "蓄力",
+              "to_variant": "burst_guidance",
+              "require_count_gte": 1
+            },
+            {
+              "timing": "WIN",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 6
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-00",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-26|ラウンド終了時]]):FPを2得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pp00",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp00",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "END_ROUND",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 2
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-01",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを1消費",
+        "trigger": "",
+        "note": "対象に[[W-04|亀裂]]があるなら[[W-50|基礎威力]]+1",
+        "tags": "",
+        "id": "SKILL_Pp01",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp01",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "target",
+              "param": "亀裂",
+              "value": 1,
+              "threshold": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-02",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-20|的中時]]):3ラウンドの[[W-04|亀裂]]1を付与。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pp02",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp02",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 1,
+              "rounds": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-03",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-19|使用時]]):次にこのキャラクターが付与する[[W-04|亀裂]]の値+2",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pp03",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp03",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-41",
+              "lasting": 999,
+              "data": {
+                "display_name": "突き崩す（亀裂付与量アップ単発）",
+                "value": 2
+              },
+              "count": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-04",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを3消費",
+        "trigger": "([[W-20|的中時]]):4ラウンドの[[W-04|亀裂]]1を付与",
+        "note": "対象の[[W-04|亀裂]]1につき[[W-50|基礎威力]]+1(最大で3)。",
+        "tags": "",
+        "id": "SKILL_Pp04",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp04",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "亀裂",
+              "value": 1,
+              "per_N": 1,
+              "max_bonus": 3
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 1,
+              "rounds": 4
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-05",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを4消費",
+        "trigger": "([[W-20|的中時]]):[[W-05|亀裂崩壊]]。消費した[[W-04|亀裂]]1につき3ダメージ。",
+        "note": "対象の[[W-04|亀裂]]1につき[[W-50|基礎威力]]+1(最大で3)。",
+        "tags": "",
+        "id": "SKILL_Pp05",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp05",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 4
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "亀裂",
+              "value": 1,
+              "per_N": 1,
+              "max_bonus": 3
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "亀裂崩壊_DAMAGE",
+              "damage_per_fissure": 3
+            },
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "亀裂崩壊_DAMAGE",
+              "damage_per_fissure": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-06",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを4消費",
+        "trigger": "([[W-20|的中時]]):[[W-05|亀裂崩壊]]。消費した[[W-04|亀裂]]4につき1回、[[W-03|破裂爆発]]。",
+        "note": "対象の[[W-04|亀裂]]1につき[[W-50|基礎威力]]+1(最大で3)。このスキルを使用している間、相手の[[W-02|破裂]][[W-49|威力]]は減少しない。",
+        "tags": "",
+        "id": "SKILL_Pp06",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp06",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 4
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "亀裂",
+              "value": 1,
+              "per_N": 1,
+              "max_bonus": 3
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "亀裂崩壊_DAMAGE",
+              "damage_per_fissure": 3
+            },
+            {
+              "timing": "HIT",
+              "type": "CUSTOM_EFFECT",
+              "target": "target",
+              "value": "破裂爆発"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-07",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを1消費",
+        "trigger": "([[W-20|的中時]]):対象の[[W-04|亀裂]]1につき[[W-00|出血]]2を付与。(最大で10)",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pp07",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp07",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE_PER_N",
+              "target": "target",
+              "state_name": "出血",
+              "source": "target",
+              "source_param": "亀裂",
+              "value": 2,
+              "per_N": 1
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 2
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-08",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを3消費",
+        "trigger": "([[W-21|マッチ勝利時]]):4ラウンドの[[W-04|亀裂]]2を付与。",
+        "note": "対象に[[W-04|亀裂]]があるなら[[W-50|基礎威力]]+1。",
+        "tags": "",
+        "id": "SKILL_Pp08",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp08",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "target",
+              "param": "亀裂",
+              "value": 1,
+              "threshold": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 2,
+              "rounds": 4
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-09",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-19|使用時]]):FPを1得る。 ([[W-21|マッチ勝利時]]):FPを1得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pp09",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp09",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 1
+            },
+            {
+              "timing": "WIN",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-10",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを3消費",
+        "trigger": "",
+        "note": "対象の[[W-04|亀裂]]2につき[[W-51|ダイス威力]]-1（最大で4）。対象の[[W-04|亀裂]]2につき[[W-50|基礎威力]]+1(最大で4)。",
+        "tags": "",
+        "id": "SKILL_Pp10",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp10",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "亀裂",
+              "apply_to": "dice",
+              "value": -1,
+              "per_N": 2,
+              "min_bonus": -4
+            },
+            {
+              "operation": "PER_N_BONUS",
+              "source": "target",
+              "param": "亀裂",
+              "value": 1,
+              "per_N": 2,
+              "max_bonus": 4
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-11",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを1消費。",
+        "trigger": "([[W-19|使用時]]):[[W-74|蓄力]]3を得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pp11",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp11",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-30",
+              "data": {
+                "count": 3
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-12",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費。",
+        "trigger": "([[W-19|使用時]]):[[W-74|蓄力]]4を得る。([[W-20|的中時]]):次のラウンドで、対象の受けるダメージ+20%。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Pp12",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp12",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-30",
+              "data": {
+                "count": 4
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-43",
+              "lasting": 1,
+              "delay": 1,
+              "data": {
+                "value": 20
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-13",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費。",
+        "trigger": "([[W-20|的中時]]):2ラウンドの[[W-04|亀裂]]2を付与。",
+        "note": "([[W-19|使用時]]):[[W-74|蓄力]]3を消費し、このスキルの[[W-50|基礎威力]]+4。",
+        "tags": "",
+        "id": "SKILL_Pp13",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp13",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 2,
+              "rounds": 2
+            },
+            {
+              "timing": "PRE_MATCH",
+              "type": "MODIFY_BASE_POWER",
+              "target": "self",
+              "value": 4,
+              "condition": {
+                "source": "self",
+                "param": "蓄力_count",
+                "operator": "GTE",
+                "value": 3
+              }
+            },
+            {
+              "timing": "PRE_MATCH",
+              "type": "CONSUME_BUFF_COUNT_FOR_GAIN",
+              "target": "self",
+              "buff_name": "蓄力",
+              "consume_required": 3,
+              "gains": []
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Pp-14",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを3消費。",
+        "trigger": "([[W-20|的中時]]):5ラウンドの[[W-04|亀裂]]1を付与。",
+        "note": "対象に[[W-04|亀裂]]があるならこのスキルの[[W-50|基礎威力]]+2。",
+        "tags": "",
+        "id": "SKILL_Pp14",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Pp14",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "target",
+              "param": "亀裂",
+              "value": 2,
+              "threshold": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 1,
+              "rounds": 5
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-00",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-26|ラウンド終了時]]):FPを2得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ps00",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps00",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "END_ROUND",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 2
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-01",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを1消費",
+        "trigger": "([[W-20|的中時]]):[[W-00|出血]]5を付与",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ps01",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps01",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 5
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-02",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを1消費",
+        "trigger": "([[W-20|的中時]]):対象に3ダメージ",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ps02",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps02",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "DAMAGE_BONUS",
+              "target": "target",
+              "value": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-03",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-20|的中時]]):[[W-00|出血]]6を付与",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ps03",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps03",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 6
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-04",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを3消費",
+        "trigger": "([[W-20|的中時]]):[[W-00|出血]]4を付与。自分の速度値が8以上なら、このスキルを[[W-58|再使用]]。(この効果による[[W-58|再使用]]は1ラウンドに1度まで)",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ps04",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps04",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 3
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 4
+            },
+            {
+              "timing": "HIT",
+              "type": "USE_SKILL_AGAIN",
+              "target": "self",
+              "consume_cost": false
+            },
+            {
+              "timing": "HIT",
+              "type": "USE_SKILL_AGAIN",
+              "target": "self",
+              "consume_cost": false
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-05",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを4消費",
+        "trigger": "([[W-21|マッチ勝利時]]):[[W-01|出血氾濫]]。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ps05",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps05",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 4
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "CUSTOM_EFFECT",
+              "target": "self",
+              "value": "出血氾濫"
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-06",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-21|マッチ勝利時]]):[[W-00|出血]]2を付与。FPを1得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ps06",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps06",
+          "target_scope": "opposing_team",
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 2
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-07",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-20|的中時]]):対象に、「スキルで被ダメージ時[[W-00|出血]]3を得る」状態を与える。4[[W-16|ラウンド]]継続。 ([[W-23|一方攻撃時]]):対象に[[W-00|出血]]3を与える。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ps07",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps07",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-47",
+              "lasting": 4,
+              "delay": 0,
+              "data": {
+                "display_name": "抉られた傷",
+                "value": 3
+              }
+            },
+            {
+              "timing": "UNOPPOSED",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-08",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを1消費",
+        "trigger": "([[W-20|的中時]]):[[W-02|破裂]]3を付与。",
+        "note": "対象に[[W-00|出血]]があるなら[[W-50|基礎威力]]+1。",
+        "tags": "",
+        "id": "SKILL_Ps08",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps08",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "target",
+              "param": "出血",
+              "value": 1,
+              "threshold": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "破裂",
+              "value": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-09",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-20|的中時]]):3ラウンドの[[W-04|亀裂]]1を付与。",
+        "note": "対象に[[W-00|出血]]があるなら[[W-50|基礎威力]]+1。",
+        "tags": "",
+        "id": "SKILL_Ps09",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps09",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [
+            {
+              "operation": "FIXED_IF_EXISTS",
+              "source": "target",
+              "param": "出血",
+              "value": 1,
+              "threshold": 1
+            }
+          ],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 1,
+              "rounds": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-10",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-20|的中時]]):[[W-00|出血]]4を付与。([[W-26|ラウンド終了時]]):[[W-14|加速]]2を得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ps10",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps10",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 4
+            },
+            {
+              "timing": "END_ROUND",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-11",
+              "data": {
+                "count": 2
+              },
+              "lasting": 1,
+              "delay": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-11",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを1消費",
+        "trigger": "([[W-19|使用時]]):[[W-74|蓄力]]4を得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ps11",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps11",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 1
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "PRE_MATCH",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-30",
+              "data": {
+                "count": 4
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-12",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-26|ラウンド終了時]]):[[W-74|蓄力]]2を得る。([[W-20|的中時]]):自分に[[W-74|蓄力]]がないなら、[[W-74|蓄力]]5を得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ps12",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps12",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "END_ROUND",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-30",
+              "data": {
+                "count": 2
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-30",
+              "data": {
+                "count": 5
+              }
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-13",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-20|的中時]]):[[W-00|出血]]7を付与。([[W-20|的中時]]):[[W-74|蓄力]]を4消費し、FPを3得る。",
+        "note": "",
+        "tags": "",
+        "id": "SKILL_Ps13",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps13",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "出血",
+              "value": 7
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "self",
+              "state_name": "FP",
+              "value": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "Ps-14",
+      "input": {
+        "cost": "([[W-19|使用時]]):FPを2消費",
+        "trigger": "([[W-21|マッチ勝利時]]):[[W-74|蓄力]]5を得る。([[W-20|的中時]]):[[W-14|加速]]1を得る。",
+        "note": "",
+        "tags": "攻撃",
+        "id": "SKILL_Ps14",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "id": "SKILL_Ps14",
+          "tags": [
+            "攻撃"
+          ],
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "WIN",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-30",
+              "data": {
+                "count": 5
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "self",
+              "buff_id": "Bu-11",
+              "data": {
+                "count": 1
+              },
+              "lasting": 1,
+              "delay": 1
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "forbidden",
+      "input": {
+        "cost": "",
+        "trigger": "命中時: 出血2を付与。",
+        "note": "",
+        "tags": "",
+        "id": "",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": null,
+        "errors": [
+          {
+            "column": "発動時効果",
+            "line": "命中時: 出血2を付与",
+            "reason": "禁止語彙 '中時' を検出しました。'的中時' を使用してください。"
+          }
+        ]
+      }
+    },
+    {
+      "name": "separator",
+      "input": {
+        "cost": "",
+        "trigger": "的中時: 出血2を付与／亀裂1を付与。",
+        "note": "",
+        "tags": "",
+        "id": "",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": null,
+        "errors": [
+          {
+            "column": "発動時効果",
+            "line": "的中時: 出血2を付与／亀裂1を付与。",
+            "reason": "区切り記号は `。` と改行のみ使用できます（`／`は不可）。"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unknown",
+      "input": {
+        "cost": "",
+        "trigger": "的中時: 未知の動作を行う。",
+        "note": "",
+        "tags": "",
+        "id": "",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": null,
+        "errors": [
+          {
+            "column": "発動時効果",
+            "line": "的中時: 未知の動作を行う",
+            "reason": "効果を解釈できません。対応している文型で記述してください。"
+          }
+        ]
+      }
+    },
+    {
+      "name": "wide",
+      "input": {
+        "cost": "使用時: FPを２消費。",
+        "trigger": "的中時: ３ラウンドの亀裂１を付与。",
+        "note": "",
+        "tags": "",
+        "id": "",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": {
+          "schema": "skill_json_rule_v2",
+          "target_scope": "opposing_team",
+          "cost": [
+            {
+              "type": "FP",
+              "value": 2
+            }
+          ],
+          "power_bonus": [],
+          "effects": [
+            {
+              "timing": "HIT",
+              "type": "APPLY_STATE",
+              "target": "target",
+              "state_name": "亀裂",
+              "value": 1,
+              "rounds": 3
+            }
+          ]
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "summon",
+      "input": {
+        "cost": "",
+        "trigger": "的中時: Ｕ未知を召喚する。",
+        "note": "",
+        "tags": "",
+        "id": "",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": null,
+        "errors": [
+          {
+            "column": "発動時効果",
+            "line": "的中時: Ｕ未知を召喚する",
+            "reason": "召喚テンプレート名と個数を明記してください。"
+          }
+        ]
+      }
+    },
+    {
+      "name": "markup",
+      "input": {
+        "cost": "",
+        "trigger": "([[W-20]]):[[W-00]]を5付与。",
+        "note": "",
+        "tags": "",
+        "id": "",
+        "target_scope": "opposing_team"
+      },
+      "expected": {
+        "rule": null,
+        "errors": [
+          {
+            "column": "発動時効果",
+            "line": "(的中時):出血を5付与",
+            "reason": "効果を解釈できません。対応している文型で記述してください。"
+          }
+        ]
+      }
+    }
+  ],
+  "rules_sha256": "f279749f4f11a8886ea5085cc99467651d3d6e88aed776d4255ff8d39d11c6fb"
+}
