@@ -76,6 +76,8 @@ const CLASSIC_SCRIPTS = [
   'js/master_data/catalog_api.js',
   'js/master_data/glossary.js',
   'js/master_data/buff.js',
+  'js/master_data/skill_effects.js',
+  'js/master_data/skill.js',
   'js/master_data/workspace.js',
   'js/main.js',
 ];

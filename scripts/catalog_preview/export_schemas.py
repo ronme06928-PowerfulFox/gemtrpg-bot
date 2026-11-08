@@ -15,9 +15,10 @@ with contextlib.redirect_stdout(sys.stderr):
     from plugins import CUSTOM_EFFECT_SCHEMAS
 
     skills = json.loads((ROOT / "data/cache/skills_cache.json").read_text(encoding="utf-8"))
+    buffs = json.loads((ROOT / "data/cache/buff_catalog_cache.json").read_text(encoding="utf-8"))
     exported = {}
     for skill_id, skill in skills.items():
-        rule = extract_and_normalize_skill_rule_data(skill, strict=True)
+        rule = extract_and_normalize_skill_rule_data(skill, strict=True, buff_resolver=buffs.get)
         exported[skill_id] = {
             "rule": rule,
             "summaries": [render_effect_summary(effect) for effect in rule.get("effects", [])],

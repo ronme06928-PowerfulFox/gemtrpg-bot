@@ -183,3 +183,18 @@ def test_effect_common_schema_has_shared_choices(catalog):
     assert body["common_fields"]["timing"]["options"] == list(EFFECT_TIMINGS)
     assert body["common_fields"]["target"]["options"] == list(EFFECT_TARGETS)
     assert set(body["common_fields"]["condition"]["fields"]) == {"source", "param", "operator", "value"}
+
+
+def test_new_skill_own_palette_id_is_replaced_but_other_drafts_still_block(catalog):
+    draft = repo.create_draft("skill", "author", id_prefix="Ps")
+    repo.update_draft(draft.id, payload(チャットパレット=f"8+1d6+1d{{物理補正}} 【{draft.target_id} 新規スキル】",
+                                      特記="参照 X-abcdef12"))
+    repo.submit_draft(draft.id)
+    with pytest.raises(CatalogValidationError):
+        repo.approve_draft(draft.id, "admin", entry_id="Ps-99")
+    repo.reject_draft(draft.id, "仮IDを修正")
+    repo.update_draft(draft.id, {**draft.payload, "特記": ""})
+    repo.submit_draft(draft.id)
+    published = repo.approve_draft(draft.id, "admin", entry_id="Ps-99")
+    assert "【Ps-99 新規スキル】" in published.payload["チャットパレット"]
+    assert "X-" not in published.payload["チャットパレット"]

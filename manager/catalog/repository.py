@@ -217,7 +217,8 @@ def approve_draft(draft_id, actor_user_id, *, entry_id=None):
             raise CatalogValidationError({"entry_id": "下書きのカテゴリと正式IDの頭が違います"})
         if CatalogEntry.query.filter_by(kind=kind, entry_id=entry_id).first():
             raise CatalogConflictError("正式IDが重複しています", field="entry_id")
-        payload = _validate(kind, draft.payload, entry_id, allow_drafts=False)
+        candidate = replace_draft_id(draft.payload, draft.target_id, entry_id) if kind == "skill" else draft.payload
+        payload = _validate(kind, candidate, entry_id, allow_drafts=False)
         entry = CatalogEntry(kind=kind, entry_id=entry_id, payload=payload,
                              revision=1, deprecated=False)
         db.session.add(entry)

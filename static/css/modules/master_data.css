@@ -162,3 +162,27 @@
 .cat-workspace .buff-body { padding: 10px 12px; background: #fff; }
 .cat-workspace .buff-desc-row { font-weight: 600; color: #334155; font-size: .9em; line-height: 1.5; }
 .cat-workspace .buff-flavor-row { color: #64748b; font-size: .85em; font-style: italic; line-height: 1.4; border-top: 1px dashed #e2e8f0; margin-top: 6px; padding-top: 6px; }
+
+/* スキル専用の分類と、同じ枠内の効果フォーム。 */
+.cat-category-groups { display: grid; gap: 10px; }
+.cat-category-group h3 { margin: 4px 0; }
+.cat-category-group code { min-width: 22px; display: inline-block; color: #64748b; }
+.cat-rule-editor { min-width: 0; padding-top: 14px; border-top: 1px solid #dce3ed; }
+.cat-rule-editor h3 { font-size: 15px; }
+.cat-effect-card { margin-top: 14px; min-width: 0; }
+.cat-effect-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.cat-effect-heading > div { display: flex; gap: 5px; }
+.cat-effect-heading strong { overflow-wrap: anywhere; min-width: 0; }
+.cat-effect-list { margin: 0; padding-left: 20px; overflow-wrap: anywhere; }
+.cat-effect-list li + li { margin-top: 8px; }
+.cat-effect-list small { display: block; color: #64748b; font-size: 11px; }
+.cat-cost-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; align-items: center; gap: 8px; }
+.cat-cost-row .cat-field { margin-bottom: 8px; }
+.cat-new-skill { padding: 24px; max-width: 480px; }
+.cat-workspace .skill-picker-card { cursor: default; overflow-wrap: anywhere; }
+.cat-workspace .skill-card-cost { white-space: pre-wrap; }
+.cat-workspace .skill-detail-card { margin-top: 12px; }
+@container catalog (max-width: 680px) {
+  .cat-workspace .cat-effect-card .cat-field-grid { grid-template-columns: minmax(0,1fr); }
+  .cat-category-group .bo-workspace__nav-list { display: flex; flex-wrap: wrap; }
+}

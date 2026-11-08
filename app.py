@@ -439,10 +439,10 @@ def get_skill():
 
 
 def get_effect_schemas():
-    from manager.battle.effect_handlers import EFFECT_SCHEMAS, COMMON_EFFECT_FIELDS
+    from manager.battle.effect_handlers import EFFECT_SCHEMAS, COMMON_EFFECT_FIELDS, TARGET_LABELS
     from plugins import CUSTOM_EFFECT_SCHEMAS
 
-    return jsonify({"effect_types": EFFECT_SCHEMAS, "custom_effects": CUSTOM_EFFECT_SCHEMAS, "common_fields": COMMON_EFFECT_FIELDS})
+    return jsonify({"effect_types": EFFECT_SCHEMAS, "custom_effects": CUSTOM_EFFECT_SCHEMAS, "common_fields": COMMON_EFFECT_FIELDS, "target_labels": TARGET_LABELS})
 
 
 JSON_BUILDER_STATE_REFS = (

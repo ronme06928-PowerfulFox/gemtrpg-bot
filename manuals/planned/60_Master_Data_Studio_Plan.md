@@ -580,7 +580,7 @@ PR60-9 はほかと関係なく先に出せる。PR60-10 を本番に出す前�
 
 変更ファイル：`app.py`、`models.py`、`routes/catalog.py`、`manager/db_migration.py`、`manager/data_manager.py`、`manager/catalog/{kinds,skills,repository,references,pull}.py`、`manager/json_rule_v2.py`、`manager/battle/effect_handlers/__init__.py`、`manager/skill_catalog_warnings.py`、`scripts/skill_catalog_tool.py`、`static/js/main.js`、`static/index.html`、`static/dist/app.bundle.js` とそのmap、`tests/test_catalog_{skill,skill_frontend,pull}.py`、`tests/test_data_manager_lint_hook.py`、`tests/test_effect_schemas.py`、`tests/test_json_rule_v2_phase1.py`、C01・F01・本計画書。
 
-#### PR60-11：スキル専用の画面
+#### PR60-11：スキル専用の画面（完了）
 
 1. **入口**：マスターデータの種類の「スキル」から入り、「← マスターデータ」で戻る（§3.2）。`mountCatalogWorkspace` と同じく渡された枠の中に描く（`mountSkillWorkspace(container, options)`）。見た目と編集・承認の並びは用語・バフと共通にし、共通の部分は `workspace.js` から使い回す。
 2. **左の列**：試作（§5.3 スキル専用の画面）のとおり、物理（Ps・Pb・Pp）・魔法（Ms・Mb・Mp）・防御・補助（D・B 宝石の加護・C 共通）・敵（E）の4つのまとまりと、状態の絞り込み。承認待ちはスキルの分だけ。
@@ -592,6 +592,12 @@ PR60-9 はほかと関係なく先に出せる。PR60-10 を本番に出す前�
 5. **問題の一覧と使われている所**：用語・バフと同じ。
 6. **テスト**：カテゴリの切り替え、効果の札の追加・削除・入れ替え、効果タイプで欄が入れ替わる、`condition` の4つの欄、チャットパレットの「項目から作る」、フォームと JSON の行き来で中身が変わらない（今の138件で往復しても同じ）。
 7. **確認**：ローカルで制作者として、既存のスキルの効果を1つ直して申請、アプリ管理者で承認。新しいスキルを Ps で作り、正式な ID（Ps の次の番号）で公開。撮影は数枚で、確認後に消す。
+
+実装結果（2026-11-09）：共通workspaceへスキルの定義を追加し、`mountSkillWorkspace(container, options)` を用意した。4群10カテゴリ、新規のカテゴリ選択、効果の札と共通条件・配信スキーマのフォーム、コスト・対象範囲・タグ・威力補正、チャットパレット生成、スキルと効果説明のプレビューを追加。138件のフォーム/JSON往復、追加・削除・並べ替え・条件・カテゴリ・枠内の保存のテストを追加した。ローカルの制作者がPs-00の効果値を2→3にして申請し、アプリ管理者が差分で承認。新規もPsカテゴリで作成・申請し、次番号Ps-15で公開、コマンドの正式ID化とSYS保持を確認した。広い幅（1440px）・680pxの閲覧・編集・承認で横のはみ出しはなく、広い承認の全行の高さが一致した。全件テスト（タイムアウト1200秒）は **1855 passed・45 skipped**（500.24秒）。`npm run build` と文字コード・文字化け・差分検査も成功。説明の入れ子の値の表現もPythonと照合した。一時DB・撮影の使い捨て出力は残さず、試作HTMLだけを確認の目印として残す。
+
+画面のためのサーバー変更：効果スキーマへ既存の `TARGET_LABELS` を `target_labels` として追加。新規スキル自身の仮IDを承認前に正式IDへ置換し、生成したチャットパレットを公開できるようにした。他の未公開IDは従来どおり止める。試作の生成スクリプトはバフ参照をキャッシュから解決するよう補修した。文章から作る・計算・試し撃ち・ビルダー削除は未実装のまま。
+
+変更ファイル：`static/js/master_data/{skill,skill_effects,workspace,catalog_api}.js`、`static/css/modules/master_data.css`、`scripts/build_frontend.mjs`、`scripts/catalog_preview/export_schemas.py`、`static/index.html`、`static/dist/app.bundle.{js,css}`と各map、`app.py`、`manager/catalog/repository.py`、`tests/test_catalog_skill_editor.py`、`tests/test_catalog_skill.py`、`tests/test_effect_schemas.py`、A02・A04・C01・E02・F01・本計画書。
 
 #### PR60-12：「文章から作る」とビルダーの削除
 

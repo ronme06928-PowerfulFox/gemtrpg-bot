@@ -2,7 +2,7 @@
 
 # 運用マニュアル
 
-**最終更新日**: 2026-11-08（計画60 PR60-10：スキルのDB読み込み）
+**最終更新日**: 2026-11-09（計画60 PR60-11：スキル専用画面）
 **系統**: F — 運用
 **統合元**: 14_GM_Buff_Item_Operations_Spec / 16_Manual_Update_Protocol / 21_Render_Deploy_Operations / 26_Account_Auth_Plan
 
@@ -248,6 +248,8 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 `--pull`はスキルもDBの入れ替え対象にし、JSON文字列の特記処理を保存用オブジェクトへ変換する。SYS-はファイル・DBとも対象外。変わっていない行は版を進めず、既存履歴・下書きを残す。catalog_drafts.id_prefixは起動時の既存列追加処理で用意する。POST /api/catalog/skill/draftsの新規作成ではid_prefixを必須にし、GET /api/catalog/skill/next_id?prefix=Psはカテゴリ別に採番する。下書きJSONにはid_prefixとproblemsを返す。
 
 PR60-10の実装作業ではSheetsの最終取り込みを行わない。本番へ出す前の最後のSheets取得とコミットはユーザーが行う。
+
+スキル専用画面の新規チャットパレット生成は自身の仮IDを使うため、新規承認では自身の仮IDを正式IDへ変換してから検査する（PR60-11）。他の下書きへの仮ID参照は公開不可のまま。効果スキーマAPIは説明文と同じ対象の言い換え表 `target_labels` も返す。
 
 ### バフのDB正本化（計画60 PR60-7）
 

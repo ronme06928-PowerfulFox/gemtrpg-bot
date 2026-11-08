@@ -2,7 +2,7 @@
 
 # JSON定義マニュアル（正本・統合版）
 
-**最終更新日**: 2026-11-08（計画60 PR60-10：スキルのDB正本・検査）
+**最終更新日**: 2026-11-09（計画60 PR60-11：スキル専用画面）
 **系統**: C — データ定義（JSON）
 **統合元**: 20_JSON_Definition_Strict_v2 / 17_Phase3_Strict_Errata / 15_JSON_Definition_Master / 03_Integrated_Data_Definitions
 **優先順位**: 本書 > 旧20 = 旧17 > 旧15 > 旧03
@@ -832,7 +832,7 @@ python scripts/skill_catalog_tool.py lint
 
 ## 17. 効果スキーマ配信 API（計画60 PR60-1）
 
-`GET /api/effect_schemas` は認証なしで `{"effect_types": EFFECT_SCHEMAS, "custom_effects": CUSTOM_EFFECT_SCHEMAS, "common_fields": COMMON_EFFECT_FIELDS}` を返す。DB・ルーム状態は変更しない。
+`GET /api/effect_schemas` は認証なしで `{"effect_types": EFFECT_SCHEMAS, "custom_effects": CUSTOM_EFFECT_SCHEMAS, "common_fields": COMMON_EFFECT_FIELDS, "target_labels": TARGET_LABELS}` を返す。DB・ルーム状態は変更しない。
 各効果タイプは `label`・`description`・`internal`・`fields`・`summary`・`example` を持つ。`fields` は共通キーを除く effect のキーを記載し、入れ子は `data.count` のように表す。型は `int`・`number`・`string`・`bool`・`json`・`state_ref`・`buff_ref`・`skill_ref`・`summon_ref`・`glossary_ref`。
 `required` は現行の入力契約を表す。代替キーが使える場合は説明へ併記する。このAPIは保存前検査を追加しない。
 `internal=True` は `FORCE_UNOPPOSED`・`APPLY_FISSURE_BUFFED` のみ。ほかは `False`。名前別のカスタム効果は `label`・`description`・`fields` を持つ。
@@ -841,7 +841,7 @@ python scripts/skill_catalog_tool.py lint
 
 ## スキルのDB正本・管理API（計画60 PR60-10）
 
-通常スキル138件の正本は `catalog_entries` のkind=skill。空のときだけskills_cache.jsonから初回取り込みする。SYS-のシステムスキルはDBに保存せず、辞書を更新するたびにコード定義から追加する。管理APIの権限・保存・申請・承認は用語・バフと共通。専用画面はPR60-11で追加する。
+通常スキル138件の正本は `catalog_entries` のkind=skill。空のときだけskills_cache.jsonから初回取り込みする。SYS-のシステムスキルはDBに保存せず、辞書を更新するたびにコード定義から追加する。管理APIの権限・保存・申請・承認は用語・バフと共通。専用画面はマスターデータの「スキル」から開く（PR60-11、E02 Part 15）。
 
 保存項目は必須のデフォルト名称、チャットパレット、分類（物理・魔法・補助・防御・回避）、距離（近接・遠隔・広域-個別・広域-合算・空）、属性（打撃・斬撃・貫通・空）、取得コスト・基礎威力・ダイス威力・使用時効果・特記・発動時効果（文字列）、特記処理（オブジェクト、既定{}）。スキルIDとtagsは保存しない。配信では特記処理をJSON文字列（空の{}は空文字列）に戻し、分類・特記処理.tags・発動時効果の[即時発動]から従来と同じ順でtagsを作る。deprecatedは廃止時だけ付け、既存の配信形式を保つ。
 
@@ -850,3 +850,5 @@ python scripts/skill_catalog_tool.py lint
 形と特記処理の厳密な読み取り、バフIDの参照切れは申請を止め、未公開の仮IDは承認を止める。X-のバフ下書きは申請まで参照でき、バフ承認時にスキル下書き内の仮IDも置き換える。廃止バフ・未知のbuff_name・相場逸脱・定型と異なるチャットパレットは注意だけ。定型は基礎威力＋ダイス威力＋物理/魔法補正の1d項＋【ID 名称】で、物理・魔法以外は補正項を付けない。効果の共通項目timing・targetの候補はjson_rule_v2の定義を正とし、conditionはsource・param・operator・valueで表す。効果スキーマAPIにも共通項目を返す。
 
 参照箇所は他スキル・アイテム・特殊パッシブ・輝化スキル・召喚テンプレートの値（JSON文字列内も含む）から求める。公開・廃止・復元後は共有辞書を更新し、catalog_updatedで画面側のallSkillDataを読み直す。読み終わるまで古い辞書を保ち、古い通信応答で新しい辞書を上書きしない。
+
+新規スキルのチャットパレット等に含まれる自身の仮IDは、承認時に選ばれた正式IDへ置き換えてから公開検査を行う（PR60-11）。他の未公開の仮IDは引き続き承認を止める。
