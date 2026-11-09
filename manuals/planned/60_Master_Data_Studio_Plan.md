@@ -721,10 +721,10 @@ PR60-9 はほかと関係なく先に出せる。PR60-10 を本番に出す前�
 
 | PR | 内容 | 本番での見え方 |
 |---|---|---|
-| PR60-14 | 4種類の種類の定義・DB からの読み込み・検査・使われている所。読み手を辞書にそろえる。`--update` と Sheets を読む処理をすべて消す。`--pull` を7種類にする | 中身は変わらない。管理 API で4種類を扱えるようになる |
+| PR60-14（完了） | 4種類の種類の定義・DB からの読み込み・検査・使われている所。読み手を辞書にそろえる。`--update` と Sheets を読む処理をすべて消す。`--pull` を7種類にする | 中身は変わらない。管理 API で4種類を扱えるようになる |
 | PR60-15 | 管理画面に4種類を足す（アイテム・特殊パッシブ・輝化スキルはフォーム、召喚テンプレートは JSON のタブとプレビュー） | マスターデータの左の列に4つ出る |
 
-PR60-14 では `--update` を消すので、その前のコミットの状態で最後に一度 `--update` を実行し、リポジトリのキャッシュと Sheets が同じことを確かめる（3b と同じ手順。違いがあれば取り込んでコミットしてから PR60-14 を入れる）。
+最後の `--update` とSheets・キャッシュの一致確認はユーザーが実施済み（2026-11-10、PR60-14着手前）。このPRでは `--update` を実行せず、取得コードを削除する。
 
 ### 5.13 Phase 6 の実装詳細
 
@@ -734,7 +734,7 @@ PR60-14 では `--update` を消すので、その前のコミットの状態で
 - **召喚テンプレートは JSON で直す**：敵キャラに近い形で、項目ごとのフォームは計画61の敵キャラのフォームと合わせて考える（§8 Phase 6 論点1）。
 - **辞書の形は今のまま**：各ローダーが返していた今のキャッシュの形（`{"I-00": {"id": "I-00", …}}`、召喚テンプレートは `{"U-00": {"baseName": "U-00", …}}`）を保つ。
 
-#### PR60-14：残りの種類の保存と、Sheets の取り込みの廃止
+#### PR60-14：残りの種類の保存と、Sheets の取り込みの廃止（完了）
 
 1. **種類の定義**に4つを足す。辞書は `extensions` に `all_item_data`・`all_passive_data`・`all_radiance_data`・`all_summon_template_data` を足す。
     - `item`：ID `^I-\d{2,}$`、辞書の ID の項目 `id`。項目 `name`（必須）・`description`・`flavor`・`consumable`（真偽）・`usable`（真偽）・`round_limit`（整数。`-1` は制限なし）・`effect`（オブジェクト）。
@@ -750,6 +750,14 @@ PR60-14 では `--update` を消すので、その前のコミットの状態で
 7. **使われている所**：アイテム・特殊パッシブ・輝化スキルの ID を、召喚テンプレートとほかのデータの中の値から探す。召喚テンプレートの ID を、スキルの効果の中の値から探す。
 8. **画面側の読み直し**：`catalog_updated` で4種類のとき、それぞれの公開 API を読み直して `window` の辞書（`allItemData` など今の名前）を入れ替える。
 9. **テスト**：初回取り込みの件数（3・8・9・3）、辞書の形が今のキャッシュと一致、召喚テンプレートの参照の検査、承認で辞書が入れ替わり読み手が新しい中身を返す、`--update` が無い、`--pull` が7種類、全件テストがそのまま通る。
+
+完了（2026-11-10）：4種類の定義を`manager/catalog/resources.py`へまとめ、`kinds.py`の種類の定義に登録。起動時の初回取り込み・共有辞書、共通の保存・承認・問題一覧、召喚の参照検査、7種類の使われている所、召喚の公開APIと7種類の`--pull`を実装した。読む関数は呼び手が多いため薄い辞書参照として残し、ローダーの独自キャッシュはなくした。召喚を1件読む関数は、戦闘中の変更が正本へ漏れないよう従来どおり深いコピーを返す。正式IDの編集下書きだけが残っていても、公開版のない参照先は許可しない。管理画面・戦闘の効果処理・CharaCreatorは変更していない。
+
+検証結果：全件テスト1868 passed・45 skipped（531.63秒、タイムアウト1200秒）。正式IDの編集下書きだけが残る参照の境界も個別に確認した。`npm run build`、JS構文・文字コード・文字化け・差分検査も成功。
+
+変更ファイル：`AGENTS.md`・`README.md`、`app.py`・`extensions.py`、`manager/catalog/{resources,kinds,pull,references}.py`、`manager/data_manager.py`、`manager/{items,passives,radiance}/loader.py`、`manager/summons/{loader,__init__}.py`、`requirements.txt`、`static/js/{main,item_modal}.js`、`static/index.html`・`static/dist/app.bundle.js`とmap、`tests/test_catalog_{resources,resource_frontend,pull,buff,skill}.py`、`tests/test_{cache_paths,app_factory,character_tags}.py`、A04・C01・E02・F01・本計画書・計画00/61・配置台帳・アカウント運用/復旧/バックアップ手順。削除：`tests/test_summon_loader.py`・`tests/test_data_manager_lint_hook.py`・`tests/legacy/test_loaders.py`（Sheets取得専用の検査）。旧タグ列の区切り文字の検査も削除し、DBの文字列配列の検査へ移した。
+
+ローカル確認：通常の起動処理で隔離DBへ3・8・9・3件を取り込み、4種類の公開APIと元キャッシュの完全一致を確認。制作者の管理APIでI-00・Pa-00・S-00・U-00を1件ずつ保存・申請し、アプリ管理者の承認後に共有辞書と各公開APIが新しい名前を返すことを確認した。サーバーは停止、確認用DBは削除済み。キャッシュ本体の変更はない。
 
 #### PR60-15：管理画面に残りの種類を足す
 

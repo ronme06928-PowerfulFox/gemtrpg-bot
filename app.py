@@ -263,14 +263,14 @@ def healthz():
     return 'ok', 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 
-# マスターデータ系API（スキル・アイテム等）。`--update` 実行時にしか内容が
-# 変わらないため、ブラウザキャッシュ + ETag条件付きリクエストで再取得を抑制する。
+# マスターデータの公開API。辞書はDBから読み、承認時に更新する。
 MASTER_DATA_CACHE_PATHS = frozenset({
     '/api/get_skill_data',
     '/api/get_skill_metadata',
     '/api/get_item_data',
     '/api/get_radiance_data',
     '/api/get_passive_data',
+    '/api/get_summon_data',
     '/api/get_buff_data',
     '/api/get_glossary_data',
 })
@@ -410,6 +410,7 @@ def register_http_routes(flask_app):
     flask_app.add_url_rule('/api/get_item_data', 'get_item_data', get_item_data, methods=['GET'])
     flask_app.add_url_rule('/api/get_radiance_data', 'get_radiance_data', get_radiance_data, methods=['GET'])
     flask_app.add_url_rule('/api/get_passive_data', 'get_passive_data', get_passive_data, methods=['GET'])
+    flask_app.add_url_rule('/api/get_summon_data', 'get_summon_data', get_summon_data, methods=['GET'])
     flask_app.add_url_rule('/api/get_buff_data', 'get_buff_data', get_buff_data, methods=['GET'])
     flask_app.add_url_rule('/api/get_glossary_data', 'get_glossary_data', get_glossary_data, methods=['GET'])
     flask_app.add_url_rule('/api/effect_schemas', 'get_effect_schemas', get_effect_schemas, methods=['GET'])
@@ -476,6 +477,11 @@ def get_passive_data():
     from manager.passives.loader import passive_loader
     passives = passive_loader.load_passives()
     return jsonify(passives)
+
+def get_summon_data():
+    from extensions import all_summon_template_data
+    return jsonify(all_summon_template_data)
+
 
 def get_buff_data():
     """フロントエンドにバフ図鑑データを提供するAPI"""
@@ -696,8 +702,7 @@ app = create_app(run_startup=_should_run_startup_on_import()) if _should_create_
 def run_cli(argv=None):
     parser = argparse.ArgumentParser()
     modes = parser.add_mutually_exclusive_group()
-    modes.add_argument('--update', action='store_true', help='Sheetsのアイテム・輝化スキル・特殊パッシブ・召喚テンプレートを更新')
-    modes.add_argument('--pull', action='store_true', help='本番の用語・バフ・スキルを手元へ取り込む')
+    modes.add_argument('--pull', action='store_true', help='本番のマスターデータ7種類を手元へ取り込む')
     args = parser.parse_args(argv)
 
     if args.pull:
@@ -714,20 +719,6 @@ def run_cli(argv=None):
                 return 1
         print('本番からの取り込みが完了しました: ' + '、'.join(f'{kind} {count}件' for kind, count in counts.items()))
         return 0
-
-    if args.update:
-        # 全データ更新モード
-        print("\n" + "="*60)
-        print("【データ更新モード】")
-        print("="*60)
-        from manager.data_manager import update_all_data
-        with app.app_context():
-            if update_all_data():
-                print("✅ 全データの更新が完了しました。")
-                return 0
-            else:
-                print("❌ 一部のデータ更新に失敗しました。")
-                return 1
 
     # ★ バフプラグイン自動検出
     print("--- Initializing Buff Plugins ---")

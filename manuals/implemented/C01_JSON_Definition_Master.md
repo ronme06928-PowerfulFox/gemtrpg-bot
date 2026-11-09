@@ -2,7 +2,7 @@
 
 # JSON定義マニュアル（正本・統合版）
 
-**最終更新日**: 2026-11-09（計画60 PR60-12：文章から作る）
+**最終更新日**: 2026-11-10（計画60 PR60-14：マスター7種類のDB管理）
 **系統**: C — データ定義（JSON）
 **統合元**: 20_JSON_Definition_Strict_v2 / 17_Phase3_Strict_Errata / 15_JSON_Definition_Master / 03_Integrated_Data_Definitions
 **優先順位**: 本書 > 旧20 = 旧17 > 旧15 > 旧03
@@ -510,14 +510,14 @@ python scripts/skill_catalog_tool.py build-market-rate         # 現在の相場
 ### 12.3 オンデマンド相場レポート（build-market-rate）
 
 - `data/cache/skills_cache.json` から、現行カタログの構成・期待威力・コスト・効果タイミング・状態異常付与量・特殊効果の使用実績をMarkdownで標準出力する。F02は変更しない。
-- レポートは分析時点の参考情報であり、ファイルへの転記・同期・コミットは不要。スキル追加や`app.py --update`のたびに実行する必要もない。
+- レポートは分析時点の参考情報であり、ファイルへの転記・同期・コミットは不要。スキル追加や公開のたびに実行する必要もない。
 - 大量追加後、F02の確定基準を見直すとき、または個別スキルを既存相場と比較したいときに任意実行する。日常CIでは実行しない。
 
 ### 12.4 管理API・CIとの関係
 
 検証処理の定義元は `manager/skill_catalog_validation.py`。相場の注意は `manager/skill_catalog_warnings.py` に置き、CLIと管理用検査で共用する。管理APIの申請・承認では厳密な読み取りと参照検査のERRORで公開を止め、相場逸脱はWARNINGとして下書きの `problems` に返す。
 
-CI（`.github/workflows/skill-smoke.yml`）はファイルに対する `lint`（`--warn` なし）を必須検査とする。`--update` はスキルを取得せず、lintフックも実行しない。相場レポートは任意実行に留める。
+CI（`.github/workflows/skill-smoke.yml`）はファイルに対する `lint`（`--warn` なし）を必須検査とする。`--update` とSheetsからの取得は廃止した。相場レポートは任意実行に留める。
 
 ### 12.5 関連テスト
 
@@ -543,8 +543,8 @@ CI（`.github/workflows/skill-smoke.yml`）はファイルに対する `lint`（
 - GMが作成するscenarioキャラクターの自由タグは1件25文字以内、改行不可、個数上限なし。
 - プレイヤーキャラクターの送信JSONにある任意タグと無効化指定は信用しない。出身、ボーナス国、取得済み輝化スキルからサーバー側で再構築する。
 - 出身とボーナス国はそれぞれ`出身:国名`を生成する。同じ国なら重複を1件へまとめる。
-- 輝化スキルシートの任意列「付与タグ」は、JSON配列またはカンマ・読点・改行区切りで記述でき、キャッシュではトップレベルの`granted_tag_ids`へ正規化する。
-- 独立したタグマスターシートは使用しない。
+- 輝化スキルの付与タグはDBのトップレベル`granted_tag_ids`に文字列の配列で持ち、公開API・キャッシュも同じ形とする。旧Sheetsの区切り文字列の読み取りは廃止した。
+- 独立したタグマスターは持たない。
 
 正規化・派生処理の正本は`manager/character_tags.py`。持ちキャラ作成・更新、ルーム投入、戦闘専用プリセット、ルームプリセット、召喚で同じデータ契約を維持する。プレイヤーキャラクターの保存・投入時には、取得済み輝化スキルのコスト合計が通過点を超えていないこともサーバー側で検証する。
 
@@ -684,10 +684,10 @@ CI（`.github/workflows/skill-smoke.yml`）はファイルに対する `lint`（
 
 ## 16. シナリオNo.2用JSON完成例と読み方（2026-07-31）
 
-この節は、シナリオNo.2『瓦礫で鋳るは魔の鋼』で追加したデータを、スプレッドシートへ貼り付けられる完成形で示す。
+この節は、シナリオNo.2『瓦礫で鋳るは魔の鋼』で追加したデータを、当時の項目名と効果JSONの完成形で示す。現在はSheetsへ貼り付けず、管理APIでDBの下書きに対応する項目を入れ、承認して公開する。
 JSONを読むときは、原則として次の順番で確認する。
 
-1. JSON全体が何の定義かを、入力先のシートと`schema`で確認する。
+1. JSON全体が何の定義かを、対象の種類と`schema`で確認する。
 2. スキルJSONでは、誰を選べるかを`target_scope`で確認する。
 3. `effects`を先頭から読み、各効果の発動時期を`timing`で確認する。
 4. 各効果の処理を`type`、処理対象を`target`で確認する。
@@ -812,10 +812,9 @@ JSONを読むときは、原則として次の順番で確認する。
 
 ### 16.8 入力後の確認
 
-特殊パッシブ・召喚テンプレートのスプレッドシート更新後は `--update`、用語・バフ・スキルの公開後は `--pull` を実行する。
+本番のマスターデータ7種類の公開後は `--pull` を実行する。
 
 ```bash
-python app.py --update
 python app.py --pull
 python scripts/skill_catalog_tool.py lint
 ```
@@ -849,3 +848,27 @@ python scripts/skill_catalog_tool.py lint
 参照箇所は他スキル・アイテム・特殊パッシブ・輝化スキル・召喚テンプレートの値（JSON文字列内も含む）から求める。公開・廃止・復元後は共有辞書を更新し、catalog_updatedで画面側のallSkillDataを読み直す。読み終わるまで古い辞書を保ち、古い通信応答で新しい辞書を上書きしない。
 
 新規スキルのチャットパレット等に含まれる自身の仮IDは、承認時に選ばれた正式IDへ置き換えてから公開検査を行う（PR60-11）。他の未公開の仮IDは引き続き承認を止める。
+
+## 残る4種類のDB管理（計画60 PR60-14）
+
+アイテム（item/I-・3件）、特殊パッシブ（passive/Pa-・8件）、輝化スキル（radiance/S-・9件）、召喚テンプレート（summon/U-・3件）もcatalog_entriesを正本とする。各種類が空の場合だけ種類別キャッシュから履歴付きで取り込む。公開APIの辞書の形はキャッシュと同じで、前3種はid、召喚はbaseNameを配信時に付ける。管理用payloadにはIDを含めない。
+
+項目は計画60 §5.13の定義に従う。名前は必須。itemはdescription/flavor/consumable/usable/round_limit/effect、passiveはcost/description/flavor/effect、radianceは同項目にduration/granted_tag_idsを持つ。summonは現行キャッシュの19項目を型付きで持つ。効果のオブジェクトの内容と戦闘処理は変更しない。
+
+召喚テンプレートの項目は次のとおり。
+
+| 項目 | 型 |
+|---|---|
+| `baseName` | 配信時の正式ID（管理payloadには含めない） |
+| `name` | 文字列、必須 |
+| `hp`・`maxHp`・`mp`・`maxMp` | 整数 |
+| `initial_skill_ids`・`hidden_skills`・`SPassive`・`radiance_skills` | 文字列の配列 |
+| `inventory` | オブジェクト |
+| `summon_duration_mode` | 文字列 |
+| `summon_duration` | 整数 |
+| `allow_duplicate_same_team` | 真偽値 |
+| `params`・`special_buffs` | 配列 |
+| `tag_ids`・`disabled_tag_ids` | 文字列の配列 |
+| `flags` | オブジェクト |
+
+召喚のinitial_skill_ids・hidden_skillsはskill、SPassiveはpassive、radiance_skillsはradianceを参照する。公開版・下書きのどちらにも存在しないIDはエラー、廃止版の参照は注意。承認時は未解決のX-を禁止する。本文の用語リンク検査は全種類共通。使われている所は公開辞書を走査して求め、ファイルやローダーの古いキャッシュへ戻らない。公開・廃止・復元後は次の読み出しから新しい公開辞書を使う。

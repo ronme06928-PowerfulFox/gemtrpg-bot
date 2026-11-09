@@ -10,7 +10,6 @@ from manager.character_tags import (
     validate_gm_tag_ids,
     validate_player_radiance_budget,
 )
-from manager.radiance.loader import parse_granted_tag_ids
 
 
 RADIANCE_SKILLS = {
@@ -119,15 +118,3 @@ def test_player_radiance_budget_rejects_overspend():
         validate_player_radiance_budget(_player_data(points="1"), RADIANCE_SKILLS)
 
     assert validate_player_radiance_budget(_player_data(points="2"), RADIANCE_SKILLS) == (2, 2)
-
-
-def test_radiance_granted_tags_accept_json_and_delimited_cells():
-    assert parse_granted_tag_ids('["特性:機械知識", "所属:工房"]') == [
-        "特性:機械知識",
-        "所属:工房",
-    ]
-    assert parse_granted_tag_ids("特性:機械知識、所属:工房\n種別:技術者") == [
-        "特性:機械知識",
-        "所属:工房",
-        "種別:技術者",
-    ]

@@ -181,15 +181,13 @@ def test_buff_api_permissions_problems_and_approval(catalog):
 
 def test_buff_references_include_json_strings_and_all_sources(catalog, monkeypatch):
     import json
-    from manager.items.loader import item_loader
-    from manager.passives.loader import passive_loader
-    from manager.radiance.loader import radiance_loader
+    import extensions
     repo.seed_kind_if_empty("buff")
     all_skill_data.clear()
     all_skill_data["Ps-00"] = {"特記処理": json.dumps({"effects": [{"buff_id": "Bu-00"},
                                              {"buff_name": "鋭敏"}]}, ensure_ascii=False)}
-    for loader in (item_loader, passive_loader, radiance_loader):
-        monkeypatch.setattr(loader, "_cache", {"example": {"effect": {"buff_id": "Bu-00"}}})
+    for name in ("all_item_data", "all_passive_data", "all_radiance_data"):
+        monkeypatch.setattr(extensions, name, {"example": {"effect": {"buff_id": "Bu-00"}}})
     refs = find_references("buff", "Bu-00")
     assert {row["kind"] for row in refs} == {"skill", "item", "passive", "radiance"}
     assert {row["path"] for row in refs if row["kind"] == "skill"} == {
@@ -197,18 +195,15 @@ def test_buff_references_include_json_strings_and_all_sources(catalog, monkeypat
     assert find_references("buff", "Bu-9999") == []
 
 
-def test_buff_references_can_read_caches_without_fetching_sheets(catalog, monkeypatch):
+def test_buff_references_never_fall_back_to_files(catalog, monkeypatch):
+    import extensions
     import manager.cache_paths as paths
-    from manager.items.loader import item_loader
-    from manager.passives.loader import passive_loader
-    from manager.radiance.loader import radiance_loader
     repo.seed_kind_if_empty("buff")
     all_skill_data.clear()
-    for loader in (item_loader, passive_loader, radiance_loader):
-        monkeypatch.setattr(loader, "_cache", None)
-    monkeypatch.setattr(paths, "load_json_cache", lambda _: {"cached": {"buff_id": "Bu-00"}})
-    assert {ref["kind"] for ref in find_references("buff", "Bu-00")} == {
-        "skill", "item", "passive", "radiance"}
+    for name in ("all_item_data", "all_passive_data", "all_radiance_data", "all_summon_template_data"):
+        monkeypatch.setattr(extensions, name, {})
+    monkeypatch.setattr(paths, "load_json_cache", lambda _: pytest.fail("公開辞書からキャッシュへ戻らない"))
+    assert find_references("buff", "Bu-00") == []
 
 
 def test_items_read_current_buff_dictionary(catalog, monkeypatch):

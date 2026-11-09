@@ -150,16 +150,13 @@ def test_palette_unknown_buff_name_and_market_warnings(catalog):
 
 
 def test_skill_references_scan_values_and_nested_json(catalog, monkeypatch):
-    import manager.cache_paths as paths
-    from manager.items.loader import item_loader
-    from manager.passives.loader import passive_loader
-    from manager.radiance.loader import radiance_loader
+    import extensions
     repo.seed_kind_if_empty("skill")
     repo.load_kind_into_memory("skill")
     all_skill_data["Ps-99"] = {"デフォルト名称": "参照元", "特記処理": '{"skill_id":"Ps-00"}'}
-    for loader in (item_loader, passive_loader, radiance_loader):
-        monkeypatch.setattr(loader, "_cache", {"example": {"nested": ["Ps-00"], "スキルID": "Ps-00"}})
-    monkeypatch.setattr(paths, "load_json_cache", lambda _: {"summon": {"skill_ids": ["Ps-00"]}})
+    for name in ("all_item_data", "all_passive_data", "all_radiance_data"):
+        monkeypatch.setattr(extensions, name, {"example": {"nested": ["Ps-00"], "スキルID": "Ps-00"}})
+    monkeypatch.setattr(extensions, "all_summon_template_data", {"summon": {"skill_ids": ["Ps-00"]}})
     refs = find_references("skill", "Ps-00")
     assert {row["kind"] for row in refs} >= {"skill", "item", "passive", "radiance", "summon"}
     assert any(row["kind"] == "item" and row["path"] == "スキルID" for row in refs)

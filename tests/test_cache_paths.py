@@ -8,29 +8,24 @@ import pytest
 from manager import cache_paths
 
 
-@pytest.mark.parametrize(
-    "module_name, loader_class, cache_symbol, legacy_symbol",
-    [
-        ("manager.items.loader", "ItemLoader", "ITEMS_CACHE_FILE", "LEGACY_ITEMS_CACHE_FILE"),
-        ("manager.passives.loader", "PassiveLoader", "PASSIVES_CACHE_FILE", "LEGACY_PASSIVES_CACHE_FILE"),
-    ],
-)
-def test_loader_does_not_import_or_copy_old_root_cache(
-    tmp_path, monkeypatch, module_name, loader_class, cache_symbol, legacy_symbol
-):
+@pytest.mark.parametrize("module_name,reader,memory", [
+    ("manager.items.loader", "load_items", "all_item_data"),
+    ("manager.passives.loader", "load_passives", "all_passive_data"),
+    ("manager.radiance.loader", "load_skills", "all_radiance_data"),
+    ("manager.summons.loader", "load_summon_templates", "all_summon_template_data"),
+])
+def test_readers_use_public_dictionary_without_any_file_access(monkeypatch, module_name, reader, memory):
+    import extensions
     module = importlib.import_module(module_name)
-    current = tmp_path / "data" / "cache" / "catalog.json"
-    old = tmp_path / "catalog.json"
-    old.write_text('{"obsolete": {"name": "旧配置"}}', encoding="utf-8")
-    original = old.read_bytes()
-    monkeypatch.setattr(cache_paths, "CACHE_DIR", current.parent)
-    monkeypatch.setattr(module, cache_symbol, current)
-    # Inject a former-location file even after the old constant is removed.
-    monkeypatch.setattr(module, legacy_symbol, old, raising=False)
-
-    assert getattr(module, loader_class)()._load_cache() is None
-    assert old.read_bytes() == original
-    assert not current.parent.exists()
+    records = {"current": {"name": "DB公開版"}}
+    monkeypatch.setattr(extensions, memory, records)
+    monkeypatch.setattr(cache_paths, "load_json_cache", lambda _: pytest.fail("辞書の読み出しでファイルを読まない"))
+    instance = {"load_items": "item_loader", "load_passives": "passive_loader", "load_skills": "radiance_loader"}.get(reader)
+    read = getattr(getattr(module, instance), reader) if instance else getattr(module, reader)
+    assert read() is records
+    replacement = {"next": {"name": "公開後"}}
+    monkeypatch.setattr(extensions, memory, replacement)
+    assert read() is replacement
 
 
 def test_cache_read_returns_data_without_rewriting_file(tmp_path):

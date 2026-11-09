@@ -5,13 +5,19 @@
 
 // グローバルアイテムデータキャッシュ
 let allItemData = {};
+window.allItemData = allItemData;
+let itemCatalogRequestVersion = 0;
 
 // アイテムデータを読み込み
 async function loadItemData() {
+    const version = ++itemCatalogRequestVersion;
     try {
-        const response = await fetch('/api/get_item_data');
-        if (response.ok) {
-            allItemData = await response.json();
+        const response = await fetch('/api/get_item_data', {cache: 'no-cache'});
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (version === itemCatalogRequestVersion) {
+            allItemData = data;
+            window.allItemData = data;
             console.log(`[OK] アイテムデータを読み込みました (${Object.keys(allItemData).length}件)`);
         }
     } catch (error) {

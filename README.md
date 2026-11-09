@@ -1,6 +1,6 @@
 # GemDiceBot / Gem_DiceBotTool
 
-ジェムリアTRPGのセッション進行を支援するダイスボットです。Flask・Flask-SocketIOで画面と状態を同期し、ローカルはSQLite、本番RenderはPostgreSQLを使用します。画像はCloudinary、スキル等のマスターはGoogle SheetsとJSONキャッシュで管理します。
+ジェムリアTRPGのセッション進行を支援するダイスボットです。Flask・Flask-SocketIOで画面と状態を同期し、ローカルはSQLite、本番RenderはPostgreSQLを使用します。画像はCloudinary、マスターデータ7種類はアプリDBを正本とし、JSONキャッシュは初回取り込みと手元の確認に使います。
 
 遊び方は[読者別マニュアル](manuals/START_HERE.md)、開発前の規約は[AGENTS.md](AGENTS.md)、継続的な改善は[アプリ基盤・安定運用プロジェクト](manuals/projects/app_foundation/README.md)を参照してください。
 
@@ -15,14 +15,14 @@ python -m pip install -r requirements-dev.txt
 python app.py
 ```
 
-ブラウザで `http://127.0.0.1:5000` を開きます。既存の開発環境を使う場合は、その環境を有効にして起動してください。ローカルDBは `instance/gemtrpg.db`、通常の起動ではマスターJSONを読み込みます。キャッシュ欠落時にGoogle Sheetsから取得する場合も認証設定が必要です。ローカルではRender環境を示す `RENDER` を設定しません。
+ブラウザで `http://127.0.0.1:5000` を開きます。既存の開発環境を使う場合は、その環境を有効にして起動してください。ローカルDBは `instance/gemtrpg.db`、通常の起動ではマスターDBを読み、空の種類だけJSONキャッシュから取り込みます。ローカルではRender環境を示す `RENDER` を設定しません。
 
-画像アップロードにはCloudinary、マスターの再取得にはGoogle Sheetsの認証設定が必要です。設定項目は[F01のRender環境変数と運用手順](manuals/implemented/F01_Operations_Manual.md)を参照し、`.env`や認証JSONはGitに追加しないでください。
+画像アップロードにはCloudinaryの設定が必要です。Google Sheetsの認証設定は不要です。設定項目は[F01のRender環境変数と運用手順](manuals/implemented/F01_Operations_Manual.md)を参照し、`.env`や認証JSONはGitに追加しないでください。
 
-マスターをGoogle Sheetsから再取得する場合だけ、次を実行します。
+本番のマスターデータ7種類を手元のキャッシュとDBへ取り込む場合は、次を実行します。
 
 ```powershell
-python app.py --update
+python app.py --pull
 ```
 
 ## フロントエンドを変更する

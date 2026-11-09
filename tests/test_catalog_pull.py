@@ -9,6 +9,9 @@ import pytest
 import requests
 
 import app as app_module
+import extensions
+from manager.catalog.kinds import get_kind
+from manager.cache_paths import load_json_cache
 from extensions import db, all_glossary_data, all_buff_data, all_skill_data
 from models import CatalogEntry, CatalogHistory, CatalogDraft
 from manager.catalog import pull
@@ -18,7 +21,7 @@ from manager.catalog import pull
 def local(tmp_path, monkeypatch):
     app = app_module.create_app(config={"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite://",
         "SQLALCHEMY_ENGINE_OPTIONS": {}}, run_startup=False, register_sockets=False)
-    memories = [all_glossary_data, all_buff_data, all_skill_data]
+    memories = [getattr(extensions, get_kind(kind)["memory_name"]) for kind in pull.SOURCES]
     before = [copy.deepcopy(data) for data in memories]
     files = {kind: tmp_path / f"{kind}.json" for kind in pull.SOURCES}
     monkeypatch.setattr(pull, "CACHE_FILES", files)
@@ -48,6 +51,8 @@ def remote(monkeypatch):
                                    "links": [], "synonyms": [], "deprecated": True}},
             "buff": {"Bu-01": {"id": "Bu-01", "name": "本番バフ", "effect": {}, "default_duration": -1}},
             "skill": {"Ps-00": {"スキルID": "Ps-00", "デフォルト名称": "本番スキル", "特記処理": "", "tags": []}}}
+    for kind in ("item", "passive", "radiance", "summon"):
+        data[kind] = load_json_cache(get_kind(kind)["cache_file"])
     calls = []
 
     def get(url, **options):
@@ -68,8 +73,8 @@ def test_pull_replaces_files_and_public_db_preserving_drafts_and_history(local, 
     data, calls = remote
     monkeypatch.setenv("CATALOG_PULL_BASE_URL", "https://example.test/")
     result = pull.pull_catalogs()
-    assert result == {"glossary": 1, "buff": 1, "skill": 1}
-    assert len(calls) == 3 and all(url.startswith("https://example.test/api/") for url, _ in calls)
+    assert result == {kind: len(rows) for kind, rows in data.items()}
+    assert len(calls) == 7 and all(url.startswith("https://example.test/api/") for url, _ in calls)
     assert all(options["timeout"] >= 30 and options["headers"]["Cache-Control"] == "no-cache" for _, options in calls)
     for kind, path in files.items():
         assert json.loads(path.read_text(encoding="utf-8")) == data[kind]
@@ -79,17 +84,17 @@ def test_pull_replaces_files_and_public_db_preserving_drafts_and_history(local, 
     assert CatalogEntry.query.filter_by(kind="skill").one().payload["特記処理"] == {}
     assert "SYS-STRUGGLE" in all_skill_data
     assert all_skill_data["Ps-00"]["デフォルト名称"] == "本番スキル"
-    assert CatalogEntry.query.filter_by(kind="item").one().payload == {"keep": True}
+    assert CatalogEntry.query.filter_by(kind="item", entry_id="I-00").one().payload["name"] == data["item"]["I-00"]["name"]
     draft = CatalogDraft.query.one()
     assert draft.payload == {"short": "書きかけ"} and draft.base_revision == 1
-    # 取り込んだ行は既存の import として履歴に残す（変わった W-00 と新しい Bu-01・Ps-00）。
-    assert CatalogHistory.query.filter_by(action="import").count() == 5
+    # 取り込んだ行は既存の import として履歴に残す（既存の2履歴に7種類26件の取り込み）。
+    assert CatalogHistory.query.filter_by(action="import").count() == 28
     assert CatalogEntry.query.filter_by(kind="glossary", entry_id="W-00").one().revision == 2
     assert all_glossary_data["W-00"]["display_name"] == "本番"
     assert all_buff_data["Bu-01"]["name"] == "本番バフ"
     # 中身が同じなら版も履歴も増えない。
     pull.pull_catalogs()
-    assert CatalogHistory.query.count() == 5
+    assert CatalogHistory.query.count() == 28
     assert CatalogEntry.query.filter_by(kind="glossary", entry_id="W-00").one().revision == 2
     # 消えたIDが再登場しても履歴の版と重ならない。
     data["buff"] = {"Bu-00": {"id": "Bu-00", "name": "再登場"}}
@@ -173,7 +178,10 @@ def test_pull_cli_skips_startup_and_does_not_start_server(local, remote, monkeyp
     ("glossary", "links", [1]), ("glossary", "deprecated", "false"),
     ("buff", "effect", []), ("buff", "default_duration", True),
     ("buff", "default_duration", 0), ("buff", "name", ""),
-    ("skill", "特記処理", {}), ("skill", "tags", [1])])
+    ("skill", "特記処理", {}), ("skill", "tags", [1]),
+    ("item", "consumable", "false"), ("passive", "cost", True),
+    ("radiance", "granted_tag_ids", [1]), ("summon", "initial_skill_ids", [1]),
+    ("summon", "baseName", "U-99")])
 def test_invalid_record_shapes_are_rejected_before_writes(local, remote, kind, field, value):
     _, files = local
     records, _ = remote

@@ -1,120 +1,13 @@
-import requests
-import csv
-import json
-from io import StringIO
-from manager.logs import setup_logger
-from manager.cache_paths import (
-    ITEMS_CACHE_FILE,
-    load_json_cache,
-    save_json_cache,
-)
+"""公開済みのDB辞書を読む。取得・書き込み・独自キャッシュは持たない。"""
+import extensions
 
-logger = setup_logger(__name__)
 
-# CSV公開URL
-ITEMS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkulkkIx6AQEHBKJiAqnjyzEQX5itUVV3SDwi40sLmXeiVQbXvg0RmMS3-XLSwNo2YHsF3WybyHjMu/pub?gid=110236529&single=true&output=csv'
 class ItemLoader:
-    """アイテムのCSV URL読み込み"""
+    def load_items(self):
+        return extensions.all_item_data
 
-    def __init__(self):
-        self._cache = None
+    def get_item(self, entry_id):
+        return self.load_items().get(entry_id)
 
-    def fetch_from_csv(self):
-        """CSV URLからアイテムを取得"""
-        logger.info("CSV URLからアイテムを取得中...")
 
-        try:
-            response = requests.get(ITEMS_CSV_URL, timeout=10)
-            response.raise_for_status()
-            response.encoding = 'utf-8'
-
-            csv_content = StringIO(response.text)
-            reader = csv.DictReader(csv_content)
-
-            items = {}
-            for row in reader:
-                item_id = row.get("アイテムID", "").strip()
-                if not item_id:
-                    continue
-
-                try:
-                    # JSON定義をパース
-                    json_str = row.get("JSON定義", "").strip()
-                    effect = json.loads(json_str) if json_str else {}
-
-                    # targetが指定されていない場合はデフォルトで"single"
-                    if "target" not in effect:
-                        effect["target"] = "single"
-
-                    items[item_id] = {
-                        "id": item_id,
-                        "name": row.get("アイテム名", ""),
-                        "description": row.get("効果説明", ""),
-                        "flavor": row.get("フレーバーテキスト", ""),
-                        "consumable": row.get("消耗", "").upper() == "TRUE",
-                        "usable": row.get("使用可能", "").upper() == "TRUE",
-                        "round_limit": int(row.get("ラウンド制限", "-1") or -1),
-                        "effect": effect
-                    }
-                except (json.JSONDecodeError, ValueError) as e:
-                    logger.warning(f"アイテム {item_id} のパースに失敗: {e}")
-                    continue
-
-            logger.info(f"{len(items)} 件のアイテムを読み込みました")
-            self._cache = items
-
-            # キャッシュに保存
-            self._save_cache(items)
-
-            return items
-
-        except requests.RequestException as e:
-            logger.error(f"CSV取得エラー: {e}")
-            return {}
-        except Exception as e:
-            logger.error(f"データ取得エラー: {e}")
-            return {}
-
-    def _save_cache(self, items):
-        """キャッシュファイルに保存"""
-        try:
-            save_json_cache(ITEMS_CACHE_FILE, items)
-            logger.info("アイテムをキャッシュに保存しました")
-        except Exception as e:
-            logger.error(f"キャッシュ保存エラー: {e}")
-
-    def _load_cache(self):
-        """キャッシュファイルから読み込み"""
-        try:
-            return load_json_cache(ITEMS_CACHE_FILE)
-        except Exception as e:
-            logger.error(f"キャッシュ読み込みエラー: {e}")
-            return None
-
-    def load_items(self, force_refresh=False):
-        """アイテムをロード（キャッシュ優先）"""
-        if self._cache is not None and not force_refresh:
-            return self._cache
-
-        # まずキャッシュを試す
-        if not force_refresh:
-            cached = self._load_cache()
-            if cached:
-                self._cache = cached
-                logger.info(f"キャッシュから {len(cached)} 件のアイテムを読み込みました")
-                return cached
-
-        # キャッシュがない場合はCSV URLから取得
-        return self.fetch_from_csv()
-
-    def get_item(self, item_id):
-        """特定のアイテムを取得"""
-        items = self.load_items()
-        return items.get(item_id)
-
-    def refresh(self):
-        """強制的にCSV URLから再取得"""
-        return self.load_items(force_refresh=True)
-
-# グローバルインスタンス
 item_loader = ItemLoader()

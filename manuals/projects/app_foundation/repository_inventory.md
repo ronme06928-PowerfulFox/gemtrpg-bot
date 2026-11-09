@@ -137,7 +137,7 @@ AST解析対象の内訳はルート5、events26、manager110、plugins24、rout
 
 | 対象 | 読込・生成元 | 保持と未確認点 |
 |---|---|---|
-| `data/cache/` の8 JSON | [cache_paths.py](../../../manager/cache_paths.py)と各loader。Google Sheets等の取得・保存経路あり | 起動とマスター参照に使用。削除で外部取得や空データ化を招く可能性がある |
+| `data/cache/` の8 JSON | [cache_paths.py](../../../manager/cache_paths.py)とcatalog。マスター7種類はDBが正本、初回取り込み・`--pull`と単独ツールで使う | Sheets取得はPR60-14で削除。空DBへの初回取り込み用として保持 |
 | 旧ルートマスターのフォールバック | `cache_paths.load_json_cache`が旧パスを読み、新パスへ保存するコードを保持 | 現在の配置整理とは別に、後方互換不要の方針と照合する候補 |
 | ルーム・アカウント・画像登録情報 | `models.py`、`data_manager.py`、`image_manager.py`、`log_archive.py`がDB利用 | 正本はメモリ／DBの現行契約に従う。ルートの古いJSONとは区別 |
 | `data/images.json` | ファイル名・パスの直接参照を追跡ソースから未検出。デフォルト画像登録は `static/images/characters` とDBを利用 | 現行生成元と手動利用は未特定。保持したまま要確認 |

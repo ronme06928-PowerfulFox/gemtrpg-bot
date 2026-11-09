@@ -9,14 +9,14 @@ from urllib.parse import urlsplit
 import requests
 
 from extensions import db
-from manager.cache_paths import GLOSSARY_CACHE_FILE, BUFF_CATALOG_CACHE_FILE, SKILLS_CACHE_FILE
 from .kinds import get_kind
+from .resources import STRING_LIST_FIELDS
 from .repository import stage_pulled_catalogs, load_kind_into_memory
 
 
 DEFAULT_BASE_URL = "https://gemtrpg-diceapp.onrender.com"
-SOURCES = {"glossary": "/api/get_glossary_data", "buff": "/api/get_buff_data", "skill": "/api/get_skill_data"}
-CACHE_FILES = {"glossary": GLOSSARY_CACHE_FILE, "buff": BUFF_CATALOG_CACHE_FILE, "skill": SKILLS_CACHE_FILE}
+SOURCES = {kind: f"/api/get_{kind}_data" for kind in ("glossary", "buff", "skill", "item", "passive", "radiance", "summon")}
+CACHE_FILES = {kind: get_kind(kind)["cache_file"] for kind in SOURCES}
 
 
 class CatalogPullError(ValueError):
@@ -42,7 +42,7 @@ def _validate_snapshot(kind, records):
                 raise CatalogPullError(f"{kind}: {entry_id}.{field} の型が違います")
         if "deprecated" in row and type(row["deprecated"]) is not bool:
             raise CatalogPullError(f"{kind}: {entry_id}.deprecated の型が違います")
-        for field in ("links", "synonyms", "tags"):
+        for field in ("links", "synonyms", "tags", *STRING_LIST_FIELDS.get(kind, ())):
             if field in row and (not isinstance(row[field], list) or any(not isinstance(value, str) for value in row[field])):
                 raise CatalogPullError(f"{kind}: {entry_id}.{field} は文字列の配列が必要です")
         if kind == "glossary" and row["category"] not in definition["categories"]:

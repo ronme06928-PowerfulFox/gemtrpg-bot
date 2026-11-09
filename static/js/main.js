@@ -1069,6 +1069,23 @@ async function reloadSkillCatalogData() {
   }
 }
 
+const resourceCatalogRequestVersions = {};
+const resourceCatalogWindows = {passive: 'allPassiveData', radiance: 'radianceSkillData', summon: 'allSummonTemplateData'};
+async function reloadResourceCatalogData(kind) {
+  if (kind === 'item') return loadItemData();
+  const memory = resourceCatalogWindows[kind];
+  if (!memory) return;
+  const version = resourceCatalogRequestVersions[kind] = (resourceCatalogRequestVersions[kind] || 0) + 1;
+  try {
+    const response = await fetch(`/api/get_${kind}_data`, {cache: 'no-cache'});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (version === resourceCatalogRequestVersions[kind]) window[memory] = data;
+  } catch (error) {
+    console.error(`[ERROR] ${kind}データの読み込みに失敗:`, error);
+  }
+}
+
 // --- 4. SocketIO初期化 ---
 function initializeSocketIO() {
     if (socket) {
@@ -1099,6 +1116,7 @@ function initializeSocketIO() {
     registerAppSocketHandler('catalog_updated', (data) => {
         if (data?.kind === 'buff') reloadBuffCatalogData();
         if (data?.kind === 'skill') reloadSkillCatalogData();
+        if (['item', 'passive', 'radiance', 'summon'].includes(data?.kind)) reloadResourceCatalogData(data.kind);
         window.Glossary.onCatalogUpdated(data);
         window.CatalogWorkspace?.onUpdated(data);
     });
@@ -1335,29 +1353,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     reloadSkillCatalogData();
 
-    // ★ Phase 6: 輝化スキルデータをグローバルに読み込み
-    fetch('/api/get_radiance_data')
-        .then(res => res.json())
-        .then(data => {
-            window.radianceSkillData = data;
-            console.log('[OK] 輝化スキルデータを読み込みました:', data);
-        })
-        .catch(err => {
-            console.error('[ERROR] 輝化スキルデータの読み込みに失敗:', err);
-            window.radianceSkillData = {};
-        });
-
-    // ★ Phase 7: 特殊パッシブデータをグローバルに読み込み
-    fetch('/api/get_passive_data')
-        .then(res => res.json())
-        .then(data => {
-            window.allPassiveData = data;
-            console.log('[OK] 特殊パッシブデータを読み込みました:', data);
-        })
-        .catch(err => {
-            console.error('[ERROR] 特殊パッシブデータの読み込みに失敗:', err);
-            window.allPassiveData = {};
-        });
+    for (const kind of ['passive', 'radiance', 'summon']) reloadResourceCatalogData(kind);
 
     reloadBuffCatalogData();
 

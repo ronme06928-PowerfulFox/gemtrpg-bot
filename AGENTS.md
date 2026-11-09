@@ -18,7 +18,7 @@
 ## プロジェクト概要
 
 - ジェムリアTRPG用ダイスボット。**Flask + Flask-SocketIO**（リアルタイム）。
-- 永続化は **PostgreSQL**（本番 Render）/ ローカルは SQLite。画像は **Cloudinary**、スキル等マスターデータは **Google Sheets** から取り込み JSON キャッシュ化。
+- 永続化は **PostgreSQL**（本番 Render）/ ローカルは SQLite。画像は **Cloudinary**、マスターデータ7種類は **アプリDB** が正本（空DBへの初回取り込みはJSONキャッシュ）。
 - デプロイ: **main へ push すると Render が自動デプロイ**（Render は Python 環境で **Node を持たない**）。main への push は本番反映と同じなので、エージェントは commit / push をユーザーの指示があるときだけ行う。
 - バックエンド主要: `app.py`（ルート/起動）, `manager/`（ロジック層）, `events/`（Socket ハンドラ）, `models.py`。
 
@@ -84,7 +84,7 @@ pytest -q
 
 ```bash
 python app.py        # 開発サーバ (127.0.0.1:5000, async_mode=threading)
-python app.py --update  # スキル/アイテム等マスターデータを Google Sheets から再取得
+python app.py --pull    # 本番の公開APIからマスターデータ7種類を手元へ取得
 ```
 
 本番は gunicorn + eventlet（`gunicorn_config.py`, worker=1）。`/healthz` はスピンダウン防止/死活監視用の軽量エンドポイント。

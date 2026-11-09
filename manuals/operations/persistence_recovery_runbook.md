@@ -38,7 +38,7 @@ python -m pytest -q tests/test_persistence_recovery.py tests/test_persistence_pr
 
 SQLiteを稼働中に扱う場合、DB本体だけのファイルコピーではWALにあるコミットを取りこぼしうる。隔離検証ではPython sqlite3の `Connection.backup()` で一貫したコピーを作り、そのコピーから別DBへ戻して内容を確認する。
 
-このDB検証にはCloudinary上の画像実体、Google Sheets、ソース・静的ファイルは含まれない。DBの復元だけで外部素材や別サービスまで復旧したとは扱わない。ローカルDBの内容を本番へ移す処理も含めない。
+このDB検証にはCloudinary上の画像実体、ソース・静的ファイルは含まれない。DBの復元だけで外部素材や別サービスまで復旧したとは扱わない。ローカルDBの内容を本番へ移す処理も含めない。
 
 ## 本番で残る確認
 

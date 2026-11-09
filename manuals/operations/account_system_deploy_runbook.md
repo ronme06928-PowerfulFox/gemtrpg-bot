@@ -149,7 +149,7 @@
 | 目的 | コマンド |
 |---|---|
 | ローカル開発起動 | `python app.py` |
-| マスターデータ更新 | `python app.py --update` |
+| 本番マスターを手元へ取得 | `python app.py --pull`（ローカル専用。公開の修正は管理APIで下書き・承認） |
 | **ローカル全消去（dry-run/実行）** | `python scripts/reset_accounts_rooms.py [--yes]` |
 | **本番(Neon)全消去** | Neon SQL Editor で `TRUNCATE TABLE room_members, trusted_device_tokens, one_time_login_codes, rooms, users RESTART IDENTITY CASCADE;` → Render再起動 |
 | membership backfill（通常は不要） | `python scripts/backfill_memberships.py [--apply]` |

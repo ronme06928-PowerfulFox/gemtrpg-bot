@@ -4,6 +4,7 @@ import re
 
 from manager.cache_paths import GLOSSARY_CACHE_FILE, BUFF_CATALOG_CACHE_FILE
 from .skills import SKILL_DEFINITION
+from .resources import RESOURCE_DEFINITIONS, inspect_resource
 
 
 class CatalogValidationError(ValueError):
@@ -13,6 +14,7 @@ class CatalogValidationError(ValueError):
 
 
 KINDS = {
+    **RESOURCE_DEFINITIONS,
     "skill": SKILL_DEFINITION,
     "glossary": {
         "id_prefix": "W-",
@@ -118,6 +120,8 @@ def inspect_payload(kind, payload, *, entry_id=None, stage, published_ids=None, 
     if kind == "skill" and not invalid:
         from .skills import inspect_skill
         inspect_skill(payload, entry_id, stage, add)
+    if kind in RESOURCE_DEFINITIONS:
+        inspect_resource(kind, payload, invalid, add)
     glossary, drafts, buffs = _reference_context()
     published = set(glossary) if published_ids is None or kind != "glossary" else set(published_ids)
     drafts = drafts if draft_ids is None or kind != "glossary" else set(draft_ids)
