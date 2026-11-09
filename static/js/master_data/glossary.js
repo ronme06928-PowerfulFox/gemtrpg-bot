@@ -83,7 +83,7 @@
       const attrs = `id="cat-field-${key}" data-field="${key}" aria-describedby="cat-error-${key}"`;
       let input;
       if (type === 'category') input = `<select ${attrs}><option value="">選択してください</option>${categories.map(category => `<option ${category === value ? 'selected' : ''}>${escape(category)}</option>`).join('')}</select>`;
-      else if (type === 'textarea') input = `<textarea ${attrs} rows="3">${escape(value)}</textarea>`;
+      else if (type === 'textarea') input = `<textarea data-catalog-text ${attrs} rows="3">${escape(value)}</textarea>`;
       else input = `<input ${attrs} type="${type}" ${type === 'number' ? 'step="1"' : ''} value="${escape(value)}">`;
       return `<label class="cat-field ${['textarea', 'array'].includes(type) ? 'cat-field-wide' : ''}" for="cat-field-${key}">${escape(label)}${['display_name', 'category'].includes(key) ? ' *' : ''}${input}<span class="cat-field-error" id="cat-error-${key}">${escape(errors[`input:${key}`] || errors[key])}</span></label>`;
     }).join('');

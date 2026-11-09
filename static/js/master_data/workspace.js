@@ -27,6 +27,7 @@
     const scene = panel.querySelector('.cat-scene');
     const message = panel.querySelector('.cat-message');
     let destroyed = false;
+    let textTools = null;
     const listeners = [];
     function listen(type, handler) { panel.addEventListener(type, handler); listeners.push([type, handler]); }
     const state = { kind: model.kind, catalogs: {}, user: {}, data: { entries: [], drafts: [] }, selected: '', scene: 'browse',
@@ -78,6 +79,7 @@
       const [schemas, buffs, glossary] = await Promise.all([request('effectSchemas'), request('list', 'buff'), request('list', 'glossary')]);
       if (!alive() || state.kind !== kind) return;
       state.schemas = schemas;
+      state.catalogs.glossary = glossary;
       const references = {};
       for (const [key, data] of [['buff', buffs], ['glossary', glossary], ['skill', state.data]]) references[key] = models.glossary.rows(data).map(row => ({id:row.target_id,name:nameOf(row.payload)}));
       state.textReferences = {
@@ -92,9 +94,10 @@
       const token = ++state.listRequest;
       const previous = selected();
       const kind = state.kind;
-      const data = await request('list', kind);
+      const [data, terms] = await Promise.all([request('list', kind), kind === 'buff' ? request('list', 'glossary') : null]);
       if (!alive() || token !== state.listRequest || kind !== state.kind) return;
       state.data = data; state.catalogs[kind] = data;
+      if (terms) state.catalogs.glossary = terms;
       if (kind === 'skill') { await prepareSkill(); if (!alive() || token !== state.listRequest || kind !== state.kind) return; }
       panel.querySelector('.bo-workspace__header h2').textContent = kind === 'skill' ? 'スキル' : 'マスターデータ';
       panel.querySelector('#cat-skill-return').hidden = kind !== 'skill';
@@ -107,7 +110,7 @@
         }
       }
       if (state.scene === 'browse') renderBrowse();
-      else if (fromNotice) notice('公開データが更新されました。入力はそのまま残しています。');
+      else if (fromNotice) { mountTextTools(); notice('公開データが更新されました。入力はそのまま残しています。'); }
     }
     function sidebar() {
       const statuses = ['published', 'deprecated', ...(author() ? ['draft', 'pending', 'rejected'] : [])];
@@ -121,6 +124,7 @@
         ${author() ? `<div class="cat-sidebar-action">${button('新しく作る', 'new', 'cat-primary')}</div>` : ''}</aside>`;
     }
     function renderBrowse() {
+      textTools?.destroy(); textTools = null;
       scene.innerHTML = `<div class="bo-workspace__body">${sidebar()}<section class="bo-workspace__list-pane" aria-label="${model.label}一覧"><div class="cat-list-heading"><h3>${model.label}</h3><span class="cat-caption" id="cat-list-count"></span></div><div id="cat-records" class="bo-workspace__record-list"></div></section><aside id="cat-detail" class="bo-workspace__detail-pane" aria-label="選択した${model.label}の詳細"></aside></div>`;
       renderList();
     }
@@ -193,13 +197,22 @@
       scene.innerHTML = `<div class="cat-editor"><div class="cat-editbar">${button('← 戻る', 'back')}<strong>${h(state.edit.target_id)} ${h(nameOf(state.payload))}</strong>${badge(state.edit.status)}</div><div class="cat-edit-grid"><section class="cat-edit-input" aria-label="入力"><div class="bo-workspace__tabs cat-input-tabs" role="tablist" aria-label="入力方法">${['form', 'json', ...(state.kind === 'skill' ? ['text'] : [])].map(tab => `<button type="button" role="tab" data-tab="${tab}" aria-selected="${state.tab === tab}" class="${state.tab === tab ? 'is-active' : ''}">${tab === 'form' ? 'フォーム' : tab === 'json' ? 'JSON' : '文章から作る'}</button>`).join('')}</div><div id="cat-input-content"></div></section><aside id="cat-preview" class="cat-edit-preview" aria-label="${model.label}のプレビュー"></aside></div><footer class="cat-footer"><small>公開にはアプリ管理者の承認が必要です。</small>${button('取り下げ', 'withdraw', 'cat-danger')}${button('下書きを保存', 'save')}${button('承認を申請', 'submit', 'cat-primary')}</footer></div>`;
       renderInput(); renderPreview();
     }
+    function mountTextTools() {
+      textTools?.destroy(); textTools = null;
+      if (state.scene !== 'edit') return;
+      textTools = window.CatalogTextTools.mount(panel.querySelector('#cat-input-content'), {
+        entries: state.catalogs.glossary?.entries || [], currentId: state.kind === 'glossary' ? state.edit.target_id : '',
+      });
+    }
     function renderInput() {
+      textTools?.destroy(); textTools = null;
       panel.querySelector('#cat-input-content').innerHTML = state.tab === 'text'
         ? window.CatalogSkillText.renderForm(state.payload,state.textTags,state.textResult,state.textReferences)
         : state.tab === 'json'
         ? `<label class="cat-field">${model.label}のJSON<textarea id="cat-json-input" class="cat-source" spellcheck="false">${h(state.jsonText)}</textarea></label><p class="cat-caption">${h(model.jsonHint)}</p>${button('JSONをコピー', 'copy-json')}`
         : `<div class="cat-field-grid">${model.form(state.payload, state.errors, { entries: state.data.entries, linkQuery: state.linkQuery, aliasInput: state.aliasInput, published: state.edit.base_revision != null, effectText: state.effectText })}</div>`;
       if (state.tab === 'form') renderCandidates();
+      mountTextTools();
     }
     function candidates() {
       return model.linkCandidates(state.data.entries, state.edit.target_id,
@@ -517,6 +530,7 @@
       destroy() {
         if (destroyed) return;
         destroyed = true; state.listRequest++; state.detailRequest++;
+        textTools?.destroy(); textTools = null;
         listeners.forEach(([type, handler]) => panel.removeEventListener(type, handler));
         mounts.delete(controller); panel.innerHTML = '';
       },
@@ -563,6 +577,6 @@
   window.mountSkillWorkspace = (container, options = {}) => mountCatalogWorkspace(container, {...options,kind:'skill'});
   window.openMasterDataWorkspace = openMasterDataWorkspace;
   window.CatalogWorkspace = { renderProblems, onUpdated(data) {
-    mounts.forEach(controller => { if (data?.kind === controller.kind()) controller.refresh(); });
+    mounts.forEach(controller => { if (data?.kind === controller.kind() || data?.kind === 'glossary') controller.refresh(); });
   } };
 })();

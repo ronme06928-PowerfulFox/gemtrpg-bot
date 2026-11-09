@@ -24,7 +24,7 @@
       let input;
       if (type === 'duration') input = `<select data-duration-mode aria-label="持続の単位"><option value="rounds" ${value !== -1 ? 'selected' : ''}>ラウンド数</option><option value="permanent" ${value === -1 ? 'selected' : ''}>解除まで</option></select><input ${attrs} type="number" min="1" step="1" aria-label="持続のラウンド数" value="${h(value === -1 ? '' : value)}" ${value === -1 ? 'disabled' : ''}>`;
       else if (type === 'json') input = `<textarea ${attrs} class="cat-effect-source" spellcheck="false" rows="6">${h(options.effectText ?? JSON.stringify(value, null, 2))}</textarea>`;
-      else if (type === 'textarea') input = `<textarea ${attrs} rows="3">${h(value)}</textarea>`;
+      else if (type === 'textarea') input = `<textarea data-catalog-text ${attrs} rows="3">${h(value)}</textarea>`;
       else input = `<input ${attrs} type="text" value="${h(value)}" ${key === 'name' && options.published ? 'readonly' : ''}>`;
       return `<label class="cat-field ${type === 'textarea' || type === 'json' ? 'cat-field-wide' : ''}">${h(label)}${key === 'name' ? ' *' : ''}${input}<span class="cat-field-error" id="cat-error-${key}">${h(errors[`input:${key}`] || errors[key])}</span>${key === 'name' && options.published ? '<small>公開済みの内部名は変更できません。</small>' : ''}</label>`;
     }).join('');

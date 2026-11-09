@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const window={};const context=vm.createContext({window,console});
-for(const name of ['catalog_api','glossary','buff','skill_text_help','skill_text']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['catalog_api','glossary','text_tools','buff','skill_text_help','skill_text']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const fixture=JSON.parse(fs.readFileSync('tests/fixtures/skill_text_legacy.json','utf8'));
 const reader=window.CatalogSkillText.createReader(fixture.references);
 """

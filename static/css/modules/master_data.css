@@ -199,3 +199,10 @@
 .cat-text-errors { color: #a13b3b; padding-left: 20px; }
 .cat-text-errors li { margin-bottom: 12px; overflow-wrap: anywhere; }
 .cat-text-errors blockquote { margin: 4px 0; padding: 4px 8px; background: #fff0f0; border-left: 2px solid #cf8f8f; white-space: pre-wrap; }
+
+.cat-text-tools { min-width: 0; font-weight: normal; }
+.cat-text-tools-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+.cat-workspace .cat-text-tools-bar select { width: auto; max-width: 100%; min-width: 0; font-size: 12px; padding: 5px 8px; }
+.cat-text-tools-bar .cat-button { padding: 5px 8px; font-size: 12px; }
+.cat-text-picker { margin: 6px 0; padding: 8px; border: 1px solid #dce3ed; border-radius: 6px; background: #f8fafc; }
+.cat-text-picker .cat-link-candidates { position: static; max-height: 180px; margin-top: 6px; }
