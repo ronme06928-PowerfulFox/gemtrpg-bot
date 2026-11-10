@@ -2,7 +2,7 @@
 
 # 運用マニュアル
 
-**最終更新日**: 2026-11-10（計画60 PR60-14：マスター7種類のDB管理）
+**最終更新日**: 2026-11-10（計画60 PR60-15：残る4種類の管理画面）
 **系統**: F — 運用
 **統合元**: 14_GM_Buff_Item_Operations_Spec / 16_Manual_Update_Protocol / 21_Render_Deploy_Operations / 26_Account_Auth_Plan
 
@@ -1432,6 +1432,6 @@ egatari v0.4.5の標準audio/manifest.jsonへ、段階の長さに無音を足�
 
 ### 残る4種類の配信と再読み込み（計画60 PR60-14）
 
-`/api/get_item_data`・`/api/get_passive_data`・`/api/get_radiance_data`は既存形式を保ち、`/api/get_summon_data`を同じ認証なしの公開APIとして追加する。`--pull`はこの4つを加えた7種類の取得・検査を終えてから、7ファイルと公開DBを一括反映する。管理APIはkind=item/passive/radiance/summonを受け付け、既存の権限・下書き・承認を使う。管理画面の4種類の追加はPR60-15で行う。
+`/api/get_item_data`・`/api/get_passive_data`・`/api/get_radiance_data`は既存形式を保ち、`/api/get_summon_data`を同じ認証なしの公開APIとして追加する。`--pull`はこの4つを加えた7種類の取得・検査を終えてから、7ファイルと公開DBを一括反映する。管理APIはkind=item/passive/radiance/summonを受け付け、既存の権限・下書き・承認を使う。管理画面もPR60-15で4種類に対応。召喚テンプレートだけJSON編集とする。
 
 公開通知catalog_updatedは画面の種類別辞書も再取得する。取得失敗では直前の辞書を保ち、古い応答は捨てる。GOOGLE_CREDENTIALS_JSONはコードから参照しない。Renderに残っている環境変数自体の削除はユーザーが行う。
