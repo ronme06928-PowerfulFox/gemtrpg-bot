@@ -19,14 +19,14 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const window={}, calls=[];
 const context=vm.createContext({window,console,setTimeout,clearTimeout,fetchWithSession:async(path,options)=>{
- calls.push([path,options]); return {ok:true,json:async()=>({})};
+ calls.push([path,options]); return {ok:true,text:async()=>JSON.stringify({})};
 }});
-for(const name of ['catalog_api','glossary','text_tools','buff','skill_effects','skill'])
+for(const name of ['json','catalog_api','glossary','text_tools','buff','skill_effects','skill_inputs','editor','skill'])
  vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const model=window.CatalogSkill, effects=window.CatalogSkillEffects, api=window.CatalogApi;
 """
     setup += "const schemas=" + json.dumps(schemas, ensure_ascii=False) + ";\nmodel.configure(schemas, {});\n"
-    result = subprocess.run(["node", "--input-type=module", "-e", setup + script], cwd=ROOT,
+    result = subprocess.run(["node", "--input-type=module"], input=setup + script, cwd=ROOT,
                             capture_output=True, text=True, encoding="utf-8", timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr
 
@@ -131,7 +131,7 @@ class Element {
  constructor(){this.innerHTML='';this.textContent='';this.hidden=false;this.isConnected=true;this.dataset={};this.nodes=new Map();this.listeners=new Map();this.classList={add(){},remove(){},toggle(){}};}
  querySelector(selector){if(!this.nodes.has(selector))this.nodes.set(selector,new Element());return this.nodes.get(selector);}
  querySelectorAll(){return [];}
- setAttribute(){} removeAttribute(){}
+ setAttribute(){} removeAttribute(){} focus(){}
  addEventListener(type,fn){this.listeners.set(type,fn);}
  removeEventListener(type){this.listeners.delete(type);}
  contains(){return true;}
@@ -141,7 +141,7 @@ const payload={'デフォルト名称':'既存','分類':'物理','特記処理'
  id:'keep',effects:[{type:'APPLY_STATE',timing:'HIT',target:'self',state_name:'FP',value:1}]}};
 let saved,createdPrefix;
 const published={entry_id:'Ps-00',payload,revision:1};
-window.CatalogApi={...api,user:async()=>({user_id:'author',is_catalog_author:true}),effectSchemas:async()=>schemas,
+window.CatalogApi={overview:async()=>({counts:{},pending:[]}),...api,overview:async()=>({counts:{},pending:[]}),user:async()=>({user_id:'author',is_catalog_author:true}),effectSchemas:async()=>schemas,
  list:async kind=>({entries:kind==='skill'?[published]:[],drafts:[]}),history:async()=>({history:[]}),references:async()=>({references:[]}),
  create:async(kind,target,prefix)=>{createdPrefix=prefix;return {id:1,target_id:target || 'X-12345678',id_prefix:prefix || 'Ps',base_revision:target?1:null,payload:target?structuredClone(payload):{},status:'draft',created_by:'author'};},
  save:async(id,data)=>{saved=structuredClone(data);return {id,target_id:'Ps-00',payload:data,status:'draft',created_by:'author',problems:[]};}};
@@ -150,10 +150,10 @@ const panel=new Element(),controller=window.mountSkillWorkspace(panel);
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 const click=async dataset=>{const control={dataset,disabled:false,closest:selector=>selector==='button'?control:null,hasAttribute:()=>false};panel.listeners.get('click')({target:control});await tick();};
 const input=async(control)=>{panel.listeners.get('input')({target:{tagName:'INPUT',hasAttribute:()=>false,...control}});await tick();};
-await tick();assert.equal(controller.kind(),'skill');assert.match(panel.html(),/物理のカテゴリ/);assert.match(panel.html(),/敵のカテゴリ/);
-await click({skillCategory:'Mp'});assert.equal(panel.querySelector('#cat-list-count').textContent,'0件');
-await click({skillCategory:'Ps'});await click({action:'edit'});
-await click({tab:'json'});await click({tab:'form'});await click({action:'save'});
+await tick();assert.equal(controller.kind(),'skill');assert.match(panel.html(),/optgroup label="物理"/);assert.match(panel.html(),/optgroup label="敵"/);
+await input({dataset:{filter:'category'},value:'Mp'});assert.equal(panel.querySelector('#cat-list-count').textContent,'0件');
+await input({dataset:{filter:'category'},value:'Ps'});await click({action:'edit'});
+await click({section:'json'});await click({section:'body'});await click({action:'save'});
 assert.equal(JSON.stringify(saved),JSON.stringify(payload));
 await click({effectAction:'add'});
 await input({dataset:{effectIndex:'1',effectPath:'state_name',valueType:'state_ref'},value:'MP'});

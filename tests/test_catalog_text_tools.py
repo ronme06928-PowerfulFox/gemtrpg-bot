@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const window={};const context=vm.createContext({window,console});
-for(const name of ['glossary','text_tools'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['json','glossary','text_tools'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const tools=window.CatalogTextTools;
 const term={entry_id:'W-01',payload:{display_name:'出血',category:'状態異常',synonyms:['別の名前']}};
 const clean=value=>JSON.parse(JSON.stringify(value));
@@ -67,7 +67,7 @@ assert.deepEqual(clean(tools.timings([{...rows[2],deprecated:true}])),[]);
 
 def test_prose_fields_only_and_no_json_fields_marked():
     run_node(r"""
-for(const name of ['buff','skill_text_help','skill_text','skill_effects','skill'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['buff','skill_text_help','skill_text','skill_effects','skill_inputs','editor','skill'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const glossary=window.CatalogGlossary.form(window.CatalogGlossary.defaults());
 const buff=window.CatalogBuff.form(window.CatalogBuff.defaults());
 window.CatalogSkill.configure({effect_types:{},custom_effects:{},common_fields:{}},{});

@@ -14,9 +14,9 @@ const calls=[];
 let response={ok:true,json:async()=>({entries:[]})};
 const window={};
 const context=vm.createContext({window,console,setTimeout,clearTimeout,fetchWithSession:async(path,options)=>{
-  calls.push([path,options]); return response;
+  calls.push([path,options]); return {...response,text:async()=>JSON.stringify(await response.json())};
 }});
-for(const name of ['catalog_api','glossary','buff','text_tools']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['json','catalog_api','glossary','buff','editor','text_tools']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const api=window.CatalogApi, glossary=window.CatalogGlossary, buff=window.CatalogBuff;
 """
 
@@ -131,7 +131,7 @@ assert.equal(html.includes('textarea id="cat-field-links"'),false);
 assert.equal(html.includes('textarea id="cat-field-synonyms"'),false);
 assert.deepEqual(Array.from(glossary.parseJSON(JSON.stringify(payload)).links),['W-01','W-02','W-999']);
 const invalid={links:'do not erase',synonyms:[]};
-assert.ok(glossary.form(invalid,{}, {entries}).includes('JSONタブ'));
+assert.ok(glossary.form(invalid,{}, {entries}).includes('JSONの節'));
 assert.equal(invalid.links,'do not erase');
 assert.equal(glossary.form({links:['<img>']}, {}, {entries}).includes('<img>'),false);
 """)
@@ -195,7 +195,7 @@ class Element {
  constructor(){this.innerHTML='';this.textContent='';this.hidden=false;this.isConnected=true;this.dataset={};this.nodes=new Map();this.listeners=new Map();this.classList={add(){},remove(){},toggle(){}};}
  querySelector(selector){if(!this.nodes.has(selector))this.nodes.set(selector,new Element());return this.nodes.get(selector);}
  querySelectorAll(){return [];}
- setAttribute(){} removeAttribute(){}
+ setAttribute(){} removeAttribute(){} focus(){}
  addEventListener(type,fn){this.listeners.set(type,fn);}
  removeEventListener(type){this.listeners.delete(type);}
  contains(){return true;}
@@ -203,7 +203,7 @@ class Element {
 }
 let late;
 const kinds=[];
-window.CatalogApi={...api,user:async()=>({user_id:'author',is_catalog_author:true}),
+window.CatalogApi={overview:async()=>({counts:{},pending:[]}),...api,overview:async()=>({counts:{},pending:[]}),user:async()=>({user_id:'author',is_catalog_author:true}),
  list:async(kind)=>{kinds.push(kind);return {entries:[],drafts:[]};}};
 vm.runInContext(fs.readFileSync('static/js/master_data/workspace.js','utf8'),context);
 const left=new Element(),right=new Element();

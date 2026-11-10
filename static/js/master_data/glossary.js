@@ -10,13 +10,13 @@
   const escape = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   function parseJSON(text) {
     let payload;
-    try { payload = JSON.parse(text); } catch (_) { throw new Error('JSONの書き方を確認してください。'); }
+    try { payload = window.CatalogJson.parse(text); } catch (_) { throw new Error('JSONの書き方を確認してください。'); }
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('JSONは項目を持つオブジェクトにしてください。');
     return payload;
   }
   function parseField(key, value) {
     if (key === 'links' || key === 'synonyms') {
-      if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) throw new Error('文字列の配列にしてください。JSONタブで修正できます。');
+      if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) throw new Error('文字列の配列にしてください。JSONの節で修正できます。');
       return [...value];
     }
     if (key === 'sort_order') {
@@ -58,7 +58,7 @@
     return values.filter((_value, position) => !Number.isInteger(index) || position !== index);
   }
   function chips(key, values, entries = []) {
-    if (!Array.isArray(values)) return '<p class="cat-field-error">配列の型が違います。JSONタブで修正してください。</p>';
+    if (!Array.isArray(values)) return '<p class="cat-field-error">配列の型が違います。JSONの節で修正してください。</p>';
     return values.map((value, index) => {
       const linked = key === 'links' ? entries.find(row => row.entry_id === value) : null;
       const label = key === 'links' ? `${value} ${linked?.payload.display_name || ''}`.trim() : String(value);
@@ -77,7 +77,7 @@
     return `<fieldset class="cat-array-field cat-field-wide ${key === 'links' ? 'cat-link-picker' : ''}"><legend>${label}</legend><div id="cat-${key}-chips" class="cat-chips">${chips(key, value, options.entries)}</div>${controls}<span class="cat-field-error" id="cat-error-${key}">${escape(errors[`input:${key}`] || errors[key])}</span></fieldset>`;
   }
   function form(payload, errors = {}, options = {}) {
-    return fields.map(([key, label, type]) => {
+    return fields.filter(([key])=>!options.section || window.CatalogEditor.keys('glossary',options.section).includes(key)).map(([key, label, type]) => {
       const value = payload[key] ?? (type === 'array' ? [] : '');
       if (type === 'array') return arrayField(key, label, value, errors, options);
       const attrs = `id="cat-field-${key}" data-field="${key}" aria-describedby="cat-error-${key}"`;

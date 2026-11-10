@@ -8,18 +8,18 @@ import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:asser
 class Element {
  constructor(){this.innerHTML='';this.textContent='';this.hidden=false;this.isConnected=true;this.dataset={};this.nodes=new Map();this.listeners=new Map();this.classList={add(){},remove(){},toggle(){}};}
  querySelector(s){if(!this.nodes.has(s))this.nodes.set(s,new Element());return this.nodes.get(s);}
- querySelectorAll(){return [];}setAttribute(){}removeAttribute(){}focus(){}
+ querySelectorAll(){return [];}setAttribute(){}removeAttribute(){}focus(){}focus(){}
  addEventListener(type,fn){this.listeners.set(type,fn);}removeEventListener(type){this.listeners.delete(type);}
 }
-const events=new Map(),window={addEventListener:(t,f)=>events.set(t,f),removeEventListener:t=>events.delete(t)};
+const events=new Map(),window={Glossary:{parseMarkupToHTML:value=>value},addEventListener:(t,f)=>events.set(t,f),removeEventListener:t=>events.delete(t)};
 const context=vm.createContext({window,console,setTimeout,clearTimeout});
-for(const name of ['glossary','buff','resources','skill_effects','skill','text_tools','workspace'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['json','glossary','buff','resources','skill_effects','skill_inputs','editor','skill','text_tools','workspace'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const tick=()=>new Promise(r=>setTimeout(r,0));
 let calls=[],owner='author',status='draft',revision=3,failed=false,closed=0,focused;
 const all={glossary:window.CatalogGlossary,buff:window.CatalogBuff,skill:window.CatalogSkill,...window.CatalogResources};
 const records=Object.fromEntries(Object.entries(all).map(([kind,model])=>[kind,{entry_id:kind==='skill'?'Ps-01':`${kind}-01`,revision:3,payload:model.defaults()}]));
 let savedDraft;
-window.CatalogApi={user:async()=>({user_id:'author',is_catalog_author:true}),
+window.CatalogApi={overview:async()=>({counts:{},pending:[]}),user:async()=>({user_id:'author',is_catalog_author:true}),
  list:async kind=>({entries:[records[kind]],drafts:savedDraft?.kind===kind?[savedDraft]:[]}),
  history:async()=>({history:[]}),references:async()=>({references:[]}),
  effectSchemas:async()=>({effect_types:{},custom_effects:{},common_fields:{}}),
@@ -56,12 +56,12 @@ controller.destroy();assert.equal(events.size,0);
 
 def test_three_choices_beforeunload_and_failed_save_keep_editor():
     run_node(r"""
-await click({action:'edit'});await click({tab:'json'});await input();
+await click({action:'edit'});await click({section:'json'});await input();
 let prevented=false;events.get('beforeunload')({preventDefault(){prevented=true;}});assert.equal(prevented,true);
 await click({action:'back'});assert.match(panel.querySelector('.cat-leave-overlay').innerHTML,/下書きを保存して移る/);
 await click({leave:'cancel'});assert.equal(focused.dataset.action,'back');assert.deepEqual(calls,[]);assert.match(panel.querySelector('.cat-scene').innerHTML,/cat-editor/);
 await click({action:'back'});await click({leave:'discard'});assert.deepEqual(calls,[]);assert.doesNotMatch(panel.querySelector('.cat-scene').innerHTML,/cat-editor/);
-await click({action:'edit'});await click({tab:'json'});await input();
+await click({action:'edit'});await click({section:'json'});await input();
 failed=true;await click({action:'back'});await click({leave:'save'});
 assert.deepEqual(calls,['create','save']);assert.match(panel.querySelector('.cat-scene').innerHTML,/cat-editor/);
 assert.match(panel.querySelector('.cat-message').textContent,/保存失敗/);

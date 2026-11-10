@@ -95,3 +95,8 @@ def test_effect_schemas_api_is_public_and_returns_both_registries():
         "common_fields": COMMON_EFFECT_FIELDS,
         "target_labels": TARGET_LABELS,
     }
+
+
+def test_fissure_fields_have_display_condition_only():
+    for key in ["rounds", "source"]:
+        assert EFFECT_SCHEMAS["APPLY_STATE"]["fields"][key]["visible_when"] == {"state_name": "亀裂"}

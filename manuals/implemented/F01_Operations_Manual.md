@@ -1435,3 +1435,7 @@ egatari v0.4.5の標準audio/manifest.jsonへ、段階の長さに無音を足�
 `/api/get_item_data`・`/api/get_passive_data`・`/api/get_radiance_data`は既存形式を保ち、`/api/get_summon_data`を同じ認証なしの公開APIとして追加する。`--pull`はこの4つを加えた7種類の取得・検査を終えてから、7ファイルと公開DBを一括反映する。管理APIはkind=item/passive/radiance/summonを受け付け、既存の権限・下書き・承認を使う。管理画面もPR60-15で4種類に対応。召喚テンプレートだけJSON編集とする。
 
 公開通知catalog_updatedは画面の種類別辞書も再取得する。取得失敗では直前の辞書を保ち、古い応答は捨てる。GOOGLE_CREDENTIALS_JSONはコードから参照しない。Renderに残っている環境変数自体の削除はユーザーが行う。
+
+### 管理カタログの概要API（計画60 PR60-17）
+
+`GET /api/catalog/overview` は既存の管理APIと同じセッション認証を使う。`counts` は7種類のkindをキーに公開中（published）・廃止（deprecated）の件数を返す。制作者・管理者には下書き（draft）・承認待ち（pending）・却下（rejected）も返す。`pending` は管理者にだけ返す種類横断の承認待ち下書きの配列で、既存の下書きJSONと同じ形。一般ユーザーに下書きの件数・中身を返さない。既存の保存・申請・承認APIは変更しない。

@@ -18,11 +18,11 @@
     if (draft.base_revision != null && payload.name !== draft.payload.name) throw new Error('公開済みの内部名は変更できません。');
   }
   function form(payload, errors = {}, options = {}) {
-    return fields.map(([key, label, type]) => {
+    return fields.filter(([key])=>!options.section || window.CatalogEditor.keys('buff',options.section).includes(key)).map(([key, label, type]) => {
       const value = payload[key] ?? defaults()[key];
       const attrs = `id="cat-field-${key}" data-field="${key}" aria-describedby="cat-error-${key}"`;
       let input;
-      if (type === 'duration') input = `<select data-duration-mode aria-label="持続の単位"><option value="rounds" ${value !== -1 ? 'selected' : ''}>ラウンド数</option><option value="permanent" ${value === -1 ? 'selected' : ''}>解除まで</option></select><input ${attrs} type="number" min="1" step="1" aria-label="持続のラウンド数" value="${h(value === -1 ? '' : value)}" ${value === -1 ? 'disabled' : ''}>`;
+      if (type === 'duration') input = `<span class="cat-duration-row"><select data-duration-mode aria-label="持続の単位"><option value="rounds" ${value !== -1 ? 'selected' : ''}>ラウンド数</option><option value="permanent" ${value === -1 ? 'selected' : ''}>解除まで</option></select><input ${attrs} type="number" min="1" step="1" aria-label="持続のラウンド数" value="${h(value === -1 ? '' : value)}" ${value === -1 ? 'disabled' : ''}></span>`;
       else if (type === 'json') input = `<textarea ${attrs} class="cat-effect-source" spellcheck="false" rows="6">${h(options.effectText ?? JSON.stringify(value, null, 2))}</textarea>`;
       else if (type === 'textarea') input = `<textarea data-catalog-text ${attrs} rows="3">${h(value)}</textarea>`;
       else input = `<input ${attrs} type="text" value="${h(value)}" ${key === 'name' && options.published ? 'readonly' : ''}>`;
@@ -31,7 +31,7 @@
   }
   function preview(payload) {
     const markup = value => window.Glossary?.parseMarkupToHTML(String(value || '')) ?? h(value);
-    return `<section class="bo-workspace__card"><h4>バフのプレビュー</h4><details class="buff-accordion" open><summary class="buff-summary"><div class="buff-summary-body"><span class="buff-name">${h(payload.display_name || payload.name || '名前未入力')}</span><div class="buff-meta">${h(duration(payload.default_duration))}</div></div><span class="buff-arrow">▼</span></summary><div class="buff-body"><div class="buff-desc-row">${markup(payload.description)}</div>${payload.flavor ? `<div class="buff-flavor-row">${markup(payload.flavor)}</div>` : ''}</div></details></section><section class="bo-workspace__card"><h4>効果のJSON</h4><pre class="cat-effect-json">${h(JSON.stringify(payload.effect ?? {}, null, 2))}</pre></section>`;
+    return `<section class="bo-workspace__card"><h4>バフのプレビュー</h4><details class="buff-accordion" open><summary class="buff-summary"><div class="buff-summary-body"><span class="buff-name">${h(payload.display_name || payload.name || '名前未入力')}</span><div class="buff-meta">${h(duration(payload.default_duration))}</div></div><span class="buff-arrow">▼</span></summary><div class="buff-body"><div class="buff-desc-row">${markup(payload.description)}</div>${payload.flavor ? `<div class="buff-flavor-row">${markup(payload.flavor)}</div>` : ''}</div></details></section>`;
   }
   window.CatalogBuff = { ...base, kind: 'buff', label: 'バフ', categories: [], fields, defaults, duration,
     parseField, validatePayload, form, preview, detail: payload => `<dl class="cat-facts"><div><dt>内部名</dt><dd>${h(payload.name)}</dd></div><div><dt>持続</dt><dd>${h(duration(payload.default_duration))}</dd></div></dl>${preview(payload)}`,

@@ -872,3 +872,7 @@ python scripts/skill_catalog_tool.py lint
 | `flags` | オブジェクト |
 
 召喚のinitial_skill_ids・hidden_skillsはskill、SPassiveはpassive、radiance_skillsはradianceを参照する。公開版・下書きのどちらにも存在しないIDはエラー、廃止版の参照は注意。承認時は未解決のX-を禁止する。本文の用語リンク検査は全種類共通。使われている所は公開辞書を走査して求め、ファイルやローダーの古いキャッシュへ戻らない。公開・廃止・復元後は次の読み出しから新しい公開辞書を使う。
+
+### 管理画面の条件付き表示（計画60 PR60-17）
+
+`EFFECT_SCHEMAS` の各fieldに任意の `visible_when` を持たせる。形は効果内のパスと一致する値の辞書（例：`{"state_name":"亀裂"}`）。すべて一致するときだけ欄を表示する。`APPLY_STATE.rounds`・`source` に適用し、`/api/effect_schemas` でそのまま配信する。表示用の印だけで、実行・検査・保存の意味は変えない。隠れた値も削除しない。

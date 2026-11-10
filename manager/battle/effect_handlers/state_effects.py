@@ -237,8 +237,8 @@ SCHEMAS = {
         "fields": {
             "state_name": {"type": "state_ref", "required": True, "label": "状態", "description": "nameでも指定可能。HP・MP・FPも使用可能。"},
             "value": {"type": "int", "required": True, "label": "量", "description": "負数は減少。省略時0で不発。"},
-            "rounds": {"type": "int", "required": False, "label": "亀裂の継続ラウンド", "description": "亀裂の正の付与時だけ使用。正数なら期限付き。"},
-            "source": {"type": "string", "required": False, "label": "付与元", "description": "期限付き亀裂の付与元。省略時skill。"},
+            "rounds": {"type": "int", "required": False, "label": "亀裂の継続ラウンド", "visible_when": {"state_name": "亀裂"}, "description": "亀裂の正の付与時だけ使用。正数なら期限付き。"},
+            "source": {"type": "string", "required": False, "label": "付与元", "visible_when": {"state_name": "亀裂"}, "description": "期限付き亀裂の付与元。省略時skill。"},
         },
         "summary": "{target}に{state_name}を{value}付与",
         "example": {

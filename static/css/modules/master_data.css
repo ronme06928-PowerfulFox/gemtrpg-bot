@@ -25,13 +25,7 @@
 .cat-workspace .bo-workspace__header p { font-size: 12px; }
 .cat-scene { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow: hidden; }
 .cat-workspace .bo-workspace__body { grid-template-columns: 218px minmax(0, 1fr) minmax(0, 390px); width: 100%; }
-.cat-workspace .bo-workspace__sidebar { background: var(--cat-soft); }
-.cat-workspace .bo-workspace__sidebar h3 { color: var(--cat-sub); font-size: 11px; letter-spacing: .08em; margin: 16px 0 7px; }
-.cat-workspace .bo-workspace__sidebar h3:first-child { margin-top: 0; }
-.cat-workspace .bo-workspace__nav-list > button { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; min-height: 35px; font-size: 13px; border-radius: 6px; color: var(--cat-text); }
-.cat-workspace .bo-workspace__nav-list > button.is-active { color: var(--cat-primary); border-color: var(--cat-edge); font-weight: 700; }
-.cat-nav-count, .cat-caption { color: var(--cat-sub); font-size: 12px; }
-.cat-sidebar-action { margin-top: 20px; }
+.cat-caption { color: var(--cat-sub); font-size: 12px; }
 .cat-list-heading { display: flex; align-items: baseline; gap: 9px; margin-bottom: 12px; }
 .cat-list-heading h3 { margin: 0; font-size: 16px; }
 .cat-workspace .bo-workspace__record { gap: 5px; padding: 12px; color: var(--cat-text); line-height: 1.5; cursor: pointer; }
@@ -76,8 +70,6 @@
 .cat-edit-input, .cat-edit-preview { min-width: 0; padding: 16px 18px; overflow: auto; }
 .cat-edit-input { border-right: 1px solid var(--cat-edge); }
 .cat-edit-preview { background: var(--cat-soft); }
-.cat-workspace .cat-input-tabs { position: static; padding: 0; margin-bottom: 14px; flex-wrap: wrap; gap: 0; }
-.cat-workspace .cat-input-tabs button { padding: 7px 12px; font-size: 12px; color: var(--cat-sub); border-radius: 0; }
 .cat-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
 .cat-field-grid > *, .cat-field { min-width: 0; }
 .cat-field-wide { grid-column: 1 / -1; }
@@ -111,16 +103,12 @@
 @container catalog (max-width: 980px) {
   .cat-workspace .bo-workspace__body { grid-template-columns: 200px minmax(0, 1fr); min-height: auto; }
   .cat-workspace .bo-workspace__detail-pane { grid-column: 1 / -1; border-top: 1px solid var(--cat-edge); }
-  .cat-workspace .bo-workspace__sidebar, .cat-workspace .bo-workspace__list-pane, .cat-workspace .bo-workspace__detail-pane { overflow: visible; }
   .cat-scene { overflow: auto; }
   .cat-scene:has(.cat-editor, .cat-review-wrap) { overflow: hidden; }
   .cat-workspace .bo-workspace__record-list { max-height: 400px; overflow-y: auto; }
 }
 @container catalog (max-width: 680px) {
   .cat-workspace .bo-workspace__body, .cat-edit-grid, .cat-review-grid { grid-template-columns: minmax(0, 1fr); }
-  .cat-workspace .bo-workspace__sidebar, .cat-workspace .bo-workspace__list-pane { border-right: 0; border-bottom: 1px solid var(--cat-edge); }
-  .cat-workspace .bo-workspace__nav-list { display: flex; flex-wrap: wrap; gap: 5px; }
-  .cat-workspace .bo-workspace__nav-list > button { width: auto; gap: 8px; }
   .cat-editor, .cat-review-wrap { flex: 1; min-height: 0; }
   .cat-edit-grid { overflow: auto; }
   .cat-edit-input, .cat-edit-preview { overflow: visible; padding: 14px; }
@@ -185,9 +173,6 @@
 .cat-workspace .buff-flavor-row { color: var(--cat-sub); font-size: .85em; font-style: italic; line-height: 1.4; border-top: 1px dashed var(--cat-edge); margin-top: 6px; padding-top: 6px; }
 
 /* スキル専用の分類と、同じ枠内の効果フォーム。 */
-.cat-category-groups { display: grid; gap: 10px; }
-.cat-category-group h3 { margin: 4px 0; }
-.cat-category-group code { min-width: 22px; display: inline-block; color: var(--cat-sub); }
 .cat-rule-editor { min-width: 0; padding-top: 14px; border-top: 1px solid var(--cat-edge); }
 .cat-rule-editor h3 { font-size: 15px; }
 .cat-effect-card { margin-top: 14px; min-width: 0; }
@@ -205,7 +190,6 @@
 .cat-workspace .skill-detail-card { margin-top: 12px; }
 @container catalog (max-width: 680px) {
   .cat-workspace .cat-effect-card .cat-field-grid { grid-template-columns: minmax(0,1fr); }
-  .cat-category-group .bo-workspace__nav-list { display: flex; flex-wrap: wrap; }
 }
 
 .cat-text-editor { min-width: 0; }
@@ -233,9 +217,6 @@
 .cat-workspace .bo-workspace__card, .cat-workspace .bo-workspace__record { border-color: var(--cat-edge); }
 .cat-workspace .bo-workspace__header { border-color: var(--cat-edge); }
 .cat-workspace .bo-workspace__header p { color: var(--cat-sub); }
-.cat-workspace .bo-workspace__nav-list > button { border: 1px solid var(--cat-edge); background: var(--cat-bg); }
-.cat-workspace .bo-workspace__nav-list > button.is-active, .cat-workspace .bo-workspace__record.is-selected { background: var(--cat-primary-soft); border-color: var(--cat-primary); color: var(--cat-primary); }
-.cat-workspace .cat-input-tabs button.is-active { color: var(--cat-primary); border-color: var(--cat-primary); }
 .cat-workspace :is(button, summary, input, select, textarea):focus-visible { outline: 3px solid var(--cat-focus); outline-offset: 2px; }
 .cat-button:active:not(:disabled) { transform: translateY(1px); }
 .cat-badge[data-status="下書き"] { border-color: var(--cat-primary); }
@@ -255,3 +236,64 @@
 .cat-leave-dialog { width: min(560px, 100%); max-height: 100%; overflow: auto; padding: 24px; background: var(--cat-bg); border: 1px solid var(--cat-edge); border-radius: 10px; box-shadow: 0 12px 32px var(--cat-shadow); }
 .cat-leave-dialog h3 { font-size: 18px; }
 .cat-leave-dialog .cat-actions { justify-content: flex-end; }
+
+/* PR60-17：案B。承認の列と下の帯は従来のまま。 */
+.cat-browser { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.cat-kind-tabs { display: flex; flex-wrap: wrap; flex-shrink: 0; gap: 4px; padding: 12px 18px 0; border-bottom: 1px solid var(--cat-edge); }
+.cat-kind-tabs button { border: 1px solid transparent; border-radius: 7px 7px 0 0; background: transparent; color: var(--cat-sub); padding: 8px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.cat-kind-tabs button[aria-pressed="true"] { color: var(--cat-primary); background: var(--cat-primary-soft); border-color: var(--cat-primary); box-shadow: inset 0 -3px 0 var(--cat-primary); }
+.cat-kind-tabs small { display: block; font-size: 11px; }
+.cat-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex-shrink: 0; padding: 10px 18px; border-bottom: 1px solid var(--cat-edge); }
+.cat-workspace .cat-filters .cat-field { margin: 0; font-size: 12px; }
+.cat-search { flex: 1; min-width: 180px; }
+.cat-filters > .cat-button { margin-left: auto; }
+.cat-statuses { display: flex; flex-wrap: wrap; gap: 0; }
+.cat-statuses button { padding: 7px 8px; border: 1px solid var(--cat-edge); background: var(--cat-bg); color: var(--cat-text); font: inherit; font-size: 12px; cursor: pointer; }
+.cat-statuses button.is-active { color: var(--cat-primary); background: var(--cat-primary-soft); font-weight: 700; border-color: var(--cat-primary); }
+.cat-workspace .cat-browser .bo-workspace__body { grid-template-columns: minmax(260px,.8fr) minmax(0,1.3fr); min-height: 0; flex: 1; }
+.cat-workspace .cat-browser .bo-workspace__detail-pane { grid-column: auto; border-top: 0; }
+.cat-edit-grid { grid-template-columns: 150px minmax(0,1fr) minmax(280px,.85fr); }
+#cat-toc { min-height: 0; overflow: auto; border-right: 1px solid var(--cat-edge); background: var(--cat-soft); }
+.cat-toc { display: grid; align-content: start; gap: 3px; padding: 14px 8px; }
+.cat-toc button { display: flex; justify-content: space-between; gap: 8px; padding: 9px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--cat-text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.cat-toc button:hover { background: var(--cat-primary-soft); }
+.cat-toc button[aria-current="true"] { background: var(--cat-bg); font-weight: 700; box-shadow: inset 3px 0 0 var(--cat-primary); }
+.cat-toc .cat-toc-tool { font-size: 12px; }
+.cat-toc [data-section="json"] { border-top: 1px solid var(--cat-edge); margin-top: 12px; padding-top: 14px; }
+.cat-toc [data-section="preview"] { display: none; }
+.cat-edit-input .cat-rule-editor { padding-top: 0; border-top: 0; }
+.cat-edit-input > h3, #cat-input-content h3 { font-size: 16px; }
+.cat-effect-heading small { display: block; color: var(--cat-sub); margin-top: 5px; font-size: 12px; font-weight: 400; }
+.cat-effect-when { display: inline-block; background: var(--cat-text); color: var(--cat-bg); padding: 1px 7px; border-radius: 5px; font-size: 12px; }
+.cat-effect-examples { margin-top: 16px; border-top: 1px solid var(--cat-edge); padding-top: 12px; }
+.cat-effect-examples button { display: block; width: 100%; text-align: left; margin: 6px 0; overflow-wrap: anywhere; }
+.cat-duration-row { display: flex; align-items: center; gap: 8px; }
+.cat-duration-row > select { flex: 1; }
+.cat-duration-row > input { flex: 1; }
+.cat-pending { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.cat-pending h3 { margin: 0; font-size: 16px; }
+.cat-pending-list { padding: 16px; overflow: auto; display: grid; align-content: start; gap: 10px; }
+@container catalog (max-width: 980px) {
+  .cat-workspace .cat-browser .bo-workspace__body { grid-template-columns: minmax(240px,.8fr) minmax(0,1fr); overflow: auto; }
+  .cat-workspace .cat-browser .bo-workspace__list-pane, .cat-workspace .cat-browser .bo-workspace__detail-pane { overflow: auto; }
+  .cat-edit-grid { grid-template-columns: 130px minmax(0,1fr) minmax(230px,.8fr); }
+}
+@container catalog (max-width: 680px) {
+  .cat-kind-tabs { padding: 6px 10px 0; gap: 0; }
+  .cat-kind-tabs button { font-size: 12px; padding: 6px 8px; }
+  .cat-kind-tabs small { font-size: 10px; }
+  .cat-filters { padding: 8px 10px; gap: 6px; }
+  .cat-statuses button { padding: 5px 7px; }
+  .cat-workspace .cat-browser .bo-workspace__body { grid-template-columns: minmax(0,1fr); }
+  .cat-workspace .cat-browser .bo-workspace__list-pane, .cat-workspace .cat-browser .bo-workspace__detail-pane { overflow: visible; }
+  .cat-edit-grid { grid-template-columns: minmax(0,1fr); grid-template-rows: auto minmax(0,1fr); overflow: hidden; }
+  #cat-toc { border-right: 0; border-bottom: 1px solid var(--cat-edge); overflow-x: auto; }
+  .cat-toc { display: flex; padding: 6px; }
+  .cat-toc button { flex-shrink: 0; white-space: nowrap; }
+  .cat-toc [data-section="json"] { border-top: 0; border-left: 1px solid var(--cat-edge); margin: 0 0 0 6px; padding-top: 9px; }
+  .cat-toc [data-section="preview"] { display: flex; }
+  .cat-edit-grid .cat-edit-input { min-height: 0; overflow: auto; }
+  .cat-edit-grid .cat-edit-preview { display: none; min-height: 0; overflow: auto; }
+  .cat-edit-grid[data-preview="true"] .cat-edit-input { display: none; }
+  .cat-edit-grid[data-preview="true"] .cat-edit-preview { display: block; }
+}

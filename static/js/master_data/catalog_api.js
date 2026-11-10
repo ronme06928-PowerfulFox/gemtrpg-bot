@@ -3,10 +3,10 @@
     const options = { method };
     if (body !== undefined) {
       options.headers = { 'Content-Type': 'application/json' };
-      options.body = JSON.stringify(body);
+      options.body = window.CatalogJson.stringify(body,0);
     }
     const response = await fetchWithSession(path, options);
-    const data = await response.json().catch(() => ({}));
+    const data = await response.text().then(window.CatalogJson.parse).catch(() => ({}));
     if (!response.ok) {
       const error = new Error(data.error || `読み込み・保存に失敗しました（${response.status}）`);
       error.status = response.status;
@@ -18,6 +18,7 @@
   const catalog = kind => `/api/catalog/${encodeURIComponent(kind)}`;
   const draft = id => `/api/catalog/drafts/${encodeURIComponent(id)}`;
   window.CatalogApi = {
+    overview: () => request('/api/catalog/overview'),
     user: () => request('/api/get_session_user'),
     list: kind => request(catalog(kind)),
     history: (kind, id) => request(`${catalog(kind)}/${encodeURIComponent(id)}/history`),

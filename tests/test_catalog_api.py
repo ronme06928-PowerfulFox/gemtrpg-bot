@@ -49,6 +49,7 @@ def draft(target="W-08"):
 
 
 READS = [("GET", "/api/catalog/glossary"),
+         ("GET", "/api/catalog/overview"),
          ("GET", "/api/catalog/glossary/W-08/history"),
          ("GET", "/api/catalog/glossary/W-08/references")]
 WRITES = [("POST", "/api/catalog/glossary/drafts"),
@@ -302,3 +303,36 @@ def test_legacy_builder_and_its_apis_are_removed(api):
         assert connection.open(path, method=method).status_code in (404, 405)
     routes = {rule.rule for rule in api.url_map.iter_rules()}
     assert not routes & {"/json_builder", "/api/json_builder_reference", "/api/json_nl_builder_audit"}
+
+
+@pytest.mark.parametrize("actor", ["reader", "author", "admin"])
+def test_overview_counts_all_kinds_and_pending_admin_only(api, actor):
+    from manager.catalog.kinds import KINDS
+    for kind in ["glossary", "buff", "skill", "item", "passive", "radiance", "summon"]:
+        repo.seed_kind_if_empty(kind)
+        if kind in ("buff", "skill"):
+            repo.load_kind_into_memory(kind)
+    CatalogEntry.query.filter_by(kind="glossary", entry_id="W-01").one().deprecated = True
+    db.session.commit()
+    repo.create_draft("glossary", "author")
+    row = draft()
+    repo.submit_draft(row.id)
+    other = repo.create_draft("buff", "other", target_id="Bu-00")
+    repo.submit_draft(other.id)
+    response = client(api, actor).get("/api/catalog/overview")
+    assert response.status_code == 200
+    data = response.json
+    assert set(data["counts"]) == set(KINDS)
+    assert data["counts"]["glossary"]["published"] == 82
+    assert data["counts"]["glossary"]["deprecated"] == 1
+    assert data["counts"]["skill"]["published"] == 138
+    if actor == "reader":
+        assert "pending" not in data
+        assert set(data["counts"]["buff"]) == {"published", "deprecated"}
+    else:
+        assert data["counts"]["buff"]["pending"] == 1
+        assert data["counts"]["glossary"]["draft"] == 1
+        assert ("pending" in data) == (actor == "admin")
+        if actor == "admin":
+            assert {draft["kind"] for draft in data["pending"]} == {"glossary", "buff"}
+            assert all(draft["status"] == "pending" for draft in data["pending"])

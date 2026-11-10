@@ -1,6 +1,8 @@
 """カタログ管理HTTP API。認証・権限・入出力のみを担当する。"""
 from functools import wraps
 
+from sqlalchemy import func
+
 from flask import Blueprint, abort, g, jsonify, request
 
 from extensions import db, socketio
@@ -84,6 +86,31 @@ def _published(row, *, notify=True):
     result = _entry_json(row)
     if notify:
         socketio.emit("catalog_updated", {"kind": row.kind, "entry_id": row.entry_id, "revision": row.revision})
+    return jsonify(result)
+
+
+@catalog_bp.get("/api/catalog/overview")
+@_endpoint()
+def overview():
+    user = g.authenticated_user
+    author = user.is_app_admin or user.is_catalog_author
+    statuses = ("published", "deprecated", "draft", "pending", "rejected") if author else ("published", "deprecated")
+    counts = {kind: dict.fromkeys(statuses, 0) for kind in KINDS}
+    for kind, deprecated, count in db.session.query(
+            CatalogEntry.kind, CatalogEntry.deprecated, func.count(CatalogEntry.id)
+    ).group_by(CatalogEntry.kind, CatalogEntry.deprecated):
+        if kind in counts:
+            counts[kind]["deprecated" if deprecated else "published"] = count
+    if author:
+        for kind, status, count in db.session.query(
+                CatalogDraft.kind, CatalogDraft.status, func.count(CatalogDraft.id)
+        ).group_by(CatalogDraft.kind, CatalogDraft.status):
+            if kind in counts and status in ("draft", "pending", "rejected"):
+                counts[kind][status] = count
+    result = {"counts": counts}
+    if user.is_app_admin:
+        pending = CatalogDraft.query.filter(CatalogDraft.kind.in_(KINDS), CatalogDraft.status == "pending")
+        result["pending"] = [_draft_json(row) for row in pending.order_by(CatalogDraft.submitted_at, CatalogDraft.id)]
     return jsonify(result)
 
 

@@ -9,7 +9,7 @@ def run_node(script):
     setup = r"""
 import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
 const window={};const context=vm.createContext({window,console,setTimeout,clearTimeout});
-for(const name of ['glossary','buff','resources','text_tools'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['json','glossary','buff','resources','editor','text_tools'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const models=window.CatalogResources;const clean=v=>JSON.parse(JSON.stringify(v));
 """
     result=subprocess.run(['node','--input-type=module','-e',setup+script],cwd=ROOT,
@@ -43,7 +43,7 @@ assert.match(models.radiance.form({...payload,granted_tag_ids:42}),/配列/);
 
 def test_summon_has_only_json_and_preview_names_stats_and_missing_data():
     run_node(r"""
-assert.deepEqual(clean(models.summon.tabs),['json']);assert.ok(!models.summon.form);
+assert.equal(models.summon.form,null);assert.ok(!models.summon.form);
 const preview=models.summon.preview({name:'<召喚>',hp:1,maxHp:2,mp:0,maxMp:3,
  summon_duration_mode:'duration_rounds',summon_duration:4,initial_skill_ids:['Ps-00','Ps-99'],params:[{label:'敏捷',value:'2'}]},
  {skillEntries:[{entry_id:'Ps-00',payload:{'デフォルト名称':'公開名'}}]});
@@ -58,7 +58,7 @@ def test_workspace_switch_edit_tags_json_errors_and_submit():
 class Element {
  constructor(){this.innerHTML='';this.textContent='';this.hidden=false;this.isConnected=true;this.dataset={};this.nodes=new Map();this.listeners=new Map();this.classList={add(){},remove(){},toggle(){}};}
  querySelector(s){if(!this.nodes.has(s))this.nodes.set(s,new Element());return this.nodes.get(s);}
- querySelectorAll(){return [];}setAttribute(){}removeAttribute(){}focus(){}
+ querySelectorAll(){return [];}setAttribute(){}removeAttribute(){}focus(){}focus(){}
  addEventListener(type,fn){this.listeners.set(type,fn);}removeEventListener(type){this.listeners.delete(type);}
  html(){return this.innerHTML+[...this.nodes.values()].map(n=>n.html()).join('');}
 }
@@ -66,7 +66,7 @@ const drafts=new Map();let saved,submitted=0;
 const records=Object.fromEntries(Object.keys(models).map(kind=>[kind,[{entry_id:{item:'I-00',passive:'Pa-00',radiance:'S-00',summon:'U-00'}[kind],revision:1,payload:{...models[kind].defaults(),name:'公開名'}}]]));
 records.summon[0].payload.initial_skill_ids=['Ps-00'];
 const skillEntries=[{entry_id:'Ps-00',payload:{'デフォルト名称':'公開スキル'}}];
-window.CatalogApi={user:async()=>({user_id:'author',is_catalog_author:true}),
+window.CatalogApi={overview:async()=>({counts:{},pending:[]}),user:async()=>({user_id:'author',is_catalog_author:true}),
  list:async kind=>({entries:records[kind]|| (kind==='skill'?skillEntries:[]),drafts:drafts.has(kind)?[drafts.get(kind)]:[]}),
  history:async()=>({history:[]}),references:async()=>({references:[]}),
  create:async(kind,target)=>{const draft={id:1,kind,target_id:target,payload:structuredClone(records[kind][0].payload),status:'draft',created_by:'author',base_revision:1};drafts.set(kind,draft);return draft;},
@@ -83,7 +83,7 @@ for(const name of ['アイテム','特殊パッシブ','輝化スキル','召喚
 for(const kind of Object.keys(models)) {
  activeKind=kind;await click({kind});assert.equal(controller.kind(),kind);await click({action:'edit'});
  if(kind==='summon') {
-  assert.doesNotMatch(panel.querySelector('.cat-scene').innerHTML,/data-tab="form"/);
+  assert.doesNotMatch(panel.querySelector('.cat-scene').innerHTML,/data-section="body"/);
   assert.match(panel.querySelector('#cat-preview').innerHTML,/公開スキル/);
   skillEntries[0].payload['デフォルト名称']='公開名の更新';
   window.CatalogWorkspace.onUpdated({kind:'skill'});await tick();
@@ -113,13 +113,13 @@ for(const kind of Object.keys(models)) {
    panel.listeners.get('keydown')({target:{id:'cat-granted-tag-input'},key:'Enter',preventDefault(){},stopPropagation(){}});
    await click({action:'save'});assert.deepEqual(saved.granted_tag_ids,['機械']);
   }
-  await click({tab:'json'});
+  await click({section:'json'});
  }
  const payload={...models[kind].defaults(),name:'最終名',effect:kind==='summon'?undefined:{value:0},unknown:{keep:true}};
  if(kind==='item'){payload.usable=false;payload.consumable=true;}
  if(kind==='radiance')payload.granted_tag_ids=['機械'];
  await input({id:'cat-json-input',value:JSON.stringify(payload)});
- if(kind!=='summon')await click({tab:'form'});
+ if(kind!=='summon')await click({section:'body'});
  saved=undefined;await click({action:'submit'});
  assert.equal(JSON.stringify(saved),JSON.stringify(payload));
  await click({status:'published'});saved=undefined;

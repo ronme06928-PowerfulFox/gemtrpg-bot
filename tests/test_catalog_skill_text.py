@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const window={};const context=vm.createContext({window,console,setTimeout,clearTimeout});
-for(const name of ['catalog_api','glossary','text_tools','buff','skill_text_help','skill_text']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['json','catalog_api','glossary','text_tools','buff','skill_text_help','skill_text']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const fixture=JSON.parse(fs.readFileSync('tests/fixtures/skill_text_legacy.json','utf8'));
 const reader=window.CatalogSkillText.createReader(fixture.references);
 """
@@ -67,7 +67,7 @@ def test_reading_rules_are_an_unchanged_copy_of_the_legacy_parser():
 
 def test_text_tab_generation_error_copy_and_closed_workspace():
     run_node(r"""
-for(const name of ['skill_effects','skill'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['skill_effects','skill_inputs','editor','skill'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 context.document=new Proxy({}, {get(){throw Error('mount must stay inside its container');}});
 let copied,saved,failCopy=false;
 context.navigator={clipboard:{writeText:async value=>{if(failCopy)throw Error('denied');copied=value;}}};
@@ -75,7 +75,7 @@ class Element {
  constructor(){this.innerHTML='';this.textContent='';this.hidden=false;this.isConnected=true;this.dataset={};this.nodes=new Map();this.listeners=new Map();this.classList={add(){},remove(){},toggle(){}};}
  querySelector(s){if(!this.nodes.has(s))this.nodes.set(s,new Element());return this.nodes.get(s);}
  querySelectorAll(){return [];}
- setAttribute(){}removeAttribute(){}
+ setAttribute(){}removeAttribute(){}focus(){}
  addEventListener(type,fn){this.listeners.set(type,fn);}removeEventListener(type){this.listeners.delete(type);}
  html(){return this.innerHTML+[...this.nodes.values()].map(n=>n.html()).join('');}
 }
@@ -84,7 +84,7 @@ const payload={'デフォルト名称':'テスト','分類':'物理','使用時�
  '特記':original.input.note,'特記処理':original.expected.rule};
 const schemas={effect_types:{APPLY_STATE:{label:'状態',fields:{state_name:{type:'string'},value:{type:'int'}},summary:'{target}に{state_name}を{value}付与'}},custom_effects:{},
  common_fields:{timing:{options:['HIT','END_ROUND']},target:{options:['self','target']},condition:{fields:{}}}};
-window.CatalogApi={user:async()=>({user_id:'author',is_catalog_author:true}),effectSchemas:async()=>schemas,
+window.CatalogApi={overview:async()=>({counts:{},pending:[]}),user:async()=>({user_id:'author',is_catalog_author:true}),effectSchemas:async()=>schemas,
  list:async kind=>({entries:kind==='skill'?[{entry_id:'Ps-00',payload,revision:1}]:fixture.references[kind+'_refs'].map(row=>({entry_id:row.id,payload:{...row}})),drafts:[]}),
  textReferences:async()=>({summon_refs:fixture.references.summon_refs}),history:async()=>({history:[]}),references:async()=>({references:[]}),
  create:async()=>({id:1,target_id:'Ps-00',id_prefix:'Ps',base_revision:1,payload:structuredClone(payload),status:'draft',created_by:'author'}),
@@ -93,23 +93,23 @@ vm.runInContext(fs.readFileSync('static/js/master_data/workspace.js','utf8'),con
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 const panel=new Element(),controller=window.mountSkillWorkspace(panel);
 const click=async dataset=>{const control={dataset,disabled:false,closest:s=>s==='button'?control:null,hasAttribute:()=>false};panel.listeners.get('click')({target:control});await tick();};
-await tick();await click({action:'edit'});await click({tab:'text'});
+await tick();await click({action:'edit'});await click({section:'text'});
 assert.match(panel.html(),/文章から作る/);assert.match(panel.html(),/早見表/);
 const input=value=>panel.listeners.get('input')({target:{dataset:{field:'発動時効果'},value,hasAttribute:()=>false}});
 input('命中時: 未知の動作。');await click({action:'text-build'});
 assert.match(panel.querySelector('#cat-input-content').innerHTML,/変換失敗/);
 assert.match(panel.querySelector('#cat-input-content').innerHTML,/発動時効果/);
 await click({action:'save'});assert.deepEqual(saved['特記処理'],payload['特記処理']);
-input(original.input.trigger);await click({action:'text-build'});await click({tab:'json'});await click({action:'copy-json'});
+input(original.input.trigger);await click({action:'text-build'});await click({section:'json'});await click({action:'copy-json'});
 assert.deepEqual(JSON.parse(copied)['特記処理'],original.expected.rule);
 const jsonBefore=panel.querySelector('#cat-input-content').innerHTML;
 failCopy=true;await click({action:'copy-json'});assert.match(panel.querySelector('.cat-message').textContent,/denied/);
 assert.equal(panel.querySelector('#cat-input-content').innerHTML,jsonBefore);
-await click({tab:'form'});await click({tab:'text'});
+await click({section:'body'});await click({section:'text'});
 let late;window.CatalogApi.textReferences=()=>new Promise(resolve=>late=resolve);
 controller.destroy();
 const second=new Element();const mounted=window.mountSkillWorkspace(second);await tick();
 const press=async dataset=>{const control={dataset,disabled:false,closest:s=>s==='button'?control:null,hasAttribute:()=>false};second.listeners.get('click')({target:control});await tick();};
-await press({action:'edit'});await press({tab:'text'});mounted.destroy();late({summon_refs:[]});await tick();
+await press({action:'edit'});await press({section:'text'});mounted.destroy();late({summon_refs:[]});await tick();
 assert.equal(second.innerHTML,'');assert.equal(second.listeners.size,0);
 """)
