@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def run_node(script):
     setup = r"""
 import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
-const window={};const context=vm.createContext({window,console});
+const window={};const context=vm.createContext({window,console,setTimeout,clearTimeout});
 for(const name of ['glossary','buff','resources','text_tools'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const models=window.CatalogResources;const clean=v=>JSON.parse(JSON.stringify(v));
 """

@@ -6,7 +6,7 @@
   const pretty = value => JSON.stringify(value, null, 2);
   const nameOf = payload => payload.デフォルト名称 || payload.display_name || payload.name || '名前未入力';
   const button = (label, action, extra = '', attrs = '') => `<button type="button" class="cat-button ${extra}" data-action="${action}" ${attrs}>${label}</button>`;
-  const badge = status => `<span class="cat-badge" data-status="${h(window.CatalogGlossary.statuses[status])}">${h(window.CatalogGlossary.statuses[status])}</span>`;
+  const badge = status => status === 'published' ? '' : `<span class="cat-badge" data-status="${h(window.CatalogGlossary.statuses[status])}">${h(window.CatalogGlossary.statuses[status])}</span>`;
   const jsonBlock = payload => `<details class="cat-json"><summary>JSON</summary><pre>${h(pretty(payload))}</pre></details>`;
   const text = value => Array.isArray(value) ? value.join('、') : value == null || value === '' ? '—' : typeof value === 'object' ? pretty(value) : String(value);
 
@@ -23,11 +23,13 @@
     let model = models[options.kind || 'glossary'];
     if (!model) throw new Error('未対応の種類です。');
     panel.classList.add('bo-workspace', 'cat-workspace');
-    panel.innerHTML = `<header class="bo-workspace__header"><div><h2>マスターデータ</h2><p>マスターデータの閲覧・下書き・承認</p></div><div class="bo-workspace__header-actions">${button('← マスターデータ', 'master-back', '', 'id="cat-skill-return" hidden')}${button('更新', 'refresh')}${options.onClose ? button('閉じる', 'close') : ''}</div></header><div class="cat-message" role="alert" hidden></div><div class="cat-scene"><p class="cat-empty">読み込み中…</p></div>`;
+    panel.innerHTML = `<header class="bo-workspace__header"><div><h2>マスターデータ</h2><p>マスターデータの閲覧・下書き・承認</p></div><div class="bo-workspace__header-actions">${button('← マスターデータ', 'master-back', '', 'id="cat-skill-return" hidden')}${button('更新', 'refresh')}${options.onClose ? button('閉じる', 'close') : ''}</div></header><div class="cat-message" role="alert" hidden></div><div class="cat-leave-overlay" hidden></div><div class="cat-scene"><p class="cat-empty">読み込み中…</p></div>`;
     const scene = panel.querySelector('.cat-scene');
     const message = panel.querySelector('.cat-message');
     let destroyed = false;
     let textTools = null;
+    let noticeTimer, leaveResolve, leaveFocus;
+    const leaveOverlay = panel.querySelector('.cat-leave-overlay');
     const listeners = [];
     function listen(type, handler) { panel.addEventListener(type, handler); listeners.push([type, handler]); }
     const state = { kind: model.kind, catalogs: {}, user: {}, data: { entries: [], drafts: [] }, selected: '', scene: 'browse',
@@ -47,7 +49,13 @@
     }
     function notice(value = '', error = false) {
       if (!alive()) return;
+      clearTimeout(noticeTimer);
       message.textContent = value;
+      if (value) {
+        message.innerHTML = `<span>${h(value)}</span>${button('×', 'dismiss-notice', '', 'aria-label="知らせを閉じる"')}`;
+        if (!error) noticeTimer = setTimeout(() => { if (alive()) message.hidden = true; }, 3000);
+      }
+      message.setAttribute('role', error ? 'alert' : 'status');
       message.hidden = !value;
       message.classList.toggle('is-error', error);
     }
@@ -71,7 +79,10 @@
       if (state.busy) return;
       notice(); busy(true);
       try { await task(); } catch (error) { if (alive()) showErrors(error); }
-      finally { if (alive()) busy(false); }
+      finally {
+        if (alive()) { busy(false); if (leaveFocus?.isConnected) leaveFocus.focus(); }
+        leaveFocus = null;
+      }
     }
     async function prepareSkill() {
       if (state.kind !== 'skill') return;
@@ -122,7 +133,7 @@
         <h3>絞り込み</h3>${model.categories.length ? `<label class="cat-field">分類<select data-filter="category"><option value="">すべての分類</option>${model.categories.map(value => `<option ${state.filters.category === value ? 'selected' : ''}>${h(value)}</option>`).join('')}</select></label>` : ''}
         <label class="cat-field">検索<input type="search" data-filter="search" value="${h(state.filters.search)}" placeholder="ID・名前・説明"></label>
         <h3>状態</h3><div class="bo-workspace__nav-list">${statuses.map(status => `<button type="button" data-status="${status}" class="${state.filters.status === status ? 'is-active' : ''}" aria-pressed="${state.filters.status === status}">${model.statuses[status]}<span class="cat-nav-count">${rows().filter(row => row.status === status).length}</span></button>`).join('')}</div>
-        ${author() ? `<div class="cat-sidebar-action">${button('新しく作る', 'new', 'cat-primary')}</div>` : ''}</aside>`;
+        ${author() ? `<div class="cat-sidebar-action">${button('新しく作る', 'new')}</div>` : ''}</aside>`;
     }
     function renderBrowse() {
       textTools?.destroy(); textTools = null;
@@ -156,10 +167,10 @@
         if (state.user.is_app_admin && row.status === 'pending') actions.push(button('差分を確認', 'review', 'cat-primary'));
       } else {
         if (author()) actions.push(button('編集', 'edit', 'cat-primary'));
-        if (state.user.is_app_admin) actions.push(button(row.deprecated ? '廃止を取り消す' : '廃止', 'deprecate', 'cat-danger'));
+
       }
       target.innerHTML = `<div class="cat-detail-title"><code class="cat-id">${h(row.target_id)}</code><h3>${h(nameOf(row.payload))}</h3><div>${badge(row.status)} <span class="cat-caption">${row.isDraft ? `作成：${h(row.created_by_name || '削除済みユーザー')} / 元の版：${row.base_revision ?? '新規'}` : `版 ${row.revision} / 更新：${h(row.updated_by_name || '初回取り込み')}`}</span></div></div>
-        <div class="cat-actions">${actions.join('')}${!row.isDraft ? model.externalLink(row.target_id) : ''}</div>${row.reject_reason ? `<p class="cat-callout">却下の理由：${h(row.reject_reason)}</p>` : ''}${model.detail(row.payload, { links, entryId: row.target_id, skillEntries: state.catalogs.skill?.entries || [] })}${jsonBlock(row.payload)}<div id="cat-metadata"><p class="cat-caption">履歴・参照箇所を読み込み中…</p></div>`;
+        <div class="cat-actions">${actions.join('')}${!row.isDraft ? model.externalLink(row.target_id) : ''}</div>${row.reject_reason ? `<p class="cat-callout">却下の理由：${h(row.reject_reason)}</p>` : ''}${model.detail(row.payload, { links, entryId: row.target_id, skillEntries: state.catalogs.skill?.entries || [] })}${jsonBlock(row.payload)}<div id="cat-metadata"><p class="cat-caption">履歴・参照箇所を読み込み中…</p></div>${!row.isDraft && state.user.is_app_admin ? `<section class="cat-other-actions"><h4>その他の操作</h4>${button(row.deprecated ? '廃止を取り消す' : '廃止', 'deprecate', 'cat-danger')}</section>` : ''}`;
       const published = entry(row.target_id);
       if (!published) { target.querySelector('#cat-metadata').innerHTML = '<p class="cat-caption">新規の下書きです。公開後に履歴が残ります。</p>'; return; }
       Promise.all([request('history', state.kind, row.target_id), request('references', state.kind, row.target_id)]).then(([history, references]) => {
@@ -175,12 +186,15 @@
       if (!model.filter(model.rows({ drafts: [draft] }), state.filters).length) { state.filters.category = ''; state.filters.search = ''; }
     }
     async function startEdit(row) {
-      const draft = row?.isDraft ? row : await request('create', state.kind, row?.target_id, state.filters.category);
-      rememberDraft(draft);
-      if (!model.canEdit(draft, state.user)) {
-        if (state.user.is_app_admin && draft.status === 'pending') return startReview(draft);
-        renderBrowse(); notice('既存の下書きを開きました。編集は作成者か管理者のみ、承認待ちは編集できません。'); return;
+      const existing = row?.isDraft ? row : row && state.data.drafts.find(draft => draft.target_id === row.target_id);
+      if (existing) rememberDraft(existing);
+      if (existing && !model.canEdit(existing, state.user)) {
+        if (state.user.is_app_admin && existing.status === 'pending') return startReview(existing);
+        renderBrowse();
+        notice('既存の下書きは作成者か管理者のみ編集できます。承認待ちは編集できません。'); return;
       }
+      const draft = existing || { target_id: row?.target_id, id_prefix: state.filters.category,
+        payload: row?.payload || {}, base_revision: row?.revision ?? null, status: 'published' };
       state.edit = draft;
       state.payload = JSON.parse(JSON.stringify(draft.payload));
       if (!Object.keys(state.payload).length) {
@@ -195,7 +209,7 @@
       renderEditor();
     }
     function renderEditor() {
-      scene.innerHTML = `<div class="cat-editor"><div class="cat-editbar">${button('← 戻る', 'back')}<strong>${h(state.edit.target_id)} ${h(nameOf(state.payload))}</strong>${badge(state.edit.status)}</div><div class="cat-edit-grid"><section class="cat-edit-input" aria-label="入力"><div class="bo-workspace__tabs cat-input-tabs" role="tablist" aria-label="入力方法">${(model.tabs || ['form', 'json', ...(state.kind === 'skill' ? ['text'] : [])]).map(tab => `<button type="button" role="tab" data-tab="${tab}" aria-selected="${state.tab === tab}" class="${state.tab === tab ? 'is-active' : ''}">${tab === 'form' ? 'フォーム' : tab === 'json' ? 'JSON' : '文章から作る'}</button>`).join('')}</div><div id="cat-input-content"></div></section><aside id="cat-preview" class="cat-edit-preview" aria-label="${model.label}のプレビュー"></aside></div><footer class="cat-footer"><small>公開にはアプリ管理者の承認が必要です。</small>${button('取り下げ', 'withdraw', 'cat-danger')}${button('下書きを保存', 'save')}${button('承認を申請', 'submit', 'cat-primary')}</footer></div>`;
+      scene.innerHTML = `<div class="cat-editor"><div class="cat-editbar">${button('← 戻る', 'back')}<strong>${h(state.edit.target_id || '新規')} ${h(nameOf(state.payload))}</strong>${badge(state.edit.status)}<span id="cat-dirty-badge" class="cat-badge" data-status="編集中" hidden>編集中・未保存</span></div><div class="cat-edit-grid"><section class="cat-edit-input" aria-label="入力"><div class="bo-workspace__tabs cat-input-tabs" role="tablist" aria-label="入力方法">${(model.tabs || ['form', 'json', ...(state.kind === 'skill' ? ['text'] : [])]).map(tab => `<button type="button" role="tab" data-tab="${tab}" aria-selected="${state.tab === tab}" class="${state.tab === tab ? 'is-active' : ''}">${tab === 'form' ? 'フォーム' : tab === 'json' ? 'JSON' : '文章から作る'}</button>`).join('')}</div><div id="cat-input-content"></div></section><aside id="cat-preview" class="cat-edit-preview" aria-label="${model.label}のプレビュー"></aside></div><footer class="cat-footer"><div class="cat-footer-left"><small id="cat-dirty-note" hidden>● 保存していない変更があります</small>${state.edit.id ? `<details class="cat-more"><summary>その他 ▾</summary><div>${button('取り下げ', 'withdraw', 'cat-danger')}</div></details>` : ''}</div>${button('下書きを保存', 'save')}${button('承認を申請', 'submit', 'cat-primary')}</footer></div>`;
       renderInput(); renderPreview();
     }
     function mountTextTools() {
@@ -213,6 +227,7 @@
         ? `<label class="cat-field">${model.label}のJSON<textarea id="cat-json-input" class="cat-source" spellcheck="false">${h(state.jsonText)}</textarea></label><p class="cat-caption">${h(model.jsonHint)}</p>${button('JSONをコピー', 'copy-json')}`
         : `<div class="cat-field-grid">${model.form(state.payload, state.errors, { entries: state.data.entries, linkQuery: state.linkQuery, aliasInput: state.aliasInput, tagInput: state.tagInput, published: state.edit.base_revision != null, effectText: state.effectText })}</div>`;
       if (state.tab === 'form') renderCandidates();
+      panel.querySelector('[data-action="text-build"]')?.classList.remove('cat-primary');
       mountTextTools();
     }
     function candidates() {
@@ -267,6 +282,7 @@
       panel.querySelector('#cat-synonym-input').focus();
     }
     function renderPreview() {
+      syncDirtyStatus();
       const payload = state.payload;
       const preview = panel.querySelector('#cat-preview');
       if (!preview) return;
@@ -279,10 +295,27 @@
       state.payload = payload;
       state.effectText = pretty(payload.effect ?? {});
     }
+    function syncDirtyStatus() {
+      for (const selector of ['#cat-dirty-badge', '#cat-dirty-note']) {
+        const node = panel.querySelector(selector);
+        if (node) node.hidden = !state.dirty;
+      }
+    }
     async function save(submit) {
       syncJSON();
       model.validatePayload(state.payload, state.edit);
       if (Object.keys(state.errors).some(key => key.startsWith('input:'))) throw new Error('入力欄のエラーを直してください。');
+      if (!state.edit.id) {
+        const created = await request('create', state.kind, state.edit.base_revision == null ? undefined : state.edit.target_id, state.edit.id_prefix);
+        if (created.created_by !== state.user.user_id || !model.canEdit(created, state.user)) {
+          throw new Error('別の画面で下書きが作られたか、承認待ちになっています。上書きせずに止めました。入力を控えて一覧を更新してください。');
+        }
+        if ((created.base_revision ?? null) !== state.edit.base_revision) {
+          throw new Error('公開中の版が更新されました。上書きせずに止めました。入力を控えて一覧を更新してください。');
+        }
+        state.edit = { ...created, payload: state.edit.payload };
+        rememberDraft(created);
+      }
       const draft = await request('save', state.edit.id, state.payload);
       state.edit = draft; state.dirty = false; rememberDraft(draft); renderPreview();
       if (submit) {
@@ -301,13 +334,29 @@
       const column = (side, title) => `<section class="cat-review-column ${side === 'before' && !state.reviewBase ? 'is-new' : ''}"><div class="cat-review-heading"><h3>${title}</h3><span class="cat-caption">${side === 'before' ? state.reviewBase ? `版 ${state.reviewBase.revision}` : '新規' : `元の版 ${state.review.base_revision ?? 'なし'}`}</span></div>${changes.map(change => `<section class="bo-workspace__card ${change.changed ? 'cat-changed' : ''}"><h4>${h(change.label)} ${change.changed ? '<span class="cat-badge">変更</span>' : ''}</h4><p class="cat-description">${h(text(change[side]))}</p></section>`).join('')}</section>`;
       scene.innerHTML = `<div class="cat-review-wrap"><div class="cat-editbar">${button('← 戻る', 'back')}<strong>${h(state.review.target_id)} ${h(nameOf(state.review.payload))}</strong>${badge('pending')}</div>${renderProblems(state.review.problems, model)}<div class="cat-review-grid" style="--cat-review-rows:${changes.length + 1}">${column('before', '公開中の版')}${column('after', '下書き')}</div><footer class="cat-footer cat-review-footer"><label class="cat-field">正式ID<input id="cat-official-id" value="${h(state.reviewId)}" ${state.reviewBase ? 'disabled' : ''}></label><label class="cat-field">却下の理由<textarea id="cat-reject-reason" rows="2">${h(state.rejectReason)}</textarea></label>${button('却下', 'reject', 'cat-danger')}${button('承認', 'approve', 'cat-primary')}</footer></div>`;
     }
+    function resolveLeave(choice) {
+      if (!leaveResolve) return;
+      const resolve = leaveResolve; leaveResolve = null; leaveOverlay.hidden = true;
+      resolve(choice);
+    }
+    async function allowLeave() {
+      if (!state.dirty) return true;
+      if (leaveResolve) return false;
+      const choice = await new Promise(resolve => {
+        leaveResolve = resolve;
+        leaveOverlay.innerHTML = `<section class="cat-leave-dialog" role="alertdialog" aria-modal="true" aria-labelledby="cat-leave-title" tabindex="-1"><h3 id="cat-leave-title">保存していない変更があります</h3><p>下書きとして保存するか、変更を捨ててから移ります。</p><div class="cat-actions"><button type="button" class="cat-button" data-leave="cancel">編集に戻る</button><button type="button" class="cat-button cat-danger" data-leave="discard">変更を捨てる</button><button type="button" class="cat-button cat-primary" data-leave="save">下書きを保存して移る</button></div></section>`;
+        leaveOverlay.hidden = false; leaveOverlay.querySelector('[data-leave="cancel"]').focus();
+      });
+      if (choice === 'cancel') return false;
+      if (choice === 'save') await save(false);
+      state.dirty = false; return true;
+    }
     async function back() {
-      if (state.dirty && !await window.showAppConfirm('保存していない入力を破棄して戻りますか？', { title: '編集を終了', confirmText: '戻る' })) return;
-      state.dirty = false; state.scene = 'browse'; state.errors = {}; await load();
+      if (!await allowLeave()) return;
+      state.scene = 'browse'; state.errors = {}; await load();
     }
     async function close() {
-      if (state.busy) return;
-      if (state.dirty && !await window.showAppConfirm('保存していない入力を破棄して閉じますか？', { title: '編集を終了', confirmText: '閉じる' })) return;
+      if (!await allowLeave()) return;
       options.onClose?.();
     }
     async function switchKind(kind) {
@@ -347,7 +396,7 @@
       }
       if (action === 'new' && state.kind === 'skill') {
         state.newPrefix = state.filters.category || 'Ps'; state.scene = 'new';
-        scene.innerHTML = `<section class="cat-new-skill"><h3>新しいスキルのカテゴリ</h3><label class="cat-field">カテゴリ<select id="cat-new-prefix">${model.groups.map(([group, items])=>`<optgroup label="${h(group)}">${items.map(([prefix,label])=>`<option value="${prefix}" ${state.newPrefix === prefix ? 'selected' : ''}>${prefix} ${label}</option>`).join('')}</optgroup>`).join('')}</select></label><div class="cat-actions">${button('← 戻る','back')}${button('下書きを作る','create-skill','cat-primary')}</div></section>`; return;
+        scene.innerHTML = `<section class="cat-new-skill"><h3>新しいスキルのカテゴリ</h3><label class="cat-field">カテゴリ<select id="cat-new-prefix">${model.groups.map(([group, items])=>`<optgroup label="${h(group)}">${items.map(([prefix,label])=>`<option value="${prefix}" ${state.newPrefix === prefix ? 'selected' : ''}>${prefix} ${label}</option>`).join('')}</optgroup>`).join('')}</select></label><div class="cat-actions">${button('← 戻る','back')}${button('編集を始める','create-skill','cat-primary')}</div></section>`; return;
       }
       if (action === 'create-skill') { state.filters.category = state.newPrefix; return startEdit(); }
       if (action === 'new') return startEdit();
@@ -423,14 +472,17 @@
         state.dirty = true; state.jsonText = pretty(state.payload); renderPreview();
         if (action || control.dataset.conditionMode !== undefined || ['type','value'].includes(control.dataset.effectPath) && control.tagName === 'SELECT') renderInput();
       } catch (error) {
-        if (!action) state.errors[`input:skill:${key}`] = error.message;
+        if (!action) { state.errors[`input:skill:${key}`] = error.message; state.dirty = true; syncDirtyStatus(); }
         notice(error.message,true);
       }
     }
     listen('click', event => {
       if (!event.target.closest('.cat-link-picker')) { state.linkOpen = false; renderCandidates(); }
       const control = event.target.closest('button');
-      if (!control || control.disabled || state.busy) return;
+      if (!control || control.disabled) return;
+      if (control.dataset.leave) { resolveLeave(control.dataset.leave); return; }
+      if (control.dataset.action === 'dismiss-notice') { notice(); return; }
+      if (state.busy) return;
       if (control.dataset.skillCategory) { state.filters.category = control.dataset.skillCategory; renderBrowse(); return; }
       if (control.hasAttribute('data-cost-add') || control.dataset.costRemove !== undefined) { changeSkill(control,control.hasAttribute('data-cost-add') ? 'cost-add' : 'cost-remove'); return; }
       if (control.dataset.effectAction || control.dataset.skillAction) { changeSkill(control,control.dataset.effectAction || control.dataset.skillAction); return; }
@@ -444,8 +496,10 @@
       }
       if (control.dataset.tagAdd) { addTag(); return; }
       if (control.hasAttribute('data-alias-add')) { addAlias(); return; }
-      if (control.dataset.action === 'close') { close(); return; }
-      if (control.dataset.action) { run(() => onAction(control.dataset.action, control)); return; }
+      if (control.dataset.action) {
+        if (['back', 'master-back', 'close'].includes(control.dataset.action)) leaveFocus = control;
+        run(() => onAction(control.dataset.action, control)); return;
+      }
       if (control.dataset.status) { state.filters.status = control.dataset.status; renderBrowse(); }
       if (control.dataset.record) { state.selected = control.dataset.record; renderList(); }
       if (control.dataset.tab) {
@@ -470,7 +524,7 @@
     listen('input', event => {
       const control = event.target;
       if (state.busy) return;
-      if (control.id === 'cat-text-tags') { state.textTags = control.value; state.textResult = null; panel.querySelector('.cat-text-result').textContent = 'タグを変更しました。再度読み取ってください。'; state.dirty = true; return; }
+      if (control.id === 'cat-text-tags') { state.textTags = control.value; state.textResult = null; panel.querySelector('.cat-text-result').textContent = 'タグを変更しました。再度読み取ってください。'; state.dirty = true; syncDirtyStatus(); return; }
       if (control.id === 'cat-granted-tag-input') { state.tagInput = control.value; return; }
       if (control.id === 'cat-new-prefix') { state.newPrefix = control.value; return; }
       if (control.dataset.ruleField || control.dataset.costField || control.dataset.effectPath || control.dataset.conditionMode !== undefined) { changeSkill(control); return; }
@@ -515,6 +569,18 @@
       if (event.target.id === 'cat-link-search') { state.linkOpen = true; renderCandidates(); }
     });
     listen('keydown', event => {
+      closeMenus(event);
+      if (event.defaultPrevented) return;
+      if (leaveResolve) {
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); resolveLeave('cancel'); }
+        if (event.key === 'Tab') {
+          const controls = [...leaveOverlay.querySelectorAll('button')];
+          const first = controls[0], last = controls.at(-1), focused = panel.ownerDocument.activeElement;
+          if (event.shiftKey && focused === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && focused === last) { event.preventDefault(); first.focus(); }
+        }
+        return;
+      }
       if (state.busy || event.isComposing || event.keyCode === 229) return;
       if (event.target.id === 'cat-granted-tag-input' && event.key === 'Enter') {
         event.preventDefault(); event.stopPropagation(); addTag(); return;
@@ -538,12 +604,28 @@
         panel.querySelector(`#cat-link-option-${state.linkIndex}`)?.scrollIntoView({ block: 'nearest' });
       }
     });
+    const hostWindow = panel.ownerDocument?.defaultView || window;
+    function beforeUnload(event) {
+      if (state.dirty) { event.preventDefault(); event.returnValue = ''; }
+    }
+    hostWindow.addEventListener?.('beforeunload', beforeUnload);
+    function closeMenus(event) {
+      for (const menu of panel.querySelectorAll('.cat-more[open]')) {
+        if (event.type === 'keydown' && event.key === 'Escape') {
+          menu.open = false; event.preventDefault(); event.stopPropagation(); menu.querySelector('summary').focus();
+        } else if (event.type === 'pointerdown' && !menu.contains(event.target)) menu.open = false;
+      }
+    }
+    panel.ownerDocument?.addEventListener('pointerdown', closeMenus);
     const controller = {
       kind: () => state.kind,
       refresh: () => load(true).catch(error => { if (alive()) notice(error.message, true); }),
       destroy() {
         if (destroyed) return;
         destroyed = true; state.listRequest++; state.detailRequest++;
+        clearTimeout(noticeTimer); resolveLeave('cancel');
+        hostWindow.removeEventListener?.('beforeunload', beforeUnload);
+        panel.ownerDocument?.removeEventListener('pointerdown', closeMenus);
         textTools?.destroy(); textTools = null;
         listeners.forEach(([type, handler]) => panel.removeEventListener(type, handler));
         mounts.delete(controller); panel.innerHTML = '';
@@ -574,6 +656,7 @@
       if (event.target === overlay) panel.querySelector('[data-action="close"]').click();
     }
     function onKey(event) {
+      if (event.defaultPrevented) return;
       if ([...document.querySelectorAll('.modal-backdrop')].at(-1) !== overlay || !panel.contains(document.activeElement)) return;
       if (event.key === 'Escape') { event.preventDefault(); panel.querySelector('[data-action="close"]').click(); }
       if (event.key === 'Tab') {

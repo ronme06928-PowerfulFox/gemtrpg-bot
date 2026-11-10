@@ -11,7 +11,7 @@ def run_node(script):
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
-const window={};const context=vm.createContext({window,console});
+const window={};const context=vm.createContext({window,console,setTimeout,clearTimeout});
 for(const name of ['catalog_api','glossary','text_tools','buff','skill_text_help','skill_text']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const fixture=JSON.parse(fs.readFileSync('tests/fixtures/skill_text_legacy.json','utf8'));
 const reader=window.CatalogSkillText.createReader(fixture.references);
@@ -87,7 +87,7 @@ const schemas={effect_types:{APPLY_STATE:{label:'状態',fields:{state_name:{typ
 window.CatalogApi={user:async()=>({user_id:'author',is_catalog_author:true}),effectSchemas:async()=>schemas,
  list:async kind=>({entries:kind==='skill'?[{entry_id:'Ps-00',payload,revision:1}]:fixture.references[kind+'_refs'].map(row=>({entry_id:row.id,payload:{...row}})),drafts:[]}),
  textReferences:async()=>({summon_refs:fixture.references.summon_refs}),history:async()=>({history:[]}),references:async()=>({references:[]}),
- create:async()=>({id:1,target_id:'Ps-00',id_prefix:'Ps',payload:structuredClone(payload),status:'draft',created_by:'author'}),
+ create:async()=>({id:1,target_id:'Ps-00',id_prefix:'Ps',base_revision:1,payload:structuredClone(payload),status:'draft',created_by:'author'}),
  save:async(id,data)=>{saved=structuredClone(data);return {id,target_id:'Ps-00',payload:data,status:'draft',created_by:'author',problems:[]};}};
 vm.runInContext(fs.readFileSync('static/js/master_data/workspace.js','utf8'),context);
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));

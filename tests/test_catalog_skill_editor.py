@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const window={}, calls=[];
-const context=vm.createContext({window,console,fetchWithSession:async(path,options)=>{
+const context=vm.createContext({window,console,setTimeout,clearTimeout,fetchWithSession:async(path,options)=>{
  calls.push([path,options]); return {ok:true,json:async()=>({})};
 }});
 for(const name of ['catalog_api','glossary','text_tools','buff','skill_effects','skill'])
@@ -143,7 +143,7 @@ let saved,createdPrefix;
 const published={entry_id:'Ps-00',payload,revision:1};
 window.CatalogApi={...api,user:async()=>({user_id:'author',is_catalog_author:true}),effectSchemas:async()=>schemas,
  list:async kind=>({entries:kind==='skill'?[published]:[],drafts:[]}),history:async()=>({history:[]}),references:async()=>({references:[]}),
- create:async(kind,target,prefix)=>{createdPrefix=prefix;return {id:1,target_id:target || 'X-12345678',id_prefix:prefix || 'Ps',payload:target?structuredClone(payload):{},status:'draft',created_by:'author'};},
+ create:async(kind,target,prefix)=>{createdPrefix=prefix;return {id:1,target_id:target || 'X-12345678',id_prefix:prefix || 'Ps',base_revision:target?1:null,payload:target?structuredClone(payload):{},status:'draft',created_by:'author'};},
  save:async(id,data)=>{saved=structuredClone(data);return {id,target_id:'Ps-00',payload:data,status:'draft',created_by:'author',problems:[]};}};
 vm.runInContext(fs.readFileSync('static/js/master_data/workspace.js','utf8'),context);
 const panel=new Element(),controller=window.mountSkillWorkspace(panel);
@@ -167,6 +167,6 @@ assert.equal(saved['特記処理'].effects[0].state_name,'MP');assert.equal(save
 await click({action:'back'});await click({action:'new'});
 assert.match(panel.html(),/新しいスキルのカテゴリ/);
 await input({id:'cat-new-prefix',dataset:{},value:'Ms'});await click({action:'create-skill'});
-assert.equal(createdPrefix,'Ms');
+assert.notEqual(createdPrefix,'Ms');await click({action:'save'});assert.equal(createdPrefix,'Ms');
 controller.destroy();assert.equal(panel.listeners.size,0);
 """)

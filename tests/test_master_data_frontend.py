@@ -13,10 +13,10 @@ import assert from 'node:assert/strict';
 const calls=[];
 let response={ok:true,json:async()=>({entries:[]})};
 const window={};
-const context=vm.createContext({window,console,fetchWithSession:async(path,options)=>{
+const context=vm.createContext({window,console,setTimeout,clearTimeout,fetchWithSession:async(path,options)=>{
   calls.push([path,options]); return response;
 }});
-for(const name of ['catalog_api','glossary','buff']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['catalog_api','glossary','buff','text_tools']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const api=window.CatalogApi, glossary=window.CatalogGlossary, buff=window.CatalogBuff;
 """
 
@@ -233,6 +233,9 @@ const third=new Element();const c=window.mountCatalogWorkspace(third,{kind:'buff
 await new Promise(resolve=>setTimeout(resolve,0));
 const create={dataset:{action:'new'},disabled:false,closest:selector=>selector==='button'?create:null,hasAttribute:()=>false};
 third.listeners.get('click')({target:create});
+await new Promise(resolve=>setTimeout(resolve,0));
+assert.equal(created,undefined);
+create.dataset.action='save';third.listeners.get('click')({target:create});
 c.destroy();const closed=third.html();
 created({id:4,target_id:'X-12345678',payload:{},status:'draft',created_by:'author'});
 await new Promise(resolve=>setTimeout(resolve,0));

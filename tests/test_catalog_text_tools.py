@@ -97,7 +97,7 @@ const field=new Element(),root=new Element(),toolbar=new Element(),label=new Ele
 label.childNodes=[{nodeType:3,textContent:'発動時効果'}];field.closest=()=>label;
 const button=new Element(),timing=new Element(),picker=new Element(),search=new Element(),list=new Element();
 toolbar.nodes={'[data-text-insert]':button,'[data-text-timing]':timing,'.cat-text-picker':picker,'input':search,'[role="listbox"]':list};
-picker.hidden=true;root.querySelectorAll=()=>[field];field.ownerDocument={createElement:()=>toolbar,defaultView:{Event:class {constructor(type,options){this.type=type;Object.assign(this,options);}}}};
+picker.hidden=true;root.querySelectorAll=()=>[field];const document=new Element();field.ownerDocument=Object.assign(document,{createElement:()=>toolbar,defaultView:{Event:class {constructor(type,options){this.type=type;Object.assign(this,options);}}}});
 let changes=0;field.addEventListener('input',()=>changes++);
 const authoring=tools.mount(root,{entries:[term],currentId:'W-99'});
 assert.equal(field.getAttribute('aria-label'),'発動時効果');assert.equal(label.getAttribute('for'),field.id);
@@ -110,6 +110,10 @@ event(search,'keydown',{key:'Enter'});assert.equal(field.value,'前[[W-01|傷]]�
 field.value='前[[';field.setSelectionRange(3,3);event(field,'input');assert.equal(picker.hidden,false);
 event(field,'keydown',{key:'ArrowDown'});event(field,'keydown',{key:'Enter'});
 assert.equal(field.value,'前[[W-01|出血]]');assert.equal(changes,3);
+event(button,'click');
+assert.match(toolbar.innerHTML,/挿入 ▾/);assert.doesNotMatch(toolbar.innerHTML,/<select/);
+const outside=new Element();let reached=0;outside.addEventListener('click',()=>reached++);
+event(document,'pointerdown',{target:outside});event(outside,'click');assert.equal(picker.hidden,true);assert.equal(reached,1);
 event(button,'click');event(search,'keydown',{key:'Escape'});assert.equal(picker.hidden,true);
 authoring.destroy();authoring.destroy();assert.equal(toolbar.removed,true);assert.equal(field.getAttribute('aria-label'),null);assert.equal(label.getAttribute('for'),null);
 assert.equal((button.listeners.get('click')||[]).length,0);assert.equal((root.listeners.get('pointerdown')||[]).length,0);
