@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>管理画面の直し · PR60-19 試作</title>
+<style>
+  :root { --bg: #eef1f5; --panel: #ffffff; --text: #1f2a3a; --sub: #556274; --edge: #c9d2de; --primary: #1d4ed8; --primary-soft: #e8efff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Meiryo", sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--edge); }
+  header h1 { margin: 0; font-size: 15px; }
+  fieldset { display: flex; align-items: center; gap: 4px; margin: 0; padding: 0; border: 0; }
+  legend { float: left; margin-right: 6px; color: var(--sub); font-size: 12px; }
+  fieldset button { padding: 5px 10px; border: 1px solid var(--edge); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+  fieldset button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+  main { padding: 16px; }
+  .stage { overflow: auto; }
+  .stage p { margin: 0 0 6px; color: var(--sub); font-size: 12px; }
+  iframe { display: block; border: 1px solid var(--edge); background: #444; }
+  .requests { position: relative; font-size: 12px; }
+  .requests summary { cursor: pointer; padding: 5px 10px; border: 1px solid var(--edge); border-radius: 6px; }
+  .requests strong { color: var(--primary); }
+  .requests ol { position: absolute; right: 0; top: calc(100% + 4px); width: 240px; max-height: 60vh; overflow: auto; margin: 0; padding: 8px 8px 8px 28px; background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; box-shadow: 0 6px 18px #0002; }
+  .requests li { color: var(--sub); }
+  .requests li.is-new { color: var(--text); font-weight: 700; }
+</style>
+</head><body>
+<header>
+  <h1>PR60-19 試作</h1>
+  <fieldset data-key="version"><legend>版</legend><button value="current">今の本番</button><button value="proposal">案</button></fieldset>
+  <fieldset data-key="size"><legend>大きさ</legend><button value="1280x720">1280×720</button><button value="1440x900">1440×900</button><button value="680x800">680×800</button></fieldset>
+  <fieldset data-key="latency"><legend>通信の待ち</legend><button value="0">なし</button><button value="400">0.4秒</button><button value="1000">1秒</button></fieldset>
+  <fieldset data-key="lines"><legend>線（案だけ）</legend><button value="line">薄い線</button><button value="tint">背景で区切る</button></fieldset>
+  <details class="requests"><summary>サーバーへの問い合わせ <span id="count">0</span>件・直前の操作で <strong id="delta">0</strong>件</summary><ol id="log"></ol></details>
+</header>
+<main>
+  <div class="stage"><p id="caption"></p><iframe id="frame" title="管理画面"></iframe></div>
+</main>
+<script>
+  const state = { version: 'proposal', size: '1280x720', latency: '400', lines: 'line' };
+  try { Object.assign(state, JSON.parse(localStorage.getItem('pr19-compare') || '{}')); } catch {}
+  const frame = document.getElementById('frame');
+  let seen = 0;
+  function apply() {
+    for (const set of document.querySelectorAll('fieldset')) for (const button of set.querySelectorAll('button')) button.setAttribute('aria-pressed', String(state[set.dataset.key] === button.value));
+    const [width, height] = state.size.split('x').map(Number);
+    frame.width = width; frame.height = height;
+    frame.src = `${state.version}.html?latency=${state.latency}&lines=${state.lines}`;
+    document.getElementById('caption').textContent = `${state.version === 'current' ? '今の本番（main のコードそのまま）' : '案'} · ${width}×${height} · 通信の待ち ${Number(state.latency) / 1000}秒`;
+    document.getElementById('log').innerHTML = ''; document.getElementById('count').textContent = '0'; document.getElementById('delta').textContent = '0'; seen = 0;
+    try { localStorage.setItem('pr19-compare', JSON.stringify(state)); } catch {}
+  }
+  document.addEventListener('click', event => {
+    const button = event.target.closest('fieldset button');
+    if (!button) return;
+    state[button.closest('fieldset').dataset.key] = button.value; apply();
+  });
+  frame.addEventListener('load', () => frame.contentWindow.addEventListener('pointerdown', () => { seen = document.querySelectorAll('#log li').length; }));
+  window.addEventListener('message', event => {
+    if (event.source !== frame.contentWindow || event.data?.type !== 'pr19-log') return;
+    const list = document.getElementById('log');
+    list.innerHTML = event.data.log.map((row, index) => `<li class="${index >= seen ? 'is-new' : ''}">${row.name}</li>`).join('');
+    document.getElementById('count').textContent = String(event.data.log.length);
+    document.getElementById('delta').textContent = String(event.data.log.length - seen);
+    list.scrollTop = list.scrollHeight;
+  });
+  apply();
+</script>
+</body></html>

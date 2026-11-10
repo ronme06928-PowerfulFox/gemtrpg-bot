@@ -1,0 +1,117 @@
+/* PR60-19 の試作：本番の app.bundle.css の後に重ねる直し。本番には入らない。 */
+
+/* 1. 線：飾りの線は薄く、押す・入れる部品の枠だけ濃く（3:1）する。 */
+.cat-workspace { --cat-edge: #d6dee8; --cat-control: #7b8798; }
+.cat-workspace input, .cat-workspace select, .cat-workspace textarea,
+.cat-workspace .cat-button, .cat-workspace .cat-statuses button, .cat-workspace .cat-more summary {
+  border-color: var(--cat-control);
+}
+.cat-workspace .cat-button.cat-primary { border-color: var(--cat-primary); }
+
+/* 線の案B：枠を消し、背景の濃淡で区切る。 */
+html[data-lines="tint"] .cat-workspace .bo-workspace__record,
+html[data-lines="tint"] .cat-workspace .bo-workspace__card,
+html[data-lines="tint"] .cat-workspace .cat-json,
+html[data-lines="tint"] .cat-workspace .cat-problems,
+html[data-lines="tint"] .cat-workspace .cat-review-cell { border-color: transparent; background: var(--cat-soft); }
+html[data-lines="tint"] .cat-workspace .bo-workspace__record.is-selected { background: var(--cat-primary-soft); border-color: var(--cat-primary); }
+html[data-lines="tint"] .cat-workspace .cat-review-cell.is-changed { border-left-color: var(--cat-warn); }
+
+/* 2. 上の部分を詰める。 */
+.cat-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.cat-workspace .bo-workspace__header { padding: 10px 18px; align-items: center; }
+.cat-workspace .bo-workspace__header h2 { margin: 0; font-size: 18px; }
+.cat-kind-tabs { padding: 6px 14px 0; gap: 2px; }
+.cat-kind-tabs button { display: inline-flex; align-items: baseline; gap: 6px; padding: 7px 12px; }
+.cat-tab-count { align-self: center; padding: 0 6px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 18px; color: var(--cat-primary); background: var(--cat-primary-soft); }
+.cat-tab-count[data-count="pending"] { color: var(--cat-warn); background: var(--cat-warn-soft); }
+.cat-filters { padding: 8px 18px; gap: 8px; }
+.cat-list-heading { margin-bottom: 8px; }
+
+/* 3. 一覧のカードを2行に詰める。 */
+.cat-workspace .bo-workspace__record { gap: 3px; padding: 8px 12px; }
+.cat-workspace .bo-workspace__record .cat-record-top { flex-wrap: nowrap; min-width: 0; }
+.cat-workspace .bo-workspace__record .bo-workspace__record-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-workspace .bo-workspace__record .cat-record-top .cat-badge { margin-left: auto; }
+.cat-record-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+
+/* 4. スキルの専用画面：左に10カテゴリ。 */
+.cat-skill-layout { display: grid; grid-template-columns: 196px minmax(0, 1fr); flex: 1; min-height: 0; }
+.cat-skill-categories { overflow: auto; padding: 8px 10px 12px; border-right: 1px solid var(--cat-edge); background: var(--cat-soft); }
+.cat-skill-categories h3 { margin: 10px 6px 4px; font-size: 11px; color: var(--cat-sub); }
+.cat-skill-categories section:first-child h3 { margin-top: 2px; }
+.cat-skill-categories button { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 32px; padding: 5px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--cat-text); font: inherit; font-size: 13px; cursor: pointer; }
+.cat-skill-categories button:hover { background: var(--cat-bg); }
+.cat-skill-categories button[aria-pressed="true"] { color: var(--cat-primary); background: var(--cat-primary-soft); border-color: var(--cat-primary); font-weight: 700; }
+.cat-skill-categories code { display: inline-block; min-width: 24px; color: var(--cat-sub); }
+.cat-skill-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.cat-skill-main .bo-workspace__body { flex: 1; min-height: 0; }
+
+@container catalog (max-width: 680px) {
+  .cat-skill-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .cat-skill-categories { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 10px; border-right: 0; border-bottom: 1px solid var(--cat-edge); }
+  .cat-skill-categories section { display: contents; }
+  .cat-skill-categories h3 { display: none; }
+  .cat-skill-categories button { width: auto; min-height: 30px; gap: 6px; padding: 3px 8px; font-size: 12px; }
+  .cat-workspace .bo-workspace__header { padding: 8px 12px; }
+}
+
+/* 5. 詳細：名前と「編集」を1行に。使われている所・履歴は件数つきで畳む。 */
+.cat-detail-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 12px; margin-bottom: 10px; }
+.cat-detail-head .cat-detail-title { margin-bottom: 0; gap: 2px; }
+.cat-detail-head .cat-detail-title h3 { font-size: 17px; }
+.cat-workspace .cat-fold { padding: 0; }
+.cat-workspace .cat-fold > summary { cursor: pointer; padding: 9px 12px; font-size: 13px; font-weight: 700; }
+.cat-workspace .cat-fold[open] > summary { border-bottom: 1px solid var(--cat-edge); }
+.cat-workspace .cat-fold > :not(summary) { margin-inline: 12px; }
+
+/* 6. スキルのプレビュー：ゲームのカードを管理画面の文字の大きさに合わせる。 */
+.cat-workspace .cat-skill-preview .skill-detail-card { margin-top: 0; padding: 10px 12px; }
+.cat-workspace .cat-skill-preview .skill-detail-tags { margin-bottom: 6px; }
+.cat-workspace .cat-skill-preview .skill-detail-section { margin: 6px 0; }
+.cat-workspace .cat-skill-preview .skill-detail-label { font-size: 12px; margin-bottom: 2px; }
+.cat-workspace .cat-skill-preview .skill-detail-main { font-size: 13px; line-height: 1.6; }
+.cat-workspace .cat-skill-preview .skill-detail-command { font-size: 12px; padding: 5px 8px; }
+.cat-workspace .cat-skill-preview .skill-detail-divider { margin: 8px 0; }
+.cat-workspace .cat-effect-list { margin: 0; padding-left: 20px; }
+.cat-workspace .cat-effect-list li { padding: 3px 0; font-size: 13px; }
+.cat-workspace .cat-effect-list small { display: block; color: var(--cat-sub); font-size: 11px; }
+
+/* 7. 文章の欄の「挿入 ▾」は、欄の名前と同じ行の右に置き、縦の場所を取らない。 */
+.cat-workspace .cat-field:has(> .cat-text-tools) { position: relative; }
+.cat-workspace .cat-field > .cat-text-tools { position: absolute; top: -6px; right: 0; }
+.cat-workspace .cat-field > .cat-text-tools .cat-text-tools-bar { margin: 0; visibility: visible; }
+.cat-workspace .cat-field > .cat-text-tools .cat-text-tools-bar .cat-button { min-height: 26px; padding: 2px 8px; }
+.cat-workspace .cat-field > .cat-text-tools .cat-text-picker { right: 0; left: auto; }
+.cat-workspace .cat-field:has(> .cat-text-tools) > textarea { margin-top: 8px; }
+
+/* 8. ⓘ：カーソルを合わせるか、キーボードで選ぶと説明が出る。 */
+.cat-heading-info { display: flex; align-items: center; gap: 6px; }
+.cat-info { position: relative; display: inline-flex; }
+.cat-workspace .cat-info-button { display: inline-grid; place-items: center; width: 18px; height: 18px; min-height: 0; padding: 0; border: 1.5px solid var(--cat-sub); border-radius: 50%; background: var(--cat-bg); color: var(--cat-sub); font: italic 700 11px/1 Georgia, serif; cursor: help; }
+.cat-workspace .cat-info-button:hover, .cat-workspace .cat-info-button:focus-visible { border-color: var(--cat-primary); color: var(--cat-primary); }
+.cat-info-tip { position: fixed; z-index: 1300; top: 0; left: 0; width: 300px; padding: 10px 12px; border: 1px solid var(--cat-control); border-radius: 8px; background: var(--cat-bg); color: var(--cat-text); box-shadow: 0 8px 24px var(--cat-shadow); font-size: 12px; font-weight: normal; line-height: 1.7; visibility: hidden; opacity: 0; transition: opacity .12s; }
+.cat-info-tip ol { margin: 4px 0 6px; padding-left: 18px; }
+.cat-info:hover .cat-info-tip, .cat-info:focus-within .cat-info-tip { visibility: visible; opacity: 1; }
+
+/* 9. 文章から効果を作る：操作と結果を上に。 */
+.cat-text-run { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px; }
+.cat-text-result { margin: 0 0 12px; padding: 8px 12px; border-radius: 7px; font-size: 13px; }
+.cat-text-result p { margin: 0 0 6px; }
+.cat-text-result.is-done { background: var(--cat-add-bg); color: var(--cat-add); }
+.cat-text-result.is-error { background: var(--cat-danger-soft); color: var(--cat-danger); }
+
+/* 10. ダイス威力：振らない・足す/引く・数 d 面。 */
+.cat-dice { margin: 5px 0 10px; }
+.cat-dice .cat-field-label { display: block; color: var(--cat-sub); font-size: 11px; }
+.cat-dice-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.cat-workspace .cat-dice-row select { display: inline-block; width: auto; margin: 0; }
+.cat-workspace .cat-dice-row input[type="number"] { display: inline-block; width: 64px; margin: 0; }
+.cat-workspace .cat-dice .cat-check { display: inline-flex; align-items: center; gap: 5px; margin-right: 6px; color: var(--cat-text); font-size: 12px; cursor: pointer; }
+.cat-workspace .cat-dice .cat-check input[type="checkbox"] { display: inline-block; width: 16px; min-width: 16px; height: 16px; min-height: 16px; margin: 0; padding: 0; }
+.cat-dice-d { font-weight: 700; }
+.cat-dice-value { margin-left: 4px; padding: 1px 8px; border-radius: 999px; background: var(--cat-soft); color: var(--cat-sub); font: 12px ui-monospace, Consolas, monospace; }
+
+/* 11. 効果タイプの英字のキーの切り替え。 */
+.cat-workspace .cat-key-toggle { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 8px; color: var(--cat-sub); font-size: 12px; cursor: pointer; }
+.cat-workspace .cat-key-toggle input[type="checkbox"] { display: inline-block; width: 16px; min-width: 16px; height: 16px; min-height: 16px; margin: 0; padding: 0; }
