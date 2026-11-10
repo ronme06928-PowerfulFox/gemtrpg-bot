@@ -9,7 +9,6 @@
   const button = (label, action, extra = '', attrs = '') => `<button type="button" class="cat-button ${extra}" data-action="${action}" ${attrs}>${label}</button>`;
   const badge = status => status === 'published' ? '' : `<span class="cat-badge" data-status="${h(window.CatalogGlossary.statuses[status])}">${h(window.CatalogGlossary.statuses[status])}</span>`;
   const jsonBlock = payload => `<details class="cat-json"><summary>JSON</summary><pre>${h(pretty(payload))}</pre></details>`;
-  const text = value => Array.isArray(value) ? value.join('、') : value == null || value === '' ? '—' : typeof value === 'object' ? pretty(value) : String(value);
 
   function renderProblems(problems = [], model = models.glossary) {
     if (!problems.length) return '<section class="cat-problems" aria-label="検査の問題"><p>問題はありません。</p></section>';
@@ -352,13 +351,13 @@
     async function startReview(draft) {
       state.review = draft; state.reviewBase = entry(draft.target_id);
       state.reviewId = state.reviewBase ? draft.target_id : (await request('nextId', state.kind, draft.id_prefix)).entry_id;
-      state.rejectReason = ''; state.scene = 'review'; state.dirty = false;
+      state.rejectReason = ''; state.rejecting = false; state.showSame = false; state.scene = 'review'; state.dirty = false;
       renderReview();
     }
     function renderReview() {
-      const changes = model.diff(state.reviewBase?.payload, state.review.payload);
-      const column = (side, title) => `<section class="cat-review-column ${side === 'before' && !state.reviewBase ? 'is-new' : ''}"><div class="cat-review-heading"><h3>${title}</h3><span class="cat-caption">${side === 'before' ? state.reviewBase ? `版 ${state.reviewBase.revision}` : '新規' : `元の版 ${state.review.base_revision ?? 'なし'}`}</span></div>${changes.map(change => `<section class="bo-workspace__card ${change.changed ? 'cat-changed' : ''}"><h4>${h(change.label)} ${change.changed ? '<span class="cat-badge">変更</span>' : ''}</h4><p class="cat-description">${h(text(change[side]))}</p></section>`).join('')}</section>`;
-      scene.innerHTML = `<div class="cat-review-wrap"><div class="cat-editbar">${button('← 戻る', 'back')}<strong>${h(state.review.target_id)} ${h(nameOf(state.review.payload))}</strong>${badge('pending')}</div>${renderProblems(state.review.problems, model)}<div class="cat-review-grid" style="--cat-review-rows:${changes.length + 1}">${column('before', '公開中の版')}${column('after', '下書き')}</div><footer class="cat-footer cat-review-footer"><label class="cat-field">正式ID<input id="cat-official-id" value="${h(state.reviewId)}" ${state.reviewBase ? 'disabled' : ''}></label><label class="cat-field">却下の理由<textarea id="cat-reject-reason" rows="2">${h(state.rejectReason)}</textarea></label>${button('却下', 'reject', 'cat-danger')}${button('承認', 'approve', 'cat-primary')}</footer></div>`;
+      const footerId = state.reviewBase ? `<span class="cat-review-id">正式ID：<code>${h(state.reviewId)}</code>（既存の項目）</span>` : `<label class="cat-field">正式ID<input id="cat-official-id" value="${h(state.reviewId)}"></label>`;
+      const actions = state.rejecting ? `<label class="cat-field cat-reject-reason">却下の理由<textarea id="cat-reject-reason" rows="2" placeholder="制作者に伝えること">${h(state.rejectReason)}</textarea></label>${button('取りやめる','reject-cancel')}${button('却下する','reject','cat-reject-confirm')}` : `${button('却下…','reject-open')}${button('承認して公開','approve','cat-primary')}`;
+      scene.innerHTML = `<div class="cat-review-wrap"><div class="cat-editbar">${button('← 戻る','back')}<strong>${h(state.review.target_id)} ${h(nameOf(state.review.payload))}</strong>${badge('pending')}</div><div class="cat-review-content">${window.CatalogReview.render(model,state.reviewBase,state.review,{showSame:state.showSame,schemas:state.schemas,catalogs:state.catalogs})}${renderProblems(state.review.problems,model)}</div><footer class="cat-footer cat-review-footer">${footerId}${actions}</footer></div>`;
     }
     function resolveLeave(choice) {
       if (!leaveResolve) return;
@@ -398,6 +397,8 @@
       await load();
     }
     async function onAction(action, control) {
+      if (action === 'review-same') { state.showSame = !state.showSame;renderReview();nextFocus = '[data-action="review-same"]';return; }
+      if (action === 'reject-open' || action === 'reject-cancel') { state.rejecting = action === 'reject-open';renderReview();nextFocus = state.rejecting ? '#cat-reject-reason' : '[data-action="reject-open"]';return; }
       if (action === 'open-json') return selectSection('json');
       if (action === 'pending' && state.user.is_app_admin) { if (!await allowLeave()) return;state.scene = 'browse';await load();renderPending();return; }
       if (action === 'copy-json') {

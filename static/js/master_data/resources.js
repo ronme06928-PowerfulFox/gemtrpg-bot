@@ -59,7 +59,7 @@
     }
     return {...base,kind,label,fields,defaults,parseField,form,preview,detail:preview,recordMeta:metadata,validatePayload() {},
       jsonHint:'名前・説明・効果などを編集します。IDは含めません。',
-      diff(before,after) { return [...new Set([...fields.map(row=>row[0]),...Object.keys(before || {}),...Object.keys(after || {})])].map(key=>({key,label:fields.find(row=>row[0]===key)?.[1] || key,before:before?.[key],after:after?.[key],changed:JSON.stringify(before?.[key])!==JSON.stringify(after?.[key])})); }};
+    };
   }
   const models = Object.fromEntries(Object.entries(definitions).map(([kind,definition])=>[kind,make(kind,definition)]));
   const summonFields = [['name','名前'],['hp','HP'],['maxHp','最大HP'],['mp','MP'],['maxMp','最大MP'],['initial_skill_ids','最初から持つスキル'],['hidden_skills','秘匿スキル'],['SPassive','特殊パッシブ'],['radiance_skills','輝化スキル'],['inventory','所持アイテム'],['summon_duration_mode','持続の種類'],['summon_duration','持続ラウンド'],['allow_duplicate_same_team','同陣営の重複'],['params','能力値'],['tag_ids','タグ'],['disabled_tag_ids','無効なタグ'],['special_buffs','バフ'],['flags','設定']];
@@ -73,7 +73,6 @@
     defaults:()=>({name:'',hp:0,maxHp:0,mp:0,maxMp:0,initial_skill_ids:[],hidden_skills:[],SPassive:[],radiance_skills:[],inventory:{},summon_duration_mode:'permanent',summon_duration:0,allow_duplicate_same_team:true,params:[],tag_ids:[],disabled_tag_ids:[],special_buffs:[],flags:{}}),
     validatePayload() {},preview:summonPreview,detail:summonPreview,recordMeta:payload=>`HP ${payload.hp ?? 0} / MP ${payload.mp ?? 0}`,
     recordDescription:payload=>`${payload.summon_duration_mode === 'permanent' ? '解除まで' : `${payload.summon_duration ?? 0}ラウンド`} · スキル ${Array.isArray(payload.initial_skill_ids) ? payload.initial_skill_ids.length : 0}件`,jsonHint:'召喚テンプレートのJSONを編集します。baseName（ID）は含めません。',
-    diff: (before,after)=>summonFields.map(([key,label])=>({key,label,before:before?.[key],after:after?.[key],changed:JSON.stringify(before?.[key])!==JSON.stringify(after?.[key])})),
   };
   window.CatalogResources = models;
 })();

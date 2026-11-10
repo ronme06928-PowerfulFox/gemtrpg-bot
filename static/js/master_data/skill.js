@@ -46,8 +46,7 @@
     const list = payload.特記処理?.effects;
     return `<section class="bo-workspace__card"><h4>スキルのプレビュー</h4>${card}${detail}</section><section class="bo-workspace__card"><h4>効果の説明</h4>${Array.isArray(list) ? `<ol class="cat-effect-list">${list.map(row=>`<li>${h(effects.summary(row,schemas))}<small>${h(effects.timingLabels[row?.timing] || 'タイミング未指定')}${row?.condition ? ' · '+h(effects.conditionText(row.condition)) : ''}</small></li>`).join('')}</ol>` : '<p class="cat-caption">効果なし</p>'}</section>`;
   }
-  function diff(before, after) { return [...new Set([...fields.map(([key])=>key),...Object.keys(before || {}),...Object.keys(after || {})])].map(key=>({key,label:fields.find(row=>row[0]===key)?.[1] || key,before:before?.[key],after:after?.[key],changed:JSON.stringify(before?.[key])!==JSON.stringify(after?.[key])})); }
-  window.CatalogSkill = {...base, kind:'skill', label:'スキル', fields, groups, categories:[], defaults, form, preview, configure, palette, diff,
+  window.CatalogSkill = {...base, kind:'skill', label:'スキル', fields, groups, categories:[], defaults, form, preview, configure, palette,
     displayName: payload=>payload.デフォルト名称,
     validatePayload: () => {}, parseField: (_,value)=>value,
     detail: (payload,options)=>preview(payload,options), externalLink:()=>'',

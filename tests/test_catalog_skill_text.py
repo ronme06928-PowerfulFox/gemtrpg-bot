@@ -67,7 +67,7 @@ def test_reading_rules_are_an_unchanged_copy_of_the_legacy_parser():
 
 def test_text_tab_generation_error_copy_and_closed_workspace():
     run_node(r"""
-for(const name of ['skill_effects','skill_inputs','editor','skill'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['skill_effects','skill_inputs','editor','review','skill'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 context.document=new Proxy({}, {get(){throw Error('mount must stay inside its container');}});
 let copied,saved,failCopy=false;
 context.navigator={clipboard:{writeText:async value=>{if(failCopy)throw Error('denied');copied=value;}}};

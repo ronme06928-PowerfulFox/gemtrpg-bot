@@ -16,7 +16,7 @@ const window={};
 const context=vm.createContext({window,console,setTimeout,clearTimeout,fetchWithSession:async(path,options)=>{
   calls.push([path,options]); return {...response,text:async()=>JSON.stringify(await response.json())};
 }});
-for(const name of ['json','catalog_api','glossary','buff','editor','text_tools']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['json','catalog_api','glossary','buff','editor','review','text_tools']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const api=window.CatalogApi, glossary=window.CatalogGlossary, buff=window.CatalogBuff;
 """
 
@@ -64,7 +64,7 @@ assert.equal(new Set(rows.map(row=>row.key)).size,3);
 assert.equal(glossary.filter(rows,{status:'published',category:'',search:''}).length,1);
 assert.equal(glossary.filter(rows,{status:'pending',category:'状態異常',search:'W-08'}).length,1);
 assert.equal(glossary.filter(rows,{status:'deprecated',category:'',search:''})[0].payload.display_name,'廃止');
-const diff=glossary.diff({display_name:'旧',links:['W-08']},{display_name:'新',links:['W-08']});
+const diff=window.CatalogReview.rows(glossary,{display_name:'旧',links:['W-08']},{display_name:'新',links:['W-08']});
 assert.equal(diff.find(row=>row.key==='display_name').changed,true);
 assert.equal(diff.find(row=>row.key==='links').changed,false);
 assert.equal(glossary.escape('<img onerror="bad">').includes('<img'),false);

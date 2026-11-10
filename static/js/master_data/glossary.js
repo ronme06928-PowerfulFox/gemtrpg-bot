@@ -38,12 +38,6 @@
   }
   const canManageDraft = (row, user) => !!(user.is_app_admin || (user.is_catalog_author && row.created_by === user.user_id));
   const canEdit = (row, user) => row.status !== 'pending' && canManageDraft(row, user);
-  function diff(before, after) {
-    return [...new Set([...fields.map(([key]) => key), ...Object.keys(before || {}), ...Object.keys(after || {})])].map(key => ({
-      key, label: fields.find(field => field[0] === key)?.[1] || key,
-      before: before?.[key], after: after?.[key], changed: JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key]),
-    }));
-  }
   function linkCandidates(entries, currentId, chosen, query = '') {
     const needle = query.trim().toLocaleLowerCase();
     return entries.filter(row => !row.deprecated && row.entry_id !== currentId && !chosen.includes(row.entry_id)
@@ -100,5 +94,5 @@
     recordMeta: payload => payload.category, recordDescription: payload => payload.short || payload.long,
     externalLink: id => window.Glossary.parseMarkupToHTML(`[[${id}|図鑑の説明を開く]]`),
     jsonHint: '表示名・分類・説明などの項目を編集します。IDはここには含めません。',
-    validatePayload() {}, fields, categories, statuses, escape, parseJSON, parseField, rows, filter, canManageDraft, canEdit, diff, form, linkCandidates, addItem, removeItem, chips, candidateButtons };
+    validatePayload() {}, fields, categories, statuses, escape, parseJSON, parseField, rows, filter, canManageDraft, canEdit, form, linkCandidates, addItem, removeItem, chips, candidateButtons };
 })();

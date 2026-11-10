@@ -42,10 +42,5 @@
       return rows.filter(row => (filters.status === 'all' || row.status === filters.status)
         && [row.target_id, row.payload.name, row.payload.display_name, row.payload.description, row.payload.flavor].join(' ').toLocaleLowerCase().includes(needle));
     },
-    diff(before, after) {
-      return [...new Set([...fields.map(([key]) => key), ...Object.keys(before || {}), ...Object.keys(after || {})])].map(key => ({key,
-        label: fields.find(field => field[0] === key)?.[1] || key, before: before?.[key], after: after?.[key],
-        changed: JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key])}));
-    },
   };
 })();

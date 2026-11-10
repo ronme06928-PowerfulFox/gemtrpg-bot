@@ -32,11 +32,11 @@
       if (!effect || typeof effect !== 'object' || Array.isArray(effect)) return [];
       const key = effect.type || Object.keys(effect).join('・') || '空の効果';
       if (seen.has(key)) return [];
-      seen.add(key);return [{type:key,payload:effect,name:row.payload.display_name || row.payload.name}];
+      seen.add(key);return [{payload:effect,id:row.entry_id,name:row.payload.display_name || row.payload.name,description:plainText(row.payload.description || '')}];
     });
   }
   function exampleButtons(entries) {
-    return `<section class="cat-effect-examples"><h4>公開中の効果の例</h4>${examples(entries).map((row,index)=>`<button type="button" class="cat-button" data-effect-example="${index}">${h(row.type)} · ${h(row.name)}</button>`).join('') || '<p class="cat-caption">例はありません。</p>'}</section>`;
+    return `<section class="cat-effect-examples"><h4>公開中の効果の例</h4>${examples(entries).map((row,index)=>`<button type="button" class="cat-button" data-effect-example="${index}"><strong>${h(row.id)} ${h(row.name)}と同じ形</strong>${row.description ? `<small>${h(row.description)}</small>` : ''}</button>`).join('') || '<p class="cat-caption">例はありません。</p>'}</section>`;
   }
   const plainText = value => String(value || '').replace(/\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g,(_match,id,name)=>name || id);
   window.CatalogEditor = {sections,sectionFor,keys,navigation,jsonText,examples,exampleButtons,plainText};
