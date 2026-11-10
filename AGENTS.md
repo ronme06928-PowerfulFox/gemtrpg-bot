@@ -37,7 +37,7 @@
 7. 演出の一覧は `npm run gallery` で `/_local/fx_gallery/fx_gallery.html` を作る。本番のバンドルには入らない。
 8. 解決パネルの見比べ用HTMLは `npm run resolve-preview` で作る。本番のバンドルには入らない。
 9. 演出の試作の見比べ用HTMLは `npm run fx-proto` で作る（攻撃は `/_local/fx_proto/slash_proto.html`、宝石の加護と戦闘の終わりは `/_local/fx_proto/pr5_proto.html`）。本番のバンドルには入らない。
-10. マスターデータの管理画面の見比べ用HTMLは `npm run catalog-preview` で `/_local/catalog_preview/catalog_preview.html` を作る（計画60 §5.3）。本番のバンドルには入らない。
+10. マスターデータの管理画面の見比べ用HTMLは `npm run catalog-preview` で `/_local/catalog_preview/catalog_preview.html`（計画60 §5.3）と `/_local/catalog_preview/ui_revision.html`（見やすさの改修、計画60 §6-3）を作る。本番のバンドルには入らない。
 
 ```bash
 # JS 編集後
