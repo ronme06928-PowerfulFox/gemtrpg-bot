@@ -13,3 +13,6 @@
 .cat-power-rules small { display: block; color: var(--cat-sub); font-size: 11px; }
 .cat-power-in { color: var(--cat-primary); font-weight: 700; }
 .cat-workspace .cat-power-differs { margin: 0 0 8px; font-size: 12px; }
+.cat-workspace .cat-power-toggle { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; color: var(--cat-text); font-size: 12px; }
+.cat-workspace .cat-power-toggle input[type="checkbox"] { display: inline-block; width: auto; margin: 0; }
+.cat-workspace .cat-power-params[hidden] { display: none; }

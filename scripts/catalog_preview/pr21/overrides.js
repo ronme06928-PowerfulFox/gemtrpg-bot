@@ -8,9 +8,12 @@
   const payloads = new Map(), cache = new Map(), timers = new Map();
   const baseConfigure = skill.configure;
   skill.configure = (value, refs) => { schemas = value; baseConfigure(value, refs); };
+  // 覚えるもの：補正を適用するか（初めは適用しない）と、適用するときの値（初めは5、キャラ作成の既定値）。
+  const DEFAULTS = { on: false, 物理補正: 5, 魔法補正: 5 };
   function params() {
-    try { return { 物理補正: 0, 魔法補正: 0, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { 物理補正: 0, 魔法補正: 0 }; }
+    try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { ...DEFAULTS }; }
   }
+  const effective = value => value.on ? { 物理補正: value.物理補正, 魔法補正: value.魔法補正 } : { 物理補正: 0, 魔法補正: 0 };
   function remember(value) { try { localStorage.setItem(KEY, JSON.stringify(value)); } catch {} }
   const used = payload => ['物理補正', '魔法補正'].filter(name => String(payload.チャットパレット || '').includes(`{${name}}`));
   const number = value => Number.isInteger(value) ? String(value) : value.toFixed(1);
@@ -27,7 +30,7 @@
     const target = card.querySelector('.cat-power-body');
     if (!payload) return;
     if (!String(payload.チャットパレット || '').trim()) { target.innerHTML = '<p class="cat-caption">チャットパレットが空なので計算できません。</p>'; return; }
-    const value = params();
+    const value = effective(params());
     const key = JSON.stringify([payload, value]);
     if (!cache.has(key)) {
       cache.set(key, fetch('/power_preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload, entry_id: card.dataset.entryId, params: value }) })
@@ -46,6 +49,18 @@
       schedule(card, card.closest('.cat-editor') ? 300 : 0);
     }
   }).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener('change', event => {
+    if (!event.target.matches?.('[data-power-toggle]')) return;
+    const value = params();
+    value.on = event.target.checked;
+    remember(value);
+    for (const card of document.querySelectorAll('.cat-power')) {
+      const toggle = card.querySelector('[data-power-toggle]'), box = card.querySelector('.cat-power-params');
+      if (toggle) toggle.checked = value.on;
+      if (box) box.hidden = !value.on;
+      schedule(card, 0);
+    }
+  });
   document.addEventListener('input', event => {
     const input = event.target.closest?.('[data-power-param]');
     if (!input) return;
@@ -61,12 +76,12 @@
     const id = String(++nextId);
     payloads.set(id, JSON.parse(JSON.stringify(payload)));
     const value = params(), names = used(payload);
-    const inputs = names.length ? `<div class="cat-power-params">${names.map(name => `<label class="cat-field">${name}<input type="number" min="0" step="1" data-power-param="${name}" value="${h(value[name])}"></label>`).join('')}</div>` : '';
+    const inputs = names.length ? `<label class="cat-check cat-power-toggle"><input type="checkbox" data-power-toggle ${value.on ? 'checked' : ''}>補正を適用</label><div class="cat-power-params" ${value.on ? '' : 'hidden'}>${names.map(name => `<label class="cat-field">${name}<input type="number" min="0" step="1" data-power-param="${name}" value="${h(value[name])}"></label>`).join('')}</div>` : '';
     // 見込みはチャットパレットで計算する。項目（基礎威力・ダイス威力・分類）から作る式と違えば、1行で知らせる。
     const command = text => String(text || '').split('【')[0].trim();
     const differs = String(payload.チャットパレット || '').trim() && command(payload.チャットパレット) !== command(skill.palette(payload, options.entryId));
     const note = differs ? `<p class="cat-callout cat-power-differs">チャットパレットが項目と違います（項目からは <code>${h(command(skill.palette(payload, options.entryId)))}</code>）。見込みはチャットパレットで計算しています。「項目から作る」でそろえると見込みも変わります。</p>` : '';
-    return `<section class="bo-workspace__card cat-power" data-power-id="${id}" data-entry-id="${h(options.entryId || '')}"><h4 class="cat-heading-info">威力の見込み${window.CatalogInfo.render('威力の見込み', '自分は欄の補正だけを持ち、ほかの値はすべて0、相手はいないとして計算します。')}</h4>${inputs}${note}<div class="cat-power-body"><p class="cat-caption">計算しています…</p></div></section>`;
+    return `<section class="bo-workspace__card cat-power" data-power-id="${id}" data-entry-id="${h(options.entryId || '')}"><h4 class="cat-heading-info">威力の見込み${window.CatalogInfo.render('威力の見込み', '補正なしで、自分のほかの値はすべて0、相手はいないとして計算します。「補正を適用」で補正の値を入れられます。')}</h4>${inputs}${note}<div class="cat-power-body"><p class="cat-caption">計算しています…</p></div></section>`;
   }
   const basePreview = skill.preview;
   skill.preview = (payload, options = {}) => {
