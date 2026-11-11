@@ -1,23 +1,22 @@
 {
   "U-00": {
+    "SPassive": [],
+    "allow_duplicate_same_team": true,
     "baseName": "U-00",
-    "name": "鉄の小蜘蛛",
+    "disabled_tag_ids": [],
+    "flags": {},
+    "hidden_skills": [],
     "hp": 30,
-    "maxHp": 30,
-    "mp": 0,
-    "maxMp": 0,
     "initial_skill_ids": [
       "E-17",
       "E-18",
       "E-22"
     ],
-    "SPassive": [],
-    "radiance_skills": [],
-    "hidden_skills": [],
     "inventory": {},
-    "summon_duration_mode": "duration_rounds",
-    "summon_duration": 3,
-    "allow_duplicate_same_team": true,
+    "maxHp": 30,
+    "maxMp": 0,
+    "mp": 0,
+    "name": "鉄の小蜘蛛",
     "params": [
       {
         "label": "敏捷",
@@ -32,30 +31,30 @@
         "value": "0"
       }
     ],
-    "tag_ids": [],
-    "disabled_tag_ids": [],
+    "radiance_skills": [],
     "special_buffs": [],
-    "flags": {}
+    "summon_duration": 3,
+    "summon_duration_mode": "duration_rounds",
+    "tag_ids": []
   },
   "U-01": {
+    "SPassive": [],
+    "allow_duplicate_same_team": true,
     "baseName": "U-01",
-    "name": "マフィアの下っ端",
+    "disabled_tag_ids": [],
+    "flags": {},
+    "hidden_skills": [],
     "hp": 55,
-    "maxHp": 55,
-    "mp": 8,
-    "maxMp": 8,
     "initial_skill_ids": [
       "Ps-00",
       "Ps-01",
       "Ps-02"
     ],
-    "SPassive": [],
-    "radiance_skills": [],
-    "hidden_skills": [],
     "inventory": {},
-    "summon_duration_mode": "permanent",
-    "summon_duration": 0,
-    "allow_duplicate_same_team": true,
+    "maxHp": 55,
+    "maxMp": 8,
+    "mp": 8,
+    "name": "マフィアの下っ端",
     "params": [
       {
         "label": "敏捷",
@@ -70,31 +69,28 @@
         "value": "2"
       }
     ],
-    "tag_ids": [],
-    "disabled_tag_ids": [],
+    "radiance_skills": [],
     "special_buffs": [],
-    "flags": {}
+    "summon_duration": 0,
+    "summon_duration_mode": "permanent",
+    "tag_ids": []
   },
   "U-02": {
-    "tag_ids": [
-      "瓦礫"
-    ],
-    "baseName": "U-02",
-    "name": "鉄交じりの瓦礫",
-    "hp": 30,
-    "maxHp": 30,
-    "mp": 0,
-    "maxMp": 0,
-    "initial_skill_ids": [],
     "SPassive": [
       "Pa-07"
     ],
-    "radiance_skills": [],
-    "hidden_skills": [],
-    "inventory": {},
-    "summon_duration_mode": "permanent",
-    "summon_duration": 0,
     "allow_duplicate_same_team": true,
+    "baseName": "U-02",
+    "disabled_tag_ids": [],
+    "flags": {},
+    "hidden_skills": [],
+    "hp": 30,
+    "initial_skill_ids": [],
+    "inventory": {},
+    "maxHp": 30,
+    "maxMp": 0,
+    "mp": 0,
+    "name": "鉄交じりの瓦礫",
     "params": [
       {
         "label": "敏捷",
@@ -109,8 +105,12 @@
         "value": "0"
       }
     ],
-    "disabled_tag_ids": [],
+    "radiance_skills": [],
     "special_buffs": [],
-    "flags": {}
+    "summon_duration": 0,
+    "summon_duration_mode": "permanent",
+    "tag_ids": [
+      "瓦礫"
+    ]
   }
 }

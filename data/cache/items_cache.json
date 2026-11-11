@@ -1,44 +1,44 @@
 {
   "I-00": {
+    "consumable": true,
+    "description": "味方1人のHPを15回復する。",
+    "effect": {
+      "hp": 15,
+      "target": "single",
+      "type": "heal"
+    },
+    "flavor": "パン一切れくらいの値段で売っている粗悪な回復薬。それでも何も無いよりは気が休まる。",
     "id": "I-00",
     "name": "ギルド印の安物ポーション",
-    "description": "味方1人のHPを15回復する。",
-    "flavor": "パン一切れくらいの値段で売っている粗悪な回復薬。それでも何も無いよりは気が休まる。",
-    "consumable": true,
-    "usable": true,
     "round_limit": -1,
-    "effect": {
-      "type": "heal",
-      "target": "single",
-      "hp": 15
-    }
+    "usable": true
   },
   "I-01": {
+    "consumable": true,
+    "description": "味方1人を選び、1ラウンドの間スキルの基礎威力を+1する。",
+    "effect": {
+      "buff_id": "Bu-00",
+      "target": "single",
+      "type": "buff"
+    },
+    "flavor": "短時間身体能力を増大させ、攻撃力を高める薬。非常に苦く、大量に服用することはおすすめしない。",
     "id": "I-01",
     "name": "鋭敏の魔力薬",
-    "description": "味方1人を選び、1ラウンドの間スキルの基礎威力を+1する。",
-    "flavor": "短時間身体能力を増大させ、攻撃力を高める薬。非常に苦く、大量に服用することはおすすめしない。",
-    "consumable": true,
-    "usable": true,
     "round_limit": 1,
-    "effect": {
-      "type": "buff",
-      "target": "single",
-      "buff_id": "Bu-00"
-    }
+    "usable": true
   },
   "I-02": {
+    "consumable": true,
+    "description": "味方1人のHPを30回復する。",
+    "effect": {
+      "hp": 30,
+      "target": "single",
+      "type": "heal"
+    },
+    "flavor": "薬草を使って作られた一般的な回復薬。飲んでもいいし、患部にかけてもよい。",
     "id": "I-02",
     "name": "ギルド印のポーション",
-    "description": "味方1人のHPを30回復する。",
-    "flavor": "薬草を使って作られた一般的な回復薬。飲んでもいいし、患部にかけてもよい。",
-    "consumable": true,
-    "usable": true,
     "round_limit": -1,
-    "effect": {
-      "type": "heal",
-      "target": "single",
-      "hp": 30
-    }
+    "usable": true
   }
 }

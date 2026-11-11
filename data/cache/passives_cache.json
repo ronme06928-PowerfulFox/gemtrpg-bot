@@ -1,133 +1,133 @@
 {
   "Pa-00": {
-    "id": "Pa-00",
-    "name": "迅速",
     "cost": 0,
     "description": "1ラウンドあたりの行動回数+1。",
-    "flavor": "素早い思考は素早い行動を可能とする。",
     "effect": {
       "stat_mods": {
         "行動回数": 1
       }
-    }
+    },
+    "flavor": "素早い思考は素早い行動を可能とする。",
+    "id": "Pa-00",
+    "name": "迅速"
   },
   "Pa-01": {
-    "id": "Pa-01",
-    "name": "神速",
     "cost": 0,
     "description": "1ラウンドあたりの行動回数+2。",
-    "flavor": "稚拙な思考や研鑽では届かない境地。心身相共にあり、光陰矢の如し。",
     "effect": {
       "stat_mods": {
         "行動回数": 2
       }
-    }
+    },
+    "flavor": "稚拙な思考や研鑽では届かない境地。心身相共にあり、光陰矢の如し。",
+    "id": "Pa-01",
+    "name": "神速"
   },
   "Pa-03": {
-    "id": "Pa-03",
-    "name": "超加速",
     "cost": 0,
     "description": "1ラウンドあたりの行動回数+3",
-    "flavor": "風を駆け嵐を斬る程の速度とそれを制御する技術。それらが共にあってこそ傑物の名を手に入れる。",
     "effect": {
       "stat_mods": {
         "行動回数": 3
       }
-    }
+    },
+    "flavor": "風を駆け嵐を斬る程の速度とそれを制御する技術。それらが共にあってこそ傑物の名を手に入れる。",
+    "id": "Pa-03",
+    "name": "超加速"
   },
   "Pa-04": {
-    "id": "Pa-04",
-    "name": "氷断",
     "cost": 0,
     "description": "スキル対象のこのラウンドの速度値が3以下なら、与えるダメージ+20%。",
-    "flavor": "特別な製法で鍛造された刀。それは対象が凍えているほど切れ味を鋭くするという。",
     "effect": {
-      "outgoing_damage_multiplier": 1.2,
       "condition": {
-        "source": "target",
-        "param": "速度値",
         "operator": "LTE",
+        "param": "速度値",
+        "source": "target",
         "value": 3
-      }
-    }
+      },
+      "outgoing_damage_multiplier": 1.2
+    },
+    "flavor": "特別な製法で鍛造された刀。それは対象が凍えているほど切れ味を鋭くするという。",
+    "id": "Pa-04",
+    "name": "氷断"
   },
   "Pa-05": {
-    "id": "Pa-05",
-    "name": "飛び散る毒晶",
     "cost": 0,
     "description": "自分がスキルでダメージを受けた時、攻撃者に3ダメージを与える。",
-    "flavor": "カルメイルに生息する砂漠サソリの特性。しっぺ返しがあると外敵に示すことで、仲間の安全を守ろうとする。",
     "effect": {
       "on_damage_reaction": {
-        "target": "attacker",
-        "damage": 3
+        "damage": 3,
+        "target": "attacker"
       }
-    }
+    },
+    "flavor": "カルメイルに生息する砂漠サソリの特性。しっぺ返しがあると外敵に示すことで、仲間の安全を守ろうとする。",
+    "id": "Pa-05",
+    "name": "飛び散る毒晶"
   },
   "Pa-06": {
-    "id": "Pa-06",
-    "name": "断ち裂く破片",
     "cost": 0,
     "description": "自分がスキルでダメージを受けた時、攻撃者に出血2を与える。",
-    "flavor": "一部のシュラーカーは敢えて体組織を脆くすることにより、戦闘に有利な状況を作り出そうと試みているらしい。",
     "effect": {
       "on_damage_reaction": {
-        "target": "attacker",
         "apply_state": [
           {
             "name": "出血",
             "value": 2
           }
-        ]
+        ],
+        "target": "attacker"
       }
-    }
+    },
+    "flavor": "一部のシュラーカーは敢えて体組織を脆くすることにより、戦闘に有利な状況を作り出そうと試みているらしい。",
+    "id": "Pa-06",
+    "name": "断ち裂く破片"
   },
   "Pa-07": {
-    "id": "Pa-07",
-    "name": "魔力の籠った鉄塊",
     "cost": 0,
     "description": "このキャラクターは行動せず、スロットを持たない。これのHPがスキルによって０になったとき、そのスキルを使用したキャラクターの陣営によって異なる効果を発揮する。\n\n味方：味方陣営全員のスキル威力+2。2ラウンド継続。\n相手：「アイアンルート」のスキル威力+1。3ラウンド継続。",
-    "flavor": "地下遺跡でしばしば観察される魔力を含んだ鉄鉱石。明確な因果関係は未だハッキリと証明されていないが、こういった魔力の豊富な鉱物資源がある場所にシュラーカーが多く現れることが経験的に知られている。",
     "effect": {
       "action_slot_mode": "none",
       "on_death": [
         {
-          "timing": "IMMEDIATE",
-          "type": "APPLY_BUFF",
-          "target": "KILLER_TEAM",
           "buff_id": "Bu-51",
-          "lasting": 2,
-          "delay": 1,
           "condition": {
-            "source": "death_context",
-            "param": "killer_team",
             "operator": "EQUALS",
+            "param": "killer_team",
+            "source": "death_context",
             "value": "ally"
-          }
+          },
+          "delay": 1,
+          "lasting": 2,
+          "target": "KILLER_TEAM",
+          "timing": "IMMEDIATE",
+          "type": "APPLY_BUFF"
         },
         {
-          "timing": "IMMEDIATE",
-          "type": "APPLY_BUFF",
-          "target": "KILLER",
           "buff_id": "Bu-52",
-          "lasting": 3,
-          "delay": 1,
           "condition": {
-            "source": "death_context",
-            "param": "killer_team",
             "operator": "EQUALS",
+            "param": "killer_team",
+            "source": "death_context",
             "value": "enemy"
-          }
+          },
+          "delay": 1,
+          "lasting": 3,
+          "target": "KILLER",
+          "timing": "IMMEDIATE",
+          "type": "APPLY_BUFF"
         }
       ]
-    }
+    },
+    "flavor": "地下遺跡でしばしば観察される魔力を含んだ鉄鉱石。明確な因果関係は未だハッキリと証明されていないが、こういった魔力の豊富な鉱物資源がある場所にシュラーカーが多く現れることが経験的に知られている。",
+    "id": "Pa-07",
+    "name": "魔力の籠った鉄塊"
   },
   "Pa-08": {
-    "id": "Pa-08",
-    "name": "生存本能",
     "cost": 0,
     "description": "このキャラクターのHPが最大HPの40％を下回った次のラウンドから行動パターンが変化し、瓦礫を破壊することで強化される強力な攻撃を使用する。",
+    "effect": {},
     "flavor": "追い詰められた生物は、得てして驚くべき力を発揮するものである。",
-    "effect": {}
+    "id": "Pa-08",
+    "name": "生存本能"
   }
 }
