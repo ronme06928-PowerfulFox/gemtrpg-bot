@@ -1,0 +1,15 @@
+/* PR60-21 の試作：威力の見込みのカード（本番には入らない） */
+.cat-workspace .cat-power-params { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+.cat-workspace .cat-power-params .cat-field { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; }
+.cat-workspace .cat-power-params input { width: 64px; }
+.cat-power-numbers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; }
+.cat-power-numbers div { padding: 6px 8px; border: 1px solid var(--cat-edge); border-radius: 6px; text-align: center; }
+.cat-power-numbers dt { color: var(--cat-sub); font-size: 11px; }
+.cat-power-numbers dd { margin: 0; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cat-power-dice { margin: 6px 0 0; color: var(--cat-sub); font-size: 12px; }
+.cat-power h5 { margin: 10px 0 4px; font-size: 12px; }
+.cat-power-rules { margin: 0; padding-left: 18px; overflow-wrap: anywhere; }
+.cat-power-rules li + li { margin-top: 6px; }
+.cat-power-rules small { display: block; color: var(--cat-sub); font-size: 11px; }
+.cat-power-in { color: var(--cat-primary); font-weight: 700; }
+.cat-workspace .cat-power-differs { margin: 0 0 8px; font-size: 12px; }
