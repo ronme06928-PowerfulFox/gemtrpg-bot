@@ -2,7 +2,7 @@
   const h = window.CatalogGlossary.escape;
   const fields = {
     glossary:{body:['display_name','category','synonyms','sort_order'],description:['short','long','flavor'],links:['links']},
-    skill:{body:['デフォルト名称','分類','距離','属性','取得コスト','基礎威力','ダイス威力','チャットパレット'],description:['使用時効果','発動時効果','特記'],cost:['特記処理'],bonus:['特記処理'],effects:['特記処理']},
+    skill:{body:['デフォルト名称','分類','距離','属性','取得コスト','基礎威力','ダイス威力','チャットパレット'],description:['コスト','発動時効果','特記'],cost:['特記処理'],bonus:['特記処理'],effects:['特記処理']},
   };
   const generic = {body:['name','display_name','default_duration','cost','duration','round_limit','usable','consumable','granted_tag_ids'],description:['description','flavor'],effects:['effect']};
   function sections(model) {

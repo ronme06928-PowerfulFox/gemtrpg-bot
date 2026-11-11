@@ -12,7 +12,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const window={};const context=vm.createContext({window,console,setTimeout,clearTimeout});
-for(const name of ['json','catalog_api','glossary','text_tools','buff','skill_text_help','skill_text']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+context.catalogNoCorrectionNotes=JSON.parse(fs.readFileSync('data/skill_no_correction_notes.json','utf8'));
+for(const name of ['json','catalog_api','glossary','text_tools','buff','skill_text_help','skill_notes','skill_text']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const fixture=JSON.parse(fs.readFileSync('tests/fixtures/skill_text_legacy.json','utf8'));
 const reader=window.CatalogSkillText.createReader(fixture.references);
 """
@@ -62,6 +63,8 @@ def test_reading_rules_are_an_unchanged_copy_of_the_legacy_parser():
     fixture = json.loads((ROOT / "tests/fixtures/skill_text_legacy.json").read_text(encoding="utf-8"))
     source = (ROOT / "static/js/master_data/skill_text.js").read_text(encoding="utf-8")
     rules = source[source.index("    function _nlNormalizeWideChars"):source.index("    function _nlEffectToSeed")].strip()
+    # PR60-20 はコストのエラー欄名だけを改称。旧ビルダーとの規則の一致は維持する。
+    rules = rules.replace('_nlPushError(errors,"コスト",', '_nlPushError(errors,"使用時効果",')
     assert hashlib.sha256(rules.encode()).hexdigest() == fixture["rules_sha256"]
 
 
@@ -80,7 +83,7 @@ class Element {
  html(){return this.innerHTML+[...this.nodes.values()].map(n=>n.html()).join('');}
 }
 const original=fixture.cases.find(row=>row.name==='Ps-00');
-const payload={'デフォルト名称':'テスト','分類':'物理','使用時効果':original.input.cost,'発動時効果':original.input.trigger,
+const payload={'デフォルト名称':'テスト','分類':'物理','コスト':original.input.cost,'発動時効果':original.input.trigger,
  '特記':original.input.note,'特記処理':original.expected.rule};
 const schemas={effect_types:{APPLY_STATE:{label:'状態',fields:{state_name:{type:'string'},value:{type:'int'}},summary:'{target}に{state_name}を{value}付与'}},custom_effects:{},
  common_fields:{timing:{options:['HIT','END_ROUND']},target:{options:['self','target']},condition:{fields:{}}}};

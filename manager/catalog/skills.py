@@ -1,14 +1,31 @@
 """スキルの保存形式と既存の配信形式の変換・管理用の検査。"""
 from copy import deepcopy
+from pathlib import Path
 import json
 import re
 
 from flask import has_app_context
 from manager.cache_paths import SKILLS_CACHE_FILE
 
+_NO_CORRECTION_NOTES = json.loads(
+    (Path(__file__).resolve().parents[2] / "data" / "skill_no_correction_notes.json").read_text(encoding="utf-8")
+)
+
+
+def omits_correction(category, notes):
+    expected = _NO_CORRECTION_NOTES.get(category) if isinstance(category, str) else None
+    if not expected or not isinstance(notes, str):
+        return False
+    for sentence in re.findall(r"(?:\[\[[^\]\n]+\]\]|[^。\n])+。?", notes):
+        plain = re.sub(r"\[\[[^|\]\n]+\|([^\]\n]+)\]\]", r"\1", sentence)
+        if plain.strip().removesuffix("。") == expected.removesuffix("。"):
+            return True
+    return False
+
+
 PREFIXES = ("Ps", "Pb", "Pp", "Ms", "Mb", "Mp", "D", "B", "C", "E")
 TEXT_FIELDS = ("デフォルト名称", "チャットパレット", "分類", "距離", "属性", "取得コスト",
-               "基礎威力", "ダイス威力", "使用時効果", "特記", "発動時効果")
+               "基礎威力", "ダイス威力", "コスト", "特記", "発動時効果")
 DEFAULTS = {**dict.fromkeys(TEXT_FIELDS, ""), "分類": "補助", "特記処理": {}}
 
 
@@ -118,6 +135,8 @@ def inspect_skill(payload, entry_id, stage, add):
     record = to_memory(payload, entry_id or "")
     name, base, dice = (payload.get(key, "") for key in ("デフォルト名称", "基礎威力", "ダイス威力"))
     correction = {"物理": "+1d{物理補正}", "魔法": "+1d{魔法補正}"}.get(payload.get("分類"), "")
+    if omits_correction(payload.get("分類"), payload.get("特記")):
+        correction = ""
     expected = f"{base}{dice}{correction} 【{entry_id or ''} {name}】"
     if payload.get("チャットパレット", "") != expected:
         add("チャットパレット", f"定型と異なります（例: {expected}）", "warning")

@@ -38,7 +38,7 @@ with contextlib.redirect_stdout(sys.stderr):
         with client.session_transaction() as session:
             session.update(user_id="admin", username="admin", auth_version=1, is_app_admin=True, is_catalog_author=True)
         # 承認待ちが1件ずつある状態にする（件数の札と承認待ちの一覧を見るため）。
-        for kind, target, change in [("skill", "Ps-01", ("使用時効果", " 追記した文")), ("buff", "Bu-00", ("description", "（改）"))]:
+        for kind, target, change in [("skill", "Ps-01", ("コスト", " 追記した文")), ("buff", "Bu-00", ("description", "（改）"))]:
             created = client.post(f"/api/catalog/{kind}/drafts", json={"target_id": target}).get_json()
             payload = dict(created["payload"])
             payload[change[0]] = str(payload.get(change[0], "")) + change[1]

@@ -427,7 +427,7 @@
       }
       if (action === 'text-build') {
         const rule = state.payload.特記処理 || {};
-        const result = window.CatalogSkillText.createReader(state.textReferences).parse({cost:state.payload.使用時効果,
+        const result = window.CatalogSkillText.createReader(state.textReferences).parse({category:state.payload.分類, cost:state.payload.コスト,
           trigger:state.payload.発動時効果,note:state.payload.特記,tags:state.textTags,id:rule.id,target_scope:rule.target_scope});
         state.textResult = result;
         if (result.rule) { state.payload.特記処理 = result.rule; state.dirty = true; state.jsonText = pretty(state.payload); }

@@ -1,5 +1,5 @@
 (function () {
-  // 読み取り規則は旧ビルダーから移植。表記の追加・優先順の変更はしない。
+  // 読み取り規則は旧ビルダーから移植。補正なしの定型文は読み取りの前に除く。
   function createReader(references = {}) {
     const REF = references;
     const LINK_REF_CACHE = {
@@ -109,19 +109,19 @@
       lines.forEach((line)=>{
         const ng=_nlContainsForbiddenTimingWord(line);
         if(ng){
-          _nlPushError(errors,"使用時効果",line,`禁止語彙（${ng}）を含んでいます。`);
+          _nlPushError(errors,"コスト",line,`禁止語彙（${ng}）を含んでいます。`);
           return;
         }
         const matches=[...line.matchAll(/(FP|MP|HP)\s*を\s*(\d+)\s*消費/g)];
         if(!matches.length){
-          _nlPushError(errors,"使用時効果",line,"コストを解釈できません。例: FPを2消費");
+          _nlPushError(errors,"コスト",line,"コストを解釈できません。例: FPを2消費");
           return;
         }
         matches.forEach((m)=>{
           const type=String(m[1]||"").trim();
           const value=Number(m[2]);
           if(!Number.isFinite(value) || value<=0){
-            _nlPushError(errors,"使用時効果",line,"消費値は1以上の整数で指定してください。");
+            _nlPushError(errors,"コスト",line,"消費値は1以上の整数で指定してください。");
             return;
           }
           costs.push({ type, value });
@@ -1105,8 +1105,8 @@
       const allErrors=[];
       const splitCost=_nlSplitLines(rawCost);
       const splitTrigger=_nlSplitLines(rawTrigger);
-      const splitNote=_nlSplitLines(rawNote);
-      splitCost.errors.forEach(msg=>_nlPushError(allErrors,"使用時効果",rawCost,msg));
+      const splitNote=_nlSplitLines(window.CatalogSkillNotes.withoutCorrectionNote(input.category, rawNote));
+      splitCost.errors.forEach(msg=>_nlPushError(allErrors,"コスト",rawCost,msg));
       splitTrigger.errors.forEach(msg=>_nlPushError(allErrors,"発動時効果",rawTrigger,msg));
       splitNote.errors.forEach(msg=>_nlPushError(allErrors,"特記",rawNote,msg));
 
@@ -1194,7 +1194,7 @@
   }
   function renderForm(payload, tags, result, references) {
     const h = window.CatalogGlossary.escape;
-    const fields = [['使用時効果', '使用時効果（コスト）'], ['発動時効果', '発動時効果'], ['特記', '特記']];
+    const fields = [['コスト', 'コスト'], ['発動時効果', '発動時効果'], ['特記', '特記']];
     const how = '下の3つの欄を読み取り、コスト・補正・効果を作り直します。今の設定は置き換わり、保存はしません。';
     const outcome = !result ? '<div class="cat-text-result" role="status"></div>' : result.errors.length
       ? `<div class="cat-text-result is-error" role="status"><p>読み取れない行が${result.errors.length}件あります。効果は変えていません。</p><ul class="cat-text-errors">${result.errors.map(error => `<li><strong>${h(error.column)}</strong><blockquote>${h(error.line)}</blockquote><span>${h(error.reason)}</span></li>`).join('')}</ul></div>`

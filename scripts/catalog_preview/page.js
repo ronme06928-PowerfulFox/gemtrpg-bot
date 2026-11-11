@@ -25,7 +25,7 @@ const records = Object.fromEntries(kinds.map(([kind]) => [kind, Object.entries(c
   kind, id, raw,
   name: raw['デフォルト名称'] || raw.display_name || raw.name || id,
   category: raw['分類'] || raw.category || (kind === 'summons' ? '召喚テンプレート' : kinds.find(([key]) => key === kind)[1]),
-  description: plain(raw.description || raw.short || raw.long || raw['発動時効果'] || raw['使用時効果'] || ''),
+  description: plain(raw.description || raw.short || raw.long || raw['発動時効果'] || raw['コスト'] || ''),
   status: mockStates[`${kind}:${id}`] || '公開中',
   tags: raw.tags || raw.tag_ids || raw.granted_tag_ids || [],
   ...schemas.skills[id],
@@ -169,9 +169,9 @@ function effectCard(effect, index) {
 }
 
 function skillForm(row) {
-  const textFields = ['スキルID', 'デフォルト名称', '分類', '距離', '属性', '取得コスト', '基礎威力', 'ダイス威力', 'チャットパレット', '使用時効果', '発動時効果'];
+  const textFields = ['スキルID', 'デフォルト名称', '分類', '距離', '属性', '取得コスト', '基礎威力', 'ダイス威力', 'チャットパレット', 'コスト', '発動時効果'];
   return `<div class="cat-section-heading"><h3>スキル本体</h3><span class="cat-caption">* 必須項目</span></div><div class="cat-field-grid">${textFields.map(key => field(key, key === '基礎威力' ? Number(row.raw[key]) + 1 : row.raw[key], {
-    wide: ['チャットパレット', '使用時効果', '発動時効果'].includes(key), multiline: ['使用時効果', '発動時効果'].includes(key),
+    wide: ['チャットパレット', 'コスト', '発動時効果'].includes(key), multiline: ['コスト', '発動時効果'].includes(key),
     type: ['取得コスト', '基礎威力'].includes(key) ? 'number' : 'text', attrs: key === '基礎威力' ? 'id="cat-base-power"' : key === 'ダイス威力' ? 'id="cat-dice-power"' : '',
   })).join('')}${field('タグ', row.tags.join(', '), { wide: true })}</div>
     <h3 class="cat-subtitle">コスト <span class="cat-caption">${editRule.cost.length}件</span></h3><div class="cat-field-grid">${editRule.cost.map(cost => field('リソース', cost.type, { options: ['FP', 'MP', 'HP'].map(key => [key, key]) }) + field('消費量', cost.value, { type: 'number' })).join('')}</div>
@@ -217,7 +217,7 @@ function renderEditorTab() {
     tab.setAttribute('aria-selected', String(tab.dataset.inputTab === state.tab));
   });
   if (state.tab === 'json') area.innerHTML = `<p class="bo-workspace__help">JSONを直接書く見本です。フォームへの反映は行いません。</p><label class="cat-field">${row.id} のJSON<textarea class="cat-source" spellcheck="false">${esc(pretty(row.kind === 'skills' ? { ...row.raw, '基礎威力': '5', '特記処理': editRule } : row.raw))}</textarea></label>`;
-  else if (state.tab === 'text') area.innerHTML = `${field('使用時効果', row.raw['使用時効果'] || '', { multiline: true })}${field('発動時効果', row.raw['発動時効果'] || '', { multiline: true })}${field('特記', row.raw['特記'] || '', { multiline: true })}${button('文章からJSONを作る', 'cat-primary')}<p class="bo-workspace__help">決まった言い回しから組み立てるボタンの見本です。</p>`;
+  else if (state.tab === 'text') area.innerHTML = `${field('コスト', row.raw['コスト'] || '', { multiline: true })}${field('発動時効果', row.raw['発動時効果'] || '', { multiline: true })}${field('特記', row.raw['特記'] || '', { multiline: true })}${button('文章からJSONを作る', 'cat-primary')}<p class="bo-workspace__help">決まった言い回しから組み立てるボタンの見本です。</p>`;
   else area.innerHTML = row.kind === 'skills' ? skillForm(row) : glossaryForm(row);
   renderMetrics();
 }

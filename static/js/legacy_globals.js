@@ -56,7 +56,7 @@ window.formatWideResult = function (data) {
 // --- ★ 追加: スキル詳細HTML生成ヘルパー ---
 // 2つのデータ形式に対応:
 // 1) サーバー変換済み (socket_battle.py): コスト, 効果
-// 2) 生データ (allSkillData): 使用時効果, 発動時効果
+// 2) 生データ (allSkillData): コスト, 発動時効果
 window.formatGlossaryMarkupFallbackHTML = function (value) {
     const src = String(value ?? '');
     const escapeText = (v) => String(v ?? '')
@@ -151,8 +151,8 @@ window.formatSkillDetailHTML = function (skillData) {
     const attribute = skillData['属性'] || '';
     const special = skillData['特記'] || '';
 
-    // コスト: サーバー変換済み(コスト) OR 生データ(使用時効果)
-    let cost = skillData['コスト'] || skillData['使用時効果'] || '';
+    // コストの文章
+    let cost = skillData['コスト'] || '';
     if (typeof cost === 'string') cost = cost.trim();
     if (!cost) cost = '';
 

@@ -1,6 +1,30 @@
 import logging
-from sqlalchemy import text, inspect
+from sqlalchemy import text, inspect, select
 from extensions import db
+
+def _migrate_skill_cost(inspector):
+    from models import CatalogEntry, CatalogDraft, CatalogHistory
+
+    old_key, new_key = "使用時効果", "コスト"
+    migrated = 0
+    tables = [model.__table__ for model in (CatalogEntry, CatalogDraft, CatalogHistory)
+              if inspector.has_table(model.__tablename__)]
+    for table in tables:
+        rows = db.session.execute(
+            select(table.c.id, table.c.payload).where(table.c.kind == "skill")
+        ).all()
+        for row_id, payload in rows:
+            if not isinstance(payload, dict) or old_key not in payload:
+                continue
+            if new_key in payload:
+                raise ValueError(f"{table.name} id={row_id}: {old_key} と {new_key} が共存しています")
+            renamed = {new_key if key == old_key else key: value for key, value in payload.items()}
+            db.session.execute(table.update().where(table.c.id == row_id).values(payload=renamed))
+            migrated += 1
+    if migrated:
+        db.session.commit()
+        logging.info("Auto Migration: renamed skill cost in %d rows", migrated)
+
 
 def run_auto_migration(app):
     """
@@ -139,6 +163,8 @@ def run_auto_migration(app):
                     db.session.rollback()
                     logging.error(f"Migration Query Failed (room_members active index): {e}")
 
+            _migrate_skill_cost(inspector)
+
             # image_registryテーブルが存在するか確認
             if not inspector.has_table('image_registry'):
                 return
@@ -165,5 +191,6 @@ def run_auto_migration(app):
                 logging.info("DB Schema Check: 'visibility' column exists.")
 
         except Exception as e:
+            db.session.rollback()
             logging.critical(f"Auto Migration Failed — 起動を中止します: {e}")
             raise RuntimeError(f"DB migration failed, aborting startup: {e}") from e

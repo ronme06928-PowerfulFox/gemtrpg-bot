@@ -257,7 +257,7 @@
                     filtered.sort((a, b) => String(a.id).localeCompare(String(b.id)));
                     skillSelect.innerHTML = '<option value="">-- スキルを選択 --</option>' + filtered
                         .filter((s) => !pending.skills.includes(s.id))
-                        .map((s) => `<option value="${escapeHtml(s.id)}">[${escapeHtml(s.id)}] ${escapeHtml(s['デフォルト名称'] || '')}（コスト:${escapeHtml(s['取得コスト'] ?? 0)}）</option>`)
+                        .map((s) => `<option value="${escapeHtml(s.id)}">[${escapeHtml(s.id)}] ${escapeHtml(s['デフォルト名称'] || '')}（取得コスト（経験値）: ${escapeHtml(s['取得コスト'] ?? 0)}）</option>`)
                         .join('');
                 }
                 renderPreview(panelEl);
@@ -286,8 +286,8 @@
                     previewEl.innerHTML = `
                         <div style="font-weight:700; margin-bottom:4px;">⚔️ ${escapeHtml(s['デフォルト名称'] || skillId)}（ID: ${escapeHtml(skillId)}）</div>
                         <div>分類/距離/属性: ${escapeHtml(s['分類'] || '-')} / ${escapeHtml(s['距離'] || '-')} / ${escapeHtml(s['属性'] || '-')}</div>
-                        <div>コスト（経験値）: ${escapeHtml(s['取得コスト'] ?? 0)}</div>
-                        ${s['使用時効果'] ? `<div>使用時効果: ${escapeHtml(s['使用時効果'])}</div>` : ''}
+                        <div>取得コスト（経験値）: ${escapeHtml(s['取得コスト'] ?? 0)}</div>
+                        ${s['コスト'] ? `<div>コスト: ${escapeHtml(s['コスト'])}</div>` : ''}
                         ${s['特記'] ? `<div>特記: ${escapeHtml(s['特記'])}</div>` : ''}
                         ${s['発動時効果'] ? `<div>発動時効果: ${escapeHtml(s['発動時効果'])}</div>` : ''}
                     `;

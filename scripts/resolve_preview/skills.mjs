@@ -13,7 +13,7 @@ export function hydrateSamples(specs, catalog) {
       if (!skill || skill['スキルID'] !== id) throw new Error(`スキルID「${id}」がキャッシュにありません（${spec.label}）。`);
       return [side, { id: skill['スキルID'], name: spec.nameOverrides?.[side] || skill['デフォルト名称'],
         attribute: skill['属性'],
-        fields: ['使用時効果', '発動時効果', '特記'].filter(label => skill[label]?.trim())
+        fields: ['コスト', '発動時効果', '特記'].filter(label => skill[label]?.trim())
           .map(label => ({ label, text: skill[label] })),
       }];
     })),

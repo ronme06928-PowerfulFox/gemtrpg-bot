@@ -1575,8 +1575,8 @@ class DeclarePanel {
         if (!mergedDetail['発動時効果'] && calc.skill_details?.hit_text) {
             mergedDetail['発動時効果'] = calc.skill_details.hit_text;
         }
-        if (!mergedDetail['使用時効果'] && calc.skill_details?.cost_text) {
-            mergedDetail['使用時効果'] = calc.skill_details.cost_text;
+        if (!mergedDetail['コスト'] && calc.skill_details?.cost_text) {
+            mergedDetail['コスト'] = calc.skill_details.cost_text;
         }
         if (!mergedDetail['特記'] && calc.skill_details?.notes) {
             mergedDetail['特記'] = calc.skill_details.notes;

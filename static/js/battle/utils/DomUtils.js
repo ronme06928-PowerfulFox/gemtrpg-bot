@@ -35,8 +35,8 @@ export function formatSkillDetailHTML(skillData) {
     const attribute = skillData['属性'] || '';
     const special = skillData['特記'] || '';
 
-    // コスト: サーバー変換済み(コスト) OR 生データ(使用時効果)
-    let cost = skillData['コスト'] || skillData['使用時効果'] || '';
+    // コストの文章
+    let cost = skillData['コスト'] || '';
     if (typeof cost === 'string') cost = cost.trim();
     if (!cost) cost = '';
 

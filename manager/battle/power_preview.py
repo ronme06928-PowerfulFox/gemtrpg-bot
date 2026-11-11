@@ -168,7 +168,7 @@ def calculate_skill_preview(
         'timing': _pick_first(skill_data, ['タイミング', 'timing'], ''),
         'range': _pick_first(skill_data, ['距離', '射程', 'range'], ''),
         'category': _pick_first(skill_data, ['分類', '種別', 'category'], ''),
-        'cost_text': _pick_first(skill_data, ['使用時効果', 'コスト', 'cost_text'], ''),
+        'cost_text': skill_data.get('コスト') or '',
         'hit_text': _pick_first(skill_data, ['発動時効果', '命中時効果', '効果', 'hit_text'], ''),
         'notes': _pick_first(skill_data, ['特記', 'notes'], ''),
     }

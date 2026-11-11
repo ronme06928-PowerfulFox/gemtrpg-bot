@@ -2047,7 +2047,7 @@
         "rule": null,
         "errors": [
           {
-            "column": "使用時効果",
+            "column": "コスト",
             "line": "出血を5得る",
             "reason": "コストを解釈できません。例: FPを2消費"
           }

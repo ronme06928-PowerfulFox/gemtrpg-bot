@@ -1033,7 +1033,7 @@
         // Debug: log skill data
         console.log("📋 Wide Match Skill data:", {
             skillId: skillId,
-            '使用時効果': skill['使用時効果'],
+            'コスト': skill['コスト'],
             '発動時効果': skill['発動時効果'],
             '特記': skill['特記']
         });

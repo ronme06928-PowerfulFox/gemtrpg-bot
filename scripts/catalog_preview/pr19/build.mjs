@@ -22,6 +22,7 @@ const classic = [...buildScript.match(/CLASSIC_SCRIPTS = \[([\s\S]*?)\];/)[1].ma
 const masterData = classic.filter(file => file.startsWith('js/master_data/'));
 const fonts = (await read('static/index.html')).match(/<link[^>]+href="https:\/\/fonts\.(?:googleapis|gstatic)\.com[^>]*>/g).join('\n');
 const appCss = await read('static/dist/app.bundle.css');
+const notes = await read('data/skill_no_correction_notes.json');
 
 async function frame(title, workspace, extraCss, extraScripts = []) {
   const scripts = [];
@@ -37,7 +38,8 @@ async function frame(title, workspace, extraCss, extraScripts = []) {
 <title>${title}</title>
 ${fonts}
 <style>${appCss}\n${extraCss}</style>
-<script>window.__PR19_DATA__ = ${data};
+<script>const catalogNoCorrectionNotes = ${notes};
+window.__PR19_DATA__ = ${data};
 document.documentElement.dataset.lines = new URLSearchParams(location.search).get('lines') || 'line';</script>
 </head><body>
 ${body}

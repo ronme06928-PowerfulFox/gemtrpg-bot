@@ -42,7 +42,7 @@ assert.match(window.CatalogSkillEffects.typeControl('APPLY_STATE',schemas),/APPL
 window.localStorage={getItem(){throw Error('利用不可');},setItem(){throw Error('利用不可');}};
 vm.runInContext(fs.readFileSync('static/js/master_data/skill_effects.js','utf8'),context);
 assert.doesNotMatch(window.CatalogSkillEffects.typeControl('APPLY_STATE',schemas),/APPLY_STATE）/);
-const preview=model.preview({...model.defaults(),使用時効果:'[[W-19|使用時]]'});
+const preview=model.preview({...model.defaults(),コスト:'[[W-19|使用時]]'});
 assert.doesNotMatch(preview,/skill-picker-card/);assert.match(preview,/ゲームでの見え方/);assert.doesNotMatch(preview,/\[\[W-/);
 """)
 

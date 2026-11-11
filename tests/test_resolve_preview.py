@@ -97,7 +97,7 @@ def test_v2_skills_are_cache_values_and_missing_data_stops_build():
     assert.strictEqual(skill.id,cache[id]['スキルID']);
     assert.strictEqual(skill.attribute,cache[id]['属性']);
     if(sample.id!=='long-names') assert.strictEqual(skill.name,cache[id]['デフォルト名称']);
-    assert.deepStrictEqual(skill.fields,['使用時効果','発動時効果','特記'].filter(label=>cache[id][label]?.trim())
+    assert.deepStrictEqual(skill.fields,['コスト','発動時効果','特記'].filter(label=>cache[id][label]?.trim())
       .map(label=>({label,text:cache[id][label]})));
   }
   assert.strictEqual(plainSkillText('([[W-20|的中時]]):[[W-02|破裂]]3を付与。'),'（的中時）:破裂3を付与。'.replace('（','(').replace('）',')'));

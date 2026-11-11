@@ -239,7 +239,7 @@
   const section=(title,body)=>`<details><summary>${h(title)}</summary>${body}</details>`;
   function render(refs={}) {
     return `<details class="cat-text-help"><summary>書ける言い回し・項目の早見表</summary><p class="cat-caption">決まった言い回しだけを読み取ります。区切りは「。」と改行です。読めない行は欄名・原文・理由を表示します。</p>`
-      +section('文章の例',table(['欄','例'],[['使用時効果','（使用時）FPを2消費。'],['発動時効果','（的中時）3ラウンドの亀裂1を付与。'],['特記','対象に亀裂があるなら基礎威力+1。']]))
+      +section('文章の例',table(['欄','例'],[['コスト','（使用時）FPを2消費。'],['発動時効果','（的中時）3ラウンドの亀裂1を付与。'],['特記','対象に亀裂があるなら基礎威力+1。']]))
       +section('項目',table(['key','意味'],HELP_ROWS))
       +section('timing · タイミング',table(['値','意味'],Object.entries(TIMING_MEANINGS)))
       +section('condition · 条件',table(['source','意味','param'],Object.entries(COND_SOURCE_MEANINGS).map(([key,value])=>[key,value,COND_SOURCE_PARAM_HINTS[key]]))+table(['operator','意味'],Object.entries(COND_OP_MEANINGS)))

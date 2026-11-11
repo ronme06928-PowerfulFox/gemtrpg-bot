@@ -21,7 +21,8 @@ const window={}, calls=[];
 const context=vm.createContext({window,console,setTimeout,clearTimeout,fetchWithSession:async(path,options)=>{
  calls.push([path,options]); return {ok:true,text:async()=>JSON.stringify({})};
 }});
-for(const name of ['json','catalog_api','glossary','text_tools','buff','skill_effects','skill_inputs','editor','review','info','skill'])
+context.catalogNoCorrectionNotes=JSON.parse(fs.readFileSync('data/skill_no_correction_notes.json','utf8'));
+for(const name of ['json','catalog_api','glossary','text_tools','buff','skill_effects','skill_inputs','editor','review','info','skill_notes','skill'])
  vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const model=window.CatalogSkill, effects=window.CatalogSkillEffects, api=window.CatalogApi;
 """

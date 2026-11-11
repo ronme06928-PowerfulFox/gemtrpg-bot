@@ -54,7 +54,7 @@ def test_stage_markup_covers_kinds_missing_portraits_and_skill_text():
  const {renderResolveStage}=await import('./static/js/battle/components/resolve_stage.js');
  const {getLayout}=await import('./static/js/battle/components/resolve_stage_layout.js');
  const flow=new ResolveFlowPanel();
- flow._skillById=id=>({'デフォルト名称':'技'+id,'属性':'斬撃','使用時効果':'[[W-01|出血]]3','発動時効果':'  ','特記':'<注記>'});
+ flow._skillById=id=>({'デフォルト名称':'技'+id,'属性':'斬撃','コスト':'[[W-01|出血]]3','発動時効果':'  ','特記':'<注記>'});
  const state={characters:[{id:'a',name:'攻撃'},{id:'b',name:'防御',image:'/b.png'}],slots:{}};
  for(const kind of ['clash','one_sided','hard_attack','mass_individual','mass_summation','fizzle']) {
   const step={kind,attackerActorId:'a',defenderActorId:'b',attackerSkillId:'S-1',defenderSkillId:'S-2',rolls:{power_a:9,power_b:5},outcome:'attacker_win',participants:[]};
@@ -78,7 +78,7 @@ def test_nonrolling_defenders_have_only_their_portrait_and_name_except_fizzle():
  const {renderResolveStage}=await import('./static/js/battle/components/resolve_stage.js');
  const {getLayout}=await import('./static/js/battle/components/resolve_stage_layout.js');
  const flow=new ResolveFlowPanel();
- flow._skillById=id=>({'デフォルト名称':id,'使用時効果':id==='S-2'?'DEFENDER_TEXT':'ATTACKER_TEXT'});
+ flow._skillById=id=>({'デフォルト名称':id,'コスト':id==='S-2'?'DEFENDER_TEXT':'ATTACKER_TEXT'});
  const state={characters:[{id:'a',name:'攻撃'},{id:'d',name:'防御'}],slots:{}};
  const cases=[
   ['one_sided',{},null,true,'一方攻撃'],

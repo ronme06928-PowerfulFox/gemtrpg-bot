@@ -176,13 +176,13 @@ def _pick_skills(all_skills, categories=None, filter_key=None, max_per_cat=3):
     picks = []
     if filter_key == "fp_cost":
         for sid, sd in all_skills.items():
-            if "FP" in sd.get("使用時効果", ""):
+            if "FP" in sd.get("コスト", ""):
                 picks.append((sid, sd))
             if len(picks) >= max_per_cat:
                 break
     elif filter_key == "mp_cost":
         for sid, sd in all_skills.items():
-            if "MP" in sd.get("使用時効果", "") and "FP" not in sd.get("使用時効果", ""):
+            if "MP" in sd.get("コスト", "") and "FP" not in sd.get("コスト", ""):
                 picks.append((sid, sd))
             if len(picks) >= max_per_cat:
                 break

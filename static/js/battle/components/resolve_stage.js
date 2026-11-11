@@ -70,7 +70,7 @@ export function renderResolveStage(flow, step, state, layout) {
         return `<div class="participant ${flow._characterById(p.id, state)?.type === 'enemy' ? 'enemy' : 'ally'}" data-actor-id="${e(p.id)}" style="left:${p.x}px;width:${p.width}px;z-index:${i + 1}"><div class="participant-column" data-anchor="participant:${e(p.id)}" style="width:${p.step}px"></div>${gem(p.power, null, p.id, true)}${portrait(p.id)}<span class="participant-name" title="${e(member.name)}">${e(member.name)}</span></div>`;
       }).join('')}${slots.more ? `<div class="participant-more" title="ほか${slots.more.count}人" style="left:${slots.more.x + (slots.width - slots.gem) / 2}px;width:${slots.gem}px">+${slots.more.count}</div>` : ''}</div>`;
     }
-    const fields = ['使用時効果', '発動時効果', '特記'].filter(label => String(data[label] || '').trim());
+    const fields = ['コスト', '発動時効果', '特記'].filter(label => String(data[label] || '').trim());
     if (!unarmed && fields.length) descriptions.push({ side, name: meta.name, fields: fields.map(label => `<div class="skill-field" data-field="${label}">${label}　${e(plainSkillText(data[label]))}</div>`).join('') });
     const attribute = data['属性'] || '';
     const plaque = unarmed ? '' : `<div class="skill-plaque reveal-block reveal-power"><span class="attribute-icon">${attributePaths[attribute] ? `<svg viewBox="0 0 40 40" role="img" aria-label="${e(attribute)}"><path d="${attributePaths[attribute]}"></path></svg>` : ''}</span><span class="skill-name" title="${e(meta.name)}">${e(meta.name)}</span><small class="skill-id">${e(meta.id)}</small></div>${gem(step.kind === 'fizzle' ? '—' : powers[side], group ? null : ranges[side]?.replace('~', '〜'), side)}`;

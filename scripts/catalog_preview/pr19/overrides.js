@@ -71,7 +71,7 @@
   const baseNavigation = editor.navigation;
   editor.navigation = (...args) => baseNavigation(...args).replace('>文章から作る<', '>文章から効果を作る<');
   text.renderForm = (payload, tags, result, references) => {
-    const fields = [['使用時効果', '使用時効果（コスト）'], ['発動時効果', '発動時効果'], ['特記', '特記']];
+    const fields = [['コスト', 'コスト'], ['発動時効果', '発動時効果'], ['特記', '特記']];
     const how = '下の3つの欄を読み取り、コスト・補正・効果を作り直します。今の設定は置き換わり、保存はしません。';
     const outcome = !result ? '' : result.errors.length
       ? `<div class="cat-text-result is-error" role="status"><p>読み取れない行が${result.errors.length}件あります。効果は変えていません。</p><ul class="cat-text-errors">${result.errors.map(error => `<li><strong>${h(error.column)}</strong><blockquote>${h(error.line)}</blockquote><span>${h(error.reason)}</span></li>`).join('')}</ul></div>`

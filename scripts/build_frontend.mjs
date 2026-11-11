@@ -80,6 +80,7 @@ const CLASSIC_SCRIPTS = [
   'js/master_data/buff.js',
   'js/master_data/resources.js',
   'js/master_data/skill_text_help.js',
+  'js/master_data/skill_notes.js',
   'js/master_data/skill_text.js',
   'js/master_data/skill_effects.js',
   'js/master_data/skill_inputs.js',
@@ -114,7 +115,8 @@ function shortHash(content) {
 }
 
 async function buildClassicBundle() {
-  const parts = [];
+  const notes = await readFile(path.join(ROOT, 'data/skill_no_correction_notes.json'), 'utf8');
+  const parts = [`const catalogNoCorrectionNotes = ${notes};`];
   for (const rel of CLASSIC_SCRIPTS) {
     const abs = path.join(STATIC, rel);
     const src = await readFile(abs, 'utf8');

@@ -177,7 +177,7 @@ function sectionBody(key) {
     ${field('相手の範囲', select([['opposing_team', '相手の陣営'], ['same_team', '自分の陣営'], ['any', 'どちらでも']], rule.target_scope, 'data-edit'))}
     <div class="rv-field is-wide"><span>タグ</span><div class="rv-chips">${skill.tags.map(tag => `<span class="rv-chip">${esc(tag)}<button type="button" aria-label="${esc(tag)}を外す">×</button></span>`).join('')}<input list="rv-tags" placeholder="タグを足す" aria-label="タグを足す" data-edit></div></div>
     <div class="rv-field is-wide"><span>チャットパレット</span><output class="rv-output">${esc(skill['チャットパレット'])}</output><span class="rv-sub">本体の値から作ります</span></div></div>`;
-  if (key === 'text') return `<div class="rv-grid">${textArea('use', '使用時効果', skill['使用時効果'])}${textArea('trigger', '発動時効果', skill['発動時効果'])}${textArea('note', '特記', skill['特記'])}</div>`;
+  if (key === 'text') return `<div class="rv-grid">${textArea('use', 'コスト', skill['コスト'])}${textArea('trigger', '発動時効果', skill['発動時効果'])}${textArea('note', '特記', skill['特記'])}</div>`;
   if (key === 'cost') return `<div class="rv-grid">
     <div class="rv-field is-wide"><span>コスト</span><div class="rv-rows">${rule.cost.map(item => `<div class="rv-row">${select([['FP', 'FP'], ['MP', 'MP'], ['HP', 'HP']], item.type, 'data-edit')}<input type="number" value="${item.value}" aria-label="量" data-edit>${btn('×', 'rv-small', 'aria-label="このコストを消す"')}</div>`).join('')}${btn('＋ コストを足す', 'rv-small')}</div></div>
     <div class="rv-field is-wide"><span>威力補正</span><p class="rv-sub">なし</p>${btn('＋ 威力補正を足す', 'rv-small')}</div></div>`;
@@ -187,7 +187,7 @@ function preview() {
   return `<section class="rv-preview-card"><h4>戦闘での見え方</h4>
     <div class="rv-skill"><div class="rv-skill-head"><code>Pb-13</code><strong>${esc(skill['デフォルト名称'])}</strong><span class="rv-sub">${skill['分類']} · ${skill['属性']} · ${skill['距離']}</span></div>
     <p class="rv-skill-power">威力 ${skill['基礎威力']} ${esc(skill['ダイス威力'])}　コスト FP1</p>
-    <p>${markup(skill['使用時効果'])}</p><p>${markup(skill['発動時効果'])}</p><p class="rv-sub">${markup(skill['特記'])}</p></div></section>
+    <p>${markup(skill['コスト'])}</p><p>${markup(skill['発動時効果'])}</p><p class="rv-sub">${markup(skill['特記'])}</p></div></section>
     <section class="rv-preview-card"><h4>効果の流れ</h4><ol class="rv-flow">${[...state.effects].sort((a, b) => TIMING_ORDER.indexOf(a.timing) - TIMING_ORDER.indexOf(b.timing)).map(effect => `<li><span class="rv-effect-when">${TIMINGS[effect.timing]}</span>${esc(effectSummary(effect))}${effect.condition ? `<small>${esc(conditionText(effect.condition))}</small>` : ''}</li>`).join('')}</ol></section>
     <section class="rv-preview-card"><h4>検査</h4><p class="rv-ok">問題はありません</p></section>`;
 }
@@ -230,7 +230,7 @@ function reviewRows() {
     ['名前', skill['デフォルト名称'], draftSkill['デフォルト名称']],
     ['基礎威力', skill['基礎威力'], draftSkill['基礎威力']],
     ['ダイス威力', skill['ダイス威力'], draftSkill['ダイス威力']],
-    ['使用時効果', plain(skill['使用時効果']), plain(draftSkill['使用時効果'])],
+    ['コスト', plain(skill['コスト']), plain(draftSkill['コスト'])],
     ['発動時効果', plain(skill['発動時効果']), plain(draftSkill['発動時効果'])],
     ['特記', plain(skill['特記']), plain(draftSkill['特記'])],
   ];
