@@ -807,7 +807,7 @@ Phase 2ではスキル専用画面・計算・試し撃ち・文章から作る�
 
 ## Part 15 追補：文章欄の用語・タイミング挿入（計画60 PR60-13）
 
-- `window.CatalogTextTools`（`static/js/master_data/text_tools.js`）を枠内に取り付ける。種類ごとのフォームは自然文のtextareaへ `data-catalog-text` を付けるだけとし、JSON・効果JSONは対象外とする。スキルの「文章から作る」も共通部品を使う。
+- `window.CatalogTextTools`（`static/js/master_data/text_tools.js`）を枠内に取り付ける。種類ごとのフォームは自然文のtextareaへ `data-catalog-text` を付けるだけとし、JSON・効果JSON・スキルのチャットパレット（ダイスの式とIDで、用語やタイミングを書かない）は対象外とする。スキルの「文章から作る」も共通部品を使う。
 - 公開用語を使い、用語候補は `CatalogGlossary.linkCandidates` のID・表示名・別名検索、廃止・自身除外を再利用する。選択文字を表示名にし、未選択なら用語のdisplay_nameを使う。`[[` の候補選択は入力済みの開始記号も置換する。
 - タイミングは廃止していない分類「タイミング」の公開用語をsort_order（未指定は末尾）・ID順に並べる。現在行の先頭の `([[W-..|..]]):` または `(…):` を置換し、ほかの行は維持する。
 - 挿入後はtextareaにフォーカスを戻し、リンク・タイミングの直後へカーソルを置いて通常のinputを発火する。入力内容・下書きの保存形式・文章の読み取り規則は変えない。

@@ -28,7 +28,7 @@
       if (key === 'ダイス威力') return diceControl(payload[key],errors['input:'+key] || errors[key]);
       const spec = {type: ['使用時効果','特記','発動時効果','チャットパレット'].includes(key) ? 'textarea' : 'string', options: choices[key], required:key === 'デフォルト名称'};
       const attrs = `id="cat-field-${key}" data-field="${key}" aria-describedby="cat-error-${key}"`;
-      const control = spec.type === 'textarea' ? `<label class="cat-field cat-field-wide">${label}<textarea data-catalog-text ${attrs} rows="3">${h(payload[key] ?? '')}</textarea></label>` : effects.control(label, payload[key], spec, attrs);
+      const control = spec.type === 'textarea' ? `<label class="cat-field cat-field-wide">${label}<textarea ${key === 'チャットパレット' ? '' : 'data-catalog-text '}${attrs} rows="3">${h(payload[key] ?? '')}</textarea></label>` : effects.control(label, payload[key], spec, attrs);
       return `<div class="${spec.type === 'textarea' ? 'cat-field-wide' : ''}">${control}<span class="cat-field-error" id="cat-error-${key}">${h(errors[`input:${key}`] || errors[key])}</span>${key === 'チャットパレット' ? '<button type="button" class="cat-button" data-skill-action="palette">項目から作る</button>' : ''}</div>`;
     }).join('');
     if (options.section === 'description') return input;

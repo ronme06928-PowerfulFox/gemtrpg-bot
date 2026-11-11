@@ -73,7 +73,8 @@ const buff=window.CatalogBuff.form(window.CatalogBuff.defaults());
 window.CatalogSkill.configure({effect_types:{},custom_effects:{},common_fields:{}},{});
 const skill=window.CatalogSkill.form(window.CatalogSkill.defaults());
 const text=window.CatalogSkillText.renderForm({},'',null,{});
-for(const [html,count] of [[glossary,3],[buff,2],[skill,4],[text,3]]) {
+assert.doesNotMatch(skill,/<textarea[^>]*data-catalog-text[^>]*data-field="チャットパレット"/);
+for(const [html,count] of [[glossary,3],[buff,2],[skill,3],[text,3]]) {
  assert.equal((html.match(/data-catalog-text/g)||[]).length,count);
  assert.ok(!/<textarea[^>]*data-catalog-text[^>]*(?:cat-effect-source|spellcheck)/.test(html));
 }
