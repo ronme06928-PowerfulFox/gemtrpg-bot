@@ -6,14 +6,26 @@
   const fields = [['デフォルト名称','名前'],['分類','分類'],['距離','距離'],['属性','属性'],['取得コスト','取得コスト'],
     ['基礎威力','基礎威力'],['ダイス威力','ダイス威力'],['使用時効果','使用時効果'],['特記','特記'],['発動時効果','発動時効果'],['チャットパレット','チャットパレット'],['特記処理','特記処理']];
   const choices = {分類:['物理','魔法','補助','防御','回避'],距離:['','近接','遠隔','広域-個別','広域-合算'],属性:['','打撃','斬撃','貫通']};
-  const defaults = () => ({...Object.fromEntries(fields.slice(0,-1).map(([key])=>[key,''])),分類:'物理',特記処理:{}});
+  const defaults = () => ({...Object.fromEntries(fields.slice(0,-1).map(([key])=>[key,''])),分類:'物理',ダイス威力:'+0',特記処理:{}});
   function configure(value, refs) { schemas = value; references = refs; }
   function palette(payload, id) {
     const correction = {物理:'+1d{物理補正}',魔法:'+1d{魔法補正}'}[payload.分類] || '';
     return `${payload.基礎威力 || ''}${payload.ダイス威力 || ''}${correction} 【${id || ''} ${payload.デフォルト名称 || ''}】`;
   }
+  function diceControl(value,error = '') {
+    const raw = String(value ?? ''), match = raw.match(/^([+-])(\d+)d(\d+)$/), none = raw === '+0';
+    if (!none && !match) return `${effects.control('ダイス威力',value,{type:'string'},'id="cat-field-ダイス威力" data-field="ダイス威力"')}<span class="cat-field-error" id="cat-error-ダイス威力">${h(error)}</span>`;
+    const [sign,count,faces] = match ? match.slice(1) : ['+','1','4'];
+    return `<div class="cat-dice cat-field-wide" data-dice><span class="cat-field-label">ダイス威力</span><div class="cat-dice-row"><label class="cat-check"><input type="checkbox" data-dice-part="none" ${none ? 'checked' : ''}>振らない</label><select data-dice-part="sign" aria-label="足すか引くか" ${none ? 'disabled' : ''}><option value="+" ${sign === '+' ? 'selected' : ''}>＋ 足す</option><option value="-" ${sign === '-' ? 'selected' : ''}>− 引く</option></select><input type="number" min="1" step="1" data-dice-part="count" aria-label="ダイスの数" value="${h(count)}" ${none ? 'disabled' : ''}><span class="cat-dice-d">d</span><input type="number" min="1" step="1" data-dice-part="faces" aria-label="ダイスの面の数" value="${h(faces)}" ${none ? 'disabled' : ''}><output class="cat-dice-value">${h(raw)}</output></div><span class="cat-field-error" id="cat-error-ダイス威力">${h(error)}</span></div>`;
+  }
+  function diceValue({none,sign,count,faces}) {
+    if (none) return '+0';
+    if (![count,faces].every(value=>/^\d+$/.test(String(value)) && Number.isSafeInteger(Number(value)) && Number(value)>0)) throw new Error('ダイスの数と面は1以上の整数で入力してください。');
+    return `${sign === '-' ? '-' : '+'}${Number(count)}d${Number(faces)}`;
+  }
   function form(payload, errors = {}, options = {}) {
     const input = fields.slice(0,-1).filter(([key])=>!options.section || window.CatalogEditor.keys('skill',options.section).includes(key)).map(([key, label]) => {
+      if (key === 'ダイス威力') return diceControl(payload[key],errors['input:'+key] || errors[key]);
       const spec = {type: ['使用時効果','特記','発動時効果','チャットパレット'].includes(key) ? 'textarea' : 'string', options: choices[key], required:key === 'デフォルト名称'};
       const attrs = `id="cat-field-${key}" data-field="${key}" aria-describedby="cat-error-${key}"`;
       const control = spec.type === 'textarea' ? `<label class="cat-field cat-field-wide">${label}<textarea data-catalog-text ${attrs} rows="3">${h(payload[key] ?? '')}</textarea></label>` : effects.control(label, payload[key], spec, attrs);
@@ -36,17 +48,15 @@
     const rootInput = effects.control('対象範囲',root.target_scope,{options:['opposing_team','same_team','any','self'],labels:{opposing_team:'敵陣営',same_team:'同陣営',any:'全陣営',self:'自分'}},'data-rule-field="target_scope" data-value-type="string"');
     const list = root.effects;
     const extra = Object.keys(root).some(key=>!['schema','id','target_scope','cost','power_bonus','tags','effects'].includes(key)) ? fallback() : '';
-    const effectForm = `<h3>効果</h3>${rootInput}${extra}${Array.isArray(list) ? list.map((effect,index)=>effects.form(effect,index,schemas,references)).join('') : list === undefined ? '' : fallback()}<button type="button" class="cat-button" data-effect-action="add">効果を追加</button>`;
+    const effectForm = `<h3>効果</h3>${effects.keyToggle()}${rootInput}${extra}${Array.isArray(list) ? list.map((effect,index)=>effects.form(effect,index,schemas,references)).join('') : list === undefined ? '' : fallback()}<button type="button" class="cat-button" data-effect-action="add">効果を追加</button>`;
     return input + `<section class="cat-field-wide cat-rule-editor">${!section ? '<h3>特記処理</h3>'+tags()+costForm+bonus() : ''}${effectForm}<span class="cat-field-error" id="cat-error-特記処理">${h(errors['特記処理'])}</span><span class="cat-field-error" data-skill-error></span></section>`;
   }
   function preview(payload, options = {}) {
-    const id = options.entryId || '';
-    const card = `<div class="skill-picker-card"><div class="skill-card-id">${h(id)}</div><div class="skill-card-name">${h(payload.デフォルト名称 || '名前未入力')}</div><div class="skill-card-badges">${['分類','距離','属性'].filter(key=>payload[key]).map(key=>`<span class="cat-badge">${h(payload[key])}</span>`).join('')}</div><div class="skill-card-cost">${h(payload.使用時効果 || '—')}</div></div>`;
     const detail = window.formatSkillDetailHTML ? window.formatSkillDetailHTML(Object.fromEntries(fields.slice(0,-1).map(([key])=>[key,String(payload[key] ?? '')]))) : `<p class="cat-description">${h(payload.発動時効果 || '')}</p>`;
     const list = payload.特記処理?.effects;
-    return `<section class="bo-workspace__card"><h4>スキルのプレビュー</h4>${card}${detail}</section><section class="bo-workspace__card"><h4>効果の説明</h4>${Array.isArray(list) ? `<ol class="cat-effect-list">${list.map(row=>`<li>${h(effects.summary(row,schemas))}<small>${h(effects.timingLabels[row?.timing] || 'タイミング未指定')}${row?.condition ? ' · '+h(effects.conditionText(row.condition)) : ''}</small></li>`).join('')}</ol>` : '<p class="cat-caption">効果なし</p>'}</section>`;
+    return `<section class="bo-workspace__card cat-skill-preview"><h4>ゲームでの見え方</h4>${detail}</section><section class="bo-workspace__card"><h4 class="cat-heading-info">効果の説明${window.CatalogInfo.render('効果の説明','「効果」の節の設定を文にしたもの。上の文章と食い違いがないかを見比べます。')}</h4>${Array.isArray(list) ? `<ol class="cat-effect-list">${list.map(row=>`<li>${h(effects.summary(row,schemas))}<small>${h(effects.timingLabels[row?.timing] || 'タイミング未指定')}${row?.condition ? ' · '+h(effects.conditionText(row.condition)) : ''}</small></li>`).join('')}</ol>` : '<p class="cat-caption">効果なし</p>'}</section>`;
   }
-  window.CatalogSkill = {...base, kind:'skill', label:'スキル', fields, groups, categories:[], defaults, form, preview, configure, palette,
+  window.CatalogSkill = {...base, kind:'skill', label:'スキル', fields, groups, categories:[], defaults, form, preview, configure, palette, diceControl, diceValue,
     displayName: payload=>payload.デフォルト名称,
     validatePayload: () => {}, parseField: (_,value)=>value,
     detail: (payload,options)=>preview(payload,options), externalLink:()=>'',

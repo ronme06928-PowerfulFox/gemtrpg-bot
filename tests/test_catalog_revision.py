@@ -91,7 +91,7 @@ for(const kind of Object.keys(all)){
  if(kind!=='summon')assert.match(panel.querySelector('#cat-input-content').innerHTML,/節を移っても残る/);
  await click({action:'save'});assert.equal(savedDraft.kind,kind);await click({action:'back'});
 }
-activeKind='glossary';savedDraft=null;await click({kind:'glossary'});await click({status:'published'});await click({action:'edit'});
+activeKind='glossary';savedDraft=null;await controller.refresh();await click({kind:'glossary'});await click({status:'published'});await click({action:'edit'});
 inputField('sort_order','bad');await click({section:'description'});
 assert.match(panel.querySelector('#cat-toc').innerHTML,/本体.*誤りあり/s);
 await click({section:'body'});assert.equal(panel.querySelector('[data-field="sort_order"]').value,'bad');

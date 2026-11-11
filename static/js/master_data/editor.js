@@ -7,7 +7,7 @@
   const generic = {body:['name','display_name','default_duration','cost','duration','round_limit','usable','consumable','granted_tag_ids'],description:['description','flavor'],effects:['effect']};
   function sections(model) {
     const labels = {body:'本体',description:model.kind === 'skill' ? '文章' : '説明',links:'関連用語',cost:'コスト',bonus:'補正',effects:'効果'};
-    return [...Object.keys(model.kind === 'summon' ? {} : fields[model.kind] || generic).map(key=>[key,labels[key]]),['json','JSON'],...(model.kind === 'skill' ? [['text','文章から作る']] : []),['preview','プレビュー']];
+    return [...Object.keys(model.kind === 'summon' ? {} : fields[model.kind] || generic).map(key=>[key,labels[key]]),['json','JSON'],...(model.kind === 'skill' ? [['text','文章から効果を作る']] : []),['preview','プレビュー']];
   }
   function sectionFor(kind,key) {
     key = key.replace(/^input:/,'');

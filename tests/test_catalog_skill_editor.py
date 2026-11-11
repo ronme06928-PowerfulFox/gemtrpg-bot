@@ -21,7 +21,7 @@ const window={}, calls=[];
 const context=vm.createContext({window,console,setTimeout,clearTimeout,fetchWithSession:async(path,options)=>{
  calls.push([path,options]); return {ok:true,text:async()=>JSON.stringify({})};
 }});
-for(const name of ['json','catalog_api','glossary','text_tools','buff','skill_effects','skill_inputs','editor','review','skill'])
+for(const name of ['json','catalog_api','glossary','text_tools','buff','skill_effects','skill_inputs','editor','review','info','skill'])
  vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const model=window.CatalogSkill, effects=window.CatalogSkillEffects, api=window.CatalogApi;
 """
@@ -150,7 +150,7 @@ const panel=new Element(),controller=window.mountSkillWorkspace(panel);
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 const click=async dataset=>{const control={dataset,disabled:false,closest:selector=>selector==='button'?control:null,hasAttribute:()=>false};panel.listeners.get('click')({target:control});await tick();};
 const input=async(control)=>{panel.listeners.get('input')({target:{tagName:'INPUT',hasAttribute:()=>false,...control}});await tick();};
-await tick();assert.equal(controller.kind(),'skill');assert.match(panel.html(),/optgroup label="物理"/);assert.match(panel.html(),/optgroup label="敵"/);
+await tick();assert.equal(controller.kind(),'skill');assert.match(panel.html(),/<h3>物理<\/h3>/);assert.match(panel.html(),/<h3>敵<\/h3>/);
 await input({dataset:{filter:'category'},value:'Mp'});assert.equal(panel.querySelector('#cat-list-count').textContent,'0件');
 await input({dataset:{filter:'category'},value:'Ps'});await click({action:'edit'});
 await click({section:'json'});await click({section:'body'});await click({action:'save'});

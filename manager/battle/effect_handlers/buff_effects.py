@@ -256,6 +256,7 @@ HANDLERS = {
 
 SCHEMAS = {
     "APPLY_BUFF": {
+        "group": "バフ",
         "label": "バフを付与",
         "description": "IDまたは名前でバフを付与する。未指定の効果データをカタログから補う。",
         "internal": False,
@@ -280,6 +281,7 @@ SCHEMAS = {
         },
     },
     "APPLY_BUFF_PER_N": {
+        "group": "バフ",
         "label": "参照値ごとにバフを付与",
         "description": "参照値÷per_Nの整数部×valueだけバフを付与する。data.countは計算結果で上書きする。",
         "internal": False,
@@ -308,6 +310,7 @@ SCHEMAS = {
         },
     },
     "APPLY_BUFF_FROM_CHARACTER_COUNT": {
+        "group": "バフ",
         "label": "人数から威力バフを付与",
         "description": "フィルター一致人数×value_per_characterをdata.power_bonusに設定してバフを付与する。",
         "internal": False,
@@ -340,6 +343,7 @@ SCHEMAS = {
         },
     },
     "REMOVE_BUFF": {
+        "group": "バフ",
         "label": "バフを解除",
         "description": "名前でバフを解除する。strict正規化でbuff_idを名前へ解決する。",
         "internal": False,

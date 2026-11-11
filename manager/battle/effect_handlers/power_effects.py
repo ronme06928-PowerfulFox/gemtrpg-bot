@@ -67,6 +67,7 @@ HANDLERS = {
 
 SCHEMAS = {
     "DAMAGE_BONUS": {
+        "group": "ダメージ・回復",
         "label": "追加ダメージ",
         "description": "正のvalueを追加ダメージへ加算する。0以下は不発。",
         "internal": False,
@@ -82,6 +83,7 @@ SCHEMAS = {
         },
     },
     "MODIFY_ROLL": {
+        "group": "威力・ロール",
         "label": "ロール補正",
         "description": "valueを追加ダメージの合計へ加算する。負数も使用可能。",
         "internal": False,
@@ -97,6 +99,7 @@ SCHEMAS = {
         },
     },
     "MODIFY_BASE_POWER": {
+        "group": "威力・ロール",
         "label": "基礎威力補正",
         "description": "基礎威力にvalueを加減する要求を作る。",
         "internal": False,
@@ -112,6 +115,7 @@ SCHEMAS = {
         },
     },
     "MODIFY_FINAL_POWER": {
+        "group": "威力・ロール",
         "label": "最終威力補正",
         "description": "最終威力にvalueを加減する要求を作る。",
         "internal": False,
@@ -127,6 +131,7 @@ SCHEMAS = {
         },
     },
     "DRAIN_HP": {
+        "group": "ダメージ・回復",
         "label": "HP吸収",
         "description": "与えた基礎ダメージと対象の現在HPの小さい方にvalueを掛け、整数化した量を自分のHPへ加える。",
         "internal": False,
@@ -142,6 +147,7 @@ SCHEMAS = {
         },
     },
     "FORCE_UNOPPOSED": {
+        "group": "行動・進行",
         "label": "一方攻撃を強制",
         "description": "一方攻撃への変更要求を作る。",
         "internal": True,

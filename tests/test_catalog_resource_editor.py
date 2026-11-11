@@ -9,7 +9,7 @@ def run_node(script):
     setup = r"""
 import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
 const window={};const context=vm.createContext({window,console,setTimeout,clearTimeout});
-for(const name of ['json','glossary','buff','resources','editor','review','text_tools'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['json','glossary','buff','resources','editor','review','info','text_tools'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const models=window.CatalogResources;const clean=v=>JSON.parse(JSON.stringify(v));
 """
     result=subprocess.run(['node','--input-type=module','-e',setup+script],cwd=ROOT,

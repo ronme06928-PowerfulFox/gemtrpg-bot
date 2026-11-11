@@ -25,6 +25,7 @@ EFFECT_SCHEMAS.update(stack_resources.SCHEMAS)
 EFFECT_SCHEMAS.update(action_effects.SCHEMAS)
 EFFECT_SCHEMAS.update(power_effects.SCHEMAS)
 EFFECT_SCHEMAS["CUSTOM_EFFECT"] = {
+    "group": "特殊",
     "label": "カスタム効果",
     "description": "valueで指定した名前のプラグインを実行する。名前別の項目はcustom_effectsを参照。",
     "internal": False,

@@ -92,6 +92,24 @@
     return value === undefined || (object(value) && (value.value == null || typeof value.value !== 'object') && Object.keys(value).every(key => ['source', 'param', 'operator', 'value'].includes(key))
       && ['source', 'param', 'operator'].every(key => value[key] === undefined || typeof value[key] === 'string'));
   }
+  const groups = ['状態異常','バフ','スタック','威力・ロール','ダメージ・回復','行動・進行','特殊'];
+  const typeOrder = ['APPLY_STATE','APPLY_STATE_PER_N','APPLY_FISSURE_BUFFED','MULTIPLY_STATE','APPLY_BUFF','APPLY_BUFF_PER_N','APPLY_BUFF_FROM_CHARACTER_COUNT','REMOVE_BUFF','CONSUME_BUFF_COUNT_FOR_GAIN','CONSUME_BUFF_COUNT_FOR_POWER','CONVERT_STACK_RESOURCE_VARIANT','MODIFY_BASE_POWER','MODIFY_FINAL_POWER','MODIFY_ROLL','DAMAGE_BONUS','DRAIN_HP','USE_SKILL_AGAIN','FORCE_UNOPPOSED','SCHEDULE_EFFECT','GRANT_SKILL','SUMMON_CHARACTER','CUSTOM_EFFECT'];
+  let showKeys = false;
+  try { showKeys = window.localStorage?.getItem('catalog-effect-keys') === '1'; } catch (_) {}
+  function setShowKeys(value) {
+    showKeys = !!value;
+    try { window.localStorage?.setItem('catalog-effect-keys',showKeys ? '1' : '0'); } catch (_) {}
+  }
+  function typeControl(value,schemas,attrs = 'data-effect-path="type"') {
+    const rank = key => typeOrder.includes(key) ? typeOrder.indexOf(key) : typeOrder.length;
+    const types = Object.entries(schemas.effect_types || {}).sort(([a],[b])=>rank(a)-rank(b));
+    const names = [...groups,...new Set(types.map(([,spec])=>spec.group || 'その他').filter(group=>!groups.includes(group)))];
+    return `<label class="cat-field">効果タイプ<select ${attrs}><option value="">未指定</option>${names.map(group=>{
+      const rows = types.filter(([,spec])=>(spec.group || 'その他') === group);
+      return rows.length ? `<optgroup label="${h(group)}">${rows.map(([key,spec])=>`<option value="${h(key)}" ${value === key ? 'selected' : ''}>${h(spec.label)}${showKeys ? `（${h(key)}）` : ''}</option>`).join('')}</optgroup>` : '';
+    }).join('')}</select></label>`;
+  }
+  const keyToggle = () => `<label class="cat-key-toggle"><input type="checkbox" id="cat-effect-keys" ${showKeys ? 'checked' : ''}>効果タイプの英字のキーも出す</label>`;
   function form(effect, index, schemas, references) {
     const schema = schemas.effect_types?.[effect?.type];
     const custom = effect?.type === 'CUSTOM_EFFECT' ? schemas.custom_effects?.[effect.value] : null;
@@ -103,7 +121,7 @@
     if (fallback) return `<section class="bo-workspace__card cat-effect-card" data-effect-index="${index}">${heading}<p class="cat-callout">JSON で編集 · この札にはフォームで扱えない項目があります。</p>${action('JSON で編集', 'json')}</section>`;
     const extra = Object.keys(effect).some(key => !keys.has(key)) ? '<p class="cat-callout">追加の項目は JSON で編集できます。値は保持されます。</p>' : '';
     const attrs = (path, type = 'string') => `data-effect-index="${index}" data-effect-path="${h(path)}" data-value-type="${type}"`;
-    let inputs = control('効果タイプ', effect.type, {options:Object.keys(schemas.effect_types), labels:Object.fromEntries(Object.entries(schemas.effect_types).map(([key,spec])=>[key,spec.label]))}, attrs('type'));
+    let inputs = typeControl(effect.type,schemas,attrs('type'));
     for (const key of ['timing', 'target']) inputs += control(schemas.common_fields[key].label, effect[key], {...schemas.common_fields[key],labels:key === 'target' ? schemas.target_labels : timingLabels}, attrs(key));
     for (const [path, spec] of Object.entries(specs)) {
       if (spec.visible_when && !Object.entries(spec.visible_when).every(([key,value]) => get(effect,key) === value)) continue;
@@ -128,5 +146,5 @@
     const param = String(condition.param || '').replace(/_count$/, 'のスタック数').replace(/^buff_count:/,'バフのスタック数：');
     return `${sources[condition.source] || '参照元'}の${param}が${typeof condition.value === 'object' ? JSON.stringify(condition.value) : condition.value ?? '?'}${operators[condition.operator] || 'と比較'}のとき`;
   }
-  window.CatalogSkillEffects = { timingLabels, conditionText, conditionSpec, clone, object, get, setField, changeType, mutate, summary, control, conditionEditable, form };
+  window.CatalogSkillEffects = { typeControl, keyToggle, setShowKeys, timingLabels, conditionText, conditionSpec, clone, object, get, setField, changeType, mutate, summary, control, conditionEditable, form };
 })();

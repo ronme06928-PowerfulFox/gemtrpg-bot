@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const window={};const context=vm.createContext({window,console});
-for(const name of ['json','glossary','text_tools'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['json','glossary','info','text_tools'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const tools=window.CatalogTextTools;
 const term={entry_id:'W-01',payload:{display_name:'出血',category:'状態異常',synonyms:['別の名前']}};
 const clean=value=>JSON.parse(JSON.stringify(value));

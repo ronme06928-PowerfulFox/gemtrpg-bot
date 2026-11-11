@@ -84,6 +84,7 @@ const CLASSIC_SCRIPTS = [
   'js/master_data/skill_effects.js',
   'js/master_data/skill_inputs.js',
   'js/master_data/editor.js',
+  'js/master_data/info.js',
   'js/master_data/skill.js',
   'js/master_data/review.js',
   'js/master_data/workspace.js',

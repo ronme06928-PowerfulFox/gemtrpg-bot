@@ -16,7 +16,7 @@ const window={};
 const context=vm.createContext({window,console,setTimeout,clearTimeout,fetchWithSession:async(path,options)=>{
   calls.push([path,options]); return {...response,text:async()=>JSON.stringify(await response.json())};
 }});
-for(const name of ['json','catalog_api','glossary','buff','editor','review','text_tools']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['json','catalog_api','glossary','buff','editor','review','info','text_tools']) vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const api=window.CatalogApi, glossary=window.CatalogGlossary, buff=window.CatalogBuff;
 """
 

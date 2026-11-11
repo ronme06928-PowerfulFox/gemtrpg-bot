@@ -22,6 +22,7 @@ FIELD_TYPES = {
 def test_schema_keys_match_registries():
     assert set(EFFECT_SCHEMAS) == set(EFFECT_HANDLERS) | {"CUSTOM_EFFECT"}
     assert set(CUSTOM_EFFECT_SCHEMAS) == set(EFFECT_REGISTRY)
+    assert all(schema.get("group") in {"状態異常", "バフ", "スタック", "威力・ロール", "ダメージ・回復", "行動・進行", "特殊"} for schema in EFFECT_SCHEMAS.values())
     assert {key for key, schema in EFFECT_SCHEMAS.items() if schema["internal"]} == {
         "FORCE_UNOPPOSED", "APPLY_FISSURE_BUFFED",
     }

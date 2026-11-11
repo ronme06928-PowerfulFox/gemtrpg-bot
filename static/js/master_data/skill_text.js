@@ -1193,9 +1193,17 @@
     await clipboard.writeText(text);
   }
   function renderForm(payload, tags, result, references) {
-    const h=window.CatalogGlossary.escape;
-    const fields=[['使用時効果','使用時効果（コスト文）'],['発動時効果','発動時効果'],['特記','特記']];
-    return `<section class="cat-text-editor"><p class="cat-caption">決まった言い回しから特記処理を作ります。生成すると現在の特記処理を置き換えます。保存・公開は行いません。</p>${fields.map(([key,label])=>`<label class="cat-field">${label}<textarea data-catalog-text data-field="${key}" rows="4">${h(payload[key] ?? '')}</textarea><span class="cat-field-error" id="cat-error-${key}"></span></label>`).join('')}<label class="cat-field">タグ（カンマ区切り）<input id="cat-text-tags" value="${h(tags)}"></label><button type="button" class="cat-button cat-primary" data-action="text-build">文章を読み取り、特記処理を置き換える</button><div class="cat-text-result" role="status">${!result?'':result.errors.length?`<p>変換失敗：${result.errors.length}件。特記処理は変更していません。</p><ul class="cat-text-errors">${result.errors.map(error=>`<li><strong>${h(error.column)}</strong><blockquote>${h(error.line)}</blockquote><span>${h(error.reason)}</span></li>`).join('')}</ul>`:'<p>変換しました。フォーム・JSONと右のプレビューを確認してください。</p>'}</div>${window.CatalogSkillTextHelp.render(references)}</section>`;
+    const h = window.CatalogGlossary.escape;
+    const fields = [['使用時効果', '使用時効果（コスト）'], ['発動時効果', '発動時効果'], ['特記', '特記']];
+    const how = '下の3つの欄を読み取り、コスト・補正・効果を作り直します。今の設定は置き換わり、保存はしません。';
+    const outcome = !result ? '<div class="cat-text-result" role="status"></div>' : result.errors.length
+      ? `<div class="cat-text-result is-error" role="status"><p>読み取れない行が${result.errors.length}件あります。効果は変えていません。</p><ul class="cat-text-errors">${result.errors.map(error => `<li><strong>${h(error.column)}</strong><blockquote>${h(error.line)}</blockquote><span>${h(error.reason)}</span></li>`).join('')}</ul></div>`
+      : `<div class="cat-text-result is-done" role="status"><p>効果を作りました。確かめる節：</p><div class="cat-actions"><button type="button" class="cat-button" data-section="cost">コスト</button><button type="button" class="cat-button" data-section="bonus">補正</button><button type="button" class="cat-button" data-section="effects">効果</button></div></div>`;
+    return `<section class="cat-text-editor"><h3 class="cat-heading-info">文章から効果を作る${window.CatalogInfo.render('文章から効果を作る', how)}</h3>
+      <div class="cat-text-run"><button type="button" class="cat-button" data-action="text-build">文章を読み取って効果を作る</button></div>${outcome}
+      ${fields.map(([key, label]) => `<label class="cat-field cat-field-wide">${label}<textarea data-catalog-text data-field="${key}" rows="3">${h(payload[key] ?? '')}</textarea><span class="cat-field-error" id="cat-error-${key}"></span></label>`).join('')}
+      <label class="cat-field">タグ（カンマ区切り）<input id="cat-text-tags" value="${h(tags)}"></label>
+      ${window.CatalogSkillTextHelp.render(references)}</section>`;
   }
   window.CatalogSkillText={createReader,copyJSON,renderForm};
 })();

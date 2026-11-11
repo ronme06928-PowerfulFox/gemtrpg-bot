@@ -23,17 +23,18 @@
     let model = models[options.kind || 'glossary'];
     if (!model) throw new Error('未対応の種類です。');
     panel.classList.add('bo-workspace', 'cat-workspace');
-    panel.innerHTML = `<header class="bo-workspace__header"><div><h2>マスターデータ</h2><p>マスターデータの閲覧・下書き・承認</p></div><div class="bo-workspace__header-actions"><span id="cat-pending-action"></span>${button('更新', 'refresh')}${options.onClose ? button('閉じる', 'close') : ''}</div></header><div class="cat-message" role="alert" hidden></div><div class="cat-leave-overlay" hidden></div><div class="cat-scene"><p class="cat-empty">読み込み中…</p></div>`;
+    panel.innerHTML = `<header class="bo-workspace__header"><div><h2>マスターデータ</h2></div><div class="bo-workspace__header-actions"><span id="cat-pending-action"></span>${button('← マスターデータ', 'master-back', '', 'id="cat-skill-return" hidden')}${button('更新', 'refresh')}${options.onClose ? button('閉じる', 'close') : ''}</div></header><div class="cat-message" role="alert" hidden></div><div class="cat-leave-overlay" hidden></div><div class="cat-scene"><p class="cat-empty">読み込み中…</p></div>`;
     const scene = panel.querySelector('.cat-scene');
     const message = panel.querySelector('.cat-message');
     let destroyed = false;
     let textTools = null;
+    const infoTools = window.CatalogInfo.mount(panel);
     let noticeTimer, leaveResolve, leaveFocus, nextFocus;
     const leaveOverlay = panel.querySelector('.cat-leave-overlay');
     const listeners = [];
     function listen(type, handler) { panel.addEventListener(type, handler); listeners.push([type, handler]); }
     const state = { kind: model.kind, catalogs: {}, user: {}, data: { entries: [], drafts: [] }, selected: '', scene: 'browse',
-      views: {}, overview: {counts:{}}, section: 'body', rawValues: {}, filters: { status: 'published', category: model.kind === 'skill' ? 'Ps' : '', search: '' }, busy: false, dirty: false,
+      views: {}, masterKind: 'glossary', overview: {counts:{}}, section: 'body', rawValues: {}, filters: { status: 'published', category: model.kind === 'skill' ? 'Ps' : '', search: '' }, busy: false, dirty: false,
       linkQuery: '', linkIndex: -1, linkOpen: false, aliasInput: '',
       listRequest: 0, detailRequest: 0, tab: 'form', errors: {}, payload: {}, jsonText: '' };
     const author = () => !!(state.user.is_app_admin || state.user.is_catalog_author);
@@ -47,6 +48,22 @@
       if (!alive()) throw new Error('画面は閉じられました。');
       return result;
     }
+    // PR60-19：一度読んだ一覧・件数・スキーマ・履歴は持っておき、知らせ・自分の操作・「更新」のときだけ読み直す。
+    let cache = { lists: {}, overview: null, schemas: null, meta: {} };
+    function remember(holder, key, make) {
+      if (holder[key]) return holder[key];
+      const pending = make().catch(error => { if (holder[key] === pending) delete holder[key]; throw error; });
+      holder[key] = pending;
+      return pending;
+    }
+    const cachedList = kind => remember(cache.lists, kind, () => request('list', kind));
+    const cachedOverview = () => remember(cache, 'overview', () => request('overview'));
+    const cachedSchemas = () => remember(cache, 'schemas', () => request('effectSchemas'));
+    function invalidate(kind) {
+      delete cache.lists[kind]; cache.overview = null; delete cache.textReferences;
+      for (const key of Object.keys(cache.meta)) if (key.startsWith(`${kind}:`)) delete cache.meta[key];
+    }
+    function clearCache() { cache = { lists: {}, overview: null, schemas: null, meta: {} }; state.catalogs = {}; }
     function notice(value = '', error = false) {
       if (!alive()) return;
       clearTimeout(noticeTimer);
@@ -86,11 +103,11 @@
         nextFocus = null; leaveFocus = null;
       }
     }
-    async function prepareSkill() {
+    async function prepareSkill(token) {
       if (state.kind !== 'skill') return;
       const kind = state.kind;
-      const [schemas, buffs, glossary, summons] = await Promise.all([request('effectSchemas'), request('list', 'buff'), request('list', 'glossary'), request('list', 'summon')]);
-      if (!alive() || state.kind !== kind) return;
+      const [schemas, buffs, glossary, summons] = await Promise.all([cachedSchemas(), cachedList('buff'), cachedList('glossary'), cachedList('summon')]);
+      if (!alive() || state.kind !== kind || token !== state.listRequest) return;
       state.schemas = schemas;
       state.catalogs.glossary = glossary;
       const references = {};
@@ -106,16 +123,17 @@
       model.configure(schemas, references);
     }
     async function load(fromNotice = false) {
+      if (fromNotice) clearCache();
       const token = ++state.listRequest;
       const previous = selected();
       const kind = state.kind;
-      const [data, terms, skills, overview] = await Promise.all([request('list', kind), !['glossary','skill'].includes(kind) ? request('list', 'glossary') : null, kind === 'summon' ? request('list', 'skill') : null, request('overview')]);
+      const [data, terms, skills, overview] = await Promise.all([cachedList(kind), !['glossary','skill'].includes(kind) ? cachedList('glossary') : null, kind === 'summon' ? cachedList('skill') : null, cachedOverview()]);
       if (!alive() || token !== state.listRequest || kind !== state.kind) return;
       state.overview = overview;
       state.data = data; state.catalogs[kind] = data;
       if (terms) state.catalogs.glossary = terms;
       if (skills) state.catalogs.skill = skills;
-      if (kind === 'skill') { await prepareSkill(); if (!alive() || token !== state.listRequest || kind !== state.kind) return; }
+      if (kind === 'skill') { await prepareSkill(token); if (!alive() || token !== state.listRequest || kind !== state.kind) return; }
       panel.querySelector('#cat-pending-action').innerHTML = state.user.is_app_admin ? button(`承認待ち ${overview.pending.length}件`, 'pending') : '';
       if (!selected() && previous?.isDraft && entry(previous.target_id)) {
         const published = entry(previous.target_id);
@@ -129,30 +147,39 @@
       else if (state.scene === 'pending') renderPending();
       else if (fromNotice) { mountTextTools(); if (state.scene === 'edit') renderPreview(); notice('公開データが更新されました。入力はそのまま残しています。'); }
     }
+    function header(skill = state.kind === 'skill') {
+      panel.querySelector('.bo-workspace__header h2').textContent = skill ? 'スキル' : 'マスターデータ';
+      panel.querySelector('#cat-skill-return').hidden = !skill;
+    }
     function toolbar() {
       const counts = state.overview.counts[state.kind] || {};
       const statuses = ['published','deprecated',...(author() ? ['draft','pending','rejected'] : [])];
-      const category = state.kind === 'skill' ? `<label class="cat-field">分類<select data-filter="category"><option value="">すべての分類</option>${model.groups.map(([group,items])=>`<optgroup label="${h(group)}">${items.map(([prefix,label])=>`<option value="${prefix}" ${state.filters.category === prefix ? 'selected' : ''}>${prefix} ${label}</option>`).join('')}</optgroup>`).join('')}</select></label>`
-        : model.categories.length ? `<label class="cat-field">分類<select data-filter="category"><option value="">すべての分類</option>${model.categories.map(value=>`<option ${state.filters.category === value ? 'selected' : ''}>${h(value)}</option>`).join('')}</select></label>` : '';
-      return `<nav class="cat-kind-tabs" aria-label="種類">${Object.values(models).filter(Boolean).map(definition=>{
+      const category = state.kind === 'skill' ? ''
+        : model.categories.length ? `<label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="category"><option value="">すべての分類</option>${model.categories.map(value=>`<option ${state.filters.category === value ? 'selected' : ''}>${h(value)}</option>`).join('')}</select></label>` : '';
+      const tabs = state.kind === 'skill' ? '' : `<nav class="cat-kind-tabs" aria-label="種類">${Object.values(models).filter(Boolean).map(definition=>{
         const tally = state.overview.counts[definition.kind] || {};
-        return `<button type="button" data-kind="${definition.kind}" aria-pressed="${state.kind === definition.kind}">${definition.label} <strong>${tally.published || 0}</strong>${author() ? `<small>下書き ${tally.draft || 0} · 承認待ち ${tally.pending || 0}</small>` : ''}</button>`;
-      }).join('')}</nav><div class="cat-filters"><label class="cat-field cat-search">探す<input type="search" data-filter="search" value="${h(state.filters.search)}" placeholder="ID・名前・説明"></label><nav class="cat-statuses" aria-label="状態">${statuses.map(status=>`<button type="button" data-status="${status}" class="${state.filters.status === status ? 'is-active' : ''}" aria-pressed="${state.filters.status === status}">${model.statuses[status]} ${counts[status] || 0}</button>`).join('')}</nav>${category}${author() ? button('＋新しく作る','new') : ''}</div>`;
+        const extra = author() ? [['draft','下書き'],['pending','承認待ち']].filter(([key])=>tally[key]).map(([key,label])=>`<span class="cat-tab-count" data-count="${key}">${label}${tally[key]}</span>`).join('') : '';
+        return `<button type="button" data-kind="${definition.kind}" aria-pressed="${state.kind === definition.kind}">${definition.label} <strong>${tally.published || 0}</strong>${extra}</button>`;
+      }).join('')}</nav>`;
+      return `${tabs}<div class="cat-filters"><label class="cat-field cat-search"><span class="cat-visually-hidden">探す</span><input type="search" data-filter="search" value="${h(state.filters.search)}" placeholder="ID・名前・説明"></label><nav class="cat-statuses" aria-label="状態">${statuses.map(status=>`<button type="button" data-status="${status}" class="${state.filters.status === status ? 'is-active' : ''}" aria-pressed="${state.filters.status === status}">${model.statuses[status]} ${counts[status] || 0}</button>`).join('')}</nav>${category}${author() ? button('＋新しく作る','new') : ''}</div>`;
     }
     function renderBrowse() {
-      textTools?.destroy(); textTools = null;
-      scene.innerHTML = `<div class="cat-browser">${toolbar()}<div class="bo-workspace__body"><section class="bo-workspace__list-pane" aria-label="${model.label}一覧"><div class="cat-list-heading"><h3>${model.label}</h3><span class="cat-caption" id="cat-list-count"></span></div><div id="cat-records" class="bo-workspace__record-list"></div></section><aside id="cat-detail" class="bo-workspace__detail-pane" aria-label="選択した${model.label}の詳細"></aside></div></div>`;
+      header();
+      infoTools.close(); textTools?.destroy(); textTools = null;
+      const categories = state.kind !== 'skill' ? '' : `<nav class="cat-skill-categories" aria-label="スキルのカテゴリ">${model.groups.map(([group,items])=>`<section><h3>${h(group)}</h3>${items.map(([prefix,label])=>`<button type="button" data-skill-category="${prefix}" aria-pressed="${state.filters.category === prefix}"><span><code>${prefix}</code> ${label}</span><span class="cat-nav-count">${model.filter(rows(),{...state.filters,category:prefix}).length}</span></button>`).join('')}</section>`).join('')}</nav>`;
+      scene.innerHTML = `<div class="cat-browser ${state.kind === 'skill' ? 'is-skill' : ''}">${state.kind === 'skill' ? `<div class="cat-skill-layout">${categories}<div class="cat-skill-main">` : ''}${toolbar()}<div class="bo-workspace__body"><section class="bo-workspace__list-pane" aria-label="${model.label}一覧"><div class="cat-list-heading"><h3>${model.label}</h3><span class="cat-caption" id="cat-list-count"></span></div><div id="cat-records" class="bo-workspace__record-list"></div></section><aside id="cat-detail" class="bo-workspace__detail-pane" aria-label="選択した${model.label}の詳細"></aside></div>${state.kind === 'skill' ? '</div></div>' : ''}</div>`;
       renderList();
     }
     function renderPending() {
-      textTools?.destroy(); textTools = null; state.scene = 'pending';
+      header(false);
+      infoTools.close(); textTools?.destroy(); textTools = null; state.scene = 'pending';
       scene.innerHTML = `<section class="cat-pending"><div class="cat-editbar">${button('← 戻る','back')}<h3>承認待ち（すべての種類）</h3></div><div class="cat-pending-list">${(state.overview.pending || []).map(row=>`<button type="button" class="bo-workspace__record" data-pending-id="${row.id}" data-pending-kind="${h(row.kind)}"><strong>${h(models[row.kind].label)} · ${h(row.target_id)} ${h(nameOf(row.payload))}</strong><span>${h(row.created_by_name || '削除済みユーザー')}</span></button>`).join('') || '<p class="cat-empty">承認待ちはありません。</p>'}</div></section>`;
     }
     function renderList() {
       const filtered = model.filter(rows(), state.filters);
       if (!filtered.some(row => row.key === state.selected)) state.selected = filtered[0]?.key || '';
       panel.querySelector('#cat-list-count').textContent = `${filtered.length}件`;
-      panel.querySelector('#cat-records').innerHTML = filtered.length ? filtered.map(row => `<button type="button" class="bo-workspace__record ${row.key === state.selected ? 'is-selected' : ''}" data-record="${h(row.key)}" aria-pressed="${row.key === state.selected}"><div class="cat-record-top"><code class="cat-id">${h(row.target_id)}</code>${badge(row.status)}</div><strong class="bo-workspace__record-title">${h(nameOf(row.payload))}</strong><span class="cat-caption">${h(model.recordMeta(row.payload))}</span><span>${h(model.recordDescription(row.payload) || '説明未入力')}</span></button>`).join('') : `<p class="cat-empty">条件に一致する${model.label}はありません。</p>`;
+      panel.querySelector('#cat-records').innerHTML = filtered.length ? filtered.map(row => `<button type="button" class="bo-workspace__record ${row.key === state.selected ? 'is-selected' : ''}" data-record="${h(row.key)}" aria-pressed="${row.key === state.selected}"><div class="cat-record-top"><code class="cat-id">${h(row.target_id)}</code><strong class="bo-workspace__record-title">${h(nameOf(row.payload))}</strong>${badge(row.status)}</div><span class="cat-record-line"><span class="cat-caption">${h(model.recordMeta(row.payload))}</span> ${h(model.recordDescription(row.payload) || '説明未入力')}</span></button>`).join('') : `<p class="cat-empty">条件に一致する${model.label}はありません。</p>`;
       renderDetail();
     }
     function links(payload) {
@@ -177,14 +204,14 @@
         if (author()) actions.push(button('編集', 'edit', 'cat-primary'));
 
       }
-      target.innerHTML = `<div class="cat-detail-title"><code class="cat-id">${h(row.target_id)}</code><h3>${h(nameOf(row.payload))}</h3><div>${badge(row.status)} <span class="cat-caption">${row.isDraft ? `作成：${h(row.created_by_name || '削除済みユーザー')} / 元の版：${row.base_revision ?? '新規'}` : `版 ${row.revision} / 更新：${h(row.updated_by_name || '初回取り込み')}`}</span></div></div>
-        <div class="cat-actions">${actions.join('')}${!row.isDraft ? model.externalLink(row.target_id) : ''}</div>${row.reject_reason ? `<p class="cat-callout">却下の理由：${h(row.reject_reason)}</p>` : ''}${model.detail(row.payload, { links, entryId: row.target_id, skillEntries: state.catalogs.skill?.entries || [] })}${jsonBlock(row.payload)}<div id="cat-metadata"><p class="cat-caption">履歴・参照箇所を読み込み中…</p></div>${!row.isDraft && state.user.is_app_admin ? `<section class="cat-other-actions"><h4>その他の操作</h4>${button(row.deprecated ? '廃止を取り消す' : '廃止', 'deprecate', 'cat-danger')}</section>` : ''}`;
+      target.innerHTML = `<div class="cat-detail-head"><div class="cat-detail-title"><code class="cat-id">${h(row.target_id)}</code><h3>${h(nameOf(row.payload))}</h3><div>${badge(row.status)} <span class="cat-caption">${row.isDraft ? `作成：${h(row.created_by_name || '削除済みユーザー')} / 元の版：${row.base_revision ?? '新規'}` : `版 ${row.revision} / 更新：${h(row.updated_by_name || '初回取り込み')}`}</span></div></div>
+        <div class="cat-actions">${actions.join('')}${!row.isDraft ? model.externalLink(row.target_id) : ''}</div></div>${row.reject_reason ? `<p class="cat-callout">却下の理由：${h(row.reject_reason)}</p>` : ''}${model.detail(row.payload, { links, entryId: row.target_id, skillEntries: state.catalogs.skill?.entries || [] })}${jsonBlock(row.payload)}<div id="cat-metadata"><p class="cat-caption">履歴・参照箇所を読み込み中…</p></div>${!row.isDraft && state.user.is_app_admin ? `<section class="cat-other-actions"><h4>その他の操作</h4>${button(row.deprecated ? '廃止を取り消す' : '廃止', 'deprecate', 'cat-danger')}</section>` : ''}`;
       const published = entry(row.target_id);
       if (!published) { target.querySelector('#cat-metadata').innerHTML = '<p class="cat-caption">新規の下書きです。公開後に履歴が残ります。</p>'; return; }
-      Promise.all([request('history', state.kind, row.target_id), request('references', state.kind, row.target_id)]).then(([history, references]) => {
+      remember(cache.meta, `${state.kind}:${row.target_id}`, () => Promise.all([request('history', state.kind, row.target_id), request('references', state.kind, row.target_id)])).then(([history, references]) => {
         if (!alive() || token !== state.detailRequest || detailKind !== state.kind || state.scene !== 'browse') return;
         const area = panel.querySelector('#cat-metadata');
-        area.innerHTML = `<section class="bo-workspace__card"><h4>使われている所</h4>${references.references.length ? references.references.map(ref => `<p class="cat-caption">${h(({skill:'スキル',item:'アイテム',passive:'特殊パッシブ',radiance:'輝化スキル',summon:'召喚テンプレート',buff:'バフ',glossary:'用語'})[ref.kind] || ref.kind)} · ${h(ref.entry_id)} ${h(ref.display_name)}<br>${h(ref.path)}</p>`).join('') : '<p class="cat-caption">参照なし</p>'}</section><section class="bo-workspace__card"><h4>履歴</h4><ul class="cat-history">${history.history.map(item => `<li><strong>版 ${item.revision} · ${h(({import:'取り込み',publish:'公開',deprecate:'廃止',undeprecate:'廃止取り消し',restore:'復元'})[item.action])}</strong><small>${h(item.actor_user_name || 'システム')} / ${h(item.created_at)}</small>${state.user.is_app_admin && item.revision !== published.revision ? button('この版に戻す', 'restore', '', `data-revision="${item.revision}"`) : ''}${jsonBlock(item.payload)}</li>`).join('')}</ul></section>`;
+        area.innerHTML = `<details class="bo-workspace__card cat-fold"><summary>使われている所（${references.references.length}件）</summary>${references.references.length ? references.references.map(ref => `<p class="cat-caption">${h(({skill:'スキル',item:'アイテム',passive:'特殊パッシブ',radiance:'輝化スキル',summon:'召喚テンプレート',buff:'バフ',glossary:'用語'})[ref.kind] || ref.kind)} · ${h(ref.entry_id)} ${h(ref.display_name)}<br>${h(ref.path)}</p>`).join('') : '<p class="cat-caption">参照なし</p>'}</details><details class="bo-workspace__card cat-fold"><summary>履歴（${history.history.length}版）</summary><ul class="cat-history">${history.history.map(item => `<li><strong>版 ${item.revision} · ${h(({import:'取り込み',publish:'公開',deprecate:'廃止',undeprecate:'廃止取り消し',restore:'復元'})[item.action])}</strong><small>${h(item.actor_user_name || 'システム')} / ${h(item.created_at)}</small>${state.user.is_app_admin && item.revision !== published.revision ? button('この版に戻す', 'restore', '', `data-revision="${item.revision}"`) : ''}${jsonBlock(item.payload)}</li>`).join('')}</ul></details>`;
       }).catch(error => { if (alive() && token === state.detailRequest && state.scene === 'browse') panel.querySelector('#cat-metadata').textContent = error.message; });
     }
     function rememberDraft(draft) {
@@ -217,6 +244,7 @@
       renderEditor();
     }
     function renderEditor() {
+      header();
       scene.innerHTML = `<div class="cat-editor"><div class="cat-editbar">${button('← 戻る','back')}<strong>${h(state.edit.target_id || '新規')} ${h(nameOf(state.payload))}</strong>${badge(state.edit.status)}<span id="cat-dirty-badge" class="cat-badge" data-status="編集中" hidden>編集中・未保存</span></div><div class="cat-edit-grid" data-preview="${state.section === 'preview'}"><div id="cat-toc">${editor.navigation(model,state.section,state.errors)}</div><section class="cat-edit-input" aria-label="入力"><div id="cat-input-content"></div></section><aside id="cat-preview" class="cat-edit-preview" aria-label="${model.label}のプレビュー"></aside></div><footer class="cat-footer"><div class="cat-footer-left"><small id="cat-dirty-note" hidden>● 保存していない変更があります</small>${state.edit.id ? `<details class="cat-more"><summary>その他 ▾</summary><div>${button('取り下げ','withdraw','cat-danger')}</div></details>` : ''}</div>${button('下書きを保存','save')}${button('承認を申請','submit','cat-primary')}</footer></div>`;
       renderInput(); renderPreview();
     }
@@ -224,14 +252,15 @@
       if (state.scene === 'edit') panel.querySelector('#cat-toc').innerHTML = editor.navigation(model,state.section,state.errors);
     }
     function mountTextTools() {
-      textTools?.destroy(); textTools = null;
+      infoTools.close(); textTools?.destroy(); textTools = null;
       if (state.scene !== 'edit') return;
       textTools = window.CatalogTextTools.mount(panel.querySelector('#cat-input-content'), {
         entries: state.catalogs.glossary?.entries || [], currentId: state.kind === 'glossary' ? state.edit.target_id : '',
       });
     }
     function renderInput() {
-      textTools?.destroy(); textTools = null;
+      infoTools.close();
+      infoTools.close(); textTools?.destroy(); textTools = null;
       const resource = ['buff','item','passive','radiance'].includes(state.kind);
       const examples = resource ? editor.exampleButtons(state.data.entries) : '';
       panel.querySelector('#cat-input-content').innerHTML = state.section === 'preview' ? '<p class="cat-caption cat-wide-preview">右にプレビューを表示しています。</p>'
@@ -241,13 +270,12 @@
         : `<div class="cat-field-grid">${model.form(state.payload,state.errors,{section:state.section,entries:state.data.entries,linkQuery:state.linkQuery,aliasInput:state.aliasInput,tagInput:state.tagInput,published:state.edit.base_revision != null,effectText:state.effectText,skillTagInput:state.skillTagInput,bonusOperation:state.bonusOperation})}</div>`;
       for (const [selector,value] of Object.entries(state.rawValues)) { const node = panel.querySelector(selector); if (node) node.value = value; }
       if (state.tab === 'form') renderCandidates();
-      panel.querySelector('[data-action="text-build"]')?.classList.remove('cat-primary');
       mountTextTools();
     }
     async function selectSection(section) {
       if (!editor.sections(model).some(([key])=>key === section)) return;
       if (state.tab === 'json' && section !== 'json') syncJSON();
-      if (section === 'text' && !state.textReady) { const refs = await request('textReferences'); state.textReferences = {...state.textReferences,...refs}; state.textReady = true; }
+      if (section === 'text' && !state.textReady) { const refs = await remember(cache, 'textReferences', () => request('textReferences')); state.textReferences = {...state.textReferences,...refs}; state.textReady = true; }
       if (section === 'json' && state.tab !== 'json') { state.jsonText = editor.jsonText(state.kind,state.payload); state.jsonChanged = false; }
       state.section = section; state.tab = section === 'json' || section === 'text' ? section : 'form';
       nextFocus = `.cat-toc [data-section="${section}"]`;
@@ -305,6 +333,7 @@
       panel.querySelector('#cat-synonym-input').focus();
     }
     function renderPreview() {
+      infoTools.close();
       syncDirtyStatus();
       const payload = state.payload;
       const preview = panel.querySelector('#cat-preview');
@@ -332,6 +361,7 @@
       if (Object.keys(state.errors).some(key => key.startsWith('input:'))) throw new Error('入力欄のエラーを直してください。');
       if (!state.edit.id) {
         const created = await request('create', state.kind, state.edit.base_revision == null ? undefined : state.edit.target_id, state.edit.id_prefix);
+        invalidate(state.kind);
         if (created.created_by !== state.user.user_id || !model.canEdit(created, state.user)) {
           throw new Error('別の画面で下書きが作られたか、承認待ちになっています。上書きせずに止めました。入力を控えて一覧を更新してください。');
         }
@@ -342,11 +372,12 @@
         rememberDraft(created);
       }
       const draft = await request('save', state.edit.id, state.payload);
+      invalidate(state.kind);
       state.edit = draft; state.dirty = false; state.rawValues = {}; rememberDraft(draft); renderPreview();
       if (submit) {
-        const pending = await request('submit', draft.id);
+        const pending = await request('submit', draft.id); invalidate(state.kind);
         rememberDraft(pending); state.scene = 'browse'; await load(); notice('承認を申請しました。');
-      } else { state.errors = {}; renderEditor(); notice('下書きを保存しました。'); }
+      } else { await load(); state.errors = {}; renderEditor(); notice('下書きを保存しました。'); }
     }
     async function startReview(draft) {
       state.review = draft; state.reviewBase = entry(draft.target_id);
@@ -355,6 +386,7 @@
       renderReview();
     }
     function renderReview() {
+      header();
       const footerId = state.reviewBase ? `<span class="cat-review-id">正式ID：<code>${h(state.reviewId)}</code>（既存の項目）</span>` : `<label class="cat-field">正式ID<input id="cat-official-id" value="${h(state.reviewId)}"></label>`;
       const actions = state.rejecting ? `<label class="cat-field cat-reject-reason">却下の理由<textarea id="cat-reject-reason" rows="2" placeholder="制作者に伝えること">${h(state.rejectReason)}</textarea></label>${button('取りやめる','reject-cancel')}${button('却下する','reject','cat-reject-confirm')}` : `${button('却下…','reject-open')}${button('承認して公開','approve','cat-primary')}`;
       scene.innerHTML = `<div class="cat-review-wrap"><div class="cat-editbar">${button('← 戻る','back')}<strong>${h(state.review.target_id)} ${h(nameOf(state.review.payload))}</strong>${badge('pending')}</div><div class="cat-review-content">${window.CatalogReview.render(model,state.reviewBase,state.review,{showSame:state.showSame,schemas:state.schemas,catalogs:state.catalogs})}${renderProblems(state.review.problems,model)}</div><footer class="cat-footer cat-review-footer">${footerId}${actions}</footer></div>`;
@@ -388,6 +420,7 @@
     async function switchKind(kind) {
       if (!models[kind] || state.scene !== 'browse' || kind === state.kind) return;
       state.views[state.kind] = {selected:state.selected, filters:{...state.filters}};
+      if (state.kind !== 'skill') state.masterKind = state.kind;
       state.listRequest++; state.detailRequest++;
       state.kind = kind; model = models[kind]; state.selected = '';
       state.filters = state.views[kind]?.filters || { status: 'published', category: kind === 'skill' ? 'Ps' : '', search: '' };
@@ -414,6 +447,10 @@
         renderInput(); renderPreview(); return;
       }
       if (action === 'close') return close();
+      if (action === 'master-back') {
+        if (state.scene !== 'browse') { if (!await allowLeave()) return; state.scene = 'browse'; state.errors = {}; }
+        return switchKind(state.masterKind);
+      }
       const row = state.scene === 'edit' ? { ...state.edit, isDraft: true } : selected();
       if (action === 'refresh') return load(true);
       if (action === 'back') return back();
@@ -433,25 +470,25 @@
       }
       if (action === 'withdraw') {
         if (!await window.showAppConfirm('この下書きを取り下げますか？', { title: '下書きの取り下げ', confirmText: '取り下げる' })) return;
-        await request('withdraw', row.id); state.dirty = false; state.scene = 'browse'; state.filters.status = 'published';
+        await request('withdraw', row.id); invalidate(state.kind); state.dirty = false; state.scene = 'browse'; state.filters.status = 'published';
         state.selected = `entry:${row.target_id}`; await load(); notice('下書きを取り下げました。');
       }
       if (action === 'approve') {
         if (!state.reviewId.trim()) throw new Error('正式IDを入力してください。');
-        const published = await request('approve', state.review.id, state.reviewId.trim());
+        const published = await request('approve', state.review.id, state.reviewId.trim()); invalidate(state.kind);
         state.scene = 'browse'; state.filters.status = published.deprecated ? 'deprecated' : 'published';
         state.selected = `entry:${published.entry_id}`; await load(); if (state.returnPending) {state.returnPending = false;renderPending();}notice('承認して公開しました。');
       }
       if (action === 'reject') {
         if (!state.rejectReason.trim()) throw new Error('却下の理由を入力してください。');
-        const rejected = await request('reject', state.review.id, state.rejectReason);
+        const rejected = await request('reject', state.review.id, state.rejectReason); invalidate(state.kind);
         rememberDraft(rejected); state.scene = 'browse'; await load();if (state.returnPending) {state.returnPending = false;renderPending();}notice('理由を添えて却下しました。');
       }
       if (action === 'deprecate' || action === 'restore') {
         const label = action === 'restore' ? `版 ${control.dataset.revision} の内容で公開し直しますか？` : row.deprecated ? '廃止を取り消しますか？' : `この${model.label}を廃止しますか？既存の参照は残ります。`;
         if (!await window.showAppConfirm(label, { title: '公開データの変更', confirmText: '変更する' })) return;
         const published = action === 'restore' ? await request('restore', state.kind, row.target_id, Number(control.dataset.revision)) : await request('deprecate', state.kind, row.target_id, !row.deprecated);
-        state.filters.status = published.deprecated ? 'deprecated' : 'published'; await load(); notice('公開データを更新しました。');
+        invalidate(state.kind); state.filters.status = published.deprecated ? 'deprecated' : 'published'; await load(); notice('公開データを更新しました。');
       }
     }
     function changeSkill(control, action) {
@@ -567,6 +604,7 @@
         });return;
       }
       if (control.dataset.kind) { run(() => switchKind(control.dataset.kind)); return; }
+      if (control.dataset.skillCategory) { state.filters.category = control.dataset.skillCategory; renderBrowse(); return; }
       if (control.dataset.linkAdd) { addLink(control.dataset.linkAdd); return; }
       if (control.dataset.arrayRemove) {
         const key = control.dataset.arrayRemove;
@@ -577,7 +615,7 @@
       if (control.dataset.tagAdd) { addTag(); return; }
       if (control.hasAttribute('data-alias-add')) { addAlias(); return; }
       if (control.dataset.action) {
-        if (['back', 'close'].includes(control.dataset.action)) leaveFocus = control;
+        if (['back', 'close', 'master-back'].includes(control.dataset.action)) leaveFocus = control;
         run(() => onAction(control.dataset.action, control)); return;
       }
       if (control.dataset.status) { state.filters.status = control.dataset.status; renderBrowse(); }
@@ -587,6 +625,18 @@
     listen('input', event => {
       const control = event.target;
       if (state.busy) return;
+      if (control.id === 'cat-effect-keys') { window.CatalogSkillEffects.setShowKeys(control.checked);renderInput();panel.querySelector('#cat-effect-keys')?.focus();return; }
+      if (control.dataset.dicePart) {
+        const box = control.closest('[data-dice]'), part = key=>box.querySelector(`[data-dice-part="${key}"]`);
+        const none = part('none').checked;
+        for (const key of ['sign','count','faces']) part(key).disabled = none;
+        try {
+          state.payload.ダイス威力 = model.diceValue({none,sign:part('sign').value,count:part('count').value,faces:part('faces').value});
+          for (const key of ['sign','count','faces']) delete state.rawValues[`[data-dice-part="${key}"]`];delete state.errors['input:ダイス威力'];box.querySelector('.cat-field-error').textContent = '';
+          box.querySelector('output').textContent = state.payload.ダイス威力;
+        } catch (error) { for (const key of ['sign','count','faces']) state.rawValues[`[data-dice-part="${key}"]`] = part(key).value; state.errors['input:ダイス威力'] = error.message;box.querySelector('.cat-field-error').textContent = error.message; }
+        state.dirty = true;state.jsonText = pretty(state.payload);syncDirtyStatus();renderPreview();return;
+      }
       rememberRaw(control);
       if (control.id === 'cat-skill-tag-input') { state.skillTagInput = control.value; return; }
       if (control.id === 'cat-bonus-operation') { state.bonusOperation = control.value; return; }
@@ -607,7 +657,7 @@
       }
       if (control.id === 'cat-link-search') { state.linkQuery = control.value; state.linkIndex = -1; state.linkOpen = true; renderCandidates(); return; }
       if (control.id === 'cat-synonym-input') { state.aliasInput = control.value; return; }
-      if (control.dataset.filter) { state.filters[control.dataset.filter] = control.value; renderList(); return; }
+      if (control.dataset.filter) { state.filters[control.dataset.filter] = control.value; renderList(); if (state.kind === 'skill') for (const [,items] of model.groups) for (const [prefix] of items) panel.querySelector(`[data-skill-category="${prefix}"] .cat-nav-count`).textContent = model.filter(rows(),{...state.filters,category:prefix}).length; return; }
       if (control.id === 'cat-official-id') state.reviewId = control.value;
       if (control.id === 'cat-reject-reason') state.rejectReason = control.value;
       if (control.id === 'cat-json-input') {
@@ -690,11 +740,11 @@
       refresh: () => load(true).catch(error => { if (alive()) notice(error.message, true); }),
       destroy() {
         if (destroyed) return;
-        destroyed = true; state.listRequest++; state.detailRequest++;
+        destroyed = true; infoTools.destroy(); state.listRequest++; state.detailRequest++;
         clearTimeout(noticeTimer); resolveLeave('cancel');
         hostWindow.removeEventListener?.('beforeunload', beforeUnload);
         panel.ownerDocument?.removeEventListener('pointerdown', closeMenus);
-        textTools?.destroy(); textTools = null;
+        infoTools.close(); textTools?.destroy(); textTools = null;
         listeners.forEach(([type, handler]) => panel.removeEventListener(type, handler));
         mounts.delete(controller); panel.innerHTML = '';
       },

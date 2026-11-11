@@ -355,6 +355,7 @@ HANDLERS = {
 
 SCHEMAS = {
     "CONVERT_STACK_RESOURCE_VARIANT": {
+        "group": "スタック",
         "label": "スタック資源を変換",
         "description": "必要数以上のスタックを持つ資源のvariantを変更する。スタック数は消費しない。",
         "internal": False,
@@ -373,6 +374,7 @@ SCHEMAS = {
         },
     },
     "CONSUME_BUFF_COUNT_FOR_GAIN": {
+        "group": "スタック",
         "label": "スタックを消費して効果を得る",
         "description": "必要数を全量消費できるときだけ消費し、gainsを実行する。バフが足りなければ同名状態値を参照する。",
         "internal": False,
@@ -396,6 +398,7 @@ SCHEMAS = {
         },
     },
     "CONSUME_BUFF_COUNT_FOR_POWER": {
+        "group": "スタック",
         "label": "スタックを威力へ変換",
         "description": "最大消費数まで消費して威力を加減する。バフが0なら同名状態値を参照する。",
         "internal": False,

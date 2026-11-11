@@ -67,7 +67,7 @@ def test_reading_rules_are_an_unchanged_copy_of_the_legacy_parser():
 
 def test_text_tab_generation_error_copy_and_closed_workspace():
     run_node(r"""
-for(const name of ['skill_effects','skill_inputs','editor','review','skill'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['skill_effects','skill_inputs','editor','review','info','skill'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 context.document=new Proxy({}, {get(){throw Error('mount must stay inside its container');}});
 let copied,saved,failCopy=false;
 context.navigator={clipboard:{writeText:async value=>{if(failCopy)throw Error('denied');copied=value;}}};
@@ -94,10 +94,10 @@ const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 const panel=new Element(),controller=window.mountSkillWorkspace(panel);
 const click=async dataset=>{const control={dataset,disabled:false,closest:s=>s==='button'?control:null,hasAttribute:()=>false};panel.listeners.get('click')({target:control});await tick();};
 await tick();await click({action:'edit'});await click({section:'text'});
-assert.match(panel.html(),/文章から作る/);assert.match(panel.html(),/早見表/);
+assert.match(panel.html(),/文章から効果を作る/);assert.match(panel.html(),/早見表/);
 const input=value=>panel.listeners.get('input')({target:{dataset:{field:'発動時効果'},value,hasAttribute:()=>false}});
 input('命中時: 未知の動作。');await click({action:'text-build'});
-assert.match(panel.querySelector('#cat-input-content').innerHTML,/変換失敗/);
+assert.match(panel.querySelector('#cat-input-content').innerHTML,/読み取れない行/);
 assert.match(panel.querySelector('#cat-input-content').innerHTML,/発動時効果/);
 await click({action:'save'});assert.deepEqual(saved['特記処理'],payload['特記処理']);
 input(original.input.trigger);await click({action:'text-build'});await click({section:'json'});await click({action:'copy-json'});

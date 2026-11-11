@@ -213,6 +213,7 @@ HANDLERS = {
 
 SCHEMAS = {
     "APPLY_FISSURE_BUFFED": {
+        "group": "状態異常",
         "label": "期限付き亀裂を付与",
         "description": "付与者の補正を加えた亀裂をラウンド制バフで付与する。受け手側補正は加えない。",
         "internal": True,
@@ -231,6 +232,7 @@ SCHEMAS = {
         },
     },
     "APPLY_STATE": {
+        "group": "状態異常",
         "label": "状態を付与",
         "description": "状態値を加減する。正の付与量には付与者・受け手の補正が入る。",
         "internal": False,
@@ -250,6 +252,7 @@ SCHEMAS = {
         },
     },
     "APPLY_STATE_PER_N": {
+        "group": "状態異常",
         "label": "参照値ごとに状態を付与",
         "description": "参照値をper_Nで整数除算しvalueを掛け、正の量だけ状態を付与する。上限処理後に付与補正が入る。",
         "internal": False,
@@ -274,6 +277,7 @@ SCHEMAS = {
         },
     },
     "MULTIPLY_STATE": {
+        "group": "状態異常",
         "label": "状態を乗算",
         "description": "現在値×倍率に0.5を加えて整数化し、差分を適用する。",
         "internal": False,

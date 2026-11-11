@@ -213,6 +213,7 @@ HANDLERS = {
 
 SCHEMAS = {
     "GRANT_SKILL": {
+        "group": "行動・進行",
         "label": "スキルを付与",
         "description": "スキル付与要求を作る。期間・回数は付与モードに合わせて指定する。",
         "internal": False,
@@ -234,6 +235,7 @@ SCHEMAS = {
         },
     },
     "USE_SKILL_AGAIN": {
+        "group": "行動・進行",
         "label": "スキルを再使用",
         "description": "同じスロット対象に同じスキルを再使用する要求を作る。",
         "internal": False,
@@ -252,6 +254,7 @@ SCHEMAS = {
         },
     },
     "SUMMON_CHARACTER": {
+        "group": "行動・進行",
         "label": "キャラクターを召喚",
         "description": "テンプレートを元に召喚する要求を作る。対象が自分以外で座標未指定なら対象座標を使う。",
         "internal": False,
@@ -288,6 +291,7 @@ SCHEMAS = {
         },
     },
     "SCHEDULE_EFFECT": {
+        "group": "行動・進行",
         "label": "効果を予約",
         "description": "将来ラウンドの開始に実行する効果を予約する。現在の内側効果はSUMMON_CHARACTERのみ。",
         "internal": False,
