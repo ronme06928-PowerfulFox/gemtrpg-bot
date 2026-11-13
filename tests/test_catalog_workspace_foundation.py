@@ -14,7 +14,7 @@ class Element {
 const events=new Map(),window={Glossary:{parseMarkupToHTML:value=>value},addEventListener:(t,f)=>events.set(t,f),removeEventListener:t=>events.delete(t)};
 const context=vm.createContext({window,console,setTimeout,clearTimeout});
 vm.runInContext('const catalogNoCorrectionNotes = '+fs.readFileSync('data/skill_no_correction_notes.json','utf8'),context);
-for(const name of ['json','glossary','buff','resources','skill_effects','skill_inputs','editor','review','info','skill_notes','skill','text_tools','power','workspace'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
+for(const name of ['json','glossary','buff','resources','skill_effects','skill_inputs','editor','review','info','skill_notes','skill','text_tools','power','effect_requests','workspace'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const tick=()=>new Promise(r=>setTimeout(r,0));
 let calls=[],owner='author',status='draft',revision=3,failed=false,closed=0,focused;
 const all={glossary:window.CatalogGlossary,buff:window.CatalogBuff,skill:window.CatalogSkill,...window.CatalogResources};

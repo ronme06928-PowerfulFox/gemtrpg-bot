@@ -177,6 +177,7 @@ assert.equal(JSON.parse(calls[3][1].body).target_id,'Bu-00');
 def test_problem_levels_and_safe_rendering():
     run_node(r"""
 vm.runInContext(fs.readFileSync('static/js/master_data/power.js','utf8'),context);
+vm.runInContext(fs.readFileSync('static/js/master_data/effect_requests.js','utf8'),context);
 vm.runInContext(fs.readFileSync('static/js/master_data/workspace.js','utf8'),context);
 const render=window.CatalogWorkspace.renderProblems;
 assert.match(render([]),/問題はありません/);
@@ -207,6 +208,7 @@ const kinds=[];
 window.CatalogApi={overview:async()=>({counts:{},pending:[]}),...api,overview:async()=>({counts:{},pending:[]}),user:async()=>({user_id:'author',is_catalog_author:true}),
  list:async(kind)=>{kinds.push(kind);return {entries:[],drafts:[]};}};
 vm.runInContext(fs.readFileSync('static/js/master_data/power.js','utf8'),context);
+vm.runInContext(fs.readFileSync('static/js/master_data/effect_requests.js','utf8'),context);
 vm.runInContext(fs.readFileSync('static/js/master_data/workspace.js','utf8'),context);
 const left=new Element(),right=new Element();
 const a=window.mountCatalogWorkspace(left),b=window.mountCatalogWorkspace(right,{kind:'buff'});

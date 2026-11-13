@@ -17,7 +17,13 @@
   }
   const catalog = kind => `/api/catalog/${encodeURIComponent(kind)}`;
   const draft = id => `/api/catalog/drafts/${encodeURIComponent(id)}`;
+  const effectRequests = '/api/catalog/effect_requests';
   window.CatalogApi = {
+    effectRequests: () => request(effectRequests),
+    createEffectRequest: fields => request(effectRequests, 'POST', fields),
+    updateEffectRequest: (id, fields) => request(effectRequests + '/' + id, 'PATCH', fields),
+    withdrawEffectRequest: id => request(effectRequests + '/' + id, 'DELETE'),
+    reviewEffectRequest: (id, fields) => request(effectRequests + '/' + id + '/review', 'POST', fields),
     overview: () => request('/api/catalog/overview'),
     user: () => request('/api/get_session_user'),
     list: kind => request(catalog(kind)),

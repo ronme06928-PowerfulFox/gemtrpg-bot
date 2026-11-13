@@ -6,8 +6,8 @@ from sqlalchemy import func
 from flask import Blueprint, abort, g, jsonify, request
 
 from extensions import db, socketio
-from models import User, CatalogEntry, CatalogDraft, CatalogHistory
-from manager.catalog import repository
+from models import User, CatalogEntry, CatalogDraft, CatalogHistory, CatalogEffectRequest
+from manager.catalog import effect_requests, repository
 from manager.catalog.kinds import KINDS, CatalogValidationError, inspect_payload
 from manager.catalog.references import find_references
 from manager.utils import session_required
@@ -108,6 +108,8 @@ def overview():
             if kind in counts and status in ("draft", "pending", "rejected"):
                 counts[kind][status] = count
     result = {"counts": counts}
+    if author:
+        result["open_requests"] = effect_requests.count_open()
     if user.is_app_admin:
         pending = CatalogDraft.query.filter(CatalogDraft.kind.in_(KINDS), CatalogDraft.status == "pending")
         result["pending"] = [_draft_json(row) for row in pending.order_by(CatalogDraft.submitted_at, CatalogDraft.id)]
@@ -232,3 +234,54 @@ def skill_power_preview():
         return jsonify(preview_skill_power(body.get("payload"), body.get("params", {})))
     except ValueError as error:
         return jsonify(error=str(error)), 400
+
+
+def _effect_request_json(row):
+    return {"id": row.id, "title": row.title, "want": row.want, "example": row.example,
+            "near_type": row.near_type, "draft_id": row.draft_id, "draft_kind": row.draft_kind,
+            "draft_target_id": row.draft_target_id, "draft_name": row.draft_name,
+            "status": row.status, "memo": row.memo, "created_by": row.created_by,
+            "created_by_name": _name(row.created_by), "created_at": _time(row.created_at),
+            "updated_at": _time(row.updated_at)}
+
+
+@catalog_bp.route("/api/catalog/effect_requests", methods=["GET", "POST"])
+@_endpoint("author")
+def list_or_create_effect_request():
+    if request.method == "POST":
+        return jsonify(_effect_request_json(effect_requests.create(_body(), g.authenticated_user.id))), 201
+    rows = CatalogEffectRequest.query.order_by(CatalogEffectRequest.created_at.desc(), CatalogEffectRequest.id.desc())
+    return jsonify(requests=[_effect_request_json(row) for row in rows])
+
+
+def _locked_effect_request(request_id):
+    row = CatalogEffectRequest.query.filter_by(id=request_id).with_for_update().first()
+    if row is None:
+        abort(404)
+    return row
+
+
+@catalog_bp.patch("/api/catalog/effect_requests/<int:request_id>")
+@_endpoint("author")
+def update_effect_request(request_id):
+    try:
+        row = effect_requests.update(_locked_effect_request(request_id), _body(), g.authenticated_user.id)
+    except PermissionError:
+        return jsonify(error="出した本人だけが操作できます。"), 403
+    return jsonify(_effect_request_json(row))
+
+
+@catalog_bp.delete("/api/catalog/effect_requests/<int:request_id>")
+@_endpoint("author")
+def withdraw_effect_request(request_id):
+    try:
+        effect_requests.withdraw(_locked_effect_request(request_id), g.authenticated_user.id)
+    except PermissionError:
+        return jsonify(error="出した本人だけが操作できます。"), 403
+    return jsonify(id=request_id, withdrawn=True)
+
+
+@catalog_bp.post("/api/catalog/effect_requests/<int:request_id>/review")
+@_endpoint("admin")
+def review_effect_request(request_id):
+    return jsonify(_effect_request_json(effect_requests.review(_locked_effect_request(request_id), _body())))

@@ -374,3 +374,26 @@ class CatalogHistory(db.Model):
     __table_args__ = (db.UniqueConstraint('kind', 'entry_id', 'revision'),
                       db.CheckConstraint('revision >= 1'),
                       db.CheckConstraint("action IN ('import', 'publish', 'deprecate', 'undeprecate', 'restore')"))
+
+
+class CatalogEffectRequest(db.Model):
+    """効果タイプの追加依頼と管理者の返答。"""
+    __tablename__ = 'catalog_effect_requests'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(80), nullable=False)
+    want = db.Column(db.Text, nullable=False)
+    example = db.Column(db.Text, nullable=False)
+    near_type = db.Column(db.String(128), nullable=False)
+    draft_id = db.Column(db.Integer, db.ForeignKey('catalog_drafts.id', ondelete='SET NULL'), index=True)
+    draft_kind = db.Column(db.String(32))
+    draft_target_id = db.Column(db.String(128))
+    draft_name = db.Column(db.Text)
+    status = db.Column(db.String(16), default='open', nullable=False)
+    memo = db.Column(db.Text, default='', nullable=False)
+    created_by = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='SET NULL'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (db.CheckConstraint("status IN ('open', 'in_progress', 'done', 'declined')"),
+                      {"sqlite_autoincrement": True})

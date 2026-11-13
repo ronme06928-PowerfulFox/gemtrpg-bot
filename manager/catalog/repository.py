@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import StaleDataError
 
 from extensions import db
-from models import CatalogEntry, CatalogDraft, CatalogHistory
+from models import CatalogEntry, CatalogDraft, CatalogHistory, CatalogEffectRequest
 from manager.cache_paths import load_json_cache
 from .kinds import (get_kind, validate_entry_id, validate_payload, to_memory_entry,
                     validate_public_payload, replace_draft_id, CatalogValidationError)
@@ -222,6 +222,9 @@ def approve_draft(draft_id, actor_user_id, *, entry_id=None):
         entry = CatalogEntry(kind=kind, entry_id=entry_id, payload=payload,
                              revision=1, deprecated=False)
         db.session.add(entry)
+        CatalogEffectRequest.query.filter_by(draft_id=draft.id).update({
+            CatalogEffectRequest.draft_target_id: entry_id,
+        })
         for other in CatalogDraft.query.with_for_update().all():
             if other.id == draft.id:
                 continue

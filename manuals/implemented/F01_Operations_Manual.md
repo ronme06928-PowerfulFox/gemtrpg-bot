@@ -1445,3 +1445,9 @@ egatari v0.4.5の標準audio/manifest.jsonへ、段階の長さに無音を足�
 ログインした利用者は `POST /api/catalog/skill/power_preview` に `{payload, params:{物理補正, 魔法補正}}` を渡せる。補正は0以上の整数で、省略時は0。応答は `{min, avg, max, dice, rules:[{text, apply_to, in_baseline}]}`。文にできないルールの `text` は null。入力やパレットの式を読めない場合は400と理由を返す。
 
 計算は戦闘と同じ形のスキル（`to_memory`）で `calculate_skill_preview` を呼ぶ。基礎威力は項目から、ダイスはパレットから読む（戦闘と同じ）。相手を参照する上乗せは基準から外し、返った式の面数0以下のダイスは見込みで0とする。ルーム状態や保存データを読まず、保存・カタログ検査・通知を行わない。
+
+#### 効果のリクエスト API
+
+`GET /api/catalog/effect_requests` は新しい順に全件を返す。`POST` は `title`（80字まで）・`want`・`example`・`near_type` と任意の `draft_id` を受け付ける。対象はスキル・バフ・アイテム・特殊パッシブ・輝化スキル。ログイン済みの制作者・管理者に限り、`overview` に `open_requests`（受付・対応中の件数）も返す。
+
+`PATCH /api/catalog/effect_requests/<id>` で入力の修正と `draft_id: null` による解除、`DELETE` で取り下げができる。受付の間に本人が行う。`POST /api/catalog/effect_requests/<id>/review` は管理者が `status`（`open`・`in_progress`・`done`・`declined`）と `memo` を更新する。下書き削除後は種類・ID・名前の写しを保持する。新規下書きの承認時は写しのIDを正式IDに更新する。
