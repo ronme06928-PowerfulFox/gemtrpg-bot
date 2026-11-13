@@ -146,6 +146,7 @@ window.CatalogApi={overview:async()=>({counts:{},pending:[]}),...api,overview:as
  list:async kind=>({entries:kind==='skill'?[published]:[],drafts:[]}),history:async()=>({history:[]}),references:async()=>({references:[]}),
  create:async(kind,target,prefix)=>{createdPrefix=prefix;return {id:1,target_id:target || 'X-12345678',id_prefix:prefix || 'Ps',base_revision:target?1:null,payload:target?structuredClone(payload):{},status:'draft',created_by:'author'};},
  save:async(id,data)=>{saved=structuredClone(data);return {id,target_id:'Ps-00',payload:data,status:'draft',created_by:'author',problems:[]};}};
+vm.runInContext(fs.readFileSync('static/js/master_data/power.js','utf8'),context);
 vm.runInContext(fs.readFileSync('static/js/master_data/workspace.js','utf8'),context);
 const panel=new Element(),controller=window.mountSkillWorkspace(panel);
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));

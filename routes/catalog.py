@@ -218,3 +218,17 @@ def skill_text_references():
         "summon_duration": row.get("summon_duration", 0),
         **({"tag_ids": row["tag_ids"]} if "tag_ids" in row else {})}
         for key, row in sorted(load_summon_templates().items())])
+
+
+@catalog_bp.post("/api/catalog/skill/power_preview")
+@_endpoint()
+def skill_power_preview():
+    from manager.catalog.power import preview_skill_power
+
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify(error="JSONオブジェクトが必要です。"), 400
+    try:
+        return jsonify(preview_skill_power(body.get("payload"), body.get("params", {})))
+    except ValueError as error:
+        return jsonify(error=str(error)), 400

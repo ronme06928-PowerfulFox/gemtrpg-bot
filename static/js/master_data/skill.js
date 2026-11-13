@@ -54,7 +54,7 @@
   function preview(payload, options = {}) {
     const detail = window.formatSkillDetailHTML ? window.formatSkillDetailHTML(Object.fromEntries(fields.slice(0,-1).map(([key])=>[key,String(payload[key] ?? '')]))) : `<p class="cat-description">${h(payload.発動時効果 || '')}</p>`;
     const list = payload.特記処理?.effects;
-    return `<section class="bo-workspace__card cat-skill-preview"><h4>ゲームでの見え方</h4>${detail}</section><section class="bo-workspace__card"><h4 class="cat-heading-info">効果の説明${window.CatalogInfo.render('効果の説明','「効果」の節の設定を文にしたもの。上の文章と食い違いがないかを見比べます。')}</h4>${Array.isArray(list) ? `<ol class="cat-effect-list">${list.map(row=>`<li>${h(effects.summary(row,schemas))}<small>${h(effects.timingLabels[row?.timing] || 'タイミング未指定')}${row?.condition ? ' · '+h(effects.conditionText(row.condition)) : ''}</small></li>`).join('')}</ol>` : '<p class="cat-caption">効果なし</p>'}</section>`;
+    return `<section class="bo-workspace__card cat-skill-preview"><h4>ゲームでの見え方</h4>${detail}</section>${options.power || ''}<section class="bo-workspace__card"><h4 class="cat-heading-info">効果の説明${window.CatalogInfo.render('効果の説明','「効果」の節の設定を文にしたもの。上の文章と食い違いがないかを見比べます。')}</h4>${Array.isArray(list) ? `<ol class="cat-effect-list">${list.map(row=>`<li>${h(effects.summary(row,schemas))}<small>${h(effects.timingLabels[row?.timing] || 'タイミング未指定')}${row?.condition ? ' · '+h(effects.conditionText(row.condition)) : ''}</small></li>`).join('')}</ol>` : '<p class="cat-caption">効果なし</p>'}</section>`;
   }
   window.CatalogSkill = {...base, kind:'skill', label:'スキル', fields, groups, categories:[], defaults, form, preview, configure, palette, diceControl, diceValue,
     displayName: payload=>payload.デフォルト名称,

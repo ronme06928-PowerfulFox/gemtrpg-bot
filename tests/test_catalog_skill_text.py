@@ -92,6 +92,7 @@ window.CatalogApi={overview:async()=>({counts:{},pending:[]}),user:async()=>({us
  textReferences:async()=>({summon_refs:fixture.references.summon_refs}),history:async()=>({history:[]}),references:async()=>({references:[]}),
  create:async()=>({id:1,target_id:'Ps-00',id_prefix:'Ps',base_revision:1,payload:structuredClone(payload),status:'draft',created_by:'author'}),
  save:async(id,data)=>{saved=structuredClone(data);return {id,target_id:'Ps-00',payload:data,status:'draft',created_by:'author',problems:[]};}};
+vm.runInContext(fs.readFileSync('static/js/master_data/power.js','utf8'),context);
 vm.runInContext(fs.readFileSync('static/js/master_data/workspace.js','utf8'),context);
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 const panel=new Element(),controller=window.mountSkillWorkspace(panel);

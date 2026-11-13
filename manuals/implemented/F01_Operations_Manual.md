@@ -1439,3 +1439,9 @@ egatari v0.4.5の標準audio/manifest.jsonへ、段階の長さに無音を足�
 ### 管理カタログの概要API（計画60 PR60-17）
 
 `GET /api/catalog/overview` は既存の管理APIと同じセッション認証を使う。`counts` は7種類のkindをキーに公開中（published）・廃止（deprecated）の件数を返す。制作者・管理者には下書き（draft）・承認待ち（pending）・却下（rejected）も返す。`pending` は管理者にだけ返す種類横断の承認待ち下書きの配列で、既存の下書きJSONと同じ形。一般ユーザーに下書きの件数・中身を返さない。既存の保存・申請・承認APIは変更しない。
+
+### スキルの威力の見込み API（PR60-21）
+
+ログインした利用者は `POST /api/catalog/skill/power_preview` に `{payload, params:{物理補正, 魔法補正}}` を渡せる。補正は0以上の整数で、省略時は0。応答は `{min, avg, max, dice, rules:[{text, apply_to, in_baseline}]}`。文にできないルールの `text` は null。入力やパレットの式を読めない場合は400と理由を返す。
+
+計算は戦闘と同じ形のスキル（`to_memory`）で `calculate_skill_preview` を呼ぶ。基礎威力は項目から、ダイスはパレットから読む（戦闘と同じ）。相手を参照する上乗せは基準から外し、返った式の面数0以下のダイスは見込みで0とする。ルーム状態や保存データを読まず、保存・カタログ検査・通知を行わない。

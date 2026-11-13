@@ -29,6 +29,7 @@
     let destroyed = false;
     let textTools = null;
     const infoTools = window.CatalogInfo.mount(panel);
+    const power = window.CatalogPower.mount(panel, (payload, params) => request('powerPreview', payload, params));
     let noticeTimer, leaveResolve, leaveFocus, nextFocus;
     const leaveOverlay = panel.querySelector('.cat-leave-overlay');
     const listeners = [];
@@ -60,10 +61,11 @@
     const cachedOverview = () => remember(cache, 'overview', () => request('overview'));
     const cachedSchemas = () => remember(cache, 'schemas', () => request('effectSchemas'));
     function invalidate(kind) {
+      if (kind === 'skill') power.clear();
       delete cache.lists[kind]; cache.overview = null; delete cache.textReferences;
       for (const key of Object.keys(cache.meta)) if (key.startsWith(`${kind}:`)) delete cache.meta[key];
     }
-    function clearCache() { cache = { lists: {}, overview: null, schemas: null, meta: {} }; state.catalogs = {}; }
+    function clearCache() { power.clear(); cache = { lists: {}, overview: null, schemas: null, meta: {} }; state.catalogs = {}; }
     function notice(value = '', error = false) {
       if (!alive()) return;
       clearTimeout(noticeTimer);
@@ -189,6 +191,9 @@
         return button(`${h(id)} ${h(target?.payload.display_name || '未登録')}`, 'goto', 'cat-reference', `data-target="${h(id)}" ${target ? '' : 'disabled'}`);
       }).join('') : '<p class="cat-caption">リンクなし</p>';
     }
+    function powerCard(payload, id, key = null) {
+      return state.kind === 'skill' ? power.render(payload, model.palette(payload, id), key, state.schemas) : '';
+    }
     function renderDetail() {
       const target = panel.querySelector('#cat-detail');
       const row = selected();
@@ -205,7 +210,7 @@
 
       }
       target.innerHTML = `<div class="cat-detail-head"><div class="cat-detail-title"><code class="cat-id">${h(row.target_id)}</code><h3>${h(nameOf(row.payload))}</h3><div>${badge(row.status)} <span class="cat-caption">${row.isDraft ? `作成：${h(row.created_by_name || '削除済みユーザー')} / 元の版：${row.base_revision ?? '新規'}` : `版 ${row.revision} / 更新：${h(row.updated_by_name || '初回取り込み')}`}</span></div></div>
-        <div class="cat-actions">${actions.join('')}${!row.isDraft ? model.externalLink(row.target_id) : ''}</div></div>${row.reject_reason ? `<p class="cat-callout">却下の理由：${h(row.reject_reason)}</p>` : ''}${model.detail(row.payload, { links, entryId: row.target_id, skillEntries: state.catalogs.skill?.entries || [] })}${jsonBlock(row.payload)}<div id="cat-metadata"><p class="cat-caption">履歴・参照箇所を読み込み中…</p></div>${!row.isDraft && state.user.is_app_admin ? `<section class="cat-other-actions"><h4>その他の操作</h4>${button(row.deprecated ? '廃止を取り消す' : '廃止', 'deprecate', 'cat-danger')}</section>` : ''}`;
+        <div class="cat-actions">${actions.join('')}${!row.isDraft ? model.externalLink(row.target_id) : ''}</div></div>${row.reject_reason ? `<p class="cat-callout">却下の理由：${h(row.reject_reason)}</p>` : ''}${model.detail(row.payload, { links, power: powerCard(row.payload, row.target_id, row.isDraft ? JSON.stringify(['skill', row.target_id, row.base_revision, row.payload]) : `skill:${row.target_id}:${row.revision}`), entryId: row.target_id, skillEntries: state.catalogs.skill?.entries || [] })}${jsonBlock(row.payload)}<div id="cat-metadata"><p class="cat-caption">履歴・参照箇所を読み込み中…</p></div>${!row.isDraft && state.user.is_app_admin ? `<section class="cat-other-actions"><h4>その他の操作</h4>${button(row.deprecated ? '廃止を取り消す' : '廃止', 'deprecate', 'cat-danger')}</section>` : ''}`;
       const published = entry(row.target_id);
       if (!published) { target.querySelector('#cat-metadata').innerHTML = '<p class="cat-caption">新規の下書きです。公開後に履歴が残ります。</p>'; return; }
       remember(cache.meta, `${state.kind}:${row.target_id}`, () => Promise.all([request('history', state.kind, row.target_id), request('references', state.kind, row.target_id)])).then(([history, references]) => {
@@ -339,7 +344,7 @@
       const preview = panel.querySelector('#cat-preview');
       if (!preview) return;
       markSections();
-      preview.innerHTML = renderProblems(state.edit.problems, model) + (state.dirty ? '<p class="cat-caption">入力を変更しました。保存すると検査結果が更新されます。</p>' : '') + model.preview(payload, { links, entryId: state.edit.target_id, skillEntries: state.catalogs.skill?.entries || [] });
+      preview.innerHTML = renderProblems(state.edit.problems, model) + (state.dirty ? '<p class="cat-caption">入力を変更しました。保存すると検査結果が更新されます。</p>' : '') + model.preview(payload, { links, power: powerCard(payload, state.edit.target_id), entryId: state.edit.target_id, skillEntries: state.catalogs.skill?.entries || [] });
     }
     function syncJSON() {
       if (state.tab !== 'json') return;
@@ -624,7 +629,7 @@
     });
     listen('input', event => {
       const control = event.target;
-      if (state.busy) return;
+      if (state.busy || power.input(control)) return;
       if (control.id === 'cat-effect-keys') { window.CatalogSkillEffects.setShowKeys(control.checked);renderInput();panel.querySelector('#cat-effect-keys')?.focus();return; }
       if (control.dataset.dicePart) {
         const box = control.closest('[data-dice]'), part = key=>box.querySelector(`[data-dice-part="${key}"]`);
@@ -740,7 +745,7 @@
       refresh: () => load(true).catch(error => { if (alive()) notice(error.message, true); }),
       destroy() {
         if (destroyed) return;
-        destroyed = true; infoTools.destroy(); state.listRequest++; state.detailRequest++;
+        destroyed = true; power.destroy(); infoTools.destroy(); state.listRequest++; state.detailRequest++;
         clearTimeout(noticeTimer); resolveLeave('cancel');
         hostWindow.removeEventListener?.('beforeunload', beforeUnload);
         panel.ownerDocument?.removeEventListener('pointerdown', closeMenus);
