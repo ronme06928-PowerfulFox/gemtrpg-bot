@@ -1,0 +1,108 @@
+/* 管理画面の使い方ページの試作（計画60 §5.20）。色は管理画面（master_data.css）の --cat-* にそろえる。 */
+:root {
+  --text: #1e293b; --sub: #4b5563; --edge: #d6dee8; --control: #7b8798; --soft: #f5f7fa; --bg: #ffffff;
+  --primary: #1d4ed8; --primary-soft: #e8efff; --warn: #8a4b00; --warn-soft: #fff4dc;
+  --size: 16px; --leading: 1.85; --measure: 38em; --gap: 1.1em;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
+}
+:root[data-type="compact"] { --size: 15px; --leading: 1.7; --measure: 46em; --gap: .85em; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--soft); color: var(--text); font-size: var(--size); line-height: var(--leading); }
+.help-page { margin: 0 auto; padding: 32px 24px 96px; max-width: 1180px; background: var(--bg); min-height: 100vh; }
+
+/* 見出しと本文 */
+.help-title { max-width: var(--measure); margin-bottom: 28px; }
+.help-kicker { margin: 0; color: var(--sub); font-size: .82em; letter-spacing: .04em; }
+.help-title h1 { margin: .2em 0 .4em; font-size: 1.75em; line-height: 1.35; }
+.help-lead { margin: 0; color: var(--sub); }
+.help-body { min-width: 0; }
+.help-body section { max-width: var(--measure); margin: 0 0 3.2em; scroll-margin-top: 16px; }
+.help-body h2 { display: flex; align-items: center; gap: .6em; margin: 0 0 .8em; padding-bottom: .35em; border-bottom: 2px solid var(--edge); font-size: 1.45em; line-height: 1.4; }
+.help-num { display: inline-grid; place-items: center; min-width: 1.7em; height: 1.7em; border-radius: 6px; background: var(--primary); color: #fff; font-size: .72em; }
+.help-body h3 { margin: 1.8em 0 .5em; font-size: 1.15em; line-height: 1.45; }
+.help-body p { margin: 0 0 var(--gap); }
+.help-body b { font-weight: 700; }
+.ui { padding: 0 .3em; border: 1px solid var(--control); border-radius: 4px; background: var(--bg); font-weight: 600; white-space: nowrap; }
+code { padding: 0 .25em; border-radius: 3px; background: var(--soft); font-size: .92em; }
+a { color: var(--primary); }
+
+/* 手順・前提・結果・困ったとき */
+.help-steps { margin: 0 0 var(--gap); padding-left: 1.6em; }
+.help-steps li + li { margin-top: .55em; }
+.help-steps li::marker { color: var(--primary); font-weight: 700; }
+.help-pre, .help-result { padding: .5em .8em; border-radius: 6px; background: var(--soft); }
+.help-result { background: var(--primary-soft); }
+.help-pre > span, .help-result > span { display: inline-block; margin-right: .6em; padding: 0 .5em; border-radius: 3px; background: var(--bg); color: var(--sub); font-size: .85em; font-weight: 700; }
+.help-trouble { margin: 1.2em 0 0; padding: .8em 1em; border-left: 3px solid var(--warn); background: var(--warn-soft); }
+.help-trouble::before { content: "うまくいかないとき"; display: block; margin-bottom: .4em; color: var(--warn); font-size: .85em; font-weight: 700; }
+#appendix .help-trouble::before { content: none; }
+.help-trouble dt { font-weight: 700; }
+.help-trouble dd { margin: .1em 0 .7em; }
+.help-trouble dd:last-child { margin-bottom: 0; }
+
+/* 役割の印と流れ */
+.help-role { display: inline-block; margin-left: .6em; padding: 0 .6em; border: 1px solid var(--warn); border-radius: 999px; color: var(--warn); background: var(--warn-soft); font-size: .62em; font-weight: 700; vertical-align: middle; }
+p .help-role { font-size: .8em; margin: 0 .2em; }
+.help-flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; margin: 0 0 var(--gap); padding: 0; list-style: none; }
+.help-flow li { position: relative; display: grid; gap: .1em; padding: .5em 1.4em .5em .9em; }
+.help-flow li + li::before { content: "→"; position: absolute; left: -.45em; top: .45em; color: var(--sub); }
+.help-state { padding: 0 .6em; border: 1px solid var(--control); border-radius: 999px; font-weight: 700; }
+.help-flow small { color: var(--sub); font-size: .78em; }
+
+/* 表 */
+table { width: 100%; margin: 0 0 var(--gap); border-collapse: collapse; font-size: .95em; }
+th, td { padding: .5em .75em; border-bottom: 1px solid var(--edge); text-align: left; vertical-align: top; }
+thead th { background: var(--soft); color: var(--sub); font-size: .88em; }
+tbody th { width: 34%; }
+@media (min-width: 600px) { tbody th { white-space: nowrap; width: auto; } }
+.help-body { overflow-wrap: anywhere; }
+
+/* 図 */
+.help-figure { margin: 1.4em 0 1.6em; }
+.help-figure img { display: block; width: 100%; height: auto; border: 1px solid var(--edge); border-radius: 8px; box-shadow: 0 4px 14px #0f172a14; }
+.help-figure figcaption { margin-top: .55em; color: var(--sub); font-size: .86em; line-height: 1.6; }
+.help-fig-no { margin-right: .6em; color: var(--text); font-weight: 700; }
+/* 写真を切り出す：説明に要る所だけを、大きく見せる（object-view-box は Chrome・Edge・Safari が対応）。 */
+:root[data-crop="crop"] [data-shot="04_effects"] img,
+:root[data-crop="crop"] [data-shot="05_writer"] img { object-view-box: inset(145px 520px 95px 176px); aspect-ratio: 584 / 480; }
+:root[data-crop="crop"] [data-shot="06_review"] img { object-view-box: inset(90px 25px 300px 25px); aspect-ratio: 1230 / 330; }
+:root[data-crop="crop"] [data-shot="02_skill"] img { object-view-box: inset(90px 0 0 0); aspect-ratio: 1280 / 630; }
+:root[data-crop="crop"] [data-shot="04_effects"],
+:root[data-crop="crop"] [data-shot="05_writer"] { max-width: 30em; }
+/* 手順の横に置く：広い画面だけ、本文の右に図を並べる。 */
+@media (min-width: 1100px) {
+  :root[data-figure="beside"] .help-body section { max-width: none; display: grid; grid-template-columns: minmax(0, var(--measure)) minmax(0, 1fr); column-gap: 32px; align-items: start; }
+  :root[data-figure="beside"] .help-body section > * { grid-column: 1; }
+  :root[data-figure="beside"] .help-body section > .help-figure { grid-column: 2; grid-row: span 6; margin-top: 0; position: sticky; top: 16px; }
+  :root[data-figure="beside"] .help-body section > h2 { grid-column: 1 / -1; }
+}
+
+/* 目次 */
+.help-toc { margin: 0 0 32px; padding: 1em 1.2em; border: 1px solid var(--edge); border-radius: 8px; background: var(--soft); max-width: var(--measure); }
+.help-toc-title { margin: 0 0 .4em; color: var(--sub); font-size: .85em; font-weight: 700; }
+.help-toc ol { margin: 0; padding-left: 1.6em; columns: 2; column-gap: 2em; }
+.help-toc li { break-inside: avoid; }
+.help-toc a { text-decoration: none; }
+.help-toc a:hover { text-decoration: underline; }
+.help-toc-admin::after { content: "管理者"; margin-left: .5em; color: var(--warn); font-size: .75em; font-weight: 700; white-space: nowrap; }
+@media (min-width: 900px) {
+  :root[data-toc="side"] .help-page { display: grid; grid-template-columns: 236px minmax(0, 1fr); column-gap: 40px; }
+  :root[data-toc="side"] .help-title { grid-column: 1 / -1; }
+  :root[data-toc="side"] .help-toc { grid-column: 1; grid-row: 2; position: sticky; top: 16px; align-self: start; margin: 0; padding: .9em 1em; }
+  :root[data-toc="side"] .help-toc ol { columns: 1; padding-left: 1.4em; }
+  :root[data-toc="side"] .help-toc li + li { margin-top: .25em; }
+  :root[data-toc="side"] .help-body { grid-column: 2; grid-row: 2; }
+}
+:root[data-narrow] .help-page { display: block; padding: 24px 16px 80px; }
+:root[data-narrow] .help-toc { position: static; margin-bottom: 28px; }
+:root[data-narrow] .help-toc ol { columns: 1; }
+:root[data-narrow] .help-body section { display: block; }
+
+/* 試作の切り替え（本番には入らない） */
+.proto-panel { position: fixed; right: 12px; bottom: 12px; z-index: 10; display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--control); border-radius: 8px; background: #fffffff0; box-shadow: 0 6px 20px #0f172a26; font-size: 12px; line-height: 1.4; }
+.proto-panel label { display: grid; gap: 2px; color: var(--sub); }
+.proto-panel summary { cursor: pointer; font-weight: 700; }
+.proto-panel details[open] summary { margin-bottom: 6px; }
+.proto-panel details > div { display: grid; gap: 6px; }
+.proto-panel select { font: inherit; padding: 2px 4px; }
+@media print { .proto-panel { display: none; } }

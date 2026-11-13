@@ -1,0 +1,221 @@
+<!-- 管理画面の使い方ページの本文の下書き（計画60 §5.20 の試作）。見出し・本文・図だけを書き、見た目は build.mjs の案ごとの CSS で決める。 -->
+<header class="help-title">
+  <p class="help-kicker">ジェムリアTRPG ダイスボット</p>
+  <h1>マスターデータ管理画面の使い方</h1>
+  <p class="help-lead">スキル・バフ・用語などのマスターデータを、アプリの中で作り、確かめてもらって公開するための画面です。この使い方では、やりたいことごとに手順を説明します。</p>
+</header>
+
+<nav class="help-toc" aria-label="目次">
+  <p class="help-toc-title">目次</p>
+  <ol>
+    <li><a href="#start">はじめに</a></li>
+    <li><a href="#browse">データを探す</a></li>
+    <li><a href="#edit">データを直す</a></li>
+    <li><a href="#new-skill">スキルを作る</a></li>
+    <li><a href="#text">文章と効果をそろえる</a></li>
+    <li><a href="#request">効果を頼む</a></li>
+    <li><a href="#withdraw">取り下げと却下</a></li>
+    <li class="help-toc-admin"><a href="#approve">承認する</a></li>
+    <li class="help-toc-admin"><a href="#deprecate">廃止と版の戻し</a></li>
+    <li class="help-toc-admin"><a href="#answer">リクエストに答える</a></li>
+    <li><a href="#appendix">付録</a></li>
+  </ol>
+</nav>
+
+<main class="help-body">
+
+<section id="start">
+  <h2><span class="help-num">1</span>はじめに</h2>
+  <p>マスターデータ管理画面は、ロビーの<b class="ui">マスターデータ</b>から開きます。用語・バフ・スキル・アイテム・特殊パッシブ・輝化スキル・召喚テンプレートの7種類を、ここで見て、直して、公開します。</p>
+
+  <h3>できることと役割</h3>
+  <p>できることは、アカウントの役割で変わります。役割はアプリ管理者が付けます。</p>
+  <table>
+    <thead><tr><th>役割</th><th>できること</th></tr></thead>
+    <tbody>
+      <tr><th>一般</th><td>公開中と廃止のデータを見る</td></tr>
+      <tr><th>制作者</th><td>下書きを作って直し、承認を申請する。作れない効果を頼む</td></tr>
+      <tr><th>アプリ管理者</th><td>申請を承認・却下する。データを廃止する、前の版に戻す。リクエストに答える</td></tr>
+    </tbody>
+  </table>
+  <p>このページの<span class="help-role">管理者</span>の印が付いた節は、アプリ管理者だけが使う操作です。</p>
+
+  <h3>公開までの流れ</h3>
+  <p>直した内容は、すぐにはゲームに出ません。<b>下書き</b>として保存し、<b>承認を申請</b>して、アプリ管理者が<b>承認</b>したときに公開されます。却下されたときは、理由を読んで直し、申請し直します。</p>
+  <ol class="help-flow" aria-label="公開までの流れ">
+    <li><span class="help-state">下書き</span><small>制作者が保存</small></li>
+    <li><span class="help-state">承認待ち</span><small>制作者が申請</small></li>
+    <li><span class="help-state">公開中</span><small>管理者が承認</small></li>
+  </ol>
+  <p>公開すると、遊んでいるルームにもすぐに反映されます。</p>
+</section>
+
+<section id="browse">
+  <h2><span class="help-num">2</span>データを探す</h2>
+  <p>上の<b class="ui">種類のタブ</b>で種類を選び、検索と状態で一覧を絞ります。一覧で選んだデータの中身は、右の詳細に出ます。</p>
+  <figure class="help-figure" data-shot="01_browse">
+    <img src="shots/01_browse.png" alt="管理画面の全体。上に種類のタブ、その下に検索と状態、左に一覧、右に詳細">
+    <figcaption><span class="help-fig-no">図2-1</span>管理画面の全体。上から種類のタブ、検索と状態、一覧と詳細が並びます。</figcaption>
+  </figure>
+  <ol class="help-steps">
+    <li><b class="ui">種類のタブ</b>で、見たい種類を選びます。タブの数字は公開中の件数です。</li>
+    <li>検索の欄に ID・名前・説明の一部を入れると、一覧が絞られます。</li>
+    <li>状態のボタン（<b class="ui">公開中</b>・<b class="ui">廃止</b>・<b class="ui">下書き</b>・<b class="ui">承認待ち</b>・<b class="ui">却下</b>）で、見る状態を切り替えます。下書きから先は制作者にだけ出ます。</li>
+    <li>一覧のカードを選ぶと、右に詳細が出ます。詳細の下の<b class="ui">使われている所</b>と<b class="ui">履歴</b>は、押すと開きます。</li>
+  </ol>
+
+  <h3>スキルの画面</h3>
+  <p>スキルは件数が多いので、専用の画面で探します。<b class="ui">スキル</b>のタブを押すと、左にカテゴリの列が出ます。カテゴリの数字は、今の検索と状態に合う件数です。<b class="ui">← マスターデータ</b>で、前に見ていた種類に戻ります。</p>
+  <figure class="help-figure" data-shot="02_skill">
+    <img src="shots/02_skill.png" alt="スキルの画面。左にカテゴリの列、真ん中に一覧、右に詳細">
+    <figcaption><span class="help-fig-no">図2-2</span>スキルの画面。詳細には、ゲームでの見え方・威力の見込み・効果の説明が並びます。</figcaption>
+  </figure>
+  <h3>威力の見込み</h3>
+  <p>スキルの詳細には<b class="ui">威力の見込み</b>が出ます。補正なしで、自分のほかの値はすべて0、相手はいないとして計算した最小・平均・最大です。<b class="ui">補正を適用</b>を入れると、チャットパレットが使う補正の値を入れて計算し直せます。入れた値はこのブラウザーが覚え、ほかのスキルでも同じ値を使います。</p>
+</section>
+
+<section id="edit">
+  <h2><span class="help-num">3</span>データを直す</h2>
+  <p class="help-pre"><span>前提</span>制作者の役割が要ります。</p>
+  <ol class="help-steps">
+    <li>直したいデータを選び、詳細の<b class="ui">編集</b>を押します。公開中のデータを直すときは、下書きが作られ、その上で直します。</li>
+    <li>左の目次で節を選び、真ん中の欄を直します。右には、直した内容のプレビューと、検査で見つかった問題が出ます。</li>
+    <li>直し終わったら、下の<b class="ui">下書きを保存</b>を押します。続けて申請するなら<b class="ui">承認を申請</b>を押します。</li>
+  </ol>
+  <figure class="help-figure" data-shot="03_editor">
+    <img src="shots/03_editor.png" alt="編集の画面。左に節の目次、真ん中に入力、右にプレビュー、下に保存と申請のボタン">
+    <figcaption><span class="help-fig-no">図3-1</span>編集の画面。左の目次で節を選び、真ん中で直し、右で結果を確かめます。</figcaption>
+  </figure>
+  <p class="help-result"><span>結果</span>保存すると、一覧の状態が<b>下書き</b>になります。申請すると<b>承認待ち</b>になり、アプリ管理者の承認を待ちます。</p>
+  <dl class="help-trouble">
+    <dt>節を移ると、入力が消えないか心配</dt>
+    <dd>節を移るだけでは保存されませんが、入力と問題は残っています。上の帯の<b>編集中・未保存</b>は、保存していない変更がある印です。</dd>
+    <dt><b class="ui">← 戻る</b>を押したら「保存していない変更があります」と出た</dt>
+    <dd><b class="ui">下書きを保存して移る</b>で保存してから戻ります。捨ててよいときは<b class="ui">変更を捨てる</b>、続けるときは<b class="ui">編集に戻る</b>を押します。</dd>
+  </dl>
+</section>
+
+<section id="new-skill">
+  <h2><span class="help-num">4</span>スキルを作る</h2>
+  <p class="help-pre"><span>前提</span>制作者の役割が要ります。スキルの画面を開いておきます。</p>
+  <ol class="help-steps">
+    <li>上の<b class="ui">＋新しく作る</b>を押し、カテゴリを選んで<b class="ui">編集を始める</b>を押します。IDは、承認するときに次の番号が付きます。</li>
+    <li><b class="ui">本体</b>の節で、名前・分類・距離・属性・取得コスト・基礎威力・ダイス威力を入れます。ダイス威力は、<b class="ui">＋ 足す</b>か<b class="ui">− 引く</b>と、ダイスの数と面で選びます。振らないスキルは<b class="ui">振らない</b>に印を入れます。</li>
+    <li>チャットパレットの<b class="ui">項目から作る</b>を押すと、基礎威力・ダイス威力・分類からチャットパレットを作ります。</li>
+    <li><b class="ui">コスト</b>・<b class="ui">補正</b>・<b class="ui">効果</b>の節で、使用コスト・条件で増える威力・効果を設定します。効果は<b class="ui">効果を追加</b>で足し、効果タイプ・タイミング・対象を選びます。</li>
+    <li><b class="ui">文章</b>の節で<b class="ui">効果から文章を作る</b>を押し、ゲームの書き方の文章を作ります（<a href="#text">文章と効果をそろえる</a>）。</li>
+    <li>右のプレビューで、ゲームでの見え方と威力の見込みを確かめ、保存して申請します。</li>
+  </ol>
+  <figure class="help-figure" data-shot="04_effects">
+    <img src="shots/04_effects.png" alt="効果の節。効果ごとに、効果タイプ・タイミング・対象・値の欄が並ぶ">
+    <figcaption><span class="help-fig-no">図4-1</span>効果の節。効果タイプは系統ごとにまとまって並びます。</figcaption>
+  </figure>
+  <dl class="help-trouble">
+    <dt>チャットパレットの注意が出た</dt>
+    <dd>チャットパレットが、項目から作る式と違います。<b class="ui">項目から作る</b>で作り直します。補正を付けないスキルは、特記に印の文を書きます（<a href="#no-correction">補正を付けない印</a>）。</dd>
+    <dt>作りたい効果が、効果タイプに無い</dt>
+    <dd>効果のリクエストを出します（<a href="#request">効果を頼む</a>）。</dd>
+  </dl>
+</section>
+
+<section id="text">
+  <h2><span class="help-num">5</span>文章と効果をそろえる</h2>
+  <p>スキルには、遊ぶ人が読む<b>文章</b>（コスト・発動時効果・特記）と、ゲームが動かす<b>効果の設定</b>の2つがあります。2つが食い違わないように、文章から効果を作る道具と、効果から文章を作る道具があります。</p>
+  <table>
+    <thead><tr><th>使う場面</th><th>道具</th></tr></thead>
+    <tbody>
+      <tr><th>決まった言い回しで文章を書いた</th><td>目次の下の<b class="ui">文章から効果を作る</b>で、文章を読み取って効果の設定を作り直す</td></tr>
+      <tr><th>効果をフォームで組んだ</th><td><b class="ui">文章</b>の節の<b class="ui">効果から文章を作る</b>で、設定から文章を作る</td></tr>
+    </tbody>
+  </table>
+
+  <h3>効果から文章を作る</h3>
+  <ol class="help-steps">
+    <li><b class="ui">文章</b>の節を開き、<b class="ui">効果から文章を作る</b>を押します。</li>
+    <li>コスト・発動時効果・特記の欄ごとに、左に今の文章、右に効果から作った文章が並びます。違う文字には色が付きます。</li>
+    <li>置き換える欄の<b class="ui">作った文章に置き換える</b>を押します。違う欄をまとめて置き換えるときは<b class="ui">違う欄をすべて置き換える</b>を押します。</li>
+  </ol>
+  <figure class="help-figure" data-shot="05_writer">
+    <img src="shots/05_writer.png" alt="文章の節の見比べ。左に今の文章、右に作った文章が並び、違う数字に色が付いている">
+    <figcaption><span class="help-fig-no">図5-1</span>効果の出血を4から6に変えたあとの見比べ。違う文字に色が付きます。</figcaption>
+  </figure>
+  <p class="help-result"><span>結果</span>置き換えても保存はしません。保存するまでは元に戻せます。</p>
+  <p>文章と効果が食い違っているときは、<b class="ui">文章</b>の節の見出しの下に「文章と効果の設定が食い違っています」と出ます。申請は止まりませんが、出ているときは見比べて直します。文にできない設定があるときは、その一覧が出るので、その文だけは手で書きます。</p>
+</section>
+
+<section id="request">
+  <h2><span class="help-num">6</span>効果を頼む</h2>
+  <p>今の効果タイプで作れない効果は、アプリ管理者にリクエストとして頼みます。出したリクエストは、制作者の全員が見られます。</p>
+  <ol class="help-steps">
+    <li>頼みたい効果を使う下書きを、先に<b class="ui">下書きを保存</b>で保存します。</li>
+    <li><b class="ui">効果</b>の節の上の「作りたい効果がタイプに無いときは <b class="ui">リクエストを出す</b>」を押します。下書きをひもづけずに出すときは、見出しの<b class="ui">リクエスト</b>から<b class="ui">＋新しく出す</b>を押します。</li>
+    <li>題と欲しい効果を書きます。文の例と近い効果タイプは、分かれば書きます。</li>
+    <li><b class="ui">リクエストを出す</b>を押すと、編集の画面に戻ります。</li>
+  </ol>
+  <p class="help-result"><span>結果</span>見出しの<b class="ui">リクエスト</b>の件数が増え、下書きの上の帯に「効果のリクエスト：題（受付）」と出ます。</p>
+  <table>
+    <thead><tr><th>状態</th><th>意味</th></tr></thead>
+    <tbody>
+      <tr><th>受付</th><td>出したばかり。出した人は直したり取り下げたりできる</td></tr>
+      <tr><th>対応中</th><td>アプリ管理者が作っている</td></tr>
+      <tr><th>実装済み</th><td>効果タイプができた。使う効果タイプは管理者のメモにある</td></tr>
+      <tr><th>見送り</th><td>今は作らない。理由は管理者のメモにある</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="withdraw">
+  <h2><span class="help-num">7</span>取り下げと却下</h2>
+  <p>申請を取り下げるときは、編集の画面の<b class="ui">その他 ▾</b>から<b class="ui">取り下げ</b>を押します。取り下げると下書きは消え、公開中の版はそのまま残ります。</p>
+  <p>却下されたときは、詳細に<b>却下の理由</b>が出ます。理由を読んで直し、もう一度<b class="ui">承認を申請</b>を押します。</p>
+</section>
+
+<section id="approve" class="help-admin">
+  <h2><span class="help-num">8</span>承認する<span class="help-role">管理者</span></h2>
+  <ol class="help-steps">
+    <li>見出しの<b class="ui">承認待ち</b>を押し、申請の一覧から1つ選びます。</li>
+    <li>変わった項目だけが、左に公開中の版、右に下書きで並びます。違う文字には色が付きます。変わっていない項目は<b class="ui">変わっていない項目も見る</b>で開きます。</li>
+    <li>よければ<b class="ui">承認して公開</b>を押します。新しいデータは、承認のときに正式IDが付きます。直してほしいときは<b class="ui">却下…</b>を押し、理由を書いて<b class="ui">却下する</b>を押します。</li>
+  </ol>
+  <figure class="help-figure" data-shot="06_review">
+    <img src="shots/06_review.png" alt="承認の画面。変わった項目が左右に並び、下に承認と却下のボタン">
+    <figcaption><span class="help-fig-no">図8-1</span>承認の画面。変わった項目だけを左右に並べます。</figcaption>
+  </figure>
+  <p class="help-result"><span>結果</span>承認すると公開中になり、遊んでいるルームにもすぐに反映されます。</p>
+</section>
+
+<section id="deprecate" class="help-admin">
+  <h2><span class="help-num">9</span>廃止と版の戻し<span class="help-role">管理者</span></h2>
+  <p>使わなくなったデータは、詳細の<b class="ui">廃止</b>で廃止します。廃止しても、すでにそのデータを使っている所の参照は残ります。<b class="ui">廃止を取り消す</b>で元に戻せます。</p>
+  <p>前の版に戻すときは、詳細の<b class="ui">履歴</b>を開き、戻したい版の<b class="ui">この版に戻す</b>を押します。その版の内容で、新しい版として公開し直します。</p>
+</section>
+
+<section id="answer" class="help-admin">
+  <h2><span class="help-num">10</span>リクエストに答える<span class="help-role">管理者</span></h2>
+  <ol class="help-steps">
+    <li>見出しの<b class="ui">リクエスト</b>を押し、一覧から1つ選びます。</li>
+    <li>詳細の下の<b>管理者の操作</b>で状態を選び、管理者のメモを書いて<b class="ui">状態とメモを保存</b>を押します。<b>実装済み</b>にするときは、使う効果タイプをメモに書きます。</li>
+  </ol>
+  <p>作るときは<b class="ui">依頼文としてコピー</b>を押すと、リクエストの中身・元の下書き・作り方をまとめた文がコピーされます。そのまま開発の依頼に使えます。</p>
+</section>
+
+<section id="appendix">
+  <h2><span class="help-num">付</span>付録</h2>
+  <h3>挿入の使い方</h3>
+  <p>文章の欄の名前の右にある<b class="ui">挿入 ▾</b>で、タイミングと用語を選んで入れられます。用語は <code>[[W-00|出血]]</code> のような形で入り、ゲームでは用語図鑑へのリンクになります。</p>
+  <h3>言い回しの早見表</h3>
+  <p>文章から効果を作るときに読める言い回しは、目次の下の<b class="ui">文章から効果を作る</b>の早見表にまとめています。コストは「([[W-19|使用時]]):FPを3消費」、効果は「([[W-20|的中時]]):出血4を付与」のように、タイミングを頭に付けて書きます。</p>
+  <h3 id="no-correction">補正を付けない印</h3>
+  <p>チャットパレットに物理補正・魔法補正を付けないスキルは、特記に「このスキルには物理補正を適用しない。」（魔法のスキルは「魔法補正」）と書きます。この文があると、チャットパレットの注意と<b class="ui">項目から作る</b>が、補正の項を付けない形になります。</p>
+  <h3>困ったとき</h3>
+  <dl class="help-trouble">
+    <dt>通信に失敗したと出た</dt>
+    <dd>入力は残っています。少し待ってから、同じ操作をもう一度行います。続くときは、見出しの<b class="ui">更新</b>を押します。</dd>
+    <dt>食い違いの知らせが消えない</dt>
+    <dd><b class="ui">効果から文章を作る</b>で見比べて、違う欄を置き換えます。文にできない設定がある文は、効果の設定に合うように手で直します。</dd>
+    <dt>ほかの人の公開で、一覧が古い</dt>
+    <dd>ほかの人が公開すると知らせが出て、一覧が読み直されます。編集中の入力はそのまま残ります。</dd>
+  </dl>
+</section>
+
+</main>
