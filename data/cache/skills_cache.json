@@ -2324,8 +2324,8 @@
     "基礎威力": "7",
     "属性": "斬撃",
     "特記": "",
-    "特記処理": "{\"schema\": \"skill_json_rule_v2\", \"id\": \"SKILL_Ps04\", \"power_bonus\": [], \"cost\": [{\"type\": \"FP\", \"value\": 3}], \"effects\": [{\"timing\": \"HIT\", \"type\": \"APPLY_STATE\", \"target\": \"target\", \"state_name\": \"出血\", \"value\": 4}, {\"timing\": \"HIT\", \"type\": \"USE_SKILL_AGAIN\", \"max_reuses\": 1, \"consume_cost\": false, \"condition\": {\"source\": \"self\", \"param\": \"速度値\", \"operator\": \"GTE\", \"value\": 8}}]}",
-    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]4を付与。自分の速度値が8以上なら、このスキルを[[W-58|再使用]]。(この効果による[[W-58|再使用]]は1ラウンドに1度まで)",
+    "特記処理": "{\"cost\": [{\"type\": \"FP\", \"value\": 3}], \"effects\": [{\"state_name\": \"出血\", \"target\": \"target\", \"timing\": \"HIT\", \"type\": \"APPLY_STATE\", \"value\": 4}, {\"condition\": {\"operator\": \"GTE\", \"param\": \"速度値\", \"source\": \"self\", \"value\": 8}, \"consume_cost\": false, \"max_reuses\": 1, \"timing\": \"HIT\", \"type\": \"USE_SKILL_AGAIN\"}], \"id\": \"SKILL_Ps04\", \"power_bonus\": [], \"schema\": \"skill_json_rule_v2\"}",
+    "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]4を付与。自分の速度値が8以上なら、このスキルを[[W-58|再使用]]。(この効果による[[W-58|再使用]]は1回まで)",
     "距離": "近接"
   },
   "Ps-05": {
