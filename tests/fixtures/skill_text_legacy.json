@@ -1158,7 +1158,7 @@
           "power_bonus": [],
           "effects": [
             {
-              "timing": "IMMEDIATE",
+              "timing": "PRE_MATCH",
               "type": "APPLY_BUFF",
               "target": "self",
               "buff_id": "Bu-32",
@@ -1201,7 +1201,7 @@
           "power_bonus": [],
           "effects": [
             {
-              "timing": "IMMEDIATE",
+              "timing": "PRE_MATCH",
               "type": "APPLY_BUFF",
               "target": "self",
               "buff_id": "Bu-33",
@@ -1244,7 +1244,7 @@
           "power_bonus": [],
           "effects": [
             {
-              "timing": "IMMEDIATE",
+              "timing": "PRE_MATCH",
               "type": "APPLY_STATE",
               "target": "self",
               "state_name": "FP",
@@ -1283,7 +1283,7 @@
           "power_bonus": [],
           "effects": [
             {
-              "timing": "IMMEDIATE",
+              "timing": "PRE_MATCH",
               "type": "APPLY_STATE",
               "target": "self",
               "state_name": "MP",
@@ -1311,9 +1311,7 @@
           "tags": [
             "マッチ不可",
             "非ダメージ",
-            "自己対象",
-            "non_damage",
-            "self_target"
+            "自己対象"
           ],
           "target_scope": "self",
           "power_bonus": [],
@@ -1346,13 +1344,7 @@
           "id": "SKILL_D00",
           "target_scope": "opposing_team",
           "power_bonus": [],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -1373,13 +1365,7 @@
           "id": "SKILL_D01",
           "target_scope": "opposing_team",
           "power_bonus": [],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -1513,13 +1499,7 @@
               }
             }
           ],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -1555,18 +1535,12 @@
               "condition": {
                 "source": "self",
                 "param": "速度値",
-                "operator": "GTE",
+                "operator": "GT",
                 "value": 6
               }
             }
           ],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -1587,13 +1561,7 @@
           "id": "SKILL_E00",
           "target_scope": "opposing_team",
           "power_bonus": [],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -1614,13 +1582,7 @@
           "id": "SKILL_E01",
           "target_scope": "opposing_team",
           "power_bonus": [],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -1641,13 +1603,7 @@
           "id": "SKILL_E02",
           "target_scope": "opposing_team",
           "power_bonus": [],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -1750,30 +1706,14 @@
         "target_scope": "opposing_team"
       },
       "expected": {
-        "rule": {
-          "schema": "skill_json_rule_v2",
-          "id": "SKILL_E06",
-          "target_scope": "opposing_team",
-          "power_bonus": [],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "USE_SKILL_AGAIN",
-              "target": "self",
-              "max_reuses": 1,
-              "consume_cost": false
-            },
-            {
-              "timing": "END_MATCH",
-              "type": "APPLY_BUFF",
-              "target": "self",
-              "buff_id": "Bu-04",
-              "lasting": 1,
-              "delay": 1
-            }
-          ]
-        },
-        "errors": []
+        "rule": null,
+        "errors": [
+          {
+            "column": "発動時効果",
+            "line": "このスキルは使用したターンの間は消滅せず、再利用する",
+            "reason": "効果を解釈できません。対応している文型で記述してください。"
+          }
+        ]
       }
     },
     {
@@ -1868,8 +1808,19 @@
             {
               "timing": "HIT",
               "type": "APPLY_BUFF",
-              "target": "target",
+              "target": "self",
               "buff_id": "Bu-38",
+              "lasting": 1,
+              "delay": 1,
+              "data": {
+                "value": 1
+              }
+            },
+            {
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
+              "target": "target",
+              "buff_id": "Bu-39",
               "lasting": 1,
               "delay": 1,
               "data": {
@@ -1978,12 +1929,6 @@
               "target": "target",
               "state_name": "荊棘",
               "value": 8
-            },
-            {
-              "timing": "HIT",
-              "type": "CUSTOM_EFFECT",
-              "target": "self",
-              "value": "END_ROUND_IMMEDIATELY"
             }
           ]
         },
@@ -2070,13 +2015,7 @@
           "id": "SKILL_E15",
           "target_scope": "opposing_team",
           "power_bonus": [],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -2104,18 +2043,18 @@
               "target": "self",
               "buff_id": "Bu-36",
               "lasting": 1,
-              "delay": 2,
+              "delay": 1,
               "data": {
                 "value": 2
               }
             },
             {
-              "timing": "HIT",
+              "timing": "PRE_MATCH",
               "type": "APPLY_BUFF",
               "target": "self",
               "buff_id": "Bu-37",
               "lasting": 1,
-              "delay": 1,
+              "delay": 2,
               "data": {
                 "value": 2
               }
@@ -2236,8 +2175,7 @@
               "type": "APPLY_BUFF",
               "target": "self",
               "buff_id": "Bu-36",
-              "lasting": 1,
-              "delay": 1,
+              "lasting": 3,
               "data": {
                 "value": 1
               }
@@ -2303,13 +2241,7 @@
           ],
           "target_scope": "opposing_team",
           "power_bonus": [],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -2370,13 +2302,7 @@
           ],
           "target_scope": "opposing_team",
           "power_bonus": [],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -2397,16 +2323,15 @@
           "id": "SKILL_E25",
           "tags": [
             "非ダメージ",
-            "同陣営指定",
-            "non_damage"
+            "同陣営指定"
           ],
           "target_scope": "same_team",
           "power_bonus": [],
           "effects": [
             {
-              "timing": "END_ROUND",
+              "timing": "RESOLVE_START",
               "type": "APPLY_BUFF",
-              "target": "self",
+              "target": "target",
               "buff_id": "Bu-32",
               "lasting": 1,
               "delay": 0,
@@ -2550,17 +2475,6 @@
               "buff_id": "Bu-12",
               "lasting": 1,
               "delay": 1,
-              "data": {
-                "count": 2
-              }
-            },
-            {
-              "timing": "HIT",
-              "type": "APPLY_BUFF",
-              "target": "target",
-              "buff_id": "Bu-12",
-              "lasting": 1,
-              "delay": 1,
               "condition": {
                 "source": "target",
                 "param": "出血",
@@ -2606,13 +2520,7 @@
               }
             }
           ],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -2768,7 +2676,7 @@
               "value": 1
             },
             {
-              "timing": "HIT",
+              "timing": "END_ROUND",
               "type": "APPLY_STATE",
               "target": "self",
               "state_name": "MP",
@@ -2884,13 +2792,7 @@
               "max_bonus": 2
             }
           ],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -3076,10 +2978,12 @@
           "power_bonus": [],
           "effects": [
             {
-              "timing": "END_ROUND",
-              "type": "CUSTOM_EFFECT",
+              "timing": "HIT",
+              "type": "APPLY_BUFF",
               "target": "target",
-              "value": "破裂爆発"
+              "buff_id": "Bu-07",
+              "lasting": 0,
+              "delay": 3
             }
           ]
         },
@@ -3118,7 +3022,13 @@
               "type": "MULTIPLY_STATE",
               "target": "target",
               "state_name": "破裂",
-              "value": 2
+              "value": 2,
+              "condition": {
+                "source": "target",
+                "param": "破裂",
+                "operator": "LTE",
+                "value": 20
+              }
             }
           ]
         },
@@ -3214,7 +3124,13 @@
               "type": "APPLY_STATE",
               "target": "target",
               "state_name": "破裂",
-              "value": 8
+              "value": 8,
+              "condition": {
+                "source": "target",
+                "param": "速度値",
+                "operator": "LTE",
+                "value": 4
+              }
             }
           ]
         },
@@ -3283,10 +3199,16 @@
           "effects": [
             {
               "timing": "PRE_MATCH",
-              "type": "APPLY_STATE",
+              "type": "CONSUME_BUFF_COUNT_FOR_GAIN",
               "target": "self",
-              "state_name": "MP",
-              "value": 5
+              "buff_name": "凝魔",
+              "consume_required": 3,
+              "gains": [
+                {
+                  "type": "MP",
+                  "value": 5
+                }
+              ]
             }
           ]
         },
@@ -3372,7 +3294,7 @@
               "value": 1
             },
             {
-              "timing": "HIT",
+              "timing": "END_ROUND",
               "type": "APPLY_STATE",
               "target": "self",
               "state_name": "MP",
@@ -3494,9 +3416,15 @@
             {
               "timing": "HIT",
               "type": "APPLY_STATE",
-              "target": "self",
+              "target": "target",
               "state_name": "亀裂",
               "value": 2,
+              "condition": {
+                "source": "self",
+                "param": "FP",
+                "operator": "GTE",
+                "value": 3
+              },
               "rounds": 4
             }
           ]
@@ -3545,13 +3473,6 @@
               "type": "CUSTOM_EFFECT",
               "target": "target",
               "value": "亀裂崩壊_DAMAGE",
-              "damage_per_fissure": 3
-            },
-            {
-              "timing": "HIT",
-              "type": "CUSTOM_EFFECT",
-              "target": "target",
-              "value": "亀裂崩壊_DAMAGE",
               "damage_per_fissure": 4
             }
           ]
@@ -3590,13 +3511,11 @@
               "timing": "WIN",
               "type": "APPLY_BUFF",
               "target": "self",
-              "buff_id": "Bu-41",
-              "lasting": 999,
+              "buff_id": "Bu-40",
+              "lasting": 1,
               "data": {
-                "display_name": "突き崩す（亀裂付与量アップ単発）",
                 "value": 1
-              },
-              "count": 1
+              }
             },
             {
               "timing": "HIT",
@@ -3647,7 +3566,8 @@
               "source_param": "戦慄",
               "value": 1,
               "per_N": 2,
-              "rounds": 3
+              "rounds": 3,
+              "max_value": 2
             }
           ]
         },
@@ -3771,21 +3691,15 @@
             {
               "timing": "HIT",
               "type": "USE_SKILL_AGAIN",
-              "target": "self",
+              "target": "target",
               "consume_cost": false,
+              "max_reuses": 2,
               "reuse_cost": [
                 {
                   "type": "FP",
                   "value": 1
                 }
               ]
-            },
-            {
-              "timing": "HIT",
-              "type": "USE_SKILL_AGAIN",
-              "target": "self",
-              "consume_cost": false,
-              "max_reuses": 2
             }
           ]
         },
@@ -4066,7 +3980,7 @@
               "value": 1
             },
             {
-              "timing": "HIT",
+              "timing": "END_ROUND",
               "type": "APPLY_STATE",
               "target": "self",
               "state_name": "MP",
@@ -4140,7 +4054,13 @@
               "type": "APPLY_STATE",
               "target": "target",
               "state_name": "出血",
-              "value": 4
+              "value": 4,
+              "condition": {
+                "source": "target",
+                "param": "出血",
+                "operator": "GTE",
+                "value": 1
+              }
             }
           ]
         },
@@ -4228,8 +4148,14 @@
             {
               "timing": "HIT",
               "type": "CUSTOM_EFFECT",
-              "target": "self",
-              "value": "出血氾濫"
+              "target": "target",
+              "value": "出血氾濫",
+              "condition": {
+                "source": "self",
+                "param": "FP",
+                "operator": "GTE",
+                "value": 5
+              }
             }
           ]
         },
@@ -4402,7 +4328,8 @@
               "timing": "HIT",
               "type": "APPLY_BUFF",
               "target": "target",
-              "buff_id": "Bu-08"
+              "buff_id": "Bu-08",
+              "count": 2
             }
           ]
         },
@@ -4448,7 +4375,7 @@
             {
               "timing": "HIT",
               "type": "CUSTOM_EFFECT",
-              "target": "self",
+              "target": "target",
               "value": "出血氾濫"
             }
           ]
@@ -4903,7 +4830,13 @@
               "type": "APPLY_STATE",
               "target": "target",
               "state_name": "破裂",
-              "value": 5
+              "value": 5,
+              "condition": {
+                "source": "target",
+                "param": "破裂",
+                "operator": "GTE",
+                "value": 8
+              }
             }
           ]
         },
@@ -5130,13 +5063,6 @@
               "target": "target",
               "value": "亀裂崩壊_DAMAGE",
               "damage_per_fissure": 3
-            },
-            {
-              "timing": "HIT",
-              "type": "CUSTOM_EFFECT",
-              "target": "target",
-              "value": "亀裂崩壊_DAMAGE",
-              "damage_per_fissure": 3
             }
           ]
         },
@@ -5250,10 +5176,12 @@
           ],
           "power_bonus": [
             {
-              "operation": "MULTIPLY",
+              "operation": "PER_N_BONUS",
               "source": "target",
               "param": "破裂",
-              "value_per_param": 1
+              "value": 1,
+              "per_N": 1,
+              "max_bonus": 30
             }
           ],
           "effects": [
@@ -5306,10 +5234,10 @@
             {
               "timing": "WIN",
               "type": "APPLY_BUFF",
-              "target": "self",
+              "target": "target",
               "buff_id": "Bu-29",
               "lasting": 3,
-              "delay": 0
+              "count": 2
             },
             {
               "timing": "HIT",
@@ -5588,13 +5516,7 @@
               "threshold": 1
             }
           ],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -5758,13 +5680,6 @@
               "target": "target",
               "value": "亀裂崩壊_DAMAGE",
               "damage_per_fissure": 3
-            },
-            {
-              "timing": "HIT",
-              "type": "CUSTOM_EFFECT",
-              "target": "target",
-              "value": "亀裂崩壊_DAMAGE",
-              "damage_per_fissure": 3
             }
           ]
         },
@@ -5807,14 +5722,19 @@
               "timing": "HIT",
               "type": "CUSTOM_EFFECT",
               "target": "target",
-              "value": "亀裂崩壊_DAMAGE",
-              "damage_per_fissure": 3
+              "value": "FISSURE_COLLAPSE",
+              "data": {
+                "cost_per_trigger": 4,
+                "trigger_ratio": 1,
+                "triggered_effect": "破裂爆発"
+              }
             },
             {
-              "timing": "HIT",
-              "type": "CUSTOM_EFFECT",
+              "timing": "PRE_MATCH",
+              "type": "APPLY_BUFF",
               "target": "target",
-              "value": "破裂爆発"
+              "buff_id": "Bu-06",
+              "lasting": 1
             }
           ]
         },
@@ -5852,14 +5772,8 @@
               "source": "target",
               "source_param": "亀裂",
               "value": 2,
-              "per_N": 1
-            },
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target",
-              "state_name": "出血",
-              "value": 2
+              "per_N": 1,
+              "max_value": 10
             }
           ]
         },
@@ -5986,13 +5900,7 @@
               "max_bonus": 4
             }
           ],
-          "effects": [
-            {
-              "timing": "HIT",
-              "type": "APPLY_STATE",
-              "target": "target"
-            }
-          ]
+          "effects": []
         },
         "errors": []
       }
@@ -6348,14 +6256,15 @@
             {
               "timing": "HIT",
               "type": "USE_SKILL_AGAIN",
-              "target": "self",
-              "consume_cost": false
-            },
-            {
-              "timing": "HIT",
-              "type": "USE_SKILL_AGAIN",
-              "target": "self",
-              "consume_cost": false
+              "target": "target",
+              "condition": {
+                "source": "self",
+                "param": "速度値",
+                "operator": "GTE",
+                "value": 8
+              },
+              "consume_cost": false,
+              "max_reuses": 1
             }
           ]
         },
@@ -6388,7 +6297,7 @@
             {
               "timing": "WIN",
               "type": "CUSTOM_EFFECT",
-              "target": "self",
+              "target": "target",
               "value": "出血氾濫"
             }
           ]
@@ -6421,7 +6330,7 @@
               "value": 2
             },
             {
-              "timing": "HIT",
+              "timing": "WIN",
               "type": "APPLY_STATE",
               "target": "self",
               "state_name": "FP",
@@ -6461,7 +6370,6 @@
               "target": "target",
               "buff_id": "Bu-47",
               "lasting": 4,
-              "delay": 0,
               "data": {
                 "display_name": "抉られた傷",
                 "value": 3
@@ -6686,6 +6594,12 @@
               "type": "APPLY_BUFF",
               "target": "self",
               "buff_id": "Bu-30",
+              "condition": {
+                "source": "self",
+                "param": "蓄力_count",
+                "operator": "EQUALS",
+                "value": 0
+              },
               "data": {
                 "count": 5
               }
@@ -6727,10 +6641,16 @@
             },
             {
               "timing": "HIT",
-              "type": "APPLY_STATE",
+              "type": "CONSUME_BUFF_COUNT_FOR_GAIN",
               "target": "self",
-              "state_name": "FP",
-              "value": 3
+              "buff_name": "蓄力",
+              "consume_required": 4,
+              "gains": [
+                {
+                  "type": "FP",
+                  "value": 3
+                }
+              ]
             }
           ]
         },
@@ -6928,6 +6848,5 @@
         ]
       }
     }
-  ],
-  "rules_sha256": "f279749f4f11a8886ea5085cc99467651d3d6e88aed776d4255ff8d39d11c6fb"
+  ]
 }

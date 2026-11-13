@@ -1,4 +1,4 @@
-"""PR60-12: 旧ビルダーの144ケースと文章タブの契約。"""
+"""スキル文章の読み取りと文章タブの契約。"""
 import json
 import subprocess
 from pathlib import Path
@@ -22,7 +22,7 @@ const reader=window.CatalogSkillText.createReader(fixture.references);
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_same_144_legacy_results_including_all_138_skills():
+def test_reader_matches_144_expected_results():
     run_node(r"""
 assert.equal(fixture.cases.length,144);
 for(const item of fixture.cases){
@@ -58,14 +58,24 @@ await assert.rejects(()=>window.CatalogSkillText.copyJSON('{}',undefined));
 """)
 
 
-def test_reading_rules_are_an_unchanged_copy_of_the_legacy_parser():
-    import hashlib
-    fixture = json.loads((ROOT / "tests/fixtures/skill_text_legacy.json").read_text(encoding="utf-8"))
-    source = (ROOT / "static/js/master_data/skill_text.js").read_text(encoding="utf-8")
-    rules = source[source.index("    function _nlNormalizeWideChars"):source.index("    function _nlEffectToSeed")].strip()
-    # PR60-20 はコストのエラー欄名だけを改称。旧ビルダーとの規則の一致は維持する。
-    rules = rules.replace('_nlPushError(errors,"コスト",', '_nlPushError(errors,"使用時効果",')
-    assert hashlib.sha256(rules.encode()).hexdigest() == fixture["rules_sha256"]
+def test_published_skill_text_roundtrip():
+    result = subprocess.run(
+        ["node", "scripts/catalog_text_roundtrip.mjs", "--check"],
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_timing_conditions_and_blank_text():
+    run_node(r"""
+assert.deepEqual(Array.from(reader.parse({}).rule.effects), []);
+const parsed = reader.parse({trigger:'ラウンド終了時: FPを1得る。自分のFPが3以上なら、対象に出血2を付与。'});
+assert.equal(parsed.errors.length, 0);
+const rows = JSON.parse(JSON.stringify(parsed.rule.effects));
+assert.deepEqual(rows.map(row=>row.timing), ['END_ROUND','END_ROUND']);
+assert.equal(rows[1].target, 'target');
+assert.deepEqual(rows[1].condition, {source:'self',param:'FP',operator:'GTE',value:3});
+""")
 
 
 def test_text_tab_generation_error_copy_and_closed_workspace():

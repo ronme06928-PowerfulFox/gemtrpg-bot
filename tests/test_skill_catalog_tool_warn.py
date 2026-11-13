@@ -16,7 +16,7 @@ def _rule(effects=None, cost=None, power_bonus=None):
 def test_warn_catalog_is_quiet_on_real_cache_except_known_findings():
     """現行133件に対する既知の妥当な逸脱のみが残ること（回帰）。
 
-    F02の主要確定調整レコード（Mp-08/Ps-13）はallowlistで抑制済み、
+    F02の主要確定調整レコード（Mp-08/Ps-13/Pb-10のFP4）はallowlistで抑制済み、
     Ms-09はF02記載の既知例外として抑制済み、power_bonus/条件付き加算を持つ
     スキル（Pb-10/Ms-06）は判定対象外。Ms-04の出血8のみ未レビューの実逸脱として残る。
     """
@@ -26,7 +26,7 @@ def test_warn_catalog_is_quiet_on_real_cache_except_known_findings():
     assert "Mp-08" not in ids, "Mp-08 はF02承認済み調整のためallowlistで抑制されるはず"
     assert "Ps-13" not in ids, "Ps-13 はF02承認済み調整のためallowlistで抑制されるはず"
     assert "Ms-09" not in ids, "Ms-09 はF02記載の既知例外のためallowlistで抑制されるはず"
-    assert "Pb-10" not in ids, "power_bonusを持つスキルはpower_stage判定対象外のはず"
+    assert "Pb-10" not in ids, "power_bonusを持つスキルはpower_stage判定対象外、FP4はF02承認済みでallowlistのはず"
     assert "Ms-06" not in ids, "条件付きDAMAGE_BONUSを持つスキルはpower_stage判定対象外のはず"
     assert any(w["skill_id"] == "Ms-04" for w in warnings), "Ms-04 の出血8は未レビューの実逸脱として残るはず"
 

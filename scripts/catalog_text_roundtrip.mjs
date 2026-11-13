@@ -47,8 +47,8 @@ function meaning(rule) {
     const row = { ...effect };
     if (row.stat === row.state_name) delete row.stat;
     delete row.flavor;
-    if (row.timing === 'IMMEDIATE') row.timing = 'PRE_MATCH';
-    if (row.type === 'CUSTOM_EFFECT' && row.target === 'target') delete row.target;
+    if (row.target === 'target') delete row.target;
+    if (row.type === 'USE_SKILL_AGAIN' && row.max_reuses === 1) delete row.max_reuses;
     if (row.delay === 0) delete row.delay;
     if (row.lasting === -1) delete row.lasting;
     if (row.data && typeof row.data === 'object') {
@@ -59,12 +59,25 @@ function meaning(rule) {
     }
     return row;
   });
+  // 戦闘はタイミングごとに効果を処理する。同じタイミングの順序は保つ。
+  copy.effects.sort((a, b) => String(a.timing).localeCompare(String(b.timing)));
   copy.power_bonus = (copy.power_bonus || []).map(bonus => {
     const row = { ...bonus };
+    row.operation = row.operation ?? row.operator ?? 'FIXED';
+    delete row.operator;
+    const condition = row.condition;
+    if (row.operation === 'FIXED_IF_EXISTS' && !condition && row.source && row.param) {
+      row.condition = {source: row.source, param: row.param, operator: 'GTE', value: row.threshold ?? 1};
+      row.operation = 'FIXED';
+      delete row.source;
+      delete row.param;
+      delete row.threshold;
+    }
     if (row.threshold === 1) delete row.threshold;
     if (row.apply_to === 'base') delete row.apply_to;
     return row;
   });
+  if (copy.tags) copy.tags.sort();
   return { rule: copy, blanks };
 }
 

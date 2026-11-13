@@ -1,5 +1,5 @@
 (function () {
-  // 読み取り規則は旧ビルダーから移植。補正なしの定型文は読み取りの前に除く。
+  // 補正なしの定型文は読み取りの前に除く。
   function createReader(references = {}) {
     const REF = references;
     const LINK_REF_CACHE = {
@@ -18,9 +18,9 @@
     const NL_TIMING_ALIASES = [
       { key: "マッチ勝利時", timing: "WIN" },
       { key: "マッチ敗北時", timing: "LOSE" },
-      { key: "戦闘開始時", timing: "BATTLE_START" },
+      { key: "戦闘開始時", timing: "RESOLVE_START" },
       { key: "解決フェーズ開始時", timing: "RESOLVE_START" },
-      { key: "即時発動", timing: "IMMEDIATE" },
+      { key: "即時発動", timing: "PRE_MATCH" },
       { key: "一方攻撃時", timing: "UNOPPOSED" }
     ];
 
@@ -64,13 +64,12 @@
     }
     function _nlCleanLine(raw){
       let s=_nlNormalizeWideChars(_normalizeGlossaryMarkup(String(raw||"").trim()));
-      s=s.replace(/[【】]/g,"");
+      s=s.replace(/[【】]/g,"").replace(/（/g,"(").replace(/）/g,")");
       s=s.replace(/\s+/g," ");
       return s.trim();
     }
     function _nlSplitLines(rawText){
-      let text=String(rawText||"").replace(/\r\n/g,"\n");
-      text=text.replace(/。\s*([（(]\s*最大(?:で)?\s*\d+\s*[）)])/g,"$1");
+      const text=String(rawText||"").replace(/\r\n/g,"\n");
       if(!text.trim()) return { lines: [], errors: [] };
       const errors=[];
       if(text.includes("／")){
@@ -84,22 +83,33 @@
     }
     function _nlExtractTiming(sentence){
       const ng=_nlContainsForbiddenTimingWord(sentence);
-      if(ng){
-        return { error: `禁止語彙 '${ng}' を検出しました。'的中時' を使用してください。` };
-      }
-      let hit=null;
-      const rows=[...NL_TIMING_ALIASES, ...NL_TIMING_MAP].sort((a,b)=>b.key.length-a.key.length);
-      const src=String(sentence||"");
-      for(const row of rows){
-        if(src.includes(row.key)){ hit=row; break; }
-      }
-      if(!hit) return { error: "timing語彙が見つかりません（使用時/的中時/勝利時/敗北時/ラウンド終了時/マッチ終了時/戦闘開始時/即時発動）" };
-      const i=src.indexOf(hit.key);
-      let body=src.slice(i+hit.key.length);
-      body=body.replace(/^[\]\)）】〉>\s:：-]+/,"").trim();
-      body=_nlCleanLine(body);
-      if(!body) return { error: `timing '${hit.key}' の後に効果本文がありません` };
-      return { timing: hit.timing, timingLabel: hit.key, body };
+      if(ng) return { error: '禁止語彙 ' + "'" + ng + "' を検出しました。'的中時' を使用してください。" };
+      const src=String(sentence||"").trim();
+      const start=src.replace(/^\(+\s*/,"");
+      const hit=[...NL_TIMING_ALIASES, ...NL_TIMING_MAP].find(row=>start.startsWith(row.key));
+      if(!hit) return {};
+      const body=_nlCleanLine(src.slice(src.indexOf(hit.key)+hit.key.length).replace(/^[\]\)\s:：-]+/,""));
+      if(!body) return { error: "timing '" + hit.key + "' の後に効果本文がありません" };
+      return { timing: hit.timing, body };
+    }
+
+    function _nlComparison(word){
+      if(word==="以下") return "LTE";
+      if(/より(?:高い|大きい)/.test(word)) return "GT";
+      if(/未満|より(?:低い|小さい)|以上ない/.test(word)) return "LT";
+      return "GTE";
+    }
+
+    function _nlLeadingCondition(body){
+      const match=body.match(/^(自分|自身|対象|相手)(?:の|に)(?:(?:このラウンド(?:の|における)))?(速度値|FP|MP|HP|出血|破裂|亀裂|戦慄|荊棘|蓄力|凝魔)(?:威力)?が\s*(?:(\d+)\s*(以上ない|以上(?:ある)?|以下|未満|より高い|より大きい|より低い|より小さい)|(ある|ない))なら[、,，]?\s*(.+)$/);
+      if(!match) return {body};
+      const [,who,param,value,comparison,exists,rest]=match;
+      return {body:rest, condition:{
+        source:/自分|自身/.test(who) ? "self" : "target",
+        param:/蓄力|凝魔/.test(param) ? param+"_count" : param,
+        operator:exists==="ない" ? "EQUALS" : _nlComparison(comparison || ""),
+        value:exists==="ない" ? 0 : exists==="ある" ? 1 : Number(value)
+      }};
     }
     function _nlPushError(list,column,line,reason){
       list.push({ column, line, reason });
@@ -145,7 +155,7 @@
         "出血遷延":"Bu-08",
         "蓄力":"Bu-30",
         "凝魔":"Bu-31",
-        "震盪":"Bu-64"
+        "震盪":"Bu-29"
       };
       return String(fallback[name]||"");
     }
@@ -183,23 +193,16 @@
       if(!names.length) return "";
       return `状態異常スタック合計:${names.join(",")}`;
     }
-    function _nlParseTriggerLine(rawLine, errors, columnName, allowImplicitTiming=true){
-      if(/^\d+\s*ラウンド継続$/.test(String(rawLine||"").trim())) return [];
-      if(/^\(最大(?:で)?\s*\d+\)?$/.test(String(rawLine||"").trim())) return [];
-      if(/この効果で付与されたスキルは\d+回まで使用可能/.test(String(rawLine||""))) return [];
-      if(/(蓄力|凝魔).*不足.*効果は発生しない/.test(_nlCleanLine(rawLine))) return [];
+    function _nlParseTriggerLine(rawLine, errors, columnName, inheritedTiming="HIT"){
+      if(/この効果で付与されたスキルは\d+回まで使用可能/.test(rawLine)) return [];
+      if(/(蓄力|凝魔).*不足.*効果は発生しない/.test(rawLine)) return [];
       const t=_nlExtractTiming(rawLine);
       if(t.error){
-        if(allowImplicitTiming && String(t.error).includes("timing語彙が見つかりません")){
-          const probe=String(rawLine||"");
-          if(/付与|得る|獲得|ダメージ|回復|減少|再使用|再利用|崩壊|爆発|氾濫|召喚|伝授|威力|補正|ラウンド終了/.test(probe)){
-            return _nlParseTriggerLine(`的中時: ${probe}`, errors, columnName, false);
-          }
-        }
         _nlPushError(errors,columnName,rawLine,t.error);
         return null;
       }
-      const body=t.body;
+      t.timing ??= inheritedTiming;
+      const {body,condition:leadingCondition}=_nlLeadingCondition(t.body ?? rawLine);
       const explicitTarget=body.includes("対象") || body.includes("相手");
       const explicitSelf=body.includes("自分") || body.includes("自身");
       const target=explicitTarget ? "target" : "self";
@@ -210,6 +213,7 @@
       const seen=new Set();
       const add=(e)=>{
         if(!e) return;
+        if(leadingCondition && !e.condition) e.condition=leadingCondition;
         const sig=JSON.stringify(e);
         if(seen.has(sig)) return;
         seen.add(sig);
@@ -218,14 +222,26 @@
       if(/^\d+\s*ラウンド継続$/.test(body)) return out;
       if(/^\(最大(?:で)?\s*\d+\)?$/.test(body)) return out;
 
-      if(body.includes("このスキルは使用したターンの間は消滅せず、再利用する")){
-        add({ timing: t.timing, type: "USE_SKILL_AGAIN", target: "self", max_reuses: 1, consume_cost: false });
-        return out;
-      }
+
       m=body.match(/(?:自分|自身)(?:に|は|が)?\s*(\d+)\s*ダメージ(?:を)?(?:受ける|受け|被る|くらう)|(?:自分|自身)に\s*(\d+)\s*ダメージ/);
       if(m){
         const selfDamage = Number(m[1] || m[2] || 0);
         if(selfDamage > 0) add({ timing:t.timing, type:"APPLY_STATE", target:"self", state_name:"HP", value:-selfDamage });
+      }
+      m=body.match(/付与から数えて(\d+)回目のラウンド終了時に自身に破裂爆発を起こす[」"]状態を与える/);
+      if(m){
+        add({ timing:t.timing, type:"APPLY_BUFF", target:"target", buff_id:"Bu-07", delay:Number(m[1]), lasting:0 });
+        return out;
+      }
+      m=body.match(/(\d+)\s*スタックの震盪を付与/);
+      if(m){
+        add({ timing:t.timing, type:"APPLY_BUFF", target:defaultApplyTarget, buff_id:_nlResolveBuffIdByName("震盪"), count:Number(m[1]) });
+        return out;
+      }
+      m=body.match(/(\d+)\s*ラウンドの出血遷延を付与/);
+      if(m && !/消費/.test(body)){
+        add({ timing:t.timing, type:"APPLY_BUFF", target:defaultApplyTarget, buff_id:"Bu-08", count:Number(m[1]) });
+        return out;
       }
       if(body.includes("亀裂崩壊")){
         const dmg=body.match(/(\d+)\s*ダメージ/);
@@ -322,10 +338,10 @@
         });
         return out;
       }
-      if(body.includes("出血氾濫")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target, value: "出血氾濫" });
+      if(body.includes("出血氾濫")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: /(?:自分|自身)に出血氾濫/.test(body) ? "self" : "target", value: "出血氾濫" });
       if(body.includes("戦慄殺到")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: "target", value: "戦慄殺到" });
       if(body.includes("荊棘飛散")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: "target", value: "荊棘飛散" });
-      if(body.includes("ラウンド終了")) add({ timing: t.timing, type: "CUSTOM_EFFECT", target: "self", value: "END_ROUND_IMMEDIATELY" });
+
       m=body.match(/(?:対象|相手)の(?:特徴|タグ)に\s*[「『"“]?([^」』"”]+?)[」』"”]?\s*(?:がある|が含まれる|を持つ|を持っている)なら.*?(?:その|対象の|相手の)?最大HPと(?:同じ値|同値)のダメージ/);
       if(m){
         const tagName=String(m[1]||"").trim();
@@ -443,11 +459,12 @@
         }
       }
 
-      m=body.match(/対象の(出血|破裂|亀裂|戦慄)\s*(\d+)\s*につき.*?(出血|破裂|亀裂|戦慄)\s*(\d+)\s*を付与(?:（?最大\s*(\d+)）?)?/);
+      m=body.match(/対象の(出血|破裂|亀裂|戦慄)\s*(\d+)\s*につき.*?(出血|破裂|亀裂|戦慄)\s*(\d+)\s*を付与(?:\s*\(?最大(?:で)?\s*(\d+)\)?)?/);
       if(m){
         const row={ timing: t.timing, type: "APPLY_STATE_PER_N", target: "target", source: "target", source_param: m[1], per_N: Number(m[2]), state_name: m[3], value: Number(m[4]) };
         if(m[5]) row.max_value=Number(m[5]);
         add(row);
+        return out;
       }
       m=body.match(/(自分|自身)の(出血|破裂|亀裂|戦慄)\s*(\d+)\s*につき\s*(\d+)\s*の(\d+)\s*ラウンド継続する(出血|破裂|亀裂|戦慄)\s*を付与/);
       if(m){
@@ -493,11 +510,11 @@
       }
 
       let matchedConsumeGain = false;
-      m=body.match(/(蓄力|凝魔)\s*(\d+)\s*を消費し[、,，]?\s*(?:自分|自身)?の?\s*(FP|MP|HP)\s*を\s*(-?\d+)\s*(得る|獲得|回復)/);
+      m=body.match(/(蓄力|凝魔)\s*(?:(\d+)\s*を|を\s*(\d+))\s*消費し[、,，]?\s*(?:(?:自分|自身)の)?\s*(FP|MP|HP)\s*を\s*(-?\d+)\s*(得る|獲得|回復)/);
       if(m){
-        const consumeN=Math.max(1, Number(m[2]));
-        const gainType=m[3];
-        const gainValue=Number(m[4]);
+        const consumeN=Math.max(1, Number(m[2] || m[3]));
+        const gainType=m[4];
+        const gainValue=Number(m[5]);
         if(Number.isFinite(gainValue)){
           add({
             timing:t.timing,
@@ -613,7 +630,7 @@
         if(bId){
           const action = m[3];
           const count = m[2];
-          const row={ timing:t.timing, type:"APPLY_BUFF", target:action==="得る"?"self":target, buff_id:bId };
+          const row={ timing:t.timing, type:"APPLY_BUFF", target:action==="得る"?"self":defaultApplyTarget, buff_id:bId };
           if(count) row.data={ count:Number(count) };
           if(/次のラウンド/.test(body)){ row.lasting=1; row.delay=1; }
           add(row);
@@ -629,44 +646,34 @@
         const dmg=Number(m[2]);
         add({ timing:t.timing, type:"CUSTOM_EFFECT", target:"target", value:"亀裂崩壊_DAMAGE", damage_per_fissure: Math.max(1, Math.floor(dmg/per)) });
       }
-      m=body.match(/(対象|相手)の(速度値|出血|破裂|亀裂|戦慄)が(\d+)以下.*?(\d+)\s*ダメージ/);
-      if(m){
-        add({ timing:t.timing, type:"DAMAGE_BONUS", target:"target", value:Number(m[4]), condition:{ source:"target", param:m[2], operator:"LTE", value:Number(m[3]) } });
-      }
-      m=body.match(/(対象|相手)の(速度値|出血|破裂|亀裂|戦慄)が(\d+)以上.*?(\d+)\s*ダメージ/);
-      if(m){
-        add({ timing:t.timing, type:"DAMAGE_BONUS", target:"target", value:Number(m[4]), condition:{ source:"target", param:m[2], operator:"GTE", value:Number(m[3]) } });
-      }
-      m=body.match(/(対象|相手)に(速度値|出血|破裂|亀裂|戦慄)が(\d+)以上あるなら.*?(\d+)\s*ダメージ/);
-      if(m){
-        add({ timing:t.timing, type:"DAMAGE_BONUS", target:"target", value:Number(m[4]), condition:{ source:"target", param:m[2], operator:"GTE", value:Number(m[3]) } });
+      m=body.match(/^(\d+)\s*ダメージ(?:を与える)?$/);
+      if(m && leadingCondition){
+        add({ timing:t.timing, type:"DAMAGE_BONUS", target:"target", value:Number(m[1]) });
       }
       if(/行動不能になる/.test(body)){
         add({ timing:t.timing, type:"APPLY_BUFF", target:"self", buff_id:"Bu-04", lasting:1, delay:1 });
       }
-      m=body.match(/(物理補正|魔法補正)\s*([+\-−]\s*\d+)/);
-      if(m){
-        const val=Number(String(m[2]).replace(/\s+/g,"").replace("−","-"));
-        const buffId=(m[1]==="物理補正") ? (val>=0?"Bu-36":"Bu-37") : (val>=0?"Bu-38":"Bu-39");
-        const row={ timing:t.timing, type:"APPLY_BUFF", target:body.includes("対象")?"target":"self", buff_id:buffId, data:{ value:Math.abs(val) } };
-        if(/次のラウンド|2ラウンド後/.test(body)){ row.lasting=1; row.delay=1; }
+      for(const correction of body.matchAll(/(?:(自分|自身|対象|相手)の)?(物理補正|魔法補正)\s*([+\-−]\s*\d+)/g)){
+        const [,who,stat,delta]=correction;
+        const val=Number(delta.replace(/\s+/g,"").replace("−","-"));
+        const buffId=stat==="物理補正" ? (val>=0?"Bu-36":"Bu-37") : (val>=0?"Bu-38":"Bu-39");
+        const row={ timing:t.timing, type:"APPLY_BUFF", target:/対象|相手/.test(who || "")?"target":"self", buff_id:buffId, data:{ value:Math.abs(val) } };
+        const lasting=body.match(/(\d+)\s*ラウンド後まで/);
+        const delay=body.match(/(\d+)\s*ラウンド後に/);
+        if(lasting) row.lasting=Number(lasting[1])+1;
+        else if(delay || /次のラウンド/.test(body)){
+          row.lasting=1;
+          row.delay=delay ? Number(delay[1]) : 1;
+        }
         add(row);
       }
       m=body.match(/対象が守備スキルを使用しているとき.*?基礎威力\s*([+\-−]\s*\d+)/);
       if(m){
         add({ timing:t.timing, type:"MODIFY_BASE_POWER", target:"target", value:Number(String(m[1]).replace(/\s+/g,"").replace("−","-")), condition:{ source:"target_skill", param:"tags", operator:"CONTAINS", value:"守備" } });
       }
-      m=body.match(/対象に(出血|破裂|亀裂|戦慄)が(\d+)以上なら.*?(出血|破裂|亀裂|戦慄)\s*(\d+)\s*を付与/);
-      if(m){
-        add({ timing:t.timing, type:"APPLY_STATE", target:"target", state_name:m[3], value:Number(m[4]), condition:{ source:"target", param:m[1], operator:"GTE", value:Number(m[2]) } });
-      }
       m=body.match(/対象に.*?被ダメージ時.*?出血\s*(\d+)\s*を得る.*?状態/);
       if(m){
         add({ timing:t.timing, type:"APPLY_BUFF", target:"target", buff_id:"Bu-47", data:{ value:Number(m[1]), display_name:"抉られた傷" } });
-      }
-      m=body.match(/(出血|破裂|亀裂|戦慄)があるなら.*?次のラウンドで減速\s*(\d+)\s*を付与/);
-      if(m){
-        add({ timing:t.timing, type:"APPLY_BUFF", target:"target", buff_id:"Bu-12", lasting:1, delay:1, data:{ count:Number(m[2]) }, condition:{ source:"target", param:m[1], operator:"GTE", value:1 } });
       }
       m=body.match(/(蓄力|凝魔)\s*(\d+)\s*を消費し.*?(基礎威力|最終威力)\s*([+\-−]\s*\d+)/);
       if(m){
@@ -754,7 +761,7 @@
       }
       m=body.match(/このラウンドで自分が付与する亀裂の値に\+?(\d+)/);
       if(m){
-        add({ timing:t.timing, type:"APPLY_BUFF", target:"self", buff_id:"Bu-41", lasting:999, count:1, data:{ value:Number(m[1]), display_name:"突き崩す（亀裂付与量アップ単発）" } });
+        add({ timing:t.timing, type:"APPLY_BUFF", target:"self", buff_id:"Bu-40", lasting:1, data:{ value:Number(m[1]) } });
       }
       m=body.match(/([^\s、。]+)\s*(\d+)\s*を(付与|得る)/);
       if(m && !/(出血|破裂|亀裂|戦慄|荊棘|FP|MP|HP|Bu-\d+|加速|減速|挑発|行動不能|震盪|蓄力|凝魔|出血遷延)/.test(m[1])){
@@ -819,30 +826,21 @@
           if(Number.isFinite(n)) add({ timing: t.timing, type: "DAMAGE_BONUS", target: "target", value: n });
         }
       }
-      m=body.match(/対象の(出血|破裂|亀裂|戦慄)が(\d+)以上.*?(\d+)ダメージ/);
-      if(m){
-        add({ timing: t.timing, type: "DAMAGE_BONUS", target: "target", value: Number(m[3]), condition:{ source:"target", param:m[1], operator:"GTE", value:Number(m[2]) } });
-      }
       if(body.includes("再使用")){
-        const max=(body.match(/(\d+)回まで/)||[])[1];
+        const max=(body.match(/(\d+)(?:回|度)まで/)||[])[1];
         const fp=(body.match(/FPを(\d+)消費/)||[])[1];
         const stack=(body.match(/(凝魔|蓄力)(\d+)を消費/) || body.match(/(凝魔|蓄力)を(\d+)消費/));
-        const row={ timing: t.timing, type: "USE_SKILL_AGAIN", target:"self", consume_cost:false };
-        if(max) row.max_reuses=Number(max);
+        const row={ timing: t.timing, type: "USE_SKILL_AGAIN", target:stack?"self":"target", consume_cost:false, max_reuses:Number(max || 1) };
         if(fp) row.reuse_cost=[{ type:"FP", value:Number(fp) }];
         if(stack) row.stack_reuse_cost={ buff_name:stack[1], value:Number(stack[2]) };
         add(row);
-      }
-      m=body.match(/(自分|自身)のFPが(\d+)以上なら.*?出血氾濫/);
-      if(m){
-        add({ timing:t.timing, type:"CUSTOM_EFFECT", target:"target", value:"出血氾濫", condition:{ source:"self", param:"FP", operator:"GTE", value:Number(m[2]) } });
       }
 
       if(/次のラウンド/.test(body)){
         out.forEach((e)=>{
           if(!e || e.type!=="APPLY_BUFF") return;
-          e.lasting = 1;
-          e.delay = 1;
+          e.lasting ??= 1;
+          e.delay ??= 1;
         });
       }
 
@@ -855,24 +853,31 @@
       const effects=[];
       const tags=new Set();
       lines.forEach((line)=>{
+        const limit=line.match(/^\(?最大(?:で)?\s*(\d+)\)?$/);
+        const previous=pb.at(-1);
+        if(limit && previous?.operation==="PER_N_BONUS"){
+          if(previous.value>=0) previous.max_bonus=Number(limit[1]);
+          else previous.min_bonus=-Number(limit[1]);
+          return;
+        }
         const ng=_nlContainsForbiddenTimingWord(line);
         if(ng){
           _nlPushError(errors,"特記",line,`禁止語彙（${ng}）を含んでいます。`);
           return;
         }
         if(/マッチ不可/.test(line)) tags.add("マッチ不可");
-        if(/非ダメージ/.test(line)) tags.add("non_damage");
-        if(/対象を選択しない/.test(line)) tags.add("self_target");
+        if(/非ダメージ/.test(line)) tags.add("非ダメージ");
+        if(/対象を選択しない/.test(line)) tags.add("自己対象");
         if(/宝石の加護/.test(line)) tags.add("宝石の加護スキル");
         if(/強硬スキル/.test(line)) tags.add("強硬");
         if(/牽制スキル/.test(line)) tags.add("牽制");
         if(/同陣営指定/.test(line)) tags.add("同陣営指定");
-        if(/このスキルは対象を選択しない/.test(line)){ tags.add("self_target"); return; }
-        if(/非ダメージスキル/.test(line)){ tags.add("non_damage"); return; }
+        if(/このスキルは対象を選択しない/.test(line)){ tags.add("自己対象"); return; }
+        if(/非ダメージスキル/.test(line)){ tags.add("非ダメージ"); return; }
         if(/^\(?(宝石の加護|マッチ不可|強硬スキル|牽制スキル)\)?$/.test(line)) return;
         if(/^マッチ不可・非ダメージ$/.test(line)) return;
         if(/^同陣営指定スキル$/.test(line)) return;
-        if(NL_TIMING_MAP.some(row=>line.includes(row.key)) || NL_TIMING_ALIASES.some(row=>line.includes(row.key))){
+        if(_nlExtractTiming(line).timing){
           const parsed=_nlParseTriggerLine(line, errors, "特記");
           if(parsed && parsed.length) effects.push(...parsed);
           return;
@@ -948,13 +953,13 @@
           });
           return;
         }
-        m=line.match(/(?:このラウンドの)?(自分|自身|対象|相手)の?(速度値|出血|破裂|亀裂|戦慄)が(\d+)(?:以上|以下|より高い|より低い)?.*?(基礎威力|最終威力|ダイス威力)\s*([+＋\-−]\s*\d+)/);
+        m=line.match(/(?:このラウンドの)?(自分|自身|対象|相手)の?(速度値|出血|破裂|亀裂|戦慄)が(\d+)(以上|以下|未満|より高い|より大きい|より低い|より小さい)?.*?(基礎威力|最終威力|ダイス威力)\s*([+＋\-−]\s*\d+)/);
         if(m){
-          const opWord=line.includes("以下")||line.includes("より低い")?"LTE":"GTE";
+          const opWord=_nlComparison(m[4] || "");
           pb.push({
             operation:"FIXED",
-            value:Number(String(m[5]).replace(/\s+/g,"").replace("−","-")),
-            apply_to:m[4].includes("ダイス")?"dice":(m[4].includes("最終")?"final":"base"),
+            value:Number(String(m[6]).replace(/\s+/g,"").replace("−","-")),
+            apply_to:m[5].includes("ダイス")?"dice":(m[5].includes("最終")?"final":"base"),
             condition:{ source:(m[1]==="自分"||m[1]==="自身")?"self":"target", param:m[2], operator:opWord, value:Number(m[3]) }
           });
           return;
@@ -1020,15 +1025,20 @@
           pb.push(row);
           return;
         }
-        m=line.match(/(対象|相手)の(出血|破裂|亀裂|戦慄).*?威力.*?値だけ.*?(基礎威力|最終威力|ダイス威力).*(?:最大(?:で)?\s*(\d+))?/);
+        m=line.match(/(対象|相手)の(出血|破裂|亀裂|戦慄).*?威力.*?値だけ.*?(基礎威力|最終威力|ダイス威力)/);
         if(m){
-          const row={ operation:"MULTIPLY", source:"target", param:m[2], value_per_param:1, apply_to:m[3].includes("ダイス")?"dice":(m[3].includes("最終")?"final":"base") };
-          if(m[4]) row.max_bonus=Number(m[4]);
+          const row={ operation:"PER_N_BONUS", source:"target", param:m[2], per_N:1, value:1, apply_to:m[3].includes("ダイス")?"dice":(m[3].includes("最終")?"final":"base") };
+          const max=line.match(/最大(?:で)?\s*(\d+)/);
+          if(max) row.max_bonus=Number(max[1]);
           pb.push(row);
           return;
         }
         if(/自滅/.test(line)){
           tags.add("自滅");
+          return;
+        }
+        if(/^このスキルを使用している間[、,，]\s*(?:相手|対象)の破裂威力は減少しない$/.test(line)){
+          effects.push({timing:"PRE_MATCH",type:"APPLY_BUFF",target:"target",buff_id:"Bu-06",lasting:1});
           return;
         }
         if(/減少しない/.test(line)){
@@ -1112,69 +1122,50 @@
 
       const costs=_nlParseCosts(splitCost.lines, allErrors);
       const triggerEffects=[];
-      let lastTimingLabel="";
-      splitTrigger.lines.forEach((line)=>{
-        const d=line.match(/^(\d+)\s*ラウンド継続$/);
-        if(d){
-          const last=triggerEffects[triggerEffects.length-1];
-          if(last && last.type==="APPLY_BUFF"){
-            last.lasting=Number(d[1]);
-            if(last.delay===undefined) last.delay=0;
-            return;
-          }
+      const triggerTags=[];
+      let timing="HIT";
+      for(const line of splitTrigger.lines){
+        const explicit=_nlExtractTiming(line);
+        if(explicit.timing) timing=explicit.timing;
+        const body=explicit.body ?? line;
+        const last=triggerEffects.at(-1);
+        const duration=body.match(/^(\d+)\s*ラウンド継続$/);
+        const max=body.match(/^\(?最大(?:で)?\s*(\d+)\)?$/);
+        const reuse=body.match(/^\(?この効果による再使用は(?:\d+ラウンドに)?(\d+)(?:回|度)まで\)?$/);
+        const fissureDamage=body.match(/^消費した亀裂\s*(\d+)\s*につき\s*(\d+)\s*ダメージ$/);
+        const fissureBurst=body.match(/^消費した亀裂\s*(\d+)\s*につき\s*(\d+)\s*回[、,，]\s*破裂爆発$/);
+        if(duration && last?.type==="APPLY_BUFF"){
+          last.lasting=Number(duration[1]);
+        }else if(max && last?.type==="APPLY_STATE_PER_N"){
+          last.max_value=Number(max[1]);
+        }else if(max && last?.type==="APPLY_BUFF_PER_N"){
+          last.max_count=Number(max[1]);
+        }else if(reuse && last?.type==="USE_SKILL_AGAIN"){
+          last.max_reuses=Number(reuse[1]);
+        }else if(fissureDamage && last?.value==="亀裂崩壊_DAMAGE"){
+          last.damage_per_fissure=Math.max(1,Math.floor(Number(fissureDamage[2])/Math.max(1,Number(fissureDamage[1]))));
+        }else if(fissureBurst && last?.value==="亀裂崩壊_DAMAGE"){
+          delete last.damage_per_fissure;
+          last.value="FISSURE_COLLAPSE";
+          last.data={cost_per_trigger:Number(fissureBurst[1]),trigger_ratio:Number(fissureBurst[2]),triggered_effect:"破裂爆発"};
+        }else if(/この破裂爆発は対象の破裂威力を半分にする/.test(body) && last?.value==="破裂爆発"){
+          last.rupture_remainder_ratio=0.5;
+        }else if(/^(?:その後[、,，]\s*)?ラウンド終了$/.test(body)){
+          triggerTags.push("ラウンド終了");
+        }else{
+          const parsed=_nlParseTriggerLine(line, allErrors, "発動時効果", timing);
+          if(parsed) triggerEffects.push(...parsed);
         }
-        const d2=line.match(/^2ラウンド後に/);
-        if(d2){
-          const last=triggerEffects[triggerEffects.length-1];
-          if(last && last.type==="APPLY_BUFF"){
-            last.delay=2;
-          }
-        }
-        const maxOnly=line.match(/^\(最大(?:で)?\s*(\d+)\)?$/);
-        if(maxOnly){
-          const last=triggerEffects[triggerEffects.length-1];
-          if(last && last.type==="APPLY_STATE_PER_N"){
-            last.max_value=Number(maxOnly[1]);
-            return;
-          }
-        }
-        if(/この破裂爆発は対象の破裂威力を半分にする/.test(line)){
-          const last=triggerEffects[triggerEffects.length-1];
-          if(last && last.type==="CUSTOM_EFFECT" && last.value==="破裂爆発"){
-            last.rupture_remainder_ratio=0.5;
-            return;
-          }
-        }
-        if(/^亀裂崩壊$/.test(line)){
-          triggerEffects.push({ timing:lastTimingLabel==="的中時"?"HIT":"HIT", type:"CUSTOM_EFFECT", target:"target", value:"亀裂崩壊_DAMAGE", damage_per_fissure:3 });
-          return;
-        }
-        let parsed=_nlParseTriggerLine(line, allErrors, "発動時効果");
-        if((!parsed || !parsed.length) && lastTimingLabel){
-          const tailErr=allErrors[allErrors.length-1];
-          if(tailErr && String(tailErr.reason||"").includes("timing語彙が見つかりません")){
-            allErrors.pop();
-            parsed=_nlParseTriggerLine(`${lastTimingLabel}: ${line}`, allErrors, "発動時効果");
-          }
-        }
-        if((!parsed || !parsed.length)){
-          const tailErr=allErrors[allErrors.length-1];
-          if(tailErr && String(tailErr.reason||"").includes("timing語彙が見つかりません")){
-            allErrors.pop();
-            parsed=_nlParseTriggerLine(`的中時: ${line}`, allErrors, "発動時効果");
-          }
-        }
-        const tinfo=_nlExtractTiming(line);
-        if(!tinfo.error && tinfo.timingLabel) lastTimingLabel=tinfo.timingLabel;
-        if(parsed && parsed.length) triggerEffects.push(...parsed);
-      });
+      }
       const noteParsed=_nlParseNotes(splitNote.lines, allErrors);
 
 
       if(allErrors.length) return {rule:null,errors:allErrors};
-      const tags=new Set(parseList(rawTags));
+      const tagNames={non_damage:"非ダメージ",self_target:"自己対象"};
+      const tags=new Set(parseList(rawTags).map(tag=>tagNames[tag] || tag));
+      triggerTags.forEach(tag=>tags.add(tag));
       (noteParsed.tags || []).forEach(tag=>tags.add(String(tag)));
-      const mergedEffects=[...triggerEffects,...(noteParsed.effects || [])];
+      const mergedEffects=[...triggerEffects,...noteParsed.effects];
       const rule={schema:'skill_json_rule_v2'};
       const id=String(input.id || '').trim();if(id)rule.id=id;
       const cleanedTags=parseList(_nlCleanLine([...tags].join(', ')));if(cleanedTags.length)rule.tags=cleanedTags;
@@ -1183,7 +1174,7 @@
       if(targetScope)rule.target_scope=targetScope;
       if(costs.length)rule.cost=costs;
       rule.power_bonus=(noteParsed.power_bonus || []).map(powerRow);
-      rule.effects=(mergedEffects.length?mergedEffects:[{}]).map(effectRow);
+      rule.effects=mergedEffects.map(effectRow);
       return {rule,errors:[]};
     }
     return {parse};
