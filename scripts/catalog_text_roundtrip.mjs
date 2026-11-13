@@ -71,7 +71,7 @@ function meaning(rule) {
 function differences(stored, made) {
   const out = [];
   for (const key of new Set([...Object.keys(stored || {}), ...Object.keys(made || {})])) {
-    if (key === 'effects' || key === 'target_scope') continue;
+    if (key === 'effects' || key === 'target_scope' || (empty(stored?.[key]) && empty(made?.[key]))) continue;
     if (!same(stored?.[key], made?.[key])) out.push(key);
   }
   const a = stored?.effects || [], b = made?.effects || [];
