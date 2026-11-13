@@ -23,7 +23,16 @@ context.catalogNoCorrectionNotes = JSON.parse(readFileSync(path.join(root, 'data
 for (const name of ['json', 'glossary', 'skill_text_help', 'skill_notes', 'skill_text']) {
   vm.runInContext(readFileSync(path.join(root, `static/js/master_data/${name}.js`), 'utf8'), context);
 }
-const reader = window.CatalogSkillText.createReader(data.text_references);
+// 画面（static/js/master_data/workspace.js の prepareSkill）と同じ参照データを渡す。
+const list = kind => data.lists[kind].entries;
+const references = {
+  buff_refs: list('buff').map(row => ({ id: row.entry_id, name: row.payload.name })),
+  glossary_refs: list('glossary').map(row => ({ id: row.entry_id, ...row.payload })),
+  skill_refs: list('skill').map(row => ({ id: row.entry_id, name: row.payload.デフォルト名称 })),
+  summon_refs: list('summon').filter(row => !row.deprecated).map(row => ({ id: row.entry_id, ...row.payload })),
+  ...data.text_references,
+};
+const reader = window.CatalogSkillText.createReader(references);
 
 // キーの並び、値が無いのと空の配列・空のオブジェクトの違いをそろえて比べる。
 // target_scope は文章からではなく画面からの引き渡しで決まるので比べない。

@@ -1,0 +1,17 @@
+/* PR60-24 の試作：効果から文章を作る（本番には入らない） */
+.cat-writer { margin-bottom: 8px; }
+.cat-writer-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cat-writer-top h3 { margin: 0; }
+.cat-writer-mismatch { margin: 8px 0 0; font-size: 12px; }
+.cat-writer-result { margin-top: 10px; padding: 10px; border: 1px solid var(--cat-edge); border-radius: 8px; background: var(--cat-soft); }
+.cat-writer-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cat-writer-bar p { margin: 0 auto 0 0; }
+.cat-writer-unknown { margin: 0 0 8px; font-size: 12px; }
+.cat-writer-unknown ul { margin: 4px 0 0; padding-left: 18px; }
+.cat-writer-row { padding: 8px 0; border-top: 1px solid var(--cat-edge); }
+.cat-writer-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.cat-writer-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cat-writer-text { margin: 2px 0 0; padding: 6px 8px; border: 1px solid var(--cat-edge); border-radius: 6px; background: var(--cat-bg); font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cat-writer-text.is-made { border-color: var(--cat-primary); }
+.cat-writer-row.is-same .cat-writer-text.is-made { border-color: var(--cat-edge); }
+@container (max-width: 680px) { .cat-writer-pair { grid-template-columns: 1fr; } }
