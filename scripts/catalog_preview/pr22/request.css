@@ -1,0 +1,15 @@
+/* PR60-22 の試作：効果のリクエスト（本番には入らない） */
+.cat-requests { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.cat-requests > .cat-filters { justify-content: space-between; }
+.cat-request-state[data-request-state="受付"] { color: var(--cat-primary); background: var(--cat-primary-soft); border-color: var(--cat-primary); }
+.cat-request-state[data-request-state="対応中"] { color: var(--cat-warn); background: var(--cat-warn-soft); border-color: var(--cat-warn); }
+.cat-request-state[data-request-state="実装済み"] { color: var(--cat-text); background: var(--cat-soft); border-color: var(--cat-control); }
+.cat-request-state[data-request-state="見送り"] { color: var(--cat-sub); background: var(--cat-soft); border-color: var(--cat-edge); }
+.cat-request-memo { border-left: 3px solid var(--cat-primary); }
+.cat-request-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.cat-request-form > h3, .cat-request-form > p, .cat-request-form > .cat-actions, .cat-request-form > .cat-field-error { grid-column: 1 / -1; }
+.cat-request-draft { display: flex; align-items: center; gap: 10px; color: var(--cat-text); }
+.cat-request-entry { margin: 0 0 8px; color: var(--cat-sub); font-size: 12px; }
+.cat-workspace .cat-link { padding: 0; border: 0; background: none; color: var(--cat-primary); text-decoration: underline; cursor: pointer; font: inherit; }
+.cat-workspace .cat-requests .bo-workspace__body { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); flex: 1; min-height: 0; }
+@container (max-width: 680px) { .cat-workspace .cat-requests .bo-workspace__body { grid-template-columns: 1fr; } }
