@@ -74,7 +74,8 @@
           const stack = row.stack_reuse_cost ? `自分の${link(row.stack_reuse_cost.buff_name)}${row.stack_reuse_cost.value}を消費し、` : '';
           const cost = stack + (row.reuse_cost || []).map(item => `${item.type}を${item.value}消費し、`).join('');
           const max = row.max_reuses ?? 1;
-          const limit = max === 1 ? '(この効果による再使用は1ラウンドに1度まで)' : `(この効果による再使用は${max}回まで)`;
+          // 上限は1回の使用（スロット）ごとに数える。「1ラウンドに1度まで」とは書かない（2026-11-14 ユーザー決定）。
+          const limit = `(この効果による再使用は${max}回まで)`;
           const lack = row.stack_reuse_cost ? `。${row.stack_reuse_cost.buff_name}が不足している場合、この効果は発生しない` : '';
           return `${cost}このスキルを${link('再使用')}。${limit}${lack}`;
         }
