@@ -218,7 +218,7 @@
 
       }
       target.innerHTML = `<div class="cat-detail-head"><div class="cat-detail-title"><code class="cat-id">${h(row.target_id)}</code><h3>${h(nameOf(row.payload))}</h3><div>${badge(row.status)} <span class="cat-caption">${row.isDraft ? `作成：${h(row.created_by_name || '削除済みユーザー')} / 元の版：${row.base_revision ?? '新規'}` : `版 ${row.revision} / 更新：${h(row.updated_by_name || '初回取り込み')}`}</span></div></div>
-        <div class="cat-actions">${actions.join('')}${!row.isDraft ? model.externalLink(row.target_id) : ''}</div></div>${row.isDraft ? '<div id="cat-request-links"></div>' : ''}${row.reject_reason ? `<p class="cat-callout">却下の理由：${h(row.reject_reason)}</p>` : ''}${model.detail(row.payload, { links, power: powerCard(row.payload, row.target_id, row.isDraft ? JSON.stringify(['skill', row.target_id, row.base_revision, row.payload]) : `skill:${row.target_id}:${row.revision}`), entryId: row.target_id, skillEntries: state.catalogs.skill?.entries || [] })}${jsonBlock(row.payload)}<div id="cat-metadata"><p class="cat-caption">履歴・参照箇所を読み込み中…</p></div>${!row.isDraft && state.user.is_app_admin ? `<section class="cat-other-actions"><h4>その他の操作</h4>${button(row.deprecated ? '廃止を取り消す' : '廃止', 'deprecate', 'cat-danger')}</section>` : ''}`;
+        <div class="cat-actions">${actions.join('')}${!row.isDraft ? model.externalLink(row.target_id) : ''}</div></div>${row.isDraft ? '<div id="cat-request-links"></div>' : ''}${row.reject_reason ? `<p class="cat-callout">却下の理由：${h(row.reject_reason)}</p>` : ''}${model.detail(row.payload, { links, textReferences: state.textReferences, power: powerCard(row.payload, row.target_id, row.isDraft ? JSON.stringify(['skill', row.target_id, row.base_revision, row.payload]) : `skill:${row.target_id}:${row.revision}`), entryId: row.target_id, skillEntries: state.catalogs.skill?.entries || [] })}${jsonBlock(row.payload)}<div id="cat-metadata"><p class="cat-caption">履歴・参照箇所を読み込み中…</p></div>${!row.isDraft && state.user.is_app_admin ? `<section class="cat-other-actions"><h4>その他の操作</h4>${button(row.deprecated ? '廃止を取り消す' : '廃止', 'deprecate', 'cat-danger')}</section>` : ''}`;
       if (row.isDraft) showRequestLinks(row.id);
       const published = entry(row.target_id);
       if (!published) { target.querySelector('#cat-metadata').innerHTML = '<p class="cat-caption">新規の下書きです。公開後に履歴が残ります。</p>'; return; }
@@ -253,7 +253,7 @@
       state.jsonText = editor.jsonText(state.kind,state.payload);
       state.effectText = pretty(state.payload.effect ?? {});
       state.linkQuery = ''; state.linkIndex = -1; state.linkOpen = false; state.aliasInput = ''; state.tagInput = '';
-      state.textReady = false; state.textResult = null; state.textTags = Array.isArray(state.payload.特記処理?.tags) ? state.payload.特記処理.tags.join(', ') : '';
+      state.writerOpen = false; state.textReady = false; state.textResult = null; state.textTags = Array.isArray(state.payload.特記処理?.tags) ? state.payload.特記処理.tags.join(', ') : '';
       state.section = editor.sections(model)[0][0]; state.tab = state.section === 'json' ? 'json' : 'form'; state.rawValues = {}; state.bonusOperation = 'FIXED'; state.skillTagInput = ''; state.scene = 'edit'; state.dirty = false; state.errors = {};
       renderEditor();
     }
@@ -288,7 +288,46 @@
       for (const [selector,value] of Object.entries(state.rawValues)) { const node = panel.querySelector(selector); if (node) node.value = value; }
       if (state.tab === 'form') renderCandidates();
       mountTextTools();
+      renderWriting();
     }
+    function renderWriting() {
+      if (state.kind !== 'skill' || state.section !== 'description' || !state.textReferences) return;
+      const text = window.CatalogSkillText;
+      const payload = state.payload;
+      const parsed = text.readPayload(text.createReader(state.textReferences),payload);
+      const rule = payload.特記処理 || {};
+      const saved = window.CatalogSkillEffects.object(rule) ? {schema:'skill_json_rule_v2',...rule} : rule;
+      const mismatch = !parsed.errors.length && !text.sameMeaning(saved,parsed.rule);
+      const area = panel.querySelector('#cat-writing-result');
+      area.innerHTML = (mismatch ? '<p class="cat-callout cat-writer-mismatch">文章と効果の設定が食い違っています。文章を読み取った効果が、「効果」の節の設定と同じ意味になりません。</p>' : '');
+      if (state.writerOpen) {
+        const writer = text.createWriter(state.textReferences);
+        area.innerHTML += text.renderComparison(payload,writer.write(payload),writer.plain,state.schemas || {});
+      }
+    }
+
+    function takeWrittenText(field) {
+      const text = window.CatalogSkillText;
+      const writer = text.createWriter(state.textReferences);
+      const generated = writer.write(state.payload);
+      const keys = text.textFields.filter(key=>(field === 'all' || field === key) && !text.alikeText(state.payload[key],generated[key],writer.plain));
+      for (const key of keys) {
+        state.payload[key] = generated[key];
+        panel.querySelector('#cat-field-'+key).value = generated[key];
+        delete state.errors['input:'+key];
+        delete state.errors[key];
+        panel.querySelector('#cat-error-'+key).textContent = '';
+      }
+      if (keys.length) {
+        state.dirty = true;
+        state.textResult = null;
+        state.jsonText = pretty(state.payload);
+        renderPreview();
+      }
+      renderWriting();
+      nextFocus = '[data-action="writer-close"]';
+    }
+
     async function selectSection(section) {
       if (!editor.sections(model).some(([key])=>key === section)) return;
       if (state.tab === 'json' && section !== 'json') syncJSON();
@@ -356,7 +395,7 @@
       const preview = panel.querySelector('#cat-preview');
       if (!preview) return;
       markSections();
-      preview.innerHTML = renderProblems(state.edit.problems, model) + (state.dirty ? '<p class="cat-caption">入力を変更しました。保存すると検査結果が更新されます。</p>' : '') + model.preview(payload, { links, power: powerCard(payload, state.edit.target_id), entryId: state.edit.target_id, skillEntries: state.catalogs.skill?.entries || [] });
+      preview.innerHTML = renderProblems(state.edit.problems, model) + (state.dirty ? '<p class="cat-caption">入力を変更しました。保存すると検査結果が更新されます。</p>' : '') + model.preview(payload, { links, textReferences: state.textReferences, power: powerCard(payload, state.edit.target_id), entryId: state.edit.target_id, skillEntries: state.catalogs.skill?.entries || [] });
     }
     function syncJSON() {
       if (state.tab !== 'json') return;
@@ -587,6 +626,13 @@
         await window.CatalogSkillText.copyJSON(state.jsonText,typeof navigator === 'undefined' ? undefined : navigator.clipboard);
         notice('JSONをコピーしました。'); return;
       }
+      if (action === 'writer-open' || action === 'writer-close') {
+        state.writerOpen = action === 'writer-open';
+        renderWriting();
+        nextFocus = state.writerOpen ? '[data-action="writer-close"]' : '[data-action="writer-open"]';
+        return;
+      }
+      if (action === 'writer-take') return takeWrittenText(control.dataset.writerField);
       if (action === 'text-build') {
         const rule = state.payload.特記処理 || {};
         const result = window.CatalogSkillText.createReader(state.textReferences).parse({category:state.payload.分類, cost:state.payload.コスト,
@@ -836,7 +882,7 @@
           state.payload[key] = model.parseField(key, control.value);
           delete state.errors[`input:${key}`]; delete state.errors[key];
           panel.querySelector(`#cat-error-${key}`).textContent = '';
-          state.jsonText = pretty(state.payload); renderPreview();
+          state.jsonText = pretty(state.payload); renderPreview(); renderWriting();
         } catch (error) {
           state.errors[`input:${key}`] = error.message;
           panel.querySelector(`#cat-error-${key}`).textContent = error.message;

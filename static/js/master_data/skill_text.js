@@ -324,7 +324,7 @@
           timing:"RESOLVE_START",
           type:"APPLY_BUFF_FROM_CHARACTER_COUNT",
           target:"self",
-          buff_name:`${String(summon.name||summon.id)}吸収`,
+          buff_name:`${tagIds.length === 1 ? tagIds[0] : String(summon.name||summon.id)}吸収`,
           lasting:1,
           delay:0,
           value_per_character:Number(m[2]),
@@ -682,7 +682,7 @@
         const applyTo=m[3].includes("最終")?"final":"base";
         const delta=Number(String(m[4]).replace(/\s+/g,"").replace("−","-"));
         if(Number.isFinite(delta) && delta!==0){
-          if(delta % consumeN === 0){
+          if(delta % consumeN === 0 && !/\(固定\)$/.test(body)){
             add({
               timing:t.timing,
               type:"CONSUME_BUFF_COUNT_FOR_POWER",
@@ -922,13 +922,14 @@
           pb.push({ operation: "FIXED_IF_EXISTS", source: "target", param: m[2], threshold: 1, value: Number(String(m[4]).replace(/\s+/g,"").replace("−","-")), apply_to: m[3].includes("最終")?"final":"base" });
           return;
         }
-        m=line.match(/(対象|相手|メインターゲット)の(出血|破裂|亀裂|戦慄)\s*(\d+)\s*につき.*?(基礎威力|最終威力|ダイス威力)\s*([+＋\-−]\s*\d+)(?:.*?最大(?:で)?\s*(\d+))?/);
+        m=line.match(/(対象|相手|メインターゲット)の(出血|破裂|亀裂|戦慄)\s*(\d+)\s*につき.*?(基礎威力|最終威力|ダイス威力)\s*([+＋\-−]\s*\d+)(?:.*?(最大|最小)(?:で)?\s*([+\-−]?\d+))?/);
         if(m){
           const applyTo=m[4].includes("ダイス")?"dice":(m[4].includes("最終")?"final":"base");
           const row={ operation: "PER_N_BONUS", source: "target", param: m[2], per_N: Number(m[3]), value: Number(String(m[5]).replace(/\s+/g,"").replace("−","-")), apply_to: applyTo };
-          if(m[6]){
-            if(row.value>=0) row.max_bonus=Number(m[6]);
-            else row.min_bonus=-Number(m[6]);
+          if(m[7]){
+            const limit=Number(m[7].replace("−","-"));
+            if(m[6]==="最小" || row.value<0) row.min_bonus=-Math.abs(limit);
+            else row.max_bonus=limit;
           }
           pb.push(row);
           return;
@@ -1177,12 +1178,365 @@
       rule.effects=mergedEffects.map(effectRow);
       return {rule,errors:[]};
     }
-    return {parse};
+    return {parse, plain:_normalizeGlossaryMarkup};
   }
   async function copyJSON(text, clipboard) {
     if(!clipboard?.writeText) throw new Error('クリップボードを利用できません。JSON欄からコピーしてください。');
     await clipboard.writeText(text);
   }
+  // キーの並び、値が無いのと空の配列・空のオブジェクトの違いをそろえて比べる。
+  // target_scope は文章からではなく画面からの引き渡しで決まるので比べない。
+  const empty = value => value === undefined || (Array.isArray(value) && !value.length) || (value && typeof value === 'object' && !Array.isArray(value) && !Object.keys(value).length);
+  function normal(value) {
+    if (Array.isArray(value)) return value.map(normal);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.keys(value).sort().filter(key => key !== 'target_scope' && !empty(value[key])).map(key => [key, normal(value[key])]));
+    }
+    return value;
+  }
+  const same = (a, b) => JSON.stringify(normal(a)) === JSON.stringify(normal(b));
+
+  // 書き方が違うだけで、戦闘での意味が同じものをそろえる（既定の値・重なった項目・説明だけの項目）。
+  // 文章の読み取りが空の文章から作る中身のない効果も、ここで落として別に数える。
+  function meaning(rule) {
+    if (rule != null && (typeof rule !== 'object' || Array.isArray(rule))) return {rule, blanks:0};
+    const copy = JSON.parse(JSON.stringify(rule || {}));
+    const blank = effect => effect?.type === 'APPLY_STATE' && effect.state_name === undefined && effect.value === undefined;
+    const blanks = Array.isArray(copy.effects) ? copy.effects.filter(blank).length : 0;
+    if (Array.isArray(copy.effects)) copy.effects = copy.effects.filter(effect => !blank(effect)).map(effect => {
+      if (effect === null || typeof effect !== 'object' || Array.isArray(effect)) return effect;
+      const row = { ...effect };
+      if (row.stat === row.state_name) delete row.stat;
+      delete row.flavor;
+      if (row.target === 'target') delete row.target;
+      if (row.type === 'USE_SKILL_AGAIN' && row.max_reuses === 1) delete row.max_reuses;
+      if (row.delay === 0) delete row.delay;
+      if (row.lasting === -1) delete row.lasting;
+      if (row.data && typeof row.data === 'object') {
+        row.data = { ...row.data };
+        if (row.data.count !== undefined && row.count === undefined) { row.count = row.data.count; delete row.data.count; }
+        if (row.data.buff_id === row.buff_id) delete row.data.buff_id;
+        delete row.data.display_name;
+      }
+      return row;
+    });
+    // 戦闘はタイミングごとに効果を処理する。同じタイミングの順序は保つ。
+    if (Array.isArray(copy.effects)) copy.effects.sort((a, b) => String(a?.timing).localeCompare(String(b?.timing)));
+    if (Array.isArray(copy.power_bonus)) copy.power_bonus = copy.power_bonus.map(bonus => {
+      if (bonus === null || typeof bonus !== 'object' || Array.isArray(bonus)) return bonus;
+      const row = { ...bonus };
+      row.operation = row.operation ?? row.operator ?? 'FIXED';
+      delete row.operator;
+      const condition = row.condition;
+      if (row.operation === 'FIXED_IF_EXISTS' && !condition && row.source && row.param) {
+        row.condition = {source: row.source, param: row.param, operator: 'GTE', value: row.threshold ?? 1};
+        row.operation = 'FIXED';
+        delete row.source;
+        delete row.param;
+        delete row.threshold;
+      }
+      if (row.threshold === 1) delete row.threshold;
+      if (row.apply_to === 'base') delete row.apply_to;
+      return row;
+    });
+    if (Array.isArray(copy.tags)) copy.tags.sort();
+    return { rule: copy, blanks };
+  }
+
+  const sameMeaning = (a, b) => same(meaning(a).rule, meaning(b).rule);
+  function readPayload(reader, payload, texts = payload) {
+    const rule = payload.特記処理 || {};
+    return reader.parse({category:payload.分類, cost:texts.コスト, trigger:texts.発動時効果, note:texts.特記,
+      tags:Array.isArray(rule.tags) ? rule.tags.join(',') : '', id:rule.id, target_scope:rule.target_scope});
+  }
+
+  const textFields = ['コスト', '発動時効果', '特記'];
+
+  function createWriter(references = {}) {
+    const timingNames = {PRE_MATCH:'使用時', HIT:'的中時', WIN:'マッチ勝利時', LOSE:'マッチ敗北時',
+      END_ROUND:'ラウンド終了時', END_MATCH:'マッチ終了時', RESOLVE_START:'戦闘開始時', UNOPPOSED:'一方攻撃時'};
+    const states = ['出血','破裂','亀裂','戦慄','荊棘'];
+    const resources = ['FP','MP','HP'];
+    const places = {base:'基礎威力', dice:'ダイス威力', final:'最終威力'};
+    const operators = {GTE:'以上', LTE:'以下', LT:'未満', GT:'より高い'};
+    const corrections = {'Bu-36':['物理補正',1], 'Bu-37':['物理補正',-1], 'Bu-38':['魔法補正',1], 'Bu-39':['魔法補正',-1]};
+    const glossary = new Map((references.glossary_refs || []).map(row=>[row.display_name || row.name, row.id || row.term_id]));
+    const buffs = new Map((references.buff_refs || []).map(row=>[row.id,row.name]));
+    const skills = new Map((references.skill_refs || []).map(row=>[row.id,row.name]));
+    const summons = references.summon_refs || [];
+    const summonName = id => summons.find(row=>row.id === id)?.name;
+    const filteredSummon = filter => summons.find(row=>row.tag_ids?.length && same(row.tag_ids,filter?.required_tag_ids));
+    const link = name => glossary.get(name) ? `[[${glossary.get(name)}|${name}]]` : name;
+    const header = timing => `(${link(timingNames[timing])}):`;
+    const who = target => target === 'self' ? '自分' : '対象';
+    const param = name => String(name || '').replace(/_count$/, '');
+    const signed = value => Number(value) < 0 ? String(value) : `+${value}`;
+    const duration = n => `${n}${link('ラウンド')}`;
+    const buffName = row => buffs.get(row.buff_id) || row.buff_name;
+    const max = n => n == null ? '' : `(最大で${n})`;
+    const stackSum = name => typeof name === 'string' && name.startsWith('状態異常スタック合計:') ? name.split(':')[1].split(',').map(link).join('と') : null;
+    const reader = createReader(references);
+    const plain = reader.plain;
+
+    function conditionText(condition) {
+      if (!condition) return '';
+      const name = link(param(condition.param));
+      if (condition.operator === 'EQUALS' && condition.value === 0) return `${who(condition.source)}に${name}がないなら、`;
+      if (condition.operator === 'GTE' && condition.value === 1 && states.includes(condition.param)) return `${who(condition.source)}に${name}があるなら、`;
+      const op = operators[condition.operator];
+      return op ? `${who(condition.source)}の${name}が${condition.value}${op}なら、` : null;
+    }
+
+    function buffSentence(row) {
+      const self = row.target === 'self', name = buffName(row);
+      const count = row.count ?? row.data?.count, value = row.data?.value;
+      const correction = corrections[row.buff_id];
+      if (correction && value != null) {
+        const when = row.delay === 1 ? `次の${link('ラウンド')}で`
+          : row.delay > 1 ? `${duration(row.delay)}後に`
+          : row.lasting > 1 ? `${duration(row.lasting - 1)}後まで、` : '';
+        return `${when}${who(row.target)}の${link(correction[0])}${signed(correction[1] * value)}`;
+      }
+      switch (row.buff_id) {
+        case 'Bu-04': return self ? `次の${link('ラウンド')}で、行動不能になる` : null;
+        case 'Bu-06': return `このスキルを使用している間、相手の${link('破裂')}${link('威力')}は減少しない`;
+        case 'Bu-07': return `対象に、「付与から数えて${row.delay}回目の${link('ラウンド')}終了時に自身に${link('破裂爆発')}を起こす」状態を与える`;
+        case 'Bu-08': return `${who(row.target)}に${duration(count)}の${link(name)}を付与`;
+        case 'Bu-32':
+        case 'Bu-33': {
+          const category = link(row.buff_id === 'Bu-32' ? '攻撃' : '守備');
+          return self ? `このラウンドで、自分の使用する${category}スキルの${link('最終威力')}${signed(value)}`
+            : `対象に、ラウンド終了時まで${category}スキルの${link('威力')}${signed(value)}の効果を与える`;
+        }
+        case 'Bu-40': return `このラウンドで自分が付与する${link('亀裂')}の値に${signed(value)}`;
+        case 'Bu-41': return `次にこのキャラクターが付与する${link('亀裂')}の値${signed(value)}`;
+        case 'Bu-43': return `${row.delay === 1 ? '次の'+link('ラウンド')+'で、' : ''}${who(row.target)}が受けるダメージを${value}%上げる`;
+        case 'Bu-47': return `対象に、「スキルで被ダメージ時${link('出血')}${value}を得る」状態を与える。${duration(row.lasting)}継続`;
+        default: break;
+      }
+      if (!name) return null;
+      if (['蓄力','凝魔'].includes(name) && self) return `${link(name)}${count ?? 1}を得る`;
+      if (row.delay === 1 && row.lasting === 1) return `${who(row.target)}に次の${link('ラウンド')}で${link(name)}${count ?? ''}を付与`;
+      return count && row.lasting > 1 ? `${self ? '自分に' : ''}${count}スタックの${link(name)}を付与。${duration(row.lasting)}継続` : null;
+    }
+
+    function customSentence(row) {
+      switch (row.value) {
+        case '亀裂崩壊_DAMAGE': return `${link('亀裂崩壊')}。消費した${link('亀裂')}1につき${row.damage_per_fissure ?? 3}ダメージ`;
+        case 'FISSURE_COLLAPSE':
+          return row.data?.triggered_effect === '破裂爆発'
+            ? `${link('亀裂崩壊')}。消費した${link('亀裂')}${row.data.cost_per_trigger}につき${row.data.trigger_ratio}回、${link('破裂爆発')}` : null;
+        case '破裂爆発':
+          return row.rupture_remainder_ratio === 0.5
+            ? `${link('破裂爆発')}。この${link('破裂爆発')}は対象の${link('破裂')}${link('威力')}を半分にする` : link('破裂爆発');
+        case '出血氾濫': return `${row.target === 'self' ? '自分に' : ''}${link(row.value)}`;
+        case '戦慄殺到':
+        case '荊棘飛散': return link(row.value);
+        case 'DEAL_TARGET_MAX_HP_DAMAGE': {
+          const summon = filteredSummon(row.character_filter);
+          if (row.target === 'FILTERED_CHARACTERS' && summon) return `フィールドに存在する全ての「${summon.name}」のHPを0にする`;
+          return row.condition?.param === 'tag_ids' ? `対象の特徴に「${row.condition.value}」があるなら、その最大HPと同じ値のダメージを与える` : null;
+        }
+        default: return null;
+      }
+    }
+
+    function sentence(row) {
+      const self = row.target === 'self';
+      switch (row.type) {
+        case 'APPLY_STATE': {
+          const {state_name:name,value} = row;
+          if (states.includes(name) && value > 0) return `${self ? '自分に' : ''}${row.rounds ? duration(row.rounds)+'の' : ''}${link(name)}${value}を付与`;
+          if (resources.includes(name)) {
+            if (self && value > 0) return `${name}を${value}${name === 'FP' ? '得る' : '回復する'}`;
+            if (self && name === 'HP' && value < 0) return `自身に${-value}ダメージ`;
+            if (!self && value < 0) return `相手の${name}を${-value}減少させる`;
+          }
+          return null;
+        }
+        case 'APPLY_BUFF': return buffSentence(row);
+        case 'DAMAGE_BONUS':
+          if (row.condition?.param === 'tag_ids') return `対象の特徴に「${row.condition.value}」があるなら、${row.value}ダメージを与える`;
+          return `対象に${row.value}ダメージ`;
+        case 'CUSTOM_EFFECT': return customSentence(row);
+        case 'MODIFY_BASE_POWER':
+          return row.condition?.source === 'target_skill'
+            ? `対象が${link('守備')}スキルを使用しているとき、そのスキルの${link('基礎威力')}${signed(row.value)}` : null;
+        case 'USE_SKILL_AGAIN': {
+          const stack = row.stack_reuse_cost;
+          const costs = [...(stack ? [`自分の${link(stack.buff_name)}${stack.value}を消費し、`] : []),
+            ...(Array.isArray(row.reuse_cost) ? row.reuse_cost.map(item=>`${item.type}を${item.value}消費し、`) : [])];
+          return `${costs.join('')}このスキルを${link('再使用')}。(この効果による再使用は${row.max_reuses ?? 1}回まで)`;
+        }
+        case 'CONSUME_BUFF_COUNT_FOR_GAIN': {
+          const gain = row.gains?.length === 1 && row.gains[0];
+          if (!gain) return null;
+          const resource = link(row.buff_name);
+          if (resources.includes(gain.type)) return `${resource}を${row.consume_required}消費し、${gain.type}を${gain.value}${gain.type === 'MP' || gain.type === 'HP' ? '回復する' : '得る'}`;
+          const inner = gain.type === 'APPLY_BUFF' && buffName(gain)
+            ? `${who(gain.target)}に${duration(gain.lasting)}の${link(buffName(gain))}を付与` : sentence(gain);
+          return inner === null ? null : `自分の${resource}${row.consume_required}を消費し、${inner}`;
+        }
+        case 'CONSUME_BUFF_COUNT_FOR_POWER':
+          return `自分の${link(row.buff_name)}を可能な限り消費し${max(row.consume_max)}、消費した値だけこのスキルの${link(places[row.apply_to])}を上昇させる`;
+        case 'APPLY_STATE_PER_N': {
+          const cap = row.max_value == null ? '' : '。'+max(row.max_value);
+          if (row.source === 'self' && row.rounds) return `自分の${link(row.source_param)}${row.per_N}につき${row.value}の${duration(row.rounds)}継続する${link(row.state_name)}を付与${cap}`;
+          if (row.source === 'self' && row.per_N === 1 && row.value === 2) return `自分の${link(row.source_param)}の二倍の値の${link(row.state_name)}を対象に付与`;
+          if (row.source === 'target') return `対象の${link(row.source_param)}${row.per_N}につき${link(row.state_name)}${row.value}を付与${cap}`;
+          return null;
+        }
+        case 'APPLY_BUFF_PER_N': {
+          const total = stackSum(row.source_param), name = buffName(row);
+          const source = total ? `対象の${total}の合計値` : row.source_param === 'lost_hp' ? '自分の失ったHP' : null;
+          return source && name ? `${source}${row.per_N}につき${row.value}、${link(name)}を得る${row.max_count === 9999 ? '' : '。'+max(row.max_count)}` : null;
+        }
+        case 'MULTIPLY_STATE': return `対象の${link(row.state_name)}${link('威力')}を${row.value}倍にする`;
+        case 'DRAIN_HP': return '与えたダメージの値、自分のHPを回復する';
+        case 'CONVERT_STACK_RESOURCE_VARIANT':
+          return ({blood_plasma:link('血漿転化'), burst_guidance:link('爆破誘導')})[row.to_variant] || null;
+        case 'SUMMON_CHARACTER': {
+          const name = summonName(row.summon_template_id);
+          return name ? `「${name}」${row.repeat_count ?? 1}体を${link('召喚')}する` : null;
+        }
+        case 'GRANT_SKILL': {
+          const name = skills.get(row.skill_id);
+          return name ? `自身を除く味方全体に「[[SKILL:${row.skill_id}|${row.skill_id}:${name}]]」を${link('伝授')}する。この効果で付与されたスキルは${row.uses}回まで使用可能` : null;
+        }
+        case 'SCHEDULE_EFFECT': {
+          const name = summonName(row.effect?.summon_template_id);
+          return name ? `次の${link('ラウンド開始時')}、「${name}」${row.repeat_count}体を${link('召喚')}する` : null;
+        }
+        case 'APPLY_BUFF_FROM_CHARACTER_COUNT': {
+          const summon = filteredSummon(row.character_filter);
+          return summon ? `存在していた「${summon.name}」が1体につき${row.value_per_character}、このラウンドで自身が使うスキルの${link('最終威力')}をアップする` : null;
+        }
+        default: return null;
+      }
+    }
+
+    function bonusSentence(row) {
+      const operation = row.operation ?? row.operator ?? 'FIXED';
+      const place = link(places[row.apply_to ?? 'base']);
+      const limit = row.min_bonus == null ? max(row.max_bonus) : `(最小で${row.min_bonus})`;
+      const adjustment = `このスキルの${place}${signed(row.value)}${limit}`;
+      const name = link(param(row.param));
+      if (operation === 'PER_N_BONUS') return `${who(row.source)}の${name}${row.per_N}につき、${adjustment}`;
+      if (operation === 'FIXED_IF_EXISTS') {
+        const threshold = row.threshold ?? 1;
+        return threshold === 1 ? `${who(row.source)}に${name}があるなら、${adjustment}`
+          : `${who(row.source)}の${name}が${threshold}以上なら、${adjustment}`;
+      }
+      if (operation === 'FIXED' && row.condition) {
+        if (row.condition.source === 'self' && row.condition.operator === 'LT' && states.includes(row.condition.param)) {
+          return `自分に${link(row.condition.param)}が${row.condition.value}以上ないなら、${adjustment}`;
+        }
+        const prefix = conditionText(row.condition);
+        return prefix === null ? null : prefix+adjustment;
+      }
+      return null;
+    }
+
+    function paired(power, consumption) {
+      const condition = power.condition;
+      return ['MODIFY_BASE_POWER','MODIFY_FINAL_POWER'].includes(power.type) && power.target === 'self'
+        && consumption?.type === 'CONSUME_BUFF_COUNT_FOR_GAIN' && consumption.target === 'self' && !consumption.gains?.length
+        && condition?.source === 'self' && condition.operator === 'GTE' && condition.value === consumption.consume_required
+        && condition.param === consumption.buff_name+'_count';
+    }
+
+    function describe(rows) {
+      const groups = new Map();
+      for (const row of rows) {
+        if (!groups.has(row?.timing)) groups.set(row?.timing, []);
+        groups.get(row?.timing).push(row);
+      }
+      return [...groups.values()].flatMap(group=>{
+        const descriptions = [];
+        for (let index=0; index<group.length; index++) {
+          const row = group[index];
+          const next = group[index+1];
+          const pair = row && paired(row,next);
+          const members = pair ? [row,next] : [row];
+          if (pair) index++;
+          const innerCondition = row?.condition?.param === 'tag_ids' || row?.condition?.source === 'target_skill';
+          const prefix = innerCondition || pair ? '' : conditionText(row?.condition);
+          const body = pair ? `${link(next.buff_name)}${next.consume_required}を消費し、このスキルの${link(row.type === 'MODIFY_BASE_POWER' ? '基礎威力' : '最終威力')}${signed(row.value)}${row.value % next.consume_required === 0 ? '(固定)' : ''}`
+            : row && sentence(row);
+          const note = row?.type === 'APPLY_BUFF' && row.buff_id === 'Bu-06';
+          const text = timingNames[row?.timing] && body && prefix !== null ? prefix+body : null;
+          const parsed = text ? reader.parse(note ? {note:text} : {trigger:header(row.timing)+text}) : null;
+          descriptions.push({row,members,note,text:parsed?.rule && sameMeaning({effects:members},{effects:parsed.rule.effects}) ? text : null});
+        }
+        return descriptions;
+      });
+    }
+
+    function write(payload) {
+      const rule = payload.特記処理 ?? {};
+      const unknown = [];
+      if (typeof rule !== 'object' || Array.isArray(rule)) unknown.push({unreadable:'特記処理'});
+      const group = new Map();
+      const notes = [];
+      const parsedOriginal = readPayload(reader,payload);
+      // 設定にない未対応の原文も、置き換える前に手で補う箇所として知らせる。
+      for (const error of parsedOriginal.errors) unknown.push({unreadable:error.line});
+      if (window.CatalogSkillNotes.omitsCorrection(payload.分類,payload.特記)) notes.push(catalogNoCorrectionNotes[payload.分類].replace(/。$/,''));
+      for (const bonus of Array.isArray(rule.power_bonus) ? rule.power_bonus : []) {
+        const text = bonus && bonusSentence(bonus);
+        const parsed = text && reader.parse({note:text});
+        if (parsed?.rule && sameMeaning({power_bonus:[bonus]},{power_bonus:parsed.rule.power_bonus})) notes.push(text);
+        else unknown.push(bonus);
+      }
+      for (const item of describe(Array.isArray(rule.effects) ? rule.effects : [])) {
+        if (item.text === null) unknown.push(...item.members);
+        else if (item.note) notes.push(item.text);
+        else {
+          if (!group.has(item.row.timing)) group.set(item.row.timing, []);
+          group.get(item.row.timing).push(item.text);
+        }
+      }
+      const costs = [];
+      for (const row of Array.isArray(rule.cost) ? rule.cost : []) {
+        if (resources.includes(row?.type) && Number.isInteger(row.value) && row.value > 0 && Object.keys(row).length === 2) costs.push(`${row.type}を${row.value}消費`);
+        else unknown.push(row);
+      }
+      if (Array.isArray(rule.tags) && rule.tags.includes('ラウンド終了')) {
+        const timing = [...group.keys()].at(-1) || 'HIT';
+        group.set(timing, [...(group.get(timing) || []), 'その後、'+link('ラウンド終了')]);
+      }
+      for (const key of ['effects','power_bonus','cost']) {
+        if (rule[key] !== undefined && !Array.isArray(rule[key])) unknown.push({unreadable:key});
+      }
+      return {コスト:costs.length ? header('PRE_MATCH')+costs.join('。')+'。' : '',
+        発動時効果:[...group].map(([timing,lines])=>header(timing)+lines.join('。')+'。').join(''),
+        特記:notes.length ? notes.join('。')+'。' : '', unknown};
+    }
+    return {write, describe, plain};
+  }
+
+  function renderComparison(payload, generated, plain, schemas) {
+    const {charDiff, side} = window.CatalogReview;
+    const h = window.CatalogGlossary.escape;
+    const rows = textFields.map(key=>{
+      const before = plain(payload[key]), after = plain(generated[key]);
+      const same = alikeText(payload[key],generated[key],plain);
+      const parts = same ? null : charDiff(before,after);
+      return {key,same,left:parts ? side(parts,'del') : h(before),right:parts ? side(parts,'ins') : h(after)};
+    });
+    const take = (key,label)=>`<button type="button" class="cat-button" data-action="writer-take" data-writer-field="${key}">${label}</button>`;
+    const unknown = generated.unknown;
+    const warnings = unknown.length ? `<div class="cat-callout cat-writer-unknown"><p>文にできない設定が${unknown.length}件あります。作った文章には入らないので、その文は手で書いてください。</p><ul>${unknown.map(row=>`<li>${h(row?.unreadable || (row?.type && row?.timing ? window.CatalogSkillEffects.summary(row,schemas) : 'この設定（JSON を見てください）'))}</li>`).join('')}</ul></div>` : '';
+    const column = (label,content)=>`<div><span class="cat-caption">${label}</span><p class="cat-writer-text">${content || '（空）'}</p></div>`;
+    return `<div class="cat-writer-result"><div class="cat-writer-bar"><p class="cat-caption">欄ごとに置き換えます。置き換えても保存はしません。</p>${rows.some(row=>!row.same) ? take('all','違う欄をすべて置き換える') : ''}<button type="button" class="cat-button" data-action="writer-close">閉じる</button></div>
+      ${warnings}${rows.map(row=>`<section class="cat-writer-row"><div class="cat-writer-head"><strong>${row.key}</strong>${row.same ? '<span class="cat-caption">同じです</span>' : take(row.key,'作った文章に置き換える')}</div><div class="cat-writer-pair">${column('今の文章',row.left)}${column('効果から作った文章',row.right)}</div></section>`).join('')}</div>`;
+  }
+
+  function alikeText(before, after, plain) {
+    const normalize = text=>plain(text).replace(/\s+/g,'').replace(/。$/,'');
+    return normalize(before) === normalize(after);
+  }
+
   function renderForm(payload, tags, result, references) {
     const h = window.CatalogGlossary.escape;
     const fields = [['コスト', 'コスト'], ['発動時効果', '発動時効果'], ['特記', '特記']];
@@ -1196,5 +1550,5 @@
       <label class="cat-field">タグ（カンマ区切り）<input id="cat-text-tags" value="${h(tags)}"></label>
       ${window.CatalogSkillTextHelp.render(references)}</section>`;
   }
-  window.CatalogSkillText={createReader,copyJSON,renderForm};
+  window.CatalogSkillText={createReader,createWriter,copyJSON,renderForm,empty,same,meaning,sameMeaning,readPayload,textFields,renderComparison,alikeText};
 })();

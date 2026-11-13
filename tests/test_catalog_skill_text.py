@@ -64,6 +64,7 @@ def test_published_skill_text_roundtrip():
         cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+    assert '作った文章を読み取ると元の効果に戻る' in result.stdout
 
 
 def test_timing_conditions_and_blank_text():
@@ -75,6 +76,42 @@ const rows = JSON.parse(JSON.stringify(parsed.rule.effects));
 assert.deepEqual(rows.map(row=>row.timing), ['END_ROUND','END_ROUND']);
 assert.equal(rows[1].target, 'target');
 assert.deepEqual(rows[1].condition, {source:'self',param:'FP',operator:'GTE',value:3});
+""")
+
+
+def test_writer_groups_effects_and_preserves_text_controls():
+    run_node(r"""
+for(const name of ['skill_effects','editor','review']) vm.runInContext(fs.readFileSync('static/js/master_data/'+name+'.js','utf8'),context);
+const text=window.CatalogSkillText, writer=text.createWriter(fixture.references);
+const payloadFor=id=>{
+ const {input,expected}=fixture.cases.find(item=>item.name===id);
+ return {分類:input.category,コスト:input.cost,発動時効果:input.trigger,特記:input.note,特記処理:expected.rule};
+};
+for (const id of ['Pb-13','Pp-13']) {
+ const payload=payloadFor(id), generated=writer.write(payload);
+ assert.equal(generated.unknown.length,0);
+ assert.equal(writer.describe(payload.特記処理.effects).filter(row=>row.members.length===2).length,1);
+ assert.equal((generated.発動時効果.match(/を消費し/g) || []).length,1);
+}
+const even=payloadFor('Pb-13');
+even.特記処理.effects.find(row=>row.type==='MODIFY_BASE_POWER').value=4;
+const evenWritten=writer.write(even);
+assert.match(evenWritten.発動時効果,/\+4\(固定\)/);
+assert.ok(text.sameMeaning(even.特記処理,text.readPayload(reader,even,evenWritten).rule));
+const ps=payloadFor('Ps-04');
+const changed=ps.特記処理.effects[0]; changed.value=6;
+const generated=writer.write(ps);
+assert.match(generated.発動時効果,/再使用は1回まで/);
+assert.ok(!text.sameMeaning(ps.特記処理,text.readPayload(reader,ps).rule));
+assert.ok(text.sameMeaning(ps.特記処理,text.readPayload(reader,ps,generated).rule));
+const panel=text.renderComparison(ps,generated,writer.plain,{});
+assert.match(panel,/<del>4<\/del>/); assert.match(panel,/<ins>6<\/ins>/);
+assert.match(panel,/違う欄をすべて置き換える/);
+const noCorrection={...payloadFor('Pb-10'),分類:'物理',特記:'このスキルには[[W-53|物理補正]]を適用しない。'};
+assert.match(writer.write(noCorrection).特記,/このスキルには物理補正を適用しない。/);
+const unsupported=writer.write({特記処理:{effects:[{type:'UNKNOWN',timing:'HIT'}]}});
+assert.equal(unsupported.unknown.length,1);
+assert.match(text.renderComparison({},unsupported,writer.plain,{}),/文にできない設定が1件/);
 """)
 
 

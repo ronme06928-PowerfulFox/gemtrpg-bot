@@ -31,7 +31,7 @@
       const control = spec.type === 'textarea' ? `<label class="cat-field cat-field-wide">${label}<textarea ${key === 'チャットパレット' ? '' : 'data-catalog-text '}${attrs} rows="3">${h(payload[key] ?? '')}</textarea></label>` : effects.control(label, payload[key], spec, attrs);
       return `<div class="${spec.type === 'textarea' ? 'cat-field-wide' : ''}">${control}<span class="cat-field-error" id="cat-error-${key}">${h(errors[`input:${key}`] || errors[key])}</span>${key === 'チャットパレット' ? '<button type="button" class="cat-button" data-skill-action="palette">項目から作る</button>' : ''}</div>`;
     }).join('');
-    if (options.section === 'description') return input;
+    if (options.section === 'description') return `<div class="cat-field-wide"><div class="cat-writer-top"><h3 class="cat-heading-info">文章${window.CatalogInfo.render('効果から文章を作る','「効果」の節の設定から、ゲームの書き方の文章を作ります。今の文章と欄ごとに見比べて、置き換えるかを選べます。保存はしません。')}</h3><button type="button" class="cat-button" data-action="writer-open">効果から文章を作る</button></div><div id="cat-writing-result"></div></div>${input}`;
     const tags = () => `<section class="cat-field-wide">${payload.特記処理 === undefined || effects.object(payload.特記処理) ? window.CatalogSkillInputs.tagForm(payload.特記処理 || {},references,options.skillTagInput) : window.CatalogSkillInputs.jsonLink()}</section>`;
     if (options.section === 'body') return input + tags();
     const section = options.section;
@@ -54,7 +54,10 @@
   function preview(payload, options = {}) {
     const detail = window.formatSkillDetailHTML ? window.formatSkillDetailHTML(Object.fromEntries(fields.slice(0,-1).map(([key])=>[key,String(payload[key] ?? '')]))) : `<p class="cat-description">${h(payload.発動時効果 || '')}</p>`;
     const list = payload.特記処理?.effects;
-    return `<section class="bo-workspace__card cat-skill-preview"><h4>ゲームでの見え方</h4>${detail}</section>${options.power || ''}<section class="bo-workspace__card"><h4 class="cat-heading-info">効果の説明${window.CatalogInfo.render('効果の説明','「効果」の節の設定を文にしたもの。上の文章と食い違いがないかを見比べます。')}</h4>${Array.isArray(list) ? `<ol class="cat-effect-list">${list.map(row=>`<li>${h(effects.summary(row,schemas))}<small>${h(effects.timingLabels[row?.timing] || 'タイミング未指定')}${row?.condition ? ' · '+h(effects.conditionText(row.condition)) : ''}</small></li>`).join('')}</ol>` : '<p class="cat-caption">効果なし</p>'}</section>`;
+    const writer = window.CatalogSkillText?.createWriter(options.textReferences);
+    const lines = Array.isArray(list) && writer ? writer.describe(list) : (Array.isArray(list) ? list.map(row=>({row,text:null})) : []);
+    const descriptions = lines.map(({row,text})=>`<li>${h(text === null ? effects.summary(row,schemas) : writer.plain(text))}<small>${h(effects.timingLabels[row?.timing] || 'タイミング未指定')}${text === null && row?.condition ? ' · '+h(effects.conditionText(row.condition)) : ''}</small></li>`).join('');
+    return `<section class="bo-workspace__card cat-skill-preview"><h4>ゲームでの見え方</h4>${detail}</section>${options.power || ''}<section class="bo-workspace__card"><h4 class="cat-heading-info">効果の説明${window.CatalogInfo.render('効果の説明','「効果」の節の設定を文にしたもの。上の文章と食い違いがないかを見比べます。')}</h4>${lines.length ? `<ol class="cat-effect-list">${descriptions}</ol>` : '<p class="cat-caption">効果なし</p>'}</section>`;
   }
   window.CatalogSkill = {...base, kind:'skill', label:'スキル', fields, groups, categories:[], defaults, form, preview, configure, palette, diceControl, diceValue,
     displayName: payload=>payload.デフォルト名称,

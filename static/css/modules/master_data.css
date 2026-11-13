@@ -291,8 +291,8 @@
 .cat-review-cell h4 { margin-bottom: 8px; font-size: 13px; }
 .cat-review-cell p { margin: 0; }
 .cat-review-cell .cat-badge { color: var(--cat-warn); background: var(--cat-warn-soft); }
-.cat-review-cell del { text-decoration: line-through; color: var(--cat-danger); background: var(--cat-danger-soft); }
-.cat-review-cell ins { text-decoration: underline; color: var(--cat-add); background: var(--cat-add-bg); }
+.cat-review-cell del, .cat-writer-text del { text-decoration: line-through; color: var(--cat-danger); background: var(--cat-danger-soft); }
+.cat-review-cell ins, .cat-writer-text ins { text-decoration: underline; color: var(--cat-add); background: var(--cat-add-bg); }
 .cat-review-cell summary { cursor: pointer; margin-top: 10px; font-size: 12px; }
 .cat-review-same { margin: 14px 0; }
 .cat-review-content > .cat-problems { margin-top: 16px; }
@@ -420,4 +420,18 @@
   .cat-request-body { grid-template-columns: minmax(0, 1fr); display: block; overflow: auto; }
   .cat-request-body > section { overflow: visible; }
   .cat-workspace .cat-request-body > section + section { border-left: 0; border-top: 1px solid var(--cat-edge); }
+}
+
+.cat-writer-top, .cat-writer-head, .cat-writer-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cat-writer-top, .cat-writer-head { justify-content: space-between; }
+.cat-writer-top h3, .cat-writer-bar p { margin: 0; }
+.cat-writer-bar p { margin-right: auto; }
+.cat-writer-result { margin-top: 10px; padding: 10px; border: 1px solid var(--cat-edge); border-radius: 8px; background: var(--cat-soft); }
+.cat-writer-row { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--cat-edge); }
+.cat-writer-pair { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 6px; }
+.cat-writer-text { margin: 2px 0 0; padding: 6px 8px; border: 1px solid var(--cat-edge); border-radius: 6px; background: var(--cat-bg); white-space: pre-wrap; overflow-wrap: anywhere; }
+.cat-writer-mismatch, .cat-writer-unknown { margin: 8px 0; font-size: 12px; }
+.cat-writer-unknown p { margin: 0; }
+@container catalog (max-width: 680px) {
+  .cat-writer-pair { grid-template-columns: minmax(0,1fr); }
 }

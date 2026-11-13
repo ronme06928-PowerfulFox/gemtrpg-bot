@@ -34,61 +34,8 @@ const references = {
 };
 const reader = window.CatalogSkillText.createReader(references);
 
-// キーの並び、値が無いのと空の配列・空のオブジェクトの違いをそろえて比べる。
-// target_scope は文章からではなく画面からの引き渡しで決まるので比べない。
-const empty = value => value === undefined || (Array.isArray(value) && !value.length) || (value && typeof value === 'object' && !Array.isArray(value) && !Object.keys(value).length);
-function normal(value) {
-  if (Array.isArray(value)) return value.map(normal);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.keys(value).sort().filter(key => key !== 'target_scope' && !empty(value[key])).map(key => [key, normal(value[key])]));
-  }
-  return value;
-}
-const same = (a, b) => JSON.stringify(normal(a)) === JSON.stringify(normal(b));
-
-// 書き方が違うだけで、戦闘での意味が同じものをそろえる（既定の値・重なった項目・説明だけの項目）。
-// 文章の読み取りが空の文章から作る中身のない効果も、ここで落として別に数える。
-function meaning(rule) {
-  const copy = JSON.parse(JSON.stringify(rule || {}));
-  const blank = effect => effect?.type === 'APPLY_STATE' && effect.state_name === undefined && effect.value === undefined;
-  const blanks = (copy.effects || []).filter(blank).length;
-  copy.effects = (copy.effects || []).filter(effect => !blank(effect)).map(effect => {
-    const row = { ...effect };
-    if (row.stat === row.state_name) delete row.stat;
-    delete row.flavor;
-    if (row.target === 'target') delete row.target;
-    if (row.type === 'USE_SKILL_AGAIN' && row.max_reuses === 1) delete row.max_reuses;
-    if (row.delay === 0) delete row.delay;
-    if (row.lasting === -1) delete row.lasting;
-    if (row.data && typeof row.data === 'object') {
-      row.data = { ...row.data };
-      if (row.data.count !== undefined && row.count === undefined) { row.count = row.data.count; delete row.data.count; }
-      if (row.data.buff_id === row.buff_id) delete row.data.buff_id;
-      delete row.data.display_name;
-    }
-    return row;
-  });
-  // 戦闘はタイミングごとに効果を処理する。同じタイミングの順序は保つ。
-  copy.effects.sort((a, b) => String(a.timing).localeCompare(String(b.timing)));
-  copy.power_bonus = (copy.power_bonus || []).map(bonus => {
-    const row = { ...bonus };
-    row.operation = row.operation ?? row.operator ?? 'FIXED';
-    delete row.operator;
-    const condition = row.condition;
-    if (row.operation === 'FIXED_IF_EXISTS' && !condition && row.source && row.param) {
-      row.condition = {source: row.source, param: row.param, operator: 'GTE', value: row.threshold ?? 1};
-      row.operation = 'FIXED';
-      delete row.source;
-      delete row.param;
-      delete row.threshold;
-    }
-    if (row.threshold === 1) delete row.threshold;
-    if (row.apply_to === 'base') delete row.apply_to;
-    return row;
-  });
-  if (copy.tags) copy.tags.sort();
-  return { rule: copy, blanks };
-}
+const { empty, same, meaning, sameMeaning, readPayload } = window.CatalogSkillText;
+const writer = window.CatalogSkillText.createWriter(references);
 
 function differences(stored, made) {
   const out = [];
@@ -107,6 +54,7 @@ function differences(stored, made) {
 
 const rows = data.lists.skill.entries.filter(row => !row.deprecated).sort((a, b) => a.entry_id.localeCompare(b.entry_id, 'en', { numeric: true }));
 const result = { same: [], alike: [], differ: [], error: [] };
+const written = { roundtrip: [], unknown: [], differ: [], error: [] };
 let blankSkills = 0;
 const kinds = new Map(), types = new Map(), timings = new Map(), conditions = { with: 0, without: 0 };
 for (const row of rows) {
@@ -116,8 +64,13 @@ for (const row of rows) {
     timings.set(effect.timing, (timings.get(effect.timing) || 0) + 1);
     conditions[effect.condition ? 'with' : 'without']++;
   }
-  const parsed = reader.parse({ category: payload.分類, cost: payload.コスト, trigger: payload.発動時効果, note: payload.特記,
-    tags: (rule.tags || []).join(','), id: rule.id, target_scope: rule.target_scope });
+  const parsed = readPayload(reader, payload);
+  const madeText = writer.write(payload);
+  const reread = readPayload(reader, payload, madeText);
+  if (madeText.unknown.length) written.unknown.push({id:row.entry_id, details:madeText.unknown});
+  else if (reread.errors.length) written.error.push({id:row.entry_id, details:reread.errors});
+  else if (sameMeaning(rule, reread.rule)) written.roundtrip.push(row.entry_id);
+  else written.differ.push({id:row.entry_id, details:{stored:meaning(rule).rule, read:meaning(reread.rule).rule, text:madeText}});
   if (parsed.errors?.length) {
     result.error.push({ id: row.entry_id, reasons: parsed.errors.map(error => `${error.column}「${error.line}」${error.reason}`) });
     for (const error of parsed.errors) kinds.set(error.reason, (kinds.get(error.reason) || 0) + 1);
@@ -153,10 +106,20 @@ if (process.argv.includes('--list')) {
   console.log('\n--- 読み取れないスキル ---');
   for (const item of result.error) console.log(`${item.id}: ${item.reasons.join(' / ')}`);
 }
+console.log('\n文章を作る側の往復');
+console.log('- 作った文章を読み取ると元の効果に戻る：' + written.roundtrip.length + '件');
+console.log('- 文にできない効果がある：' + written.unknown.length + '件');
+console.log('- 作った文章を読み取ると違う効果になる：' + written.differ.length + '件');
+console.log('- 作った文章を読み取れない：' + written.error.length + '件');
+if (process.argv.includes('--list')) {
+  for (const [label,items] of [['文にできない',written.unknown],['違う',written.differ],['読めない',written.error]]) {
+    for (const item of items) console.log('[' + label + '] ' + item.id + ': ' + JSON.stringify(item.details));
+  }
+}
 // --check：例外のスキル（今の言い回しで書けない文がある）を除き、意味が違う・読み取れないものがあれば失敗で終わる。
 const EXCEPTIONS = new Set(['E-14', 'E-33', 'E-34', 'E-35', 'E-06']);
 if (process.argv.includes('--check')) {
-  const failed = [...result.differ, ...result.error].map(item => item.id).filter(id => !EXCEPTIONS.has(id));
+  const failed = [...result.differ, ...result.error, ...written.unknown, ...written.differ, ...written.error].map(item => item.id).filter(id => !EXCEPTIONS.has(id));
   if (failed.length) {
     console.error(`\n往復の確かめに失敗：${failed.join(', ')}`);
     process.exit(1);
