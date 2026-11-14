@@ -109,3 +109,20 @@ textarea { width: 100%; resize: vertical; } .mono { font-family: Consolas, monos
 .thumb img { width: 100%; height: 100%; object-fit: cover; }
 .new-menu { margin-bottom: 4px; } .new-menu summary { list-style: none; text-align: center; }
 .new-menu div { display: grid; gap: 4px; margin-top: 4px; }
+/* ユニット管理（2回目の試作） */
+fieldset.edit-input { margin: 0; border: none; min-width: 0; }
+.ws-head { align-items: center; gap: 12px; } .head-actions { display: flex; gap: 6px; margin-left: auto; }
+.room-band { padding: 2px 10px; border-radius: 999px; background: var(--enemy-soft); color: var(--enemy); font-size: 12px; font-weight: 700; }
+.ws-tabs small { color: var(--sub); font-weight: 400; }
+.ws-list input[type="search"], .ws-list select { width: 100%; }
+.tag-staff { border-color: #6d28d9; color: #6d28d9; background: #f3e8ff; }
+.tag-dep { border-color: var(--control); color: #fff; background: var(--control); }
+.btn-sm { padding: 1px 8px; font-size: 12px; }
+.foot-left { display: flex; gap: 6px; margin-right: auto; }
+.history { margin: 0; padding: 0; list-style: none; } .history li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--edge); }
+.members .num { width: 60px; } .members select { max-width: 260px; }
+.members + .btn { margin-top: 8px; }
+.rule { padding: 8px 10px; margin-bottom: 8px; border: 1px solid var(--edge); border-radius: 8px; }
+.stage-card { padding: 10px; border: 1px solid var(--edge); border-radius: 8px; background: var(--bg); }
+.stage-card h4 { margin-top: 0; color: var(--text); font-size: 14px; } .stage-card p { margin: 4px 0; }
+.field-effect { color: #0f766e; }
