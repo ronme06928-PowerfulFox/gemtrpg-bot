@@ -151,7 +151,8 @@ def import_character():
 @units_bp.get("/export")
 @endpoint(author_only=True)
 def export():
-    return jsonify(transfer.export_package(request.args.get("collection_id")))
+    return jsonify(transfer.export_package(
+        request.args.get("collection_id"), include_deprecated=request.args.get("include_deprecated", "1") == "1"))
 
 
 @units_bp.post("/import/preview")

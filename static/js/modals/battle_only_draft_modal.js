@@ -98,65 +98,6 @@
         };
     }
 
-    function getBehaviorProfileTemplate() {
-        return {
-            enabled: true,
-            version: 1,
-            slot_generation_mode: 'step_actions',
-            initial_loop_id: 'loop_1',
-            loops: {
-                loop_1: {
-                    repeat: true,
-                    steps: [
-                        {
-                            actions: ['__RANDOM_USABLE__'],
-                            targets: ['target_enemy_random'],
-                            on_no_target: ['cancel'],
-                            next_loop_id: null,
-                            next_reset_step_index: true,
-                        }
-                    ],
-                    transitions: [],
-                }
-            },
-        };
-    }
-
-    function extractCharacterDataFromPreset(record) {
-        const rec = (record && typeof record === 'object') ? record : {};
-        const root = (rec.character_json && typeof rec.character_json === 'object') ? rec.character_json : {};
-        const data = (root.kind === 'character' && root.data && typeof root.data === 'object')
-            ? root.data
-            : ((root.data && typeof root.data === 'object') ? root.data : root);
-        return (data && typeof data === 'object') ? data : {};
-    }
-
-    function buildBehaviorEditorCharFromPreset(record, overrideProfile) {
-        const rec = (record && typeof record === 'object') ? record : {};
-        const data = extractCharacterDataFromPreset(rec);
-        return {
-            id: `bo_enemy_override_${String(rec.id || '').trim() || Date.now()}`,
-            name: String(data.name || rec.name || '(敵)').trim(),
-            commands: String(data.commands || '').trim(),
-            granted_skills: Array.isArray(data.granted_skills) ? data.granted_skills : [],
-            flags: {
-                behavior_profile: (overrideProfile && typeof overrideProfile === 'object') ? overrideProfile : {},
-            },
-        };
-    }
-
-    function openPresetDetailModalFromDraft(record, setMsg) {
-        if (!record || typeof record !== 'object') {
-            if (typeof setMsg === 'function') setMsg('プリセットが見つかりません。', 'red');
-            return;
-        }
-        if (typeof global.openBattleOnlyPresetDetailModal === 'function') {
-            global.openBattleOnlyPresetDetailModal(record);
-            return;
-        }
-        if (typeof setMsg === 'function') setMsg('キャラクター詳細モーダルを読み込めませんでした。', 'red');
-    }
-
     function openBattleOnlyDraftModal() {
         const socketRef = getSocketRef();
         const roomName = getRoomNameRef();
@@ -185,7 +126,6 @@
                 <div class="bo-toolbar-group">
                     <button id="bo-draft-refresh-btn" class="bo-btn bo-btn--sm bo-btn--neutral">再読み込み</button>
                     <button id="bo-draft-open-deployment-btn" class="bo-btn bo-btn--sm bo-btn--primary">プリセット配置</button>
-                    <button id="bo-draft-open-catalog-btn" class="bo-btn bo-btn--sm bo-btn--neutral">キャラクタープリセット編集</button>
                 </div>
                 <div class="bo-toolbar-group">
                     <button id="bo-draft-save-config-btn" class="bo-btn bo-btn--sm bo-btn--primary">手動反映（任意）</button>
@@ -622,7 +562,6 @@
                     </td>
                     <td>
                         <div class="bo-toolbar-group">
-                            <button class="bo-ally-detail bo-btn bo-btn--xs bo-btn--neutral">詳細</button>
                             <button class="bo-ally-del bo-btn bo-btn--xs bo-btn--neutral">削除</button>
                         </div>
                     </td>
@@ -726,25 +665,6 @@
                     scheduleDraftAutoSync();
                 });
             });
-            allyArea.querySelectorAll('.bo-ally-detail').forEach((btn) => {
-                btn.addEventListener('click', () => {
-                    const tr = btn.closest('tr[data-idx]');
-                    const idx = safeInt(tr && tr.getAttribute('data-idx'), -1);
-                    if (idx < 0) return;
-                    const row = bo.ally_entries[idx] || {};
-                    const presetId = String(row.preset_id || '').trim();
-                    if (!presetId) {
-                        setMsg('味方プリセットを選択してから詳細を開いてください。', 'red');
-                        return;
-                    }
-                    const preset = presetById(presetId);
-                    if (!preset) {
-                        setMsg(`味方プリセットが見つかりません: ${presetId}`, 'red');
-                        return;
-                    }
-                    openPresetDetailModalFromDraft(preset, setMsg);
-                });
-            });
             const addBtn = allyArea.querySelector('#bo-ally-add-btn');
             if (addBtn) addBtn.disabled = (String(bo.ally_mode || 'preset') === 'room_existing');
         }
@@ -767,17 +687,7 @@
                         <input class="bo-enemy-count bo-input bo-input--compact" type="number" min="1" value="${Math.max(1, safeInt(row && row.count, 1))}" />
                     </td>
                     <td>
-                        <textarea class="bo-enemy-behavior bo-textarea bo-textarea--compact bo-textarea--mono" placeholder='{}'>${escapeHtml(JSON.stringify((row && row.behavior_profile_override) || {}), null, 2)}</textarea>
-                        <div class="bo-toolbar-group" style="margin-top:4px;">
-                            <button class="bo-enemy-behavior-flow bo-btn bo-btn--xs bo-btn--primary">フロー編集</button>
-                            <button class="bo-enemy-behavior-template bo-btn bo-btn--xs bo-btn--neutral">テンプレート</button>
-                            <button class="bo-enemy-behavior-format bo-btn bo-btn--xs bo-btn--neutral">整形</button>
-                            <button class="bo-enemy-behavior-clear bo-btn bo-btn--xs bo-btn--neutral">クリア</button>
-                        </div>
-                    </td>
-                    <td>
                         <div class="bo-toolbar-group">
-                            <button class="bo-enemy-detail bo-btn bo-btn--xs bo-btn--neutral">詳細</button>
                             <button class="bo-enemy-del bo-btn bo-btn--xs bo-btn--neutral">削除</button>
                         </div>
                     </td>
@@ -799,7 +709,6 @@
                             ${formationOptions}
                         </select>
                         <button id="bo-enemy-formation-apply-btn" class="bo-btn bo-btn--xs bo-btn--neutral">編成読込</button>
-                        <button id="bo-enemy-formation-edit-btn" class="bo-btn bo-btn--xs bo-btn--neutral">編成編集</button>
                         <button id="bo-enemy-add-btn" class="bo-btn bo-btn--xs bo-btn--neutral">敵追加</button>
                     </div>
                 </div>
@@ -809,11 +718,10 @@
                             <th>#</th>
                             <th>プリセット</th>
                             <th>人数</th>
-                            <th>行動チャート上書き</th>
                             <th>操作</th>
                         </tr>
                     </thead>
-                    <tbody>${rows || '<tr><td colspan="5" class="bo-empty-cell">敵が未設定です。</td></tr>'}</tbody>
+                    <tbody>${rows || '<tr><td colspan="4" class="bo-empty-cell">敵が未設定です。</td></tr>'}</tbody>
                 </table>
             `;
 
@@ -838,23 +746,8 @@
                 model.battle_only = bo2;
                 scheduleDraftAutoSync();
             });
-            enemyArea.querySelector('#bo-enemy-formation-edit-btn')?.addEventListener('click', () => {
-                if (typeof global.openBattleOnlyEnemyFormationModal !== 'function') {
-                    setMsg('敵編成プリセット編集モーダルを読み込めませんでした。', 'red');
-                    return;
-                }
-                global.openBattleOnlyEnemyFormationModal({
-                    room: roomName,
-                    presets: model.presets,
-                    sorted_ids: model.sorted_ids,
-                    enemy_formations: model.enemy_formations,
-                    sorted_enemy_formation_ids: model.sorted_enemy_formation_ids,
-                    can_manage: model.can_manage,
-                });
-                setMsg('敵編成プリセット編集を開きました。', '#444');
-            });
             enemyArea.querySelector('#bo-enemy-add-btn')?.addEventListener('click', () => {
-                bo.enemy_entries.push({ preset_id: '', count: 1, behavior_profile_override: {} });
+                bo.enemy_entries.push({ preset_id: '', count: 1, pattern_id: null });
                 render();
                 scheduleDraftAutoSync();
             });
@@ -868,136 +761,7 @@
                     scheduleDraftAutoSync();
                 });
             });
-            enemyArea.querySelectorAll('.bo-enemy-detail').forEach((btn) => {
-                btn.addEventListener('click', () => {
-                    const tr = btn.closest('tr[data-idx]');
-                    const idx = safeInt(tr && tr.getAttribute('data-idx'), -1);
-                    if (idx < 0) return;
-                    const row = bo.enemy_entries[idx] || {};
-                    const presetId = String(row.preset_id || '').trim();
-                    if (!presetId) {
-                        setMsg('敵プリセットを選択してから詳細を開いてください。', 'red');
-                        return;
-                    }
-                    const preset = presetById(presetId);
-                    if (!preset) {
-                        setMsg(`敵プリセットが見つかりません: ${presetId}`, 'red');
-                        return;
-                    }
-                    openPresetDetailModalFromDraft(preset, setMsg);
-                });
-            });
-            enemyArea.querySelectorAll('.bo-enemy-behavior-template').forEach((btn) => {
-                btn.addEventListener('click', () => {
-                    const tr = btn.closest('tr[data-idx]');
-                    const area = tr?.querySelector('.bo-enemy-behavior');
-                    if (!area) return;
-                    area.value = JSON.stringify(getBehaviorProfileTemplate(), null, 2);
-                    setMsg('行動チャートのテンプレートを挿入しました。', 'green');
-                    scheduleDraftAutoSync();
-                });
-            });
-            enemyArea.querySelectorAll('.bo-enemy-behavior-flow').forEach((btn) => {
-                btn.addEventListener('click', () => {
-                    const tr = btn.closest('tr[data-idx]');
-                    const presetId = String(tr?.querySelector('.bo-enemy-preset')?.value || '').trim();
-                    const area = tr?.querySelector('.bo-enemy-behavior');
-                    if (!presetId) {
-                        setMsg('先に敵プリセットを選択してください。', 'red');
-                        return;
-                    }
-                    const preset = model.presets && model.presets[presetId];
-                    if (!preset || typeof preset !== 'object') {
-                        setMsg(`敵プリセットが見つかりません: ${presetId}`, 'red');
-                        return;
-                    }
-                    let currentProfile = {};
-                    const text = String(area?.value || '').trim();
-                    if (text && text !== '{}') {
-                        try {
-                            const parsed = JSON.parse(text);
-                            if (parsed && typeof parsed === 'object') currentProfile = parsed;
-                        } catch (_e) {
-                            currentProfile = {};
-                        }
-                    }
-                    if (typeof global.openBehaviorFlowEditorModal !== 'function') {
-                        setMsg('行動チャート編集UIを読み込めませんでした。', 'red');
-                        return;
-                    }
-                    const editorChar = buildBehaviorEditorCharFromPreset(preset, currentProfile);
-                    const rowIndex = Math.max(0, safeInt(tr && tr.getAttribute('data-idx'), -1));
-                    const bo = model.battle_only && typeof model.battle_only === 'object' ? model.battle_only : {};
-                    const formationId = String(bo.enemy_formation_id || '').trim();
-                    const formation = formationId && model.enemy_formations ? model.enemy_formations[formationId] : null;
-                    const formationName = String((formation && formation.name) || formationId || '手動敵編成').trim();
-                    global.openBehaviorFlowEditorModal(editorChar, {
-                        title: '敵行動チャート上書き編集',
-                        subtitle: `この編成内の「${String(preset.name || presetId)}」にだけ適用されます。`,
-                        contextRows: [
-                            `編成: ${formationName}`,
-                            `敵行: #${rowIndex + 1}`,
-                            `敵プリセット: ${String(preset.name || presetId)}`,
-                        ],
-                        saveLabel: 'この敵に反映',
-                        onSave: (normalizedProfile) => {
-                            const activeProfile = (normalizedProfile && typeof normalizedProfile === 'object')
-                                ? JSON.parse(JSON.stringify(normalizedProfile))
-                                : {};
-                            if (activeProfile.loops && typeof activeProfile.loops === 'object' && Object.keys(activeProfile.loops).length > 0) {
-                                activeProfile.enabled = true;
-                            }
-                            if (rowIndex >= 0 && Array.isArray(bo.enemy_entries) && bo.enemy_entries[rowIndex]) {
-                                bo.enemy_entries[rowIndex].behavior_profile_override = activeProfile;
-                            }
-                            if (area) {
-                                area.value = JSON.stringify(activeProfile, null, 2);
-                            }
-                            setMsg('行動チャート上書きを反映しました。', 'green');
-                            render();
-                            scheduleDraftAutoSync();
-                            return true;
-                        },
-                    });
-                });
-            });
-            enemyArea.querySelectorAll('.bo-enemy-behavior-format').forEach((btn) => {
-                btn.addEventListener('click', () => {
-                    const tr = btn.closest('tr[data-idx]');
-                    const area = tr?.querySelector('.bo-enemy-behavior');
-                    if (!area) return;
-                    const text = String(area.value || '').trim();
-                    if (!text) return;
-                    try {
-                        const parsed = JSON.parse(text);
-                        if (!parsed || typeof parsed !== 'object') {
-                            setMsg('行動チャートJSONはオブジェクト形式で入力してください。', 'red');
-                            return;
-                        }
-                        area.value = JSON.stringify(parsed, null, 2);
-                        setMsg('行動チャートJSONを整形しました。', 'green');
-                        scheduleDraftAutoSync();
-                    } catch (e) {
-                        setMsg(`行動チャートJSON解析に失敗しました: ${e.message}`, 'red');
-                    }
-                });
-            });
-            enemyArea.querySelectorAll('.bo-enemy-behavior-clear').forEach((btn) => {
-                btn.addEventListener('click', () => {
-                    const tr = btn.closest('tr[data-idx]');
-                    const area = tr?.querySelector('.bo-enemy-behavior');
-                    if (!area) return;
-                    area.value = '{}';
-                    setMsg('行動チャート上書きをクリアしました。', '#444');
-                    scheduleDraftAutoSync();
-                });
-            });
             enemyArea.querySelectorAll('.bo-enemy-preset, .bo-enemy-count').forEach((el) => {
-                el.addEventListener('change', () => {
-                    scheduleDraftAutoSync();
-                });
-            });
-            enemyArea.querySelectorAll('.bo-enemy-behavior').forEach((el) => {
                 el.addEventListener('change', () => {
                     scheduleDraftAutoSync();
                 });
@@ -1029,21 +793,9 @@
             enemyArea.querySelectorAll('tbody tr[data-idx]').forEach((tr) => {
                 const presetId = String(tr.querySelector('.bo-enemy-preset')?.value || '').trim();
                 const count = Math.max(0, safeInt(tr.querySelector('.bo-enemy-count')?.value, 0));
-                let behavior_profile_override = {};
-                const behaviorText = String(tr.querySelector('.bo-enemy-behavior')?.value || '').trim();
-                if (behaviorText && behaviorText !== '{}') {
-                    try {
-                        const parsed = JSON.parse(behaviorText);
-                        if (parsed && typeof parsed === 'object') {
-                            behavior_profile_override = parsed;
-                        } else {
-                            throw new Error('オブジェクト形式ではありません');
-                        }
-                    } catch (e) {
-                        throw new Error(`敵プリセット ${presetId || '(未選択)'} の行動チャートJSONが不正です: ${e.message}`);
-                    }
-                }
-                enemyRows.push({ preset_id: presetId, count, behavior_profile_override });
+                const row = bo.enemy_entries[Number(tr.dataset.idx)];
+                const pattern_id = row?.preset_id === presetId ? row.pattern_id || null : null;
+                enemyRows.push({ preset_id: presetId, count, pattern_id });
             });
             bo.ally_mode = allyMode;
             bo.required_ally_count = requiredAllyCount;
@@ -1121,7 +873,6 @@
                 panel.querySelector('#bo-draft-finish-enemy-btn'),
                 panel.querySelector('#bo-draft-finish-draw-btn'),
                 panel.querySelector('#bo-draft-export-btn'),
-                panel.querySelector('#bo-draft-open-catalog-btn'),
             ].forEach((el) => {
                 if (!el) return;
                 el.disabled = !enabled;
@@ -1234,13 +985,6 @@
                 targetMode: 'battle_only',
                 onClose: () => global.openBattleOnlyDraftModal(),
             });
-        });
-        panel.querySelector('#bo-draft-open-catalog-btn')?.addEventListener('click', () => {
-            if (typeof global.openBattleOnlyWorkspaceModal === 'function') {
-                global.openBattleOnlyWorkspaceModal({ room: roomName });
-            } else {
-                setMsg('プリセット編集モーダルを読み込めませんでした。', 'red');
-            }
         });
         panel.querySelector('#bo-draft-save-config-btn')?.addEventListener('click', sendDraftUpdate);
         panel.querySelector('#bo-draft-start-btn')?.addEventListener('click', () => {
@@ -1397,7 +1141,7 @@
             setMsg(`戦績を出力しました（${safeInt(data && data.record_count, 0)}件）`, 'green');
         });
 
-        ['bo_draft_error', 'bo_catalog_error', 'bo_preset_error', 'bo_enemy_formation_error', 'bo_stage_preset_error'].forEach((eventName) => {
+        ['bo_draft_error'].forEach((eventName) => {
             onSocket(eventName, (data) => {
                 const msg = (data && data.message) ? String(data.message) : '操作に失敗しました。';
                 setMsg(msg, 'red');

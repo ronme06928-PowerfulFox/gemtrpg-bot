@@ -7,26 +7,25 @@ from extensions import db
 FORMAT = "gemtrpg-units-v1"
 
 
-def export_package(collection_id=None):
+def export_package(collection_id=None, *, include_deprecated=True):
     resources = repository.entries()
+    selected = {key for key, row in resources.items() if include_deprecated or not row["deprecated"]}
     if collection_id:
         collection = ("unit_collection", collection_id)
         if collection not in resources:
             raise repository.CatalogValidationError({"collection_id": "分類が見つかりません"})
-        selected = {collection} | {key for key, row in resources.items()
-                                   if row["payload"].get("collection_id") == collection_id}
-        pending = list(selected)
-        while pending:
-            key = pending.pop()
-            for kind, entry_id, _ in links(key[0], resources[key]["payload"]):
-                target = (kind, entry_id)
-                if target not in selected:
-                    if target not in resources:
-                        raise repository.CatalogValidationError({"references": f"参照先がありません: {entry_id}"})
-                    selected.add(target)
-                    pending.append(target)
-    else:
-        selected = resources.keys()
+        selected = {collection} | {key for key in selected
+                                   if resources[key]["payload"].get("collection_id") == collection_id}
+    pending = list(selected)
+    while pending:
+        key = pending.pop()
+        for kind, entry_id, _ in links(key[0], resources[key]["payload"]):
+            target = (kind, entry_id)
+            if target not in selected:
+                if target not in resources:
+                    raise repository.CatalogValidationError({"references": f"参照先がありません: {entry_id}"})
+                selected.add(target)
+                pending.append(target)
     return {"format": FORMAT, "entries": [
         {field: value for field, value in resources[key].items() if field != "revision"}
         for key in sorted(selected)]}

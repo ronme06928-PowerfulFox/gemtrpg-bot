@@ -5,6 +5,7 @@
   const h = window.CatalogGlossary.escape;
   const pretty = value => window.CatalogJson.stringify(value);
   const editor = window.CatalogEditor;
+  const parts = window.CatalogWorkspaceParts;
   const effectRequests = window.CatalogEffectRequests;
   const nameOf = payload => payload.デフォルト名称 || payload.display_name || payload.name || '名前未入力';
   const button = (label, action, extra = '', attrs = '') => `<button type="button" class="cat-button ${extra}" data-action="${action}" ${attrs}>${label}</button>`;
@@ -31,7 +32,7 @@
     let textTools = null;
     const infoTools = window.CatalogInfo.mount(panel);
     const power = window.CatalogPower.mount(panel, (payload, params) => request('powerPreview', payload, params));
-    let noticeTimer, leaveResolve, leaveFocus, nextFocus;
+    let leaveResolve, leaveFocus, nextFocus;
     const leaveOverlay = panel.querySelector('.cat-leave-overlay');
     const listeners = [];
     function listen(type, handler) { panel.addEventListener(type, handler); listeners.push([type, handler]); }
@@ -70,17 +71,9 @@
       for (const key of Object.keys(cache.meta)) if (key.startsWith(`${kind}:`)) delete cache.meta[key];
     }
     function clearCache() { power.clear(); cache = { lists: {}, overview: null, schemas: null, meta: {} }; state.catalogs = {}; }
+    const showNotice = parts?.notice(message, button('×', 'dismiss-notice', '', 'aria-label="知らせを閉じる"'));
     function notice(value = '', error = false) {
-      if (!alive()) return;
-      clearTimeout(noticeTimer);
-      message.textContent = value;
-      if (value) {
-        message.innerHTML = `<span>${h(value)}</span>${button('×', 'dismiss-notice', '', 'aria-label="知らせを閉じる"')}`;
-        if (!error) noticeTimer = setTimeout(() => { if (alive()) message.hidden = true; }, 3000);
-      }
-      message.setAttribute('role', error ? 'alert' : 'status');
-      message.hidden = !value;
-      message.classList.toggle('is-error', error);
+      if (alive()) showNotice?.(value, error);
     }
     function showErrors(error) {
       state.errors = error.errors || state.errors;
@@ -225,7 +218,8 @@
       remember(cache.meta, `${state.kind}:${row.target_id}`, () => Promise.all([request('history', state.kind, row.target_id), request('references', state.kind, row.target_id)])).then(([history, references]) => {
         if (!alive() || token !== state.detailRequest || detailKind !== state.kind || state.scene !== 'browse') return;
         const area = panel.querySelector('#cat-metadata');
-        area.innerHTML = `<details class="bo-workspace__card cat-fold"><summary>使われている所（${references.references.length}件）</summary>${references.references.length ? references.references.map(ref => `<p class="cat-caption">${h(({skill:'スキル',item:'アイテム',passive:'特殊パッシブ',radiance:'輝化スキル',summon:'召喚テンプレート',buff:'バフ',glossary:'用語'})[ref.kind] || ref.kind)} · ${h(ref.entry_id)} ${h(ref.display_name)}<br>${h(ref.path)}</p>`).join('') : '<p class="cat-caption">参照なし</p>'}</details><details class="bo-workspace__card cat-fold"><summary>履歴（${history.history.length}版）</summary><ul class="cat-history">${history.history.map(item => `<li><strong>版 ${item.revision} · ${h(({import:'取り込み',publish:'公開',deprecate:'廃止',undeprecate:'廃止取り消し',restore:'復元'})[item.action])}</strong><small>${h(item.actor_user_name || 'システム')} / ${h(item.created_at)}</small>${state.user.is_app_admin && item.revision !== published.revision ? button('この版に戻す', 'restore', '', `data-revision="${item.revision}"`) : ''}${jsonBlock(item.payload)}</li>`).join('')}</ul></details>`;
+        area.innerHTML = `<details class="bo-workspace__card cat-fold"><summary>使われている所（${references.references.length}件）</summary>${references.references.length ? references.references.map(ref => `<p class="cat-caption">${h(({skill:'スキル',item:'アイテム',passive:'特殊パッシブ',radiance:'輝化スキル',summon:'召喚テンプレート',buff:'バフ',glossary:'用語'})[ref.kind] || ref.kind)} · ${h(ref.entry_id)} ${h(ref.display_name)}<br>${h(ref.path)}</p>`).join('') : '<p class="cat-caption">参照なし</p>'}</details><details class="bo-workspace__card cat-fold"><summary>履歴（${history.history.length}版）</summary>${parts.history(history.history, {revision: published.revision, restore: state.user.is_app_admin,
+          button: (label, action, attrs) => button(label, action, '', attrs)})}</details>`;
       }).catch(error => { if (alive() && token === state.detailRequest && state.scene === 'browse') panel.querySelector('#cat-metadata').textContent = error.message; });
     }
     function rememberDraft(draft) {
@@ -949,7 +943,7 @@
       destroy() {
         if (destroyed) return;
         destroyed = true; power.destroy(); infoTools.destroy(); state.listRequest++; state.detailRequest++;
-        clearTimeout(noticeTimer); resolveLeave('cancel');
+        showNotice?.(''); resolveLeave('cancel');
         hostWindow.removeEventListener?.('beforeunload', beforeUnload);
         panel.ownerDocument?.removeEventListener('pointerdown', closeMenus);
         infoTools.close(); textTools?.destroy(); textTools = null;

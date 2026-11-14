@@ -75,6 +75,7 @@ window.CatalogApi={overview:async()=>({counts:{},pending:[]}),user:async()=>({us
 window.showAppConfirm=async()=>true;
 vm.runInContext(fs.readFileSync('static/js/master_data/power.js','utf8'),context);
 vm.runInContext(fs.readFileSync('static/js/master_data/effect_requests.js','utf8'),context);
+vm.runInContext(fs.readFileSync('static/js/master_data/workspace_parts.js','utf8'),context);
 vm.runInContext(fs.readFileSync('static/js/master_data/workspace.js','utf8'),context);
 const panel=new Element(),controller=window.mountCatalogWorkspace(panel);let activeKind='item';
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));

@@ -12,7 +12,7 @@ from flask import request
 from extensions import socketio, user_sids
 from events.battle_only.catalog_access_context import catalog_request_context
 from manager.room_access import GM_ROLES
-from manager.units.runtime import deployment_store
+from manager.units.runtime import MAPS, deployment_store, get_record
 from manager.preset_deployment import (
     PresetDeploymentError,
     apply_deployment,
@@ -290,3 +290,43 @@ def handle_preset_deployment_apply(data):
         "info",
     )
     socketio.emit("preset_deployment_applied", response, to=request.sid)
+
+def _change_bookmark(data, *, remove=False):
+    context = _require_context(data)
+    if context is None:
+        return
+    if context["room_role"] not in GM_ROLES:
+        _emit_error("permission_denied", "ブックマークの変更にはGM権限が必要です。")
+        return
+    store = deployment_store()
+    state = context["state"]
+    draft = state.setdefault("battle_only", {})
+    bookmarks = draft.get("preset_bookmarks") or []
+    if remove:
+        bookmark_id = data.get("id")
+        bookmarks = [row for row in bookmarks if row.get("id") != bookmark_id]
+    else:
+        kind, entry_id = data.get("target_type"), data.get("target_id")
+        target = (get_record(store, kind, entry_id)
+                  if isinstance(kind, str) and kind in MAPS and isinstance(entry_id, str) else None)
+        if target is None:
+            _emit_error("not_found", "ブックマーク対象を利用できません。")
+            return
+        if not any(row.get("target_type") == kind and row.get("target_id") == entry_id for row in bookmarks):
+            bookmarks = [*bookmarks, {"id": f"bookmark:{kind}:{entry_id}",
+                                      "target_type": kind, "target_id": entry_id}]
+    draft["preset_bookmarks"] = bookmarks
+    save_specific_room_state(context["room"])
+    catalog = build_deployment_catalog(store, room_role=context["room_role"])
+    socketio.emit("bo_bookmark_list", {"room": context["room"], "bookmarks": _bookmark_payload(state, catalog)},
+                  to=request.sid)
+
+
+@socketio.on("request_bo_bookmark_save")
+def handle_bo_bookmark_save(data):
+    _change_bookmark(data)
+
+
+@socketio.on("request_bo_bookmark_delete")
+def handle_bo_bookmark_delete(data):
+    _change_bookmark(data, remove=True)

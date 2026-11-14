@@ -137,6 +137,8 @@ def inspect_payload(kind, payload, visibility, resources, *, previous=None):
     if kind == "formation":
         if payload.get("type") not in SIDES:
             errors["type"] = "敵・味方を指定してください"
+        elif previous and payload["type"] != previous.get("type"):
+            errors["type"] = "作成済みの編成種別は変更できません"
         if not isinstance(payload.get("members"), list):
             errors["members"] = "メンバーの配列が必要です"
         else:

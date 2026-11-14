@@ -19,6 +19,7 @@
   const draft = id => `/api/catalog/drafts/${encodeURIComponent(id)}`;
   const effectRequests = '/api/catalog/effect_requests';
   window.CatalogApi = {
+    request,
     effectRequests: () => request(effectRequests),
     createEffectRequest: fields => request(effectRequests, 'POST', fields),
     updateEffectRequest: (id, fields) => request(effectRequests + '/' + id, 'PATCH', fields),

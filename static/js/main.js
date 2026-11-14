@@ -461,10 +461,6 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
     const manageUsersButton = currentUserIsAppAdmin
         ? `<button id="manage-users-btn" class="portal-settings-button" style="margin-left:10px; background:#e0e0ff;">👥 ユーザー管理</button>`
         : '';
-    const allPresetsButton = currentUserIsAppAdmin
-        ? `<button id="open-bo-preset-portal-btn" class="portal-floating-bo-btn">全プリセット管理</button>`
-        : '';
-
     roomPortal.innerHTML = `
         <div class="portal-user-band">
             <span class="portal-welcome-message">
@@ -495,8 +491,10 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
             <ul id="room-list" class="room-list"></ul>
             <p id="room-list-empty" style="display: none;">該当するルームはありません。</p>
         </div>
-        <button id="open-master-data-btn" class="cat-portal-open">マスターデータ</button>
-        ${allPresetsButton}
+        <div class="catalog-portal-actions">
+            <button id="open-master-data-btn" class="cat-portal-open">マスターデータ</button>
+            <button id="open-unit-management-btn" class="cat-portal-open">ユニット管理</button>
+        </div>
         <button id="open-owned-chars-btn" class="portal-floating-owned-chars-btn">
             マイキャラクター
         </button>
@@ -509,9 +507,9 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
     const refreshBtn = document.getElementById('refresh-room-list-btn');
     const emptyMsg = document.getElementById('room-list-empty');
     const settingsBtn = document.getElementById('portal-user-settings-btn');
-    const boPresetPortalBtn = document.getElementById('open-bo-preset-portal-btn');
     const ownedCharsBtn = document.getElementById('open-owned-chars-btn');
     document.getElementById('open-master-data-btn').addEventListener('click', () => openMasterDataWorkspace());
+    document.getElementById('open-unit-management-btn').addEventListener('click', () => openUnitManagement());
 
     if (ownedCharsBtn) {
         ownedCharsBtn.addEventListener('click', () => {
@@ -544,16 +542,6 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
             showEntryPortal();
         });
     }
-    if (boPresetPortalBtn) {
-        boPresetPortalBtn.addEventListener('click', () => {
-            if (typeof openBattleOnlyWorkspaceModal === 'function') {
-                openBattleOnlyWorkspaceModal({ room: null, adminGlobal: true });
-            } else {
-                alert('戦闘専用設定画面を読み込めませんでした。');
-            }
-        });
-    }
-
     // ★追加: ユーザー管理ボタンのイベントリスナー
     const manageUsersBtn = document.getElementById('manage-users-btn');
     if (manageUsersBtn) {

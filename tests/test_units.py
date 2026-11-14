@@ -289,3 +289,32 @@ def test_catalog_units_build_normal_battle_draft_and_simulator(unit_app):
     assert "behavior_profile" not in ally["flags"]
     assert enemy["flags"]["behavior_profile"]["enabled"]
     assert enemy["commands"] == "2d6 【E-23 固有名】"
+
+
+def test_export_deprecated_filter_keeps_dependencies(unit_app):
+    from manager.units import transfer
+
+    used, _ = repository.save("unit", None, {"name": "Used"})
+    unused, _ = repository.save("unit", None, {"name": "Unused"})
+    formation, _ = repository.save("formation", None, {"name": "Enemy", "type": "enemy",
+        "members": [{"unit_id": used.entry_id, "count": 1}]})
+    for row in (used, unused):
+        repository.set_deprecated("unit", row.entry_id, True, base_revision=1)
+    assert {row["entry_id"] for row in transfer.export_package(include_deprecated=False)["entries"]} == {
+        used.entry_id, formation.entry_id,
+    }
+    assert len(transfer.export_package(include_deprecated=True)["entries"]) == 3
+
+
+def test_formation_side_is_immutable_after_create(unit_app):
+    from manager.units import transfer
+
+    payload = {"name": "Enemy", "type": "enemy", "members": []}
+    row, _ = repository.save("formation", None, payload)
+    updated = {**payload, "type": "ally"}
+    assert "type" in repository.check("formation", updated, entry_id=row.entry_id)[0]
+    with pytest.raises(repository.CatalogValidationError):
+        repository.save("formation", row.entry_id, updated, base_revision=1)
+    package = transfer.export_package()
+    package["entries"][0]["payload"] = updated
+    assert "type" in transfer.preview(package)[0]["errors"]
