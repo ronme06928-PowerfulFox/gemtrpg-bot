@@ -71,6 +71,8 @@ Render内にDBがあると決めつけず、アプリのホスティング先と
 | Render有料最小＋Render有料DB | 約$13〜 | 同一リージョン・内部接続で単純化。ストレージ等の追加費用を確認 |
 | 東京VPSにアプリ＋DBを同居 | Lightsailの例で1GB約$7、2GB約$12＋バックアップ等 | 日本からの経路、メモリ実測、OS更新・監視・復旧の運用負担 |
 | Railwayへ移す | Hobby最低$5、利用量により増加 | アプリ＋DBが必ず$5に収まるわけではない。メモリ・CPU・転送を試算 |
+| ミニPC＋Cloudflare Tunnel（2026-11-14追記） | 本体2〜4万円（N100級・16GB・SSD 500GB の例）＋電気代 月数百円 | アプリ・DB・画像を1台に置け、性能はRender Starterより大きく上。停電・回線・故障・更新・バックアップを自分で見る。Tunnelは家のルーターの穴あけが要らず、WebSocketも通る |
+| Oracle Always Free の残り枠（2026-11-14追記） | $0（E2.1.Micro 1台、メモリ1GB） | アプリ本体は置かない。DBだけ、または画像だけの置き場の案。下の注記を参照 |
 
 参照: [Render料金](https://render.com/pricing)、[Render公式の最小構成例](https://render.com/articles/production-rails-hosting-guide)、[無料枠](https://render.com/docs/free)、[Neon料金](https://neon.com/pricing)、[Lightsail料金](https://aws.amazon.com/lightsail/pricing/)、[Railway料金](https://docs.railway.com/pricing/plans)。
 
@@ -79,7 +81,12 @@ Render内にDBがあると決めつけず、アプリのホスティング先と
 - 日本中心ならRenderのシンガポールを比較候補とし、アプリとDBを同じ地域へ寄せる。今回確認したRender・NeonはともにSingapore。既存Renderサービスのリージョンはその場で変更できず、新規作成等の段取りが必要。[Renderリージョン](https://render.com/docs/regions)
 - 東京VPSはLightsailなどで選択できる。短い通信経路の効果と、自主管理の手間を比較する。[Lightsailリージョン](https://docs.aws.amazon.com/lightsail/latest/userguide/understanding-regions-and-availability-zones-in-amazon-lightsail.html)
 
-当面の比較軸は「現構成の無料改善」「現構成のまま少額課金」「東京VPS」。現在のDBが安定している場合、無料化だけのために切り替えるとは決めない。
+- **Render Starter で変わること**（2026-11-14 整理）：休止が無くなり（`/healthz` の外部監視での起動維持が不要になる）、CPU が無料の0.1から0.5相当になる。メモリは512MBのままで、Neon の休止（非稼働5分）は残る。
+- **Oracle Always Free**（2026-11-14 ユーザー確認）：テナンシには `loresync-arm`（A1.Flex 2 OCPU・12GB、LoreSync の本番）と `loresync`（E2.1.Micro）がある。Ampere A1 の無料枠は月1,500 OCPU時間・9,000 GB時間（2 OCPU・12GB 相当）で、`loresync-arm` がほぼ使い切っている。アカウントは Pay As You Go なので、Arm の VM を新しく作る・大きくすると課金される。残る無料枠は E2.1.Micro（最大2台）のあと1台だけ。
+- **E2.1.Micro（1GB）に置く場合のメモリの目安**：OS 約150〜250MB、PostgreSQL（`shared_buffers` 64〜128MB・接続20ほど）約150〜250MB、nginx で画像を配る 約10〜20MB、Flask＋eventlet 約250〜400MB（Render 無料の512MBで動いている所からの見込み）。PostgreSQL だけ、画像だけ、その2つまでは収まる。Flask も載せると0.6〜0.9GBで余裕が無く、CPU も1/8 OCPU 相当なので置かない。DB を置くなら、Render のアプリとの間の遅延、TLS と送信元 IP の制限、バックアップを先に決める。
+- **ミニPC**：お金に余裕ができたときの最終形の候補。移る前に、どの置き場にも効く下ごしらえ（画像の保存先の差し替え＝計画64、アプリを Docker でまとめる＝[課題一覧](backlog.md)の `OPS-PORTABLE-DOCKER`、DB と画像のバックアップの自動化）を済ませておく。
+
+当面の比較軸は「現構成の無料改善」「現構成のまま少額課金」「東京VPS」。将来の候補としてミニPCを加える（2026-11-14）。現在のDBが安定している場合、無料化だけのために切り替えるとは決めない。
 
 ## 実装単位と検証
 
